@@ -21,7 +21,13 @@ if (!existsSync(join(docsDir, 'package.json'))) {
 }
 
 console.log('> Building docs (vitepress)…');
-execSync('npm run build', { cwd: docsDir, stdio: 'inherit' });
+execSync('npm run build', {
+  cwd: docsDir,
+  stdio: 'inherit',
+  // Absolute base so in-app links (/docs/guide/...) resolve correctly when
+  // the site is served from the main app's dist/docs/.
+  env: { ...process.env, DOCS_BASE: '/docs/' },
+});
 
 if (!existsSync(built)) {
   console.error('Docs build output not found:', built);

@@ -1,20 +1,19 @@
 import { defineConfig } from 'vitepress';
 
-// Relative base so the site works both as an independent deployment and
-// when copied under the main app's dist/docs/.
-// Base path strategy:
-// - dev: absolute "/" — relative bases confuse the dev server and cause
-//   nested-URL loops (e.g. /guide/guide/guide/...).
-// - build: relative "./" — so the site also works when copied under the
-//   main app's dist/docs/ (VitePress resolves relative links correctly in
-//   the static output).
+// Base path strategy (absolute only — a relative base breaks deep-page
+// navigation, producing nested-URL loops like /guide/guide/guide/...):
+// - dev: "/"
+// - embedded into the main app: "/docs/" (set via DOCS_BASE in
+//   scripts/build-docs.mjs)
+// - standalone deploy (e.g. GitHub Pages): "/ErgalicsStudio/" (default)
 const isDev = process.env.NODE_ENV === 'development';
+const base = process.env.DOCS_BASE ?? (isDev ? '/' : '/ErgalicsStudio/');
 
 export default defineConfig({
   title: 'Ergalics Studio',
   description: 'Browser-based scientific computing workstation — docs',
   lang: 'en-US',
-  base: isDev ? '/' : './',
+  base,
   cleanUrls: true,
   lastUpdated: true,
   vite: {
@@ -28,7 +27,7 @@ export default defineConfig({
   },
   head: [
     ['meta', { name: 'theme-color', content: '#0d9488' }],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}logo.svg` }],
   ],
   themeConfig: {
     logo: '/logo.svg',

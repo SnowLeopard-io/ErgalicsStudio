@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Ergalics Studio - 浏览器端专业科学计算工作站工业化脚手架",
+  "description": "Ergalics Studio - A browser-based scientific computing workstation framework",
+  "workspaces": ["docs"],
   "scripts": {
     "dev": "vite",
     "build": "npm run build:wasm && tsc --noEmit && vite build && node scripts/build-docs.mjs",
