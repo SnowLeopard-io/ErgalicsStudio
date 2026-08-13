@@ -2,6 +2,9 @@
 // Ergalics Studio — Plugin interface contracts (spec §6)
 // ==========================================================================
 
+import type { Scene, PerspectiveCamera, WebGLRenderer } from 'three';
+import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -14,6 +17,15 @@ export interface PluginManifest {
   homepage?: string;
   dependencies?: Record<string, string>;
   formats?: SupportedFormat[];
+  /**
+   * Execution context for third-party packages (spec §6.2):
+   * - `"isolated"` (default): runs inside a Web Worker sandbox with an
+   *   RPC bridge. Cannot touch the host page's globals/DOM; canvas
+   *   rendering works via a transferred OffscreenCanvas.
+   * - `"trusted"`: executes directly in the host context (full DOM
+   *   capability). Only use for packages you control.
+   */
+  sandbox?: 'isolated' | 'trusted';
   /** Locale-specific display names. */
   nameI18n?: Record<string, string>;
   descriptionI18n?: Record<string, string>;
@@ -120,14 +132,26 @@ export type ParamDefinition =
 
 // ---- Container capabilities (spec §3.2.3) ----
 
+/**
+ * Live handle to the host-managed Three.js scene. Members are the actual
+ * Three.js objects, so plugins can add meshes, lights, and drive the
+ * render loop through `render()`.
+ */
 export interface Scene3DHandle {
-  scene: unknown;
-  camera: unknown;
-  controls: unknown;
-  renderer: unknown;
+  /** Root scene node. Add your meshes/lights here. */
+  scene: Scene;
+  /** Perspective camera, pre-positioned by the host. */
+  camera: PerspectiveCamera;
+  /** Orbit controls attached to the host canvas. */
+  controls: OrbitControls;
+  /** WebGL renderer bound to the host canvas. */
+  renderer: WebGLRenderer;
+  /** Release GPU resources and stop the render loop. */
   dispose(): void;
+  /** Render one frame immediately. */
   render(): void;
-  snapshot(): unknown;
+  /** Export the current frame as a PNG data URL. */
+  snapshot(): string;
 }
 
 export interface ContainerCapabilities {
@@ -221,15 +245,15 @@ export interface Plugin {
   render?(container: ContainerCapabilities): Promise<void> | void;
   /** Receive parameter updates. */
   updateParams(params: Record<string, unknown>): Promise<void> | void;
-  /** Get current parameters (definitions + values). */
-  getParams(): ParamDefinition[];
+  /** Get current parameters (definitions + values). May resolve asynchronously. */
+  getParams(): ParamDefinition[] | Promise<ParamDefinition[]>;
   /** Execute a computation. */
   compute?(input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult>;
 
   /** Optional lifecycle hooks (spec §6.4). */
   loadData?(file: File): Promise<void> | void;
-  getSupportedFormats?(): SupportedFormat[];
-  renderToScene?(scene: unknown): Promise<void> | void;
+  getSupportedFormats?(): SupportedFormat[] | Promise<SupportedFormat[]>;
+  renderToScene?(scene: Scene3DHandle): Promise<void> | void;
   onProjectSave?(): Promise<void> | void;
   onProjectLoad?(): Promise<void> | void;
 }

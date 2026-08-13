@@ -22,7 +22,10 @@ export function RightPanel() {
     }
     // Refresh definitions whenever the plugin re-renders params or its
     // values change, so sliders/toggles stay in sync with plugin state.
-    const refresh = () => setParams(activePlugin?.getParams() ?? []);
+    // Sandboxed plugins resolve getParams() asynchronously (RPC).
+    const refresh = () => {
+      void Promise.resolve(activePlugin?.getParams()).then((defs) => setParams(defs ?? []));
+    };
     refresh();
     const subs: BusSubscription[] = [
       on(`plugin:${activeId}:params`, refresh),

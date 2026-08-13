@@ -6,6 +6,8 @@ export interface Banner {
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
   dismissible?: boolean;
+  /** Plugin id this banner refers to, when applicable. */
+  pluginId?: string;
 }
 
 export interface Notification {
@@ -95,8 +97,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   removeBanner: (id) =>
     set((s) => ({ banners: s.banners.filter((b) => b.id !== id) })),
   setError: (pluginId) => {
-    set((s) => ({ banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey: 'error.plugin_crash', dismissible: true }] }));
-    void pluginId;
+    // pluginStore passes ids prefixed with `plugin:`; strip for display.
+    const raw = pluginId.startsWith('plugin:') ? pluginId.slice('plugin:'.length) : pluginId;
+    set((s) => ({
+      banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey: 'error.plugin_crash', dismissible: true, pluginId: raw }],
+    }));
   },
   notify: (kind, message) => {
     const id = ++notifId;

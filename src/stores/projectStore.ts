@@ -43,7 +43,7 @@ interface ProjectStore {
   setDirty: (dirty: boolean) => void;
   setStatus: (status: ProjectStatus, statusText?: string | null) => void;
   /** Hook for plugins to persist extra state before save. */
-  applyPluginParams: () => void;
+  applyPluginParams: () => Promise<void> | void;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -97,7 +97,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   save: async () => {
     const { project, status } = get();
     if (!project || status === 'saving') return;
-    get().applyPluginParams();
+    await get().applyPluginParams();
     const current = get().project;
     if (!current) return;
     set({ status: 'saving', statusText: null });
@@ -154,10 +154,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setDirty: (dirty) => set({ dirty }),
   setStatus: (status, statusText = null) => set({ status, statusText }),
 
-  applyPluginParams: () => {
+  applyPluginParams: async () => {
     const { project } = get();
     if (!project) return;
-    const params = usePluginStore.getState().getAllParams();
+    const params = await usePluginStore.getState().getAllParams();
     set({
       project: {
         ...project,

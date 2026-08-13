@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { BUILTIN_PLUGINS, findBuiltin } from '@/plugins/builtin';
-import { usePluginStore } from '@/stores/pluginStore';
+import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import type { PluginManifest } from '@/types/plugin';
 
@@ -18,7 +18,9 @@ export function PluginDialog({ open, onClose }: PluginDialogProps) {
   const [tab, setTab] = useState<Tab>('builtin');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<PluginManifest | null>(null);
+  const [installing, setInstalling] = useState<string | null>(null);
   const registry = usePluginStore((s) => s.registry);
+  const loadingIds = usePluginStore((s) => s.loadingIds);
   const notify = useAppStore((s) => s.notify);
   const load = usePluginStore((s) => s.load);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,27 +40,42 @@ export function PluginDialog({ open, onClose }: PluginDialogProps) {
   }, [query]);
 
   const isLoaded = (id: string) => registry.some((e) => e.id === id);
+  const isLoading = (id: string) => loadingIds.includes(id) || installing === id;
 
   const loadBuiltin = async (manifest: PluginManifest) => {
     const info = findBuiltin(manifest.id);
     if (!info) return;
+    setInstalling(manifest.id);
     try {
       const plugin = await info.load();
       await load(plugin);
       notify('success', `${manifest.name} ${t('plugin.loaded')}`);
     } catch (err) {
       notify('error', `${t('plugin.load_failed')}: ${String(err)}`);
+    } finally {
+      setInstalling(null);
     }
   };
 
   const handleLocalFile = async (file: File) => {
+    setInstalling(file.name);
     try {
       const pkg = await import('@/core/cspkg');
-      const plugin = await pkg.loadCspkg(file);
+      const { plugin, mode } = await pkg.loadCspkg(file, (id) => buildPluginApi(id));
       await load(plugin);
       notify('success', `${plugin.manifest.name} ${t('plugin.loaded')}`);
+      if (mode === 'legacy-fallback') {
+        notify(
+          'warning',
+          `${plugin.manifest.name}: ${t('plugin.sandbox_fallback')}`,
+        );
+      } else if (mode === 'trusted') {
+        notify('info', `${plugin.manifest.name}: ${t('plugin.sandbox_trusted')}`);
+      }
     } catch (err) {
       notify('error', `${t('plugin.load_failed')}: ${String(err)}`);
+    } finally {
+      setInstalling(null);
     }
   };
 
@@ -121,6 +138,8 @@ export function PluginDialog({ open, onClose }: PluginDialogProps) {
                 <div className="plugin-card-actions">
                   {isLoaded(p.manifest.id) ? (
                     <span className="tag tag-success">{t('plugin.loaded')}</span>
+                  ) : isLoading(p.manifest.id) ? (
+                    <span className="tag tag-muted"><span className="spinner" /> {t('plugin.loading')}</span>
                   ) : (
                     <button
                       type="button"
@@ -149,7 +168,7 @@ export function PluginDialog({ open, onClose }: PluginDialogProps) {
         {tab === 'local' && (
           <div className="plugin-local-pane">
             <button type="button" className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()}>
-              {t('plugin.file_format')}
+              {installing ? <span className="spinner" /> : t('plugin.file_format')}
             </button>
             <input
               ref={fileInputRef}

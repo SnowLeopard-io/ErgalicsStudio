@@ -18,6 +18,7 @@ export function Sidebar() {
 
   const registry = usePluginStore((s) => s.registry);
   const activeId = usePluginStore((s) => s.activeId);
+  const loadingIds = usePluginStore((s) => s.loadingIds);
   const activate = usePluginStore((s) => s.activate);
 
   const notify = useAppStore((s) => s.notify);
@@ -88,6 +89,7 @@ export function Sidebar() {
               >
                 <span className="plugin-icon">{entry.icon ?? '◈'}</span>
                 <span className="plugin-item-name">{entry.name}</span>
+                {loadingIds.includes(entry.id) && <span className="plugin-item-loading"><span className="spinner" /></span>}
               </button>
             </li>
           ))}

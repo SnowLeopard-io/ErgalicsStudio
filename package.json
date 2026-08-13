@@ -19,6 +19,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.1",
+    "three": "^0.185.1",
     "uuid": "^11.0.3",
     "zustand": "^5.0.3"
   },
@@ -27,6 +28,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.185.4",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "playwright-core": "^1.62.1",

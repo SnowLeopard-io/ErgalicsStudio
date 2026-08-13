@@ -4,6 +4,8 @@ import { usePluginStore, setHostContainers } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
+import { createScene3D } from '@/core/scene3d';
+import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { ExampleDataDialog } from './ExampleDataDialog';
@@ -23,6 +25,7 @@ export function CentralArea() {
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scene3dRef = useRef<Scene3DHandle | null>(null);
   const dragDepth = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [chooser, setChooser] = useState<ChooserState>({ open: false, file: null, pluginIds: [] });
@@ -35,8 +38,19 @@ export function CentralArea() {
       dom: domRef.current,
       canvas2d: canvasRef.current,
       reportDataScale: (n) => useAppStore.getState().setDataScale(n),
+      // Lazily create the 3D scene on first demand; cached for the session.
+      getThree: () => {
+        if (!scene3dRef.current && domRef.current) {
+          scene3dRef.current = createScene3D(domRef.current);
+        }
+        return scene3dRef.current ?? undefined;
+      },
     });
-    return () => setHostContainers(null);
+    return () => {
+      setHostContainers(null);
+      scene3dRef.current?.dispose();
+      scene3dRef.current = null;
+    };
   }, []);
 
   useEffect(() => {

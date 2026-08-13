@@ -13,7 +13,7 @@ mod utils;
 
 use wasm_bindgen::prelude::*;
 
-pub use compute::{ComputeKernel, ComputeQueue, KernelDescriptor};
+pub use compute::{BindingDescriptor, ComputeKernel, ComputeQueue, KernelDescriptor};
 pub use device::{GpuDeviceManager, GpuInfo};
 pub use utils::detect_file_kind;
 

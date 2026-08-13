@@ -6,10 +6,12 @@ import type {
   PluginRegistryEntry,
   SupportedFormat,
   PluginRenderContext,
+  Scene3DHandle,
 } from '@/types/plugin';
 import { getLocale, t } from '@/i18n';
 import { pluginChannel, on, emit, type BusSubscription } from '@/core/events';
 import { logger } from '@/core/logger';
+import { revokeCspkgUrls } from '@/core/cspkg';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
 
@@ -26,7 +28,7 @@ interface PluginStore {
   deactivate: () => Promise<void>;
   isLoaded: (id: string) => boolean;
   getActive: () => Plugin | null;
-  getAllParams: () => Record<string, Record<string, unknown>>;
+  getAllParams: () => Promise<Record<string, Record<string, unknown>>>;
   /** Load all built-in example plugins once (spec §3.3.1). */
   ensureBuiltinsLoaded: () => Promise<void>;
   /** Restore project state: activate plugin, restore params. */
@@ -44,6 +46,8 @@ export interface HostContainers {
   dom: HTMLDivElement;
   canvas2d: HTMLCanvasElement;
   reportDataScale: (n: number) => void;
+  /** Lazily create (and cache) the host-managed Three.js scene handle. */
+  getThree?: () => Scene3DHandle | undefined;
 }
 
 let hostContainers: HostContainers | null = null;
@@ -107,12 +111,13 @@ function buildPluginApi(pluginId: string): PluginApi {
 }
 
 function createContext(pluginId: string): PluginRenderContext {
+  const three = hostContainers?.getThree?.();
   if (hostContainers) {
     return {
       container: {
         canvas2d: hostContainers.canvas2d,
         dom: hostContainers.dom,
-        three: undefined,
+        three,
         reportDataScale: (n) => hostContainers!.reportDataScale(n),
       },
       api: buildPluginApi(pluginId),
@@ -124,7 +129,7 @@ function createContext(pluginId: string): PluginRenderContext {
     container: {
       canvas2d,
       dom,
-      three: undefined,
+      three,
       reportDataScale: (n) => useAppStore.getState().setDataScale(n),
     },
     api: buildPluginApi(pluginId),
@@ -143,6 +148,8 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ loadingIds: [...s.loadingIds, id] }));
     try {
       await plugin.init(buildPluginApi(id));
+      const formats =
+        (await plugin.getSupportedFormats?.()) ?? plugin.manifest.formats ?? [];
       const entry: PluginRegistryEntry = {
         id,
         name: plugin.manifest.name,
@@ -152,7 +159,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         icon: plugin.manifest.icon,
         loaded: true,
         active: false,
-        formats: plugin.getSupportedFormats?.() ?? [],
+        formats,
         plugin,
       };
       set((s) => ({ registry: [...s.registry.filter((e) => e.id !== id), entry] }));
@@ -173,6 +180,8 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     } catch (err) {
       logger.error('plugin', `destroy failed ${id}`, err);
     }
+    // Release blob URLs held for installed packages (cspkg assets).
+    revokeCspkgUrls(id);
     for (const sub of activeSubscriptions) sub.unsubscribe();
     activeSubscriptions = [];
     set((s) => ({
@@ -210,7 +219,8 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
     }));
     // notify host to render params into right panel
-    emit('host:params:changed', { pluginId: id, params: entry.plugin.getParams() });
+    const params = await entry.plugin.getParams();
+    emit('host:params:changed', { pluginId: id, params });
   },
 
   deactivate: async () => {
@@ -237,10 +247,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     const id = get().activeId;
     return get().registry.find((e) => e.id === id)?.plugin ?? null;
   },
-  getAllParams: () => {
+  getAllParams: async () => {
     const params: Record<string, Record<string, unknown>> = {};
     for (const entry of get().registry) {
-      const defs = entry.plugin?.getParams() ?? [];
+      const defs = (await entry.plugin?.getParams()) ?? [];
       const values: Record<string, unknown> = {};
       for (const def of defs) {
         const value = 'value' in def ? def.value : null;

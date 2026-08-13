@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -73,10 +73,10 @@ export default function WelcomePage() {
   return (
     <div className="welcome">
       <header className="welcome-topbar">
-        <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+        <Link className="brand" to="/">
           <span className="brand-logo">◈</span>
           <span className="brand-name">Ergalics Studio</span>
-        </a>
+        </Link>
         <div className="topbar-actions">
           <LanguageSwitcher />
           <ThemeSwitcher />
@@ -129,9 +129,7 @@ export default function WelcomePage() {
         <a href="docs/" target="_blank" rel="noreferrer">
           {t('welcome.footer.docs')}
         </a>
-        <a href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
-          {t('welcome.footer.market')}
-        </a>
+        <Link to="/workbench">{t('welcome.footer.market')}</Link>
       </footer>
     </div>
   );
