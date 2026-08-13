@@ -27,6 +27,8 @@ interface PluginStore {
   isLoaded: (id: string) => boolean;
   getActive: () => Plugin | null;
   getAllParams: () => Record<string, Record<string, unknown>>;
+  /** Load all built-in example plugins once (spec §3.3.1). */
+  ensureBuiltinsLoaded: () => Promise<void>;
   /** Restore project state: activate plugin, restore params. */
   restoreState: (projectState: { state?: { activePlugin?: string | null; parameters?: Record<string, Record<string, unknown>> } }) => void;
   dispatchFile: (file: File) => Promise<boolean>;
@@ -199,6 +201,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     activeSubscriptions.push(
       on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
         entry.plugin?.updateParams(params);
+        emit(`plugin:${id}:defs`, undefined);
       }),
     );
     set((s) => ({
@@ -250,12 +253,33 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   restoreState: (projectState) => {
     const activeId = projectState?.state?.activePlugin ?? null;
     const params = projectState?.state?.parameters ?? {};
-    if (activeId && get().isLoaded(activeId)) {
-      void get().activate(activeId);
-    }
+    // Ensure built-ins are loaded before restoring so activePlugin can activate.
+    void get().ensureBuiltinsLoaded().then(() => {
+      if (activeId && get().isLoaded(activeId)) {
+        void get().activate(activeId);
+      }
+    });
     // push stored params to plugins
     for (const [pluginId, values] of Object.entries(params)) {
       emit(`plugin:${pluginId}:params`, values);
+    }
+  },
+
+  ensureBuiltinsLoaded: async () => {
+    if (get().initialized) return;
+    set({ initialized: true });
+    try {
+      const { BUILTIN_PLUGINS } = await import('@/plugins/builtin');
+      for (const info of BUILTIN_PLUGINS) {
+        try {
+          const plugin = await info.load();
+          await get().load(plugin);
+        } catch (err) {
+          logger.warn('plugin', `failed to load builtin ${info.manifest.id}`, err);
+        }
+      }
+    } catch (err) {
+      logger.error('plugin', 'failed to resolve builtin plugins', err);
     }
   },
 

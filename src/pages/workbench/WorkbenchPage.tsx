@@ -9,21 +9,37 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAppStore } from '@/stores/appStore';
 import { perfMonitor } from '@/core/perf';
 import { useProjectStore } from '@/stores/projectStore';
+import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
+import { useT } from '@/i18n';
 
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const t = useT();
 
   useEffect(() => {
     perfMonitor.start();
     // Pre-load WASM in the background while the user works.
     void loadWasm();
-    // Restore most recent project if none open yet.
+    // Make built-in example plugins available immediately.
+    void usePluginStore.getState().ensureBuiltinsLoaded();
+    // Restore the most recent project; create a fresh one if none exists
+    // (spec §4.2 "恢复").
     if (!useProjectStore.getState().project) {
-      void useProjectStore.getState().loadRecent();
+      void (async () => {
+        await useProjectStore.getState().loadRecent();
+        const { project, recent } = useProjectStore.getState();
+        if (!project) {
+          if (recent[0]) {
+            await useProjectStore.getState().openProject(recent[0].id);
+          } else {
+            await useProjectStore.getState().createProject(t('project.untitled'));
+          }
+        }
+      })();
     }
     return () => perfMonitor.stop();
-  }, []);
+  }, [t]);
 
   return (
     <div className="workbench">

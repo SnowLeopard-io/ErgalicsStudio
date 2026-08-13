@@ -3,7 +3,7 @@ import { useT } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
-import { emit } from '@/core/events';
+import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 
 export function RightPanel() {
@@ -16,7 +16,22 @@ export function RightPanel() {
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
   useEffect(() => {
-    setParams(activePlugin?.getParams() ?? []);
+    if (!activeId) {
+      setParams([]);
+      return;
+    }
+    // Refresh definitions whenever the plugin re-renders params or its
+    // values change, so sliders/toggles stay in sync with plugin state.
+    const refresh = () => setParams(activePlugin?.getParams() ?? []);
+    refresh();
+    const subs: BusSubscription[] = [
+      on(`plugin:${activeId}:params`, refresh),
+      on(`plugin:${activeId}:defs`, refresh),
+      on('host:params:changed', (p: { pluginId: string }) => {
+        if (p?.pluginId === activeId) refresh();
+      }),
+    ];
+    return () => subs.forEach((s) => s.unsubscribe());
   }, [activeId, activePlugin]);
 
   const onChange = (key: string, value: unknown) => {

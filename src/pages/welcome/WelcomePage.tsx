@@ -85,11 +85,13 @@ export default function WelcomePage() {
 
       <main className="welcome-main">
         <div className="welcome-hero">
+          <div className="welcome-eyebrow">ERGALICS · {t('welcome.subtitle')}</div>
           <h1 className="welcome-title">{t('welcome.title')}</h1>
           <p className="welcome-subtitle">{t('welcome.subtitle')}</p>
           <p className="welcome-version">
             {t('welcome.version')} {APP_VERSION}
           </p>
+          <div className="welcome-signal" aria-hidden="true" />
           <button type="button" className="btn btn-primary welcome-enter" onClick={enterWorkbench} disabled={entering}>
             {entering ? <span className="spinner" /> : t('welcome.enter')}
           </button>
