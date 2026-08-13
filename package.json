@@ -1,0 +1,35 @@
+{
+  "name": "ergalics-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ergalics Studio - 浏览器端专业科学计算工作站工业化脚手架",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:wasm && tsc --noEmit && vite build",
+    "build:web": "tsc --noEmit && vite build",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "lz-string": "^1.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.1.1",
+    "uuid": "^11.0.3",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/lz-string": "^1.5.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.7"
+  }
+}

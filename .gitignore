@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+pkg/
+.native/
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.cspkg
+*.clproj

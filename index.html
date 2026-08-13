@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Ergalics Studio - 浏览器端专业科学计算工作站" />
+    <title>Ergalics Studio</title>
+    <script>
+      // Pre-hydration: apply saved theme/language to avoid flash of wrong theme
+      (function () {
+        try {
+          var theme = localStorage.getItem('ergalics:theme');
+          var resolved = 'light';
+          if (theme === 'dark' || theme === 'light') {
+            resolved = theme;
+          } else if (!theme || theme === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          }
+          document.documentElement.dataset.theme = resolved;
+          var lang = localStorage.getItem('ergalics:lang') || 'zh-CN';
+          document.documentElement.lang = lang;
+        } catch (e) {
+          /* noop */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
