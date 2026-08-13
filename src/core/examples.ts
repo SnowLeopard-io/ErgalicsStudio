@@ -2,6 +2,7 @@
 // Built-in sample data (spec §5.1 "示例数据").
 // Sample files live in examples/data/ and are bundled at build time via
 // Vite `?raw` imports so they load instantly without a network request.
+// Binary assets (e.g. images) are embedded as base64 (see exampleAssets.ts).
 // ==========================================================================
 
 import type { Locale } from '@/i18n/types';
@@ -11,6 +12,9 @@ import crystalXyz from '../../examples/data/crystal.xyz?raw';
 import galaxyDat from '../../examples/data/galaxy.dat?raw';
 import telemetryCsv from '../../examples/data/telemetry.csv?raw';
 import datasetJson from '../../examples/data/dataset.json?raw';
+import distributionDat from '../../examples/data/distribution.dat?raw';
+import fieldJson from '../../examples/data/field.json?raw';
+import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 export interface BuiltinExample {
   id: string;
@@ -18,7 +22,10 @@ export interface BuiltinExample {
   format: string;
   mimeType: string;
   pluginId: string;
-  content: string;
+  /** Text content for raw (text) assets. */
+  content?: string;
+  /** Base64 content for binary assets. */
+  contentBase64?: string;
   nameI18n: Record<Locale, string>;
   descriptionI18n: Record<Locale, string>;
 }
@@ -77,15 +84,15 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     filename: 'telemetry.csv',
     format: 'csv',
     mimeType: 'text/csv',
-    pluginId: 'example.particles',
+    pluginId: 'example.timeseries',
     content: telemetryCsv,
     nameI18n: {
-      'zh-CN': '涡轮遥测 CSV',
-      'en-US': 'Turbine Telemetry CSV',
+      'zh-CN': '涡轮遥测时间序列',
+      'en-US': 'Turbine Telemetry Time Series',
     },
     descriptionI18n: {
-      'zh-CN': '240 行时间序列（温度 / 压力 / 流量），CSV 格式检测示例。',
-      'en-US': '240-row time series (temp/pressure/flow); CSV format-detection demo.',
+      'zh-CN': '240 行遥测（温度 / 压力 / 流量），时间序列绘图示例。',
+      'en-US': '240-row telemetry (temp/pressure/flow); time-series plotting demo.',
     },
   },
   {
@@ -93,15 +100,63 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     filename: 'dataset.json',
     format: 'json',
     mimeType: 'application/json',
-    pluginId: 'example.particles',
+    pluginId: 'example.histogram',
     content: datasetJson,
     nameI18n: {
       'zh-CN': '结构化测量数据集',
       'en-US': 'Structured Measurement JSON',
     },
     descriptionI18n: {
-      'zh-CN': '带元数据与质量信息的 JSON 数据集，JSON 格式检测示例。',
-      'en-US': 'JSON dataset with metadata and quality info; JSON detection demo.',
+      'zh-CN': '带元数据与质量信息的 JSON 数据集，JSON 解析示例。',
+      'en-US': 'JSON dataset with metadata and quality info; JSON parsing demo.',
+    },
+  },
+  {
+    id: 'mixture-distribution',
+    filename: 'distribution.dat',
+    format: 'dat',
+    mimeType: 'application/octet-stream',
+    pluginId: 'example.histogram',
+    content: distributionDat,
+    nameI18n: {
+      'zh-CN': '混合分布样本',
+      'en-US': 'Mixture Distribution Samples',
+    },
+    descriptionI18n: {
+      'zh-CN': '2400 个双高斯混合样本，直方图分箱与对数刻度示例。',
+      'en-US': '2400 two-gaussian mixture samples; histogram binning demo.',
+    },
+  },
+  {
+    id: 'vortex-field',
+    filename: 'field.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.heatmap',
+    content: fieldJson,
+    nameI18n: {
+      'zh-CN': '涡旋场（48×48）',
+      'en-US': 'Vortex Field (48x48)',
+    },
+    descriptionI18n: {
+      'zh-CN': '48×48 二维数值场，热力图配色与网格线示例。',
+      'en-US': '48x48 2-D numeric field; heatmap palette demo.',
+    },
+  },
+  {
+    id: 'test-pattern',
+    filename: 'test-pattern.png',
+    format: 'png',
+    mimeType: 'image/png',
+    pluginId: 'example.image',
+    contentBase64: TEST_PATTERN_PNG_BASE64,
+    nameI18n: {
+      'zh-CN': '测试图案图像',
+      'en-US': 'Test Pattern Image',
+    },
+    descriptionI18n: {
+      'zh-CN': '128×128 测试图案（渐变 + 圆环 + 网格），图像查看示例。',
+      'en-US': '128x128 test pattern (gradient + ring + grid); image viewer demo.',
     },
   },
 ];
@@ -117,5 +172,11 @@ export function exampleDescription(ex: BuiltinExample, locale: Locale): string {
 
 /** Wrap sample content into a real File so plugins load it like user data. */
 export function exampleToFile(ex: BuiltinExample): File {
-  return new File([ex.content], ex.filename, { type: ex.mimeType });
+  if (ex.contentBase64) {
+    const binary = atob(ex.contentBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], ex.filename, { type: ex.mimeType });
+  }
+  return new File([ex.content ?? ''], ex.filename, { type: ex.mimeType });
 }

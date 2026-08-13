@@ -33,6 +33,11 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.stl': 'stl',
   '.obj': 'obj',
   '.dat': 'dat',
+  '.png': 'png',
+  '.jpg': 'jpeg',
+  '.jpeg': 'jpeg',
+  '.webp': 'webp',
+  '.gif': 'gif',
 };
 
 /** Detect a file's format by magic number (and WASM where available). */

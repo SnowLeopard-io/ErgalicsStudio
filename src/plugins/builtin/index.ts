@@ -4,6 +4,10 @@
 import type { Plugin, PluginManifest } from '@/types/plugin';
 import { pointCloudManifest } from './pointCloud';
 import { particleManifest } from './particles';
+import { timeSeriesManifest } from './timeSeries';
+import { histogramManifest } from './histogram';
+import { heatmapManifest } from './heatmap';
+import { imageViewerManifest } from './imageViewer';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -22,6 +26,34 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: particleManifest,
     load: async () => {
       const mod = await import('./particles');
+      return mod.default();
+    },
+  },
+  {
+    manifest: timeSeriesManifest,
+    load: async () => {
+      const mod = await import('./timeSeries');
+      return mod.default();
+    },
+  },
+  {
+    manifest: histogramManifest,
+    load: async () => {
+      const mod = await import('./histogram');
+      return mod.default();
+    },
+  },
+  {
+    manifest: heatmapManifest,
+    load: async () => {
+      const mod = await import('./heatmap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: imageViewerManifest,
+    load: async () => {
+      const mod = await import('./imageViewer');
       return mod.default();
     },
   },
