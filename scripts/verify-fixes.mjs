@@ -101,7 +101,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   step('run button label (running)', (await runLabel()).trim());
 
   // --- point cloud empty state (grid + hint, no crash) ---
-  await page.locator('.plugin-item', { hasText: 'Point Cloud' }).click();
+  await page.locator('.plugin-item', { hasText: 'Point Cloud' }).nth(0).click();
   await sleep(1200);
   s = await sample();
   step('pointcloud empty canvas renders', s.top.length > 0);

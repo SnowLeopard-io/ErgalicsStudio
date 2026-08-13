@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs",
+    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs",
     "verify": "npm run typecheck && npm test"
   },
   "dependencies": {
