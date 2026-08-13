@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ergalics Studio — 文档</title>
+    <style>
+      body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; line-height: 1.7; color: #1f2937; background: #f9fafb; margin: 0; padding: 32px 16px; }
+      main { max-width: 820px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px 40px; }
+      h1 { font-size: 24px; margin-top: 0; }
+      h2 { font-size: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; margin-top: 28px; }
+      code { background: #f3f4f6; padding: 1px 6px; border-radius: 4px; font-size: 90%; }
+      a { color: #2563eb; }
+      .muted { color: #6b7280; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ergalics Studio</h1>
+      <p class="muted">浏览器端科学计算工作站 · 技术文档</p>
+
+      <h2>架构</h2>
+      <p>Ergalics Studio 分为三个层次：</p>
+      <ol>
+        <li><b>原生层</b>（Rust + WASM）：WebGPU 设备管理与 Compute 调度框架，产物为 <code>src/native/ergalics_core.js</code>。</li>
+        <li><b>宿主层</b>（React + TypeScript）：核心服务、状态管理、插件注册表与生命周期管理。</li>
+        <li><b>插件层</b>：第三方通过 <code>.cspkg</code> 包注入计算能力。</li>
+      </ol>
+
+      <h2>插件开发</h2>
+      <p>插件为 ESM 模块，导出工厂函数返回实现了生命周期接口的对象：</p>
+      <pre><code>export default function createPlugin() {
+  return {
+    manifest: { id, name, version, author, description, entry },
+    init(api) {},
+    activate(ctx) {},  // 接管 ctx.container
+    deactivate() {},
+    destroy() {},
+    render(container) {},
+    updateParams(params) {},
+    getParams() { return []; },
+    getSupportedFormats() { return []; },
+  };
+}</code></pre>
+      <p>完整类型见 <code>src/types/plugin.ts</code>，示例见 <code>src/plugins/builtin/</code>。</p>
+
+      <h2>常用命令</h2>
+      <ul>
+        <li><code>npm run build:wasm</code> — 编译 Rust 原生层到 <code>src/native/</code></li>
+        <li><code>npm run dev</code> — 开发服务器</li>
+        <li><code>npm run build</code> — 类型检查 + WASM 编译 + 生产构建</li>
+        <li><code>npm run preview</code> — 预览构建产物</li>
+      </ul>
+
+      <h2>数据与存储</h2>
+      <ul>
+        <li>项目 / 插件包：IndexedDB（<code>ergalics-db</code>）</li>
+        <li>偏好设置：localStorage（<code>ergalics.*</code>）</li>
+        <li>分享链接：lz-string 压缩后放入 URL Hash</li>
+      </ul>
+
+      <p class="muted"><a href="../">← 返回应用</a></p>
+    </main>
+  </body>
+</html>

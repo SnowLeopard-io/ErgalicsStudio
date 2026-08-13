@@ -4,11 +4,12 @@
 //! supplies `navigator.gpu`; this module handles adapter acquisition,
 //! device request, and capability reporting.
 
-use js_sys::Promise;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Gpu, GpuAdapter, GpuDevice};
+use web_sys::{
+    Gpu, GpuAdapter, GpuAdapterInfo, GpuDevice, GpuPowerPreference,
+    GpuRequestAdapterOptions,
+};
 
 /// Information about the current GPU adapter.
 #[wasm_bindgen]
@@ -16,8 +17,7 @@ use web_sys::{Gpu, GpuAdapter, GpuDevice};
 pub struct GpuInfo {
     name: String,
     backend: String,
-    #[wasm_bindgen(getter_with_clone)]
-    pub adapter: Option<GpuAdapter>,
+    adapter: Option<GpuAdapter>,
 }
 
 #[wasm_bindgen]
@@ -43,28 +43,28 @@ pub struct GpuDeviceManager {
 #[wasm_bindgen]
 impl GpuDeviceManager {
     /// Request an adapter then a device from `navigator.gpu`.
-    pub async fn acquire(gpu: Gpu) -> Result<GpuDeviceManager, JsValue> {
-        let adapter: GpuAdapter = JsFuture::from(gpu.request_adapter()?)
+    /// `force_cpu_fallback` maps to `forceFallbackAdapter`.
+    pub async fn acquire(gpu: Gpu, force_cpu_fallback: bool) -> Result<GpuDeviceManager, JsValue> {
+        let options = GpuRequestAdapterOptions::new();
+        options.set_power_preference(GpuPowerPreference::HighPerformance);
+        options.set_force_fallback_adapter(force_cpu_fallback);
+
+        let adapter_nullable = JsFuture::from(gpu.request_adapter_with_options(&options))
             .await?
-            .unchecked_into();
+            .into_option()
+            .ok_or_else(|| JsValue::from_str("no GPU adapter found"))?;
 
-        let name = adapter_info_name(&adapter);
-        let backend = adapter_backend(&adapter);
+        let device: GpuDevice = JsFuture::from(adapter_nullable.request_device()).await?;
 
-        let device = JsFuture::from(
-            adapter
-                .request_device_with_defaults()
-                .map_err(|e| JsValue::from(e))?,
-        )
-        .await?
-        .unchecked_into();
+        let info = adapter_nullable.info();
+        let name = adapter_name(&info);
 
         Ok(GpuDeviceManager {
             device,
             info: GpuInfo {
                 name,
-                backend,
-                adapter: Some(adapter),
+                backend: "webgpu".to_string(),
+                adapter: Some(adapter_nullable),
             },
         })
     }
@@ -82,25 +82,28 @@ impl GpuDeviceManager {
     }
 }
 
-fn adapter_info_name(adapter: &GpuAdapter) -> String {
-    match adapter.request_adapter_info() {
-        Ok(info) => info
-            .get("device")
-            .and_then(|v| v.as_string())
-            .unwrap_or_else(|| "Unknown".to_string()),
-        Err(_) => "Unknown".to_string(),
-    }
-}
-
-fn adapter_backend(adapter: &GpuAdapter) -> String {
-    // `GpuAdapter` exposes no backend string in web-sys currently; report it
-    // as best effort using the presence of experimental properties.
-    match adapter.request_adapter_info() {
-        Ok(info) => info
-            .get("backend")
-            .and_then(|v| v.as_string())
-            .unwrap_or_else(|| "webgpu".to_string()),
-        Err(_) => "webgpu".to_string(),
+fn adapter_name(info: &GpuAdapterInfo) -> String {
+    let device = info.device();
+    if !device.is_empty() {
+        device
+    } else {
+        let vendor = info.vendor();
+        let architecture = info.architecture();
+        let mut name = String::new();
+        if !vendor.is_empty() {
+            name.push_str(&vendor);
+        }
+        if !architecture.is_empty() {
+            if !name.is_empty() {
+                name.push(' ');
+            }
+            name.push_str(&architecture);
+        }
+        if name.is_empty() {
+            "Unknown".to_string()
+        } else {
+            name
+        }
     }
 }
 
@@ -110,10 +113,4 @@ pub fn webgpu_available(navigator: &web_sys::Navigator) -> bool {
         .ok()
         .map(|v| !v.is_undefined() && !v.is_null())
         .unwrap_or(false)
-}
-
-/// Small helper to flatten an `Option`-based future into `Result`.
-#[allow(dead_code)]
-async fn promise_into<T: wasm_bindgen::UnwrapThrowExt>(promise: Promise) -> Result<T, JsValue> {
-    JsFuture::from(promise).await?.unchecked_into()
 }

@@ -1,15 +1,14 @@
 //! Compute shader scheduling framework.
 //!
 //! Provides a small GPU compute pipeline abstraction built on the browser
-//! WebGPU API: compile a WGSL kernel, wire up bind groups, and dispatch
-//! work from the JS host.
+//! WebGPU API: compile a WGSL kernel, wire up bind groups, and expose the
+//! pipeline for dispatch from the JS host.
 
-use js_sys::Array;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use web_sys::{
-    GpuBuffer, GpuComputePipeline, GpuDevice, GpuQueue,
-    GpuShaderModule, GpuBindGroup, GpuBindGroupLayout, GpuPipelineLayout,
+    GpuBindGroupLayout, GpuComputePipeline, GpuComputePipelineDescriptor,
+    GpuDevice, GpuPipelineLayout, GpuPipelineLayoutDescriptor,
+    GpuProgrammableStage, GpuShaderModule, GpuShaderModuleDescriptor,
 };
 
 /// Descriptor for a compute kernel to be compiled by the scheduler.
@@ -53,7 +52,6 @@ impl KernelDescriptor {
 #[wasm_bindgen]
 pub struct ComputeKernel {
     device: GpuDevice,
-    shader: GpuShaderModule,
     pipeline: GpuComputePipeline,
     label: String,
     workgroup_size: Vec<u32>,
@@ -63,37 +61,27 @@ pub struct ComputeKernel {
 impl ComputeKernel {
     /// Compile a kernel from a descriptor using the given device.
     pub fn compile(device: GpuDevice, descriptor: KernelDescriptor) -> Result<ComputeKernel, JsValue> {
-        let shader = device
-            .create_shader_module_with_source(descriptor.wgsl.clone())
-            .map_err(|e| JsValue::from(e))?;
+        let shader_module_desc = GpuShaderModuleDescriptor::new(&descriptor.wgsl);
+        let shader: GpuShaderModule = device.create_shader_module(&shader_module_desc);
 
-        let bind_group_layout = device
-            .create_bind_group_layout_with_descriptor(
-                &web_sys::GpuBindGroupLayoutDescriptor::new(
-                    Array::new().into(),
-                ),
-            )
-            .map_err(|e| JsValue::from(e))?;
+        // Minimal bind group layout (empty for a kernel with no resources).
+        let bind_group_layout: GpuBindGroupLayout = device.create_bind_group_layout(
+            &web_sys::GpuBindGroupLayoutDescriptor::new(&[]),
+        )?;
 
-        let pipeline_layout = device
-            .create_pipeline_layout_with_descriptor(
-                &web_sys::GpuPipelineLayoutDescriptor::new(Some(&bind_group_layout)),
-            )
-            .map_err(|e| JsValue::from(e))?;
+        let layouts = [js_sys::JsNullable::wrap(bind_group_layout)];
+        let pipeline_layout_desc = GpuPipelineLayoutDescriptor::new(&layouts);
+        let pipeline_layout: GpuPipelineLayout =
+            device.create_pipeline_layout(&pipeline_layout_desc);
 
-        let layout = web_sys::GpuComputePipelineDescriptor::new(
-            descriptor.entry_point.clone(),
-            Some(&shader),
-        );
-        layout.set_label(&descriptor.label);
+        let mut stage = GpuProgrammableStage::new(&shader);
+        stage.entry_point(&descriptor.entry_point);
+        let compute_desc = GpuComputePipelineDescriptor::new(&pipeline_layout, &stage);
 
-        let pipeline = device
-            .create_compute_pipeline(&layout)
-            .map_err(|e| JsValue::from(e))?;
+        let pipeline = device.create_compute_pipeline(&compute_desc);
 
         Ok(ComputeKernel {
             device,
-            shader,
             pipeline,
             label: descriptor.label,
             workgroup_size: descriptor.workgroup_size,
@@ -104,32 +92,28 @@ impl ComputeKernel {
     pub fn label(&self) -> String {
         self.label.clone()
     }
+
+    #[wasm_bindgen(getter)]
+    pub fn pipeline(&self) -> GpuComputePipeline {
+        self.pipeline.clone()
+    }
 }
 
 /// A command queue for dispatching kernels. Not intended for direct use
 /// from JS yet — the host drives commands through the WebGPU API directly.
 #[wasm_bindgen]
 pub struct ComputeQueue {
-    queue: GpuQueue,
+    queue: web_sys::GpuQueue,
 }
 
 #[wasm_bindgen]
 impl ComputeQueue {
-    pub fn new(queue: GpuQueue) -> Self {
+    pub fn new(queue: web_sys::GpuQueue) -> Self {
         Self { queue }
     }
 
     /// Submit an encoded command buffer.
     pub fn submit(&self, buffers: Vec<web_sys::GpuCommandBuffer>) {
-        let array = js_sys::Array::new();
-        for b in buffers {
-            array.push(&b.unchecked_into());
-        }
-        self.queue.submit(&array);
+        self.queue.submit(&buffers);
     }
 }
-
-/// Unused-but-public surface types re-exported so the module compiles
-/// consistently across web-sys feature sets.
-#[allow(dead_code)]
-fn _keep_types_used(_b: GpuBuffer, _g: GpuBindGroup, _l: GpuBindGroupLayout, _p: GpuPipelineLayout) {}

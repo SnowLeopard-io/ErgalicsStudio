@@ -50,12 +50,18 @@ export async function detectFormatByMagic(file: File): Promise<DetectedFormat[]>
   const wasm = getWasm();
   if (wasm) {
     try {
-      const kind = wasm.detect_file_kind(prefix) as { Magic?: boolean; Unknown?: boolean } | null;
-      // fallback semantics: Rust returns enum; accept any value that indicates a header match
-      if (kind && 'Magic' in kind && (kind as { Magic?: boolean }).Magic) {
-        // magic matched a generic zip/json header
-        if (!results.some((r) => r.format === 'zip' && prefix[0] === 0x50)) {
-          results.push({ format: 'zip', extension: '.zip', byMagic: true });
+      const kind = wasm.detect_file_kind(prefix);
+      if (kind === 'Magic' || kind === 'Extension') {
+        if (prefix[0] === 0x50) {
+          // PK header → zip-family format
+          if (!results.some((r) => r.format === 'zip')) {
+            results.push({ format: 'zip', extension: '.zip', byMagic: true });
+          }
+        } else if (prefix[0] === 0x7b) {
+          // '{' → JSON
+          if (!results.some((r) => r.format === 'json')) {
+            results.push({ format: 'json', extension: '.json', byMagic: true });
+          }
         }
       }
     } catch {

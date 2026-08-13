@@ -6,7 +6,7 @@ import { logger } from './logger';
 
 export interface WasmModule {
   core_version(): string;
-  detect_file_kind(prefix: Uint8Array): unknown;
+  detect_file_kind(prefix: Uint8Array): string | undefined;
   log(message: string): void;
 }
 
@@ -20,9 +20,9 @@ async function tryLoad(): Promise<WasmModule | null> {
   try {
     // @vite-ignore — resolved lazily; module may be absent in dev until built.
     const mod = await import('@/native/ergalics_core.js');
-    const init = mod.default as unknown as Promise<unknown>;
-    if (init && typeof init.then === 'function') {
-      await init;
+    const init = mod.default as unknown as (() => Promise<unknown>) | undefined;
+    if (typeof init === 'function') {
+      await init();
     }
     try {
       logger.info('wasm', 'module loaded, core version:', mod.core_version());

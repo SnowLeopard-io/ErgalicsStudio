@@ -22,8 +22,6 @@ pub use utils::detect_file_kind;
 #[wasm_bindgen(start)]
 pub fn start() {
     console_error_panic_hook::set_once();
-    #[cfg(feature = "console")]
-    utils::log("Ergalics Core WASM module initialized.");
 }
 
 /// Version of the native core.

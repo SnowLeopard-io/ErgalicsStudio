@@ -127,7 +127,7 @@ export default function WelcomePage() {
         <a href="docs/" target="_blank" rel="noreferrer">
           {t('welcome.footer.docs')}
         </a>
-        <a href="#/settings" onClick={(e) => { e.preventDefault(); navigate('/settings'); }}>
+        <a href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
           {t('welcome.footer.market')}
         </a>
       </footer>
