@@ -48,8 +48,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await page.goto('http://localhost:4198/#/', { waitUntil: 'networkidle' });
   await sleep(1000);
-  await page.locator('.welcome-enter').click();
+
+  // ---- welcome footer links are functional ----
+  const footerHrefs = await page
+    .locator('.welcome-footer a')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  step('footer external links', footerHrefs);
+  step('footer has real GitHub repo link', footerHrefs.includes('https://github.com/SnowLeopard-io/ErgalicsStudio'));
+  step('footer has docs link', footerHrefs.includes('./docs/'));
+
+  // "Market" navigates to the workbench and opens the plugin dialog.
+  await page.locator('.welcome-footer .welcome-footer-link').click();
   await sleep(1800);
+  step('market opens plugin dialog in workbench', await page.locator('.plugin-dialog').count() > 0);
+  await page.keyboard.press('Escape');
+  await sleep(400);
 
   // ---- 1. 3D surface visibility is conditional ----
   await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();

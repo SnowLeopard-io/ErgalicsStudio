@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
@@ -9,6 +9,7 @@ import { PluginDialog } from '../plugin-dialog/PluginDialog';
 export function Sidebar() {
   const t = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const project = useProjectStore((s) => s.project);
   const recent = useProjectStore((s) => s.recent);
   const createProject = useProjectStore((s) => s.createProject);
@@ -31,6 +32,17 @@ export function Sidebar() {
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
   }, []);
+
+  // The welcome page's "Market" link navigates here with
+  // { state: { openPluginDialog: true } } — open the plugin dialog and
+  // consume the flag so a refresh does not re-open it.
+  useEffect(() => {
+    const state = location.state as { openPluginDialog?: boolean } | null;
+    if (state?.openPluginDialog) {
+      setPluginOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   const handleNewProject = async () => {
     const name = newName.trim() || t('project.untitled');

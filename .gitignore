@@ -17,3 +17,8 @@ src/native/ergalics_core.js
 src/native/ergalics_core_bg.wasm
 
 .workbuddy/
+
+# Docs workspace (VitePress): dependencies and build artifacts.
+docs/node_modules/
+docs/.vitepress/*
+!docs/.vitepress/config.mts

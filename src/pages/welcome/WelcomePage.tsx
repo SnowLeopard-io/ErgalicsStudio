@@ -123,13 +123,23 @@ export default function WelcomePage() {
       </main>
 
       <footer className="welcome-footer">
-        <a href="https://github.com" target="_blank" rel="noreferrer">
+        <a
+          href="https://github.com/SnowLeopard-io/ErgalicsStudio"
+          target="_blank"
+          rel="noreferrer"
+        >
           {t('welcome.footer.github')}
         </a>
-        <a href="docs/" target="_blank" rel="noreferrer">
+        <a href="./docs/" target="_blank" rel="noreferrer">
           {t('welcome.footer.docs')}
         </a>
-        <Link to="/workbench">{t('welcome.footer.market')}</Link>
+        <button
+          type="button"
+          className="welcome-footer-link"
+          onClick={() => navigate('/workbench', { state: { openPluginDialog: true } })}
+        >
+          {t('welcome.footer.market')}
+        </button>
       </footer>
     </div>
   );
