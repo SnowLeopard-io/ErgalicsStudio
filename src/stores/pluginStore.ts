@@ -67,6 +67,7 @@ function buildPluginApi(pluginId: string): PluginApi {
     },
     reportGpuTime: (ms) => useAppStore.getState().setGpuMs(ms),
     reportDataScale: (n) => useAppStore.getState().setDataScale(n),
+    notify: (kind, message) => useAppStore.getState().notify(kind, message),
     openFile: async () => {
       const input = document.createElement('input');
       input.type = 'file';

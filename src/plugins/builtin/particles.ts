@@ -86,7 +86,8 @@ export class ParticlePlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.count === 'number' && params.count !== this.state.count) {
       this.state.count = params.count;
-      this.resetParticles();
+      // Only resample when real data is loaded; never fabricate a dataset.
+      if (this.raw.length > 0) this.resetParticles();
       this.draw();
     }
     if (typeof params.speed === 'number') this.state.speed = params.speed;
@@ -100,7 +101,14 @@ export class ParticlePlugin implements Plugin {
     return [
       { key: 'count', label: 'Count', type: 'range', min: 500, max: 50000, step: 500, value: this.state.count },
       { key: 'speed', label: 'Speed', type: 'range', min: 0.1, max: 5, step: 0.1, value: this.state.speed },
-      { key: 'start', label: 'Run', type: 'checkbox', value: this.state.running },
+      {
+        key: 'start',
+        label: 'Run',
+        type: 'toggle',
+        value: this.state.running,
+        offLabelI18n: { 'zh-CN': '▶ 开始模拟', 'en-US': '▶ Start' },
+        onLabelI18n: { 'zh-CN': '■ 停止模拟', 'en-US': '■ Stop' },
+      },
     ];
   }
 
@@ -182,32 +190,31 @@ export class ParticlePlugin implements Plugin {
   }
 
   private resetParticles() {
-    if (this.raw.length > 0) {
-      this.state.hasData = true;
-      const n = Math.min(this.state.count, Math.max(1, this.raw.length));
-      this.particles = [];
-      for (let i = 0; i < n; i += 1) {
-        const idx = Math.min(Math.floor((i * this.raw.length) / n), this.raw.length - 1);
-        const r = this.raw[idx];
-        if (r) this.particles.push({ ...r });
-      }
-    } else {
-      this.state.hasData = false;
-      this.particles = Array.from({ length: this.state.count }, () => ({
-        x: Math.random() * 2 - 1,
-        y: Math.random() * 2 - 1,
-        vx: (Math.random() - 0.5) * 0.02,
-        vy: (Math.random() - 0.5) * 0.02,
-      }));
+    this.state.hasData = this.raw.length > 0;
+    const n = this.raw.length > 0 ? Math.min(this.state.count, Math.max(1, this.raw.length)) : 0;
+    this.particles = [];
+    for (let i = 0; i < n; i += 1) {
+      const idx = Math.min(Math.floor((i * this.raw.length) / n), this.raw.length - 1);
+      const r = this.raw[idx];
+      if (r) this.particles.push({ ...r });
     }
     this.api.reportDataScale(this.particles.length);
   }
 
   private start() {
     if (this.state.running) return;
-    // If nothing has been loaded yet, generate a default random set so the
-    // user always sees something once they start the run.
-    if (this.particles.length === 0) this.resetParticles();
+    // Never fabricate a dataset: the simulation is data-driven, so it only
+    // runs once data has actually been loaded.
+    if (this.particles.length === 0) {
+      this.api.notify(
+        'warning',
+        this.api.locale === 'zh-CN'
+          ? '请先加载数据 — 拖入 .dat 文件或打开「示例数据」'
+          : 'Load data first — drop a .dat file or open sample data',
+      );
+      this.draw();
+      return;
+    }
     this.state.running = true;
     this.api.setStatus('computing');
     this.lastFrame = performance.now();

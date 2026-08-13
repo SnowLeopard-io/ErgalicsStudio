@@ -24,6 +24,8 @@ export const zhCN: LocaleDictionary = {
   'common.retry': '重试',
   'common.cancel_download': '取消下载',
   'common.unknown': '未知',
+  'common.start': '开始',
+  'common.stop': '停止',
 
   'welcome.title': '欢迎使用 Ergalics Studio',
   'welcome.subtitle': '浏览器里的科学计算工作站',

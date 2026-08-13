@@ -142,6 +142,18 @@ function Control({
           {label(def)}
         </button>
       );
+    case 'toggle':
+      return (
+        <button
+          type="button"
+          className={`btn btn-block ${def.value ? 'btn-toggle-on' : 'btn-primary'}`}
+          onClick={() => emit(!def.value)}
+        >
+          {def.value
+            ? def.onLabelI18n?.[api.locale] ?? def.onLabel ?? t('common.stop')
+            : def.offLabelI18n?.[api.locale] ?? def.offLabel ?? t('common.start')}
+        </button>
+      );
     default:
       return null;
   }

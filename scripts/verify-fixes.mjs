@@ -1,5 +1,5 @@
-﻿// Verify the three fixes: data-driven particles, point-cloud empty state +
-// auto-fit, and unified mono font.
+﻿// Verify the fixes: data-driven particles, no auto-run, point-cloud empty
+// state + auto-fit, unified mono font, toggle Run control, topbar cluster.
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 
@@ -37,6 +37,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return { top };
   });
   const hasColor = (s, c) => s.top.some(([k]) => k === c);
+  const runLabel = () => page.locator('.param-panel button.btn-block').first().textContent();
+  const loadExample = (title) =>
+    page
+      .locator('.plugin-card', { hasText: title })
+      .locator('button', { hasText: '加载' })
+      .click();
 
   await page.goto('http://localhost:4177/#/', { waitUntil: 'networkidle' });
   await sleep(1200);
@@ -50,28 +56,48 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return el ? getComputedStyle(el).fontFamily === getComputedStyle(document.body).fontFamily : 'n/a';
   }));
 
-  // --- particles empty state: no auto-run, just hint (no blue dots) ---
+  // --- topbar clusters present + overflow not clipping dropdowns ---
+  step('topbar clusters', await page.evaluate(() => document.querySelectorAll('.topbar-cluster').length));
+  step('cluster overflow visible', await page.evaluate(() => {
+    const c = document.querySelector('.topbar-cluster');
+    return c ? getComputedStyle(c).overflow : 'missing';
+  }));
+
+  // --- language dropdown opens from topbar icon ---
+  await page.locator('.cluster-icons .icon-btn').first().click();
+  await sleep(300);
+  step('language menu opens', await page.locator('.cluster-icons .menu').count() > 0);
+  await page.keyboard.press('Escape');
+  await sleep(200);
+
+  // --- particles empty state: no auto-run, just hint ---
   await page.locator('.plugin-item', { hasText: 'Particles' }).click();
   await sleep(1200);
   let s = await sample();
   step('particles empty does NOT auto-run', !hasColor(s, '59,130,246'));
-  step('run checkbox unchecked', await page.locator('.param-checkbox input').first().isChecked());
-  await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-01-particles-empty.png' });
+  step('run button label (idle)', (await runLabel()).trim());
 
-  // --- load galaxy.dat via topbar example button -> teal dots (static) ---
-  await page.locator('.topbar-actions .btn', { hasText: '示例数据' }).click();
+  // --- attempt run with no data -> toast, still idle ---
+  await page.locator('.param-panel button.btn-block').first().click();
+  await sleep(500);
+  step('run button stays idle without data', (await runLabel()).trim());
+  step('warning toast shown', await page.locator('.toast-warning').count() > 0);
+  await sleep(4200);
+
+  // --- load galaxy.dat -> teal dots (static) ---
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
   await sleep(400);
-  await page.locator('.plugin-card .btn-primary', { hasText: '加载' }).first().click();
+  await loadExample('星系');
   await sleep(1600);
   s = await sample();
   step('particles galaxy has teal dots (static)', hasColor(s, '45,212,191'));
-  step('run still unchecked after load', !(await page.locator('.param-checkbox input').first().isChecked()));
+  step('run button still idle after load', (await runLabel()).trim());
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-02-particles-galaxy.png' });
 
-  // --- tick Run -> simulation starts ---
-  await page.locator('.param-checkbox input').first().check();
-  await sleep(600);
-  step('run checkbox checked after user start', await page.locator('.param-checkbox input').first().isChecked());
+  // --- press Run -> simulation starts ---
+  await page.locator('.param-panel button.btn-block').first().click();
+  await sleep(700);
+  step('run button label (running)', (await runLabel()).trim());
 
   // --- point cloud empty state (grid + hint, no crash) ---
   await page.locator('.plugin-item', { hasText: 'Point Cloud' }).click();
@@ -81,9 +107,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-03-pointcloud-empty.png' });
 
   // --- load diamond.xyz -> blue points, auto-fit ---
-  await page.locator('.topbar-actions .btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
   await sleep(400);
-  await page.locator('.plugin-card .btn-primary', { hasText: '加载' }).first().click();
+  await loadExample('斐波那契');
   await sleep(1600);
   s = await sample();
   step('pointcloud diamond has blue points', hasColor(s, '37,99,235'));

@@ -35,7 +35,8 @@ export type ParamControlType =
   | 'checkbox'
   | 'text'
   | 'file'
-  | 'button';
+  | 'button'
+  | 'toggle';
 
 export interface BaseParam {
   key: string;
@@ -96,6 +97,17 @@ export interface ButtonParam extends BaseParam {
   action?: string;
 }
 
+export interface ToggleParam extends BaseParam {
+  type: 'toggle';
+  value: boolean;
+  /** Label shown when the toggle is off (e.g. "Start"). */
+  offLabel?: string;
+  /** Label shown when the toggle is on (e.g. "Stop"). */
+  onLabel?: string;
+  offLabelI18n?: Record<string, string>;
+  onLabelI18n?: Record<string, string>;
+}
+
 export type ParamDefinition =
   | RangeParam
   | SelectParam
@@ -103,7 +115,8 @@ export type ParamDefinition =
   | CheckboxParam
   | TextParam
   | FileParam
-  | ButtonParam;
+  | ButtonParam
+  | ToggleParam;
 
 // ---- Container capabilities (spec §3.2.3) ----
 
@@ -162,6 +175,8 @@ export interface PluginApi {
   reportGpuTime(ms: number): void;
   /** Report data scale for the perf panel. */
   reportDataScale(n: number): void;
+  /** Show a toast notification to the user. */
+  notify(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
 
   /** Load a file through the host data loader. */
   openFile(): Promise<File | null>;

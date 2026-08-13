@@ -50,23 +50,28 @@ export function TopBar() {
       </button>
 
       <div className="topbar-actions">
-        <button type="button" className="btn btn-sm" onClick={() => void save()}>
-          {t('common.save')}
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => setExampleOpen(true)}>
-          {t('workbench.example_data.title')}
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => setShareOpen(true)}>
-          {t('workbench.share')}
-        </button>
-        <LanguageSwitcher />
-        <ThemeSwitcher />
+        <div className="topbar-cluster">
+          <button type="button" className="cluster-btn" onClick={() => setExampleOpen(true)}>
+            {t('workbench.example_data.title')}
+          </button>
+          <button type="button" className="cluster-btn" onClick={() => void save()}>
+            {t('common.save')}
+          </button>
+          <button type="button" className="cluster-btn" onClick={() => setShareOpen(true)}>
+            {t('workbench.share')}
+          </button>
+        </div>
+
+        <div className="topbar-cluster cluster-icons">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
 
         <Dropdown
-          ariaLabel={t('project.save_as')}
-          triggerClassName="btn btn-sm"
+          ariaLabel={t('common.more')}
+          triggerClassName="btn cluster-btn"
           trigger={
-            <span title={t('project.save_as')}>
+            <span>
               {t('common.more')}
               <span className="more-caret">▾</span>
             </span>
@@ -78,7 +83,6 @@ export function TopBar() {
               label: t('project.open'),
               onClick: () => fileInputRef.current?.click(),
             },
-            { key: 'save', label: t('project.save'), onClick: () => void save() },
             { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           ]}
         />

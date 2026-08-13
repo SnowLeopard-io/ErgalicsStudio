@@ -20,6 +20,8 @@ export const enUS: LocaleDictionary = {
   'common.retry': 'Retry',
   'common.cancel_download': 'Cancel Download',
   'common.unknown': 'Unknown',
+  'common.start': 'Start',
+  'common.stop': 'Stop',
 
   'welcome.title': 'Welcome to Ergalics Studio',
   'welcome.subtitle': 'A scientific computing workstation in your browser',

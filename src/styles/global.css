@@ -213,8 +213,7 @@ button {
     background var(--transition-fast),
     border-color var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    box-shadow var(--transition-fast);
   white-space: nowrap;
   user-select: none;
 }
@@ -222,11 +221,10 @@ button {
 .btn:hover:not(:disabled) {
   background: var(--color-bg-hover);
   border-color: var(--color-border-hover);
-  transform: translateY(-1px);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(0);
+  background: var(--color-bg-active);
 }
 
 .btn:disabled {
@@ -245,6 +243,19 @@ button {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
   box-shadow: 0 2px 14px var(--color-glow);
+}
+
+/* Toggle "on" state (e.g. a running simulation) */
+.btn-toggle-on {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.btn-toggle-on:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-hover);
+  color: var(--color-accent-hover);
 }
 
 .btn-ghost {

@@ -60,7 +60,80 @@
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* Segmented control clusters on the top bar */
+.topbar-cluster {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  /* NOTE: overflow must stay visible so dropdown menus can open downward. */
+  overflow: visible;
+}
+
+.topbar-cluster > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.topbar-cluster > * + * {
+  border-left: 1px solid var(--color-border);
+}
+
+.topbar-cluster > :first-child,
+.topbar-cluster > :first-child .icon-btn,
+.topbar-cluster > :first-child .btn {
+  border-top-left-radius: calc(var(--radius-sm) - 1px);
+  border-bottom-left-radius: calc(var(--radius-sm) - 1px);
+}
+
+.topbar-cluster > :last-child,
+.topbar-cluster > :last-child .icon-btn,
+.topbar-cluster > :last-child .btn {
+  border-top-right-radius: calc(var(--radius-sm) - 1px);
+  border-bottom-right-radius: calc(var(--radius-sm) - 1px);
+}
+
+.topbar-cluster .cluster-btn,
+.topbar-cluster .icon-btn,
+.topbar-cluster .menu-wrap > .btn {
+  height: 100%;
+  padding: 0 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.topbar-cluster .cluster-btn:hover,
+.topbar-cluster .icon-btn:hover,
+.topbar-cluster .menu-wrap > .btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.topbar-cluster .icon-btn {
+  width: 32px;
+  padding: 0;
+}
+
+.topbar-cluster .menu-wrap {
+  display: flex;
+  height: 100%;
+}
+
+.topbar-cluster .menu-wrap > .btn {
+  transform: none !important;
 }
 
 .more-caret {
