@@ -111,7 +111,10 @@ function buildPluginApi(pluginId: string): PluginApi {
 }
 
 function createContext(pluginId: string): PluginRenderContext {
-  const three = hostContainers?.getThree?.();
+  // Only materialize the WebGL scene for plugins that declare 3D rendering
+  // (renderToScene); 2D plugins must not pay for a WebGL context.
+  const entry = usePluginStore.getState().registry.find((e) => e.id === pluginId);
+  const three = entry?.plugin?.renderToScene ? hostContainers?.getThree?.() : undefined;
   if (hostContainers) {
     return {
       container: {

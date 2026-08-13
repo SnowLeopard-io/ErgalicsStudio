@@ -3,6 +3,7 @@
 
 import type { Plugin, PluginManifest } from '@/types/plugin';
 import { pointCloudManifest } from './pointCloud';
+import { pointCloud3DManifest } from './pointCloud3D';
 import { particleManifest } from './particles';
 import { timeSeriesManifest } from './timeSeries';
 import { histogramManifest } from './histogram';
@@ -19,6 +20,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: pointCloudManifest,
     load: async () => {
       const mod = await import('./pointCloud');
+      return mod.default();
+    },
+  },
+  {
+    manifest: pointCloud3DManifest,
+    load: async () => {
+      const mod = await import('./pointCloud3D');
       return mod.default();
     },
   },
