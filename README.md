@@ -54,8 +54,42 @@ project/
 │   └── types/                # 领域类型（project/plugin/…）
 ├── native/ergalics-core/     # Rust WASM crate
 ├── scripts/build-wasm.mjs    # WASM 构建脚本
+├── scripts/make-example-projects.mjs  # 重新生成示例 .clproj 工程
+├── examples/                 # 样例数据与示例工程
+│   ├── data/                 #   diamond.xyz / crystal.xyz / galaxy.dat / telemetry.csv / dataset.json
+│   └── projects/             #   point-cloud-demo / crystal-lattice-demo / particles-demo (.clproj)
 ├── .github/workflows/        # GitHub Pages 部署流水线
 └── 需求文档.md               # 需求设计文档 v3.0
+```
+
+## 样例数据与示例工程
+
+### 内置示例数据
+
+工作台中央区域的 **"示例数据"** 按钮可直接加载内置样例，无需准备文件：
+
+| 数据 | 格式 | 目标插件 | 说明 |
+|:---|:---|:---|:---|
+| `diamond.xyz` | `.xyz` | 点云查看器 | 2000 点斐波那契球面 |
+| `crystal.xyz` | `.xyz` | 点云查看器 | 512 原子简立方晶格 |
+| `galaxy.dat` | `.dat` | 粒子模拟 | 3000 粒子（位置 + 速度） |
+| `telemetry.csv` | `.csv` | 粒子模拟 | 240 行涡轮遥测时间序列 |
+| `dataset.json` | `.json` | 粒子模拟 | 结构化测量数据 + 质量信息 |
+
+样例数据位于 `examples/data/`，通过 Vite `?raw` 在构建时打包进应用（见 `src/core/examples.ts`）。
+
+### 示例工程（.clproj）
+
+`examples/projects/` 提供三个可直接打开的项目文件（含完整数据与场景状态），在工作台点 **"打开项目"** 即可恢复：
+
+- `point-cloud-demo.clproj` — 点云查看器 + 球面数据，预设参数。
+- `crystal-lattice-demo.clproj` — 点云查看器 + 晶体点阵。
+- `particles-demo.clproj` — 粒子模拟 + 星系数据，自动开始模拟。
+
+修改 `examples/data/` 后重新生成工程文件：
+
+```bash
+node scripts/make-example-projects.mjs
 ```
 
 ## 核心能力

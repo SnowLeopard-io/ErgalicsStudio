@@ -29,6 +29,7 @@
     "@types/react-dom": "^18.3.5",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright-core": "^1.62.1",
     "typescript": "~5.7.2",
     "vite": "^6.0.7"
   }

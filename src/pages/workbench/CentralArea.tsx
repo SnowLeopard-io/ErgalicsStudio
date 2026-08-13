@@ -6,6 +6,7 @@ import { useAppStore } from '@/stores/appStore';
 import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
+import { ExampleDataDialog } from './ExampleDataDialog';
 
 interface ChooserState {
   open: boolean;
@@ -26,6 +27,7 @@ export function CentralArea() {
   const [dragOver, setDragOver] = useState(false);
   const [chooser, setChooser] = useState<ChooserState>({ open: false, file: null, pluginIds: [] });
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
+  const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!domRef.current || !canvasRef.current) return;
@@ -132,6 +134,9 @@ export function CentralArea() {
             <button type="button" className="btn" onClick={() => setPluginDialogOpen(true)}>
               {t('workbench.empty.load_plugin')}
             </button>
+            <button type="button" className="btn" onClick={() => setExampleDialogOpen(true)}>
+              {t('workbench.empty.example_data')}
+            </button>
             <button type="button" className="btn" onClick={openProjectFile}>
               {t('workbench.empty.open_project')}
             </button>
@@ -159,6 +164,7 @@ export function CentralArea() {
       />
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
+      <ExampleDataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
     </div>
   );
 }

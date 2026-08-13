@@ -1,0 +1,21 @@
+{
+  "title": "Sample Turbine Telemetry",
+  "unit": "turbine-A",
+  "samplingRateHz": 0.2,
+  "channels": ["time", "temp", "pressure", "flow"],
+  "measuredAt": "2026-08-14T08:00:00Z",
+  "observations": [
+    { "time": 0, "temp": 20.12, "pressure": 101.44, "flow": 12.71 },
+    { "time": 5, "temp": 20.84, "pressure": 101.92, "flow": 12.55 },
+    { "time": 10, "temp": 21.45, "pressure": 102.03, "flow": 12.38 },
+    { "time": 15, "temp": 21.91, "pressure": 101.76, "flow": 12.16 },
+    { "time": 20, "temp": 22.22, "pressure": 101.31, "flow": 12.02 },
+    { "time": 25, "temp": 22.34, "pressure": 100.94, "flow": 11.94 },
+    { "time": 30, "temp": 22.28, "pressure": 100.63, "flow": 11.87 }
+  ],
+  "quality": {
+    "missing": 0,
+    "outliers": 1,
+    "valid": 239
+  }
+}
