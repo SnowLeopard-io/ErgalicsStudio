@@ -8,6 +8,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
+import { ExampleDataDialog } from './ExampleDataDialog';
 
 export function TopBar() {
   const t = useT();
@@ -25,6 +26,7 @@ export function TopBar() {
   const [shareOpen, setShareOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [exampleOpen, setExampleOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenFile = (file: File) => {
@@ -50,6 +52,9 @@ export function TopBar() {
       <div className="topbar-actions">
         <button type="button" className="btn btn-sm" onClick={() => void save()}>
           {t('common.save')}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => setExampleOpen(true)}>
+          {t('workbench.example_data.title')}
         </button>
         <button type="button" className="btn btn-sm" onClick={() => setShareOpen(true)}>
           {t('workbench.share')}
@@ -107,6 +112,7 @@ export function TopBar() {
         }}
       />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
+      <ExampleDataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
     </header>
   );
 }

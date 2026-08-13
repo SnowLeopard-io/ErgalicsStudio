@@ -1,7 +1,8 @@
 // ==========================================================================
 // Example plugin: Point Cloud Viewer
 // Renders .xyz point clouds onto a 2D canvas with basic params.
-// Demonstrates: manifest, formats, params, render, compute lifecycle.
+// Auto-fits the loaded point bounds, and shows a helpful empty state when
+// no data has been loaded yet.
 // ==========================================================================
 
 import type {
@@ -32,8 +33,13 @@ export const pointCloudManifest: PluginManifest = {
   ],
 };
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 interface State {
-  points: { x: number; y: number }[];
+  points: Point[];
   size: number;
   color: string;
 }
@@ -68,6 +74,9 @@ export class PointCloudPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.size === 'number') this.state.size = params.size;
     if (typeof params.color === 'string') this.state.color = params.color;
+    if (params.reset && (params.reset as { action?: string }).action === 'reset') {
+      // auto-fit re-centers on every draw, so reset just re-renders.
+    }
     this.draw();
   }
 
@@ -85,12 +94,14 @@ export class PointCloudPlugin implements Plugin {
 
   async loadData(file: File) {
     const text = await file.text();
-    const points: { x: number; y: number }[] = [];
-    const lines = text.split(/\r?\n/).slice(0, 50_000);
+    const points: Point[] = [];
+    const lines = text.split(/\r?\n/).slice(0, 200_000);
     for (const line of lines) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 3) {
-        points.push({ x: parseFloat(parts[0] ?? ''), y: parseFloat(parts[1] ?? '') });
+      const parts = line.trim().split(/[\s,]+/);
+      if (parts.length >= 2) {
+        const x = parseFloat(parts[0] ?? '');
+        const y = parseFloat(parts[1] ?? '');
+        if (Number.isFinite(x) && Number.isFinite(y)) points.push({ x, y });
       }
     }
     this.state.points = points;
@@ -99,7 +110,6 @@ export class PointCloudPlugin implements Plugin {
   }
 
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
-    // Simulated compute pass to demonstrate progress reporting.
     const total = 10;
     for (let i = 0; i < total; i += 1) {
       await new Promise((r) => setTimeout(r, 30));
@@ -115,18 +125,71 @@ export class PointCloudPlugin implements Plugin {
     canvas.height = canvas.clientHeight || 300;
     const g = canvas.getContext('2d');
     if (!g) return;
-    const bg = getComputedStyle(canvas).backgroundColor || '#0c0e11';
+    const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (this.state.points.length === 0) {
+      this.drawGrid(g, canvas);
+      g.fillStyle = 'rgba(150, 165, 185, 0.85)';
+      g.font = `12px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+      g.textAlign = 'center';
+      const msg =
+        this.api.locale === 'zh-CN'
+          ? '未加载点云 — 拖入 .xyz 文件或从「示例数据」加载'
+          : 'No point cloud — drop a .xyz file or load sample data';
+      g.fillText(msg, canvas.width / 2, canvas.height / 2 - 8);
+      return;
+    }
+
+    // Auto-fit the data bounds into the viewport.
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const p of this.state.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+    const w = canvas.width;
+    const h = canvas.height;
+    const pad = 0.12;
+    const scale = Math.min(w / (rangeX * (1 + pad * 2)), h / (rangeY * (1 + pad * 2)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const ox = w / 2 - cx * scale;
+    const oy = h / 2 + cy * scale; // flip Y so +y points up
+
     g.fillStyle = this.state.color;
     const step = Math.max(1, Math.floor(this.state.points.length / 20_000));
+    const size = Math.max(1, this.state.size);
     for (let i = 0; i < this.state.points.length; i += step) {
       const p = this.state.points[i];
       if (!p) continue;
-      const x = ((p.x + 10) / 20) * canvas.width;
-      const y = ((p.y + 10) / 20) * canvas.height;
-      g.fillRect(x, y, this.state.size, this.state.size);
+      const sx = ox + p.x * scale;
+      const sy = oy - p.y * scale;
+      g.fillRect(sx - size / 2, sy - size / 2, size, size);
     }
+  }
+
+  private drawGrid(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    g.strokeStyle = 'rgba(127, 140, 160, 0.08)';
+    g.lineWidth = 1;
+    const step = 48;
+    g.beginPath();
+    for (let x = 0.5; x < canvas.width; x += step) {
+      g.moveTo(x, 0);
+      g.lineTo(x, canvas.height);
+    }
+    for (let y = 0.5; y < canvas.height; y += step) {
+      g.moveTo(0, y);
+      g.lineTo(canvas.width, y);
+    }
+    g.stroke();
   }
 }
 
