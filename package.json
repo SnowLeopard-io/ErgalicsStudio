@@ -11,7 +11,12 @@
     "build:wasm": "node scripts/build-wasm.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs",
+    "verify": "npm run typecheck && npm test"
   },
   "dependencies": {
     "fflate": "^0.8.2",
@@ -33,6 +38,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "playwright-core": "^1.62.1",
     "typescript": "~5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.1.10"
   }
 }

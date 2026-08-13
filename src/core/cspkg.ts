@@ -112,7 +112,7 @@ export async function loadCspkg(
       mode = 'trusted';
     } catch (err) {
       logger.error('cspkg', 'entry evaluation failed', err);
-      throw new Error('cspkg: entry evaluation failed');
+      throw new Error(`cspkg: entry evaluation failed — ${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
     const sandboxed = await createPluginSandbox({
@@ -130,7 +130,7 @@ export async function loadCspkg(
         mode = 'legacy-fallback';
       } catch (err) {
         logger.error('cspkg', 'entry evaluation failed', err);
-        throw new Error('cspkg: entry evaluation failed');
+        throw new Error(`cspkg: entry evaluation failed — ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }

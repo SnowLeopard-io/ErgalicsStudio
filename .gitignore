@@ -10,3 +10,8 @@ pkg/
 coverage/
 .cspkg
 *.clproj
+# WASM build artifacts emitted into src/native/ by scripts/build-wasm.mjs.
+# Regenerated on demand (`npm run build:wasm` / `npm run build`); keeping
+# them untracked avoids binary merge conflicts in multi-developer repos.
+src/native/ergalics_core.js
+src/native/ergalics_core_bg.wasm

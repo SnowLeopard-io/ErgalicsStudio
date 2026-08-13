@@ -135,15 +135,19 @@ const SHADOWED_GLOBALS = [
  * strict-mode function scope. This is a best-effort approximation — a
  * determined attacker can escape (e.g. via constructor chains). Prefer the
  * worker sandbox; this path exists only as a fallback.
+ *
+ * Note: the shadowed globals are declared as plain parameters (no default
+ * values) because a `"use strict"` directive is illegal in a function with
+ * a non-simple parameter list; the caller passes `undefined` explicitly.
  */
 export function evaluatePluginLegacy(entrySource: string, api: PluginApi): Plugin {
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const factory = new Function(
     'api',
-    ...SHADOWED_GLOBALS.map((g) => `${g} = void 0`),
+    ...SHADOWED_GLOBALS,
     `"use strict";\n${entrySource}`,
-  ) as (api: PluginApi) => Plugin;
-  const plugin = factory(api);
+  ) as (api: PluginApi, ...shadowed: unknown[]) => Plugin;
+  const plugin = factory(api, ...SHADOWED_GLOBALS.map(() => undefined));
   if (!plugin || typeof plugin !== 'object') {
     throw new Error('plugin entry did not return a plugin object');
   }

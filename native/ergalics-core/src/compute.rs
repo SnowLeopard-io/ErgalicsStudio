@@ -155,7 +155,7 @@ impl ComputeKernel {
         let shader: GpuShaderModule = device.create_shader_module(&shader_module_desc);
 
         // Build a real bind group layout from the descriptor's bindings.
-        let layout_entries = js_sys::Array::new();
+        let mut layout_entries: Vec<GpuBindGroupLayoutEntry> = Vec::new();
         for binding in descriptor.bindings.iter() {
             let entry = GpuBindGroupLayoutEntry::new(binding.binding, binding.visibility);
             if binding.buffer_type != "none" {
@@ -173,11 +173,11 @@ impl ComputeKernel {
                 }
                 GpuBindGroupLayoutEntry::set_buffer(&entry, &buffer_layout);
             }
-            layout_entries.push(&entry);
+            layout_entries.push(entry);
         }
 
-        let bind_group_layout: GpuBindGroupLayout =
-            device.create_bind_group_layout(&GpuBindGroupLayoutDescriptor::new(&layout_entries))?;
+        let bind_group_layout: GpuBindGroupLayout = device
+            .create_bind_group_layout(&GpuBindGroupLayoutDescriptor::new(&layout_entries))?;
 
         let layouts = [js_sys::JsNullable::wrap(bind_group_layout)];
         let pipeline_layout_desc = GpuPipelineLayoutDescriptor::new(&layouts);
@@ -185,7 +185,7 @@ impl ComputeKernel {
             device.create_pipeline_layout(&pipeline_layout_desc);
 
         let mut stage = GpuProgrammableStage::new(&shader);
-        stage.entry_point(&descriptor.entry_point);
+        stage.set_entry_point(&descriptor.entry_point);
         let compute_desc = GpuComputePipelineDescriptor::new(&pipeline_layout, &stage);
 
         let pipeline = device.create_compute_pipeline(&compute_desc);
@@ -221,7 +221,7 @@ impl ComputeKernel {
     pub fn dispatch(
         &self,
         queue: &GpuQueue,
-        bind_group: Option<&GpuBindGroup>,
+        bind_group: GpuBindGroup,
         workgroup_count_x: u32,
         workgroup_count_y: u32,
         workgroup_count_z: u32,
@@ -233,7 +233,7 @@ impl ComputeKernel {
         {
             let pass = encoder.begin_compute_pass_with_descriptor(&web_sys::GpuComputePassDescriptor::new());
             GpuComputePassEncoder::set_pipeline(&pass, &self.pipeline);
-            GpuComputePassEncoder::set_bind_group(&pass, 0, bind_group);
+            GpuComputePassEncoder::set_bind_group(&pass, 0, Some(&bind_group));
             GpuComputePassEncoder::dispatch_workgroups_with_workgroup_count_y_and_workgroup_count_z(
                 &pass,
                 workgroup_count_x,
