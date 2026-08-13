@@ -48,6 +48,54 @@ for (let y = 0; y < N; y += 1) {
 const fieldPath = join(root, 'examples', 'data', 'field.json');
 writeFileSync(fieldPath, JSON.stringify(field));
 
+// ---------- tornado.xyz ----------
+// Helical vortex point cloud (3D point cloud demo). Deterministic LCG so
+// regenerating produces byte-identical output.
+function lcg(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+const tornado = [];
+{
+  const rnd = lcg(42);
+  const N = 2000;
+  for (let i = 0; i < N; i += 1) {
+    const t = (i / N) * 6.28 * 3.2;
+    const h = (i / (N - 1)) * 9 - 4.5;
+    const r = 1.6 * Math.exp(-0.14 * (i / N) * 6.28 * 0.9);
+    const x = r * Math.cos(t) + (rnd() - 0.5) * 0.06;
+    const y = r * Math.sin(t) + (rnd() - 0.5) * 0.06;
+    const z = h + Math.sin(t * 3) * 0.06;
+    tornado.push(`${x.toFixed(4)} ${y.toFixed(4)} ${z.toFixed(4)}`);
+  }
+}
+writeFileSync(join(root, 'examples', 'data', 'tornado.xyz'), tornado.join('\n') + '\n');
+
+// ---------- scatter-clusters.dat ----------
+// Three gaussian clusters with an intensity column (scatter demo).
+const clusters = [];
+{
+  const rnd = lcg(7);
+  const centers = [
+    [0, 0],
+    [4.2, 2.3],
+    [-3.4, 3.1],
+  ];
+  for (let k = 0; k < centers.length; k += 1) {
+    const [cx, cy] = centers[k];
+    for (let i = 0; i < 320; i += 1) {
+      const x = cx + (rnd() + rnd() + rnd() - 1.5) * 0.85;
+      const y = cy + (rnd() + rnd() + rnd() - 1.5) * 0.85;
+      const c = (k + 1) * 0.35 + rnd() * 0.3;
+      clusters.push(`${x.toFixed(4)} ${y.toFixed(4)} ${c.toFixed(4)}`);
+    }
+  }
+}
+writeFileSync(join(root, 'examples', 'data', 'scatter-clusters.dat'), clusters.join('\n') + '\n');
+
 // ---------- test pattern PNG ----------
 const W = 128;
 const H = 128;
@@ -127,4 +175,6 @@ writeFileSync(
 console.log('generated:');
 console.log('  distribution.dat', lines.length, 'values');
 console.log('  field.json', N + 'x' + N);
+console.log('  tornado.xyz', tornado.length, 'points');
+console.log('  scatter-clusters.dat', clusters.length, 'points');
 console.log('  exampleAssets.ts', base64.length, 'base64 chars');

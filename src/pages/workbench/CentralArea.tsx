@@ -45,6 +45,16 @@ export function CentralArea() {
         }
         return scene3dRef.current ?? undefined;
       },
+      setThreeVisible: (visible) => {
+        if (scene3dRef.current) scene3dRef.current.setVisible(visible);
+      },
+      clearCanvas2d: () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const g = canvas.getContext('2d');
+        if (!g) return;
+        g.clearRect(0, 0, canvas.width, canvas.height);
+      },
     });
     return () => {
       setHostContainers(null);

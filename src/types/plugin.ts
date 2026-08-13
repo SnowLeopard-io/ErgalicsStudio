@@ -146,6 +146,12 @@ export interface Scene3DHandle {
   controls: OrbitControls;
   /** WebGL renderer bound to the host canvas. */
   renderer: WebGLRenderer;
+  /**
+   * Show/hide the 3D surface. The host hides it automatically when a
+   * non-3D plugin is activated, so a 3D coordinate system never bleeds
+   * into a 2D viewport.
+   */
+  setVisible(visible: boolean): void;
   /** Release GPU resources and stop the render loop. */
   dispose(): void;
   /** Render one frame immediately. */

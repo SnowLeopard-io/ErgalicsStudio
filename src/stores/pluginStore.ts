@@ -48,6 +48,10 @@ export interface HostContainers {
   reportDataScale: (n: number) => void;
   /** Lazily create (and cache) the host-managed Three.js scene handle. */
   getThree?: () => Scene3DHandle | undefined;
+  /** Show/hide the cached 3D surface (3D-only plugins show it). */
+  setThreeVisible?: (visible: boolean) => void;
+  /** Clear the shared 2D canvas (prevents stale frames leaking between plugins). */
+  clearCanvas2d?: () => void;
 }
 
 let hostContainers: HostContainers | null = null;
@@ -203,6 +207,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     await get().deactivate();
     const ctx = createContext(id);
     try {
+      // Surface visibility is a host concern, decided here centrally: a 3D
+      // coordinate system must never bleed into a 2D viewport and vice
+      // versa. Only plugins that declare renderToScene get the 3D surface.
+      const is3D = typeof entry.plugin.renderToScene === 'function';
+      if (is3D) {
+        hostContainers?.getThree?.();
+        hostContainers?.setThreeVisible?.(true);
+        // Clear any stale 2D frame that would otherwise cover the scene.
+        hostContainers?.clearCanvas2d?.();
+      } else {
+        hostContainers?.setThreeVisible?.(false);
+      }
       await entry.plugin.activate(ctx);
       await entry.plugin.render?.(ctx.container);
     } catch (err) {
@@ -239,6 +255,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     }
     for (const sub of activeSubscriptions) sub.unsubscribe();
     activeSubscriptions = [];
+    // Hide the 3D surface whenever no 3D plugin is active, so its
+    // coordinate system never lingers over the 2D viewport.
+    hostContainers?.setThreeVisible?.(false);
+    hostContainers?.clearCanvas2d?.();
     set((s) => ({
       activeId: null,
       registry: s.registry.map((e) => (e.id === activeId ? { ...e, active: false } : e)),

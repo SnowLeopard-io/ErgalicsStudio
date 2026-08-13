@@ -317,7 +317,13 @@ export async function createPluginSandbox(
       const { args, transfer } = toRemoteContainer(context.container);
       await invoke('activate', args, transfer);
     },
-    deactivate: () => invoke('deactivate'),
+    deactivate: () => {
+      // Remove the transferred surface so a sandboxed plugin's canvas
+      // never lingers over the next plugin's viewport.
+      for (const s of surfaces) s.remove();
+      surfaces.length = 0;
+      return invoke('deactivate');
+    },
     render: (container) => {
       const prev = surfaces.pop();
       if (prev) prev.remove();

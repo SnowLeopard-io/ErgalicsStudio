@@ -9,10 +9,12 @@ import type { Locale } from '@/i18n/types';
 
 import diamondXyz from '../../examples/data/diamond.xyz?raw';
 import crystalXyz from '../../examples/data/crystal.xyz?raw';
+import tornadoXyz from '../../examples/data/tornado.xyz?raw';
 import galaxyDat from '../../examples/data/galaxy.dat?raw';
 import telemetryCsv from '../../examples/data/telemetry.csv?raw';
 import datasetJson from '../../examples/data/dataset.json?raw';
 import distributionDat from '../../examples/data/distribution.dat?raw';
+import scatterClustersDat from '../../examples/data/scatter-clusters.dat?raw';
 import fieldJson from '../../examples/data/field.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
@@ -61,6 +63,22 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '512 个原子构成的简立方晶格，适合结构观察类示例。',
       'en-US': '512-atom simple-cubic lattice for structure viewing demos.',
+    },
+  },
+  {
+    id: 'tornado-vortex',
+    filename: 'tornado.xyz',
+    format: 'xyz',
+    mimeType: 'text/plain',
+    pluginId: 'example.point-cloud-3d',
+    content: tornadoXyz,
+    nameI18n: {
+      'zh-CN': '龙卷风螺旋点云',
+      'en-US': 'Tornado Helix Cloud',
+    },
+    descriptionI18n: {
+      'zh-CN': '2000 点螺旋漏斗状点云，3D 点云渲染 + 高度着色示例。',
+      'en-US': '2000-point helical funnel cloud; 3D point cloud + height coloring demo.',
     },
   },
   {
@@ -125,6 +143,22 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '2400 个双高斯混合样本，直方图分箱与对数刻度示例。',
       'en-US': '2400 two-gaussian mixture samples; histogram binning demo.',
+    },
+  },
+  {
+    id: 'scatter-clusters',
+    filename: 'scatter-clusters.dat',
+    format: 'dat',
+    mimeType: 'application/octet-stream',
+    pluginId: 'example.scatter',
+    content: scatterClustersDat,
+    nameI18n: {
+      'zh-CN': '三簇散点数据',
+      'en-US': 'Cluster Scatter Data',
+    },
+    descriptionI18n: {
+      'zh-CN': '960 点三高斯簇（x y 强度），散点图颜色通道示例。',
+      'en-US': '960 points in three gaussian clusters (x y intensity); scatter color-channel demo.',
     },
   },
   {

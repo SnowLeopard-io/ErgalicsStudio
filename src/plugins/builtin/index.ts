@@ -9,6 +9,8 @@ import { timeSeriesManifest } from './timeSeries';
 import { histogramManifest } from './histogram';
 import { heatmapManifest } from './heatmap';
 import { imageViewerManifest } from './imageViewer';
+import { contourManifest } from './contour';
+import { scatterManifest } from './scatter';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -62,6 +64,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: imageViewerManifest,
     load: async () => {
       const mod = await import('./imageViewer');
+      return mod.default();
+    },
+  },
+  {
+    manifest: contourManifest,
+    load: async () => {
+      const mod = await import('./contour');
+      return mod.default();
+    },
+  },
+  {
+    manifest: scatterManifest,
+    load: async () => {
+      const mod = await import('./scatter');
       return mod.default();
     },
   },

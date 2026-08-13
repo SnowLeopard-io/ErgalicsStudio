@@ -17,9 +17,13 @@ const SCENE_BACKGROUND = 0x0b1117;
 export function createScene3D(container: HTMLElement): Scene3DHandle {
   const canvas = document.createElement('canvas');
   canvas.className = 'scene3d-canvas';
-  canvas.style.display = 'block';
+  canvas.style.position = 'absolute';
+  canvas.style.inset = '0';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
+  // Hidden until a 3D-capable plugin activates, so a stale 3D coordinate
+  // system can never cover a 2D viewport.
+  canvas.style.display = 'none';
   container.appendChild(canvas);
 
   const width = container.clientWidth || 640;
@@ -50,16 +54,17 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
 
   let raf = 0;
   let disposed = false;
+  let visible = false;
 
   const renderFrame = () => {
-    if (disposed) return;
+    if (disposed || !visible) return;
     controls.update();
     renderer.render(scene, camera);
   };
 
   const loop = () => {
     if (disposed) return;
-    renderFrame();
+    if (visible) renderFrame();
     raf = requestAnimationFrame(loop);
   };
   loop();
@@ -81,6 +86,15 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
     camera,
     controls,
     renderer,
+    setVisible(next: boolean) {
+      if (disposed || visible === next) return;
+      visible = next;
+      canvas.style.display = next ? 'block' : 'none';
+      if (next) {
+        resize();
+        renderFrame();
+      }
+    },
     render: renderFrame,
     snapshot: () => renderer.domElement.toDataURL('image/png'),
     dispose: () => {

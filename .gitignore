@@ -15,3 +15,5 @@ coverage/
 # them untracked avoids binary merge conflicts in multi-developer repos.
 src/native/ergalics_core.js
 src/native/ergalics_core_bg.wasm
+
+.workbuddy/
