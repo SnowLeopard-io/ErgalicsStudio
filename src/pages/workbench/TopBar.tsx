@@ -64,7 +64,13 @@ export function TopBar() {
 
         <Dropdown
           ariaLabel={t('project.save_as')}
-          trigger={<span title={t('project.save_as')}>⋯</span>}
+          triggerClassName="btn btn-sm"
+          trigger={
+            <span title={t('project.save_as')}>
+              {t('common.more')}
+              <span className="more-caret">▾</span>
+            </span>
+          }
           items={[
             { key: 'new', label: t('project.new'), onClick: () => setNewOpen(true) },
             {

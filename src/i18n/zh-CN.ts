@@ -8,6 +8,7 @@ export const zhCN: LocaleDictionary = {
   'common.cancel': '取消',
   'common.confirm': '确定',
   'common.save': '保存',
+  'common.more': '更多',
   'common.load': '加载',
   'common.delete': '删除',
   'common.close': '关闭',

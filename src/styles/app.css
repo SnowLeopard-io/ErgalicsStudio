@@ -63,6 +63,16 @@
   gap: var(--space-1);
 }
 
+.more-caret {
+  margin-left: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.lang-icon {
+  display: inline-flex;
+}
+
 .welcome-main {
   flex: 1;
   display: flex;

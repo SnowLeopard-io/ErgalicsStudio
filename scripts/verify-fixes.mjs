@@ -1,4 +1,4 @@
-// Verify the three fixes: data-driven particles, point-cloud empty state +
+﻿// Verify the three fixes: data-driven particles, point-cloud empty state +
 // auto-fit, and unified mono font.
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
@@ -59,9 +59,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-01-particles-empty.png' });
 
   // --- load galaxy.dat via topbar example button -> teal dots (static) ---
-  await page.locator('.topbar-actions .btn', { hasText: 'Example Data' }).click();
+  await page.locator('.topbar-actions .btn', { hasText: '示例数据' }).click();
   await sleep(400);
-  await page.locator('.plugin-card .btn-primary', { hasText: 'Load' }).first().click();
+  await page.locator('.plugin-card .btn-primary', { hasText: '加载' }).first().click();
   await sleep(1600);
   s = await sample();
   step('particles galaxy has teal dots (static)', hasColor(s, '45,212,191'));
@@ -81,9 +81,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-03-pointcloud-empty.png' });
 
   // --- load diamond.xyz -> blue points, auto-fit ---
-  await page.locator('.topbar-actions .btn', { hasText: 'Example Data' }).click();
+  await page.locator('.topbar-actions .btn', { hasText: '示例数据' }).click();
   await sleep(400);
-  await page.locator('.plugin-card .btn-primary', { hasText: 'Load' }).first().click();
+  await page.locator('.plugin-card .btn-primary', { hasText: '加载' }).first().click();
   await sleep(1600);
   s = await sample();
   step('pointcloud diamond has blue points', hasColor(s, '37,99,235'));

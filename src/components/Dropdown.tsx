@@ -15,9 +15,18 @@ interface DropdownProps {
   align?: 'left' | 'right';
   className?: string;
   ariaLabel?: string;
+  /** Class applied to the trigger button (default: icon-btn). */
+  triggerClassName?: string;
 }
 
-export function Dropdown({ trigger, items, align = 'right', className, ariaLabel }: DropdownProps) {
+export function Dropdown({
+  trigger,
+  items,
+  align = 'right',
+  className,
+  ariaLabel,
+  triggerClassName = 'icon-btn',
+}: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -41,7 +50,7 @@ export function Dropdown({ trigger, items, align = 'right', className, ariaLabel
     <div className="menu-wrap" ref={ref} aria-label={ariaLabel}>
       <button
         type="button"
-        className="icon-btn"
+        className={triggerClassName}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}

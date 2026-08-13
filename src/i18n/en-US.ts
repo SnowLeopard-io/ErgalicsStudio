@@ -4,6 +4,7 @@ export const enUS: LocaleDictionary = {
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'common.save': 'Save',
+  'common.more': 'More',
   'common.load': 'Load',
   'common.delete': 'Delete',
   'common.close': 'Close',
