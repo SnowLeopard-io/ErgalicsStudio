@@ -34,9 +34,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       colors.set(key, (colors.get(key) ?? 0) + 1);
     }
     const top = [...colors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    return { top };
+    return { top, distinct: colors.size, all: [...colors.keys()] };
   });
   const hasColor = (s, c) => s.top.some(([k]) => k === c);
+  const hasColorAnywhere = (s, c) => s.all.includes(c);
   const runLabel = () => page.locator('.param-panel button.btn-block').first().textContent();
   const loadExample = (title) =>
     page
@@ -114,6 +115,50 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   s = await sample();
   step('pointcloud diamond has blue points', hasColor(s, '37,99,235'));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-04-pointcloud-diamond.png' });
+
+  // --- time series: load telemetry -> teal + amber lines ---
+  await page.locator('.plugin-item', { hasText: 'Time Series' }).click();
+  await sleep(1200);
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await sleep(400);
+  await loadExample('涡轮遥测');
+  await sleep(1600);
+  s = await sample();
+  step('timeseries telemetry has teal+amber lines', hasColorAnywhere(s, '45,212,191') && hasColorAnywhere(s, '251,191,36'));
+  await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-05-timeseries.png' });
+
+  // --- histogram: load distribution.dat -> teal bars ---
+  await page.locator('.plugin-item', { hasText: 'Histogram' }).click();
+  await sleep(1200);
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await sleep(400);
+  await loadExample('混合分布');
+  await sleep(1600);
+  s = await sample();
+  step('histogram bars render (teal)', hasColor(s, '45,212,191'));
+  await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-06-histogram.png' });
+
+  // --- heatmap: load field.json -> viridis ramp ---
+  await page.locator('.plugin-item', { hasText: 'Heatmap' }).click();
+  await sleep(1200);
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await sleep(400);
+  await loadExample('涡旋场');
+  await sleep(1600);
+  s = await sample();
+  step('heatmap renders viridis colors', s.top.length > 3);
+  await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-07-heatmap.png' });
+
+  // --- image viewer: load test-pattern.png -> many colors ---
+  await page.locator('.plugin-item', { hasText: 'Image Viewer' }).click();
+  await sleep(1200);
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await sleep(400);
+  await loadExample('测试图案');
+  await sleep(1800);
+  s = await sample();
+  step('image viewer renders pattern (many colors)', s.distinct > 50);
+  await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-08-imageviewer.png' });
 
   out.push('=== ERRORS ===');
   out.push(errors.length ? errors.join('\n') : '(none)');
