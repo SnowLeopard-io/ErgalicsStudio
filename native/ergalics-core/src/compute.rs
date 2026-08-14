@@ -8,13 +8,15 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    GpuBindGroup, GpuBindGroupLayout, GpuBindGroupLayoutDescriptor, GpuBindGroupLayoutEntry,
-    GpuBufferBindingLayout, GpuBufferBindingType, GpuCommandBuffer, GpuCommandEncoderDescriptor,
-    GpuCompilationInfo, GpuCompilationMessage, GpuCompilationMessageType, GpuComputePassEncoder,
-    GpuComputePipeline, GpuComputePipelineDescriptor, GpuDevice, GpuPipelineLayout,
-    GpuPipelineLayoutDescriptor, GpuProgrammableStage, GpuQueue, GpuShaderModule,
-    GpuShaderModuleDescriptor,
+    GpuBindGroup, GpuBindGroupDescriptor, GpuBindGroupEntry, GpuBindGroupLayout,
+    GpuBindGroupLayoutDescriptor, GpuBindGroupLayoutEntry, GpuBufferBindingLayout,
+    GpuBufferBindingType, GpuCommandBuffer, GpuCommandEncoderDescriptor, GpuCompilationInfo,
+    GpuCompilationMessage, GpuCompilationMessageType, GpuComputePassEncoder, GpuComputePipeline,
+    GpuComputePipelineDescriptor, GpuDevice, GpuPipelineLayout, GpuPipelineLayoutDescriptor,
+    GpuProgrammableStage, GpuQueue, GpuShaderModule, GpuShaderModuleDescriptor,
 };
+
+use crate::buffer::GpuBuffer;
 
 /// `GPUShaderStage::COMPUTE` bit flag (WebGPU spec).
 pub const SHADER_STAGE_COMPUTE: u32 = 4;
@@ -139,6 +141,7 @@ pub struct ComputeKernel {
     device: GpuDevice,
     pipeline: GpuComputePipeline,
     shader: GpuShaderModule,
+    bind_group_layout: GpuBindGroupLayout,
     label: String,
     workgroup_size: Vec<u32>,
 }
@@ -179,12 +182,12 @@ impl ComputeKernel {
         let bind_group_layout: GpuBindGroupLayout = device
             .create_bind_group_layout(&GpuBindGroupLayoutDescriptor::new(&layout_entries))?;
 
-        let layouts = [js_sys::JsNullable::wrap(bind_group_layout)];
+        let layouts = [js_sys::JsNullable::wrap(bind_group_layout.clone())];
         let pipeline_layout_desc = GpuPipelineLayoutDescriptor::new(&layouts);
         let pipeline_layout: GpuPipelineLayout =
             device.create_pipeline_layout(&pipeline_layout_desc);
 
-        let mut stage = GpuProgrammableStage::new(&shader);
+        let stage = GpuProgrammableStage::new(&shader);
         stage.set_entry_point(&descriptor.entry_point);
         let compute_desc = GpuComputePipelineDescriptor::new(&pipeline_layout, &stage);
 
@@ -194,6 +197,7 @@ impl ComputeKernel {
             device,
             pipeline,
             shader,
+            bind_group_layout,
             label: descriptor.label,
             workgroup_size: descriptor.workgroup_size,
         })
@@ -245,6 +249,44 @@ impl ComputeKernel {
         let command_buffer = encoder.finish();
         GpuQueue::submit(queue, &[command_buffer]);
         Ok(())
+    }
+
+    /// Build a bind group binding the given buffers to this kernel's layout.
+    ///
+    /// Buffers are bound in order: buffer `i` becomes binding `i`. The
+    /// layout comes from the kernel's compile-time `BindingDescriptor`s, so
+    /// the buffer usage must match the declared binding type (storage vs
+    /// read-only-storage vs uniform).
+    pub fn bind_group(&self, buffers: Vec<GpuBuffer>) -> Result<GpuBindGroup, JsValue> {
+        let mut entries: Vec<GpuBindGroupEntry> = Vec::with_capacity(buffers.len());
+        for (i, buffer) in buffers.iter().enumerate() {
+            entries.push(GpuBindGroupEntry::new_with_gpu_buffer(
+                i as u32,
+                &buffer.buffer(),
+            ));
+        }
+        let descriptor = GpuBindGroupDescriptor::new(&entries, &self.bind_group_layout);
+        Ok(GpuDevice::create_bind_group(&self.device, &descriptor))
+    }
+
+    /// One-shot convenience: build a bind group from `buffers`, dispatch a
+    /// single workload, and submit — the whole pipeline in one call.
+    pub fn run(
+        &self,
+        queue: &GpuQueue,
+        buffers: Vec<GpuBuffer>,
+        workgroup_count_x: u32,
+        workgroup_count_y: u32,
+        workgroup_count_z: u32,
+    ) -> Result<(), JsValue> {
+        let bind_group = self.bind_group(buffers)?;
+        self.dispatch(
+            queue,
+            bind_group,
+            workgroup_count_x,
+            workgroup_count_y,
+            workgroup_count_z,
+        )
     }
 
     /// Await shader compilation info and return diagnostic messages.

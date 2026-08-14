@@ -9,14 +9,27 @@
 // ==========================================================================
 
 import type {
+  ComputeBufferHandle,
+  ComputeProgress,
+  ComputeResult,
+  ContainerCapabilities,
+  GpuComputeApi,
   ParamDefinition,
   Plugin,
   PluginApi,
   PluginManifest,
-  ContainerCapabilities,
-  ComputeProgress,
-  ComputeResult,
 } from '@/types/plugin';
+import { logger } from '@/core/logger';
+import {
+  advanceParticleCPU,
+  packParticleParams,
+  packParticles,
+  particleBufferBytes,
+  particleKernelWGSL,
+  PARTICLES_BUFFER_USAGE,
+  PARTICLES_UNIFORM_USAGE,
+  unpackParticles,
+} from '@/core/wgsl';
 
 export const particleManifest: PluginManifest = {
   id: 'example.particles',
@@ -95,6 +108,9 @@ export class ParticlePlugin implements Plugin {
       if (params.start) this.start();
       else this.stop();
     }
+    if (params !== null && typeof params === 'object' && 'action' in params && params.action === 'gpu-compute') {
+      void this.runCompute();
+    }
   }
 
   getParams(): ParamDefinition[] {
@@ -108,6 +124,14 @@ export class ParticlePlugin implements Plugin {
         value: this.state.running,
         offLabelI18n: { 'zh-CN': '▶ 开始模拟', 'en-US': '▶ Start' },
         onLabelI18n: { 'zh-CN': '■ 停止模拟', 'en-US': '■ Stop' },
+      },
+      {
+        key: 'compute',
+        label: 'Compute',
+        type: 'button',
+        variant: 'primary',
+        action: 'gpu-compute',
+        labelI18n: { 'zh-CN': '⚡ GPU 加速计算', 'en-US': '⚡ GPU compute' },
       },
     ];
   }
@@ -128,16 +152,131 @@ export class ParticlePlugin implements Plugin {
     this.draw();
   }
 
+  /**
+   * Run `steps` integration steps, accelerated by a real WGSL kernel when a
+   * GPU is available. Falls back to the CPU-equivalent integrator otherwise,
+   * so the plugin behaves identically in both modes. Reports the measured
+   * GPU time to the perf panel.
+   */
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
-    const steps = 20;
-    const t0 = performance.now();
-    for (let i = 0; i < steps; i += 1) {
-      await new Promise((r) => setTimeout(r, 10));
-      onProgress?.({ done: i + 1, total: steps });
+    if (this.particles.length === 0) {
+      return { ok: false, error: 'no data — load a .dat file first' };
     }
-    const gpuMs = performance.now() - t0;
-    this.api.reportGpuTime(gpuMs);
-    return { ok: true, metrics: { gpuMs } };
+    const steps = 60;
+    const t0 = performance.now();
+    const gpu = this.api.gpu;
+
+    if (gpu?.available) {
+      this.api.setStatus('computing');
+      const gpuOk = await this.gpuIntegrate(gpu, steps, onProgress);
+      this.api.setStatus('ready');
+      if (gpuOk) {
+        const gpuMs = performance.now() - t0;
+        this.api.reportGpuTime(gpuMs);
+        return {
+          ok: true,
+          output: this.particles.length,
+          metrics: { gpuMs, bytes: particleBufferBytes(this.particles.length) },
+        };
+      }
+    }
+
+    // CPU fallback — mirrors the WGSL integrator exactly.
+    const dt = 1 / 60;
+    for (let s = 0; s < steps; s += 1) {
+      for (const p of this.particles) advanceParticleCPU(p, dt, this.state.speed);
+      onProgress?.({ done: s + 1, total: steps });
+    }
+    this.draw();
+    const cpuMs = performance.now() - t0;
+    this.api.reportGpuTime(cpuMs);
+    return {
+      ok: true,
+      output: this.particles.length,
+      metrics: { gpuMs: cpuMs, bytes: particleBufferBytes(this.particles.length) },
+    };
+  }
+
+  /** Trigger the accelerated compute path from the params panel button. */
+  private async runCompute() {
+    if (this.particles.length === 0) {
+      this.api.notify(
+        'warning',
+        this.api.locale === 'zh-CN'
+          ? '请先加载数据 — 拖入 .dat 文件或打开「示例数据」'
+          : 'Load data first — drop a .dat file or open sample data',
+      );
+      return;
+    }
+    const result = await this.compute(null, (p) => {
+      this.api.notify('info', `${p.done}/${p.total}`);
+    });
+    if (result.ok) {
+      const engine = this.api.gpu?.available ? this.api.gpu?.backend : 'cpu';
+      this.api.notify(
+        'success',
+        this.api.locale === 'zh-CN'
+          ? `计算完成（${engine}）— ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`
+          : `Compute done (${engine}) — ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`,
+      );
+    } else {
+      this.api.notify('error', result.error ?? 'compute failed');
+    }
+  }
+
+  /**
+   * Real WGSL compute path: upload particles + params, dispatch the
+   * integration kernel `steps` times, read the result back and apply it.
+   * Returns false on any failure so `compute()` can fall back to CPU.
+   */
+  private async gpuIntegrate(
+    gpu: GpuComputeApi,
+    steps: number,
+    onProgress?: (p: ComputeProgress) => void,
+  ): Promise<boolean> {
+    const count = this.particles.length;
+    try {
+      const data: ComputeBufferHandle | null = gpu.createBuffer(
+        particleBufferBytes(count),
+        PARTICLES_BUFFER_USAGE,
+        'particles.data',
+      );
+      const paramsBuf: ComputeBufferHandle | null = gpu.createBuffer(
+        16,
+        PARTICLES_UNIFORM_USAGE,
+        'particles.params',
+      );
+      if (!data || !paramsBuf) return false;
+
+      const kernel = gpu.compileKernel({
+        label: 'particles.integrate',
+        wgsl: particleKernelWGSL(),
+        workgroupSize: [64, 1, 1],
+        bindings: [
+          { binding: 0, bufferType: 'storage' },
+          { binding: 1, bufferType: 'uniform' },
+        ],
+      });
+      if (!kernel) return false;
+
+      data.write(packParticles(this.particles));
+      paramsBuf.write(packParticleParams(1 / 60, this.state.speed, count));
+      const workgroups = Math.max(1, Math.ceil(count / 64));
+
+      for (let s = 0; s < steps; s += 1) {
+        if (!gpu.run(kernel, [data, paramsBuf], workgroups, 1, 1)) return false;
+        onProgress?.({ done: s + 1, total: steps });
+      }
+
+      const result = await data.read();
+      unpackParticles(new Float32Array(result), this.particles);
+      this.api.reportDataScale(this.particles.length);
+      this.draw();
+      return true;
+    } catch (err) {
+      logger.warn('particles', 'GPU compute failed, falling back to CPU', err);
+      return false;
+    }
   }
 
   /** Extract numeric columns from arbitrary delimited text. */
@@ -232,10 +371,7 @@ export class ParticlePlugin implements Plugin {
     const dt = Math.min((now - this.lastFrame) / 16.667, 3);
     this.lastFrame = now;
     for (const p of this.particles) {
-      p.x += p.vx * dt * this.state.speed;
-      p.y += p.vy * dt * this.state.speed;
-      if (p.x > 1 || p.x < -1) p.vx *= -1;
-      if (p.y > 1 || p.y < -1) p.vy *= -1;
+      advanceParticleCPU(p, dt, this.state.speed);
     }
     this.draw();
     this.rafId = requestAnimationFrame(this.tick);

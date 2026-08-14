@@ -47,6 +47,10 @@ jobs:
 
       - name: Build frontend
         run: npm run build:web
+        # Docs are embedded in dist/docs/ and served under /<repo>/docs/ on
+        # Pages, so their base must be the full public prefix — not "/docs/".
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/docs/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

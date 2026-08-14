@@ -19,8 +19,8 @@ designs.
 | Settings      | general / GPU / data / about                                   | ✅ Done      |
 | Perf monitor  | FPS / frame / GPU / memory / data-scale + warnings             | ✅ Done      |
 | Sharing       | link generation, project export                                | ✅ Done      |
-| Native core   | device mgmt, compute kernel (compile/dispatch/diagnostics)     | ✅ Core done |
-| GPU compute   | WGSL kernels driving the example plugins                       | 🚧 Next      |
+| Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
+| GPU compute   | `api.gpu` compute surface, WGSL templates, particles plugin accelerated (CPU fallback) | 🟡 Partial  |
 | Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | 🚧 Next      |
 | Error handling| error boundaries, fallbacks, retry                            | 🟡 Partial   |
@@ -29,9 +29,13 @@ designs.
 
 1. **M1 — Solidify the scaffold** *(current)*: complete the plugin
    lifecycle, sandbox, and test coverage; land the docs site.
-2. **M2 — Real GPU compute**: move the example plugins from simulated
-   progress to actual WGSL kernels (particles first), expose buffers and
-   bind groups through the plugin API, and add GPU perf telemetry.
+2. **M2 — Real GPU compute**: the foundations are in place — the native core
+   exposes `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an
+   `api.gpu` compute surface, reusable WGSL templates live in
+   `src/core/wgsl.ts`, and the Particles plugin runs a real WGSL integration
+   kernel with a CPU fallback. Remaining: accelerate the remaining example
+   plugins (histogram binning, heatmap/contour grids, point-cloud transforms)
+   and add GPU perf telemetry per kernel.
 3. **M3 — Marketplace**: package registry, versioning, signature
    verification, and in-app install/update flows.
 4. **M4 — CI + release**: GitHub Actions pipeline, artifact publishing,

@@ -22,13 +22,15 @@ The project is in the **planning stage**. The following are functional today:
 - The full workbench loop: projects, file routing, plugin registry,
   parameter panels, status/perf bars.
 - Eight example plugins covering the 2D and 3D rendering paths.
-- A real WebGPU compute-kernel pipeline exposed from Rust (`compile`,
-  `dispatch`, `compilation_info`) plus device management.
+- A real WebGPU compute pipeline: `GpuBuffer` management and kernel
+  compile/dispatch/run from Rust, an `api.gpu` compute surface for plugins,
+  reusable WGSL templates, and the Particles plugin accelerated by a WGSL
+  kernel with a CPU fallback.
 - A Worker-based plugin sandbox with a typed RPC protocol.
 - i18n, theming, sharing, and automated tests (unit + E2E).
 
-Not yet built: GPU-accelerated compute inside the example plugins, a plugin
-marketplace with package signing, and CI automation.
+Not yet built: GPU acceleration across the remaining example plugins, a
+plugin marketplace with package signing, and CI automation.
 
 > The intent is that the scaffold grows into a production system by adding
 > features **into** this structure — not by rewriting it.

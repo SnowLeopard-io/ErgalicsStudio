@@ -7,12 +7,14 @@
 //!
 //! All logic is reachable from JS/TS through wasm-bindgen exports.
 
+mod buffer;
 mod compute;
 mod device;
 mod utils;
 
 use wasm_bindgen::prelude::*;
 
+pub use buffer::GpuBuffer;
 pub use compute::{BindingDescriptor, ComputeKernel, ComputeQueue, KernelDescriptor};
 pub use device::{GpuDeviceManager, GpuInfo};
 pub use utils::detect_file_kind;

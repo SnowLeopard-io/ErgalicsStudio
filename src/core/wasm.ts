@@ -3,11 +3,24 @@
 // ==========================================================================
 
 import { logger } from './logger';
+import type {
+  BindingDescriptor,
+  ComputeKernel,
+  ComputeQueue,
+  GpuBuffer,
+  KernelDescriptor,
+} from '@/native/ergalics_core';
 
 export interface WasmModule {
   core_version(): string;
   detect_file_kind(prefix: Uint8Array): string | undefined;
   log(message: string): void;
+  /** Compute surface (present on the native core build). */
+  GpuBuffer?: typeof GpuBuffer;
+  ComputeKernel?: typeof ComputeKernel;
+  KernelDescriptor?: typeof KernelDescriptor;
+  BindingDescriptor?: typeof BindingDescriptor;
+  ComputeQueue?: typeof ComputeQueue;
 }
 
 let module: WasmModule | null = null;

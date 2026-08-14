@@ -232,7 +232,7 @@ See [Documentation](#documentation) for details.
 | ----------------- | ----------------------- | ------------------------- |
 | Point Cloud       | `.xyz`                  | 2D canvas                 |
 | Point Cloud 3D    | `.xyz`, `.dat`          | Three.js scene, height ramp |
-| Particles         | `.dat`                  | 2D simulation + compute progress |
+| Particles         | `.dat`                  | 2D simulation + real WGSL compute + progress |
 | Time Series       | `.csv`                  | 2D line charts            |
 | Histogram         | `.dat`                  | binning + log scale       |
 | Heatmap           | `.json` (grid)          | viridis ramp              |
@@ -278,21 +278,42 @@ The Rust crate `native/ergalics-core` compiles to `wasm32-unknown-unknown`
 and is bound with wasm-bindgen. Current surface:
 
 - `GpuDeviceManager` — adapter/device acquisition with CPU-fallback option.
+- `GpuBuffer` — the missing buffer half of the compute foundation: create
+  with an explicit usage mask (`create_storage`, `create_readable_storage`,
+  `create_uniform`), upload bytes with `write`, and read results back
+  asynchronously with `read` (`mapAsync` → copy).
 - `KernelDescriptor` + `BindingDescriptor` — describe a compute kernel and
   its buffer bindings (uniform / storage / read-only-storage, dynamic
   offsets, min binding size).
 - `ComputeKernel::compile` — builds a **real** `GPUBindGroupLayout` from the
   binding descriptors, compiles the WGSL module, and creates the pipeline.
-- `ComputeKernel::dispatch(queue, bindGroup, x, y, z)` — encodes and submits
-  a single dispatch.
+- `ComputeKernel::bind_group` — materializes a bind group (buffer *i* →
+  binding *i*) from the kernel's retained layout.
+- `ComputeKernel::run(queue, buffers, x, y, z)` — bind group + dispatch +
+  submit in one call; `dispatch(queue, bindGroup, x, y, z)` remains for
+  host-managed command encoders.
 - `ComputeKernel::compilation_info()` — surfaces WGSL compile diagnostics
   (error/warning + line/column) asynchronously.
 - `detect_file_kind` — magic-number file detection used by the loader.
 
-The JS side (`src/core/gpu.ts`) requests the adapter/device, tracks
-uncaptured errors and out-of-memory, and reports GPU time to the perf panel.
-The compute scheduler is intentionally small; the host drives command
-encoders directly for anything beyond a single dispatch.
+### Host-side compute service
+
+`src/core/gpu.ts` owns the adapter/device lifecycle (CPU fallback, OOM
+tracking). On top of it, `src/core/compute.ts` exposes the **plugin-facing
+compute surface** (`PluginApi.gpu`): `createBuffer` / `write` / `read`,
+`compileKernel` + `compilationInfo`, and one-shot `run`. It routes through
+the Rust core when the WASM module is loaded and through the raw WebGPU API
+otherwise — so accelerated compute works in dev *and* production, and the
+Rust core stays the reference engine.
+
+Reusable WGSL kernels live in `src/core/wgsl.ts` (particle integration),
+paired with host-side pack/unpack helpers that mirror the kernel math for
+the CPU fallback. The Particles plugin demonstrates the full accelerated
+path: upload interleaved `[x, y, vx, vy]` + uniform params → dispatch the
+WGSL integrator → read back → report real GPU time.
+
+> When WebGPU (or the WASM module) is unavailable, `api.gpu` is `undefined`
+> and plugins fall back to CPU — same behaviour, no GPU required.
 
 ---
 
@@ -305,9 +326,10 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-51 tests across 7 suites: file-format detection, cspkg parsing/validation,
+63 tests across 9 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
-i18n, app store, WASM retry policy, and built-in plugin logic.
+i18n, app store, WASM retry policy, GPU compute (WGSL templates, buffer
+packing, CPU integrator, service gating), and built-in plugin logic.
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -352,7 +374,8 @@ table. Highlights:
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
 - [x] Vitest unit tests + Playwright E2E suites
-- [ ] GPU-accelerated compute in example plugins (WGSL kernels)
+- [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
+- [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
 - [ ] Plugin marketplace & package signing
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
 

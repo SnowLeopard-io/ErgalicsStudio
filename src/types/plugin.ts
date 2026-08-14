@@ -189,6 +189,88 @@ export interface ComputeResult {
   error?: string;
 }
 
+// ---- GPU compute (spec §3.2.6, §8.3) ----
+
+/** A single particle in the interleaved `[x, y, vx, vy]` layout. */
+export interface ParticleState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+/**
+ * Opaque handle to a GPU buffer. `write` uploads bytes through the queue;
+ * `read` maps the buffer back (requires `MAP_READ` usage) and resolves to
+ * the buffer contents. Buffers live on the host's GPU device.
+ */
+export interface ComputeBufferHandle {
+  /** Byte size of the buffer. */
+  readonly size: number;
+  /** `GPUBufferUsage` bit mask the buffer was created with. */
+  readonly usage: number;
+  /** Upload a typed array starting at `offset` bytes. */
+  write(data: ArrayBufferView, offset?: number): void;
+  /** Map the buffer and resolve with a copy of its bytes. */
+  read(): Promise<ArrayBuffer>;
+}
+
+/** Descriptor for compiling a WGSL compute kernel on the host. */
+export interface GpuKernelDescriptor {
+  label: string;
+  wgsl: string;
+  entryPoint?: string;
+  workgroupSize?: [number, number, number];
+  /** Buffer bindings of the kernel's single bind group (group 0). */
+  bindings: Array<{
+    binding: number;
+    bufferType: 'storage' | 'read-only-storage' | 'uniform';
+  }>;
+}
+
+/** A compiled WGSL compute kernel. */
+export interface GpuKernelHandle {
+  readonly label: string;
+  /** Resolve with WGSL compile diagnostics (empty when clean). */
+  compilationInfo(): Promise<string[]>;
+}
+
+/**
+ * GPU compute surface exposed to plugins through `PluginApi.gpu`.
+ *
+ * Provided only when a WebGPU device is available. Plugins must check
+ * `available` and fall back to CPU when it is false. The implementation
+ * routes through the Rust/WASM core when loaded, otherwise through the raw
+ * WebGPU API — plugins never touch raw GPU objects directly.
+ */
+export interface GpuComputeApi {
+  readonly available: boolean;
+  /** `"wasm"` when the native core drives compute, `"webgpu"` otherwise. */
+  readonly backend: 'wasm' | 'webgpu' | 'none';
+  /**
+   * Create a GPU buffer of `size` bytes with a `GPUBufferUsage` bit mask.
+   * Returns `null` when creation fails.
+   */
+  createBuffer(size: number, usage: number, label?: string): ComputeBufferHandle | null;
+  /**
+   * Compile a WGSL kernel. Returns `null` when compilation fails; use
+   * `kernel.compilationInfo()` for diagnostics.
+   */
+  compileKernel(descriptor: GpuKernelDescriptor): GpuKernelHandle | null;
+  /**
+   * Build a bind group from `buffers` (buffer i → binding i) and dispatch
+   * one workload of `x × y × z` workgroups, then submit. Returns false if
+   * the kernel or buffers are foreign to this service.
+   */
+  run(
+    kernel: GpuKernelHandle,
+    buffers: ComputeBufferHandle[],
+    workgroupCountX: number,
+    workgroupCountY: number,
+    workgroupCountZ: number,
+  ): boolean;
+}
+
 // ---- Host API exposed to plugins (spec §6.4 / §8.4 / plugin isolation) ----
 
 export interface PluginApi {
@@ -207,6 +289,13 @@ export interface PluginApi {
   reportDataScale(n: number): void;
   /** Show a toast notification to the user. */
   notify(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
+
+  /**
+   * GPU compute surface (WGSL kernels + buffers). Present only when a
+   * WebGPU device is available — plugins must handle `undefined` and fall
+   * back to CPU. Unavailable inside the Worker sandbox.
+   */
+  readonly gpu?: GpuComputeApi;
 
   /** Load a file through the host data loader. */
   openFile(): Promise<File | null>;

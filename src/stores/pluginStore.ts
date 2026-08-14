@@ -12,6 +12,7 @@ import { getLocale, t } from '@/i18n';
 import { pluginChannel, on, emit, type BusSubscription } from '@/core/events';
 import { logger } from '@/core/logger';
 import { revokeCspkgUrls } from '@/core/cspkg';
+import { getGpuCompute } from '@/core/compute';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
 
@@ -75,6 +76,9 @@ function buildPluginApi(pluginId: string): PluginApi {
     },
     reportGpuTime: (ms) => useAppStore.getState().setGpuMs(ms),
     reportDataScale: (n) => useAppStore.getState().setDataScale(n),
+    get gpu() {
+      return getGpuCompute() ?? undefined;
+    },
     notify: (kind, message) => useAppStore.getState().notify(kind, message),
     openFile: async () => {
       const input = document.createElement('input');

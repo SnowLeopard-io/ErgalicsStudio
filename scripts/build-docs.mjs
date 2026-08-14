@@ -24,9 +24,12 @@ console.log('> Building docs (vitepress)…');
 execSync('npm run build', {
   cwd: docsDir,
   stdio: 'inherit',
-  // Absolute base so in-app links (/docs/guide/...) resolve correctly when
-  // the site is served from the main app's dist/docs/.
-  env: { ...process.env, DOCS_BASE: '/docs/' },
+  // Absolute base so in-app links resolve correctly. Overridable so the
+  // public path matches where the docs are actually served:
+  //   - domain-root embed / local preview  -> "/docs/"
+  //   - GitHub Pages embed (this repo)      -> "/ErgalicsStudio/docs/"
+  //     (set by .github/workflows/deploy.yml)
+  env: { ...process.env, DOCS_BASE: process.env.DOCS_BASE ?? '/docs/' },
 });
 
 if (!existsSync(built)) {

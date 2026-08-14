@@ -2,10 +2,11 @@ import { defineConfig } from 'vitepress';
 
 // Base path strategy (absolute only — a relative base breaks deep-page
 // navigation, producing nested-URL loops like /guide/guide/guide/...):
-// - dev: "/"
-// - embedded into the main app: "/docs/" (set via DOCS_BASE in
-//   scripts/build-docs.mjs)
-// - standalone deploy (e.g. GitHub Pages): "/ErgalicsStudio/" (default)
+// - dev: "/" (vite dev server sets NODE_ENV=development)
+// - embedded in the main app: DOCS_BASE, set by scripts/build-docs.mjs.
+//   Defaults to "/docs/" (domain-root deploy / local preview); the GitHub
+//   Pages workflow overrides it to "/<repo>/docs/" to match the real path.
+// - standalone docs deploy (e.g. GitHub Pages): "/ErgalicsStudio/" (default)
 const isDev = process.env.NODE_ENV === 'development';
 const base = process.env.DOCS_BASE ?? (isDev ? '/' : '/ErgalicsStudio/');
 

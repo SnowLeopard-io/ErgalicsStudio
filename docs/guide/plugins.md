@@ -72,8 +72,32 @@ and the host toggles visibility for you.
 Plugins interact with the host through a small, capability-limited API:
 locale (`locale`, `t`, `onLocaleChange`), status/perf (`setStatus`,
 `reportGpuTime`, `reportDataScale`), notifications (`notify`), files
-(`openFile`, `readText`, `readBinary`), and project-scoped persistence
-(`getParam`, `setParam`).
+(`openFile`, `readText`, `readBinary`), project-scoped persistence
+(`getParam`, `setParam`), and — when a WebGPU device is available — GPU
+compute (`gpu`, see [Native Core & WebGPU](native-core)).
+
+### GPU compute
+
+`api.gpu` is present only when WebGPU is available (and inside the Worker
+sandbox it is always absent), so always guard with `available`:
+
+```ts
+const gpu = api.gpu;
+if (!gpu?.available) {
+  // CPU fallback — same math, no GPU.
+}
+
+const data = gpu.createBuffer(bytes, GPUBufferUsage.STORAGE | 8 | 1, 'data');
+const kernel = gpu.compileKernel({
+  label: 'my.kernel',
+  wgsl: myWgsl,                    // or a template from src/core/wgsl.ts
+  workgroupSize: [64, 1, 1],
+  bindings: [{ binding: 0, bufferType: 'storage' }],
+});
+data.write(particles);
+gpu.run(kernel, [data], workgroups, 1, 1);   // bind group + dispatch + submit
+const result = await data.read();            // mapAsync → copy
+```
 
 ## Building a `.cspkg` package
 
