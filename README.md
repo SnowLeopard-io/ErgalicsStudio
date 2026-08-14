@@ -81,7 +81,7 @@ production system without a rewrite.
 
 **Plugin system**
 
-- 8 built-in example plugins covering the full API surface.
+- 11 built-in example plugins covering the full API surface.
 - `.cspkg` package loading (ZIP with `manifest.json` + entry + assets) with
   manifest validation (id format, entry path traversal guard, sandbox enum).
 - **Real sandbox isolation** (§6.2): third-party entry code runs inside a
@@ -117,7 +117,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (8 plugins)<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (11 plugins)<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -211,7 +211,7 @@ See [Documentation](#documentation) for details.
 │   ├── core/                 #   services: storage, events, i18n, gpu, wasm,
 │   │                         #   fileFormat, scene3d, sandbox, cspkg, …
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
-│   ├── plugins/builtin/      #   8 example plugins (2D + 3D)
+│   ├── plugins/builtin/      #   11 example plugins (2D + 3D)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings)
 │   ├── types/                #   plugin & project contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
@@ -239,6 +239,8 @@ See [Documentation](#documentation) for details.
 | Image Viewer      | `.png`                  | base64 asset              |
 | Contour           | `.json` (grid)          | color ramp + isolines     |
 | Scatter           | `.dat`, `.csv`, `.xyz`  | 2D scatter, color channel |
+| N-Body Gravity    | `.json` (bodies)        | 3D Three.js points + WGSL all-pairs gravity |
+| Protein Interactions | `.json` (network)    | force-directed layout + component metrics |
 
 ### Third-party packages (`.cspkg`)
 
@@ -280,8 +282,9 @@ and is bound with wasm-bindgen. Current surface:
 - `GpuDeviceManager` — adapter/device acquisition with CPU-fallback option.
 - `GpuBuffer` — the missing buffer half of the compute foundation: create
   with an explicit usage mask (`create_storage`, `create_readable_storage`,
-  `create_uniform`), upload bytes with `write`, and read results back
-  asynchronously with `read` (`mapAsync` → copy).
+  `create_uniform`), upload bytes with `write`, and read results back with
+  `read` (copies into a dedicated `MAP_READ | COPY_DST` readback buffer — see
+  the buffer-usage note below).
 - `KernelDescriptor` + `BindingDescriptor` — describe a compute kernel and
   its buffer bindings (uniform / storage / read-only-storage, dynamic
   offsets, min binding size).
@@ -306,11 +309,13 @@ the Rust core when the WASM module is loaded and through the raw WebGPU API
 otherwise — so accelerated compute works in dev *and* production, and the
 Rust core stays the reference engine.
 
-Reusable WGSL kernels live in `src/core/wgsl.ts` (particle integration),
-paired with host-side pack/unpack helpers that mirror the kernel math for
-the CPU fallback. The Particles plugin demonstrates the full accelerated
-path: upload interleaved `[x, y, vx, vy]` + uniform params → dispatch the
-WGSL integrator → read back → report real GPU time.
+Reusable WGSL kernels live in `src/core/wgsl.ts` (particle integration and
+3-D all-pairs N-body gravity), paired with host-side pack/unpack helpers that
+mirror the kernel math for the CPU fallback. The Particles plugin demonstrates
+the single-buffer path (upload interleaved `[x, y, vx, vy]` + uniform params →
+dispatch the WGSL integrator → read back → report real GPU time); the N-Body
+plugin demonstrates the heavier all-pairs path with ping-pong buffers that keep
+every integration step on the device with no per-step read-back.
 
 > When WebGPU (or the WASM module) is unavailable, `api.gpu` is `undefined`
 > and plugins fall back to CPU — same behaviour, no GPU required.
@@ -326,7 +331,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-63 tests across 9 suites: file-format detection, cspkg parsing/validation,
+74 tests across 10 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates, buffer
 packing, CPU integrator, service gating), and built-in plugin logic.
@@ -341,7 +346,7 @@ npm run test:e2e
 | -------------------- | ---------------------------------------------------------------------- |
 | `smoke-test`         | boot, auto-loaded plugins, reactive params, project restore            |
 | `verify-ui`          | layout, theming, canvas, plugin list                                   |
-| `verify-fixes`       | all 8 example plugins render their sample data correctly               |
+| `verify-fixes`       | all 11 example plugins render their sample data correctly              |
 | `verify-3d`          | 3D point cloud in the host Three.js scene                              |
 | `verify-plugins`     | 3D↔2D surface visibility, contour, scatter, tornado sample             |
 
@@ -370,7 +375,7 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 8 example plugins (2D + 3D), cspkg loading, Worker sandbox
+- [x] 11 example plugins (2D + 3D), cspkg loading, Worker sandbox
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
 - [x] Vitest unit tests + Playwright E2E suites

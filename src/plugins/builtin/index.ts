@@ -11,6 +11,8 @@ import { heatmapManifest } from './heatmap';
 import { imageViewerManifest } from './imageViewer';
 import { contourManifest } from './contour';
 import { scatterManifest } from './scatter';
+import { nbodyManifest } from './nbody';
+import { proteinManifest } from './protein';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -78,6 +80,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: scatterManifest,
     load: async () => {
       const mod = await import('./scatter');
+      return mod.default();
+    },
+  },
+  {
+    manifest: nbodyManifest,
+    load: async () => {
+      const mod = await import('./nbody');
+      return mod.default();
+    },
+  },
+  {
+    manifest: proteinManifest,
+    load: async () => {
+      const mod = await import('./protein');
       return mod.default();
     },
   },

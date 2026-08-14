@@ -67,7 +67,7 @@ export class ParticlePlugin implements Plugin {
   readonly manifest = particleManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { count: 5000, speed: 1, running: false, hasData: false };
+  private state: State = { count: 8000, speed: 1, running: false, hasData: false };
   private raw: RawParticle[] = [];
   private particles: RawParticle[] = [];
   private rafId = 0;
@@ -108,14 +108,18 @@ export class ParticlePlugin implements Plugin {
       if (params.start) this.start();
       else this.stop();
     }
-    if (params !== null && typeof params === 'object' && 'action' in params && params.action === 'gpu-compute') {
+    if (
+      params !== null &&
+      typeof params === 'object' &&
+      (params as { compute?: { action?: string } })?.compute?.action === 'gpu-compute'
+    ) {
       void this.runCompute();
     }
   }
 
   getParams(): ParamDefinition[] {
     return [
-      { key: 'count', label: 'Count', type: 'range', min: 500, max: 50000, step: 500, value: this.state.count },
+      { key: 'count', label: 'Count', type: 'range', min: 500, max: 250000, step: 1000, value: this.state.count },
       { key: 'speed', label: 'Speed', type: 'range', min: 0.1, max: 5, step: 0.1, value: this.state.speed },
       {
         key: 'start',
@@ -145,7 +149,7 @@ export class ParticlePlugin implements Plugin {
     const rows = this.parseData(text);
     if (rows.length < 2) return;
     this.raw = rows;
-    this.state.count = Math.min(50000, Math.max(500, this.raw.length));
+    this.state.count = Math.min(250000, Math.max(500, this.raw.length));
     this.state.hasData = true;
     this.resetParticles();
     // Show the loaded data statically; the user starts the run via Run toggle.
@@ -162,7 +166,7 @@ export class ParticlePlugin implements Plugin {
     if (this.particles.length === 0) {
       return { ok: false, error: 'no data — load a .dat file first' };
     }
-    const steps = 60;
+    const steps = 240;
     const t0 = performance.now();
     const gpu = this.api.gpu;
 

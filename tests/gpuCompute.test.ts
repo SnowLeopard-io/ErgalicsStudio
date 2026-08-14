@@ -9,6 +9,7 @@ import {
   particleBufferBytes,
   particleKernelWGSL,
   PARTICLES_BUFFER_USAGE,
+  PARTICLES_UNIFORM_USAGE,
   PARTICLE_FLOATS_PER_PARTICLE,
   unpackParticles,
   GPU_BUFFER_USAGE,
@@ -71,10 +72,14 @@ describe('particle buffer layout', () => {
   });
 
   it('exposes buffer usage flags aligned with GPUBufferUsage', () => {
-    // storage + copy-dst + map-read — the readable storage pattern.
+    // storage + copy-dst + copy-src — WebGPU forbids MAP_READ alongside
+    // STORAGE, so results are read via a separate MAP_READ|COPY_DST buffer.
     expect(PARTICLES_BUFFER_USAGE).toBe(
-      GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.MAP_READ,
+      GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC,
     );
+    // uniform + copy-dst — writeBuffer validation requires COPY_DST on the
+    // destination, otherwise uploading params throws on a real device.
+    expect(PARTICLES_UNIFORM_USAGE).toBe(GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST);
     expect(GPU_BUFFER_USAGE.STORAGE).toBe(128);
     expect(GPU_BUFFER_USAGE.UNIFORM).toBe(64);
   });
@@ -127,7 +132,7 @@ describe('particles plugin compute fallback', () => {
     expect(result.ok).toBe(true);
     expect(result.metrics?.gpuMs).toBeGreaterThanOrEqual(0);
     expect(progress.length).toBeGreaterThan(0);
-    expect(progress[progress.length - 1]).toBe(60);
+    expect(progress[progress.length - 1]).toBe(240);
     expect(api.reportGpuTime).toHaveBeenCalled();
   });
 });

@@ -8,8 +8,8 @@
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    gpu_buffer_usage, gpu_map_mode, GpuBuffer as WgpuBuffer, GpuBufferDescriptor, GpuDevice,
-    GpuQueue,
+    gpu_buffer_usage, gpu_map_mode, GpuBuffer as WgpuBuffer, GpuBufferDescriptor,
+    GpuCommandEncoder, GpuCommandEncoderDescriptor, GpuDevice, GpuQueue,
 };
 
 /// A WebGPU buffer owned by the native core.
@@ -43,32 +43,45 @@ impl GpuBuffer {
     }
 
     /// Storage buffer usable as a compute shader read/write target.
+    ///
+    /// `COPY_SRC` is included so results can be copied into a separate
+    /// `MAP_READ | COPY_DST` readback buffer (WebGPU forbids combining
+    /// `MAP_READ` with `STORAGE`).
     pub fn create_storage(device: GpuDevice, size: u32) -> Result<GpuBuffer, JsValue> {
         Self::new(
             device,
             "storage".to_string(),
             size,
-            gpu_buffer_usage::STORAGE | gpu_buffer_usage::COPY_DST,
+            gpu_buffer_usage::STORAGE
+                | gpu_buffer_usage::COPY_DST
+                | gpu_buffer_usage::COPY_SRC,
         )
     }
 
-    /// Storage buffer that can also be mapped back for reading results.
+    /// Storage buffer that can also be read back (results are copied into a
+    /// separate readback buffer on `read`).
     pub fn create_readable_storage(device: GpuDevice, size: u32) -> Result<GpuBuffer, JsValue> {
         Self::new(
             device,
             "readable-storage".to_string(),
             size,
-            gpu_buffer_usage::STORAGE | gpu_buffer_usage::COPY_DST | gpu_buffer_usage::MAP_READ,
+            gpu_buffer_usage::STORAGE
+                | gpu_buffer_usage::COPY_DST
+                | gpu_buffer_usage::COPY_SRC,
         )
     }
 
     /// Uniform buffer for per-dispatch parameters (16-byte aligned structs).
+    ///
+    /// `COPY_DST` is included so `write` (which goes through
+    /// `queue.writeBuffer`) can upload the parameter bytes; `writeBuffer`
+    /// validation requires the destination buffer to expose `COPY_DST`.
     pub fn create_uniform(device: GpuDevice, size: u32) -> Result<GpuBuffer, JsValue> {
         Self::new(
             device,
             "uniform".to_string(),
             size,
-            gpu_buffer_usage::UNIFORM,
+            gpu_buffer_usage::UNIFORM | gpu_buffer_usage::COPY_DST,
         )
     }
 
@@ -93,17 +106,37 @@ impl GpuBuffer {
         GpuQueue::write_buffer_with_u32_and_u8_slice(queue, &self.buffer, offset, data)
     }
 
-    /// Asynchronously map the buffer (`MAP_READ` usage required) and copy
-    /// its contents back into a `Uint8Array`.
+    /// Asynchronously read the buffer's contents.
+    ///
+    /// WebGPU only allows `MAP_READ` to be combined with `COPY_DST`, so the
+    /// buffer itself cannot be mapped when it is used as compute storage.
+    /// This copies the buffer into a temporary `MAP_READ | COPY_DST` readback
+    /// buffer, maps that, and returns the bytes.
     pub async fn read(&self) -> Result<Vec<u8>, JsValue> {
-        let promise = self.buffer.map_async(gpu_map_mode::READ);
+        let descriptor = GpuBufferDescriptor::new(self.size, gpu_buffer_usage::MAP_READ | gpu_buffer_usage::COPY_DST);
+        descriptor.set_label("readback");
+        let readback = GpuDevice::create_buffer(&self.device, &descriptor)?;
+        let encoder = GpuDevice::create_command_encoder_with_descriptor(
+            &self.device,
+            &GpuCommandEncoderDescriptor::new(),
+        );
+        GpuCommandEncoder::copy_buffer_to_buffer_with_u32_and_u32_and_u32(
+            &encoder,
+            &self.buffer,
+            0,
+            &readback,
+            0,
+            self.size,
+        )?;
+        let command_buffer = encoder.finish();
+        GpuQueue::submit(&self.device.queue(), &[command_buffer]);
+        let promise = readback.map_async(gpu_map_mode::READ);
         promise.await?;
-        let range = self
-            .buffer
+        let range = readback
             .get_mapped_range()
             .map_err(|_| JsValue::from_str("GPU buffer getMappedRange failed"))?;
         let out = Uint8Array::new(&range).to_vec();
-        self.buffer.unmap();
+        readback.unmap();
         Ok(out)
     }
 }

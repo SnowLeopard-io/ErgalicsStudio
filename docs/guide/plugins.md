@@ -87,7 +87,11 @@ if (!gpu?.available) {
   // CPU fallback — same math, no GPU.
 }
 
-const data = gpu.createBuffer(bytes, GPUBufferUsage.STORAGE | 8 | 1, 'data');
+const data = gpu.createBuffer(
+  bytes,
+  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+  'data',
+);
 const kernel = gpu.compileKernel({
   label: 'my.kernel',
   wgsl: myWgsl,                    // or a template from src/core/wgsl.ts
@@ -96,8 +100,88 @@ const kernel = gpu.compileKernel({
 });
 data.write(particles);
 gpu.run(kernel, [data], workgroups, 1, 1);   // bind group + dispatch + submit
-const result = await data.read();            // mapAsync → copy
+const result = await data.read();            // readback copy (read() handles it)
 ```
+
+> **Buffer usage note** — WebGPU only allows `MAP_READ` alongside `COPY_DST`,
+> so a compute storage buffer cannot be mapped directly. Create it with
+> `STORAGE | COPY_DST | COPY_SRC`; `read()` copies the results into a separate
+> `MAP_READ | COPY_DST` readback buffer internally.
+
+## Built-in example plugins
+
+Eleven example plugins ship in `src/plugins/builtin/` and cover the full
+plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
+`compute`, and the `api.gpu` accelerated path:
+
+| Plugin id           | Data                 | Capability                                        |
+| ------------------- | -------------------- | ------------------------------------------------- |
+| `example.point-cloud`   | `.xyz`           | 2D canvas point cloud                             |
+| `example.point-cloud-3d`| `.xyz`, `.dat`   | Three.js `Points`, height ramp, auto-fit          |
+| `example.particles`     | `.dat`           | 2D simulation + real WGSL integration kernel      |
+| `example.timeseries`    | `.csv`           | 2D multi-series line chart                        |
+| `example.histogram`     | `.dat`           | binning + log scale                               |
+| `example.heatmap`       | `.json` (grid)   | viridis ramp                                      |
+| `example.image`         | `.png`           | base64 image viewer                               |
+| `example.contour`       | `.json` (grid)   | color ramp + marching-squares isolines            |
+| `example.scatter`       | `.dat/.csv/.xyz` | 2D scatter with color channel                     |
+| `example.nbody`         | `.json` (bodies) | 3-D all-pairs gravity, GPU + CPU                  |
+| `example.protein`       | `.json` (network)| force-directed layout + component metrics         |
+
+### N-Body Gravity (`example.nbody`)
+
+A 3-D astrophysics demo: direct-summation gravity where every body feels the
+pull of every other body — **O(N²) per step**. It declares `renderToScene`,
+so the host materializes the Three.js scene and the plugin renders the bodies
+as `THREE.Points` (colored by speed, camera auto-fit).
+
+- **Data** — JSON initial conditions. Either an array of `[x, y, z, vx, vy,
+  vz, mass]` tuples or objects with those keys:
+  ```json
+  { "bodies": [[0, 0, 0, 0, 0, 0, 50], [0.9, 0.18, 0.0, 0.01, 0, -1.56, 1]] }
+  ```
+  The bundled sample (`nbody.json`) is a 4096-body **torus ring** orbiting a
+  central mass.
+- **Compute** — the `⚡ GPU all-pairs` button (or `compute()`) uploads the
+  bodies to an interleaved `[x,y,z,vx,vy,vz,mass]` storage buffer and
+  dispatches a WGSL all-pairs kernel. Two buffers are used in **ping-pong** so
+  every integration step stays on the device with no per-step read-back. On
+  CPUs (or when `api.gpu` is absent) the identical integrator
+  (`advanceNBodyCPU` in `src/core/wgsl.ts`) runs as a fallback.
+- **Parameters** — `Bodies` (resample count), `Gravity G`, `Softening`,
+  `Timestep`, `Compute steps`, a `Run` toggle (live animation), and the GPU
+  compute button.
+- The plugin is **data-driven**: it renders an empty scene until a `.json`
+  file or sample data is loaded, and it never fabricates a dataset.
+
+### Protein Interactions (`example.protein`)
+
+A systems-biology demo. Loads a protein-protein interaction (PPI) network and
+computes a **force-directed layout** (Fruchterman-Reingold spring-electrical
+model) — O(V²) repulsion + O(E) attraction per iteration, annealed to
+convergence — then reports biology-relevant metrics.
+
+- **Data** — JSON with `proteins` (`{id, name}`) and `interactions`
+  (`{source, target, weight}` or `[sourceIdx, targetIdx, weight]`):
+  ```json
+  {
+    "proteins": [{ "id": "P0", "name": "Protein-0" }],
+    "interactions": [{ "source": "P0", "target": "P1", "weight": 0.8 }]
+  }
+  ```
+  The bundled sample (`protein.json`) is a 560-protein / ~1700-interaction
+  modular network.
+- **Compute** — the `⚡ Compute layout` button runs `Iterations` steps of the
+  layout with simulated-annealing temperature decay, then reports the number
+  of **connected components** (putative complexes/modules) and the largest
+  component size via the `ComputeResult.output`.
+- **Parameters** — `Proteins`, `Iterations`, `Repulsion (k)`, a `Run` toggle
+  (live relaxation), and the compute button. The live animation anneals its
+  temperature and auto-stops once settled, so nodes do not jitter.
+- Nodes are colored by degree and sized by degree; edges are weighted.
+
+All built-ins register via `BUILTIN_PLUGINS` in `src/plugins/builtin/index.ts`
+and their sample data via `BUILTIN_EXAMPLES` in `src/core/examples.ts`.
 
 ## Building a `.cspkg` package
 

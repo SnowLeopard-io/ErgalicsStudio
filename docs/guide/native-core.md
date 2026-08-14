@@ -12,10 +12,10 @@ generated bindings live in `src/native/`.
 | `detect_file_kind(buf)` | magic-number file detection (used by the format loader)             |
 | `GpuDeviceManager`      | adapter/device acquisition, with `forceFallbackAdapter` support     |
 | `GpuInfo`               | adapter name/backend snapshot                                       |
-| `GpuBuffer`             | GPU buffer: `new(device, label, size, usage)`, `create_storage`, `create_readable_storage`, `create_uniform`; `write(queue, bytes, offset)` upload, `read()` maps back (requires `MAP_READ`) |
+| `GpuBuffer`             | GPU buffer: `new(device, label, size, usage)`, `create_storage`, `create_readable_storage`, `create_uniform`; `write(queue, bytes, offset)` upload, `read()` copies results back through a dedicated readback buffer |
 | `KernelDescriptor`      | label, WGSL source, entry point, workgroup size, bindings           |
 | `BindingDescriptor`     | one buffer binding: binding index, visibility, buffer type, dynamic offset, min size |
-| `ComputeKernel`         | `compile(device, descriptor)`, `bind_group(buffers)`, `run(queue, buffers, x, y, z)`, `dispatch(queue, bindGroup, x, y, z)`, `compilation_info()` |
+| `ComputeKernel`         | `compile(device, descriptor)`, `bind_group(gpuBuffers)`, `run(queue, gpuBuffers, x, y, z)`, `dispatch(queue, bindGroup, x, y, z)`, `compilation_info()` |
 | `ComputeQueue`          | thin submit wrapper                                                 |
 
 `ComputeKernel::compile` builds a **real** `GPUBindGroupLayout` from the
@@ -30,10 +30,13 @@ native.
 message) asynchronously, so WGSL errors can be surfaced to the user instead
 of failing silently.
 
-`GpuBuffer::read()` maps the underlying buffer with `mapAsync` and copies the
-bytes back as a `Uint8Array`; callers must create the buffer with `MAP_READ`
-usage (the `create_readable_storage` convenience does this for compute
-targets).
+`GpuBuffer::read()` returns the buffer's bytes as a `Uint8Array`. WebGPU
+forbids combining `MAP_READ` with `STORAGE`, so the buffer itself is never
+mapped: `read()` copies the contents into a separate `MAP_READ | COPY_DST`
+readback buffer (`copyBufferToBuffer` through a command encoder), maps that,
+and returns the bytes. Storage buffers therefore carry `STORAGE | COPY_DST |
+COPY_SRC` (writable from JS and copyable out) rather than `MAP_READ` —
+`create_storage`/`create_readable_storage` both do this.
 
 ## web-sys calling conventions
 
@@ -49,6 +52,12 @@ These quirks cost real time when working on the crate — write them down:
   `GpuBindGroupLayoutDescriptor::new(&entries)`.
 - wasm-bindgen parameters cannot be `Option<&T>`; use owned values
   (`bind_group: GpuBindGroup`).
+- **`Vec<T>` of wasm-bindgen classes is destructive**: passing `Vec<GpuBuffer>`
+  into a method transfers ownership and `__destroy_into_raw()`s each JS
+  wrapper, so a second call with the same buffers throws "array contains a
+  value of the wrong type". Methods that run repeatedly must take references or
+  `&js_sys::Array` and cast elements with `dyn_ref` (e.g. `run`/`bind_group`
+  take an array of raw `GPUBuffer`s).
 - `GpuProgrammableStage::entry_point` is deprecated — use `set_entry_point`.
 
 ## Rebuilding
@@ -88,10 +97,14 @@ paths expose the same primitives:
 
 Plugins reach it as `api.gpu` and must check `available` — when WebGPU is
 absent, `api.gpu` is `undefined` and plugins fall back to CPU. Reusable WGSL
-templates live in `src/core/wgsl.ts` (particle integration, plus host-side
-pack/unpack helpers that mirror the kernel math for the CPU fallback).
+templates live in `src/core/wgsl.ts` (particle integration and a 3-D
+all-pairs N-body gravity kernel, plus host-side pack/unpack helpers that
+mirror the kernel math for the CPU fallback).
 
-The example Particles plugin exercises the full path: it uploads an
+The example Particles plugin exercises the single-buffer path: it uploads an
 interleaved `[x, y, vx, vy]` storage buffer plus a uniform params buffer,
 dispatches the WGSL integration kernel, reads the result back, and reports
-real GPU time. See [Roadmap](roadmap).
+real GPU time. The N-Body plugin exercises the heavier all-pairs path: a
+`[x, y, z, vx, vy, vz, mass]` layout, a `read-only-storage` source buffer plus
+a `storage` destination buffer, and **ping-pong buffers** so every integration
+step stays on the device with no per-step read-back. See [Roadmap](roadmap).

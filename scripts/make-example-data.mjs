@@ -19,7 +19,7 @@ const gauss = () => {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 const lines = [];
-for (let i = 0; i < 2400; i += 1) {
+for (let i = 0; i < 12000; i += 1) {
   const r = Math.random();
   let v;
   if (r < 0.4) v = -2.2 + gauss() * 0.5;
@@ -31,7 +31,7 @@ const distPath = join(root, 'examples', 'data', 'distribution.dat');
 writeFileSync(distPath, lines.join('\n') + '\n');
 
 // ---------- field.json ----------
-const N = 48;
+const N = 128;
 const field = [];
 for (let y = 0; y < N; y += 1) {
   const row = [];
@@ -61,7 +61,7 @@ function lcg(seed) {
 const tornado = [];
 {
   const rnd = lcg(42);
-  const N = 2000;
+  const N = 6000;
   for (let i = 0; i < N; i += 1) {
     const t = (i / N) * 6.28 * 3.2;
     const h = (i / (N - 1)) * 9 - 4.5;
@@ -86,7 +86,7 @@ const clusters = [];
   ];
   for (let k = 0; k < centers.length; k += 1) {
     const [cx, cy] = centers[k];
-    for (let i = 0; i < 320; i += 1) {
+    for (let i = 0; i < 1000; i += 1) {
       const x = cx + (rnd() + rnd() + rnd() - 1.5) * 0.85;
       const y = cy + (rnd() + rnd() + rnd() - 1.5) * 0.85;
       const c = (k + 1) * 0.35 + rnd() * 0.3;
@@ -95,6 +95,99 @@ const clusters = [];
   }
 }
 writeFileSync(join(root, 'examples', 'data', 'scatter-clusters.dat'), clusters.join('\n') + '\n');
+
+// ---------- galaxy.dat ----------
+// Spiral-galaxy particle field (4 columns: x y vx vy) for the particle plugin.
+// Deterministic LCG so regeneration is byte-identical.
+const galaxy = [];
+{
+  const rnd = lcg(11);
+  const N = 6000;
+  for (let i = 0; i < N; i += 1) {
+    const arm = i % 4;
+    const t = (i / N) * 6.2831853 * 3.0;
+    const r = 0.05 + Math.sqrt(rnd()) * 0.95;
+    const spread = (rnd() - 0.5) * (0.05 + rnd() * 0.04) * 6;
+    const a = t + arm * (Math.PI / 2) + spread;
+    const x = r * Math.cos(a) + (rnd() - 0.5) * 0.02;
+    const y = r * Math.sin(a) + (rnd() - 0.5) * 0.02;
+    const v = 0.02 + rnd() * 0.02;
+    const vx = -Math.sin(a) * v;
+    const vy = Math.cos(a) * v;
+    galaxy.push(`${x.toFixed(5)} ${y.toFixed(5)} ${vx.toFixed(5)} ${vy.toFixed(5)}`);
+  }
+}
+writeFileSync(join(root, 'examples', 'data', 'galaxy.dat'), galaxy.join('\n') + '\n');
+
+// ---------- nbody.json ----------
+// 3-D N-body initial conditions: a torus (ring) of orbiting bodies around a
+// dominant central mass. Each body is [x, y, z, vx, vy, vz, mass].
+const nbodyBodies = [];
+{
+  const G = 0.05;
+  const centralMass = 50;
+  const rnd = lcg(23);
+  const N = 4096;
+  const R = 0.9; // major (ring) radius
+  const r = 0.18; // minor (tube) radius
+  nbodyBodies.push([0, 0, 0, 0, 0, 0, centralMass]);
+  for (let i = 1; i < N; i += 1) {
+    const theta = (i / N) * 6.2831853 * 6; // several turns around the ring
+    const phi = rnd() * 6.2831853; // position around the tube cross-section
+    const px = (R + r * Math.cos(phi)) * Math.cos(theta);
+    const py = r * Math.sin(phi);
+    const pz = (R + r * Math.cos(phi)) * Math.sin(theta);
+    const dist = Math.hypot(px, py, pz);
+    const v = Math.sqrt((G * centralMass) / dist) * 0.95;
+    // tangential velocity around the central mass (ring lies in the XZ plane)
+    const rh = Math.hypot(px, pz) || 1e-6;
+    nbodyBodies.push([
+      Number(px.toFixed(5)),
+      Number(py.toFixed(5)),
+      Number(pz.toFixed(5)),
+      Number(((pz / rh) * v).toFixed(5)),
+      0,
+      Number(((-px / rh) * v).toFixed(5)),
+      1,
+    ]);
+  }
+}
+writeFileSync(
+  join(root, 'examples', 'data', 'nbody.json'),
+  JSON.stringify({ bodies: nbodyBodies }),
+);
+
+// ---------- protein.json ----------
+// Modular protein-protein interaction network: proteins grouped into modules
+// with dense intra-module edges and sparse inter-module edges.
+const proteins = [];
+const interactions = [];
+{
+  const rnd = lcg(31);
+  const N = 560;
+  const modules = 6;
+  for (let i = 0; i < N; i += 1) {
+    proteins.push({ id: `P${i}`, name: `Protein-${i}`, module: i % modules });
+  }
+  for (let i = 0; i < N; i += 1) {
+    const mi = i % modules;
+    for (let j = i + 1; j < N; j += 1) {
+      const mj = j % modules;
+      const p = mi === mj ? 0.06 : 0.001;
+      if (rnd() < p) {
+        interactions.push({
+          source: `P${i}`,
+          target: `P${j}`,
+          weight: mi === mj ? 0.6 + rnd() * 0.4 : 0.2 + rnd() * 0.3,
+        });
+      }
+    }
+  }
+}
+writeFileSync(
+  join(root, 'examples', 'data', 'protein.json'),
+  JSON.stringify({ proteins, interactions }),
+);
 
 // ---------- test pattern PNG ----------
 const W = 128;
@@ -177,4 +270,7 @@ console.log('  distribution.dat', lines.length, 'values');
 console.log('  field.json', N + 'x' + N);
 console.log('  tornado.xyz', tornado.length, 'points');
 console.log('  scatter-clusters.dat', clusters.length, 'points');
+console.log('  galaxy.dat', galaxy.length, 'particles');
+console.log('  nbody.json', nbodyBodies.length, 'bodies');
+console.log('  protein.json', proteins.length, 'proteins,', interactions.length, 'interactions');
 console.log('  exampleAssets.ts', base64.length, 'base64 chars');

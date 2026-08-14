@@ -9,14 +9,12 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     GpuBindGroup, GpuBindGroupDescriptor, GpuBindGroupEntry, GpuBindGroupLayout,
-    GpuBindGroupLayoutDescriptor, GpuBindGroupLayoutEntry, GpuBufferBindingLayout,
+    GpuBindGroupLayoutDescriptor, GpuBindGroupLayoutEntry, GpuBuffer, GpuBufferBindingLayout,
     GpuBufferBindingType, GpuCommandBuffer, GpuCommandEncoderDescriptor, GpuCompilationInfo,
     GpuCompilationMessage, GpuCompilationMessageType, GpuComputePassEncoder, GpuComputePipeline,
     GpuComputePipelineDescriptor, GpuDevice, GpuPipelineLayout, GpuPipelineLayoutDescriptor,
     GpuProgrammableStage, GpuQueue, GpuShaderModule, GpuShaderModuleDescriptor,
 };
-
-use crate::buffer::GpuBuffer;
 
 /// `GPUShaderStage::COMPUTE` bit flag (WebGPU spec).
 pub const SHADER_STAGE_COMPUTE: u32 = 4;
@@ -257,13 +255,13 @@ impl ComputeKernel {
     /// layout comes from the kernel's compile-time `BindingDescriptor`s, so
     /// the buffer usage must match the declared binding type (storage vs
     /// read-only-storage vs uniform).
-    pub fn bind_group(&self, buffers: Vec<GpuBuffer>) -> Result<GpuBindGroup, JsValue> {
-        let mut entries: Vec<GpuBindGroupEntry> = Vec::with_capacity(buffers.len());
-        for (i, buffer) in buffers.iter().enumerate() {
-            entries.push(GpuBindGroupEntry::new_with_gpu_buffer(
-                i as u32,
-                &buffer.buffer(),
-            ));
+    pub fn bind_group(&self, buffers: &js_sys::Array) -> Result<GpuBindGroup, JsValue> {
+        let mut entries: Vec<GpuBindGroupEntry> = Vec::with_capacity(buffers.length() as usize);
+        for (i, value) in buffers.iter().enumerate() {
+            let buffer: &GpuBuffer = value
+                .dyn_ref::<GpuBuffer>()
+                .ok_or_else(|| JsValue::from_str("expected GpuBuffer"))?;
+            entries.push(GpuBindGroupEntry::new_with_gpu_buffer(i as u32, buffer));
         }
         let descriptor = GpuBindGroupDescriptor::new(&entries, &self.bind_group_layout);
         Ok(GpuDevice::create_bind_group(&self.device, &descriptor))
@@ -274,7 +272,7 @@ impl ComputeKernel {
     pub fn run(
         &self,
         queue: &GpuQueue,
-        buffers: Vec<GpuBuffer>,
+        buffers: &js_sys::Array,
         workgroup_count_x: u32,
         workgroup_count_y: u32,
         workgroup_count_z: u32,

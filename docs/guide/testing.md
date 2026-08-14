@@ -11,7 +11,7 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. Seven suites, 50+ tests:
+Environment: `node`. Ten suites, 74 tests:
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
@@ -21,7 +21,10 @@ Environment: `node`. Seven suites, 50+ tests:
 | `i18n`                 | locale switching, fallbacks, new sandbox keys              |
 | `appStore`             | banners, notifications, perf warnings                      |
 | `wasm`                 | loader retry policy (3×, 1 s) with mocked module           |
+| `gpuService`           | compute-service device gating / CPU fallback               |
+| `gpuCompute`           | WGSL template generation, buffer packing, CPU integrator, particles fallback |
 | `builtinPlugins`       | contour grid normalization, scatter parsing                |
+| `sciencePlugins`       | 3-D N-body kernel/pack/momentum conservation + plugin CPU fallback; protein force-directed layout, components, no-data guards |
 
 Notable techniques:
 
@@ -47,9 +50,10 @@ and asserts real pixels + zero console errors:
 | ---------------- | ---- | ---------------------------------------------------------- |
 | `smoke-test`     | 4173 | boot, auto-loaded plugins, reactive params, project restore|
 | `verify-ui`      | 4173 | layout metrics, theming, canvas visibility                 |
-| `verify-fixes`   | 4177 | all 8 example plugins render their sample data correctly   |
+| `verify-fixes`   | 4177 | all 11 example plugins render their sample data correctly  |
 | `verify-3d`      | 4199 | 3D point cloud in the host Three.js scene                  |
 | `verify-plugins` | 4198 | 3D↔2D surface visibility, contour, scatter, tornado sample |
+| `verify-webgpu`  | 4289 | real WebGPU path in headless Edge (SwiftShader): numeric harness (GPU vs CPU integrator within ~2e-6) + Particles app integration asserting a `wasm`-engine toast |
 
 > If Edge is not at the default path, update the `EDGE` constant in each
 > script. New plugin/feature work should ship with an E2E check — screenshots

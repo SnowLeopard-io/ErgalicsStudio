@@ -64,6 +64,13 @@ interface GPUQueue {
     dataOffset?: number,
     size?: number,
   ): void;
+  copyBufferToBuffer(
+    source: GPUBuffer,
+    sourceOffset: number,
+    destination: GPUBuffer,
+    destinationOffset: number,
+    size: number,
+  ): void;
 }
 
 interface GPUBuffer {

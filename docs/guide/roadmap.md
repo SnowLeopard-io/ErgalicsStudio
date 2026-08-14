@@ -20,7 +20,7 @@ designs.
 | Perf monitor  | FPS / frame / GPU / memory / data-scale + warnings             | ✅ Done      |
 | Sharing       | link generation, project export                                | ✅ Done      |
 | Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
-| GPU compute   | `api.gpu` compute surface, WGSL templates, particles plugin accelerated (CPU fallback) | 🟡 Partial  |
+| GPU compute   | `api.gpu` compute surface, WGSL templates, particles + 3-D N-body plugins accelerated (CPU fallback), real-device E2E verification | 🟡 Partial  |
 | Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | 🚧 Next      |
 | Error handling| error boundaries, fallbacks, retry                            | 🟡 Partial   |
@@ -32,8 +32,13 @@ designs.
 2. **M2 — Real GPU compute**: the foundations are in place — the native core
    exposes `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an
    `api.gpu` compute surface, reusable WGSL templates live in
-   `src/core/wgsl.ts`, and the Particles plugin runs a real WGSL integration
-   kernel with a CPU fallback. Remaining: accelerate the remaining example
+   `src/core/wgsl.ts`, and two plugins run real WGSL kernels with CPU
+   fallbacks: Particles (single-buffer integration) and N-Body Gravity (3-D
+   all-pairs with ping-pong buffers). `npm run test:e2e` now drives the real
+   WebGPU path in headless Edge (SwiftShader): a numeric harness compares the
+   GPU result against the CPU integrator (passing within ~2e-6), and an app
+   integration step clicks through the Particles plugin and asserts a
+   `wasm`-engine GPU toast. Remaining: accelerate the remaining example
    plugins (histogram binning, heatmap/contour grids, point-cloud transforms)
    and add GPU perf telemetry per kernel.
 3. **M3 — Marketplace**: package registry, versioning, signature

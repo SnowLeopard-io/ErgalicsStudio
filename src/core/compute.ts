@@ -41,6 +41,8 @@ function copyMappedRange(range: ArrayBuffer): ArrayBuffer {
 type WasmBufferLike = {
   readonly size: number;
   readonly usage: number;
+  /** The underlying raw `GPUBuffer` (used for host-side bindings/copies). */
+  readonly buffer: GPUBuffer;
   write(queue: GPUQueue, data: Uint8Array, offset: number): void;
   read(): Promise<Uint8Array>;
 };
@@ -48,7 +50,7 @@ type WasmBufferLike = {
 type WasmKernelLike = {
   readonly label: string;
   compilation_info(): Promise<string[]>;
-  run(queue: GPUQueue, buffers: WasmBufferLike[], x: number, y: number, z: number): void;
+  run(queue: GPUQueue, buffers: GPUBuffer[], x: number, y: number, z: number): void;
 };
 
 type BufferCtor = new (device: GPUDevice, label: string, size: number, usage: number) => WasmBufferLike;
@@ -156,7 +158,7 @@ class WasmCompute implements GpuComputeApi {
     try {
       kernel.raw.run(
         this.device.queue,
-        (buffers as WasmBuffer[]).map((b) => b.raw),
+        (buffers as WasmBuffer[]).map((b) => b.raw.buffer),
         workgroupCountX,
         workgroupCountY,
         workgroupCountZ,
@@ -188,10 +190,16 @@ class NativeBuffer implements ComputeBufferHandle {
   }
 
   async read(): Promise<ArrayBuffer> {
-    await this.raw.mapAsync(GPUMapMode.READ);
-    const range = this.raw.getMappedRange();
+    const readback = this.device.createBuffer({
+      label: 'readback',
+      size: this.size,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.copyBufferToBuffer(this.raw, 0, readback, 0, this.size);
+    await readback.mapAsync(GPUMapMode.READ);
+    const range = readback.getMappedRange();
     const copy = copyMappedRange(range);
-    this.raw.unmap();
+    readback.unmap();
     return copy;
   }
 }

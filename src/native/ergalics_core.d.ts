@@ -49,7 +49,7 @@ export class ComputeKernel {
      * the buffer usage must match the declared binding type (storage vs
      * read-only-storage vs uniform).
      */
-    bind_group(buffers: GpuBuffer[]): GPUBindGroup;
+    bind_group(buffers: Array<any>): GPUBindGroup;
     /**
      * Await shader compilation info and return diagnostic messages.
      *
@@ -78,7 +78,7 @@ export class ComputeKernel {
      * One-shot convenience: build a bind group from `buffers`, dispatch a
      * single workload, and submit — the whole pipeline in one call.
      */
-    run(queue: GPUQueue, buffers: GpuBuffer[], workgroup_count_x: number, workgroup_count_y: number, workgroup_count_z: number): void;
+    run(queue: GPUQueue, buffers: Array<any>, workgroup_count_x: number, workgroup_count_y: number, workgroup_count_z: number): void;
     readonly label: string;
     readonly pipeline: GPUComputePipeline;
     readonly workgroup_size: Uint32Array;
@@ -129,15 +129,24 @@ export class GpuBuffer {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * Storage buffer that can also be mapped back for reading results.
+     * Storage buffer that can also be read back (results are copied into a
+     * separate readback buffer on `read`).
      */
     static create_readable_storage(device: GPUDevice, size: number): GpuBuffer;
     /**
      * Storage buffer usable as a compute shader read/write target.
+     *
+     * `COPY_SRC` is included so results can be copied into a separate
+     * `MAP_READ | COPY_DST` readback buffer (WebGPU forbids combining
+     * `MAP_READ` with `STORAGE`).
      */
     static create_storage(device: GPUDevice, size: number): GpuBuffer;
     /**
      * Uniform buffer for per-dispatch parameters (16-byte aligned structs).
+     *
+     * `COPY_DST` is included so `write` (which goes through
+     * `queue.writeBuffer`) can upload the parameter bytes; `writeBuffer`
+     * validation requires the destination buffer to expose `COPY_DST`.
      */
     static create_uniform(device: GPUDevice, size: number): GpuBuffer;
     /**
@@ -145,8 +154,12 @@ export class GpuBuffer {
      */
     constructor(device: GPUDevice, label: string, size: number, usage: number);
     /**
-     * Asynchronously map the buffer (`MAP_READ` usage required) and copy
-     * its contents back into a `Uint8Array`.
+     * Asynchronously read the buffer's contents.
+     *
+     * WebGPU only allows `MAP_READ` to be combined with `COPY_DST`, so the
+     * buffer itself cannot be mapped when it is used as compute storage.
+     * This copies the buffer into a temporary `MAP_READ | COPY_DST` readback
+     * buffer, maps that, and returns the bytes.
      */
     read(): Promise<Uint8Array>;
     /**
@@ -236,9 +249,6 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_gpubuffer_free: (a: number, b: number) => void;
-    readonly __wbg_gpudevicemanager_free: (a: number, b: number) => void;
-    readonly __wbg_gpuinfo_free: (a: number, b: number) => void;
-    readonly detect_file_kind: (a: number, b: number) => number;
     readonly gpubuffer_buffer: (a: number) => any;
     readonly gpubuffer_create_readable_storage: (a: any, b: number) => [number, number, number];
     readonly gpubuffer_create_storage: (a: any, b: number) => [number, number, number];
@@ -248,12 +258,6 @@ export interface InitOutput {
     readonly gpubuffer_size: (a: number) => number;
     readonly gpubuffer_usage: (a: number) => number;
     readonly gpubuffer_write: (a: number, b: any, c: number, d: number, e: number) => [number, number];
-    readonly gpudevicemanager_acquire: (a: any, b: number) => any;
-    readonly gpudevicemanager_device: (a: number) => any;
-    readonly gpudevicemanager_info: (a: number) => number;
-    readonly gpuinfo_backend: (a: number) => [number, number];
-    readonly gpuinfo_name: (a: number) => [number, number];
-    readonly log: (a: number, b: number) => void;
     readonly __wbg_bindingdescriptor_free: (a: number, b: number) => void;
     readonly __wbg_computekernel_free: (a: number, b: number) => void;
     readonly __wbg_computequeue_free: (a: number, b: number) => void;
@@ -265,13 +269,13 @@ export interface InitOutput {
     readonly bindingdescriptor_set_min_binding_size: (a: number, b: number) => void;
     readonly bindingdescriptor_set_visibility: (a: number, b: number) => void;
     readonly bindingdescriptor_visibility: (a: number) => number;
-    readonly computekernel_bind_group: (a: number, b: number, c: number) => [number, number, number];
+    readonly computekernel_bind_group: (a: number, b: any) => [number, number, number];
     readonly computekernel_compilation_info: (a: number) => any;
     readonly computekernel_compile: (a: any, b: number) => [number, number, number];
     readonly computekernel_dispatch: (a: number, b: any, c: any, d: number, e: number, f: number) => [number, number];
     readonly computekernel_label: (a: number) => [number, number];
     readonly computekernel_pipeline: (a: number) => any;
-    readonly computekernel_run: (a: number, b: any, c: number, d: number, e: number, f: number, g: number) => [number, number];
+    readonly computekernel_run: (a: number, b: any, c: any, d: number, e: number, f: number) => [number, number];
     readonly computekernel_workgroup_size: (a: number) => [number, number];
     readonly computequeue_submit: (a: number, b: number, c: number) => void;
     readonly kerneldescriptor_bindings: (a: number) => [number, number];
@@ -282,6 +286,15 @@ export interface InitOutput {
     readonly computequeue_new: (a: any) => number;
     readonly core_version: () => [number, number];
     readonly start: () => void;
+    readonly detect_file_kind: (a: number, b: number) => number;
+    readonly log: (a: number, b: number) => void;
+    readonly __wbg_gpudevicemanager_free: (a: number, b: number) => void;
+    readonly __wbg_gpuinfo_free: (a: number, b: number) => void;
+    readonly gpudevicemanager_acquire: (a: any, b: number) => any;
+    readonly gpudevicemanager_device: (a: number) => any;
+    readonly gpudevicemanager_info: (a: number) => number;
+    readonly gpuinfo_backend: (a: number) => [number, number];
+    readonly gpuinfo_name: (a: number) => [number, number];
     readonly wasm_bindgen_88c4dfa59b813fd8___convert__closures_____invoke___wasm_bindgen_88c4dfa59b813fd8___JsValue__core_9b3796e30d99ddb7___result__Result_____wasm_bindgen_88c4dfa59b813fd8___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_88c4dfa59b813fd8___convert__closures_____invoke___wasm_bindgen_88c4dfa59b813fd8___sys__JsNullable_web_sys_b5571197bf1ad37d___features__gen_GpuAdapter__GpuAdapter___core_9b3796e30d99ddb7___result__Result_____wasm_bindgen_88c4dfa59b813fd8___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_88c4dfa59b813fd8___convert__closures_____invoke___wasm_bindgen_88c4dfa59b813fd8___sys__JsNullable_web_sys_b5571197bf1ad37d___features__gen_GpuAdapter__GpuAdapter___core_9b3796e30d99ddb7___result__Result_____wasm_bindgen_88c4dfa59b813fd8___JsError___true__2: (a: number, b: number, c: any) => [number, number];

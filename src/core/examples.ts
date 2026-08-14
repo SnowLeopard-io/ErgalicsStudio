@@ -16,6 +16,8 @@ import datasetJson from '../../examples/data/dataset.json?raw';
 import distributionDat from '../../examples/data/distribution.dat?raw';
 import scatterClustersDat from '../../examples/data/scatter-clusters.dat?raw';
 import fieldJson from '../../examples/data/field.json?raw';
+import nbodyJson from '../../examples/data/nbody.json?raw';
+import proteinJson from '../../examples/data/protein.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 export interface BuiltinExample {
@@ -93,8 +95,8 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
       'en-US': 'Galaxy Particle Data',
     },
     descriptionI18n: {
-      'zh-CN': '3000 个粒子的四列数据（位置 + 速度），驱动粒子模拟。',
-      'en-US': '3000-particle 4-column data (position + velocity) for particle simulation.',
+      'zh-CN': '6000 个粒子的四列数据（位置 + 速度），驱动粒子模拟。',
+      'en-US': '6000-particle 4-column data (position + velocity) for particle simulation.',
     },
   },
   {
@@ -191,6 +193,38 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '128×128 测试图案（渐变 + 圆环 + 网格），图像查看示例。',
       'en-US': '128x128 test pattern (gradient + ring + grid); image viewer demo.',
+    },
+  },
+  {
+    id: 'nbody-galaxy',
+    filename: 'nbody.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.nbody',
+    content: nbodyJson,
+    nameI18n: {
+      'zh-CN': '立体环形 N 体初始条件',
+      'en-US': 'Torus N-Body Initial Conditions',
+    },
+    descriptionI18n: {
+      'zh-CN': '4096 个天体构成的立体环形（环面），绕中心质量运行，驱动 3D 全配对引力计算。',
+      'en-US': '4096 bodies on a 3-D torus ring orbiting a central mass; 3-D all-pairs gravity demo.',
+    },
+  },
+  {
+    id: 'ppi-network',
+    filename: 'protein.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.protein',
+    content: proteinJson,
+    nameI18n: {
+      'zh-CN': '蛋白质交互网络',
+      'en-US': 'Protein Interaction Network',
+    },
+    descriptionI18n: {
+      'zh-CN': '560 个蛋白、约 1700 条加权交互的模块化网络，力导向布局计算示例。',
+      'en-US': '560 proteins, ~1700 weighted interactions in a modular network; force-directed layout demo.',
     },
   },
 ];
