@@ -89,7 +89,6 @@ export const enUS: LocaleDictionary = {
   'project.save': 'Save',
   'project.save_as': 'Save As',
   'project.name': 'Project Name',
-  'project.untitled': 'Untitled',
   'project.auto_save': 'Auto-saving',
   'project.saved': 'Saved',
   'project.deleted': 'Deleted',
@@ -180,4 +179,38 @@ export const enUS: LocaleDictionary = {
   'perf.warning.fps': 'Low FPS',
   'perf.warning.memory': 'Low memory',
   'perf.warning.compute': 'Slow compute',
+
+  'workbench.mode.normal': 'Standard',
+  'workbench.mode.flow': 'Flow',
+  'workbench.example.title': 'Samples',
+  'workbench.example.datasets': 'Datasets',
+  'workbench.example.pipelines': 'Flow pipelines',
+  'workbench.example.pipeline_loaded': 'Loaded "{name}"',
+
+  'blocks.category.data_source': 'Data Source',
+  'blocks.category.transform': 'Transform',
+  'blocks.category.filter': 'Filter',
+  'blocks.category.math': 'Math',
+  'blocks.category.statistics': 'Statistics',
+  'blocks.category.signal': 'Signal',
+  'blocks.category.visualize': 'Visualize',
+  'blocks.category.output': 'Output',
+  'blocks.category.logic': 'Logic',
+  'blocks.category.utility': 'Utility',
+
+  'blocks.run': 'Run',
+  'blocks.running': 'Running…',
+  'blocks.clear': 'Clear',
+  'blocks.compile_error': 'Compile error{nodeId}: {message}',
+  'blocks.run_error': 'Runtime error ({nodeId}): {message}',
+
+  'blocks.preview.title': 'Result preview',
+  'blocks.preview.empty': 'Run to see results here',
+  'blocks.preview.scalar': 'Value',
+
+  'blocks.params.select_hint': 'Select a node to edit its params',
+  'blocks.params.none': 'No parameters',
+
+  'blocks.table.meta': '{rows} rows × {cols} cols',
+  'blocks.table.note': 'Showing first {rows} of {total} rows',
 };

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { useProjectStore } from '@/stores/projectStore';
-import { serializeProject } from '@/types/project';
+import { serializeProject, DEFAULT_PROJECT_NAME } from '@/types/project';
 import { compressToEncodedURIComponent } from 'lz-string';
 
 interface ShareDialogProps {
@@ -92,7 +92,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
       <div className="share-body">
         <div className="share-project">
           <div>
-            <strong>{project?.name ?? t('project.untitled')}</strong>
+            <strong>{project?.name || DEFAULT_PROJECT_NAME}</strong>
           </div>
           <span className="tag tag-muted">{size}</span>
         </div>

@@ -48,6 +48,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/guide/introduction' },
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Architecture', link: '/guide/architecture' },
+          { text: 'Flow Mode', link: '/guide/flow-mode' },
           { text: 'Plugin Development', link: '/guide/plugins' },
           { text: 'Native Core & WebGPU', link: '/guide/native-core' },
           { text: 'Testing', link: '/guide/testing' },

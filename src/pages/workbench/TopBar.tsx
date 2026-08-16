@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -8,7 +9,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
-import { ExampleDataDialog } from './ExampleDataDialog';
+import { DataDialog } from './DataDialog';
 
 export function TopBar() {
   const t = useT();
@@ -22,6 +23,8 @@ export function TopBar() {
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const blockMode = useAppStore((s) => s.blockMode);
+  const toggleBlockMode = useAppStore((s) => s.toggleBlockMode);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -45,14 +48,35 @@ export function TopBar() {
       </a>
 
       <button type="button" className="project-name" title={t('project.name')} onClick={() => setRenameOpen(true)}>
-        {project?.name ?? t('project.untitled')}
+        {project?.name || DEFAULT_PROJECT_NAME}
         {dirty && <span className="project-dirty">•</span>}
       </button>
 
       <div className="topbar-actions">
+        <div className="topbar-cluster mode-switch">
+          <button
+            type="button"
+            className={`cluster-btn${!blockMode ? ' btn-toggle-on' : ''}`}
+            onClick={() => {
+              if (blockMode) toggleBlockMode();
+            }}
+          >
+            {t('workbench.mode.normal')}
+          </button>
+          <button
+            type="button"
+            className={`cluster-btn${blockMode ? ' btn-toggle-on' : ''}`}
+            onClick={() => {
+              if (!blockMode) toggleBlockMode();
+            }}
+          >
+            {t('workbench.mode.flow')}
+          </button>
+        </div>
+
         <div className="topbar-cluster">
           <button type="button" className="cluster-btn" onClick={() => setExampleOpen(true)}>
-            {t('workbench.example_data.title')}
+            {t('workbench.example.title')}
           </button>
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
@@ -106,7 +130,7 @@ export function TopBar() {
         initial=""
         onClose={() => setNewOpen(false)}
         onConfirm={async (name) => {
-          await createProject(name || t('project.untitled'));
+          await createProject(name);
           setNewOpen(false);
         }}
       />
@@ -122,7 +146,7 @@ export function TopBar() {
         }}
       />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
-      <ExampleDataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
+      <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
     </header>
   );
 }

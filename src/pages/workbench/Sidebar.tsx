@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
@@ -45,7 +46,7 @@ export function Sidebar() {
   }, [location.state]);
 
   const handleNewProject = async () => {
-    const name = newName.trim() || t('project.untitled');
+    const name = newName.trim();
     await createProject(name);
     setNewOpen(false);
     setNewName('');
@@ -68,7 +69,7 @@ export function Sidebar() {
             {recent.map((p) => (
               <li key={p.id} className={`recent-item ${project?.id === p.id ? 'active' : ''}`}>
                 <button type="button" className="recent-name" onClick={() => void openProject(p.id)}>
-                  {p.name}
+                  {p.name || DEFAULT_PROJECT_NAME}
                 </button>
                 <button
                   type="button"

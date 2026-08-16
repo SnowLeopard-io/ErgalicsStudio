@@ -45,6 +45,7 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
+  blockMode: boolean;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -62,6 +63,7 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  toggleBlockMode: () => void;
 }
 
 let bannerId = 0;
@@ -77,6 +79,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   perf: DEFAULT_PERF,
   sidebarOpen: true,
   rightPanelOpen: true,
+  blockMode: false,
 
   setStatus: (status) => set({ status }),
 
@@ -128,4 +131,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
+  toggleBlockMode: () => set((s) => ({ blockMode: !s.blockMode })),
 }));

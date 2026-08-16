@@ -11,17 +11,19 @@ import { perfMonitor } from '@/core/perf';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
-import { useT } from '@/i18n';
+import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
+import { initBlockSystem } from '@/blocks';
 
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const t = useT();
+  const blockMode = useAppStore((s) => s.blockMode);
 
   useEffect(() => {
     perfMonitor.start();
     // Pre-load WASM in the background while the user works.
     void loadWasm();
-    // Make built-in example plugins available immediately.
+    // Register built-in blocks and make example plugins available.
+    initBlockSystem();
     void usePluginStore.getState().ensureBuiltinsLoaded();
     // Restore the most recent project; create a fresh one if none exists
     // (spec §4.2 "恢复").
@@ -33,22 +35,28 @@ export default function WorkbenchPage() {
           if (recent[0]) {
             await useProjectStore.getState().openProject(recent[0].id);
           } else {
-            await useProjectStore.getState().createProject(t('project.untitled'));
+            await useProjectStore.getState().createProject('');
           }
         }
       })();
     }
     return () => perfMonitor.stop();
-  }, [t]);
+  }, []);
 
   return (
     <div className="workbench">
       <TopBar />
       <div className="workbench-body">
         <ErrorBoundary>
-          {sidebarOpen && <Sidebar />}
-          <CentralArea />
-          <RightPanel />
+          {blockMode ? (
+            <BlockWorkbench />
+          ) : (
+            <>
+              {sidebarOpen && <Sidebar />}
+              <CentralArea />
+              <RightPanel />
+            </>
+          )}
         </ErrorBoundary>
       </div>
       <StatusBar />

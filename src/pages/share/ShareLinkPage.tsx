@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { decompressFromEncodedURIComponent } from 'lz-string';
+import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 
 export default function ShareLinkPage() {
@@ -19,7 +20,7 @@ export default function ShareLinkPage() {
       const parsed = JSON.parse(json);
       const project = {
         id: crypto.randomUUID(),
-        name: parsed.name ?? t('project.untitled'),
+        name: parsed.name || DEFAULT_PROJECT_NAME,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         data: { files: parsed.data?.files ?? [], processed: parsed.data?.processed },

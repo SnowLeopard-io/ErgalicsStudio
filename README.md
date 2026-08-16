@@ -16,7 +16,9 @@ plugin system — all running in the browser, with a Rust/WASM core.
 
 </div>
 
-![studio](docs/studio.png)
+![studio — Standard mode](docs/studio.png)
+
+![flow — Flow mode: a sample pipeline and its live result preview](docs/flow.png)
 
 ---
 
@@ -100,20 +102,64 @@ production system without a rewrite.
   warning thresholds (§7.3).
 - Error boundaries, fallbacks, and a banner/notification system.
 
+**Flow mode (visual dataflow pipeline)**
+
+- A second workbench mode next to Standard — toggle with the `Standard | Flow`
+  switch in the top bar. Standard mode is *load data → see it*; Flow mode is
+  *compose a visual pipeline → run it → see every node's output*.
+- 24+ built-in blocks organised by category: data sources, transforms, filters,
+  math, statistics, visualizations, and `logic.sequence` (the only control-flow
+  block in phase 1; see `block-system-design.md` appendix A for the deferred
+  ones and the `region` seam that lets them slot in later).
+- **Compiler is a pure function**: structural validation (ports / required
+  inputs / type compatibility), cycle detection, and Kahn-style topological
+  sort. Errors come back as structured `diagnostics` so the canvas can paint
+  red edges and an inline diagnostic strip without ever throwing.
+- **Executor with incremental caching** at per-node granularity plus a
+  dirty-propagation invalidation pass — change a single block's parameter and
+  only it and its downstream re-execute.
+- **Result preview** with one click: `RenderedView` outputs go through the
+  existing plugin renderer (scatter, histogram, …); `DataTable` outputs
+  render as a read-only table (so `stats.summary` / `stats.histogram` bins
+  actually show something); `Scalar` outputs render inline. A chip switcher
+  picks which node to inspect when a pipeline has more than one output.
+- **Reactive parameter editor** bound to the selected node, with a two-way
+  link to the canvas — the node card shows the live `key: value` summary, so
+  you always see what the canvas is actually running.
+- **Block metadata is localized** (`nameI18n` / `descriptionI18n`) and the
+  palette, node card, and parameter panel all resolve via
+  `src/blocks/l10n.ts`, so adding a locale is a data-only change.
+- **Sample pipelines live as `.clproj` files** under `examples/projects/`
+  (`block-01-signal-analysis.clproj`, …). They are normal projects — loadable
+  through the standard project picker — and discovered at build time via
+  `import.meta.glob`. Adding a new sample is dropping a file plus an entry in
+  `SAMPLE_META`.
+- The whole graph persists into the project's `blockGraph` and rehydrates on
+  open, sharing the autosave/share/export pipeline that already backs every
+  `.clproj`.
+
 ---
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    subgraph UI["React UI (src/pages)"]
+    subgraph UI["React UI (src/pages · src/components/blocks)"]
         A1["Welcome · Workbench<br/>(TopBar/Sidebar/Central/Right/Status)"]
         A2["Settings · Share ·<br/>Plugin dialogs · Example-data dialogs"]
+        A3["Flow mode canvas<br/>Palette · Canvas · Node · Param editor<br/>Toolbar · Result preview"]
     end
 
     subgraph State["State & Core Services"]
-        B1["Zustand stores<br/>app / project / plugin / settings"]
+        B1["Zustand stores<br/>app / project / plugin / settings / block"]
         B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox"]
+    end
+
+    subgraph Blocks["Block system (Flow mode, src/blocks)"]
+        D1["Catalog<br/>data_source · transform · filter<br/>math · statistics · visualize · logic"]
+        D2["Compiler<br/>pure · validates ports/types<br/>topological sort · diagnostics"]
+        D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
+        D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free executor)"]
     end
 
     subgraph Runtime["Runtime Layer"]
@@ -127,6 +173,13 @@ flowchart TB
     B1 --> C1
     B2 --> C1
     B2 --> C2
+    A3 --> B1
+    B1 --> D2
+    B1 --> D3
+    D2 --> D3
+    D1 --> D2
+    D3 --> D4
+    D4 --> C1
 ```
 
 - **Host ↔ plugin contract**: every plugin implements a `Plugin` interface
@@ -210,13 +263,20 @@ See [Documentation](#documentation) for details.
 ├── src/                      # Frontend
 │   ├── core/                 #   services: storage, events, i18n, gpu, wasm,
 │   │                         #   fileFormat, scene3d, sandbox, cspkg, …
+│   ├── blocks/               #   block system (Flow mode):
+│   │                         #     types · registry · compiler · executor ·
+│   │                         #     ops · catalog · sample · l10n · render
+│   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
+│   │                         #     toolbar, result preview, workbench shell
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
 │   ├── plugins/builtin/      #   11 example plugins (2D + 3D)
-│   ├── stores/               #   zustand stores (app/project/plugin/settings)
+│   ├── stores/               #   zustand stores (app/project/plugin/settings/block)
 │   ├── types/                #   plugin & project contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
 ├── native/ergalics-core/     # Rust core (device, compute, utils)
-├── examples/data/            # sample datasets used by the example plugins
+├── examples/
+│   ├── data/                 # sample datasets used by the example plugins
+│   └── projects/             # sample `.clproj` projects (incl. Flow pipelines)
 ├── scripts/                  # build-wasm · make-example-data · E2E suites
 ├── tests/                    # Vitest unit tests
 └── docs/                     # VitePress documentation workspace
@@ -331,10 +391,14 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-74 tests across 10 suites: file-format detection, cspkg parsing/validation,
+126 tests across 17 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates, buffer
-packing, CPU integrator, service gating), and built-in plugin logic.
+packing, CPU integrator, service gating), built-in plugin logic, and the
+block system end-to-end — `DataTable` ops, registry, compiler
+(validation/topology/type-check), executor (incremental cache + invalidation),
+geometry, catalog executors, the `viz.*` → plugin render bridge, and the
+pipeline samples that load via `import.meta.glob`.
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -378,6 +442,7 @@ table. Highlights:
 - [x] 11 example plugins (2D + 3D), cspkg loading, Worker sandbox
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
+- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 24 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)

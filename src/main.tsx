@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/global.css';
 import './styles/app.css';
+import './styles/blocks.css';
 
 // Global error capture (spec §11.2 application-level boundary).
 window.addEventListener('error', (event) => {

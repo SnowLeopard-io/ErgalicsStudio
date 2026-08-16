@@ -23,6 +23,8 @@ export interface ProjectState {
   parameters: Record<string, Record<string, unknown>>;
   camera: CameraState | null;
   scene: SceneState | null;
+  /** Block graph snapshot (present when a block canvas has been authored). */
+  blockGraph?: import('./block').BlockGraphState | null;
 }
 
 export interface ProjectMetadata {
@@ -46,11 +48,14 @@ export interface Project {
 
 export const PROJECT_FORMAT_VERSION = '1.0';
 
+/** Fallback name for a project created without an explicit name. */
+export const DEFAULT_PROJECT_NAME = 'Untitled';
+
 export function createEmptyProject(name: string): Project {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    name,
+    name: name.trim() || DEFAULT_PROJECT_NAME,
     createdAt: now,
     updatedAt: now,
     data: { files: [], processed: undefined },

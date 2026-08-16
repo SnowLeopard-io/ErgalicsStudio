@@ -15,6 +15,9 @@ import {
 import { logger } from '@/core/logger';
 import { useSettingsStore } from './settingsStore';
 import { usePluginStore } from './pluginStore';
+import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
+import type { BlockGraphState } from '@/types/block';
+import { on } from '@/core/events';
 
 export type ProjectStatus =
   | 'ready'
@@ -44,9 +47,21 @@ interface ProjectStore {
   setStatus: (status: ProjectStatus, statusText?: string | null) => void;
   /** Hook for plugins to persist extra state before save. */
   applyPluginParams: () => Promise<void> | void;
+  /** Persist the block graph into the project before save. */
+  applyBlockGraph: () => void;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
+
+const EMPTY_BLOCK_GRAPH: BlockGraphState = {
+  instances: [],
+  connections: [],
+  viewport: { x: 0, y: 0, zoom: 1 },
+};
+
+function restoreBlockGraph(graph: BlockGraphState | null | undefined): void {
+  useBlockStore.getState().fromJSON(graph ?? EMPTY_BLOCK_GRAPH);
+}
 
 function ensureAutosave() {
   if (autosaveTimer) clearInterval(autosaveTimer);
@@ -81,6 +96,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ project, dirty: false });
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
+    restoreBlockGraph(project.state.blockGraph);
     ensureAutosave();
   },
 
@@ -90,6 +106,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ project, dirty: false });
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
+    restoreBlockGraph(project.state.blockGraph);
     ensureAutosave();
     return project;
   },
@@ -98,6 +115,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { project, status } = get();
     if (!project || status === 'saving') return;
     await get().applyPluginParams();
+    get().applyBlockGraph();
     const current = get().project;
     if (!current) return;
     set({ status: 'saving', statusText: null });
@@ -168,6 +186,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       },
     });
   },
+
+  applyBlockGraph: () => {
+    const { project } = get();
+    if (!project) return;
+    const graph = useBlockStore.getState().toJSON();
+    set({
+      project: {
+        ...project,
+        state: { ...project.state, blockGraph: graph },
+      },
+    });
+  },
 }));
 
 export function initProjectStore() {
@@ -175,4 +205,6 @@ export function initProjectStore() {
   ensureAutosave();
   // re-arm autosave when settings change
   useSettingsStore.subscribe(() => ensureAutosave());
+  // mark the project dirty when the block graph mutates
+  on(BLOCK_GRAPH_CHANGED, () => useProjectStore.getState().setDirty(true));
 }

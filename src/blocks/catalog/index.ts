@@ -1,0 +1,41 @@
+// ==========================================================================
+// Ergalics Studio — built-in block catalog bootstrap (block system)
+//
+// Registers every built-in block (metadata + executor) into a registry.
+// ==========================================================================
+
+import type { BlockRegistry } from '@/types/block';
+import { logicSequence, logicSequenceExecutor } from './logic';
+import { dataSourceBlocks } from './dataSource';
+import { transformBlocks } from './transform';
+import { filterBlocks } from './filter';
+import { mathBlocks } from './math';
+import { statisticsBlocks } from './statistics';
+import { visualizeBlocks } from './visualize';
+import type { BlockDefinition } from './types';
+
+export function registerBuiltinBlocks(registry: BlockRegistry): void {
+  // logic.sequence keeps its executor bound explicitly.
+  registry.register(logicSequence, logicSequenceExecutor);
+
+  const definitions: BlockDefinition[] = [
+    ...dataSourceBlocks,
+    ...transformBlocks,
+    ...filterBlocks,
+    ...mathBlocks,
+    ...statisticsBlocks,
+    ...visualizeBlocks,
+  ];
+  for (const def of definitions) {
+    registry.register(def.meta, def.executor);
+  }
+}
+
+export {
+  dataSourceBlocks,
+  transformBlocks,
+  filterBlocks,
+  mathBlocks,
+  statisticsBlocks,
+  visualizeBlocks,
+};

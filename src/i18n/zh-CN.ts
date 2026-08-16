@@ -93,7 +93,6 @@ export const zhCN: LocaleDictionary = {
   'project.save': '保存',
   'project.save_as': '另存为',
   'project.name': '项目名称',
-  'project.untitled': '未命名项目',
   'project.auto_save': '自动保存中',
   'project.saved': '已保存',
   'project.deleted': '已删除',
@@ -184,4 +183,38 @@ export const zhCN: LocaleDictionary = {
   'perf.warning.fps': '低帧率',
   'perf.warning.memory': '显存不足',
   'perf.warning.compute': '计算耗时过长',
+
+  'workbench.mode.normal': '普通',
+  'workbench.mode.flow': '流程',
+  'workbench.example.title': '示例',
+  'workbench.example.datasets': '数据集',
+  'workbench.example.pipelines': '流程管线',
+  'workbench.example.pipeline_loaded': '已加载「{name}」',
+
+  'blocks.category.data_source': '数据源',
+  'blocks.category.transform': '变换',
+  'blocks.category.filter': '过滤',
+  'blocks.category.math': '数学',
+  'blocks.category.statistics': '统计',
+  'blocks.category.signal': '信号',
+  'blocks.category.visualize': '可视化',
+  'blocks.category.output': '输出',
+  'blocks.category.logic': '逻辑',
+  'blocks.category.utility': '工具',
+
+  'blocks.run': '运行',
+  'blocks.running': '运行中…',
+  'blocks.clear': '清空',
+  'blocks.compile_error': '编译错误{nodeId}：{message}',
+  'blocks.run_error': '运行错误（{nodeId}）：{message}',
+
+  'blocks.preview.title': '结果预览',
+  'blocks.preview.empty': '运行后可在此查看结果',
+  'blocks.preview.scalar': '值',
+
+  'blocks.params.select_hint': '选中一个节点以编辑参数',
+  'blocks.params.none': '无参数',
+
+  'blocks.table.meta': '{rows} 行 × {cols} 列',
+  'blocks.table.note': '仅显示前 {rows} 行，共 {total} 行',
 };

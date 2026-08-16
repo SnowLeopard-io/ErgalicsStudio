@@ -8,7 +8,7 @@ import { createScene3D } from '@/core/scene3d';
 import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
-import { ExampleDataDialog } from './ExampleDataDialog';
+import { DataDialog } from './DataDialog';
 
 interface ChooserState {
   open: boolean;
@@ -188,7 +188,7 @@ export function CentralArea() {
       />
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
-      <ExampleDataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
+      <DataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
     </div>
   );
 }
