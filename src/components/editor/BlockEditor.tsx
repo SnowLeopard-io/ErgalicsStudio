@@ -12,7 +12,7 @@ import { useLocale, useT } from '@/i18n';
 import { getResolvedTheme } from '@/theme';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { usePluginStore, setHostContainers } from '@/stores/pluginStore';
+import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { renderView } from '@/blocks/render';
 import type { ViewRenderHost } from '@/blocks/render';
 import { createStudioApi } from '@/editor/runtime/studio-api';
@@ -112,6 +112,10 @@ export function BlockEditor() {
         if (g) g.clearRect(0, 0, canvas.width, canvas.height);
       },
     });
+    // If a plugin is still active (e.g. the editor just remounted after a
+    // mode toggle), redraw it into the fresh preview containers — otherwise
+    // its cached container points at a detached canvas and plotting breaks.
+    rerenderActivePlugin();
     return () => setHostContainers(null);
   }, []);
 
@@ -132,7 +136,14 @@ export function BlockEditor() {
     const viewHost: ViewRenderHost = {
       activate: async (pluginId) => {
         const store = usePluginStore.getState();
-        if (store.activeId !== pluginId) await store.activate(pluginId);
+        if (store.activeId !== pluginId) {
+          await store.activate(pluginId);
+        } else {
+          // Plugin is already active, but its cached container may still
+          // point at a detached canvas after the editor remounted — rebind
+          // to the current preview containers before loading data.
+          rerenderActivePlugin();
+        }
         return store.getActive();
       },
     };

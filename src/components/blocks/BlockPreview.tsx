@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useT } from '@/i18n';
-import { setHostContainers, usePluginStore } from '@/stores/pluginStore';
+import { setHostContainers, usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { useAppStore } from '@/stores/appStore';
 import { renderView } from '@/blocks/render';
@@ -46,6 +46,10 @@ export function BlockPreview() {
         if (g) g.clearRect(0, 0, canvas.width, canvas.height);
       },
     });
+    // If a plugin is still active (e.g. the preview remounted after a mode
+    // toggle), redraw it into the fresh containers — otherwise its cached
+    // container points at a detached canvas and re-rendering silently no-ops.
+    rerenderActivePlugin();
     return () => setHostContainers(null);
   }, []);
 
@@ -70,7 +74,13 @@ export function BlockPreview() {
     const host: ViewRenderHost = {
       activate: async (pluginId) => {
         const store = usePluginStore.getState();
-        if (store.activeId !== pluginId) await store.activate(pluginId);
+        if (store.activeId !== pluginId) {
+          await store.activate(pluginId);
+        } else {
+          // Plugin already active, but its cached container may still point
+          // at a detached canvas after the preview remounted — rebind first.
+          rerenderActivePlugin();
+        }
         return store.getActive();
       },
     };
