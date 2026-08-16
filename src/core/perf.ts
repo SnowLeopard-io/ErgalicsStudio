@@ -59,11 +59,16 @@ class PerformanceMonitor {
 
 async function queryDeviceMemory(device: GPUDevice | null): Promise<number> {
   if (!device) return 0;
+  // WebGPU's GPUDevice has no `.adapter` member and the spec does not expose
+  // adapter memory, so the old `device.adapter?.info` path always returned 0.
+  // Fall back to the coarse device-RAM heuristic where it is available.
   try {
-    const info = (device as unknown as { adapter?: { info?: { dedicated?: number; memory?: number } } })
-      .adapter?.info;
-    const mem = info?.dedicated ?? info?.memory ?? 0;
-    return mem ? mem / (1024 * 1024) : 0;
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const gb = nav.deviceMemory;
+    if (typeof gb === 'number' && Number.isFinite(gb) && gb > 0) {
+      return gb * 1024; // deviceMemory is reported in GiB → MiB
+    }
+    return 0;
   } catch {
     return 0;
   }

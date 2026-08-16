@@ -38,9 +38,12 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const toggle = (key: keyof ShareOptions) =>
     setOptions((o) => ({ ...o, [key]: !o[key] }));
 
-  const generateLink = () => {
+  const generateLink = async () => {
     if (!project) return;
-    notify();
+    // Persist the latest plugin params into the project before serializing,
+    // and await it — otherwise the payload can be built from a stale
+    // snapshot and share a project missing the current parameters.
+    await notify();
     const projectNow = useProjectStore.getState().project;
     if (!projectNow) return;
     const payload = {
@@ -60,10 +63,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
 
   const exportScreenshot = () => {
     const canvas = document.querySelector('.central-canvas') as HTMLCanvasElement | null;
-    if (!canvas) {
-      useProjectStore.getState().setDirty(false);
-      return;
-    }
+    if (!canvas) return;
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
     a.download = `${project?.name ?? 'ergalics'}-screenshot.png`;
@@ -105,7 +105,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
         </div>
 
         <div className="share-actions">
-          <button type="button" className="btn btn-primary" onClick={generateLink}>
+          <button type="button" className="btn btn-primary" onClick={() => void generateLink()}>
             {t('share.generate_link')}
           </button>
           <button type="button" className="btn" onClick={exportFile}>

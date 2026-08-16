@@ -62,12 +62,14 @@ function isFnToken(value: unknown): value is FnToken {
 export function encodeArgs(
   args: unknown[],
   callbacks: Map<number, (...a: unknown[]) => void>,
+  created?: Set<number>,
 ): unknown[] {
   let nextId = callbacks.size + 1;
   const walk = (value: unknown): unknown => {
     if (typeof value === 'function') {
       const id = nextId++;
       callbacks.set(id, value as (...a: unknown[]) => void);
+      created?.add(id);
       return { __fn: id } satisfies FnToken;
     }
     if (Array.isArray(value)) return value.map(walk);
@@ -98,6 +100,11 @@ export function decodeArgs(
     }
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === 'object') {
+      // File/Blob survive structured clone and must pass through untouched:
+      // rebuilding them as plain objects would drop .text()/.arrayBuffer()/
+      // .slice() and break sandboxed loadData / api.readText round trips.
+      if (typeof File !== 'undefined' && value instanceof File) return value;
+      if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         out[k] = walk(v);
@@ -215,10 +222,20 @@ export async function createPluginSandbox(
     method: string,
     args: unknown[] = [],
     transfer: Transferable[] = [],
+    cleanup: (() => void) | null = null,
   ): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       const id = nextCallId++;
-      pending.set(id, { resolve: (v) => resolve(v as T), reject });
+      pending.set(id, {
+        resolve: (v) => {
+          cleanup?.();
+          resolve(v as T);
+        },
+        reject: (e) => {
+          cleanup?.();
+          reject(e);
+        },
+      });
       post({ id, method, args }, transfer);
     });
 
@@ -282,19 +299,26 @@ export async function createPluginSandbox(
     surfaces.push(surface);
     const offscreen = surface.transferControlToOffscreen();
     return {
-      args: [
-        {
-          canvas2d: offscreen,
-          // dom / three are intentionally unavailable inside the sandbox.
-          reportDataScale: (n: number) => container.reportDataScale(n),
-        },
-      ],
+      // reportDataScale is a function and cannot be structured-cloned; encode
+      // it as an `__fn` token so postMessage does not throw DataCloneError.
+      args: encodeArgs(
+        [
+          {
+            canvas2d: offscreen,
+            // dom / three are intentionally unavailable inside the sandbox.
+            reportDataScale: (n: number) => container.reportDataScale(n),
+          },
+        ],
+        callbacks,
+      ),
       transfer: [offscreen],
     };
   };
 
   try {
-    await invoke('boot', [options.entrySource, options.manifest]);
+    // Send the current host locale so a sandboxed plugin's api.locale is
+    // accurate from boot (was previously always 'zh-CN').
+    await invoke('boot', [options.entrySource, options.manifest, api.locale]);
   } catch (err) {
     logger.error('sandbox', `plugin ${pluginId} failed to boot in worker`, err);
     worker.terminate();
@@ -335,8 +359,18 @@ export async function createPluginSandbox(
     loadData: (file) => invoke('loadData', [file]),
     getSupportedFormats: () => invoke<SupportedFormat[]>('getSupportedFormats'),
     compute: (input, onProgress) => {
-      const args = encodeArgs([input, onProgress ?? undefined], callbacks);
-      return invoke<ComputeResult>('compute', args);
+      const created = new Set<number>();
+      const args = encodeArgs([input, onProgress ?? undefined], callbacks, created);
+      // Prune the registered callback closures once the call settles so the
+      // callbacks map cannot grow unboundedly across compute() invocations.
+      return invoke<ComputeResult>(
+        'compute',
+        args,
+        [],
+        () => {
+          for (const fid of created) callbacks.delete(fid);
+        },
+      );
     },
   };
 

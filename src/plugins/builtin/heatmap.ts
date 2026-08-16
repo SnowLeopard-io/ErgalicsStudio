@@ -85,6 +85,8 @@ export class HeatmapPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private state: State = { grid: [], palette: 'viridis', gridlines: false };
+  /** Cached offscreen canvas used to upscale the low-res heatmap. */
+  private scaledCanvas: HTMLCanvasElement | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -253,15 +255,17 @@ export class HeatmapPlugin implements Plugin {
     }
 
     g.imageSmoothingEnabled = false;
-    g.putImageData(img, 0, 0, 0, 0, cols, rows);
-    // scale the low-res heatmap up to the full canvas
-    const scaled = document.createElement('canvas');
-    scaled.width = cols;
-    scaled.height = rows;
-    const sg = scaled.getContext('2d')!;
+    // Upscale the low-res heatmap to the full canvas. The intermediate is a
+    // cached canvas instead of a fresh one allocated on every draw.
+    if (!this.scaledCanvas || this.scaledCanvas.width !== cols || this.scaledCanvas.height !== rows) {
+      this.scaledCanvas = document.createElement('canvas');
+      this.scaledCanvas.width = cols;
+      this.scaledCanvas.height = rows;
+    }
+    const sg = this.scaledCanvas.getContext('2d')!;
     sg.putImageData(img, 0, 0);
     g.imageSmoothingEnabled = false;
-    g.drawImage(scaled, 0, 0, cols, rows, pad, pad, canvas.width - pad * 2, canvas.height - pad * 2);
+    g.drawImage(this.scaledCanvas, 0, 0, cols, rows, pad, pad, canvas.width - pad * 2, canvas.height - pad * 2);
 
     if (this.state.gridlines) {
       g.strokeStyle = 'rgba(0, 0, 0, 0.25)';

@@ -152,12 +152,19 @@ export function advanceParticleCPU(p: ParticleState, dt: number, speed: number):
   }
 }
 
-/** Uniform params buffer bytes: [dt, speed, count, _pad] as 4 × f32. */
+/**
+ * Uniform params buffer bytes: [dt, speed, count, _pad] as 4 × f32.
+ *
+ * `count` is written as a *real* `u32` through a DataView because the kernel
+ * reads it as `u32` (see `particleKernelWGSL`). A plain f32 store would leave
+ * the floating-point bit pattern in memory, which the shader would interpret
+ * as a huge count and the `i >= params.count` bounds guard would never fire.
+ */
 export function packParticleParams(dt: number, speed: number, count: number): Float32Array {
   const out = new Float32Array(4);
   out[0] = dt;
   out[1] = speed;
-  out[2] = count;
+  new DataView(out.buffer).setUint32(8, count >>> 0, true);
   out[3] = 0;
   return out;
 }

@@ -40,6 +40,18 @@ export function asFloat64(table: DataTable, name: string): Float64Array {
   throw new Error(`column "${name}" is not numeric`);
 }
 
+/**
+ * Resolve a numeric column, with a clear message for blocks whose column
+ * param is still empty. Without this, unconfigured blocks throw raw
+ * `column "" does not exist` on their very first run.
+ */
+export function requireColumn(table: DataTable, name: string): Float64Array {
+  if (!name) {
+    throw new Error('this block is not configured — pick a column first');
+  }
+  return asFloat64(table, name);
+}
+
 /** Reindex a column by an array of source row indices. */
 function subset(col: ColumnData, keep: number[]): ColumnData {
   if (col instanceof Float64Array) return Float64Array.from(keep.map((i) => col[i]!));
@@ -164,6 +176,9 @@ export function normalize(values: Float64Array, mode: NormalizeMode): Float64Arr
       if (v < min) min = v;
       if (v > max) max = v;
     }
+    // All-NaN input leaves min=Infinity/max=-Infinity and would produce NaN
+    // output; treat it as an empty signal instead of propagating NaN.
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return out;
     const range = max - min;
     for (let i = 0; i < values.length; i += 1) {
       out[i] = range === 0 ? 0 : (values[i]! - min) / range;
@@ -245,6 +260,11 @@ export interface Histogram {
 
 export function histogram(values: Float64Array, bins: number): Histogram {
   if (bins < 1) throw new Error('bins must be >= 1');
+  const counts = new Float64Array(bins);
+  const centers = new Float64Array(bins);
+  // An empty column must produce zeroed bins, not a table of NaNs: with no
+  // values min=Infinity/max=-Infinity, range=-Infinity and every center is NaN.
+  if (values.length === 0) return { centers, counts };
   let min = Infinity;
   let max = -Infinity;
   for (const v of values) {
@@ -252,8 +272,6 @@ export function histogram(values: Float64Array, bins: number): Histogram {
     if (v > max) max = v;
   }
   const range = max - min || 1;
-  const counts = new Float64Array(bins);
-  const centers = new Float64Array(bins);
   const step = range / bins;
   for (let b = 0; b < bins; b += 1) {
     centers[b] = min + step * (b + 0.5);

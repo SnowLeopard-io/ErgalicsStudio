@@ -89,6 +89,16 @@ class WasmBuffer implements ComputeBufferHandle {
     const u8 = await this.raw.read();
     return copyMappedRange(u8.buffer as ArrayBuffer);
   }
+
+  destroy(): void {
+    // The raw `GPUBuffer` is reachable even on the WASM path; destroy it so
+    // the device memory is released instead of surviving until GC/teardown.
+    try {
+      this.raw.buffer.destroy();
+    } catch {
+      /* already destroyed or device lost */
+    }
+  }
 }
 
 class WasmKernel implements GpuKernelHandle {
@@ -195,12 +205,31 @@ class NativeBuffer implements ComputeBufferHandle {
       size: this.size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.copyBufferToBuffer(this.raw, 0, readback, 0, this.size);
-    await readback.mapAsync(GPUMapMode.READ);
-    const range = readback.getMappedRange();
-    const copy = copyMappedRange(range);
-    readback.unmap();
-    return copy;
+    try {
+      this.device.queue.copyBufferToBuffer(this.raw, 0, readback, 0, this.size);
+      await readback.mapAsync(GPUMapMode.READ);
+      const range = readback.getMappedRange();
+      const copy = copyMappedRange(range);
+      readback.unmap();
+      return copy;
+    } finally {
+      // Every read allocates a dedicated MAP_READ|COPY_DST readback buffer;
+      // release it on both the success and failure paths so GPU memory is not
+      // leaked per read. destroy() on an already-destroyed buffer is a no-op.
+      try {
+        readback.destroy();
+      } catch {
+        /* device already lost */
+      }
+    }
+  }
+
+  destroy(): void {
+    try {
+      this.raw.destroy();
+    } catch {
+      /* already destroyed or device lost */
+    }
   }
 }
 

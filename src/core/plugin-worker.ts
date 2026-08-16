@@ -50,6 +50,7 @@ export function createPluginWorkerRuntime(
   let apiCallId = 1;
   let plugin: Plugin | null = null;
   let api: PluginApi | null = null;
+  let dispatchChain: Promise<void> = Promise.resolve();
 
   const postReply = (id: number, ok: boolean, payload: unknown) => {
     postToHost({
@@ -164,36 +165,44 @@ export function createPluginWorkerRuntime(
       const req = msg as RpcRequest;
       if (typeof req?.id !== 'number' || !req.method) return;
 
-      if (req.method === 'boot') {
-        const [entrySource, manifest, locale] = req.args as [string, PluginManifest, string];
-        try {
-          api = createApiProxy(locale ?? 'zh-CN');
-          // eslint-disable-next-line @typescript-eslint/no-implied-eval
-          const factory = new Function('api', `"use strict";\n${entrySource}`) as (
-            api: PluginApi,
-          ) => Plugin;
-          const instance = factory(api);
-          if (!instance || typeof instance !== 'object') {
-            throw new Error('entry did not return a plugin object');
+      // Serialize dispatch: a plugin's methods share mutable state and are not
+      // reentrant. Without a chain, concurrent calls (e.g. compute + loadData)
+      // interleave on `plugin` and produce corrupted output.
+      const run = async () => {
+        if (req.method === 'boot') {
+          const [entrySource, manifest, locale] = req.args as [string, PluginManifest, string];
+          try {
+            api = createApiProxy(locale ?? 'zh-CN');
+            // eslint-disable-next-line @typescript-eslint/no-implied-eval
+            const factory = new Function('api', `"use strict";\n${entrySource}`) as (
+              api: PluginApi,
+            ) => Plugin;
+            const instance = factory(api);
+            if (!instance || typeof instance !== 'object') {
+              throw new Error('entry did not return a plugin object');
+            }
+            instance.manifest.id = manifest.id;
+            plugin = instance;
+            postReply(req.id, true, 'ready');
+          } catch (err) {
+            postReply(req.id, false, `boot failed: ${String(err)}`);
           }
-          instance.manifest.id = manifest.id;
-          plugin = instance;
-          postReply(req.id, true, 'ready');
-        } catch (err) {
-          postReply(req.id, false, `boot failed: ${String(err)}`);
+          return;
         }
-        return;
-      }
 
-      try {
-        const sendFn = (event: string, callId: number, fnArgs: unknown[]) => {
-          postToHost({ event, callId, args: fnArgs });
-        };
-        const result = await dispatch(req.method, decodeArgs(req.args ?? [], sendFn));
-        postReply(req.id, true, result);
-      } catch (err) {
-        postReply(req.id, false, err instanceof Error ? err.message : String(err));
-      }
+        try {
+          const sendFn = (event: string, callId: number, fnArgs: unknown[]) => {
+            postToHost({ event, callId, args: fnArgs });
+          };
+          const result = await dispatch(req.method, decodeArgs(req.args ?? [], sendFn));
+          postReply(req.id, true, result);
+        } catch (err) {
+          postReply(req.id, false, err instanceof Error ? err.message : String(err));
+        }
+      };
+
+      dispatchChain = dispatchChain.then(run, run);
+      await dispatchChain;
     },
   };
 }

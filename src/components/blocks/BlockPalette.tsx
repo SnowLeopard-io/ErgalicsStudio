@@ -9,6 +9,7 @@ import { useLocale, useT } from '@/i18n';
 import { useBlockStore } from '@/stores/blockStore';
 import { BLOCK_CATEGORIES, blockRegistry } from '@/blocks/registry';
 import { blockDescription, blockName } from '@/blocks/l10n';
+import { screenToWorld } from './geometry';
 import type { BlockCategory } from '@/types/block';
 
 const CATEGORY_LABEL_KEYS: Record<BlockCategory, string> = {
@@ -29,11 +30,16 @@ export function BlockPalette() {
   const { locale } = useLocale();
   const addInstance = useBlockStore((s) => s.addInstance);
   const viewport = useBlockStore((s) => s.viewport);
+  const canvasSize = useBlockStore((s) => s.canvasSize);
 
   const drop = (blockId: string) => {
-    const x = -viewport.x / viewport.zoom + 60;
-    const y = -viewport.y / viewport.zoom + 40;
-    addInstance(blockId, { x, y });
+    // Drop at the centre of the visible canvas (in world coordinates), so
+    // zoom/pan no longer sends new blocks to a screen corner.
+    const center = screenToWorld(
+      { x: canvasSize.width / 2, y: canvasSize.height / 2 },
+      viewport,
+    );
+    addInstance(blockId, { x: center.x + 40, y: center.y + 30 });
   };
 
   return (

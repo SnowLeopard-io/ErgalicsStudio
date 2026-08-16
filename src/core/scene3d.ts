@@ -64,10 +64,19 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
 
   const loop = () => {
     if (disposed) return;
-    if (visible) renderFrame();
+    renderFrame();
     raf = requestAnimationFrame(loop);
   };
-  loop();
+
+  const startLoop = () => {
+    if (disposed || raf !== 0) return;
+    raf = requestAnimationFrame(loop);
+  };
+
+  const stopLoop = () => {
+    if (raf !== 0) cancelAnimationFrame(raf);
+    raf = 0;
+  };
 
   const resize = () => {
     if (disposed) return;
@@ -92,14 +101,19 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
       canvas.style.display = next ? 'block' : 'none';
       if (next) {
         resize();
-        renderFrame();
+        // Render continuously only while a 3D plugin is actually showing the
+        // scene — previously the rAF loop spun forever even when hidden,
+        // burning CPU for the whole session.
+        startLoop();
+      } else {
+        stopLoop();
       }
     },
     render: renderFrame,
     snapshot: () => renderer.domElement.toDataURL('image/png'),
     dispose: () => {
       disposed = true;
-      cancelAnimationFrame(raf);
+      stopLoop();
       resizeObserver.disconnect();
       controls.dispose();
       renderer.dispose();

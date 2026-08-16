@@ -34,6 +34,10 @@ export default function ShareLinkPage() {
       };
       void useProjectStore.getState().loadProjectFromText(JSON.stringify(project)).then(() => {
         navigate('/workbench', { replace: true });
+      }).catch(() => {
+        // A failed load previously left this page stuck on the spinner
+        // forever (unhandled rejection after the try/catch already ran).
+        navigate('/', { replace: true });
       });
     } catch {
       navigate('/', { replace: true });

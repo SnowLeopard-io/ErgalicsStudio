@@ -6,7 +6,7 @@
 // ==========================================================================
 
 import type { DataTable } from '@/types/datatable';
-import { addColumn, asFloat64, binaryColumn, unaryColumn } from '../ops';
+import { addColumn, binaryColumn, requireColumn, unaryColumn } from '../ops';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -38,9 +38,9 @@ function makeBinaryMath(
       const column = String(ctx.getParam('column') ?? '');
       const other = ctx.getParam('otherColumn');
       const value = Number(ctx.getParam('value') ?? 0);
-      const a = asFloat64(input, column);
+      const a = requireColumn(input, column);
       const result = other
-        ? binaryColumn(a, asFloat64(input, String(other)), op)
+        ? binaryColumn(a, requireColumn(input, String(other)), op)
         : binaryColumn(a, value, op);
       return addColumn(input, `${column}_${opName}`, 'f64', result);
     },
@@ -71,7 +71,7 @@ function makeUnaryMath(
     async (ctx) => {
       const input = ctx.getInput('data') as DataTable;
       const column = String(ctx.getParam('column') ?? '');
-      const result = unaryColumn(asFloat64(input, column), op);
+      const result = unaryColumn(requireColumn(input, column), op);
       return addColumn(input, `${column}_${opName}`, 'f64', result);
     },
   );

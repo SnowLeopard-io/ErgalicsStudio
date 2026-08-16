@@ -14,6 +14,10 @@ import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 
+/** Process-wide guard: the project restore must run once per page load even
+ *  under React StrictMode (which mounts/unmounts/remounts in dev). */
+let restoreStarted = false;
+
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const blockMode = useAppStore((s) => s.blockMode);
@@ -26,8 +30,10 @@ export default function WorkbenchPage() {
     initBlockSystem();
     void usePluginStore.getState().ensureBuiltinsLoaded();
     // Restore the most recent project; create a fresh one if none exists
-    // (spec §4.2 "恢复").
-    if (!useProjectStore.getState().project) {
+    // (spec §4.2 "恢复"). Guarded so React StrictMode's double-mount cannot
+    // create the empty project twice (two rows in IndexedDB).
+    if (!restoreStarted) {
+      restoreStarted = true;
       void (async () => {
         await useProjectStore.getState().loadRecent();
         const { project, recent } = useProjectStore.getState();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
-import { usePluginStore, setHostContainers } from '@/stores/pluginStore';
+import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
@@ -56,6 +56,9 @@ export function CentralArea() {
         g.clearRect(0, 0, canvas.width, canvas.height);
       },
     });
+    // If a plugin is still active (e.g. CentralArea just remounted after a
+    // block-mode toggle), redraw it into the fresh container elements.
+    rerenderActivePlugin();
     return () => {
       setHostContainers(null);
       scene3dRef.current?.dispose();

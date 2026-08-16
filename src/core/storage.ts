@@ -15,7 +15,7 @@ export interface StorageStatus {
 
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -30,6 +30,12 @@ function openDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+  }).catch((err) => {
+    // Never cache a failure: a transient error (blocked upgrade, private-mode
+    // IndexedDB) previously poisoned every later storage call because the
+    // rejected promise was kept forever.
+    dbPromise = null;
+    throw err;
   });
   return dbPromise;
 }

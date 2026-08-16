@@ -49,6 +49,8 @@ export class ImageViewerPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private state: State = { image: null, filename: '', mode: 'contain', grid: false };
   private objectUrl: string | null = null;
+  /** Monotonic token so a slow decode can't clobber a newer loadData(). */
+  private loadSeq = 0;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -103,20 +105,33 @@ export class ImageViewerPlugin implements Plugin {
       this.api.notify('warning', this.api.locale === 'zh-CN' ? '不是图片文件' : 'Not an image file');
       return;
     }
-    this.release();
-    this.objectUrl = URL.createObjectURL(file);
+    const seq = ++this.loadSeq;
+    // Each load owns its own object URL and only publishes state if it is
+    // still the latest request. Previously a stale decode (or the shared
+    // release()) could revoke the *newer* load's URL or overwrite its state.
+    const objectUrl = URL.createObjectURL(file);
     const image = new Image();
     try {
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
         image.onerror = () => reject(new Error('decode failed'));
-        image.src = this.objectUrl!;
+        image.src = objectUrl;
       });
     } catch {
-      this.api.notify('error', this.api.locale === 'zh-CN' ? '图片解码失败' : 'Image decode failed');
-      this.release();
+      URL.revokeObjectURL(objectUrl);
+      if (seq === this.loadSeq) {
+        this.api.notify('error', this.api.locale === 'zh-CN' ? '图片解码失败' : 'Image decode failed');
+        this.release();
+      }
       return;
     }
+    if (seq !== this.loadSeq) {
+      // A newer load started while we were decoding — discard this one.
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
+    this.release();
+    this.objectUrl = objectUrl;
     this.state.image = image;
     this.state.filename = file.name;
     this.api.reportDataScale(image.naturalWidth * image.naturalHeight);

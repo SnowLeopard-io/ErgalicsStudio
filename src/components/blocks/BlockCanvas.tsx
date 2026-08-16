@@ -6,7 +6,7 @@
 // connect, and selection. All geometry is delegated to geometry.ts.
 // ==========================================================================
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBlockStore } from '@/stores/blockStore';
 import { blockRegistry } from '@/blocks/registry';
 import type { BlockInstance, BlockMeta } from '@/types/block';
@@ -28,6 +28,13 @@ type DragState =
   | { kind: 'node'; id: string; offset: Point }
   | { kind: 'connect'; fromNode: string; fromPort: string; cursor: Point }
   | null;
+
+/** Rubber-band line shown while dragging an output port to an input port. */
+interface PendingConnect {
+  fromNode: string;
+  fromPort: string;
+  cursor: Point;
+}
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
@@ -60,6 +67,23 @@ export function BlockCanvas() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState>(null);
+  const [pending, setPending] = useState<PendingConnect | null>(null);
+
+  // Keep the palette's "drop at viewport center" math honest by publishing
+  // the real canvas size; otherwise a node dropped from the palette lands at
+  // a screen corner regardless of the current zoom/pan.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const report = () => {
+      const rect = el.getBoundingClientRect();
+      useBlockStore.getState().setCanvasSize({ width: rect.width, height: rect.height });
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const clientToLocal = (clientX: number, clientY: number): Point => {
     const rect = containerRef.current!.getBoundingClientRect();
@@ -100,6 +124,8 @@ export function BlockCanvas() {
     if (side === 'in') return; // connecting starts from an output port
     const local = clientToLocal(e.clientX, e.clientY);
     drag.current = { kind: 'connect', fromNode: id, fromPort: portId, cursor: local };
+    // Push the rubber-band line into React state so it actually re-renders.
+    setPending({ fromNode: id, fromPort: portId, cursor: local });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -120,12 +146,14 @@ export function BlockCanvas() {
       store.moveInstance(d.id, { x: world.x - d.offset.x, y: world.y - d.offset.y });
     } else if (d.kind === 'connect') {
       drag.current = { ...d, cursor: local };
+      setPending({ fromNode: d.fromNode, fromPort: d.fromPort, cursor: local });
     }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
     const d = drag.current;
     drag.current = null;
+    setPending(null);
     if (d?.kind !== 'connect') return;
 
     const local = clientToLocal(e.clientX, e.clientY);
@@ -165,7 +193,6 @@ export function BlockCanvas() {
 
   // Build connection paths in screen space.
   const paths: { id: string; d: string }[] = [];
-  const pending = drag.current?.kind === 'connect' ? drag.current : null;
   for (const c of connections) {
     const from = useBlockStore.getState().instances.find((i) => i.id === c.from.nodeId);
     const to = useBlockStore.getState().instances.find((i) => i.id === c.to.nodeId);

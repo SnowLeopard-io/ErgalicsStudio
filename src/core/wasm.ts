@@ -13,7 +13,8 @@ import type {
 
 export interface WasmModule {
   core_version(): string;
-  detect_file_kind(prefix: Uint8Array): string | undefined;
+  /** Numeric `FileKind` enum (0=Magic, 1=Extension, 2=Unknown) — see `@/native/ergalics_core`. */
+  detect_file_kind(prefix: Uint8Array): number | undefined;
   log(message: string): void;
   /** Compute surface (present on the native core build). */
   GpuBuffer?: typeof GpuBuffer;

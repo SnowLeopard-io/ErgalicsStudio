@@ -34,6 +34,13 @@ export function revokeCspkgUrls(id: string) {
 
 const REQUIRED_MANIFEST_FIELDS = ['id', 'entry', 'name', 'version'] as const;
 
+/** Hard caps against zip-bomb / oversized archives. `unzipSync` materializes
+ *  the whole tree in memory, so the input size is bounded up front and the
+ *  decompressed result is double-checked afterwards. */
+const MAX_PACKAGE_BYTES = 16 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
+const MAX_FILES = 512;
+
 /** Reject malformed package ids / entry paths early (path traversal guard). */
 function validateManifest(manifest: PluginManifest): void {
   for (const field of REQUIRED_MANIFEST_FIELDS) {
@@ -56,7 +63,30 @@ export async function parseCspkg(buffer: ArrayBuffer): Promise<{
   manifest: PluginManifest;
   files: Record<string, Uint8Array>;
 }> {
-  const files = unzipSync(new Uint8Array(buffer));
+  // Reject oversized archives before decompressing (zip-bomb defense).
+  if (buffer.byteLength > MAX_PACKAGE_BYTES) {
+    throw new Error(`cspkg: package exceeds ${Math.round(MAX_PACKAGE_BYTES / 1024 / 1024)} MB limit`);
+  }
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(new Uint8Array(buffer));
+  } catch (err) {
+    throw new Error(`cspkg: invalid zip archive — ${String(err)}`);
+  }
+
+  // Post-decompression sanity: a tiny archive must not expand into a huge
+  // file tree (decompression bomb) that would pin this much memory and spawn
+  // that many blob URLs.
+  const names = Object.keys(files);
+  if (names.length > MAX_FILES) {
+    throw new Error(`cspkg: archive contains too many files (${names.length} > ${MAX_FILES})`);
+  }
+  let total = 0;
+  for (const data of Object.values(files)) total += data.byteLength;
+  if (total > MAX_DECOMPRESSED_BYTES) {
+    throw new Error(`cspkg: decompressed size exceeds ${Math.round(MAX_DECOMPRESSED_BYTES / 1024 / 1024)} MB`);
+  }
+
   const manifestEntry = files['manifest.json'];
   if (!manifestEntry) throw new Error('cspkg: missing manifest.json');
 

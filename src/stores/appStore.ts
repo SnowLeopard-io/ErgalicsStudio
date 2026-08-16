@@ -102,6 +102,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setError: (pluginId) => {
     // pluginStore passes ids prefixed with `plugin:`; strip for display.
     const raw = pluginId.startsWith('plugin:') ? pluginId.slice('plugin:'.length) : pluginId;
+    // Dedup like addBanner/setBanner: repeated failures for the same plugin
+    // used to stack an unbounded list of identical crash banners.
+    const existing = get().banners.some(
+      (b) => b.messageKey === 'error.plugin_crash' && b.pluginId === raw,
+    );
+    if (existing) return;
     set((s) => ({
       banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey: 'error.plugin_crash', dismissible: true, pluginId: raw }],
     }));

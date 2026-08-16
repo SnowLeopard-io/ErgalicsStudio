@@ -181,6 +181,17 @@ function validateConnection(
     return;
   }
 
+  if (fromPort.type !== toPort.type) {
+    diagnostics.push({
+      severity: 'error',
+      code: 'port_type_mismatch',
+      message: `cannot connect a ${fromPort.type} output to a ${toPort.type} input`,
+      nodeId: conn.to.nodeId,
+      portId: conn.to.portId,
+    });
+    return;
+  }
+
   if (fromPort.dataType && toPort.dataType && fromPort.dataType !== toPort.dataType) {
     diagnostics.push({
       severity: 'error',

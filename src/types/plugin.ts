@@ -213,6 +213,12 @@ export interface ComputeBufferHandle {
   write(data: ArrayBufferView, offset?: number): void;
   /** Map the buffer and resolve with a copy of its bytes. */
   read(): Promise<ArrayBuffer>;
+  /**
+   * Release the underlying GPU buffer. Plugins must call this when the
+   * buffer is no longer needed — without it every compute pass leaks device
+   * memory until the whole device is destroyed.
+   */
+  destroy(): void;
 }
 
 /** Descriptor for compiling a WGSL compute kernel on the host. */

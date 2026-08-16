@@ -39,7 +39,20 @@ export function subscribeGpu(listener: Listener): () => void {
 }
 
 export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
-  if (!('gpu' in navigator)) {
+  // Concurrency guard: WelcomePage calls initGpu twice (effect + enterWorkbench)
+  // and re-runs it when the backend setting changes. Reusing the in-flight
+  // promise prevents duplicate adapters/devices from being created.
+  if (initPromise) return initPromise;
+  initPromise = doInitGpu(mode).finally(() => {
+    initPromise = null;
+  });
+  return initPromise;
+}
+
+let initPromise: Promise<GpuBackend> | null = null;
+
+async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
+  const fallback = (): GpuBackend => {
     current = {
       available: false,
       name: 'Unknown',
@@ -50,7 +63,9 @@ export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend
     };
     emit();
     return current;
-  }
+  };
+
+  if (!('gpu' in navigator)) return fallback();
 
   try {
     const gpu = navigator.gpu as GPU;
@@ -60,29 +75,22 @@ export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend
       forceFallbackAdapter: mode === 'cpu-fallback',
     });
 
-    if (!adapter) {
-      current = {
-        available: false,
-        name: 'Unknown',
-        backend: 'none',
-        device: null,
-        fallback: true,
-        oom: false,
-      };
-      emit();
-      return current;
-    }
+    if (!adapter) return fallback();
 
     const info = adapter.info as { vendor?: string; architecture?: string; device?: string; description?: string };
     const deviceName =
       info.device || info.description || `${info.vendor ?? ''} ${info.architecture ?? ''}`.trim() || 'Unknown';
 
     const device = await adapter.requestDevice();
-    if (device.lost) {
-      device.lost.then((reason: GPUDeviceLostInfo) => {
-        logger.info('gpu', 'device lost', reason);
-      });
-    }
+    device.lost.then((reason: GPUDeviceLostInfo) => {
+      logger.warn('gpu', 'device lost', reason.reason ?? reason.message);
+      // Stop advertising a dead device: every subsequent GPU op would fail
+      // silently. Flag the backend unavailable so plugins fall back to CPU.
+      if (current.device === device) {
+        current = { ...current, available: false, device: null, fallback: true };
+        emit();
+      }
+    });
     device.addEventListener('uncapturederror', ((event: Event) => {
       const e = event as GPUUncapturedErrorEvent;
       logger.warn('gpu', 'uncaptured error', e.error?.message);
@@ -102,14 +110,7 @@ export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend
     };
   } catch (err) {
     logger.warn('gpu', 'adapter/device request failed, falling back', err);
-    current = {
-      available: false,
-      name: 'Unknown',
-      backend: 'none',
-      device: null,
-      fallback: true,
-      oom: false,
-    };
+    return fallback();
   }
   emit();
   return current;
@@ -117,7 +118,17 @@ export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend
 
 /** Release the current device (used when user forces CPU fallback). */
 export function resetGpu(): void {
+  const prev = current.device;
   current = { ...current, device: null, available: false, fallback: true };
+  // Detach listeners on the old device so its errors can't touch new state.
+  if (prev) {
+    try {
+      // GPUDevice.destroy() exists at runtime but is absent from this TS lib.dom.
+      (prev as unknown as { destroy(): void }).destroy();
+    } catch {
+      /* device already lost */
+    }
+  }
   emit();
 }
 

@@ -280,18 +280,21 @@ export class NBodyPlugin implements Plugin {
     onProgress?: (p: ComputeProgress) => void,
   ): Promise<boolean> {
     const n = this.bodies.length;
+    let bufA: ComputeBufferHandle | null = null;
+    let bufB: ComputeBufferHandle | null = null;
+    let paramsBuf: ComputeBufferHandle | null = null;
     try {
-      const bufA: ComputeBufferHandle | null = gpu.createBuffer(
+      bufA = gpu.createBuffer(
         nbodyBufferBytes(n),
         NBODY_BUFFER_USAGE,
         'nbody.A',
       );
-      const bufB: ComputeBufferHandle | null = gpu.createBuffer(
+      bufB = gpu.createBuffer(
         nbodyBufferBytes(n),
         NBODY_BUFFER_USAGE,
         'nbody.B',
       );
-      const paramsBuf: ComputeBufferHandle | null = gpu.createBuffer(
+      paramsBuf = gpu.createBuffer(
         16,
         NBODY_PARAMS_USAGE,
         'nbody.params',
@@ -330,6 +333,10 @@ export class NBodyPlugin implements Plugin {
     } catch (err) {
       logger.warn('nbody', 'GPU compute failed, falling back to CPU', err);
       return false;
+    } finally {
+      bufA?.destroy();
+      bufB?.destroy();
+      paramsBuf?.destroy();
     }
   }
 
@@ -434,8 +441,16 @@ export class NBodyPlugin implements Plugin {
 
   private tick = () => {
     if (!this.state.running) return;
-    // One integration step per frame (CPU). dt is fixed for stability.
-    advanceNBodyCPU(this.bodies, this.state.dt, this.state.G, this.state.softening);
+    // One integration step per frame (CPU). The interactive loop must respect
+    // the same CPU cap as the one-shot Compute button — at MAX_BODIES the full
+    // all-pairs pass is ~67M iterations per frame and freezes the main thread.
+    const n = this.bodies.length;
+    const cap = Math.min(n, CPU_NBODY_CAP);
+    const work = cap < n ? this.bodies.slice(0, cap) : this.bodies;
+    advanceNBodyCPU(work, this.state.dt, this.state.G, this.state.softening);
+    if (cap < n) {
+      for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
+    }
     this.updateGeometry();
     this.draw();
     this.rafId = requestAnimationFrame(this.tick);

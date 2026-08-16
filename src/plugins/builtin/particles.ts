@@ -239,13 +239,15 @@ export class ParticlePlugin implements Plugin {
     onProgress?: (p: ComputeProgress) => void,
   ): Promise<boolean> {
     const count = this.particles.length;
+    let data: ComputeBufferHandle | null = null;
+    let paramsBuf: ComputeBufferHandle | null = null;
     try {
-      const data: ComputeBufferHandle | null = gpu.createBuffer(
+      data = gpu.createBuffer(
         particleBufferBytes(count),
         PARTICLES_BUFFER_USAGE,
         'particles.data',
       );
-      const paramsBuf: ComputeBufferHandle | null = gpu.createBuffer(
+      paramsBuf = gpu.createBuffer(
         16,
         PARTICLES_UNIFORM_USAGE,
         'particles.params',
@@ -280,6 +282,9 @@ export class ParticlePlugin implements Plugin {
     } catch (err) {
       logger.warn('particles', 'GPU compute failed, falling back to CPU', err);
       return false;
+    } finally {
+      data?.destroy();
+      paramsBuf?.destroy();
     }
   }
 

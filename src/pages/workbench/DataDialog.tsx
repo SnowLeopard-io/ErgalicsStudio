@@ -5,7 +5,7 @@
 // entry point with two tabs, per user request.
 // ==========================================================================
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import {
@@ -34,7 +34,9 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const blockMode = useAppStore((s) => s.blockMode);
   const toggleBlockMode = useAppStore((s) => s.toggleBlockMode);
   const [tab, setTab] = useState<'datasets' | 'pipeline'>('datasets');
-  const loadingRef = { current: false };
+  // A plain object literal here would be recreated on every render, making the
+  // re-entrancy guard below useless (double-click would launch two loads).
+  const loadingRef = useRef(false);
 
   const loadExample = async (id: string) => {
     const ex = BUILTIN_EXAMPLES.find((e) => e.id === id);

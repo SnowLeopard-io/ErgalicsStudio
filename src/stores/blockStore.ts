@@ -31,6 +31,9 @@ export interface BlockStore {
   instances: BlockInstance[];
   connections: BlockConnection[];
   viewport: { x: number; y: number; zoom: number };
+  /** Pixel size of the visible canvas, used to place new blocks at the
+   *  current viewport center instead of the (0,0) screen corner. */
+  canvasSize: { width: number; height: number };
 
   selectedIds: string[];
 
@@ -51,6 +54,7 @@ export interface BlockStore {
   ) => void;
   disconnect: (connectionId: string) => void;
   setViewport: (viewport: { x: number; y: number; zoom: number }) => void;
+  setCanvasSize: (size: { width: number; height: number }) => void;
   setSelected: (ids: string[]) => void;
 
   run: () => Promise<void>;
@@ -72,10 +76,15 @@ function notifyChanged(): void {
   emit(BLOCK_GRAPH_CHANGED, undefined);
 }
 
+/** Run token: bumped by `stop()` and each `run()` so a superseded in-flight
+ *  run can never write its results back over a newer one. */
+let runSeq = 0;
+
 export const useBlockStore = create<BlockStore>((set, get) => ({
   instances: [],
   connections: [],
   viewport: { x: 0, y: 0, zoom: 1 },
+  canvasSize: { width: 900, height: 600 },
   selectedIds: [],
   isRunning: false,
   nodeStatus: {},
@@ -137,19 +146,21 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   },
 
   setViewport: (viewport) => set({ viewport }),
+  setCanvasSize: (canvasSize) => set({ canvasSize }),
   setSelected: (ids) => set({ selectedIds: ids }),
 
   run: async () => {
     if (get().isRunning) return;
+    const token = ++runSeq;
     const { instances, connections } = get();
     const graph: BlockGraph = { id: 'main', instances, connections };
     const result = compile(graph, blockRegistry);
     if (!result.ok || !result.program) {
-      set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {} });
+      set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {} });
       return;
     }
 
-    set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {} });
+    set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {}, nodeOutputs: {} });
 
     const executor = new DagExecutor(result.program, {
       storage: createMemoryStorage(),
@@ -160,22 +171,25 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
 
     try {
       const cache = await executor.run();
+      if (token !== runSeq) return; // superseded by stop() or a newer run
       const nodeOutputs: Record<string, DataValue> = {};
       for (const [nodeId, value] of cache) nodeOutputs[nodeId] = value;
       set({ isRunning: false, nodeOutputs });
     } catch (err) {
+      if (token !== runSeq) return; // superseded by stop() or a newer run
       const message = err instanceof Error ? err.message : String(err);
       const errors: Record<string, string> = {};
       for (const [nodeId, status] of Object.entries(get().nodeStatus)) {
         if (status === 'error') errors[nodeId] = message;
       }
-      set({ isRunning: false, executionErrors: errors });
+      // Clear stale outputs so the preview cannot show old data beside an error.
+      set({ isRunning: false, executionErrors: errors, nodeOutputs: {} });
     }
   },
 
   stop: () => {
-    // Phase 1 runs are atomic and fast; this only resets the flag. Long-task
-    // cancellation lands when GPU compute is wired in.
+    // Invalidate any in-flight run so its late completion is discarded.
+    runSeq += 1;
     set({ isRunning: false });
   },
 

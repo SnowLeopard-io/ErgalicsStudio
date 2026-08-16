@@ -9,7 +9,7 @@
 
 import type { DataTable } from '@/types/datatable';
 import type { PortDef } from '@/types/block';
-import { toDelimited } from '../ops';
+import { requireColumn, toDelimited } from '../ops';
 import { defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -52,6 +52,9 @@ export const scatterBlock: BlockDefinition = defineBlock(
     const x = String(ctx.getParam('xColumn') ?? '');
     const y = String(ctx.getParam('yColumn') ?? '');
     const color = ctx.getParam('colorColumn');
+    requireColumn(input, x);
+    requireColumn(input, y);
+    if (color) requireColumn(input, String(color));
     const columns = color ? [x, y, String(color)] : [x, y];
     return renderedView('scatter', 'example.scatter', toDelimited(input, columns));
   },
@@ -73,6 +76,8 @@ export const lineBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const x = String(ctx.getParam('xColumn') ?? '');
     const y = String(ctx.getParam('yColumn') ?? '');
+    requireColumn(input, x);
+    requireColumn(input, y);
     return renderedView('line', 'example.timeseries', toDelimited(input, [x, y], ','));
   },
 );
@@ -92,6 +97,7 @@ export const histogramViewBlock: BlockDefinition = defineBlock(
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
+    requireColumn(input, column);
     return renderedView('histogram', 'example.histogram', toDelimited(input, [column], '\n'));
   },
 );
@@ -112,6 +118,8 @@ export const pointCloud2DBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const x = String(ctx.getParam('xColumn') ?? '');
     const y = String(ctx.getParam('yColumn') ?? '');
+    requireColumn(input, x);
+    requireColumn(input, y);
     return renderedView('point-cloud-2d', 'example.point-cloud', toDelimited(input, [x, y]));
   },
 );

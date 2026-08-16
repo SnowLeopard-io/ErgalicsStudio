@@ -55,8 +55,11 @@ export async function detectFormatByMagic(file: File): Promise<DetectedFormat[]>
   const wasm = getWasm();
   if (wasm) {
     try {
+      // Numeric FileKind enum from the native core: Magic = 0, Extension = 1,
+      // Unknown = 2 (see `@/native/ergalics_core`). Comparing against string
+      // literals would be always-false and silently disable this branch.
       const kind = wasm.detect_file_kind(prefix);
-      if (kind === 'Magic' || kind === 'Extension') {
+      if (kind === 0 || kind === 1) {
         if (prefix[0] === 0x50) {
           // PK header → zip-family format
           if (!results.some((r) => r.format === 'zip')) {
@@ -78,7 +81,10 @@ export async function detectFormatByMagic(file: File): Promise<DetectedFormat[]>
 }
 
 export function detectByExtension(name: string): DetectedFormat | null {
-  const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+  const dot = name.lastIndexOf('.');
+  // A name without a dot must not be treated as its last character.
+  if (dot < 0) return null;
+  const ext = name.slice(dot).toLowerCase();
   const format = EXTENSION_FORMATS[ext];
   if (!format) return null;
   return { format, extension: ext, byMagic: false };

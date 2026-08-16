@@ -114,10 +114,19 @@ export class ContourPlugin implements Plugin {
 
   async loadData(file: File) {
     const text = await file.text();
-    const parsed = JSON.parse(text) as unknown;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      // Match the other data plugins: a malformed file must not produce an
+      // unhandled rejection in the host's dispatchFile().
+      this.api.notify('warning', this.api.locale === 'zh-CN' ? '无法解析网格文件（JSON）' : 'Could not parse grid file (JSON)');
+      return;
+    }
     const rows = normalizeGrid(parsed);
     if (rows.length < 2 || rows[0]!.length < 2) {
-      throw new Error('contour: expected a 2-D numeric grid (JSON array of arrays)');
+      this.api.notify('warning', this.api.locale === 'zh-CN' ? '需要二维数值网格' : 'Expected a 2-D numeric grid');
+      return;
     }
     this.grid = rows;
     this.state.hasData = true;

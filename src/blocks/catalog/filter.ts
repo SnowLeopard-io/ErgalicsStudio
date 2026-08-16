@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import type { DataTable } from '@/types/datatable';
-import { asFloat64, filterRows, sortRows } from '../ops';
+import { filterRows, requireColumn, sortRows } from '../ops';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -26,7 +26,7 @@ export const rangeFilterBlock: BlockDefinition = defineBlock(
     const column = String(ctx.getParam('column') ?? '');
     const min = Number(ctx.getParam('min') ?? 0);
     const max = Number(ctx.getParam('max') ?? 1);
-    const values = asFloat64(input, column);
+    const values = requireColumn(input, column);
     return filterRows(input, (_row, i) => {
       const v = values[i]!;
       return v >= min && v <= max;
@@ -50,7 +50,7 @@ export const valueFilterBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
     const value = Number(ctx.getParam('value') ?? 0);
-    const values = asFloat64(input, column);
+    const values = requireColumn(input, column);
     return filterRows(input, (_row, i) => values[i] === value);
   },
 );
@@ -72,6 +72,7 @@ export const topKBlock: BlockDefinition = defineBlock(
     const column = String(ctx.getParam('column') ?? '');
     const k = Math.max(0, Math.floor(Number(ctx.getParam('k') ?? 10)));
     const direction = ctx.getParam('direction') === 'smallest' ? 'asc' : 'desc';
+    requireColumn(input, column);
     const sorted = sortRows(input, column, direction);
     return filterRows(sorted, (_row, i) => i < k);
   },

@@ -20,14 +20,15 @@ function detectInitialPreference(): ThemePreference {
 }
 
 function systemDark(): boolean {
-  return (
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-  );
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
 function apply() {
   const resolved = preference === 'system' ? (systemDark() ? 'dark' : 'light') : preference;
-  document.documentElement.dataset.theme = resolved;
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.theme = resolved;
+  }
 }
 
 function emit() {
@@ -60,19 +61,25 @@ function subscribe(listener: Listener): () => void {
   };
 }
 
-// Keep theme in sync with system changes when in "system" mode.
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-const onSystemChange = () => {
-  if (preference === 'system') {
-    apply();
-    emit();
+// Keep theme in sync with system changes when in "system" mode. This is set
+// up lazily (not at module top level) so importing this module in a test or
+// non-browser context can't crash on `window.matchMedia` being unavailable.
+function watchSystemTheme(): void {
+  if (typeof window === 'undefined') return;
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const onSystemChange = () => {
+    if (preference === 'system') {
+      apply();
+      emit();
+    }
+  };
+  if (mediaQuery?.addEventListener) {
+    mediaQuery.addEventListener('change', onSystemChange);
+  } else if (mediaQuery?.addListener) {
+    mediaQuery.addListener(onSystemChange);
   }
-};
-if (mediaQuery.addEventListener) {
-  mediaQuery.addEventListener('change', onSystemChange);
-} else {
-  mediaQuery.addListener(onSystemChange);
 }
+watchSystemTheme();
 
 export function useTheme(): {
   preference: ThemePreference;
@@ -87,5 +94,5 @@ export function useTheme(): {
   };
 }
 
-// Apply immediately on module load.
+// Apply immediately on module load (no-op when document is unavailable).
 apply();

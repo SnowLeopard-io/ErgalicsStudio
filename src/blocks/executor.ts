@@ -82,6 +82,10 @@ export class DagExecutor {
     const result = await node.execute(this.createNodeContext(node));
     if (result !== undefined) {
       this.cache.set(node.id, result);
+    } else {
+      // Evict so a stale value from an earlier run is never served for a node
+      // that has since stopped producing output.
+      this.cache.delete(node.id);
     }
   }
 

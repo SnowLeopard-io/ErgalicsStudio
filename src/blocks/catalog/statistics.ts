@@ -4,7 +4,7 @@
 
 import { createDataTable } from '@/types/datatable';
 import type { ColumnType, DataTable } from '@/types/datatable';
-import { asFloat64, histogram, isNumericType, summarize } from '../ops';
+import { asFloat64, histogram, isNumericType, requireColumn, summarize } from '../ops';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -57,7 +57,7 @@ export const histogramBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
     const bins = Math.max(1, Math.floor(Number(ctx.getParam('bins') ?? 10)));
-    const h = histogram(asFloat64(input, column), bins);
+    const h = histogram(requireColumn(input, column), bins);
     return createDataTable(
       'hist',
       [

@@ -114,13 +114,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   save: async () => {
     const { project, status } = get();
     if (!project || status === 'saving') return;
-    await get().applyPluginParams();
-    get().applyBlockGraph();
-    const current = get().project;
-    if (!current) return;
+    // Claim the 'saving' flag synchronously — previously it was set only
+    // *after* two awaits, so Ctrl+S racing an autosave both passed the guard
+    // and their final set() could overwrite each other out of order.
     set({ status: 'saving', statusText: null });
-    const touched = touchProject(current);
     try {
+      await get().applyPluginParams();
+      get().applyBlockGraph();
+      const current = get().project;
+      if (!current) {
+        set({ status: 'ready' });
+        return;
+      }
+      const touched = touchProject(current);
       await saveProject(touched);
       set({ project: touched, dirty: false, status: 'saved' });
     } catch (err) {
@@ -144,7 +150,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     a.href = url;
     a.download = `${fileName ?? project.name ?? 'project'}.clproj`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Defer revoking: in some browsers revoking synchronously cancels the
+    // download before the browser has begun fetching the blob URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   openFromFile: async (file) => {
@@ -173,9 +181,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setStatus: (status, statusText = null) => set({ status, statusText }),
 
   applyPluginParams: async () => {
+    const params = await usePluginStore.getState().getAllParams();
+    // Re-read the project *after* the await — the old snapshot could be
+    // stale if a rename/setParam landed during the await, and applying it
+    // would silently discard the concurrent update.
     const { project } = get();
     if (!project) return;
-    const params = await usePluginStore.getState().getAllParams();
     set({
       project: {
         ...project,
@@ -200,7 +211,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 }));
 
+let projectStoreInit = false;
+
 export function initProjectStore() {
+  // Guard against double-init (StrictMode double-render / HMR re-evaluation)
+  // which previously duplicated autosave timers and bus handlers.
+  if (projectStoreInit) return;
+  projectStoreInit = true;
   useProjectStore.getState().loadRecent();
   ensureAutosave();
   // re-arm autosave when settings change

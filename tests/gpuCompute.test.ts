@@ -67,8 +67,17 @@ describe('particle buffer layout', () => {
     const params = packParticleParams(1 / 60, 2.5, 1000);
     expect(params[0]).toBeCloseTo(1 / 60, 6);
     expect(params[1]).toBe(2.5);
-    expect(params[2]).toBe(1000);
     expect(params[3]).toBe(0);
+  });
+
+  it('writes `count` as a real u32 so the kernel bounds guard fires', () => {
+    // The WGSL struct declares `count: u32` (see particleKernelWGSL); a plain
+    // f32 store would leave the float bit-pattern in memory. Reading the bytes
+    // back as little-endian u32 must yield the exact integer.
+    const params = packParticleParams(1 / 60, 2.5, 1000);
+    const dv = new DataView(params.buffer);
+    expect(dv.getUint32(8, true)).toBe(1000);
+    expect(dv.getUint32(8, true)).not.toBe(1169915904); // f32 bit pattern of 1000
   });
 
   it('exposes buffer usage flags aligned with GPUBufferUsage', () => {

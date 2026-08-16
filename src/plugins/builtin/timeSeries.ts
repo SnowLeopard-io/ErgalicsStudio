@@ -156,8 +156,14 @@ export class TimeSeriesPlugin implements Plugin {
     }
     if (this.state.cols.length === 0) return { ok: false, error: 'no data' };
     const stats = this.state.cols.map((c) => {
-      const min = Math.min(...c.values);
-      const max = Math.max(...c.values);
+      // Iterate instead of Math.min(...array): spreading a large array throws
+      // RangeError (maximum call stack size exceeded).
+      let min = Infinity;
+      let max = -Infinity;
+      for (const v of c.values) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
       return { name: c.name, count: c.values.length, min, max };
     });
     return { ok: true, output: { series: stats } };

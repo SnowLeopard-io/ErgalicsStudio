@@ -103,8 +103,11 @@ export class ProteinPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (typeof params.count === 'number') {
+    if (typeof params.count === 'number' && params.count !== this.state.count) {
       this.state.count = Math.max(20, Math.min(MAX_PROTEINS, Math.floor(params.count)));
+      // The Proteins slider was previously a no-op: resample the loaded
+      // network down to the requested size so the param actually does work.
+      if (this.state.hasData) this.resampleTo(this.state.count);
     }
     if (typeof params.iterations === 'number') {
       this.state.iterations = Math.max(10, Math.floor(params.iterations));
@@ -114,7 +117,12 @@ export class ProteinPlugin implements Plugin {
       if (params.start) this.start();
       else this.stop();
     }
-    if (params?.action === 'layout-compute') void this.runCompute();
+    // The button param is emitted under `params.compute.action` (see
+    // ParamPanel) — checking params.action directly was always undefined,
+    // so the "Compute Layout" button never ran.
+    if ((params as { compute?: { action?: string } })?.compute?.action === 'layout-compute') {
+      void this.runCompute();
+    }
   }
 
   getParams(): ParamDefinition[] {
@@ -228,11 +236,12 @@ export class ProteinPlugin implements Plugin {
     });
     if (result.ok) {
       const o = result.output as { components?: number; maxComponent?: number };
+      const ms = result.metrics?.gpuMs?.toFixed(1) ?? '?';
       this.api.notify(
         'success',
         this.api.locale === 'zh-CN'
-          ? `布局完成 — ${o.components ?? '?'} 个连通分量，最大 ${o.maxComponent ?? '?'} 节点（${result.metrics?.gpuMs?.toFixed(1)} ms）`
-          : `Layout done — ${o.components ?? '?'} components, largest ${o.maxComponent ?? '?'} (${result.metrics?.gpuMs?.toFixed(1)} ms)`,
+          ? `布局完成 — ${o.components ?? '?'} 个连通分量，最大 ${o.maxComponent ?? '?'} 节点（${ms} ms）`
+          : `Layout done — ${o.components ?? '?'} components, largest ${o.maxComponent ?? '?'} (${ms} ms)`,
       );
     } else {
       this.api.notify('error', result.error ?? 'compute failed');
@@ -319,6 +328,28 @@ export class ProteinPlugin implements Plugin {
   }
 
   private maxDegree = 1;
+
+  /** Deterministically downsample the loaded network to `count` nodes. */
+  private resampleTo(count: number): void {
+    const n = this.nodes.length;
+    const target = Math.min(Math.max(2, count), n);
+    if (target === n) return;
+    const next: ProteinNode[] = [];
+    const indexMap = new Map<number, number>();
+    for (let i = 0; i < target; i += 1) {
+      const idx = Math.min(Math.floor((i * n) / target), n - 1);
+      indexMap.set(idx, i);
+      next.push({ ...(this.nodes[idx] as ProteinNode) });
+    }
+    this.nodes = next;
+    this.edges = this.edges
+      .filter((e) => indexMap.has(e.a) && indexMap.has(e.b))
+      .map((e) => ({ a: indexMap.get(e.a) as number, b: indexMap.get(e.b) as number, weight: e.weight }));
+    this.state.count = this.nodes.length;
+    this.computeDegrees();
+    this.api.reportDataScale(this.nodes.length);
+    this.draw();
+  }
 
   /** Connected-component analysis (union-find) → modules + largest component. */
   private networkMetrics(cap: number): { components: number; maxComponent: number } {
@@ -454,8 +485,11 @@ export class ProteinPlugin implements Plugin {
       const a = this.nodes[e.a] as ProteinNode | undefined;
       const b = this.nodes[e.b] as ProteinNode | undefined;
       if (!a || !b) continue;
-      g.strokeStyle = `rgba(120,160,200,${(0.08 + e.weight * 0.35).toFixed(3)})`;
-      g.lineWidth = 0.3 + e.weight * 1.1;
+      // Clamp alpha/width: a weight ≥ 3 previously produced alpha > 1 (an
+      // invalid rgba() the canvas silently ignores) and absurd line widths.
+      const alpha = Math.min(0.95, 0.08 + e.weight * 0.35).toFixed(3);
+      g.strokeStyle = `rgba(120,160,200,${alpha})`;
+      g.lineWidth = Math.min(6, 0.3 + e.weight * 1.1);
       g.beginPath();
       g.moveTo(cx + a.x * scale, cy + a.y * scale);
       g.lineTo(cx + b.x * scale, cy + b.y * scale);

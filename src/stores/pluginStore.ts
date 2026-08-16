@@ -39,7 +39,11 @@ interface PluginStore {
   setInitialized: () => void;
 }
 
-let activeSubscriptions: BusSubscription[] = [];
+/** Per-plugin param subscriptions so unloading one plugin cannot break the
+ *  currently-active plugin's handler (see unload/deactivate). */
+const paramSubscriptions = new Map<string, BusSubscription[]>();
+/** Serializes activate() so two rapid calls cannot race deactivate/activate. */
+let activationChain: Promise<void> = Promise.resolve();
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
 // and registers them here so activated plugins render into real DOM.
@@ -59,6 +63,21 @@ let hostContainers: HostContainers | null = null;
 
 export function setHostContainers(containers: HostContainers | null): void {
   hostContainers = containers;
+}
+
+/**
+ * Re-invoke the active plugin's render() against the *current* host
+ * containers. Used when the CentralArea (which owns the plugin DOM/canvas)
+ * remounts — e.g. after toggling block mode — so a still-active plugin is
+ * drawn into the fresh DOM instead of disappearing.
+ */
+export function rerenderActivePlugin(): void {
+  const { activeId, registry } = usePluginStore.getState();
+  if (!activeId || !hostContainers) return;
+  const entry = registry.find((e) => e.id === activeId);
+  if (!entry?.plugin) return;
+  const ctx = createContext(activeId);
+  void entry.plugin.render?.(ctx.container);
 }
 
 function buildPluginApi(pluginId: string): PluginApi {
@@ -85,6 +104,9 @@ function buildPluginApi(pluginId: string): PluginApi {
       input.type = 'file';
       const file = await new Promise<File | null>((resolve) => {
         input.onchange = () => resolve(input.files?.[0] ?? null);
+        // Dismissing the native dialog never fires `change` — without this
+        // the awaiting plugin would hang forever on a cancelled picker.
+        input.oncancel = () => resolve(null);
         input.click();
       });
       return file;
@@ -114,6 +136,9 @@ function buildPluginApi(pluginId: string): PluginApi {
           },
         };
       });
+      // Plugin-side param writes must mark the project dirty, otherwise
+      // autosave never persists them.
+      useProjectStore.getState().setDirty(true);
     },
   };
 }
@@ -193,8 +218,11 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     }
     // Release blob URLs held for installed packages (cspkg assets).
     revokeCspkgUrls(id);
-    for (const sub of activeSubscriptions) sub.unsubscribe();
-    activeSubscriptions = [];
+    // Only unsubscribe this plugin's own handlers. Previously every unload
+    // cleared the shared list, silently breaking the active plugin's param
+    // subscription when some other plugin was unloaded.
+    for (const sub of paramSubscriptions.get(id) ?? []) sub.unsubscribe();
+    paramSubscriptions.delete(id);
     set((s) => ({
       registry: s.registry.filter((e) => e.id !== id),
       activeId: s.activeId === id ? null : s.activeId,
@@ -203,47 +231,62 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
 
   activate: async (id) => {
     const entry = get().registry.find((e) => e.id === id);
-    if (!entry?.plugin) {
+    const plugin = entry?.plugin;
+    if (!plugin) {
       logger.warn('plugin', `cannot activate unloaded plugin ${id}`);
       return;
     }
     if (get().activeId === id) return;
-    await get().deactivate();
-    const ctx = createContext(id);
-    try {
-      // Surface visibility is a host concern, decided here centrally: a 3D
-      // coordinate system must never bleed into a 2D viewport and vice
-      // versa. Only plugins that declare renderToScene get the 3D surface.
-      const is3D = typeof entry.plugin.renderToScene === 'function';
-      if (is3D) {
-        hostContainers?.getThree?.();
-        hostContainers?.setThreeVisible?.(true);
-        // Clear any stale 2D frame that would otherwise cover the scene.
-        hostContainers?.clearCanvas2d?.();
-      } else {
-        hostContainers?.setThreeVisible?.(false);
+    // Serialize activations: two rapid activate() calls (or an activate while
+    // another is mid-flight) previously both passed the guard and ran
+    // deactivate/activate concurrently.
+    const run = async () => {
+      if (get().activeId === id) return;
+      await get().deactivate();
+      const ctx = createContext(id);
+      try {
+        // Surface visibility is a host concern, decided here centrally: a 3D
+        // coordinate system must never bleed into a 2D viewport and vice
+        // versa. Only plugins that declare renderToScene get the 3D surface.
+        const is3D = typeof plugin.renderToScene === 'function';
+        if (is3D) {
+          hostContainers?.getThree?.();
+          hostContainers?.setThreeVisible?.(true);
+          // Clear any stale 2D frame that would otherwise cover the scene.
+          hostContainers?.clearCanvas2d?.();
+        } else {
+          hostContainers?.setThreeVisible?.(false);
+        }
+        await plugin.activate(ctx);
+        await plugin.render?.(ctx.container);
+      } catch (err) {
+        logger.error('plugin', `activate failed ${id}`, err);
+        useAppStore.getState().setError(`plugin:${id}`);
+        return;
       }
-      await entry.plugin.activate(ctx);
-      await entry.plugin.render?.(ctx.container);
-    } catch (err) {
-      logger.error('plugin', `activate failed ${id}`, err);
-      useAppStore.getState().setError(`plugin:${id}`);
-      return;
-    }
-    // receive parameter updates
-    activeSubscriptions.push(
-      on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
-        entry.plugin?.updateParams(params);
+      // Restore persisted params for this plugin from the current project so
+      // re-activating a previously-inactive plugin picks up its stored values.
+      const stored = useProjectStore.getState().project?.state.parameters[id];
+      if (stored && Object.keys(stored).length > 0) {
+        plugin.updateParams(stored);
+      }
+      // receive parameter updates
+      const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
+        plugin.updateParams(params);
         emit(`plugin:${id}:defs`, undefined);
-      }),
-    );
-    set((s) => ({
-      activeId: id,
-      registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
-    }));
-    // notify host to render params into right panel
-    const params = await entry.plugin.getParams();
-    emit('host:params:changed', { pluginId: id, params });
+      });
+      const existing = paramSubscriptions.get(id) ?? [];
+      paramSubscriptions.set(id, [...existing, sub]);
+      set((s) => ({
+        activeId: id,
+        registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
+      }));
+      // notify host to render params into right panel
+      const params = await plugin.getParams();
+      emit('host:params:changed', { pluginId: id, params });
+    };
+    activationChain = activationChain.then(run, run);
+    await activationChain;
   },
 
   deactivate: async () => {
@@ -257,8 +300,9 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         logger.error('plugin', `deactivate failed ${activeId}`, err);
       }
     }
-    for (const sub of activeSubscriptions) sub.unsubscribe();
-    activeSubscriptions = [];
+    // Only clear the active plugin's own subscriptions.
+    for (const sub of paramSubscriptions.get(activeId) ?? []) sub.unsubscribe();
+    paramSubscriptions.delete(activeId);
     // Hide the 3D surface whenever no 3D plugin is active, so its
     // coordinate system never lingers over the 2D viewport.
     hostContainers?.setThreeVisible?.(false);
@@ -296,11 +340,13 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (activeId && get().isLoaded(activeId)) {
         void get().activate(activeId);
       }
+      // Push stored params AFTER activate() has registered the param
+      // subscription — emitting before it existed meant restored values were
+      // broadcast into the void and silently lost on every project open.
+      for (const [pluginId, values] of Object.entries(params)) {
+        emit(`plugin:${pluginId}:params`, values);
+      }
     });
-    // push stored params to plugins
-    for (const [pluginId, values] of Object.entries(params)) {
-      emit(`plugin:${pluginId}:params`, values);
-    }
   },
 
   ensureBuiltinsLoaded: async () => {

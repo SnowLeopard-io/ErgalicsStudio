@@ -62,14 +62,22 @@ export function pluginChannel(pluginId: string, name: string): string {
 }
 
 export function registerPluginChannel(pluginId: string): string[] {
-  const base = [`plugin:${pluginId}:*`];
+  // A plugin "owns" every `plugin:<id>:` channel (spec §6.2). Actual channels
+  // are created lazily via pluginChannel(); registration is advisory.
+  const base = [pluginChannel(pluginId, '*')];
   pluginChannels.set(pluginId, new Set(base));
   return base;
 }
 
 export function clearPluginChannels(pluginId: string): void {
-  const set = pluginChannels.get(pluginId);
-  if (!set) return;
-  for (const ch of set) clearChannel(ch);
+  // Delete every handler registered under this plugin's namespace. The old
+  // implementation only cleared the literal "*" pseudo-channel, which no one
+  // ever emits on, so plugin handlers survived unloading the plugin.
+  const prefix = `plugin:${pluginId}:`;
+  for (const channel of handlers.keys()) {
+    if (channel.startsWith(prefix)) {
+      clearChannel(channel);
+    }
+  }
   pluginChannels.delete(pluginId);
 }

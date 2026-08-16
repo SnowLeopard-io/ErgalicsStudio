@@ -8,9 +8,9 @@
 import type { DataTable } from '@/types/datatable';
 import {
   addColumn,
-  asFloat64,
   normalize,
   renameColumn,
+  requireColumn,
   selectColumns,
   sortRows,
 } from '../ops';
@@ -34,6 +34,11 @@ export const selectColumnsBlock: BlockDefinition = defineBlock(
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
     const columns = (ctx.getParam('columns') as string[]) ?? [];
+    // Dropping the block unconfigured (columns: []) previously crashed the
+    // executor inside MemoryDataTable ("requires at least one column").
+    if (columns.length === 0) {
+      throw new Error('this block is not configured — select at least one column');
+    }
     return selectColumns(input, columns);
   },
 );
@@ -54,6 +59,12 @@ export const renameColumnBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const from = String(ctx.getParam('from') ?? '');
     const to = String(ctx.getParam('to') ?? '');
+    if (!from) {
+      throw new Error('this block is not configured — pick the column to rename');
+    }
+    if (!to) {
+      throw new Error('this block is not configured — set the new column name');
+    }
     return renameColumn(input, from, to);
   },
 );
@@ -95,7 +106,7 @@ export const normalizeBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
     const mode = ctx.getParam('mode') === 'zscore' ? 'zscore' : 'minmax';
-    const values = normalize(asFloat64(input, column), mode);
+    const values = normalize(requireColumn(input, column), mode);
     return addColumn(input, `${column}_${mode}`, 'f64', values);
   },
 );
@@ -116,6 +127,7 @@ export const sortBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
     const direction = ctx.getParam('direction') === 'desc' ? 'desc' : 'asc';
+    requireColumn(input, column);
     return sortRows(input, column, direction);
   },
 );

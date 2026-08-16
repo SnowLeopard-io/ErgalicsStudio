@@ -129,12 +129,20 @@ export class HistogramPlugin implements Plugin {
     }
     if (this.state.values.length === 0) return { ok: false, error: 'no data' };
     const sum = this.state.values.reduce((a, b) => a + b, 0);
+    // Iterate instead of Math.min(...array): spreading a large array throws
+    // RangeError (maximum call stack size exceeded).
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of this.state.values) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
     return {
       ok: true,
       output: {
         count: this.state.values.length,
-        min: Math.min(...this.state.values),
-        max: Math.max(...this.state.values),
+        min,
+        max,
         mean: sum / this.state.values.length,
       },
     };

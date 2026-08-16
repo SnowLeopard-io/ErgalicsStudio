@@ -116,7 +116,10 @@ export default function SettingsPage() {
             <select
               className="select settings-control"
               value={memoryLimit}
-              onChange={(e) => setMemoryLimit(Number(e.target.value) as 512 | 1024 | 2048 | 'auto')}
+              onChange={(e) => {
+              const v = e.target.value;
+              setMemoryLimit(v === 'auto' ? 'auto' : (Number(v) as 512 | 1024 | 2048));
+            }}
             >
               <option value="auto">{t('settings.memory_auto')}</option>
               <option value={512}>512 MB</option>
