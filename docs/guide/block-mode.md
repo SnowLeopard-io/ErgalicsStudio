@@ -40,7 +40,7 @@ pipeline can produce, a Block-mode script can produce too.
 ## The shared IR
 
 The architectural pivot is a **shared intermediate representation** —
-[`src/editor/ir/`](../..//src/editor/ir). Every Block mode workspace is
+`src/editor/ir/`. Every Block mode workspace is
 round-tripped through `IRProgram` (a list of `IRNode`s), and the same IR is
 what a future Code mode will edit. Blockly JSON ⇄ IR lives in
 `src/editor/block/convert.ts`; the rest of the system speaks IR only.
@@ -264,7 +264,8 @@ simultaneously. Run `tests/editor/` to confirm everything round-trips.
 
 - **Code mode is not live yet.** Only Block mode is wired up; Code mode
   (Monaco + Pyodide + webR) needs the IR ↔ text adapter plus a Python
-  runner behind a Worker — see the [design draft](block-code-modes.md)
+  runner behind a Worker — see the
+  [design draft](https://github.com/SnowLeopard-io/ErgalicsStudio/blob/main/block-code-modes.md)
   for the full plan.
 - **User-loaded files are not yet project-scoped.** `studio.load('foo.dat')`
   resolves files from `examples/data/` only — drag-and-drop files do not
