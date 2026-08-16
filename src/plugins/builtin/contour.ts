@@ -92,7 +92,10 @@ export class ContourPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.levels === 'number' && params.levels !== this.state.levels) {
-      this.state.levels = Math.max(2, Math.min(40, Math.round(params.levels)));
+      // Clamp to the declared param range [2, 30] — previously clamped to 40,
+      // which exceeded the slider max and accepted out-of-bounds programmatic
+      // values.
+      this.state.levels = Math.max(2, Math.min(30, Math.round(params.levels)));
       this.draw();
     }
     if (typeof params.showGrid === 'boolean' && params.showGrid !== this.state.showGrid) {

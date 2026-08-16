@@ -204,10 +204,28 @@ export class TimeSeriesPlugin implements Plugin {
       return;
     }
 
-    const series = this.visibleSeries();
-    if (series.length === 0) {
+    const visible = this.visibleSeries();
+    if (visible.length === 0) {
       this.drawHint(g, canvas);
       return;
+    }
+
+    // The Normalize toggle was previously stored but never applied — every
+    // series was drawn at its raw magnitude, so toggling did nothing. When
+    // enabled, map each series to its own [0, 1] range so series with wildly
+    // different scales become comparable.
+    let series: SeriesCol[] = visible;
+    if (this.state.normalize) {
+      series = visible.map((s) => {
+        let mn = Infinity;
+        let mx = -Infinity;
+        for (const v of s.values) {
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+        const span = mx - mn || 1;
+        return { name: s.name, values: s.values.map((v) => (v - mn) / span) };
+      });
     }
 
     const padL = 8;

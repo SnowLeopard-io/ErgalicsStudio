@@ -1,4 +1,4 @@
-// Quick E2E check: Point Cloud 3D plugin renders into the host three scene.
+﻿// Quick E2E check: Point Cloud 3D plugin renders into the host three scene.
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 
@@ -34,7 +34,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }));
 
   // Load sample data (斐波那契 / diamond.xyz)
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await page.locator('.plugin-card', { hasText: '斐波那契' }).locator('button', { hasText: '加载' }).click();
   await sleep(1800);

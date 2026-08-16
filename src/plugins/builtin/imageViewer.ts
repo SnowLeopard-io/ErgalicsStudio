@@ -57,6 +57,9 @@ export class ImageViewerPlugin implements Plugin {
   }
 
   async destroy() {
+    // Bump the load token so any in-flight decode becomes stale and discards
+    // itself (instead of publishing state / drawing into a destroyed plugin).
+    this.loadSeq += 1;
     this.release();
   }
 

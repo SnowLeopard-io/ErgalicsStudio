@@ -86,7 +86,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(4200);
 
   // --- load galaxy.dat -> teal dots (static) ---
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('星系');
   await sleep(1600);
@@ -108,7 +108,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-03-pointcloud-empty.png' });
 
   // --- load diamond.xyz -> blue points, auto-fit ---
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('斐波那契');
   await sleep(1600);
@@ -119,7 +119,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // --- time series: load telemetry -> teal + amber lines ---
   await page.locator('.plugin-item', { hasText: 'Time Series' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('涡轮遥测');
   await sleep(1600);
@@ -130,7 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // --- histogram: load distribution.dat -> teal bars ---
   await page.locator('.plugin-item', { hasText: 'Histogram' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('混合分布');
   await sleep(1600);
@@ -141,7 +141,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // --- heatmap: load field.json -> viridis ramp ---
   await page.locator('.plugin-item', { hasText: 'Heatmap' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('涡旋场');
   await sleep(1600);
@@ -152,7 +152,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // --- image viewer: load test-pattern.png -> many colors ---
   await page.locator('.plugin-item', { hasText: 'Image Viewer' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('测试图案');
   await sleep(1800);

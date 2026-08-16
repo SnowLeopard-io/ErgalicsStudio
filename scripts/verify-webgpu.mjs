@@ -1,4 +1,4 @@
-// E2E verification of the real WebGPU compute path on a live device.
+﻿// E2E verification of the real WebGPU compute path on a live device.
 //
 // Two stages:
 //   A. Numeric harness (tests/e2e/webgpu.html): acquires a real WebGPU device
@@ -108,7 +108,7 @@ async function waitForResult(page, timeoutMs = 120000) {
       await sleep(1800);
       await page.locator('.plugin-item', { hasText: 'Particles' }).click();
       await sleep(1200);
-      await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+      await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
       await sleep(400);
       const galaxyCard = page.locator('.plugin-card', {
         hasText: /星系粒子数据|Galaxy Particle Data/,

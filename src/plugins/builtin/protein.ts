@@ -78,6 +78,11 @@ export class ProteinPlugin implements Plugin {
   };
   private nodes: ProteinNode[] = [];
   private edges: ProteinEdge[] = [];
+  /** Original loaded network, never mutated. The count slider resamples from
+   *  here, so lowering then raising it restores the full network — resampling
+   *  from the working set previously destroyed the loaded data permanently. */
+  private rawNodes: ProteinNode[] = [];
+  private rawEdges: ProteinEdge[] = [];
   private rafId = 0;
   private temp = 0.18;
 
@@ -162,6 +167,10 @@ export class ProteinPlugin implements Plugin {
     }
     this.nodes = parsed.nodes;
     this.edges = parsed.edges;
+    // Pristine copies for non-destructive resampling (layout mutates node
+    // positions in place).
+    this.rawNodes = parsed.nodes.map((n) => ({ ...n }));
+    this.rawEdges = parsed.edges.slice();
     this.state.count = this.nodes.length;
     this.state.hasData = true;
     this.computeDegrees();
@@ -330,20 +339,20 @@ export class ProteinPlugin implements Plugin {
 
   private maxDegree = 1;
 
-  /** Deterministically downsample the loaded network to `count` nodes. */
+  /** Deterministically downsample the loaded network to `count` nodes
+   *  (from the pristine copy, so the operation is non-destructive). */
   private resampleTo(count: number): void {
-    const n = this.nodes.length;
+    const n = this.rawNodes.length;
     const target = Math.min(Math.max(2, count), n);
-    if (target === n) return;
     const next: ProteinNode[] = [];
     const indexMap = new Map<number, number>();
     for (let i = 0; i < target; i += 1) {
       const idx = Math.min(Math.floor((i * n) / target), n - 1);
       indexMap.set(idx, i);
-      next.push({ ...(this.nodes[idx] as ProteinNode) });
+      next.push({ ...(this.rawNodes[idx] as ProteinNode) });
     }
     this.nodes = next;
-    this.edges = this.edges
+    this.edges = this.rawEdges
       .filter((e) => indexMap.has(e.a) && indexMap.has(e.b))
       .map((e) => ({ a: indexMap.get(e.a) as number, b: indexMap.get(e.b) as number, weight: e.weight }));
     this.state.count = this.nodes.length;

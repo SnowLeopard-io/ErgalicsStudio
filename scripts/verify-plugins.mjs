@@ -1,4 +1,4 @@
-// E2E checks for this round:
+﻿// E2E checks for this round:
 // 1. 3D surface visibility is conditional — switching to a 2D plugin hides
 //    the 3D coordinate system (no bleed into 2D viewports).
 // 2. Contour plugin renders the vortex field (ramp + contour lines).
@@ -80,7 +80,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- 2. Contour plugin (vortex field) ----
   await page.locator('.plugin-item', { hasText: 'Contour' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('涡旋场');
   await sleep(1600);
@@ -91,7 +91,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- 3. Scatter plugin (cluster data) ----
   await page.locator('.plugin-item', { hasText: 'Scatter Plot' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('三簇散点');
   await sleep(1600);
@@ -102,7 +102,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- 4. Tornado sample in the 3D point cloud ----
   await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例数据' }).click();
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('龙卷风');
   await sleep(1800);

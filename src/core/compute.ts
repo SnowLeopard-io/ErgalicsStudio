@@ -174,6 +174,7 @@ class WasmCompute implements GpuComputeApi {
         workgroupCountY,
         workgroupCountZ,
       );
+      notifyGpuDispatch();
       return true;
     } catch (err) {
       logger.warn('compute', `kernel dispatch failed (${kernel.label})`, err);
@@ -371,6 +372,7 @@ class NativeCompute implements GpuComputeApi {
     if (!buffers.every((b) => b instanceof NativeBuffer)) return false;
     try {
       kernel.run(this.device, buffers as NativeBuffer[], workgroupCountX, workgroupCountY, workgroupCountZ);
+      notifyGpuDispatch();
       return true;
     } catch (err) {
       logger.warn('compute', `kernel dispatch failed (${kernel.label})`, err);
@@ -413,6 +415,35 @@ export function getGpuCompute(): GpuComputeApi | null {
 /** Drop the cached compute surface. */
 export function resetGpuCompute(): void {
   cached = null;
+}
+
+// ---- GPU activity (host indicator) --------------------------------------
+//
+// Fired whenever a kernel is actually dispatched to the device — once per
+// `run()`. The status bar subscribes so a compute burst is visible even when
+// the workload is far too short to move a Task-Manager-style GPU graph.
+
+export type GpuActivityListener = () => void;
+
+const gpuActivityListeners = new Set<GpuActivityListener>();
+
+function emitGpuActivity(): void {
+  for (const l of gpuActivityListeners) l();
+}
+
+/**
+ * Notify activity listeners that a real device dispatch just happened.
+ * Called internally by both compute backends; exported so hosts can ping the
+ * indicator independently (e.g. for tests or direct instrumentation).
+ */
+export function notifyGpuDispatch(): void {
+  emitGpuActivity();
+}
+
+/** Subscribe to GPU dispatch activity. Returns an unsubscribe function. */
+export function subscribeGpuActivity(listener: GpuActivityListener): () => void {
+  gpuActivityListeners.add(listener);
+  return () => gpuActivityListeners.delete(listener);
 }
 
 export type { ComputeBufferHandle, GpuComputeApi, GpuKernelDescriptor, GpuKernelHandle };

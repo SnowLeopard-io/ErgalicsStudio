@@ -97,6 +97,8 @@ export class HeatmapPlugin implements Plugin {
 
   async destroy() {
     this.ctx = null;
+    // Release the cached offscreen upscale surface so it can be collected.
+    this.scaledCanvas = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -156,20 +158,8 @@ export class HeatmapPlugin implements Plugin {
       );
       return;
     }
-    const grid: number[][] = [];
-    let rows = 0;
-    for (const row of parsed.slice(0, MAX_GRID)) {
-      if (!Array.isArray(row)) continue;
-      const nums = row
-        .slice(0, MAX_GRID)
-        .map((v) => Number(v))
-        .filter((v) => Number.isFinite(v));
-      if (nums.length > 0) {
-        grid.push(nums);
-        rows += 1;
-      }
-    }
-    if (rows < 2 || grid[0]!.length < 2) {
+    const grid = normalizeGridUniform(parsed);
+    if (grid.length < 2) {
       this.api.notify('warning', this.api.locale === 'zh-CN' ? '网格至少需要 2×2' : 'Grid must be at least 2x2');
       return;
     }
@@ -248,7 +238,9 @@ export class HeatmapPlugin implements Plugin {
     for (let y = 0; y < rows; y += 1) {
       const row = grid[y]!;
       for (let x = 0; x < cols; x += 1) {
-        const v = row[x] ?? min;
+        // NaN = ragged-row padding (see loadData) → render as the minimum.
+        const raw = row[x];
+        const v = Number.isFinite(raw) ? (raw as number) : min;
         const [r, gg, b] = (map as (t: number) => [number, number, number])((v - min) / span);
         img.data[pi] = r;
         img.data[pi + 1] = gg;
@@ -288,6 +280,35 @@ export class HeatmapPlugin implements Plugin {
       g.stroke();
     }
   }
+}
+
+/**
+ * Parse a 2-D numeric grid, clamped to MAX_GRID and normalized to a uniform
+ * width. Ragged input (rows of differing lengths, or rows with dropped
+ * non-finite cells) is padded with `NaN` up to the widest row so renderers can
+ * treat the result as a true rectangle. Exported for unit tests. Returns an
+ * empty array when the input is not a usable grid (needs ≥2 rows, ≥2 cols).
+ */
+export function normalizeGridUniform(parsed: unknown): number[][] {
+  if (!Array.isArray(parsed)) return [];
+  const grid: number[][] = [];
+  let cols = 0;
+  for (const row of parsed.slice(0, MAX_GRID)) {
+    if (!Array.isArray(row)) continue;
+    const nums = row
+      .slice(0, MAX_GRID)
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v));
+    if (nums.length > 0) {
+      grid.push(nums);
+      cols = Math.max(cols, nums.length);
+    }
+  }
+  if (grid.length < 2 || cols < 2) return [];
+  for (const row of grid) {
+    while (row.length < cols) row.push(NaN);
+  }
+  return grid;
 }
 
 export default function createHeatmapPlugin(): Plugin {

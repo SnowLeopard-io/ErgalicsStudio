@@ -87,6 +87,11 @@ export class NBodyPlugin implements Plugin {
     hasData: false,
   };
   private bodies: NBodyBody[] = [];
+  /** Original loaded dataset, never mutated — resampling reads from here so
+   *  lowering the count and raising it again restores the full set (the old
+   *  code resampled from the already-downsampled working set, which
+   *  permanently destroyed the loaded data). */
+  private raw: NBodyBody[] = [];
   private pointsMesh: THREE.Points | null = null;
   private positionAttr = new Float32Array(0);
   private colorAttr = new Float32Array(0);
@@ -182,6 +187,9 @@ export class NBodyPlugin implements Plugin {
       return;
     }
     this.bodies = bodies;
+    // Keep a pristine copy of the loaded dataset for non-destructive
+    // resampling (body objects are mutated in place by the integrators).
+    this.raw = bodies.map((b) => ({ ...b }));
     this.state.count = Math.min(MAX_BODIES, Math.max(64, this.bodies.length));
     this.state.hasData = true;
     this.api.reportDataScale(this.bodies.length);
@@ -404,14 +412,15 @@ export class NBodyPlugin implements Plugin {
     return out;
   }
 
-  /** Resample the loaded dataset down to the current count. */
+  /** Resample the loaded dataset down to the current count (from the pristine
+   *  copy, so the operation is non-destructive). */
   private resampleLoaded() {
-    const n = this.bodies.length;
+    const n = this.raw.length;
     const target = Math.min(this.state.count, n);
     const next: NBodyBody[] = [];
     for (let i = 0; i < target; i += 1) {
       const idx = Math.min(Math.floor((i * n) / target), n - 1);
-      next.push({ ...(this.bodies[idx] as NBodyBody) });
+      next.push({ ...(this.raw[idx] as NBodyBody) });
     }
     this.bodies = next;
     this.api.reportDataScale(this.bodies.length);

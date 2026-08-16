@@ -98,7 +98,10 @@ export class ParticlePlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.count === 'number' && params.count !== this.state.count) {
-      this.state.count = params.count;
+      // Clamp to the declared param range [500, 250000]. An out-of-range value
+      // previously bypassed the slider bounds and could allocate an oversized
+      // GPU buffer (count near 1e6 → ~32MB particle buffer).
+      this.state.count = Math.max(500, Math.min(250000, Math.round(params.count)));
       // Only resample when real data is loaded; never fabricate a dataset.
       if (this.raw.length > 0) this.resetParticles();
       this.draw();

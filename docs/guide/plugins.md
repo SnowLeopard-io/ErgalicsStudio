@@ -67,6 +67,14 @@ Declaring `renderToScene` makes the host materialize the Three.js scene for
 your plugin — the 2D canvas and the scene are mutually exclusive by design,
 and the host toggles visibility for you.
 
+**Camera controls come from the host, so plugins need no input code.**
+
+- **3D viewport** — drag to orbit, right-drag to pan, scroll to zoom;
+  arrow keys pan, **WASD** moves along the view axes (hold **Shift** to
+  boost), and **Q/E** yaw the camera around the target.
+- **2D viewport** — drag to pan and scroll to zoom the shared canvas;
+  double-click resets the view.
+
 ## PluginApi
 
 Plugins interact with the host through a small, capability-limited API:

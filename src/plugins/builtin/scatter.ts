@@ -113,7 +113,17 @@ export class ScatterPlugin implements Plugin {
   async loadData(file: File) {
     const text = await file.text();
     const rows = this.parse(text);
-    if (rows.length < 2) return;
+    if (rows.length < 2) {
+      // A file with no usable points used to fail silently — the canvas just
+      // stayed empty with no feedback, looking like a hung plugin.
+      this.api.notify(
+        'warning',
+        this.api.locale === 'zh-CN'
+          ? '文件中没有可用的数值点（至少需要 2 个）'
+          : 'No numeric points found in file (need at least 2)',
+      );
+      return;
+    }
     this.rows = rows;
     this.state.hasData = true;
     let cMin = Infinity;

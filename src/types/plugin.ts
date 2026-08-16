@@ -152,6 +152,8 @@ export interface Scene3DHandle {
    * into a 2D viewport.
    */
   setVisible(visible: boolean): void;
+  /** Whether the 3D surface is currently shown (a 3D plugin is active). */
+  isVisible(): boolean;
   /** Release GPU resources and stop the render loop. */
   dispose(): void;
   /** Render one frame immediately. */
