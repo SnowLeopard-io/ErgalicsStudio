@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Ergalics Studio - A browser-based scientific computing workstation framework",
-  "workspaces": ["docs"],
+  "workspaces": [
+    "docs"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "npm run build:wasm && tsc --noEmit && vite build && node scripts/build-docs.mjs",
@@ -19,10 +21,11 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs && node scripts/verify-webgpu.mjs",
+    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs && node scripts/verify-webgpu.mjs && node scripts/verify-block-mode.mjs",
     "verify": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "blockly": "^13.2.1",
     "fflate": "^0.8.2",
     "lz-string": "^1.5.0",
     "react": "^18.3.1",

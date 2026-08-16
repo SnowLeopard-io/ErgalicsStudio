@@ -58,7 +58,7 @@ export function TopBar() {
             [
               { key: 'standard', disabled: false },
               { key: 'flow', disabled: false },
-              { key: 'block', disabled: true },
+              { key: 'block', disabled: false },
               { key: 'code', disabled: true },
             ] as const
           ).map(({ key, disabled }) => (

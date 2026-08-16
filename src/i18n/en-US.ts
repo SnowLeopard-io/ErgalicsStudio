@@ -18,6 +18,7 @@ export const enUS: LocaleDictionary = {
   'common.install': 'Install',
   'common.uninstall': 'Uninstall',
   'common.retry': 'Retry',
+  'common.refresh': 'Refresh',
   'common.cancel_download': 'Cancel Download',
   'common.unknown': 'Unknown',
   'common.start': 'Start',

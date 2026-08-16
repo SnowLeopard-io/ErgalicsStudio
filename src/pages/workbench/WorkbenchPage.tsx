@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { CentralArea } from './CentralArea';
@@ -12,9 +12,16 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
-import { BlockEditor } from '@/components/editor/BlockEditor';
-import { CodeEditor } from '@/components/editor/CodeEditor';
 import { initBlockSystem } from '@/blocks';
+
+// Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
+// Standard/Flow first paint is unaffected (block-code-modes.md §1.1).
+const BlockEditor = lazy(() =>
+  import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
+);
+const CodeEditor = lazy(() =>
+  import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
+);
 
 /** Process-wide guard: the project restore must run once per page load even
  *  under React StrictMode (which mounts/unmounts/remounts in dev). */
@@ -56,19 +63,21 @@ export default function WorkbenchPage() {
       <TopBar />
       <div className="workbench-body">
         <ErrorBoundary>
-          {mode === 'flow' ? (
-            <BlockWorkbench />
-          ) : mode === 'block' ? (
-            <BlockEditor />
-          ) : mode === 'code' ? (
-            <CodeEditor />
-          ) : (
-            <>
-              {sidebarOpen && <Sidebar />}
-              <CentralArea />
-              <RightPanel />
-            </>
-          )}
+          <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
+            {mode === 'flow' ? (
+              <BlockWorkbench />
+            ) : mode === 'block' ? (
+              <BlockEditor />
+            ) : mode === 'code' ? (
+              <CodeEditor />
+            ) : (
+              <>
+                {sidebarOpen && <Sidebar />}
+                <CentralArea />
+                <RightPanel />
+              </>
+            )}
+          </Suspense>
         </ErrorBoundary>
       </div>
       <StatusBar />

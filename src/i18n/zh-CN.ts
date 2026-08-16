@@ -22,6 +22,7 @@ export const zhCN: LocaleDictionary = {
   'common.install': '安装',
   'common.uninstall': '卸载',
   'common.retry': '重试',
+  'common.refresh': '刷新',
   'common.cancel_download': '取消下载',
   'common.unknown': '未知',
   'common.start': '开始',

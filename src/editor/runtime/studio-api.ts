@@ -7,8 +7,10 @@
 // `render.ts` RenderedView → plugin bridge, so downstream visualization is
 // zero-cost to share (block-code-modes.md §8.2, §10.4).
 //
-// Phase 0 ships the JS implementation. Pyodide/webR bindings (Phase 2/3) will
-// proxy this same surface across the Worker boundary.
+// Transforms and statistics are **table-level** so they mirror the IR
+// transform/stat nodes exactly (e.g. `Normalize {data,column,mode}` → a
+// table). This keeps IR → JS/Python codegen and the IR interpreter perfectly
+// consistent (block-code-modes.md §3.1 invariant #2).
 // ==========================================================================
 
 import {
@@ -16,15 +18,13 @@ import {
   filterRows,
   histogram as histogramOp,
   normalize as normalizeOp,
+  requireColumn,
   selectColumns,
   sortRows,
   summarize,
   toDelimited,
-  type ColumnSummary,
-  type Histogram,
-  type NormalizeMode,
-  type SortDirection,
 } from '@/blocks/ops';
+import type { NormalizeMode, SortDirection } from '@/blocks/ops';
 import {
   createDataTable,
   isDataTable,
@@ -50,6 +50,9 @@ export interface PlotOpts {
   bins?: number;
 }
 
+/** Comparison operators a column filter may use. */
+export type ComparisonOp = '==' | '!=' | '<' | '<=' | '>' | '>=';
+
 export type NotifyKind = 'info' | 'success' | 'warning' | 'error';
 
 /** Host services the Studio API depends on (side effects stay here). */
@@ -62,24 +65,22 @@ export interface StudioApiHost {
   print(text: string): void;
 }
 
-/** Row shape consumed by `studio.filter`. */
-export type RowPredicate = (row: Record<string, unknown>, index: number) => boolean;
-
 export interface StudioApi {
   // ---- data ----
   load(path: string): Promise<DataTable>;
   loadCSV(text: string): DataTable;
   loadXYZ(text: string): DataTable;
   random(n: number, seed?: number): DataTable;
-  // ---- transforms (mirror @/blocks/ops) ----
-  filter(df: DataTable, pred: RowPredicate): DataTable;
-  normalize(values: number[] | Float64Array, mode?: NormalizeMode): Float64Array;
+  range(start: number, stop: number, step?: number): DataTable;
+  // ---- transforms (table-level) ----
+  normalize(df: DataTable, column: string, mode?: NormalizeMode): DataTable;
   sort(df: DataTable, column: string, direction?: SortDirection): DataTable;
   select(df: DataTable, columns: string[]): DataTable;
   addColumn(df: DataTable, name: string, values: number[]): DataTable;
-  // ---- statistics ----
-  summary(values: number[] | Float64Array): ColumnSummary;
-  histogram(values: number[] | Float64Array, bins: number): Histogram;
+  filter(df: DataTable, column: string, op: ComparisonOp, value: number): DataTable;
+  // ---- statistics (table-level) ----
+  summary(df: DataTable, column: string): DataTable;
+  histogram(df: DataTable, column: string, bins: number): DataTable;
   // ---- visualization ----
   plot(type: PlotType, data: DataTable, opts?: PlotOpts): Promise<void>;
   // ---- host interaction ----
@@ -108,6 +109,20 @@ function lcg(seed: number): () => number {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
     return s / 0xffffffff;
   };
+}
+
+// ---- comparison helper (column filter) ----
+
+function compare(a: unknown, op: ComparisonOp, b: number): boolean {
+  const x = typeof a === 'number' ? a : Number(a);
+  switch (op) {
+    case '==': return x === b;
+    case '!=': return x !== b;
+    case '<': return x < b;
+    case '<=': return x <= b;
+    case '>': return x > b;
+    case '>=': return x >= b;
+  }
 }
 
 // ---- delimited text parsing ----
@@ -194,7 +209,9 @@ function tableFromParsed(parsed: ParsedColumns, provenance: string): DataTable {
 }
 
 function defaultColumnName(i: number): string {
-  return `c${i}`;
+  // Headerless scientific data is conventionally x, y, z, w, then c4…, so the
+  // canonical "load galaxy.dat → normalize column x" reads naturally.
+  return ['x', 'y', 'z', 'w'][i] ?? `c${i}`;
 }
 
 function xyzColumnName(i: number): string {
@@ -237,12 +254,20 @@ export function createStudioApi(
       });
     },
 
-    filter(df, pred) {
-      return filterRows(df, pred);
+    range(start, stop, step = 1) {
+      const s = step === 0 ? 1 : step;
+      const values: number[] = [];
+      for (let v = start; s > 0 ? v < stop : v > stop; v += s) values.push(v);
+      return createDataTable(
+        'range',
+        [{ name: 'value', type: 'f64', data: toFloat64(values) }],
+        { provenance: 'studio.range' },
+      );
     },
 
-    normalize(values, mode = 'minmax') {
-      return normalizeOp(values instanceof Float64Array ? values : toFloat64(values), mode);
+    normalize(df, column, mode = 'minmax') {
+      const values = normalizeOp(requireColumn(df, column), mode);
+      return addColumnOp(df, `${column}_${mode}`, 'f64', values);
     },
 
     sort(df, column, direction = 'asc') {
@@ -257,12 +282,33 @@ export function createStudioApi(
       return addColumnOp(df, name, 'f64', toFloat64(values));
     },
 
-    summary(values) {
-      return summarize(values instanceof Float64Array ? values : toFloat64(values));
+    filter(df, column, op, value) {
+      requireColumn(df, column);
+      return filterRows(df, (row) => compare(row[column], op, value));
     },
 
-    histogram(values, bins) {
-      return histogramOp(values instanceof Float64Array ? values : toFloat64(values), bins);
+    summary(df, column) {
+      const s = summarize(requireColumn(df, column));
+      return createDataTable(
+        'summary',
+        [
+          { name: 'stat', type: 'string', data: ['mean', 'std', 'min', 'max', 'median'] },
+          { name: column, type: 'f64', data: Float64Array.from([s.mean, s.std, s.min, s.max, s.median]) },
+        ],
+        { provenance: 'studio.summary' },
+      );
+    },
+
+    histogram(df, column, bins) {
+      const h = histogramOp(requireColumn(df, column), bins);
+      return createDataTable(
+        'hist',
+        [
+          { name: 'center', type: 'f64', data: h.centers },
+          { name: 'count', type: 'f64', data: h.counts },
+        ],
+        { provenance: 'studio.histogram' },
+      );
     },
 
     async plot(type, data, opts = {}) {

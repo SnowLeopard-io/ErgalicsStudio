@@ -205,6 +205,11 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
       if (typeof n.x !== 'string' || n.x.length === 0) out.push(diag(path, 'PlotScatter.x must be a non-empty string'));
       if (typeof n.y !== 'string' || n.y.length === 0) out.push(diag(path, 'PlotScatter.y must be a non-empty string'));
       break;
+    case 'PlotLine':
+      validateNode(n.data, `${path}.data`, out);
+      if (typeof n.x !== 'string' || n.x.length === 0) out.push(diag(path, 'PlotLine.x must be a non-empty string'));
+      if (typeof n.y !== 'string' || n.y.length === 0) out.push(diag(path, 'PlotLine.y must be a non-empty string'));
+      break;
     case 'PlotHistogram':
       validateNode(n.data, `${path}.data`, out);
       if (typeof n.column !== 'string' || n.column.length === 0) out.push(diag(path, 'PlotHistogram.column must be a non-empty string'));

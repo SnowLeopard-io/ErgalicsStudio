@@ -38,10 +38,10 @@ describe('studio data parsing', () => {
     expect(t.getColumn('temp')).toEqual(Float64Array.from([19.34, 20.19, 20.8]));
   });
 
-  it('parses CSV without a header using c0..cN names', () => {
+  it('parses CSV without a header using positional x/y names', () => {
     const api = createStudioApi(makeHost());
     const t = api.loadCSV('1,2\n3,4');
-    expect(t.columnNames()).toEqual(['c0', 'c1']);
+    expect(t.columnNames()).toEqual(['x', 'y']);
     expect(t.length).toBe(2);
   });
 
@@ -60,7 +60,7 @@ describe('studio data parsing', () => {
     const csv = await api.load('data.csv');
     expect(csv.columnNames()).toEqual(['a', 'b']);
     const dat = await api.load('data.dat');
-    expect(dat.columnNames()).toEqual(['c0', 'c1']);
+    expect(dat.columnNames()).toEqual(['x', 'y']);
   });
 
   it('throws on empty input', () => {
@@ -70,35 +70,46 @@ describe('studio data parsing', () => {
 });
 
 describe('studio transforms / statistics', () => {
-  it('normalize minmax maps to [0,1]', () => {
+  it('normalize minmax appends a <col>_minmax column', () => {
     const api = createStudioApi(makeHost());
-    expect([...api.normalize(Float64Array.from([1, 2, 3]))]).toEqual([0, 0.5, 1]);
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const out = api.normalize(t, 'x', 'minmax');
+    expect(out.columnNames()).toEqual(['x', 'x_minmax']);
+    expect([...(out.getColumn('x_minmax') as Float64Array)]).toEqual([0, 0.5, 1]);
   });
 
   it('normalize zscore centers and scales', () => {
     const api = createStudioApi(makeHost());
-    const out = api.normalize(Float64Array.from([1, 2, 3]), 'zscore');
-    expect(out[0]).toBeCloseTo(-1.2247, 3);
-    expect(out[1]).toBeCloseTo(0, 6);
-    expect(out[2]).toBeCloseTo(1.2247, 3);
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const out = api.normalize(t, 'x', 'zscore');
+    const vals = out.getColumn('x_zscore') as Float64Array;
+    expect(vals[0]).toBeCloseTo(-1.2247, 3);
+    expect(vals[1]).toBeCloseTo(0, 6);
+    expect(vals[2]).toBeCloseTo(1.2247, 3);
   });
 
-  it('summary computes mean/std/min/max/median', () => {
+  it('summary returns a stat×<col> table', () => {
     const api = createStudioApi(makeHost());
-    const s = api.summary([1, 2, 3]);
-    expect(s.mean).toBe(2);
-    expect(s.min).toBe(1);
-    expect(s.max).toBe(3);
-    expect(s.median).toBe(2);
-    expect(s.std).toBeCloseTo(Math.sqrt(2 / 3), 6);
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const s = api.summary(t, 'x');
+    expect(s.columnNames()).toEqual(['stat', 'x']);
+    expect(s.getColumn('stat')).toEqual(['mean', 'std', 'min', 'max', 'median']);
+    const nums = s.getColumn('x') as Float64Array;
+    expect(nums[0]).toBe(2); // mean
+    expect(nums[2]).toBe(1); // min
+    expect(nums[3]).toBe(3); // max
+    expect(nums[4]).toBe(2); // median
   });
 
-  it('histogram bins values evenly', () => {
+  it('histogram returns center/count table', () => {
     const api = createStudioApi(makeHost());
-    const h = api.histogram([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 5);
-    expect([...h.counts]).toEqual([2, 2, 2, 2, 2]);
-    expect(h.centers[0]).toBeCloseTo(0.9, 6);
-    expect(h.centers[4]).toBeCloseTo(8.1, 6);
+    const t = table([{ name: 'x', data: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }]);
+    const h = api.histogram(t, 'x', 5);
+    expect(h.columnNames()).toEqual(['center', 'count']);
+    expect([...(h.getColumn('count') as Float64Array)]).toEqual([2, 2, 2, 2, 2]);
+    const centers = h.getColumn('center') as Float64Array;
+    expect(centers[0]).toBeCloseTo(0.9, 6);
+    expect(centers[4]).toBeCloseTo(8.1, 6);
   });
 
   it('sort asc/desc reorders rows', () => {
@@ -108,17 +119,32 @@ describe('studio transforms / statistics', () => {
     expect([...(api.sort(t, 'x', 'desc').getColumn('x') as Float64Array)]).toEqual([3, 2, 1]);
   });
 
-  it('select/filter/addColumn mirror ops', () => {
+  it('filter keeps rows matching the column predicate', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([
+      { name: 'x', data: [1, 2, 3, 4] },
+      { name: 'y', data: [5, 6, 7, 8] },
+    ]);
+    expect(api.filter(t, 'x', '>', 2).length).toBe(2);
+    expect(api.filter(t, 'x', '==', 1).length).toBe(1);
+  });
+
+  it('select/addColumn mirror ops', () => {
     const api = createStudioApi(makeHost());
     const t = table([
       { name: 'x', data: [1, 2, 3, 4] },
       { name: 'y', data: [5, 6, 7, 8] },
     ]);
     expect(api.select(t, ['x']).columnNames()).toEqual(['x']);
-    expect(api.filter(t, (row) => (row.x as number) > 2).length).toBe(2);
     const added = api.addColumn(t, 'z', [9, 10, 11, 12]);
     expect(added.columnNames()).toEqual(['x', 'y', 'z']);
     expect([...(added.getColumn('z') as Float64Array)]).toEqual([9, 10, 11, 12]);
+  });
+
+  it('range builds an arithmetic sequence table', () => {
+    const api = createStudioApi(makeHost());
+    const r = api.range(0, 10, 2);
+    expect([...(r.getColumn('value') as Float64Array)]).toEqual([0, 2, 4, 6, 8]);
   });
 });
 

@@ -75,6 +75,7 @@ export type IRNode =
   | { kind: 'Histogram'; data: IRNode; column: string; bins: IRNode }
   // ---- visualization ----
   | { kind: 'PlotScatter'; data: IRNode; x: string; y: string; color?: string }
+  | { kind: 'PlotLine'; data: IRNode; x: string; y: string }
   | { kind: 'PlotHistogram'; data: IRNode; column: string }
   | { kind: 'PlotPointCloud'; data: IRNode; x: string; y: string; z: string }
   // ---- GPU / host ----
