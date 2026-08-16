@@ -1282,9 +1282,16 @@
 }
 
 @media (max-width: 720px) {
-  .sidebar,
+  .sidebar {
+    position: absolute;
+    left: 0;
+    z-index: 40;
+    height: 100%;
+    box-shadow: var(--shadow-2);
+  }
   .right-panel {
     position: absolute;
+    right: 0;
     z-index: 40;
     height: 100%;
     box-shadow: var(--shadow-2);

@@ -238,10 +238,10 @@ export function BlockEditor() {
 
         <div className="be-toolbar-spacer" />
 
-        <div className={`be-status-pill ${isRunning ? 'is-running' : (useEditorStore.getState().error ? 'is-error' : 'is-idle')}`}>
+        <div className={`be-status-pill ${isRunning ? 'is-running' : (error ? 'is-error' : 'is-idle')}`}>
           <span className="be-status-dot" />
           <span className="be-status-text">
-            {isRunning ? t('editor.status.running') : useEditorStore.getState().error ? t('editor.status.error') : t('editor.status.idle')}
+            {isRunning ? t('editor.status.running') : error ? t('editor.status.error') : t('editor.status.idle')}
           </span>
         </div>
       </div>

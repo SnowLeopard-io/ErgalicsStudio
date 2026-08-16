@@ -239,7 +239,9 @@ export class NBodyPlugin implements Plugin {
     this.draw();
     const ms = performance.now() - t0;
     this.api.reportGpuTime(ms);
-    return { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+    // Report the work actually done — the CPU path only simulated `cap` bodies,
+    // so `bytes` must not claim the full-N buffer allocation.
+    return { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
   }
 
   /** Trigger the accelerated compute path from the params button. */

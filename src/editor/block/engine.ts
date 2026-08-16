@@ -34,9 +34,10 @@ export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): voi
   // Blockly.Theme.defineTheme throws when the name is already registered, so
   // define each variant once; a dark/light toggle re-injects the workspace
   // with the already-registered theme under its own name.
-  const name = THEME_NAME(dark);
-  if (!Blockly.Theme.getTheme(name)) {
-    Blockly.Theme.defineTheme(name, createKidsTheme(dark) as unknown as Blockly.Theme);
+  try {
+    Blockly.Theme.defineTheme(THEME_NAME(dark), createKidsTheme(dark) as unknown as Blockly.Theme);
+  } catch {
+    // Already defined — safe to ignore (theme is registered once per variant).
   }
 }
 

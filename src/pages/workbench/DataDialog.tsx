@@ -89,11 +89,11 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     const sample = BLOCK_SAMPLES.find((s) => s.id === id);
     if (!sample) return;
     const program = sampleProgram(sample);
-    let sid = useEditorStore.getState().activeSessionId;
-    if (!sid) sid = useEditorStore.getState().createSession('block', 'python').id;
-    // Persist the program into the active session, then request the (possibly
-    // already-mounted) BlockEditor to load it into its workspace.
+    // Load the sample into a *fresh* session so it never overwrites the user's
+    // active work; the sample dialog is a "start from here", not a replace.
+    const sid = useEditorStore.getState().createSession('block', 'python').id;
     useEditorStore.getState().updateSessionIR(sid, program);
+    useEditorStore.getState().setActiveSession(sid);
     useEditorStore.getState().requestLoad(program);
     if (mode !== 'block') setMode('block');
     notify('success', t('workbench.example.pipeline_loaded', { name: blockSampleName(sample, locale) }));

@@ -200,7 +200,9 @@ export class ContourPlugin implements Plugin {
     };
     for (let py = 0; py < h; py += 1) {
       for (let px = 0; px < w; px += 1) {
-        const t = (sample(px / w, 1 - py / h) - this.min) / span;
+        // Sample row 0 at the top (py=0), matching the contour/row orientation
+        // in drawContours — the old `1 - py/h` flipped the ramp vertically.
+        const t = (sample(px / w, py / h) - this.min) / span;
         const c = viridis(t);
         const o = (py * w + px) * 4;
         img.data[o] = c[0];

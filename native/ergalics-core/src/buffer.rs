@@ -137,6 +137,10 @@ impl GpuBuffer {
             .map_err(|_| JsValue::from_str("GPU buffer getMappedRange failed"))?;
         let out = Uint8Array::new(&range).to_vec();
         readback.unmap();
+        // The readback buffer is a transient staging copy — release it so a
+        // long-lived host that reads results repeatedly does not accumulate
+        // a MAP_READ buffer per call.
+        readback.destroy();
         Ok(out)
     }
 }

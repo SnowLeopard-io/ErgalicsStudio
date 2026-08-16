@@ -215,8 +215,9 @@ export class ProteinPlugin implements Plugin {
     const metrics2 = this.networkMetrics(cap);
     return {
       ok: true,
-      output: { nodes: this.nodes.length, edges: this.edges.length, ...metrics2 },
-      metrics: { gpuMs: ms, bytes: this.nodes.length * 16 + this.edges.length * 12 },
+      // Report the sub-network actually laid out, matching the metrics.
+      output: { nodes: cap, edges: edges.length, ...metrics2 },
+      metrics: { gpuMs: ms, bytes: cap * 16 + edges.length * 12 },
     };
   }
 
@@ -454,9 +455,16 @@ export class ProteinPlugin implements Plugin {
 
   private tick = () => {
     if (!this.state.running) return;
-    const nodes = this.nodes;
+    // Apply the same CPU cap as the one-shot compute path — the interactive
+    // loop must not relax the full network at MAX_PROTEINS (O(V²) per frame
+    // freezes the main thread).
+    const cap = Math.min(this.nodes.length, CPU_PROTEIN_CAP);
+    const nodes = cap < this.nodes.length ? this.nodes.slice(0, cap) : this.nodes;
+    const edges = cap < this.nodes.length
+      ? this.edges.filter((e) => e.a < cap && e.b < cap)
+      : this.edges;
     // Anneal the temperature so the layout settles and stops jittering.
-    this.layoutStep(nodes, this.edges, this.state.repulsion, this.temp);
+    this.layoutStep(nodes, edges, this.state.repulsion, this.temp);
     this.temp *= 0.985;
     this.draw();
     if (this.temp < 0.004) {

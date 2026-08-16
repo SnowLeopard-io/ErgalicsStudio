@@ -38,6 +38,9 @@ interface State {
   gridlines: boolean;
 }
 
+/** Downsample cap so a huge grid cannot exhaust memory via `createImageData`. */
+const MAX_GRID = 320;
+
 const COLORMAPS: Record<string, (t: number) => [number, number, number]> = {
   teal: (t) => {
     // dark -> teal -> white-hot
@@ -155,9 +158,10 @@ export class HeatmapPlugin implements Plugin {
     }
     const grid: number[][] = [];
     let rows = 0;
-    for (const row of parsed) {
+    for (const row of parsed.slice(0, MAX_GRID)) {
       if (!Array.isArray(row)) continue;
       const nums = row
+        .slice(0, MAX_GRID)
         .map((v) => Number(v))
         .filter((v) => Number.isFinite(v));
       if (nums.length > 0) {

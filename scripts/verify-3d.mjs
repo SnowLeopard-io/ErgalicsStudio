@@ -54,6 +54,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log(out.join('\n'));
   await browser.close();
   server.kill();
+  if (errors.length) process.exit(1);
 })().catch((e) => {
   console.error('VERIFY 3D FAILED:', e);
   process.exit(1);

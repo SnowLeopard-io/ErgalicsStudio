@@ -59,9 +59,11 @@ try {
   out.push('=== ERRORS ===');
   out.push(errors.length ? errors.join('\n') : '(none)');
   console.log(out.join('\n'));
+  if (errors.length) process.exit(1);
 } catch (err) {
   console.error('SMOKE FAILED:', err);
   console.error('errors so far:', errors.join('\n'));
+  process.exit(1);
 } finally {
   if (browser) await browser.close().catch(() => {});
   server.kill();
