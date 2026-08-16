@@ -4,14 +4,31 @@
 
 ```mermaid
 flowchart TB
-    subgraph UI["React UI (src/pages)"]
+    subgraph UI["React UI (src/pages · src/components)"]
         A1["Welcome · Workbench<br/>(TopBar/Sidebar/Central/Right/Status)"]
         A2["Settings · Share ·<br/>Plugin dialogs · Example-data dialogs"]
+        A3["Flow mode canvas<br/>Palette · Canvas · Node · Param editor<br/>Toolbar · Result preview"]
+        A4["Block mode<br/>Blockly workspace · Toolbar<br/>Preview / Variables / Console cards"]
     end
 
     subgraph State["State & Core Services"]
-        B1["Zustand stores<br/>app / project / plugin / settings"]
+        B1["Zustand stores<br/>app / project / plugin / settings / block / editor"]
         B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox"]
+    end
+
+    subgraph Blocks["Block system (Flow mode, src/blocks)"]
+        D1["Catalog<br/>data_source · transform · filter<br/>math · statistics · visualize"]
+        D2["Compiler<br/>pure · validates ports/types<br/>topological sort · diagnostics"]
+        D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
+        D4["Render bridge<br/>viz.* RenderedView → plugin.loadData"]
+    end
+
+    subgraph Editor["Block mode (src/editor)"]
+        E1["IR<br/>shared node union · validate · hash<br/>(also powers Code mode)"]
+        E2["Blockly engine + block definitions<br/>workspace JSON ⇄ IR convert"]
+        E3["Interpreter<br/>walks IR · calls studio.*"]
+        E4["Codegen<br/>IR → JS · IR → Python"]
+        E5["StudioApi<br/>load / transform / stats / plot / print<br/>(reuses src/blocks/ops)"]
     end
 
     subgraph Runtime["Runtime Layer"]
@@ -25,11 +42,30 @@ flowchart TB
     B1 --> C1
     B2 --> C1
     B2 --> C2
+    A3 --> B1
+    B1 --> D2
+    B1 --> D3
+    D1 --> D2
+    D3 --> D4
+    D4 --> C1
+    A4 --> E2
+    E2 --> E1
+    E1 --> E3
+    E1 --> E4
+    E3 --> E5
+    E5 --> D4
 ```
+
+> **One plugin bridge, two callers.** `D4` (Flow's `RenderedView` →
+> `plugin.loadData`) and `E5 → D4` (Block mode's `studio.plot` →
+> `RenderedView`) collapse onto the same code path. Adding a
+> visualisation in Flow mode lights up a `studio.plot(...)` variant in
+> Block mode for free. See [Block Mode](block-mode.md) for the editor
+> layer in detail, and [Flow Mode](flow-mode.md) for the block system.
 
 ## State management
 
-Four Zustand stores hold all application state:
+Five Zustand stores hold all application state:
 
 | Store          | Responsibility                                                        |
 | -------------- | --------------------------------------------------------------------- |
@@ -37,6 +73,7 @@ Four Zustand stores hold all application state:
 | `projectStore` | current project, recent list, save/autosave, share, param persistence |
 | `pluginStore`  | registry, load/activate lifecycle, file dispatch, host containers     |
 | `settingsStore`| GPU mode, autosave interval, and other preferences                    |
+| `editorStore`  | Block / Code mode sessions (IR, code, variables, console)              |
 
 Cross-cutting UI communication uses a small typed event bus
 (`src/core/events.ts`) — e.g. `plugin:<id>:params`, `host:params:changed`,

@@ -17,10 +17,14 @@ first-class concern.
 
 ## Current state
 
-The project is in the **planning stage**. The following are functional today:
+The scaffold is **actively developed**. The following are functional today:
 
 - The full workbench loop: projects, file routing, plugin registry,
   parameter panels, status/perf bars.
+- **Three workbench modes** — Standard (drag → see), Flow (compose a
+  dataflow DAG → run), and Block (Scratch-style scripted editor with a
+  Run hat, 30+ built-in blocks, shared IR, and 5 sample programs). The
+  Code slot is wired through the same IR and reserved for Python/R.
 - Eleven example plugins covering the 2D and 3D rendering paths — including
   a 3-D N-body gravity simulator (astrophysics) and a protein interaction
   network with force-directed layout (systems biology).
@@ -30,11 +34,15 @@ The project is in the **planning stage**. The following are functional today:
   Particles (single-buffer integration) and N-Body Gravity (3-D all-pairs
   with ping-pong buffers).
 - A Worker-based plugin sandbox with a typed RPC protocol.
-- i18n, theming, sharing, and automated tests (unit + E2E).
+- i18n (zh-CN / en-US) with reactive locale switching — Block mode uses
+  Blockly's `BKY_*` key system so block labels re-localise with the rest.
+- Theming (dark / light), sharing, and automated tests (196 unit tests
+  across 24 suites plus block-mode Playwright smoke).
 
 Not yet built: GPU acceleration across the remaining example plugins
 (histogram binning, heatmap/contour grids, point-cloud transforms), a
-plugin marketplace with package signing, and CI automation.
+plugin marketplace with package signing, CI automation, and the Code mode
+(Python/R) on top of the existing IR.
 
 > The intent is that the scaffold grows into a production system by adding
 > features **into** this structure — not by rewriting it.

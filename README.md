@@ -16,9 +16,7 @@ plugin system — all running in the browser, with a Rust/WASM core.
 
 </div>
 
-![studio — Standard mode](docs/studio.png)
-
-![flow — Flow mode: a sample pipeline and its live result preview](docs/flow.png)
+![Ergalics Studio — Standard mode (drag → see)](docs/studio.png)
 
 ---
 
@@ -30,6 +28,9 @@ plugin system — all running in the browser, with a Rust/WASM core.
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Project Layout](#project-layout)
+- [Standard Mode](#standard-mode)
+- [Flow Mode](#flow-mode)
+- [Block Mode](#block-mode)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
@@ -48,14 +49,28 @@ combines a React + TypeScript frontend, a Rust core compiled to WebAssembly,
 a WebGPU compute pipeline, and a plugin architecture designed for third-party
 extensions.
 
-The project is currently in the **planning stage**: the core loop (project
-management, data loading, plugin registry, 2D/3D rendering, i18n, theming,
-performance monitoring) is functional, while GPU-accelerated computation and
-the plugin marketplace are being built out incrementally. Every module is
-kept deliberately small and testable so the scaffold can grow into a
-production system without a rewrite.
+The workbench exposes three modes for three kinds of users — see the section
+for each one below:
 
-> Status: **Planning stage** — functional scaffold, actively developed.
+- **Standard** — drag a dataset onto a plugin, see the visualisation. The
+  fastest path from "I have data" to "I see something".
+- **Flow** — compose a visual dataflow pipeline from built-in blocks, run it
+  topologically, inspect every node's output.
+- **Block** — a Scratch-like block editor where a single "Run" hat block
+  kicks off the program. Beginner-friendly, but fully scripted (variables,
+  loops, conditionals, transforms, plots).
+
+The project is currently in the **active-development stage**: the core loop
+(project management, data loading, plugin registry, 2D/3D rendering, i18n,
+theming, performance monitoring, the Flow mode, and the Block mode) is
+functional and tested. GPU-accelerated computation beyond the existing
+Particles and N-Body plugins, the plugin marketplace, and the Code mode
+(Python/R) are being built out incrementally. Every module is kept
+deliberately small and testable so the scaffold can grow into a production
+system without a rewrite.
+
+> Status: **Active development** — functional scaffold, three workbench
+> modes shipped, plugin & GPU compute foundations live.
 
 ---
 
@@ -137,6 +152,44 @@ production system without a rewrite.
 - The whole graph persists into the project's `blockGraph` and rehydrates on
   open, sharing the autosave/share/export pipeline that already backs every
   `.clproj`.
+
+**Block mode (Scratch-style scripted editor)**
+
+- A third workbench mode — `Standard | Flow | Blocks | Code` in the top
+  bar. The Block mode is the entry point for learners and for anyone who
+  wants an imperative feel: you write a top-down script of blocks under a
+  single green **「运行时 / Run」hat**, and that hat is the only execution
+  entry point (orphan blocks never run).
+- 30+ built-in blocks organised by category — Start, Data, Variables,
+  Operators, Transform, Statistics, Visualize, Control, Utility — covering
+  data sources (`load CSV`, `load XYZ`, `random`, `range`), transforms
+  (`normalize`, `sort`, `select`, `filter`), statistics (`summary`,
+  `histogram`), plots (`scatter`, `line`, `histogram`, `point cloud`),
+  control flow (`if`, `repeat`, `while`, `for_each`), and 1-to-1 utility
+  primitives (`set`, `print`).
+- **Shared IR** (`src/editor/ir/`) is the single source of truth. Block
+  JSON ↔ IR round-trips in a pure, Node-testable module — when a future
+  Code mode lands, the IR is what it shares with Block mode for
+  bidirectional sync.
+- **IR interpreter** (`src/editor/runtime/interpreter.ts`) walks the IR
+  directly and calls into the **same `studio.*` API** that Flow-mode blocks
+  use (`studio.load / normalize / plot / print / …`), so `studio.plot(
+  'scatter', df, { x, y })` lands in the very same scatter plugin a Flow-
+  mode `viz.scatter` block does.
+- **IR → JS / Python codegen** (`src/editor/codegen/`) emits runnable code
+  from the IR; the toolbar's "Python" / "JS" toggle shows the live codegen
+  result for the current workspace.
+- **Blockly 13** powers the canvas (`src/editor/block/`); the package is
+  **lazy-loaded** so Standard / Flow first paint is unaffected (~828 KB
+  on-demand chunk).
+- **Block names, tooltips, dropdown options, and toolbox categories are
+  localised** through Blockly's `BKY_*` key system; switching language
+  re-creates the workspace with re-labelled blocks and is verified by a
+  dedicated unit test (`tests/editor/block-i18n.test.ts`).
+- **Sample programs** live in `src/editor/block/samples.ts` (5 built-in
+  pipelines: galaxy scatter, telemetry line, random histogram, normalised
+  scatter, repeat-print) and are loaded via the **Examples** dialog in the
+  top bar — discoverable by any user, one click away.
 
 ---
 
@@ -266,12 +319,16 @@ See [Documentation](#documentation) for details.
 │   ├── blocks/               #   block system (Flow mode):
 │   │                         #     types · registry · compiler · executor ·
 │   │                         #     ops · catalog · sample · l10n · render
+│   ├── editor/               #   Block mode & (future) Code mode:
+│   │                         #     ir · block (Blockly) · codegen ·
+│   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
 │   │                         #     toolbar, result preview, workbench shell
+│   ├── components/editor/    #   Block-mode canvas, variable / console panels
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
 │   ├── plugins/builtin/      #   11 example plugins (2D + 3D)
-│   ├── stores/               #   zustand stores (app/project/plugin/settings/block)
-│   ├── types/                #   plugin & project contracts
+│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
+│   ├── types/                #   plugin & project & editor contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
 ├── native/ergalics-core/     # Rust core (device, compute, utils)
 ├── examples/
@@ -279,8 +336,89 @@ See [Documentation](#documentation) for details.
 │   └── projects/             # sample `.clproj` projects (incl. Flow pipelines)
 ├── scripts/                  # build-wasm · make-example-data · E2E suites
 ├── tests/                    # Vitest unit tests
-└── docs/                     # VitePress documentation workspace
+├── docs/                     # VitePress documentation workspace
+└── block-code-modes.md       # Block + Code mode design draft
 ```
+
+---
+
+## Standard Mode
+
+![Standard mode — drag a file, see a visualisation](docs/studio.png)
+
+The default landing experience. Three panels: a **left rail** that lists your
+projects and plugins, a **centre viewport** that hosts whichever plugin is
+active (with a drop zone on first launch), and a **right panel** that turns
+the active plugin's declared parameters into reactive form fields. Files
+dragged onto the centre (or onto the plugin list) are routed by extension and
+magic number to a matching plugin; when more than one plugin matches, a
+chooser dialog lets you decide.
+
+This is the mode you want when you already know which plugin answers your
+question and just need to point it at a file.
+
+---
+
+## Flow Mode
+
+![Flow mode — a sample pipeline (Normalize → Histogram / Scatter / Summary) with live result preview](docs/flow.png)
+
+A second workbench mode. Instead of *using* a plugin, you **compose a visual
+dataflow pipeline** from built-in blocks and run it. The pipeline editor
+lives on the left of the screen (palette), the canvas in the middle (nodes
++ edges), a parameter editor on the right for whichever node is selected,
+and a live **result preview** at the bottom that adapts to the chosen
+node's output type:
+
+- **`RenderedView`** (any `viz.*` node) — routed through the existing plugin
+  renderer (scatter, histogram, …).
+- **`DataTable`** (a `stats.summary` / `stats.histogram` row) — a read-only
+  table so non-viz outputs become visible too.
+- **`Scalar`** — an inline value.
+
+The graph persists into the project's `blockGraph` and rehydrates on open,
+sharing the autosave/share/export pipeline that backs every `.clproj`. See
+[`docs/guide/flow-mode.md`](docs/guide/flow-mode.md) for the architecture
+(compiler + incremental executor + the render bridge), and the sample
+pipelines under `examples/projects/`.
+
+---
+
+## Block Mode
+
+![Block mode — a "Run" hat block kicks off a program that loads telemetry, normalises, and plots](docs/block.png)
+
+A Scratch-style block editor for fully scripted programs. A single green
+**「运行时 / Run」hat block** is the only entry point — anything not connected
+underneath it is ignored at run time, which makes "broken code" impossible
+to execute accidentally. Below the hat, blocks wire together into a
+top-down script: `set df = load CSV telemetry.csv` → `set n = normalize
+df column temp min-max` → `scatter df X:time Y:temp_minmax color:…`.
+
+The run button ships a **live result preview**, **variables** panel, and
+**console** panel in the right-hand cards, so each run shows you what your
+data became and what got printed.
+
+Under the hood:
+
+- **Shared IR** (`src/editor/ir/`) is the single source of truth for both
+  Block mode and the (upcoming) Code mode. Block JSON ↔ IR round-trips in a
+  Node-testable pure module.
+- **IR interpreter** (`src/editor/runtime/interpreter.ts`) walks the IR
+  directly and calls into the same `studio.*` API that the Flow mode
+  blocks use — so `studio.plot('scatter', df, { x, y })` lands in the
+  very same scatter plugin as a Flow-mode `viz.scatter` block.
+- **IR → JS / Python codegen** (`src/editor/codegen/`) reuses the same IR
+  to emit code, powering the "view code" overlay in the toolbar.
+- **Blockly 13** (`src/editor/block/`) provides the canvas; the package
+  is **lazy-loaded** so Standard/Flow first paint is unaffected (~828 KB
+  chunk on demand).
+- **i18n** is wired through `BKY_*` keys into Blockly's locale system
+  — switching language re-creates the workspace with re-labelled blocks.
+
+See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the full
+architecture, the 30+ built-in blocks, the 5 sample programs, and the
+limitations / next steps.
 
 ---
 
@@ -301,6 +439,24 @@ See [Documentation](#documentation) for details.
 | Scatter           | `.dat`, `.csv`, `.xyz`  | 2D scatter, color channel |
 | N-Body Gravity    | `.json` (bodies)        | 3D Three.js points + WGSL all-pairs gravity |
 | Protein Interactions | `.json` (network)    | force-directed layout + component metrics |
+
+Two of the eleven are shown below — a 3-D astrophysics demo and a
+systems-biology demo, both of which lean on the real WGSL compute path
+(with identical CPU fallbacks):
+
+**N-Body Gravity** — direct-summation gravity, O(N²) per step, on the GPU.
+
+![N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)](docs/Nbody.png)
+
+**Protein Interactions** — force-directed layout of a PPI network with
+component metrics.
+
+![Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network](docs/protein.png)
+
+Every built-in runs the same math on CPU when WebGPU is absent — see
+[GPU Compute & Native Core](#gpu-compute--native-core) and
+[`docs/guide/plugins.md`](docs/guide/plugins.md) for all eleven plugins and
+their compute paths.
 
 ### Third-party packages (`.cspkg`)
 
@@ -448,7 +604,8 @@ table. Highlights:
 - [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
 - [ ] Plugin marketplace & package signing
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
-- [ ] Block mode (Scratch-like, Google Blockly) & Code mode (Python/Pyodide, R/webR) — see [Block & Code Modes design](docs/guide/block-code-modes.md). Shared IR with bidirectional block↔code sync; Phase 1 ships Blockly + Python.
+- [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md) and the [design draft](block-code-modes.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
+- [ ] Code mode (Python/Pyodide, R/webR) — same IR, bidirectional block ↔ code sync; Phase 2 (Python via Pyodide) lands next.
 
 ---
 

@@ -23,6 +23,9 @@ features:
   - icon: 🔀
     title: Flow mode
     details: "A second workbench mode next to Standard — compose a visual dataflow pipeline from 23 built-in blocks, with an incremental executor and a live result preview."
+  - icon: 🧱
+    title: Block mode
+    details: "A third mode — a Scratch-style block editor with a single Run hat, 30+ built-in blocks, shared IR, an interpreter and JS/Python codegen, and 5 sample programs."
   - icon: 🧩
     title: Sandboxed plugins
     details: "A .cspkg package format with manifest validation, and real isolation — third-party code runs in a Web Worker behind an RPC bridge."
@@ -34,8 +37,8 @@ features:
     details: "A Rust core compiles WGSL kernels with real bind-group layouts, dispatches workgroups, and reports shader diagnostics."
   - icon: 🧪
     title: Testable by design
-    details: "126 unit tests (Vitest) and five Playwright E2E suites, all wired into npm scripts and kept green on every change."
+    details: "196 unit tests (Vitest) across 24 suites plus a block-mode Playwright smoke, all wired into npm scripts and kept green on every change."
   - icon: 🌍
     title: i18n & theming
-    details: "Chinese/English localization with reactive switching, and dark/light themes driven by CSS variables."
+    details: "Chinese/English localization with reactive switching (and Blockly BKY_* keys for Block mode), and dark/light themes driven by CSS variables."
 ---

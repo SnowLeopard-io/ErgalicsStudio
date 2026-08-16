@@ -130,6 +130,8 @@ plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 
 ### N-Body Gravity (`example.nbody`)
 
+![N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)](../Nbody.png)
+
 A 3-D astrophysics demo: direct-summation gravity where every body feels the
 pull of every other body — **O(N²) per step**. It declares `renderToScene`,
 so the host materializes the Three.js scene and the plugin renders the bodies
@@ -155,6 +157,8 @@ as `THREE.Points` (colored by speed, camera auto-fit).
   file or sample data is loaded, and it never fabricates a dataset.
 
 ### Protein Interactions (`example.protein`)
+
+![Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network, colored and sized by degree](../protein.png)
 
 A systems-biology demo. Loads a protein-protein interaction (PPI) network and
 computes a **force-directed layout** (Fruchterman-Reingold spring-electrical

@@ -231,3 +231,8 @@ title.
   the next chunk of work.
 - **Layout**: blocks are placed by hand. Auto-layout (the obvious next
   feature) is intentionally not implemented — keep the API stable first.
+
+> Looking for a more imperative feel? Block mode is a sibling workbench
+> mode that shares the `DataValue` contract and the plugin bridge — see
+> [Block Mode](block-mode.md) for the architecture, the 30+ built-in
+> blocks, and the 5 sample programs.
