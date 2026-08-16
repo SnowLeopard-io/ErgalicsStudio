@@ -105,6 +105,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   createProject: async (name) => {
     const project = createEmptyProject(name);
     await saveProject(project);
+    // Clear the previous project's runtime state so a fresh project never
+    // shows the old one's block graph, editor sessions or active plugin.
+    useBlockStore.getState().clear();
+    useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+    void usePluginStore.getState().deactivate();
+    useAppStore.getState().setMode('standard');
     set({ project, dirty: false });
     await get().loadRecent();
     return project;

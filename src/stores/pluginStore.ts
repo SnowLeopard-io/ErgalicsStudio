@@ -34,7 +34,6 @@ interface PluginStore {
   ensureBuiltinsLoaded: () => Promise<void>;
   /** Restore project state: activate plugin, restore params. */
   restoreState: (projectState: { state?: { activePlugin?: string | null; parameters?: Record<string, Record<string, unknown>> } }) => void;
-  dispatchFile: (file: File) => Promise<boolean>;
   getFormats: () => { pluginId: string; formats: SupportedFormat[] }[];
   setInitialized: () => void;
 }
@@ -371,26 +370,33 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     const activeId = projectState?.state?.activePlugin ?? null;
     const params = projectState?.state?.parameters ?? {};
     // Ensure built-ins are loaded before restoring so activePlugin can activate.
-    void get().ensureBuiltinsLoaded().then(async () => {
-      // Await activation BEFORE pushing stored params. The previous code
-      // fired `void activate()` then emitted immediately — the emit ran
-      // before activate() registered its param subscription, so restored
-      // values for the active plugin were broadcast into the void.
-      if (activeId && get().isLoaded(activeId)) {
-        await get().activate(activeId);
-      }
-      // Apply stored params directly to every loaded plugin rather than via
-      // the bus: non-active plugins have no subscription to receive them.
-      for (const [pluginId, values] of Object.entries(params)) {
-        if (!values || Object.keys(values).length === 0) continue;
-        const entry = get().registry.find((e) => e.id === pluginId);
-        try {
-          await entry?.plugin?.updateParams?.(values);
-        } catch (err) {
-          logger.warn('plugin', `failed to restore params for ${pluginId}`, err);
+    void get()
+      .ensureBuiltinsLoaded()
+      .then(async () => {
+        // Await activation BEFORE pushing stored params. The previous code
+        // fired `void activate()` then emitted immediately — the emit ran
+        // before activate() registered its param subscription, so restored
+        // values for the active plugin were broadcast into the void.
+        if (activeId && get().isLoaded(activeId)) {
+          await get().activate(activeId);
         }
-      }
-    });
+        // Apply stored params directly to every loaded plugin rather than via
+        // the bus: non-active plugins have no subscription to receive them.
+        for (const [pluginId, values] of Object.entries(params)) {
+          if (!values || Object.keys(values).length === 0) continue;
+          const entry = get().registry.find((e) => e.id === pluginId);
+          try {
+            await entry?.plugin?.updateParams?.(values);
+          } catch (err) {
+            logger.warn('plugin', `failed to restore params for ${pluginId}`, err);
+          }
+        }
+      })
+      // `void` + a floating promise otherwise becomes an unhandled rejection if
+      // any step above throws (e.g. a rejecting updateParams).
+      .catch((err) => {
+        logger.error('plugin', 'restoreState failed', err);
+      });
   },
 
   ensureBuiltinsLoaded: async () => {
@@ -409,32 +415,6 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     } catch (err) {
       logger.error('plugin', 'failed to resolve builtin plugins', err);
     }
-  },
-
-  dispatchFile: async (file) => {
-    const dot = file.name.lastIndexOf('.');
-    // A filename with no extension used to slice off its last character
-    // ("README" → "E"), which can never match a registered format.
-    const ext = (dot >= 0 ? file.name.slice(dot) : '').toLowerCase();
-    const matches: string[] = [];
-    for (const entry of get().registry) {
-      const fmt = entry.formats.some((f) => f.extension.toLowerCase() === ext);
-      if (fmt) matches.push(entry.id);
-    }
-    if (matches.length === 0) {
-      useAppStore.getState().setBanner('error.file_unsupported');
-      return false;
-    }
-    if (matches.length === 1) {
-      const id = matches[0] as string;
-      if (get().activeId !== id) await get().activate(id);
-      const plugin = get().registry.find((e) => e.id === id)?.plugin;
-      await plugin?.loadData?.(file);
-      return true;
-    }
-    // multiple plugins match → let user pick
-    emit('host:file:choose-plugin', { file, pluginIds: matches });
-    return true;
   },
 
   getFormats: () =>

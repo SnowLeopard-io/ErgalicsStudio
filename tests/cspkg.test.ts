@@ -77,6 +77,58 @@ describe('parseCspkg', () => {
       parseCspkg(makeCspkg({ sandbox: 'root' as 'isolated' })),
     ).rejects.toThrow('sandbox mode');
   });
+
+  it('normalizes backslash zip keys (Windows tooling) so the entry resolves', async () => {
+    const files: Record<string, Uint8Array> = {
+      'manifest.json': strToU8(JSON.stringify(VALID_MANIFEST)),
+      'dist\\index.js': strToU8('export default 1;'),
+    };
+    const zipped = zipSync(files);
+    const buffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength);
+    const { manifest, files: out } = await parseCspkg(buffer);
+    expect(out['dist/index.js']).toBeTruthy();
+    expect(out[manifest.entry]).toBeTruthy();
+  });
+
+  it('neutralizes prototype-shadowing zip keys', async () => {
+    // `__proto__` entries are inherently neutralized (fflate's assignment
+    // sets the intermediate object's prototype rather than an own property),
+    // so `constructor` is the reachable shadowing key to defend against.
+    const files: Record<string, Uint8Array> = {
+      'manifest.json': strToU8(JSON.stringify(VALID_MANIFEST)),
+      constructor: strToU8('evil'),
+    };
+    const zipped = zipSync(files);
+    const buffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength);
+    const { manifest, files: out } = await parseCspkg(buffer);
+    expect(manifest.id).toBe(VALID_MANIFEST.id);
+    expect(Object.getPrototypeOf(out)).toBeNull();
+    expect(out['constructor']).toBeUndefined();
+  });
+
+  it('rejects archives with too many files before decompressing', async () => {
+    const files: Record<string, Uint8Array> = {
+      'manifest.json': strToU8(JSON.stringify(VALID_MANIFEST)),
+    };
+    for (let i = 0; i < 600; i += 1) files[`f${i}.bin`] = strToU8('x');
+    const zipped = zipSync(files);
+    const buffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength);
+    await expect(parseCspkg(buffer)).rejects.toThrow('too many files');
+  });
+
+  it('rejects a decompression bomb before materializing the archive', async () => {
+    // 70 MB of zeros compresses to a few KB, so the *input* stays under the
+    // 16 MB cap while the *decompressed* size exceeds the 64 MB limit. The
+    // central-directory pre-scan must catch this without unzipping.
+    const files: Record<string, Uint8Array> = {
+      'manifest.json': strToU8(JSON.stringify(VALID_MANIFEST)),
+      'data.bin': new Uint8Array(70 * 1024 * 1024),
+    };
+    const zipped = zipSync(files);
+    expect(zipped.byteLength).toBeLessThan(16 * 1024 * 1024);
+    const buffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength);
+    await expect(parseCspkg(buffer)).rejects.toThrow('decompressed size exceeds');
+  });
 });
 
 describe('loadCspkg (trusted mode)', () => {

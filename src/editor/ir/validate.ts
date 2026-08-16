@@ -20,6 +20,9 @@ const BINARY_OPS = new Set([
   'and', 'or',
 ]);
 
+/** Operators a column Filter node may use (comparisons only). */
+const COMPARE_OPS = new Set(['==', '!=', '<', '<=', '>', '>=']);
+
 function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
   if (node === null || typeof node !== 'object') {
     out.push(diag(path, 'node must be an object'));
@@ -74,7 +77,13 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
       else {
         const seen = new Set<string>();
         n.entries.forEach((e, i) => {
-          if (typeof e?.key !== 'string' || e.key.length === 0) {
+          // A null entry previously crashed here on `e.value`; report it as a
+          // diagnostic instead of throwing.
+          if (e === null || typeof e !== 'object') {
+            out.push(diag(`${path}.entries[${i}]`, 'Dict entry must be an object'));
+            return;
+          }
+          if (typeof e.key !== 'string' || e.key.length === 0) {
             out.push(diag(`${path}.entries[${i}]`, 'Dict entry key must be a non-empty string'));
           } else if (seen.has(e.key)) {
             out.push(diag(`${path}.entries[${i}]`, `duplicate Dict key "${e.key}"`));
@@ -99,6 +108,11 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
         out.push(diag(path, 'If.branches must be a non-empty array'));
       } else {
         n.branches.forEach((b, i) => {
+          // A null branch previously crashed here on `b.cond`; diagnose it.
+          if (b === null || typeof b !== 'object') {
+            out.push(diag(`${path}.branches[${i}]`, 'branch must be an object'));
+            return;
+          }
           validateNode(b.cond, `${path}.branches[${i}].cond`, out);
           if (!Array.isArray(b.body)) out.push(diag(`${path}.branches[${i}].body`, 'branch body must be an array'));
           else b.body.forEach((s, j) => validateNode(s, `${path}.branches[${i}].body[${j}]`, out));
@@ -169,7 +183,9 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
     case 'Filter':
       validateNode(n.data, `${path}.data`, out);
       if (typeof n.column !== 'string' || n.column.length === 0) out.push(diag(path, 'Filter.column must be a non-empty string'));
-      if (!BINARY_OPS.has(n.op)) out.push(diag(path, `unknown filter operator "${String(n.op)}"`));
+      // A Filter can only use comparison operators; validating against the
+      // arithmetic set would accept `+`/`*`, which the runtime rejects.
+      if (!COMPARE_OPS.has(n.op)) out.push(diag(path, `unknown filter operator "${String(n.op)}"`));
       validateNode(n.value, `${path}.value`, out);
       break;
     case 'Normalize':

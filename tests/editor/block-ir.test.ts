@@ -137,4 +137,10 @@ describe('workspace round-trip', () => {
     const round = workspaceJSONToIR(ws);
     expect(round.body[0]!.kind).toBe('RawCode');
   });
+
+  it('preserves the RawCode lang field across a workspace round-trip', () => {
+    const program = makeProgram([{ kind: 'RawCode', lang: 'python', text: 'print(1)' }]);
+    const round = workspaceJSONToIR(irToWorkspaceJSON(program));
+    expect(round.body[0]).toEqual({ kind: 'RawCode', lang: 'python', text: 'print(1)' });
+  });
 });

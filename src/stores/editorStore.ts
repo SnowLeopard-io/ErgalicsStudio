@@ -118,7 +118,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   consumeLoad: () => set({ pendingLoad: null }),
 
   toJSON: () => ({
-    sessions: get().sessions,
+    // Clone sessions so the persisted snapshot is not aliased to live store
+    // state: a later in-place edit would otherwise leak into the saved
+    // project, and callers mutating the returned array would corrupt the store.
+    sessions: get().sessions.map((s) => structuredClone(s)),
     activeSessionId: get().activeSessionId,
   }),
 

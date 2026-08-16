@@ -47,17 +47,41 @@ async function tx<T>(
 ): Promise<T> {
   const db = await openDb();
   return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let result: T;
     const transaction = db.transaction(store, mode);
     const request = fn(transaction.objectStore(store));
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      transaction.onabort = null;
+      transaction.onerror = null;
+      transaction.oncomplete = null;
+      resolve(value);
+    };
+    const fail = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      transaction.onabort = null;
+      transaction.onerror = null;
+      transaction.oncomplete = null;
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+
+    request.onsuccess = () => {
+      result = request.result;
+      // Resolve on transaction completion, not on request success: the caller
+      // must see durably-committed data, and a request success followed by an
+      // aborted commit would otherwise surface a value that was never stored.
+      transaction.oncomplete = () => finish(result);
+    };
+    request.onerror = () => fail(request.error ?? new Error(`request failed on ${store}`));
     // A transaction can abort without a request-level error firing (quota
     // exceeded, blocked versionchange, connection closed). Listen on the
     // transaction itself so those cases reject instead of hanging forever.
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error(`transaction aborted on ${store}`));
-    transaction.onerror = () =>
-      reject(transaction.error ?? new Error(`transaction failed on ${store}`));
+    transaction.onabort = () => fail(transaction.error ?? new Error(`transaction aborted on ${store}`));
+    transaction.onerror = () => fail(transaction.error ?? new Error(`transaction failed on ${store}`));
   });
 }
 

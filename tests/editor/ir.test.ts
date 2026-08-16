@@ -81,6 +81,21 @@ describe('IR serialize round-trip', () => {
     expect(isRawCode(node!)).toBe(true);
     if (isRawCode(node!)) expect(node!.text).toBe("squares = [x**2 for x in df['x']]");
   });
+
+  it('rejects a payload whose stored hash does not match its content', () => {
+    const p = program();
+    const json = JSON.parse(serializeIR(p)) as IRProgram;
+    json.hash = 'beefbeef';
+    // A tampered body would silently defeat sync dedup; verify it is refused.
+    expect(() => deserializeIR(JSON.stringify(json))).toThrow(/hash mismatch/);
+  });
+
+  it('back-fills the hash only when absent (accepts a missing hash)', () => {
+    const json = JSON.parse(serializeIR(program())) as IRProgram;
+    delete json.hash;
+    const round = deserializeIR(JSON.stringify(json));
+    expect(round.hash).toBe(hashIR(program()));
+  });
 });
 
 describe('IR validation', () => {
@@ -108,6 +123,29 @@ describe('IR validation', () => {
       { kind: 'BinaryOp', op: '??' as never, left: { kind: 'Number', value: 1 }, right: { kind: 'Number', value: 2 } },
     ]);
     expect(validateIR(p).some((d) => d.message.includes('binary operator'))).toBe(true);
+  });
+
+  it('diagnoses a null Dict entry instead of throwing', () => {
+    const p = program([{ kind: 'Dict', entries: [null] } as unknown as IRNode]);
+    expect(validateIR(p).some((d) => d.message.includes('must be an object'))).toBe(true);
+  });
+
+  it('diagnoses a null If branch instead of throwing', () => {
+    const p = program([{ kind: 'If', branches: [null], elseBody: [] }] as unknown as IRNode[]);
+    expect(validateIR(p).some((d) => d.message.includes('branch must be an object'))).toBe(true);
+  });
+
+  it('flags a non-comparison Filter operator', () => {
+    const p = program([
+      {
+        kind: 'Filter',
+        data: { kind: 'VarRef', name: 'df' },
+        column: 'x',
+        op: '+' as never,
+        value: { kind: 'Number', value: 0 },
+      },
+    ]);
+    expect(validateIR(p).some((d) => d.message.includes('filter operator'))).toBe(true);
   });
 
   it('flags a non-FuncDef in the functions list', () => {

@@ -95,6 +95,9 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
       const items = fieldStr(b, 'VALUES')
         .split(/[\s,]+/)
         .filter((s) => s.length > 0)
+        // Skip tokens that do not parse to a number: `Number('abc')` would
+        // otherwise produce a NaN literal, which IR validation rejects.
+        .filter((s) => Number.isFinite(Number(s)))
         .map((s) => ({ kind: 'Number', value: Number(s) } as IRNode));
       return { kind: 'List', items };
     }
@@ -205,8 +208,16 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
     // host / raw
     case 'studio_print':
       return { kind: 'StudioCall', method: 'print', args: [requireIR(inputBlock(b, 'TEXT'), 'TEXT')] };
-    case 'studio_raw':
-      return { kind: 'RawCode', lang: 'js', text: fieldStr(b, 'TEXT') };
+    case 'studio_raw': {
+      const lang = fieldStr(b, 'LANG');
+      return {
+        kind: 'RawCode',
+        // The lang is persisted in a LANG field; default to 'js' so older
+        // workspaces (no LANG) still round-trip.
+        lang: lang === 'python' || lang === 'r' ? lang : 'js',
+        text: fieldStr(b, 'TEXT'),
+      };
+    }
     default:
       throw new Error(`unknown block type "${type}"`);
   }
@@ -396,7 +407,7 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
       }
       return rawFallback(node);
     case 'RawCode':
-      return statementBlock('studio_raw', { TEXT: node.text });
+      return statementBlock('studio_raw', { LANG: node.lang, TEXT: node.text });
     default:
       return rawFallback(node);
   }
@@ -404,7 +415,14 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
 
 /** Degrade an IR node the blocks cannot express to a `studio_raw` block. */
 function rawFallback(node: IRNode): BlockJSON {
-  const text = codegenJS(makeProgram([node], [], 'js'));
+  let text: string;
+  try {
+    text = codegenJS(makeProgram([node], [], 'js'));
+  } catch (err) {
+    // Some nodes (e.g. GpuRun) cannot be generated at all; keep the raw block
+    // meaningful instead of letting the failure escape the workspace round-trip.
+    text = `// cannot express as code: ${err instanceof Error ? err.message : String(err)}`;
+  }
   return statementBlock('studio_raw', { TEXT: text });
 }
 

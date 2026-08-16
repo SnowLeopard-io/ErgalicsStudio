@@ -197,32 +197,71 @@ class NativeBuffer implements ComputeBufferHandle {
   }
 
   write(data: ArrayBufferView, offset = 0): void {
-    this.device.queue.writeBuffer(this.raw, offset, data, 0);
+    const bytes = toBytes(data);
+    if (offset < 0 || offset + bytes.byteLength > this.size) {
+      throw new Error(
+        `buffer write out of bounds: offset ${offset} + ${bytes.byteLength} bytes > size ${this.size}`,
+      );
+    }
+    if (!(this.usage & GPUBufferUsage.COPY_DST)) {
+      // queue.writeBuffer requires COPY_DST on the destination; a MAP_WRITE
+      // buffer would need an async map/write/unmap cycle, which the
+      // synchronous `write` contract cannot express. Report the mismatch
+      // loudly instead of letting the queue throw an opaque validation error.
+      throw new Error(
+        'buffer is not writable via the queue (requires COPY_DST usage)',
+      );
+    }
+    // Pass an exact byte view + explicit size: writeBuffer's dataOffset/size
+    // are in bytes, and a view whose byteOffset is nonzero copies from the
+    // view start only when size is explicit (the footgun otherwise copies the
+    // whole underlying ArrayBuffer on some implementations).
+    this.device.queue.writeBuffer(this.raw, offset, bytes, 0, bytes.byteLength);
   }
 
   async read(): Promise<ArrayBuffer> {
-    const readback = this.device.createBuffer({
-      label: 'readback',
-      size: this.size,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    try {
-      this.device.queue.copyBufferToBuffer(this.raw, 0, readback, 0, this.size);
-      await readback.mapAsync(GPUMapMode.READ);
-      const range = readback.getMappedRange();
-      const copy = copyMappedRange(range);
-      readback.unmap();
-      return copy;
-    } finally {
-      // Every read allocates a dedicated MAP_READ|COPY_DST readback buffer;
-      // release it on both the success and failure paths so GPU memory is not
-      // leaked per read. destroy() on an already-destroyed buffer is a no-op.
+    // Contract (docs): buffers created with MAP_READ are read by mapping the
+    // buffer directly. WebGPU forbids MAP_READ alongside STORAGE, so buffers
+    // created for storage compute are read via a COPY_SRC → readback copy.
+    if (this.usage & GPUBufferUsage.MAP_READ) {
       try {
-        readback.destroy();
-      } catch {
-        /* device already lost */
+        await this.raw.mapAsync(GPUMapMode.READ);
+        const range = this.raw.getMappedRange();
+        const copy = copyMappedRange(range);
+        this.raw.unmap();
+        return copy;
+      } catch (err) {
+        throw new Error(`buffer read (map) failed: ${String(err)}`);
       }
     }
+    if (this.usage & GPUBufferUsage.COPY_SRC) {
+      const readback = this.device.createBuffer({
+        label: 'readback',
+        size: this.size,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      try {
+        this.device.queue.copyBufferToBuffer(this.raw, 0, readback, 0, this.size);
+        await readback.mapAsync(GPUMapMode.READ);
+        const range = readback.getMappedRange();
+        const copy = copyMappedRange(range);
+        readback.unmap();
+        return copy;
+      } catch (err) {
+        throw new Error(`buffer read (copy) failed: ${String(err)}`);
+      } finally {
+        // Every copy read allocates a dedicated MAP_READ|COPY_DST readback
+        // buffer; release it on both the success and failure paths so GPU
+        // memory is not leaked per read. destroy() on an already-destroyed
+        // buffer is a no-op.
+        try {
+          readback.destroy();
+        } catch {
+          /* device already lost */
+        }
+      }
+    }
+    throw new Error('buffer is not readable (requires MAP_READ or COPY_SRC usage)');
   }
 
   destroy(): void {

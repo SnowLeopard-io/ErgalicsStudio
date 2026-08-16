@@ -74,10 +74,19 @@ export function compile(graph: BlockGraph, registry: BlockRegistry): CompileResu
     validateConnection(conn, metas, inputs, outputs, diagnostics);
   }
 
-  // 3. Required input ports must be connected.
+  // 3. Required input ports must be connected; every node must have an
+  //     executor or it can never produce output.
   for (const inst of graph.instances) {
     const meta = metas.get(inst.id);
     if (!meta) continue;
+    if (!registry.getExecutor(inst.blockId)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'missing_executor',
+        message: `block "${inst.blockId}" has no executor (nothing to run)`,
+        nodeId: inst.id,
+      });
+    }
     const nodeInputs = inputs.get(inst.id) ?? {};
     for (const port of meta.inputs) {
       if (port.required && !nodeInputs[port.id]) {

@@ -24,6 +24,7 @@ interface GPUAdapter {
 interface GPUDevice {
   readonly lost: Promise<GPUDeviceLostInfo>;
   addEventListener(type: string, listener: EventListener): void;
+  removeEventListener(type: string, listener: EventListener): void;
   readonly queue: GPUQueue;
   createBuffer(descriptor: GPUBufferDescriptor): GPUBuffer;
   createShaderModule(descriptor: GPUShaderModuleDescriptor): GPUShaderModule;

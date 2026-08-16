@@ -70,6 +70,8 @@ interface AppStore {
 
 let bannerId = 0;
 let notifId = 0;
+/** Track notification auto-dismiss timers so an early dismiss cancels them. */
+const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
 /** Warn when GPU memory exceeds 80% of this assumed budget (spec §7.3). */
 const MEMORY_WARN_MB = 0.8 * 512;
@@ -117,10 +119,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
   notify: (kind, message) => {
     const id = ++notifId;
     set((s) => ({ notifications: [...s.notifications, { id, kind, message }] }));
-    setTimeout(() => get().dismissNotification(id), 4000);
+    const timer = setTimeout(() => {
+      notifTimers.delete(id);
+      get().dismissNotification(id);
+    }, 4000);
+    notifTimers.set(id, timer);
   },
-  dismissNotification: (id) =>
-    set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
+  dismissNotification: (id) => {
+    // Cancelling the pending auto-dismiss keeps a dismissed notification from
+    // being re-filtered later and stops the timer from firing after unmount.
+    const timer = notifTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      notifTimers.delete(id);
+    }
+    set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) }));
+  },
 
   setFps: (fps, frameMs) =>
     set((s) => ({ perf: { ...s.perf, fps, frameMs, warnings: { ...s.perf.warnings, fps: fps < 30 && fps > 0 } } })),
@@ -139,5 +153,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => {
+    if (mode === get().mode) return;
+    set({ mode });
+    // Plugins render into the Standard mode's CentralArea; leaving Standard
+    // unmounts that surface, so a still-active plugin must be deactivated —
+    // otherwise it keeps rendering into detached DOM and holding GPU work.
+    if (mode !== 'standard') {
+      // Lazy import keeps appStore free of a pluginStore cycle.
+      void import('./pluginStore').then((m) => m.usePluginStore.getState().deactivate());
+    }
+  },
 }));

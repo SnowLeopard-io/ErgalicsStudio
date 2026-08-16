@@ -114,6 +114,16 @@ export function addColumn(
   return rebuild(table, specs, `add:${name}`);
 }
 
+/** Return `base` when free, otherwise a `_2`/`_3`/… suffixed variant. Lets
+ *  blocks that derive an output column name (e.g. `x_add`) run twice or in
+ *  parallel without crashing on a name collision. */
+export function uniqueName(table: DataTable, base: string): string {
+  if (table.getColumn(base) === undefined) return base;
+  let n = 2;
+  while (table.getColumn(`${base}_${n}`) !== undefined) n += 1;
+  return `${base}_${n}`;
+}
+
 // ---- row transforms ----
 
 export function filterRows(
@@ -189,6 +199,9 @@ export function normalize(values: Float64Array, mode: NormalizeMode): Float64Arr
   let sum = 0;
   for (const v of values) sum += v;
   const mean = sum / values.length;
+  // An all-NaN (or overflowed) column produces a non-finite mean; every
+  // output would then be NaN. Return zeroed output instead of NaN.
+  if (!Number.isFinite(mean)) return out;
   let variance = 0;
   for (const v of values) variance += (v - mean) * (v - mean);
   const std = Math.sqrt(variance / values.length);
@@ -271,6 +284,10 @@ export function histogram(values: Float64Array, bins: number): Histogram {
     if (v < min) min = v;
     if (v > max) max = v;
   }
+  // An all-NaN column leaves min=Infinity/max=-Infinity: bin centers would
+  // become ±Infinity and counts would land at undefined indices. Treat it as
+  // an empty signal — zeroed bins — instead of corrupting the histogram.
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return { centers, counts };
   const range = max - min || 1;
   const step = range / bins;
   for (let b = 0; b < bins; b += 1) {

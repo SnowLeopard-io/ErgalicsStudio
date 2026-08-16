@@ -26,6 +26,11 @@ export const rangeFilterBlock: BlockDefinition = defineBlock(
     const column = String(ctx.getParam('column') ?? '');
     const min = Number(ctx.getParam('min') ?? 0);
     const max = Number(ctx.getParam('max') ?? 1);
+    // A NaN bound (empty/garbage param input) makes every comparison false,
+    // silently dropping every row. Surface the misconfiguration instead.
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      throw new Error('filter.range: min/max must be numbers');
+    }
     const values = requireColumn(input, column);
     return filterRows(input, (_row, i) => {
       const v = values[i]!;
@@ -50,6 +55,9 @@ export const valueFilterBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
     const value = Number(ctx.getParam('value') ?? 0);
+    if (!Number.isFinite(value)) {
+      throw new Error('filter.value: value must be a number');
+    }
     const values = requireColumn(input, column);
     return filterRows(input, (_row, i) => values[i] === value);
   },

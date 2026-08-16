@@ -86,7 +86,11 @@ export function encodeArgs(
       // and — worse — an OffscreenCanvas rebuilt this way is no longer in
       // the message while it is still in the transfer list, which makes
       // postMessage throw DataCloneError.
+      // Typed arrays / DataView must also pass through: Object.entries() on a
+      // Float64Array flattens it into `{0,1,2,...}`, silently converting a
+      // 4-byte-per-element buffer into thousands of boxed number entries.
       if (
+        ArrayBuffer.isView(value) ||
         (typeof File !== 'undefined' && value instanceof File) ||
         (typeof Blob !== 'undefined' && value instanceof Blob) ||
         (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas)
@@ -122,7 +126,9 @@ export function decodeArgs(
       // File/Blob/OffscreenCanvas survive structured clone and must pass
       // through untouched: rebuilding them as plain objects would drop
       // .text()/.arrayBuffer()/.slice()/getContext() and break sandboxed
-      // loadData / api.readText round trips and canvas rendering.
+      // loadData / api.readText round trips and canvas rendering. Typed
+      // arrays likewise (see encodeArgs).
+      if (ArrayBuffer.isView(value)) return value;
       if (typeof File !== 'undefined' && value instanceof File) return value;
       if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
       if (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas) {
@@ -240,7 +246,37 @@ export async function createPluginSandbox(
   let nextCallId = 1;
 
   const post = (message: unknown, transfer?: Transferable[]) => {
-    worker.postMessage(message, transfer ?? []);
+    try {
+      worker.postMessage(message, transfer ?? []);
+    } catch (err) {
+      // A message that fails structured clone (e.g. a host object that cannot
+      // be cloned into the worker) must reject its pending call — otherwise
+      // the caller awaits forever.
+      logger.error('sandbox', 'postMessage failed', err);
+      const msg = message as { id?: number } | null;
+      if (typeof msg?.id === 'number' && pending.has(msg.id)) {
+        const p = pending.get(msg.id)!;
+        pending.delete(msg.id);
+        p.reject(new Error(`failed to send message to worker: ${String(err)}`));
+      }
+    }
+  };
+
+  /** Reply to a worker api call. If the host result cannot be structured
+   *  cloned (functions, cycles, live contexts), reply with an error instead of
+   *  stranding the worker's pending `await` forever. */
+  const postReply = (message: Record<string, unknown>) => {
+    try {
+      post(message);
+    } catch (err) {
+      logger.warn('sandbox', 'api reply not serializable, replying with error', err);
+      post({
+        event: 'api-reply',
+        callId: message.callId,
+        ok: false,
+        error: `host api result could not be serialized: ${String(err)}`,
+      });
+    }
   };
 
   const invoke = <T = unknown>(
@@ -284,11 +320,11 @@ export async function createPluginSandbox(
               ? (fn as (...a: unknown[]) => unknown)(...(msg.args as unknown[]))
               : undefined;
           Promise.resolve(result).then(
-            (value) => post({ event: 'api-reply', callId, ok: true, result: value }),
-            (err: unknown) => post({ event: 'api-reply', callId, ok: false, error: String(err) }),
+            (value) => postReply({ event: 'api-reply', callId, ok: true, result: value }),
+            (err: unknown) => postReply({ event: 'api-reply', callId, ok: false, error: String(err) }),
           );
         } catch (err) {
-          post({ event: 'api-reply', callId, ok: false, error: String(err) });
+          postReply({ event: 'api-reply', callId, ok: false, error: String(err) });
         }
         break;
       }
@@ -337,8 +373,16 @@ export async function createPluginSandbox(
     (host ?? document.body).appendChild(surface);
     const created = new Set<number>();
     const entry = { el: surface, callbacks: created };
+    let offscreen: OffscreenCanvas;
+    try {
+      offscreen = surface.transferControlToOffscreen();
+    } catch (err) {
+      // Never leave a half-attached surface in the DOM when control transfer
+      // fails (e.g. the canvas is already controlled): remove it and rethrow.
+      surface.remove();
+      throw err;
+    }
     surfaces.push(entry);
-    const offscreen = surface.transferControlToOffscreen();
     return {
       // reportDataScale is a function and cannot be structured-cloned; encode
       // it as an `__fn` token so postMessage does not throw DataCloneError.
@@ -357,6 +401,13 @@ export async function createPluginSandbox(
       ),
       transfer: [offscreen],
     };
+  };
+
+  /** If an activate/render invocation fails, remove the surface it just
+   *  attached so it does not linger over the next plugin's viewport. */
+  const dropLastSurface = () => {
+    const last = surfaces.pop();
+    if (last) removeSurface(last);
   };
 
   try {
@@ -384,7 +435,12 @@ export async function createPluginSandbox(
     },
     activate: async (context) => {
       const { args, transfer } = toRemoteContainer(context.container);
-      await invoke('activate', args, transfer);
+      try {
+        await invoke('activate', args, transfer);
+      } catch (err) {
+        dropLastSurface();
+        throw err;
+      }
     },
     deactivate: () => {
       // Remove the transferred surface so a sandboxed plugin's canvas
@@ -397,7 +453,10 @@ export async function createPluginSandbox(
       const prev = surfaces.pop();
       if (prev) removeSurface(prev);
       const { args, transfer } = toRemoteContainer(container);
-      return invoke('render', args, transfer);
+      return invoke<void>('render', args, transfer).catch((err) => {
+        dropLastSurface();
+        throw err;
+      });
     },
     updateParams: (params) => invoke('updateParams', [params]),
     getParams: () => invoke<ParamDefinition[]>('getParams'),

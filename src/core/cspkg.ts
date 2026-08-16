@@ -34,12 +34,69 @@ export function revokeCspkgUrls(id: string) {
 
 const REQUIRED_MANIFEST_FIELDS = ['id', 'entry', 'name', 'version'] as const;
 
-/** Hard caps against zip-bomb / oversized archives. `unzipSync` materializes
- *  the whole tree in memory, so the input size is bounded up front and the
- *  decompressed result is double-checked afterwards. */
+/** Hard caps against zip-bomb / oversized archives. The input size is bounded
+ *  up front and the central directory is scanned (without decompressing) so
+ *  entry count and total uncompressed size are enforced *before* `unzipSync`
+ *  materializes the tree in memory. */
 const MAX_PACKAGE_BYTES = 16 * 1024 * 1024;
 const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
 const MAX_FILES = 512;
+
+/** Keys that would shadow Object.prototype members on the plain object that
+ *  `unzipSync` builds. Even though the loader rebuilds into a null-prototype
+ *  map, a hostile archive must not be able to corrupt the intermediate object
+ *  or the parsed manifest's prototype chain. */
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+interface ZipEntryMeta {
+  /** Entry name with backslashes already normalized to `/`. */
+  name: string;
+  /** Uncompressed size from the central directory. */
+  size: number;
+}
+
+/** Lightweight ZIP central-directory scan. Reads the End-Of-Central-Directory
+ *  record plus every central-directory entry — names and uncompressed sizes
+ *  only — so caps can be enforced without decompressing the archive. Throws
+ *  on structural corruption (missing EOCD, truncated central directory). */
+function scanZipCentralDirectory(buffer: ArrayBuffer): ZipEntryMeta[] {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  // EOCD signature 0x06054b50; scan backwards so a trailing archive comment
+  // cannot mask the real record (the last occurrence wins).
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= 0; i -= 1) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('missing end-of-central-directory record');
+
+  const count = view.getUint16(eocd + 10, true);
+  const cdSize = view.getUint32(eocd + 12, true);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  if (cdOffset + cdSize > bytes.length) {
+    throw new Error('central directory out of bounds');
+  }
+
+  const decoder = new TextDecoder('utf-8');
+  const entries: ZipEntryMeta[] = [];
+  let pos = cdOffset;
+  for (let i = 0; i < count; i += 1) {
+    if (pos + 46 > bytes.length || view.getUint32(pos, true) !== 0x02014b50) {
+      throw new Error('malformed central directory entry');
+    }
+    const nameLen = view.getUint16(pos + 28, true);
+    const extraLen = view.getUint16(pos + 30, true);
+    const commentLen = view.getUint16(pos + 32, true);
+    const size = view.getUint32(pos + 24, true);
+    const name = decoder.decode(bytes.subarray(pos + 46, pos + 46 + nameLen)).replace(/\\/g, '/');
+    entries.push({ name, size });
+    pos += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
 
 /** Reject malformed package ids / entry paths early (path traversal guard). */
 function validateManifest(manifest: PluginManifest): void {
@@ -55,11 +112,30 @@ function validateManifest(manifest: PluginManifest): void {
     throw new Error(`cspkg: entry path must be a package-relative path, got "${manifest.entry}"`);
   }
   // Archives may store keys with backslashes (zip entries from Windows
-  // tooling); normalize so the manifest entry always resolves.
-  manifest.entry = manifest.entry.replace(/\\/g, '/');
+  // tooling) or a leading "./"; normalize so the manifest entry always
+  // resolves against the normalized file keys.
+  manifest.entry = manifest.entry.replace(/\\/g, '/').replace(/^\.\//, '');
   if (manifest.sandbox !== undefined && manifest.sandbox !== 'isolated' && manifest.sandbox !== 'trusted') {
     throw new Error(`cspkg: unknown sandbox mode "${String(manifest.sandbox)}"`);
   }
+}
+
+/** Rebuild the unzipped file map with normalized, validated keys. Zip entries
+ *  written by Windows tooling may use backslashes, so keys are normalized to
+ *  `/`; traversal (`..`) and absolute paths are dropped, as are keys that
+ *  would shadow Object.prototype members. The map is null-prototype so even a
+ *  surviving hostile key cannot corrupt lookups. */
+function normalizeFileKeys(files: Record<string, Uint8Array>): Record<string, Uint8Array> {
+  const normalized: Record<string, Uint8Array> = Object.create(null) as Record<string, Uint8Array>;
+  for (const [key, data] of Object.entries(files)) {
+    const name = key.replace(/\\/g, '/').replace(/^\.\//, '');
+    if (name.length === 0 || name.includes('..') || name.startsWith('/') || /^[a-zA-Z]:/.test(name)) {
+      continue;
+    }
+    if (DANGEROUS_KEYS.has(name)) continue;
+    normalized[name] = data;
+  }
+  return normalized;
 }
 
 export async function parseCspkg(buffer: ArrayBuffer): Promise<{
@@ -70,6 +146,24 @@ export async function parseCspkg(buffer: ArrayBuffer): Promise<{
   if (buffer.byteLength > MAX_PACKAGE_BYTES) {
     throw new Error(`cspkg: package exceeds ${Math.round(MAX_PACKAGE_BYTES / 1024 / 1024)} MB limit`);
   }
+
+  // Pre-flight the central directory so a decompression bomb is rejected
+  // *before* unzipSync materializes the whole tree in memory.
+  let entries: ZipEntryMeta[];
+  try {
+    entries = scanZipCentralDirectory(buffer);
+  } catch (err) {
+    throw new Error(`cspkg: invalid zip archive — ${String(err)}`);
+  }
+  if (entries.length > MAX_FILES) {
+    throw new Error(`cspkg: archive contains too many files (${entries.length} > ${MAX_FILES})`);
+  }
+  let total = 0;
+  for (const entry of entries) total += entry.size;
+  if (total > MAX_DECOMPRESSED_BYTES) {
+    throw new Error(`cspkg: decompressed size exceeds ${Math.round(MAX_DECOMPRESSED_BYTES / 1024 / 1024)} MB`);
+  }
+
   let files: Record<string, Uint8Array>;
   try {
     files = unzipSync(new Uint8Array(buffer));
@@ -77,18 +171,7 @@ export async function parseCspkg(buffer: ArrayBuffer): Promise<{
     throw new Error(`cspkg: invalid zip archive — ${String(err)}`);
   }
 
-  // Post-decompression sanity: a tiny archive must not expand into a huge
-  // file tree (decompression bomb) that would pin this much memory and spawn
-  // that many blob URLs.
-  const names = Object.keys(files);
-  if (names.length > MAX_FILES) {
-    throw new Error(`cspkg: archive contains too many files (${names.length} > ${MAX_FILES})`);
-  }
-  let total = 0;
-  for (const data of Object.values(files)) total += data.byteLength;
-  if (total > MAX_DECOMPRESSED_BYTES) {
-    throw new Error(`cspkg: decompressed size exceeds ${Math.round(MAX_DECOMPRESSED_BYTES / 1024 / 1024)} MB`);
-  }
+  files = normalizeFileKeys(files);
 
   const manifestEntry = files['manifest.json'];
   if (!manifestEntry) throw new Error('cspkg: missing manifest.json');

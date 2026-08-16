@@ -4,6 +4,7 @@ import { DagExecutor } from '@/blocks/executor';
 import { createMemoryStorage } from '@/blocks/context';
 import { block, makeCountingRegistry } from './fixtures';
 import type { BlockConnection, BlockGraph, BlockInstance } from '@/types/block';
+import type { DataTable } from '@/types/datatable';
 
 function instance(id: string, blockId: string): BlockInstance {
   return { id, blockId, position: { x: 0, y: 0 }, params: {} };
@@ -100,7 +101,7 @@ describe('DagExecutor', () => {
     await expect(ex.run()).rejects.toThrow('boom');
   });
 
-  it('fails fast when a node has no executor', async () => {
+  it('flags a node with no executor at compile time', async () => {
     const { registry } = makeCountingRegistry();
     registry.register(
       block({
@@ -115,7 +116,39 @@ describe('DagExecutor', () => {
       instances: [instance('a', 'test.no_exec')],
       connections: [],
     };
+    const result = compile(graph, registry);
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === 'missing_executor')).toBe(true);
+  });
+
+  it('markDirty during execution leaves the node dirty for the next run', async () => {
+    const { registry } = makeCountingRegistry();
+    // A block that signals its own output is stale after every execution.
+    registry.register(
+      block({
+        id: 'test.self_dirty',
+        category: 'transform',
+        inputs: [{ id: 'in', label: 'in', type: 'data', dataType: 'DataTable', required: true }],
+        outputs: [{ id: 'out', label: 'out', type: 'data', dataType: 'DataTable', required: false }],
+      }),
+      async (ctx) => {
+        const input = ctx.getInput('in') as DataTable;
+        ctx.markDirty();
+        return input;
+      },
+    );
+    const graph: BlockGraph = {
+      id: 'g',
+      instances: [instance('a', 'test.source'), instance('b', 'test.self_dirty')],
+      connections: [conn('a', 'out', 'b', 'in')],
+    };
     const ex = executorOf(graph, registry);
-    await expect(ex.run()).rejects.toThrow(/no executor/);
+    await ex.run();
+    // The markDirty must NOT be swallowed: b stays dirty so the next run
+    // recomputes it.
+    expect(ex.isDirty('b')).toBe(true);
+    await ex.run();
+    expect(ex.isDirty('b')).toBe(true);
+    // Downstream nodes would also be recomputed on a subsequent run.
   });
 });

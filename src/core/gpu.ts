@@ -40,6 +40,25 @@ export function subscribeGpu(listener: Listener): () => void {
 
 const inFlight = new Map<GpuBackendMode, Promise<GpuBackend>>();
 
+/** Bumped by `resetGpu` so a still-in-flight `doInitGpu` that resolves later
+ *  (a device request takes time) discards its result instead of re-applying a
+ *  live device the user explicitly asked to release. */
+let epoch = 0;
+
+/** Cleanup for the currently attached device's listeners, if any. */
+let activeCleanup: (() => void) | null = null;
+
+function detachActive(): void {
+  if (activeCleanup) {
+    try {
+      activeCleanup();
+    } catch {
+      /* listener removal must not break teardown */
+    }
+    activeCleanup = null;
+  }
+}
+
 export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
   // Concurrency guard: WelcomePage calls initGpu twice (effect + enterWorkbench).
   // Coalesce per-mode so a "force CPU fallback" request issued while an 'auto'
@@ -54,7 +73,12 @@ export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend
 }
 
 async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
+  // Record the epoch we started under: if resetGpu runs while this init is in
+  // flight, the freshly created device below must be discarded, not applied.
+  const myEpoch = epoch;
+
   const fallback = (): GpuBackend => {
+    detachActive();
     current = {
       available: false,
       name: 'Unknown',
@@ -84,23 +108,52 @@ async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
       info.device || info.description || `${info.vendor ?? ''} ${info.architecture ?? ''}`.trim() || 'Unknown';
 
     const device = await adapter.requestDevice();
-    device.lost.then((reason: GPUDeviceLostInfo) => {
-      logger.warn('gpu', 'device lost', reason.reason ?? reason.message);
-      // Stop advertising a dead device: every subsequent GPU op would fail
-      // silently. Flag the backend unavailable so plugins fall back to CPU.
-      if (current.device === device) {
-        current = { ...current, available: false, device: null, fallback: true };
-        emit();
+
+    if (myEpoch !== epoch) {
+      // A reset happened while we were initializing. Discard this device
+      // without touching `current` (which the reset already downgraded).
+      try {
+        (device as unknown as { destroy(): void }).destroy();
+      } catch {
+        /* device already lost */
       }
-    });
-    device.addEventListener('uncapturederror', ((event: Event) => {
+      return fallback();
+    }
+
+    const onUncapturedError = ((event: Event) => {
       const e = event as GPUUncapturedErrorEvent;
       logger.warn('gpu', 'uncaptured error', e.error?.message);
       if (e.error?.constructor?.name === 'GPUOutOfMemoryError') {
         current = { ...current, oom: true };
         emit();
       }
-    }) as EventListener);
+    }) as EventListener;
+    device.addEventListener('uncapturederror', onUncapturedError);
+
+    const detach = () => {
+      try {
+        device.removeEventListener('uncapturederror', onUncapturedError);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    device.lost.then((reason: GPUDeviceLostInfo) => {
+      logger.warn('gpu', 'device lost', reason.reason ?? reason.message);
+      // Stop advertising a dead device: every subsequent GPU op would fail
+      // silently. Flag the backend unavailable so plugins fall back to CPU.
+      if (current.device === device) {
+        if (activeCleanup === detach) activeCleanup = null;
+        detach();
+        current = { ...current, available: false, device: null, fallback: true };
+        emit();
+      }
+    });
+
+    // Replacing an old device (re-init) must detach the previous listeners so
+    // its uncaptured errors can no longer touch the new state.
+    detachActive();
+    activeCleanup = detach;
 
     current = {
       available: true,
@@ -120,9 +173,12 @@ async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
 
 /** Release the current device (used when user forces CPU fallback). */
 export function resetGpu(): void {
+  // Invalidate any in-flight init so its later result is discarded.
+  epoch += 1;
   const prev = current.device;
-  current = { ...current, device: null, available: false, fallback: true };
   // Detach listeners on the old device so its errors can't touch new state.
+  detachActive();
+  current = { ...current, device: null, available: false, fallback: true };
   if (prev) {
     try {
       // GPUDevice.destroy() exists at runtime but is absent from this TS lib.dom.

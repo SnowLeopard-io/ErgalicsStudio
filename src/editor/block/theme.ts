@@ -16,7 +16,10 @@ export interface KidsTheme {
 
 export function createKidsTheme(dark: boolean): KidsTheme {
   return {
-    name: 'studio-kids',
+    // Keep the theme's own name aligned with the registration name used by the
+    // engine (`studio-kids` vs `studio-kids-dark`); a hardcoded `studio-kids`
+    // here left the dark theme labelled with the light name.
+    name: dark ? 'studio-kids-dark' : 'studio-kids',
     startHats: true,
     fontStyle: {
       family: "'Inter', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif",

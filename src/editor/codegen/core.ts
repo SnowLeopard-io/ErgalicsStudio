@@ -57,14 +57,28 @@ function unaryExpr(node: Extract<IRNode, { kind: 'UnaryOp' }>, c: Ctx): string {
 
 function sliceExpr(node: Extract<IRNode, { kind: 'ListSlice' }>, c: Ctx): string {
   const list = expr(node.list, c);
-  const start = node.start ? expr(node.start, c) : '';
-  const stop = node.stop ? expr(node.stop, c) : '';
-  const step = node.step ? expr(node.step, c) : '';
   if (c.lang === 'python') {
+    const start = node.start ? expr(node.start, c) : '';
+    const stop = node.stop ? expr(node.stop, c) : '';
+    const step = node.step ? expr(node.step, c) : '';
     return `${list}[${start}:${stop}${step ? `:${step}` : ''}]`;
   }
-  // JS has no slice-step; emit plain slice(start, end).
-  return `${list}.slice(${start || '0'}, ${stop || 'undefined'})`;
+  if (!node.step) {
+    const start = node.start ? expr(node.start, c) : '0';
+    const stop = node.stop ? expr(node.stop, c) : 'undefined';
+    return `${list}.slice(${start}, ${stop})`;
+  }
+  // JS has no slice-step; emit a small inline emulation of Python slice
+  // semantics so the generated code matches the interpreter and the Python
+  // codegen instead of silently dropping the step (old behaviour). Omitted
+  // bounds get Python's sign-dependent defaults — including the `-1` stop
+  // sentinel for a negative step, which must NOT be clamped — while explicit
+  // bounds are clamped against the list length exactly like Python's
+  // `slice.indices`.
+  const step = expr(node.step, c);
+  const startRaw = node.start ? expr(node.start, c) : null;
+  const stopRaw = node.stop ? expr(node.stop, c) : null;
+  return `(function(l){const k=${step};const s=${startRaw ?? `(k < 0 ? l.length - 1 : 0)`};const e=${stopRaw ?? `(k < 0 ? -1 : l.length)`};if(k===0)throw new Error('slice step cannot be zero');const o=[];let i=${startRaw ? '(s < 0 ? Math.max(l.length + s, -1) : Math.min(s, l.length))' : 's'};const stop=${stopRaw ? '(e < 0 ? Math.max(l.length + e, -1) : Math.min(e, l.length))' : 'e'};for(;k>0?i<stop:i>stop;i+=k){if(i>=0&&i<l.length)o.push(l[i]);}return o;})(${list})`;
 }
 
 function dictExpr(node: Extract<IRNode, { kind: 'Dict' }>, c: Ctx): string {
@@ -122,7 +136,11 @@ function expr(node: IRNode, c: Ctx): string {
     case 'Histogram':
       return `studio.histogram(${expr(node.data, c)}, ${quote(node.column)}, ${expr(node.bins, c)})`;
     case 'GpuRun':
-      return `studio.gpu.run(${quote(node.kernel)}, [${node.args.map((a) => expr(a, c)).join(', ')}])`;
+      // There is no `studio.gpu.run` API in any runtime, so emitting one would
+      // fail at run time with a confusing "studio.gpu is not defined". Surface
+      // the limitation at generation time instead (the interpreter already
+      // rejects GpuRun, and the block converter degrades it to raw code).
+      throw new Error('GpuRun nodes cannot be generated — GPU kernels are not supported by the studio runtime');
     case 'StudioCall':
       return `studio.${node.method}(${node.args.map((a) => expr(a, c)).join(', ')})`;
     case 'RawCode':

@@ -196,13 +196,20 @@ export class Interpreter {
         const list = await this.evalExpr(node.list);
         if (!Array.isArray(list)) throw new Error('ListSlice target is not a list');
         const n = list.length;
-        const rawStart = node.start ? toNum(await this.evalExpr(node.start)) : 0;
-        const rawStop = node.stop ? toNum(await this.evalExpr(node.stop)) : n;
         const step = node.step ? toNum(await this.evalExpr(node.step)) : 1;
-        // Normalize negative bounds (Python slice semantics).
-        const start = rawStart < 0 ? Math.max(n + rawStart, 0) : Math.min(rawStart, n);
-        const stop = rawStop < 0 ? Math.max(n + rawStop, 0) : Math.min(rawStop, n);
         if (step === 0) throw new Error('ListSlice step cannot be zero');
+        const rawStart = node.start ? toNum(await this.evalExpr(node.start)) : undefined;
+        const rawStop = node.stop ? toNum(await this.evalExpr(node.stop)) : undefined;
+        // Python slice semantics. An omitted bound's default depends on the
+        // sign of the step: `[::-1]` must walk from the last element down to
+        // the first (start n-1, stop "before index 0") instead of collapsing
+        // to an empty list because the old code defaulted both to 0/n.
+        const clamp = (bound: number | undefined, fallback: number): number => {
+          if (bound === undefined) return fallback;
+          return bound < 0 ? Math.max(n + bound, -1) : Math.min(bound, n);
+        };
+        const start = clamp(rawStart, step < 0 ? n - 1 : 0);
+        const stop = clamp(rawStop, step < 0 ? -1 : n);
         const out: Value[] = [];
         for (let i = start; step > 0 ? i < stop : i > stop; i += step) {
           if (i >= 0 && i < n) out.push(list[i]!);

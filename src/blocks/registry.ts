@@ -8,6 +8,7 @@
 
 import type { BlockCategory, BlockMeta, BlockRegistry } from '@/types/block';
 import type { BlockExecutor } from '@/types/dag';
+import { logger } from '@/core/logger';
 
 export const BLOCK_CATEGORIES: BlockCategory[] = [
   'data_source',
@@ -40,6 +41,15 @@ export function createBlockRegistry(): BlockRegistry {
         // effects (same meta object) and by HMR reloads (a freshly-built meta
         // object for an id that is already registered). In both cases keep the
         // first meta and only back-fill an executor if one is now provided.
+        // A *different* meta for the same id is a genuine collision (e.g. a
+        // plugin block shadowing a builtin) — surface it so it is not silently
+        // dropped from the palette.
+        if (existing !== meta) {
+          logger.warn(
+            'blocks',
+            `block id "${meta.id}" already registered; the later registration was ignored`,
+          );
+        }
         if (executor && !executors.has(meta.id)) executors.set(meta.id, executor);
         return;
       }

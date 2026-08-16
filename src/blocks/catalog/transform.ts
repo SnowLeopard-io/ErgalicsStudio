@@ -13,6 +13,7 @@ import {
   requireColumn,
   selectColumns,
   sortRows,
+  uniqueName,
 } from '../ops';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
@@ -85,8 +86,11 @@ export const addColumnBlock: BlockDefinition = defineBlock(
     const input = ctx.getInput('data') as DataTable;
     const name = String(ctx.getParam('name') ?? 'col');
     const value = Number(ctx.getParam('value') ?? 0);
+    if (!Number.isFinite(value)) {
+      throw new Error('transform.add_column: value must be a number');
+    }
     const data = new Float64Array(input.length).fill(value);
-    return addColumn(input, name, 'f64', data);
+    return addColumn(input, uniqueName(input, name), 'f64', data);
   },
 );
 
@@ -107,7 +111,7 @@ export const normalizeBlock: BlockDefinition = defineBlock(
     const column = String(ctx.getParam('column') ?? '');
     const mode = ctx.getParam('mode') === 'zscore' ? 'zscore' : 'minmax';
     const values = normalize(requireColumn(input, column), mode);
-    return addColumn(input, `${column}_${mode}`, 'f64', values);
+    return addColumn(input, uniqueName(input, `${column}_${mode}`), 'f64', values);
   },
 );
 

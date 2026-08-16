@@ -33,7 +33,12 @@ export function deserializeIR(raw: string): IRProgram {
   }
   const program = parsed as IRProgram;
 
-  const diagnostics = validateIR(program);
+  const diagnostics = validateIR(program, {
+    // Verify the stored hash when present so a tampered or corrupted payload
+    // is rejected instead of silently accepted (the hash is also used by the
+    // sync engine to decide which side changed).
+    checkHash: typeof program.hash === 'string' && program.hash.length > 0,
+  });
   if (diagnostics.length > 0) {
     const detail = diagnostics
       .slice(0, 5)

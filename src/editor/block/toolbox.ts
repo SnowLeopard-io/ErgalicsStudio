@@ -18,18 +18,6 @@ function shadowString(value: string): unknown {
   return { type: 'studio_string', fields: { STR: value } };
 }
 
-/** A compare shadow (`1 < 10`) — safe where a bare `true` would loop forever. */
-function shadowCompare(): unknown {
-  return {
-    type: 'studio_compare',
-    fields: { OP: '<' },
-    inputs: {
-      A: { shadow: shadowNumber(1) },
-      B: { shadow: shadowNumber(10) },
-    },
-  };
-}
-
 interface ToolboxBlock {
   kind: 'block';
   type: string;
@@ -142,7 +130,10 @@ export const TOOLBOX = {
       colour: '#FFAB19',
       contents: [
         block('studio_repeat', { COUNT: { shadow: shadowNumber(10) } }),
-        block('studio_while', { COND: { shadow: shadowCompare() } }),
+        // A `false` shadow: a constant `1 < 10` compare is always true, so a
+        // freshly dragged `while` would loop until the interpreter's iteration
+        // cap trips. `false` terminates immediately and is a safe default.
+        block('studio_while', { COND: { shadow: shadowBoolean('false') } }),
         block('studio_for_each', { LIST: { shadow: { type: 'studio_list', fields: { VALUES: '1,2,3' } } } }),
         block('studio_if', { COND: { shadow: shadowBoolean('true') } }),
       ],

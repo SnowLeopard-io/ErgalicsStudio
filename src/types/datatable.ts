@@ -162,7 +162,19 @@ export function createDataTable(
 
 /** Runtime type guards for narrowing `DataValue`. */
 export function isDataTable(value: DataValue | undefined): value is DataTable {
-  return value !== undefined && !('kind' in value);
+  // Structural check, not just "has no kind": a plain dict (e.g. a runtime
+  // `{x: 1}` object) also lacks a `kind` but is not a table — treating it as
+  // one previously let a non-table flow into column accessors and crash.
+  return (
+    value !== undefined &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    !('kind' in value) &&
+    typeof (value as DataTable).columnNames === 'function' &&
+    typeof (value as DataTable).getColumn === 'function' &&
+    Array.isArray((value as DataTable).columns) &&
+    typeof (value as DataTable).length === 'number'
+  );
 }
 
 export function isScalar(value: DataValue | undefined): value is Scalar {

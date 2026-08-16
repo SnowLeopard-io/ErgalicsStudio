@@ -35,12 +35,20 @@ export class DagExecutor {
       if (!this.dirty.has(id)) continue;
       const node = this.nodeById.get(id);
       if (!node) continue;
+      // Remove the node from the dirty set *before* executing it. Otherwise a
+      // `markDirty()` call from inside the executor is swallowed by
+      // `invalidate()`'s "already dirty → skip" check and the invalidation
+      // (node + downstream) is silently lost. Removing first lets it re-add
+      // the node, leaving it dirty for the next run().
+      this.dirty.delete(id);
       this.env.onNodeStatus?.(id, 'computing');
       try {
         await this.runNode(node);
-        this.dirty.delete(id);
         this.env.onNodeStatus?.(id, 'done');
       } catch (err) {
+        // Re-mark the node dirty so a later run() retries it instead of
+        // silently dropping the failed computation from future passes.
+        this.invalidate(id);
         this.env.onNodeStatus?.(id, 'error');
         throw err;
       }
@@ -53,7 +61,10 @@ export class DagExecutor {
     const stack: string[] = [nodeId];
     while (stack.length > 0) {
       const id = stack.pop()!;
-      if (this.dirty.has(id)) continue;
+      // Unlike the previous "skip if already dirty" guard, downstream must
+      // always be propagated: during run(), the executing node has already
+      // been removed from the dirty set, so skipping would drop the
+      // invalidation entirely (the markDirty() no-op bug).
       this.dirty.add(id);
       const node = this.nodeById.get(id);
       if (!node) continue;
