@@ -180,8 +180,20 @@ export const enUS: LocaleDictionary = {
   'perf.warning.memory': 'Low memory',
   'perf.warning.compute': 'Slow compute',
 
-  'workbench.mode.normal': 'Standard',
+  'workbench.mode.standard': 'Standard',
   'workbench.mode.flow': 'Flow',
+  'workbench.mode.block': 'Blocks',
+  'workbench.mode.code': 'Code',
+
+  'editor.mode.disabled': 'Coming soon',
+  'editor.placeholder.hint': 'This mode is under development. Stay tuned.',
+  'editor.console.title': 'Console',
+  'editor.variables.title': 'Variables',
+  'editor.run': 'Run',
+  'editor.stop': 'Stop',
+  'editor.language': 'Language',
+  'editor.sync_to_blocks': 'Sync to blocks',
+
   'workbench.example.title': 'Samples',
   'workbench.example.datasets': 'Datasets',
   'workbench.example.pipelines': 'Flow pipelines',
@@ -195,7 +207,6 @@ export const enUS: LocaleDictionary = {
   'blocks.category.signal': 'Signal',
   'blocks.category.visualize': 'Visualize',
   'blocks.category.output': 'Output',
-  'blocks.category.logic': 'Logic',
   'blocks.category.utility': 'Utility',
 
   'blocks.run': 'Run',

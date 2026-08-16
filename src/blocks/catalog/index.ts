@@ -5,7 +5,6 @@
 // ==========================================================================
 
 import type { BlockRegistry } from '@/types/block';
-import { logicSequence, logicSequenceExecutor } from './logic';
 import { dataSourceBlocks } from './dataSource';
 import { transformBlocks } from './transform';
 import { filterBlocks } from './filter';
@@ -15,9 +14,6 @@ import { visualizeBlocks } from './visualize';
 import type { BlockDefinition } from './types';
 
 export function registerBuiltinBlocks(registry: BlockRegistry): void {
-  // logic.sequence keeps its executor bound explicitly.
-  registry.register(logicSequence, logicSequenceExecutor);
-
   const definitions: BlockDefinition[] = [
     ...dataSourceBlocks,
     ...transformBlocks,

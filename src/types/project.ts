@@ -25,6 +25,12 @@ export interface ProjectState {
   scene: SceneState | null;
   /** Block graph snapshot (present when a block canvas has been authored). */
   blockGraph?: import('./block').BlockGraphState | null;
+  /** Editor sessions (block/code modes). See types/editor.ts. */
+  editorSessions?: import('./editor').EditorSession[] | null;
+  /** Currently active editor session id. */
+  activeEditorSession?: string | null;
+  /** Last-used workbench mode. */
+  workbenchMode?: import('./editor').WorkbenchMode;
 }
 
 export interface ProjectMetadata {
@@ -64,6 +70,9 @@ export function createEmptyProject(name: string): Project {
       parameters: {},
       camera: null,
       scene: null,
+      editorSessions: [],
+      activeEditorSession: null,
+      workbenchMode: 'standard',
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,

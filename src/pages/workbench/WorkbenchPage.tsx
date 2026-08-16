@@ -12,6 +12,8 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
+import { BlockEditor } from '@/components/editor/BlockEditor';
+import { CodeEditor } from '@/components/editor/CodeEditor';
 import { initBlockSystem } from '@/blocks';
 
 /** Process-wide guard: the project restore must run once per page load even
@@ -20,7 +22,7 @@ let restoreStarted = false;
 
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const blockMode = useAppStore((s) => s.blockMode);
+  const mode = useAppStore((s) => s.mode);
 
   useEffect(() => {
     perfMonitor.start();
@@ -54,8 +56,12 @@ export default function WorkbenchPage() {
       <TopBar />
       <div className="workbench-body">
         <ErrorBoundary>
-          {blockMode ? (
+          {mode === 'flow' ? (
             <BlockWorkbench />
+          ) : mode === 'block' ? (
+            <BlockEditor />
+          ) : mode === 'code' ? (
+            <CodeEditor />
           ) : (
             <>
               {sidebarOpen && <Sidebar />}

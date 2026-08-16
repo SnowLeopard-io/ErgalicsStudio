@@ -30,7 +30,7 @@ blocks/
   executor       DagExecutor: run(), incremental cache, dirty propagation
   context        MemoryStorage + RuntimeEnvironment
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        24 built-in blocks (data_source → … → visualize · logic)
+  catalog        23 built-in blocks (data_source → … → visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -145,14 +145,11 @@ selection.
 | math         | Add · Subtract · Multiply · Divide · Square Root · Absolute Value                     |
 | statistics   | Summary · Histogram                                                                   |
 | visualize    | Scatter Plot · Line Chart · Histogram · 2D Point Cloud                               |
-| logic        | Sequence                                                                              |
 
 Control-flow blocks (`if_else`, `switch`, `repeat`, `parallel`) are
-**deliberately deferred**. Phase 1 keeps only `logic.sequence` — the natural
-special case of a linear DAG. The `region` seam on `BlockInstance` is in
-place so they slot in later as extensions, not refactors; see
-`block-system-design.md` §A.1 for the full
-rationale.
+**deliberately deferred**. The `region` seam on `BlockInstance` is in place
+so they slot in later as extensions, not refactors; see
+`block-system-design.md` §A.1 for the full rationale.
 
 ## Sample pipelines
 

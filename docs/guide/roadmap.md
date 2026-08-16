@@ -14,7 +14,7 @@ designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | ✅ Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | ✅ Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | ✅ Done      |
-| Block system  | compiler (validate/topology) + executor (incremental cache) + 24 built-in blocks + Flow canvas + result preview + sample pipelines | ✅ Done      |
+| Block system  | compiler (validate/topology) + executor (incremental cache) + 23 built-in blocks + Flow canvas + result preview + sample pipelines | ✅ Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching                   | ✅ Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | ✅ Done      |
 | Settings      | general / GPU / data / about                                   | ✅ Done      |

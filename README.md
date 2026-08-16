@@ -107,10 +107,10 @@ production system without a rewrite.
 - A second workbench mode next to Standard — toggle with the `Standard | Flow`
   switch in the top bar. Standard mode is *load data → see it*; Flow mode is
   *compose a visual pipeline → run it → see every node's output*.
-- 24+ built-in blocks organised by category: data sources, transforms, filters,
-  math, statistics, visualizations, and `logic.sequence` (the only control-flow
-  block in phase 1; see `block-system-design.md` appendix A for the deferred
-  ones and the `region` seam that lets them slot in later).
+- 23 built-in blocks organised by category: data sources, transforms, filters,
+  math, statistics, and visualizations. Control-flow blocks (if/else, repeat,
+  parallel) are deliberately deferred — the `region` seam on `BlockInstance`
+  is in place so they slot in later as an extension, not a refactor.
 - **Compiler is a pure function**: structural validation (ports / required
   inputs / type compatibility), cycle detection, and Kahn-style topological
   sort. Errors come back as structured `diagnostics` so the canvas can paint
@@ -442,12 +442,13 @@ table. Highlights:
 - [x] 11 example plugins (2D + 3D), cspkg loading, Worker sandbox
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
-- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 24 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
+- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 23 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
 - [ ] Plugin marketplace & package signing
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
+- [ ] Block mode (Scratch-like, Google Blockly) & Code mode (Python/Pyodide, R/webR) — see [Block & Code Modes design](docs/guide/block-code-modes.md). Shared IR with bidirectional block↔code sync; Phase 1 ships Blockly + Python.
 
 ---
 

@@ -21,7 +21,6 @@ const CATEGORY_LABEL_KEYS: Record<BlockCategory, string> = {
   signal: 'blocks.category.signal',
   visualize: 'blocks.category.visualize',
   output: 'blocks.category.output',
-  logic: 'blocks.category.logic',
   utility: 'blocks.category.utility',
 };
 

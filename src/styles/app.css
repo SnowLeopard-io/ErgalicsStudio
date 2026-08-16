@@ -122,6 +122,16 @@
   color: var(--color-text-primary);
 }
 
+.topbar-cluster .cluster-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.topbar-cluster .cluster-btn:disabled:hover {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
 .topbar-cluster .icon-btn {
   width: 32px;
   padding: 0;

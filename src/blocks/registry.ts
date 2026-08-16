@@ -18,7 +18,6 @@ export const BLOCK_CATEGORIES: BlockCategory[] = [
   'signal',
   'visualize',
   'output',
-  'logic',
   'utility',
 ];
 

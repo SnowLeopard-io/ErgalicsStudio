@@ -23,8 +23,8 @@ export function TopBar() {
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-  const blockMode = useAppStore((s) => s.blockMode);
-  const toggleBlockMode = useAppStore((s) => s.toggleBlockMode);
+  const mode = useAppStore((s) => s.mode);
+  const setMode = useAppStore((s) => s.setMode);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -54,24 +54,25 @@ export function TopBar() {
 
       <div className="topbar-actions">
         <div className="topbar-cluster mode-switch">
-          <button
-            type="button"
-            className={`cluster-btn${!blockMode ? ' btn-toggle-on' : ''}`}
-            onClick={() => {
-              if (blockMode) toggleBlockMode();
-            }}
-          >
-            {t('workbench.mode.normal')}
-          </button>
-          <button
-            type="button"
-            className={`cluster-btn${blockMode ? ' btn-toggle-on' : ''}`}
-            onClick={() => {
-              if (!blockMode) toggleBlockMode();
-            }}
-          >
-            {t('workbench.mode.flow')}
-          </button>
+          {(
+            [
+              { key: 'standard', disabled: false },
+              { key: 'flow', disabled: false },
+              { key: 'block', disabled: true },
+              { key: 'code', disabled: true },
+            ] as const
+          ).map(({ key, disabled }) => (
+            <button
+              key={key}
+              type="button"
+              className={`cluster-btn${mode === key ? ' btn-toggle-on' : ''}`}
+              disabled={disabled}
+              title={disabled ? t('editor.mode.disabled') : undefined}
+              onClick={() => setMode(key)}
+            >
+              {t(`workbench.mode.${key}`)}
+            </button>
+          ))}
         </div>
 
         <div className="topbar-cluster">

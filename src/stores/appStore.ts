@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { PluginHostStatus } from '@/types/plugin';
+import type { WorkbenchMode } from '@/types/editor';
 
 export interface Banner {
   id: number;
@@ -45,7 +46,8 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
-  blockMode: boolean;
+  /** Active workbench mode (Standard | Flow | Block | Code). */
+  mode: WorkbenchMode;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -63,7 +65,7 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
-  toggleBlockMode: () => void;
+  setMode: (mode: WorkbenchMode) => void;
 }
 
 let bannerId = 0;
@@ -79,7 +81,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   perf: DEFAULT_PERF,
   sidebarOpen: true,
   rightPanelOpen: true,
-  blockMode: false,
+  mode: 'standard',
 
   setStatus: (status) => set({ status }),
 
@@ -137,5 +139,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-  toggleBlockMode: () => set((s) => ({ blockMode: !s.blockMode })),
+  setMode: (mode) => set({ mode }),
 }));

@@ -22,7 +22,7 @@ features:
     details: "Four-region layout — projects, plugins, viewport, parameters — with drag-and-drop file routing and IndexedDB project storage."
   - icon: 🔀
     title: Flow mode
-    details: "A second workbench mode next to Standard — compose a visual dataflow pipeline from 24+ built-in blocks, with an incremental executor and a live result preview."
+    details: "A second workbench mode next to Standard — compose a visual dataflow pipeline from 23 built-in blocks, with an incremental executor and a live result preview."
   - icon: 🧩
     title: Sandboxed plugins
     details: "A .cspkg package format with manifest validation, and real isolation — third-party code runs in a Web Worker behind an RPC bridge."

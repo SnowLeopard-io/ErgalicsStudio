@@ -30,7 +30,6 @@ export type BlockCategory =
   | 'signal'
   | 'visualize'
   | 'output'
-  | 'logic'
   | 'utility';
 
 export type GpuMode = 'always' | 'auto' | 'cpu-only';

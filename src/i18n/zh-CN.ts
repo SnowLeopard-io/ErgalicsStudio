@@ -184,8 +184,20 @@ export const zhCN: LocaleDictionary = {
   'perf.warning.memory': '显存不足',
   'perf.warning.compute': '计算耗时过长',
 
-  'workbench.mode.normal': '普通',
+  'workbench.mode.standard': '普通',
   'workbench.mode.flow': '流程',
+  'workbench.mode.block': '积木',
+  'workbench.mode.code': '代码',
+
+  'editor.mode.disabled': '该模式即将开放',
+  'editor.placeholder.hint': '此模式正在开发中，敬请期待',
+  'editor.console.title': '控制台',
+  'editor.variables.title': '变量',
+  'editor.run': '运行',
+  'editor.stop': '停止',
+  'editor.language': '语言',
+  'editor.sync_to_blocks': '同步到积木',
+
   'workbench.example.title': '示例',
   'workbench.example.datasets': '数据集',
   'workbench.example.pipelines': '流程管线',
@@ -199,7 +211,6 @@ export const zhCN: LocaleDictionary = {
   'blocks.category.signal': '信号',
   'blocks.category.visualize': '可视化',
   'blocks.category.output': '输出',
-  'blocks.category.logic': '逻辑',
   'blocks.category.utility': '工具',
 
   'blocks.run': '运行',

@@ -16,7 +16,10 @@ import { logger } from '@/core/logger';
 import { useSettingsStore } from './settingsStore';
 import { usePluginStore } from './pluginStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
+import { EDITOR_STATE_CHANGED, useEditorStore } from './editorStore';
+import { useAppStore } from './appStore';
 import type { BlockGraphState } from '@/types/block';
+import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
 
 export type ProjectStatus =
@@ -49,6 +52,8 @@ interface ProjectStore {
   applyPluginParams: () => Promise<void> | void;
   /** Persist the block graph into the project before save. */
   applyBlockGraph: () => void;
+  /** Persist editor sessions + active mode into the project before save. */
+  applyEditor: () => void;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -61,6 +66,18 @@ const EMPTY_BLOCK_GRAPH: BlockGraphState = {
 
 function restoreBlockGraph(graph: BlockGraphState | null | undefined): void {
   useBlockStore.getState().fromJSON(graph ?? EMPTY_BLOCK_GRAPH);
+}
+
+function restoreEditor(state: {
+  editorSessions?: import('@/types/editor').EditorSession[] | null;
+  activeEditorSession?: string | null;
+  workbenchMode?: WorkbenchMode;
+}): void {
+  useEditorStore.getState().fromJSON({
+    sessions: state.editorSessions ?? [],
+    activeSessionId: state.activeEditorSession ?? null,
+  });
+  useAppStore.getState().setMode(state.workbenchMode ?? 'standard');
 }
 
 function ensureAutosave() {
@@ -97,6 +114,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
     restoreBlockGraph(project.state.blockGraph);
+    restoreEditor(project.state);
     ensureAutosave();
   },
 
@@ -107,6 +125,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
     restoreBlockGraph(project.state.blockGraph);
+    restoreEditor(project.state);
     ensureAutosave();
     return project;
   },
@@ -121,6 +140,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     try {
       await get().applyPluginParams();
       get().applyBlockGraph();
+      get().applyEditor();
       const current = get().project;
       if (!current) {
         set({ status: 'ready' });
@@ -209,6 +229,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       },
     });
   },
+
+  applyEditor: () => {
+    const { project } = get();
+    if (!project) return;
+    const { sessions, activeSessionId } = useEditorStore.getState().toJSON();
+    const workbenchMode = useAppStore.getState().mode;
+    set({
+      project: {
+        ...project,
+        state: {
+          ...project.state,
+          editorSessions: sessions,
+          activeEditorSession: activeSessionId,
+          workbenchMode,
+        },
+      },
+    });
+  },
 }));
 
 let projectStoreInit = false;
@@ -224,4 +262,6 @@ export function initProjectStore() {
   useSettingsStore.subscribe(() => ensureAutosave());
   // mark the project dirty when the block graph mutates
   on(BLOCK_GRAPH_CHANGED, () => useProjectStore.getState().setDirty(true));
+  // mark the project dirty when an editor session mutates
+  on(EDITOR_STATE_CHANGED, () => useProjectStore.getState().setDirty(true));
 }

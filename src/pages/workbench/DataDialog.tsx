@@ -31,8 +31,8 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
-  const blockMode = useAppStore((s) => s.blockMode);
-  const toggleBlockMode = useAppStore((s) => s.toggleBlockMode);
+  const mode = useAppStore((s) => s.mode);
+  const setMode = useAppStore((s) => s.setMode);
   const [tab, setTab] = useState<'datasets' | 'pipeline'>('datasets');
   // A plain object literal here would be recreated on every render, making the
   // re-entrancy guard below useless (double-click would launch two loads).
@@ -71,7 +71,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const loadPipeline = (id: string) => {
     const sample = SAMPLE_PIPELINES.find((s) => s.id === id);
     if (!sample) return;
-    if (!blockMode) toggleBlockMode();
+    if (mode !== 'flow') setMode('flow');
     useBlockStore.getState().fromJSON(sample.graph);
     emit(BLOCK_GRAPH_CHANGED, undefined);
     notify('success', t('workbench.example.pipeline_loaded', { name: sampleName(sample, locale) }));
