@@ -1,0 +1,45 @@
+{
+  "id": "7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+  "name": "网格散点",
+  "createdAt": 1786635631561,
+  "updatedAt": 1786639231561,
+  "data": {
+    "files": [],
+    "processed": null
+  },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.generate_grid",
+          "position": { "x": 60, "y": 100 },
+          "params": { "size": 20 }
+        },
+        {
+          "id": "n2",
+          "blockId": "viz.scatter",
+          "position": { "x": 320, "y": 100 },
+          "params": { "xColumn": "x", "yColumn": "y", "colorColumn": "" }
+        }
+      ],
+      "connections": [
+        {
+          "id": "c1",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n2", "portId": "data" }
+        }
+      ],
+      "viewport": { "x": 40, "y": 40, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "20×20 均匀网格坐标 → 二维散点图。",
+    "tags": ["blocks", "sample", "pipeline"]
+  }
+}

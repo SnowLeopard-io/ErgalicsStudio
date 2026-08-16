@@ -10,6 +10,10 @@ pkg/
 coverage/
 .cspkg
 *.clproj
+# Sample project files under examples/projects/ are part of the repo — they
+# are loaded at build time by src/blocks/sample.ts (import.meta.glob) to power
+# the Flow-mode sample picker. User-saved projects elsewhere stay ignored.
+!examples/projects/*.clproj
 # WASM build artifacts emitted into src/native/ by scripts/build-wasm.mjs.
 # Regenerated on demand (`npm run build:wasm` / `npm run build`); keeping
 # them untracked avoids binary merge conflicts in multi-developer repos.

@@ -1,0 +1,78 @@
+{
+  "id": "9f1c2e3a-5b7d-4e6f-8a9b-0c1d2e3f4a5b",
+  "name": "信号分析",
+  "createdAt": 1786635631561,
+  "updatedAt": 1786639231561,
+  "data": {
+    "files": [],
+    "processed": null
+  },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.example_data",
+          "position": { "x": 60, "y": 140 },
+          "params": { "count": 200, "seed": 1 }
+        },
+        {
+          "id": "n2",
+          "blockId": "transform.normalize",
+          "position": { "x": 320, "y": 60 },
+          "params": { "column": "x", "mode": "minmax" }
+        },
+        {
+          "id": "n3",
+          "blockId": "stats.histogram",
+          "position": { "x": 580, "y": 60 },
+          "params": { "column": "x_minmax", "bins": 12 }
+        },
+        {
+          "id": "n4",
+          "blockId": "viz.scatter",
+          "position": { "x": 320, "y": 200 },
+          "params": { "xColumn": "t", "yColumn": "x", "colorColumn": "" }
+        },
+        {
+          "id": "n5",
+          "blockId": "stats.summary",
+          "position": { "x": 580, "y": 200 },
+          "params": {}
+        }
+      ],
+      "connections": [
+        {
+          "id": "c1",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n2", "portId": "data" }
+        },
+        {
+          "id": "c2",
+          "from": { "nodeId": "n2", "portId": "out" },
+          "to": { "nodeId": "n3", "portId": "data" }
+        },
+        {
+          "id": "c3",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n4", "portId": "data" }
+        },
+        {
+          "id": "c4",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n5", "portId": "data" }
+        }
+      ],
+      "viewport": { "x": 40, "y": 40, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "正弦信号 → 归一化 → 直方图，外加散点图与统计摘要两个分支。",
+    "tags": ["blocks", "sample", "pipeline"]
+  }
+}

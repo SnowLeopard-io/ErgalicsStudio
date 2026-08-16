@@ -1,0 +1,56 @@
+{
+  "id": "3a2b1c4d-6e5f-4a3b-8c7d-9e0f1a2b3c4d",
+  "name": "随机分布",
+  "createdAt": 1786635631561,
+  "updatedAt": 1786639231561,
+  "data": {
+    "files": [],
+    "processed": null
+  },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.generate_random",
+          "position": { "x": 60, "y": 100 },
+          "params": { "count": 500, "seed": 42 }
+        },
+        {
+          "id": "n2",
+          "blockId": "viz.histogram",
+          "position": { "x": 320, "y": 40 },
+          "params": { "column": "x" }
+        },
+        {
+          "id": "n3",
+          "blockId": "stats.summary",
+          "position": { "x": 320, "y": 180 },
+          "params": {}
+        }
+      ],
+      "connections": [
+        {
+          "id": "c1",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n2", "portId": "data" }
+        },
+        {
+          "id": "c2",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n3", "portId": "data" }
+        }
+      ],
+      "viewport": { "x": 40, "y": 40, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "500 个均匀随机数 → 直方图，外加统计摘要。",
+    "tags": ["blocks", "sample", "pipeline"]
+  }
+}
