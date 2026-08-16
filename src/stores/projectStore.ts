@@ -77,7 +77,10 @@ function restoreEditor(state: {
     sessions: state.editorSessions ?? [],
     activeSessionId: state.activeEditorSession ?? null,
   });
-  useAppStore.getState().setMode(state.workbenchMode ?? 'standard');
+  // Always land on Standard when a project opens — never re-enter the
+  // Flow/Block/Code mode the project was last saved in. The user switches
+  // modes explicitly when they want one.
+  useAppStore.getState().setMode('standard');
 }
 
 function ensureAutosave() {

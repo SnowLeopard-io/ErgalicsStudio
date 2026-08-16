@@ -1229,7 +1229,18 @@
   color: var(--color-error);
 }
 
+/* Route-level lazy-load fallback (App.tsx) — full-viewport, centred. The
+   App shell has no flex parent, so it must size itself against the viewport. */
 .route-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mode-level lazy-load fallback (WorkbenchPage.tsx) — fills the workbench
+   body, centred. The workbench body IS a flex container, so flex:1 works. */
+.workbench-loading {
   flex: 1;
   min-width: 0;
   display: flex;

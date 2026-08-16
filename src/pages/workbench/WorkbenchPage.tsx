@@ -63,7 +63,7 @@ export default function WorkbenchPage() {
       <TopBar />
       <div className="workbench-body">
         <ErrorBoundary>
-          <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
+          <Suspense fallback={<div className="workbench-loading"><span className="spinner" /></div>}>
             {mode === 'flow' ? (
               <BlockWorkbench />
             ) : mode === 'block' ? (
