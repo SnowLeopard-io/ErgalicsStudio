@@ -2,6 +2,8 @@
   "name": "ergalics-studio-docs",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "author": "SnowLeopard-io <1486853830@qq.com>",
   "scripts": {
     "dev": "vitepress dev .",
     "build": "vitepress build .",

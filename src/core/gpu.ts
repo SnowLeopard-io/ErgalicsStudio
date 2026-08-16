@@ -38,18 +38,20 @@ export function subscribeGpu(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
-  // Concurrency guard: WelcomePage calls initGpu twice (effect + enterWorkbench)
-  // and re-runs it when the backend setting changes. Reusing the in-flight
-  // promise prevents duplicate adapters/devices from being created.
-  if (initPromise) return initPromise;
-  initPromise = doInitGpu(mode).finally(() => {
-    initPromise = null;
-  });
-  return initPromise;
-}
+const inFlight = new Map<GpuBackendMode, Promise<GpuBackend>>();
 
-let initPromise: Promise<GpuBackend> | null = null;
+export async function initGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
+  // Concurrency guard: WelcomePage calls initGpu twice (effect + enterWorkbench).
+  // Coalesce per-mode so a "force CPU fallback" request issued while an 'auto'
+  // init is in flight is honored instead of silently returning the auto result.
+  const existing = inFlight.get(mode);
+  if (existing) return existing;
+  const run = doInitGpu(mode).finally(() => {
+    inFlight.delete(mode);
+  });
+  inFlight.set(mode, run);
+  return run;
+}
 
 async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
   const fallback = (): GpuBackend => {

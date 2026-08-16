@@ -627,4 +627,4 @@ Report bugs and feature requests via
 
 ## License
 
-[MIT](LICENSE) © Ergalics Studio contributors
+[MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)

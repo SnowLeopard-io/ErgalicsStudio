@@ -16,6 +16,9 @@ import { TOOLBOX } from './toolbox';
 import { workspaceJSONToIR, irToWorkspaceJSON } from './convert';
 import type { IRProgram } from '../ir/types';
 
+/** Theme name (dark variants get their own so redefinition never throws). */
+export const THEME_NAME = (dark: boolean) => (dark ? 'studio-kids-dark' : 'studio-kids');
+
 /** Register custom blocks, locale and theme. Idempotent for block defs. */
 export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): void {
   // Register only the block types not already present — `defineBlocksWithJsonArray`
@@ -28,19 +31,26 @@ export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): voi
   // block messages) so `%{BKY_*}` refs resolve to the current language.
   const base = (locale === 'zh-CN' ? zhHans : en) as unknown as Record<string, string>;
   Blockly.setLocale({ ...base, ...BLOCK_I18N[locale] });
-  Blockly.Theme.defineTheme('studio-kids', createKidsTheme(dark) as unknown as Blockly.Theme);
+  // Blockly.Theme.defineTheme throws when the name is already registered, so
+  // define each variant once; a dark/light toggle re-injects the workspace
+  // with the already-registered theme under its own name.
+  const name = THEME_NAME(dark);
+  if (!Blockly.Theme.getTheme(name)) {
+    Blockly.Theme.defineTheme(name, createKidsTheme(dark) as unknown as Blockly.Theme);
+  }
 }
 
 /** Create a studio-kids workspace inside `div`. */
 export function createWorkspace(div: HTMLElement): Blockly.WorkspaceSvg {
+  const dark = document.documentElement.dataset.theme === 'dark';
   return Blockly.inject(div, {
     toolbox: TOOLBOX as unknown as Blockly.utils.toolbox.ToolboxDefinition,
-    theme: 'studio-kids',
+    theme: THEME_NAME(dark),
     renderer: 'geras',
     grid: {
       spacing: 20,
       length: 2,
-      colour: document.documentElement.dataset.theme === 'dark' ? '#1a212c' : '#e8edf2',
+      colour: dark ? '#1a212c' : '#e8edf2',
       snap: true,
     },
     zoom: { controls: true, wheel: true, startScale: 0.85, maxScale: 1.4, minScale: 0.4 },

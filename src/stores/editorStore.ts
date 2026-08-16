@@ -24,6 +24,9 @@ import type { DataValue } from '@/types/datatable';
 /** Emitted whenever a session's persisted shape mutates (for dirty tracking). */
 export const EDITOR_STATE_CHANGED = 'editor:state:changed';
 
+/** Cap on console entries so long-running sessions cannot grow unboundedly. */
+const MAX_CONSOLE_ENTRIES = 1000;
+
 export interface EditorStore {
   sessions: EditorSession[];
   activeSessionId: string | null;
@@ -103,7 +106,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   setVariables: (variables) => set({ variables }),
   appendConsole: (entry) =>
-    set((s) => ({ console: [...s.console, { ...entry, timestamp: Date.now() }] })),
+    set((s) => {
+      const next = [...s.console, { ...entry, timestamp: Date.now() }];
+      if (next.length > MAX_CONSOLE_ENTRIES) next.splice(0, next.length - MAX_CONSOLE_ENTRIES);
+      return { console: next };
+    }),
   clearConsole: () => set({ console: [] }),
   setRunning: (isRunning) => set({ isRunning }),
   setError: (error) => set({ error }),

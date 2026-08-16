@@ -38,32 +38,45 @@ export function BlockEditor() {
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
+  const error = useEditorStore((s) => s.error);
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastLoadedId = useRef<string | null>(null);
+  const codeViewRef = useRef<'js' | 'python' | null>(null);
+  const debounceRef = useRef<number | undefined>(undefined);
 
   const [codeView, setCodeView] = useState<'js' | 'python' | null>(null);
   const [code, setCode] = useState('');
 
-  // Register blocks + create the workspace (recreated on locale change so
-  // blocks re-label into the new language).
+  // Keep a ref in sync so the workspace change listener (registered once) can
+  // read the current code-view state without re-subscribing.
+  codeViewRef.current = codeView;
+
+  // Register blocks + create the workspace (recreated on locale or theme change
+  // so blocks re-label and re-colour into the new language / dark mode).
   useEffect(() => {
     initBlocklyEngine(locale, dark);
     if (divRef.current) {
       const ws = createWorkspace(divRef.current);
       wsRef.current = ws;
       ws.addChangeListener(() => {
+        // Push IR to the store on every change.
         const ir = workspaceToIR(ws);
         const sid = useEditorStore.getState().activeSessionId;
         if (sid) useEditorStore.getState().updateSessionIR(sid, ir);
-        // Keep the "view code" overlay in sync while editing.
-        setCode(codegenPython(ir));
+        // Debounce the "view code" overlay so typing does not re-render the
+        // whole editor on every block mutation; only refresh when open.
+        if (!codeViewRef.current) return;
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = window.setTimeout(() => {
+          setCode(codeViewRef.current === 'js' ? codegenJS(ir) : codegenPython(ir));
+        }, 120);
       });
       // Re-hydrate the fresh workspace from the active session (needed when the
-      // workspace is recreated on a locale switch).
+      // workspace is recreated on a locale/theme switch).
       const sid = useEditorStore.getState().activeSessionId;
       const session = useEditorStore.getState().sessions.find((s) => s.id === sid);
       if (session) {
@@ -77,9 +90,10 @@ export function BlockEditor() {
         disposeWorkspace(wsRef.current);
         wsRef.current = null;
       }
+      window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale]);
+  }, [locale, dark]);
 
   // Ensure an active session exists, and (re)load its IR into the workspace
   // when it changes (e.g. after opening another project).

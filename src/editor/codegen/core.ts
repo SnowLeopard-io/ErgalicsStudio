@@ -14,10 +14,19 @@ export type CodegenLang = 'js' | 'python';
 interface Ctx {
   lang: CodegenLang;
   indentUnit: string;
+  /** Variable names already `let`-declared in the current function scope. */
+  declared: Set<string>;
+  /** Whether we are inside a FuncDef body (top-level `return` is a syntax error). */
+  inFunction: boolean;
 }
 
 function quote(s: string): string {
-  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  return `'${s
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')}'`;
 }
 
 function bool(value: boolean, c: Ctx): string {
@@ -41,7 +50,9 @@ function binaryExpr(node: Extract<IRNode, { kind: 'BinaryOp' }>, c: Ctx): string
 
 function unaryExpr(node: Extract<IRNode, { kind: 'UnaryOp' }>, c: Ctx): string {
   if (node.op === 'not') return c.lang === 'js' ? `!${expr(node.operand, c)}` : `not ${expr(node.operand, c)}`;
-  return `-${expr(node.operand, c)}`;
+  // Parenthesize so a negative literal operand (`-(-5)`) never renders as
+  // `--5`, which is a decrement syntax error in JS.
+  return `-(${expr(node.operand, c)})`;
 }
 
 function sliceExpr(node: Extract<IRNode, { kind: 'ListSlice' }>, c: Ctx): string {
@@ -52,8 +63,7 @@ function sliceExpr(node: Extract<IRNode, { kind: 'ListSlice' }>, c: Ctx): string
   if (c.lang === 'python') {
     return `${list}[${start}:${stop}${step ? `:${step}` : ''}]`;
   }
-  // JS slice(start, end) — step is not supported, so ignore it when non-unit.
-  if (!node.step) return `${list}.slice(${start || '0'}, ${stop || 'undefined'})`;
+  // JS has no slice-step; emit plain slice(start, end).
   return `${list}.slice(${start || '0'}, ${stop || 'undefined'})`;
 }
 
@@ -154,7 +164,9 @@ function repeatStmt(node: Extract<IRNode, { kind: 'Repeat' }>, c: Ctx, level: nu
   const ind = c.indentUnit.repeat(level);
   const lines: string[] = [];
   if (c.lang === 'js') {
-    lines.push(`${ind}for (let __i = 0; __i < ${expr(node.count, c)}; __i++) {`);
+    // Floor the count so a fractional value iterates the same as Python's
+    // `range(int(n))` (a fractional `n` would otherwise run ceil iterations).
+    lines.push(`${ind}for (let __i = 0; __i < Math.floor(${expr(node.count, c)}); __i++) {`);
   } else {
     lines.push(`${ind}for __i in range(int(${expr(node.count, c)})):`);
   }
@@ -194,7 +206,9 @@ function funcStmt(node: Extract<IRNode, { kind: 'FuncDef' }>, c: Ctx, level: num
   } else {
     lines.push(`${ind}def ${node.name}(${params}):`);
   }
-  node.body.forEach((s) => lines.push(stmt(s, c, level + 1)));
+  // Function bodies are a fresh declaration scope with top-level-return legal.
+  const fc: Ctx = { ...c, declared: new Set(), inFunction: true };
+  node.body.forEach((s) => lines.push(stmt(s, fc, level + 1)));
   if (c.lang === 'js') lines.push(`${ind}}`);
   return block(lines);
 }
@@ -202,8 +216,9 @@ function funcStmt(node: Extract<IRNode, { kind: 'FuncDef' }>, c: Ctx, level: num
 function rawStmt(node: Extract<IRNode, { kind: 'RawCode' }>, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
   // Emit the raw text verbatim, prefixed by an indentation and (for a
-  // foreign language) a note so the user knows it must be ported.
-  const note = node.lang === c.lang ? '' : `# [${node.lang}]\n`;
+  // foreign language) a note so the user knows it must be ported. The note
+  // must use the *target* dialect's comment syntax.
+  const note = node.lang === c.lang ? '' : c.lang === 'js' ? `// [${node.lang}]\n` : `# [${node.lang}]\n`;
   return note + node.text
     .split('\n')
     .map((l) => ind + l)
@@ -213,8 +228,13 @@ function rawStmt(node: Extract<IRNode, { kind: 'RawCode' }>, c: Ctx, level: numb
 function stmt(node: IRNode, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
   switch (node.kind) {
-    case 'VarAssign':
-      return `${ind}${c.lang === 'js' && node.declare ? 'let ' : ''}${node.name} = ${expr(node.value, c)}${terminator(c)}`;
+    case 'VarAssign': {
+      // A `declare` VarAssign emits `let` only the first time it appears in a
+      // function scope; a second `let x` in the same scope is a SyntaxError.
+      const needsDecl = node.declare && c.lang === 'js' && !c.declared.has(node.name);
+      if (needsDecl) c.declared.add(node.name);
+      return `${ind}${needsDecl ? 'let ' : ''}${node.name} = ${expr(node.value, c)}${terminator(c)}`;
+    }
     case 'PlotScatter': {
       const color = node.color ? `, color: ${quote(node.color)}` : '';
       return `${ind}studio.plot('scatter', ${expr(node.data, c)}, { x: ${quote(node.x)}, y: ${quote(node.y)}${color} })${terminator(c)}`;
@@ -240,6 +260,11 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
     case 'FuncDef':
       return funcStmt(node, c, level);
     case 'Return':
+      // A `return` at the top level is a syntax error in both JS and Python;
+      // evaluate the value for its side effects instead.
+      if (!c.inFunction) {
+        return node.value ? `${ind}${expr(node.value, c)}${terminator(c)}` : `${ind}${c.lang === 'js' ? ';' : 'pass'}`;
+      }
       return `${ind}return${node.value ? ` ${expr(node.value, c)}` : ''}${terminator(c)}`;
     case 'RawCode':
       return rawStmt(node, c, level);
@@ -253,10 +278,17 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
 
 /** Render an IR program as JS or Python source text. */
 export function generate(program: IRProgram, lang: CodegenLang): string {
-  const c: Ctx = { lang, indentUnit: lang === 'js' ? '  ' : '    ' };
+  const c: Ctx = { lang, indentUnit: lang === 'js' ? '  ' : '    ', declared: new Set(), inFunction: false };
   const parts: string[] = [];
   if (program.functions.length > 0) {
-    for (const f of program.functions) parts.push(stmt(f, c, 0));
+    // Emit each function once — a duplicated FuncDef would define the same
+    // symbol twice (a redeclaration error in strict JS).
+    const seen = new Set<string>();
+    for (const f of program.functions) {
+      if (f.kind !== 'FuncDef' || seen.has(f.name)) continue;
+      seen.add(f.name);
+      parts.push(stmt(f, c, 0));
+    }
     if (program.body.length > 0) parts.push('');
   }
   for (const node of program.body) parts.push(stmt(node, c, 0));

@@ -30,6 +30,7 @@
 // is notified so the user can make an informed decision.
 
 import { logger } from './logger';
+import { dictionaries } from '@/i18n';
 import type {
   ContainerCapabilities,
   ComputeResult,
@@ -39,6 +40,13 @@ import type {
   PluginManifest,
   SupportedFormat,
 } from '@/types/plugin';
+
+/**
+ * Monotonic token id allocator. Deriving ids from `callbacks.size + 1` let
+ * two interleaved `compute()` calls (host does not serialize them) reuse ids
+ * after cleanup pruned the tail, silently overwriting a live callback.
+ */
+let nextFnId = 1;
 
 // ---- RPC protocol helpers (pure, unit-testable) ----
 
@@ -64,16 +72,27 @@ export function encodeArgs(
   callbacks: Map<number, (...a: unknown[]) => void>,
   created?: Set<number>,
 ): unknown[] {
-  let nextId = callbacks.size + 1;
   const walk = (value: unknown): unknown => {
     if (typeof value === 'function') {
-      const id = nextId++;
+      const id = nextFnId++;
       callbacks.set(id, value as (...a: unknown[]) => void);
       created?.add(id);
       return { __fn: id } satisfies FnToken;
     }
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === 'object') {
+      // Structured-cloneable host objects must pass through untouched:
+      // rebuilding them as plain objects drops getContext()/.text()/etc.
+      // and — worse — an OffscreenCanvas rebuilt this way is no longer in
+      // the message while it is still in the transfer list, which makes
+      // postMessage throw DataCloneError.
+      if (
+        (typeof File !== 'undefined' && value instanceof File) ||
+        (typeof Blob !== 'undefined' && value instanceof Blob) ||
+        (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas)
+      ) {
+        return value;
+      }
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         out[k] = walk(v);
@@ -100,11 +119,15 @@ export function decodeArgs(
     }
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === 'object') {
-      // File/Blob survive structured clone and must pass through untouched:
-      // rebuilding them as plain objects would drop .text()/.arrayBuffer()/
-      // .slice() and break sandboxed loadData / api.readText round trips.
+      // File/Blob/OffscreenCanvas survive structured clone and must pass
+      // through untouched: rebuilding them as plain objects would drop
+      // .text()/.arrayBuffer()/.slice()/getContext() and break sandboxed
+      // loadData / api.readText round trips and canvas rendering.
       if (typeof File !== 'undefined' && value instanceof File) return value;
       if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
+      if (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas) {
+        return value;
+      }
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         out[k] = walk(v);
@@ -179,6 +202,8 @@ export interface SandboxedPlugin {
   plugin: Plugin;
   /** Stop the worker and release the render surface. */
   dispose(): void;
+  /** Push a locale change into the worker so `api.locale`/`api.t` stay live. */
+  setLocale(locale: string): void;
 }
 
 /**
@@ -211,7 +236,7 @@ export async function createPluginSandbox(
   const api = options.getApi(pluginId);
   const callbacks = new Map<number, (...a: unknown[]) => void>();
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
-  const surfaces: HTMLCanvasElement[] = [];
+  const surfaces: { el: HTMLCanvasElement; callbacks: Set<number> }[] = [];
   let nextCallId = 1;
 
   const post = (message: unknown, transfer?: Transferable[]) => {
@@ -288,6 +313,20 @@ export async function createPluginSandbox(
     pending.clear();
   };
 
+  // A worker that dies without firing `onerror` (terminate, messageerror,
+  // cross-origin restrictions) must not leave callers awaiting forever.
+  worker.onmessageerror = (ev) => {
+    logger.error('sandbox', `worker message error for ${pluginId}`, ev);
+    for (const [, p] of pending) p.reject(new Error('worker message error'));
+    pending.clear();
+  };
+
+  /** Remove a transferred surface and release every callback it registered. */
+  const removeSurface = (entry: { el: HTMLCanvasElement; callbacks: Set<number> }) => {
+    entry.el.remove();
+    for (const fid of entry.callbacks) callbacks.delete(fid);
+  };
+
   /** Map a host container to the sandbox-facing descriptor. */
   const toRemoteContainer = (container: ContainerCapabilities): { args: unknown[]; transfer: Transferable[] } => {
     const surface = document.createElement('canvas');
@@ -296,11 +335,15 @@ export async function createPluginSandbox(
     surface.style.height = '100%';
     const host = container.dom ?? container.canvas2d?.parentElement;
     (host ?? document.body).appendChild(surface);
-    surfaces.push(surface);
+    const created = new Set<number>();
+    const entry = { el: surface, callbacks: created };
+    surfaces.push(entry);
     const offscreen = surface.transferControlToOffscreen();
     return {
       // reportDataScale is a function and cannot be structured-cloned; encode
       // it as an `__fn` token so postMessage does not throw DataCloneError.
+      // The token is pruned together with the surface (removeSurface) so the
+      // callbacks map cannot grow without bound across activate/render.
       args: encodeArgs(
         [
           {
@@ -310,15 +353,17 @@ export async function createPluginSandbox(
           },
         ],
         callbacks,
+        created,
       ),
       transfer: [offscreen],
     };
   };
 
   try {
-    // Send the current host locale so a sandboxed plugin's api.locale is
-    // accurate from boot (was previously always 'zh-CN').
-    await invoke('boot', [options.entrySource, options.manifest, api.locale]);
+    // Send the current host locale + translation tables so a sandboxed
+    // plugin's api.locale is accurate from boot and api.t() resolves
+    // synchronously and correctly.
+    await invoke('boot', [options.entrySource, options.manifest, api.locale, dictionaries]);
   } catch (err) {
     logger.error('sandbox', `plugin ${pluginId} failed to boot in worker`, err);
     worker.terminate();
@@ -332,7 +377,7 @@ export async function createPluginSandbox(
       try {
         await invoke('destroy');
       } finally {
-        for (const s of surfaces) s.remove();
+        for (const s of surfaces) removeSurface(s);
         surfaces.length = 0;
         worker.terminate();
       }
@@ -344,13 +389,13 @@ export async function createPluginSandbox(
     deactivate: () => {
       // Remove the transferred surface so a sandboxed plugin's canvas
       // never lingers over the next plugin's viewport.
-      for (const s of surfaces) s.remove();
+      for (const s of surfaces) removeSurface(s);
       surfaces.length = 0;
       return invoke('deactivate');
     },
     render: (container) => {
       const prev = surfaces.pop();
-      if (prev) prev.remove();
+      if (prev) removeSurface(prev);
       const { args, transfer } = toRemoteContainer(container);
       return invoke('render', args, transfer);
     },
@@ -374,5 +419,11 @@ export async function createPluginSandbox(
     },
   };
 
-  return { plugin, dispose: () => void plugin.destroy?.() };
+  return {
+    plugin,
+    dispose: () => void plugin.destroy?.(),
+    setLocale: (nextLocale: string) => {
+      post({ event: 'set-locale', locale: nextLocale });
+    },
+  };
 }

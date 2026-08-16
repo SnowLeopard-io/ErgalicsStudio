@@ -11,6 +11,7 @@
 // ==========================================================================
 
 import { decodeArgs } from './sandbox';
+import type { Locale } from '@/i18n/types';
 import type {
   ComputeProgress,
   Plugin,
@@ -52,6 +53,25 @@ export function createPluginWorkerRuntime(
   let api: PluginApi | null = null;
   let dispatchChain: Promise<void> = Promise.resolve();
 
+  // Locale state + translation tables are shipped over the bridge so a
+  // sandboxed plugin's api.locale / api.t behave exactly like the host's
+  // (the RPC bridge cannot serve a *synchronous* `t`, so we translate
+  // locally instead of forwarding).
+  let currentLocale: Locale = 'zh-CN';
+  let dictionaries: Record<string, Record<string, string>> = {};
+  const localeListeners = new Set<(locale: string) => void>();
+
+  const translate = (key: string, params?: Record<string, string | number>): string => {
+    const dict = dictionaries[currentLocale];
+    let text = dict?.[key] ?? dictionaries['zh-CN']?.[key] ?? key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replaceAll(`{${k}}`, String(v));
+      }
+    }
+    return text;
+  };
+
   const postReply = (id: number, ok: boolean, payload: unknown) => {
     postToHost({
       id,
@@ -70,16 +90,14 @@ export function createPluginWorkerRuntime(
   };
 
   /** Proxy over the host PluginApi; every call is forwarded over the bridge. */
-  const createApiProxy = (initialLocale: string): PluginApi => ({
+  const createApiProxy = (): PluginApi => ({
     get locale() {
-      return initialLocale;
+      return currentLocale;
     },
-    t: (key, params) => callApi<string>('t', [key, params]) as unknown as string,
+    t: (key, params) => translate(key, params),
     onLocaleChange: (listener) => {
-      // Locale push is not yet wired over the bridge; returns a no-op
-      // unsubscribe. Plugins should prefer reading `api.locale` fresh.
-      void listener;
-      return () => undefined;
+      localeListeners.add(listener);
+      return () => localeListeners.delete(listener);
     },
     setStatus: (status) => callApi('setStatus', [status]),
     reportGpuTime: (ms) => callApi('reportGpuTime', [ms]),
@@ -151,6 +169,21 @@ export function createPluginWorkerRuntime(
 
   return {
     async handleMessage(msg: unknown) {
+      if ((msg as { event?: string }).event === 'set-locale') {
+        const next = (msg as { locale?: string }).locale;
+        if (next && next in dictionaries) {
+          currentLocale = next as Locale;
+          for (const listener of [...localeListeners]) {
+            try {
+              listener(currentLocale);
+            } catch {
+              /* listener errors must not break the bridge */
+            }
+          }
+        }
+        return;
+      }
+
       if ((msg as ApiReply).event === 'api-reply') {
         const reply = msg as ApiReply;
         const p = pendingApi.get(reply.callId);
@@ -170,9 +203,16 @@ export function createPluginWorkerRuntime(
       // interleave on `plugin` and produce corrupted output.
       const run = async () => {
         if (req.method === 'boot') {
-          const [entrySource, manifest, locale] = req.args as [string, PluginManifest, string];
+          const [entrySource, manifest, locale, dict] = req.args as [
+            string,
+            PluginManifest,
+            string,
+            Record<string, Record<string, string>>,
+          ];
           try {
-            api = createApiProxy(locale ?? 'zh-CN');
+            if (locale && locale in (dict ?? {})) currentLocale = locale as Locale;
+            if (dict) dictionaries = dict;
+            api = createApiProxy();
             // eslint-disable-next-line @typescript-eslint/no-implied-eval
             const factory = new Function('api', `"use strict";\n${entrySource}`) as (
               api: PluginApi,

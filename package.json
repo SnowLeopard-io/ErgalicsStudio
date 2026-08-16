@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "description": "Ergalics Studio - A browser-based scientific computing workstation framework",
+  "license": "MIT",
+  "author": "SnowLeopard-io <1486853830@qq.com>",
   "workspaces": [
     "docs"
   ],

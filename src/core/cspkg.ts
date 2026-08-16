@@ -54,6 +54,9 @@ function validateManifest(manifest: PluginManifest): void {
   if (manifest.entry.includes('..') || manifest.entry.startsWith('/') || /^[a-zA-Z]:/.test(manifest.entry)) {
     throw new Error(`cspkg: entry path must be a package-relative path, got "${manifest.entry}"`);
   }
+  // Archives may store keys with backslashes (zip entries from Windows
+  // tooling); normalize so the manifest entry always resolves.
+  manifest.entry = manifest.entry.replace(/\\/g, '/');
   if (manifest.sandbox !== undefined && manifest.sandbox !== 'isolated' && manifest.sandbox !== 'trusted') {
     throw new Error(`cspkg: unknown sandbox mode "${String(manifest.sandbox)}"`);
   }

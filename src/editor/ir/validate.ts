@@ -185,6 +185,9 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
     case 'Select':
       validateNode(n.data, `${path}.data`, out);
       if (!Array.isArray(n.columns) || n.columns.length === 0) out.push(diag(path, 'Select.columns must be a non-empty array'));
+      else n.columns.forEach((c, i) => {
+        if (typeof c !== 'string' || c.length === 0) out.push(diag(`${path}.columns[${i}]`, 'column must be a non-empty string'));
+      });
       break;
     case 'AddColumn':
       validateNode(n.data, `${path}.data`, out);

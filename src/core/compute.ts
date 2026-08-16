@@ -26,9 +26,10 @@ function toBytes(data: ArrayBufferView): Uint8Array {
   return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
-/** Copy a mapped range out of a GPU buffer before unmap. */
-function copyMappedRange(range: ArrayBuffer): ArrayBuffer {
-  return new Uint8Array(range).slice().buffer as ArrayBuffer;
+/** Copy a mapped range out of a GPU buffer before unmap. Respects the view's
+ *  byteOffset/length so a nonzero-offset buffer is not misaligned. */
+function copyMappedRange(range: ArrayBuffer, byteOffset = 0, byteLength?: number): ArrayBuffer {
+  return new Uint8Array(range, byteOffset, byteLength ?? range.byteLength).slice().buffer as ArrayBuffer;
 }
 
 // ---- WASM core adapter (primary, used in production builds) -------------
@@ -87,7 +88,7 @@ class WasmBuffer implements ComputeBufferHandle {
 
   async read(): Promise<ArrayBuffer> {
     const u8 = await this.raw.read();
-    return copyMappedRange(u8.buffer as ArrayBuffer);
+    return copyMappedRange(u8.buffer as ArrayBuffer, u8.byteOffset, u8.byteLength);
   }
 
   destroy(): void {
@@ -238,6 +239,8 @@ class NativeKernel implements GpuKernelHandle {
     readonly label: string,
     private readonly pipeline: GPUComputePipeline,
     private readonly module: GPUShaderModule,
+    /** Binding numbers declared by the kernel descriptor (may be sparse). */
+    private readonly bindings: number[],
   ) {}
 
   async compilationInfo(): Promise<string[]> {
@@ -252,8 +255,12 @@ class NativeKernel implements GpuKernelHandle {
   }
 
   run(device: GPUDevice, buffers: NativeBuffer[], x: number, y: number, z: number): void {
+    // Bind by the kernel descriptor's declared binding numbers, NOT array
+    // index: a kernel with sparse/non-contiguous bindings (e.g. {0,2}) was
+    // rejected here while the WASM path (which carries real binding numbers)
+    // accepted it — divergent behaviour between the two compute backends.
     const entries: GPUBindGroupEntry[] = buffers.map((b, i) => ({
-      binding: i,
+      binding: this.bindings[i] ?? i,
       resource: b.raw,
     }));
     const bindGroup = device.createBindGroup({
@@ -302,7 +309,12 @@ class NativeCompute implements GpuComputeApi {
         layout: pipelineLayout,
         compute: { module, entryPoint: descriptor.entryPoint ?? 'main' },
       });
-      return new NativeKernel(descriptor.label, pipeline, module);
+      return new NativeKernel(
+        descriptor.label,
+        pipeline,
+        module,
+        descriptor.bindings.map((b) => b.binding),
+      );
     } catch (err) {
       logger.warn('compute', `kernel compile failed (${descriptor.label})`, err);
       return null;

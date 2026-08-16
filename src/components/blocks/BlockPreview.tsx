@@ -31,6 +31,9 @@ export function BlockPreview() {
   const selectedIds = useBlockStore((s) => s.selectedIds);
   const instances = useBlockStore((s) => s.instances);
   const [pickedNode, setPickedNode] = useState<string | null>(null);
+  // Once the user explicitly picks a node via the chip switcher, canvas
+  // selection must stop yanking the preview away from their choice.
+  const manualPick = useRef(false);
 
   // Register a render container for the preview area (2D plugins only).
   useEffect(() => {
@@ -57,6 +60,7 @@ export function BlockPreview() {
 
   // Follow canvas selection when it points at an output node.
   useEffect(() => {
+    if (manualPick.current) return;
     const selected = selectedIds.find((id) => id in nodeOutputs);
     if (selected) setPickedNode(selected);
   }, [selectedIds, nodeOutputs]);
@@ -76,11 +80,11 @@ export function BlockPreview() {
         const store = usePluginStore.getState();
         if (store.activeId !== pluginId) {
           await store.activate(pluginId);
-        } else {
-          // Plugin already active, but its cached container may still point
-          // at a detached canvas after the preview remounted — rebind first.
-          rerenderActivePlugin();
         }
+        // When the plugin is already active, do NOT re-render it here:
+        // renderView() immediately loads the new payload, and the preview's
+        // mount effect already rebound the containers after a remount.
+        // Rerendering with the *old* data first produced a stale frame.
         return store.getActive();
       },
     };
@@ -105,7 +109,10 @@ export function BlockPreview() {
               key={id}
               type="button"
               className={`block-preview-chip${id === targetId ? ' is-active' : ''}`}
-              onClick={() => setPickedNode(id)}
+              onClick={() => {
+                manualPick.current = true;
+                setPickedNode(id);
+              }}
             >
               {nodeName(id)}
             </button>

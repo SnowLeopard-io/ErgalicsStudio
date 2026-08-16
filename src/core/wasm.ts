@@ -54,20 +54,26 @@ export function loadWasm(): Promise<WasmModule | null> {
   if (module) return Promise.resolve(module);
   if (loading) return loading;
 
-  loading = (async () => {
-    for (let attempt = 1; attempt <= MAX_WASM_RETRIES; attempt += 1) {
+  const attempt = (async () => {
+    for (let attemptNo = 1; attemptNo <= MAX_WASM_RETRIES; attemptNo += 1) {
       const loaded = await tryLoad();
       if (loaded) {
         module = loaded;
         return loaded;
       }
-      if (attempt < MAX_WASM_RETRIES) {
+      if (attemptNo < MAX_WASM_RETRIES) {
         await new Promise((r) => setTimeout(r, WASM_RETRY_DELAY_MS));
       }
     }
     return null;
   })();
-
+  loading = attempt;
+  // Only `module` is cached on success. On failure drop the cached promise so
+  // a later call can retry — a transient failure (dev-server rebuild, brief
+  // network blip) used to poison the whole session.
+  void attempt.finally(() => {
+    if (loading === attempt) loading = null;
+  });
   return loading;
 }
 

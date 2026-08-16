@@ -25,10 +25,23 @@ export function hashString(input: string): string {
 /**
  * Deterministic serialization: object keys are sorted and `undefined` values
  * are dropped, so two structurally-equal programs always produce the same
- * string regardless of how their nodes were constructed.
+ * string regardless of how their nodes were constructed. Special number
+ * values are distinguished (JSON.stringify would collapse `NaN`, `±Infinity`
+ * and `-0` into `null`/`0`, and array `undefined` slots into `null`), which
+ * would otherwise let distinct programs collide to the same hash.
  */
 export function stableStringify(value: unknown): string {
-  if (value === null || value === undefined) return 'null';
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return 'NaN';
+    if (value === Infinity) return 'Infinity';
+    if (value === -Infinity) return '-Infinity';
+    if (Object.is(value, -0)) return '-0';
+    return String(value);
+  }
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(',')}]`;
   }
@@ -41,7 +54,7 @@ export function stableStringify(value: unknown): string {
       .join(',');
     return `{${body}}`;
   }
-  return JSON.stringify(value);
+  return String(value);
 }
 
 /**

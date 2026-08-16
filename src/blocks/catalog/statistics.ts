@@ -56,7 +56,11 @@ export const histogramBlock: BlockDefinition = defineBlock(
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
     const column = String(ctx.getParam('column') ?? '');
-    const bins = Math.max(1, Math.floor(Number(ctx.getParam('bins') ?? 10)));
+    // Clamp so a huge/NaN `bins` cannot allocate a giant Float64Array.
+    const rawBins = Number(ctx.getParam('bins') ?? 10);
+    const bins = Number.isFinite(rawBins)
+      ? Math.min(10_000, Math.max(1, Math.floor(rawBins)))
+      : 10;
     const h = histogram(requireColumn(input, column), bins);
     return createDataTable(
       'hist',

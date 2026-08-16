@@ -63,7 +63,7 @@ export default defineConfig({
     ],
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2026 Ergalics Studio contributors',
+      copyright: 'Copyright © 2026 SnowLeopard-io',
     },
   },
 });

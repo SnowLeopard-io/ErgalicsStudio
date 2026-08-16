@@ -20,6 +20,18 @@ function lcg(seed: number): () => number {
   };
 }
 
+/** Upper bounds so a large/NaN count cannot allocate a giant Float64Array
+ *  (NaN reached this path via a corrupted project file and threw
+ *  `RangeError: Invalid typed array length`). */
+const MAX_ROWS = 10_000_000;
+const MAX_GRID_SIZE = 1_000;
+
+function clampCount(value: unknown, fallback: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(1, Math.floor(n)));
+}
+
 export const exampleData: BlockDefinition = defineBlock(
   {
     id: 'source.example_data',
@@ -33,7 +45,7 @@ export const exampleData: BlockDefinition = defineBlock(
     defaultParams: { count: 100, seed: 1 },
   },
   async (ctx) => {
-    const count = Math.max(1, Math.floor(Number(ctx.getParam('count') ?? 100)));
+    const count = clampCount(ctx.getParam('count'), 100, MAX_ROWS);
     const seed = Number(ctx.getParam('seed') ?? 1);
     const rand = lcg(seed);
     const t = new Float64Array(count);
@@ -66,7 +78,7 @@ export const generateRandom: BlockDefinition = defineBlock(
     defaultParams: { count: 100, seed: 0 },
   },
   async (ctx) => {
-    const count = Math.max(1, Math.floor(Number(ctx.getParam('count') ?? 100)));
+    const count = clampCount(ctx.getParam('count'), 100, MAX_ROWS);
     const seed = Number(ctx.getParam('seed') ?? 0);
     const rand = lcg(seed);
     const x = new Float64Array(count);
@@ -90,7 +102,7 @@ export const generateGrid: BlockDefinition = defineBlock(
     defaultParams: { size: 10 },
   },
   async (ctx) => {
-    const size = Math.max(1, Math.floor(Number(ctx.getParam('size') ?? 10)));
+    const size = clampCount(ctx.getParam('size'), 10, MAX_GRID_SIZE);
     const n = size * size;
     const x = new Float64Array(n);
     const y = new Float64Array(n);

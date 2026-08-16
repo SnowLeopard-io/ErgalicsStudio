@@ -189,6 +189,9 @@ function validateConnection(
       nodeId: conn.to.nodeId,
       portId: conn.to.portId,
     });
+    // Record the attempted input anyway so the required-input pass does not
+    // emit a second, misleading `missing_required_input` for the same port.
+    inputs.get(conn.to.nodeId)![conn.to.portId] = conn.from.nodeId;
     return;
   }
 
@@ -200,6 +203,7 @@ function validateConnection(
       nodeId: conn.to.nodeId,
       portId: conn.to.portId,
     });
+    inputs.get(conn.to.nodeId)![conn.to.portId] = conn.from.nodeId;
     return;
   }
 

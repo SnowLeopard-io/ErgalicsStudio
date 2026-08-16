@@ -23,10 +23,11 @@ function program(body: IRNode[] = [load, plot]): IRProgram {
 }
 
 describe('IR makeProgram / hash', () => {
-  it('stamps version 1 and an empty hash placeholder', () => {
+  it('stamps version 1 and a content hash', () => {
     const p = program();
     expect(p.version).toBe(1);
-    expect(p.hash).toBe('');
+    expect(p.hash).not.toBe('');
+    expect(p.hash).toBe(hashIR(p));
   });
 
   it('hashIR is deterministic and ignores key order', () => {

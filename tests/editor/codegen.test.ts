@@ -35,7 +35,7 @@ describe('codegenJS', () => {
       { kind: 'Repeat', count: num(10), body: [{ kind: 'StudioCall', method: 'print', args: [{ kind: 'String', value: 'hi' }] }] },
     ]);
     const out = codegenJS(program);
-    expect(out).toContain('for (let __i = 0; __i < 10; __i++) {');
+    expect(out).toContain('for (let __i = 0; __i < Math.floor(10); __i++) {');
     expect(out).toContain("studio.print('hi');");
   });
 

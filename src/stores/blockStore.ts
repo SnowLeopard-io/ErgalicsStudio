@@ -72,13 +72,28 @@ function newId(): string {
 /** Emitted whenever the graph data (instances/connections/params) mutates. */
 export const BLOCK_GRAPH_CHANGED = 'block:graph:changed';
 
+// Debounce the "graph changed" notification: dragging a node or typing a
+// param fired one event + project-dirty per frame, churning the event bus
+// and resetting the autosave timer every pointermove.
+let notifyTimer: ReturnType<typeof setTimeout> | null = null;
+
 function notifyChanged(): void {
-  emit(BLOCK_GRAPH_CHANGED, undefined);
+  if (notifyTimer) clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(() => {
+    notifyTimer = null;
+    emit(BLOCK_GRAPH_CHANGED, undefined);
+  }, 80);
 }
 
 /** Run token: bumped by `stop()` and each `run()` so a superseded in-flight
- *  run can never write its results back over a newer one. */
+ *  run can never write its results (or per-node status) over a newer one. */
 let runSeq = 0;
+
+function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  const next = { ...record };
+  delete next[key];
+  return next;
+}
 
 export const useBlockStore = create<BlockStore>((set, get) => ({
   instances: [],
@@ -112,6 +127,13 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
         (c) => c.from.nodeId !== id && c.to.nodeId !== id,
       ),
       selectedIds: s.selectedIds.filter((sid) => sid !== id),
+      // Purge the deleted node's outputs/status/errors — otherwise the
+      // preview kept rendering stale results and the toolbar kept showing
+      // its old compile/run error after deletion.
+      nodeOutputs: omitKey(s.nodeOutputs, id),
+      nodeStatus: omitKey(s.nodeStatus, id),
+      executionErrors: omitKey(s.executionErrors, id),
+      compileDiagnostics: [],
     }));
     notifyChanged();
   },
@@ -133,14 +155,37 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   },
 
   connect: (from, to) => {
+    // Reject invalid connections up front so the canvas never renders edges
+    // that can only fail at compile time (self loops, duplicate inputs).
+    if (from.nodeId === to.nodeId) return;
+    const instances = get().instances;
+    const fromInst = instances.find((i) => i.id === from.nodeId);
+    const toInst = instances.find((i) => i.id === to.nodeId);
+    if (!fromInst || !toInst) return;
+    const fromMeta = blockRegistry.get(fromInst.blockId);
+    const toMeta = blockRegistry.get(toInst.blockId);
+    if (!fromMeta || !toMeta) return;
+    const fromPort = fromMeta.outputs.some((p) => p.id === from.portId);
+    const toPort = toMeta.inputs.some((p) => p.id === to.portId);
+    if (!fromPort || !toPort) return;
+    // Each input port accepts at most one source.
+    const dup = get().connections.some(
+      (c) => c.to.nodeId === to.nodeId && c.to.portId === to.portId,
+    );
+    if (dup) return;
     const conn: BlockConnection = { id: newId(), from, to };
     set((s) => ({ connections: [...s.connections, conn] }));
     notifyChanged();
   },
 
   disconnect: (connectionId) => {
+    const conn = get().connections.find((c) => c.id === connectionId);
     set((s) => ({
       connections: s.connections.filter((c) => c.id !== connectionId),
+      // Drop the downstream node's cached output so the preview cannot show
+      // data computed with a connection that no longer exists.
+      ...(conn ? { nodeOutputs: omitKey(s.nodeOutputs, conn.to.nodeId) } : {}),
+      compileDiagnostics: [],
     }));
     notifyChanged();
   },
@@ -156,15 +201,20 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
     const graph: BlockGraph = { id: 'main', instances, connections };
     const result = compile(graph, blockRegistry);
     if (!result.ok || !result.program) {
-      set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {} });
+      set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {}, isRunning: false });
       return;
     }
 
-    set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {}, nodeOutputs: {} });
+    // Keep the previous run's outputs visible until the new results arrive
+    // — blanking them here made the preview flash empty during long runs.
+    set({ compileDiagnostics: [], executionErrors: {}, isRunning: true, nodeStatus: {} });
 
     const executor = new DagExecutor(result.program, {
       storage: createMemoryStorage(),
       onNodeStatus: (nodeId, status) => {
+        // A run superseded by stop() or a newer run must not keep painting
+        // node status onto the graph.
+        if (token !== runSeq) return;
         set((s) => ({ nodeStatus: { ...s.nodeStatus, [nodeId]: status } }));
       },
     });
@@ -188,7 +238,8 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   },
 
   stop: () => {
-    // Invalidate any in-flight run so its late completion is discarded.
+    // Invalidate any in-flight run so its late completion and per-node status
+    // writes are discarded.
     runSeq += 1;
     set({ isRunning: false });
   },
@@ -207,15 +258,25 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   },
 
   toJSON: () => ({
-    instances: get().instances,
-    connections: get().connections,
-    viewport: get().viewport,
+    // Return copies, not live references — a consumer that mutates the
+    // result before serializing used to corrupt the store's state.
+    instances: get().instances.map((i) => ({ ...i, params: { ...i.params } })),
+    connections: get().connections.map((c) => ({
+      ...c,
+      from: { ...c.from },
+      to: { ...c.to },
+    })),
+    viewport: { ...get().viewport },
   }),
 
   fromJSON: (state) => {
     set({
-      instances: state.instances,
-      connections: state.connections,
+      instances: state.instances.map((i) => ({ ...i, params: { ...i.params } })),
+      connections: state.connections.map((c) => ({
+        ...c,
+        from: { ...c.from },
+        to: { ...c.to },
+      })),
       viewport: state.viewport,
       selectedIds: [],
       nodeStatus: {},

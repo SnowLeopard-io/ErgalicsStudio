@@ -3,6 +3,8 @@ import type { SettingsState } from '@/core/settings';
 import { loadSettings, saveSettings, persistLegacyPrefs } from '@/core/settings';
 import { setLocale } from '@/i18n';
 import { setThemePreference } from '@/theme';
+import { initGpu, resetGpu } from '@/core/gpu';
+import { resetGpuCompute } from '@/core/compute';
 import type { Locale } from '@/i18n/types';
 import type { ThemePreference } from '@/theme';
 
@@ -34,8 +36,16 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     persist();
   },
   setGpuBackend: (gpuBackend) => {
+    const prev = useSettingsStore.getState().gpuBackend;
     set({ gpuBackend });
     persist();
+    if (prev !== gpuBackend) {
+      // Re-initialize the GPU device so the new backend applies immediately
+      // instead of only after a reload/return to the welcome page.
+      resetGpu();
+      resetGpuCompute();
+      void initGpu(gpuBackend);
+    }
   },
   setMemoryLimit: (memoryLimit) => {
     set({ memoryLimit });

@@ -50,6 +50,7 @@ function truthy(v: Value): boolean {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v !== 0;
   if (typeof v === 'string') return v.length > 0;
+  if (Array.isArray(v)) return v.length > 0; // empty list is falsy (Python)
   return v != null;
 }
 
@@ -64,8 +65,23 @@ function toNum(v: Value): number {
 }
 
 function applyBinary(op: BinaryOperator, l: Value, r: Value): Value {
-  if (op === 'and') return truthy(l) && truthy(r);
-  if (op === 'or') return truthy(l) || truthy(r);
+  if (op === 'and') return truthy(l) ? r : l;
+  if (op === 'or') return truthy(l) ? l : r;
+  // String-aware comparisons and concatenation match the codegen exactly.
+  if (typeof l === 'string' && typeof r === 'string') {
+    switch (op) {
+      case '+': return l + r;
+      case '==': return l === r;
+      case '!=': return l !== r;
+      case '<': return l < r;
+      case '<=': return l <= r;
+      case '>': return l > r;
+      case '>=': return l >= r;
+    }
+  }
+  if (op === '+' && (typeof l === 'string' || typeof r === 'string')) {
+    return String(l) + String(r);
+  }
   const a = toNum(l);
   const b = toNum(r);
   switch (op) {
@@ -86,7 +102,13 @@ function applyBinary(op: BinaryOperator, l: Value, r: Value): Value {
 }
 
 function asTable(v: Value): DataTable {
-  if (v !== null && typeof v === 'object' && !Array.isArray(v) && isDataTable(v as DataValue)) {
+  if (
+    v !== null &&
+    typeof v === 'object' &&
+    !Array.isArray(v) &&
+    isDataTable(v as DataValue) &&
+    typeof (v as DataTable).columnNames === 'function'
+  ) {
     return v as DataTable;
   }
   throw new Error('expected a DataTable');
@@ -164,18 +186,27 @@ export class Interpreter {
       }
       case 'ListIndex': {
         const list = await this.evalExpr(node.list);
-        const idx = toNum(await this.evalExpr(node.index));
+        const rawIdx = toNum(await this.evalExpr(node.index));
         if (!Array.isArray(list)) throw new Error('ListIndex target is not a list');
+        const idx = rawIdx < 0 ? list.length + rawIdx : rawIdx;
+        if (idx < 0 || idx >= list.length) return null;
         return list[idx] ?? null;
       }
       case 'ListSlice': {
         const list = await this.evalExpr(node.list);
         if (!Array.isArray(list)) throw new Error('ListSlice target is not a list');
-        const start = node.start ? toNum(await this.evalExpr(node.start)) : 0;
-        const stop = node.stop ? toNum(await this.evalExpr(node.stop)) : list.length;
+        const n = list.length;
+        const rawStart = node.start ? toNum(await this.evalExpr(node.start)) : 0;
+        const rawStop = node.stop ? toNum(await this.evalExpr(node.stop)) : n;
         const step = node.step ? toNum(await this.evalExpr(node.step)) : 1;
+        // Normalize negative bounds (Python slice semantics).
+        const start = rawStart < 0 ? Math.max(n + rawStart, 0) : Math.min(rawStart, n);
+        const stop = rawStop < 0 ? Math.max(n + rawStop, 0) : Math.min(rawStop, n);
+        if (step === 0) throw new Error('ListSlice step cannot be zero');
         const out: Value[] = [];
-        for (let i = start; step > 0 ? i < stop : i > stop; i += step) out.push(list[i]!);
+        for (let i = start; step > 0 ? i < stop : i > stop; i += step) {
+          if (i >= 0 && i < n) out.push(list[i]!);
+        }
         return out;
       }
       case 'Dict': {
@@ -314,10 +345,13 @@ export class Interpreter {
         return { type: 'normal' };
       }
       case 'Repeat': {
-        const count = Math.max(0, Math.floor(toNum(await this.evalExpr(node.count))));
+        const raw = Math.floor(toNum(await this.evalExpr(node.count)));
+        const count = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+        if (count > 1_000_000) throw new Error(`repeat exceeded 1,000,000 iterations (got ${count})`);
         for (let i = 0; i < count; i += 1) {
           const sig = await this.execBlock(node.body);
           if (sig.type === 'break') break;
+          if (sig.type === 'continue') continue;
           if (sig.type === 'return') return sig;
         }
         return { type: 'normal' };
@@ -334,11 +368,17 @@ export class Interpreter {
       }
       case 'ForEach': {
         const iterable = await this.evalExpr(node.iterable);
-        const items = Array.isArray(iterable) ? iterable : asTable(iterable).columnNames();
+        const items = Array.isArray(iterable)
+          ? iterable
+          : isDataTable(iterable as DataValue) && typeof (iterable as DataTable).columnNames === 'function'
+            ? (iterable as DataTable).columnNames()
+            : iterable;
+        if (!Array.isArray(items)) throw new Error('ForEach iterable must be a list or DataTable');
         for (const item of items) {
           this.setVar(node.varName, item as Value);
           const sig = await this.execBlock(node.body);
           if (sig.type === 'break') break;
+          if (sig.type === 'continue') continue;
           if (sig.type === 'return') return sig;
         }
         return { type: 'normal' };

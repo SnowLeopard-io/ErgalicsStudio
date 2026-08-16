@@ -8,8 +8,8 @@ import type {
   PluginRenderContext,
   Scene3DHandle,
 } from '@/types/plugin';
-import { getLocale, t } from '@/i18n';
-import { pluginChannel, on, emit, type BusSubscription } from '@/core/events';
+import { getLocale, t, subscribeLocale } from '@/i18n';
+import { on, emit, type BusSubscription } from '@/core/events';
 import { logger } from '@/core/logger';
 import { revokeCspkgUrls } from '@/core/cspkg';
 import { getGpuCompute } from '@/core/compute';
@@ -42,8 +42,26 @@ interface PluginStore {
 /** Per-plugin param subscriptions so unloading one plugin cannot break the
  *  currently-active plugin's handler (see unload/deactivate). */
 const paramSubscriptions = new Map<string, BusSubscription[]>();
+/** Per-plugin locale subscriptions so they can be released on unload. */
+const localeSubscriptions = new Map<string, Array<() => void>>();
+/** Sandboxed plugins receive locale pushes over the worker bridge. */
+const sandboxLocaleUpdaters = new Map<string, (locale: string) => void>();
 /** Serializes activate() so two rapid calls cannot race deactivate/activate. */
 let activationChain: Promise<void> = Promise.resolve();
+
+// Push locale changes to every sandboxed plugin worker. Host-side plugins
+// subscribe through `buildPluginApi.onLocaleChange` (a subscribeLocale hook),
+// so this global listener only needs to reach the workers.
+subscribeLocale(() => {
+  const locale = getLocale();
+  for (const updater of sandboxLocaleUpdaters.values()) {
+    try {
+      updater(locale);
+    } catch (err) {
+      logger.warn('plugin', 'locale push to sandbox failed', err);
+    }
+  }
+});
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
 // and registers them here so activated plugins render into real DOM.
@@ -87,8 +105,12 @@ function buildPluginApi(pluginId: string): PluginApi {
     },
     t,
     onLocaleChange: (listener) => {
-      const sub = on(pluginChannel(pluginId, 'locale'), () => listener(getLocale()));
-      return sub.unsubscribe;
+      // subscribeLocale fires on every setLocale; track the subscription so
+      // unloading the plugin cannot leak handlers on the global i18n bus.
+      const unsub = subscribeLocale(() => listener(getLocale()));
+      const subs = localeSubscriptions.get(pluginId) ?? [];
+      localeSubscriptions.set(pluginId, [...subs, unsub]);
+      return unsub;
     },
     setStatus: (status) => {
       useAppStore.getState().setStatus(status);
@@ -184,6 +206,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ loadingIds: [...s.loadingIds, id] }));
     try {
       await plugin.init(buildPluginApi(id));
+      // Sandboxed (.cspkg) plugins expose setLocale so locale pushes can
+      // reach their worker; register it so the global listener can reach it.
+      const updater = (plugin as unknown as { setLocale?: (l: string) => void }).setLocale;
+      if (updater) sandboxLocaleUpdaters.set(id, updater);
       const formats =
         (await plugin.getSupportedFormats?.()) ?? plugin.manifest.formats ?? [];
       const entry: PluginRegistryEntry = {
@@ -218,11 +244,14 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     }
     // Release blob URLs held for installed packages (cspkg assets).
     revokeCspkgUrls(id);
+    sandboxLocaleUpdaters.delete(id);
     // Only unsubscribe this plugin's own handlers. Previously every unload
     // cleared the shared list, silently breaking the active plugin's param
     // subscription when some other plugin was unloaded.
     for (const sub of paramSubscriptions.get(id) ?? []) sub.unsubscribe();
     paramSubscriptions.delete(id);
+    for (const unsub of localeSubscriptions.get(id) ?? []) unsub();
+    localeSubscriptions.delete(id);
     set((s) => ({
       registry: s.registry.filter((e) => e.id !== id),
       activeId: s.activeId === id ? null : s.activeId,
@@ -282,8 +311,14 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         registry: s.registry.map((e) => (e.id === id ? { ...e, active: true } : e)),
       }));
       // notify host to render params into right panel
-      const params = await plugin.getParams();
-      emit('host:params:changed', { pluginId: id, params });
+      try {
+        const params = await plugin.getParams();
+        emit('host:params:changed', { pluginId: id, params });
+      } catch (err) {
+        // A rejecting getParams() used to reject the whole activationChain and
+        // every caller awaiting it, leaving an inconsistent activeId.
+        logger.warn('plugin', `getParams failed for ${id}`, err);
+      }
     };
     activationChain = activationChain.then(run, run);
     await activationChain;
@@ -336,15 +371,24 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     const activeId = projectState?.state?.activePlugin ?? null;
     const params = projectState?.state?.parameters ?? {};
     // Ensure built-ins are loaded before restoring so activePlugin can activate.
-    void get().ensureBuiltinsLoaded().then(() => {
+    void get().ensureBuiltinsLoaded().then(async () => {
+      // Await activation BEFORE pushing stored params. The previous code
+      // fired `void activate()` then emitted immediately — the emit ran
+      // before activate() registered its param subscription, so restored
+      // values for the active plugin were broadcast into the void.
       if (activeId && get().isLoaded(activeId)) {
-        void get().activate(activeId);
+        await get().activate(activeId);
       }
-      // Push stored params AFTER activate() has registered the param
-      // subscription — emitting before it existed meant restored values were
-      // broadcast into the void and silently lost on every project open.
+      // Apply stored params directly to every loaded plugin rather than via
+      // the bus: non-active plugins have no subscription to receive them.
       for (const [pluginId, values] of Object.entries(params)) {
-        emit(`plugin:${pluginId}:params`, values);
+        if (!values || Object.keys(values).length === 0) continue;
+        const entry = get().registry.find((e) => e.id === pluginId);
+        try {
+          await entry?.plugin?.updateParams?.(values);
+        } catch (err) {
+          logger.warn('plugin', `failed to restore params for ${pluginId}`, err);
+        }
       }
     });
   },
@@ -368,7 +412,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   },
 
   dispatchFile: async (file) => {
-    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    const dot = file.name.lastIndexOf('.');
+    // A filename with no extension used to slice off its last character
+    // ("README" → "E"), which can never match a registered format.
+    const ext = (dot >= 0 ? file.name.slice(dot) : '').toLowerCase();
     const matches: string[] = [];
     for (const entry of get().registry) {
       const fmt = entry.formats.some((f) => f.extension.toLowerCase() === ext);

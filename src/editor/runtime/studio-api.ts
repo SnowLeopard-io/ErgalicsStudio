@@ -146,8 +146,10 @@ function splitTokens(line: string): string[] {
 
 /**
  * Parse whitespace/comma-delimited numeric columns. A header line (any line
- * containing a non-numeric token) supplies column names; otherwise columns
- * are named via `defaultName(i)`. Malformed rows are skipped.
+ * containing a non-numeric token) supplies column names. The column count is
+ * taken from the first numeric data row, so a header that is narrower or
+ * wider than the data does not silently drop every row: names are padded with
+ * defaults (or truncated) to match the data width. Malformed rows are skipped.
  */
 function parseDelimitedColumns(
   text: string,
@@ -158,7 +160,7 @@ function parseDelimitedColumns(
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  const names: string[] = [];
+  const headerNames: string[] = [];
   const columns: number[][] = [];
   let width = 0;
   let started = false;
@@ -169,11 +171,7 @@ function parseDelimitedColumns(
 
     const isHeader = !started && tokens.some((t) => !Number.isFinite(Number(t)));
     if (isHeader) {
-      // A header line fixes the column names *and* the width up front.
-      names.push(...tokens);
-      width = tokens.length;
-      for (let i = 0; i < width; i += 1) columns.push([]);
-      started = true;
+      headerNames.push(...tokens);
       continue;
     }
 
@@ -191,10 +189,11 @@ function parseDelimitedColumns(
   if (!started) {
     throw new Error('no numeric data found');
   }
-  const finalNames =
-    names.length === width ? names : columns.map((_, i) => defaultName(i));
+  // Names come from the header when its width matches the data; otherwise pad
+  // or truncate so the header never silently discards valid rows.
+  const names = columns.map((_, i) => headerNames[i] ?? defaultName(i));
   return {
-    names: finalNames,
+    names,
     columns: columns.map((c) => toFloat64(c)),
     rows: columns[0]!.length,
   };
@@ -221,6 +220,57 @@ function xyzColumnName(i: number): string {
   return `c${i}`;
 }
 
+/**
+ * Build a DataTable from a JSON document. Accepts either an array of flat row
+ * records (`[{ "x": 1, "y": 2 }, ...]`) or a columnar object
+ * (`{ "columns": [{ "name": "x", "data": [...] }, ...] }`). Row-record fields
+ * become f64 columns when every value in the column is numeric, otherwise
+ * string columns.
+ */
+function loadJSON(text: string): DataTable {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`invalid JSON dataset: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (Array.isArray(parsed) && parsed.every((r) => r !== null && typeof r === 'object' && !Array.isArray(r))) {
+    const rows = parsed as Record<string, unknown>[];
+    if (rows.length === 0) throw new Error('JSON dataset is empty');
+    const names = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+    const specs = names.map((name) => {
+      const values = rows.map((r) => r[name]);
+      const allNumeric = values.every((v) => typeof v === 'number' && Number.isFinite(v));
+      if (allNumeric) {
+        return { name, type: 'f64' as const, data: Float64Array.from(values as number[]) };
+      }
+      return { name, type: 'string' as const, data: values.map((v) => (v == null ? '' : String(v))) };
+    });
+    return createDataTable('json', specs, { provenance: 'loadJSON' });
+  }
+
+  if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const obj = parsed as { columns?: unknown };
+    if (Array.isArray(obj.columns)) {
+      const cols = obj.columns as { name?: unknown; data?: unknown }[];
+      const specs = cols.map((c) => {
+        const name = String(c.name ?? '');
+        const data = Array.isArray(c.data) ? c.data : [];
+        const allNumeric = data.every((v) => typeof v === 'number' && Number.isFinite(v));
+        if (allNumeric) {
+          return { name, type: 'f64' as const, data: Float64Array.from(data as number[]) };
+        }
+        return { name, type: 'string' as const, data: data.map((v) => (v == null ? '' : String(v))) };
+      });
+      if (specs.length === 0) throw new Error('JSON dataset has no columns');
+      return createDataTable('json', specs, { provenance: 'loadJSON' });
+    }
+  }
+
+  throw new Error('unsupported JSON dataset shape (expected row records or { columns: [...] })');
+}
+
 // ---- Studio API implementation ----
 
 export function createStudioApi(
@@ -233,6 +283,7 @@ export function createStudioApi(
       const lower = path.toLowerCase();
       if (lower.endsWith('.csv')) return api.loadCSV(text);
       if (lower.endsWith('.xyz')) return api.loadXYZ(text);
+      if (lower.endsWith('.json')) return loadJSON(text);
       return tableFromParsed(parseDelimitedColumns(text, defaultColumnName), `load:${path}`);
     },
 
@@ -245,7 +296,8 @@ export function createStudioApi(
     },
 
     random(n, seed = 1) {
-      const count = Math.max(1, Math.floor(n));
+      const raw = Math.floor(n);
+      const count = Number.isFinite(raw) ? Math.max(1, raw) : 1;
       const rand = lcg(seed);
       const x = new Float64Array(count);
       for (let i = 0; i < count; i += 1) x[i] = rand();

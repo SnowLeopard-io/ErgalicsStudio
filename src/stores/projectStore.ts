@@ -192,7 +192,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   remove: async (id) => {
     await deleteProject(id);
     await get().loadRecent();
-    if (get().project?.id === id) set({ project: null, dirty: false });
+    if (get().project?.id === id) {
+      set({ project: null, dirty: false });
+      // Clear the block graph, editor sessions and active plugin so the
+      // canvas/editor never keep showing the deleted project's content.
+      useBlockStore.getState().clear();
+      useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+      void usePluginStore.getState().deactivate();
+    }
   },
 
   loadRecent: async () => {

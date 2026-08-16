@@ -77,4 +77,5 @@ export function useT() {
 }
 
 export { LOCALES };
+export { dictionaries };
 export type { Locale, LocaleDictionary };

@@ -51,6 +51,13 @@ async function tx<T>(
     const request = fn(transaction.objectStore(store));
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    // A transaction can abort without a request-level error firing (quota
+    // exceeded, blocked versionchange, connection closed). Listen on the
+    // transaction itself so those cases reject instead of hanging forever.
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error(`transaction aborted on ${store}`));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error(`transaction failed on ${store}`));
   });
 }
 
@@ -90,6 +97,10 @@ export async function listProjects(limit = 10): Promise<Project[]> {
       }
     };
     request.onerror = () => reject(request.error);
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error('transaction aborted listing projects'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error('transaction failed listing projects'));
   });
 }
 

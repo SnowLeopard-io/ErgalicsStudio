@@ -283,15 +283,23 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
         ...(node.step ? { STEP: { block: irToBlockJSON(node.step) } } : {}),
       });
     case 'List':
-      return valueBlock('studio_list', {
-        VALUES: node.items.map((i) => (i.kind === 'Number' ? String(i.value) : '0')).join(','),
-      });
+      // The block only expresses numeric lists; a non-Number item would be
+      // silently rewritten to `0`, so degrade the whole list to raw code.
+      if (node.items.every((i) => i.kind === 'Number')) {
+        return valueBlock('studio_list', {
+          VALUES: node.items.map((i) => (i.kind === 'Number' ? String(i.value) : '0')).join(','),
+        });
+      }
+      return rawFallback(node);
     case 'ListIndex':
       return valueBlock('studio_list_index', {}, {
         LIST: { block: irToBlockJSON(node.list) },
         INDEX: { block: irToBlockJSON(node.index) },
       });
     case 'BinaryOp': {
+      // The math dropdown only exposes + - * / %; `//` and `**` must degrade
+      // to raw code instead of writing an invalid dropdown value.
+      if (node.op === '//' || node.op === '**') return rawFallback(node);
       const type =
         node.op === 'and' || node.op === 'or'
           ? 'studio_logic_op'
@@ -334,6 +342,9 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
         BINS: { block: irToBlockJSON(node.bins) },
       });
     case 'VarAssign':
+      // The block always declares a fresh variable; a bare assignment
+      // (`declare: false`) would silently become a redeclaration, so degrade.
+      if (!node.declare) return rawFallback(node);
       return statementBlock('studio_var_assign', { NAME: node.name }, {
         VALUE: { block: irToBlockJSON(node.value) },
       });
@@ -369,6 +380,9 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
         DO: stmtInput(node.body),
       });
     case 'If': {
+      // The `studio_if` block only models a single condition + else. An If with
+      // multiple branches (elif) would silently drop branches, so degrade.
+      if (node.branches.length !== 1) return rawFallback(node);
       const branch = node.branches[0];
       return statementBlock('studio_if', {}, {
         COND: { block: irToBlockJSON(branch!.cond) },
@@ -403,7 +417,10 @@ function rawFallback(node: IRNode): BlockJSON {
  */
 export function irToWorkspaceJSON(program: IRProgram): WorkspaceJSON {
   const runBlock: BlockJSON = { type: 'studio_run' };
-  const chain = irChain(program.body);
+  // Functions cannot be expressed as blocks, so they degrade to raw blocks;
+  // chain them before the body so they survive a workspace round-trip instead
+  // of being silently dropped.
+  const chain = irChain([...program.functions, ...program.body]);
   if (chain) runBlock.next = { block: chain };
   return { blocks: { languageVersion: 0, blocks: [runBlock] } };
 }

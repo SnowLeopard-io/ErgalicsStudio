@@ -10,6 +10,8 @@
 // See block-code-modes.md §4 for the full node catalogue and design rationale.
 // ==========================================================================
 
+import { hashIR } from './hash';
+
 /** Binary operators expressible by blocks and (de)serializable to code. */
 export type BinaryOperator =
   | '+' | '-' | '*' | '/' | '//' | '%' | '**'
@@ -117,7 +119,9 @@ export function makeProgram(
   functions: IRNode[] = [],
   sourceLang?: SourceLang,
 ): IRProgram {
-  return { version: IR_VERSION, body, functions, sourceLang, hash: '' };
+  const program: IRProgram = { version: IR_VERSION, body, functions, sourceLang, hash: '' };
+  program.hash = hashIR(program);
+  return program;
 }
 
 /** Type guard: does this node preserve raw, unparseable source text? */
