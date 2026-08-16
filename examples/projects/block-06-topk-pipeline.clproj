@@ -1,0 +1,59 @@
+{
+  "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+  "name": "Top-K 排序流水线",
+  "createdAt": 1786722030000,
+  "updatedAt": 1786722030000,
+  "data": { "files": [], "processed": null },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.generate_random",
+          "position": { "x": 40, "y": 100 },
+          "params": { "count": 1000, "seed": 99 }
+        },
+        {
+          "id": "n2",
+          "blockId": "transform.add_column",
+          "position": { "x": 260, "y": 60 },
+          "params": { "name": "rank", "value": 1 }
+        },
+        {
+          "id": "n3",
+          "blockId": "filter.top_k",
+          "position": { "x": 480, "y": 60 },
+          "params": { "column": "x", "k": 20, "direction": "largest" }
+        },
+        {
+          "id": "n4",
+          "blockId": "stats.summary",
+          "position": { "x": 480, "y": 200 },
+          "params": {}
+        },
+        {
+          "id": "n5",
+          "blockId": "viz.histogram",
+          "position": { "x": 720, "y": 60 },
+          "params": { "column": "x" }
+        }
+      ],
+      "connections": [
+        { "id": "c1", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n2", "portId": "data" } },
+        { "id": "c2", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n3", "portId": "data" } },
+        { "id": "c3", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n4", "portId": "data" } },
+        { "id": "c4", "from": { "nodeId": "n3", "portId": "out" }, "to": { "nodeId": "n5", "portId": "data" } }
+      ],
+      "viewport": { "x": 10, "y": 10, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "1000 个随机数 → 添加常量列 → Top-20 最大值直方图 + 全量统计摘要。",
+    "tags": ["blocks", "sample", "pipeline", "filter", "top_k"]
+  }
+}

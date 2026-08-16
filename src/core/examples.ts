@@ -18,6 +18,12 @@ import scatterClustersDat from '../../examples/data/scatter-clusters.dat?raw';
 import fieldJson from '../../examples/data/field.json?raw';
 import nbodyJson from '../../examples/data/nbody.json?raw';
 import proteinJson from '../../examples/data/protein.json?raw';
+import barDataCsv from '../../examples/data/bar-data.csv?raw';
+import radarDataCsv from '../../examples/data/radar-data.csv?raw';
+import networkEdgesCsv from '../../examples/data/network-edges.csv?raw';
+import bubbleDataCsv from '../../examples/data/bubble-data.csv?raw';
+import violinDataCsv from '../../examples/data/violin-data.csv?raw';
+import sankeyDataCsv from '../../examples/data/sankey-data.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 export interface BuiltinExample {
@@ -225,6 +231,102 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '560 个蛋白、约 1700 条加权交互的模块化网络，力导向布局计算示例。',
       'en-US': '560 proteins, ~1700 weighted interactions in a modular network; force-directed layout demo.',
+    },
+  },
+  {
+    id: 'monthly-revenue-bars',
+    filename: 'bar-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bar_chart',
+    content: barDataCsv,
+    nameI18n: {
+      'zh-CN': '月度收支柱状图',
+      'en-US': 'Monthly Revenue Bars',
+    },
+    descriptionI18n: {
+      'zh-CN': '12 个月营收/成本/利润，柱状图方向切换与配色示例。',
+      'en-US': '12-month revenue/costs/profit; bar chart orientation and palette demo.',
+    },
+  },
+  {
+    id: 'product-radar',
+    filename: 'radar-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.polar',
+    content: radarDataCsv,
+    nameI18n: {
+      'zh-CN': '产品对比雷达图',
+      'en-US': 'Product Comparison Radar',
+    },
+    descriptionI18n: {
+      'zh-CN': '4 款产品的 6 维度对比，多系列雷达图填充与透明度示例。',
+      'en-US': '4 products across 6 dimensions; multi-series radar fill demo.',
+    },
+  },
+  {
+    id: 'social-network',
+    filename: 'network-edges.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.network',
+    content: networkEdgesCsv,
+    nameI18n: {
+      'zh-CN': '社交网络图',
+      'en-US': 'Social Network Graph',
+    },
+    descriptionI18n: {
+      'zh-CN': '15 节点 24 条加权连接，力导向布局与节点大小映射示例。',
+      'en-US': '15 nodes, 24 weighted edges; force-directed layout with degree-based sizing.',
+    },
+  },
+  {
+    id: 'temperature-bubbles',
+    filename: 'bubble-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bubble',
+    content: bubbleDataCsv,
+    nameI18n: {
+      'zh-CN': '温度气泡散点',
+      'en-US': 'Temperature Bubbles',
+    },
+    descriptionI18n: {
+      'zh-CN': '30 个三维数据点（位置 + 大小 + 颜色），气泡大小与颜色通道示例。',
+      'en-US': '30 points (x, y, size, color); bubble sizing and color-channel demo.',
+    },
+  },
+  {
+    id: 'grouped-density',
+    filename: 'violin-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.violin',
+    content: violinDataCsv,
+    nameI18n: {
+      'zh-CN': '四组密度分布',
+      'en-US': 'Four-Group Density',
+    },
+    descriptionI18n: {
+      'zh-CN': '4 组 × 20 个数值的高斯分布，核密度估计与箱线图叠加示例。',
+      'en-US': '4 groups × 20 values each; kernel density estimation with box-plot overlay.',
+    },
+  },
+  {
+    id: 'energy-flow',
+    filename: 'sankey-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.sankey',
+    content: sankeyDataCsv,
+    nameI18n: {
+      'zh-CN': '能源流向桑基图',
+      'en-US': 'Energy Flow Sankey',
+    },
+    descriptionI18n: {
+      'zh-CN': '20 条能源流向边，桑基图节点排列与流量比例带宽示例。',
+      'en-US': '20 energy-flow edges; Sankey node layout with proportional ribbon sizing.',
     },
   },
 ];

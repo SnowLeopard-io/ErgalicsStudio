@@ -5,6 +5,12 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
 import { createScene3D } from '@/core/scene3d';
+import {
+  getViewport2d,
+  setViewport2d,
+  resetViewport2d,
+  wrapCanvas2d,
+} from '@/core/viewport2d';
 import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
@@ -33,9 +39,10 @@ export function CentralArea() {
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
 
-  // 2D viewport pan/zoom — a CSS transform on the shared canvas, so every 2D
-  // plugin gets drag-to-pan + wheel-zoom for free without touching plugin code.
-  const view2d = useRef({ x: 0, y: 0, scale: 1 });
+  // 2D viewport pan/zoom. The pan/zoom lives in a host-level viewport store and
+  // is injected into the plugin's drawing through a wrapped 2D context, so the
+  // canvas frame stays put and the *content* moves — re-rendered from data on
+  // every change, revealing content that was previously outside the frame.
   const drag2d = useRef<{
     startX: number;
     startY: number;
@@ -43,16 +50,16 @@ export function CentralArea() {
     baseY: number;
   } | null>(null);
 
-  const applyView2d = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { x, y, scale } = view2d.current;
-    canvas.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${scale.toFixed(4)})`;
-  };
-
-  const resetView2d = () => {
-    view2d.current = { x: 0, y: 0, scale: 1 };
-    applyView2d();
+  // Re-render the active plugin at most once per animation frame while
+  // panning/zooming; animation-driven plugins read the viewport live anyway.
+  const rerenderQueued = useRef(false);
+  const scheduleRerender = () => {
+    if (rerenderQueued.current) return;
+    rerenderQueued.current = true;
+    requestAnimationFrame(() => {
+      rerenderQueued.current = false;
+      rerenderActivePlugin();
+    });
   };
 
   // Pan/zoom only makes sense on a bare 2D viewport: the 3D canvas is up
@@ -64,11 +71,12 @@ export function CentralArea() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
+    const v = getViewport2d();
     drag2d.current = {
       startX: e.clientX,
       startY: e.clientY,
-      baseX: view2d.current.x,
-      baseY: view2d.current.y,
+      baseX: v.x,
+      baseY: v.y,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.style.cursor = 'grabbing';
@@ -77,9 +85,13 @@ export function CentralArea() {
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = drag2d.current;
     if (drag) {
-      view2d.current.x = drag.baseX + (e.clientX - drag.startX);
-      view2d.current.y = drag.baseY + (e.clientY - drag.startY);
-      applyView2d();
+      const v = getViewport2d();
+      setViewport2d({
+        x: drag.baseX + (e.clientX - drag.startX),
+        y: drag.baseY + (e.clientY - drag.startY),
+        scale: v.scale,
+      });
+      scheduleRerender();
     } else if (pan2dAllowed(e.target)) {
       e.currentTarget.style.cursor = 'grab';
     } else {
@@ -100,7 +112,8 @@ export function CentralArea() {
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
-    resetView2d();
+    resetViewport2d();
+    scheduleRerender();
   };
 
   // Wheel is attached natively with passive:false so preventDefault works.
@@ -116,29 +129,35 @@ export function CentralArea() {
       const rect = host.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
-      const v = view2d.current;
+      const v = getViewport2d();
       const factor = Math.exp(-e.deltaY * 0.0012);
       const next = Math.min(12, Math.max(0.1, v.scale * factor));
       const k = next / v.scale;
       // Keep the point under the cursor stationary while zooming.
-      v.x = px - (px - v.x) * k;
-      v.y = py - (py - v.y) * k;
-      v.scale = next;
-      applyView2d();
+      setViewport2d({
+        x: px - (px - v.x) * k,
+        y: py - (py - v.y) * k,
+        scale: next,
+      });
+      scheduleRerender();
     };
     host.addEventListener('wheel', onWheel, { passive: false });
     return () => host.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Reset the viewport transform when the active plugin changes so pan/zoom
-  // never leaks between plugins.
+  // Reset the viewport when the active plugin changes so pan/zoom never leaks
+  // between plugins.
   const activeId = usePluginStore((s) => s.activeId);
   useEffect(() => {
-    resetView2d();
+    resetViewport2d();
+    scheduleRerender();
   }, [activeId]);
 
   useEffect(() => {
     if (!domRef.current || !canvasRef.current) return;
+    // Inject the 2D viewport transform into the shared canvas context before
+    // any plugin draws into it.
+    wrapCanvas2d(canvasRef.current);
     setHostContainers({
       dom: domRef.current,
       canvas2d: canvasRef.current,

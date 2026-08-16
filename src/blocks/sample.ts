@@ -51,6 +51,34 @@ const SAMPLE_META: Record<
       'en-US': 'Sine signal → filter by numeric range → scatter plot.',
     },
   },
+  'dual-pipeline': {
+    name: { 'zh-CN': '双列过滤流水线', 'en-US': 'Dual Pipeline' },
+    description: {
+      'zh-CN': '正弦信号 → 分两路：归一化→散点图、范围过滤→折线图。',
+      'en-US': 'Sine signal → forked: normalize→scatter, range-filter→line chart.',
+    },
+  },
+  'topk-pipeline': {
+    name: { 'zh-CN': 'Top-K 排序流水线', 'en-US': 'Top-K Pipeline' },
+    description: {
+      'zh-CN': '1000 个随机数 → 添加常量列 → Top-20 最大值直方图 + 全量统计摘要。',
+      'en-US': '1000 random numbers → add constant column → top-20 largest histogram + summary.',
+    },
+  },
+  'binning-stats': {
+    name: { 'zh-CN': '分箱统计流水线', 'en-US': 'Binning Stats' },
+    description: {
+      'zh-CN': '2000 个随机数 → 50 箱直方图统计 → 折线图 + 散点图双视图。',
+      'en-US': '2000 random numbers → 50-bin histogram → line + scatter dual view.',
+    },
+  },
+  'normalize-grid': {
+    name: { 'zh-CN': '归一化网格散点', 'en-US': 'Normalized Grid Scatter' },
+    description: {
+      'zh-CN': '30×30 网格 → x/y 双列归一化 → 2D 点云可视化。',
+      'en-US': '30×30 grid → normalize x/y columns → 2D point cloud.',
+    },
+  },
 };
 
 const rawModules = import.meta.glob('../../examples/projects/block-*.clproj', {

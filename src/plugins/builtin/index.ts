@@ -13,6 +13,12 @@ import { contourManifest } from './contour';
 import { scatterManifest } from './scatter';
 import { nbodyManifest } from './nbody';
 import { proteinManifest } from './protein';
+import { barChartManifest } from './barChart';
+import { polarPlotManifest } from './polarPlot';
+import { networkGraphManifest } from './networkGraph';
+import { bubbleChartManifest } from './bubbleChart';
+import { violinPlotManifest } from './violinPlot';
+import { sankeyManifest } from './sankey';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -94,6 +100,48 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: proteinManifest,
     load: async () => {
       const mod = await import('./protein');
+      return mod.default();
+    },
+  },
+  {
+    manifest: barChartManifest,
+    load: async () => {
+      const mod = await import('./barChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: polarPlotManifest,
+    load: async () => {
+      const mod = await import('./polarPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: networkGraphManifest,
+    load: async () => {
+      const mod = await import('./networkGraph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bubbleChartManifest,
+    load: async () => {
+      const mod = await import('./bubbleChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: violinPlotManifest,
+    load: async () => {
+      const mod = await import('./violinPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: sankeyManifest,
+    load: async () => {
+      const mod = await import('./sankey');
       return mod.default();
     },
   },

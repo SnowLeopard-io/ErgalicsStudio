@@ -1,0 +1,59 @@
+{
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "name": "双列过滤流水线",
+  "createdAt": 1786722030000,
+  "updatedAt": 1786722030000,
+  "data": { "files": [], "processed": null },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.example_data",
+          "position": { "x": 60, "y": 100 },
+          "params": { "count": 300, "seed": 7 }
+        },
+        {
+          "id": "n2",
+          "blockId": "transform.normalize",
+          "position": { "x": 280, "y": 60 },
+          "params": { "column": "x", "mode": "minmax" }
+        },
+        {
+          "id": "n3",
+          "blockId": "filter.range",
+          "position": { "x": 280, "y": 200 },
+          "params": { "column": "x", "min": 0.3, "max": 0.7 }
+        },
+        {
+          "id": "n4",
+          "blockId": "viz.scatter",
+          "position": { "x": 520, "y": 40 },
+          "params": { "xColumn": "t", "yColumn": "x_minmax", "colorColumn": "" }
+        },
+        {
+          "id": "n5",
+          "blockId": "viz.line",
+          "position": { "x": 520, "y": 180 },
+          "params": { "xColumn": "t", "yColumn": "x" }
+        }
+      ],
+      "connections": [
+        { "id": "c1", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n2", "portId": "data" } },
+        { "id": "c2", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n3", "portId": "data" } },
+        { "id": "c3", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n4", "portId": "data" } },
+        { "id": "c4", "from": { "nodeId": "n3", "portId": "out" }, "to": { "nodeId": "n5", "portId": "data" } }
+      ],
+      "viewport": { "x": 20, "y": 20, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "正弦信号 → 分两路：归一化→散点图、范围过滤→折线图。",
+    "tags": ["blocks", "sample", "pipeline", "transform", "filter"]
+  }
+}
