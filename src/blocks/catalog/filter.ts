@@ -20,6 +20,11 @@ export const rangeFilterBlock: BlockDefinition = defineBlock(
     color: FILTER_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', min: 0, max: 1 },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      min: { label: '最小值', labelI18n: { 'en-US': 'Min' } },
+      max: { label: '最大值', labelI18n: { 'en-US': 'Max' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -50,6 +55,10 @@ export const valueFilterBlock: BlockDefinition = defineBlock(
     color: FILTER_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', value: 0 },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      value: { label: '值', labelI18n: { 'en-US': 'Value' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -74,6 +83,11 @@ export const topKBlock: BlockDefinition = defineBlock(
     color: FILTER_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', k: 10, direction: 'largest' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      k: { label: '数量 K', labelI18n: { 'en-US': 'Count K' } },
+      direction: { label: '方向', labelI18n: { 'en-US': 'Direction' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;

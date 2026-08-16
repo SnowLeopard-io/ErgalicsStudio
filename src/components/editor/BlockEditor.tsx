@@ -18,7 +18,7 @@ import type { ViewRenderHost } from '@/blocks/render';
 import { createStudioApi } from '@/editor/runtime/studio-api';
 import type { StudioApiHost } from '@/editor/runtime/studio-api';
 import { interpret } from '@/editor/runtime/interpreter';
-import { resolveExampleFile, listExampleFiles } from '@/editor/runtime/data-resolver';
+import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { codegenJS, codegenPython } from '@/editor/codegen';
 import {
   initBlocklyEngine,
@@ -29,6 +29,16 @@ import {
 } from '@/editor/block';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
+
+/** Clear the 2D preview canvas + DOM overlay so a previous run's plot never
+ *  lingers when loading a new sample or starting a fresh run. */
+function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivElement | null): void {
+  if (canvas) {
+    const g = canvas.getContext('2d');
+    if (g) g.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  if (dom) dom.innerHTML = '';
+}
 
 export function BlockEditor() {
   const t = useT();
@@ -143,6 +153,9 @@ export function BlockEditor() {
       loadIRIntoWorkspace(ws, pendingLoad);
       setCodeView(null);
     }
+    // A freshly-loaded sample must not show the previous sample's plot or
+    // variables — the store already cleared the latter via resetRunOutputs().
+    clearPreviewSurface(canvasRef.current, domRef.current);
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
@@ -163,9 +176,9 @@ export function BlockEditor() {
     };
     return {
       loadText: async (path) => {
-        const text = resolveExampleFile(path);
+        const text = resolveDataFile(path);
         if (text === undefined) {
-          throw new Error(`file "${path}" not found (available: ${listExampleFiles().join(', ')})`);
+          throw new Error(`file "${path}" not found (available: ${listDataFiles().join(', ')})`);
         }
         return text;
       },
@@ -183,6 +196,9 @@ export function BlockEditor() {
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
+    // Clear the previous run's plot so the preview is blank until the new
+    // run produces output.
+    clearPreviewSurface(canvasRef.current, domRef.current);
     try {
       const result = await interpret(ir, createStudioApi(buildStudioHost()));
       if (result.ok) {

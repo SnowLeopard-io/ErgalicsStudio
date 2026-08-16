@@ -10,6 +10,7 @@ import {
   setViewport2d,
   resetViewport2d,
   wrapCanvas2d,
+  clearCanvas2dInViewport,
 } from '@/core/viewport2d';
 import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
@@ -40,27 +41,17 @@ export function CentralArea() {
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
 
   // 2D viewport pan/zoom. The pan/zoom lives in a host-level viewport store and
-  // is injected into the plugin's drawing through a wrapped 2D context, so the
-  // canvas frame stays put and the *content* moves — re-rendered from data on
-  // every change, revealing content that was previously outside the frame.
+  // is injected into the plugin's drawing through the canvas context transform
+  // (re-applied on every canvas resize at the start of each draw), so the
+  // frame stays put and the *content* moves — re-rendered from data on every
+  // change, revealing content that was previously outside the frame. Rendering
+  // is synchronous on input so the content tracks the cursor 1:1.
   const drag2d = useRef<{
     startX: number;
     startY: number;
     baseX: number;
     baseY: number;
   } | null>(null);
-
-  // Re-render the active plugin at most once per animation frame while
-  // panning/zooming; animation-driven plugins read the viewport live anyway.
-  const rerenderQueued = useRef(false);
-  const scheduleRerender = () => {
-    if (rerenderQueued.current) return;
-    rerenderQueued.current = true;
-    requestAnimationFrame(() => {
-      rerenderQueued.current = false;
-      rerenderActivePlugin();
-    });
-  };
 
   // Pan/zoom only makes sense on a bare 2D viewport: the 3D canvas is up
   // (OrbitControls owns the input there) and plugin DOM must keep its own
@@ -91,7 +82,7 @@ export function CentralArea() {
         y: drag.baseY + (e.clientY - drag.startY),
         scale: v.scale,
       });
-      scheduleRerender();
+      rerenderActivePlugin();
     } else if (pan2dAllowed(e.target)) {
       e.currentTarget.style.cursor = 'grab';
     } else {
@@ -113,7 +104,7 @@ export function CentralArea() {
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
     resetViewport2d();
-    scheduleRerender();
+    rerenderActivePlugin();
   };
 
   // Wheel is attached natively with passive:false so preventDefault works.
@@ -139,7 +130,7 @@ export function CentralArea() {
         y: py - (py - v.y) * k,
         scale: next,
       });
-      scheduleRerender();
+      rerenderActivePlugin();
     };
     host.addEventListener('wheel', onWheel, { passive: false });
     return () => host.removeEventListener('wheel', onWheel);
@@ -150,7 +141,7 @@ export function CentralArea() {
   const activeId = usePluginStore((s) => s.activeId);
   useEffect(() => {
     resetViewport2d();
-    scheduleRerender();
+    rerenderActivePlugin();
   }, [activeId]);
 
   useEffect(() => {
@@ -175,9 +166,7 @@ export function CentralArea() {
       clearCanvas2d: () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const g = canvas.getContext('2d');
-        if (!g) return;
-        g.clearRect(0, 0, canvas.width, canvas.height);
+        clearCanvas2dInViewport(canvas);
       },
     });
     // If a plugin is still active (e.g. CentralArea just remounted after a

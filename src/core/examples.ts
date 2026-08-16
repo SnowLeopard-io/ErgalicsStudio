@@ -24,6 +24,8 @@ import networkEdgesCsv from '../../examples/data/network-edges.csv?raw';
 import bubbleDataCsv from '../../examples/data/bubble-data.csv?raw';
 import violinDataCsv from '../../examples/data/violin-data.csv?raw';
 import sankeyDataCsv from '../../examples/data/sankey-data.csv?raw';
+import boxplotDataCsv from '../../examples/data/boxplot-data.csv?raw';
+import parallelDataCsv from '../../examples/data/parallel-data.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 export interface BuiltinExample {
@@ -327,6 +329,38 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '20 条能源流向边，桑基图节点排列与流量比例带宽示例。',
       'en-US': '20 energy-flow edges; Sankey node layout with proportional ribbon sizing.',
+    },
+  },
+  {
+    id: 'group-boxplot',
+    filename: 'boxplot-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.boxplot',
+    content: boxplotDataCsv,
+    nameI18n: {
+      'zh-CN': '四组箱线分布',
+      'en-US': 'Four-Group Box Plot',
+    },
+    descriptionI18n: {
+      'zh-CN': '4 组各 20 个数值，含离群点，箱线图四分位与须线示例。',
+      'en-US': '4 groups × 20 values with outliers; box plot quartile/whisker demo.',
+    },
+  },
+  {
+    id: 'iris-parallel',
+    filename: 'parallel-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.parallel',
+    content: parallelDataCsv,
+    nameI18n: {
+      'zh-CN': '鸢尾花多维数据',
+      'en-US': 'Iris Multi-variate',
+    },
+    descriptionI18n: {
+      'zh-CN': '3 类 × 4 特征的多维数据，平行坐标图按类别着色示例。',
+      'en-US': '3 classes × 4 features; parallel coordinates with categorical coloring.',
     },
   },
 ];

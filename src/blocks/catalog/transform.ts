@@ -31,6 +31,9 @@ export const selectColumnsBlock: BlockDefinition = defineBlock(
     color: TRANSFORM_COLOR,
     ...dataTableInOut(),
     defaultParams: { columns: [] },
+    paramLabels: {
+      columns: { label: '列', labelI18n: { 'en-US': 'Columns' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -55,6 +58,10 @@ export const renameColumnBlock: BlockDefinition = defineBlock(
     color: TRANSFORM_COLOR,
     ...dataTableInOut(),
     defaultParams: { from: '', to: '' },
+    paramLabels: {
+      from: { label: '原列名', labelI18n: { 'en-US': 'From' } },
+      to: { label: '新列名', labelI18n: { 'en-US': 'To' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -81,6 +88,10 @@ export const addColumnBlock: BlockDefinition = defineBlock(
     color: TRANSFORM_COLOR,
     ...dataTableInOut(),
     defaultParams: { name: 'col', value: 0 },
+    paramLabels: {
+      name: { label: '列名', labelI18n: { 'en-US': 'Name' } },
+      value: { label: '常量值', labelI18n: { 'en-US': 'Value' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -105,6 +116,10 @@ export const normalizeBlock: BlockDefinition = defineBlock(
     color: TRANSFORM_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', mode: 'minmax' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      mode: { label: '方式', labelI18n: { 'en-US': 'Mode' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -126,6 +141,10 @@ export const sortBlock: BlockDefinition = defineBlock(
     color: TRANSFORM_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', direction: 'asc' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      direction: { label: '方向', labelI18n: { 'en-US': 'Direction' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;

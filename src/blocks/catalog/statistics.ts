@@ -52,6 +52,10 @@ export const histogramBlock: BlockDefinition = defineBlock(
     color: STAT_COLOR,
     ...dataTableInOut(),
     defaultParams: { column: '', bins: 10 },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      bins: { label: '分箱数', labelI18n: { 'en-US': 'Bins' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;

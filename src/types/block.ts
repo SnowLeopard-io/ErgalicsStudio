@@ -50,6 +50,8 @@ export interface BlockMeta {
   outputs: PortDef[];
   defaultParams: Record<string, unknown>;
   gpuMode: GpuMode;
+  /** Localized labels for parameters, keyed by param name. */
+  paramLabels?: Record<string, { label: string; labelI18n?: Record<string, string> }>;
   /** Reserved control-flow kind (appendix A.1); unused in phase 1. */
   control?: { kind: ControlKind };
 }

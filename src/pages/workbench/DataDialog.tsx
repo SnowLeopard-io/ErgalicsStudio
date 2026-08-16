@@ -17,6 +17,7 @@ import {
 import { findBuiltin } from '@/plugins/builtin';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from '@/stores/blockStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { SAMPLE_PIPELINES, sampleDescription, sampleName } from '@/blocks/sample';
@@ -34,16 +35,44 @@ interface DataDialogProps {
   onClose: () => void;
 }
 
+function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function DataDialog({ open, onClose }: DataDialogProps) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
-  const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks'>('datasets');
+  const project = useProjectStore((s) => s.project);
+  const addDataFile = useProjectStore((s) => s.addDataFile);
+  const removeDataFile = useProjectStore((s) => s.removeDataFile);
+  const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks' | 'files'>('datasets');
   // A plain object literal here would be recreated on every render, making the
   // re-entrancy guard below useless (double-click would launch two loads).
   const loadingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    let ok = 0;
+    for (const file of Array.from(files)) {
+      try {
+        await addDataFile(file);
+        ok += 1;
+      } catch (err) {
+        logger.error('data', `import failed ${file.name}`, err);
+      }
+    }
+    if (ok > 0) {
+      notify('success', t('workbench.example.files_imported', { count: ok }));
+    } else {
+      notify('error', t('workbench.example.files_import_failed'));
+    }
+  };
 
   const loadExample = async (id: string) => {
     const ex = BUILTIN_EXAMPLES.find((e) => e.id === id);
@@ -94,6 +123,10 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     const sid = useEditorStore.getState().createSession('block', 'python').id;
     useEditorStore.getState().updateSessionIR(sid, program);
     useEditorStore.getState().setActiveSession(sid);
+    // Drop the previous run's results (variables/console/error) and any stale
+    // preview frame so loading a second sample never shows the first one's
+    // output before the user re-runs.
+    useEditorStore.getState().resetRunOutputs();
     useEditorStore.getState().requestLoad(program);
     if (mode !== 'block') setMode('block');
     notify('success', t('workbench.example.pipeline_loaded', { name: blockSampleName(sample, locale) }));
@@ -134,6 +167,13 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
             onClick={() => setTab('blocks')}
           >
             {t('workbench.example.blocks')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'files' ? ' is-active' : ''}`}
+            onClick={() => setTab('files')}
+          >
+            {t('workbench.example.files')}
           </button>
         </div>
 
@@ -188,6 +228,44 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
               </div>
             ))}
           </div>
+        ) : tab === 'files' ? (
+          <div className="plugin-list-pane">
+            <div className="data-files-toolbar">
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {t('workbench.example.files_import')}
+              </button>
+              <span className="data-files-hint">{t('workbench.example.files_hint')}</span>
+            </div>
+            {(!project || project.data.files.length === 0) && (
+              <div className="empty-hint">{t('workbench.example.files_empty')}</div>
+            )}
+            {project?.data.files.map((f) => (
+              <div key={f.id} className="plugin-card">
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▤</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">{f.name}</div>
+                    <div className="plugin-card-meta">
+                      {f.format} · {formatBytes(f.size)}
+                    </div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => removeDataFile(f.id)}
+                  >
+                    {t('common.delete')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="plugin-list-pane">
             {BLOCK_SAMPLES.map((sample) => (
@@ -213,6 +291,18 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
           </div>
         )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".csv,.dat,.xyz,.json,.txt,text/csv,text/plain,application/json,application/octet-stream"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          void handleImportFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
     </Modal>
   );
 }

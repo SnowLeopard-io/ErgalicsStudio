@@ -483,6 +483,27 @@
   opacity: 1;
 }
 
+.sidebar-file-item {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.sidebar-file-name {
+  flex: 1;
+  padding: 6px 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-file-item:hover .recent-delete {
+  opacity: 1;
+}
+
 .plugin-list {
   list-style: none;
   margin: 0;

@@ -26,6 +26,7 @@ export interface DefineBlockArgs {
   inputs?: PortDef[];
   outputs?: PortDef[];
   defaultParams?: Record<string, unknown>;
+  paramLabels?: Record<string, { label: string; labelI18n?: Record<string, string> }>;
   gpuMode?: GpuMode;
 }
 
@@ -43,6 +44,7 @@ export function defineBlock(args: DefineBlockArgs, executor?: BlockExecutor): Bl
       inputs: args.inputs ?? [],
       outputs: args.outputs ?? [],
       defaultParams: args.defaultParams ?? {},
+      paramLabels: args.paramLabels,
       gpuMode: args.gpuMode ?? 'cpu-only',
     },
     executor,

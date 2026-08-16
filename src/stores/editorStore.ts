@@ -49,6 +49,9 @@ export interface EditorStore {
   setError: (error: string | null) => void;
   requestLoad: (program: IRProgram) => void;
   consumeLoad: () => void;
+  /** Clear every run output (variables / console / error) so a newly-loaded
+   *  program does not linger over the previous run's results. */
+  resetRunOutputs: () => void;
 
   toJSON: () => { sessions: EditorSession[]; activeSessionId: string | null };
   fromJSON: (state: { sessions?: EditorSession[]; activeSessionId?: string | null }) => void;
@@ -116,6 +119,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setError: (error) => set({ error }),
   requestLoad: (program) => set({ pendingLoad: program }),
   consumeLoad: () => set({ pendingLoad: null }),
+  resetRunOutputs: () =>
+    set({ variables: {}, console: [], error: null, isRunning: false }),
 
   toJSON: () => ({
     // Clone sessions so the persisted snapshot is not aliased to live store

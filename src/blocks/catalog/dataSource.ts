@@ -6,6 +6,8 @@
 // ==========================================================================
 
 import { createDataTable } from '@/types/datatable';
+import { parseDataText } from '@/blocks/fileData';
+import { resolveDataFile } from '@/core/dataFiles';
 import { defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -43,6 +45,10 @@ export const exampleData: BlockDefinition = defineBlock(
     color: DATA_SOURCE_COLOR,
     outputs: [{ id: 'out', label: '数据', type: 'data', dataType: 'DataTable', required: false }],
     defaultParams: { count: 100, seed: 1 },
+    paramLabels: {
+      count: { label: '数量', labelI18n: { 'en-US': 'Count' } },
+      seed: { label: '种子', labelI18n: { 'en-US': 'Seed' } },
+    },
   },
   async (ctx) => {
     const count = clampCount(ctx.getParam('count'), 100, MAX_ROWS);
@@ -76,6 +82,10 @@ export const generateRandom: BlockDefinition = defineBlock(
     color: DATA_SOURCE_COLOR,
     outputs: [{ id: 'out', label: '数据', type: 'data', dataType: 'DataTable', required: false }],
     defaultParams: { count: 100, seed: 0 },
+    paramLabels: {
+      count: { label: '数量', labelI18n: { 'en-US': 'Count' } },
+      seed: { label: '种子', labelI18n: { 'en-US': 'Seed' } },
+    },
   },
   async (ctx) => {
     const count = clampCount(ctx.getParam('count'), 100, MAX_ROWS);
@@ -100,6 +110,9 @@ export const generateGrid: BlockDefinition = defineBlock(
     color: DATA_SOURCE_COLOR,
     outputs: [{ id: 'out', label: '数据', type: 'data', dataType: 'DataTable', required: false }],
     defaultParams: { size: 10 },
+    paramLabels: {
+      size: { label: '网格大小', labelI18n: { 'en-US': 'Grid Size' } },
+    },
   },
   async (ctx) => {
     const size = clampCount(ctx.getParam('size'), 10, MAX_GRID_SIZE);
@@ -123,4 +136,37 @@ export const generateGrid: BlockDefinition = defineBlock(
   },
 );
 
-export const dataSourceBlocks: BlockDefinition[] = [exampleData, generateRandom, generateGrid];
+export const projectFileBlock: BlockDefinition = defineBlock(
+  {
+    id: 'source.file',
+    category: 'data_source',
+    name: '项目文件',
+    nameI18n: { 'en-US': 'Project File' },
+    description: '从项目数据文件加载表格数据',
+    descriptionI18n: { 'en-US': 'Load tabular data from a project data file' },
+    color: DATA_SOURCE_COLOR,
+    outputs: [{ id: 'out', label: '数据', type: 'data', dataType: 'DataTable', required: false }],
+    defaultParams: { fileName: '' },
+    paramLabels: {
+      fileName: { label: '文件名', labelI18n: { 'en-US': 'File Name' } },
+    },
+  },
+  async (ctx) => {
+    const fileName = String(ctx.getParam('fileName') ?? '');
+    if (!fileName) {
+      throw new Error('this block is not configured — pick a project file');
+    }
+    const text = resolveDataFile(fileName);
+    if (text === undefined) {
+      throw new Error(`file "${fileName}" not found in project`);
+    }
+    return parseDataText(text, fileName);
+  },
+);
+
+export const dataSourceBlocks: BlockDefinition[] = [
+  exampleData,
+  generateRandom,
+  generateGrid,
+  projectFileBlock,
+];

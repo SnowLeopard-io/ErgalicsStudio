@@ -4,10 +4,15 @@
 // Drag-to-pan and wheel-to-zoom for every 2D plugin. The shared canvas keeps a
 // fixed viewport-sized bitmap, so panning the canvas *element* can only ever
 // reveal an empty bitmap edge (the "content is truncated" bug). Instead the
-// current pan/zoom is injected into every drawing call through a
-// Proxy-wrapped 2D context: the plugin re-renders from its data on each
-// viewport change, so content that was previously outside the frame is
-// actually drawn again and appears inside the fixed frame.
+// current pan/zoom is injected into the context transform: the plugin
+// re-renders from its data on each viewport change, so content that was
+// previously outside the frame is actually drawn again and appears inside the
+// fixed frame.
+//
+// Every built-in 2D plugin starts its draw with `canvas.width = clientWidth`
+// (and height), an assignment that also resets the context transform. Hooking
+// the width/height setters lets us apply the viewport transform exactly once
+// per frame — no per-call proxy overhead, so a drag tracks the cursor closely.
 // ==========================================================================
 
 export interface Viewport2D {
@@ -35,75 +40,60 @@ export function resetViewport2d(): void {
   current = { ...DEFAULT_VIEWPORT };
 }
 
-// Rendering/path primitives that must run under the view transform. Read and
-// state APIs (getImageData, measureText, fillStyle, …) pass through untouched.
-const DRAW_METHODS: ReadonlySet<string> = new Set([
-  'fillRect',
-  'strokeRect',
-  'clearRect',
-  'fillText',
-  'strokeText',
-  'beginPath',
-  'moveTo',
-  'lineTo',
-  'closePath',
-  'rect',
-  'roundRect',
-  'arc',
-  'arcTo',
-  'ellipse',
-  'bezierCurveTo',
-  'quadraticCurveTo',
-  'fill',
-  'stroke',
-  'clip',
-  'drawImage',
-]);
+const hookedCanvases = new WeakSet<HTMLCanvasElement>();
 
 /**
- * Wrap the shared 2D canvas so every drawing call is issued under the current
- * viewport transform (save → translate/scale → op → restore). Idempotent —
- * repeated calls reuse the same proxy. Non-2d contexts (e.g. WebGL on the 3D
- * canvas) are untouched.
+ * Hook the canvas so the 2D context transform follows the viewport. Applied
+ * after every `canvas.width`/`height` assignment (which resets the context),
+ * i.e. once at the start of each plugin draw. Idempotent per canvas; non-2d
+ * canvases (the 3D surface, plugin-scoped canvases) are untouched.
  */
 export function wrapCanvas2d(canvas: HTMLCanvasElement): void {
-  const origGetContext = canvas.getContext.bind(canvas) as typeof canvas.getContext;
-  let cached: CanvasRenderingContext2D | null = null;
+  if (hookedCanvases.has(canvas)) return;
+  hookedCanvases.add(canvas);
 
-  const handler: ProxyHandler<CanvasRenderingContext2D> = {
-    get(target, prop) {
-      // Reflect with receiver = target: accessor properties (fillStyle, font,
-      // …) are getters that require the real context's internal slots — they
-      // throw "Illegal invocation" if invoked with `this` = the proxy.
-      const value = Reflect.get(target, prop, target);
-      if (typeof value !== 'function') return value;
-      if (!DRAW_METHODS.has(prop as string)) {
-        // Pass-through methods (getImageData, measureText, …) must keep
-        // `this` bound to the real context for the same reason.
-        return value.bind(target);
-      }
-      return (...args: unknown[]) => {
-        const vp = getViewport2d();
-        target.save();
-        target.translate(vp.x, vp.y);
-        target.scale(vp.scale, vp.scale);
-        const result = (value as (...a: unknown[]) => unknown).apply(target, args);
-        target.restore();
-        return result;
-      };
-    },
-    set(target, prop, value) {
-      return Reflect.set(target, prop, value, target);
-    },
+  const proto = HTMLCanvasElement.prototype;
+  const widthDesc = Object.getOwnPropertyDescriptor(proto, 'width');
+  const heightDesc = Object.getOwnPropertyDescriptor(proto, 'height');
+  if (!widthDesc?.set || !heightDesc?.set) return;
+
+  const applyViewport = () => {
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    const vp = getViewport2d();
+    g.setTransform(vp.scale, 0, 0, vp.scale, vp.x, vp.y);
   };
 
-  canvas.getContext = ((contextId: string, ...options: unknown[]) => {
-    if (contextId !== '2d') return origGetContext(contextId, ...(options as [any?]));
-    if (!cached) {
-      const raw = origGetContext('2d', ...(options as [any?]));
-      if (!raw) return null;
-      cached = new Proxy(raw, handler) as unknown as CanvasRenderingContext2D;
-    }
-    return cached;
-  }) as typeof canvas.getContext;
+  Object.defineProperty(canvas, 'width', {
+    get() {
+      return widthDesc.get!.call(this) as number;
+    },
+    set(v: number) {
+      widthDesc.set!.call(this, v);
+      applyViewport();
+    },
+    configurable: true,
+  });
+
+  Object.defineProperty(canvas, 'height', {
+    get() {
+      return heightDesc.get!.call(this) as number;
+    },
+    set(v: number) {
+      heightDesc.set!.call(this, v);
+      applyViewport();
+    },
+    configurable: true,
+  });
+}
+
+/**
+ * Clear the canvas in the fixed (viewport) coordinate space, regardless of the
+ * current view transform.
+ */
+export function clearCanvas2dInViewport(canvas: HTMLCanvasElement): void {
+  const g = canvas.getContext('2d');
+  if (!g) return;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, canvas.width, canvas.height);
 }

@@ -89,6 +89,19 @@ describe('editorStore', () => {
     expect(s.error).toBeNull();
   });
 
+  it('resetRunOutputs clears variables/console/error and stops the run', () => {
+    useEditorStore.getState().setVariables({ x: { kind: 'scalar', value: 1 } });
+    useEditorStore.getState().appendConsole({ stream: 'stdout', text: 'previous run' });
+    useEditorStore.getState().setError('boom');
+    useEditorStore.getState().setRunning(true);
+    useEditorStore.getState().resetRunOutputs();
+    const s = useEditorStore.getState();
+    expect(s.variables).toEqual({});
+    expect(s.console).toEqual([]);
+    expect(s.error).toBeNull();
+    expect(s.isRunning).toBe(false);
+  });
+
   it('requestLoad / consumeLoad round-trip a pending program', () => {
     expect(useEditorStore.getState().pendingLoad).toBeNull();
     const program = makeProgram([{ kind: 'Number', value: 1 }]);

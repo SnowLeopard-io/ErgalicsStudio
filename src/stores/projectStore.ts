@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import type { Project } from '@/types/project';
+import type { FileEntry, Project } from '@/types/project';
 import {
   createEmptyProject,
   deserializeProject,
   serializeProject,
   touchProject,
 } from '@/types/project';
+import { setProjectFiles } from '@/core/dataFiles';
 import {
   saveProject,
   deleteProject,
@@ -54,9 +55,25 @@ interface ProjectStore {
   applyBlockGraph: () => void;
   /** Persist editor sessions + active mode into the project before save. */
   applyEditor: () => void;
+  /** Import a data file into the current project's file list. */
+  addDataFile: (file: File) => Promise<void>;
+  /** Remove a data file from the current project. */
+  removeDataFile: (id: string) => void;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Derive a data-file "format" tag from a filename extension. */
+function fileExtension(name: string): string {
+  const idx = name.lastIndexOf('.');
+  if (idx < 0) return 'txt';
+  return name.slice(idx + 1).toLowerCase();
+}
+
+/** Re-sync the shared file registry whenever the current project changes. */
+function syncProjectFiles(project: Project | null): void {
+  setProjectFiles(project?.data.files ?? []);
+}
 
 const EMPTY_BLOCK_GRAPH: BlockGraphState = {
   instances: [],
@@ -112,6 +129,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
     set({ project, dirty: false });
+    syncProjectFiles(project);
     await get().loadRecent();
     return project;
   },
@@ -120,6 +138,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const project = await getProject(id);
     if (!project) throw new Error('project not found');
     set({ project, dirty: false });
+    syncProjectFiles(project);
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
     restoreBlockGraph(project.state.blockGraph);
@@ -131,6 +150,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const project = deserializeProject(raw);
     await saveProject(project);
     set({ project, dirty: false });
+    syncProjectFiles(project);
     await get().loadRecent();
     usePluginStore.getState().restoreState(project);
     restoreBlockGraph(project.state.blockGraph);
@@ -200,6 +220,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().loadRecent();
     if (get().project?.id === id) {
       set({ project: null, dirty: false });
+      syncProjectFiles(null);
       // Clear the block graph, editor sessions and active plugin so the
       // canvas/editor never keep showing the deleted project's content.
       useBlockStore.getState().clear();
@@ -262,6 +283,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         },
       },
     });
+  },
+
+  addDataFile: async (file) => {
+    const { project } = get();
+    if (!project) return;
+    const content = await file.text();
+    const entry: FileEntry = {
+      id: crypto.randomUUID(),
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || 'text/plain',
+      format: fileExtension(file.name),
+      content,
+    };
+    const files = [...project.data.files, entry];
+    set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
+    // Keep the runtime file registry in sync so flow/block can resolve it.
+    setProjectFiles(files);
+  },
+
+  removeDataFile: (id) => {
+    const { project } = get();
+    if (!project) return;
+    const files = project.data.files.filter((f) => f.id !== id);
+    set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
+    setProjectFiles(files);
   },
 }));
 

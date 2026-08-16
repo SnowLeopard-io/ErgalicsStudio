@@ -46,6 +46,11 @@ export const scatterBlock: BlockDefinition = defineBlock(
     color: VIZ_COLOR,
     ...viewInput(),
     defaultParams: { xColumn: '', yColumn: '', colorColumn: '' },
+    paramLabels: {
+      xColumn: { label: 'X 列', labelI18n: { 'en-US': 'X Column' } },
+      yColumn: { label: 'Y 列', labelI18n: { 'en-US': 'Y Column' } },
+      colorColumn: { label: '颜色列', labelI18n: { 'en-US': 'Color Column' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -71,6 +76,10 @@ export const lineBlock: BlockDefinition = defineBlock(
     color: VIZ_COLOR,
     ...viewInput(),
     defaultParams: { xColumn: '', yColumn: '' },
+    paramLabels: {
+      xColumn: { label: 'X 列', labelI18n: { 'en-US': 'X Column' } },
+      yColumn: { label: 'Y 列', labelI18n: { 'en-US': 'Y Column' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -93,6 +102,9 @@ export const histogramViewBlock: BlockDefinition = defineBlock(
     color: VIZ_COLOR,
     ...viewInput(),
     defaultParams: { column: '' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;
@@ -113,6 +125,10 @@ export const pointCloud2DBlock: BlockDefinition = defineBlock(
     color: VIZ_COLOR,
     ...viewInput(),
     defaultParams: { xColumn: '', yColumn: '' },
+    paramLabels: {
+      xColumn: { label: 'X 列', labelI18n: { 'en-US': 'X Column' } },
+      yColumn: { label: 'Y 列', labelI18n: { 'en-US': 'Y Column' } },
+    },
   },
   async (ctx) => {
     const input = ctx.getInput('data') as DataTable;

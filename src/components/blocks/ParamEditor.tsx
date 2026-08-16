@@ -6,11 +6,13 @@
 // edited as comma-separated text.
 // ==========================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useT } from '@/i18n';
 import { useBlockStore } from '@/stores/blockStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { blockRegistry } from '@/blocks/registry';
-import { blockName } from '@/blocks/l10n';
+import { blockName, blockParamLabel } from '@/blocks/l10n';
+import { listDataFiles } from '@/core/dataFiles';
 
 function parseArray(text: string): string[] {
   return text
@@ -150,6 +152,28 @@ function ParamInput({ value, onChange }: { value: unknown; onChange: (v: unknown
   return <span className="empty-hint">{JSON.stringify(value)}</span>;
 }
 
+/**
+ * A dropdown of every resolvable data file (project files first, then bundled
+ * examples) for the `source.file` block's fileName parameter. Subscribes to the
+ * project store so the list refreshes right after importing/removing a file.
+ */
+function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {
+  const projectFiles = useProjectStore((s) => s.project?.data.files ?? []);
+  const files = useMemo(() => listDataFiles(), [projectFiles]);
+  return (
+    <select
+      className="input"
+      value={String(value ?? '')}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">—</option>
+      {files.map((f) => (
+        <option key={f} value={f}>{f}</option>
+      ))}
+    </select>
+  );
+}
+
 export function ParamEditor() {
   const t = useT();
   const { locale } = useLocale();
@@ -176,12 +200,25 @@ export function ParamEditor() {
       <div className="block-param-title">{blockName(meta, locale)}</div>
       <div className="block-param-id">{meta.id}</div>
       {keys.length === 0 && <div className="empty-hint">{t('blocks.params.none')}</div>}
-      {keys.map((key) => (
-        <label key={key} className="block-param-field">
-          <span className="block-param-label">{key}</span>
-          <ParamInput value={params[key]} onChange={(v) => updateParams(selected.id, { [key]: v })} />
-        </label>
-      ))}
+      {keys.map((key) => {
+        const isFilePick = meta.id === 'source.file' && key === 'fileName';
+        return (
+          <label key={key} className="block-param-field">
+            <span className="block-param-label">{blockParamLabel(meta, key, locale)}</span>
+            {isFilePick ? (
+              <FilePickInput
+                value={params[key]}
+                onChange={(v) => updateParams(selected.id, { [key]: v })}
+              />
+            ) : (
+              <ParamInput
+                value={params[key]}
+                onChange={(v) => updateParams(selected.id, { [key]: v })}
+              />
+            )}
+          </label>
+        );
+      })}
     </div>
   );
 }

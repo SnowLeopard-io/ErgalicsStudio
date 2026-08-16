@@ -19,6 +19,8 @@ import { networkGraphManifest } from './networkGraph';
 import { bubbleChartManifest } from './bubbleChart';
 import { violinPlotManifest } from './violinPlot';
 import { sankeyManifest } from './sankey';
+import { boxPlotManifest } from './boxPlot';
+import { parallelCoordinatesManifest } from './parallelCoordinates';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -142,6 +144,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: sankeyManifest,
     load: async () => {
       const mod = await import('./sankey');
+      return mod.default();
+    },
+  },
+  {
+    manifest: boxPlotManifest,
+    load: async () => {
+      const mod = await import('./boxPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: parallelCoordinatesManifest,
+    load: async () => {
+      const mod = await import('./parallelCoordinates');
       return mod.default();
     },
   },
