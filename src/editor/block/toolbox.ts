@@ -40,13 +40,13 @@ export const TOOLBOX = {
   contents: [
     {
       kind: 'category',
-      name: '启动',
+      name: '%{BKY_CAT_START}',
       colour: '#22C55E',
       contents: [block('studio_run')],
     },
     {
       kind: 'category',
-      name: '数据',
+      name: '%{BKY_CAT_DATA}',
       colour: '#4C97FF',
       contents: [
         block('studio_load_csv'),
@@ -69,13 +69,13 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
-      name: '变量',
+      name: '%{BKY_CAT_VARIABLES}',
       colour: '#FF8C1A',
       contents: [block('studio_var'), block('studio_var_assign', { VALUE: { shadow: shadowNumber(0) } })],
     },
     {
       kind: 'category',
-      name: '运算',
+      name: '%{BKY_CAT_OPERATORS}',
       colour: '#59C059',
       contents: [
         block('studio_number'),
@@ -98,7 +98,7 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
-      name: '变换',
+      name: '%{BKY_CAT_TRANSFORM}',
       colour: '#CF63CF',
       contents: [
         block('studio_normalize'),
@@ -109,13 +109,13 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
-      name: '统计',
+      name: '%{BKY_CAT_STATS}',
       colour: '#9966FF',
       contents: [block('studio_summary'), block('studio_histogram', { BINS: { shadow: shadowNumber(10) } })],
     },
     {
       kind: 'category',
-      name: '可视化',
+      name: '%{BKY_CAT_VIZ}',
       colour: '#FF6680',
       contents: [
         block('studio_plot_scatter'),
@@ -126,7 +126,7 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
-      name: '控制',
+      name: '%{BKY_CAT_CONTROL}',
       colour: '#FFAB19',
       contents: [
         block('studio_repeat', { COUNT: { shadow: shadowNumber(10) } }),
@@ -137,7 +137,7 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
-      name: '工具',
+      name: '%{BKY_CAT_UTILITY}',
       colour: '#8A97A8',
       contents: [block('studio_print', { TEXT: { shadow: shadowString('你好') } })],
     },

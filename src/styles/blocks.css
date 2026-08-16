@@ -543,77 +543,397 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- block editor (Blockly) ---- */
+/* ==========================================================================
+   Block editor (Blockly)
+   Modern IDE layout — floating pills, soft shadows, rounded corners, card-
+   style side panels. Layered above the workspace with subtle background
+   pattern. Light + dark variants.
+   ========================================================================== */
 
 .block-editor {
   display: flex;
   flex: 1;
   min-height: 0;
   flex-direction: column;
+  position: relative;
+  isolation: isolate;
+  /* Subtle dot grid backdrop for the whole editor */
+  background-color: var(--color-bg-primary);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(125, 140, 160, 0.07) 1px, transparent 0);
+  background-size: 22px 22px;
 }
+
+:root[data-theme='dark'] .block-editor {
+  background-color: #0a0e13;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(125, 160, 200, 0.05) 1px, transparent 0);
+}
+
+/* ---------- toolbar ---------- */
 
 .block-editor-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+  gap: 10px;
+  padding: 10px 16px;
+  /* Floating pill — sits over the dot grid */
+  margin: 12px 12px 0 12px;
+  background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  position: relative;
+  z-index: 5;
 }
+
+:root[data-theme='dark'] .block-editor-toolbar {
+  background: rgba(15, 20, 27, 0.72);
+}
+
+/* Run / Stop — primary pill with gradient + glow */
+.be-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #14b8a6 0%, #0e9384 60%, #0a7e72 100%);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 1px 2px rgba(20, 184, 166, 0.18),
+    0 4px 12px -2px rgba(20, 184, 166, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: transform 120ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+
+.be-run-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(20, 184, 166, 0.22),
+    0 8px 18px -2px rgba(20, 184, 166, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.be-run-btn:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.96);
+}
+
+.be-run-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.3) brightness(0.9);
+  opacity: 0.65;
+}
+
+.be-run-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+/* Spacer pushes the status pill to the right */
+.be-toolbar-spacer {
+  flex: 1;
+}
+
+/* Status pill — small live indicator */
+.be-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  transition: all 200ms ease;
+}
+
+.be-status-pill.is-idle {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+  color: var(--color-text-tertiary);
+}
+
+.be-status-pill.is-running {
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.4);
+}
+
+.be-status-pill.is-error {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.be-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.be-status-pill.is-idle .be-status-dot {
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+.be-status-pill.is-running .be-status-dot {
+  animation: be-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes be-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+/* Existing segmented Python/JS toggle — keep, but tighter & aligned with new toolbar */
+.block-editor-toggle {
+  display: inline-flex;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.block-editor-toggle .btn {
+  border: none;
+  border-radius: 0;
+  height: 100%;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.block-editor-toggle .btn + .btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.block-editor-toggle .btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.block-editor-toggle .btn.btn-toggle-on {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-weight: 600;
+}
+
+/* ---------- main split ---------- */
 
 .block-editor-main {
   display: flex;
   flex: 1;
   min-height: 0;
+  gap: 12px;
+  padding: 12px;
+  padding-top: 8px;
 }
 
 .block-editor-workspace {
   flex: 1;
   min-width: 0;
   height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
+
+/* Blockly's SVG text must not inherit the app's monospace stack — a
+   proportional font keeps blocks compact. The theme also sets the size. */
+.block-editor-workspace .blocklyText {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Make Blockly's toolbox look like a sidebar instead of a raw list */
+.block-editor-workspace .blocklyToolboxDiv {
+  background: transparent !important;
+  border-right: 1px solid var(--color-border);
+  padding: 10px 6px;
+}
+
+.block-editor-workspace .blocklyTreeRow {
+  border-radius: 7px !important;
+  margin: 1px 4px;
+  padding: 0 10px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.block-editor-workspace .blocklyTreeRow:hover {
+  background: var(--color-bg-hover) !important;
+  transform: translateX(2px);
+}
+
+.block-editor-workspace .blocklyTreeSelected {
+  background: var(--color-accent-soft) !important;
+  color: var(--color-accent-text) !important;
+  font-weight: 600;
+}
+
+.block-editor-workspace .blocklyTreeLabel {
+  font-family: 'Inter', 'PingFang SC', sans-serif !important;
+  font-size: 11.5px !important;
+  font-weight: 500;
+}
+
+/* Flyout — softer border, rounded corners */
+.block-editor-workspace .blocklyFlyout {
+  border-right: 1px solid var(--color-border) !important;
+}
+
+/* ---------- code panel (when toggled) ---------- */
 
 .block-editor-code {
   width: 360px;
   flex-shrink: 0;
-  border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px -16px rgba(0, 0, 0, 0.28);
+}
+
+.block-editor-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+}
+
+.be-code-lang {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-text);
+}
+
+.be-code-refresh {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  transition: all 150ms ease;
+}
+
+.be-code-refresh:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .block-editor-code pre {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: 12px;
+  padding: 16px;
   overflow: auto;
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
+  line-height: 1.6;
   color: var(--color-text-primary);
   white-space: pre;
+  background: var(--color-bg-primary);
 }
 
-.block-editor-code .btn {
-  margin: 8px;
-}
+/* ---------- right column: stacked cards ---------- */
 
 .block-editor-right {
-  width: 300px;
+  width: 308px;
   flex-shrink: 0;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 12px;
+  min-height: 0;
 }
 
+/* Preview card */
 .block-editor-preview {
-  height: 280px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  height: 240px;
   position: relative;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-canvas);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(45, 212, 191, 0.10), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(99, 102, 241, 0.08), transparent 55%),
+    var(--color-bg-secondary);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px -16px rgba(0, 0, 0, 0.28);
+}
+
+.block-editor-preview-label {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  z-index: 1;
+  pointer-events: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-primary) 70%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.block-editor-preview-label::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
 }
 
 .block-editor-preview-dom {
@@ -628,68 +948,255 @@
   height: 100%;
 }
 
-/* ---- shared editor panels (variables / console) ---- */
+/* ---------- shared editor panels (variables / console) ---------- */
 
 .editor-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
 
-.editor-panel + .editor-panel {
-  border-top: 1px solid var(--color-border);
+.editor-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
 }
 
 .editor-panel-title {
-  padding: 8px 12px;
-  font-size: var(--font-size-sm);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.editor-panel-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
   font-weight: 600;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.editor-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-panel-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 12px;
+  transition: all 150ms ease;
+}
+
+.editor-panel-action:hover {
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .editor-panel-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 6px 0;
 }
 
+/* Empty state with icon + label */
 .editor-panel-empty {
-  font-size: var(--font-size-xs);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 14px;
+  font-size: 11.5px;
   color: var(--color-text-tertiary);
+  text-align: center;
 }
 
+.editor-panel-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  border: 1px solid var(--color-border);
+}
+
+/* Variable rows */
 .editor-var-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-2);
-  padding: 4px 0;
-  font-size: var(--font-size-sm);
+  padding: 7px 14px;
+  font-size: 11.5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  transition: background 120ms ease;
+}
+
+.editor-var-row:last-child {
+  border-bottom: none;
+}
+
+.editor-var-row:hover {
+  background: var(--color-bg-hover);
 }
 
 .editor-var-name {
-  color: var(--color-accent-text);
-  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+.editor-var-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.editor-var-icon.is-scalar {
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+}
+
+.editor-var-icon.is-table {
+  background: rgba(99, 102, 241, 0.14);
+  color: #a5b4fc;
+}
+
+.editor-var-icon.is-view {
+  background: rgba(244, 114, 182, 0.14);
+  color: #f9a8d4;
+}
+
+.editor-var-icon.is-unknown {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .editor-var-value {
   color: var(--color-text-secondary);
-  font-family: var(--font-mono);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 3px 9px;
+  background: var(--color-bg-tertiary);
+  border-radius: 5px;
+  border: 1px solid var(--color-border);
 }
 
+.editor-var-value.is-table {
+  background: rgba(99, 102, 241, 0.10);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.editor-var-value.is-view {
+  background: rgba(244, 114, 182, 0.10);
+  color: #f9a8d4;
+  border-color: rgba(244, 114, 182, 0.25);
+}
+
+/* Console lines */
 .editor-console-line {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 6px 14px;
   white-space: pre-wrap;
   word-break: break-all;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.editor-console-line:last-child {
+  border-bottom: none;
+}
+
+.editor-console-glyph {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.editor-console-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-console-line.is-stdout .editor-console-glyph {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.editor-console-line.is-stdout {
+  color: var(--color-text-primary);
 }
 
 .editor-console-line.is-stderr {
-  color: var(--color-error);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+.editor-console-line.is-stderr .editor-console-glyph {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
 }
 
 .editor-console-line.is-info {
+  color: var(--color-accent-text);
+}
+
+.editor-console-line.is-info .editor-console-glyph {
+  background: var(--color-accent-soft);
   color: var(--color-accent-text);
 }

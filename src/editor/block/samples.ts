@@ -72,13 +72,13 @@ export const BLOCK_SAMPLES: BlockSample[] = [
     id: 'repeat-print',
     name: '循环打招呼',
     nameI18n: { 'en-US': 'Loop & Print' },
-    description: '重复 5 次在控制台输出「你好」',
-    descriptionI18n: { 'en-US': 'Print "hello" 5 times' },
+    description: '重复 5 次在控制台输出「你好，世界！」',
+    descriptionI18n: { 'en-US': 'Print "Hello, world!" 5 times' },
     body: [
       {
         kind: 'Repeat',
         count: num(5),
-        body: [{ kind: 'StudioCall', method: 'print', args: [str('你好，积木！')] }],
+        body: [{ kind: 'StudioCall', method: 'print', args: [str('Hello, world!')] }],
       },
     ],
   },

@@ -10,25 +10,24 @@ import * as Blockly from 'blockly/core';
 import * as zhHans from 'blockly/msg/zh-hans';
 import * as en from 'blockly/msg/en';
 import { BLOCK_DEFS } from './blocks';
+import { BLOCK_I18N } from './i18n';
 import { createKidsTheme } from './theme';
 import { TOOLBOX } from './toolbox';
 import { workspaceJSONToIR, irToWorkspaceJSON } from './convert';
 import type { IRProgram } from '../ir/types';
 
-let initialized = false;
-
-/** Register custom blocks, locale and theme. Idempotent. */
+/** Register custom blocks, locale and theme. Idempotent for block defs. */
 export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): void {
   // Register only the block types not already present — `defineBlocksWithJsonArray`
-  // throws on duplicates, and HMR can re-run this module with a fresh `initialized`.
+  // throws on duplicates, and HMR can re-run this module with a fresh flag.
   const missing = BLOCK_DEFS.filter((d) => !(d.type in Blockly.Blocks));
   if (missing.length > 0) {
     Blockly.defineBlocksWithJsonArray(missing as unknown as Parameters<typeof Blockly.defineBlocksWithJsonArray>[0]);
   }
-  if (!initialized) {
-    initialized = true;
-    Blockly.setLocale((locale === 'zh-CN' ? zhHans : en) as unknown as { [key: string]: string });
-  }
+  // Apply locale messages on every call (base Blockly messages + our custom
+  // block messages) so `%{BKY_*}` refs resolve to the current language.
+  const base = (locale === 'zh-CN' ? zhHans : en) as unknown as Record<string, string>;
+  Blockly.setLocale({ ...base, ...BLOCK_I18N[locale] });
   Blockly.Theme.defineTheme('studio-kids', createKidsTheme(dark) as unknown as Blockly.Theme);
 }
 
@@ -37,14 +36,14 @@ export function createWorkspace(div: HTMLElement): Blockly.WorkspaceSvg {
   return Blockly.inject(div, {
     toolbox: TOOLBOX as unknown as Blockly.utils.toolbox.ToolboxDefinition,
     theme: 'studio-kids',
-    renderer: 'zelos',
+    renderer: 'geras',
     grid: {
       spacing: 20,
       length: 2,
       colour: document.documentElement.dataset.theme === 'dark' ? '#1a212c' : '#e8edf2',
       snap: true,
     },
-    zoom: { controls: true, wheel: true, startScale: 1, maxScale: 1.6, minScale: 0.5 },
+    zoom: { controls: true, wheel: true, startScale: 0.85, maxScale: 1.4, minScale: 0.4 },
     trashcan: true,
     move: { scrollbars: true, drag: true, wheel: true },
   });

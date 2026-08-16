@@ -20,7 +20,6 @@ import type { StudioApiHost } from '@/editor/runtime/studio-api';
 import { interpret } from '@/editor/runtime/interpreter';
 import { resolveExampleFile, listExampleFiles } from '@/editor/runtime/data-resolver';
 import { codegenJS, codegenPython } from '@/editor/codegen';
-import { BLOCK_SAMPLES, sampleProgram, sampleName } from '@/editor/block/samples';
 import {
   initBlocklyEngine,
   createWorkspace,
@@ -28,7 +27,6 @@ import {
   loadIRIntoWorkspace,
   disposeWorkspace,
 } from '@/editor/block';
-import { Dropdown } from '@/components/Dropdown';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
 
@@ -39,6 +37,7 @@ export function BlockEditor() {
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
   const isRunning = useEditorStore((s) => s.isRunning);
+  const pendingLoad = useEditorStore((s) => s.pendingLoad);
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
@@ -49,7 +48,8 @@ export function BlockEditor() {
   const [codeView, setCodeView] = useState<'js' | 'python' | null>(null);
   const [code, setCode] = useState('');
 
-  // Register blocks + create the workspace (idempotent under StrictMode).
+  // Register blocks + create the workspace (recreated on locale change so
+  // blocks re-label into the new language).
   useEffect(() => {
     initBlocklyEngine(locale, dark);
     if (divRef.current) {
@@ -62,7 +62,15 @@ export function BlockEditor() {
         // Keep the "view code" overlay in sync while editing.
         setCode(codegenPython(ir));
       });
-      lastLoadedId.current = null;
+      // Re-hydrate the fresh workspace from the active session (needed when the
+      // workspace is recreated on a locale switch).
+      const sid = useEditorStore.getState().activeSessionId;
+      const session = useEditorStore.getState().sessions.find((s) => s.id === sid);
+      if (session) {
+        loadIRIntoWorkspace(ws, session.ir);
+        setCode(codegenPython(session.ir));
+      }
+      lastLoadedId.current = sid ?? null;
     }
     return () => {
       if (wsRef.current) {
@@ -71,7 +79,7 @@ export function BlockEditor() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [locale]);
 
   // Ensure an active session exists, and (re)load its IR into the workspace
   // when it changes (e.g. after opening another project).
@@ -106,6 +114,19 @@ export function BlockEditor() {
     });
     return () => setHostContainers(null);
   }, []);
+
+  // Consume a program requested by an external caller (e.g. the samples
+  // dialog in the top bar). The session IR is already updated by the caller,
+  // so this only refreshes the already-mounted workspace.
+  useEffect(() => {
+    if (!pendingLoad) return;
+    const ws = wsRef.current;
+    if (ws) {
+      loadIRIntoWorkspace(ws, pendingLoad);
+      setCodeView(null);
+    }
+    useEditorStore.getState().consumeLoad();
+  }, [pendingLoad]);
 
   const buildStudioHost = (): StudioApiHost => {
     const viewHost: ViewRenderHost = {
@@ -173,40 +194,31 @@ export function BlockEditor() {
     setCode(ir ? (lang === 'js' ? codegenJS(ir) : codegenPython(ir)) : '');
   };
 
-  const loadSample = (id: string) => {
-    const sample = BLOCK_SAMPLES.find((s) => s.id === id);
-    const ws = wsRef.current;
-    if (!sample || !ws) return;
-    const program = sampleProgram(sample);
-    loadIRIntoWorkspace(ws, program);
-    const sid = useEditorStore.getState().activeSessionId;
-    if (sid) useEditorStore.getState().updateSessionIR(sid, program);
-    setCodeView(null);
-    useAppStore.getState().notify('success', `${t('workbench.example.pipeline_loaded', { name: sampleName(sample, locale) })}`);
-  };
-
   return (
     <div className="block-editor">
       <div className="block-editor-toolbar">
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => void run()} disabled={isRunning}>
-          {isRunning ? t('editor.stop') : t('editor.run')}
+        <button type="button" className="be-run-btn" onClick={() => void run()} disabled={isRunning}>
+          <span className="be-run-icon">{isRunning ? '■' : '▶'}</span>
+          <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
         </button>
-        <Dropdown
-          ariaLabel={t('workbench.example.title')}
-          triggerClassName="btn btn-sm"
-          trigger={<span>{t('workbench.example.title')} ▾</span>}
-          items={BLOCK_SAMPLES.map((s) => ({
-            key: s.id,
-            label: sampleName(s, locale),
-            onClick: () => loadSample(s.id),
-          }))}
-        />
-        <button type="button" className={`btn btn-sm${codeView === 'python' ? ' btn-toggle-on' : ''}`} onClick={() => toggleCode('python')}>
-          Python
-        </button>
-        <button type="button" className={`btn btn-sm${codeView === 'js' ? ' btn-toggle-on' : ''}`} onClick={() => toggleCode('js')}>
-          JS
-        </button>
+
+        <div className="block-editor-toggle">
+          <button type="button" className={`btn btn-sm${codeView === 'python' ? ' btn-toggle-on' : ''}`} onClick={() => toggleCode('python')}>
+            Python
+          </button>
+          <button type="button" className={`btn btn-sm${codeView === 'js' ? ' btn-toggle-on' : ''}`} onClick={() => toggleCode('js')}>
+            JS
+          </button>
+        </div>
+
+        <div className="be-toolbar-spacer" />
+
+        <div className={`be-status-pill ${isRunning ? 'is-running' : (useEditorStore.getState().error ? 'is-error' : 'is-idle')}`}>
+          <span className="be-status-dot" />
+          <span className="be-status-text">
+            {isRunning ? t('editor.status.running') : useEditorStore.getState().error ? t('editor.status.error') : t('editor.status.idle')}
+          </span>
+        </div>
       </div>
 
       <div className="block-editor-main">
@@ -214,15 +226,17 @@ export function BlockEditor() {
 
         {codeView && (
           <div className="block-editor-code">
+            <div className="block-editor-code-head">
+              <span className="be-code-lang">{codeView === 'js' ? 'JavaScript' : 'Python'}</span>
+              <button type="button" className="be-code-refresh" onClick={refreshCode}>{t('common.refresh')}</button>
+            </div>
             <pre>{code}</pre>
-            <button type="button" className="btn btn-sm" onClick={refreshCode}>
-              {t('common.refresh')}
-            </button>
           </div>
         )}
 
         <div className="block-editor-right">
           <div className="block-editor-preview">
+            <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
             <div ref={domRef} className="block-editor-preview-dom" />
             <canvas ref={canvasRef} className="block-editor-preview-canvas" />
           </div>

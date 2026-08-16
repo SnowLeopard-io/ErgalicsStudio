@@ -13,6 +13,7 @@ function reset() {
     console: [],
     isRunning: false,
     error: null,
+    pendingLoad: null,
   });
 }
 
@@ -86,6 +87,15 @@ describe('editorStore', () => {
     expect(s.variables).toEqual({});
     expect(s.isRunning).toBe(false);
     expect(s.error).toBeNull();
+  });
+
+  it('requestLoad / consumeLoad round-trip a pending program', () => {
+    expect(useEditorStore.getState().pendingLoad).toBeNull();
+    const program = makeProgram([{ kind: 'Number', value: 1 }]);
+    useEditorStore.getState().requestLoad(program);
+    expect(useEditorStore.getState().pendingLoad).toBe(program);
+    useEditorStore.getState().consumeLoad();
+    expect(useEditorStore.getState().pendingLoad).toBeNull();
   });
 
   it('persisted sessions survive a JSON stringify round-trip (plain JSON)', () => {

@@ -45,6 +45,29 @@ try {
     console.log('run clicked, no throw');
   }
 
+  // Load a block sample from the top-bar 示例 dialog → 积木示例 tab.
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
+  await sleep(500);
+  await page.locator('.data-dialog-tab', { hasText: '积木示例' }).click();
+  await sleep(300);
+  const loadBtn = page.locator('.plugin-card .btn', { hasText: '加载' }).first();
+  if (await loadBtn.count()) {
+    await loadBtn.click();
+    await sleep(1800);
+    console.log('block sample loaded via top-bar dialog');
+  } else {
+    console.log('no block sample load button found');
+  }
+
+  // Verify block labels resolved (i18n) — Chinese text, no literal %{BKY_}.
+  const blockText = await page.evaluate(() => {
+    const ws = document.querySelector('.block-editor-workspace');
+    return ws ? ws.textContent ?? '' : '';
+  });
+  console.log('block label has "载入":', blockText.includes('载入'));
+  console.log('block label has "设":', blockText.includes('设'));
+  console.log('block label leaks BKY ref:', blockText.includes('%{BKY_'));
+
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/block-mode.png' });
 
   console.log('=== ERRORS ===');

@@ -2,11 +2,9 @@
 // Ergalics Studio — Blockly block definitions (block mode)
 //
 // Custom Scratch-like blocks aligned 1:1 with the IR node kinds in
-// `@/editor/ir`. Each block carries a JSON definition (registered via
-// `Blockly.defineBlocksWithJsonArray`) and the field/input names that the
-// JSON⇄IR converter (`convert.ts`) reads. Labels are Chinese-first (the
-// primary learner audience); i18n via `message`/`tooltip` keyed by locale is
-// a follow-up (block-code-modes.md §10.8).
+// `@/editor/ir`. Labels/tooltips use `%{BKY_XXX}` references resolved against
+// `Blockly.Msg` (see `i18n.ts`) so blocks re-label when the app language
+// switches (block-code-modes.md §10.8).
 // ==========================================================================
 
 /** Blockly block-definition JSON objects. */
@@ -48,58 +46,66 @@ function num(name: string, val: number): { type: string; name: string; value: nu
   return { type: 'field_number', name, value: val };
 }
 
-const MATH_OPS: [string, string][] = [['+', '+'], ['−', '-'], ['×', '*'], ['÷', '/'], ['%', '%']];
-const COMPARE_OPS: [string, string][] = [['=', '=='], ['≠', '!='], ['<', '<'], ['≤', '<='], ['>', '>'], ['≥', '>=']];
-const LOGIC_OPS: [string, string][] = [['且', 'and'], ['或', 'or']];
+const MATH_OPS: [string, string][] = [
+  ['%{BKY_OP_ADD}', '+'], ['%{BKY_OP_SUB}', '-'], ['%{BKY_OP_MUL}', '*'],
+  ['%{BKY_OP_DIV}', '/'], ['%{BKY_OP_MOD}', '%'],
+];
+const COMPARE_OPS: [string, string][] = [
+  ['%{BKY_CMP_EQ}', '=='], ['%{BKY_CMP_NE}', '!='], ['%{BKY_CMP_LT}', '<'],
+  ['%{BKY_CMP_LE}', '<='], ['%{BKY_CMP_GT}', '>'], ['%{BKY_CMP_GE}', '>='],
+];
+const LOGIC_OPS: [string, string][] = [
+  ['%{BKY_LOGIC_AND}', 'and'], ['%{BKY_LOGIC_OR}', 'or'],
+];
 
 export const BLOCK_DEFS: BlockDef[] = [
   // ---- literals ----
-  { type: 'studio_number', message0: '%1', args0: [num('NUM', 0)], output: null, colour: OP_COLOUR, tooltip: '数字' },
-  { type: 'studio_string', message0: '%1', args0: [field('STR', '')], output: null, colour: OP_COLOUR, tooltip: '文本' },
-  { type: 'studio_boolean', message0: '%1', args0: [dropdown('BOOL', [['真', 'true'], ['假', 'false']])], output: null, colour: OP_COLOUR, tooltip: '真/假' },
+  { type: 'studio_number', message0: '%{BKY_STUDIO_NUMBER}', args0: [num('NUM', 0)], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_NUMBER_TOOLTIP}' },
+  { type: 'studio_string', message0: '%{BKY_STUDIO_STRING}', args0: [field('STR', '')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_STRING_TOOLTIP}' },
+  { type: 'studio_boolean', message0: '%{BKY_STUDIO_BOOLEAN}', args0: [dropdown('BOOL', [['%{BKY_BOOL_TRUE}', 'true'], ['%{BKY_BOOL_FALSE}', 'false']])], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_BOOLEAN_TOOLTIP}' },
 
   // ---- variables ----
-  { type: 'studio_var', message0: '变量 %1', args0: [field('NAME', 'x')], output: null, colour: VAR_COLOUR, tooltip: '读取变量' },
-  { type: 'studio_var_assign', message0: '设 %1 = %2', args0: [field('NAME', 'x'), value('VALUE')], previousStatement: null, nextStatement: null, colour: VAR_COLOUR, tooltip: '给变量赋值' },
+  { type: 'studio_var', message0: '%{BKY_STUDIO_VAR}', args0: [field('NAME', 'x')], output: null, colour: VAR_COLOUR, tooltip: '%{BKY_STUDIO_VAR_TOOLTIP}' },
+  { type: 'studio_var_assign', message0: '%{BKY_STUDIO_VAR_ASSIGN}', args0: [field('NAME', 'x'), value('VALUE')], previousStatement: null, nextStatement: null, colour: VAR_COLOUR, tooltip: '%{BKY_STUDIO_VAR_ASSIGN_TOOLTIP}' },
 
   // ---- data sources ----
-  { type: 'studio_load_csv', message0: '载入 CSV %1', args0: [field('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '从项目文件载入 CSV' },
-  { type: 'studio_load_xyz', message0: '载入 XYZ %1', args0: [field('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '从项目文件载入 XYZ' },
-  { type: 'studio_random', message0: '随机数 %1 个（种子 %2）', args0: [value('COUNT'), value('SEED')], output: null, colour: DATA_COLOUR, tooltip: '生成随机数表' },
-  { type: 'studio_range', message0: '从 %1 到 %2 步长 %3', args0: [value('START'), value('STOP'), value('STEP')], output: null, colour: DATA_COLOUR, tooltip: '等差数列' },
-  { type: 'studio_list', message0: '列表 %1', args0: [field('VALUES', '1,2,3')], output: null, colour: DATA_COLOUR, tooltip: '数字列表（逗号分隔）' },
-  { type: 'studio_list_index', message0: '列表 %1 的第 %2 项', args0: [value('LIST'), value('INDEX')], output: null, colour: DATA_COLOUR, tooltip: '取列表第 i 项' },
+  { type: 'studio_load_csv', message0: '%{BKY_STUDIO_LOAD_CSV}', args0: [field('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_CSV_TOOLTIP}' },
+  { type: 'studio_load_xyz', message0: '%{BKY_STUDIO_LOAD_XYZ}', args0: [field('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_XYZ_TOOLTIP}' },
+  { type: 'studio_random', message0: '%{BKY_STUDIO_RANDOM}', args0: [value('COUNT'), value('SEED')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANDOM_TOOLTIP}' },
+  { type: 'studio_range', message0: '%{BKY_STUDIO_RANGE}', args0: [value('START'), value('STOP'), value('STEP')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANGE_TOOLTIP}' },
+  { type: 'studio_list', message0: '%{BKY_STUDIO_LIST}', args0: [field('VALUES', '1,2,3')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LIST_TOOLTIP}' },
+  { type: 'studio_list_index', message0: '%{BKY_STUDIO_LIST_INDEX}', args0: [value('LIST'), value('INDEX')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LIST_INDEX_TOOLTIP}' },
 
   // ---- operators ----
-  { type: 'studio_math_op', message0: '%1 %2 %3', args0: [value('A'), dropdown('OP', MATH_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '算术运算' },
-  { type: 'studio_compare', message0: '%1 %2 %3', args0: [value('A'), dropdown('OP', COMPARE_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '比较运算' },
-  { type: 'studio_logic_op', message0: '%1 %2 %3', args0: [value('A'), dropdown('OP', LOGIC_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '逻辑运算' },
-  { type: 'studio_unary', message0: '%1 %2', args0: [dropdown('OP', [['非', 'not'], ['取负', '-']]), value('A')], output: null, colour: OP_COLOUR, tooltip: '取非 / 取负' },
+  { type: 'studio_math_op', message0: '%{BKY_STUDIO_MATH_OP}', args0: [value('A'), dropdown('OP', MATH_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_MATH_OP_TOOLTIP}' },
+  { type: 'studio_compare', message0: '%{BKY_STUDIO_COMPARE}', args0: [value('A'), dropdown('OP', COMPARE_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_COMPARE_TOOLTIP}' },
+  { type: 'studio_logic_op', message0: '%{BKY_STUDIO_LOGIC_OP}', args0: [value('A'), dropdown('OP', LOGIC_OPS), value('B')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_LOGIC_OP_TOOLTIP}' },
+  { type: 'studio_unary', message0: '%{BKY_STUDIO_UNARY}', args0: [dropdown('OP', [['%{BKY_UNARY_NOT}', 'not'], ['%{BKY_UNARY_NEG}', '-']]), value('A')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_UNARY_TOOLTIP}' },
 
   // ---- transforms ----
-  { type: 'studio_normalize', message0: '标准化 %1 列 %2 方式 %3', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('MODE', [['min-max', 'minmax'], ['z-score', 'zscore']])], output: null, colour: TRANSFORM_COLOUR, tooltip: '归一化一列' },
-  { type: 'studio_sort', message0: '排序 %1 列 %2 %3', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('DIR', [['升序', 'asc'], ['降序', 'desc']])], output: null, colour: TRANSFORM_COLOUR, tooltip: '按列排序' },
-  { type: 'studio_select', message0: '选列 %1 %2', args0: [value('DATA'), field('COLUMNS', 'x,y')], output: null, colour: TRANSFORM_COLOUR, tooltip: '保留指定列（逗号分隔）' },
-  { type: 'studio_filter', message0: '过滤 %1 列 %2 %3 %4', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('OP', COMPARE_OPS), value('VALUE')], output: null, colour: TRANSFORM_COLOUR, tooltip: '按条件过滤行' },
+  { type: 'studio_normalize', message0: '%{BKY_STUDIO_NORMALIZE}', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('MODE', [['%{BKY_MODE_MINMAX}', 'minmax'], ['%{BKY_MODE_ZSCORE}', 'zscore']])], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_NORMALIZE_TOOLTIP}' },
+  { type: 'studio_sort', message0: '%{BKY_STUDIO_SORT}', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('DIR', [['%{BKY_DIR_ASC}', 'asc'], ['%{BKY_DIR_DESC}', 'desc']])], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_SORT_TOOLTIP}' },
+  { type: 'studio_select', message0: '%{BKY_STUDIO_SELECT}', args0: [value('DATA'), field('COLUMNS', 'x,y')], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_SELECT_TOOLTIP}' },
+  { type: 'studio_filter', message0: '%{BKY_STUDIO_FILTER}', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('OP', COMPARE_OPS), value('VALUE')], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_FILTER_TOOLTIP}' },
 
   // ---- statistics ----
-  { type: 'studio_summary', message0: '统计摘要 %1 列 %2', args0: [value('DATA'), field('COLUMN', 'x')], output: null, colour: STAT_COLOUR, tooltip: '均值/标准差/最值/中位数' },
-  { type: 'studio_histogram', message0: '直方图 %1 列 %2 分箱 %3', args0: [value('DATA'), field('COLUMN', 'x'), value('BINS')], output: null, colour: STAT_COLOUR, tooltip: '数值列分箱计数' },
+  { type: 'studio_summary', message0: '%{BKY_STUDIO_SUMMARY}', args0: [value('DATA'), field('COLUMN', 'x')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_SUMMARY_TOOLTIP}' },
+  { type: 'studio_histogram', message0: '%{BKY_STUDIO_HISTOGRAM}', args0: [value('DATA'), field('COLUMN', 'x'), value('BINS')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_HISTOGRAM_TOOLTIP}' },
 
   // ---- visualization (statements) ----
-  { type: 'studio_plot_scatter', message0: '画散点图 %1 X:%2 Y:%3 颜色:%4', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), field('COLOR', '')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '二维散点图' },
-  { type: 'studio_plot_histogram', message0: '画直方图 %1 列 %2', args0: [value('DATA'), field('COLUMN', 'x')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '直方图' },
-  { type: 'studio_plot_pointcloud', message0: '画点云 %1 X:%2 Y:%3 Z:%4', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), field('Z', 'z')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '三维点云' },
-  { type: 'studio_line', message0: '画折线图 %1 X:%2 Y:%3', args0: [value('DATA'), field('X', 'x'), field('Y', 'y')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '折线图' },
+  { type: 'studio_plot_scatter', message0: '%{BKY_STUDIO_PLOT_SCATTER}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), field('COLOR', '')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_PLOT_SCATTER_TOOLTIP}' },
+  { type: 'studio_plot_histogram', message0: '%{BKY_STUDIO_PLOT_HISTOGRAM}', args0: [value('DATA'), field('COLUMN', 'x')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_PLOT_HISTOGRAM_TOOLTIP}' },
+  { type: 'studio_plot_pointcloud', message0: '%{BKY_STUDIO_PLOT_POINTCLOUD}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y'), field('Z', 'z')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_PLOT_POINTCLOUD_TOOLTIP}' },
+  { type: 'studio_line', message0: '%{BKY_STUDIO_LINE}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_LINE_TOOLTIP}' },
 
   // ---- control ----
-  { type: 'studio_run', message0: '运行时', args0: [], nextStatement: null, colour: '#22C55E', tooltip: '程序从这里开始运行（唯一入口）' },
-  { type: 'studio_while', message0: '当 %1 循环 %2', args0: [value('COND'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '条件成立时重复执行' },
-  { type: 'studio_for_each', message0: '对 %1 里的每个 %2 执行 %3', args0: [value('LIST'), field('VAR', 'item'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '遍历列表' },
-  { type: 'studio_repeat', message0: '重复 %1 次 %2', args0: [value('COUNT'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '重复执行' },
-  { type: 'studio_if', message0: '如果 %1 则 %2 否则 %3', args0: [value('COND'), { type: 'input_statement', name: 'DO' }, { type: 'input_statement', name: 'ELSE' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '条件分支' },
+  { type: 'studio_run', message0: '%{BKY_STUDIO_RUN}', args0: [], nextStatement: null, colour: '#22C55E', tooltip: '%{BKY_STUDIO_RUN_TOOLTIP}' },
+  { type: 'studio_while', message0: '%{BKY_STUDIO_WHILE}', args0: [value('COND'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_WHILE_TOOLTIP}' },
+  { type: 'studio_for_each', message0: '%{BKY_STUDIO_FOR_EACH}', args0: [value('LIST'), field('VAR', 'item'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_FOR_EACH_TOOLTIP}' },
+  { type: 'studio_repeat', message0: '%{BKY_STUDIO_REPEAT}', args0: [value('COUNT'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_REPEAT_TOOLTIP}' },
+  { type: 'studio_if', message0: '%{BKY_STUDIO_IF}', args0: [value('COND'), { type: 'input_statement', name: 'DO' }, { type: 'input_statement', name: 'ELSE' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_IF_TOOLTIP}' },
 
   // ---- util / host ----
-  { type: 'studio_print', message0: '输出 %1', args0: [value('TEXT')], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '在控制台输出' },
-  { type: 'studio_raw', message0: '原始代码 %1', args0: [{ type: 'field_input', name: 'TEXT', text: '' }], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '无法用积木表达的原始代码' },
+  { type: 'studio_print', message0: '%{BKY_STUDIO_PRINT}', args0: [value('TEXT')], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_PRINT_TOOLTIP}' },
+  { type: 'studio_raw', message0: '%{BKY_STUDIO_RAW}', args0: [{ type: 'field_input', name: 'TEXT', text: '' }], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_RAW_TOOLTIP}' },
 ];

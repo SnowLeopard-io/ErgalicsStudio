@@ -4,6 +4,8 @@
 
 export { BLOCK_DEFS } from './blocks';
 export type { BlockDef } from './blocks';
+export { BLOCK_I18N } from './i18n';
+export type { BlockLocale } from './i18n';
 export {
   blockJSONToIR,
   workspaceJSONToIR,

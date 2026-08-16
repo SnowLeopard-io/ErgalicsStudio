@@ -10,6 +10,23 @@ import { useT } from '@/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 import { isDataTable, isRenderedView, isScalar } from '@/types/datatable';
 
+function summarize(value: import('@/types/datatable').DataValue | undefined): { text: string; kind: 'scalar' | 'table' | 'view' | 'unknown' } {
+  if (!value) return { text: 'undefined', kind: 'unknown' };
+  if (isScalar(value)) return { text: String(value.value), kind: 'scalar' };
+  if (isDataTable(value)) return { text: `${value.length} × ${value.columns.length}`, kind: 'table' };
+  if (isRenderedView(value)) return { text: value.viewType, kind: 'view' };
+  return { text: String(value), kind: 'unknown' };
+}
+
+function icon(kind: 'scalar' | 'table' | 'view' | 'unknown'): string {
+  switch (kind) {
+    case 'scalar': return '123';
+    case 'table': return '▦';
+    case 'view': return '◳';
+    default: return '○';
+  }
+}
+
 export function VariablePanel() {
   const t = useT();
   const variables = useEditorStore((s) => s.variables);
@@ -17,27 +34,26 @@ export function VariablePanel() {
 
   return (
     <div className="editor-panel editor-vars">
-      <div className="editor-panel-title">{t('editor.variables.title')}</div>
+      <div className="editor-panel-head">
+        <span className="editor-panel-title">{t('editor.variables.title')}</span>
+        {names.length > 0 && <span className="editor-panel-badge">{names.length}</span>}
+      </div>
       <div className="editor-panel-body">
         {names.length === 0 ? (
-          <div className="editor-panel-empty">{t('blocks.preview.empty')}</div>
+          <div className="editor-panel-empty">
+            <span className="editor-panel-empty-icon">◇</span>
+            <span>{t('blocks.preview.empty')}</span>
+          </div>
         ) : (
           names.map((name) => {
-            const value = variables[name];
+            const { text, kind } = summarize(variables[name]);
             return (
               <div key={name} className="editor-var-row">
-                <span className="editor-var-name">{name}</span>
-                <span className="editor-var-value">
-                  {isScalar(value) ? (
-                    String(value.value)
-                  ) : isDataTable(value) ? (
-                    `${value.length} × ${value.columns.length}`
-                  ) : isRenderedView(value) ? (
-                    '🖼'
-                  ) : (
-                    String(value)
-                  )}
+                <span className="editor-var-name">
+                  <span className={`editor-var-icon is-${kind}`}>{icon(kind)}</span>
+                  {name}
                 </span>
+                <span className={`editor-var-value is-${kind}`}>{text}</span>
               </div>
             );
           })

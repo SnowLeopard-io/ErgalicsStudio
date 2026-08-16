@@ -1,9 +1,10 @@
 // ==========================================================================
 // Ergalics Studio — Blockly "studio-kids" theme
 //
-// Large, high-contrast theme for young learners (block-code-modes.md §6.6).
-// Font size is bumped and the workspace background follows the app's
-// dark/light theme so the canvas feels native to Ergalics Studio.
+// Compact, modern theme tuned for the Ergalics Studio workbench (block-code-
+// modes.md §6.6). The workspace background is a deep neutral so the colorful
+// Scratch-style category colors stand out; the toolbox/flyout gets a softer
+// accent scrollbar and a teal selection glow to match the app's accent.
 // ==========================================================================
 
 export interface KidsTheme {
@@ -18,40 +19,44 @@ export function createKidsTheme(dark: boolean): KidsTheme {
     name: 'studio-kids',
     startHats: true,
     fontStyle: {
-      family: "'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif",
-      weight: '400',
-      size: 12,
+      family: "'Inter', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif",
+      weight: '500',
+      size: 11,
     },
     componentStyles: dark
       ? {
-          workspaceBackgroundColour: '#0d1117',
-          toolboxBackgroundColour: '#11151c',
-          toolboxForegroundColour: '#e6edf3',
-          flyoutBackgroundColour: '#11151c',
-          flyoutForegroundColour: '#e6edf3',
-          flyoutOpacity: 0.97,
-          scrollbarColour: '#30363d',
-          scrollbarOpacity: 0.6,
+          workspaceBackgroundColour: '#0a0e13',
+          toolboxBackgroundColour: '#0f141b',
+          toolboxForegroundColour: '#cbd5e1',
+          flyoutBackgroundColour: '#0f141b',
+          flyoutForegroundColour: '#cbd5e1',
+          flyoutOpacity: 1,
+          scrollbarColour: '#2dd4bf',
+          scrollbarOpacity: 0.4,
           insertionMarkerColour: '#2dd4bf',
-          insertionMarkerOpacity: 0.4,
+          insertionMarkerOpacity: 0.55,
           cursorColour: '#e6edf3',
           selectedGlowColour: '#2dd4bf',
-          selectedGlowOpacity: 0.4,
+          selectedGlowOpacity: 0.45,
+          replacementGlowColour: '#5eead4',
+          replacementGlowOpacity: 0.4,
         }
       : {
-          workspaceBackgroundColour: '#f6f8fa',
+          workspaceBackgroundColour: '#fafbfc',
           toolboxBackgroundColour: '#ffffff',
-          toolboxForegroundColour: '#0f172a',
+          toolboxForegroundColour: '#1e293b',
           flyoutBackgroundColour: '#ffffff',
-          flyoutForegroundColour: '#0f172a',
-          flyoutOpacity: 0.97,
-          scrollbarColour: '#cbd5e1',
-          scrollbarOpacity: 0.6,
-          insertionMarkerColour: '#14b8a6',
-          insertionMarkerOpacity: 0.4,
+          flyoutForegroundColour: '#1e293b',
+          flyoutOpacity: 1,
+          scrollbarColour: '#14b8a6',
+          scrollbarOpacity: 0.4,
+          insertionMarkerColour: '#0e9384',
+          insertionMarkerOpacity: 0.55,
           cursorColour: '#0f172a',
-          selectedGlowColour: '#14b8a6',
-          selectedGlowOpacity: 0.4,
+          selectedGlowColour: '#0e9384',
+          selectedGlowOpacity: 0.45,
+          replacementGlowColour: '#0b7a6e',
+          replacementGlowOpacity: 0.4,
         },
   };
 }

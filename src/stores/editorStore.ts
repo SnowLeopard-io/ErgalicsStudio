@@ -32,6 +32,8 @@ export interface EditorStore {
   console: ConsoleEntry[];
   isRunning: boolean;
   error: string | null;
+  /** A program an external caller (e.g. the samples dialog) asked to load. */
+  pendingLoad: IRProgram | null;
 
   createSession: (mode: 'block' | 'code', language: CodeLanguage) => EditorSession;
   setActiveSession: (id: string) => void;
@@ -42,6 +44,8 @@ export interface EditorStore {
   clearConsole: () => void;
   setRunning: (running: boolean) => void;
   setError: (error: string | null) => void;
+  requestLoad: (program: IRProgram) => void;
+  consumeLoad: () => void;
 
   toJSON: () => { sessions: EditorSession[]; activeSessionId: string | null };
   fromJSON: (state: { sessions?: EditorSession[]; activeSessionId?: string | null }) => void;
@@ -62,6 +66,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   console: [],
   isRunning: false,
   error: null,
+  pendingLoad: null,
 
   createSession: (mode, language) => {
     const session = createEditorSession(mode, language, emptyProgram());
@@ -102,6 +107,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   clearConsole: () => set({ console: [] }),
   setRunning: (isRunning) => set({ isRunning }),
   setError: (error) => set({ error }),
+  requestLoad: (program) => set({ pendingLoad: program }),
+  consumeLoad: () => set({ pendingLoad: null }),
 
   toJSON: () => ({
     sessions: get().sessions,
@@ -116,6 +123,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       console: [],
       isRunning: false,
       error: null,
+      pendingLoad: null,
     });
   },
 }));
