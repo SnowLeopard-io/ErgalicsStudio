@@ -1,10 +1,9 @@
 # Introduction
 
-**Ergalics Studio** is an industrial-grade scaffold for a professional
-scientific-computing workstation that runs entirely in the browser. It pairs
-a React + TypeScript frontend with a Rust core compiled to WebAssembly and a
-WebGPU compute pipeline, and it treats third-party extensibility as a
-first-class concern.
+**Ergalics Studio** is a professional scientific-computing workstation that
+runs entirely in the browser. It pairs a React + TypeScript frontend with a
+Rust core compiled to WebAssembly and a WebGPU compute pipeline, and it
+treats third-party extensibility as a first-class concern.
 
 ## Goals
 
@@ -17,7 +16,8 @@ first-class concern.
 
 ## Current state
 
-The scaffold is **actively developed**. The following are functional today:
+The project is under **active development** and already usable end to end.
+The following are functional today:
 
 - The full workbench loop: projects, file routing, plugin registry,
   parameter panels, status/perf bars.
@@ -44,5 +44,5 @@ Not yet built: GPU acceleration across the remaining example plugins
 plugin marketplace with package signing, CI automation, and the Code mode
 (Python/R) on top of the existing IR.
 
-> The intent is that the scaffold grows into a production system by adding
-> features **into** this structure — not by rewriting it.
+> The intent is that the codebase keeps growing into a production system by
+> adding features **into** this structure — not by rewriting it.

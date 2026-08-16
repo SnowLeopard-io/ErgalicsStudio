@@ -1,7 +1,7 @@
 # Roadmap & Status
 
-The scaffold is **actively developed** — every box marked ✅ here is in the
-codebase and covered by the test suites. This table reflects the actual
+The project is under **active development** — every box marked ✅ here is in
+the codebase and covered by the test suites. This table reflects the actual
 state, not aspirational designs.
 
 ## Module status
@@ -30,7 +30,7 @@ state, not aspirational designs.
 
 ## Milestones
 
-1. **M1 — Solidify the scaffold** *(current)*: complete the plugin
+1. **M1 — Solidify the foundations** *(current)*: complete the plugin
    lifecycle, sandbox, and test coverage; land the docs site.
 2. **M2 — Real GPU compute**: the foundations are in place — the native core
    exposes `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an

@@ -2,7 +2,8 @@
 
 # ◈ Ergalics Studio
 
-**A browser-based scientific computing workstation scaffold.**
+**An in-browser scientific computing workstation with GPU compute and a
+sandboxed plugin system.**
 
 Interactive data exploration, GPU compute scheduling, and a sandboxed
 plugin system — all running in the browser, with a Rust/WASM core.
@@ -43,11 +44,10 @@ plugin system — all running in the browser, with a Rust/WASM core.
 
 ## Overview
 
-Ergalics Studio is an **industrial-grade scaffold** for a professional
-scientific-computing workstation that runs entirely in the browser. It
-combines a React + TypeScript frontend, a Rust core compiled to WebAssembly,
-a WebGPU compute pipeline, and a plugin architecture designed for third-party
-extensions.
+Ergalics Studio is a professional scientific-computing workstation that runs
+entirely in the browser. It combines a React + TypeScript frontend, a Rust
+core compiled to WebAssembly, a WebGPU compute pipeline, and a plugin
+architecture designed for third-party extensions.
 
 The workbench exposes three modes for three kinds of users — see the section
 for each one below:
@@ -60,17 +60,17 @@ for each one below:
   kicks off the program. Beginner-friendly, but fully scripted (variables,
   loops, conditionals, transforms, plots).
 
-The project is currently in the **active-development stage**: the core loop
-(project management, data loading, plugin registry, 2D/3D rendering, i18n,
-theming, performance monitoring, the Flow mode, and the Block mode) is
-functional and tested. GPU-accelerated computation beyond the existing
-Particles and N-Body plugins, the plugin marketplace, and the Code mode
-(Python/R) are being built out incrementally. Every module is kept
-deliberately small and testable so the scaffold can grow into a production
-system without a rewrite.
+Ergalics Studio is under **active development** and already usable end to
+end: the core loop (project management, data loading, plugin registry, 2D/3D
+rendering, i18n, theming, performance monitoring, the Flow mode, and the
+Block mode) is functional and covered by tests. GPU acceleration beyond the
+existing Particles and N-Body plugins, the plugin marketplace, and the Code
+mode (Python/R) are the next milestones. Every module is kept deliberately
+small and testable so the codebase keeps scaling without a rewrite.
 
-> Status: **Active development** — functional scaffold, three workbench
-> modes shipped, plugin & GPU compute foundations live.
+> Status: **Active development** — usable today with three workbench modes,
+> a sandboxed plugin system, and live GPU compute; the marketplace and Code
+> mode are next.
 
 ---
 

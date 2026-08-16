@@ -1,8 +1,8 @@
 # Testing
 
-Testing is treated as part of the scaffold, not an afterthought: **unit
-tests** cover the core logic in a node environment, and **E2E suites** drive
-a production preview in a headless browser.
+Testing is treated as a first-class part of the codebase, not an
+afterthought: **unit tests** cover the core logic in a node environment, and
+**E2E suites** drive a production preview in a headless browser.
 
 ## Unit tests (Vitest)
 
