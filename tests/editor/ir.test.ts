@@ -91,7 +91,7 @@ describe('IR serialize round-trip', () => {
   });
 
   it('back-fills the hash only when absent (accepts a missing hash)', () => {
-    const json = JSON.parse(serializeIR(program())) as IRProgram;
+    const json = JSON.parse(serializeIR(program())) as Partial<IRProgram>;
     delete json.hash;
     const round = deserializeIR(JSON.stringify(json));
     expect(round.hash).toBe(hashIR(program()));
