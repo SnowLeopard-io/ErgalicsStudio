@@ -17,7 +17,14 @@ async function freshWasm() {
   const wasm = await import('@/core/wasm');
   // Point the loader at the mock — a plain import() promise that resolves
   // instantly, so fake timers control only the retry backoff.
-  wasm.__setWasmLoader(() => Promise.resolve({ default: moduleMock.init, core_version: moduleMock.core_version }));
+  wasm.__setWasmLoader(() =>
+    Promise.resolve({
+      default: moduleMock.init,
+      core_version: moduleMock.core_version,
+      detect_file_kind: () => 0,
+      log: () => {},
+    }),
+  );
   return wasm;
 }
 
