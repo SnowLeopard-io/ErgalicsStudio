@@ -96,6 +96,7 @@ export function Sidebar() {
               <button
                 type="button"
                 className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
+                data-plugin-id={entry.id}
                 title={`${entry.name} ${entry.version}`}
                 onClick={() => void activate(entry.id)}
               >

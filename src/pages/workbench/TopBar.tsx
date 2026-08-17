@@ -11,6 +11,7 @@ import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
+import { PerfDialog } from './PerfDialog';
 
 export function TopBar() {
   const t = useT();
@@ -26,12 +27,15 @@ export function TopBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
+  const perfFps = useAppStore((s) => s.perf.fps);
+  const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [perfOpen, setPerfOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFileCount = project?.data.files.length ?? 0;
 
@@ -62,7 +66,7 @@ export function TopBar() {
               { key: 'standard', disabled: false },
               { key: 'flow', disabled: false },
               { key: 'block', disabled: false },
-              { key: 'code', disabled: true },
+              { key: 'code', disabled: false },
             ] as const
           ).map(({ key, disabled }) => (
             <button
@@ -103,6 +107,15 @@ export function TopBar() {
         </div>
 
         <div className="topbar-cluster cluster-icons">
+          <button
+            type="button"
+            className={`cluster-btn perf-entry${perfWarnFps && perfFps > 0 ? ' perf-warn' : ''}`}
+            title={t('workbench.perf.title')}
+            onClick={() => setPerfOpen(true)}
+          >
+            <span className="perf-dot" aria-hidden="true" />
+            {perfFps > 0 ? `${perfFps} FPS` : '—'}
+          </button>
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
@@ -164,6 +177,7 @@ export function TopBar() {
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
       <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
+      <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />
     </header>
   );
 }

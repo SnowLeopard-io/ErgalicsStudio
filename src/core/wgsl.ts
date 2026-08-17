@@ -410,3 +410,421 @@ export function nbodyTotalEnergy(bodies: NBodyBody[], G: number, softening: numb
   }
   return ke + pe;
 }
+
+// ==========================================================================
+// Histogram kernel (1-D binning, GPU-accelerated).
+//
+// Bins `count` f32 values into `bins` buckets between [min, max]. Each
+// invocation handles one value and atomically increments its bucket, so the
+// write pattern is race-free regardless of workgroup layout.
+//
+// Bind group:
+//   @binding(0) read-only-storage   — values : f32[count]
+//   @binding(1) uniform             — struct { min: f32, max: f32,
+//                                            bins: u32, count: u32 } (16 bytes)
+//   @binding(2) storage, read_write — counts : atomic<u32>[bins]
+//
+// The caller must zero the `counts` buffer before each dispatch (COPY_DST).
+// ==========================================================================
+
+export const HISTOGRAM_VALUES_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const HISTOGRAM_COUNTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const HISTOGRAM_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+export interface HistogramKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function histogramKernelWGSL(opts: HistogramKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  min: f32,
+  max: f32,
+  bins: u32,
+  count: u32,
+};
+
+@group(0) @binding(0) var<storage, read> values: array<f32>;
+@group(0) @binding(1) var<uniform> params: Params;
+@group(0) @binding(2) var<storage, read_write> counts: array<atomic<u32>>;
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i >= params.count) { return; }
+  let v = values[i];
+  // A NaN or a value outside [min, max] never lands in a bucket.
+  if (v < params.min || v > params.max) { return; }
+  let span = params.max - params.min;
+  // Guard against a degenerate zero-width range (all values equal): route
+  // everything to the first bucket instead of dividing by zero.
+  var b: u32 = 0u;
+  if (span > 0.0) {
+    let t = (v - params.min) / span;
+    b = min(u32(t * f32(params.bins)), params.bins - 1u);
+  }
+  atomicAdd(&counts[b], 1u);
+}
+`;
+}
+
+/** Byte size of a histogram counts buffer holding `bins` u32 counters. */
+export function histogramCountsBytes(bins: number): number {
+  return Math.max(0, Math.floor(bins)) * 4;
+}
+
+/**
+ * Pack the histogram uniform params into a 16-byte ArrayBuffer (count written
+ * as a real u32 via DataView, matching the kernel's u32 field).
+ */
+export function packHistogramParams(min: number, max: number, bins: number, count: number): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setFloat32(0, min, true);
+  dv.setFloat32(4, max, true);
+  dv.setUint32(8, bins >>> 0, true);
+  dv.setUint32(12, count >>> 0, true);
+  return buf;
+}
+
+/** CPU-equivalent of the histogram kernel: f64 bin counts for the given range. */
+export function histogramCPU(
+  values: Float64Array,
+  bins: number,
+  min?: number,
+  max?: number,
+): Float64Array {
+  if (bins < 1) throw new Error('bins must be >= 1');
+  const counts = new Float64Array(bins);
+  if (values.length === 0) return counts;
+  let lo = min;
+  let hi = max;
+  if (lo === undefined || hi === undefined) {
+    lo = Infinity;
+    hi = -Infinity;
+    for (const v of values) {
+      if (Number.isFinite(v)) {
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+    if (lo === Infinity) return counts;
+  }
+  const span = hi - lo;
+  for (const v of values) {
+    if (!Number.isFinite(v) || v < lo || v > hi) continue;
+    let b = 0;
+    if (span > 0) {
+      const t = (v - lo) / span;
+      b = Math.min(Math.floor(t * bins), bins - 1);
+    }
+    counts[b] = (counts[b] ?? 0) + 1;
+  }
+  return counts;
+}
+
+// ==========================================================================
+// Heatmap kernel (2-D grid → RGBA color, GPU-accelerated).
+//
+// Maps a width×height f32 grid of scalar values onto an RGBA output image
+// using a blue→teal→yellow→red colormap. One invocation per pixel; each pixel
+// is independent so no synchronization is needed.
+//
+// Bind group:
+//   @binding(0) read-only-storage   — grid    : f32[width*height]
+//   @binding(1) uniform             — struct { width: u32, height: u32,
+//                                            min: f32, max: f32 } (16 bytes)
+//   @binding(2) storage, read_write — colors  : f32[width*height*4] (RGBA)
+//
+// Workgroups: dispatch with (width/8, height/8); the guard drops overhanging
+// threads when the grid is not a multiple of 8.
+// ==========================================================================
+
+export const HEATMAP_GRID_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const HEATMAP_COLORS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const HEATMAP_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+export function heatmapKernelWGSL(): string {
+  return `struct Params {
+  width: u32,
+  height: u32,
+  min: f32,
+  max: f32,
+};
+
+@group(0) @binding(0) var<storage, read> grid: array<f32>;
+@group(0) @binding(1) var<uniform> params: Params;
+@group(0) @binding(2) var<storage, read_write> colors: array<f32>;
+
+// Blue → teal → yellow → red ramp (matches HEATMAP_STOPS in wgsl.ts).
+fn colormap(t: f32) -> vec3<f32> {
+  let stops = array<vec3<f32>, 5>(
+    vec3<f32>(0.13, 0.23, 0.74),
+    vec3<f32>(0.18, 0.64, 0.86),
+    vec3<f32>(0.17, 0.94, 0.67),
+    vec3<f32>(0.98, 0.86, 0.26),
+    vec3<f32>(0.93, 0.28, 0.13),
+  );
+  let x = clamp(t, 0.0, 1.0) * 4.0;
+  let i = min(u32(x), 4u);
+  let f = x - f32(i);
+  let c0 = stops[i];
+  let c1 = stops[min(i + 1u, 4u)];
+  return mix(c0, c1, f);
+}
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= params.width || y >= params.height) { return; }
+  let idx = y * params.width + x;
+  let raw = grid[idx];
+  let span = params.max - params.min;
+  var t = 0.0;
+  if (span > 0.0) {
+    t = (raw - params.min) / span;
+  }
+  let c = colormap(t);
+  let o = idx * 4u;
+  colors[o + 0u] = c.x;
+  colors[o + 1u] = c.y;
+  colors[o + 2u] = c.z;
+  colors[o + 3u] = 1.0;
+}
+`;
+}
+
+/** Byte size of a heatmap RGBA output buffer holding `pixels` pixels. */
+export function heatmapColorsBytes(pixels: number): number {
+  return Math.max(0, Math.floor(pixels)) * 4 * 4;
+}
+
+/**
+ * Pack the heatmap uniform params into a 16-byte ArrayBuffer (width/height as
+ * real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packHeatmapParams(
+  width: number,
+  height: number,
+  min: number,
+  max: number,
+): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, width >>> 0, true);
+  dv.setUint32(4, height >>> 0, true);
+  dv.setFloat32(8, min, true);
+  dv.setFloat32(12, max, true);
+  return buf;
+}
+
+/** Colormap stops shared by the CPU fallback (kept in sync with the WGSL). */
+export const HEATMAP_STOPS: [number, number, number][] = [
+  [0.13, 0.23, 0.74],
+  [0.18, 0.64, 0.86],
+  [0.17, 0.94, 0.67],
+  [0.98, 0.86, 0.26],
+  [0.93, 0.28, 0.13],
+];
+
+/** Sample the colormap at normalized t ∈ [0, 1] → [r, g, b]. */
+export function heatmapColor(t: number): [number, number, number] {
+  const x = Math.min(Math.max(t, 0), 1) * (HEATMAP_STOPS.length - 1);
+  const i = Math.min(Math.floor(x), HEATMAP_STOPS.length - 1);
+  const f = x - i;
+  const c0 = HEATMAP_STOPS[i]!;
+  const c1 = HEATMAP_STOPS[Math.min(i + 1, HEATMAP_STOPS.length - 1)]!;
+  return [
+    c0[0] + (c1[0] - c0[0]) * f,
+    c0[1] + (c1[1] - c0[1]) * f,
+    c0[2] + (c1[2] - c0[2]) * f,
+  ];
+}
+
+/**
+ * CPU-equivalent of the heatmap kernel: maps a width×height f32 grid to an
+ * RGBA Float32Array (row-major, 4 floats per pixel).
+ */
+export function heatmapCPU(
+  grid: Float32Array,
+  width: number,
+  height: number,
+  min?: number,
+  max?: number,
+): Float32Array {
+  const pixels = width * height;
+  const out = new Float32Array(pixels * 4);
+  if (grid.length < pixels) return out;
+  let lo = min;
+  let hi = max;
+  if (lo === undefined || hi === undefined) {
+    lo = Infinity;
+    hi = -Infinity;
+    for (let i = 0; i < pixels; i += 1) {
+      const v = grid[i]!;
+      if (Number.isFinite(v)) {
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+    if (lo === Infinity) return out;
+  }
+  const span = hi - lo;
+  for (let i = 0; i < pixels; i += 1) {
+    const raw = grid[i]!;
+    const t = span > 0 ? (raw - lo) / span : 0;
+    const c = heatmapColor(t);
+    const o = i * 4;
+    out[o] = c[0];
+    out[o + 1] = c[1];
+    out[o + 2] = c[2];
+    out[o + 3] = 1;
+  }
+  return out;
+}
+
+// ==========================================================================
+// Point-cloud kernel (3-D points → 2-D screen-space, GPU-accelerated).
+//
+// Projects an interleaved [x,y,z] point cloud onto a 2-D viewport with a
+// uniform scale + offset transform (y flipped so +y points up), one thread
+// per point. Points outside the viewport are flagged invisible so the host
+// can skip them when rasterising (clipping). The kernel never touches other
+// threads, so no synchronization is needed.
+//
+// Bind group:
+//   @binding(0) read-only-storage   — points  : f32[count*3] (xyz interleaved)
+//   @binding(1) uniform             — struct { width: u32, height: u32,
+//                                            count: u32, scale: f32,
+//                                            ox: f32, oy: f32,
+//                                            size: f32, _pad: f32 } (32 bytes)
+//   @binding(2) storage, read_write — output  : f32[count*4] (sx, sy, size, vis)
+//
+// Workgroups: dispatch with ceil(count / 64); the guard drops overhanging
+// threads when count is not a multiple of 64.
+// ==========================================================================
+
+export const POINTCLOUD_POINTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const POINTCLOUD_OUTPUT_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const POINTCLOUD_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+export interface PointCloudKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function pointCloudKernelWGSL(opts: PointCloudKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  width: u32,
+  height: u32,
+  count: u32,
+  scale: f32,
+  ox: f32,
+  oy: f32,
+  size: f32,
+  _pad: f32,
+};
+
+@group(0) @binding(0) var<storage, read> points: array<f32>;
+@group(0) @binding(1) var<uniform> params: Params;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i >= params.count) { return; }
+  let i3 = i * 3u;
+  let x = points[i3 + 0u];
+  let y = points[i3 + 1u];
+  // Project to screen space with +y pointing up (matches the JS plugin).
+  let sx = params.ox + x * params.scale;
+  let sy = params.oy - y * params.scale;
+  var vis = 1.0;
+  if (sx < 0.0 || sx >= f32(params.width) || sy < 0.0 || sy >= f32(params.height)) {
+    vis = 0.0;
+  }
+  let o = i * 4u;
+  output[o + 0u] = sx;
+  output[o + 1u] = sy;
+  output[o + 2u] = params.size;
+  output[o + 3u] = vis;
+}
+`;
+}
+
+/** Byte size of a point-cloud output buffer holding `count` projected points. */
+export function pointCloudOutputBytes(count: number): number {
+  return Math.max(0, Math.floor(count)) * 4 * 4;
+}
+
+/**
+ * Pack the point-cloud uniform params into a 32-byte ArrayBuffer (width /
+ * height / count as real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packPointCloudParams(
+  width: number,
+  height: number,
+  count: number,
+  scale: number,
+  ox: number,
+  oy: number,
+  size: number,
+): ArrayBuffer {
+  const buf = new ArrayBuffer(32);
+  const dv = new DataView(buf);
+  dv.setUint32(0, width >>> 0, true);
+  dv.setUint32(4, height >>> 0, true);
+  dv.setUint32(8, count >>> 0, true);
+  dv.setFloat32(12, scale, true);
+  dv.setFloat32(16, ox, true);
+  dv.setFloat32(20, oy, true);
+  dv.setFloat32(24, size, true);
+  dv.setFloat32(28, 0, true);
+  return buf;
+}
+
+/**
+ * CPU-equivalent of the point-cloud kernel: projects an interleaved [x,y,z]
+ * array to [sx, sy, size, visible] quads (row-major, 4 floats per point).
+ */
+export function pointCloudCPU(
+  points: Float32Array,
+  width: number,
+  height: number,
+  scale: number,
+  ox: number,
+  oy: number,
+  size: number,
+): Float32Array {
+  const count = Math.floor(points.length / 3);
+  const out = new Float32Array(count * 4);
+  for (let i = 0; i < count; i += 1) {
+    const i3 = i * 3;
+    const x = points[i3]!;
+    const y = points[i3 + 1]!;
+    const sx = ox + x * scale;
+    const sy = oy - y * scale;
+    const visible = sx < 0 || sx >= width || sy < 0 || sy >= height ? 0 : 1;
+    const o = i * 4;
+    out[o] = sx;
+    out[o + 1] = sy;
+    out[o + 2] = size;
+    out[o + 3] = visible;
+  }
+  return out;
+}

@@ -72,7 +72,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(200);
 
   // --- particles empty state: no auto-run, just hint ---
-  await page.locator('.plugin-item', { hasText: 'Particles' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.particles"]').click();
   await sleep(1200);
   let s = await sample();
   step('particles empty does NOT auto-run', !hasColor(s, '59,130,246'));
@@ -101,7 +101,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   step('run button label (running)', (await runLabel()).trim());
 
   // --- point cloud empty state (grid + hint, no crash) ---
-  await page.locator('.plugin-item', { hasText: 'Point Cloud' }).nth(0).click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud"]').click();
   await sleep(1200);
   s = await sample();
   step('pointcloud empty canvas renders', s.top.length > 0);
@@ -117,7 +117,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-04-pointcloud-diamond.png' });
 
   // --- time series: load telemetry -> teal + amber lines ---
-  await page.locator('.plugin-item', { hasText: 'Time Series' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.timeseries"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
@@ -128,7 +128,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-05-timeseries.png' });
 
   // --- histogram: load distribution.dat -> teal bars ---
-  await page.locator('.plugin-item', { hasText: 'Histogram' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.histogram"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
@@ -139,7 +139,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-06-histogram.png' });
 
   // --- heatmap: load field.json -> viridis ramp ---
-  await page.locator('.plugin-item', { hasText: 'Heatmap' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.heatmap"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
@@ -150,7 +150,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/fix-07-heatmap.png' });
 
   // --- image viewer: load test-pattern.png -> many colors ---
-  await page.locator('.plugin-item', { hasText: 'Image Viewer' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.image"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);

@@ -877,55 +877,47 @@
   color: var(--color-text-tertiary);
 }
 
-/* ---- perf overlay ---- */
+/* ---- perf dashboard ---- */
 
-.perf-panel {
-  z-index: 900;
-  min-width: 208px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg-elevated) 96%, transparent);
-  backdrop-filter: blur(6px);
-  box-shadow: var(--shadow-2);
-  font-size: var(--font-size-xs);
-  user-select: none;
-  overflow: hidden;
-}
-
-.perf-panel-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border);
-  cursor: move;
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.perf-grip {
-  color: var(--color-text-tertiary);
-}
-
-.perf-toggle {
-  margin-left: auto;
-  width: 22px;
-  height: 22px;
+.perf-dialog {
+  max-height: 480px;
+  overflow-y: auto;
 }
 
 .perf-overlay {
-  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.perf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.perf-section {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.perf-section-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
 }
 
 .perf-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 0;
+  gap: var(--space-2);
+  padding: 3px 0;
   color: var(--color-text-tertiary);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -940,8 +932,20 @@
   color: var(--color-warning) !important;
 }
 
+.perf-value-ellipsis {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.perf-value-cap {
+  text-transform: capitalize;
+}
+
 .perf-warnings {
-  margin-top: var(--space-2);
+  margin-top: 0;
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-2);
   display: flex;
@@ -951,6 +955,32 @@
 
 .perf-warning-badge {
   color: var(--color-warning);
+}
+
+/* Top-bar performance entry: live FPS chip with a status dot. */
+.perf-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.perf-entry.perf-warn {
+  color: var(--color-warning);
+}
+
+.perf-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  flex-shrink: 0;
+}
+
+.perf-entry.perf-warn .perf-dot {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px var(--color-warning);
 }
 
 /* ==========================================================================

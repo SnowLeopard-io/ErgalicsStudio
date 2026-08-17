@@ -23,6 +23,18 @@ export interface PerfMetrics {
   gpuMs: number;
   memoryMb: number;
   dataScale: number;
+  /** JS heap usage (usedJSHeapSize), MiB. 0 when unsupported. */
+  jsHeapMb: number;
+  /** Coarse device RAM heuristic (navigator.deviceMemory), MiB. 0 when unknown. */
+  deviceMemoryMb: number;
+  /** Total rendered frames since the monitor started. */
+  totalFrames: number;
+  /** Average FPS since the monitor started. */
+  avgFps: number;
+  /** Worst frame time seen in the current sampling window, ms. */
+  maxFrameMs: number;
+  /** Seconds since the monitor started. */
+  uptimeSec: number;
   warnings: {
     fps: boolean;
     memory: boolean;
@@ -36,6 +48,12 @@ const DEFAULT_PERF: PerfMetrics = {
   gpuMs: 0,
   memoryMb: 0,
   dataScale: 0,
+  jsHeapMb: 0,
+  deviceMemoryMb: 0,
+  totalFrames: 0,
+  avgFps: 0,
+  maxFrameMs: 0,
+  uptimeSec: 0,
   warnings: { fps: false, memory: false, compute: false },
 };
 
@@ -62,6 +80,10 @@ interface AppStore {
   setMemoryMb: (mb: number) => void;
   setDataScale: (n: number) => void;
   setWarnings: (w: Partial<PerfMetrics['warnings']>) => void;
+  /** Push cumulative/lifetime stats from the performance monitor. */
+  setPerfTotals: (totals: { totalFrames: number; avgFps: number; maxFrameMs: number; uptimeSec: number }) => void;
+  /** Push memory readings (JS heap + device RAM). */
+  setPerfMemory: (jsHeapMb: number, deviceMemoryMb: number) => void;
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
@@ -150,6 +172,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })),
   setDataScale: (n) => set((s) => ({ perf: { ...s.perf, dataScale: n } })),
   setWarnings: (w) => set((s) => ({ perf: { ...s.perf, warnings: { ...s.perf.warnings, ...w } } })),
+  setPerfTotals: (totals) =>
+    set((s) => ({ perf: { ...s.perf, ...totals } })),
+  setPerfMemory: (jsHeapMb, deviceMemoryMb) =>
+    set((s) => ({ perf: { ...s.perf, jsHeapMb, deviceMemoryMb } })),
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),

@@ -4,7 +4,24 @@ import { useAppStore } from '@/stores/appStore';
 
 describe('appStore', () => {
   beforeEach(() => {
-    useAppStore.setState({ banners: [], notifications: [], perf: { fps: 0, frameMs: 0, gpuMs: 0, memoryMb: 0, dataScale: 0, warnings: { fps: false, memory: false, compute: false } } });
+    useAppStore.setState({
+      banners: [],
+      notifications: [],
+      perf: {
+        fps: 0,
+        frameMs: 0,
+        gpuMs: 0,
+        memoryMb: 0,
+        dataScale: 0,
+        jsHeapMb: 0,
+        deviceMemoryMb: 0,
+        totalFrames: 0,
+        avgFps: 0,
+        maxFrameMs: 0,
+        uptimeSec: 0,
+        warnings: { fps: false, memory: false, compute: false },
+      },
+    });
     vi.useFakeTimers();
   });
 
@@ -54,5 +71,21 @@ describe('appStore', () => {
   it('tracks status', () => {
     useAppStore.getState().setStatus('computing');
     expect(useAppStore.getState().status).toBe('computing');
+  });
+
+  it('stores cumulative perf totals', () => {
+    useAppStore.getState().setPerfTotals({ totalFrames: 1200, avgFps: 59, maxFrameMs: 22.5, uptimeSec: 20 });
+    const p = useAppStore.getState().perf;
+    expect(p.totalFrames).toBe(1200);
+    expect(p.avgFps).toBe(59);
+    expect(p.maxFrameMs).toBe(22.5);
+    expect(p.uptimeSec).toBe(20);
+  });
+
+  it('stores heap + device memory readings', () => {
+    useAppStore.getState().setPerfMemory(320, 8192);
+    const p = useAppStore.getState().perf;
+    expect(p.jsHeapMb).toBe(320);
+    expect(p.deviceMemoryMb).toBe(8192);
   });
 });

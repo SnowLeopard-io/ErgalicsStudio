@@ -106,7 +106,7 @@ async function waitForResult(page, timeoutMs = 120000) {
       await page.goto(`${BASE}/#/`, { waitUntil: 'networkidle' });
       await page.locator('.welcome-enter').click();
       await sleep(1800);
-      await page.locator('.plugin-item', { hasText: 'Particles' }).click();
+      await page.locator('.plugin-item[data-plugin-id="example.particles"]').click();
       await sleep(1200);
       await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
       await sleep(400);

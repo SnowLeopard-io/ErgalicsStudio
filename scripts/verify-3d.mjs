@@ -25,7 +25,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1800);
 
   // Activate the 3D point cloud plugin
-  await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud-3d"]').click();
   await sleep(1500);
   step('3D canvas mounted', await page.locator('.scene3d-canvas').count() > 0);
   step('2D canvas hidden behind 3D', await page.evaluate(() => {

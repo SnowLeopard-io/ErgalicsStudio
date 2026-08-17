@@ -11,7 +11,7 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. Ten suites, 74 tests:
+Environment: `node`. Twenty-nine suites, 270 tests:
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
@@ -25,6 +25,7 @@ Environment: `node`. Ten suites, 74 tests:
 | `gpuCompute`           | WGSL template generation, buffer packing, CPU integrator, particles fallback |
 | `builtinPlugins`       | contour grid normalization, scatter parsing                |
 | `sciencePlugins`       | 3-D N-body kernel/pack/momentum conservation + plugin CPU fallback; protein force-directed layout, components, no-data guards |
+| `wgsl`                 | histogram / heatmap / point-cloud GPU kernels: WGSL output, param packing, output sizing, CPU fallback parity |
 
 Notable techniques:
 
@@ -54,6 +55,8 @@ and asserts real pixels + zero console errors:
 | `verify-3d`      | 4199 | 3D point cloud in the host Three.js scene                  |
 | `verify-plugins` | 4198 | 3D↔2D surface visibility, contour, scatter, tornado sample |
 | `verify-webgpu`  | 4289 | real WebGPU path in headless Edge (SwiftShader): numeric harness (GPU vs CPU integrator within ~2e-6) + Particles app integration asserting a `wasm`-engine toast |
+| `verify-block-mode` | 4173 | block editor: mode switch, compile, run, block → code sync |
+| `verify-code-mode`  | 4175 | Monaco + Pyodide: run a Python program, console, variable panel, plot canvas |
 
 > If Edge is not at the default path, update the `EDGE` constant in each
 > script. New plugin/feature work should ship with an E2E check — screenshots

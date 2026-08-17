@@ -55,7 +55,7 @@ entirely in the browser. It combines a React + TypeScript frontend, a Rust
 core compiled to WebAssembly, a WebGPU compute pipeline, and a plugin
 architecture designed for third-party extensions.
 
-The workbench exposes three modes for three kinds of users — see the section
+The workbench exposes four modes for four kinds of users — see the section
 for each one below:
 
 - **Standard** — drag a dataset onto a plugin, see the visualisation. The
@@ -65,19 +65,23 @@ for each one below:
 - **Block** — a Scratch-like block editor where a single "Run" hat block
   kicks off the program. Beginner-friendly, but fully scripted (variables,
   loops, conditionals, transforms, plots).
+- **Code** — a Monaco Python editor backed by a Pyodide worker runtime, with
+  the same `studio.*` API as block mode, a REPL console and a variable panel.
 
 Ergalics Studio is under **active development** and already usable end to
 end: the core loop (project management, data loading, plugin registry, 2D/3D
-rendering, i18n, theming, performance monitoring, the Flow mode, and the
-Block mode) is functional and covered by tests. GPU acceleration beyond the
-existing Particles and N-Body plugins, package signing for the plugin
-marketplace, and the Code mode (Python/R) are the next milestones. Every
-module is kept deliberately small and testable so the codebase keeps scaling
-without a rewrite.
+rendering, i18n, theming, performance monitoring, the Flow mode, the Block
+mode, and the Code mode with a Pyodide Python runtime) is functional and
+covered by tests. GPU acceleration spans Particles, N-Body, histogram,
+heatmap and point-cloud kernels; package signing for the plugin marketplace
+and the R runtime (webR) are the next milestones. Every module is kept
+deliberately small and testable so the codebase keeps scaling without a
+rewrite.
 
-> Status: **Active development** — usable today with three workbench modes,
+> Status: **Active development** — usable today with four workbench modes,
 > 32 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
-> catalog, and live GPU compute; package signing and the Code mode are next.
+> catalog, live GPU compute, and a Pyodide-powered Python code editor;
+> package signing and the R runtime are next.
 
 ---
 
@@ -604,15 +608,16 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-252 tests across 28 suites: file-format detection, cspkg parsing/validation,
+270 tests across 29 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
-i18n, app store, WASM retry policy, GPU compute (WGSL templates, buffer
-packing, CPU integrator, service gating), built-in plugin logic, the data
-plugins' parsing helpers (error-band rows, treemap hierarchy, QQ probit),
-and the block system end-to-end — `DataTable` ops, registry, compiler
-(validation/topology/type-check), executor (incremental cache + invalidation),
-geometry, catalog executors, the `viz.*` → plugin render bridge, and the
-pipeline samples that load via `import.meta.glob`.
+i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
+N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
+service gating), built-in plugin logic, the data plugins' parsing helpers
+(error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
+— `DataTable` ops, registry, compiler (validation/topology/type-check),
+executor (incremental cache + invalidation), geometry, catalog executors,
+the `viz.*` → plugin render bridge, codegen (JS/Python), the Pyodide worker
+protocol, and the pipeline samples that load via `import.meta.glob`.
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -627,6 +632,9 @@ npm run test:e2e
 | `verify-fixes`       | all example plugins render their sample data correctly              |
 | `verify-3d`          | 3D point cloud in the host Three.js scene                              |
 | `verify-plugins`     | 3D↔2D surface visibility, contour, scatter, tornado sample             |
+| `verify-webgpu`      | GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback |
+| `verify-block-mode`  | block editor: mode switch, compile, run, block → code sync             |
+| `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
 
 ---
 
@@ -660,11 +668,11 @@ table. Highlights:
 - [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 23 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
-- [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
+- [x] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
 - [ ] Plugin marketplace: package signing & third-party install pipeline
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md) and the [design draft](block-code-modes.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
-- [ ] Code mode (Python/Pyodide, R/webR) — same IR, bidirectional block ↔ code sync; Phase 2 (Python via Pyodide) lands next.
+- [ ] Code mode (Python/Pyodide, R/webR) — same IR, bidirectional block ↔ code sync; **Python via Pyodide landed** (Monaco editor, `studio.*` API, REPL + variables, worker interrupt), R/webR still to come.
 
 ---
 

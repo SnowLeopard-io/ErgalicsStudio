@@ -31,3 +31,5 @@ src/native/ergalics_core_bg.wasm
 docs/node_modules/
 docs/.vitepress/*
 !docs/.vitepress/config.mts
+s
+prd.md

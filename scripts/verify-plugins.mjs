@@ -65,20 +65,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(400);
 
   // ---- 1. 3D surface visibility is conditional ----
-  await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud-3d"]').click();
   await sleep(1200);
   step('3D surface visible while 3D plugin active', await threeVisible());
 
-  await page.locator('.plugin-item', { hasText: 'Point Cloud' }).first().click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud"]').click();
   await sleep(1200);
   step('3D surface hidden when 2D plugin active', !(await threeVisible()));
 
-  await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud-3d"]').click();
   await sleep(1200);
   step('3D surface shows again on re-activation', await threeVisible());
 
   // ---- 2. Contour plugin (vortex field) ----
-  await page.locator('.plugin-item', { hasText: 'Contour' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.contour"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
@@ -89,7 +89,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/contour.png' });
 
   // ---- 3. Scatter plugin (cluster data) ----
-  await page.locator('.plugin-item', { hasText: 'Scatter Plot' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.scatter"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
@@ -100,7 +100,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.screenshot({ path: 'C:/Users/HUAWEI/AppData/Local/Temp/opencode/shots/scatter.png' });
 
   // ---- 4. Tornado sample in the 3D point cloud ----
-  await page.locator('.plugin-item', { hasText: 'Point Cloud 3D' }).click();
+  await page.locator('.plugin-item[data-plugin-id="example.point-cloud-3d"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);

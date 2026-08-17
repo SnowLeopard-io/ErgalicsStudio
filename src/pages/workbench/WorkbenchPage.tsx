@@ -4,7 +4,6 @@ import { Sidebar } from './Sidebar';
 import { CentralArea } from './CentralArea';
 import { RightPanel } from './RightPanel';
 import { StatusBar } from './StatusBar';
-import { PerfPanel } from './PerfPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAppStore } from '@/stores/appStore';
 import { perfMonitor } from '@/core/perf';
@@ -81,7 +80,6 @@ export default function WorkbenchPage() {
         </ErrorBoundary>
       </div>
       <StatusBar />
-      <PerfPanel />
     </div>
   );
 }
