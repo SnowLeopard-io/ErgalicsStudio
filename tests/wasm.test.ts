@@ -1,4 +1,10 @@
-// WASM loader retry logic tests (spec §11.1: retry 3x, 1s interval)
+// WASM loader retry logic tests (spec §11.1: retry 3x, 1s interval).
+//
+// The native module (`@/native/ergalics_core.js`) is a build artifact that
+// is git-untracked and absent in a clean clone / CI until `build:wasm` runs,
+// so these tests inject a mock loader via `__setWasmLoader` instead of
+// relying on module resolution or `vi.doMock` (the dynamic import is
+// intentionally `@vite-ignore`d, which vitest cannot intercept).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const moduleMock = vi.hoisted(() => ({
@@ -9,6 +15,9 @@ const moduleMock = vi.hoisted(() => ({
 async function freshWasm() {
   // Re-import so the module-level cache (module/loading) starts clean.
   const wasm = await import('@/core/wasm');
+  // Point the loader at the mock — a plain import() promise that resolves
+  // instantly, so fake timers control only the retry backoff.
+  wasm.__setWasmLoader(() => Promise.resolve({ default: moduleMock.init, core_version: moduleMock.core_version }));
   return wasm;
 }
 
@@ -16,17 +25,12 @@ describe('wasm loader', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
-    vi.doMock('@/native/ergalics_core.js', () => ({
-      default: moduleMock.init,
-      core_version: moduleMock.core_version,
-    }));
     moduleMock.init.mockReset();
     moduleMock.core_version.mockReset().mockReturnValue('test-core');
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.doUnmock('@/native/ergalics_core.js');
   });
 
   it('exposes the spec retry policy', async () => {

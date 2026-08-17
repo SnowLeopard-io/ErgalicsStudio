@@ -30,10 +30,23 @@ let loading: Promise<WasmModule | null> | null = null;
 export const MAX_WASM_RETRIES = 3;
 export const WASM_RETRY_DELAY_MS = 1000;
 
+/**
+ * Loader for the native module. The default dynamic import is marked
+ * `@vite-ignore` on purpose: the module may be absent in dev / CI until
+ * `build:wasm` runs, and Rollup must not try to resolve it for `build:web`.
+ * Tests swap this via `__setWasmLoader` so they never touch the real file.
+ */
+type WasmLoader = () => Promise<{ default?: unknown } & WasmModule>;
+let wasmLoader: WasmLoader = () => import(/* @vite-ignore */ '@/native/ergalics_core.js');
+
+/** Test / environment hook: replace the module loader (see tests/wasm.test.ts). */
+export function __setWasmLoader(loader: WasmLoader): void {
+  wasmLoader = loader;
+}
+
 async function tryLoad(): Promise<WasmModule | null> {
   try {
-    // @vite-ignore — resolved lazily; module may be absent in dev until built.
-    const mod = await import('@/native/ergalics_core.js');
+    const mod = await wasmLoader();
     const init = mod.default as unknown as (() => Promise<unknown>) | undefined;
     if (typeof init === 'function') {
       await init();
@@ -43,7 +56,7 @@ async function tryLoad(): Promise<WasmModule | null> {
     } catch {
       logger.warn('wasm', 'module loaded but core bindings unavailable');
     }
-    return mod as unknown as WasmModule;
+    return mod;
   } catch (err) {
     logger.warn('wasm', 'load attempt failed', err);
     return null;
