@@ -22,6 +22,11 @@ src/native/ergalics_core_bg.wasm
 
 .workbuddy/
 
+# Local npm mirror registry (npmmirror) — a machine-local preference that
+# must not be committed: every contributor and CI would be forced onto the
+# mirror. Configure it in ~/.npmrc instead.
+.npmrc
+
 # Docs workspace (VitePress): dependencies and build artifacts.
 docs/node_modules/
 docs/.vitepress/*

@@ -1,24 +1,22 @@
-<div align="center" style="background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 52%, #0f2e33 100%); border: 1px solid #2a3a4f; border-radius: 18px; padding: 38px 26px 30px; color: #e6edf3;">
+<div align="center">
 
 <h1>◈ Ergalics Studio</h1>
 
-<p style="font-size: 17px; line-height: 1.55; color: #c9d4e3; max-width: 660px; margin: 6px auto 0;">
-<b>An in-browser scientific computing workstation</b> — interactive data
+<p><b>An in-browser scientific computing workstation</b> — interactive data
 exploration, GPU compute scheduling, and a sandboxed plugin system, all
-running in the browser with a Rust/WASM core.
+running in the browser with a Rust/WASM core.</p>
+
+<p>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-0891b2?style=for-the-badge" /></a>
 </p>
 
-<p style="margin-top: 22px;">
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/" style="display: inline-block; background: #22d3ee; color: #06222b; padding: 11px 26px; border-radius: 999px; font-weight: 700; font-size: 15px; text-decoration: none; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.35);">▶&nbsp; Try the live demo · 在线体验</a>
-</p>
-
-<p style="margin-top: 18px;">
-<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square"></a>
-<a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
-<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square"></a>
-<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square"></a>
-<a href="#gpu-compute"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square"></a>
-<a href="#native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square"></a>
+<p>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square" /></a>
+<a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" /></a>
+<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square" /></a>
+<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square" /></a>
+<a href="#gpu-compute"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square" /></a>
+<a href="#native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square" /></a>
 </p>
 
 </div>
