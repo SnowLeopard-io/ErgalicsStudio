@@ -1,0 +1,53 @@
+name: Feature request
+description: Suggest a feature or improvement for Ergalics Studio
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a request, check the open issues and the task list in
+        `docs/guide/prd.md` — the idea may already be planned.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence describing the requested capability.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve? Who is the target user?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        How should it work? Which mode does it touch (Standard / Flow /
+        Block / Code), which plugin or block category, and how does it fit the
+        existing architecture?
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you consider, and why is this the better option?
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Impact
+      description: New files, files likely to change, or performance / bundle-size impact.
+    validations:
+      required: false

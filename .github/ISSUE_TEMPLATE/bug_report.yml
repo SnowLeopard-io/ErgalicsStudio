@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a bug in Ergalics Studio
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Fill in as much as you can — a clear repro is the
+        fastest path to a fix. For security issues, use **Security →
+        Report a vulnerability** instead of a public issue.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Numbered steps, including which mode (Standard / Flow / Block / Code),
+        which plugin, and which file or sample you used.
+      placeholder: |
+        1. Open the workbench in Standard mode.
+        2. Activate the AI Trainer plugin.
+        3. Load the MNIST sample from the 示例 dialog.
+        4. Click Train.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error text, console messages, or wrong output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and version, OS, and — if relevant — GPU / whether WebGPU is available (see the status bar).
+      placeholder: |
+        - Browser: Chrome 128 / Edge 128 / Firefox …
+        - OS: Windows 11 / macOS …
+        - WebGPU: available / not available
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: Attach screenshots grouped under the affected mode / plugin.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker (app unusable)
+        - High (feature broken, workaround exists)
+        - Medium (cosmetic / edge case)
+        - Low (minor)
+    validations:
+      required: false
