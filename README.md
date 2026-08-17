@@ -1,21 +1,29 @@
-<div align="center">
+<div align="center" style="background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 52%, #0f2e33 100%); border: 1px solid #2a3a4f; border-radius: 18px; padding: 38px 26px 30px; color: #e6edf3;">
 
-# ◈ Ergalics Studio
+<h1>◈ Ergalics Studio</h1>
 
-**An in-browser scientific computing workstation with GPU compute and a
-sandboxed plugin system.**
+<p style="font-size: 17px; line-height: 1.55; color: #c9d4e3; max-width: 660px; margin: 6px auto 0;">
+<b>An in-browser scientific computing workstation</b> — interactive data
+exploration, GPU compute scheduling, and a sandboxed plugin system, all
+running in the browser with a Rust/WASM core.
+</p>
 
-Interactive data exploration, GPU compute scheduling, and a sandboxed
-plugin system — all running in the browser, with a Rust/WASM core.
+<p style="margin-top: 22px;">
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/" style="display: inline-block; background: #22d3ee; color: #06222b; padding: 11px 26px; border-radius: 999px; font-weight: 700; font-size: 15px; text-decoration: none; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.35);">▶&nbsp; Try the live demo · 在线体验</a>
+</p>
 
-[![GitHub](https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white)](https://github.com/SnowLeopard-io/ErgalicsStudio)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev/)
-[![WebGPU](https://img.shields.io/badge/WebGPU-WGSL-8b5cf6)](#gpu-compute)
-[![WASM](https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white)](#native-core)
+<p style="margin-top: 18px;">
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square"></a>
+<a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
+<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square"></a>
+<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square"></a>
+<a href="#gpu-compute"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square"></a>
+<a href="#native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square"></a>
+</p>
 
 </div>
+
+<br>
 
 ![Ergalics Studio — Standard mode (drag → see)](docs/studio.png)
 
@@ -64,13 +72,14 @@ Ergalics Studio is under **active development** and already usable end to
 end: the core loop (project management, data loading, plugin registry, 2D/3D
 rendering, i18n, theming, performance monitoring, the Flow mode, and the
 Block mode) is functional and covered by tests. GPU acceleration beyond the
-existing Particles and N-Body plugins, the plugin marketplace, and the Code
-mode (Python/R) are the next milestones. Every module is kept deliberately
-small and testable so the codebase keeps scaling without a rewrite.
+existing Particles and N-Body plugins, package signing for the plugin
+marketplace, and the Code mode (Python/R) are the next milestones. Every
+module is kept deliberately small and testable so the codebase keeps scaling
+without a rewrite.
 
 > Status: **Active development** — usable today with three workbench modes,
-> a sandboxed plugin system, and live GPU compute; the marketplace and Code
-> mode are next.
+> 32 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
+> catalog, and live GPU compute; package signing and the Code mode are next.
 
 ---
 
@@ -78,8 +87,9 @@ small and testable so the codebase keeps scaling without a rewrite.
 
 **Workbench**
 
-- Four-region layout: sidebar (projects/plugins/tools), central viewport,
-  right parameter panel, status bar with GPU/perf indicators.
+- Four-region layout: sidebar (projects / plugins), central viewport, right
+  parameter panel, status bar with GPU/perf indicators. Project data files
+  and settings live in the top bar (`示例 | 数据 | 设置 | 保存 | 分享`).
 - Project lifecycle: create / open / save / autosave / share (`.clproj`
   format stored in IndexedDB).
 - File routing: drag & drop any file; the host detects the format by magic
@@ -89,7 +99,10 @@ small and testable so the codebase keeps scaling without a rewrite.
 **Rendering**
 
 - 2D canvas container shared by all 2D plugins (point clouds, particles,
-  time series, histograms, heatmaps, image viewer, contour plots, scatter).
+  time series, histograms, heatmaps, image viewer, contour plots, scatter,
+  bar charts, radar, network graphs, bubble charts, violin plots, sankey
+  diagrams, box plots, parallel coordinates, error bands, treemaps, QQ
+  plots, and the fractal/art toys).
 - Host-managed **Three.js 3D scene** (`Scene3DHandle`): grid/axes/lights,
   orbit controls, resize handling, auto camera fit, and GPU-safe disposal.
   The 3D surface is created lazily — only for plugins that declare 3D
@@ -98,7 +111,16 @@ small and testable so the codebase keeps scaling without a rewrite.
 
 **Plugin system**
 
-- 11 built-in example plugins covering the full API surface.
+- **32 built-in plugins** — 22 core/scientific visualisers plus 10 fun &
+  utility toys — covering the full API surface (2D canvas, Three.js scene,
+  WGSL compute, buttons/toggles, sandboxing).
+- **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
+  plugins declare `autoload: false` and are loaded on demand from the
+  built-in panel or the marketplace tab, keeping the startup registry lean.
+- **Marketplace catalog** (`src/plugins/marketplace.ts`) — every built-in
+  plugin is surfaced with curated tags, popularity, and category filters
+  (scientific / fun / utility); community "coming soon" submissions are
+  listed as placeholders.
 - `.cspkg` package loading (ZIP with `manifest.json` + entry + assets) with
   manifest validation (id format, entry path traversal guard, sandbox enum).
 - **Real sandbox isolation** (§6.2): third-party entry code runs inside a
@@ -216,7 +238,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (11 plugins)<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (22 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -326,7 +348,8 @@ See [Documentation](#documentation) for details.
 │   │                         #     toolbar, result preview, workbench shell
 │   ├── components/editor/    #   Block-mode canvas, variable / console panels
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
-│   ├── plugins/builtin/      #   11 example plugins (2D + 3D)
+│   ├── plugins/builtin/      #   22 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
 │   ├── types/                #   plugin & project & editor contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
@@ -426,23 +449,38 @@ limitations / next steps.
 
 ### Built-in plugins
 
-| Plugin            | Data                    | Capability                |
-| ----------------- | ----------------------- | ------------------------- |
-| Point Cloud       | `.xyz`                  | 2D canvas                 |
-| Point Cloud 3D    | `.xyz`, `.dat`          | Three.js scene, height ramp |
-| Particles         | `.dat`                  | 2D simulation + real WGSL compute + progress |
-| Time Series       | `.csv`                  | 2D line charts            |
-| Histogram         | `.dat`                  | binning + log scale       |
-| Heatmap           | `.json` (grid)          | viridis ramp              |
-| Image Viewer      | `.png`                  | base64 asset              |
-| Contour           | `.json` (grid)          | color ramp + isolines     |
-| Scatter           | `.dat`, `.csv`, `.xyz`  | 2D scatter, color channel |
-| N-Body Gravity    | `.json` (bodies)        | 3D Three.js points + WGSL all-pairs gravity |
-| Protein Interactions | `.json` (network)    | force-directed layout + component metrics |
+**Core / scientific plugins** (auto-loaded at startup, 22 total):
 
-Two of the eleven are shown below — a 3-D astrophysics demo and a
-systems-biology demo, both of which lean on the real WGSL compute path
-(with identical CPU fallbacks):
+| Plugin               | Data                        | Capability                |
+| -------------------- | --------------------------- | ------------------------- |
+| Point Cloud          | `.xyz`                      | 2D canvas                 |
+| Point Cloud 3D       | `.xyz`, `.dat`              | Three.js scene, height ramp |
+| Particles            | `.dat`                      | 2D simulation + real WGSL compute + progress |
+| Time Series          | `.csv`                      | 2D line charts            |
+| Histogram            | `.dat`                      | binning + log scale       |
+| Heatmap              | `.json` (grid)              | viridis ramp              |
+| Image Viewer         | `.png`                      | base64 asset              |
+| Contour              | `.json` (grid)              | color ramp + isolines     |
+| Scatter              | `.dat`, `.csv`, `.xyz`      | 2D scatter, color channel |
+| N-Body Gravity       | `.json` (bodies)            | 3D Three.js points + WGSL all-pairs gravity |
+| Protein Interactions | `.json` (network)           | force-directed layout + component metrics |
+| Bar Chart            | `.csv` (category, value)    | grouped bars, orientation & palette |
+| Polar / Radar Plot   | `.csv` (dimension × series) | multi-series radar        |
+| Network Graph        | `.csv` (source, target, weight) | force-directed layout, degree sizing |
+| Bubble Chart         | `.csv` (x, y, size, color)  | bubble size + color channels |
+| Violin Plot          | `.csv` (group, value)       | kernel density + box overlay |
+| Sankey Diagram       | `.csv` (source, target, value) | proportional flow ribbons |
+| Box Plot             | `.csv` (group, value)       | quartiles, whiskers, outliers |
+| Parallel Coordinates | `.csv` (multi-variate)      | categorical coloring      |
+| Error Band           | `.csv` (x, y, err)          | shaded confidence band    |
+| Treemap              | `.csv` (label, size / label, parent, size) | hierarchical rectangle layout |
+| QQ Plot              | `.csv`, `.dat` (single column) | normal quantile comparison + reference line |
+
+Every core plugin ships with a sample dataset (see `examples/data/`) so a
+one-click load in the **示例 / Examples** dialog produces a real
+visualisation immediately. Two of the compute-heavy demos are shown below —
+a 3-D astrophysics demo and a systems-biology demo, both of which lean on
+the real WGSL compute path (with identical CPU fallbacks):
 
 **N-Body Gravity** — direct-summation gravity, O(N²) per step, on the GPU.
 
@@ -453,9 +491,30 @@ component metrics.
 
 ![Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network](docs/protein.png)
 
+**Contour** — a 64×64 twin-peak scalar field rendered with the viridis
+ramp and isolines.
+
+![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](docs/field.png)
+
+**Fun & utility plugins** (`autoload: false`, 10 total — loaded on demand
+from the built-in panel or marketplace tab):
+
+| Plugin            | Type    | Description                              |
+| ----------------- | ------- | ---------------------------------------- |
+| Mandelbrot        | fractal | Mandelbrot / Julia set browser with palettes and zoom |
+| Spirograph        | art     | hypotrochoid curve art                   |
+| Lissajous         | art     | animated Lissajous curves                |
+| Game of Life      | toy     | classic cellular automaton (play / pause / reseed) |
+| Harmonograph      | art     | curve art from summed decaying sinusoids |
+| Palette Explorer  | utility | two-stop gradient preview + swatches     |
+| Koch Snowflake    | fractal | recursive segment fractal                |
+| Barnsley Fern     | fractal | iterated function system fern            |
+| Fireworks         | toy     | particle fireworks with gravity and trails |
+| Truchet Tiles     | pattern | random quarter-circle arc tiles          |
+
 Every built-in runs the same math on CPU when WebGPU is absent — see
 [GPU Compute & Native Core](#gpu-compute--native-core) and
-[`docs/guide/plugins.md`](docs/guide/plugins.md) for all eleven plugins and
+[`docs/guide/plugins.md`](docs/guide/plugins.md) for the full list and
 their compute paths.
 
 ### Third-party packages (`.cspkg`)
@@ -547,11 +606,12 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-126 tests across 17 suites: file-format detection, cspkg parsing/validation,
+252 tests across 28 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates, buffer
-packing, CPU integrator, service gating), built-in plugin logic, and the
-block system end-to-end — `DataTable` ops, registry, compiler
+packing, CPU integrator, service gating), built-in plugin logic, the data
+plugins' parsing helpers (error-band rows, treemap hierarchy, QQ probit),
+and the block system end-to-end — `DataTable` ops, registry, compiler
 (validation/topology/type-check), executor (incremental cache + invalidation),
 geometry, catalog executors, the `viz.*` → plugin render bridge, and the
 pipeline samples that load via `import.meta.glob`.
@@ -566,7 +626,7 @@ npm run test:e2e
 | -------------------- | ---------------------------------------------------------------------- |
 | `smoke-test`         | boot, auto-loaded plugins, reactive params, project restore            |
 | `verify-ui`          | layout, theming, canvas, plugin list                                   |
-| `verify-fixes`       | all 11 example plugins render their sample data correctly              |
+| `verify-fixes`       | all example plugins render their sample data correctly              |
 | `verify-3d`          | 3D point cloud in the host Three.js scene                              |
 | `verify-plugins`     | 3D↔2D surface visibility, contour, scatter, tornado sample             |
 
@@ -595,14 +655,15 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 11 example plugins (2D + 3D), cspkg loading, Worker sandbox
+- [x] 32 built-in plugins (22 core + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
 - [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 23 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [ ] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
-- [ ] Plugin marketplace & package signing
+- [ ] Plugin marketplace: package signing & third-party install pipeline
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md) and the [design draft](block-code-modes.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
 - [ ] Code mode (Python/Pyodide, R/webR) — same IR, bidirectional block ↔ code sync; Phase 2 (Python via Pyodide) lands next.

@@ -48,9 +48,11 @@ const sandboxLocaleUpdaters = new Map<string, (locale: string) => void>();
 /** Serializes activate() so two rapid calls cannot race deactivate/activate. */
 let activationChain: Promise<void> = Promise.resolve();
 
-// Push locale changes to every sandboxed plugin worker. Host-side plugins
-// subscribe through `buildPluginApi.onLocaleChange` (a subscribeLocale hook),
-// so this global listener only needs to reach the workers.
+// Push locale changes to every sandboxed plugin worker, and re-localize the
+// registry display names (name/description) so the sidebar, status bar, and
+// plugin views update without a reload. Host-side plugins subscribe through
+// `buildPluginApi.onLocaleChange` (a subscribeLocale hook), so this global
+// listener only needs to reach the workers + registry entries.
 subscribeLocale(() => {
   const locale = getLocale();
   for (const updater of sandboxLocaleUpdaters.values()) {
@@ -60,6 +62,15 @@ subscribeLocale(() => {
       logger.warn('plugin', 'locale push to sandbox failed', err);
     }
   }
+  const { registry } = usePluginStore.getState();
+  if (registry.length === 0) return;
+  usePluginStore.setState({
+    registry: registry.map((e) => ({
+      ...e,
+      name: e.nameI18n?.[locale] ?? e.name,
+      description: e.descriptionI18n?.[locale] ?? e.description,
+    })),
+  });
 });
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
@@ -211,13 +222,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (updater) sandboxLocaleUpdaters.set(id, updater);
       const formats =
         (await plugin.getSupportedFormats?.()) ?? plugin.manifest.formats ?? [];
+      const locale = getLocale();
+      const nameI18n = plugin.manifest.nameI18n;
+      const descriptionI18n = plugin.manifest.descriptionI18n;
       const entry: PluginRegistryEntry = {
         id,
-        name: plugin.manifest.name,
+        name: nameI18n?.[locale] ?? plugin.manifest.name,
         version: plugin.manifest.version,
         author: plugin.manifest.author,
-        description: plugin.manifest.description,
+        description: descriptionI18n?.[locale] ?? plugin.manifest.description,
         icon: plugin.manifest.icon,
+        nameI18n,
+        descriptionI18n,
         loaded: true,
         active: false,
         formats,
@@ -373,6 +389,21 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     void get()
       .ensureBuiltinsLoaded()
       .then(async () => {
+        // A fun/utility plugin (autoload:false) may have been the active one
+        // when the project was saved; ensureBuiltinsLoaded skips it, so load
+        // it on demand here before attempting activation.
+        if (activeId && !get().isLoaded(activeId)) {
+          try {
+            const { BUILTIN_PLUGINS } = await import('@/plugins/builtin');
+            const info = BUILTIN_PLUGINS.find((p) => p.manifest.id === activeId);
+            if (info) {
+              const plugin = await info.load();
+              await get().load(plugin);
+            }
+          } catch (err) {
+            logger.warn('plugin', `failed to lazy-load builtin ${activeId}`, err);
+          }
+        }
         // Await activation BEFORE pushing stored params. The previous code
         // fired `void activate()` then emitted immediately — the emit ran
         // before activate() registered its param subscription, so restored
@@ -405,6 +436,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     try {
       const { BUILTIN_PLUGINS } = await import('@/plugins/builtin');
       for (const info of BUILTIN_PLUGINS) {
+        // Fun/utility plugins declare `autoload: false` — they are listed in
+        // the built-in / marketplace panel but only loaded when the user
+        // picks them, so they don't bloat the startup registry.
+        if (info.autoload === false) continue;
         try {
           const plugin = await info.load();
           await get().load(plugin);

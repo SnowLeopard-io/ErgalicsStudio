@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
@@ -9,7 +9,6 @@ import { PluginDialog } from '../plugin-dialog/PluginDialog';
 
 export function Sidebar() {
   const t = useT();
-  const navigate = useNavigate();
   const location = useLocation();
   const project = useProjectStore((s) => s.project);
   const recent = useProjectStore((s) => s.recent);
@@ -24,14 +23,11 @@ export function Sidebar() {
   const activate = usePluginStore((s) => s.activate);
 
   const notify = useAppStore((s) => s.notify);
-  const addDataFile = useProjectStore((s) => s.addDataFile);
-  const removeDataFile = useProjectStore((s) => s.removeDataFile);
 
   const [newOpen, setNewOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dataFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -53,20 +49,6 @@ export function Sidebar() {
     await createProject(name);
     setNewOpen(false);
     setNewName('');
-  };
-
-  const handleImportDataFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    let ok = 0;
-    for (const file of Array.from(files)) {
-      try {
-        await addDataFile(file);
-        ok += 1;
-      } catch {
-        /* skip unreadable files */
-      }
-    }
-    if (ok > 0) notify('success', t('workbench.example.files_imported', { count: ok }));
   };
 
   return (
@@ -126,36 +108,6 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <nav className="sidebar-group">
-        <h3 className="sidebar-heading">{t('workbench.sidebar.data_files')}</h3>
-        <button type="button" className="btn btn-sm btn-block" onClick={() => dataFileInputRef.current?.click()}>
-          {t('workbench.example.files_import')}
-        </button>
-        {(!project || project.data.files.length === 0) && (
-          <div className="empty-hint">{t('workbench.example.files_empty')}</div>
-        )}
-        {project?.data.files.map((f) => (
-          <div key={f.id} className="sidebar-file-item">
-            <span className="sidebar-file-name" title={f.name}>{f.name}</span>
-            <button
-              type="button"
-              className="icon-btn recent-delete"
-              title={t('common.delete')}
-              onClick={() => removeDataFile(f.id)}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </nav>
-
-      <nav className="sidebar-group">
-        <h3 className="sidebar-heading">{t('workbench.sidebar.tools')}</h3>
-        <button type="button" className="btn btn-sm btn-block" onClick={() => navigate('/settings')}>
-          {t('workbench.tools.settings')}
-        </button>
-      </nav>
-
       <input
         ref={fileInputRef}
         type="file"
@@ -164,18 +116,6 @@ export function Sidebar() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
-          e.target.value = '';
-        }}
-      />
-
-      <input
-        ref={dataFileInputRef}
-        type="file"
-        multiple
-        accept=".csv,.dat,.xyz,.json,.txt,text/csv,text/plain,application/json,application/octet-stream"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          void handleImportDataFiles(e.target.files);
           e.target.value = '';
         }}
       />

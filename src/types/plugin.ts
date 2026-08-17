@@ -18,6 +18,12 @@ export interface PluginManifest {
   dependencies?: Record<string, string>;
   formats?: SupportedFormat[];
   /**
+   * Marketplace grouping. Core analytical visualizers are `'scientific'`,
+   * novelty/decorative toys are `'fun'`, and small helpers are `'utility'`.
+   * Used by the plugin market tab for filtering/sectioning.
+   */
+  category?: 'scientific' | 'fun' | 'utility';
+  /**
    * Execution context for third-party packages (spec §6.2):
    * - `"isolated"` (default): runs inside a Web Worker sandbox with an
    *   RPC bridge. Cannot touch the host page's globals/DOM; canvas
@@ -372,6 +378,9 @@ export interface PluginRegistryEntry {
   author: string;
   description: string;
   icon?: string;
+  /** Locale-specific display names (kept so the name can be re-localized). */
+  nameI18n?: Record<string, string>;
+  descriptionI18n?: Record<string, string>;
   loaded: boolean;
   active: boolean;
   formats: SupportedFormat[];

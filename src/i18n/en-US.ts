@@ -126,6 +126,13 @@ export const enUS: LocaleDictionary = {
   'plugin.license': 'License',
   'plugin.dependencies': 'Dependencies',
   'plugin.loaded_list': 'Loaded Plugins',
+  'plugin.category.scientific': 'Scientific',
+  'plugin.category.fun': 'Fun toys',
+  'plugin.category.utility': 'Utilities',
+  'plugin.category.all': 'All',
+  'plugin.popularity': 'Popularity',
+  'plugin.tags': 'Tags',
+  'plugin.coming_soon': 'Coming soon',
 
   'settings.title': 'Settings',
   'settings.general': 'General',
@@ -212,6 +219,14 @@ export const enUS: LocaleDictionary = {
   'workbench.example.files_empty': 'No project data files yet — import one above',
   'workbench.example.files_imported': 'Imported {count} file(s)',
   'workbench.example.files_import_failed': 'File import failed',
+
+  'workbench.files.title': 'Project Files',
+  'workbench.files.data': 'Data',
+  'workbench.files.manage': 'Manage',
+  'workbench.files.load': 'Load',
+  'workbench.files.loaded': 'Loaded into {plugin}',
+  'workbench.files.no_active_plugin': 'Activate a plugin in the sidebar first',
+  'workbench.files.load_failed': 'Load failed: {reason}',
 
   'blocks.category.data_source': 'Data Source',
   'blocks.category.transform': 'Transform',

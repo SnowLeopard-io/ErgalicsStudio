@@ -10,6 +10,7 @@ import { Dropdown } from '@/components/Dropdown';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { DataDialog } from './DataDialog';
+import { ProjectFilesDialog } from './ProjectFilesDialog';
 
 export function TopBar() {
   const t = useT();
@@ -30,7 +31,9 @@ export function TopBar() {
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectFileCount = project?.data.files.length ?? 0;
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -78,6 +81,18 @@ export function TopBar() {
         <div className="topbar-cluster">
           <button type="button" className="cluster-btn" onClick={() => setExampleOpen(true)}>
             {t('workbench.example.title')}
+          </button>
+          <button
+            type="button"
+            className="cluster-btn"
+            title={t('workbench.files.title')}
+            onClick={() => setFilesOpen(true)}
+          >
+            {t('workbench.files.data')}
+            {projectFileCount > 0 && <span className="cluster-badge">{projectFileCount}</span>}
+          </button>
+          <button type="button" className="cluster-btn" onClick={() => navigate('/settings')}>
+            {t('workbench.tools.settings')}
           </button>
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
@@ -148,6 +163,7 @@ export function TopBar() {
       />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
+      <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
     </header>
   );
 }

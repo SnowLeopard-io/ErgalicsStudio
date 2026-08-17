@@ -26,6 +26,10 @@ import violinDataCsv from '../../examples/data/violin-data.csv?raw';
 import sankeyDataCsv from '../../examples/data/sankey-data.csv?raw';
 import boxplotDataCsv from '../../examples/data/boxplot-data.csv?raw';
 import parallelDataCsv from '../../examples/data/parallel-data.csv?raw';
+import errorbandDataCsv from '../../examples/data/errorband-data.csv?raw';
+import treemapDataCsv from '../../examples/data/treemap-data.csv?raw';
+import qqDataDat from '../../examples/data/qq-data.dat?raw';
+import contourDataJson from '../../examples/data/contour-data.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 export interface BuiltinExample {
@@ -361,6 +365,70 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '3 类 × 4 特征的多维数据，平行坐标图按类别着色示例。',
       'en-US': '3 classes × 4 features; parallel coordinates with categorical coloring.',
+    },
+  },
+  {
+    id: 'sine-errorband',
+    filename: 'errorband-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.errorband',
+    content: errorbandDataCsv,
+    nameI18n: {
+      'zh-CN': '带误差的正弦测量',
+      'en-US': 'Sine Measurement with Error',
+    },
+    descriptionI18n: {
+      'zh-CN': '21 个带非均匀误差的测量点，误差带图随 x 增宽示例。',
+      'en-US': '21 measurements with growing uncertainty; error-band chart demo.',
+    },
+  },
+  {
+    id: 'project-treemap',
+    filename: 'treemap-data.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.treemap',
+    content: treemapDataCsv,
+    nameI18n: {
+      'zh-CN': '项目目录体积',
+      'en-US': 'Project Directory Sizes',
+    },
+    descriptionI18n: {
+      'zh-CN': '源码库层级目录与体积占比，矩形树图层级布局示例。',
+      'en-US': 'Hierarchical repository directory sizes; treemap layout demo.',
+    },
+  },
+  {
+    id: 'skewed-qq',
+    filename: 'qq-data.dat',
+    format: 'dat',
+    mimeType: 'application/octet-stream',
+    pluginId: 'example.qqplot',
+    content: qqDataDat,
+    nameI18n: {
+      'zh-CN': '右偏态样本 QQ 图',
+      'en-US': 'Right-Skewed QQ Samples',
+    },
+    descriptionI18n: {
+      'zh-CN': '240 个对数正态样本，QQ 图显示明显的右尾偏离。',
+      'en-US': '240 log-normal samples; QQ plot shows clear right-tail deviation.',
+    },
+  },
+  {
+    id: 'twin-peaks-contour',
+    filename: 'contour-data.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.contour',
+    content: contourDataJson,
+    nameI18n: {
+      'zh-CN': '双峰等高线场',
+      'en-US': 'Twin-Peak Contour Field',
+    },
+    descriptionI18n: {
+      'zh-CN': '64×64 双高斯峰 + 波脊场，等高线追踪与配色示例。',
+      'en-US': '64x64 field with twin gaussian peaks and a wavy ridge; contour demo.',
     },
   },
 ];

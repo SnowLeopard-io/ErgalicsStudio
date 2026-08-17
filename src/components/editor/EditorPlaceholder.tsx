@@ -18,7 +18,7 @@ export function EditorPlaceholder({ mode }: EditorPlaceholderProps) {
   const title = t(`workbench.mode.${mode}`);
   return (
     <div className="editor-placeholder">
-      <div className="editor-placeholder-icon">{mode === 'block' ? '🧩' : '⌨'}</div>
+      <div className="editor-placeholder-icon">{mode === 'block' ? '◈' : '⊞'}</div>
       <div className="editor-placeholder-title">{title}</div>
       <div className="editor-placeholder-hint">{t('editor.placeholder.hint')}</div>
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useT } from '@/i18n';
+import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
@@ -8,6 +8,7 @@ import type { ParamDefinition } from '@/types/plugin';
 
 export function RightPanel() {
   const t = useT();
+  const { locale } = useLocale();
   const activeId = usePluginStore((s) => s.activeId);
   const activePlugin = usePluginStore(
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
@@ -55,7 +56,9 @@ export function RightPanel() {
             onChange={onChange}
           />
           <div className="right-panel-plugin">
-            <span className="tag tag-success">{activePlugin.manifest.name}</span>
+            <span className="tag tag-success">
+              {activePlugin.manifest.nameI18n?.[locale] ?? activePlugin.manifest.name}
+            </span>
           </div>
         </>
       ) : (

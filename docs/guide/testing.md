@@ -50,7 +50,7 @@ and asserts real pixels + zero console errors:
 | ---------------- | ---- | ---------------------------------------------------------- |
 | `smoke-test`     | 4173 | boot, auto-loaded plugins, reactive params, project restore|
 | `verify-ui`      | 4173 | layout metrics, theming, canvas visibility                 |
-| `verify-fixes`   | 4177 | all 11 example plugins render their sample data correctly  |
+| `verify-fixes`   | 4177 | all example plugins render their sample data correctly  |
 | `verify-3d`      | 4199 | 3D point cloud in the host Three.js scene                  |
 | `verify-plugins` | 4198 | 3D↔2D surface visibility, contour, scatter, tornado sample |
 | `verify-webgpu`  | 4289 | real WebGPU path in headless Edge (SwiftShader): numeric harness (GPU vs CPU integrator within ~2e-6) + Particles app integration asserting a `wasm`-engine toast |

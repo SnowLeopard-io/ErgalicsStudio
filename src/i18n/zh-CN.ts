@@ -130,6 +130,13 @@ export const zhCN: LocaleDictionary = {
   'plugin.license': '许可证',
   'plugin.dependencies': '依赖',
   'plugin.loaded_list': '已加载插件',
+  'plugin.category.scientific': '科学可视化',
+  'plugin.category.fun': '趣味玩具',
+  'plugin.category.utility': '实用工具',
+  'plugin.category.all': '全部',
+  'plugin.popularity': '热度',
+  'plugin.tags': '标签',
+  'plugin.coming_soon': '即将上线',
 
   'settings.title': '设置',
   'settings.general': '通用',
@@ -216,6 +223,14 @@ export const zhCN: LocaleDictionary = {
   'workbench.example.files_empty': '暂无项目数据文件，点击上方按钮导入',
   'workbench.example.files_imported': '已导入 {count} 个文件',
   'workbench.example.files_import_failed': '文件导入失败',
+
+  'workbench.files.title': '项目文件',
+  'workbench.files.data': '数据',
+  'workbench.files.manage': '管理',
+  'workbench.files.load': '加载',
+  'workbench.files.loaded': '已加载到「{plugin}」',
+  'workbench.files.no_active_plugin': '请先在左侧激活一个插件',
+  'workbench.files.load_failed': '加载失败：{reason}',
 
   'blocks.category.data_source': '数据源',
   'blocks.category.transform': '变换',

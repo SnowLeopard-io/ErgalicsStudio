@@ -118,8 +118,8 @@ const result = await data.read();            // readback copy (read() handles it
 
 ## Built-in example plugins
 
-Eleven example plugins ship in `src/plugins/builtin/` and cover the full
-plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
+Twenty-two core example plugins ship in `src/plugins/builtin/` and cover the
+full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 `compute`, and the `api.gpu` accelerated path:
 
 | Plugin id           | Data                 | Capability                                        |
@@ -135,6 +135,23 @@ plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 | `example.scatter`       | `.dat/.csv/.xyz` | 2D scatter with color channel                     |
 | `example.nbody`         | `.json` (bodies) | 3-D all-pairs gravity, GPU + CPU                  |
 | `example.protein`       | `.json` (network)| force-directed layout + component metrics         |
+| `example.bar_chart`     | `.csv`           | grouped bars, orientation & palette               |
+| `example.polar`         | `.csv`           | multi-series radar plot                           |
+| `example.network`       | `.csv` (edges)   | force-directed layout, degree sizing              |
+| `example.bubble`        | `.csv`           | bubble size + color channels                      |
+| `example.violin`        | `.csv`           | kernel density + box overlay                      |
+| `example.sankey`        | `.csv` (edges)   | proportional flow ribbons                         |
+| `example.boxplot`       | `.csv`           | quartiles, whiskers, outliers                     |
+| `example.parallel`      | `.csv`           | parallel coordinates, categorical coloring        |
+| `example.errorband`     | `.csv`           | shaded confidence band around a line              |
+| `example.treemap`       | `.csv`           | hierarchical rectangle layout (flat or nested)    |
+| `example.qqplot`        | `.csv/.dat`      | normal quantile comparison + reference line       |
+
+Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
+Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on
+demand from the built-in panel or the marketplace tab.
+
+![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](../field.png)
 
 ### N-Body Gravity (`example.nbody`)
 
