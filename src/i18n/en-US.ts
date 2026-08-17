@@ -229,6 +229,7 @@ export const enUS: LocaleDictionary = {
   'workbench.example.datasets': 'Datasets',
   'workbench.example.pipelines': 'Flow pipelines',
   'workbench.example.blocks': 'Block samples',
+  'workbench.example.code_samples': 'Code samples',
   'workbench.example.pipeline_loaded': 'Loaded "{name}"',
   'workbench.example.files': 'Project files',
   'workbench.example.files_import': 'Import data file',

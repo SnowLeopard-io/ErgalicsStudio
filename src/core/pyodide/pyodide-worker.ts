@@ -97,8 +97,11 @@ async function handleRun(msg: RunMessage): Promise<void> {
   try {
     // Ship data files + params into the interpreter before running so the
     // synchronous studio.load() resolves without an async host round-trip.
-    py.globals.set('_FILES', msg.files);
-    py.globals.set('_PARAMS', msg.params);
+    // toPy converts the JS objects into real Python dicts — a raw JsProxy
+    // cannot be used as a container (`path not in _FILES` would raise
+    // "argument of type 'JsProxy' is not a container or iterable").
+    py.globals.set('_FILES', py.toPy(msg.files));
+    py.globals.set('_PARAMS', py.toPy(msg.params));
     await py.runPythonAsync(msg.code);
     const variables = snapshotVariables(py);
     postMessage({

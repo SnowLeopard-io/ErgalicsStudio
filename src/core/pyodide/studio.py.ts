@@ -218,6 +218,20 @@ class _Studio:
 
 studio = _Studio()
 
+# Register "studio" as a *real* importable module so user code can write
+# "import studio". A plain global would only be visible inside the worker's
+# own __main__ namespace - "import studio" (module lookup via sys.modules /
+# sys.path) would raise ModuleNotFoundError. The module carries the same
+# bound methods, so "studio.load(...)" behaves identically to the global.
+import sys as _sys
+import types as _types
+_studio_obj = _Studio()
+_studio_module = _types.ModuleType("studio")
+for _name in dir(_studio_obj):
+    if not _name.startswith("_"):
+        setattr(_studio_module, _name, getattr(_studio_obj, _name))
+_sys.modules["studio"] = _studio_module
+
 
 # ---- private helpers -------------------------------------------------------
 

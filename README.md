@@ -38,6 +38,7 @@ running in the browser with a Rust/WASM core.</p>
 - [Standard Mode](#standard-mode)
 - [Flow Mode](#flow-mode)
 - [Block Mode](#block-mode)
+- [Code Mode](#code-mode)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
@@ -192,9 +193,8 @@ rewrite.
   control flow (`if`, `repeat`, `while`, `for_each`), and 1-to-1 utility
   primitives (`set`, `print`).
 - **Shared IR** (`src/editor/ir/`) is the single source of truth. Block
-  JSON ↔ IR round-trips in a pure, Node-testable module — when a future
-  Code mode lands, the IR is what it shares with Block mode for
-  bidirectional sync.
+  JSON ↔ IR round-trips in a pure, Node-testable module — the same IR that
+  Code mode shares with Block mode for bidirectional sync.
 - **IR interpreter** (`src/editor/runtime/interpreter.ts`) walks the IR
   directly and calls into the **same `studio.*` API** that Flow-mode blocks
   use (`studio.load / normalize / plot / print / …`), so `studio.plot(
@@ -214,6 +214,25 @@ rewrite.
   pipelines: galaxy scatter, telemetry line, random histogram, normalised
   scatter, repeat-print) and are loaded via the **Examples** dialog in the
   top bar — discoverable by any user, one click away.
+
+**Code mode (Monaco + Pyodide Python runtime)**
+
+- A fourth workbench mode — `Standard | Flow | Blocks | Code` in the top
+  bar. Code mode is the escape hatch for real scripting: write free-form
+  **Python** in a Monaco editor and run it on **CPython via a Pyodide Web
+  Worker**.
+- **Same `studio.*` API** as block mode (`load / random / range / normalize /
+  sort / select / addColumn / filter / summary / histogram / plot / print /
+  notify / getParam / setParam`), injected as a real importable Python
+  module; `studio.plot(...)` renders through the shared plugin bridge.
+- **REPL** input in the console panel evaluates single expressions without
+  a full re-run; **stop** terminates and respawns the worker so runaway
+  loops cannot hang the page.
+- **9 sample programs** live as real files under `examples/code/*.py`
+  (loaded via `import.meta.glob`, display metadata in
+  `src/editor/code/samples.ts`) and load through the **Examples** dialog —
+  from a one-liner scatter to an EDA pipeline, Monte-Carlo π, and signal
+  smoothing.
 
 ---
 
@@ -343,12 +362,12 @@ See [Documentation](#documentation) for details.
 │   ├── blocks/               #   block system (Flow mode):
 │   │                         #     types · registry · compiler · executor ·
 │   │                         #     ops · catalog · sample · l10n · render
-│   ├── editor/               #   Block mode & (future) Code mode:
-│   │                         #     ir · block (Blockly) · codegen ·
+│   ├── editor/               #   Block & Code modes:
+│   │                         #     ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
 │   │                         #     toolbar, result preview, workbench shell
-│   ├── components/editor/    #   Block-mode canvas, variable / console panels
+│   ├── components/editor/    #   Block/Code canvases, variable / console panels
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
 │   ├── plugins/builtin/      #   22 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
@@ -358,7 +377,8 @@ See [Documentation](#documentation) for details.
 ├── native/ergalics-core/     # Rust core (device, compute, utils)
 ├── examples/
 │   ├── data/                 # sample datasets used by the example plugins
-│   └── projects/             # sample `.clproj` projects (incl. Flow pipelines)
+│   ├── projects/             # sample `.clproj` projects (incl. Flow pipelines)
+│   └── code/                 # sample Python programs for Code mode (*.py)
 ├── scripts/                  # build-wasm · make-example-data · E2E suites
 ├── tests/                    # Vitest unit tests
 ├── docs/                     # VitePress documentation workspace
@@ -427,7 +447,7 @@ data became and what got printed.
 Under the hood:
 
 - **Shared IR** (`src/editor/ir/`) is the single source of truth for both
-  Block mode and the (upcoming) Code mode. Block JSON ↔ IR round-trips in a
+  Block mode and Code mode. Block JSON ↔ IR round-trips in a
   Node-testable pure module.
 - **IR interpreter** (`src/editor/runtime/interpreter.ts`) walks the IR
   directly and calls into the same `studio.*` API that the Flow mode
@@ -444,6 +464,44 @@ Under the hood:
 See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the full
 architecture, the 30+ built-in blocks, the 5 sample programs, and the
 limitations / next steps.
+
+---
+
+## Code Mode
+
+![Code mode — a Monaco Python editor backed by a Pyodide worker, with a REPL console and a live plot preview](docs/code.png)
+
+A real Python editor for the fourth workbench mode. Code mode runs **CPython
+in the browser** through a Pyodide Web Worker, so you write free-form Python
+against the same `studio.*` API that block mode generates — no scaffolding,
+no context switching.
+
+- **Monaco editor** (`src/components/editor/CodeEditor.tsx`) with Python
+  syntax highlighting, dark/light theming, word wrap, and `studio.*`
+  autocompletion.
+- **Pyodide worker runtime** (`src/core/pyodide/`) — real CPython in a Web
+  Worker. The `studio` module is injected as a proper importable module
+  (`sys.modules['studio']`), and project data files ship into the worker as
+  `_FILES` so `studio.load('telemetry.csv')` resolves synchronously.
+- **Same Studio API as block mode** — `studio.load / random / range /
+  normalize / sort / select / addColumn / filter / summary / histogram /
+  plot / print / notify / getParam / setParam`. `studio.plot(...)` renders
+  through the exact same plugin bridge as a Flow-mode `viz.*` block, so a
+  plot lands in the very same scatter / line / histogram plugin.
+- **REPL** — evaluate a single Python expression or statement from the
+  console input without re-running the whole program.
+- **Interrupt** — stopping a run terminates and respawns the worker, so a
+  runaway loop cannot hang the page.
+- **9 sample programs** live as real files under `examples/code/*.py`
+  (mirroring flow-mode's `examples/projects/`) and load through the
+  **示例 / Examples** dialog — from one-liner scatters to a full EDA
+  pipeline, a Monte-Carlo π estimation, and signal smoothing.
+
+The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the
+IR → JS / Python codegen are all reused here, so block and code modes stay
+consistent on the same data semantics. See the [design
+draft](block-code-modes.md) for the full architecture and roadmap (R via
+webR is the remaining runtime).
 
 ---
 
@@ -672,7 +730,8 @@ table. Highlights:
 - [ ] Plugin marketplace: package signing & third-party install pipeline
 - [ ] GitHub Actions CI (unit + E2E + Pages deploy)
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md) and the [design draft](block-code-modes.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
-- [ ] Code mode (Python/Pyodide, R/webR) — same IR, bidirectional block ↔ code sync; **Python via Pyodide landed** (Monaco editor, `studio.*` API, REPL + variables, worker interrupt), R/webR still to come.
+- [x] Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable `studio` module, REPL + variables, worker interrupt, and 9 sample programs under `examples/code/`; same IR shared with block mode.
+- [ ] Code mode: R runtime (webR) + bidirectional block ↔ code sync for the remaining nodes
 
 ---
 

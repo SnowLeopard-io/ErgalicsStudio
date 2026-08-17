@@ -1,9 +1,9 @@
 // ==========================================================================
 // Ergalics Studio — unified "示例" dialog (datasets + block pipelines)
 //
-// Merges the sample-dataset picker and the block-pipeline samples into one
-// entry point with three tabs. Project data files have their own dedicated
-// manager (ProjectFilesDialog) and no longer live here.
+// Merges the sample-dataset picker, flow pipelines, block samples, and code
+// samples into one entry point with four tabs. Project data files have their
+// own dedicated manager (ProjectFilesDialog) and no longer live here.
 // ==========================================================================
 
 import { useRef, useState } from 'react';
@@ -27,6 +27,12 @@ import {
   sampleName as blockSampleName,
   sampleDescription as blockSampleDescription,
 } from '@/editor/block/samples';
+import {
+  CODE_SAMPLES,
+  codeSampleName,
+  codeSampleDescription,
+} from '@/editor/code/samples';
+import { makeProgram } from '@/editor/ir';
 import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
 
@@ -41,7 +47,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const notify = useAppStore((s) => s.notify);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
-  const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks'>('datasets');
+  const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks' | 'code'>('datasets');
   // A plain object literal here would be recreated on every render, making the
   // re-entrancy guard below useless (double-click would launch two loads).
   const loadingRef = useRef(false);
@@ -105,6 +111,22 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     onClose();
   };
 
+  const loadCodeSample = (id: string) => {
+    const sample = CODE_SAMPLES.find((s) => s.id === id);
+    if (!sample) return;
+    // Load the sample into a *fresh* code session so it never overwrites the
+    // user's active work; the editor shows the sample text on activation.
+    const sid = useEditorStore.getState().createSession('code', 'python').id;
+    useEditorStore.getState().updateSessionIR(sid, makeProgram([], [], 'python'), sample.python);
+    useEditorStore.getState().setActiveSession(sid);
+    // Drop the previous run's results so a second sample never shows the
+    // first one's output before the user re-runs.
+    useEditorStore.getState().resetRunOutputs();
+    if (mode !== 'code') setMode('code');
+    notify('success', t('workbench.example.pipeline_loaded', { name: codeSampleName(sample, locale) }));
+    onClose();
+  };
+
   return (
     <Modal
       open={open}
@@ -139,6 +161,13 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
             onClick={() => setTab('blocks')}
           >
             {t('workbench.example.blocks')}
+          </button>
+          <button
+            type="button"
+            className={`data-dialog-tab${tab === 'code' ? ' is-active' : ''}`}
+            onClick={() => setTab('code')}
+          >
+            {t('workbench.example.code_samples')}
           </button>
         </div>
 
@@ -193,7 +222,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
               </div>
             ))}
           </div>
-        ) : (
+        ) : tab === 'blocks' ? (
           <div className="plugin-list-pane">
             {BLOCK_SAMPLES.map((sample) => (
               <div key={sample.id} className="plugin-card">
@@ -209,6 +238,29 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                     type="button"
                     className="btn btn-sm btn-primary"
                     onClick={() => loadBlockSample(sample.id)}
+                  >
+                    {t('common.load')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="plugin-list-pane">
+            {CODE_SAMPLES.map((sample) => (
+              <div key={sample.id} className="plugin-card">
+                <div className="plugin-card-main">
+                  <span className="plugin-icon">▣</span>
+                  <div className="plugin-card-info">
+                    <div className="plugin-card-title">{codeSampleName(sample, locale)}</div>
+                    <div className="plugin-card-meta">{codeSampleDescription(sample, locale)}</div>
+                  </div>
+                </div>
+                <div className="plugin-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => loadCodeSample(sample.id)}
                   >
                     {t('common.load')}
                   </button>
