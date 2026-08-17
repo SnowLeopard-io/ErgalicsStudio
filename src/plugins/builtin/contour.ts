@@ -68,6 +68,12 @@ export class ContourPlugin implements Plugin {
   private grid: number[][] = [];
   private min = 0;
   private max = 1;
+  // Offscreen ramp cache. The ramp is drawn from this canvas via drawImage so
+  // it honors the host's pan/zoom transform — putImageData ignores the
+  // transform and would stay pinned to the screen origin while the contour
+  // lines pan (see drawRamp).
+  private rampCanvas: HTMLCanvasElement | null = null;
+  private rampKey = '';
   private state: State = { levels: 10, showGrid: true, hasData: false };
 
   async init(api: PluginApi) {
@@ -77,6 +83,8 @@ export class ContourPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.grid = [];
+    this.rampCanvas = null;
+    this.rampKey = '';
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -178,43 +186,58 @@ export class ContourPlugin implements Plugin {
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
 
-  /** Per-pixel viridis ramp from the grid (bilinear sampling). */
+  /** Per-pixel viridis ramp from the grid (bilinear sampling). Rendered to an
+   *  offscreen canvas once, then blitted via drawImage so it pans/zooms with
+   *  the contour lines (putImageData ignores the host's context transform). */
   private drawRamp(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     const rows = this.grid.length;
     const cols = this.grid[0]!.length;
     const w = canvas.width;
     const h = canvas.height;
-    const img = g.createImageData(w, h);
-    const span = Math.max(this.max - this.min, 1e-9);
-    const sample = (fx: number, fy: number): number => {
-      const x = fx * (cols - 1);
-      const y = fy * (rows - 1);
-      const x0 = Math.min(cols - 2, Math.floor(x));
-      const y0 = Math.min(rows - 2, Math.floor(y));
-      const tx = x - x0;
-      const ty = y - y0;
-      const v00 = this.grid[y0]![x0]!;
-      const v10 = this.grid[y0]![x0 + 1]!;
-      const v01 = this.grid[y0 + 1]![x0]!;
-      const v11 = this.grid[y0 + 1]![x0 + 1]!;
-      const a = v00 + (v10 - v00) * tx;
-      const b = v01 + (v11 - v01) * tx;
-      return a + (b - a) * ty;
-    };
-    for (let py = 0; py < h; py += 1) {
-      for (let px = 0; px < w; px += 1) {
-        // Sample row 0 at the top (py=0), matching the contour/row orientation
-        // in drawContours — the old `1 - py/h` flipped the ramp vertically.
-        const t = (sample(px / w, py / h) - this.min) / span;
-        const c = viridis(t);
-        const o = (py * w + px) * 4;
-        img.data[o] = c[0];
-        img.data[o + 1] = c[1];
-        img.data[o + 2] = c[2];
-        img.data[o + 3] = 255;
+    const key = `${rows}x${cols}:${this.min}:${this.max}:${w}x${h}`;
+    if (!this.rampCanvas || this.rampKey !== key) {
+      const off = this.rampCanvas ?? document.createElement('canvas');
+      off.width = w;
+      off.height = h;
+      const og = off.getContext('2d');
+      if (!og) return;
+      const img = og.createImageData(w, h);
+      const span = Math.max(this.max - this.min, 1e-9);
+      const sample = (fx: number, fy: number): number => {
+        const x = fx * (cols - 1);
+        const y = fy * (rows - 1);
+        const x0 = Math.min(cols - 2, Math.floor(x));
+        const y0 = Math.min(rows - 2, Math.floor(y));
+        const tx = x - x0;
+        const ty = y - y0;
+        const v00 = this.grid[y0]![x0]!;
+        const v10 = this.grid[y0]![x0 + 1]!;
+        const v01 = this.grid[y0 + 1]![x0]!;
+        const v11 = this.grid[y0 + 1]![x0 + 1]!;
+        const a = v00 + (v10 - v00) * tx;
+        const b = v01 + (v11 - v01) * tx;
+        return a + (b - a) * ty;
+      };
+      for (let py = 0; py < h; py += 1) {
+        for (let px = 0; px < w; px += 1) {
+          // Sample row 0 at the top (py=0), matching the contour/row
+          // orientation in drawContours.
+          const t = (sample(px / w, py / h) - this.min) / span;
+          const c = viridis(t);
+          const o = (py * w + px) * 4;
+          img.data[o] = c[0];
+          img.data[o + 1] = c[1];
+          img.data[o + 2] = c[2];
+          img.data[o + 3] = 255;
+        }
       }
+      og.putImageData(img, 0, 0);
+      this.rampCanvas = off;
+      this.rampKey = key;
     }
-    g.putImageData(img, 0, 0);
+    // drawImage honors the active viewport transform, so the field pans and
+    // zooms exactly like the contour lines above it.
+    g.drawImage(this.rampCanvas, 0, 0, w, h);
   }
 
   /** Marching-squares contour lines for each level. */

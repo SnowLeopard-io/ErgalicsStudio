@@ -27,6 +27,7 @@
     "verify": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
     "blockly": "^13.2.1",
     "fflate": "^0.8.2",
     "lz-string": "^1.5.0",

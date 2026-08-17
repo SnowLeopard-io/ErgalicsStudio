@@ -71,7 +71,8 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
       const plugin = usePluginStore
         .getState()
         .registry.find((e) => e.id === ex.pluginId)?.plugin;
-      await plugin?.loadData?.(exampleToFile(ex));
+      const content = ex.loadContent ? await ex.loadContent() : ex.content;
+      await plugin?.loadData?.(exampleToFile(ex, content));
       notify('success', t('workbench.example_data.loaded'));
       onClose();
     } catch (err) {

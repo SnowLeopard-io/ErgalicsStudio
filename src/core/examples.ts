@@ -32,6 +32,25 @@ import qqDataDat from '../../examples/data/qq-data.dat?raw';
 import contourDataJson from '../../examples/data/contour-data.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
+// AI Training samples (linear / nonlinear / logistic / MNIST) live under
+// examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
+// build-time glob instead of eager `?raw` imports — they stay out of the main
+// bundle and only download when a user picks one from the sample dialog.
+const aiExampleModules = import.meta.glob('../../examples/data/ai/*.csv', {
+  query: '?raw',
+  import: 'default',
+}) as Record<string, () => Promise<string>>;
+
+function aiExampleContent(name: string): Promise<string> {
+  const hit = Object.entries(aiExampleModules).find(([key]) => key.endsWith(`/${name}`));
+  if (!hit) {
+    throw new Error(
+      `AI sample "${name}" is not bundled (glob keys: ${Object.keys(aiExampleModules).join(', ') || 'none'})`,
+    );
+  }
+  return hit[1]();
+}
+
 export interface BuiltinExample {
   id: string;
   filename: string;
@@ -42,6 +61,8 @@ export interface BuiltinExample {
   content?: string;
   /** Base64 content for binary assets. */
   contentBase64?: string;
+  /** Lazy content loader for large text samples kept out of the main bundle. */
+  loadContent?: () => Promise<string>;
   nameI18n: Record<Locale, string>;
   descriptionI18n: Record<Locale, string>;
 }
@@ -431,6 +452,60 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
       'en-US': '64x64 field with twin gaussian peaks and a wavy ridge; contour demo.',
     },
   },
+
+  // ---- AI Training samples (served from examples/data/ai/) --------------
+  {
+    id: 'ai-linear',
+    filename: 'ai-linear.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.ai-training',
+    loadContent: () => aiExampleContent('ai-linear.csv') ?? Promise.resolve(''),
+    nameI18n: { 'zh-CN': 'AI 训练 · 线性回归', 'en-US': 'AI Train · Linear Regression' },
+    descriptionI18n: {
+      'zh-CN': '120 行 y=2.4x+1+噪声样本，线性回归入门示例。',
+      'en-US': '120 rows of y=2.4x+1+noise; linear regression starter sample.',
+    },
+  },
+  {
+    id: 'ai-nonlinear',
+    filename: 'ai-nonlinear.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.ai-training',
+    loadContent: () => aiExampleContent('ai-nonlinear.csv') ?? Promise.resolve(''),
+    nameI18n: { 'zh-CN': 'AI 训练 · 非线性回归', 'en-US': 'AI Train · Nonlinear Regression' },
+    descriptionI18n: {
+      'zh-CN': '140 行三次 + 正弦曲线样本，神经网络拟合演示。',
+      'en-US': '140 rows of cubic + sine; neural-net fit demo.',
+    },
+  },
+  {
+    id: 'ai-logistic',
+    filename: 'ai-logistic.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.ai-training',
+    loadContent: () => aiExampleContent('ai-logistic.csv') ?? Promise.resolve(''),
+    nameI18n: { 'zh-CN': 'AI 训练 · 逻辑回归', 'en-US': 'AI Train · Logistic Regression' },
+    descriptionI18n: {
+      'zh-CN': '160 行二分类双高斯团样本，决策边界演示。',
+      'en-US': '160 rows of two gaussian blobs; decision-boundary demo.',
+    },
+  },
+  {
+    id: 'ai-mnist',
+    filename: 'ai-mnist.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.ai-training',
+    loadContent: () => aiExampleContent('ai-mnist.csv') ?? Promise.resolve(''),
+    nameI18n: { 'zh-CN': 'AI 训练 · MNIST 分类', 'en-US': 'AI Train · MNIST CNN' },
+    descriptionI18n: {
+      'zh-CN': '200 张 28×28 手写数字（十类）精简集，卷积网络入门。',
+      'en-US': '200 compact 28x28 digits (10 classes); CNN intro sample.',
+    },
+  },
 ];
 
 /** Localized label for an example. */
@@ -443,12 +518,12 @@ export function exampleDescription(ex: BuiltinExample, locale: Locale): string {
 }
 
 /** Wrap sample content into a real File so plugins load it like user data. */
-export function exampleToFile(ex: BuiltinExample): File {
+export function exampleToFile(ex: BuiltinExample, content?: string): File {
   if (ex.contentBase64) {
     const binary = atob(ex.contentBase64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
     return new File([bytes], ex.filename, { type: ex.mimeType });
   }
-  return new File([ex.content ?? ''], ex.filename, { type: ex.mimeType });
+  return new File([content ?? ex.content ?? ''], ex.filename, { type: ex.mimeType });
 }

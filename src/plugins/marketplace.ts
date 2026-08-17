@@ -52,6 +52,7 @@ const OVERLAY: Record<string, Overlay> = {
   'example.errorband': { category: 'scientific', tags: ['plot', 'statistics', 'uncertainty'], popularity: 70 },
   'example.treemap': { category: 'scientific', tags: ['hierarchy', 'layout'], popularity: 66 },
   'example.qqplot': { category: 'scientific', tags: ['statistics', 'normality'], popularity: 62 },
+  'example.ai-training': { category: 'scientific', tags: ['ml', 'ai', 'training', 'canvas'], popularity: 80 },
   'example.scatter': { category: 'scientific', tags: ['plot', '2d'], popularity: 90 },
   'example.nbody': { category: 'scientific', tags: ['physics', 'simulation', 'gpu'], popularity: 76 },
   'example.contour': { category: 'scientific', tags: ['field', 'math'], popularity: 68 },

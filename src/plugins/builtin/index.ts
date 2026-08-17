@@ -34,6 +34,7 @@ import { kochManifest } from './koch';
 import { barnsleyManifest } from './barnsley';
 import { fireworksManifest } from './fireworks';
 import { truchetManifest } from './truchet';
+import { aiTrainingManifest } from './ai-training';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -279,6 +280,14 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     autoload: false,
     load: async () => {
       const mod = await import('./truchet');
+      return mod.default();
+    },
+  },
+  {
+    manifest: aiTrainingManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./ai-training');
       return mod.default();
     },
   },

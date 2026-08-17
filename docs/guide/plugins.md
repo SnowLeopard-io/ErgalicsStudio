@@ -118,7 +118,7 @@ const result = await data.read();            // readback copy (read() handles it
 
 ## Built-in example plugins
 
-Twenty-two core example plugins ship in `src/plugins/builtin/` and cover the
+Twenty-three core example plugins ship in `src/plugins/builtin/` and cover the
 full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 `compute`, and the `api.gpu` accelerated path:
 
@@ -146,12 +146,44 @@ full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 | `example.errorband`     | `.csv`           | shaded confidence band around a line              |
 | `example.treemap`       | `.csv`           | hierarchical rectangle layout (flat or nested)    |
 | `example.qqplot`        | `.csv/.dat`      | normal quantile comparison + reference line       |
+| `example.ai-training`   | `.csv`, `.json`  | 4 models (linear / non-linear NN / logistic / MNIST CNN), live loss curve, scatter+fit / decision boundary / digit grid |
 
 Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
 Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on
 demand from the built-in panel or the marketplace tab.
 
 ![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](../field.png)
+
+### AI Trainer (`example.ai-training`)
+
+![AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)](../AImnistcnn.png)
+
+A drop-in for "train a small model in the browser without writing code".
+Four model kinds — `linear`, `nonlinear-nn`, `logistic`, `mnist` — share the
+same `Train` / `Stop` / `Export Weights` button surface and the same
+live-updating loss curve. A handy reference for plugin authors because it
+exercises several host features at once:
+
+- **`loadData(file)`** parses tabular CSV through a single helper and
+  accepts the MNIST 785-column `label,p0..p783` layout. The host router
+  picks the right plugin from the file's extension, so dropping a CSV onto
+  the canvas is enough to start training.
+- **`button` parameters + `updateParams`** drive the training flow. The
+  plugin publishes three buttons; each carries an `action` string
+  (`train` / `stop` / `export`), and `updateParams` reads it back and
+  dispatches. No custom `api.*` calls are required.
+- **A long-running `compute` callback** streams progress via the
+  `onProgress` hook so the loss curve and the lower panel repaint during
+  training without blocking the UI.
+- **Dynamic imports for heavy deps.** TensorFlow.js is ~2 MB and is
+  *not* loaded by the auto-load step — `loadTf()` does
+  `await import('@tensorflow/tfjs')` on first use, then prefers the WebGL
+  backend and falls back to CPU. Plugin authors shipping a heavy native
+  dep can follow the same pattern.
+- **Bundled sample data lives in `examples/data/ai/`** (linear, non-linear,
+  logistic, MNIST) and is exposed through the global **示例** dialog rather
+  than a per-plugin "Load Sample" button, so the dialog stays the single
+  entry point for one-click data.
 
 ### N-Body Gravity (`example.nbody`)
 

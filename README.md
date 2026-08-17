@@ -80,9 +80,10 @@ deliberately small and testable so the codebase keeps scaling without a
 rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
-> 32 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
-> catalog, live GPU compute, and a Pyodide-powered Python code editor;
-> package signing and the R runtime are next.
+> 33 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
+> catalog, live GPU compute, an in-browser AI training plugin, and a
+> Pyodide-powered Python code editor; package signing and the R runtime are
+> next.
 
 ---
 
@@ -114,9 +115,9 @@ rewrite.
 
 **Plugin system**
 
-- **32 built-in plugins** — 22 core/scientific visualisers plus 10 fun &
+- **33 built-in plugins** — 23 core/scientific visualisers plus 10 fun &
   utility toys — covering the full API surface (2D canvas, Three.js scene,
-  WGSL compute, buttons/toggles, sandboxing).
+  WGSL compute, buttons/toggles, sandboxing, in-browser model training).
 - **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
   plugins declare `autoload: false` and are loaded on demand from the
   built-in panel or the marketplace tab, keeping the startup registry lean.
@@ -259,7 +260,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (22 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (23 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -369,7 +370,7 @@ See [Documentation](#documentation) for details.
 │   │                         #     toolbar, result preview, workbench shell
 │   ├── components/editor/    #   Block/Code canvases, variable / console panels
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
-│   ├── plugins/builtin/      #   22 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   23 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
 │   ├── types/                #   plugin & project & editor contracts
@@ -506,7 +507,7 @@ consistent on the same data semantics. See [`docs/guide/block-mode.md`](docs/gui
 
 ### Built-in plugins
 
-**Core / scientific plugins** (auto-loaded at startup, 22 total):
+**Core / scientific plugins** (auto-loaded at startup, 23 total):
 
 | Plugin               | Data                        | Capability                |
 | -------------------- | --------------------------- | ------------------------- |
@@ -532,12 +533,13 @@ consistent on the same data semantics. See [`docs/guide/block-mode.md`](docs/gui
 | Error Band           | `.csv` (x, y, err)          | shaded confidence band    |
 | Treemap              | `.csv` (label, size / label, parent, size) | hierarchical rectangle layout |
 | QQ Plot              | `.csv`, `.dat` (single column) | normal quantile comparison + reference line |
+| AI Trainer           | `.csv`, `.json` (MNIST)     | 4 models (linear / non-linear NN / logistic / CNN) with live loss curve, scatter+fit / decision boundary / digit grid |
 
 Every core plugin ships with a sample dataset (see `examples/data/`) so a
 one-click load in the **示例 / Examples** dialog produces a real
-visualisation immediately. Two of the compute-heavy demos are shown below —
-a 3-D astrophysics demo and a systems-biology demo, both of which lean on
-the real WGSL compute path (with identical CPU fallbacks):
+visualisation immediately. Four of the plugins that lean on a non-trivial
+compute path are shown below — three WGSL compute demos and the
+TF.js-powered in-browser trainer:
 
 **N-Body Gravity** — direct-summation gravity, O(N²) per step, on the GPU.
 
@@ -552,6 +554,17 @@ component metrics.
 ramp and isolines.
 
 ![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](docs/field.png)
+
+**AI Trainer** — train linear / non-linear / logistic / convolutional models
+in the browser with TensorFlow.js. The top of the canvas shows the live loss
+curve, and the lower panel switches between scatter+fit, a 2-D decision
+boundary, and a digit grid depending on the model. Four bundled samples
+(`examples/data/ai/*.csv`) cover a linear regression, a cubic+sine curve, a
+two-gaussian classification, and a 200-image MNIST subset. The TF.js bundle
+itself is lazy-loaded on the first click of **Train**, so the trainer is in
+the auto-load registry without paying a 2 MB cost at startup.
+
+![AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)](docs/AImnistcnn.png)
 
 **Fun & utility plugins** (`autoload: false`, 10 total — loaded on demand
 from the built-in panel or marketplace tab):
@@ -716,7 +729,7 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 32 built-in plugins (22 core + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] 33 built-in plugins (23 core + 10 fun/utility), cspkg loading, Worker sandbox
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links

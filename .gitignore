@@ -33,3 +33,4 @@ docs/.vitepress/*
 !docs/.vitepress/config.mts
 s
 prd.md
+插件需求.md
