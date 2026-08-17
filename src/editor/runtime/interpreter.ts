@@ -2,7 +2,7 @@
 // Ergalics Studio — IR interpreter (block mode execution)
 //
 // Executes an IRProgram directly against the injected StudioApi. It is the
-// block-mode runtime (block-code-modes.md §8.1 "editor-js" path), and shares
+// block-mode runtime (editor architecture §8.1 "editor-js" path), and shares
 // semantics 1:1 with the codegen (IR→JS/Python) so a program behaves the same
 // whether interpreted or generated (invariant #2).
 // ==========================================================================

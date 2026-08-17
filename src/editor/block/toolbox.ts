@@ -2,7 +2,7 @@
 // Ergalics Studio — Blockly toolbox (block mode)
 //
 // Categories aligned with the Scratch convention (data=blue, control=yellow,
-// ops=green, viz=pink) from block-code-modes.md §6.6. Value inputs get shadow
+// ops=green, viz=pink) from editor architecture §6.6. Value inputs get shadow
 // blocks so blocks are runnable the moment they're dragged out.
 // ==========================================================================
 

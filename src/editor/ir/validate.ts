@@ -2,7 +2,7 @@
 // Ergalics Studio — IR structural validation
 //
 // Purely structural checks (shape + required fields). It intentionally does
-// NOT do semantic/type analysis — that is deferred (see block-code-modes.md
+// NOT do semantic/type analysis — that is deferred (see editor architecture
 // open question #1). Validators return diagnostics rather than throwing so
 // the sync engine can surface partial failures instead of aborting.
 // ==========================================================================

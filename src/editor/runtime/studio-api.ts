@@ -5,12 +5,12 @@
 // is the code-facing analogue of the flow-mode block executors: the same
 // pure helpers in `@/blocks/ops` back both, and `studio.plot` reuses the
 // `render.ts` RenderedView → plugin bridge, so downstream visualization is
-// zero-cost to share (block-code-modes.md §8.2, §10.4).
+// zero-cost to share (editor architecture §8.2, §10.4).
 //
 // Transforms and statistics are **table-level** so they mirror the IR
 // transform/stat nodes exactly (e.g. `Normalize {data,column,mode}` → a
 // table). This keeps IR → JS/Python codegen and the IR interpreter perfectly
-// consistent (block-code-modes.md §3.1 invariant #2).
+// consistent (editor architecture §3.1 invariant #2).
 // ==========================================================================
 
 import {

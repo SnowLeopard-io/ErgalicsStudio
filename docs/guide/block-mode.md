@@ -262,15 +262,13 @@ simultaneously. Run `tests/editor/` to confirm everything round-trips.
 
 ## Known limitations
 
-- **Code mode is not live yet.** Only Block mode is wired up; Code mode
-  (Monaco + Pyodide + webR) needs the IR ↔ text adapter plus a Python
-  runner behind a Worker — see the
-  [design draft](https://github.com/SnowLeopard-io/ErgalicsStudio/blob/main/block-code-modes.md)
-  for the full plan.
+- **Code mode (Python via Pyodide)** is fully wired up (Monaco editor, REPL,
+  `studio` module, 9 sample programs). Only **R (webR)** and **bidirectional
+  block ↔ code sync** remain on the roadmap.
 - **User-loaded files are not yet project-scoped.** `studio.load('foo.dat')`
   resolves files from `examples/data/` only — drag-and-drop files do not
-  yet land in `ProjectState.data.files`. Tracked under
-  "block-code-modes §10.7 project file scope".
+  yet land in `ProjectState.data.files` for block sessions (code mode
+  injects project files via `_FILES` per run).
 - **Block names re-render only on workspace recreation.** Locale switches
   unmount / remount the Blockly workspace so the new language takes
   effect immediately; this works but is heavier than a pure string swap

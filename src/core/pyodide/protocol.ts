@@ -4,7 +4,7 @@
 // Messages the code-mode host and the Pyodide worker exchange. The host owns
 // the worker lifecycle; the worker runs real CPython via Pyodide, mirrors the
 // `studio` module (STUDIO_PYTHON_SOURCE) and streams side effects (stdout /
-// stderr / plot / notify) back over postMessage (block-code-modes.md §12).
+// stderr / plot / notify) back over postMessage (editor architecture §12).
 // ==========================================================================
 
 export const PYODIDE_VERSION = '314.0.3';

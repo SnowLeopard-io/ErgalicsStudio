@@ -3,7 +3,7 @@
 //
 // Shows the top-level variable snapshot produced by the last run. Values are
 // DataValue: DataTable → row×col summary, Scalar → inline value, RenderedView
-// → a marker. Mirrors block-code-modes.md §9.3.
+// → a marker. Mirrors editor architecture §9.3.
 // ==========================================================================
 
 import { useT } from '@/i18n';

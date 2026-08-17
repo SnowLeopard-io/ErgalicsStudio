@@ -4,7 +4,7 @@
 // Holds the editor sessions (the IR-based block/code documents), the active
 // session, the run-time variable snapshot and the console. Persistence flows
 // through `useProjectStore.applyEditor()` / `restoreEditor()` so sessions
-// round-trip inside a `.clproj` (block-code-modes.md §9.2).
+// round-trip inside a `.clproj` (editor architecture §9.2).
 //
 // Phase 0 establishes the state shape; the sync engine and run orchestration
 // land in Phase 1/2.

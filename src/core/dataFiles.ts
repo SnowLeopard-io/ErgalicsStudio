@@ -9,7 +9,7 @@
 //
 // Both the flow-mode `source.file` block and the block/code-mode
 // `studio.load()` resolve through `resolveDataFile`, so user files work
-// identically across both surfaces (block-code-modes.md §10.4).
+// identically across both surfaces (editor architecture §10.4).
 // ==========================================================================
 
 import type { FileEntry } from '@/types/project';

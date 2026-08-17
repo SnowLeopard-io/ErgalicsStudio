@@ -382,7 +382,6 @@ See [Documentation](#documentation) for details.
 ├── scripts/                  # build-wasm · make-example-data · E2E suites
 ├── tests/                    # Vitest unit tests
 ├── docs/                     # VitePress documentation workspace
-└── block-code-modes.md       # Block + Code mode design draft
 ```
 
 ---
@@ -499,9 +498,7 @@ no context switching.
 
 The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the
 IR → JS / Python codegen are all reused here, so block and code modes stay
-consistent on the same data semantics. See the [design
-draft](block-code-modes.md) for the full architecture and roadmap (R via
-webR is the remaining runtime).
+consistent on the same data semantics. See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the architecture; R via webR is the remaining runtime.
 
 ---
 
@@ -666,7 +663,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-270 tests across 29 suites: file-format detection, cspkg parsing/validation,
+276 tests across 30 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
 N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
@@ -728,8 +725,8 @@ table. Highlights:
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [x] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
 - [ ] Plugin marketplace: package signing & third-party install pipeline
-- [ ] GitHub Actions CI (unit + E2E + Pages deploy)
-- [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md) and the [design draft](block-code-modes.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
+- [x] GitHub Actions CI (unit + E2E + Pages deploy)
+- [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
 - [x] Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable `studio` module, REPL + variables, worker interrupt, and 9 sample programs under `examples/code/`; same IR shared with block mode.
 - [ ] Code mode: R runtime (webR) + bidirectional block ↔ code sync for the remaining nodes
 

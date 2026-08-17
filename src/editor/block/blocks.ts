@@ -4,7 +4,7 @@
 // Custom Scratch-like blocks aligned 1:1 with the IR node kinds in
 // `@/editor/ir`. Labels/tooltips use `%{BKY_XXX}` references resolved against
 // `Blockly.Msg` (see `i18n.ts`) so blocks re-label when the app language
-// switches (block-code-modes.md §10.8).
+// switches (editor architecture §10.8).
 // ==========================================================================
 
 /** Blockly block-definition JSON objects. */

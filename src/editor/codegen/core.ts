@@ -4,7 +4,7 @@
 // Pure, side-effect-free walker that renders an IRProgram as JavaScript or
 // Python text. Both dialects emit `studio.*` calls that mirror the IR
 // transform/stat nodes exactly, so the generated text and the IR interpreter
-// (runtime/interpreter.ts) agree on semantics (block-code-modes.md §3.1 #2).
+// (runtime/interpreter.ts) agree on semantics (editor architecture §3.1 #2).
 // ==========================================================================
 
 import type { BinaryOperator, IRNode, IRProgram } from '../ir/types';

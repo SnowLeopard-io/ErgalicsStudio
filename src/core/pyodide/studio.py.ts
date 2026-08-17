@@ -3,7 +3,7 @@
 //
 // This string is injected into the Pyodide worker's main namespace before any
 // user code runs. It mirrors the semantics of the JS `studio-api.ts` bridge
-// (block-code-modes.md §3.1 invariant #2): same data-source parsing, same
+// (editor architecture §3.1 invariant #2): same data-source parsing, same
 // table-level transforms, same plot payloads — so a program behaves the same
 // whether interpreted by the IR interpreter, generated as JS, or run in real
 // CPython via Pyodide.

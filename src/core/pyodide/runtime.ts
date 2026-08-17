@@ -4,7 +4,7 @@
 // Connects the PyodideClient to the editor store and the plugin render
 // bridge: streams stdout/stderr to the console, forwards plot payloads to the
 // same RenderedView → plugin path block mode uses, and converts the Python
-// variable snapshot into panel-ready DataValue entries (block-code-modes.md
+// variable snapshot into panel-ready DataValue entries (editor architecture
 // §12.3).
 // ==========================================================================
 

@@ -14,7 +14,7 @@ import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
-// Standard/Flow first paint is unaffected (block-code-modes.md §1.1).
+// Standard/Flow first paint is unaffected (editor architecture §1.1).
 const BlockEditor = lazy(() =>
   import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
 );

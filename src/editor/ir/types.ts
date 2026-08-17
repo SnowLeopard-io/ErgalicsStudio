@@ -7,7 +7,7 @@
 // follows Microsoft MakeCode's blocks⇄text model: a restricted AST plus a
 // `RawCode` fallback node for anything the IR cannot express.
 //
-// See block-code-modes.md §4 for the full node catalogue and design rationale.
+// See editor architecture §4 for the full node catalogue and design rationale.
 // ==========================================================================
 
 import { hashIR } from './hash';

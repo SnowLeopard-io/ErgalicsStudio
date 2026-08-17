@@ -2,7 +2,7 @@
 // Ergalics Studio — IR JSON serialization
 //
 // The IR is the persisted form (`.clproj` stores IR, not code text — see
-// block-code-modes.md §3.1 invariant #1). Serialization is a thin, versioned
+// editor architecture §3.1 invariant #1). Serialization is a thin, versioned
 // wrapper over JSON.stringify/parse that validates on read and back-fills the
 // content hash when it is missing (e.g. projects saved by an older build).
 // ==========================================================================

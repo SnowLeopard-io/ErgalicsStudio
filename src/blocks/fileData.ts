@@ -4,7 +4,7 @@
 // A single place that turns raw file text into a DataTable, dispatching on
 // the file extension. Both the flow-mode `source.file` block and the
 // block/code-mode `studio.load()` route through here so their parsing stays
-// perfectly consistent (block-code-modes.md §3.1 invariant #2).
+// perfectly consistent (editor architecture §3.1 invariant #2).
 // ==========================================================================
 
 import { createDataTable, type DataTable } from '@/types/datatable';

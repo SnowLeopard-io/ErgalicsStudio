@@ -23,9 +23,9 @@ state, not aspirational designs.
 | Sharing       | link generation, project export                                | ✅ Done      |
 | Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
 | GPU compute   | `api.gpu` compute surface, WGSL templates, particles + 3-D N-body plugins accelerated (CPU fallback), real-device E2E verification | 🟡 Partial  |
-| Code mode     | Monaco + Pyodide (Python) + webR (R) on top of the existing IR, with bidirectional block ↔ code sync | 🚧 Next |
+| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; R (webR) + bidirectional block ↔ code sync remain | ✅ Core done (Pyodide) · 🚧 Next (webR + sync) |
 | Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
-| CI            | GitHub Actions (unit + E2E + Pages deploy)                     | 🚧 Next      |
+| CI            | GitHub Actions (unit + E2E + Pages deploy)                     | ✅ Done      |
 | Error handling| error boundaries, fallbacks, retry                            | 🟡 Partial   |
 
 ## Milestones
@@ -44,13 +44,15 @@ state, not aspirational designs.
    `wasm`-engine GPU toast. Remaining: accelerate the remaining example
    plugins (histogram binning, heatmap/contour grids, point-cloud transforms)
    and add GPU perf telemetry per kernel.
-3. **M3 — Code mode**: Python (Pyodide) and R (webR) running behind
-   Monaco, sharing the existing IR with Block mode for bidirectional sync,
-   plus an `IR → Python` / `IR → R` codegen pass and a Worker-side runner.
+3. **M3 — Code mode**: Python (Pyodide) is complete — Monaco editor,
+   CPython Worker runtime with importable `studio` module, REPL + variable
+   snapshots, worker interrupt, and 9 sample programs under `examples/code/`.
+   R (webR) runtime and bidirectional block ↔ code sync remain as follow-up
+   items inside M3.
 4. **M4 — Marketplace**: package registry, versioning, signature
    verification, and in-app install/update flows.
 5. **M5 — CI + release**: GitHub Actions pipeline, artifact publishing,
-   and the docs site deployed to Pages.
+   and the docs site deployed to Pages — **all complete** (see `.github/workflows/`).
 
 ## Known limitations (honest)
 
@@ -61,10 +63,9 @@ state, not aspirational designs.
   security boundary; the UI warns when it is used.
 - The WebGPU compute path requires a WebGPU-capable browser; without one the
   app runs in CPU-fallback mode.
-- Block mode resolves `studio.load(...)` against `examples/data/` only;
-  drag-and-drop files do not yet land in `ProjectState.data.files` (so a
-  project that opened a CSV in Standard mode cannot re-read it from a Block
-  session). Tracked under M3.
+- Block / Code mode resolves `studio.load(...)` via the project files
+  registry (`setProjectFiles` + `resolveDataFile`) so project-owned files,
+  bundled examples, and Code-mode `_FILES` share a single loader.
 - Block mode and the IR are designed so a `gpu.*` family of nodes slots in
   later; the worker-side runner and the `ComputeKernel` dispatch from a
   block are not yet wired.

@@ -5,7 +5,7 @@
 // free-form Python using the same `studio.*` API block mode generates; Run
 // executes the program in the worker (data files shipped as _FILES), plot
 // payloads render through the existing plugin bridge, and a REPL line
-// evaluates single expressions into the console (block-code-modes.md §12).
+// evaluates single expressions into the console (editor architecture §12).
 //
 // The active code session's text is persisted back to the session (lastCode)
 // so it survives project save/restore. IR ↔ text sync (block→code) is handled

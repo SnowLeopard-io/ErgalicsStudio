@@ -2,7 +2,7 @@
 // Ergalics Studio — editor (block/code mode) domain types
 //
 // Shared types for the Scratch-like Block mode and the Python/R Code mode.
-// See block-code-modes.md §9 for the full data model. The IR lives in
+// See docs/guide/block-mode.md §9 for the full data model. The IR lives in
 // `@/editor/ir` and is referenced here as the single source of truth.
 // ==========================================================================
 
