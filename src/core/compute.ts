@@ -301,7 +301,10 @@ class NativeKernel implements GpuKernelHandle {
     // accepted it — divergent behaviour between the two compute backends.
     const entries: GPUBindGroupEntry[] = buffers.map((b, i) => ({
       binding: this.bindings[i] ?? i,
-      resource: b.raw,
+      // Per the current WebGPU spec, `resource` takes a GPUBufferBinding
+      // object ({ buffer, offset?, size? }) rather than a bare GPUBuffer;
+      // TS 5.7's lib.dom enforces this (GPUBindingResource union).
+      resource: { buffer: b.raw },
     }));
     const bindGroup = device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
