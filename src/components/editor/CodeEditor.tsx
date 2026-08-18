@@ -101,10 +101,9 @@ export function CodeEditor() {
     editor.onDidChangeModelContent(() => {
       const sid = useEditorStore.getState().activeSessionId;
       if (!sid) return;
-      const session = useEditorStore.getState().sessions.find((s) => s.id === sid);
-      if (!session) return;
       const text = editor.getValue();
-      useEditorStore.getState().updateSessionIR(sid, session.ir, text);
+      // Parse the edited code back into the IR hub so Block/Flow regenerate.
+      useEditorStore.getState().syncFromCode(sid, text);
     });
 
     // `studio.*` completions for the Python language.

@@ -8,6 +8,7 @@
 
 import type { DataValue } from './datatable';
 import type { IRProgram } from '@/editor/ir/types';
+import type { BlockGraphState } from './block';
 
 /** Four workbench modes (upgraded from the two-way Standard|Flow toggle). */
 export type WorkbenchMode = 'standard' | 'flow' | 'block' | 'code';
@@ -15,8 +16,8 @@ export type WorkbenchMode = 'standard' | 'flow' | 'block' | 'code';
 /** Languages supported by code mode (Phase 1 = Python, Phase 3 = R, later JS). */
 export type CodeLanguage = 'python' | 'r' | 'js';
 
-/** Which side of the block⇄code sync last changed. */
-export type SyncState = 'clean' | 'block-dirty' | 'code-dirty' | 'conflict';
+/** Which side of the block⇄code⇄flow sync last changed. */
+export type SyncState = 'clean' | 'block-dirty' | 'code-dirty' | 'flow-dirty' | 'conflict';
 
 export interface ConsoleEntry {
   stream: 'stdout' | 'stderr' | 'info';
@@ -42,6 +43,10 @@ export interface EditorSession {
   ir: IRProgram;
   /** Last synced code text (used to restore cursor/diff on re-sync). */
   lastCode: string;
+  /** Blockly workspace JSON (Block mode's visual state). */
+  blockGraph?: unknown;
+  /** Flow DAG state (Flow mode's visual state). */
+  flowGraph?: BlockGraphState;
   syncState: SyncState;
   createdAt: number;
   updatedAt: number;
@@ -51,6 +56,7 @@ export function createEditorSession(
   mode: 'block' | 'code',
   language: CodeLanguage,
   ir: IRProgram,
+  partial?: Partial<EditorSession>,
 ): EditorSession {
   const now = Date.now();
   return {
@@ -62,5 +68,6 @@ export function createEditorSession(
     syncState: 'clean',
     createdAt: now,
     updatedAt: now,
+    ...partial,
   };
 }
