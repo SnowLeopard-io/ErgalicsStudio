@@ -73,10 +73,11 @@ export function BlockEditor() {
       const ws = createWorkspace(divRef.current);
       wsRef.current = ws;
       ws.addChangeListener(() => {
-        // Push IR to the store on every change.
+        // Push the edited blocks into the IR hub; this regenerates both the
+        // Flow DAG and the Code text so the three modes stay in lockstep.
         const ir = workspaceToIR(ws);
         const sid = useEditorStore.getState().activeSessionId;
-        if (sid) useEditorStore.getState().updateSessionIR(sid, ir);
+        if (sid) useEditorStore.getState().syncFromBlock(sid, ir);
         // Debounce the "view code" overlay so typing does not re-render the
         // whole editor on every block mutation; only refresh when open.
         if (!codeViewRef.current) return;

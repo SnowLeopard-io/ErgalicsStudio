@@ -9,7 +9,7 @@
 
 import type { BinaryOperator, IRNode, IRProgram } from '../ir/types';
 
-export type CodegenLang = 'js' | 'python';
+export type CodegenLang = 'js' | 'python' | 'r';
 
 interface Ctx {
   lang: CodegenLang;
@@ -21,6 +21,8 @@ interface Ctx {
 }
 
 function quote(s: string): string {
+  // R and Python use single quotes; we quote with single quotes for all
+  // targets and escape embedded single quotes.
   return `'${s
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
@@ -30,7 +32,9 @@ function quote(s: string): string {
 }
 
 function bool(value: boolean, c: Ctx): string {
-  return c.lang === 'js' ? String(value) : value ? 'True' : 'False';
+  if (c.lang === 'js') return String(value);
+  if (c.lang === 'r') return value ? 'TRUE' : 'FALSE';
+  return value ? 'True' : 'False';
 }
 
 function binop(op: BinaryOperator, c: Ctx): string {
@@ -153,6 +157,7 @@ function expr(node: IRNode, c: Ctx): string {
 // ---- statements ----
 
 function terminator(c: Ctx): string {
+  // R and Python are newline-terminated; only JS needs a semicolon.
   return c.lang === 'js' ? ';' : '';
 }
 
@@ -162,18 +167,19 @@ function block(lines: string[]): string {
 
 function ifStmt(node: Extract<IRNode, { kind: 'If' }>, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
+  const usesBraces = c.lang !== 'python';
   const lines: string[] = [];
   node.branches.forEach((b, i) => {
-    const keyword = i === 0 ? 'if' : c.lang === 'js' ? 'else if' : 'elif';
-    const cond = c.lang === 'js' ? `(${expr(b.cond, c)})` : expr(b.cond, c);
-    lines.push(`${ind}${keyword} ${cond}${c.lang === 'js' ? ' {' : ':'}`);
+    const keyword = i === 0 ? 'if' : usesBraces ? 'else if' : 'elif';
+    const cond = usesBraces ? `(${expr(b.cond, c)})` : expr(b.cond, c);
+    lines.push(`${ind}${keyword} ${cond}${usesBraces ? ' {' : ':'}`);
     b.body.forEach((s) => lines.push(stmt(s, c, level + 1)));
-    if (c.lang === 'js') lines.push(`${ind}}`);
+    if (usesBraces) lines.push(`${ind}}`);
   });
   if (node.elseBody && node.elseBody.length > 0) {
-    lines.push(`${ind}${c.lang === 'js' ? 'else {' : 'else:'}`);
+    lines.push(`${ind}${usesBraces ? 'else {' : 'else:'}`);
     node.elseBody.forEach((s) => lines.push(stmt(s, c, level + 1)));
-    if (c.lang === 'js') lines.push(`${ind}}`);
+    if (usesBraces) lines.push(`${ind}}`);
   }
   return block(lines);
 }
@@ -181,7 +187,7 @@ function ifStmt(node: Extract<IRNode, { kind: 'If' }>, c: Ctx, level: number): s
 function repeatStmt(node: Extract<IRNode, { kind: 'Repeat' }>, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
   const lines: string[] = [];
-  if (c.lang === 'js') {
+  if (c.lang === 'js' || c.lang === 'r') {
     // Floor the count so a fractional value iterates the same as Python's
     // `range(int(n))` (a fractional `n` would otherwise run ceil iterations).
     lines.push(`${ind}for (let __i = 0; __i < Math.floor(${expr(node.count, c)}); __i++) {`);
@@ -189,29 +195,30 @@ function repeatStmt(node: Extract<IRNode, { kind: 'Repeat' }>, c: Ctx, level: nu
     lines.push(`${ind}for __i in range(int(${expr(node.count, c)})):`);
   }
   node.body.forEach((s) => lines.push(stmt(s, c, level + 1)));
-  if (c.lang === 'js') lines.push(`${ind}}`);
+  if (c.lang !== 'python') lines.push(`${ind}}`);
   return block(lines);
 }
 
 function whileStmt(node: Extract<IRNode, { kind: 'While' }>, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
-  const cond = c.lang === 'js' ? `(${expr(node.cond, c)})` : expr(node.cond, c);
-  const lines: string[] = [`${ind}while ${cond}${c.lang === 'js' ? ' {' : ':'}`];
+  const usesBraces = c.lang !== 'python';
+  const cond = usesBraces ? `(${expr(node.cond, c)})` : expr(node.cond, c);
+  const lines: string[] = [`${ind}while ${cond}${usesBraces ? ' {' : ':'}`];
   node.body.forEach((s) => lines.push(stmt(s, c, level + 1)));
-  if (c.lang === 'js') lines.push(`${ind}}`);
+  if (usesBraces) lines.push(`${ind}}`);
   return block(lines);
 }
 
 function forEachStmt(node: Extract<IRNode, { kind: 'ForEach' }>, c: Ctx, level: number): string {
   const ind = c.indentUnit.repeat(level);
   const lines: string[] = [];
-  if (c.lang === 'js') {
+  if (c.lang === 'js' || c.lang === 'r') {
     lines.push(`${ind}for (const ${node.varName} of ${expr(node.iterable, c)}) {`);
   } else {
     lines.push(`${ind}for ${node.varName} in ${expr(node.iterable, c)}:`);
   }
   node.body.forEach((s) => lines.push(stmt(s, c, level + 1)));
-  if (c.lang === 'js') lines.push(`${ind}}`);
+  if (c.lang !== 'python') lines.push(`${ind}}`);
   return block(lines);
 }
 
@@ -221,13 +228,15 @@ function funcStmt(node: Extract<IRNode, { kind: 'FuncDef' }>, c: Ctx, level: num
   const lines: string[] = [];
   if (c.lang === 'js') {
     lines.push(`${ind}function ${node.name}(${params}) {`);
+  } else if (c.lang === 'r') {
+    lines.push(`${ind}${node.name} <- function(${params}) {`);
   } else {
     lines.push(`${ind}def ${node.name}(${params}):`);
   }
   // Function bodies are a fresh declaration scope with top-level-return legal.
   const fc: Ctx = { ...c, declared: new Set(), inFunction: true };
   node.body.forEach((s) => lines.push(stmt(s, fc, level + 1)));
-  if (c.lang === 'js') lines.push(`${ind}}`);
+  if (c.lang !== 'python') lines.push(`${ind}}`);
   return block(lines);
 }
 
@@ -236,7 +245,8 @@ function rawStmt(node: Extract<IRNode, { kind: 'RawCode' }>, c: Ctx, level: numb
   // Emit the raw text verbatim, prefixed by an indentation and (for a
   // foreign language) a note so the user knows it must be ported. The note
   // must use the *target* dialect's comment syntax.
-  const note = node.lang === c.lang ? '' : c.lang === 'js' ? `// [${node.lang}]\n` : `# [${node.lang}]\n`;
+  const comment = c.lang === 'r' ? '#' : c.lang === 'js' ? '//' : '#';
+  const note = node.lang === c.lang ? '' : `${comment} [${node.lang}]\n`;
   return note + node.text
     .split('\n')
     .map((l) => ind + l)
@@ -251,7 +261,9 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
       // function scope; a second `let x` in the same scope is a SyntaxError.
       const needsDecl = node.declare && c.lang === 'js' && !c.declared.has(node.name);
       if (needsDecl) c.declared.add(node.name);
-      return `${ind}${needsDecl ? 'let ' : ''}${node.name} = ${expr(node.value, c)}${terminator(c)}`;
+      const assignOp = c.lang === 'r' ? ' <- ' : ' = ';
+      const prefix = needsDecl ? 'let ' : '';
+      return `${ind}${prefix}${node.name}${assignOp}${expr(node.value, c)}${terminator(c)}`;
     }
     case 'PlotScatter': {
       const color = node.color ? `, color: ${quote(node.color)}` : '';

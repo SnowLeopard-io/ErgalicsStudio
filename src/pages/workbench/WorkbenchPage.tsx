@@ -12,6 +12,7 @@ import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
+import { useFlowSync } from '@/stores/useFlowSync';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
 // Standard/Flow first paint is unaffected (editor architecture §1.1).
@@ -29,6 +30,9 @@ let restoreStarted = false;
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
+
+  // Keep the Flow DAG in three-way sync with Block/Code via the IR hub.
+  useFlowSync();
 
   useEffect(() => {
     perfMonitor.start();

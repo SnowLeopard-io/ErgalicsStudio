@@ -18,14 +18,23 @@ import {
   type EditorSession,
   type ConsoleEntry,
   type CodeLanguage,
+  type SyncState,
 } from '@/types/editor';
 import type { DataValue } from '@/types/datatable';
+import type { BlockGraphState } from '@/types/block';
+import { codegen } from '@/editor/codegen';
+import { parseCodeToIR } from '@/editor/code/parse';
+import { irToWorkspaceJSON } from '@/editor/block/convert';
+import { irToFlow, flowToIR } from '@/editor/flow/convert';
 
 /** Emitted whenever a session's persisted shape mutates (for dirty tracking). */
 export const EDITOR_STATE_CHANGED = 'editor:state:changed';
 
 /** Cap on console entries so long-running sessions cannot grow unboundedly. */
 const MAX_CONSOLE_ENTRIES = 1000;
+
+/** The three editable surfaces that round-trip through the IR hub. */
+export type SyncOrigin = 'block' | 'flow' | 'code';
 
 export interface EditorStore {
   sessions: EditorSession[];
@@ -52,6 +61,20 @@ export interface EditorStore {
   /** Clear every run output (variables / console / error) so a newly-loaded
    *  program does not linger over the previous run's results. */
   resetRunOutputs: () => void;
+
+  // ---- 三向往返同步引擎（區塊 ⇄ 流程 ⇄ 程式碼，皆經由 IR） ----
+  /** 將規範 IR 推入工作階段，並重新生成所有其他介面。 */
+  applyIR: (id: string, ir: IRProgram, origin: SyncOrigin) => void;
+  /** 由 IR 重新生成衍生介面（程式碼文字／區塊 JSON／流程 DAG）。 */
+  regenerate: (id: string) => void;
+  /** 讀取工作階段目前生成的程式碼文字（不修改狀態）。 */
+  getCode: (id: string) => string;
+  /** 區塊模式編輯了其 IR → 由它重建流程與程式碼。 */
+  syncFromBlock: (id: string, ir: IRProgram) => void;
+  /** 程式碼模式編輯了文字 → 解析為 IR → 同步區塊與流程。 */
+  syncFromCode: (id: string, code: string) => void;
+  /** 流程模式編輯了其 DAG → 重建 IR → 同步區塊與程式碼。 */
+  syncFromFlow: (id: string, flowGraph: BlockGraphState) => void;
 
   toJSON: () => { sessions: EditorSession[]; activeSessionId: string | null };
   fromJSON: (state: { sessions?: EditorSession[]; activeSessionId?: string | null }) => void;
@@ -96,6 +119,70 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }));
     notifyChanged();
   },
+
+  // ---- 三向往返同步引擎（區塊 ⇄ 流程 ⇄ 程式碼，皆經由 IR） ----
+  //
+  // IR 程式是唯一的真相來源。任一介面的編輯都會先轉換為 IR，再由該 IR
+  // 重新生成另外兩個介面。這保證三種模式永遠描述同一份程式；由於重新生成
+  // 是純函式（IR → 文字 / IR → DAG），模式之間不可能產生不同步的漂移。
+  applyIR: (id, ir, origin) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) => {
+        if (sess.id !== id) return sess;
+        const code = codegen(ir, sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python');
+        const blockGraph = irToWorkspaceJSON(ir);
+        const flowGraph = irToFlow(ir);
+        const dirty: SyncState =
+          origin === 'block' ? 'block-dirty' : origin === 'code' ? 'code-dirty' : 'flow-dirty';
+        return {
+          ...sess,
+          ir,
+          lastCode: code,
+          blockGraph,
+          flowGraph,
+          syncState: dirty,
+          updatedAt: Date.now(),
+        };
+      }),
+    }));
+    notifyChanged();
+  },
+
+  regenerate: (id) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) => {
+        if (sess.id !== id) return sess;
+        const code = codegen(sess.ir, sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python');
+        const blockGraph = irToWorkspaceJSON(sess.ir);
+        const flowGraph = irToFlow(sess.ir);
+        return { ...sess, lastCode: code, blockGraph, flowGraph, updatedAt: Date.now() };
+      }),
+    }));
+    notifyChanged();
+  },
+
+  getCode: (id) => {
+    const sess = get().sessions.find((s) => s.id === id);
+    if (!sess) return '';
+    return codegen(sess.ir, sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python');
+  },
+
+  syncFromBlock: (id, ir) => {
+    get().applyIR(id, ir, 'block');
+  },
+
+  syncFromCode: (id, code) => {
+    const sess = get().sessions.find((s) => s.id === id);
+    const lang = sess ? (sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python') : 'python';
+    const { program } = parseCodeToIR(code, lang);
+    get().applyIR(id, program, 'code');
+  },
+
+  syncFromFlow: (id, flowGraph) => {
+    const ir = flowToIR(flowGraph);
+    get().applyIR(id, ir, 'flow');
+  },
+
 
   removeSession: (id) => {
     set((s) => {
