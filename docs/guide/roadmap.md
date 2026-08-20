@@ -23,7 +23,7 @@ state, not aspirational designs.
 | Sharing       | link generation, project export                                | ✅ Done      |
 | Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
 | GPU compute   | `api.gpu` compute surface, WGSL templates, particles + 3-D N-body plugins accelerated (CPU fallback), real-device E2E verification | 🟡 Partial  |
-| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; R (webR) + bidirectional block ↔ code sync remain | ✅ Core done (Pyodide) · 🚧 Next (webR + sync) |
+| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | ✅ Core done (Pyodide + sync) · 🚧 Next (webR) |
 | Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | ✅ Done      |
 | Error handling| error boundaries, fallbacks, retry                            | 🟡 Partial   |
@@ -47,8 +47,9 @@ state, not aspirational designs.
 3. **M3 — Code mode**: Python (Pyodide) is complete — Monaco editor,
    CPython Worker runtime with importable `studio` module, REPL + variable
    snapshots, worker interrupt, and 9 sample programs under `examples/code/`.
-   R (webR) runtime and bidirectional block ↔ code sync remain as follow-up
-   items inside M3.
+   R (webR) runtime remains as a follow-up item inside M3; the three-mode
+   conversion (Block ↔ Flow ↔ Code round-trip through the shared IR) is
+   already done and pinned by a `sync-threeway` unit test.
 4. **M4 — Marketplace**: package registry, versioning, signature
    verification, and in-app install/update flows.
 5. **M5 — CI + release**: GitHub Actions pipeline, artifact publishing,

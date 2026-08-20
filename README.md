@@ -497,9 +497,19 @@ no context switching.
   **示例 / Examples** dialog — from one-liner scatters to a full EDA
   pipeline, a Monte-Carlo π estimation, and signal smoothing.
 
-The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the
-IR → JS / Python codegen are all reused here, so block and code modes stay
-consistent on the same data semantics. See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the architecture; R via webR is the remaining runtime.
+The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the IR → JS / Python codegen are all reused here, so block and code modes stay
+consistent on the same data semantics.
+
+**Three-mode conversion** — the shared IR is the single hub for all three
+editing modes: `src/editor/flow/convert.ts` round-trips IR ↔ Flow DAG
+(`irToFlow` / `flowToIR`), and `src/editor/block/convert.ts` round-trips
+Blockly JSON ↔ IR (`blockJSONToIR` / `irToBlockJSON`). Edit a pipeline in
+Flow mode, switch to Blocks and see the same logic as Scratch blocks, then
+jump to Code for the generated Python — all driven by one IR. A dedicated
+`sync-threeway` unit test pins the round-trip in both directions.
+
+See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the
+architecture; R via webR is the remaining runtime.
 
 ---
 
@@ -676,7 +686,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-276 tests across 30 suites: file-format detection, cspkg parsing/validation,
+285 tests across 31 suites: file-format detection, cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
 N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
@@ -684,7 +694,7 @@ service gating), built-in plugin logic, the data plugins' parsing helpers
 (error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
 — `DataTable` ops, registry, compiler (validation/topology/type-check),
 executor (incremental cache + invalidation), geometry, catalog executors,
-the `viz.*` → plugin render bridge, codegen (JS/Python), the Pyodide worker
+the `viz.*` → plugin render bridge, codegen (JS/Python), three-mode IR sync (block ↔ flow ↔ code), the Pyodide worker
 protocol, and the pipeline samples that load via `import.meta.glob`.
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
@@ -703,6 +713,8 @@ npm run test:e2e
 | `verify-webgpu`      | GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback |
 | `verify-block-mode`  | block editor: mode switch, compile, run, block → code sync             |
 | `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
+| `verify-ai-samples`  | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
+| `verify-ai-training` | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
 
 ---
 
@@ -741,7 +753,8 @@ table. Highlights:
 - [x] GitHub Actions CI (unit + E2E + Pages deploy)
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
 - [x] Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable `studio` module, REPL + variables, worker interrupt, and 9 sample programs under `examples/code/`; same IR shared with block mode.
-- [ ] Code mode: R runtime (webR) + bidirectional block ↔ code sync for the remaining nodes
+- [x] Three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (`src/editor/flow/convert.ts` + `src/editor/block/convert.ts`), pinned by a `sync-threeway` unit test
+- [ ] Code mode: R runtime (webR)
 
 ---
 
