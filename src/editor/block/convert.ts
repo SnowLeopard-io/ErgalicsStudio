@@ -218,6 +218,15 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
         text: fieldStr(b, 'TEXT'),
       };
     }
+    case 'studio_raw_value': {
+      const lang = fieldStr(b, 'LANG');
+      return {
+        kind: 'RawExpr',
+        // Mirror `studio_raw`: default to 'js' for legacy workspaces.
+        lang: lang === 'python' || lang === 'r' ? lang : 'js',
+        text: fieldStr(b, 'TEXT'),
+      };
+    }
     default:
       throw new Error(`unknown block type "${type}"`);
   }
@@ -268,7 +277,7 @@ function stmtInput(nodes: IRNode[]): { block?: BlockJSON } {
   return head ? { block: head } : {};
 }
 
-export function irToBlockJSON(node: IRNode): BlockJSON {
+export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statement'): BlockJSON {
   switch (node.kind) {
     case 'Number':
       return valueBlock('studio_number', { NUM: node.value });
@@ -284,14 +293,14 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
       return valueBlock('studio_load_xyz', { PATH: node.path });
     case 'Random':
       return valueBlock('studio_random', {}, {
-        COUNT: { block: irToBlockJSON(node.count) },
-        ...(node.seed ? { SEED: { block: irToBlockJSON(node.seed) } } : {}),
+        COUNT: { block: irToBlockJSON(node.count, 'value') },
+        ...(node.seed ? { SEED: { block: irToBlockJSON(node.seed, 'value') } } : {}),
       });
     case 'Range':
       return valueBlock('studio_range', {}, {
-        START: { block: irToBlockJSON(node.start) },
-        STOP: { block: irToBlockJSON(node.stop) },
-        ...(node.step ? { STEP: { block: irToBlockJSON(node.step) } } : {}),
+        START: { block: irToBlockJSON(node.start, 'value') },
+        STOP: { block: irToBlockJSON(node.stop, 'value') },
+        ...(node.step ? { STEP: { block: irToBlockJSON(node.step, 'value') } } : {}),
       });
     case 'List':
       // The block only expresses numeric lists; a non-Number item would be
@@ -301,16 +310,16 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
           VALUES: node.items.map((i) => (i.kind === 'Number' ? String(i.value) : '0')).join(','),
         });
       }
-      return rawFallback(node);
+      return rawFallback(node, ctx);
     case 'ListIndex':
       return valueBlock('studio_list_index', {}, {
-        LIST: { block: irToBlockJSON(node.list) },
-        INDEX: { block: irToBlockJSON(node.index) },
+        LIST: { block: irToBlockJSON(node.list, 'value') },
+        INDEX: { block: irToBlockJSON(node.index, 'value') },
       });
     case 'BinaryOp': {
       // The math dropdown only exposes + - * / %; `//` and `**` must degrade
       // to raw code instead of writing an invalid dropdown value.
-      if (node.op === '//' || node.op === '**') return rawFallback(node);
+      if (node.op === '//' || node.op === '**') return rawFallback(node, ctx);
       const type =
         node.op === 'and' || node.op === 'or'
           ? 'studio_logic_op'
@@ -318,103 +327,109 @@ export function irToBlockJSON(node: IRNode): BlockJSON {
             ? 'studio_compare'
             : 'studio_math_op';
       return valueBlock(type, { OP: node.op }, {
-        A: { block: irToBlockJSON(node.left) },
-        B: { block: irToBlockJSON(node.right) },
+        A: { block: irToBlockJSON(node.left, 'value') },
+        B: { block: irToBlockJSON(node.right, 'value') },
       });
     }
     case 'UnaryOp':
       return valueBlock('studio_unary', { OP: node.op }, {
-        A: { block: irToBlockJSON(node.operand) },
+        A: { block: irToBlockJSON(node.operand, 'value') },
       });
     case 'Normalize':
       return valueBlock('studio_normalize', { COLUMN: node.column, MODE: node.mode }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'Sort':
       return valueBlock('studio_sort', { COLUMN: node.column, DIR: node.direction }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'Select':
       return valueBlock('studio_select', { COLUMNS: node.columns.join(',') }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'Filter':
       return valueBlock('studio_filter', { COLUMN: node.column, OP: node.op }, {
-        DATA: { block: irToBlockJSON(node.data) },
-        VALUE: { block: irToBlockJSON(node.value) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
+        VALUE: { block: irToBlockJSON(node.value, 'value') },
       });
     case 'Summary':
       return valueBlock('studio_summary', { COLUMN: node.column }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'Histogram':
       return valueBlock('studio_histogram', { COLUMN: node.column }, {
-        DATA: { block: irToBlockJSON(node.data) },
-        BINS: { block: irToBlockJSON(node.bins) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
+        BINS: { block: irToBlockJSON(node.bins, 'value') },
       });
     case 'VarAssign':
       // The block always declares a fresh variable; a bare assignment
       // (`declare: false`) would silently become a redeclaration, so degrade.
-      if (!node.declare) return rawFallback(node);
+      if (!node.declare) return rawFallback(node, ctx);
       return statementBlock('studio_var_assign', { NAME: node.name }, {
-        VALUE: { block: irToBlockJSON(node.value) },
+        VALUE: { block: irToBlockJSON(node.value, 'value') },
       });
     case 'PlotScatter':
       return statementBlock('studio_plot_scatter', { X: node.x, Y: node.y, COLOR: node.color ?? '' }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'PlotHistogram':
       return statementBlock('studio_plot_histogram', { COLUMN: node.column }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'PlotPointCloud':
       return statementBlock('studio_plot_pointcloud', { X: node.x, Y: node.y, Z: node.z }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'PlotLine':
       return statementBlock('studio_line', { X: node.x, Y: node.y }, {
-        DATA: { block: irToBlockJSON(node.data) },
+        DATA: { block: irToBlockJSON(node.data, 'value') },
       });
     case 'Repeat':
       return statementBlock('studio_repeat', {}, {
-        COUNT: { block: irToBlockJSON(node.count) },
+        COUNT: { block: irToBlockJSON(node.count, 'value') },
         DO: stmtInput(node.body),
       });
     case 'While':
       return statementBlock('studio_while', {}, {
-        COND: { block: irToBlockJSON(node.cond) },
+        COND: { block: irToBlockJSON(node.cond, 'value') },
         DO: stmtInput(node.body),
       });
     case 'ForEach':
       return statementBlock('studio_for_each', { VAR: node.varName }, {
-        LIST: { block: irToBlockJSON(node.iterable) },
+        LIST: { block: irToBlockJSON(node.iterable, 'value') },
         DO: stmtInput(node.body),
       });
     case 'If': {
       // The `studio_if` block only models a single condition + else. An If with
       // multiple branches (elif) would silently drop branches, so degrade.
-      if (node.branches.length !== 1) return rawFallback(node);
+      if (node.branches.length !== 1) return rawFallback(node, ctx);
       const branch = node.branches[0];
       return statementBlock('studio_if', {}, {
-        COND: { block: irToBlockJSON(branch!.cond) },
+        COND: { block: irToBlockJSON(branch!.cond, 'value') },
         DO: stmtInput(branch!.body),
         ...(node.elseBody ? { ELSE: stmtInput(node.elseBody) } : {}),
       });
     }
     case 'StudioCall':
       if (node.method === 'print' && node.args.length === 1) {
-        return statementBlock('studio_print', {}, { TEXT: { block: irToBlockJSON(node.args[0]!) } });
+        return statementBlock('studio_print', {}, { TEXT: { block: irToBlockJSON(node.args[0]!, 'value') } });
       }
-      return rawFallback(node);
+      return rawFallback(node, ctx);
     case 'RawCode':
       return statementBlock('studio_raw', { LANG: node.lang, TEXT: node.text });
+    case 'RawExpr':
+      // An unexpressible *expression* must become a value block (with an
+      // `output` connection) so it can legally sit inside a value input —
+      // a statement `studio_raw` there triggers Blockly's "missing output
+      // connection" warning on every workspace load.
+      return valueBlock('studio_raw_value', { LANG: node.lang, TEXT: node.text });
     default:
-      return rawFallback(node);
+      return rawFallback(node, ctx);
   }
 }
 
 /** Degrade an IR node the blocks cannot express to a `studio_raw` block. */
-function rawFallback(node: IRNode): BlockJSON {
+function rawFallback(node: IRNode, ctx: 'value' | 'statement' = 'statement'): BlockJSON {
   let text: string;
   try {
     text = codegenJS(makeProgram([node], [], 'js'));
@@ -422,6 +437,13 @@ function rawFallback(node: IRNode): BlockJSON {
     // Some nodes (e.g. GpuRun) cannot be generated at all; keep the raw block
     // meaningful instead of letting the failure escape the workspace round-trip.
     text = `// cannot express as code: ${err instanceof Error ? err.message : String(err)}`;
+  }
+  if (ctx === 'value') {
+    // An expression that can't be expressed needs a *value* block (with an
+    // `output` connection) so it can legally sit in a value input — a statement
+    // `studio_raw` there would trigger Blockly's "missing output connection"
+    // warning on every load.
+    return valueBlock('studio_raw_value', { LANG: 'js', TEXT: text });
   }
   return statementBlock('studio_raw', { TEXT: text });
 }

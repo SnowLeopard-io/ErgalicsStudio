@@ -253,6 +253,10 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
       if (n.lang !== 'python' && n.lang !== 'r' && n.lang !== 'js') out.push(diag(path, `unknown RawCode lang "${String(n.lang)}"`));
       if (typeof n.text !== 'string') out.push(diag(path, 'RawCode.text must be a string'));
       break;
+    case 'RawExpr':
+      if (n.lang !== 'python' && n.lang !== 'r' && n.lang !== 'js') out.push(diag(path, `unknown RawExpr lang "${String(n.lang)}"`));
+      if (typeof n.text !== 'string') out.push(diag(path, 'RawExpr.text must be a string'));
+      break;
     default:
       out.push(diag(path, `unknown node kind "${String((n as { kind?: string }).kind)}"`));
   }

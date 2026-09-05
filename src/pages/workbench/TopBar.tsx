@@ -8,6 +8,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ShareDialog } from './dialogs/ShareDialog';
+import { AnalysisDialog } from './dialogs/AnalysisDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
@@ -31,6 +32,7 @@ export function TopBar() {
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
@@ -104,6 +106,9 @@ export function TopBar() {
           <button type="button" className="cluster-btn" onClick={() => setShareOpen(true)}>
             {t('workbench.share')}
           </button>
+          <button type="button" className="cluster-btn" onClick={() => setAnalysisOpen(true)}>
+            {t('workbench.analyze')}
+          </button>
         </div>
 
         <div className="topbar-cluster cluster-icons">
@@ -175,6 +180,7 @@ export function TopBar() {
         }}
       />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
+      <AnalysisDialog open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
       <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
       <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />

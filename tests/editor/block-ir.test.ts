@@ -143,4 +143,30 @@ describe('workspace round-trip', () => {
     const round = workspaceJSONToIR(irToWorkspaceJSON(program));
     expect(round.body[0]).toEqual({ kind: 'RawCode', lang: 'python', text: 'print(1)' });
   });
+
+  it('degrades an unexpressible expression to a value raw block (studio_raw_value)', () => {
+    // Reproduces the recurring "studio_raw ... is missing a(n) output connection"
+    // warning: an expression the blocks can't model must become a *value* block
+    // (one with an `output` connection) so it can legally sit in a value input.
+    const b = irToBlockJSON({ kind: 'Call', callee: 'f', args: [] }, 'value');
+    expect(b.type).toBe('studio_raw_value');
+  });
+
+  it('round-trips a raw expression through a workspace as RawExpr', () => {
+    const program = makeProgram([
+      { kind: 'VarAssign', name: 'x', value: { kind: 'Call', callee: 'f', args: [] }, declare: true },
+    ]);
+    const round = workspaceJSONToIR(irToWorkspaceJSON(program));
+    expect(round.body[0]).toMatchObject({
+      kind: 'VarAssign',
+      name: 'x',
+      declare: true,
+      value: { kind: 'RawExpr', lang: 'js' },
+    });
+  });
+
+  it('degrades a // BinaryOp expression to a value raw block', () => {
+    const b = irToBlockJSON({ kind: 'BinaryOp', op: '//', left: num(7), right: num(2) }, 'value');
+    expect(b.type).toBe('studio_raw_value');
+  });
 });

@@ -108,4 +108,8 @@ export const BLOCK_DEFS: BlockDef[] = [
   // ---- util / host ----
   { type: 'studio_print', message0: '%{BKY_STUDIO_PRINT}', args0: [value('TEXT')], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_PRINT_TOOLTIP}' },
   { type: 'studio_raw', message0: '%{BKY_STUDIO_RAW}', args0: [{ type: 'field_input', name: 'TEXT', text: '' }], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_RAW_TOOLTIP}' },
+  // Expression variant of `studio_raw`: a *value* block (with an `output`
+  // connection) so unexpressible expressions can legally sit in a value input
+  // without triggering Blockly's "missing output connection" warning.
+  { type: 'studio_raw_value', message0: '%{BKY_STUDIO_RAW}', args0: [{ type: 'field_input', name: 'TEXT', text: '' }], output: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_RAW_TOOLTIP}' },
 ];

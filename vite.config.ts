@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite';
+import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { ensurePyodideAssets } from './scripts/copy-pyodide.mjs';
+
+// Vendor Pyodide (core + numpy wheel) into public/pyodide so the code-mode
+// Python runtime loads same-origin instead of from cdn.jsdelivr.net. Runs in
+// both `vite` (dev) and `vite build`.
+const vendorPyodide: Plugin = {
+  name: 'ergalics-vendor-pyodide',
+  async buildStart() {
+    await ensurePyodideAssets();
+  },
+  configureServer() {
+    // Belt-and-suspenders for dev requests: make sure assets exist before
+    // the first /pyodide/* request lands.
+    void ensurePyodideAssets();
+  },
+};
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), vendorPyodide],
   base: './',
   resolve: {
     alias: {

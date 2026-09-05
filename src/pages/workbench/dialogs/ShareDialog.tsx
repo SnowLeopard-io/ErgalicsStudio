@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAnalysisStore } from '@/stores/analysisStore';
 import { serializeProject, DEFAULT_PROJECT_NAME } from '@/types/project';
 import { compressToEncodedURIComponent } from 'lz-string';
+import { exportSVG, exportPDF } from '@/core/plot';
 
 interface ShareDialogProps {
   open: boolean;
@@ -22,6 +24,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const notify = useProjectStore.getState().applyPluginParams;
+  const currentPlot = useAnalysisStore((s) => s.currentPlot);
   const [options, setOptions] = useState<ShareOptions>(DEFAULT_OPTIONS);
   const [link, setLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -70,6 +73,16 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     a.click();
   };
 
+  const exportChartSvg = () => {
+    if (!currentPlot) return;
+    exportSVG(currentPlot.markup, `${project?.name ?? 'ergalics'}-chart.svg`);
+  };
+
+  const exportChartPdf = () => {
+    if (!currentPlot) return;
+    void exportPDF(currentPlot.markup, `${project?.name ?? 'ergalics'}-chart.pdf`);
+  };
+
   const copyLink = async () => {
     if (!link) return;
     await navigator.clipboard.writeText(link);
@@ -97,7 +110,8 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
           <span className="tag tag-muted">{size}</span>
         </div>
 
-        <h4 className="share-section-title">{t('share.include')}</h4>
+        {/* ---- Share: collaboration only ---- */}
+        <h4 className="share-section-title">{t('share.share_section')}</h4>
         <div className="share-options">
           <CheckOption checked={options.data} label={t('share.data')} onChange={() => toggle('data')} />
           <CheckOption checked={options.params} label={t('share.params')} onChange={() => toggle('params')} />
@@ -107,12 +121,6 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
         <div className="share-actions">
           <button type="button" className="btn btn-primary" onClick={() => void generateLink()}>
             {t('share.generate_link')}
-          </button>
-          <button type="button" className="btn" onClick={exportFile}>
-            {t('share.export_file')}
-          </button>
-          <button type="button" className="btn" onClick={exportScreenshot}>
-            {t('share.export_screenshot')}
           </button>
         </div>
 
@@ -127,6 +135,36 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
             {copied ? t('share.copied') : t('share.copy')}
           </button>
         </div>
+
+        {/* ---- Export: every "take a file out" action lives here ---- */}
+        <h4 className="share-section-title">{t('share.export_section')}</h4>
+        <div className="share-actions share-export-grid">
+          <button type="button" className="btn" onClick={exportFile}>
+            {t('share.export_file')}
+          </button>
+          <button type="button" className="btn" onClick={exportScreenshot}>
+            {t('share.export_screenshot')}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={exportChartSvg}
+            disabled={!currentPlot}
+            title={currentPlot ? undefined : t('share.no_chart')}
+          >
+            {t('share.export_chart_svg')}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={exportChartPdf}
+            disabled={!currentPlot}
+            title={currentPlot ? undefined : t('share.no_chart')}
+          >
+            {t('share.export_chart_pdf')}
+          </button>
+        </div>
+        {!currentPlot && <p className="share-hint">{t('share.no_chart')}</p>}
       </div>
     </Modal>
   );

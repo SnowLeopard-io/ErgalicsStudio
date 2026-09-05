@@ -9,7 +9,12 @@
 
 export const PYODIDE_VERSION = '314.0.3';
 
-/** Default Pyodide CDN root the worker loads CPython from. */
+/**
+ * Fallback Pyodide CDN root. The active runtime loads Pyodide same-origin
+ * from public/pyodide (vendored by scripts/copy-pyodide.mjs) — see
+ * CodeEditor.tsx, which passes `indexURL` to createCodeRuntime. This constant
+ * is only the last-resort default if no indexURL is supplied.
+ */
 export const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
 /** Python packages to preload once the interpreter starts. numpy is the

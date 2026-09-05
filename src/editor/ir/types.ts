@@ -84,7 +84,13 @@ export type IRNode =
   | { kind: 'GpuRun'; kernel: string; args: IRNode[] }
   | { kind: 'StudioCall'; method: string; args: IRNode[] }
   // ---- fallback ----
-  | { kind: 'RawCode'; lang: SourceLang; text: string };
+  | { kind: 'RawCode'; lang: SourceLang; text: string }
+  // Expression variant of `RawCode`: raw source that occupies an *expression*
+  // position (e.g. an argument or operand the blocks cannot represent). Kept
+  // distinct from `RawCode` so the block converter can emit a value block with
+  // an `output` connection instead of a statement block (which would fail to
+  // connect inside a value input).
+  | { kind: 'RawExpr'; lang: SourceLang; text: string };
 
 /** IR schema version (bump on breaking shape changes). */
 export const IR_VERSION = 1 as const;
@@ -127,6 +133,11 @@ export function makeProgram(
 /** Type guard: does this node preserve raw, unparseable source text? */
 export function isRawCode(node: IRNode): node is Extract<IRNode, { kind: 'RawCode' }> {
   return node.kind === 'RawCode';
+}
+
+/** Type guard: an unparseable expression preserved verbatim. */
+export function isRawExpr(node: IRNode): node is Extract<IRNode, { kind: 'RawExpr' }> {
+  return node.kind === 'RawExpr';
 }
 
 /** Type guard for a statement-level node that may appear in a body. */

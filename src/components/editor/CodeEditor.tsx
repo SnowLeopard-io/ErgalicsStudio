@@ -135,6 +135,10 @@ export function CodeEditor() {
 
   useEffect(() => {
     const runtime = createCodeRuntime({
+      // Serve Pyodide same-origin from public/pyodide (vendored by the
+      // copy-pyodide build step) instead of cdn.jsdelivr.net — far more
+      // reliable from mainland China and cached by the app's own origin.
+      indexURL: new URL('pyodide/', document.baseURI).href,
       activatePlugin: async (pluginId) => {
         const store = usePluginStore.getState();
         if (store.activeId !== pluginId) {

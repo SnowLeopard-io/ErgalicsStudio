@@ -20,6 +20,15 @@ coverage/
 src/native/ergalics_core.js
 src/native/ergalics_core_bg.wasm
 
+# Vendored Pyodide (core + numpy wheel) for the code-mode runtime. Copied from
+# the `pyodide` npm package + downloaded once by scripts/copy-pyodide.mjs; kept
+# out of git so the repo carries no ~25MB of binaries. Regenerated on dev/build.
+public/pyodide/
+
+# Throwaway build-verification output dirs (created while validating the
+# Pyodide vendoring change). Not real artifacts.
+dist-verify*
+
 .workbuddy/
 
 # Local npm mirror registry (npmmirror) — a machine-local preference that

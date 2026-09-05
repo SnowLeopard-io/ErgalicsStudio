@@ -149,6 +149,8 @@ function expr(node: IRNode, c: Ctx): string {
       return `studio.${node.method}(${node.args.map((a) => expr(a, c)).join(', ')})`;
     case 'RawCode':
       return node.text;
+    case 'RawExpr':
+      return node.text;
     default:
       throw new Error(`node kind "${(node as IRNode).kind}" is not an expression`);
   }

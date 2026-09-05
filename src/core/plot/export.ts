@@ -69,11 +69,20 @@ export async function exportPDF(
   const doc = parser.parseFromString(svg, 'image/svg+xml');
   const svgEl = doc.querySelector('svg');
   if (!svgEl) throw new Error('invalid SVG markup');
-  const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  await svg2pdfMod.svg2pdf(svgEl as unknown as SVGElement, pdf, {
-    x: (297 - widthMm) / 2,
-    y: 15,
-    width: widthMm,
-  });
-  pdf.save(filename);
+  // Attach to the live document before rendering: svg2pdf measures text via
+  // `getBBox`, which only works on elements that are part of the rendered tree.
+  // Some browsers (e.g. Firefox) throw on detached elements otherwise.
+  svgEl.setAttribute('style', 'position:absolute;left:-99999px;top:0;width:1px;height:1px;overflow:hidden');
+  document.body.appendChild(svgEl);
+  try {
+    const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    await svg2pdfMod.svg2pdf(svgEl as unknown as SVGElement, pdf, {
+      x: (297 - widthMm) / 2,
+      y: 15,
+      width: widthMm,
+    });
+    pdf.save(filename);
+  } finally {
+    svgEl.remove();
+  }
 }

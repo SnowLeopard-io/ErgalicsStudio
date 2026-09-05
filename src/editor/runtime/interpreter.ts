@@ -285,6 +285,8 @@ export class Interpreter {
         return this.dispatchStudio(node.method, await Promise.all(node.args.map((a) => this.evalExpr(a))));
       case 'RawCode':
         return null; // preserved, not executed (block mode)
+      case 'RawExpr':
+        return null; // preserved, not executed (block mode)
       default:
         throw new Error(`node kind "${(node as IRNode).kind}" is not an expression`);
     }

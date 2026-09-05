@@ -9,9 +9,9 @@
 import { formatTick, makeScale, niceTicks, type Scale } from './scale';
 import type { PlotSpec, PlotSeries } from './types';
 
-const FONT = "13px 'Helvetica Neue', Arial, sans-serif";
-const FONT_AXIS = "14px 'Helvetica Neue', Arial, sans-serif";
-const FONT_TITLE = "16px 'Helvetica Neue', Arial, sans-serif";
+const FONT = "'Helvetica Neue', Arial, sans-serif";
+const FONT_AXIS = "'Helvetica Neue', Arial, sans-serif";
+const FONT_TITLE = "'Helvetica Neue', Arial, sans-serif";
 const MARGIN = { top: 36, right: 20, bottom: 48, left: 60 };
 const TICK_LEN = 6;
 const COL_W = 150; // legend column width budget
