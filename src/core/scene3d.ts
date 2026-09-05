@@ -95,8 +95,12 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   };
 
   // Reference furniture so plugins have spatial context out of the box.
-  scene.add(new THREE.GridHelper(24, 24, 0x334155, 0x1e293b));
-  scene.add(new THREE.AxesHelper(6));
+  // Keep the handles: they own GPU geometry/material that must be released on
+  // dispose (see below).
+  const grid = new THREE.GridHelper(24, 24, 0x334155, 0x1e293b);
+  const axes = new THREE.AxesHelper(6);
+  scene.add(grid);
+  scene.add(axes);
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
   keyLight.position.set(12, 20, 10);
@@ -170,7 +174,22 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
       canvas.removeEventListener('keydown', onCanvasKeyDown);
       canvas.removeEventListener('keyup', onCanvasKeyUp);
       controls.dispose();
+      // three's renderer.dispose() releases programs and render targets but
+      // deliberately keeps the WebGL context alive, so every Standard↔3D mode
+      // toggle leaked one. Browsers cap live contexts (~16) and then silently
+      // drop the oldest, after which 3D plugins render black — force the
+      // context away and hand the GPU memory back.
+      for (const helper of [grid, axes]) {
+        helper.traverse((child) => {
+          const node = child as Partial<THREE.Mesh>;
+          node.geometry?.dispose();
+          const material = node.material;
+          if (Array.isArray(material)) material.forEach((m) => m.dispose());
+          else material?.dispose();
+        });
+      }
       renderer.dispose();
+      renderer.forceContextLoss();
       canvas.remove();
     },
   };

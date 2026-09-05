@@ -94,10 +94,49 @@ export function serializeProject(project: Project): string {
   return JSON.stringify(project, null, 2);
 }
 
+/**
+ * Fill in every field a project is allowed to be missing.
+ *
+ * Projects reach here from three sources we do not fully control: IndexedDB
+ * (possibly written by an older build), a `.clproj` file the user picked, and
+ * a share link. Trusting them cost real crashes — `data` absent, or a
+ * `blockGraph` object present but missing `instances` — so every consumer
+ * downstream can now rely on a complete shape.
+ */
+export function normalizeProject(parsed: Project): Project {
+  const state = (parsed.state ?? {}) as Partial<ProjectState>;
+  return {
+    id: parsed.id,
+    name: parsed.name,
+    createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
+    updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+    data: {
+      files: Array.isArray(parsed.data?.files) ? parsed.data.files : [],
+      processed: parsed.data?.processed,
+    },
+    state: {
+      activePlugin: state.activePlugin ?? null,
+      parameters:
+        state.parameters && typeof state.parameters === 'object' ? state.parameters : {},
+      camera: state.camera ?? null,
+      scene: state.scene ?? null,
+      blockGraph: state.blockGraph ?? null,
+      editorSessions: Array.isArray(state.editorSessions) ? state.editorSessions : [],
+      activeEditorSession: state.activeEditorSession ?? null,
+      workbenchMode: state.workbenchMode ?? 'standard',
+    },
+    metadata: {
+      version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,
+      description: parsed.metadata?.description ?? null,
+      tags: Array.isArray(parsed.metadata?.tags) ? parsed.metadata.tags : [],
+    },
+  };
+}
+
 export function deserializeProject(raw: string): Project {
-  const parsed = JSON.parse(raw) as Project;
-  if (!parsed.id || !parsed.name || !parsed.state) {
+  const parsed = JSON.parse(raw) as Project | null;
+  if (!parsed || typeof parsed !== 'object' || !parsed.id || !parsed.name || !parsed.state) {
     throw new Error('Invalid project format');
   }
-  return parsed;
+  return normalizeProject(parsed);
 }

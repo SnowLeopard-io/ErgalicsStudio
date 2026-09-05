@@ -350,8 +350,22 @@ export class AITrainingPlugin implements Plugin {
   }
 
   private async runTraining(onProgress?: (p: ComputeProgress) => void): Promise<void> {
-    if (!this.dataset || (this.dataset.rows.length === 0 && this.dataset.images?.length === 0)) {
+    // The old guard only rejected *empty* datasets, so leaving a CSV loaded
+    // while switching the model to MNIST sailed straight through and crashed
+    // on `this.dataset.images!` being undefined. Validate per model kind.
+    const hasRows = (this.dataset?.rows.length ?? 0) > 0;
+    const hasImages =
+      (this.dataset?.images?.length ?? 0) > 0 && (this.dataset?.labels?.length ?? 0) > 0;
+    if (!this.dataset || (!hasRows && !hasImages)) {
       this.api.notify('warning', ZH(this.api, 'Load data first (drop a file or Load Sample)', '请先加载数据（拖入文件或点击加载示例）'));
+      return;
+    }
+    if (this.kind === 'mnist' && !hasImages) {
+      this.api.notify('warning', ZH(this.api, 'The MNIST model needs image data — load the MNIST sample or choose another model', 'MNIST 模型需要图像数据——请加载 MNIST 示例或选择其他模型'));
+      return;
+    }
+    if (this.kind !== 'mnist' && !hasRows) {
+      this.api.notify('warning', ZH(this.api, 'This model needs tabular data — load a CSV sample or choose the MNIST model', '该模型需要表格数据——请加载 CSV 示例或选择 MNIST 模型'));
       return;
     }
     if (this.status.phase === 'training') return;
@@ -435,30 +449,35 @@ export class AITrainingPlugin implements Plugin {
     const throttle = Math.max(1, Math.floor(total / 40));
     let lastDraw = 0;
 
-    const result = await trainModel(
-      model,
-      xs,
-      ys,
-      this.hyper,
-      (rec) => {
-        this.status.currentEpoch = rec.epoch;
-        this.status.currentLoss = rec.loss;
-        this.status.currentAccuracy = rec.accuracy ?? null;
-        onProgress?.({ done: rec.epoch, total, label: spec.label });
-        if (rec.epoch - lastDraw >= throttle || rec.epoch === total) {
-          lastDraw = rec.epoch;
-          this.draw();
-        }
-      },
-      () => this.stopRequested,
-    );
-
-    xs.dispose();
-    ys.dispose();
+    // xs/ys live on the WebGL heap, not the JS GC. Run training in a try so a
+    // thrown error still releases them — otherwise repeated runs exhaust VRAM.
+    let trainResult: Awaited<ReturnType<typeof trainModel>>;
+    try {
+      trainResult = await trainModel(
+        model,
+        xs,
+        ys,
+        this.hyper,
+        (rec) => {
+          this.status.currentEpoch = rec.epoch;
+          this.status.currentLoss = rec.loss;
+          this.status.currentAccuracy = rec.accuracy ?? null;
+          onProgress?.({ done: rec.epoch, total, label: spec.label });
+          if (rec.epoch - lastDraw >= throttle || rec.epoch === total) {
+            lastDraw = rec.epoch;
+            this.draw();
+          }
+        },
+        () => this.stopRequested,
+      );
+    } finally {
+      xs.dispose();
+      ys.dispose();
+    }
 
     this.computeViz(tf, spec, rawXs, rawYs);
     this.status.phase = this.stopRequested ? 'stopped' : 'done';
-    const lastRec = result.history.at(-1);
+    const lastRec = trainResult.history.at(-1);
     this.status.currentEpoch = lastRec ? lastRec.epoch : total;
     this.weightsJson = this.serializeWeights(model);
 

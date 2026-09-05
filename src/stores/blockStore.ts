@@ -270,14 +270,20 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   }),
 
   fromJSON: (state) => {
+    // A persisted graph is external input: an older build — or a hand-edited
+    // `.clproj` — can carry an object whose arrays are missing. That used to
+    // throw inside project restore and silently break opening the project, so
+    // fall back to an empty graph instead.
+    const instances = Array.isArray(state?.instances) ? state.instances : [];
+    const connections = Array.isArray(state?.connections) ? state.connections : [];
     set({
-      instances: state.instances.map((i) => ({ ...i, params: { ...i.params } })),
-      connections: state.connections.map((c) => ({
+      instances: instances.map((i) => ({ ...i, params: { ...(i.params ?? {}) } })),
+      connections: connections.map((c) => ({
         ...c,
         from: { ...c.from },
         to: { ...c.to },
       })),
-      viewport: state.viewport,
+      viewport: state?.viewport ?? { x: 0, y: 0, zoom: 1 },
       selectedIds: [],
       nodeStatus: {},
       executionErrors: {},

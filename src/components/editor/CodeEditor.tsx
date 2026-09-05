@@ -22,6 +22,7 @@ import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/store
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
+import { codegenPython } from '@/editor/codegen/python';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
 
@@ -106,8 +107,11 @@ export function CodeEditor() {
       useEditorStore.getState().syncFromCode(sid, text);
     });
 
-    // `studio.*` completions for the Python language.
-    monaco.languages.registerCompletionItemProvider('python', {
+    // `studio.*` completions for the Python language. The registration handle
+    // must be disposed too — `editor.dispose()` does not unregister providers,
+    // so switching sessions used to stack a new one each time (duplicate
+    // suggestions, and a live closure per abandoned registration).
+    const completionProvider = monaco.languages.registerCompletionItemProvider('python', {
       provideCompletionItems: (model, position) => {
         const word = model.getWordUntilPosition(position);
         const range: MonacoNS.IRange = {
@@ -121,6 +125,7 @@ export function CodeEditor() {
     });
 
     return () => {
+      completionProvider.dispose();
       editor.dispose();
       editorRef.current = null;
     };
@@ -194,8 +199,16 @@ export function CodeEditor() {
   useEffect(() => {
     if (!pendingLoad) return;
     const editor = editorRef.current;
-    if (editor && pendingLoad.functions.length === 0) {
-      // The caller already wrote the code text into the session; nothing to do.
+    if (editor) {
+      // Block mode loads the caller's IR straight into its workspace, but a
+      // code session only ever renders `lastCode` — and `requestLoad` does not
+      // touch it. Generating and writing the Python here is what makes the
+      // samples dialog actually show a program in code mode; previously this
+      // branch was empty and loading a sample appeared to do nothing.
+      const code = codegenPython(pendingLoad);
+      editor.setValue(code);
+      const sid = useEditorStore.getState().activeSessionId;
+      if (sid) useEditorStore.getState().updateSessionIR(sid, pendingLoad, code);
     }
     clearPreviewSurface(canvasRef.current, domRef.current);
     useEditorStore.getState().consumeLoad();

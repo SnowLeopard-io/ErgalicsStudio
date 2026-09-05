@@ -7,6 +7,8 @@ import { StatusBar } from './StatusBar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAppStore } from '@/stores/appStore';
 import { perfMonitor } from '@/core/perf';
+import { logger } from '@/core/logger';
+import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
@@ -30,6 +32,7 @@ let restoreStarted = false;
 export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
+  const t = useT();
 
   // Keep the Flow DAG in three-way sync with Block/Code via the IR hub.
   useFlowSync();
@@ -47,14 +50,26 @@ export default function WorkbenchPage() {
     if (!restoreStarted) {
       restoreStarted = true;
       void (async () => {
-        await useProjectStore.getState().loadRecent();
-        const { project, recent } = useProjectStore.getState();
-        if (!project) {
-          if (recent[0]) {
-            await useProjectStore.getState().openProject(recent[0].id);
-          } else {
-            await useProjectStore.getState().createProject('');
+        try {
+          await useProjectStore.getState().loadRecent();
+          const { project, recent } = useProjectStore.getState();
+          if (!project) {
+            if (recent[0]) {
+              await useProjectStore.getState().openProject(recent[0].id);
+            } else {
+              await useProjectStore.getState().createProject('');
+            }
           }
+        } catch (err) {
+          // A project left in an old or corrupt shape used to fail silently
+          // here: no project, no fallback, no message — just an unhandled
+          // rejection and an apparently empty workbench on cold start.
+          logger.error('project', 'startup restore failed', err);
+          const store = useProjectStore.getState();
+          if (!store.project) {
+            await store.createProject('').catch(() => undefined);
+          }
+          useAppStore.getState().notify('error', t('project.open_failed'));
         }
       })();
     }

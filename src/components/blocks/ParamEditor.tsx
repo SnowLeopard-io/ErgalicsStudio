@@ -158,7 +158,10 @@ function ParamInput({ value, onChange }: { value: unknown; onChange: (v: unknown
  * project store so the list refreshes right after importing/removing a file.
  */
 function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {
-  const projectFiles = useProjectStore((s) => s.project?.data.files ?? []);
+  // Select the (stable) files array reference, then default outside the
+  // selector: `?? []` inside the selector returns a fresh array every call,
+  // which zustand v5 treats as a state change → infinite re-render.
+  const projectFiles = useProjectStore((s) => s.project?.data.files) ?? [];
   const files = useMemo(() => listDataFiles(), [projectFiles]);
   return (
     <select

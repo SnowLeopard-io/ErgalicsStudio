@@ -6,6 +6,7 @@
 // interpreter, so no SharedArrayBuffer is needed for cancellation.
 // ==========================================================================
 
+import { logger } from '../logger';
 import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
@@ -54,6 +55,13 @@ export class PyodideClient {
     message: string,
   ) => void;
 
+  /**
+   * Boot timeout. Pyodide pulls several MB of WASM from a CDN on first use,
+   * so this is deliberately generous — but a blocked/offline CDN must not
+   * leave the Run button spinning forever with no diagnostics.
+   */
+  private static readonly BOOT_TIMEOUT_MS = 60_000;
+
   private worker: Worker | null = null;
   /** Resolves once the worker has booted (Pyodide + `studio` injected). */
   private ready: Promise<void> | null = null;
@@ -73,16 +81,64 @@ export class PyodideClient {
   private async spawnWorker(): Promise<Worker> {
     const worker = new PyodideWorker();
     this.worker = worker;
-    const ready = new Promise<void>((resolve) => {
+    const ready = new Promise<void>((resolve, reject) => {
+      let booted = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const clearTimer = () => {
+        if (timer !== undefined) clearTimeout(timer);
+      };
+
       const onMessage = (ev: MessageEvent<WorkerEvent>) => {
         const event = ev.data;
         // The `ready` event both resolves the boot promise and is otherwise
         // inert to handleEvent — keep this listener attached for the worker's
         // whole lifetime so stdout/stderr/plot/result are always routed.
-        if (event.type === 'ready') resolve();
+        if (event.type === 'ready') {
+          booted = true;
+          clearTimer();
+          resolve();
+        }
         this.handleEvent(event);
       };
+
+      // Every fatal path used to leave `ready` unresolved forever: a blocked
+      // Pyodide CDN or a WASM compile error surfaced as a Run button spinning
+      // with no error and no way out. Reject instead, and drop the dead worker
+      // so the next request boots a fresh one instead of reusing a corpse.
+      const onFatal = (err: Error) => {
+        if (booted) logger.error('pyodide', 'worker died after boot', err);
+        else {
+          booted = true;
+          clearTimer();
+          reject(err);
+        }
+        if (this.worker === worker) {
+          this.worker = null;
+          this.ready = null;
+        }
+        worker.terminate();
+        // Outstanding runs must fail now — otherwise their callers await a
+        // reply from a worker that no longer exists.
+        this.rejectAllPending(err);
+      };
+
+      timer = setTimeout(
+        () =>
+          onFatal(
+            new Error(
+              `Pyodide worker did not start within ${PyodideClient.BOOT_TIMEOUT_MS}ms — check network access to the Pyodide CDN`,
+            ),
+          ),
+        PyodideClient.BOOT_TIMEOUT_MS,
+      );
+
       worker.addEventListener('message', onMessage);
+      worker.addEventListener('error', (ev) =>
+        onFatal(new Error(`Pyodide worker error: ${ev.message || 'unknown'}`)),
+      );
+      worker.addEventListener('messageerror', () =>
+        onFatal(new Error('Pyodide worker sent an undeserializable message')),
+      );
     });
     this.ready = ready;
     worker.postMessage({ type: 'init', indexURL: this.indexURL, loadPackages: this.loadPackages });
@@ -94,9 +150,16 @@ export class PyodideClient {
     // after the worker has fully booted (Pyodide + packages + `studio`
     // injected). Posting a run before `init` completes lets it execute on a
     // half-initialized interpreter, which intermittently breaks the run.
-    const worker = this.worker ?? (await this.spawnWorker());
+    if (!this.worker) await this.spawnWorker();
     await this.ready;
-    return worker;
+    if (!this.worker) throw new Error('Pyodide worker is no longer available');
+    return this.worker;
+  }
+
+  /** Fail every in-flight request (worker died or was interrupted). */
+  private rejectAllPending(err: Error): void {
+    for (const [, pending] of this.pending) pending.reject(err);
+    this.pending.clear();
   }
 
   private handleEvent(event: WorkerEvent): void {
@@ -146,9 +209,30 @@ export class PyodideClient {
     const promise = new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as Pending['resolve'], reject });
     });
-    void this.ensureWorker().then((worker) => {
-      worker.postMessage({ ...message, id });
-    });
+    void this.ensureWorker().then(
+      (worker) => {
+        try {
+          worker.postMessage({ ...message, id });
+        } catch (err) {
+          // A message that cannot be structured-cloned must reject, not strand
+          // the caller on a promise that never settles.
+          const p = this.pending.get(id);
+          if (p) {
+            this.pending.delete(id);
+            p.reject(new Error(`failed to send message to Pyodide worker: ${String(err)}`));
+          }
+        }
+      },
+      // Boot failure used to vanish here: the rejection was swallowed and the
+      // caller awaited a reply from a worker that never came up.
+      (err: unknown) => {
+        const p = this.pending.get(id);
+        if (p) {
+          this.pending.delete(id);
+          p.reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      },
+    );
     return promise;
   }
 
@@ -173,10 +257,7 @@ export class PyodideClient {
     this.worker = null;
     this.ready = null;
     if (worker) worker.terminate();
-    for (const [, pending] of this.pending) {
-      pending.reject(new Error('interrupted'));
-    }
-    this.pending.clear();
+    this.rejectAllPending(new Error('interrupted'));
   }
 
   /** Tear down the worker (used when code mode unmounts). */

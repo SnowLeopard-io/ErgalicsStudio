@@ -48,6 +48,20 @@ import type {
  */
 let nextFnId = 1;
 
+/**
+ * Default sandbox RPC timeout. A worker that stays alive but never replies
+ * (infinite loop, awaiting a promise that never settles) otherwise strands
+ * every caller forever — and `destroy()` never reaches `worker.terminate()`,
+ * leaking the worker for the rest of the session.
+ */
+export const SANDBOX_RPC_TIMEOUT_MS = 30_000;
+
+/** Long-running calls (data load, compute) get a much looser leash. */
+export const SANDBOX_LONG_RPC_TIMEOUT_MS = 600_000;
+
+/** Teardown should be immediate; a hung `destroy` must not block it. */
+export const SANDBOX_DESTROY_TIMEOUT_MS = 3_000;
+
 // ---- RPC protocol helpers (pure, unit-testable) ----
 
 /** Functions replaced by this token during structured-clone serialization. */
@@ -284,19 +298,28 @@ export async function createPluginSandbox(
     args: unknown[] = [],
     transfer: Transferable[] = [],
     cleanup: (() => void) | null = null,
+    timeoutMs: number = SANDBOX_RPC_TIMEOUT_MS,
   ): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       const id = nextCallId++;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const settle = (fn: () => void) => {
+        if (timer !== undefined) clearTimeout(timer);
+        cleanup?.();
+        fn();
+      };
       pending.set(id, {
-        resolve: (v) => {
-          cleanup?.();
-          resolve(v as T);
-        },
-        reject: (e) => {
-          cleanup?.();
-          reject(e);
-        },
+        resolve: (v) => settle(() => resolve(v as T)),
+        reject: (e) => settle(() => reject(e)),
       });
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          if (!pending.delete(id)) return;
+          settle(() =>
+            reject(new Error(`sandbox call "${method}" timed out after ${timeoutMs}ms`)),
+          );
+        }, timeoutMs);
+      }
       post({ id, method, args }, transfer);
     });
 
@@ -426,7 +449,11 @@ export async function createPluginSandbox(
     init: () => invoke('init'),
     destroy: async () => {
       try {
-        await invoke('destroy');
+        await invoke('destroy', [], [], null, SANDBOX_DESTROY_TIMEOUT_MS);
+      } catch (err) {
+        // Log and carry on: the worker is going away regardless, and a failed
+        // teardown must not surface as an unhandled rejection.
+        logger.warn('sandbox', `destroy failed for ${pluginId}`, err);
       } finally {
         for (const s of surfaces) removeSurface(s);
         surfaces.length = 0;
@@ -460,7 +487,7 @@ export async function createPluginSandbox(
     },
     updateParams: (params) => invoke('updateParams', [params]),
     getParams: () => invoke<ParamDefinition[]>('getParams'),
-    loadData: (file) => invoke('loadData', [file]),
+    loadData: (file) => invoke('loadData', [file], [], null, SANDBOX_LONG_RPC_TIMEOUT_MS),
     getSupportedFormats: () => invoke<SupportedFormat[]>('getSupportedFormats'),
     compute: (input, onProgress) => {
       const created = new Set<number>();
@@ -474,6 +501,7 @@ export async function createPluginSandbox(
         () => {
           for (const fid of created) callbacks.delete(fid);
         },
+        SANDBOX_LONG_RPC_TIMEOUT_MS,
       );
     },
   };

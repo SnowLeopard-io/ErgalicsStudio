@@ -4,6 +4,7 @@ import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/store
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
+import { logger } from '@/core/logger';
 import { createScene3D } from '@/core/scene3d';
 import {
   getViewport2d,
@@ -29,6 +30,7 @@ export function CentralArea() {
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
   const status = useAppStore((s) => s.status);
+  const notify = useAppStore((s) => s.notify);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -232,7 +234,18 @@ export function CentralArea() {
     input.accept = '.clproj,application/json';
     input.onchange = async () => {
       const f = input.files?.[0];
-      if (f) void useProjectStore.getState().openFromFile(f);
+      if (f) {
+        // An unparseable .clproj rejects inside openFromFile; without this the
+        // failure was an unhandled rejection with no user-visible feedback
+        // (every other open entry point already reports it).
+        void useProjectStore
+          .getState()
+          .openFromFile(f)
+          .catch((err: unknown) => {
+            logger.error('project', 'open from file failed', err);
+            notify('error', t('project.open_failed'));
+          });
+      }
     };
     input.click();
   };

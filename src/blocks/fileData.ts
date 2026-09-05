@@ -19,6 +19,11 @@ function toFloat64(value: number[]): Float64Array {
   return Float64Array.from(value);
 }
 
+/** Drop a leading UTF-8 BOM so it can't poison the first header token. */
+function stripBOM(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 function splitTokens(line: string): string[] {
   return line
     .trim()
@@ -37,7 +42,7 @@ function parseDelimitedColumns(
   text: string,
   defaultName: (i: number) => string,
 ): ParsedColumns {
-  const lines = text
+  const lines = stripBOM(text)
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
@@ -112,7 +117,7 @@ function xyzColumnName(i: number): string {
 export function loadJSON(text: string): DataTable {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(stripBOM(text));
   } catch (err) {
     throw new Error(`invalid JSON dataset: ${err instanceof Error ? err.message : String(err)}`);
   }
