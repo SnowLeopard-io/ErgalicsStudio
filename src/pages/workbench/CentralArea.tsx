@@ -3,7 +3,9 @@ import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
-import { detectFormats, matchesFormats, collectSupportedExtensions } from '@/core/fileFormat';
+import { detectFormats, matchesFormats, collectSupportedExtensions, detectScientificFormat, scientificFormatFromName } from '@/core/fileFormat';
+import { loadScientificData, toDataset, dataTableToCSV, sanitizeName, type RawVariable } from '@/core/io/scientific';
+import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
 import { createScene3D } from '@/core/scene3d';
 import {
@@ -193,7 +195,55 @@ export function CentralArea() {
     return () => obs.disconnect();
   }, []);
 
+  const readHead = async (file: File, n = 512): Promise<Uint8Array | null> => {
+    try {
+      const buf = await file.arrayBuffer();
+      return new Uint8Array(buf).subarray(0, n);
+    } catch {
+      return null;
+    }
+  };
+
   const routeFile = async (file: File) => {
+    // Scientific binary formats (HDF5/Parquet/FITS/NetCDF/Zarr) cannot flow
+    // through the text-based plugin router. Parse them into variables, inject
+    // each as a CSV project data file, and let the first one take the normal
+    // Standard render path so the user sees the data immediately.
+    const head = await readHead(file);
+    const sciFmt = (head && detectScientificFormat(head)) ?? scientificFormatFromName(file.name);
+    if (sciFmt) {
+      try {
+        const datasets = await loadScientificData(file);
+        const loaded: { raw: RawVariable; table: ReturnType<typeof datasetToTable> }[] = [];
+        for (const raw of datasets) {
+          try {
+            loaded.push({ raw, table: datasetToTable(toDataset(raw, raw.source)) });
+          } catch (err) {
+            logger.warn('io', `skipping non-flattenable variable "${raw.name}"`, err);
+          }
+        }
+        if (loaded.length === 0) {
+          notify('warning', '文件中没有可预览为表格的数值变量');
+          return;
+        }
+        for (const { raw, table } of loaded) {
+          await useProjectStore
+            .getState()
+            .addDataFile(new File([dataTableToCSV(table)], `${sanitizeName(raw.name)}.csv`, { type: 'text/csv' }));
+        }
+        notify('success', `已导入 ${loaded.length} 个科学数据变量（共 ${datasets.length} 个）`);
+        // Re-route the first variable's CSV through the normal plugin pipeline.
+        const first = loaded[0]!;
+        await routeFile(
+          new File([dataTableToCSV(first.table)], `${sanitizeName(first.raw.name)}.csv`, { type: 'text/csv' }),
+        );
+      } catch (err) {
+        logger.error('io', 'scientific load failed', err);
+        notify('error', '科学数据解析失败，请确认文件格式是否正确');
+      }
+      return;
+    }
+
     const detected = await detectFormats(file);
     const pluginStore = usePluginStore.getState();
     const matches = pluginStore

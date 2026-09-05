@@ -124,3 +124,51 @@ export function collectSupportedExtensions(
   }
   return [...set];
 }
+
+// ---- Scientific binary formats (research data) -------------------------
+//
+// These cannot travel the text path used by CSV/XYZ, so they are detected by
+// magic number up front. The actual decoders live in `@/core/io` and are wired
+// once their WASM dependencies (h5wasm, parquet-wasm, fitsjs, netcdfjs,
+// zarrita) are installed — detection here has no such dependency.
+
+export type ScientificFormat = 'hdf5' | 'parquet' | 'fits' | 'netcdf' | 'zarr';
+
+const SCIENTIFIC_MAGIC: { bytes: number[]; format: ScientificFormat }[] = [
+  // HDF5 family: HDF5, h5ad (single-cell), MAT v7.3 — all HDF5 containers.
+  { bytes: [0x89, 0x48, 0x44, 0x46, 0x0d, 0x0a, 0x1a, 0x0a], format: 'hdf5' },
+  // Parquet: "PAR1" appears at both ends of the file.
+  { bytes: [0x50, 0x41, 0x52, 0x31], format: 'parquet' },
+  // FITS: the primary HDU header begins with the ASCII "SIMPLE  = ".
+  { bytes: [0x53, 0x49, 0x4d, 0x50, 0x4c, 0x45], format: 'fits' },
+  // NetCDF classic: "CDF\x01" / "CDF\x02". (NetCDF-4 is HDF5-based → 'hdf5'.)
+  { bytes: [0x43, 0x44, 0x46, 0x01], format: 'netcdf' },
+  { bytes: [0x43, 0x44, 0x46, 0x02], format: 'netcdf' },
+];
+
+const SCIENTIFIC_EXTENSIONS: Record<string, ScientificFormat> = {
+  '.h5': 'hdf5',
+  '.hdf5': 'hdf5',
+  '.hdf': 'hdf5',
+  '.mat': 'hdf5', // MAT v7.3 (HDF5-based); legacy MAT v7 is unsupported.
+  '.parquet': 'parquet',
+  '.fits': 'fits',
+  '.fit': 'fits',
+  '.nc': 'netcdf',
+  '.zarr': 'zarr',
+};
+
+/** Detect a scientific binary format from a file's leading bytes. */
+export function detectScientificFormat(bytes: Uint8Array): ScientificFormat | null {
+  for (const magic of SCIENTIFIC_MAGIC) {
+    if (magic.bytes.every((b, i) => bytes[i] === b)) return magic.format;
+  }
+  return null;
+}
+
+/** Resolve a scientific format from a file name (extension fallback). */
+export function scientificFormatFromName(name: string): ScientificFormat | null {
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return null;
+  return SCIENTIFIC_EXTENSIONS[name.slice(dot).toLowerCase()] ?? null;
+}

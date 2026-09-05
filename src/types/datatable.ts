@@ -63,7 +63,46 @@ export interface RenderedView {
 }
 
 /** The union of values that may flow between ports. */
-export type DataValue = DataTable | Scalar | RenderedView;
+export type DataValue = DataTable | Dataset | Scalar | RenderedView;
+
+// ---- research-grade ND data ------------------------------------------------
+//
+// `DataTable` is a strict 2D columnar table, but real scientific data is
+// N-dimensional (FITS images, HDF5 datasets, NetCDF variables with coordinate
+// axes). `Dataset` is the first-class research container that carries that
+// shape. The two live side by side in `DataValue`: legacy blocks keep
+// consuming `DataTable`, while `datasetToTable()` flattens a `Dataset` for
+// them when a 2D view is all they can take.
+
+/** One dimension of a `Dataset`, optionally carrying a physical coordinate. */
+export interface DatasetAxis {
+  name: string;
+  /** Physical unit of the coordinate along this axis (e.g. "nm", "deg"). */
+  unit?: string;
+  /**
+   * Explicit coordinate values (length === `dims[i]`). When absent the axis
+   * is an implicit 0-based index. A coordinate axis is what makes a NetCDF
+   * "time" dimension actually mean seconds since 2000-01-01, not row 0..N.
+   */
+  values?: Float64Array | number[];
+}
+
+export interface Dataset {
+  readonly kind: 'dataset';
+  readonly id: string;
+  readonly name: string;
+  /** Shape, row-major (e.g. [28, 28] for an image, [samples, features] for a matrix). */
+  readonly dims: number[];
+  /** Flattened, row-major payload. Typed array for numerics. */
+  readonly data: ColumnData;
+  /** One axis per entry in `dims`. */
+  readonly axes: DatasetAxis[];
+  /** Physical unit of the *values* (distinct from axis units). */
+  readonly unit?: string;
+  /** Format-specific metadata: FITS header cards, HDF5 attributes, etc. */
+  readonly attrs: Record<string, unknown>;
+  readonly provenance: string;
+}
 
 // ---- implementation ----
 
@@ -183,4 +222,83 @@ export function isScalar(value: DataValue | undefined): value is Scalar {
 
 export function isRenderedView(value: DataValue | undefined): value is RenderedView {
   return value !== undefined && 'kind' in value && value.kind === 'rendered-view';
+}
+
+export function isDataset(value: DataValue | undefined): value is Dataset {
+  return value !== undefined && 'kind' in value && value.kind === 'dataset';
+}
+
+/**
+ * Flatten a `Dataset` into a 2D `DataTable` so legacy blocks/plugins that only
+ * understand tables can still consume it. A 1-D dataset becomes a single
+ * column; a 2-D `[M, N]` dataset becomes `N` columns of length `M` (each
+ * column is one feature / band). Higher-rank datasets are not flattenable
+ * here — they must be handled by dataset-aware viewers directly.
+ *
+ * Column names come from the second axis' coordinate values when present
+ * (e.g. a NetCDF `lat` axis), falling back to `c{index}` otherwise. The
+ * dataset's value `unit` is propagated onto every column.
+ */
+export function datasetToTable(ds: Dataset, id = `${ds.id}__table`): MemoryDataTable {
+  if (ds.dims.length === 0) {
+    throw new Error('cannot flatten a 0-dimensional dataset');
+  }
+  if (ds.dims.length > 2) {
+    throw new Error(
+      `cannot flatten a ${ds.dims.length}-D dataset to a table; use a dataset-aware viewer`,
+    );
+  }
+
+  const data = ds.data;
+  // Only numeric datasets flatten to a table; string/boolean datasets have no
+  // strided column semantics and must be handled by dataset-aware viewers.
+  if (
+    !(data instanceof Float64Array || data instanceof Float32Array ||
+      data instanceof Int32Array || data instanceof Uint32Array)
+  ) {
+    throw new Error('only numeric datasets can be flattened to a table');
+  }
+  if (ds.dims.length === 1) {
+    const name = ds.axes[0]?.name || 'value';
+    return createDataTable(id, [{ name, type: columnTypeOf(data), data, unit: ds.unit }]);
+  }
+
+  const cols = ds.dims[1]!;
+  const axis1 = ds.axes[1];
+  const columns: ColumnSpec[] = [];
+  for (let j = 0; j < cols; j += 1) {
+    const name =
+      axis1?.values && axis1.values.length === cols
+        ? String(axis1.values[j])
+        : axis1?.name
+          ? `${axis1.name}_${j}`
+          : `c${j}`;
+    const col = makeColumn(data, j, cols);
+    columns.push({ name, type: columnTypeOf(col), data: col, unit: ds.unit });
+  }
+  return createDataTable(id, columns);
+}
+
+function columnTypeOf(data: ColumnData): ColumnType {
+  if (data instanceof Float64Array) return 'f64';
+  if (data instanceof Float32Array) return 'f32';
+  if (data instanceof Int32Array) return 'i32';
+  if (data instanceof Uint32Array) return 'u32';
+  if (Array.isArray(data)) return typeof data[0] === 'boolean' ? 'boolean' : 'string';
+  return 'f64';
+}
+
+/** Extract column `j` (stride `cols`) from a flattened row-major buffer. */
+function makeColumn(
+  data: ColumnData,
+  j: number,
+  cols: number,
+): ColumnData {
+  if (data instanceof Float64Array) return data.filter((_, i) => i % cols === j);
+  if (data instanceof Float32Array) return data.filter((_, i) => i % cols === j);
+  if (data instanceof Int32Array) return data.filter((_, i) => i % cols === j);
+  if (data instanceof Uint32Array) return data.filter((_, i) => i % cols === j);
+  // Unreachable: datasetToTable throws before calling makeColumn for
+  // non-numeric data.
+  throw new Error('only numeric datasets can be flattened to a table');
 }
