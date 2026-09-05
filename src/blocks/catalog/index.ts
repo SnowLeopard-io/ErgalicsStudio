@@ -11,6 +11,7 @@ import { filterBlocks } from './filter';
 import { mathBlocks } from './math';
 import { statisticsBlocks } from './statistics';
 import { visualizeBlocks } from './visualize';
+import { plotBlocks } from './plot';
 import type { BlockDefinition } from './types';
 
 export function registerBuiltinBlocks(registry: BlockRegistry): void {
@@ -21,6 +22,7 @@ export function registerBuiltinBlocks(registry: BlockRegistry): void {
     ...mathBlocks,
     ...statisticsBlocks,
     ...visualizeBlocks,
+    ...plotBlocks,
   ];
   for (const def of definitions) {
     registry.register(def.meta, def.executor);
@@ -34,4 +36,5 @@ export {
   mathBlocks,
   statisticsBlocks,
   visualizeBlocks,
+  plotBlocks,
 };

@@ -18,6 +18,7 @@ import { useAppStore } from '@/stores/appStore';
 import { renderView } from '@/blocks/render';
 import type { ViewRenderHost } from '@/blocks/render';
 import { isDataTable, isRenderedView, isScalar } from '@/types/datatable';
+import { exportPDF, exportSVG, type SvgPlotPayload } from '@/core/plot';
 import { blockRegistry } from '@/blocks/registry';
 import { blockName } from '@/blocks/l10n';
 import { DataTablePreview } from './DataTablePreview';
@@ -27,6 +28,7 @@ export function BlockPreview() {
   const { locale } = useLocale();
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgHostRef = useRef<HTMLDivElement>(null);
   const nodeOutputs = useBlockStore((s) => s.nodeOutputs);
   const selectedIds = useBlockStore((s) => s.selectedIds);
   const instances = useBlockStore((s) => s.instances);
@@ -70,11 +72,26 @@ export function BlockPreview() {
     outputIds.find((id) => isRenderedView(nodeOutputs[id])) ??
     outputIds[outputIds.length - 1];
   const target = targetId ? nodeOutputs[targetId] : undefined;
-  const isView = target !== undefined && isRenderedView(target);
+  // SVG plots carry their own markup and render inline (no plugin); everything
+  // else that is a RenderedView goes through the plugin bridge.
+  const svgPayload: SvgPlotPayload | undefined =
+    target && isRenderedView(target)
+      ? ((target.data as SvgPlotPayload | undefined)?.svg === true
+          ? (target.data as SvgPlotPayload)
+          : undefined)
+      : undefined;
+  const isSvgPlot = svgPayload !== undefined;
+  const isView = target !== undefined && isRenderedView(target) && !isSvgPlot;
 
-  // Render RenderedView outputs through the plugin bridge.
+  // Inject the SVG plot markup into the host div (browser only).
   useEffect(() => {
-    if (!target || !isRenderedView(target)) return;
+    if (!isSvgPlot || !svgHostRef.current || !svgPayload) return;
+    svgHostRef.current.innerHTML = svgPayload.markup;
+  }, [isSvgPlot, svgPayload]);
+
+  // Render non-SVG RenderedView outputs through the plugin bridge.
+  useEffect(() => {
+    if (!target || !isRenderedView(target) || isSvgPlot) return;
     const host: ViewRenderHost = {
       activate: async (pluginId) => {
         const store = usePluginStore.getState();
@@ -89,7 +106,7 @@ export function BlockPreview() {
       },
     };
     void renderView(target, host);
-  }, [target]);
+  }, [target, isSvgPlot]);
 
   function nodeName(id: string): string {
     const inst = instances.find((i) => i.id === id);
@@ -120,6 +137,24 @@ export function BlockPreview() {
         </div>
       )}
       <div className="block-preview-host">
+        {isSvgPlot && svgPayload && (
+          <div className="block-preview-svg">
+            <div ref={svgHostRef} className="block-preview-svg-canvas" />
+            <div className="block-preview-svg-actions">
+              <button type="button" onClick={() => exportSVG(svgPayload.markup, 'plot.svg')}>
+                导出 SVG
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  exportPDF(svgPayload.markup, 'plot.pdf').catch((e) => console.error(e));
+                }}
+              >
+                导出 PDF
+              </button>
+            </div>
+          </div>
+        )}
         <div
           ref={domRef}
           className="block-preview-dom"
