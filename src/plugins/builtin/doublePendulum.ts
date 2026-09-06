@@ -26,8 +26,8 @@ export const pendulumManifest: PluginManifest = {
   author: 'Ergalics',
   description: 'Chaotic double pendulum with an initial-condition twin.',
   descriptionI18n: {
-    'zh-CN': 'RK4 积分的经典双摆：主摆与初始角仅差 0.001° 的“幽灵摆”并行演化，直观展示混沌对初值的敏感依赖。',
-    'en-US': 'Classic double pendulum integrated with RK4: a ghost pendulum offset by 0.001° diverges exponentially — chaos made visible.',
+    'zh-CN': 'RK4 积分的经典双摆：主摆与初始角仅差 0.001 rad（≈0.057°）的“幽灵摆”并行演化，直观展示混沌对初值的敏感依赖。',
+    'en-US': 'Classic double pendulum integrated with RK4: a ghost pendulum offset by 0.001 rad (≈0.057°) diverges exponentially — chaos made visible.',
   },
   license: 'MIT',
   entry: 'example.pendulum',

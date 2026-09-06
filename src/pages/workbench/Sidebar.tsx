@@ -57,7 +57,7 @@ export function Sidebar() {
 
   // Group the loaded registry by discipline, keeping the registry's own
   // order inside each group; empty groups are omitted.
-  const locale = useLocale();
+  const { locale } = useLocale();
   const groups = useMemo(() => {
     const byDiscipline = new Map<string, PluginRegistryEntry[]>();
     for (const entry of registry) {
