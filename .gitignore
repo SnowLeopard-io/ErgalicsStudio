@@ -25,6 +25,18 @@ src/native/ergalics_core_bg.wasm
 # out of git so the repo carries no ~25MB of binaries. Regenerated on dev/build.
 public/pyodide/
 
+# Vendored Blockly media (sprite sheet + interaction sounds). Copied from
+# node_modules/blockly/media by scripts/vendor-blockly-media.mjs so block
+# mode never fetches from static.blockly.com. Regenerated on dev/build.
+public/blockly/
+
+# Scratch space: demo-video recording scripts/screenshots, temp experiment
+# output and test logs. Kept locally for reuse, never committed.
+tmp/
+
+# Renamed-away stale build output awaiting manual deletion.
+dist-stale-*/
+
 # Throwaway build-verification output dirs (created while validating the
 # Pyodide vendoring change). Not real artifacts.
 dist-verify*
@@ -40,7 +52,6 @@ dist-verify*
 docs/node_modules/
 docs/.vitepress/*
 !docs/.vitepress/config.mts
-s
 prd.md
 插件需求.md
 ergalics-studio-poster/

@@ -45,6 +45,10 @@ export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): voi
 export function createWorkspace(div: HTMLElement): Blockly.WorkspaceSvg {
   const dark = document.documentElement.dataset.theme === 'dark';
   return Blockly.inject(div, {
+    // Serve Blockly's media (sprites + sounds) from the bundled copy in
+    // public/blockly/ — the default CDN (static.blockly.com) fails TLS
+    // validation for some users and throws unhandled fetch rejections.
+    media: `${import.meta.env.BASE_URL}blockly/`,
     toolbox: TOOLBOX as unknown as Blockly.utils.toolbox.ToolboxDefinition,
     theme: THEME_NAME(dark),
     renderer: 'geras',

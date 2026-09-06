@@ -3,6 +3,7 @@ import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { ensurePyodideAssets } from './scripts/copy-pyodide.mjs';
+import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
 
 // Vendor Pyodide (core + numpy wheel) into public/pyodide so the code-mode
 // Python runtime loads same-origin instead of from cdn.jsdelivr.net. Runs in
@@ -19,8 +20,22 @@ const vendorPyodide: Plugin = {
   },
 };
 
+// Vendor Blockly's media folder (sprite sheet + interaction sounds) into
+// public/blockly so block mode never fetches from static.blockly.com,
+// which is unreachable from mainland China (TLS cert mismatch). Mirrors the
+// Pyodide vendoring plugin below.
+const vendorBlocklyMedia: Plugin = {
+  name: 'ergalics-vendor-blockly-media',
+  async buildStart() {
+    await ensureBlocklyMedia();
+  },
+  configureServer() {
+    void ensureBlocklyMedia();
+  },
+};
+
 export default defineConfig({
-  plugins: [react(), vendorPyodide],
+  plugins: [react(), vendorPyodide, vendorBlocklyMedia],
   base: './',
   resolve: {
     alias: {
