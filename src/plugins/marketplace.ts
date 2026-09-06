@@ -56,6 +56,10 @@ const OVERLAY: Record<string, Overlay> = {
   'example.scatter': { category: 'scientific', tags: ['plot', '2d'], popularity: 90 },
   'example.nbody': { category: 'scientific', tags: ['physics', 'simulation', 'gpu'], popularity: 76 },
   'example.contour': { category: 'scientific', tags: ['field', 'math'], popularity: 68 },
+  'example.fluid': { category: 'scientific', tags: ['physics', 'fluid', 'simulation', 'gpu', 'lattice-boltzmann'], popularity: 84 },
+  'example.wave': { category: 'scientific', tags: ['physics', 'waves', 'interference', 'gpu'], popularity: 78 },
+  'example.pendulum': { category: 'scientific', tags: ['physics', 'chaos', 'mechanics'], popularity: 70 },
+  'example.geomap': { category: 'scientific', tags: ['geography', 'geojson', 'choropleth', 'map'], popularity: 75 },
 };
 
 // Community submissions not yet bundled — shown as "coming soon".

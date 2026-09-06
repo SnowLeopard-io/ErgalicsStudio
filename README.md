@@ -73,14 +73,15 @@ Ergalics Studio is under **active development** and already usable end to
 end: the core loop (project management, data loading, plugin registry, 2D/3D
 rendering, i18n, theming, performance monitoring, the Flow mode, the Block
 mode, and the Code mode with a Pyodide Python runtime) is functional and
-covered by tests. GPU acceleration spans Particles, N-Body, histogram,
-heatmap and point-cloud kernels; package signing for the plugin marketplace
+covered by tests. GPU acceleration spans Particles, N-Body, the LBM fluid,
+the wave equation, histogram, heatmap and point-cloud kernels; package
+signing for the plugin marketplace
 and the R runtime (webR) are the next milestones. Every module is kept
 deliberately small and testable so the codebase keeps scaling without a
 rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
-> 33 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
+> 37 built-in plugins (core + fun), a sandboxed plugin system, a marketplace
 > catalog, live GPU compute, an in-browser AI training plugin, and a
 > Pyodide-powered Python code editor; package signing and the R runtime are
 > next.
@@ -115,7 +116,7 @@ rewrite.
 
 **Plugin system**
 
-- **33 built-in plugins** — 23 core/scientific visualisers plus 10 fun &
+- **37 built-in plugins** — 27 core/scientific plugins plus 10 fun &
   utility toys — covering the full API surface (2D canvas, Three.js scene,
   WGSL compute, buttons/toggles, sandboxing, in-browser model training).
 - **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
@@ -260,7 +261,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (23 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (27 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -370,7 +371,7 @@ See [Documentation](#documentation) for details.
 │   │                         #     toolbar, result preview, workbench shell
 │   ├── components/editor/    #   Block/Code canvases, variable / console panels
 │   ├── pages/                #   welcome, workbench, settings, share, dialogs
-│   ├── plugins/builtin/      #   23 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   27 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
 │   ├── types/                #   plugin & project & editor contracts
@@ -544,6 +545,15 @@ architecture; R via webR is the remaining runtime.
 | Treemap              | `.csv` (label, size / label, parent, size) | hierarchical rectangle layout |
 | QQ Plot              | `.csv`, `.dat` (single column) | normal quantile comparison + reference line |
 | AI Trainer           | `.csv`, `.json` (MNIST)     | 4 models (linear / non-linear NN / logistic / CNN) with live loss curve, scatter+fit / decision boundary / digit grid |
+| LBM Fluid            | `.json` (obstacle mask)     | 2-D lattice-Boltzmann channel flow (D2Q9) around an obstacle; WGSL collide + stream kernels, Kármán vortex street |
+| Wave Equation        | `.json` (u / drive grids)   | 2-D finite-difference wave equation (pulse / twin-source interference / double-slit scenarios); WGSL leapfrog kernel |
+| Double Pendulum      | `.json` (initial conditions) | RK4 integration with a chaos ghost twin offset by 0.001 rad — sensitive dependence made visible |
+| GeoJSON Map          | `.geojson`, `.json`         | offline vector map with choropleth shading; Albers (China) / Web Mercator / equirectangular projections |
+
+Simulation plugins are strictly data-driven: they start empty and never
+fabricate a default scene — the flow obstacle, the wave scenario, and the
+pendulum initial conditions all come from a bundled sample or a user file,
+and **Reset** replays the loaded data rather than restoring a built-in.
 
 Every core plugin ships with a sample dataset (see `examples/data/`) so a
 one-click load in the **示例 / Examples** dialog produces a real
@@ -575,6 +585,34 @@ itself is lazy-loaded on the first click of **Train**, so the trainer is in
 the auto-load registry without paying a 2 MB cost at startup.
 
 ![AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)](docs/AImnistcnn.png)
+
+The simulation & geospatial plugins complete the registry — four more
+data-driven engines shown below:
+
+**LBM Fluid** — a 2-D lattice-Boltzmann channel flow (D2Q9) around an
+obstacle, with WGSL collide + stream kernels. The bundled airfoil sample
+shows the flow field in the Wind Flow view; inflow speed, relaxation and
+lattice detail are live parameters.
+
+![LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view](docs/airplane.png)
+
+**Wave Equation** — a 2-D finite-difference wave equation with pulse /
+twin-source interference / double-slit scenarios, integrated by a WGSL
+leapfrog kernel with adjustable wave speed and damping.
+
+![Wave Equation — twin-source interference pattern, orange/blue amplitude field](docs/waveequation.png)
+
+**Double Pendulum** — RK4 integration with a chaos ghost twin whose initial
+angle differs by 0.001 rad; the HUD reads out the live ghost divergence
+(137.42° in the frame below) as the two trajectories peel apart.
+
+![Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°](docs/doublependulum.png)
+
+**GeoJSON Map** — an offline vector map with choropleth shading by property
+(`adcode` for the bundled China provinces sample), graticule, and Albers
+(China) / Web Mercator / equirectangular projections.
+
+![GeoJSON Map — China provinces choropleth in the Albers (China) projection](docs/geojsonmap.png)
 
 **Fun & utility plugins** (`autoload: false`, 10 total — loaded on demand
 from the built-in panel or marketplace tab):
@@ -664,10 +702,12 @@ the Rust core when the WASM module is loaded and through the raw WebGPU API
 otherwise — so accelerated compute works in dev *and* production, and the
 Rust core stays the reference engine.
 
-Reusable WGSL kernels live in `src/core/wgsl.ts` (particle integration and
-3-D all-pairs N-body gravity), paired with host-side pack/unpack helpers that
-mirror the kernel math for the CPU fallback. The Particles plugin demonstrates
-the single-buffer path (upload interleaved `[x, y, vx, vy]` + uniform params →
+Reusable WGSL kernels live in `src/core/wgsl.ts` (particle integration,
+3-D all-pairs N-body gravity, D2Q9 lattice-Boltzmann collide/stream/curl, and
+the 2-D wave-equation leapfrog), paired with host-side pack/unpack helpers
+that mirror the kernel math for the CPU fallback. The Particles plugin
+demonstrates the single-buffer path (upload interleaved `[x, y, vx, vy]` +
+uniform params →
 dispatch the WGSL integrator → read back → report real GPU time); the N-Body
 plugin demonstrates the heavier all-pairs path with ping-pong buffers that keep
 every integration step on the device with no per-step read-back.
@@ -741,7 +781,7 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 33 built-in plugins (23 core + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] 37 built-in plugins (27 core + 10 fun/utility), cspkg loading, Worker sandbox
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links

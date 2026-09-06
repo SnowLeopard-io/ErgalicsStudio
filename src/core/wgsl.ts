@@ -828,3 +828,596 @@ export function pointCloudCPU(
   }
   return out;
 }
+
+// ==========================================================================
+// Fluid kernel (lattice Boltzmann, D2Q9 — 2-D channel flow).
+//
+// Two kernels per timestep, ping-ponging a single field buffer:
+//   1. collide — BGK relaxation toward the local equilibrium at each cell.
+//   2. stream  — pull scheme: each cell gathers its 9 populations from the
+//                upstream neighbours, with bounce-back at solid cells and
+//                walls, an equilibrium inflow at x=0 and a zero-gradient
+//                outflow at x=W-1.
+//
+// Field layout: interleaved f32 populations, cell-major:
+//   field[cell * 9 + d]  for cell = y * width + x, d in [0, 8].
+//
+// Direction convention (rest, E, N, W, S, NE, NW, SW, SE):
+//   d :  0  1  2  3  4  5  6  7  8
+//   ex:  0  1  0 -1  0  1 -1 -1  1
+//   ey:  0  0  1  0 -1  1  1 -1 -1
+//   opp: 0  3  4  1  2  7  8  5  6
+// ==========================================================================
+
+export const FLUID_DIRECTIONS = 9;
+
+export const FLUID_WEIGHTS: readonly number[] = [
+  4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36,
+];
+
+export const FLUID_EX: readonly number[] = [0, 1, 0, -1, 0, 1, -1, -1, 1];
+export const FLUID_EY: readonly number[] = [0, 0, 1, 0, -1, 1, 1, -1, -1];
+export const FLUID_OPP: readonly number[] = [0, 3, 4, 1, 2, 7, 8, 5, 6];
+
+export const FLUID_FIELD_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const FLUID_FLAGS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const FLUID_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/** Byte size of a population field holding `cells` lattice cells. */
+export function fluidFieldBytes(cells: number): number {
+  return Math.max(0, Math.floor(cells)) * FLUID_DIRECTIONS * 4;
+}
+
+/** Byte size of a solid-flag buffer holding `cells` lattice cells (f32 0/1). */
+export function fluidFlagsBytes(cells: number): number {
+  return Math.max(0, Math.floor(cells)) * 4;
+}
+
+/** Byte size of the observe (curl) output buffer for `cells` cells. */
+export function fluidCurlBytes(cells: number): number {
+  return Math.max(0, Math.floor(cells)) * 4;
+}
+
+/**
+ * Pack the fluid uniform params into a 16-byte ArrayBuffer (width/height as
+ * real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packFluidParams(
+  width: number,
+  height: number,
+  omega: number,
+  u0: number,
+): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, width >>> 0, true);
+  dv.setUint32(4, height >>> 0, true);
+  dv.setFloat32(8, omega, true);
+  dv.setFloat32(12, u0, true);
+  return buf;
+}
+
+export interface FluidKernelOptions {
+  /** Workgroup edge (threads per workgroup axis). Defaults to 8 (2-D tiles). */
+  workgroupSize?: number;
+}
+
+/** Shared WGSL helper functions for the D2Q9 direction tables. */
+function fluidDirectionHelpers(): string {
+  return `
+fn weight(d: u32) -> f32 {
+  if (d == 0u) { return 0.44444444444; }
+  if (d <= 4u) { return 0.11111111111; }
+  return 0.02777777778;
+}
+
+fn exv(d: u32) -> i32 {
+  if (d == 1u || d == 5u || d == 8u) { return 1; }
+  if (d == 3u || d == 6u || d == 7u) { return -1; }
+  return 0;
+}
+
+fn eyv(d: u32) -> i32 {
+  if (d == 2u || d == 5u || d == 6u) { return 1; }
+  if (d == 4u || d == 7u || d == 8u) { return -1; }
+  return 0;
+}
+
+fn opp(d: u32) -> u32 {
+  if (d == 1u) { return 3u; }
+  if (d == 2u) { return 4u; }
+  if (d == 3u) { return 1u; }
+  if (d == 4u) { return 2u; }
+  if (d == 5u) { return 7u; }
+  if (d == 6u) { return 8u; }
+  if (d == 7u) { return 5u; }
+  if (d == 8u) { return 6u; }
+  return 0u;
+}
+`;
+}
+
+/**
+ * Kernel 1 of 2 per step: BGK collision. Reads the population field, writes
+ * the post-collision field (zeros at solid cells). Bind group:
+ *   @binding(0) read-only-storage  — fin    : f32[width*height*9]
+ *   @binding(1) storage, read_write — fout  : f32[width*height*9]
+ *   @binding(2) read-only-storage  — flags  : f32[width*height]  (1 = solid)
+ *   @binding(3) uniform            — { width: u32, height: u32,
+ *                                      omega: f32, u0: f32 }
+ * Dispatch with (width/8, height/8) workgroups.
+ */
+export function fluidCollideKernelWGSL(opts: FluidKernelOptions = {}): string {
+  const ws = opts.workgroupSize ?? 8;
+  return `struct Params {
+  width: u32,
+  height: u32,
+  omega: f32,
+  u0: f32,
+};
+
+@group(0) @binding(0) var<storage, read> fin: array<f32>;
+@group(0) @binding(1) var<storage, read_write> fout: array<f32>;
+@group(0) @binding(2) var<storage, read> flags: array<f32>;
+@group(0) @binding(3) var<uniform> params: Params;
+${fluidDirectionHelpers()}
+@compute @workgroup_size(${ws}, ${ws})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= params.width || y >= params.height) { return; }
+  let cell = y * params.width + x;
+  let base = cell * 9u;
+  if (flags[cell] > 0.5) {
+    for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+      fout[base + d] = 0.0;
+    }
+    return;
+  }
+
+  var rho = 0.0;
+  var ux = 0.0;
+  var uy = 0.0;
+  for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+    let f = fin[base + d];
+    rho = rho + f;
+    ux = ux + f * f32(exv(d));
+    uy = uy + f * f32(eyv(d));
+  }
+  ux = ux / rho;
+  uy = uy / rho;
+  let u2 = ux * ux + uy * uy;
+  for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+    let eu = f32(exv(d)) * ux + f32(eyv(d)) * uy;
+    let feq = weight(d) * rho * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * u2);
+    fout[base + d] = fin[base + d] + params.omega * (feq - fin[base + d]);
+  }
+}
+`;
+}
+
+/**
+ * Kernel 2 of 2 per step: pull-scheme streaming with bounce-back obstacles,
+ * equilibrium inflow (x=0) and zero-gradient outflow (x=W-1). Bind group:
+ *   @binding(0) read-only-storage   — fin (= post-collision field)
+ *   @binding(1) storage, read_write — fout
+ *   @binding(2) read-only-storage  — flags
+ *   @binding(3) uniform            — same Params struct as the collide kernel
+ */
+export function fluidStreamKernelWGSL(opts: FluidKernelOptions = {}): string {
+  const ws = opts.workgroupSize ?? 8;
+  return `struct Params {
+  width: u32,
+  height: u32,
+  omega: f32,
+  u0: f32,
+};
+
+@group(0) @binding(0) var<storage, read> fin: array<f32>;
+@group(0) @binding(1) var<storage, read_write> fout: array<f32>;
+@group(0) @binding(2) var<storage, read> flags: array<f32>;
+@group(0) @binding(3) var<uniform> params: Params;
+${fluidDirectionHelpers()}
+@compute @workgroup_size(${ws}, ${ws})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= params.width || y >= params.height) { return; }
+  let cell = y * params.width + x;
+  let base = cell * 9u;
+  if (flags[cell] > 0.5) {
+    for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+      fout[base + d] = 0.0;
+    }
+    return;
+  }
+
+  for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+    let sx = i32(x) - exv(d);
+    let sy = i32(y) - eyv(d);
+    var val: f32;
+    if (sx < 0) {
+      // Inflow: equilibrium population at (rho=1, u=(u0, 0)).
+      let eu = params.u0 * f32(exv(d));
+      val = weight(d) * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * params.u0 * params.u0);
+    } else if (sx >= i32(params.width)) {
+      // Outflow: zero-gradient — copy the same slot from the left neighbour.
+      val = fin[(cell - 1u) * 9u + d];
+    } else if (sy < 0 || sy >= i32(params.height)) {
+      // Channel wall: bounce-back.
+      val = fin[base + opp(d)];
+    } else {
+      let scell = u32(sy) * params.width + u32(sx);
+      if (flags[scell] > 0.5) {
+        val = fin[base + opp(d)];
+      } else {
+        val = fin[scell * 9u + d];
+      }
+    }
+    fout[base + d] = val;
+  }
+}
+`;
+}
+
+/**
+ * Observation kernel: derives the vorticity (curl of the macroscopic
+ * velocity) at each cell from the population field, for visualization.
+ * Bind group:
+ *   @binding(0) read-only-storage   — field : f32[width*height*9]
+ *   @binding(1) storage, read_write — curl  : f32[width*height]
+ *   @binding(2) uniform            — same Params struct
+ */
+export function fluidCurlKernelWGSL(opts: FluidKernelOptions = {}): string {
+  const ws = opts.workgroupSize ?? 8;
+  return `struct Params {
+  width: u32,
+  height: u32,
+  omega: f32,
+  u0: f32,
+};
+
+@group(0) @binding(0) var<storage, read> field: array<f32>;
+@group(0) @binding(1) var<storage, read_write> curl: array<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+${fluidDirectionHelpers()}
+
+fn macro(cell: u32) -> vec3<f32> {
+  var rho = 0.0;
+  var ux = 0.0;
+  var uy = 0.0;
+  let base = cell * 9u;
+  for (var d: u32 = 0u; d < 9u; d = d + 1u) {
+    let f = field[base + d];
+    rho = rho + f;
+    ux = ux + f * f32(exv(d));
+    uy = uy + f * f32(eyv(d));
+  }
+  return vec3<f32>(rho, ux / rho, uy / rho);
+}
+
+@compute @workgroup_size(${ws}, ${ws})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= params.width || y >= params.height) { return; }
+  let cell = y * params.width + x;
+  if (x < 1u || x >= params.width - 1u || y < 1u || y >= params.height - 1u) {
+    curl[cell] = 0.0;
+    return;
+  }
+  let r = macro(cell + 1u);
+  let l = macro(cell - 1u);
+  let up = macro(cell + params.width);
+  let dn = macro(cell - params.width);
+  curl[cell] = (r.z - l.z) * 0.5 - (up.y - dn.y) * 0.5;
+}
+`;
+}
+
+/**
+ * CPU-equivalent of the fluid pair: one BGK collision pass followed by one
+ * pull-streaming pass, mirroring the WGSL math exactly.
+ *
+ * `f` holds the current populations, `fpost` is caller-provided scratch of
+ * the same length. Both are Float32Array(W * H * 9); `flags` is
+ * Float32Array(W * H) with 1 = solid.
+ */
+export function fluidStepCPU(
+  f: Float32Array,
+  fpost: Float32Array,
+  flags: Float32Array,
+  width: number,
+  height: number,
+  omega: number,
+  u0: number,
+): void {
+  // ---- collide (f → fpost) ----
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const cell = y * width + x;
+      const base = cell * FLUID_DIRECTIONS;
+      if (flags[cell]! > 0.5) {
+        for (let d = 0; d < FLUID_DIRECTIONS; d += 1) fpost[base + d] = 0;
+        continue;
+      }
+      let rho = 0;
+      let ux = 0;
+      let uy = 0;
+      for (let d = 0; d < FLUID_DIRECTIONS; d += 1) {
+        const fv = f[base + d]!;
+        rho += fv;
+        ux += fv * FLUID_EX[d]!;
+        uy += fv * FLUID_EY[d]!;
+      }
+      ux /= rho;
+      uy /= rho;
+      const u2 = ux * ux + uy * uy;
+      for (let d = 0; d < FLUID_DIRECTIONS; d += 1) {
+        const fv = f[base + d]!;
+        const eu = FLUID_EX[d]! * ux + FLUID_EY[d]! * uy;
+        const feq = FLUID_WEIGHTS[d]! * rho * (1 + 3 * eu + 4.5 * eu * eu - 1.5 * u2);
+        fpost[base + d] = fv + omega * (feq - fv);
+      }
+    }
+  }
+
+  // ---- stream (fpost → f, pull scheme) ----
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const cell = y * width + x;
+      const base = cell * FLUID_DIRECTIONS;
+      if (flags[cell]! > 0.5) {
+        for (let d = 0; d < FLUID_DIRECTIONS; d += 1) f[base + d] = 0;
+        continue;
+      }
+      for (let d = 0; d < FLUID_DIRECTIONS; d += 1) {
+        const sx = x - FLUID_EX[d]!;
+        const sy = y - FLUID_EY[d]!;
+        let val: number;
+        if (sx < 0) {
+          const eu = u0 * FLUID_EX[d]!;
+          val = FLUID_WEIGHTS[d]! * (1 + 3 * eu + 4.5 * eu * eu - 1.5 * u0 * u0);
+        } else if (sx >= width) {
+          val = fpost[(cell - 1) * FLUID_DIRECTIONS + d]!;
+        } else if (sy < 0 || sy >= height) {
+          val = fpost[base + FLUID_OPP[d]!]!;
+        } else {
+          const scell = sy * width + sx;
+          if (flags[scell]! > 0.5) {
+            val = fpost[base + FLUID_OPP[d]!]!;
+          } else {
+            val = fpost[scell * FLUID_DIRECTIONS + d]!;
+          }
+        }
+        f[base + d] = val;
+      }
+    }
+  }
+}
+
+/** Macroscopic fields (rho, ux, uy) derived from a population field. */
+export function fluidMacroCPU(
+  f: Float32Array,
+  width: number,
+  height: number,
+): { rho: Float32Array; ux: Float32Array; uy: Float32Array } {
+  const cells = width * height;
+  const rho = new Float32Array(cells);
+  const ux = new Float32Array(cells);
+  const uy = new Float32Array(cells);
+  for (let cell = 0; cell < cells; cell += 1) {
+    const base = cell * FLUID_DIRECTIONS;
+    let r = 0;
+    let vx = 0;
+    let vy = 0;
+    for (let d = 0; d < FLUID_DIRECTIONS; d += 1) {
+      const fv = f[base + d]!;
+      r += fv;
+      vx += fv * FLUID_EX[d]!;
+      vy += fv * FLUID_EY[d]!;
+    }
+    rho[cell] = r;
+    ux[cell] = vx / (r || 1);
+    uy[cell] = vy / (r || 1);
+  }
+  return { rho, ux, uy };
+}
+
+/** Vorticity (curl of the macroscopic velocity), central differences. */
+export function fluidCurlCPU(
+  ux: Float32Array,
+  uy: Float32Array,
+  width: number,
+  height: number,
+): Float32Array {
+  const cells = width * height;
+  const out = new Float32Array(cells);
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const cell = y * width + x;
+      out[cell] =
+        (uy[cell + 1]! - uy[cell - 1]!) * 0.5 - (ux[cell + width]! - ux[cell - width]!) * 0.5;
+    }
+  }
+  return out;
+}
+
+/** Equilibrium populations for (rho, ux, uy) — used to seed the lattice. */
+export function fluidEquilibrium(rho: number, ux: number, uy: number): Float32Array {
+  const out = new Float32Array(FLUID_DIRECTIONS);
+  const u2 = ux * ux + uy * uy;
+  for (let d = 0; d < FLUID_DIRECTIONS; d += 1) {
+    const eu = FLUID_EX[d]! * ux + FLUID_EY[d]! * uy;
+    out[d] = FLUID_WEIGHTS[d]! * rho * (1 + 3 * eu + 4.5 * eu * eu - 1.5 * u2);
+  }
+  return out;
+}
+
+// ==========================================================================
+// Wave kernel (2-D linear wave equation, finite differences).
+//
+// Solves u_tt = c² ∇²u with a velocity field v = ∂u/∂t (leapfrog):
+//   v' = (v + k ∇²u) · damping;   u' = u + v'
+// with k = c² Δt² / Δx². Stability requires k ≤ 0.5 in 2-D.
+//
+// A separate `drive` buffer encodes per-cell boundary conditions:
+//   drive < 0  → barrier (u pinned to 0, reflecting)
+//   drive > 0  → continuous source, amplitude `drive`, sinusoidal in time
+//   drive == 0 → free cell
+//
+// Ping-pong: u and v each need input + output buffers (4 storage buffers).
+//
+// Bind group:
+//   @binding(0) read-only-storage   — uIn   : f32[width*height]
+//   @binding(1) read-only-storage   — vIn   : f32[width*height]
+//   @binding(2) storage, read_write — uOut  : f32[width*height]
+//   @binding(3) storage, read_write — vOut  : f32[width*height]
+//   @binding(4) read-only-storage   — drive : f32[width*height]
+//   @binding(5) uniform            — { width: u32, height: u32, k: f32,
+//                                      damping: f32, time: f32,
+//                                      _mode: u32 }  (24 bytes)
+// ==========================================================================
+
+export const WAVE_FIELD_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const WAVE_DRIVE_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const WAVE_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/** Byte size of a wave scalar field holding `cells` cells. */
+export function waveFieldBytes(cells: number): number {
+  return Math.max(0, Math.floor(cells)) * 4;
+}
+
+/**
+ * Pack the wave uniform params into a 24-byte ArrayBuffer (width/height as
+ * real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packWaveParams(
+  width: number,
+  height: number,
+  k: number,
+  damping: number,
+  time: number,
+): ArrayBuffer {
+  const buf = new ArrayBuffer(24);
+  const dv = new DataView(buf);
+  dv.setUint32(0, width >>> 0, true);
+  dv.setUint32(4, height >>> 0, true);
+  dv.setFloat32(8, k, true);
+  dv.setFloat32(12, damping, true);
+  dv.setFloat32(16, time, true);
+  dv.setUint32(20, 0, true); // _mode reserved
+  return buf;
+}
+
+export interface WaveKernelOptions {
+  /** Workgroup edge (threads per workgroup axis). Defaults to 8 (2-D tiles). */
+  workgroupSize?: number;
+}
+
+export function waveKernelWGSL(opts: WaveKernelOptions = {}): string {
+  const ws = opts.workgroupSize ?? 8;
+  return `struct Params {
+  width: u32,
+  height: u32,
+  k: f32,
+  damping: f32,
+  time: f32,
+  _mode: u32,
+};
+
+@group(0) @binding(0) var<storage, read> uIn: array<f32>;
+@group(0) @binding(1) var<storage, read> vIn: array<f32>;
+@group(0) @binding(2) var<storage, read_write> uOut: array<f32>;
+@group(0) @binding(3) var<storage, read_write> vOut: array<f32>;
+@group(0) @binding(4) var<storage, read> drive: array<f32>;
+@group(0) @binding(5) var<uniform> params: Params;
+
+@compute @workgroup_size(${ws}, ${ws})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= params.width || y >= params.height) { return; }
+  let cell = y * params.width + x;
+  if (drive[cell] < 0.0) {
+    // Barrier: pinned zero — perfectly reflecting.
+    uOut[cell] = 0.0;
+    vOut[cell] = 0.0;
+    return;
+  }
+
+  // Clamped (reflective) neighbours at the domain edges.
+  let xl = select(x, x - 1u, x > 0u);
+  let xr = select(x, x + 1u, x < params.width - 1u);
+  let yd = select(y, y - 1u, y > 0u);
+  let yu = select(y, y + 1u, y < params.height - 1u);
+  let lap = uIn[y * params.width + xr] + uIn[y * params.width + xl]
+          + uIn[yu * params.width + x] + uIn[yd * params.width + x]
+          - 4.0 * uIn[cell];
+
+  var nv = (vIn[cell] + params.k * lap) * params.damping;
+  var nu = uIn[cell] + nv;
+  if (drive[cell] > 0.0) {
+    // Continuous sinusoidal source.
+    nu = drive[cell] * sin(params.time);
+    nv = 0.0;
+  }
+  uOut[cell] = nu;
+  vOut[cell] = nv;
+}
+`;
+}
+
+/**
+ * CPU-equivalent of the wave kernel: one leapfrog step over `u`/`v` in place
+ * via caller-provided scratch buffers `unew`/`vnew` (all Float32Array(W*H)).
+ * Mirrors the WGSL math exactly, including clamped Neumann edges.
+ */
+export function waveStepCPU(
+  u: Float32Array,
+  v: Float32Array,
+  unew: Float32Array,
+  vnew: Float32Array,
+  drive: Float32Array,
+  width: number,
+  height: number,
+  k: number,
+  damping: number,
+  time: number,
+): void {
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const cell = y * width + x;
+      const dr = drive[cell]!;
+      if (dr < 0) {
+        unew[cell] = 0;
+        vnew[cell] = 0;
+        continue;
+      }
+      const xr = x < width - 1 ? x + 1 : x;
+      const xl = x > 0 ? x - 1 : x;
+      const yu = y < height - 1 ? y + 1 : y;
+      const yd = y > 0 ? y - 1 : y;
+      const lap =
+        u[y * width + xr]! + u[y * width + xl]! + u[yu * width + x]! + u[yd * width + x]! - 4 * u[cell]!;
+      let nv = (v[cell]! + k * lap) * damping;
+      let nu = u[cell]! + nv;
+      if (dr > 0) {
+        nu = dr * Math.sin(time);
+        nv = 0;
+      }
+      unew[cell] = nu;
+      vnew[cell] = nv;
+    }
+  }
+  u.set(unew);
+  v.set(vnew);
+}

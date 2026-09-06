@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useT } from '@/i18n';
+import { useT, useLocale } from '@/i18n';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
+import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
+import type { PluginRegistryEntry } from '@/types/plugin';
 
 export function Sidebar() {
   const t = useT();
@@ -27,6 +29,8 @@ export function Sidebar() {
   const [newOpen, setNewOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  /** Collapsed discipline groups (in-memory; all expanded by default). */
+  const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,6 +53,28 @@ export function Sidebar() {
     await createProject(name);
     setNewOpen(false);
     setNewName('');
+  };
+
+  // Group the loaded registry by discipline, keeping the registry's own
+  // order inside each group; empty groups are omitted.
+  const locale = useLocale();
+  const groups = useMemo(() => {
+    const byDiscipline = new Map<string, PluginRegistryEntry[]>();
+    for (const entry of registry) {
+      const d = disciplineOf(entry.id);
+      const list = byDiscipline.get(d) ?? [];
+      list.push(entry);
+      byDiscipline.set(d, list);
+    }
+    return PLUGIN_DISCIPLINES.filter((d) => byDiscipline.has(d.id)).map((d) => ({
+      ...d,
+      label: d.nameI18n[locale] ?? d.nameI18n['en-US']!,
+      entries: byDiscipline.get(d.id)!,
+    }));
+  }, [registry, locale]);
+
+  const toggleGroup = (id: string) => {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -89,24 +115,48 @@ export function Sidebar() {
         <button type="button" className="btn btn-sm btn-block" onClick={() => setPluginOpen(true)}>
           {t('plugin.load')}
         </button>
-        <ul className="plugin-list">
-          {registry.length === 0 && <li className="empty-hint">{t('workbench.plugin.none')}</li>}
-          {registry.map((entry) => (
-            <li key={entry.id}>
+        {registry.length === 0 && (
+          <ul className="plugin-list">
+            <li className="empty-hint">{t('workbench.plugin.none')}</li>
+          </ul>
+        )}
+        {groups.map((group) => {
+          const isCollapsed = collapsed[group.id] === true;
+          return (
+            <div key={group.id} className="plugin-group">
               <button
                 type="button"
-                className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
-                data-plugin-id={entry.id}
-                title={`${entry.name} ${entry.version}`}
-                onClick={() => void activate(entry.id)}
+                className="plugin-group-header"
+                onClick={() => toggleGroup(group.id)}
               >
-                <span className="plugin-icon">{entry.icon ?? '◈'}</span>
-                <span className="plugin-item-name">{entry.name}</span>
-                {loadingIds.includes(entry.id) && <span className="plugin-item-loading"><span className="spinner" /></span>}
+                <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>▾</span>
+                <span className="plugin-group-name">{group.label}</span>
+                <span className="plugin-group-count">{group.entries.length}</span>
               </button>
-            </li>
-          ))}
-        </ul>
+              {!isCollapsed && (
+                <ul className="plugin-list">
+                  {group.entries.map((entry) => (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
+                        data-plugin-id={entry.id}
+                        title={`${entry.name} ${entry.version}`}
+                        onClick={() => void activate(entry.id)}
+                      >
+                        <span className="plugin-icon">{entry.icon ?? '◈'}</span>
+                        <span className="plugin-item-name">{entry.name}</span>
+                        {loadingIds.includes(entry.id) && (
+                          <span className="plugin-item-loading"><span className="spinner" /></span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       <input

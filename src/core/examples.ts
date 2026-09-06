@@ -30,6 +30,14 @@ import errorbandDataCsv from '../../examples/data/errorband-data.csv?raw';
 import treemapDataCsv from '../../examples/data/treemap-data.csv?raw';
 import qqDataDat from '../../examples/data/qq-data.dat?raw';
 import contourDataJson from '../../examples/data/contour-data.json?raw';
+import fluidObstacleJson from '../../examples/data/fluid-obstacle.json?raw';
+import choroplethGeojson from '../../examples/data/choropleth-sample.geojson?raw';
+import chinaProvincesGeojson from '../../examples/data/china-provinces.geojson?raw';
+import wavePulseJson from '../../examples/data/wave-pulse.json?raw';
+import waveTwinJson from '../../examples/data/wave-twin.json?raw';
+import waveSlitJson from '../../examples/data/wave-slit.json?raw';
+import pendulumChaosJson from '../../examples/data/pendulum-chaos.json?raw';
+import pendulumFlipJson from '../../examples/data/pendulum-flip.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -450,6 +458,136 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '64×64 双高斯峰 + 波脊场，等高线追踪与配色示例。',
       'en-US': '64x64 field with twin gaussian peaks and a wavy ridge; contour demo.',
+    },
+  },
+
+  {
+    id: 'fluid-obstacle-plate',
+    filename: 'fluid-obstacle.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.fluid',
+    content: fluidObstacleJson,
+    nameI18n: {
+      'zh-CN': 'LBM 机翼绕流掩膜',
+      'en-US': 'LBM Airfoil Mask',
+    },
+    descriptionI18n: {
+      'zh-CN': '384×224 二值障碍掩膜（1 = 固壁）：NACA 2412 翼型、10° 迎角，驱动流体模拟展示翼型绕流与尾涡。',
+      'en-US': '384x224 binary obstacle mask (1 = solid): NACA 2412 airfoil at 10 deg angle of attack; airfoil flow + wake vortex demo.',
+    },
+  },
+  {
+    id: 'choropleth-regions',
+    filename: 'choropleth-sample.geojson',
+    format: 'geojson',
+    mimeType: 'application/geo+json',
+    pluginId: 'example.geomap',
+    content: choroplethGeojson,
+    nameI18n: {
+      'zh-CN': '抽象分区 GeoJSON',
+      'en-US': 'Abstract Regions GeoJSON',
+    },
+    descriptionI18n: {
+      'zh-CN': '18 个抽象分区 + 路线 + 站点的合成演示数据（非真实行政边界），含数值属性可用于分级设色。',
+      'en-US': 'Synthetic demo geometry: 18 abstract regions, a route and stations (not real boundaries) with numeric properties for choropleth shading.',
+    },
+  },
+
+  {
+    id: 'china-provinces',
+    filename: 'china-provinces.geojson',
+    format: 'geojson',
+    mimeType: 'application/geo+json',
+    pluginId: 'example.geomap',
+    content: chinaProvincesGeojson,
+    nameI18n: {
+      'zh-CN': '中国省级行政区划',
+      'en-US': 'China Province Boundaries',
+    },
+    descriptionI18n: {
+      'zh-CN': '34 个省级行政区 + 九段线的标准边界数据（审图号 GS(2024)0650 号 · 数据来源：阿里云 DataV.GeoAtlas），可按 adcode 着色或以轮廓模式查看。',
+      'en-US': 'Standard boundaries of 34 province-level regions plus the nine-dash line (source: DataV.GeoAtlas); color by adcode or view as outlines.',
+    },
+  },
+  {
+    id: 'wave-pulse',
+    filename: 'wave-pulse.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.wave',
+    content: wavePulseJson,
+    nameI18n: {
+      'zh-CN': '波动 · 高斯脉冲',
+      'en-US': 'Wave · Gaussian Pulse',
+    },
+    descriptionI18n: {
+      'zh-CN': '初始位移场（高斯波包），驱动波动方程模拟展示圆形波前的传播与反射。',
+      'en-US': 'Initial displacement grid (gaussian blob); drives the wave-equation circular-wavefront demo.',
+    },
+  },
+  {
+    id: 'wave-twin-sources',
+    filename: 'wave-twin.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.wave',
+    content: waveTwinJson,
+    nameI18n: {
+      'zh-CN': '波动 · 双源干涉',
+      'en-US': 'Wave · Twin Sources',
+    },
+    descriptionI18n: {
+      'zh-CN': '两个连续点源的 drive 布局，展示干涉条纹的形成。',
+      'en-US': 'Two continuous point sources (drive layout); interference-fringe demo.',
+    },
+  },
+  {
+    id: 'wave-double-slit',
+    filename: 'wave-slit.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.wave',
+    content: waveSlitJson,
+    nameI18n: {
+      'zh-CN': '波动 · 双缝衍射',
+      'en-US': 'Wave · Double Slit',
+    },
+    descriptionI18n: {
+      'zh-CN': '平面波源 + 双缝挡板的 drive 布局，展示衍射图样（drive < 0 挡板，> 0 波源）。',
+      'en-US': 'Plane-wave source + double-slit wall (drive layout); diffraction demo (drive < 0 barrier, > 0 source).',
+    },
+  },
+  {
+    id: 'pendulum-chaos',
+    filename: 'pendulum-chaos.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.pendulum',
+    content: pendulumChaosJson,
+    nameI18n: {
+      'zh-CN': '双摆 · 经典混沌初始条件',
+      'en-US': 'Pendulum · Classic Chaos IC',
+    },
+    descriptionI18n: {
+      'zh-CN': 'θ1=120°、θ2=−10° 的初始条件，幽灵摆快速发散，混沌敏感依赖演示。',
+      'en-US': 'th1=120, th2=-10 initial conditions; the ghost twin diverges quickly — sensitive-dependence demo.',
+    },
+  },
+  {
+    id: 'pendulum-flip',
+    filename: 'pendulum-flip.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.pendulum',
+    content: pendulumFlipJson,
+    nameI18n: {
+      'zh-CN': '双摆 · 翻越初始条件',
+      'en-US': 'Pendulum · Flip IC',
+    },
+    descriptionI18n: {
+      'zh-CN': 'θ1=θ2=170° 的高势能初始条件，外摆臂能翻越顶点，轨迹高度混沌。',
+      'en-US': 'th1=th2=170 high-potential initial conditions; the outer arm flips over the top, wildly chaotic.',
     },
   },
 

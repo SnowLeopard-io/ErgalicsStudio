@@ -22,7 +22,7 @@ state, not aspirational designs.
 | Perf monitor  | FPS / frame / GPU / memory / data-scale + warnings             | ✅ Done      |
 | Sharing       | link generation, project export                                | ✅ Done      |
 | Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
-| GPU compute   | `api.gpu` compute surface, WGSL templates, particles + 3-D N-body plugins accelerated (CPU fallback), real-device E2E verification | 🟡 Partial  |
+| GPU compute   | `api.gpu` compute surface, WGSL templates, particles / 3-D N-body / LBM fluid / wave equation / histogram / heatmap / point-cloud kernels accelerated (CPU fallback), real-device E2E verification | ✅ Done      |
 | Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | ✅ Core done (Pyodide + sync) · 🚧 Next (webR) |
 | Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | ✅ Done      |
@@ -32,18 +32,18 @@ state, not aspirational designs.
 
 1. **M1 — Solidify the foundations** *(current)*: complete the plugin
    lifecycle, sandbox, and test coverage; land the docs site.
-2. **M2 — Real GPU compute**: the foundations are in place — the native core
-   exposes `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an
-   `api.gpu` compute surface, reusable WGSL templates live in
-   `src/core/wgsl.ts`, and two plugins run real WGSL kernels with CPU
-   fallbacks: Particles (single-buffer integration) and N-Body Gravity (3-D
-   all-pairs with ping-pong buffers). `npm run test:e2e` now drives the real
-   WebGPU path in headless Edge (SwiftShader): a numeric harness compares the
-   GPU result against the CPU integrator (passing within ~2e-6), and an app
-   integration step clicks through the Particles plugin and asserts a
-   `wasm`-engine GPU toast. Remaining: accelerate the remaining example
-   plugins (histogram binning, heatmap/contour grids, point-cloud transforms)
-   and add GPU perf telemetry per kernel.
+2. **M2 — Real GPU compute** *(complete)*: the native core exposes
+   `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an `api.gpu`
+   compute surface, and reusable WGSL templates live in `src/core/wgsl.ts`.
+   GPU acceleration now spans Particles (single-buffer integration), N-Body
+   Gravity (3-D all-pairs with ping-pong buffers), the D2Q9 LBM fluid
+   (collide + stream), the wave-equation leapfrog, and the histogram /
+   heatmap / point-cloud kernels — each with a matching CPU fallback.
+   `npm run test:e2e` drives the real WebGPU path in headless Edge
+   (SwiftShader): a numeric harness compares the GPU result against the CPU
+   integrator (passing within ~2e-6), and an app integration step clicks
+   through the Particles plugin and asserts a `wasm`-engine GPU toast.
+   Remaining follow-up: GPU perf telemetry per kernel.
 3. **M3 — Code mode**: Python (Pyodide) is complete — Monaco editor,
    CPython Worker runtime with importable `studio` module, REPL + variable
    snapshots, worker interrupt, and 9 sample programs under `examples/code/`.

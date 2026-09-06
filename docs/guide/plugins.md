@@ -118,7 +118,7 @@ const result = await data.read();            // readback copy (read() handles it
 
 ## Built-in example plugins
 
-Twenty-three core example plugins ship in `src/plugins/builtin/` and cover the
+Twenty-seven core example plugins ship in `src/plugins/builtin/` and cover the
 full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 `compute`, and the `api.gpu` accelerated path:
 
@@ -147,12 +147,22 @@ full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 | `example.treemap`       | `.csv`           | hierarchical rectangle layout (flat or nested)    |
 | `example.qqplot`        | `.csv/.dat`      | normal quantile comparison + reference line       |
 | `example.ai-training`   | `.csv`, `.json`  | 4 models (linear / non-linear NN / logistic / MNIST CNN), live loss curve, scatter+fit / decision boundary / digit grid |
+| `example.fluid`         | `.json` (obstacle mask) | 2-D lattice-Boltzmann channel flow (D2Q9), WGSL collide + stream kernels, Kármán vortex street |
+| `example.wave`          | `.json` (u / drive grids) | 2-D finite-difference wave equation (pulse / twin-source / double-slit), WGSL leapfrog kernel |
+| `example.pendulum`      | `.json` (initial conditions) | RK4 double pendulum with a chaos ghost twin offset by 0.001 rad |
+| `example.geomap`        | `.geojson`, `.json` | offline vector map with choropleth shading; Albers (China) / Web Mercator / equirectangular |
 
 Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
 Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on
 demand from the built-in panel or the marketplace tab.
 
+### Contour (`example.contour`)
+
 ![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](../field.png)
+
+A 64×64 scalar-field viewer: viridis color ramp plus marching-squares
+isolines. Its grid normalization logic is covered by `builtinPlugins.test.ts`,
+and the bundled sample (`field.json`) renders the twin-peak field above.
 
 ### AI Trainer (`example.ai-training`)
 
@@ -240,6 +250,66 @@ convergence — then reports biology-relevant metrics.
   (live relaxation), and the compute button. The live animation anneals its
   temperature and auto-stops once settled, so nodes do not jitter.
 - Nodes are colored by degree and sized by degree; edges are weighted.
+
+### LBM Fluid (`example.fluid`)
+
+![LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view](../airplane.png)
+
+A 2-D lattice-Boltzmann channel flow (D2Q9) around a user-supplied obstacle
+mask. Collide and stream steps run as **WGSL kernels** (with a matching
+`fluidStepCPU` fallback pinned by tests), and long obstacles develop a
+Kármán vortex street.
+
+- **Data** — JSON obstacle mask where `1` marks solid cells. The bundled
+  sample (`fluid-obstacle.json`) is an airfoil profile.
+- **Parameters** — `Inflow Speed`, `Relaxation (1/viscosity)`, `Lattice
+  Detail`, `Steps / Frame`, a `View` selector (`Wind Flow` / vorticity and
+  friends), plus `Run` / `Stop` and `Reset Flow`.
+- Like every simulation plugin it is strictly data-driven: it starts empty
+  and never fabricates a default scene.
+
+### Wave Equation (`example.wave`)
+
+![Wave Equation — twin-source interference pattern, orange/blue amplitude field](../waveequation.png)
+
+A 2-D finite-difference wave equation on a grid, integrated by a **WGSL
+leapfrog kernel** (`waveStepCPU` as tested CPU fallback).
+
+- **Data** — JSON with a `u` grid and an optional drive grid (`< 0`
+  barrier, `> 0` source amplitude). Three bundled samples cover the
+  scenarios: `wave-pulse.json`, `wave-twin.json` (two-source interference),
+  and `wave-slit.json` (double slit).
+- **Parameters** — `Wave Speed`, `Damping`, `Steps / Frame`, `Run`/`Stop`,
+  and `Reset Field`.
+
+### Double Pendulum (`example.pendulum`)
+
+![Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°](../doublependulum.png)
+
+A chaos demonstration: two double pendulums integrated with **RK4**, the
+ghost twin starting at an angle offset of just **0.001 rad**. The HUD reads
+out the live ghost divergence so sensitive dependence on initial conditions
+is directly visible as the trajectories peel apart.
+
+- **Data** — JSON initial conditions (angles + angular velocities). Bundled
+  samples: `pendulum-chaos.json` and `pendulum-flip.json`.
+- **Parameters** — `Mass 1/2`, `Length 1/2`, `Gravity`, `Speed`, a trail
+  toggle, the `Chaos Ghost` toggle, and `Run`/`Stop`.
+
+### GeoJSON Map (`example.geomap`)
+
+![GeoJSON Map — China provinces choropleth in the Albers (China) projection](../geojsonmap.png)
+
+An **offline** vector map: loads a GeoJSON FeatureCollection and shades each
+feature by a chosen property (choropleth) — no tile server, no network.
+
+- **Data** — `.geojson` (or `.json`) files. Bundled samples:
+  `china-provinces.geojson` (province polygons with `adcode`) and
+  `choropleth-sample.geojson`.
+- **Parameters** — `Choropleth Property`, `Projection` (Albers (China) /
+  Web Mercator / equirectangular), `Fill Opacity`, and a graticule toggle.
+- `parseGeoJSON` — geometry and property extraction — is unit-tested in
+  `geoPhysicsPlugins.test.ts` alongside the fluid / wave / pendulum logic.
 
 All built-ins register via `BUILTIN_PLUGINS` in `src/plugins/builtin/index.ts`
 and their sample data via `BUILTIN_EXAMPLES` in `src/core/examples.ts`.

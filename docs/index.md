@@ -37,7 +37,7 @@ features:
     details: "A Rust core compiles WGSL kernels with real bind-group layouts, dispatches workgroups, and reports shader diagnostics."
   - icon: 🧪
     title: Testable by design
-    details: "196 unit tests (Vitest) across 24 suites plus a block-mode Playwright smoke, all wired into npm scripts and kept green on every change."
+    details: "285 unit tests (Vitest) across 31 suites plus Playwright E2E suites, all wired into npm scripts and kept green on every change."
   - icon: 🌍
     title: i18n & theming
     details: "Chinese/English localization with reactive switching (and Blockly BKY_* keys for Block mode), and dark/light themes driven by CSS variables."

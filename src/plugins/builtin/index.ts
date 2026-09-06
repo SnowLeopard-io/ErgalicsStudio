@@ -1,40 +1,49 @@
 // Built-in example plugins registry (spec §3.3.1).
 // These are bundled at build time and listed in the "内置示例" tab.
+//
+// Ordering: default-loaded plugins are listed by importance — fundamental
+// data analysis first, then the physics/geo simulation flagships, then the
+// remaining charts and 3-D viewers. Fun/utility plugins (autoload: false)
+// come last since the user picks them explicitly.
 
 import type { Plugin, PluginManifest } from '@/types/plugin';
+import { scatterManifest } from './scatter';
+import { timeSeriesManifest } from './timeSeries';
+import { histogramManifest } from './histogram';
+import { boxPlotManifest } from './boxPlot';
+import { heatmapManifest } from './heatmap';
+import { contourManifest } from './contour';
+import { nbodyManifest } from './nbody';
+import { fluidManifest } from './fluid';
+import { waveManifest } from './wave';
+import { pendulumManifest } from './doublePendulum';
+import { geoMapManifest } from './geoMap';
+import { aiTrainingManifest } from './ai-training';
+import { errorbandManifest } from './errorband';
+import { qqplotManifest } from './qqplot';
+import { violinPlotManifest } from './violinPlot';
+import { parallelCoordinatesManifest } from './parallelCoordinates';
+import { sankeyManifest } from './sankey';
+import { treemapManifest } from './treemap';
+import { networkGraphManifest } from './networkGraph';
+import { barChartManifest } from './barChart';
+import { bubbleChartManifest } from './bubbleChart';
+import { polarPlotManifest } from './polarPlot';
 import { pointCloudManifest } from './pointCloud';
 import { pointCloud3DManifest } from './pointCloud3D';
 import { particleManifest } from './particles';
-import { timeSeriesManifest } from './timeSeries';
-import { histogramManifest } from './histogram';
-import { heatmapManifest } from './heatmap';
-import { imageViewerManifest } from './imageViewer';
-import { contourManifest } from './contour';
-import { scatterManifest } from './scatter';
-import { nbodyManifest } from './nbody';
 import { proteinManifest } from './protein';
-import { barChartManifest } from './barChart';
-import { polarPlotManifest } from './polarPlot';
-import { networkGraphManifest } from './networkGraph';
-import { bubbleChartManifest } from './bubbleChart';
-import { violinPlotManifest } from './violinPlot';
-import { sankeyManifest } from './sankey';
-import { boxPlotManifest } from './boxPlot';
-import { parallelCoordinatesManifest } from './parallelCoordinates';
+import { imageViewerManifest } from './imageViewer';
 import { mandelbrotManifest } from './mandelbrot';
 import { spirographManifest } from './spirograph';
 import { lissajousManifest } from './lissajous';
 import { lifeManifest } from './life';
 import { harmonographManifest } from './harmonograph';
 import { paletteManifest } from './palette';
-import { errorbandManifest } from './errorband';
-import { treemapManifest } from './treemap';
-import { qqplotManifest } from './qqplot';
 import { kochManifest } from './koch';
 import { barnsleyManifest } from './barnsley';
 import { fireworksManifest } from './fireworks';
 import { truchetManifest } from './truchet';
-import { aiTrainingManifest } from './ai-training';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -49,6 +58,165 @@ export interface BuiltinPluginInfo {
 }
 
 export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
+  // ---- Core data analysis ------------------------------------------------
+  {
+    manifest: scatterManifest,
+    load: async () => {
+      const mod = await import('./scatter');
+      return mod.default();
+    },
+  },
+  {
+    manifest: timeSeriesManifest,
+    load: async () => {
+      const mod = await import('./timeSeries');
+      return mod.default();
+    },
+  },
+  {
+    manifest: histogramManifest,
+    load: async () => {
+      const mod = await import('./histogram');
+      return mod.default();
+    },
+  },
+  {
+    manifest: boxPlotManifest,
+    load: async () => {
+      const mod = await import('./boxPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: heatmapManifest,
+    load: async () => {
+      const mod = await import('./heatmap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: contourManifest,
+    load: async () => {
+      const mod = await import('./contour');
+      return mod.default();
+    },
+  },
+  // ---- Simulation flagships (physics / geography) -------------------------
+  {
+    manifest: nbodyManifest,
+    load: async () => {
+      const mod = await import('./nbody');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluidManifest,
+    load: async () => {
+      const mod = await import('./fluid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waveManifest,
+    load: async () => {
+      const mod = await import('./wave');
+      return mod.default();
+    },
+  },
+  {
+    manifest: pendulumManifest,
+    load: async () => {
+      const mod = await import('./doublePendulum');
+      return mod.default();
+    },
+  },
+  {
+    manifest: geoMapManifest,
+    load: async () => {
+      const mod = await import('./geoMap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: aiTrainingManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./ai-training');
+      return mod.default();
+    },
+  },
+  // ---- Statistical charts --------------------------------------------------
+  {
+    manifest: errorbandManifest,
+    load: async () => {
+      const mod = await import('./errorband');
+      return mod.default();
+    },
+  },
+  {
+    manifest: qqplotManifest,
+    load: async () => {
+      const mod = await import('./qqplot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: violinPlotManifest,
+    load: async () => {
+      const mod = await import('./violinPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: parallelCoordinatesManifest,
+    load: async () => {
+      const mod = await import('./parallelCoordinates');
+      return mod.default();
+    },
+  },
+  {
+    manifest: sankeyManifest,
+    load: async () => {
+      const mod = await import('./sankey');
+      return mod.default();
+    },
+  },
+  {
+    manifest: treemapManifest,
+    load: async () => {
+      const mod = await import('./treemap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: networkGraphManifest,
+    load: async () => {
+      const mod = await import('./networkGraph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: barChartManifest,
+    load: async () => {
+      const mod = await import('./barChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bubbleChartManifest,
+    load: async () => {
+      const mod = await import('./bubbleChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: polarPlotManifest,
+    load: async () => {
+      const mod = await import('./polarPlot');
+      return mod.default();
+    },
+  },
+  // ---- 3-D & misc viewers ---------------------------------------------------
   {
     manifest: pointCloudManifest,
     load: async () => {
@@ -71,23 +239,9 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     },
   },
   {
-    manifest: timeSeriesManifest,
+    manifest: proteinManifest,
     load: async () => {
-      const mod = await import('./timeSeries');
-      return mod.default();
-    },
-  },
-  {
-    manifest: histogramManifest,
-    load: async () => {
-      const mod = await import('./histogram');
-      return mod.default();
-    },
-  },
-  {
-    manifest: heatmapManifest,
-    load: async () => {
-      const mod = await import('./heatmap');
+      const mod = await import('./protein');
       return mod.default();
     },
   },
@@ -98,90 +252,7 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
-  {
-    manifest: contourManifest,
-    load: async () => {
-      const mod = await import('./contour');
-      return mod.default();
-    },
-  },
-  {
-    manifest: scatterManifest,
-    load: async () => {
-      const mod = await import('./scatter');
-      return mod.default();
-    },
-  },
-  {
-    manifest: nbodyManifest,
-    load: async () => {
-      const mod = await import('./nbody');
-      return mod.default();
-    },
-  },
-  {
-    manifest: proteinManifest,
-    load: async () => {
-      const mod = await import('./protein');
-      return mod.default();
-    },
-  },
-  {
-    manifest: barChartManifest,
-    load: async () => {
-      const mod = await import('./barChart');
-      return mod.default();
-    },
-  },
-  {
-    manifest: polarPlotManifest,
-    load: async () => {
-      const mod = await import('./polarPlot');
-      return mod.default();
-    },
-  },
-  {
-    manifest: networkGraphManifest,
-    load: async () => {
-      const mod = await import('./networkGraph');
-      return mod.default();
-    },
-  },
-  {
-    manifest: bubbleChartManifest,
-    load: async () => {
-      const mod = await import('./bubbleChart');
-      return mod.default();
-    },
-  },
-  {
-    manifest: violinPlotManifest,
-    load: async () => {
-      const mod = await import('./violinPlot');
-      return mod.default();
-    },
-  },
-  {
-    manifest: sankeyManifest,
-    load: async () => {
-      const mod = await import('./sankey');
-      return mod.default();
-    },
-  },
-  {
-    manifest: boxPlotManifest,
-    load: async () => {
-      const mod = await import('./boxPlot');
-      return mod.default();
-    },
-  },
-  {
-    manifest: parallelCoordinatesManifest,
-    load: async () => {
-      const mod = await import('./parallelCoordinates');
-      return mod.default();
-    },
-  },
+  // ---- Fun & utility (manual load) -------------------------------------------
   {
     manifest: mandelbrotManifest,
     autoload: false,
@@ -231,27 +302,6 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     },
   },
   {
-    manifest: errorbandManifest,
-    load: async () => {
-      const mod = await import('./errorband');
-      return mod.default();
-    },
-  },
-  {
-    manifest: treemapManifest,
-    load: async () => {
-      const mod = await import('./treemap');
-      return mod.default();
-    },
-  },
-  {
-    manifest: qqplotManifest,
-    load: async () => {
-      const mod = await import('./qqplot');
-      return mod.default();
-    },
-  },
-  {
     manifest: kochManifest,
     autoload: false,
     load: async () => {
@@ -280,14 +330,6 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     autoload: false,
     load: async () => {
       const mod = await import('./truchet');
-      return mod.default();
-    },
-  },
-  {
-    manifest: aiTrainingManifest,
-    autoload: true,
-    load: async () => {
-      const mod = await import('./ai-training');
       return mod.default();
     },
   },

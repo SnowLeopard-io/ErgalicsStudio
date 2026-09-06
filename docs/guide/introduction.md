@@ -21,28 +21,32 @@ The following are functional today:
 
 - The full workbench loop: projects, file routing, plugin registry,
   parameter panels, status/perf bars.
-- **Three workbench modes** — Standard (drag → see), Flow (compose a
-  dataflow DAG → run), and Block (Scratch-style scripted editor with a
-  Run hat, 30+ built-in blocks, shared IR, and 5 sample programs). The
-  Code slot is wired through the same IR and reserved for Python/R.
-- Eleven example plugins covering the 2D and 3D rendering paths — including
-  a 3-D N-body gravity simulator (astrophysics) and a protein interaction
-  network with force-directed layout (systems biology).
+- **Four workbench modes** — Standard (drag → see), Flow (compose a
+  dataflow DAG → run), Block (Scratch-style scripted editor with a Run
+  hat, 30+ built-in blocks, shared IR, and 5 sample programs), and Code
+  (free-form Python on a Pyodide CPython Worker, with a REPL console and
+  9 sample programs). All three scripted modes share one IR, and Block ↔
+  Flow ↔ Code round-trip is pinned by a `sync-threeway` test.
+- **37 built-in plugins** (27 core + 10 fun/utility) covering the 2D and
+  3D rendering paths — including a 3-D N-body gravity simulator
+  (astrophysics), a protein interaction network with force-directed layout
+  (systems biology), D2Q9 lattice-Boltzmann fluid / wave-equation /
+  double-pendulum simulations, an offline GeoJSON choropleth map, and an
+  in-browser AI trainer (linear / non-linear NN / logistic / MNIST CNN on
+  TensorFlow.js).
 - A real WebGPU compute pipeline: `GpuBuffer` management and kernel
   compile/dispatch/run from Rust, an `api.gpu` compute surface for plugins,
-  reusable WGSL templates, and two accelerated plugins with CPU fallbacks —
-  Particles (single-buffer integration) and N-Body Gravity (3-D all-pairs
-  with ping-pong buffers).
+  and reusable WGSL templates with CPU fallbacks — accelerating Particles,
+  N-Body Gravity, the LBM fluid, the wave equation, histogram, heatmap and
+  point-cloud kernels.
 - A Worker-based plugin sandbox with a typed RPC protocol.
 - i18n (zh-CN / en-US) with reactive locale switching — Block mode uses
   Blockly's `BKY_*` key system so block labels re-localise with the rest.
-- Theming (dark / light), sharing, and automated tests (196 unit tests
-  across 24 suites plus block-mode Playwright smoke).
+- Theming (dark / light), sharing, GitHub Actions CI, and automated tests
+  (285 unit tests across 31 suites plus Playwright E2E suites).
 
-Not yet built: GPU acceleration across the remaining example plugins
-(histogram binning, heatmap/contour grids, point-cloud transforms), a
-plugin marketplace with package signing, CI automation, and the Code mode
-(Python/R) on top of the existing IR.
+Not yet built: plugin-marketplace package signing and the third-party
+install pipeline, and the R runtime (webR) for Code mode.
 
 > The intent is that the codebase keeps growing into a production system by
 > adding features **into** this structure — not by rewriting it.

@@ -11,7 +11,7 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. Twenty-nine suites, 270 tests:
+Environment: `node`. Thirty-one suites, 285 tests:
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
@@ -25,7 +25,12 @@ Environment: `node`. Twenty-nine suites, 270 tests:
 | `gpuCompute`           | WGSL template generation, buffer packing, CPU integrator, particles fallback |
 | `builtinPlugins`       | contour grid normalization, scatter parsing                |
 | `sciencePlugins`       | 3-D N-body kernel/pack/momentum conservation + plugin CPU fallback; protein force-directed layout, components, no-data guards |
+| `geoPhysicsPlugins`    | fluid WGSL kernels + `fluidStepCPU` + mask parsing; wave kernel/stepping/data parsing; double-pendulum physics + initial conditions; GeoJSON parsing |
+| `dataPlugins`          | error-band rows, treemap hierarchy, numeric columns, QQ probit |
 | `wgsl`                 | histogram / heatmap / point-cloud GPU kernels: WGSL output, param packing, output sizing, CPU fallback parity |
+| `blocks/*`             | block system end-to-end — registry, compiler (validation/topology/types), executor (incremental cache + invalidation), DataTable ops, geometry, statistics, catalog executors, `viz.*` render bridge |
+| `editor/*`             | shared IR (validate/round-trip), Blockly JSON ⇄ IR, interpreter, JS/Python codegen, three-mode `sync-threeway`, block i18n (`BKY_*`), editor store, Studio API, code samples |
+| `stats/*`, `io/*`, `plot/*`, `repro/*` | statistical test helpers, NetCDF I/O, plotting helpers, reproducibility |
 
 Notable techniques:
 
@@ -57,6 +62,8 @@ and asserts real pixels + zero console errors:
 | `verify-webgpu`  | 4289 | real WebGPU path in headless Edge (SwiftShader): numeric harness (GPU vs CPU integrator within ~2e-6) + Particles app integration asserting a `wasm`-engine toast |
 | `verify-block-mode` | 4173 | block editor: mode switch, compile, run, block → code sync |
 | `verify-code-mode`  | 4175 | Monaco + Pyodide: run a Python program, console, variable panel, plot canvas |
+| `verify-ai-samples` | 4173 | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
+| `verify-ai-training`| 4173 | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
 
 > If Edge is not at the default path, update the `EDGE` constant in each
 > script. New plugin/feature work should ship with an E2E check — screenshots

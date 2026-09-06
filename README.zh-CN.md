@@ -58,9 +58,9 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 - **积木（Block）**——类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序。对新手友好，但完全可脚本化（变量、循环、条件、变换、绘图）。
 - **代码（Code）**——基于 Pyodide Worker 运行时的 Monaco Python 编辑器，提供与积木模式相同的 `studio.*` API、REPL 控制台和变量面板。
 
-Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及搭载 Pyodide Python 运行时的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、直方图、热力图与点云内核；插件市场的包签名与 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
+Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及搭载 Pyodide Python 运行时的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核；插件市场的包签名与 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、33 个内置插件（核心 + 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件，以及基于 Pyodide 的 Python 代码编辑器；包签名与 R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用，具备四种工作台模式、37 个内置插件（核心 + 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件，以及基于 Pyodide 的 Python 代码编辑器；包签名与 R 运行时为后续工作。
 
 ---
 
@@ -79,7 +79,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 
 **插件系统**
 
-- **33 个内置插件**——23 个核心/科学可视化器外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
+- **37 个内置插件**——27 个核心/科学插件外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
 - **两级加载**：核心插件在启动时自动加载；趣味/工具插件声明 `autoload: false`，按需从内置面板或市场标签页加载，保持启动注册表精简。
 - **市场目录**（`src/plugins/marketplace.ts`）——每个内置插件均附带精选标签、流行度与分类筛选（科学 / 趣味 / 工具）；社区"敬请期待"提交作为占位符列出。
 - `.cspkg` 包加载（含 `manifest.json` + 入口 + 资源的 ZIP），并带有清单校验（id 格式、入口路径穿越防护、沙箱枚举）。
@@ -148,7 +148,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (23 核心 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (27 核心 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["原生核心 (Rust→WASM)<br/>设备管理 · 计算<br/>内核调度<br/>文件类型检测"]
     end
 
@@ -247,7 +247,7 @@ cd docs && npm install && npm run dev
 │   │                         #     工具栏、结果预览、工作台外壳
 │   ├── components/editor/    #   积木/代码画布、变量 / 控制台面板
 │   ├── pages/                #   欢迎、工作台、设置、分享、对话框
-│   ├── plugins/builtin/      #   23 核心 + 10 趣味/工具插件 (2D + 3D)
+│   ├── plugins/builtin/      #   27 核心 + 10 趣味/工具插件 (2D + 3D)
 │   ├── plugins/marketplace.ts #   市场目录 (标签/流行度/筛选)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
 │   ├── types/                #   插件 & 项目 & 编辑器契约
@@ -333,7 +333,7 @@ cd docs && npm install && npm run dev
 
 ### 内置插件
 
-**核心 / 科学插件**（启动时自动加载，共 23 个）：
+**核心 / 科学插件**（启动时自动加载，共 27 个）：
 
 | 插件                | 数据                        | 能力                      |
 | ------------------- | --------------------------- | ------------------------- |
@@ -360,6 +360,13 @@ cd docs && npm install && npm run dev
 | Treemap             | `.csv` (label, size / label, parent, size) | 层级矩形布局 |
 | QQ Plot             | `.csv`, `.dat` (单列)       | 正态分位比较 + 参考线     |
 | AI Trainer          | `.csv`, `.json` (MNIST)     | 4 个模型 (线性 / 非线性 NN / 逻辑回归 / CNN)，带实时损失曲线、散点+拟合 / 决策边界 / 数字网格 |
+| LBM Fluid（流体模拟）| `.json` (障碍掩膜)          | 二维格子 Boltzmann 通道流 (D2Q9) 绕障碍物流动；WGSL collide + stream 双内核，卡门涡街 |
+| Wave Equation（波动方程）| `.json` (u / drive 网格) | 二维波动方程有限差分（高斯脉冲 / 双源干涉 / 双缝衍射场景）；WGSL leapfrog 内核 |
+| Double Pendulum（双摆）| `.json` (初始条件)        | RK4 积分 + 初值仅差 0.001 rad 的混沌幽灵摆——敏感依赖的直观展示 |
+| GeoJSON Map（地图） | `.geojson`, `.json`         | 离线矢量地图 + 分级设色（choropleth）；Albers（中国）/ Web 墨卡托 / 等距圆柱投影 |
+
+模拟类插件严格数据驱动：初始为空，绝不伪造默认场景——流体障碍物、波动场景、
+双摆初始条件均来自内置示例或用户文件，**重置**仅重放已加载的数据。
 
 每个核心插件都附带一份示例数据集（见 `examples/data/`），因此在 **示例 / Examples** 对话框中一键加载即可立即产出真实可视化。下面展示四个依赖非平凡计算路径的插件——三个 WGSL 计算演示和 TF.js 驱动的浏览器内训练器：
 
@@ -378,6 +385,24 @@ cd docs && npm install && npm run dev
 **AI Trainer**——使用 TensorFlow.js 在浏览器中训练线性 / 非线性 / 逻辑回归 / 卷积模型。画布顶部显示实时损失曲线，下方面板按模型在散点+拟合、2D 决策边界与数字网格之间切换。四个内置样本（`examples/data/ai/*.csv`）覆盖线性回归、三次+正弦曲线、双高斯分类与 200 张图片的 MNIST 子集。TF.js 包本身在首次点击 **Train** 时懒加载，因此训练器位于自动加载注册表中而无需在启动时承担 2 MB 成本。
 
 ![AI Trainer — 在 200 张合成数字图片上训练 10 个 epoch 的 MNIST CNN，网格展示预测值（绿）与真值（红）](docs/AImnistcnn.png)
+
+仿真与地理插件补全了整个注册表——下面是另外四个数据驱动的引擎：
+
+**LBM Fluid（流体模拟）**——绕障碍物的二维格子 Boltzmann 通道流（D2Q9），带 WGSL collide + stream 双内核。内置的机翼样例在 Wind Flow 视图中展示流场；入流速度、松弛率与格子精度均为实时参数。
+
+![LBM Fluid — 绕机翼障碍物的格子 Boltzmann 流动，Wind Flow 视图](docs/airplane.png)
+
+**Wave Equation（波动方程）**——二维波动方程有限差分，覆盖高斯脉冲 / 双源干涉 / 双缝衍射场景，由 WGSL leapfrog 内核积分，波速与阻尼可调。
+
+![Wave Equation — 双源干涉图样，橙/蓝振幅场](docs/waveequation.png)
+
+**Double Pendulum（双摆）**——RK4 积分，附带一个初始角度仅差 0.001 rad 的混沌幽灵摆；HUD 实时读出幽灵发散角（下图为 137.42°），两条轨迹随之分道扬镳。
+
+![Double Pendulum — 两条轨迹逐渐发散，HUD 显示 Ghost divergence: 137.42°](docs/doublependulum.png)
+
+**GeoJSON Map（地图）**——离线矢量地图，按属性（内置中国省份样例为 `adcode`）分级设色，带经纬网格，支持 Albers（中国）/ Web 墨卡托 / 等距圆柱投影。
+
+![GeoJSON Map — Albers（中国）投影下的中国省份分级设色地图](docs/geojsonmap.png)
 
 **趣味与工具插件**（`autoload: false`，共 10 个——按需从内置面板或市场标签页加载）：
 
@@ -437,7 +462,7 @@ Rust crate `native/ergalics-core` 编译为 `wasm32-unknown-unknown` 并以 wasm
 
 `src/core/gpu.ts` 拥有适配器/设备生命周期（CPU 回退、OOM 跟踪）。在其之上，`src/core/compute.ts` 暴露**面向插件的计算面**（`PluginApi.gpu`）：`createBuffer` / `write` / `read`、`compileKernel` + `compilationInfo`，以及一次性 `run`。当 WASM 模块已加载时它经由 Rust 核心路由，否则经由原生 WebGPU API 路由——因此加速计算在开发与生产中均可用，而 Rust 核心始终是参考引擎。
 
-可复用的 WGSL 内核位于 `src/core/wgsl.ts`（粒子积分与 3D 全对 N-body 引力），并配有与内核数学一致、供 CPU 回退使用的宿主侧打包/解包辅助函数。Particles 插件演示单缓冲路径（上传交错式 `[x, y, vx, vy]` + uniform 参数 → dispatch WGSL 积分器 → 读回 → 上报真实 GPU 时间）；N-Body 插件演示更重的全对路径，使用乒乓缓冲让每个积分步都留在设备上、无需每步回读。
+可复用的 WGSL 内核位于 `src/core/wgsl.ts`（粒子积分、3D 全对 N-body 引力、D2Q9 格子 Boltzmann collide/stream/curl，以及二维波动方程 leapfrog），并配有与内核数学一致、供 CPU 回退使用的宿主侧打包/解包辅助函数。Particles 插件演示单缓冲路径（上传交错式 `[x, y, vx, vy]` + uniform 参数 → dispatch WGSL 积分器 → 读回 → 上报真实 GPU 时间）；N-Body 插件演示更重的全对路径，使用乒乓缓冲让每个积分步都留在设备上、无需每步回读。
 
 > 当 WebGPU（或 WASM 模块）不可用时，`api.gpu` 为 `undefined`，插件回退到 CPU——行为一致，无需 GPU。
 
@@ -495,7 +520,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 当前状态表见 [`docs/guide/roadmap.md`](docs/guide/roadmap.md)。要点：
 
 - [x] 工作台布局、项目管理、文件路由
-- [x] 33 个内置插件（23 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
+- [x] 37 个内置插件（27 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
 - [x] 插件市场目录（精选标签 / 流行度 / 分类筛选，按需加载）
 - [x] WebGPU 设备管理 + 真实计算内核管线
 - [x] i18n、主题、性能监控、分享链接
