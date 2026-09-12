@@ -27,13 +27,20 @@ The following are functional today:
   (free-form Python on a Pyodide CPython Worker, with a REPL console and
   9 sample programs). All three scripted modes share one IR, and Block ↔
   Flow ↔ Code round-trip is pinned by a `sync-threeway` test.
-- **37 built-in plugins** (27 core + 10 fun/utility) covering the 2D and
+- **40 built-in plugins** (30 core + 10 fun/utility) covering the 2D and
   3D rendering paths — including a 3-D N-body gravity simulator
   (astrophysics), a protein interaction network with force-directed layout
   (systems biology), D2Q9 lattice-Boltzmann fluid / wave-equation /
-  double-pendulum simulations, an offline GeoJSON choropleth map, and an
+  double-pendulum simulations, an offline GeoJSON choropleth map, three
+  interactive physics labs (electromagnetism, optics, structural
+  mechanics), and an
   in-browser AI trainer (linear / non-linear NN / logistic / MNIST CNN on
   TensorFlow.js).
+- Scientific computing subsystems in pure TypeScript: a statistics kernel
+  (hypothesis tests, effect sizes, corrections, power analysis), scientific
+  binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), a publication-grade
+  SVG/PDF plot engine, and a reproducibility kernel (seeded RNG + run
+  manifests).
 - A real WebGPU compute pipeline: `GpuBuffer` management and kernel
   compile/dispatch/run from Rust, an `api.gpu` compute surface for plugins,
   and reusable WGSL templates with CPU fallbacks — accelerating Particles,
@@ -43,7 +50,7 @@ The following are functional today:
 - i18n (zh-CN / en-US) with reactive locale switching — Block mode uses
   Blockly's `BKY_*` key system so block labels re-localise with the rest.
 - Theming (dark / light), sharing, GitHub Actions CI, and automated tests
-  (285 unit tests across 31 suites plus Playwright E2E suites).
+  (417 unit tests across 46 test files plus Playwright E2E suites).
 
 Not yet built: plugin-marketplace package signing and the third-party
 install pipeline, and the R runtime (webR) for Code mode.

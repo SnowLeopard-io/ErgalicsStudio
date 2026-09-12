@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Ergalics Studio 技术文档 · 四大工作模式</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: var(--body); font-size: 10.5pt; line-height: 1.8;
+  }
+  @page { size: A4; margin: 0; }
+  .page {
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  body { counter-reset: pn 0; }
+  .page { counter-increment: pn; }
+  .page::after {
+    content: counter(pn, decimal-leading-zero);
+    position: absolute; left: 70mm; right: 70mm; bottom: 7mm;
+    text-align: center; border-top: 1px solid var(--line); padding-top: 2mm;
+    font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
+  }
+  .cover::after { content: none; }
+  .cover { padding: 0; }
+  .cover-panel {
+    height: 100%; border-radius: 0;
+    background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
+    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    display: flex; flex-direction: column;
+  }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
+  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-modes { margin-top: auto; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
+  .mode-chips { display: flex; gap: 4mm; }
+  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
+  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
+  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
+  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
+  .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
+  .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
+  .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
+  .toc-item .tp { color: var(--accent-deep); }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
+  h3 .hn { color: var(--accent); margin-right: 6px; }
+  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  p { margin: 3mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  li { margin: 2mm 0; }
+  strong { color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.4pt; }
+  th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
+  th, td { border: 1px solid var(--line); padding: 2.2mm 3mm; vertical-align: top; line-height: 1.6; }
+  figure { margin: 4mm 0; text-align: center; }
+  figure img { max-width: 92%; max-height: 60mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  figcaption b { color: var(--accent-deep); font-weight: bold; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
+</style>
+</head>
+<body>
+
+<!-- P1 封面 -->
+<div class="page cover">
+  <div class="cover-panel">
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>四大工作模式</h1>
+    <div class="sub">标准 · 流程 · 积木 · 代码，一份 IR 互通</div>
+    <div class="cover-rule"></div>
+    <div class="cover-abstract">
+      工作台提供四种模式，由顶栏一键切换：标准、流程、积木、代码。四种模式共享同一套数据语义
+      （DataTable）、同一套插件渲染器，后三种模式更共享同一份中间表示（IR）。
+      切换模式时项目数据、插件状态与参数面板原样保留，上下文零损耗。
+      本篇逐一展开每种模式的界面、机制与示例，并给出三模式互转的技术实现。
+    </div>
+    <div class="cover-modes">
+      <div class="cap">难度梯度：从零代码到真代码</div>
+      <div class="mode-chips">
+        <div class="mode-chip"><div class="t">标准</div><div class="d">拖入数据<br>即刻看图</div></div>
+        <div class="mode-chip"><div class="t">流程</div><div class="d">37 区块<br>数据流管线</div></div>
+        <div class="mode-chip"><div class="t">积木</div><div class="d">33 积木<br>Blockly 13</div></div>
+        <div class="mode-chip"><div class="t">代码</div><div class="d">Monaco 加<br>Pyodide</div></div>
+      </div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第四篇（共七篇）</div>
+  </div>
+</div>
+
+<!-- P2 目录 -->
+<div class="page toc">
+  <h1>目 录</h1>
+  <div class="toc-item l1"><span>一、标准模式</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l1"><span>二、流程模式（Flow）</span><span class="dots"></span><span class="tp">04</span></div>
+  <div class="toc-item l2"><span>2.1 区块目录（37 个内置区块）</span><span class="dots"></span><span class="tp">04</span></div>
+  <div class="toc-item l2"><span>2.2 编译器与执行器</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l2"><span>2.3 结果预览与示例管线</span><span class="dots"></span><span class="tp">06</span></div>
+  <div class="toc-item l1"><span>三、积木模式（Blocks）</span><span class="dots"></span><span class="tp">07</span></div>
+  <div class="toc-item l2"><span>3.1 九类积木与唯一入口</span><span class="dots"></span><span class="tp">07</span></div>
+  <div class="toc-item l2"><span>3.2 技术要点</span><span class="dots"></span><span class="tp">08</span></div>
+  <div class="toc-item l1"><span>四、代码模式（Code）</span><span class="dots"></span><span class="tp">09</span></div>
+  <div class="toc-item l1"><span>五、三模式互转（共享 IR）</span><span class="dots"></span><span class="tp">10</span></div>
+  <div class="callout" style="margin-top:14mm">
+    阅读提示：四种模式的共同底座是同一批插件渲染器与同一套 Studio API。
+    每种模式产出的可视化最终都汇入渲染桥接，因此"换一种表达方式"看到的是同一张图。
+  </div>
+</div>
+
+<!-- P3 一、标准模式 -->
+<div class="page">
+  <h2 class="sec"><span class="num">一</span>标准模式</h2>
+  <p>标准模式是默认落地体验。工作台为四区布局：顶栏（项目与模式切换）、左侧栏（项目树与插件列表）、中央视口（激活插件渲染，首次启动为拖放区）、右侧参数面板（把激活插件声明的参数转成响应式表单），状态栏常驻显示 GPU 可用性与性能指标。文件拖入后由宿主按魔数与扩展名路由，多插件匹配时弹选择框。</p>
+  <p>它适合"我已经知道哪个插件能回答我的问题，只想把文件指给它"的场景：不需要理解管线与程序，把数据交给工具，工具把图还给用户。所有参数面板的控件种类（滑杆、下拉、复选框等八类）与数值约束都来自插件清单的声明，用户调整参数即所见即所得地改变画布。</p>
+  <figure>
+    <img src="../studio.png" alt="标准模式">
+    <figcaption><b>图 1</b>　标准模式：左侧项目与插件列表，中央视口，右侧响应式参数面板</figcaption>
+  </figure>
+  <div class="callout">
+    标准模式刻意隐藏一切编程概念：没有节点、没有变量、没有控制流。这是产品难度梯度的第一级——
+    数据进、图像出，其余的一切都不出现。
+  </div>
+</div>
+
+<!-- P4 二、流程模式 -->
+<div class="page">
+  <h2 class="sec"><span class="num">二</span>流程模式（Flow）</h2>
+  <p>流程模式是可视化数据流管线编辑器。左侧调色板、中间画布（节点加边）、右侧参数编辑器、底部结果预览。整个图持久化进项目的 blockGraph 字段，重新打开自动恢复，并共享 .clproj 的自动保存与分享管线。</p>
+  <h3><span class="hn">2.1</span>区块目录（37 个内置区块）</h3>
+  <table>
+    <tr><th style="width:14%">类别</th><th style="width:10%">数量</th><th>区块</th></tr>
+    <tr><td><strong>数据源</strong></td><td>4</td><td>内置示例数据、随机数生成、网格生成、文件加载</td></tr>
+    <tr><td><strong>过滤</strong></td><td>3</td><td>数值范围过滤、条件值过滤、TopK 选取</td></tr>
+    <tr><td><strong>数学</strong></td><td>6</td><td>加、减、乘、除（列对列或列对标量）、平方根、绝对值</td></tr>
+    <tr><td><strong>变换</strong></td><td>5</td><td>列选取、列重命名、新增列、归一化、排序</td></tr>
+    <tr><td><strong>统计</strong></td><td>11</td><td>摘要统计、直方图分箱、单样本 t 检验、双样本 t 检验、配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方独立性检验、相关分析、Cohen's d 效应量、多重比较校正</td></tr>
+    <tr><td><strong>绘图</strong></td><td>4</td><td>折线、散点、直方图、柱状（出版级绘图引擎渲染）</td></tr>
+    <tr><td><strong>可视化</strong></td><td>4</td><td>散点、折线、直方图、二维点云（经渲染桥接走插件出图）</td></tr>
+  </table>
+  <p>统计区块直接调用 src/core/stats 统计内核的纯函数实现（详见第六篇）；区块元数据（名称、描述）内建中英双语。11 个统计区块覆盖了 introductory 统计课的主要假设检验方法，这是产品服务统计教学的关键拼图。</p>
+</div>
+
+<!-- P5 2.2 编译器与执行器 -->
+<div class="page">
+  <h3><span class="hn">2.2</span>编译器与执行器</h3>
+  <p>编译器是一个纯函数：结构校验（端口匹配、必需输入、类型兼容）、环检测、Kahn 式拓扑排序，错误以结构化诊断返回，画布据此绘制红色边与内联诊断条，全程不抛异常。</p>
+  <p>执行器带节点级增量缓存与脏值传播失效：修改单个区块的参数，只有它及其下游会重新执行。运行支持取消与并发去重——重复触发运行不会产生并行执行，取消会真正终止进行中的计算节点。</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arF4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="16" y="70" width="130" height="50" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="81" y="90" text-anchor="middle" fill="#155e75" font-weight="bold">区块图</text>
+        <text x="81" y="107" text-anchor="middle" fill="#475569">节点 + 连线</text>
+        <rect x="190" y="70" width="160" height="50" rx="9" fill="#0e7490"/>
+        <text x="270" y="90" text-anchor="middle" fill="#ffffff" font-weight="bold">编译器（纯函数）</text>
+        <text x="270" y="107" text-anchor="middle" fill="#cffafe">校验 · 拓扑排序 · 诊断</text>
+        <rect x="394" y="16" width="150" height="40" rx="9" fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="469" y="34" text-anchor="middle" fill="#7f1d1d" font-weight="bold">画布绘制诊断</text>
+        <text x="469" y="50" text-anchor="middle" fill="#475569">红色边 + 内联提示</text>
+        <rect x="394" y="130" width="150" height="46" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="469" y="148" text-anchor="middle" fill="#14532d" font-weight="bold">执行器</text>
+        <text x="469" y="165" text-anchor="middle" fill="#475569">增量缓存 · 脏值传播 · 可取消</text>
+        <rect x="580" y="70" width="86" height="50" rx="9" fill="#fefce8" stroke="#facc15"/>
+        <text x="623" y="90" text-anchor="middle" fill="#713f12" font-weight="bold">渲染桥接</text>
+        <text x="623" y="107" text-anchor="middle" fill="#475569">唯一副作用</text>
+        <line x1="146" y1="88" x2="186" y2="88" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
+        <line x1="350" y1="82" x2="390" y2="46" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
+        <text x="360" y="56" text-anchor="middle" fill="#475569">有错误</text>
+        <line x1="350" y1="108" x2="390" y2="142" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
+        <text x="360" y="132" text-anchor="middle" fill="#475569">通过</text>
+        <line x1="544" y1="118" x2="576" y2="100" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 2　编译与执行：校验失败出诊断，通过则由执行器增量求值并经渲染桥接出图</div>
+  <p>增量缓存以节点输出为粒度：每个节点的输出随参数与上游输入一起做键值缓存，参数修改只使该节点及其下游失效。对大网格或长管线的交互式调参来说，这意味着"改一个数字，等一瞬"而不是"改一个数字，全部重算"。</p>
+</div>
+
+<!-- P6 2.3 + 2.4 -->
+<div class="page">
+  <h3><span class="hn">2.3</span>结果预览</h3>
+  <p>底部预览随所选节点输出类型自适应：可视化输出走既有插件渲染器；统计输出渲染为只读表格；标量内联显示。管线有多个输出时由芯片切换器选择检视节点。</p>
+  <figure>
+    <img src="../flow.png" alt="流程模式">
+    <figcaption><b>图 3</b>　流程模式：可视化数据流管线，节点输出就地预览</figcaption>
+  </figure>
+  <h3><span class="hn">2.4</span>示例管线</h3>
+  <p>11 个示例项目以真实 .clproj 文件存放在 examples/projects，构建期经 import.meta.glob 自动发现，新增示例只需放入文件并在元数据表登记：</p>
+  <table>
+    <tr><th style="width:44%">示例</th><th>主题</th></tr>
+    <tr><td>block-01-signal-analysis</td><td>信号分析</td></tr>
+    <tr><td>block-02-random-distribution</td><td>随机分布</td></tr>
+    <tr><td>block-03-grid-scatter</td><td>网格散点</td></tr>
+    <tr><td>block-04-range-filter</td><td>范围过滤</td></tr>
+    <tr><td>block-05-dual-pipeline</td><td>双管线对比</td></tr>
+    <tr><td>block-06-topk-pipeline</td><td>Top-K 选取</td></tr>
+    <tr><td>block-07-binning-stats</td><td>分箱统计</td></tr>
+    <tr><td>block-08-normalize-grid</td><td>归一化网格</td></tr>
+    <tr><td>crystal-lattice-demo</td><td>晶格演示</td></tr>
+    <tr><td>particles-demo</td><td>粒子演示</td></tr>
+    <tr><td>point-cloud-demo</td><td>点云演示</td></tr>
+  </table>
+</div>
+
+<!-- P7 三、积木模式 -->
+<div class="page">
+  <h2 class="sec"><span class="num">三</span>积木模式（Blocks）</h2>
+  <p>积木模式是类 Scratch 的积木编辑器，面向学习者与想要命令式体验的用户。唯一执行入口是绿色"运行时"帽子区块，帽子下方未连接的孤立区块永不运行，从根本上杜绝"误执行破损代码"。33 种内置积木按九个类别组织：</p>
+  <table>
+    <tr><th style="width:18%">类别</th><th>积木</th></tr>
+    <tr><td><strong>开始</strong></td><td>运行时帽子区块（唯一入口）</td></tr>
+    <tr><td><strong>数据</strong></td><td>载入 CSV、载入 XYZ、随机数、范围、列表</td></tr>
+    <tr><td><strong>变量</strong></td><td>赋值与读取</td></tr>
+    <tr><td><strong>运算符</strong></td><td>算术、比较、逻辑、一元</td></tr>
+    <tr><td><strong>变换</strong></td><td>归一化、排序、列选取、过滤</td></tr>
+    <tr><td><strong>统计</strong></td><td>摘要、直方图</td></tr>
+    <tr><td><strong>绘图</strong></td><td>散点、折线、直方图、点云</td></tr>
+    <tr><td><strong>控制流</strong></td><td>如果、重复、当循环、遍历</td></tr>
+    <tr><td><strong>工具</strong></td><td>打印、原始文本</td></tr>
+  </table>
+  <figure>
+    <img src="../block.png" alt="积木模式">
+    <figcaption><b>图 4</b>　积木模式："运行时"帽子区块启动脚本，加载遥测数据、归一化并绘图</figcaption>
+  </figure>
+</div>
+
+<!-- P8 3.2 技术要点 -->
+<div class="page">
+  <h3><span class="hn">3.2</span>技术要点</h3>
+  <ul>
+    <li><strong>Blockly 13 驱动画布</strong>，包为懒加载分包（约 828 KB），不影响标准与流程模式首屏。</li>
+    <li><strong>积木本地化</strong>：区块名称、提示、下拉选项与工具箱类别经 Blockly 的 BKY 键系统本地化，切换语言时以重新标注的积木重建工作区，有专门单元测试验证。</li>
+    <li><strong>运行反馈</strong>：运行按钮提供实时结果预览、变量面板与控制台面板三张卡片。</li>
+    <li><strong>内置示例</strong>：5 个示例程序（星系散点、遥测折线、随机直方图、归一化散点、循环打印）经顶栏"示例"对话框加载。</li>
+    <li><strong>执行路径</strong>：积木图编译为共享 IR 后由内置解释器执行，解释器调用与代码模式相同的 Studio API。</li>
+  </ul>
+  <div class="callout">
+    "唯一入口"是一条语义约束而非界面装饰：解释器只接受以帽子区块为起点的单链（含分支）结构。
+    这既符合 Scratch 用户的心智模型，也让"程序在哪里开始"这个问题永远有唯一答案，
+    同时为 IR 转换提供了清晰的结构保证。
+  </div>
+  <p>积木模式的执行模型是顺序加控制流：变量在运行时有独立的变量面板实时显示，控制台接收 print 输出。对教师而言，这套反馈足以支撑"讲一步、跑一步"的课堂节奏；对学习者而言，看到变量值随执行变化，是理解程序状态的最早一课。</p>
+</div>
+
+<!-- P9 四、代码模式 -->
+<div class="page">
+  <h2 class="sec"><span class="num">四</span>代码模式（Code）</h2>
+  <p>代码模式是真正的 Python 编辑器。Monaco 编辑器提供 Python 语法高亮、明暗主题、自动换行与 studio 接口自动补全；运行时是 Pyodide Web Worker 中的真实 CPython。</p>
+  <p>studio 模块作为正经的可导入模块注入（注册进 sys.modules），项目数据文件以 _FILES 形式送入 Worker，因此 studio.load 可以同步解析文件。studio 接口与积木模式完全一致：</p>
+  <table>
+    <tr><th style="width:34%">方法</th><th>说明</th></tr>
+    <tr><td>load</td><td>装载项目数据文件为表格</td></tr>
+    <tr><td>random 与 range</td><td>生成随机数与整数序列</td></tr>
+    <tr><td>normalize、sort、select、addColumn、filter</td><td>表格变换</td></tr>
+    <tr><td>summary 与 histogram</td><td>摘要统计与分箱</td></tr>
+    <tr><td>plot</td><td>绘图（经渲染桥接走插件渲染器）</td></tr>
+    <tr><td>print 与 notify</td><td>控制台输出与通知</td></tr>
+    <tr><td>getParam 与 setParam</td><td>项目参数读写</td></tr>
+  </table>
+  <figure>
+    <img src="../code.png" alt="代码模式">
+    <figcaption><b>图 5</b>　代码模式：Monaco 编辑器与基于 Pyodide 的 CPython 运行时</figcaption>
+  </figure>
+</div>
+
+<!-- P10 五、三模式互转 -->
+<div class="page">
+  <h3 class="cont">四、代码模式（其余能力）</h3>
+  <ul>
+    <li><strong>REPL</strong>：控制台输入可求值单个表达式或语句，无需重跑整个程序。</li>
+    <li><strong>中断</strong>：停止运行会终止并重启 Worker，失控循环不会卡死页面；Worker 的引导地址与引导 Promise 做了记忆化，重启不重复初始化。</li>
+    <li><strong>9 个示例程序</strong>位于 examples/code（EDA 管线、蒙特卡洛估圆、信号平滑、遥测探索、星系散点、随机直方图、范围循环、添加列绘图、归一化过滤），经"示例"对话框加载。</li>
+  </ul>
+  <h2 class="sec"><span class="num">五</span>三模式互转（共享 IR）</h2>
+  <p>IR（src/editor/ir，含校验、哈希与序列化）是积木、流程、代码三种模式的唯一事实来源，各模式与 IR 之间都有纯函数往返转换：</p>
+  <table>
+    <tr><th style="width:40%">转换</th><th>模块</th></tr>
+    <tr><td>IR 与流程 DAG 互转</td><td>src/editor/flow/convert.ts（irToFlow、flowToIR）</td></tr>
+    <tr><td>Blockly JSON 与 IR 互转</td><td>src/editor/block/convert.ts</td></tr>
+    <tr><td>代码缓冲区解析回 IR</td><td>src/editor/code/parse.ts（无法解析的行保留为原始代码节点）</td></tr>
+    <tr><td>IR 生成代码</td><td>src/editor/codegen（JS、Python、R 三个生成器）</td></tr>
+    <tr><td>IR 直接解释执行</td><td>src/editor/runtime/interpreter.ts（调用与流程区块相同的 Studio API）</td></tr>
+  </table>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arI4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="13">
+        <rect x="20" y="65" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="95" y="86" text-anchor="middle" fill="#155e75" font-weight="bold">流程模式</text>
+        <text x="95" y="105" text-anchor="middle" fill="#475569">DAG 管线</text>
+        <rect x="230" y="65" width="220" height="52" rx="10" fill="#0e7490"/>
+        <text x="340" y="86" text-anchor="middle" fill="#ffffff" font-weight="bold">共享中间表示 IR</text>
+        <text x="340" y="105" text-anchor="middle" fill="#cffafe">校验 · 哈希 · 序列化</text>
+        <rect x="510" y="10" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="585" y="31" text-anchor="middle" fill="#155e75" font-weight="bold">积木模式</text>
+        <text x="585" y="50" text-anchor="middle" fill="#475569">Blockly 画布</text>
+        <rect x="510" y="122" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="585" y="143" text-anchor="middle" fill="#155e75" font-weight="bold">代码模式</text>
+        <text x="585" y="162" text-anchor="middle" fill="#475569">Python 或 JS 缓冲区</text>
+        <line x1="170" y1="84" x2="224" y2="84" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+        <line x1="224" y1="99" x2="170" y2="99" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+        <line x1="452" y1="72" x2="506" y2="45" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+        <line x1="506" y1="58" x2="452" y2="85" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+        <line x1="452" y1="112" x2="506" y2="140" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+        <line x1="506" y1="128" x2="452" y2="100" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 6　三种脚本模式经由共享 IR 双向互转</div>
+  <p>在流程模式搭一条管线，切到积木就能看到同样的逻辑以积木呈现，跳到代码就能看到生成的 Python；反向亦然。一个专门的 sync-threeway 单元测试为双向往返兜底。</p>
+  <p>代码生成器按目标语言处理方言差异：Python 生成器输出真实的 Python 语法，R 生成器处理 R 的语法习惯（循环写法、真值字面量、整除与逻辑运算符等），JS 生成器输出可直接求值的脚本。代码模式编辑的缓冲区内容还能反向解析回 IR，使"换一种表达方式理解同一逻辑"成为一键操作。</p>
+</div>
+
+</body>
+</html>

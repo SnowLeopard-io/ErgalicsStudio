@@ -30,7 +30,7 @@ blocks/
   executor       DagExecutor: run(), incremental cache, dirty propagation
   context        MemoryStorage + RuntimeEnvironment
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        23 built-in blocks (data_source → … → visualize)
+  catalog        37 built-in blocks (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData

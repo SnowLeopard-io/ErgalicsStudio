@@ -13,11 +13,11 @@ flowchart TB
 
     subgraph State["State & Core Services"]
         B1["Zustand stores<br/>app / project / plugin / settings / block / editor"]
-        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox"]
+        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>stats · io · plot · repro"]
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
-        D1["Catalog<br/>data_source · transform · filter<br/>math · statistics · visualize"]
+        D1["Catalog<br/>data_source · transform · filter<br/>math · statistics · plot · visualize"]
         D2["Compiler<br/>pure · validates ports/types<br/>topological sort · diagnostics"]
         D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData"]
@@ -32,7 +32,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (27 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (30 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -62,6 +62,19 @@ flowchart TB
 > visualisation in Flow mode lights up a `studio.plot(...)` variant in
 > Block mode for free. See [Block Mode](block-mode.md) for the editor
 > layer in detail, and [Flow Mode](flow-mode.md) for the block system.
+
+## Scientific computing subsystems
+
+Four pure-TypeScript, DOM-light, node-testable subsystems live under
+`src/core/` and are consumed by the block system, the Studio API, and the
+workbench UI:
+
+| Subsystem         | Path               | Surface                                                            |
+| ----------------- | ------------------ | ------------------------------------------------------------------ |
+| Statistics kernel | `src/core/stats/`  | descriptive stats, special functions, hypothesis tests, effect sizes, multiple-comparison corrections, power analysis |
+| Scientific I/O    | `src/core/io/`     | one dispatcher (`loadScientificData`) routing to HDF5 / NetCDF / FITS / Zarr / Parquet loaders, returning `RawVariable[]` |
+| Plot engine       | `src/core/plot/`   | pure-TS SVG rendering with linear/log/temporal scales, plus SVG/PDF export |
+| Reproducibility   | `src/core/repro/`  | seeded RNG (mulberry32), stable hashing, run manifests, DAG-to-Python export |
 
 ## State management
 

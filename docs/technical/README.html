@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ergalics Studio README</title>
+<style>
+  :root {
+    --ink: #1e293b; --muted: #64748b; --accent: #0891b2; --accent-deep: #155e75;
+    --line: #e2e8f0; --soft: #f1f5f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    color: var(--ink); margin: 0; padding: 0; background: #fff;
+    font-size: 10.5pt; line-height: 1.62;
+  }
+  main { width: 182mm; margin: 0 auto; padding-top: 6mm; }
+  .cover {
+    background: linear-gradient(135deg, #134e4a 0%, #0e7490 62%, #0891b2 100%);
+    color: #fff; border-radius: 14px; padding: 12mm 12mm 9mm; margin-bottom: 10mm;
+  }
+  .cover .doclabel { font-size: 9pt; letter-spacing: 3px; opacity: .85; text-transform: uppercase; }
+  .cover .brand { display: flex; align-items: center; gap: 5mm; margin-top: 4mm; }
+  .cover img.logo { width: 15mm; height: 15mm; border-radius: 22%; background: rgba(255,255,255,.92); padding: 1.4mm; }
+  .cover h1 { font-size: 25pt; margin: 0; letter-spacing: 1px; }
+  .cover .tagline { margin: 4mm 0 0; font-size: 10.5pt; opacity: .95; line-height: 1.7; }
+  .cover .chips { margin-top: 5mm; display: flex; flex-wrap: wrap; gap: 2.2mm; }
+  .chip {
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35);
+    border-radius: 999px; padding: 1mm 3.4mm; font-size: 8.5pt; white-space: nowrap;
+  }
+  h2 { font-size: 15pt; color: var(--accent-deep); border-left: 4px solid var(--accent);
+       padding-left: 8px; margin: 9mm 0 3mm; break-after: avoid; page-break-after: avoid; }
+  h3 { font-size: 12pt; color: #0f172a; margin: 6mm 0 2mm; break-after: avoid; page-break-after: avoid; }
+  h4 { font-size: 10.8pt; margin: 4mm 0 2mm; break-after: avoid; page-break-after: avoid; }
+  p { margin: 2mm 0; }
+  ul, ol { margin: 2mm 0; padding-left: 7mm; }
+  li { margin: 1mm 0; }
+  li.done { list-style: none; margin-left: -5mm; }
+  li.task { list-style: none; margin-left: -5mm; }
+  .chk { color: var(--accent-deep); font-weight: bold; margin-right: 4px; }
+  a { color: var(--accent); text-decoration: none; }
+  strong { color: #0f172a; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  blockquote {
+    margin: 3mm 0; padding: 2.5mm 4mm; background: #ecfeff;
+    border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; color: #155e75;
+  }
+  blockquote p { margin: 1mm 0; }
+  code {
+    font-family: Consolas, 'JetBrains Mono', monospace; font-size: 9.2pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: #f8fafc; border: 1px solid var(--line); border-radius: 8px;
+    padding: 3mm 4mm; overflow: hidden; break-inside: avoid; page-break-inside: avoid;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 8.4pt; line-height: 1.5;
+             white-space: pre-wrap; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 3mm 0; font-size: 9.2pt;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  th { background: var(--accent-deep); color: #fff; text-align: left; padding: 2mm 2.6mm; font-weight: 600; }
+  td { border-bottom: 1px solid var(--line); padding: 1.8mm 2.6mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  figure { margin: 4mm 0; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 1.6mm; }
+  .diagram { margin: 4mm 0; break-inside: avoid; page-break-inside: avoid; }
+  img:not(.logo) { max-width: 100%; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="doclabel">README · Project Overview</div>
+  <div class="brand">
+    <img class="logo" src="../../ico.ico" alt="logo">
+    <h1>Ergalics Studio</h1>
+  </div>
+  <p class="tagline">A scientific computing workbench in the browser — interactive data exploration, GPU compute dispatch and a sandboxed plugin system, all running client-side with a Rust-powered WebAssembly core.</p>
+  <div class="chips"><span class="chip">Live demo</span><span class="chip">GitHub SnowLeopard-io/ErgalicsStudio</span><span class="chip">MIT license</span><span class="chip">TypeScript 5.7</span><span class="chip">React 18</span><span class="chip">WebGPU · WGSL</span><span class="chip">Rust to WASM</span><span class="chip">Pyodide (CPython)</span></div>
+</div>
+<main>
+<figure><img src="../studio.png" alt="Ergalics Studio — Standard mode (drag → see)"><figcaption>Ergalics Studio — Standard mode (drag  ·  see)</figcaption></figure>
+<hr>
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#features">Features</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#tech-stack">Tech Stack</a></li>
+<li><a href="#getting-started">Getting Started</a></li>
+<li><a href="#project-layout">Project Layout</a></li>
+<li><a href="#standard-mode">Standard Mode</a></li>
+<li><a href="#flow-mode">Flow Mode</a></li>
+<li><a href="#block-mode">Block Mode</a></li>
+<li><a href="#code-mode">Code Mode</a></li>
+<li><a href="#plugin-system">Plugin System</a></li>
+<li><a href="#gpu-compute--native-core">GPU Compute &amp; Native Core</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#documentation">Documentation</a></li>
+<li><a href="#roadmap">Roadmap</a></li>
+<li><a href="#contributing">Contributing</a></li>
+<li><a href="#license">License</a></li>
+</ul>
+<hr>
+<h2>Overview</h2>
+<p>Ergalics Studio is a professional scientific-computing workstation that runs
+entirely in the browser. It combines a React + TypeScript frontend, a Rust
+core compiled to WebAssembly, a WebGPU compute pipeline, and a plugin
+architecture designed for third-party extensions.</p>
+<p>The workbench exposes four modes for four kinds of users — see the section
+for each one below:</p>
+<ul>
+<li><strong>Standard</strong> — drag a dataset onto a plugin, see the visualisation. The
+fastest path from &quot;I have data&quot; to &quot;I see something&quot;.</li>
+<li><strong>Flow</strong> — compose a visual dataflow pipeline from built-in blocks, run it
+topologically, inspect every node's output.</li>
+<li><strong>Block</strong> — a Scratch-like block editor where a single &quot;Run&quot; hat block
+kicks off the program. Beginner-friendly, but fully scripted (variables,
+loops, conditionals, transforms, plots).</li>
+<li><strong>Code</strong> — a Monaco Python editor backed by a Pyodide worker runtime, with
+the same <code>studio.*</code> API as block mode, a REPL console and a variable panel.</li>
+</ul>
+<p>Ergalics Studio is under <strong>active development</strong> and already usable end to
+end: the core loop (project management, data loading, plugin registry, 2D/3D
+rendering, i18n, theming, performance monitoring, the Flow mode, the Block
+mode, and the Code mode with a Pyodide Python runtime) is functional and
+covered by tests. GPU acceleration spans Particles, N-Body, the LBM fluid,
+the wave equation, histogram, heatmap and point-cloud kernels; package
+signing for the plugin marketplace
+and the R runtime (webR) are the next milestones. Every module is kept
+deliberately small and testable so the codebase keeps scaling without a
+rewrite.</p>
+<blockquote>
+<p>Status: <strong>Active development</strong> — usable today with four workbench modes,
+40 built-in plugins (30 core + 10 fun), a sandboxed plugin system, a
+marketplace catalog, live GPU compute, an in-browser AI training plugin,
+a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
+Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
+support, and a Pyodide-powered Python code editor; package signing and
+the R runtime are next.</p>
+</blockquote>
+<hr>
+<h2>Features</h2>
+<p><strong>Workbench</strong></p>
+<ul>
+<li>Four-region layout: sidebar (projects / plugins), central viewport, right
+parameter panel, status bar with GPU/perf indicators. Project data files
+and settings live in the top bar (<code>示例 | 数据 | 设置 | 保存 | 分享</code>).</li>
+<li>Project lifecycle: create / open / save / autosave / share (<code>.clproj</code>
+format stored in IndexedDB).</li>
+<li>File routing: drag &amp; drop any file; the host detects the format by magic
+number <strong>and</strong> extension (with optional WASM assist) and routes it to a
+matching plugin — with a picker dialog when multiple plugins match.</li>
+</ul>
+<p><strong>Rendering</strong></p>
+<ul>
+<li>2D canvas container shared by all 2D plugins (point clouds, particles,
+time series, histograms, heatmaps, image viewer, contour plots, scatter,
+bar charts, radar, network graphs, bubble charts, violin plots, sankey
+diagrams, box plots, parallel coordinates, error bands, treemaps, QQ
+plots, and the fractal/art toys).</li>
+<li>Host-managed <strong>Three.js 3D scene</strong> (<code>Scene3DHandle</code>): grid/axes/lights,
+orbit controls, resize handling, auto camera fit, and GPU-safe disposal.
+The 3D surface is created lazily — only for plugins that declare 3D
+capability (<code>renderToScene</code>) — and is <strong>automatically hidden when a 2D
+plugin is active</strong>, so a 3D coordinate system never bleeds into a 2D view.</li>
+</ul>
+<p><strong>Plugin system</strong></p>
+<ul>
+<li><strong>40 built-in plugins</strong> — 30 core/scientific plugins plus 10 fun &amp;
+utility toys — covering the full API surface (2D canvas, Three.js scene,
+WGSL compute, buttons/toggles, sandboxing, in-browser model training).</li>
+<li><strong>Two-tier loading</strong>: core plugins are auto-loaded at startup; fun/utility
+plugins declare <code>autoload: false</code> and are loaded on demand from the
+built-in panel or the marketplace tab, keeping the startup registry lean.</li>
+<li><strong>Marketplace catalog</strong> (<code>src/plugins/marketplace.ts</code>) — every built-in
+plugin is surfaced with curated tags, popularity, and category filters
+(scientific / fun / utility); community &quot;coming soon&quot; submissions are
+listed as placeholders.</li>
+<li><code>.cspkg</code> package loading (ZIP with <code>manifest.json</code> + entry + assets) with
+manifest validation (id format, entry path traversal guard, sandbox enum).</li>
+<li><strong>Real sandbox isolation</strong> (§6.2): third-party entry code runs inside a
+Web Worker with a postMessage RPC bridge — no access to the host page's
+globals, DOM, or stores. Canvas rendering works via a transferred
+<code>OffscreenCanvas</code>; a documented best-effort fallback exists when Workers
+are unavailable.</li>
+<li>Locale-aware parameter panels (range / select / number / checkbox / text /
+file / button / toggle).</li>
+</ul>
+<p><strong>Infrastructure</strong></p>
+<ul>
+<li>i18n (zh-CN / en-US) with reactive locale switching.</li>
+<li>Dark/light theming via CSS variables.</li>
+<li>Performance monitor: FPS, frame time, GPU time, memory, data scale, with
+warning thresholds (§7.3).</li>
+<li>Error boundaries, fallbacks, and a banner/notification system.</li>
+</ul>
+<p><strong>Scientific computing subsystems (pure TypeScript, unit-tested)</strong></p>
+<ul>
+<li><strong>Statistics kernel</strong> (<code>src/core/stats/</code>) — descriptive statistics,
+special functions (incomplete gamma/beta, inverse CDFs), hypothesis
+tests (one/two-sample &amp; paired t-tests, one-way ANOVA, Mann–Whitney U,
+chi-square independence), effect sizes (Cohen's d, Pearson/Spearman
+correlation), multiple-comparison corrections (Bonferroni,
+Benjamini–Hochberg) and two-sample power analysis.</li>
+<li><strong>Scientific binary I/O</strong> (<code>src/core/io/</code>) — a single dispatcher routes
+dropped files to loaders for HDF5 (h5wasm), NetCDF (netcdfjs), FITS
+(fitsjs), Parquet (parquet-wasm) and Zarr (zarrita), turning each
+variable/dataset/HDU into project data files.</li>
+<li><strong>Publication-grade plot engine</strong> (<code>src/core/plot/</code>) — a pure-TS
+SVG renderer with linear/log/temporal scales and nice ticks, plus
+SVG and PDF export for line, scatter, histogram and bar charts.</li>
+<li><strong>Reproducibility kernel</strong> (<code>src/core/repro/</code>) — seeded RNG
+(mulberry32), stable hashing, run manifests (seed + version + input
+hashes + graph hash) and DAG-to-Python export for reruns.</li>
+<li><strong>Run-log export</strong> (<code>src/core/logger.ts</code> + <code>download.ts</code>) — session
+logs can be exported from the workbench for bug reports.</li>
+</ul>
+<p><strong>Flow mode (visual dataflow pipeline)</strong></p>
+<ul>
+<li>A second workbench mode next to Standard — toggle with the <code>Standard | Flow</code>
+switch in the top bar. Standard mode is <em>load data → see it</em>; Flow mode is
+<em>compose a visual pipeline → run it → see every node's output</em>.</li>
+<li>37 built-in blocks organised by category: data sources, transforms,
+filters, math, statistics (including t-tests, ANOVA, Mann–Whitney,
+chi-square, correlation, effect sizes and multiple-comparison
+corrections), plotting and visualizations. Control-flow blocks
+(if/else, repeat, parallel) are deliberately deferred — the <code>region</code>
+seam on <code>BlockInstance</code> is in place so they slot in later as an
+extension, not a refactor.</li>
+<li><strong>Compiler is a pure function</strong>: structural validation (ports / required
+inputs / type compatibility), cycle detection, and Kahn-style topological
+sort. Errors come back as structured <code>diagnostics</code> so the canvas can paint
+red edges and an inline diagnostic strip without ever throwing.</li>
+<li><strong>Executor with incremental caching</strong> at per-node granularity plus a
+dirty-propagation invalidation pass — change a single block's parameter and
+only it and its downstream re-execute.</li>
+<li><strong>Result preview</strong> with one click: <code>RenderedView</code> outputs go through the
+existing plugin renderer (scatter, histogram, …); <code>DataTable</code> outputs
+render as a read-only table (so <code>stats.summary</code> / <code>stats.histogram</code> bins
+actually show something); <code>Scalar</code> outputs render inline. A chip switcher
+picks which node to inspect when a pipeline has more than one output.</li>
+<li><strong>Reactive parameter editor</strong> bound to the selected node, with a two-way
+link to the canvas — the node card shows the live <code>key: value</code> summary, so
+you always see what the canvas is actually running.</li>
+<li><strong>Block metadata is localized</strong> (<code>nameI18n</code> / <code>descriptionI18n</code>) and the
+palette, node card, and parameter panel all resolve via
+<code>src/blocks/l10n.ts</code>, so adding a locale is a data-only change.</li>
+<li><strong>Sample pipelines live as <code>.clproj</code> files</strong> under <code>examples/projects/</code>
+(<code>block-01-signal-analysis.clproj</code>, …). They are normal projects — loadable
+through the standard project picker — and discovered at build time via
+<code>import.meta.glob</code>. Adding a new sample is dropping a file plus an entry in
+<code>SAMPLE_META</code>.</li>
+<li>The whole graph persists into the project's <code>blockGraph</code> and rehydrates on
+open, sharing the autosave/share/export pipeline that already backs every
+<code>.clproj</code>.</li>
+</ul>
+<p><strong>Block mode (Scratch-style scripted editor)</strong></p>
+<ul>
+<li>A third workbench mode — <code>Standard | Flow | Blocks | Code</code> in the top
+bar. The Block mode is the entry point for learners and for anyone who
+wants an imperative feel: you write a top-down script of blocks under a
+single green <strong>「运行时 / Run」hat</strong>, and that hat is the only execution
+entry point (orphan blocks never run).</li>
+<li>30+ built-in blocks organised by category — Start, Data, Variables,
+Operators, Transform, Statistics, Visualize, Control, Utility — covering
+data sources (<code>load CSV</code>, <code>load XYZ</code>, <code>random</code>, <code>range</code>), transforms
+(<code>normalize</code>, <code>sort</code>, <code>select</code>, <code>filter</code>), statistics (<code>summary</code>,
+<code>histogram</code>), plots (<code>scatter</code>, <code>line</code>, <code>histogram</code>, <code>point cloud</code>),
+control flow (<code>if</code>, <code>repeat</code>, <code>while</code>, <code>for_each</code>), and 1-to-1 utility
+primitives (<code>set</code>, <code>print</code>).</li>
+<li><strong>Shared IR</strong> (<code>src/editor/ir/</code>) is the single source of truth. Block
+JSON ↔ IR round-trips in a pure, Node-testable module — the same IR that
+Code mode shares with Block mode for bidirectional sync.</li>
+<li><strong>IR interpreter</strong> (<code>src/editor/runtime/interpreter.ts</code>) walks the IR
+directly and calls into the <strong>same <code>studio.*</code> API</strong> that Flow-mode blocks
+use (<code>studio.load / normalize / plot / print / …</code>), so <code>studio.plot( 'scatter', df, { x, y })</code> lands in the very same scatter plugin a Flow-
+mode <code>viz.scatter</code> block does.</li>
+<li><strong>IR → JS / Python codegen</strong> (<code>src/editor/codegen/</code>) emits runnable code
+from the IR; the toolbar's &quot;Python&quot; / &quot;JS&quot; toggle shows the live codegen
+result for the current workspace.</li>
+<li><strong>Blockly 13</strong> powers the canvas (<code>src/editor/block/</code>); the package is
+<strong>lazy-loaded</strong> so Standard / Flow first paint is unaffected (~828 KB
+on-demand chunk).</li>
+<li><strong>Block names, tooltips, dropdown options, and toolbox categories are
+localised</strong> through Blockly's <code>BKY_*</code> key system; switching language
+re-creates the workspace with re-labelled blocks and is verified by a
+dedicated unit test (<code>tests/editor/block-i18n.test.ts</code>).</li>
+<li><strong>Sample programs</strong> live in <code>src/editor/block/samples.ts</code> (5 built-in
+pipelines: galaxy scatter, telemetry line, random histogram, normalised
+scatter, repeat-print) and are loaded via the <strong>Examples</strong> dialog in the
+top bar — discoverable by any user, one click away.</li>
+</ul>
+<p><strong>Code mode (Monaco + Pyodide Python runtime)</strong></p>
+<ul>
+<li>A fourth workbench mode — <code>Standard | Flow | Blocks | Code</code> in the top
+bar. Code mode is the escape hatch for real scripting: write free-form
+<strong>Python</strong> in a Monaco editor and run it on <strong>CPython via a Pyodide Web
+Worker</strong>.</li>
+<li><strong>Same <code>studio.*</code> API</strong> as block mode (<code>load / random / range / normalize / sort / select / addColumn / filter / summary / histogram / plot / print / notify / getParam / setParam</code>), injected as a real importable Python
+module; <code>studio.plot(...)</code> renders through the shared plugin bridge.</li>
+<li><strong>REPL</strong> input in the console panel evaluates single expressions without
+a full re-run; <strong>stop</strong> terminates and respawns the worker so runaway
+loops cannot hang the page.</li>
+<li><strong>9 sample programs</strong> live as real files under <code>examples/code/*.py</code>
+(loaded via <code>import.meta.glob</code>, display metadata in
+<code>src/editor/code/samples.ts</code>) and load through the <strong>Examples</strong> dialog —
+from a one-liner scatter to an EDA pipeline, Monte-Carlo π, and signal
+smoothing.</li>
+</ul>
+<hr>
+<h2>Architecture</h2>
+<div class="diagram"><svg viewBox="0 0 680 590" xmlns="http://www.w3.org/2000/svg" width="100%" role="img">
+    <defs>
+      <marker id="arRR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+      </marker>
+      <marker id="arRRb" markerWidth="8" markerHeight="8" refX="1" refY="3" orient="auto">
+        <path d="M6,0 L0,3 L6,6 Z" fill="#0e7490"/>
+      </marker>
+    </defs>
+    <rect x="20" y="14" width="640" height="112" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="5 4"/><text x="32" y="31" font-size="9.5" font-weight="bold" fill="#64748b" letter-spacing="0.5">React UI (src/pages · src/components)</text>
+    <rect x="40" y="42" width="190" height="70" rx="9" fill="#ecfeff" stroke="#22d3ee" stroke-width="1.4"/><text x="135" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#155e75">Welcome · Workbench</text><text x="135" y="76" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">TopBar · Sidebar · Central · Right · Status</text>
+    <rect x="250" y="42" width="180" height="70" rx="9" fill="#ecfeff" stroke="#22d3ee" stroke-width="1.4"/><text x="340" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#155e75">Settings · Share</text><text x="340" y="76" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">Plugin dialogs · Example-data dialogs</text>
+    <rect x="450" y="42" width="190" height="70" rx="9" fill="#ecfeff" stroke="#22d3ee" stroke-width="1.4"/><text x="545" y="59" text-anchor="middle" font-size="11" font-weight="bold" fill="#155e75">Flow mode canvas</text><text x="545" y="73" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">Palette · Canvas · Node · Param editor</text><text x="545" y="87" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">Toolbar · Result preview</text>
+    <rect x="20" y="166" width="640" height="118" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="5 4"/><text x="32" y="183" font-size="9.5" font-weight="bold" fill="#64748b" letter-spacing="0.5">State & Core Services</text>
+    <rect x="40" y="196" width="300" height="76" rx="9" fill="#f0fdf4" stroke="#86efac" stroke-width="1.4"/><text x="190" y="213" text-anchor="middle" font-size="11" font-weight="bold" fill="#166534">Zustand stores</text><text x="190" y="227" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">app · project · plugin</text><text x="190" y="241" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">settings · block</text>
+    <rect x="370" y="196" width="270" height="76" rx="9" fill="#f0fdf4" stroke="#86efac" stroke-width="1.4"/><text x="505" y="213" text-anchor="middle" font-size="11" font-weight="bold" fill="#166534">Core services</text><text x="505" y="227" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">storage(IndexedDB) · events(bus) · i18n</text><text x="505" y="241" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">theming · perf · fileFormat</text><text x="505" y="255" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">wasm · gpu · scene3d · sandbox</text>
+    <rect x="20" y="324" width="640" height="118" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="5 4"/><text x="32" y="341" font-size="9.5" font-weight="bold" fill="#64748b" letter-spacing="0.5">Block system (Flow mode · src/blocks)</text>
+    <rect x="35" y="354" width="148" height="74" rx="9" fill="#fefce8" stroke="#fde047" stroke-width="1.4"/><text x="109" y="371" text-anchor="middle" font-size="11" font-weight="bold" fill="#854d0e">Catalog</text><text x="109" y="385" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">data_source · transform</text><text x="109" y="399" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">filter · math · statistics</text><text x="109" y="413" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">visualize · logic</text>
+    <rect x="197" y="354" width="145" height="74" rx="9" fill="#fefce8" stroke="#fde047" stroke-width="1.4"/><text x="269.5" y="371" text-anchor="middle" font-size="11" font-weight="bold" fill="#854d0e">Compiler</text><text x="269.5" y="385" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">pure · validates ports/types</text><text x="269.5" y="399" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">topological sort · diagnostics</text>
+    <rect x="356" y="354" width="145" height="74" rx="9" fill="#fefce8" stroke="#fde047" stroke-width="1.4"/><text x="428.5" y="371" text-anchor="middle" font-size="11" font-weight="bold" fill="#854d0e">Executor</text><text x="428.5" y="385" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">incremental cache</text><text x="428.5" y="399" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">dirty propagation · run()</text>
+    <rect x="515" y="354" width="140" height="74" rx="9" fill="#fefce8" stroke="#fde047" stroke-width="1.4"/><text x="585" y="371" text-anchor="middle" font-size="11" font-weight="bold" fill="#854d0e">Render bridge</text><text x="585" y="385" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">viz.* RenderedView</text><text x="585" y="399" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">into plugin.loadData</text><text x="585" y="413" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">side-effect-free executor</text>
+    <rect x="20" y="482" width="640" height="100" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="5 4"/><text x="32" y="499" font-size="9.5" font-weight="bold" fill="#64748b" letter-spacing="0.5">Runtime Layer</text>
+    <rect x="40" y="508" width="300" height="66" rx="9" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.4"/><text x="190" y="525" text-anchor="middle" font-size="11" font-weight="bold" fill="#9d174d">Plugin runtime</text><text x="190" y="539" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">builtin/* (30 core + 10 fun) · marketplace</text><text x="190" y="553" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">cspkg loader (sandbox) · registry & lifecycle</text>
+    <rect x="370" y="508" width="270" height="66" rx="9" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.4"/><text x="505" y="525" text-anchor="middle" font-size="11" font-weight="bold" fill="#9d174d">Native core (Rust to WASM)</text><text x="505" y="539" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">device mgmt · compute · kernel scheduling</text><text x="505" y="553" text-anchor="middle" font-size="8.6" font-weight="normal" fill="#475569">file-kind detection</text>
+    <path d="M135,112 V192" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M340,112 V150 H505 V192" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M545,112 V150 H150 V192" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M344,234 H362" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M366,234 H348" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M40,234 H28 V541 H36" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M240,272 V350" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M300,272 V316 H427 V350" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M183,391 H193" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M342,391 H352" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M501,391 H511" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M655,391 H662 V470 H190 V504" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M505,272 V504" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+    <path d="M560,272 V312 H674 V541 H344" fill="none" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arRR)"/>
+  </svg></div>
+<ul>
+<li><strong>Host ↔ plugin contract</strong>: every plugin implements a <code>Plugin</code> interface
+(init/destroy/activate/deactivate/render/updateParams/getParams/compute/
+loadData/renderToScene) and receives a <code>PluginApi</code> for locale, status,
+perf reporting, notifications, file access, and project-scoped params.</li>
+<li><strong>Isolation boundary</strong>: sandboxed plugins communicate exclusively through
+a typed RPC protocol (<code>src/core/sandbox.ts</code> + <code>src/core/plugin-worker.ts</code>).</li>
+<li><strong>WebGPU</strong>: <code>src/core/gpu.ts</code> manages the adapter/device with a CPU
+fallback; the Rust core (<code>native/ergalics-core</code>) exposes
+<code>BindingDescriptor</code>, <code>ComputeKernel</code> (compile/dispatch/compilation_info)
+and <code>GpuDeviceManager</code> to JS via wasm-bindgen.</li>
+</ul>
+<hr>
+<h2>Tech Stack</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UI</td>
+<td>React 18, react-router-dom 7, Zustand 5</td>
+</tr>
+<tr>
+<td>Language</td>
+<td>TypeScript 5.7 (strict)</td>
+</tr>
+<tr>
+<td>Build</td>
+<td>Vite 6</td>
+</tr>
+<tr>
+<td>3D</td>
+<td>Three.js r185 (+ @types/three)</td>
+</tr>
+<tr>
+<td>Native</td>
+<td>Rust → wasm32-unknown-unknown, wasm-bindgen 0.2</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>WebGPU / WGSL via web-sys</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>Vitest (unit) + Playwright-core (E2E, headless Edge)</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td>VitePress (separate <code>docs/</code> workspace)</td>
+</tr>
+<tr>
+<td>Packaging</td>
+<td>fflate (cspkg ZIP), lz-string (project compression)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Getting Started</h2>
+<h3>Prerequisites</h3>
+<ul>
+<li><strong>Node.js ≥ 20</strong> and npm</li>
+<li><strong>Rust toolchain</strong> with the <code>wasm32-unknown-unknown</code> target and
+<code>wasm-bindgen-cli</code> (only needed to build the native core; the frontend
+degrades gracefully when the WASM module is absent)</li>
+</ul>
+<h3>Install</h3>
+<pre><code class="language-bash">npm install
+</code></pre>
+<h3>Run in development</h3>
+<pre><code class="language-bash">npm run dev
+</code></pre>
+<p>The app opens at the Vite dev server URL. The welcome page runs hardware
+self-checks (WebGPU, WASM, IndexedDB) before entering the workbench.</p>
+<h3>Build</h3>
+<pre><code class="language-bash">npm run build          # wasm → typecheck → vite build
+npm run build:web      # frontend only (no WASM)
+npm run build:wasm     # rebuild the Rust core into src/native
+</code></pre>
+<p>The production build is emitted to <code>dist/</code>. Note that <code>build:wasm</code> runs
+before <code>vite build</code> so the WASM bindings are always fresh.</p>
+<h3>Docs site</h3>
+<pre><code class="language-bash">cd docs &amp;&amp; npm install &amp;&amp; npm run dev
+</code></pre>
+<p>See <a href="#documentation">Documentation</a> for details.</p>
+<hr>
+<h2>Project Layout</h2>
+<pre><code>.
+├── src/                      # Frontend
+│   ├── core/                 #   services: storage, events, i18n, gpu, wasm,
+│   │                         #   fileFormat, scene3d, sandbox, cspkg,
+│   │                         #   stats (statistics kernel), io (HDF5/NetCDF/
+│   │                         #   FITS/Zarr/Parquet), plot (SVG/PDF engine),
+│   │                         #   repro (reproducibility), logger, …
+│   ├── blocks/               #   block system (Flow mode):
+│   │                         #     types · registry · compiler · executor ·
+│   │                         #     ops · catalog · sample · l10n · render
+│   ├── editor/               #   Block &amp; Code modes:
+│   │                         #     ir · block (Blockly) · code · codegen ·
+│   │                         #     runtime (StudioApi + interpreter)
+│   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
+│   │                         #     toolbar, result preview, workbench shell
+│   ├── components/editor/    #   Block/Code canvases, variable / console panels
+│   ├── pages/                #   welcome, workbench, settings, share, dialogs
+│   ├── plugins/builtin/      #   27 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
+│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
+│   ├── types/                #   plugin &amp; project &amp; editor contracts
+│   └── native/               #   generated WASM bindings (git-untracked)
+├── native/ergalics-core/     # Rust core (device, compute, utils)
+├── examples/
+│   ├── data/                 # sample datasets used by the example plugins
+│   ├── projects/             # sample `.clproj` projects (incl. Flow pipelines)
+│   └── code/                 # sample Python programs for Code mode (*.py)
+├── scripts/                  # build-wasm · make-example-data · E2E suites
+├── tests/                    # Vitest unit tests
+├── docs/                     # VitePress documentation workspace
+</code></pre>
+<hr>
+<h2>Standard Mode</h2>
+<figure><img src="../studio.png" alt="Standard mode — drag a file, see a visualisation"><figcaption>Standard mode — drag a file, see a visualisation</figcaption></figure>
+<p>The default landing experience. Three panels: a <strong>left rail</strong> that lists your
+projects and plugins, a <strong>centre viewport</strong> that hosts whichever plugin is
+active (with a drop zone on first launch), and a <strong>right panel</strong> that turns
+the active plugin's declared parameters into reactive form fields. Files
+dragged onto the centre (or onto the plugin list) are routed by extension and
+magic number to a matching plugin; when more than one plugin matches, a
+chooser dialog lets you decide.</p>
+<p>This is the mode you want when you already know which plugin answers your
+question and just need to point it at a file.</p>
+<hr>
+<h2>Flow Mode</h2>
+<figure><img src="../flow.png" alt="Flow mode — a sample pipeline (Normalize → Histogram / Scatter / Summary) with live result preview"><figcaption>Flow mode — a sample pipeline (Normalize  ·  Histogram / Scatter / Summary) with live result preview</figcaption></figure>
+<p>A second workbench mode. Instead of <em>using</em> a plugin, you <strong>compose a visual
+dataflow pipeline</strong> from built-in blocks and run it. The pipeline editor
+lives on the left of the screen (palette), the canvas in the middle (nodes</p>
+<ul>
+<li>edges), a parameter editor on the right for whichever node is selected,
+and a live <strong>result preview</strong> at the bottom that adapts to the chosen
+node's output type:</li>
+</ul>
+<ul>
+<li><strong><code>RenderedView</code></strong> (any <code>viz.*</code> node) — routed through the existing plugin
+renderer (scatter, histogram, …).</li>
+<li><strong><code>DataTable</code></strong> (a <code>stats.summary</code> / <code>stats.histogram</code> row) — a read-only
+table so non-viz outputs become visible too.</li>
+<li><strong><code>Scalar</code></strong> — an inline value.</li>
+</ul>
+<p>The graph persists into the project's <code>blockGraph</code> and rehydrates on open,
+sharing the autosave/share/export pipeline that backs every <code>.clproj</code>. See
+<a href="docs/guide/flow-mode.md"><code>docs/guide/flow-mode.md</code></a> for the architecture
+(compiler + incremental executor + the render bridge), and the sample
+pipelines under <code>examples/projects/</code>.</p>
+<hr>
+<h2>Block Mode</h2>
+<figure><img src="../block.png" alt="Block mode — a &quot;Run&quot; hat block kicks off a program that loads telemetry, normalises, and plots"><figcaption>Block mode — a &quot;Run&quot; hat block kicks off a program that loads telemetry, normalises, and plots</figcaption></figure>
+<p>A Scratch-style block editor for fully scripted programs. A single green
+<strong>「运行时 / Run」hat block</strong> is the only entry point — anything not connected
+underneath it is ignored at run time, which makes &quot;broken code&quot; impossible
+to execute accidentally. Below the hat, blocks wire together into a
+top-down script: <code>set df = load CSV telemetry.csv</code> → <code>set n = normalize df column temp min-max</code> → <code>scatter df X:time Y:temp_minmax color:…</code>.</p>
+<p>The run button ships a <strong>live result preview</strong>, <strong>variables</strong> panel, and
+<strong>console</strong> panel in the right-hand cards, so each run shows you what your
+data became and what got printed.</p>
+<p>Under the hood:</p>
+<ul>
+<li><strong>Shared IR</strong> (<code>src/editor/ir/</code>) is the single source of truth for both
+Block mode and Code mode. Block JSON ↔ IR round-trips in a
+Node-testable pure module.</li>
+<li><strong>IR interpreter</strong> (<code>src/editor/runtime/interpreter.ts</code>) walks the IR
+directly and calls into the same <code>studio.*</code> API that the Flow mode
+blocks use — so <code>studio.plot('scatter', df, { x, y })</code> lands in the
+very same scatter plugin as a Flow-mode <code>viz.scatter</code> block.</li>
+<li><strong>IR → JS / Python codegen</strong> (<code>src/editor/codegen/</code>) reuses the same IR
+to emit code, powering the &quot;view code&quot; overlay in the toolbar.</li>
+<li><strong>Blockly 13</strong> (<code>src/editor/block/</code>) provides the canvas; the package
+is <strong>lazy-loaded</strong> so Standard/Flow first paint is unaffected (~828 KB
+chunk on demand).</li>
+<li><strong>i18n</strong> is wired through <code>BKY_*</code> keys into Blockly's locale system
+— switching language re-creates the workspace with re-labelled blocks.</li>
+</ul>
+<p>See <a href="docs/guide/block-mode.md"><code>docs/guide/block-mode.md</code></a> for the full
+architecture, the 30+ built-in blocks, the 5 sample programs, and the
+limitations / next steps.</p>
+<hr>
+<h2>Code Mode</h2>
+<figure><img src="../code.png" alt="Code mode — a Monaco Python editor backed by a Pyodide worker, with a REPL console and a live plot preview"><figcaption>Code mode — a Monaco Python editor backed by a Pyodide worker, with a REPL console and a live plot preview</figcaption></figure>
+<p>A real Python editor for the fourth workbench mode. Code mode runs <strong>CPython
+in the browser</strong> through a Pyodide Web Worker, so you write free-form Python
+against the same <code>studio.*</code> API that block mode generates — no scaffolding,
+no context switching.</p>
+<ul>
+<li><strong>Monaco editor</strong> (<code>src/components/editor/CodeEditor.tsx</code>) with Python
+syntax highlighting, dark/light theming, word wrap, and <code>studio.*</code>
+autocompletion.</li>
+<li><strong>Pyodide worker runtime</strong> (<code>src/core/pyodide/</code>) — real CPython in a Web
+Worker. The <code>studio</code> module is injected as a proper importable module
+(<code>sys.modules['studio']</code>), and project data files ship into the worker as
+<code>_FILES</code> so <code>studio.load('telemetry.csv')</code> resolves synchronously.</li>
+<li><strong>Same Studio API as block mode</strong> — <code>studio.load / random / range / normalize / sort / select / addColumn / filter / summary / histogram / plot / print / notify / getParam / setParam</code>. <code>studio.plot(...)</code> renders
+through the exact same plugin bridge as a Flow-mode <code>viz.*</code> block, so a
+plot lands in the very same scatter / line / histogram plugin.</li>
+<li><strong>REPL</strong> — evaluate a single Python expression or statement from the
+console input without re-running the whole program.</li>
+<li><strong>Interrupt</strong> — stopping a run terminates and respawns the worker, so a
+runaway loop cannot hang the page.</li>
+<li><strong>9 sample programs</strong> live as real files under <code>examples/code/*.py</code>
+(mirroring flow-mode's <code>examples/projects/</code>) and load through the
+<strong>示例 / Examples</strong> dialog — from one-liner scatters to a full EDA
+pipeline, a Monte-Carlo π estimation, and signal smoothing.</li>
+</ul>
+<p>The IR shared with block mode (<code>src/editor/ir/</code>), the IR interpreter, and the IR → JS / Python codegen are all reused here, so block and code modes stay
+consistent on the same data semantics.</p>
+<p><strong>Three-mode conversion</strong> — the shared IR is the single hub for all three
+editing modes: <code>src/editor/flow/convert.ts</code> round-trips IR ↔ Flow DAG
+(<code>irToFlow</code> / <code>flowToIR</code>), and <code>src/editor/block/convert.ts</code> round-trips
+Blockly JSON ↔ IR (<code>blockJSONToIR</code> / <code>irToBlockJSON</code>). <code>src/editor/code/ parse.ts</code> additionally parses <code>studio.*</code> calls in a Code-mode buffer back
+into the IR (<code>parseCodeToIR</code>), preserving unparsed lines as raw-code nodes.
+Edit a pipeline in
+Flow mode, switch to Blocks and see the same logic as Scratch blocks, then
+jump to Code for the generated Python — all driven by one IR. A dedicated
+<code>sync-threeway</code> unit test pins the round-trip in both directions.</p>
+<p>See <a href="docs/guide/block-mode.md"><code>docs/guide/block-mode.md</code></a> for the
+architecture; R via webR is the remaining runtime.</p>
+<hr>
+<h2>Plugin System</h2>
+<h3>Built-in plugins</h3>
+<p><strong>Core / scientific plugins</strong> (auto-loaded at startup, 30 total):</p>
+<table>
+<thead>
+<tr>
+<th>Plugin</th>
+<th>Data</th>
+<th>Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Point Cloud</td>
+<td><code>.xyz</code></td>
+<td>2D canvas</td>
+</tr>
+<tr>
+<td>Point Cloud 3D</td>
+<td><code>.xyz</code>, <code>.dat</code></td>
+<td>Three.js scene, height ramp</td>
+</tr>
+<tr>
+<td>Particles</td>
+<td><code>.dat</code></td>
+<td>2D simulation + real WGSL compute + progress</td>
+</tr>
+<tr>
+<td>Time Series</td>
+<td><code>.csv</code></td>
+<td>2D line charts</td>
+</tr>
+<tr>
+<td>Histogram</td>
+<td><code>.dat</code></td>
+<td>binning + log scale</td>
+</tr>
+<tr>
+<td>Heatmap</td>
+<td><code>.json</code> (grid)</td>
+<td>viridis ramp</td>
+</tr>
+<tr>
+<td>Image Viewer</td>
+<td><code>.png</code></td>
+<td>base64 asset</td>
+</tr>
+<tr>
+<td>Contour</td>
+<td><code>.json</code> (grid)</td>
+<td>color ramp + isolines</td>
+</tr>
+<tr>
+<td>Scatter</td>
+<td><code>.dat</code>, <code>.csv</code>, <code>.xyz</code></td>
+<td>2D scatter, color channel</td>
+</tr>
+<tr>
+<td>N-Body Gravity</td>
+<td><code>.json</code> (bodies)</td>
+<td>3D Three.js points + WGSL all-pairs gravity</td>
+</tr>
+<tr>
+<td>Protein Interactions</td>
+<td><code>.json</code> (network)</td>
+<td>force-directed layout + component metrics</td>
+</tr>
+<tr>
+<td>Bar Chart</td>
+<td><code>.csv</code> (category, value)</td>
+<td>grouped bars, orientation &amp; palette</td>
+</tr>
+<tr>
+<td>Polar / Radar Plot</td>
+<td><code>.csv</code> (dimension × series)</td>
+<td>multi-series radar</td>
+</tr>
+<tr>
+<td>Network Graph</td>
+<td><code>.csv</code> (source, target, weight)</td>
+<td>force-directed layout, degree sizing</td>
+</tr>
+<tr>
+<td>Bubble Chart</td>
+<td><code>.csv</code> (x, y, size, color)</td>
+<td>bubble size + color channels</td>
+</tr>
+<tr>
+<td>Violin Plot</td>
+<td><code>.csv</code> (group, value)</td>
+<td>kernel density + box overlay</td>
+</tr>
+<tr>
+<td>Sankey Diagram</td>
+<td><code>.csv</code> (source, target, value)</td>
+<td>proportional flow ribbons</td>
+</tr>
+<tr>
+<td>Box Plot</td>
+<td><code>.csv</code> (group, value)</td>
+<td>quartiles, whiskers, outliers</td>
+</tr>
+<tr>
+<td>Parallel Coordinates</td>
+<td><code>.csv</code> (multi-variate)</td>
+<td>categorical coloring</td>
+</tr>
+<tr>
+<td>Error Band</td>
+<td><code>.csv</code> (x, y, err)</td>
+<td>shaded confidence band</td>
+</tr>
+<tr>
+<td>Treemap</td>
+<td><code>.csv</code> (label, size / label, parent, size)</td>
+<td>hierarchical rectangle layout</td>
+</tr>
+<tr>
+<td>QQ Plot</td>
+<td><code>.csv</code>, <code>.dat</code> (single column)</td>
+<td>normal quantile comparison + reference line</td>
+</tr>
+<tr>
+<td>AI Trainer</td>
+<td><code>.csv</code>, <code>.json</code> (MNIST)</td>
+<td>4 models (linear / non-linear NN / logistic / CNN) with live loss curve, scatter+fit / decision boundary / digit grid</td>
+</tr>
+<tr>
+<td>LBM Fluid</td>
+<td><code>.json</code> (obstacle mask)</td>
+<td>2-D lattice-Boltzmann channel flow (D2Q9) around an obstacle; WGSL collide + stream kernels, Kármán vortex street</td>
+</tr>
+<tr>
+<td>Wave Equation</td>
+<td><code>.json</code> (u / drive grids)</td>
+<td>2-D finite-difference wave equation (pulse / twin-source interference / double-slit scenarios); WGSL leapfrog kernel</td>
+</tr>
+<tr>
+<td>Double Pendulum</td>
+<td><code>.json</code> (initial conditions)</td>
+<td>RK4 integration with a chaos ghost twin offset by 0.001 rad — sensitive dependence made visible</td>
+</tr>
+<tr>
+<td>GeoJSON Map</td>
+<td><code>.geojson</code>, <code>.json</code></td>
+<td>offline vector map with choropleth shading; Albers (China) / Web Mercator / equirectangular projections</td>
+</tr>
+<tr>
+<td>Electromagnetism</td>
+<td><code>.json</code> (charges / fields)</td>
+<td>draggable charges under Coulomb + Lorentz forces in a uniform B field; cyclotron spirals</td>
+</tr>
+<tr>
+<td>Optics Lab</td>
+<td><code>.json</code> (optical layout)</td>
+<td>geometric ray tracing with thin lenses, a Snell + dispersion prism, and a draggable light screen</td>
+</tr>
+<tr>
+<td>Structural Mechanics</td>
+<td><code>.json</code> (truss members)</td>
+<td>pin-jointed truss with axial-force coloring, utilization readouts and overload collapse</td>
+</tr>
+</tbody>
+</table>
+<p>Simulation plugins are strictly data-driven: they start empty and never
+fabricate a default scene — the flow obstacle, the wave scenario, and the
+pendulum initial conditions all come from a bundled sample or a user file,
+and <strong>Reset</strong> replays the loaded data rather than restoring a built-in.</p>
+<p>Every core plugin ships with a sample dataset (see <code>examples/data/</code>) so a
+one-click load in the <strong>示例 / Examples</strong> dialog produces a real
+visualisation immediately. Four of the plugins that lean on a non-trivial
+compute path are shown below — three WGSL compute demos and the
+TF.js-powered in-browser trainer:</p>
+<p><strong>N-Body Gravity</strong> — direct-summation gravity, O(N²) per step, on the GPU.</p>
+<figure><img src="../Nbody.png" alt="N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)"><figcaption>N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)</figcaption></figure>
+<p><strong>Protein Interactions</strong> — force-directed layout of a PPI network with
+component metrics.</p>
+<figure><img src="../protein.png" alt="Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network"><figcaption>Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network</figcaption></figure>
+<p><strong>Contour</strong> — a 64×64 twin-peak scalar field rendered with the viridis
+ramp and isolines.</p>
+<figure><img src="../field.png" alt="Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines"><figcaption>Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines</figcaption></figure>
+<p><strong>AI Trainer</strong> — train linear / non-linear / logistic / convolutional models
+in the browser with TensorFlow.js. The top of the canvas shows the live loss
+curve, and the lower panel switches between scatter+fit, a 2-D decision
+boundary, and a digit grid depending on the model. Four bundled samples
+(<code>examples/data/ai/*.csv</code>) cover a linear regression, a cubic+sine curve, a
+two-gaussian classification, and a 200-image MNIST subset. The TF.js bundle
+itself is lazy-loaded on the first click of <strong>Train</strong>, so the trainer is in
+the auto-load registry without paying a 2 MB cost at startup.</p>
+<figure><img src="../AImnistcnn.png" alt="AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)"><figcaption>AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)</figcaption></figure>
+<p>The simulation &amp; geospatial plugins complete the registry — four more
+data-driven engines shown below:</p>
+<p><strong>LBM Fluid</strong> — a 2-D lattice-Boltzmann channel flow (D2Q9) around an
+obstacle, with WGSL collide + stream kernels. The bundled airfoil sample
+shows the flow field in the Wind Flow view; inflow speed, relaxation and
+lattice detail are live parameters.</p>
+<figure><img src="../airplane.png" alt="LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view"><figcaption>LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view</figcaption></figure>
+<p><strong>Wave Equation</strong> — a 2-D finite-difference wave equation with pulse /
+twin-source interference / double-slit scenarios, integrated by a WGSL
+leapfrog kernel with adjustable wave speed and damping.</p>
+<figure><img src="../waveequation.png" alt="Wave Equation — twin-source interference pattern, orange/blue amplitude field"><figcaption>Wave Equation — twin-source interference pattern, orange/blue amplitude field</figcaption></figure>
+<p><strong>Double Pendulum</strong> — RK4 integration with a chaos ghost twin whose initial
+angle differs by 0.001 rad; the HUD reads out the live ghost divergence
+(137.42° in the frame below) as the two trajectories peel apart.</p>
+<figure><img src="../doublependulum.png" alt="Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°"><figcaption>Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°</figcaption></figure>
+<p><strong>GeoJSON Map</strong> — an offline vector map with choropleth shading by property
+(<code>adcode</code> for the bundled China provinces sample), graticule, and Albers
+(China) / Web Mercator / equirectangular projections.</p>
+<figure><img src="../geojsonmap.png" alt="GeoJSON Map — China provinces choropleth in the Albers (China) projection"><figcaption>GeoJSON Map — China provinces choropleth in the Albers (China) projection</figcaption></figure>
+<p>Three interactive physics labs round out the scientific registry — the
+flagship hands-on demos where objects are manipulated directly on the
+canvas:</p>
+<p><strong>Electromagnetism</strong> — draggable charges under Coulomb + Lorentz forces in
+a uniform B field (strength and direction are independent parameters).
+The cyclotron sample sends same-sign charges into spirals whose radius is
+set by velocity, mass and B.</p>
+<figure><img src="../Cyclotron.png" alt="Electromagnetism — three positive charges spiraling in a uniform magnetic field (dot lattice = out-of-screen B), trails enabled"><figcaption>Electromagnetism — three positive charges spiraling in a uniform magnetic field (dot lattice = out-of-screen B), trails enabled</figcaption></figure>
+<p><strong>Optics Lab</strong> — geometric ray tracing with thin convex/concave lenses, a
+triangular prism with Snell refraction and dispersion, and a light screen;
+every element can be dragged on the canvas.</p>
+<figure><img src="../light.png" alt="Optics Lab — a white beam dispersing through a triangular prism into a spectrum, collected on the screen"><figcaption>Optics Lab — a white beam dispersing through a triangular prism into a spectrum, collected on the screen</figcaption></figure>
+<p><strong>Structural Mechanics</strong> — a pin-jointed truss that carries its load live:
+members are colored by axial force (orange = tension, cyan = compression)
+with utilization readouts, and snap once overloaded until the frame
+collapses.</p>
+<figure><img src="../structure.png" alt="Structural Mechanics — a 17-member deck truss carrying two weights, members colored by axial force (orange = tension, cyan = compression)"><figcaption>Structural Mechanics — a 17-member deck truss carrying two weights, members colored by axial force (orange = tension, cyan = compression)</figcaption></figure>
+<p><strong>Fun &amp; utility plugins</strong> (<code>autoload: false</code>, 10 total — loaded on demand
+from the built-in panel or marketplace tab):</p>
+<table>
+<thead>
+<tr>
+<th>Plugin</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mandelbrot</td>
+<td>fractal</td>
+<td>Mandelbrot / Julia set browser with palettes and zoom</td>
+</tr>
+<tr>
+<td>Spirograph</td>
+<td>art</td>
+<td>hypotrochoid curve art</td>
+</tr>
+<tr>
+<td>Lissajous</td>
+<td>art</td>
+<td>animated Lissajous curves</td>
+</tr>
+<tr>
+<td>Game of Life</td>
+<td>toy</td>
+<td>classic cellular automaton (play / pause / reseed)</td>
+</tr>
+<tr>
+<td>Harmonograph</td>
+<td>art</td>
+<td>curve art from summed decaying sinusoids</td>
+</tr>
+<tr>
+<td>Palette Explorer</td>
+<td>utility</td>
+<td>two-stop gradient preview + swatches</td>
+</tr>
+<tr>
+<td>Koch Snowflake</td>
+<td>fractal</td>
+<td>recursive segment fractal</td>
+</tr>
+<tr>
+<td>Barnsley Fern</td>
+<td>fractal</td>
+<td>iterated function system fern</td>
+</tr>
+<tr>
+<td>Fireworks</td>
+<td>toy</td>
+<td>particle fireworks with gravity and trails</td>
+</tr>
+<tr>
+<td>Truchet Tiles</td>
+<td>pattern</td>
+<td>random quarter-circle arc tiles</td>
+</tr>
+</tbody>
+</table>
+<p>Every built-in runs the same math on CPU when WebGPU is absent — see
+<a href="#gpu-compute--native-core">GPU Compute &amp; Native Core</a> and
+<a href="docs/guide/plugins.md"><code>docs/guide/plugins.md</code></a> for the full list and
+their compute paths.</p>
+<h3>Third-party packages (<code>.cspkg</code>)</h3>
+<p>A package is a ZIP containing <code>manifest.json</code> plus the entry module and any
+assets. Loading validates the manifest (required fields, plugin-id format,
+entry path traversal, sandbox enum) and then executes the entry <strong>inside a
+Web Worker sandbox</strong> by default:</p>
+<pre><code class="language-jsonc">{
+  &quot;id&quot;: &quot;com.example.analyzer&quot;,
+  &quot;name&quot;: &quot;Analyzer&quot;,
+  &quot;version&quot;: &quot;1.2.0&quot;,
+  &quot;author&quot;: &quot;Example Corp&quot;,
+  &quot;description&quot;: &quot;…&quot;,
+  &quot;entry&quot;: &quot;dist/index.js&quot;,
+  &quot;sandbox&quot;: &quot;isolated&quot;,        // &quot;isolated&quot; (default) | &quot;trusted&quot;
+  &quot;formats&quot;: [{ &quot;extension&quot;: &quot;.dat&quot; }]
+}
+</code></pre>
+<ul>
+<li><code>sandbox: &quot;isolated&quot;</code> (default) — runs in a Worker: separate global scope,
+no DOM/window/store access; canvas rendering via <code>OffscreenCanvas</code>.</li>
+<li><code>sandbox: &quot;trusted&quot;</code> — executes in the host context with full DOM access.
+Only use for packages you control.</li>
+</ul>
+<p><strong>Limitations (documented honestly)</strong>: workers share the origin's IndexedDB,
+and the legacy fallback (<code>new Function</code> with shadowed globals) is a
+best-effort approximation, <strong>not</strong> a security boundary. The UI warns when the
+fallback is used.</p>
+<hr>
+<h2>GPU Compute &amp; Native Core</h2>
+<p>The Rust crate <code>native/ergalics-core</code> compiles to <code>wasm32-unknown-unknown</code>
+and is bound with wasm-bindgen. Current surface:</p>
+<ul>
+<li><code>GpuDeviceManager</code> — adapter/device acquisition with CPU-fallback option.</li>
+<li><code>GpuBuffer</code> — the missing buffer half of the compute foundation: create
+with an explicit usage mask (<code>create_storage</code>, <code>create_readable_storage</code>,
+<code>create_uniform</code>), upload bytes with <code>write</code>, and read results back with
+<code>read</code> (copies into a dedicated <code>MAP_READ | COPY_DST</code> readback buffer — see
+the buffer-usage note below).</li>
+<li><code>KernelDescriptor</code> + <code>BindingDescriptor</code> — describe a compute kernel and
+its buffer bindings (uniform / storage / read-only-storage, dynamic
+offsets, min binding size).</li>
+<li><code>ComputeKernel::compile</code> — builds a <strong>real</strong> <code>GPUBindGroupLayout</code> from the
+binding descriptors, compiles the WGSL module, and creates the pipeline.</li>
+<li><code>ComputeKernel::bind_group</code> — materializes a bind group (buffer <em>i</em> →
+binding <em>i</em>) from the kernel's retained layout.</li>
+<li><code>ComputeKernel::run(queue, buffers, x, y, z)</code> — bind group + dispatch +
+submit in one call; <code>dispatch(queue, bindGroup, x, y, z)</code> remains for
+host-managed command encoders.</li>
+<li><code>ComputeKernel::compilation_info()</code> — surfaces WGSL compile diagnostics
+(error/warning + line/column) asynchronously.</li>
+<li><code>detect_file_kind</code> — magic-number file detection used by the loader.</li>
+</ul>
+<h3>Host-side compute service</h3>
+<p><code>src/core/gpu.ts</code> owns the adapter/device lifecycle (CPU fallback, OOM
+tracking). On top of it, <code>src/core/compute.ts</code> exposes the <strong>plugin-facing
+compute surface</strong> (<code>PluginApi.gpu</code>): <code>createBuffer</code> / <code>write</code> / <code>read</code>,
+<code>compileKernel</code> + <code>compilationInfo</code>, and one-shot <code>run</code>. It routes through
+the Rust core when the WASM module is loaded and through the raw WebGPU API
+otherwise — so accelerated compute works in dev <em>and</em> production, and the
+Rust core stays the reference engine.</p>
+<p>Reusable WGSL kernels live in <code>src/core/wgsl.ts</code> (particle integration,
+3-D all-pairs N-body gravity, D2Q9 lattice-Boltzmann collide/stream/curl, and
+the 2-D wave-equation leapfrog), paired with host-side pack/unpack helpers
+that mirror the kernel math for the CPU fallback. The Particles plugin
+demonstrates the single-buffer path (upload interleaved <code>[x, y, vx, vy]</code> +
+uniform params →
+dispatch the WGSL integrator → read back → report real GPU time); the N-Body
+plugin demonstrates the heavier all-pairs path with ping-pong buffers that keep
+every integration step on the device with no per-step read-back.</p>
+<blockquote>
+<p>When WebGPU (or the WASM module) is unavailable, <code>api.gpu</code> is <code>undefined</code>
+and plugins fall back to CPU — same behaviour, no GPU required.</p>
+</blockquote>
+<hr>
+<h2>Testing</h2>
+<p>Unit tests (Vitest, node environment):</p>
+<pre><code class="language-bash">npm test          # or npm run test:unit
+npm run verify    # typecheck + unit tests
+</code></pre>
+<p>417 tests across 46 test files: file-format detection, scientific binary
+I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
+(descriptive, special functions, tests, effect sizes, corrections, power),
+cspkg parsing/validation,
+sandbox RPC (including an end-to-end round trip through a fake Worker),
+i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
+N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
+service gating), built-in plugin logic, the data plugins' parsing helpers
+(error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
+— <code>DataTable</code> ops, registry, compiler (validation/topology/type-check),
+executor (incremental cache + invalidation), geometry, catalog executors,
+the <code>viz.*</code> → plugin render bridge, codegen (JS/Python), three-mode IR sync (block ↔ flow ↔ code), the Pyodide worker
+protocol, the structural-mechanics simulator, plugin runtime lifecycle and
+recent bugfix regressions, the publication-grade plot engine, the
+reproducibility kernel, and the pipeline samples that load via
+<code>import.meta.glob</code>.</p>
+<p>E2E suites (Playwright-core, headless Edge) against a production preview:</p>
+<pre><code class="language-bash">npm run test:e2e
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>smoke-test</code></td>
+<td>boot, auto-loaded plugins, reactive params, project restore</td>
+</tr>
+<tr>
+<td><code>verify-ui</code></td>
+<td>layout, theming, canvas, plugin list</td>
+</tr>
+<tr>
+<td><code>verify-fixes</code></td>
+<td>all example plugins render their sample data correctly</td>
+</tr>
+<tr>
+<td><code>verify-3d</code></td>
+<td>3D point cloud in the host Three.js scene</td>
+</tr>
+<tr>
+<td><code>verify-plugins</code></td>
+<td>3D↔2D surface visibility, contour, scatter, tornado sample</td>
+</tr>
+<tr>
+<td><code>verify-webgpu</code></td>
+<td>GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback</td>
+</tr>
+<tr>
+<td><code>verify-block-mode</code></td>
+<td>block editor: mode switch, compile, run, block → code sync</td>
+</tr>
+<tr>
+<td><code>verify-code-mode</code></td>
+<td>Monaco + Pyodide: run a Python program, console, variables, plot</td>
+</tr>
+<tr>
+<td><code>verify-ai-samples</code></td>
+<td>AI Training: load all 4 samples (linear / non-linear / logistic / MNIST)</td>
+</tr>
+<tr>
+<td><code>verify-ai-training</code></td>
+<td>AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Documentation</h2>
+<p>A dedicated VitePress documentation workspace lives in <a href="docs/"><code>docs/</code></a>:</p>
+<pre><code class="language-bash">cd docs
+npm install
+npm run dev       # local documentation site
+npm run build     # static site → docs/.vitepress/dist
+</code></pre>
+<p>The production frontend build copies the docs site into <code>dist/docs/</code>, so the
+welcome page's <strong>Docs</strong> link works from a preview server. The docs site can
+also be deployed independently (e.g. GitHub Pages).</p>
+<hr>
+<h2>Roadmap</h2>
+<p>See <a href="docs/guide/roadmap.md"><code>docs/guide/roadmap.md</code></a> for the current status
+table. Highlights:</p>
+<ul>
+<li class="done"><span class="chk">✓</span>Workbench layout, project management, file routing</li>
+<li class="done"><span class="chk">✓</span>40 built-in plugins (30 core + 10 fun/utility), cspkg loading, Worker sandbox</li>
+<li class="done"><span class="chk">✓</span>Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)</li>
+<li class="done"><span class="chk">✓</span>WebGPU device management + real compute-kernel pipeline</li>
+<li class="done"><span class="chk">✓</span>i18n, theming, perf monitoring, share links</li>
+<li class="done"><span class="chk">✓</span>Flow mode — visual dataflow pipeline (compiler + incremental executor + 37 built-in blocks + canvas UI + sample pipelines in <code>examples/projects/</code>)</li>
+<li class="done"><span class="chk">✓</span>Vitest unit tests + Playwright E2E suites</li>
+<li class="done"><span class="chk">✓</span>Plugin compute surface (<code>api.gpu</code>), WGSL templates, Particles accelerated</li>
+<li class="done"><span class="chk">✓</span>GPU acceleration across all example plugins (histogram/heatmap/point cloud)</li>
+<li class="task"><span class="chk">□</span>Plugin marketplace: package signing &amp; third-party install pipeline</li>
+<li class="done"><span class="chk">✓</span>GitHub Actions CI (unit + E2E + Pages deploy)</li>
+<li class="done"><span class="chk">✓</span>Block mode (Scratch-like, Google Blockly) — see <a href="docs/guide/block-mode.md">Block Mode</a>. 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the <code>Blocks</code> top-bar slot.</li>
+<li class="done"><span class="chk">✓</span>Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable <code>studio</code> module, REPL + variables, worker interrupt, and 9 sample programs under <code>examples/code/</code>; same IR shared with block mode.</li>
+<li class="done"><span class="chk">✓</span>Three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (<code>src/editor/flow/convert.ts</code> + <code>src/editor/block/convert.ts</code>), pinned by a <code>sync-threeway</code> unit test; Code-mode buffers parse back into the IR via <code>src/editor/code/parse.ts</code></li>
+<li class="done"><span class="chk">✓</span>Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (<code>src/core/stats/</code>), surfaced as 11 Flow-mode <code>stats.*</code> blocks</li>
+<li class="done"><span class="chk">✓</span>Scientific binary I/O — HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (<code>src/core/io/</code>)</li>
+<li class="done"><span class="chk">✓</span>Publication-grade plot engine with SVG/PDF export and a reproducibility kernel (<code>src/core/plot/</code>, <code>src/core/repro/</code>)</li>
+<li class="task"><span class="chk">□</span>Code mode: R runtime (webR)</li>
+</ul>
+<hr>
+<h2>Contributing</h2>
+<ol>
+<li>Fork the repository and create a feature branch.</li>
+<li>Keep changes small and covered by tests — <code>npm run verify</code> must stay
+green, and new plugin/feature work should ship with an E2E check.</li>
+<li>Run <code>npm run test:e2e</code> before opening a pull request (requires the Edge
+browser at its default install path; adjust <code>EDGE</code> in the scripts
+otherwise).</li>
+<li>Regenerate WASM bindings with <code>npm run build:wasm</code> when touching
+<code>native/ergalics-core</code>.</li>
+</ol>
+<p>Report bugs and feature requests via
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio/issues">GitHub Issues</a>.</p>
+<hr>
+<h2>License</h2>
+<p><a href="LICENSE">MIT</a> © 2026 <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a></p>
+
+</main>
+</body>
+</html>

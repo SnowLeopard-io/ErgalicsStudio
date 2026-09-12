@@ -11,7 +11,7 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. Thirty-one suites, 285 tests:
+Environment: `node`. Forty-six test files, 417 tests:
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
@@ -31,6 +31,8 @@ Environment: `node`. Thirty-one suites, 285 tests:
 | `blocks/*`             | block system end-to-end — registry, compiler (validation/topology/types), executor (incremental cache + invalidation), DataTable ops, geometry, statistics, catalog executors, `viz.*` render bridge |
 | `editor/*`             | shared IR (validate/round-trip), Blockly JSON ⇄ IR, interpreter, JS/Python codegen, three-mode `sync-threeway`, block i18n (`BKY_*`), editor store, Studio API, code samples |
 | `stats/*`, `io/*`, `plot/*`, `repro/*` | statistical test helpers, NetCDF I/O, plotting helpers, reproducibility |
+| `pluginRuntime`, `pluginBugfixes` | plugin lifecycle, marketplace gating, regression tests for fixed plugin defects |
+| `structure-sim`   | truss solver: member forces, utilization, overload collapse         |
 
 Notable techniques:
 

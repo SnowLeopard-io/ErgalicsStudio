@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Ergalics Studio 技术文档 · 插件系统</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: var(--body); font-size: 10.5pt; line-height: 1.8;
+  }
+  @page { size: A4; margin: 0; }
+  .page {
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  body { counter-reset: pn 0; }
+  .page { counter-increment: pn; }
+  .page::after {
+    content: counter(pn, decimal-leading-zero);
+    position: absolute; left: 70mm; right: 70mm; bottom: 7mm;
+    text-align: center; border-top: 1px solid var(--line); padding-top: 2mm;
+    font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
+  }
+  .cover::after { content: none; }
+  .cover { padding: 0; }
+  .cover-panel {
+    height: 100%; border-radius: 0;
+    background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
+    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    display: flex; flex-direction: column;
+  }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
+  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-modes { margin-top: auto; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
+  .mode-chips { display: flex; gap: 4mm; }
+  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
+  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
+  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
+  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
+  .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
+  .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
+  .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
+  .toc-item .tp { color: var(--accent-deep); }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
+  h3 .hn { color: var(--accent); margin-right: 6px; }
+  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  p { margin: 3mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  li { margin: 2mm 0; }
+  strong { color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.4pt; }
+  th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
+  th, td { border: 1px solid var(--line); padding: 2.2mm 3mm; vertical-align: top; line-height: 1.6; }
+  figure { margin: 4mm 0; text-align: center; }
+  figure img { max-width: 92%; max-height: 58mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  figcaption b { color: var(--accent-deep); font-weight: bold; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
+  .grp { font-size: 11.5pt; font-weight: bold; color: var(--ink); margin: 6mm 0 2mm; }
+</style>
+</head>
+<body>
+
+<!-- P1 封面 -->
+<div class="page cover">
+  <div class="cover-panel">
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>插件系统</h1>
+    <div class="sub">一个契约 · 40 个内置插件 · 沙箱化扩展</div>
+    <div class="cover-rule"></div>
+    <div class="cover-abstract">
+      Ergalics Studio 把"一切可视化皆插件"作为第一性设计：宿主与插件之间只有一个契约，
+      第三方扩展与内置插件走同一套接口与生命周期。本篇给出 Plugin 接口与 PluginApi
+      能力面的完整定义、40 个内置插件的分组清单、市场目录的两级加载策略，
+      以及 .cspkg 第三方包的清单校验与 Worker 沙箱机制。
+    </div>
+    <div class="cover-modes">
+      <div class="cap">内置插件构成</div>
+      <div class="mode-chips">
+        <div class="mode-chip"><div class="t">30</div><div class="d">核心/科学插件<br>启动自动加载</div></div>
+        <div class="mode-chip"><div class="t">10</div><div class="d">趣味与工具<br>按需手动加载</div></div>
+        <div class="mode-chip"><div class="t">8 类</div><div class="d">声明式参数<br>自动生成面板</div></div>
+        <div class="mode-chip"><div class="t">2 级</div><div class="d">沙箱枚举<br>isolated 与 trusted</div></div>
+      </div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第三篇（共七篇）</div>
+  </div>
+</div>
+
+<!-- P2 目录 -->
+<div class="page toc">
+  <h1>目 录</h1>
+  <div class="toc-item l1"><span>一、宿主与插件的契约</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l2"><span>1.1 Plugin 接口与 PluginApi 能力面</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l2"><span>1.2 声明式参数面板</span><span class="dots"></span><span class="tp">04</span></div>
+  <div class="toc-item l2"><span>1.3 插件生命周期</span><span class="dots"></span><span class="tp">04</span></div>
+  <div class="toc-item l1"><span>二、40 个内置插件</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l2"><span>2.1 核心/科学插件（自动加载，30 个）</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l2"><span>2.2 趣味与工具插件（按需加载，10 个）</span><span class="dots"></span><span class="tp">08</span></div>
+  <div class="toc-item l1"><span>三、市场目录与两级加载</span><span class="dots"></span><span class="tp">08</span></div>
+  <div class="toc-item l1"><span>四、第三方包（.cspkg）与沙箱</span><span class="dots"></span><span class="tp">09</span></div>
+  <div class="toc-item l1"><span>五、文件路由</span><span class="dots"></span><span class="tp">10</span></div>
+  <div class="callout" style="margin-top:14mm">
+    阅读提示：插件是产品全部可视化的载体——标准模式的拖放出图、流程模式可视化区块的渲染、
+    积木与代码模式 studio.plot 的调用，最终都落到同一批插件渲染器上。
+    理解本篇的契约与生命周期，是理解其余各篇的前提。
+  </div>
+</div>
+
+<!-- P3 一、契约 -->
+<div class="page">
+  <h2 class="sec"><span class="num">一</span>宿主与插件的契约</h2>
+  <h3><span class="hn">1.1</span>Plugin 接口与 PluginApi 能力面</h3>
+  <p>每个插件实现统一的 Plugin 接口，宿主在正确的时机调用对应方法，插件不感知界面细节：</p>
+  <table>
+    <tr><th style="width:28%">方法</th><th>作用</th></tr>
+    <tr><td>init 与 destroy</td><td>初始化与销毁，宿主负责 GPU 安全的资源回收</td></tr>
+    <tr><td>activate 与 deactivate</td><td>激活与去激活，驱动 2D/3D 视口切换与残留帧清理</td></tr>
+    <tr><td>render 与 updateParams</td><td>绘制与参数更新（右侧面板响应式表单）</td></tr>
+    <tr><td>getParams 与 compute</td><td>参数读取与计算</td></tr>
+    <tr><td>loadData</td><td>接收宿主分发的数据（文件路由与渲染桥接的入口）</td></tr>
+    <tr><td>renderToScene</td><td>可选能力声明，激活时获得宿主 Three.js 场景句柄</td></tr>
+  </table>
+  <p>宿主向插件提供 PluginApi 句柄，能力面如下：</p>
+  <table>
+    <tr><th style="width:20%">能力组</th><th>内容</th></tr>
+    <tr><td>本地化</td><td>插件文案按当前语言取值，语言切换时参数面板自动重建</td></tr>
+    <tr><td>状态上报</td><td>插件向状态栏上报运行状态与进度</td></tr>
+    <tr><td>性能上报</td><td>帧时间与真实 GPU 时间进入性能监控与告警</td></tr>
+    <tr><td>通知</td><td>按严重级别的横幅与提示</td></tr>
+    <tr><td>文件访问</td><td>项目数据文件解析（项目自有文件、内置示例与代码模式文件共享同一套逻辑）</td></tr>
+    <tr><td>参数读写</td><td>项目级参数的持久化存取</td></tr>
+    <tr><td>GPU 计算面</td><td>createBuffer、write、read、compileKernel、compilationInfo 与一次性 run（详见 05 篇）</td></tr>
+  </table>
+</div>
+
+<!-- P4 1.2 参数 + 1.3 生命周期 -->
+<div class="page">
+  <h3><span class="hn">1.2</span>声明式参数面板</h3>
+  <p>插件在清单中声明参数表，宿主据此自动生成本地化的响应式参数面板，支持八类控件。插件作者不需要写任何面板代码——声明"我要一个范围滑杆，步长多少、默认多少"，右侧面板就会出现对应的表单项，并在语言切换时自动重建。</p>
+  <table>
+    <tr><th style="width:26%">控件</th><th>用途示例</th></tr>
+    <tr><td>范围（滑杆）</td><td>引力常数、阻尼系数</td></tr>
+    <tr><td>下拉</td><td>场景预设、投影方式、调色板</td></tr>
+    <tr><td>数字</td><td>分箱数、步长</td></tr>
+    <tr><td>复选框</td><td>轨迹线、网格显示</td></tr>
+    <tr><td>文本</td><td>列名、标签</td></tr>
+    <tr><td>文件</td><td>附加数据选择</td></tr>
+    <tr><td>按钮</td><td>重新播种、导出</td></tr>
+    <tr><td>开关</td><td>运行/暂停之外的布尔状态</td></tr>
+  </table>
+  <h3><span class="hn">1.3</span>插件生命周期</h3>
+  <p>插件生命周期由插件运行时统一编排，从注册到销毁共六个阶段：</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 110" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arL3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="12" y="30" width="98" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="61" y="49" text-anchor="middle" fill="#155e75" font-weight="bold">注册</text>
+        <text x="61" y="66" text-anchor="middle" fill="#475569">清单入表</text>
+        <rect x="122" y="30" width="98" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="171" y="49" text-anchor="middle" fill="#155e75" font-weight="bold">加载</text>
+        <text x="171" y="66" text-anchor="middle" fill="#475569">模块实例化</text>
+        <rect x="232" y="30" width="98" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="281" y="49" text-anchor="middle" fill="#14532d" font-weight="bold">激活</text>
+        <text x="281" y="66" text-anchor="middle" fill="#475569">视口判定 · 面板</text>
+        <rect x="342" y="30" width="98" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="391" y="49" text-anchor="middle" fill="#14532d" font-weight="bold">渲染循环</text>
+        <text x="391" y="66" text-anchor="middle" fill="#475569">绘制 · 参数更新</text>
+        <rect x="452" y="30" width="98" height="44" rx="9" fill="#fefce8" stroke="#facc15"/>
+        <text x="501" y="49" text-anchor="middle" fill="#713f12" font-weight="bold">去激活</text>
+        <text x="501" y="66" text-anchor="middle" fill="#475569">资源保留 · 释放视口</text>
+        <rect x="562" y="30" width="106" height="44" rx="9" fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="615" y="49" text-anchor="middle" fill="#7f1d1d" font-weight="bold">销毁</text>
+        <text x="615" y="66" text-anchor="middle" fill="#475569">GPU 安全回收</text>
+        <line x1="110" y1="52" x2="118" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
+        <line x1="220" y1="52" x2="228" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
+        <line x1="330" y1="52" x2="338" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
+        <line x1="440" y1="52" x2="448" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
+        <line x1="550" y1="52" x2="558" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 1　插件生命周期：注册、加载、激活、渲染循环、去激活、销毁</div>
+  <p>去激活与销毁是两个不同的阶段：切换插件时旧插件只去激活，资源保留以便快速切回；只有项目关闭或插件卸载时才真正销毁。GPU 资源（缓冲区、管线）的回收由宿主统一执行，插件无需也无力处理 WebGL 或 WebGPU 对象的释放细节。</p>
+</div>
+
+<!-- P5 2.1 数据分析类 -->
+<div class="page">
+  <h2 class="sec"><span class="num">二</span>40 个内置插件</h2>
+  <h3><span class="hn">2.1</span>核心/科学插件（自动加载，30 个）</h3>
+  <div class="grp">数据分析类（18 个）</div>
+  <table>
+    <tr><th style="width:30%">插件</th><th style="width:24%">数据格式</th><th>能力</th></tr>
+    <tr><td>散点图 Scatter</td><td>.dat、.csv、.xyz</td><td>2D 散点，颜色通道</td></tr>
+    <tr><td>时间序列 Time Series</td><td>.csv</td><td>2D 折线</td></tr>
+    <tr><td>直方图 Histogram</td><td>.dat</td><td>分箱与对数刻度，GPU 加速</td></tr>
+    <tr><td>箱线图 Box Plot</td><td>.csv</td><td>四分位、须、离群点</td></tr>
+    <tr><td>小提琴图 Violin Plot</td><td>.csv</td><td>核密度估计加箱线叠加</td></tr>
+    <tr><td>误差带 Error Band</td><td>.csv</td><td>阴影置信带</td></tr>
+    <tr><td>平行坐标 Parallel Coordinates</td><td>.csv</td><td>多变量，分类别着色</td></tr>
+    <tr><td>矩形树图 Treemap</td><td>.csv</td><td>层级矩形布局</td></tr>
+    <tr><td>QQ 图</td><td>.csv、.dat</td><td>正态分位比较加参考线</td></tr>
+    <tr><td>柱状图 Bar Chart</td><td>.csv</td><td>分组柱状，方向与调色板可调</td></tr>
+    <tr><td>气泡图 Bubble Chart</td><td>.csv</td><td>气泡大小与颜色双通道</td></tr>
+    <tr><td>雷达图 Polar/Radar</td><td>.csv</td><td>多系列雷达</td></tr>
+    <tr><td>网络图 Network Graph</td><td>.csv</td><td>力导向布局，按度数缩放节点</td></tr>
+    <tr><td>桑基图 Sankey</td><td>.csv</td><td>比例流带</td></tr>
+    <tr><td>热力图 Heatmap</td><td>.json 网格</td><td>viridis 渐变，GPU 加速</td></tr>
+    <tr><td>等值线 Contour</td><td>.json 网格</td><td>色彩渐变加等值线</td></tr>
+    <tr><td>点云 Point Cloud</td><td>.xyz</td><td>2D 投影，GPU 加速</td></tr>
+    <tr><td>图像查看器 Image Viewer</td><td>.png</td><td>base64 资源展示</td></tr>
+  </table>
+</div>
+
+<!-- P6 仿真与三维 + 交互实验室 -->
+<div class="page">
+  <div class="grp">仿真与三维类（9 个）</div>
+  <table>
+    <tr><th style="width:30%">插件</th><th style="width:26%">数据格式</th><th>能力</th></tr>
+    <tr><td>三维点云 Point Cloud 3D</td><td>.xyz、.dat</td><td>Three.js 场景，高度渐变</td></tr>
+    <tr><td>N-Body 引力</td><td>.json（天体）</td><td>三维点渲染，WGSL 全对引力内核</td></tr>
+    <tr><td>格子 Boltzmann 流体</td><td>.json（障碍掩膜）</td><td>D2Q9 通道流，WGSL 碰撞与迁移双内核，卡门涡街</td></tr>
+    <tr><td>波动方程</td><td>.json（场网格）</td><td>有限差分，WGSL leapfrog 内核，脉冲、双源干涉与双缝场景</td></tr>
+    <tr><td>双摆</td><td>.json（初始条件）</td><td>RK4 积分加混沌幽灵摆（初值差 0.001 弧度），HUD 实时读出发散角</td></tr>
+    <tr><td>蛋白质相互作用</td><td>.json（网络）</td><td>力导向布局加连通分量指标</td></tr>
+    <tr><td>粒子 Particles</td><td>.dat</td><td>2D 模拟，WGSL 积分器，真实 GPU 时间上报</td></tr>
+    <tr><td>GeoJSON 地图</td><td>.geojson、.json</td><td>离线矢量地图，分级设色，三种投影</td></tr>
+    <tr><td>AI 训练器</td><td>.csv、.json（MNIST）</td><td>四类模型，实时损失曲线，TF.js 懒加载</td></tr>
+  </table>
+  <div class="grp">交互式物理实验室（3 个，产品旗舰演示）</div>
+  <table>
+    <tr><th style="width:22%">插件</th><th>演示内容</th></tr>
+    <tr><td>电磁场</td><td>可拖动电荷在库仑力与均匀磁场洛伦兹力共同作用下运动，回旋加速器示例展示螺线轨迹；画布点击放置电荷也是合法的数据来源</td></tr>
+    <tr><td>光学实验</td><td>薄凸/凹透镜、三棱镜（斯涅尔折射加色散）、光屏成像，元件可在画布上拖动</td></tr>
+    <tr><td>结构力学</td><td>铰接桁架实时承重，杆件按轴力着色（橙为拉、青为压）并显示利用率，超载断裂直至垮塌</td></tr>
+  </table>
+  <div class="callout">
+    所有仿真类插件严格数据驱动：初始为空，绝不伪造默认场景；画布给出明确的空态提示，运行按钮带数据守卫，空数据启动会收到提示而非静默空跑；"重置"只重放已加载的数据，回归作者基准构型。
+  </div>
+</div>
+
+<!-- P7 三张实验室截图 -->
+<div class="page">
+  <h3 class="cont">2.1 核心/科学插件（交互实验室示例）</h3>
+  <figure>
+    <img src="../Cyclotron.png" alt="电磁场实验室">
+    <figcaption><b>图 2</b>　电磁场实验室：电荷在库仑力与洛伦兹力共同作用下回旋，轨迹线开启</figcaption>
+  </figure>
+  <figure>
+    <img src="../light.png" alt="光学实验">
+    <figcaption><b>图 3</b>　光学实验：白光经三棱镜折射色散，光屏呈现成像</figcaption>
+  </figure>
+  <figure>
+    <img src="../structure.png" alt="结构力学">
+    <figcaption><b>图 4</b>　结构力学：桁架杆件按轴力着色，橙为拉、青为压，超载断裂</figcaption>
+  </figure>
+</div>
+
+<!-- P8 2.2 趣味 + 三、市场 -->
+<div class="page">
+  <h3><span class="hn">2.2</span>趣味与工具插件（按需加载，10 个）</h3>
+  <table>
+    <tr><th style="width:34%">插件</th><th style="width:14%">类型</th><th>描述</th></tr>
+    <tr><td>Mandelbrot</td><td>分形</td><td>Mandelbrot 与 Julia 集浏览器，带调色板与缩放</td></tr>
+    <tr><td>螺旋线 Spirograph</td><td>艺术</td><td>次摆线曲线艺术</td></tr>
+    <tr><td>利萨茹曲线 Lissajous</td><td>艺术</td><td>动画曲线</td></tr>
+    <tr><td>生命游戏 Game of Life</td><td>玩具</td><td>经典元胞自动机，播放、暂停、重播种</td></tr>
+    <tr><td>谐振记录仪 Harmonograph</td><td>艺术</td><td>衰减正弦叠加曲线</td></tr>
+    <tr><td>调色板探索 Palette Explorer</td><td>工具</td><td>双停靠点渐变预览与色板</td></tr>
+    <tr><td>科赫雪花 Koch Snowflake</td><td>分形</td><td>递归线段分形</td></tr>
+    <tr><td>巴恩斯利蕨 Barnsley Fern</td><td>分形</td><td>迭代函数系统蕨叶</td></tr>
+    <tr><td>烟花 Fireworks</td><td>玩具</td><td>带引力与拖尾的粒子烟花</td></tr>
+    <tr><td>Truchet 瓦片</td><td>图案</td><td>随机四分之一圆弧瓦片</td></tr>
+  </table>
+  <h2 class="sec" style="margin-top:6mm"><span class="num">三</span>市场目录与两级加载</h2>
+  <p>市场目录（src/plugins/marketplace.ts）把每个内置插件以精选标签、流行度与分类筛选（科学、趣味、工具）的形式呈现，社区"敬请期待"条目以占位符列出。加载策略分两级：</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 170" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arM3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="20" y="60" width="110" height="44" rx="9" fill="#0e7490"/>
+        <text x="75" y="79" text-anchor="middle" fill="#ffffff" font-weight="bold">应用启动</text>
+        <text x="75" y="96" text-anchor="middle" fill="#cffafe">单一路径</text>
+        <rect x="180" y="14" width="210" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="285" y="33" text-anchor="middle" fill="#14532d" font-weight="bold">自动加载 30 个核心插件</text>
+        <text x="285" y="50" text-anchor="middle" fill="#475569">数据、仿真、三维、实验室</text>
+        <rect x="180" y="106" width="210" height="44" rx="9" fill="#fefce8" stroke="#facc15"/>
+        <text x="285" y="125" text-anchor="middle" fill="#713f12" font-weight="bold">趣味与工具保持未加载</text>
+        <text x="285" y="142" text-anchor="middle" fill="#475569">用户从面板或市场手动加载</text>
+        <rect x="450" y="60" width="210" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="555" y="79" text-anchor="middle" fill="#155e75" font-weight="bold">注册表就绪</text>
+        <text x="555" y="96" text-anchor="middle" fill="#475569">首屏保持轻量</text>
+        <line x1="130" y1="72" x2="176" y2="46" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
+        <line x1="130" y1="92" x2="176" y2="118" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
+        <line x1="390" y1="36" x2="446" y2="72" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
+        <line x1="390" y1="128" x2="446" y2="92" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 5　两级加载策略：核心自动加载，趣味手动加载</div>
+  <p>自动加载失败可重试：插件运行时把"初始化完成"作为状态机节点，失败后注册表不会进入就绪态，用户重试不会被误判为重复加载。</p>
+</div>
+
+<!-- P9 四、cspkg 与沙箱 -->
+<div class="page">
+  <h2 class="sec"><span class="num">四</span>第三方包（.cspkg）与沙箱</h2>
+  <p>.cspkg 包是包含 manifest.json、入口模块与资源的 ZIP 压缩包（fflate 打包）。加载时校验清单：必填字段、插件 id 格式、入口路径穿越防护与沙箱枚举。清单声明 sandbox 字段，共有两级：</p>
+  <ul>
+    <li><strong>isolated（默认）</strong>：入口代码运行在 Web Worker 内，拥有独立全局作用域，无法访问宿主页面的全局变量、DOM 与状态库；画布渲染通过转移的 OffscreenCanvas 完成，宿主与 Worker 之间只走类型化 RPC 协议（src/core/sandbox.ts 与 src/core/plugin-worker.ts）。</li>
+    <li><strong>trusted</strong>：在宿主上下文中执行，拥有完整 DOM 访问权，仅建议用于自研包。</li>
+  </ul>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arP3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="20" y="14" width="130" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="85" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">用户</text>
+        <rect x="200" y="14" width="150" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="275" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">cspkg 加载器</text>
+        <rect x="400" y="14" width="120" height="34" rx="8" fill="#fefce8" stroke="#facc15"/>
+        <text x="460" y="36" text-anchor="middle" fill="#713f12" font-weight="bold">清单校验</text>
+        <rect x="560" y="14" width="100" height="34" rx="8" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="610" y="36" text-anchor="middle" fill="#14532d" font-weight="bold">Worker 沙箱</text>
+        <line x1="85" y1="48" x2="85" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="275" y1="48" x2="275" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="460" y1="48" x2="460" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="610" y1="48" x2="610" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="89" y1="76" x2="196" y2="76" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
+        <text x="142" y="70" text-anchor="middle" fill="#334155">选择 .cspkg 文件</text>
+        <line x1="279" y1="106" x2="396" y2="106" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
+        <text x="338" y="100" text-anchor="middle" fill="#334155">解压并校验清单</text>
+        <line x1="456" y1="136" x2="281" y2="136" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
+        <text x="368" y="130" text-anchor="middle" fill="#475569">校验通过（id 格式、入口路径、沙箱枚举）</text>
+        <line x1="279" y1="166" x2="556" y2="166" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
+        <text x="418" y="160" text-anchor="middle" fill="#334155">在 Worker 内执行入口模块</text>
+        <line x1="606" y1="196" x2="281" y2="196" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
+        <text x="444" y="190" text-anchor="middle" fill="#475569">postMessage RPC 上报渲染与状态</text>
+        <line x1="279" y1="226" x2="92" y2="226" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
+        <text x="186" y="220" text-anchor="middle" fill="#475569">画布经 OffscreenCanvas 呈现</text>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 6　第三方插件的加载与通信流程</div>
+  <p><strong>已知限制（如实记录）</strong>：Worker 与页面共享同源的 IndexedDB；当 Worker 不可用时的遗留回退方案（new Function 加遮蔽全局变量）只是尽力而为的近似，并非安全边界，回退启用时界面会明确告警。包签名与第三方安装管线是市场方向的下一个里程碑。</p>
+</div>
+
+<!-- P10 五、文件路由 -->
+<div class="page">
+  <h2 class="sec"><span class="num">五</span>文件路由</h2>
+  <p>用户把任意文件拖入中央视口或插件列表时，宿主按魔数与扩展名（可选 WASM 辅助检测）识别格式并路由到匹配插件：</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arR3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="250" y="10" width="180" height="34" rx="9" fill="#0e7490"/>
+        <text x="340" y="32" text-anchor="middle" fill="#ffffff" font-weight="bold">文件拖入中央视口</text>
+        <rect x="250" y="66" width="180" height="34" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="340" y="88" text-anchor="middle" fill="#155e75">读取文件头（魔数）</text>
+        <rect x="250" y="122" width="180" height="34" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="340" y="144" text-anchor="middle" fill="#155e75">扩展名辅助匹配</text>
+        <polygon points="340,178 440,212 340,246 240,212" fill="#fefce8" stroke="#facc15"/>
+        <text x="340" y="208" text-anchor="middle" fill="#713f12">科研二进制</text>
+        <text x="340" y="226" text-anchor="middle" fill="#713f12">格式？</text>
+        <rect x="60" y="268" width="240" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="180" y="286" text-anchor="middle" fill="#14532d" font-weight="bold">科研数据调度器</text>
+        <text x="180" y="304" text-anchor="middle" fill="#475569">HDF5 · NetCDF · FITS · Zarr · Parquet</text>
+        <rect x="380" y="268" width="220" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="490" y="286" text-anchor="middle" fill="#155e75" font-weight="bold">常规格式匹配插件</text>
+        <text x="490" y="304" text-anchor="middle" fill="#475569">唯一匹配直接路由，否则弹窗让用户选</text>
+        <line x1="340" y1="44" x2="340" y2="62" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
+        <line x1="340" y1="100" x2="340" y2="118" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
+        <line x1="340" y1="156" x2="340" y2="174" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
+        <line x1="290" y1="224" x2="200" y2="264" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
+        <text x="222" y="240" text-anchor="middle" fill="#475569">是</text>
+        <line x1="392" y1="224" x2="478" y2="264" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
+        <text x="460" y="240" text-anchor="middle" fill="#475569">否</text>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 7　文件路由：魔数识别、科研调度与插件匹配</div>
+  <p>路由的末端是"示例对话框"：每个核心插件都附带示例数据集，在"示例"对话框中一键加载即可看到真实可视化；示例资产经 exampleAssets 与 examples 模块统一发现与加载。用户不需要先去找数据再学插件——先看效果、再换自己的数据，是产品设计上刻意保留的顺序。</p>
+  <div class="callout">
+    科研二进制格式的解析细节（HDF5、NetCDF、FITS、Zarr、Parquet）在第六篇"科学计算子系统"中展开；
+    GPU 计算面（createBuffer、compileKernel 等）在第五篇"GPU 计算与原生核心"中展开。
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Ergalics Studio 技术文档 · 系统架构</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: var(--body); font-size: 10.5pt; line-height: 1.8;
+  }
+  @page { size: A4; margin: 0; }
+  .page {
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  body { counter-reset: pn 0; }
+  .page { counter-increment: pn; }
+  .page::after {
+    content: counter(pn, decimal-leading-zero);
+    position: absolute; left: 70mm; right: 70mm; bottom: 7mm;
+    text-align: center; border-top: 1px solid var(--line); padding-top: 2mm;
+    font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
+  }
+  .cover::after { content: none; }
+  .cover { padding: 0; }
+  .cover-panel {
+    height: 100%; border-radius: 0;
+    background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
+    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    display: flex; flex-direction: column;
+  }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
+  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-modes { margin-top: auto; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
+  .mode-chips { display: flex; gap: 4mm; }
+  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
+  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
+  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
+  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
+  .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
+  .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
+  .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
+  .toc-item .tp { color: var(--accent-deep); }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
+  h3 .hn { color: var(--accent); margin-right: 6px; }
+  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  p { margin: 3mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  li { margin: 2mm 0; }
+  strong { color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
+  th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
+  figure { margin: 4mm 0; text-align: center; }
+  figure img { max-width: 88%; max-height: 62mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  figcaption b { color: var(--accent-deep); font-weight: bold; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
+  .tiles { display: flex; gap: 4mm; margin: 5mm 0; }
+  .tile { flex: 1; background: linear-gradient(180deg, #ffffff, #f0fdfa); border: 1px solid #99f6e4; border-radius: 10px; text-align: center; padding: 4.5mm 2mm; }
+  .tile .v { font-size: 19pt; font-weight: bold; color: var(--accent-deep); }
+  .tile .k { font-size: 8.8pt; color: var(--muted); margin-top: 1.5mm; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<!-- P1 封面 -->
+<div class="page cover">
+  <div class="cover-panel">
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>系统架构</h1>
+    <div class="sub">分层结构 · 启动时序 · 状态管理 · 渲染管线</div>
+    <div class="cover-rule"></div>
+    <div class="cover-abstract">
+      本篇从工程视角完整描述 Ergalics Studio 的分层结构、启动时序、状态管理、渲染管线、
+      目录约定与依赖规则：一个以 Vite 构建的 React 单页应用如何把界面、状态、核心服务、
+      插件运行时与 Rust 原生核心组织成低层从不反向依赖高层的清晰结构，
+      以及这套结构如何支撑四种工作模式与 40 个内置插件的稳定运行。
+    </div>
+    <div class="cover-modes">
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips">
+        <div class="mode-chip"><div class="t">总体分层</div><div class="d">四层结构与<br>依赖方向</div></div>
+        <div class="mode-chip"><div class="t">启动时序</div><div class="d">先自检<br>再加载<br>后恢复</div></div>
+        <div class="mode-chip"><div class="t">状态管理</div><div class="d">六个 Zustand<br>状态库</div></div>
+        <div class="mode-chip"><div class="t">渲染管线</div><div class="d">三个绘图表面<br>可见性判定</div></div>
+      </div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第二篇（共七篇）</div>
+  </div>
+</div>
+
+<!-- P2 目录 -->
+<div class="page toc">
+  <h1>目 录</h1>
+  <div class="toc-item l1"><span>一、总体分层</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l2"><span>1.1 四层结构与依赖方向</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l2"><span>1.2 各层职责与技术选型</span><span class="dots"></span><span class="tp">03</span></div>
+  <div class="toc-item l1"><span>二、启动时序</span><span class="dots"></span><span class="tp">04</span></div>
+  <div class="toc-item l1"><span>三、状态管理</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l2"><span>3.1 六个状态库的职责划分</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l2"><span>3.2 项目生命周期与持久化</span><span class="dots"></span><span class="tp">05</span></div>
+  <div class="toc-item l1"><span>四、渲染管线</span><span class="dots"></span><span class="tp">06</span></div>
+  <div class="toc-item l1"><span>五、目录结构</span><span class="dots"></span><span class="tp">07</span></div>
+  <div class="toc-item l1"><span>六、依赖规则与分包策略</span><span class="dots"></span><span class="tp">08</span></div>
+  <div class="toc-item l1"><span>七、可观测性</span><span class="dots"></span><span class="tp">08</span></div>
+  <div class="callout" style="margin-top:16mm">
+    阅读提示：本篇描述"骨架"，各能力的实现细节分散在后续各篇——插件契约见第三篇，
+    四种模式的编辑器见第四篇，计算加速见第五篇，科学计算子系统见第六篇，质量保障见第七篇。
+  </div>
+</div>
+
+<!-- P3 一、总体分层 -->
+<div class="page">
+  <h2 class="sec"><span class="num">一</span>总体分层</h2>
+  <h3><span class="hn">1.1</span>四层结构与依赖方向</h3>
+  <p>整个应用是一个由 Vite 6 构建的 React 18 单页应用，全程运行在 TypeScript 5.7 严格模式之下。自上而下分为四层：界面层、状态层、核心服务层与运行时层，依赖方向严格自上而下，低层从不反向导入高层。这一约束使每一层都可以独立理解、独立测试——统计内核不需要知道界面的存在，插件运行时也不关心某个按钮画在哪里。</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arB2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="20" y="12" width="640" height="52" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="340" y="34" text-anchor="middle" fill="#155e75" font-weight="bold">界面层（src/pages 与 src/components）</text>
+        <text x="340" y="53" text-anchor="middle" fill="#475569">欢迎页 · 工作台四区布局 · 流程画布 · 积木画布 · Monaco 代码编辑器</text>
+
+        <rect x="20" y="90" width="640" height="44" rx="9" fill="#f0f9ff" stroke="#7dd3fc"/>
+        <text x="340" y="109" text-anchor="middle" fill="#0c4a6e" font-weight="bold">状态层（src/stores · Zustand 六库）</text>
+        <text x="340" y="127" text-anchor="middle" fill="#475569">app · project · plugin · settings · block · editor</text>
+
+        <rect x="20" y="160" width="310" height="52" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="175" y="181" text-anchor="middle" fill="#14532d" font-weight="bold">核心服务层（src/core）</text>
+        <text x="175" y="200" text-anchor="middle" fill="#475569">存储 · 事件 · i18n · 文件格式 · GPU · 沙箱</text>
+        <rect x="350" y="160" width="310" height="52" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="505" y="181" text-anchor="middle" fill="#14532d" font-weight="bold">区块系统（src/blocks）</text>
+        <text x="505" y="200" text-anchor="middle" fill="#475569">编译器 · 执行器 · 37 区块目录 · 渲染桥接</text>
+
+        <rect x="20" y="238" width="310" height="52" rx="9" fill="#fefce8" stroke="#fde047"/>
+        <text x="175" y="259" text-anchor="middle" fill="#713f12" font-weight="bold">插件运行时（src/plugins）</text>
+        <text x="175" y="278" text-anchor="middle" fill="#475569">40 内置插件 · 市场目录 · cspkg · Worker 沙箱</text>
+        <rect x="350" y="238" width="310" height="52" rx="9" fill="#faf5ff" stroke="#d8b4fe"/>
+        <text x="505" y="259" text-anchor="middle" fill="#581c87" font-weight="bold">原生核心（Rust 编译为 WASM）</text>
+        <text x="505" y="278" text-anchor="middle" fill="#475569">设备管理 · 计算内核 · 缓冲区 · 类型检测</text>
+
+        <line x1="340" y1="64" x2="340" y2="86" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
+        <line x1="340" y1="134" x2="340" y2="156" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
+        <line x1="332" y1="186" x2="346" y2="186" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
+        <line x1="330" y1="212" x2="330" y2="234" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
+        <line x1="505" y1="212" x2="505" y2="234" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 1　四层结构：依赖方向自上而下，低层从不反向导入高层</div>
+  <h3><span class="hn">1.2</span>各层职责与技术选型</h3>
+  <table>
+    <tr><th style="width:16%">层</th><th style="width:52%">职责</th><th>主要技术</th></tr>
+    <tr><td><strong>界面层</strong></td><td>路由、工作台四区布局、三种模式编辑器、对话框与新手引导</td><td>React 18、react-router-dom 7</td></tr>
+    <tr><td><strong>状态层</strong></td><td>六个领域状态库与跨界面事件</td><td>Zustand 5</td></tr>
+    <tr><td><strong>核心服务层</strong></td><td>横切服务与科学计算子系统（统计、科研 I/O、绘图、可复现）</td><td>纯 TypeScript，IndexedDB、Web Workers</td></tr>
+    <tr><td><strong>运行时层</strong></td><td>插件注册与生命周期、沙箱执行、原生加速</td><td>fflate（ZIP）、lz-string（压缩）、Rust 与 wasm-bindgen 0.2</td></tr>
+  </table>
+</div>
+
+<!-- P4 二、启动时序 -->
+<div class="page">
+  <h2 class="sec"><span class="num">二</span>启动时序</h2>
+  <p>应用启动遵循"先自检、再加载、后恢复"的固定顺序。欢迎页先完成硬件自检，进入工作台后按序加载核心插件并恢复上次会话，任何一步的环境缺失都会如实报告而不是静默降级。</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arS2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="40" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="100" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">用户</text>
+        <rect x="240" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="300" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">欢迎页</text>
+        <rect x="440" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="500" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">插件运行时</text>
+        <rect x="590" y="14" width="70" height="34" rx="8" fill="#fefce8" stroke="#facc15"/>
+        <text x="625" y="36" text-anchor="middle" fill="#713f12" font-weight="bold" font-size="11">项目存储</text>
+        <line x1="100" y1="48" x2="100" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="300" y1="48" x2="300" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="500" y1="48" x2="500" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <line x1="625" y1="48" x2="625" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+
+        <line x1="104" y1="78" x2="294" y2="78" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
+        <text x="200" y="72" text-anchor="middle" fill="#334155">打开应用</text>
+        <rect x="312" y="92" width="176" height="24" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+        <text x="400" y="108" text-anchor="middle" fill="#475569">硬件自检（WebGPU · WASM · IndexedDB）</text>
+        <line x1="304" y1="140" x2="494" y2="140" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
+        <text x="400" y="134" text-anchor="middle" fill="#334155">进入工作台，加载 30 个核心插件</text>
+        <line x1="496" y1="166" x2="306" y2="166" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arS2)"/>
+        <text x="400" y="160" text-anchor="middle" fill="#475569">注册表就绪，市场目录呈现全部 40 个</text>
+        <line x1="304" y1="196" x2="620" y2="196" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
+        <text x="462" y="190" text-anchor="middle" fill="#334155">恢复上次项目或自动保存</text>
+        <line x1="621" y1="224" x2="106" y2="224" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arS2)"/>
+        <text x="362" y="218" text-anchor="middle" fill="#475569">工作台四区就位，等待拖入数据</text>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 2　启动时序：自检、加载、恢复三步固定顺序</div>
+  <p>欢迎页的自检结果同时决定后续行为的"档位"：WebGPU 可用则计算走 GPU 加速；WASM 模块存在则走 Rust 参考引擎；两者皆缺时，插件以 CPU 完成同样的数学。这个决定在启动时一次性做出并显示在状态栏，用户随时知道"现在是谁在算"。</p>
+  <div class="callout">
+    自检报告采取"如实告知"原则：缺什么就提示什么，给出建议（例如换用支持 WebGPU 的浏览器），但绝不假装能力存在。这是产品在环境适配上的基本立场。
+  </div>
+</div>
+
+<!-- P5 三、状态管理 -->
+<div class="page">
+  <h2 class="sec"><span class="num">三</span>状态管理</h2>
+  <h3><span class="hn">3.1</span>六个状态库的职责划分</h3>
+  <p>六个 Zustand 状态库承载全部应用状态。跨界的 UI 通信走一个小型类型化事件总线（src/core/events.ts），例如插件参数变化、宿主文件选择对话框等事件。状态库之间通过事件总线协作而非直接引用，避免环状依赖。</p>
+  <table>
+    <tr><th style="width:22%">状态库</th><th>职责</th></tr>
+    <tr><td><strong>appStore</strong></td><td>宿主状态、横幅与通知、性能指标、面板开关</td></tr>
+    <tr><td><strong>projectStore</strong></td><td>当前项目、最近列表、保存与自动保存、分享、参数持久化</td></tr>
+    <tr><td><strong>pluginStore</strong></td><td>插件注册表、加载与激活生命周期、文件分发、宿主容器、内置插件加载失败重试</td></tr>
+    <tr><td><strong>settingsStore</strong></td><td>GPU 模式、自动保存间隔、语言等偏好，语言以 i18n 模块为唯一权威源并双向订阅</td></tr>
+    <tr><td><strong>blockStore</strong></td><td>流程模式图状态、运行编排、节点输出缓存、运行取消</td></tr>
+    <tr><td><strong>editorStore</strong></td><td>积木与代码模式的会话（IR、代码文本、变量、控制台），载入时逐字段净化</td></tr>
+  </table>
+  <h3><span class="hn">3.2</span>项目生命周期与持久化</h3>
+  <p>项目生命周期覆盖创建、打开、保存、自动保存与分享五个动作。项目格式为 .clproj，内容经 lz-string 压缩后存入浏览器 IndexedDB；整个流程模式图、积木程序与代码会话都持久化进项目文件，重新打开时完整恢复，不存在"换一个模式就丢进度"的问题。</p>
+  <p>分享链接由随机 UUID 标识，载荷在解析端做大小与结构双重校验，拒绝畸形数据——分享是产品里少有的"数据离开本机"的路径，因此对载荷的防御做得格外保守：超出尺寸上限直接拒绝，结构不符逐字段丢弃，绝不会把不可信的内容直接灌进编辑器。</p>
+  <div class="callout">
+    自动保存间隔可由用户在设置中调整，保存动作落在 projectStore 一个库里，流程图、积木程序与代码会话对存储层完全透明——三个编辑器只需要把自己的会话状态交给项目状态库即可。
+  </div>
+</div>
+
+<!-- P6 四、渲染管线 -->
+<div class="page">
+  <h2 class="sec"><span class="num">四</span>渲染管线</h2>
+  <p>中央视口拥有三个绘图表面，宿主集中管理其可见性：</p>
+  <ol>
+    <li><strong>共享 2D canvas</strong>：所有 2D 插件（散点、折线、直方图、热力图、等值线、箱线、小提琴、桑基等 30 余个）画在同一个画布上，由统一的 2D 视口抽象（viewport2d）提供快照式访问，插件卸载不会撕裂画布。</li>
+    <li><strong>DOM 容器</strong>：供需要 DOM 元素的插件使用，也是沙箱插件经 OffscreenCanvas 转移后挂载画布的位置。</li>
+    <li><strong>宿主管理的 Three.js 3D 场景</strong>：只有声明了 renderToScene 能力的插件激活时才按需创建，并配套轨道控制、灯光网格与尺寸自适应。</li>
+  </ol>
+  <p>插件激活时的可见性判定流程：</p>
+  <div class="svgbox">
+    <svg viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs>
+        <marker id="arF2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
+        </marker>
+      </defs>
+      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="250" y="12" width="180" height="36" rx="9" fill="#0e7490"/>
+        <text x="340" y="35" text-anchor="middle" fill="#ffffff" font-weight="bold">插件被激活</text>
+        <polygon points="340,72 430,106 340,140 250,106" fill="#fefce8" stroke="#facc15"/>
+        <text x="340" y="102" text-anchor="middle" fill="#713f12">声明了</text>
+        <text x="340" y="120" text-anchor="middle" fill="#713f12">renderToScene 能力？</text>
+        <rect x="60" y="180" width="250" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="185" y="198" text-anchor="middle" fill="#14532d" font-weight="bold">创建或复用 Three.js 场景</text>
+        <text x="185" y="216" text-anchor="middle" fill="#475569">清除 2D 帧残留 · 轨道控制 · 相机适配</text>
+        <rect x="370" y="180" width="250" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
+        <text x="495" y="198" text-anchor="middle" fill="#155e75" font-weight="bold">立即隐藏 3D 场景</text>
+        <text x="495" y="216" text-anchor="middle" fill="#475569">2D 插件绘制到共享画布 · 参数面板绑定</text>
+        <line x1="340" y1="48" x2="340" y2="68" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
+        <line x1="292" y1="118" x2="200" y2="176" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
+        <text x="222" y="140" text-anchor="middle" fill="#475569">是</text>
+        <line x1="390" y1="118" x2="482" y2="176" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
+        <text x="458" y="140" text-anchor="middle" fill="#475569">否</text>
+      </g>
+    </svg>
+  </div>
+  <div class="svgcap">图 3　激活时的视口可见性判定</div>
+  <p>这保证 3D 坐标系永远不会渗透进 2D 视图，反之亦然。判定逻辑本身放在宿主而非插件里，插件只需要声明能力，不需要自己操心"别人的帧还在画布上"这类问题；端到端测试对两种视口的互斥有专门断言。</p>
+</div>
+
+<!-- P7 五、目录结构 -->
+<div class="page">
+  <h2 class="sec"><span class="num">五</span>目录结构</h2>
+  <p>源码目录与各篇文档的对应关系如下：</p>
+  <table>
+    <tr><th style="width:26%">位置</th><th>内容</th></tr>
+    <tr><td>src/core</td><td>核心服务单文件：storage、events、i18n、settings、perf、gpu、compute、wasm、fileFormat、scene3d、viewport2d、sandbox、plugin-worker、cspkg、dataFiles、download、logger、pluginCache、exampleAssets、examples、wgsl，以及四个子系统目录 stats、io、plot、repro</td></tr>
+    <tr><td>src/blocks</td><td>流程模式区块系统：类型、注册表、编译器、执行器、ops 与 datatable 运算、区块目录（catalog，37 个区块）、本地化、渲染桥接（render.ts）</td></tr>
+    <tr><td>src/editor</td><td>积木与代码模式：ir（types、validate、hash、serialize）、flow 与 block 的互转、block（Blockly 引擎、积木定义、工具箱、主题、示例）、code（解析与示例）、codegen（JS、Python、R 三个生成器）、runtime（解释器与 Studio API）</td></tr>
+    <tr><td>src/components</td><td>流程模式画布组件与积木、代码模式的编辑器面板组件、反馈与错误边界</td></tr>
+    <tr><td>src/pages</td><td>欢迎、工作台、设置、分享页与各类对话框</td></tr>
+    <tr><td>src/plugins</td><td>内置插件（builtin，40 个）与市场目录（marketplace.ts）</td></tr>
+    <tr><td>src/stores</td><td>Zustand 状态库（六个）</td></tr>
+    <tr><td>src/types</td><td>插件、项目与编辑器契约类型</td></tr>
+    <tr><td>src/native</td><td>构建生成的 WASM 绑定（不入库）</td></tr>
+    <tr><td>native/ergalics-core</td><td>Rust 原生核心（device、buffer、compute、utils）</td></tr>
+    <tr><td>examples</td><td>示例数据（data）、示例项目（projects，11 个 .clproj）、代码模式 Python 示例（code，9 个程序）</td></tr>
+    <tr><td>scripts</td><td>WASM 构建、示例数据生成与 10 套端到端测试脚本</td></tr>
+    <tr><td>tests</td><td>Vitest 单元测试（46 个文件、417 个用例）</td></tr>
+    <tr><td>docs</td><td>VitePress 文档站与本技术文档目录（technical）</td></tr>
+  </table>
+</div>
+
+<!-- P8 六、七 -->
+<div class="page">
+  <h2 class="sec"><span class="num">六</span>依赖规则与分包策略</h2>
+  <ul>
+    <li><strong>依赖方向单向</strong>：界面层依赖状态层，状态层依赖核心服务层，核心服务层绝不导入界面层。</li>
+    <li><strong>核心服务保持"少 DOM"</strong>：纯函数服务（i18n、文件格式、统计、绘图、存储适配器）全部可在 Node 环境单元测试。</li>
+    <li><strong>契约收口</strong>：插件契约（src/types/plugin.ts）是宿主与第三方代码之间唯一的共享词汇表；渲染桥接（src/blocks/render.ts）是区块系统唯一带副作用的模块，负责把可视化输出送进插件渲染器，使编译器与执行器保持可测。</li>
+    <li><strong>重依赖全部懒加载分包</strong>：Blockly（约 828 KB）在首次进入积木模式时才拉取，TensorFlow.js 在首次点击训练时才拉取，Pyodide 运行时在首次运行 Python 时才引导；标准与流程模式的首屏不受影响。</li>
+    <li><strong>错误隔离</strong>：错误边界按区域隔离（顶栏、状态栏独立包裹），边界重置通过递增 key 实现有界重试，避免错误死循环。</li>
+  </ul>
+  <div class="callout">
+    懒加载的分包边界与依赖规则是同一枚硬币的两面：正因为重依赖只被少数模式引用，才可能把它们安全地推迟到首次使用时再下载；反过来，若某层偷偷反向依赖了重依赖，分包优化会立即失效。构建产物体积因此在持续集成中被间接守护。
+  </div>
+  <h2 class="sec" style="margin-top:8mm"><span class="num">七</span>可观测性</h2>
+  <ul>
+    <li><strong>性能监控</strong>（perf）：帧时间与 GPU 时间聚合，超阈值时经通知系统提示用户而非静默卡顿。</li>
+    <li><strong>运行日志</strong>（logger 加 download）：会话事件序列可导出为文件，用于问题反馈与回归定位。</li>
+    <li><strong>状态栏</strong>：常驻显示 GPU 可用性、当前引擎与性能指标，用户随时知道"现在是谁在算"。</li>
+  </ul>
+  <p>三条可观测性通道共同构成一个原则：应用内部发生了什么，用户与开发者都应当能看到。性能问题以通知浮出，运行历史可以带走，当前引擎常驻可见——静默失败与静默降级在架构层面就被排除。</p>
+</div>
+
+</body>
+</html>
