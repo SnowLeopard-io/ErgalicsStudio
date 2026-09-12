@@ -13,8 +13,8 @@
 | [05-GPU计算与原生核心.md](05-GPU计算与原生核心.md) | Rust/WASM 原生核心、WebGPU 计算管线、WGSL 内核与 CPU 回退 |
 | [06-科学计算子系统.md](06-科学计算子系统.md) | 统计内核、科研二进制 I/O、出版级绘图引擎、可复现性内核 |
 | [07-测试与质量保障.md](07-测试与质量保障.md) | 单元测试、端到端测试与持续集成 |
-| [README.zh-CN.md](../../README.zh-CN.md) | 仓库中文自述文件的排版版（README.zh-CN.pdf） |
-| [README.md](../../README.md) | 仓库英文自述文件的排版版（README.pdf） |
+| [README.zh-CN.pdf](./README.zh-CN.pdf) | 仓库中文自述文件的排版版（README.zh-CN.pdf） |
+| [README.pdf](./README.pdf) | 仓库英文自述文件的排版版（README.pdf） |
 
 每一篇均有同名的排版 PDF 版本（如 01-产品介绍.pdf），由同名 HTML 经无头浏览器打印生成；
 Markdown 为内容源，HTML 为排版源，两者同步维护。
