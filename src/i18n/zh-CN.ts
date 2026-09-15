@@ -408,4 +408,12 @@ export const zhCN: LocaleDictionary = {
   'units.value': '数值',
   'units.unit': '单位',
   'units.invalid_unit': '无效单位',
+
+  // ---- lineage ----
+  'lineage.title': '数据血缘',
+  'lineage.empty': '暂无血缘 —— 导入数据或运行一次流水线后自动生成',
+  'lineage.legend_file': '数据文件',
+  'lineage.legend_run': '运行',
+  'lineage.files': '{files} 个文件',
+  'lineage.runs': '{runs} 次运行',
 };

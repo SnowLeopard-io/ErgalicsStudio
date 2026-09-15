@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
+import { initLineageStore } from '@/stores/lineageStore';
 
 const WelcomePage = lazy(() => import('@/pages/welcome/WelcomePage'));
 const WorkbenchPage = lazy(() => import('@/pages/workbench/WorkbenchPage'));
@@ -13,6 +14,7 @@ const ShareLinkPage = lazy(() => import('@/pages/share/ShareLinkPage'));
 
 initProjectStore();
 initExperimentStore();
+initLineageStore();
 
 function AppShell() {
   const location = useLocation();

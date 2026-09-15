@@ -2038,3 +2038,98 @@
   padding-left: var(--space-5);
   font-size: var(--font-size-sm);
 }
+
+/* ---- Research modules — data lineage dialog (design tokens only) --------- */
+
+.lineage-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lineage-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.lineage-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.lineage-legend-file::before,
+.lineage-legend-run::before,
+.lineage-legend-failed::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.lineage-legend-run::before {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-tertiary);
+}
+
+.lineage-legend-failed::before {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.lineage-legend-meta {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+}
+
+.lineage-scroll {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  padding: var(--space-3);
+}
+
+.lineage-svg {
+  display: block;
+}
+
+.lineage-edge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.2;
+}
+
+.lineage-node rect {
+  fill: var(--color-bg-tertiary);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.lineage-node text {
+  fill: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+}
+
+.lineage-node-file rect {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-accent);
+}
+
+.lineage-node-failed rect {
+  stroke: var(--color-error);
+}
+
+.lineage-node:hover rect {
+  stroke-width: 1.6;
+}
