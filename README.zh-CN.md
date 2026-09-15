@@ -39,6 +39,7 @@
 - [流程模式](#流程模式)
 - [积木模式](#积木模式)
 - [代码模式](#代码模式)
+- [科研模块](#科研模块)
 - [插件系统](#插件系统)
 - [GPU 计算与原生核心](#gpu-计算与原生核心)
 - [测试](#测试)
@@ -60,9 +61,9 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 - **积木（Block）**——类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序。对新手友好，但完全可脚本化（变量、循环、条件、变换、绘图）。
 - **代码（Code）**——基于 Pyodide Worker 运行时的 Monaco Python 编辑器，提供与积木模式相同的 `studio.*` API、REPL 控制台和变量面板。
 
-Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及搭载 Pyodide Python 运行时的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核；插件市场的包签名与 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
+Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及搭载 Pyodide Python 运行时的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核；科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）让工作台成为一个小型科研工作台。插件市场的包签名与 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持，以及基于 Pyodide 的 Python 代码编辑器；包签名与 R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、基于 Pyodide 的 Python 代码编辑器，以及科研工具集（实验记录、不确定性套件、单位系统、数据血缘、分块读取、Figure Studio、补充材料打包、Notebook）；包签名与 R 运行时为后续工作。
 
 ---
 
@@ -102,6 +103,17 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - **出版级绘图引擎**（`src/core/plot/`）——纯 TS 的 SVG 渲染器，带线性/对数/时间刻度与优雅刻度值，支持折线、散点、直方图与柱状图的 SVG 及 PDF 导出。
 - **可复现性内核**（`src/core/repro/`）——带种子的随机数（mulberry32）、稳定哈希、运行清单（种子 + 版本 + 输入哈希 + 图哈希）以及 DAG 转 Python 导出以便重跑。
 - **运行日志导出**（`src/core/logger.ts` + `download.ts`）——工作台支持导出会话日志用于问题反馈。
+
+**科研模块（纯 TS 核心 + Zustand store + 对话框）**
+
+- **实验记录**（`src/core/experiment/` + `experimentStore`）——Flow / 积木 / 代码 / Notebook 的每次运行都会记录进项目级的 IndexedDB `runs` 存储，含来源、参数、指标与耗时；实验记录对话框列出历史，并支持任意两次运行的参数并排对比。
+- **不确定性套件**（`src/core/uncertainty/`）——bootstrap 置信区间、蒙特卡洛误差传播与 Metropolis–Hastings MCMC 估计，可随时取消，经顶栏科研菜单对任意项目数据文件运行。
+- **单位系统**（`src/core/units/`）——带 SI 词头解析、量纲代数与换算检查的类型化 `Quantity` 值；以 `units.convert` / `units.check` 流程区块和 `QuantityInput` 参数控件呈现。
+- **数据血缘**（`src/core/lineage/` + `lineageStore`）——由运行记录与数据导入事件自动重建的文件→运行 DAG，分层布局并渲染为数据血缘对话框中的 SVG 画布。
+- **分块读取**（`src/core/chunked/` + `chunkStore`）——面向大型分隔符文件（CSV / TSV / DAT / XYZ / TXT）的异步行窗口读取器，支持列投影、预览抽样与内容指纹。
+- **Figure Studio（图表工作台）**（`src/core/figure/`，`/figures` 路由）——在期刊模板（IEEE / Elsevier，单栏与双栏）上组合多面板出版级图表，带自动面板标签（a、b、c…）、图注、实时 SVG 预览与 SVG / PDF / PNG-600dpi 导出。
+- **补充材料打包**（`src/core/package/`）——科研菜单中一键构建论文随附 ZIP：`manifest.json`（项目元数据 + 运行记录 + 血缘图 + 作者/许可/描述表单），可选附带数据文件与代码会话。
+- **Notebook**（`src/core/notebook/`，`/notebook` 路由）——Markdown/代码混合单元格，持久化于项目内；代码单元格运行在专用 Pyodide 运行时上（页面卸载时终止），每次 Notebook 运行都汇入实验历史。
 
 **流程模式（可视化数据流管线）**
 
@@ -249,7 +261,9 @@ cd docs && npm install && npm run dev
 │   │                         #   fileFormat, scene3d, sandbox, cspkg,
 │   │                         #   stats (统计内核), io (HDF5/NetCDF/FITS/
 │   │                         #   Zarr/Parquet), plot (SVG/PDF 引擎),
-│   │                         #   repro (可复现性), logger, …
+│   │                         #   repro (可复现性), uncertainty, units,
+│   │                         #   experiment, lineage, chunked, figure,
+│   │                         #   notebook, package (补充材料 zip), logger, …
 │   ├── blocks/               #   区块系统 (流程模式):
 │   │                         #     types · registry · compiler · executor ·
 │   │                         #     ops · catalog · sample · l10n · render
@@ -259,10 +273,12 @@ cd docs && npm install && npm run dev
 │   ├── components/blocks/    #   流程模式画布、调色板、节点、参数编辑器,
 │   │                         #     工具栏、结果预览、工作台外壳
 │   ├── components/editor/    #   积木/代码画布、变量 / 控制台面板
-│   ├── pages/                #   欢迎、工作台、设置、分享、对话框
+│   ├── pages/                #   欢迎、工作台、设置、分享、对话框,
+│   │                         #     figures (Figure Studio)、notebook
 │   ├── plugins/builtin/      #   27 核心 + 10 趣味/工具插件 (2D + 3D)
 │   ├── plugins/marketplace.ts #   市场目录 (标签/流行度/筛选)
-│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
+│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
+│   │                         #     editor/experiment/lineage/chunk/figure/notebook)
 │   ├── types/                #   插件 & 项目 & 编辑器契约
 │   └── native/               #   生成的 WASM 绑定 (git 未跟踪)
 ├── native/ergalics-core/     # Rust 核心 (device, compute, utils)
@@ -339,6 +355,25 @@ cd docs && npm install && npm run dev
 **三模式互转**——共享的 IR 是三种编辑模式的唯一中枢：`src/editor/flow/convert.ts` 负责 IR ↔ 流程 DAG 的往返（`irToFlow` / `flowToIR`），`src/editor/block/convert.ts` 负责 Blockly JSON ↔ IR 的往返（`blockJSONToIR` / `irToBlockJSON`）；`src/editor/code/parse.ts` 还能把代码模式缓冲区中的 `studio.*` 调用解析回 IR（`parseCodeToIR`，无法解析的行以原始代码节点保留）。在流程模式中编辑一条管线，切换到积木即可看到同一逻辑以 Scratch 积木呈现，再跳转到代码模式即可看到生成的 Python——全部由同一份 IR 驱动。一个专门的 `sync-threeway` 单元测试为双向往返兜底。
 
 架构详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)；R via webR 是剩余的运行时。
+
+---
+
+## 科研模块
+
+顶栏的**科研**下拉菜单——外加两个专属路由——把工作台变成科研工作台。每个模块都采用相同的分层方式：`src/core/` 下的纯 TypeScript 核心（无 React）、持久化到项目或 IndexedDB 的 Zustand store，以及其上的对话框 / 页面，全部由单元测试覆盖：
+
+| 模块 | 入口 | 功能 |
+| ------ | ----------- | ------------ |
+| 实验记录 | 科研 → 实验记录 | 自动记录每次运行（来源、参数、指标、耗时）到项目级 `runs` 存储；支持任意两次运行的参数 A/B 对比 |
+| 不确定性套件 | 科研 → 不确定性套件 | bootstrap 置信区间、蒙特卡洛误差传播、Metropolis–Hastings MCMC——可取消，可对任意项目数据文件运行 |
+| 数据血缘 | 科研 → 数据血缘 | 由运行记录 + 数据导入事件重建的分层文件→运行 DAG，渲染为 SVG 画布 |
+| Figure Studio | `/#/figures` | 在 IEEE / Elsevier 模板上组合多面板出版级图表：带实时 SVG 预览的面板编辑器、图注，以及 SVG / PDF / PNG-600dpi 导出 |
+| Notebook | `/#/notebook` | 持久化于项目内的 Markdown + Python 单元格；单元格运行于专用 Pyodide 运行时，Notebook 运行会汇入实验历史 |
+| 补充材料打包 | 科研 → 补充材料打包 | 论文随附 ZIP，含 `manifest.json`（运行记录 + 血缘 + 元数据表单）以及可选的数据文件与代码会话 |
+
+两个配套能力补齐工具集：用于量纲安全参数的**单位系统**（`units.convert` / `units.check` 流程区块 + `QuantityInput`），以及在完整解析前按行窗口流式读取大型分隔符文件、支持预览 + 指纹的**分块读取**。
+
+来自 Flow / 积木 / 代码 / Notebook 的运行记录都汇入同一份历史与同一张血缘图，因此"这张图由哪次运行、基于哪些数据产出？"始终可答——且答案可通过补充材料 ZIP 随论文一并交付。
 
 ---
 
@@ -507,7 +542,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-417 个测试分布在 46 个测试文件中：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期与近期缺陷回归、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例。
+517 个测试分布在 55 个测试文件中：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期与近期缺陷回归、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap 与蒙特卡洛传播）、单位系统、实验记录、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）与 Notebook 模型。
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
@@ -527,6 +562,7 @@ npm run test:e2e
 | `verify-code-mode`  | Monaco + Pyodide：运行 Python 程序、控制台、变量、绘图                |
 | `verify-ai-samples` | AI 训练：加载全部 4 个样本（线性 / 非线性 / 逻辑回归 / MNIST）        |
 | `verify-ai-training`| AI Trainer：激活、TF.js 训练、损失曲线、模型切换重置、决策边界、MNIST CNN 网格 |
+| `verify-research`   | 科研工具集：实验记录、血缘、Figure Studio、补充材料 zip、Notebook 单元格运行 |
 
 ---
 
@@ -566,6 +602,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 统计分析子系统——假设检验、效应量、多重比较校正、功效分析（`src/core/stats/`），以 11 个流程模式 `stats.*` 区块呈现
 - [x] 科研二进制数据导入——经单一调度器支持 HDF5 / NetCDF / FITS / Zarr / Parquet（`src/core/io/`）
 - [x] 出版级绘图引擎（SVG/PDF 导出）与可复现性内核（`src/core/plot/`、`src/core/repro/`）
+- [x] 科研工具集——带运行历史的实验记录、不确定性套件（bootstrap + 蒙特卡洛传播）、类型化单位系统、数据血缘 DAG、分块读取、Figure Studio（`/#/figures`）、补充材料打包与 Markdown/Python 混合 Notebook（`/#/notebook`）
 - [ ] 代码模式：R 运行时（webR）
 
 ---

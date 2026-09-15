@@ -153,3 +153,37 @@ coordinating reset on project open).
 lives in dedicated IndexedDB stores (`storage.ts`) and is cascade-deleted
 with the project; portable document state (notebook cells, figure sheets)
 lives on `ProjectState` and travels inside the `.clproj`.
+
+**Research data flow** (who writes which state, who hears which event):
+
+```text
+                         ┌────────────────────────────────────────────┐
+                         │                event bus                   │
+                         │  run:completed / data:ingested /           │
+                         │  lineage:changed / figure:exported /       │
+                         │  notebook:executed                         │
+                         └──────▲───────────────▲─────────────▲───────┘
+                                │               │             │
+  Flow/Block/Code/Notebook ─────┘               │             └───── figureStore
+  execution points                              │
+  (recordRun / chunkStore)                      │
+        │                                       │
+        ▼                                       │
+  IndexedDB `runs` store ──► experimentStore ───┘
+        │                       ▲
+        │ listRuns()            │ writes through
+        ▼                       │
+  lineageStore ──► LineageCanvas│
+        ▲                       │
+        │                       │
+  chunkStore ───► data:ingested │
+                                │
+        project.state (portable, inside .clproj)
+        ├── figureSheets ◄────── figureStore (write-through + dirty)
+        ├── notebook      ◄────── notebookStore (write-through + dirty)
+        └── blockGraph / editorSessions ◄── apply*() at save time
+```
+
+Every arrow into the bus is a store emitting after a state transition; every
+arrow out is a long-lived subscription registered in the store's `init*`
+function (called once from `App.tsx`).

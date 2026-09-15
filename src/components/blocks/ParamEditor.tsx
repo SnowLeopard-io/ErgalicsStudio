@@ -12,7 +12,7 @@ import { useBlockStore } from '@/stores/blockStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { blockRegistry } from '@/blocks/registry';
 import { blockName, blockParamLabel } from '@/blocks/l10n';
-import { listDataFiles } from '@/core/dataFiles';
+import { listDataFilesGrouped } from '@/core/dataFiles';
 
 function parseArray(text: string): string[] {
   return text
@@ -153,16 +153,18 @@ function ParamInput({ value, onChange }: { value: unknown; onChange: (v: unknown
 }
 
 /**
- * A dropdown of every resolvable data file (project files first, then bundled
- * examples) for the `source.file` block's fileName parameter. Subscribes to the
- * project store so the list refreshes right after importing/removing a file.
+ * A dropdown of every resolvable data file, grouped into project files
+ * (user-uploaded) and bundled examples, for the `source.file` block's
+ * fileName parameter. Subscribes to the project store so the list refreshes
+ * right after importing/removing a file.
  */
 function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {
+  const t = useT();
   // Select the (stable) files array reference, then default outside the
   // selector: `?? []` inside the selector returns a fresh array every call,
   // which zustand v5 treats as a state change → infinite re-render.
   const projectFiles = useProjectStore((s) => s.project?.data.files) ?? [];
-  const files = useMemo(() => listDataFiles(), [projectFiles]);
+  const groups = useMemo(() => listDataFilesGrouped(), [projectFiles]);
   return (
     <select
       className="input"
@@ -170,9 +172,20 @@ function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unkn
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">—</option>
-      {files.map((f) => (
-        <option key={f} value={f}>{f}</option>
-      ))}
+      {groups.project.length > 0 && (
+        <optgroup label={t('datafiles.group_project')}>
+          {groups.project.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </optgroup>
+      )}
+      {groups.examples.length > 0 && (
+        <optgroup label={t('datafiles.group_examples')}>
+          {groups.examples.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }

@@ -3,7 +3,7 @@ import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAnalysisStore } from '@/stores/analysisStore';
-import { listDataFiles, resolveDataFile } from '@/core/dataFiles';
+import { listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
 import {
@@ -37,7 +37,7 @@ export function AnalysisDialog({ open, onClose }: AnalysisDialogProps) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
 
-  const fileNames = useMemo(() => listDataFiles(), [project?.data.files]);
+  const fileGroups = useMemo(() => listDataFilesGrouped(), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [table, setTable] = useState<DataTable | null>(null);
@@ -193,16 +193,29 @@ export function AnalysisDialog({ open, onClose }: AnalysisDialogProps) {
         {/* ---- Data source ---- */}
         <div className="analysis-row">
           <label className="analysis-label">{t('analysis.data_file')}</label>
-          {fileNames.length === 0 ? (
+          {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
             <select className="input" value={file} onChange={(e) => loadFile(e.target.value)}>
               <option value="">{t('analysis.select_file')}</option>
-              {fileNames.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
+              {fileGroups.project.length > 0 && (
+                <optgroup label={t('datafiles.group_project')}>
+                  {fileGroups.project.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {fileGroups.examples.length > 0 && (
+                <optgroup label={t('datafiles.group_examples')}>
+                  {fileGroups.examples.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           )}
         </div>

@@ -16,6 +16,7 @@ import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { RunHistoryDialog } from './dialogs/RunHistoryDialog';
 import { UncertaintyDialog } from './dialogs/UncertaintyDialog';
 import { LineageDialog } from './dialogs/LineageDialog';
+import { SupplementDialog } from './dialogs/SupplementDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
 import { PerfDialog } from './PerfDialog';
@@ -43,6 +44,7 @@ export function TopBar() {
   const [runsOpen, setRunsOpen] = useState(false);
   const [uncertaintyOpen, setUncertaintyOpen] = useState(false);
   const [lineageOpen, setLineageOpen] = useState(false);
+  const [supplementOpen, setSupplementOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
@@ -127,6 +129,9 @@ export function TopBar() {
               { key: 'runs', label: t('research.runs.title'), onClick: () => setRunsOpen(true) },
               { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => setUncertaintyOpen(true) },
               { key: 'lineage', label: t('lineage.title'), onClick: () => setLineageOpen(true) },
+              { key: 'figures', label: t('figure.title'), onClick: () => navigate('/figures') },
+              { key: 'notebook', label: t('notebook.title'), onClick: () => navigate('/notebook') },
+              { key: 'supplement', label: t('supplement.title'), onClick: () => setSupplementOpen(true) },
             ]}
           />
         </div>
@@ -231,6 +236,7 @@ export function TopBar() {
       <RunHistoryDialog open={runsOpen} onClose={() => setRunsOpen(false)} />
       <UncertaintyDialog open={uncertaintyOpen} onClose={() => setUncertaintyOpen(false)} />
       <LineageDialog open={lineageOpen} onClose={() => setLineageOpen(false)} />
+      <SupplementDialog open={supplementOpen} onClose={() => setSupplementOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
       <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
       <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />

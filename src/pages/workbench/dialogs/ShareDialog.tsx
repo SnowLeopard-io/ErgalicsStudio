@@ -117,6 +117,13 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
           <CheckOption checked={options.params} label={t('share.params')} onChange={() => toggle('params')} />
           <CheckOption checked={options.scene} label={t('share.scene')} onChange={() => toggle('scene')} />
         </div>
+        {options.data && project && (
+          <p className="share-hint">
+            {project.data.files.length > 0
+              ? t('share.data_files_hint', { count: project.data.files.length })
+              : t('share.data_files_empty')}
+          </p>
+        )}
 
         <div className="share-actions">
           <button type="button" className="btn btn-primary" onClick={() => void generateLink()}>
