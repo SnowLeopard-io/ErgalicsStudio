@@ -404,4 +404,12 @@ export const enUS: LocaleDictionary = {
   'units.value': 'Value',
   'units.unit': 'Unit',
   'units.invalid_unit': 'Invalid unit',
+
+  // ---- lineage ----
+  'lineage.title': 'Data Lineage',
+  'lineage.empty': 'No lineage yet — import data or run a pipeline to build it',
+  'lineage.legend_file': 'Data file',
+  'lineage.legend_run': 'Run',
+  'lineage.files': '{files} files',
+  'lineage.runs': '{runs} runs',
 };

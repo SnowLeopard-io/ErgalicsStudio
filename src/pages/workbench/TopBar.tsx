@@ -15,6 +15,7 @@ import { AnalysisDialog } from './dialogs/AnalysisDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { RunHistoryDialog } from './dialogs/RunHistoryDialog';
 import { UncertaintyDialog } from './dialogs/UncertaintyDialog';
+import { LineageDialog } from './dialogs/LineageDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
 import { PerfDialog } from './PerfDialog';
@@ -41,6 +42,7 @@ export function TopBar() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [runsOpen, setRunsOpen] = useState(false);
   const [uncertaintyOpen, setUncertaintyOpen] = useState(false);
+  const [lineageOpen, setLineageOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
@@ -124,6 +126,7 @@ export function TopBar() {
             items={[
               { key: 'runs', label: t('research.runs.title'), onClick: () => setRunsOpen(true) },
               { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => setUncertaintyOpen(true) },
+              { key: 'lineage', label: t('lineage.title'), onClick: () => setLineageOpen(true) },
             ]}
           />
         </div>
@@ -227,6 +230,7 @@ export function TopBar() {
       <AnalysisDialog open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
       <RunHistoryDialog open={runsOpen} onClose={() => setRunsOpen(false)} />
       <UncertaintyDialog open={uncertaintyOpen} onClose={() => setUncertaintyOpen(false)} />
+      <LineageDialog open={lineageOpen} onClose={() => setLineageOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
       <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
       <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />
