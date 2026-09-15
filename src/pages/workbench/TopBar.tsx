@@ -95,10 +95,10 @@ export function TopBar() {
           ))}
         </div>
 
+        <span className="topbar-divider" aria-hidden="true" />
+
+        {/* Data: project files first (high-frequency), bundled samples second. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" data-tour="examples" onClick={() => setExampleOpen(true)}>
-            {t('workbench.example.title')}
-          </button>
           <button
             type="button"
             className="cluster-btn"
@@ -108,20 +108,75 @@ export function TopBar() {
             {t('workbench.files.data')}
             {projectFileCount > 0 && <span className="cluster-badge">{projectFileCount}</span>}
           </button>
-          <button type="button" className="cluster-btn" onClick={() => navigate('/settings')}>
-            {t('workbench.tools.settings')}
+          <button type="button" className="cluster-btn" data-tour="examples" onClick={() => setExampleOpen(true)}>
+            {t('workbench.example.title')}
           </button>
+        </div>
+
+        <span className="topbar-divider" aria-hidden="true" />
+
+        {/* Project file operations: menu + quick save/share. */}
+        <div className="topbar-cluster">
+          <Dropdown
+            ariaLabel={t('workbench.menu.project')}
+            triggerClassName="cluster-btn"
+            align="left"
+            trigger={
+              <span>
+                {t('workbench.menu.project')}
+                <span className="more-caret">▾</span>
+              </span>
+            }
+            items={[
+              { key: 'new', label: t('project.new'), onClick: () => setNewOpen(true) },
+              {
+                key: 'open',
+                label: t('project.open'),
+                onClick: () => fileInputRef.current?.click(),
+              },
+              { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
+              {
+                key: 'export_log',
+                label: t('workbench.export_log'),
+                onClick: () => {
+                  void usePluginStore
+                    .getState()
+                    .exportDiagnostics()
+                    .then((json) => {
+                      downloadBlob(
+                        `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+                        json,
+                        'application/json',
+                      );
+                      notify('success', t('workbench.export_log_done'));
+                    })
+                    .catch(() => notify('error', t('workbench.export_log')));
+                },
+              },
+            ]}
+          />
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
           </button>
           <button type="button" className="cluster-btn" onClick={() => setShareOpen(true)}>
             {t('workbench.share')}
           </button>
+        </div>
+
+        <span className="topbar-divider" aria-hidden="true" />
+
+        {/* Research & analysis toolset. */}
+        <div className="topbar-cluster">
           <button type="button" className="cluster-btn" onClick={() => setAnalysisOpen(true)}>
             {t('workbench.analyze')}
           </button>
           <Dropdown
-            trigger={t('research.menu')}
+            trigger={
+              <span>
+                {t('research.menu')}
+                <span className="more-caret">▾</span>
+              </span>
+            }
             triggerClassName="cluster-btn"
             ariaLabel={t('research.menu')}
             align="left"
@@ -136,7 +191,18 @@ export function TopBar() {
           />
         </div>
 
+        <span className="topbar-divider" aria-hidden="true" />
+
         <div className="topbar-cluster cluster-icons">
+          <button
+            type="button"
+            className="cluster-btn"
+            title={t('workbench.tools.settings')}
+            aria-label={t('workbench.tools.settings')}
+            onClick={() => navigate('/settings')}
+          >
+            ⚙
+          </button>
           <button
             type="button"
             className="cluster-btn"
@@ -159,43 +225,6 @@ export function TopBar() {
           <ThemeSwitcher />
         </div>
 
-        <Dropdown
-          ariaLabel={t('common.more')}
-          triggerClassName="btn cluster-btn"
-          trigger={
-            <span>
-              {t('common.more')}
-              <span className="more-caret">▾</span>
-            </span>
-          }
-          items={[
-            { key: 'new', label: t('project.new'), onClick: () => setNewOpen(true) },
-            {
-              key: 'open',
-              label: t('project.open'),
-              onClick: () => fileInputRef.current?.click(),
-            },
-            { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
-            {
-              key: 'export_log',
-              label: t('workbench.export_log'),
-              onClick: () => {
-                void usePluginStore
-                  .getState()
-                  .exportDiagnostics()
-                  .then((json) => {
-                    downloadBlob(
-                      `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
-                      json,
-                      'application/json',
-                    );
-                    notify('success', t('workbench.export_log_done'));
-                  })
-                  .catch(() => notify('error', t('workbench.export_log')));
-              },
-            },
-          ]}
-        />
         <input
           ref={fileInputRef}
           type="file"
