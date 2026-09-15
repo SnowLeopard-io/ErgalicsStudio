@@ -25,6 +25,17 @@ import type { DataValue } from '@/types/datatable';
 
 export type NodeStatus = 'idle' | 'computing' | 'done' | 'error';
 
+/** Emitted when a Flow-mode graph run finishes (experiment tracking hook). */
+export const FLOW_RUN_FINISHED = 'flow:run:finished';
+
+export interface FlowRunFinishedPayload {
+  ok: boolean;
+  durationMs: number;
+  /** Fingerprint of the executed graph (instances + connections). */
+  graphHash: string;
+  outputs: Record<string, unknown>;
+}
+
 export type { BlockGraphState };
 
 export interface BlockStore {
@@ -200,8 +211,10 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   run: async () => {
     if (get().isRunning) return;
     const token = ++runSeq;
+    const startedAt = Date.now();
     const { instances, connections } = get();
     const graph: BlockGraph = { id: 'main', instances, connections };
+    const graphHash = JSON.stringify([instances, connections]);
     const result = compile(graph, blockRegistry);
     if (!result.ok || !result.program) {
       set({ compileDiagnostics: result.diagnostics, executionErrors: {}, nodeStatus: {}, nodeOutputs: {}, isRunning: false });
@@ -230,6 +243,12 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
       const nodeOutputs: Record<string, DataValue> = {};
       for (const [nodeId, value] of cache) nodeOutputs[nodeId] = value;
       set({ isRunning: false, nodeOutputs });
+      emit(FLOW_RUN_FINISHED, {
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        graphHash,
+        outputs: nodeOutputs,
+      } satisfies FlowRunFinishedPayload);
     } catch (err) {
       if (token !== runSeq) return; // superseded by stop() or a newer run
       const message = err instanceof Error ? err.message : String(err);
@@ -239,6 +258,12 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
       }
       // Clear stale outputs so the preview cannot show old data beside an error.
       set({ isRunning: false, executionErrors: errors, nodeOutputs: {} });
+      emit(FLOW_RUN_FINISHED, {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        graphHash,
+        outputs: {},
+      } satisfies FlowRunFinishedPayload);
     } finally {
       if (activeExecutor === executor) activeExecutor = null;
     }

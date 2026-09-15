@@ -13,6 +13,7 @@ import { Modal } from '@/components/Modal';
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useChunkStore } from '@/stores/chunkStore';
 import { logger } from '@/core/logger';
 
 interface ProjectFilesDialogProps {
@@ -52,6 +53,14 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
   const activeId = usePluginStore((s) => s.activeId);
   const registry = usePluginStore((s) => s.registry);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chunkState = useChunkStore((s) => s.state);
+  const canChunk = useChunkStore((s) => s.canChunk);
+  const startIngest = useChunkStore((s) => s.startIngest);
+  const cancelIngest = useChunkStore((s) => s.cancel);
+  const resetChunk = useChunkStore((s) => s.reset);
+
+  const chunkPreviewRows = chunkState?.preview ? Math.min(chunkState.preview.length, 8) : 0;
+  const chunkColumns = chunkState?.preview?.columns ?? [];
 
   const activeEntry = registry.find((e) => e.id === activeId) ?? null;
   const activeName = activeEntry?.nameI18n?.[locale] ?? activeEntry?.name ?? '';
@@ -136,6 +145,16 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
                 </div>
               </div>
               <div className="project-file-actions">
+                {canChunk(f.name) && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    title={t('workbench.files.chunk_preview')}
+                    onClick={() => void startIngest(f, 1000)}
+                  >
+                    {t('workbench.files.chunk_preview')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -157,6 +176,55 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
             </li>
           ))}
         </ul>
+
+        {chunkState && (
+          <div className="chunk-panel">
+            <div className="chunk-panel-head">
+              <span className="chunk-panel-title">{t('workbench.files.chunk_preview')}</span>
+              <span className="chunk-panel-meta">
+                {chunkState.running
+                  ? t('workbench.files.chunk_running', { rows: chunkState.totalRows })
+                  : t('workbench.files.chunk_done', {
+                      rows: chunkState.totalRows,
+                      chunks: chunkState.chunkCount,
+                    })}
+              </span>
+              {chunkState.running ? (
+                <button type="button" className="btn btn-sm" onClick={cancelIngest}>
+                  {t('common.cancel')}
+                </button>
+              ) : (
+                <button type="button" className="btn btn-sm" onClick={resetChunk}>
+                  {t('common.close')}
+                </button>
+              )}
+            </div>
+            {chunkPreviewRows > 0 && (
+              <div className="chunk-table-wrap">
+                <table className="chunk-table">
+                  <thead>
+                    <tr>
+                      {chunkColumns.map((c) => (
+                        <th key={c.name}>{c.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: chunkPreviewRows }, (_, r) => (
+                      <tr key={r}>
+                        {chunkColumns.map((c) => {
+                          const v = (chunkState.preview!.getColumn(c.name) as Float64Array)[r];
+                          return <td key={c.name}>{Number.isNaN(v) ? '' : String(v)}</td>;
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="chunk-panel-foot">{t('workbench.files.chunk_hash', { hash: chunkState.hash })}</div>
+          </div>
+        )}
       </div>
 
       <input

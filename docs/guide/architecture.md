@@ -124,3 +124,66 @@ the exact API surface and the calling conventions.
   adapters) are unit-testable in a node environment.
 - The plugin contract (`src/types/plugin.ts`) is the only shared vocabulary
   between the host and third-party code.
+
+## Research module layering
+
+The research features (experiment tracking, uncertainty, units, lineage,
+chunked I/O, figure studio, supplementary bundles, notebook) all follow one
+three-layer convention — they grow **into** the existing structure:
+
+1. **Data/logic layer — `src/core/<feature>/`**: pure TypeScript, no React,
+   no store imports. May only depend on sibling core modules (`repro`,
+   `plot`, `io`, `gpu`) and `fflate`/`apache-arrow` style leaf libraries.
+   Every module ships unit tests under `tests/` mirroring the path.
+2. **Business layer — `src/stores/<feature>Store.ts`**: orchestration only —
+   calls core, persists through `projectStore` / `storage.ts`, subscribes to
+   host event channels. No UI logic, no direct DOM.
+3. **Presentation layer — `src/pages/` and `src/components/`**: consumes
+   stores exclusively; styling via the `global.css` design tokens (no
+   hard-coded colors/spacing); every user-facing string goes through i18n
+   (`zh-CN` + `en-US` in the same change).
+
+**Cross-module communication** prefers the typed host channels at the bottom
+of `src/core/events.ts` (`run:completed`, `data:ingested`, `lineage:changed`,
+`figure:exported`, `notebook:executed`) over store→store calls; direct calls
+are reserved for genuine parent/child relationships (e.g. `projectStore`
+coordinating reset on project open).
+
+**Persistence split**: bulky, per-project-but-not-portable data (run records)
+lives in dedicated IndexedDB stores (`storage.ts`) and is cascade-deleted
+with the project; portable document state (notebook cells, figure sheets)
+lives on `ProjectState` and travels inside the `.clproj`.
+
+**Research data flow** (who writes which state, who hears which event):
+
+```text
+                         ┌────────────────────────────────────────────┐
+                         │                event bus                   │
+                         │  run:completed / data:ingested /           │
+                         │  lineage:changed / figure:exported /       │
+                         │  notebook:executed                         │
+                         └──────▲───────────────▲─────────────▲───────┘
+                                │               │             │
+  Flow/Block/Code/Notebook ─────┘               │             └───── figureStore
+  execution points                              │
+  (recordRun / chunkStore)                      │
+        │                                       │
+        ▼                                       │
+  IndexedDB `runs` store ──► experimentStore ───┘
+        │                       ▲
+        │ listRuns()            │ writes through
+        ▼                       │
+  lineageStore ──► LineageCanvas│
+        ▲                       │
+        │                       │
+  chunkStore ───► data:ingested │
+                                │
+        project.state (portable, inside .clproj)
+        ├── figureSheets ◄────── figureStore (write-through + dirty)
+        ├── notebook      ◄────── notebookStore (write-through + dirty)
+        └── blockGraph / editorSessions ◄── apply*() at save time
+```
+
+Every arrow into the bus is a store emitting after a state transition; every
+arrow out is a long-lived subscription registered in the store's `init*`
+function (called once from `App.tsx`).

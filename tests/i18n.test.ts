@@ -1,6 +1,6 @@
 // i18n tests (spec §8 — 中英双语)
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setLocale, getLocale, t, LOCALES } from '@/i18n';
+import { setLocale, getLocale, t, LOCALES, dictionaries } from '@/i18n';
 
 describe('i18n', () => {
   beforeEach(() => {
@@ -38,5 +38,32 @@ describe('i18n', () => {
     setLocale('en-US');
     // key exists in zh-CN dictionary
     expect(typeof t('welcome.title')).toBe('string');
+  });
+
+  it('keeps zh-CN and en-US dictionaries in exact key parity', () => {
+    const zh = Object.keys(dictionaries['zh-CN']!).sort();
+    const en = Object.keys(dictionaries['en-US']!).sort();
+    const missingInEn = zh.filter((k) => !(k in dictionaries['en-US']!));
+    const missingInZh = en.filter((k) => !(k in dictionaries['zh-CN']!));
+    expect(missingInEn).toEqual([]);
+    expect(missingInZh).toEqual([]);
+    expect(zh).toEqual(en);
+  });
+
+  it('translates every research-module key in both locales', () => {
+    const keys = [
+      'research.menu',
+      'figure.title',
+      'figure.add_panel',
+      'supplement.title',
+      'supplement.build',
+      'notebook.title',
+      'notebook.run',
+    ];
+    setLocale('zh-CN');
+    for (const key of keys) expect(t(key)).not.toBe(key);
+    setLocale('en-US');
+    for (const key of keys) expect(t(key)).not.toBe(key);
+    setLocale('zh-CN');
   });
 });
