@@ -24,6 +24,14 @@ state, not aspirational designs.
 | Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
 | GPU compute   | `api.gpu` compute surface, WGSL templates, particles / 3-D N-body / LBM fluid / wave equation / histogram / heatmap / point-cloud kernels accelerated (CPU fallback), real-device E2E verification | ✅ Done      |
 | Statistics    | descriptive stats, special functions, t-tests / ANOVA / Mann–Whitney / chi-square, effect sizes, Bonferroni & BH corrections, power analysis; surfaced as 11 Flow-mode `stats.*` blocks | ✅ Done      |
+| Experiment tracking | per-project run records (IndexedDB `runs` store), run-history dialog with A/B parameter diff (`src/stores/experimentStore.ts`, `src/core/experiment/record.ts`) | ✅ Done      |
+| Uncertainty suite | bootstrap CI, Monte-Carlo sampling, MCMC (normal likelihood, uninformative prior) with cancellation — `src/core/uncertainty/` + UncertaintyDialog | ✅ Done      |
+| Unit system | typed `Quantity` with SI parsing, dimensional algebra + `units.convert`/`units.check` blocks + QuantityInput (`src/core/units/`) | ✅ Done      |
+| Data lineage  | file→run DAG rebuilt from run records + ingestion, layered layout (`src/core/lineage/`), LineageCanvas dialog | ✅ Done      |
+| Chunked ingestion | async row-window reader for large delimited files, preview + fingerprint (`src/core/chunked/`) | ✅ Done      |
+| Figure Studio | multi-panel publication figures on journal templates (IEEE/Elsevier), SVG/PDF/PNG-600dpi export, `/figures` route (`src/core/figure/`) | ✅ Done      |
+| Supplement packaging | paper-ready zip with manifest.json (runs + lineage + metadata form) + optional data/code (`src/core/package/supplement.ts`) | ✅ Done      |
+| Notebook      | mixed markdown/code cells in the project, dedicated Pyodide runtime, runs feed the experiment history — `/notebook` route (`src/core/notebook/`) | ✅ Done      |
 | Scientific I/O| HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`) | ✅ Done      |
 | Plot engine   | pure-TS SVG renderer with scales/ticks, SVG + PDF export (`src/core/plot/`) | ✅ Done      |
 | Reproducibility| seeded RNG, run manifests, DAG-to-Python export (`src/core/repro/`) | ✅ Done      |

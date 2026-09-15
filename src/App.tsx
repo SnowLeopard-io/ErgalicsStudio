@@ -11,6 +11,8 @@ const WorkbenchPage = lazy(() => import('@/pages/workbench/WorkbenchPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const PluginViewPage = lazy(() => import('@/pages/plugin/PluginViewPage'));
 const ShareLinkPage = lazy(() => import('@/pages/share/ShareLinkPage'));
+const FigureStudioPage = lazy(() => import('@/pages/figures/FigureStudioPage'));
+const NotebookPage = lazy(() => import('@/pages/notebook/NotebookPage'));
 
 initProjectStore();
 initExperimentStore();
@@ -30,6 +32,8 @@ function AppShell() {
           <Routes location={location}>
             <Route path="/" element={<WelcomePage />} />
             <Route path="/workbench" element={<WorkbenchPage />} />
+            <Route path="/figures" element={<FigureStudioPage />} />
+            <Route path="/notebook" element={<NotebookPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugin/:pluginId" element={<PluginViewPage />} />
             <Route path="/share/:payload" element={<ShareLinkPage />} />

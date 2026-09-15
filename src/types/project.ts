@@ -31,6 +31,23 @@ export interface ProjectState {
   activeEditorSession?: string | null;
   /** Last-used workbench mode. */
   workbenchMode?: import('./editor').WorkbenchMode;
+  /** Figure Studio sheets (publication figures). */
+  figureSheets?: FigureSheet[] | null;
+  /** Notebook (mixed markdown/code cells). */
+  notebook?: import('../core/notebook/notebook').NotebookState | null;
+}
+
+/** A multi-panel publication figure persisted in the project (Figure Studio). */
+export interface FigureSheet {
+  id: string;
+  name: string;
+  /** Journal template id (see core/figure/compose.ts JOURNAL_TEMPLATES). */
+  templateId: string;
+  /** Caption rendered beneath the panels ('\n' = forced line break). */
+  caption: string;
+  panels: import('../core/figure/compose').FigurePanel[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ProjectMetadata {
@@ -73,6 +90,8 @@ export function createEmptyProject(name: string): Project {
       editorSessions: [],
       activeEditorSession: null,
       workbenchMode: 'standard',
+      figureSheets: [],
+      notebook: null,
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -124,6 +143,8 @@ export function normalizeProject(parsed: Project): Project {
       editorSessions: Array.isArray(state.editorSessions) ? state.editorSessions : [],
       activeEditorSession: state.activeEditorSession ?? null,
       workbenchMode: state.workbenchMode ?? 'standard',
+      figureSheets: Array.isArray(state.figureSheets) ? state.figureSheets : [],
+      notebook: state.notebook ?? null,
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

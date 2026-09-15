@@ -24,4 +24,4 @@ export {
   dataTableToBar,
   type ChartOptions,
 } from './charts';
-export { exportSVG, exportPDF, downloadText } from './export';
+export { exportSVG, exportPDF, exportPNG, computeRasterSize, downloadText } from './export';

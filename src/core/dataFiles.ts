@@ -71,3 +71,29 @@ export function listDataFiles(): string[] {
   for (const key of Object.keys(bundledFiles)) names.add(basename(key));
   return Array.from(names);
 }
+
+export interface GroupedDataFiles {
+  /** User-imported project files, in insertion order. */
+  project: string[];
+  /** Bundled example datasets (names shadowed by project files excluded). */
+  examples: string[];
+}
+
+/**
+ * File names split by origin so pickers can present them in labelled groups.
+ * Project files shadow same-named examples (`resolveDataFile` prefers them),
+ * so the examples group drops duplicates to keep every entry unambiguous.
+ */
+export function listDataFilesGrouped(): GroupedDataFiles {
+  const project = Array.from(projectFiles.keys());
+  const projectSet = new Set(project);
+  const examples: string[] = [];
+  const seen = new Set<string>();
+  for (const key of Object.keys(bundledFiles)) {
+    const base = basename(key);
+    if (projectSet.has(base) || seen.has(base)) continue;
+    seen.add(base);
+    examples.push(base);
+  }
+  return { project, examples };
+}

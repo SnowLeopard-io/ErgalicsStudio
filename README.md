@@ -41,6 +41,7 @@ running in the browser with a Rust/WASM core.</p>
 - [Flow Mode](#flow-mode)
 - [Block Mode](#block-mode)
 - [Code Mode](#code-mode)
+- [Research Modules](#research-modules)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
@@ -76,7 +77,10 @@ end: the core loop (project management, data loading, plugin registry, 2D/3D
 rendering, i18n, theming, performance monitoring, the Flow mode, the Block
 mode, and the Code mode with a Pyodide Python runtime) is functional and
 covered by tests. GPU acceleration spans Particles, N-Body, the LBM fluid,
-the wave equation, histogram, heatmap and point-cloud kernels; package
+the wave equation, histogram, heatmap and point-cloud kernels; a research
+toolset (experiment tracking, uncertainty quantification, a unit system,
+data lineage, chunked ingestion, a figure studio, supplement packaging and a
+notebook) turns the workbench into a small research workbench. Package
 signing for the plugin marketplace
 and the R runtime (webR) are the next milestones. Every module is kept
 deliberately small and testable so the codebase keeps scaling without a
@@ -87,8 +91,10 @@ rewrite.
 > marketplace catalog, live GPU compute, an in-browser AI training plugin,
 > a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
-> support, and a Pyodide-powered Python code editor; package signing and
-> the R runtime are next.
+> support, a Pyodide-powered Python code editor, and a research toolset
+> (experiment tracking, uncertainty suite, unit system, data lineage,
+> chunked ingestion, Figure Studio, supplement packaging, notebook);
+> package signing and the R runtime are next.
 
 ---
 
@@ -168,6 +174,40 @@ rewrite.
   hashes + graph hash) and DAG-to-Python export for reruns.
 - **Run-log export** (`src/core/logger.ts` + `download.ts`) — session
   logs can be exported from the workbench for bug reports.
+
+**Research toolset (科研模块 — pure-TS cores + Zustand stores + dialogs)**
+
+- **Experiment tracking** (`src/core/experiment/` + `experimentStore`) —
+  every Flow / Block / Code / Notebook run is recorded into a per-project
+  IndexedDB `runs` store with source, parameters, metrics and duration; the
+  实验记录 dialog lists the history and diffs any two runs' parameters
+  side by side.
+- **Uncertainty suite** (`src/core/uncertainty/`) — bootstrap confidence
+  intervals, Monte-Carlo error propagation, and Metropolis–Hastings MCMC
+  estimation with cancellation, surfaced through the 科研 menu on any
+  project data file.
+- **Unit system** (`src/core/units/`) — typed `Quantity` values with SI
+  prefix parsing, dimensional algebra and conversion checks; surfaced as
+  `units.convert` / `units.check` Flow blocks and a `QuantityInput`
+  parameter widget.
+- **Data lineage** (`src/core/lineage/` + `lineageStore`) — a file→run DAG
+  rebuilt automatically from run records and ingestion events, laid out in
+  layers and rendered as an SVG canvas in the 数据血缘 dialog.
+- **Chunked ingestion** (`src/core/chunked/` + `chunkStore`) — an async
+  row-window reader for large delimited files (CSV / TSV / DAT / XYZ / TXT)
+  with column projection, preview sampling and content fingerprinting.
+- **Figure Studio** (`src/core/figure/`, `/figures` route) — compose
+  multi-panel publication figures on journal templates (IEEE / Elsevier,
+  single & double column) with auto panel tags (a, b, c…), captions, a live
+  SVG preview and SVG / PDF / PNG-600dpi export.
+- **Supplement packaging** (`src/core/package/`) — one click in the 科研
+  menu builds a paper-ready ZIP: `manifest.json` (project metadata + run
+  records + lineage graph + author/license/description form) plus optional
+  data files and code sessions.
+- **Notebook** (`src/core/notebook/`, `/notebook` route) — mixed
+  markdown/code cells persisted in the project; code cells run on a
+  dedicated Pyodide runtime (terminated on unmount) and every notebook run
+  feeds the experiment history.
 
 **Flow mode (visual dataflow pipeline)**
 
@@ -391,7 +431,9 @@ See [Documentation](#documentation) for details.
 │   │                         #   fileFormat, scene3d, sandbox, cspkg,
 │   │                         #   stats (statistics kernel), io (HDF5/NetCDF/
 │   │                         #   FITS/Zarr/Parquet), plot (SVG/PDF engine),
-│   │                         #   repro (reproducibility), logger, …
+│   │                         #   repro (reproducibility), uncertainty, units,
+│   │                         #   experiment, lineage, chunked, figure,
+│   │                         #   notebook, package (supplement zip), logger, …
 │   ├── blocks/               #   block system (Flow mode):
 │   │                         #     types · registry · compiler · executor ·
 │   │                         #     ops · catalog · sample · l10n · render
@@ -401,10 +443,12 @@ See [Documentation](#documentation) for details.
 │   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
 │   │                         #     toolbar, result preview, workbench shell
 │   ├── components/editor/    #   Block/Code canvases, variable / console panels
-│   ├── pages/                #   welcome, workbench, settings, share, dialogs
+│   ├── pages/                #   welcome, workbench, settings, share, dialogs,
+│   │                         #     figures (Figure Studio), notebook
 │   ├── plugins/builtin/      #   27 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
-│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/editor)
+│   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
+│   │                         #     editor/experiment/lineage/chunk/figure/notebook)
 │   ├── types/                #   plugin & project & editor contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
 ├── native/ergalics-core/     # Rust core (device, compute, utils)
@@ -545,6 +589,36 @@ jump to Code for the generated Python — all driven by one IR. A dedicated
 
 See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the
 architecture; R via webR is the remaining runtime.
+
+---
+
+## Research Modules (科研模块)
+
+The **科研** dropdown in the top bar — plus two dedicated routes — turns the
+workbench into a research workbench. Every module is layered the same way: a
+pure-TypeScript core under `src/core/` (no React), a Zustand store that
+persists into the project or IndexedDB, and a dialog / page on top, all
+covered by unit tests:
+
+| Module | Entry point | What it does |
+| ------ | ----------- | ------------ |
+| Experiment tracking | 科研 → 实验记录 | auto-records every run (source, parameters, metrics, duration) into a per-project `runs` store; A/B diff any two runs' parameters |
+| Uncertainty suite | 科研 → 不确定性套件 | bootstrap CIs, Monte-Carlo error propagation, Metropolis–Hastings MCMC — cancellable, runs against any project data file |
+| Data lineage | 科研 → 数据血缘 | layered file→run DAG rebuilt from run records + ingestion events, rendered as an SVG canvas |
+| Figure Studio | `/#/figures` | multi-panel publication figures on IEEE / Elsevier templates: panel editor with live SVG preview, captions, and SVG / PDF / PNG-600dpi export |
+| Notebook | `/#/notebook` | markdown + Python cells persisted in the project; cells run on a dedicated Pyodide runtime, and notebook runs feed the experiment history |
+| Supplement packaging | 科研 → 补充材料打包 | paper-ready ZIP with `manifest.json` (runs + lineage + metadata form) plus optional data files and code sessions |
+
+Two supporting pieces round out the toolset: a **unit system**
+(`units.convert` / `units.check` Flow blocks + `QuantityInput`) for
+dimension-safe parameters, and **chunked ingestion** that streams large
+delimited files in row windows with preview + fingerprinting before a full
+parse.
+
+Runs recorded from Flow / Block / Code / Notebook all land in the same
+history and the same lineage graph, so the question "which run produced
+this figure, from which data?" is always answerable — and the answer ships
+with the paper via the supplement ZIP.
 
 ---
 
@@ -787,7 +861,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-417 tests across 46 test files: file-format detection, scientific binary
+517 tests across 55 test files: file-format detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
 cspkg parsing/validation,
@@ -802,7 +876,10 @@ the `viz.*` → plugin render bridge, codegen (JS/Python), three-mode IR sync (b
 protocol, the structural-mechanics simulator, plugin runtime lifecycle and
 recent bugfix regressions, the publication-grade plot engine, the
 reproducibility kernel, and the pipeline samples that load via
-`import.meta.glob`.
+`import.meta.glob`, plus the research modules — the uncertainty suite
+(bootstrap and Monte-Carlo propagation), the unit system, experiment
+tracking, data lineage, chunked ingestion, figure composition, supplement
+packaging (zip round-trip) and the notebook model.
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -822,6 +899,7 @@ npm run test:e2e
 | `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
 | `verify-ai-samples`  | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
 | `verify-ai-training` | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
+| `verify-research`    | research toolset: experiment tracking, lineage, Figure Studio, supplement zip, notebook cell run |
 
 ---
 
@@ -864,6 +942,7 @@ table. Highlights:
 - [x] Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (`src/core/stats/`), surfaced as 11 Flow-mode `stats.*` blocks
 - [x] Scientific binary I/O — HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`)
 - [x] Publication-grade plot engine with SVG/PDF export and a reproducibility kernel (`src/core/plot/`, `src/core/repro/`)
+- [x] Research toolset — experiment tracking with run history, uncertainty suite (bootstrap + Monte-Carlo propagation), typed unit system, data lineage DAG, chunked ingestion, Figure Studio (`/#/figures`), supplement packaging and a mixed Markdown/Python notebook (`/#/notebook`)
 - [ ] Code mode: R runtime (webR)
 
 ---

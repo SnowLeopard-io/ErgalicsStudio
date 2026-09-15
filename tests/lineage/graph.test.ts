@@ -11,14 +11,15 @@ import type { LineageLayout } from '@/core/lineage/graph';
 import { createRunRecord } from '@/core/experiment/record';
 
 function run(id: string, inputFileIds: string[], label = `run ${id}`) {
-  return createRunRecord({
+  // createRunRecord mints its own UUID; tests override with stable ids.
+  return { ...createRunRecord({
     projectId: 'p',
     source: 'flow',
     label,
     inputFileIds,
     createdAt: 1000,
     durationMs: 1,
-  });
+  }), id };
 }
 
 function nodeOf(layout: LineageLayout, id: string) {

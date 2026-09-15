@@ -31,6 +31,57 @@ export function exportSVG(svg: string, filename = 'plot.svg'): void {
   downloadText(svg, filename, 'image/svg+xml');
 }
 
+/**
+ * Pixel dimensions an SVG rasterizes to at a given scale. Pure helper so the
+ * math is testable without a canvas implementation.
+ */
+export function computeRasterSize(
+  svg: string,
+  scale: number,
+): { width: number; height: number } {
+  const wMatch = /<svg[^>]*\bwidth="([\d.]+)"/.exec(svg);
+  const hMatch = /<svg[^>]*\bheight="([\d.]+)"/.exec(svg);
+  const w = wMatch ? Number(wMatch[1]) : 640;
+  const h = hMatch ? Number(hMatch[1]) : 420;
+  return { width: Math.max(1, Math.round(w * scale)), height: Math.max(1, Math.round(h * scale)) };
+}
+
+/**
+ * Rasterize an SVG string to PNG and download it. `scale` multiplies the
+ * SVG's pixel dimensions — 600 dpi print quality is `600/96 ≈ 6.25`.
+ * Browser-only (canvas); throws in non-DOM environments.
+ */
+export function exportPNG(svg: string, filename = 'plot.png', scale = 600 / 96): void {
+  if (typeof document === 'undefined') {
+    throw new Error('exportPNG is only available in a browser environment');
+  }
+  const { width, height } = computeRasterSize(svg, scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d context unavailable');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  const img = new Image();
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, width, height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const pngUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 0);
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
 interface Svg2PdfModule {
   svg2pdf: (
     element: SVGElement,
