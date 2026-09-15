@@ -59,6 +59,7 @@ export const enUS: LocaleDictionary = {
   'workbench.plugin.load': 'Load Plugin',
   'workbench.plugin.none': 'No loaded plugins',
   'workbench.tools.settings': 'Settings',
+  'workbench.menu.project': 'Project',
   'workbench.empty.title': 'Start using Ergalics Studio',
   'workbench.empty.subtitle': 'Choose how to start',
   'workbench.empty.load_plugin': 'Load Plugin',

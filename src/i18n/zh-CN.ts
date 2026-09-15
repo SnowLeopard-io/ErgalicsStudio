@@ -63,6 +63,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.plugin.load': '加载插件',
   'workbench.plugin.none': '暂无已加载插件',
   'workbench.tools.settings': '设置',
+  'workbench.menu.project': '项目',
   'workbench.empty.title': '开始使用 Ergalics Studio',
   'workbench.empty.subtitle': '选择以下方式开始工作',
   'workbench.empty.load_plugin': '加载插件',

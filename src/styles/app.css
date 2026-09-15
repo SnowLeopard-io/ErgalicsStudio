@@ -139,6 +139,16 @@
   color: var(--color-text-tertiary);
 }
 
+/* Vertical separator between semantic topbar groups
+   (mode · data · project · research · environment). */
+.topbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+
 /* Count badge on topbar entries (e.g. project data files). */
 .cluster-badge {
   display: inline-flex;
@@ -1928,6 +1938,10 @@
     flex-wrap: wrap;
     padding: var(--space-1) var(--space-2);
     row-gap: var(--space-1);
+  }
+  /* Group separators only add noise once the bar wraps. */
+  .topbar-divider {
+    display: none;
   }
   .sidebar {
     position: absolute;
