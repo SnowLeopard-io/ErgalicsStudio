@@ -34,6 +34,8 @@ public/blockly/
 # output and test logs. Kept locally for reuse, never committed.
 tmp/
 
+.trae/
+
 # Renamed-away stale build output awaiting manual deletion.
 dist-stale-*/
 

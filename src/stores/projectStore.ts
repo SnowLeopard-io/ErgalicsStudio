@@ -12,6 +12,7 @@ import {
   deleteProject,
   listProjects,
   getProject,
+  deleteRunsByProject,
 } from '@/core/storage';
 import { logger } from '@/core/logger';
 import { useSettingsStore } from './settingsStore';
@@ -220,6 +221,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   remove: async (id) => {
     await deleteProject(id);
+    // Cascade: run records live in their own store, not inside the project.
+    await deleteRunsByProject(id).catch(() => undefined);
     await get().loadRecent();
     if (get().project?.id === id) {
       set({ project: null, dirty: false });

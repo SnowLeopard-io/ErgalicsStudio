@@ -364,6 +364,30 @@ button {
   color: var(--color-text-secondary);
 }
 
+/* quantity input: value + unit pair (unit algebra) */
+.qty-input {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.qty-input .qty-input-value {
+  width: 110px;
+  flex: 0 1 auto;
+}
+
+.qty-input .qty-input-unit {
+  width: 92px;
+  flex: 0 1 auto;
+  font-family: var(--font-mono);
+}
+
+.qty-input-invalid .qty-input-unit {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
 /* ---- structural ---- */
 
 .card {

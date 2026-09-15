@@ -22,6 +22,8 @@ import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/store
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
+import { hashString } from '@/core/repro/random';
+import { useExperimentStore, numericMetrics } from '@/stores/experimentStore';
 import { codegenPython } from '@/editor/codegen/python';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
@@ -233,14 +235,19 @@ export function CodeEditor() {
     const runtime = runtimeRef.current;
     if (!editor || !runtime || isRunning) return;
     const code = editor.getValue();
+    const startedAt = Date.now();
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
     clearPreviewSurface(canvasRef.current, domRef.current);
+    let ok = false;
+    let outputs: Record<string, unknown> = {};
     try {
       const result = await runtime.runPython(code, collectFiles(), {});
       if (result.ok) {
+        ok = true;
+        outputs = result.outputs;
         useEditorStore.getState().setVariables(result.outputs);
       } else {
         const msg = result.error ?? 'run failed';
@@ -253,6 +260,16 @@ export function CodeEditor() {
       useEditorStore.getState().appendConsole({ stream: 'stderr', text: msg });
     } finally {
       useEditorStore.getState().setRunning(false);
+      // Experiment tracking: record every finished attempt (successes and
+      // failures alike) so the run history reflects real research practice.
+      void useExperimentStore.getState().recordRun({
+        source: 'code',
+        params: { codeChars: code.length },
+        inputsHash: hashString(code),
+        metrics: numericMetrics(outputs),
+        durationMs: Date.now() - startedAt,
+        failed: !ok,
+      });
     }
   };
 

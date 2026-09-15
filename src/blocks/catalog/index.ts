@@ -10,6 +10,7 @@ import { transformBlocks } from './transform';
 import { filterBlocks } from './filter';
 import { mathBlocks } from './math';
 import { statisticsBlocks } from './statistics';
+import { unitsBlocks } from './units';
 import { visualizeBlocks } from './visualize';
 import { plotBlocks } from './plot';
 import type { BlockDefinition } from './types';
@@ -21,6 +22,7 @@ export function registerBuiltinBlocks(registry: BlockRegistry): void {
     ...filterBlocks,
     ...mathBlocks,
     ...statisticsBlocks,
+    ...unitsBlocks,
     ...visualizeBlocks,
     ...plotBlocks,
   ];
@@ -35,6 +37,7 @@ export {
   filterBlocks,
   mathBlocks,
   statisticsBlocks,
+  unitsBlocks,
   visualizeBlocks,
   plotBlocks,
 };

@@ -1951,3 +1951,90 @@
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Research modules — run history dialog (design tokens only)
+   ========================================================================== */
+
+.runs-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.runs-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.runs-table th,
+.runs-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.runs-table th {
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.runs-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+.runs-table tr.row-selected {
+  background: var(--color-accent-soft);
+}
+
+.runs-table .delta-up {
+  color: var(--color-success);
+}
+
+.runs-table .delta-down {
+  color: var(--color-error);
+}
+
+.runs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.runs-hint {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.runs-diff {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.runs-diff h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+}
+
+.runs-diff-meta {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.runs-diff-list {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+}

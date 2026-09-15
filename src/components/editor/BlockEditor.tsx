@@ -19,6 +19,8 @@ import { createStudioApi } from '@/editor/runtime/studio-api';
 import type { StudioApiHost } from '@/editor/runtime/studio-api';
 import { interpret } from '@/editor/runtime/interpreter';
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
+import { hashString } from '@/core/repro/random';
+import { useExperimentStore, numericMetrics } from '@/stores/experimentStore';
 import { codegenJS, codegenPython } from '@/editor/codegen';
 import {
   initBlocklyEngine,
@@ -193,6 +195,7 @@ export function BlockEditor() {
     const ws = wsRef.current;
     if (!ws || isRunning) return;
     const ir = workspaceToIR(ws);
+    const startedAt = Date.now();
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
@@ -200,9 +203,13 @@ export function BlockEditor() {
     // Clear the previous run's plot so the preview is blank until the new
     // run produces output.
     clearPreviewSurface(canvasRef.current, domRef.current);
+    let ok = false;
+    let outputs: Record<string, unknown> = {};
     try {
       const result = await interpret(ir, createStudioApi(buildStudioHost()));
       if (result.ok) {
+        ok = true;
+        outputs = result.variables;
         useEditorStore.getState().setVariables(result.variables);
       } else {
         const msg = result.error?.message ?? 'run failed';
@@ -215,6 +222,14 @@ export function BlockEditor() {
       useEditorStore.getState().appendConsole({ stream: 'stderr', text: msg });
     } finally {
       useEditorStore.getState().setRunning(false);
+      void useExperimentStore.getState().recordRun({
+        source: 'block',
+        params: { nodes: ir.body.length },
+        inputsHash: hashString(JSON.stringify(ir)),
+        metrics: numericMetrics(outputs),
+        durationMs: Date.now() - startedAt,
+        failed: !ok,
+      });
     }
   };
 

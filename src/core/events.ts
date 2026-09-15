@@ -81,3 +81,49 @@ export function clearPluginChannels(pluginId: string): void {
   }
   pluginChannels.delete(pluginId);
 }
+
+// ==========================================================================
+// Host feature channels — research-module layer conventions
+// (docs/guide/architecture.md → "Research module layering").
+// Cross-module decoupling between the research features prefers these typed
+// channels over direct store→store calls.
+// ==========================================================================
+
+import type { RunRecord } from '@/core/experiment/record';
+
+/** A run finished anywhere in the app (flow / block / code / notebook). */
+export const RUN_COMPLETED = 'run:completed';
+/** A large file finished chunked ingestion (preview + fingerprint ready). */
+export const DATA_INGESTED = 'data:ingested';
+/** The lineage graph changed (new run, ingested file, removed artifact). */
+export const LINEAGE_CHANGED = 'lineage:changed';
+/** A figure sheet was exported (format recorded for provenance). */
+export const FIGURE_EXPORTED = 'figure:exported';
+/** A notebook cell finished executing. */
+export const NOTEBOOK_EXECUTED = 'notebook:executed';
+
+export interface RunCompletedPayload {
+  run: RunRecord;
+}
+
+export interface DataIngestedPayload {
+  fileId: string;
+  /** FNV-1a fingerprint (first content window + size). */
+  hash: string;
+  rows: number;
+}
+
+export interface LineageChangedPayload {
+  reason: 'run' | 'ingest' | 'artifact' | 'reset';
+}
+
+export interface FigureExportedPayload {
+  figureId: string;
+  format: 'svg' | 'pdf' | 'png';
+}
+
+export interface NotebookExecutedPayload {
+  cellId: string;
+  ok: boolean;
+  durationMs: number;
+}

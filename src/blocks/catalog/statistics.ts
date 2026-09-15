@@ -15,8 +15,11 @@ import {
 } from '@/core/stats/tests';
 import { cohensD, pearson, spearman } from '@/core/stats/effect';
 import { bonferroni, benjaminiHochberg } from '@/core/stats/correction';
-import { mean as meanOf, meanCI } from '@/core/stats/descriptive';
+import { mean as meanOf, meanCI, median as medianOf, std as stdOf } from '@/core/stats/descriptive';
 import { studentTCdf as studTCdf } from '@/core/stats/special';
+import { bootstrapCI } from '@/core/uncertainty/bootstrap';
+import { propagateError, type DistSpec } from '@/core/uncertainty/montecarlo';
+import { metropolisHastings } from '@/core/uncertainty/mcmc';
 import { dataTableInOut, defineBlock } from './types';
 import type { BlockDefinition } from './types';
 
@@ -444,6 +447,172 @@ export const correctionBlock: BlockDefinition = defineBlock(
   },
 );
 
+// ---- uncertainty suite -----------------------------------------------------
+
+/** Parse an optional seed param: blank/NaN → null (non-reproducible). */
+function seedParam(ctx: { getParam: (key: string) => unknown }): number | null {
+  const raw = ctx.getParam('seed');
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.floor(n) : null;
+}
+
+export const bootstrapBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.bootstrap',
+    category: 'statistics',
+    name: 'Bootstrap 置信区间',
+    nameI18n: { 'en-US': 'Bootstrap CI' },
+    description: '对列统计量做非参数 Bootstrap 重采样，给出百分位置信区间',
+    descriptionI18n: { 'en-US': 'Percentile bootstrap CI for a column statistic' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { column: '', stat: 'mean', iters: 2000, alpha: 0.05, seed: '' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      stat: { label: '统计量', labelI18n: { 'en-US': 'Statistic (mean/median/std)' } },
+      iters: { label: '重采样次数', labelI18n: { 'en-US': 'Resamples' } },
+      alpha: { label: '显著性水平 α', labelI18n: { 'en-US': 'Alpha' } },
+      seed: { label: '随机种子（可空）', labelI18n: { 'en-US': 'Seed (optional)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const x = Array.from(numCol(input, String(ctx.getParam('column') ?? '')));
+    const stat = String(ctx.getParam('stat') ?? 'mean').toLowerCase();
+    const statistic =
+      stat === 'median' ? medianOf : stat === 'std' ? (s: number[]) => stdOf(s) : meanOf;
+    const r = bootstrapCI(x, statistic, {
+      iters: Number(ctx.getParam('iters') ?? 2000),
+      alpha: Number(ctx.getParam('alpha') ?? 0.05),
+      seed: seedParam(ctx),
+    });
+    return resultTable('stats.bootstrap', [
+      ['estimate', r.estimate],
+      ['ci_low', r.lower],
+      ['ci_high', r.upper],
+      ['bootstrap_se', r.se],
+      ['iters', r.iters],
+      ['alpha', r.alpha],
+    ]);
+  },
+);
+
+export const monteCarloBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.montecarlo',
+    category: 'statistics',
+    name: '蒙特卡洛抽样',
+    nameI18n: { 'en-US': 'Monte-Carlo draws' },
+    description:
+      '从参数分布抽样（normal: μ,σ · uniform: low,high · lognormal: logμ,logσ · triangular: low,mode,high）',
+    descriptionI18n: {
+      'en-US':
+        'Draw from a distribution (normal: mean,sd · uniform: low,high · lognormal: logMean,logSd · triangular: low,mode,high)',
+    },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { kind: 'normal', p1: 0, p2: 1, p3: 0, n: 10000, seed: '' },
+    paramLabels: {
+      kind: { label: '分布', labelI18n: { 'en-US': 'Distribution' } },
+      p1: { label: '参数 1', labelI18n: { 'en-US': 'Param 1' } },
+      p2: { label: '参数 2', labelI18n: { 'en-US': 'Param 2' } },
+      p3: { label: '参数 3', labelI18n: { 'en-US': 'Param 3' } },
+      n: { label: '抽样数', labelI18n: { 'en-US': 'Draws' } },
+      seed: { label: '随机种子（可空）', labelI18n: { 'en-US': 'Seed (optional)' } },
+    },
+  },
+  async (ctx) => {
+    const kind = String(ctx.getParam('kind') ?? 'normal').toLowerCase();
+    const p1 = Number(ctx.getParam('p1') ?? 0);
+    const p2 = Number(ctx.getParam('p2') ?? 1);
+    const p3 = Number(ctx.getParam('p3') ?? 0);
+    const spec: DistSpec =
+      kind === 'uniform'
+        ? { kind: 'uniform', low: p1, high: p2 }
+        : kind === 'lognormal'
+          ? { kind: 'lognormal', logMean: p1, logSd: p2 }
+          : kind === 'triangular'
+            ? { kind: 'triangular', low: p1, mode: p2, high: p3 }
+            : { kind: 'normal', mean: p1, sd: p2 };
+    const n = Number(ctx.getParam('n') ?? 10000);
+    const { samples } = propagateError((xs) => xs[0]!, [spec], n, { seed: seedParam(ctx) });
+    return createDataTable(
+      'stats.montecarlo',
+      [{ name: 'x', type: 'f64', data: samples }],
+      { provenance: 'stats.montecarlo' },
+    );
+  },
+);
+
+export const mcmcBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.mcmc',
+    category: 'statistics',
+    name: 'MCMC 贝叶斯估计',
+    nameI18n: { 'en-US': 'Bayesian MCMC' },
+    description: '正态似然 + 无信息先验，Metropolis 采样 μ 与 σ 的后验',
+    descriptionI18n: {
+      'en-US': 'Normal likelihood, flat priors — Metropolis posterior over μ and σ',
+    },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { column: '', iters: 10000, burnIn: 5000, seed: '' },
+    paramLabels: {
+      column: { label: '列', labelI18n: { 'en-US': 'Column' } },
+      iters: { label: '迭代数', labelI18n: { 'en-US': 'Iterations' } },
+      burnIn: { label: '预热期', labelI18n: { 'en-US': 'Burn-in' } },
+      seed: { label: '随机种子（可空）', labelI18n: { 'en-US': 'Seed (optional)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const y = Array.from(numCol(input, String(ctx.getParam('column') ?? '')));
+    if (y.length < 2) throw new Error('MCMC estimation needs at least two observations');
+    const n = y.length;
+    const sum = y.reduce((s, v) => s + v, 0);
+    const yBar = sum / n;
+    const sd = stdOf(y);
+    // theta = [mu, logSigma]; normal likelihood, flat priors on mu and
+    // logSigma (constants dropped). σ enters in log space so the proposal
+    // never leaves the support.
+    const logPost = (theta: number[]): number => {
+      const mu = theta[0]!;
+      const logSigma = theta[1]!;
+      if (!Number.isFinite(mu) || !Number.isFinite(logSigma)) return -Infinity;
+      const inv2s2 = Math.exp(-2 * logSigma);
+      if (!Number.isFinite(inv2s2)) return -Infinity;
+      let ss = 0;
+      for (const v of y) {
+        const d = v - mu;
+        ss += d * d;
+      }
+      return -n * logSigma - ss * inv2s2 * 0.5;
+    };
+    const r = await metropolisHastings(logPost, [yBar, Math.log(Math.max(sd, 1e-12))], {
+      iters: Number(ctx.getParam('iters') ?? 10000),
+      burnIn: Number(ctx.getParam('burnIn') ?? 5000),
+      seed: seedParam(ctx),
+      // Optimal 1-D random-walk step ≈ 2.4 × posterior sd ≈ 2.4 × se(mu);
+      // logSigma is O(1/√(2n)) wide, so scale it similarly.
+      stepSizes: [Math.max(2.4 * sd, 1e-9) / Math.sqrt(n), Math.max(0.8 / Math.sqrt(2 * n), 0.01)],
+    });
+    const muDraws = Array.from(r.samples[0]!);
+    const sigmaDraws = Array.from(r.samples[1]!).map((v) => Math.exp(v));
+    const q = (arr: number[], p: number) => [...arr].sort((a, b) => a - b)[Math.floor(p * arr.length)]!;
+    return resultTable('stats.mcmc', [
+      ['mu_posterior_mean', meanOf(muDraws)],
+      ['mu_ci_low', q(muDraws, 0.025)],
+      ['mu_ci_high', q(muDraws, 0.975)],
+      ['sigma_posterior_mean', meanOf(sigmaDraws)],
+      ['sigma_median', q(sigmaDraws, 0.5)],
+      ['acceptance_rate', r.acceptanceRate],
+      ['iters', r.iters],
+      ['burn_in', r.burnIn],
+    ]);
+  },
+);
+
 export const statisticsBlocks: BlockDefinition[] = [
   summaryBlock,
   histogramBlock,
@@ -456,4 +625,7 @@ export const statisticsBlocks: BlockDefinition[] = [
   correlationBlock,
   cohensDBlock,
   correctionBlock,
+  bootstrapBlock,
+  monteCarloBlock,
+  mcmcBlock,
 ];
