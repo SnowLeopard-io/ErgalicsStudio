@@ -1,9 +1,11 @@
 import type { Project } from '@/types/project';
+import type { RunRecord } from '@/core/experiment/record';
 
 const DB_NAME = 'ergalics-studio';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_PROJECTS = 'projects';
 const STORE_PLUGINS = 'plugins';
+const STORE_RUNS = 'runs';
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -26,6 +28,13 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_PLUGINS)) {
         db.createObjectStore(STORE_PLUGINS, { keyPath: 'id' });
+      }
+      // v2: experiment-tracking run records (idempotent — v1 databases get
+      // the store on this same upgrade pass).
+      if (!db.objectStoreNames.contains(STORE_RUNS)) {
+        const runs = db.createObjectStore(STORE_RUNS, { keyPath: 'id' });
+        runs.createIndex('projectId', 'projectId');
+        runs.createIndex('createdAt', 'createdAt');
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -92,6 +101,11 @@ export async function storageAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Test hook: drop the cached connection so a suite can start from v1. */
+export function __resetDbForTests(): void {
+  dbPromise = null;
 }
 
 // ---- projects ----
@@ -170,6 +184,71 @@ export async function deletePluginPackage(id: string): Promise<void> {
   await tx(STORE_PLUGINS, 'readwrite', (s) => s.delete(id));
 }
 
+// ---- experiment run records ----
+
+export async function saveRun(run: RunRecord): Promise<void> {
+  await tx(STORE_RUNS, 'readwrite', (s) => s.put(run));
+}
+
+export async function deleteRun(id: string): Promise<void> {
+  await tx(STORE_RUNS, 'readwrite', (s) => s.delete(id));
+}
+
+/**
+ * List run records for a project, newest first. Cursor walks the `createdAt`
+ * index (no key range — keeps node-env fakes and old browsers on one path)
+ * and filters by projectId in memory.
+ */
+export async function listRuns(projectId: string, limit = 50): Promise<RunRecord[]> {
+  const db = await openDb();
+  return new Promise<RunRecord[]>((resolve, reject) => {
+    const transaction = db.transaction(STORE_RUNS, 'readonly');
+    const index = transaction.objectStore(STORE_RUNS).index('createdAt');
+    const request = index.openCursor(null, 'prev');
+    const runs: RunRecord[] = [];
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        const run = cursor.value as RunRecord;
+        if (run.projectId === projectId && runs.length < limit) {
+          runs.push(run);
+        }
+        cursor.continue();
+      } else {
+        resolve(runs);
+      }
+    };
+    request.onerror = () => reject(request.error);
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error('transaction aborted listing runs'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error('transaction failed listing runs'));
+  });
+}
+
+/** Cascade helper: remove every run record belonging to a deleted project. */
+export async function deleteRunsByProject(projectId: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_RUNS, 'readwrite');
+    const index = transaction.objectStore(STORE_RUNS).index('projectId');
+    const request = index.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        const run = cursor.value as RunRecord;
+        if (run.projectId === projectId) cursor.delete();
+        cursor.continue();
+      }
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error('transaction aborted deleting runs'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error('transaction failed deleting runs'));
+  });
+}
+
 // ---- quota / cache ----
 
 export async function storageUsage(): Promise<StorageStatus> {
@@ -189,9 +268,10 @@ export async function storageUsage(): Promise<StorageStatus> {
 export async function clearCache(): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_PROJECTS, STORE_PLUGINS], 'readwrite');
+    const transaction = db.transaction([STORE_PROJECTS, STORE_PLUGINS, STORE_RUNS], 'readwrite');
     transaction.objectStore(STORE_PROJECTS).clear();
     transaction.objectStore(STORE_PLUGINS).clear();
+    transaction.objectStore(STORE_RUNS).clear();
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });

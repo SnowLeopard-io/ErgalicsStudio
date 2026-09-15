@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { initProjectStore } from '@/stores/projectStore';
+import { initExperimentStore } from '@/stores/experimentStore';
 
 const WelcomePage = lazy(() => import('@/pages/welcome/WelcomePage'));
 const WorkbenchPage = lazy(() => import('@/pages/workbench/WorkbenchPage'));
@@ -11,6 +12,7 @@ const PluginViewPage = lazy(() => import('@/pages/plugin/PluginViewPage'));
 const ShareLinkPage = lazy(() => import('@/pages/share/ShareLinkPage'));
 
 initProjectStore();
+initExperimentStore();
 
 function AppShell() {
   const location = useLocation();

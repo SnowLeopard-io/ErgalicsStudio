@@ -13,6 +13,8 @@ import { Dropdown } from '@/components/Dropdown';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { AnalysisDialog } from './dialogs/AnalysisDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
+import { RunHistoryDialog } from './dialogs/RunHistoryDialog';
+import { UncertaintyDialog } from './dialogs/UncertaintyDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
 import { PerfDialog } from './PerfDialog';
@@ -37,6 +39,8 @@ export function TopBar() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [runsOpen, setRunsOpen] = useState(false);
+  const [uncertaintyOpen, setUncertaintyOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
@@ -112,6 +116,16 @@ export function TopBar() {
           <button type="button" className="cluster-btn" onClick={() => setAnalysisOpen(true)}>
             {t('workbench.analyze')}
           </button>
+          <Dropdown
+            trigger={t('research.menu')}
+            triggerClassName="cluster-btn"
+            ariaLabel={t('research.menu')}
+            align="left"
+            items={[
+              { key: 'runs', label: t('research.runs.title'), onClick: () => setRunsOpen(true) },
+              { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => setUncertaintyOpen(true) },
+            ]}
+          />
         </div>
 
         <div className="topbar-cluster cluster-icons">
@@ -211,6 +225,8 @@ export function TopBar() {
       />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
       <AnalysisDialog open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
+      <RunHistoryDialog open={runsOpen} onClose={() => setRunsOpen(false)} />
+      <UncertaintyDialog open={uncertaintyOpen} onClose={() => setUncertaintyOpen(false)} />
       <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
       <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
       <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />
