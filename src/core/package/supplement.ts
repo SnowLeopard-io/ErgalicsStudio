@@ -13,6 +13,7 @@ import type { RunRecord } from '@/core/experiment/record';
 import type { LineageGraph } from '@/core/lineage/graph';
 import { buildLineage } from '@/core/lineage/graph';
 import { listRuns } from '@/core/storage';
+import { buildLock, lockToJson } from '@/core/repro/lock';
 import { logger } from '@/core/logger';
 
 export interface SupplementMeta {
@@ -28,6 +29,8 @@ export interface SupplementOptions {
   code?: boolean;
   /** Metadata form values (author / license / description). */
   meta?: SupplementMeta;
+  /** Attach `repro.lock` capturing data/code/params/seed fingerprints (FR6.5). */
+  reproLock?: boolean;
 }
 
 export interface SupplementManifest {
@@ -47,6 +50,7 @@ export interface SupplementManifest {
   contents: {
     data: string[];
     code: string[];
+    reproLock: string | null;
   };
 }
 
@@ -93,7 +97,7 @@ export async function buildSupplement(
   const lineage = buildLineage(project.data.files, runs);
 
   const entries: Record<string, Uint8Array> = {};
-  const contents: SupplementManifest['contents'] = { data: [], code: [] };
+  const contents: SupplementManifest['contents'] = { data: [], code: [], reproLock: null };
 
   if (opts.includeData) {
     const used = new Set<string>();
@@ -117,6 +121,13 @@ export async function buildSupplement(
       contents.code.push(name);
       i += 1;
     }
+  }
+
+  if (opts.reproLock) {
+    // FR6.5: pin data/code/params/seed fingerprints alongside the materials.
+    const lock = buildLock(project, { runs });
+    entries['repro.lock'] = strToU8(lockToJson(lock));
+    contents.reproLock = 'repro.lock';
   }
 
   const manifest: SupplementManifest = {

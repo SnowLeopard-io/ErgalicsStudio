@@ -17,6 +17,7 @@ import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
 import { useFileRouting } from './useFileRouting';
+import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 
 export function CentralArea() {
   const t = useT();
@@ -281,6 +282,9 @@ export function CentralArea() {
             <button type="button" className="btn" onClick={openProjectFile}>
               {t('workbench.empty.open_project')}
             </button>
+          </div>
+          <div className="central-empty-modes">
+            <WorkbenchModeCards />
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">

@@ -213,6 +213,16 @@ export interface TableProfile {
   issues: ProfileIssue[];
 }
 
+/** A profile cached in project.state.profiles keyed by file id (FR5.6). */
+export interface SavedProfile {
+  fileKey: string;
+  /** Data fingerprint (FNV-1a); identical fingerprint opens the cache. */
+  fingerprint: string;
+  fileName: string;
+  createdAt: number;
+  profile: TableProfile;
+}
+
 export interface ProfilerOptions {
   /** Reservoir capacity for per-column and joint numeric sampling. */
   reservoir?: number;
