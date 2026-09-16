@@ -99,6 +99,8 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
+  /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
+  white-space: nowrap;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
@@ -1653,6 +1655,20 @@
   color: var(--color-text-secondary);
 }
 
+/* Lab pages (research tools promoted from dialogs): drop the modal-era
+   height cap so content flows in the page scroll. */
+.lab-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.lab-page .analysis-body {
+  max-height: none;
+  overflow: visible;
+}
+
 .share-loading {
   height: 100vh;
   display: flex;
@@ -2768,6 +2784,242 @@
   align-items: flex-end;
 }
 
+/* ---- SQL Workbench (F7) ---- */
+
+.sql-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .sql-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sql-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.sql-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.sql-status-ready {
+  color: var(--color-accent);
+}
+
+.sql-status-error {
+  color: var(--color-error);
+}
+
+.sql-side-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sql-side-note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.sql-table-list,
+.sql-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.sql-table-item {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-1);
+}
+
+.sql-table-name {
+  width: 100%;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.sql-table-name:hover {
+  color: var(--color-accent);
+}
+
+.sql-col-list {
+  margin: 2px 0 0;
+  padding: 0 0 0 12px;
+  list-style: none;
+}
+
+.sql-col-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 1px 4px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.sql-col-name:hover {
+  color: var(--color-accent);
+}
+
+.sql-col-type {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.sql-history-item {
+  padding: 3px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sql-history-item:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.sql-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sql-editor {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.sql-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sql-run-btn {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.sql-error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sql-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sql-result-meta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.sql-preview-note {
+  color: var(--color-text-tertiary);
+}
+
+.sql-result-scroll {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.sql-result-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.sql-result-table th,
+.sql-result-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sql-result-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-secondary);
+  font-weight: 600;
+  z-index: 1;
+}
+
+.sql-save-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.sql-save-name {
+  max-width: 320px;
+}
+
 .sweep-row .figures-label {
   display: flex;
   flex-direction: column;
@@ -3129,13 +3381,17 @@
 }
 
 .central-empty-modes {
-  width: min(860px, 94vw);
+  /* Cap by the parent (the central viewport), never by 94vw — vw includes
+     the sidebar/panel widths, so the grid used to spill over them. */
+  width: min(860px, 100%);
   margin-top: var(--space-2);
 }
 
 .wb-modes-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Auto-fit keeps 3 columns on wide areas and folds to 2/1 as the central
+     viewport narrows, without media queries (area width ≠ viewport width). */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
 }
 
@@ -3203,6 +3459,10 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-tertiary);
   line-height: 1.4;
+  /* Single line with ellipsis: wrapping inside a narrow card looks messy. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 900px) {
@@ -3213,11 +3473,5 @@
   .welcome-panels .welcome-hardware {
     flex: none;
     width: 100%;
-  }
-}
-
-@media (max-width: 600px) {
-  .wb-modes-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

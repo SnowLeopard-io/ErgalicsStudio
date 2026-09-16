@@ -7,6 +7,7 @@ import {
   touchProject,
 } from '@/types/project';
 import { setProjectFiles } from '@/core/dataFiles';
+import { isSupportedDataFileName } from '@/core/fileFormat';
 import {
   saveProject,
   deleteProject,
@@ -56,8 +57,9 @@ interface ProjectStore {
   applyBlockGraph: () => void;
   /** Persist editor sessions + active mode into the project before save. */
   applyEditor: () => void;
-  /** Import a data file into the current project's file list. */
-  addDataFile: (file: File) => Promise<void>;
+  /** Register a data file (text content) into the project. Resolves to the
+   *  new FileEntry id (null without a project / on unsupported format). */
+  addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
 }
@@ -293,7 +295,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addDataFile: async (file) => {
     const { project } = get();
-    if (!project) return;
+    if (!project) return null;
+    // Boundary check: data files are stored/parsed as text. Binary picks must
+    // go through the scientific import pipeline (useFileRouting), which
+    // decodes them to CSV first.
+    if (!isSupportedDataFileName(file.name)) {
+      throw new Error(`unsupported data file format: ${file.name}`);
+    }
     const content = await file.text();
     const entry: FileEntry = {
       id: crypto.randomUUID(),
@@ -307,6 +315,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);
+    return entry.id;
   },
 
   removeDataFile: (id) => {

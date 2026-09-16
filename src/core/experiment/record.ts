@@ -9,7 +9,7 @@
 // ==========================================================================
 
 /** Which workbench surface produced the run. */
-export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty';
+export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep' | 'model' | 'uncertainty' | 'sql';
 
 export interface RunRecord {
   id: string;

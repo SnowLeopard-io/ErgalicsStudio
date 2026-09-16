@@ -13,6 +13,7 @@
 // ==========================================================================
 
 import type { FileEntry } from '@/types/project';
+import { isSupportedDataFileName } from './fileFormat';
 
 const bundledFiles = import.meta.glob('../../examples/data/*', {
   query: '?raw',
@@ -79,19 +80,42 @@ export interface GroupedDataFiles {
   examples: string[];
 }
 
+// ---- Picker extension presets ----------------------------------------------
+//
+// Lab pages declare which file kinds make sense for their analysis, so the
+// pickers only offer files the module can actually interpret (e.g. the Signal
+// Lab must not offer point-cloud .xyz dumps, and a 3D viewer has no use for
+// a report .md). Without a preset every supported text data file is offered.
+
+/** Tabular / series data (signal, model fit, statistics, SQL, uncertainty). */
+export const DATA_EXTS_SERIES: readonly string[] = ['.csv', '.tsv', '.txt', '.dat', '.json'];
+/** Point-cloud / geometric data (.xyz coordinate dumps + tabular fallbacks). */
+export const DATA_EXTS_POINT: readonly string[] = ['.xyz', '.csv', '.tsv', '.txt', '.dat'];
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? '' : name.slice(dot).toLowerCase();
+}
+
 /**
  * File names split by origin so pickers can present them in labelled groups.
  * Project files shadow same-named examples (`resolveDataFile` prefers them),
  * so the examples group drops duplicates to keep every entry unambiguous.
+ * Entries outside `allow` (case-insensitive extensions; default: every
+ * supported text data file) are filtered out so pickers never offer a file
+ * the calling module cannot interpret.
  */
-export function listDataFilesGrouped(): GroupedDataFiles {
-  const project = Array.from(projectFiles.keys());
+export function listDataFilesGrouped(allow?: readonly string[]): GroupedDataFiles {
+  const ok = allow
+    ? (n: string) => allow.includes(extensionOf(n))
+    : isSupportedDataFileName;
+  const project = Array.from(projectFiles.keys()).filter(ok);
   const projectSet = new Set(project);
   const examples: string[] = [];
   const seen = new Set<string>();
   for (const key of Object.keys(bundledFiles)) {
     const base = basename(key);
-    if (projectSet.has(base) || seen.has(base)) continue;
+    if (projectSet.has(base) || seen.has(base) || !ok(base)) continue;
     seen.add(base);
     examples.push(base);
   }

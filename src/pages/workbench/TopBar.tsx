@@ -38,16 +38,16 @@ export function TopBar() {
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
-  // Welcome page mode cards navigate here with
-  // { state: { openResearchDialog: 'runs' | … } } — open that dialog and
-  // consume the flag so a refresh does not re-open it.
+  // Welcome page mode cards land here with
+  // { state: { openResearchDialog: 'runs' | … } } — kept for legacy links:
+  // lab tools are standalone pages now, so dialog-backed modes route instead.
   useEffect(() => {
-    const state = location.state as { openResearchDialog?: TopBarDialogKey } | null;
+    const state = location.state as { openResearchDialog?: string } | null;
     if (state?.openResearchDialog) {
-      setDialog(state.openResearchDialog);
+      navigate(`/${state.openResearchDialog}`);
       window.history.replaceState({}, '');
     }
-  }, [location.state]);
+  }, [location.state, navigate]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -161,9 +161,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Research & analysis toolset. */}
+        {/* Research & analysis toolset — each tool is a standalone page. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={openDialog('analysis')}>
+          <button type="button" className="cluster-btn" onClick={() => navigate('/analysis')}>
             {t('workbench.analyze')}
           </button>
           <Dropdown
@@ -177,18 +177,19 @@ export function TopBar() {
             ariaLabel={t('research.menu')}
             align="left"
             items={[
-              { key: 'runs', label: t('research.runs.title'), onClick: openDialog('runs') },
-              { key: 'uncertainty', label: t('uncertainty.title'), onClick: openDialog('uncertainty') },
-              { key: 'model-lab', label: t('model.title'), onClick: openDialog('model-lab') },
-              { key: 'profiler', label: t('profile.title'), onClick: openDialog('profiler') },
-              { key: 'reprolock', label: t('reprolock.title'), onClick: openDialog('reprolock') },
+              { key: 'runs', label: t('research.runs.title'), onClick: () => navigate('/runs') },
+              { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => navigate('/uncertainty') },
+              { key: 'model-lab', label: t('model.title'), onClick: () => navigate('/model-lab') },
+              { key: 'profiler', label: t('profile.title'), onClick: () => navigate('/profiler') },
+              { key: 'reprolock', label: t('reprolock.title'), onClick: () => navigate('/reprolock') },
               { key: 'signal', label: t('signal.title'), onClick: () => navigate('/signal') },
               { key: 'sweeps', label: t('sweep.title'), onClick: () => navigate('/sweeps') },
               { key: 'report', label: t('report.title'), onClick: () => navigate('/report') },
-              { key: 'lineage', label: t('lineage.title'), onClick: openDialog('lineage') },
+              { key: 'sql', label: t('sql.title'), onClick: () => navigate('/sql') },
+              { key: 'lineage', label: t('lineage.title'), onClick: () => navigate('/lineage') },
               { key: 'figures', label: t('figure.title'), onClick: () => navigate('/figures') },
               { key: 'notebook', label: t('notebook.title'), onClick: () => navigate('/notebook') },
-              { key: 'supplement', label: t('supplement.title'), onClick: openDialog('supplement') },
+              { key: 'supplement', label: t('supplement.title'), onClick: () => navigate('/supplement') },
             ]}
           />
         </div>

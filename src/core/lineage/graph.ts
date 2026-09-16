@@ -92,6 +92,13 @@ export function buildLineage(files: LineageFile[], runs: RunRecord[]): LineageGr
         edges.push({ from: `file:${fileId}`, to: runId });
       }
     }
+    // Outputs saved back into the project (e.g. SQL result CSV) get a
+    // run → file edge so the DAG chains sources → run → derived file.
+    for (const fileId of run.outputFileIds) {
+      if (fileIds.has(fileId)) {
+        edges.push({ from: runId, to: `file:${fileId}` });
+      }
+    }
   }
   return { nodes, edges };
 }

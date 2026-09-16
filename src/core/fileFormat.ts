@@ -40,6 +40,22 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.gif': 'gif',
 };
 
+// ---- Project data-file allowlist -----------------------------------------
+//
+// Project data files are stored as text (FileEntry.content) and parsed by
+// parseDataText, so only text formats may enter via addDataFile. Binary
+// scientific formats go through the drop pipeline (useFileRouting), which
+// decodes them into CSVs before they reach the project.
+
+const DATA_FILE_EXTENSIONS = new Set(['.csv', '.tsv', '.dat', '.xyz', '.json', '.txt', '.md']);
+
+/** Is this file name a supported (text) project data file? */
+export function isSupportedDataFileName(name: string): boolean {
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return false;
+  return DATA_FILE_EXTENSIONS.has(name.slice(dot).toLowerCase());
+}
+
 /** Detect a file's format by magic number (and WASM where available). */
 export async function detectFormatByMagic(file: File): Promise<DetectedFormat[]> {
   const results: DetectedFormat[] = [];

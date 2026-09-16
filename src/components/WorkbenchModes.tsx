@@ -1,9 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 
-/** Quick-start workbench modes. Dialog-backed ones (runs / uncertainty /
- *  model-lab) land in the workbench with a state flag that the TopBar
- *  consumes to open the matching dialog; the rest are dedicated pages. */
+/** Quick-start workbench modes. Every mode is a standalone route — lab tools
+ *  live under pages/labs, the rest are dedicated pages. */
 export type WorkbenchModeKey =
   | 'runs'
   | 'uncertainty'
@@ -20,12 +19,6 @@ export const WORKBENCH_MODES: WorkbenchModeKey[] = [
   'signal',
   'report',
 ];
-
-export function isDialogMode(
-  key: WorkbenchModeKey,
-): key is 'runs' | 'uncertainty' | 'model-lab' {
-  return key === 'runs' || key === 'uncertainty' || key === 'model-lab';
-}
 
 /** Minimal line-style SVG icons (stroke follows currentColor). */
 export function ModeIcon({ kind }: { kind: WorkbenchModeKey }) {
@@ -109,8 +102,7 @@ export function WorkbenchModeCards({ onMode }: WorkbenchModeCardsProps) {
       onMode(key);
       return;
     }
-    if (isDialogMode(key)) navigate('/workbench', { state: { openResearchDialog: key } });
-    else navigate(`/${key}`);
+    navigate(`/${key}`);
   };
   return (
     <div className="wb-modes-grid">
