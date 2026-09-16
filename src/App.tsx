@@ -26,6 +26,7 @@ const ProfilerPage = lazy(() => import('@/pages/labs/ProfilerPage'));
 const ReproLockPage = lazy(() => import('@/pages/labs/ReproLockPage'));
 const LineagePage = lazy(() => import('@/pages/labs/LineagePage'));
 const SupplementPage = lazy(() => import('@/pages/labs/SupplementPage'));
+const InferenceForgePage = lazy(() => import('@/pages/labs/InferenceForgePage'));
 
 initProjectStore();
 initExperimentStore();
@@ -59,6 +60,7 @@ function AppShell() {
             <Route path="/reprolock" element={<ReproLockPage />} />
             <Route path="/lineage" element={<LineagePage />} />
             <Route path="/supplement" element={<SupplementPage />} />
+            <Route path="/inference" element={<InferenceForgePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugin/:pluginId" element={<PluginViewPage />} />
             <Route path="/share/:payload" element={<ShareLinkPage />} />
