@@ -9,7 +9,7 @@
 // ==========================================================================
 
 /** Which workbench surface produced the run. */
-export type RunSource = 'flow' | 'block' | 'code' | 'notebook';
+export type RunSource = 'flow' | 'block' | 'code' | 'notebook' | 'sweep';
 
 export interface RunRecord {
   id: string;
@@ -27,6 +27,8 @@ export interface RunRecord {
   outputsHash?: string;
   /** Artifact ids produced by the run, e.g. figure sheet ids (run → figure). */
   outputFileIds: string[];
+  /** When the run is a Sweep Studio sub-run, the parent sweep plan id. */
+  parentSweepId?: string;
   /** Scalar metrics extracted from the run (loss, p-value, R², …). */
   metrics: Record<string, number>;
   /** Reproducibility seed (null when the run is not seeded). */
@@ -47,6 +49,7 @@ export interface CreateRunRecordArgs {
   inputsHash?: string;
   outputsHash?: string;
   outputFileIds?: string[];
+  parentSweepId?: string;
   metrics?: Record<string, number>;
   seed?: number | null;
   failed?: boolean;
@@ -66,6 +69,7 @@ export function createRunRecord(args: CreateRunRecordArgs): RunRecord {
     inputsHash: args.inputsHash,
     outputsHash: args.outputsHash,
     outputFileIds: args.outputFileIds ?? [],
+    parentSweepId: args.parentSweepId,
     metrics: args.metrics ?? {},
     seed: args.seed ?? null,
     failed: args.failed ?? false,
