@@ -1,5 +1,5 @@
 // ==========================================================================
-// Ergalics Studio — supplementary-materials packaging dialog
+// Ergalics Studio — supplementary-materials packaging page
 //
 // Collects the metadata form (author / license / description) plus the
 // inclusion toggles (data files, code sessions), builds the zip via the
@@ -7,24 +7,21 @@
 // ==========================================================================
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { buildSupplement } from '@/core/package/supplement';
 import { downloadBlob } from '@/core/download';
 import { logger } from '@/core/logger';
-
-interface SupplementDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
+import { LabPageShell } from './LabPageShell';
 
 const COMMON_LICENSES = ['CC-BY-4.0', 'CC-BY-SA-4.0', 'CC0-1.0', 'MIT', 'Apache-2.0'];
 
-export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
+export default function SupplementPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
+  const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
 
   const [author, setAuthor] = useState('');
@@ -55,7 +52,7 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
       const safeName = project.name.replace(/[^\w.-]+/g, '_') || 'project';
       downloadBlob(`${safeName}-supplement.zip`, zip, 'application/zip');
       notify('success', t('supplement.done'));
-      onClose();
+      navigate('/workbench');
     } catch (err) {
       logger.error('package', 'supplement build failed', err);
       notify('error', t('supplement.failed', { reason: String(err) }));
@@ -65,27 +62,7 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={t('supplement.title')}
-      width={520}
-      footer={
-        <>
-          <button type="button" className="btn" onClick={onClose}>
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!hasProject || busy}
-            onClick={() => void handleBuild()}
-          >
-            {busy ? t('supplement.building') : t('supplement.build')}
-          </button>
-        </>
-      }
-    >
+    <LabPageShell title={t('supplement.title')}>
       <div className="supplement-form">
         <p className="supplement-intro">{t('supplement.intro')}</p>
 
@@ -164,6 +141,20 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
 
         <p className="supplement-hint">{t('supplement.hint')}</p>
       </div>
-    </Modal>
+
+      <div className="sweep-actions">
+        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
+          {t('common.cancel')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!hasProject || busy}
+          onClick={() => void handleBuild()}
+        >
+          {busy ? t('supplement.building') : t('supplement.build')}
+        </button>
+      </div>
+    </LabPageShell>
   );
 }

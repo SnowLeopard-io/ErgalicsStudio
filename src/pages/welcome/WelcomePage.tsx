@@ -71,14 +71,9 @@ export default function WelcomePage() {
     navigate('/workbench');
   };
 
-  // Mode cards jump straight into the corresponding environment: dedicated
-  // pages navigate directly, dialog-backed modes open inside the workbench.
-  const openMode = async (key: WorkbenchModeKey) => {
-    if (key === 'runs' || key === 'uncertainty' || key === 'model-lab') {
-      await initGpu(gpuBackend);
-      navigate('/workbench', { state: { openResearchDialog: key } });
-      return;
-    }
+  // Mode cards jump straight into the corresponding standalone page; lab
+  // tools initialize their own engines on mount.
+  const openMode = (key: WorkbenchModeKey) => {
     navigate(`/${key}`);
   };
 
@@ -111,7 +106,7 @@ export default function WelcomePage() {
         <div className="welcome-panels">
           <section className="welcome-modes card" aria-label={t('modes.title')}>
             <h2 className="welcome-section-title">{t('modes.title')}</h2>
-            <WorkbenchModeCards onMode={(key) => void openMode(key)} />
+            <WorkbenchModeCards onMode={openMode} />
           </section>
 
           <section className="welcome-hardware card" aria-label={t('welcome.hardware.title')}>

@@ -136,6 +136,10 @@ export default function ReportBuilderPage() {
   const [lang, setLang] = useState<ReportLang>('zh');
   const [drafts, setDrafts] = useState<SectionDraft[]>([]);
   const [html, setHtml] = useState('');
+  /** Bumped on every rebuild — the preview iframe keys on it so each new
+   *  document remounts a fresh iframe (Chromium will not reliably repaint an
+   *  existing srcdoc iframe, which left the preview blank until a reload). */
+  const [buildId, setBuildId] = useState(0);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -158,15 +162,27 @@ export default function ReportBuilderPage() {
     };
   }, [project, drafts, selectedId, name, title, subtitle, theme, lang]);
 
-  // Live preview (rebuilds on edits; core is synchronous apart from figures).
+  // Live preview: debounced rebuild on edits; the core is synchronous apart
+  // from figures, the delay only smooths fast typing.
   useEffect(() => {
     let cancelled = false;
-    if (!project || !spec) return;
-    void buildReportHtml(project, spec, { runs }).then((out) => {
-      if (!cancelled) setHtml(out);
-    });
+    if (!project || !spec) {
+      setHtml('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      void buildReportHtml(project, spec, { runs })
+        .then((out) => {
+          if (!cancelled) {
+            setHtml(out);
+            setBuildId((n) => n + 1);
+          }
+        })
+        .catch(() => undefined);
+    }, 250);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [project, spec, runs]);
 
@@ -410,7 +426,7 @@ export default function ReportBuilderPage() {
 
           <section className="report-preview-wrap">
             {html ? (
-              <iframe className="report-preview" title={t('report.preview')} srcDoc={html} sandbox="allow-scripts" />
+              <iframe key={buildId} className="report-preview" title={t('report.preview')} srcDoc={html} sandbox="allow-scripts" />
             ) : (
               <div className="empty-hint">{t('report.no_reports')}</div>
             )}

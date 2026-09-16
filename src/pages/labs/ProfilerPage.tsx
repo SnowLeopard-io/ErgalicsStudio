@@ -1,5 +1,5 @@
 // ==========================================================================
-// Ergalics Studio — Data Profiler dialog (F5 / FR5.1–FR5.8)
+// Ergalics Studio — Data Profiler page (F5 / FR5.1–FR5.8)
 //
 // Streaming profile (cancellable, progress by row) with the cache-fast-open
 // guarantee: a profile is persisted in project.state.profiles keyed by file
@@ -11,7 +11,6 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useResearchStore } from '@/stores/researchStore';
@@ -23,12 +22,8 @@ import { fingerprint } from '@/core/chunked/reader';
 import { resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
-import { groupedDataFiles, sendSpecToFigure, fmt } from '../../research/researchUi';
-
-interface ProfilerDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
+import { groupedDataFiles, sendSpecToFigure, fmt } from '../research/researchUi';
+import { LabPageShell } from './LabPageShell';
 
 interface ScanState {
   profile: TableProfile;
@@ -98,12 +93,12 @@ function profileMarkdown(file: string, p: TableProfile): string {
   return lines.join('\n');
 }
 
-export function ProfilerDialog({ open, onClose }: ProfilerDialogProps) {
+export default function ProfilerPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const saveProfile = useResearchStore((s) => s.saveProfile);
-  const groups = useMemo(() => groupedDataFiles(), [project?.data.files, open]);
+  const groups = useMemo(() => groupedDataFiles(), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -205,7 +200,7 @@ export function ProfilerDialog({ open, onClose }: ProfilerDialogProps) {
   const corr = p?.correlations ?? null;
 
   return (
-    <Modal open={open} onClose={onClose} title={t('profile.title')} width={860}>
+    <LabPageShell title={t('profile.title')}>
       <div className="analysis-body">
         <div className="analysis-row">
           <select
@@ -351,6 +346,6 @@ export function ProfilerDialog({ open, onClose }: ProfilerDialogProps) {
           </>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

@@ -15,6 +15,7 @@ import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useChunkStore } from '@/stores/chunkStore';
 import { logger } from '@/core/logger';
+import { isSupportedDataFileName } from '@/core/fileFormat';
 
 interface ProjectFilesDialogProps {
   open: boolean;
@@ -69,6 +70,12 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
     if (!files || files.length === 0) return;
     let ok = 0;
     for (const file of Array.from(files)) {
+      // Gate at the entry point: data files are parsed as text downstream, so
+      // binary picks (xlsx, parquet, …) would only fail later as "unreadable".
+      if (!isSupportedDataFileName(file.name)) {
+        notify('error', t('workbench.files.unsupported_format', { name: file.name }));
+        continue;
+      }
       try {
         await addDataFile(file);
         ok += 1;
@@ -231,7 +238,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".csv,.dat,.xyz,.json,.txt,text/csv,text/plain,application/json,application/octet-stream"
+        accept=".csv,.tsv,.dat,.xyz,.json,.txt,.md,text/csv,text/plain,application/json"
         style={{ display: 'none' }}
         onChange={(e) => {
           void handleImportFiles(e.target.files);

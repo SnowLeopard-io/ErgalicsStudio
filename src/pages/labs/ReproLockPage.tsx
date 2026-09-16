@@ -1,5 +1,5 @@
 // ==========================================================================
-// Ergalics Studio — Repro Lock dialog (F6 / FR6.1–FR6.5)
+// Ergalics Studio — Repro Lock page (F6 / FR6.1–FR6.5)
 //
 // Builds a `repro.lock` (data fingerprints, code snapshots, param hashes,
 // seeds, versions) from selected run records, verifies the current project
@@ -10,7 +10,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -27,14 +26,10 @@ import {
   type LockMetricResult,
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
-import { fmt } from '../../research/researchUi';
+import { fmt } from '../research/researchUi';
+import { LabPageShell } from './LabPageShell';
 
-interface ReproLockDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
-
-export function ReproLockDialog({ open, onClose }: ReproLockDialogProps) {
+export default function ReproLockPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
@@ -49,8 +44,8 @@ export function ReproLockDialog({ open, onClose }: ReproLockDialogProps) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
-    if (open) void loadRuns();
-  }, [open, loadRuns]);
+    void loadRuns();
+  }, [loadRuns]);
 
   // Default selection = all successful runs.
   useEffect(() => {
@@ -122,7 +117,7 @@ export function ReproLockDialog({ open, onClose }: ReproLockDialogProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t('reprolock.title')} width={840}>
+    <LabPageShell title={t('reprolock.title')}>
       <div className="analysis-body">
         <p className="analysis-note">{t('reprolock.intro')}</p>
 
@@ -268,6 +263,6 @@ export function ReproLockDialog({ open, onClose }: ReproLockDialogProps) {
           </div>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

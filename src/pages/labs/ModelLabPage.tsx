@@ -1,5 +1,5 @@
 // ==========================================================================
-// Ergalics Studio — Model Lab dialog (F4 / FR4.1–FR4.7)
+// Ergalics Studio — Model Lab page (F4 / FR4.1–FR4.7)
 //
 // Target + predictor columns → OLS / logistic / ridge (K-fold CV) /
 // univariate polynomial. Coefficient table (se/t/p/CI), model summaries,
@@ -10,7 +10,6 @@
 
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -21,14 +20,11 @@ import { logisticFit, type LogisticResult } from '@/core/model/logistic';
 import { ridgeCV, type RidgeResult } from '@/core/model/ridge';
 import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
-import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../../research/researchUi';
+import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
+import { DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { LabPageShell } from './LabPageShell';
 
 type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
-
-interface ModelLabDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
 
 const LARGE_N = 200_000;
 
@@ -87,12 +83,12 @@ function sampleRows(n: number, cap: number, seed = 20240501): number[] {
   return idx.sort((a, b) => a - b);
 }
 
-export function ModelLabDialog({ open, onClose }: ModelLabDialogProps) {
+export default function ModelLabPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => groupedDataFiles(), [project?.data.files, open]);
+  const fileGroups = useMemo(() => groupedDataFiles(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [target, setTarget] = useState('');
@@ -288,7 +284,7 @@ export function ModelLabDialog({ open, onClose }: ModelLabDialogProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t('model.title')} width={820}>
+    <LabPageShell title={t('model.title')}>
       <div className="analysis-body">
         <div className="analysis-row">
           <select className="input" value={file} onChange={(e) => selectFile(e.target.value)}>
@@ -403,6 +399,6 @@ export function ModelLabDialog({ open, onClose }: ModelLabDialogProps) {
           </>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

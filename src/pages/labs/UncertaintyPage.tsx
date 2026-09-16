@@ -1,15 +1,17 @@
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
+import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
-import { listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
+import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
 import { renderSVG, dataTableToHistogram } from '@/core/plot';
 import { createDataTable } from '@/types/datatable';
 import type { DataTable } from '@/types/datatable';
+import type { PlotSpec } from '@/core/plot';
 import type { SvgPlotPayload } from '@/core/plot/types';
+import { sendSpecToFigure } from '../research/researchUi';
 import { propagateError, type DistSpec } from '@/core/uncertainty/montecarlo';
 import {
   bootstrapEngine,
@@ -18,14 +20,16 @@ import {
   type GpuStat,
 } from '@/core/uncertainty/gpu-engine';
 import { mcmcEngine, type McmcEngineResult } from '@/core/uncertainty/gpu-mcmc';
+import { LabPageShell } from './LabPageShell';
 
 type StatKind = GpuStat;
 type DistKind = 'normal' | 'uniform' | 'lognormal' | 'triangular';
 const STAT_KINDS: StatKind[] = ['mean', 'median', 'variance', 'sd', 'correlation', 'ols-slope'];
 
-interface UncertaintyDialogProps {
-  open: boolean;
-  onClose: () => void;
+/** Histogram + reusable PlotSpec so the chart can also be sent to Figure Studio. */
+interface SampleChart {
+  spec: PlotSpec;
+  payload: SvgPlotPayload;
 }
 
 function fmt(v: number): string {
@@ -33,7 +37,7 @@ function fmt(v: number): string {
 }
 
 /** Histogram SVG of a numeric sample, styled like the analysis previews. */
-function sampleHistogram(x: ArrayLike<number>, title: string): SvgPlotPayload | null {
+function sampleHistogram(x: ArrayLike<number>, title: string): SampleChart | null {
   const finite = Array.from(x).filter(Number.isFinite);
   if (finite.length < 2) return null;
   const table = createDataTable(
@@ -42,7 +46,7 @@ function sampleHistogram(x: ArrayLike<number>, title: string): SvgPlotPayload | 
     { provenance: 'uncertainty' },
   );
   const spec = dataTableToHistogram(table, 'x', { title, bins: 30 });
-  return { svg: true, markup: renderSVG(spec), title };
+  return { spec, payload: { svg: true, markup: renderSVG(spec), title } };
 }
 
 function EnginePicker({
@@ -82,14 +86,15 @@ function EnginePicker({
 /**
  * Uncertainty suite (research menu): GPU/CPU bootstrap CIs, Monte-Carlo
  * sampling / error propagation, and multi-chain Bayesian MCMC with R-hat /
- * ESS diagnostics — one dialog per concern, sharing the data-file picker.
+ * ESS diagnostics — one section per concern, sharing the data-file picker.
  */
-export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
+export default function UncertaintyPage() {
   const t = useT();
+  const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => listDataFilesGrouped(), [project?.data.files, open]);
-  const gpuAvailable = useMemo(() => hasGpuEngine(), [open]);
+  const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
+  const gpuAvailable = useMemo(() => hasGpuEngine(), []);
 
   const [file, setFile] = useState('');
   const [table, setTable] = useState<DataTable | null>(null);
@@ -103,7 +108,7 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
   const [bsAlpha, setBsAlpha] = useState('0.05');
   const [bsSeed, setBsSeed] = useState('');
   const [bsResult, setBsResult] = useState('');
-  const [bsChart, setBsChart] = useState<SvgPlotPayload | null>(null);
+  const [bsChart, setBsChart] = useState<SampleChart | null>(null);
   const [bsProgress, setBsProgress] = useState<{ done: number; total: number } | null>(null);
   const bsAbort = useRef<AbortController | null>(null);
 
@@ -115,7 +120,7 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
   const [mcN, setMcN] = useState('10000');
   const [mcSeed, setMcSeed] = useState('');
   const [mcResult, setMcResult] = useState('');
-  const [mcChart, setMcChart] = useState<SvgPlotPayload | null>(null);
+  const [mcChart, setMcChart] = useState<SampleChart | null>(null);
 
   // ---- mcmc state ----
   const [engine, setEngine] = useState<EngineChoice>('auto');
@@ -124,7 +129,7 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
   const [mcmcBurn, setMcmcBurn] = useState('5000');
   const [mcmcSeed, setMcmcSeed] = useState('');
   const [mcmcResult, setMcmcResult] = useState('');
-  const [mcmcChart, setMcmcChart] = useState<SvgPlotPayload | null>(null);
+  const [mcmcChart, setMcmcChart] = useState<SampleChart | null>(null);
   const [mcmcEngineResult, setMcmcEngineResult] = useState<McmcEngineResult | null>(null);
   const [mcmcProgress, setMcmcProgress] = useState<{ done: number; total: number } | null>(null);
   const [mcmcRunning, setMcmcRunning] = useState(false);
@@ -359,8 +364,17 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
 
   const cancelMcmc = () => mcmcAbort.current?.abort();
 
+  /** Push a preview histogram into Figure Studio as a new panel. */
+  const sendChart = (chart: SampleChart) => {
+    if (sendSpecToFigure(t('uncertainty.title'), chart.spec, chart.payload.title)) {
+      notify('success', t('figure.sent'));
+    } else {
+      notify('error', t('figure.send_failed'));
+    }
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title={t('uncertainty.title')} width={760}>
+    <LabPageShell title={t('uncertainty.title')}>
       <div className="analysis-body">
         {/* ---- Data source (shared) ---- */}
         <div className="analysis-row">
@@ -470,7 +484,12 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
             {bsResult && <pre className="analysis-output">{bsResult}</pre>}
             {bsChart && (
               <div className="analysis-preview">
-                <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: bsChart.markup }} />
+                <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: bsChart.payload.markup }} />
+                <div className="analysis-actions">
+                  <button type="button" className="btn btn-sm" onClick={() => sendChart(bsChart)}>
+                    {t('figure.send_to')}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -531,7 +550,12 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
             {mcResult && <pre className="analysis-output">{mcResult}</pre>}
             {mcChart && (
               <div className="analysis-preview">
-                <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: mcChart.markup }} />
+                <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: mcChart.payload.markup }} />
+                <div className="analysis-actions">
+                  <button type="button" className="btn btn-sm" onClick={() => sendChart(mcChart)}>
+                    {t('figure.send_to')}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -622,13 +646,18 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
               <div className="analysis-preview">
                 <div
                   className="analysis-svg"
-                  dangerouslySetInnerHTML={{ __html: mcmcChart.markup }}
+                  dangerouslySetInnerHTML={{ __html: mcmcChart.payload.markup }}
                 />
+                <div className="analysis-actions">
+                  <button type="button" className="btn btn-sm" onClick={() => sendChart(mcmcChart)}>
+                    {t('figure.send_to')}
+                  </button>
+                </div>
               </div>
             )}
           </>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

@@ -19,8 +19,8 @@ export interface DataFileGroups {
   examples: string[];
 }
 
-export function groupedDataFiles(): DataFileGroups {
-  return listDataFilesGrouped();
+export function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
+  return listDataFilesGrouped(allow);
 }
 
 export interface LoadedTable {

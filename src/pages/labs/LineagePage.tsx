@@ -1,19 +1,14 @@
 import { useEffect } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { LineageCanvas } from '@/components/LineageCanvas';
 import { useLineageStore } from '@/stores/lineageStore';
-
-interface LineageDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
+import { LabPageShell } from './LabPageShell';
 
 /**
- * Data lineage viewer: files → runs → artifacts. Rebuilds on open and keeps
+ * Data lineage viewer: files → runs → artifacts. Rebuilds on mount and keeps
  * live-updating while a run finishes underneath (LINEAGE_CHANGED → version).
  */
-export function LineageDialog({ open, onClose }: LineageDialogProps) {
+export default function LineagePage() {
   const t = useT();
   const graph = useLineageStore((s) => s.graph);
   const version = useLineageStore((s) => s.version);
@@ -21,11 +16,11 @@ export function LineageDialog({ open, onClose }: LineageDialogProps) {
   const rebuild = useLineageStore((s) => s.rebuild);
 
   useEffect(() => {
-    if (open) void rebuild();
-  }, [open, rebuild]);
+    void rebuild();
+  }, [rebuild]);
 
   return (
-    <Modal open={open} onClose={onClose} title={t('lineage.title')} width={860}>
+    <LabPageShell title={t('lineage.title')}>
       <div className="lineage-dialog">
         {graph.nodes.length === 0 && !loading && <p className="lineage-empty">{t('lineage.empty')}</p>}
         {graph.nodes.length > 0 && (
@@ -46,6 +41,6 @@ export function LineageDialog({ open, onClose }: LineageDialogProps) {
           </>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

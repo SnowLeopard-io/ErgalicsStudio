@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAnalysisStore } from '@/stores/analysisStore';
-import { listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
+import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
 import {
@@ -20,24 +19,20 @@ import { tTestOneSample, tTestTwoSample, mannWhitney } from '@/core/stats/tests'
 import { pearson, studentTCdf } from '@/core/stats';
 import type { DataTable } from '@/types/datatable';
 import type { SvgPlotPayload } from '@/core/plot/types';
+import { LabPageShell } from './LabPageShell';
 
 type ChartKind = 'line' | 'scatter' | 'histogram' | 'bar';
 type TestKind = 't1' | 't2' | 'mw' | 'pearson';
-
-interface AnalysisDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
 
 function safeName(s: string): string {
   return s.replace(/[^\w.-]+/g, '-').slice(0, 60) || 'chart';
 }
 
-export function AnalysisDialog({ open, onClose }: AnalysisDialogProps) {
+export default function AnalysisPage() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
 
-  const fileGroups = useMemo(() => listDataFilesGrouped(), [project?.data.files]);
+  const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [table, setTable] = useState<DataTable | null>(null);
@@ -188,7 +183,7 @@ export function AnalysisDialog({ open, onClose }: AnalysisDialogProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t('analysis.title')} width={640}>
+    <LabPageShell title={t('analysis.title')}>
       <div className="analysis-body">
         {/* ---- Data source ---- */}
         <div className="analysis-row">
@@ -356,6 +351,6 @@ export function AnalysisDialog({ open, onClose }: AnalysisDialogProps) {
           </>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

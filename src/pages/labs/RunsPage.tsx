@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
-import { Modal } from '@/components/Modal';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { diffRuns, formatChange } from '@/core/experiment/diff';
 import type { RunRecord } from '@/core/experiment/record';
-
-interface RunHistoryDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
+import { LabPageShell } from './LabPageShell';
 
 function fmtTime(ts: number): string {
   const d = new Date(ts);
@@ -30,7 +25,7 @@ function fmtValue(v: unknown): string {
  * parameter / metric diff — the everyday "what changed between these two
  * results?" question.
  */
-export function RunHistoryDialog({ open, onClose }: RunHistoryDialogProps) {
+export default function RunsPage() {
   const t = useT();
   const runs = useExperimentStore((s) => s.runs);
   const loading = useExperimentStore((s) => s.loading);
@@ -40,11 +35,9 @@ export function RunHistoryDialog({ open, onClose }: RunHistoryDialogProps) {
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
-    if (open) {
-      void loadRuns();
-      setSelected([]);
-    }
-  }, [open, loadRuns]);
+    void loadRuns();
+    setSelected([]);
+  }, [loadRuns]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -59,7 +52,7 @@ export function RunHistoryDialog({ open, onClose }: RunHistoryDialogProps) {
   const diff = a && b ? diffRuns(a, b) : null;
 
   return (
-    <Modal open={open} onClose={onClose} title={t('research.runs.title')} width={860}>
+    <LabPageShell title={t('research.runs.title')}>
       <div className="runs-dialog">
         {runs.length === 0 && !loading && (
           <p className="runs-empty">{t('research.runs.empty')}</p>
@@ -103,7 +96,7 @@ export function RunHistoryDialog({ open, onClose }: RunHistoryDialogProps) {
                       aria-label={t('research.runs.delete')}
                       onClick={() => void removeRun(run.id)}
                     >
-                      🗑
+                      ✕
                     </button>
                   </td>
                 </tr>
@@ -166,6 +159,6 @@ export function RunHistoryDialog({ open, onClose }: RunHistoryDialogProps) {
           </div>
         )}
       </div>
-    </Modal>
+    </LabPageShell>
   );
 }

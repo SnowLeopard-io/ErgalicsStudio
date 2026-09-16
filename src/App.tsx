@@ -16,6 +16,16 @@ const NotebookPage = lazy(() => import('@/pages/notebook/NotebookPage'));
 const SignalLabPage = lazy(() => import('@/pages/signal/SignalLabPage'));
 const SweepsPage = lazy(() => import('@/pages/sweeps/SweepsPage'));
 const ReportBuilderPage = lazy(() => import('@/pages/report/ReportBuilderPage'));
+const SqlWorkbenchPage = lazy(() => import('@/pages/sql/SqlWorkbenchPage'));
+// Lab pages — research tools promoted from TopBar dialogs to full pages.
+const RunsPage = lazy(() => import('@/pages/labs/RunsPage'));
+const AnalysisPage = lazy(() => import('@/pages/labs/AnalysisPage'));
+const UncertaintyPage = lazy(() => import('@/pages/labs/UncertaintyPage'));
+const ModelLabPage = lazy(() => import('@/pages/labs/ModelLabPage'));
+const ProfilerPage = lazy(() => import('@/pages/labs/ProfilerPage'));
+const ReproLockPage = lazy(() => import('@/pages/labs/ReproLockPage'));
+const LineagePage = lazy(() => import('@/pages/labs/LineagePage'));
+const SupplementPage = lazy(() => import('@/pages/labs/SupplementPage'));
 
 initProjectStore();
 initExperimentStore();
@@ -40,6 +50,15 @@ function AppShell() {
             <Route path="/signal" element={<SignalLabPage />} />
             <Route path="/sweeps" element={<SweepsPage />} />
             <Route path="/report" element={<ReportBuilderPage />} />
+            <Route path="/sql" element={<SqlWorkbenchPage />} />
+            <Route path="/runs" element={<RunsPage />} />
+            <Route path="/analysis" element={<AnalysisPage />} />
+            <Route path="/uncertainty" element={<UncertaintyPage />} />
+            <Route path="/model-lab" element={<ModelLabPage />} />
+            <Route path="/profiler" element={<ProfilerPage />} />
+            <Route path="/reprolock" element={<ReproLockPage />} />
+            <Route path="/lineage" element={<LineagePage />} />
+            <Route path="/supplement" element={<SupplementPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugin/:pluginId" element={<PluginViewPage />} />
             <Route path="/share/:payload" element={<ShareLinkPage />} />

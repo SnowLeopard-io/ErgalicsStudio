@@ -1,31 +1,17 @@
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { ShareDialog } from './dialogs/ShareDialog';
-import { AnalysisDialog } from './dialogs/AnalysisDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
-import { RunHistoryDialog } from './dialogs/RunHistoryDialog';
-import { UncertaintyDialog } from './dialogs/UncertaintyDialog';
-import { ModelLabDialog } from './dialogs/ModelLabDialog';
-import { ProfilerDialog } from './dialogs/ProfilerDialog';
-import { ReproLockDialog } from './dialogs/ReproLockDialog';
-import { LineageDialog } from './dialogs/LineageDialog';
-import { SupplementDialog } from './dialogs/SupplementDialog';
 import { DataDialog } from './DataDialog';
 import { ProjectFilesDialog } from './ProjectFilesDialog';
 import { PerfDialog } from './PerfDialog';
 
 /** Every dialog the TopBar can open. Only one is ever open at a time, so the
- *  previous eleven individual booleans collapse into this single key. */
+ *  individual booleans collapse into this single key. Research/lab tools are
+ *  standalone pages now (see pages/labs) — these are the project & data
+ *  operations that stay modal. */
 export type TopBarDialogKey =
   | 'share'
-  | 'analysis'
-  | 'runs'
-  | 'uncertainty'
-  | 'model-lab'
-  | 'profiler'
-  | 'reprolock'
-  | 'lineage'
-  | 'supplement'
   | 'data'
   | 'files'
   | 'perf'
@@ -69,14 +55,6 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
         }}
       />
       <ShareDialog open={dialog === 'share'} onClose={onClose} />
-      <AnalysisDialog open={dialog === 'analysis'} onClose={onClose} />
-      <RunHistoryDialog open={dialog === 'runs'} onClose={onClose} />
-      <UncertaintyDialog open={dialog === 'uncertainty'} onClose={onClose} />
-      <ModelLabDialog open={dialog === 'model-lab'} onClose={onClose} />
-      <ProfilerDialog open={dialog === 'profiler'} onClose={onClose} />
-      <ReproLockDialog open={dialog === 'reprolock'} onClose={onClose} />
-      <LineageDialog open={dialog === 'lineage'} onClose={onClose} />
-      <SupplementDialog open={dialog === 'supplement'} onClose={onClose} />
       <DataDialog open={dialog === 'data'} onClose={onClose} />
       <ProjectFilesDialog open={dialog === 'files'} onClose={onClose} />
       <PerfDialog open={dialog === 'perf'} onClose={onClose} />
