@@ -504,7 +504,7 @@ export class Profiler {
         missing: col.missing,
         min: col.n > 0 ? col.min : NaN,
         max: col.n > 0 ? col.max : NaN,
-        mean: col.n > 0 ? this.means[this.numeric.indexOf(col)] : NaN,
+        mean: col.n > 0 ? (this.means[this.numeric.indexOf(col)] ?? NaN) : NaN,
         sd,
         zeros: col.zeros,
         q01: q(0.01),
@@ -723,7 +723,10 @@ export function profileRows(
   let specs: ColumnSpec[];
   if (columns.length > 0 && typeof columns[0] === 'string') {
     const names = columns as string[];
-    specs = inferColumnKinds(names, rows.slice(0, 1000));
+    specs = inferColumnKinds(
+      names,
+      rows.slice(0, 1000) as Array<Array<string | number | null>>,
+    );
   } else {
     specs = columns as ColumnSpec[];
   }

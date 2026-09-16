@@ -65,7 +65,10 @@ function shuffled(n: number, rand: () => number): number[] {
   const perm = Array.from({ length: n }, (_, i) => i);
   for (let i = n - 1; i > 0; i -= 1) {
     const j = Math.floor(rand() * (i + 1));
-    [perm[i], perm[j]] = [perm[j], perm[i]];
+    const a = perm[i]!;
+    const b = perm[j]!;
+    perm[i] = b;
+    perm[j] = a;
   }
   return perm;
 }
@@ -76,7 +79,9 @@ function shuffled(n: number, rand: () => number): number[] {
  * which keeps the design deterministic and symmetric.
  */
 export function expandLhs(axes: SweepAxis[]): Array<Record<string, number>> {
-  const n = axes[0].lhs!.n;
+  const first = axes[0];
+  if (!first?.lhs) return [];
+  const n = first.lhs.n;
   if (axes.some((a) => a.lhs!.n !== n)) {
     throw new Error('lhs axes must share the same n');
   }
@@ -89,8 +94,8 @@ export function expandLhs(axes: SweepAxis[]): Array<Record<string, number>> {
     const rand = mulberry32((spec.seed >>> 0) + Math.imul(dim + 1, 0x9e3779b9));
     const strata = shuffled(n, rand);
     for (let row = 0; row < n; row += 1) {
-      const midpoint = (strata[row] + 0.5) / n;
-      rows[row][axis.param] = from + (to - from) * midpoint;
+      const midpoint = (strata[row]! + 0.5) / n;
+      rows[row]![axis.param] = from + (to - from) * midpoint;
     }
   });
   return rows;
@@ -106,7 +111,7 @@ export function cartesian(
   axes.forEach((axis, i) => {
     const next: Array<Record<string, AxisValue>> = [];
     for (const row of rows) {
-      for (const value of valueSets[i]) {
+      for (const value of valueSets[i]!) {
         next.push({ ...row, [axis.param]: value });
       }
     }
@@ -173,13 +178,13 @@ export function setPath(
   const parts = path.split('.');
   let node = target;
   for (let i = 0; i < parts.length - 1; i += 1) {
-    const key = parts[i];
+    const key = parts[i]!;
     if (typeof node[key] !== 'object' || node[key] === null) {
       node[key] = {};
     }
     node = node[key] as Record<string, unknown>;
   }
-  node[parts[parts.length - 1]] = value;
+  node[parts[parts.length - 1]!] = value;
   return target;
 }
 

@@ -95,6 +95,7 @@ export async function runSweep(plan: SweepPlan, options: RunSweepOptions): Promi
 
   for (let i = 0; i < design.length; i += 1) {
     const spec = design[i];
+    if (!spec) continue;
     const doneCell = byKey.get(spec.key);
     if (doneCell) {
       result.cells.push(doneCell);
@@ -122,7 +123,7 @@ export async function runSweep(plan: SweepPlan, options: RunSweepOptions): Promi
     const started = now();
     try {
       const outcome = await options.executor(execution, options.signal);
-      const value = extractMetric(outcome as Record<string, unknown>, plan.metric);
+      const value = extractMetric(outcome as unknown as Record<string, unknown>, plan.metric);
       if (!Number.isFinite(value)) {
         throw new Error(`metric "${plan.metric}" missing or not finite in run ${outcome.runId}`);
       }

@@ -55,10 +55,6 @@ function fCdf(x: number, d1: number, d2: number): number {
   return 1 - betaI(b, d2 / 2, d1 / 2);
 }
 
-// Local wrapper around the kernel's regularized incomplete beta (kept here
-// so model code does not depend on the internal function name across files).
-import { regularizedIncompleteBeta as betaI } from '@/core/stats/special';
-
 /**
  * OLS with an intercept column prepended automatically.
  *

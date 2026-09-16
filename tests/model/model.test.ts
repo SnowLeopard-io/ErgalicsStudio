@@ -243,7 +243,7 @@ describe('model/diagnostics', () => {
     const n = 200;
     const noise = gaussians(91);
     const X = Array.from({ length: n }, (_, i) => [1, i, (i - 100) ** 2]);
-    const y = X.map((row, i) => 1 + 0.5 * row[1]! - 0.01 * row[2]! + noise() * 0.2);
+    const y = X.map((row) => 1 + 0.5 * row[1]! - 0.01 * row[2]! + noise() * 0.2);
     const acc = new StreamingNormalEquations(3);
     for (let i = 0; i < n; i += 1) acc.add(y[i]!, X[i]!);
     // Feed in 4 chunks as the reader would.
