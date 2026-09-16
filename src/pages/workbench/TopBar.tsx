@@ -180,6 +180,7 @@ export function TopBar() {
               { key: 'runs', label: t('research.runs.title'), onClick: () => navigate('/runs') },
               { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => navigate('/uncertainty') },
               { key: 'model-lab', label: t('model.title'), onClick: () => navigate('/model-lab') },
+              { key: 'inference', label: t('inference.title'), onClick: () => navigate('/inference') },
               { key: 'profiler', label: t('profile.title'), onClick: () => navigate('/profiler') },
               { key: 'reprolock', label: t('reprolock.title'), onClick: () => navigate('/reprolock') },
               { key: 'signal', label: t('signal.title'), onClick: () => navigate('/signal') },

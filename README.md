@@ -83,10 +83,10 @@ unit system, data lineage, chunked ingestion, a figure studio, supplement
 packaging and a notebook), a second-generation research platform has
 landed: a GPU uncertainty engine, Sweep Studio, Signal Lab, Model Lab, Data
 Profiler, Repro Lock, a DuckDB-powered SQL Workbench, a Report Builder and
-a headless Bayesian inference engine (HMC/NUTS) — every research tool is a
+Inference Forge (HMC/NUTS Bayesian inference) — every research tool is a
 standalone full-page lab sharing one unified shell. Package signing for the
-plugin marketplace, the inference UI and the R runtime (webR) are the next
-milestones. Every module is kept deliberately small and testable so the
+plugin marketplace and the R runtime (webR) are the next milestones. Every
+module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
@@ -94,12 +94,12 @@ codebase keeps scaling without a rewrite.
 > marketplace catalog, live GPU compute, an in-browser AI training plugin,
 > a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
-> support, a Pyodide-powered Python code editor, and a 14-page research
-> workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Data
-> Profiler, Signal Lab, Sweep Studio, SQL Workbench, Report Builder, Repro
-> Lock, Data Lineage, Figure Studio, Notebook, Supplement packaging) plus
-> supporting kernels (unit system, chunked ingestion); package signing, the
-> inference UI and the R runtime are next.
+> support, a Pyodide-powered Python code editor, and a 15-page research
+> workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Inference
+> Forge, Data Profiler, Signal Lab, Sweep Studio, SQL Workbench, Report
+> Builder, Repro Lock, Data Lineage, Figure Studio, Notebook, Supplement
+> packaging) plus supporting kernels (unit system, chunked ingestion);
+> package signing and the R runtime are next.
 
 ---
 
@@ -265,10 +265,14 @@ supplement manifest pick them up automatically.
   markdown/code cells persisted in the project; code cells run on a
   dedicated Pyodide runtime (terminated on unmount) and every notebook run
   feeds the experiment history.
-- **Inference engine (headless)** (`src/core/inference/`) — HMC and NUTS
-  samplers with R-hat / bulk-ESS / tail-ESS diagnostics, HDI, MCSE, WAIC /
-  PSIS-LOO model comparison and posterior predictive checks. The numeric
-  core has landed; UI wiring is the next step.
+- **Inference Forge** (`src/core/inference/`, `/#/inference`) — HMC and NUTS
+  samplers (DualAveraging step-size adaptation, U-turn stopping criterion)
+  with R-hat / bulk-ESS / tail-ESS diagnostics, HDI, MCSE, WAIC / PSIS-LOO
+  model comparison and posterior predictive checks. Declarative likelihood
+  templates (normal mean / Bayesian linear regression / hierarchical normal
+  means) come with data-scaled weakly-informative priors, so models fit
+  without writing code; trace and density charts go to Figure Studio and the
+  whole inference is recorded as a single run (source `inference`).
 - **Analysis page** (`/#/analysis`) — the quick path: pick a data file and
   get line / scatter / histogram / bar charts, descriptive statistics and
   one-sample / two-sample / Mann–Whitney tests with SVG / PDF export.
@@ -671,7 +675,7 @@ architecture; R via webR is the remaining runtime.
 ## Research Modules (科研)
 
 The **科研** dropdown in the top bar — plus the **分析** quick-analysis
-button and the welcome page's quick-start cards — opens any of the fourteen
+button and the welcome page's quick-start cards — opens any of the fifteen
 standalone research pages. Every page shares the same lab shell (back to
 workbench + tool title + unconstrained scrollable body); every module is
 layered the same way: a pure-TypeScript core under `src/core/` (no React), a
@@ -684,6 +688,7 @@ top, all covered by unit tests:
 | Experiment Runs | `/#/runs` | auto-recorded run history (source, parameters, metrics, duration) with A/B parameter diffing |
 | Uncertainty | `/#/uncertainty` | bootstrap CIs, Monte-Carlo propagation, MCMC — CPU or WGSL GPU engine (auto-selected) with R-hat / ESS diagnostics |
 | Model Lab | `/#/model-lab` | OLS / logistic / ridge / polynomial fitting with coefficient tables and 2×2 residual diagnostics |
+| Inference Forge | `/#/inference` | HMC / NUTS Bayesian inference: declarative templates with weak priors, R-hat / ESS / HDI / MCSE, WAIC / LOO + PPC, trace & density charts |
 | Data Profiler | `/#/profiler` | streaming column profiles, correlation matrix, quality score + issue list, fingerprint cache |
 | Signal Lab | `/#/signal` | FFT / Welch PSD, windows, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition |
 | Sweep Studio | `/#/sweeps` | parameter grids / lists / Latin-hypercube batch experiments with response-surface visualisation |
@@ -702,7 +707,8 @@ delimited files in row windows with preview + fingerprinting before a full
 parse.
 
 Runs recorded from Flow / Block / Code / Notebook / Sweeps / Uncertainty /
-Model Lab all land in the same history and the same lineage graph, so the
+Model Lab / Inference Forge all land in the same history and the same
+lineage graph, so the
 question "which run produced this figure, from which data?" is always
 answerable — and the answer ships with the paper via the supplement ZIP.
 
@@ -947,7 +953,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-688 tests across 64 test files (686 passing, 2 skipped on GPU-less CI): file-format
+691 tests across 65 test files (689 passing, 2 skipped on GPU-less CI): file-format
 detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
@@ -971,8 +977,10 @@ packaging (zip round-trip), the notebook model, Model Lab (OLS / logistic /
 ridge / polynomial), the data profiler, the signal toolkit (FFT / filters /
 ACF / decomposition), the sweep runner (plan expansion, metric extraction,
 resume), the SQL engine (registration / query / cancellation), the report
-builder (spec → HTML, escaping, runs summary) and the repro lock (build /
-verify / drift).
+builder (spec → HTML, escaping, runs summary), the repro lock (build /
+verify / drift) and the inference templates (template building, pointwise
+likelihood, an end-to-end sampler run with WAIC/LOO/PPC and determinism
+checks).
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -1046,7 +1054,7 @@ table. Highlights:
 - [x] SQL Workbench — DuckDB-WASM over project files (`/#/sql`)
 - [x] Report Builder — self-contained interactive HTML export (`/#/report`)
 - [x] Repro Lock — `repro.lock` export / verify / one-click re-run (`/#/reprolock`)
-- [ ] Inference Forge UI — the HMC / NUTS numeric core landed headless (`src/core/inference/`); dialog/page wiring next
+- [x] Inference Forge — HMC / NUTS Bayesian-inference page: declarative templates with weak priors, WAIC / LOO / PPC, trace & density charts (`/#/inference`)
 - [ ] Code mode: R runtime (webR)
 
 ---
