@@ -711,6 +711,60 @@
   font-size: var(--font-size-sm);
 }
 
+/* Empty-state viewfinder mark: echoes the corner brackets framing the canvas
+   so the empty state reads as "instrument ready", not "broken". */
+.central-empty-mark {
+  width: 72px;
+  height: 72px;
+  margin-bottom: var(--space-2);
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.central-empty-mark-ring {
+  stroke-width: 1.6;
+  animation: empty-ring-pulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes empty-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.12);
+  }
+}
+
+.central-empty-mark-core {
+  fill: var(--color-accent);
+  stroke: none;
+}
+
+.central-empty-tip {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
+
+.central-empty-tip kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}
+
 .central-empty-actions {
   display: flex;
   gap: var(--space-3);
