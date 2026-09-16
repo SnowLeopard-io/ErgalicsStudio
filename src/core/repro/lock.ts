@@ -634,6 +634,7 @@ export async function reproduceWithLock(
 
   for (let i = 0; i < lock.runs.length; i += 1) {
     const locked = lock.runs[i];
+    if (!locked) continue;
     options.signal?.throwIfAborted();
     options.onProgress?.(i, lock.runs.length, locked);
     const runStarted = performance.now();

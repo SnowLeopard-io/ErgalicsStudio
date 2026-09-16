@@ -39,6 +39,8 @@ export interface ProjectState {
   sweeps?: import('../core/sweep/types').SweepPlan[] | null;
   /** Sweep results keyed by plan id (F2). */
   sweepResults?: import('../core/sweep/types').SweepMap | null;
+  /** Report Builder saved specs (F8). */
+  reports?: import('../core/report/builder').ReportSpec[] | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -98,6 +100,7 @@ export function createEmptyProject(name: string): Project {
       notebook: null,
       sweeps: [],
       sweepResults: {},
+      reports: [],
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -154,6 +157,7 @@ export function normalizeProject(parsed: Project): Project {
       sweeps: Array.isArray(state.sweeps) ? state.sweeps : [],
       sweepResults:
         state.sweepResults && typeof state.sweepResults === 'object' ? state.sweepResults : {},
+      reports: Array.isArray(state.reports) ? state.reports : [],
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

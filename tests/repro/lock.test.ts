@@ -48,11 +48,11 @@ describe('F6 buildLock', () => {
     expect(lock.lockVersion).toBe(1);
     expect(lock.projectId).toBe(project.id);
     expect(lock.data).toHaveLength(2);
-    expect(lock.data[0].hash).toMatch(/^[0-9a-f]{8}$/);
+    expect(lock.data[0]!.hash).toMatch(/^[0-9a-f]{8}$/);
     expect(lock.runs).toHaveLength(1);
-    expect(lock.runs[0].paramsHash).toMatch(/^[0-9a-f]{8}$/);
-    expect(lock.runs[0].seed).toBe(42);
-    expect(lock.runs[0].tolerance).toBe(TOLERANCE_CPU);
+    expect(lock.runs[0]!.paramsHash).toMatch(/^[0-9a-f]{8}$/);
+    expect(lock.runs[0]!.seed).toBe(42);
+    expect(lock.runs[0]!.tolerance).toBe(TOLERANCE_CPU);
     expect(lock.versions.studio).toBe('0.1.0');
   });
 
@@ -69,8 +69,8 @@ describe('F6 buildLock', () => {
     const project = makeProject();
     const run = makeRun({ projectId: project.id, params: { engine: 'gpu' } });
     const lock = buildLock(project, { runs: [run] });
-    expect(lock.runs[0].engine).toBe('gpu');
-    expect(lock.runs[0].tolerance).toBe(TOLERANCE_GPU);
+    expect(lock.runs[0]!.engine).toBe('gpu');
+    expect(lock.runs[0]!.tolerance).toBe(TOLERANCE_GPU);
   });
 });
 
@@ -83,15 +83,15 @@ describe('F6 verifyLock — five categories', () => {
     expect(result.status).toBe('pass');
     expect(result.compatible).toBe(true);
     expect(result.categories.map((c) => c.status)).toEqual(['pass', 'pass', 'pass', 'pass', 'pass']);
-    expect(result.runs[0].status).toBe('present');
+    expect(result.runs[0]!.status).toBe('present');
   });
 
   it('AC1: FAILs and names the file when one data file changes; recovers after restore', () => {
     const project = makeProject();
     const runs = [makeRun({ projectId: project.id })];
     const lock = buildLock(project, { runs });
-    const original = project.data.files[0].content;
-    project.data.files[0].content = 'x\n1\n2\n999\n';
+    const original = project.data.files[0]!.content;
+    project.data.files[0]!.content = 'x\n1\n2\n999\n';
 
     let result = verifyLock(lock, project, { runs });
     expect(result.status).toBe('fail');
@@ -99,7 +99,7 @@ describe('F6 verifyLock — five categories', () => {
     expect(dataDrift?.kind).toBe('changed');
     expect(dataDrift?.message).toContain('a.csv');
 
-    project.data.files[0].content = original;
+    project.data.files[0]!.content = original;
     result = verifyLock(lock, project, { runs });
     expect(result.status).toBe('pass');
   });
@@ -124,20 +124,23 @@ describe('F6 verifyLock — five categories', () => {
 
   it('detects code drift in the flow graph but ignores notebook re-execution', () => {
     const project = makeProject();
-    (project.state as { blockGraph?: unknown }).blockGraph = { nodes: [{ id: 'n1' }], edges: [] };
-    (project.state as { notebook?: unknown }).notebook = {
-      cells: [{ id: 'c1', type: 'code', source: 'print(1)', outputs: [] }],
+    const state = project.state as unknown as {
+      blockGraph?: { nodes: Array<{ id: string }>; edges: unknown[] };
+      notebook?: { cells: Array<{ outputs: unknown[] }> };
+    };
+    state.blockGraph = { nodes: [{ id: 'n1' }], edges: [] };
+    state.notebook = {
+      cells: [{ outputs: [] }],
     };
     const lock = buildLock(project);
     expect(lock.code.artifacts.map((a) => a.kind).sort()).toEqual(['flow-graph', 'notebook']);
 
     // Outputs change (re-run) but sources stay — lock must remain valid.
-    (project.state as { notebook?: { cells: Array<{ outputs: unknown[] }> } }).notebook.cells[0].outputs =
-      [{ text: 'new output' }];
+    state.notebook!.cells[0]!.outputs = [{ text: 'new output' }];
     expect(verifyLock(lock, project).status).toBe('pass');
 
     // Editing the graph breaks the lock.
-    (project.state as { blockGraph: { nodes: unknown[] } }).blockGraph.nodes.push({ id: 'n2' });
+    state.blockGraph!.nodes.push({ id: 'n2' });
     const result = verifyLock(lock, project);
     expect(result.status).toBe('fail');
     expect(result.drifts.some((d) => d.category === 'code' && d.target === 'flow-graph:flow')).toBe(true);
@@ -148,12 +151,12 @@ describe('F6 verifyLock — five categories', () => {
     const runs = [makeRun({ projectId: project.id })];
     const lock = buildLock(project, { runs });
 
-    runs[0].params = { k: 4, threshold: 0.05 };
+    runs[0]!.params = { k: 4, threshold: 0.05 };
     let result = verifyLock(lock, project, { runs });
     expect(result.drifts.some((d) => d.category === 'params' && d.kind === 'changed')).toBe(true);
 
-    runs[0].params = { k: 3, threshold: 0.05 };
-    runs[0].seed = 99;
+    runs[0]!.params = { k: 3, threshold: 0.05 };
+    runs[0]!.seed = 99;
     result = verifyLock(lock, project, { runs });
     expect(result.status).toBe('fail');
     expect(result.drifts.some((d) => d.category === 'seed' && d.kind === 'changed')).toBe(true);
@@ -164,9 +167,9 @@ describe('F6 verifyLock — five categories', () => {
     const lock = buildLock(project, { runs: [makeRun({ projectId: project.id })] });
     const result = verifyLock(lock, project, { runs: [] });
     expect(result.status).toBe('fail');
-    expect(result.drifts.filter((d) => d.target === lock.runs[0].id).map((d) => d.category).sort())
+    expect(result.drifts.filter((d) => d.target === lock.runs[0]!.id).map((d) => d.category).sort())
       .toEqual(['params', 'seed']);
-    expect(result.runs[0].status).toBe('missing');
+    expect(result.runs[0]!.status).toBe('missing');
   });
 
   it('downgrades version skew (studio/plot/fonts) to a warning', () => {
@@ -238,7 +241,7 @@ describe('F6 reproduceWithLock (FR6.3)', () => {
     expect(report.results).toHaveLength(2);
     expect(report.results.every((r) => r.status === 'pass')).toBe(true);
     // Extra metrics in the fresh run do not fail reproduction.
-    expect(report.results[0].metrics.every((m) => m.relError === 0)).toBe(true);
+    expect(report.results[0]!.metrics.every((m) => m.relError === 0)).toBe(true);
   });
 
   it('FAILs a metric drifting beyond tolerance but accepts tiny float error', async () => {
@@ -253,7 +256,7 @@ describe('F6 reproduceWithLock (FR6.3)', () => {
       },
     });
     expect(report.status).toBe('fail');
-    const flow = report.results[0];
+    const flow = report.results[0]!;
     const r2 = flow.metrics.find((m) => m.name === 'r2');
     const p = flow.metrics.find((m) => m.name === 'pValue');
     expect(r2?.status).toBe('pass');
@@ -270,7 +273,7 @@ describe('F6 reproduceWithLock (FR6.3)', () => {
     });
     // 0.9500005 vs 0.95: rel error 5e-7 < 1e-6 → pass on GPU.
     expect(report.status).toBe('pass');
-    expect(report.results[0].tolerance).toBe(TOLERANCE_GPU);
+    expect(report.results[0]!.tolerance).toBe(TOLERANCE_GPU);
   });
 
   it('reports missing runs, missing runners and runner errors without crashing', async () => {
@@ -293,8 +296,8 @@ describe('F6 reproduceWithLock (FR6.3)', () => {
         code: async (r) => ({ metrics: { ...r.metrics } }),
       },
     });
-    expect(boom.results[0].status).toBe('error');
-    expect(boom.results[0].error).toContain('kernel panic');
+    expect(boom.results[0]!.status).toBe('error');
+    expect(boom.results[0]!.error).toContain('kernel panic');
     expect(boom.status).toBe('fail');
   });
 
@@ -348,7 +351,7 @@ describe('F6 lock shape guards', () => {
   it('captures input file references per run', () => {
     const project = makeProject();
     const lock: ReproLock = buildLock(project, { runs: [makeRun({ projectId: project.id })] });
-    expect(lock.runs[0].inputFileIds).toEqual(['f1']);
+    expect(lock.runs[0]!.inputFileIds).toEqual(['f1']);
     expect(lock.code.hash).toMatch(/^[0-9a-f]{8}$/);
   });
 });

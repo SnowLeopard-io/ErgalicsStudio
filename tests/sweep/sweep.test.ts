@@ -7,7 +7,6 @@ import {
   linspace,
   axisLevels,
   expandLhs,
-  cartesian,
   expandPlan,
   cellKey,
   setPath,
@@ -59,12 +58,12 @@ describe('F2 design — grid / list / cartesian', () => {
     });
     const cells = expandPlan(p);
     expect(cells).toHaveLength(12);
-    expect(cells[0].params).toEqual({ viscosity: 0.1, gridN: 8 });
-    expect(cells[1].params).toEqual({ viscosity: 0.1, gridN: 16 });
-    expect(cells[11].params).toEqual({ viscosity: 0.3, gridN: 32 });
+    expect(cells[0]!.params).toEqual({ viscosity: 0.1, gridN: 8 });
+    expect(cells[1]!.params).toEqual({ viscosity: 0.1, gridN: 16 });
+    expect(cells[11]!.params).toEqual({ viscosity: 0.3, gridN: 32 });
     // unique keys + deterministic seeds
     expect(new Set(cells.map((c) => c.key)).size).toBe(12);
-    expect(cells.every((c) => c.seed === cells[0].seed || c.seed !== undefined)).toBe(true);
+    expect(cells.every((c) => Number.isInteger(c.seed) && c.seed >= 0 && c.seed <= 0xffffffff)).toBe(true);
   });
 
   it('multiplies cells by repeats with distinct repeat keys', () => {
@@ -108,11 +107,11 @@ describe('F2 design — Latin hypercube', () => {
     ];
     const rows = expandLhs(axes);
     expect(rows).toHaveLength(8);
-    const strataA = new Set(rows.map((r) => Math.floor((r.a / 10) * 8)));
-    const strataB = new Set(rows.map((r) => Math.floor(((r.b + 1) / 2) * 8)));
+    const strataA = new Set(rows.map((r) => Math.floor((r.a! / 10) * 8)));
+    const strataB = new Set(rows.map((r) => Math.floor(((r.b! + 1) / 2) * 8)));
     expect(strataA.size).toBe(8);
     expect(strataB.size).toBe(8);
-    expect(rows.every((r) => r.a > 0 && r.a < 10 && r.b > -1 && r.b < 1)).toBe(true);
+    expect(rows.every((r) => r.a! > 0 && r.a! < 10 && r.b! > -1 && r.b! < 1)).toBe(true);
   });
 
   it('is deterministic per seed and shifts with the seed', () => {
@@ -187,7 +186,7 @@ describe('F2 runner', () => {
     expect(result.cells).toHaveLength(12);
     expect(result.total).toBe(12);
     expect(new Set(result.cells.map((c) => c.runId)).size).toBe(12);
-    expect(result.cells[0].value).toBeCloseTo(1 / 8, 12);
+    expect(result.cells[0]!.value).toBeCloseTo(1 / 8, 12);
     expect(seenParams).toHaveLength(12);
     expect(result.finishedAt).toBeGreaterThanOrEqual(result.startedAt);
   });
@@ -274,10 +273,10 @@ describe('F2 runner', () => {
     });
     const points = summarizePoints(result).sort((x, y) => (x.params.a as number) - (y.params.a as number));
     expect(points).toHaveLength(2);
-    expect(points[0].n).toBe(3);
-    expect(points[0].mean).toBe(2); // values 1,2,3
-    expect(points[0].sd).toBeCloseTo(1, 10);
-    expect(points[1].mean).toBe(3); // 2,3,4
+    expect(points[0]!.n).toBe(3);
+    expect(points[0]!.mean).toBe(2); // values 1,2,3
+    expect(points[0]!.sd).toBeCloseTo(1, 10);
+    expect(points[1]!.mean).toBe(3); // 2,3,4
   });
 
   it('refuses to resume a result from another plan', async () => {

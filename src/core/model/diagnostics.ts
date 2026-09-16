@@ -34,7 +34,7 @@ export function diagnosticSeries(fit: OlsResult): DiagnosticSeries {
     .map((v, i) => ({ v, i }))
     .sort((a, b) => a.v - b.v);
   const qqSample = order.map((o) => o.v);
-  const qqTheoretical = order.map((o, k) => {
+  const qqTheoretical = order.map((_entry, k) => {
     // Blom plotting position (k + 3/8)/(n + 1/4).
     const p = (k + 0.375) / (n + 0.25);
     return normalInv(p);
@@ -90,7 +90,7 @@ export class StreamingNormalEquations {
   solve(): { beta: number[]; sigma: number; r2: number; n: number } {
     if (this.n <= this.p) throw new Error('StreamingNormalEquations: n ≤ p');
     const inv = invertMatrix(this.XtX);
-    const beta = inv.map((row, i) => row.reduce((s, v, j) => s + v * this.Xty[j]!, 0));
+    const beta = inv.map((row) => row.reduce((s, v, j) => s + v * this.Xty[j]!, 0));
     // SSE = yᵀy − βᵀXᵀy.
     let sse = this.yty;
     for (let i = 0; i < this.p; i += 1) sse -= beta[i]! * this.Xty[i]!;

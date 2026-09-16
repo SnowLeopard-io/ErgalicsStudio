@@ -24,7 +24,7 @@ function solveLinear(A: number[][], b: number[]): number[] {
     for (let r = i + 1; r < n; r += 1) {
       const f = m[r]![i]! / piv;
       for (let c = i; c < n; c += 1) m[r]![c] = m[r]![c]! - f * m[i]![c]!;
-      y[r] -= f * y[i]!;
+      y[r] = y[r]! - f * y[i]!;
     }
   }
   const x = new Array<number>(n).fill(0);
