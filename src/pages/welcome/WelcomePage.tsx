@@ -8,6 +8,7 @@ import { wasmStatus } from '@/core/wasm';
 import { storageAvailable } from '@/core/storage';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
+import { WorkbenchModeCards, type WorkbenchModeKey } from '@/components/WorkbenchModes';
 
 const APP_VERSION = '0.1.0';
 
@@ -70,6 +71,17 @@ export default function WelcomePage() {
     navigate('/workbench');
   };
 
+  // Mode cards jump straight into the corresponding environment: dedicated
+  // pages navigate directly, dialog-backed modes open inside the workbench.
+  const openMode = async (key: WorkbenchModeKey) => {
+    if (key === 'runs' || key === 'uncertainty' || key === 'model-lab') {
+      await initGpu(gpuBackend);
+      navigate('/workbench', { state: { openResearchDialog: key } });
+      return;
+    }
+    navigate(`/${key}`);
+  };
+
   return (
     <div className="welcome">
       <header className="welcome-topbar">
@@ -96,29 +108,48 @@ export default function WelcomePage() {
           </button>
         </div>
 
-        <section className="welcome-hardware card" aria-label={t('welcome.hardware.title')}>
-          <h2 className="welcome-section-title">{t('welcome.hardware.title')}</h2>
-          <HardwareRow
-            label={t('welcome.hardware.webgpu')}
-            state={hardware.webgpu}
-            detail={hardware.webgpu === 'ok' ? t('welcome.hardware.webgpu_available') : t('welcome.hardware.webgpu_unavailable')}
-          />
-          <HardwareRow
-            label={t('welcome.hardware.gpu')}
-            state="ok"
-            detail={hardware.gpuName || t('common.unknown')}
-          />
-          <HardwareRow
-            label={t('welcome.hardware.wasm')}
-            state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
-            detail={hardware.wasm === 'loaded' ? t('welcome.hardware.wasm_loaded') : t('welcome.hardware.wasm_failed')}
-          />
-          <HardwareRow
-            label={t('welcome.hardware.storage')}
-            state={hardware.storage}
-            detail={hardware.storage === 'ok' ? t('welcome.hardware.storage_available') : t('welcome.hardware.storage_unavailable')}
-          />
-        </section>
+        <div className="welcome-panels">
+          <section className="welcome-modes card" aria-label={t('modes.title')}>
+            <h2 className="welcome-section-title">{t('modes.title')}</h2>
+            <WorkbenchModeCards onMode={(key) => void openMode(key)} />
+          </section>
+
+          <section className="welcome-hardware card" aria-label={t('welcome.hardware.title')}>
+            <h2 className="welcome-section-title">{t('welcome.hardware.title')}</h2>
+            <HardwareRow
+              label={t('welcome.hardware.webgpu')}
+              state={hardware.webgpu}
+              detail={
+                hardware.webgpu === 'ok'
+                  ? t('welcome.hardware.webgpu_available')
+                  : t('welcome.hardware.webgpu_unavailable')
+              }
+            />
+            <HardwareRow
+              label={t('welcome.hardware.gpu')}
+              state="ok"
+              detail={hardware.gpuName || t('common.unknown')}
+            />
+            <HardwareRow
+              label={t('welcome.hardware.wasm')}
+              state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
+              detail={
+                hardware.wasm === 'loaded'
+                  ? t('welcome.hardware.wasm_loaded')
+                  : t('welcome.hardware.wasm_failed')
+              }
+            />
+            <HardwareRow
+              label={t('welcome.hardware.storage')}
+              state={hardware.storage}
+              detail={
+                hardware.storage === 'ok'
+                  ? t('welcome.hardware.storage_available')
+                  : t('welcome.hardware.storage_unavailable')
+              }
+            />
+          </section>
+        </div>
       </main>
 
       <footer className="welcome-footer">

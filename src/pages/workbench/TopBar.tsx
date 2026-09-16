@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
@@ -36,6 +36,18 @@ export function TopBar() {
   const closeDialog = () => setDialog(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFileCount = project?.data.files.length ?? 0;
+
+  const location = useLocation();
+  // Welcome page mode cards navigate here with
+  // { state: { openResearchDialog: 'runs' | … } } — open that dialog and
+  // consume the flag so a refresh does not re-open it.
+  useEffect(() => {
+    const state = location.state as { openResearchDialog?: TopBarDialogKey } | null;
+    if (state?.openResearchDialog) {
+      setDialog(state.openResearchDialog);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -167,6 +179,12 @@ export function TopBar() {
             items={[
               { key: 'runs', label: t('research.runs.title'), onClick: openDialog('runs') },
               { key: 'uncertainty', label: t('uncertainty.title'), onClick: openDialog('uncertainty') },
+              { key: 'model-lab', label: t('model.title'), onClick: openDialog('model-lab') },
+              { key: 'profiler', label: t('profile.title'), onClick: openDialog('profiler') },
+              { key: 'reprolock', label: t('reprolock.title'), onClick: openDialog('reprolock') },
+              { key: 'signal', label: t('signal.title'), onClick: () => navigate('/signal') },
+              { key: 'sweeps', label: t('sweep.title'), onClick: () => navigate('/sweeps') },
+              { key: 'report', label: t('report.title'), onClick: () => navigate('/report') },
               { key: 'lineage', label: t('lineage.title'), onClick: openDialog('lineage') },
               { key: 'figures', label: t('figure.title'), onClick: () => navigate('/figures') },
               { key: 'notebook', label: t('notebook.title'), onClick: () => navigate('/notebook') },

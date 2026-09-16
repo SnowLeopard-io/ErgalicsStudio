@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { useProjectStore } from '@/stores/projectStore';
+import { useExperimentStore } from '@/stores/experimentStore';
 import { listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { asFloat64, isNumericType } from '@/blocks/ops';
@@ -9,13 +10,18 @@ import { renderSVG, dataTableToHistogram } from '@/core/plot';
 import { createDataTable } from '@/types/datatable';
 import type { DataTable } from '@/types/datatable';
 import type { SvgPlotPayload } from '@/core/plot/types';
-import { mean, median, std } from '@/core/stats/descriptive';
-import { bootstrapCI } from '@/core/uncertainty/bootstrap';
 import { propagateError, type DistSpec } from '@/core/uncertainty/montecarlo';
-import { metropolisHastings } from '@/core/uncertainty/mcmc';
+import {
+  bootstrapEngine,
+  hasGpuEngine,
+  type EngineChoice,
+  type GpuStat,
+} from '@/core/uncertainty/gpu-engine';
+import { mcmcEngine, type McmcEngineResult } from '@/core/uncertainty/gpu-mcmc';
 
-type StatKind = 'mean' | 'median' | 'std';
+type StatKind = GpuStat;
 type DistKind = 'normal' | 'uniform' | 'lognormal' | 'triangular';
+const STAT_KINDS: StatKind[] = ['mean', 'median', 'variance', 'sd', 'correlation', 'ols-slope'];
 
 interface UncertaintyDialogProps {
   open: boolean;
@@ -39,15 +45,51 @@ function sampleHistogram(x: ArrayLike<number>, title: string): SvgPlotPayload | 
   return { svg: true, markup: renderSVG(spec), title };
 }
 
+function EnginePicker({
+  value,
+  onChange,
+  gpuAvailable,
+}: {
+  value: EngineChoice;
+  onChange: (v: EngineChoice) => void;
+  gpuAvailable: boolean;
+}) {
+  const t = useT();
+  const choices: Array<{ id: EngineChoice; label: string }> = [
+    { id: 'auto', label: t('uncertainty.engine_auto') },
+    { id: 'cpu', label: t('uncertainty.engine_cpu') },
+    { id: 'gpu', label: t('uncertainty.engine_gpu') },
+  ];
+  return (
+    <div className="engine-picker" role="radiogroup" aria-label={t('uncertainty.engine')}>
+      {choices.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          role="radio"
+          aria-checked={value === c.id}
+          className={`engine-choice${value === c.id ? ' engine-choice-active' : ''}`}
+          onClick={() => onChange(c.id)}
+        >
+          {c.label}
+        </button>
+      ))}
+      {!gpuAvailable && <span className="analysis-note">{t('uncertainty.gpu_unavailable', { reason: 'WebGPU' })}</span>}
+    </div>
+  );
+}
+
 /**
- * Uncertainty suite (research menu): bootstrap CIs, Monte-Carlo sampling /
- * error propagation, and Bayesian MCMC estimation — one dialog per concern,
- * sharing the data-file picker with AnalysisDialog.
+ * Uncertainty suite (research menu): GPU/CPU bootstrap CIs, Monte-Carlo
+ * sampling / error propagation, and multi-chain Bayesian MCMC with R-hat /
+ * ESS diagnostics — one dialog per concern, sharing the data-file picker.
  */
 export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
-  const fileGroups = useMemo(() => listDataFilesGrouped(), [project?.data.files]);
+  const recordRun = useExperimentStore((s) => s.recordRun);
+  const fileGroups = useMemo(() => listDataFilesGrouped(), [project?.data.files, open]);
+  const gpuAvailable = useMemo(() => hasGpuEngine(), [open]);
 
   const [file, setFile] = useState('');
   const [table, setTable] = useState<DataTable | null>(null);
@@ -55,12 +97,15 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
 
   // ---- bootstrap state ----
   const [bsCol, setBsCol] = useState('');
+  const [bsColX, setBsColX] = useState('');
   const [bsStat, setBsStat] = useState<StatKind>('mean');
   const [bsIters, setBsIters] = useState('2000');
   const [bsAlpha, setBsAlpha] = useState('0.05');
   const [bsSeed, setBsSeed] = useState('');
   const [bsResult, setBsResult] = useState('');
   const [bsChart, setBsChart] = useState<SvgPlotPayload | null>(null);
+  const [bsProgress, setBsProgress] = useState<{ done: number; total: number } | null>(null);
+  const bsAbort = useRef<AbortController | null>(null);
 
   // ---- monte-carlo state ----
   const [dist, setDist] = useState<DistKind>('normal');
@@ -73,14 +118,18 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
   const [mcChart, setMcChart] = useState<SvgPlotPayload | null>(null);
 
   // ---- mcmc state ----
+  const [engine, setEngine] = useState<EngineChoice>('auto');
   const [mcmcCol, setMcmcCol] = useState('');
   const [mcmcIters, setMcmcIters] = useState('10000');
   const [mcmcBurn, setMcmcBurn] = useState('5000');
   const [mcmcSeed, setMcmcSeed] = useState('');
   const [mcmcResult, setMcmcResult] = useState('');
   const [mcmcChart, setMcmcChart] = useState<SvgPlotPayload | null>(null);
+  const [mcmcEngineResult, setMcmcEngineResult] = useState<McmcEngineResult | null>(null);
+  const [mcmcProgress, setMcmcProgress] = useState<{ done: number; total: number } | null>(null);
   const [mcmcRunning, setMcmcRunning] = useState(false);
-  const cancelRef = useRef(false);
+  const [recordEnabled, setRecordEnabled] = useState(false);
+  const mcmcAbort = useRef<AbortController | null>(null);
 
   const numericCols = useMemo(
     () => (table ? table.columns.filter((c) => isNumericType(c.type)).map((c) => c.name) : []),
@@ -110,6 +159,7 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
       }
       setTable(tbl);
       setBsCol(nums[0] ?? '');
+      setBsColX(nums[1] ?? nums[0] ?? '');
       setMcmcCol(nums[0] ?? '');
     } catch (err) {
       setTable(null);
@@ -123,15 +173,26 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
     return Number.isFinite(n) ? Math.floor(n) : null;
   };
 
-  const runBootstrap = () => {
+  const paired = bsStat === 'correlation' || bsStat === 'ols-slope';
+
+  const runBootstrap = async () => {
     if (!table || !bsCol) return;
     try {
       const x = Array.from(asFloat64(table, bsCol));
-      const stat = bsStat === 'median' ? median : bsStat === 'std' ? std : mean;
-      const r = bootstrapCI(x, stat, {
+      const sample = paired
+        ? { x, y: Array.from(asFloat64(table, bsColX || bsCol)) }
+        : x;
+      const controller = new AbortController();
+      bsAbort.current = controller;
+      setBsProgress({ done: 0, total: Number(bsIters) || 2000 });
+      setBsResult('');
+      const r = await bootstrapEngine(sample, bsStat, {
         iters: Number(bsIters) || 2000,
         alpha: Number(bsAlpha) || 0.05,
         seed: seedOf(bsSeed),
+        engine,
+        signal: controller.signal,
+        onProgress: (done, total) => setBsProgress({ done, total }),
       });
       setBsResult(
         [
@@ -139,14 +200,38 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
           `ci95 = [${fmt(r.lower)}, ${fmt(r.upper)}]`,
           `se = ${fmt(r.se)}`,
           `iters = ${r.iters}`,
-        ].join('\n'),
+          `${t('uncertainty.used_engine')}: ${r.engine}${r.device ? ` (${r.device})` : ''}`,
+          `${t('uncertainty.duration_ms')}: ${Math.round(r.durationMs)}`,
+          r.fallbackReason ? `fallback: ${r.fallbackReason}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
       );
       setBsChart(sampleHistogram(r.replicates, `bootstrap ${bsStat}(${bsCol})`));
+      if (recordEnabled && project) {
+        await recordRun({
+          source: 'uncertainty',
+          label: `bootstrap ${bsStat}(${bsCol})`,
+          params: { method: 'bootstrap', stat: bsStat, file, column: bsCol, iters: r.iters, alpha: r.alpha, engine: r.engine },
+          metrics: { estimate: r.estimate, ciLow: r.lower, ciHigh: r.upper, se: r.se, durationMs: Math.round(r.durationMs) },
+          durationMs: Math.round(r.durationMs),
+          seed: seedOf(bsSeed),
+        });
+      }
     } catch (err) {
-      setBsResult(err instanceof Error ? err.message : String(err));
+      if ((err as Error)?.name === 'AbortError') {
+        setBsResult(t('uncertainty.cancelled'));
+      } else {
+        setBsResult(err instanceof Error ? err.message : String(err));
+      }
       setBsChart(null);
+    } finally {
+      setBsProgress(null);
+      bsAbort.current = null;
     }
   };
+
+  const cancelBootstrap = () => bsAbort.current?.abort();
 
   const runMonteCarlo = () => {
     try {
@@ -167,7 +252,7 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
           `mean = ${fmt(r.mean)}`,
           `std = ${fmt(r.std)}`,
           `median = ${fmt(r.median)}`,
-          `ci95 = [${fmt(r.ci95[0])}, ${fmt(r.ci95[1])}]`,
+          `ci95 = [${fmt(r.ci95[0]!)}, ${fmt(r.ci95[1]!)}]`,
         ].join('\n'),
       );
       setMcChart(sampleHistogram(r.samples, `MC draws (${dist})`));
@@ -186,9 +271,8 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
     }
     const n = y.length;
     const yBar = y.reduce((s, v) => s + v, 0) / n;
-    const mu = yBar;
     let ss = 0;
-    for (const v of y) ss += (v - mu) * (v - mu);
+    for (const v of y) ss += (v - yBar) * (v - yBar);
     const sd = Math.sqrt(ss / (n - 1));
     // Normal likelihood with flat priors on μ and log σ (constants dropped).
     const logPost = (theta: number[]): number => {
@@ -201,16 +285,23 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
       for (const v of y) s2 += (v - m) * (v - m);
       return -n * ls - s2 * inv * 0.5;
     };
-    cancelRef.current = false;
+    const controller = new AbortController();
+    mcmcAbort.current = controller;
     setMcmcRunning(true);
     setMcmcResult('');
+    setMcmcEngineResult(null);
+    setMcmcProgress({ done: 0, total: Number(mcmcIters) || 10000 });
     try {
-      const r = await metropolisHastings(logPost, [yBar, Math.log(Math.max(sd, 1e-12))], {
+      const seed = seedOf(mcmcSeed);
+      const r = await mcmcEngine(logPost, [yBar, Math.log(Math.max(sd, 1e-12))], {
+        engine,
         iters: Number(mcmcIters) || 10000,
         burnIn: Number(mcmcBurn) || 5000,
-        seed: seedOf(mcmcSeed),
-        shouldCancel: () => cancelRef.current,
+        seed,
+        signal: controller.signal,
+        onProgress: (done, total) => setMcmcProgress({ done, total }),
       });
+      setMcmcEngineResult(r);
       const muDraws = Array.from(r.samples[0] ?? []);
       if (muDraws.length === 0) {
         setMcmcResult(t('uncertainty.cancelled'));
@@ -218,29 +309,58 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
         return;
       }
       const sorted = [...muDraws].sort((a, b) => a - b);
-      const mean = muDraws.reduce((s, v) => s + v, 0) / muDraws.length;
+      const meanMu = muDraws.reduce((s, v) => s + v, 0) / muDraws.length;
       setMcmcResult(
         [
-          r.cancelled ? t('uncertainty.cancelled') : t('uncertainty.done'),
-          `mu = ${fmt(mean)}`,
+          `mu = ${fmt(meanMu)}`,
           `mu_ci95 = [${fmt(sorted[Math.floor(0.025 * sorted.length)]!)}, ${
-            sorted[Math.floor(0.975 * sorted.length)]!
+            fmt(sorted[Math.floor(0.975 * sorted.length)]!)
           }]`,
-          `acceptance = ${(r.acceptanceRate * 100).toFixed(1)}%`,
+          `acceptance = ${(r.acceptanceRate.reduce((a, b) => a + b, 0) / r.acceptanceRate.length * 100).toFixed(1)}%`,
           `iters = ${r.iters} (burn-in ${r.burnIn})`,
-        ].join('\n'),
+          `${t('uncertainty.used_engine')}: ${r.engine}${r.device ? ` (${r.device})` : ''}`,
+          `${t('uncertainty.duration_ms')}: ${Math.round(r.durationMs)}`,
+          r.fallbackReason ? `fallback: ${r.fallbackReason}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
       );
       setMcmcChart(sampleHistogram(muDraws, `posterior μ (${mcmcCol})`));
+      if (recordEnabled && project) {
+        await recordRun({
+          source: 'uncertainty',
+          label: `mcmc μ(${mcmcCol})`,
+          params: { method: 'mcmc', file, column: mcmcCol, iters: r.iters, burnIn: r.burnIn, engine: r.engine },
+          metrics: {
+            mean: meanMu,
+            ciLow: sorted[Math.floor(0.025 * sorted.length)]!,
+            ciHigh: sorted[Math.floor(0.975 * sorted.length)]!,
+            rHatMu: r.diagnostics.rHat[0] ?? Number.NaN,
+            essMu: r.diagnostics.ess[0] ?? 0,
+            durationMs: Math.round(r.durationMs),
+          },
+          durationMs: Math.round(r.durationMs),
+          seed,
+        });
+      }
     } catch (err) {
-      setMcmcResult(err instanceof Error ? err.message : String(err));
+      if ((err as Error)?.name === 'AbortError') {
+        setMcmcResult(t('uncertainty.cancelled'));
+      } else {
+        setMcmcResult(err instanceof Error ? err.message : String(err));
+      }
       setMcmcChart(null);
     } finally {
       setMcmcRunning(false);
+      setMcmcProgress(null);
+      mcmcAbort.current = null;
     }
   };
 
+  const cancelMcmc = () => mcmcAbort.current?.abort();
+
   return (
-    <Modal open={open} onClose={onClose} title={t('uncertainty.title')} width={720}>
+    <Modal open={open} onClose={onClose} title={t('uncertainty.title')} width={760}>
       <div className="analysis-body">
         {/* ---- Data source (shared) ---- */}
         <div className="analysis-row">
@@ -270,11 +390,17 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
               )}
             </select>
           )}
+          <label className="research-check">
+            <input type="checkbox" checked={recordEnabled} onChange={(e) => setRecordEnabled(e.target.checked)} />
+            {t('uncertainty.record_run')}
+          </label>
         </div>
         {parseError && <p className="analysis-error">{parseError}</p>}
 
         {table && (
           <>
+            <EnginePicker value={engine} onChange={setEngine} gpuAvailable={gpuAvailable} />
+
             {/* ---- Bootstrap ---- */}
             <h4 className="share-section-title">{t('uncertainty.bootstrap')}</h4>
             <div className="analysis-row">
@@ -285,18 +411,29 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
                   </option>
                 ))}
               </select>
+              {paired && (
+                <select className="input" value={bsColX} onChange={(e) => setBsColX(e.target.value)}>
+                  {numericCols.filter((c) => c !== bsCol).map((c) => (
+                    <option key={c} value={c}>
+                      {t('uncertainty.pair_x')}: {c}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 className="input"
                 value={bsStat}
                 onChange={(e) => setBsStat(e.target.value as StatKind)}
               >
-                <option value="mean">{t('uncertainty.stat_mean')}</option>
-                <option value="median">{t('uncertainty.stat_median')}</option>
-                <option value="std">{t('uncertainty.stat_std')}</option>
+                {STAT_KINDS.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`uncertainty.stat_${s.replace('-', '_')}`)}
+                  </option>
+                ))}
               </select>
               <input
                 className="input"
-                style={{ maxWidth: 90 }}
+                style={{ maxWidth: 100 }}
                 title={t('uncertainty.iters')}
                 value={bsIters}
                 onChange={(e) => setBsIters(e.target.value)}
@@ -315,10 +452,21 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
                 value={bsSeed}
                 onChange={(e) => setBsSeed(e.target.value)}
               />
-              <button type="button" className="btn btn-primary" onClick={runBootstrap}>
-                {t('analysis.run')}
-              </button>
+              {bsProgress ? (
+                <button type="button" className="btn btn-danger" onClick={cancelBootstrap}>
+                  {t('uncertainty.cancel')}
+                </button>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={() => void runBootstrap()}>
+                  {t('analysis.run')}
+                </button>
+              )}
             </div>
+            {bsProgress && (
+              <p className="analysis-note">
+                {t('uncertainty.progress', { done: bsProgress.done, total: bsProgress.total })}
+              </p>
+            )}
             {bsResult && <pre className="analysis-output">{bsResult}</pre>}
             {bsChart && (
               <div className="analysis-preview">
@@ -422,14 +570,8 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
                 value={mcmcSeed}
                 onChange={(e) => setMcmcSeed(e.target.value)}
               />
-              {mcmcRunning ? (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => {
-                    cancelRef.current = true;
-                  }}
-                >
+              {mcmcRunning || mcmcProgress ? (
+                <button type="button" className="btn btn-danger" onClick={cancelMcmc}>
                   {t('uncertainty.cancel')}
                 </button>
               ) : (
@@ -438,11 +580,44 @@ export function UncertaintyDialog({ open, onClose }: UncertaintyDialogProps) {
                 </button>
               )}
             </div>
+            {mcmcProgress && (
+              <p className="analysis-note">
+                {t('uncertainty.progress', { done: mcmcProgress.done, total: mcmcProgress.total })}
+              </p>
+            )}
             {(mcmcResult || mcmcRunning) && (
               <pre className="analysis-output">
-                {mcmcRunning ? t('uncertainty.running') : mcmcResult}
+                {mcmcRunning && !mcmcResult ? t('uncertainty.running') : mcmcResult}
               </pre>
             )}
+
+            {mcmcEngineResult && (
+              <div className={`mcmc-diag${mcmcEngineResult.diagnostics.converged ? '' : ' mcmc-diag-bad'}`}>
+                <h4 className="share-section-title">{t('uncertainty.diagnostics')}</h4>
+                <table className="sweep-table">
+                  <thead>
+                    <tr>
+                      <th>param</th>
+                      <th>{t('uncertainty.rhat')}</th>
+                      <th>{t('uncertainty.ess')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mcmcEngineResult.diagnostics.rHat.map((rhat, i) => (
+                      <tr key={i} className={rhat > 1.01 || !Number.isFinite(rhat) ? 'repro-drift-fail' : ''}>
+                        <td>{i === 0 ? 'μ' : 'log σ'}</td>
+                        <td>{fmt(rhat)}</td>
+                        <td>{mcmcEngineResult.diagnostics.ess[i]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!mcmcEngineResult.diagnostics.converged && (
+                  <p className="analysis-error">{t('uncertainty.rhat_bad')}</p>
+                )}
+              </div>
+            )}
+
             {mcmcChart && (
               <div className="analysis-preview">
                 <div

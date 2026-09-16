@@ -27,6 +27,12 @@ export interface RecordRunInput {
   durationMs: number;
   /** Mark the run as failed (kept for the history, flagged in the label). */
   failed?: boolean;
+  /** Reproducibility seed (sweeps pin one seed per cell). */
+  seed?: number | null;
+  /** When source is 'sweep', the parent plan id (FR2.7 lineage edge). */
+  parentSweepId?: string;
+  inputFileIds?: string[];
+  outputFileIds?: string[];
 }
 
 interface ExperimentStore {
@@ -93,6 +99,10 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
       metrics: input.metrics,
       failed: input.failed ?? false,
       durationMs: input.durationMs,
+      seed: input.seed ?? null,
+      parentSweepId: input.parentSweepId,
+      inputFileIds: input.inputFileIds,
+      outputFileIds: input.outputFileIds,
     });
     try {
       await saveRun(run);

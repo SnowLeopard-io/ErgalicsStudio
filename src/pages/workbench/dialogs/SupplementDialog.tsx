@@ -32,6 +32,7 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
   const [description, setDescription] = useState('');
   const [includeData, setIncludeData] = useState(true);
   const [includeCode, setIncludeCode] = useState(true);
+  const [includeLock, setIncludeLock] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const hasProject = !!project;
@@ -44,6 +45,7 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
       const zip = await buildSupplement(project, {
         includeData,
         code: includeCode,
+        reproLock: includeLock,
         meta: {
           author: author.trim() || undefined,
           license: license.trim() || undefined,
@@ -149,6 +151,15 @@ export function SupplementDialog({ open, onClose }: SupplementDialogProps) {
             onChange={(e) => setIncludeCode(e.target.checked)}
           />
           {t('supplement.include_code')}
+        </label>
+
+        <label className="supplement-check">
+          <input
+            type="checkbox"
+            checked={includeLock}
+            onChange={(e) => setIncludeLock(e.target.checked)}
+          />
+          {t('supplement.include_lock')}
         </label>
 
         <p className="supplement-hint">{t('supplement.hint')}</p>

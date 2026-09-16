@@ -57,7 +57,19 @@ describe('buildSupplement — manifest', () => {
     expect(Array.isArray(manifest.runs)).toBe(true);
     expect(manifest.lineage).toBeDefined();
     expect(Array.isArray(manifest.lineage.nodes)).toBe(true);
-    expect(manifest.contents).toEqual({ data: [], code: [] });
+    expect(manifest.contents).toEqual({ data: [], code: [], reproLock: null });
+  });
+
+  it('embeds a repro.lock when requested', async () => {
+    const project = makeProject();
+    const zip = await unzip(await buildSupplement(project, { reproLock: true }));
+    expect(zip['repro.lock']).toBeDefined();
+    const lock = JSON.parse(zip['repro.lock']!) as { lockVersion: number; projectId: string; runs: unknown[] };
+    expect(lock.lockVersion).toBe(1);
+    expect(lock.projectId).toBe(project.id);
+    expect(Array.isArray(lock.runs)).toBe(true);
+    const manifest = JSON.parse(zip['manifest.json']!) as SupplementManifest;
+    expect(manifest.contents.reproLock).toBe('repro.lock');
   });
 
   it('records the project file as a lineage source node', async () => {

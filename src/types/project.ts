@@ -41,6 +41,8 @@ export interface ProjectState {
   sweepResults?: import('../core/sweep/types').SweepMap | null;
   /** Report Builder saved specs (F8). */
   reports?: import('../core/report/builder').ReportSpec[] | null;
+  /** Data Profiler cached reports keyed by file id (F5, FR5.6). */
+  profiles?: import('../core/profiler/profile').SavedProfile[] | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -101,6 +103,7 @@ export function createEmptyProject(name: string): Project {
       sweeps: [],
       sweepResults: {},
       reports: [],
+      profiles: [],
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -158,6 +161,7 @@ export function normalizeProject(parsed: Project): Project {
       sweepResults:
         state.sweepResults && typeof state.sweepResults === 'object' ? state.sweepResults : {},
       reports: Array.isArray(state.reports) ? state.reports : [],
+      profiles: Array.isArray(state.profiles) ? state.profiles : [],
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

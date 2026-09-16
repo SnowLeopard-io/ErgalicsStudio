@@ -27,6 +27,7 @@
     "verify": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
     "@tensorflow/tfjs": "^4.22.0",
     "apache-arrow": "^21.2.0",
     "blockly": "^13.2.1",
