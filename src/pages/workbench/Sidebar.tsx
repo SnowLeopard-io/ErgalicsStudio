@@ -30,6 +30,8 @@ export function Sidebar() {
   const [newOpen, setNewOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  /** Pending destructive action: project awaiting delete confirmation. */
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   /** Collapsed discipline groups (in-memory; all expanded by default). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +103,7 @@ export function Sidebar() {
                   type="button"
                   className="icon-btn recent-delete"
                   title={t('common.delete')}
-                  onClick={() => void remove(p.id)}
+                  onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
                 >
                   ✕
                 </button>
@@ -203,6 +205,36 @@ export function Sidebar() {
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void handleNewProject()}
         />
+      </Modal>
+
+      {/* Deleting a project is irreversible — confirm before removing. */}
+      <Modal
+        open={deleteTarget !== null}
+        title={t('common.delete')}
+        onClose={() => setDeleteTarget(null)}
+        width={420}
+        footer={
+          <>
+            <button type="button" className="btn" onClick={() => setDeleteTarget(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => {
+                if (deleteTarget) void remove(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              {t('common.delete')}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          {t('project.remove_confirm')}
+          {deleteTarget && <strong> {deleteTarget.name}</strong>}
+        </p>
       </Modal>
 
       <PluginDialog open={pluginOpen} onClose={() => setPluginOpen(false)} />

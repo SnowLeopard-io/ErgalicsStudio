@@ -10,16 +10,7 @@ import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
-import { ShareDialog } from './dialogs/ShareDialog';
-import { AnalysisDialog } from './dialogs/AnalysisDialog';
-import { NamePromptDialog } from './dialogs/NamePromptDialog';
-import { RunHistoryDialog } from './dialogs/RunHistoryDialog';
-import { UncertaintyDialog } from './dialogs/UncertaintyDialog';
-import { LineageDialog } from './dialogs/LineageDialog';
-import { SupplementDialog } from './dialogs/SupplementDialog';
-import { DataDialog } from './DataDialog';
-import { ProjectFilesDialog } from './ProjectFilesDialog';
-import { PerfDialog } from './PerfDialog';
+import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 
 export function TopBar() {
   const t = useT();
@@ -28,8 +19,6 @@ export function TopBar() {
   const dirty = useProjectStore((s) => s.dirty);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
-  const rename = useProjectStore((s) => s.rename);
-  const createProject = useProjectStore((s) => s.createProject);
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
@@ -39,17 +28,12 @@ export function TopBar() {
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
 
-  const [shareOpen, setShareOpen] = useState(false);
-  const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [runsOpen, setRunsOpen] = useState(false);
-  const [uncertaintyOpen, setUncertaintyOpen] = useState(false);
-  const [lineageOpen, setLineageOpen] = useState(false);
-  const [supplementOpen, setSupplementOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [exampleOpen, setExampleOpen] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
-  const [perfOpen, setPerfOpen] = useState(false);
+  // Single dialog key: only one TopBar dialog can be open at a time, so the
+  // previous eleven booleans collapse into this one piece of state (rendered
+  // by <TopBarDialogs /> at the bottom of this file).
+  const [dialog, setDialog] = useState<TopBarDialogKey | null>(null);
+  const openDialog = (key: TopBarDialogKey) => () => setDialog(key);
+  const closeDialog = () => setDialog(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFileCount = project?.data.files.length ?? 0;
 
@@ -67,7 +51,7 @@ export function TopBar() {
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      <button type="button" className="project-name" title={t('project.name')} onClick={() => setRenameOpen(true)}>
+      <button type="button" className="project-name" title={t('project.name')} onClick={openDialog('rename')}>
         {project?.name || DEFAULT_PROJECT_NAME}
         {dirty && <span className="project-dirty">•</span>}
       </button>
@@ -103,12 +87,12 @@ export function TopBar() {
             type="button"
             className="cluster-btn"
             title={t('workbench.files.title')}
-            onClick={() => setFilesOpen(true)}
+            onClick={openDialog('files')}
           >
             {t('workbench.files.data')}
             {projectFileCount > 0 && <span className="cluster-badge">{projectFileCount}</span>}
           </button>
-          <button type="button" className="cluster-btn" data-tour="examples" onClick={() => setExampleOpen(true)}>
+          <button type="button" className="cluster-btn" data-tour="examples" onClick={openDialog('data')}>
             {t('workbench.example.title')}
           </button>
         </div>
@@ -128,7 +112,7 @@ export function TopBar() {
               </span>
             }
             items={[
-              { key: 'new', label: t('project.new'), onClick: () => setNewOpen(true) },
+              { key: 'new', label: t('project.new'), onClick: openDialog('new') },
               {
                 key: 'open',
                 label: t('project.open'),
@@ -158,7 +142,7 @@ export function TopBar() {
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
           </button>
-          <button type="button" className="cluster-btn" onClick={() => setShareOpen(true)}>
+          <button type="button" className="cluster-btn" onClick={openDialog('share')}>
             {t('workbench.share')}
           </button>
         </div>
@@ -167,7 +151,7 @@ export function TopBar() {
 
         {/* Research & analysis toolset. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={() => setAnalysisOpen(true)}>
+          <button type="button" className="cluster-btn" onClick={openDialog('analysis')}>
             {t('workbench.analyze')}
           </button>
           <Dropdown
@@ -181,12 +165,12 @@ export function TopBar() {
             ariaLabel={t('research.menu')}
             align="left"
             items={[
-              { key: 'runs', label: t('research.runs.title'), onClick: () => setRunsOpen(true) },
-              { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => setUncertaintyOpen(true) },
-              { key: 'lineage', label: t('lineage.title'), onClick: () => setLineageOpen(true) },
+              { key: 'runs', label: t('research.runs.title'), onClick: openDialog('runs') },
+              { key: 'uncertainty', label: t('uncertainty.title'), onClick: openDialog('uncertainty') },
+              { key: 'lineage', label: t('lineage.title'), onClick: openDialog('lineage') },
               { key: 'figures', label: t('figure.title'), onClick: () => navigate('/figures') },
               { key: 'notebook', label: t('notebook.title'), onClick: () => navigate('/notebook') },
-              { key: 'supplement', label: t('supplement.title'), onClick: () => setSupplementOpen(true) },
+              { key: 'supplement', label: t('supplement.title'), onClick: openDialog('supplement') },
             ]}
           />
         </div>
@@ -216,7 +200,7 @@ export function TopBar() {
             type="button"
             className={`cluster-btn perf-entry${perfWarnFps && perfFps > 0 ? ' perf-warn' : ''}`}
             title={t('workbench.perf.title')}
-            onClick={() => setPerfOpen(true)}
+            onClick={openDialog('perf')}
           >
             <span className="perf-dot" aria-hidden="true" />
             {perfFps > 0 ? `${perfFps} FPS` : '—'}
@@ -238,37 +222,7 @@ export function TopBar() {
         />
       </div>
 
-      <NamePromptDialog
-        open={newOpen}
-        title={t('project.new')}
-        message={t('project.prompt_name')}
-        initial=""
-        onClose={() => setNewOpen(false)}
-        onConfirm={async (name) => {
-          await createProject(name);
-          setNewOpen(false);
-        }}
-      />
-      <NamePromptDialog
-        open={renameOpen}
-        title={t('project.name')}
-        message={t('project.name')}
-        initial={project?.name ?? ''}
-        onClose={() => setRenameOpen(false)}
-        onConfirm={(name) => {
-          if (name) rename(name);
-          setRenameOpen(false);
-        }}
-      />
-      <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
-      <AnalysisDialog open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
-      <RunHistoryDialog open={runsOpen} onClose={() => setRunsOpen(false)} />
-      <UncertaintyDialog open={uncertaintyOpen} onClose={() => setUncertaintyOpen(false)} />
-      <LineageDialog open={lineageOpen} onClose={() => setLineageOpen(false)} />
-      <SupplementDialog open={supplementOpen} onClose={() => setSupplementOpen(false)} />
-      <DataDialog open={exampleOpen} onClose={() => setExampleOpen(false)} />
-      <ProjectFilesDialog open={filesOpen} onClose={() => setFilesOpen(false)} />
-      <PerfDialog open={perfOpen} onClose={() => setPerfOpen(false)} />
+      <TopBarDialogs dialog={dialog} onClose={closeDialog} />
     </header>
   );
 }

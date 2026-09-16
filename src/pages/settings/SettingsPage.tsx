@@ -165,8 +165,13 @@ export default function SettingsPage() {
           </div>
           <div className="settings-row">
             <label className="settings-label">GitHub</label>
-            <a className="settings-value" href="https://github.com" target="_blank" rel="noreferrer">
-              github.com/ergalics-studio
+            <a
+              className="settings-value"
+              href="https://github.com/SnowLeopard-io/ErgalicsStudio"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github.com/SnowLeopard-io/ErgalicsStudio
             </a>
           </div>
         </section>
