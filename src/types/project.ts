@@ -35,6 +35,10 @@ export interface ProjectState {
   figureSheets?: FigureSheet[] | null;
   /** Notebook (mixed markdown/code cells). */
   notebook?: import('../core/notebook/notebook').NotebookState | null;
+  /** Sweep Studio plans (F2). */
+  sweeps?: import('../core/sweep/types').SweepPlan[] | null;
+  /** Sweep results keyed by plan id (F2). */
+  sweepResults?: import('../core/sweep/types').SweepMap | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -92,6 +96,8 @@ export function createEmptyProject(name: string): Project {
       workbenchMode: 'standard',
       figureSheets: [],
       notebook: null,
+      sweeps: [],
+      sweepResults: {},
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -145,6 +151,9 @@ export function normalizeProject(parsed: Project): Project {
       workbenchMode: state.workbenchMode ?? 'standard',
       figureSheets: Array.isArray(state.figureSheets) ? state.figureSheets : [],
       notebook: state.notebook ?? null,
+      sweeps: Array.isArray(state.sweeps) ? state.sweeps : [],
+      sweepResults:
+        state.sweepResults && typeof state.sweepResults === 'object' ? state.sweepResults : {},
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,
