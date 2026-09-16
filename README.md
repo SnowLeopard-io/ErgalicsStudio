@@ -41,7 +41,7 @@ running in the browser with a Rust/WASM core.</p>
 - [Flow Mode](#flow-mode)
 - [Block Mode](#block-mode)
 - [Code Mode](#code-mode)
-- [Research Modules](#research-modules)
+- [Research Modules](#research-modules-科研)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
@@ -77,24 +77,29 @@ end: the core loop (project management, data loading, plugin registry, 2D/3D
 rendering, i18n, theming, performance monitoring, the Flow mode, the Block
 mode, and the Code mode with a Pyodide Python runtime) is functional and
 covered by tests. GPU acceleration spans Particles, N-Body, the LBM fluid,
-the wave equation, histogram, heatmap and point-cloud kernels; a research
-toolset (experiment tracking, uncertainty quantification, a unit system,
-data lineage, chunked ingestion, a figure studio, supplement packaging and a
-notebook) turns the workbench into a small research workbench. Package
-signing for the plugin marketplace
-and the R runtime (webR) are the next milestones. Every module is kept
-deliberately small and testable so the codebase keeps scaling without a
-rewrite.
+the wave equation, histogram, heatmap and point-cloud kernels. On top of the
+first research toolset (experiment tracking, uncertainty quantification, a
+unit system, data lineage, chunked ingestion, a figure studio, supplement
+packaging and a notebook), a second-generation research platform has
+landed: a GPU uncertainty engine, Sweep Studio, Signal Lab, Model Lab, Data
+Profiler, Repro Lock, a DuckDB-powered SQL Workbench, a Report Builder and
+a headless Bayesian inference engine (HMC/NUTS) — every research tool is a
+standalone full-page lab sharing one unified shell. Package signing for the
+plugin marketplace, the inference UI and the R runtime (webR) are the next
+milestones. Every module is kept deliberately small and testable so the
+codebase keeps scaling without a rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
 > 40 built-in plugins (30 core + 10 fun), a sandboxed plugin system, a
 > marketplace catalog, live GPU compute, an in-browser AI training plugin,
 > a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
-> support, a Pyodide-powered Python code editor, and a research toolset
-> (experiment tracking, uncertainty suite, unit system, data lineage,
-> chunked ingestion, Figure Studio, supplement packaging, notebook);
-> package signing and the R runtime are next.
+> support, a Pyodide-powered Python code editor, and a 14-page research
+> workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Data
+> Profiler, Signal Lab, Sweep Studio, SQL Workbench, Report Builder, Repro
+> Lock, Data Lineage, Figure Studio, Notebook, Supplement packaging) plus
+> supporting kernels (unit system, chunked ingestion); package signing, the
+> inference UI and the R runtime are next.
 
 ---
 
@@ -103,13 +108,24 @@ rewrite.
 **Workbench**
 
 - Four-region layout: sidebar (projects / plugins), central viewport, right
-  parameter panel, status bar with GPU/perf indicators. Project data files
-  and settings live in the top bar (`示例 | 数据 | 设置 | 保存 | 分享`).
+  parameter panel, status bar with GPU/perf indicators. The top bar groups
+  its actions into five semantic clusters separated by dividers —
+  `[标准 | 流程 | 积木 | 代码]` mode switch, `[数据⓷ | 示例]` data cluster,
+  `[项目▾ | 保存 | 分享]` project cluster (项目▾ = new / open / save-as /
+  export log), `[分析 | 科研▾]` research cluster, and `[⚙ | ? | FPS | 语言 |
+  主题]` environment cluster.
+- Welcome-page quick start: six mode cards (Experiment Runs, Uncertainty,
+  Model Lab, Sweep Studio, Signal Lab, Report Builder) jump straight into
+  the corresponding standalone page; the same cards render in the workbench
+  empty state. A guided tour (`?` in the top bar) walks new users through
+  the workbench.
 - Project lifecycle: create / open / save / autosave / share (`.clproj`
   format stored in IndexedDB).
 - File routing: drag & drop any file; the host detects the format by magic
   number **and** extension (with optional WASM assist) and routes it to a
   matching plugin — with a picker dialog when multiple plugins match.
+  Import dialogs filter by file format so unrecognized files never reach a
+  parser.
 
 **Rendering**
 
@@ -175,39 +191,87 @@ rewrite.
 - **Run-log export** (`src/core/logger.ts` + `download.ts`) — session
   logs can be exported from the workbench for bug reports.
 
-**Research toolset (科研模块 — pure-TS cores + Zustand stores + dialogs)**
+**Research toolset (科研 — pure-TS cores + Zustand stores + standalone pages)**
 
-- **Experiment tracking** (`src/core/experiment/` + `experimentStore`) —
-  every Flow / Block / Code / Notebook run is recorded into a per-project
-  IndexedDB `runs` store with source, parameters, metrics and duration; the
-  实验记录 dialog lists the history and diffs any two runs' parameters
-  side by side.
-- **Uncertainty suite** (`src/core/uncertainty/`) — bootstrap confidence
-  intervals, Monte-Carlo error propagation, and Metropolis–Hastings MCMC
-  estimation with cancellation, surfaced through the 科研 menu on any
-  project data file.
+Every research tool is now a **standalone full page** (not a dialog) sharing
+one lab shell — a back-to-workbench header plus an unconstrained scrollable
+body. The cores under `src/core/` stay pure TypeScript, unit-tested, and
+wired into the event bus, so run history, the lineage DAG and the
+supplement manifest pick them up automatically.
+
+- **Experiment tracking** (`src/core/experiment/` + `experimentStore`,
+  `/#/runs`) — every Flow / Block / Code / Notebook / Sweep / Uncertainty /
+  Model-Lab run is recorded into a per-project IndexedDB `runs` store with
+  source, parameters, metrics and duration; the Runs page lists the history
+  and diffs any two runs' parameters side by side.
+- **GPU uncertainty engine** (`src/core/uncertainty/`, `/#/uncertainty`) —
+  bootstrap confidence intervals, Monte-Carlo error propagation and
+  Metropolis–Hastings MCMC with an engine picker (auto / CPU / GPU). The
+  GPU path (WGSL PCG32 RNG, one workgroup per chain) accelerates
+  million-sample resampling; Gelman–Rubin R-hat and ESS diagnostics flag
+  convergence. Runs against any project data file; every result records
+  the engine and device used.
+- **Model Lab** (`src/core/model/`, `/#/model-lab`) — OLS (QR), logistic
+  (IRLS), ridge (K-fold CV) and polynomial regression with coefficient
+  tables (estimate / SE / p / CI) and a 2×2 residual diagnostic panel;
+  every fit is recorded into the run history.
+- **Data Profiler** (`src/core/profiler/`, `/#/profiler`) — a single
+  streaming pass produces per-column profiles (types, missing rates,
+  cardinality, five-number summaries, histograms, outliers), a correlation
+  matrix and a 0–100 quality score with an issue list; cached by content
+  fingerprint for instant re-opens.
+- **Signal Lab** (`src/core/signal/`, `/#/signal`) — FFT / power spectral
+  density (Welch), window functions, Savitzky–Golay and moving-average
+  filters, ACF/PACF and seasonal decomposition; filtered columns can be
+  saved back as derived data files that automatically join the lineage DAG.
+- **Sweep Studio** (`src/core/sweep/`, `/#/sweeps`) — define 1–3 parameter
+  axes (grid / list / Latin hypercube) and batch-run any pipeline source;
+  results render as error-bar lines, response-surface heatmaps or parallel
+  coordinates, and every sub-run lands in the experiment history.
+- **SQL Workbench** (`src/core/sql/`, `/#/sql`) — a lazy-loaded
+  DuckDB-WASM engine registers project data files as tables; query them
+  with join / aggregation / window functions in a Monaco editor, preview
+  results, and save them as new CSVs that inherit lineage edges.
+- **Report Builder** (`src/core/report/`, `/#/report`) — compose ordered
+  sections (headings, markdown, figures, tables, run summaries,
+  interactive filters) and export a single self-contained HTML file with
+  inline SVG, vanilla-JS interactivity, light/dark themes and zh/en
+  languages.
+- **Repro Lock** (`src/core/repro/lock.ts`, `/#/reprolock`) — export a
+  `repro.lock` (data fingerprints + parameter hashes + seeds + code
+  snapshots + versions), verify it against a moved or aged project with a
+  five-class drift report, and re-run the locked runs to confirm metrics
+  reproduce.
 - **Unit system** (`src/core/units/`) — typed `Quantity` values with SI
   prefix parsing, dimensional algebra and conversion checks; surfaced as
   `units.convert` / `units.check` Flow blocks and a `QuantityInput`
   parameter widget.
-- **Data lineage** (`src/core/lineage/` + `lineageStore`) — a file→run DAG
-  rebuilt automatically from run records and ingestion events, laid out in
-  layers and rendered as an SVG canvas in the 数据血缘 dialog.
+- **Data lineage** (`src/core/lineage/` + `lineageStore`, `/#/lineage`) — a
+  file→run DAG rebuilt automatically from run records and ingestion events,
+  laid out in layers and rendered as an SVG canvas; SQL queries, derived
+  Signal-Lab columns and sweeps all appear as nodes.
 - **Chunked ingestion** (`src/core/chunked/` + `chunkStore`) — an async
   row-window reader for large delimited files (CSV / TSV / DAT / XYZ / TXT)
   with column projection, preview sampling and content fingerprinting.
-- **Figure Studio** (`src/core/figure/`, `/figures` route) — compose
+- **Figure Studio** (`src/core/figure/`, `/#/figures`) — compose
   multi-panel publication figures on journal templates (IEEE / Elsevier,
   single & double column) with auto panel tags (a, b, c…), captions, a live
   SVG preview and SVG / PDF / PNG-600dpi export.
-- **Supplement packaging** (`src/core/package/`) — one click in the 科研
-  menu builds a paper-ready ZIP: `manifest.json` (project metadata + run
+- **Supplement packaging** (`src/core/package/`, `/#/supplement`) — one
+  click builds a paper-ready ZIP: `manifest.json` (project metadata + run
   records + lineage graph + author/license/description form) plus optional
   data files and code sessions.
-- **Notebook** (`src/core/notebook/`, `/notebook` route) — mixed
+- **Notebook** (`src/core/notebook/`, `/#/notebook`) — mixed
   markdown/code cells persisted in the project; code cells run on a
   dedicated Pyodide runtime (terminated on unmount) and every notebook run
   feeds the experiment history.
+- **Inference engine (headless)** (`src/core/inference/`) — HMC and NUTS
+  samplers with R-hat / bulk-ESS / tail-ESS diagnostics, HDI, MCSE, WAIC /
+  PSIS-LOO model comparison and posterior predictive checks. The numeric
+  core has landed; UI wiring is the next step.
+- **Analysis page** (`/#/analysis`) — the quick path: pick a data file and
+  get line / scatter / histogram / bar charts, descriptive statistics and
+  one-sample / two-sample / Mann–Whitney tests with SVG / PDF export.
 
 **Flow mode (visual dataflow pipeline)**
 
@@ -371,6 +435,7 @@ flowchart TB
 | 3D         | Three.js r185 (+ @types/three)                            |
 | Native     | Rust → wasm32-unknown-unknown, wasm-bindgen 0.2            |
 | GPU        | WebGPU / WGSL via web-sys                                  |
+| SQL        | DuckDB-WASM (lazy-loaded) + Apache Arrow                   |
 | Testing    | Vitest (unit) + Playwright-core (E2E, headless Edge)       |
 | Docs       | VitePress (separate `docs/` workspace)                    |
 | Packaging  | fflate (cspkg ZIP), lz-string (project compression)       |
@@ -399,7 +464,9 @@ npm run dev
 ```
 
 The app opens at the Vite dev server URL. The welcome page runs hardware
-self-checks (WebGPU, WASM, IndexedDB) before entering the workbench.
+self-checks (WebGPU, WASM, IndexedDB) before entering the workbench, and
+offers six quick-start mode cards that jump straight into the research
+pages.
 
 ### Build
 
@@ -431,9 +498,13 @@ See [Documentation](#documentation) for details.
 │   │                         #   fileFormat, scene3d, sandbox, cspkg,
 │   │                         #   stats (statistics kernel), io (HDF5/NetCDF/
 │   │                         #   FITS/Zarr/Parquet), plot (SVG/PDF engine),
-│   │                         #   repro (reproducibility), uncertainty, units,
+│   │                         #   repro (reproducibility + repro.lock),
+│   │                         #   uncertainty (CPU + WGSL GPU engine), units,
 │   │                         #   experiment, lineage, chunked, figure,
-│   │                         #   notebook, package (supplement zip), logger, …
+│   │                         #   notebook, package (supplement zip),
+│   │                         #   model (regression), signal (FFT/filters),
+│   │                         #   sweep, profiler, sql (DuckDB), report,
+│   │                         #   inference (HMC/NUTS, headless), logger, …
 │   ├── blocks/               #   block system (Flow mode):
 │   │                         #     types · registry · compiler · executor ·
 │   │                         #     ops · catalog · sample · l10n · render
@@ -443,12 +514,17 @@ See [Documentation](#documentation) for details.
 │   ├── components/blocks/    #   Flow-mode canvas, palette, node, param editor,
 │   │                         #     toolbar, result preview, workbench shell
 │   ├── components/editor/    #   Block/Code canvases, variable / console panels
-│   ├── pages/                #   welcome, workbench, settings, share, dialogs,
-│   │                         #     figures (Figure Studio), notebook
-│   ├── plugins/builtin/      #   27 core + 10 fun/utility plugins (2D + 3D)
+│   ├── pages/                #   welcome (quick-start mode cards), workbench,
+│   │                         #     settings, share, plugin view, figures,
+│   │                         #     notebook, labs/ (runs · analysis ·
+│   │                         #     uncertainty · model-lab · profiler ·
+│   │                         #     reprolock · lineage · supplement),
+│   │                         #     signal, sweeps, sql, report
+│   ├── plugins/builtin/      #   30 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
-│   │                         #     editor/experiment/lineage/chunk/figure/notebook)
+│   │                         #     editor/experiment/lineage/chunk/figure/notebook/
+│   │                         #     analysis/research/tour)
 │   ├── types/                #   plugin & project & editor contracts
 │   └── native/               #   generated WASM bindings (git-untracked)
 ├── native/ergalics-core/     # Rust core (device, compute, utils)
@@ -592,33 +668,43 @@ architecture; R via webR is the remaining runtime.
 
 ---
 
-## Research Modules (科研模块)
+## Research Modules (科研)
 
-The **科研** dropdown in the top bar — plus two dedicated routes — turns the
-workbench into a research workbench. Every module is layered the same way: a
-pure-TypeScript core under `src/core/` (no React), a Zustand store that
-persists into the project or IndexedDB, and a dialog / page on top, all
-covered by unit tests:
+The **科研** dropdown in the top bar — plus the **分析** quick-analysis
+button and the welcome page's quick-start cards — opens any of the fourteen
+standalone research pages. Every page shares the same lab shell (back to
+workbench + tool title + unconstrained scrollable body); every module is
+layered the same way: a pure-TypeScript core under `src/core/` (no React), a
+Zustand store that persists into the project or IndexedDB, and a page on
+top, all covered by unit tests:
 
-| Module | Entry point | What it does |
-| ------ | ----------- | ------------ |
-| Experiment tracking | 科研 → 实验记录 | auto-records every run (source, parameters, metrics, duration) into a per-project `runs` store; A/B diff any two runs' parameters |
-| Uncertainty suite | 科研 → 不确定性套件 | bootstrap CIs, Monte-Carlo error propagation, Metropolis–Hastings MCMC — cancellable, runs against any project data file |
-| Data lineage | 科研 → 数据血缘 | layered file→run DAG rebuilt from run records + ingestion events, rendered as an SVG canvas |
+| Page | Route | What it does |
+| ---- | ----- | ------------ |
+| Analysis | `/#/analysis` | quick charts (line / scatter / histogram / bar), descriptive statistics and t / Mann–Whitney tests with SVG/PDF export |
+| Experiment Runs | `/#/runs` | auto-recorded run history (source, parameters, metrics, duration) with A/B parameter diffing |
+| Uncertainty | `/#/uncertainty` | bootstrap CIs, Monte-Carlo propagation, MCMC — CPU or WGSL GPU engine (auto-selected) with R-hat / ESS diagnostics |
+| Model Lab | `/#/model-lab` | OLS / logistic / ridge / polynomial fitting with coefficient tables and 2×2 residual diagnostics |
+| Data Profiler | `/#/profiler` | streaming column profiles, correlation matrix, quality score + issue list, fingerprint cache |
+| Signal Lab | `/#/signal` | FFT / Welch PSD, windows, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition |
+| Sweep Studio | `/#/sweeps` | parameter grids / lists / Latin-hypercube batch experiments with response-surface visualisation |
+| SQL Workbench | `/#/sql` | DuckDB-WASM over project files: joins, aggregations, window functions; results save back with lineage |
+| Report Builder | `/#/report` | narrative + figures + tables + interactive filters → one self-contained HTML file |
+| Repro Lock | `/#/reprolock` | `repro.lock` export/import with five-class drift verification and one-click re-run |
+| Data Lineage | `/#/lineage` | layered file→run DAG rebuilt from run records + ingestion events, rendered as an SVG canvas |
 | Figure Studio | `/#/figures` | multi-panel publication figures on IEEE / Elsevier templates: panel editor with live SVG preview, captions, and SVG / PDF / PNG-600dpi export |
 | Notebook | `/#/notebook` | markdown + Python cells persisted in the project; cells run on a dedicated Pyodide runtime, and notebook runs feed the experiment history |
-| Supplement packaging | 科研 → 补充材料打包 | paper-ready ZIP with `manifest.json` (runs + lineage + metadata form) plus optional data files and code sessions |
+| Supplement packaging | `/#/supplement` | paper-ready ZIP with `manifest.json` (runs + lineage + metadata form) plus optional data files and code sessions |
 
-Two supporting pieces round out the toolset: a **unit system**
+Two supporting kernels round out the toolset: a **unit system**
 (`units.convert` / `units.check` Flow blocks + `QuantityInput`) for
 dimension-safe parameters, and **chunked ingestion** that streams large
 delimited files in row windows with preview + fingerprinting before a full
 parse.
 
-Runs recorded from Flow / Block / Code / Notebook all land in the same
-history and the same lineage graph, so the question "which run produced
-this figure, from which data?" is always answerable — and the answer ships
-with the paper via the supplement ZIP.
+Runs recorded from Flow / Block / Code / Notebook / Sweeps / Uncertainty /
+Model Lab all land in the same history and the same lineage graph, so the
+question "which run produced this figure, from which data?" is always
+answerable — and the answer ships with the paper via the supplement ZIP.
 
 ---
 
@@ -861,7 +947,8 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-517 tests across 55 test files: file-format detection, scientific binary
+688 tests across 64 test files (686 passing, 2 skipped on GPU-less CI): file-format
+detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
 cspkg parsing/validation,
@@ -877,9 +964,15 @@ protocol, the structural-mechanics simulator, plugin runtime lifecycle and
 recent bugfix regressions, the publication-grade plot engine, the
 reproducibility kernel, and the pipeline samples that load via
 `import.meta.glob`, plus the research modules — the uncertainty suite
-(bootstrap and Monte-Carlo propagation), the unit system, experiment
-tracking, data lineage, chunked ingestion, figure composition, supplement
-packaging (zip round-trip) and the notebook model.
+(bootstrap, Monte-Carlo propagation, GPU-engine parity and R-hat/ESS
+diagnostics), the unit system, experiment tracking (the IndexedDB runs
+store), data lineage, chunked ingestion, figure composition, supplement
+packaging (zip round-trip), the notebook model, Model Lab (OLS / logistic /
+ridge / polynomial), the data profiler, the signal toolkit (FFT / filters /
+ACF / decomposition), the sweep runner (plan expansion, metric extraction,
+resume), the SQL engine (registration / query / cancellation), the report
+builder (spec → HTML, escaping, runs summary) and the repro lock (build /
+verify / drift).
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -943,6 +1036,17 @@ table. Highlights:
 - [x] Scientific binary I/O — HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`)
 - [x] Publication-grade plot engine with SVG/PDF export and a reproducibility kernel (`src/core/plot/`, `src/core/repro/`)
 - [x] Research toolset — experiment tracking with run history, uncertainty suite (bootstrap + Monte-Carlo propagation), typed unit system, data lineage DAG, chunked ingestion, Figure Studio (`/#/figures`), supplement packaging and a mixed Markdown/Python notebook (`/#/notebook`)
+- [x] Top-bar redesign (semantic action clusters), welcome quick-start mode cards, guided tour
+- [x] Research tools promoted to standalone pages sharing one lab shell (`/#/runs`, `/#/analysis`, `/#/uncertainty`, `/#/model-lab`, `/#/profiler`, `/#/reprolock`, `/#/lineage`, `/#/supplement`, …)
+- [x] GPU uncertainty engine — WGSL PCG32 RNG, GPU bootstrap / MCMC, R-hat + ESS diagnostics, automatic CPU fallback
+- [x] Model Lab — OLS / logistic / ridge / polynomial regression with diagnostics (`src/core/model/`, `/#/model-lab`)
+- [x] Data Profiler — streaming column profiles + quality score (`src/core/profiler/`, `/#/profiler`)
+- [x] Signal Lab — FFT / PSD / filters / ACF-PACF / seasonal decomposition (`src/core/signal/`, `/#/signal`)
+- [x] Sweep Studio — grid / list / Latin-hypercube parameter sweeps with response surfaces (`/#/sweeps`)
+- [x] SQL Workbench — DuckDB-WASM over project files (`/#/sql`)
+- [x] Report Builder — self-contained interactive HTML export (`/#/report`)
+- [x] Repro Lock — `repro.lock` export / verify / one-click re-run (`/#/reprolock`)
+- [ ] Inference Forge UI — the HMC / NUTS numeric core landed headless (`src/core/inference/`); dialog/page wiring next
 - [ ] Code mode: R runtime (webR)
 
 ---
