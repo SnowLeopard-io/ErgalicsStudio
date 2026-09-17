@@ -1,4 +1,4 @@
-﻿// E2E checks for this round:
+// E2E checks for this round:
 // 1. 3D surface visibility is conditional — switching to a 2D plugin hides
 //    the 3D coordinate system (no bleed into 2D viewports).
 // 2. Contour plugin renders the vortex field (ramp + contour lines).
@@ -38,8 +38,23 @@ let browser;
     }
     return { distinct: colors.size, all: [...colors.keys()] };
   });
-  const loadExample = (title) =>
-    page.locator('.plugin-card', { hasText: title }).locator('button', { hasText: '加载' }).click();
+  // The examples dialog buckets samples into left-nav discipline
+  // categories (lab/charts/stats/physics/geo/data/fun); walk them until the
+  // requested card is visible.
+  const loadExample = async (title) => {
+    const cats = page.locator('.example-cat');
+    const count = await cats.count();
+    for (let i = 0; i < count; i += 1) {
+      await cats.nth(i).click();
+      await sleep(150);
+      const card = page.locator('.plugin-card', { hasText: title });
+      if ((await card.count()) > 0) {
+        await card.locator('button', { hasText: '加载' }).click();
+        return;
+      }
+    }
+    throw new Error(`example card not found: ${title}`);
+  };
 
   await page.goto(`${server.url}/#/`, { waitUntil: 'networkidle' });
   await sleep(1000);
@@ -72,16 +87,16 @@ let browser;
   await sleep(1200);
   step('3D surface shows again on re-activation', await threeVisible());
 
-  // ---- 2. Contour plugin (vortex field) ----
-  await page.locator('.plugin-item[data-plugin-id="example.contour"]').click();
+  // ---- 2. Heatmap plugin (vortex field) ----
+  await page.locator('.plugin-item[data-plugin-id="example.heatmap"]').click();
   await sleep(1200);
   await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
   await sleep(400);
   await loadExample('涡旋场');
   await sleep(1600);
   let s = await sample();
-  step('contour renders many colors (ramp)', s.distinct > 40);
-  await page.screenshot({ path: shot('contour.png') });
+  step('heatmap renders many colors (ramp)', s.distinct > 40);
+  await page.screenshot({ path: shot('heatmap.png') });
 
   // ---- 3. Scatter plugin (cluster data) ----
   await page.locator('.plugin-item[data-plugin-id="example.scatter"]').click();
