@@ -12,13 +12,9 @@ import { useLocale, useT } from '@/i18n';
 import { getResolvedTheme } from '@/theme';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
-import { renderView } from '@/blocks/render';
-import type { ViewRenderHost } from '@/blocks/render';
-import { createStudioApi } from '@/editor/runtime/studio-api';
-import type { StudioApiHost } from '@/editor/runtime/studio-api';
+import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { interpret } from '@/editor/runtime/interpreter';
-import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
+import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import { hashString } from '@/core/repro/random';
 import { useExperimentStore, numericMetrics } from '@/stores/experimentStore';
 import { codegenJS, codegenPython } from '@/editor/codegen';
@@ -164,35 +160,6 @@ export function BlockEditor() {
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
-  const buildStudioHost = (): StudioApiHost => {
-    const viewHost: ViewRenderHost = {
-      activate: async (pluginId) => {
-        const store = usePluginStore.getState();
-        if (store.activeId !== pluginId) {
-          await store.activate(pluginId);
-        } else {
-          // Plugin is already active, but its cached container may still
-          // point at a detached canvas after the editor remounted — rebind
-          // to the current preview containers before loading data.
-          rerenderActivePlugin();
-        }
-        return store.getActive();
-      },
-    };
-    return {
-      loadText: async (path) => {
-        const text = resolveDataFile(path);
-        if (text === undefined) {
-          throw new Error(`file "${path}" not found (available: ${listDataFiles().join(', ')})`);
-        }
-        return text;
-      },
-      renderView: (view) => renderView(view, viewHost),
-      notify: (kind, message) => useAppStore.getState().notify(kind, message),
-      print: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
-    };
-  };
-
   const run = async () => {
     const ws = wsRef.current;
     if (!ws || isRunning) return;
@@ -208,7 +175,7 @@ export function BlockEditor() {
     let ok = false;
     let outputs: Record<string, unknown> = {};
     try {
-      const result = await interpret(ir, createStudioApi(buildStudioHost()));
+      const result = await interpret(ir, createWorkbenchStudioApi());
       if (result.ok) {
         ok = true;
         outputs = result.variables;

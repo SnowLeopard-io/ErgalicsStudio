@@ -81,6 +81,7 @@ export const TOOLBOX = {
         block('studio_number'),
         block('studio_string'),
         block('studio_boolean'),
+        block('studio_null'),
         block('studio_math_op', {
           A: { shadow: shadowNumber(1) },
           B: { shadow: shadowNumber(1) },
@@ -105,6 +106,7 @@ export const TOOLBOX = {
         block('studio_sort'),
         block('studio_select'),
         block('studio_filter', { VALUE: { shadow: shadowNumber(0) } }),
+        block('studio_add_column', { VALUES: { shadow: shadowNumber(0) } }),
       ],
     },
     {
@@ -136,6 +138,18 @@ export const TOOLBOX = {
         block('studio_while', { COND: { shadow: shadowBoolean('false') } }),
         block('studio_for_each', { LIST: { shadow: { type: 'studio_list', fields: { VALUES: '1,2,3' } } } }),
         block('studio_if', { COND: { shadow: shadowBoolean('true') } }),
+        block('studio_break'),
+        block('studio_continue'),
+      ],
+    },
+    {
+      kind: 'category',
+      name: '%{BKY_CAT_FUNCTIONS}',
+      colour: '#9966FF',
+      contents: [
+        block('studio_function_def'),
+        block('studio_return'),
+        block('studio_call'),
       ],
     },
     {

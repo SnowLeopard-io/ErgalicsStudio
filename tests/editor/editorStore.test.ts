@@ -111,6 +111,37 @@ describe('editorStore', () => {
     expect(useEditorStore.getState().pendingLoad).toBeNull();
   });
 
+  it('setSessionLanguage translates lastCode from the IR hub into the dialect', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const ir = makeProgram([
+      { kind: 'VarAssign', name: 'df1', value: { kind: 'Random', count: { kind: 'Number', value: 10 } }, declare: true },
+    ]);
+    useEditorStore.getState().updateSessionIR(session.id, ir);
+
+    useEditorStore.getState().setSessionLanguage(session.id, 'r');
+    let updated = useEditorStore.getState().sessions[0]!;
+    expect(updated.language).toBe('r');
+    // R codegen: <- assignment and studio.* calls.
+    expect(updated.lastCode).toContain('<-');
+    expect(updated.lastCode).toMatch(/studio\./);
+    // IR itself is language-agnostic and unchanged in shape.
+    expect(updated.ir.body).toHaveLength(1);
+
+    useEditorStore.getState().setSessionLanguage(session.id, 'js');
+    updated = useEditorStore.getState().sessions[0]!;
+    expect(updated.language).toBe('js');
+    expect(updated.lastCode).toMatch(/(const|let|var)\s+df1/);
+  });
+
+  it('setSessionLanguage is a no-op for the same language or unknown session', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const before = useEditorStore.getState().sessions[0]!.updatedAt;
+    useEditorStore.getState().setSessionLanguage(session.id, 'python');
+    expect(useEditorStore.getState().sessions[0]!.updatedAt).toBe(before);
+    useEditorStore.getState().setSessionLanguage('nope', 'r');
+    expect(useEditorStore.getState().sessions).toHaveLength(1);
+  });
+
   it('persisted sessions survive a JSON stringify round-trip (plain JSON)', () => {
     const session = useEditorStore.getState().createSession('block', 'python');
     const ir = makeProgram([{ kind: 'VarAssign', name: 'x', value: { kind: 'Number', value: 5 }, declare: true }]);

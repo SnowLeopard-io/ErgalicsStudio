@@ -9,9 +9,17 @@
 
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+// Code mode also edits JavaScript: Monaco's TS language contribution owns
+// the 'javascript' label and proxies into the TypeScript worker. Returning
+// the plain editor worker for it makes the worker throw `$loadForeignModule`
+// (toUri of undefined) on every JS model.
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
 self.MonacoEnvironment = {
-  getWorker: () => new editorWorker(),
+  getWorker: (_workerId, label) => {
+    if (label === 'typescript' || label === 'javascript') return new tsWorker();
+    return new editorWorker();
+  },
 };
 
 /** Apply the resolved app theme to Monaco (code editor + dialogs). */

@@ -1,4 +1,4 @@
-﻿// Inspect the Monaco current-line / selection colors as actually rendered.
+// Inspect the Monaco current-line / selection colors as actually rendered.
 import { chromium } from 'playwright-core';
 import { startPreview, launchOptions, shot, sleep } from './_harness.mjs';
 
@@ -15,7 +15,7 @@ try {
   await sleep(1000);
   await page.locator('.welcome-enter').click();
   await sleep(1500);
-  await page.locator('.mode-switch .cluster-btn', { hasText: '代码' }).click();
+  await page.locator('.mode-switch .mode-btn', { hasText: '代码' }).click();
   await sleep(3000);
   const surface = page.locator('.code-editor-monaco .view-lines');
   await surface.click();

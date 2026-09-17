@@ -188,6 +188,46 @@ describe('studio.plot', () => {
   });
 });
 
+describe('studio flow-kit parity methods', () => {
+  it('exampleData() mirrors source.example_data (t + sine/noise columns)', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.exampleData(100, 1);
+    expect(t.columnNames()).toEqual(['t', 'x']);
+    expect(t.length).toBe(100);
+    // Deterministic for a fixed seed.
+    expect(api.exampleData(100, 1).getColumn('x')).toEqual(t.getColumn('x'));
+  });
+
+  it('grid() mirrors source.generate_grid (size×size coordinates)', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.grid(3);
+    expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(t.length).toBe(9);
+    expect(Array.from(t.getColumn('x') as Float64Array)).toEqual([0, 0, 0, 1, 1, 1, 2, 2, 2]);
+    expect(Array.from(t.getColumn('y') as Float64Array)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2]);
+  });
+
+  it('filterRange() keeps the inclusive numeric window', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [-1, 0, 0.5, 1, 2] }]);
+    const out = api.filterRange(t, 'x', 0, 1);
+    expect(Array.from(out.getColumn('x') as Float64Array)).toEqual([0, 0.5, 1]);
+  });
+
+  it('topK() sorts by column and keeps K rows', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [3, 1, 2, 5, 4] }]);
+    expect(Array.from(api.topK(t, 'x', 2).getColumn('x') as Float64Array)).toEqual([5, 4]);
+    expect(Array.from(api.topK(t, 'x', 2, 'smallest').getColumn('x') as Float64Array)).toEqual([1, 2]);
+  });
+
+  it('renameColumn() renames in place', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [1, 2] }]);
+    expect(api.renameColumn(t, 'x', 'z').columnNames()).toEqual(['z']);
+  });
+});
+
 describe('studio host interaction', () => {
   it('notify/print forward to the host and params round-trip', () => {
     const host = makeHost();

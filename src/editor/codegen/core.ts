@@ -77,6 +77,15 @@ function sliceExpr(node: Extract<IRNode, { kind: 'ListSlice' }>, c: Ctx): string
     const step = node.step ? expr(node.step, c) : '';
     return `${list}[${start}:${stop}${step ? `:${step}` : ''}]`;
   }
+  // R has no Python-style half-open/strided slicing. Render through a DSL
+  // helper (0-based, half-open semantics identical to Python) instead of
+  // base R's inclusive `:` operator, which the parser maps back to ListSlice.
+  if (c.lang === 'r') {
+    const start = node.start ? expr(node.start, c) : 'NULL';
+    const stop = node.stop ? expr(node.stop, c) : 'NULL';
+    const step = node.step ? `, ${expr(node.step, c)}` : '';
+    return `studio.sliceList(${list}, ${start}, ${stop}${step})`;
+  }
   if (!node.step) {
     const start = node.start ? expr(node.start, c) : '0';
     const stop = node.stop ? expr(node.stop, c) : 'undefined';
@@ -102,7 +111,10 @@ function dictExpr(node: Extract<IRNode, { kind: 'Dict' }>, c: Ctx): string {
     const items = node.entries.map((e) => `${quote(e.key)} = ${expr(e.value, c)}`);
     return `list(${items.join(', ')})`;
   }
-  const items = node.entries.map((e) => `${quote(e.key)}: ${expr(e.value, c)}`);
+  const items = node.entries.map((e) => {
+    const key = /^[A-Za-z_$][\w$]*$/.test(e.key) ? e.key : quote(e.key);
+    return `${key}: ${expr(e.value, c)}`;
+  });
   return `{ ${items.join(', ')} }`;
 }
 
@@ -157,8 +169,13 @@ function expr(node: IRNode, c: Ctx): string {
       return `studio.normalize(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.mode)})`;
     case 'Sort':
       return `studio.sort(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.direction)})`;
-    case 'Select':
-      return `studio.select(${expr(node.data, c)}, [${node.columns.map(quote).join(', ')}])`;
+    case 'Select': {
+      // R has no `[...]` literal — wrap columns in `list(...)` so the output
+      // is valid R and round-trips through the parser.
+      const cols = node.columns.map(quote).join(', ');
+      const wrapped = c.lang === 'r' ? `list(${cols})` : `[${cols}]`;
+      return `studio.select(${expr(node.data, c)}, ${wrapped})`;
+    }
     case 'AddColumn':
       return `studio.addColumn(${expr(node.data, c)}, ${quote(node.name)}, ${expr(node.values, c)})`;
     case 'Summary':
@@ -314,15 +331,42 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
       return `${ind}${prefix}${node.name}${assignOp}${expr(node.value, c)}${terminator(c)}`;
     }
     case 'PlotScatter': {
-      const color = node.color ? `, color: ${quote(node.color)}` : '';
-      return `${ind}studio.plot('scatter', ${expr(node.data, c)}, { x: ${quote(node.x)}, y: ${quote(node.y)}${color} })${terminator(c)}`;
+      const entries = [
+        { key: 'x', value: { kind: 'String', value: node.x } as IRNode },
+        { key: 'y', value: { kind: 'String', value: node.y } as IRNode },
+        ...(node.color ? [{ key: 'color', value: { kind: 'String', value: node.color } as IRNode }] : []),
+      ];
+      const opts = dictExpr({ kind: 'Dict', entries }, c);
+      return `${ind}studio.plot('scatter', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
     }
-    case 'PlotLine':
-      return `${ind}studio.plot('line', ${expr(node.data, c)}, { x: ${quote(node.x)}, y: ${quote(node.y)} })${terminator(c)}`;
-    case 'PlotHistogram':
-      return `${ind}studio.plot('histogram', ${expr(node.data, c)}, { column: ${quote(node.column)} })${terminator(c)}`;
-    case 'PlotPointCloud':
-      return `${ind}studio.plot('pointcloud', ${expr(node.data, c)}, { x: ${quote(node.x)}, y: ${quote(node.y)}, z: ${quote(node.z)} })${terminator(c)}`;
+    case 'PlotLine': {
+      const opts = dictExpr({
+        kind: 'Dict',
+        entries: [
+          { key: 'x', value: { kind: 'String', value: node.x } as IRNode },
+          { key: 'y', value: { kind: 'String', value: node.y } as IRNode },
+        ],
+      }, c);
+      return `${ind}studio.plot('line', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+    }
+    case 'PlotHistogram': {
+      const opts = dictExpr({
+        kind: 'Dict',
+        entries: [{ key: 'column', value: { kind: 'String', value: node.column } as IRNode }],
+      }, c);
+      return `${ind}studio.plot('histogram', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+    }
+    case 'PlotPointCloud': {
+      const opts = dictExpr({
+        kind: 'Dict',
+        entries: [
+          { key: 'x', value: { kind: 'String', value: node.x } as IRNode },
+          { key: 'y', value: { kind: 'String', value: node.y } as IRNode },
+          { key: 'z', value: { kind: 'String', value: node.z } as IRNode },
+        ],
+      }, c);
+      return `${ind}studio.plot('pointcloud', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+    }
     case 'If':
       return ifStmt(node, c, level);
     case 'Repeat':
