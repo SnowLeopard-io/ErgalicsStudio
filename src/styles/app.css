@@ -3472,6 +3472,10 @@
     flex-direction: column;
     width: min(720px, 96vw);
   }
+  /* In the stacked layout the 620px flex-basis on these cards resolves
+     against the block axis (height), inflating each card far beyond its
+     content. Let height track content and stretch width instead. */
+  .welcome-panels .welcome-modes,
   .welcome-panels .welcome-hardware {
     flex: none;
     width: 100%;
@@ -4028,11 +4032,6 @@ button.start-card:hover {
   gap: var(--space-2);
   width: 100%;
   padding: 2px 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
   color: var(--color-text-secondary);
 }
 
@@ -4048,12 +4047,6 @@ button.start-card:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.env-chevron {
-  display: inline-flex;
-  color: var(--color-text-tertiary);
-  flex-shrink: 0;
 }
 
 .env-rows {

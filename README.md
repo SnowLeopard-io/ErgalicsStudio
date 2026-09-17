@@ -114,11 +114,11 @@ codebase keeps scaling without a rewrite.
   `[项目▾ | 保存 | 分享]` project cluster (项目▾ = new / open / save-as /
   export log), `[分析 | 科研▾]` research cluster, and `[⚙ | ? | FPS | 语言 |
   主题]` environment cluster.
-- Welcome-page quick start: six mode cards (Experiment Runs, Uncertainty,
-  Model Lab, Sweep Studio, Signal Lab, Report Builder) jump straight into
-  the corresponding standalone page; the same cards render in the workbench
-  empty state. A guided tour (`?` in the top bar) walks new users through
-  the workbench.
+- Welcome-page quick start: four workbench mode cards (Standard / Flow /
+  Block / Code) plus a searchable launch grid for all 14 standalone
+  research tools (Analysis keeps its own quick entry); the same four mode
+  cards render in the workbench empty state. A guided tour (`?` in the top
+  bar) walks new users through the workbench.
 - Project lifecycle: create / open / save / autosave / share (`.clproj`
   format stored in IndexedDB).
 - File routing: drag & drop any file; the host detects the format by magic
@@ -161,6 +161,13 @@ codebase keeps scaling without a rewrite.
   are unavailable.
 - Locale-aware parameter panels (range / select / number / checkbox / text /
   file / button / toggle).
+- One-click export on every built-in plugin: PNG snapshots of the 2-D
+  canvas or the 3-D scene, plus RFC-4180 CSV export (UTF-8 BOM, with row
+  caps and sampling for simulations) from every chart/viewer that owns
+  tabular data. Several plugins also gained analysis overlays — OLS
+  trendlines and rolling means, cumulative/density histograms, box-plot
+  mean markers, violin jitter points, bar ordering, and Game-of-Life
+  pattern presets.
 
 **Infrastructure**
 
@@ -282,7 +289,7 @@ supplement manifest pick them up automatically.
 - A second workbench mode next to Standard — toggle with the `Standard | Flow`
   switch in the top bar. Standard mode is *load data → see it*; Flow mode is
   *compose a visual pipeline → run it → see every node's output*.
-- 37 built-in blocks organised by category: data sources, transforms,
+- 42 built-in blocks organised by category: data sources, transforms,
   filters, math, statistics (including t-tests, ANOVA, Mann–Whitney,
   chi-square, correlation, effect sizes and multiple-comparison
   corrections), plotting and visualizations. Control-flow blocks
@@ -469,14 +476,14 @@ npm run dev
 
 The app opens at the Vite dev server URL. The welcome page runs hardware
 self-checks (WebGPU, WASM, IndexedDB) before entering the workbench, and
-offers six quick-start mode cards that jump straight into the research
-pages.
+offers the four workbench mode cards plus a searchable launch grid of the
+standalone research tools.
 
 ### Build
 
 ```bash
-npm run build          # wasm → typecheck → vite build
-npm run build:web      # frontend only (no WASM)
+npm run build          # wasm → typecheck → vite build → docs
+npm run build:web      # frontend only (no WASM): typecheck → vite build → docs
 npm run build:wasm     # rebuild the Rust core into src/native
 ```
 
@@ -953,7 +960,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-691 tests across 65 test files (689 passing, 2 skipped on GPU-less CI): file-format
+890 tests across 70 test files (890 passing, 2 skipped on GPU-less CI): file-format
 detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
@@ -961,7 +968,9 @@ cspkg parsing/validation,
 sandbox RPC (including an end-to-end round trip through a fake Worker),
 i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
 N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
-service gating), built-in plugin logic, the data plugins' parsing helpers
+service gating), built-in plugin logic (including the shared one-click
+PNG/CSV export actions, host-button payload handling and recent bugfix
+regressions), the data plugins' parsing helpers
 (error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
 — `DataTable` ops, registry, compiler (validation/topology/type-check),
 executor (incremental cache + invalidation), geometry, catalog executors,
@@ -994,7 +1003,7 @@ npm run test:e2e
 | `verify-ui`          | layout, theming, canvas, plugin list                                   |
 | `verify-fixes`       | all example plugins render their sample data correctly              |
 | `verify-3d`          | 3D point cloud in the host Three.js scene                              |
-| `verify-plugins`     | 3D↔2D surface visibility, contour, scatter, tornado sample             |
+| `verify-plugins`     | 3D↔2D surface visibility, heatmap, scatter, tornado sample             |
 | `verify-webgpu`      | GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback |
 | `verify-block-mode`  | block editor: mode switch, compile, run, block → code sync             |
 | `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
@@ -1028,10 +1037,11 @@ table. Highlights:
 
 - [x] Workbench layout, project management, file routing
 - [x] 40 built-in plugins (30 core + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 40 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
-- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 37 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
+- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 42 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [x] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
@@ -1040,7 +1050,7 @@ table. Highlights:
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
 - [x] Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable `studio` module, REPL + variables, worker interrupt, and 9 sample programs under `examples/code/`; same IR shared with block mode.
 - [x] Three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (`src/editor/flow/convert.ts` + `src/editor/block/convert.ts`), pinned by a `sync-threeway` unit test; Code-mode buffers parse back into the IR via `src/editor/code/parse.ts`
-- [x] Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (`src/core/stats/`), surfaced as 11 Flow-mode `stats.*` blocks
+- [x] Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (`src/core/stats/`), surfaced as 14 Flow-mode `stats.*` blocks
 - [x] Scientific binary I/O — HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`)
 - [x] Publication-grade plot engine with SVG/PDF export and a reproducibility kernel (`src/core/plot/`, `src/core/repro/`)
 - [x] Research toolset — experiment tracking with run history, uncertainty suite (bootstrap + Monte-Carlo propagation), typed unit system, data lineage DAG, chunked ingestion, Figure Studio (`/#/figures`), supplement packaging and a mixed Markdown/Python notebook (`/#/notebook`)
