@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -136,10 +136,26 @@ export default function UncertaintyPage() {
   const [recordEnabled, setRecordEnabled] = useState(false);
   const mcmcAbort = useRef<AbortController | null>(null);
 
+  // Abort in-flight engines when the page is unmounted; otherwise the
+  // progress callbacks call setState on an unmounted component and the
+  // engine keeps burning CPU/GPU after navigation.
+  useEffect(
+    () => () => {
+      bsAbort.current?.abort();
+      mcmcAbort.current?.abort();
+    },
+    [],
+  );
+
   const numericCols = useMemo(
     () => (table ? table.columns.filter((c) => isNumericType(c.type)).map((c) => c.name) : []),
     [table],
   );
+
+  // Structural inputs (file/column/stat) must stay frozen while an engine
+  // runs: the recorded run label/params read live state, so changing them
+  // mid-run would log a result under the wrong data column.
+  const busy = bsProgress !== null || mcmcRunning;
 
   const loadFile = (name: string) => {
     setFile(name);
@@ -382,7 +398,7 @@ export default function UncertaintyPage() {
           {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
-            <select className="input" value={file} onChange={(e) => loadFile(e.target.value)}>
+            <select className="input" value={file} disabled={busy} onChange={(e) => loadFile(e.target.value)}>
               <option value="">{t('analysis.select_file')}</option>
               {fileGroups.project.length > 0 && (
                 <optgroup label={t('datafiles.group_project')}>
@@ -418,7 +434,7 @@ export default function UncertaintyPage() {
             {/* ---- Bootstrap ---- */}
             <h4 className="share-section-title">{t('uncertainty.bootstrap')}</h4>
             <div className="analysis-row">
-              <select className="input" value={bsCol} onChange={(e) => setBsCol(e.target.value)}>
+              <select className="input" disabled={busy} value={bsCol} onChange={(e) => setBsCol(e.target.value)}>
                 {numericCols.map((c) => (
                   <option key={c} value={c}>
                     {t('analysis.column')}: {c}
@@ -426,7 +442,7 @@ export default function UncertaintyPage() {
                 ))}
               </select>
               {paired && (
-                <select className="input" value={bsColX} onChange={(e) => setBsColX(e.target.value)}>
+                <select className="input" disabled={busy} value={bsColX} onChange={(e) => setBsColX(e.target.value)}>
                   {numericCols.filter((c) => c !== bsCol).map((c) => (
                     <option key={c} value={c}>
                       {t('uncertainty.pair_x')}: {c}
@@ -436,6 +452,7 @@ export default function UncertaintyPage() {
               )}
               <select
                 className="input"
+                disabled={busy}
                 value={bsStat}
                 onChange={(e) => setBsStat(e.target.value as StatKind)}
               >
@@ -564,6 +581,7 @@ export default function UncertaintyPage() {
             <div className="analysis-row">
               <select
                 className="input"
+                disabled={busy}
                 value={mcmcCol}
                 onChange={(e) => setMcmcCol(e.target.value)}
               >

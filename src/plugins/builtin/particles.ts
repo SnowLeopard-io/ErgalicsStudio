@@ -20,6 +20,7 @@ import type {
   PluginManifest,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 import {
   advanceParticleCPU,
   packParticleParams,
@@ -97,6 +98,20 @@ export class ParticlePlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'particles');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportCsv();
+      return;
+    }
     if (typeof params.count === 'number' && params.count !== this.state.count) {
       // Clamp to the declared param range [500, 250000]. An out-of-range value
       // previously bypassed the slider bounds and could allocate an oversized
@@ -140,7 +155,23 @@ export class ParticlePlugin implements Plugin {
         action: 'gpu-compute',
         labelI18n: { 'zh-CN': '⚡ GPU 加速计算', 'en-US': '⚡ GPU compute' },
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Particles CSV', '导出粒子 CSV'),
     ];
+  }
+
+  /** Export the current particles (x, y, vx, vy) as CSV, uniformly sampled
+   *  to at most 50k rows. */
+  private exportCsv() {
+    const all = this.particles;
+    const MAX_ROWS = 50000;
+    const stride = Math.max(1, Math.ceil(all.length / MAX_ROWS));
+    const rows: number[][] = [];
+    for (let i = 0; i < all.length; i += stride) {
+      const p = all[i] as RawParticle;
+      rows.push([p.x, p.y, p.vx, p.vy]);
+    }
+    exportRowsCsv(this.api, 'particles', ['x', 'y', 'vx', 'vy'], rows);
   }
 
   getSupportedFormats() {

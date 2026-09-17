@@ -7,6 +7,8 @@
 // environments by design.
 // ==========================================================================
 
+import { logger } from '@/core/logger';
+
 /** Trigger a browser download of the given text content. */
 export function downloadText(
   content: string,
@@ -78,6 +80,12 @@ export function exportPNG(svg: string, filename = 'plot.png', scale = 600 / 96):
       a.click();
       setTimeout(() => URL.revokeObjectURL(pngUrl), 0);
     }, 'image/png');
+  };
+  // A rasterization failure (tainted/malformed SVG) used to leave the blob
+  // URL referenced forever — revoke it so the browser can reclaim the memory.
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    logger.error('plot', `PNG export failed for ${filename}`);
   };
   img.src = url;
 }

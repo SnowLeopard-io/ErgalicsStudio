@@ -12,6 +12,21 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+function canvasBackground(canvas: HTMLCanvasElement): string {
+  if (typeof getComputedStyle === 'function') return getComputedStyle(canvas).backgroundColor || '#0a0e13';
+  return '#0a0e13';
+}
+
+const DEFAULT_STATE = { points: 60_000, color: '#6ee7b7', seed: 1 };
 
 export const barnsleyManifest: PluginManifest = {
   id: 'fun.barnsley',
@@ -57,10 +72,13 @@ function mulberry32(seed: number) {
 
 export class BarnsleyPlugin implements Plugin {
   readonly manifest = barnsleyManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { points: 60_000, color: '#6ee7b7', seed: 1 };
+  private state: State = { ...DEFAULT_STATE };
 
-  async init(_api: PluginApi) {}
+  async init(api: PluginApi) {
+    this.api = api;
+  }
 
   async destroy() {
     this.ctx = null;
@@ -79,13 +97,25 @@ export class BarnsleyPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'barnsley');
+      return;
+    }
+    // Reset: clear the canvas and restore the default parameters / initial
+    // point (the IFS transforms themselves are fixed constants).
+    if (buttonPressed(params, 'reset')) {
+      this.state.points = DEFAULT_STATE.points;
+      this.state.color = DEFAULT_STATE.color;
+      this.state.seed = DEFAULT_STATE.seed;
+      this.draw();
+      return;
+    }
     if (typeof params.points === 'number') {
       this.state.points = Math.max(2_000, Math.min(300_000, Math.round(params.points)));
     }
     if (typeof params.color === 'string') this.state.color = params.color;
     if (typeof params.seed === 'number') this.state.seed = Math.round(params.seed);
-    const reseed = params.regenerate as { action?: string } | undefined;
-    if (reseed?.action === 'regenerate') this.state.seed = (this.state.seed + 1) % 1_000_000;
+    if (buttonPressed(params, 'regenerate')) this.state.seed = (this.state.seed + 1) % 1_000_000;
     this.draw();
   }
 
@@ -122,6 +152,8 @@ export class BarnsleyPlugin implements Plugin {
         variant: 'primary',
         action: 'regenerate',
       },
+      actionButton('reset', 'Reset', '重置'),
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 
@@ -132,7 +164,7 @@ export class BarnsleyPlugin implements Plugin {
     const h = canvas.height = canvas.clientHeight || 360;
     const g = canvas.getContext('2d');
     if (!g) return;
-    g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
+    g.fillStyle = canvasBackground(canvas);
     g.fillRect(0, 0, w, h);
 
     const rand = mulberry32(this.state.seed * 7919 + 13);

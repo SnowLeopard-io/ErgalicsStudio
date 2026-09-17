@@ -70,8 +70,20 @@ const paramSubscriptions = new Map<string, BusSubscription[]>();
 const localeSubscriptions = new Map<string, Array<() => void>>();
 /** Sandboxed plugins receive locale pushes over the worker bridge. */
 const sandboxLocaleUpdaters = new Map<string, (locale: string) => void>();
-/** Serializes activate() so two rapid calls cannot race deactivate/activate. */
-let activationChain: Promise<void> = Promise.resolve();
+/**
+ * Serializes every lifecycle transition (activate / deactivate / unload).
+ * One chain guarantees their *bodies* never interleave; an `activationGen`
+ * generation token additionally lets a transition superseded while awaiting
+ * an RPC bail out before it publishes state (e.g. activate(A) interrupted by
+ * deactivate() on mode switch must not resurrect activeId afterwards).
+ */
+let lifecycleChain: Promise<void> = Promise.resolve();
+let activationGen = 0;
+
+function enqueueLifecycle(task: () => Promise<void> | void): Promise<void> {
+  lifecycleChain = lifecycleChain.then(task, task);
+  return lifecycleChain;
+}
 /**
  * In-flight `ensureBuiltinsLoaded()` promise, shared by concurrent callers.
  * Cleared on rejection so a transient failure can be retried instead of
@@ -138,7 +150,12 @@ export function rerenderActivePlugin(): void {
   const entry = registry.find((e) => e.id === activeId);
   if (!entry?.plugin) return;
   const ctx = createContext(activeId);
-  void entry.plugin.render?.(ctx.container);
+  // render() is an RPC for sandboxed plugins; it can reject (timeout while a
+  // long compute owns the worker). A bare `void` made each pan/wheel during a
+  // compute burst surface an unhandled promise rejection.
+  void Promise.resolve(entry.plugin.render?.(ctx.container)).catch((err: unknown) => {
+    logger.warn('plugin', 'rerender rejected', { id: activeId }, err);
+  });
 }
 
 function buildPluginApi(pluginId: string): PluginApi {
@@ -156,10 +173,19 @@ function buildPluginApi(pluginId: string): PluginApi {
       return unsub;
     },
     setStatus: (status) => {
-      useAppStore.getState().setStatus(status);
+      // A plugin that is mid-compute while another one is active (the worker
+      // serializes deactivate behind compute) must not overwrite the visible
+      // plugin's status indicator.
+      if (usePluginStore.getState().activeId === pluginId) {
+        useAppStore.getState().setStatus(status);
+      }
     },
-    reportGpuTime: (ms) => useAppStore.getState().setGpuMs(ms),
-    reportDataScale: (n) => useAppStore.getState().setDataScale(n),
+    reportGpuTime: (ms) => {
+      if (usePluginStore.getState().activeId === pluginId) useAppStore.getState().setGpuMs(ms);
+    },
+    reportDataScale: (n) => {
+      if (usePluginStore.getState().activeId === pluginId) useAppStore.getState().setDataScale(n);
+    },
     get gpu() {
       return getGpuCompute() ?? undefined;
     },
@@ -262,6 +288,37 @@ function createContext(pluginId: string): PluginRenderContext {
   };
 }
 
+/**
+ * Tear down whatever plugin is currently active.
+ *
+ * Runs *inside* the lifecycle chain (never concurrently with an activate).
+ * Reads the active id at execution time, so a deactivate enqueued while an
+ * activation was still in flight cleans up whichever plugin actually won.
+ */
+async function deactivateCurrentPlugin(): Promise<void> {
+  const { activeId, registry } = usePluginStore.getState();
+  if (!activeId) return;
+  const entry = registry.find((e) => e.id === activeId);
+  if (entry?.plugin) {
+    try {
+      await entry.plugin.deactivate?.();
+    } catch (err) {
+      logger.error('plugin', 'plugin deactivate failed', { id: activeId }, err);
+    }
+  }
+  // Only clear the active plugin's own subscriptions.
+  for (const sub of paramSubscriptions.get(activeId) ?? []) sub.unsubscribe();
+  paramSubscriptions.delete(activeId);
+  // Hide the 3D surface whenever no 3D plugin is active, so its
+  // coordinate system never lingers over the 2D viewport.
+  hostContainers?.setThreeVisible?.(false);
+  hostContainers?.clearCanvas2d?.();
+  usePluginStore.setState((s) => ({
+    activeId: null,
+    registry: s.registry.map((e) => (e.id === activeId ? { ...e, active: false } : e)),
+  }));
+}
+
 export const usePluginStore = create<PluginStore>((set, get) => ({
   registry: [],
   activeId: null,
@@ -313,34 +370,40 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   },
 
   unload: async (id) => {
-    const entry = get().registry.find((e) => e.id === id);
-    if (!entry?.plugin) return;
-    // Unloading the *active* plugin used to skip `deactivate()` entirely, so
-    // a 3-D plugin's scene stayed visible over an empty viewport and any
-    // animation loop it started in `activate()` kept running.
-    if (get().activeId === id) {
-      await get().deactivate();
-    }
-    try {
-      await entry.plugin.destroy?.();
-    } catch (err) {
-      logger.error('plugin', 'plugin destroy failed', { id }, err);
-    }
-    // Drop the plugin's intermediate-result cache; without this every
-    // unloaded plugin's scratch space lived until the page was reloaded.
-    disposePluginCache(id);
-    sandboxLocaleUpdaters.delete(id);
-    // Only unsubscribe this plugin's own handlers. Previously every unload
-    // cleared the shared list, silently breaking the active plugin's param
-    // subscription when some other plugin was unloaded.
-    for (const sub of paramSubscriptions.get(id) ?? []) sub.unsubscribe();
-    paramSubscriptions.delete(id);
-    for (const unsub of localeSubscriptions.get(id) ?? []) unsub();
-    localeSubscriptions.delete(id);
-    set((s) => ({
-      registry: s.registry.filter((e) => e.id !== id),
-      activeId: s.activeId === id ? null : s.activeId,
-    }));
+    // Supersede an in-flight activation of this (or any) plugin: its tail
+    // must not publish activeId/subscriptions after the registry entry is
+    // removed. Everything still serializes through the lifecycle chain.
+    activationGen += 1;
+    await enqueueLifecycle(async () => {
+      const entry = usePluginStore.getState().registry.find((e) => e.id === id);
+      if (!entry?.plugin) return;
+      // Unloading the *active* plugin used to skip `deactivate()` entirely, so
+      // a 3-D plugin's scene stayed visible over an empty viewport and any
+      // animation loop it started in `activate()` kept running.
+      if (usePluginStore.getState().activeId === id) {
+        await deactivateCurrentPlugin();
+      }
+      try {
+        await entry.plugin.destroy?.();
+      } catch (err) {
+        logger.error('plugin', 'plugin destroy failed', { id }, err);
+      }
+      // Drop the plugin's intermediate-result cache; without this every
+      // unloaded plugin's scratch space lived until the page was reloaded.
+      disposePluginCache(id);
+      sandboxLocaleUpdaters.delete(id);
+      // Only unsubscribe this plugin's own handlers. Previously every unload
+      // cleared the shared list, silently breaking the active plugin's param
+      // subscription when some other plugin was unloaded.
+      for (const sub of paramSubscriptions.get(id) ?? []) sub.unsubscribe();
+      paramSubscriptions.delete(id);
+      for (const unsub of localeSubscriptions.get(id) ?? []) unsub();
+      localeSubscriptions.delete(id);
+      set((s) => ({
+        registry: s.registry.filter((e) => e.id !== id),
+        activeId: s.activeId === id ? null : s.activeId,
+      }));
+    });
   },
 
   activate: async (id) => {
@@ -351,12 +414,35 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       return;
     }
     if (get().activeId === id) return;
-    // Serialize activations: two rapid activate() calls (or an activate while
-    // another is mid-flight) previously both passed the guard and ran
-    // deactivate/activate concurrently.
+    // This generation uniquely identifies this activation attempt. Every
+    // checkpoint below bails when a newer transition (another activate, a
+    // deactivate from mode switching, an unload) bumped the generation, so an
+    // RPC that resolves late can never publish a superseded activeId.
+    const gen = ++activationGen;
     const run = async () => {
-      if (get().activeId === id) return;
-      await get().deactivate();
+      if (gen !== activationGen) return;
+      if (usePluginStore.getState().activeId === id) return;
+      await deactivateCurrentPlugin();
+      if (gen !== activationGen) return;
+      // Once plugin.activate() has resolved, the plugin owns live resources
+      // (RAF loops, canvas listeners, 3-D surfaces). If this attempt is
+      // superseded *after* that point, the queued newer transition cannot
+      // tear them down (activeId was never published), so we must compensate
+      // with an explicit deactivate() here.
+      let acquired = false;
+      const bailIfStale = async (): Promise<boolean> => {
+        if (gen === activationGen) return false;
+        if (acquired) {
+          try {
+            await plugin.deactivate?.();
+          } catch (err) {
+            logger.warn('plugin', 'compensating deactivate failed', { id }, err);
+          }
+          hostContainers?.setThreeVisible?.(false);
+          hostContainers?.clearCanvas2d?.();
+        }
+        return true;
+      };
       const ctx = createContext(id);
       try {
         // Surface visibility is a host concern, decided here centrally: a 3D
@@ -372,12 +458,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           hostContainers?.setThreeVisible?.(false);
         }
         await plugin.activate?.(ctx);
+        acquired = true;
+        if (await bailIfStale()) return;
         await plugin.render?.(ctx.container);
       } catch (err) {
         logger.error('plugin', 'plugin activate failed', { id }, err);
         useAppStore.getState().setError(`plugin:${id}`);
         return;
       }
+      if (await bailIfStale()) return;
+      // The plugin may have been unloaded while its activate RPC was in
+      // flight — never re-publish it or subscribe on a dead registry entry.
+      if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // Restore persisted params for this plugin from the current project so
       // re-activating a previously-inactive plugin picks up its stored values.
       // `updateParams` may be async (sandboxed plugins answer over RPC) — an
@@ -390,6 +482,8 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           logger.warn('plugin', 'failed to restore params', { id }, err);
         }
       }
+      if (await bailIfStale()) return;
+      if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
         void Promise.resolve()
@@ -412,39 +506,28 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       // notify host to render params into right panel
       try {
         const params = await plugin.getParams();
+        if (gen !== activationGen) return;
         emit('host:params:changed', { pluginId: id, params });
       } catch (err) {
-        // A rejecting getParams() used to reject the whole activationChain and
+        // A rejecting getParams() used to reject the whole lifecycle chain and
         // every caller awaiting it, leaving an inconsistent activeId.
         logger.warn('plugin', 'getParams failed', { id }, err);
       }
     };
-    activationChain = activationChain.then(run, run);
-    await activationChain;
+    await enqueueLifecycle(run);
   },
 
   deactivate: async () => {
-    const { activeId, registry } = get();
-    if (!activeId) return;
-    const entry = registry.find((e) => e.id === activeId);
-    if (entry?.plugin) {
-      try {
-        await entry.plugin.deactivate?.();
-      } catch (err) {
-        logger.error('plugin', 'plugin deactivate failed', { id: activeId }, err);
-      }
-    }
-    // Only clear the active plugin's own subscriptions.
-    for (const sub of paramSubscriptions.get(activeId) ?? []) sub.unsubscribe();
-    paramSubscriptions.delete(activeId);
-    // Hide the 3D surface whenever no 3D plugin is active, so its
-    // coordinate system never lingers over the 2D viewport.
-    hostContainers?.setThreeVisible?.(false);
-    hostContainers?.clearCanvas2d?.();
-    set((s) => ({
-      activeId: null,
-      registry: s.registry.map((e) => (e.id === activeId ? { ...e, active: false } : e)),
-    }));
+    // Joining the same lifecycle chain as activate (rather than acting
+    // immediately on the current snapshot) closes the window in which an
+    // activate() still awaiting its RPCs would finish afterwards and
+    // re-publish activeId — previously the plugin kept animating on detached
+    // DOM after a mode switch and could never be re-activated.
+    const gen = ++activationGen;
+    await enqueueLifecycle(async () => {
+      if (gen !== activationGen) return;
+      await deactivateCurrentPlugin();
+    });
   },
 
   isLoaded: (id) => get().registry.some((e) => e.id === id && e.loaded),

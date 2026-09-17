@@ -160,6 +160,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
                     type="button"
                     className="btn btn-sm"
                     title={t('workbench.files.chunk_preview')}
+                    disabled={chunkState?.running}
                     onClick={() => void startIngest(f, 1000)}
                   >
                     {t('workbench.files.chunk_preview')}

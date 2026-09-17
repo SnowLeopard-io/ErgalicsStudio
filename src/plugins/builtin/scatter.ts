@@ -12,6 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const scatterManifest: PluginManifest = {
   id: 'example.scatter',
@@ -44,6 +45,7 @@ interface Row {
 interface State {
   size: number;
   colorBy: 'auto' | 'solid';
+  showTrendline: boolean;
   hasData: boolean;
 }
 
@@ -54,7 +56,7 @@ export class ScatterPlugin implements Plugin {
   private rows: Row[] = [];
   private cMin = 0;
   private cMax = 1;
-  private state: State = { size: 2, colorBy: 'auto', hasData: false };
+  private state: State = { size: 2, colorBy: 'auto', showTrendline: false, hasData: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -87,6 +89,12 @@ export class ScatterPlugin implements Plugin {
         this.draw();
       }
     }
+    if (typeof params.showTrendline === 'boolean' && params.showTrendline !== this.state.showTrendline) {
+      this.state.showTrendline = params.showTrendline;
+      this.draw();
+    }
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
   }
 
   getParams(): ParamDefinition[] {
@@ -103,6 +111,15 @@ export class ScatterPlugin implements Plugin {
         ],
         value: this.state.colorBy,
       },
+      {
+        key: 'showTrendline',
+        label: 'Trend Line',
+        labelI18n: { 'zh-CN': '趋势线', 'en-US': 'Trend Line' },
+        type: 'checkbox',
+        value: this.state.showTrendline,
+      },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -145,6 +162,23 @@ export class ScatterPlugin implements Plugin {
   /** Parse delimited numeric columns: x y [c]. */
   private parse(text: string): Row[] {
     return parseScatter(text);
+  }
+
+  private exportPng() {
+    if (!this.state.hasData || this.rows.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'scatter');
+  }
+
+  private exportCsv() {
+    const hasColor = this.rows.some((r) => r.c !== undefined);
+    const header = hasColor ? ['x', 'y', 'color'] : ['x', 'y'];
+    const rows = this.rows.map((r) =>
+      hasColor ? [r.x, r.y, r.c ?? ''] : [r.x, r.y],
+    );
+    exportRowsCsv(this.api, 'scatter', header, rows);
   }
 
   private draw() {
@@ -221,6 +255,21 @@ export class ScatterPlugin implements Plugin {
       }
       g.fillRect(cx - size / 2, cy - size / 2, size, size);
     }
+
+    // Optional least-squares trend line y = a + b*x.
+    if (this.state.showTrendline) {
+      const fit = linearFit(this.rows);
+      if (fit) {
+        g.strokeStyle = '#fbbf24';
+        g.lineWidth = 1.5;
+        g.setLineDash([6, 4]);
+        g.beginPath();
+        g.moveTo(px(minX), py(fit.a + fit.b * minX));
+        g.lineTo(px(maxX), py(fit.a + fit.b * maxX));
+        g.stroke();
+        g.setLineDash([]);
+      }
+    }
   }
 
   private drawEmpty(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
@@ -255,6 +304,27 @@ export function parseScatter(text: string): Row[] {
     });
   }
   return rows;
+}
+
+/** Ordinary least-squares fit y = a + b*x. Null when x is degenerate. */
+function linearFit(points: Array<{ x: number; y: number }>): { a: number; b: number } | null {
+  const n = points.length;
+  if (n < 2) return null;
+  let sx = 0;
+  let sy = 0;
+  let sxx = 0;
+  let sxy = 0;
+  for (const p of points) {
+    sx += p.x;
+    sy += p.y;
+    sxx += p.x * p.x;
+    sxy += p.x * p.y;
+  }
+  const den = n * sxx - sx * sx;
+  if (den === 0) return null;
+  const b = (n * sxy - sx * sy) / den;
+  const a = (sy - b * sx) / n;
+  return { a, b };
 }
 
 /** teal → amber ramp for the value channel. */

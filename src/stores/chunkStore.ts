@@ -14,6 +14,12 @@ import type { DataTable } from '@/types/datatable';
 import type { FileEntry } from '@/types/project';
 
 export interface ChunkIngestState {
+  /**
+   * Monotonic token of the owning startIngest call. Guards against two
+   * concurrent ingests of the SAME file (fileId alone cannot tell them
+   * apart — repeated clicks would then run two interleaving iterators).
+   */
+  runId: number;
   fileId: string;
   fileName: string;
   hash: string;
@@ -40,15 +46,20 @@ interface ChunkStore {
   reset: () => void;
 }
 
-export const useChunkStore = create<ChunkStore>((set, get) => ({
+export const useChunkStore = create<ChunkStore>((set, get) => {
+  let nextRunId = 0;
+
+  return {
   state: null,
 
   canChunk: (fileName) => isChunkable(fileName),
 
   startIngest: async (entry, chunkRows = 50_000) => {
     const hash = fingerprint(entry.content);
+    const myRunId = ++nextRunId;
     set({
       state: {
+        runId: myRunId,
         fileId: entry.id,
         fileName: entry.name,
         hash,
@@ -65,7 +76,7 @@ export const useChunkStore = create<ChunkStore>((set, get) => ({
 
     for await (const chunk of chunkedRead(entry.content, { chunkRows })) {
       const s = get().state;
-      if (!s || s.cancelled || s.fileId !== entry.id) return; // cancelled / restarted
+      if (!s || s.cancelled || s.fileId !== entry.id || s.runId !== myRunId) return;
       set({
         state: {
           ...s,
@@ -81,7 +92,7 @@ export const useChunkStore = create<ChunkStore>((set, get) => ({
     }
 
     const s = get().state;
-    if (!s || s.fileId !== entry.id) return;
+    if (!s || s.fileId !== entry.id || s.runId !== myRunId) return;
     if (s.cancelled) {
       set({ state: { ...s, running: false } });
       return;
@@ -96,4 +107,5 @@ export const useChunkStore = create<ChunkStore>((set, get) => ({
   },
 
   reset: () => set({ state: null }),
-}));
+  };
+});

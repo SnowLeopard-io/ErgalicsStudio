@@ -11,6 +11,14 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** A button press arrives from the host as `{ [action]: true }`; older hosts
+ *  forwarded `{ action }` payloads — accept both. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
 
 export const mandelbrotManifest: PluginManifest = {
   id: 'fun.mandelbrot',
@@ -85,6 +93,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 export class MandelbrotPlugin implements Plugin {
   readonly manifest = mandelbrotManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private state: State = {
     mode: 'mandelbrot',
@@ -95,7 +104,8 @@ export class MandelbrotPlugin implements Plugin {
     juliaY: 0.156,
   };
 
-  async init(_api: PluginApi) {
+  async init(api: PluginApi) {
+    this.api = api;
   }
 
   async destroy() {
@@ -114,6 +124,16 @@ export class MandelbrotPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'mandelbrot');
+      return;
+    }
+    // Zoom state exists (the `zoom` range above), so offer a reset.
+    if (buttonPressed(params, 'resetView')) {
+      this.state.zoom = 1;
+      this.draw();
+      return;
+    }
     let changed = false;
     if (params.mode === 'mandelbrot' || params.mode === 'julia') {
       if (params.mode !== this.state.mode) {
@@ -212,6 +232,8 @@ export class MandelbrotPlugin implements Plugin {
         step: 0.01,
         value: this.state.juliaY,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('resetView', 'Reset Zoom', '重置缩放'),
     ];
   }
 
@@ -229,6 +251,9 @@ export class MandelbrotPlugin implements Plugin {
     const scale = cw / w;
     const ch = Math.round(h * scale);
     const img = g.createImageData(cw, ch);
+    // Some contexts (e.g. a stubbed/offscreen one) cannot allocate image
+    // data — nothing to composite in that case.
+    if (!img || !img.data) return;
     const data = img.data;
 
     const maxIter = this.state.iterations;
@@ -288,6 +313,7 @@ export class MandelbrotPlugin implements Plugin {
     }
 
     // Draw the computed buffer scaled to the display canvas.
+    if (typeof document === 'undefined') return;
     const off = document.createElement('canvas');
     off.width = cw;
     off.height = ch;

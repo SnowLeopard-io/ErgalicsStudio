@@ -12,6 +12,29 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+function canvasBackground(canvas: HTMLCanvasElement): string {
+  if (typeof getComputedStyle === 'function') return getComputedStyle(canvas).backgroundColor || '#0a0e13';
+  return '#0a0e13';
+}
+
+/** Tile rendering modes: quarter-circle arcs, diagonal line tiles, or a
+ *  random mix of both. */
+type Variant = 'random' | 'diagonal' | 'curve';
+
+const VARIANTS: Variant[] = ['random', 'diagonal', 'curve'];
+
+function isVariant(v: unknown): v is Variant {
+  return typeof v === 'string' && (VARIANTS as string[]).includes(v);
+}
 
 export const truchetManifest: PluginManifest = {
   id: 'fun.truchet',
@@ -35,6 +58,7 @@ interface State {
   color: string;
   seed: number;
   lineWidth: number;
+  variant: Variant;
 }
 
 function mulberry32(seed: number) {
@@ -50,10 +74,13 @@ function mulberry32(seed: number) {
 
 export class TruchetPlugin implements Plugin {
   readonly manifest = truchetManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { density: 1, color: '#5eead4', seed: 42, lineWidth: 2 };
+  private state: State = { density: 1, color: '#5eead4', seed: 42, lineWidth: 2, variant: 'curve' };
 
-  async init(_api: PluginApi) {}
+  async init(api: PluginApi) {
+    this.api = api;
+  }
 
   async destroy() {
     this.ctx = null;
@@ -72,6 +99,10 @@ export class TruchetPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'truchet');
+      return;
+    }
     if (typeof params.density === 'number') {
       this.state.density = Math.max(0.25, Math.min(2, params.density));
     }
@@ -80,8 +111,8 @@ export class TruchetPlugin implements Plugin {
       this.state.lineWidth = Math.max(1, Math.min(6, params.lineWidth));
     }
     if (typeof params.seed === 'number') this.state.seed = Math.round(params.seed);
-    const reseed = params.regenerate as { action?: string } | undefined;
-    if (reseed?.action === 'regenerate') this.state.seed = (this.state.seed + 1) % 1_000_000;
+    if (isVariant(params.variant)) this.state.variant = params.variant;
+    if (buttonPressed(params, 'regenerate')) this.state.seed = (this.state.seed + 1) % 1_000_000;
     this.draw();
   }
 
@@ -121,6 +152,18 @@ export class TruchetPlugin implements Plugin {
         value: this.state.color,
       },
       {
+        key: 'variant',
+        label: 'Tile type',
+        labelI18n: { 'zh-CN': '瓷砖类型', 'en-US': 'Tile type' },
+        type: 'select',
+        options: [
+          { value: 'random', label: 'Random', labelI18n: { 'zh-CN': '随机', 'en-US': 'Random' } },
+          { value: 'diagonal', label: 'Diagonal', labelI18n: { 'zh-CN': '对角线', 'en-US': 'Diagonal' } },
+          { value: 'curve', label: 'Curve', labelI18n: { 'zh-CN': '曲线', 'en-US': 'Curve' } },
+        ],
+        value: this.state.variant,
+      },
+      {
         key: 'regenerate',
         label: 'Regenerate',
         labelI18n: { 'zh-CN': '重新生成', 'en-US': 'Regenerate' },
@@ -128,6 +171,7 @@ export class TruchetPlugin implements Plugin {
         variant: 'primary',
         action: 'regenerate',
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 
@@ -138,7 +182,7 @@ export class TruchetPlugin implements Plugin {
     const h = canvas.height = canvas.clientHeight || 360;
     const g = canvas.getContext('2d');
     if (!g) return;
-    g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
+    g.fillStyle = canvasBackground(canvas);
     g.fillRect(0, 0, w, h);
 
     const base = 56;
@@ -157,8 +201,22 @@ export class TruchetPlugin implements Plugin {
         const y0 = j * tile;
         // 4 rotations of the classic quarter-circle tile.
         const kind = Math.floor(rand() * 4);
+        // In "random" mode every tile independently picks arcs or a
+        // diagonal; "diagonal" / "curve" force a single tile family.
+        const diagonal =
+          this.state.variant === 'diagonal' ||
+          (this.state.variant === 'random' && rand() < 0.5);
         g.beginPath();
-        if (kind === 0) {
+        if (diagonal) {
+          // Two possible diagonal orientations of a square tile.
+          if (kind % 2 === 0) {
+            g.moveTo(x0, y0);
+            g.lineTo(x0 + tile, y0 + tile);
+          } else {
+            g.moveTo(x0 + tile, y0);
+            g.lineTo(x0, y0 + tile);
+          }
+        } else if (kind === 0) {
           g.arc(x0, y0, tile, 0, Math.PI / 2);
         } else if (kind === 1) {
           g.arc(x0 + tile, y0, tile, Math.PI / 2, Math.PI);

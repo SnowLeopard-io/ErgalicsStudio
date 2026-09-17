@@ -25,6 +25,7 @@
 // ==========================================================================
 
 import { emit } from '@/core/events';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 import type {
   ContainerCapabilities,
   ParamDefinition,
@@ -387,6 +388,18 @@ export class StructurePlugin implements Plugin {
     }
 
     const act = (key: string) => (params[key] as { action?: string } | undefined)?.action;
+    // Buttons also accept a plain `{ key: true }` call. Exports never touch
+    // the running state — they neither re-arm nor pause the experiment.
+    const fired = (key: string) => params[key] === true || act(key) === key;
+
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'structure');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportMembersCsv();
+      return;
+    }
 
     // 重置 — back to the pristine authored scene: the frame re-forms and any
     // weights added at runtime are cleared, then the lab waits for ▶ 运行.
@@ -541,7 +554,25 @@ export class StructurePlugin implements Plugin {
           ? '清空后加的重物，结构恢复为初始 / 加载时的构型，并暂停'
           : 'Clears the weights added at runtime and restores the initial (or loaded) configuration, paused',
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Members CSV', '导出构件 CSV'),
     ];
+  }
+
+  /** Export the member table (id, end joints, current length, axial force).
+   *  Broken members are included so the CSV reflects the live structure. */
+  private exportMembersCsv() {
+    if (!this.state.hasData || this.members.length === 0) {
+      notify(this.api, 'warning', 'No structure to export yet.', '暂无可导出的结构数据。');
+      return;
+    }
+    const rows: number[][] = this.members.map((m, i) => {
+      const A = this.joints[m.a];
+      const B = this.joints[m.b];
+      const length = A && B ? Math.hypot(B.x - A.x, B.y - A.y) : m.L0;
+      return [i + 1, m.a, m.b, length, m.force];
+    });
+    exportRowsCsv(this.api, 'structure-members', ['id', 'nodeA', 'nodeB', 'length', 'force'], rows);
   }
 
   private refreshParams() {

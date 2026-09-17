@@ -13,6 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
 
 export const imageViewerManifest: PluginManifest = {
   id: 'example.image',
@@ -77,6 +78,19 @@ export class ImageViewerPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // The snapshot button accepts the host's `{ key: { action } }` emission
+    // and a plain `{ key: true }` call. The plugin has no filter/color-adjust
+    // parameters (fit mode and gridlines are view options), so no reset button
+    // is offered.
+    const fired =
+      params.exportPng === true ||
+      (typeof params.exportPng === 'object' &&
+        params.exportPng !== null &&
+        (params.exportPng as { action?: string }).action === 'exportPng');
+    if (fired) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'image');
+      return;
+    }
     if (typeof params.mode === 'string') this.state.mode = params.mode;
     if (typeof params.grid === 'boolean') this.state.grid = params.grid;
     this.draw();
@@ -96,6 +110,7 @@ export class ImageViewerPlugin implements Plugin {
         ],
       },
       { key: 'grid', label: 'Gridlines', type: 'checkbox', value: this.state.grid },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

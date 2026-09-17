@@ -12,6 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const polarPlotManifest: PluginManifest = {
   id: 'example.polar',
@@ -72,11 +73,29 @@ export class PolarPlotPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'polar-plot');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.fill === 'number') {
       this.state.fill = Math.max(0, Math.min(1, params.fill));
     }
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
+  }
+
+  private exportCsv() {
+    // Flatten every series vertex to an (angle, radius) pair. Angles are
+    // radians with the same -PI/2 origin offset used by draw().
+    const n = this.labels.length;
+    const rows: Array<[number, number]> = [];
+    for (const ser of this.series) {
+      for (let i = 0; i < n; i += 1) {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        rows.push([angle, ser.values[i] ?? 0]);
+      }
+    }
+    exportRowsCsv(this.api, 'polar-plot', ['angle', 'radius'], rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -98,6 +117,8 @@ export class PolarPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -234,6 +255,15 @@ export class PolarPlotPlugin implements Plugin {
         : 'No polar data — drop a .csv file';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
+}
+
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /**

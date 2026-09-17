@@ -14,6 +14,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const timeSeriesManifest: PluginManifest = {
   id: 'example.timeseries',
@@ -45,6 +46,7 @@ interface State {
   width: number;
   grid: boolean;
   normalize: boolean;
+  rollWindow: number;
 }
 
 const PALETTES: Record<string, string[]> = {
@@ -65,6 +67,7 @@ export class TimeSeriesPlugin implements Plugin {
     width: 1.5,
     grid: true,
     normalize: false,
+    rollWindow: 0,
   };
 
   async init(api: PluginApi) {
@@ -94,6 +97,11 @@ export class TimeSeriesPlugin implements Plugin {
     if (typeof params.grid === 'boolean') this.state.grid = params.grid;
     if (typeof params.normalize === 'boolean') this.state.normalize = params.normalize;
     if (typeof params.selected === 'string') this.state.selected = params.selected;
+    if (typeof params.rollWindow === 'number') {
+      this.state.rollWindow = Math.max(0, Math.min(40, Math.round(params.rollWindow)));
+    }
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
     this.draw();
   }
 
@@ -125,6 +133,19 @@ export class TimeSeriesPlugin implements Plugin {
       { key: 'width', label: 'Width', type: 'range', min: 1, max: 4, step: 0.5, value: this.state.width },
       { key: 'grid', label: 'Grid', type: 'checkbox', value: this.state.grid },
       { key: 'normalize', label: 'Normalize', type: 'checkbox', value: this.state.normalize },
+      {
+        key: 'rollWindow',
+        label: 'Rolling Mean',
+        labelI18n: { 'zh-CN': '移动平均', 'en-US': 'Rolling Mean' },
+        hint: '0 = off',
+        type: 'range',
+        min: 0,
+        max: 40,
+        step: 1,
+        value: this.state.rollWindow,
+      },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -293,6 +314,31 @@ export class TimeSeriesPlugin implements Plugin {
       g.stroke();
     }
 
+    // Optional rolling-mean overlay (trailing window; 0/1 = off).
+    if (this.state.rollWindow > 1) {
+      const w = this.state.rollWindow;
+      g.setLineDash([5, 3]);
+      g.lineWidth = this.state.width + 0.5;
+      for (let s = 0; s < series.length; s += 1) {
+        const col = series[s]!;
+        const color = colors[s % colors.length] ?? '#2dd4bf';
+        g.strokeStyle = color;
+        g.beginPath();
+        let sum = 0;
+        col.values.forEach((v, i) => {
+          sum += v;
+          if (i >= w) sum -= col.values[i - w]!;
+          const m = i < w - 1 ? sum / (i + 1) : sum / w;
+          const x = toX(i);
+          const y = toY(m);
+          if (i === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        });
+        g.stroke();
+      }
+      g.setLineDash([]);
+    }
+
     // legend
     g.textAlign = 'left';
     g.font = `11px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
@@ -313,6 +359,27 @@ export class TimeSeriesPlugin implements Plugin {
   private visibleSeries(): SeriesCol[] {
     if (this.state.selected === 'all') return this.state.cols;
     return this.state.cols.filter((c) => c.name === this.state.selected);
+  }
+
+  private exportPng() {
+    if (this.state.cols.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'time-series');
+  }
+
+  private exportCsv() {
+    // Export the parsed raw columns (not the normalized view).
+    const cols = this.state.cols;
+    const header = cols.map((c) => c.name);
+    let n = 0;
+    for (const c of cols) n = Math.max(n, c.values.length);
+    const rows: Array<Array<number | ''>> = [];
+    for (let i = 0; i < n; i += 1) {
+      rows.push(cols.map((c) => c.values[i] ?? ''));
+    }
+    exportRowsCsv(this.api, 'time-series', header, rows);
   }
 
   private drawHint(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {

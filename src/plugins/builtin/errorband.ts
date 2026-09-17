@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const errorbandManifest: PluginManifest = {
   id: 'example.errorband',
@@ -79,6 +80,8 @@ export class ErrorBandPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showGrid === 'boolean') this.state.showGrid = params.showGrid;
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
     this.draw();
   }
 
@@ -91,6 +94,8 @@ export class ErrorBandPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showGrid,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -237,6 +242,19 @@ export class ErrorBandPlugin implements Plugin {
         ? '未加载误差带数据 — 拖入 .csv (x,y,err) 文件'
         : 'No band data — drop a .csv (x,y,err) file';
     g.fillText(msg, w / 2, h / 2);
+  }
+
+  private exportPng() {
+    if (!this.state.hasData || this.rows.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'error-band');
+  }
+
+  private exportCsv() {
+    const rows = this.rows.map((r) => [r.x, r.y, r.lo, r.hi]);
+    exportRowsCsv(this.api, 'error-band', ['x', 'y', 'lower', 'upper'], rows);
   }
 }
 

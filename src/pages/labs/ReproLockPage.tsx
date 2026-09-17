@@ -8,7 +8,7 @@
 // registered source runners with tolerance assertions.
 // ==========================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -47,9 +47,30 @@ export default function ReproLockPage() {
     void loadRuns();
   }, [loadRuns]);
 
-  // Default selection = all successful runs.
+  // Default selection = all successful runs, applied per record id. The old
+  // effect rebuilt the whole selection on every runs refresh, wiping manual
+  // unchecks; now only genuinely new runs are added, vanished ones removed.
+  const seenRunIds = useRef<Set<string>>(new Set());
   useEffect(() => {
-    setSelected(new Set(runs.filter((r) => !r.failed).map((r) => r.id)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const r of runs) {
+        if (seenRunIds.current.has(r.id)) continue;
+        seenRunIds.current.add(r.id);
+        if (!r.failed) {
+          next.add(r.id);
+          changed = true;
+        }
+      }
+      for (const id of [...next]) {
+        if (!runs.some((r) => r.id === id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }, [runs]);
 
   const successful = useMemo(() => runs.filter((r) => !r.failed), [runs]);
@@ -84,7 +105,10 @@ export default function ReproLockPage() {
       const text = await file.text();
       const l = parseLock(text);
       if (l.projectId !== project.id) {
+        // A foreign lock must not be installed: verify/reproduce below would
+        // otherwise report every item as drift against the wrong project.
         notify('error', t('reprolock.parse_failed', { reason: 'projectId mismatch' }));
+        return;
       }
       setLock(l);
       setVerify(verifyLock(l, project, { runs }));

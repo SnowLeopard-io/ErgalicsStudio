@@ -66,6 +66,14 @@ interface ProjectStore {
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * Generation token for project open/create/import. IndexedDB responses can
+ * resolve out of issuance order (quick clicks on two recent projects); a
+ * late response for an older request must not overwrite the project the user
+ * ended up on. Every new open/create/import bumps this token.
+ */
+let openSeq = 0;
+
 /** Derive a data-file "format" tag from a filename extension. */
 function fileExtension(name: string): string {
   const idx = name.lastIndexOf('.');
@@ -103,6 +111,22 @@ function restoreEditor(state: {
   useAppStore.getState().setMode('standard');
 }
 
+/**
+ * Publish a freshly opened/created/imported project to every runtime surface
+ * (store, file registry, plugin state, block graph, editor, autosave).
+ * Centralized so openProject and loadProjectFromText share the exact same
+ * restoration sequence and the stale-response guard.
+ */
+function applyOpenedProject(project: Project): void {
+  useProjectStore.setState({ project, dirty: false });
+  syncProjectFiles(project);
+  void useProjectStore.getState().loadRecent();
+  usePluginStore.getState().restoreState(project);
+  restoreBlockGraph(project.state.blockGraph);
+  restoreEditor(project.state);
+  ensureAutosave();
+}
+
 function ensureAutosave() {
   if (autosaveTimer) clearInterval(autosaveTimer);
   const interval = useSettingsStore.getState().autoSaveInterval;
@@ -125,6 +149,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   createProject: async (name) => {
     const project = createEmptyProject(name);
     await saveProject(project);
+    // A fresh project supersedes any project open still in flight.
+    openSeq += 1;
     // Clear the previous project's runtime state so a fresh project never
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
@@ -138,27 +164,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   openProject: async (id) => {
+    const seq = ++openSeq;
     const project = await getProject(id);
     if (!project) throw new Error('project not found');
-    set({ project, dirty: false });
-    syncProjectFiles(project);
-    await get().loadRecent();
-    usePluginStore.getState().restoreState(project);
-    restoreBlockGraph(project.state.blockGraph);
-    restoreEditor(project.state);
-    ensureAutosave();
+    // A newer open/create/import (or a response that beat this one) wins.
+    if (seq !== openSeq) return;
+    applyOpenedProject(project);
   },
 
   loadProjectFromText: async (raw) => {
+    const seq = ++openSeq;
     const project = deserializeProject(raw);
     await saveProject(project);
-    set({ project, dirty: false });
-    syncProjectFiles(project);
-    await get().loadRecent();
-    usePluginStore.getState().restoreState(project);
-    restoreBlockGraph(project.state.blockGraph);
-    restoreEditor(project.state);
-    ensureAutosave();
+    if (seq !== openSeq) return project;
+    applyOpenedProject(project);
     return project;
   },
 
@@ -303,6 +322,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error(`unsupported data file format: ${file.name}`);
     }
     const content = await file.text();
+    // Re-read AFTER the await. Large/scientific imports parse for a while
+    // before reaching here; using the pre-await snapshot previously replaced
+    // the *whole* project object (potentially a different project the user
+    // switched to mid-import) and clobbered the global file registry.
+    const current = get().project;
+    if (!current) return null;
     const entry: FileEntry = {
       id: crypto.randomUUID(),
       name: file.name,
@@ -311,8 +336,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       format: fileExtension(file.name),
       content,
     };
-    const files = [...project.data.files, entry];
-    set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
+    const files = [...current.data.files, entry];
+    set({ project: { ...current, data: { ...current.data, files } }, dirty: true });
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);
     return entry.id;

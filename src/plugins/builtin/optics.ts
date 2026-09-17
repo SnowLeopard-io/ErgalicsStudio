@@ -20,6 +20,7 @@ import type {
   PluginApi,
   PluginManifest,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, notify } from './shared/enhance';
 
 export const opticsManifest: PluginManifest = {
   id: 'example.optics',
@@ -52,6 +53,17 @@ interface Pt {
 interface Ray {
   pts: Pt[];
   color: string;
+}
+/** Element layout captured on load, restored by the Reset Elements button. */
+interface InitialLayout {
+  source: Pt;
+  lensX: number;
+  prismCenter: Pt;
+  screenX: number;
+  lensType: OpticsState['lensType'];
+  focal: number;
+  showPrism: boolean;
+  showScreen: boolean;
 }
 
 interface OpticsState {
@@ -131,6 +143,8 @@ export class OpticsPlugin implements Plugin {
   private viewX = 0;
   private viewY = 0;
   private bound = false;
+  /** Element arrangement as loaded — the target of Reset Elements. */
+  private initialLayout: InitialLayout | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -248,6 +262,21 @@ export class OpticsPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Buttons accept both the host's `{ key: { action } }` emission and a
+    // plain `{ key: true }` call. Neither mutates the running state — the
+    // trace is static and recomputed on every draw.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'optics');
+      return;
+    }
+    if (fired('resetElements')) {
+      this.resetElements();
+      return;
+    }
     if (params.lensType === 'none' || params.lensType === 'convex' || params.lensType === 'concave') {
       this.state.lensType = params.lensType;
     }
@@ -339,7 +368,28 @@ export class OpticsPlugin implements Plugin {
         step: 0.02,
         value: this.state.divergence,
       },
+      actionButton('resetElements', 'Reset Elements', '重置元件'),
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
+  }
+
+  /** Restore the optical bench to the layout captured at load time. */
+  private resetElements() {
+    const initial = this.initialLayout;
+    if (!initial) {
+      notify(this.api, 'warning', 'No layout loaded to reset yet.', '尚未加载光路布局，无可重置的元件。');
+      return;
+    }
+    this.source = { ...initial.source };
+    this.lensX = initial.lensX;
+    this.prismCenter = { ...initial.prismCenter };
+    this.screenX = initial.screenX;
+    this.state.lensType = initial.lensType;
+    this.state.focal = initial.focal;
+    this.state.showPrism = initial.showPrism;
+    this.state.showScreen = initial.showScreen;
+    this.drag = null;
+    this.draw();
   }
 
   async loadData(file: File) {
@@ -366,6 +416,18 @@ export class OpticsPlugin implements Plugin {
     if (typeof o.prism === 'boolean') this.state.showPrism = o.prism;
     if (typeof o.screen === 'boolean') this.state.showScreen = o.screen;
     this.state.hasData = true;
+    // Capture the loaded arrangement so Reset Elements can restore it after
+    // the elements have been dragged or toggled.
+    this.initialLayout = {
+      source: { ...this.source },
+      lensX: this.lensX,
+      prismCenter: { ...this.prismCenter },
+      screenX: this.screenX,
+      lensType: this.state.lensType,
+      focal: this.state.focal,
+      showPrism: this.state.showPrism,
+      showScreen: this.state.showScreen,
+    };
     this.draw();
   }
 

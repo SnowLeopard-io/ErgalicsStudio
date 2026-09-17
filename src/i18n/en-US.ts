@@ -583,6 +583,7 @@ export const enUS: LocaleDictionary = {
   'sweep.plan_invalid': 'Invalid plan: {reason}',
   'sweep.cell_count': '{count} cells',
   'sweep.last_error': 'Last error',
+  'sweep.result_stale': 'The saved result belongs to an older version of this plan. Run again to refresh it.',
 
   // ---- F3 Signal Lab ----
   'signal.title': 'Signal Lab',

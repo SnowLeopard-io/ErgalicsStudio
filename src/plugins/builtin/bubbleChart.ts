@@ -12,6 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const bubbleChartManifest: PluginManifest = {
   id: 'example.bubble',
@@ -38,7 +39,10 @@ interface Bubble {
   x: number;
   y: number;
   size: number;
+  /** Numeric 4th column, used for the value-based color ramp. */
   c?: number;
+  /** Non-numeric 4th column, treated as a categorical group. */
+  group?: string;
 }
 
 interface State {
@@ -80,10 +84,29 @@ export class BubbleChartPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bubble-chart');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.maxSize === 'number') this.state.maxSize = params.maxSize;
     if (typeof params.opacity === 'number') this.state.opacity = params.opacity;
     if (params.colorBy === 'auto' || params.colorBy === 'solid') this.state.colorBy = params.colorBy;
     this.draw();
+  }
+
+  private exportCsv() {
+    const hasColor = this.bubbles.some((b) => b.c !== undefined);
+    const hasGroup = this.bubbles.some((b) => b.group !== undefined);
+    const header: string[] = ['x', 'y', 'size'];
+    if (hasColor) header.push('color');
+    if (hasGroup) header.push('group');
+    const rows: Array<Array<string | number>> = this.bubbles.map((b) => {
+      const row: Array<string | number> = [b.x, b.y, b.size];
+      if (hasColor) row.push(b.c ?? '');
+      if (hasGroup) row.push(b.group ?? '');
+      return row;
+    });
+    exportRowsCsv(this.api, 'bubble-chart', header, rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -119,6 +142,8 @@ export class BubbleChartPlugin implements Plugin {
           { value: 'solid', label: 'Solid', labelI18n: { 'zh-CN': '单色', 'en-US': 'Solid' } },
         ],
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -247,7 +272,16 @@ export class BubbleChartPlugin implements Plugin {
   }
 }
 
-/** Parse `x y size [color]` per line. */
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
+}
+
+/** Parse `x y size [color|group]` per line; a non-numeric 4th token is a group. */
 export function parseBubbles(text: string): Bubble[] {
   const bubbles: Bubble[] = [];
   for (const line of text.split(/\r?\n/)) {
@@ -257,11 +291,13 @@ export function parseBubbles(text: string): Bubble[] {
     const parts = trimmed.split(/[\s,]+/);
     const nums = parts.map((s) => parseFloat(s));
     if (nums.length < 3 || nums.slice(0, 3).some((n) => !Number.isFinite(n))) continue;
+    const fourth = parts[3]?.trim();
     bubbles.push({
       x: nums[0]!,
       y: nums[1]!,
       size: Math.max(0, nums[2]!),
-      c: nums.length > 3 && Number.isFinite(nums[3]) ? nums[3] : undefined,
+      c: fourth !== undefined && fourth !== '' && Number.isFinite(nums[3]) ? nums[3] : undefined,
+      group: fourth && !Number.isFinite(nums[3]) ? fourth : undefined,
     });
   }
   return bubbles;

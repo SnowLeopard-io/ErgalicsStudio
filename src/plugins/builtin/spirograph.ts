@@ -11,6 +11,19 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+const SP_COLORS = ['#f472b6', '#22d3ee', '#a78bfa', '#34d399', '#fbbf24'];
+const randInt = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1));
+const randStep = (lo: number, hi: number, step: number) =>
+  Math.round((lo + Math.random() * (hi - lo)) / step) * step;
 
 export const spirographManifest: PluginManifest = {
   id: 'fun.spirograph',
@@ -47,6 +60,7 @@ function gcd(a: number, b: number): number {
 
 export class SpirographPlugin implements Plugin {
   readonly manifest = spirographManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private angle = 0;
@@ -60,7 +74,8 @@ export class SpirographPlugin implements Plugin {
     animate: false,
   };
 
-  async init(_api: PluginApi) {
+  async init(api: PluginApi) {
+    this.api = api;
   }
 
   async destroy() {
@@ -83,6 +98,15 @@ export class SpirographPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'spirograph');
+      return;
+    }
+    if (buttonPressed(params, 'randomize')) {
+      this.randomize();
+      if (!this.state.animate) this.draw(0);
+      return;
+    }
     let changed = false;
     if (params.shape === 'hypo' || params.shape === 'epi') {
       if (params.shape !== this.state.shape) {
@@ -128,7 +152,19 @@ export class SpirographPlugin implements Plugin {
         { value: '#fbbf24', label: 'Amber' },
       ], value: this.state.color },
       { key: 'animate', label: 'Spin', labelI18n: { 'zh-CN': '旋转', 'en-US': 'Spin' }, type: 'toggle', offLabel: 'Spin', onLabel: 'Spinning', offLabelI18n: { 'zh-CN': '旋转', 'en-US': 'Spin' }, onLabelI18n: { 'zh-CN': '旋转中', 'en-US': 'Spinning' }, value: this.state.animate },
+      actionButton('randomize', 'Randomize', '随机参数'),
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
+  }
+
+  /** Randomize every tunable curve parameter (spin state is left alone). */
+  private randomize() {
+    this.state.shape = Math.random() < 0.5 ? 'hypo' : 'epi';
+    this.state.R = randInt(80, 320);
+    this.state.r = randInt(10, Math.min(220, Math.max(20, this.state.R - 20)));
+    this.state.d = randInt(10, 220);
+    this.state.lineWidth = Math.round(randStep(0.4, 4, 0.1) * 10) / 10;
+    this.state.color = SP_COLORS[Math.floor(Math.random() * SP_COLORS.length)]!;
   }
 
   private computePoints(): Array<[number, number]> {

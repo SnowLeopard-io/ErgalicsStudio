@@ -20,6 +20,7 @@ import type {
   PluginApi,
   PluginManifest,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const proteinManifest: PluginManifest = {
   id: 'example.protein',
@@ -110,6 +111,20 @@ export class ProteinPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'protein');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportNodesCsv();
+      return;
+    }
     if (typeof params.count === 'number' && params.count !== this.state.count) {
       this.state.count = Math.max(
         PROTEIN_COUNT_STEP,
@@ -180,7 +195,21 @@ export class ProteinPlugin implements Plugin {
         action: 'layout-compute',
         labelI18n: { 'zh-CN': '⚡ 计算力导向布局', 'en-US': '⚡ Compute layout' },
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Nodes CSV', '导出节点 CSV'),
     ];
+  }
+
+  /** Export the node table (id, name, degree, x, y) as CSV. */
+  private exportNodesCsv() {
+    const rows: Array<number | string>[] = this.nodes.map((n) => [
+      n.id,
+      n.name,
+      n.degree,
+      n.x,
+      n.y,
+    ]);
+    exportRowsCsv(this.api, 'protein-nodes', ['id', 'name', 'degree', 'x', 'y'], rows);
   }
 
   getSupportedFormats() {

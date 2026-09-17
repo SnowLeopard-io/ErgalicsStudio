@@ -112,6 +112,16 @@ export interface ReplResultMessage {
   error?: string;
 }
 
+/**
+ * Bootstrap failed (CDN unreachable, WASM compile error, package load
+ * failure). The host treats this as fatal before `ready` instead of waiting
+ * out the boot timeout, and fails every request queued on the dead worker.
+ */
+export interface InitFailedMessage {
+  type: 'init-failed';
+  error: string;
+}
+
 export type WorkerEvent =
   | ReadyMessage
   | StdoutMessage
@@ -119,4 +129,5 @@ export type WorkerEvent =
   | PlotMessage
   | NotifyMessage
   | ResultMessage
-  | ReplResultMessage;
+  | ReplResultMessage
+  | InitFailedMessage;

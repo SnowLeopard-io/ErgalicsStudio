@@ -13,6 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const histogramManifest: PluginManifest = {
   id: 'example.histogram',
@@ -40,6 +41,8 @@ interface State {
   bins: number;
   palette: string;
   log: boolean;
+  density: boolean;
+  cumulative: boolean;
 }
 
 const PALETTES: Record<string, string> = {
@@ -53,7 +56,7 @@ export class HistogramPlugin implements Plugin {
   readonly manifest = histogramManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { values: [], bins: 30, palette: 'teal', log: false };
+  private state: State = { values: [], bins: 30, palette: 'teal', log: false, density: false, cumulative: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -77,9 +80,15 @@ export class HistogramPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (typeof params.bins === 'number') this.state.bins = params.bins;
+    if (typeof params.bins === 'number') {
+      this.state.bins = Math.max(5, Math.min(100, Math.round(params.bins)));
+    }
     if (typeof params.palette === 'string') this.state.palette = params.palette;
     if (typeof params.log === 'boolean') this.state.log = params.log;
+    if (typeof params.density === 'boolean') this.state.density = params.density;
+    if (typeof params.cumulative === 'boolean') this.state.cumulative = params.cumulative;
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
     this.draw();
   }
 
@@ -99,6 +108,22 @@ export class HistogramPlugin implements Plugin {
         ],
       },
       { key: 'log', label: 'Log scale', type: 'checkbox', value: this.state.log },
+      {
+        key: 'density',
+        label: 'Density',
+        labelI18n: { 'zh-CN': '密度', 'en-US': 'Density' },
+        type: 'checkbox',
+        value: this.state.density,
+      },
+      {
+        key: 'cumulative',
+        label: 'Cumulative',
+        labelI18n: { 'zh-CN': '累积分布', 'en-US': 'Cumulative' },
+        type: 'checkbox',
+        value: this.state.cumulative,
+      },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -198,22 +223,18 @@ export class HistogramPlugin implements Plugin {
     }
 
     const values = this.state.values;
-    let min = Infinity;
-    let max = -Infinity;
-    for (const v of values) {
-      if (v < min) min = v;
-      if (v > max) max = v;
-    }
-    const span = max - min || 1;
-    const bins = Math.max(2, Math.round(this.state.bins));
-    const counts = new Array(bins).fill(0);
-    for (const v of values) {
-      let idx = Math.floor(((v - min) / span) * bins);
-      if (idx === bins) idx = bins - 1;
-      counts[idx]! += 1;
-    }
+    const built = this.buildBins();
+    if (!built) return;
+    const { binW, counts } = built;
+    const bins = counts.length;
+    const total = values.length;
     let maxCount = 1;
-    for (const c of counts) if (c > maxCount) maxCount = c;
+    let maxDensity = 1e-12;
+    for (const c of counts) {
+      if (c > maxCount) maxCount = c;
+      const d = c / (total * binW);
+      if (d > maxDensity) maxDensity = d;
+    }
 
     const padL = 34;
     const padB = 18;
@@ -230,15 +251,38 @@ export class HistogramPlugin implements Plugin {
     g.stroke();
 
     const color = (PALETTES[this.state.palette] ?? PALETTES.teal) as string;
-    for (let i = 0; i < bins; i += 1) {
-      const c = counts[i]!;
-      const h = this.state.log
+    const barHeight = (c: number): number => {
+      if (this.state.density) {
+        return (c / (total * binW) / maxDensity) * plotH;
+      }
+      return this.state.log
         ? (Math.log2(c + 1) / Math.log2(maxCount + 1)) * plotH
         : (c / maxCount) * plotH;
+    };
+    for (let i = 0; i < bins; i += 1) {
+      const c = counts[i]!;
+      const h = barHeight(c);
       if (h <= 0) continue;
       const x = padL + i * barW;
       g.fillStyle = i % 2 === 0 ? color : this.shade(color, 0.82);
       g.fillRect(x + 1, canvas.height - padB - h, Math.max(1, barW - 2), h);
+    }
+
+    // Cumulative-frequency polyline (fraction of samples <= bin end).
+    if (this.state.cumulative) {
+      g.strokeStyle = '#fbbf24';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(padL, canvas.height - padB);
+      let cum = 0;
+      for (let i = 0; i < bins; i += 1) {
+        cum += counts[i]!;
+        const x = padL + (i + 1) * barW;
+        const y = canvas.height - padB - (cum / total) * plotH;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+      g.lineWidth = 1;
     }
 
     // count label
@@ -246,6 +290,55 @@ export class HistogramPlugin implements Plugin {
     g.font = `11px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.fillStyle = 'rgba(200, 214, 228, 0.85)';
     g.fillText(`${values.length} samples`, padL + 2, canvas.height - 5);
+  }
+
+  /** Bin the loaded values; null when there is no data. */
+  private buildBins(): { min: number; binW: number; counts: number[] } | null {
+    const values = this.state.values;
+    if (values.length === 0) return null;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of values) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const span = max - min || 1;
+    const bins = Math.max(2, Math.round(this.state.bins));
+    const counts = new Array<number>(bins).fill(0);
+    for (const v of values) {
+      let idx = Math.floor(((v - min) / span) * bins);
+      if (idx === bins) idx = bins - 1;
+      counts[idx]! += 1;
+    }
+    return { min, binW: span / bins, counts };
+  }
+
+  private exportPng() {
+    if (this.state.values.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'histogram');
+  }
+
+  private exportCsv() {
+    const built = this.buildBins();
+    if (!built) {
+      exportRowsCsv(this.api, 'histogram', [], []);
+      return;
+    }
+    const { min, binW, counts } = built;
+    const total = this.state.values.length;
+    const withDensity = this.state.density;
+    const header = withDensity
+      ? ['binStart', 'binEnd', 'count', 'density']
+      : ['binStart', 'binEnd', 'count'];
+    const rows: Array<Array<number>> = counts.map((c, i) => {
+      const start = min + i * binW;
+      const end = start + binW;
+      return withDensity ? [start, end, c, c / (total * binW)] : [start, end, c];
+    });
+    exportRowsCsv(this.api, 'histogram', header, rows);
   }
 
   private shade(hex: string, k: number): string {

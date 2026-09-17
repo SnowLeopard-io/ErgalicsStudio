@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const violinPlotManifest: PluginManifest = {
   id: 'example.violin',
@@ -38,6 +39,7 @@ export const violinPlotManifest: PluginManifest = {
 interface State {
   bandwidth: number;
   showBox: boolean;
+  showPoints: boolean;
   hasData: boolean;
 }
 
@@ -51,7 +53,7 @@ export class ViolinPlotPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private groups: Map<string, number[]> = new Map();
-  private state: State = { bandwidth: 1, showBox: true, hasData: false };
+  private state: State = { bandwidth: 1, showBox: true, showPoints: false, hasData: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -74,9 +76,23 @@ export class ViolinPlotPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'violin-plot');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.bandwidth === 'number') this.state.bandwidth = params.bandwidth;
     if (typeof params.showBox === 'boolean') this.state.showBox = params.showBox;
+    if (typeof params.showPoints === 'boolean') this.state.showPoints = params.showPoints;
     this.draw();
+  }
+
+  private exportCsv() {
+    const rows: Array<[string, number, number, number, number, number, number]> = [];
+    for (const [name, values] of this.groups) {
+      const s = summarize(values);
+      rows.push([name, s.min, s.q1, s.median, s.q3, s.max, s.n]);
+    }
+    exportRowsCsv(this.api, 'violin-plot', ['name', 'min', 'q1', 'median', 'q3', 'max', 'n'], rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -98,6 +114,15 @@ export class ViolinPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showBox,
       },
+      {
+        key: 'showPoints',
+        label: 'Show Points',
+        labelI18n: { 'zh-CN': '显示数据点', 'en-US': 'Show Points' },
+        type: 'checkbox',
+        value: this.state.showPoints,
+      },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -231,6 +256,23 @@ export class ViolinPlotPlugin implements Plugin {
       g.fill();
       g.stroke();
 
+      // Jittered raw-data points. The jitter is a deterministic hash of
+      // (group, index) — never Math.random() — so redraws leave every point
+      // in exactly the same place, and each point is clamped to the local
+      // KDE width so it stays inside the violin outline.
+      if (this.state.showPoints) {
+        g.fillStyle = color + 'cc';
+        for (let pi = 0; pi < values.length; pi += 1) {
+          const v = values[pi]!;
+          const bin = Math.max(0, Math.min(BINS, Math.round(((v - minVal) / span) * BINS)));
+          const r = (densities[bin]!.d / maxD) * maxW;
+          const j = hash01(gi * 100003 + pi + 1) * 2 - 1;
+          g.beginPath();
+          g.arc(centerX + j * r * 0.8, py(v), 1.4, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+
       // Box plot overlay
       if (this.state.showBox) {
         const sorted = [...values].sort((a, b) => a - b);
@@ -274,6 +316,35 @@ function variance(arr: number[]): number {
   if (arr.length === 0) return 0;
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
   return arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
+}
+
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
+}
+
+/** Deterministic pseudo-random in [0, 1) from an integer seed (sin hash). */
+function hash01(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/** Five-number summary plus count, using the same quantile rule as draw(). */
+function summarize(values: number[]): { min: number; q1: number; median: number; q3: number; max: number; n: number } {
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  return {
+    min: sorted[0] ?? 0,
+    q1: sorted[Math.floor(n * 0.25)] ?? 0,
+    median: sorted[Math.floor(n * 0.5)] ?? 0,
+    q3: sorted[Math.floor(n * 0.75)] ?? 0,
+    max: sorted[n - 1] ?? 0,
+    n,
+  };
 }
 
 /** Parse `group,value` per line (or whitespace-delimited). */

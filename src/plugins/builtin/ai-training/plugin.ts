@@ -32,6 +32,7 @@ import { MODEL_SPECS, makeOptimizer } from './models';
 import { trainModel } from './trainer';
 import * as viz from './render';
 import { loadTf } from './tf';
+import { actionButton, exportRowsCsv } from '../shared/enhance';
 
 export const aiTrainingManifest: PluginManifest = {
   id: 'example.ai-training',
@@ -190,6 +191,7 @@ export class AITrainingPlugin implements Plugin {
     p.push(btn('train', 'Train', '开始训练', 'primary', 'train'));
     p.push(btn('stop', 'Stop', '停止', 'danger', 'stop'));
     p.push(btn('export', 'Export Weights', '导出权重', 'default', 'export'));
+    p.push(actionButton('exportCsv', 'Export Metrics CSV', '导出训练指标 CSV'));
     return p;
   }
 
@@ -214,9 +216,28 @@ export class AITrainingPlugin implements Plugin {
     if (typeof params.batchSize === 'number') this.hyper.batchSize = Math.max(1, Math.floor(params.batchSize));
     if (typeof params.targetColumn === 'string') this.targetColumn = params.targetColumn;
 
-    if (actionOf('train') === 'train') void this.runTraining();
-    else if (actionOf('stop') === 'stop') this.requestStop();
+    // exportCsv also accepts a plain `{ exportCsv: true }` call (the other
+    // buttons only ever arrive through the host's action emission).
+    if (actionOf('train') === 'train') {
+      // runTraining() swallows + reports expected failures itself; this catch
+      // is only the backstop for an unexpected rejection (e.g. tf.js load
+      // failure) so it never surfaces as an unhandled promise rejection.
+      void this.runTraining().catch((err: unknown) => {
+        this.api.log('error', 'unexpected training failure', err);
+      });
+    } else if (actionOf('stop') === 'stop') this.requestStop();
     else if (actionOf('export') === 'export') this.exportWeights();
+    else if (actionOf('exportCsv') === 'exportCsv' || params.exportCsv === true) this.exportMetricsCsv();
+  }
+
+  /** Export the per-epoch training history as CSV. */
+  private exportMetricsCsv(): void {
+    const rows = this.status.history.map((rec) => [
+      rec.epoch,
+      rec.loss,
+      rec.accuracy === undefined ? null : rec.accuracy,
+    ]);
+    exportRowsCsv(this.api, 'ai-training-metrics', ['epoch', 'loss', 'accuracy'], rows);
   }
 
   /** Pick the model kind from the file name (sample hints) or the column
@@ -378,122 +399,166 @@ export class AITrainingPlugin implements Plugin {
     this.status.totalEpochs = this.hyper.epochs;
 
     // ---- Prepare tensors ----
-    let xs: Tensor;
-    let ys: Tensor;
-    let inputShape: number[];
+    let xs: Tensor | null = null;
+    let ys: Tensor | null = null;
+    let inputShape: number[] = [];
     let rawXs: number[][] = [];
     let rawYs: number[] = [];
 
-    if (this.kind === 'mnist') {
-      const imgs = this.dataset.images!;
-      const labels = this.dataset.labels!;
-      xs = tf.tidy(() => tf.tensor4d(flattenImages(imgs), [imgs.length, 28, 28, 1]));
-      ys = tf.tidy(() => tf.oneHot(tf.tensor1d(labels, 'int32'), 10));
-      inputShape = [28, 28, 1];
-      this.viz = {};
-    } else {
-      const names = this.dataset.columnNames;
-      const targetIdx = Math.max(
-        0,
-        this.targetColumn ? names.indexOf(this.targetColumn) : names.length - 1,
-      );
-      const featCols = names.map((_, i) => i).filter((i) => i !== targetIdx);
-      rawXs = this.dataset.rows.map((r) => featCols.map((i) => r[i]!));
-      rawYs = this.dataset.rows.map((r) => r[targetIdx]!);
-
-      if (spec.needsNormalization) {
-        const { norm, means, stds } = normalizeRows(rawXs);
-        this.normMeans = means;
-        this.normStds = stds;
-        xs = tf.tensor2d(norm);
-      } else {
-        xs = tf.tensor2d(rawXs);
-      }
-
-      if (spec.task === 'regression') {
-        ys = tf.tensor2d(rawYs.map((y) => [y]));
-        inputShape = [featCols.length];
-      } else {
-        const uniq = [...new Set(rawYs)].sort((a, b) => a - b);
-        this.labelMap = new Map(uniq.map((v, i) => [v, i]));
-        const bin = rawYs.map((y) => this.labelMap.get(y) ?? 0);
-        ys = tf.tensor2d(bin.map((y) => [y]));
-        inputShape = [featCols.length];
-      }
-
-      // Seed the bottom view with raw data so it animates during training.
-      if (spec.task === 'regression') {
-        this.viz.scatter = rawXs.map((r, i) => ({ x: r[0]!, y: rawYs[i]! }));
-        this.viz.line = null;
-      } else if ((rawXs[0]?.length ?? 0) >= 2) {
-        this.viz.decision = {
-          points: rawXs.map((r, i) => ({ x: r[0]!, y: r[1]!, label: this.labelMap.get(rawYs[i]!) ?? 0 })),
-          fn: () => 0.5,
-        };
-      }
-    }
-
-    if (this.model) {
-      this.model.dispose();
-      this.model = null;
-    }
-    const model = spec.build(tf, inputShape);
-    model.compile({
-      loss: spec.loss,
-      optimizer: makeOptimizer(tf, spec.optimizer, this.hyper.learningRate),
-      metrics: spec.metrics,
-    });
-    this.model = model;
-
-    const total = Math.max(1, Math.floor(this.hyper.epochs));
-    const throttle = Math.max(1, Math.floor(total / 40));
-    let lastDraw = 0;
-
-    // xs/ys live on the WebGL heap, not the JS GC. Run training in a try so a
-    // thrown error still releases them — otherwise repeated runs exhaust VRAM.
-    let trainResult: Awaited<ReturnType<typeof trainModel>>;
+    // The whole preparation + fit is wrapped: previously only trainModel() sat
+    // inside try/finally, so a shape error during tensor construction (e.g.
+    // non-28×28 MNIST images) threw *before* the try and left phase stuck at
+    // 'training' forever — every later Run was rejected by the guard above and
+    // tensors/model leaked on the WebGL heap.
     try {
-      trainResult = await trainModel(
-        model,
-        xs,
-        ys,
-        this.hyper,
-        (rec) => {
-          this.status.currentEpoch = rec.epoch;
-          this.status.currentLoss = rec.loss;
-          this.status.currentAccuracy = rec.accuracy ?? null;
-          onProgress?.({ done: rec.epoch, total, label: spec.label });
-          if (rec.epoch - lastDraw >= throttle || rec.epoch === total) {
-            lastDraw = rec.epoch;
-            this.draw();
-          }
-        },
-        () => this.stopRequested,
+      if (this.kind === 'mnist') {
+        const imgs = this.dataset.images!;
+        const labels = this.dataset.labels!;
+        // tensor4d() below hard-codes [n,28,28,1]; a user-supplied JSON with
+        // any other shape used to throw deep in tf.js with an opaque message.
+        const bad = imgs.findIndex(
+          (img) =>
+            !Array.isArray(img) ||
+            img.length !== 28 ||
+            img.some((row) => !Array.isArray(row) || row.length !== 28),
+        );
+        if (bad >= 0) {
+          throw new Error(`MNIST image #${bad} is not 28×28 pixels`);
+        }
+        if (labels.length !== imgs.length) {
+          throw new Error(`MNIST labels/images length mismatch (${labels.length} vs ${imgs.length})`);
+        }
+        xs = tf.tidy(() => tf.tensor4d(flattenImages(imgs), [imgs.length, 28, 28, 1]));
+        ys = tf.tidy(() => tf.oneHot(tf.tensor1d(labels, 'int32'), 10));
+        inputShape = [28, 28, 1];
+        this.viz = {};
+      } else {
+        const names = this.dataset.columnNames;
+        const targetIdx = Math.max(
+          0,
+          this.targetColumn ? names.indexOf(this.targetColumn) : names.length - 1,
+        );
+        const featCols = names.map((_, i) => i).filter((i) => i !== targetIdx);
+        rawXs = this.dataset.rows.map((r) => featCols.map((i) => r[i]!));
+        rawYs = this.dataset.rows.map((r) => r[targetIdx]!);
+
+        if (spec.needsNormalization) {
+          const { norm, means, stds } = normalizeRows(rawXs);
+          this.normMeans = means;
+          this.normStds = stds;
+          xs = tf.tensor2d(norm);
+        } else {
+          xs = tf.tensor2d(rawXs);
+        }
+
+        if (spec.task === 'regression') {
+          ys = tf.tensor2d(rawYs.map((y) => [y]));
+          inputShape = [featCols.length];
+        } else {
+          const uniq = [...new Set(rawYs)].sort((a, b) => a - b);
+          this.labelMap = new Map(uniq.map((v, i) => [v, i]));
+          const bin = rawYs.map((y) => this.labelMap.get(y) ?? 0);
+          ys = tf.tensor2d(bin.map((y) => [y]));
+          inputShape = [featCols.length];
+        }
+
+        // Seed the bottom view with raw data so it animates during training.
+        if (spec.task === 'regression') {
+          this.viz.scatter = rawXs.map((r, i) => ({ x: r[0]!, y: rawYs[i]! }));
+          this.viz.line = null;
+        } else if ((rawXs[0]?.length ?? 0) >= 2) {
+          this.viz.decision = {
+            points: rawXs.map((r, i) => ({ x: r[0]!, y: r[1]!, label: this.labelMap.get(rawYs[i]!) ?? 0 })),
+            fn: () => 0.5,
+          };
+        }
+      }
+
+      if (this.model) {
+        this.model.dispose();
+        this.model = null;
+      }
+      const model = spec.build(tf, inputShape);
+      model.compile({
+        loss: spec.loss,
+        optimizer: makeOptimizer(tf, spec.optimizer, this.hyper.learningRate),
+        metrics: spec.metrics,
+      });
+      this.model = model;
+
+      const total = Math.max(1, Math.floor(this.hyper.epochs));
+      const throttle = Math.max(1, Math.floor(total / 40));
+      let lastDraw = 0;
+
+      // xs/ys live on the WebGL heap, not the JS GC. Run training in a try so
+      // a thrown error still releases them — otherwise repeated runs exhaust
+      // VRAM.
+      let trainResult: Awaited<ReturnType<typeof trainModel>>;
+      try {
+        trainResult = await trainModel(
+          model,
+          xs,
+          ys,
+          this.hyper,
+          (rec) => {
+            this.status.currentEpoch = rec.epoch;
+            this.status.currentLoss = rec.loss;
+            this.status.currentAccuracy = rec.accuracy ?? null;
+            onProgress?.({ done: rec.epoch, total, label: spec.label });
+            if (rec.epoch - lastDraw >= throttle || rec.epoch === total) {
+              lastDraw = rec.epoch;
+              this.draw();
+            }
+          },
+          () => this.stopRequested,
+        );
+      } finally {
+        xs.dispose();
+        ys.dispose();
+      }
+
+      this.computeViz(tf, spec, rawXs, rawYs);
+      this.status.phase = this.stopRequested ? 'stopped' : 'done';
+      // Publish the complete per-epoch history (the onEpoch callback only
+      // refreshed the current values) so it can be exported as CSV.
+      this.status.history = trainResult.history;
+      const lastRec = trainResult.history.at(-1);
+      this.status.currentEpoch = lastRec ? lastRec.epoch : total;
+      this.status.message = '';
+      this.weightsJson = this.serializeWeights(model);
+
+      const accTxt =
+        this.status.currentAccuracy != null
+          ? ` | acc ${(this.status.currentAccuracy * 100).toFixed(1)}%`
+          : '';
+      this.api.notify(
+        this.status.phase === 'done' ? 'success' : 'info',
+        ZH(
+          this.api,
+          `${this.status.phase === 'done' ? 'Training complete' : 'Training stopped'} — loss ${this.status.currentLoss.toFixed(4)}${accTxt}`,
+          `${this.status.phase === 'done' ? '训练完成' : '已停止'} — 损失 ${this.status.currentLoss.toFixed(4)}${accTxt}`,
+        ),
+      );
+    } catch (err) {
+      // Enter a terminal 'error' phase so (a) the training guard above can
+      // never wedge Run forever and (b) compute() reports failure. Any tensors
+      // that were created before the throw are released here too.
+      xs?.dispose();
+      ys?.dispose();
+      this.model?.dispose();
+      this.model = null;
+      this.weightsJson = null;
+      const message = err instanceof Error ? err.message : String(err);
+      this.status.phase = 'error';
+      this.status.message = message;
+      this.api.log('error', 'training failed', { kind: this.kind, message });
+      this.api.notify(
+        'error',
+        ZH(this.api, `Training failed: ${message}`, `训练失败：${message}`),
       );
     } finally {
-      xs.dispose();
-      ys.dispose();
+      this.draw();
     }
-
-    this.computeViz(tf, spec, rawXs, rawYs);
-    this.status.phase = this.stopRequested ? 'stopped' : 'done';
-    const lastRec = trainResult.history.at(-1);
-    this.status.currentEpoch = lastRec ? lastRec.epoch : total;
-    this.weightsJson = this.serializeWeights(model);
-
-    const accTxt =
-      this.status.currentAccuracy != null
-        ? ` | acc ${(this.status.currentAccuracy * 100).toFixed(1)}%`
-        : '';
-    this.api.notify(
-      this.status.phase === 'done' ? 'success' : 'info',
-      ZH(
-        this.api,
-        `${this.status.phase === 'done' ? 'Training complete' : 'Training stopped'} — loss ${this.status.currentLoss.toFixed(4)}${accTxt}`,
-        `${this.status.phase === 'done' ? '训练完成' : '已停止'} — 损失 ${this.status.currentLoss.toFixed(4)}${accTxt}`,
-      ),
-    );
-    this.draw();
   }
 
   /** Build the model-specific view (fit line / decision surface / MNIST grid). */

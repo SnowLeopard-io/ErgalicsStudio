@@ -12,6 +12,14 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
 
 export const fireworksManifest: PluginManifest = {
   id: 'fun.fireworks',
@@ -58,6 +66,7 @@ const MAX_PARTICLES = 6_000;
 
 export class FireworksPlugin implements Plugin {
   readonly manifest = fireworksManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private particles: Particle[] = [];
   private raf: number | null = null;
@@ -65,7 +74,9 @@ export class FireworksPlugin implements Plugin {
   private autoTimer = 0;
   private state: State = { auto: true, colors: 'candy', gravity: 0.05 };
 
-  async init(_api: PluginApi) {}
+  async init(api: PluginApi) {
+    this.api = api;
+  }
 
   async destroy() {
     this.stopLoop();
@@ -88,6 +99,15 @@ export class FireworksPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'fireworks');
+      return;
+    }
+    // Clear every live particle and wipe the canvas immediately.
+    if (buttonPressed(params, 'clear')) {
+      this.clear();
+      return;
+    }
     if (typeof params.auto === 'boolean') {
       this.state.auto = params.auto;
       if (this.state.auto) this.startLoop();
@@ -96,8 +116,7 @@ export class FireworksPlugin implements Plugin {
     if (typeof params.gravity === 'number') {
       this.state.gravity = Math.max(0, Math.min(0.2, params.gravity));
     }
-    const fire = params.fire as { action?: string } | undefined;
-    if (fire?.action === 'fire') this.burst();
+    if (buttonPressed(params, 'fire')) this.burst();
   }
 
   getParams(): ParamDefinition[] {
@@ -144,6 +163,8 @@ export class FireworksPlugin implements Plugin {
         variant: 'primary',
         action: 'fire',
       },
+      actionButton('clear', 'Clear', '清屏', 'danger'),
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 
@@ -211,6 +232,21 @@ export class FireworksPlugin implements Plugin {
       p.life += k;
     }
     this.particles = this.particles.filter((p) => p.life < p.maxLife);
+  }
+
+  /** Drop all particles and wipe the canvas with an opaque background. */
+  private clear() {
+    this.particles = [];
+    const canvas = this.ctx?.canvas2d;
+    if (!canvas) return;
+    const w = canvas.clientWidth || 480;
+    const h = canvas.clientHeight || 360;
+    canvas.width = w;
+    canvas.height = h;
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    g.fillStyle = '#0a0e13';
+    g.fillRect(0, 0, w, h);
   }
 
   private draw() {

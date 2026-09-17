@@ -12,6 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const boxPlotManifest: PluginManifest = {
   id: 'example.boxplot',
@@ -41,11 +42,14 @@ interface BoxStats {
   median: number;
   q3: number;
   max: number;
+  mean: number;
+  n: number;
   outliers: number[];
 }
 
 interface State {
   showOutliers: boolean;
+  showMean: boolean;
   hasData: boolean;
 }
 
@@ -57,7 +61,7 @@ export class BoxPlotPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private boxes: BoxStats[] = [];
-  private state: State = { showOutliers: true, hasData: false };
+  private state: State = { showOutliers: true, showMean: false, hasData: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -81,6 +85,9 @@ export class BoxPlotPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showOutliers === 'boolean') this.state.showOutliers = params.showOutliers;
+    if (typeof params.showMean === 'boolean') this.state.showMean = params.showMean;
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
     this.draw();
   }
 
@@ -93,6 +100,15 @@ export class BoxPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showOutliers,
       },
+      {
+        key: 'showMean',
+        label: 'Show Mean',
+        labelI18n: { 'zh-CN': '显示均值', 'en-US': 'Show Mean' },
+        type: 'checkbox',
+        value: this.state.showMean,
+      },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -226,6 +242,23 @@ export class BoxPlotPlugin implements Plugin {
         }
       }
 
+      // Mean marker (diamond).
+      if (this.state.showMean) {
+        const my = py(box.mean);
+        const r = 4;
+        g.beginPath();
+        g.moveTo(centerX, my - r);
+        g.lineTo(centerX + r, my);
+        g.lineTo(centerX, my + r);
+        g.lineTo(centerX - r, my);
+        g.closePath();
+        g.fillStyle = '#f8fafc';
+        g.fill();
+        g.strokeStyle = color;
+        g.lineWidth = 1.5;
+        g.stroke();
+      }
+
       // Label
       g.fillStyle = 'rgba(200, 214, 228, 0.85)';
       g.font = font;
@@ -244,10 +277,23 @@ export class BoxPlotPlugin implements Plugin {
         : 'No box data — drop a .csv file';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
+
+  private exportPng() {
+    if (!this.state.hasData || this.boxes.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'box-plot');
+  }
+
+  private exportCsv() {
+    const rows = this.boxes.map((b) => [b.name, b.min, b.q1, b.median, b.q3, b.max, b.n]);
+    exportRowsCsv(this.api, 'box-plot', ['name', 'min', 'q1', 'median', 'q3', 'max', 'n'], rows);
+  }
 }
 
 /** Compute box statistics from a sorted array. */
-function stats(values: number[]): { min: number; q1: number; median: number; q3: number; max: number; outliers: number[] } {
+function stats(values: number[]): { min: number; q1: number; median: number; q3: number; max: number; mean: number; n: number; outliers: number[] } {
   const sorted = [...values].sort((a, b) => a - b);
   const q = (p: number) => {
     const idx = (sorted.length - 1) * p;
@@ -263,12 +309,16 @@ function stats(values: number[]): { min: number; q1: number; median: number; q3:
   const hiFence = q3 + 1.5 * iqr;
   const inliers = sorted.filter((v) => v >= loFence && v <= hiFence);
   const outliers = sorted.filter((v) => v < loFence || v > hiFence);
+  let sum = 0;
+  for (const v of sorted) sum += v;
   return {
     min: inliers[0] ?? sorted[0]!,
     q1,
     median,
     q3,
     max: inliers[inliers.length - 1] ?? sorted[sorted.length - 1]!,
+    mean: sum / sorted.length,
+    n: sorted.length,
     outliers,
   };
 }
@@ -284,10 +334,14 @@ export function parseBoxData(text: string): BoxStats[] {
   const sep = lines[0]!.includes(',') ? ',' : /\s+/;
 
   if (!firstNumeric) {
-    // Grouped: group,value[,value...]
+    // Grouped: group,value[,value...]. Line 0 is only a header when its value
+    // columns are non-numeric too — otherwise it is the first data row
+    // (e.g. `A,1.5`) and starting the loop at 1 silently dropped it.
+    const restHasNumeric = firstTokens.slice(1).some((t) => Number.isFinite(Number(t)));
+    const start = restHasNumeric ? 0 : 1;
     const groups = new Map<string, number[]>();
     let count = 0;
-    for (let i = 1; i < lines.length; i += 1) {
+    for (let i = start; i < lines.length; i += 1) {
       if (count >= MAX_POINTS) break;
       const parts = lines[i]!.split(sep).map((p) => p.trim());
       if (parts.length < 2) continue;

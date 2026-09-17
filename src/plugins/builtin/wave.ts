@@ -17,12 +17,14 @@ import type {
   ComputeResult,
   ContainerCapabilities,
   GpuComputeApi,
+  GpuKernelHandle,
   ParamDefinition,
   Plugin,
   PluginApi,
   PluginManifest,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 import {
   WAVE_DRIVE_USAGE,
   WAVE_FIELD_USAGE,
@@ -68,6 +70,17 @@ interface State {
   /** True once a scenario file has been loaded — the plugin never
    * fabricates a default field; without data it stays empty. */
   hasData: boolean;
+}
+
+/** Persistent WebGPU buffers + compiled kernel for the fixed wave grid. */
+interface WaveGpuResourceSet {
+  uA: ComputeBufferHandle;
+  uB: ComputeBufferHandle;
+  vA: ComputeBufferHandle;
+  vB: ComputeBufferHandle;
+  driveBuf: ComputeBufferHandle;
+  paramsBuf: ComputeBufferHandle;
+  kernel: GpuKernelHandle;
 }
 
 /**
@@ -118,6 +131,16 @@ export class WavePlugin implements Plugin {
   private visPeak = 0;
   /** Offscreen grid-resolution canvas, bilinearly upscaled when drawn. */
   private offscreen: HTMLCanvasElement | null = null;
+  /**
+   * Cached GPU buffers + compiled step kernel (the grid is a fixed size).
+   * The old path allocated six buffers and recompiled the WGSL kernel on
+   * every animation frame. u/v are still uploaded and read back each batch
+   * (the CPU fields stay authoritative for seamless fallback), but the
+   * allocations and shader compilation now happen once.
+   */
+  private gpuRes: WaveGpuResourceSet | null = null;
+  /** The drive map only changes on load/reset — skip its per-frame upload. */
+  private driveDirty = true;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -125,6 +148,7 @@ export class WavePlugin implements Plugin {
 
   async destroy() {
     this.stop();
+    this.destroyGpuResources();
     this.ctx = null;
   }
 
@@ -142,6 +166,20 @@ export class WavePlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'wave');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportCsv();
+      return;
+    }
     if (typeof params.speed === 'number') {
       // Clamp to the declared range [0.05, 0.7] — k = c² must stay ≤ 0.5 for
       // the leapfrog scheme to be stable; 0.7 is the practical ceiling with
@@ -224,7 +262,26 @@ export class WavePlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Wave CSV', '导出波场 CSV'),
     ];
+  }
+
+  /** Export displacement samples (x, y, u) as CSV. The fixed lattice is
+   *  sampled at an equal stride so the output stays under 10k rows. */
+  private exportCsv() {
+    if (!this.state.hasData) {
+      notify(this.api, 'warning', 'No wave data to export yet.', '暂无可导出的波场数据。');
+      return;
+    }
+    const cells = W * H;
+    const MAX_ROWS = 10000;
+    const stride = Math.max(1, Math.ceil(cells / MAX_ROWS));
+    const rows: number[][] = [];
+    for (let cell = 0; cell < cells; cell += stride) {
+      rows.push([cell % W, Math.floor(cell / W), this.u[cell]!]);
+    }
+    exportRowsCsv(this.api, 'wave-field', ['x', 'y', 'u'], rows);
   }
 
   /**
@@ -312,6 +369,8 @@ export class WavePlugin implements Plugin {
     this.v.fill(0);
     this.time = 0;
     this.visPeak = 0;
+    // The cached drive buffer must be re-uploaded before the next batch.
+    this.driveDirty = true;
   }
 
   private start() {
@@ -377,46 +436,40 @@ export class WavePlugin implements Plugin {
     steps: number,
     onProgress?: (p: ComputeProgress) => Promise<void> | void,
   ): Promise<boolean> {
-    let uA: ComputeBufferHandle | null = null;
-    let uB: ComputeBufferHandle | null = null;
-    let vA: ComputeBufferHandle | null = null;
-    let vB: ComputeBufferHandle | null = null;
-    let driveBuf: ComputeBufferHandle | null = null;
-    let paramsBuf: ComputeBufferHandle | null = null;
+    const cells = W * H;
+    let res = this.gpuRes;
+    if (!res) {
+      res = this.createGpuResources(gpu, cells);
+      if (!res) return false;
+      this.gpuRes = res;
+      this.driveDirty = true;
+    }
+
+    // Ping-pong handles are local aliases into the persistent buffers; the
+    // first dispatch of every batch overwrites the B buffers, so their
+    // previous contents do not matter.
+    let uA: ComputeBufferHandle = res.uA;
+    let uB: ComputeBufferHandle = res.uB;
+    let vA: ComputeBufferHandle = res.vA;
+    let vB: ComputeBufferHandle = res.vB;
     try {
-      const cells = W * H;
-      uA = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.uA');
-      uB = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.uB');
-      vA = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.vA');
-      vB = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.vB');
-      driveBuf = gpu.createBuffer(waveFieldBytes(cells), WAVE_DRIVE_USAGE, 'wave.drive');
-      paramsBuf = gpu.createBuffer(24, WAVE_PARAMS_USAGE, 'wave.params');
-      if (!uA || !uB || !vA || !vB || !driveBuf || !paramsBuf) return false;
-
-      const kernel = gpu.compileKernel({
-        label: 'wave.step',
-        wgsl: waveKernelWGSL(),
-        workgroupSize: [8, 8, 1],
-        bindings: [
-          { binding: 0, bufferType: 'read-only-storage' },
-          { binding: 1, bufferType: 'read-only-storage' },
-          { binding: 2, bufferType: 'storage' },
-          { binding: 3, bufferType: 'storage' },
-          { binding: 4, bufferType: 'read-only-storage' },
-          { binding: 5, bufferType: 'uniform' },
-        ],
-      });
-      if (!kernel) return false;
-
+      // CPU fields stay authoritative (seamless CPU fallback after any
+      // failure) — upload both fields at the start of every batch.
       uA.write(this.u);
       vA.write(this.v);
-      driveBuf.write(this.drive);
+      if (this.driveDirty) {
+        res.driveBuf.write(this.drive);
+        this.driveDirty = false;
+      }
       const wgX = Math.ceil(W / 8);
       const wgY = Math.ceil(H / 8);
 
       for (let s = 0; s < steps; s += 1) {
-        paramsBuf.write(new Uint8Array(packWaveParams(W, H, this.state.speed ** 2, this.state.damping, this.time + s + 1)));
-        if (!gpu.run(kernel, [uA, vA, uB, vB, driveBuf, paramsBuf], wgX, wgY, 1)) return false;
+        res.paramsBuf.write(new Uint8Array(packWaveParams(W, H, this.state.speed ** 2, this.state.damping, this.time + s + 1)));
+        if (!gpu.run(res.kernel, [uA, vA, uB, vB, res.driveBuf, res.paramsBuf], wgX, wgY, 1)) {
+          this.failGpuResources();
+          return false;
+        }
         // Ping-pong.
         [uA, uB] = [uB, uA];
         [vA, vB] = [vB, vA];
@@ -431,15 +484,80 @@ export class WavePlugin implements Plugin {
       return true;
     } catch (err) {
       logger.warn('wave', 'GPU compute failed, falling back to CPU', err);
+      this.failGpuResources();
       return false;
-    } finally {
-      uA?.destroy();
-      uB?.destroy();
-      vA?.destroy();
-      vB?.destroy();
-      driveBuf?.destroy();
-      paramsBuf?.destroy();
     }
+  }
+
+  /** Create the six buffers and compile the step kernel once. */
+  private createGpuResources(gpu: GpuComputeApi, cells: number): WaveGpuResourceSet | null {
+    const buffers: Array<ComputeBufferHandle | null> = [];
+    const cleanup = () => {
+      for (const b of buffers) {
+        try {
+          b?.destroy();
+        } catch {
+          /* device lost */
+        }
+      }
+    };
+    try {
+      const uA = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.uA');
+      const uB = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.uB');
+      const vA = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.vA');
+      const vB = gpu.createBuffer(waveFieldBytes(cells), WAVE_FIELD_USAGE, 'wave.vB');
+      const driveBuf = gpu.createBuffer(waveFieldBytes(cells), WAVE_DRIVE_USAGE, 'wave.drive');
+      const paramsBuf = gpu.createBuffer(24, WAVE_PARAMS_USAGE, 'wave.params');
+      buffers.push(uA, uB, vA, vB, driveBuf, paramsBuf);
+      if (!uA || !uB || !vA || !vB || !driveBuf || !paramsBuf) {
+        cleanup();
+        return null;
+      }
+
+      const kernel = gpu.compileKernel({
+        label: 'wave.step',
+        wgsl: waveKernelWGSL(),
+        workgroupSize: [8, 8, 1],
+        bindings: [
+          { binding: 0, bufferType: 'read-only-storage' },
+          { binding: 1, bufferType: 'read-only-storage' },
+          { binding: 2, bufferType: 'storage' },
+          { binding: 3, bufferType: 'storage' },
+          { binding: 4, bufferType: 'read-only-storage' },
+          { binding: 5, bufferType: 'uniform' },
+        ],
+      });
+      if (!kernel) {
+        cleanup();
+        return null;
+      }
+      return { uA, uB, vA, vB, driveBuf, paramsBuf, kernel };
+    } catch (err) {
+      logger.warn('wave', 'GPU resource creation failed, falling back to CPU', err);
+      cleanup();
+      return null;
+    }
+  }
+
+  /** Release cached GPU buffers. */
+  private destroyGpuResources(): void {
+    const r = this.gpuRes;
+    if (!r) return;
+    this.gpuRes = null;
+    for (const buf of [r.uA, r.uB, r.vA, r.vB, r.driveBuf, r.paramsBuf]) {
+      try {
+        buf.destroy();
+      } catch {
+        /* already destroyed / device lost */
+      }
+    }
+  }
+
+  /** Drop the suspect resource set after a dispatch/read failure so the
+   *  next batch rebuilds it instead of reusing a corrupted buffer. */
+  private failGpuResources(): void {
+    this.destroyGpuResources();
+    this.driveDirty = true;
   }
 
   private draw() {

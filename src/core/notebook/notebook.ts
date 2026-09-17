@@ -61,12 +61,29 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Markdown cells render with dangerouslySetInnerHTML and notebooks can be
+ * shared inside project files, so a link target must not carry an active
+ * scheme (javascript:, data:, vbscript:…). Only http/https/mailto and
+ * relative/anchor links pass; anything else renders as plain label text.
+ */
+function isSafeUrl(url: string): boolean {
+  if (url.startsWith('#') || url.startsWith('/')) return true;
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+  if (!m) return true; // relative URL without a scheme
+  return ['http', 'https', 'mailto'].includes(m[1]!.toLowerCase());
+}
+
 function inlineMarkdown(s: string): string {
   return escapeHtml(s)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) =>
+      isSafeUrl(url)
+        ? `<a href="${url}" rel="noopener noreferrer">${label}</a>`
+        : label,
+    );
 }
 
 /**
