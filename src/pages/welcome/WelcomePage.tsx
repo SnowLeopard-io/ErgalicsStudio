@@ -17,8 +17,6 @@ import {
   FolderOpenIcon,
   ClockIcon,
   BookIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
 } from '@/components/icons';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
@@ -47,7 +45,6 @@ export default function WelcomePage() {
     storage: 'pending',
   });
   const [busy, setBusy] = useState(false);
-  const [envExpanded, setEnvExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -130,7 +127,6 @@ export default function WelcomePage() {
   ];
   const envHasFail = envStates.includes('fail');
   const envAllOk = envStates.every((s) => s === 'ok');
-  const envOpen = envExpanded || envHasFail;
 
   return (
     <div className="welcome">
@@ -222,12 +218,7 @@ export default function WelcomePage() {
           </section>
 
           <section className={`welcome-hardware card${envHasFail ? ' has-fail' : ''}`} aria-label={t('welcome.hardware.title')}>
-            <button
-              type="button"
-              className="env-strip"
-              onClick={() => setEnvExpanded((v) => !v)}
-              aria-expanded={envOpen}
-            >
+            <div className="env-strip">
               <span className="env-dots" aria-hidden="true">
                 {envStates.map((s, i) => (
                   <span key={i} className={`status-dot ${s === 'ok' ? 'status-dot-ok' : s === 'fail' ? 'status-dot-err' : 'status-dot-warn'}`} />
@@ -236,46 +227,41 @@ export default function WelcomePage() {
               <span className="env-summary">
                 {envAllOk ? t('welcome.env.ok') : envHasFail ? t('welcome.env.issues') : t('welcome.env.checking')}
               </span>
-              <span className="env-chevron" aria-hidden="true">
-                {envOpen ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-              </span>
-            </button>
-            {envOpen && (
-              <div className="env-rows">
-                <HardwareRow
-                  label={t('welcome.hardware.webgpu')}
-                  state={hardware.webgpu}
-                  detail={
-                    hardware.webgpu === 'ok'
-                      ? t('welcome.hardware.webgpu_available')
-                      : t('welcome.hardware.webgpu_unavailable')
-                  }
-                />
-                <HardwareRow
-                  label={t('welcome.hardware.gpu')}
-                  state="ok"
-                  detail={hardware.gpuName || t('common.unknown')}
-                />
-                <HardwareRow
-                  label={t('welcome.hardware.wasm')}
-                  state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
-                  detail={
-                    hardware.wasm === 'loaded'
-                      ? t('welcome.hardware.wasm_loaded')
-                      : t('welcome.hardware.wasm_failed')
-                  }
-                />
-                <HardwareRow
-                  label={t('welcome.hardware.storage')}
-                  state={hardware.storage}
-                  detail={
-                    hardware.storage === 'ok'
-                      ? t('welcome.hardware.storage_available')
-                      : t('welcome.hardware.storage_unavailable')
-                  }
-                />
-              </div>
-            )}
+            </div>
+            <div className="env-rows">
+              <HardwareRow
+                label={t('welcome.hardware.webgpu')}
+                state={hardware.webgpu}
+                detail={
+                  hardware.webgpu === 'ok'
+                    ? t('welcome.hardware.webgpu_available')
+                    : t('welcome.hardware.webgpu_unavailable')
+                }
+              />
+              <HardwareRow
+                label={t('welcome.hardware.gpu')}
+                state="ok"
+                detail={hardware.gpuName || t('common.unknown')}
+              />
+              <HardwareRow
+                label={t('welcome.hardware.wasm')}
+                state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
+                detail={
+                  hardware.wasm === 'loaded'
+                    ? t('welcome.hardware.wasm_loaded')
+                    : t('welcome.hardware.wasm_failed')
+                }
+              />
+              <HardwareRow
+                label={t('welcome.hardware.storage')}
+                state={hardware.storage}
+                detail={
+                  hardware.storage === 'ok'
+                    ? t('welcome.hardware.storage_available')
+                    : t('welcome.hardware.storage_unavailable')
+                }
+              />
+            </div>
           </section>
         </div>
 

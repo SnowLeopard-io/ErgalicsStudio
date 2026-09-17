@@ -72,7 +72,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 **工作台**
 
 - 四区布局：侧边栏（项目 / 插件）、中央视口、右侧参数面板，以及带 GPU/性能指示器的状态栏。顶栏按语义分为五组、以竖直分隔线相隔——`[标准 | 流程 | 积木 | 代码]` 模式切换、`[数据⓷ | 示例]` 数据组、`[项目▾ | 保存 | 分享]` 项目组（项目▾ = 新建 / 打开 / 另存为 / 导出日志）、`[分析 | 科研▾]` 科研组，以及 `[⚙ | ? | FPS | 语言 | 主题]` 环境组。
-- 欢迎页快速开始：六张模式卡片（实验记录、不确定性、模型实验室、参数扫描、信号实验室、报告生成器）可直接跳入对应的独立页面；同一组卡片也会渲染在工作台空状态中。顶栏的 `?` 按钮提供引导式新手导览。
+- 欢迎页快速开始：四张工作台模式卡片（标准 / 流程 / 积木 / 代码），外加一个可搜索的启动网格，收录全部 14 个独立科研工具（分析页另有自己的快捷入口）；同一组模式卡片也会渲染在工作台空状态中。顶栏的 `?` 按钮提供引导式新手导览。
 - 项目生命周期：创建 / 打开 / 保存 / 自动保存 / 分享（`.clproj` 格式存储于 IndexedDB）。
 - 文件路由：拖放任意文件；宿主通过魔数**与**扩展名（可选 WASM 辅助）检测格式，并将其路由到匹配的插件——当多个插件匹配时弹出选择对话框。导入对话框均带文件格式过滤，避免无法识别的文件进入解析器。
 
@@ -89,6 +89,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - `.cspkg` 包加载（含 `manifest.json` + 入口 + 资源的 ZIP），并带有清单校验（id 格式、入口路径穿越防护、沙箱枚举）。
 - **真正的沙箱隔离**（§6.2）：第三方入口代码运行于 Web Worker 内，通过 postMessage RPC 桥接——无法访问宿主页面的全局变量、DOM 或 stores。Canvas 渲染通过转移的 `OffscreenCanvas` 完成；当 Worker 不可用时存在文档化的尽力而为的回退方案。
 - 支持本地化的参数面板（范围 / 选择 / 数字 / 复选框 / 文本 / 文件 / 按钮 / 开关）。
+- 每个内置插件均支持一键导出：2D canvas 或 3D 场景快照导出为 PNG；凡持有表格数据的图表/查看器均可导出 RFC-4180 CSV（UTF-8 BOM，仿真类带行数上限与抽样）。多个插件还新增了分析叠加层——OLS 趋势线与移动均值、累积/密度直方图、箱线图均值标记、小提琴抖动点、柱条排序，以及生命游戏图案预设。
 
 **基础设施**
 
@@ -130,7 +131,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 **流程模式（可视化数据流管线）**
 
 - 标准模式之外的第二个工作台模式——通过顶栏的 `Standard | Flow` 开关切换。标准模式是*加载数据 → 可见*；流程模式是*组合可视化管线 → 运行 → 查看每个节点的输出*。
-- 按类别组织的 37 个内置区块：数据源、变换、过滤器、数学、统计（含 t 检验、方差分析、Mann–Whitney、卡方检验、相关分析、效应量与多重比较校正）、绘图与可视化。控制流区块（if/else、repeat、parallel）被刻意推迟——`BlockInstance` 上的 `region` 接缝已就位，以便后续作为扩展嵌入而非重构。
+- 按类别组织的 42 个内置区块：数据源、变换、过滤器、数学、统计（含 t 检验、方差分析、Mann–Whitney、卡方检验、相关分析、效应量与多重比较校正）、绘图与可视化。控制流区块（if/else、repeat、parallel）被刻意推迟——`BlockInstance` 上的 `region` 接缝已就位，以便后续作为扩展嵌入而非重构。
 - **编译器是纯函数**：结构校验（端口 / 必需输入 / 类型兼容）、环检测，以及 Kahn 式拓扑排序。错误以结构化 `diagnostics` 返回，使画布可绘制红色边和内联诊断条而无需抛出异常。
 - **带增量缓存的执行器**，粒度到单个节点，外加脏值传播失效遍历——修改单个区块的参数，仅该区块及其下游重新执行。
 - **一键结果预览**：`RenderedView` 输出经由现有插件渲染器（散点图、直方图……）；`DataTable` 输出渲染为只读表格（使 `stats.summary` / `stats.histogram` 的分箱切实可见）；`Scalar` 输出内联渲染。当管线有多个输出时，通过芯片切换器选择要检视的节点。
@@ -243,13 +244,13 @@ npm install
 npm run dev
 ```
 
-应用会在 Vite dev server 的 URL 打开。欢迎页在进入工作台前会执行硬件自检（WebGPU、WASM、IndexedDB），并提供六张快速开始模式卡片，可直接跳入科研页面。
+应用会在 Vite dev server 的 URL 打开。欢迎页在进入工作台前会执行硬件自检（WebGPU、WASM、IndexedDB），并提供四张工作台模式卡片与可搜索的独立科研工具启动网格。
 
 ### 构建
 
 ```bash
-npm run build          # wasm → 类型检查 → vite build
-npm run build:web      # 仅前端（无 WASM）
+npm run build          # wasm → 类型检查 → vite build → 文档
+npm run build:web      # 仅前端（无 WASM）：类型检查 → vite build → 文档
 npm run build:wasm     # 将 Rust 核心重新构建到 src/native
 ```
 
@@ -574,7 +575,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-691 个测试分布在 65 个测试文件中（689 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期与近期缺陷回归、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）。
+890 个测试分布在 70 个测试文件中（890 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）。
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
@@ -588,7 +589,7 @@ npm run test:e2e
 | `verify-ui`         | 布局、主题、画布、插件列表                                           |
 | `verify-fixes`      | 所有示例插件正确渲染其示例数据                                        |
 | `verify-3d`         | 宿主 Three.js 场景中的 3D 点云                                        |
-| `verify-plugins`    | 3D↔2D 表面可见性、等值线、散点、tornado 示例                          |
+| `verify-plugins`    | 3D↔2D 表面可见性、热力图、散点、tornado 示例                          |
 | `verify-webgpu`     | GPU 计算内核（直方图 / 热力图 / 点云）+ CPU 回退                      |
 | `verify-block-mode` | 积木编辑器：模式切换、编译、运行、积木 → 代码同步                     |
 | `verify-code-mode`  | Monaco + Pyodide：运行 Python 程序、控制台、变量、绘图                |
@@ -619,10 +620,11 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 
 - [x] 工作台布局、项目管理、文件路由
 - [x] 40 个内置插件（30 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
+- [x] 插件导出与分析增强——40 个插件全部支持一键 PNG 快照（3D 走场景快照）与 RFC-4180 CSV 导出，另有趋势线 / 移动均值 / 累积 / 密度 / 抖动 / 排序叠加层与仿真预设（生命游戏图案、Truchet 砖型）
 - [x] 插件市场目录（精选标签 / 流行度 / 分类筛选，按需加载）
 - [x] WebGPU 设备管理 + 真实计算内核管线
 - [x] i18n、主题、性能监控、分享链接
-- [x] 流程模式——可视化数据流管线（编译器 + 增量执行器 + 37 个内置区块 + 画布 UI + `examples/projects/` 中的示例管线）
+- [x] 流程模式——可视化数据流管线（编译器 + 增量执行器 + 42 个内置区块 + 画布 UI + `examples/projects/` 中的示例管线）
 - [x] Vitest 单元测试 + Playwright E2E 套件
 - [x] 插件计算面（`api.gpu`）、WGSL 模板、Particles 加速
 - [x] 所有示例插件的 GPU 加速（直方图/热力图/点云）
@@ -631,7 +633,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 积木模式（类 Scratch，Google Blockly）——见 [积木模式](docs/guide/block-mode.md)。30+ 内置区块、与解释器共享的 IR、懒加载的 Blockly 13 及 5 个示例程序；位于顶栏 `Blocks` 槽位之后。
 - [x] 代码模式（经 Pyodide 的 Python）——Monaco 编辑器、带可导入 `studio` 模块的 CPython worker 运行时、REPL + 变量、worker 中断，以及 `examples/code/` 下 9 个示例程序；与积木模式共享同一 IR。
 - [x] 三模式互转——积木 ↔ 流程 ↔ 代码经由共享 IR 往返（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts`），由 `sync-threeway` 单元测试兜底；代码模式缓冲区可经 `src/editor/code/parse.ts` 解析回 IR
-- [x] 统计分析子系统——假设检验、效应量、多重比较校正、功效分析（`src/core/stats/`），以 11 个流程模式 `stats.*` 区块呈现
+- [x] 统计分析子系统——假设检验、效应量、多重比较校正、功效分析（`src/core/stats/`），以 14 个流程模式 `stats.*` 区块呈现
 - [x] 科研二进制数据导入——经单一调度器支持 HDF5 / NetCDF / FITS / Zarr / Parquet（`src/core/io/`）
 - [x] 出版级绘图引擎（SVG/PDF 导出）与可复现性内核（`src/core/plot/`、`src/core/repro/`）
 - [x] 科研工具集——带运行历史的实验记录、不确定性套件（bootstrap + 蒙特卡洛传播）、类型化单位系统、数据血缘 DAG、分块读取、Figure Studio（`/#/figures`）、补充材料打包与 Markdown/Python 混合 Notebook（`/#/notebook`）
