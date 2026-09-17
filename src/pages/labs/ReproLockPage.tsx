@@ -27,7 +27,7 @@ import {
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
 import { fmt } from '../research/researchUi';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 export default function ReproLockPage() {
   const t = useT();
@@ -117,7 +117,7 @@ export default function ReproLockPage() {
   };
 
   return (
-    <LabPageShell title={t('reprolock.title')}>
+    <ToolShell toolId="reprolock">
       <div className="analysis-body">
         <p className="analysis-note">{t('reprolock.intro')}</p>
 
@@ -263,6 +263,6 @@ export default function ReproLockPage() {
           </div>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

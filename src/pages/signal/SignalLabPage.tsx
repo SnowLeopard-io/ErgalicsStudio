@@ -8,8 +8,8 @@
 // ==========================================================================
 
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { renderSVG } from '@/core/plot';
@@ -88,7 +88,6 @@ function lineSpec(
 
 export default function SignalLabPage() {
   const t = useT();
-  const navigate = useNavigate();
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
@@ -294,16 +293,7 @@ export default function SignalLabPage() {
   };
 
   return (
-    <div className="figures-page">
-      <header className="figures-header">
-        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
-          ← {t('figure.back')}
-        </button>
-        <h1 className="figures-title">{t('signal.title')}</h1>
-      </header>
-
-      {!project && <div className="empty-hint">{t('signal.need_project')}</div>}
-
+    <ToolShell toolId="signal">
       {project && (
         <div className="research-toolbar">
           <select className="input" value={file} onChange={(e) => { setFile(e.target.value); setTimeCol(''); setValueCol(''); }}>
@@ -406,6 +396,6 @@ export default function SignalLabPage() {
           </button>
         </div>
       )}
-    </div>
+    </ToolShell>
   );
 }

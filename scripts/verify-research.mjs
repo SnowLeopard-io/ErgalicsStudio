@@ -1,11 +1,13 @@
 // ==========================================================================
-// Research-modules E2E: experiment tracking → lineage → figure studio →
+// Research-modules E2E: launcher → run history → lineage → figure studio →
 // supplement packaging → notebook.
 // ==========================================================================
 //
 // Mirrors the other verify-* scripts (playwright-core + shared harness).
 // Each stage is recorded; a stage failure is logged and the script moves on,
 // so one flaky step does not hide the state of the remaining stages.
+//
+// Tools are standalone pages under #/studio/<id>; legacy hash routes redirect.
 //
 //   node scripts/verify-research.mjs
 //
@@ -32,42 +34,51 @@ try {
   await sleep(1500);
   report.step('workbench reached', await page.evaluate(() => !!document.querySelector('.topbar')));
 
-  // ---- stage 1: research menu + experiment history -------------------------
-  try {
+  const openLauncher = async () => {
     await page.getByRole('button', { name: /科研|Research/ }).first().click();
-    await sleep(300);
-    await page.getByText(/实验记录|Run history/i).first().click();
+    await page.locator('.launcher-menu').waitFor({ timeout: 3000 });
+    await sleep(200);
+  };
+
+  // Match a menu item by its TITLE node only: descriptions can repeat title
+  // words of another tool (e.g. notebook's desc contains "实验记录").
+  const menuItemByTitle = (re) =>
+    page.locator('[role="menuitem"]', { has: page.locator('.menu-item-label', { hasText: re }) }).first();
+
+  // ---- stage 1: launcher → run history page --------------------------------
+  try {
+    await openLauncher();
+    await menuItemByTitle(/实验记录|Run History/).click();
+    await page.waitForFunction(() => location.hash.includes('/studio/runs'), null, { timeout: 5000 });
     await sleep(500);
-    const runsDialog = await page.locator('.modal').count();
-    report.step('run-history dialog opens', runsDialog > 0);
+    const shell = await page.locator('.tool-shell').count();
+    report.step('run history page opens (/studio/runs)', shell > 0 && page.url().includes('/studio/runs'));
     await page.screenshot({ path: shot('research-01-runs.png') });
-    await page.keyboard.press('Escape');
-    await sleep(300);
   } catch (err) {
     errors.push(`[runs] ${err.message}`);
   }
 
-  // ---- stage 2: lineage dialog ---------------------------------------------
+  // ---- stage 2: launcher → lineage page ------------------------------------
   try {
-    await page.getByRole('button', { name: /科研|Research/ }).first().click();
-    await sleep(300);
-    await page.getByText(/数据血缘|Data Lineage/i).first().click();
-    await sleep(500);
+    await page.goto(`${server.url}/#/workbench`, { waitUntil: 'domcontentloaded' });
+    await sleep(800);
+    await openLauncher();
+    await menuItemByTitle(/数据血缘|Data Lineage/).click();
+    await page.waitForFunction(() => location.hash.includes('/studio/lineage'), null, { timeout: 5000 });
+    await sleep(800);
     const lineage = await page.evaluate(() =>
       !!document.querySelector('.lineage-svg') || !!document.querySelector('.lineage-empty'),
     );
-    report.step('lineage dialog renders', lineage);
+    report.step('lineage page renders (/studio/lineage)', lineage);
     await page.screenshot({ path: shot('research-02-lineage.png') });
-    await page.keyboard.press('Escape');
-    await sleep(300);
   } catch (err) {
     errors.push(`[lineage] ${err.message}`);
   }
 
   // ---- stage 3: figure studio ----------------------------------------------
   try {
-    await page.goto(`${server.url}/#/figures`, { waitUntil: 'domcontentloaded' });
-    await sleep(800);
+    await page.goto(`${server.url}/#/studio/figures`, { waitUntil: 'domcontentloaded' });
+    await sleep(1200);
     await page.getByRole('button', { name: /新建图表|New figure/i }).first().click();
     await sleep(400);
     await page.getByRole('button', { name: /添加面板|Add panel/i }).first().click();
@@ -91,14 +102,10 @@ try {
 
   // ---- stage 4: supplement packaging ---------------------------------------
   try {
-    await page.goto(`${server.url}/#/workbench`, { waitUntil: 'domcontentloaded' });
-    await sleep(800);
-    await page.getByRole('button', { name: /科研|Research/ }).first().click();
-    await sleep(300);
-    await page.getByText(/补充材料|Supplementary/i).first().click();
-    await sleep(500);
+    await page.goto(`${server.url}/#/studio/supplement`, { waitUntil: 'domcontentloaded' });
+    await sleep(1000);
     const formOpen = await page.evaluate(() => !!document.querySelector('.supplement-form'));
-    report.step('supplement dialog opens', formOpen);
+    report.step('supplement page opens (/studio/supplement)', formOpen);
     await page.locator('#supplement-author').fill('E2E Bot');
     const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
     await page.getByRole('button', { name: /打包并下载|Package & download/i }).click();
@@ -110,18 +117,18 @@ try {
 
   // ---- stage 5: notebook -----------------------------------------------------
   try {
-    await page.goto(`${server.url}/#/notebook`, { waitUntil: 'domcontentloaded' });
-    await sleep(800);
+    await page.goto(`${server.url}/#/studio/notebook`, { waitUntil: 'domcontentloaded' });
+    await sleep(1200);
     await page.getByRole('button', { name: '+ PY', exact: true }).first().click();
     await sleep(300);
     await page.locator('.nb-source-code').fill("print('hello notebook')");
     await page.getByRole('button', { name: /运行|Run/i }).first().click();
-    // Pyodide boots from CDN on first run — generous budget.
-    const stdout = await page
+    // Pyodide boots from vendored assets on first run — generous budget.
+    await page
       .locator('.nb-out-stdout')
       .filter({ hasText: 'hello notebook' })
       .waitFor({ timeout: 120_000 });
-    report.step('notebook cell output', stdout ? 'hello notebook' : null);
+    report.step('notebook cell output', 'hello notebook');
     await page.screenshot({ path: shot('research-04-notebook.png') });
   } catch (err) {
     errors.push(`[notebook] ${err.message}`);

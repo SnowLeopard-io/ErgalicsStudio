@@ -1,24 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import type { WorkbenchMode } from '@/types/editor';
 
-/** Quick-start workbench modes. Every mode is a standalone route — lab tools
- *  live under pages/labs, the rest are dedicated pages. */
-export type WorkbenchModeKey =
-  | 'runs'
-  | 'uncertainty'
-  | 'model-lab'
-  | 'sweeps'
-  | 'signal'
-  | 'report';
+/** The four workbench modes (same union as app store / editor types). */
+export type WorkbenchModeKey = WorkbenchMode;
 
-export const WORKBENCH_MODES: WorkbenchModeKey[] = [
-  'runs',
-  'uncertainty',
-  'model-lab',
-  'sweeps',
-  'signal',
-  'report',
-];
+export const WORKBENCH_MODES: WorkbenchMode[] = ['standard', 'flow', 'block', 'code'];
 
 /** Minimal line-style SVG icons (stroke follows currentColor). */
 export function ModeIcon({ kind }: { kind: WorkbenchModeKey }) {
@@ -34,66 +21,49 @@ export function ModeIcon({ kind }: { kind: WorkbenchModeKey }) {
     'aria-hidden': true,
   };
   switch (kind) {
-    case 'runs': // clipboard with list lines
+    case 'standard': // three-pane layout
       return (
         <svg {...props}>
-          <path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v13.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H15" />
-          <rect x="9" y="3" width="6" height="3" rx="1" />
-          <path d="M8.5 11h7M8.5 15h4.5" />
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M9 4v16M15 4v16" />
         </svg>
       );
-    case 'uncertainty': // bell curve
+    case 'flow': // DAG nodes + connections
       return (
         <svg {...props}>
-          <path d="M2.5 19c3.5 0 4-14 9.5-14s6 14 9.5 14" />
-          <path d="M2.5 19h19" />
+          <rect x="3" y="9" width="6" height="6" rx="1.5" />
+          <rect x="15" y="3.5" width="6" height="6" rx="1.5" />
+          <rect x="15" y="14.5" width="6" height="6" rx="1.5" />
+          <path d="M9 12h3m0 0V6.5h3M12 12v5.5h3" />
         </svg>
       );
-    case 'model-lab': // scatter with regression line
+    case 'block': // stacked puzzle blocks
       return (
         <svg {...props}>
-          <path d="M4 20V4" />
-          <path d="M4 20h16" />
-          <circle cx="8.5" cy="14.5" r="1.2" />
-          <circle cx="12" cy="10.5" r="1.2" />
-          <circle cx="16" cy="7" r="1.2" />
-          <path d="M6 16.5 18 5.5" />
+          <path d="M3 7.5h7v4h-4v3H3z" />
+          <path d="M14 4.5h7v4h-4v3h-3v-4h-4v-3z" />
+          <path d="M10 15.5h4v3h-4z" />
         </svg>
       );
-    case 'sweeps': // parameter grid
+    case 'code': // editor chevrons
       return (
         <svg {...props}>
-          <rect x="3.5" y="3.5" width="7" height="7" rx="1" />
-          <rect x="13.5" y="3.5" width="7" height="7" rx="1" />
-          <rect x="3.5" y="13.5" width="7" height="7" rx="1" />
-          <rect x="13.5" y="13.5" width="7" height="7" rx="1" />
-        </svg>
-      );
-    case 'signal': // waveform
-      return (
-        <svg {...props}>
-          <path d="M2 12.5h3.5L8 6l4.5 12 3-8.5 1.5 3H22" />
-        </svg>
-      );
-    case 'report': // document
-      return (
-        <svg {...props}>
-          <path d="M6 3h8.5L19 7.5V21H6z" />
-          <path d="M14.5 3v4.5H19" />
-          <path d="M9 12.5h6M9 16.5h6" />
+          <path d="M8.5 8 4 12.5 8.5 17" />
+          <path d="m15.5 8 4.5 4.5L15.5 17" />
+          <path d="m13.5 5.5-3 14" />
         </svg>
       );
   }
 }
 
 interface WorkbenchModeCardsProps {
-  /** Custom navigation (e.g. welcome page pre-initializes GPU). Defaults to
-   *  direct react-router navigation. */
+  /** Custom behaviour on click. Defaults to entering /workbench with the
+   *  mode carried in router state ({ setMode }). */
   onMode?: (key: WorkbenchModeKey) => void;
 }
 
-/** Compact row of workbench mode cards shared by the welcome page and the
- *  workbench empty state. Horizontal icon+text layout keeps cards small. */
+/** Row/cards of the four workbench modes, shared by the welcome page and the
+ *  standard-mode empty state. */
 export function WorkbenchModeCards({ onMode }: WorkbenchModeCardsProps) {
   const t = useT();
   const navigate = useNavigate();
@@ -102,7 +72,7 @@ export function WorkbenchModeCards({ onMode }: WorkbenchModeCardsProps) {
       onMode(key);
       return;
     }
-    navigate(`/${key}`);
+    navigate('/workbench', { state: { setMode: key } });
   };
   return (
     <div className="wb-modes-grid">

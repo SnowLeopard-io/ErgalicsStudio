@@ -20,7 +20,7 @@ import {
   type GpuStat,
 } from '@/core/uncertainty/gpu-engine';
 import { mcmcEngine, type McmcEngineResult } from '@/core/uncertainty/gpu-mcmc';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 type StatKind = GpuStat;
 type DistKind = 'normal' | 'uniform' | 'lognormal' | 'triangular';
@@ -374,7 +374,7 @@ export default function UncertaintyPage() {
   };
 
   return (
-    <LabPageShell title={t('uncertainty.title')}>
+    <ToolShell toolId="uncertainty">
       <div className="analysis-body">
         {/* ---- Data source (shared) ---- */}
         <div className="analysis-row">
@@ -658,6 +658,6 @@ export default function UncertaintyPage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

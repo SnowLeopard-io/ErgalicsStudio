@@ -284,7 +284,7 @@ export function CentralArea() {
             </button>
           </div>
           <div className="central-empty-modes">
-            <WorkbenchModeCards />
+            <WorkbenchModeCards onMode={(m) => useAppStore.getState().setMode(m)} />
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">

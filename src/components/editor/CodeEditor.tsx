@@ -63,6 +63,8 @@ export function CodeEditor() {
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
+  // Right pane (preview / variables / console) toggled by the top-bar ☰.
+  const panelOpen = useAppStore((s) => s.modePanelOpen);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const domRef = useRef<HTMLDivElement>(null);
@@ -327,7 +329,7 @@ export function CodeEditor() {
       <div className="block-editor-main">
         <div ref={containerRef} className="code-editor-monaco" />
 
-        <div className="block-editor-right">
+        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
           <div className="block-editor-preview">
             <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
             <div ref={domRef} className="block-editor-preview-dom" />

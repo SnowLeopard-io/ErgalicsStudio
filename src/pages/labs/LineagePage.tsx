@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useT } from '@/i18n';
 import { LineageCanvas } from '@/components/LineageCanvas';
 import { useLineageStore } from '@/stores/lineageStore';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 /**
  * Data lineage viewer: files → runs → artifacts. Rebuilds on mount and keeps
@@ -20,7 +20,7 @@ export default function LineagePage() {
   }, [rebuild]);
 
   return (
-    <LabPageShell title={t('lineage.title')}>
+    <ToolShell toolId="lineage">
       <div className="lineage-dialog">
         {graph.nodes.length === 0 && !loading && <p className="lineage-empty">{t('lineage.empty')}</p>}
         {graph.nodes.length > 0 && (
@@ -41,6 +41,6 @@ export default function LineagePage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

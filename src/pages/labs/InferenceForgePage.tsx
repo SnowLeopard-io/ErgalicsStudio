@@ -29,7 +29,7 @@ import {
 import type { ChainSamples, InferenceConfig, InferenceResult } from '@/core/inference/types';
 import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 const PALETTE = ['#0072B2', '#D55E00', '#009E73', '#CC79A7'];
 const MAX_CHART_PARAMS = 4;
@@ -293,7 +293,7 @@ export default function InferenceForgePage() {
   const summaryRows = outcome?.params ?? [];
 
   return (
-    <LabPageShell title={t('inference.title')}>
+    <ToolShell toolId="inference">
       <div className="analysis-body">
         <div className="analysis-row">
           <select className="input" value={file} onChange={(e) => { setFile(e.target.value); setYCol(''); setXCol(''); setGroupCol(''); setOutcome(null); setError(''); }}>
@@ -457,6 +457,6 @@ export default function InferenceForgePage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

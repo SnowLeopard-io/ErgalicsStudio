@@ -36,6 +36,11 @@ const vendorBlocklyMedia: Plugin = {
 
 export default defineConfig({
   plugins: [react(), vendorPyodide, vendorBlocklyMedia],
+  // Build-injected app version (comes from package.json via npm_* env);
+  // consumed by the welcome page instead of a hard-coded constant.
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'),
+  },
   base: './',
   resolve: {
     alias: {

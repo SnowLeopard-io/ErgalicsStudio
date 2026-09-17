@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { initGpu } from '@/core/gpu';
@@ -8,9 +9,19 @@ import { wasmStatus } from '@/core/wasm';
 import { storageAvailable } from '@/core/storage';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
-import { WorkbenchModeCards, type WorkbenchModeKey } from '@/components/WorkbenchModes';
+import { useProjectStore } from '@/stores/projectStore';
+import { WorkbenchModeCards } from '@/components/WorkbenchModes';
+import { ToolGrid } from './ToolGrid';
+import {
+  PlusIcon,
+  FolderOpenIcon,
+  ClockIcon,
+  BookIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from '@/components/icons';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
 
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
@@ -24,13 +35,24 @@ export default function WelcomePage() {
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
+  const notify = useAppStore((s) => s.notify);
+  const recent = useProjectStore((s) => s.recent);
+  const createProject = useProjectStore((s) => s.createProject);
+  const openProject = useProjectStore((s) => s.openProject);
+  const openFromFile = useProjectStore((s) => s.openFromFile);
   const [hardware, setHardware] = useState<HardwareState>({
     webgpu: 'pending',
     gpuName: '',
     wasm: 'pending',
     storage: 'pending',
   });
-  const [entering, setEntering] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [envExpanded, setEnvExpanded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void useProjectStore.getState().loadRecent();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,18 +86,51 @@ export default function WelcomePage() {
     };
   }, [gpuBackend, addBanner]);
 
-  const enterWorkbench = async () => {
-    if (entering) return;
-    setEntering(true);
-    await initGpu(gpuBackend);
-    navigate('/workbench');
+  // GPU/WASM/storage probes already run on mount; entering must not block on
+  // them (GPU adapter creation can stall in software-rendered environments).
+  const enterWorkbench = () => navigate('/workbench');
+
+  const startNew = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await createProject('');
+      navigate('/workbench');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Mode cards jump straight into the corresponding standalone page; lab
-  // tools initialize their own engines on mount.
-  const openMode = (key: WorkbenchModeKey) => {
-    navigate(`/${key}`);
+  const continueProject = async (id: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await openProject(id);
+      navigate('/workbench');
+    } catch {
+      notify('error', t('project.open_failed'));
+      setBusy(false);
+    }
   };
+
+  const handleOpenFile = (file: File) => {
+    setBusy(true);
+    void openFromFile(file)
+      .then(() => navigate('/workbench'))
+      .catch(() => {
+        notify('error', t('project.open_failed'));
+        setBusy(false);
+      });
+  };
+
+  const envStates: Array<'pending' | 'ok' | 'fail'> = [
+    hardware.webgpu,
+    hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending',
+    hardware.storage,
+  ];
+  const envHasFail = envStates.includes('fail');
+  const envAllOk = envStates.every((s) => s === 'ok');
+  const envOpen = envExpanded || envHasFail;
 
   return (
     <div className="welcome">
@@ -98,54 +153,146 @@ export default function WelcomePage() {
             {t('welcome.version')} {APP_VERSION}
           </p>
           <div className="welcome-signal" aria-hidden="true" />
-          <button type="button" className="btn btn-primary welcome-enter" onClick={enterWorkbench} disabled={entering}>
-            {entering ? <span className="spinner" /> : t('welcome.enter')}
+          <div className="welcome-cta-row">
+            <button type="button" className="btn btn-primary welcome-enter" onClick={enterWorkbench}>
+              {t('welcome.enter')}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy}
+            >
+              <FolderOpenIcon size={14} /> {t('project.open')}
+            </button>
+          </div>
+        </div>
+
+        {/* Start actions: blank project / continue recent / sample datasets. */}
+        <div className="welcome-start">
+          <button type="button" className="start-card card" onClick={() => void startNew()} disabled={busy}>
+            <span className="start-card-icon"><PlusIcon size={18} /></span>
+            <span className="start-card-body">
+              <span className="start-card-title">{t('welcome.start.blank')}</span>
+              <span className="start-card-desc">{t('welcome.start.blank_desc')}</span>
+            </span>
+          </button>
+
+          <div className="start-card card" aria-disabled={recent.length === 0}>
+            <span className="start-card-icon"><ClockIcon size={18} /></span>
+            <span className="start-card-body">
+              <span className="start-card-title">{t('welcome.start.recent')}</span>
+              {recent.length > 0 ? (
+                <span className="start-recent-list">
+                  {recent.slice(0, 3).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="start-recent-item"
+                      onClick={() => void continueProject(p.id)}
+                      disabled={busy}
+                    >
+                      {p.name || DEFAULT_PROJECT_NAME}
+                    </button>
+                  ))}
+                </span>
+              ) : (
+                <span className="start-card-desc">{t('welcome.start.recent_empty')}</span>
+              )}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="start-card card"
+            onClick={() => navigate('/workbench', { state: { openDataDialog: true } })}
+          >
+            <span className="start-card-icon"><BookIcon size={18} /></span>
+            <span className="start-card-body">
+              <span className="start-card-title">{t('welcome.start.samples')}</span>
+              <span className="start-card-desc">{t('welcome.start.samples_desc')}</span>
+            </span>
           </button>
         </div>
 
         <div className="welcome-panels">
           <section className="welcome-modes card" aria-label={t('modes.title')}>
             <h2 className="welcome-section-title">{t('modes.title')}</h2>
-            <WorkbenchModeCards onMode={openMode} />
+            <WorkbenchModeCards />
           </section>
 
-          <section className="welcome-hardware card" aria-label={t('welcome.hardware.title')}>
-            <h2 className="welcome-section-title">{t('welcome.hardware.title')}</h2>
-            <HardwareRow
-              label={t('welcome.hardware.webgpu')}
-              state={hardware.webgpu}
-              detail={
-                hardware.webgpu === 'ok'
-                  ? t('welcome.hardware.webgpu_available')
-                  : t('welcome.hardware.webgpu_unavailable')
-              }
-            />
-            <HardwareRow
-              label={t('welcome.hardware.gpu')}
-              state="ok"
-              detail={hardware.gpuName || t('common.unknown')}
-            />
-            <HardwareRow
-              label={t('welcome.hardware.wasm')}
-              state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
-              detail={
-                hardware.wasm === 'loaded'
-                  ? t('welcome.hardware.wasm_loaded')
-                  : t('welcome.hardware.wasm_failed')
-              }
-            />
-            <HardwareRow
-              label={t('welcome.hardware.storage')}
-              state={hardware.storage}
-              detail={
-                hardware.storage === 'ok'
-                  ? t('welcome.hardware.storage_available')
-                  : t('welcome.hardware.storage_unavailable')
-              }
-            />
+          <section className={`welcome-hardware card${envHasFail ? ' has-fail' : ''}`} aria-label={t('welcome.hardware.title')}>
+            <button
+              type="button"
+              className="env-strip"
+              onClick={() => setEnvExpanded((v) => !v)}
+              aria-expanded={envOpen}
+            >
+              <span className="env-dots" aria-hidden="true">
+                {envStates.map((s, i) => (
+                  <span key={i} className={`status-dot ${s === 'ok' ? 'status-dot-ok' : s === 'fail' ? 'status-dot-err' : 'status-dot-warn'}`} />
+                ))}
+              </span>
+              <span className="env-summary">
+                {envAllOk ? t('welcome.env.ok') : envHasFail ? t('welcome.env.issues') : t('welcome.env.checking')}
+              </span>
+              <span className="env-chevron" aria-hidden="true">
+                {envOpen ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+              </span>
+            </button>
+            {envOpen && (
+              <div className="env-rows">
+                <HardwareRow
+                  label={t('welcome.hardware.webgpu')}
+                  state={hardware.webgpu}
+                  detail={
+                    hardware.webgpu === 'ok'
+                      ? t('welcome.hardware.webgpu_available')
+                      : t('welcome.hardware.webgpu_unavailable')
+                  }
+                />
+                <HardwareRow
+                  label={t('welcome.hardware.gpu')}
+                  state="ok"
+                  detail={hardware.gpuName || t('common.unknown')}
+                />
+                <HardwareRow
+                  label={t('welcome.hardware.wasm')}
+                  state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
+                  detail={
+                    hardware.wasm === 'loaded'
+                      ? t('welcome.hardware.wasm_loaded')
+                      : t('welcome.hardware.wasm_failed')
+                  }
+                />
+                <HardwareRow
+                  label={t('welcome.hardware.storage')}
+                  state={hardware.storage}
+                  detail={
+                    hardware.storage === 'ok'
+                      ? t('welcome.hardware.storage_available')
+                      : t('welcome.hardware.storage_unavailable')
+                  }
+                />
+              </div>
+            )}
           </section>
         </div>
+
+        <ToolGrid />
       </main>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".clproj,application/json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleOpenFile(file);
+          e.target.value = '';
+        }}
+      />
 
       <footer className="welcome-footer">
         <a

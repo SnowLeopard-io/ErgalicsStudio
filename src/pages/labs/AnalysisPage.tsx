@@ -19,7 +19,7 @@ import { tTestOneSample, tTestTwoSample, mannWhitney } from '@/core/stats/tests'
 import { pearson, studentTCdf } from '@/core/stats';
 import type { DataTable } from '@/types/datatable';
 import type { SvgPlotPayload } from '@/core/plot/types';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 type ChartKind = 'line' | 'scatter' | 'histogram' | 'bar';
 type TestKind = 't1' | 't2' | 'mw' | 'pearson';
@@ -183,7 +183,7 @@ export default function AnalysisPage() {
   };
 
   return (
-    <LabPageShell title={t('analysis.title')}>
+    <ToolShell toolId="analysis">
       <div className="analysis-body">
         {/* ---- Data source ---- */}
         <div className="analysis-row">
@@ -351,6 +351,6 @@ export default function AnalysisPage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

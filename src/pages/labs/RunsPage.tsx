@@ -3,7 +3,9 @@ import { useT } from '@/i18n';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { diffRuns, formatChange } from '@/core/experiment/diff';
 import type { RunRecord } from '@/core/experiment/record';
-import { LabPageShell } from './LabPageShell';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CloseIcon } from '@/components/icons';
+import { ToolShell } from '@/components/ToolShell';
 
 function fmtTime(ts: number): string {
   const d = new Date(ts);
@@ -33,6 +35,10 @@ export default function RunsPage() {
   const removeRun = useExperimentStore((s) => s.removeRun);
   const clearRuns = useExperimentStore((s) => s.clearRuns);
   const [selected, setSelected] = useState<string[]>([]);
+  /** Pending destructive action — every delete/clear goes through a modal. */
+  const [deleteTarget, setDeleteTarget] = useState<
+    { kind: 'one'; id: string } | { kind: 'all' } | null
+  >(null);
 
   useEffect(() => {
     void loadRuns();
@@ -52,7 +58,7 @@ export default function RunsPage() {
   const diff = a && b ? diffRuns(a, b) : null;
 
   return (
-    <LabPageShell title={t('research.runs.title')}>
+    <ToolShell toolId="runs">
       <div className="runs-dialog">
         {runs.length === 0 && !loading && (
           <p className="runs-empty">{t('research.runs.empty')}</p>
@@ -94,9 +100,9 @@ export default function RunsPage() {
                       type="button"
                       className="icon-btn"
                       aria-label={t('research.runs.delete')}
-                      onClick={() => void removeRun(run.id)}
+                      onClick={() => setDeleteTarget({ kind: 'one', id: run.id })}
                     >
-                      ✕
+                      <CloseIcon size={14} />
                     </button>
                   </td>
                 </tr>
@@ -106,7 +112,12 @@ export default function RunsPage() {
         )}
 
         <div className="runs-actions">
-          <button type="button" className="btn" onClick={() => void clearRuns()}>
+          <button
+            type="button"
+            className="btn"
+            disabled={runs.length === 0}
+            onClick={() => setDeleteTarget({ kind: 'all' })}
+          >
             {t('research.runs.clear')}
           </button>
           <span className="runs-hint">{t('research.runs.hint')}</span>
@@ -159,6 +170,23 @@ export default function RunsPage() {
           </div>
         )}
       </div>
-    </LabPageShell>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={deleteTarget?.kind === 'all' ? t('research.runs.clear') : t('research.runs.delete')}
+        message={
+          deleteTarget?.kind === 'all'
+            ? t('research.runs.clear_confirm', { count: runs.length })
+            : t('research.runs.delete_confirm')
+        }
+        confirmLabel={t('common.delete')}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          if (deleteTarget.kind === 'all') void clearRuns();
+          else void removeRun(deleteTarget.id);
+        }}
+      />
+    </ToolShell>
   );
 }

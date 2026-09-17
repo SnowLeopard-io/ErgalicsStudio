@@ -7,13 +7,15 @@
 // ==========================================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useNotebookStore } from '@/stores/notebookStore';
 import { mdToHtml } from '@/core/notebook/notebook';
 import type { NotebookCell, NotebookCellOutput } from '@/core/notebook/notebook';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CloseIcon } from '@/components/icons';
 
 function CellOutputs({ outputs }: { outputs: NotebookCellOutput[] }) {
   if (outputs.length === 0) return null;
@@ -67,6 +69,7 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
   const hasProject = useProjectStore((s) => !!s.project);
 
   const [editing, setEditing] = useState(index === 0 && cell.source === '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const running = runningCellId === cell.id;
 
@@ -131,10 +134,10 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
         <button
           type="button"
           className="btn btn-sm btn-danger"
-          onClick={() => removeCell(cell.id)}
+          onClick={() => setConfirmDelete(true)}
           title={t('common.delete')}
         >
-          ✕
+          <CloseIcon size={14} />
         </button>
       </div>
 
@@ -173,13 +176,21 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
           <CellOutputs outputs={cell.outputs} />
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={t('notebook.delete_cell')}
+        message={t('notebook.delete_cell_confirm')}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => removeCell(cell.id)}
+        onClose={() => setConfirmDelete(false)}
+      />
     </section>
   );
 }
 
 export default function NotebookPage() {
   const t = useT();
-  const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
   const addCell = useNotebookStore((s) => s.addCell);
   const disposeRuntime = useNotebookStore((s) => s.disposeRuntime);
@@ -189,22 +200,19 @@ export default function NotebookPage() {
   useEffect(() => disposeRuntime, [disposeRuntime]);
 
   return (
-    <div className="nb-page">
-      <header className="nb-header">
-        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
-          ← {t('figure.back')}
-        </button>
-        <h1 className="figures-title">{t('notebook.title')}</h1>
-        <button type="button" className="btn btn-sm" onClick={() => addCell('md')}>
-          + MD
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => addCell('code')}>
-          + PY
-        </button>
-      </header>
-
-      {!project && <div className="empty-hint">{t('figure.need_project')}</div>}
-
+    <ToolShell
+      toolId="notebook"
+      headerExtra={
+        <>
+          <button type="button" className="btn btn-sm" onClick={() => addCell('md')}>
+            + MD
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => addCell('code')}>
+            + PY
+          </button>
+        </>
+      }
+    >
       {project && cells.length === 0 && (
         <div className="empty-hint">{t('notebook.empty')}</div>
       )}
@@ -214,6 +222,6 @@ export default function NotebookPage() {
           <CellItem key={cell.id} cell={cell} index={i} />
         ))}
       </div>
-    </div>
+    </ToolShell>
   );
 }

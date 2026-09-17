@@ -64,6 +64,13 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
+  /**
+   * Mode-specific side panel visibility for Flow/Block/Code. Standard mode
+   * uses `sidebarOpen`; the other modes own panels (flow palette+legend,
+   * block preview, code variables) toggled by the same top-bar ☰ button,
+   * so ☰ is meaningful in every mode.
+   */
+  modePanelOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
 
@@ -87,6 +94,7 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  toggleModePanel: () => void;
   setMode: (mode: WorkbenchMode) => void;
 }
 
@@ -105,6 +113,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   perf: DEFAULT_PERF,
   sidebarOpen: true,
   rightPanelOpen: true,
+  modePanelOpen: true,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -179,6 +188,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
+  toggleModePanel: () => set((s) => ({ modePanelOpen: !s.modePanelOpen })),
   setMode: (mode) => {
     if (mode === get().mode) return;
     set({ mode });
