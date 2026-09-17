@@ -30,6 +30,18 @@ export function actionButton(key: string, en: string, zh: string, variant: Butto
   };
 }
 
+/**
+ * Detect a button press in an `updateParams(params)` payload.
+ *
+ * The host sends `{ [key]: { action: key } }` (see ParamPanel); programmatic
+ * callers (tests, presets) often send `{ [key]: true }`. Both are accepted.
+ */
+export function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  if (v === true) return true;
+  return typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key;
+}
+
 // ---- locale helpers --------------------------------------------------------
 
 /** Show a notification choosing the zh/en text from the current locale. */

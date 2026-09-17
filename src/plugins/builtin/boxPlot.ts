@@ -12,7 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const boxPlotManifest: PluginManifest = {
   id: 'example.boxplot',
@@ -86,8 +86,8 @@ export class BoxPlotPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showOutliers === 'boolean') this.state.showOutliers = params.showOutliers;
     if (typeof params.showMean === 'boolean') this.state.showMean = params.showMean;
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 

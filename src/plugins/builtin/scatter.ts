@@ -12,7 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const scatterManifest: PluginManifest = {
   id: 'example.scatter',
@@ -93,8 +93,8 @@ export class ScatterPlugin implements Plugin {
       this.state.showTrendline = params.showTrendline;
       this.draw();
     }
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
   }
 
   getParams(): ParamDefinition[] {

@@ -12,7 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const contourManifest: PluginManifest = {
   id: 'example.contour',
@@ -111,8 +111,8 @@ export class ContourPlugin implements Plugin {
       this.state.showGrid = params.showGrid;
       this.draw();
     }
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
   }
 
   getParams(): ParamDefinition[] {
