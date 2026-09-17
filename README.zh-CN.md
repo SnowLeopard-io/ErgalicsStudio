@@ -96,7 +96,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - i18n（zh-CN / en-US），支持响应式语言切换。
 - 通过 CSS 变量实现的暗/亮主题。
 - 性能监控：FPS、帧时间、GPU 时间、内存、数据规模，并带有告警阈值（§7.3）。
-- 错误边界、回退方案，以及横幅/通知系统。
+- 错误边界、回退方案与横幅/通知系统，底层由研究级可靠性内核支撑：结构化错误分类法（错误码、严重级、可否重试、因果链）、`Result` 类型、带退避与抖动的有界重试、断言守卫、带去重与有界诊断环的错误注册表，以及全局 `error` / `unhandledrejection` 捕获（`src/core/errors/`）；另有可组合、按字段路径定位的校验框架与安全的 JSON / 数值文本解析（`src/core/validation/`）。
 
 **科学计算子系统（纯 TypeScript，含单元测试）**
 
@@ -105,6 +105,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - **出版级绘图引擎**（`src/core/plot/`）——纯 TS 的 SVG 渲染器，带线性/对数/时间刻度与优雅刻度值，支持折线、散点、直方图与柱状图的 SVG 及 PDF 导出。
 - **可复现性内核**（`src/core/repro/`）——带种子的随机数（mulberry32）、稳定哈希、运行清单（种子 + 版本 + 输入哈希 + 图哈希）以及 DAG 转 Python 导出以便重跑。
 - **运行日志导出**（`src/core/logger.ts` + `download.ts`）——工作台支持导出会话日志用于问题反馈。
+- **数据质量引擎**（`src/core/data-quality/`）——Pandera 风格的列级/表级期望契约，懒求值为带行号证据的质量报告：类型推断与数据画像（四分位、IQR 离群值、缺失/去重计数）、由画像自动推断 schema、按行隔离拒收数据并附原因（quarantine），以及把列式存储桥接到行式引擎的 `DataTable` 适配器。
 
 **科研模块（纯 TS 核心 + Zustand store + 独立页面）**
 
@@ -115,7 +116,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - **模型实验室**（`src/core/model/`，`/#/model-lab`）——OLS（QR 分解）、逻辑回归（IRLS）、岭回归（K 折交叉验证）与多项式回归，输出系数表（估计 / SE / p / CI）与 2×2 残差诊断图；每次拟合都会记入运行历史。
 - **数据画像**（`src/core/profiler/`，`/#/profiler`）——单遍流式扫描产出逐列画像（类型、缺失率、基数、五数概括、直方图、异常值）、相关矩阵，以及 0–100 质量评分与问题清单；按内容指纹缓存，二次打开秒出。
 - **信号实验室**（`src/core/signal/`，`/#/signal`）——FFT / 功率谱密度（Welch）、窗函数、Savitzky–Golay 与移动平均滤波、ACF/PACF 与季节分解；滤波结果可另存为派生数据文件，自动接入血缘 DAG。
-- **参数扫描**（`src/core/sweep/`，`/#/sweeps`）——定义 1–3 个参数轴（网格 / 列表 / 拉丁超立方）并对任意管线来源批量运行；结果渲染为带误差棒的折线、响应面热力图或平行坐标图，每个子运行都会进入实验历史。
+- **参数扫描**（`src/core/sweep/` + `src/pages/sweeps/`，`/#/sweeps`）——定义 1–3 个参数轴（网格 / 列表 / 拉丁超立方）并对任意管线来源批量运行；结果渲染为带误差棒的折线、响应面热力图或平行坐标图，每个子运行都会进入实验历史。计划草稿在任何运行开始前，先在纯函数、全测试覆盖的领域层完成逐字段校验（参数路径、JSON / 数值语法、跨轴一致性、硬性单元格上限），并自动检测已过期的历史结果。
 - **SQL 工作台**（`src/core/sql/`，`/#/sql`）——懒加载的 DuckDB-WASM 引擎将项目数据文件注册为表；在 Monaco 编辑器中用 join / 聚合 / 窗口函数查询，预览结果，并可保存为新 CSV（自动继承血缘边）。
 - **报告生成器**（`src/core/report/`，`/#/report`）——按序组合各节（标题、Markdown、图表、表格、运行摘要、交互筛选器），导出单个自包含 HTML 文件：内联 SVG、原生 JS 交互、亮/暗主题与中英双语。
 - **可复现锁**（`src/core/repro/lock.ts`，`/#/reprolock`）——导出 `repro.lock`（数据指纹 + 参数哈希 + 种子 + 代码快照 + 版本清单），对迁移或久置的项目做五类漂移校验，并可一键重跑以确认指标可复现。
@@ -273,6 +274,9 @@ cd docs && npm install && npm run dev
 ├── src/                      # 前端
 │   ├── core/                 #   服务: storage, events, i18n, gpu, wasm,
 │   │                         #   fileFormat, scene3d, sandbox, cspkg,
+│   │                         #   errors (错误分类/注册表/重试),
+│   │                         #   validation (校验器 + 安全解析),
+│   │                         #   data-quality (期望/画像/坏行隔离),
 │   │                         #   stats (统计内核), io (HDF5/NetCDF/FITS/
 │   │                         #   Zarr/Parquet), plot (SVG/PDF 引擎),
 │   │                         #   repro (可复现性 + repro.lock),
@@ -575,7 +579,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-890 个测试分布在 70 个测试文件中（890 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）。
+945 个测试分布在 74 个测试文件中（945 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
@@ -648,6 +652,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 报告生成器——自包含交互式 HTML 导出（`/#/report`）
 - [x] 可复现锁——`repro.lock` 导出 / 校验 / 一键复现（`/#/reprolock`）
 - [x] Inference Forge——HMC / NUTS 贝叶斯推断页面：声明式模板 + 弱信息先验，WAIC / LOO / PPC，轨迹与密度图（`/#/inference`）
+- [x] 研究级可靠性层——结构化错误分类法 + `Result` / 重试 + 带去重与全局处理器的错误注册表、可组合的字段路径校验框架与安全解析，以及 Pandera 风格、带行级隔离的数据质量引擎（`src/core/errors/`、`src/core/validation/`、`src/core/data-quality/`）；参数扫描模块重构为纯函数校验领域层 + SOLID 模块化组件（`src/pages/sweeps/`）。完整的行业分析与变更记录见 `ENHANCEMENT_REPORT.md`。
 - [ ] 代码模式：R 运行时（webR）
 
 ---
