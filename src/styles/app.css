@@ -1860,6 +1860,44 @@
   color: var(--color-error);
 }
 
+.error-fallback-code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs, 11px);
+  opacity: 0.7;
+  user-select: all;
+}
+
+.error-fallback-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.error-fallback-detail {
+  max-width: min(720px, 90vw);
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-3);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs, 11px);
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-surface-alt, rgba(127, 127, 127, 0.08));
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* Inline field validation (research forms, e.g. sweep plan editor). */
+.sweep-field-error {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs, 11px);
+  line-height: 1.4;
+  color: var(--color-error);
+}
+
 /* Route-level lazy-load fallback (App.tsx) — full-viewport, centred. The
    App shell has no flex parent, so it must size itself against the viewport. */
 .route-loading {
@@ -2315,7 +2353,12 @@
   color: var(--color-text-primary);
 }
 
+/* The sheet selector lives inside the flex-wrap header-extra row. `.input`
+   defaults to width:100%, which resolves against the shrink-to-fit flex
+   container and pushes the action buttons onto a second line; size it to
+   its content instead so the whole group stays on one horizontal row. */
 .figures-sheet-select {
+  width: auto;
   max-width: 220px;
 }
 

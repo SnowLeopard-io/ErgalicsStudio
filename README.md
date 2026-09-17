@@ -175,7 +175,13 @@ codebase keeps scaling without a rewrite.
 - Dark/light theming via CSS variables.
 - Performance monitor: FPS, frame time, GPU time, memory, data scale, with
   warning thresholds (§7.3).
-- Error boundaries, fallbacks, and a banner/notification system.
+- Error boundaries, fallbacks, and a banner/notification system, backed by a
+  research-grade reliability core: a structured error taxonomy (codes,
+  severity, retriable flags, cause chains), a `Result` type, bounded
+  backoff-and-jitter retry, assertion guards, a deduping error registry with
+  a bounded diagnostics ring, and global `error` / `unhandledrejection`
+  capture (`src/core/errors/`), plus a composable path-addressed validation
+  framework with safe JSON / numeric-text parsing (`src/core/validation/`).
 
 **Scientific computing subsystems (pure TypeScript, unit-tested)**
 
@@ -197,6 +203,12 @@ codebase keeps scaling without a rewrite.
   hashes + graph hash) and DAG-to-Python export for reruns.
 - **Run-log export** (`src/core/logger.ts` + `download.ts`) — session
   logs can be exported from the workbench for bug reports.
+- **Data-quality engine** (`src/core/data-quality/`) — Pandera-style
+  column/table expectations evaluated lazily into a row-addressed quality
+  report: type inference and profiling (quartiles, IQR outliers,
+  missing/distinct counts), schema suggestion inferred from a profile,
+  per-row quarantine of rejected rows with reasons, and a `DataTable`
+  adapter bridging the columnar store to the row-oriented engine.
 
 **Research toolset (科研 — pure-TS cores + Zustand stores + standalone pages)**
 
@@ -231,10 +243,14 @@ supplement manifest pick them up automatically.
   density (Welch), window functions, Savitzky–Golay and moving-average
   filters, ACF/PACF and seasonal decomposition; filtered columns can be
   saved back as derived data files that automatically join the lineage DAG.
-- **Sweep Studio** (`src/core/sweep/`, `/#/sweeps`) — define 1–3 parameter
-  axes (grid / list / Latin hypercube) and batch-run any pipeline source;
-  results render as error-bar lines, response-surface heatmaps or parallel
-  coordinates, and every sub-run lands in the experiment history.
+- **Sweep Studio** (`src/core/sweep/` + `src/pages/sweeps/`, `/#/sweeps`) —
+  define 1–3 parameter axes (grid / list / Latin hypercube) and batch-run
+  any pipeline source; results render as error-bar lines, response-surface
+  heatmaps or parallel coordinates, and every sub-run lands in the
+  experiment history. Plan drafts are validated field-by-field (parameter
+  paths, JSON / numeric grammar, cross-axis consistency, hard cell caps) in
+  a pure, fully tested domain layer before any run starts, and stale stored
+  results are detected automatically.
 - **SQL Workbench** (`src/core/sql/`, `/#/sql`) — a lazy-loaded
   DuckDB-WASM engine registers project data files as tables; query them
   with join / aggregation / window functions in a Monaco editor, preview
@@ -507,6 +523,10 @@ See [Documentation](#documentation) for details.
 ├── src/                      # Frontend
 │   ├── core/                 #   services: storage, events, i18n, gpu, wasm,
 │   │                         #   fileFormat, scene3d, sandbox, cspkg,
+│   │                         #   errors (taxonomy/registry/retry),
+│   │                         #   validation (schema validators + safe parse),
+│   │                         #   data-quality (expectations/profile/
+│   │                         #   quarantine),
 │   │                         #   stats (statistics kernel), io (HDF5/NetCDF/
 │   │                         #   FITS/Zarr/Parquet), plot (SVG/PDF engine),
 │   │                         #   repro (reproducibility + repro.lock),
@@ -960,7 +980,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-890 tests across 70 test files (890 passing, 2 skipped on GPU-less CI): file-format
+945 tests across 74 test files (945 passing, 2 skipped on GPU-less CI): file-format
 detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
@@ -989,7 +1009,14 @@ resume), the SQL engine (registration / query / cancellation), the report
 builder (spec → HTML, escaping, runs summary), the repro lock (build /
 verify / drift) and the inference templates (template building, pointwise
 likelihood, an end-to-end sampler run with WAIC/LOO/PPC and determinism
-checks).
+checks), the structured error taxonomy (normalisation, cause chains, Result
+combinators, retry/abort semantics, registry dedup and the global
+handlers), the validation framework (composable validators, nested issue
+paths, JSON-position and numeric-text parsing), the data-quality engine
+(type inference, profiling and IQR outliers, every expectation rule, schema
+suggestion, row quarantine, the DataTable adapter) and the refactored
+Sweep Studio draft/surface layer (grid/list/LHS validation, cell caps,
+plan round-tripping, stale-result detection, response surfaces).
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 
@@ -1065,6 +1092,7 @@ table. Highlights:
 - [x] Report Builder — self-contained interactive HTML export (`/#/report`)
 - [x] Repro Lock — `repro.lock` export / verify / one-click re-run (`/#/reprolock`)
 - [x] Inference Forge — HMC / NUTS Bayesian-inference page: declarative templates with weak priors, WAIC / LOO / PPC, trace & density charts (`/#/inference`)
+- [x] Research-grade reliability layer — structured error taxonomy + `Result` / retry + deduping registry with global handlers, composable path-addressed validation with safe parsing, and a Pandera-style data-quality engine with row quarantine (`src/core/errors/`, `src/core/validation/`, `src/core/data-quality/`); Sweep Studio refactored into a pure validated domain layer with modular SOLID components (`src/pages/sweeps/`). See `ENHANCEMENT_REPORT.md` for the full analysis and change log.
 - [ ] Code mode: R runtime (webR)
 
 ---

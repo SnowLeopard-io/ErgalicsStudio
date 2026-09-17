@@ -62,7 +62,7 @@ export function ToolShell({ toolId, title, headerExtra, children }: ToolShellPro
         <div className="tool-topbar-actions topbar-actions">
           <button
             type="button"
-            className="cluster-btn icon-only"
+            className="icon-btn"
             title={t('workbench.tools.settings')}
             aria-label={t('workbench.tools.settings')}
             onClick={() => navigate('/settings')}
