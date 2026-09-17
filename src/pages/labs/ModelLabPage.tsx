@@ -22,7 +22,7 @@ import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
 import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
 
@@ -284,7 +284,7 @@ export default function ModelLabPage() {
   };
 
   return (
-    <LabPageShell title={t('model.title')}>
+    <ToolShell toolId="model-lab">
       <div className="analysis-body">
         <div className="analysis-row">
           <select className="input" value={file} onChange={(e) => selectFile(e.target.value)}>
@@ -399,6 +399,6 @@ export default function ModelLabPage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

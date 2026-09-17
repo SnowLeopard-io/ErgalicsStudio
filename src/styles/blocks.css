@@ -1299,3 +1299,85 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
 }
+
+/* ==========================================================================
+   ☰ panel toggle (P2): the block/code right pane hosts plugin containers via
+   refs and must stay mounted — hide with CSS rather than unmounting.
+   ========================================================================== */
+
+.block-editor-right.is-panel-hidden,
+.block-workbench-left.is-panel-hidden {
+  display: none;
+}
+
+/* ---- Flow mode: legend + live node/connection counts (left pane footer) ---- */
+
+/* Palette scrolls; the legend stays pinned at the pane bottom. */
+.block-workbench-left > .block-palette {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.flow-legend {
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.flow-legend-stats {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: 8px;
+}
+
+.flow-legend-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.flow-legend-stat-num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+}
+
+.flow-legend-title {
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-text-tertiary);
+}
+
+.flow-legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+}
+
+.flow-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}

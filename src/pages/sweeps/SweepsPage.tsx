@@ -21,6 +21,8 @@ import { runSweep, summarizePoints } from '@/core/sweep/runner';
 import { expandPlan } from '@/core/sweep/design';
 import type { SweepAxis, SweepPlan, SweepResult, SweepSource } from '@/core/sweep/types';
 import { sendSpecToFigure, fmt as fmtNum } from '../research/researchUi';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ToolShell } from '@/components/ToolShell';
 
 type AxisMode = 'grid' | 'list' | 'lhs';
 
@@ -220,10 +222,12 @@ export default function SweepsPage() {
     setEditing(false);
   };
 
-  const handleDelete = (p: SweepPlan) => {
-    if (!window.confirm(t('sweep.delete_confirm', { name: p.name }))) return;
-    deletePlanStore(p.id);
-    if (selectedId === p.id) {
+  const [deleteTarget, setDeleteTarget] = useState<SweepPlan | null>(null);
+  const handleDelete = (p: SweepPlan) => setDeleteTarget(p);
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deletePlanStore(deleteTarget.id);
+    if (selectedId === deleteTarget.id) {
       setSelectedId(null);
       setEditing(false);
     }
@@ -373,23 +377,14 @@ export default function SweepsPage() {
     const caption = `${plan.name}: ${plan.axes.map((a) => a.param).join(' × ')} → ${plan.metric}`;
     if (sendSpecToFigure(t('sweep.title'), surface.spec, caption)) {
       notify('success', t('sweep.figure_sent'));
-      void navigate('/figures');
+      void navigate('/studio/figures');
     }
   };
 
   const statusKey = shownResult ? `sweep.status_${shownResult.status}` : '';
 
   return (
-    <div className="figures-page">
-      <header className="figures-header">
-        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
-          ← {t('figure.back')}
-        </button>
-        <h1 className="figures-title">{t('sweep.title')}</h1>
-      </header>
-
-      {!project && <div className="empty-hint">{t('sweep.need_project')}</div>}
-
+    <ToolShell toolId="sweeps">
       {project && (
         <div className="figures-main">
           <aside className="figures-side">
@@ -688,7 +683,16 @@ export default function SweepsPage() {
           </section>
         </div>
       )}
-    </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('sweep.delete')}
+        message={deleteTarget ? t('sweep.delete_confirm', { name: deleteTarget.name }) : ''}
+        confirmLabel={t('common.delete')}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+    </ToolShell>
   );
 }
 

@@ -51,6 +51,8 @@ export function BlockEditor() {
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   const error = useEditorStore((s) => s.error);
+  // Right pane (preview / variables / console) toggled by the top-bar ☰.
+  const panelOpen = useAppStore((s) => s.modePanelOpen);
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
@@ -291,7 +293,9 @@ export function BlockEditor() {
           </div>
         )}
 
-        <div className="block-editor-right">
+        {/* Kept mounted (only hidden) so plugin host container refs survive
+            panel toggles mid-session. */}
+        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
           <div className="block-editor-preview">
             <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
             <div ref={domRef} className="block-editor-preview-dom" />

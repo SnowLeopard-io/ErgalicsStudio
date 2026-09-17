@@ -8,8 +8,8 @@
 // ==========================================================================
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -18,6 +18,7 @@ import { buildReportHtml } from '@/core/report/builder';
 import type { ReportSection, ReportSpec, ReportTheme, ReportLang } from '@/core/report/builder';
 import { downloadBlob } from '@/core/download';
 import { groupedDataFiles } from '../research/researchUi';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type SectionType = ReportSection['type'];
 
@@ -115,7 +116,6 @@ function fromSection(s: ReportSection): SectionDraft {
 
 export default function ReportBuilderPage() {
   const t = useT();
-  const navigate = useNavigate();
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const runs = useExperimentStore((s) => s.runs);
@@ -128,6 +128,7 @@ export default function ReportBuilderPage() {
   const groups = useMemo(() => groupedDataFiles(), [project?.data.files]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
@@ -250,16 +251,7 @@ export default function ReportBuilderPage() {
   };
 
   return (
-    <div className="figures-page">
-      <header className="figures-header">
-        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
-          ← {t('figure.back')}
-        </button>
-        <h1 className="figures-title">{t('report.title')}</h1>
-      </header>
-
-      {!project && <div className="empty-hint">{t('report.need_project')}</div>}
-
+    <ToolShell toolId="report">
       {project && (
         <div className="report-main">
           <aside className="figures-side report-side">
@@ -283,9 +275,7 @@ export default function ReportBuilderPage() {
                     <button
                       type="button"
                       className="btn btn-sm btn-danger"
-                      onClick={() => {
-                        if (r.id) deleteReportStore(r.id);
-                      }}
+                      onClick={() => r.id && setDeleteTarget({ id: r.id, name: r.name || r.title })}
                     >
                       {t('common.delete')}
                     </button>
@@ -433,7 +423,17 @@ export default function ReportBuilderPage() {
           </section>
         </div>
       )}
-    </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('report.delete')}
+        message={t('report.delete_confirm')}
+        name={deleteTarget?.name}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => deleteTarget && deleteReportStore(deleteTarget.id)}
+        onClose={() => setDeleteTarget(null)}
+      />
+    </ToolShell>
   );
 }
 

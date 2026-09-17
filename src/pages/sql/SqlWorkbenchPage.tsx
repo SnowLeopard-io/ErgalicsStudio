@@ -22,7 +22,7 @@ import {
   type SqlTableSchema,
 } from '@/core/sql/engine';
 import { toCsv } from '../research/researchUi';
-import { LabPageShell } from '../labs/LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 /** Result preview cap (full rows are kept for CSV export). */
 const PREVIEW_ROWS = 200;
@@ -205,7 +205,7 @@ export default function SqlWorkbenchPage() {
     ) : null;
 
   return (
-    <LabPageShell title={t('sql.title')}>
+    <ToolShell toolId="sql">
       {!project ? (
         <div className="empty-hint">{t('sql.need_project')}</div>
       ) : (
@@ -362,6 +362,6 @@ export default function SqlWorkbenchPage() {
           </section>
         </div>
       )}
-    </LabPageShell>
+    </ToolShell>
   );
 }

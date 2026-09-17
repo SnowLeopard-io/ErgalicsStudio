@@ -8,9 +8,10 @@
 // ==========================================================================
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import {
@@ -181,7 +182,7 @@ function exportLabel(format: FigureExportFormat): string {
 
 export default function FigureStudioPage() {
   const t = useT();
-  const navigate = useNavigate();
+
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const activeSheetId = useFigureStore((s) => s.activeSheetId);
@@ -257,47 +258,38 @@ export default function FigureStudioPage() {
     }
   };
 
-  const handleDeleteSheet = () => {
-    if (!active) return;
-    if (window.confirm(t('figure.delete_confirm', { name: active.name }))) {
-      deleteSheet(active.id);
-    }
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const handleDeleteSheet = () => setDeleteSheetOpen(true);
+  const confirmDeleteSheet = () => {
+    if (active) deleteSheet(active.id);
   };
 
-  return (
-    <div className="figures-page">
-      <header className="figures-header">
-        <button type="button" className="btn" onClick={() => navigate('/workbench')}>
-          ← {t('figure.back')}
+  const sheetActions =
+    project && sheets.length > 0 ? (
+      <>
+        <select
+          className="input figures-sheet-select"
+          value={active?.id ?? ''}
+          aria-label={t('figure.sheets')}
+          onChange={(e) => setActive(e.target.value)}
+        >
+          {sheets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="btn btn-sm" onClick={() => createSheet()}>
+          + {t('figure.new_sheet')}
         </button>
-        <h1 className="figures-title">{t('figure.title')}</h1>
+        <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteSheet}>
+          {t('figure.delete_sheet')}
+        </button>
+      </>
+    ) : null;
 
-        {project && sheets.length > 0 && (
-          <>
-            <select
-              className="input figures-sheet-select"
-              value={active?.id ?? ''}
-              aria-label={t('figure.sheets')}
-              onChange={(e) => setActive(e.target.value)}
-            >
-              {sheets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="btn btn-sm" onClick={() => createSheet()}>
-              + {t('figure.new_sheet')}
-            </button>
-            <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteSheet}>
-              {t('figure.delete_sheet')}
-            </button>
-          </>
-        )}
-      </header>
-
-      {!project && <div className="empty-hint">{t('figure.need_project')}</div>}
-
+  return (
+    <ToolShell toolId="figures" headerExtra={sheetActions}>
       {project && sheets.length === 0 && (
         <div className="empty-hint">
           {t('figure.no_sheets')}
@@ -576,6 +568,15 @@ export default function FigureStudioPage() {
           </div>
         </div>
       </Modal>
-    </div>
+
+      <ConfirmDialog
+        open={deleteSheetOpen}
+        title={t('figure.delete_sheet')}
+        message={t('figure.delete_confirm', { name: active?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        onConfirm={confirmDeleteSheet}
+        onClose={() => setDeleteSheetOpen(false)}
+      />
+    </ToolShell>
   );
 }

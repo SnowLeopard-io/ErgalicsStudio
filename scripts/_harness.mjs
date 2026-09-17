@@ -173,7 +173,17 @@ export async function startPreview(preferred, mode = 'preview') {
 
   const child = spawn(
     process.execPath,
-    ['node_modules/vite/bin/vite.js', ...(mode === 'dev' ? [] : ['preview']), '--port', String(port), '--strictPort'],
+    [
+      'node_modules/vite/bin/vite.js',
+      ...(mode === 'dev' ? [] : ['preview']),
+      // Pin to the IPv4 loopback: on machines where `localhost` resolves to
+      // ::1 first, Vite binds IPv6-only and the 127.0.0.1 readiness probe fails.
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(port),
+      '--strictPort',
+    ],
     { cwd: PROJECT_ROOT, stdio: 'ignore', detached: true },
   );
   child.unref();

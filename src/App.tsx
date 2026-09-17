@@ -5,32 +5,28 @@ import { BannerStack, ToastStack } from '@/components/Feedback';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
+import { RESEARCH_TOOLS } from '@/pages/research/toolRegistry';
 
 const WelcomePage = lazy(() => import('@/pages/welcome/WelcomePage'));
 const WorkbenchPage = lazy(() => import('@/pages/workbench/WorkbenchPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const PluginViewPage = lazy(() => import('@/pages/plugin/PluginViewPage'));
 const ShareLinkPage = lazy(() => import('@/pages/share/ShareLinkPage'));
-const FigureStudioPage = lazy(() => import('@/pages/figures/FigureStudioPage'));
-const NotebookPage = lazy(() => import('@/pages/notebook/NotebookPage'));
-const SignalLabPage = lazy(() => import('@/pages/signal/SignalLabPage'));
-const SweepsPage = lazy(() => import('@/pages/sweeps/SweepsPage'));
-const ReportBuilderPage = lazy(() => import('@/pages/report/ReportBuilderPage'));
-const SqlWorkbenchPage = lazy(() => import('@/pages/sql/SqlWorkbenchPage'));
-// Lab pages — research tools promoted from TopBar dialogs to full pages.
-const RunsPage = lazy(() => import('@/pages/labs/RunsPage'));
-const AnalysisPage = lazy(() => import('@/pages/labs/AnalysisPage'));
-const UncertaintyPage = lazy(() => import('@/pages/labs/UncertaintyPage'));
-const ModelLabPage = lazy(() => import('@/pages/labs/ModelLabPage'));
-const ProfilerPage = lazy(() => import('@/pages/labs/ProfilerPage'));
-const ReproLockPage = lazy(() => import('@/pages/labs/ReproLockPage'));
-const LineagePage = lazy(() => import('@/pages/labs/LineagePage'));
-const SupplementPage = lazy(() => import('@/pages/labs/SupplementPage'));
-const InferenceForgePage = lazy(() => import('@/pages/labs/InferenceForgePage'));
+// All research tools resolve through one /studio/:toolId route + registry.
+const StudioToolPage = lazy(() => import('@/pages/studio/StudioToolPage'));
 
 initProjectStore();
 initExperimentStore();
 initLineageStore();
+
+/** Legacy hash routes kept alive as client-side redirects (bookmarks). */
+const LegacyToolRedirects = RESEARCH_TOOLS.map((toolDef) => (
+  <Route
+    key={toolDef.legacyPath}
+    path={toolDef.legacyPath}
+    element={<Navigate to={toolDef.path} replace />}
+  />
+));
 
 function AppShell() {
   const location = useLocation();
@@ -46,21 +42,8 @@ function AppShell() {
           <Routes location={location}>
             <Route path="/" element={<WelcomePage />} />
             <Route path="/workbench" element={<WorkbenchPage />} />
-            <Route path="/figures" element={<FigureStudioPage />} />
-            <Route path="/notebook" element={<NotebookPage />} />
-            <Route path="/signal" element={<SignalLabPage />} />
-            <Route path="/sweeps" element={<SweepsPage />} />
-            <Route path="/report" element={<ReportBuilderPage />} />
-            <Route path="/sql" element={<SqlWorkbenchPage />} />
-            <Route path="/runs" element={<RunsPage />} />
-            <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/uncertainty" element={<UncertaintyPage />} />
-            <Route path="/model-lab" element={<ModelLabPage />} />
-            <Route path="/profiler" element={<ProfilerPage />} />
-            <Route path="/reprolock" element={<ReproLockPage />} />
-            <Route path="/lineage" element={<LineagePage />} />
-            <Route path="/supplement" element={<SupplementPage />} />
-            <Route path="/inference" element={<InferenceForgePage />} />
+            <Route path="/studio/:toolId" element={<StudioToolPage />} />
+            {LegacyToolRedirects}
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugin/:pluginId" element={<PluginViewPage />} />
             <Route path="/share/:payload" element={<ShareLinkPage />} />

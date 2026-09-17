@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { CentralArea } from './CentralArea';
@@ -35,6 +36,17 @@ export default function WorkbenchPage() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
   const t = useT();
+  const location = useLocation();
+
+  // Welcome-page mode cards arrive with { state: { setMode } } — apply once
+  // and consume the state so a refresh keeps whatever mode the user chose.
+  useEffect(() => {
+    const state = location.state as { setMode?: 'standard' | 'flow' | 'block' | 'code' } | null;
+    if (state?.setMode) {
+      useAppStore.getState().setMode(state.setMode);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   // Keep the Flow DAG in three-way sync with Block/Code via the IR hub.
   useFlowSync();

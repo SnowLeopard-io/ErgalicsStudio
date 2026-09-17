@@ -23,7 +23,7 @@ import { resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
 import { groupedDataFiles, sendSpecToFigure, fmt } from '../research/researchUi';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 interface ScanState {
   profile: TableProfile;
@@ -200,7 +200,7 @@ export default function ProfilerPage() {
   const corr = p?.correlations ?? null;
 
   return (
-    <LabPageShell title={t('profile.title')}>
+    <ToolShell toolId="profiler">
       <div className="analysis-body">
         <div className="analysis-row">
           <select
@@ -346,6 +346,6 @@ export default function ProfilerPage() {
           </>
         )}
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

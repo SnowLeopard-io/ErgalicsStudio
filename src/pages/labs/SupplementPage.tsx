@@ -14,7 +14,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { buildSupplement } from '@/core/package/supplement';
 import { downloadBlob } from '@/core/download';
 import { logger } from '@/core/logger';
-import { LabPageShell } from './LabPageShell';
+import { ToolShell } from '@/components/ToolShell';
 
 const COMMON_LICENSES = ['CC-BY-4.0', 'CC-BY-SA-4.0', 'CC0-1.0', 'MIT', 'Apache-2.0'];
 
@@ -62,7 +62,7 @@ export default function SupplementPage() {
   };
 
   return (
-    <LabPageShell title={t('supplement.title')}>
+    <ToolShell toolId="supplement">
       <div className="supplement-form">
         <p className="supplement-intro">{t('supplement.intro')}</p>
 
@@ -155,6 +155,6 @@ export default function SupplementPage() {
           {busy ? t('supplement.building') : t('supplement.build')}
         </button>
       </div>
-    </LabPageShell>
+    </ToolShell>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { CloseIcon } from './icons';
 
 interface ModalProps {
   open: boolean;
@@ -112,7 +113,7 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
         <header className="modal-header">
           <h2 className="modal-title">{title}</h2>
           <button type="button" className="icon-btn" aria-label="Close" onClick={() => onCloseRef.current()}>
-            ✕
+            <CloseIcon size={15} />
           </button>
         </header>
         <div className="modal-body">{children}</div>

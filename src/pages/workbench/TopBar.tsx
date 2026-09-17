@@ -10,7 +10,11 @@ import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
+import { ResearchLauncher } from '@/components/ResearchLauncher';
+import { MenuIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon } from '@/components/icons';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
+
+const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
 
 export function TopBar() {
   const t = useT();
@@ -22,6 +26,9 @@ export function TopBar() {
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const toggleModePanel = useAppStore((s) => s.toggleModePanel);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
   const perfFps = useAppStore((s) => s.perf.fps);
@@ -38,52 +45,64 @@ export function TopBar() {
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
-  // Welcome page mode cards land here with
-  // { state: { openResearchDialog: 'runs' | … } } — kept for legacy links:
-  // lab tools are standalone pages now, so dialog-backed modes route instead.
+  // Welcome-page entry states: legacy openResearchDialog routes to a tool
+  // page; openDataDialog opens the bundled-samples dialog directly.
   useEffect(() => {
-    const state = location.state as { openResearchDialog?: string } | null;
+    const state = location.state as
+      | { openResearchDialog?: string; openDataDialog?: boolean }
+      | null;
+    let consumed = false;
     if (state?.openResearchDialog) {
-      navigate(`/${state.openResearchDialog}`);
-      window.history.replaceState({}, '');
+      navigate(`/studio/${state.openResearchDialog}`);
+      consumed = true;
     }
+    if (state?.openDataDialog) {
+      setDialog('data');
+      consumed = true;
+    }
+    if (consumed) window.history.replaceState({}, '');
   }, [location.state, navigate]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
   };
 
+  const perfTitle = `${t('workbench.perf.title')}${perfFps > 0 ? ` · ${perfFps} FPS` : ''}`;
+  const perfWarn = perfWarnFps && perfFps > 0;
+
   return (
     <header className="topbar">
-      <button type="button" className="icon-btn" aria-label="Menu" onClick={toggleSidebar}>
-        ☰
+      {/* Zone 1 — navigation: ☰ (project/plugin sidebar in Standard, mode
+          panel elsewhere), brand, current project name. */}
+      <button
+        type="button"
+        className={`icon-btn${((mode === 'standard' && sidebarOpen) || (mode !== 'standard' && modePanelOpen)) ? ' is-active' : ''}`}
+        aria-label={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
+        aria-pressed={mode === 'standard' ? sidebarOpen : modePanelOpen}
+        title={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
+        onClick={mode === 'standard' ? toggleSidebar : toggleModePanel}
+      >
+        <MenuIcon size={17} />
       </button>
 
       <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      <button type="button" className="project-name" title={t('project.name')} onClick={openDialog('rename')}>
+      <button type="button" className="project-name" title={t('project.rename')} onClick={openDialog('rename')}>
         {project?.name || DEFAULT_PROJECT_NAME}
         {dirty && <span className="project-dirty">•</span>}
       </button>
 
       <div className="topbar-actions">
+        {/* Zone 2 — work modes (filled + underline double indication). */}
         <div className="topbar-cluster mode-switch">
-          {(
-            [
-              { key: 'standard', disabled: false },
-              { key: 'flow', disabled: false },
-              { key: 'block', disabled: false },
-              { key: 'code', disabled: false },
-            ] as const
-          ).map(({ key, disabled }) => (
+          {MODE_KEYS.map((key) => (
             <button
               key={key}
               type="button"
-              className={`cluster-btn${mode === key ? ' btn-toggle-on' : ''}`}
-              disabled={disabled}
-              title={disabled ? t('editor.mode.disabled') : undefined}
+              className={`mode-btn${mode === key ? ' is-on' : ''}`}
+              aria-pressed={mode === key}
               onClick={() => setMode(key)}
             >
               {t(`workbench.mode.${key}`)}
@@ -93,7 +112,7 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Data: project files first (high-frequency), bundled samples second. */}
+        {/* Zone 3a — data. */}
         <div className="topbar-cluster">
           <button
             type="button"
@@ -111,7 +130,7 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Project file operations: menu + quick save/share. */}
+        {/* Zone 3b — project file operations: menu (rename merged in) + save/share. */}
         <div className="topbar-cluster">
           <Dropdown
             ariaLabel={t('workbench.menu.project')}
@@ -130,6 +149,7 @@ export function TopBar() {
                 label: t('project.open'),
                 onClick: () => fileInputRef.current?.click(),
               },
+              { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
               { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
               {
                 key: 'export_log',
@@ -161,73 +181,63 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Research & analysis toolset — each tool is a standalone page. */}
+        {/* Zone 3c — research tools: general analysis stays a direct button,
+            all other tools live behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={() => navigate('/analysis')}>
+          <button type="button" className="cluster-btn" onClick={() => navigate('/studio/analysis')}>
             {t('workbench.analyze')}
           </button>
-          <Dropdown
-            trigger={
-              <span>
-                {t('research.menu')}
-                <span className="more-caret">▾</span>
-              </span>
-            }
-            triggerClassName="cluster-btn"
-            ariaLabel={t('research.menu')}
-            align="left"
-            items={[
-              { key: 'runs', label: t('research.runs.title'), onClick: () => navigate('/runs') },
-              { key: 'uncertainty', label: t('uncertainty.title'), onClick: () => navigate('/uncertainty') },
-              { key: 'model-lab', label: t('model.title'), onClick: () => navigate('/model-lab') },
-              { key: 'inference', label: t('inference.title'), onClick: () => navigate('/inference') },
-              { key: 'profiler', label: t('profile.title'), onClick: () => navigate('/profiler') },
-              { key: 'reprolock', label: t('reprolock.title'), onClick: () => navigate('/reprolock') },
-              { key: 'signal', label: t('signal.title'), onClick: () => navigate('/signal') },
-              { key: 'sweeps', label: t('sweep.title'), onClick: () => navigate('/sweeps') },
-              { key: 'report', label: t('report.title'), onClick: () => navigate('/report') },
-              { key: 'sql', label: t('sql.title'), onClick: () => navigate('/sql') },
-              { key: 'lineage', label: t('lineage.title'), onClick: () => navigate('/lineage') },
-              { key: 'figures', label: t('figure.title'), onClick: () => navigate('/figures') },
-              { key: 'notebook', label: t('notebook.title'), onClick: () => navigate('/notebook') },
-              { key: 'supplement', label: t('supplement.title'), onClick: () => navigate('/supplement') },
-            ]}
-          />
+          <ResearchLauncher />
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />
 
+        {/* Zone 4 — global tools. The icon trio collapses into the ⋯ overflow
+            menu on narrow screens (see topbar-resp CSS). */}
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
-            className="cluster-btn"
+            className="cluster-btn icon-only topbar-hide-narrow"
             title={t('workbench.tools.settings')}
             aria-label={t('workbench.tools.settings')}
             onClick={() => navigate('/settings')}
           >
-            ⚙
+            <SettingsIcon size={15} />
           </button>
           <button
             type="button"
-            className="cluster-btn"
+            className="cluster-btn icon-only topbar-hide-narrow"
             title={t('workbench.tour.title')}
             aria-label={t('workbench.tour.title')}
             onClick={startTour}
           >
-            ?
+            <HelpIcon size={15} />
           </button>
           <button
             type="button"
-            className={`cluster-btn perf-entry${perfWarnFps && perfFps > 0 ? ' perf-warn' : ''}`}
-            title={t('workbench.perf.title')}
+            className={`cluster-btn icon-only perf-entry topbar-hide-narrow${perfWarn ? ' perf-warn' : ''}`}
+            title={perfTitle}
+            aria-label={perfTitle}
             onClick={openDialog('perf')}
           >
-            <span className="perf-dot" aria-hidden="true" />
-            {perfFps > 0 ? `${perfFps} FPS` : '—'}
+            <GaugeIcon size={15} />
+            <span className="perf-indicator-dot" aria-hidden="true" />
           </button>
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
+
+        <Dropdown
+          ariaLabel={t('workbench.menu.more')}
+          triggerClassName="cluster-btn icon-only topbar-overflow"
+          align="right"
+          trigger={<MoreIcon size={16} />}
+          items={[
+            { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
+            { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
+            { key: 'perf', label: perfTitle, onClick: openDialog('perf') },
+          ]}
+        />
 
         <input
           ref={fileInputRef}

@@ -7,9 +7,11 @@
 // into the active plugin.
 // ==========================================================================
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { Modal } from '@/components/Modal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import type { FileEntry } from '@/types/project';
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -54,6 +56,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
   const activeId = usePluginStore((s) => s.activeId);
   const registry = usePluginStore((s) => s.registry);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteFile, setDeleteFile] = useState<FileEntry | null>(null);
   const chunkState = useChunkStore((s) => s.state);
   const canChunk = useChunkStore((s) => s.canChunk);
   const startIngest = useChunkStore((s) => s.startIngest);
@@ -175,7 +178,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
                   type="button"
                   className="btn btn-sm btn-danger"
                   title={t('common.delete')}
-                  onClick={() => removeDataFile(f.id)}
+                  onClick={() => setDeleteFile(f)}
                 >
                   {t('common.delete')}
                 </button>
@@ -244,6 +247,16 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
           void handleImportFiles(e.target.files);
           e.target.value = '';
         }}
+      />
+
+      <ConfirmDialog
+        open={deleteFile !== null}
+        title={t('common.delete')}
+        message={t('workbench.files.delete_confirm')}
+        name={deleteFile?.name}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => deleteFile && removeDataFile(deleteFile.id)}
+        onClose={() => setDeleteFile(null)}
       />
     </Modal>
   );
