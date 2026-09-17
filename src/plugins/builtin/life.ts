@@ -11,6 +11,35 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+type Pattern = 'random' | 'glider' | 'blinker' | 'beacon';
+
+const PATTERNS: Pattern[] = ['random', 'glider', 'blinker', 'beacon'];
+
+function isPattern(v: unknown): v is Pattern {
+  return typeof v === 'string' && (PATTERNS as string[]).includes(v);
+}
+
+// Fixed patterns as [x, y] cells, placed a small inset from the top-left
+// corner. The grid wraps toroidally, so they evolve normally.
+const GLIDER_CELLS: Array<[number, number]> = [
+  [2, 1], [3, 2], [1, 3], [2, 3], [3, 3],
+];
+const BLINKER_CELLS: Array<[number, number]> = [
+  [1, 1], [2, 1], [3, 1],
+];
+const BEACON_CELLS: Array<[number, number]> = [
+  [1, 1], [2, 1], [1, 2], [2, 2],
+  [3, 3], [4, 3], [3, 4], [4, 4],
+];
 
 export const lifeManifest: PluginManifest = {
   id: 'fun.life',
@@ -34,12 +63,14 @@ interface State {
   cellSize: number;
   color: string;
   playing: boolean;
+  pattern: Pattern;
   cols: number;
   rows: number;
 }
 
 export class LifePlugin implements Plugin {
   readonly manifest = lifeManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private grid: Uint8Array = new Uint8Array(0);
@@ -48,11 +79,13 @@ export class LifePlugin implements Plugin {
     cellSize: 8,
     color: '#22d3ee',
     playing: true,
+    pattern: 'random',
     cols: 0,
     rows: 0,
   };
 
-  async init(_api: PluginApi) {
+  async init(api: PluginApi) {
+    this.api = api;
   }
 
   async destroy() {
@@ -78,8 +111,28 @@ export class LifePlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'life');
+      return;
+    }
+    // Pattern select: clear the grid and sow the chosen pattern. A running
+    // play interval is deliberately left untouched.
+    if (isPattern(params.pattern)) {
+      this.state.pattern = params.pattern;
+      this.seed();
+      this.draw();
+      return;
+    }
     let needReseed = false;
-    if (typeof params.speed === 'number') { this.state.speed = Math.max(20, Math.min(500, params.speed)); }
+    if (typeof params.speed === 'number') {
+      const next = Math.max(20, Math.min(500, params.speed));
+      if (next !== this.state.speed) {
+        this.state.speed = next;
+        // The running interval keeps its old delay; restart it so the new
+        // speed takes effect immediately (startTimer stops the old one).
+        if (this.state.playing) this.startTimer();
+      }
+    }
     if (typeof params.cellSize === 'number') { this.state.cellSize = Math.max(3, Math.min(20, Math.round(params.cellSize))); needReseed = true; }
     if (typeof params.color === 'string') { this.state.color = params.color; }
     if (typeof params.playing === 'boolean' && params.playing !== this.state.playing) {
@@ -87,9 +140,9 @@ export class LifePlugin implements Plugin {
       if (params.playing) this.startTimer();
       else this.stopTimer();
     }
-    // The "Randomize" button emits `{ action: 'reseed' }` under its key.
-    const reseed = params.reseed as { action?: string } | undefined;
-    if (reseed?.action === 'reseed') {
+    // The "Randomize" button is equivalent to selecting the random pattern.
+    if (buttonPressed(params, 'reseed')) {
+      this.state.pattern = 'random';
       this.seed();
       this.draw();
       return;
@@ -114,11 +167,25 @@ export class LifePlugin implements Plugin {
         { value: '#fbbf24', label: 'Amber' },
       ], value: this.state.color },
       { key: 'playing', label: 'Play', labelI18n: { 'zh-CN': '播放', 'en-US': 'Play' }, type: 'toggle', offLabel: 'Play', onLabel: 'Playing', offLabelI18n: { 'zh-CN': '播放', 'en-US': 'Play' }, onLabelI18n: { 'zh-CN': '播放中', 'en-US': 'Playing' }, value: this.state.playing },
+      {
+        key: 'pattern',
+        label: 'Pattern',
+        labelI18n: { 'zh-CN': '图案', 'en-US': 'Pattern' },
+        type: 'select',
+        options: [
+          { value: 'random', label: 'Random', labelI18n: { 'zh-CN': '随机', 'en-US': 'Random' } },
+          { value: 'glider', label: 'Glider', labelI18n: { 'zh-CN': '滑翔机', 'en-US': 'Glider' } },
+          { value: 'blinker', label: 'Blinker', labelI18n: { 'zh-CN': '闪烁者', 'en-US': 'Blinker' } },
+          { value: 'beacon', label: 'Beacon', labelI18n: { 'zh-CN': '信号灯', 'en-US': 'Beacon' } },
+        ],
+        value: this.state.pattern,
+      },
       { key: 'reseed', label: 'Randomize', labelI18n: { 'zh-CN': '重新播种', 'en-US': 'Randomize' }, type: 'button', variant: 'primary', action: 'reseed' },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 
-  /** Handle the "Randomize" button action broadcast from the host. */
+  /** (Re)build the grid and sow the currently selected pattern. */
   private seed() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
@@ -130,7 +197,29 @@ export class LifePlugin implements Plugin {
     this.state.cols = cols;
     this.state.rows = rows;
     const grid = new Uint8Array(cols * rows);
-    for (let i = 0; i < grid.length; i += 1) grid[i] = Math.random() < 0.28 ? 1 : 0;
+    const put = (cells: Array<[number, number]>) => {
+      for (const [x, y] of cells) {
+        if (x >= 0 && x < cols && y >= 0 && y < rows) grid[y * cols + x] = 1;
+      }
+    };
+    switch (this.state.pattern) {
+      case 'glider':
+        // Classic 5-cell glider in the top-left.
+        put(GLIDER_CELLS);
+        break;
+      case 'blinker':
+        // Horizontal 3-cell row.
+        put(BLINKER_CELLS);
+        break;
+      case 'beacon':
+        // Two 2x2 blocks on a diagonal.
+        put(BEACON_CELLS);
+        break;
+      case 'random':
+      default:
+        for (let i = 0; i < grid.length; i += 1) grid[i] = Math.random() < 0.28 ? 1 : 0;
+        break;
+    }
     this.grid = grid;
   }
 

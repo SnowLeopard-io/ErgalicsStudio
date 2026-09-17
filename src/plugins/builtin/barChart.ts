@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const barChartManifest: PluginManifest = {
   id: 'example.bar_chart',
@@ -40,10 +41,13 @@ interface Bar {
   value: number;
 }
 
+type SortOrder = 'none' | 'asc' | 'desc';
+
 interface State {
   orientation: 'vertical' | 'horizontal';
   palette: string;
   showLabels: boolean;
+  order: SortOrder;
   hasData: boolean;
 }
 
@@ -59,7 +63,7 @@ export class BarChartPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private bars: Bar[] = [];
-  private state: State = { orientation: 'vertical', palette: 'ocean', showLabels: true, hasData: false };
+  private state: State = { orientation: 'vertical', palette: 'ocean', showLabels: true, order: 'none', hasData: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -82,12 +86,36 @@ export class BarChartPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bar-chart');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (params.orientation === 'vertical' || params.orientation === 'horizontal') {
       this.state.orientation = params.orientation;
     }
     if (typeof params.palette === 'string') this.state.palette = params.palette;
+    if (params.order === 'none' || params.order === 'asc' || params.order === 'desc') {
+      this.state.order = params.order;
+    }
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
+  }
+
+  private exportCsv() {
+    exportRowsCsv(
+      this.api,
+      'bar-chart',
+      ['category', 'value'],
+      this.orderedBars().map((b) => [b.label, b.value]),
+    );
+  }
+
+  /** Bars in the currently selected display order (import order kept for 'none'). */
+  private orderedBars(): Bar[] {
+    if (this.state.order === 'none') return this.bars;
+    const sorted = [...this.bars];
+    sorted.sort((a, b) => (this.state.order === 'asc' ? a.value - b.value : b.value - a.value));
+    return sorted;
   }
 
   getParams(): ParamDefinition[] {
@@ -117,12 +145,26 @@ export class BarChartPlugin implements Plugin {
         ],
       },
       {
+        key: 'order',
+        label: 'Sort',
+        labelI18n: { 'zh-CN': '排序', 'en-US': 'Sort' },
+        type: 'select',
+        value: this.state.order,
+        options: [
+          { value: 'none', label: 'None', labelI18n: { 'zh-CN': '不排序', 'en-US': 'None' } },
+          { value: 'asc', label: 'Ascending', labelI18n: { 'zh-CN': '升序', 'en-US': 'Ascending' } },
+          { value: 'desc', label: 'Descending', labelI18n: { 'zh-CN': '降序', 'en-US': 'Descending' } },
+        ],
+      },
+      {
         key: 'showLabels',
         label: 'Show Labels',
         labelI18n: { 'zh-CN': '显示标签', 'en-US': 'Show Labels' },
         type: 'checkbox',
         value: this.state.showLabels,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -180,7 +222,8 @@ export class BarChartPlugin implements Plugin {
     if (maxVal < 0) maxVal = 0;
     const range = maxVal - minVal || 1;
 
-    const n = this.bars.length;
+    const bars = this.orderedBars();
+    const n = bars.length;
     const font = `${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, 10px, monospace`;
 
     if (this.state.orientation === 'vertical') {
@@ -208,7 +251,7 @@ export class BarChartPlugin implements Plugin {
       g.font = font;
       g.textAlign = 'center';
       for (let i = 0; i < n; i++) {
-        const bar = this.bars[i]!;
+        const bar = bars[i]!;
         const x = margin.left + i * (plotW / n) + gap / 2;
         const barH = (Math.abs(bar.value) / range) * plotH;
         const y = bar.value >= 0 ? baseline - barH : baseline;
@@ -241,7 +284,7 @@ export class BarChartPlugin implements Plugin {
       g.font = font;
       g.textAlign = 'right';
       for (let i = 0; i < n; i++) {
-        const bar = this.bars[i]!;
+        const bar = bars[i]!;
         const y = margin.top + i * (plotH / n) + gap / 2;
         const barW = (Math.abs(bar.value) / range) * plotW;
         g.fillStyle = palette[i % palette.length]!;
@@ -267,6 +310,15 @@ export class BarChartPlugin implements Plugin {
         : 'No bar data — drop a .csv file (label,value)';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
+}
+
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse `label,value` or `label value` per line. */

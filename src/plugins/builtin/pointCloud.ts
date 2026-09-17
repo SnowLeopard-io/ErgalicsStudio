@@ -14,6 +14,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const pointCloudManifest: PluginManifest = {
   id: 'example.point-cloud',
@@ -72,6 +73,22 @@ export class PointCloudPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Buttons accept both the host's `{ key: { action } }` emission and a
+    // plain `{ key: true }` call.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'pointcloud');
+      return;
+    }
+    if (fired('exportCsv')) {
+      // Points carry x/y only (the 2-D viewer has no z or scalar column).
+      const rows = this.state.points.map((p) => [p.x, p.y]);
+      exportRowsCsv(this.api, 'pointcloud', ['x', 'y'], rows);
+      return;
+    }
     if (typeof params.size === 'number') this.state.size = params.size;
     if (typeof params.color === 'string') this.state.color = params.color;
     if (params.reset && (params.reset as { action?: string }).action === 'reset') {
@@ -85,6 +102,8 @@ export class PointCloudPlugin implements Plugin {
       { key: 'size', label: 'Size', type: 'range', min: 1, max: 20, step: 1, value: this.state.size },
       { key: 'color', label: 'Color', type: 'text', value: this.state.color },
       { key: 'reset', label: 'Reset View', type: 'button', action: 'reset' },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Points CSV', '导出点云 CSV'),
     ];
   }
 
@@ -97,15 +116,35 @@ export class PointCloudPlugin implements Plugin {
     const points: Point[] = [];
     const lines = text.split(/\r?\n/).slice(0, 200_000);
     for (const line of lines) {
-      const parts = line.trim().split(/[\s,]+/);
-      if (parts.length >= 2) {
-        const x = parseFloat(parts[0] ?? '');
-        const y = parseFloat(parts[1] ?? '');
-        if (Number.isFinite(x) && Number.isFinite(y)) points.push({ x, y });
+      const parts = line.trim().split(/[\s,]+/).filter(Boolean);
+      if (parts.length < 2) continue;
+      // Two dialects are accepted:
+      //  - plain coordinate rows "x y [z]" (CSV/whitespace)
+      //  - standard XYZ molecular rows "Element x y [z]" — the element
+      //    symbol column must be skipped, and the leading atom-count line
+      //    (one integer token) / comment line are ignored.
+      let x = Number.NaN;
+      let y = Number.NaN;
+      const first = parseFloat(parts[0] ?? '');
+      if (Number.isFinite(first)) {
+        x = first;
+        y = parseFloat(parts[1] ?? '');
+      } else if (parts.length >= 3) {
+        x = parseFloat(parts[1] ?? '');
+        y = parseFloat(parts[2] ?? '');
       }
+      if (Number.isFinite(x) && Number.isFinite(y)) points.push({ x, y });
     }
     this.state.points = points;
     this.api.reportDataScale(points.length);
+    if (points.length === 0) {
+      this.api.notify(
+        'warning',
+        this.api.locale === 'zh-CN'
+          ? `未能从 ${file.name} 解析出任何坐标点（支持 "x,y" 或标准 XYZ "元素 x y z" 格式）`
+          : `Parsed 0 points from ${file.name} (expected "x,y" rows or standard XYZ "element x y z" rows)`,
+      );
+    }
     this.draw();
   }
 

@@ -25,7 +25,13 @@ interface LineageStore {
   rebuild: () => Promise<void>;
 }
 
-export const useLineageStore = create<LineageStore>((set) => ({
+export const useLineageStore = create<LineageStore>((set) => {
+  // Every rebuild takes a token; a late listRuns() response from an older
+  // rebuild (or from a project the user has since closed) must not overwrite
+  // the fresher graph.
+  let rebuildSeq = 0;
+
+  return {
   graph: { nodes: [], edges: [] },
   layout: null,
   version: 0,
@@ -37,19 +43,30 @@ export const useLineageStore = create<LineageStore>((set) => ({
       set({ graph: { nodes: [], edges: [] }, layout: null });
       return;
     }
+    const my = ++rebuildSeq;
+    const projectId = project.id;
     set({ loading: true });
-    try {
-      const runs = await listRuns(project.id);
-      const graph = buildLineage(project.data.files, runs);
+    const finish = (files: typeof project.data.files, runs: Awaited<ReturnType<typeof listRuns>>) => {
+      const graph = buildLineage(files, runs);
       set({ graph, layout: layoutDag(graph), version: Date.now(), loading: false });
+    };
+    try {
+      const runs = await listRuns(projectId);
+      // Re-read after the await: the project may have switched or another
+      // rebuild may already be in flight.
+      const current = useProjectStore.getState().project;
+      if (my !== rebuildSeq || !current || current.id !== projectId) return;
+      finish(current.data.files, runs);
     } catch {
+      const current = useProjectStore.getState().project;
+      if (my !== rebuildSeq || !current || current.id !== projectId) return;
       // Storage unavailable — lineage degrades to files-only rather than
       // breaking the dialog.
-      const graph = buildLineage(project.data.files, []);
-      set({ graph, layout: layoutDag(graph), version: Date.now(), loading: false });
+      finish(current.data.files, []);
     }
   },
-}));
+  };
+});
 
 // ---- app wiring ------------------------------------------------------------
 

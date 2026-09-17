@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const networkGraphManifest: PluginManifest = {
   id: 'example.network',
@@ -66,6 +67,7 @@ export class NetworkGraphPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private nodes: GNode[] = [];
   private edges: GEdge[] = [];
+  private hasWeight = false;
   private state: State = { linkDistance: 60, showLabels: true, charge: 200, hasData: false };
   private raf = 0;
 
@@ -78,6 +80,7 @@ export class NetworkGraphPlugin implements Plugin {
     this.ctx = null;
     this.nodes = [];
     this.edges = [];
+    this.hasWeight = false;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -95,10 +98,24 @@ export class NetworkGraphPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'network-graph');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.linkDistance === 'number') this.state.linkDistance = params.linkDistance;
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     if (typeof params.charge === 'number') this.state.charge = params.charge;
     this.draw();
+  }
+
+  private exportCsv() {
+    const header = this.hasWeight
+      ? ['source', 'target', 'weight']
+      : ['source', 'target'];
+    const rows = this.edges.map((e) =>
+      this.hasWeight ? [e.source, e.target, e.weight] : [e.source, e.target],
+    );
+    exportRowsCsv(this.api, 'network-graph', header, rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -130,6 +147,8 @@ export class NetworkGraphPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -139,7 +158,7 @@ export class NetworkGraphPlugin implements Plugin {
 
   async loadData(file: File) {
     const text = await file.text();
-    const { nodes, edges } = parseNetwork(text);
+    const { nodes, edges, hasWeight } = parseNetwork(text);
     if (nodes.length < 2) {
       this.api.notify(
         'warning',
@@ -151,6 +170,7 @@ export class NetworkGraphPlugin implements Plugin {
     }
     this.nodes = nodes;
     this.edges = edges;
+    this.hasWeight = hasWeight;
     this.state.hasData = true;
     this.api.reportDataScale(nodes.length);
     this.initPositions();
@@ -314,8 +334,17 @@ export class NetworkGraphPlugin implements Plugin {
   }
 }
 
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
+}
+
 /** Parse edge-list CSV or JSON graph. */
-export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
+export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[]; hasWeight: boolean } {
   const trimmed = text.trim();
   // JSON format: { nodes: [{id}], links: [{source, target, weight?}] }
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -329,12 +358,16 @@ export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
         if (id) nodeSet.add(id);
       }
       const edges: GEdge[] = [];
+      let hasWeight = false;
       for (const l of rawLinks) {
         const s = String(l.source ?? l.from ?? '');
         const t = String(l.target ?? l.to ?? '');
+        const weighted = Object.prototype.hasOwnProperty.call(l, 'weight')
+          || Object.prototype.hasOwnProperty.call(l, 'value');
         const w = Number(l.weight ?? l.value ?? 1);
         if (s && t) {
           edges.push({ source: s, target: t, weight: Number.isFinite(w) ? w : 1 });
+          if (weighted) hasWeight = true;
           nodeSet.add(s);
           nodeSet.add(t);
         }
@@ -349,7 +382,7 @@ export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
         x: 0, y: 0, vx: 0, vy: 0,
         degree: degreeMap.get(id) ?? 0,
       }));
-      return { nodes, edges: edges.slice(0, MAX_EDGES) };
+      return { nodes, edges: edges.slice(0, MAX_EDGES), hasWeight };
     } catch {
       // Fall through to CSV parsing
     }
@@ -360,6 +393,7 @@ export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
   const degreeMap = new Map<string, number>();
   const nodeSet = new Set<string>();
   const edges: GEdge[] = [];
+  let hasWeight = false;
   for (const line of lines) {
     const t = line.trim();
     if (!t) continue;
@@ -367,9 +401,12 @@ export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
     if (parts.length < 2) continue;
     const s = parts[0]!.trim();
     const tg = parts[1]!.trim();
-    const w = parts.length > 2 ? parseFloat(parts[2]!) : 1;
+    // A header-looking third token ("weight") must not count as a value.
+    const weighted = parts.length > 2 && Number.isFinite(parseFloat(parts[2]!));
+    const w = weighted ? parseFloat(parts[2]!) : 1;
     if (!s || !tg) continue;
     edges.push({ source: s, target: tg, weight: Number.isFinite(w) ? w : 1 });
+    if (weighted) hasWeight = true;
     nodeSet.add(s);
     nodeSet.add(tg);
     degreeMap.set(s, (degreeMap.get(s) ?? 0) + 1);
@@ -379,7 +416,7 @@ export function parseNetwork(text: string): { nodes: GNode[]; edges: GEdge[] } {
   const nodes: GNode[] = Array.from(nodeSet).slice(0, MAX_NODES).map((id) => ({
     id, x: 0, y: 0, vx: 0, vy: 0, degree: degreeMap.get(id) ?? 0,
   }));
-  return { nodes, edges };
+  return { nodes, edges, hasWeight };
 }
 
 export default function createNetworkGraphPlugin(): Plugin {

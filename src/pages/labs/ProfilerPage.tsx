@@ -9,7 +9,7 @@
 // histograms to Figure Studio.
 // ==========================================================================
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -106,20 +106,30 @@ export default function ProfilerPage() {
   const [state, setState] = useState<ScanState | null>(null);
   const [error, setError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  // Tracks the currently selected file inside the async scan loop, so a
+  // scan that finishes after the user switched files cannot land its result
+  // (and its saved profile/export) under the new file's name.
+  const fileRef = useRef(file);
+  fileRef.current = file;
+
+  // Abort any in-flight scan when leaving the page — the chunked loop and
+  // its final saveProfile would otherwise keep running off-screen.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const cachedForFile = project?.state.profiles?.find((p) => p.fileName === file) ?? null;
 
   const scan = async (useCache: boolean) => {
-    if (!file) return;
+    const scanFile = file;
+    if (!scanFile) return;
     setError('');
     setState(null);
-    const text = resolveDataFile(file);
+    const text = resolveDataFile(scanFile);
     if (text === undefined) {
-      setError(`data file not found: ${file}`);
+      setError(`data file not found: ${scanFile}`);
       return;
     }
     const fp = fingerprint(text);
-    const cache = project?.state.profiles?.find((p) => p.fileName === file && p.fingerprint === fp);
+    const cache = project?.state.profiles?.find((p) => p.fileName === scanFile && p.fingerprint === fp);
     if (useCache && cache) {
       setState({ profile: cache.profile, fp, cached: true, createdAt: cache.createdAt });
       return;
@@ -127,7 +137,7 @@ export default function ProfilerPage() {
 
     let table: ReturnType<typeof parseDataText>;
     try {
-      table = parseDataText(text, file);
+      table = parseDataText(text, scanFile);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       return;
@@ -150,7 +160,7 @@ export default function ProfilerPage() {
     setRowsDone(0);
     try {
       for (let start = 0; start < n; start += CHUNK) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || fileRef.current !== scanFile) return;
         const end = Math.min(n, start + CHUNK);
         const chunk: Array<Array<string | number | null>> = [];
         for (let i = start; i < end; i += 1) {
@@ -161,15 +171,19 @@ export default function ProfilerPage() {
         setRowsDone(end);
         await tick();
       }
+      // The selection may have changed while the loop was yielding.
+      if (controller.signal.aborted || fileRef.current !== scanFile) return;
       const profile = profiler.finalize();
       const now = Date.now();
       setState({ profile, fp, cached: false });
-      saveProfile({ fileKey: file, fingerprint: fp, fileName: file, createdAt: now, profile });
+      saveProfile({ fileKey: scanFile, fingerprint: fp, fileName: scanFile, createdAt: now, profile });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!controller.signal.aborted) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setScanning(false);
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setScanning(false);
+      }
     }
   };
 
@@ -206,7 +220,11 @@ export default function ProfilerPage() {
           <select
             className="input"
             value={file}
+            disabled={scanning}
             onChange={(e) => {
+              // Abort the previous file's scan so its result can never be
+              // shown/saved under the newly selected file.
+              abortRef.current?.abort();
               setFile(e.target.value);
               setState(null);
               setError('');

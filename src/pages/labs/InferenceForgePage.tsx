@@ -8,7 +8,7 @@
 // The whole inference is recorded as a single run (source 'inference').
 // ==========================================================================
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -35,11 +35,30 @@ const PALETTE = ['#0072B2', '#D55E00', '#009E73', '#CC79A7'];
 const MAX_CHART_PARAMS = 4;
 const MAX_CRITERION_DRAWS = 400;
 
+interface RunContext {
+  file: string;
+  kind: TemplateKind;
+  yCol: string;
+  xCol: string;
+  groupCol: string;
+  algorithm: 'hmc' | 'nuts';
+  warmup: number;
+  samples: number;
+  seed: number;
+  targetAccept: number;
+}
+
 interface ForgeOutcome {
   result: InferenceResult;
   chains: ChainSamples[];
   params: string[];
   charts: PlotSpec[];
+  /**
+   * The inputs frozen at Run time. Recording/exporting reads these instead
+   * of the live form state, so changing the form mid-/post-run can never
+   * label A's posterior with B's parameters.
+   */
+  ctx: RunContext;
   waic?: { elpd: number; se: number; p_eff: number };
   loo?: { elpd: number; se: number; p_eff: number; maxParetoK: number };
   ppc?: { stat: string; observed: number; pValue: number };
@@ -116,6 +135,18 @@ export default function InferenceForgePage() {
   const [outcome, setOutcome] = useState<ForgeOutcome | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Leaving the page mid-sampling must release the CPU: abort the active
+  // chain sequence (the sampler polls the signal between iterations).
+  // Nulling the ref also tells the settling run() that the component is
+  // gone: skip toasts and post-unmount state updates.
+  useEffect(() => {
+    const ref = abortRef;
+    return () => {
+      ref.current?.abort();
+      ref.current = null;
+    };
+  }, []);
+
   const cols = useMemo(() => {
     if (!file) return [] as string[];
     try {
@@ -143,20 +174,34 @@ export default function InferenceForgePage() {
       targetAccept: Math.min(0.99, Math.max(0.5, Number(targetAccept) || 0.8)),
       thin: Math.max(1, Math.floor(Number(thin)) || 1),
     };
+    // Freeze every input this run depends on. Everything downstream (charts,
+    // record, labels) reads `ctx` — never the mutable form state.
+    const ctx: RunContext = {
+      file,
+      kind,
+      yCol,
+      xCol,
+      groupCol,
+      algorithm,
+      warmup: cfg.warmup,
+      samples: cfg.samples,
+      seed: cfg.seed,
+      targetAccept: cfg.targetAccept,
+    };
     const controller = new AbortController();
     abortRef.current = controller;
     setRunning(true);
     setProgress({ done: 0, total: cfg.chains });
     try {
-      const { table } = loadTable(file);
+      const { table } = loadTable(ctx.file);
       const arrays = {
-        y: (table.getColumn(yCol) as Float64Array | undefined) ?? new Float64Array(0),
-        x: kind === 'normal-linear' ? (table.getColumn(xCol) as Float64Array | undefined) ?? undefined : undefined,
+        y: (table.getColumn(ctx.yCol) as Float64Array | undefined) ?? new Float64Array(0),
+        x: ctx.kind === 'normal-linear' ? (table.getColumn(ctx.xCol) as Float64Array | undefined) ?? undefined : undefined,
         group:
-          kind === 'normal-hierarchical' ? (table.getColumn(groupCol) as Float64Array | undefined) ?? undefined : undefined,
+          ctx.kind === 'normal-hierarchical' ? (table.getColumn(ctx.groupCol) as Float64Array | undefined) ?? undefined : undefined,
       };
-      const built = buildTemplate(kind, arrays);
-      if (kind === 'normal-hierarchical' && built.groups.length < 2) {
+      const built = buildTemplate(ctx.kind, arrays);
+      if (ctx.kind === 'normal-hierarchical' && built.groups.length < 2) {
         setError(t('inference.need_groups'));
         return;
       }
@@ -189,7 +234,7 @@ export default function InferenceForgePage() {
         for (let s = 0; s < n; s += stride) {
           for (const p of names) theta[p] = draws[p]![s]!;
           logLik.push(
-            Float64Array.from(arrays.y, (_, i) => templateLogLik(kind, theta, arrays, i)),
+            Float64Array.from(arrays.y, (_, i) => templateLogLik(ctx.kind, theta, arrays, i)),
           );
         }
         const w = waic(logLik);
@@ -199,7 +244,7 @@ export default function InferenceForgePage() {
       }
 
       const ppcRes = posteriorPredictive(
-        (theta, rand) => templateSim(kind, theta, arrays, rand),
+        (theta, rand) => templateSim(ctx.kind, theta, arrays, rand),
         arrays.y,
         draws,
         { maxDraws: 400, seed: cfg.seed },
@@ -207,6 +252,7 @@ export default function InferenceForgePage() {
 
       const rHatWarn = model.paramNames.filter((p) => (diagnostics.rHat[p] ?? 1) > 1.01);
       setOutcome({
+        ctx,
         result: {
           samples: draws,
           diagnostics,
@@ -226,26 +272,30 @@ export default function InferenceForgePage() {
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        notify('info', t('inference.cancel'));
+        // Unmount-triggered aborts stay silent; explicit Cancel informs.
+        if (abortRef.current === controller) notify('info', t('inference.cancel'));
       } else {
         setError(err instanceof Error ? err.message : String(err));
       }
     } finally {
-      setRunning(false);
-      setProgress(null);
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setRunning(false);
+        setProgress(null);
+      }
     }
   };
 
   const sendCharts = () => {
     if (!outcome || outcome.charts.length === 0) return;
     let ok = true;
+    const { ctx } = outcome;
     outcome.charts.forEach((spec, i) => {
       if (
         !sendSpecToFigure(
           t('inference.title'),
           spec,
-          i === 0 ? `${file} — ${algorithm} posterior (${outcome.params.length} params)` : undefined,
+          i === 0 ? `${ctx.file} — ${ctx.algorithm} posterior (${outcome.params.length} params)` : undefined,
         )
       ) {
         ok = false;
@@ -256,25 +306,26 @@ export default function InferenceForgePage() {
 
   const record = async () => {
     if (!outcome) return;
+    const { ctx } = outcome;
     const rHatMax = Math.max(...outcome.params.map((p) => outcome.result.diagnostics.rHat[p] ?? 1));
     const essMin = Math.min(...outcome.params.map((p) => outcome.result.diagnostics.essBulk[p] ?? 0));
     const divergences = outcome.chains.reduce((s, c) => s + c.divergences, 0);
     const acceptRate = outcome.chains.reduce((s, c) => s + c.acceptRate, 0) / outcome.chains.length;
     await recordRun({
       source: 'inference',
-      label: `${algorithm} · ${kind} · ${file}`,
+      label: `${ctx.algorithm} · ${ctx.kind} · ${ctx.file}`,
       params: {
-        algorithm,
-        template: kind,
-        file,
-        y: yCol,
-        x: kind === 'normal-linear' ? xCol : undefined,
-        group: kind === 'normal-hierarchical' ? groupCol : undefined,
+        algorithm: ctx.algorithm,
+        template: ctx.kind,
+        file: ctx.file,
+        y: ctx.yCol,
+        x: ctx.kind === 'normal-linear' ? ctx.xCol : undefined,
+        group: ctx.kind === 'normal-hierarchical' ? ctx.groupCol : undefined,
         chains: outcome.result.timing.chains,
-        warmup: Number(warmup),
-        samples: Number(samples),
-        seed: Number(seed),
-        targetAccept: Number(targetAccept),
+        warmup: ctx.warmup,
+        samples: ctx.samples,
+        seed: ctx.seed,
+        targetAccept: ctx.targetAccept,
       },
       metrics: {
         rHatMax,
@@ -285,7 +336,7 @@ export default function InferenceForgePage() {
         ...(outcome.loo ? { elpdLoo: outcome.loo.elpd } : {}),
       },
       durationMs: Math.round(outcome.result.timing.warmupMs + outcome.result.timing.samplingMs),
-      seed: Number(seed) || undefined,
+      seed: ctx.seed || undefined,
     });
     notify('success', t('inference.recorded'));
   };
@@ -296,7 +347,7 @@ export default function InferenceForgePage() {
     <ToolShell toolId="inference">
       <div className="analysis-body">
         <div className="analysis-row">
-          <select className="input" value={file} onChange={(e) => { setFile(e.target.value); setYCol(''); setXCol(''); setGroupCol(''); setOutcome(null); setError(''); }}>
+          <select className="input" value={file} disabled={running} onChange={(e) => { setFile(e.target.value); setYCol(''); setXCol(''); setGroupCol(''); setOutcome(null); setError(''); }}>
             <option value="">{t('analysis.select_file')}</option>
             {fileGroups.project.map((n) => <option key={n} value={n}>{n}</option>)}
             {fileGroups.examples.length > 0 && (
@@ -305,7 +356,7 @@ export default function InferenceForgePage() {
               </optgroup>
             )}
           </select>
-          <select className="input" value={kind} onChange={(e) => { setKind(e.target.value as TemplateKind); setOutcome(null); setError(''); }}>
+          <select className="input" value={kind} disabled={running} onChange={(e) => { setKind(e.target.value as TemplateKind); setOutcome(null); setError(''); }}>
             <option value="normal-mean">{t('inference.template_mean')}</option>
             <option value="normal-linear">{t('inference.template_linear')}</option>
             <option value="normal-hierarchical">{t('inference.template_hier')}</option>
@@ -320,18 +371,18 @@ export default function InferenceForgePage() {
 
         {file && (
           <div className="analysis-row">
-            <select className="input" value={yCol} onChange={(e) => { setYCol(e.target.value); setOutcome(null); }}>
+            <select className="input" value={yCol} disabled={running} onChange={(e) => { setYCol(e.target.value); setOutcome(null); }}>
               <option value="">{t('inference.y')}</option>
               {cols.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {kind === 'normal-linear' && (
-              <select className="input" value={xCol} onChange={(e) => { setXCol(e.target.value); setOutcome(null); }}>
+              <select className="input" value={xCol} disabled={running} onChange={(e) => { setXCol(e.target.value); setOutcome(null); }}>
                 <option value="">{t('inference.x')}</option>
                 {cols.filter((c) => c !== yCol).map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
             {kind === 'normal-hierarchical' && (
-              <select className="input" value={groupCol} onChange={(e) => { setGroupCol(e.target.value); setOutcome(null); }}>
+              <select className="input" value={groupCol} disabled={running} onChange={(e) => { setGroupCol(e.target.value); setOutcome(null); }}>
                 <option value="">{t('inference.group')}</option>
                 {cols.filter((c) => c !== yCol).map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -340,16 +391,16 @@ export default function InferenceForgePage() {
         )}
 
         <div className="analysis-row" title={t('inference.algorithm')}>
-          <select className="input" value={algorithm} onChange={(e) => setAlgorithm(e.target.value as 'hmc' | 'nuts')}>
+          <select className="input" value={algorithm} disabled={running} onChange={(e) => setAlgorithm(e.target.value as 'hmc' | 'nuts')}>
             <option value="nuts">{t('inference.algo_nuts')}</option>
             <option value="hmc">{t('inference.algo_hmc')}</option>
           </select>
-          <input className="input research-num" title={t('inference.chains')} value={chains} onChange={(e) => setChains(e.target.value)} />
-          <input className="input research-num" title={t('inference.warmup')} value={warmup} onChange={(e) => setWarmup(e.target.value)} />
-          <input className="input research-num" title={t('inference.samples')} value={samples} onChange={(e) => setSamples(e.target.value)} />
-          <input className="input research-num" title={t('inference.seed')} value={seed} onChange={(e) => setSeed(e.target.value)} />
-          <input className="input research-num" title={t('inference.target_accept')} value={targetAccept} onChange={(e) => setTargetAccept(e.target.value)} />
-          <input className="input research-num" title={t('inference.thin')} value={thin} onChange={(e) => setThin(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.chains')} value={chains} onChange={(e) => setChains(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.warmup')} value={warmup} onChange={(e) => setWarmup(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.samples')} value={samples} onChange={(e) => setSamples(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.seed')} value={seed} onChange={(e) => setSeed(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.target_accept')} value={targetAccept} onChange={(e) => setTargetAccept(e.target.value)} />
+          <input className="input research-num" disabled={running} title={t('inference.thin')} value={thin} onChange={(e) => setThin(e.target.value)} />
         </div>
 
         {running && progress && <p className="analysis-note">{t('inference.running', { done: progress.done, total: progress.total })}</p>}

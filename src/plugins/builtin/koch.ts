@@ -12,6 +12,19 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+function canvasBackground(canvas: HTMLCanvasElement): string {
+  if (typeof getComputedStyle === 'function') return getComputedStyle(canvas).backgroundColor || '#0a0e13';
+  return '#0a0e13';
+}
 
 export const kochManifest: PluginManifest = {
   id: 'fun.koch',
@@ -37,10 +50,13 @@ interface State {
 
 export class KochPlugin implements Plugin {
   readonly manifest = kochManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private state: State = { iterations: 3, color: '#a5f3fc' };
 
-  async init(_api: PluginApi) {}
+  async init(api: PluginApi) {
+    this.api = api;
+  }
 
   async destroy() {
     this.ctx = null;
@@ -59,6 +75,12 @@ export class KochPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // No rotation/transform state exists on this plugin, so only the PNG
+    // snapshot action is offered (no reset button).
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'koch');
+      return;
+    }
     if (typeof params.iterations === 'number') {
       this.state.iterations = Math.max(0, Math.min(6, Math.round(params.iterations)));
     }
@@ -91,6 +113,7 @@ export class KochPlugin implements Plugin {
         ],
         value: this.state.color,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 
@@ -101,7 +124,7 @@ export class KochPlugin implements Plugin {
     const h = canvas.height = canvas.clientHeight || 360;
     const g = canvas.getContext('2d');
     if (!g) return;
-    g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
+    g.fillStyle = canvasBackground(canvas);
     g.fillRect(0, 0, w, h);
 
     const cx = w / 2;

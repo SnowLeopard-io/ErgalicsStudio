@@ -134,12 +134,21 @@ export default function SignalLabPage() {
       const xRaw = Array.from(
         (table.getColumn(valueCol) as Float64Array | undefined) ?? [],
       ) as number[];
-      const x = xRaw.filter(Number.isFinite);
+      // Build the finite-sample mask on the ORIGINAL rows, then derive both
+      // the value series and the time axis from the same index set. Filtering
+      // values alone (the old code) left tVals at full length, so every
+      // missing value shifted the time axis and mis-aligned filter/decompose
+      // charts against the original curve.
+      const keep: number[] = [];
+      for (let i = 0; i < xRaw.length; i += 1) {
+        if (Number.isFinite(xRaw[i])) keep.push(i);
+      }
+      const x = keep.map((i) => xRaw[i]!);
       if (x.length < 4) throw new Error('need at least 4 finite samples');
       const tRaw = timeCol ? table.getColumn(timeCol) : undefined;
       const tVals: number[] = tRaw
-        ? Array.from(tRaw as Iterable<number | string>, (v) => Number(v))
-        : x.map((_, i) => i);
+        ? keep.map((i) => Number((tRaw as ArrayLike<number>)[i]))
+        : keep.slice();
       const rate = Number(sampleRate) || 1;
 
       if (op === 'spectrum') {
@@ -296,7 +305,15 @@ export default function SignalLabPage() {
     <ToolShell toolId="signal">
       {project && (
         <div className="research-toolbar">
-          <select className="input" value={file} onChange={(e) => { setFile(e.target.value); setTimeCol(''); setValueCol(''); }}>
+          <select className="input" value={file} onChange={(e) => {
+            // Clear the previous file's derived result — otherwise "save
+            // column" writes A's spectrum/filter output under B's file name.
+            setFile(e.target.value);
+            setTimeCol('');
+            setValueCol('');
+            setResult(null);
+            setError('');
+          }}>
             <option value="">{t('analysis.select_file')}</option>
             {groups.project.map((n) => <option key={n} value={n}>{n}</option>)}
             {groups.examples.length > 0 && (
@@ -305,15 +322,15 @@ export default function SignalLabPage() {
               </optgroup>
             )}
           </select>
-          <select className="input" value={valueCol} onChange={(e) => setValueCol(e.target.value)}>
+          <select className="input" value={valueCol} onChange={(e) => { setValueCol(e.target.value); setResult(null); }}>
             <option value="">{t('signal.value_axis')}</option>
             {numericOptions.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select className="input" value={timeCol} onChange={(e) => setTimeCol(e.target.value)}>
+          <select className="input" value={timeCol} onChange={(e) => { setTimeCol(e.target.value); setResult(null); }}>
             <option value="">{t('signal.time_axis')}</option>
             {numericOptions.filter((c) => c !== valueCol).map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select className="input" value={op} onChange={(e) => setOp(e.target.value as Op)}>
+          <select className="input" value={op} onChange={(e) => { setOp(e.target.value as Op); setResult(null); setError(''); }}>
             <option value="spectrum">{t('signal.op_spectrum')}</option>
             <option value="welch">{t('signal.op_welch')}</option>
             <option value="filter">{t('signal.op_filter')}</option>

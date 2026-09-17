@@ -11,6 +11,17 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
+
+const HG_COLORS = ['#a78bfa', '#22d3ee', '#34d399', '#f472b6', '#fbbf24'];
+const randFreq = () => Math.round((1 + Math.random() * 5) * 100) / 100;
 
 export const harmonographManifest: PluginManifest = {
   id: 'fun.harmonograph',
@@ -43,6 +54,7 @@ interface State {
 
 export class HarmonographPlugin implements Plugin {
   readonly manifest = harmonographManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private state: State = {
@@ -57,7 +69,8 @@ export class HarmonographPlugin implements Plugin {
     phase: 0,
   };
 
-  async init(_api: PluginApi) {
+  async init(api: PluginApi) {
+    this.api = api;
   }
 
   async destroy() {
@@ -80,6 +93,15 @@ export class HarmonographPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'harmonograph');
+      return;
+    }
+    if (buttonPressed(params, 'randomize')) {
+      this.randomize();
+      if (!this.state.animate) this.draw();
+      return;
+    }
     let changed = false;
     if (typeof params.f1 === 'number') { this.state.f1 = params.f1; changed = true; }
     if (typeof params.f2 === 'number') { this.state.f2 = params.f2; changed = true; }
@@ -112,7 +134,20 @@ export class HarmonographPlugin implements Plugin {
         { value: '#fbbf24', label: 'Amber' },
       ], value: this.state.color },
       { key: 'animate', label: 'Morph', labelI18n: { 'zh-CN': '渐变', 'en-US': 'Morph' }, type: 'toggle', offLabel: 'Morph', onLabel: 'Morphing', offLabelI18n: { 'zh-CN': '渐变', 'en-US': 'Morph' }, onLabelI18n: { 'zh-CN': '渐变中', 'en-US': 'Morphing' }, value: this.state.animate },
+      actionButton('randomize', 'Randomize', '随机参数'),
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
+  }
+
+  /** Randomize every tunable curve parameter (morph state is left alone). */
+  private randomize() {
+    this.state.f1 = randFreq();
+    this.state.f2 = randFreq();
+    this.state.f3 = Math.round((this.state.f1 + (Math.random() - 0.5) * 0.06 + 0.01) * 100) / 100;
+    this.state.f4 = randFreq();
+    this.state.damping = Math.round(Math.random() * 0.01 * 1000) / 1000;
+    this.state.lineWidth = Math.round((0.3 + Math.random() * 1.7) * 10) / 10;
+    this.state.color = HG_COLORS[Math.floor(Math.random() * HG_COLORS.length)]!;
   }
 
   private draw() {

@@ -52,6 +52,12 @@ export interface SweepPlan {
   axes: SweepAxis[];
   /** Dotted metric path in the run output, e.g. `metrics.error`. */
   metric: string;
+  /**
+   * Scalar evaluator applied to each cell's flat axis params (`p`), e.g.
+   * `p.a * p.a + p.b`. Persisted with the plan so later runs/resumes never
+   * pick up an expression left in another plan's editor.
+   */
+  expression?: string;
   /** Repeats per design point (>= 1); repeat r gets its own seed. */
   repeats: number;
   /** Constant params merged underneath the axis values. */

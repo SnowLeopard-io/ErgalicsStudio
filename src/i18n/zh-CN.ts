@@ -587,6 +587,7 @@ export const zhCN: LocaleDictionary = {
   'sweep.plan_invalid': '计划无效：{reason}',
   'sweep.cell_count': '共 {count} 个格',
   'sweep.last_error': '最后错误',
+  'sweep.result_stale': '已保存的结果属于此计划的旧版本，请重新运行以刷新。',
 
   // ---- F3 Signal Lab ----
   'signal.title': '信号实验室',

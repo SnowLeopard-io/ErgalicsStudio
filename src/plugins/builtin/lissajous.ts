@@ -11,6 +11,14 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng } from './shared/enhance';
+
+/** Host button presses arrive as `{ [action]: true }`; accept the legacy
+ *  `{ action }` payload shape too. */
+function buttonPressed(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+}
 
 export const lissajousManifest: PluginManifest = {
   id: 'fun.lissajous',
@@ -40,6 +48,7 @@ interface State {
 
 export class LissajousPlugin implements Plugin {
   readonly manifest = lissajousManifest;
+  private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private state: State = {
@@ -51,7 +60,8 @@ export class LissajousPlugin implements Plugin {
     animate: true,
   };
 
-  async init(_api: PluginApi) {
+  async init(api: PluginApi) {
+    this.api = api;
   }
 
   async destroy() {
@@ -74,6 +84,19 @@ export class LissajousPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (buttonPressed(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d, 'lissajous');
+      return;
+    }
+    // Restore the default frequencies / phase. The animation loop (if one
+    // is running) keeps spinning — only the curve parameters reset.
+    if (buttonPressed(params, 'reset')) {
+      this.state.a = 3;
+      this.state.b = 2;
+      this.state.delta = Math.PI / 2;
+      this.draw();
+      return;
+    }
     let changed = false;
     if (typeof params.a === 'number') { this.state.a = params.a; changed = true; }
     if (typeof params.b === 'number') { this.state.b = params.b; changed = true; }
@@ -102,6 +125,8 @@ export class LissajousPlugin implements Plugin {
         { value: '#fbbf24', label: 'Amber' },
       ], value: this.state.color },
       { key: 'animate', label: 'Animate', labelI18n: { 'zh-CN': '动画', 'en-US': 'Animate' }, type: 'toggle', offLabel: 'Animate', onLabel: 'Animating', offLabelI18n: { 'zh-CN': '动画', 'en-US': 'Animate' }, onLabelI18n: { 'zh-CN': '动画中', 'en-US': 'Animating' }, value: this.state.animate },
+      actionButton('reset', 'Reset', '重置'),
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

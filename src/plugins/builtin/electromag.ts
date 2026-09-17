@@ -18,6 +18,7 @@ import type {
   PluginManifest,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
+import { actionButton, exportCanvasPng, notify } from './shared/enhance';
 
 export const electromagManifest: PluginManifest = {
   id: 'example.electromag',
@@ -94,6 +95,13 @@ export class ElectromagPlugin implements Plugin {
   private acc = 0;
   private dragIndex = -1;
   private dragLast: { x: number; y: number; t: number } | null = null;
+  /**
+   * Smoothed pointer velocity during a drag. Sampled between consecutive
+   * move events — reading it only at pointerup was always zero, because the
+   * final move event and pointerup share the same position.
+   */
+  private dragVelX: number | null = null;
+  private dragVelY: number | null = null;
   /** Pointer-gesture bookkeeping: does this gesture redefine the setup? */
   private dragNew = false;
   private dragStart = { x: 0, y: 0 };
@@ -159,6 +167,8 @@ export class ElectromagPlugin implements Plugin {
     this.trails = this.charges.map(() => []);
     this.dragIndex = -1;
     this.dragLast = null;
+    this.dragVelX = null;
+    this.dragVelY = null;
     this.stop();
     this.draw();
   }
@@ -208,6 +218,8 @@ export class ElectromagPlugin implements Plugin {
     this.dragIndex = hit;
     this.dragNew = created;
     this.dragLast = { x, y, t: performance.now() };
+    this.dragVelX = null;
+    this.dragVelY = null;
     const c = this.charges[hit]!;
     c.vx = 0;
     c.vy = 0;
@@ -221,27 +233,38 @@ export class ElectromagPlugin implements Plugin {
     if (this.dragIndex < 0) return;
     const { x, y } = this.toLocal(e);
     const c = this.charges[this.dragIndex]!;
+    // Estimate instantaneous velocity from the previous move sample and fold
+    // it into an EMA, so a fast flick still registers even though pointerup
+    // lands on the same coordinates as the last move event.
+    const now = performance.now();
+    const last = this.dragLast;
+    if (last) {
+      const dt = Math.max(1, now - last.t) / 1000;
+      const ivx = (x - last.x) / dt;
+      const ivy = (y - last.y) / dt;
+      this.dragVelX = this.dragVelX === null ? ivx : this.dragVelX * 0.45 + ivx * 0.55;
+      this.dragVelY = this.dragVelY === null ? ivy : this.dragVelY * 0.45 + ivy * 0.55;
+    }
     c.x = x;
     c.y = y;
-    this.dragLast = { x, y, t: performance.now() };
+    this.dragLast = { x, y, t: now };
     this.draw();
   };
 
   private onUp = (e: PointerEvent) => {
     if (this.dragIndex < 0) return;
     const c = this.charges[this.dragIndex]!;
-    // Release velocity from the last drag motion (a "throw").
-    if (this.dragLast) {
-      const dt = Math.max(8, performance.now() - this.dragLast.t) / 1000;
-      const dx = c.x - this.dragLast.x;
-      const dy = c.y - this.dragLast.y;
-      c.vx = Math.max(-600, Math.min(600, (dx / dt) * 0.35));
-      c.vy = Math.max(-600, Math.min(600, (dy / dt) * 0.35));
+    // Release velocity from the smoothed drag motion (a "throw").
+    if (this.dragVelX !== null && this.dragVelY !== null) {
+      c.vx = Math.max(-600, Math.min(600, this.dragVelX * 0.35));
+      c.vy = Math.max(-600, Math.min(600, this.dragVelY * 0.35));
     }
     const moved =
       this.dragNew || Math.hypot(c.x - this.dragStart.x, c.y - this.dragStart.y) > 4;
     this.dragIndex = -1;
     this.dragLast = null;
+    this.dragVelX = null;
+    this.dragVelY = null;
     this.dragNew = false;
     // A real edit redefines the initial configuration the run starts from; a
     // bare click (pause / pick) leaves it untouched.
@@ -266,6 +289,28 @@ export class ElectromagPlugin implements Plugin {
       this.charges = [];
       this.trails = [];
       this.snapshotInitial();
+      this.resetToInitial();
+      return;
+    }
+
+    // Buttons accept both the host's `{ key: { action } }` emission and a
+    // plain `{ key: true }` call.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      // Snapshot only — never starts or stops the simulation.
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'electromag');
+      return;
+    }
+    if (fired('resetCharges')) {
+      // Distinct from the danger "clear": restore the loaded / arranged
+      // initial charge layout instead of emptying the bench.
+      if (this.initial.length === 0) {
+        notify(this.api, 'warning', 'No initial charge layout to restore.', '尚无初始电荷布局可恢复。');
+        return;
+      }
       this.resetToInitial();
       return;
     }
@@ -378,6 +423,8 @@ export class ElectromagPlugin implements Plugin {
         variant: 'danger',
         action: 'clear',
       },
+      actionButton('resetCharges', 'Reset Charges', '重置电荷'),
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

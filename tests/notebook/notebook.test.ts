@@ -46,6 +46,26 @@ describe('mdToHtml — safety', () => {
     expect(html).toContain('<pre><code>&lt;script&gt;');
     expect(html).not.toContain('<script>');
   });
+
+  it('neutralizes active-scheme markdown links (shared-notebook XSS)', () => {
+    const evil = mdToHtml('[click](javascript:alert(1))');
+    expect(evil).not.toContain('href="javascript:');
+    expect(evil).not.toContain('<a ');
+    expect(evil).toContain('click');
+
+    // Obfuscated casing and other active schemes are blocked too.
+    expect(mdToHtml('[x](JaVaScRiPt:alert(1))')).not.toContain('<a ');
+    expect(mdToHtml('[x](data:text/html,<script>)')).not.toContain('<a ');
+    expect(mdToHtml('[x](vbscript:msgbox)')).not.toContain('<a ');
+  });
+
+  it('still allows http/https/mailto and relative links', () => {
+    expect(mdToHtml('[s](https://x.example)')).toContain('href="https://x.example"');
+    expect(mdToHtml('[s](http://x.example)')).toContain('href="http://x.example"');
+    expect(mdToHtml('[m](mailto:a@b.example)')).toContain('href="mailto:a@b.example"');
+    expect(mdToHtml('[r](/files/a.csv)')).toContain('href="/files/a.csv"');
+    expect(mdToHtml('[r](#section)')).toContain('href="#section"');
+  });
 });
 
 describe('mdToHtml — supported syntax', () => {

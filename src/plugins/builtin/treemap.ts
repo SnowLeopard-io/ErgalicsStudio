@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const treemapManifest: PluginManifest = {
   id: 'example.treemap',
@@ -80,8 +81,28 @@ export class TreemapPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'treemap');
+    }
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
+  }
+
+  private exportCsv() {
+    // Flatten the parsed hierarchy. The synthetic root is not exported;
+    // its direct children get an empty parent cell.
+    const rows: Array<[string, string, number]> = [];
+    if (this.root) {
+      const walk = (node: TNode, parentName: string) => {
+        for (const child of node.children) {
+          rows.push([child.name, parentName, child.size]);
+          walk(child, child.name);
+        }
+      };
+      walk(this.root, '');
+    }
+    exportRowsCsv(this.api, 'treemap', ['name', 'parent', 'size'], rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -93,6 +114,8 @@ export class TreemapPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -177,14 +200,26 @@ export class TreemapPlugin implements Plugin {
   }
 }
 
+/**
+ * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
+ * historically emits `{ [key]: { action } }` instead, so accept both shapes.
+ */
+function actionFired(params: Record<string, unknown>, key: string): boolean {
+  const v = params[key];
+  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
+}
+
 /** Parse CSV into a hierarchy; flat `label,size` becomes a single root layer. */
 export function parseTreemapData(text: string): TNode | null {
   const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return null;
   const sep = lines[0]!.includes(',') ? ',' : /\s+/;
   const firstTokens = lines[0]!.split(sep).map((t) => t.trim());
-  const firstNumeric = Number.isFinite(Number(firstTokens[0]));
-  const start = firstNumeric ? 0 : 1;
+  // A header row has NO numeric columns — the size column is numeric on every
+  // real data row. Testing only the first token misclassified the flat
+  // `label,size` format (whose labels are text) as a header and dropped the
+  // first data row.
+  const start = firstTokens.some((t) => Number.isFinite(Number(t))) ? 0 : 1;
   const hasParent = lines[start]!.split(sep).length >= 3;
 
   const byName = new Map<string, TNode>();

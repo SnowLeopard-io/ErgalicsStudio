@@ -17,6 +17,7 @@ import type {
   PluginApi,
   PluginManifest,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
 
 export const pendulumManifest: PluginManifest = {
   id: 'example.pendulum',
@@ -114,6 +115,8 @@ export function pendulumEnergy(s: PendulumState, p: PendulumParams): number {
 // ---- Plugin ------------------------------------------------------------------
 
 const TRAIL_LEN = 500;
+/** Max sampled points kept for the trace CSV export (one row per physics step). */
+const TRACE_MAX = 20000;
 
 interface Twin {
   state: PendulumState;
@@ -183,6 +186,14 @@ export class DoublePendulumPlugin implements Plugin {
   private rafId = 0;
   private lastFrame = 0;
   private acc = 0;
+  /**
+   * Sampled main-pendulum trace for CSV export: rows of [t, th1, th2], one
+   * per RK4 physics step (not per frame). Seeded with the t=0 state on load
+   * and cleared by reset / reload, so the export always covers the current
+   * run from its initial conditions.
+   */
+  private trace: number[][] = [];
+  private traceT = 0;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -207,6 +218,20 @@ export class DoublePendulumPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'double-pendulum');
+      return;
+    }
+    if (fired('exportCsv')) {
+      exportRowsCsv(this.api, 'double-pendulum-trace', ['t', 'th1', 'th2'], this.trace);
+      return;
+    }
     // Mass / length / gravity changes apply live; Reset replays the loaded
     // initial conditions with the new parameters.
     for (const key of ['m1', 'm2', 'l1', 'l2', 'g'] as const) {
@@ -273,6 +298,8 @@ export class DoublePendulumPlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Trace CSV', '导出轨迹 CSV'),
     ];
   }
 
@@ -330,6 +357,9 @@ export class DoublePendulumPlugin implements Plugin {
       state: [ic.th1 + GHOST_OFFSET, ic.w1, ic.th2, ic.w2],
       trail: [],
     };
+    // Restart the export trace at the t = 0 initial state.
+    this.traceT = 0;
+    this.trace = [[0, ic.th1, ic.th2]];
   }
 
   private start() {
@@ -370,6 +400,10 @@ export class DoublePendulumPlugin implements Plugin {
     while (this.acc >= dt && steps < 240) {
       this.main.state = pendulumStepRK4(this.main.state, p, dt);
       if (this.state.showGhost) this.ghost.state = pendulumStepRK4(this.ghost.state, p, dt);
+      // Sample the main pendulum once per physics step for trace export.
+      this.traceT += dt;
+      this.trace.push([this.traceT, this.main.state[0], this.main.state[2]]);
+      if (this.trace.length > TRACE_MAX) this.trace.shift();
       this.acc -= dt;
       steps += 1;
     }

@@ -16,6 +16,7 @@ import type {
   PluginManifest,
   Scene3DHandle,
 } from '@/types/plugin';
+import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
 
 export const pointCloud3DManifest: PluginManifest = {
   id: 'example.point-cloud-3d',
@@ -95,6 +96,20 @@ export class PointCloud3DPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Buttons accept both the host's `{ key: { action } }` emission and a
+    // plain `{ key: true }` call. They never touch the render state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'pointcloud3d');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportCsv();
+      return;
+    }
     if (typeof params.size === 'number' && params.size !== this.state.size) {
       this.state.size = params.size;
       this.rebuildMesh();
@@ -121,7 +136,23 @@ export class PointCloud3DPlugin implements Plugin {
         ],
         value: this.state.colorMode,
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Points CSV', '导出点云 CSV'),
     ];
+  }
+
+  /** Export the loaded points (x, y, z) as CSV. */
+  private exportCsv() {
+    const n = this.state.count;
+    const rows: number[][] = [];
+    for (let i = 0; i < n; i += 1) {
+      rows.push([
+        this.positions[i * 3]!,
+        this.positions[i * 3 + 1]!,
+        this.positions[i * 3 + 2]!,
+      ]);
+    }
+    exportRowsCsv(this.api, 'pointcloud3d', ['x', 'y', 'z'], rows);
   }
 
   getSupportedFormats() {
@@ -135,22 +166,47 @@ export class PointCloud3DPlugin implements Plugin {
     this.state.count = count;
     this.state.hasData = count > 0;
     this.api.reportDataScale(count);
+    if (count === 0) {
+      this.api.notify(
+        'warning',
+        this.api.locale === 'zh-CN'
+          ? `未能从 ${file.name} 解析出任何坐标点（支持 "x y z" 或标准 XYZ "元素 x y z" 格式）`
+          : `Parsed 0 points from ${file.name} (expected "x y z" rows or standard XYZ "element x y z" rows)`,
+      );
+    }
     this.rebuildMesh();
     this.fitCamera();
     this.draw();
   }
 
-  /** Parse "x y z [more…]" lines (whitespace or comma separated). */
+  /**
+   * Parse coordinate rows in two dialects: "x y z [more…]" (whitespace or
+   * comma separated) or standard XYZ molecular rows "Element x y z", where
+   * the first token is an element symbol. The XYZ header (a lone atom
+   * count) and comment line carry no three finite coordinates and are
+   * skipped automatically.
+   */
   private parse(text: string): { positions: Float32Array; count: number } {
     const out: number[] = [];
     let limit = MAX_RENDERED_POINTS;
     for (const line of text.split(/\r?\n/)) {
       if (out.length / 3 >= MAX_RENDERED_POINTS) break;
-      const parts = line.trim().split(/[\s,]+/);
+      const parts = line.trim().split(/[\s,]+/).filter(Boolean);
       if (parts.length < 3) continue;
-      const x = parseFloat(parts[0] ?? '');
-      const y = parseFloat(parts[1] ?? '');
-      const z = parseFloat(parts[2] ?? '');
+      let x = Number.NaN;
+      let y = Number.NaN;
+      let z = Number.NaN;
+      const first = parseFloat(parts[0] ?? '');
+      if (Number.isFinite(first)) {
+        x = first;
+        y = parseFloat(parts[1] ?? '');
+        z = parseFloat(parts[2] ?? '');
+      } else if (parts.length >= 4) {
+        // "Element x y z" — skip the symbol column.
+        x = parseFloat(parts[1] ?? '');
+        y = parseFloat(parts[2] ?? '');
+        z = parseFloat(parts[3] ?? '');
+      }
       if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
         out.push(x, y, z);
         limit -= 1;

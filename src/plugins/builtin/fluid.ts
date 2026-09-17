@@ -18,12 +18,14 @@ import type {
   ComputeResult,
   ContainerCapabilities,
   GpuComputeApi,
+  GpuKernelHandle,
   ParamDefinition,
   Plugin,
   PluginApi,
   PluginManifest,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 import {
   FLUID_DIRECTIONS,
   FLUID_FIELD_USAGE,
@@ -116,6 +118,19 @@ interface State {
   hasData: boolean;
 }
 
+/** Cached WebGPU buffers + compiled kernels, keyed by lattice dimensions. */
+interface GpuResourceSet {
+  key: string;
+  fieldA: ComputeBufferHandle;
+  fieldB: ComputeBufferHandle;
+  flagsBuf: ComputeBufferHandle;
+  paramsBuf: ComputeBufferHandle;
+  curlBuf: ComputeBufferHandle;
+  collide: GpuKernelHandle;
+  stream: GpuKernelHandle;
+  observe: GpuKernelHandle;
+}
+
 export class FluidPlugin implements Plugin {
   readonly manifest = fluidManifest;
   private api!: PluginApi;
@@ -156,6 +171,19 @@ export class FluidPlugin implements Plugin {
   private diverged = false;
 
   /**
+   * Persistent GPU resources for the current lattice size.
+   *
+   * The old path created five buffers and recompiled three kernels on EVERY
+   * frame — hundreds of allocations + WGSL compiles per second, with the
+   * ping-pong field recreated zero-filled each time (the GPU field could
+   * never evolve beyond the first batch). Buffers and kernels now live for
+   * the plugin's lifetime and are only rebuilt when the lattice dimensions
+   * change (or after a failure); the field carries across frames in
+   * fieldA (collide A→B, stream B→A).
+   */
+  private gpuRes: GpuResourceSet | null = null;
+
+  /**
    * Inflow speed actually fed to the solver.
    *
    * Smoothstep from rest to `state.u0` over `INFLOW_RAMP_STEPS`.
@@ -180,6 +208,9 @@ export class FluidPlugin implements Plugin {
     const size = SIZES[key];
     this.cols = size.cols;
     this.rows = size.rows;
+    // GPU buffers are sized to the old lattice — drop them; the next GPU
+    // batch rebuilds the set and re-uploads the reseeded field.
+    this.destroyGpuResources();
     this.flags = new Float32Array(this.cols * this.rows);
     this.f = new Float32Array(this.cols * this.rows * FLUID_DIRECTIONS);
     this.fpost = new Float32Array(this.cols * this.rows * FLUID_DIRECTIONS);
@@ -193,6 +224,7 @@ export class FluidPlugin implements Plugin {
 
   async destroy() {
     this.stop();
+    this.destroyGpuResources();
     this.ctx = null;
   }
 
@@ -210,6 +242,20 @@ export class FluidPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    const fired = (key: string): boolean => {
+      const v = params[key];
+      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
+    };
+    if (fired('exportPng')) {
+      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'fluid');
+      return;
+    }
+    if (fired('exportCsv')) {
+      this.exportCsv();
+      return;
+    }
     if (typeof params.omega === 'number') {
       // Clamp to the declared range [1.6, 1.9] — ω → 2 means relaxation
       // time τ → 0.5, where BGK goes numerically unstable at this
@@ -332,7 +378,32 @@ export class FluidPlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Field CSV', '导出流场 CSV'),
     ];
+  }
+
+  /** Export macroscopic field samples (x, y, rho, ux, uy) as CSV. The grid is
+   *  sampled at an equal stride so the output stays under 10k rows. */
+  private exportCsv() {
+    if (!this.state.hasData) {
+      notify(
+        this.api,
+        'warning',
+        'No field data to export yet.',
+        '暂无可导出的流场数据。',
+      );
+      return;
+    }
+    const { rho, ux, uy } = this.macro();
+    const cells = this.cols * this.rows;
+    const MAX_ROWS = 10000;
+    const stride = Math.max(1, Math.ceil(cells / MAX_ROWS));
+    const rows: number[][] = [];
+    for (let cell = 0; cell < cells; cell += stride) {
+      rows.push([cell % this.cols, Math.floor(cell / this.cols), rho[cell]!, ux[cell]!, uy[cell]!]);
+    }
+    exportRowsCsv(this.api, 'fluid-field', ['x', 'y', 'rho', 'ux', 'uy'], rows);
   }
 
   getSupportedFormats() {
@@ -577,19 +648,90 @@ export class FluidPlugin implements Plugin {
   ): Promise<boolean> {
     const upload = opts.upload === true || this.gpuDirty;
     const read = opts.read === true || upload;
-    let fieldA: ComputeBufferHandle | null = null;
-    let fieldB: ComputeBufferHandle | null = null;
-    let flagsBuf: ComputeBufferHandle | null = null;
-    let paramsBuf: ComputeBufferHandle | null = null;
-    let curlBuf: ComputeBufferHandle | null = null;
+    const cells = this.cols * this.rows;
+    const key = `${this.cols}x${this.rows}`;
+
+    let res = this.gpuRes;
+    let fresh = false;
+    if (!res || res.key !== key) {
+      res = this.createGpuResources(gpu, cells, key);
+      if (!res) {
+        this.gpuDirty = true;
+        return false;
+      }
+      this.gpuRes = res;
+      fresh = true;
+    }
+
     try {
-      const cells = this.cols * this.rows;
-      fieldA = gpu.createBuffer(fluidFieldBytes(cells), FLUID_FIELD_USAGE, 'fluid.fieldA');
-      fieldB = gpu.createBuffer(fluidFieldBytes(cells), FLUID_FIELD_USAGE, 'fluid.fieldB');
-      flagsBuf = gpu.createBuffer(fluidFlagsBytes(cells), FLUID_FLAGS_USAGE, 'fluid.flags');
-      paramsBuf = gpu.createBuffer(16, FLUID_PARAMS_USAGE, 'fluid.params');
-      curlBuf = gpu.createBuffer(fluidCurlBytes(cells), FLUID_FIELD_USAGE, 'fluid.curl');
-      if (!fieldA || !fieldB || !flagsBuf || !paramsBuf || !curlBuf) return false;
+      if (upload) res.fieldA.write(this.f);
+      // Flags are immutable between mask/lattice changes (both set
+      // gpuDirty); upload on a fresh set or a reseed, not every frame.
+      if (fresh || upload) res.flagsBuf.write(this.flags);
+      // 16 bytes — cheap, and omega/the inflow ramp change per frame.
+      res.paramsBuf.write(new Uint8Array(packFluidParams(this.cols, this.rows, this.state.omega, this.inflowU0)));
+      const wgX = Math.ceil(this.cols / 8);
+      const wgY = Math.ceil(this.rows / 8);
+
+      for (let s = 0; s < steps; s += 1) {
+        if (!gpu.run(res.collide, [res.fieldA, res.fieldB, res.flagsBuf, res.paramsBuf], wgX, wgY, 1)) {
+          this.failGpuResources();
+          return false;
+        }
+        if (!gpu.run(res.stream, [res.fieldB, res.fieldA, res.flagsBuf, res.paramsBuf], wgX, wgY, 1)) {
+          this.failGpuResources();
+          return false;
+        }
+        this.stepsSinceSeed += 1;
+        await onProgress?.({ done: s + 1, total: steps });
+      }
+
+      if (!gpu.run(res.observe, [res.fieldA, res.curlBuf, res.paramsBuf], wgX, wgY, 1)) {
+        this.failGpuResources();
+        return false;
+      }
+      const curlBytes = await res.curlBuf.read();
+      const curl = new Float32Array(curlBytes);
+
+      // Pull the field back when requested or when it was just uploaded —
+      // the per-frame readback stays limited to the small curl buffer.
+      if (read) {
+        const fieldBytes = await res.fieldA.read();
+        this.f.set(new Float32Array(fieldBytes));
+      }
+      if (upload) this.gpuDirty = false;
+      this.lastCurl = curl;
+      return true;
+    } catch (err) {
+      logger.warn('fluid', 'GPU compute failed, falling back to CPU', err);
+      this.failGpuResources();
+      return false;
+    }
+  }
+
+  /** Allocate the five buffers and compile the three kernels once per size. */
+  private createGpuResources(gpu: GpuComputeApi, cells: number, key: string): GpuResourceSet | null {
+    const buffers: Array<ComputeBufferHandle | null> = [];
+    const cleanup = () => {
+      for (const b of buffers) {
+        try {
+          b?.destroy();
+        } catch {
+          /* device lost */
+        }
+      }
+    };
+    try {
+      const fieldA = gpu.createBuffer(fluidFieldBytes(cells), FLUID_FIELD_USAGE, 'fluid.fieldA');
+      const fieldB = gpu.createBuffer(fluidFieldBytes(cells), FLUID_FIELD_USAGE, 'fluid.fieldB');
+      const flagsBuf = gpu.createBuffer(fluidFlagsBytes(cells), FLUID_FLAGS_USAGE, 'fluid.flags');
+      const paramsBuf = gpu.createBuffer(16, FLUID_PARAMS_USAGE, 'fluid.params');
+      const curlBuf = gpu.createBuffer(fluidCurlBytes(cells), FLUID_FIELD_USAGE, 'fluid.curl');
+      buffers.push(fieldA, fieldB, flagsBuf, paramsBuf, curlBuf);
+      if (!fieldA || !fieldB || !flagsBuf || !paramsBuf || !curlBuf) {
+        cleanup();
+        return null;
+      }
 
       const collide = gpu.compileKernel({
         label: 'fluid.collide',
@@ -623,45 +765,40 @@ export class FluidPlugin implements Plugin {
           { binding: 2, bufferType: 'uniform' },
         ],
       });
-      if (!collide || !stream || !observe) return false;
-
-      if (upload) fieldA.write(this.f);
-      flagsBuf.write(this.flags);
-      paramsBuf.write(new Uint8Array(packFluidParams(this.cols, this.rows, this.state.omega, this.inflowU0)));
-      const wgX = Math.ceil(this.cols / 8);
-      const wgY = Math.ceil(this.rows / 8);
-
-      for (let s = 0; s < steps; s += 1) {
-        if (!gpu.run(collide, [fieldA, fieldB, flagsBuf, paramsBuf], wgX, wgY, 1)) return false;
-        if (!gpu.run(stream, [fieldB, fieldA, flagsBuf, paramsBuf], wgX, wgY, 1)) return false;
-        this.stepsSinceSeed += 1;
-        await onProgress?.({ done: s + 1, total: steps });
+      if (!collide || !stream || !observe) {
+        // Kernels have no destroy handle; release the buffers so a failed
+        // build never leaks half a resource set.
+        cleanup();
+        return null;
       }
 
-      if (!gpu.run(observe, [fieldA, curlBuf, paramsBuf], wgX, wgY, 1)) return false;
-      const curlBytes = await curlBuf.read();
-      const curl = new Float32Array(curlBytes);
-
-      // Pull the field back when requested or when it was just uploaded —
-      // the per-frame readback stays limited to the small curl buffer.
-      if (read) {
-        const fieldBytes = await fieldA.read();
-        this.f.set(new Float32Array(fieldBytes));
-      }
-      if (upload) this.gpuDirty = false;
-      this.lastCurl = curl;
-      return true;
+      return { key, fieldA, fieldB, flagsBuf, paramsBuf, curlBuf, collide, stream, observe };
     } catch (err) {
-      logger.warn('fluid', 'GPU compute failed, falling back to CPU', err);
-      this.gpuDirty = true;
-      return false;
-    } finally {
-      fieldA?.destroy();
-      fieldB?.destroy();
-      flagsBuf?.destroy();
-      paramsBuf?.destroy();
-      curlBuf?.destroy();
+      logger.warn('fluid', 'GPU resource creation failed, falling back to CPU', err);
+      cleanup();
+      return null;
     }
+  }
+
+  /** Tear down cached buffers (lattice change, failure or plugin destroy). */
+  private destroyGpuResources(): void {
+    const r = this.gpuRes;
+    if (!r) return;
+    this.gpuRes = null;
+    for (const buf of [r.fieldA, r.fieldB, r.flagsBuf, r.paramsBuf, r.curlBuf]) {
+      try {
+        buf.destroy();
+      } catch {
+        /* already destroyed / device lost */
+      }
+    }
+  }
+
+  /** A dispatch/read failed: drop the (suspect) resource set and force a
+   *  full re-upload on the next successful rebuild. */
+  private failGpuResources(): void {
+    this.destroyGpuResources();
+    this.gpuDirty = true;
   }
 
   private lastCurl: Float32Array | null = null;

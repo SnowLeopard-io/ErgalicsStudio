@@ -118,6 +118,10 @@ export default function ModelLabPage() {
   };
 
   const togglePredictor = (name: string) => {
+    // A fit on the previous predictor set must not stay on screen: Record
+    // reads the live form state, so a stale outcome would be logged under the
+    // new predictors.
+    setOutcome(null);
     setPredictors((arr) =>
       kind === 'poly' ? [name] : arr.includes(name) ? arr.filter((c) => c !== name) : [...arr, name],
     );
@@ -296,7 +300,12 @@ export default function ModelLabPage() {
               </optgroup>
             )}
           </select>
-          <select className="input" value={kind} onChange={(e) => { setKind(e.target.value as ModelKind); setPredictors([]); }}>
+          <select className="input" value={kind} onChange={(e) => {
+            setKind(e.target.value as ModelKind);
+            setPredictors([]);
+            setOutcome(null);
+            setError('');
+          }}>
             <option value="ols">{t('model.kind_ols')}</option>
             <option value="logistic">{t('model.kind_logistic')}</option>
             <option value="ridge">{t('model.kind_ridge')}</option>
@@ -304,11 +313,11 @@ export default function ModelLabPage() {
           </select>
           {kind === 'poly' && (
             <input className="input research-num" title={t('model.degree')} value={degree}
-              onChange={(e) => setDegree(e.target.value)} />
+              onChange={(e) => { setDegree(e.target.value); setOutcome(null); }} />
           )}
           {kind === 'ridge' && (
             <input className="input research-num" title={t('model.folds')} value={folds}
-              onChange={(e) => setFolds(e.target.value)} />
+              onChange={(e) => { setFolds(e.target.value); setOutcome(null); }} />
           )}
           {kind === 'logistic' && (
             <input className="input research-num" title={t('model.threshold')} value={threshold}
@@ -319,7 +328,7 @@ export default function ModelLabPage() {
 
         {file && (
           <div className="analysis-row model-cols">
-            <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+            <select className="input" value={target} onChange={(e) => { setTarget(e.target.value); setOutcome(null); }}>
               <option value="">{t('model.target')}</option>
               {cols.filter((c) => kind === 'poly' || !predictors.includes(c)).map((c) => (
                 <option key={c} value={c}>{c}</option>

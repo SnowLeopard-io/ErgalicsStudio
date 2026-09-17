@@ -8,7 +8,7 @@
 // parentSweepId) and the surface can be sent to Figure Studio.
 // ==========================================================================
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
@@ -56,6 +56,7 @@ function newPlan(): SweepPlan {
     sourceRef: '',
     axes: [],
     metric: 'value',
+    expression: 'p.a',
     repeats: 1,
     baseParams: {},
     createdAt: Date.now(),
@@ -105,7 +106,25 @@ export default function SweepsPage() {
   const abortRef = useRef<AbortController | null>(null);
   const [liveResult, setLiveResult] = useState<SweepResult | null>(null);
 
-  const shownResult = liveResult ?? result;
+  // Cancel any in-flight sweep when leaving the page.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  // A stored result only belongs to the current plan if every cell key still
+  // exists in the expanded design and the totals agree. Editing axes (or
+  // repeats) otherwise leaves a matrix on screen that the new plan can never
+  // produce, and Resume would silently skip a mixed subset of old cells.
+  const resultMatchesPlan = useMemo(() => {
+    if (!plan || !result) return false;
+    try {
+      const keys = new Set(expandPlan(plan).map((d) => d.key));
+      return result.total === keys.size && result.cells.every((c) => keys.has(c.key));
+    } catch {
+      return false;
+    }
+  }, [plan, result]);
+
+  const storedResult = resultMatchesPlan ? result : null;
+  const shownResult = liveResult ?? storedResult;
 
   const beginNew = () => {
     const p = newPlan();
@@ -128,6 +147,7 @@ export default function SweepsPage() {
     setSource(p.source);
     setSourceRef(p.sourceRef);
     setMetric(p.metric);
+    setExpression(p.expression ?? 'p.a');
     setRepeats(String(p.repeats));
     setBaseParams(JSON.stringify(p.baseParams ?? {}, null, 2));
     setAxesDraft(
@@ -194,6 +214,7 @@ export default function SweepsPage() {
       sourceRef: sourceRef.trim(),
       axes,
       metric: metric.trim() || 'value',
+      expression: expression.trim() || 'p.a',
       repeats: Math.max(1, Math.floor(Number(repeats)) || 1),
       baseParams: base,
       createdAt: plan?.createdAt ?? Date.now(),
@@ -209,7 +230,7 @@ export default function SweepsPage() {
       return 0;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [axesDraft, name, source, sourceRef, metric, repeats, baseParams]);
+  }, [axesDraft, name, source, sourceRef, metric, expression, repeats, baseParams]);
 
   const handleSave = () => {
     const p = draftToPlan();
@@ -236,9 +257,12 @@ export default function SweepsPage() {
   const executeRun = async (p: SweepPlan, resume: boolean) => {
     let evaluator: (params: Record<string, unknown>) => number;
     try {
-      // Per-cell metric expression evaluated over the flat axis params.
+      // Per-cell metric expression evaluated over the flat axis params. It
+      // is persisted on the plan, so a run launched from the plan view (or
+      // a resume) never borrows an expression typed into another plan.
+      const expr = p.expression?.trim() || 'p.a';
       // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-      const fn = new Function('p', `"use strict"; return (${expression || 'p'});`) as (
+      const fn = new Function('p', `"use strict"; return (${expr});`) as (
         p: Record<string, unknown>,
       ) => unknown;
       evaluator = (params) => Number(fn(params));
@@ -256,6 +280,9 @@ export default function SweepsPage() {
         existing: resume ? results[p.id] ?? null : null,
         signal: controller.signal,
         onProgress: (done, total, partial) => {
+          // Ignore progress from a run of a different plan (e.g. plan
+          // switched before the last async callback flushed).
+          if (partial.planId !== p.id) return;
           setProgress({ done, total });
           setLiveResult(partial);
         },
@@ -276,14 +303,21 @@ export default function SweepsPage() {
           return { runId: runRecord?.id ?? cell.key, metrics: { value }, durationMs };
         },
       });
+      // A newer run may have superseded this controller (e.g. fast
+      // re-entry); do not overwrite the live view with its output.
+      if (abortRef.current !== controller) return;
       setLiveResult(r);
       saveResult(r);
       if (r.status === 'done') notify('success', t('sweep.status_done'));
     } catch (err) {
-      notify('error', t('sweep.plan_invalid', { reason: String(err) }));
+      if (abortRef.current === controller) {
+        notify('error', t('sweep.plan_invalid', { reason: String(err) }));
+      }
     } finally {
-      setRunning(false);
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        setRunning(false);
+        abortRef.current = null;
+      }
     }
   };
 
@@ -390,7 +424,7 @@ export default function SweepsPage() {
           <aside className="figures-side">
             <div className="figures-side-header">
               <h2 className="figures-subtitle">{t('sweep.plans')}</h2>
-              <button type="button" className="btn btn-sm btn-primary" onClick={beginNew}>
+              <button type="button" className="btn btn-sm btn-primary" disabled={running} onClick={beginNew}>
                 + {t('sweep.new_plan')}
               </button>
             </div>
@@ -406,6 +440,7 @@ export default function SweepsPage() {
                     <button
                       type="button"
                       className="figures-panel-select"
+                      disabled={running}
                       onClick={() => {
                         setSelectedId(p.id);
                         setEditing(false);
@@ -419,12 +454,13 @@ export default function SweepsPage() {
                       </div>
                     </button>
                     <div className="figures-panel-actions">
-                      <button type="button" className="btn btn-sm" onClick={() => editPlan(p)}>
+                      <button type="button" className="btn btn-sm" disabled={running} onClick={() => editPlan(p)}>
                         {t('figure.edit')}
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
+                        disabled={running}
                         onClick={() => handleDelete(p)}
                       >
                         {t('common.delete')}
@@ -450,10 +486,13 @@ export default function SweepsPage() {
                       {plan.axes.map((a) => a.param).join(' × ')} · {t('sweep.metric')} {plan.metric}
                     </div>
                   </div>
-                  <button type="button" className="btn btn-sm" onClick={() => editPlan(plan)}>
+                  <button type="button" className="btn btn-sm" disabled={running} onClick={() => editPlan(plan)}>
                     {t('figure.edit')}
                   </button>
                 </div>
+                {result && !resultMatchesPlan && (
+                  <p className="analysis-note">{t('sweep.result_stale')}</p>
+                )}
                 <div className="sweep-actions">
                   {running ? (
                     <button type="button" className="btn btn-danger" onClick={cancel}>
@@ -464,7 +503,7 @@ export default function SweepsPage() {
                       <button type="button" className="btn btn-primary" onClick={() => void executeRun(plan, false)}>
                         {t('sweep.run')}
                       </button>
-                      {result && result.cells.length < result.total && (
+                      {storedResult && storedResult.cells.length < storedResult.total && (
                         <button type="button" className="btn" onClick={() => void executeRun(plan, true)}>
                           {t('sweep.resume')}
                         </button>
@@ -601,7 +640,7 @@ export default function SweepsPage() {
                         onClick={() => void runDraft(false)}>
                         {t('sweep.run')}
                       </button>
-                      {result && result.cells.length < result.total && (
+                      {storedResult && storedResult.cells.length < storedResult.total && (
                         <button type="button" className="btn" onClick={() => void runDraft(true)}>
                           {t('sweep.resume')}
                         </button>

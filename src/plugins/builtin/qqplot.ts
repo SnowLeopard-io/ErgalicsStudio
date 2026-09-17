@@ -13,6 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const qqplotManifest: PluginManifest = {
   id: 'example.qqplot',
@@ -74,6 +75,8 @@ export class QQPlotPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showRef === 'boolean') this.state.showRef = params.showRef;
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
     this.draw();
   }
 
@@ -86,6 +89,8 @@ export class QQPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showRef,
       },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -240,6 +245,20 @@ export class QQPlotPlugin implements Plugin {
         ? '未加载 QQ 图数据 — 拖入单列数值文件'
         : 'No QQ data — drop a single-column numeric file';
     g.fillText(msg, w / 2, h / 2);
+  }
+
+  private exportPng() {
+    if (!this.state.hasData || this.quantiles.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'qq-plot');
+  }
+
+  private exportCsv() {
+    const n = this.quantiles.length;
+    const rows = this.quantiles.map((sample, i) => [probit((i + 0.5) / n), sample]);
+    exportRowsCsv(this.api, 'qq-plot', ['theoretical', 'sample'], rows);
   }
 }
 

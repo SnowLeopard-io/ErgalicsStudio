@@ -173,9 +173,13 @@ self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === 'init') {
     // A bare `void` here turned any bootstrap failure into a silent unhandled
-    // rejection — the host then sat on "starting Python" forever.
+    // rejection — the host then sat on "starting Python" until its 60s boot
+    // timeout. Post an explicit init-failed so the host fails fast, drops the
+    // dead worker and rejects every queued request.
     init(msg.indexURL ?? PYODIDE_INDEX_URL, msg.loadPackages ?? PYODIDE_LOAD_PACKAGES).catch((err: unknown) => {
-      postNotify('error', `Pyodide failed to start: ${err instanceof Error ? err.message : String(err)}`);
+      const message = err instanceof Error ? err.message : String(err);
+      postNotify('error', `Pyodide failed to start: ${message}`);
+      postMessage({ type: 'init-failed', error: message });
     });
   } else if (msg.type === 'run') {
     void handleRun(msg);

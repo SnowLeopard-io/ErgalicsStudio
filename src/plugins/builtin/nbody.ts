@@ -27,6 +27,7 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
+import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
 import {
   advanceNBodyCPU,
   nbodyBufferBytes,
@@ -176,6 +177,22 @@ export class NBodyPlugin implements Plugin {
       else this.stop();
     }
     if ((params as { compute?: { action?: string } })?.compute?.action === 'gpu-compute') void this.runCompute();
+    // Export buttons accept both the host's `{ key: { action } }` emission and
+    // a plain `{ key: true }` call. They never touch the running state.
+    if (this.buttonFired(params, 'exportPng')) {
+      this.exportPng();
+      return;
+    }
+    if (this.buttonFired(params, 'exportCsv')) {
+      this.exportCsv();
+    }
+  }
+
+  /** True when a button param arrives as `true` (direct call/test) or as the
+   *  host's `{ action: key }` emission. */
+  private buttonFired(params: Record<string, unknown>, key: string): boolean {
+    const v = params[key];
+    return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
   }
 
   getParams(): ParamDefinition[] {
@@ -209,6 +226,8 @@ export class NBodyPlugin implements Plugin {
         action: 'gpu-compute',
         labelI18n: { 'zh-CN': '⚡ GPU 全配对计算', 'en-US': '⚡ GPU all-pairs' },
       },
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportCsv', 'Export Bodies CSV', '导出天体 CSV'),
     ];
   }
 
@@ -330,6 +349,26 @@ export class NBodyPlugin implements Plugin {
     }
   }
 
+  /** Snapshot the host-managed 3-D scene as a PNG. */
+  private exportPng() {
+    exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'nbody');
+  }
+
+  /** Export the currently drawn bodies (position, velocity, mass) as CSV.
+   *  The set is already capped at MAX_BODIES, but a stride keeps the file
+   *  bounded if it ever grows past the row limit. */
+  private exportCsv() {
+    const bodies = this.bodies;
+    const MAX_ROWS = 50000;
+    const stride = Math.max(1, Math.ceil(bodies.length / MAX_ROWS));
+    const rows: number[][] = [];
+    for (let i = 0; i < bodies.length; i += stride) {
+      const b = bodies[i] as NBodyBody;
+      rows.push([b.x, b.y, b.z, b.vx, b.vy, b.vz, b.mass]);
+    }
+    exportRowsCsv(this.api, 'nbody-bodies', ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mass'], rows);
+  }
+
   /**
    * Real WGSL all-pairs path with ping-pong buffers so the N step dispatches
    * stay on the device (no per-step read-back). Returns false on any failure
@@ -415,26 +454,42 @@ export class NBodyPlugin implements Plugin {
     const arr = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' ? (parsed as { bodies?: unknown }).bodies : null;
     if (Array.isArray(arr)) {
       const out: NBodyBody[] = [];
+      // JSON values are untrusted: strings like "1.0", null or booleans all
+      // arrive as non-number primitives that would poison Float32 uploads.
+      const num = (v: unknown): number => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : Number.NaN;
+      };
+      const velocity = (v: unknown): number => {
+        const n = num(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const mass = (v: unknown): number => {
+        const n = num(v);
+        return Number.isFinite(n) && n > 0 ? n : 1;
+      };
       for (const item of arr) {
         if (Array.isArray(item)) {
-          const it = item as number[];
-          const x = it[0] ?? 0;
-          const y = it[1] ?? 0;
-          const z = it[2] ?? 0;
-          const vx = it[3] ?? 0;
-          const vy = it[4] ?? 0;
-          const vz = it[5] ?? 0;
-          const m = it[6] ?? 1;
+          const it = item as unknown[];
+          const x = num(it[0]);
+          const y = num(it[1]);
+          const z = num(it[2]);
           if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-            out.push({ x, y, z, vx, vy, vz, mass: m || 1 });
+            out.push({ x, y, z, vx: velocity(it[3]), vy: velocity(it[4]), vz: velocity(it[5]), mass: mass(it[6]) });
           }
         } else if (item && typeof item === 'object') {
-          const o = item as Record<string, number>;
-          const x = o.x ?? 0;
-          const y = o.y ?? 0;
-          const z = o.z ?? 0;
+          const o = item as Record<string, unknown>;
+          const x = num(o.x);
+          const y = num(o.y);
+          const z = num(o.z);
           if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-            out.push({ x, y, z, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, mass: (o.mass ?? o.m ?? 1) || 1 });
+            out.push({
+              x, y, z,
+              vx: velocity(o.vx),
+              vy: velocity(o.vy),
+              vz: velocity(o.vz),
+              mass: mass(o.mass ?? o.m),
+            });
           }
         }
       }

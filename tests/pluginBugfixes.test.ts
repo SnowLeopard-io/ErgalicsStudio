@@ -23,8 +23,15 @@ import { ParticlePlugin } from '@/plugins/builtin/particles';
 import { WavePlugin } from '@/plugins/builtin/wave';
 import { DoublePendulumPlugin } from '@/plugins/builtin/doublePendulum';
 import { StructurePlugin } from '@/plugins/builtin/structure';
+import { LifePlugin } from '@/plugins/builtin/life';
+import { ContourPlugin } from '@/plugins/builtin/contour';
+import { parseTreemapData } from '@/plugins/builtin/treemap';
+import { parseBoxData } from '@/plugins/builtin/boxPlot';
+import { useChunkStore } from '@/stores/chunkStore';
+import { DATA_INGESTED, on } from '@/core/events';
+import type { FileEntry } from '@/types/project';
 import type { NBodyBody } from '@/core/wgsl';
-import type { ContainerCapabilities, ParamDefinition, PluginApi } from '@/types/plugin';
+import type { ContainerCapabilities, GpuComputeApi, ParamDefinition, PluginApi } from '@/types/plugin';
 
 // The animation loops schedule frames; node has no rAF.
 beforeAll(() => {
@@ -416,5 +423,287 @@ describe('structure plugin opens paused', () => {
     plugin.updateParams({ run: true });
     expect(toggleValue(plugin.getParams(), 'run')).toBe(true);
     plugin.updateParams({ run: false });
+  });
+});
+
+// ---- nbody JSON sanitization ----------------------------------------------
+
+describe('nbody JSON import is defensive about untrusted values', () => {
+  async function bodiesOf(json: string) {
+    const plugin = new NBodyPlugin();
+    await plugin.init(fakeApi());
+    await plugin.loadData(new File([json], 'nbody.json'));
+    return (plugin as unknown as { raw: NBodyBody[] }).raw;
+  }
+
+  it('coerces numeric strings and falls back for bad velocities/mass', async () => {
+    const bodies = await bodiesOf(
+      JSON.stringify({
+        bodies: [
+          { x: '1', y: '2', z: '3', vx: '0.5', vy: null, vz: 'oops', mass: '4' },
+          { x: 0, y: 0, z: 0, vx: 1, vy: 2, vz: 3, mass: 'x' },
+          { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, mass: -3 },
+        ],
+      }),
+    );
+    expect(bodies).toHaveLength(3);
+    expect(bodies[0]).toEqual({ x: 1, y: 2, z: 3, vx: 0.5, vy: 0, vz: 0, mass: 4 });
+    // Non-positive / non-numeric mass falls back to 1 instead of NaN.
+    expect(bodies[1]!.mass).toBe(1);
+    expect(bodies[2]!.mass).toBe(1);
+  });
+
+  it('handles the array shorthand and drops rows with bad positions', async () => {
+    const bodies = await bodiesOf(
+      JSON.stringify({
+        bodies: [
+          ['0', '1', '2', 'x', '-1', '2', '5'],
+          ['3', '4', '5', null, '0', '0', '2'],
+          ['bad', 1, 2, 0, 0, 0, 1],
+        ],
+      }),
+    );
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toEqual({ x: 0, y: 1, z: 2, vx: 0, vy: -1, vz: 2, mass: 5 });
+    expect(bodies[1]).toEqual({ x: 3, y: 4, z: 5, vx: 0, vy: 0, vz: 0, mass: 2 });
+  });
+});
+
+// ---- life speed slider restarts the timer ----------------------------------
+
+describe('life speed change while playing', () => {
+  it('restarts the interval at the new speed', () => {
+    vi.useFakeTimers();
+    try {
+      const plugin = new LifePlugin();
+      const ctx2d: Record<string, unknown> = {};
+      const g = new Proxy(ctx2d, {
+        get: (t, prop) => t[prop as string] ?? (() => {}),
+        set: (t, prop, value) => {
+          t[prop as string] = value;
+          return true;
+        },
+      });
+      const canvas = { clientWidth: 160, clientHeight: 120, width: 0, height: 0, getContext: () => g };
+      const p = plugin as unknown as { ctx: unknown; state: { playing: boolean } };
+      p.ctx = { canvas2d: canvas };
+      p.state.playing = false;
+
+      plugin.updateParams({ playing: true });
+      expect(vi.getTimerCount()).toBe(1);
+
+      // The old bug: changing speed only updated state, so the live interval
+      // kept firing at the original delay.
+      plugin.updateParams({ speed: 300 });
+      expect(vi.getTimerCount()).toBe(1);
+      plugin.updateParams({ playing: false });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---- treemap / box plot first-row handling ---------------------------------
+
+describe('parsers keep the first data row of label-first formats', () => {
+  it('treemap: `label,size` rows are both kept', () => {
+    const root = parseTreemapData('alpha,10\nbeta,20\n');
+    expect(root).not.toBeNull();
+    const names = root!.children.map((c) => c.name);
+    expect(names).toContain('alpha');
+    expect(names).toContain('beta');
+    expect(root!.size).toBe(30);
+  });
+
+  it('treemap: an actual non-numeric header row is still skipped', () => {
+    const root = parseTreemapData('name,size\nalpha,10\nbeta,20\n');
+    expect(root!.children.map((c) => c.name)).toEqual(['alpha', 'beta']);
+  });
+
+  it('box plot: grouped `group,value` keeps the first row in group A', () => {
+    const stats = parseBoxData('A,1\nA,3\nB,10\n');
+    expect(stats).toHaveLength(2);
+    const a = stats.find((s) => s.name === 'A')!;
+    const b = stats.find((s) => s.name === 'B')!;
+    // Old code skipped line 0, leaving group A with only [3] (median 3).
+    expect(a.median).toBe(2);
+    expect(a.min).toBe(1);
+    expect(a.max).toBe(3);
+    expect(b.median).toBe(10);
+  });
+
+  it('box plot: a genuine text header is still skipped', () => {
+    const stats = parseBoxData('group,value\nA,1\nA,3\n');
+    expect(stats).toHaveLength(1);
+    expect(stats[0]!.name).toBe('A');
+    expect(stats[0]!.median).toBe(2);
+  });
+});
+
+// ---- contour marching-squares topology -------------------------------------
+
+describe('contour marching squares saddle handling', () => {
+  function render(grid: number[][]) {
+    const moves: Array<[number, number]> = [];
+    const lines: Array<[number, number]> = [];
+    const g = {
+      beginPath: () => {},
+      stroke: () => {},
+      moveTo: (x: number, y: number) => moves.push([x, y]),
+      lineTo: (x: number, y: number) => lines.push([x, y]),
+    };
+    const plugin = new ContourPlugin();
+    const p = plugin as unknown as {
+      grid: number[][];
+      min: number;
+      max: number;
+      state: { levels: number };
+      drawContours: (g: unknown, c: unknown) => void;
+    };
+    p.grid = grid;
+    p.min = -1;
+    p.max = 1;
+    p.state.levels = 1; // single contour at level 0
+    p.drawContours(g, { width: 100, height: 100 });
+    return { moves, lines };
+  }
+
+  it('draws two finite segments for a saddle cell (4 crossings)', () => {
+    const { moves, lines } = render([
+      [1, -1],
+      [-1, 1],
+    ]);
+    expect(lines).toHaveLength(2);
+    expect(moves).toHaveLength(2);
+    for (const [x, y] of [...moves, ...lines]) {
+      expect(Number.isFinite(x)).toBe(true);
+      expect(Number.isFinite(y)).toBe(true);
+    }
+  });
+
+  it('draws one segment for an ordinary 2-crossing cell', () => {
+    const { moves, lines } = render([
+      [-1, -1],
+      [1, 1],
+    ]);
+    expect(lines).toHaveLength(1);
+    expect(moves).toHaveLength(1);
+    for (const [x, y] of [...moves, ...lines]) {
+      expect(Number.isFinite(x)).toBe(true);
+      expect(Number.isFinite(y)).toBe(true);
+    }
+  });
+});
+
+// ---- GPU resources are allocated/compiled once per lattice -----------------
+
+function makeFakeGpu() {
+  const created: Array<{ size: number; destroyed: boolean; write: ReturnType<typeof vi.fn>; read: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }> = [];
+  const createBuffer = vi.fn((size: number) => {
+    const b = {
+      size,
+      destroyed: false,
+      write: vi.fn(() => {}),
+      read: vi.fn(async () => new ArrayBuffer(size)),
+      destroy: vi.fn(() => {
+        b.destroyed = true;
+      }),
+    };
+    created.push(b);
+    return b;
+  });
+  const compileKernel = vi.fn(() => ({ label: 'k', compilationInfo: async () => [] }));
+  const run = vi.fn(() => true);
+  const gpu = {
+    available: true,
+    backend: 'native' as const,
+    createBuffer,
+    compileKernel,
+    run,
+  } as unknown as GpuComputeApi;
+  return { gpu, created, createBuffer, compileKernel, run };
+}
+
+describe('fluid GPU resource reuse', () => {
+  it('allocates buffers / compiles kernels once across batches and frees on destroy', async () => {
+    const plugin = new FluidPlugin();
+    await plugin.init(fakeApi());
+    const { gpu, created, createBuffer, compileKernel } = makeFakeGpu();
+    const advance = (plugin as unknown as {
+      gpuAdvance: (g: GpuComputeApi, steps: number) => Promise<boolean>;
+    }).gpuAdvance;
+
+    expect(await advance.call(plugin, gpu, 2)).toBe(true);
+    expect(createBuffer).toHaveBeenCalledTimes(5);
+    expect(compileKernel).toHaveBeenCalledTimes(3);
+
+    // Second batch: same lattice size — reuse everything (old code rebuilt
+    // five buffers and recompiled three kernels every single frame).
+    expect(await advance.call(plugin, gpu, 2)).toBe(true);
+    expect(createBuffer).toHaveBeenCalledTimes(5);
+    expect(compileKernel).toHaveBeenCalledTimes(3);
+    expect(created.every((b) => !b.destroyed)).toBe(true);
+
+    await plugin.destroy();
+    expect(created.every((b) => b.destroyed)).toBe(true);
+  });
+});
+
+describe('wave GPU resource reuse', () => {
+  it('allocates six buffers / one kernel once and frees on destroy', async () => {
+    const plugin = new WavePlugin();
+    await plugin.init(fakeApi());
+    const { gpu, created, createBuffer, compileKernel } = makeFakeGpu();
+    const advance = (plugin as unknown as {
+      gpuAdvance: (g: GpuComputeApi, steps: number) => Promise<boolean>;
+    }).gpuAdvance;
+
+    expect(await advance.call(plugin, gpu, 2)).toBe(true);
+    expect(createBuffer).toHaveBeenCalledTimes(6);
+    expect(compileKernel).toHaveBeenCalledTimes(1);
+
+    expect(await advance.call(plugin, gpu, 2)).toBe(true);
+    expect(createBuffer).toHaveBeenCalledTimes(6);
+    expect(compileKernel).toHaveBeenCalledTimes(1);
+
+    await plugin.destroy();
+    expect(created.every((b) => b.destroyed)).toBe(true);
+  });
+});
+
+// ---- double-click ingest must not interleave two iterators -----------------
+
+describe('chunk store double ingest of the same file', () => {
+  it('only the latest run survives and DATA_INGESTED fires once', async () => {
+    const entry: FileEntry = {
+      id: 'f1',
+      name: 'sample.csv',
+      size: 24,
+      mimeType: 'text/csv',
+      format: 'csv',
+      content: 'a,b\n1,2\n3,4\n5,6\n',
+    };
+    let ingested = 0;
+    const sub = on(DATA_INGESTED, () => {
+      ingested += 1;
+    });
+    useChunkStore.getState().reset();
+    try {
+      // Two synchronous starts simulate a fast double click on "Preview".
+      const a = useChunkStore.getState().startIngest(entry, 2);
+      const b = useChunkStore.getState().startIngest(entry, 2);
+      await Promise.all([a, b]);
+
+      const s = useChunkStore.getState().state;
+      expect(s).not.toBeNull();
+      expect(s!.runId).toBe(2);
+      expect(s!.done).toBe(true);
+      expect(s!.running).toBe(false);
+      expect(ingested).toBe(1);
+    } finally {
+      sub.unsubscribe();
+      useChunkStore.getState().reset();
+    }
   });
 });

@@ -90,6 +90,12 @@ export class PyodideClient {
 
       const onMessage = (ev: MessageEvent<WorkerEvent>) => {
         const event = ev.data;
+        // Explicit bootstrap failure from the worker: reject the boot promise
+        // immediately instead of waiting the full BOOT_TIMEOUT_MS.
+        if (event.type === 'init-failed') {
+          onFatal(new Error(`Pyodide failed to start: ${event.error}`));
+          return;
+        }
         // The `ready` event both resolves the boot promise and is otherwise
         // inert to handleEvent — keep this listener attached for the worker's
         // whole lifetime so stdout/stderr/plot/result are always routed.

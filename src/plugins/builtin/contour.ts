@@ -12,6 +12,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const contourManifest: PluginManifest = {
   id: 'example.contour',
@@ -110,12 +111,16 @@ export class ContourPlugin implements Plugin {
       this.state.showGrid = params.showGrid;
       this.draw();
     }
+    if (params.exportPng === true) this.exportPng();
+    if (params.exportCsv === true) this.exportCsv();
   }
 
   getParams(): ParamDefinition[] {
     return [
       { key: 'levels', label: 'Contour Levels', labelI18n: { 'zh-CN': '等值线数量', 'en-US': 'Contour Levels' }, type: 'range', min: 2, max: 30, step: 1, value: this.state.levels },
       { key: 'showGrid', label: 'Grid Lines', labelI18n: { 'zh-CN': '网格线', 'en-US': 'Grid Lines' }, type: 'checkbox', value: this.state.showGrid },
+      actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -277,13 +282,17 @@ export class ContourPlugin implements Plugin {
           if ((b >= level) !== (c >= level)) interp(b, c, x1, y0, x1, y1);
           if ((c >= level) !== (d >= level)) interp(c, d, x1, y1, x0, y1);
           if ((d >= level) !== (a >= level)) interp(d, a, x0, y1, x0, y0);
-          if (p.length === 4) {
-            // Saddle: draw both crossing pairs.
+          if (p.length === 8) {
+            // Saddle (4 crossings): draw both segments. Each interp pushes
+            // TWO coordinates, so a simple crossing is length 4 and a saddle
+            // is length 8 — the old code tested length 4 and read
+            // p[4]..p[7] as undefined, producing NaN paths, while the
+            // length-2 branch was unreachable.
             g.moveTo(p[0]!, p[1]!);
             g.lineTo(p[2]!, p[3]!);
             g.moveTo(p[4]!, p[5]!);
             g.lineTo(p[6]!, p[7]!);
-          } else if (p.length === 2) {
+          } else if (p.length === 4) {
             g.moveTo(p[0]!, p[1]!);
             g.lineTo(p[2]!, p[3]!);
           }
@@ -312,6 +321,25 @@ export class ContourPlugin implements Plugin {
       g.lineTo(w, y);
     }
     g.stroke();
+  }
+
+  private exportPng() {
+    if (!this.state.hasData || this.grid.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'contour');
+  }
+
+  private exportCsv() {
+    const rows: Array<Array<number>> = [];
+    for (let j = 0; j < this.grid.length; j += 1) {
+      const row = this.grid[j]!;
+      for (let i = 0; i < row.length; i += 1) {
+        rows.push([j, i, row[i]!]);
+      }
+    }
+    exportRowsCsv(this.api, 'contour', ['row', 'col', 'value'], rows);
   }
 }
 

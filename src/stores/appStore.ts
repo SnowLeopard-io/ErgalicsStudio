@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logger } from '@/core/logger';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
@@ -197,7 +198,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // otherwise it keeps rendering into detached DOM and holding GPU work.
     if (mode !== 'standard') {
       // Lazy import keeps appStore free of a pluginStore cycle.
-      void import('./pluginStore').then((m) => m.usePluginStore.getState().deactivate());
+      void import('./pluginStore')
+        .then((m) => m.usePluginStore.getState().deactivate())
+        .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
     }
   },
 }));
