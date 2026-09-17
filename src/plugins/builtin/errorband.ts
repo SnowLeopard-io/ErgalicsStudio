@@ -13,7 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const errorbandManifest: PluginManifest = {
   id: 'example.errorband',
@@ -80,8 +80,8 @@ export class ErrorBandPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showGrid === 'boolean') this.state.showGrid = params.showGrid;
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 

@@ -6,6 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   actionButton,
+  actionFired,
   csvCell,
   toCsv,
   dataUrlToBlob,
@@ -29,12 +30,27 @@ describe('actionButton', () => {
   it('builds a button param whose action equals its key with zh/en labels', () => {
     const def = actionButton('exportPng', 'Export PNG', '导出 PNG', 'primary');
     expect(def.type).toBe('button');
-    expect(def.key).toBe('exportPng');
-    const button = def as ButtonParam;
-    expect(button.action).toBe('exportPng');
-    expect(button.variant).toBe('primary');
-    expect(def.label).toBe('Export PNG');
-    expect(def.labelI18n).toEqual({ 'zh-CN': '导出 PNG', 'en-US': 'Export PNG' });
+    const btn = def as ButtonParam;
+    expect(btn.key).toBe('exportPng');
+    expect(btn.action).toBe('exportPng');
+    expect(btn.variant).toBe('primary');
+    expect(btn.label).toBe('Export PNG');
+    expect(btn.labelI18n).toEqual({ 'zh-CN': '导出 PNG', 'en-US': 'Export PNG' });
+  });
+});
+
+describe('actionFired', () => {
+  it('accepts the host payload {key:{action:key}} and the boolean form', () => {
+    expect(actionFired({ exportPng: { action: 'exportPng' } }, 'exportPng')).toBe(true);
+    expect(actionFired({ exportPng: true }, 'exportPng')).toBe(true);
+  });
+
+  it('rejects missing, foreign and mismatched actions', () => {
+    expect(actionFired({}, 'exportPng')).toBe(false);
+    expect(actionFired({ exportCsv: true }, 'exportPng')).toBe(false);
+    expect(actionFired({ exportPng: { action: 'exportCsv' } }, 'exportPng')).toBe(false);
+    expect(actionFired({ exportPng: false }, 'exportPng')).toBe(false);
+    expect(actionFired({ exportPng: null }, 'exportPng')).toBe(false);
   });
 });
 

@@ -195,6 +195,14 @@ describe.each(CASES)('$name export buttons', (c) => {
     expect(notify).toHaveBeenCalledWith('warning', expect.any(String));
   });
 
+  it('accepts the real host button payload {key:{action:key}}', async () => {
+    const { plugin, exportFile } = await make(c.Ctor, c.file);
+    // ParamPanel emits onChange(key, { action: key }) — not `{ key: true }`.
+    plugin.updateParams({ exportCsv: { action: 'exportCsv' } });
+    expect(exportFile).toHaveBeenCalledTimes(1);
+    expect(String(exportFile.mock.calls[0]![0]).endsWith('.csv')).toBe(true);
+  });
+
   it('exports PNG through the injected canvas after data is loaded', async () => {
     const { plugin, exportFile } = await make(c.Ctor, c.file);
     injectCanvas(plugin);

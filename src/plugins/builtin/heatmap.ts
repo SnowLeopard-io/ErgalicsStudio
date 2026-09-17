@@ -13,7 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const heatmapManifest: PluginManifest = {
   id: 'example.heatmap',
@@ -123,8 +123,8 @@ export class HeatmapPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.palette === 'string') this.state.palette = params.palette;
     if (typeof params.gridlines === 'boolean') this.state.gridlines = params.gridlines;
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 

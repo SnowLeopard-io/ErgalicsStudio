@@ -13,7 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const histogramManifest: PluginManifest = {
   id: 'example.histogram',
@@ -87,8 +87,8 @@ export class HistogramPlugin implements Plugin {
     if (typeof params.log === 'boolean') this.state.log = params.log;
     if (typeof params.density === 'boolean') this.state.density = params.density;
     if (typeof params.cumulative === 'boolean') this.state.cumulative = params.cumulative;
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 

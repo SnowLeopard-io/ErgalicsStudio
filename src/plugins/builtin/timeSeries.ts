@@ -14,7 +14,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const timeSeriesManifest: PluginManifest = {
   id: 'example.timeseries',
@@ -100,8 +100,8 @@ export class TimeSeriesPlugin implements Plugin {
     if (typeof params.rollWindow === 'number') {
       this.state.rollWindow = Math.max(0, Math.min(40, Math.round(params.rollWindow)));
     }
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 

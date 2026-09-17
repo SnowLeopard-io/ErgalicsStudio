@@ -13,7 +13,7 @@ import type {
   PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
 export const qqplotManifest: PluginManifest = {
   id: 'example.qqplot',
@@ -75,8 +75,8 @@ export class QQPlotPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showRef === 'boolean') this.state.showRef = params.showRef;
-    if (params.exportPng === true) this.exportPng();
-    if (params.exportCsv === true) this.exportCsv();
+    if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
 
