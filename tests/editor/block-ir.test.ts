@@ -148,13 +148,17 @@ describe('workspace round-trip', () => {
     // Reproduces the recurring "studio_raw ... is missing a(n) output connection"
     // warning: an expression the blocks can't model must become a *value* block
     // (one with an `output` connection) so it can legally sit in a value input.
-    const b = irToBlockJSON({ kind: 'Call', callee: 'f', args: [] }, 'value');
+    // A strided ListSlice has no block representation and degrades to raw.
+    const b = irToBlockJSON(
+      { kind: 'ListSlice', list: ref('lst'), start: num(0), stop: num(10), step: num(2) },
+      'value',
+    );
     expect(b.type).toBe('studio_raw_value');
   });
 
   it('round-trips a raw expression through a workspace as RawExpr', () => {
     const program = makeProgram([
-      { kind: 'VarAssign', name: 'x', value: { kind: 'Call', callee: 'f', args: [] }, declare: true },
+      { kind: 'VarAssign', name: 'x', value: { kind: 'ListSlice', list: ref('lst'), start: num(0), stop: num(10), step: num(2) }, declare: true },
     ]);
     const round = workspaceJSONToIR(irToWorkspaceJSON(program));
     expect(round.body[0]).toMatchObject({
@@ -165,8 +169,32 @@ describe('workspace round-trip', () => {
     });
   });
 
-  it('degrades a // BinaryOp expression to a value raw block', () => {
-    const b = irToBlockJSON({ kind: 'BinaryOp', op: '//', left: num(7), right: num(2) }, 'value');
-    expect(b.type).toBe('studio_raw_value');
+  it('round-trips add_column / null / break / continue blocks', () => {
+    const program = makeProgram([
+      { kind: 'VarAssign', name: 'df2', value: { kind: 'AddColumn', data: ref('df'), name: 'z', values: num(1) }, declare: true },
+      { kind: 'VarAssign', name: 'n', value: { kind: 'Null' }, declare: true },
+      { kind: 'Repeat', count: num(3), body: [{ kind: 'Break' }, { kind: 'Continue' }] },
+    ]);
+    const round = workspaceJSONToIR(irToWorkspaceJSON(program));
+    expect(round.body).toEqual(program.body);
+  });
+
+  it('hoists function-definition blocks into program.functions', () => {
+    const program = makeProgram(
+      [{ kind: 'StudioCall', method: 'print', args: [{ kind: 'Call', callee: 'square', args: [ref('x')] }] }],
+      [{ kind: 'FuncDef', name: 'square', params: ['x'], body: [{ kind: 'Return', value: { kind: 'BinaryOp', op: '**', left: ref('x'), right: num(2) } }] }],
+    );
+    const round = workspaceJSONToIR(irToWorkspaceJSON(program));
+    expect(round.functions).toEqual(program.functions);
+    expect(round.body).toEqual(program.body);
+  });
+
+  it('maps // and ** BinaryOps onto the math block', () => {
+    const idiv = irToBlockJSON({ kind: 'BinaryOp', op: '//', left: num(7), right: num(2) }, 'value');
+    expect(idiv.type).toBe('studio_math_op');
+    expect((idiv.fields as Record<string, unknown>).OP).toBe('//');
+    const pow = irToBlockJSON({ kind: 'BinaryOp', op: '**', left: num(2), right: num(3) }, 'value');
+    expect(pow.type).toBe('studio_math_op');
+    expect((pow.fields as Record<string, unknown>).OP).toBe('**');
   });
 });

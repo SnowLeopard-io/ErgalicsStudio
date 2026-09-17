@@ -49,6 +49,7 @@ function num(name: string, val: number): { type: string; name: string; value: nu
 const MATH_OPS: [string, string][] = [
   ['%{BKY_OP_ADD}', '+'], ['%{BKY_OP_SUB}', '-'], ['%{BKY_OP_MUL}', '*'],
   ['%{BKY_OP_DIV}', '/'], ['%{BKY_OP_MOD}', '%'],
+  ['%{BKY_OP_IDIV}', '//'], ['%{BKY_OP_POW}', '**'],
 ];
 const COMPARE_OPS: [string, string][] = [
   ['%{BKY_CMP_EQ}', '=='], ['%{BKY_CMP_NE}', '!='], ['%{BKY_CMP_LT}', '<'],
@@ -63,6 +64,7 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_number', message0: '%{BKY_STUDIO_NUMBER}', args0: [num('NUM', 0)], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_NUMBER_TOOLTIP}' },
   { type: 'studio_string', message0: '%{BKY_STUDIO_STRING}', args0: [field('STR', '')], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_STRING_TOOLTIP}' },
   { type: 'studio_boolean', message0: '%{BKY_STUDIO_BOOLEAN}', args0: [dropdown('BOOL', [['%{BKY_BOOL_TRUE}', 'true'], ['%{BKY_BOOL_FALSE}', 'false']])], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_BOOLEAN_TOOLTIP}' },
+  { type: 'studio_null', message0: '%{BKY_STUDIO_NULL}', args0: [], output: null, colour: OP_COLOUR, tooltip: '%{BKY_STUDIO_NULL_TOOLTIP}' },
 
   // ---- variables ----
   { type: 'studio_var', message0: '%{BKY_STUDIO_VAR}', args0: [field('NAME', 'x')], output: null, colour: VAR_COLOUR, tooltip: '%{BKY_STUDIO_VAR_TOOLTIP}' },
@@ -87,6 +89,7 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_sort', message0: '%{BKY_STUDIO_SORT}', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('DIR', [['%{BKY_DIR_ASC}', 'asc'], ['%{BKY_DIR_DESC}', 'desc']])], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_SORT_TOOLTIP}' },
   { type: 'studio_select', message0: '%{BKY_STUDIO_SELECT}', args0: [value('DATA'), field('COLUMNS', 'x,y')], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_SELECT_TOOLTIP}' },
   { type: 'studio_filter', message0: '%{BKY_STUDIO_FILTER}', args0: [value('DATA'), field('COLUMN', 'x'), dropdown('OP', COMPARE_OPS), value('VALUE')], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_FILTER_TOOLTIP}' },
+  { type: 'studio_add_column', message0: '%{BKY_STUDIO_ADD_COLUMN}', args0: [value('DATA'), field('NAME', 'new_col'), value('VALUES')], output: null, colour: TRANSFORM_COLOUR, tooltip: '%{BKY_STUDIO_ADD_COLUMN_TOOLTIP}' },
 
   // ---- statistics ----
   { type: 'studio_summary', message0: '%{BKY_STUDIO_SUMMARY}', args0: [value('DATA'), field('COLUMN', 'x')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_SUMMARY_TOOLTIP}' },
@@ -104,6 +107,13 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_for_each', message0: '%{BKY_STUDIO_FOR_EACH}', args0: [value('LIST'), field('VAR', 'item'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_FOR_EACH_TOOLTIP}' },
   { type: 'studio_repeat', message0: '%{BKY_STUDIO_REPEAT}', args0: [value('COUNT'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_REPEAT_TOOLTIP}' },
   { type: 'studio_if', message0: '%{BKY_STUDIO_IF}', args0: [value('COND'), { type: 'input_statement', name: 'DO' }, { type: 'input_statement', name: 'ELSE' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_IF_TOOLTIP}' },
+  { type: 'studio_break', message0: '%{BKY_STUDIO_BREAK}', args0: [], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_BREAK_TOOLTIP}' },
+  { type: 'studio_continue', message0: '%{BKY_STUDIO_CONTINUE}', args0: [], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_CONTINUE_TOOLTIP}' },
+
+  // ---- functions ----
+  { type: 'studio_function_def', message0: '%{BKY_STUDIO_FUNCTION_DEF}', args0: [field('NAME', 'f'), field('PARAMS', 'x, y'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_FUNCTION_DEF_TOOLTIP}' },
+  { type: 'studio_return', message0: '%{BKY_STUDIO_RETURN}', args0: [value('VALUE')], previousStatement: null, nextStatement: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_RETURN_TOOLTIP}' },
+  { type: 'studio_call', message0: '%{BKY_STUDIO_CALL}', args0: [field('NAME', 'f'), field('ARGS', 'x, y')], output: null, colour: STAT_COLOUR, tooltip: '%{BKY_STUDIO_CALL_TOOLTIP}' },
 
   // ---- util / host ----
   { type: 'studio_print', message0: '%{BKY_STUDIO_PRINT}', args0: [value('TEXT')], previousStatement: null, nextStatement: null, colour: UTIL_COLOUR, tooltip: '%{BKY_STUDIO_PRINT_TOOLTIP}' },

@@ -18,11 +18,13 @@ import {
   filterRows,
   histogram as histogramOp,
   normalize as normalizeOp,
+  renameColumn as renameColumnOp,
   requireColumn,
   selectColumns,
   sortRows,
   summarize,
   toDelimited,
+  uniqueName,
 } from '@/blocks/ops';
 import type { NormalizeMode, SortDirection } from '@/blocks/ops';
 import { parseDataText } from '@/blocks/fileData';
@@ -72,13 +74,25 @@ export interface StudioApi {
   loadCSV(text: string): DataTable;
   loadXYZ(text: string): DataTable;
   random(n: number, seed?: number): DataTable;
+  /** Sine + noise sample table (t, x) — mirrors flow's source.example_data. */
+  exampleData(count: number, seed?: number): DataTable;
+  /** size×size coordinate grid (x, y) — mirrors flow's source.generate_grid. */
+  grid(size: number): DataTable;
   range(start: number, stop: number, step?: number): DataTable;
   // ---- transforms (table-level) ----
   normalize(df: DataTable, column: string, mode?: NormalizeMode): DataTable;
   sort(df: DataTable, column: string, direction?: SortDirection): DataTable;
   select(df: DataTable, columns: string[]): DataTable;
   addColumn(df: DataTable, name: string, values: number[]): DataTable;
+  /** Append a constant-valued column (flow's transform.add_column block). */
+  addConstantColumn(df: DataTable, name: string, value: number): DataTable;
   filter(df: DataTable, column: string, op: ComparisonOp, value: number): DataTable;
+  /** Inclusive numeric-range filter (flow's filter.range block). */
+  filterRange(df: DataTable, column: string, min: number, max: number): DataTable;
+  /** First K rows by column, 'largest' (default) or 'smallest' (filter.top_k). */
+  topK(df: DataTable, column: string, k: number, direction?: 'largest' | 'smallest'): DataTable;
+  /** Rename a column (flow's transform.rename_column block). */
+  renameColumn(df: DataTable, from: string, to: string): DataTable;
   // ---- statistics (table-level) ----
   summary(df: DataTable, column: string): DataTable;
   histogram(df: DataTable, column: string, bins: number): DataTable;
@@ -176,6 +190,48 @@ export function createStudioApi(
       });
     },
 
+    exampleData(count, seed = 1) {
+      // Identical generator to @/blocks/catalog/dataSource.exampleData:
+      // t sweeps one turn, x = sin(t) + small LCG noise.
+      const n = Math.max(1, Math.floor(Number.isFinite(count) ? count : 100));
+      const rand = lcg(seed);
+      const t = new Float64Array(n);
+      const x = new Float64Array(n);
+      for (let i = 0; i < n; i += 1) {
+        t[i] = (i / n) * Math.PI * 2;
+        x[i] = Math.sin(t[i]!) + (rand() - 0.5) * 0.2;
+      }
+      return createDataTable(
+        'example',
+        [
+          { name: 't', type: 'f64', data: t },
+          { name: 'x', type: 'f64', data: x },
+        ],
+        { provenance: 'studio.exampleData' },
+      );
+    },
+
+    grid(size) {
+      const s = Math.max(1, Math.floor(Number.isFinite(size) ? size : 10));
+      const n = s * s;
+      const x = new Float64Array(n);
+      const y = new Float64Array(n);
+      for (let i = 0; i < s; i += 1) {
+        for (let j = 0; j < s; j += 1) {
+          x[i * s + j] = i;
+          y[i * s + j] = j;
+        }
+      }
+      return createDataTable(
+        'grid',
+        [
+          { name: 'x', type: 'f64', data: x },
+          { name: 'y', type: 'f64', data: y },
+        ],
+        { provenance: 'studio.grid' },
+      );
+    },
+
     range(start, stop, step = 1) {
       const s = step === 0 ? 1 : step;
       const values: number[] = [];
@@ -204,9 +260,43 @@ export function createStudioApi(
       return addColumnOp(df, name, 'f64', toFloat64(values));
     },
 
+    addConstantColumn(df, name, value) {
+      // Mirrors @/blocks/catalog/transform.add_column: broadcast a scalar
+      // and de-duplicate the column name (x → x_2).
+      const v = Number(value);
+      if (!Number.isFinite(v)) throw new Error('addConstantColumn: value must be a number');
+      const data = new Float64Array(df.length).fill(v);
+      return addColumnOp(df, uniqueName(df, String(name)), 'f64', data);
+    },
+
     filter(df, column, op, value) {
       requireColumn(df, column);
       return filterRows(df, (row) => compare(row[column], op, value));
+    },
+
+    filterRange(df, column, min, max) {
+      const lo = Number(min);
+      const hi = Number(max);
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+        throw new Error('filterRange: min/max must be numbers');
+      }
+      const values = requireColumn(df, column);
+      return filterRows(df, (_row, i) => {
+        const v = values[i]!;
+        return v >= lo && v <= hi;
+      });
+    },
+
+    topK(df, column, k, direction = 'largest') {
+      requireColumn(df, column);
+      const limit = Math.max(0, Math.floor(Number(k)));
+      // Mirrors @/blocks/catalog/filter.topK: largest → desc, then first K.
+      const sorted = sortRows(df, column, direction === 'smallest' ? 'asc' : 'desc');
+      return filterRows(sorted, (_row, i) => i < limit);
+    },
+
+    renameColumn(df, from, to) {
+      return renameColumnOp(df, String(from), String(to));
     },
 
     summary(df, column) {

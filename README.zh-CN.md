@@ -59,11 +59,11 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 - **标准（Standard）**——将数据集拖入插件即可看到可视化。这是从"我有数据"到"我看到结果"的最快路径。
 - **流程（Flow）**——从内置区块组合出可视化数据流管线，按拓扑顺序运行，并检查每个节点的输出。
 - **积木（Block）**——类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序。对新手友好，但完全可脚本化（变量、循环、条件、变换、绘图）。
-- **代码（Code）**——基于 Pyodide Worker 运行时的 Monaco Python 编辑器，提供与积木模式相同的 `studio.*` API、REPL 控制台和变量面板。
+- **代码（Code）**——支持 **Python / R / JavaScript** 的 Monaco 编辑器。Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。
 
-Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及搭载 Pyodide Python 运行时的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。插件市场的包签名与 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
+Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；插件市场的包签名与完整的自由语法 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、基于 Pyodide 的 Python 代码编辑器，以及由 15 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、数据画像、信号实验室、参数扫描、SQL 工作台、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包），外加配套内核（单位系统、分块读取）；包签名与 R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 15 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、数据画像、信号实验室、参数扫描、SQL 工作台、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
 
 ---
 
@@ -152,11 +152,14 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 - **区块名称、提示、下拉选项与工具箱类别均已本地化**，通过 Blockly 的 `BKY_*` 键系统；切换语言会以重新标注的区块重建工作区，并由专门的单元测试（`tests/editor/block-i18n.test.ts`）验证。
 - **示例程序**位于 `src/editor/block/samples.ts`（5 个内置管线：星系散点、遥测折线、随机直方图、归一化散点、repeat-print），并通过顶栏的 **Examples** 对话框加载——任何用户均可发现，一键即达。
 
-**代码模式（Monaco + Pyodide Python 运行时）**
+**代码模式（Monaco · Python / R / JavaScript）**
 
-- 第四个工作台模式——顶栏的 `Standard | Flow | Blocks | Code`。代码模式是真正脚本的逃生通道：在 Monaco 编辑器中编写自由格式的 **Python**，并通过 **Pyodide Web Worker 在 CPython 上运行**。
-- **与积木模式相同的 `studio.*` API**（`load / random / range / normalize / sort / select / addColumn / filter / summary / histogram / plot / print / notify / getParam / setParam`），作为真正可导入的 Python 模块注入；`studio.plot(...)` 通过共享的插件桥接渲染。
-- **REPL** 输入位于控制台面板，无需完整重跑即可求值单个表达式；**停止**会终止并重启 Worker，使失控循环不会卡死页面。
+- 第四个工作台模式——顶栏的 `Standard | Flow | Blocks | Code`。代码模式是真正脚本的逃生通道：工具栏带分段的 **Python / R / JS** 语言切换器与引擎徽章，标明当前缓冲区由哪个引擎执行。
+- **Python——经 Pyodide Web Worker 运行完整 CPython**：自由语法（推导式、f-string、第三方包），`studio` 作为正经可导入模块注入；**REPL** 可不求值整个程序即执行单条表达式；**停止**会终止并重启 Worker，使失控循环不会卡死页面。
+- **R 与 JavaScript——内置 IR 引擎**：缓冲区解析为积木模式产出的同一份规范 IR，由同一解释器与 `studio.*` API 执行，因此 R/JS 代码与积木数据语义完全一致。R 使用 `<-` 赋值，JS 使用 `const/let/var`；超出 DSL 语法的语句会跳过并在控制台给出提示（完整语法切到 Python 即可）。
+- **即时语言互译**：切换标签即从 IR 中枢把当前程序 codegen 成另一语言方言，无需复制粘贴。
+- **每种语言同一套 `studio.*` API**（`load / random / range / exampleData / grid / normalize / sort / select / addColumn / addConstantColumn / filter / filterRange / topK / renameColumn / summary / histogram / plot / print / notify / getParam / setParam`），带 Monaco 自动补全；`studio.plot(...)` 经共享插件桥接渲染。
+- **Ctrl/⌘ + Enter** 运行当前缓冲区（运行中的 Python 任务可再按停止）；按键输入经防抖后才同步回 IR，使积木/流程在输入时保持实时更新。
 - **9 个示例程序**以真实文件形式位于 `examples/code/*.py`（通过 `import.meta.glob` 加载，在 `src/editor/code/samples.ts` 中展示元数据），并通过 **Examples** 对话框加载——从单行散点图到完整 EDA 管线、蒙特卡洛 π 估计与信号平滑。
 
 ---
@@ -367,22 +370,24 @@ cd docs && npm install && npm run dev
 
 ## 代码模式
 
-![代码模式 — 基于 Pyodide worker 的 Monaco Python 编辑器，带 REPL 控制台与实时绘图预览](docs/code.png)
+![代码模式 — 支持 Python/R/JavaScript 的 Monaco 编辑器：Python 经 Pyodide，R/JS 经内置 IR 引擎，带 REPL 控制台与实时绘图预览](docs/code.png)
 
-用于第四个工作台模式的真正 Python 编辑器。代码模式通过 Pyodide Web Worker 在浏览器中运行 **CPython**，因此你可以针对积木模式所生成的同一套 `studio.*` API 编写自由格式的 Python——无需脚手架，无需上下文切换。
+用于第四个工作台模式的真正脚本编辑器。工具栏提供分段的 **Python / R / JS** 切换器与引擎徽章：**Python** 通过 Pyodide Web Worker 在浏览器中运行 **CPython**；**R** 与 **JavaScript** 解析为共享 IR，在与积木模式相同的内置解释器上执行。无论哪种语言，你针对的都是积木所生成的同一套 `studio.*` API——无需脚手架，无需上下文切换。
 
-- **Monaco 编辑器**（`src/components/editor/CodeEditor.tsx`），带 Python 语法高亮、暗/亮主题、自动换行以及 `studio.*` 自动补全。
+- **Monaco 编辑器**（`src/components/editor/CodeEditor.tsx`），带 python/r/javascript 语法高亮、暗/亮主题、自动换行、按语言区分的 Tab 宽度以及 `studio.*` 自动补全（JavaScript 语言服务运行在正确分发的 TypeScript worker 上）。
 - **Pyodide worker 运行时**（`src/core/pyodide/`）——Web Worker 中真正的 CPython。`studio` 模块作为正经的可导入模块（`sys.modules['studio']`）注入，项目数据文件以 `_FILES` 形式送入 worker，因此 `studio.load('telemetry.csv')` 可同步解析。
-- **与积木模式相同的 Studio API**——`studio.load / random / range / normalize / sort / select / addColumn / filter / summary / histogram / plot / print / notify / getParam / setParam`。`studio.plot(...)` 通过与流程模式 `viz.*` 区块完全相同的插件桥接渲染，因此绘图会落到同一个散点 / 折线 / 直方图插件。
-- **REPL**——无需重跑整个程序，即可从控制台输入求值单个 Python 表达式或语句。
-- **中断**——停止一次运行会终止并重启 worker，因此失控循环不会卡死页面。
+- **R / JavaScript IR 运行时**——`parseCodeToIR`（`src/editor/code/parse.ts`）把缓冲区解析为规范 IR，`interpret`（`src/editor/runtime/interpreter.ts`）在工作台 studio host（`createWorkbenchStudioApi`）上执行。R 生成 `<-` 赋值、JS 生成 `const/let/var`；超出 DSL 语法的语句保留为原始代码节点，运行时跳过，并在控制台一次性报告跳过条数。
+- **经 IR 中枢的语言互译**——切换标签即按当前 IR 翻译整个程序（`setSessionLanguage`）；编辑以 150ms 防抖解析回 IR，并带有防护：程序化替换缓冲区或语言切换途中的旧文本绝不会被当作错的方言解析。
+- **处处相同的 Studio API**——`studio.load / random / range / exampleData / grid / normalize / sort / select / addColumn / addConstantColumn / filter / filterRange / topK / renameColumn / summary / histogram / plot / print / notify / getParam / setParam`。`studio.plot(...)` 通过与流程模式 `viz.*` 区块完全相同的插件桥接渲染，因此绘图会落到同一个散点 / 折线 / 直方图插件。
+- **REPL**（仅 Python）——无需重跑整个程序，即可从控制台输入求值单个表达式或语句。
+- **中断与快捷键**——停止一次运行会终止并重启 worker，因此失控循环不会卡死页面；**Ctrl/⌘ + Enter** 在任意语言下运行缓冲区（运行中的 Python 任务可再按停止）。
 - **9 个示例程序**以真实文件形式位于 `examples/code/*.py`（与流程模式的 `examples/projects/` 对应），并通过 **示例 / Examples** 对话框加载——从单行散点图到完整 EDA 管线、蒙特卡洛 π 估计与信号平滑。
 
-与积木模式共享的 IR（`src/editor/ir/`）、IR 解释器以及 IR → JS / Python 代码生成在此处全部复用，使积木与代码模式在相同的数据语义上保持一致。
+与积木模式共享的 IR（`src/editor/ir/`）、IR 解释器以及 IR → Python / R / JS 代码生成在此处全部复用，使积木与代码模式在相同的数据语义上保持一致。
 
-**三模式互转**——共享的 IR 是三种编辑模式的唯一中枢：`src/editor/flow/convert.ts` 负责 IR ↔ 流程 DAG 的往返（`irToFlow` / `flowToIR`），`src/editor/block/convert.ts` 负责 Blockly JSON ↔ IR 的往返（`blockJSONToIR` / `irToBlockJSON`）；`src/editor/code/parse.ts` 还能把代码模式缓冲区中的 `studio.*` 调用解析回 IR（`parseCodeToIR`，无法解析的行以原始代码节点保留）。在流程模式中编辑一条管线，切换到积木即可看到同一逻辑以 Scratch 积木呈现，再跳转到代码模式即可看到生成的 Python——全部由同一份 IR 驱动。一个专门的 `sync-threeway` 单元测试为双向往返兜底。
+**流程 ⇄ 积木 ⇄ 代码无缝互转**——共享的 IR 是三种编辑模式的唯一中枢：`src/editor/flow/convert.ts` 负责 IR ↔ 流程 DAG 的往返（`irToFlow` / `flowToIR`），采用 Kahn 拓扑排序、参数与区块目录 1:1 对齐；`src/editor/block/convert.ts` 负责 Blockly JSON ↔ IR 的往返；`src/editor/code/parse.ts` 把 Python/R/JavaScript 缓冲区解析回 IR（无法解析的行以原始代码节点保留）。流程编辑以**合并**（`mergeFlowIR`）方式写回 IR 而非降维覆盖：print/循环/if/函数等语句原位保留，仅替换 DAG 节点；`src/stores/useFlowSync.ts` 中的图签名守卫会忽略注水产生的防抖回声，因此反复进出模式也不会丢节点。在流程模式中编辑一条管线，切换到积木即可看到同一逻辑以 Scratch 积木呈现，再跳转到代码模式即可查看 Python、R 或 JS——全部由同一份 IR 驱动。往返由 `sync-threeway`、`flow-convert`、`editorStore`、`examples-roundtrip` 单元测试及 `verify-lang-modes` E2E 套件兜底；随附的 8 个 `.clproj` 示例工程均可经 IR 解释器执行。
 
-架构详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)；R via webR 是剩余的运行时。
+架构详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。完整的自由语法 R 运行时（webR，可装 CRAN 包）仍在路线图上；当前 R 标签已覆盖完整的 `studio.*` DSL。
 
 ---
 
@@ -579,7 +584,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-945 个测试分布在 74 个测试文件中（945 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
+1002 个测试分布在 77 个测试文件中（1002 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python/R）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码，含 `mergeFlowIR`、按会话语言互译与流程签名守卫）、Python/R/JavaScript 代码解析器、经 IR 解释器端到端执行全部随附 `.clproj` 示例工程的 `examples-roundtrip`、studio API 与流程对齐的方法（`exampleData / grid / filterRange / topK / addConstantColumn / renameColumn`）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
@@ -597,6 +602,7 @@ npm run test:e2e
 | `verify-webgpu`     | GPU 计算内核（直方图 / 热力图 / 点云）+ CPU 回退                      |
 | `verify-block-mode` | 积木编辑器：模式切换、编译、运行、积木 → 代码同步                     |
 | `verify-code-mode`  | Monaco + Pyodide：运行 Python 程序、控制台、变量、绘图                |
+| `verify-lang-modes` | R/JS 在 IR 引擎上编辑与运行、R→JS 即时互译、流程 ⇄ 积木 ⇄ 代码无损往返、真实流程管线运行 |
 | `verify-ai-samples` | AI 训练：加载全部 4 个样本（线性 / 非线性 / 逻辑回归 / MNIST）        |
 | `verify-ai-training`| AI Trainer：激活、TF.js 训练、损失曲线、模型切换重置、决策边界、MNIST CNN 网格 |
 | `verify-research`   | 科研工具集：实验记录、血缘、Figure Studio、补充材料 zip、Notebook 单元格运行 |
@@ -635,8 +641,8 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [ ] 插件市场：包签名与第三方安装管线
 - [x] GitHub Actions CI（单元 + E2E + Pages 部署）
 - [x] 积木模式（类 Scratch，Google Blockly）——见 [积木模式](docs/guide/block-mode.md)。30+ 内置区块、与解释器共享的 IR、懒加载的 Blockly 13 及 5 个示例程序；位于顶栏 `Blocks` 槽位之后。
-- [x] 代码模式（经 Pyodide 的 Python）——Monaco 编辑器、带可导入 `studio` 模块的 CPython worker 运行时、REPL + 变量、worker 中断，以及 `examples/code/` 下 9 个示例程序；与积木模式共享同一 IR。
-- [x] 三模式互转——积木 ↔ 流程 ↔ 代码经由共享 IR 往返（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts`），由 `sync-threeway` 单元测试兜底；代码模式缓冲区可经 `src/editor/code/parse.ts` 解析回 IR
+- [x] 代码模式（Python / R / JavaScript）——带分段语言切换器的 Monaco 编辑器；Python 经 CPython Pyodide worker 运行（正经可导入的 `studio` 模块），R/JS 解析为共享 IR 并在内置解释器上执行；支持即时跨语言互译、REPL + 变量、worker 中断、Ctrl/⌘+Enter 运行，以及 `examples/code/` 下 9 个示例程序。
+- [x] 无缝三模式互转——积木 ↔ 流程 ↔ 代码经由共享 IR 往返（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `src/editor/code/parse.ts`）：拓扑排序、参数与区块目录对齐、`mergeFlowIR` 保留非 DAG 语句，并有防止节点丢失的注水签名守卫；由 `sync-threeway`、`flow-convert`、`editorStore`、`examples-roundtrip` 单元测试及 `verify-lang-modes` E2E 套件兜底。
 - [x] 统计分析子系统——假设检验、效应量、多重比较校正、功效分析（`src/core/stats/`），以 14 个流程模式 `stats.*` 区块呈现
 - [x] 科研二进制数据导入——经单一调度器支持 HDF5 / NetCDF / FITS / Zarr / Parquet（`src/core/io/`）
 - [x] 出版级绘图引擎（SVG/PDF 导出）与可复现性内核（`src/core/plot/`、`src/core/repro/`）
@@ -653,7 +659,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 可复现锁——`repro.lock` 导出 / 校验 / 一键复现（`/#/reprolock`）
 - [x] Inference Forge——HMC / NUTS 贝叶斯推断页面：声明式模板 + 弱信息先验，WAIC / LOO / PPC，轨迹与密度图（`/#/inference`）
 - [x] 研究级可靠性层——结构化错误分类法 + `Result` / 重试 + 带去重与全局处理器的错误注册表、可组合的字段路径校验框架与安全解析，以及 Pandera 风格、带行级隔离的数据质量引擎（`src/core/errors/`、`src/core/validation/`、`src/core/data-quality/`）；参数扫描模块重构为纯函数校验领域层 + SOLID 模块化组件（`src/pages/sweeps/`）。完整的行业分析与变更记录见 `ENHANCEMENT_REPORT.md`。
-- [ ] 代码模式：R 运行时（webR）
+- [ ] 代码模式：完整的自由语法 R 运行时（webR + CRAN 包）——当前 R 标签已能在 IR 引擎上运行完整的 `studio.*` DSL；webR 将进一步支持任意 R 语法与第三方库
 
 ---
 

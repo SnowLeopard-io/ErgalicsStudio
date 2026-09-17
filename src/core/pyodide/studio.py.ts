@@ -76,6 +76,25 @@ class _Studio:
         count = max(1, int(n))
         return DataTable("random", [("x", [rng.random() for _ in range(count)])], provenance="studio.random")
 
+    def exampleData(self, count, seed=1):
+        # Mirror of flow-mode source.example_data: t sweeps one turn and
+        # x = sin(t) + small deterministic noise.
+        rng = _random.Random(seed)
+        n = max(1, int(count))
+        t = [(i / n) * 3.141592653589793 * 2 for i in range(n)]
+        x = [_np.sin(v) + (rng.random() - 0.5) * 0.2 for v in t]
+        return DataTable("example", [("t", t), ("x", x)], provenance="studio.exampleData")
+
+    def grid(self, size):
+        s = max(1, int(size))
+        xs = []
+        ys = []
+        for i in range(s):
+            for j in range(s):
+                xs.append(float(i))
+                ys.append(float(j))
+        return DataTable("grid", [("x", xs), ("y", ys)], provenance="studio.grid")
+
     def range(self, start, stop, step=1):
         s = step if step != 0 else 1
         return DataTable("range", [("value", list(range(start, stop, s)))], provenance="studio.range")
@@ -123,6 +142,38 @@ class _Studio:
         data = _require_column(df, column)
         keep = [i for i in range(len(data)) if _compare(data[i], op, float(value))]
         cols = [(c[0], [c[1][i] for i in keep]) for c in df.columns]
+        return DataTable(df.name, cols, provenance=df.provenance)
+
+    def addConstantColumn(self, df, name, value):
+        base = str(name)
+        final = base
+        n = 2
+        while final in df.column_names():
+            final = f"{base}_{n}"
+            n += 1
+        cols = [(c[0], list(c[1])) for c in df.columns]
+        cols.append((final, [float(value)] * len(df)))
+        return DataTable(df.name, cols, provenance=df.provenance)
+
+    def filterRange(self, df, column, lo, hi):
+        data = _require_column(df, column)
+        keep = [i for i in range(len(data)) if float(lo) <= float(data[i]) <= float(hi)]
+        cols = [(c[0], [c[1][i] for i in keep]) for c in df.columns]
+        return DataTable(df.name, cols, provenance=df.provenance)
+
+    def topK(self, df, column, k, direction="largest"):
+        data = _require_column(df, column)
+        order = sorted(range(len(data)), key=lambda i: float(data[i]), reverse=direction != "smallest")
+        order = order[: max(0, int(k))]
+        cols = [(c[0], [c[1][i] for i in order]) for c in df.columns]
+        return DataTable(df.name, cols, provenance=df.provenance)
+
+    def renameColumn(self, df, from_name, to_name):
+        if from_name not in df.column_names():
+            raise ValueError(f'column "{from_name}" does not exist')
+        if to_name in df.column_names():
+            raise ValueError(f'column "{to_name}" already exists')
+        cols = [((to_name if name == from_name else name), list(data)) for name, data in df.columns]
         return DataTable(df.name, cols, provenance=df.provenance)
 
     # ---- statistics -------------------------------------------------------

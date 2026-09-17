@@ -23,8 +23,19 @@ try {
   await page.locator('.welcome-enter').click();
   await sleep(1500);
 
+  // Dismiss the first-run onboarding tour overlay if it appears.
+  for (let i = 0; i < 5; i += 1) {
+    const skip = page.locator('.tour-tip-actions .btn', { hasText: '跳过' });
+    if (await skip.count()) {
+      await skip.first().click();
+      break;
+    }
+    await sleep(300);
+  }
+  await sleep(300);
+
   // Switch to 代码 (code) mode.
-  const codeBtn = page.locator('.mode-switch .cluster-btn', { hasText: '代码' });
+  const codeBtn = page.locator('.mode-switch .mode-btn', { hasText: '代码' });
   await codeBtn.click();
   await sleep(3000);
 

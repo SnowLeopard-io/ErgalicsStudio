@@ -25,7 +25,7 @@ import type { BlockGraphState } from '@/types/block';
 import { codegen } from '@/editor/codegen';
 import { parseCodeToIR } from '@/editor/code/parse';
 import { irToWorkspaceJSON } from '@/editor/block/convert';
-import { irToFlow, flowToIR } from '@/editor/flow/convert';
+import { irToFlow, flowToIR, mergeFlowIR } from '@/editor/flow/convert';
 
 /** Emitted whenever a session's persisted shape mutates (for dirty tracking). */
 export const EDITOR_STATE_CHANGED = 'editor:state:changed';
@@ -48,6 +48,8 @@ export interface EditorStore {
   pendingLoad: IRProgram | null;
 
   createSession: (mode: 'block' | 'code', language: CodeLanguage) => EditorSession;
+  /** Switch a code session's language and translate its code from the IR. */
+  setSessionLanguage: (id: string, language: CodeLanguage) => void;
   setActiveSession: (id: string) => void;
   updateSessionIR: (id: string, ir: IRProgram, lastCode?: string) => void;
   removeSession: (id: string) => void;
@@ -86,6 +88,11 @@ function emptyProgram(): IRProgram {
 
 const CODE_LANGUAGES: readonly CodeLanguage[] = ['python', 'r', 'js'];
 const SYNC_STATES: readonly SyncState[] = ['clean', 'block-dirty', 'code-dirty', 'flow-dirty', 'conflict'];
+
+/** Session language → codegen dialect. */
+function codegenLang(language: CodeLanguage): 'python' | 'r' | 'js' {
+  return language === 'js' ? 'js' : language === 'r' ? 'r' : 'python';
+}
 
 /** Minimal shape check for a persisted IR program — `ir.body.map` must not throw. */
 function isIRProgram(value: unknown): value is IRProgram {
@@ -141,6 +148,21 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     return session;
   },
 
+  setSessionLanguage: (id, language) => {
+    const sess = get().sessions.find((s) => s.id === id);
+    if (!sess || sess.language === language) return;
+    // Translate the canonical IR into the new dialect; block/flow surfaces
+    // are unchanged (they derive from the same IR). Any code that could not
+    // be parsed into IR is carried over as RawCode and marked with a note.
+    const code = codegen(sess.ir, codegenLang(language));
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id ? { ...x, language, lastCode: code, syncState: 'code-dirty', updatedAt: Date.now() } : x,
+      ),
+    }));
+    notifyChanged();
+  },
+
   setActiveSession: (id) => {
     if (!get().sessions.some((s) => s.id === id)) return;
     set({ activeSessionId: id });
@@ -166,7 +188,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) => {
         if (sess.id !== id) return sess;
-        const code = codegen(ir, sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python');
+        const code = codegen(ir, codegenLang(sess.language));
         const blockGraph = irToWorkspaceJSON(ir);
         const flowGraph = irToFlow(ir);
         const dirty: SyncState =
@@ -189,7 +211,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) => {
         if (sess.id !== id) return sess;
-        const code = codegen(sess.ir, sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python');
+        const code = codegen(sess.ir, codegenLang(sess.language));
         const blockGraph = irToWorkspaceJSON(sess.ir);
         const flowGraph = irToFlow(sess.ir);
         return { ...sess, lastCode: code, blockGraph, flowGraph, updatedAt: Date.now() };
@@ -216,7 +238,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   syncFromFlow: (id, flowGraph) => {
-    const ir = flowToIR(flowGraph);
+    const sess = get().sessions.find((s) => s.id === id);
+    const dagIR = flowToIR(flowGraph);
+    // The DAG only represents data-pipeline nodes — merge so statements it
+    // cannot express (prints, control flow, functions, raw code) survive.
+    const ir = sess ? mergeFlowIR(sess.ir, dagIR) : dagIR;
     get().applyIR(id, ir, 'flow');
   },
 

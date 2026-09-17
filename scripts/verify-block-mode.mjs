@@ -20,8 +20,19 @@ try {
   await page.locator('.welcome-enter').click();
   await sleep(1500);
 
+  // Dismiss the first-run onboarding tour overlay if it appears.
+  for (let i = 0; i < 5; i += 1) {
+    const skip = page.locator('.tour-tip-actions .btn', { hasText: '跳过' });
+    if (await skip.count()) {
+      await skip.first().click();
+      break;
+    }
+    await sleep(300);
+  }
+  await sleep(300);
+
   // Switch to 积木 (block) mode.
-  const blockBtn = page.locator('.mode-switch .cluster-btn', { hasText: '积木' });
+  const blockBtn = page.locator('.mode-switch .mode-btn', { hasText: '积木' });
   await blockBtn.click();
   await sleep(2500);
 

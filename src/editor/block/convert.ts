@@ -58,6 +58,14 @@ function chainToIR(first: BlockJSON | undefined): IRNode[] {
   return out;
 }
 
+/** Split a `x, y, z` parameter/argument field into trimmed names. */
+function splitParamNames(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 // ---- block JSON → IR ----
 
 export function blockJSONToIR(b: BlockJSON): IRNode {
@@ -70,6 +78,8 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
       return { kind: 'String', value: fieldStr(b, 'STR') };
     case 'studio_boolean':
       return { kind: 'Boolean', value: fieldStr(b, 'BOOL') === 'true' };
+    case 'studio_null':
+      return { kind: 'Null' };
     // variables
     case 'studio_var':
       return { kind: 'VarRef', name: fieldStr(b, 'NAME') };
@@ -149,6 +159,13 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
         op: fieldStr(b, 'OP') as BinaryOperator,
         value: requireIR(inputBlock(b, 'VALUE'), 'VALUE'),
       };
+    case 'studio_add_column':
+      return {
+        kind: 'AddColumn',
+        data: requireIR(inputBlock(b, 'DATA'), 'DATA'),
+        name: fieldStr(b, 'NAME'),
+        values: requireIR(inputBlock(b, 'VALUES'), 'VALUES'),
+      };
     // statistics
     case 'studio_summary':
       return { kind: 'Summary', data: requireIR(inputBlock(b, 'DATA'), 'DATA'), column: fieldStr(b, 'COLUMN') };
@@ -205,6 +222,27 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
       const elseBody = chainToIR(inputBlock(b, 'ELSE'));
       return { kind: 'If', branches: [{ cond, body }], ...(elseBody.length > 0 ? { elseBody } : {}) };
     }
+    case 'studio_break':
+      return { kind: 'Break' };
+    case 'studio_continue':
+      return { kind: 'Continue' };
+    case 'studio_function_def':
+      return {
+        kind: 'FuncDef',
+        name: fieldStr(b, 'NAME'),
+        params: splitParamNames(fieldStr(b, 'PARAMS')),
+        body: chainToIR(inputBlock(b, 'DO')),
+      };
+    case 'studio_return': {
+      const valueBlock = inputBlock(b, 'VALUE');
+      return valueBlock ? { kind: 'Return', value: blockJSONToIR(valueBlock) } : { kind: 'Return' };
+    }
+    case 'studio_call': {
+      // Arguments are a comma-separated list of variable names; each becomes a
+      // VarRef, matching the `studio_var` value blocks users compose with.
+      const args = splitParamNames(fieldStr(b, 'ARGS')).map((name): IRNode => ({ kind: 'VarRef', name }));
+      return { kind: 'Call', callee: fieldStr(b, 'NAME'), args };
+    }
     // host / raw
     case 'studio_print':
       return { kind: 'StudioCall', method: 'print', args: [requireIR(inputBlock(b, 'TEXT'), 'TEXT')] };
@@ -240,12 +278,17 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
  * any floating/orphan blocks are ignored, so broken code never runs.
  */
 export function workspaceJSONToIR(ws: WorkspaceJSON): IRProgram {
-  const body: IRNode[] = [];
+  const chained: IRNode[] = [];
   for (const top of ws.blocks?.blocks ?? []) {
     if (top.type !== 'studio_run') continue; // ignore orphaned blocks
-    body.push(...chainToIR(top.next?.block));
+    chained.push(...chainToIR(top.next?.block));
   }
-  return makeProgram(body, [], 'js');
+  // Function definitions are hoisted into program.functions (mirroring code
+  // mode), so a function block may sit anywhere in the chain and calls still
+  // resolve; the remaining nodes keep their authored order.
+  const functions = chained.filter((n) => n.kind === 'FuncDef');
+  const body = chained.filter((n) => n.kind !== 'FuncDef');
+  return makeProgram(body, functions, 'js');
 }
 
 // ---- IR → block JSON ----
@@ -285,6 +328,8 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
       return valueBlock('studio_string', { STR: node.value });
     case 'Boolean':
       return valueBlock('studio_boolean', { BOOL: node.value ? 'true' : 'false' });
+    case 'Null':
+      return valueBlock('studio_null', {});
     case 'VarRef':
       return valueBlock('studio_var', { NAME: node.name });
     case 'LoadCSV':
@@ -317,9 +362,8 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
         INDEX: { block: irToBlockJSON(node.index, 'value') },
       });
     case 'BinaryOp': {
-      // The math dropdown only exposes + - * / %; `//` and `**` must degrade
-      // to raw code instead of writing an invalid dropdown value.
-      if (node.op === '//' || node.op === '**') return rawFallback(node, ctx);
+      // `//` (integer division) and `**` (power) are part of the math
+      // dropdown, alongside + - * / %.
       const type =
         node.op === 'and' || node.op === 'or'
           ? 'studio_logic_op'
@@ -351,6 +395,11 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
       return valueBlock('studio_filter', { COLUMN: node.column, OP: node.op }, {
         DATA: { block: irToBlockJSON(node.data, 'value') },
         VALUE: { block: irToBlockJSON(node.value, 'value') },
+      });
+    case 'AddColumn':
+      return valueBlock('studio_add_column', { NAME: node.name }, {
+        DATA: { block: irToBlockJSON(node.data, 'value') },
+        VALUES: { block: irToBlockJSON(node.values, 'value') },
       });
     case 'Summary':
       return valueBlock('studio_summary', { COLUMN: node.column }, {
@@ -409,6 +458,28 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
         DO: stmtInput(branch!.body),
         ...(node.elseBody ? { ELSE: stmtInput(node.elseBody) } : {}),
       });
+    }
+    case 'Break':
+      return statementBlock('studio_break', {});
+    case 'Continue':
+      return statementBlock('studio_continue', {});
+    case 'FuncDef':
+      return statementBlock('studio_function_def', { NAME: node.name, PARAMS: node.params.join(',') }, {
+        DO: stmtInput(node.body),
+      });
+    case 'Return':
+      return statementBlock('studio_return', {}, {
+        ...(node.value ? { VALUE: { block: irToBlockJSON(node.value, 'value') } } : {}),
+      });
+    case 'Call': {
+      // Only calls whose arguments are plain variable references fit the
+      // block's `name, a, b` field shape; richer argument expressions stay
+      // editable as raw code.
+      if (node.args.every((a) => a.kind === 'VarRef')) {
+        const args = node.args.map((a) => (a.kind === 'VarRef' ? a.name : '')).join(',');
+        return valueBlock('studio_call', { NAME: node.callee, ARGS: args });
+      }
+      return rawFallback(node, ctx);
     }
     case 'StudioCall':
       if (node.method === 'print' && node.args.length === 1) {

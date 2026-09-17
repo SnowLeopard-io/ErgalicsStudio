@@ -11,12 +11,12 @@
 // 此處絕不會因外部驅動的 IR 變更而寫入 `blockStore`，故不會產生編輯／回饋迴圈。
 // ==========================================================================
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useBlockStore } from '@/stores/blockStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { BLOCK_GRAPH_CHANGED } from '@/stores/blockStore';
-import { irToFlow } from '@/editor/flow/convert';
+import { irToFlow, flowGraphSignature } from '@/editor/flow/convert';
 import { on } from '@/core/events';
 
 /**
@@ -24,6 +24,9 @@ import { on } from '@/core/events';
  */
 export function useFlowSync(): void {
   const mode = useAppStore((s) => s.mode);
+  // 注水時 DAG 的結構簽章：與此相同的變更事件代表「沒有真正的使用者編輯」
+  // （可能是注水殘留的防抖事件），不得回推，否則會用降維後的 DAG 覆寫 IR。
+  const hydratedSigRef = useRef<string | null>(null);
 
   // 將流程 DAG 的編輯推入 IR 中樞，使區塊／程式碼重新生成。
   useEffect(() => {
@@ -32,6 +35,9 @@ export function useFlowSync(): void {
       const sid = useEditorStore.getState().activeSessionId;
       if (!sid) return;
       const graph = useBlockStore.getState().toJSON();
+      const sig = flowGraphSignature(graph);
+      if (sig === hydratedSigRef.current) return; // 與注水內容相同 → 忽略
+      hydratedSigRef.current = sig;
       useEditorStore.getState().syncFromFlow(sid, graph);
     });
     return off.unsubscribe;
@@ -46,5 +52,6 @@ export function useFlowSync(): void {
     if (!session) return;
     const flow = irToFlow(session.ir);
     useBlockStore.getState().fromJSON(flow);
+    hydratedSigRef.current = flowGraphSignature(flow);
   }, [mode]);
 }

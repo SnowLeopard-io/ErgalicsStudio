@@ -69,13 +69,16 @@ for each one below:
 - **Block** — a Scratch-like block editor where a single "Run" hat block
   kicks off the program. Beginner-friendly, but fully scripted (variables,
   loops, conditionals, transforms, plots).
-- **Code** — a Monaco Python editor backed by a Pyodide worker runtime, with
-  the same `studio.*` API as block mode, a REPL console and a variable panel.
+- **Code** — a Monaco editor for **Python / R / JavaScript**. Python runs on
+  CPython via a Pyodide worker (free-form syntax), while R and JavaScript
+  execute on the same in-process IR engine as block mode; switching language
+  translates the whole buffer instantly through the shared IR. A REPL
+  console, a variable panel and `studio.*` autocompletion are included.
 
 Ergalics Studio is under **active development** and already usable end to
 end: the core loop (project management, data loading, plugin registry, 2D/3D
 rendering, i18n, theming, performance monitoring, the Flow mode, the Block
-mode, and the Code mode with a Pyodide Python runtime) is functional and
+mode, and a Code mode that speaks Python/R/JavaScript) is functional and
 covered by tests. GPU acceleration spans Particles, N-Body, the LBM fluid,
 the wave equation, histogram, heatmap and point-cloud kernels. On top of the
 first research toolset (experiment tracking, uncertainty quantification, a
@@ -84,8 +87,10 @@ packaging and a notebook), a second-generation research platform has
 landed: a GPU uncertainty engine, Sweep Studio, Signal Lab, Model Lab, Data
 Profiler, Repro Lock, a DuckDB-powered SQL Workbench, a Report Builder and
 Inference Forge (HMC/NUTS Bayesian inference) — every research tool is a
-standalone full-page lab sharing one unified shell. Package signing for the
-plugin marketplace and the R runtime (webR) are the next milestones. Every
+standalone full-page lab sharing one unified shell. The code editor now
+speaks Python, R and JavaScript (R/JS run on the in-process IR engine);
+package signing for the plugin marketplace and a full free-form R runtime
+(webR) are the next milestones. Every
 module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
@@ -94,12 +99,13 @@ codebase keeps scaling without a rewrite.
 > marketplace catalog, live GPU compute, an in-browser AI training plugin,
 > a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
-> support, a Pyodide-powered Python code editor, and a 15-page research
+> support, a three-language code editor (Python via Pyodide; R and
+> JavaScript via the shared in-process IR engine), and a 15-page research
 > workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Inference
 > Forge, Data Profiler, Signal Lab, Sweep Studio, SQL Workbench, Report
 > Builder, Repro Lock, Data Lineage, Figure Studio, Notebook, Supplement
 > packaging) plus supporting kernels (unit system, chunked ingestion);
-> package signing and the R runtime are next.
+> package signing and a full webR R runtime are next.
 
 ---
 
@@ -376,19 +382,33 @@ supplement manifest pick them up automatically.
   scatter, repeat-print) and are loaded via the **Examples** dialog in the
   top bar — discoverable by any user, one click away.
 
-**Code mode (Monaco + Pyodide Python runtime)**
+**Code mode (Monaco · Python / R / JavaScript)**
 
 - A fourth workbench mode — `Standard | Flow | Blocks | Code` in the top
-  bar. Code mode is the escape hatch for real scripting: write free-form
-  **Python** in a Monaco editor and run it on **CPython via a Pyodide Web
-  Worker**.
-- **Same `studio.*` API** as block mode (`load / random / range / normalize /
-  sort / select / addColumn / filter / summary / histogram / plot / print /
-  notify / getParam / setParam`), injected as a real importable Python
-  module; `studio.plot(...)` renders through the shared plugin bridge.
-- **REPL** input in the console panel evaluates single expressions without
-  a full re-run; **stop** terminates and respawns the worker so runaway
-  loops cannot hang the page.
+  bar. Code mode is the escape hatch for real scripting, with a segmented
+  **Python / R / JS** language switcher in the toolbar plus an engine badge
+  showing what will execute the buffer.
+- **Python — full CPython via a Pyodide Web Worker**: free-form syntax
+  (comprehensions, f-strings, packages), a real importable `studio` module,
+  a **REPL** for single-expression evaluation, and a **stop** action that
+  terminates and respawns the worker so runaway loops cannot hang the page.
+- **R and JavaScript — the in-process IR engine**: the buffer is parsed into
+  the same canonical IR that block mode emits and executed by the same
+  interpreter + `studio.*` API, so R/JS code and blocks share exact data
+  semantics. R uses `<-` assignment; JS uses `const/let/var`. Statements the
+  DSL parser cannot model are skipped with a console notice (full syntax is
+  one Python-tab away).
+- **Instant language translation**: switching tabs codegens the current
+  program from the IR hub into the other dialect — no copy/paste.
+- **Same `studio.*` API in every language** (`load / random / range /
+  exampleData / grid / normalize / sort / select / addColumn /
+  addConstantColumn / filter / filterRange / topK / renameColumn / summary /
+  histogram / plot / print / notify / getParam / setParam`) with Monaco
+  autocompletion; `studio.plot(...)` renders through the shared plugin
+  bridge.
+- **Ctrl/⌘ + Enter** runs the buffer (and stops a running Python job);
+  keystrokes are debounced before syncing back to IR so block/flow stay
+  live while typing.
 - **9 sample programs** live as real files under `examples/code/*.py`
   (loaded via `import.meta.glob`, display metadata in
   `src/editor/code/samples.ts`) and load through the **Examples** dialog —
@@ -652,50 +672,74 @@ limitations / next steps.
 
 ## Code Mode
 
-![Code mode — a Monaco Python editor backed by a Pyodide worker, with a REPL console and a live plot preview](docs/code.png)
+![Code mode — a Monaco Python/R/JavaScript editor: Pyodide for Python, the in-process IR engine for R/JS, with a REPL console and a live plot preview](docs/code.png)
 
-A real Python editor for the fourth workbench mode. Code mode runs **CPython
-in the browser** through a Pyodide Web Worker, so you write free-form Python
-against the same `studio.*` API that block mode generates — no scaffolding,
-no context switching.
+A real scripting editor for the fourth workbench mode. The toolbar hosts a
+segmented **Python / R / JS** switcher and an engine badge: **Python** runs
+**CPython in the browser** through a Pyodide Web Worker, while **R** and
+**JavaScript** parse into the shared IR and execute on the same in-process
+interpreter as block mode. You write against the same `studio.*` API that
+the blocks generate — no scaffolding, no context switching.
 
-- **Monaco editor** (`src/components/editor/CodeEditor.tsx`) with Python
-  syntax highlighting, dark/light theming, word wrap, and `studio.*`
-  autocompletion.
+- **Monaco editor** (`src/components/editor/CodeEditor.tsx`) with
+  python/r/javascript syntax highlighting, dark/light theming, word wrap,
+  per-language tab sizes and `studio.*` autocompletion (the JavaScript
+  language service runs on a properly dispatched TypeScript worker).
 - **Pyodide worker runtime** (`src/core/pyodide/`) — real CPython in a Web
   Worker. The `studio` module is injected as a proper importable module
   (`sys.modules['studio']`), and project data files ship into the worker as
   `_FILES` so `studio.load('telemetry.csv')` resolves synchronously.
-- **Same Studio API as block mode** — `studio.load / random / range /
-  normalize / sort / select / addColumn / filter / summary / histogram /
-  plot / print / notify / getParam / setParam`. `studio.plot(...)` renders
-  through the exact same plugin bridge as a Flow-mode `viz.*` block, so a
-  plot lands in the very same scatter / line / histogram plugin.
-- **REPL** — evaluate a single Python expression or statement from the
-  console input without re-running the whole program.
-- **Interrupt** — stopping a run terminates and respawns the worker, so a
-  runaway loop cannot hang the page.
+- **R / JavaScript IR runtime** — `parseCodeToIR`
+  (`src/editor/code/parse.ts`) parses the buffer into the canonical IR and
+  `interpret` (`src/editor/runtime/interpreter.ts`) executes it against the
+  workbench studio host (`createWorkbenchStudioApi`). R codegens with `<-`
+  and JS with `const/let/var`; any statement outside the DSL grammar is
+  retained as a raw-code node, skipped at run time, and reported once in the
+  console with a count.
+- **Language translation through the IR hub** — switching tabs translates
+  the whole program from the current IR (`setSessionLanguage`), and edits
+  are debounced (150 ms) before parsing back, with guards so a programmatic
+  buffer replacement or a mid-flight language switch can never be parsed as
+  the wrong dialect.
+- **Same Studio API everywhere** — `studio.load / random / range /
+  exampleData / grid / normalize / sort / select / addColumn /
+  addConstantColumn / filter / filterRange / topK / renameColumn / summary /
+  histogram / plot / print / notify / getParam / setParam`. `studio.plot(...)`
+  renders through the exact same plugin bridge as a Flow-mode `viz.*` block,
+  so a plot lands in the very same scatter / line / histogram plugin.
+- **REPL** (Python only) — evaluate a single expression or statement from
+  the console input without re-running the whole program.
+- **Interrupt & shortcut** — stopping a run terminates and respawns the
+  worker, so a runaway loop cannot hang the page; **Ctrl/⌘ + Enter** runs
+  the buffer in every language (and stops a running Python job).
 - **9 sample programs** live as real files under `examples/code/*.py`
   (mirroring flow-mode's `examples/projects/`) and load through the
   **示例 / Examples** dialog — from one-liner scatters to a full EDA
   pipeline, a Monte-Carlo π estimation, and signal smoothing.
 
-The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the IR → JS / Python codegen are all reused here, so block and code modes stay
+The IR shared with block mode (`src/editor/ir/`), the IR interpreter, and the IR → Python / R / JS codegen are all reused here, so block and code modes stay
 consistent on the same data semantics.
 
-**Three-mode conversion** — the shared IR is the single hub for all three
-editing modes: `src/editor/flow/convert.ts` round-trips IR ↔ Flow DAG
-(`irToFlow` / `flowToIR`), and `src/editor/block/convert.ts` round-trips
-Blockly JSON ↔ IR (`blockJSONToIR` / `irToBlockJSON`). `src/editor/code/
-parse.ts` additionally parses `studio.*` calls in a Code-mode buffer back
-into the IR (`parseCodeToIR`), preserving unparsed lines as raw-code nodes.
-Edit a pipeline in
-Flow mode, switch to Blocks and see the same logic as Scratch blocks, then
-jump to Code for the generated Python — all driven by one IR. A dedicated
-`sync-threeway` unit test pins the round-trip in both directions.
+**Seamless Flow ⇄ Block ⇄ Code conversion** — the shared IR is the single
+hub for the three editing modes. `src/editor/flow/convert.ts` round-trips
+IR ↔ Flow DAG (`irToFlow` / `flowToIR`) with Kahn topological ordering and
+parameters aligned 1:1 to the block catalog; `src/editor/block/convert.ts`
+round-trips Blockly JSON ↔ IR; `src/editor/code/parse.ts` parses a
+Python/R/JS buffer back into the IR, preserving unparsed lines as raw-code
+nodes. Flow edits **merge** into the IR instead of flattening it
+(`mergeFlowIR`): print/loop/if/function statements stay in place while DAG
+nodes are replaced, and a graph-signature guard in `src/stores/useFlowSync.ts`
+ignores the debounced echo of hydration so re-entering a mode never loses
+nodes. Edit a pipeline in Flow, switch to Blocks and see the same logic as
+Scratch blocks, then jump to Code in Python, R or JS — all driven by one IR.
+The round-trips are pinned by `sync-threeway`, `flow-convert`,
+`editorStore` and `examples-roundtrip` unit tests, and by the
+`verify-lang-modes` E2E suite; all eight bundled `.clproj` sample projects
+execute through the IR interpreter.
 
 See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the
-architecture; R via webR is the remaining runtime.
+architecture. A full free-form R runtime (webR, with CRAN packages) remains
+on the roadmap; today's R tab covers the complete `studio.*` DSL.
 
 ---
 
@@ -980,7 +1024,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-945 tests across 74 test files (945 passing, 2 skipped on GPU-less CI): file-format
+1002 tests across 77 test files (1002 passing, 2 skipped on GPU-less CI): file-format
 detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
@@ -994,7 +1038,12 @@ regressions), the data plugins' parsing helpers
 (error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
 — `DataTable` ops, registry, compiler (validation/topology/type-check),
 executor (incremental cache + invalidation), geometry, catalog executors,
-the `viz.*` → plugin render bridge, codegen (JS/Python), three-mode IR sync (block ↔ flow ↔ code), the Pyodide worker
+the `viz.*` → plugin render bridge, codegen (JS/Python/R), three-mode IR sync (block ↔ flow ↔ code, including
+`mergeFlowIR`, per-session language translation and the flow-signature
+guard), the code parser for Python/R/JavaScript, the IR interpreter
+executing every bundled `.clproj` sample end to end (`examples-roundtrip`),
+the studio API's flow-parity methods (`exampleData / grid / filterRange /
+topK / addConstantColumn / renameColumn`), the Pyodide worker
 protocol, the structural-mechanics simulator, plugin runtime lifecycle and
 recent bugfix regressions, the publication-grade plot engine, the
 reproducibility kernel, and the pipeline samples that load via
@@ -1034,6 +1083,7 @@ npm run test:e2e
 | `verify-webgpu`      | GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback |
 | `verify-block-mode`  | block editor: mode switch, compile, run, block → code sync             |
 | `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
+| `verify-lang-modes`  | R/JS editing on the IR engine, R→JS translation, lossless Flow ⇄ Block ⇄ Code cycling, real flow-pipeline run |
 | `verify-ai-samples`  | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
 | `verify-ai-training` | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
 | `verify-research`    | research toolset: experiment tracking, lineage, Figure Studio, supplement zip, notebook cell run |
@@ -1075,8 +1125,8 @@ table. Highlights:
 - [ ] Plugin marketplace: package signing & third-party install pipeline
 - [x] GitHub Actions CI (unit + E2E + Pages deploy)
 - [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
-- [x] Code mode (Python via Pyodide) — Monaco editor, CPython worker runtime with a real importable `studio` module, REPL + variables, worker interrupt, and 9 sample programs under `examples/code/`; same IR shared with block mode.
-- [x] Three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (`src/editor/flow/convert.ts` + `src/editor/block/convert.ts`), pinned by a `sync-threeway` unit test; Code-mode buffers parse back into the IR via `src/editor/code/parse.ts`
+- [x] Code mode (Python / R / JavaScript) — Monaco editor with a segmented language switcher; Python runs on a CPython Pyodide worker with a real importable `studio` module, R/JS parse to the shared IR and run on the in-process interpreter; instant cross-language buffer translation, REPL + variables, worker interrupt, Ctrl/⌘+Enter run, and 9 sample programs under `examples/code/`.
+- [x] Seamless three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `src/editor/code/parse.ts`) with topological ordering, catalog-aligned parameters, `mergeFlowIR` preservation of non-DAG statements and a hydration-signature guard against node loss; pinned by `sync-threeway`, `flow-convert`, `editorStore` and `examples-roundtrip` unit tests plus the `verify-lang-modes` E2E suite.
 - [x] Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (`src/core/stats/`), surfaced as 14 Flow-mode `stats.*` blocks
 - [x] Scientific binary I/O — HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`)
 - [x] Publication-grade plot engine with SVG/PDF export and a reproducibility kernel (`src/core/plot/`, `src/core/repro/`)
@@ -1093,7 +1143,7 @@ table. Highlights:
 - [x] Repro Lock — `repro.lock` export / verify / one-click re-run (`/#/reprolock`)
 - [x] Inference Forge — HMC / NUTS Bayesian-inference page: declarative templates with weak priors, WAIC / LOO / PPC, trace & density charts (`/#/inference`)
 - [x] Research-grade reliability layer — structured error taxonomy + `Result` / retry + deduping registry with global handlers, composable path-addressed validation with safe parsing, and a Pandera-style data-quality engine with row quarantine (`src/core/errors/`, `src/core/validation/`, `src/core/data-quality/`); Sweep Studio refactored into a pure validated domain layer with modular SOLID components (`src/pages/sweeps/`). See `ENHANCEMENT_REPORT.md` for the full analysis and change log.
-- [ ] Code mode: R runtime (webR)
+- [ ] Code mode: full free-form R runtime (webR with CRAN packages) — the current R tab runs the complete `studio.*` DSL on the IR engine; webR would add arbitrary R syntax/libraries
 
 ---
 
