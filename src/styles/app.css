@@ -1657,6 +1657,17 @@
   color: var(--color-error);
 }
 
+.analysis-warning {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-warning-strong, var(--color-warning));
+  background: var(--color-warning-soft, var(--color-accent-soft));
+  border: 1px solid var(--color-warning, var(--color-border));
+  border-radius: var(--radius-md);
+}
+
 .analysis-preview {
   display: flex;
   flex-direction: column;

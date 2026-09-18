@@ -9,9 +9,14 @@
 
 import { createDataTable, type DataTable } from '@/types/datatable';
 
+interface ParsedColumn {
+  name: string;
+  type: 'f64' | 'string';
+  data: Float64Array | string[];
+}
+
 interface ParsedColumns {
-  names: string[];
-  columns: Float64Array[];
+  columns: ParsedColumn[];
   rows: number;
 }
 
@@ -85,13 +90,20 @@ function splitTokens(line: string): string[] {
 }
 
 /**
- * Parse whitespace/comma-delimited numeric columns. A header line (any line
- * containing a non-numeric token) supplies column names. The column count is
- * taken from the first numeric data row, so a header that is narrower or
- * wider than the data does not silently drop every row: names are padded with
- * defaults (or truncated) to match the data width. Rows with a non-numeric
- * token or too many cells are skipped; rows with *missing* cells keep their
- * present values and pad the rest with NaN.
+ * Parse whitespace/comma-delimited data into typed columns.
+ *
+ * A header line (any line containing a non-numeric token) supplies column
+ * names. Column count comes from the first data row; a header narrower or wider
+ * than the data is padded/truncated so valid rows are never silently dropped.
+ *
+ * Column *types* are inferred per column, not per row: a column whose tokens
+ * are all numeric becomes `f64`; a column with any numeric token keeps its
+ * numbers and demotes unparseable cells to NaN (missing); a column with no
+ * numeric token at all (e.g. a categorical `group` / `sample` label) becomes a
+ * `string` column. Rows are only dropped when they are longer than the table
+ * width. This is what lets a two-column categorical + numeric study CSV like
+ * `sample,group,activity` load into a table instead of throwing
+ * "no numeric data found" just because it carries a label column.
  */
 function parseDelimitedColumns(
   text: string,
@@ -102,59 +114,66 @@ function parseDelimitedColumns(
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  const headerNames: string[] = [];
-  const columns: number[][] = [];
-  let width = 0;
-  let started = false;
+  let headerArr: string[] | null = null;
+  const raw: string[][] = [];
 
   for (const line of lines) {
     const tokens = splitTokens(line);
     // Separator-only lines (`,,` / blank runs) carry no data.
     if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
 
-    const isHeader = !started && tokens.some((t) => !Number.isFinite(Number(t)));
-    if (isHeader) {
-      headerNames.push(...tokens);
+    // The first data-bearing line is a header when it contains any non-numeric
+    // token. Once data rows exist the table width is fixed, so a later header
+    // can no longer be detected — matching the old behaviour.
+    if (headerArr === null && raw.length === 0 && tokens.some((t) => t !== '' && !Number.isFinite(Number(t)))) {
+      headerArr = tokens;
       continue;
     }
 
-    // An empty cell means "missing", not zero — `Number('')` is 0, so map it
-    // to NaN explicitly. A row is only malformed when a *present* token is
-    // non-numeric; missing cells are preserved as NaN.
-    const values = tokens.map((t) => (t === '' ? NaN : Number(t)));
-    const malformed = tokens.some((t, i) => t !== '' && !Number.isFinite(values[i]!));
-    if (malformed) continue; // skip malformed rows
-
-    if (!started) {
-      width = values.length;
-      for (let i = 0; i < width; i += 1) columns.push([]);
-      started = true;
+    if (raw.length === 0) {
+      for (let i = 0; i < tokens.length; i += 1) raw.push([]);
     }
-    // A short row (e.g. a trailing field elided) keeps the cells it has and
-    // pads the rest with NaN. Only genuinely over-long rows are malformed.
-    if (values.length > width) continue;
+    const width = raw.length;
+    // Only genuinely over-long rows are malformed and dropped; a short row
+    // keeps the cells it has and pads the remainder with missing values.
+    if (tokens.length > width) continue;
     for (let i = 0; i < width; i += 1) {
-      columns[i]!.push(i < values.length ? values[i]! : NaN);
+      raw[i]!.push(i < tokens.length ? tokens[i]! : '');
     }
   }
 
-  if (!started) {
+  if (raw.length === 0) {
     throw new Error('no numeric data found');
   }
-  // Names come from the header when its width matches the data; otherwise pad
-  // or truncate so the header never silently discards valid rows.
-  const names = columns.map((_, i) => headerNames[i] ?? defaultName(i));
-  return {
-    names,
-    columns: columns.map((c) => toFloat64(c)),
-    rows: columns[0]!.length,
-  };
+
+  const rows = raw[0]!.length;
+  const columns: ParsedColumn[] = raw.map((cells, i) => {
+    const name = headerArr?.[i] ?? defaultName(i);
+    const finite = cells.filter((c) => c !== '' && Number.isFinite(Number(c)));
+    if (finite.length === 0) {
+      // Categorical / label column — keep its strings.
+      return { name, type: 'string' as const, data: [...cells] };
+    }
+    // Numeric column (missing / stray tokens become NaN).
+    return {
+      name,
+      type: 'f64' as const,
+      data: toFloat64(cells.map((c) => (c !== '' && Number.isFinite(Number(c)) ? Number(c) : NaN))),
+    };
+  });
+
+  // A result with only categorical columns has nothing numeric to analyze.
+  if (!columns.some((c) => c.type === 'f64')) {
+    throw new Error('no numeric data found');
+  }
+
+  return { columns, rows };
 }
 
 function tableFromParsed(parsed: ParsedColumns, provenance: string): DataTable {
   return createDataTable(
     provenance,
-    parsed.columns.map((data, i) => ({ name: parsed.names[i]!, type: 'f64' as const, data })),
+    parsed.columns.map((c) => ({ name: c.name, type: c.type, data: c.data })),
     { provenance },
   );
 }

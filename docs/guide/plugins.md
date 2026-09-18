@@ -310,7 +310,7 @@ as `THREE.Points` (colored by speed, camera auto-fit).
   ```
   The bundled sample (`nbody.json`) is a 4096-body **torus ring** orbiting a
   central mass.
-- **Compute** — the `⚡ GPU all-pairs` button (or `compute()`) uploads the
+- **Compute** — the `GPU all-pairs` button (or `compute()`) uploads the
   bodies to an interleaved `[x,y,z,vx,vy,vz,mass]` storage buffer and
   dispatches a WGSL all-pairs kernel. Two buffers are used in **ping-pong** so
   every integration step stays on the device with no per-step read-back. On
@@ -341,7 +341,7 @@ convergence — then reports biology-relevant metrics.
   ```
   The bundled sample (`protein.json`) is a 560-protein / ~1700-interaction
   modular network.
-- **Compute** — the `⚡ Compute layout` button runs `Iterations` steps of the
+- **Compute** — the `Compute layout` button runs `Iterations` steps of the
   layout with simulated-annealing temperature decay, then reports the number
   of **connected components** (putative complexes/modules) and the largest
   component size via the `ComputeResult.output`.

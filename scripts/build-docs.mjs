@@ -26,10 +26,15 @@ execSync('npm run build', {
   stdio: 'inherit',
   // Absolute base so in-app links resolve correctly. Overridable so the
   // public path matches where the docs are actually served:
-  //   - domain-root embed / local preview  -> "/docs/"
-  //   - GitHub Pages embed (this repo)      -> "/ErgalicsStudio/docs/"
-  //     (set by .github/workflows/deploy.yml)
-  env: { ...process.env, DOCS_BASE: process.env.DOCS_BASE ?? '/docs/' },
+  //   - merged GitHub Pages deploy (this repo)  -> "/<repo>/app/docs/"
+  //     (set by .github/workflows/deploy.yml — always authoritative)
+  //   - app/ embedding under the origin root    -> "/app/docs/" (default)
+  // VitePress cannot use a relative base: deep pages emit "./assets" which
+  // resolves against the page directory (e.g. guide/assets) instead of the
+  // shared dist/assets, so unlike the website/studio it needs the offical
+  // layout prefix up front. This default targets the layout created by
+  // merge-deploy.mjs (pages-out/app/docs); CI supplies the repo-name prefix.
+  env: { ...process.env, DOCS_BASE: process.env.DOCS_BASE ?? '/app/docs/' },
 });
 
 if (!existsSync(built)) {

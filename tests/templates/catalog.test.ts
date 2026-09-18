@@ -126,6 +126,17 @@ describe('subject template catalog', () => {
       expect(roundTripped.data.files.length).toBe(project.data.files.length);
     });
 
+    it('uses a stable per-template project id (no duplicate on re-open)', () => {
+      // Storage keys projects by `id` (put = upsert), so a deterministic id
+      // means re-opening the template replaces one record instead of appending
+      // a second random-id project to the recent list. See catalog.makeProject.
+      const a = tpl.buildProject();
+      const b = tpl.buildProject();
+      expect(a.id).toBe(b.id);
+      expect(a.id).toBe(`tpl:${tpl.id}`);
+      expect(a.metadata.tags).toContain(`tpl:${tpl.id}`);
+    });
+
     it('ships non-empty, parseable example data (no blank first screen)', () => {
       const project = tpl.buildProject();
       expect(project.data.files.length).toBeGreaterThan(0);

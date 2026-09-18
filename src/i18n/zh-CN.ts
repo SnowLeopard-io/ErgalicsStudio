@@ -763,6 +763,9 @@ export const zhCN: LocaleDictionary = {
 
   // ---- F5 Data Profiler ----
   'profile.title': '数据画像',
+  'profile.data_file_not_found': '未找到数据文件：{file}',
+  'profile.no_numeric': '未检测到可分析的数值数据。请确认文件包含数字列（完整数值，而非文字/标签），并检查分隔符与表头；若为纯文本表，可先转为数值编码后再画像。',
+  'profile.no_numeric_columns': '当前数据没有数值列：画像仅统计各文本列的值分布与缺失情况，分布直方图与相关性矩阵不可用。若要数值画像，请换用含数字列的数据文件。',
   'profile.rescan': '重新扫描',
   'profile.cancel': '取消扫描',
   'profile.scanning': '流式扫描中… 已处理 {rows} 行',

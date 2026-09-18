@@ -759,6 +759,9 @@ export const enUS: LocaleDictionary = {
 
   // ---- F5 Data Profiler ----
   'profile.title': 'Data Profiler',
+  'profile.data_file_not_found': 'Data file not found: {file}',
+  'profile.no_numeric': 'No analyzable numeric data detected. Make sure the file holds numeric columns (numbers, not text/labels) and check the delimiter and header; for a text-only table, encode it numerically before profiling.',
+  'profile.no_numeric_columns': 'This data has no numeric columns: the profile only reports value distribution and missing data per text column — histograms and the correlation matrix are unavailable. Switch to a file with numeric columns for a full numeric profile.',
   'profile.rescan': 'Rescan',
   'profile.cancel': 'Cancel scan',
   'profile.scanning': 'Streaming scan… {rows} rows processed',

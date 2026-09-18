@@ -9,7 +9,8 @@ exploration, GPU compute scheduling, and a sandboxed plugin system, all
 running in the browser with a Rust/WASM core.</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-0891b2?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-16a34a?style=for-the-badge" /></a>
 </p>
 
 <p>
@@ -96,8 +97,10 @@ codebase keeps scaling without a rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
 > 40 built-in plugins (30 core + 10 fun), a sandboxed plugin system, a
-> marketplace catalog, live GPU compute, an in-browser AI training plugin,
-> a statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
+> marketplace catalog, live GPU compute, an in-browser AI training plugin, an
+> AI assistant (online/offline), an official website (gallery / theme
+> marketplace / plugin marketplace, deep-linked into the workbench), a
+> statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
 > support, a three-language code editor (Python via Pyodide; R and
 > JavaScript via the shared in-process IR engine), and a 15-page research
@@ -586,6 +589,8 @@ See [Documentation](#documentation) for details.
 ├── scripts/                  # build-wasm · make-example-data · E2E suites
 ├── tests/                    # Vitest unit tests
 ├── docs/                     # VitePress documentation workspace
+├── website/                  # official website (gallery · theme marketplace ·
+│                             #   plugin marketplace) — deploys to the Pages root
 ```
 
 ---
@@ -1092,7 +1097,15 @@ npm run test:e2e
 
 ## Documentation
 
-A dedicated VitePress documentation workspace lives in [`docs/`](docs/):
+The workspace ships three web surfaces that deploy together to a single
+GitHub Pages site:
+
+- **Official website** (`website/`) at the Pages root — gallery, theme
+  marketplace and plugin marketplace, with zero-install deep links into the
+  workstation.
+- **Workstation** (the repo's React app) at `<repo>/app/` — the "live demo"
+  entry point; embeds its own copy of the docs.
+- **Docs** — a dedicated VitePress documentation workspace in [`docs/`](docs/):
 
 ```bash
 cd docs
@@ -1101,9 +1114,10 @@ npm run dev       # local documentation site
 npm run build     # static site → docs/.vitepress/dist
 ```
 
-The production frontend build copies the docs site into `dist/docs/`, so the
-welcome page's **Docs** link works from a preview server. The docs site can
-also be deployed independently (e.g. GitHub Pages).
+The `deploy.yml` workflow builds all three and merges them with
+`node scripts/merge-deploy.mjs`: the website lands at the Pages root and the
+workstation (with the embedded docs copy) under `<repo>/app/`. Build locally
+with `npm run build:web && npm run build:website && npm run deploy:merge`.
 
 ---
 
@@ -1143,6 +1157,9 @@ table. Highlights:
 - [x] Repro Lock — `repro.lock` export / verify / one-click re-run (`/#/reprolock`)
 - [x] Inference Forge — HMC / NUTS Bayesian-inference page: declarative templates with weak priors, WAIC / LOO / PPC, trace & density charts (`/#/inference`)
 - [x] Research-grade reliability layer — structured error taxonomy + `Result` / retry + deduping registry with global handlers, composable path-addressed validation with safe parsing, and a Pandera-style data-quality engine with row quarantine (`src/core/errors/`, `src/core/validation/`, `src/core/data-quality/`); Sweep Studio refactored into a pure validated domain layer with modular SOLID components (`src/pages/sweeps/`). See `ENHANCEMENT_REPORT.md` for the full analysis and change log.
+- [x] Official website (`website/`) — gallery with chart panels, theme marketplace and plugin marketplace, i18n, dark/light theming; deep links apply a gallery theme and open straight into the workbench instead of the welcome page
+- [x] Website ↔ workstation plugin install — marketplace "download" produces a real, loadable `.cspkg` ZIP archive (manifest + entry) that the workstation's sandbox correctly imports, rather than a bare JSON manifest; theme/plugin deep links and button styles fixed for dark mode
+- [x] AI assistant online/offline modes — one-click switch to online mode with automatic authorization, graceful degradation to the off-line rule engine with a friendly notice when a real endpoint is unavailable
 - [ ] Code mode: full free-form R runtime (webR with CRAN packages) — the current R tab runs the complete `studio.*` DSL on the IR engine; webR would add arbitrary R syntax/libraries
 
 ---

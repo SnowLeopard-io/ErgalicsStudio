@@ -7,7 +7,8 @@
 <p><b>浏览器中的科学计算工作站</b>——交互式数据探索、GPU 计算调度与沙箱化插件系统，全部在浏览器中运行，核心由 Rust/WASM 构建。</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="试用在线 Demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-0891b2?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="官方网站" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="试用在线 Demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-16a34a?style=for-the-badge" /></a>
 </p>
 
 <p>
@@ -63,7 +64,7 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 
 Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；插件市场的包签名与完整的自由语法 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 15 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、数据画像、信号实验室、参数扫描、SQL 工作台、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（在线 / 离线）、官方网站（画廊 / 主题市场 / 插件市场，并与工作台深链打通）、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 15 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、数据画像、信号实验室、参数扫描、SQL 工作台、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
 
 ---
 
@@ -320,6 +321,7 @@ cd docs && npm install && npm run dev
 ├── scripts/                  # build-wasm · make-example-data · E2E 套件
 ├── tests/                    # Vitest 单元测试
 ├── docs/                     # VitePress 文档 workspace
+├── website/                  # 官方网站（画廊 · 主题市场 · 插件市场）——部署到 Pages 根
 ```
 
 ---
@@ -611,7 +613,11 @@ npm run test:e2e
 
 ## 文档
 
-一个独立的 VitePress 文档 workspace 位于 [`docs/`](docs/)：
+项目存在三个 Web 界面，统一部署到同一个 GitHub Pages 站点：
+
+- **官方网站**（`website/`）位于 Pages 根目录——画廊、主题市场与插件市场，提供指向工作站的零安装深链。
+- **工作站**（仓库中的 React 应用）位于 `<repo>/app/`——"在线 Demo"入口，内嵌自己的文档副本。
+- **文档**——独立的 VitePress 文档 workspace 位于 [`docs/`](docs/)：
 
 ```bash
 cd docs
@@ -620,7 +626,7 @@ npm run dev       # 本地文档站点
 npm run build     # 静态站点 → docs/.vitepress/dist
 ```
 
-生产前端构建会将文档站点拷贝进 `dist/docs/`，因此欢迎页的 **Docs** 链接在预览服务器下可用。文档站点也可独立部署（例如 GitHub Pages）。
+`deploy.yml` 工作流构建并合并三者（`node scripts/merge-deploy.mjs`）：官网落在 Pages 根，工作站（含内嵌文档）位于 `<repo>/app/`。本地构建：`npm run build:web && npm run build:website && npm run deploy:merge`。
 
 ---
 
@@ -659,6 +665,9 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 可复现锁——`repro.lock` 导出 / 校验 / 一键复现（`/#/reprolock`）
 - [x] Inference Forge——HMC / NUTS 贝叶斯推断页面：声明式模板 + 弱信息先验，WAIC / LOO / PPC，轨迹与密度图（`/#/inference`）
 - [x] 研究级可靠性层——结构化错误分类法 + `Result` / 重试 + 带去重与全局处理器的错误注册表、可组合的字段路径校验框架与安全解析，以及 Pandera 风格、带行级隔离的数据质量引擎（`src/core/errors/`、`src/core/validation/`、`src/core/data-quality/`）；参数扫描模块重构为纯函数校验领域层 + SOLID 模块化组件（`src/pages/sweeps/`）。完整的行业分析与变更记录见 `ENHANCEMENT_REPORT.md`。
+- [x] 官方网站（`website/`）——画廊（含图表面板）、主题市场与插件市场，i18n，暗/亮双主题；深链可直接应用画廊主题并进入工作台，而无需停留在欢迎页
+- [x] 官网与工作站插件打通——市场"下载"产出真实可加载的 `.cspkg` ZIP 归档（manifest + 入口），工作站沙箱可直接导入，而不再是单纯 JSON 清单；修复主题 / 插件深链与暗色模式下的按钮样式
+- [x] AI 助手——项目级悬浮聊天面板，自然语言 → 意图识别 → 可编辑 `studio.*` 代码草稿 → 插入 / 运行；支持在线 / 离线两种模式，一键切换在线即自动授权，并在无真实端点时优雅降级并友好提示
 - [ ] 代码模式：完整的自由语法 R 运行时（webR + CRAN 包）——当前 R 标签已能在 IR 引擎上运行完整的 `studio.*` DSL；webR 将进一步支持任意 R 语法与第三方库
 
 ---

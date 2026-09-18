@@ -112,14 +112,17 @@ export async function queryOnlineService(
 export async function askAssistant(request: AssistantRequest): Promise<AssistantReply> {
   const mode = getAssistantMode();
   if (mode === 'online') {
-    // Online path intentionally left as an interface: without a configured
-    // endpoint there is nothing to call, so we report unavailability rather
-    // than pretending to have contacted a model.
+    // The online transport is interface-only until a real endpoint is
+    // configured (none is deployed). Degrade gracefully to the offline rule
+    // engine so online mode always answers instead of leaving the user with
+    // silence, but say so explicitly on EVERY reply — matching success still
+    // came from the offline engine, and acting otherwise would mislead.
+    const intent = matchIntent(request.prompt, request.locale);
     return {
       mode: 'online',
-      intent: null,
-      code: null,
-      note: null,
+      intent,
+      code: intent ? synthesizeCode(intent.kind, intent.slots) : null,
+      note: onlineUnavailableNote(request.locale),
       needsOnline: false,
     };
   }
@@ -140,6 +143,14 @@ export async function askAssistant(request: AssistantRequest): Promise<Assistant
     note: null,
     needsOnline: false,
   };
+}
+
+/** Hint shown when online mode is selected but the model service is not
+ *  wired up yet — the assistant still answers via the offline engine. */
+export function onlineUnavailableNote(locale: Locale): string {
+  return locale === 'zh-CN'
+    ? '在线模型服务尚未接入，已用离线规则引擎作答。可继续发送分析需求。'
+    : 'The online model service is not wired up yet — answered with the offline rule engine. You can keep sending analysis requests.';
 }
 
 /** Hint shown when the offline engine cannot answer and online is disabled. */
