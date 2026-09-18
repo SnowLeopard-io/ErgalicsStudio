@@ -64,7 +64,7 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 
 Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；插件市场的包签名与完整的自由语法 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、40 个内置插件（30 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（在线 / 离线）、官方网站（画廊 / 主题市场 / 插件市场，并与工作台深链打通）、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 15 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、数据画像、信号实验室、参数扫描、SQL 工作台、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用，具备四种工作台模式、42 个内置插件（32 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（在线 / 离线）、官方网站（画廊 / 主题市场 / 插件市场，并与工作台深链打通）、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 19 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、模型推理、数据画像、信号实验室、参数扫描、SQL 工作台、数据清洗向导、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包、课程模式、作品画廊），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
 
 ---
 
@@ -84,7 +84,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 
 **插件系统**
 
-- **40 个内置插件**——30 个核心/科学插件外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
+- **42 个内置插件**——32 个核心/科学插件外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
 - **两级加载**：核心插件在启动时自动加载；趣味/工具插件声明 `autoload: false`，按需从内置面板或市场标签页加载，保持启动注册表精简。
 - **市场目录**（`src/plugins/marketplace.ts`）——每个内置插件均附带精选标签、流行度与分类筛选（科学 / 趣味 / 工具）；社区"敬请期待"提交作为占位符列出。
 - `.cspkg` 包加载（含 `manifest.json` + 入口 + 资源的 ZIP），并带有清单校验（id 格式、入口路径穿越防护、沙箱枚举）。
@@ -188,7 +188,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (30 核心 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (32 核心 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["原生核心 (Rust→WASM)<br/>设备管理 · 计算<br/>内核调度<br/>文件类型检测"]
     end
 
@@ -306,7 +306,7 @@ cd docs && npm install && npm run dev
 │   │                         #     model-lab · profiler · reprolock ·
 │   │                         #     lineage · supplement）、signal、
 │   │                         #     sweeps、sql、report
-│   ├── plugins/builtin/      #   30 核心 + 10 趣味/工具插件 (2D + 3D)
+│   ├── plugins/builtin/      #   32 核心 + 10 趣味/工具插件 (2D + 3D)
 │   ├── plugins/marketplace.ts #   市场目录 (标签/流行度/筛选)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
 │   │                         #     editor/experiment/lineage/chunk/figure/notebook/
@@ -395,7 +395,7 @@ cd docs && npm install && npm run dev
 
 ## 科研模块
 
-顶栏的**科研**下拉菜单——加上**分析**快捷分析页与欢迎页的快速开始卡片——可打开 15 个独立科研页面。每个页面共享同一实验室外壳（返回工作台 + 工具标题 + 不受约束的可滚动主体）；每个模块都采用相同的分层方式：`src/core/` 下的纯 TypeScript 核心（无 React）、持久化到项目或 IndexedDB 的 Zustand store，以及其上的页面，全部由单元测试覆盖：
+顶栏的**科研**下拉菜单——加上**分析**快捷分析页与欢迎页的快速开始卡片——可打开 19 个独立科研页面。每个页面共享同一实验室外壳（返回工作台 + 工具标题 + 不受约束的可滚动主体）；每个模块都采用相同的分层方式：`src/core/` 下的纯 TypeScript 核心（无 React）、持久化到项目或 IndexedDB 的 Zustand store，以及其上的页面，全部由单元测试覆盖：
 
 | 页面 | 路由 | 功能 |
 | ---- | ---- | ---- |
@@ -404,20 +404,44 @@ cd docs && npm install && npm run dev
 | 不确定性 | `/#/uncertainty` | bootstrap 置信区间、蒙特卡洛传播、MCMC——CPU 或 WGSL GPU 引擎（自动选择），R-hat / ESS 诊断 |
 | 模型实验室 | `/#/model-lab` | OLS / 逻辑 / 岭 / 多项式回归，系数表与 2×2 残差诊断 |
 | Inference Forge | `/#/inference` | HMC / NUTS 贝叶斯推断：声明式模板 + 弱信息先验，R-hat / ESS / HDI / MCSE，WAIC / LOO 与 PPC，轨迹与密度图 |
+| 模型推理 | `/#/model-inference` | 在浏览器内用 WebGPU 运行 ONNX 模型并查看推理结果 |
 | 数据画像 | `/#/profiler` | 流式列画像、相关矩阵、质量评分 + 问题清单、指纹缓存 |
 | 信号实验室 | `/#/signal` | FFT / Welch PSD、窗函数、Savitzky–Golay / 移动平均滤波、ACF/PACF、季节分解 |
 | 参数扫描 | `/#/sweeps` | 网格 / 列表 / 拉丁超立方参数批量实验，响应面可视化 |
 | SQL 工作台 | `/#/sql` | 基于 DuckDB-WASM 查询项目文件：join、聚合、窗口函数；结果可保存并自动接入血缘 |
+| 数据清洗向导 | `/#/cleaning` | 基于项目文件的分步向导：类型转换、缺失值策略、异常值标记、去重、重命名——应用前可增删 / 重排 / 撤销步骤 |
 | 报告生成器 | `/#/report` | 叙述 + 图表 + 表格 + 交互筛选器 → 单个自包含 HTML 文件 |
 | 可复现锁 | `/#/reprolock` | `repro.lock` 导出/导入，五类漂移校验与一键复现 |
 | 数据血缘 | `/#/lineage` | 由运行记录 + 数据导入事件重建的分层文件→运行 DAG，渲染为 SVG 画布 |
 | Figure Studio | `/#/figures` | 在 IEEE / Elsevier 模板上组合多面板出版级图表：带实时 SVG 预览的面板编辑器、图注，以及 SVG / PDF / PNG-600dpi 导出 |
 | Notebook | `/#/notebook` | 持久化于项目内的 Markdown + Python 单元格；单元格运行于专用 Pyodide 运行时，Notebook 运行会汇入实验历史 |
 | 补充材料打包 | `/#/supplement` | 论文随附 ZIP，含 `manifest.json`（运行记录 + 血缘 + 元数据表单）以及可选的数据文件与代码会话 |
+| 课程模式 | `/#/course` | 学生 / 教师工作台：布置作业、收集并离线批改学生实验成果 |
+| 作品画廊 | `/#/gallery` | 浏览并重新打开社区分享的可复现作品 |
 
 两个配套内核补齐工具集：用于量纲安全参数的**单位系统**（`units.convert` / `units.check` 流程区块 + `QuantityInput`），以及在完整解析前按行窗口流式读取大型分隔符文件、支持预览 + 指纹的**分块读取**。
 
+在 Figure Studio 之上是一条出版级流水线。**期刊投稿检查**会对当前图版按 **IEEE / Elsevier** 规范做预检，按 *image / annotation / text / metadata* 分组核对：有效导出分辨率（600 / 300 dpi）、RGB 与 CMYK 色彩模式、矢量输出的字体嵌入、小写图板标签、轴标签、配文图注、可接受的导出格式、≥ 7 pt 的标签字号，以及匹配的期刊模板。每一项未通过都提供"定位问题"动作，可直达对应控件；每种导出格式提交前也会显示未通过项计数。**图注起草器**把图表类型、列名与可选的统计结果转成可编辑的"图 1. ……"图注（英文 / 中文），图板还可附带**元数据标注**，这些都会同时进入投稿检查与补充材料 manifest。
+
 来自 Flow / 积木 / 代码 / Notebook / 参数扫描 / 不确定性 / 模型实验室 / Inference Forge 的运行记录都汇入同一份历史与同一张血缘图，因此"这张图由哪次运行、基于哪些数据产出？"始终可答——且答案可通过补充材料 ZIP 随论文一并交付。
+
+### 科研实验室实景
+
+![Inference Forge —— 浏览器内贝叶斯 MCMC（NUTS）](docs/InferenceForge.png)
+
+*Inference Forge 在浏览器内（WebAssembly）运行 NUTS 采样，并呈现完整的收敛性结论：含 94% HDI / MCSE / R-hat / ESS 的后验摘要、逐链诊断、WAIC / PSIS-LOO 模型对比、后验预测检查，以及轨迹 + 后验密度图。*
+
+![Figure Studio —— 出版级图表组合](docs/figurestudio.png)
+
+*Figure Studio 用于组合出版级图表——此处为套用 IEEE 单栏模板的 2×2 OLS 诊断图，支持逐图板排版、图注起草器、期刊投稿检查，以及 SVG / PDF / 600 dpi PNG 导出。*
+
+![信号实验室 —— 频域分析](docs/SignalLab.png)
+
+*信号实验室执行频域分析——此处为对剂量-响应序列做幅度谱（FFT）——随后可将图表送入 Figure Studio，或存回项目文件以便继续科研步骤。*
+
+![作品画廊 —— 可复现科研作品库](docs/WorkGallery.png)
+
+*作品画廊汇聚各学科经策展的可复现作品，每张卡片按学科与复现锁状态（已锁定 / 检出漂移 / 未锁定）标记，并附作者与许可证，便于发现、核验与引用。*
 
 ---
 
@@ -425,12 +449,14 @@ cd docs && npm install && npm run dev
 
 ### 内置插件
 
-**核心 / 科学插件**（启动时自动加载，共 30 个）：
+**核心 / 科学插件**（启动时自动加载，共 32 个）：
 
 | 插件                | 数据                        | 能力                      |
 | ------------------- | --------------------------- | ------------------------- |
 | Point Cloud         | `.xyz`                      | 2D canvas                 |
 | Point Cloud 3D      | `.xyz`, `.dat`              | Three.js 场景, 高度渐变   |
+| 3D Surface          | `.json`, `.dat`, `.txt`     | 宿主 Three.js 场景中的高度场曲面图 (z = f(x, y)) |
+| 3D Voxel Field      | `.json`, `.dat`, `.txt`     | 三维标量场的等值面 / 半透明体素渲染 |
 | Particles           | `.dat`                      | 2D 模拟 + 真实 WGSL 计算 + 进度 |
 | Time Series         | `.csv`                      | 2D 折线图                 |
 | Histogram           | `.dat`                      | 分箱 + 对数刻度           |
@@ -586,7 +612,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-1002 个测试分布在 77 个测试文件中（1002 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python/R）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码，含 `mergeFlowIR`、按会话语言互译与流程签名守卫）、Python/R/JavaScript 代码解析器、经 IR 解释器端到端执行全部随附 `.clproj` 示例工程的 `examples-roundtrip`、studio API 与流程对齐的方法（`exampleData / grid / filterRange / topK / addConstantColumn / renameColumn`）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
+1749 个测试分布在 104 个测试文件中（1747 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python/R）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码，含 `mergeFlowIR`、按会话语言互译与流程签名守卫）、Python/R/JavaScript 代码解析器、经 IR 解释器端到端执行全部随附 `.clproj` 示例工程的 `examples-roundtrip`、studio API 与流程对齐的方法（`exampleData / grid / filterRange / topK / addConstantColumn / renameColumn`）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、共用科研数字格式化助手（`fmt`）的边界安全（`toPrecision` 范围与整数取整）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
@@ -604,10 +630,11 @@ npm run test:e2e
 | `verify-webgpu`     | GPU 计算内核（直方图 / 热力图 / 点云）+ CPU 回退                      |
 | `verify-block-mode` | 积木编辑器：模式切换、编译、运行、积木 → 代码同步                     |
 | `verify-code-mode`  | Monaco + Pyodide：运行 Python 程序、控制台、变量、绘图                |
-| `verify-lang-modes` | R/JS 在 IR 引擎上编辑与运行、R→JS 即时互译、流程 ⇄ 积木 ⇄ 代码无损往返、真实流程管线运行 |
 | `verify-ai-samples` | AI 训练：加载全部 4 个样本（线性 / 非线性 / 逻辑回归 / MNIST）        |
 | `verify-ai-training`| AI Trainer：激活、TF.js 训练、损失曲线、模型切换重置、决策边界、MNIST CNN 网格 |
 | `verify-research`   | 科研工具集：实验记录、血缘、Figure Studio、补充材料 zip、Notebook 单元格运行 |
+
+此外还有两项针对性检查补齐回归网络，但单独运行：`verify-lang-modes`（R/JS 在 IR 引擎上编辑与运行、R→JS 即时互译、流程 ⇄ 积木 ⇄ 代码无损往返、真实流程管线运行）与 `npm run verify:site`（官网根、`<repo>/app/` 与 `<repo>/app/docs/` 的合并部署路径完整性）。
 
 ---
 
@@ -628,6 +655,8 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 
 `deploy.yml` 工作流构建并合并三者（`node scripts/merge-deploy.mjs`）：官网落在 Pages 根，工作站（含内嵌文档）位于 `<repo>/app/`。本地构建：`npm run build:web && npm run build:website && npm run deploy:merge`。
 
+内嵌文档通过 `DOCS_BASE` 环境变量服务在 `<repo>/app/docs/` 下。每次部署构建后，`npm run verify:site` 会探测合并产物的三个界面关键路径——官网根、`<repo>/app/` 与 `<repo>/app/docs/`——并且 `deploy.yml` 在发布前运行它，因此跨站路径回归会在 CI 中报错，而不是默默制造一个失效的导航链接。
+
 ---
 
 ## 路线图
@@ -635,8 +664,8 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 当前状态表见 [`docs/guide/roadmap.md`](docs/guide/roadmap.md)。要点：
 
 - [x] 工作台布局、项目管理、文件路由
-- [x] 40 个内置插件（30 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
-- [x] 插件导出与分析增强——40 个插件全部支持一键 PNG 快照（3D 走场景快照）与 RFC-4180 CSV 导出，另有趋势线 / 移动均值 / 累积 / 密度 / 抖动 / 排序叠加层与仿真预设（生命游戏图案、Truchet 砖型）
+- [x] 42 个内置插件（32 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
+- [x] 插件导出与分析增强——42 个插件全部支持一键 PNG 快照（3D 走场景快照）与 RFC-4180 CSV 导出，另有趋势线 / 移动均值 / 累积 / 密度 / 抖动 / 排序叠加层与仿真预设（生命游戏图案、Truchet 砖型）
 - [x] 插件市场目录（精选标签 / 流行度 / 分类筛选，按需加载）
 - [x] WebGPU 设备管理 + 真实计算内核管线
 - [x] i18n、主题、性能监控、分享链接

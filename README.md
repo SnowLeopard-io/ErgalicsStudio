@@ -96,19 +96,20 @@ module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
 > Status: **Active development** — usable today with four workbench modes,
-> 40 built-in plugins (30 core + 10 fun), a sandboxed plugin system, a
+> 42 built-in plugins (32 core + 10 fun), a sandboxed plugin system, a
 > marketplace catalog, live GPU compute, an in-browser AI training plugin, an
 > AI assistant (online/offline), an official website (gallery / theme
 > marketplace / plugin marketplace, deep-linked into the workbench), a
 > statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
 > Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
 > support, a three-language code editor (Python via Pyodide; R and
-> JavaScript via the shared in-process IR engine), and a 15-page research
+> JavaScript via the shared in-process IR engine), and a 19-page research
 > workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Inference
-> Forge, Data Profiler, Signal Lab, Sweep Studio, SQL Workbench, Report
-> Builder, Repro Lock, Data Lineage, Figure Studio, Notebook, Supplement
-> packaging) plus supporting kernels (unit system, chunked ingestion);
-> package signing and a full webR R runtime are next.
+> Forge, Model Inference, Data Profiler, Signal Lab, Sweep Studio, SQL
+> Workbench, Data Cleaning Wizard, Report Builder, Repro Lock, Data Lineage,
+> Figure Studio, Notebook, Supplement packaging, Course Mode, Gallery)
+> plus supporting kernels (unit system, chunked ingestion); package signing
+> and a full webR R runtime are next.
 
 ---
 
@@ -151,7 +152,7 @@ codebase keeps scaling without a rewrite.
 
 **Plugin system**
 
-- **40 built-in plugins** — 30 core/scientific plugins plus 10 fun &
+- **42 built-in plugins** — 32 core/scientific plugins plus 10 fun &
   utility toys — covering the full API surface (2D canvas, Three.js scene,
   WGSL compute, buttons/toggles, sandboxing, in-browser model training).
 - **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
@@ -443,7 +444,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (30 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (32 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -574,7 +575,7 @@ See [Documentation](#documentation) for details.
 │   │                         #     uncertainty · model-lab · profiler ·
 │   │                         #     reprolock · lineage · supplement),
 │   │                         #     signal, sweeps, sql, report
-│   ├── plugins/builtin/      #   30 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   32 core + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
 │   │                         #     editor/experiment/lineage/chunk/figure/notebook/
@@ -765,16 +766,20 @@ top, all covered by unit tests:
 | Uncertainty | `/#/uncertainty` | bootstrap CIs, Monte-Carlo propagation, MCMC — CPU or WGSL GPU engine (auto-selected) with R-hat / ESS diagnostics |
 | Model Lab | `/#/model-lab` | OLS / logistic / ridge / polynomial fitting with coefficient tables and 2×2 residual diagnostics |
 | Inference Forge | `/#/inference` | HMC / NUTS Bayesian inference: declarative templates with weak priors, R-hat / ESS / HDI / MCSE, WAIC / LOO + PPC, trace & density charts |
+| Model Inference | `/#/model-inference` | run ONNX models in-browser on the GPU (WebGPU) and inspect the inference results |
 | Data Profiler | `/#/profiler` | streaming column profiles, correlation matrix, quality score + issue list, fingerprint cache |
 | Signal Lab | `/#/signal` | FFT / Welch PSD, windows, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition |
 | Sweep Studio | `/#/sweeps` | parameter grids / lists / Latin-hypercube batch experiments with response-surface visualisation |
 | SQL Workbench | `/#/sql` | DuckDB-WASM over project files: joins, aggregations, window functions; results save back with lineage |
+| Data Cleaning Wizard | `/#/cleaning` | step-flow over a project file: type conversion, missing-value policy, outlier flagging, dedupe, rename — add / reorder / undo steps before applying |
 | Report Builder | `/#/report` | narrative + figures + tables + interactive filters → one self-contained HTML file |
 | Repro Lock | `/#/reprolock` | `repro.lock` export/import with five-class drift verification and one-click re-run |
 | Data Lineage | `/#/lineage` | layered file→run DAG rebuilt from run records + ingestion events, rendered as an SVG canvas |
 | Figure Studio | `/#/figures` | multi-panel publication figures on IEEE / Elsevier templates: panel editor with live SVG preview, captions, and SVG / PDF / PNG-600dpi export |
 | Notebook | `/#/notebook` | markdown + Python cells persisted in the project; cells run on a dedicated Pyodide runtime, and notebook runs feed the experiment history |
 | Supplement packaging | `/#/supplement` | paper-ready ZIP with `manifest.json` (runs + lineage + metadata form) plus optional data files and code sessions |
+| Course Mode | `/#/course` | student/teacher workbench: create assignments, collect and grade student work offline |
+| Gallery | `/#/gallery` | browse and reopen reproducible works shared by the community |
 
 Two supporting kernels round out the toolset: a **unit system**
 (`units.convert` / `units.check` Flow blocks + `QuantityInput`) for
@@ -782,11 +787,43 @@ dimension-safe parameters, and **chunked ingestion** that streams large
 delimited files in row windows with preview + fingerprinting before a full
 parse.
 
+A publication-grade pipeline sits on top of Figure Studio. The **journal
+submission check** pre-flights the active sheet against an **IEEE** or
+**Elsevier** profile, grouped by *image / annotation / text / metadata*: it
+verifies effective export resolution (600 / 300 dpi), RGB vs CMYK colour
+mode, font embedding for vector output, lowercase panel tags, axis labels, an
+accompanying caption, an accepted export format, a ≥ 7 pt label font, and a
+matching journal template. Every failing item carries a "locate the issue"
+action that jumps straight to the offending control, and a per-export failing
+count is shown before you commit to SVG / PDF / PNG-600dpi. A **caption
+drafter** turns the chart kind, column names and an optional statistic into an
+editable "Figure 1. …" caption in English or 中文, and panels can carry
+**metadata annotations** that feed both the submission gate and the supplement
+manifest.
+
 Runs recorded from Flow / Block / Code / Notebook / Sweeps / Uncertainty /
 Model Lab / Inference Forge all land in the same history and the same
 lineage graph, so the
 question "which run produced this figure, from which data?" is always
 answerable — and the answer ships with the paper via the supplement ZIP.
+
+### Research lab in action
+
+![Inference Forge — in-browser Bayesian MCMC (NUTS)](docs/InferenceForge.png)
+
+*Inference Forge runs NUTS sampling in-browser (WebAssembly) and reports the full convergence story: posterior summary with 94% HDI / MCSE / R-hat / ESS, per-chain diagnostics, WAIC / PSIS-LOO comparison, posterior predictive checks, and trace + posterior-density plots.*
+
+![Figure Studio — publication figure composition](docs/figurestudio.png)
+
+*Figure Studio composes a publication figure — here a 2×2 OLS diagnostic panel on the IEEE single-column template — with per-panel layout, the caption drafter, the journal submission check, and SVG / PDF / 600-dpi PNG export.*
+
+![Signal Lab — frequency-domain analysis](docs/SignalLab.png)
+
+*Signal Lab runs frequency-domain analyses — here an amplitude spectrum (FFT) of a dose-response series — then forwards the chart to Figure Studio or saves it back as a project file.*
+
+![Work Gallery — reproducible research library](docs/WorkGallery.png)
+
+*The Work Gallery surfaces curated, reproducible works across disciplines, each tagged by subject and repro-lock status (locked / drift detected / not locked) with author and license for discovery and citation.*
 
 ---
 
@@ -794,12 +831,14 @@ answerable — and the answer ships with the paper via the supplement ZIP.
 
 ### Built-in plugins
 
-**Core / scientific plugins** (auto-loaded at startup, 30 total):
+**Core / scientific plugins** (auto-loaded at startup, 32 total):
 
 | Plugin               | Data                        | Capability                |
 | -------------------- | --------------------------- | ------------------------- |
 | Point Cloud          | `.xyz`                      | 2D canvas                 |
 | Point Cloud 3D       | `.xyz`, `.dat`              | Three.js scene, height ramp |
+| 3D Surface           | `.json`, `.dat`, `.txt`     | height-field surface plot (z = f(x, y)) in the host Three.js scene |
+| 3D Voxel Field       | `.json`, `.dat`, `.txt`     | isosurface / translucent voxel rendering of 3-D scalar fields |
 | Particles            | `.dat`                      | 2D simulation + real WGSL compute + progress |
 | Time Series          | `.csv`                      | 2D line charts            |
 | Histogram            | `.dat`                      | binning + log scale       |
@@ -1029,7 +1068,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-1002 tests across 77 test files (1002 passing, 2 skipped on GPU-less CI): file-format
+1749 tests across 104 test files (1747 passing, 2 skipped on GPU-less CI): file-format
 detection, scientific binary
 I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
 (descriptive, special functions, tests, effect sizes, corrections, power),
@@ -1063,7 +1102,8 @@ resume), the SQL engine (registration / query / cancellation), the report
 builder (spec → HTML, escaping, runs summary), the repro lock (build /
 verify / drift) and the inference templates (template building, pointwise
 likelihood, an end-to-end sampler run with WAIC/LOO/PPC and determinism
-checks), the structured error taxonomy (normalisation, cause chains, Result
+checks), shared research number formatting edge-cases (`fmt`: `toPrecision`
+bounds and integer rounding), the structured error taxonomy (normalisation, cause chains, Result
 combinators, retry/abort semantics, registry dedup and the global
 handlers), the validation framework (composable validators, nested issue
 paths, JSON-position and numeric-text parsing), the data-quality engine
@@ -1088,10 +1128,15 @@ npm run test:e2e
 | `verify-webgpu`      | GPU compute kernels (histogram / heatmap / point cloud) + CPU fallback |
 | `verify-block-mode`  | block editor: mode switch, compile, run, block → code sync             |
 | `verify-code-mode`   | Monaco + Pyodide: run a Python program, console, variables, plot       |
-| `verify-lang-modes`  | R/JS editing on the IR engine, R→JS translation, lossless Flow ⇄ Block ⇄ Code cycling, real flow-pipeline run |
 | `verify-ai-samples`  | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
 | `verify-ai-training` | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
 | `verify-research`    | research toolset: experiment tracking, lineage, Figure Studio, supplement zip, notebook cell run |
+
+Two further targeted checks complete the regression net but run separately:
+`verify-lang-modes` (R/JS editing on the IR engine, R→JS translation, lossless
+Flow ⇄ Block ⇄ Code cycling, real flow-pipeline run) and `npm run verify:site`
+(merged-deploy path integrity for the website root, `<repo>/app/`, and
+`<repo>/app/docs/`).
 
 ---
 
@@ -1119,6 +1164,13 @@ The `deploy.yml` workflow builds all three and merges them with
 workstation (with the embedded docs copy) under `<repo>/app/`. Build locally
 with `npm run build:web && npm run build:website && npm run deploy:merge`.
 
+The embedded docs are served under `<repo>/app/docs/` (set via the `DOCS_BASE`
+env var). After any deploy build, `npm run verify:site` probes the merged
+output for the canonical paths of all three surfaces — the website root,
+`<repo>/app/`, and `<repo>/app/docs/` — and the `deploy.yml` pipeline runs it
+before publishing, so a cross-site path regression fails CI instead of
+silently breaking a nav link.
+
 ---
 
 ## Roadmap
@@ -1127,8 +1179,8 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 40 built-in plugins (30 core + 10 fun/utility), cspkg loading, Worker sandbox
-- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 40 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
+- [x] 42 built-in plugins (32 core + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 42 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links

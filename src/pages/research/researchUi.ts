@@ -69,5 +69,9 @@ export function toCsv(columns: string[], rows: Array<Array<unknown>>): string {
 
 export function fmt(v: number, digits = 6): string {
   if (!Number.isFinite(v)) return '—';
-  return String(Number(v.toPrecision(digits)));
+  // toPrecision requires digits in [1, 100]; digits <= 0 means "round to integer"
+  // (used for whole-millisecond timings). Keep it crash-free for any caller.
+  if (digits <= 0) return String(Math.round(v));
+  const d = Math.min(100, Math.trunc(digits));
+  return String(Number(v.toPrecision(d)));
 }
