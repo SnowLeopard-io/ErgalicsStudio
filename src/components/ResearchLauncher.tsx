@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useT } from '@/i18n';
+import { useT, useLocale } from '@/i18n';
 import { Dropdown, type MenuItemDef } from './Dropdown';
 import { ToolIcon, FlaskIcon, ChevronDownIcon } from './icons';
 import { GRID_GROUPS, GRID_TOOLS, getTool, type ResearchGroupId } from '@/pages/research/toolRegistry';
@@ -17,6 +17,7 @@ import { getRecentTools, recordTool } from '@/core/recentTools';
 
 export function ResearchLauncher() {
   const t = useT();
+  const { locale } = useLocale();
   const navigate = useNavigate();
 
   const items = useMemo<MenuItemDef[]>(() => {
@@ -58,7 +59,7 @@ export function ResearchLauncher() {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, navigate]);
+  }, [t, navigate, locale]);
 
   return (
     <Dropdown

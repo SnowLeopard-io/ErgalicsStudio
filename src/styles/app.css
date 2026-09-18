@@ -1688,6 +1688,14 @@
   height: auto;
 }
 
+/* Research plots are rendered black-on-white for publication export. In dark
+   mode the axis labels and title live outside the white plot area, so give
+   the whole chart a white "page" or the dark text vanishes on the dark UI. */
+:root[data-theme='dark'] .analysis-svg,
+:root[data-theme='dark'] .figures-preview-svg {
+  background: #ffffff;
+}
+
 .analysis-actions {
   display: flex;
   gap: var(--space-2);
