@@ -32,6 +32,13 @@ interface HardwareState {
   storage: 'pending' | 'ok' | 'fail';
 }
 
+// `#/?` search-param deep links are one-shot per page load (the params are
+// cleared the first time they are consumed). In dev, React StrictMode
+// double-invokes effects and the params-state commit can lag the remount,
+// which used to fire `loadTemplate` twice and persist two identical projects
+// into the recent list. Consume each deep link at most once per load.
+let deepLinkConsumed = false;
+
 export default function WelcomePage() {
   const t = useT();
   const navigate = useNavigate();
@@ -64,8 +71,17 @@ export default function WelcomePage() {
     const templateId = searchParams.get('template');
     const galleryId = searchParams.get('gallery');
     // FR-21: website theme-market deep link (#/?theme=<id>) applies the
-    // matching official/installed theme without navigating anywhere.
+    // matching official/installed theme, then lands on the workbench.
     const themeId = searchParams.get('theme');
+    // Guard the whole deep-link branch so a StrictMode double-invoke (or a
+    // remount before the params commit) never runs an action twice. Once a
+    // deep link is consumed it is cleared below, so this only affects the
+    // initial one-shot load — never later in-app navigation (which routes via
+    // navigate state, not search params).
+    const isDeepLink =
+      themeId || searchParams.get('plugin') || templateId || galleryId;
+    if (isDeepLink && deepLinkConsumed) return;
+    if (isDeepLink) deepLinkConsumed = true;
     if (themeId) {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
@@ -79,6 +95,10 @@ export default function WelcomePage() {
           notify('success', t('theme.applied_deep_link', { name: theme.name }));
         }
       });
+      // "Apply in Studio" must land on the workbench with the theme live —
+      // not linger on the welcome screen — so the action feels wired up.
+      navigate('/workbench');
+      return;
     }
     // Website plugin-market deep link (#/?plugin=<id>): jump into the
     // workbench with the plugin dialog open, pre-filtered to that listing.
@@ -95,22 +115,34 @@ export default function WelcomePage() {
     const resolved =
       (templateId && getTemplate(templateId) ? templateId : undefined) ??
       (galleryId ? GALLERY_ID_TO_TEMPLATE[galleryId] : undefined);
-    if (!resolved) return;
+    if (!resolved) {
+      // A deep link was passed but resolved to nothing (e.g. an unknown gallery
+      // id). Never strand the user on the welcome screen — land on the
+      // workbench so the "Open in Studio" action still feels wired up.
+      if ([...searchParams.keys()].length > 0) {
+        setSearchParams({}, { replace: true });
+        navigate('/workbench');
+      }
+      return;
+    }
     // Clear the params first so a reload / back-navigation does not re-fire.
     setSearchParams({}, { replace: true });
-    let cancelled = false;
+    // The module-level `deepLinkConsumed` guard already fires this branch at
+    // most once per page load, so there is deliberately no cancelled/cleanup
+    // closure here: StrictMode's dev-only effect remount must let the single
+    // consuming invocation run `loadTemplate` to completion and navigate.
     void (async () => {
       setBusy(true);
       const result = await loadTemplate(resolved);
-      if (cancelled) return;
       setBusy(false);
       if (result.ok) navigate(result.route);
-      else notify('error', t('tpl.load_failed'));
+      else {
+        notify('error', t('tpl.load_failed'));
+        // A failed template load must never strand the user on the welcome
+        // screen either — land on the workbench so they can recover.
+        navigate('/workbench');
+      }
     })();
-    return () => {
-      cancelled = true;
-    };
-    // Run once per distinct deep-link value; params are cleared after firing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 

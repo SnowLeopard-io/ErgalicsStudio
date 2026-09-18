@@ -3,6 +3,7 @@ import { useT } from '../i18n-react';
 import { pickLocal } from '../i18n';
 import { PLUGINS, type PluginCategory } from '../data/plugins';
 import { studioAction } from '../studio-link';
+import { buildCspkg } from '../cspkg-build';
 
 const CATS: PluginCategory[] = ['scientific', 'fun', 'utility'];
 
@@ -26,18 +27,21 @@ export function Plugins() {
       .sort((a, b) => (sort === 'installs' ? b.installs - a.installs : b.updatedAt.localeCompare(a.updatedAt)));
   }, [query, cat, sort]);
 
+  // Download a real, loadable .cspkg (ZIP) archive — not a bare JSON
+  // manifest — so the file imports straight into the workstation.
   const downloadCspkg = (id: string) => {
-    // Placeholder manifest so the download button produces a real, inspectable
-    // file; the workstation validates signatures on install (FR-05).
     const p = PLUGINS.find((x) => x.id === id)!;
-    const manifest = {
-      id: p.id, name: p.name, version: p.version, author: p.author,
-      entry: 'dist/index.js', signature: p.signed ? { alg: 'ed25519', fingerprint: p.fingerprint } : null,
-    };
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const blob = buildCspkg({
+      id: p.id,
+      name: pickLocal(p.name),
+      version: p.version,
+      author: p.author,
+      description: pickLocal(p.desc),
+      category: p.category,
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${p.id}.cspkg.manifest.json`;
+    a.download = `${p.id}.cspkg`;
     a.click();
     URL.revokeObjectURL(a.href);
   };

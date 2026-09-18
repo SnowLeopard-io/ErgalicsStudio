@@ -1,45 +1,45 @@
 # Roadmap & Status
 
-The project is under **active development** — every box marked ✅ here is in
-the codebase and covered by the test suites. This table reflects the actual
+The project is under **active development** — every item marked **Done** here is
+in the codebase and covered by the test suites. This table reflects the actual
 state, not aspirational designs.
 
 ## Module status
 
 | Module        | Features                                                       | Status       |
 | ------------- | -------------------------------------------------------------- | ------------ |
-| Welcome page  | hardware self-checks, language/theme switcher, enter workbench | ✅ Done      |
-| Workbench     | four-region layout, empty state, drag & drop, status bar       | ✅ Done      |
-| Plugin system | load/activate/unload, registry, built-ins, cspkg + sandbox     | ✅ Done      |
-| Projects      | create/save/open/autosave/share `.clproj`                      | ✅ Done      |
-| Data loading  | file picker / drag & drop / format detection / routing         | ✅ Done      |
-| Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | ✅ Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 37 built-in blocks + Flow canvas + result preview + sample pipelines | ✅ Done      |
-| Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 30+ built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | ✅ Done      |
-| i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | ✅ Done      |
-| Theming       | dark/light, system-follow, CSS variables                       | ✅ Done      |
-| Settings      | general / GPU / data / about                                   | ✅ Done      |
-| Perf monitor  | FPS / frame / GPU / memory / data-scale + warnings             | ✅ Done      |
-| Sharing       | link generation, project export                                | ✅ Done      |
-| Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | ✅ Core done |
-| GPU compute   | `api.gpu` compute surface, WGSL templates, particles / 3-D N-body / LBM fluid / wave equation / histogram / heatmap / point-cloud kernels accelerated (CPU fallback), real-device E2E verification | ✅ Done      |
-| Statistics    | descriptive stats, special functions, t-tests / ANOVA / Mann–Whitney / chi-square, effect sizes, Bonferroni & BH corrections, power analysis; surfaced as 11 Flow-mode `stats.*` blocks | ✅ Done      |
-| Experiment tracking | per-project run records (IndexedDB `runs` store), run-history dialog with A/B parameter diff (`src/stores/experimentStore.ts`, `src/core/experiment/record.ts`) | ✅ Done      |
-| Uncertainty suite | bootstrap CI, Monte-Carlo sampling, MCMC (normal likelihood, uninformative prior) with cancellation — `src/core/uncertainty/` + UncertaintyDialog | ✅ Done      |
-| Unit system | typed `Quantity` with SI parsing, dimensional algebra + `units.convert`/`units.check` blocks + QuantityInput (`src/core/units/`) | ✅ Done      |
-| Data lineage  | file→run DAG rebuilt from run records + ingestion, layered layout (`src/core/lineage/`), LineageCanvas dialog | ✅ Done      |
-| Chunked ingestion | async row-window reader for large delimited files, preview + fingerprint (`src/core/chunked/`) | ✅ Done      |
-| Figure Studio | multi-panel publication figures on journal templates (IEEE/Elsevier), SVG/PDF/PNG-600dpi export, `/figures` route (`src/core/figure/`) | ✅ Done      |
-| Supplement packaging | paper-ready zip with manifest.json (runs + lineage + metadata form) + optional data/code (`src/core/package/supplement.ts`) | ✅ Done      |
-| Notebook      | mixed markdown/code cells in the project, dedicated Pyodide runtime, runs feed the experiment history — `/notebook` route (`src/core/notebook/`) | ✅ Done      |
-| Scientific I/O| HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`) | ✅ Done      |
-| Plot engine   | pure-TS SVG renderer with scales/ticks, SVG + PDF export (`src/core/plot/`) | ✅ Done      |
-| Reproducibility| seeded RNG, run manifests, DAG-to-Python export (`src/core/repro/`) | ✅ Done      |
-| Physics labs  | electromagnetism, optics (ray tracing with dispersion), structural mechanics (truss with collapse) — interactive, data-driven | ✅ Done      |
-| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | ✅ Core done (Pyodide + sync) · 🚧 Next (webR) |
-| Marketplace   | plugin registry UI, package signing, remote install            | 🚧 Next      |
-| CI            | GitHub Actions (unit + E2E + Pages deploy)                     | ✅ Done      |
-| Error handling| error boundaries, fallbacks, retry                            | 🟡 Partial   |
+| Welcome page  | hardware self-checks, language/theme switcher, enter workbench | Done      |
+| Workbench     | four-region layout, empty state, drag & drop, status bar       | Done      |
+| Plugin system | load/activate/unload, registry, built-ins, cspkg + sandbox     | Done      |
+| Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
+| Data loading  | file picker / drag & drop / format detection / routing         | Done      |
+| Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
+| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 37 built-in blocks + Flow canvas + result preview + sample pipelines | Done      |
+| Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 30+ built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
+| i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
+| Theming       | dark/light, system-follow, CSS variables                       | Done      |
+| Settings      | general / GPU / data / about                                   | Done      |
+| Perf monitor  | FPS / frame / GPU / memory / data-scale + warnings             | Done      |
+| Sharing       | link generation, project export                                | Done      |
+| Native core   | device mgmt, `GpuBuffer`, compute kernel (compile/bind-group/dispatch/run/diagnostics) | Core done |
+| GPU compute   | `api.gpu` compute surface, WGSL templates, particles / 3-D N-body / LBM fluid / wave equation / histogram / heatmap / point-cloud kernels accelerated (CPU fallback), real-device E2E verification | Done      |
+| Statistics    | descriptive stats, special functions, t-tests / ANOVA / Mann–Whitney / chi-square, effect sizes, Bonferroni & BH corrections, power analysis; surfaced as 11 Flow-mode `stats.*` blocks | Done      |
+| Experiment tracking | per-project run records (IndexedDB `runs` store), run-history dialog with A/B parameter diff (`src/stores/experimentStore.ts`, `src/core/experiment/record.ts`) | Done      |
+| Uncertainty suite | bootstrap CI, Monte-Carlo sampling, MCMC (normal likelihood, uninformative prior) with cancellation — `src/core/uncertainty/` + UncertaintyDialog | Done      |
+| Unit system | typed `Quantity` with SI parsing, dimensional algebra + `units.convert`/`units.check` blocks + QuantityInput (`src/core/units/`) | Done      |
+| Data lineage  | file→run DAG rebuilt from run records + ingestion, layered layout (`src/core/lineage/`), LineageCanvas dialog | Done      |
+| Chunked ingestion | async row-window reader for large delimited files, preview + fingerprint (`src/core/chunked/`) | Done      |
+| Figure Studio | multi-panel publication figures on journal templates (IEEE/Elsevier), SVG/PDF/PNG-600dpi export, `/figures` route (`src/core/figure/`) | Done      |
+| Supplement packaging | paper-ready zip with manifest.json (runs + lineage + metadata form) + optional data/code (`src/core/package/supplement.ts`) | Done      |
+| Notebook      | mixed markdown/code cells in the project, dedicated Pyodide runtime, runs feed the experiment history — `/notebook` route (`src/core/notebook/`) | Done      |
+| Scientific I/O| HDF5 / NetCDF / FITS / Zarr / Parquet import via a single dispatcher (`src/core/io/`) | Done      |
+| Plot engine   | pure-TS SVG renderer with scales/ticks, SVG + PDF export (`src/core/plot/`) | Done      |
+| Reproducibility| seeded RNG, run manifests, DAG-to-Python export (`src/core/repro/`) | Done      |
+| Physics labs  | electromagnetism, optics (ray tracing with dispersion), structural mechanics (truss with collapse) — interactive, data-driven | Done      |
+| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | Core done (Pyodide + sync) · Next (webR) |
+| Marketplace   | plugin registry UI, package signing, remote install            | Next      |
+| CI            | GitHub Actions (unit + E2E + Pages deploy)                     | Done      |
+| Error handling| error boundaries, fallbacks, retry                            | Partial   |
 
 ## Milestones
 

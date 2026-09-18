@@ -125,7 +125,7 @@ export default function ProfilerPage() {
     setState(null);
     const text = resolveDataFile(scanFile);
     if (text === undefined) {
-      setError(`data file not found: ${scanFile}`);
+      setError(t('profile.data_file_not_found', { file: scanFile }));
       return;
     }
     const fp = fingerprint(text);
@@ -139,7 +139,10 @@ export default function ProfilerPage() {
     try {
       table = parseDataText(text, scanFile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      // Translating the parser's low-level "no numeric data found" into a
+      // friendly, actionable prompt instead of a bare error.
+      setError(/no numeric data/i.test(msg) ? t('profile.no_numeric') : msg);
       return;
     }
     const names = table.columnNames();
@@ -269,6 +272,10 @@ export default function ProfilerPage() {
               <button type="button" className="btn btn-sm" onClick={exportMd}>{t('profile.export_md')}</button>
               <button type="button" className="btn btn-sm" onClick={sendHistograms}>{t('profile.to_figure')}</button>
             </div>
+
+            {p.columns.every((c) => c.kind !== 'numeric') && (
+              <p className="analysis-warning">{t('profile.no_numeric_columns')}</p>
+            )}
 
             {p.issues.length > 0 && (
               <div className="profile-issues">

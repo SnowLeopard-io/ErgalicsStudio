@@ -21,10 +21,32 @@ describe('parseDataText', () => {
     expect(t.columnNames()).toEqual(['x', 'y', 'z']);
   });
 
-  it('skips malformed / ragged rows', () => {
+  it('drops over-long ragged rows but keeps text tokens as missing numeric', () => {
     const t = parseDataText('1 2\nfoo bar\n3 4 5\n6 7', 'mixed.dat');
-    expect(t.length).toBe(2);
+    // '3 4 5' is over-long (3 cells vs width 2) and dropped; 'foo bar' is a
+    // short row whose text cells are demoted to NaN in the numeric columns.
+    expect(t.length).toBe(3);
     expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(Array.from(t.getColumn('y') as Float64Array)).toEqual([2, NaN, 7]);
+  });
+
+  it('loads categorical + numeric CSV into mixed string/f64 columns', () => {
+    const t = parseDataText(
+      'sample,group,activity_U_per_mL\nC1,control,12.4\nT1,treatment,10.1\nC2,control,13.0',
+      'enzyme-activity.csv',
+    );
+    expect(t.columnNames()).toEqual(['sample', 'group', 'activity_U_per_mL']);
+    expect(t.columns.find((c) => c.name === 'sample')!.type).toBe('string');
+    expect(t.columns.find((c) => c.name === 'group')!.type).toBe('string');
+    expect(t.columns.find((c) => c.name === 'activity_U_per_mL')!.type).toBe('f64');
+    expect(t.length).toBe(3);
+    expect(Array.from(t.getColumn('activity_U_per_mL') as Float64Array)).toEqual([
+      12.4, 10.1, 13.0,
+    ]);
+  });
+
+  it('throws no numeric data when the file has only categorical columns', () => {
+    expect(() => parseDataText('id\nA\nB\n', 'labels.csv')).toThrow(/no numeric data/);
   });
 
   it('throws when there is no numeric data', () => {

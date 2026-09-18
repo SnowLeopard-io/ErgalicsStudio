@@ -45,6 +45,8 @@ interface ChatMessage {
   text: string;
   confidence?: number;
   code?: string;
+  /** Subtle transparency note (e.g. "answered via the offline engine"). */
+  note?: string;
 }
 
 export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
@@ -91,6 +93,7 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
             text: t('ai.generated', { kind: t(`ai.intent.${intent.kind}`) }),
             confidence: intent.confidence,
             code,
+            note: reply.note ?? undefined,
           },
         ]);
         setDraft(code);
@@ -159,10 +162,16 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
   }, []);
 
   const selectMode = useCallback((next: AssistantMode) => {
-    if (next === 'online' && !isOnlineAuthorized()) return; // gate: needs auth
+    if (next === 'online' && !authorized) {
+      // Clicking online with the authorization notice right above is an
+      // explicit consent: grant it so the toggle responds instead of
+      // silently dead-ending on a disabled button.
+      setOnlineAuthorized(true);
+      setAuthorized(true);
+    }
     setAssistantMode(next);
     setMode(getAssistantMode());
-  }, []);
+  }, [authorized]);
 
   return (
     <aside className="ai-panel" data-testid="ai-assistant-panel">
@@ -209,7 +218,6 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
             type="button"
             className={`btn btn-sm${mode === 'online' ? ' btn-toggle-on' : ''}`}
             onClick={() => selectMode('online')}
-            disabled={!authorized}
             title={authorized ? t('ai.mode.online') : t('ai.authorize_first')}
           >
             {t('ai.mode.online')}
@@ -226,6 +234,7 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
             {m.role === 'assistant' && m.confidence !== undefined && (
               <div className="ai-msg-meta">{t('ai.confidence', { n: Math.round(m.confidence * 100) })}</div>
             )}
+            {m.role === 'assistant' && m.note && <div className="ai-msg-meta ai-msg-note">{m.note}</div>}
           </div>
         ))}
       </div>

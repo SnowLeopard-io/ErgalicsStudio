@@ -335,7 +335,13 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     if (get().loadingIds.includes(id)) return;
     set((s) => ({ loadingIds: [...s.loadingIds, id] }));
     try {
-      await plugin.init(buildPluginApi(id));
+      // A minimal/corrupt third-party plugin may omit the lifecycle methods.
+      // Treat init/getSupportedFormats as optional so a bad package degrades
+      // gracefully instead of surfacing a scary "plugin crashed" banner.
+      if (typeof plugin.getParams !== 'function') {
+        logger.warn('plugin', 'plugin missing getParams()', { id });
+      }
+      await plugin.init?.(buildPluginApi(id));
       // Sandboxed (.cspkg) plugins expose setLocale so locale pushes can
       // reach their worker; register it so the global listener can reach it.
       const updater = (plugin as unknown as { setLocale?: (l: string) => void }).setLocale;

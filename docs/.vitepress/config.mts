@@ -34,10 +34,15 @@ export default defineConfig({
     },
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#0d9488' }],
+    ['meta', { name: 'theme-color', content: '#0e9384' }],
     ['link', { rel: 'icon', href: `${base}ico.ico` }],
   ],
   themeConfig: {
+    // Brand mark: use the site-wide favicon ico. Leading-slash so VitePress's
+    // withBase() resolves it to `${base}ico.ico`, which exists in the docs
+    // public folder and is byte-identical to the root brand ico — so it renders
+    // on every page (home AND deep pages), unlike a relative "logo.svg" that
+    // resolved against the page directory and 404'd off the home page.
     logo: '/ico.ico',
     nav: [
       { text: 'Guide', link: '/guide/introduction' },

@@ -56,12 +56,13 @@ button { font: inherit; cursor: pointer; }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   border-radius: var(--radius-md); border: 1px solid transparent;
   padding: 8px 16px; font-size: var(--font-size-md); font-weight: 500;
+  background: none; appearance: none;
   transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 }
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--color-accent); color: var(--color-text-inverse); }
 .btn-primary:hover { background: var(--color-accent-hover); }
-.btn-ghost { border-color: var(--color-border); color: var(--color-text-primary); }
+.btn-ghost { border-color: var(--color-border); color: var(--color-text-primary); background: transparent; }
 .btn-ghost:hover { border-color: var(--color-border-hover); background: var(--color-bg-hover); }
 .btn-lg { padding: 12px 26px; font-size: var(--font-size-md); }
 .btn-sm { padding: 5px 12px; font-size: var(--font-size-sm); }

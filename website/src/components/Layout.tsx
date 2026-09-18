@@ -37,10 +37,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="site-header">
         <div className="header-inner">
           <Link to="/" className="brand" aria-label="Ergalics Studio home">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2 L21 7 V17 L12 22 L3 17 V7 Z" fill="none" stroke="var(--color-accent)" strokeWidth="1.6" />
-              <circle cx="12" cy="12" r="3" fill="var(--color-accent)" />
-            </svg>
+            <img
+              className="brand-mark"
+              src="./ico.ico"
+              alt=""
+              width={22}
+              height={22}
+              aria-hidden="true"
+            />
             <span className="brand-name">Ergalics Studio</span>
           </Link>
           <nav className={`site-nav${menuOpen ? ' open' : ''}`} aria-label="Primary">

@@ -112,9 +112,14 @@ function makeProject(
   files: FileEntry[],
 ): Project {
   const project = createEmptyProject(tpl.title.en);
+  // Stable per-template id. Storage keys projects by `id` with a `put`
+  // upsert, so re-opening the same template (website deep link, gallery
+  // "Open in Ergalics", or a re-click) *replaces* the same stored record
+  // instead of appending a new random-id duplicate to the recent list.
+  project.id = `tpl:${tpl.id}`;
   project.data.files = files;
   project.metadata.description = tpl.summary.en;
-  project.metadata.tags = ['template', tpl.subject, tpl.difficulty];
+  project.metadata.tags = ['template', `tpl:${tpl.id}`, tpl.subject, tpl.difficulty];
   return project;
 }
 

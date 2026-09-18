@@ -1506,6 +1506,15 @@
   color: var(--color-text-tertiary);
 }
 
+/* Transparency note on an assistant reply — smaller and de-emphasized so it
+   informs without distracting, e.g. "answered via the offline engine". */
+.ai-msg-note {
+  font-size: 8px;
+  color: var(--color-fg-muted, var(--color-text-tertiary));
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .ai-draft {
   display: flex;
   flex-direction: column;

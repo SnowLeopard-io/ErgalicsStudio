@@ -25,7 +25,10 @@ export function RightPanel() {
     // values change, so sliders/toggles stay in sync with plugin state.
     // Sandboxed plugins resolve getParams() asynchronously (RPC).
     const refresh = () => {
-      void Promise.resolve(activePlugin?.getParams()).then((defs) => setParams(defs ?? []));
+      // `?.getParams?.()`: a minimal plugin may omit getParams, and sandboxed
+      // plugins resolve it asynchronously (RPC) so the getter can be absent.
+      // Guard both the property and the call to never throw here.
+      void Promise.resolve(activePlugin?.getParams?.()).then((defs) => setParams(defs ?? []));
     };
     refresh();
     const subs: BusSubscription[] = [
