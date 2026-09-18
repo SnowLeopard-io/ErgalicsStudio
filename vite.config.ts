@@ -2,8 +2,12 @@ import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { ensurePyodideAssets } from './scripts/copy-pyodide.mjs';
 import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
+import { ensureWebRAssets } from './scripts/copy-webr.mjs';
+import { injectSwPrecache } from './scripts/gen-sw-precache.mjs';
 
 // Vendor Pyodide (core + numpy wheel) into public/pyodide so the code-mode
 // Python runtime loads same-origin instead of from cdn.jsdelivr.net. Runs in
@@ -34,12 +38,51 @@ const vendorBlocklyMedia: Plugin = {
   },
 };
 
+// Vendor the webR bundle (full R runtime, FR-04) into public/webr so the R
+// code mode loads it same-origin instead of from a CDN. OPTIONAL by design:
+// webR is not an npm dependency, so this is a no-op unless a `webr` package
+// happens to be installed — the build never breaks and the R runtime falls
+// back to the built-in IR engine. Mirrors the Pyodide vendoring plugin.
+const vendorWebR: Plugin = {
+  name: 'ergalics-vendor-webr',
+  async buildStart() {
+    await ensureWebRAssets();
+  },
+  configureServer() {
+    void ensureWebRAssets();
+  },
+};
+
+// FR-20: after the bundle is written, inject the precache manifest + version
+// hash into dist/sw.js (public/sw.js ships with the placeholder tokens).
+// Runs only for builds; merge-deploy.mjs copies the injected file unchanged.
+const swPrecache: Plugin = {
+  name: 'ergalics-sw-precache',
+  apply: 'build',
+  closeBundle() {
+    injectSwPrecache();
+  },
+};
+
 export default defineConfig({
-  plugins: [react(), vendorPyodide, vendorBlocklyMedia],
+  plugins: [react(), vendorPyodide, vendorBlocklyMedia, vendorWebR, swPrecache],
   // Build-injected app version (comes from package.json via npm_* env);
   // consumed by the welcome page instead of a hard-coded constant.
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'),
+    // FR-10: Zenodo DOI minted by the release workflow's archive job. Empty
+    // string until a tagged release is archived; the citation card then shows
+    // a "pending release archive" placeholder instead of a fake DOI.
+    __ZENODO_DOI__: JSON.stringify(process.env.ZENODO_DOI ?? ''),
+    // FR-04: webR is optional and not vendored by default. Knowing this at
+    // build time lets the R runtime skip the dynamic import entirely instead
+    // of probing /webr/webr.mjs and logging a 404 on every R session. True
+    // when the package is installed (the vendor plugin copies it at startup)
+    // or the bundle is already vendored into public/webr.
+    __WEBR_AVAILABLE__: JSON.stringify(
+      existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'node_modules/webr')) ||
+        existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'public/webr/webr.mjs')),
+    ),
   },
   base: './',
   resolve: {

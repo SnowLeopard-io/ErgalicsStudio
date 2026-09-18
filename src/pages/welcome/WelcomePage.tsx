@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -11,12 +11,15 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
+import { TemplatePanel } from './TemplatePanel';
 import { ToolGrid } from './ToolGrid';
+import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
 import {
   PlusIcon,
   FolderOpenIcon,
   ClockIcon,
   BookIcon,
+  LayersIcon,
 } from '@/components/icons';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
@@ -45,11 +48,70 @@ export default function WelcomePage() {
     storage: 'pending',
   });
   const [busy, setBusy] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
   }, []);
+
+  // Deep links from the website gallery: #/?template=<id> or #/?gallery=<id>.
+  // The gallery id maps onto a subject template; either auto-loads the
+  // template project and routes to its first tool step.
+  useEffect(() => {
+    const templateId = searchParams.get('template');
+    const galleryId = searchParams.get('gallery');
+    // FR-21: website theme-market deep link (#/?theme=<id>) applies the
+    // matching official/installed theme without navigating anywhere.
+    const themeId = searchParams.get('theme');
+    if (themeId) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('theme');
+        return next;
+      }, { replace: true });
+      void import('@/core/theme-pack/registry').then(({ findThemeById, applyAndRemember }) => {
+        const theme = findThemeById(themeId);
+        if (theme) {
+          applyAndRemember(theme);
+          notify('success', t('theme.applied_deep_link', { name: theme.name }));
+        }
+      });
+    }
+    // Website plugin-market deep link (#/?plugin=<id>): jump into the
+    // workbench with the plugin dialog open, pre-filtered to that listing.
+    const pluginId = searchParams.get('plugin');
+    if (pluginId) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('plugin');
+        return next;
+      }, { replace: true });
+      navigate('/workbench', { state: { openPluginDialog: true, pluginQuery: pluginId } });
+      return;
+    }
+    const resolved =
+      (templateId && getTemplate(templateId) ? templateId : undefined) ??
+      (galleryId ? GALLERY_ID_TO_TEMPLATE[galleryId] : undefined);
+    if (!resolved) return;
+    // Clear the params first so a reload / back-navigation does not re-fire.
+    setSearchParams({}, { replace: true });
+    let cancelled = false;
+    void (async () => {
+      setBusy(true);
+      const result = await loadTemplate(resolved);
+      if (cancelled) return;
+      setBusy(false);
+      if (result.ok) navigate(result.route);
+      else notify('error', t('tpl.load_failed'));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Run once per distinct deep-link value; params are cleared after firing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +271,19 @@ export default function WelcomePage() {
               <span className="start-card-desc">{t('welcome.start.samples_desc')}</span>
             </span>
           </button>
+
+          <button
+            type="button"
+            className="start-card card"
+            onClick={() => setTemplateOpen(true)}
+            disabled={busy}
+          >
+            <span className="start-card-icon"><LayersIcon size={18} /></span>
+            <span className="start-card-body">
+              <span className="start-card-title">{t('tpl.entry')}</span>
+              <span className="start-card-desc">{t('tpl.entry_desc')}</span>
+            </span>
+          </button>
         </div>
 
         <div className="welcome-panels">
@@ -279,6 +354,8 @@ export default function WelcomePage() {
           e.target.value = '';
         }}
       />
+
+      <TemplatePanel open={templateOpen} onClose={() => setTemplateOpen(false)} />
 
       <footer className="welcome-footer">
         <a

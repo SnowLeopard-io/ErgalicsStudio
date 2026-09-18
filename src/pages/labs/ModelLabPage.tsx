@@ -20,9 +20,12 @@ import { logisticFit, type LogisticResult } from '@/core/model/logistic';
 import { ridgeCV, type RidgeResult } from '@/core/model/ridge';
 import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
+import { std } from '@/core/stats';
+import type { NarrativeInput } from '@/core/stats/narrative';
 import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
+import { NarrativePanel } from '@/components/NarrativePanel';
 
 type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
 
@@ -67,6 +70,29 @@ function quartetSpecs(d: DiagnosticSeries): PlotSpec[] {
   ];
 }
 
+/**
+ * Convert an OLS fit into an FR-02 regression narrative: global F test plus
+ * the first predictor's standardized coefficient (β = b·sd_x/sd_y).
+ */
+function olsNarrative(r: OlsResult, y: number[], X: number[][]): NarrativeInput | null {
+  if (!Number.isFinite(r.f)) return null;
+  const k = r.p - 1;
+  const sy = std(y);
+  const first = r.coefficients[1];
+  const sx = X[0] ? std(Array.from(X[0])) : 0;
+  return {
+    kind: 'regression',
+    f: r.f,
+    df: [k, r.df],
+    pValue: r.fP,
+    r2: r.r2,
+    predictor:
+      first && sy > 0 && sx > 0
+        ? { name: first.name, beta: (first.coef * sx) / sy, t: first.t, df: r.df, pValue: first.p }
+        : undefined,
+  };
+}
+
 /** Fixed-seed reservoir-ish sampling for the FR4.7 big-data guard. */
 function sampleRows(n: number, cap: number, seed = 20240501): number[] {
   if (n <= cap) return Array.from({ length: n }, (_, i) => i);
@@ -99,6 +125,7 @@ export default function ModelLabPage() {
   const [threshold, setThreshold] = useState('0.5');
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState<FitOutcome | null>(null);
+  const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
 
   const cols = useMemo(() => {
     if (!file) return [] as string[];
@@ -130,6 +157,7 @@ export default function ModelLabPage() {
   const fit = () => {
     setError('');
     setOutcome(null);
+    setNarrativeInput(null);
     if (!file || !target) {
       setError(t('model.need_two'));
       return;
@@ -161,6 +189,7 @@ export default function ModelLabPage() {
       if (kind === 'ols') {
         const rows = X[0]!.map((_, i) => X.map((col) => col[i]!));
         const r = ols(y, rows, predictors);
+        setNarrativeInput(olsNarrative(r, y, X));
         setOutcome({
           kind,
           coefficients: r.coefficients.map((c) => ({
@@ -405,6 +434,7 @@ export default function ModelLabPage() {
                 {t('model.record_fit')}
               </button>
             </div>
+            <NarrativePanel input={narrativeInput} />
           </>
         )}
       </div>

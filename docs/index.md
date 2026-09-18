@@ -29,6 +29,9 @@ features:
   - icon: 🧩
     title: Sandboxed plugins
     details: "A .cspkg package format with manifest validation, and real isolation — third-party code runs in a Web Worker behind an RPC bridge."
+  - icon: 📜
+    title: Stable plugin SDK v1
+    details: "A frozen, documented API contract with a compatibility policy, ed25519 package signing, and a zero-dependency starter template."
   - icon: 🎲
     title: 2D + 3D rendering
     details: "Shared 2D canvas plus a host-managed Three.js scene that is created lazily and never bleeds into 2D viewports."

@@ -65,7 +65,7 @@ describe('buildSupplement — manifest', () => {
     const zip = await unzip(await buildSupplement(project, { reproLock: true }));
     expect(zip['repro.lock']).toBeDefined();
     const lock = JSON.parse(zip['repro.lock']!) as { lockVersion: number; projectId: string; runs: unknown[] };
-    expect(lock.lockVersion).toBe(1);
+    expect(lock.lockVersion).toBe(2);
     expect(lock.projectId).toBe(project.id);
     expect(Array.isArray(lock.runs)).toBe(true);
     const manifest = JSON.parse(zip['manifest.json']!) as SupplementManifest;

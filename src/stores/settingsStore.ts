@@ -14,6 +14,8 @@ interface SettingsStore extends SettingsState {
   setAutoSaveInterval: (ms: number) => void;
   setGpuBackend: (backend: SettingsState['gpuBackend']) => void;
   setMemoryLimit: (limit: SettingsState['memoryLimit']) => void;
+  setWorkerPoolSize: (size: SettingsState['workerPoolSize']) => void;
+  setChunkRows: (rows: SettingsState['chunkRows']) => void;
 }
 
 // Locale has a single runtime authority: the i18n module (booted from
@@ -57,6 +59,14 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     set({ memoryLimit });
     persist();
   },
+  setWorkerPoolSize: (workerPoolSize) => {
+    set({ workerPoolSize });
+    persist();
+  },
+  setChunkRows: (chunkRows) => {
+    set({ chunkRows });
+    persist();
+  },
 }));
 
 // Keep the store's locale in sync when the language is changed outside this
@@ -72,12 +82,15 @@ subscribeLocale(() => {
 });
 
 function persist() {
+  const s = useSettingsStore.getState();
   saveSettings({
-    locale: useSettingsStore.getState().locale,
-    theme: useSettingsStore.getState().theme,
-    autoSaveInterval: useSettingsStore.getState().autoSaveInterval,
-    gpuBackend: useSettingsStore.getState().gpuBackend,
-    memoryLimit: useSettingsStore.getState().memoryLimit,
+    locale: s.locale,
+    theme: s.theme,
+    autoSaveInterval: s.autoSaveInterval,
+    gpuBackend: s.gpuBackend,
+    memoryLimit: s.memoryLimit,
+    workerPoolSize: s.workerPoolSize,
+    chunkRows: s.chunkRows,
   });
-  persistLegacyPrefs(useSettingsStore.getState() as SettingsState);
+  persistLegacyPrefs(s as SettingsState);
 }

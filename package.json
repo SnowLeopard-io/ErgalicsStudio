@@ -7,7 +7,8 @@
   "license": "MIT",
   "author": "SnowLeopard-io <1486853830@qq.com>",
   "workspaces": [
-    "docs"
+    "docs",
+    "website"
   ],
   "scripts": {
     "dev": "vite",
@@ -15,6 +16,8 @@
     "build:web": "tsc --noEmit && vite build && node scripts/build-docs.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
     "build:docs": "node scripts/build-docs.mjs",
+    "build:website": "npm run build --prefix website",
+    "deploy:merge": "node scripts/merge-deploy.mjs",
     "docs:dev": "npm run dev --prefix docs",
     "docs:preview": "npm run preview --prefix docs",
     "preview": "vite preview",
@@ -24,7 +27,10 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs && node scripts/verify-webgpu.mjs && node scripts/verify-block-mode.mjs && node scripts/verify-code-mode.mjs && node scripts/verify-ai-samples.mjs && node scripts/verify-ai-training.mjs && node scripts/verify-research.mjs",
-    "verify": "npm run typecheck && npm test"
+    "verify": "npm run typecheck && npm test",
+    "bench": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs",
+    "bench:update": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs --update-baseline && node scripts/bench-report.mjs",
+    "build:report": "node scripts/build-budget.mjs"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",

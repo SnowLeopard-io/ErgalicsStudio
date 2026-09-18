@@ -16,6 +16,15 @@ import type {
   PluginManifest,
   Scene3DHandle,
 } from '@/types/plugin';
+import {
+  GPU_COLOR_THRESHOLD,
+  GPU_POINT_BUDGET,
+  heightColorsCPU,
+  heightColorsGpu,
+  isWebGpuAvailable,
+  preparePointCloud,
+} from '@/core/pointcloud-gpu';
+import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
 import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
 
 export const pointCloud3DManifest: PluginManifest = {
@@ -37,13 +46,18 @@ export const pointCloud3DManifest: PluginManifest = {
   ],
 };
 
-const MAX_RENDERED_POINTS = 150_000;
+/** Parse ceiling: the million-point WebGPU budget (FR-15). */
+const MAX_PARSED_POINTS = GPU_POINT_BUDGET;
 
 interface State {
   count: number;
   size: number;
   colorMode: 'solid' | 'height';
   hasData: boolean;
+  /** Total parsed points before the GPU/CPU budget was applied. */
+  total: number;
+  /** True when the cloud exceeded the active budget and was downsampled. */
+  downsampled: boolean;
 }
 
 interface Bounds {
@@ -62,10 +76,30 @@ export class PointCloud3DPlugin implements Plugin {
   private three: Scene3DHandle | null = null;
   private positions = new Float32Array(0);
   private pointsMesh: THREE.Points | null = null;
-  private state: State = { count: 0, size: 0.02, colorMode: 'height', hasData: false };
+  private state: State = {
+    count: 0,
+    size: 0.02,
+    colorMode: 'height',
+    hasData: false,
+    total: 0,
+    downsampled: false,
+  };
 
   async init(api: PluginApi) {
     this.api = api;
+  }
+
+  /** Translate a `viz3d.*` key with the module dictionary as fallback while
+   *  the host catalog has not merged it yet (see modules.ts integration). */
+  private translate(key: string, params?: Record<string, string | number>): string {
+    let text = this.api.t(key);
+    if (text === key) {
+      text = (this.api.locale === 'zh-CN' ? viz3dZh : viz3dEn)[key] ?? key;
+    }
+    if (params) {
+      for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
+    }
+    return text;
   }
 
   async destroy() {
@@ -161,18 +195,30 @@ export class PointCloud3DPlugin implements Plugin {
 
   async loadData(file: File) {
     const text = await file.text();
-    const { positions, count } = this.parse(text);
-    this.positions = positions;
-    this.state.count = count;
-    this.state.hasData = count > 0;
-    this.api.reportDataScale(count);
-    if (count === 0) {
+    const parsed = this.parse(text);
+    // FR-15 budget policy: keep the full cloud (≤ 1M points) when WebGPU is
+    // available; otherwise downsample to the CPU budget and tell the user.
+    const prepared = preparePointCloud(parsed, { gpuAvailable: isWebGpuAvailable() });
+    this.positions = prepared.positions;
+    this.state.total = prepared.total;
+    this.state.count = prepared.shown;
+    this.state.downsampled = prepared.downsampled;
+    this.state.hasData = prepared.shown > 0;
+    this.api.reportDataScale(prepared.shown);
+    if (prepared.total === 0) {
       this.api.notify(
         'warning',
         this.api.locale === 'zh-CN'
           ? `未能从 ${file.name} 解析出任何坐标点（支持 "x y z" 或标准 XYZ "元素 x y z" 格式）`
           : `Parsed 0 points from ${file.name} (expected "x y z" rows or standard XYZ "element x y z" rows)`,
       );
+    } else if (prepared.downsampled) {
+      this.api.notify(
+        'info',
+        this.translate('viz3d.pointcloud.downsampled', { shown: prepared.shown, total: prepared.total }),
+      );
+    } else if (isWebGpuAvailable() && prepared.total >= GPU_COLOR_THRESHOLD) {
+      this.api.notify('info', this.translate('viz3d.pointcloud.gpu_ready', { total: prepared.total }));
     }
     this.rebuildMesh();
     this.fitCamera();
@@ -186,11 +232,11 @@ export class PointCloud3DPlugin implements Plugin {
    * count) and comment line carry no three finite coordinates and are
    * skipped automatically.
    */
-  private parse(text: string): { positions: Float32Array; count: number } {
+  private parse(text: string): Float32Array {
     const out: number[] = [];
-    let limit = MAX_RENDERED_POINTS;
+    let limit = MAX_PARSED_POINTS;
     for (const line of text.split(/\r?\n/)) {
-      if (out.length / 3 >= MAX_RENDERED_POINTS) break;
+      if (out.length / 3 >= MAX_PARSED_POINTS) break;
       const parts = line.trim().split(/[\s,]+/).filter(Boolean);
       if (parts.length < 3) continue;
       let x = Number.NaN;
@@ -213,7 +259,7 @@ export class PointCloud3DPlugin implements Plugin {
         if (limit <= 0) break;
       }
     }
-    return { positions: new Float32Array(out), count: out.length / 3 };
+    return new Float32Array(out);
   }
 
   private bounds(): Bounds | null {
@@ -239,24 +285,6 @@ export class PointCloud3DPlugin implements Plugin {
     return { minX, minY, minZ, maxX, maxY, maxZ };
   }
 
-  /** Height ramp: deep teal → bright amber. */
-  private heightColors(bounds: Bounds): Float32Array {
-    const n = this.state.count;
-    const colors = new Float32Array(n * 3);
-    const span = Math.max(bounds.maxZ - bounds.minZ, 1e-9);
-    const low = new THREE.Color('#0d9488');
-    const mid = new THREE.Color('#22d3ee');
-    const high = new THREE.Color('#fbbf24');
-    for (let i = 0; i < n; i += 1) {
-      const t = ((this.positions[i * 3 + 2] ?? 0) - bounds.minZ) / span;
-      const c = t < 0.5 ? low.clone().lerp(mid, t * 2) : mid.clone().lerp(high, (t - 0.5) * 2);
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
-    }
-    return colors;
-  }
-
   private clearMesh() {
     if (!this.pointsMesh) return;
     this.three?.scene.remove(this.pointsMesh);
@@ -273,12 +301,19 @@ export class PointCloud3DPlugin implements Plugin {
     const bounds = this.bounds();
     if (!bounds) return;
 
+    // One interleaved position buffer, one draw call — the million-point path
+    // never splits the submission (FR-15 frame-rate target).
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
 
     const useHeightColors = this.state.colorMode === 'height';
     if (useHeightColors) {
-      geometry.setAttribute('color', new THREE.BufferAttribute(this.heightColors(bounds), 3));
+      // CPU ramp first so the frame is correct everywhere; the GPU kernel
+      // recolors the whole buffer in one dispatch when it is worthwhile.
+      geometry.setAttribute(
+        'color',
+        new THREE.BufferAttribute(heightColorsCPU(this.positions, bounds.minZ, bounds.maxZ), 3),
+      );
     }
 
     const material = new THREE.PointsMaterial({
@@ -291,6 +326,28 @@ export class PointCloud3DPlugin implements Plugin {
     this.pointsMesh = new THREE.Points(geometry, material);
     this.three.scene.add(this.pointsMesh);
     this.three.render();
+    if (useHeightColors) void this.recolorOnGpu(bounds);
+  }
+
+  /**
+   * FR-15 GPU path: color the full cloud with a single WGSL dispatch when
+   * WebGPU is available and the cloud is large enough to pay for the round
+   * trip. Best-effort — the CPU ramp above already produced correct colors.
+   */
+  private async recolorOnGpu(bounds: Bounds) {
+    const gpu = this.api.gpu;
+    if (!gpu?.available) return;
+    if (this.state.count < GPU_COLOR_THRESHOLD) return;
+    const mesh = this.pointsMesh;
+    if (!mesh) return;
+    const positions = this.positions;
+    const colors = await heightColorsGpu(gpu, positions, bounds.minZ, bounds.maxZ);
+    if (!colors || this.pointsMesh !== mesh) return;
+    const attr = mesh.geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+    if (!attr || attr.array.length !== colors.length) return;
+    (attr.array as Float32Array).set(colors);
+    attr.needsUpdate = true;
+    this.three?.render();
   }
 
   /** Move the host camera so the loaded cloud fills the view. */

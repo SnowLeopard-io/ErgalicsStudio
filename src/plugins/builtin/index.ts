@@ -31,6 +31,8 @@ import { bubbleChartManifest } from './bubbleChart';
 import { polarPlotManifest } from './polarPlot';
 import { pointCloudManifest } from './pointCloud';
 import { pointCloud3DManifest } from './pointCloud3D';
+import { surface3DManifest } from './surface3D';
+import { voxel3DManifest } from './voxel3D';
 import { particleManifest } from './particles';
 import { proteinManifest } from './protein';
 import { imageViewerManifest } from './imageViewer';
@@ -258,6 +260,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: pointCloud3DManifest,
     load: async () => {
       const mod = await import('./pointCloud3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: surface3DManifest,
+    load: async () => {
+      const mod = await import('./surface3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: voxel3DManifest,
+    load: async () => {
+      const mod = await import('./voxel3D');
       return mod.default();
     },
   },

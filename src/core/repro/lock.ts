@@ -1,16 +1,20 @@
 // ==========================================================================
 // Ergalics Studio — Repro Lock (pure TS)
 //
-// A repro lock freezes the four things that decide "do we get the same
-// numbers on another machine?": input DATA fingerprints, the CODE snapshot
-// (flow graph / block+code sessions / notebook sources), run PARAMS, and
-// SEEDs — plus a VERSIONS manifest (studio, project format, plot engine,
-// fonts). `buildLock` writes a versioned JSON document; `verifyLock` compares
-// a project (+ its run records, kept in IndexedDB outside the project file)
-// against a previously exported lock and localises every drift to one of
-// the five categories. `reproduceWithLock` re-runs the locked runs through
-// injected executors and asserts every scalar metric within tolerance
-// (1e-9 same-engine CPU, 1e-6 for GPU / noisy sources).
+// A repro lock freezes the things that decide "do we get the same numbers on
+// another machine?": input DATA fingerprints, the CODE snapshot (flow graph /
+// block+code sessions / notebook sources), run PARAMS, SEEDs, a VERSIONS
+// manifest (studio, project format, plot engine, fonts, runtime) and — since
+// lock v2 (FR-11) — a DEPENDENCIES fingerprint (key third-party engine
+// versions + the app build hash). `buildLock` writes a versioned JSON
+// document; `verifyLock` compares a project (+ its run records, kept in
+// IndexedDB outside the project file) against a previously exported lock and
+// localises every drift to one of the six categories. v1 locks still read:
+// their missing v2 fields are treated as unknown and the result carries an
+// `upgradeHint`. `reproduceWithLock` re-runs the locked runs through injected
+// executors and asserts every scalar metric within tolerance (1e-9 same-engine
+// CPU, 1e-6 for GPU / noisy sources). `diffRuns` produces the structured
+// run-vs-run diff surfaced on the experiment page (FR-11).
 // ==========================================================================
 
 import { hashString } from './random';
@@ -19,8 +23,8 @@ import type { Project } from '@/types/project';
 import type { RunRecord, RunSource } from '@/core/experiment/record';
 
 export const LOCK_SCHEMA = 'ergalics.repro-lock';
-/** Bumped on breaking schema changes only (FR6.2). */
-export const LOCK_VERSION = 1;
+/** Bumped on breaking schema changes only (FR6.2). v2 = FR-11 runtime + deps. */
+export const LOCK_VERSION = 2;
 
 /** Same-engine deterministic tolerance; GPU sources widen to 1e-6. */
 export const TOLERANCE_CPU = 1e-9;
@@ -39,6 +43,26 @@ export interface LockVersions {
   fonts?: string[];
   /** Active plugin / mode versions. */
   plugins?: Record<string, string>;
+  /**
+   * v2 (FR-11): runtime versions that can silently change numerics —
+   * browser engine, WASM toolchain / module revisions, Pyodide build.
+   */
+  runtime?: { browser?: string; wasm?: string; pyodide?: string };
+}
+
+/**
+ * v2 (FR-11) dependency fingerprint entry.
+ *
+ * Collection scope: the numeric-critical third-party engines actually loaded
+ * in the session (Pyodide, WASM kernels, TF backend, plot engine) supplied by
+ * the caller, plus the studio app build hash appended by `buildLock` under
+ * the reserved name `app`. Anything not listed is treated as *unknown* during
+ * verification — never as a match.
+ */
+export interface LockDependency {
+  name: string;
+  version: string;
+  hash?: string;
 }
 
 export interface LockDataFile {
@@ -92,6 +116,8 @@ export interface ReproLock {
     artifacts: LockCodeArtifact[];
   };
   runs: LockedRun[];
+  /** v2 (FR-11): third-party engine versions + the `app` build-hash entry. */
+  dependencies?: LockDependency[];
 }
 
 export interface BuildLockOptions {
@@ -102,6 +128,13 @@ export interface BuildLockOptions {
   versions?: Partial<LockVersions>;
   /** Override the stored tolerance of a run (e.g. mark a stochastic source). */
   runTolerance?: (run: RunRecord) => number | undefined;
+  /**
+   * v2: caller-collected dependency fingerprints (numeric-critical engines).
+   * `buildLock` sorts them and appends the reserved `app` build-hash entry.
+   */
+  dependencies?: LockDependency[];
+  /** v2: override the app build hash embedded as the `app` dependency. */
+  buildHash?: string;
   now?: Date;
 }
 
@@ -185,6 +218,31 @@ function runEngine(run: RunRecord): 'cpu' | 'gpu' | undefined {
 }
 
 // --------------------------------------------------------------------------
+// Dependency fingerprint (v2)
+// --------------------------------------------------------------------------
+
+/** Reserved dependency name for the studio app build itself. */
+export const APP_DEPENDENCY_NAME = 'app';
+
+/**
+ * Default app build hash: the vite-injected `__APP_VERSION__` (falls back to
+ * the package.json version under vitest, which does not apply `define`).
+ * Callers with a real content hash (e.g. a CI artifact digest) override it via
+ * `BuildLockOptions.buildHash`.
+ */
+export function appBuildHash(): string {
+  const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
+  return hashString(`ergalics-studio@${version}`);
+}
+
+/** Normalise a dependency list: sorted by name, duplicate names keep first. */
+function normalizeDependencies(deps: LockDependency[]): LockDependency[] {
+  const byName = new Map<string, LockDependency>();
+  for (const d of deps) if (!byName.has(d.name)) byName.set(d.name, { ...d });
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// --------------------------------------------------------------------------
 // buildLock
 // --------------------------------------------------------------------------
 
@@ -218,7 +276,14 @@ export function buildLock(project: Project, options: BuildLockOptions = {}): Rep
     plugins: options.versions?.plugins
       ? Object.fromEntries(Object.entries(options.versions.plugins).sort(([a], [b]) => a.localeCompare(b)))
       : undefined,
+    runtime: options.versions?.runtime ? { ...options.versions.runtime } : undefined,
   };
+
+  // v2: caller-collected engine versions + the reserved `app` build-hash entry.
+  const dependencies = normalizeDependencies([
+    ...(options.dependencies ?? []),
+    { name: APP_DEPENDENCY_NAME, version: options.buildHash ?? appBuildHash() },
+  ]);
 
   const lockedRuns: LockedRun[] = runs.map((run) => {
     const engine = runEngine(run);
@@ -249,6 +314,7 @@ export function buildLock(project: Project, options: BuildLockOptions = {}): Rep
     data,
     code: { hash: aggregateCodeHash(artifacts), artifacts },
     runs: lockedRuns,
+    dependencies,
   };
 }
 
@@ -282,7 +348,7 @@ export function parseLock(raw: string): ReproLock {
 // verifyLock
 // --------------------------------------------------------------------------
 
-export type LockCategory = 'data' | 'code' | 'params' | 'seed' | 'versions';
+export type LockCategory = 'data' | 'code' | 'params' | 'seed' | 'versions' | 'dependency';
 export type LockDriftKind = 'changed' | 'missing' | 'added' | 'incompatible';
 
 export interface LockDrift {
@@ -296,11 +362,14 @@ export interface LockDrift {
   actual?: string;
   /** Added files / newer versions are warnings, not hard failures. */
   severity: 'fail' | 'warn';
+  /** v2: actionable advice surfaced next to dependency drifts (FR-11). */
+  suggestion?: string;
 }
 
 export interface LockCategoryResult {
   category: LockCategory;
-  status: 'pass' | 'warn' | 'fail';
+  /** 'unknown' = a v1 lock never recorded this category; nothing to compare. */
+  status: 'pass' | 'warn' | 'fail' | 'unknown';
   drifts: LockDrift[];
 }
 
@@ -316,6 +385,8 @@ export interface LockVerifyResult {
   categories: LockCategoryResult[];
   drifts: LockDrift[];
   runs: LockRunPresence[];
+  /** v2: true when the lock is a v1 document that should be rebuilt/upgraded. */
+  upgradeHint: boolean;
 }
 
 export interface VerifyLockOptions {
@@ -323,18 +394,85 @@ export interface VerifyLockOptions {
   runs?: RunRecord[];
   /** Current version environment; defaults reuse lock-time studio version. */
   versions?: Partial<LockVersions>;
+  /** v2: current dependency fingerprints (omit = unknown, never a match). */
+  dependencies?: LockDependency[];
 }
 
-const CATEGORY_ORDER: LockCategory[] = ['data', 'code', 'params', 'seed', 'versions'];
+const CATEGORY_ORDER: LockCategory[] = ['data', 'code', 'params', 'seed', 'versions', 'dependency'];
 
-function categoryResult(category: LockCategory, drifts: LockDrift[]): LockCategoryResult {
+function categoryResult(
+  category: LockCategory,
+  drifts: LockDrift[],
+  status?: 'unknown',
+): LockCategoryResult {
   const hasFail = drifts.some((d) => d.severity === 'fail');
   const hasWarn = drifts.some((d) => d.severity === 'warn');
   return {
     category,
-    status: hasFail ? 'fail' : hasWarn ? 'warn' : 'pass',
+    status: status ?? (hasFail ? 'fail' : hasWarn ? 'warn' : 'pass'),
     drifts,
   };
+}
+
+const DEPENDENCY_SUGGESTION =
+  'restore the locked runtime (pin package/engine versions or reinstall the studio build recorded in the lock) before trusting new numbers';
+
+/**
+ * v2 dependency comparison. Entries are keyed by name; a version change or a
+ * hash change is a drift. Locked deps the current environment cannot report
+ * are *unknown* (warn) — silently skipping them would hide real drift.
+ */
+function dependencyDrifts(
+  lock: ReproLock,
+  current: LockDependency[] | undefined,
+): { drifts: LockDrift[]; unknown: boolean } {
+  const drifts: LockDrift[] = [];
+  const locked = lock.dependencies ?? [];
+  // Nothing to compare when the lock has no fingerprint (v1) or the current
+  // environment does not report one — mark the category unknown, never pass.
+  if (locked.length === 0 || current === undefined) return { drifts, unknown: true };
+  const currentByName = new Map((current ?? []).map((d) => [d.name, d]));
+  let unknown = false;
+  for (const dep of locked) {
+    const now = currentByName.get(dep.name);
+    if (!now) {
+      unknown = true;
+      drifts.push({
+        category: 'dependency',
+        kind: 'missing',
+        target: dep.name,
+        message: `dependency "${dep.name}" (locked ${dep.version}) cannot be checked — current version unknown`,
+        expected: dep.version,
+        severity: 'warn',
+        suggestion: DEPENDENCY_SUGGESTION,
+      });
+      continue;
+    }
+    if (now.version !== dep.version || (dep.hash && now.hash && now.hash !== dep.hash)) {
+      drifts.push({
+        category: 'dependency',
+        kind: 'changed',
+        target: dep.name,
+        message: `dependency "${dep.name}" drifted since the lock was built`,
+        expected: dep.hash ? `${dep.version}#${dep.hash}` : dep.version,
+        actual: now.hash ? `${now.version}#${now.hash}` : now.version,
+        severity: 'warn',
+        suggestion: DEPENDENCY_SUGGESTION,
+      });
+    }
+  }
+  for (const dep of current ?? []) {
+    if (!locked.some((d) => d.name === dep.name)) {
+      drifts.push({
+        category: 'dependency',
+        kind: 'added',
+        target: dep.name,
+        message: `dependency "${dep.name}" (${dep.version}) is not covered by the lock`,
+        severity: 'warn',
+      });
+    }
+  }
+  return { drifts, unknown };
 }
 
 /**
@@ -379,10 +517,11 @@ export function verifyLock(
     plotEngine: options.versions?.plotEngine,
     fonts: options.versions?.fonts ? [...options.versions.fonts].sort() : undefined,
     plugins: options.versions?.plugins,
+    runtime: options.versions?.runtime,
   };
   const compareVersion = (key: keyof LockVersions, expected: unknown, actual: unknown): void => {
     if (actual === undefined) return; // environment not reported
-    if (key === 'fonts' || key === 'plugins') {
+    if (key === 'fonts' || key === 'plugins' || key === 'runtime') {
       if (canonicalHash(expected) !== canonicalHash(actual)) {
         drifts.push({
           category: 'versions',
@@ -411,6 +550,10 @@ export function verifyLock(
   compareVersion('plotEngine', lock.versions.plotEngine, currentVersions.plotEngine);
   compareVersion('fonts', lock.versions.fonts, currentVersions.fonts);
   compareVersion('plugins', lock.versions.plugins, currentVersions.plugins);
+  // v1 locks never recorded a runtime; do not invent drift for a missing field.
+  if (lock.versions.runtime !== undefined) {
+    compareVersion('runtime', lock.versions.runtime, currentVersions.runtime);
+  }
 
   // --- data ---------------------------------------------------------------
   const currentFiles = new Map((project.data?.files ?? []).map((f) => [f.id, f]));
@@ -543,8 +686,19 @@ export function verifyLock(
     }
   }
 
+  // --- dependencies (v2) ---------------------------------------------------
+  const { drifts: depDrifts, unknown: depUnknown } = dependencyDrifts(lock, options.dependencies);
+  drifts.push(...depDrifts);
+  // A v1 lock recorded no dependency fingerprint — report it as unknown rather
+  // than a false pass, and hint the user to rebuild the lock.
+  const upgradeHint = lock.lockVersion < LOCK_VERSION;
+
   const categories = CATEGORY_ORDER.map((category) =>
-    categoryResult(category, drifts.filter((d) => d.category === category)),
+    categoryResult(
+      category,
+      drifts.filter((d) => d.category === category),
+      category === 'dependency' && depUnknown && depDrifts.length === 0 ? 'unknown' : undefined,
+    ),
   );
   const hasFail = drifts.some((d) => d.severity === 'fail');
   const hasWarn = drifts.some((d) => d.severity === 'warn');
@@ -554,6 +708,7 @@ export function verifyLock(
     categories,
     drifts,
     runs: presence,
+    upgradeHint,
   };
 }
 
@@ -734,4 +889,215 @@ export async function reproduceWithLock(
     results,
     durationMs: performance.now() - started,
   };
+}
+
+// --------------------------------------------------------------------------
+// Structured run diff (FR-11)
+// --------------------------------------------------------------------------
+
+export interface RunParamChange {
+  key: string;
+  /** undefined = key only present in the other run. */
+  a: unknown;
+  b: unknown;
+  kind: 'changed' | 'added' | 'removed';
+}
+
+export interface RunMetricChange {
+  key: string;
+  a?: number;
+  b?: number;
+  delta: number;
+  /** Max relative/absolute error between the two values (see relativeMetricError). */
+  relError: number;
+  absError: number;
+  /** True when the two values agree within `tolerance` (treated as equal). */
+  withinTolerance: boolean;
+  tolerance: number;
+}
+
+export interface RunConfigChange {
+  key: string;
+  a: unknown;
+  b: unknown;
+}
+
+export interface RunDiff {
+  runA: { id: string; label?: string; source: RunSource; createdAt: number };
+  runB: { id: string; label?: string; source: RunSource; createdAt: number };
+  params: RunParamChange[];
+  metrics: RunMetricChange[];
+  /** Non-repro environment differences (seed, inputs, duration, engine…). */
+  config: RunConfigChange[];
+  sameInputs: boolean;
+  sameParams: boolean;
+  tolerance: number;
+}
+
+export interface DiffRunsOptions {
+  /** Metric equality tolerance; defaults to TOLERANCE_CPU (deterministic CPU). */
+  tolerance?: number;
+}
+
+/**
+ * Structured diff between two runs (FR-11): parameter changes, metric changes
+ * annotated with a numeric tolerance, and configuration differences (seed,
+ * input fingerprint, engine, duration). Key sets are unioned + sorted so the
+ * diff is stable regardless of insertion order.
+ */
+export function diffRuns(a: RunRecord, b: RunRecord, options: DiffRunsOptions = {}): RunDiff {
+  const tolerance = options.tolerance ?? TOLERANCE_CPU;
+
+  const params: RunParamChange[] = [];
+  const paramKeys = [...new Set([...Object.keys(a.params ?? {}), ...Object.keys(b.params ?? {})])].sort();
+  for (const key of paramKeys) {
+    const va = a.params?.[key];
+    const vb = b.params?.[key];
+    if (canonicalJson(va ?? null) === canonicalJson(vb ?? null)) continue;
+    const kind: RunParamChange['kind'] =
+      va === undefined ? 'added' : vb === undefined ? 'removed' : 'changed';
+    params.push({ key, a: va, b: vb, kind });
+  }
+
+  const metrics: RunMetricChange[] = [];
+  const metricKeys = [...new Set([...Object.keys(a.metrics ?? {}), ...Object.keys(b.metrics ?? {})])].sort();
+  for (const key of metricKeys) {
+    const va = a.metrics?.[key];
+    const vb = b.metrics?.[key];
+    if (va === undefined || vb === undefined) {
+      metrics.push({
+        key,
+        a: va,
+        b: vb,
+        delta: (vb ?? 0) - (va ?? 0),
+        relError: Number.POSITIVE_INFINITY,
+        absError: Number.POSITIVE_INFINITY,
+        withinTolerance: false,
+        tolerance,
+      });
+      continue;
+    }
+    if (va === vb) continue;
+    const { abs, rel } = relativeMetricError(va, vb);
+    // Values differing below tolerance are listed but flagged as agreeing —
+    // hiding them would make a float-noisy pair look identical.
+    metrics.push({
+      key,
+      a: va,
+      b: vb,
+      delta: vb - va,
+      relError: rel,
+      absError: abs,
+      withinTolerance: rel <= tolerance || abs <= tolerance,
+      tolerance,
+    });
+  }
+
+  const config: RunConfigChange[] = [];
+  const configFields: Array<[string, unknown, unknown]> = [
+    ['source', a.source, b.source],
+    ['seed', a.seed, b.seed],
+    ['inputsHash', a.inputsHash, b.inputsHash],
+    ['outputsHash', a.outputsHash, b.outputsHash],
+    ['engine', a.params?.engine, b.params?.engine],
+    ['durationMs', a.durationMs, b.durationMs],
+    ['failed', a.failed ?? false, b.failed ?? false],
+  ];
+  for (const [key, va, vb] of configFields) {
+    if (canonicalJson(va ?? null) !== canonicalJson(vb ?? null)) {
+      config.push({ key, a: va ?? null, b: vb ?? null });
+    }
+  }
+
+  return {
+    runA: { id: a.id, label: a.label, source: a.source, createdAt: a.createdAt },
+    runB: { id: b.id, label: b.label, source: b.source, createdAt: b.createdAt },
+    params,
+    metrics,
+    config,
+    sameInputs: a.inputsHash !== undefined && a.inputsHash === b.inputsHash,
+    sameParams: params.length === 0,
+    tolerance,
+  };
+}
+
+/** Serialise a run diff for export (FR-11). */
+export function runDiffToJson(diff: RunDiff): string {
+  return JSON.stringify(diff, null, 2);
+}
+
+const DIFF_LABELS = {
+  zh: {
+    title: '运行对比',
+    params: '参数差异',
+    metrics: '指标差异',
+    config: '配置差异',
+    none: '无差异',
+    changed: '变更',
+    added: '新增',
+    removed: '移除',
+    inputsSame: '输入相同',
+    inputsDiff: '输入不同',
+  },
+  en: {
+    title: 'Run comparison',
+    params: 'Parameter differences',
+    metrics: 'Metric differences',
+    config: 'Configuration differences',
+    none: 'none',
+    changed: 'changed',
+    added: 'added',
+    removed: 'removed',
+    inputsSame: 'same inputs',
+    inputsDiff: 'different inputs',
+  },
+} as const;
+
+function fmtDiffValue(v: unknown): string {
+  if (typeof v === 'number') return Number.isFinite(v) ? String(Number(v.toPrecision(6))) : String(v);
+  if (v === undefined) return '—';
+  try {
+    return JSON.stringify(v) ?? '—';
+  } catch {
+    return String(v);
+  }
+}
+
+/**
+ * Render a run diff as readable text (FR-11). `lang` accepts 'zh' | 'en';
+ * anything else falls back to English.
+ */
+export function formatRunDiff(diff: RunDiff, lang: 'zh' | 'en' | string = 'en'): string {
+  const labels = lang === 'zh' ? DIFF_LABELS.zh : DIFF_LABELS.en;
+  const lines: string[] = [];
+  lines.push(`# ${labels.title}`);
+  lines.push(`A: ${diff.runA.label ?? diff.runA.id} (${diff.runA.source}) @ ${new Date(diff.runA.createdAt).toISOString()}`);
+  lines.push(`B: ${diff.runB.label ?? diff.runB.id} (${diff.runB.source}) @ ${new Date(diff.runB.createdAt).toISOString()}`);
+  lines.push(diff.sameInputs ? labels.inputsSame : labels.inputsDiff);
+
+  lines.push('');
+  lines.push(`## ${labels.params}`);
+  if (diff.params.length === 0) lines.push(labels.none);
+  for (const p of diff.params) {
+    const tag = p.kind === 'added' ? labels.added : p.kind === 'removed' ? labels.removed : labels.changed;
+    lines.push(`- [${tag}] ${p.key}: ${fmtDiffValue(p.a)} -> ${fmtDiffValue(p.b)}`);
+  }
+
+  lines.push('');
+  lines.push(`## ${labels.metrics}`);
+  if (diff.metrics.length === 0) lines.push(labels.none);
+  for (const m of diff.metrics) {
+    const flag = m.withinTolerance ? ' [≈tol]' : '';
+    lines.push(
+      `- ${m.key}: ${fmtDiffValue(m.a)} -> ${fmtDiffValue(m.b)} (delta ${fmtDiffValue(m.delta)}, rel ${m.relError.toExponential(2)}, tol ${m.tolerance.toExponential(0)})${flag}`,
+    );
+  }
+
+  lines.push('');
+  lines.push(`## ${labels.config}`);
+  if (diff.config.length === 0) lines.push(labels.none);
+  for (const c of diff.config) {
+    lines.push(`- ${c.key}: ${fmtDiffValue(c.a)} -> ${fmtDiffValue(c.b)}`);
+  }
+  return lines.join('\n');
 }

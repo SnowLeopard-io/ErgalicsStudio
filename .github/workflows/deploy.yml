@@ -45,12 +45,18 @@ jobs:
       - name: Build WASM core
         run: npm run build:wasm
 
-      - name: Build frontend
+      - name: Build workstation (app/)
         run: npm run build:web
-        # Docs are embedded in dist/docs/ and served under /<repo>/docs/ on
-        # Pages, so their base must be the full public prefix — not "/docs/".
+        # The workstation is served under /<repo>/app/, and the VitePress
+        # docs are embedded at dist/docs/ → /<repo>/app/docs/.
         env:
-          DOCS_BASE: /${{ github.event.repository.name }}/docs/
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Build official website (root)
+        run: npm run build:website
+
+      - name: Merge deploy artifact
+        run: npm run deploy:merge
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -58,7 +64,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: pages-out
 
   deploy:
     needs: build

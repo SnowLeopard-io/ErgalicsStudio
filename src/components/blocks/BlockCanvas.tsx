@@ -262,7 +262,7 @@ function BlockCanvasImpl() {
       onPointerCancel={cancelGesture}
       onLostPointerCapture={cancelGesture}
     >
-      <svg className="block-canvas-svg">
+      <svg className="block-canvas-svg" aria-hidden="true">
         {paths.map((p) => (
           <path key={p.id} className="block-connection" d={p.d} />
         ))}

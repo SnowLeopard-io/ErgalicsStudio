@@ -14,9 +14,14 @@ export function isAbortError(error: unknown): boolean {
   if (error instanceof OperationAbortedError) return true;
   if (error instanceof DOMException && error.name === 'AbortError') return true;
   if (error instanceof Error && error.name === 'AbortError') return true;
+  // Monaco (and vscode-languageserver-types) reject with a `Canceled`
+  // sentinel when a model/tokenizer operation is superseded — benign, but it
+  // used to flood the console as an "unknown" high-severity error.
+  if (error instanceof Error && error.name === 'Canceled') return true;
   if (typeof error === 'object' && error !== null) {
     const code = (error as { code?: unknown }).code;
     if (code === 'ABORT_ERR' || code === 'abort') return true;
+    if ((error as { canceled?: unknown }).canceled === true) return true;
   }
   return false;
 }

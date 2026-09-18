@@ -8,6 +8,7 @@
 // ==========================================================================
 
 import type { ParticleState } from '@/types/plugin';
+import { mulberry32 } from './repro/random';
 
 // ---- Buffer usage flags (mirror of GPUBufferUsage, kept local so the
 // ---- compute layer does not depend on browser globals at import time).
@@ -1499,4 +1500,774 @@ export function waveStepCPU(
   }
   u.set(unew);
   v.set(vnew);
+}
+
+// ==========================================================================
+// Matrix-multiply kernel (C = A × B, workgroup-tiled).
+//
+// Row-major f32 matrices: A is m×k, B is k×n, C is m×n. Each workgroup loads
+// a 16×16 tile of A and of B into workgroup memory and accumulates the dot
+// product cooperatively — the tiling is what separates the GPU path from the
+// naive CPU triple loop (FR-12).
+//
+// Bind group:
+//   @binding(0) read-only-storage   — A : f32[m*k]
+//   @binding(1) read-only-storage   — B : f32[k*n]
+//   @binding(2) uniform             — struct { m: u32, k: u32,
+//                                            n: u32, _pad: u32 } (16 bytes)
+//   @binding(3) storage, read_write — C : f32[m*n]
+//
+// Workgroups: dispatch with ceil(n / 16) × ceil(m / 16); the guards drop
+// threads outside the output rectangle.
+// ==========================================================================
+
+export const MATMUL_TILE = 16;
+
+export const MATMUL_A_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const MATMUL_B_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const MATMUL_C_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const MATMUL_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/**
+ * Bind group layout shared by the WGSL source and the host-side descriptor
+ * (see `gpu-kernels.ts`): buffer index → role. Keeping it as one constant
+ * lets the tests assert the shader text and the dispatch code agree.
+ */
+export const MATMUL_BINDINGS = { A: 0, B: 1, PARAMS: 2, C: 3 } as const;
+
+export interface MatMulKernelOptions {
+  /** Tile edge (threads per workgroup axis). Defaults to 16 (16×16 tiles). */
+  tileSize?: number;
+}
+
+export function matmulKernelWGSL(opts: MatMulKernelOptions = {}): string {
+  const tile = opts.tileSize ?? MATMUL_TILE;
+  return `struct Params {
+  m: u32,
+  k: u32,
+  n: u32,
+  _pad: u32,
+};
+
+const TILE: u32 = ${tile}u;
+
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read_write> c: array<f32>;
+
+var<workgroup> tileA: array<f32, ${tile * tile}>;
+var<workgroup> tileB: array<f32, ${tile * tile}>;
+
+@compute @workgroup_size(${tile}, ${tile})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>,
+        @builtin(local_invocation_id) lid: vec3<u32>) {
+  let row = gid.y;
+  let col = gid.x;
+  var sum = 0.0;
+  let tiles = (params.k + TILE - 1u) / TILE;
+  for (var t: u32 = 0u; t < tiles; t = t + 1u) {
+    let aCol = t * TILE + lid.x;
+    let bRow = t * TILE + lid.y;
+    // Guarded loads (not select()): WGSL evaluates every select() argument,
+    // so an out-of-range index would still touch the buffer past its end.
+    var av = 0.0;
+    if (row < params.m && aCol < params.k) { av = a[row * params.k + aCol]; }
+    var bv = 0.0;
+    if (bRow < params.k && col < params.n) { bv = b[bRow * params.n + col]; }
+    tileA[lid.y * TILE + lid.x] = av;
+    tileB[lid.y * TILE + lid.x] = bv;
+    workgroupBarrier();
+    for (var i: u32 = 0u; i < TILE; i = i + 1u) {
+      sum = sum + tileA[lid.y * TILE + i] * tileB[i * TILE + lid.x];
+    }
+    workgroupBarrier();
+  }
+  if (row < params.m && col < params.n) {
+    c[row * params.n + col] = sum;
+  }
+}
+`;
+}
+
+/** Byte size of a row-major `rows × cols` f32 matrix buffer. */
+export function matmulBytes(rows: number, cols: number): number {
+  return Math.max(0, Math.floor(rows)) * Math.max(0, Math.floor(cols)) * 4;
+}
+
+/**
+ * Pack the matmul uniform params into a 16-byte ArrayBuffer (m/k/n as real
+ * u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packMatMulParams(m: number, k: number, n: number): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, m >>> 0, true);
+  dv.setUint32(4, k >>> 0, true);
+  dv.setUint32(8, n >>> 0, true);
+  dv.setUint32(12, 0, true);
+  return buf;
+}
+
+/**
+ * CPU-equivalent of the matmul kernel: C = A × B on row-major f32 arrays
+ * (ijk loop order — the row-wise B traversal keeps the inner loop cache
+ * friendly, which is what the naive triple loop needs to stay competitive).
+ */
+export function matmulCPU(a: Float32Array, b: Float32Array, m: number, k: number, n: number): Float32Array {
+  if (a.length < m * k) throw new Error('matmulCPU: A shorter than m*k');
+  if (b.length < k * n) throw new Error('matmulCPU: B shorter than k*n');
+  const c = new Float32Array(m * n);
+  for (let i = 0; i < m; i += 1) {
+    for (let p = 0; p < k; p += 1) {
+      const av = a[i * k + p]!;
+      if (av === 0) continue;
+      const bRow = p * n;
+      const cRow = i * n;
+      for (let j = 0; j < n; j += 1) {
+        c[cRow + j] = c[cRow + j]! + av * b[bRow + j]!;
+      }
+    }
+  }
+  return c;
+}
+
+// ==========================================================================
+// FFT kernel (in-place radix-2 Cooley–Tukey, complex interleaved).
+//
+// One dispatch per butterfly stage: the shader takes `stage` (1 … log2(N))
+// as a uniform, so the host runs log2(N) dispatches over the same buffer.
+// `stage = 0` is the bit-reversal permutation pass. The CPU fallback does
+// the identical two passes in one call.
+//
+// Data layout: interleaved [re, im] pairs, f32[2*N], N ≤ 4096 (a power of
+// two). Twiddles are computed with the recurrence w *= wStep, matching the
+// CPU butterfly exactly so the two paths agree within float tolerance.
+//
+// Bind group:
+//   @binding(0) storage, read_write — data : f32[2*N] (interleaved re/im)
+//   @binding(1) uniform             — struct { n: u32, stage: u32,
+//                                            _pad0: u32, _pad1: u32 } (16 B)
+//
+// Workgroups: dispatch ceil(N / 64) for the permutation pass and
+// ceil((N/2) / 64) for each butterfly stage; the guard drops extra threads.
+// ==========================================================================
+
+export const FFT_MAX_N = 4096;
+
+export const FFT_DATA_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const FFT_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/** Bind group layout shared by the WGSL source and the host descriptor. */
+export const FFT_BINDINGS = { DATA: 0, PARAMS: 1 } as const;
+
+export interface FFTKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function fftKernelWGSL(opts: FFTKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  n: u32,
+  stage: u32,
+  _pad0: u32,
+  _pad1: u32,
+};
+
+@group(0) @binding(0) var<storage, read_write> data: array<f32>;
+@group(0) @binding(1) var<uniform> params: Params;
+
+fn bitReverse(i: u32, bits: u32) -> u32 {
+  var r: u32 = 0u;
+  var v = i;
+  for (var b: u32 = 0u; b < bits; b = b + 1u) {
+    r = (r << 1u) | (v & 1u);
+    v = v >> 1u;
+  }
+  return r;
+}
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (params.stage == 0u) {
+    // Bit-reversal permutation pass (one swap per thread).
+    if (i >= params.n) { return; }
+    var bits: u32 = 0u;
+    var t = params.n;
+    while (t > 1u) { bits = bits + 1u; t = t >> 1u; }
+    let j = bitReverse(i, bits);
+    if (j <= i) { return; }
+    let a = i * 2u;
+    let bq = j * 2u;
+    let tr = data[a];
+    let ti = data[a + 1u];
+    data[a] = data[bq];
+    data[a + 1u] = data[bq + 1u];
+    data[bq] = tr;
+    data[bq + 1u] = ti;
+    return;
+  }
+
+  // Butterfly pass: thread i owns pair (p, p + half) within its block.
+  let half = 1u << (params.stage - 1u);
+  let len = half * 2u;
+  if (i >= params.n / 2u) { return; }
+  let block = i / half;
+  let k = i - block * half;
+  let p = block * len + k;
+  let q = p + half;
+
+  let ang = -2.0 * ${Math.PI.toFixed(10)} * f32(k) / f32(len);
+  let wStep = vec2<f32>(cos(ang), sin(ang));
+  var w = vec2<f32>(1.0, 0.0);
+  for (var s: u32 = 0u; s < k; s = s + 1u) {
+    let nw = vec2<f32>(w.x * wStep.x - w.y * wStep.y, w.x * wStep.y + w.y * wStep.x);
+    w = nw;
+  }
+
+  let pa = p * 2u;
+  let qb = q * 2u;
+  let br = data[qb];
+  let bi = data[qb + 1u];
+  let tr = w.x * br - w.y * bi;
+  let ti = w.x * bi + w.y * br;
+  data[qb] = data[pa] - tr;
+  data[qb + 1u] = data[pa + 1u] - ti;
+  data[pa] = data[pa] + tr;
+  data[pa + 1u] = data[pa + 1u] + ti;
+}
+`;
+}
+
+/** True when `n` is a power of two (and ≥ 1). */
+export function isPowerOfTwo(n: number): boolean {
+  return Number.isInteger(n) && n >= 1 && (n & (n - 1)) === 0;
+}
+
+/** Reverse the low `bits` bits of `n`. */
+export function fftBitReverse(n: number, bits: number): number {
+  let r = 0;
+  let v = n;
+  for (let b = 0; b < bits; b += 1) {
+    r = (r << 1) | (v & 1);
+    v >>>= 1;
+  }
+  return r >>> 0;
+}
+
+/** log2 of a power-of-two length (throws otherwise). */
+export function fftStageCount(n: number): number {
+  if (!isPowerOfTwo(n)) throw new Error('fft: length must be a power of two');
+  let s = 0;
+  let t = n;
+  while (t > 1) {
+    s += 1;
+    t >>= 1;
+  }
+  return s;
+}
+
+/** Byte size of an interleaved complex buffer holding `n` samples. */
+export function fftBytes(n: number): number {
+  return Math.max(0, Math.floor(n)) * 2 * 4;
+}
+
+/**
+ * Pack the FFT uniform params into a 16-byte ArrayBuffer (n/stage as real
+ * u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packFFTParams(n: number, stage: number): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, n >>> 0, true);
+  dv.setUint32(4, stage >>> 0, true);
+  dv.setUint32(8, 0, true);
+  dv.setUint32(12, 0, true);
+  return buf;
+}
+
+/**
+ * CPU-equivalent of the FFT kernel: one in-place pass over the interleaved
+ * [re, im] buffer. `stage = 0` performs the bit-reversal permutation, stages
+ * 1…log2(N) the butterfly layers — the same sequence the GPU dispatches.
+ */
+export function fftCPU(data: Float32Array, n: number, stage: number): void {
+  if (!isPowerOfTwo(n)) throw new Error('fft: length must be a power of two');
+  if (n > FFT_MAX_N) throw new Error(`fft: length must be <= ${FFT_MAX_N}`);
+  if (data.length < n * 2) throw new Error('fftCPU: buffer shorter than 2*n');
+  const bits = fftStageCount(n);
+  if (stage === 0) {
+    for (let i = 0; i < n; i += 1) {
+      const j = fftBitReverse(i, bits);
+      if (j > i) {
+        const tr = data[i * 2]!;
+        const ti = data[i * 2 + 1]!;
+        data[i * 2] = data[j * 2]!;
+        data[i * 2 + 1] = data[j * 2 + 1]!;
+        data[j * 2] = tr;
+        data[j * 2 + 1] = ti;
+      }
+    }
+    return;
+  }
+  if (stage < 1 || stage > bits) throw new Error(`fft: stage must be 0..${bits}`);
+  const half = 1 << (stage - 1);
+  const len = half * 2;
+  for (let block = 0; block < n; block += len) {
+    let wr = 1;
+    let wi = 0;
+    const ang = (-2 * Math.PI) / len;
+    const wlr = Math.cos(ang);
+    const wli = Math.sin(ang);
+    for (let k = 0; k < half; k += 1) {
+      const p = (block + k) * 2;
+      const q = p + half * 2;
+      const br = data[q]!;
+      const bi = data[q + 1]!;
+      const tr = wr * br - wi * bi;
+      const ti = wr * bi + wi * br;
+      data[q] = data[p]! - tr;
+      data[q + 1] = data[p + 1]! - ti;
+      data[p] = data[p]! + tr;
+      data[p + 1] = data[p + 1]! + ti;
+      const nwr = wr * wlr - wi * wli;
+      wi = wr * wli + wi * wlr;
+      wr = nwr;
+    }
+  }
+}
+
+/** Run the whole in-place FFT: permutation + every butterfly stage. */
+export function fftFullCPU(data: Float32Array, n: number): void {
+  fftCPU(data, n, 0);
+  const bits = fftStageCount(n);
+  for (let stage = 1; stage <= bits; stage += 1) fftCPU(data, n, stage);
+}
+
+// ==========================================================================
+// K-means assignment kernel (one iteration step, GPU-accelerated).
+//
+// The GPU kernel implements the assignment step only: every thread owns one
+// point, scans all k centroids and atomically adds the point's coordinates
+// into its cluster's partial sums plus the cluster's member count. The host
+// then computes new centroids = sums / counts (a trivial O(k·d) pass). The
+// CPU fallback runs the full multi-iteration Lloyd loop with the same
+// initial-centroid sampling so both paths converge to the same clusters.
+//
+// Bind group:
+//   @binding(0) read-only-storage   — points     : f32[count*dim]
+//   @binding(1) read-only-storage   — centroids  : f32[k*dim]
+//   @binding(2) storage, read_write — assignments: u32[count]
+//   @binding(3) storage, read_write — sums       : atomic<u32>[k*dim] f32
+//                                                  bitcast (caller zeroed)
+//   @binding(4) storage, read_write — counts     : atomic<u32>[k] (caller zeroed)
+//   @binding(5) uniform             — struct { count: u32, k: u32,
+//                                            dim: u32, _pad: u32 } (16 bytes)
+//
+// Workgroups: dispatch ceil(count / 64); the guard drops extra threads.
+// ==========================================================================
+
+export const KMEANS_POINTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const KMEANS_CENTROIDS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const KMEANS_ASSIGNMENTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const KMEANS_SUMS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const KMEANS_COUNTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const KMEANS_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/** Bind group layout shared by the WGSL source and the host descriptor. */
+export const KMEANS_BINDINGS = {
+  POINTS: 0,
+  CENTROIDS: 1,
+  ASSIGNMENTS: 2,
+  SUMS: 3,
+  COUNTS: 4,
+  PARAMS: 5,
+} as const;
+
+export interface KMeansKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function kmeansKernelWGSL(opts: KMeansKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  count: u32,
+  k: u32,
+  dim: u32,
+  _pad: u32,
+};
+
+@group(0) @binding(0) var<storage, read> points: array<f32>;
+@group(0) @binding(1) var<storage, read> centroids: array<f32>;
+@group(0) @binding(2) var<storage, read_write> assignments: array<u32>;
+@group(0) @binding(3) var<storage, read_write> sums: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> counts: array<atomic<u32>>;
+@group(0) @binding(5) var<uniform> params: Params;
+
+// f32 atomics are behind the "f32-atomics" feature, so the partial sums live
+// in a u32 buffer and accumulate through a bitcast CAS loop - core WebGPU
+// only. A zero-initialised buffer starts at exactly 0.0f.
+fn addF32(slot: ptr<storage, atomic<u32>>, value: f32) {
+  loop {
+    let old = atomicLoad(slot);
+    let next = bitcast<u32>(bitcast<f32>(old) + value);
+    if (atomicCompareExchangeWeak(slot, old, next).exchanged) { break; }
+  }
+}
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i >= params.count) { return; }
+  let base = i * params.dim;
+  var best: u32 = 0u;
+  var bestDist = 0.0;
+  for (var c: u32 = 0u; c < params.k; c = c + 1u) {
+    var dist = 0.0;
+    let cb = c * params.dim;
+    for (var d: u32 = 0u; d < params.dim; d = d + 1u) {
+      let diff = points[base + d] - centroids[cb + d];
+      dist = dist + diff * diff;
+    }
+    // Ties resolve to the lowest centroid index (strict <), matching the
+    // CPU assignment loop so both paths agree.
+    if (c == 0u || dist < bestDist) {
+      best = c;
+      bestDist = dist;
+    }
+  }
+  assignments[i] = best;
+  let sb = best * params.dim;
+  for (var d: u32 = 0u; d < params.dim; d = d + 1u) {
+    addF32(&sums[sb + d], points[base + d]);
+  }
+  atomicAdd(&counts[best], 1u);
+}
+`;
+}
+
+/** Byte size of the k-means per-cluster sums buffer (f32[k*dim]). */
+export function kmeansSumsBytes(k: number, dim: number): number {
+  return Math.max(0, Math.floor(k)) * Math.max(0, Math.floor(dim)) * 4;
+}
+
+/** Byte size of the k-means per-cluster counts buffer (u32[k]). */
+export function kmeansCountsBytes(k: number): number {
+  return Math.max(0, Math.floor(k)) * 4;
+}
+
+/**
+ * Pack the k-means uniform params into a 16-byte ArrayBuffer (count/k/dim as
+ * real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packKMeansParams(count: number, k: number, dim: number): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, count >>> 0, true);
+  dv.setUint32(4, k >>> 0, true);
+  dv.setUint32(8, dim >>> 0, true);
+  dv.setUint32(12, 0, true);
+  return buf;
+}
+
+export interface KMeansResult {
+  /** Final centroids, interleaved row-major f32[k*dim]. */
+  centroids: Float32Array;
+  /** Cluster index per point (length = point count). */
+  assignments: Uint32Array;
+  /** Iterations actually run (≤ maxIter; stops early on convergence). */
+  iterations: number;
+}
+
+/**
+ * Seeded initial centroids: `k` distinct points drawn via `mulberry32(seed)`
+ * (the project's reproducible RNG — no new random source). Shared by the CPU
+ * Lloyd loop and the GPU host loop so both paths start from the same centers.
+ */
+export function kmeansInitCentroids(
+  points: Float32Array,
+  count: number,
+  dim: number,
+  k: number,
+  seed: number,
+): Float32Array {
+  const rand = mulberry32(seed);
+  // Fisher-Yates over point indices; the first k entries seed the centroids.
+  const order = new Uint32Array(count);
+  for (let i = 0; i < count; i += 1) order[i] = i;
+  for (let i = count - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = order[i]!;
+    order[i] = order[j]!;
+    order[j] = tmp;
+  }
+  const centroids = new Float32Array(k * dim);
+  for (let c = 0; c < k; c += 1) {
+    const src = (order[c] as number) * dim;
+    for (let d = 0; d < dim; d += 1) centroids[c * dim + d] = points[src + d]!;
+  }
+  return centroids;
+}
+
+/**
+ * Full Lloyd k-means on the CPU: seeded initial centroids (see
+ * `kmeansInitCentroids`), then assign/update iterations until stable or
+ * `maxIter`. Assignment ties go to the lowest centroid index, matching the
+ * GPU kernel.
+ */
+export function kmeansCPU(
+  points: Float32Array,
+  count: number,
+  dim: number,
+  k: number,
+  maxIter: number,
+  seed: number,
+): KMeansResult {
+  if (k < 1) throw new Error('kmeans: k must be >= 1');
+  if (count < k) throw new Error('kmeans: need at least k points');
+  if (points.length < count * dim) throw new Error('kmeans: points shorter than count*dim');
+  const centroids = kmeansInitCentroids(points, count, dim, k, seed);
+  const assignments = new Uint32Array(count);
+  const sums = new Float64Array(k * dim);
+  const counts = new Float64Array(k);
+  let iterations = 0;
+  for (let it = 0; it < maxIter; it += 1) {
+    iterations = it + 1;
+    let changed = false;
+    for (let i = 0; i < count; i += 1) {
+      const base = i * dim;
+      let best = 0;
+      let bestDist = Infinity;
+      for (let c = 0; c < k; c += 1) {
+        const cb = c * dim;
+        let dist = 0;
+        for (let d = 0; d < dim; d += 1) {
+          const diff = points[base + d]! - centroids[cb + d]!;
+          dist += diff * diff;
+        }
+        if (dist < bestDist) {
+          best = c;
+          bestDist = dist;
+        }
+      }
+      if (assignments[i] !== best) changed = true;
+      assignments[i] = best;
+    }
+    sums.fill(0);
+    counts.fill(0);
+    for (let i = 0; i < count; i += 1) {
+      const c = assignments[i]!;
+      const base = i * dim;
+      counts[c] = (counts[c] ?? 0) + 1;
+      for (let d = 0; d < dim; d += 1) {
+        sums[c * dim + d] = (sums[c * dim + d] ?? 0) + points[base + d]!;
+      }
+    }
+    for (let c = 0; c < k; c += 1) {
+      const n = counts[c] ?? 0;
+      if (n === 0) continue; // empty cluster keeps its previous centroid
+      for (let d = 0; d < dim; d += 1) centroids[c * dim + d] = (sums[c * dim + d] ?? 0) / n;
+    }
+    if (!changed) break;
+  }
+  return { centroids, assignments, iterations };
+}
+
+// ==========================================================================
+// Binned-aggregation kernel (sum / mean / count, GPU-accelerated).
+//
+// Bins rows by the value in column `key` into `bins` buckets over
+// [min, max] and aggregates column `value` per bucket with one of three
+// modes (0 = sum, 1 = mean, 2 = count). Atomic adds keep the write pattern
+// race-free; the mean is finalised host-side as sum / count (the kernel
+// accumulates the sum for mean mode too, matching the CPU fallback).
+//
+// Bind group:
+//   @binding(0) read-only-storage   — keys    : f32[count]
+//   @binding(1) read-only-storage   — values  : f32[count]
+//   @binding(2) uniform             — struct { min: f32, max: f32,
+//                                            bins: u32, count: u32,
+//                                            mode: u32, _pad0: u32,
+//                                            _pad1: u32, _pad2: u32 } (32 B)
+//   @binding(3) storage, read_write — sums    : atomic<u32>[bins] f32 bitcast
+//                                               (caller zeroed)
+//   @binding(4) storage, read_write — counts  : atomic<u32>[bins] (zeroed)
+//
+// Workgroups: dispatch ceil(count / 64); the guard drops extra threads.
+// ==========================================================================
+
+export const BINNING_KEYS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const BINNING_VALUES_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const BINNING_SUMS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const BINNING_COUNTS_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const BINNING_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+export type BinningMode = 'sum' | 'mean' | 'count';
+
+const BINNING_MODE_CODE: Record<BinningMode, number> = { sum: 0, mean: 1, count: 2 };
+
+/** Bind group layout shared by the WGSL source and the host descriptor. */
+export const BINNING_BINDINGS = { KEYS: 0, VALUES: 1, PARAMS: 2, SUMS: 3, COUNTS: 4 } as const;
+
+export interface BinningKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function binningKernelWGSL(opts: BinningKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  min: f32,
+  max: f32,
+  bins: u32,
+  count: u32,
+  mode: u32,
+  _pad0: u32,
+  _pad1: u32,
+  _pad2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> keys: array<f32>;
+@group(0) @binding(1) var<storage, read> values: array<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read_write> sums: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> counts: array<atomic<u32>>;
+
+// f32 atomics are behind the "f32-atomics" feature, so the bin sums live in a
+// u32 buffer and accumulate through a bitcast CAS loop - core WebGPU only.
+// A zero-initialised buffer starts at exactly 0.0f.
+fn addF32(slot: ptr<storage, atomic<u32>>, value: f32) {
+  loop {
+    let old = atomicLoad(slot);
+    let next = bitcast<u32>(bitcast<f32>(old) + value);
+    if (atomicCompareExchangeWeak(slot, old, next).exchanged) { break; }
+  }
+}
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i >= params.count) { return; }
+  let v = keys[i];
+  // NaN and out-of-range keys land in no bin. The negated range test is what
+  // catches NaN (all comparisons with NaN are false); a plain "v < min ||
+  // v > max" guard would let NaN through into bucket 0.
+  if (!(v >= params.min && v <= params.max)) { return; }
+  let span = params.max - params.min;
+  var b: u32 = 0u;
+  if (span > 0.0) {
+    let t = (v - params.min) / span;
+    b = min(u32(t * f32(params.bins)), params.bins - 1u);
+  }
+  // Count mode bumps counts only (mode == 2), so the host can read sums
+  // unchanged for count queries; sum and mean both accumulate the value.
+  if (params.mode != 2u) {
+    addF32(&sums[b], values[i]);
+  }
+  atomicAdd(&counts[b], 1u);
+}
+`;
+}
+
+/** Byte size of a binning sums buffer (f32[bins]). */
+export function binningSumsBytes(bins: number): number {
+  return Math.max(0, Math.floor(bins)) * 4;
+}
+
+/**
+ * Pack the binning uniform params into a 32-byte ArrayBuffer (bins/count/mode
+ * as real u32s via DataView, matching the kernel's u32 fields).
+ */
+export function packBinningParams(
+  min: number,
+  max: number,
+  bins: number,
+  count: number,
+  mode: BinningMode,
+): ArrayBuffer {
+  const buf = new ArrayBuffer(32);
+  const dv = new DataView(buf);
+  dv.setFloat32(0, min, true);
+  dv.setFloat32(4, max, true);
+  dv.setUint32(8, bins >>> 0, true);
+  dv.setUint32(12, count >>> 0, true);
+  dv.setUint32(16, BINNING_MODE_CODE[mode], true);
+  dv.setUint32(20, 0, true);
+  dv.setUint32(24, 0, true);
+  dv.setUint32(28, 0, true);
+  return buf;
+}
+
+export interface BinningResult {
+  /** Aggregated value per bin (sum, mean, or count depending on `mode`). */
+  result: Float64Array;
+  /** Member count per bin (always populated — mean needs it). */
+  counts: Float64Array;
+}
+
+/**
+ * CPU-equivalent of the binning kernel: bins `keys` into `bins` buckets over
+ * [min, max] and aggregates `values` per bucket. Out-of-range and NaN keys
+ * land in no bin; a zero-width range routes everything to bin 0 (same guards
+ * as the histogram kernel).
+ */
+export function binningCPU(
+  keys: Float32Array,
+  values: Float32Array,
+  bins: number,
+  min: number,
+  max: number,
+  mode: BinningMode,
+): BinningResult {
+  if (bins < 1) throw new Error('binning: bins must be >= 1');
+  if (keys.length !== values.length) throw new Error('binning: keys/values length mismatch');
+  const sums = new Float64Array(bins);
+  const counts = new Float64Array(bins);
+  const span = max - min;
+  for (let i = 0; i < keys.length; i += 1) {
+    const v = keys[i]!;
+    if (!Number.isFinite(v) || v < min || v > max) continue;
+    let b = 0;
+    if (span > 0) {
+      const t = (v - min) / span;
+      b = Math.min(Math.floor(t * bins), bins - 1);
+    }
+    counts[b] = (counts[b] ?? 0) + 1;
+    sums[b] = (sums[b] ?? 0) + values[i]!;
+  }
+  const result = new Float64Array(bins);
+  for (let b = 0; b < bins; b += 1) {
+    const c = counts[b] ?? 0;
+    result[b] = mode === 'count' ? c : mode === 'sum' ? sums[b] ?? 0 : c > 0 ? (sums[b] ?? 0) / c : 0;
+  }
+  return { result, counts };
 }

@@ -27,6 +27,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Check citation metadata (FR-10)
+        run: node scripts/check-citation.mjs
+
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
 
@@ -40,3 +43,6 @@ jobs:
         run: npm run build:web
         env:
           DOCS_BASE: /${{ github.event.repository.name }}/docs/
+
+      - name: Build performance budget (FR-06)
+        run: node scripts/build-budget.mjs

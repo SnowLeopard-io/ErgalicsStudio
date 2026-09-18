@@ -19,6 +19,14 @@ import {
 } from '@/stores/figureStore';
 import { composeFigure, JOURNAL_TEMPLATES } from '@/core/figure/compose';
 import type { FigureExportFormat } from '@/core/figure/compose';
+import { runSubmissionCheck } from '@/core/submit/checklist';
+import type {
+  SubmissionDoc,
+  SubmissionExportSettings,
+  SubmissionTargetId,
+} from '@/core/submit/checklist';
+import { SubmissionCheckModal } from './SubmissionCheckModal';
+import { CaptionGeneratorModal } from './CaptionGeneratorModal';
 import { createDataTable } from '@/types/datatable';
 import {
   dataTableToBar,
@@ -206,6 +214,18 @@ export default function FigureStudioPage() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PanelDraft>(EMPTY_DRAFT);
 
+  // FR-03 submission assistant state.
+  const [submitTarget, setSubmitTarget] = useState<SubmissionTargetId>('ieee');
+  const [exportSettings, setExportSettings] = useState<SubmissionExportSettings>({
+    format: 'png600',
+    rasterDpi: 600,
+    colorMode: 'rgb',
+    fontEmbedded: true,
+  });
+  const [checkOpen, setCheckOpen] = useState(false);
+  const [captionOpen, setCaptionOpen] = useState(false);
+  const [pendingExport, setPendingExport] = useState<FigureExportFormat | null>(null);
+
   const composed = useMemo(() => {
     if (!active) return null;
     return composeFigure({
@@ -248,7 +268,25 @@ export default function FigureStudioPage() {
     setEditorOpen(false);
   };
 
-  const handleExport = async (format: FigureExportFormat) => {
+  const submissionDoc: SubmissionDoc | null = active
+    ? {
+        templateId: active.templateId,
+        caption: active.caption,
+        panels: active.panels,
+        export: exportSettings,
+      }
+    : null;
+
+  /** Failing-check count for one export format (0 = export straight away). */
+  const failingFor = (format: FigureExportFormat): number => {
+    if (!submissionDoc) return 0;
+    return runSubmissionCheck(
+      { ...submissionDoc, export: { ...exportSettings, format } },
+      submitTarget,
+    ).failedCount;
+  };
+
+  const doExport = async (format: FigureExportFormat) => {
     if (!active) return;
     try {
       await exportSheet(active.id, format);
@@ -256,6 +294,24 @@ export default function FigureStudioPage() {
     } catch (err) {
       notify('error', t('figure.export_failed', { reason: String(err) }));
     }
+  };
+
+  const handleExport = async (format: FigureExportFormat) => {
+    if (!active) return;
+    // FR-03: a failing checklist never blocks export, but asks for a second
+    // confirmation first (the check uses the format the user is exporting).
+    if (failingFor(format) > 0) {
+      setPendingExport(format);
+      return;
+    }
+    await doExport(format);
+  };
+
+  const confirmPendingExport = async () => {
+    if (pendingExport === null) return;
+    const format = pendingExport;
+    setPendingExport(null);
+    await doExport(format);
   };
 
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -284,6 +340,12 @@ export default function FigureStudioPage() {
         </button>
         <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteSheet}>
           {t('figure.delete_sheet')}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => setCaptionOpen(true)}>
+          {t('submit.caption_generate')}
+        </button>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setCheckOpen(true)}>
+          {t('submit.check')}
         </button>
       </>
     ) : null;
@@ -338,7 +400,12 @@ export default function FigureStudioPage() {
               <h2 className="figures-subtitle">
                 {t('figure.panels')} ({active.panels.length})
               </h2>
-              <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+              <button
+                type="button"
+                id="figure-add-panel"
+                className="btn btn-sm btn-primary"
+                onClick={openAdd}
+              >
                 + {t('figure.add_panel')}
               </button>
             </div>
@@ -347,7 +414,7 @@ export default function FigureStudioPage() {
               <div className="empty-hint">{t('figure.empty')}</div>
             )}
 
-            <ul className="figures-panel-list">
+            <ul id="figure-panel-list" className="figures-panel-list" tabIndex={-1}>
               {active.panels.map((panel, index) => {
                 const tag = panel.tag ?? String.fromCharCode(97 + index);
                 const kind = panel.spec.series[0]?.kind ?? '';
@@ -414,7 +481,7 @@ export default function FigureStudioPage() {
               />
             </div>
 
-            <div className="figures-export">
+            <div id="figure-export-row" className="figures-export" tabIndex={-1}>
               <span className="figures-label">{t('figure.export')}</span>
               {(['svg', 'pdf', 'png600'] as FigureExportFormat[]).map((format) => (
                 <button
@@ -576,6 +643,47 @@ export default function FigureStudioPage() {
         confirmLabel={t('common.delete')}
         onConfirm={confirmDeleteSheet}
         onClose={() => setDeleteSheetOpen(false)}
+      />
+
+      {submissionDoc && (
+        <SubmissionCheckModal
+          open={checkOpen}
+          onClose={() => setCheckOpen(false)}
+          doc={submissionDoc}
+          targetId={submitTarget}
+          onTargetChange={setSubmitTarget}
+          settings={exportSettings}
+          onSettingsChange={(patch) => setExportSettings((s) => ({ ...s, ...patch }))}
+        />
+      )}
+
+      {active && (
+        <CaptionGeneratorModal
+          open={captionOpen}
+          onClose={() => setCaptionOpen(false)}
+          panels={active.panels}
+          currentCaption={active.caption}
+          onApply={(caption) => {
+            updateSheet(active.id, { caption });
+            notify('success', t('submit.caption_applied'));
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={pendingExport !== null}
+        title={t('submit.export_confirm_title')}
+        message={t('submit.export_confirm', {
+          count: submissionDoc
+            ? runSubmissionCheck(
+                { ...submissionDoc, export: { ...exportSettings, format: pendingExport ?? 'svg' } },
+                submitTarget,
+              ).failedCount
+            : 0,
+        })}
+        confirmLabel={t('submit.export_continue')}
+        onConfirm={() => void confirmPendingExport()}
+        onClose={() => setPendingExport(null)}
       />
     </ToolShell>
   );

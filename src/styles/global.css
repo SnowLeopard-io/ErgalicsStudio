@@ -61,13 +61,15 @@
 
   --color-text-primary: #e6edf3;
   --color-text-secondary: #9db0c3;
-  --color-text-tertiary: #6f8298;
+  /* FR-18: lifted from #6f8298/#46586b so hint text clears 4.5:1 on elevated
+     surfaces and disabled text clears 3:1 (WCAG AA self-test). */
+  --color-text-tertiary: #778ba3;
   --color-text-inverse: #04161a;
-  --color-text-disabled: #46586b;
+  --color-text-disabled: #50647a;
 
   --color-border: #22303f;
   --color-border-hover: #33465c;
-  --color-border-strong: #425a74;
+  --color-border-strong: #4c6480;
 
   --color-accent: #2dd4bf;
   --color-accent-hover: #5eead4;
@@ -108,16 +110,20 @@
 
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
-  --color-text-tertiary: #64748b;
+  /* FR-18: tertiary/disabled/border-strong nudged darker so hint text clears
+     4.5:1 and disabled text + input borders clear 3:1 on the light canvas. */
+  --color-text-tertiary: #626f84;
   --color-text-inverse: #ffffff;
-  --color-text-disabled: #94a3b8;
+  --color-text-disabled: #77879d;
 
   --color-border: #d7dee6;
   --color-border-hover: #bac6d2;
-  --color-border-strong: #9aa8b8;
+  --color-border-strong: #7f8fa1;
 
-  --color-accent: #0e9384;
-  --color-accent-hover: #0b7a6e;
+  /* FR-18: accent darkened one step so the white primary-button label
+     (#ffffff on --color-accent) clears 4.5:1. */
+  --color-accent: #0b7a6e;
+  --color-accent-hover: #0a6d62;
   --color-accent-active: #0a5f56;
   --color-accent-soft: rgba(14, 147, 132, 0.12);
   --color-accent-text: #0b7a6e;

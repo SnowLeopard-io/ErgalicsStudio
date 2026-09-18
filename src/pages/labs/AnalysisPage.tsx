@@ -16,10 +16,12 @@ import {
 } from '@/core/plot';
 import { summary } from '@/core/stats/descriptive';
 import { tTestOneSample, tTestTwoSample, mannWhitney } from '@/core/stats/tests';
-import { pearson, studentTCdf } from '@/core/stats';
+import { pearson, studentTCdf, cohensD, mean, std } from '@/core/stats';
+import type { NarrativeInput } from '@/core/stats/narrative';
 import type { DataTable } from '@/types/datatable';
 import type { SvgPlotPayload } from '@/core/plot/types';
 import { ToolShell } from '@/components/ToolShell';
+import { NarrativePanel } from '@/components/NarrativePanel';
 
 type ChartKind = 'line' | 'scatter' | 'histogram' | 'bar';
 type TestKind = 't1' | 't2' | 'mw' | 'pearson';
@@ -53,6 +55,7 @@ export default function AnalysisPage() {
   const [testB, setTestB] = useState('');
   const [mu0, setMu0] = useState('0');
   const [testResult, setTestResult] = useState('');
+  const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
 
   const numericCols = useMemo(
     () => (table ? table.columns.filter((c) => isNumericType(c.type)).map((c) => c.name) : []),
@@ -153,6 +156,7 @@ export default function AnalysisPage() {
 
   const runTest = () => {
     if (!table) return;
+    setNarrativeInput(null);
     try {
       const a = Array.from(asFloat64(table, testA));
       const b = testB ? Array.from(asFloat64(table, testB)) : [];
@@ -161,9 +165,24 @@ export default function AnalysisPage() {
       if (testKind === 't1') {
         const r = tTestOneSample(a, mu);
         setTestResult(`t = ${f(r.statistic)}, df = ${r.df ?? '—'}, p = ${f(r.pValue)}`);
+        const sd = std(a);
+        setNarrativeInput({
+          kind: 'ttest',
+          variant: 'one',
+          result: r,
+          d: sd > 0 ? (mean(a) - mu) / sd : undefined,
+        });
       } else if (testKind === 't2') {
         const r = tTestTwoSample(a, b);
         setTestResult(`t = ${f(r.statistic)}, df = ${f(Number(r.df))}, p = ${f(r.pValue)}`);
+        setNarrativeInput({
+          kind: 'ttest',
+          variant: 'two',
+          result: r,
+          d: a.length > 1 && b.length > 1 ? cohensD(a, b) : undefined,
+          groupA: testA,
+          groupB: testB,
+        });
       } else if (testKind === 'mw') {
         const r = mannWhitney(a, b);
         setTestResult(`U = ${r.u}, z = ${f(r.z)}, p = ${f(r.pValue)}`);
@@ -176,6 +195,7 @@ export default function AnalysisPage() {
           p = 2 * (1 - studentTCdf(Math.abs(tv), n - 2));
         }
         setTestResult(`r = ${f(r)}, p = ${f(p)}`);
+        setNarrativeInput({ kind: 'correlation', r, pValue: p, n, xName: testA, yName: testB });
       }
     } catch (err) {
       setTestResult(err instanceof Error ? err.message : String(err));
@@ -337,6 +357,7 @@ export default function AnalysisPage() {
                 <input
                   className="input"
                   style={{ maxWidth: 90 }}
+                  aria-label={t('inference.mean')}
                   value={mu0}
                   onChange={(e) => setMu0(e.target.value)}
                 />
@@ -348,6 +369,7 @@ export default function AnalysisPage() {
             {testResult && (
               <pre className="analysis-output">{`${t('analysis.result')}: ${testResult}`}</pre>
             )}
+            <NarrativePanel input={narrativeInput} />
           </>
         )}
       </div>

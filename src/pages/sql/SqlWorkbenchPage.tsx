@@ -23,9 +23,10 @@ import {
 } from '@/core/sql/engine';
 import { toCsv } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
+import { VirtualTable } from '@/components/VirtualTable';
 
-/** Result preview cap (full rows are kept for CSV export). */
-const PREVIEW_ROWS = 200;
+/** Display cap: beyond this, the preview downsamples (export stays full). */
+const VIRTUAL_DOWNSAMPLE_THRESHOLD = 5000;
 /** CSV export guard from the spec: results ≤ 1e6 rows can be saved. */
 const MAX_SAVE_ROWS = 1_000_000;
 
@@ -309,37 +310,23 @@ export default function SqlWorkbenchPage() {
                     cols: result.columns.length,
                     ms: Math.round(result.durationMs),
                   })}
-                  {result.rowCount > PREVIEW_ROWS && (
+                  {result.rows.length > VIRTUAL_DOWNSAMPLE_THRESHOLD && (
                     <span className="sql-preview-note">
-                      {t('sql.preview_note', { n: PREVIEW_ROWS })}
+                      {t('store2.downsampled', { n: VIRTUAL_DOWNSAMPLE_THRESHOLD })}
                     </span>
                   )}
                 </div>
                 {result.rows.length === 0 ? (
                   <div className="empty-hint">{t('sql.result_empty')}</div>
                 ) : (
-                  <div className="sql-result-scroll">
-                    <table className="sql-result-table">
-                      <thead>
-                        <tr>
-                          {result.columns.map((c) => (
-                            <th key={c.name} title={c.type}>
-                              {c.name}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.rows.slice(0, PREVIEW_ROWS).map((row, i) => (
-                          <tr key={i}>
-                            {row.map((cell, j) => (
-                              <td key={j}>{cell === null ? 'NULL' : String(cell)}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <VirtualTable
+                    columns={result.columns.map((c) => ({ name: c.name, title: c.type }))}
+                    rows={
+                      result.rows.length > VIRTUAL_DOWNSAMPLE_THRESHOLD
+                        ? result.rows.slice(0, VIRTUAL_DOWNSAMPLE_THRESHOLD)
+                        : result.rows
+                    }
+                  />
                 )}
                 <div className="sql-save-row">
                   <input

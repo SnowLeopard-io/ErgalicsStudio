@@ -1,0 +1,27 @@
+{
+  "name": "Ergalics Studio",
+  "short_name": "Ergalics",
+  "description": "浏览器端专业科学计算工作站 / A browser-based scientific computing workstation",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1117",
+  "theme_color": "#2dd4bf",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "ico.ico",
+      "sizes": "48x48 96x96",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}

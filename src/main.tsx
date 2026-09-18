@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { installGlobalErrorHandlers } from '@/core/errors';
+import { initPwa, registerServiceWorker } from '@/core/pwa';
+import { restoreAppliedTheme } from '@/core/theme-pack/registry';
 import './styles/global.css';
 import './styles/app.css';
 import './styles/blocks.css';
@@ -12,6 +14,14 @@ import './styles/animations.css';
 // bounded ring, logger + subscriber notification); the teardown is kept for
 // hot-reload environments so listeners are not attached twice.
 const teardownGlobalHandlers = installGlobalErrorHandlers();
+
+// FR-20: PWA — capture install prompt / connectivity and register the
+// hand-written offline service worker (production builds only).
+initPwa();
+window.addEventListener('load', () => void registerServiceWorker());
+
+// FR-21: re-apply the user's chosen .cstheme before first paint.
+restoreAppliedTheme();
 
 // Keyboard shortcut: Ctrl+S saves the current project (spec §4.2).
 window.addEventListener('keydown', (event) => {

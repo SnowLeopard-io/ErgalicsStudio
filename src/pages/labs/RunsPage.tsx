@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
 import { useExperimentStore } from '@/stores/experimentStore';
-import { diffRuns, formatChange } from '@/core/experiment/diff';
+import { useAppStore } from '@/stores/appStore';
+import {
+  diffRuns,
+  runDiffToJson,
+  type RunDiff,
+} from '@/core/repro/lock';
 import type { RunRecord } from '@/core/experiment/record';
+import { downloadBlob } from '@/core/download';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CloseIcon } from '@/components/icons';
 import { ToolShell } from '@/components/ToolShell';
@@ -19,22 +25,25 @@ function fmtDuration(ms: number): string {
 
 function fmtValue(v: unknown): string {
   if (typeof v === 'number') return String(Number(v.toPrecision(6)));
+  if (v === undefined || v === null) return '—';
   return JSON.stringify(v) ?? '—';
 }
 
 /**
- * Run history + comparison (experiment tracking). Pick any two runs to see a
- * parameter / metric diff — the everyday "what changed between these two
- * results?" question.
+ * Run history + comparison (experiment tracking, FR-11 structured diff).
+ * Pick any two runs, press Compare: parameter / metric (with tolerance) /
+ * configuration sections, exportable as diff JSON.
  */
 export default function RunsPage() {
   const t = useT();
+  const notify = useAppStore((s) => s.notify);
   const runs = useExperimentStore((s) => s.runs);
   const loading = useExperimentStore((s) => s.loading);
   const loadRuns = useExperimentStore((s) => s.loadRuns);
   const removeRun = useExperimentStore((s) => s.removeRun);
   const clearRuns = useExperimentStore((s) => s.clearRuns);
   const [selected, setSelected] = useState<string[]>([]);
+  const [diff, setDiff] = useState<RunDiff | null>(null);
   /** Pending destructive action — every delete/clear goes through a modal. */
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'one'; id: string } | { kind: 'all' } | null
@@ -43,6 +52,7 @@ export default function RunsPage() {
   useEffect(() => {
     void loadRuns();
     setSelected([]);
+    setDiff(null);
   }, [loadRuns]);
 
   const toggleSelect = (id: string) => {
@@ -55,7 +65,17 @@ export default function RunsPage() {
 
   const a = selected.length >= 1 ? runs.find((r) => r.id === selected[0]) : undefined;
   const b = selected.length >= 2 ? runs.find((r) => r.id === selected[1]) : undefined;
-  const diff = a && b ? diffRuns(a, b) : null;
+
+  const handleCompare = () => {
+    if (!a || !b) return;
+    setDiff(diffRuns(a, b));
+  };
+
+  const handleExportDiff = () => {
+    if (!diff) return;
+    downloadBlob('run-diff.json', new TextEncoder().encode(runDiffToJson(diff)), 'application/json');
+    notify('success', t('repro2.diff_exported'));
+  };
 
   return (
     <ToolShell toolId="runs">
@@ -114,44 +134,82 @@ export default function RunsPage() {
         <div className="runs-actions">
           <button
             type="button"
+            className="btn btn-primary"
+            disabled={!a || !b}
+            onClick={handleCompare}
+          >
+            {t('repro2.compare')}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={!diff}
+            onClick={handleExportDiff}
+          >
+            {t('repro2.export_diff')}
+          </button>
+          <button
+            type="button"
             className="btn"
             disabled={runs.length === 0}
             onClick={() => setDeleteTarget({ kind: 'all' })}
           >
             {t('research.runs.clear')}
           </button>
-          <span className="runs-hint">{t('research.runs.hint')}</span>
+          <span className="runs-hint">{t('repro2.compare_hint')}</span>
         </div>
 
         {diff && (
           <div className="runs-diff">
             <h3>{t('research.runs.diff')}</h3>
             <p className="runs-diff-meta">
-              {fmtTime(a!.createdAt)} ↔ {fmtTime(b!.createdAt)}
+              {fmtTime(diff.runA.createdAt)} ↔ {fmtTime(diff.runB.createdAt)}
               {' · '}
-              {diff.sameParams ? t('research.runs.same_params') : `${diff.paramChanges.length} ${t('research.runs.param_changes')}`}
+              {diff.sameParams ? t('research.runs.same_params') : `${diff.params.length} ${t('research.runs.param_changes')}`}
               {' · '}
               {diff.sameInputs ? t('research.runs.same_inputs') : t('research.runs.diff_inputs')}
+              {' · '}
+              {t('repro2.tolerance')}: {diff.tolerance.toExponential(0)}
             </p>
-            {diff.paramChanges.length > 0 && (
-              <ul className="runs-diff-list">
-                {diff.paramChanges.map((c) => (
-                  <li key={c.key}>{formatChange(c)}</li>
-                ))}
-              </ul>
+
+            <h4 className="share-section-title">{t('repro2.diff_params')}</h4>
+            {diff.params.length > 0 ? (
+              <table className="runs-table">
+                <thead>
+                  <tr>
+                    <th>{t('research.runs.params')}</th>
+                    <th>{t('research.runs.a')}</th>
+                    <th>{t('research.runs.b')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diff.params.map((c) => (
+                    <tr key={c.key}>
+                      <td>{c.key} <span className="runs-diff-kind">{c.kind}</span></td>
+                      <td>{fmtValue(c.a)}</td>
+                      <td>{fmtValue(c.b)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="runs-empty">{t('repro2.diff_none')}</p>
             )}
-            {diff.metricChanges.length > 0 && (
+
+            <h4 className="share-section-title">{t('repro2.diff_metrics')}</h4>
+            {diff.metrics.length > 0 ? (
               <table className="runs-table">
                 <thead>
                   <tr>
                     <th>{t('research.runs.metric')}</th>
                     <th>{t('research.runs.a')}</th>
                     <th>{t('research.runs.b')}</th>
-                    <th>Δ</th>
+                    <th>{t('repro2.delta')}</th>
+                    <th>{t('repro2.tolerance')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {diff.metricChanges.map((c) => (
+                  {diff.metrics.map((c) => (
                     <tr key={c.key}>
                       <td>{c.key}</td>
                       <td>{fmtValue(c.a)}</td>
@@ -159,13 +217,37 @@ export default function RunsPage() {
                       <td className={c.delta > 0 ? 'delta-up' : 'delta-down'}>
                         {fmtValue(Number(c.delta.toPrecision(6)))}
                       </td>
+                      <td>{c.withinTolerance ? t('repro2.within_tol') : c.relError.toExponential(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            ) : (
+              <p className="runs-empty">{t('repro2.diff_none')}</p>
             )}
-            {diff.paramChanges.length === 0 && diff.metricChanges.length === 0 && (
-              <p className="runs-empty">{t('research.runs.no_diff')}</p>
+
+            <h4 className="share-section-title">{t('repro2.diff_config')}</h4>
+            {diff.config.length > 0 ? (
+              <table className="runs-table">
+                <thead>
+                  <tr>
+                    <th>{t('repro2.diff_config')}</th>
+                    <th>{t('research.runs.a')}</th>
+                    <th>{t('research.runs.b')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diff.config.map((c) => (
+                    <tr key={c.key}>
+                      <td>{c.key}</td>
+                      <td>{fmtValue(c.a)}</td>
+                      <td>{fmtValue(c.b)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="runs-empty">{t('repro2.diff_none')}</p>
             )}
           </div>
         )}

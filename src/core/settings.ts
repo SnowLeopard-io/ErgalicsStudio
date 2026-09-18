@@ -7,6 +7,10 @@ export interface SettingsState {
   autoSaveInterval: number; // ms; 0 = off
   gpuBackend: 'auto' | 'cpu-fallback';
   memoryLimit: 'auto' | 512 | 1024 | 2048; // MB
+  /** FR-16: parse worker pool size ('auto' = cores capped at 4). */
+  workerPoolSize: 'auto' | 1 | 2 | 4 | 8;
+  /** FR-16: rows per ingestion chunk ('auto' = 50_000). */
+  chunkRows: 'auto' | 1000 | 10000 | 50000;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -15,11 +19,22 @@ export const DEFAULT_SETTINGS: SettingsState = {
   autoSaveInterval: 60_000,
   gpuBackend: 'auto',
   memoryLimit: 'auto',
+  workerPoolSize: 'auto',
+  chunkRows: 'auto',
 };
+
+/** Effective chunk size when the user picked 'auto'. */
+export const AUTO_CHUNK_ROWS = 50_000;
+
+export function resolveChunkRows(setting: SettingsState['chunkRows']): number {
+  return setting === 'auto' ? AUTO_CHUNK_ROWS : setting;
+}
 
 const STORAGE_KEY = 'ergalics:settings';
 
 const MEMORY_LIMITS: ReadonlyArray<SettingsState['memoryLimit']> = ['auto', 512, 1024, 2048];
+const POOL_SIZES: ReadonlyArray<SettingsState['workerPoolSize']> = ['auto', 1, 2, 4, 8];
+const CHUNK_ROWS: ReadonlyArray<SettingsState['chunkRows']> = ['auto', 1000, 10000, 50000];
 
 /** Field-by-field validation of persisted settings. localStorage can be
  *  corrupted or hand-edited, and a garbage value (locale: 123, theme:
@@ -42,6 +57,12 @@ function sanitizeSettings(raw: unknown): SettingsState {
   }
   if (MEMORY_LIMITS.includes(input.memoryLimit as SettingsState['memoryLimit'])) {
     out.memoryLimit = input.memoryLimit as SettingsState['memoryLimit'];
+  }
+  if (POOL_SIZES.includes(input.workerPoolSize as SettingsState['workerPoolSize'])) {
+    out.workerPoolSize = input.workerPoolSize as SettingsState['workerPoolSize'];
+  }
+  if (CHUNK_ROWS.includes(input.chunkRows as SettingsState['chunkRows'])) {
+    out.chunkRows = input.chunkRows as SettingsState['chunkRows'];
   }
   return out;
 }

@@ -1,0 +1,195 @@
+name: Release
+
+# FR-10 — Tagged releases are archived to Zenodo (DOI minting) and published
+# as a GitHub Release with the dist archive + CITATION.cff attached.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/docs/
+
+      - name: Generate CITATION.cff
+        run: node scripts/gen-citation-cff.mjs
+
+      - name: Package dist archive
+        run: |
+          cd dist
+          zip -r "../ergalics-studio-${GITHUB_REF_NAME}.zip" .
+          cd ..
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: ergalics-studio-*.zip
+
+      - name: Upload CITATION.cff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: citation-cff
+          path: CITATION.cff
+
+  archive:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      doi: ${{ steps.publish.outputs.doi }}
+    steps:
+      - name: Detect ZENODO_TOKEN configuration
+        id: check
+        env:
+          ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
+        run: |
+          if [ -n "$ZENODO_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # FR-10: archival must never be silently skipped. If the Zenodo secret
+      # is missing the job fails loudly with setup guidance.
+      - name: Fail when Zenodo archival is not configured
+        if: steps.check.outputs.configured != 'true'
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          echo "::error::Release archive failed: repository secret ZENODO_TOKEN is not configured."
+          echo ""
+          echo "To enable automatic Zenodo archival:"
+          echo "  1. Create a Zenodo personal access token (scopes: deposit:actions, deposit:write):"
+          echo "     https://zenodo.org/account/settings/app-tokens/"
+          echo "  2. Add it as repository secret ZENODO_TOKEN:"
+          echo "     https://github.com/$REPO/settings/secrets/actions"
+          echo "  3. Re-run this workflow from the Actions tab."
+          exit 1
+
+      - name: Download dist artifact
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+
+      - name: Create deposition, upload archive and publish
+        if: steps.check.outputs.configured == 'true'
+        id: publish
+        env:
+          ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
+          # Point at https://sandbox.zenodo.org/api to dry-run the pipeline.
+          ZENODO_API: ${{ vars.ZENODO_API || 'https://zenodo.org/api' }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="ergalics-studio-${GITHUB_REF_NAME}.zip"
+
+          cat > /tmp/zenodo-metadata.json <<EOF
+          {
+            "metadata": {
+              "title": "Ergalics Studio ${VERSION}",
+              "version": "${VERSION}",
+              "upload_type": "software",
+              "license": { "id": "mit" },
+              "publication_date": "$(date +%Y-%m-%d)",
+              "creators": [
+                { "name": "SnowLeopard-io", "affiliation": "" }
+              ],
+              "description": "Ergalics Studio - A browser-based scientific computing workstation framework.",
+              "related_identifiers": [
+                {
+                  "identifier": "https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_REF_NAME}",
+                  "relation": "isSupplementTo",
+                  "resource_type": "software"
+                }
+              ]
+            }
+          }
+          EOF
+
+          echo "Creating Zenodo deposition on ${ZENODO_API} ..."
+          DEPOSITION=$(curl -sSf -X POST "${ZENODO_API}/depositions?access_token=${ZENODO_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data @/tmp/zenodo-metadata.json)
+          DEP_ID=$(echo "$DEPOSITION" | jq -r '.id')
+          BUCKET_URL=$(echo "$DEPOSITION" | jq -r '.links.latest')/files
+
+          echo "Uploading ${ZIP} ..."
+          curl -sSf -X POST "${BUCKET_URL}/${ZIP}?access_token=${ZENODO_TOKEN}" \
+            -H "Content-Type: application/zip" \
+            -T "${ZIP}"
+
+          echo "Publishing deposition ${DEP_ID} ..."
+          PUBLISHED=$(curl -sSf -X POST "${ZENODO_API}/depositions/${DEP_ID}/actions/publish?access_token=${ZENODO_TOKEN}")
+          DOI=$(echo "$PUBLISHED" | jq -r '.doi')
+          CONCEPT_DOI=$(echo "$PUBLISHED" | jq -r '.conceptdoi')
+          RECORD_ID=$(echo "$PUBLISHED" | jq -r '.id')
+
+          if [ -z "$DOI" ] || [ "$DOI" = "null" ]; then
+            echo "::error::Zenodo publish succeeded but no DOI was returned."
+            exit 1
+          fi
+
+          echo "doi=$DOI" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Zenodo archive — ${GITHUB_REF_NAME}"
+            echo ""
+            echo "- DOI: [https://doi.org/${DOI}](https://doi.org/${DOI})"
+            echo "- Concept DOI: [https://doi.org/${CONCEPT_DOI}](https://doi.org/${CONCEPT_DOI})"
+            echo "- Record: https://zenodo.org/records/${RECORD_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: [build, archive]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+
+      - name: Download CITATION.cff artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: citation-cff
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ergalics-studio-*.zip
+            CITATION.cff
+          body: |
+            ## Ergalics Studio ${{ github.ref_name }}
+
+            - `ergalics-studio-${{ github.ref_name }}.zip` — web workstation build
+            - `CITATION.cff` — software citation metadata (generated from package.json)
+            ${{ needs.archive.outputs.doi != '' && format('- Zenodo DOI: https://doi.org/{0}', needs.archive.outputs.doi) || '' }}

@@ -5,7 +5,11 @@
 //
 //   • Python — backed by the Pyodide worker runtime: full CPython semantics,
 //     `import studio`, free-form syntax (list comprehensions, f-strings…).
-//   • R / JavaScript — the same studio DSL that block mode generates. Text
+//   • R — pluggable runtime (FR-04): the full webR engine when the vendored
+//     bundle is available (free syntax + CRAN packages), otherwise the same
+//     studio DSL that block mode generates (built-in IR engine), with the
+//     fallback reason surfaced to the user.
+//   • JavaScript — the same studio DSL that block mode generates. Text
 //     is parsed into the canonical IR and executed by the in-process IR
 //     interpreter (createWorkbenchStudioApi), identical to block mode.
 //
@@ -25,6 +29,8 @@ import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/store
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
+import { createRRuntime } from '@/core/r/runtime-factory';
+import type { RLanguageRuntime, REngine } from '@/core/r/types';
 import { hashString } from '@/core/repro/random';
 import { useExperimentStore, numericMetrics } from '@/stores/experimentStore';
 import { codegen } from '@/editor/codegen';
@@ -34,6 +40,7 @@ import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
+import { AiAssistantPanel, type AiRunResult } from '@/components/AiAssistantPanel';
 
 /** Keystroke → IR debounce (mirrors block mode's 120ms, slightly roomier). */
 const SYNC_DEBOUNCE_MS = 150;
@@ -109,6 +116,15 @@ export function CodeEditor() {
   const runActionRef = useRef<() => void>(() => {});
   const [replInput, setReplInput] = useState('');
   const [runtimeReady, setRuntimeReady] = useState(false);
+  // FR-07: AI assistant side panel (toggled from the toolbar).
+  const [aiOpen, setAiOpen] = useState(false);
+  // ---- R runtime state (FR-04: full webR with builtin-IR fallback) ------
+  const rRuntimeRef = useRef<RLanguageRuntime | null>(null);
+  const [rEngine, setREngine] = useState<REngine | null>(null);
+  /** Non-null while the full R runtime is booting (drives the progress UI). */
+  const [rLoadPercent, setRLoadPercent] = useState<number | null>(null);
+  const [rPkgInput, setRPkgInput] = useState('');
+  const [rInstalling, setRInstalling] = useState(false);
 
   // ---- Monaco setup (once per mount; theme applied reactively) ----------
 
@@ -223,6 +239,87 @@ export function CodeEditor() {
     };
   }, []);
 
+  // ---- R runtime lifecycle (FR-04: full webR ⇄ builtin-IR fallback) -----
+  //
+  // Created lazily the first time a session switches to R (selecting the R
+  // tab defaults to the full runtime). If webR cannot be loaded the factory
+  // falls back to the built-in IR engine and the reason is surfaced in the
+  // console + a host notification — the editor stays usable either way.
+
+  /** Boot (or re-boot after an interrupt) the R runtime and store it. */
+  const bootRRuntime = async (): Promise<void> => {
+    if (rRuntimeRef.current) return;
+    setRLoadPercent(0);
+    try {
+      const { runtime, engine, fallbackReason } = await createRRuntime({
+        preferFull: true,
+        getStudioApi: createWorkbenchStudioApi,
+        onStudioCall: (method, argsJson) => {
+          // Best-effort host-side studio sink for the webR bridge: forward to
+          // the console so R-side studio.* calls are visible in the page.
+          useEditorStore.getState().appendConsole({
+            stream: 'info',
+            text: `${t('r.console.full_prefix')} studio.${method}(${argsJson})`,
+          });
+        },
+        onProgress: (percent) => setRLoadPercent(percent),
+      });
+      rRuntimeRef.current = runtime;
+      setREngine(engine);
+      if (fallbackReason) {
+        const msg = t('r.fallback.notice', { reason: fallbackReason });
+        useEditorStore.getState().appendConsole({ stream: 'info', text: msg });
+        useAppStore.getState().notify('warning', msg);
+      }
+    } catch {
+      // The factory never rejects (builtin always boots), but guard anyway:
+      // with no runtime at all, R runs fall back to the direct IR path.
+      setREngine('builtin-ir');
+    } finally {
+      setRLoadPercent(null);
+    }
+  };
+
+  /** Interrupt + restart: a fresh runtime can never be wedged by the old run. */
+  const restartRRuntime = async (): Promise<void> => {
+    const runtime = rRuntimeRef.current;
+    rRuntimeRef.current = null;
+    setREngine(null);
+    if (runtime) {
+      try {
+        await runtime.interrupt();
+        await runtime.dispose();
+      } catch {
+        /* a dying runtime cannot block the restart */
+      }
+    }
+    await bootRRuntime();
+    useEditorStore.getState().appendConsole({ stream: 'info', text: t('r.restart.done') });
+  };
+
+  useEffect(() => {
+    if (language !== 'r') return;
+    let cancelled = false;
+    void bootRRuntime().then(() => {
+      // The session switched away from R while booting — drop the runtime.
+      if (cancelled && rRuntimeRef.current) {
+        const runtime = rRuntimeRef.current;
+        rRuntimeRef.current = null;
+        void runtime.dispose();
+        setREngine(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+      const runtime = rRuntimeRef.current;
+      rRuntimeRef.current = null;
+      if (runtime) void runtime.dispose();
+      setREngine(null);
+      setRLoadPercent(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
   // Register render containers for the preview area (2D plugins), mirroring
   // block mode so plot payloads draw into the code editor's preview surface.
   useEffect(() => {
@@ -302,7 +399,7 @@ export function CodeEditor() {
     return files;
   };
 
-  /** Run R / JavaScript text through the IR interpreter (block-mode engine). */
+  /** Run JavaScript text through the IR interpreter (block-mode engine). */
   const runViaIR = async (code: string, lang: CodeLanguage): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
     const { program, rawCount } = parseCodeToIR(code, lang);
     if (rawCount > 0) {
@@ -321,11 +418,42 @@ export function CodeEditor() {
     return { ok: false, outputs: {} };
   };
 
+  /** Run R through the pluggable runtime (FR-04). Falls back to the direct IR
+   *  path only if the runtime failed to come up at all. */
+  const runR = async (code: string): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
+    const runtime = rRuntimeRef.current;
+    if (!runtime) return runViaIR(code, 'r');
+    const result = await runtime.exec(code);
+    if (result.stdout) {
+      // Full-R console output is clearly separated from DSL degrade notices.
+      useEditorStore
+        .getState()
+        .appendConsole({ stream: 'stdout', text: `${t('r.console.full_prefix')} ${result.stdout}` });
+    }
+    if (result.ok) {
+      if (result.variables) useEditorStore.getState().setVariables(result.variables);
+      // On the full runtime there is no syntax degradation; the builtin IR
+      // engine reports its skipped statements with the R-specific notice.
+      if (!runtime.isFullRuntime && (result.skippedCount ?? 0) > 0) {
+        useEditorStore
+          .getState()
+          .appendConsole({ stream: 'stderr', text: t('r.dsl.degraded', { count: result.skippedCount ?? 0 }) });
+      }
+      return { ok: true, outputs: result.variables ?? {} };
+    }
+    const msg = result.error ?? 'run failed';
+    useEditorStore.getState().setError(msg);
+    useEditorStore.getState().appendConsole({ stream: 'stderr', text: msg });
+    return { ok: false, outputs: {} };
+  };
+
   const run = async () => {
     const editor = editorRef.current;
     if (!editor || isRunning) return;
-    // Python needs the Pyodide worker; R/JS run on the in-process interpreter.
+    // Python needs the Pyodide worker; R needs its runtime (full or builtin);
+    // JS runs on the in-process interpreter.
     if (language === 'python' && !runtimeRef.current) return;
+    if (language === 'r' && !rRuntimeRef.current) return;
     const code = editor.getValue();
     const startedAt = Date.now();
     useEditorStore.getState().setRunning(true);
@@ -347,6 +475,10 @@ export function CodeEditor() {
           useEditorStore.getState().setError(msg);
           useEditorStore.getState().appendConsole({ stream: 'stderr', text: msg });
         }
+      } else if (language === 'r') {
+        const rResult = await runR(code);
+        ok = rResult.ok;
+        outputs = rResult.outputs;
       } else {
         const irResult = await runViaIR(code, language);
         ok = irResult.ok;
@@ -372,9 +504,74 @@ export function CodeEditor() {
   };
 
   const stop = () => {
-    // Only the Pyodide worker is interruptible; IR programs are short-lived.
+    // Python and the full R runtime run in workers; interrupting them means
+    // tearing the engine down and respawning it so nothing stays wedged.
+    // IR programs are short-lived and finish synchronously.
     if (language === 'python') runtimeRef.current?.interrupt();
+    if (language === 'r' && rRuntimeRef.current?.isFullRuntime) {
+      useEditorStore.getState().appendConsole({ stream: 'info', text: t('r.interrupted') });
+      void restartRRuntime();
+    }
     useEditorStore.getState().setRunning(false);
+  };
+
+  /**
+   * FR-07: run an assistant draft through this editor's own runtime WITHOUT
+   * touching the user's buffer. Python drafts go to Pyodide (the assistant
+   * only emits Python `studio.*` code); other dialects fall back to the IR
+   * interpreter so the panel works everywhere.
+   */
+  const runAssistantCode = async (code: string): Promise<AiRunResult> => {
+    if (isRunning) return { ok: false, error: 'editor busy' };
+    if (language === 'python' && !runtimeRef.current) return { ok: false, error: 'runtime not ready' };
+    const startedAt = Date.now();
+    useEditorStore.getState().setRunning(true);
+    useEditorStore.getState().clearConsole();
+    useEditorStore.getState().setError(null);
+    useEditorStore.getState().setVariables({});
+    clearPreviewSurface(canvasRef.current, domRef.current);
+    let ok = false;
+    let error: string | undefined;
+    let outputs: Record<string, unknown> = {};
+    try {
+      if (language === 'python') {
+        const result = await runtimeRef.current!.runPython(code, collectFiles(), {});
+        ok = result.ok;
+        if (result.ok) {
+          outputs = result.outputs;
+          useEditorStore.getState().setVariables(result.outputs);
+        } else {
+          error = result.error ?? 'run failed';
+        }
+      } else {
+        const { program } = parseCodeToIR(code, 'python');
+        const result = await interpret(program, createWorkbenchStudioApi());
+        ok = result.ok;
+        if (result.ok) {
+          outputs = result.variables;
+          useEditorStore.getState().setVariables(result.variables);
+        } else {
+          error = result.error?.message ?? 'run failed';
+        }
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    }
+    if (error) {
+      useEditorStore.getState().setError(error);
+      useEditorStore.getState().appendConsole({ stream: 'stderr', text: error });
+    }
+    useEditorStore.getState().setRunning(false);
+    void useExperimentStore.getState().recordRun({
+      source: 'code',
+      label: 'AI assistant run',
+      params: { codeChars: code.length, language, ai: true },
+      inputsHash: hashString(`${language}:${code}`),
+      metrics: numericMetrics(outputs),
+      durationMs: Date.now() - startedAt,
+      failed: !ok,
+    });
+    return { ok, error };
   };
 
   // Keep the keyboard command bound to the latest run/stop closures.
@@ -405,6 +602,30 @@ export function CodeEditor() {
     if (e.key === 'Enter') void runRepl();
   };
 
+  /** Install a CRAN package into the full R runtime (memory/time bounded). */
+  const installRPackage = async () => {
+    const runtime = rRuntimeRef.current;
+    const pkg = rPkgInput.trim();
+    if (!runtime || !pkg || rInstalling) return;
+    setRPkgInput('');
+    setRInstalling(true);
+    useEditorStore.getState().appendConsole({ stream: 'info', text: t('r.install.hint', { pkg }) });
+    try {
+      await runtime.install(pkg);
+      useEditorStore.getState().appendConsole({ stream: 'info', text: t('r.install.success', { pkg }) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      useEditorStore
+        .getState()
+        .appendConsole({
+          stream: 'stderr',
+          text: runtime.isFullRuntime ? t('r.install.failed', { pkg, error: msg }) : t('r.install.unsupported'),
+        });
+    } finally {
+      setRInstalling(false);
+    }
+  };
+
   /** Translate the whole buffer from the IR hub into another dialect. */
   const switchLanguage = (lang: CodeLanguage) => {
     if (lang === language || isRunning) return;
@@ -420,7 +641,9 @@ export function CodeEditor() {
     useEditorStore.getState().setSessionLanguage(sid, lang);
   };
 
-  const engineReady = language !== 'python' || runtimeReady;
+  const rBooting = language === 'r' && rLoadPercent !== null;
+  const rReady = language !== 'r' || (rEngine !== null && !rBooting);
+  const engineReady = (language !== 'python' || runtimeReady) && rReady;
   const langButtons: { id: CodeLanguage; label: string }[] = [
     { id: 'python', label: 'Python' },
     { id: 'r', label: 'R' },
@@ -455,11 +678,37 @@ export function CodeEditor() {
           ))}
         </div>
 
-        <span className="be-code-lang be-code-lang-toolbar" title={language === 'python' ? t('editor.engine.pyodide') : t('editor.engine.interpreter', { lang: language === 'r' ? 'R' : 'JavaScript' })}>
-          {language === 'python' ? 'Pyodide' : 'IR'}
+        <span
+          className="be-code-lang be-code-lang-toolbar"
+          title={
+            language === 'python'
+              ? t('editor.engine.pyodide')
+              : language === 'r'
+                ? rEngine === 'webr'
+                  ? t('r.engine.tooltip.full')
+                  : t('r.engine.tooltip.builtin')
+                : t('editor.engine.interpreter', { lang: 'JavaScript' })
+          }
+        >
+          {language === 'python'
+            ? 'Pyodide'
+            : language === 'r'
+              ? rEngine === 'webr'
+                ? t('r.engine.badge.full')
+                : t('r.engine.badge.builtin')
+              : 'IR'}
         </span>
 
         <div className="be-toolbar-spacer" />
+
+        <button
+          type="button"
+          className={`btn btn-sm${aiOpen ? ' btn-toggle-on' : ''}`}
+          title={t('ai.title')}
+          onClick={() => setAiOpen((v) => !v)}
+        >
+          {t('ai.toggle')}
+        </button>
 
         <div className={`be-status-pill ${isRunning ? 'is-running' : engineReady ? 'is-idle' : 'is-loading'}`}>
           <span className="be-status-dot" />
@@ -468,7 +717,9 @@ export function CodeEditor() {
               ? t('editor.status.running')
               : engineReady
                 ? t('editor.status.ready')
-                : t('editor.loading_runtime')}
+                : rBooting
+                  ? t('r.loading.full', { percent: rLoadPercent ?? 0 })
+                  : t('editor.loading_runtime')}
           </span>
         </div>
       </div>
@@ -503,8 +754,36 @@ export function CodeEditor() {
                 </button>
               </div>
             )}
+            {/* CRAN package install — full R runtime only (builtin IR throws). */}
+            {language === 'r' && rEngine === 'webr' && (
+              <div className="code-editor-repl code-editor-r-install">
+                <span className="code-editor-repl-prompt">📦</span>
+                <input
+                  type="text"
+                  value={rPkgInput}
+                  onChange={(e) => setRPkgInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void installRPackage();
+                  }}
+                  placeholder={t('r.install.placeholder')}
+                  spellCheck={false}
+                  disabled={rInstalling}
+                />
+                <button
+                  type="button"
+                  className="code-editor-repl-go"
+                  onClick={() => void installRPackage()}
+                  disabled={rInstalling || rPkgInput.trim().length === 0}
+                  title={t('r.install.button')}
+                >
+                  {rInstalling ? '…' : '⬇'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {aiOpen && <AiAssistantPanel runCode={runAssistantCode} />}
       </div>
     </div>
   );

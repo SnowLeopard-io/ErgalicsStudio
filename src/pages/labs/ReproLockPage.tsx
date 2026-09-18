@@ -1,11 +1,12 @@
 // ==========================================================================
-// Ergalics Studio — Repro Lock page (F6 / FR6.1–FR6.5)
+// Ergalics Studio — Repro Lock page (F6 / FR6.1–FR6.5, FR-11 lock v2)
 //
-// Builds a `repro.lock` (data fingerprints, code snapshots, param hashes,
-// seeds, versions) from selected run records, verifies the current project
-// item by item (pass / warn / fail drift table), imports a foreign lock for
-// comparison, downloads the lock JSON, and can rerun locked runs through
-// registered source runners with tolerance assertions.
+// Builds a `repro.lock` v2 (data fingerprints, code snapshots, param hashes,
+// seeds, versions incl. runtime, dependency fingerprints) from selected run
+// records, verifies the current project across the six drift categories
+// (pass / warn / fail / unknown drift table), imports foreign v1/v2 locks
+// (v1 shows an upgrade hint), downloads the lock JSON, and can rerun locked
+// runs through registered source runners with tolerance assertions.
 // ==========================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -24,10 +25,31 @@ import {
   type LockReproReport,
   type LockRunReproResult,
   type LockMetricResult,
+  type LockDependency,
+  type LockVersions,
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
 import { fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
+
+/**
+ * Best-effort runtime + dependency fingerprint from the live browser
+ * environment (FR-11). Only numeric-critical engines we can observe without
+ * importing them are listed; everything else stays unknown on verify.
+ */
+function collectEnvironment(): { runtime: LockVersions['runtime']; dependencies: LockDependency[] } {
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+  const runtime: LockVersions['runtime'] = {
+    browser: nav?.userAgent ? nav.userAgent.slice(0, 120) : undefined,
+    wasm: typeof WebAssembly !== 'undefined' ? 'wasm-2.0' : 'none',
+    pyodide: undefined, // not loaded until code mode runs; unknown on purpose
+  };
+  const dependencies: LockDependency[] = [];
+  if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+    dependencies.push({ name: 'webgpu', version: 'available' });
+  }
+  return { runtime, dependencies };
+}
 
 export default function ReproLockPage() {
   const t = useT();
@@ -87,9 +109,15 @@ export default function ReproLockPage() {
   const handleBuild = () => {
     if (!project) return;
     const chosen = runs.filter((r) => selected.has(r.id));
-    const l = buildLock(project, { runs: chosen, runIds: chosen.map((r) => r.id) });
+    const env = collectEnvironment();
+    const l = buildLock(project, {
+      runs: chosen,
+      runIds: chosen.map((r) => r.id),
+      versions: { runtime: env.runtime },
+      dependencies: env.dependencies,
+    });
     setLock(l);
-    setVerify(verifyLock(l, project, { runs }));
+    setVerify(verifyLock(l, project, { runs, versions: { runtime: env.runtime }, dependencies: env.dependencies }));
     setRepro(null);
   };
 
@@ -111,8 +139,12 @@ export default function ReproLockPage() {
         return;
       }
       setLock(l);
-      setVerify(verifyLock(l, project, { runs }));
+      const env = collectEnvironment();
+      setVerify(verifyLock(l, project, { runs, versions: { runtime: env.runtime }, dependencies: env.dependencies }));
       setRepro(null);
+      if (l.lockVersion < 2) {
+        notify('info', t('repro2.upgrade_hint'));
+      }
     } catch (err) {
       notify('error', t('reprolock.parse_failed', { reason: String(err) }));
     }
@@ -180,7 +212,7 @@ export default function ReproLockPage() {
             {t('reprolock.build')}
           </button>
           <button type="button" className="btn" disabled={!lock} onClick={handleDownload}>
-            {t('reprolock.download')}
+            {lock && lock.lockVersion >= 2 ? t('repro2.export_v2') : t('reprolock.download')}
           </button>
           <label className="btn repro-import">
             {t('reprolock.import')}
@@ -210,6 +242,54 @@ export default function ReproLockPage() {
             <h4 className={`repro-status repro-status-${verify.status}`}>
               {t(`reprolock.status_${verify.status === 'pass' ? 'pass' : verify.status === 'fail' ? 'fail' : 'warn'}`)}
             </h4>
+            <div className="repro-cats">
+              {verify.categories.map((c) => (
+                <span
+                  key={c.category}
+                  className={`profile-badge profile-badge-${c.status === 'fail' ? 'high' : c.status === 'pass' ? 'low' : 'medium'}`}
+                  title={c.status === 'unknown' ? t('repro2.status_unknown') : undefined}
+                >
+                  {t(`reprolock.category_${c.category}`)}: {c.status === 'unknown' ? t('repro2.status_unknown') : t(`reprolock.status_${c.status === 'pass' ? 'pass' : c.status === 'fail' ? 'fail' : 'warn'}`)}
+                </span>
+              ))}
+            </div>
+            {verify.upgradeHint && <p className="analysis-note repro-upgrade-hint">{t('repro2.upgrade_hint')}</p>}
+            {lock?.versions.runtime && (
+              <p className="analysis-note">
+                {t('repro2.runtime', {
+                  runtime: [
+                    lock.versions.runtime.browser && `browser`,
+                    lock.versions.runtime.wasm && `wasm ${lock.versions.runtime.wasm}`,
+                    lock.versions.runtime.pyodide && `pyodide ${lock.versions.runtime.pyodide}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                })}
+              </p>
+            )}
+            {lock?.dependencies && lock.dependencies.length > 0 && (
+              <div className="repro-deps">
+                <h4 className="share-section-title">{t('repro2.dependencies')}</h4>
+                <div className="sweep-table-wrap">
+                  <table className="sweep-table">
+                    <thead>
+                      <tr>
+                        <th>{t('repro2.category_dependency')}</th>
+                        <th>{t('reprolock.drift_target')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lock.dependencies.map((d) => (
+                        <tr key={d.name}>
+                          <td>{d.name}</td>
+                          <td><code>{d.version}{d.hash ? `#${d.hash}` : ''}</code></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className="sweep-table-wrap">
               <table className="sweep-table">
                 <thead>
@@ -230,7 +310,10 @@ export default function ReproLockPage() {
                         {d.kind}
                       </td>
                       <td><code>{d.target}</code></td>
-                      <td>{d.message}</td>
+                      <td>
+                        {d.message}
+                        {d.suggestion && <div className="repro-drift-suggestion">{t('repro2.dep_suggestion')}</div>}
+                      </td>
                       <td className={`repro-sev-${d.severity}`}>{t(`reprolock.status_${d.severity === 'fail' ? 'fail' : 'warn'}`)}</td>
                     </tr>
                   ))}

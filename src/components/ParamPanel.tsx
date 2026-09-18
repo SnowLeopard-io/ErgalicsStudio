@@ -51,6 +51,7 @@ function Control({
         <div className="param-range">
           <input
             type="range"
+            aria-label={label(def)}
             min={def.min}
             max={def.max}
             step={def.step}
@@ -64,6 +65,7 @@ function Control({
       return (
         <select
           className="select"
+          aria-label={label(def)}
           value={def.value}
           onChange={(e) => emit(e.target.value)}
         >
@@ -79,6 +81,7 @@ function Control({
         <input
           className="input"
           type="number"
+          aria-label={label(def)}
           min={def.min}
           max={def.max}
           step={def.step}
@@ -102,6 +105,7 @@ function Control({
         <input
           className="input"
           type="text"
+          aria-label={label(def)}
           placeholder={def.placeholder}
           value={def.value}
           onChange={(e) => emit(e.target.value)}

@@ -45,7 +45,7 @@ describe('F6 buildLock', () => {
     const project = makeProject();
     const lock = buildLock(project, { runs: [makeRun({ projectId: project.id })] });
     expect(lock.schema).toBe('ergalics.repro-lock');
-    expect(lock.lockVersion).toBe(1);
+    expect(lock.lockVersion).toBe(2);
     expect(lock.projectId).toBe(project.id);
     expect(lock.data).toHaveLength(2);
     expect(lock.data[0]!.hash).toMatch(/^[0-9a-f]{8}$/);
@@ -74,15 +74,15 @@ describe('F6 buildLock', () => {
   });
 });
 
-describe('F6 verifyLock — five categories', () => {
+describe('F6 verifyLock — six categories', () => {
   it('passes on the unchanged project', () => {
     const project = makeProject();
     const runs = [makeRun({ projectId: project.id })];
     const lock = buildLock(project, { runs });
-    const result = verifyLock(lock, project, { runs });
+    const result = verifyLock(lock, project, { runs, dependencies: lock.dependencies });
     expect(result.status).toBe('pass');
     expect(result.compatible).toBe(true);
-    expect(result.categories.map((c) => c.status)).toEqual(['pass', 'pass', 'pass', 'pass', 'pass']);
+    expect(result.categories.map((c) => c.status)).toEqual(['pass', 'pass', 'pass', 'pass', 'pass', 'pass']);
     expect(result.runs[0]!.status).toBe('present');
   });
 

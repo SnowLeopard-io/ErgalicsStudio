@@ -1,0 +1,18 @@
+{
+  "id": "com.example.starter",
+  "name": "Starter Plugin",
+  "nameI18n": { "zh-CN": "入门插件", "en-US": "Starter Plugin" },
+  "version": "0.1.0",
+  "author": "Your Name",
+  "description": "A minimal Ergalics Studio plugin.",
+  "descriptionI18n": {
+    "zh-CN": "一个最小的 Ergalics Studio 插件示例。",
+    "en-US": "A minimal Ergalics Studio plugin example."
+  },
+  "license": "MIT",
+  "entry": "dist/index.js",
+  "category": "utility",
+  "formats": [
+    { "extension": ".csv", "mimeTypes": ["text/csv"], "description": "Comma-separated values" }
+  ]
+}

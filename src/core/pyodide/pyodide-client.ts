@@ -132,7 +132,7 @@ export class PyodideClient {
         () =>
           onFatal(
             new Error(
-              `Pyodide worker did not start within ${PyodideClient.BOOT_TIMEOUT_MS}ms — check network access to the Pyodide CDN`,
+              `Pyodide worker did not start within ${PyodideClient.BOOT_TIMEOUT_MS / 1000}s — the runtime loads from the same-origin /pyodide/ bundle; check that it is vendored (npm run dev / build vendors it automatically) and that the page finished loading.`,
             ),
           ),
         PyodideClient.BOOT_TIMEOUT_MS,
