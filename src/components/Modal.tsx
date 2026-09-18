@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { useT } from '@/i18n';
 import { CloseIcon } from './icons';
 
 interface ModalProps {
@@ -37,6 +38,7 @@ function unlockScroll(): void {
 }
 
 export function Modal({ open, title, onClose, children, footer, width }: ModalProps) {
+  const t = useT();
   // Keep the handler in a ref so the effect below doesn't re-subscribe on
   // every parent render when `onClose` is an inline arrow (new identity).
   const onCloseRef = useRef(onClose);
@@ -112,7 +114,7 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
       >
         <header className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={() => onCloseRef.current()}>
+          <button type="button" className="icon-btn" aria-label={t('common.close')} title={t('common.close')} onClick={() => onCloseRef.current()}>
             <CloseIcon size={15} />
           </button>
         </header>

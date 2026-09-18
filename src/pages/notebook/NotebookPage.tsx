@@ -75,7 +75,7 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
 
   const handleRun = () => {
     if (!hasProject) {
-      notify('warning', t('figure.need_project'));
+      notify('warning', t('notebook.need_project'));
       return;
     }
     void runCell(cell.id);

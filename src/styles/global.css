@@ -789,6 +789,108 @@ button {
   }
 }
 
+/* ---- cross-site switcher (官网 / 工作台 / 文档) ---- */
+.cross-site-switcher {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  /* Below banners (1500), toasts (1600), modals (2000) and the guided-tour
+     overlay (2500) so it never floats above an active overlay. */
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+}
+
+.csw-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: 0 6px;
+  user-select: none;
+}
+
+.csw-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.csw-link:hover {
+  color: var(--color-accent-text);
+  background-color: var(--color-bg-hover);
+}
+
+.csw-link.is-current {
+  color: var(--color-accent-text);
+  background-color: var(--color-accent-soft);
+  cursor: default;
+}
+
+/* Keep it out of the way on narrow viewports. */
+@media (max-width: 640px) {
+  .csw-label { display: none; }
+  .cross-site-switcher { right: 10px; bottom: 10px; }
+}
+
+/* ---- AI assistant floating window ---- */
+.ai-overlay {
+  position: fixed;
+  top: calc(var(--topbar-height) + 8px);
+  right: 16px;
+  bottom: 56px;
+  width: 384px;
+  max-width: calc(100vw - 32px);
+  /* Above toasts (1600) but below modals (2000) and the tour (2500). */
+  z-index: 1700;
+  /* The layer itself never intercepts clicks; only the panel inside does,
+     so the block/code canvas stays fully interactive beneath it. */
+  pointer-events: none;
+}
+
+.ai-overlay .ai-panel {
+  pointer-events: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
+}
+
+.ai-panel-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-panel-close {
+  width: 24px;
+  height: 24px;
+}
+
+/* Narrow screens: the panel becomes a near-full-width sheet above the status
+   bar instead of a sidebar. */
+@media (max-width: 520px) {
+  .ai-overlay {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    bottom: 96px;
+  }
+}
+
 /* ---- reduced motion ---- */
 
 @media (prefers-reduced-motion: reduce) {

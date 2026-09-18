@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useLocale, useT } from '../i18n-react';
-import { studioUrl } from '../studio-link';
+import { studioUrl, docsUrl } from '../studio-link';
 
 type Theme = 'dark' | 'light';
 
@@ -49,6 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {n.label}
               </NavLink>
             ))}
+            <a href={docsUrl('/guide/introduction')} className="nav-docs">{t('nav.docs')}</a>
             <a href={studioUrl('/')} className="nav-studio">{t('nav.enter')}</a>
           </nav>
           <div className="header-actions">
@@ -92,7 +93,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="footer-links">
             <div className="footer-heading">{t('footer.links')}</div>
             <a href={studioUrl('/')}>{t('nav.enter')}</a>
-            <a href={studioUrl('/settings')}>{t('nav.docs')}</a>
+            <a href={docsUrl('/guide/introduction')} target="_blank" rel="noreferrer">{t('nav.docs')}</a>
             <a href="https://github.com/SnowLeopard-io/ErgalicsStudio" target="_blank" rel="noreferrer">GitHub</a>
             <a href="https://gitee.com/cnt-code/ergalics-studio" target="_blank" rel="noreferrer">Gitee</a>
           </div>

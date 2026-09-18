@@ -14,6 +14,7 @@ import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 import { TemplatePanel } from './TemplatePanel';
 import { ToolGrid } from './ToolGrid';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
+import { siteUrl, docsUrl } from '@/core/site-links';
 import {
   PlusIcon,
   FolderOpenIcon,
@@ -365,7 +366,10 @@ export default function WelcomePage() {
         >
           {t('welcome.footer.github')}
         </a>
-        <a href="./docs/" target="_blank" rel="noreferrer">
+        <a href={siteUrl()} target="_blank" rel="noreferrer">
+          {t('welcome.footer.website')}
+        </a>
+        <a href={docsUrl()} target="_blank" rel="noreferrer">
           {t('welcome.footer.docs')}
         </a>
         <button

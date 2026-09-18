@@ -49,7 +49,13 @@ export const zhCN: LocaleDictionary = {
   'welcome.hardware.storage_unavailable': '存储不可用',
   'welcome.footer.github': 'GitHub',
   'welcome.footer.docs': '文档',
+  'welcome.footer.website': '官网',
   'welcome.footer.market': '插件市场',
+// ---- cross-site switcher (官网 / 工作台 / 文档) ----
+'sites.label': '站点',
+'sites.website': '官网',
+'sites.studio': '工作台',
+'sites.docs': '文档',
   'modes.title': '工作台模式',
   'modes.runs.title': '实验记录',
   'modes.runs.desc': '查看历史运行与指标',
@@ -446,6 +452,7 @@ export const zhCN: LocaleDictionary = {
 
   // ---- lineage ----
   'lineage.title': '数据血缘',
+  'lineage.graph_label': '数据血缘关系图',
   'lineage.empty': '暂无血缘 —— 导入数据或运行一次流水线后自动生成',
   'lineage.legend_file': '数据文件',
   'lineage.legend_run': '运行',
@@ -512,6 +519,7 @@ export const zhCN: LocaleDictionary = {
   // ---- notebook ----
   'notebook.title': 'Notebook',
   'notebook.empty': '空的 Notebook —— 添加 MD 或 PY 单元格开始',
+  'notebook.need_project': '请先打开或创建一个项目，Notebook 单元格将基于项目数据运行',
   'notebook.empty_md': '（点击编辑 Markdown）',
   'notebook.toggle_type': '切换单元格类型',
   'notebook.run': '运行',
@@ -902,11 +910,13 @@ export const zhCN: LocaleDictionary = {
   'launcher.recent': '最近',
   'launcher.recent_group': '最近使用',
   'launcher.empty': '没有匹配的工具',
+  'launcher.clear_search': '清除搜索',
   'launcher.unknown_title': '工具不存在',
   'launcher.unknown_desc': '该工具地址无效，可能已被移动或重命名。',
   'workbench.menu.more': '更多',
   'workbench.menu.toggle_sidebar': '显示/隐藏侧边栏',
   'workbench.menu.toggle_panel': '显示/隐藏侧面板',
+  'workbench.menu.toggle_right': '显示/隐藏参数面板',
   'project.rename': '重命名项目',
   'workbench.sidebar.no_recent': '暂无最近项目',
   'flow.legend.title': '图例',
@@ -939,6 +949,14 @@ export const zhCN: LocaleDictionary = {
   'tool.report.desc': '叙述、图表与结果打包成交互报告',
   'tool.reprolock.desc': '环境快照与可重复性指纹锁定',
   'tool.supplement.desc': '数据、代码与许可一键打包为补充材料',
+  'tool.model-inference.title': '模型推理',
+  'tool.model-inference.desc': '在浏览器内用 WebGPU 运行 ONNX 模型并查看推理结果',
+  'tool.course.title': '课程模式',
+  'tool.course.desc': '布置作业、收集并批改学生的离线实验成果',
+  'tool.cleaning.title': '数据清洗向导',
+  'tool.cleaning.desc': '分步引导完成表格数据的转换、清洗与去重',
+  'tool.gallery.title': '作品画廊',
+  'tool.gallery.desc': '浏览并重新打开社区分享的可复现作品',
 
   // ---- Welcome page: start cards, env strip, modes, tool grid ------------
   'welcome.start.blank': '新建空白项目',

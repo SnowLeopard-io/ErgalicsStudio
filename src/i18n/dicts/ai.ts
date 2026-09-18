@@ -7,6 +7,7 @@ export const aiZh: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
   'ai.title': 'AI 分析助手',
   'ai.toggle': 'AI 助手',
+  'ai.close': '关闭 AI 助手',
   'ai.mode.offline': '离线',
   'ai.mode.online': '在线',
   'ai.authorize_online': '授权在线模型服务（对话内容将发送至外部服务）',
@@ -68,6 +69,7 @@ export const aiEn: LocaleDictionary = {
   // ---- FR-07 assistant panel ----
   'ai.title': 'AI Analysis Assistant',
   'ai.toggle': 'AI Assistant',
+  'ai.close': 'Close AI assistant',
   'ai.mode.offline': 'Offline',
   'ai.mode.online': 'Online',
   'ai.authorize_online': 'Authorize online model service (prompts will be sent to an external service)',

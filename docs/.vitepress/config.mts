@@ -18,6 +18,13 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   vite: {
+    server: {
+      // Fixed port so the website's docs-links and the studio's site-links
+      // (both hard-code 5175 in dev) always reach this docs server, even when
+      // the studio (5173) and website (5174) are running at the same time.
+      port: 5175,
+      strictPort: true,
+    },
     build: {
       // VitePress runs two builds (SSR + client) and would empty outDir
       // between them; keep it disabled so sandboxed build tooling that

@@ -45,7 +45,13 @@ export const enUS: LocaleDictionary = {
   'welcome.hardware.storage_unavailable': 'Storage unavailable',
   'welcome.footer.github': 'GitHub',
   'welcome.footer.docs': 'Docs',
+  'welcome.footer.website': 'Official Website',
   'welcome.footer.market': 'Plugin Market',
+// ---- cross-site switcher (Website / Studio / Docs) ----
+'sites.label': 'Sites',
+'sites.website': 'Website',
+'sites.studio': 'Studio',
+'sites.docs': 'Docs',
   'modes.title': 'Workbench Modes',
   'modes.runs.title': 'Experiment Runs',
   'modes.runs.desc': 'Browse run history and metrics',
@@ -442,6 +448,7 @@ export const enUS: LocaleDictionary = {
 
   // ---- lineage ----
   'lineage.title': 'Data Lineage',
+  'lineage.graph_label': 'data lineage graph',
   'lineage.empty': 'No lineage yet — import data or run a pipeline to build it',
   'lineage.legend_file': 'Data file',
   'lineage.legend_run': 'Run',
@@ -508,6 +515,7 @@ export const enUS: LocaleDictionary = {
   // ---- notebook ----
   'notebook.title': 'Notebook',
   'notebook.empty': 'Empty notebook — add an MD or PY cell to start',
+  'notebook.need_project': 'Open or create a project first — notebook cells run against project data',
   'notebook.empty_md': '(click to edit markdown)',
   'notebook.toggle_type': 'Toggle cell type',
   'notebook.run': 'Run',
@@ -898,11 +906,13 @@ export const enUS: LocaleDictionary = {
   'launcher.recent': 'Recent',
   'launcher.recent_group': 'Recently used',
   'launcher.empty': 'No tools match',
+  'launcher.clear_search': 'Clear search',
   'launcher.unknown_title': 'Unknown tool',
   'launcher.unknown_desc': 'This tool address is invalid; it may have been moved or renamed.',
   'workbench.menu.more': 'More',
   'workbench.menu.toggle_sidebar': 'Toggle sidebar',
   'workbench.menu.toggle_panel': 'Toggle side panel',
+  'workbench.menu.toggle_right': 'Toggle parameters panel',
   'project.rename': 'Rename project',
   'workbench.sidebar.no_recent': 'No recent projects',
   'flow.legend.title': 'Legend',
@@ -935,6 +945,14 @@ export const enUS: LocaleDictionary = {
   'tool.report.desc': 'Bundle narrative, figures and results into an interactive report',
   'tool.reprolock.desc': 'Environment snapshot and reproducibility fingerprint lock',
   'tool.supplement.desc': 'Package data, code and license into supplementary materials',
+  'tool.model-inference.title': 'Model Inference',
+  'tool.model-inference.desc': 'Run ONNX models in-browser on WebGPU and inspect inference results',
+  'tool.course.title': 'Course Mode',
+  'tool.course.desc': 'Create assignments, collect and grade student work offline',
+  'tool.cleaning.title': 'Data Cleaning Wizard',
+  'tool.cleaning.desc': 'Guided steps to transform, clean and deduplicate tabular data',
+  'tool.gallery.title': 'Gallery',
+  'tool.gallery.desc': 'Browse and reopen reproducible works shared by the community',
 
   // ---- Welcome page: start cards, env strip, modes, tool grid ------------
   'welcome.start.blank': 'New blank project',

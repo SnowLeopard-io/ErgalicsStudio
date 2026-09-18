@@ -85,6 +85,13 @@ export default defineConfig({
     ),
   },
   base: './',
+  server: {
+    // Fixed port so the website's studio-links and the docs' cross-site
+    // switcher (both hard-code 5173 in dev) always reach this workspace,
+    // regardless of which dev server starts first.
+    port: 5173,
+    strictPort: true,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

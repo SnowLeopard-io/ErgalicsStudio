@@ -62,7 +62,13 @@ function trim(): void {
  */
 function render(value: unknown): string {
   if (typeof value === 'string') return value;
-  if (value instanceof Error) return `${value.name}: ${value.message}`;
+  if (value instanceof Error) {
+    // Collapse the redundant "Name: same-name" (e.g. Monaco's `Canceled`
+    // sentinel where name === message === 'Canceled') so logged errors read
+    // like "Canceled" instead of the confusing "Canceled: Canceled".
+    const label = value.name && value.name !== value.message ? `${value.name}: ` : '';
+    return `${label}${value.message}`;
+  }
   if (value === null || value === undefined) return String(value);
   try {
     return JSON.stringify(value);

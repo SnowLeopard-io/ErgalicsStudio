@@ -27,7 +27,7 @@ import {
 } from '@/editor/block';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
-import { AiAssistantPanel, type AiRunResult } from '@/components/AiAssistantPanel';
+import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
 
 /** Clear the 2D preview canvas + DOM overlay so a previous run's plot never
@@ -62,8 +62,6 @@ export function BlockEditor() {
 
   const [codeView, setCodeView] = useState<'js' | 'python' | null>(null);
   const [code, setCode] = useState('');
-  // FR-07: AI assistant side panel (toggled from the toolbar).
-  const [aiOpen, setAiOpen] = useState(false);
 
   // Keep a ref in sync so the workspace change listener (registered once) can
   // read the current code-view state without re-subscribing.
@@ -220,6 +218,14 @@ export function BlockEditor() {
     return { ok: true, insertedOnly: true };
   };
 
+  // FR-07: expose this block canvas to the global floating AI panel. A stable
+  // wrapper (one registration) always delegates to the latest closure.
+  const runAssistantRef = useRef(runAssistantCode);
+  runAssistantRef.current = runAssistantCode;
+  useEffect(() => {
+    return useAiPanelStore.getState().registerRun((code) => runAssistantRef.current(code));
+  }, []);
+
   const refreshCode = () => {
     const ws = wsRef.current;
     if (!ws) return;
@@ -257,15 +263,6 @@ export function BlockEditor() {
 
         <div className="be-toolbar-spacer" />
 
-        <button
-          type="button"
-          className={`btn btn-sm${aiOpen ? ' btn-toggle-on' : ''}`}
-          title={t('ai.title')}
-          onClick={() => setAiOpen((v) => !v)}
-        >
-          {t('ai.toggle')}
-        </button>
-
         <div className={`be-status-pill ${isRunning ? 'is-running' : (error ? 'is-error' : 'is-idle')}`}>
           <span className="be-status-dot" />
           <span className="be-status-text">
@@ -298,8 +295,6 @@ export function BlockEditor() {
           <VariablePanel />
           <ConsolePanel />
         </div>
-
-        {aiOpen && <AiAssistantPanel runCode={runAssistantCode} />}
       </div>
     </div>
   );
