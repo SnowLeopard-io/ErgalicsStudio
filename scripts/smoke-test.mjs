@@ -33,17 +33,21 @@ try {
   // Activate first plugin, then move a slider and check the value follows.
   await page.locator('.plugin-item').first().click();
   await sleep(900);
-  const sliderBefore = await page.locator('.param-range input[type=range]').first().inputValue();
+  const slider = page.locator('.param-range input[type=range]').first();
+  const sliderBefore = await slider.inputValue();
   const sliderValBefore = await page.locator('.param-value').first().textContent();
   step('slider before', { sliderBefore, sliderValBefore });
 
-  // Set slider to a new value
-  await page.locator('.param-range input[type=range]').first().fill('9');
+  // Set the slider to its legal maximum (fixture sliders use varied ranges, so
+  // never assume a fixed target value).
+  const sliderMax = await slider.getAttribute('max');
+  const target = String(sliderMax ?? '100');
+  await slider.fill(target);
   await sleep(400);
-  const sliderAfter = await page.locator('.param-range input[type=range]').first().inputValue();
+  const sliderAfter = await slider.inputValue();
   const sliderValAfter = await page.locator('.param-value').first().textContent();
-  step('slider after', { sliderAfter, sliderValAfter });
-  step('params reactive', sliderAfter === '9' && sliderValAfter === '9');
+  step('slider after', { sliderAfter, sliderValAfter, target });
+  step('params reactive', sliderAfter === target && sliderValAfter === target);
 
   out.push('=== ERRORS ===');
   out.push(errors.length ? errors.join('\n') : '(none)');

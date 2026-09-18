@@ -5460,3 +5460,141 @@ button.start-card:hover {
 .gallery-share-form .input {
   width: 100%;
 }
+
+/* ==========================================================================
+   Lab / tool surfaces — professional polish
+   Conservative additive refinements shared by every research tool that renders
+   inside the ToolShell (.tool-content) — i.e. every /studio/<tool> page.
+   Aim: a clearer section hierarchy, a calmer less edge-to-edge look, uniform
+   interactive sizing for easy operation, and full keyboard operability —
+   without restyling any single page's bespoke card language, and without
+   touching modal dialogs (which share some class names but not .tool-content).
+   ========================================================================== */
+
+/* Steady vertical rhythm so panels read as blocks instead of a dense wall. */
+.tool-content {
+  gap: var(--space-5);
+}
+
+/* Tool pages scroll in the shell — clear the dialog-era inner height cap so
+   a lab never renders a nested scrollbar inside the page scroll. */
+.tool-content .analysis-body {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Section headers: a quiet accent tick + clear separation, calmer than the
+   raw property row they sat beside before. */
+.tool-content .share-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.tool-content .share-section-title::before {
+  content: '';
+  flex-shrink: 0;
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  opacity: 0.85;
+}
+
+.tool-content .share-section-title:first-child {
+  margin-top: 0;
+}
+
+/* Toolbar rows become a contained control strip, separating inputs from
+   results and lowering perceived density. Inputs stretch to share the row but
+   cap their width so the associated action button stays on the same line. */
+.tool-content .analysis-row {
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  background: color-mix(in srgb, var(--color-bg-elevated) 60%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.tool-content .analysis-row > .input,
+.tool-content .analysis-row > select,
+.tool-content .analysis-row > input {
+  flex: 1 1 12ch;
+  min-width: 9ch;
+  max-width: 46ch;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+.tool-content .analysis-row > .btn {
+  flex: 0 0 auto;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+/* Uniform interactive sizing so clicks/taps land on a comfortable target. */
+.tool-content .input,
+.tool-content select,
+.tool-content textarea {
+  min-height: 34px;
+  box-sizing: border-box;
+}
+
+.tool-content .btn {
+  min-height: 34px;
+}
+
+/* Results read as a quiet elevated card, not a bare outline. */
+.tool-content .analysis-output {
+  margin: 0;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+/* Figure galleries align and lift each chart slightly off the page. */
+.tool-content .research-charts {
+  gap: var(--space-3);
+}
+
+.tool-content .research-chart-card {
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+/* Data tables: roomier rows and a subtle hover so rows are trackable. */
+.tool-content .sweep-table th,
+.tool-content .sweep-table td {
+  padding: 6px var(--space-2);
+}
+
+.tool-content .sweep-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Action footers: keep the gap, drop any stray bottom margin. */
+.tool-content .sweep-actions,
+.tool-content .analysis-actions {
+  gap: var(--space-2);
+  margin-bottom: 0;
+}
+
+/* Keyboard operability: always-visible brand focus ring on interactive
+   elements (the panel body shouldn't steal focus affordance). */
+.tool-content a:focus-visible,
+.tool-content button:focus-visible,
+.tool-content select:focus-visible,
+.tool-content textarea:focus-visible,
+.tool-content input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

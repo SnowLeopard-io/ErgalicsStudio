@@ -36,7 +36,7 @@ jobs:
       - name: Build web app
         run: npm run build:web
         env:
-          DOCS_BASE: /${{ github.event.repository.name }}/docs/
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 
       - name: Generate CITATION.cff
         run: node scripts/gen-citation-cff.mjs

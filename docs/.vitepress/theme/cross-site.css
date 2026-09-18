@@ -1,0 +1,58 @@
+/* Floating cross-site switcher (官网 / 工作台 / 文档) shown on every docs page. */
+.cross-site-nav {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background-color: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+
+.cross-site-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+  padding: 0 6px;
+  user-select: none;
+}
+
+.cross-site-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.cross-site-link:hover {
+  color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-bg-elv);
+}
+
+.cross-site-link.is-current {
+  color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-bg-brand-soft);
+  cursor: default;
+}
+
+.cross-site-studio {
+  color: var(--vp-c-brand-1);
+}
+
+/* Keep it out of the way on short/narrow viewports. */
+@media (max-width: 640px) {
+  .cross-site-label { display: none; }
+  .cross-site-nav { right: 10px; bottom: 10px; }
+}

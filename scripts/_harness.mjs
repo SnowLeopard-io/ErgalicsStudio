@@ -213,6 +213,35 @@ async function freePortIsUsable(preferred) {
 // ---- page helpers ---------------------------------------------------------
 
 /**
+ * Open the global sample dialog and load the card whose title contains `title`.
+ *
+ * The dialog renders only the active category's cards, so switch the left-nav
+ * category until the card becomes visible. Throws when it is not found in any.
+ */
+export async function loadSampleFromDialog(page, title, { label = '示例' } = {}) {
+  await page.locator('.topbar-cluster .cluster-btn', { hasText: label }).click();
+  await sleep(400);
+  const card = page.locator('.plugin-card', { hasText: title });
+  const cats = page.locator('.example-cat');
+  const n = await cats.count();
+  for (let i = 0; i < n && (await card.count()) === 0; i += 1) {
+    await cats.nth(i).click();
+    await sleep(150);
+  }
+  if ((await card.count()) === 0) {
+    await closeDialog(page);
+    throw new Error(`sample card not found for title: ${title}`);
+  }
+  await card.locator('button', { hasText: '加载' }).click();
+}
+
+/** Dismiss the sample dialog via Escape when it is still open. */
+export async function closeDialog(page) {
+  await page.keyboard.press('Escape');
+  await sleep(300);
+}
+
+/**
  * Attach console/page error collection to a page.
  * Returns the array (live) and a helper that renders it for the report.
  */

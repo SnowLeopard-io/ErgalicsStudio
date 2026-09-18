@@ -32,11 +32,26 @@ let browser;
   const hasColor = (s, c) => s.top.some(([k]) => k === c);
   const hasColorAnywhere = (s, c) => s.all.includes(c);
   const runLabel = () => page.locator('.param-panel button.btn-block').first().textContent();
-  const loadExample = (title) =>
-    page
-      .locator('.plugin-card', { hasText: title })
-      .locator('button', { hasText: '加载' })
-      .click();
+  // Open the "示例" dialog from its topbar button (route-agnostic bench).
+  const openExamples = () =>
+    page.locator('.topbar-cluster .cluster-btn[data-tour="examples"]').click();
+  // The datasets dialog renders only the active category's cards, so switch the
+  // left-nav category until the target example card becomes visible, then load.
+  const loadExample = async (title) => {
+    await openExamples();
+    await sleep(400);
+    const card = page.locator('.plugin-card', { hasText: title });
+    const cats = page.locator('.example-cat');
+    const n = await cats.count();
+    for (let i = 0; i < n && (await card.count()) === 0; i += 1) {
+      await cats.nth(i).click();
+      await sleep(150);
+    }
+    if ((await card.count()) === 0) {
+      throw new Error(`example card not found for title: ${title}`);
+    }
+    await card.locator('button', { hasText: '加载' }).click();
+  };
 
   await page.goto(`${server.url}/#/`, { waitUntil: 'networkidle' });
   await sleep(1200);
@@ -79,8 +94,6 @@ let browser;
   await sleep(4200);
 
   // --- load galaxy.dat -> teal dots (static) ---
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('星系');
   await sleep(1600);
   s = await sample();
@@ -101,8 +114,6 @@ let browser;
   await page.screenshot({ path: shot('fix-03-pointcloud-empty.png') });
 
   // --- load diamond.xyz -> blue points, auto-fit ---
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('斐波那契');
   await sleep(1600);
   s = await sample();
@@ -112,8 +123,6 @@ let browser;
   // --- time series: load telemetry -> teal + amber lines ---
   await page.locator('.plugin-item[data-plugin-id="example.timeseries"]').click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('涡轮遥测');
   await sleep(1600);
   s = await sample();
@@ -123,8 +132,6 @@ let browser;
   // --- histogram: load distribution.dat -> teal bars ---
   await page.locator('.plugin-item[data-plugin-id="example.histogram"]').click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('混合分布');
   await sleep(1600);
   s = await sample();
@@ -134,8 +141,6 @@ let browser;
   // --- heatmap: load field.json -> viridis ramp ---
   await page.locator('.plugin-item[data-plugin-id="example.heatmap"]').click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('涡旋场');
   await sleep(1600);
   s = await sample();
@@ -145,8 +150,6 @@ let browser;
   // --- image viewer: load test-pattern.png -> many colors ---
   await page.locator('.plugin-item[data-plugin-id="example.image"]').click();
   await sleep(1200);
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-  await sleep(400);
   await loadExample('测试图案');
   await sleep(1800);
   s = await sample();

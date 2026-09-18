@@ -15,7 +15,7 @@
 // Chromium SwiftShader WebGPU flags so the test is deterministic on any
 // machine (software adapter, no physical GPU required).
 import { chromium } from 'playwright-core';
-import { startPreview, launchOptions, sleep } from './_harness.mjs';
+import { startPreview, launchOptions, sleep, loadSampleFromDialog } from './_harness.mjs';
 
 const WEBGPU_ARGS = [
   '--no-sandbox',
@@ -83,12 +83,7 @@ const BASE = server.url;
       await sleep(1800);
       await page.locator('.plugin-item[data-plugin-id="example.particles"]').click();
       await sleep(1200);
-      await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-      await sleep(400);
-      const galaxyCard = page.locator('.plugin-card', {
-        hasText: /星系粒子数据|Galaxy Particle Data/,
-      });
-      await galaxyCard.locator('button', { hasText: '加载' }).click();
+      await loadSampleFromDialog(page, /星系粒子数据|Galaxy Particle Data/);
       await sleep(1500);
       await page.locator('button', { hasText: '⚡' }).first().click();
       await sleep(2500);

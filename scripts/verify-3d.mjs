@@ -29,10 +29,20 @@ let browser;
     return s ? { w: s.width, h: s.height } : null;
   }));
 
-  // Load sample data (斐波那契 / diamond.xyz)
-  await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
+  // Load sample data (斐波那契 / diamond.xyz). The datasets dialog renders only
+  // the active category's cards, so switch the left-nav category until the card
+  // becomes visible.
+  await page.locator('.topbar-cluster .cluster-btn[data-tour="examples"]').click();
   await sleep(400);
-  await page.locator('.plugin-card', { hasText: '斐波那契' }).locator('button', { hasText: '加载' }).click();
+  const galaxyCard = page.locator('.plugin-card', { hasText: '斐波那契' });
+  const cats = page.locator('.example-cat');
+  const n = await cats.count();
+  for (let i = 0; i < n && (await galaxyCard.count()) === 0; i += 1) {
+    await cats.nth(i).click();
+    await sleep(150);
+  }
+  if ((await galaxyCard.count()) === 0) throw new Error('diamond sample card not found');
+  await galaxyCard.locator('button', { hasText: '加载' }).click();
   await sleep(1800);
 
   step('3D canvas still mounted after load', await page.locator('.scene3d-canvas').count() > 0);
