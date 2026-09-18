@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useT } from '@/i18n';
 import { layoutDag } from '@/core/lineage/graph';
 import type { LineageGraph } from '@/core/lineage/graph';
 
@@ -21,6 +22,7 @@ interface LineageCanvasProps {
  * `layoutDag`; colors/typography ride on global.css design tokens.
  */
 export function LineageCanvas({ graph }: LineageCanvasProps) {
+  const t = useT();
   const layout = useMemo(() => layoutDag(graph, { nodeWidth: NODE_W, nodeHeight: NODE_H }), [graph]);
 
   if (graph.nodes.length === 0) return null;
@@ -34,7 +36,7 @@ export function LineageCanvas({ graph }: LineageCanvasProps) {
       height={layout.height}
       viewBox={`0 0 ${layout.width} ${layout.height}`}
       role="img"
-      aria-label="data lineage graph"
+      aria-label={t('lineage.graph_label')}
     >
       {/* edges under nodes */}
       {graph.edges.map((e) => {

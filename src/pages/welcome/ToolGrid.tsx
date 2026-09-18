@@ -10,7 +10,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
-import { ToolIcon, ArrowRightIcon, SearchIcon } from '@/components/icons';
+import { ToolIcon, ArrowRightIcon, SearchIcon, CloseIcon } from '@/components/icons';
+import { EmptyState } from '@/components/EmptyState';
 import {
   GRID_GROUPS,
   GRID_TOOLS,
@@ -57,7 +58,17 @@ export function ToolGrid() {
         </div>
       </div>
 
-      {filtered.length === 0 && <p className="tool-grid-empty">{t('launcher.empty')}</p>}
+      {filtered.length === 0 && (
+        <EmptyState
+          title={t('launcher.empty')}
+          description={q ? `“${query.trim()}”` : undefined}
+          actions={
+            <button type="button" className="btn btn-sm" onClick={() => setQuery('')}>
+              <CloseIcon size={13} /> {t('launcher.clear_search')}
+            </button>
+          }
+        />
+      )}
 
       {q
         ? (
@@ -87,7 +98,8 @@ export function ToolGrid() {
 
 function ToolCard({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
   const t = useT();
-  const toolDef = getTool(id)!;
+  const toolDef = getTool(id);
+  if (!toolDef) return null;
   return (
     <button type="button" className="tool-card" onClick={() => onOpen(id)}>
       <span className="tool-card-icon" aria-hidden="true">

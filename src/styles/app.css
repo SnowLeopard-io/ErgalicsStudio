@@ -1707,6 +1707,16 @@
   overflow: visible;
 }
 
+/* AnalysisPage now renders as a full-page /studio/<tool> inside ToolShell,
+   which scrolls the whole body (tool-body: overflow-y:auto). Drop the
+   modal-era 72vh cap there too, or the content is squeezed to the top, the
+   "run" button lands on the clipped edge and a big empty pocket opens below
+   it. */
+.tool-shell .analysis-body {
+  max-height: none;
+  overflow: visible;
+}
+
 /* ==========================================================================
    FR-08 — model inference tool page
    ========================================================================== */
@@ -4151,6 +4161,14 @@
   padding: 0;
   gap: 0;
   position: relative;
+}
+
+/* Active (on) state for the sidebar / params-panel toggle handles — the same
+   accent chip used by the mode buttons so a pressed rail is visually clear. */
+.topbar-cluster .icon-btn.is-active,
+.topbar-cluster .cluster-btn.icon-only.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
 }
 
 .perf-indicator-dot {

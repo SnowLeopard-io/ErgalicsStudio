@@ -11,7 +11,8 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon } from '@/components/icons';
+import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
+import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 
 const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
@@ -27,13 +28,17 @@ export function TopBar() {
   const notify = useAppStore((s) => s.notify);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
+  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
+  const aiOpen = useAiPanelStore((s) => s.open);
+  const toggleAi = useAiPanelStore((s) => s.toggle);
 
   // Single dialog key: only one TopBar dialog can be open at a time, so the
   // previous eleven booleans collapse into this one piece of state (rendered
@@ -197,6 +202,29 @@ export function TopBar() {
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
+            className={`cluster-btn icon-only${aiOpen ? ' is-active' : ''}`}
+            title={t('ai.toggle')}
+            aria-label={t('ai.toggle')}
+            aria-pressed={aiOpen}
+            data-tour="ai-assistant"
+            onClick={toggleAi}
+          >
+            <SparklesIcon size={15} />
+          </button>
+          {mode === 'standard' && (
+            <button
+              type="button"
+              className={`cluster-btn icon-only${rightPanelOpen ? ' is-active' : ''}`}
+              title={t('workbench.menu.toggle_right')}
+              aria-label={t('workbench.menu.toggle_right')}
+              aria-pressed={rightPanelOpen}
+              onClick={toggleRightPanel}
+            >
+              <PanelIcon size={15} />
+            </button>
+          )}
+          <button
+            type="button"
             className="cluster-btn icon-only topbar-hide-narrow"
             title={t('workbench.tools.settings')}
             aria-label={t('workbench.tools.settings')}
@@ -233,6 +261,10 @@ export function TopBar() {
           align="right"
           trigger={<MoreIcon size={16} />}
           items={[
+            { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
+            ...(mode === 'standard'
+              ? [{ key: 'right', label: t('workbench.menu.toggle_right'), onClick: toggleRightPanel }]
+              : []),
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
             { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },

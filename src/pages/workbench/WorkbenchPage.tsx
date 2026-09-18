@@ -17,6 +17,7 @@ import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { TourGuide } from '@/components/TourGuide';
+import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
@@ -130,6 +131,7 @@ export default function WorkbenchPage() {
         <StatusBar />
       </ErrorBoundary>
       <TourGuide />
+      <AiAssistantOverlay />
     </div>
   );
 }

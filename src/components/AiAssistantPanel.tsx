@@ -1,5 +1,5 @@
 // ==========================================================================
-// Ergalics Studio — FR-07 AI assistant panel (代码/积木模式侧边栏)
+// Ergalics Studio — FR-07 AI assistant panel (项目全局悬浮窗)
 //
 // Chat-style panel: natural-language prompt → offline intent engine →
 // editable `studio.*` code draft → insert into the editor buffer / flow
@@ -8,9 +8,12 @@
 // mode nothing ever leaves the machine, and online mode requires an
 // explicit authorization flag (see @/core/ai/provider).
 //
-// Mounted by CodeEditor and BlockEditor as a toggleable right-hand column;
-// the host supplies a `runCode` callback so execution reuses each editor's
-// own runtime (Pyodide for Python code mode, IR interpreter elsewhere).
+// Rendered inside <AiAssistantOverlay />, a project-wide floating window
+// toggled from the shared top bar — it no longer lives inside an editor as a
+// fixed side column. The host supplies `runCode` (the active editor's
+// execution hook, registered via aiPanelStore) so execution reuses that
+// editor's own runtime (Pyodide for Python code mode, IR interpreter
+// elsewhere). `onClose` lets the overlay dismiss itself.
 // ==========================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,6 +21,7 @@ import { useT, useLocale } from '@/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { parseCodeToIR } from '@/editor/code/parse';
+import type { AiRunResult } from '@/stores/aiPanelStore';
 import {
   askAssistant,
   adviseOnRunError,
@@ -29,18 +33,11 @@ import {
 } from '@/core/ai/provider';
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
 
-/** Outcome of a host-executed assistant run. */
-export interface AiRunResult {
-  ok: boolean;
-  /** Error message when the run failed. */
-  error?: string;
-  /** True when the code was only inserted (canvas) — run it in code mode. */
-  insertedOnly?: boolean;
-}
-
 export interface AiAssistantPanelProps {
   /** Host editor's insert-and-run hook (Pyodide / IR interpreter). */
   runCode?: (code: string) => Promise<AiRunResult>;
+  /** Dismiss the floating panel (projects-wide switcher). */
+  onClose?: () => void;
 }
 
 interface ChatMessage {
@@ -50,7 +47,7 @@ interface ChatMessage {
   code?: string;
 }
 
-export function AiAssistantPanel({ runCode }: AiAssistantPanelProps) {
+export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
   const t = useT();
   const { locale } = useLocale();
 
@@ -171,8 +168,23 @@ export function AiAssistantPanel({ runCode }: AiAssistantPanelProps) {
     <aside className="ai-panel" data-testid="ai-assistant-panel">
       <div className="ai-panel-head">
         <span className="ai-panel-title">{t('ai.title')}</span>
-        <span className={`ai-mode-pill ${mode === 'online' ? 'is-online' : 'is-offline'}`}>
-          {mode === 'online' ? t('ai.mode.online') : t('ai.mode.offline')}
+        <span className="ai-panel-head-actions">
+          <span className={`ai-mode-pill ${mode === 'online' ? 'is-online' : 'is-offline'}`}>
+            {mode === 'online' ? t('ai.mode.online') : t('ai.mode.offline')}
+          </span>
+          {onClose && (
+            <button
+              type="button"
+              className="icon-btn ai-panel-close"
+              aria-label={t('ai.close')}
+              title={t('ai.close')}
+              onClick={onClose}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          )}
         </span>
       </div>
 

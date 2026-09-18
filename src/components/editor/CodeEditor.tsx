@@ -40,7 +40,7 @@ import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
-import { AiAssistantPanel, type AiRunResult } from '@/components/AiAssistantPanel';
+import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 
 /** Keystroke → IR debounce (mirrors block mode's 120ms, slightly roomier). */
 const SYNC_DEBOUNCE_MS = 150;
@@ -116,8 +116,6 @@ export function CodeEditor() {
   const runActionRef = useRef<() => void>(() => {});
   const [replInput, setReplInput] = useState('');
   const [runtimeReady, setRuntimeReady] = useState(false);
-  // FR-07: AI assistant side panel (toggled from the toolbar).
-  const [aiOpen, setAiOpen] = useState(false);
   // ---- R runtime state (FR-04: full webR with builtin-IR fallback) ------
   const rRuntimeRef = useRef<RLanguageRuntime | null>(null);
   const [rEngine, setREngine] = useState<REngine | null>(null);
@@ -650,6 +648,15 @@ export function CodeEditor() {
     { id: 'js', label: 'JS' },
   ];
 
+  // FR-07: expose this editor's run pipeline to the global floating AI panel.
+  // A stable wrapper (one registration) always delegates to the latest
+  // runAssistantCode closure so runtime/language state stays fresh.
+  const runAssistantRef = useRef(runAssistantCode);
+  runAssistantRef.current = runAssistantCode;
+  useEffect(() => {
+    return useAiPanelStore.getState().registerRun((code) => runAssistantRef.current(code));
+  }, []);
+
   return (
     <div className="block-editor code-editor">
       <div className="block-editor-toolbar">
@@ -700,15 +707,6 @@ export function CodeEditor() {
         </span>
 
         <div className="be-toolbar-spacer" />
-
-        <button
-          type="button"
-          className={`btn btn-sm${aiOpen ? ' btn-toggle-on' : ''}`}
-          title={t('ai.title')}
-          onClick={() => setAiOpen((v) => !v)}
-        >
-          {t('ai.toggle')}
-        </button>
 
         <div className={`be-status-pill ${isRunning ? 'is-running' : engineReady ? 'is-idle' : 'is-loading'}`}>
           <span className="be-status-dot" />
@@ -782,8 +780,6 @@ export function CodeEditor() {
             )}
           </div>
         </div>
-
-        {aiOpen && <AiAssistantPanel runCode={runAssistantCode} />}
       </div>
     </div>
   );

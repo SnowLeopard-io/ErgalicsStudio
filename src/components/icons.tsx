@@ -54,6 +54,15 @@ export const MenuIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Right-rail layout glyph: a frame with a vertical split near the right
+ *  edge, used to toggle the workbench params panel. */
+export const PanelIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M15 4v16" />
+  </Svg>
+);
+
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
@@ -90,6 +99,14 @@ export const SearchIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="11" cy="11" r="7" />
     <path d="m20 20-3.5-3.5" />
+  </Svg>
+);
+
+/** AI sparkles — used for the global AI-assistant toggle in the top bar. */
+export const SparklesIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4l1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6z" />
+    <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
   </Svg>
 );
 
