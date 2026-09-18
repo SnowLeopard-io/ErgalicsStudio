@@ -28,6 +28,7 @@
     "test:watch": "vitest",
     "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs && node scripts/verify-webgpu.mjs && node scripts/verify-block-mode.mjs && node scripts/verify-code-mode.mjs && node scripts/verify-ai-samples.mjs && node scripts/verify-ai-training.mjs && node scripts/verify-research.mjs",
     "verify": "npm run typecheck && npm test",
+    "verify:site": "node scripts/verify-site.mjs --merge",
     "bench": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs",
     "bench:update": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs --update-baseline && node scripts/bench-report.mjs",
     "build:report": "node scripts/build-budget.mjs"

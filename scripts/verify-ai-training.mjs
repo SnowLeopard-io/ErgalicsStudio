@@ -8,7 +8,7 @@
 // 6. MNIST CNN trains and renders a grid of digit thumbnails (not blobs).
 // 7. No console errors along the way.
 import { chromium } from 'playwright-core';
-import { startPreview, launchOptions, shot, sleep } from './_harness.mjs';
+import { startPreview, launchOptions, shot, sleep, loadSampleFromDialog, closeDialog } from './_harness.mjs';
 
 const server = await startPreview(4199);
 let browser;
@@ -64,17 +64,6 @@ let browser;
 
   const clickBtn = (text) => page.locator('.param-panel .btn', { hasText: text }).click();
 
-  const loadExampleFromDialog = async (title) => {
-    await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-    await sleep(500);
-    const card = page.locator('.plugin-card', { hasText: title });
-    if ((await card.count()) === 0) throw new Error(`sample card not found: ${title}`);
-    await card.locator('button', { hasText: '加载' }).click();
-    await sleep(2000);
-    await page.keyboard.press('Escape');
-    await sleep(400);
-  };
-
   // Activate the AI Trainer plugin. It is autoloaded into the sidebar registry
   // on startup (TF.js itself stays lazy until "Train" is clicked).
   const activateAITrainer = async () => {
@@ -95,7 +84,9 @@ let browser;
   step('linear default epochs = 200', await paramValue('迭代次数'));
 
   // ---- 2. load linear sample from the dialog, train ----
-  await loadExampleFromDialog('AI 训练 · 线性回归');
+  await loadSampleFromDialog(page, 'AI 训练 · 线性回归');
+  await sleep(2000);
+  await closeDialog(page);
   const cols = await paramValue('目标列');
   step('target column auto-filled after sample', cols);
   await setParam('迭代次数', '30');
@@ -120,7 +111,9 @@ let browser;
   // ---- 4. logistic regression -> decision boundary ----
   await setParam('模型', 'logistic');
   await sleep(1000);
-  await loadExampleFromDialog('AI 训练 · 逻辑回归');
+  await loadSampleFromDialog(page, 'AI 训练 · 逻辑回归');
+  await sleep(2000);
+  await closeDialog(page);
   await setParam('迭代次数', '30');
   await sleep(300);
   await clickBtn('开始训练');
@@ -133,7 +126,9 @@ let browser;
   // ---- 5. MNIST CNN: load digits, train briefly, render digit grid ----
   await setParam('模型', 'mnist');
   await sleep(1000);
-  await loadExampleFromDialog('AI 训练 · MNIST 分类');
+  await loadSampleFromDialog(page, 'AI 训练 · MNIST 分类');
+  await sleep(2000);
+  await closeDialog(page);
   await setParam('迭代次数', '2');
   await sleep(300);
   await clickBtn('开始训练');

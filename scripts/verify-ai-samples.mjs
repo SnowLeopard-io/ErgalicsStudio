@@ -2,7 +2,7 @@
 // capture the resulting toast text, so a parse failure is observable instead
 // of inferred.
 import { chromium } from 'playwright-core';
-import { startPreview, launchOptions, sleep } from './_harness.mjs';
+import { startPreview, launchOptions, sleep, loadSampleFromDialog, closeDialog } from './_harness.mjs';
 
 const SAMPLES = [
   'AI 训练 · 线性回归',
@@ -32,25 +32,22 @@ let browser;
     });
     await sleep(300);
 
-    await page.locator('.topbar-cluster .cluster-btn', { hasText: '示例' }).click();
-    await sleep(500);
-    const card = page.locator('.plugin-card', { hasText: name });
-    const found = (await card.count()) > 0;
-    if (!found) {
-      out.push(`${name} -> CARD NOT FOUND in dialog`);
-      await page.keyboard.press('Escape');
-      await sleep(300);
-      continue;
+    let found = false;
+    try {
+      await loadSampleFromDialog(page, name);
+      found = true;
+    } catch {
+      found = false;
     }
-    await card.locator('button', { hasText: '加载' }).click();
     await sleep(2500);
 
-    const toasts = await page
-      .locator('.toast')
-      .evaluateAll((els) => els.map((e) => `${e.className}|${e.textContent}`));
+    const toasts = found
+      ? await page
+          .locator('.toast')
+          .evaluateAll((els) => els.map((e) => `${e.className}|${e.textContent}`))
+      : '(card not found, skipped)';
     out.push(`${name} -> ${JSON.stringify(toasts)}`);
-    await page.keyboard.press('Escape');
-    await sleep(400);
+    if (found) await closeDialog(page);
   }
 
   out.push('=== ERRORS ===');

@@ -33,6 +33,8 @@ public/blockly/
 # Scratch space: demo-video recording scripts/screenshots, temp experiment
 # output and test logs. Kept locally for reuse, never committed.
 tmp/
+# Browser/recorder screenshot scratch dir (recreated on demand).
+.screenshots/
 
 .trae/
 
@@ -54,6 +56,11 @@ dist-verify*
 docs/node_modules/
 docs/.vitepress/*
 !docs/.vitepress/config.mts
+# The hand-written VitePress custom theme (Layout.vue, cross-site.css, ...) is
+# source code — it implements the cross-site nav switcher and must be tracked.
+# Only the generated build output under dist/ stays ignored.
+!docs/.vitepress/theme/
+!docs/.vitepress/theme/**
 
 # Official website (npm workspace): build output.
 website/dist/

@@ -42,7 +42,7 @@ jobs:
       - name: Build web app
         run: npm run build:web
         env:
-          DOCS_BASE: /${{ github.event.repository.name }}/docs/
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
 
       - name: Build performance budget (FR-06)
         run: node scripts/build-budget.mjs

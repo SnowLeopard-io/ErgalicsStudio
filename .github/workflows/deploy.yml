@@ -58,6 +58,9 @@ jobs:
       - name: Merge deploy artifact
         run: npm run deploy:merge
 
+      - name: Verify merged-site integrity (8 canonical paths)
+        run: node scripts/verify-site.mjs
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
