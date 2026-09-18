@@ -145,11 +145,14 @@ describe('loadCspkg (trusted mode)', () => {
     };
   `;
 
+  // These fixtures are unsigned; FR-05 refuses them by default, so the tests
+  // pass the explicit trust override the UI confirmation would supply.
   it('executes entry with the real host api (regression: api was undefined)', async () => {
     const fakeApi = { locale: 'zh-CN' } as unknown as PluginApi;
     const { plugin, mode } = await loadCspkg(
       new File([makeCspkg({ sandbox: 'trusted' }, { 'dist/index.js': ENTRY })], 'a.cspkg'),
       () => fakeApi,
+      { trustUnsigned: true },
     );
     expect(mode).toBe('trusted');
     const params = await plugin.getParams();
@@ -159,15 +162,19 @@ describe('loadCspkg (trusted mode)', () => {
   it('throws when the entry does not return a plugin object', async () => {
     const badEntry = 'return 42;';
     await expect(
-      loadCspkg(new File([makeCspkg({ sandbox: 'trusted' }, { 'dist/index.js': badEntry })], 'a.cspkg'), () =>
-        ({} as PluginApi),
+      loadCspkg(
+        new File([makeCspkg({ sandbox: 'trusted' }, { 'dist/index.js': badEntry })], 'a.cspkg'),
+        () => ({} as PluginApi),
+        { trustUnsigned: true },
       ),
     ).rejects.toThrow('plugin object');
   });
 
   it('throws when the entry file is missing', async () => {
     await expect(
-      loadCspkg(new File([makeCspkg({ sandbox: 'trusted' })], 'a.cspkg'), () => ({} as PluginApi)),
+      loadCspkg(new File([makeCspkg({ sandbox: 'trusted' })], 'a.cspkg'), () => ({} as PluginApi), {
+        trustUnsigned: true,
+      }),
     ).rejects.toThrow('not found');
   });
 });

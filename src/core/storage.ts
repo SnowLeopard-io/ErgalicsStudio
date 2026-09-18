@@ -2,10 +2,14 @@ import type { Project } from '@/types/project';
 import type { RunRecord } from '@/core/experiment/record';
 
 const DB_NAME = 'ergalics-studio';
-const DB_VERSION = 2;
+const DB_VERSION = 5;
 const STORE_PROJECTS = 'projects';
 const STORE_PLUGINS = 'plugins';
 const STORE_RUNS = 'runs';
+const STORE_TRUSTED_KEYS = 'trustedKeys';
+const STORE_FILE_CHUNKS = 'fileChunks';
+const STORE_OPFS_MIGRATION = 'opfsMigration';
+const STORE_COURSES = 'courses';
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -35,6 +39,23 @@ function openDb(): Promise<IDBDatabase> {
         const runs = db.createObjectStore(STORE_RUNS, { keyPath: 'id' });
         runs.createIndex('projectId', 'projectId');
         runs.createIndex('createdAt', 'createdAt');
+      }
+      // v3: user-trusted plugin publisher keys (FR-05). Idempotent for
+      // databases created before this version existed.
+      if (!db.objectStoreNames.contains(STORE_TRUSTED_KEYS)) {
+        db.createObjectStore(STORE_TRUSTED_KEYS, { keyPath: 'fingerprint' });
+      }
+      // v4: legacy IDB chunk store (FR-17) + OPFS migration bookkeeping.
+      if (!db.objectStoreNames.contains(STORE_FILE_CHUNKS)) {
+        const chunks = db.createObjectStore(STORE_FILE_CHUNKS, { keyPath: 'id' });
+        chunks.createIndex('fileId', 'fileId');
+      }
+      if (!db.objectStoreNames.contains(STORE_OPFS_MIGRATION)) {
+        db.createObjectStore(STORE_OPFS_MIGRATION, { keyPath: 'id' });
+      }
+      // v5: FR-13 course-mode partitions, keyed by projectId.
+      if (!db.objectStoreNames.contains(STORE_COURSES)) {
+        db.createObjectStore(STORE_COURSES, { keyPath: 'projectId' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -170,6 +191,14 @@ export interface StoredPluginPackage {
   /** Package-relative file list (paths only, no URLs). */
   files: string[];
   installedAt: number;
+  /** Where the package came from (FR-05 install provenance). */
+  source?: 'local' | 'marketplace' | 'builtin';
+  /** Signer name recorded at install time (undefined = unsigned). */
+  signer?: string;
+  /** `ed25519:<hex16>` fingerprint of the signing key (undefined = unsigned). */
+  fingerprint?: string;
+  /** Whether the signature verified against the trusted registry. */
+  signed?: boolean;
 }
 
 export async function savePluginPackage(pkg: StoredPluginPackage): Promise<void> {
@@ -182,6 +211,198 @@ export async function listPluginPackages(): Promise<StoredPluginPackage[]> {
 
 export async function deletePluginPackage(id: string): Promise<void> {
   await tx(STORE_PLUGINS, 'readwrite', (s) => s.delete(id));
+}
+
+// ---- trusted plugin publisher keys (FR-05) --------------------------------
+
+export interface StoredTrustedKey {
+  /** `ed25519:<hex16>` — primary key. */
+  fingerprint: string;
+  /** Hex-encoded 32-byte ed25519 public key. */
+  publicKey: string;
+  /** Human-readable source label. */
+  label: string;
+  addedAt: number;
+}
+
+export async function saveTrustedKey(key: StoredTrustedKey): Promise<void> {
+  await tx(STORE_TRUSTED_KEYS, 'readwrite', (s) => s.put(key));
+}
+
+export async function listTrustedKeys(): Promise<StoredTrustedKey[]> {
+  return tx(STORE_TRUSTED_KEYS, 'readonly', (s) => s.getAll());
+}
+
+export async function deleteTrustedKey(fingerprint: string): Promise<void> {
+  await tx(STORE_TRUSTED_KEYS, 'readwrite', (s) => s.delete(fingerprint));
+}
+
+// ---- chunked file storage (FR-17, legacy IDB backend) ----------------------
+
+/** One binary chunk of a stored file (`id = ${projectId}/${fileId}/${index}`). */
+export interface StoredFileChunk {
+  id: string;
+  projectId: string;
+  fileId: string;
+  index: number;
+  data: Uint8Array;
+  byteLength: number;
+}
+
+/** Bookkeeping written once a file's IDB chunks have moved to OPFS. */
+export interface OpfsMigrationRecord {
+  /** `id = ${projectId}/${fileId}`. */
+  id: string;
+  projectId: string;
+  fileId: string;
+  status: 'migrated';
+  migratedAt: number;
+  /** FNV hash of the concatenated chunk bytes (verification anchor). */
+  hash: string;
+}
+
+function chunkId(projectId: string, fileId: string, index: number): string {
+  return `${projectId}/${fileId}/${index}`;
+}
+
+/** Replace every chunk of a file (writes one record per chunk). */
+export async function putFileChunks(
+  projectId: string,
+  fileId: string,
+  chunks: Uint8Array[],
+): Promise<void> {
+  // Delete any stale tail first so a shrinking rewrite cannot leave orphan
+  // chunks beyond the new count.
+  const existing = await listFileChunkRecords(projectId, fileId);
+  for (const rec of existing) {
+    if (rec.index >= chunks.length) {
+      await tx(STORE_FILE_CHUNKS, 'readwrite', (s) => s.delete(rec.id));
+    }
+  }
+  for (let i = 0; i < chunks.length; i += 1) {
+    const data = chunks[i]!;
+    const rec: StoredFileChunk = {
+      id: chunkId(projectId, fileId, i),
+      projectId,
+      fileId,
+      index: i,
+      data,
+      byteLength: data.byteLength,
+    };
+    await tx(STORE_FILE_CHUNKS, 'readwrite', (s) => s.put(rec));
+  }
+}
+
+async function listFileChunkRecords(
+  projectId: string,
+  fileId: string,
+): Promise<StoredFileChunk[]> {
+  const db = await openDb();
+  return new Promise<StoredFileChunk[]>((resolve, reject) => {
+    const transaction = db.transaction(STORE_FILE_CHUNKS, 'readonly');
+    const index = transaction.objectStore(STORE_FILE_CHUNKS).index('fileId');
+    const request = index.openCursor();
+    const found: StoredFileChunk[] = [];
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        const rec = cursor.value as StoredFileChunk;
+        if (rec.projectId === projectId && rec.fileId === fileId) found.push(rec);
+        cursor.continue();
+      } else {
+        found.sort((a, b) => a.index - b.index);
+        resolve(found);
+      }
+    };
+    request.onerror = () => reject(request.error);
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error('transaction aborted listing chunks'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error('transaction failed listing chunks'));
+  });
+}
+
+/** Chunk payloads for one file, in index order. */
+export async function listFileChunks(
+  projectId: string,
+  fileId: string,
+): Promise<Uint8Array[]> {
+  const records = await listFileChunkRecords(projectId, fileId);
+  return records.map((r) => r.data);
+}
+
+/** Distinct files that currently have IDB chunk records. */
+export async function listChunkFileRefs(): Promise<
+  Array<{ projectId: string; fileId: string; count: number; bytes: number }>
+> {
+  const all = await tx<StoredFileChunk[]>(STORE_FILE_CHUNKS, 'readonly', (s) => s.getAll());
+  const byFile = new Map<string, { projectId: string; fileId: string; count: number; bytes: number }>();
+  for (const rec of all) {
+    const key = `${rec.projectId}/${rec.fileId}`;
+    const entry = byFile.get(key) ?? { projectId: rec.projectId, fileId: rec.fileId, count: 0, bytes: 0 };
+    entry.count += 1;
+    entry.bytes += rec.byteLength;
+    byFile.set(key, entry);
+  }
+  return [...byFile.values()].sort((a, b) =>
+    a.projectId === b.projectId ? a.fileId.localeCompare(b.fileId) : a.projectId.localeCompare(b.projectId),
+  );
+}
+
+/** Total bytes held by the legacy IDB chunk store. */
+export async function chunkUsageBytes(): Promise<number> {
+  const all = await tx<StoredFileChunk[]>(STORE_FILE_CHUNKS, 'readonly', (s) => s.getAll());
+  return all.reduce((sum, rec) => sum + rec.byteLength, 0);
+}
+
+/** Delete one file's chunks (or every chunk when fileId is omitted). */
+export async function deleteFileChunks(projectId: string, fileId?: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_FILE_CHUNKS, 'readwrite');
+    const index = transaction.objectStore(STORE_FILE_CHUNKS).index('fileId');
+    const request = index.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        const rec = cursor.value as StoredFileChunk;
+        if (rec.projectId === projectId && (fileId === undefined || rec.fileId === fileId)) {
+          cursor.delete();
+        }
+        cursor.continue();
+      }
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error('transaction aborted deleting chunks'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error('transaction failed deleting chunks'));
+  });
+}
+
+/** Drop every IDB chunk record (cache cleanup; projects/plugins/runs intact). */
+export async function clearChunkCache(): Promise<void> {
+  await tx(STORE_FILE_CHUNKS, 'readwrite', (s) => s.clear());
+}
+
+export async function getMigrationRecord(
+  projectId: string,
+  fileId: string,
+): Promise<OpfsMigrationRecord | undefined> {
+  return tx(STORE_OPFS_MIGRATION, 'readonly', (s) => s.get(`${projectId}/${fileId}`));
+}
+
+export async function putMigrationRecord(record: OpfsMigrationRecord): Promise<void> {
+  await tx(STORE_OPFS_MIGRATION, 'readwrite', (s) => s.put(record));
+}
+
+export async function listMigrationRecords(): Promise<OpfsMigrationRecord[]> {
+  return tx(STORE_OPFS_MIGRATION, 'readonly', (s) => s.getAll());
+}
+
+/** Drop every migration record (used by full cache cleanup). */
+export async function clearMigrationRecords(): Promise<void> {
+  await tx(STORE_OPFS_MIGRATION, 'readwrite', (s) => s.clear());
 }
 
 // ---- experiment run records ----
@@ -247,6 +468,36 @@ export async function deleteRunsByProject(projectId: string): Promise<void> {
     transaction.onerror = () =>
       reject(transaction.error ?? new Error('transaction failed deleting runs'));
   });
+}
+
+// ---- course mode (FR-13) ----
+
+/**
+ * One project's course partition. The document is stored as JSON *text*
+ * under `projectId` so the course domain module owns (de)serialisation and
+ * a schema change never strands a structured record.
+ */
+export interface StoredCoursePartition {
+  projectId: string;
+  json: string;
+  updatedAt: number;
+}
+
+export async function saveCoursePartition(partition: StoredCoursePartition): Promise<void> {
+  await tx(STORE_COURSES, 'readwrite', (s) => s.put(partition));
+}
+
+export async function getCoursePartition(projectId: string): Promise<StoredCoursePartition | undefined> {
+  return tx(STORE_COURSES, 'readonly', (s) => s.get(projectId));
+}
+
+export async function deleteCoursePartition(projectId: string): Promise<void> {
+  await tx(STORE_COURSES, 'readwrite', (s) => s.delete(projectId));
+}
+
+/** Cascade helper: drop the course partition with the project. */
+export async function deleteCoursesByProject(projectId: string): Promise<void> {
+  await deleteCoursePartition(projectId);
 }
 
 // ---- quota / cache ----

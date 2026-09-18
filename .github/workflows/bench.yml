@@ -1,0 +1,73 @@
+name: Benchmarks
+
+# FR-23: run the performance benchmark suite on every push to main and on
+# releases; compare against bench/baseline.json (±10% band) and publish the
+# results + self-contained HTML report as artifacts / release attachments.
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run benchmarks + compare against baseline (FR-23)
+        run: npm run bench
+
+      - name: Record environment in job summary
+        run: |
+          node - <<'EOF'
+          const r = require('./bench-results.json');
+          const fs = require('fs');
+          const rows = r.suites.flatMap((s) => s.metrics.map((m) => `| ${m.id} | ${m.value} ${m.unit} | ${m.workload} |`));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, [
+            '## FR-23 benchmark results',
+            '',
+            `- Node: ${r.environment.node}`,
+            `- Platform: ${r.environment.platform}/${r.environment.arch}`,
+            `- CPU: ${r.environment.cpu}`,
+            `- Date: ${r.environment.date}`,
+            '',
+            '| metric | value | workload |',
+            '| --- | --- | --- |',
+            ...rows,
+            '',
+          ].join('\n'));
+          EOF
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: |
+            bench-results.json
+            bench-report.html
+
+      - name: Attach report to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bench-results.json
+            bench-report.html

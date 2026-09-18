@@ -35,6 +35,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/introduction' },
       { text: 'Plugins', link: '/guide/plugins' },
+      { text: 'SDK', link: '/sdk/v1-contract' },
       { text: 'Roadmap', link: '/guide/roadmap' },
       {
         text: 'GitHub',
@@ -54,6 +55,17 @@ export default defineConfig({
           { text: 'Native Core & WebGPU', link: '/guide/native-core' },
           { text: 'Testing', link: '/guide/testing' },
           { text: 'Roadmap & Status', link: '/guide/roadmap' },
+        ],
+      },
+      {
+        text: 'Plugin SDK (v1)',
+        items: [
+          { text: 'SDK v1 Contract', link: '/sdk/v1-contract' },
+          { text: 'Migration v0 → v1', link: '/sdk/migration' },
+          {
+            text: 'Starter Template',
+            link: 'https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter',
+          },
         ],
       },
     ],

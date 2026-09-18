@@ -10,3 +10,4 @@ export * from './tests';
 export * from './effect';
 export * from './correction';
 export * from './power';
+export * from './narrative';

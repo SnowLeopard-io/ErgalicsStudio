@@ -11,12 +11,22 @@
 import { createDataTable } from '@/types/datatable';
 import type { DataTable } from '@/types/datatable';
 import { hashString } from '@/core/repro/random';
+import { listFileChunks } from '@/core/storage';
+import { OpfsChunkStore } from '@/core/opfs';
 
 export interface ChunkedReadOptions {
   /** Rows per chunk (default 50_000). */
   chunkRows?: number;
   /** Column projection — only these columns are parsed/emitted. */
   columns?: string[];
+  /**
+   * FR-17: where stored chunks are read from (chunkedReadStored only).
+   * 'idb' = legacy IndexedDB `fileChunks` store, 'opfs' = Origin Private
+   * File System. Default 'idb'.
+   */
+  backend?: 'idb' | 'opfs';
+  /** Injectable OPFS store for `backend: 'opfs'` (tests / custom roots). */
+  store?: OpfsChunkStore;
 }
 
 export interface ChunkedChunk {
@@ -179,6 +189,25 @@ export async function* chunkedRead(
   text: string,
   opts: ChunkedReadOptions = {},
 ): AsyncGenerator<ChunkedChunk> {
+  yield* chunkedReadFromLines(toAsync(dataLines(text)), opts);
+}
+
+function toAsync<T>(iterable: Iterable<T>): AsyncGenerator<T> {
+  return (async function* () {
+    for (const value of iterable) yield value;
+  })();
+}
+
+/**
+ * Shared row-window engine: consumes an async iterable of data-bearing
+ * (already trimmed, non-empty) lines. Both the whole-text reader and the
+ * stored-chunk reader (FR-17) feed through here so chunk semantics stay
+ * identical across backends.
+ */
+async function* chunkedReadFromLines(
+  lines: AsyncIterable<string>,
+  opts: ChunkedReadOptions = {},
+): AsyncGenerator<ChunkedChunk> {
   const chunkRows = Math.max(1, Math.floor(opts.chunkRows ?? DEFAULT_CHUNK_ROWS));
   const projection = opts.columns ?? [];
 
@@ -200,7 +229,7 @@ export async function* chunkedRead(
     return { table, index, rows, totalRows, done };
   };
 
-  for (const line of dataLines(text)) {
+  for await (const line of lines) {
     const tokens = splitTokens(line);
     // Separator-only lines (`,,` / blank runs) carry no data.
     if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
@@ -240,6 +269,52 @@ export async function* chunkedRead(
   } else {
     yield { table: null, index: chunkIndex, rows: 0, totalRows, done: true };
   }
+}
+
+/**
+ * FR-17: read a *stored* file (written as binary chunks by the ingestion
+ * pipeline) in row windows, lazily pulling one chunk at a time from the
+ * chosen backend ('idb' legacy store or OPFS). Chunk boundaries may split a
+ * line or even a UTF-8 sequence — a carry-over buffer keeps the parse
+ * identical to `chunkedRead` on the whole text.
+ */
+export async function* chunkedReadStored(
+  projectId: string,
+  fileId: string,
+  opts: ChunkedReadOptions = {},
+): AsyncGenerator<ChunkedChunk> {
+  const backend = opts.backend ?? 'idb';
+  let count: number;
+  let readChunkAt: (index: number) => Promise<Uint8Array>;
+
+  if (backend === 'opfs') {
+    const store = opts.store ?? new OpfsChunkStore();
+    const sizes = await store.getChunkSizes(projectId, fileId);
+    count = sizes.length;
+    readChunkAt = (index) => store.readChunk(projectId, fileId, index);
+  } else {
+    const chunks = await listFileChunks(projectId, fileId);
+    count = chunks.length;
+    readChunkAt = async (index) => chunks[index]!;
+  }
+
+  async function* storedLines(): AsyncGenerator<string> {
+    const decoder = new TextDecoder('utf-8');
+    let pending = '';
+    for (let i = 0; i < count; i += 1) {
+      const text = pending + decoder.decode(await readChunkAt(i), { stream: true });
+      const parts = text.split('\n');
+      pending = parts.pop() ?? '';
+      for (const part of parts) {
+        const trimmed = stripBOM(part).trim();
+        if (trimmed.length > 0) yield trimmed;
+      }
+    }
+    const tail = stripBOM(pending + decoder.decode()).trim();
+    if (tail.length > 0) yield tail;
+  }
+
+  yield* chunkedReadFromLines(storedLines(), opts);
 }
 
 /**

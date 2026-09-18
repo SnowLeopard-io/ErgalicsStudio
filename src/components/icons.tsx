@@ -216,7 +216,11 @@ export type ToolIconKind =
   | 'lineage'
   | 'figures'
   | 'notebook'
-  | 'supplement';
+  | 'supplement'
+  | 'model-inference'
+  | 'course'
+  | 'cleaning'
+  | 'gallery';
 
 export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) {
   switch (kind) {
@@ -254,6 +258,18 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
           <circle cx="17" cy="12" r="2.2" />
           <path d="M8 6.2c3 1.5 5 3.4 7 4.6" />
           <path d="M8 17.8c3-1.5 5-3.4 7-4.6" />
+        </Svg>
+      );
+    case 'model-inference': // neural net (input → hidden → output)
+      return (
+        <Svg {...rest}>
+          <circle cx="5" cy="7" r="1.8" />
+          <circle cx="5" cy="17" r="1.8" />
+          <circle cx="12" cy="5" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="12" cy="19" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+          <path d="M6.6 6.4 10.4 5.2M6.6 7.6 10.4 11.4M6.6 16.4 10.4 12.6M6.6 17.6 10.4 18.8M13.8 5.6 17.6 11M13.8 12h3.4M13.8 18.4 17.6 13" />
         </Svg>
       );
     case 'profiler': // magnifier over bars
@@ -340,6 +356,31 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
       return (
         <Svg {...rest}>
           <path d="M18 5H7l5 7-5 7h11" />
+        </Svg>
+      );
+    case 'course': // graduation cap
+      return (
+        <Svg {...rest}>
+          <path d="m12 4 9.5 4.5L12 13 2.5 8.5z" />
+          <path d="M6.5 10.8V16c0 1.6 2.5 3 5.5 3s5.5-1.4 5.5-3v-5.2" />
+          <path d="M21.5 8.5V14" />
+        </Svg>
+      );
+    case 'cleaning': // broom
+      return (
+        <Svg {...rest}>
+          <path d="M14.5 3.5 20 9" />
+          <path d="m13 8 3.5-3.5a1.5 1.5 0 0 1 2.1 0l1.9 1.9a1.5 1.5 0 0 1 0 2.1L17 12" />
+          <path d="M13 8 4.5 16.5c-.6.6-.8 1.5-.5 2.3l1 2.6c.2.6.9.9 1.5.7l2.6-1c.8-.3 1.3.1 1.9-.5L17 12" />
+          <path d="m7 15 2 2M10 12.5l2 2" />
+        </Svg>
+      );
+    case 'gallery': // framed picture with mountain
+      return (
+        <Svg {...rest}>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+          <circle cx="9" cy="9.5" r="1.4" />
+          <path d="m4.5 17 5-5.5 4 4 3-2.5 3.5 4" />
         </Svg>
       );
   }

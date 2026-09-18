@@ -25,6 +25,7 @@ export function Sidebar() {
   const activate = usePluginStore((s) => s.activate);
 
   const [pluginOpen, setPluginOpen] = useState(false);
+  const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
   /** Pending destructive action: project awaiting delete confirmation. */
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   /** Collapsed discipline groups (in-memory; all expanded by default). */
@@ -36,10 +37,12 @@ export function Sidebar() {
 
   // The welcome page's "Market" link navigates here with
   // { state: { openPluginDialog: true } } — open the plugin dialog and
-  // consume the flag so a refresh does not re-open it.
+  // consume the flag so a refresh does not re-open it. A website plugin
+  // deep link adds { pluginQuery: '<id>' } to focus that listing.
   useEffect(() => {
-    const state = location.state as { openPluginDialog?: boolean } | null;
+    const state = location.state as { openPluginDialog?: boolean; pluginQuery?: string } | null;
     if (state?.openPluginDialog) {
+      setPluginFocusId(state.pluginQuery);
       setPluginOpen(true);
       window.history.replaceState({}, '');
     }
@@ -154,7 +157,7 @@ export function Sidebar() {
         onClose={() => setDeleteTarget(null)}
       />
 
-      <PluginDialog open={pluginOpen} onClose={() => setPluginOpen(false)} />
+      <PluginDialog open={pluginOpen} onClose={() => { setPluginOpen(false); setPluginFocusId(undefined); }} focusId={pluginFocusId} />
     </aside>
   );
 }

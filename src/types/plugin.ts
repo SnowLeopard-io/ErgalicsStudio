@@ -5,6 +5,32 @@
 import type { Scene, PerspectiveCamera, WebGLRenderer } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+/**
+ * ed25519 package signature embedded in a `.cspkg` manifest (FR-05).
+ *
+ * Absence of this field means "unsigned" — older packages keep parsing
+ * unchanged, and the install pipeline decides policy on that signal.
+ */
+export interface PluginSignature {
+  alg: 'ed25519';
+  /** `ed25519:<hex16>` — first 16 bytes of SHA-256(publicKey), hex. */
+  fingerprint: string;
+  /** Hex-encoded 64-byte ed25519 signature over the canonical payload. */
+  sig: string;
+  /** Human-readable signer / publisher name. */
+  signer: string;
+  /** ISO-8601 timestamp chosen by the signer at signing time. */
+  signedAt: string;
+  /** Declared capability scope shown in the install confirmation dialog. */
+  permissions?: string[];
+  /**
+   * Optional hex-encoded 32-byte public key. When present the verifier
+   * cross-checks it against `fingerprint` (catching a manifest that claims
+   * a trusted fingerprint while embedding a different key).
+   */
+  pub?: string;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -13,6 +39,8 @@ export interface PluginManifest {
   description: string;
   license?: string;
   icon?: string;
+  /** Package signature (FR-05). Absent = unsigned. */
+  signature?: PluginSignature;
   /**
    * Entry descriptor. Semantics depend on the distribution channel:
    * - **Bundled built-ins**: a symbolic id (e.g. `"example.scatter"`). The

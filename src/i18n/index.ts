@@ -3,12 +3,13 @@ import type { Locale, LocaleDictionary } from './types';
 import { LOCALES } from './types';
 import { zhCN } from './zh-CN';
 import { enUS } from './en-US';
+import { MODULE_ZH, MODULE_EN } from './modules';
 
 const STORAGE_KEY = 'ergalics:lang';
 
 const dictionaries: Record<Locale, LocaleDictionary> = {
-  'zh-CN': zhCN,
-  'en-US': enUS,
+  'zh-CN': { ...zhCN, ...MODULE_ZH },
+  'en-US': { ...enUS, ...MODULE_EN },
 };
 
 type Listener = () => void;

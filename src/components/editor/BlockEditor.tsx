@@ -27,6 +27,8 @@ import {
 } from '@/editor/block';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
+import { AiAssistantPanel, type AiRunResult } from '@/components/AiAssistantPanel';
+import { parseCodeToIR } from '@/editor/code/parse';
 
 /** Clear the 2D preview canvas + DOM overlay so a previous run's plot never
  *  lingers when loading a new sample or starting a fresh run. */
@@ -60,6 +62,8 @@ export function BlockEditor() {
 
   const [codeView, setCodeView] = useState<'js' | 'python' | null>(null);
   const [code, setCode] = useState('');
+  // FR-07: AI assistant side panel (toggled from the toolbar).
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Keep a ref in sync so the workspace change listener (registered once) can
   // read the current code-view state without re-subscribing.
@@ -202,6 +206,20 @@ export function BlockEditor() {
     }
   };
 
+  /**
+   * FR-07: assistant drafts are Python `studio.*` programs whose math lines
+   * (comprehensions, sum()) the IR interpreter cannot execute — running them
+   * here would silently skip those statements. So in block mode the run
+   * action loads the draft into the workspace (the same path "插入缓冲区"
+   * uses, which also syncs the flow canvas) and reports `insertedOnly`: the
+   * user runs it from code mode (Pyodide) or continues editing the blocks.
+   */
+  const runAssistantCode = async (code: string): Promise<AiRunResult> => {
+    const { program } = parseCodeToIR(code, 'python');
+    useEditorStore.getState().requestLoad(program);
+    return { ok: true, insertedOnly: true };
+  };
+
   const refreshCode = () => {
     const ws = wsRef.current;
     if (!ws) return;
@@ -239,6 +257,15 @@ export function BlockEditor() {
 
         <div className="be-toolbar-spacer" />
 
+        <button
+          type="button"
+          className={`btn btn-sm${aiOpen ? ' btn-toggle-on' : ''}`}
+          title={t('ai.title')}
+          onClick={() => setAiOpen((v) => !v)}
+        >
+          {t('ai.toggle')}
+        </button>
+
         <div className={`be-status-pill ${isRunning ? 'is-running' : (error ? 'is-error' : 'is-idle')}`}>
           <span className="be-status-dot" />
           <span className="be-status-text">
@@ -271,6 +298,8 @@ export function BlockEditor() {
           <VariablePanel />
           <ConsolePanel />
         </div>
+
+        {aiOpen && <AiAssistantPanel runCode={runAssistantCode} />}
       </div>
     </div>
   );

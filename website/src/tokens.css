@@ -1,0 +1,95 @@
+/* Ergalics Studio — design tokens shared with the workstation app.
+   Keep in sync with src/styles/global.css in the main package. */
+
+:root {
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13.5px;
+  --font-size-md: 15px;
+  --font-size-lg: 19px;
+  --font-size-xl: 26px;
+  --font-size-hero: 44px;
+  --font-sans: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI Variable Display', 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular,
+    Consolas, 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-family: var(--font-sans);
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.22);
+  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.32);
+  --focus-ring: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+:root[data-theme='dark'] {
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #111820;
+  --color-bg-tertiary: #1a2430;
+  --color-bg-elevated: #151e28;
+  --color-bg-hover: #1f2a37;
+  --color-bg-active: #28364a;
+  --color-bg-overlay: rgba(4, 8, 12, 0.66);
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #9db0c3;
+  --color-text-tertiary: #6f8298;
+  --color-text-inverse: #04161a;
+  --color-border: #22303f;
+  --color-border-hover: #33465c;
+  --color-accent: #2dd4bf;
+  --color-accent-hover: #5eead4;
+  --color-accent-soft: rgba(45, 212, 191, 0.14);
+  --color-accent-text: #5eead4;
+  --cat-scientific: #22d3ee;
+  --cat-scientific-soft: rgba(34, 211, 238, 0.16);
+  --cat-fun: #f472b6;
+  --cat-fun-soft: rgba(244, 114, 182, 0.16);
+  --cat-utility: #a78bfa;
+  --cat-utility-soft: rgba(167, 139, 250, 0.16);
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-glow: rgba(45, 212, 191, 0.22);
+}
+
+:root[data-theme='light'] {
+  --color-bg-primary: #f6f8fa;
+  --color-bg-secondary: #eef1f5;
+  --color-bg-tertiary: #e3e8ee;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #e9eef4;
+  --color-bg-active: #dce4ec;
+  --color-bg-overlay: rgba(15, 23, 42, 0.45);
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #ffffff;
+  --color-border: #d7dee6;
+  --color-border-hover: #bac6d2;
+  --color-accent: #0e9384;
+  --color-accent-hover: #0b7a6e;
+  --color-accent-soft: rgba(14, 147, 132, 0.12);
+  --color-accent-text: #0b7a6e;
+  --cat-scientific: #0e7490;
+  --cat-scientific-soft: rgba(14, 116, 144, 0.12);
+  --cat-fun: #be185d;
+  --cat-fun-soft: rgba(190, 24, 93, 0.12);
+  --cat-utility: #6d28d9;
+  --cat-utility-soft: rgba(109, 40, 217, 0.12);
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+  --color-glow: rgba(14, 147, 132, 0.18);
+}

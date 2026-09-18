@@ -1518,6 +1518,21 @@
   align-self: flex-start;
 }
 
+/* FR-10 citation previews on the Settings "About" section */
+.citation-preview {
+  margin: 0 0 var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
 /* ==========================================================================
    Share
    ========================================================================== */
@@ -1560,6 +1575,27 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+/* FR-09: snapshot / classic share mode toggle + staged export progress */
+.share-mode-picker {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.share-snapshot-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary, #888);
+  margin-bottom: var(--space-3);
+}
+
+.share-snapshot-progress .stage.active {
+  color: var(--color-accent, #1a56c4);
+  font-weight: 600;
 }
 
 .share-link-row {
@@ -1669,6 +1705,82 @@
 .lab-page .analysis-body {
   max-height: none;
   overflow: visible;
+}
+
+/* ==========================================================================
+   FR-08 — model inference tool page
+   ========================================================================== */
+
+.infer-device-badge {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+}
+
+.infer-device-badge.is-webgpu {
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.infer-device-badge.is-cpu {
+  color: var(--color-text-secondary);
+}
+
+.infer-device-warning {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.infer-textarea {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+  margin-bottom: var(--space-2);
+}
+
+.infer-progress {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-bg-hover);
+  overflow: hidden;
+}
+
+.infer-progress-bar {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 120ms linear;
+}
+
+.infer-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-2);
+}
+
+.infer-table th,
+.infer-table td {
+  padding: 4px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.infer-table th {
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+
+.infer-table tr.is-top td {
+  color: var(--color-accent);
+  font-weight: 700;
 }
 
 .share-loading {
@@ -2543,6 +2655,107 @@
   }
 }
 
+/* ---- Research modules — FR-03 submission assistant ----------------------- */
+
+.submit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.submit-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+}
+
+.submit-font-embed {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.submit-summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.submit-group-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-tertiary);
+}
+
+.submit-list {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.submit-item {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.submit-item-ok {
+  border-color: var(--color-success-soft);
+}
+
+.submit-item-fail {
+  border-color: var(--color-error-soft);
+}
+
+.submit-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.submit-item-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.submit-item-body {
+  margin-top: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.submit-item-message {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.submit-item-fix {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.submit-caption-gen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* ---- Research modules — supplement packaging dialog ---------------------- */
 
 .supplement-form {
@@ -3362,6 +3575,34 @@
   cursor: pointer;
 }
 
+/* FR-11 lock v2: category chips, upgrade hint, dependency fingerprint */
+.repro-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+  margin: var(--space-2) 0;
+}
+
+.repro-upgrade-hint {
+  color: #c88c14;
+}
+
+.repro-deps {
+  margin: var(--space-2) 0;
+}
+
+.repro-drift-suggestion {
+  color: var(--color-text-tertiary, #888);
+  font-size: var(--font-size-xs, 12px);
+  margin-top: 2px;
+}
+
+.runs-diff-kind {
+  color: var(--color-text-tertiary, #888);
+  font-size: var(--font-size-xs, 12px);
+  margin-left: 4px;
+}
+
 .repro-status {
   margin: var(--space-2) 0;
   text-transform: uppercase;
@@ -3976,7 +4217,9 @@
 
 .welcome-start {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit keeps the 4 start cards (blank / recent / samples / templates)
+     balanced on wide screens and wraps cleanly on narrow ones. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-4);
   width: min(1240px, 96vw);
 }
@@ -4061,6 +4304,225 @@ button.start-card:hover {
 .start-recent-item:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
+}
+
+/* ---- FR-01: subject template browser + guided tour ----------------------- */
+
+.template-panel-desc {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.template-panel-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.template-subject-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.template-subject-chips .chip {
+  padding: 3px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.template-subject-chips .chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.template-subject-chips .chip.is-active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.template-search {
+  margin-left: auto;
+  flex: 0 1 240px;
+  min-width: 160px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-3);
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.template-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.template-card-minutes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.template-card-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.template-card-summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.template-card-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+}
+
+.template-card-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+}
+
+.template-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+/* Guided tour: compact card pinned top-right, under the toast stack. */
+.template-tour {
+  position: fixed;
+  top: calc(var(--topbar-height, 48px) + 12px);
+  right: 16px;
+  z-index: 1800;
+  width: min(340px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  animation: tour-tip-in 0.2s ease;
+}
+
+.template-tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.template-tour-brand {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-tour-step-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.template-tour-step-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.template-tour-goto {
+  margin-top: var(--space-2);
+}
+
+.template-tour-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+}
+
+.template-tour-progress {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.template-tour-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.template-tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.template-tour-dot.is-active {
+  background: var(--color-accent);
+}
+
+.template-tour-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
 }
 
 /* ---- Welcome: collapsed environment strip -------------------------------- */
@@ -4276,4 +4738,455 @@ button.start-card:hover {
   .welcome-tools-filter {
     width: 100%;
   }
+}
+
+/* ---- FR-16/FR-17: virtual result table + chunk storage usage bar ---------- */
+
+.virtual-table-scroll {
+  overflow: auto;
+}
+
+.virtual-table {
+  table-layout: fixed;
+}
+
+.storage-usage-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-accent-soft);
+  margin: var(--space-2) 0;
+}
+
+.storage-usage-idb {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--transition-fast);
+}
+
+/* ==========================================================================
+   FR-13 — course mode tool page
+   ========================================================================== */
+
+.course-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.course-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.course-assignment-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  margin-bottom: var(--space-3);
+}
+
+.course-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.course-overdue {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.course-matrix {
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-2);
+}
+
+.course-matrix th,
+.course-matrix td {
+  padding: 4px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.course-matrix th {
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+
+.course-cell {
+  min-width: 34px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: default;
+}
+
+.course-cell.course-state-pass {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.course-cell.course-state-drift {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.course-cell.course-state-missing {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-hover);
+}
+
+/* ==========================================================================
+   FR-14 — data cleaning wizard tool page
+   ========================================================================== */
+
+.clean-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.clean-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clean-step-dot.is-done {
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+.clean-step-dot.is-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 700;
+}
+
+.clean-step-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.clean-step-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border-left: 2px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.clean-step-list li.is-current {
+  border-left-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.clean-preview {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  margin-bottom: var(--space-3);
+}
+
+.clean-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.clean-mini-table {
+  overflow-x: auto;
+}
+
+.clean-mini-table h5 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.clean-mini-table table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.clean-mini-table th,
+.clean-mini-table td {
+  padding: 2px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.clean-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+}
+
+.clean-script {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 260px;
+}
+
+.clean-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ==========================================================================
+   FR-19 — Work gallery (ToolShell page)
+   ========================================================================== */
+
+.gallery-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gallery-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 8px;
+}
+
+.gallery-tab {
+  padding: 5px 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.gallery-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.gallery-tab.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+.gallery-privacy {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.gallery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gallery-filters .input {
+  width: auto;
+  min-width: 130px;
+}
+
+.gallery-filters .analysis-label {
+  margin: 0;
+}
+
+.gallery-search {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.gallery-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.gallery-show-td {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-3);
+}
+
+.gallery-card {
+  display: flex;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.gallery-card-hit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gallery-cover {
+  width: 100%;
+  height: 110px;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.gallery-cover-bg {
+  fill: var(--color-bg-tertiary);
+}
+
+.gallery-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gallery-card-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.gallery-card-summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gallery-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.gallery-repro-locked {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.gallery-repro-drifted {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.gallery-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gallery-detail .gallery-cover {
+  height: 140px;
+}
+
+.gallery-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.gallery-detail-meta dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.gallery-detail-meta dd {
+  margin: 0 0 4px;
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.gallery-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--space-3);
+}
+
+/* Share dialog: gallery section controls */
+.gallery-share-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gallery-share-form .input {
+  width: 100%;
 }

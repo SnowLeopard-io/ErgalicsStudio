@@ -9,12 +9,12 @@
 import { asFloat64 } from '@/blocks/ops';
 import type { DataTable } from '@/types/datatable';
 import type { CategoricalTicks, PlotSeries, PlotSpec } from './types';
+import { chartColorAt } from '@/core/theme-pack/apply';
 
-const DEFAULT_COLOR = '#1f77b4';
-const PALETTE = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
-
-function colorAt(i: number): string {
-  return PALETTE[i % PALETTE.length]!;
+/** FR-21 chart-color linkage: the default series color follows the active
+ *  theme pack's chartPalette (advisory — falls back to the stock palette). */
+function defaultColor(): string {
+  return chartColorAt(0);
 }
 
 function pairPoints(
@@ -51,7 +51,7 @@ export function dataTableToLine(
   let pts = pairPoints(table, xCol, yCol);
   if (opts.sortX !== false) pts = pts.slice().sort((a, b) => a.x - b.x);
   const series: PlotSeries[] = [
-    { name: yCol, kind: 'line', color: opts.color ?? DEFAULT_COLOR, points: pts },
+    { name: yCol, kind: 'line', color: opts.color ?? defaultColor(), points: pts },
   ];
   return {
     width: 640,
@@ -71,7 +71,7 @@ export function dataTableToScatter(
 ): PlotSpec {
   const pts = pairPoints(table, xCol, yCol);
   const series: PlotSeries[] = [
-    { name: yCol, kind: 'scatter', color: opts.color ?? DEFAULT_COLOR, points: pts },
+    { name: yCol, kind: 'scatter', color: opts.color ?? defaultColor(), points: pts },
   ];
   return {
     width: 640,
@@ -113,7 +113,7 @@ export function dataTableToHistogram(
   }
   const bars = counts.map((c, i) => ({ x0: min + i * w, x1: min + (i + 1) * w, y: c }));
   const series: PlotSeries[] = [
-    { name: `${col} (n=${n})`, kind: 'histogram', color: opts.color ?? DEFAULT_COLOR, bars },
+    { name: `${col} (n=${n})`, kind: 'histogram', color: opts.color ?? defaultColor(), bars },
   ];
   return {
     width: 640,
@@ -140,7 +140,7 @@ export function dataTableToBar(
   const entries = [...counts.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   const bars = entries.map(([, c], i) => ({ x0: i, x1: i + 0.8, y: c }));
   const series: PlotSeries[] = [
-    { name: col, kind: 'bar', color: opts.color ?? DEFAULT_COLOR, bars },
+    { name: col, kind: 'bar', color: opts.color ?? defaultColor(), bars },
   ];
   const ticks: CategoricalTicks[] = entries.map(([k], i) => ({ pos: i + 0.4, label: k }));
   return {
@@ -154,5 +154,3 @@ export function dataTableToBar(
     xTicksOverride: ticks,
   };
 }
-
-void colorAt;

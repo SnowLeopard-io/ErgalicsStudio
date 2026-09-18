@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "updated_from_environment": {
+    "node": "v24.17.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600K",
+    "date": "2026-09-18T08:27:02.143Z",
+    "runtime": "node"
+  },
+  "metrics": {
+    "import.csv_rows_per_sec": {
+      "value": 1289181,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "import.json_rows_per_sec": {
+      "value": 3298240,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "compute.matmul_gflops": {
+      "value": 1.76,
+      "unit": "GFLOP/s",
+      "direction": "up"
+    },
+    "compute.fft_ms": {
+      "value": 0.15,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "compute.kmeans_ms": {
+      "value": 22.91,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "compute.binning_rows_per_sec": {
+      "value": 242839277,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "render.chart_spec_ms": {
+      "value": 6.88,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "render.virtual_scroll_steps_per_sec": {
+      "value": 8190008,
+      "unit": "steps/s",
+      "direction": "up"
+    },
+    "memory.table_retained_kb": {
+      "value": 39267,
+      "unit": "KB",
+      "direction": "down"
+    },
+    "memory.heap_peak_kb": {
+      "value": 66759,
+      "unit": "KB",
+      "direction": "down"
+    },
+    "memory.input_bytes": {
+      "value": 5775182,
+      "unit": "B",
+      "direction": "down"
+    }
+  }
+}

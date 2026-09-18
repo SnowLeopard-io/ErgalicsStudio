@@ -1,0 +1,14 @@
+{
+  "name": "ergalics-plugin-starter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Starter template for an Ergalics Studio plugin (SDK v1).",
+  "type": "module",
+  "scripts": {
+    "check": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json && node build.mjs"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2"
+  }
+}

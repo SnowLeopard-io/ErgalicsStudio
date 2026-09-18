@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { lazy, Suspense } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BannerStack, ToastStack } from '@/components/Feedback';
+import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
@@ -34,6 +35,7 @@ function AppShell() {
     <>
       <BannerStack />
       <ToastStack />
+      <TemplateTourOverlay />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
             the `.route-stage` fade/settle entrance. `location` is passed through

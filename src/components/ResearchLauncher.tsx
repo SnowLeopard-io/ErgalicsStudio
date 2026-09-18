@@ -27,12 +27,12 @@ export function ResearchLauncher() {
       navigate(toolDef.path);
     };
 
-    const richItem = (id: string, badge?: string): MenuItemDef => {
+    const richItem = (id: string, badge?: string, keyPrefix = ''): MenuItemDef => {
       const toolDef = getTool(id)!;
       const title = t(toolDef.titleKey);
       const desc = t(toolDef.descKey);
       return {
-        key: id,
+        key: `${keyPrefix}${id}`,
         icon: <ToolIcon kind={toolDef.icon} size={18} />,
         label: title,
         description: desc,
@@ -46,7 +46,7 @@ export function ResearchLauncher() {
     const recent = getRecentTools(3).filter((id) => GRID_TOOLS.some((x) => x.id === id));
     if (recent.length > 0) {
       list.push({ key: 'hdr-recent', header: true, label: t('launcher.recent_group') });
-      recent.forEach((id) => list.push(richItem(id, t('launcher.recent'))));
+      recent.forEach((id) => list.push(richItem(id, t('launcher.recent'), 'recent-')));
       list.push({ key: 'separator', label: '' });
     }
 

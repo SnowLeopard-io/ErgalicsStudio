@@ -8,6 +8,11 @@ import { logger } from './logger';
 import type { Plugin, PluginManifest, PluginApi } from '@/types/plugin';
 import { savePluginPackage, type StoredPluginPackage } from './storage';
 import { createPluginSandbox, evaluatePluginLegacy } from './sandbox';
+import {
+  TRUSTED_KEYS,
+  verifyPackageSignature,
+  type SignatureCheckResult,
+} from './plugin-signing';
 
 const REQUIRED_MANIFEST_FIELDS = ['id', 'entry', 'name', 'version'] as const;
 
@@ -170,6 +175,51 @@ export interface LoadedCspkg {
   plugin: Plugin;
   /** Which execution context the plugin ended up running in. */
   mode: CspkgExecutionMode;
+  /** Signature verification outcome recorded at install time (FR-05). */
+  signature: SignatureCheckResult;
+}
+
+/**
+ * Install gate failure carrying the structured signature result. The UI
+ * checks `needsTrustConfirmation` to decide whether an explicit "trust this
+ * source" prompt is offered (unsigned / unknown-key) or the package must be
+ * refused outright (tampered / malformed — never bypassable).
+ */
+export class CspkgSignatureError extends Error {
+  readonly result: SignatureCheckResult;
+  readonly needsTrustConfirmation: boolean;
+
+  constructor(result: SignatureCheckResult) {
+    super(`cspkg: signature check failed (${result.reason}) — ${result.message}`);
+    this.name = 'CspkgSignatureError';
+    this.result = result;
+    this.needsTrustConfirmation = result.reason === 'missing' || result.reason === 'untrusted-key';
+  }
+}
+
+export interface LoadCspkgOptions {
+  /**
+   * Explicit user confirmation to install despite an unsigned package or an
+   * unknown signing key (FR-05 "trust this source"). Tampered packages are
+   * rejected regardless of this flag.
+   */
+  trustUnsigned?: boolean;
+  /** Provenance recorded in the install registry. */
+  source?: 'local' | 'marketplace';
+}
+
+/** Parse a package and run the signature gate without executing anything. */
+export async function inspectCspkg(buffer: ArrayBuffer): Promise<{
+  manifest: PluginManifest;
+  files: Record<string, Uint8Array>;
+  entryBytes: Uint8Array;
+  signature: SignatureCheckResult;
+}> {
+  const { manifest, files } = await parseCspkg(buffer);
+  const entryFile = files[manifest.entry];
+  if (!entryFile) throw new Error(`cspkg: entry "${manifest.entry}" not found`);
+  const signature = verifyPackageSignature({ manifest, entryBytes: entryFile }, TRUSTED_KEYS);
+  return { manifest, files, entryBytes: entryFile, signature };
 }
 
 /**
@@ -181,18 +231,30 @@ export interface LoadedCspkg {
  * unavailable, execution falls back to a best-effort restricted scope and
  * `mode` is set to `"legacy-fallback"` so the UI can warn the user.
  *
+ * Signature gate (FR-05): unsigned or unknown-key packages throw a
+ * `CspkgSignatureError` with `needsTrustConfirmation` unless the caller
+ * passes `trustUnsigned`; tampered packages always throw. Verification is
+ * independent of the sandbox decision — a valid signature never relaxes
+ * execution isolation.
+ *
  * @param getApi builds the host PluginApi for the (parsed) plugin id.
  */
 export async function loadCspkg(
   file: File,
   getApi: (pluginId: string) => PluginApi,
+  options: LoadCspkgOptions = {},
 ): Promise<LoadedCspkg> {
   const buffer = await file.arrayBuffer();
-  const { manifest, files } = await parseCspkg(buffer);
+  const { manifest, files, entryBytes, signature } = await inspectCspkg(buffer);
 
-  const entryFile = files[manifest.entry];
-  if (!entryFile) throw new Error(`cspkg: entry "${manifest.entry}" not found`);
-  const entrySrc = strFromU8(entryFile);
+  // Tampered / malformed packages can never be installed; unsigned or
+  // unknown-key packages need the explicit trust confirmation (FR-05).
+  const trustable = signature.reason === 'missing' || signature.reason === 'untrusted-key';
+  if (!signature.ok && !(options.trustUnsigned && trustable)) {
+    throw new CspkgSignatureError(signature);
+  }
+
+  const entrySrc = strFromU8(entryBytes);
 
   let plugin: Plugin;
   let mode: CspkgExecutionMode;
@@ -241,10 +303,14 @@ export async function loadCspkg(
     entry: manifest.entry,
     files: Object.keys(files),
     installedAt: Date.now(),
+    source: options.source ?? 'local',
+    signer: signature.signer,
+    fingerprint: signature.fingerprint,
+    signed: signature.ok,
   };
   await savePluginPackage(stored).catch(() => {
     logger.warn('cspkg', 'failed to persist package');
   });
 
-  return { plugin, mode };
+  return { plugin, mode, signature };
 }

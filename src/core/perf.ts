@@ -106,3 +106,39 @@ function queryJsHeap(): number {
 }
 
 export const perfMonitor = new PerformanceMonitor();
+
+// ---- Kernel execution recorder (spec FR-12) ------------------------------
+//
+// Every GPU/CPU kernel execution reports its wall time and device-memory
+// footprint here. GPU durations additionally feed the existing status-bar
+// surface (`setGpuMs`), so kernel bursts are visible without a new UI.
+
+export interface KernelExecutionSample {
+  kernel: string;
+  engine: 'gpu' | 'cpu';
+  durationMs: number;
+  /** Bytes of GPU storage/uniform memory the execution allocated. */
+  memoryBytes: number;
+}
+
+/** Bounded ring of recent samples (mirrors the logger buffer policy). */
+const KERNEL_SAMPLE_LIMIT = 100;
+const kernelSamples: KernelExecutionSample[] = [];
+
+export function recordKernelExecution(sample: KernelExecutionSample): void {
+  kernelSamples.push(sample);
+  if (kernelSamples.length > KERNEL_SAMPLE_LIMIT) kernelSamples.shift();
+  if (sample.engine === 'gpu') {
+    useAppStore.getState().setGpuMs(Math.round(sample.durationMs * 100) / 100);
+  }
+}
+
+/** Snapshot of recent kernel executions (oldest first). */
+export function kernelExecutions(): KernelExecutionSample[] {
+  return kernelSamples.map((s) => ({ ...s }));
+}
+
+/** Drop all buffered samples (tests). */
+export function clearKernelExecutions(): void {
+  kernelSamples.length = 0;
+}

@@ -13,7 +13,7 @@
 // ==========================================================================
 
 import { logger } from '@/core/logger';
-import { AppError, OperationAbortedError } from './AppError';
+import { AppError } from './AppError';
 import { normalizeError } from './normalize';
 
 export interface ErrorEntry {
@@ -181,12 +181,10 @@ export function installGlobalErrorHandlers(target: EventLikeTarget = globalThis 
   const onRejection = (event: Event): void => {
     const detail = (typeof event === 'object' && event !== null ? event : {}) as GlobalRejectionShape;
     const reason = detail.reason ?? new AppError('Unhandled promise rejection', { code: 'unknown' });
-    const abort =
-      reason instanceof OperationAbortedError ||
-      (reason instanceof DOMException && reason.name === 'AbortError') ||
-      (reason instanceof Error && reason.name === 'AbortError');
-    // Benign cancellations are recorded quietly so the diagnostics ring still
-    // shows them but they never masquerade as crashes in the console.
+    // Benign cancellations (AbortError, Monaco's `Canceled` sentinel) are
+    // recorded quietly so the diagnostics ring still shows them but they never
+    // masquerade as crashes in the console.
+    const abort = normalizeError(reason).code === 'abort';
     reportError(reason, { context: { kind: 'global.unhandledrejection' }, silent: abort });
   };
 

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "updated": "2026-09-18T08:27:59.177Z",
+  "first_screen_gzip_kb": 649.8,
+  "lazy_chunk_count": 175,
+  "research_page_chunks": 24,
+  "files": {
+    "assets/react*.js": 58.2,
+    "assets/index*.js": 591.6
+  }
+}

@@ -1,0 +1,143 @@
+name: Security (FR-18)
+
+# Engineering-scorecard, SBOM and dependency-audit gate. Blocking rule:
+# npm audit findings at high/critical fail the job and block the merge.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly re-score even without code changes (03:00 Mondays, UTC).
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scorecards:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # publish_results: false — the repo may run on branches without the
+      # scorecards default-branch config; results land in the job log + SARIF
+      # artifact instead of the public badge.
+      - name: OSSF Scorecards analysis
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          repo: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          publish_results: false
+
+      - name: Upload scorecards SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecards-results
+          path: results.sarif
+          retention-days: 30
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # CycloneDX 1.5 generated from package-lock.json v3 by a dependency-free
+      # Node script (@cyclonedx/cyclonedx-npm is not allowed: no new deps).
+      - name: Generate SBOM
+        run: node scripts/gen-sbom.mjs sbom/cyclonedx.sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/cyclonedx.sbom.json
+          retention-days: 90
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Blocking gate: high/critical advisories fail this step and block merge.
+      #
+      # Temporary exemption mechanism (documented, review-required): if a
+      # high/critical advisory is genuinely unfixable (no patched release,
+      # transitive-only, false positive), add its GHSA id to AUDIT_ALLOWLIST
+      # below with a comment stating WHY and a follow-up issue link. The step
+      # downgrades only those ids to warnings; everything else still blocks.
+      - name: npm audit (high/critical blocking)
+        run: |
+          AUDIT_ALLOWLIST=""  # e.g. "GHSA-xxxx-yyyy-zzzz" — one space-separated id per exemption, each justified in a PR comment
+          set +e
+          npm audit --audit-level=high --json > audit.json
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            node - "$AUDIT_ALLOWLIST" <<'EOF'
+          const fs = require('node:fs');
+          const allow = new Set((process.argv[2] || '').split(/\s+/).filter(Boolean));
+          const data = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+          const vulns = data.vulnerabilities ?? {};
+          const blocking = [];
+          const walk = (name, node) => {
+            for (const v of node.via ?? []) {
+              if (typeof v === 'object' && (v.severity === 'high' || v.severity === 'critical')) {
+                const id = v.url?.match(/GHSA-[a-z0-9-]+/i)?.[0] ?? `${name}:${v.title}`;
+                if (!allow.has(id)) blocking.push(`${name}: ${id} (${v.severity})`);
+              }
+            }
+            for (const [dep, child] of Object.entries(node.effects ?? {})) walk(dep, child);
+          };
+          for (const [name, node] of Object.entries(vulns)) walk(name, node);
+          if (blocking.length) {
+            console.error('Blocking advisories (exempt via AUDIT_ALLOWLIST with justification):');
+            for (const b of blocking) console.error('  - ' + b);
+            process.exit(1);
+          }
+          console.log('All high/critical findings are allow-listed; downgraded to warnings.');
+          EOF
+            exit $?
+          fi
+          echo "npm audit: no high/critical findings."
+
+      - name: Write audit report
+        if: always()
+        run: |
+          mkdir -p audit-report
+          cp audit.json audit-report/npm-audit.json 2>/dev/null || echo '{"error":"audit.json missing"}' > audit-report/npm-audit.json
+          npm audit --audit-level=high > audit-report/npm-audit.txt 2>&1 || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: audit-report/
+          retention-days: 90

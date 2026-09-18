@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/ico.ico" />
+    <!-- FR-20: PWA manifest (Vite rewrites the absolute public path against
+         the relative build base, so it resolves under /<repo>/app/ too). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2dd4bf" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Ergalics Studio - 浏览器端专业科学计算工作站" />
     <title>Ergalics Studio</title>

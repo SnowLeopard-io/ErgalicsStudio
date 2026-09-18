@@ -70,6 +70,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('inference', () => import('@/pages/labs/InferenceForgePage'), {
     icon: 'inference', titleKey: 'inference.title', group: 'model',
   }),
+  tool('model-inference', () => import('@/pages/labs/InferencePage'), {
+    icon: 'model-inference', titleKey: 'tool.model-inference.title', group: 'model',
+  }),
   tool('sweeps', () => import('@/pages/sweeps/SweepsPage'), {
     icon: 'sweeps', titleKey: 'sweep.title', group: 'model', requireProject: true,
   }),
@@ -102,6 +105,15 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   }),
   tool('supplement', () => import('@/pages/labs/SupplementPage'), {
     icon: 'supplement', titleKey: 'supplement.title', group: 'deliver',
+  }),
+  tool('course', () => import('@/pages/labs/CoursePage'), {
+    icon: 'course', titleKey: 'tool.course.title', group: 'deliver', requireProject: true,
+  }),
+  tool('cleaning', () => import('@/pages/labs/CleaningWizardPage'), {
+    icon: 'cleaning', titleKey: 'tool.cleaning.title', group: 'data', requireProject: true,
+  }),
+  tool('gallery', () => import('@/pages/gallery/GalleryPage'), {
+    icon: 'gallery', titleKey: 'tool.gallery.title', group: 'deliver',
   }),
 ];
 
