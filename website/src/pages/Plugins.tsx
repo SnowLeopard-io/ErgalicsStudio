@@ -27,8 +27,9 @@ export function Plugins() {
       .sort((a, b) => (sort === 'installs' ? b.installs - a.installs : b.updatedAt.localeCompare(a.updatedAt)));
   }, [query, cat, sort]);
 
-  // Download a real, loadable .cspkg (ZIP) archive — not a bare JSON
-  // manifest — so the file imports straight into the workstation.
+  // Download a real, signed, loadable .cspkg (ZIP) archive — the package is
+  // namespaced under `market.` so it can never collide with a built-in id,
+  // and signed with the website demo-publisher key the workstation trusts.
   const downloadCspkg = (id: string) => {
     const p = PLUGINS.find((x) => x.id === id)!;
     const blob = buildCspkg({
@@ -37,7 +38,6 @@ export function Plugins() {
       version: p.version,
       author: p.author,
       description: pickLocal(p.desc),
-      category: p.category,
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

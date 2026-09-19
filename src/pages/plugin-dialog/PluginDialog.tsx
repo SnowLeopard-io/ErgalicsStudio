@@ -164,6 +164,15 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
   const confirmInstall = async (trustOverride: boolean) => {
     const target = installTarget;
     if (!target) return;
+    // A package whose id already lives in the registry (e.g. a hand-signed
+    // build reusing a built-in id) would silently no-op in load()'s
+    // isLoaded guard — the old "installed but nothing happens" bug. Refuse
+    // it with an explicit warning instead.
+    if (registry.some((e) => e.id === target.manifest.id)) {
+      notify('warning', `${t('signing.id_conflict')}: ${target.manifest.id}`);
+      setInstallTarget(null);
+      return;
+    }
     setInstalling(target.fileName);
     try {
       const file = new File([target.buffer], target.fileName);
@@ -172,6 +181,9 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
         source: target.source,
       });
       await load(plugin);
+      // Install → activate: the plugin becomes immediately usable (canvas +
+      // right-panel params) instead of sitting inertly in the sidebar list.
+      await usePluginStore.getState().activate(plugin.manifest.id);
       setInstallTarget(null);
       refreshRecords();
       const pname = plugin.manifest.nameI18n?.[locale] ?? plugin.manifest.name;

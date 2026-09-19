@@ -126,6 +126,6 @@ export const PLUGINS: PluginListing[] = [
     },
     author: 'community:datacore', version: '0.2.1', category: 'utility',
     tags: ['hdf5', 'io', 'browser'], installs: 431,
-    fingerprint: 'ed25519:aa17…4f88', signed: false, sizeKb: 57, updatedAt: '2026-08-25',
+    fingerprint: 'ed25519:aa17…4f88', signed: true, sizeKb: 57, updatedAt: '2026-08-25',
   },
 ];

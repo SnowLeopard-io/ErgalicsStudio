@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EmptyState } from '@/components/EmptyState';
+import { LayersIcon } from '@/components/icons';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -320,6 +322,14 @@ export default function FigureStudioPage() {
     if (active) deleteSheet(active.id);
   };
 
+  // Remove-panel is destructive too — confirm before collapsing panels.
+  const [removePanelIndex, setRemovePanelIndex] = useState<number | null>(null);
+  const handleRemovePanel = (index: number) => setRemovePanelIndex(index);
+  const confirmRemovePanel = () => {
+    if (active && removePanelIndex !== null) removePanel(active.id, removePanelIndex);
+    setRemovePanelIndex(null);
+  };
+
   const sheetActions =
     project && sheets.length > 0 ? (
       <>
@@ -353,14 +363,16 @@ export default function FigureStudioPage() {
   return (
     <ToolShell toolId="figures" headerExtra={sheetActions}>
       {project && sheets.length === 0 && (
-        <div className="empty-hint">
-          {t('figure.no_sheets')}
-          <div>
+        <EmptyState
+          icon={<LayersIcon size={30} strokeWidth={1.4} />}
+          title={t('figure.no_sheets')}
+          description={t('figure.no_sheets_hint')}
+          actions={
             <button type="button" className="btn btn-primary" onClick={() => createSheet()}>
               + {t('figure.new_sheet')}
             </button>
-          </div>
-        </div>
+          }
+        />
       )}
 
       {active && (
@@ -411,8 +423,22 @@ export default function FigureStudioPage() {
             </div>
 
             {active.panels.length === 0 && (
-              <div className="empty-hint">{t('figure.empty')}</div>
-            )}
+                <EmptyState
+                  className="empty-state-compact"
+                  icon={<LayersIcon size={28} strokeWidth={1.4} />}
+                  title={t('figure.empty')}
+                  description={t('figure.empty_hint')}
+                  actions={
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={openAdd}
+                    >
+                      + {t('figure.add_panel')}
+                    </button>
+                  }
+                />
+              )}
 
             <ul id="figure-panel-list" className="figures-panel-list" tabIndex={-1}>
               {active.panels.map((panel, index) => {
@@ -441,7 +467,8 @@ export default function FigureStudioPage() {
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
-                        onClick={() => removePanel(active.id, index)}
+                        aria-label={t('figure.remove_panel', { tag })}
+                        onClick={() => handleRemovePanel(index)}
                       >
                         {t('common.delete')}
                       </button>
@@ -643,6 +670,15 @@ export default function FigureStudioPage() {
         confirmLabel={t('common.delete')}
         onConfirm={confirmDeleteSheet}
         onClose={() => setDeleteSheetOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={removePanelIndex !== null}
+        title={t('figure.remove_panel_title')}
+        message={t('figure.remove_panel_confirm')}
+        confirmLabel={t('common.delete')}
+        onConfirm={confirmRemovePanel}
+        onClose={() => setRemovePanelIndex(null)}
       />
 
       {submissionDoc && (

@@ -95,9 +95,10 @@ export default function WelcomePage() {
           notify('success', t('theme.applied_deep_link', { name: theme.name }));
         }
       });
-      // "Apply in Studio" must land on the workbench with the theme live —
-      // not linger on the welcome screen — so the action feels wired up.
-      navigate('/workbench');
+      // "Apply in Studio" must land on the topic's settings page with the
+      // theme live — not linger on the welcome screen — so the action feels
+      // wired up. The `cat=theme` param opens the theme section directly.
+      navigate('/settings?cat=theme');
       return;
     }
     // Website plugin-market deep link (#/?plugin=<id>): jump into the

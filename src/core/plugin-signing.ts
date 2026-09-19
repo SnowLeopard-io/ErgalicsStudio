@@ -292,6 +292,19 @@ export const OFFICIAL_TRUSTED_KEYS: readonly TrustedKey[] = Object.freeze([
     label: 'Ergalics Studio Official',
     builtin: true,
   },
+  {
+    // Website marketplace publisher. The official website builds downloadable
+    // `.cspkg` demo packages client-side, so its signing seed ships in the
+    // public website bundle — this key therefore carries the SAME trust tier
+    // as the in-app community demo packages, NOT the offline release secret
+    // above. It exists so a website download installs without the manual
+    // "trust this source" prompt; its packages still run sandboxed and are
+    // clearly labelled as marketplace demos in the install dialog.
+    fingerprint: 'ed25519:0d308887c4734e3abd465dcee1195425',
+    publicKey: 'd13f151cb3b44e8a17c9e738c8b49f0ad8db44ac0fe151a2b285196ad67a3b3a',
+    label: 'Ergalics Studio Website (demo publisher)',
+    builtin: true,
+  },
 ]);
 
 /** Live registry: built-in keys plus sources the user explicitly trusted. */

@@ -1,0 +1,148 @@
+/* ==========================================================================
+   lab-polish.css — conservative visual & interaction refinements for the
+   Figure Studio / Gallery / tool surfaces.
+
+   Kept separate from app.css so the two surfaces stay easy to review and do
+   not collide with ongoing edits. Only additive overrides — no functional
+   changes.
+   ========================================================================== */
+
+/* ---- Figure Studio top bar: tidy the action button group ---- */
+
+.tool-topbar .figures-sheet-select {
+  min-height: 30px;
+}
+
+.tool-topbar-extra .btn {
+  white-space: nowrap;
+}
+
+/* ---- Figure Studio side: panel list interaction feedback ---- */
+
+.figures-panel-item {
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.figures-panel-item:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.08);
+}
+
+.figures-panel-item:focus-within {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: 1px;
+}
+
+.figures-panel-actions .btn {
+  padding: 3px 8px;
+  font-size: var(--font-size-xs);
+}
+
+/* ---- Figure Studio preview: checkerboard so white figures stay visible ---- */
+
+.figures-preview {
+  background:
+    repeating-conic-gradient(
+      var(--color-bg-tertiary) 0% 25%,
+      color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent) 0% 50%
+    )
+    0 0 / 18px 18px;
+}
+
+.figures-preview-svg {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+/* ---- Figure Studio editor fields: balanced spacing ---- */
+
+.figures-editor-grid {
+  row-gap: var(--space-3);
+}
+
+.figures-color {
+  width: 100%;
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.figures-field-hint {
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.figures-data {
+  line-height: 1.6;
+}
+
+/* ---- Export buttons: clearer affordance ---- */
+
+.figures-export .btn {
+  min-height: 30px;
+}
+
+/* ---- Gallery: hover feedback + consistent rhythm ---- */
+
+.gallery-card-hit {
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.gallery-card:hover .gallery-card-hit {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.12);
+}
+
+.gallery-card:focus-within .gallery-card-hit {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+
+.gallery-card-title {
+  line-height: 1.35;
+}
+
+.gallery-card-tags {
+  margin-top: 0;
+}
+
+.gallery-filters {
+  row-gap: 8px;
+}
+
+.gallery-filters .input,
+.gallery-filters .analysis-label {
+  margin-bottom: 0;
+  align-self: center;
+}
+
+/* Narrow screens: let the filter bar collapse into a clean single column. */
+@media (max-width: 620px) {
+  .gallery-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .gallery-filters .input,
+  .gallery-search {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
+  .gallery-tabs {
+    overflow-x: auto;
+  }
+}
+
+/* ---- EmptyState inside the figure side panel ---- */
+
+.figures-side .empty-state {
+  padding: var(--space-3);
+  text-align: center;
+}
