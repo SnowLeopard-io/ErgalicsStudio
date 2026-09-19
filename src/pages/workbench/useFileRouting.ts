@@ -66,7 +66,15 @@ export function useFileRouting() {
     // so they stay unlisted and flow straight into the plugin.
     if (isSupportedDataFileName(file.name)) {
       try {
+        const duplicate = useProjectStore
+          .getState()
+          .project?.data.files.some((f) => f.name === file.name);
         await useProjectStore.getState().addDataFile(file);
+        if (duplicate) {
+          // Drag-drop bypasses the project-files dialog, so its inline
+          // duplicate banner can't show — use a toast instead.
+          notify('warning', t('project.data_file_replaced', { name: file.name }));
+        }
       } catch (err) {
         logger.warn('io', 'data file registration failed', err);
       }

@@ -365,15 +365,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // switched to mid-import) and clobbered the global file registry.
     const current = get().project;
     if (!current) return null;
+    // Same-name uploads replace the existing entry (id kept stable) so
+    // re-importing a file never grows duplicate rows in the data area.
+    const existing = current.data.files.find((f) => f.name === file.name);
     const entry: FileEntry = {
-      id: crypto.randomUUID(),
+      id: existing?.id ?? crypto.randomUUID(),
       name: file.name,
       size: file.size,
       mimeType: file.type || 'text/plain',
       format: fileExtension(file.name),
       content,
     };
-    const files = [...current.data.files, entry];
+    const files = existing
+      ? current.data.files.map((f) => (f.id === existing.id ? entry : f))
+      : [...current.data.files, entry];
     set({ project: { ...current, data: { ...current.data, files } }, dirty: true });
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);

@@ -239,4 +239,15 @@ describe('project opening and file imports', () => {
     expect(useProjectStore.getState().project?.name).toBe('renamed');
     expect(listProjectFiles()).toEqual(['fast.csv', 'slow.csv']);
   });
+
+  it('replaces (not duplicates) a data file uploaded under the same name', async () => {
+    await open(createEmptyProject('A'));
+    const first = await useProjectStore.getState().addDataFile(new File(['x\n1'], 'data.csv'));
+    const second = await useProjectStore.getState().addDataFile(new File(['x\n2'], 'data.csv'));
+    expect(second).toBe(first);
+    const files = useProjectStore.getState().project?.data.files ?? [];
+    expect(files).toHaveLength(1);
+    expect(files[0]!.content).toBe('x\n2');
+    expect(listProjectFiles()).toEqual(['data.csv']);
+  });
 });

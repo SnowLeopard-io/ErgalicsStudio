@@ -27,6 +27,8 @@ const BOOT_TIMEOUT_MS = 120_000;
 export class EmSolverClient {
   private worker: Worker | null = null;
   private readyPromise: Promise<Worker> | null = null;
+  /** Settle an in-flight boot early (abort) so queued jobs fail fast. */
+  private bootSettle: ((err: Error | null) => void) | null = null;
   private nextId = 1;
   private pending = new Map<number, PendingJob>();
   private tail: Promise<unknown> = Promise.resolve();
@@ -42,46 +44,43 @@ export class EmSolverClient {
           type: 'module',
         });
         let settled = false;
-        const bootTimer = setTimeout(() => {
+        const settle = (err: Error | null) => {
           if (settled) return;
           settled = true;
-          worker.terminate();
-          this.worker = null;
-          this.readyPromise = null;
-          reject(new Error('Python runtime boot timed out'));
-        }, BOOT_TIMEOUT_MS);
+          clearTimeout(bootTimer);
+          this.bootSettle = null;
+          if (err) reject(err);
+          else resolve(worker);
+        };
+        const bootTimer = setTimeout(
+          () => settle(new Error('Python runtime boot timed out')),
+          BOOT_TIMEOUT_MS,
+        );
+        this.bootSettle = settle;
 
         worker.addEventListener('message', (ev: MessageEvent<EmWorkerEvent>) => {
           const msg = ev.data;
           if (msg.type === 'ready') {
-            if (!settled) {
-              settled = true;
-              clearTimeout(bootTimer);
-              resolve(worker);
-            }
+            settle(null);
             return;
           }
           if (msg.type === 'init-failed') {
-            if (!settled) {
-              settled = true;
-              clearTimeout(bootTimer);
-              worker.terminate();
-              this.worker = null;
-              this.readyPromise = null;
-              reject(new Error(msg.error));
-            }
+            worker.terminate();
+            this.worker = null;
+            this.readyPromise = null;
+            settle(new Error(msg.error));
             return;
           }
           this.dispatch(msg);
         });
         worker.addEventListener('error', (ev) => {
           const err = new Error(ev.message || 'worker crashed');
-          if (!settled) {
-            settled = true;
-            clearTimeout(bootTimer);
-            this.readyPromise = null;
-            reject(err);
+          if (settled) {
+            this.failPending(err);
+            return;
           }
+          this.readyPromise = null;
+          settle(err);
           this.failPending(err);
         });
 
@@ -136,6 +135,7 @@ export class EmSolverClient {
   ): Promise<EmResultPayload> {
     return this.enqueue(async () => {
       const worker = await this.ensureWorker();
+      if (worker !== this.worker) throw new Error('solve aborted');
       const id = this.nextId++;
       return new Promise<EmResultPayload>((resolve, reject) => {
         this.pending.set(id, { resolve: (v) => resolve(v as EmResultPayload), reject, onProgress });
@@ -148,6 +148,7 @@ export class EmSolverClient {
   exportNpz(): Promise<ArrayBuffer> {
     return this.enqueue(async () => {
       const worker = await this.ensureWorker();
+      if (worker !== this.worker) throw new Error('solve aborted');
       const id = this.nextId++;
       return new Promise<ArrayBuffer>((resolve, reject) => {
         this.pending.set(id, { resolve: (v) => resolve(v as ArrayBuffer), reject });
@@ -157,8 +158,11 @@ export class EmSolverClient {
   }
 
   /** Kill the worker immediately (user abort). Pending jobs reject with
-   *  'solve aborted'; the next solve respawns a fresh interpreter. */
+   *  'solve aborted'; the next solve respawns a fresh interpreter. An
+   *  in-flight boot is rejected too, so aborting during the first solve
+   *  (Pyodide still loading) fails fast instead of hanging to the timeout. */
   abort(): void {
+    this.bootSettle?.(new Error('solve aborted'));
     this.failPending(new Error('solve aborted'));
     if (this.worker) {
       this.worker.terminate();
