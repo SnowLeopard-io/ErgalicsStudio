@@ -39,6 +39,11 @@ jobs:
         with:
           repo: ${{ github.repository }}
           ref: ${{ github.sha }}
+          # results_file / results_format are required inputs; without them the
+          # action aborts with "validating options: results path is empty".
+          # sarif output feeds the "Upload scorecards SARIF" step below.
+          results_file: results.sarif
+          results_format: sarif
           publish_results: false
 
       - name: Upload scorecards SARIF
