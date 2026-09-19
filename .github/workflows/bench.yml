@@ -1,8 +1,10 @@
 name: Benchmarks
 
 # FR-23: run the performance benchmark suite on every push to main and on
-# releases; compare against bench/baseline.json (±10% band) and publish the
-# results + self-contained HTML report as artifacts / release attachments.
+# releases; compare against the per-environment baseline (bench/baseline.json
+# for dev machines, bench/baseline.<platform>-<arch>.json on CI — dev desktop
+# numbers are meaningless on shared runners) and publish the results + the
+# self-contained HTML report as artifacts / release attachments.
 
 on:
   push:
@@ -20,6 +22,10 @@ concurrency:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    # contents: write lets the "Commit environment baseline" step push the
+    # first-run baseline file back to the repo (see below).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +39,26 @@ jobs:
         run: npm ci
 
       - name: Run benchmarks + compare against baseline (FR-23)
-        run: npm run bench
+        run: npm run bench:ci
+
+      # First run in a new environment (e.g. linux-x64) has no committed
+      # baseline: bench-compare.mjs records one and exits 0. Commit it here so
+      # subsequent runs actually gate against it. Pushing to main re-triggers
+      # this workflow once; the next run finds the baseline and compares.
+      - name: Commit environment baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          FILE="bench/baseline.$(node -e 'process.stdout.write(process.platform + "-" + process.arch)').json"
+          if [ -n "$(git status --porcelain -- "$FILE")" ]; then
+            git checkout -B "$GITHUB_REF_NAME"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$FILE"
+            git commit -m "ci(bench): record baseline for $(node -e 'process.stdout.write(process.platform + "-" + process.arch)')"
+            git push
+          else
+            echo "Baseline $FILE unchanged — nothing to commit."
+          fi
 
       - name: Record environment in job summary
         run: |
