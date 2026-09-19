@@ -53,6 +53,9 @@ export function RightPanel() {
       <h3 className="panel-title">{t('workbench.right.params')}</h3>
       {activeId && activePlugin ? (
         <>
+          {params.length === 0 && (
+            <div className="empty-hint right-panel-empty">{t('workbench.right.no_params')}</div>
+          )}
           <ParamPanel
             params={params}
             api={buildPluginApi(activeId)}

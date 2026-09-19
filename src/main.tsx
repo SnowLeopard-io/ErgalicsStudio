@@ -8,6 +8,7 @@ import './styles/global.css';
 import './styles/app.css';
 import './styles/blocks.css';
 import './styles/animations.css';
+import './styles/lab-polish.css';
 
 // Global error capture (spec §11.2 application-level boundary). Every
 // uncaught error / rejection is normalised into the error registry (dedup,
@@ -22,6 +23,14 @@ window.addEventListener('load', () => void registerServiceWorker());
 
 // FR-21: re-apply the user's chosen .cstheme before first paint.
 restoreAppliedTheme();
+
+// FR-05: restore user-added trusted publisher keys from IndexedDB so sources
+// the user trusted in an earlier session install without re-confirming.
+// Fire-and-forget: a storage failure must never block startup (built-in keys
+// are already in the in-memory registry).
+void import('@/core/plugin-signing')
+  .then(({ loadTrustedKeysFromStorage }) => loadTrustedKeysFromStorage())
+  .catch(() => undefined);
 
 // Keyboard shortcut: Ctrl+S saves the current project (spec §4.2).
 window.addEventListener('keydown', (event) => {

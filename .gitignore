@@ -7,6 +7,8 @@ pkg/
 .DS_Store
 .idea/
 .vscode/
+# TRAE IDE HTML preview/share packaging cache (regenerated on demand).
+.trae-html-share-packages/
 coverage/
 .cspkg
 *.clproj

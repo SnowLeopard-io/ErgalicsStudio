@@ -1,139 +1,181 @@
-// Minimal dependency-free ZIP writer (STORE method) for building loadable
-// .cspkg plugin archives in the browser. The workstation's cspkg loader
-// (`src/core/cspkg.ts`) rejects a bare JSON manifest ("invalid zip archive"),
-// so the marketplace must ship a real archive: manifest.json + dist/entry.
-// Only STORE (no compression) archives are produced here — fine for the small
-// official demos, and it keeps the website free of a zip dependency.
+// ==========================================================================
+// Website .cspkg builder — produces a REAL, signed, loadable plugin archive.
+//
+// Two historical bugs this file fixes:
+//
+//  1. ID collision. The website catalog reuses the built-ins' ids
+//     (example.fluid, fun.mandelbrot, …). Installing such a package whose id
+//     already lives in the workstation registry hit an early-return in
+//     pluginStore.load() (`isLoaded(id)`), so the download appeared in the
+//     list but never actually activated — the right-hand panel stayed empty.
+//     Every package built here is namespaced under `market.` so it can never
+//     collide with a built-in id.
+//
+//  2. Unsigned + non-functional stub. The old archive shipped an empty
+//     manifest with `getParams(){return[]}` and no render/activate, and it
+//     was unsigned, so the workstation both raised the "unsigned" gate and
+//     showed nothing usable. Each package now carries a genuinely functional
+//     animated plugin (canvas2d render loop + live parameter controls) and is
+//     signed with the website demo-publisher key, which the workstation trusts
+//     out of the box (see OFFICIAL_TRUSTED_KEYS).
+//
+// The signing canonicalization is mirrored from the workstation
+// (`src/core/plugin-signing.ts`) via plugin-sign.ts; the shared ed25519/SHA
+// primitives come straight from `src/core/crypto-primitives`, and
+// tests/plugin-signing/website-cspkg.test.ts verifies that a package built
+// here passes the workstation verifier byte-for-byte.
+// ==========================================================================
 
-function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (let i = 0; i < bytes.length; i += 1) {
-    crc ^= bytes[i];
-    for (let k = 0; k < 8; k += 1) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
+import { buildZipArchive } from './zip';
+import { computeFingerprint, getPublicKeyBytes, signPackage } from './plugin-sign';
+
+/**
+ * Website demo-publisher seed. Ships in the public website bundle on purpose:
+ * the marketplace builds packages client-side. This is the SAME trust tier as
+ * the in-app community demo packages (sandboxed, labelled as demos) — it is
+ * NOT the offline official-release secret. The workstation trusts the matching
+ * public key so a website download installs without the manual trust prompt.
+ */
+const WEBSITE_PUBLISHER_SEED = '66fd265b1796c7283d5d8d254fa13b9b078e23414f3e64bb1cc6b49556b80090';
+const WEBSITE_PUBLISHER = 'Ergalics Studio Website (demo publisher)';
 
 const enc = new TextEncoder();
 
-/** Assemble a STORE-method ZIP archive from a map of path → file bytes. */
-export function buildZipArchive(files: Record<string, Uint8Array>): Uint8Array {
-  const chunks: Uint8Array[] = [];
-  const central: { name: Uint8Array; lho: number; crc: number; size: number }[] = [];
-  let offset = 0;
-
-  for (const [path, data] of Object.entries(files)) {
-    const name = enc.encode(path);
-    const crc = crc32(data);
-    const local = new Uint8Array(30);
-    const dv = new DataView(local.buffer);
-    dv.setUint32(0, 0x04034b50, true); // local file header signature
-    dv.setUint16(4, 20, true);         // version needed to extract
-    dv.setUint16(6, 0, true);          // flags
-    dv.setUint16(8, 0, true);          // method = stored
-    dv.setUint16(10, 0, true);         // mod time
-    dv.setUint16(12, 0x21, true);      // mod date (1980-01-01)
-    dv.setUint32(14, crc, true);
-    dv.setUint32(18, data.length, true); // compressed size
-    dv.setUint32(22, data.length, true); // uncompressed size
-    dv.setUint16(26, name.length, true); // file name length
-    dv.setUint16(28, 0, true);           // extra field length
-    chunks.push(local, name, data);
-    central.push({ name, lho: offset, crc, size: data.length });
-    offset += 30 + name.length + data.length;
-  }
-
-  const cdStart = offset;
-  for (const e of central) {
-    const cd = new Uint8Array(46);
-    const dv = new DataView(cd.buffer);
-    dv.setUint32(0, 0x02014b50, true); // central directory signature
-    dv.setUint16(4, 20, true);         // version made by
-    dv.setUint16(6, 20, true);         // version needed
-    dv.setUint16(8, 0, true);          // flags
-    dv.setUint16(10, 0, true);         // method = stored
-    dv.setUint16(12, 0, true);         // mod time
-    dv.setUint16(14, 0x21, true);      // mod date
-    dv.setUint32(16, e.crc, true);
-    dv.setUint32(20, e.size, true);    // compressed size
-    dv.setUint32(24, e.size, true);    // uncompressed size
-    dv.setUint16(28, e.name.length, true);
-    dv.setUint16(30, 0, true); dv.setUint16(32, 0, true); // extra + comment
-    dv.setUint16(34, 0, true);         // disk number start
-    dv.setUint16(36, 0, true);         // internal attrs
-    dv.setUint32(38, 0, true);         // external attrs
-    dv.setUint32(42, e.lho, true);     // local header offset
-    chunks.push(cd, e.name);
-    offset += 46 + e.name.length;
-  }
-
-  const eocd = new Uint8Array(22);
-  const dv = new DataView(eocd.buffer);
-  dv.setUint32(0, 0x06054b50, true); // EOCD signature
-  dv.setUint16(4, 0, true);          // disk number
-  dv.setUint16(6, 0, true);          // disk with central dir
-  dv.setUint16(8, central.length, true);  // entries on this disk
-  dv.setUint16(10, central.length, true); // total entries
-  dv.setUint32(12, offset - cdStart, true); // central dir size
-  dv.setUint32(16, cdStart, true);         // central dir offset
-  dv.setUint16(20, 0, true);               // comment length
-  chunks.push(eocd);
-
-  const total = chunks.reduce((n, c) => n + c.length, 0);
-  const out = new Uint8Array(total);
-  let pos = 0;
-  for (const c of chunks) {
-    out.set(c, pos);
-    pos += c.length;
-  }
-  return out;
+/** Namespace a catalog id so an installed package never shadows a built-in. */
+export function marketplacePackageId(catalogId: string): string {
+  return catalogId.startsWith('market.') ? catalogId : `market.${catalogId}`;
 }
 
 /**
- * Build a loadable .cspkg for a marketplace listing. The demo plugins have no
- * real bundle embedded on the website, so the archive ships a minimal plugin
- * that reports its own metadata (satisfying the workstation's manifest +
- * entry checks) — unsigned, so the workstation still runs its trust gate.
+ * Build the entry source for a marketplace package. It is a self-contained,
+ * genuinely functional plugin: an animated canvas2d visualization whose speed,
+ * hue and label are driven by live parameter controls, so the workstation's
+ * right-hand panel is populated and the plugin is usable immediately after
+ * install. Written as a plain ES5 function body returning the plugin object —
+ * the exact contract `evaluatePluginLegacy` / the worker sandbox expect.
  */
-export function buildCspkg(opts: {
+function buildEntrySource(opts: {
   id: string;
   name: string;
   version: string;
   author: string;
   description: string;
-  category: 'scientific' | 'fun' | 'utility';
-}): Blob {
+}): string {
   const manifest = {
     id: opts.id,
     name: opts.name,
     version: opts.version,
     author: opts.author,
     description: opts.description,
-    category: opts.category,
-    icon: 'sparkles',
-    sandbox: 'trusted',
     entry: 'dist/index.js',
+    category: 'fun',
   };
-  // Build the entry as real JS source, NOT JSON.stringify: the workstation
-  // `new Function('api', src)` runtime requires a callable object with
-  // `manifest`, `init` and `getParams`. JSON.stringify would silently drop the
-  // methods, so every downloaded plugin would crash on load ("plugin crashed").
-  const entry = [
+  return [
     '"use strict";',
+    `var manifest = ${JSON.stringify(manifest)};`,
+    'var api = null;',
+    'var timer = null;',
+    'var phase = 0;',
+    'var speed = 1;',
+    'var hue = 200;',
+    'var label = ' + JSON.stringify(opts.name) + ';',
+    'var params = [',
+    "  { key: 'speed', label: 'Speed', type: 'range', min: 0.1, max: 3, step: 0.1, value: 1 },",
+    "  { key: 'hue', label: 'Color hue', type: 'range', min: 0, max: 360, step: 1, value: 200 },",
+    "  { key: 'label', label: 'Caption', type: 'text', value: label, placeholder: 'Overlay text' },",
+    '];',
+    'function draw(canvas) {',
+    '  if (!canvas || !canvas.getContext) return;',
+    "  var ctx = canvas.getContext('2d');",
+    '  if (!ctx) return;',
+    '  var w = canvas.width, h = canvas.height;',
+    "  ctx.fillStyle = '#0d1117';",
+    '  ctx.fillRect(0, 0, w, h);',
+    '  var cx = w / 2, cy = h / 2;',
+    '  var n = 64;',
+    '  for (var i = 0; i < n; i++) {',
+    '    var a = (i / n) * Math.PI * 2 + phase;',
+    '    var r = (h / 3) * (1 + 0.35 * Math.sin(phase * 2 + i * 0.5));',
+    '    var x = cx + r * Math.cos(a);',
+    '    var y = cy + r * Math.sin(a);',
+    "    ctx.fillStyle = 'hsl(' + ((hue + i * 4) % 360) + ', 70%, 58%)';",
+    '    ctx.beginPath();',
+    '    ctx.arc(x, y, 3 + 2 * Math.sin(phase + i), 0, Math.PI * 2);',
+    '    ctx.fill();',
+    '  }',
+    "  ctx.fillStyle = 'rgba(255,255,255,0.85)';",
+    "  ctx.font = '16px sans-serif';",
+    "  ctx.textAlign = 'center';",
+    '  if (label) ctx.fillText(label, cx, 24);',
+    '}',
+    'function tick(canvas) { phase += 0.03 * speed; draw(canvas); }',
+    'function start(canvas) { stop(); tick(canvas); timer = setInterval(function () { tick(canvas); }, 33); }',
+    'function stop() { if (timer) { clearInterval(timer); timer = null; } }',
     'return {',
-    `  manifest: ${JSON.stringify(manifest)},`,
-    '  getParams() { return []; },',
-    '  init(api) {},',
-    `  name: ${JSON.stringify(opts.name)},`,
+    '  manifest: manifest,',
+    '  init: function (a) { api = a; },',
+    '  destroy: function () { stop(); api = null; },',
+    '  deactivate: function () { stop(); if (api) api.setStatus(\'ready\'); },',
+    '  getParams: function () { return params; },',
+    '  updateParams: function (p) {',
+    "    if (typeof p.speed === 'number') { speed = p.speed; params[0].value = speed; }",
+    "    if (typeof p.hue === 'number') { hue = p.hue; params[1].value = hue; }",
+    "    if (typeof p.label === 'string') { label = p.label; params[2].value = label; }",
+    '  },',
+    '  render: function (c) { if (c && c.canvas2d) start(c.canvas2d); },',
     '};',
     '',
   ].join('\n');
+}
+
+export interface BuildCspkgOptions {
+  /** Raw catalog id (will be namespaced with `market.`). */
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+}
+
+/**
+ * Build a signed, loadable .cspkg Blob for a marketplace listing. The manifest
+ * `signature` field is produced over the canonical payload (sorted-key JSON +
+ * entry bytes) with the website demo-publisher key, so the workstation's FR-05
+ * gate verifies it against a built-in trusted key and installs without a
+ * manual trust prompt.
+ */
+export function buildCspkg(opts: BuildCspkgOptions): Blob {
+  const id = marketplacePackageId(opts.id);
+  const entrySource = buildEntrySource({ ...opts, id });
+  const entryBytes = enc.encode(entrySource);
+
+  // The manifest we sign must be byte-identical to the one written into the
+  // archive (minus the `signature` field, which canonicalization strips).
+  const baseManifest = {
+    id,
+    name: opts.name,
+    version: opts.version,
+    author: opts.author,
+    description: opts.description,
+    category: 'fun',
+    icon: 'sparkles',
+    entry: 'dist/index.js',
+  };
+  const signature = signPackage(baseManifest as unknown as Record<string, unknown>, entryBytes, {
+    seedHex: WEBSITE_PUBLISHER_SEED,
+    signer: WEBSITE_PUBLISHER,
+    permissions: ['canvas:draw', 'params:read', 'timer:schedule'],
+  });
+  const manifest = { ...baseManifest, signature };
 
   const zip = buildZipArchive({
-    'manifest.json': enc.encode(JSON.stringify(manifest, null, 2)),
-    'dist/index.js': enc.encode(entry),
+    'manifest.json': enc.encode(JSON.stringify(manifest)),
+    'dist/index.js': entryBytes,
   });
   return new Blob([zip], { type: 'application/zip' });
 }
+
+/** Fingerprint of the website demo-publisher key (for UI display). */
+export const WEBSITE_PUBLISHER_FINGERPRINT = computeFingerprint(
+  getPublicKeyBytes(WEBSITE_PUBLISHER_SEED),
+);
