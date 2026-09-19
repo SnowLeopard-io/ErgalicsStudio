@@ -10,7 +10,8 @@ running in the browser with a Rust/WASM core.</p>
 
 <p>
 <a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-16a34a?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="Open the live workstation" src="https://img.shields.io/badge/Open%20the%20live%20workstation-16a34a?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="Documentation" src="https://img.shields.io/badge/Documentation-8b5cf6?style=for-the-badge" /></a>
 </p>
 
 <p>
@@ -1047,8 +1048,8 @@ GitHub Pages site:
 - **Official website** (`website/`) at the Pages root — gallery, theme
   marketplace and plugin marketplace, with zero-install deep links into the
   workstation.
-- **Workstation** (the repo's React app) at `<repo>/app/` — the "live demo"
-  entry point; embeds its own copy of the docs.
+- **Workstation** (the repo's React app) at `<repo>/app/` — the "live
+  workstation" entry point; embeds its own copy of the docs.
 - **Docs** — a dedicated VitePress documentation workspace in [`docs/`](docs/):
 
 ```bash
