@@ -68,6 +68,7 @@ export const enUS: LocaleDictionary = {
 
   'workbench.sidebar.project': 'Project',
   'workbench.sidebar.plugins': 'Plugins',
+  'workbench.sidebar.fresh': 'New Releases',
   'workbench.sidebar.tools': 'Tools',
   'workbench.sidebar.data_files': 'Data files',
   'workbench.project.new': 'New Project',

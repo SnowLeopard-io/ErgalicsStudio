@@ -72,6 +72,7 @@ export const zhCN: LocaleDictionary = {
 
   'workbench.sidebar.project': '项目',
   'workbench.sidebar.plugins': '插件',
+  'workbench.sidebar.fresh': '最新上架',
   'workbench.sidebar.tools': '工具',
   'workbench.sidebar.data_files': '数据文件',
   'workbench.project.new': '新建项目',

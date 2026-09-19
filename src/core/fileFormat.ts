@@ -33,6 +33,10 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.stl': 'stl',
   '.obj': 'obj',
   '.dat': 'dat',
+  '.mtx': 'mtx',
+  '.npz': 'npz',
+  '.npy': 'npy',
+  '.geojson': 'geojson',
   '.png': 'png',
   '.jpg': 'jpeg',
   '.jpeg': 'jpeg',
@@ -47,7 +51,7 @@ const EXTENSION_FORMATS: Record<string, string> = {
 // scientific formats go through the drop pipeline (useFileRouting), which
 // decodes them into CSVs before they reach the project.
 
-const DATA_FILE_EXTENSIONS = new Set(['.csv', '.tsv', '.dat', '.xyz', '.json', '.txt', '.md']);
+const DATA_FILE_EXTENSIONS = new Set(['.csv', '.tsv', '.dat', '.xyz', '.json', '.txt', '.md', '.mtx', '.geojson']);
 
 /** Is this file name a supported (text) project data file? */
 export function isSupportedDataFileName(name: string): boolean {

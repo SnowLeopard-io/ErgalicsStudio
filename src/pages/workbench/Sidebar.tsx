@@ -11,6 +11,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 
+/** Plugins showcased in the sidebar "New Releases" section (topmost group). */
+const FRESH_PLUGIN_IDS = ['example.em-eigensolver'];
+
 export function Sidebar() {
   const t = useT();
   const location = useLocation();
@@ -66,6 +69,17 @@ export function Sidebar() {
     }));
   }, [registry, locale]);
 
+  // "New Releases" showcase group pinned above the discipline groups; only
+  // shown while at least one featured plugin is actually loaded.
+  const allGroups = useMemo(() => {
+    const fresh = registry.filter((e) => FRESH_PLUGIN_IDS.includes(e.id));
+    if (fresh.length === 0) return groups;
+    return [
+      { id: 'fresh', label: t('workbench.sidebar.fresh'), entries: fresh },
+      ...groups,
+    ];
+  }, [groups, registry, t]);
+
   const toggleGroup = (id: string) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -105,7 +119,7 @@ export function Sidebar() {
         {registry.length === 0 && (
           <EmptyState className="sidebar-plugin-empty" title={t('workbench.plugin.none')} />
         )}
-        {groups.map((group) => {
+        {allGroups.map((group) => {
           const isCollapsed = collapsed[group.id] === true;
           return (
             <div key={group.id} className="plugin-group">

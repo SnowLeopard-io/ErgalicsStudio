@@ -56,6 +56,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.electromag': 'physics',
   'example.optics': 'physics',
   'example.structure': 'physics',
+  'example.em-eigensolver': 'physics',
 
   // Geography
   'example.geomap': 'geo',
