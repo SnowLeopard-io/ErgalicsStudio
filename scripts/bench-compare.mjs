@@ -56,19 +56,24 @@ function flatten(results) {
   return map;
 }
 
-function fmt(n) {
-  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
-}
-
-if (updateBaseline) {
-  const results = await readJson(resultsFile);
-  const baseline = {
+/** Baseline snapshot from a results object. */
+function snapshot(results) {
+  return {
     schema: 1,
     updated_from_environment: results.environment,
     metrics: Object.fromEntries(
       [...flatten(results).entries()].map(([id, m]) => [id, { value: m.value, unit: m.unit, direction: m.direction }]),
     ),
   };
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+if (updateBaseline) {
+  const results = await readJson(resultsFile);
+  const baseline = snapshot(results);
   const target = baselineFileFor(results);
   if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
   await writeFile(target, JSON.stringify(baseline, null, 2), 'utf8');
@@ -84,13 +89,7 @@ if (!existsSync(targetBaselineFile)) {
     // First run in this environment: record the current numbers as the
     // environment baseline so later runs can gate against them. A cross-env
     // comparison (dev desktop vs CI runner) would fail on pure hardware noise.
-    const baseline = {
-      schema: 1,
-      updated_from_environment: results.environment,
-      metrics: Object.fromEntries(
-        [...flatten(results).entries()].map(([id, m]) => [id, { value: m.value, unit: m.unit, direction: m.direction }]),
-      ),
-    };
+    const baseline = snapshot(results);
     if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
     await writeFile(targetBaselineFile, JSON.stringify(baseline, null, 2), 'utf8');
     process.stdout.write(
@@ -105,6 +104,27 @@ if (!existsSync(targetBaselineFile)) {
 }
 
 const baseline = await readJson(targetBaselineFile);
+
+// GitHub-hosted runners rotate hardware between runs (see the committed
+// linux-x64 baseline: AMD EPYC vs the next run's CPU). A ±10% comparison is
+// only meaningful when the current environment matches the one the baseline
+// was recorded on; otherwise re-record instead of failing on pure hardware
+// noise. Re-recorded files are kept out of git (the auto-commit step only
+// commits the first baseline) so a rotating runner pool can't cause commit
+// churn — runs on a changed environment pass and log the new numbers.
+if (envBaseline && baseline.updated_from_environment) {
+  const cur = results.environment;
+  const ref = baseline.updated_from_environment;
+  if (cur.cpu !== ref.cpu || cur.node !== ref.node) {
+    const fresh = snapshot(results);
+    if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
+    await writeFile(targetBaselineFile, JSON.stringify(fresh, null, 2), 'utf8');
+    process.stdout.write(
+      `\n[bench] environment changed (cpu "${ref.cpu}" -> "${cur.cpu}", node ${ref.node} -> ${cur.node}) — re-recorded ${path.relative(root, targetBaselineFile)} instead of comparing.\n`,
+    );
+    process.exit(0);
+  }
+}
 
 const current = flatten(results);
 const base = new Map(Object.entries(baseline.metrics ?? {}));
