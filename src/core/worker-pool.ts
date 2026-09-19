@@ -87,16 +87,8 @@ export class WorkerPool {
       });
     });
 
-    const free = this.slots.find((s) => !s.busy);
-    if (free) {
-      this.dispatch(free, id, task);
-    } else if (this.slots.length < this.size) {
-      const slot = this.createSlot();
-      if (slot) this.dispatch(slot, id, task);
-      else this.queue.push({ id, task });
-    } else {
-      this.queue.push({ id, task });
-    }
+    this.queue.push({ id, task });
+    this.pump();
     return promise;
   }
 
@@ -213,7 +205,18 @@ export class WorkerPool {
       }
       if (this.slots.length < this.size) {
         const slot = this.createSlot();
-        if (!slot) break; // worker creation failed — wait for a free slot
+        if (!slot) {
+          // A live worker can drain the queue when it becomes free. Without
+          // one, nothing can wake pump() again: fail instead of hanging.
+          if (this.slots.length === 0) {
+            for (const { id } of this.queue.splice(0)) {
+              const pending = this.pending.get(id);
+              this.pending.delete(id);
+              pending?.reject(new Error('failed to create parse worker'));
+            }
+          }
+          break;
+        }
         const next = this.queue.shift()!;
         if (this.pending.has(next.id)) this.dispatch(slot, next.id, next.task);
         continue;
