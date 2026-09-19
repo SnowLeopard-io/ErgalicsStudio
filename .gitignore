@@ -67,11 +67,6 @@ docs/.vitepress/*
 # Official website (npm workspace): build output.
 website/dist/
 
-# Technical documents mirrored from docs/technical by
-# scripts/copy-technical-docs.mjs for the website Downloads page.
-# Regenerated on dev/build (~35MB of PDFs — never commit them).
-website/public/technical/
-
 # Merged GitHub Pages artifact (website root + workstation under app/),
 # produced by scripts/merge-deploy.mjs. Regenerated on every deploy build.
 pages-out/
@@ -83,12 +78,3 @@ bench-report.html
 prd.md
 插件需求.md
 ergalics-studio-poster/
-
-# Promo video assets (HTML storyboard + recording output). Regenerated on
-# demand by the promo recording workflow; never committed.
-promo/
-
-# Measurement probes written next to the technical docs by
-# scripts/build-tech-docs.mjs while paginating. Deleted on a clean run, so any
-# survivor means an interrupted build.
-docs/technical/.measure-*.html

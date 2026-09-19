@@ -6,9 +6,7 @@
   "description": "Ergalics Studio official website — gallery, theme marketplace, plugin marketplace",
   "license": "MIT",
   "scripts": {
-    "predev": "node ../scripts/copy-technical-docs.mjs",
     "dev": "vite",
-    "prebuild": "node ../scripts/copy-technical-docs.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
