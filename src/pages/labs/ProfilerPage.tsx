@@ -22,7 +22,7 @@ import { fingerprint } from '@/core/chunked/reader';
 import { resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
-import { groupedDataFiles, sendSpecToFigure, fmt } from '../research/researchUi';
+import { tabularDataGroups, sendSpecToFigure, fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 
 interface ScanState {
@@ -98,7 +98,9 @@ export default function ProfilerPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const saveProfile = useResearchStore((s) => s.saveProfile);
-  const groups = useMemo(() => groupedDataFiles(), [project?.data.files]);
+  // Parse-sniffed list: simulation configs (electromag/pendulum/... JSON)
+  // must not appear — they are not tabular and could only error (FR5).
+  const groups = useMemo(() => tabularDataGroups(), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [scanning, setScanning] = useState(false);

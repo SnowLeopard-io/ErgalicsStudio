@@ -5,16 +5,9 @@
 <title>Ergalics Studio 产品介绍</title>
 <style>
   :root {
-    --ink: #0f172a;
-    --body: #1e293b;
-    --muted: #64748b;
-    --accent: #0e7490;
-    --accent-deep: #155e75;
-    --accent-soft: #ecfeff;
-    --gold: #b45309;
-    --gold-soft: #fffbeb;
-    --line: #e2e8f0;
-    --soft: #f8fafc;
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -24,14 +17,10 @@
   }
   @page { size: A4; margin: 0; }
   .page {
-    position: relative;
-    width: 210mm; height: 296.5mm;
-    padding: 16mm 15mm 18mm;
-    page-break-after: always;
-    overflow: hidden;
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
   }
   .page:last-child { page-break-after: auto; }
-
   body { counter-reset: pn 0; }
   .page { counter-increment: pn; }
   .page::after {
@@ -41,530 +30,400 @@
     font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
   }
   .cover::after { content: none; }
-
-  /* 封面 */
   .cover { padding: 0; }
   .cover-panel {
     height: 100%; border-radius: 0;
     background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
-    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
     display: flex; flex-direction: column;
   }
-  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
-  .cover h1 { font-size: 40pt; margin: 0; color: #ffffff; line-height: 1.2; letter-spacing: 1px; }
-  .cover .sub { font-size: 14.5pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
-  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
-  .cover-abstract {
-    font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify;
-    max-width: 150mm;
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
   }
   .cover-modes { margin-top: auto; }
-  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
-  .mode-chips { display: flex; gap: 4mm; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
   .mode-chip {
-    flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px;
-    padding: 5mm 4mm; text-align: center;
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
   }
-  .mode-chip .t { font-size: 12.5pt; font-weight: bold; color: #ffffff; }
-  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
-  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
-
-  /* 目录 */
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
   .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
   .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
   .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
   .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
-
-  /* 标题 */
-  h2.sec {
-    font-size: 17pt; color: var(--ink); margin: 0 0 6mm;
-    display: flex; align-items: center; gap: 10px;
-  }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
   h2.sec .num {
     background: var(--accent); color: #fff; font-size: 11pt;
-    width: 26px; height: 26px; border-radius: 6px;
-    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
-  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
-
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
   table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
   th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
   th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
-  tr { page-break-inside: avoid; }
-
-  figure { margin: 4mm 0; text-align: center; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
   figure img {
-    max-width: 88%; max-height: 62mm;
+    display: block; width: 100%; height: auto;
     border: 1px solid var(--line); border-radius: 6px;
     box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
   }
-  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
-
-  .svgbox {
-    background: var(--soft); border: 1px solid var(--line); border-radius: 10px;
-    padding: 5mm 4mm; margin: 4mm 0;
-  }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
     background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
     padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
   }
-  .tiles { display: flex; gap: 4mm; margin: 5mm 0; }
-  .tile {
-    flex: 1; background: linear-gradient(180deg, #ffffff, #f0fdfa);
-    border: 1px solid #99f6e4; border-radius: 10px; text-align: center; padding: 4.5mm 2mm;
-  }
-  .tile .v { font-size: 19pt; font-weight: bold; color: var(--accent-deep); }
-  .tile .k { font-size: 8.8pt; color: var(--muted); margin-top: 1.5mm; letter-spacing: 1px; }
 </style>
 </head>
 <body>
 
-<!-- P1 封面 -->
 <div class="page cover">
   <div class="cover-panel">
-    <div class="cover-brand">ERGALICS STUDIO</div>
-    <h1>Ergalics Studio<br>产品介绍</h1>
-    <div class="sub">浏览器中的科学计算工作站</div>
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>产品介绍</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
     <div class="cover-rule"></div>
-    <div class="cover-abstract">
-      一款完全运行于浏览器标签页中的专业科学计算环境：交互式数据探索、WebGPU 实时计算、
-      沙箱化插件生态与四种面向不同用户的工作模式，整合在同一个网页应用里。
-      数据保存在本机浏览器中，打开网页即用，关掉即走。
-    </div>
+    <div class="cover-abstract">Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作站。它把交互式数据探索、GPU 计算调度、沙箱化插件系统与四种面向不同用户的工作模式整合进同一个网页应用：无需安装任何本地软件，打开网页即可使用；数据保存在浏览器本地（IndexedDB），不出本机；项目可以保存为 .clproj 文件或分享链接，随取随用。</div>
+    
     <div class="cover-modes">
-      <div class="cap">四种工作模式 · 一条从零代码到真代码的路径</div>
-      <div class="mode-chips">
-        <div class="mode-chip"><div class="t">标准</div><div class="d">拖入数据<br>即刻看图</div></div>
-        <div class="mode-chip"><div class="t">流程</div><div class="d">区块搭线<br>数据流管线</div></div>
-        <div class="mode-chip"><div class="t">积木</div><div class="d">类 Scratch<br>编程启蒙</div></div>
-        <div class="mode-chip"><div class="t">代码</div><div class="d">Python<br>真 CPython</div></div>
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 项目背景与设计目标</div></div><div class="mode-chip"><div class="t">二 技术架构</div></div><div class="mode-chip"><div class="t">三 功能全景</div></div><div class="mode-chip"><div class="t">四 应用场景</div></div><div class="mode-chip"><div class="t">五 创新点</div></div><div class="mode-chip"><div class="t">六 运行与获取</div></div></div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第 一 篇（共 8 篇）</div>
+  </div>
+</div>
+
+<div class="page toc">
+  <h1>目 录</h1>
+<div class="toc-item l1"><span>一、项目背景与设计目标</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l2"><span>1.1 科学计算工具链的三重门槛</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l2"><span>1.2 六条设计目标</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>1.3 四类用户，四种模式</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>1.4 项目现状</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l1"><span>二、技术架构</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l2"><span>2.1 总体分层</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l2"><span>2.2 贯穿架构的三条设计主线</span><span class="dots"></span><span class="tp">11</span></div>
+<div class="toc-item l2"><span>2.3 一条渲染管线服务全部模式</span><span class="dots"></span><span class="tp">12</span></div>
+<div class="toc-item l1"><span>三、功能全景</span><span class="dots"></span><span class="tp">12</span></div>
+<div class="toc-item l2"><span>3.1 内置插件生态</span><span class="dots"></span><span class="tp">12</span></div>
+<div class="toc-item l2"><span>3.2 流程模式区块体系</span><span class="dots"></span><span class="tp">13</span></div>
+<div class="toc-item l2"><span>3.3 数据格式支持</span><span class="dots"></span><span class="tp">14</span></div>
+<div class="toc-item l2"><span>3.4 科研能力全景</span><span class="dots"></span><span class="tp">14</span></div>
+<div class="toc-item l1"><span>四、应用场景</span><span class="dots"></span><span class="tp">15</span></div>
+<div class="toc-item l2"><span>4.1 科学与工程数据可视化</span><span class="dots"></span><span class="tp">16</span></div>
+<div class="toc-item l2"><span>4.2 物理仿真与教学演示</span><span class="dots"></span><span class="tp">16</span></div>
+<div class="toc-item l2"><span>4.3 编程与计算思维教学</span><span class="dots"></span><span class="tp">21</span></div>
+<div class="toc-item l2"><span>4.4 浏览器内机器学习入门</span><span class="dots"></span><span class="tp">22</span></div>
+<div class="toc-item l2"><span>4.5 地理可视化与算法艺术</span><span class="dots"></span><span class="tp">23</span></div>
+<div class="toc-item l2"><span>4.6 研究交付与协作</span><span class="dots"></span><span class="tp">23</span></div>
+<div class="toc-item l1"><span>五、创新点</span><span class="dots"></span><span class="tp">23</span></div>
+<div class="toc-item l1"><span>六、运行与获取</span><span class="dots"></span><span class="tp">24</span></div>
+
+</div>
+
+<!-- P3 -->
+<div class="page">
+<p>Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作站。它把交互式数据探索、GPU 计算调度、沙箱化插件系统与四种面向不同用户的工作模式整合进同一个网页应用：无需安装任何本地软件，打开网页即可使用；数据保存在浏览器本地（IndexedDB），不出本机；项目可以保存为 .clproj 文件或分享链接，随取随用。</p>
+<p>它带来的，是一条从&quot;零代码&quot;到&quot;真代码&quot;的完整科学计算路径：拖入一个 CSV 文件立即看到图表，用 42 个内置区块搭出可视化数据流管线，用类 Scratch 积木写出第一段程序，最终在 Monaco 编辑器里编写由真实 CPython 运行时（Pyodide）执行的 Python 代码。四种模式共享同一份数据语义与渲染后端，切换模式时逻辑原样保留。</p>
+<p>它与工作台并列的还有一条科研主线：<strong>19 个科研工具</strong>覆盖数据体检、清洗、建模、推断、参数扫描、图表排版、报告、可复现锁与补充材料打包，把&quot;跑完一次分析&quot;变成&quot;交付一份可被别人原样重跑的研究成果&quot;（详见 05 篇）。</p>
+<p>它适合谁：想快速看图的研究人员、刚开始学习数据分析的学生、讲授编程与计算思维的老师，以及需要一个&quot;零安装、可离线、可扩展&quot;科学计算环境的任何人。本文从产品视角展开介绍项目背景、技术架构、功能全景、应用场景与创新点；更细的工程实现见本目录其余技术文档。</p>
+<h2 class="sec"><span class="num">一</span>项目背景与设计目标</h2>
+<h3><span class="hn">1.1</span>科学计算工具链的三重门槛</h3>
+<p>安装与环境门槛高。传统桌面软件（如 MATLAB、Origin）体积庞大、授权昂贵，一台新电脑从安装到能用往往要以小时计；Python 生态虽然免费开放，但要让初学者独立配好解释器、虚拟环境、数值库与绘图库，仍然是一件容易劝退的事。环境问题消耗的是本应投入在数据与问题本身上的注意力。</p>
+<p>教学路径存在断层。从积木式编程过渡到真实代码，中间缺少一款能把&quot;拖拽数据、搭建流程、编写代码&quot;统一在同一界面里的工具。学生在一个工具里学会拖积木，换到另一个工具里面对黑漆漆的终端，两次学习之间没有衔接，已建立的直觉难以迁移。</p>
+<p>交付与复现的门槛被低估。即便分析跑通了，&quot;这次结论是怎么算出来的&quot;往往没有留下可核查的痕迹：环境版本、随机种子、输入数据的哈希、代码快照散落在不同地方。等到投稿或复核时，重跑一遍常常得不到同一个数字。</p>
+<p>前两条门槛 Ergalics Studio 用&quot;把整个工作台搬进浏览器标签页&quot;来回答；第三条门槛用一条从运行记录到可复现锁、再到补充材料打包的完整交付链来回答——这也是它与&quot;在线画图工具&quot;最根本的区别。</p>
+</div>
+
+<!-- P4 -->
+<div class="page">
+<h3><span class="hn">1.2</span>六条设计目标</h3>
+<ol><li><strong>零安装，打开即用。</strong> 全部能力随网页交付，标准模式下把数据文件拖进窗口就能看到可视化结果。</li><li><strong>数据不出本机。</strong> 项目与数据存储在浏览器 IndexedDB 中，可导出为 .clproj 文件离线流转，不存在云端副本。</li><li><strong>一条学习曲线走到底。</strong> 四种模式面向同一份项目数据，从看到图、到搭流程、到拼积木、到写代码，能力渐进而不换工具。</li><li><strong>计算必须是真计算。</strong> GPU 内核是真实的 WGSL 计算着色器，Python 是真正的 CPython，原生核心由 Rust 编译为 WebAssembly；每一个内核都有对应的单元测试与端到端数值一致性校验。</li><li><strong>结论必须可被重放。</strong> 每一次执行都留下运行记录，环境与数据指纹可锁定为 <code>repro.lock</code>，报告与补充材料可一键打包成自包含文件与 ZIP。</li><li><strong>开放可扩展。</strong> 插件契约清晰、市场目录内建、第三方插件默认运行在 Worker 沙箱中、<code>.cspkg</code> 包支持 Ed25519 签名与信任注册表，配合完整的开源代码与持续集成，生态可以安全地生长。</li></ol>
+<h3><span class="hn">1.3</span>四类用户，四种模式</h3>
+<table><thead><tr><th>模式</th><th>面向人群</th><th>核心体验</th></tr></thead><tbody><tr><td>标准（Standard）</td><td>只想快速看图的人</td><td>拖入数据文件，自动识别格式并路由到匹配插件，即刻看到可视化</td></tr><tr><td>流程（Flow）</td><td>数据分析初学者</td><td>用 42 个内置区块搭出可视化数据流管线，拓扑排序执行，逐节点查看输出</td></tr><tr><td>积木（Block）</td><td>编程启蒙与教学</td><td>类 Scratch 积木编辑器，唯一入口是绿色&quot;运行时&quot;帽子区块，30 余种积木完全可脚本化</td></tr><tr><td>代码（Code）</td><td>真实脚本用户</td><td>Monaco 编辑器，Python 走 Pyodide Worker 中的真实 CPython，R / JavaScript 由进程内 IR 引擎执行，带 REPL 控制台与变量面板</td></tr></tbody></table>
+</div>
+
+<!-- P5 -->
+<div class="page">
+<p><strong>标准模式</strong>是产品的&quot;前门&quot;。工作台采用经典的四区布局：顶栏负责项目与模式切换，左侧是项目树与插件列表，中央视口承载插件渲染，右侧是与所选插件实时绑定的参数面板。把文件拖进窗口，宿主会通过文件格式检测（按魔数识别，辅以扩展名，可选 WASM 辅助）自动路由到匹配的插件，例如拖入 .xyz 文件直接得到点云渲染；多个插件同时匹配时弹出选择框由用户决定。</p>
+<figure><img src="../Estudio.png" alt="Ergalics Studio 标准模式主界面"><figcaption>Ergalics Studio 标准模式主界面</figcaption></figure>
+</div>
+
+<!-- P6 -->
+<div class="page">
+<p><strong>流程模式</strong>把分析过程显式化为一张有向无环图。用户从区块目录拖出数据源、变换、过滤、数学、统计、单位、可视化与绘图区块，连线成管线；编译器先做结构校验（端口匹配、必填参数、类型检查）与环检测、拓扑排序，执行器再按序执行并对每个节点做增量缓存，改动一个参数只重算受影响的下游节点。每个区块的输出都可以就地预览：可视化区块弹出插件渲染，统计区块以只读数据表或标量形式呈现。</p>
+<figure><img src="../flow.png" alt="流程模式：可视化数据流管线"><figcaption>流程模式：可视化数据流管线</figcaption></figure>
+</div>
+
+<!-- P7 -->
+<div class="page">
+<p><strong>积木模式</strong>面向编程启蒙。类 Scratch 的画布上，绿色&quot;运行时&quot;帽子区块是脚本的唯一入口，帽子下方未连接的孤立区块永不运行，从根本上杜绝误执行破损代码；数据加载、变量、循环、数学运算与绘图积木拼在其下。点击运行后，宿主把积木图编译为共享中间表示（IR），由内置解释器逐节点执行。积木名称、提示与下拉选项均已本地化，5 个内置示例程序开箱即玩。</p>
+<figure><img src="../block.png" alt="积木模式：帽子区块启动脚本"><figcaption>积木模式：帽子区块启动脚本</figcaption></figure>
+</div>
+
+<!-- P8 -->
+<div class="page">
+<p><strong>代码模式</strong>面向真实脚本用户。Monaco 编辑器之外，侧栏提供控制台与变量面板；Python 代码运行在 Pyodide Worker 中，是货真价实的 CPython，<code>studio</code> 作为正经可导入模块注入；R 与 JavaScript 走进程内 IR 引擎，与积木模式共用同一个解释器。仓库在 <code>examples/code</code> 目录提供 9 个可直接运行的示例程序，从蒙特卡洛求圆周率到信号分析一应俱全。</p>
+<figure><img src="../code.png" alt="代码模式：Monaco 编辑器与 Pyodide 运行时"><figcaption>代码模式：Monaco 编辑器与 Pyodide 运行时</figcaption></figure>
+<p>三个脚本模式共享同一份 IR：流程里搭好的管线可以变成积木，积木可以生成 Python 代码，代码模式下编辑的 studio 调用也能解析回积木图。一次编辑，三种表达，由专门的往返互转单元测试兜底。</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 453.796875 189.5625" style="max-width: 453.796875px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-1-lo1a06"><style>#mmd-1-lo1a06{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-1-lo1a06 .error-icon{fill:#fefce8;}#mmd-1-lo1a06 .error-text{fill:#010317;stroke:#010317;}#mmd-1-lo1a06 .edge-thickness-normal{stroke-width:2px;}#mmd-1-lo1a06 .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-lo1a06 .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-lo1a06 .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-lo1a06 .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-lo1a06 .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-lo1a06 .marker.cross{stroke:#0e7490;}#mmd-1-lo1a06 svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-lo1a06 .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-lo1a06 .cluster-label text{fill:#010317;}#mmd-1-lo1a06 .cluster-label span,#mmd-1-lo1a06 p{color:#010317;}#mmd-1-lo1a06 .label text,#mmd-1-lo1a06 span,#mmd-1-lo1a06 p{fill:#155e75;color:#155e75;}#mmd-1-lo1a06 .node rect,#mmd-1-lo1a06 .node circle,#mmd-1-lo1a06 .node ellipse,#mmd-1-lo1a06 .node polygon,#mmd-1-lo1a06 .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-lo1a06 .flowchart-label text{text-anchor:middle;}#mmd-1-lo1a06 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-lo1a06 .node .label{text-align:center;}#mmd-1-lo1a06 .node.clickable{cursor:pointer;}#mmd-1-lo1a06 .arrowheadPath{fill:#0b0b0b;}#mmd-1-lo1a06 .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-1-lo1a06 .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-lo1a06 .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-lo1a06 .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-lo1a06 .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-lo1a06 .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-lo1a06 .cluster text{fill:#010317;}#mmd-1-lo1a06 .cluster span,#mmd-1-lo1a06 p{color:#010317;}#mmd-1-lo1a06 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-lo1a06 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-lo1a06 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-lo1a06_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-lo1a06_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-lo1a06_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-lo1a06_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-lo1a06_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-lo1a06_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-1-lo1a06_flowchart-pointEnd)" marker-start="url(#mmd-1-lo1a06_flowchart-pointStart)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-IR" id="L-F-IR-0" d="M78.456,86.781L81.74,86.781C85.023,86.781,91.59,86.781,98.156,86.781C104.723,86.781,111.29,86.781,114.573,86.781L117.856,86.781"></path><path marker-end="url(#mmd-1-lo1a06_flowchart-pointEnd)" marker-start="url(#mmd-1-lo1a06_flowchart-pointStart)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-IR LE-B" id="L-IR-B-0" d="M226.054,52.844L231.264,49.186C236.474,45.527,246.893,38.209,260.954,34.55C275.015,30.891,292.717,30.891,301.568,30.891L310.419,30.891"></path><path marker-end="url(#mmd-1-lo1a06_flowchart-pointEnd)" marker-start="url(#mmd-1-lo1a06_flowchart-pointStart)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-IR LE-C" id="L-IR-C-0" d="M226.054,120.718L231.264,124.377C236.474,128.036,246.893,135.354,255.386,139.013C263.879,142.672,270.446,142.672,273.729,142.672L277.013,142.672"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(36.578125, 86.78125)" data-id="F" data-node="true" id="flowchart-F-0" class="node default default flowchart-label"><rect height="61.78125" width="73.15625" y="-30.890625" x="-36.578125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-29.078125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="58.15625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">流程模式<br>DAG 管线</span></div></foreignObject></g></g><g transform="translate(177.734375, 86.78125)" data-id="IR" data-node="true" id="flowchart-IR-1" class="node default default flowchart-label"><rect height="61.78125" width="109.15625" y="-30.890625" x="-54.578125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-47.078125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="94.15625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">共享中间表示 IR<br>src/editor/ir</span></div></foreignObject></g></g><g transform="translate(360.0546875, 30.890625)" data-id="B" data-node="true" id="flowchart-B-3" class="node default default flowchart-label"><rect height="61.78125" width="88.671875" y="-30.890625" x="-44.3359375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-36.8359375, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="73.671875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">积木模式<br>Blockly 画布</span></div></foreignObject></g></g><g transform="translate(360.0546875, 142.671875)" data-id="C" data-node="true" id="flowchart-C-5" class="node default default flowchart-label"><rect height="61.78125" width="155.484375" y="-30.890625" x="-77.7421875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-70.2421875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="140.484375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">代码模式<br>Python / R / JavaScript</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 1</div></div>
+</div>
+
+<!-- P9 -->
+<div class="page">
+<h3><span class="hn">1.4</span>项目现状</h3>
+<p>项目处于积极开发中，核心闭环已端到端可用并有测试覆盖。当前基线（版本 0.1.0，MIT 协议）：</p>
+<ul><li><strong>42 个内置插件</strong>：32 个核心/科学插件随启动自动加载，10 个趣味与工具插件声明 <code>autoload: false</code> 按需加载；侧栏按 charts / stats / physics / geo / data / fun 六个学科分组。</li><li><strong>四种工作模式</strong>全部可用；积木、流程、代码三种模式经由共享 IR 双向互转。</li><li><strong>19 个科研工具</strong>按测量与评估、建模与推断、数据与谱系、信号与记录、报告与复现五组组织，统一挂在 <code>/studio/:toolId</code> 路由下。</li><li><strong>42 个流程区块</strong>覆盖数据源、变换、过滤、数学、统计、单位、绘图与可视化八类。</li><li><strong>13 个可复用 WGSL 内核</strong>：粒子积分、N-Body 全对引力、直方图、热力图、点云、D2Q9 流体的碰撞/迁移/涡量、波动方程、分块矩阵乘、基 2 FFT、K-means、键值分箱；每个内核都配数学一致的 CPU 实现。</li><li><strong>33 个领域子系统目录</strong>落地了统计、科研二进制 I/O、出版级绘图与组图、可复现性、不确定度、信号处理、建模与推断、数据质量与清洗、SQL、血缘、报告、补充材料、课程与作品长廊等能力（详见 07 篇）。</li><li><strong>质量保障</strong>：106 个测试文件、1761 个单元测试（1759 通过，2 个在无 GPU 的 CI 上跳过）；13 套 Playwright 端到端套件驱动真实浏览器（无头 Edge）验证；5 条 GitHub Actions 工作流覆盖单元测试、性能基准、安全扫描、发版归档与部署（详见 08 篇）。</li></ul>
+<h2 class="sec"><span class="num">二</span>技术架构</h2>
+<h3><span class="hn">2.1</span>总体分层</h3>
+<p>整体为&quot;React 界面层 + 状态与核心服务层 + 插件运行时与原生核心 + 浏览器底座&quot;的多层结构。所有层级运行在同一浏览器页面内，通过明确的契约通信，低层从不反向导入高层。</p>
+</div>
+
+<!-- P10 -->
+<div class="page">
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 755.41796875 853.46875" style="max-width: 755.41796875px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-2-m5y6yr"><style>#mmd-2-m5y6yr{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-2-m5y6yr .error-icon{fill:#fefce8;}#mmd-2-m5y6yr .error-text{fill:#010317;stroke:#010317;}#mmd-2-m5y6yr .edge-thickness-normal{stroke-width:2px;}#mmd-2-m5y6yr .edge-thickness-thick{stroke-width:3.5px;}#mmd-2-m5y6yr .edge-pattern-solid{stroke-dasharray:0;}#mmd-2-m5y6yr .edge-pattern-dashed{stroke-dasharray:3;}#mmd-2-m5y6yr .edge-pattern-dotted{stroke-dasharray:2;}#mmd-2-m5y6yr .marker{fill:#0e7490;stroke:#0e7490;}#mmd-2-m5y6yr .marker.cross{stroke:#0e7490;}#mmd-2-m5y6yr svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-2-m5y6yr .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-2-m5y6yr .cluster-label text{fill:#010317;}#mmd-2-m5y6yr .cluster-label span,#mmd-2-m5y6yr p{color:#010317;}#mmd-2-m5y6yr .label text,#mmd-2-m5y6yr span,#mmd-2-m5y6yr p{fill:#155e75;color:#155e75;}#mmd-2-m5y6yr .node rect,#mmd-2-m5y6yr .node circle,#mmd-2-m5y6yr .node ellipse,#mmd-2-m5y6yr .node polygon,#mmd-2-m5y6yr .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-2-m5y6yr .flowchart-label text{text-anchor:middle;}#mmd-2-m5y6yr .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-2-m5y6yr .node .label{text-align:center;}#mmd-2-m5y6yr .node.clickable{cursor:pointer;}#mmd-2-m5y6yr .arrowheadPath{fill:#0b0b0b;}#mmd-2-m5y6yr .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-2-m5y6yr .flowchart-link{stroke:#0e7490;fill:none;}#mmd-2-m5y6yr .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-2-m5y6yr .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-2-m5y6yr .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-2-m5y6yr .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-2-m5y6yr .cluster text{fill:#010317;}#mmd-2-m5y6yr .cluster span,#mmd-2-m5y6yr p{color:#010317;}#mmd-2-m5y6yr div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-2-m5y6yr .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-2-m5y6yr :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-m5y6yr_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-m5y6yr_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-m5y6yr_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-m5y6yr_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-m5y6yr_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-m5y6yr_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"><g id="Runtime" class="cluster default flowchart-label"><rect height="246.953125" width="720.21484375" y="590.515625" x="0" ry="0" rx="0" style=""></rect><g transform="translate(334.107421875, 590.515625)" class="cluster-label"><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">运行时层</span></div></foreignObject></g></g><g id="State" class="cluster default flowchart-label"><rect height="246.953125" width="739.41796875" y="293.5625" x="0" ry="0" rx="0" style=""></rect><g transform="translate(317.708984375, 293.5625)" class="cluster-label"><foreignObject height="23.390625" width="104"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">状态与核心服务层</span></div></foreignObject></g></g></g><g class="edgePaths"><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-B2" id="L-B1-B2-0" d="M427.809,379.326L452.488,383.662C477.168,387.998,526.527,396.671,551.207,404.291C575.887,411.91,575.887,418.477,575.887,421.76L575.887,425.044"></path><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-B3" id="L-B1-B3-0" d="M257.793,380.344L257.793,384.51C257.793,388.677,257.793,397.01,257.793,404.46C257.793,411.91,257.793,418.477,257.793,421.76L257.793,425.044"></path><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-C1" id="L-B1-C1-0" d="M160.872,380.344L147.799,384.51C134.726,388.677,108.58,397.01,95.507,412.441C82.434,427.872,82.434,450.401,82.434,472.93C82.434,495.458,82.434,517.987,82.434,533.418C82.434,548.849,82.434,557.182,82.434,565.516C82.434,573.849,82.434,582.182,82.434,595.664C82.434,609.146,82.434,627.776,82.434,646.406C82.434,665.036,82.434,683.667,111.009,700.23C139.584,716.793,196.735,731.289,225.311,738.537L253.886,745.785"></path><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B2 LE-C2" id="L-B2-C2-0" d="M575.887,515.516L575.887,519.682C575.887,523.849,575.887,532.182,575.887,540.516C575.887,548.849,575.887,557.182,575.887,565.516C575.887,573.849,575.887,582.182,575.887,589.632C575.887,597.082,575.887,603.649,575.887,606.932L575.887,610.216"></path><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C2 LE-C1" id="L-C2-C1-0" d="M575.887,677.297L575.887,681.464C575.887,685.63,575.887,693.964,553.879,704.683C531.87,715.402,487.854,728.508,465.846,735.061L443.837,741.613"></path><path marker-end="url(#mmd-2-m5y6yr_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-UI LE-B1" id="L-UI-B1-0" d="M257.793,243.563L257.793,247.729C257.793,251.896,257.793,260.229,257.793,268.563C257.793,276.896,257.793,285.229,257.793,292.679C257.793,300.129,257.793,306.696,257.793,309.979L257.793,313.263"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(348.890625, 769.8828125)" data-id="C1" data-node="true" id="flowchart-C1-11" class="node default default flowchart-label"><rect height="85.171875" width="179.734375" y="-42.5859375" x="-89.8671875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-82.3671875, -35.0859375)" style="" class="label"><rect></rect><foreignObject height="70.171875" width="164.734375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">插件运行时<br>42 个内置插件 · 市场目录<br>cspkg 加载器 · Worker 沙箱</span></div></foreignObject></g></g><g transform="translate(575.88671875, 646.40625)" data-id="C2" data-node="true" id="flowchart-C2-12" class="node default default flowchart-label"><rect height="61.78125" width="218.65625" y="-30.890625" x="-109.328125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-101.828125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="203.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">原生核心（Rust 编译为 WASM）<br>设备管理 · 计算内核 · 文件类型检测</span></div></foreignObject></g></g><g transform="translate(257.79296875, 349.453125)" data-id="B1" data-node="true" id="flowchart-B1-8" class="node default default flowchart-label"><rect height="61.78125" width="340.03125" y="-30.890625" x="-170.015625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-162.515625, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="325.03125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">Zustand 状态库（17 个文件）<br>app · project · plugin · settings · editor · 科研各域状态</span></div></foreignObject></g></g><g transform="translate(575.88671875, 472.9296875)" data-id="B2" data-node="true" id="flowchart-B2-9" class="node default default flowchart-label"><rect height="85.171875" width="255.46875" y="-42.5859375" x="-127.734375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-120.234375, -35.0859375)" style="" class="label"><rect></rect><foreignObject height="70.171875" width="240.46875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">核心服务<br>存储 · 事件总线 · i18n · 主题包 · 性能<br>文件格式检测 · 沙箱 · 插件签名 · 视口管理</span></div></foreignObject></g></g><g transform="translate(257.79296875, 472.9296875)" data-id="B3" data-node="true" id="flowchart-B3-10" class="node default default flowchart-label"><rect height="85.171875" width="280.71875" y="-42.5859375" x="-140.359375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-132.859375, -35.0859375)" style="" class="label"><rect></rect><foreignObject height="70.171875" width="265.71875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">33 个领域子系统<br>统计 · 科研IO · 绘图与组图 · 可复现 · 不确定度<br>信号 · 建模与推断 · 数据工程 · 工作流与交付</span></div></foreignObject></g></g><g transform="translate(93.79296875, -8)" class="root"><g class="clusters"><g id="UI" class="cluster default flowchart-label"><rect height="243.5625" width="313" y="8" x="8" ry="0" rx="0" style=""></rect><g transform="translate(126.0625, 8)" class="cluster-label"><foreignObject height="23.390625" width="76.875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">React 界面层</span></div></foreignObject></g></g></g><g class="edgePaths"></g><g class="edgeLabels"></g><g class="nodes"><g transform="translate(164.5, 73.890625)" data-id="A1" data-node="true" id="flowchart-A1-6" class="node default default flowchart-label"><rect height="61.78125" width="263" y="-30.890625" x="-131.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-124, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="248"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">欢迎页 · 工作台<br>顶栏 / 侧栏 / 中央视口 / 右侧面板 / 状态栏</span></div></foreignObject></g></g><g transform="translate(164.5, 185.671875)" data-id="A2" data-node="true" id="flowchart-A2-7" class="node default default flowchart-label"><rect height="61.78125" width="234.453125" y="-30.890625" x="-117.2265625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-109.7265625, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="219.453125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">流程画布 · 积木画布 · Monaco 编辑器<br>19 个科研工具页（ToolShell 外壳）</span></div></foreignObject></g></g></g></g></g></g></g></svg><div class="svgcap">图 2</div></div>
+<p>各层职责如下：</p>
+</div>
+
+<!-- P11 -->
+<div class="page">
+<ul><li><strong>React 界面层</strong>（<code>src/pages</code> 与 <code>src/components</code>）：欢迎页、工作台四区布局、流程画布、积木画布、Monaco 代码编辑器与 19 个科研工具页。界面组件只与状态库和插件契约打交道，不含业务算法。</li><li><strong>状态层</strong>（<code>src/stores</code>，17 个文件）：分别管理应用壳、项目、插件、设置、编辑器、AI 面板、分析、区块、分块、实验、图表、血缘、笔记本、研究、模板引导与流程同步等状态，互相之间通过事件总线协作而非直接引用。</li><li><strong>核心服务层</strong>（<code>src/core</code>）：存储（IndexedDB 与 OPFS）、事件总线、国际化（中英双语）、主题包、性能上报、文件格式检测、视口管理、沙箱与 cspkg 加载、插件签名等横切能力，以及 33 个领域子系统。</li><li><strong>插件运行时</strong>（<code>src/plugins</code>）：内置插件的注册表与生命周期、市场目录、cspkg 包加载器与 Worker 沙箱。</li><li><strong>原生核心</strong>（<code>native/ergalics-core</code>，Rust）：编译为 WebAssembly 后向 JavaScript 暴露设备管理、缓冲区与计算内核抽象，并承担文件类型魔数检测。</li><li><strong>浏览器底座</strong>：WebGPU、Web Workers、IndexedDB / OPFS、OffscreenCanvas 与 Three.js，是所有能力最终落地的平台。</li></ul>
+<h3><span class="hn">2.2</span>贯穿架构的三条设计主线</h3>
+<p><strong>宿主与插件之间只有一个契约。</strong> 每个插件实现统一的 Plugin 接口（初始化、激活、渲染、参数读写、数据加载、3D 场景渲染等），并从宿主获得一个 PluginApi 句柄用于本地化、状态上报、性能上报、通知与文件访问。第三方插件的入口代码默认运行在 Web Worker 沙箱中，仅通过类型化 RPC 协议与宿主通信，画布渲染经 OffscreenCanvas 转移完成；<code>.cspkg</code> 包在加载时进行清单校验（必填字段、id 格式、入口路径穿越防护、沙箱枚举），并可选地经 Ed25519 签名验证来源。沙箱回答&quot;它运行时能做什么&quot;，签名回答&quot;这个包是谁发布的&quot;——两者互相独立，合法签名不会削弱沙箱隔离。</p>
+<p><strong>一条渲染管线服务全部模式。</strong> 无论是流程模式的可视化区块、积木模式解释器调用的 <code>studio.plot</code>，还是代码模式 Python 里的 <code>studio.plot</code> 调用，最终都汇入同一个渲染桥接，落到同一个散点图、直方图插件上。2D 插件共享同一个 canvas 视口；3D 插件按需懒创建宿主管理的 Three.js 场景，并在 2D 插件激活时自动隐藏，保证两种视口互不渗透。</p>
+<p><strong>GPU 计算三级降级。</strong> Rust 核心编译为 WebAssembly，向 JavaScript 暴露设备管理、缓冲区与计算内核的完整抽象；当 WASM 模块不可用时，宿主侧服务自动改走原生 WebGPU API；两者皆不可用时插件回退到 CPU 实现，行为一致。<code>gpu-kernels.ts</code> 另按数据规模设阈值（如矩阵乘 16384 个输出元素、FFT 1024 个复数样本），低于阈值的小数据自动走 CPU，避免上传回读开销吃掉收益；引擎选择结果会写入运行记录，使&quot;这一次是谁在算&quot;可追溯。端到端测试对 GPU 与 CPU 的计算结果做数值一致性校验（误差约 2×10⁻⁶）。</p>
+</div>
+
+<!-- P12 -->
+<div class="page">
+<h3><span class="hn">2.3</span>一条渲染管线服务全部模式</h3>
+<p>三种编辑模式产生的绘图请求汇入同一个渲染桥接，由共享的插件渲染器出图，因此&quot;换一种表达方式&quot;看到的是同一张图。</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 555.703125 301.34375" style="max-width: 555.703125px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-3-dpanjm"><style>#mmd-3-dpanjm{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-3-dpanjm .error-icon{fill:#fefce8;}#mmd-3-dpanjm .error-text{fill:#010317;stroke:#010317;}#mmd-3-dpanjm .edge-thickness-normal{stroke-width:2px;}#mmd-3-dpanjm .edge-thickness-thick{stroke-width:3.5px;}#mmd-3-dpanjm .edge-pattern-solid{stroke-dasharray:0;}#mmd-3-dpanjm .edge-pattern-dashed{stroke-dasharray:3;}#mmd-3-dpanjm .edge-pattern-dotted{stroke-dasharray:2;}#mmd-3-dpanjm .marker{fill:#0e7490;stroke:#0e7490;}#mmd-3-dpanjm .marker.cross{stroke:#0e7490;}#mmd-3-dpanjm svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-3-dpanjm .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-3-dpanjm .cluster-label text{fill:#010317;}#mmd-3-dpanjm .cluster-label span,#mmd-3-dpanjm p{color:#010317;}#mmd-3-dpanjm .label text,#mmd-3-dpanjm span,#mmd-3-dpanjm p{fill:#155e75;color:#155e75;}#mmd-3-dpanjm .node rect,#mmd-3-dpanjm .node circle,#mmd-3-dpanjm .node ellipse,#mmd-3-dpanjm .node polygon,#mmd-3-dpanjm .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-3-dpanjm .flowchart-label text{text-anchor:middle;}#mmd-3-dpanjm .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-3-dpanjm .node .label{text-align:center;}#mmd-3-dpanjm .node.clickable{cursor:pointer;}#mmd-3-dpanjm .arrowheadPath{fill:#0b0b0b;}#mmd-3-dpanjm .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-3-dpanjm .flowchart-link{stroke:#0e7490;fill:none;}#mmd-3-dpanjm .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-3-dpanjm .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-3-dpanjm .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-3-dpanjm .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-3-dpanjm .cluster text{fill:#010317;}#mmd-3-dpanjm .cluster span,#mmd-3-dpanjm p{color:#010317;}#mmd-3-dpanjm div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-3-dpanjm .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-3-dpanjm :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-dpanjm_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-dpanjm_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-dpanjm_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-dpanjm_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-3-dpanjm_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-3-dpanjm_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-3-dpanjm_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-R" id="L-F-R-0" d="M104.07,30.891L110.033,30.891C115.995,30.891,127.919,30.891,145.964,43.729C164.008,56.568,188.172,82.245,200.254,95.083L212.336,107.922"></path><path marker-end="url(#mmd-3-dpanjm_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-R" id="L-B-R-0" d="M110.422,142.672L115.326,142.672C120.229,142.672,130.036,142.672,138.223,142.672C146.41,142.672,152.977,142.672,156.26,142.672L159.544,142.672"></path><path marker-end="url(#mmd-3-dpanjm_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-R" id="L-C-R-0" d="M114.844,254.453L119.01,254.453C123.177,254.453,131.51,254.453,147.759,241.615C164.008,228.776,188.172,203.099,200.254,190.261L212.336,177.422"></path><path marker-end="url(#mmd-3-dpanjm_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-R LE-P" id="L-R-P-0" d="M325.234,142.672L329.401,142.672C333.568,142.672,341.901,142.672,349.351,142.672C356.801,142.672,363.368,142.672,366.651,142.672L369.934,142.672"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(57.421875, 30.890625)" data-id="F" data-node="true" id="flowchart-F-28" class="node default default flowchart-label"><rect height="61.78125" width="93.296875" y="-30.890625" x="-46.6484375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-39.1484375, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="78.296875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">流程模式区块<br>viz.scatter 等</span></div></foreignObject></g></g><g transform="translate(245.0390625, 142.671875)" data-id="R" data-node="true" id="flowchart-R-29" class="node default default flowchart-label"><rect height="61.78125" width="160.390625" y="-30.890625" x="-80.1953125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-72.6953125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="145.390625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">渲染桥接<br>RenderedView 载入插件</span></div></foreignObject></g></g><g transform="translate(57.421875, 142.671875)" data-id="B" data-node="true" id="flowchart-B-30" class="node default default flowchart-label"><rect height="61.78125" width="106" y="-30.890625" x="-53" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.5, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">积木模式解释器<br>studio.plot</span></div></foreignObject></g></g><g transform="translate(57.421875, 254.453125)" data-id="C" data-node="true" id="flowchart-C-32" class="node default default flowchart-label"><rect height="61.78125" width="114.84375" y="-30.890625" x="-57.421875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-49.921875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="99.84375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">代码模式 Python<br>studio.plot</span></div></foreignObject></g></g><g transform="translate(457.46875, 142.671875)" data-id="P" data-node="true" id="flowchart-P-35" class="node default default flowchart-label"><rect height="61.78125" width="164.46875" y="-30.890625" x="-82.234375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-74.734375, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="149.46875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">共享插件渲染器<br>散点 · 折线 · 直方图 · 点云</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 3</div></div>
+<h2 class="sec"><span class="num">三</span>功能全景</h2>
+<h3><span class="hn">3.1</span>内置插件生态</h3>
+<p>32 个核心/科学插件按能力分为六组，随启动自动加载：</p>
+<table><thead><tr><th>分组</th><th>插件</th><th>说明</th></tr></thead><tbody><tr><td>基础与三维可视化</td><td>散点、时间序列、柱状、气泡、直方图、热力图、等值线、图像查看、点云（2D 与 3D）、三维曲面、三维体素、粒子</td><td>覆盖最常见的工程与科学出图需求；2D 插件共享同一 canvas 视口，三维插件走 Three.js 场景</td></tr><tr><td>高级统计图</td><td>箱线、小提琴、误差带、QQ 图、平行坐标、桑基、矩形树图、网络图、雷达/极坐标、蛋白质互作网络</td><td>面向统计教学与多变量探索，网络类插件内置力导向布局</td></tr><tr><td>物理仿真</td><td>N-Body 引力、格子 Boltzmann 流体、波动方程、双摆</td><td>数据驱动的仿真引擎，WGSL 计算内核加速，带 CPU 回退</td></tr></tbody></table>
+</div>
+
+<!-- P13 -->
+<div class="page">
+<table><thead><tr><th>分组</th><th>插件</th><th>说明</th></tr></thead><tbody><tr><td>交互实验室</td><td>电磁场、光学实验、结构力学</td><td>元件可直接拖动，实时求解并可视化</td></tr><tr><td>机器学习</td><td>AI 训练器</td><td>四类模型（线性回归、非线性神经网络、逻辑回归、MNIST 卷积网络）浏览器内训练</td></tr><tr><td>地理可视化</td><td>GeoJSON 地图</td><td>离线矢量地图与分级设色，内置中国省份示例</td></tr></tbody></table>
+<p>10 个趣味/工具插件按需加载，保持首屏轻量：Mandelbrot 与 Julia 集浏览器、Spirograph 摆线艺术、Lissajous 曲线、Game of Life 元胞自动机、Harmonograph 谐振绘图、调色板探索器、科赫雪花、巴恩斯利蕨、烟花粒子与 Truchet 瓷砖。</p>
+<p>插件全部来自同一套契约：无论内置还是第三方，加载、渲染、参数与数据访问走的是同一条路径，市场目录（<code>src/plugins/marketplace.ts</code>）按科学、趣味、工具三类组织，支持按需加载。参数面板由宿主依清单自动生成本地化表单，支持范围滑杆、下拉、数字、复选框、文本、文件、按钮与开关八类控件。</p>
+<h3><span class="hn">3.2</span>流程模式区块体系</h3>
+<p>42 个内置区块分八类，构成流程模式的&quot;词汇表&quot;：</p>
+<table><thead><tr><th>类别</th><th>数量</th><th>区块</th></tr></thead><tbody><tr><td>数据源 source</td><td>4</td><td>示例数据、随机数据、网格数据、文件导入</td></tr><tr><td>变换 transform</td><td>5</td><td>选择列、重命名列、添加列、归一化、排序</td></tr><tr><td>过滤 filter</td><td>3</td><td>范围过滤、数值过滤、Top-K 选取</td></tr><tr><td>数学 math</td><td>6</td><td>加、减、乘、除、平方根、绝对值（支持与标量或另一列运算）</td></tr><tr><td>统计 stats</td><td>14</td><td>摘要统计、直方图分箱、单样本 / 独立双样本 / 配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方独立性检验、相关分析、Cohen's d 效应量、多重比较校正、Bootstrap、蒙特卡洛传播、MCMC 采样</td></tr></tbody></table>
+</div>
+
+<!-- P14 -->
+<div class="page">
+<table><thead><tr><th>类别</th><th>数量</th><th>区块</th></tr></thead><tbody><tr><td>单位 units</td><td>2</td><td>量纲换算、量纲一致性检查</td></tr><tr><td>可视化 viz</td><td>4</td><td>散点、折线、直方图、二维点云（经渲染桥接走插件出图）</td></tr><tr><td>绘图 plot</td><td>4</td><td>折线、散点、直方图、柱状（出版级矢量引擎渲染，可直接导出 SVG / PDF）</td></tr></tbody></table>
+<p>区块元数据（名称、描述）内建中英双语；编译器负责结构校验、端口匹配、类型检查与环检测，执行器以节点为粒度做增量缓存与失效重算，示例管线（<code>examples/projects</code> 下 11 个真实 .clproj 项目文件）在构建期经 <code>import.meta.glob</code> 自动发现。</p>
+<h3><span class="hn">3.3</span>数据格式支持</h3>
+<table><thead><tr><th>类别</th><th>格式</th><th>说明</th></tr></thead><tbody><tr><td>常规数据</td><td>CSV、JSON、XYZ、DAT、PNG、GeoJSON</td><td>散点、表格、网格、图像与矢量地图</td></tr><tr><td>科研二进制</td><td>HDF5、NetCDF、FITS、Zarr、Parquet</td><td>由纯 TypeScript 实现的科研 I/O 子系统解析，统一调度器按魔数分派</td></tr><tr><td>项目文件</td><td>.clproj</td><td>工程自有格式，lz-string 压缩，IndexedDB 存储并支持导出分享</td></tr><tr><td>插件包</td><td>.cspkg</td><td>fflate 打包的 ZIP，加载时校验清单、可选验签，并落入沙箱</td></tr></tbody></table>
+<p>格式检测优先按魔数识别，辅以扩展名匹配；识别结果驱动标准模式的插件自动路由。大文件在进入解析前先经 <code>src/core/chunked/</code> 的行窗口读取与内容指纹，再由 Worker 池并行解析，避免阻塞主线程。</p>
+<h3><span class="hn">3.4</span>科研能力全景</h3>
+<p>科研能力分布在两个层面——19 个面向任务的工具页，以及 33 个领域子系统。工具页解决&quot;这一步要做什么&quot;，子系统提供&quot;这一步怎么算&quot;：</p>
+</div>
+
+<!-- P15 -->
+<div class="page">
+<ul><li><strong>测量与评估</strong>：不确定性套件（Bootstrap / 蒙特卡洛 / MCMC 与 GPU 加速重采样，带 R-hat、ESS、HDI 等收敛诊断）、数据画像（流式单遍列画像与 0–100 质量分）。</li><li><strong>建模与推断</strong>：模型工作台（OLS / 逻辑 / 岭回归 / 多项式拟合与残差诊断）、贝叶斯推断（HMC / NUTS 与 WAIC、PSIS-LOO 模型比较）、模型推理（浏览器内 WebGPU 运行 ONNX）、参数扫描（全网格与拉丁超立方设计点、响应面）。</li><li><strong>数据与谱系</strong>：SQL 数据工作台（DuckDB-WASM）、数据血缘（Sugiyama 式分层 DAG）、图表工作台（IEEE / Elsevier 模板网格与矢量导出）、数据分析（假设检验与多重比较校正）、数据清洗向导（五类可回退步骤）。</li><li><strong>信号与记录</strong>：信号实验室（FFT、窗函数、Savitzky-Golay、ACF / PACF、加性时序分解）、Notebook（Markdown + Python）、实验记录（全工具运行台账与指标对比）。</li><li><strong>报告与复现</strong>：报告生成器（单一自包含 HTML）、可复现锁（<code>repro.lock</code> 五类漂移判定）、补充材料打包（数据 + 代码 + 许可的 ZIP）、课程模式、作品画廊。</li></ul>
+<p>此外，运行日志导出（<code>src/core/logger.ts</code>）把会话内的事件序列落为可下载文件，便于问题回溯与教学演示复盘。</p>
+<h2 class="sec"><span class="num">四</span>应用场景</h2>
+</div>
+
+<!-- P16 -->
+<div class="page">
+<h3><span class="hn">4.1</span>科学与工程数据可视化</h3>
+<p>覆盖统计分析与工程绘图的常见图型：散点、折线、直方图、热力图、等值线、箱线图、小提琴图、误差带、平行坐标、桑基图、矩形树图、QQ 图、气泡图、雷达图、网络图等；数据格式上除 CSV、JSON、XYZ 外，还支持 HDF5、NetCDF、FITS、Zarr、Parquet 等科研领域常用的二进制格式导入，可服务地学、天文、生物等学科的数据探索需求。下图是等值线插件渲染的双高斯标量场。</p>
+<figure><img src="../field.png" alt="等值线：双高斯标量场"><figcaption>等值线：双高斯标量场</figcaption></figure>
+<h3><span class="hn">4.2</span>物理仿真与教学演示</h3>
+<p>内置多个数据驱动的仿真引擎，全部&quot;初始为空、绝不伪造默认场景&quot;，数据既可来自内置示例也可来自用户文件：</p>
+<table><thead><tr><th>插件</th><th>演示内容</th></tr></thead><tbody><tr><td>N-Body 引力</td><td>4096 体的三维全对引力直接求和，WGSL 内核加速</td></tr><tr><td>格子 Boltzmann 流体</td><td>D2Q9 通道流绕障碍物，展示卡门涡街与机翼绕流</td></tr><tr><td>波动方程</td><td>高斯脉冲、双源干涉、双缝衍射场景，leapfrog 内核积分</td></tr><tr><td>双摆</td><td>RK4 积分配合初值仅差 0.001 弧度的&quot;混沌幽灵摆&quot;，直观展示混沌</td></tr></tbody></table>
+</div>
+
+<!-- P17 -->
+<div class="page">
+<table><thead><tr><th>插件</th><th>演示内容</th></tr></thead><tbody><tr><td>电磁场</td><td>可拖动电荷在库仑力与洛伦兹力共同作用下的回旋运动</td></tr><tr><td>光学实验</td><td>薄透镜成像、三棱镜折射与色散，元件可在画布上直接拖动</td></tr><tr><td>结构力学</td><td>铰接桁架实时承重，杆件按轴力着色，超载断裂直至垮塌</td></tr></tbody></table>
+<figure><img src="../Nbody.png" alt="N-Body 引力：三维星环"><figcaption>N-Body 引力：三维星环</figcaption></figure>
+</div>
+
+<!-- P18 -->
+<div class="page">
+<figure><img src="../airplane.png" alt="格子 Boltzmann 流体绕机翼"><figcaption>格子 Boltzmann 流体绕机翼</figcaption></figure>
+<figure><img src="../waveequation.png" alt="波动方程：双缝衍射干涉"><figcaption>波动方程：双缝衍射干涉</figcaption></figure>
+</div>
+
+<!-- P19 -->
+<div class="page">
+<figure><img src="../doublependulum.png" alt="双摆：混沌幽灵摆"><figcaption>双摆：混沌幽灵摆</figcaption></figure>
+<figure><img src="../Cyclotron.png" alt="电磁场：回旋加速器示例"><figcaption>电磁场：回旋加速器示例</figcaption></figure>
+</div>
+
+<!-- P20 -->
+<div class="page">
+<figure><img src="../light.png" alt="光学实验：棱镜色散"><figcaption>光学实验：棱镜色散</figcaption></figure>
+<figure><img src="../structure.png" alt="结构力学：桁架受力着色"><figcaption>结构力学：桁架受力着色</figcaption></figure>
+</div>
+
+<!-- P21 -->
+<div class="page">
+<figure><img src="../protein.png" alt="蛋白质互作网络：力导向布局"><figcaption>蛋白质互作网络：力导向布局</figcaption></figure>
+<h3><span class="hn">4.3</span>编程与计算思维教学</h3>
+<p>四种模式构成一条从&quot;零代码&quot;到&quot;真代码&quot;的渐进路径：初学者先在标准模式拖数据看图，再到流程模式理解数据流与统计概念（t 检验、方差分析、相关分析等 14 个统计区块），继而进入积木模式写出第一段带变量与循环的&quot;程序&quot;，最后在代码模式直接写 Python。三个脚本模式共享同一份 IR，切换模式时逻辑原样保留；仓库附带的 11 个流程示例项目、5 个积木示例与 9 个 Python 示例，构成可直接布置的练习素材库。课程模式进一步把这个闭环落在工具里：教师发布绑定学科模板的作业，学生提交带 <code>repro.lock</code> 的运行结果，教师查看学生 × 作业矩阵并批改。</p>
+</div>
+
+<!-- P22 -->
+<div class="page">
+<h3><span class="hn">4.4</span>浏览器内机器学习入门</h3>
+<p>AI 训练插件基于 TensorFlow.js，支持线性回归、非线性神经网络、逻辑回归与卷积神经网络四类模型，画布上方实时绘制损失曲线，下方按模型切换散点加拟合线、二维决策边界或 MNIST 数字识别网格。训练样本内置（线性、三次加正弦、双高斯分类、200 张 MNIST 子集），TF.js 依赖在首次点击训练时才懒加载，避免拖慢启动。</p>
+<figure><img src="../AImnistcnn.png" alt="AI 训练插件：MNIST CNN 训练与预测网格"><figcaption>AI 训练插件：MNIST CNN 训练与预测网格</figcaption></figure>
+</div>
+
+<!-- P23 -->
+<div class="page">
+<h3><span class="hn">4.5</span>地理可视化与算法艺术</h3>
+<p>离线 GeoJSON 分级设色地图支持 Albers（中国）、Web 墨卡托与等距圆柱投影，内置中国省份示例；Mandelbrot 与 Julia 集、科赫雪花、巴恩斯利蕨、Spirograph 等 10 个趣味插件适合课堂演示与兴趣探索。</p>
+<figure><img src="../geojsonmap.png" alt="GeoJSON 地图：Albers 投影下的中国省份"><figcaption>GeoJSON 地图：Albers 投影下的中国省份</figcaption></figure>
+<h3><span class="hn">4.6</span>研究交付与协作</h3>
+<p>面向&quot;要把结果交出去&quot;的场景：数据清洗向导把脏数据变成可用表格；实验记录台账汇总每一次运行的参数与指标；数据血缘图说明某个产物是由哪些文件、哪些步骤生成的；图表工作台按期刊模板拼出多面板组图；报告生成器把叙述、图与表打包成单一自包含 HTML；可复现锁锁定环境与数据指纹；补充材料打包把数据、代码与许可压成一个 ZIP。一条链路走完，结论不再只是截图。</p>
+<h2 class="sec"><span class="num">五</span>创新点</h2>
+<p><strong>四模式同源架构。</strong> 市面上的工具要么只做拖拽可视化，要么只做代码编辑。Ergalics Studio 用一份共享 IR 打通积木、流程与代码三种范式，并配备三模式往返互转的专门单元测试；代码模式的缓冲区内容还能解析回 IR，使&quot;换一种表达方式理解同一逻辑&quot;成为一键操作。对教学而言，这意味着同一条管线可以用三种难度梯度反复讲解。</p>
+<p><strong>零安装的全栈科学计算环境。</strong> CPython（Pyodide Worker）、Rust/WASM 原生核心、WebGPU 计算与 IndexedDB / OPFS 持久化全部运行在浏览器内，数据不出本机，同时保持接近桌面软件的体验。这不仅是部署便利，更改变了&quot;教学机房的软件审批、学生自带电脑的环境差异&quot;这类现实约束的性质。</p>
+</div>
+
+<!-- P24 -->
+<div class="page">
+<p><strong>真实 GPU 计算加优雅降级。</strong> 计算管线不是演示性质的：从 Rust 核心暴露的缓冲区与内核抽象，到 13 个真实 WGSL 内核（含 D2Q9 流体、N-Body、波动方程、FFT、K-means），再到端到端测试中 GPU 与 CPU 结果的数值一致性校验（误差约 2×10⁻⁶），每一层都可用、可测；数据规模低于阈值或 WebGPU 缺失时自动回退 CPU，行为一致，且引擎选择被记入运行记录。</p>
+<p><strong>严格数据驱动的仿真插件。</strong> 所有仿真插件初始为空，重置只重放已加载数据，杜绝&quot;伪造默认场景&quot;。这一约束保证了演示与真实数据的统一性，也倒逼插件把物理参数做成可调项，而不是把结论画死在界面里。</p>
+<p><strong>沙箱与签名两条正交防线。</strong> 第三方插件默认运行于 Web Worker，通过类型化 RPC 访问宿主，画布渲染经 OffscreenCanvas 转移完成；<code>.cspkg</code> 包在加载时进行清单校验（必填字段、id 格式、入口路径穿越防护、沙箱枚举），并支持 Ed25519 签名与信任注册表（纯 TypeScript 自实现，不依赖 WebCrypto）。沙箱约束&quot;能做什么&quot;，签名回答&quot;是谁发布的&quot;——一把钥匙丢了不会连带废掉另一把锁。</p>
+<p><strong>从&quot;能算&quot;到&quot;能交付&quot;。</strong> 运行记录、数据血缘、可复现锁、报告生成与补充材料打包构成一条完整的交付链：一次分析不光产出图表，还产出可核查的溯源信息与可原样重跑的材料包。这是把&quot;科学计算&quot;与&quot;数据可视化&quot;区分开的关键能力。</p>
+<p><strong>工程化质量。</strong> 106 个测试文件、1761 个单元测试构成回归网，13 套端到端套件在真实浏览器中校验像素与零控制台错误，5 条 CI 工作流分别把守单元测试与类型、性能基线、依赖安全与 SBOM、发版归档（Zenodo DOI）与文档站部署；性能与体积用基线对比而非拍定阈值，且基线按运行环境分文件，避免共享 Runner 上的噪声被当成性能回归。</p>
+<h2 class="sec"><span class="num">六</span>运行与获取</h2>
+<ul><li>在线演示：GitHub Pages（见仓库 README 徽章链接），打开即用。</li><li>本地开发：<code>npm install</code> 后 <code>npm run dev</code> 启动；构建原生核心需要 Rust 工具链与 <code>wasm32-unknown-unknown</code> 目标，前端在缺失 WASM 模块时会优雅降级（<code>npm run build:web</code> 可跳过 WASM 步骤）。</li><li>质量检查：<code>npm test</code> 跑单元测试，<code>npm run verify</code> 先做 <code>tsc --noEmit</code> 严格类型检查再跑单测，<code>npm run test:e2e</code> 串联端到端套件。</li><li>开源协议：MIT，欢迎通过 Issue 与 Pull Request 参与贡献。</li></ul>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
       </div>
     </div>
-    <div class="cover-foot">开源项目 · MIT 协议</div>
-  </div>
-</div>
-
-<!-- P2 目录 -->
-<div class="page">
-  <div class="toc">
-    <h1>目 录</h1>
-    <div class="toc-item l1"><span>一、项目背景与设计目标</span><span class="dots"></span><span class="tp">03</span></div>
-    <div class="toc-item l2"><span>1.1 科学计算工具链的三重门槛</span><span class="dots"></span><span class="tp">03</span></div>
-    <div class="toc-item l2"><span>1.2 五条设计目标</span><span class="dots"></span><span class="tp">03</span></div>
-    <div class="toc-item l2"><span>1.3 四类用户，四种模式</span><span class="dots"></span><span class="tp">04</span></div>
-    <div class="toc-item l2"><span>1.4 项目现状</span><span class="dots"></span><span class="tp">04</span></div>
-    <div class="toc-item l1"><span>二、技术架构</span><span class="dots"></span><span class="tp">08</span></div>
-    <div class="toc-item l2"><span>2.1 总体分层</span><span class="dots"></span><span class="tp">08</span></div>
-    <div class="toc-item l2"><span>2.2 贯穿架构的三条设计主线</span><span class="dots"></span><span class="tp">09</span></div>
-    <div class="toc-item l2"><span>2.3 一条渲染管线服务全部模式</span><span class="dots"></span><span class="tp">10</span></div>
-    <div class="toc-item l1"><span>三、功能全景</span><span class="dots"></span><span class="tp">10</span></div>
-    <div class="toc-item l2"><span>3.1 内置插件生态</span><span class="dots"></span><span class="tp">10</span></div>
-    <div class="toc-item l2"><span>3.2 流程模式区块体系</span><span class="dots"></span><span class="tp">11</span></div>
-    <div class="toc-item l2"><span>3.3 数据格式支持</span><span class="dots"></span><span class="tp">11</span></div>
-    <div class="toc-item l2"><span>3.4 统计、绘图与可复现能力</span><span class="dots"></span><span class="tp">12</span></div>
-    <div class="toc-item l1"><span>四、应用场景</span><span class="dots"></span><span class="tp">12</span></div>
-    <div class="toc-item l1"><span>五、创新点</span><span class="dots"></span><span class="tp">19</span></div>
-    <div class="toc-item l1"><span>六、运行与获取</span><span class="dots"></span><span class="tp">20</span></div>
-  </div>
-</div>
-
-<!-- P3 一、项目背景 1.1 -->
-<div class="page">
-  <h2 class="sec"><span class="num">一</span>项目背景与设计目标</h2>
-  <h3><span class="hn">1.1</span>科学计算工具链的三重门槛</h3>
-  <p><strong>安装与环境门槛高。</strong>传统桌面软件（如 MATLAB、Origin）体积庞大、授权昂贵，一台新电脑从安装到能用往往要以小时计；Python 生态虽然免费开放，但要让初学者独立配好解释器、虚拟环境、数值库与绘图库，仍然是一件容易劝退的事。环境问题消耗的，本应是投入在数据与问题本身上的注意力。</p>
-  <p><strong>教学路径存在断层。</strong>从积木式编程过渡到真实代码，中间缺少一款能把"拖拽数据、搭建流程、编写代码"统一在同一界面里的工具。学生在一个工具里学会拖积木，换到另一个工具里面对黑漆漆的终端，两次学习之间没有衔接，已经建立的直觉难以迁移。</p>
-  <p><strong>数据安全与离线可用。</strong>科研与教学数据常涉及隐私或涉密，上传云端在很多场景下不可接受。纯浏览器方案天然做到数据不出本机，同时保留接近桌面软件的交互体验；配合浏览器对 WebGPU、WebAssembly 与 Web Worker 的支持，"重计算发生在网页里"已经从口号变成了现实。</p>
-  <div class="callout">
-    Ergalics Studio 的回答是：把整个工作台——包括 Python 运行时、GPU 计算与插件生态——全部搬进浏览器标签页，做到"打开网页即用、关掉即走、数据不出本机"。
-  </div>
-  <h3><span class="hn">1.2</span>五条设计目标</h3>
-  <ol>
-    <li><strong>零安装，打开即用。</strong>全部能力随网页交付，标准模式下把数据文件拖进窗口就能看到可视化结果。</li>
-    <li><strong>数据不出本机。</strong>项目与数据存储在浏览器 IndexedDB 中，可导出为 .clproj 文件离线流转，不存在云端副本。</li>
-    <li><strong>一条学习曲线走到底。</strong>四种模式面向同一份项目数据，从看到图、到搭流程、到拼积木、到写代码，能力渐进而不换工具。</li>
-    <li><strong>计算必须是真计算。</strong>GPU 内核是真实的 WGSL 计算着色器，Python 是真正的 CPython，原生核心由 Rust 编译为 WebAssembly；每一个内核都有对应的单元测试与端到端数值一致性校验。</li>
-    <li><strong>开放可扩展。</strong>插件契约清晰、市场目录内建、第三方插件默认运行在 Worker 沙箱中，配合完整的开源代码与持续集成，生态可以安全地生长。</li>
-  </ol>
-</div>
-
-<!-- P4 1.3 模式总表 -->
-<div class="page">
-  <h3><span class="hn">1.3</span>四类用户，四种模式</h3>
-  <p>产品为不同背景的用户提供了渐进式的四种工作模式。四种模式面向同一份项目数据，彼此共享同一套数据语义与渲染后端，切换模式时逻辑原样保留：</p>
-  <table>
-    <tr><th style="width:14%">模式</th><th style="width:26%">面向人群</th><th>核心体验</th></tr>
-    <tr><td><strong>标准</strong></td><td>只想快速看图的人</td><td>拖入数据文件，自动识别格式并路由到匹配插件，即刻看到可视化</td></tr>
-    <tr><td><strong>流程</strong></td><td>数据分析初学者</td><td>用 37 个内置区块搭出可视化数据流管线，拓扑排序执行，逐节点查看输出</td></tr>
-    <tr><td><strong>积木</strong></td><td>编程启蒙与教学</td><td>类 Scratch 积木编辑器，唯一入口是绿色"运行时"帽子区块，30 余种积木完全可脚本化</td></tr>
-    <tr><td><strong>代码</strong></td><td>真实脚本用户</td><td>Monaco Python 编辑器，由 Pyodide Web Worker 提供真正的 CPython 运行时，带 REPL 控制台与变量面板</td></tr>
-  </table>
-
-  <h3><span class="hn">1.4</span>项目现状</h3>
-  <p>项目处于积极开发中，核心闭环已端到端可用并有测试覆盖。当前基线：</p>
-  <div class="tiles">
-    <div class="tile"><div class="v">40</div><div class="k">内置插件</div></div>
-    <div class="tile"><div class="v">37</div><div class="k">流程区块</div></div>
-    <div class="tile"><div class="v">417</div><div class="k">单元测试</div></div>
-    <div class="tile"><div class="v">10</div><div class="k">端到端套件</div></div>
-  </div>
-  <ul>
-    <li><strong>40 个内置插件</strong>：30 个核心/科学插件随启动自动加载，10 个趣味/工具插件按需加载。</li>
-    <li><strong>四种工作模式</strong>全部可用；积木、流程、代码三种模式经由共享中间表示（IR）双向互转。</li>
-    <li><strong>WebGPU 实时计算</strong>覆盖粒子、N-Body 引力、格子 Boltzmann 流体、波动方程、直方图、热力图、点云等内核，均带 CPU 回退。</li>
-    <li><strong>科学计算子系统</strong>：统计内核、科研二进制 I/O（HDF5、NetCDF、FITS、Zarr、Parquet）、出版级绘图导出、可复现性内核已全部落地。</li>
-    <li><strong>质量保障</strong>：46 个测试文件、417 个单元测试全部通过；10 套 Playwright 端到端套件驱动真实浏览器验证；持续集成自动执行。</li>
-    <li><strong>后续里程碑</strong>：插件市场的包签名与第三方安装管线；代码模式的 R 运行时（webR）。</li>
-  </ul>
-</div>
-
-<!-- P5 1.3 模式展开（标准/流程） -->
-<div class="page">
-  <h3 class="cont">1.3 四类用户，四种模式（展开）</h3>
-  <p><strong>标准模式</strong>是产品的"前门"。工作台采用经典的四区布局：顶栏负责项目与模式切换，左侧是项目树与插件列表，中央视口承载插件渲染，右侧是与所选插件实时绑定的参数面板。把文件拖进窗口，宿主会通过文件格式检测（Rust 核心按魔数识别，辅以扩展名）自动路由到匹配的插件，例如拖入 .xyz 文件直接得到点云渲染。</p>
-  <figure>
-    <img src="../Estudio.png" alt="标准模式主界面">
-    <figcaption><b>图 1</b>　标准模式：左侧项目与插件列表，中央视口，右侧响应式参数面板</figcaption>
-  </figure>
-  <p><strong>流程模式</strong>把分析过程显式化为一张有向无环图。用户从区块目录拖出数据源、变换、过滤、数学、统计与可视化区块，连线成管线；编译器先做结构校验（端口匹配、必填参数、类型检查）与拓扑排序，执行器再按序执行并对每个节点做增量缓存，改动一个参数只重算受影响的下游节点。每个区块的输出都可以就地预览。</p>
-  <figure>
-    <img src="../flow.png" alt="流程模式">
-    <figcaption><b>图 2</b>　流程模式：可视化数据流管线，节点输出就地预览</figcaption>
-  </figure>
-</div>
-
-<!-- P6 1.3 模式展开（积木/代码） -->
-<div class="page">
-  <p><strong>积木模式</strong>面向编程启蒙。类 Scratch 的画布上，绿色"运行时"帽子区块是脚本的唯一入口，数据加载、变量、循环、数学运算与绘图积木拼在其下；点击运行后，宿主把积木图编译为共享中间表示（IR），由内置解释器逐节点执行。积木名称、提示与下拉选项均已本地化，5 个内置示例程序开箱即玩。</p>
-  <figure>
-    <img src="../block.png" alt="积木模式">
-    <figcaption><b>图 3</b>　积木模式："运行时"帽子区块启动脚本，加载遥测数据、归一化并绘图</figcaption>
-  </figure>
-  <p><strong>代码模式</strong>面向真实脚本用户。Monaco 编辑器之外，侧栏提供 REPL 控制台与变量面板；Python 代码运行在 Pyodide Worker 中，是货真价实的 CPython。代码里调用的 studio 装载、生成、归一化与绘图接口，与积木模式完全一致；仓库还在 examples/code 目录提供了 9 个可直接运行的示例程序，从蒙特卡洛求圆周率到信号分析一应俱全。</p>
-  <figure>
-    <img src="../code.png" alt="代码模式">
-    <figcaption><b>图 4</b>　代码模式：Monaco 编辑器与基于 Pyodide 的 CPython 运行时</figcaption>
-  </figure>
-</div>
-
-<!-- P7 IR 互转 -->
-<div class="page">
-  <h3 class="cont">1.3 四类用户，四种模式（展开）</h3>
-  <p>三个脚本模式共享同一份 IR：流程里搭好的管线可以变成积木，积木可以生成 Python 代码，代码模式下编辑的 studio 调用也能解析回积木图。一次编辑，三种表达，由专门的往返互转单元测试兜底。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="13">
-        <rect x="20" y="65" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="95" y="86" text-anchor="middle" fill="#155e75" font-weight="bold">流程模式</text>
-        <text x="95" y="105" text-anchor="middle" fill="#475569">DAG 管线</text>
-        <rect x="230" y="65" width="220" height="52" rx="10" fill="#0e7490"/>
-        <text x="340" y="86" text-anchor="middle" fill="#ffffff" font-weight="bold">共享中间表示 IR</text>
-        <text x="340" y="105" text-anchor="middle" fill="#cffafe">唯一中枢 · 双向互转</text>
-        <rect x="510" y="10" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="585" y="31" text-anchor="middle" fill="#155e75" font-weight="bold">积木模式</text>
-        <text x="585" y="50" text-anchor="middle" fill="#475569">Blockly 画布</text>
-        <rect x="510" y="122" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="585" y="143" text-anchor="middle" fill="#155e75" font-weight="bold">代码模式</text>
-        <text x="585" y="162" text-anchor="middle" fill="#475569">Python / JS 生成</text>
-        <line x1="170" y1="84" x2="224" y2="84" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-        <line x1="224" y1="99" x2="170" y2="99" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-        <line x1="452" y1="72" x2="506" y2="45" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-        <line x1="506" y1="58" x2="452" y2="85" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-        <line x1="452" y1="112" x2="506" y2="140" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-        <line x1="506" y1="128" x2="452" y2="100" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arA)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">示意图 1　三种脚本模式经由共享 IR 双向互转</div>
-  <h3>为什么这样设计模式体系</h3>
-  <p>把四种模式放进同一个应用，而不是做成四个工具，直接收益是<strong>上下文零损耗</strong>：数据、项目状态、插件渲染与参数面板在模式切换时原样保留，学生不必重新"搬家"。更深一层，共享 IR 让"同一个逻辑的三种表达"成为可以随时切换的视图，而不需要任何导出导入动作——教师可以先用流程讲结构，再切到积木讲控制流，最后切到代码讲语法，全程不离开当前项目。</p>
-  <p>模式之间的能力边界也是刻意设计的：标准模式刻意隐藏一切编程概念，只保留"数据进、图像出"；流程模式引入节点、连线与参数，但不出现变量与控制流；积木模式引入变量、循环与顺序执行的程序语义；代码模式则暴露完整的 Python 语言与 Pyodide 生态。难度梯度平滑，且每一级都有真实的生产力，而非玩具演示。</p>
-</div>
-
-<!-- P8 二、技术架构 2.1 -->
-<div class="page">
-  <h2 class="sec"><span class="num">二</span>技术架构</h2>
-  <h3><span class="hn">2.1</span>总体分层</h3>
-  <p>整体为"React 界面层 + 状态与核心服务层 + 插件运行时与原生核心 + 浏览器底座"的多层结构。所有层级运行在同一浏览器页面内，通过明确的契约通信，低层从不反向导入高层。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="20" y="14" width="640" height="54" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="340" y="37" text-anchor="middle" fill="#155e75" font-weight="bold">界面层（React 18 · src/pages 与 src/components）</text>
-        <text x="340" y="56" text-anchor="middle" fill="#475569">欢迎页 · 工作台四区布局 · 流程画布 · 积木画布 · Monaco 代码编辑器</text>
-
-        <rect x="20" y="92" width="310" height="54" rx="9" fill="#f0f9ff" stroke="#7dd3fc"/>
-        <text x="175" y="115" text-anchor="middle" fill="#0c4a6e" font-weight="bold">状态层（Zustand 六库）</text>
-        <text x="175" y="134" text-anchor="middle" fill="#475569">app · project · plugin · settings · block · editor</text>
-        <rect x="350" y="92" width="310" height="54" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="505" y="115" text-anchor="middle" fill="#14532d" font-weight="bold">核心服务层（src/core）</text>
-        <text x="505" y="134" text-anchor="middle" fill="#475569">存储 · 事件 · i18n · GPU · 统计 · 科研IO · 绘图 · 可复现</text>
-
-        <rect x="20" y="170" width="310" height="54" rx="9" fill="#fefce8" stroke="#fde047"/>
-        <text x="175" y="193" text-anchor="middle" fill="#713f12" font-weight="bold">插件运行时</text>
-        <text x="175" y="212" text-anchor="middle" fill="#475569">40 个内置插件 · 市场目录 · cspkg · Worker 沙箱</text>
-        <rect x="350" y="170" width="310" height="54" rx="9" fill="#faf5ff" stroke="#d8b4fe"/>
-        <text x="505" y="193" text-anchor="middle" fill="#581c87" font-weight="bold">原生核心（Rust 编译为 WASM）</text>
-        <text x="505" y="212" text-anchor="middle" fill="#475569">设备管理 · 计算内核 · 缓冲区 · 文件类型检测</text>
-
-        <rect x="20" y="252" width="640" height="48" rx="9" fill="#f1f5f9" stroke="#cbd5e1"/>
-        <text x="340" y="272" text-anchor="middle" fill="#334155" font-weight="bold">浏览器底座</text>
-        <text x="340" y="290" text-anchor="middle" fill="#475569">WebGPU · Web Workers · IndexedDB · OffscreenCanvas · Three.js</text>
-
-        <line x1="340" y1="68" x2="340" y2="88" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB)"/>
-        <line x1="340" y1="146" x2="340" y2="166" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB)"/>
-        <line x1="330" y1="224" x2="330" y2="248" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB)"/>
-        <line x1="505" y1="224" x2="505" y2="248" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB)"/>
-        <line x1="332" y1="119" x2="346" y2="119" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">示意图 2　分层架构：低层从不反向导入高层，插件契约是宿主与第三方代码之间唯一的共享词汇表</div>
-  <p>React 界面层由欢迎页、工作台与三种模式编辑器组成，组件只与状态库和插件契约打交道，不含业务算法。状态层用六个 Zustand 库分别管理应用壳、项目、插件、设置、区块系统与编辑器状态，互相之间通过事件总线协作而非直接引用。</p>
-</div>
-
-<!-- P9 分层职责 + 2.2 -->
-<div class="page">
-  <h3 class="cont">2.1 总体分层（各层职责）</h3>
-  <ul>
-    <li><strong>核心服务层</strong>（src/core）：存储（IndexedDB 封装）、事件总线、国际化（中英双语）、主题、性能上报、文件格式检测、3D 场景管理、沙箱与 cspkg 加载等横切能力，以及统计内核、科研 I/O、绘图引擎、可复现性内核四个科学计算子系统。</li>
-    <li><strong>插件运行时</strong>（src/plugins）：内置插件的注册表与生命周期、市场目录、cspkg 包加载器与 Worker 沙箱。</li>
-    <li><strong>原生核心</strong>（native 目录，Rust）：编译为 WebAssembly 后向 JavaScript 暴露设备管理、缓冲区与计算内核抽象，并承担文件类型魔数检测。</li>
-    <li><strong>浏览器底座</strong>：WebGPU、Web Workers、IndexedDB、OffscreenCanvas 与 Three.js，是所有能力最终落地的平台。</li>
-  </ul>
-  <h3><span class="hn">2.2</span>贯穿架构的三条设计主线</h3>
-  <p><strong>宿主与插件之间只有一个契约。</strong>每个插件实现统一的 Plugin 接口（初始化、激活、渲染、参数读写、数据加载、3D 场景渲染等），并从宿主获得一个 PluginApi 句柄用于本地化、状态上报、性能上报、通知与文件访问。第三方插件的入口代码默认运行在 Web Worker 沙箱中，仅通过类型化 RPC 协议与宿主通信，画布渲染经 OffscreenCanvas 转移完成；.cspkg 包在加载时进行清单校验（id 格式、入口路径穿越防护、沙箱枚举）。</p>
-  <p><strong>一条渲染管线服务全部模式。</strong>无论是流程模式的可视化区块、积木模式解释器调用的 studio.plot，还是代码模式 Python 里的 studio.plot 调用，最终都汇入同一个渲染桥接，落到同一个散点图、直方图插件上。2D 插件共享同一个 canvas 视口；3D 插件按需懒创建宿主管理的 Three.js 场景，并在 2D 插件激活时自动隐藏，保证两种视口互不渗透。</p>
-  <p><strong>GPU 计算双引擎。</strong>Rust 核心编译为 WebAssembly，向 JavaScript 暴露设备管理、缓冲区与计算内核的完整抽象；当 WASM 模块不可用时，宿主侧服务自动改走原生 WebGPU API；两者皆不可用时插件回退到 CPU 实现，行为一致。端到端测试会对 GPU 与 CPU 的计算结果做数值一致性校验（误差约 2 乘以 10 的负 6 次方）。</p>
-</div>
-
-<!-- P10 2.3 渲染桥接 + 3.1 开始 -->
-<div class="page">
-  <h3><span class="hn">2.3</span>一条渲染管线服务全部模式</h3>
-  <p>三种编辑模式产生的绘图请求汇入同一个渲染桥接，由共享的插件渲染器出图，因此"换一种表达方式"看到的是同一张图。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 140" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="14" y="10" width="152" height="40" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="90" y="35" text-anchor="middle" fill="#155e75">积木模式解释器</text>
-        <rect x="14" y="52" width="152" height="40" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="90" y="77" text-anchor="middle" fill="#155e75">流程模式区块</text>
-        <rect x="14" y="94" width="152" height="40" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="90" y="119" text-anchor="middle" fill="#155e75">代码模式 Python</text>
-        <rect x="240" y="52" width="210" height="40" rx="8" fill="#f0fdf4" stroke="#4ade80"/>
-        <text x="345" y="70" text-anchor="middle" fill="#14532d" font-weight="bold">渲染桥接（唯一副作用）</text>
-        <text x="345" y="86" text-anchor="middle" fill="#475569">RenderedView 载入插件</text>
-        <rect x="516" y="52" width="152" height="40" rx="8" fill="#fefce8" stroke="#facc15"/>
-        <text x="592" y="70" text-anchor="middle" fill="#713f12" font-weight="bold">共享插件渲染器</text>
-        <text x="592" y="86" text-anchor="middle" fill="#475569">散点 · 折线 · 直方图</text>
-        <line x1="166" y1="30" x2="236" y2="62" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arC)"/>
-        <line x1="166" y1="72" x2="236" y2="72" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arC)"/>
-        <line x1="166" y1="114" x2="236" y2="82" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arC)"/>
-        <line x1="450" y1="72" x2="512" y2="72" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arC)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">示意图 3　三种编辑模式汇入同一渲染桥接</div>
-
-  <h2 class="sec" style="margin-top:10mm"><span class="num">三</span>功能全景</h2>
-  <h3><span class="hn">3.1</span>内置插件生态</h3>
-  <p>30 个核心/科学插件按能力分为六组，随启动自动加载；插件无论内置还是第三方，加载、渲染、参数与数据访问走的是同一条契约路径。市场目录（src/plugins/marketplace.ts）按科学、趣味、工具三类组织，核心插件自动加载、趣味插件手动加载的两级策略保持首屏轻量。</p>
-  <table>
-    <tr><th style="width:18%">分组</th><th style="width:46%">插件</th><th>说明</th></tr>
-    <tr><td><strong>基础可视化</strong></td><td>散点、折线（时间序列）、柱状、气泡、直方图、热力图、等值线、图像查看、点云（2D 与 3D）、粒子</td><td>覆盖最常见的工程与科学出图需求；2D 插件共享同一 canvas 视口，3D 点云走 Three.js 场景</td></tr>
-    <tr><td><strong>高级统计图</strong></td><td>箱线、小提琴、误差带、QQ 图、平行坐标、桑基、矩形树图、网络图、雷达/极坐标、蛋白质互作网络</td><td>面向统计教学与多变量探索，网络类插件内置力导向布局</td></tr>
-    <tr><td><strong>物理仿真</strong></td><td>N-Body 引力、格子 Boltzmann 流体、波动方程、双摆</td><td>数据驱动的仿真引擎，WGSL 计算内核加速，带 CPU 回退</td></tr>
-    <tr><td><strong>交互实验室</strong></td><td>电磁场、光学实验、结构力学</td><td>元件可直接拖动，实时求解并可视化</td></tr>
-    <tr><td><strong>机器学习</strong></td><td>AI 训练器</td><td>四类模型浏览器内训练，实时损失曲线</td></tr>
-    <tr><td><strong>地理可视化</strong></td><td>GeoJSON 地图</td><td>离线矢量地图与分级设色，内置中国省份示例</td></tr>
-  </table>
-</div>
-
-<!-- P11 3.1 趣味 + 3.2 区块 -->
-<div class="page">
-  <p>10 个趣味/工具插件按需加载：Mandelbrot 与 Julia 集浏览器、Spirograph 摆线艺术、Lissajous 曲线、Game of Life 元胞自动机、Harmonograph 谐振绘图、调色板探索器、科赫雪花、巴恩斯利蕨、烟花粒子与 Truchet 瓷砖。它们既是课堂演示的素材，也是插件 API 的活文档。</p>
-
-  <h3><span class="hn">3.2</span>流程模式区块体系</h3>
-  <p>37 个内置区块分七类，构成流程模式的"词汇表"。区块元数据（名称、描述）内建中英双语；编译器负责结构校验、端口匹配、类型检查与拓扑排序，执行器以节点为粒度做增量缓存与失效重算。</p>
-  <table>
-    <tr><th style="width:16%">类别</th><th style="width:10%">数量</th><th>区块</th></tr>
-    <tr><td><strong>数据源</strong></td><td>4</td><td>示例数据、随机数据、网格数据、文件导入</td></tr>
-    <tr><td><strong>变换</strong></td><td>5</td><td>选择列、重命名列、添加列、归一化、排序</td></tr>
-    <tr><td><strong>过滤</strong></td><td>3</td><td>范围过滤、数值过滤、Top-K 选取</td></tr>
-    <tr><td><strong>数学</strong></td><td>6</td><td>加、减、乘、除、平方根、绝对值（支持与标量或另一列运算）</td></tr>
-    <tr><td><strong>统计</strong></td><td>11</td><td>摘要统计、直方图分箱、单样本/独立两样本/配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方检验、相关分析、Cohen's d 效应量、多重比较校正</td></tr>
-    <tr><td><strong>绘图</strong></td><td>4</td><td>折线、散点、直方图、柱状（出版级绘图引擎渲染）</td></tr>
-    <tr><td><strong>可视化</strong></td><td>4</td><td>散点、折线、直方图、二维点云（经渲染桥接走插件出图）</td></tr>
-  </table>
-  <p class="svgcap" style="text-align:left">示例管线（11 个 .clproj 项目文件）位于 examples/projects 目录，覆盖信号分析、随机分布、网格散点、范围过滤、双管线、Top-K、分箱统计与归一化等主题。</p>
-
-  <h3><span class="hn">3.3</span>数据格式支持</h3>
-  <table>
-    <tr><th style="width:20%">类别</th><th style="width:44%">格式</th><th>说明</th></tr>
-    <tr><td><strong>常规数据</strong></td><td>CSV、JSON、XYZ、DAT、PNG、GeoJSON</td><td>散点、表格、网格、图像与矢量地图</td></tr>
-    <tr><td><strong>科研二进制</strong></td><td>HDF5、NetCDF、FITS、Zarr、Parquet</td><td>由纯 TypeScript 实现的科研 I/O 子系统解析，统一调度器按魔数分派</td></tr>
-    <tr><td><strong>项目文件</strong></td><td>.clproj</td><td>工程自有格式，lz-string 压缩，IndexedDB 存储并支持导出分享</td></tr>
-    <tr><td><strong>插件包</strong></td><td>.cspkg</td><td>fflate 打包的 ZIP，加载时校验清单并落入沙箱</td></tr>
-  </table>
-  <p>格式检测由 Rust 原生核心按魔数识别，辅以扩展名匹配；识别结果驱动标准模式的插件自动路由。</p>
-</div>
-
-<!-- P12 3.4 + 四、4.1 -->
-<div class="page">
-  <h3><span class="hn">3.4</span>统计、绘图与可复现能力</h3>
-  <p>四个纯 TypeScript 科学计算子系统支撑产品的"科学"属性，全部为纯函数实现、Node 环境可测：</p>
-  <ul>
-    <li><strong>统计内核</strong>（src/core/stats）：描述统计、分布函数与假设检验，是流程模式 11 个统计区块和摘要数据表的计算后端。</li>
-    <li><strong>科研 I/O</strong>（src/core/io）：单一调度器按文件魔数分派到各格式解析器，支持 HDF5、NetCDF、FITS、Zarr、Parquet 的导入。</li>
-    <li><strong>绘图引擎</strong>（src/core/plot）：纯 TypeScript 的出版级绘图内核，输出 SVG 与 PDF，为流程模式的绘图区块与导出需求提供一致的计算与版式。</li>
-    <li><strong>可复现性内核</strong>（src/core/repro）：带种子的随机数、运行清单（种子、版本、输入哈希、图哈希）与 DAG 转 Python 导出，让一次分析可以在别处原样重放。</li>
-    <li><strong>运行日志导出</strong>（src/core/logger）：把会话内的事件序列落为可下载文件，便于问题回溯与教学演示复盘。</li>
-  </ul>
-
-  <h2 class="sec" style="margin-top:9mm"><span class="num">四</span>应用场景</h2>
-  <h3><span class="hn">4.1</span>科学与工程数据可视化</h3>
-  <p>覆盖统计分析与工程绘图的常见图型：散点、折线、直方图、热力图、等值线、箱线图、小提琴图、误差带、平行坐标、桑基图、矩形树图、QQ 图、气泡图、雷达图、网络图等；数据格式上除 CSV、JSON、XYZ 外，还支持 HDF5、NetCDF、FITS、Zarr、Parquet 等科研领域常用的二进制格式导入，可服务地学、天文、生物等学科的数据探索需求。下图是等值线插件渲染的双高斯标量场。</p>
-  <figure>
-    <img src="../field.png" alt="等值线：双高斯标量场">
-    <figcaption><b>图 5</b>　等值线插件：双高斯标量场，渐变底色叠加等值线</figcaption>
-  </figure>
-</div>
-
-<!-- P13 4.2 仿真表格 + 两图 -->
-<div class="page">
-  <h3><span class="hn">4.2</span>物理仿真与教学演示</h3>
-  <p>内置多个数据驱动的仿真引擎，全部"初始为空、绝不伪造默认场景"，数据既可来自内置示例也可来自用户文件：</p>
-  <table>
-    <tr><th style="width:30%">插件</th><th>演示内容</th></tr>
-    <tr><td>N-Body 引力</td><td>4096 体的三维全对引力直接求和，WGSL 内核加速</td></tr>
-    <tr><td>格子 Boltzmann 流体</td><td>D2Q9 通道流绕障碍物，展示卡门涡街与机翼绕流</td></tr>
-    <tr><td>波动方程</td><td>高斯脉冲、双源干涉、双缝衍射场景，leapfrog 内核积分</td></tr>
-    <tr><td>双摆</td><td>RK4 积分配合初值仅差 0.001 弧度的"混沌幽灵摆"，直观展示混沌</td></tr>
-    <tr><td>电磁场</td><td>可拖动电荷在库仑力与洛伦兹力共同作用下的回旋运动</td></tr>
-    <tr><td>光学实验</td><td>薄透镜成像、三棱镜折射与色散，元件可在画布上直接拖动</td></tr>
-    <tr><td>结构力学</td><td>铰接桁架实时承重，杆件按轴力着色，超载断裂直至垮塌</td></tr>
-  </table>
-  <figure>
-    <img src="../Nbody.png" alt="N-Body 引力">
-    <figcaption><b>图 6</b>　N-Body 引力：4096 体的环形星环环绕中心质量（三维，WGSL 全对内核）</figcaption>
-  </figure>
-  <figure>
-    <img src="../airplane.png" alt="格子 Boltzmann 流体绕机翼">
-    <figcaption><b>图 7</b>　格子 Boltzmann 流体：绕机翼障碍物的通道流</figcaption>
-  </figure>
-</div>
-
-<!-- P14 波动/双摆 -->
-<div class="page">
-  <figure>
-    <img src="../waveequation.png" alt="波动方程">
-    <figcaption><b>图 8</b>　波动方程：双缝衍射干涉场景，leapfrog WGSL 内核积分</figcaption>
-  </figure>
-  <figure>
-    <img src="../doublependulum.png" alt="双摆">
-    <figcaption><b>图 9</b>　双摆：主摆与初值仅差 0.001 弧度的混沌幽灵摆迅速分道扬镳</figcaption>
-  </figure>
-  <p>这两个场景共同展示了"计算必须是真计算"的分量：波动方程在 GPU 上以有限差分逐步积分，双摆用四阶龙格-库塔法求解刚性方程组，混沌不是预设的动画，而是数值积分的自然结果——把初值改回一致，两条轨迹就会完全重合。</p>
-</div>
-
-<!-- P15 电磁/光学 -->
-<div class="page">
-  <h3 class="cont">4.2 物理仿真与教学演示（交互实验室）</h3>
-  <figure>
-    <img src="../Cyclotron.png" alt="电磁场实验室">
-    <figcaption><b>图 10</b>　电磁场实验室：三个正电荷在均匀磁场中回旋，轨迹线开启</figcaption>
-  </figure>
-  <figure>
-    <img src="../light.png" alt="光学实验">
-    <figcaption><b>图 11</b>　光学实验室：白光束经三棱镜色散为光谱，汇聚于右侧光屏</figcaption>
-  </figure>
-  <p>三个交互实验室的共同特点是"元件可拖动、方程在背后"：电荷拖近磁场增强回旋半径，透镜与光屏拖动立即改变成像，桁架加载重物实时看到轴力重新分配。参数探索与物理直觉建立同步发生。</p>
-</div>
-
-<!-- P16 结构/蛋白质 -->
-<div class="page">
-  <figure>
-    <img src="../structure.png" alt="结构力学">
-    <figcaption><b>图 12</b>　结构力学：桥面桁架承载两个重物，杆件按轴力着色，橙为拉、青为压</figcaption>
-  </figure>
-  <figure>
-    <img src="../protein.png" alt="蛋白质互作网络">
-    <figcaption><b>图 13</b>　蛋白质互作网络：力导向布局，网络组件度量实时计算</figcaption>
-  </figure>
-  <p>结构力学插件在杆件超载时会依次断裂直至整体垮塌，把"安全系数"从公式变成看得见的过程；蛋白质互作网络则演示了力导向布局与连通分量度量，可作为生物信息学入门的可视化教具。</p>
-</div>
-
-<!-- P17 4.3 + 4.4 -->
-<div class="page">
-  <h3><span class="hn">4.3</span>编程与计算思维教学</h3>
-  <p>四种模式构成一条从"零代码"到"真代码"的渐进路径：初学者先在标准模式拖数据看图，再到流程模式理解数据流与统计概念（t 检验、方差分析、相关分析等 11 个统计区块），继而进入积木模式写出第一段带变量与循环的"程序"，最后在代码模式直接写 Python。三个脚本模式共享同一份 IR，切换模式时逻辑原样保留；仓库附带的 11 个流程示例项目、5 个积木示例与 9 个 Python 示例，构成可直接布置的练习素材库。</p>
-  <h3><span class="hn">4.4</span>浏览器内机器学习入门</h3>
-  <p>AI 训练插件基于 TensorFlow.js，支持线性回归、非线性神经网络、逻辑回归与卷积神经网络四类模型，画布上方实时绘制损失曲线，下方按模型切换散点加拟合线、二维决策边界或 MNIST 数字识别网格。训练样本内置（线性、三次加正弦、双高斯分类、200 张 MNIST 子集），TF.js 依赖在首次点击训练时才懒加载，避免拖慢启动。</p>
-  <figure>
-    <img src="../AImnistcnn.png" alt="AI 训练器 MNIST CNN">
-    <figcaption><b>图 14</b>　AI 训练器：MNIST CNN 训练，网格展示预测值（绿）与真值（红）</figcaption>
-  </figure>
-</div>
-
-<!-- P18 4.5 -->
-<div class="page">
-  <h3><span class="hn">4.5</span>地理可视化与算法艺术</h3>
-  <p>离线 GeoJSON 分级设色地图支持 Albers（中国）、Web 墨卡托与等距圆柱投影，内置中国省份示例，可承接人口、面积等统计字段的专题制图需求，全程无需联网请求任何地图服务。</p>
-  <figure>
-    <img src="../geojsonmap.png" alt="GeoJSON 地图">
-    <figcaption><b>图 15</b>　GeoJSON 地图：Albers（中国）投影下的中国省份分级设色</figcaption>
-  </figure>
-  <p>算法艺术方向的 10 个趣味插件（Mandelbrot 与 Julia 集、科赫雪花、巴恩斯利蕨、Spirograph、Lissajous、Harmonograph、Truchet 瓷砖、烟花粒子、元胞自动机、调色板探索器）覆盖了分形、迭代函数系统、参数曲线与随机结构等主题，适合数学课堂的兴趣延伸，也展示了插件 API 在纯图形场景下的完整能力。</p>
-</div>
-
-<!-- P19 五、创新点 -->
-<div class="page">
-  <h2 class="sec"><span class="num">五</span>创新点</h2>
-  <p><strong>1. 四模式同源架构。</strong>市面上的工具要么只做拖拽可视化，要么只做代码编辑。Ergalics Studio 用一份共享 IR 打通积木、流程与代码三种范式，并配备三模式往返互转的专门单元测试；代码模式的缓冲区内容还能解析回 IR，使"换一种表达方式理解同一逻辑"成为一键操作。对教学而言，这意味着同一条管线可以用三种难度梯度反复讲解，而无需任何导出导入。</p>
-  <p><strong>2. 零安装的全栈科学计算环境。</strong>CPython（Pyodide Worker）、Rust/WASM 原生核心、WebGPU 计算与 IndexedDB 持久化全部运行在浏览器内，数据不出本机，同时保持接近桌面软件的体验。这不仅是部署便利，更改变了"教学机房的软件审批、学生自带电脑的环境差异"这类现实约束的性质：所有人打开的是同一个 URL，运行的是同一份环境。</p>
-  <p><strong>3. 真实 GPU 计算加优雅降级。</strong>计算管线不是演示性质的：从 Rust 核心暴露的缓冲区与内核抽象，到粒子、N-Body、流体、波动方程等真实 WGSL 内核，再到端到端测试中 GPU 与 CPU 结果的数值一致性校验（误差约 2 乘以 10 的负 6 次方），每一层都可用、可测；无 WebGPU 环境自动回退 CPU，行为一致。</p>
-  <p><strong>4. 严格数据驱动的仿真插件。</strong>所有仿真插件初始为空，重置只重放已加载数据，杜绝"伪造默认场景"。这一约束保证了演示与真实数据的统一性，也倒逼插件把物理参数做成可调项，而不是把结论画死在界面里。</p>
-  <p><strong>5. 沙箱化插件生态。</strong>第三方插件默认运行于 Web Worker，通过类型化 RPC 访问宿主，画布渲染经 OffscreenCanvas 转移完成；.cspkg 包在加载时进行清单校验（id 格式、入口路径穿越防护、沙箱枚举）。市场目录按科学、趣味、工具分类，核心插件自动加载、趣味插件手动加载的两级策略保持首屏轻量。</p>
-</div>
-
-<!-- P20 创新点续 + 六 -->
-<div class="page">
-  <p><strong>6. 可复现性与工程化质量。</strong>可复现性内核提供带种子的随机数、运行清单（种子、版本、输入哈希、图哈希）与 DAG 转 Python 导出；统计内核与科研 I/O 均为纯函数实现、Node 环境可测；417 个单元测试加 10 套端到端测试构成持续回归网，在持续集成中自动执行。</p>
-
-  <h2 class="sec" style="margin-top:10mm"><span class="num">六</span>运行与获取</h2>
-  <ul>
-    <li><strong>在线演示</strong>：部署于 GitHub Pages（见仓库 README 徽章链接），打开即用，支持最新版 Chrome 与 Edge。</li>
-    <li><strong>本地开发</strong>：Node.js 20 以上，安装依赖后启动开发服务器即可；构建原生核心需要 Rust 工具链与 wasm32 目标，但前端在缺失 WASM 模块时会优雅降级，不影响界面与纯 TS 子系统。</li>
-    <li><strong>文档站点</strong>：仓库内 VitePress 工作区提供架构、四种模式、插件开发与测试指南，与技术文档目录互补。</li>
-    <li><strong>开源协议</strong>：MIT，欢迎通过 Issue 与 Pull Request 参与贡献。</li>
-  </ul>
-  <div class="callout" style="margin-top:12mm">
-    <strong>路线图</strong>：插件市场的包签名与第三方安装管线、代码模式的 R 运行时（webR）已在规划中；更多统计区块、仿真内核与可视化插件将随版本迭代持续加入。
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 一 篇（共 8 篇）</div>
+    </div>
   </div>
 </div>
 

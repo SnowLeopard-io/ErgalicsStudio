@@ -22,7 +22,7 @@ import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
 import { std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
-import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
+import { tabularDataGroups, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
 import { NarrativePanel } from '@/components/NarrativePanel';
@@ -114,7 +114,7 @@ export default function ModelLabPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => groupedDataFiles(DATA_EXTS_SERIES), [project?.data.files]);
+  const fileGroups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [target, setTarget] = useState('');

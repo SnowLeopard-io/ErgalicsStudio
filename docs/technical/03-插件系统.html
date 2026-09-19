@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Ergalics Studio 技术文档 · 插件系统</title>
+<title>03 插件系统</title>
 <style>
   :root {
     --ink: #0f172a; --body: #1e293b; --muted: #64748b;
@@ -34,389 +34,297 @@
   .cover-panel {
     height: 100%; border-radius: 0;
     background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
-    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
     display: flex; flex-direction: column;
   }
-  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
-  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
-  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
-  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
-  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
+  }
   .cover-modes { margin-top: auto; }
-  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
-  .mode-chips { display: flex; gap: 4mm; }
-  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
-  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
-  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
-  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
+  .mode-chip {
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
+  }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
   .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
   .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
   .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
   .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
   h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
-  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h2.sec .num {
+    background: var(--accent); color: #fff; font-size: 11pt;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
-  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
-  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.4pt; }
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
   th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
-  th, td { border: 1px solid var(--line); padding: 2.2mm 3mm; vertical-align: top; line-height: 1.6; }
-  figure { margin: 4mm 0; text-align: center; }
-  figure img { max-width: 92%; max-height: 58mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
-  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+  }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
-  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
-  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
-  .grp { font-size: 11.5pt; font-weight: bold; color: var(--ink); margin: 6mm 0 2mm; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
+  .callout {
+    background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
+  }
 </style>
 </head>
 <body>
 
-<!-- P1 封面 -->
 <div class="page cover">
   <div class="cover-panel">
     <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
-    <h1>插件系统</h1>
-    <div class="sub">一个契约 · 40 个内置插件 · 沙箱化扩展</div>
+    <h1>03 插件系统</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
     <div class="cover-rule"></div>
-    <div class="cover-abstract">
-      Ergalics Studio 把"一切可视化皆插件"作为第一性设计：宿主与插件之间只有一个契约，
-      第三方扩展与内置插件走同一套接口与生命周期。本篇给出 Plugin 接口与 PluginApi
-      能力面的完整定义、40 个内置插件的分组清单、市场目录的两级加载策略，
-      以及 .cspkg 第三方包的清单校验与 Worker 沙箱机制。
-    </div>
+    <div class="cover-abstract">Ergalics Studio 把&quot;一切可视化皆插件&quot;作为第一性设计。宿主与插件之间只有一个契约，第三方扩展与内置插件走同一套接口与生命周期。当前共有 **42 个内置插件**：32 个核心/科学插件在启动时自动加载，10 个趣味与工具插件声明 `autoload: false` 按需加载。</div>
+    
     <div class="cover-modes">
-      <div class="cap">内置插件构成</div>
-      <div class="mode-chips">
-        <div class="mode-chip"><div class="t">30</div><div class="d">核心/科学插件<br>启动自动加载</div></div>
-        <div class="mode-chip"><div class="t">10</div><div class="d">趣味与工具<br>按需手动加载</div></div>
-        <div class="mode-chip"><div class="t">8 类</div><div class="d">声明式参数<br>自动生成面板</div></div>
-        <div class="mode-chip"><div class="t">2 级</div><div class="d">沙箱枚举<br>isolated 与 trusted</div></div>
-      </div>
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 宿主与插件的契约</div></div><div class="mode-chip"><div class="t">二 42 个内置插件</div></div><div class="mode-chip"><div class="t">三 市场目录与两级加载</div></div><div class="mode-chip"><div class="t">四 第三方包、沙箱与签名</div></div><div class="mode-chip"><div class="t">五 文件路由</div></div></div>
     </div>
-    <div class="cover-foot">技术文档系列 · 第三篇（共七篇）</div>
+    <div class="cover-foot">技术文档系列 · 第 三 篇（共 8 篇）</div>
   </div>
 </div>
 
-<!-- P2 目录 -->
 <div class="page toc">
   <h1>目 录</h1>
-  <div class="toc-item l1"><span>一、宿主与插件的契约</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l2"><span>1.1 Plugin 接口与 PluginApi 能力面</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l2"><span>1.2 声明式参数面板</span><span class="dots"></span><span class="tp">04</span></div>
-  <div class="toc-item l2"><span>1.3 插件生命周期</span><span class="dots"></span><span class="tp">04</span></div>
-  <div class="toc-item l1"><span>二、40 个内置插件</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l2"><span>2.1 核心/科学插件（自动加载，30 个）</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l2"><span>2.2 趣味与工具插件（按需加载，10 个）</span><span class="dots"></span><span class="tp">08</span></div>
-  <div class="toc-item l1"><span>三、市场目录与两级加载</span><span class="dots"></span><span class="tp">08</span></div>
-  <div class="toc-item l1"><span>四、第三方包（.cspkg）与沙箱</span><span class="dots"></span><span class="tp">09</span></div>
-  <div class="toc-item l1"><span>五、文件路由</span><span class="dots"></span><span class="tp">10</span></div>
-  <div class="callout" style="margin-top:14mm">
-    阅读提示：插件是产品全部可视化的载体——标准模式的拖放出图、流程模式可视化区块的渲染、
-    积木与代码模式 studio.plot 的调用，最终都落到同一批插件渲染器上。
-    理解本篇的契约与生命周期，是理解其余各篇的前提。
-  </div>
+<div class="toc-item l1"><span>一、宿主与插件的契约</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>二、42 个内置插件</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>2.1 核心 / 科学插件（自动加载，32 个）</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>2.2 趣味与工具插件（按需加载，10 个）</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l2"><span>2.3 侧栏学科分组</span><span class="dots"></span><span class="tp">07</span></div>
+<div class="toc-item l1"><span>三、市场目录与两级加载</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l1"><span>四、第三方包（.cspkg）、沙箱与签名</span><span class="dots"></span><span class="tp">10</span></div>
+<div class="toc-item l2"><span>4.1 包签名与信任注册表</span><span class="dots"></span><span class="tp">11</span></div>
+<div class="toc-item l1"><span>五、文件路由</span><span class="dots"></span><span class="tp">11</span></div>
+
 </div>
 
-<!-- P3 一、契约 -->
+<!-- P3 -->
 <div class="page">
-  <h2 class="sec"><span class="num">一</span>宿主与插件的契约</h2>
-  <h3><span class="hn">1.1</span>Plugin 接口与 PluginApi 能力面</h3>
-  <p>每个插件实现统一的 Plugin 接口，宿主在正确的时机调用对应方法，插件不感知界面细节：</p>
-  <table>
-    <tr><th style="width:28%">方法</th><th>作用</th></tr>
-    <tr><td>init 与 destroy</td><td>初始化与销毁，宿主负责 GPU 安全的资源回收</td></tr>
-    <tr><td>activate 与 deactivate</td><td>激活与去激活，驱动 2D/3D 视口切换与残留帧清理</td></tr>
-    <tr><td>render 与 updateParams</td><td>绘制与参数更新（右侧面板响应式表单）</td></tr>
-    <tr><td>getParams 与 compute</td><td>参数读取与计算</td></tr>
-    <tr><td>loadData</td><td>接收宿主分发的数据（文件路由与渲染桥接的入口）</td></tr>
-    <tr><td>renderToScene</td><td>可选能力声明，激活时获得宿主 Three.js 场景句柄</td></tr>
-  </table>
-  <p>宿主向插件提供 PluginApi 句柄，能力面如下：</p>
-  <table>
-    <tr><th style="width:20%">能力组</th><th>内容</th></tr>
-    <tr><td>本地化</td><td>插件文案按当前语言取值，语言切换时参数面板自动重建</td></tr>
-    <tr><td>状态上报</td><td>插件向状态栏上报运行状态与进度</td></tr>
-    <tr><td>性能上报</td><td>帧时间与真实 GPU 时间进入性能监控与告警</td></tr>
-    <tr><td>通知</td><td>按严重级别的横幅与提示</td></tr>
-    <tr><td>文件访问</td><td>项目数据文件解析（项目自有文件、内置示例与代码模式文件共享同一套逻辑）</td></tr>
-    <tr><td>参数读写</td><td>项目级参数的持久化存取</td></tr>
-    <tr><td>GPU 计算面</td><td>createBuffer、write、read、compileKernel、compilationInfo 与一次性 run（详见 05 篇）</td></tr>
-  </table>
+<p>Ergalics Studio 把&quot;一切可视化皆插件&quot;作为第一性设计。宿主与插件之间只有一个契约，第三方扩展与内置插件走同一套接口与生命周期。当前共有 <strong>42 个内置插件</strong>：32 个核心/科学插件在启动时自动加载，10 个趣味与工具插件声明 <code>autoload: false</code> 按需加载。</p>
+<h2 class="sec"><span class="num">一</span>宿主与插件的契约</h2>
+<p>每个插件实现统一的 <code>Plugin</code> 接口（<code>src/types/plugin.ts</code>），主要方法包括：</p>
+<table><thead><tr><th>方法</th><th>作用</th></tr></thead><tbody><tr><td>init / destroy</td><td>初始化与销毁，宿主负责 GPU 安全的资源回收</td></tr><tr><td>activate / deactivate</td><td>激活与去激活，驱动 2D/3D 视口切换与残留帧清理</td></tr><tr><td>render / updateParams</td><td>绘制与参数更新（右侧面板响应式表单）</td></tr><tr><td>getParams / compute</td><td>参数读取与计算</td></tr><tr><td>loadData</td><td>接收宿主分发的数据（文件路由与渲染桥接的入口）</td></tr><tr><td>renderToScene</td><td>可选能力声明，激活时获得宿主 Three.js 场景句柄</td></tr></tbody></table>
+<p>宿主向插件提供 <code>PluginApi</code> 句柄，能力面如下：</p>
+<table><thead><tr><th>能力组</th><th>内容</th></tr></thead><tbody><tr><td>本地化</td><td>插件文案按当前语言取值，语言切换时参数面板自动重建</td></tr><tr><td>状态上报</td><td>插件向状态栏上报运行状态与进度</td></tr><tr><td>性能上报</td><td>帧时间与真实 GPU 时间进入性能监控与告警</td></tr><tr><td>通知</td><td>按严重级别的横幅与提示</td></tr><tr><td>文件访问</td><td>项目数据文件解析（项目自有文件、内置示例与代码模式文件共享同一套逻辑）</td></tr><tr><td>参数读写</td><td>项目级参数的持久化存取</td></tr><tr><td>GPU 计算面</td><td>createBuffer、write、read、compileKernel、compilationInfo 与一次性 run（详见 06 篇）</td></tr></tbody></table>
+<p>插件在清单中声明参数表，宿主据此自动生成本地化的响应式参数面板，支持八类控件：</p>
 </div>
 
-<!-- P4 1.2 参数 + 1.3 生命周期 -->
+<!-- P4 -->
 <div class="page">
-  <h3><span class="hn">1.2</span>声明式参数面板</h3>
-  <p>插件在清单中声明参数表，宿主据此自动生成本地化的响应式参数面板，支持八类控件。插件作者不需要写任何面板代码——声明"我要一个范围滑杆，步长多少、默认多少"，右侧面板就会出现对应的表单项，并在语言切换时自动重建。</p>
-  <table>
-    <tr><th style="width:26%">控件</th><th>用途示例</th></tr>
-    <tr><td>范围（滑杆）</td><td>引力常数、阻尼系数</td></tr>
-    <tr><td>下拉</td><td>场景预设、投影方式、调色板</td></tr>
-    <tr><td>数字</td><td>分箱数、步长</td></tr>
-    <tr><td>复选框</td><td>轨迹线、网格显示</td></tr>
-    <tr><td>文本</td><td>列名、标签</td></tr>
-    <tr><td>文件</td><td>附加数据选择</td></tr>
-    <tr><td>按钮</td><td>重新播种、导出</td></tr>
-    <tr><td>开关</td><td>运行/暂停之外的布尔状态</td></tr>
-  </table>
-  <h3><span class="hn">1.3</span>插件生命周期</h3>
-  <p>插件生命周期由插件运行时统一编排，从注册到销毁共六个阶段：</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 110" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arL3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="12" y="30" width="98" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="61" y="49" text-anchor="middle" fill="#155e75" font-weight="bold">注册</text>
-        <text x="61" y="66" text-anchor="middle" fill="#475569">清单入表</text>
-        <rect x="122" y="30" width="98" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="171" y="49" text-anchor="middle" fill="#155e75" font-weight="bold">加载</text>
-        <text x="171" y="66" text-anchor="middle" fill="#475569">模块实例化</text>
-        <rect x="232" y="30" width="98" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="281" y="49" text-anchor="middle" fill="#14532d" font-weight="bold">激活</text>
-        <text x="281" y="66" text-anchor="middle" fill="#475569">视口判定 · 面板</text>
-        <rect x="342" y="30" width="98" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="391" y="49" text-anchor="middle" fill="#14532d" font-weight="bold">渲染循环</text>
-        <text x="391" y="66" text-anchor="middle" fill="#475569">绘制 · 参数更新</text>
-        <rect x="452" y="30" width="98" height="44" rx="9" fill="#fefce8" stroke="#facc15"/>
-        <text x="501" y="49" text-anchor="middle" fill="#713f12" font-weight="bold">去激活</text>
-        <text x="501" y="66" text-anchor="middle" fill="#475569">资源保留 · 释放视口</text>
-        <rect x="562" y="30" width="106" height="44" rx="9" fill="#fef2f2" stroke="#fca5a5"/>
-        <text x="615" y="49" text-anchor="middle" fill="#7f1d1d" font-weight="bold">销毁</text>
-        <text x="615" y="66" text-anchor="middle" fill="#475569">GPU 安全回收</text>
-        <line x1="110" y1="52" x2="118" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
-        <line x1="220" y1="52" x2="228" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
-        <line x1="330" y1="52" x2="338" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
-        <line x1="440" y1="52" x2="448" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
-        <line x1="550" y1="52" x2="558" y2="52" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arL3)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 1　插件生命周期：注册、加载、激活、渲染循环、去激活、销毁</div>
-  <p>去激活与销毁是两个不同的阶段：切换插件时旧插件只去激活，资源保留以便快速切回；只有项目关闭或插件卸载时才真正销毁。GPU 资源（缓冲区、管线）的回收由宿主统一执行，插件无需也无力处理 WebGL 或 WebGPU 对象的释放细节。</p>
+<table><thead><tr><th>控件</th><th>用途示例</th></tr></thead><tbody><tr><td>范围（滑杆）</td><td>引力常数、阻尼系数</td></tr><tr><td>下拉</td><td>场景预设、投影方式、调色板</td></tr><tr><td>数字</td><td>分箱数、步长</td></tr><tr><td>复选框</td><td>轨迹线、网格显示</td></tr><tr><td>文本</td><td>列名、标签</td></tr><tr><td>文件</td><td>附加数据选择</td></tr><tr><td>按钮</td><td>重新播种、导出</td></tr><tr><td>开关</td><td>运行 / 暂停之外的布尔状态</td></tr></tbody></table>
+<p>插件生命周期由插件运行时统一编排：</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 1259.28125 54.390625" style="max-width: 1259.28125px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-1-uqq3ow"><style>#mmd-1-uqq3ow{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-1-uqq3ow .error-icon{fill:#fefce8;}#mmd-1-uqq3ow .error-text{fill:#010317;stroke:#010317;}#mmd-1-uqq3ow .edge-thickness-normal{stroke-width:2px;}#mmd-1-uqq3ow .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-uqq3ow .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-uqq3ow .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-uqq3ow .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-uqq3ow .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-uqq3ow .marker.cross{stroke:#0e7490;}#mmd-1-uqq3ow svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-uqq3ow .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-uqq3ow .cluster-label text{fill:#010317;}#mmd-1-uqq3ow .cluster-label span,#mmd-1-uqq3ow p{color:#010317;}#mmd-1-uqq3ow .label text,#mmd-1-uqq3ow span,#mmd-1-uqq3ow p{fill:#155e75;color:#155e75;}#mmd-1-uqq3ow .node rect,#mmd-1-uqq3ow .node circle,#mmd-1-uqq3ow .node ellipse,#mmd-1-uqq3ow .node polygon,#mmd-1-uqq3ow .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-uqq3ow .flowchart-label text{text-anchor:middle;}#mmd-1-uqq3ow .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-uqq3ow .node .label{text-align:center;}#mmd-1-uqq3ow .node.clickable{cursor:pointer;}#mmd-1-uqq3ow .arrowheadPath{fill:#0b0b0b;}#mmd-1-uqq3ow .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-1-uqq3ow .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-uqq3ow .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-uqq3ow .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-uqq3ow .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-uqq3ow .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-uqq3ow .cluster text{fill:#010317;}#mmd-1-uqq3ow .cluster span,#mmd-1-uqq3ow p{color:#010317;}#mmd-1-uqq3ow div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-uqq3ow .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-uqq3ow :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-uqq3ow_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-uqq3ow_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-uqq3ow_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-uqq3ow_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-uqq3ow_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-uqq3ow_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-1-uqq3ow_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M176.438,19.195L180.604,19.195C184.771,19.195,193.104,19.195,200.554,19.195C208.004,19.195,214.571,19.195,217.854,19.195L221.138,19.195"></path><path marker-end="url(#mmd-1-uqq3ow_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-C" id="L-B-C-0" d="M358.438,19.195L362.604,19.195C366.771,19.195,375.104,19.195,382.554,19.195C390.004,19.195,396.571,19.195,399.854,19.195L403.138,19.195"></path><path marker-end="url(#mmd-1-uqq3ow_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-D" id="L-C-D-0" d="M616.266,19.195L620.432,19.195C624.599,19.195,632.932,19.195,640.382,19.195C647.832,19.195,654.399,19.195,657.682,19.195L660.966,19.195"></path><path marker-end="url(#mmd-1-uqq3ow_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-E" id="L-D-E-0" d="M798.266,19.195L802.432,19.195C806.599,19.195,814.932,19.195,822.382,19.195C829.832,19.195,836.399,19.195,839.682,19.195L842.966,19.195"></path><path marker-end="url(#mmd-1-uqq3ow_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-E LE-F" id="L-E-F-0" d="M1043.094,19.195L1047.26,19.195C1051.427,19.195,1059.76,19.195,1067.21,19.195C1074.66,19.195,1081.227,19.195,1084.51,19.195L1087.794,19.195"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(88.21875, 19.1953125)" data-id="A" data-node="true" id="flowchart-A-0" class="node default default flowchart-label"><rect height="38.390625" width="176.4375" y="-19.1953125" x="-88.21875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-80.71875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="161.4375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">注册（manifest 入注册表）</span></div></foreignObject></g></g><g transform="translate(292.4375, 19.1953125)" data-id="B" data-node="true" id="flowchart-B-1" class="node default default flowchart-label"><rect height="38.390625" width="132" y="-19.1953125" x="-66" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-58.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="117"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">加载（模块实例化）</span></div></foreignObject></g></g><g transform="translate(512.3515625, 19.1953125)" data-id="C" data-node="true" id="flowchart-C-3" class="node default default flowchart-label"><rect height="38.390625" width="207.828125" y="-19.1953125" x="-103.9140625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-96.4140625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="192.828125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">激活（视口判定 · 参数面板生成）</span></div></foreignObject></g></g><g transform="translate(732.265625, 19.1953125)" data-id="D" data-node="true" id="flowchart-D-5" class="node default default flowchart-label"><rect height="38.390625" width="132" y="-19.1953125" x="-66" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-58.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="117"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">渲染与参数更新循环</span></div></foreignObject></g></g><g transform="translate(945.6796875, 19.1953125)" data-id="E" data-node="true" id="flowchart-E-7" class="node default default flowchart-label"><rect height="38.390625" width="194.828125" y="-19.1953125" x="-97.4140625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-89.9140625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="179.828125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">去激活（资源保留 · 视口释放）</span></div></foreignObject></g></g><g transform="translate(1168.1875, 19.1953125)" data-id="F" data-node="true" id="flowchart-F-9" class="node default default flowchart-label"><rect height="38.390625" width="150.1875" y="-19.1953125" x="-75.09375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-67.59375, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="135.1875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">销毁（GPU 安全回收）</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 1</div></div>
+<p>每个内置插件另有一键导出能力：2D 画布或 3D 场景的 PNG 快照，以及所属表格数据的 RFC-4180 CSV 导出（UTF-8 BOM，仿真类带行数上限与抽样）。</p>
+<h2 class="sec"><span class="num">二</span>42 个内置插件</h2>
+<h3><span class="hn">2.1</span>核心 / 科学插件（自动加载，32 个）</h3>
+<table><thead><tr><th>插件</th><th>数据格式</th><th>能力</th></tr></thead><tbody><tr><td>点云 Point Cloud</td><td>.xyz</td><td>2D 画布，GPU 加速</td></tr><tr><td>三维点云 Point Cloud 3D</td><td>.xyz、.dat</td><td>Three.js 场景，高度渐变</td></tr><tr><td>三维曲面 3D Surface</td><td>.json、.dat、.txt</td><td>高程场曲面 z = f(x, y)，宿主 Three.js 场景</td></tr></tbody></table>
 </div>
 
-<!-- P5 2.1 数据分析类 -->
+<!-- P5 -->
 <div class="page">
-  <h2 class="sec"><span class="num">二</span>40 个内置插件</h2>
-  <h3><span class="hn">2.1</span>核心/科学插件（自动加载，30 个）</h3>
-  <div class="grp">数据分析类（18 个）</div>
-  <table>
-    <tr><th style="width:30%">插件</th><th style="width:24%">数据格式</th><th>能力</th></tr>
-    <tr><td>散点图 Scatter</td><td>.dat、.csv、.xyz</td><td>2D 散点，颜色通道</td></tr>
-    <tr><td>时间序列 Time Series</td><td>.csv</td><td>2D 折线</td></tr>
-    <tr><td>直方图 Histogram</td><td>.dat</td><td>分箱与对数刻度，GPU 加速</td></tr>
-    <tr><td>箱线图 Box Plot</td><td>.csv</td><td>四分位、须、离群点</td></tr>
-    <tr><td>小提琴图 Violin Plot</td><td>.csv</td><td>核密度估计加箱线叠加</td></tr>
-    <tr><td>误差带 Error Band</td><td>.csv</td><td>阴影置信带</td></tr>
-    <tr><td>平行坐标 Parallel Coordinates</td><td>.csv</td><td>多变量，分类别着色</td></tr>
-    <tr><td>矩形树图 Treemap</td><td>.csv</td><td>层级矩形布局</td></tr>
-    <tr><td>QQ 图</td><td>.csv、.dat</td><td>正态分位比较加参考线</td></tr>
-    <tr><td>柱状图 Bar Chart</td><td>.csv</td><td>分组柱状，方向与调色板可调</td></tr>
-    <tr><td>气泡图 Bubble Chart</td><td>.csv</td><td>气泡大小与颜色双通道</td></tr>
-    <tr><td>雷达图 Polar/Radar</td><td>.csv</td><td>多系列雷达</td></tr>
-    <tr><td>网络图 Network Graph</td><td>.csv</td><td>力导向布局，按度数缩放节点</td></tr>
-    <tr><td>桑基图 Sankey</td><td>.csv</td><td>比例流带</td></tr>
-    <tr><td>热力图 Heatmap</td><td>.json 网格</td><td>viridis 渐变，GPU 加速</td></tr>
-    <tr><td>等值线 Contour</td><td>.json 网格</td><td>色彩渐变加等值线</td></tr>
-    <tr><td>点云 Point Cloud</td><td>.xyz</td><td>2D 投影，GPU 加速</td></tr>
-    <tr><td>图像查看器 Image Viewer</td><td>.png</td><td>base64 资源展示</td></tr>
-  </table>
+<table><thead><tr><th>插件</th><th>数据格式</th><th>能力</th></tr></thead><tbody><tr><td>三维体素 3D Voxel Field</td><td>.json、.dat、.txt</td><td>三维标量场的等值面 / 半透明体素渲染</td></tr><tr><td>粒子 Particles</td><td>.dat</td><td>2D 模拟，WGSL 积分器，真实 GPU 时间上报</td></tr><tr><td>时间序列 Time Series</td><td>.csv</td><td>2D 折线</td></tr><tr><td>直方图 Histogram</td><td>.dat</td><td>分箱与对数刻度，GPU 加速</td></tr><tr><td>热力图 Heatmap</td><td>.json（网格）</td><td>viridis 渐变，GPU 加速</td></tr><tr><td>图像查看器 Image Viewer</td><td>.png</td><td>base64 资源展示</td></tr><tr><td>等值线 Contour</td><td>.json（网格）</td><td>色彩渐变加等值线</td></tr><tr><td>散点图 Scatter</td><td>.dat、.csv、.xyz</td><td>2D 散点，颜色通道</td></tr><tr><td>N-Body 引力</td><td>.json（天体）</td><td>三维点渲染，WGSL 全对引力内核</td></tr><tr><td>蛋白质互作网络 Protein Interactions</td><td>.json（网络）</td><td>力导向布局加连通分量指标</td></tr><tr><td>柱状图 Bar Chart</td><td>.csv（类别、数值）</td><td>分组柱状，方向与调色板可调</td></tr><tr><td>雷达 / 极坐标 Polar / Radar</td><td>.csv（维度 × 系列）</td><td>多系列雷达</td></tr><tr><td>网络图 Network Graph</td><td>.csv（source、target、weight）</td><td>力导向布局，按度数缩放节点</td></tr><tr><td>气泡图 Bubble Chart</td><td>.csv（x、y、size、color）</td><td>气泡大小与颜色双通道</td></tr><tr><td>小提琴图 Violin Plot</td><td>.csv（group、value）</td><td>核密度估计加箱线叠加</td></tr><tr><td>桑基图 Sankey Diagram</td><td>.csv（source、target、value）</td><td>比例流带</td></tr><tr><td>箱线图 Box Plot</td><td>.csv（group、value）</td><td>四分位、须与离群点</td></tr><tr><td>平行坐标 Parallel Coordinates</td><td>.csv（多变量）</td><td>分类别着色</td></tr><tr><td>误差带 Error Band</td><td>.csv（x、y、err）</td><td>阴影置信带</td></tr><tr><td>矩形树图 Treemap</td><td>.csv（层级）</td><td>层级矩形布局</td></tr></tbody></table>
 </div>
 
-<!-- P6 仿真与三维 + 交互实验室 -->
+<!-- P6 -->
 <div class="page">
-  <div class="grp">仿真与三维类（9 个）</div>
-  <table>
-    <tr><th style="width:30%">插件</th><th style="width:26%">数据格式</th><th>能力</th></tr>
-    <tr><td>三维点云 Point Cloud 3D</td><td>.xyz、.dat</td><td>Three.js 场景，高度渐变</td></tr>
-    <tr><td>N-Body 引力</td><td>.json（天体）</td><td>三维点渲染，WGSL 全对引力内核</td></tr>
-    <tr><td>格子 Boltzmann 流体</td><td>.json（障碍掩膜）</td><td>D2Q9 通道流，WGSL 碰撞与迁移双内核，卡门涡街</td></tr>
-    <tr><td>波动方程</td><td>.json（场网格）</td><td>有限差分，WGSL leapfrog 内核，脉冲、双源干涉与双缝场景</td></tr>
-    <tr><td>双摆</td><td>.json（初始条件）</td><td>RK4 积分加混沌幽灵摆（初值差 0.001 弧度），HUD 实时读出发散角</td></tr>
-    <tr><td>蛋白质相互作用</td><td>.json（网络）</td><td>力导向布局加连通分量指标</td></tr>
-    <tr><td>粒子 Particles</td><td>.dat</td><td>2D 模拟，WGSL 积分器，真实 GPU 时间上报</td></tr>
-    <tr><td>GeoJSON 地图</td><td>.geojson、.json</td><td>离线矢量地图，分级设色，三种投影</td></tr>
-    <tr><td>AI 训练器</td><td>.csv、.json（MNIST）</td><td>四类模型，实时损失曲线，TF.js 懒加载</td></tr>
-  </table>
-  <div class="grp">交互式物理实验室（3 个，产品旗舰演示）</div>
-  <table>
-    <tr><th style="width:22%">插件</th><th>演示内容</th></tr>
-    <tr><td>电磁场</td><td>可拖动电荷在库仑力与均匀磁场洛伦兹力共同作用下运动，回旋加速器示例展示螺线轨迹；画布点击放置电荷也是合法的数据来源</td></tr>
-    <tr><td>光学实验</td><td>薄凸/凹透镜、三棱镜（斯涅尔折射加色散）、光屏成像，元件可在画布上拖动</td></tr>
-    <tr><td>结构力学</td><td>铰接桁架实时承重，杆件按轴力着色（橙为拉、青为压）并显示利用率，超载断裂直至垮塌</td></tr>
-  </table>
-  <div class="callout">
-    所有仿真类插件严格数据驱动：初始为空，绝不伪造默认场景；画布给出明确的空态提示，运行按钮带数据守卫，空数据启动会收到提示而非静默空跑；"重置"只重放已加载的数据，回归作者基准构型。
-  </div>
+<table><thead><tr><th>插件</th><th>数据格式</th><th>能力</th></tr></thead><tbody><tr><td>QQ 图</td><td>.csv、.dat（单列）</td><td>正态分位比较加参考线</td></tr><tr><td>AI 训练器 AI Trainer</td><td>.csv、.json（MNIST）</td><td>四类模型（线性 / 非线性网络 / 逻辑回归 / 卷积），实时损失曲线，TF.js 懒加载</td></tr><tr><td>格子 Boltzmann 流体 LBM Fluid</td><td>.json（障碍掩膜）</td><td>D2Q9 通道流绕障碍物，WGSL 碰撞与迁移内核，卡门涡街</td></tr><tr><td>波动方程 Wave Equation</td><td>.json（u / 驱动网格）</td><td>二维有限差分，WGSL leapfrog 内核，脉冲 / 双源干涉 / 双缝场景</td></tr><tr><td>双摆 Double Pendulum</td><td>.json（初始条件）</td><td>RK4 积分加初值差 0.001 弧度的混沌幽灵摆</td></tr><tr><td>GeoJSON 地图 GeoJSON Map</td><td>.geojson、.json</td><td>离线矢量地图分级设色；Albers（中国）/ Web 墨卡托 / 等距圆柱投影</td></tr><tr><td>电磁场 Electromagnetism</td><td>.json（电荷 / 场）</td><td>可拖动电荷在库仑力与均匀磁场洛伦兹力下运动，回旋加速器示例</td></tr><tr><td>光学实验 Optics Lab</td><td>.json（光路）</td><td>薄透镜、斯涅尔折射加色散棱镜与可拖动光屏的几何光路追迹</td></tr><tr><td>结构力学 Structural Mechanics</td><td>.json（桁架杆件）</td><td>铰接桁架实时承重，杆件按轴力着色，超载断裂直至垮塌</td></tr></tbody></table>
+<h3><span class="hn">2.2</span>趣味与工具插件（按需加载，10 个）</h3>
+<table><thead><tr><th>插件</th><th>类型</th><th>描述</th></tr></thead><tbody><tr><td>Mandelbrot</td><td>分形</td><td>Mandelbrot 与 Julia 集浏览器，带调色板与缩放</td></tr><tr><td>螺旋线 Spirograph</td><td>艺术</td><td>次摆线曲线艺术</td></tr><tr><td>利萨茹曲线 Lissajous</td><td>艺术</td><td>动画曲线</td></tr><tr><td>生命游戏 Game of Life</td><td>玩具</td><td>经典元胞自动机，播放、暂停、重播种，含图案预设</td></tr><tr><td>谐振记录仪 Harmonograph</td><td>艺术</td><td>衰减正弦叠加曲线</td></tr><tr><td>调色板探索 Palette Explorer</td><td>工具</td><td>双停靠点渐变预览与色板</td></tr></tbody></table>
 </div>
 
-<!-- P7 三张实验室截图 -->
+<!-- P7 -->
 <div class="page">
-  <h3 class="cont">2.1 核心/科学插件（交互实验室示例）</h3>
-  <figure>
-    <img src="../Cyclotron.png" alt="电磁场实验室">
-    <figcaption><b>图 2</b>　电磁场实验室：电荷在库仑力与洛伦兹力共同作用下回旋，轨迹线开启</figcaption>
-  </figure>
-  <figure>
-    <img src="../light.png" alt="光学实验">
-    <figcaption><b>图 3</b>　光学实验：白光经三棱镜折射色散，光屏呈现成像</figcaption>
-  </figure>
-  <figure>
-    <img src="../structure.png" alt="结构力学">
-    <figcaption><b>图 4</b>　结构力学：桁架杆件按轴力着色，橙为拉、青为压，超载断裂</figcaption>
-  </figure>
+<table><thead><tr><th>插件</th><th>类型</th><th>描述</th></tr></thead><tbody><tr><td>科赫雪花 Koch Snowflake</td><td>分形</td><td>递归线段分形</td></tr><tr><td>巴恩斯利蕨 Barnsley Fern</td><td>分形</td><td>迭代函数系统蕨叶</td></tr><tr><td>烟花 Fireworks</td><td>玩具</td><td>带引力与拖尾的粒子烟花</td></tr><tr><td>Truchet 瓦片</td><td>图案</td><td>随机四分之一圆弧瓦片</td></tr></tbody></table>
+<h3><span class="hn">2.3</span>侧栏学科分组</h3>
+<p>市场分类（科学 / 趣味 / 工具）对浏览而言过于粗糙，因此侧栏按<strong>学科</strong>再分组，映射表 <code>src/plugins/categories.ts</code> 是唯一事实来源，未登记的第三方插件回落到&quot;图表可视化&quot;组：</p>
+<table><thead><tr><th>分组</th><th>数量</th><th>代表性插件</th></tr></thead><tbody><tr><td>图表可视化 charts</td><td>13</td><td>散点、时间序列、热力图、等值线、柱状、气泡、雷达、网络、桑基、矩形树图、平行坐标、三维曲面、三维体素</td></tr><tr><td>数学统计 stats</td><td>5</td><td>直方图、箱线图、小提琴图、QQ 图、误差带</td></tr><tr><td>物理模拟 physics</td><td>8</td><td>粒子、N-Body、流体、波动方程、双摆、电磁场、光学实验、结构力学</td></tr><tr><td>地理 geo</td><td>1</td><td>GeoJSON 地图</td></tr><tr><td>数据与智能 data</td><td>5</td><td>点云、三维点云、图像查看器、蛋白质互作网络、AI 训练器</td></tr><tr><td>趣味工具 fun</td><td>10</td><td>见 2.2 节</td></tr></tbody></table>
 </div>
 
-<!-- P8 2.2 趣味 + 三、市场 -->
+<!-- P8 -->
 <div class="page">
-  <h3><span class="hn">2.2</span>趣味与工具插件（按需加载，10 个）</h3>
-  <table>
-    <tr><th style="width:34%">插件</th><th style="width:14%">类型</th><th>描述</th></tr>
-    <tr><td>Mandelbrot</td><td>分形</td><td>Mandelbrot 与 Julia 集浏览器，带调色板与缩放</td></tr>
-    <tr><td>螺旋线 Spirograph</td><td>艺术</td><td>次摆线曲线艺术</td></tr>
-    <tr><td>利萨茹曲线 Lissajous</td><td>艺术</td><td>动画曲线</td></tr>
-    <tr><td>生命游戏 Game of Life</td><td>玩具</td><td>经典元胞自动机，播放、暂停、重播种</td></tr>
-    <tr><td>谐振记录仪 Harmonograph</td><td>艺术</td><td>衰减正弦叠加曲线</td></tr>
-    <tr><td>调色板探索 Palette Explorer</td><td>工具</td><td>双停靠点渐变预览与色板</td></tr>
-    <tr><td>科赫雪花 Koch Snowflake</td><td>分形</td><td>递归线段分形</td></tr>
-    <tr><td>巴恩斯利蕨 Barnsley Fern</td><td>分形</td><td>迭代函数系统蕨叶</td></tr>
-    <tr><td>烟花 Fireworks</td><td>玩具</td><td>带引力与拖尾的粒子烟花</td></tr>
-    <tr><td>Truchet 瓦片</td><td>图案</td><td>随机四分之一圆弧瓦片</td></tr>
-  </table>
-  <h2 class="sec" style="margin-top:6mm"><span class="num">三</span>市场目录与两级加载</h2>
-  <p>市场目录（src/plugins/marketplace.ts）把每个内置插件以精选标签、流行度与分类筛选（科学、趣味、工具）的形式呈现，社区"敬请期待"条目以占位符列出。加载策略分两级：</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 170" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arM3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="20" y="60" width="110" height="44" rx="9" fill="#0e7490"/>
-        <text x="75" y="79" text-anchor="middle" fill="#ffffff" font-weight="bold">应用启动</text>
-        <text x="75" y="96" text-anchor="middle" fill="#cffafe">单一路径</text>
-        <rect x="180" y="14" width="210" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="285" y="33" text-anchor="middle" fill="#14532d" font-weight="bold">自动加载 30 个核心插件</text>
-        <text x="285" y="50" text-anchor="middle" fill="#475569">数据、仿真、三维、实验室</text>
-        <rect x="180" y="106" width="210" height="44" rx="9" fill="#fefce8" stroke="#facc15"/>
-        <text x="285" y="125" text-anchor="middle" fill="#713f12" font-weight="bold">趣味与工具保持未加载</text>
-        <text x="285" y="142" text-anchor="middle" fill="#475569">用户从面板或市场手动加载</text>
-        <rect x="450" y="60" width="210" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="555" y="79" text-anchor="middle" fill="#155e75" font-weight="bold">注册表就绪</text>
-        <text x="555" y="96" text-anchor="middle" fill="#475569">首屏保持轻量</text>
-        <line x1="130" y1="72" x2="176" y2="46" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
-        <line x1="130" y1="92" x2="176" y2="118" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
-        <line x1="390" y1="36" x2="446" y2="72" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
-        <line x1="390" y1="128" x2="446" y2="92" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arM3)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 5　两级加载策略：核心自动加载，趣味手动加载</div>
-  <p>自动加载失败可重试：插件运行时把"初始化完成"作为状态机节点，失败后注册表不会进入就绪态，用户重试不会被误判为重复加载。</p>
+<p>所有仿真类插件严格数据驱动：初始为空，绝不伪造默认场景；画布给出明确的空态提示，运行按钮带数据守卫，空数据启动会收到提示而非静默空跑；&quot;重置&quot;只重放已加载的数据，回归作者基准构型。每个核心插件都附带示例数据集（见 <code>examples/data/</code>），在&quot;示例&quot;对话框中一键加载即可看到真实可视化。</p>
+<figure><img src="../Cyclotron.png" alt="电磁场：回旋加速器示例"><figcaption>电磁场：回旋加速器示例</figcaption></figure>
+<figure><img src="../light.png" alt="光学实验：棱镜色散"><figcaption>光学实验：棱镜色散</figcaption></figure>
 </div>
 
-<!-- P9 四、cspkg 与沙箱 -->
+<!-- P9 -->
 <div class="page">
-  <h2 class="sec"><span class="num">四</span>第三方包（.cspkg）与沙箱</h2>
-  <p>.cspkg 包是包含 manifest.json、入口模块与资源的 ZIP 压缩包（fflate 打包）。加载时校验清单：必填字段、插件 id 格式、入口路径穿越防护与沙箱枚举。清单声明 sandbox 字段，共有两级：</p>
-  <ul>
-    <li><strong>isolated（默认）</strong>：入口代码运行在 Web Worker 内，拥有独立全局作用域，无法访问宿主页面的全局变量、DOM 与状态库；画布渲染通过转移的 OffscreenCanvas 完成，宿主与 Worker 之间只走类型化 RPC 协议（src/core/sandbox.ts 与 src/core/plugin-worker.ts）。</li>
-    <li><strong>trusted</strong>：在宿主上下文中执行，拥有完整 DOM 访问权，仅建议用于自研包。</li>
-  </ul>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arP3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="20" y="14" width="130" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="85" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">用户</text>
-        <rect x="200" y="14" width="150" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="275" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">cspkg 加载器</text>
-        <rect x="400" y="14" width="120" height="34" rx="8" fill="#fefce8" stroke="#facc15"/>
-        <text x="460" y="36" text-anchor="middle" fill="#713f12" font-weight="bold">清单校验</text>
-        <rect x="560" y="14" width="100" height="34" rx="8" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="610" y="36" text-anchor="middle" fill="#14532d" font-weight="bold">Worker 沙箱</text>
-        <line x1="85" y1="48" x2="85" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="275" y1="48" x2="275" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="460" y1="48" x2="460" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="610" y1="48" x2="610" y2="252" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="89" y1="76" x2="196" y2="76" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
-        <text x="142" y="70" text-anchor="middle" fill="#334155">选择 .cspkg 文件</text>
-        <line x1="279" y1="106" x2="396" y2="106" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
-        <text x="338" y="100" text-anchor="middle" fill="#334155">解压并校验清单</text>
-        <line x1="456" y1="136" x2="281" y2="136" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
-        <text x="368" y="130" text-anchor="middle" fill="#475569">校验通过（id 格式、入口路径、沙箱枚举）</text>
-        <line x1="279" y1="166" x2="556" y2="166" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arP3)"/>
-        <text x="418" y="160" text-anchor="middle" fill="#334155">在 Worker 内执行入口模块</text>
-        <line x1="606" y1="196" x2="281" y2="196" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
-        <text x="444" y="190" text-anchor="middle" fill="#475569">postMessage RPC 上报渲染与状态</text>
-        <line x1="279" y1="226" x2="92" y2="226" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arP3)"/>
-        <text x="186" y="220" text-anchor="middle" fill="#475569">画布经 OffscreenCanvas 呈现</text>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 6　第三方插件的加载与通信流程</div>
-  <p><strong>已知限制（如实记录）</strong>：Worker 与页面共享同源的 IndexedDB；当 Worker 不可用时的遗留回退方案（new Function 加遮蔽全局变量）只是尽力而为的近似，并非安全边界，回退启用时界面会明确告警。包签名与第三方安装管线是市场方向的下一个里程碑。</p>
+<figure><img src="../structure.png" alt="结构力学：桁架受力着色"><figcaption>结构力学：桁架受力着色</figcaption></figure>
+<h2 class="sec"><span class="num">三</span>市场目录与两级加载</h2>
+<p>市场目录（<code>src/plugins/marketplace.ts</code>）把每个内置插件以精选标签、流行度与分类筛选（科学、趣味、工具）的形式呈现，社区&quot;敬请期待&quot;条目以占位符列出；<code>marketplace-demo-packages.ts</code> 提供可真正安装的示例包。加载策略分两级：</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 765.09375 142.78125" style="max-width: 765.09375px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-2-0b7uzo"><style>#mmd-2-0b7uzo{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-2-0b7uzo .error-icon{fill:#fefce8;}#mmd-2-0b7uzo .error-text{fill:#010317;stroke:#010317;}#mmd-2-0b7uzo .edge-thickness-normal{stroke-width:2px;}#mmd-2-0b7uzo .edge-thickness-thick{stroke-width:3.5px;}#mmd-2-0b7uzo .edge-pattern-solid{stroke-dasharray:0;}#mmd-2-0b7uzo .edge-pattern-dashed{stroke-dasharray:3;}#mmd-2-0b7uzo .edge-pattern-dotted{stroke-dasharray:2;}#mmd-2-0b7uzo .marker{fill:#0e7490;stroke:#0e7490;}#mmd-2-0b7uzo .marker.cross{stroke:#0e7490;}#mmd-2-0b7uzo svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-2-0b7uzo .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-2-0b7uzo .cluster-label text{fill:#010317;}#mmd-2-0b7uzo .cluster-label span,#mmd-2-0b7uzo p{color:#010317;}#mmd-2-0b7uzo .label text,#mmd-2-0b7uzo span,#mmd-2-0b7uzo p{fill:#155e75;color:#155e75;}#mmd-2-0b7uzo .node rect,#mmd-2-0b7uzo .node circle,#mmd-2-0b7uzo .node ellipse,#mmd-2-0b7uzo .node polygon,#mmd-2-0b7uzo .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-2-0b7uzo .flowchart-label text{text-anchor:middle;}#mmd-2-0b7uzo .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-2-0b7uzo .node .label{text-align:center;}#mmd-2-0b7uzo .node.clickable{cursor:pointer;}#mmd-2-0b7uzo .arrowheadPath{fill:#0b0b0b;}#mmd-2-0b7uzo .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-2-0b7uzo .flowchart-link{stroke:#0e7490;fill:none;}#mmd-2-0b7uzo .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-2-0b7uzo .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-2-0b7uzo .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-2-0b7uzo .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-2-0b7uzo .cluster text{fill:#010317;}#mmd-2-0b7uzo .cluster span,#mmd-2-0b7uzo p{color:#010317;}#mmd-2-0b7uzo div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-2-0b7uzo .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-2-0b7uzo :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-0b7uzo_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-0b7uzo_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-0b7uzo_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-0b7uzo_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-0b7uzo_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-0b7uzo_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-2-0b7uzo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M58.908,44.195L64.424,40.029C69.939,35.862,80.969,27.529,107.576,23.362C134.182,19.195,176.365,19.195,218.547,19.195C260.729,19.195,302.911,19.195,334.04,19.195C365.168,19.195,385.243,19.195,395.28,19.195L405.317,19.195"></path><path marker-end="url(#mmd-2-0b7uzo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-C" id="L-A-C-0" d="M58.908,82.586L64.424,86.753C69.939,90.919,80.969,99.253,89.768,103.419C98.567,107.586,105.133,107.586,108.417,107.586L111.7,107.586"></path><path marker-end="url(#mmd-2-0b7uzo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-D" id="L-C-D-0" d="M320.094,107.586L324.26,107.586C328.427,107.586,336.76,107.586,344.21,107.586C351.66,107.586,358.227,107.586,361.51,107.586L364.794,107.586"></path><path marker-end="url(#mmd-2-0b7uzo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-E" id="L-B-E-0" d="M565.57,19.195L576.491,19.195C587.411,19.195,609.253,19.195,623.588,21.306C637.924,23.417,644.755,27.639,648.17,29.751L651.585,31.862"></path><path marker-end="url(#mmd-2-0b7uzo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-E" id="L-D-E-0" d="M606.094,107.586L610.26,107.586C614.427,107.586,622.76,107.586,630.342,105.475C637.924,103.364,644.755,99.142,648.17,97.031L651.585,94.92"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(33.5, 63.390625)" data-id="A" data-node="true" id="flowchart-A-10" class="node default default flowchart-label"><rect height="38.390625" width="67" y="-19.1953125" x="-33.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-26, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">应用启动</span></div></foreignObject></g></g><g transform="translate(488.09375, 19.1953125)" data-id="B" data-node="true" id="flowchart-B-11" class="node default default flowchart-label"><rect height="38.390625" width="154.953125" y="-19.1953125" x="-77.4765625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-69.9765625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="139.953125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">自动加载 32 个核心插件</span></div></foreignObject></g></g><g transform="translate(218.546875, 107.5859375)" data-id="C" data-node="true" id="flowchart-C-13" class="node default default flowchart-label"><rect height="38.390625" width="203.09375" y="-19.1953125" x="-101.546875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-94.046875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="188.09375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">10 个趣味与工具插件保持未加载</span></div></foreignObject></g></g><g transform="translate(488.09375, 107.5859375)" data-id="D" data-node="true" id="flowchart-D-15" class="node default default flowchart-label"><rect height="38.390625" width="236" y="-19.1953125" x="-118" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-110.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="221"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">用户从内置面板或市场标签页手动加载</span></div></foreignObject></g></g><g transform="translate(702.59375, 63.390625)" data-id="E" data-node="true" id="flowchart-E-17" class="node default default flowchart-label"><rect height="61.78125" width="93" y="-30.890625" x="-46.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-39, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="78"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">注册表就绪<br>首屏保持轻量</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 2</div></div>
+<p>自动加载失败可重试：插件运行时把&quot;初始化完成&quot;作为状态机节点，失败后注册表不会进入就绪态，用户重试不会被误判为重复加载。</p>
 </div>
 
-<!-- P10 五、文件路由 -->
+<!-- P10 -->
 <div class="page">
-  <h2 class="sec"><span class="num">五</span>文件路由</h2>
-  <p>用户把任意文件拖入中央视口或插件列表时，宿主按魔数与扩展名（可选 WASM 辅助检测）识别格式并路由到匹配插件：</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arR3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="250" y="10" width="180" height="34" rx="9" fill="#0e7490"/>
-        <text x="340" y="32" text-anchor="middle" fill="#ffffff" font-weight="bold">文件拖入中央视口</text>
-        <rect x="250" y="66" width="180" height="34" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="340" y="88" text-anchor="middle" fill="#155e75">读取文件头（魔数）</text>
-        <rect x="250" y="122" width="180" height="34" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="340" y="144" text-anchor="middle" fill="#155e75">扩展名辅助匹配</text>
-        <polygon points="340,178 440,212 340,246 240,212" fill="#fefce8" stroke="#facc15"/>
-        <text x="340" y="208" text-anchor="middle" fill="#713f12">科研二进制</text>
-        <text x="340" y="226" text-anchor="middle" fill="#713f12">格式？</text>
-        <rect x="60" y="268" width="240" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="180" y="286" text-anchor="middle" fill="#14532d" font-weight="bold">科研数据调度器</text>
-        <text x="180" y="304" text-anchor="middle" fill="#475569">HDF5 · NetCDF · FITS · Zarr · Parquet</text>
-        <rect x="380" y="268" width="220" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="490" y="286" text-anchor="middle" fill="#155e75" font-weight="bold">常规格式匹配插件</text>
-        <text x="490" y="304" text-anchor="middle" fill="#475569">唯一匹配直接路由，否则弹窗让用户选</text>
-        <line x1="340" y1="44" x2="340" y2="62" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
-        <line x1="340" y1="100" x2="340" y2="118" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
-        <line x1="340" y1="156" x2="340" y2="174" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
-        <line x1="290" y1="224" x2="200" y2="264" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
-        <text x="222" y="240" text-anchor="middle" fill="#475569">是</text>
-        <line x1="392" y1="224" x2="478" y2="264" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arR3)"/>
-        <text x="460" y="240" text-anchor="middle" fill="#475569">否</text>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 7　文件路由：魔数识别、科研调度与插件匹配</div>
-  <p>路由的末端是"示例对话框"：每个核心插件都附带示例数据集，在"示例"对话框中一键加载即可看到真实可视化；示例资产经 exampleAssets 与 examples 模块统一发现与加载。用户不需要先去找数据再学插件——先看效果、再换自己的数据，是产品设计上刻意保留的顺序。</p>
-  <div class="callout">
-    科研二进制格式的解析细节（HDF5、NetCDF、FITS、Zarr、Parquet）在第六篇"科学计算子系统"中展开；
-    GPU 计算面（createBuffer、compileKernel 等）在第五篇"GPU 计算与原生核心"中展开。
+<h2 class="sec"><span class="num">四</span>第三方包（.cspkg）、沙箱与签名</h2>
+<p><code>.cspkg</code> 包是包含 <code>manifest.json</code>、入口模块与资源的 ZIP 压缩包（fflate 打包）。加载时校验清单：必填字段、插件 id 格式、入口路径穿越防护与沙箱枚举。清单声明 <code>sandbox</code> 字段：</p>
+<pre><code>{
+  &quot;id&quot;: &quot;com.example.analyzer&quot;,
+  &quot;name&quot;: &quot;Analyzer&quot;,
+  &quot;version&quot;: &quot;1.2.0&quot;,
+  &quot;author&quot;: &quot;Example Corp&quot;,
+  &quot;description&quot;: &quot;…&quot;,
+  &quot;entry&quot;: &quot;dist/index.js&quot;,
+  &quot;sandbox&quot;: &quot;isolated&quot;,        // &quot;isolated&quot;（默认）| &quot;trusted&quot;
+  &quot;formats&quot;: [{ &quot;extension&quot;: &quot;.dat&quot; }]
+}</code></pre>
+<ul><li><strong>isolated（默认）</strong>：入口代码运行在 Web Worker 内，拥有独立全局作用域，无法访问宿主页面的全局变量、DOM 与状态库；画布渲染通过转移的 OffscreenCanvas 完成，宿主与 Worker 之间只走类型化 RPC 协议（<code>src/core/sandbox.ts</code> 与 <code>src/core/plugin-worker.ts</code>）。</li><li><strong>trusted</strong>：在宿主上下文中执行，拥有完整 DOM 访问权，仅建议用于自研包。</li></ul>
+<p>第三方插件加载与通信流程：</p>
+<div class="svgbox"><svg aria-roledescription="sequence" role="graphics-document document" viewBox="-50 -10 1225 483" style="max-width: 1225px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-3-mj1jf2"><g><rect class="actor actor-bottom" ry="3" rx="3" name="W" height="65" width="150" stroke="#666" fill="#eaeaea" y="397" x="975"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="429.5" x="1050"><tspan dy="0" x="1050">Worker 沙箱</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="V" height="65" width="150" stroke="#666" fill="#eaeaea" y="397" x="765"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="429.5" x="840"><tspan dy="0" x="840">清单与签名校验</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="H" height="65" width="181" stroke="#666" fill="#eaeaea" y="397" x="281.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="429.5" x="372"><tspan dy="0" x="372">宿主（cspkg 加载器）</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="U" height="65" width="150" stroke="#666" fill="#eaeaea" y="397" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="429.5" x="75"><tspan dy="0" x="75">用户</tspan></text></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="397" x2="1050" y1="5" x1="1050" id="actor3"></line><g id="root-3"><rect class="actor actor-top" ry="3" rx="3" name="W" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="975"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1050"><tspan dy="0" x="1050">Worker 沙箱</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="397" x2="840" y1="5" x1="840" id="actor2"></line><g id="root-2"><rect class="actor actor-top" ry="3" rx="3" name="V" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="765"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="840"><tspan dy="0" x="840">清单与签名校验</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="397" x2="372" y1="5" x1="372" id="actor1"></line><g id="root-1"><rect class="actor actor-top" ry="3" rx="3" name="H" height="65" width="181" stroke="#666" fill="#eaeaea" y="0" x="281.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="372"><tspan dy="0" x="372">宿主（cspkg 加载器）</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="397" x2="75" y1="5" x1="75" id="actor0"></line><g id="root-0"><rect class="actor actor-top" ry="3" rx="3" name="U" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="75"><tspan dy="0" x="75">用户</tspan></text></g></g><style>#mmd-3-mj1jf2{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-3-mj1jf2 .error-icon{fill:#fefce8;}#mmd-3-mj1jf2 .error-text{fill:#010317;stroke:#010317;}#mmd-3-mj1jf2 .edge-thickness-normal{stroke-width:2px;}#mmd-3-mj1jf2 .edge-thickness-thick{stroke-width:3.5px;}#mmd-3-mj1jf2 .edge-pattern-solid{stroke-dasharray:0;}#mmd-3-mj1jf2 .edge-pattern-dashed{stroke-dasharray:3;}#mmd-3-mj1jf2 .edge-pattern-dotted{stroke-dasharray:2;}#mmd-3-mj1jf2 .marker{fill:#0e7490;stroke:#0e7490;}#mmd-3-mj1jf2 .marker.cross{stroke:#0e7490;}#mmd-3-mj1jf2 svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-3-mj1jf2 .actor{stroke:#22d3ee;fill:#ecfeff;}#mmd-3-mj1jf2 text.actor&gt;tspan{fill:#155e75;stroke:none;}#mmd-3-mj1jf2 .actor-line{stroke:grey;}#mmd-3-mj1jf2 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#334155;}#mmd-3-mj1jf2 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#334155;}#mmd-3-mj1jf2 #arrowhead path{fill:#334155;stroke:#334155;}#mmd-3-mj1jf2 .sequenceNumber{fill:#f18b6f;}#mmd-3-mj1jf2 #sequencenumber{fill:#334155;}#mmd-3-mj1jf2 #crosshead path{fill:#334155;stroke:#334155;}#mmd-3-mj1jf2 .messageText{fill:#334155;stroke:none;}#mmd-3-mj1jf2 .labelBox{stroke:#22d3ee;fill:#ecfeff;}#mmd-3-mj1jf2 .labelText,#mmd-3-mj1jf2 .labelText&gt;tspan{fill:#155e75;stroke:none;}#mmd-3-mj1jf2 .loopText,#mmd-3-mj1jf2 .loopText&gt;tspan{fill:#155e75;stroke:none;}#mmd-3-mj1jf2 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:#22d3ee;fill:#22d3ee;}#mmd-3-mj1jf2 .note{stroke:#fde047;fill:#fefce8;}#mmd-3-mj1jf2 .noteText,#mmd-3-mj1jf2 .noteText&gt;tspan{fill:#333;stroke:none;}#mmd-3-mj1jf2 .activation0{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-3-mj1jf2 .activation1{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-3-mj1jf2 .activation2{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-3-mj1jf2 .actorPopupMenu{position:absolute;}#mmd-3-mj1jf2 .actorPopupMenuPanel{position:absolute;fill:#ecfeff;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mmd-3-mj1jf2 .actor-man line{stroke:#22d3ee;fill:#ecfeff;}#mmd-3-mj1jf2 .actor-man circle,#mmd-3-mj1jf2 line{stroke:#22d3ee;fill:#ecfeff;stroke-width:2px;}#mmd-3-mj1jf2 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol height="24" width="24" id="computer"><path d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z" transform="scale(.5)"></path></symbol></defs><defs><symbol clip-rule="evenodd" fill-rule="evenodd" id="database"><path d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z" transform="scale(.5)"></path></symbol></defs><defs><symbol height="24" width="24" id="clock"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z" transform="scale(.5)"></path></symbol></defs><defs><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="7.9" id="arrowhead"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker refY="4.5" refX="4" orient="auto" markerHeight="8" markerWidth="15" id="crosshead"><path style="stroke-dasharray: 0, 0;" d="M 1,2 L 6,7 M 6,2 L 1,7" stroke-width="1pt" stroke="#000000" fill="none"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="15.5" id="filled-head"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="40" markerWidth="60" refY="15" refX="15" id="sequencenumber"><circle r="6" cy="15" cx="15"></circle></marker></defs><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="80" x="222">选择 .cspkg 文件</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="117" x2="368" y1="117" x1="76"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="132" x="605">解压并校验 manifest 与签名</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="169" x2="836" y1="169" x1="373"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="184" x="608">校验通过（id 格式、入口路径、沙箱枚举、信任来源）</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="221" x2="376" y1="221" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="236" x="710">在 Worker 内执行入口模块</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="273" x2="1046" y1="273" x1="373"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="288" x="713">通过 postMessage RPC 上报渲染与状态</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="325" x2="376" y1="325" x1="1049"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="340" x="225">画布经 OffscreenCanvas 呈现</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="377" x2="79" y1="377" x1="371"></line></svg><div class="svgcap">图 3</div></div>
+</div>
+
+<!-- P11 -->
+<div class="page">
+<h3><span class="hn">4.1</span>包签名与信任注册表</h3>
+<p>签名能力已落地（<code>src/core/plugin-signing.ts</code> + <code>src/core/crypto-primitives.ts</code> + <code>scripts/sign-cspkg.mjs</code>），回答的是&quot;<strong>这个包是谁发布的</strong>&quot;，与沙箱回答的&quot;<strong>它运行时能做什么</strong>&quot;互相独立——合法签名不会削弱沙箱隔离。</p>
+<table><thead><tr><th>环节</th><th>实现</th></tr></thead><tbody><tr><td>算法</td><td>Ed25519（RFC 8032）与 SHA-256（FIPS 180-4），纯 TypeScript 在 BigInt 上自实现，不依赖 WebCrypto（各浏览器与 Node 对 Ed25519 支持不齐）</td></tr><tr><td>签名载荷</td><td>规范化后的包载荷：manifest 递归排序键、去空白、丢弃 undefined 的稳定 JSON 加入口字节；签名 CLI 与浏览器校验端字节级一致</td></tr><tr><td>指纹</td><td><code>ed25519:&lt;hex32&gt;</code>——公钥 SHA-256 的前 16 字节</td></tr><tr><td>信任模型</td><td><code>verifyPackageSignature</code> 返回结构化结果，结论含 <code>unsigned</code> / <code>untrusted-key</code> / 通过三类；未签名包默认拒绝，未知密钥的合法签名提示用户核对指纹后显式信任</td></tr><tr><td>信任注册表</td><td>内置官方公钥常量 <code>OFFICIAL_TRUSTED_KEYS</code>，用户新增的受信密钥经 <code>storage.ts</code> 持久化，IndexedDB 不可用时优雅降级</td></tr><tr><td>工具链</td><td><code>node scripts/sign-cspkg.mjs --genkey &lt;keyfile&gt;</code> 生成密钥对；<code>&lt;package-dir&gt; --key &lt;keyfile&gt;</code> 签名产出 .cspkg；<code>--verify &lt;file.cspkg&gt; [--trust &lt;keyfile&gt;]</code> 复验</td></tr></tbody></table>
+<p>已知限制（如实记录）：Worker 与页面共享同源的 IndexedDB；当 Worker 不可用时的遗留回退方案（<code>new Function</code> 加遮蔽全局变量）只是尽力而为的近似，并非安全边界，回退启用时界面会明确告警。</p>
+<h2 class="sec"><span class="num">五</span>文件路由</h2>
+<p>用户把任意文件拖入中央视口或插件列表时，宿主按魔数与扩展名（可选 WASM 辅助检测）识别格式并路由到匹配插件：</p>
+</div>
+
+<!-- P12 -->
+<div class="page">
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 383.46484375 968.296875" style="max-width: 383.46484375px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-4-3noftl"><style>#mmd-4-3noftl{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-4-3noftl .error-icon{fill:#fefce8;}#mmd-4-3noftl .error-text{fill:#010317;stroke:#010317;}#mmd-4-3noftl .edge-thickness-normal{stroke-width:2px;}#mmd-4-3noftl .edge-thickness-thick{stroke-width:3.5px;}#mmd-4-3noftl .edge-pattern-solid{stroke-dasharray:0;}#mmd-4-3noftl .edge-pattern-dashed{stroke-dasharray:3;}#mmd-4-3noftl .edge-pattern-dotted{stroke-dasharray:2;}#mmd-4-3noftl .marker{fill:#0e7490;stroke:#0e7490;}#mmd-4-3noftl .marker.cross{stroke:#0e7490;}#mmd-4-3noftl svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-4-3noftl .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-4-3noftl .cluster-label text{fill:#010317;}#mmd-4-3noftl .cluster-label span,#mmd-4-3noftl p{color:#010317;}#mmd-4-3noftl .label text,#mmd-4-3noftl span,#mmd-4-3noftl p{fill:#155e75;color:#155e75;}#mmd-4-3noftl .node rect,#mmd-4-3noftl .node circle,#mmd-4-3noftl .node ellipse,#mmd-4-3noftl .node polygon,#mmd-4-3noftl .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-4-3noftl .flowchart-label text{text-anchor:middle;}#mmd-4-3noftl .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-4-3noftl .node .label{text-align:center;}#mmd-4-3noftl .node.clickable{cursor:pointer;}#mmd-4-3noftl .arrowheadPath{fill:#0b0b0b;}#mmd-4-3noftl .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-4-3noftl .flowchart-link{stroke:#0e7490;fill:none;}#mmd-4-3noftl .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-4-3noftl .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-4-3noftl .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-4-3noftl .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-4-3noftl .cluster text{fill:#010317;}#mmd-4-3noftl .cluster span,#mmd-4-3noftl p{color:#010317;}#mmd-4-3noftl div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-4-3noftl .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-4-3noftl :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-4-3noftl_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-4-3noftl_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-4-3noftl_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-4-3noftl_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-4-3noftl_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-4-3noftl_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M147.25,38.391L147.25,42.557C147.25,46.724,147.25,55.057,147.25,62.507C147.25,69.957,147.25,76.524,147.25,79.807L147.25,83.091"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-C" id="L-B-C-0" d="M147.25,126.781L147.25,130.948C147.25,135.115,147.25,143.448,147.25,150.898C147.25,158.348,147.25,164.915,147.25,168.198L147.25,171.481"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-D" id="L-C-D-0" d="M147.25,215.172L147.25,219.339C147.25,223.505,147.25,231.839,147.316,239.372C147.382,246.906,147.514,253.639,147.58,257.006L147.646,260.373"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-E" id="L-D-E-0" d="M181.631,389.182L190.44,400.861C199.25,412.54,216.869,435.899,225.679,452.811C234.488,469.723,234.488,480.188,234.488,485.421L234.488,490.653"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-F" id="L-D-F-0" d="M113.869,389.182L104.893,400.861C95.917,412.54,77.964,435.899,68.988,458.843C60.012,481.786,60.012,504.315,60.012,524.895C60.012,545.474,60.012,564.104,68.353,582.704C76.694,601.303,93.377,619.872,101.718,629.156L110.059,638.441"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-E LE-F" id="L-E-F-0" d="M234.488,557.734L234.488,561.901C234.488,566.068,234.488,574.401,226.308,587.847C218.127,601.292,201.765,619.85,193.585,629.129L185.404,638.408"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-G" id="L-F-G-0" d="M114.254,719.129L104.045,730.744C93.836,742.359,73.418,765.59,63.209,782.438C53,799.285,53,809.751,53,814.983L53,820.216"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-H" id="L-F-H-0" d="M181.246,719.129L191.288,730.744C201.331,742.359,221.415,765.59,231.458,782.438C241.5,799.285,241.5,809.751,241.5,814.983L241.5,820.216"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-G LE-I" id="L-G-I-0" d="M53,863.906L53,868.073C53,872.24,53,880.573,61.086,888.531C69.172,896.49,85.344,904.073,93.43,907.864L101.516,911.656"></path><path marker-end="url(#mmd-4-3noftl_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-H LE-I" id="L-H-I-0" d="M241.5,863.906L241.5,868.073C241.5,872.24,241.5,880.573,233.414,888.531C225.328,896.49,209.156,904.073,201.07,907.864L192.984,911.656"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(234.48828125, 459.2578125)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">是</span></div></foreignObject></g></g><g transform="translate(60.01171875, 526.84375)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">否</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(53, 788.8203125)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">是</span></div></foreignObject></g></g><g transform="translate(241.5, 788.8203125)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">否</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(147.25, 19.1953125)" data-id="A" data-node="true" id="flowchart-A-20" class="node default default flowchart-label"><rect height="38.390625" width="119" y="-19.1953125" x="-59.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-52, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="104"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">文件拖入中央视口</span></div></foreignObject></g></g><g transform="translate(147.25, 107.5859375)" data-id="B" data-node="true" id="flowchart-B-21" class="node default default flowchart-label"><rect height="38.390625" width="132" y="-19.1953125" x="-66" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-58.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="117"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">读取文件头（魔数）</span></div></foreignObject></g></g><g transform="translate(147.25, 195.9765625)" data-id="C" data-node="true" id="flowchart-C-23" class="node default default flowchart-label"><rect height="38.390625" width="106" y="-19.1953125" x="-53" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">扩展名辅助匹配</span></div></foreignObject></g></g><g transform="translate(147.25, 343.8671875)" data-id="D" data-node="true" id="flowchart-D-25" class="node default default flowchart-label"><polygon style="" transform="translate(-78.6953125,78.6953125)" class="label-container" points="78.6953125,0 157.390625,-78.6953125 78.6953125,-157.390625 0,-78.6953125"></polygon><g transform="translate(-52, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="104"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">科研二进制格式？</span></div></foreignObject></g></g><g transform="translate(234.48828125, 526.84375)" data-id="E" data-node="true" id="flowchart-E-27" class="node default default flowchart-label"><rect height="61.78125" width="265.953125" y="-30.890625" x="-132.9765625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-125.4765625, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="250.953125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">科研数据调度器<br>（HDF5 · NetCDF · FITS · Zarr · Parquet）</span></div></foreignObject></g></g><g transform="translate(147.25, 679.9296875)" data-id="F" data-node="true" id="flowchart-F-29" class="node default default flowchart-label"><polygon style="" transform="translate(-72.1953125,72.1953125)" class="label-container" points="72.1953125,0 144.390625,-72.1953125 72.1953125,-144.390625 0,-72.1953125"></polygon><g transform="translate(-45.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">唯一匹配插件？</span></div></foreignObject></g></g><g transform="translate(53, 844.7109375)" data-id="G" data-node="true" id="flowchart-G-33" class="node default default flowchart-label"><rect height="38.390625" width="106" y="-19.1953125" x="-53" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">直接路由并激活</span></div></foreignObject></g></g><g transform="translate(241.5, 844.7109375)" data-id="H" data-node="true" id="flowchart-H-35" class="node default default flowchart-label"><rect height="38.390625" width="171" y="-19.1953125" x="-85.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-78, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="156"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">弹出选择对话框由用户决定</span></div></foreignObject></g></g><g transform="translate(147.25, 933.1015625)" data-id="I" data-node="true" id="flowchart-I-37" class="node default default flowchart-label"><rect height="38.390625" width="275" y="-19.1953125" x="-137.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-130, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="260"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">示例对话框可一键加载该插件附带的示例数据</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 4</div></div>
+</div>
+
+<!-- P13 -->
+<div class="page">
+<p>导入对话框本身也按文件格式过滤，未识别的文件不会进入解析器。大文件在进入解析前会先经 <code>src/core/chunked/</code> 的行窗口读取与内容指纹，配合 <code>parse-worker.ts</code> 与 <code>worker-pool.ts</code> 把解析放到 Worker 池中执行，避免阻塞主线程。</p>
+<p>示例资产经 <code>exampleAssets</code> 与 <code>examples</code> 模块统一发现与加载；内容指纹（<code>citation.ts</code> 与存储层共用）让同一份数据的重复导入可被识别与复用。</p>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
+      </div>
+    </div>
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 三 篇（共 8 篇）</div>
+    </div>
   </div>
 </div>
 

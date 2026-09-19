@@ -78,3 +78,12 @@ bench-report.html
 prd.md
 插件需求.md
 ergalics-studio-poster/
+
+# Promo video assets (HTML storyboard + recording output). Regenerated on
+# demand by the promo recording workflow; never committed.
+promo/
+
+# Measurement probes written next to the technical docs by
+# scripts/build-tech-docs.mjs while paginating. Deleted on a clean run, so any
+# survivor means an interrupted build.
+docs/technical/.measure-*.html

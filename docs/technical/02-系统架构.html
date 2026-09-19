@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Ergalics Studio 技术文档 · 系统架构</title>
+<title>02 系统架构</title>
 <style>
   :root {
     --ink: #0f172a; --body: #1e293b; --muted: #64748b;
@@ -34,307 +34,275 @@
   .cover-panel {
     height: 100%; border-radius: 0;
     background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
-    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
     display: flex; flex-direction: column;
   }
-  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
-  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
-  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
-  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
-  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
+  }
   .cover-modes { margin-top: auto; }
-  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
-  .mode-chips { display: flex; gap: 4mm; }
-  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
-  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
-  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
-  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
+  .mode-chip {
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
+  }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
   .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
   .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
   .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
   .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
   h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
-  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h2.sec .num {
+    background: var(--accent); color: #fff; font-size: 11pt;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
-  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
   table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
   th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
   th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
-  figure { margin: 4mm 0; text-align: center; }
-  figure img { max-width: 88%; max-height: 62mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
-  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+  }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
-  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
-  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
-  .tiles { display: flex; gap: 4mm; margin: 5mm 0; }
-  .tile { flex: 1; background: linear-gradient(180deg, #ffffff, #f0fdfa); border: 1px solid #99f6e4; border-radius: 10px; text-align: center; padding: 4.5mm 2mm; }
-  .tile .v { font-size: 19pt; font-weight: bold; color: var(--accent-deep); }
-  .tile .k { font-size: 8.8pt; color: var(--muted); margin-top: 1.5mm; letter-spacing: 1px; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
+  .callout {
+    background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
+  }
 </style>
 </head>
 <body>
 
-<!-- P1 封面 -->
 <div class="page cover">
   <div class="cover-panel">
     <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
-    <h1>系统架构</h1>
-    <div class="sub">分层结构 · 启动时序 · 状态管理 · 渲染管线</div>
+    <h1>02 系统架构</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
     <div class="cover-rule"></div>
-    <div class="cover-abstract">
-      本篇从工程视角完整描述 Ergalics Studio 的分层结构、启动时序、状态管理、渲染管线、
-      目录约定与依赖规则：一个以 Vite 构建的 React 单页应用如何把界面、状态、核心服务、
-      插件运行时与 Rust 原生核心组织成低层从不反向依赖高层的清晰结构，
-      以及这套结构如何支撑四种工作模式与 40 个内置插件的稳定运行。
-    </div>
+    <div class="cover-abstract">本文从工程视角描述 Ergalics Studio 的分层结构、路由组织、启动时序、状态管理、渲染管线、目录约定与依赖规则。目录约定：前端代码在 `src/` 下，Rust 原生核心在 `native/ergalics-core/` 下，示例数据与项目在 `examples/` 下，单元测试在 `tests/` 下，官方站点与文档站分别在 `website/` 与 `docs/` 下。</div>
+    
     <div class="cover-modes">
       <div class="cap">本篇章节</div>
-      <div class="mode-chips">
-        <div class="mode-chip"><div class="t">总体分层</div><div class="d">四层结构与<br>依赖方向</div></div>
-        <div class="mode-chip"><div class="t">启动时序</div><div class="d">先自检<br>再加载<br>后恢复</div></div>
-        <div class="mode-chip"><div class="t">状态管理</div><div class="d">六个 Zustand<br>状态库</div></div>
-        <div class="mode-chip"><div class="t">渲染管线</div><div class="d">三个绘图表面<br>可见性判定</div></div>
-      </div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 总体分层</div></div><div class="mode-chip"><div class="t">二 路由与页面组织</div></div><div class="mode-chip"><div class="t">三 启动时序</div></div><div class="mode-chip"><div class="t">四 状态管理</div></div><div class="mode-chip"><div class="t">五 渲染管线</div></div><div class="mode-chip"><div class="t">六 目录结构</div></div><div class="mode-chip"><div class="t">七 依赖规则与分包策略</div></div><div class="mode-chip"><div class="t">八 可观测性</div></div></div>
     </div>
-    <div class="cover-foot">技术文档系列 · 第二篇（共七篇）</div>
+    <div class="cover-foot">技术文档系列 · 第 二 篇（共 8 篇）</div>
   </div>
 </div>
 
-<!-- P2 目录 -->
 <div class="page toc">
   <h1>目 录</h1>
-  <div class="toc-item l1"><span>一、总体分层</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l2"><span>1.1 四层结构与依赖方向</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l2"><span>1.2 各层职责与技术选型</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l1"><span>二、启动时序</span><span class="dots"></span><span class="tp">04</span></div>
-  <div class="toc-item l1"><span>三、状态管理</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l2"><span>3.1 六个状态库的职责划分</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l2"><span>3.2 项目生命周期与持久化</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l1"><span>四、渲染管线</span><span class="dots"></span><span class="tp">06</span></div>
-  <div class="toc-item l1"><span>五、目录结构</span><span class="dots"></span><span class="tp">07</span></div>
-  <div class="toc-item l1"><span>六、依赖规则与分包策略</span><span class="dots"></span><span class="tp">08</span></div>
-  <div class="toc-item l1"><span>七、可观测性</span><span class="dots"></span><span class="tp">08</span></div>
-  <div class="callout" style="margin-top:16mm">
-    阅读提示：本篇描述"骨架"，各能力的实现细节分散在后续各篇——插件契约见第三篇，
-    四种模式的编辑器见第四篇，计算加速见第五篇，科学计算子系统见第六篇，质量保障见第七篇。
-  </div>
+<div class="toc-item l1"><span>一、总体分层</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>二、路由与页面组织</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>2.1 科研工具注册表（RESEARCH_TOOLS）</span><span class="dots"></span><span class="tp">05</span></div>
+<div class="toc-item l1"><span>三、启动时序</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>四、状态管理</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>五、渲染管线</span><span class="dots"></span><span class="tp">08</span></div>
+<div class="toc-item l1"><span>六、目录结构</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l1"><span>七、依赖规则与分包策略</span><span class="dots"></span><span class="tp">10</span></div>
+<div class="toc-item l1"><span>八、可观测性</span><span class="dots"></span><span class="tp">11</span></div>
+
 </div>
 
-<!-- P3 一、总体分层 -->
+<!-- P3 -->
 <div class="page">
-  <h2 class="sec"><span class="num">一</span>总体分层</h2>
-  <h3><span class="hn">1.1</span>四层结构与依赖方向</h3>
-  <p>整个应用是一个由 Vite 6 构建的 React 18 单页应用，全程运行在 TypeScript 5.7 严格模式之下。自上而下分为四层：界面层、状态层、核心服务层与运行时层，依赖方向严格自上而下，低层从不反向导入高层。这一约束使每一层都可以独立理解、独立测试——统计内核不需要知道界面的存在，插件运行时也不关心某个按钮画在哪里。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arB2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="20" y="12" width="640" height="52" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="340" y="34" text-anchor="middle" fill="#155e75" font-weight="bold">界面层（src/pages 与 src/components）</text>
-        <text x="340" y="53" text-anchor="middle" fill="#475569">欢迎页 · 工作台四区布局 · 流程画布 · 积木画布 · Monaco 代码编辑器</text>
-
-        <rect x="20" y="90" width="640" height="44" rx="9" fill="#f0f9ff" stroke="#7dd3fc"/>
-        <text x="340" y="109" text-anchor="middle" fill="#0c4a6e" font-weight="bold">状态层（src/stores · Zustand 六库）</text>
-        <text x="340" y="127" text-anchor="middle" fill="#475569">app · project · plugin · settings · block · editor</text>
-
-        <rect x="20" y="160" width="310" height="52" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="175" y="181" text-anchor="middle" fill="#14532d" font-weight="bold">核心服务层（src/core）</text>
-        <text x="175" y="200" text-anchor="middle" fill="#475569">存储 · 事件 · i18n · 文件格式 · GPU · 沙箱</text>
-        <rect x="350" y="160" width="310" height="52" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="505" y="181" text-anchor="middle" fill="#14532d" font-weight="bold">区块系统（src/blocks）</text>
-        <text x="505" y="200" text-anchor="middle" fill="#475569">编译器 · 执行器 · 37 区块目录 · 渲染桥接</text>
-
-        <rect x="20" y="238" width="310" height="52" rx="9" fill="#fefce8" stroke="#fde047"/>
-        <text x="175" y="259" text-anchor="middle" fill="#713f12" font-weight="bold">插件运行时（src/plugins）</text>
-        <text x="175" y="278" text-anchor="middle" fill="#475569">40 内置插件 · 市场目录 · cspkg · Worker 沙箱</text>
-        <rect x="350" y="238" width="310" height="52" rx="9" fill="#faf5ff" stroke="#d8b4fe"/>
-        <text x="505" y="259" text-anchor="middle" fill="#581c87" font-weight="bold">原生核心（Rust 编译为 WASM）</text>
-        <text x="505" y="278" text-anchor="middle" fill="#475569">设备管理 · 计算内核 · 缓冲区 · 类型检测</text>
-
-        <line x1="340" y1="64" x2="340" y2="86" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
-        <line x1="340" y1="134" x2="340" y2="156" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
-        <line x1="332" y1="186" x2="346" y2="186" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
-        <line x1="330" y1="212" x2="330" y2="234" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
-        <line x1="505" y1="212" x2="505" y2="234" stroke="#64748b" stroke-width="1.4" marker-end="url(#arB2)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 1　四层结构：依赖方向自上而下，低层从不反向导入高层</div>
-  <h3><span class="hn">1.2</span>各层职责与技术选型</h3>
-  <table>
-    <tr><th style="width:16%">层</th><th style="width:52%">职责</th><th>主要技术</th></tr>
-    <tr><td><strong>界面层</strong></td><td>路由、工作台四区布局、三种模式编辑器、对话框与新手引导</td><td>React 18、react-router-dom 7</td></tr>
-    <tr><td><strong>状态层</strong></td><td>六个领域状态库与跨界面事件</td><td>Zustand 5</td></tr>
-    <tr><td><strong>核心服务层</strong></td><td>横切服务与科学计算子系统（统计、科研 I/O、绘图、可复现）</td><td>纯 TypeScript，IndexedDB、Web Workers</td></tr>
-    <tr><td><strong>运行时层</strong></td><td>插件注册与生命周期、沙箱执行、原生加速</td><td>fflate（ZIP）、lz-string（压缩）、Rust 与 wasm-bindgen 0.2</td></tr>
-  </table>
+<p>本文从工程视角描述 Ergalics Studio 的分层结构、路由组织、启动时序、状态管理、渲染管线、目录约定与依赖规则。目录约定：前端代码在 <code>src/</code> 下，Rust 原生核心在 <code>native/ergalics-core/</code> 下，示例数据与项目在 <code>examples/</code> 下，单元测试在 <code>tests/</code> 下，官方站点与文档站分别在 <code>website/</code> 与 <code>docs/</code> 下。</p>
+<h2 class="sec"><span class="num">一</span>总体分层</h2>
+<p>整个应用是单页应用（Vite 6 构建，React 18 加 TypeScript 5.7 严格模式），自上而下分为四层，低层从不反向导入高层。核心原则是：<strong>领域核心保持纯 TypeScript 且可单测，UI 层保持薄，第三方代码仅可进入沙箱</strong>。</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-7.5 -8 1809.65625 1228.296875" style="max-width: 1809.65625px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-1-rdywv9"><style>#mmd-1-rdywv9{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-1-rdywv9 .error-icon{fill:#fefce8;}#mmd-1-rdywv9 .error-text{fill:#010317;stroke:#010317;}#mmd-1-rdywv9 .edge-thickness-normal{stroke-width:2px;}#mmd-1-rdywv9 .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-rdywv9 .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-rdywv9 .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-rdywv9 .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-rdywv9 .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-rdywv9 .marker.cross{stroke:#0e7490;}#mmd-1-rdywv9 svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-rdywv9 .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-rdywv9 .cluster-label text{fill:#010317;}#mmd-1-rdywv9 .cluster-label span,#mmd-1-rdywv9 p{color:#010317;}#mmd-1-rdywv9 .label text,#mmd-1-rdywv9 span,#mmd-1-rdywv9 p{fill:#155e75;color:#155e75;}#mmd-1-rdywv9 .node rect,#mmd-1-rdywv9 .node circle,#mmd-1-rdywv9 .node ellipse,#mmd-1-rdywv9 .node polygon,#mmd-1-rdywv9 .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-rdywv9 .flowchart-label text{text-anchor:middle;}#mmd-1-rdywv9 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-rdywv9 .node .label{text-align:center;}#mmd-1-rdywv9 .node.clickable{cursor:pointer;}#mmd-1-rdywv9 .arrowheadPath{fill:#0b0b0b;}#mmd-1-rdywv9 .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-1-rdywv9 .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-rdywv9 .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-rdywv9 .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-rdywv9 .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-rdywv9 .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-rdywv9 .cluster text{fill:#010317;}#mmd-1-rdywv9 .cluster span,#mmd-1-rdywv9 p{color:#010317;}#mmd-1-rdywv9 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-rdywv9 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-rdywv9 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-rdywv9_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-rdywv9_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-rdywv9_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-rdywv9_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-rdywv9_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-rdywv9_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"><g id="L4" class="cluster default flowchart-label"><rect height="176.78125" width="1431.9921875" y="1035.515625" x="362.1640625" ry="0" rx="0" style=""></rect><g transform="translate(1052.16015625, 1035.515625)" class="cluster-label"><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">运行时层</span></div></foreignObject></g></g><g id="L3" class="cluster default flowchart-label"><rect height="423.5625" width="838.4375" y="561.953125" x="491.34375" ry="0" rx="0" style=""></rect><g transform="translate(818.7265625, 561.953125)" class="cluster-label"><foreignObject height="23.390625" width="183.671875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">核心服务层（src/core 根模块）</span></div></foreignObject></g></g><g id="L2" class="cluster default flowchart-label"><rect height="88.390625" width="1375.578125" y="423.5625" x="178.171875" ry="0" rx="0" style=""></rect><g transform="translate(803.4296875, 423.5625)" class="cluster-label"><foreignObject height="23.390625" width="125.0625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">状态层（src/stores）</span></div></foreignObject></g></g></g><g class="edgePaths"><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-C1" id="L-B1-C1-0" d="M684.766,486.953L684.766,491.12C684.766,495.286,684.766,503.62,684.766,511.953C684.766,520.286,684.766,528.62,684.766,536.953C684.766,545.286,684.766,553.62,684.766,589.001C684.766,624.382,684.766,686.81,684.766,718.025L684.766,749.239"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-C2" id="L-B1-C2-0" d="M804.555,480.695L852.793,485.905C901.031,491.114,997.508,501.534,1045.746,510.91C1093.984,520.286,1093.984,528.62,1093.984,536.953C1093.984,545.286,1093.984,553.62,1093.984,589.001C1093.984,624.382,1093.984,686.81,1093.984,718.025L1093.984,749.239"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-D1" id="L-B1-D1-0" d="M592.07,486.953L571.949,491.12C551.828,495.286,511.586,503.62,491.465,511.953C471.344,520.286,471.344,528.62,471.344,536.953C471.344,545.286,471.344,553.62,471.344,593.083C471.344,632.547,471.344,703.141,471.344,773.734C471.344,844.328,471.344,914.922,471.344,954.385C471.344,993.849,471.344,1002.182,471.344,1010.516C471.344,1018.849,471.344,1027.182,505.229,1035.41C539.113,1043.639,606.883,1051.762,640.768,1055.823L674.653,1059.885"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C2 LE-D1" id="L-C2-D1-0" d="M1093.984,792.93L1093.984,825.027C1093.984,857.125,1093.984,921.32,1093.984,957.585C1093.984,993.849,1093.984,1002.182,1093.984,1010.516C1093.984,1018.849,1093.984,1027.182,1070.915,1035.364C1047.845,1043.546,1001.706,1051.576,978.637,1055.592L955.567,1059.607"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D1 LE-D2" id="L-D1-D2-0" d="M840.059,1098.906L840.059,1103.073C840.059,1107.24,840.059,1115.573,840.059,1123.023C840.059,1130.473,840.059,1137.04,840.059,1140.323L840.059,1143.606"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-D3" id="L-B1-D3-0" d="M804.555,473.994L926.087,480.32C1047.62,486.647,1290.685,499.3,1412.217,509.793C1533.75,520.286,1533.75,528.62,1533.75,536.953C1533.75,545.286,1533.75,553.62,1533.75,593.083C1533.75,632.547,1533.75,703.141,1533.75,773.734C1533.75,844.328,1533.75,914.922,1533.75,954.385C1533.75,993.849,1533.75,1002.182,1533.75,1010.516C1533.75,1018.849,1533.75,1027.182,1533.75,1034.632C1533.75,1042.082,1533.75,1048.649,1533.75,1051.932L1533.75,1055.216"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-L1 LE-B1" id="L-L1-B1-0" d="M684.766,373.563L684.766,377.729C684.766,381.896,684.766,390.229,684.766,398.563C684.766,406.896,684.766,415.229,684.766,422.679C684.766,430.129,684.766,436.696,684.766,439.979L684.766,443.263"></path><path marker-end="url(#mmd-1-rdywv9_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B1 LE-L35" id="L-B1-L35-0" d="M564.977,479.104L507.176,484.579C449.375,490.054,333.773,501.003,275.973,510.645C218.172,520.286,218.172,528.62,218.172,536.953C218.172,545.286,218.172,553.62,218.172,561.07C218.172,568.52,218.172,575.086,218.172,578.37L218.172,581.653"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(840.05859375, 1079.7109375)" data-id="D1" data-node="true" id="flowchart-D1-11" class="node default default flowchart-label"><rect height="38.390625" width="467.078125" y="-19.1953125" x="-233.5390625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-226.0390625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="452.078125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">插件运行时（src/plugins）：42 个内置插件 · 市场目录 · cspkg · Worker 沙箱</span></div></foreignObject></g></g><g transform="translate(840.05859375, 1168.1015625)" data-id="D2" data-node="true" id="flowchart-D2-12" class="node default default flowchart-label"><rect height="38.390625" width="344.984375" y="-19.1953125" x="-172.4921875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-164.9921875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="329.984375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">原生核心（native/ergalics-core，Rust 编译为 WASM）</span></div></foreignObject></g></g><g transform="translate(1533.75, 1079.7109375)" data-id="D3" data-node="true" id="flowchart-D3-13" class="node default default flowchart-label"><rect height="38.390625" width="450.8125" y="-19.1953125" x="-225.40625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-217.90625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="435.8125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">语言运行时 Worker：Pyodide（Python）· 内置 IR 引擎（R / JavaScript）</span></div></foreignObject></g></g><g transform="translate(-7.5, 578.953125)" class="root"><g class="clusters"><g id="L35" class="cluster default flowchart-label"><rect height="373.5625" width="436.34375" y="8" x="8" ry="0" rx="0" style=""></rect><g transform="translate(90.515625, 8)" class="cluster-label"><foreignObject height="23.390625" width="271.3125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">领域核心层（src/core 子目录，纯 TS 可单测）</span></div></foreignObject></g></g></g><g class="edgePaths"></g><g class="edgeLabels"></g><g class="nodes"><g transform="translate(226.171875, 62.1953125)" data-id="E1" data-node="true" id="flowchart-E1-7" class="node default default flowchart-label"><rect height="38.390625" width="268.984375" y="-19.1953125" x="-134.4921875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-126.9921875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="253.984375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">stats · io · plot · repro · uncertainty · units</span></div></foreignObject></g></g><g transform="translate(226.171875, 150.5859375)" data-id="E2" data-node="true" id="flowchart-E2-8" class="node default default flowchart-label"><rect height="38.390625" width="354.265625" y="-19.1953125" x="-177.1328125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-169.6328125, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="339.265625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">model · signal · sweep · profiler · sql · report · inference</span></div></foreignObject></g></g><g transform="translate(226.171875, 238.9765625)" data-id="E3" data-node="true" id="flowchart-E3-9" class="node default default flowchart-label"><rect height="38.390625" width="386.34375" y="-19.1953125" x="-193.171875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-185.671875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="371.34375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">experiment · lineage · chunked · figure · notebook · package</span></div></foreignObject></g></g><g transform="translate(226.171875, 327.3671875)" data-id="E4" data-node="true" id="flowchart-E4-10" class="node default default flowchart-label"><rect height="38.390625" width="377.4375" y="-19.1953125" x="-188.71875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-181.21875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="362.4375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">errors · validation · data-quality · cleaning · gallery · course</span></div></foreignObject></g></g></g></g><g transform="translate(684.765625, 773.734375)" data-id="C1" data-node="true" id="flowchart-C1-5" class="node default default flowchart-label"><rect height="38.390625" width="316.84375" y="-19.1953125" x="-158.421875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-150.921875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="301.84375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">存储 · 事件总线 · i18n · 主题包 · 性能监控 · 会话日志</span></div></foreignObject></g></g><g transform="translate(1093.984375, 773.734375)" data-id="C2" data-node="true" id="flowchart-C2-6" class="node default default flowchart-label"><rect height="38.390625" width="401.59375" y="-19.1953125" x="-200.796875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-193.296875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="386.59375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">文件格式检测 · WASM 加载 · GPU 服务 · 3D 场景 · 沙箱 · 插件签名</span></div></foreignObject></g></g><g transform="translate(684.765625, 467.7578125)" data-id="B1" data-node="true" id="flowchart-B1-4" class="node default default flowchart-label"><rect height="38.390625" width="239.578125" y="-19.1953125" x="-119.7890625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-112.2890625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="224.578125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">16 个 Zustand 状态库 + 流程同步钩子</span></div></foreignObject></g></g><g transform="translate(486.6171875, -8)" class="root"><g class="clusters"><g id="L1" class="cluster default flowchart-label"><rect height="373.5625" width="381.296875" y="8" x="8" ry="0" rx="0" style=""></rect><g transform="translate(75.5234375, 8)" class="cluster-label"><foreignObject height="23.390625" width="246.25"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">界面层（src/pages 与 src/components）</span></div></foreignObject></g></g></g><g class="edgePaths"></g><g class="edgeLabels"></g><g class="nodes"><g transform="translate(198.6484375, 62.1953125)" data-id="A1" data-node="true" id="flowchart-A1-0" class="node default default flowchart-label"><rect height="38.390625" width="270.65625" y="-19.1953125" x="-135.328125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-127.828125, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="255.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">欢迎页：硬件自检 · 模式卡片 · 科研启动网格</span></div></foreignObject></g></g><g transform="translate(198.6484375, 150.5859375)" data-id="A2" data-node="true" id="flowchart-A2-1" class="node default default flowchart-label"><rect height="38.390625" width="331.296875" y="-19.1953125" x="-165.6484375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-158.1484375, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="316.296875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">工作台：顶栏 · 侧栏 · 中央视口 · 右侧参数面板 · 状态栏</span></div></foreignObject></g></g><g transform="translate(198.6484375, 238.9765625)" data-id="A3" data-node="true" id="flowchart-A3-2" class="node default default flowchart-label"><rect height="38.390625" width="260.453125" y="-19.1953125" x="-130.2265625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-122.7265625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="245.453125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">流程画布 · 积木画布 · Monaco 代码编辑器</span></div></foreignObject></g></g><g transform="translate(198.6484375, 327.3671875)" data-id="A4" data-node="true" id="flowchart-A4-3" class="node default default flowchart-label"><rect height="38.390625" width="262.75" y="-19.1953125" x="-131.375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-123.875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="247.75"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">19 个科研工具整页（ToolShell 统一外壳）</span></div></foreignObject></g></g></g></g></g></g></g></svg><div class="svgcap">图 1</div></div>
+<p><strong>分层约束</strong></p>
 </div>
 
-<!-- P4 二、启动时序 -->
+<!-- P4 -->
 <div class="page">
-  <h2 class="sec"><span class="num">二</span>启动时序</h2>
-  <p>应用启动遵循"先自检、再加载、后恢复"的固定顺序。欢迎页先完成硬件自检，进入工作台后按序加载核心插件并恢复上次会话，任何一步的环境缺失都会如实报告而不是静默降级。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arS2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="40" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="100" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">用户</text>
-        <rect x="240" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="300" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">欢迎页</text>
-        <rect x="440" y="14" width="120" height="34" rx="8" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="500" y="36" text-anchor="middle" fill="#155e75" font-weight="bold">插件运行时</text>
-        <rect x="590" y="14" width="70" height="34" rx="8" fill="#fefce8" stroke="#facc15"/>
-        <text x="625" y="36" text-anchor="middle" fill="#713f12" font-weight="bold" font-size="11">项目存储</text>
-        <line x1="100" y1="48" x2="100" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="300" y1="48" x2="300" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="500" y1="48" x2="500" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-        <line x1="625" y1="48" x2="625" y2="280" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-
-        <line x1="104" y1="78" x2="294" y2="78" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
-        <text x="200" y="72" text-anchor="middle" fill="#334155">打开应用</text>
-        <rect x="312" y="92" width="176" height="24" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
-        <text x="400" y="108" text-anchor="middle" fill="#475569">硬件自检（WebGPU · WASM · IndexedDB）</text>
-        <line x1="304" y1="140" x2="494" y2="140" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
-        <text x="400" y="134" text-anchor="middle" fill="#334155">进入工作台，加载 30 个核心插件</text>
-        <line x1="496" y1="166" x2="306" y2="166" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arS2)"/>
-        <text x="400" y="160" text-anchor="middle" fill="#475569">注册表就绪，市场目录呈现全部 40 个</text>
-        <line x1="304" y1="196" x2="620" y2="196" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arS2)"/>
-        <text x="462" y="190" text-anchor="middle" fill="#334155">恢复上次项目或自动保存</text>
-        <line x1="621" y1="224" x2="106" y2="224" stroke="#0e7490" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arS2)"/>
-        <text x="362" y="218" text-anchor="middle" fill="#475569">工作台四区就位，等待拖入数据</text>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 2　启动时序：自检、加载、恢复三步固定顺序</div>
-  <p>欢迎页的自检结果同时决定后续行为的"档位"：WebGPU 可用则计算走 GPU 加速；WASM 模块存在则走 Rust 参考引擎；两者皆缺时，插件以 CPU 完成同样的数学。这个决定在启动时一次性做出并显示在状态栏，用户随时知道"现在是谁在算"。</p>
-  <div class="callout">
-    自检报告采取"如实告知"原则：缺什么就提示什么，给出建议（例如换用支持 WebGPU 的浏览器），但绝不假装能力存在。这是产品在环境适配上的基本立场。
-  </div>
+<table><thead><tr><th>层</th><th>允许依赖</th><th>禁止依赖</th></tr></thead><tbody><tr><td>界面层</td><td>核心服务、状态库、领域核心</td><td>直接操作运行时细节（一律经服务层）</td></tr><tr><td>领域核心</td><td>纯 TS 标准库、内部模块</td><td>DOM、React、浏览器专属 API</td></tr><tr><td>核心服务</td><td>领域核心、浏览器 API</td><td>React 组件</td></tr><tr><td>运行时层</td><td>浏览器 API、WASM</td><td>领域核心反向依赖</td></tr></tbody></table>
+<p>各层职责与技术选型：</p>
+<table><thead><tr><th>层</th><th>职责</th><th>主要技术</th></tr></thead><tbody><tr><td>界面层</td><td>路由、工作台四区布局、三种编辑器、科研工具整页、对话框与引导</td><td>React 18、react-router-dom 7（HashRouter）</td></tr><tr><td>状态层</td><td>16 个领域状态库与跨界面事件</td><td>Zustand 5</td></tr><tr><td>核心服务层</td><td>横切服务（存储、i18n、主题、性能、沙箱、签名等）</td><td>纯 TypeScript、IndexedDB、Web Workers、WebCrypto 之外的纯 TS 密码学实现</td></tr><tr><td>领域核心层</td><td>科学计算、科研工作流与可靠性内核，全部纯 TS 可 Node 单测</td><td>纯 TypeScript</td></tr><tr><td>运行时层</td><td>插件注册与生命周期、沙箱执行、语言运行时、原生加速</td><td>fflate（ZIP）、lz-string（压缩）、Rust 与 wasm-bindgen 0.2</td></tr></tbody></table>
+<h2 class="sec"><span class="num">二</span>路由与页面组织</h2>
+<p>应用采用 HashRouter（静态部署兼容），全部路由懒加载并以 <code>location.pathname</code> 为 key 重放 <code>.route-stage</code> 入场动画。路由表：</p>
+<table><thead><tr><th>路径</th><th>页面</th><th>说明</th></tr></thead><tbody><tr><td><code>/</code></td><td>欢迎页</td><td>硬件自检（WebGPU · WASM · IndexedDB）、四模式卡片、科研工具启动网格、最近项目</td></tr><tr><td><code>/workbench</code></td><td>工作台</td><td>标准 / 流程 / 积木 / 代码四模式容器</td></tr></tbody></table>
 </div>
 
-<!-- P5 三、状态管理 -->
+<!-- P5 -->
 <div class="page">
-  <h2 class="sec"><span class="num">三</span>状态管理</h2>
-  <h3><span class="hn">3.1</span>六个状态库的职责划分</h3>
-  <p>六个 Zustand 状态库承载全部应用状态。跨界的 UI 通信走一个小型类型化事件总线（src/core/events.ts），例如插件参数变化、宿主文件选择对话框等事件。状态库之间通过事件总线协作而非直接引用，避免环状依赖。</p>
-  <table>
-    <tr><th style="width:22%">状态库</th><th>职责</th></tr>
-    <tr><td><strong>appStore</strong></td><td>宿主状态、横幅与通知、性能指标、面板开关</td></tr>
-    <tr><td><strong>projectStore</strong></td><td>当前项目、最近列表、保存与自动保存、分享、参数持久化</td></tr>
-    <tr><td><strong>pluginStore</strong></td><td>插件注册表、加载与激活生命周期、文件分发、宿主容器、内置插件加载失败重试</td></tr>
-    <tr><td><strong>settingsStore</strong></td><td>GPU 模式、自动保存间隔、语言等偏好，语言以 i18n 模块为唯一权威源并双向订阅</td></tr>
-    <tr><td><strong>blockStore</strong></td><td>流程模式图状态、运行编排、节点输出缓存、运行取消</td></tr>
-    <tr><td><strong>editorStore</strong></td><td>积木与代码模式的会话（IR、代码文本、变量、控制台），载入时逐字段净化</td></tr>
-  </table>
-  <h3><span class="hn">3.2</span>项目生命周期与持久化</h3>
-  <p>项目生命周期覆盖创建、打开、保存、自动保存与分享五个动作。项目格式为 .clproj，内容经 lz-string 压缩后存入浏览器 IndexedDB；整个流程模式图、积木程序与代码会话都持久化进项目文件，重新打开时完整恢复，不存在"换一个模式就丢进度"的问题。</p>
-  <p>分享链接由随机 UUID 标识，载荷在解析端做大小与结构双重校验，拒绝畸形数据——分享是产品里少有的"数据离开本机"的路径，因此对载荷的防御做得格外保守：超出尺寸上限直接拒绝，结构不符逐字段丢弃，绝不会把不可信的内容直接灌进编辑器。</p>
-  <div class="callout">
-    自动保存间隔可由用户在设置中调整，保存动作落在 projectStore 一个库里，流程图、积木程序与代码会话对存储层完全透明——三个编辑器只需要把自己的会话状态交给项目状态库即可。
-  </div>
+<table><thead><tr><th>路径</th><th>页面</th><th>说明</th></tr></thead><tbody><tr><td><code>/studio/:toolId</code></td><td>科研工具页</td><td>由 <code>RESEARCH_TOOLS</code> 注册表驱动，统一 ToolShell 外壳</td></tr><tr><td>旧路径（如 <code>/#/signal</code>）</td><td>重定向</td><td>客户端重定向到 <code>/studio/:toolId</code>，永久保活</td></tr><tr><td><code>/settings</code></td><td>设置</td><td>全局设置、主题市场、PWA 面板、存储管理</td></tr><tr><td><code>/plugin/:pluginId</code></td><td>插件视图</td><td>单插件详情</td></tr><tr><td><code>/share/:payload</code></td><td>分享</td><td>分享载荷渲染</td></tr><tr><td><code>*</code></td><td>重定向</td><td>回欢迎页</td></tr></tbody></table>
+<h3><span class="hn">2.1</span>科研工具注册表（RESEARCH_TOOLS）</h3>
+<p><code>src/pages/research/toolRegistry.ts</code> 是科研界面的唯一事实来源：每个工具声明一次 <code>id</code>、<code>path</code>、<code>legacyPath</code>、图标、i18n 标题与描述键、分组、是否进入启动网格、是否要求项目上下文与懒加载组件，由 <code>/studio</code> 路由、顶栏启动器与欢迎页启动网格共同消费。</p>
+<p>当前共 <strong>19 个科研工具</strong>，分五组：</p>
+<table><thead><tr><th>分组</th><th>工具</th></tr></thead><tbody><tr><td>测量与不确定性 measure</td><td>uncertainty（不确定性）、profiler（数据画像）</td></tr><tr><td>建模与推断 model</td><td>model-lab（回归建模）、inference（Inference Forge）、model-inference（ONNX 推理）、sweeps（参数扫描）</td></tr><tr><td>数据与图谱 data</td><td>sql（SQL 工作台）、lineage（数据血缘）、figures（Figure Studio）、analysis（快速分析）、cleaning（数据清洗）</td></tr><tr><td>信号与扫描 signal</td><td>signal（信号实验室）、notebook（笔记本）、runs（实验记录）</td></tr><tr><td>交付与复现 deliver</td><td>report（报告构建）、reprolock（复现锁）、supplement（补充材料）、course（课程模式）、gallery（作品长廊）</td></tr></tbody></table>
 </div>
 
-<!-- P6 四、渲染管线 -->
+<!-- P6 -->
 <div class="page">
-  <h2 class="sec"><span class="num">四</span>渲染管线</h2>
-  <p>中央视口拥有三个绘图表面，宿主集中管理其可见性：</p>
-  <ol>
-    <li><strong>共享 2D canvas</strong>：所有 2D 插件（散点、折线、直方图、热力图、等值线、箱线、小提琴、桑基等 30 余个）画在同一个画布上，由统一的 2D 视口抽象（viewport2d）提供快照式访问，插件卸载不会撕裂画布。</li>
-    <li><strong>DOM 容器</strong>：供需要 DOM 元素的插件使用，也是沙箱插件经 OffscreenCanvas 转移后挂载画布的位置。</li>
-    <li><strong>宿主管理的 Three.js 3D 场景</strong>：只有声明了 renderToScene 能力的插件激活时才按需创建，并配套轨道控制、灯光网格与尺寸自适应。</li>
-  </ol>
-  <p>插件激活时的可见性判定流程：</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arF2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="250" y="12" width="180" height="36" rx="9" fill="#0e7490"/>
-        <text x="340" y="35" text-anchor="middle" fill="#ffffff" font-weight="bold">插件被激活</text>
-        <polygon points="340,72 430,106 340,140 250,106" fill="#fefce8" stroke="#facc15"/>
-        <text x="340" y="102" text-anchor="middle" fill="#713f12">声明了</text>
-        <text x="340" y="120" text-anchor="middle" fill="#713f12">renderToScene 能力？</text>
-        <rect x="60" y="180" width="250" height="44" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="185" y="198" text-anchor="middle" fill="#14532d" font-weight="bold">创建或复用 Three.js 场景</text>
-        <text x="185" y="216" text-anchor="middle" fill="#475569">清除 2D 帧残留 · 轨道控制 · 相机适配</text>
-        <rect x="370" y="180" width="250" height="44" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="495" y="198" text-anchor="middle" fill="#155e75" font-weight="bold">立即隐藏 3D 场景</text>
-        <text x="495" y="216" text-anchor="middle" fill="#475569">2D 插件绘制到共享画布 · 参数面板绑定</text>
-        <line x1="340" y1="48" x2="340" y2="68" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
-        <line x1="292" y1="118" x2="200" y2="176" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
-        <text x="222" y="140" text-anchor="middle" fill="#475569">是</text>
-        <line x1="390" y1="118" x2="482" y2="176" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF2)"/>
-        <text x="458" y="140" text-anchor="middle" fill="#475569">否</text>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 3　激活时的视口可见性判定</div>
-  <p>这保证 3D 坐标系永远不会渗透进 2D 视图，反之亦然。判定逻辑本身放在宿主而非插件里，插件只需要声明能力，不需要自己操心"别人的帧还在画布上"这类问题；端到端测试对两种视口的互斥有专门断言。</p>
+<p>其中快速分析 <code>analysis</code> 的 <code>inGrid</code> 为 <code>false</code>——它保留顶栏独立按钮入口，不占启动网格位。新科研工具必须注册进该表并配置 <code>legacyPath</code>，禁止散落路由。</p>
+<h2 class="sec"><span class="num">三</span>启动时序</h2>
+<p>应用启动遵循&quot;先自检、再加载、后恢复&quot;的固定顺序，任何一步的环境缺失都会如实报告而不是静默降级：</p>
+<div class="svgbox"><svg aria-roledescription="sequence" role="graphics-document document" viewBox="-50 -10 1020 513" style="max-width: 1020px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-2-85i8qw"><g><rect class="actor actor-bottom" ry="3" rx="3" name="S" height="65" width="150" stroke="#666" fill="#eaeaea" y="427" x="770"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="459.5" x="845"><tspan dy="0" x="845">项目存储</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="P" height="65" width="150" stroke="#666" fill="#eaeaea" y="427" x="560"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="459.5" x="635"><tspan dy="0" x="635">插件运行时</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="W" height="65" width="150" stroke="#666" fill="#eaeaea" y="427" x="210"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="459.5" x="285"><tspan dy="0" x="285">欢迎页</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="U" height="65" width="150" stroke="#666" fill="#eaeaea" y="427" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="459.5" x="75"><tspan dy="0" x="75">用户</tspan></text></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="427" x2="845" y1="5" x1="845" id="actor3"></line><g id="root-3"><rect class="actor actor-top" ry="3" rx="3" name="S" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="770"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="845"><tspan dy="0" x="845">项目存储</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="427" x2="635" y1="5" x1="635" id="actor2"></line><g id="root-2"><rect class="actor actor-top" ry="3" rx="3" name="P" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="560"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="635"><tspan dy="0" x="635">插件运行时</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="427" x2="285" y1="5" x1="285" id="actor1"></line><g id="root-1"><rect class="actor actor-top" ry="3" rx="3" name="W" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="210"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="285"><tspan dy="0" x="285">欢迎页</tspan></text></g></g><g><line stroke="#999" stroke-width="0.5px" class="200" y2="427" x2="75" y1="5" x1="75" id="actor0"></line><g id="root-0"><rect class="actor actor-top" ry="3" rx="3" name="U" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor" alignment-baseline="central" dominant-baseline="central" y="32.5" x="75"><tspan dy="0" x="75">用户</tspan></text></g></g><style>#mmd-2-85i8qw{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-2-85i8qw .error-icon{fill:#fefce8;}#mmd-2-85i8qw .error-text{fill:#010317;stroke:#010317;}#mmd-2-85i8qw .edge-thickness-normal{stroke-width:2px;}#mmd-2-85i8qw .edge-thickness-thick{stroke-width:3.5px;}#mmd-2-85i8qw .edge-pattern-solid{stroke-dasharray:0;}#mmd-2-85i8qw .edge-pattern-dashed{stroke-dasharray:3;}#mmd-2-85i8qw .edge-pattern-dotted{stroke-dasharray:2;}#mmd-2-85i8qw .marker{fill:#0e7490;stroke:#0e7490;}#mmd-2-85i8qw .marker.cross{stroke:#0e7490;}#mmd-2-85i8qw svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-2-85i8qw .actor{stroke:#22d3ee;fill:#ecfeff;}#mmd-2-85i8qw text.actor&gt;tspan{fill:#155e75;stroke:none;}#mmd-2-85i8qw .actor-line{stroke:grey;}#mmd-2-85i8qw .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#334155;}#mmd-2-85i8qw .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#334155;}#mmd-2-85i8qw #arrowhead path{fill:#334155;stroke:#334155;}#mmd-2-85i8qw .sequenceNumber{fill:#f18b6f;}#mmd-2-85i8qw #sequencenumber{fill:#334155;}#mmd-2-85i8qw #crosshead path{fill:#334155;stroke:#334155;}#mmd-2-85i8qw .messageText{fill:#334155;stroke:none;}#mmd-2-85i8qw .labelBox{stroke:#22d3ee;fill:#ecfeff;}#mmd-2-85i8qw .labelText,#mmd-2-85i8qw .labelText&gt;tspan{fill:#155e75;stroke:none;}#mmd-2-85i8qw .loopText,#mmd-2-85i8qw .loopText&gt;tspan{fill:#155e75;stroke:none;}#mmd-2-85i8qw .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:#22d3ee;fill:#22d3ee;}#mmd-2-85i8qw .note{stroke:#fde047;fill:#fefce8;}#mmd-2-85i8qw .noteText,#mmd-2-85i8qw .noteText&gt;tspan{fill:#333;stroke:none;}#mmd-2-85i8qw .activation0{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-2-85i8qw .activation1{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-2-85i8qw .activation2{fill:#f0fdf4;stroke:hsl(138.4615384615, 76.4705882353%, 86.6666666667%);}#mmd-2-85i8qw .actorPopupMenu{position:absolute;}#mmd-2-85i8qw .actorPopupMenuPanel{position:absolute;fill:#ecfeff;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mmd-2-85i8qw .actor-man line{stroke:#22d3ee;fill:#ecfeff;}#mmd-2-85i8qw .actor-man circle,#mmd-2-85i8qw line{stroke:#22d3ee;fill:#ecfeff;stroke-width:2px;}#mmd-2-85i8qw :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol height="24" width="24" id="computer"><path d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z" transform="scale(.5)"></path></symbol></defs><defs><symbol clip-rule="evenodd" fill-rule="evenodd" id="database"><path d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z" transform="scale(.5)"></path></symbol></defs><defs><symbol height="24" width="24" id="clock"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z" transform="scale(.5)"></path></symbol></defs><defs><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="7.9" id="arrowhead"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker refY="4.5" refX="4" orient="auto" markerHeight="8" markerWidth="15" id="crosshead"><path style="stroke-dasharray: 0, 0;" d="M 1,2 L 6,7 M 6,2 L 1,7" stroke-width="1pt" stroke="#000000" fill="none"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="15.5" id="filled-head"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="40" markerWidth="60" refY="15" refX="15" id="sequencenumber"><circle r="6" cy="15" cx="15"></circle></marker></defs><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="80" x="179">打开应用</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="117" x2="281" y1="117" x1="76"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="132" x="286">硬件自检（WebGPU · WASM · IndexedDB）</text><path style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" d="M 286,169 C 346,159 346,199 286,189"></path><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="214" x="459">进入工作台，自动加载 32 个核心插件</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="251" x2="631" y1="251" x1="286"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="266" x="462">注册表就绪，市场目录呈现全部 42 个</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="303" x2="289" y1="303" x1="634"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="318" x="564">恢复上次项目或自动保存</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="355" x2="841" y1="355" x1="286"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="370" x="462">工作台四区就位，等待拖入数据</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="407" x2="79" y1="407" x1="844"></line></svg><div class="svgcap">图 2</div></div>
+<p>应用装配阶段还会执行 <code>initProjectStore</code> / <code>initExperimentStore</code> / <code>initLineageStore</code>，使项目、实验记录与血缘图在任何页面进入前就绪；<code>main.tsx</code> 另行预热插件签名模块（含公钥信任注册表）与 OPFS 迁移逻辑。</p>
+<p>欢迎页的自检结果同时决定后续行为的&quot;档位&quot;：WebGPU 可用则计算走 GPU 加速，WASM 模块存在则走 Rust 参考引擎，两者皆缺时插件以 CPU 完成同样的数学（详见 06 篇）。</p>
+<h2 class="sec"><span class="num">四</span>状态管理</h2>
+<p><code>src/stores/</code> 下共 <strong>17 个文件</strong>，承载全部应用状态；跨界的 UI 通信走一个小型类型化事件总线（<code>src/core/events.ts</code>），例如插件参数变化、宿主文件选择对话框等事件。状态库之间通过事件总线协作而非直接引用，避免环状依赖。</p>
 </div>
 
-<!-- P7 五、目录结构 -->
+<!-- P7 -->
 <div class="page">
-  <h2 class="sec"><span class="num">五</span>目录结构</h2>
-  <p>源码目录与各篇文档的对应关系如下：</p>
-  <table>
-    <tr><th style="width:26%">位置</th><th>内容</th></tr>
-    <tr><td>src/core</td><td>核心服务单文件：storage、events、i18n、settings、perf、gpu、compute、wasm、fileFormat、scene3d、viewport2d、sandbox、plugin-worker、cspkg、dataFiles、download、logger、pluginCache、exampleAssets、examples、wgsl，以及四个子系统目录 stats、io、plot、repro</td></tr>
-    <tr><td>src/blocks</td><td>流程模式区块系统：类型、注册表、编译器、执行器、ops 与 datatable 运算、区块目录（catalog，37 个区块）、本地化、渲染桥接（render.ts）</td></tr>
-    <tr><td>src/editor</td><td>积木与代码模式：ir（types、validate、hash、serialize）、flow 与 block 的互转、block（Blockly 引擎、积木定义、工具箱、主题、示例）、code（解析与示例）、codegen（JS、Python、R 三个生成器）、runtime（解释器与 Studio API）</td></tr>
-    <tr><td>src/components</td><td>流程模式画布组件与积木、代码模式的编辑器面板组件、反馈与错误边界</td></tr>
-    <tr><td>src/pages</td><td>欢迎、工作台、设置、分享页与各类对话框</td></tr>
-    <tr><td>src/plugins</td><td>内置插件（builtin，40 个）与市场目录（marketplace.ts）</td></tr>
-    <tr><td>src/stores</td><td>Zustand 状态库（六个）</td></tr>
-    <tr><td>src/types</td><td>插件、项目与编辑器契约类型</td></tr>
-    <tr><td>src/native</td><td>构建生成的 WASM 绑定（不入库）</td></tr>
-    <tr><td>native/ergalics-core</td><td>Rust 原生核心（device、buffer、compute、utils）</td></tr>
-    <tr><td>examples</td><td>示例数据（data）、示例项目（projects，11 个 .clproj）、代码模式 Python 示例（code，9 个程序）</td></tr>
-    <tr><td>scripts</td><td>WASM 构建、示例数据生成与 10 套端到端测试脚本</td></tr>
-    <tr><td>tests</td><td>Vitest 单元测试（46 个文件、417 个用例）</td></tr>
-    <tr><td>docs</td><td>VitePress 文档站与本技术文档目录（technical）</td></tr>
-  </table>
+<table><thead><tr><th>状态库</th><th>职责</th></tr></thead><tbody><tr><td>appStore</td><td>宿主状态、横幅与通知、性能指标、面板开关</td></tr><tr><td>projectStore</td><td>当前项目、最近列表、保存与自动保存、分享、参数持久化</td></tr><tr><td>pluginStore</td><td>插件注册表、加载与激活生命周期、文件分发、宿主容器、内置插件加载失败重试</td></tr><tr><td>settingsStore</td><td>GPU 模式、自动保存间隔、语言、PWA、主题包等偏好；语言以 i18n 模块为唯一权威源并双向订阅</td></tr><tr><td>blockStore</td><td>流程模式图状态、运行编排、节点输出缓存、运行取消</td></tr><tr><td>editorStore</td><td>积木与代码模式的会话（IR、代码文本、变量、控制台、语言），载入时逐字段净化</td></tr><tr><td>analysisStore</td><td>快速分析页的列选择、图型与分析结果</td></tr><tr><td>researchStore</td><td>科研工具页的公共上下文（当前文件、最近使用工具）</td></tr><tr><td>experimentStore</td><td>实验运行记录的读写与筛选（IndexedDB runs 存储）</td></tr><tr><td>lineageStore</td><td>数据血缘图的重建与查询</td></tr><tr><td>chunkStore</td><td>分块加载任务队列与进度</td></tr><tr><td>figureStore</td><td>Figure Studio 的面板布局、图注与投稿检查状态</td></tr><tr><td>notebookStore</td><td>笔记本单元、执行状态与输出</td></tr><tr><td>aiPanelStore</td><td>AI 助手面板的会话、模式（离线/在线）与授权状态</td></tr><tr><td>tourStore / templateTourStore</td><td>引导流程与模板引导的进度</td></tr><tr><td>useFlowSync</td><td>流程图 ↔ 共享 IR 的双向同步钩子，含注水签名守卫</td></tr></tbody></table>
+<p>项目生命周期：创建、打开、保存、自动保存与分享。项目格式为 <code>.clproj</code>，内容经 lz-string 压缩后存入 IndexedDB；流程图画布、积木程序、代码会话与笔记本单元全部持久化进项目文件，重新打开时完整恢复。分享链接由随机 UUID 标识，载荷在解析端做大小与结构双重校验，拒绝畸形数据。大文件场景下 <code>src/core/opfs.ts</code> 提供 OPFS 分块存储，<code>opfs-migration.ts</code> 负责把既有 IndexedDB 数据平滑迁移。</p>
 </div>
 
-<!-- P8 六、七 -->
+<!-- P8 -->
 <div class="page">
-  <h2 class="sec"><span class="num">六</span>依赖规则与分包策略</h2>
-  <ul>
-    <li><strong>依赖方向单向</strong>：界面层依赖状态层，状态层依赖核心服务层，核心服务层绝不导入界面层。</li>
-    <li><strong>核心服务保持"少 DOM"</strong>：纯函数服务（i18n、文件格式、统计、绘图、存储适配器）全部可在 Node 环境单元测试。</li>
-    <li><strong>契约收口</strong>：插件契约（src/types/plugin.ts）是宿主与第三方代码之间唯一的共享词汇表；渲染桥接（src/blocks/render.ts）是区块系统唯一带副作用的模块，负责把可视化输出送进插件渲染器，使编译器与执行器保持可测。</li>
-    <li><strong>重依赖全部懒加载分包</strong>：Blockly（约 828 KB）在首次进入积木模式时才拉取，TensorFlow.js 在首次点击训练时才拉取，Pyodide 运行时在首次运行 Python 时才引导；标准与流程模式的首屏不受影响。</li>
-    <li><strong>错误隔离</strong>：错误边界按区域隔离（顶栏、状态栏独立包裹），边界重置通过递增 key 实现有界重试，避免错误死循环。</li>
-  </ul>
-  <div class="callout">
-    懒加载的分包边界与依赖规则是同一枚硬币的两面：正因为重依赖只被少数模式引用，才可能把它们安全地推迟到首次使用时再下载；反过来，若某层偷偷反向依赖了重依赖，分包优化会立即失效。构建产物体积因此在持续集成中被间接守护。
+<h2 class="sec"><span class="num">五</span>渲染管线</h2>
+<p>中央视口拥有三个绘图表面，宿主集中管理其可见性：</p>
+<ol><li><strong>共享 2D canvas</strong>：所有 2D 插件（散点、折线、直方图、热力图、等值线、箱线、小提琴、桑基等）画在同一个画布上，由统一的 2D 视口抽象（<code>viewport2d</code>）提供快照式访问。</li><li><strong>DOM 容器</strong>：供需要 DOM 元素的插件使用，也是沙箱插件经 OffscreenCanvas 转移后挂载画布的位置。</li><li><strong>宿主管理的 Three.js 3D 场景</strong>：只有声明了 <code>renderToScene</code> 能力的插件激活时才按需创建，并配套轨道控制、灯光网格与尺寸自适应。</li></ol>
+<p>可见性判定流程：</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 468.65625 571.921875" style="max-width: 468.65625px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-3-6j4s9m"><style>#mmd-3-6j4s9m{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-3-6j4s9m .error-icon{fill:#fefce8;}#mmd-3-6j4s9m .error-text{fill:#010317;stroke:#010317;}#mmd-3-6j4s9m .edge-thickness-normal{stroke-width:2px;}#mmd-3-6j4s9m .edge-thickness-thick{stroke-width:3.5px;}#mmd-3-6j4s9m .edge-pattern-solid{stroke-dasharray:0;}#mmd-3-6j4s9m .edge-pattern-dashed{stroke-dasharray:3;}#mmd-3-6j4s9m .edge-pattern-dotted{stroke-dasharray:2;}#mmd-3-6j4s9m .marker{fill:#0e7490;stroke:#0e7490;}#mmd-3-6j4s9m .marker.cross{stroke:#0e7490;}#mmd-3-6j4s9m svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-3-6j4s9m .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-3-6j4s9m .cluster-label text{fill:#010317;}#mmd-3-6j4s9m .cluster-label span,#mmd-3-6j4s9m p{color:#010317;}#mmd-3-6j4s9m .label text,#mmd-3-6j4s9m span,#mmd-3-6j4s9m p{fill:#155e75;color:#155e75;}#mmd-3-6j4s9m .node rect,#mmd-3-6j4s9m .node circle,#mmd-3-6j4s9m .node ellipse,#mmd-3-6j4s9m .node polygon,#mmd-3-6j4s9m .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-3-6j4s9m .flowchart-label text{text-anchor:middle;}#mmd-3-6j4s9m .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-3-6j4s9m .node .label{text-align:center;}#mmd-3-6j4s9m .node.clickable{cursor:pointer;}#mmd-3-6j4s9m .arrowheadPath{fill:#0b0b0b;}#mmd-3-6j4s9m .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-3-6j4s9m .flowchart-link{stroke:#0e7490;fill:none;}#mmd-3-6j4s9m .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-3-6j4s9m .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-3-6j4s9m .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-3-6j4s9m .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-3-6j4s9m .cluster text{fill:#010317;}#mmd-3-6j4s9m .cluster span,#mmd-3-6j4s9m p{color:#010317;}#mmd-3-6j4s9m div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-3-6j4s9m .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-3-6j4s9m :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-6j4s9m_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-6j4s9m_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-6j4s9m_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-3-6j4s9m_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-3-6j4s9m_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-3-6j4s9m_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-3-6j4s9m_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M228.492,38.391L228.492,42.557C228.492,46.724,228.492,55.057,228.558,62.591C228.624,70.124,228.756,76.858,228.822,80.225L228.888,83.592"></path><path marker-end="url(#mmd-3-6j4s9m_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-C" id="L-B-C-0" d="M175.082,278.949L163.04,293.967C150.997,308.984,126.913,339.019,114.87,359.27C102.828,379.52,102.828,389.985,102.828,395.217L102.828,400.45"></path><path marker-end="url(#mmd-3-6j4s9m_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-D" id="L-B-D-0" d="M282.902,278.949L294.778,293.967C306.654,308.984,330.405,339.019,342.281,359.27C354.156,379.52,354.156,389.985,354.156,395.217L354.156,400.45"></path><path marker-end="url(#mmd-3-6j4s9m_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-E" id="L-C-E-0" d="M102.828,467.531L102.828,471.698C102.828,475.865,102.828,484.198,102.828,491.648C102.828,499.098,102.828,505.665,102.828,508.948L102.828,512.231"></path><path marker-end="url(#mmd-3-6j4s9m_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-F" id="L-D-F-0" d="M354.156,467.531L354.156,471.698C354.156,475.865,354.156,484.198,354.156,491.648C354.156,499.098,354.156,505.665,354.156,508.948L354.156,512.231"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(102.828125, 369.0546875)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">是</span></div></foreignObject></g></g><g transform="translate(354.15625, 369.0546875)" class="edgeLabel"><g transform="translate(-6.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="13"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">否</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(228.4921875, 19.1953125)" data-id="A" data-node="true" id="flowchart-A-35" class="node default default flowchart-label"><rect height="38.390625" width="80" y="-19.1953125" x="-40" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-32.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="65"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">插件被激活</span></div></foreignObject></g></g><g transform="translate(228.4921875, 210.375)" data-id="B" data-node="true" id="flowchart-B-36" class="node default default flowchart-label"><polygon style="" transform="translate(-121.984375,121.984375)" class="label-container" points="121.984375,0 243.96875,-121.984375 121.984375,-243.96875 0,-121.984375"></polygon><g transform="translate(-95.2890625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="190.578125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">插件声明 renderToScene 能力？</span></div></foreignObject></g></g><g transform="translate(102.828125, 436.640625)" data-id="C" data-node="true" id="flowchart-C-38" class="node default default flowchart-label"><rect height="61.78125" width="194.046875" y="-30.890625" x="-97.0234375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-89.5234375, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="179.046875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">创建或复用 Three.js 场景<br>清除 2D 帧残留 · 相机自动适配</span></div></foreignObject></g></g><g transform="translate(354.15625, 436.640625)" data-id="D" data-node="true" id="flowchart-D-40" class="node default default flowchart-label"><rect height="61.78125" width="153.375" y="-30.890625" x="-76.6875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-69.1875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="138.375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">立即隐藏 3D 场景<br>2D 插件绘制到共享画布</span></div></foreignObject></g></g><g transform="translate(102.828125, 536.7265625)" data-id="E" data-node="true" id="flowchart-E-42" class="node default default flowchart-label"><rect height="38.390625" width="205.65625" y="-19.1953125" x="-102.828125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-95.328125, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="190.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">轨道控制 · 灯光网格 · 尺寸自适应</span></div></foreignObject></g></g><g transform="translate(354.15625, 536.7265625)" data-id="F" data-node="true" id="flowchart-F-44" class="node default default flowchart-label"><rect height="38.390625" width="197" y="-19.1953125" x="-98.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-91, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="182"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">参数面板绑定插件声明的参数表</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 3</div></div>
+</div>
+
+<!-- P9 -->
+<div class="page">
+<p>这保证 3D 坐标系永远不会渗透进 2D 视图，反之亦然；端到端测试对两种视口的互斥有专门断言。三维数据侧另有 <code>src/core/mesh3d.ts</code>（三维网格数据管线，纯函数）与 <code>src/core/pointcloud-gpu.ts</code>（百万级点云的 GPU 预算与降采样策略）。</p>
+<h2 class="sec"><span class="num">六</span>目录结构</h2>
+<table><thead><tr><th>位置</th><th>内容</th></tr></thead><tbody><tr><td>src/core（根模块，34 个）</td><td>storage、events、settings、perf、logger、i18n（经 src/i18n）、gpu、compute、gpu-kernels、wgsl、wasm、fileFormat、parse-tasks、parse-worker、worker-pool、scene3d、viewport2d、mesh3d、pointcloud-gpu、sandbox、plugin-worker、pluginCache、cspkg、plugin-signing、crypto-primitives、dataFiles、exampleAssets、examples、download、opfs、opfs-migration、pwa、recentTools、site-links、citation</td></tr><tr><td>src/core（子目录，33 个）</td><td>stats、io、plot、repro、uncertainty、units、model、signal、sweep、profiler、sql、report、inference、experiment、lineage、chunked、cleaning、figure、notebook、package、gallery、course、templates、theme-pack、submit、bench、validation、errors、data-quality、ai、r、pyodide、monaco</td></tr><tr><td>src/blocks</td><td>流程模式区块系统：类型、注册表、编译器、执行器、ops 与 DataTable 运算、区块目录（catalog，42 个区块）、本地化（l10n）、渲染桥接（render.ts）</td></tr><tr><td>src/editor</td><td>积木与代码模式：ir（types、validate、hash、serialize）、flow 与 block 的互转、block（Blockly 引擎、积木定义、工具箱、主题、示例）、code（解析与示例）、codegen（Python、R、JS 三个生成器）、runtime（解释器与 Studio API）</td></tr><tr><td>src/components</td><td>流程模式画布组件、积木与代码模式的编辑器面板组件、反馈与错误边界、图标集</td></tr><tr><td>src/pages</td><td>welcome、workbench、studio、research（toolRegistry）、labs、signal、sweeps、sql、report、figures、notebook、gallery、settings、share、plugin、plugin-dialog</td></tr><tr><td>src/plugins</td><td>内置插件（builtin，42 个）、市场目录（marketplace.ts）、示例包（marketplace-demo-packages.ts）、分类表（categories.ts）</td></tr><tr><td>src/stores</td><td>Zustand 状态库（17 个文件）</td></tr><tr><td>src/types</td><td>插件、项目、区块、编辑器与 DataTable 契约类型</td></tr><tr><td>src/native</td><td>构建生成的 WASM 绑定（不入库）</td></tr><tr><td>native/ergalics-core</td><td>Rust 原生核心（lib、device、buffer、compute、utils）</td></tr></tbody></table>
+</div>
+
+<!-- P10 -->
+<div class="page">
+<table><thead><tr><th>位置</th><th>内容</th></tr></thead><tbody><tr><td>examples</td><td>示例数据（data）、示例项目（projects，11 个 .clproj）、代码模式示例（code，9 个 Python 程序）</td></tr><tr><td>scripts</td><td>WASM 构建、存根生成、示例数据生成、签名 CLI、SBOM / CITATION 生成、部署合并与 13 个端到端验证脚本</td></tr><tr><td>tests</td><td>Vitest 单元测试（106 个测试文件、1761 个用例）</td></tr><tr><td>docs</td><td>VitePress 文档站与本技术文档目录（technical）</td></tr><tr><td>website</td><td>官方站点（作品长廊 · 主题市场 · 插件市场），部署到 Pages 根路径</td></tr></tbody></table>
+<h2 class="sec"><span class="num">七</span>依赖规则与分包策略</h2>
+<ul><li>界面层依赖状态层，状态层依赖核心服务与领域核心，核心服务层绝不导入界面层。</li><li>领域核心禁止访问 DOM 与 React，测试在 Node 环境运行（Vitest）；新能力优先落在 <code>src/core/</code> 的纯 TS 模块，再在 UI 层装配，禁止在组件内实现领域逻辑。</li><li>运行类操作（流程 / 积木 / 代码 / 笔记本 / 扫描 / 不确定性 / 建模 / 推断）必须通过事件总线汇入实验记录与血缘，禁止绕过。</li><li>插件契约（<code>src/types/plugin.ts</code>）是宿主与第三方代码之间唯一的共享词汇表；渲染桥接（<code>src/blocks/render.ts</code>）是区块系统唯一带副作用的模块，负责把可视化输出送进插件渲染器，使编译器与执行器保持可测。</li><li>重依赖全部懒加载分包：Blockly（约 828 KB）在首次进入积木模式时才拉取，TensorFlow.js 在首次点击训练时才拉取，Pyodide 运行时在首次运行 Python 时才引导，Monaco 与 DuckDB-WASM 同理；标准与流程模式的首屏不受影响。WASM 与 Blockly 媒体资源经自定义 Vite 插件同源 vendoring 到 <code>public/</code>，不依赖外部 CDN。</li><li>应用版本号经 <code>define.__APP_VERSION__</code> 从 package.json 注入，禁止硬编码。</li><li>错误边界按区域隔离（顶栏、状态栏独立包裹），边界重置通过递增 key 实现有界重试，避免错误死循环。</li></ul>
+</div>
+
+<!-- P11 -->
+<div class="page">
+<h2 class="sec"><span class="num">八</span>可观测性</h2>
+<ul><li><strong>性能监控</strong>（perf）：帧时间与 GPU 时间聚合，超阈值时经通知系统提示用户而非静默卡顿。</li><li><strong>运行日志</strong>（logger 加 download）：会话事件序列可导出为文件，用于问题反馈与回归定位。</li><li><strong>状态栏</strong>：常驻显示 GPU 可用性、当前引擎与性能指标，用户随时知道&quot;现在是谁在算&quot;。</li><li><strong>基准套件</strong>（<code>src/core/bench/</code>）：导入、GPU 内核、渲染帧率与内存四类基准，配合 <code>scripts/bench-*.mjs</code> 与 <code>budget-baseline.json</code> 在 CI 中做性能回归门禁（详见 08 篇）。</li><li><strong>可靠性内核</strong>（<code>src/core/errors/</code>）：结构化错误分类法、<code>Result</code> 类型、退避重试、去重错误注册表与全局 <code>error</code> / <code>unhandledrejection</code> 捕获，把&quot;静默失败&quot;转成可上报的事件。</li></ul>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
+      </div>
+    </div>
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 二 篇（共 8 篇）</div>
+    </div>
   </div>
-  <h2 class="sec" style="margin-top:8mm"><span class="num">七</span>可观测性</h2>
-  <ul>
-    <li><strong>性能监控</strong>（perf）：帧时间与 GPU 时间聚合，超阈值时经通知系统提示用户而非静默卡顿。</li>
-    <li><strong>运行日志</strong>（logger 加 download）：会话事件序列可导出为文件，用于问题反馈与回归定位。</li>
-    <li><strong>状态栏</strong>：常驻显示 GPU 可用性、当前引擎与性能指标，用户随时知道"现在是谁在算"。</li>
-  </ul>
-  <p>三条可观测性通道共同构成一个原则：应用内部发生了什么，用户与开发者都应当能看到。性能问题以通知浮出，运行历史可以带走，当前引擎常驻可见——静默失败与静默降级在架构层面就被排除。</p>
 </div>
 
 </body>
