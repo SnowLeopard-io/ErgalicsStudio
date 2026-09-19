@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
@@ -30,8 +31,35 @@ const LegacyToolRedirects = RESEARCH_TOOLS.map((toolDef) => (
   />
 ));
 
+/** View Transitions API is feature-detected; node typings may or may not
+ *  declare it, so we widen with an intersection rather than re-declaring the
+ *  interface (which would conflict when TS already ships the type). */
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => unknown;
+};
+
 function AppShell() {
   const location = useLocation();
+  // The stage renders a *snapshot* of the router location so a navigation can
+  // be cross-faded: we keep the previous page mounted over the new one for the
+  // duration of the transition, then let `loc` catch up. `key` (unique per
+  // navigation, unlike pathname) decides what counts as a real navigation.
+  const lastKey = useRef(location.key);
+  const [loc, setLoc] = useState(location);
+
+  useLayoutEffect(() => {
+    if (location.key === lastKey.current) return;
+    lastKey.current = location.key;
+    const commit = () => flushSync(() => setLoc(location));
+    const doc = document as ViewTransitionDocument;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (typeof doc.startViewTransition === 'function' && !reduced) {
+      doc.startViewTransition(commit);
+    } else {
+      commit();
+    }
+  }, [location]);
+
   return (
     <>
       <BannerStack />
@@ -40,10 +68,10 @@ function AppShell() {
       <CrossSiteSwitcher />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
-            the `.route-stage` fade/settle entrance. `location` is passed through
+            the `.route-stage` fade/settle entrance. `loc` is passed through
             so the matched route matches the keyed stage exactly. */}
-        <div key={location.pathname} className="route-stage">
-          <Routes location={location}>
+        <div key={loc.pathname} className="route-stage">
+          <Routes location={loc}>
             <Route path="/" element={<WelcomePage />} />
             <Route path="/workbench" element={<WorkbenchPage />} />
             <Route path="/studio/:toolId" element={<StudioToolPage />} />

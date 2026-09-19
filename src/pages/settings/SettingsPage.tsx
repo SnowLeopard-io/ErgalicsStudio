@@ -41,6 +41,30 @@ const CATEGORIES = [
 ] as const;
 type CategoryId = (typeof CATEGORIES)[number]['id'];
 
+const GITHUB_REPO = 'https://github.com/SnowLeopard-io/ErgalicsStudio';
+const GITEE_REPO = 'https://gitee.com/cnt-code/ergalics-studio';
+
+/** Development team roster shown in the About card. GitHub/Gitee mirror the
+ *  same person; role & intro copy come from the i18n catalogs `about.*`. */
+const TEAM = [
+  {
+    name: 'SnowLeopard-io',
+    giteeName: 'cnt-code',
+    github: 'https://github.com/SnowLeopard-io',
+    gitee: 'https://gitee.com/cnt-code',
+    roleKey: 'about.team_lead_role',
+    introKey: 'about.team_lead_intro',
+  },
+  {
+    name: 'Miwafi',
+    giteeName: 'Miwafi',
+    github: 'https://github.com/Miwafi',
+    gitee: 'https://gitee.com/Miwafi',
+    roleKey: 'about.team_dev_role',
+    introKey: 'about.team_dev_intro',
+  },
+] as const;
+
 export default function SettingsPage() {
   const t = useT();
   const navigate = useNavigate();
@@ -447,15 +471,43 @@ export default function SettingsPage() {
                   <div className="settings-value">{CITATION_META.author}</div>
                 </div>
                 <div className="settings-row">
-                  <label className="settings-label">GitHub</label>
-                  <a
-                    className="settings-value"
-                    href="https://github.com/SnowLeopard-io/ErgalicsStudio"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    github.com/SnowLeopard-io/ErgalicsStudio
-                  </a>
+                  <label className="settings-label">{t('about.repo_heading')}</label>
+                  <div className="settings-value about-links">
+                    <a className="about-link" href={GITHUB_REPO} target="_blank" rel="noreferrer">
+                      GitHub · github.com/SnowLeopard-io/ErgalicsStudio
+                    </a>
+                    <a className="about-link" href={GITEE_REPO} target="_blank" rel="noreferrer">
+                      Gitee · gitee.com/cnt-code/ergalics-studio
+                    </a>
+                  </div>
+                </div>
+
+                <h3 className="settings-section-title" style={{ marginTop: 'var(--space-4)' }}>
+                  {t('about.status_heading')}
+                </h3>
+                <p className="settings-label about-status">{t('about.status_text')}</p>
+
+                <h3 className="settings-section-title" style={{ marginTop: 'var(--space-4)' }}>
+                  {t('about.team_heading')}
+                </h3>
+                <div className="about-team">
+                  {TEAM.map((member) => (
+                    <div className="card about-member" key={member.name}>
+                      <div className="about-member-header">
+                        <span className="tag tag-muted">{t(member.roleKey)}</span>
+                        <span className="about-member-handle">{member.name}</span>
+                      </div>
+                      <div className="about-member-links">
+                        <a href={member.github} target="_blank" rel="noreferrer">
+                          GitHub · {member.name}
+                        </a>
+                        <a href={member.gitee} target="_blank" rel="noreferrer">
+                          Gitee · {member.giteeName}
+                        </a>
+                      </div>
+                      <p className="settings-label about-member-intro">{t(member.introKey)}</p>
+                    </div>
+                  ))}
                 </div>
 
                 <h3 className="settings-section-title" style={{ marginTop: 'var(--space-4)' }}>
