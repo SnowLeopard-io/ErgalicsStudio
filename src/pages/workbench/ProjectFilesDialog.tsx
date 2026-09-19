@@ -57,6 +57,9 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
   const registry = usePluginStore((s) => s.registry);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteFile, setDeleteFile] = useState<FileEntry | null>(null);
+  // Names of the last import batch that replaced same-name files — shown as
+  // an inline banner inside this dialog (not a global toast).
+  const [replacedNames, setReplacedNames] = useState<string[]>([]);
   const chunkState = useChunkStore((s) => s.state);
   const canChunk = useChunkStore((s) => s.canChunk);
   const startIngest = useChunkStore((s) => s.startIngest);
@@ -72,6 +75,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
   const handleImportFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     let ok = 0;
+    const replaced: string[] = [];
     for (const file of Array.from(files)) {
       // Gate at the entry point: data files are parsed as text downstream, so
       // binary picks (xlsx, parquet, …) would only fail later as "unreadable".
@@ -79,13 +83,18 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
         notify('error', t('workbench.files.unsupported_format', { name: file.name }));
         continue;
       }
+      const duplicate = useProjectStore
+        .getState()
+        .project?.data.files.some((f) => f.name === file.name);
       try {
         await addDataFile(file);
         ok += 1;
+        if (duplicate) replaced.push(file.name);
       } catch (err) {
         logger.error('data', `import failed ${file.name}`, err);
       }
     }
+    setReplacedNames(replaced);
     if (ok > 0) {
       notify('success', t('workbench.example.files_imported', { count: ok }));
     } else {
@@ -139,6 +148,13 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
           </button>
           <span className="project-files-hint">{t('workbench.example.files_hint')}</span>
         </div>
+        <div className="project-files-hint">{t('workbench.files.load_hint')}</div>
+
+        {replacedNames.length > 0 && (
+          <div className="project-files-warning">
+            ⚠ {t('workbench.files.duplicate_replaced', { names: replacedNames.join('、') })}
+          </div>
+        )}
 
         {(!project || project.data.files.length === 0) && (
           <div className="empty-hint">{t('workbench.example.files_empty')}</div>
@@ -242,7 +258,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".csv,.tsv,.dat,.xyz,.json,.txt,.md,text/csv,text/plain,application/json"
+        accept=".csv,.tsv,.dat,.xyz,.json,.txt,.md,.mtx,.geojson,text/csv,text/plain,application/json"
         style={{ display: 'none' }}
         onChange={(e) => {
           void handleImportFiles(e.target.files);
