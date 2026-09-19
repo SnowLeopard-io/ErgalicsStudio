@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const resultsFile = path.join(root, 'bench-results.json');
-const baselineFile = path.join(root, 'bench', 'baseline.json');
 const outFile = path.join(root, 'bench-report.html');
 
 const TOLERANCE = 0.10;
@@ -24,6 +23,11 @@ const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const results = JSON.parse(await readFile(resultsFile, 'utf8'));
+// --env-baseline: same per-environment baseline selection as bench-compare.mjs
+// so the report markers match the numbers the CI gate compared against.
+const baselineFile = process.argv.includes('--env-baseline')
+  ? path.join(root, 'bench', `baseline.${results.environment.platform}-${results.environment.arch}.json`)
+  : path.join(root, 'bench', 'baseline.json');
 const baseline = existsSync(baselineFile) ? JSON.parse(await readFile(baselineFile, 'utf8')) : null;
 
 const baseMap = new Map(Object.entries(baseline?.metrics ?? {}));
@@ -113,7 +117,7 @@ const html = `<!doctype html>
     <li>Platform: ${esc(env.platform)} / ${esc(env.arch)}</li>
     <li>CPU: ${esc(env.cpu)}</li>
     <li>日期: ${esc(env.date)}</li>
-    <li>基线: ${baseline ? `bench/baseline.json（更新于 ${esc(baseline.updated_from_environment?.date ?? '未知')}）` : '无（首次运行）'}</li>
+    <li>基线: ${baseline ? `${esc(path.relative(root, baselineFile))}（更新于 ${esc(baseline.updated_from_environment?.date ?? '未知')}）` : '无（首次运行）'}</li>
   </ul>
   <p class="verdict ${anyBad ? 'fail' : 'pass'}">${anyBad ? '✗ 检测到回归（超出 ±10% 容差）' : baseline ? '✓ 全部指标通过' : '— 无基线，仅记录数值'}</p>
   <p style="color:#777;font-size:.85em">浏览器端真实 FPS 由工作台性能看板（workbench.perf）人工采样；本页指标为 Node 固定环境下的可复现数据准备耗时。</p>

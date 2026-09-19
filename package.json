@@ -30,6 +30,7 @@
     "verify": "npm run typecheck && npm test",
     "verify:site": "node scripts/verify-site.mjs --merge",
     "bench": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs",
+    "bench:ci": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs --env-baseline && node scripts/bench-report.mjs --env-baseline",
     "bench:update": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs --update-baseline && node scripts/bench-report.mjs",
     "build:report": "node scripts/build-budget.mjs"
   },

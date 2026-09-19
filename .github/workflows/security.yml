@@ -30,8 +30,12 @@ jobs:
       # publish_results: false — the repo may run on branches without the
       # scorecards default-branch config; results land in the job log + SARIF
       # artifact instead of the public badge.
+      # v2.4.4+: the container image moved from gcr.io/openssf/scorecard-action
+      # to ghcr.io/ossf/scorecard-action. Anonymous pulls from gcr.io are now
+      # denied ("This API method requires billing to be enabled"), which broke
+      # the v2.4.0 action on every run.
       - name: OSSF Scorecards analysis
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@v2.4.4
         with:
           repo: ${{ github.repository }}
           ref: ${{ github.sha }}
@@ -94,7 +98,12 @@ jobs:
       # downgrades only those ids to warnings; everything else still blocks.
       - name: npm audit (high/critical blocking)
         run: |
-          AUDIT_ALLOWLIST=""  # e.g. "GHSA-xxxx-yyyy-zzzz" — one space-separated id per exemption, each justified in a PR comment
+          # GHSA-fx2h-pf6j-xcff (vite dev server.fs.deny bypass on Windows
+          # alternate paths): vitepress@1.6.4 (latest) pins vite ^5.4.14; every
+          # vite <=6.4.2 is affected and the patch only landed in 6.4.3+, which
+          # vitepress cannot consume. Dev-server-only, docs workspace, static
+          # deploy — no fix available. Revisit on vitepress upgrade.
+          AUDIT_ALLOWLIST="GHSA-fx2h-pf6j-xcff"
           set +e
           npm audit --audit-level=high --json > audit.json
           status=$?

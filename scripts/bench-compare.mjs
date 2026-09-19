@@ -24,6 +24,24 @@ const TOLERANCE = 0.10;
 
 const args = process.argv.slice(2);
 const updateBaseline = args.includes('--update-baseline');
+const envBaseline = args.includes('--env-baseline');
+
+/**
+ * Environment key (platform-arch). Baselines are per-environment: numbers
+ * measured on a dev desktop are meaningless on a shared CI runner, so CI
+ * (--env-baseline) compares against bench/baseline.<platform>-<arch>.json
+ * instead of the committed bench/baseline.json.
+ */
+function envKey(env) {
+  return `${env.platform}-${env.arch}`;
+}
+
+/** Resolve the baseline file for the current run. */
+function baselineFileFor(results) {
+  return envBaseline
+    ? path.join(baselineDir, `baseline.${envKey(results.environment)}.json`)
+    : baselineFile;
+}
 
 async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'));
@@ -51,21 +69,42 @@ if (updateBaseline) {
       [...flatten(results).entries()].map(([id, m]) => [id, { value: m.value, unit: m.unit, direction: m.direction }]),
     ),
   };
+  const target = baselineFileFor(results);
   if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
-  await writeFile(baselineFile, JSON.stringify(baseline, null, 2), 'utf8');
-  process.stdout.write(`[bench] baseline updated: ${path.relative(root, baselineFile)} (${Object.keys(baseline.metrics).length} metrics)\n`);
+  await writeFile(target, JSON.stringify(baseline, null, 2), 'utf8');
+  process.stdout.write(`[bench] baseline updated: ${path.relative(root, target)} (${Object.keys(baseline.metrics).length} metrics)\n`);
   process.exit(0);
 }
 
-if (!existsSync(baselineFile)) {
+const results = await readJson(resultsFile);
+const targetBaselineFile = baselineFileFor(results);
+
+if (!existsSync(targetBaselineFile)) {
+  if (envBaseline) {
+    // First run in this environment: record the current numbers as the
+    // environment baseline so later runs can gate against them. A cross-env
+    // comparison (dev desktop vs CI runner) would fail on pure hardware noise.
+    const baseline = {
+      schema: 1,
+      updated_from_environment: results.environment,
+      metrics: Object.fromEntries(
+        [...flatten(results).entries()].map(([id, m]) => [id, { value: m.value, unit: m.unit, direction: m.direction }]),
+      ),
+    };
+    if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
+    await writeFile(targetBaselineFile, JSON.stringify(baseline, null, 2), 'utf8');
+    process.stdout.write(
+      `\n[bench] no baseline for ${envKey(results.environment)} — recorded current run as ${path.relative(root, targetBaselineFile)} (commit it so future runs gate against it).\n`,
+    );
+    process.exit(0);
+  }
   process.stderr.write(
-    `[bench] no baseline at ${path.relative(root, baselineFile)} — run \`npm run bench:update\` to create one.\n`,
+    `[bench] no baseline at ${path.relative(root, targetBaselineFile)} — run \`npm run bench:update\` to create one.\n`,
   );
   process.exit(2);
 }
 
-const results = await readJson(resultsFile);
-const baseline = await readJson(baselineFile);
+const baseline = await readJson(targetBaselineFile);
 
 const current = flatten(results);
 const base = new Map(Object.entries(baseline.metrics ?? {}));
@@ -101,7 +140,7 @@ for (const [id] of base) {
 }
 
 const icon = { ok: '  ', new: '+ ', missing: '- ', improvement: '^ ', regression: 'X ' };
-process.stdout.write(`\nFR-23 benchmark vs baseline (tolerance ±${TOLERANCE * 100}%)\n`);
+process.stdout.write(`\nFR-23 benchmark vs baseline (tolerance ±${TOLERANCE * 100}%, baseline ${path.relative(root, targetBaselineFile)})\n`);
 process.stdout.write(`${'metric'.padEnd(38)} ${'baseline'.padStart(12)} ${'current'.padStart(12)} ${'delta'.padStart(8)}  status\n`);
 for (const r of rows) {
   const delta = r.delta === null ? '   n/a' : `${r.delta >= 0 ? '+' : ''}${(r.delta * 100).toFixed(1)}%`;
