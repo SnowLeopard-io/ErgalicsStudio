@@ -74,6 +74,34 @@ describe('loadJSON', () => {
     expect(t.columns.find((c) => c.name === 'name')!.type).toBe('string');
   });
 
+  it('unwraps a dataset envelope with a single record-array field', () => {
+    // The bundled dataset.json shape: metadata + observations records.
+    const t = loadJSON(
+      '{"title":"t","unit":"u","observations":[{"time":0,"temp":20.1},{"time":5,"temp":20.8}],"quality":{"missing":0}}',
+    );
+    expect(t.length).toBe(2);
+    expect(t.columnNames()).toEqual(['time', 'temp']);
+    expect(t.columns[0]!.type).toBe('f64');
+  });
+
+  it('unwraps a single entity list from a simulation config (charges)', () => {
+    const t = loadJSON(
+      '{"B":0,"damping":0.04,"charges":[{"x":0.3,"q":2},{"x":0.7,"q":-2}]}',
+    );
+    expect(t.length).toBe(2);
+    expect(t.columnNames()).toEqual(['x', 'q']);
+  });
+
+  it('rejects an object with two record arrays (ambiguous envelope)', () => {
+    expect(() =>
+      loadJSON('{"nodes":[{"id":1}],"members":[{"a":1}]}'),
+    ).toThrow(/unsupported JSON dataset shape/);
+  });
+
+  it('rejects a 2D numeric matrix', () => {
+    expect(() => loadJSON('[[1,2],[3,4]]')).toThrow(/unsupported JSON dataset shape/);
+  });
+
   it('throws on malformed JSON', () => {
     expect(() => loadJSON('not json')).toThrow(/invalid JSON/);
   });

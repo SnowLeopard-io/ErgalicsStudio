@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>08 测试与质量保障</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: var(--body); font-size: 10.5pt; line-height: 1.8;
+  }
+  @page { size: A4; margin: 0; }
+  .page {
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  body { counter-reset: pn 0; }
+  .page { counter-increment: pn; }
+  .page::after {
+    content: counter(pn, decimal-leading-zero);
+    position: absolute; left: 70mm; right: 70mm; bottom: 7mm;
+    text-align: center; border-top: 1px solid var(--line); padding-top: 2mm;
+    font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
+  }
+  .cover::after { content: none; }
+  .cover { padding: 0; }
+  .cover-panel {
+    height: 100%; border-radius: 0;
+    background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
+    display: flex; flex-direction: column;
+  }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
+  }
+  .cover-modes { margin-top: auto; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
+  .mode-chip {
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
+  }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
+  .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
+  .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
+  .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
+  .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
+  .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
+  .toc-item .tp { color: var(--accent-deep); }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  h2.sec .num {
+    background: var(--accent); color: #fff; font-size: 11pt;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
+  h3 .hn { color: var(--accent); margin-right: 6px; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
+  p { margin: 3mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
+  li { margin: 2mm 0; }
+  strong { color: var(--ink); }
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
+  th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
+  th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+  }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
+  figcaption b { color: var(--accent-deep); font-weight: bold; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
+  .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
+  .callout {
+    background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="page cover">
+  <div class="cover-panel">
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>08 测试与质量保障</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
+    <div class="cover-rule"></div>
+    <div class="cover-abstract">测试被视为代码库的一等公民：纯逻辑在 Node 环境用 Vitest 做单元测试，产品行为用 Playwright-core 驱动无头浏览器对生产预览做端到端验证，性能与体积则由基线与预算在 CI 中把守。</div>
+    
+    <div class="cover-modes">
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 单元测试</div></div><div class="mode-chip"><div class="t">二 端到端测试</div></div><div class="mode-chip"><div class="t">三 性能基准与体积预算</div></div><div class="mode-chip"><div class="t">四 持续集成</div></div><div class="mode-chip"><div class="t">五 工程脚本</div></div><div class="mode-chip"><div class="t">六 质量原则</div></div></div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第 八 篇（共 8 篇）</div>
+  </div>
+</div>
+
+<div class="page toc">
+  <h1>目 录</h1>
+<div class="toc-item l1"><span>一、单元测试（Vitest）</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>二、端到端测试（Playwright-core）</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l1"><span>三、性能基准与体积预算</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>四、持续集成（5 条工作流）</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>五、工程脚本</span><span class="dots"></span><span class="tp">07</span></div>
+<div class="toc-item l1"><span>六、质量原则</span><span class="dots"></span><span class="tp">08</span></div>
+
+</div>
+
+<!-- P3 -->
+<div class="page">
+<p>测试被视为代码库的一等公民：纯逻辑在 Node 环境用 Vitest 做单元测试，产品行为用 Playwright-core 驱动无头浏览器对生产预览做端到端验证，性能与体积则由基线与预算在 CI 中把守。</p>
+<p>当前基线：</p>
+<table><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody><tr><td>单元测试文件</td><td>106 个（<code>tests/</code> 下共 108 个 <code>.ts</code>，其中 2 个是共享辅助模块）</td></tr><tr><td>单元测试用例</td><td>1761 个（1759 通过，2 个在无 GPU 的 CI 上跳过）</td></tr><tr><td>端到端套件</td><td>13 套（1 个冒烟脚本 + 12 个 <code>verify-*</code> 脚本）</td></tr><tr><td>CI 工作流</td><td>5 条（ci、bench、security、release、deploy）</td></tr><tr><td>类型检查</td><td><code>tsc --noEmit</code> 严格模式，零发布；同时充当 lint（<code>npm run lint</code> 即 typecheck）</td></tr></tbody></table>
+<h2 class="sec"><span class="num">一</span>单元测试（Vitest）</h2>
+<p>运行方式：<code>npm test</code>（即 <code>vitest run</code>）执行全部单测；<code>npm run verify</code> 先做类型检查再跑单测，是贡献指引中要求保持绿色的组合检查。</p>
+<p>测试文件按主题组织在 <code>tests/</code> 下，根目录与子目录各占一半：</p>
+<table><thead><tr><th>主题</th><th>文件数</th><th>覆盖内容</th></tr></thead><tbody><tr><td>插件运行时与插件族</td><td>30（根目录）</td><td>内置插件、科研/地理物理/数据插件、结构力学、三维可视化、插件缺陷回归、沙箱与 cspkg、文件格式路由、插件市场生命周期、i18n、可访问性与对比度、引用元数据、PWA、主题包、存储与运行记录</td></tr><tr><td>区块系统</td><td>12</td><td>数据表运算、区块目录、编译器、执行器、几何、统计区块、文件数据、操作符、可视化桥接</td></tr><tr><td>编辑器与 IR</td><td>12</td><td>共享 IR 校验与往返、Blockly JSON 与 IR 互转、解释器、JS 与 Python 代码生成、三模式 sync-threeway、积木 i18n、编辑器状态库、Studio API、代码示例</td></tr><tr><td>统计内核</td><td>7</td><td>描述统计、假设检验、多重比较校正、效应量、功效分析、特殊函数、结果叙述转写</td></tr></tbody></table>
+</div>
+
+<!-- P4 -->
+<div class="page">
+<table><thead><tr><th>主题</th><th>文件数</th><th>覆盖内容</th></tr></thead><tbody><tr><td>平台核心</td><td>7 (+2)</td><td>计算服务与 WGSL、GPU 计算、WASM 加载器、i18n；另有 <code>core/errors</code> 与 <code>core/validation</code> 各 1</td></tr><tr><td>可复现性</td><td>4</td><td>随机数、运行清单、锁文件、快照</td></tr><tr><td>R 运行时</td><td>3</td><td>运行时工厂、完整运行时回落、DSL</td></tr><tr><td>不确定度</td><td>3</td><td>Bootstrap、蒙特卡洛、MCMC 与诊断</td></tr><tr><td>建模、推断、I/O、插件签名、扫描、模板</td><td>各 2</td><td>线性代数与拟合、贝叶斯比较与 ONNX、HDF5/NetCDF 等加载器、签名验证、设计点展开、学科模板</td></tr><tr><td>其余单文件模块</td><td>17</td><td>AI 助手意图、分块读取、数据质量、组图、血缘、模型、笔记本、打包、页面、绘图、画像、报告、信号、SQL、状态库、单位</td></tr></tbody></table>
+<p>值得注意的测试技术：</p>
+<ul><li><strong>模块级缓存重置</strong>。像 WASM 加载器这类带模块级状态的模块，每个用例前用 <code>resetModules</code> 加 <code>doMock</code> 重置，再动态导入新实例，避免用例之间互相污染。</li><li><strong>FakeWorker 驱动真实运行时</strong>。插件 Worker 的 RPC 用假 Worker 承载真实的运行时实现，在 Node 里完成端到端往返，无需浏览器。</li><li><strong>严格模式的陷阱有专门说明</strong>。<code>new Function</code> 在严格模式下无法同时使用 <code>&quot;use strict&quot;</code> 指令与默认参数值，遗留沙箱为此改用普通参数并显式传 <code>undefined</code>——这类&quot;看起来是风格问题、实则是正确性问题&quot;的点都沉淀在测试注释里。</li><li><strong>回归用例制度化</strong>。已修复的插件缺陷沉淀为 <code>pluginBugfixes</code> 等回归用例，i18n 键值在测试中校验齐备，避免复发。</li></ul>
+<h2 class="sec"><span class="num">二</span>端到端测试（Playwright-core）</h2>
+<p>每套脚本各自启动 <code>vite preview</code> 生产预览，驱动无头浏览器，断言真实像素与零控制台错误：</p>
+</div>
+
+<!-- P5 -->
+<div class="page">
+<table><thead><tr><th>套件</th><th>端口</th><th>覆盖内容</th></tr></thead><tbody><tr><td>smoke-test</td><td>4173</td><td>启动、自动加载插件、自动建项目、响应式参数、最近项目恢复</td></tr><tr><td>verify-ui</td><td>4173</td><td>改版后的功能回归与布局几何：尺寸、主题切换、画布可见性、插件列表</td></tr><tr><td>verify-fixes</td><td>4177</td><td>自动适配、统一等宽字体、Run 控件开关、顶栏分簇</td></tr><tr><td>verify-3d</td><td>4199</td><td>宿主 Three.js 场景中的三维点云</td></tr><tr><td>verify-plugins</td><td>4198</td><td>三维与二维视口可见性互斥、等值线渲染涡旋场、散点与龙卷风示例</td></tr><tr><td>verify-webgpu</td><td>4289</td><td>两阶段：<code>tests/e2e/webgpu.html</code> 取真实 WebGPU 设备驱动 Rust/WASM 核心做数值校验；再在无头 Edge（SwiftShader）中校验 GPU 与 CPU 一致性（约 2e-6 内）与粒子插件的 GPU 提示</td></tr><tr><td>verify-block-mode</td><td>4174</td><td>积木模式：模式切换、编译、运行、积木到代码同步</td></tr><tr><td>verify-code-mode</td><td>4175</td><td>Monaco 加 Pyodide：运行 Python、变量面板、控制台、绘图画布</td></tr><tr><td>verify-lang-modes</td><td>4176</td><td>R / JS 代码模式与跨模式切换、R→JS 互译、Flow ⇄ Block ⇄ Code 无损循环</td></tr><tr><td>verify-ai-samples</td><td>4211</td><td>样例对话框逐个加载四个 AI 训练样本并捕获提示文案，使解析失败可观测而非靠推断</td></tr><tr><td>verify-ai-training</td><td>4199</td><td>AI 训练器：参数面板、样例加载、TF.js 真实训练与损失曲线、模型切换重置、决策边界、MNIST CNN</td></tr><tr><td>verify-research</td><td>4173</td><td>科研工具链路：启动器 → 运行记录 → 血缘 → 图表工作台 → 补充材料打包 → 笔记本</td></tr><tr><td>verify-site</td><td>—</td><td>合并站点完整性：校验 8 条规范路径（站点契约）</td></tr></tbody></table>
+<p><strong>共享 harness</strong>。所有套件都走 <code>scripts/_harness.mjs</code>，把过去散落在各脚本里、只在某台机器上成立的三件事统一为&quot;从环境解析并带合理默认值&quot;：浏览器可执行路径（按平台列出候选，Edge 优先、Chrome 兜底）、截图目录（系统临时目录）、预览端口（被占用时自动另取）。harness 同时保证清理，断言失败不会泄漏预览服务或浏览器进程。</p>
+</div>
+
+<!-- P6 -->
+<div class="page">
+<p><strong>链路与链外</strong>。<code>npm run test:e2e</code> 串联 11 套：<code>smoke-test</code>、<code>verify-ui</code>、<code>verify-fixes</code>、<code>verify-3d</code>、<code>verify-plugins</code>、<code>verify-webgpu</code>、<code>verify-block-mode</code>、<code>verify-code-mode</code>、<code>verify-ai-samples</code>、<code>verify-ai-training</code>、<code>verify-research</code>。<code>verify-lang-modes</code> 与 <code>verify-site</code> 不在该链内——前者依赖 Monaco 与 Pyodide 的完整加载（耗时较长），后者校验的是部署产物而非开发预览，因此各有独立入口（<code>npm run verify:site</code>）。</p>
+<p>贡献指引要求：新插件或新功能必须附带端到端检查。</p>
+<h2 class="sec"><span class="num">三</span>性能基准与体积预算</h2>
+<p>性能回归靠<strong>基线对比</strong>而非绝对阈值，且基线按环境分文件：</p>
+<ul><li><code>src/core/bench/</code> 的 <code>runAllBenchmarks()</code> 执行导入 / GPU 内核 / 渲染帧率 / 内存四类关键路径套件，返回含环境信息（Node 版本、平台、架构、CPU 型号、日期）的结构化结果。</li><li><code>scripts/bench-run.mjs</code> 在 Node 中无头运行并写入 <code>bench-results.json</code>；<code>scripts/bench-compare.mjs</code> 与基线逐指标比对——<code>bench/baseline.json</code> 面向开发机，<code>bench/baseline.&lt;platform&gt;-&lt;arch&gt;.json</code>（仓库中已有 <code>baseline.linux-x64.json</code>）面向 CI，因为共享 Runner 上的数字与开发桌面没有可比性；<code>scripts/bench-report.mjs</code> 产出单文件 HTML 报告。</li><li>新环境首次运行没有基线时，<code>bench-compare.mjs</code> 记录一份并以 0 退出，由 bench 工作流把该文件提交回仓库，供后续运行真正设门禁；Runner CPU 轮换导致基线被重录时则<strong>故意不提交</strong>，避免&quot;每次运行都产生一次提交&quot;的噪声。</li><li>体积侧由 <code>scripts/build-budget.mjs</code> 分析构建产物，对照 <code>budget-baseline.json</code> 做门禁（FR-06）。</li></ul>
+<h2 class="sec"><span class="num">四</span>持续集成（5 条工作流）</h2>
+<table><thead><tr><th>工作流</th><th>触发</th><th>关键步骤与门禁</th></tr></thead><tbody><tr><td><strong>ci</strong></td><td>push 到 main、所有 PR</td><td>引用元数据检查（FR-10）→ <code>tsc --noEmit</code> → <code>npm test</code> → 生成 WASM 存根 → <code>build:web</code> → 性能预算（FR-06）。任一步失败即红</td></tr><tr><td><strong>bench</strong></td><td>push 到 main、发布 Release</td><td><code>npm run bench:ci</code>（跑基准 + 按环境基线比对）→ 首次运行提交环境基线 → 结果写入 job summary 并上传 artifact；发布时作为附件挂到 Release（FR-23）</td></tr></tbody></table>
+</div>
+
+<!-- P7 -->
+<div class="page">
+<table><thead><tr><th>工作流</th><th>触发</th><th>关键步骤与门禁</th></tr></thead><tbody><tr><td><strong>security</strong></td><td>push 到 main、PR、每周一 03:00 UTC、手动</td><td>三个并行 job：OSSF Scorecards（SARIF 产物，留存 30 天）、SBOM 生成（CycloneDX 1.5，由无依赖 Node 脚本从 <code>package-lock.json</code> 生成，留存 90 天）、<code>npm audit</code>（<strong>high / critical 阻断合并</strong>，带需写明理由与后续 issue 的 <code>AUDIT_ALLOWLIST</code> 豁免机制，豁免项降级为警告）</td></tr><tr><td><strong>release</strong></td><td>推送 <code>v*</code> 标签</td><td>build：生成 WASM 存根 → <code>build:web</code> → 生成 <code>CITATION.cff</code> → 打包 dist zip；archive：Zenodo 存缴并铸造 DOI，<strong>未配置 <code>ZENODO_TOKEN</code> 时显式报错并给出配置指引</strong>，而不是静默跳过归档；release：发布 GitHub Release，附 zip、<code>CITATION.cff</code> 与 DOI</td></tr><tr><td><strong>deploy</strong></td><td>push 到 main、手动</td><td>装 Rust（<code>wasm32-unknown-unknown</code> 目标）与 <code>wasm-bindgen-cli 0.2.127</code> → 编译真实 WASM → 构建工作台 <code>app/</code> 与官网根站 → <code>deploy:merge</code> 合并产物 → <code>verify-site</code> 校验 8 条规范路径 → 发布 GitHub Pages</td></tr></tbody></table>
+<p><strong>CI 里没有 Rust 工具链</strong>（deploy 除外）：其余工作流的 <code>dist</code> 由 <code>scripts/make-wasm-stub.mjs</code> 生成模块存根，因为 <code>vite build</code> 会把 <code>src/core/wasm.ts</code> 中的动态导入切成独立 chunk，构建期只需要该 chunk 存在、不需要真实内核。</p>
+<p><strong>构建链自带门禁</strong>：<code>npm run build</code> = <code>build:wasm</code> &amp;&amp; <code>tsc --noEmit</code> &amp;&amp; <code>vite build</code> &amp;&amp; <code>build-docs</code>，任一步失败即中止；纯前端场景可用 <code>npm run build:web</code>（跳过 WASM 编译）。</p>
+<h2 class="sec"><span class="num">五</span>工程脚本</h2>
+<p><code>scripts/</code> 下 40 个脚本按用途分为六类：</p>
+<table><thead><tr><th>类别</th><th>脚本</th></tr></thead><tbody><tr><td>端到端与 harness</td><td><code>_harness.mjs</code>（共享 harness）、<code>smoke-test.mjs</code>、<code>verify-*.mjs</code>（12 个）、<code>_line-check.mjs</code>（目检 Monaco 当前行与选区实际渲染色）</td></tr><tr><td>性能与预算</td><td><code>bench-run.mjs</code>、<code>bench-compare.mjs</code>、<code>bench-report.mjs</code>、<code>build-budget.mjs</code></td></tr><tr><td>构建与部署</td><td><code>build-wasm.mjs</code>、<code>make-wasm-stub.mjs</code>、<code>build-docs.mjs</code>、<code>merge-deploy.mjs</code>、<code>gen-sw-precache.mjs</code>、<code>copy-pyodide.mjs</code>、<code>copy-webr.mjs</code>、<code>vendor-blockly-media.mjs</code></td></tr><tr><td>资产与示例生成</td><td><code>make-example-data.mjs</code>、<code>make-example-projects.mjs</code>、<code>gen-ai-examples.mjs</code>（种子化 PRNG，产出确定、可提交、可被学习者检查的 CSV）</td></tr></tbody></table>
+</div>
+
+<!-- P8 -->
+<div class="page">
+<table><thead><tr><th>类别</th><th>脚本</th></tr></thead><tbody><tr><td>合规与签名</td><td><code>sign-cspkg.mjs</code>、<code>gen-sbom.mjs</code>、<code>gen-citation-cff.mjs</code>、<code>check-citation.mjs</code></td></tr><tr><td>技术文档排版</td><td><code>build-tech-docs.mjs</code>（md → 分页 HTML → A4 PDF）、<code>build-tech-summary.mjs</code>（从分篇汇编合集，使合集不可能与分篇漂移）</td></tr></tbody></table>
+<p>其中 <code>gen-citation-cff.mjs</code> 与 <code>check-citation.mjs</code> 一写一校，共同维护 <code>CITATION.cff</code>；<code>gen-sw-precache.mjs</code> 生成 Service Worker 预缓存清单，使离线可用范围与构建产物严格一致。</p>
+<p><strong>技术文档排版链路</strong>。<code>docs/technical/</code> 下的九份文档由 <code>node scripts/build-tech-docs.mjs</code> 重建：Markdown 经内置的子集解析器转成区块，mermaid 围栏在构建期用无头浏览器渲染为内联 SVG（产物不含任何客户端脚本，PDF 里是可缩放的矢量图），随后在真实页面尺寸下<strong>逐块测量高度</strong>并按页高装填——固定高度的 <code>.page</code> 配 <code>overflow: hidden</code>，靠目测平衡内容会在任何一节变长时把内容裁掉，因此分页必须由测量驱动。测量结果同时回填目录页码，并在生成后逐页复检&quot;内容是否越过下边距&quot;，发现溢出即以缩小后的可用高度重排。技术总结（<code>Ergalics Studio.md</code>）则由 <code>build-tech-summary.mjs</code> 从八篇分篇源码汇编，因此不可能出现&quot;分篇已改、合集还写着旧数字&quot;的情况。</p>
+<h2 class="sec"><span class="num">六</span>质量原则</h2>
+<ol><li><strong>纯函数优先</strong>。编译器、统计内核、绘图与组图引擎、代码生成与 IR 转换全部是纯函数，可在 Node 环境直接测试；血缘图的分层布局同样无 React / store / DOM 依赖。</li><li><strong>副作用收口</strong>。区块系统里只有渲染桥接一个带副作用的模块，执行器异步但无副作用；研究工具页的胶水层（<code>researchUi.ts</code>）也被刻意写成无 React 依赖的薄层，以便单独测试。</li><li><strong>数值一致性兜底</strong>。每个 GPU 内核都有数学一致的 CPU 实现，单测与端到端两层校验二者一致——这是&quot;自动降级&quot;能够被信任的前提。</li><li><strong>边界显式化</strong>。边界输入抛结构化错误、空数据启动有守卫提示、环境缺失如实自检报告，而不是静默失败或静默降级；可复现性有专门的门禁文档告知。</li><li><strong>不静默跳过</strong>。需要归档就必须归档（Zenodo 未配置即报错），需要门禁就必须门禁（审计豁免要写明理由），第一次运行没有基线就记录并提交——把&quot;没跑成&quot;和&quot;跑过了&quot;区分清楚。</li></ol>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
+      </div>
+    </div>
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 八 篇（共 8 篇）</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

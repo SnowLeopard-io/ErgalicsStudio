@@ -23,6 +23,28 @@ export function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
   return listDataFilesGrouped(allow);
 }
 
+/**
+ * Grouped data files filtered down to ones that actually parse as a table.
+ * The bundled examples mix real datasets with simulation *configs* (physics
+ * JSON such as `{ B, damping, charges }`, lens/bridge/pendulum setups) that
+ * a table picker must not offer — selecting one could only ever error.
+ * Each candidate is parse-sniffed (cheap: example files are small; re-runs
+ * only when the caller's memo deps change) and failures are dropped.
+ */
+export function tabularDataGroups(allow?: readonly string[]): DataFileGroups {
+  const groups = groupedDataFiles(allow);
+  const parses = (name: string): boolean => {
+    const text = resolveDataFile(name);
+    if (text === undefined) return false;
+    try {
+      return parseDataText(text, name).length > 0;
+    } catch {
+      return false;
+    }
+  };
+  return { project: groups.project.filter(parses), examples: groups.examples.filter(parses) };
+}
+
 export interface LoadedTable {
   table: DataTable;
   numericCols: string[];

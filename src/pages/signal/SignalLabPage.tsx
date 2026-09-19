@@ -28,7 +28,7 @@ import {
   WINDOW_KINDS,
   type WindowKind,
 } from '@/core/signal';
-import { groupedDataFiles, loadTable, sendSpecToFigure, toCsv, fmt } from '../research/researchUi';
+import { tabularDataGroups, loadTable, sendSpecToFigure, toCsv, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 
 type Op = 'spectrum' | 'welch' | 'filter' | 'correlation' | 'decompose';
@@ -91,7 +91,7 @@ export default function SignalLabPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
-  const groups = useMemo(() => groupedDataFiles(DATA_EXTS_SERIES), [project?.data.files]);
+  const groups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [timeCol, setTimeCol] = useState('');

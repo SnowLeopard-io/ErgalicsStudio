@@ -192,11 +192,32 @@ function xyzColumnName(i: number): string {
 }
 
 /**
- * Build a DataTable from a JSON document. Accepts either an array of flat row
- * records (`[{ "x": 1, "y": 2 }, ...]`) or a columnar object
- * (`{ "columns": [{ "name": "x", "data": [...] }, ...] }`). Row-record fields
+ * Build a DataTable from an array of flat row records. Row-record fields
  * become f64 columns when every value in the column is numeric, otherwise
  * string columns.
+ */
+function tableFromRowRecords(rows: Record<string, unknown>[]): DataTable {
+  const names = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+  const specs = names.map((name) => {
+    const values = rows.map((r) => r[name]);
+    const allNumeric = values.every((v) => typeof v === 'number' && Number.isFinite(v));
+    if (allNumeric) {
+      return { name, type: 'f64' as const, data: Float64Array.from(values as number[]) };
+    }
+    return { name, type: 'string' as const, data: values.map((v) => (v == null ? '' : String(v))) };
+  });
+  return createDataTable('json', specs, { provenance: 'loadJSON' });
+}
+
+/**
+ * Build a DataTable from a JSON document. Accepts an array of flat row
+ * records (`[{ "x": 1, "y": 2 }, ...]`), a columnar object
+ * (`{ "columns": [{ "name": "x", "data": [...] }, ...] }`), or a dataset
+ * envelope that carries its records in exactly one object-array field
+ * (`{ meta..., "observations": [{...}, ...] }` — the bundled dataset.json
+ * shape). Envelope unwrapping requires the array to be unambiguous: objects
+ * carrying two or more object arrays (e.g. simulation configs with several
+ * entity lists) are rejected.
  */
 export function loadJSON(text: string): DataTable {
   let parsed: unknown;
@@ -206,22 +227,15 @@ export function loadJSON(text: string): DataTable {
     throw new Error(`invalid JSON dataset: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  if (Array.isArray(parsed) && parsed.every((r) => r !== null && typeof r === 'object' && !Array.isArray(r))) {
-    const rows = parsed as Record<string, unknown>[];
-    if (rows.length === 0) throw new Error('JSON dataset is empty');
-    const names = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
-    const specs = names.map((name) => {
-      const values = rows.map((r) => r[name]);
-      const allNumeric = values.every((v) => typeof v === 'number' && Number.isFinite(v));
-      if (allNumeric) {
-        return { name, type: 'f64' as const, data: Float64Array.from(values as number[]) };
-      }
-      return { name, type: 'string' as const, data: values.map((v) => (v == null ? '' : String(v))) };
-    });
-    return createDataTable('json', specs, { provenance: 'loadJSON' });
+  const isRecord = (v: unknown): v is Record<string, unknown> =>
+    v !== null && typeof v === 'object' && !Array.isArray(v);
+
+  if (Array.isArray(parsed) && parsed.every(isRecord)) {
+    if (parsed.length === 0) throw new Error('JSON dataset is empty');
+    return tableFromRowRecords(parsed as Record<string, unknown>[]);
   }
 
-  if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+  if (isRecord(parsed)) {
     const obj = parsed as { columns?: unknown };
     if (Array.isArray(obj.columns)) {
       const cols = obj.columns as { name?: unknown; data?: unknown }[];
@@ -236,6 +250,13 @@ export function loadJSON(text: string): DataTable {
       });
       if (specs.length === 0) throw new Error('JSON dataset has no columns');
       return createDataTable('json', specs, { provenance: 'loadJSON' });
+    }
+
+    const recordArrays = Object.values(obj).filter(
+      (v) => Array.isArray(v) && v.length > 0 && v.every(isRecord),
+    );
+    if (recordArrays.length === 1) {
+      return tableFromRowRecords(recordArrays[0] as Record<string, unknown>[]);
     }
   }
 

@@ -27,7 +27,7 @@ import {
   type TemplateKind,
 } from '@/core/inference/templates';
 import type { ChainSamples, InferenceConfig, InferenceResult } from '@/core/inference/types';
-import { groupedDataFiles, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
+import { tabularDataGroups, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -115,7 +115,7 @@ export default function InferenceForgePage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => groupedDataFiles(DATA_EXTS_SERIES), [project?.data.files]);
+  const fileGroups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
   const [kind, setKind] = useState<TemplateKind>('normal-mean');

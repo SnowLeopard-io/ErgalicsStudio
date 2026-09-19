@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>07 科学计算子系统</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #1e293b; --muted: #64748b;
+    --accent: #0e7490; --accent-deep: #155e75; --accent-soft: #ecfeff;
+    --gold: #b45309; --gold-soft: #fffbeb; --line: #e2e8f0; --soft: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: var(--body); font-size: 10.5pt; line-height: 1.8;
+  }
+  @page { size: A4; margin: 0; }
+  .page {
+    position: relative; width: 210mm; height: 296.5mm;
+    padding: 16mm 15mm 18mm; page-break-after: always; overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  body { counter-reset: pn 0; }
+  .page { counter-increment: pn; }
+  .page::after {
+    content: counter(pn, decimal-leading-zero);
+    position: absolute; left: 70mm; right: 70mm; bottom: 7mm;
+    text-align: center; border-top: 1px solid var(--line); padding-top: 2mm;
+    font-size: 8.5pt; color: var(--accent-deep); letter-spacing: 2px;
+  }
+  .cover::after { content: none; }
+  .cover { padding: 0; }
+  .cover-panel {
+    height: 100%; border-radius: 0;
+    background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
+    display: flex; flex-direction: column;
+  }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
+  }
+  .cover-modes { margin-top: auto; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
+  .mode-chip {
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
+  }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
+  .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
+  .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
+  .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
+  .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
+  .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
+  .toc-item .tp { color: var(--accent-deep); }
+  h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  h2.sec .num {
+    background: var(--accent); color: #fff; font-size: 11pt;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
+  h3 .hn { color: var(--accent); margin-right: 6px; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
+  p { margin: 3mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
+  li { margin: 2mm 0; }
+  strong { color: var(--ink); }
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
+  th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
+  th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+  }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
+  figcaption b { color: var(--accent-deep); font-weight: bold; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
+  .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
+  .callout {
+    background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="page cover">
+  <div class="cover-panel">
+    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <h1>07 科学计算子系统</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
+    <div class="cover-rule"></div>
+    <div class="cover-abstract">`src/core` 下除横切服务外，另有 **33 个领域子系统目录**，全部为纯 TypeScript、少 DOM、可在 Node 环境用 Vitest 直接测试。它们被区块系统、Studio API、科研工具页与交付管线共同消费，是产品从&quot;能画图&quot;走向&quot;可用于真实科研&quot;的能力层。</div>
+    
+    <div class="cover-modes">
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 内核总览</div></div><div class="mode-chip"><div class="t">二 统计内核</div></div><div class="mode-chip"><div class="t">三 科研二进制 I/O</div></div><div class="mode-chip"><div class="t">四 出版级绘图引擎</div></div><div class="mode-chip"><div class="t">五 可复现性内核</div></div><div class="mode-chip"><div class="t">六 不确定度引擎</div></div><div class="mode-chip"><div class="t">七 单位系统</div></div><div class="mode-chip"><div class="t">八 信号处理</div></div><div class="mode-chip"><div class="t">九 建模与推断</div></div><div class="mode-chip"><div class="t">十 数据工程与可靠性内核</div></div><div class="mode-chip"><div class="t">十一 科研工作流与交付</div></div><div class="mode-chip"><div class="t">十二 语言运行时与 AI 助手</div></div><div class="mode-chip"><div class="t">十三 支撑设施</div></div></div>
+    </div>
+    <div class="cover-foot">技术文档系列 · 第 七 篇（共 8 篇）</div>
+  </div>
+</div>
+
+<div class="page toc">
+  <h1>目 录</h1>
+<div class="toc-item l1"><span>一、内核总览</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>二、统计内核（src/core/stats）</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>三、科研二进制 I/O（src/core/io）</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l1"><span>四、出版级绘图引擎（src/core/plot）</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>五、可复现性内核（src/core/repro）</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>六、不确定度引擎（src/core/uncertainty）</span><span class="dots"></span><span class="tp">07</span></div>
+<div class="toc-item l1"><span>七、单位系统（src/core/units）</span><span class="dots"></span><span class="tp">08</span></div>
+<div class="toc-item l1"><span>八、信号处理（src/core/signal）</span><span class="dots"></span><span class="tp">08</span></div>
+<div class="toc-item l1"><span>九、建模与推断</span><span class="dots"></span><span class="tp">09</span></div>
+<div class="toc-item l1"><span>十、数据工程与可靠性内核</span><span class="dots"></span><span class="tp">10</span></div>
+<div class="toc-item l1"><span>十一、科研工作流与交付</span><span class="dots"></span><span class="tp">11</span></div>
+<div class="toc-item l1"><span>十二、语言运行时与 AI 助手</span><span class="dots"></span><span class="tp">12</span></div>
+<div class="toc-item l1"><span>十三、支撑设施</span><span class="dots"></span><span class="tp">13</span></div>
+
+</div>
+
+<!-- P3 -->
+<div class="page">
+<p><code>src/core</code> 下除横切服务外，另有 <strong>33 个领域子系统目录</strong>，全部为纯 TypeScript、少 DOM、可在 Node 环境用 Vitest 直接测试。它们被区块系统、Studio API、科研工具页与交付管线共同消费，是产品从&quot;能画图&quot;走向&quot;可用于真实科研&quot;的能力层。</p>
+<h2 class="sec"><span class="num">一</span>内核总览</h2>
+<table><thead><tr><th>分组</th><th>子系统</th></tr></thead><tbody><tr><td>数学与数据</td><td>stats（统计）、units（单位与量纲）、signal（信号处理）、model（回归建模）、inference（贝叶斯推断）、uncertainty（不确定度）、profiler（数据画像）、data-quality（数据质量）、cleaning（数据清洗）</td></tr><tr><td>数据入口</td><td>io（科研二进制 I/O）、chunked（分块读取）、sql（DuckDB 工作台）</td></tr><tr><td>交付与复现</td><td>plot（出版级绘图）、figure（组图）、submit（投稿检查）、report（报告构建）、package（补充材料）、notebook（笔记本）、repro（可复现性）、lineage（数据血缘）、experiment（实验记录）、sweep（参数扫描）</td></tr><tr><td>教学与社区</td><td>course（课程模式）、gallery（作品长廊）、templates（学科模板）</td></tr><tr><td>平台内核</td><td>errors（错误分类法与 Result）、validation（校验框架）、bench（性能基准）、ai（AI 助手策略）、pyodide（Python 运行时）、r（R 运行时）、monaco（编辑器宿主）、theme-pack（主题包）</td></tr></tbody></table>
+<h2 class="sec"><span class="num">二</span>统计内核（src/core/stats）</h2>
+<p>统计内核消费普通数值数组、DataTable 或 Dataset，返回结构化结果，全部为纯函数实现。公共出口按模块划分：</p>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>descriptive</td><td>均值、方差、标准差、中位数、分位数、摘要统计、均值置信区间（t 分布临界值经 studentTInv 求得）</td></tr><tr><td>special</td><td>特殊函数：不完全伽马与贝塔函数、正态与 t 分布等累积分布及其逆函数（供检验与功效计算复用）</td></tr><tr><td>tests</td><td>单样本 t 检验、双样本 t 检验（Welch 校正自由度）、配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方独立性检验，返回含统计量、p 值与自由度的结构化结果</td></tr></tbody></table>
+</div>
+
+<!-- P4 -->
+<div class="page">
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>effect</td><td>Cohen's d 效应量、Pearson 与 Spearman 相关</td></tr><tr><td>correction</td><td>Bonferroni 与 Benjamini-Hochberg 多重比较校正，p 值先经清洗（非有限值剔除）再校正</td></tr><tr><td>power</td><td>双样本 t 检验的功效分析</td></tr><tr><td>narrative</td><td>把五类主要检验族（t 检验、方差分析、卡方、相关、线性回归）的结构化结果转写成中英双语的出版级句子；按期刊惯例渲染 p 值（<code>p &lt; .001</code> 用不等式，其余三位小数省略前导零），不显著结果使用中性措辞</td></tr></tbody></table>
+<p>边界输入一律显式抛错而不是静默给出错误数字：Welch 自由度除零、方差分析组数不足、配对检验长度不等都会得到结构化错误。统计能力向用户的呈现方式有三种：流程模式的 14 个 <code>stats.*</code> 区块、积木与代码模式 Studio API 中的 <code>summary</code> 等调用，以及报告构建器与 Figure Studio 的图注草稿——底层都指向同一实现。</p>
+<h2 class="sec"><span class="num">三</span>科研二进制 I/O（src/core/io）</h2>
+<p>科研数据常以领域二进制格式存储。<code>scientific.ts</code> 提供单一入口：给定拖入或打开的 File，先读文件头并按魔数（或扩展名）识别格式，再路由到对应加载器，把每个变量、数据集或 HDU 转成统一的 <code>RawVariable</code> 列表，调用方负责将其转为项目数据文件。</p>
+</div>
+
+<!-- P5 -->
+<div class="page">
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 835.75 724.515625" style="max-width: 835.75px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-1-j3v9wo"><style>#mmd-1-j3v9wo{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-1-j3v9wo .error-icon{fill:#fefce8;}#mmd-1-j3v9wo .error-text{fill:#010317;stroke:#010317;}#mmd-1-j3v9wo .edge-thickness-normal{stroke-width:2px;}#mmd-1-j3v9wo .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-j3v9wo .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-j3v9wo .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-j3v9wo .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-j3v9wo .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-j3v9wo .marker.cross{stroke:#0e7490;}#mmd-1-j3v9wo svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-j3v9wo .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-j3v9wo .cluster-label text{fill:#010317;}#mmd-1-j3v9wo .cluster-label span,#mmd-1-j3v9wo p{color:#010317;}#mmd-1-j3v9wo .label text,#mmd-1-j3v9wo span,#mmd-1-j3v9wo p{fill:#155e75;color:#155e75;}#mmd-1-j3v9wo .node rect,#mmd-1-j3v9wo .node circle,#mmd-1-j3v9wo .node ellipse,#mmd-1-j3v9wo .node polygon,#mmd-1-j3v9wo .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-j3v9wo .flowchart-label text{text-anchor:middle;}#mmd-1-j3v9wo .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-j3v9wo .node .label{text-align:center;}#mmd-1-j3v9wo .node.clickable{cursor:pointer;}#mmd-1-j3v9wo .arrowheadPath{fill:#0b0b0b;}#mmd-1-j3v9wo .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-1-j3v9wo .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-j3v9wo .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-j3v9wo .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-j3v9wo .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-j3v9wo .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-j3v9wo .cluster text{fill:#010317;}#mmd-1-j3v9wo .cluster span,#mmd-1-j3v9wo p{color:#010317;}#mmd-1-j3v9wo div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-j3v9wo .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-j3v9wo :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-j3v9wo_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-j3v9wo_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-j3v9wo_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-j3v9wo_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-j3v9wo_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-j3v9wo_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M358.945,38.391L358.945,42.557C358.945,46.724,358.945,55.057,358.945,62.507C358.945,69.957,358.945,76.524,358.945,79.807L358.945,83.091"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-C" id="L-B-C-0" d="M358.945,126.781L358.945,130.948C358.945,135.115,358.945,143.448,359.011,150.981C359.077,158.515,359.209,165.249,359.275,168.615L359.341,171.982"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-D" id="L-C-D-0" d="M291.403,305.63L251.93,323.003C212.456,340.376,133.509,375.121,94.036,399.676C54.563,424.231,54.563,438.594,54.563,445.776L54.563,452.958"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-E" id="L-C-E-0" d="M308.33,322.556L292.357,337.108C276.384,351.66,244.438,380.764,228.465,402.497C212.492,424.231,212.492,438.594,212.492,445.776L212.492,452.958"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-F" id="L-C-F-0" d="M359.445,373.672L359.362,379.704C359.279,385.737,359.112,397.802,359.029,411.016C358.945,424.231,358.945,438.594,358.945,445.776L358.945,452.958"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-G" id="L-C-G-0" d="M413.704,319.414L432.34,334.489C450.977,349.565,488.25,379.716,506.887,401.973C525.523,424.231,525.523,438.594,525.523,445.776L525.523,452.958"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-H" id="L-C-H-0" d="M431.686,301.432L482.135,319.504C532.585,337.577,633.484,373.722,683.933,397.027C734.383,420.332,734.383,430.797,734.383,436.03L734.383,441.263"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-I" id="L-D-I-0" d="M54.563,496.648L54.563,502.764C54.563,508.88,54.563,521.112,90.806,532.49C127.049,543.868,199.535,554.393,235.778,559.656L272.021,564.918"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-E LE-I" id="L-E-I-0" d="M212.492,496.648L212.492,502.764C212.492,508.88,212.492,521.112,225.454,531.139C238.416,541.167,264.339,548.99,277.301,552.901L290.262,556.813"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-I" id="L-F-I-0" d="M358.945,496.648L358.945,502.764C358.945,508.88,358.945,521.112,358.945,530.511C358.945,539.91,358.945,546.477,358.945,549.76L358.945,553.044"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-G LE-I" id="L-G-I-0" d="M525.523,496.648L525.523,502.764C525.523,508.88,525.523,521.112,510.673,531.168C495.822,541.224,466.12,549.104,451.269,553.044L436.418,556.985"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-H LE-I" id="L-H-I-0" d="M734.383,508.344L734.383,512.51C734.383,516.677,734.383,525.01,686.3,534.837C638.218,544.664,542.053,555.984,493.971,561.644L445.889,567.304"></path><path marker-end="url(#mmd-1-j3v9wo_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-I LE-J" id="L-I-J-0" d="M358.945,596.734L358.945,600.901C358.945,605.068,358.945,613.401,358.945,620.851C358.945,628.301,358.945,634.868,358.945,638.151L358.945,641.434"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(54.5625, 409.8671875)" class="edgeLabel"><g transform="translate(-17.25, -11.6953125)" class="label"><foreignObject height="23.390625" width="34.5"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">HDF5</span></div></foreignObject></g></g><g transform="translate(212.4921875, 409.8671875)" class="edgeLabel"><g transform="translate(-24.1484375, -11.6953125)" class="label"><foreignObject height="23.390625" width="48.296875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">NetCDF</span></div></foreignObject></g></g><g transform="translate(358.9453125, 409.8671875)" class="edgeLabel"><g transform="translate(-12.84375, -11.6953125)" class="label"><foreignObject height="23.390625" width="25.6875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">FITS</span></div></foreignObject></g></g><g transform="translate(525.5234375, 409.8671875)" class="edgeLabel"><g transform="translate(-24.0078125, -11.6953125)" class="label"><foreignObject height="23.390625" width="48.015625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">Parquet</span></div></foreignObject></g></g><g transform="translate(734.3828125, 409.8671875)" class="edgeLabel"><g transform="translate(-12.59375, -11.6953125)" class="label"><foreignObject height="23.390625" width="25.1875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">Zarr</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(358.9453125, 19.1953125)" data-id="A" data-node="true" id="flowchart-A-0" class="node default default flowchart-label"><rect height="38.390625" width="93" y="-19.1953125" x="-46.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-39, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="78"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">用户拖入文件</span></div></foreignObject></g></g><g transform="translate(358.9453125, 107.5859375)" data-id="B" data-node="true" id="flowchart-B-1" class="node default default flowchart-label"><rect height="38.390625" width="136.578125" y="-19.1953125" x="-68.2890625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-60.7890625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="121.578125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">读取文件头 512 字节</span></div></foreignObject></g></g><g transform="translate(358.9453125, 274.9765625)" data-id="C" data-node="true" id="flowchart-C-3" class="node default default flowchart-label"><polygon style="" transform="translate(-98.1953125,98.1953125)" class="label-container" points="98.1953125,0 196.390625,-98.1953125 98.1953125,-196.390625 0,-98.1953125"></polygon><g transform="translate(-71.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="143"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">按魔数或扩展名识别格式</span></div></foreignObject></g></g><g transform="translate(54.5625, 477.453125)" data-id="D" data-node="true" id="flowchart-D-5" class="node default default flowchart-label"><rect height="38.390625" width="109.125" y="-19.1953125" x="-54.5625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-47.0625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="94.125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">h5wasm 加载器</span></div></foreignObject></g></g><g transform="translate(212.4921875, 477.453125)" data-id="E" data-node="true" id="flowchart-E-7" class="node default default flowchart-label"><rect height="38.390625" width="106.734375" y="-19.1953125" x="-53.3671875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.8671875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91.734375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">netcdfjs 加载器</span></div></foreignObject></g></g><g transform="translate(358.9453125, 477.453125)" data-id="F" data-node="true" id="flowchart-F-9" class="node default default flowchart-label"><rect height="38.390625" width="86.171875" y="-19.1953125" x="-43.0859375" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-35.5859375, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="71.171875"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">fitsjs 加载器</span></div></foreignObject></g></g><g transform="translate(525.5234375, 477.453125)" data-id="G" data-node="true" id="flowchart-G-11" class="node default default flowchart-label"><rect height="38.390625" width="146.984375" y="-19.1953125" x="-73.4921875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-65.9921875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="131.984375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">parquet-wasm 加载器</span></div></foreignObject></g></g><g transform="translate(734.3828125, 477.453125)" data-id="H" data-node="true" id="flowchart-H-13" class="node default default flowchart-label"><rect height="61.78125" width="170.734375" y="-30.890625" x="-85.3671875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-77.8671875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="155.734375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">zarrita 加载器<br>（经 blob URL 访问分块）</span></div></foreignObject></g></g><g transform="translate(358.9453125, 577.5390625)" data-id="I" data-node="true" id="flowchart-I-15" class="node default default flowchart-label"><rect height="38.390625" width="163.359375" y="-19.1953125" x="-81.6796875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-74.1796875, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="148.359375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">统一为 RawVariable 列表</span></div></foreignObject></g></g><g transform="translate(358.9453125, 677.625)" data-id="J" data-node="true" id="flowchart-J-25" class="node default default flowchart-label"><rect height="61.78125" width="132" y="-30.890625" x="-66" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-58.5, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="117"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">转为项目数据文件<br>进入文件路由与插件</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 1</div></div>
+<table><thead><tr><th>格式</th><th>典型领域</th><th>依赖库</th><th>模块</th></tr></thead><tbody><tr><td>HDF5</td><td>通用科学分层数据</td><td>h5wasm</td><td>hdf5.ts</td></tr><tr><td>NetCDF</td><td>地学、气象</td><td>netcdfjs</td><td>netcdf.ts</td></tr><tr><td>FITS</td><td>天文图像与表</td><td>fitsjs</td><td>fits.ts</td></tr><tr><td>Parquet</td><td>列式表格</td><td>parquet-wasm（经 apache-arrow 合并全部记录批次）</td><td>parquet.ts</td></tr><tr><td>Zarr</td><td>分块 N 维数组（本地目录或远程存储）</td><td>zarrita</td><td>zarr.ts</td></tr></tbody></table>
+</div>
+
+<!-- P6 -->
+<div class="page">
+<p>辅助工具（<code>types.ts</code>）包括整型到 Float64 的安全转换（int64 与 uint64 数据集不再抛错）、名称净化、DataTable 转 CSV 与数据集构造。大文件的导入路径会先经 <code>chunked/</code> 的行窗口读取与内容指纹，再由 <code>parse-worker.ts</code> 与 <code>worker-pool.ts</code> 在 Worker 池中并行解析。</p>
+<h2 class="sec"><span class="num">四</span>出版级绘图引擎（src/core/plot）</h2>
+<p>区别于插件里的画布渲染，plot 子系统是一套纯 TS 的矢量绘图引擎，目标是把 DataTable 转成出版级 SVG 并导出：</p>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>types</td><td>PlotSpec、PlotSeries、比例类型与 SVG 载荷定义</td></tr><tr><td>scale</td><td>线性、对数、时间刻度，niceTicks 优雅刻度值，刻度格式化；退化定义域（单点、零跨度）有明确处理</td></tr><tr><td>charts</td><td>DataTable 转折线、散点、直方图、柱状四类图型</td></tr><tr><td>svg</td><td>renderSVG 矢量渲染，属性与文本分别转义</td></tr><tr><td>export</td><td>导出 SVG 文件与 PDF（jsPDF + svg2pdf.js），下载文本</td></tr></tbody></table>
+<p>由于整条链路（数据、刻度、渲染、导出）都是纯函数，绘图引擎有专门的单元测试（<code>tests/plot</code>），也是可复现性内核 DAG 转 Python 导出策略的天然搭配。流程模式的 4 个 <code>plot.*</code> 区块即由这套引擎渲染，与 4 个走插件渲染器的 <code>viz.*</code> 区块互为补充。</p>
+<h2 class="sec"><span class="num">五</span>可复现性内核（src/core/repro）</h2>
+<p>科研计算的可复现性要求&quot;同样的输入与参数得到同样的输出&quot;。repro 内核提供六块能力：</p>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>random</td><td>带种子的伪随机数：mulberry32 算法，同种子产生完全一致的序列；全局 setSeed 与 currentSeed 支持会话级设定</td></tr><tr><td>manifest</td><td>运行清单 createManifest：记录种子、工作室版本、每个输入文件的哈希、区块图（经拓扑排序后计算哈希）与输出；manifestToText 生成可归档文本</td></tr><tr><td>exporter</td><td>DAG 转 Python：把流程图导出为可独立重跑的 Python 脚本，与 topoSort 依赖排序配合，脚本内含与运行清单一致的种子设定</td></tr></tbody></table>
+</div>
+
+<!-- P7 -->
+<div class="page">
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>lock</td><td><code>repro.lock</code> 导出与校验：数据指纹、参数哈希、种子与代码快照，支持五类漂移判定与一键重跑</td></tr><tr><td>snapshot</td><td>环境快照（版本、平台与内核可用性）纳入锁文件，便于判定&quot;漂移发生在数据还是环境&quot;</td></tr><tr><td>index</td><td>统一出口与稳定哈希（FNV-1a hashString，八位十六进制，供输入与图的指纹复用）</td></tr></tbody></table>
+<p>运行清单的构成：</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 317 407.953125" style="max-width: 317px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-2-nypefi"><style>#mmd-2-nypefi{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-2-nypefi .error-icon{fill:#fefce8;}#mmd-2-nypefi .error-text{fill:#010317;stroke:#010317;}#mmd-2-nypefi .edge-thickness-normal{stroke-width:2px;}#mmd-2-nypefi .edge-thickness-thick{stroke-width:3.5px;}#mmd-2-nypefi .edge-pattern-solid{stroke-dasharray:0;}#mmd-2-nypefi .edge-pattern-dashed{stroke-dasharray:3;}#mmd-2-nypefi .edge-pattern-dotted{stroke-dasharray:2;}#mmd-2-nypefi .marker{fill:#0e7490;stroke:#0e7490;}#mmd-2-nypefi .marker.cross{stroke:#0e7490;}#mmd-2-nypefi svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-2-nypefi .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-2-nypefi .cluster-label text{fill:#010317;}#mmd-2-nypefi .cluster-label span,#mmd-2-nypefi p{color:#010317;}#mmd-2-nypefi .label text,#mmd-2-nypefi span,#mmd-2-nypefi p{fill:#155e75;color:#155e75;}#mmd-2-nypefi .node rect,#mmd-2-nypefi .node circle,#mmd-2-nypefi .node ellipse,#mmd-2-nypefi .node polygon,#mmd-2-nypefi .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-2-nypefi .flowchart-label text{text-anchor:middle;}#mmd-2-nypefi .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-2-nypefi .node .label{text-align:center;}#mmd-2-nypefi .node.clickable{cursor:pointer;}#mmd-2-nypefi .arrowheadPath{fill:#0b0b0b;}#mmd-2-nypefi .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-2-nypefi .flowchart-link{stroke:#0e7490;fill:none;}#mmd-2-nypefi .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-2-nypefi .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-2-nypefi .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-2-nypefi .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-2-nypefi .cluster text{fill:#010317;}#mmd-2-nypefi .cluster span,#mmd-2-nypefi p{color:#010317;}#mmd-2-nypefi div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-2-nypefi .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-2-nypefi :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-nypefi_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-nypefi_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-nypefi_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-nypefi_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-nypefi_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-nypefi_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-2-nypefi_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-M" id="L-A-M-0" d="M93,19.195L101.5,19.195C110,19.195,127,19.195,147.612,42.725C168.224,66.255,192.449,113.314,204.561,136.844L216.673,160.374"></path><path marker-end="url(#mmd-2-nypefi_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-M" id="L-B-M-0" d="M106,107.586L112.333,107.586C118.667,107.586,131.333,107.586,146.899,116.554C162.465,125.522,180.93,143.457,190.163,152.425L199.396,161.393"></path><path marker-end="url(#mmd-2-nypefi_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-C LE-M" id="L-C-M-0" d="M119,195.977L123.167,195.977C127.333,195.977,135.667,195.977,143.117,195.977C150.567,195.977,157.133,195.977,160.417,195.977L163.7,195.977"></path><path marker-end="url(#mmd-2-nypefi_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-M" id="L-D-M-0" d="M112.5,284.367L117.75,284.367C123,284.367,133.5,284.367,147.983,275.399C162.465,266.431,180.93,248.496,190.163,239.528L199.396,230.56"></path><path marker-end="url(#mmd-2-nypefi_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-E LE-M" id="L-E-M-0" d="M93,372.758L101.5,372.758C110,372.758,127,372.758,147.612,349.228C168.224,325.698,192.449,278.639,204.561,255.109L216.673,231.58"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(59.5, 19.1953125)" data-id="A" data-node="true" id="flowchart-A-26" class="node default default flowchart-label"><rect height="38.390625" width="67" y="-19.1953125" x="-33.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-26, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">随机种子</span></div></foreignObject></g></g><g transform="translate(235, 195.9765625)" data-id="M" data-node="true" id="flowchart-M-27" class="node default default flowchart-label"><rect height="61.78125" width="132" y="-30.890625" x="-66" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-58.5, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="117"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">运行清单<br>（可归档、可校验）</span></div></foreignObject></g></g><g transform="translate(59.5, 107.5859375)" data-id="B" data-node="true" id="flowchart-B-28" class="node default default flowchart-label"><rect height="38.390625" width="93" y="-19.1953125" x="-46.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-39, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="78"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">工作室版本号</span></div></foreignObject></g></g><g transform="translate(59.5, 195.9765625)" data-id="C" data-node="true" id="flowchart-C-30" class="node default default flowchart-label"><rect height="38.390625" width="119" y="-19.1953125" x="-59.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-52, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="104"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">输入文件内容哈希</span></div></foreignObject></g></g><g transform="translate(59.5, 284.3671875)" data-id="D" data-node="true" id="flowchart-D-32" class="node default default flowchart-label"><rect height="38.390625" width="106" y="-19.1953125" x="-53" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">区块图拓扑哈希</span></div></foreignObject></g></g><g transform="translate(59.5, 372.7578125)" data-id="E" data-node="true" id="flowchart-E-34" class="node default default flowchart-label"><rect height="38.390625" width="67" y="-19.1953125" x="-33.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-26, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">输出内容</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 2</div></div>
+<h2 class="sec"><span class="num">六</span>不确定度引擎（src/core/uncertainty）</h2>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>bootstrap</td><td>Bootstrap 置信区间：可复现重采样，支持均值 / 中位数 / 标准差等统计量</td></tr><tr><td>montecarlo</td><td>蒙特卡洛传播：输入分布经样本传播到输出分布</td></tr></tbody></table>
+</div>
+
+<!-- P8 -->
+<div class="page">
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>mcmc</td><td>Metropolis-Hastings 采样（CPU 路径）</td></tr><tr><td>pcg</td><td>PCG32 伪随机数发生器，与 GPU 内核共享同一序列定义</td></tr><tr><td>gpu-engine</td><td>WGSL GPU 加速的 Bootstrap 重采样（每链一个 workgroup），百万级样本重采样</td></tr><tr><td>gpu-mcmc</td><td>GPU 上的并行链 MCMC</td></tr><tr><td>diagnostics</td><td>收敛诊断：R-hat、有效样本量 ESS、HDI 区间与 MCSE</td></tr><tr><td>index</td><td>CPU / GPU 引擎自动选择与统一出口，选择结果写入运行记录</td></tr></tbody></table>
+<p>引擎选择遵循 06 篇的阈值与设备可用性规则，GPU 不可用时自动回落到 CPU，两条路径在同一随机数序列下结果在数值容差内一致，并有专门的一致性单元测试。</p>
+<h2 class="sec"><span class="num">七</span>单位系统（src/core/units）</h2>
+<p><code>quantity.ts</code> 提供类型化量值 <code>Quantity</code>：SI 词头、量纲代数与换算检查。它以 <code>units.convert</code>（换算）与 <code>units.check</code>（一致性检查）两个流程区块，以及参数面板中的 <code>QuantityInput</code> 组件向用户暴露，使带单位的物理参数不再以裸数字出现在管线里。</p>
+<h2 class="sec"><span class="num">八</span>信号处理（src/core/signal）</h2>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>fft</td><td>基 2 FFT 与幅值谱；与 GPU 端 <code>fftKernelWGSL</code> 数学一致</td></tr><tr><td>window</td><td>窗函数（Hann、Hamming、Blackman 等）</td></tr><tr><td>filter</td><td>Savitzky-Golay 平滑与滑动平均滤波</td></tr><tr><td>correlation</td><td>自相关 ACF 与偏自相关 PACF</td></tr><tr><td>decompose</td><td>经典加性时序分解 x = 趋势 + 季节 + 残差：趋势用对称滑动平均（偶数周期用周期加一居中平均，同 X-11），季节项按相位去趋势均值归一化到零和；残差摘要给出均值 / 标准差与 Jarque-Bera 式偏度峰度正态性检查</td></tr><tr><td>index</td><td>统一出口；滤波后的列可作为派生文件保存回项目并进入血缘图</td></tr></tbody></table>
+</div>
+
+<!-- P9 -->
+<div class="page">
+<h2 class="sec"><span class="num">九</span>建模与推断</h2>
+<p><strong>回归建模（src/core/model）</strong></p>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>linalg</td><td>小型稠密线性代数：转置、乘法、Householder QR 与三角求解（只覆盖 OLS / 岭 / 多项式拟合所需）</td></tr><tr><td>ols</td><td>普通最小二乘（QR 分解），系数表含估计值、标准误、p 值与置信区间</td></tr><tr><td>logistic</td><td>逻辑回归（IRLS 迭代重加权最小二乘）</td></tr><tr><td>ridge</td><td>岭回归，K 折交叉验证选参</td></tr><tr><td>poly</td><td>多项式拟合</td></tr><tr><td>diagnostics</td><td>2×2 残差诊断图（残差-拟合、QQ、尺度-位置、残差-杠杆）</td></tr><tr><td>index</td><td>统一拟合入口与结果类型</td></tr></tbody></table>
+<p><strong>贝叶斯推断 · Inference Forge（src/core/inference）</strong></p>
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>hmc</td><td>哈密顿蒙特卡洛采样器，含 Dual Averaging 步长自适应</td></tr><tr><td>nuts</td><td>No-U-Turn Sampler（U 形回旋判据），无须手工设步数</td></tr><tr><td>model / templates</td><td>声明式似然模板（线性回归、逻辑回归等），配数据尺度化的弱先验</td></tr><tr><td>model-catalog</td><td>可推断模型目录与参数元数据</td></tr><tr><td>diag</td><td>R-hat、bulk / tail-ESS、HDI、MCSE 等后验诊断</td></tr><tr><td>compare</td><td>WAIC 与 PSIS-LOO 模型比较；PSIS 采用 0.2 倍最大权重的原始截断（不做完整广义帕累托重拟合），Pareto-k 用 Hill 型尾部估计，足以标记 k &gt; 0.7，但不等价于完整的 loo 诊断</td></tr></tbody></table>
+</div>
+
+<!-- P10 -->
+<div class="page">
+<table><thead><tr><th>模块</th><th>能力</th></tr></thead><tbody><tr><td>onnx-runner</td><td>浏览器内 ONNX 模型推理（WebGPU 加速路径）</td></tr><tr><td>types</td><td>采样、模型与诊断的公共类型</td></tr></tbody></table>
+<p>推断能力在流程区块中以 <code>stats.mcmc</code>、<code>stats.bootstrap</code>、<code>stats.montecarlo</code> 三块的形式进入管线，在科研工具页中以 Inference Forge（<code>/studio/inference</code>）与模型推理（<code>/studio/model-inference</code>）两个整页呈现。</p>
+<h2 class="sec"><span class="num">十</span>数据工程与可靠性内核</h2>
+<table><thead><tr><th>子系统</th><th>关键能力</th></tr></thead><tbody><tr><td>data-quality</td><td>Pandera 风格列级 / 表级期望契约，懒求值质量报告；类型推断与画像（四分位、IQR 离群、缺失与去重计数）、由画像反推 schema 建议、逐行隔离（quarantine）并记录拒绝原因、DataTable 适配器</td></tr><tr><td>cleaning</td><td>数据清洗向导的步骤模型与引擎：类型转换、缺失值策略（删除 / 均值 / 中位数 / 零 / 前向填充）、离群标注（IQR / z 分数）、去重、列重命名五类可序列化步骤；步骤永不改写输入表，支持逐步前进 / 回退 / 跳转与&quot;撤销该步&quot;</td></tr><tr><td>profiler</td><td>流式单遍列画像：数值列用 Welford 精确均值方差加蓄水池采样求分位数与 MAD，修正 z 分数（|0.6745(x−median)/MAD| &gt; 3.5）计离群；文本列用 HyperLogLog 估基数与 Space-Saving 求 Top-K；表级给出 Pearson / Spearman 联合采样与重复率估计，综合成 0–100 确定性质量分与问题清单，按内容指纹缓存</td></tr><tr><td>chunked</td><td>大分隔文件的按行窗口读取（csv / tsv / dat / xyz / txt），工作集保持在一个分块而非整文件；其余格式仍走整文件 io</td></tr><tr><td>sql</td><td>DuckDB-WASM 引擎，首次使用时懒加载；项目文件注册进 DuckDB 虚拟文件系统并暴露为表；查询支持超时与 AbortSignal，中止或超时会终止 Worker 并丢弃单例，下次调用重建实例</td></tr><tr><td>validation</td><td>可组合校验器 <code>(value, path) =&gt; issues[]</code>：组合即普通函数组合，schema 是普通数据，可复用、可部分应用、可无 React 单测；类型校验器跳过 null / undefined，需要必填时用 <code>required()</code> 组合</td></tr><tr><td>errors</td><td>结构化错误分类法与原因链、<code>Result&lt;T, E&gt;</code> 显式错误值通道、退避加抖动的重试与中止、断言守卫、去重错误注册表与有界诊断环，以及全局 <code>error</code> / <code>unhandledrejection</code> 捕获</td></tr></tbody></table>
+</div>
+
+<!-- P11 -->
+<div class="page">
+<p><code>Result</code> 类型的存在理由是边界代码不应以抛错为默认：一行非法 CSV、一个缺失文件都是调用方必须分支处理的<strong>预期</strong>结果，把它变成值可以让分支在 <code>noImplicitReturns</code> 下穷尽，也把堆栈开销从热校验路径上移走。</p>
+<h2 class="sec"><span class="num">十一</span>科研工作流与交付</h2>
+<table><thead><tr><th>子系统</th><th>关键能力</th></tr></thead><tbody><tr><td>experiment</td><td>运行记录模型与 A/B 参数对比：一次执行（流程 / 积木 / 代码 / 笔记本 / 扫描 / 不确定度 / 建模 / 推断）的耐久快照，存于 IndexedDB <code>runs</code> 存储而<strong>不</strong>写进 <code>.clproj</code>，使项目文件保持小巧；按 projectId 建索引，项目删除时一并清理；内容哈希复用 repro 的 FNV-1a</td></tr><tr><td>lineage</td><td>数据血缘图与分层布局：以运行记录上的文件 id 把项目文件（源）连到运行（变换），采用 Sugiyama 式分层 DAG 画法（最长路径分层、单趟重心排序、行居中），无 React / store / DOM 依赖</td></tr><tr><td>sweep</td><td>参数扫描领域层：<code>expandPlan</code> 把 SweepPlan 展开为确定性设计点——全网格 / 列表轴走完整笛卡尔积，全拉丁超立方轴按维度分层抽样，混合 lhs / grid 方案被拒绝（样本量无歧义定义）；纯 TS，全部校验可测</td></tr><tr><td>figure</td><td>出版级组图：FigureSpec 是挂到期刊模板网格（IEEE / Elsevier 栏宽、色盲友好调色板）上的多面板 PlotSpec 容器；<code>composeFigure</code> 渲染单张独立 SVG（嵌套面板 viewport 加 a/b/c 面板标签），<code>exportFigure</code> 处理 SVG / PDF / PNG-600dpi 下载；组图只重新定尺寸，<strong>不</strong>修改原 PlotSpec</td></tr><tr><td>submit</td><td>投稿前检查门：<code>runSubmissionCheck</code> 依据目标期刊档案（IEEE / Elsevier）遍历图文档（模板、面板、图注、导出设置），返回按图像 / 标注 / 文本 / 元数据分组的通过与失败项；每个失败项带 i18n 消息、修复键与问题控件的 DOM id，使界面可以提供&quot;定位问题&quot;；<code>caption.ts</code> 依据图型、列名与可选统计量草拟中英双语的&quot;图 1. …&quot;图注</td></tr><tr><td>report</td><td>交互式报告构建器：<code>buildReport</code> 把 ReportSpec（有序章节：标题、Markdown、Figure Studio 图、数据表、运行摘要、筛选器）构建成<strong>单一自包含 HTML</strong>——内联 CSS、内联 SVG、内联 JSON 数据与零依赖的原生 JS 控制器（筛选联动、可排序表格）；所有用户字符串先转义，内嵌 JSON 以 <code>&lt;script type=&quot;application/json&quot;&gt;</code> 输出并将 <code>&lt;</code> 做 unicode 转义，杜绝 <code>&lt;/script&gt;</code> 载荷逃逸</td></tr><tr><td>package</td><td>补充材料打包：manifest.json（项目元数据、运行记录、血缘图、作者与许可表单）加可选的原始数据文件与代码会话，用 fflate 打成研究者随论文一起上传的 ZIP</td></tr><tr><td>notebook</td><td>笔记本模型：markdown / 代码单元的扁平列表，持久化在 <code>project.state.notebook</code>；执行语义在 notebookStore（Pyodide 运行时是有状态且页面级的），模块本身只持有单元模型、输出模型与一个安全的小型 markdown 渲染器</td></tr></tbody></table>
+</div>
+
+<!-- P12 -->
+<div class="page">
+<table><thead><tr><th>子系统</th><th>关键能力</th></tr></thead><tbody><tr><td>course</td><td>课程模式领域模型：本地优先的教学闭环——教师创建课程（由本地身份字符串标识，无账号体系）、发布绑定学科模板的作业，学生领取任务、在项目中作业并提交运行结果的 repro.lock 快照，教师查看学生 × 作业矩阵、记录评分与评语，并把整个班级按学生一目录导出为包；持久化在 IndexedDB <code>courses</code> 存储</td></tr><tr><td>gallery</td><td>作品长廊：本地&quot;我的分享&quot;存储（localStorage），记录用户分享出去的作品元数据与净化后的快照 HTML，使详情弹窗可离线重开；v1 不上传任何内容，下架只做标记（保留审计轨迹）并从所有列表过滤</td></tr><tr><td>templates</td><td>学科模板目录：把早期&quot;功能演示&quot;样例改写为学科情景模板，每个从真实研究问题出发，附带确定性示例数据集与 3–6 步引导；模板内容以 <code>{ zh, en }</code> 对形式内嵌（不走全局 i18n 字典），只有周边 UI 框架使用 <code>tpl.</code> 键</td></tr></tbody></table>
+<h2 class="sec"><span class="num">十二</span>语言运行时与 AI 助手</h2>
+<table><thead><tr><th>子系统</th><th>关键能力</th></tr></thead><tbody><tr><td>pyodide</td><td>代码模式 Python 运行时：<code>pyodide-worker.ts</code> 在 Web Worker 中启动 CPython，<code>studio.py.ts</code> 作为可导入模块注入 <code>sys.modules</code>，<code>runtime.ts</code> 把 PyodideClient 接到编辑器 store 与渲染桥——流式回传 stdout/stderr、把绘图载荷转给积木模式同一条 RenderedView → 插件通路、把 Python 变量快照转成面板可用的 DataValue</td></tr><tr><td>r</td><td>R 运行时工厂 <code>createRRuntime({ preferFull })</code>：优先尝试 webR 完整运行时，若 bundle 缺失或启动失败则回落到内置 IR 引擎并记录 <code>fallbackReason</code> 供界面如实告知；<code>preferFull = false</code> 时直接走内置引擎。内置路径无外部依赖，必须始终可用——当前发行版即以此路径运行完整 <code>studio.*</code> DSL</td></tr><tr><td>monaco</td><td>Monaco 编辑器宿主与语言服务装配（懒加载）</td></tr><tr><td>ai</td><td>助手双模式策略：离线（默认）是 <code>intents.ts</code> 的纯 TS 规则引擎，把自然语言请求（如&quot;对 x 和 y 做相关分析并画散点图&quot;）经五类意图模板（相关 / 回归 / 分布 / 检验 / 筛选）合成为可运行的 <code>studio.*</code> Python 代码，全程不联网；在线模式要求<strong>同时</strong>具备显式授权标志与已配置端点，缺一即拒绝或降级，使提示词不会意外外泄；<code>validateStudioApi</code> 保证生成的调用不超出真实运行时模块的 API 白名单，助手绝不臆造接口</td></tr><tr><td>theme-pack</td><td><code>.cstheme</code> 主题包：纯声明式数据（CSS 自定义属性覆盖、字体偏好、密度模式与可选图表配色），<strong>绝不携带可执行内容</strong>；<code>parseCsTheme</code> 是唯一校验闸门——严格拒绝每层未知键、拒绝 <code>__proto__</code> / <code>constructor</code> / <code>prototype</code> 等危险原型键、要求 CSS 变量名为 <code>--kebab-case</code></td></tr></tbody></table>
+</div>
+
+<!-- P13 -->
+<div class="page">
+<h2 class="sec"><span class="num">十三</span>支撑设施</h2>
+<ul><li><strong>运行日志导出</strong>：<code>logger.ts</code> 聚合会话日志，配合 <code>download.ts</code> 支持从工作台导出日志文件，便于问题反馈与回归定位。</li><li><strong>插件缓存与示例资产</strong>：<code>pluginCache.ts</code> 与 <code>exampleAssets.ts</code>、<code>examples.ts</code> 支撑内置示例数据与示例项目（<code>examples/projects</code> 下 11 个流程管线、<code>examples/code</code> 下 9 个 Python 示例）的发现与加载。</li><li><strong>viewport2d 与 dataFiles</strong>：2D 视口抽象（快照式访问，插件卸载安全）与项目数据文件注册（<code>setProjectFiles</code> 与 <code>resolveDataFile</code>），使项目自有文件、内置示例与代码模式 <code>_FILES</code> 共享同一套加载逻辑。</li><li><strong>OPFS 与迁移</strong>：<code>opfs.ts</code> 提供大文件分块存储，<code>opfs-migration.ts</code> 把既有 IndexedDB 数据平滑迁移，项目元数据仍留在 IndexedDB。</li><li><strong>PWA 与跨站导航</strong>：<code>pwa.ts</code> 处理离线缓存与服务工作者预缓存清单（由 <code>gen-sw-precache.mjs</code> 生成），<code>site-links.ts</code> 负责工作台、官方站点与文档站三者的互相跳转。</li><li><strong>引用与归档</strong>：<code>citation.ts</code> 生成软件引用与归档元数据，由 <code>gen-citation-cff.mjs</code> 与 <code>check-citation.mjs</code> 维护 CITATION.cff。</li><li><strong>性能基准</strong>：<code>bench/</code> 的 <code>runAllBenchmarks()</code> 执行导入 / 计算 / 渲染 / 内存四类关键路径套件，返回含环境信息（Node 版本、平台、架构、CPU 型号、日期）的结构化结果，由 <code>scripts/bench-run.mjs</code> 在 Node 中无头运行并写入 <code>bench-results.json</code>，再与 <code>bench/baseline.json</code> 对比（详见 08 篇）。</li></ul>
+<p>这 33 个子系统共同构成产品的&quot;科学&quot;底座：统计、建模与推断保证结果的专业性，I/O 与数据工程保证数据入口的开放性与可信度，绘图与组图保证输出的出版级质量，可复现性与交付管线保证结论可以被别人原样重放并随论文一起交付。</p>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
+      </div>
+    </div>
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 七 篇（共 8 篇）</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

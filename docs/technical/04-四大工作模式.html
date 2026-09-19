@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Ergalics Studio 技术文档 · 四大工作模式</title>
+<title>04 四大工作模式</title>
 <style>
   :root {
     --ink: #0f172a; --body: #1e293b; --muted: #64748b;
@@ -34,306 +34,289 @@
   .cover-panel {
     height: 100%; border-radius: 0;
     background: linear-gradient(160deg, #083344 0%, #155e75 55%, #0e7490 100%);
-    color: #f0fdfa; padding: 30mm 20mm 22mm;
+    color: #f0fdfa; padding: 26mm 20mm 22mm;
     display: flex; flex-direction: column;
   }
-  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 6mm; }
-  .cover h1 { font-size: 38pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
-  .cover .sub { font-size: 14pt; color: #a5f3fc; margin-top: 5mm; letter-spacing: 2px; }
-  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 10mm 0; border-radius: 2px; }
-  .cover-abstract { font-size: 11pt; line-height: 2.1; color: #ccfbf1; text-align: justify; max-width: 150mm; }
+  .cover-brand { font-size: 11pt; letter-spacing: 8px; color: #67e8f9; margin-bottom: 5mm; }
+  .cover h1 { font-size: 36pt; margin: 0; color: #ffffff; line-height: 1.25; letter-spacing: 1px; }
+  .cover .sub { font-size: 13.5pt; color: #a5f3fc; margin-top: 4mm; letter-spacing: 1.5px; }
+  .cover-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 7mm 0; border-radius: 2px; }
+  .cover-abstract { font-size: 11pt; line-height: 1.95; color: #ccfbf1; text-align: justify; max-width: 155mm; }
+  /* Three QR codes — one per online home — side by side, each captioned
+     underneath. Kept in flow (not absolutely placed) so a growing synopsis
+     pushes the row down instead of sliding the text underneath it. */
+  .cover-res {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 9mm; margin-top: 8mm; padding-top: 5mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+  }
+  .cover-res .qr-item { width: 50mm; text-align: center; }
+  .cover-res .qr-box {
+    width: 38mm; height: 38mm; margin: 0 auto; padding: 1.7mm;
+    background: #ffffff; border-radius: 3px;
+  }
+  .cover-res .qr-box svg { width: 100%; height: 100%; display: block; }
+  .cover-res .qr-cap {
+    display: block; margin-top: 2.6mm;
+    font-size: 10pt; letter-spacing: 2px; color: #ffffff; text-decoration: none;
+  }
+  /* One line per address: at 6.8pt the longest of the three fits inside the
+     50mm column, so it never breaks at a hyphen. */
+  .cover-res .qr-sub {
+    font-size: 6.8pt; color: #a5f3fc; margin-top: 1.2mm; line-height: 1.4;
+  }
   .cover-modes { margin-top: auto; }
-  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 4mm; }
-  .mode-chips { display: flex; gap: 4mm; }
-  .mode-chip { flex: 1; border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 5mm 3mm; text-align: center; }
-  .mode-chip .t { font-size: 12pt; font-weight: bold; color: #ffffff; }
-  .mode-chip .d { font-size: 8.5pt; color: #a5f3fc; margin-top: 2mm; line-height: 1.6; }
-  .cover-foot { margin-top: 8mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
+  .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
+  .mode-chip {
+    flex: 1 1 34mm; min-width: 34mm;
+    border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
+  }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
+  .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
+  /* Closing page — the cover's counterpart, reached after the last chapter.
+     It reuses the .cover page (no page number, no padding) and the
+     .cover-panel shell (and so the cover's own overflow guard) on a slightly
+     deeper gradient, so a volume opens and closes on the same note instead of
+     ending on a dangling section. */
+  .cover-panel.back { background: linear-gradient(155deg, #062c3a 0%, #0f4c5c 58%, #155e75 100%); padding: 30mm 22mm 22mm; }
+  .back-brand { font-size: 10.5pt; letter-spacing: 8px; color: #67e8f9; }
+  /* The statement occupies the space between the brand mark and the colophon
+     and centres inside it. Centring via flex:1 rather than auto margins
+     matters: an auto margin resolves to a used value, which the overflow guard
+     would read as a real margin and flag as a phantom overflow. */
+  .back-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .back-rule { width: 34mm; height: 3px; background: #67e8f9; margin: 0 0 9mm; border-radius: 2px; }
+  .back-tag .l1 { font-size: 13.5pt; letter-spacing: 6px; color: #a5f3fc; }
+  .back-tag .l2 { font-size: 26pt; color: #ffffff; letter-spacing: 2px; line-height: 1.5; margin-top: 4mm; }
+  .back-body { margin-top: 13mm; max-width: 152mm; text-align: justify; }
+  .back-body p { margin: 0 0 5mm; font-size: 10.5pt; line-height: 2.05; color: #ccfbf1; }
+  /* The signature is printed, not just linked: a PDF has no hover state, so a
+     bare name would carry no address. */
+  .back-sig { margin-top: 3mm; display: flex; align-items: baseline; gap: 3mm; }
+  .back-sig .who { font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-sig a { font-size: 11.5pt; letter-spacing: 1px; color: #ffffff; text-decoration: none; }
+  .back-sig .at { font-size: 8.6pt; color: #a5f3fc; }
+  /* Sits at the panel foot because .back-main above it absorbs all the slack. */
+  .back-foot {
+    padding-top: 7mm;
+    border-top: 1px solid rgba(103, 232, 249, .3);
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm;
+  }
+  .back-foot .homes { display: flex; flex-direction: column; gap: 1.6mm; }
+  .back-foot .homes > div { display: flex; align-items: baseline; gap: 3mm; }
+  .back-foot .homes .h { min-width: 11mm; font-size: 8.4pt; letter-spacing: 2px; color: #67e8f9; }
+  .back-foot .homes a { font-size: 8.8pt; color: #ccfbf1; text-decoration: none; }
+  .back-foot .colophon { font-size: 9pt; color: #67e8f9; letter-spacing: 2px; text-align: right; }
   .toc h1 { font-size: 22pt; color: var(--ink); margin: 10mm 0 12mm; }
   .toc-item { display: flex; align-items: baseline; margin: 7px 0; }
   .toc-item.l2 { margin-left: 10mm; color: var(--muted); font-size: 10pt; }
+  .toc-item.l3 { margin-left: 20mm; color: var(--muted); font-size: 9.4pt; }
   .toc-item.l1 { font-weight: bold; color: var(--ink); font-size: 11.5pt; margin-top: 14px; }
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
   h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
-  h2.sec .num { background: var(--accent); color: #fff; font-size: 11pt; width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  h2.sec .num {
+    background: var(--accent); color: #fff; font-size: 11pt;
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
-  h3.cont { color: var(--muted); font-size: 11pt; margin-bottom: 5mm; }
+  h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
+  ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
-  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.4pt; }
+  a { color: var(--accent); text-decoration: none; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
+  /* Explicit page break: never laid out, only consumed by the paginator. */
+  .pb { height: 0; margin: 0; padding: 0; }
+  code {
+    font-family: Consolas, "JetBrains Mono", monospace; font-size: 9.4pt;
+    background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px;
+  }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3.5mm 4mm; margin: 3mm 0; overflow: hidden;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 9pt; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9.6pt; }
+  thead { display: table-header-group; }
   th { background: var(--accent-soft); color: var(--accent-deep); text-align: left; font-weight: bold; }
-  th, td { border: 1px solid var(--line); padding: 2.2mm 3mm; vertical-align: top; line-height: 1.6; }
-  figure { margin: 4mm 0; text-align: center; }
-  figure img { max-width: 92%; max-height: 60mm; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, .07); }
-  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2mm; }
+  th, td { border: 1px solid var(--line); padding: 2.4mm 3mm; vertical-align: top; line-height: 1.65; }
+  figure { margin: 5mm 0; text-align: center; }
+  /* Every demo image fills the text column: the screenshots carry dense UI at
+     1.5–2.7k px, so scaling them down was wasting most of the available
+     resolution. All of them are landscape, so full width never exceeds a page. */
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+  }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
-  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 5mm 4mm; margin: 4mm 0; }
+  .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
+  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
-  .callout { background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px; padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt; }
+  .svgbox .svgcap { margin: 2.5mm 0 0; }
+  .callout {
+    background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
+  }
 </style>
 </head>
 <body>
 
-<!-- P1 封面 -->
 <div class="page cover">
   <div class="cover-panel">
     <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
-    <h1>四大工作模式</h1>
-    <div class="sub">标准 · 流程 · 积木 · 代码，一份 IR 互通</div>
+    <h1>04 四大工作模式</h1>
+    <div class="sub">让每一次科学计算，都发生在离思想最近的地方</div>
     <div class="cover-rule"></div>
-    <div class="cover-abstract">
-      工作台提供四种模式，由顶栏一键切换：标准、流程、积木、代码。四种模式共享同一套数据语义
-      （DataTable）、同一套插件渲染器，后三种模式更共享同一份中间表示（IR）。
-      切换模式时项目数据、插件状态与参数面板原样保留，上下文零损耗。
-      本篇逐一展开每种模式的界面、机制与示例，并给出三模式互转的技术实现。
-    </div>
+    <div class="cover-abstract">Ergalics Studio 的工作台提供四种模式，由顶栏的 `[标准 | 流程 | 积木 | 代码]` 分段开关切换。四种模式共享同一套数据语义（DataTable）、同一套插件渲染器，后三种模式更共享同一份中间表示（IR）。切换模式时项目数据、插件状态与参数面板原样保留，上下文零损耗。</div>
+    
     <div class="cover-modes">
-      <div class="cap">难度梯度：从零代码到真代码</div>
-      <div class="mode-chips">
-        <div class="mode-chip"><div class="t">标准</div><div class="d">拖入数据<br>即刻看图</div></div>
-        <div class="mode-chip"><div class="t">流程</div><div class="d">37 区块<br>数据流管线</div></div>
-        <div class="mode-chip"><div class="t">积木</div><div class="d">33 积木<br>Blockly 13</div></div>
-        <div class="mode-chip"><div class="t">代码</div><div class="d">Monaco 加<br>Pyodide</div></div>
-      </div>
+      <div class="cap">本篇章节</div>
+      <div class="mode-chips"><div class="mode-chip"><div class="t">一 标准模式</div></div><div class="mode-chip"><div class="t">二 流程模式</div></div><div class="mode-chip"><div class="t">三 积木模式</div></div><div class="mode-chip"><div class="t">四 代码模式</div></div><div class="mode-chip"><div class="t">五 三模式互转</div></div></div>
     </div>
-    <div class="cover-foot">技术文档系列 · 第四篇（共七篇）</div>
+    <div class="cover-foot">技术文档系列 · 第 四 篇（共 8 篇）</div>
   </div>
 </div>
 
-<!-- P2 目录 -->
 <div class="page toc">
   <h1>目 录</h1>
-  <div class="toc-item l1"><span>一、标准模式</span><span class="dots"></span><span class="tp">03</span></div>
-  <div class="toc-item l1"><span>二、流程模式（Flow）</span><span class="dots"></span><span class="tp">04</span></div>
-  <div class="toc-item l2"><span>2.1 区块目录（37 个内置区块）</span><span class="dots"></span><span class="tp">04</span></div>
-  <div class="toc-item l2"><span>2.2 编译器与执行器</span><span class="dots"></span><span class="tp">05</span></div>
-  <div class="toc-item l2"><span>2.3 结果预览与示例管线</span><span class="dots"></span><span class="tp">06</span></div>
-  <div class="toc-item l1"><span>三、积木模式（Blocks）</span><span class="dots"></span><span class="tp">07</span></div>
-  <div class="toc-item l2"><span>3.1 九类积木与唯一入口</span><span class="dots"></span><span class="tp">07</span></div>
-  <div class="toc-item l2"><span>3.2 技术要点</span><span class="dots"></span><span class="tp">08</span></div>
-  <div class="toc-item l1"><span>四、代码模式（Code）</span><span class="dots"></span><span class="tp">09</span></div>
-  <div class="toc-item l1"><span>五、三模式互转（共享 IR）</span><span class="dots"></span><span class="tp">10</span></div>
-  <div class="callout" style="margin-top:14mm">
-    阅读提示：四种模式的共同底座是同一批插件渲染器与同一套 Studio API。
-    每种模式产出的可视化最终都汇入渲染桥接，因此"换一种表达方式"看到的是同一张图。
+<div class="toc-item l1"><span>一、标准模式</span><span class="dots"></span><span class="tp">03</span></div>
+<div class="toc-item l1"><span>二、流程模式（Flow）</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>2.1 区块目录（42 个内置区块）</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l2"><span>2.2 编译器与执行器</span><span class="dots"></span><span class="tp">05</span></div>
+<div class="toc-item l2"><span>2.3 结果预览</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l2"><span>2.4 示例管线</span><span class="dots"></span><span class="tp">06</span></div>
+<div class="toc-item l1"><span>三、积木模式（Blockly）</span><span class="dots"></span><span class="tp">07</span></div>
+<div class="toc-item l1"><span>四、代码模式（Monaco · Python / R / JavaScript）</span><span class="dots"></span><span class="tp">08</span></div>
+<div class="toc-item l1"><span>五、三模式互转（共享 IR）</span><span class="dots"></span><span class="tp">10</span></div>
+
+</div>
+
+<!-- P3 -->
+<div class="page">
+<p>Ergalics Studio 的工作台提供四种模式，由顶栏的 <code>[标准 | 流程 | 积木 | 代码]</code> 分段开关切换。四种模式共享同一套数据语义（DataTable）、同一套插件渲染器，后三种模式更共享同一份中间表示（IR）。切换模式时项目数据、插件状态与参数面板原样保留，上下文零损耗。</p>
+<p>工作台之外还有第二条主线：<strong>科研工具集</strong>（顶栏&quot;科研▾&quot;或欢迎页启动网格进入）。它由 19 个任务式整页工具组成，与工作台共享同一个项目与同一组内核，但不使用模式切换——四项职责见 05 篇。</p>
+<table><thead><tr><th>模式</th><th>面向人群</th><th>核心体验</th></tr></thead><tbody><tr><td>标准 Standard</td><td>已经知道该用哪个插件的人</td><td>拖入数据文件，自动识别格式并路由到匹配插件，即刻看到可视化</td></tr><tr><td>流程 Flow</td><td>管线搭建者</td><td>用 42 个内置区块搭出可视化数据流管线，拓扑排序执行，逐节点查看输出</td></tr><tr><td>积木 Block</td><td>学习者与想要命令式体验的人</td><td>类 Scratch 积木编辑器，唯一入口是绿色&quot;运行时&quot;帽子区块</td></tr><tr><td>代码 Code</td><td>真实脚本用户</td><td>Monaco 编辑器，Python 走 Pyodide 中真实的 CPython，R / JavaScript 在进程内 IR 引擎执行</td></tr></tbody></table>
+<h2 class="sec"><span class="num">一</span>标准模式</h2>
+<p>默认落地体验。工作台为四区布局：顶栏（项目与模式切换）、左侧栏（项目树与插件列表）、中央视口（激活插件渲染，首次启动为拖放区）、右侧参数面板（把激活插件声明的参数转成响应式表单），状态栏常驻显示 GPU 可用性与性能指标。文件拖入后由宿主按魔数与扩展名路由，多插件匹配时弹选择框。</p>
+<p>顶栏动作按语义分为五簇，以分隔线区隔：<code>[标准 | 流程 | 积木 | 代码]</code> 模式开关、<code>[数据⓷ | 示例]</code> 数据簇、<code>[项目▾ | 保存 | 分享]</code> 项目簇（项目▾ 含新建 / 打开 / 另存为 / 导出日志）、<code>[分析 | 科研▾]</code> 科研簇（科研▾ 展开 19 个科研工具，见 05 篇）、<code>[⚙ | ? | FPS | 语言 | 主题]</code> 环境簇。</p>
+</div>
+
+<!-- P4 -->
+<div class="page">
+<p>适合&quot;我已经知道哪个插件能回答我的问题，只想把文件指给它&quot;的场景。</p>
+<figure><img src="../Estudio.png" alt="标准模式"><figcaption>标准模式</figcaption></figure>
+<h2 class="sec"><span class="num">二</span>流程模式（Flow）</h2>
+<p>可视化数据流管线编辑器。左侧调色板、中间画布（节点加边）、右侧参数编辑器、底部结果预览。整个图持久化进项目的 <code>blockGraph</code> 字段，重新打开自动恢复，并共享 <code>.clproj</code> 的自动保存与分享管线。</p>
+<h3><span class="hn">2.1</span>区块目录（42 个内置区块）</h3>
+<table><thead><tr><th>类别</th><th>数量</th><th>区块</th></tr></thead><tbody><tr><td>数据源 source</td><td>4</td><td>示例数据、随机数据生成、网格生成、文件加载</td></tr><tr><td>变换 transform</td><td>5</td><td>列选取、列重命名、新增列、归一化、排序</td></tr><tr><td>过滤 filter</td><td>3</td><td>数值范围过滤、条件值过滤、Top-K 选取</td></tr><tr><td>数学 math</td><td>6</td><td>加、减、乘、除（列对列或列对标量）、平方根、绝对值</td></tr></tbody></table>
+</div>
+
+<!-- P5 -->
+<div class="page">
+<table><thead><tr><th>类别</th><th>数量</th><th>区块</th></tr></thead><tbody><tr><td>统计 stats</td><td>14</td><td>摘要统计、直方图分箱、单样本 / 独立双样本 / 配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方独立性检验、相关分析、Cohen's d 效应量、多重比较校正、Bootstrap、蒙特卡洛传播、MCMC 采样</td></tr><tr><td>单位 units</td><td>2</td><td>量纲换算（units.convert）、量纲一致性检查（units.check）</td></tr><tr><td>可视化 viz</td><td>4</td><td>散点、折线、直方图、二维点云（经渲染桥接走插件出图）</td></tr><tr><td>绘图 plot</td><td>4</td><td>折线、散点、直方图、柱状（出版级绘图引擎渲染）</td></tr></tbody></table>
+<p><code>viz.*</code> 与 <code>plot.*</code> 的分工是刻意的：<code>viz.*</code> 把 <code>RenderedView</code> 交给<strong>插件渲染器</strong>，与标准模式看到的是同一个插件；<code>plot.*</code> 走 <code>src/core/plot/</code> 的<strong>纯 TS 矢量引擎</strong>，产出可直接导出 SVG / PDF 的出版级图。数学与统计区块直接调用 <code>src/core/stats</code> 与 <code>src/core/units</code> 的纯函数实现（详见 07 篇）；区块元数据（名称、描述）内建中英双语，经 <code>src/blocks/l10n.ts</code> 统一解析，新增语言是纯数据改动。</p>
+<p>控制流区块（if/else、repeat、parallel）刻意推迟——<code>BlockInstance</code> 上的 <code>region</code> 接缝已就位，后续可作为扩展嵌入而非重构。</p>
+<h3><span class="hn">2.2</span>编译器与执行器</h3>
+<p>编译器是一个纯函数：结构校验（端口匹配、必需输入、类型兼容）、环检测、Kahn 式拓扑排序，错误以结构化 <code>diagnostics</code> 返回，画布据此绘制红色边与内联诊断条，全程不抛异常。</p>
+<p>执行器带节点级增量缓存与脏值传播失效：修改单个区块的参数，只有它及其下游会重新执行。运行支持取消与并发去重——重复触发运行不会产生并行执行，取消会真正终止进行中的计算节点。</p>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 1199.046875 177.8671875" style="max-width: 1199.046875px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-1-87c706"><style>#mmd-1-87c706{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-1-87c706 .error-icon{fill:#fefce8;}#mmd-1-87c706 .error-text{fill:#010317;stroke:#010317;}#mmd-1-87c706 .edge-thickness-normal{stroke-width:2px;}#mmd-1-87c706 .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-87c706 .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-87c706 .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-87c706 .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-87c706 .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-87c706 .marker.cross{stroke:#0e7490;}#mmd-1-87c706 svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-87c706 .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-87c706 .cluster-label text{fill:#010317;}#mmd-1-87c706 .cluster-label span,#mmd-1-87c706 p{color:#010317;}#mmd-1-87c706 .label text,#mmd-1-87c706 span,#mmd-1-87c706 p{fill:#155e75;color:#155e75;}#mmd-1-87c706 .node rect,#mmd-1-87c706 .node circle,#mmd-1-87c706 .node ellipse,#mmd-1-87c706 .node polygon,#mmd-1-87c706 .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-87c706 .flowchart-label text{text-anchor:middle;}#mmd-1-87c706 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-87c706 .node .label{text-align:center;}#mmd-1-87c706 .node.clickable{cursor:pointer;}#mmd-1-87c706 .arrowheadPath{fill:#0b0b0b;}#mmd-1-87c706 .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-1-87c706 .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-87c706 .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-87c706 .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-87c706 .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-87c706 .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-87c706 .cluster text{fill:#010317;}#mmd-1-87c706 .cluster span,#mmd-1-87c706 p{color:#010317;}#mmd-1-87c706 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-87c706 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-87c706 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-87c706_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-87c706_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-87c706_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-1-87c706_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-87c706_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-1-87c706_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-A LE-B" id="L-A-B-0" d="M110.344,69.238L114.51,69.238C118.677,69.238,127.01,69.238,134.46,69.238C141.91,69.238,148.477,69.238,151.76,69.238L155.044,69.238"></path><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-C" id="L-B-C-0" d="M301,38.589L308.417,35.357C315.833,32.124,330.667,25.66,346.421,22.428C362.176,19.195,378.852,19.195,387.19,19.195L395.528,19.195"></path><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-B LE-D" id="L-B-D-0" d="M301,99.888L308.417,103.12C315.833,106.352,330.667,112.817,344.617,116.049C358.567,119.281,371.633,119.281,378.167,119.281L384.7,119.281"></path><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-D LE-E" id="L-D-E-0" d="M569.656,119.281L573.823,119.281C577.99,119.281,586.323,119.281,593.773,119.281C601.223,119.281,607.79,119.281,611.073,119.281L614.356,119.281"></path><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-E LE-F" id="L-E-F-0" d="M725.656,119.281L729.823,119.281C733.99,119.281,742.323,119.281,749.773,119.281C757.223,119.281,763.79,119.281,767.073,119.281L770.356,119.281"></path><path marker-end="url(#mmd-1-87c706_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-F LE-G" id="L-F-G-0" d="M933.656,119.281L937.823,119.281C941.99,119.281,950.323,119.281,957.773,119.281C965.223,119.281,971.79,119.281,975.073,119.281L978.356,119.281"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(345.5, 19.1953125)" class="edgeLabel"><g transform="translate(-19.5, -11.6953125)" class="label"><foreignObject height="23.390625" width="39"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">有错误</span></div></foreignObject></g></g><g transform="translate(345.5, 119.28125)" class="edgeLabel"><g transform="translate(-13, -11.6953125)" class="label"><foreignObject height="23.390625" width="26"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">通过</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(55.171875, 69.23828125)" data-id="A" data-node="true" id="flowchart-A-0" class="node default default flowchart-label"><rect height="61.78125" width="110.34375" y="-30.890625" x="-55.171875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-47.671875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="95.34375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">区块图<br>（节点 + 连线）</span></div></foreignObject></g></g><g transform="translate(230.671875, 69.23828125)" data-id="B" data-node="true" id="flowchart-B-1" class="node default default flowchart-label"><rect height="61.78125" width="140.65625" y="-30.890625" x="-70.328125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-62.828125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="125.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">编译器（纯函数）<br>校验 · 拓扑排序 · 诊断</span></div></foreignObject></g></g><g transform="translate(479.828125, 19.1953125)" data-id="C" data-node="true" id="flowchart-C-3" class="node default default flowchart-label"><rect height="38.390625" width="158" y="-19.1953125" x="-79" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-71.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="143"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">画布绘制红色边与诊断条</span></div></foreignObject></g></g><g transform="translate(479.828125, 119.28125)" data-id="D" data-node="true" id="flowchart-D-5" class="node default default flowchart-label"><rect height="61.78125" width="179.65625" y="-30.890625" x="-89.828125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-82.328125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="164.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">执行器<br>增量缓存 · 脏值传播 · 可取消</span></div></foreignObject></g></g><g transform="translate(672.65625, 119.28125)" data-id="E" data-node="true" id="flowchart-E-7" class="node default default flowchart-label"><rect height="38.390625" width="106" y="-19.1953125" x="-53" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-45.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="91"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">逐节点输出缓存</span></div></foreignObject></g></g><g transform="translate(854.65625, 119.28125)" data-id="F" data-node="true" id="flowchart-F-9" class="node default default flowchart-label"><rect height="38.390625" width="158" y="-19.1953125" x="-79" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-71.5, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="143"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">渲染桥接（唯一副作用）</span></div></foreignObject></g></g><g transform="translate(1083.3515625, 119.28125)" data-id="G" data-node="true" id="flowchart-G-11" class="node default default flowchart-label"><rect height="85.171875" width="199.390625" y="-42.5859375" x="-99.6953125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-92.1953125, -35.0859375)" style="" class="label"><rect></rect><foreignObject height="70.171875" width="184.390625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">RenderedView 送入插件渲染器<br>DataTable 渲染为只读表格<br>Scalar 内联显示</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 1</div></div>
+</div>
+
+<!-- P6 -->
+<div class="page">
+<h3><span class="hn">2.3</span>结果预览</h3>
+<p>底部预览随所选节点输出类型自适应：<code>RenderedView</code> 走既有插件渲染器（散点、直方图等）；<code>DataTable</code> 输出（如 <code>stats.summary</code>、<code>stats.histogram</code> 的分箱结果）渲染为只读表格，使非可视化输出也看得见；<code>Scalar</code> 内联显示。管线有多个输出时由芯片切换器选择检视节点。</p>
+<figure><img src="../flow.png" alt="流程模式"><figcaption>流程模式</figcaption></figure>
+<h3><span class="hn">2.4</span>示例管线</h3>
+<p>11 个示例项目以真实 <code>.clproj</code> 文件存放在 <code>examples/projects</code>，构建期经 <code>import.meta.glob</code> 自动发现，新增示例只需放入文件并在元数据表登记：</p>
+<table><thead><tr><th>示例</th><th>主题</th></tr></thead><tbody><tr><td>block-01-signal-analysis</td><td>信号分析</td></tr><tr><td>block-02-random-distribution</td><td>随机分布</td></tr><tr><td>block-03-grid-scatter</td><td>网格散点</td></tr><tr><td>block-04-range-filter</td><td>范围过滤</td></tr></tbody></table>
+</div>
+
+<!-- P7 -->
+<div class="page">
+<table><thead><tr><th>示例</th><th>主题</th></tr></thead><tbody><tr><td>block-05-dual-pipeline</td><td>双管线对比</td></tr><tr><td>block-06-topk-pipeline</td><td>Top-K 选取</td></tr><tr><td>block-07-binning-stats</td><td>分箱统计</td></tr><tr><td>block-08-normalize-grid</td><td>归一化网格</td></tr><tr><td>crystal-lattice-demo</td><td>晶格演示</td></tr><tr><td>particles-demo</td><td>粒子演示</td></tr><tr><td>point-cloud-demo</td><td>点云演示</td></tr></tbody></table>
+<p>全部 11 个示例都通过共享 IR 解释器执行，并由 <code>examples-roundtrip</code> 单元测试逐一验证。</p>
+<h2 class="sec"><span class="num">三</span>积木模式（Blockly）</h2>
+<p>类 Scratch 的积木编辑器，面向学习者与想要命令式体验的用户。唯一执行入口是绿色&quot;运行时&quot;帽子区块，帽子下方未连接的孤立区块永不运行，从根本上杜绝&quot;误执行破损代码&quot;。30 余种内置积木按九个类别组织：</p>
+<table><thead><tr><th>类别</th><th>积木</th></tr></thead><tbody><tr><td>开始</td><td>运行时帽子区块（唯一入口）</td></tr><tr><td>数据</td><td>载入 CSV、载入 XYZ、随机数、范围、列表</td></tr><tr><td>变量</td><td>赋值与读取</td></tr><tr><td>运算符</td><td>算术、比较、逻辑、一元</td></tr><tr><td>变换</td><td>归一化、排序、列选取、过滤</td></tr><tr><td>统计</td><td>摘要、直方图</td></tr><tr><td>绘图</td><td>散点、折线、直方图、点云</td></tr><tr><td>控制流</td><td>如果、重复、当循环、遍历</td></tr><tr><td>工具</td><td>打印、原始文本</td></tr></tbody></table>
+</div>
+
+<!-- P8 -->
+<div class="page">
+<figure><img src="../block.png" alt="积木模式"><figcaption>积木模式</figcaption></figure>
+<p>技术要点：</p>
+<ul><li>Blockly 13 驱动画布，包为懒加载分包（约 828 KB），不影响标准与流程模式首屏；媒体资源同源 vendoring，不依赖 CDN。</li><li>区块名称、提示、下拉选项与工具箱类别经 Blockly 的 <code>BKY_*</code> 键系统本地化，切换语言时以重新标注的积木重建工作区，有专门单元测试（<code>tests/editor/block-i18n.test.ts</code>）验证。</li><li>运行按钮提供实时结果预览、变量面板与控制台面板三张卡片。</li><li>5 个内置示例程序（星系散点、遥测折线、随机直方图、归一化散点、循环打印）位于 <code>src/editor/block/samples.ts</code>，经顶栏&quot;示例&quot;对话框加载。</li><li>积木图编译为共享 IR 后由内置解释器执行，解释器调用与代码模式相同的 Studio API。</li></ul>
+<h2 class="sec"><span class="num">四</span>代码模式（Monaco · Python / R / JavaScript）</h2>
+<p>真正的脚本编辑器。工具栏提供 <strong>Python / R / JS</strong> 分段语言开关与一个引擎徽标，明示当前缓冲区将由谁执行。</p>
+</div>
+
+<!-- P9 -->
+<div class="page">
+<table><thead><tr><th>语言</th><th>执行引擎</th><th>说明</th></tr></thead><tbody><tr><td>Python</td><td>Pyodide Web Worker 中的完整 CPython</td><td>自由语法（推导式、f-string、可导入包），<code>studio</code> 作为正经可导入模块注入，支持 REPL 单表达式求值</td></tr><tr><td>R</td><td>进程内 IR 引擎</td><td>缓冲区解析为共享 IR，由与积木模式相同的解释器执行；<code>&lt;-</code> 赋值</td></tr><tr><td>JavaScript</td><td>进程内 IR 引擎</td><td>同上；<code>const/let/var</code> 声明</td></tr></tbody></table>
+<p>公共能力：</p>
+<ul><li><strong>studio 接口跨语言一致</strong>：<code>load / random / range / exampleData / grid / normalize / sort / select / addColumn / addConstantColumn / filter / filterRange / topK / renameColumn / summary / histogram / plot / print / notify / getParam / setParam</code>。<code>studio.plot(...)</code> 经渲染桥接落到与流程模式 <code>viz.*</code> 区块完全相同的插件。</li><li><strong>一键语言互译</strong>：切换标签页即把当前程序从 IR 中枢生成到另一种语言，无需复制粘贴。</li><li><strong>中断</strong>：停止运行会终止并重启 Worker，失控循环不会卡死页面；Worker 的引导地址与引导 Promise 做了记忆化，重启不重复初始化。</li><li><strong>快捷键</strong>：<code>Ctrl/⌘ + Enter</code> 运行缓冲区（并停止进行中的 Python 任务）；键盘输入防抖 150 ms 后同步回 IR，使积木与流程在打字过程中保持实时。</li><li><strong>DSL 边界显式化</strong>：R / JS 解析器无法建模的语句保留为原始代码节点，运行时跳过并在控制台报告一次计数；完整语法随时在 Python 标签页可用。</li></ul>
+<table><thead><tr><th>方法</th><th>说明</th></tr></thead><tbody><tr><td>load</td><td>装载项目数据文件为表格</td></tr><tr><td>random / range / exampleData / grid</td><td>生成随机数、整数序列、内置示例与网格数据</td></tr><tr><td>normalize / sort / select / addColumn / addConstantColumn / filter / filterRange / topK / renameColumn</td><td>表格变换</td></tr><tr><td>summary / histogram</td><td>摘要统计与分箱</td></tr><tr><td>plot</td><td>绘图（经渲染桥接走插件渲染器）</td></tr></tbody></table>
+</div>
+
+<!-- P10 -->
+<div class="page">
+<table><thead><tr><th>方法</th><th>说明</th></tr></thead><tbody><tr><td>print / notify</td><td>控制台输出与通知</td></tr><tr><td>getParam / setParam</td><td>项目参数读写</td></tr></tbody></table>
+<p>9 个示例程序以真实文件存放在 <code>examples/code</code>（EDA 管线、蒙特卡洛估圆、信号平滑、遥测探索、星系散点、随机直方图、范围循环、添加列绘图、归一化过滤），经&quot;示例&quot;对话框加载。</p>
+<figure><img src="../code.png" alt="代码模式"><figcaption>代码模式</figcaption></figure>
+<h2 class="sec"><span class="num">五</span>三模式互转（共享 IR）</h2>
+<p>IR（<code>src/editor/ir</code>，含校验、哈希与序列化）是积木、流程、代码三种模式的唯一事实来源，各模式与 IR 之间都有纯函数往返转换：</p>
+</div>
+
+<!-- P11 -->
+<div class="page">
+<table><thead><tr><th>转换</th><th>模块</th></tr></thead><tbody><tr><td>IR 与流程 DAG 互转</td><td><code>src/editor/flow/convert.ts</code>（irToFlow、flowToIR，Kahn 拓扑排序，参数与区块目录 1:1 对齐）</td></tr><tr><td>Blockly JSON 与 IR 互转</td><td><code>src/editor/block/convert.ts</code></td></tr><tr><td>代码缓冲区解析回 IR</td><td><code>src/editor/code/parse.ts</code>（无法解析的行保留为原始代码节点）</td></tr><tr><td>IR 生成代码</td><td><code>src/editor/codegen</code>（Python、R、JS 三个生成器）</td></tr><tr><td>IR 直接解释执行</td><td><code>src/editor/runtime/interpreter.ts</code>（调用与流程区块相同的 Studio API）</td></tr></tbody></table>
+<div class="svgbox"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="-8 -8 410.6875 389.734375" style="max-width: 410.6875px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd-2-hgvix1"><style>#mmd-2-hgvix1{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}#mmd-2-hgvix1 .error-icon{fill:#fefce8;}#mmd-2-hgvix1 .error-text{fill:#010317;stroke:#010317;}#mmd-2-hgvix1 .edge-thickness-normal{stroke-width:2px;}#mmd-2-hgvix1 .edge-thickness-thick{stroke-width:3.5px;}#mmd-2-hgvix1 .edge-pattern-solid{stroke-dasharray:0;}#mmd-2-hgvix1 .edge-pattern-dashed{stroke-dasharray:3;}#mmd-2-hgvix1 .edge-pattern-dotted{stroke-dasharray:2;}#mmd-2-hgvix1 .marker{fill:#0e7490;stroke:#0e7490;}#mmd-2-hgvix1 .marker.cross{stroke:#0e7490;}#mmd-2-hgvix1 svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-2-hgvix1 .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-2-hgvix1 .cluster-label text{fill:#010317;}#mmd-2-hgvix1 .cluster-label span,#mmd-2-hgvix1 p{color:#010317;}#mmd-2-hgvix1 .label text,#mmd-2-hgvix1 span,#mmd-2-hgvix1 p{fill:#155e75;color:#155e75;}#mmd-2-hgvix1 .node rect,#mmd-2-hgvix1 .node circle,#mmd-2-hgvix1 .node ellipse,#mmd-2-hgvix1 .node polygon,#mmd-2-hgvix1 .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-2-hgvix1 .flowchart-label text{text-anchor:middle;}#mmd-2-hgvix1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-2-hgvix1 .node .label{text-align:center;}#mmd-2-hgvix1 .node.clickable{cursor:pointer;}#mmd-2-hgvix1 .arrowheadPath{fill:#0b0b0b;}#mmd-2-hgvix1 .edgePath .path{stroke:#0e7490;stroke-width:2.0px;}#mmd-2-hgvix1 .flowchart-link{stroke:#0e7490;fill:none;}#mmd-2-hgvix1 .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-2-hgvix1 .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-2-hgvix1 .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-2-hgvix1 .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-2-hgvix1 .cluster text{fill:#010317;}#mmd-2-hgvix1 .cluster span,#mmd-2-hgvix1 p{color:#010317;}#mmd-2-hgvix1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-2-hgvix1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-2-hgvix1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="6" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-hgvix1_flowchart-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-hgvix1_flowchart-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-hgvix1_flowchart-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart" id="mmd-2-hgvix1_flowchart-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-hgvix1_flowchart-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart" id="mmd-2-hgvix1_flowchart-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" marker-start="url(#mmd-2-hgvix1_flowchart-pointStart)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-FL LE-IR" id="L-FL-IR-0" d="M101.043,43.691L101.043,46.974C101.043,50.257,101.043,56.824,101.794,63.413C102.545,70.001,104.047,76.612,104.798,79.917L105.549,83.222"></path><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" marker-start="url(#mmd-2-hgvix1_flowchart-pointStart)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-BL LE-IR" id="L-BL-IR-0" d="M276.785,43.691L276.785,46.974C276.785,50.257,276.785,56.824,263.252,64.747C249.718,72.669,222.651,81.948,209.117,86.587L195.584,91.226"></path><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-CD LE-IR" id="L-CD-IR-0" d="M94.196,223.563L97.454,217.447C100.712,211.331,107.227,199.099,110.485,187.751C113.742,176.402,113.742,165.937,113.742,160.704L113.742,155.472"></path><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-IR LE-CD" id="L-IR-CD-0" d="M80.834,150.172L74.319,156.288C67.803,162.404,54.773,174.635,51.1,186.088C47.427,197.54,53.112,208.212,55.954,213.548L58.796,218.885"></path><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-IR LE-SA" id="L-IR-SA-0" d="M190.57,147.146L208.823,153.767C227.076,160.387,263.581,173.627,281.833,185.48C300.086,197.332,300.086,207.797,300.086,213.03L300.086,218.263"></path><path marker-end="url(#mmd-2-hgvix1_flowchart-pointEnd)" style="fill:none;" class="edge-thickness-normal edge-pattern-solid flowchart-link LS-SA LE-RB" id="L-SA-RB-0" d="M300.086,285.344L300.086,289.51C300.086,293.677,300.086,302.01,300.086,309.46C300.086,316.91,300.086,323.477,300.086,326.76L300.086,330.044"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(113.7421875, 186.8671875)" class="edgeLabel"><g transform="translate(-26, -11.6953125)" class="label"><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">代码解析</span></div></foreignObject></g></g><g transform="translate(41.7421875, 186.8671875)" class="edgeLabel"><g transform="translate(-26, -11.6953125)" class="label"><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">代码生成</span></div></foreignObject></g></g><g transform="translate(300.0859375, 186.8671875)" class="edgeLabel"><g transform="translate(-26, -11.6953125)" class="label"><foreignObject height="23.390625" width="52"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel">解释执行</span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(113.7421875, 119.28125)" data-id="IR" data-node="true" id="flowchart-IR-12" class="node default default flowchart-label"><rect height="61.78125" width="153.65625" y="-30.890625" x="-76.828125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-69.328125, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="138.65625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">共享 IR<br>（校验 · 哈希 · 序列化）</span></div></foreignObject></g></g><g transform="translate(101.04296875, 19.1953125)" data-id="FL" data-node="true" id="flowchart-FL-13" class="node default default flowchart-label"><rect height="38.390625" width="99.15625" y="-19.1953125" x="-49.578125" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-42.078125, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="84.15625"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">流程模式 DAG</span></div></foreignObject></g></g><g transform="translate(276.78515625, 19.1953125)" data-id="BL" data-node="true" id="flowchart-BL-15" class="node default default flowchart-label"><rect height="38.390625" width="152.328125" y="-19.1953125" x="-76.1640625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-68.6640625, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="137.328125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">积木模式 Blockly JSON</span></div></foreignObject></g></g><g transform="translate(77.7421875, 254.453125)" data-id="CD" data-node="true" id="flowchart-CD-17" class="node default default flowchart-label"><rect height="61.78125" width="155.484375" y="-30.890625" x="-77.7421875" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-70.2421875, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="140.484375"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">代码模式缓冲区<br>Python / R / JavaScript</span></div></foreignObject></g></g><g transform="translate(300.0859375, 254.453125)" data-id="SA" data-node="true" id="flowchart-SA-22" class="node default default flowchart-label"><rect height="61.78125" width="189.203125" y="-30.890625" x="-94.6015625" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-87.1015625, -23.390625)" style="" class="label"><rect></rect><foreignObject height="46.78125" width="174.203125"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">Studio API<br>load · transform · stats · plot</span></div></foreignObject></g></g><g transform="translate(300.0859375, 354.5390625)" data-id="RB" data-node="true" id="flowchart-RB-24" class="node default default flowchart-label"><rect height="38.390625" width="93" y="-19.1953125" x="-46.5" ry="0" rx="0" style="" class="basic label-container"></rect><g transform="translate(-39, -11.6953125)" style="" class="label"><rect></rect><foreignObject height="23.390625" width="78"><div style="display: inline-block; white-space: nowrap;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">插件渲染桥接</span></div></foreignObject></g></g></g></g></g></svg><div class="svgcap">图 2</div></div>
+<p>在流程模式搭一条管线，切到积木就能看到同样的逻辑以积木呈现，跳到代码就能看到生成的 Python；反向亦然。流程编辑会<strong>合并</strong>进 IR 而不是把它拍平（<code>mergeFlowIR</code>）：print / loop / if / function 语句留在原位，只替换 DAG 节点；<code>src/stores/useFlowSync.ts</code> 中的图签名守卫会忽略注水产生的防抖回声，使反复切换模式不会丢失节点。</p>
+</div>
+
+<!-- P12 -->
+<div class="page">
+<p>代码生成器按目标语言处理方言差异：Python 生成器输出真实 Python 语法，R 生成器处理 R 的语法习惯（循环写法、真值字面量、整除与逻辑运算符等），JS 生成器输出可直接求值的脚本。</p>
+<p>往返一致性由 <code>sync-threeway</code>、<code>flow-convert</code>、<code>editorStore</code> 与 <code>examples-roundtrip</code> 四组单元测试钉住，并由 <code>verify-lang-modes</code> 端到端套件做真实浏览器的 R/JS 编辑、R→JS 互译、Flow ⇄ Block ⇄ Code 无损循环与真实管线运行验证。</p>
+</div>
+
+<div class="page cover back">
+  <div class="cover-panel back">
+    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-main">
+      <div class="back-rule"></div>
+      <div class="back-tag">
+        <div class="l1">让每一次科学计算，</div>
+        <div class="l2">都发生在离思想最近的地方</div>
+      </div>
+      <div class="back-body">
+        <p>Ergalics Studio 把复杂度收进浏览器：安装、配置与数据搬运都不该出现在科研的路上。打开即可计算，数据留在本机，四种工作模式共享同一份数据——一张图、一条流程与一行代码，都是同一次工作的不同表达。</p>
+        <p>工具越安静，思想就越清楚。我们做的每一处取舍，都为了把注意力还给问题本身。</p>
+      </div>
+      <div class="back-sig">
+        <span class="who">作者</span>
+        <a href="https://github.com/SnowLeopard-io">SnowLeopard-io</a>
+        <span class="at">github.com/SnowLeopard-io</span>
+      </div>
+    </div>
+    <div class="back-foot">
+      <div class="homes">
+      <div><span class="h">官网</span><a href="https://snowleopard-io.github.io/ErgalicsStudio/">snowleopard-io.github.io/ErgalicsStudio</a></div>
+      <div><span class="h">GitHub</span><a href="https://github.com/SnowLeopard-io/ErgalicsStudio">github.com/SnowLeopard-io/ErgalicsStudio</a></div>
+      <div><span class="h">Gitee</span><a href="https://gitee.com/cnt-code/ergalics-studio">gitee.com/cnt-code/ergalics-studio</a></div>
+      </div>
+      <div class="colophon">技术文档系列 · 第 四 篇（共 8 篇）</div>
+    </div>
   </div>
-</div>
-
-<!-- P3 一、标准模式 -->
-<div class="page">
-  <h2 class="sec"><span class="num">一</span>标准模式</h2>
-  <p>标准模式是默认落地体验。工作台为四区布局：顶栏（项目与模式切换）、左侧栏（项目树与插件列表）、中央视口（激活插件渲染，首次启动为拖放区）、右侧参数面板（把激活插件声明的参数转成响应式表单），状态栏常驻显示 GPU 可用性与性能指标。文件拖入后由宿主按魔数与扩展名路由，多插件匹配时弹选择框。</p>
-  <p>它适合"我已经知道哪个插件能回答我的问题，只想把文件指给它"的场景：不需要理解管线与程序，把数据交给工具，工具把图还给用户。所有参数面板的控件种类（滑杆、下拉、复选框等八类）与数值约束都来自插件清单的声明，用户调整参数即所见即所得地改变画布。</p>
-  <figure>
-    <img src="../Estudio.png" alt="标准模式">
-    <figcaption><b>图 1</b>　标准模式：左侧项目与插件列表，中央视口，右侧响应式参数面板</figcaption>
-  </figure>
-  <div class="callout">
-    标准模式刻意隐藏一切编程概念：没有节点、没有变量、没有控制流。这是产品难度梯度的第一级——
-    数据进、图像出，其余的一切都不出现。
-  </div>
-</div>
-
-<!-- P4 二、流程模式 -->
-<div class="page">
-  <h2 class="sec"><span class="num">二</span>流程模式（Flow）</h2>
-  <p>流程模式是可视化数据流管线编辑器。左侧调色板、中间画布（节点加边）、右侧参数编辑器、底部结果预览。整个图持久化进项目的 blockGraph 字段，重新打开自动恢复，并共享 .clproj 的自动保存与分享管线。</p>
-  <h3><span class="hn">2.1</span>区块目录（37 个内置区块）</h3>
-  <table>
-    <tr><th style="width:14%">类别</th><th style="width:10%">数量</th><th>区块</th></tr>
-    <tr><td><strong>数据源</strong></td><td>4</td><td>内置示例数据、随机数生成、网格生成、文件加载</td></tr>
-    <tr><td><strong>过滤</strong></td><td>3</td><td>数值范围过滤、条件值过滤、TopK 选取</td></tr>
-    <tr><td><strong>数学</strong></td><td>6</td><td>加、减、乘、除（列对列或列对标量）、平方根、绝对值</td></tr>
-    <tr><td><strong>变换</strong></td><td>5</td><td>列选取、列重命名、新增列、归一化、排序</td></tr>
-    <tr><td><strong>统计</strong></td><td>11</td><td>摘要统计、直方图分箱、单样本 t 检验、双样本 t 检验、配对 t 检验、单因素方差分析、Mann-Whitney U 检验、卡方独立性检验、相关分析、Cohen's d 效应量、多重比较校正</td></tr>
-    <tr><td><strong>绘图</strong></td><td>4</td><td>折线、散点、直方图、柱状（出版级绘图引擎渲染）</td></tr>
-    <tr><td><strong>可视化</strong></td><td>4</td><td>散点、折线、直方图、二维点云（经渲染桥接走插件出图）</td></tr>
-  </table>
-  <p>统计区块直接调用 src/core/stats 统计内核的纯函数实现（详见第六篇）；区块元数据（名称、描述）内建中英双语。11 个统计区块覆盖了 introductory 统计课的主要假设检验方法，这是产品服务统计教学的关键拼图。</p>
-</div>
-
-<!-- P5 2.2 编译器与执行器 -->
-<div class="page">
-  <h3><span class="hn">2.2</span>编译器与执行器</h3>
-  <p>编译器是一个纯函数：结构校验（端口匹配、必需输入、类型兼容）、环检测、Kahn 式拓扑排序，错误以结构化诊断返回，画布据此绘制红色边与内联诊断条，全程不抛异常。</p>
-  <p>执行器带节点级增量缓存与脏值传播失效：修改单个区块的参数，只有它及其下游会重新执行。运行支持取消与并发去重——重复触发运行不会产生并行执行，取消会真正终止进行中的计算节点。</p>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arF4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="12">
-        <rect x="16" y="70" width="130" height="50" rx="9" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="81" y="90" text-anchor="middle" fill="#155e75" font-weight="bold">区块图</text>
-        <text x="81" y="107" text-anchor="middle" fill="#475569">节点 + 连线</text>
-        <rect x="190" y="70" width="160" height="50" rx="9" fill="#0e7490"/>
-        <text x="270" y="90" text-anchor="middle" fill="#ffffff" font-weight="bold">编译器（纯函数）</text>
-        <text x="270" y="107" text-anchor="middle" fill="#cffafe">校验 · 拓扑排序 · 诊断</text>
-        <rect x="394" y="16" width="150" height="40" rx="9" fill="#fef2f2" stroke="#fca5a5"/>
-        <text x="469" y="34" text-anchor="middle" fill="#7f1d1d" font-weight="bold">画布绘制诊断</text>
-        <text x="469" y="50" text-anchor="middle" fill="#475569">红色边 + 内联提示</text>
-        <rect x="394" y="130" width="150" height="46" rx="9" fill="#f0fdf4" stroke="#86efac"/>
-        <text x="469" y="148" text-anchor="middle" fill="#14532d" font-weight="bold">执行器</text>
-        <text x="469" y="165" text-anchor="middle" fill="#475569">增量缓存 · 脏值传播 · 可取消</text>
-        <rect x="580" y="70" width="86" height="50" rx="9" fill="#fefce8" stroke="#facc15"/>
-        <text x="623" y="90" text-anchor="middle" fill="#713f12" font-weight="bold">渲染桥接</text>
-        <text x="623" y="107" text-anchor="middle" fill="#475569">唯一副作用</text>
-        <line x1="146" y1="88" x2="186" y2="88" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
-        <line x1="350" y1="82" x2="390" y2="46" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
-        <text x="360" y="56" text-anchor="middle" fill="#475569">有错误</text>
-        <line x1="350" y1="108" x2="390" y2="142" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
-        <text x="360" y="132" text-anchor="middle" fill="#475569">通过</text>
-        <line x1="544" y1="118" x2="576" y2="100" stroke="#0e7490" stroke-width="1.5" marker-end="url(#arF4)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 2　编译与执行：校验失败出诊断，通过则由执行器增量求值并经渲染桥接出图</div>
-  <p>增量缓存以节点输出为粒度：每个节点的输出随参数与上游输入一起做键值缓存，参数修改只使该节点及其下游失效。对大网格或长管线的交互式调参来说，这意味着"改一个数字，等一瞬"而不是"改一个数字，全部重算"。</p>
-</div>
-
-<!-- P6 2.3 + 2.4 -->
-<div class="page">
-  <h3><span class="hn">2.3</span>结果预览</h3>
-  <p>底部预览随所选节点输出类型自适应：可视化输出走既有插件渲染器；统计输出渲染为只读表格；标量内联显示。管线有多个输出时由芯片切换器选择检视节点。</p>
-  <figure>
-    <img src="../flow.png" alt="流程模式">
-    <figcaption><b>图 3</b>　流程模式：可视化数据流管线，节点输出就地预览</figcaption>
-  </figure>
-  <h3><span class="hn">2.4</span>示例管线</h3>
-  <p>11 个示例项目以真实 .clproj 文件存放在 examples/projects，构建期经 import.meta.glob 自动发现，新增示例只需放入文件并在元数据表登记：</p>
-  <table>
-    <tr><th style="width:44%">示例</th><th>主题</th></tr>
-    <tr><td>block-01-signal-analysis</td><td>信号分析</td></tr>
-    <tr><td>block-02-random-distribution</td><td>随机分布</td></tr>
-    <tr><td>block-03-grid-scatter</td><td>网格散点</td></tr>
-    <tr><td>block-04-range-filter</td><td>范围过滤</td></tr>
-    <tr><td>block-05-dual-pipeline</td><td>双管线对比</td></tr>
-    <tr><td>block-06-topk-pipeline</td><td>Top-K 选取</td></tr>
-    <tr><td>block-07-binning-stats</td><td>分箱统计</td></tr>
-    <tr><td>block-08-normalize-grid</td><td>归一化网格</td></tr>
-    <tr><td>crystal-lattice-demo</td><td>晶格演示</td></tr>
-    <tr><td>particles-demo</td><td>粒子演示</td></tr>
-    <tr><td>point-cloud-demo</td><td>点云演示</td></tr>
-  </table>
-</div>
-
-<!-- P7 三、积木模式 -->
-<div class="page">
-  <h2 class="sec"><span class="num">三</span>积木模式（Blocks）</h2>
-  <p>积木模式是类 Scratch 的积木编辑器，面向学习者与想要命令式体验的用户。唯一执行入口是绿色"运行时"帽子区块，帽子下方未连接的孤立区块永不运行，从根本上杜绝"误执行破损代码"。33 种内置积木按九个类别组织：</p>
-  <table>
-    <tr><th style="width:18%">类别</th><th>积木</th></tr>
-    <tr><td><strong>开始</strong></td><td>运行时帽子区块（唯一入口）</td></tr>
-    <tr><td><strong>数据</strong></td><td>载入 CSV、载入 XYZ、随机数、范围、列表</td></tr>
-    <tr><td><strong>变量</strong></td><td>赋值与读取</td></tr>
-    <tr><td><strong>运算符</strong></td><td>算术、比较、逻辑、一元</td></tr>
-    <tr><td><strong>变换</strong></td><td>归一化、排序、列选取、过滤</td></tr>
-    <tr><td><strong>统计</strong></td><td>摘要、直方图</td></tr>
-    <tr><td><strong>绘图</strong></td><td>散点、折线、直方图、点云</td></tr>
-    <tr><td><strong>控制流</strong></td><td>如果、重复、当循环、遍历</td></tr>
-    <tr><td><strong>工具</strong></td><td>打印、原始文本</td></tr>
-  </table>
-  <figure>
-    <img src="../block.png" alt="积木模式">
-    <figcaption><b>图 4</b>　积木模式："运行时"帽子区块启动脚本，加载遥测数据、归一化并绘图</figcaption>
-  </figure>
-</div>
-
-<!-- P8 3.2 技术要点 -->
-<div class="page">
-  <h3><span class="hn">3.2</span>技术要点</h3>
-  <ul>
-    <li><strong>Blockly 13 驱动画布</strong>，包为懒加载分包（约 828 KB），不影响标准与流程模式首屏。</li>
-    <li><strong>积木本地化</strong>：区块名称、提示、下拉选项与工具箱类别经 Blockly 的 BKY 键系统本地化，切换语言时以重新标注的积木重建工作区，有专门单元测试验证。</li>
-    <li><strong>运行反馈</strong>：运行按钮提供实时结果预览、变量面板与控制台面板三张卡片。</li>
-    <li><strong>内置示例</strong>：5 个示例程序（星系散点、遥测折线、随机直方图、归一化散点、循环打印）经顶栏"示例"对话框加载。</li>
-    <li><strong>执行路径</strong>：积木图编译为共享 IR 后由内置解释器执行，解释器调用与代码模式相同的 Studio API。</li>
-  </ul>
-  <div class="callout">
-    "唯一入口"是一条语义约束而非界面装饰：解释器只接受以帽子区块为起点的单链（含分支）结构。
-    这既符合 Scratch 用户的心智模型，也让"程序在哪里开始"这个问题永远有唯一答案，
-    同时为 IR 转换提供了清晰的结构保证。
-  </div>
-  <p>积木模式的执行模型是顺序加控制流：变量在运行时有独立的变量面板实时显示，控制台接收 print 输出。对教师而言，这套反馈足以支撑"讲一步、跑一步"的课堂节奏；对学习者而言，看到变量值随执行变化，是理解程序状态的最早一课。</p>
-</div>
-
-<!-- P9 四、代码模式 -->
-<div class="page">
-  <h2 class="sec"><span class="num">四</span>代码模式（Code）</h2>
-  <p>代码模式是真正的 Python 编辑器。Monaco 编辑器提供 Python 语法高亮、明暗主题、自动换行与 studio 接口自动补全；运行时是 Pyodide Web Worker 中的真实 CPython。</p>
-  <p>studio 模块作为正经的可导入模块注入（注册进 sys.modules），项目数据文件以 _FILES 形式送入 Worker，因此 studio.load 可以同步解析文件。studio 接口与积木模式完全一致：</p>
-  <table>
-    <tr><th style="width:34%">方法</th><th>说明</th></tr>
-    <tr><td>load</td><td>装载项目数据文件为表格</td></tr>
-    <tr><td>random 与 range</td><td>生成随机数与整数序列</td></tr>
-    <tr><td>normalize、sort、select、addColumn、filter</td><td>表格变换</td></tr>
-    <tr><td>summary 与 histogram</td><td>摘要统计与分箱</td></tr>
-    <tr><td>plot</td><td>绘图（经渲染桥接走插件渲染器）</td></tr>
-    <tr><td>print 与 notify</td><td>控制台输出与通知</td></tr>
-    <tr><td>getParam 与 setParam</td><td>项目参数读写</td></tr>
-  </table>
-  <figure>
-    <img src="../code.png" alt="代码模式">
-    <figcaption><b>图 5</b>　代码模式：Monaco 编辑器与基于 Pyodide 的 CPython 运行时</figcaption>
-  </figure>
-</div>
-
-<!-- P10 五、三模式互转 -->
-<div class="page">
-  <h3 class="cont">四、代码模式（其余能力）</h3>
-  <ul>
-    <li><strong>REPL</strong>：控制台输入可求值单个表达式或语句，无需重跑整个程序。</li>
-    <li><strong>中断</strong>：停止运行会终止并重启 Worker，失控循环不会卡死页面；Worker 的引导地址与引导 Promise 做了记忆化，重启不重复初始化。</li>
-    <li><strong>9 个示例程序</strong>位于 examples/code（EDA 管线、蒙特卡洛估圆、信号平滑、遥测探索、星系散点、随机直方图、范围循环、添加列绘图、归一化过滤），经"示例"对话框加载。</li>
-  </ul>
-  <h2 class="sec"><span class="num">五</span>三模式互转（共享 IR）</h2>
-  <p>IR（src/editor/ir，含校验、哈希与序列化）是积木、流程、代码三种模式的唯一事实来源，各模式与 IR 之间都有纯函数往返转换：</p>
-  <table>
-    <tr><th style="width:40%">转换</th><th>模块</th></tr>
-    <tr><td>IR 与流程 DAG 互转</td><td>src/editor/flow/convert.ts（irToFlow、flowToIR）</td></tr>
-    <tr><td>Blockly JSON 与 IR 互转</td><td>src/editor/block/convert.ts</td></tr>
-    <tr><td>代码缓冲区解析回 IR</td><td>src/editor/code/parse.ts（无法解析的行保留为原始代码节点）</td></tr>
-    <tr><td>IR 生成代码</td><td>src/editor/codegen（JS、Python、R 三个生成器）</td></tr>
-    <tr><td>IR 直接解释执行</td><td>src/editor/runtime/interpreter.ts（调用与流程区块相同的 Studio API）</td></tr>
-  </table>
-  <div class="svgbox">
-    <svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" width="100%">
-      <defs>
-        <marker id="arI4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="#0e7490"/>
-        </marker>
-      </defs>
-      <g font-family="Microsoft YaHei, sans-serif" font-size="13">
-        <rect x="20" y="65" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="95" y="86" text-anchor="middle" fill="#155e75" font-weight="bold">流程模式</text>
-        <text x="95" y="105" text-anchor="middle" fill="#475569">DAG 管线</text>
-        <rect x="230" y="65" width="220" height="52" rx="10" fill="#0e7490"/>
-        <text x="340" y="86" text-anchor="middle" fill="#ffffff" font-weight="bold">共享中间表示 IR</text>
-        <text x="340" y="105" text-anchor="middle" fill="#cffafe">校验 · 哈希 · 序列化</text>
-        <rect x="510" y="10" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="585" y="31" text-anchor="middle" fill="#155e75" font-weight="bold">积木模式</text>
-        <text x="585" y="50" text-anchor="middle" fill="#475569">Blockly 画布</text>
-        <rect x="510" y="122" width="150" height="52" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
-        <text x="585" y="143" text-anchor="middle" fill="#155e75" font-weight="bold">代码模式</text>
-        <text x="585" y="162" text-anchor="middle" fill="#475569">Python 或 JS 缓冲区</text>
-        <line x1="170" y1="84" x2="224" y2="84" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-        <line x1="224" y1="99" x2="170" y2="99" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-        <line x1="452" y1="72" x2="506" y2="45" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-        <line x1="506" y1="58" x2="452" y2="85" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-        <line x1="452" y1="112" x2="506" y2="140" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-        <line x1="506" y1="128" x2="452" y2="100" stroke="#0e7490" stroke-width="1.6" marker-end="url(#arI4)"/>
-      </g>
-    </svg>
-  </div>
-  <div class="svgcap">图 6　三种脚本模式经由共享 IR 双向互转</div>
-  <p>在流程模式搭一条管线，切到积木就能看到同样的逻辑以积木呈现，跳到代码就能看到生成的 Python；反向亦然。一个专门的 sync-threeway 单元测试为双向往返兜底。</p>
-  <p>代码生成器按目标语言处理方言差异：Python 生成器输出真实的 Python 语法，R 生成器处理 R 的语法习惯（循环写法、真值字面量、整除与逻辑运算符等），JS 生成器输出可直接求值的脚本。代码模式编辑的缓冲区内容还能反向解析回 IR，使"换一种表达方式理解同一逻辑"成为一键操作。</p>
 </div>
 
 </body>
