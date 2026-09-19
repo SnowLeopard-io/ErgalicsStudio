@@ -7,8 +7,9 @@
 <p><b>浏览器中的科学计算工作站</b>——交互式数据探索、GPU 计算调度与沙箱化插件系统，全部在浏览器中运行，核心由 Rust/WASM 构建。</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="官方网站" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="试用在线 Demo" src="https://img.shields.io/badge/Try%20the%20live%20demo-16a34a?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="官方网站" src="https://img.shields.io/badge/%E5%AE%98%E6%96%B9%E7%BD%91%E7%AB%99-0891b2?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="打开在线工作站" src="https://img.shields.io/badge/%E6%89%93%E5%BC%80%E5%9C%A8%E7%BA%BF%E5%B7%A5%E4%BD%9C%E7%AB%99-16a34a?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="文档站点" src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3%E7%AB%99%E7%82%B9-8b5cf6?style=for-the-badge" /></a>
 </p>
 
 <p>
@@ -669,7 +670,7 @@ npm run test:e2e
 项目存在三个 Web 界面，统一部署到同一个 GitHub Pages 站点：
 
 - **官方网站**（`website/`）位于 Pages 根目录——画廊、主题市场与插件市场，提供指向工作站的零安装深链。
-- **工作站**（仓库中的 React 应用）位于 `<repo>/app/`——"在线 Demo"入口，内嵌自己的文档副本。
+- **工作站**（仓库中的 React 应用）位于 `<repo>/app/`——"在线工作站"入口，内嵌自己的文档副本。
 - **文档**——独立的 VitePress 文档 workspace 位于 [`docs/`](docs/)：
 
 ```bash
