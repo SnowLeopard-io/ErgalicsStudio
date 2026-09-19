@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "updated_from_environment": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "date": "2026-09-19T16:38:07.529Z",
+    "runtime": "node"
+  },
+  "metrics": {
+    "import.csv_rows_per_sec": {
+      "value": 606861,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "import.json_rows_per_sec": {
+      "value": 1857797,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "compute.matmul_gflops": {
+      "value": 1.16,
+      "unit": "GFLOP/s",
+      "direction": "up"
+    },
+    "compute.fft_ms": {
+      "value": 0.21,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "compute.kmeans_ms": {
+      "value": 35.11,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "compute.binning_rows_per_sec": {
+      "value": 111266922,
+      "unit": "rows/s",
+      "direction": "up"
+    },
+    "render.chart_spec_ms": {
+      "value": 12.68,
+      "unit": "ms",
+      "direction": "down"
+    },
+    "render.virtual_scroll_steps_per_sec": {
+      "value": 1326703,
+      "unit": "steps/s",
+      "direction": "up"
+    },
+    "memory.table_retained_kb": {
+      "value": 66072,
+      "unit": "KB",
+      "direction": "down"
+    },
+    "memory.heap_peak_kb": {
+      "value": 93181,
+      "unit": "KB",
+      "direction": "down"
+    },
+    "memory.input_bytes": {
+      "value": 5775182,
+      "unit": "B",
+      "direction": "down"
+    }
+  }
+}
