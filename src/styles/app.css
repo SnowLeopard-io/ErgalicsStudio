@@ -1634,6 +1634,88 @@
 }
 
 /* ==========================================================================
+   Settings "About" — repositories, project status & development team
+   ========================================================================== */
+
+.about-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.about-link {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  word-break: break-all;
+  transition: color var(--transition-fast);
+}
+
+.about-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.about-status {
+  max-width: 58ch;
+  line-height: 1.6;
+}
+
+.about-team {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.about-member {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.about-member-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.about-member-handle {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.about-member-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.about-member-links a {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.about-member-links a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.about-member-intro {
+  margin-top: auto;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
    Share
    ========================================================================== */
 
@@ -2144,8 +2226,28 @@
 .route-loading {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-4);
+}
+
+/* Quiet placeholder bar beneath the spinner: reads as "a surface is being
+   assembled" without shouting. Driven by the shared shimmer keyframes, so it
+   inherits the reduced-motion dismissal too. */
+.route-loading::after {
+  content: '';
+  width: 200px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-hover) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
 
 /* Mode-level lazy-load fallback (WorkbenchPage.tsx) — fills the workbench

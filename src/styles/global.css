@@ -893,6 +893,49 @@ button {
   }
 }
 
+/* ---- smooth theme flip ---- */
+
+/* Applied transiently on <html> by theme/index.ts around a theme or system
+   scheme swap. Color-bearing surfaces ease to their new palette instead of
+   snapping; the rule only bites while `.theme-transition` is present so there
+   is no permanent transition cost. !important is intentional: it must beat the
+   per-element `transition` declarations (e.g. `.btn` lift/press) for the
+   ~300ms of the flip only. */
+
+html.theme-transition body,
+html.theme-transition .topbar,
+html.theme-transition .tool-topbar,
+html.theme-transition .statusbar,
+html.theme-transition .sidebar,
+html.theme-transition .right-panel,
+html.theme-transition .card,
+html.theme-transition .plugin-card,
+html.theme-transition .btn,
+html.theme-transition .btn-primary,
+html.theme-transition .input,
+html.theme-transition .select,
+html.theme-transition .modal,
+html.theme-transition .modal-header,
+html.theme-transition .modal-body,
+html.theme-transition .modal-footer,
+html.theme-transition .menu,
+html.theme-transition .tag,
+html.theme-transition .banner,
+html.theme-transition .toast,
+html.theme-transition .icon-btn,
+html.theme-transition .menu-item,
+html.theme-transition .menu-separator,
+html.theme-transition .topbar-cluster,
+html.theme-transition .csw-link,
+html.theme-transition .cross-site-switcher {
+  transition:
+    background-color var(--transition-base),
+    color var(--transition-base),
+    border-color var(--transition-base),
+    fill var(--transition-base),
+    box-shadow var(--transition-base) !important;
+}
+
 /* ---- reduced motion ---- */
 
 @media (prefers-reduced-motion: reduce) {

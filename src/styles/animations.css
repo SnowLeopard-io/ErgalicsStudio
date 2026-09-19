@@ -296,6 +296,23 @@
   pointer-events: none;
 }
 
+/* ---- refined micro-interactions ----
+   Small, quiet state transitions on interactive surfaces. Kept to the touches
+   that today snap instantly; reduced motion neutralises them in the block
+   below (via global.css which collapses all transition-durations). */
+
+.menu-item {
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tag {
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+:focus-visible {
+  transition: box-shadow var(--transition-fast);
+}
+
 /* ---- reduced motion: neutralise everything ---- */
 
 @media (prefers-reduced-motion: reduce) {

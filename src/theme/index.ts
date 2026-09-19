@@ -43,6 +43,19 @@ export function getResolvedTheme(): 'light' | 'dark' {
   return preference === 'system' ? (systemDark() ? 'dark' : 'light') : preference;
 }
 
+/** Briefly enable a global background/color/border transition so a theme or
+ *  system-scheme flip eases rather than snaps. The class is removed again a
+ *  beat later so the transition is only active around the swap — keeping it
+ *  permanent would add per-frame work and make every hover feel like it lags
+ *  behind the pointer. */
+function beginThemeTransition(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  const root = document.documentElement;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  root.classList.add('theme-transition');
+  window.setTimeout(() => root.classList.remove('theme-transition'), 320);
+}
+
 export function setThemePreference(next: ThemePreference) {
   preference = next;
   try {
@@ -50,6 +63,7 @@ export function setThemePreference(next: ThemePreference) {
   } catch {
     /* ignore */
   }
+  beginThemeTransition();
   apply();
   emit();
 }
@@ -69,6 +83,7 @@ function watchSystemTheme(): void {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   const onSystemChange = () => {
     if (preference === 'system') {
+      beginThemeTransition();
       apply();
       emit();
     }

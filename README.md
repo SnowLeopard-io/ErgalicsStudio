@@ -26,7 +26,7 @@ running in the browser with a Rust/WASM core.</p>
 
 <br>
 
-![Ergalics Studio — Standard mode (drag → see)](docs/studio.png)
+![Ergalics Studio — Standard mode (drag → see)](docs/Estudio.png)
 
 ---
 
@@ -63,18 +63,12 @@ architecture designed for third-party extensions.
 The workbench exposes four modes for four kinds of users — see the section
 for each one below:
 
-- **Standard** — drag a dataset onto a plugin, see the visualisation. The
-  fastest path from "I have data" to "I see something".
-- **Flow** — compose a visual dataflow pipeline from built-in blocks, run it
-  topologically, inspect every node's output.
-- **Block** — a Scratch-like block editor where a single "Run" hat block
-  kicks off the program. Beginner-friendly, but fully scripted (variables,
-  loops, conditionals, transforms, plots).
-- **Code** — a Monaco editor for **Python / R / JavaScript**. Python runs on
-  CPython via a Pyodide worker (free-form syntax), while R and JavaScript
-  execute on the same in-process IR engine as block mode; switching language
-  translates the whole buffer instantly through the shared IR. A REPL
-  console, a variable panel and `studio.*` autocompletion are included.
+| Mode           | For                                    | What you do                                                                                                                    |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Standard**   | "I have data → I see something"        | Drag a dataset onto a plugin and the visualisation appears — the fastest path.                                                  |
+| **Flow**       | Pipeline builders                      | Compose a visual dataflow pipeline from built-in blocks, run it topologically, inspect every node's output.                    |
+| **Block**      | Learners / imperative feel             | A Scratch-like block editor where one green "Run" hat kicks off the program — fully scripted (variables, loops, conditionals, transforms, plots). |
+| **Code**       | Real scripting                         | A Monaco editor for **Python / R / JavaScript**: Python runs CPython via a Pyodide worker, R/JS execute on the shared in-process IR engine; switching language translates the whole buffer instantly. REPL console, variable panel and `studio.*` autocompletion included. |
 
 Ergalics Studio is under **active development** and already usable end to
 end: the core loop (project management, data loading, plugin registry, 2D/3D
@@ -95,21 +89,17 @@ package signing for the plugin marketplace and a full free-form R runtime
 module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
-> Status: **Active development** — usable today with four workbench modes,
-> 42 built-in plugins (32 core + 10 fun), a sandboxed plugin system, a
-> marketplace catalog, live GPU compute, an in-browser AI training plugin, an
-> AI assistant (online/offline), an official website (gallery / theme
-> marketplace / plugin marketplace, deep-linked into the workbench), a
-> statistics subsystem, scientific binary I/O (HDF5 / NetCDF / FITS /
-> Zarr / Parquet), a publication-grade SVG/PDF plot engine, reproducibility
-> support, a three-language code editor (Python via Pyodide; R and
-> JavaScript via the shared in-process IR engine), and a 19-page research
-> workbench (Analysis, Experiment Runs, Uncertainty, Model Lab, Inference
-> Forge, Model Inference, Data Profiler, Signal Lab, Sweep Studio, SQL
-> Workbench, Data Cleaning Wizard, Report Builder, Repro Lock, Data Lineage,
-> Figure Studio, Notebook, Supplement packaging, Course Mode, Gallery)
-> plus supporting kernels (unit system, chunked ingestion); package signing
-> and a full webR R runtime are next.
+> Status: **Active development** — usable today. What ships:
+
+| Area              | Shipped today |
+| ----------------- | ------------- |
+| Workbench         | 4 modes (Standard / Flow / Block / Code), 42 built-in plugins (32 core + 10 fun), sandboxed plugin system + marketplace catalog |
+| Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
+| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
+| Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine |
+| Research          | 19-page research workbench (Analysis, Runs, Uncertainty, Model Lab, Inference Forge, Model Inference, Profiler, Signal Lab, Sweeps, SQL, Cleaning, Report, Repro Lock, Lineage, Figure Studio, Notebook, Supplement, Course, Gallery) + unit-system and chunked-ingestion kernels |
+| Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace) deep-linked into the workbench |
+| Next up           | Plugin package signing, full free-form R runtime (webR) |
 
 ---
 
@@ -228,87 +218,25 @@ body. The cores under `src/core/` stay pure TypeScript, unit-tested, and
 wired into the event bus, so run history, the lineage DAG and the
 supplement manifest pick them up automatically.
 
-- **Experiment tracking** (`src/core/experiment/` + `experimentStore`,
-  `/#/runs`) — every Flow / Block / Code / Notebook / Sweep / Uncertainty /
-  Model-Lab run is recorded into a per-project IndexedDB `runs` store with
-  source, parameters, metrics and duration; the Runs page lists the history
-  and diffs any two runs' parameters side by side.
-- **GPU uncertainty engine** (`src/core/uncertainty/`, `/#/uncertainty`) —
-  bootstrap confidence intervals, Monte-Carlo error propagation and
-  Metropolis–Hastings MCMC with an engine picker (auto / CPU / GPU). The
-  GPU path (WGSL PCG32 RNG, one workgroup per chain) accelerates
-  million-sample resampling; Gelman–Rubin R-hat and ESS diagnostics flag
-  convergence. Runs against any project data file; every result records
-  the engine and device used.
-- **Model Lab** (`src/core/model/`, `/#/model-lab`) — OLS (QR), logistic
-  (IRLS), ridge (K-fold CV) and polynomial regression with coefficient
-  tables (estimate / SE / p / CI) and a 2×2 residual diagnostic panel;
-  every fit is recorded into the run history.
-- **Data Profiler** (`src/core/profiler/`, `/#/profiler`) — a single
-  streaming pass produces per-column profiles (types, missing rates,
-  cardinality, five-number summaries, histograms, outliers), a correlation
-  matrix and a 0–100 quality score with an issue list; cached by content
-  fingerprint for instant re-opens.
-- **Signal Lab** (`src/core/signal/`, `/#/signal`) — FFT / power spectral
-  density (Welch), window functions, Savitzky–Golay and moving-average
-  filters, ACF/PACF and seasonal decomposition; filtered columns can be
-  saved back as derived data files that automatically join the lineage DAG.
-- **Sweep Studio** (`src/core/sweep/` + `src/pages/sweeps/`, `/#/sweeps`) —
-  define 1–3 parameter axes (grid / list / Latin hypercube) and batch-run
-  any pipeline source; results render as error-bar lines, response-surface
-  heatmaps or parallel coordinates, and every sub-run lands in the
-  experiment history. Plan drafts are validated field-by-field (parameter
-  paths, JSON / numeric grammar, cross-axis consistency, hard cell caps) in
-  a pure, fully tested domain layer before any run starts, and stale stored
-  results are detected automatically.
-- **SQL Workbench** (`src/core/sql/`, `/#/sql`) — a lazy-loaded
-  DuckDB-WASM engine registers project data files as tables; query them
-  with join / aggregation / window functions in a Monaco editor, preview
-  results, and save them as new CSVs that inherit lineage edges.
-- **Report Builder** (`src/core/report/`, `/#/report`) — compose ordered
-  sections (headings, markdown, figures, tables, run summaries,
-  interactive filters) and export a single self-contained HTML file with
-  inline SVG, vanilla-JS interactivity, light/dark themes and zh/en
-  languages.
-- **Repro Lock** (`src/core/repro/lock.ts`, `/#/reprolock`) — export a
-  `repro.lock` (data fingerprints + parameter hashes + seeds + code
-  snapshots + versions), verify it against a moved or aged project with a
-  five-class drift report, and re-run the locked runs to confirm metrics
-  reproduce.
-- **Unit system** (`src/core/units/`) — typed `Quantity` values with SI
-  prefix parsing, dimensional algebra and conversion checks; surfaced as
-  `units.convert` / `units.check` Flow blocks and a `QuantityInput`
-  parameter widget.
-- **Data lineage** (`src/core/lineage/` + `lineageStore`, `/#/lineage`) — a
-  file→run DAG rebuilt automatically from run records and ingestion events,
-  laid out in layers and rendered as an SVG canvas; SQL queries, derived
-  Signal-Lab columns and sweeps all appear as nodes.
-- **Chunked ingestion** (`src/core/chunked/` + `chunkStore`) — an async
-  row-window reader for large delimited files (CSV / TSV / DAT / XYZ / TXT)
-  with column projection, preview sampling and content fingerprinting.
-- **Figure Studio** (`src/core/figure/`, `/#/figures`) — compose
-  multi-panel publication figures on journal templates (IEEE / Elsevier,
-  single & double column) with auto panel tags (a, b, c…), captions, a live
-  SVG preview and SVG / PDF / PNG-600dpi export.
-- **Supplement packaging** (`src/core/package/`, `/#/supplement`) — one
-  click builds a paper-ready ZIP: `manifest.json` (project metadata + run
-  records + lineage graph + author/license/description form) plus optional
-  data files and code sessions.
-- **Notebook** (`src/core/notebook/`, `/#/notebook`) — mixed
-  markdown/code cells persisted in the project; code cells run on a
-  dedicated Pyodide runtime (terminated on unmount) and every notebook run
-  feeds the experiment history.
-- **Inference Forge** (`src/core/inference/`, `/#/inference`) — HMC and NUTS
-  samplers (DualAveraging step-size adaptation, U-turn stopping criterion)
-  with R-hat / bulk-ESS / tail-ESS diagnostics, HDI, MCSE, WAIC / PSIS-LOO
-  model comparison and posterior predictive checks. Declarative likelihood
-  templates (normal mean / Bayesian linear regression / hierarchical normal
-  means) come with data-scaled weakly-informative priors, so models fit
-  without writing code; trace and density charts go to Figure Studio and the
-  whole inference is recorded as a single run (source `inference`).
-- **Analysis page** (`/#/analysis`) — the quick path: pick a data file and
-  get line / scatter / histogram / bar charts, descriptive statistics and
-  one-sample / two-sample / Mann–Whitney tests with SVG / PDF export.
+| Tool | Core | Highlights |
+| ---- | ---- | ---------- |
+| Experiment tracking | `src/core/experiment/` | every Flow / Block / Code / Notebook / Sweep / Uncertainty / Model-Lab run recorded into a per-project IndexedDB store with source, params, metrics, duration; A/B parameter diffing |
+| GPU uncertainty engine | `src/core/uncertainty/` | bootstrap CIs, Monte-Carlo propagation, Metropolis–Hastings MCMC; WGSL GPU path (PCG32 RNG, one workgroup per chain) for million-sample resampling; R-hat / ESS convergence diagnostics |
+| Model Lab | `src/core/model/` | OLS (QR), logistic (IRLS), ridge (K-fold CV), polynomial; coefficient tables (estimate / SE / p / CI) + 2×2 residual diagnostics |
+| Data Profiler | `src/core/profiler/` | one streaming pass → per-column profiles, correlation matrix, 0–100 quality score; cached by content fingerprint |
+| Signal Lab | `src/core/signal/` | FFT / Welch PSD, windows, Savitzky–Golay & moving-average filters, ACF/PACF, seasonal decomposition; filtered columns save back as derived files in the lineage DAG |
+| Sweep Studio | `src/core/sweep/` | 1–3 parameter axes (grid / list / Latin hypercube) batch-run any pipeline; error-bar lines, response-surface heatmaps, parallel coordinates; plan drafts validated in a pure domain layer, stale results auto-detected |
+| SQL Workbench | `src/core/sql/` | lazy DuckDB-WASM registers project files as tables; joins / aggregates / window functions in Monaco; results saved as CSVs with lineage edges |
+| Report Builder | `src/core/report/` | ordered sections (headings, markdown, figures, tables, run summaries, interactive filters) → one self-contained HTML with inline SVG, light/dark, zh/en |
+| Repro Lock | `src/core/repro/lock.ts` | export `repro.lock` (data fingerprints + param hashes + seeds + code snapshots), five-class drift verification, one-click re-run |
+| Unit system | `src/core/units/` | typed `Quantity` with SI prefixes, dimensional algebra, conversion checks; `units.convert` / `units.check` Flow blocks + `QuantityInput` widget |
+| Data lineage | `src/core/lineage/` | file→run DAG rebuilt from run records + ingestion events, layered SVG canvas; SQL queries, derived columns and sweeps appear as nodes |
+| Chunked ingestion | `src/core/chunked/` | async row-window reader for large delimited files with column projection, preview sampling, content fingerprinting |
+| Figure Studio | `src/core/figure/` | multi-panel publication figures on IEEE / Elsevier templates, auto panel tags, captions, live SVG preview, SVG / PDF / PNG-600dpi export |
+| Supplement packaging | `src/core/package/` | one-click paper-ready ZIP: `manifest.json` (metadata + runs + lineage + author/license form) + optional data files and code sessions |
+| Notebook | `src/core/notebook/` | markdown/code cells persisted in the project; code cells run on a dedicated Pyodide runtime, every run feeds the experiment history |
+| Inference Forge | `src/core/inference/` | HMC / NUTS samplers (DualAveraging, U-turn), R-hat / bulk & tail-ESS, HDI, MCSE, WAIC / PSIS-LOO, PPC; declarative likelihood templates with data-scaled weak priors |
+| Analysis page | `/#/analysis` | quick path: pick a file → line / scatter / histogram / bar, descriptive stats, t / Mann–Whitney tests, SVG / PDF export |
 
 **Flow mode (visual dataflow pipeline)**
 
@@ -598,7 +526,7 @@ See [Documentation](#documentation) for details.
 
 ## Standard Mode
 
-![Standard mode — drag a file, see a visualisation](docs/studio.png)
+![Standard mode — drag a file, see a visualisation](docs/Estudio.png)
 
 The default landing experience. Three panels: a **left rail** that lists your
 projects and plugins, a **centre viewport** that hosts whichever plugin is
@@ -1068,49 +996,20 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-1749 tests across 104 test files (1747 passing, 2 skipped on GPU-less CI): file-format
-detection, scientific binary
-I/O (NetCDF/HDF5/FITS/Parquet/Zarr helpers), the statistics kernel
-(descriptive, special functions, tests, effect sizes, corrections, power),
-cspkg parsing/validation,
-sandbox RPC (including an end-to-end round trip through a fake Worker),
-i18n, app store, WASM retry policy, GPU compute (WGSL templates — particles,
-N-Body, histogram, heatmap, point-cloud — buffer packing, CPU integrators,
-service gating), built-in plugin logic (including the shared one-click
-PNG/CSV export actions, host-button payload handling and recent bugfix
-regressions), the data plugins' parsing helpers
-(error-band rows, treemap hierarchy, QQ probit), the block system end-to-end
-— `DataTable` ops, registry, compiler (validation/topology/type-check),
-executor (incremental cache + invalidation), geometry, catalog executors,
-the `viz.*` → plugin render bridge, codegen (JS/Python/R), three-mode IR sync (block ↔ flow ↔ code, including
-`mergeFlowIR`, per-session language translation and the flow-signature
-guard), the code parser for Python/R/JavaScript, the IR interpreter
-executing every bundled `.clproj` sample end to end (`examples-roundtrip`),
-the studio API's flow-parity methods (`exampleData / grid / filterRange /
-topK / addConstantColumn / renameColumn`), the Pyodide worker
-protocol, the structural-mechanics simulator, plugin runtime lifecycle and
-recent bugfix regressions, the publication-grade plot engine, the
-reproducibility kernel, and the pipeline samples that load via
-`import.meta.glob`, plus the research modules — the uncertainty suite
-(bootstrap, Monte-Carlo propagation, GPU-engine parity and R-hat/ESS
-diagnostics), the unit system, experiment tracking (the IndexedDB runs
-store), data lineage, chunked ingestion, figure composition, supplement
-packaging (zip round-trip), the notebook model, Model Lab (OLS / logistic /
-ridge / polynomial), the data profiler, the signal toolkit (FFT / filters /
-ACF / decomposition), the sweep runner (plan expansion, metric extraction,
-resume), the SQL engine (registration / query / cancellation), the report
-builder (spec → HTML, escaping, runs summary), the repro lock (build /
-verify / drift) and the inference templates (template building, pointwise
-likelihood, an end-to-end sampler run with WAIC/LOO/PPC and determinism
-checks), shared research number formatting edge-cases (`fmt`: `toPrecision`
-bounds and integer rounding), the structured error taxonomy (normalisation, cause chains, Result
-combinators, retry/abort semantics, registry dedup and the global
-handlers), the validation framework (composable validators, nested issue
-paths, JSON-position and numeric-text parsing), the data-quality engine
-(type inference, profiling and IQR outliers, every expectation rule, schema
-suggestion, row quarantine, the DataTable adapter) and the refactored
-Sweep Studio draft/surface layer (grid/list/LHS validation, cell caps,
-plan round-tripping, stale-result detection, response surfaces).
+**1761 tests across 106 test files** (1759 passing, 2 skipped on GPU-less CI).
+Coverage by area:
+
+| Area | What the unit tests pin down |
+| ---- | ---------------------------- |
+| Data & I/O | file-format detection, scientific binary I/O (NetCDF / HDF5 / FITS / Parquet / Zarr helpers), chunked ingestion |
+| Statistics kernel | descriptive stats, special functions, hypothesis tests, effect sizes, corrections, power analysis |
+| Plugins & sandbox | cspkg parsing/validation, sandbox RPC (end-to-end through a fake Worker), built-in plugin logic incl. one-click PNG/CSV export actions and bugfix regressions, parsing helpers (error bands, treemap hierarchy, QQ probit), plugin runtime lifecycle, structural-mechanics simulator |
+| GPU compute | WGSL templates (particles, N-Body, histogram, heatmap, point cloud), buffer packing, CPU integrators, service gating |
+| Block system | `DataTable` ops, registry, compiler (validation / topology / type-check), executor (incremental cache + invalidation), geometry, catalog executors, `viz.*` → plugin render bridge, codegen (JS/Python/R) |
+| Three-mode IR sync | block ↔ flow ↔ code round-trips incl. `mergeFlowIR`, per-session language translation, flow-signature guard; Python/R/JavaScript code parsers; `examples-roundtrip` executes every bundled `.clproj` through the IR interpreter; studio API flow-parity methods; Pyodide worker protocol |
+| Research modules | uncertainty suite (bootstrap, MC propagation, GPU-engine parity, R-hat/ESS), unit system, experiment tracking (IndexedDB runs store), lineage, figure composition, supplement packaging (zip round-trip), notebook model, Model Lab, Data Profiler, signal toolkit, sweep runner + draft/response-surface layer, SQL engine, report builder, repro lock, inference templates (pointwise likelihood, end-to-end sampler with WAIC/LOO/PPC + determinism), `fmt` edge-cases |
+| Reliability cores | structured error taxonomy (normalisation, cause chains, Result combinators, retry/abort, registry dedup, global handlers), validation framework (composable validators, nested issue paths, safe parsing), data-quality engine (type inference, IQR outliers, expectation rules, schema suggestion, row quarantine, DataTable adapter) |
+| Platform | i18n, app store, WASM retry policy, publication-grade plot engine, reproducibility kernel, pipeline samples loaded via `import.meta.glob` |
 
 E2E suites (Playwright-core, headless Edge) against a production preview:
 

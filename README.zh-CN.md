@@ -24,7 +24,7 @@
 
 <br>
 
-![Ergalics Studio — 标准模式（拖入 → 即可见）](docs/studio.png)
+![Ergalics Studio — 标准模式（拖入 → 即可见）](docs/Estudio.png)
 
 ---
 
@@ -57,14 +57,26 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 
 工作台为四类用户提供了四种模式——各自详见下文对应章节：
 
-- **标准（Standard）**——将数据集拖入插件即可看到可视化。这是从"我有数据"到"我看到结果"的最快路径。
-- **流程（Flow）**——从内置区块组合出可视化数据流管线，按拓扑顺序运行，并检查每个节点的输出。
-- **积木（Block）**——类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序。对新手友好，但完全可脚本化（变量、循环、条件、变换、绘图）。
-- **代码（Code）**——支持 **Python / R / JavaScript** 的 Monaco 编辑器。Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。
+| 模式 | 适合谁 | 你做什么 |
+| ---- | ------ | -------- |
+| **标准（Standard）** | "我有数据 → 我看到结果" | 将数据集拖入插件即可看到可视化——最快路径。 |
+| **流程（Flow）** | 管线搭建者 | 从内置区块组合出可视化数据流管线，按拓扑顺序运行，并检查每个节点的输出。 |
+| **积木（Block）** | 学习者 / 喜欢命令式手感的人 | 类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序；完全可脚本化（变量、循环、条件、变换、绘图）。 |
+| **代码（Code）** | 真正的脚本编写 | 支持 **Python / R / JavaScript** 的 Monaco 编辑器：Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。 |
 
 Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；插件市场的包签名与完整的自由语法 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
-> 状态：**积极开发**——今日即可使用，具备四种工作台模式、42 个内置插件（32 核心 + 10 趣味）、沙箱化插件系统、市场目录、实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（在线 / 离线）、官方网站（画廊 / 主题市场 / 插件市场，并与工作台深链打通）、统计分析子系统、科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、可复现性支持、三语言代码编辑器（Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎），以及由 19 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、模型推理、数据画像、信号实验室、参数扫描、SQL 工作台、数据清洗向导、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包、课程模式、作品画廊），外加配套内核（单位系统、分块读取）；包签名与完整的 webR R 运行时为后续工作。
+> 状态：**积极开发**——今日即可使用。已交付内容：
+
+| 领域 | 今日已交付 |
+| ---- | ---------- |
+| 工作台 | 四种模式（标准 / 流程 / 积木 / 代码）、42 个内置插件（32 核心 + 10 趣味）、沙箱化插件系统 + 市场目录 |
+| 计算 | 实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、统计分析子系统、可复现性支持 |
+| 代码编辑 | 三语言——Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎 |
+| 科研 | 19 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、模型推理、数据画像、信号实验室、参数扫描、SQL 工作台、数据清洗向导、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包、课程模式、作品画廊）+ 单位系统、分块读取配套内核 |
+| Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场），与工作台深链打通 |
+| 后续工作 | 插件包签名、完整的自由语法 R 运行时（webR） |
 
 ---
 
@@ -112,23 +124,25 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 
 每个科研工具现在都是**独立整页**（而非对话框），共享同一个实验室外壳——返回工作台的头部 + 不受约束的可滚动主体；`src/core/` 下的核心保持纯 TypeScript、含单元测试，并接入事件总线，因此运行记录、血缘图与补充材料清单会自动收录。
 
-- **实验记录**（`src/core/experiment/` + `experimentStore`，`/#/runs`）——Flow / 积木 / 代码 / Notebook / 参数扫描 / 不确定性 / 模型实验室的每次运行都会记录进项目级的 IndexedDB `runs` 存储，含来源、参数、指标与耗时；实验记录页面列出历史，并支持任意两次运行的参数并排对比。
-- **GPU 不确定性引擎**（`src/core/uncertainty/`，`/#/uncertainty`）——bootstrap 置信区间、蒙特卡洛误差传播与 Metropolis–Hastings MCMC，带引擎选择器（自动 / CPU / GPU）。GPU 路径（WGSL PCG32 随机数、每链一个 workgroup）可加速百万级重采样；Gelman–Rubin R-hat 与 ESS 诊断指标标记收敛性。可对任意项目数据文件运行，结果会记录所用引擎与设备。
-- **模型实验室**（`src/core/model/`，`/#/model-lab`）——OLS（QR 分解）、逻辑回归（IRLS）、岭回归（K 折交叉验证）与多项式回归，输出系数表（估计 / SE / p / CI）与 2×2 残差诊断图；每次拟合都会记入运行历史。
-- **数据画像**（`src/core/profiler/`，`/#/profiler`）——单遍流式扫描产出逐列画像（类型、缺失率、基数、五数概括、直方图、异常值）、相关矩阵，以及 0–100 质量评分与问题清单；按内容指纹缓存，二次打开秒出。
-- **信号实验室**（`src/core/signal/`，`/#/signal`）——FFT / 功率谱密度（Welch）、窗函数、Savitzky–Golay 与移动平均滤波、ACF/PACF 与季节分解；滤波结果可另存为派生数据文件，自动接入血缘 DAG。
-- **参数扫描**（`src/core/sweep/` + `src/pages/sweeps/`，`/#/sweeps`）——定义 1–3 个参数轴（网格 / 列表 / 拉丁超立方）并对任意管线来源批量运行；结果渲染为带误差棒的折线、响应面热力图或平行坐标图，每个子运行都会进入实验历史。计划草稿在任何运行开始前，先在纯函数、全测试覆盖的领域层完成逐字段校验（参数路径、JSON / 数值语法、跨轴一致性、硬性单元格上限），并自动检测已过期的历史结果。
-- **SQL 工作台**（`src/core/sql/`，`/#/sql`）——懒加载的 DuckDB-WASM 引擎将项目数据文件注册为表；在 Monaco 编辑器中用 join / 聚合 / 窗口函数查询，预览结果，并可保存为新 CSV（自动继承血缘边）。
-- **报告生成器**（`src/core/report/`，`/#/report`）——按序组合各节（标题、Markdown、图表、表格、运行摘要、交互筛选器），导出单个自包含 HTML 文件：内联 SVG、原生 JS 交互、亮/暗主题与中英双语。
-- **可复现锁**（`src/core/repro/lock.ts`，`/#/reprolock`）——导出 `repro.lock`（数据指纹 + 参数哈希 + 种子 + 代码快照 + 版本清单），对迁移或久置的项目做五类漂移校验，并可一键重跑以确认指标可复现。
-- **单位系统**（`src/core/units/`）——带 SI 词头解析、量纲代数与换算检查的类型化 `Quantity` 值；以 `units.convert` / `units.check` 流程区块和 `QuantityInput` 参数控件呈现。
-- **数据血缘**（`src/core/lineage/` + `lineageStore`，`/#/lineage`）——由运行记录与数据导入事件自动重建的文件→运行 DAG，分层布局并渲染为 SVG 画布；SQL 查询、信号实验室的派生列与参数扫描都会作为节点出现。
-- **分块读取**（`src/core/chunked/` + `chunkStore`）——面向大型分隔符文件（CSV / TSV / DAT / XYZ / TXT）的异步行窗口读取器，支持列投影、预览抽样与内容指纹。
-- **Figure Studio（图表工作台）**（`src/core/figure/`，`/#/figures`）——在期刊模板（IEEE / Elsevier，单栏与双栏）上组合多面板出版级图表，带自动面板标签（a、b、c…）、图注、实时 SVG 预览与 SVG / PDF / PNG-600dpi 导出。
-- **补充材料打包**（`src/core/package/`，`/#/supplement`）——一键构建论文随附 ZIP：`manifest.json`（项目元数据 + 运行记录 + 血缘图 + 作者/许可/描述表单），可选附带数据文件与代码会话。
-- **Notebook**（`src/core/notebook/`，`/#/notebook`）——Markdown/代码混合单元格，持久化于项目内；代码单元格运行在专用 Pyodide 运行时上（页面卸载时终止），每次 Notebook 运行都汇入实验历史。
-- **推断引擎**（`src/core/inference/`，`/#/inference`）——HMC 与 NUTS 采样器（DualAveraging 步长自适应、U-turn 停止判据），带 R-hat / bulk-ESS / tail-ESS 诊断、HDI、MCSE、WAIC / PSIS-LOO 模型比较与后验预测检查（PPC）。声明式似然模板（正态均值 / 贝叶斯线性回归 / 层级正态均值）配数据尺度弱信息先验，无需写代码即可拟合；轨迹与后验密度图可发送 Figure Studio，整次推断作为单一 run（source: 'inference'）入实验历史。
-- **分析页**（`/#/analysis`）——快速路径：选择一个数据文件即可得到折线 / 散点 / 直方图 / 柱状图、描述统计与单样本 / 双样本 / Mann–Whitney 检验，支持 SVG / PDF 导出。
+| 工具 | 核心 | 亮点 |
+| ---- | ---- | ---- |
+| 实验记录 | `src/core/experiment/` | Flow / 积木 / 代码 / Notebook / 参数扫描 / 不确定性 / 模型实验室的每次运行都记录进项目级 IndexedDB 存储，含来源、参数、指标与耗时；任意两次运行参数并排对比 |
+| GPU 不确定性引擎 | `src/core/uncertainty/` | bootstrap 置信区间、蒙特卡洛误差传播、Metropolis–Hastings MCMC；WGSL GPU 路径（PCG32 随机数、每链一个 workgroup）加速百万级重采样；R-hat / ESS 收敛诊断 |
+| 模型实验室 | `src/core/model/` | OLS（QR）、逻辑回归（IRLS）、岭回归（K 折交叉验证）、多项式回归；系数表（估计 / SE / p / CI）+ 2×2 残差诊断图 |
+| 数据画像 | `src/core/profiler/` | 单遍流式扫描产出逐列画像、相关矩阵、0–100 质量评分与问题清单；按内容指纹缓存，二次打开秒出 |
+| 信号实验室 | `src/core/signal/` | FFT / Welch PSD、窗函数、Savitzky–Golay 与移动平均滤波、ACF/PACF、季节分解；滤波结果可另存为派生文件并自动接入血缘 DAG |
+| 参数扫描 | `src/core/sweep/` | 1–3 个参数轴（网格 / 列表 / 拉丁超立方）批量运行任意管线；误差棒折线、响应面热力图、平行坐标；计划草稿经纯领域层逐字段校验，自动检测过期结果 |
+| SQL 工作台 | `src/core/sql/` | 懒加载 DuckDB-WASM 将项目文件注册为表；Monaco 中 join / 聚合 / 窗口函数查询；结果保存为新 CSV 并继承血缘边 |
+| 报告生成器 | `src/core/report/` | 按序组合各节（标题、Markdown、图表、表格、运行摘要、交互筛选器）→ 单个自包含 HTML：内联 SVG、原生 JS 交互、亮/暗主题、中英双语 |
+| 可复现锁 | `src/core/repro/lock.ts` | 导出 `repro.lock`（数据指纹 + 参数哈希 + 种子 + 代码快照），五类漂移校验，一键重跑确认指标可复现 |
+| 单位系统 | `src/core/units/` | 带 SI 词头解析、量纲代数与换算检查的类型化 `Quantity`；`units.convert` / `units.check` 流程区块 + `QuantityInput` 控件 |
+| 数据血缘 | `src/core/lineage/` | 由运行记录与导入事件自动重建的文件→运行 DAG，分层 SVG 画布；SQL 查询、派生列与参数扫描均作为节点出现 |
+| 分块读取 | `src/core/chunked/` | 面向大型分隔符文件的异步行窗口读取器，支持列投影、预览抽样与内容指纹 |
+| Figure Studio | `src/core/figure/` | IEEE / Elsevier 模板上的多面板出版级图表，自动面板标签、图注、实时 SVG 预览与 SVG / PDF / PNG-600dpi 导出 |
+| 补充材料打包 | `src/core/package/` | 一键构建论文随附 ZIP：`manifest.json`（元数据 + 运行记录 + 血缘图 + 作者/许可/描述表单）+ 可选数据文件与代码会话 |
+| Notebook | `src/core/notebook/` | Markdown/代码混合单元格持久化于项目内；代码单元格运行于专用 Pyodide 运行时，每次运行汇入实验历史 |
+| 推断引擎 | `src/core/inference/` | HMC / NUTS 采样器（DualAveraging、U-turn），R-hat / bulk & tail-ESS、HDI、MCSE、WAIC / PSIS-LOO、PPC；声明式似然模板配数据尺度弱信息先验，无需写代码即可拟合 |
+| 分析页 | `/#/analysis` | 快速路径：选择数据文件即得折线 / 散点 / 直方图 / 柱状图、描述统计与单/双样本 / Mann–Whitney 检验，支持 SVG / PDF 导出 |
 
 **流程模式（可视化数据流管线）**
 
@@ -328,7 +342,7 @@ cd docs && npm install && npm run dev
 
 ## 标准模式
 
-![标准模式 — 拖入文件，即可看到可视化](docs/studio.png)
+![标准模式 — 拖入文件，即可看到可视化](docs/Estudio.png)
 
 默认的落地体验。三个面板：列出你的项目与插件的**左侧栏**、承载当前激活插件的**中央视口**（首次启动时为放置区），以及将激活插件声明的参数转为响应式表单字段的**右侧面板**。拖到中央（或插件列表）的文件会按扩展名和魔数路由到匹配的插件；当多个插件匹配时，由选择对话框决定。
 
@@ -612,7 +626,19 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-1749 个测试分布在 104 个测试文件中（1747 通过，2 个在无 GPU 环境跳过）：文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、统计内核（描述统计、特殊函数、假设检验、效应量、校正、功效）、cspkg 解析/校验、沙箱 RPC（含一次穿越 fake Worker 的端到端往返）、i18n、app store、WASM 重试策略、GPU 计算（WGSL 模板——粒子、N-Body、直方图、热力图、点云——缓冲打包、CPU 积分器、服务门控）、内置插件逻辑（含共享的一键 PNG/CSV 导出动作、宿主按钮载荷处理与近期缺陷回归）、数据插件的解析辅助（误差带行、矩形树层级、QQ probit）、区块系统端到端——`DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python/R）、三模式 IR 同步（积木 ↔ 流程 ↔ 代码，含 `mergeFlowIR`、按会话语言互译与流程签名守卫）、Python/R/JavaScript 代码解析器、经 IR 解释器端到端执行全部随附 `.clproj` 示例工程的 `examples-roundtrip`、studio API 与流程对齐的方法（`exampleData / grid / filterRange / topK / addConstantColumn / renameColumn`）、Pyodide worker 协议、结构力学模拟器、插件运行时生命周期、出版级绘图引擎、可复现性内核，以及通过 `import.meta.glob` 加载的管线示例，外加科研模块——不确定性套件（bootstrap、蒙特卡洛传播与 GPU 引擎对拍、R-hat/ESS 诊断）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、分块读取、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室（OLS / 逻辑 / 岭 / 多项式）、数据画像、信号工具箱（FFT / 滤波 / ACF / 分解）、参数扫描执行器（计划展开、指标提取、断点续跑）、SQL 引擎（注册 / 查询 / 取消）、报告生成器（spec → HTML、转义、运行摘要）、可复现锁（构建 / 校验 / 漂移）与推断引擎模板（模板构建、点对点似然、端到端采样 + WAIC/LOO/PPC + 确定性对拍）、共用科研数字格式化助手（`fmt`）的边界安全（`toPrecision` 范围与整数取整）、结构化错误分类法（归一化、因果链、Result 组合子、重试/中止语义、注册表去重与全局处理器）、校验框架（可组合校验器、嵌套问题路径、JSON 定位与数值文本解析）、数据质量引擎（类型推断、画像与 IQR 离群值、全部期望规则、schema 推断、坏行隔离、DataTable 适配器），以及重构后的参数扫描草稿/响应面层（网格/列表/拉丁超立方校验、单元格上限、计划往返、过期结果检测、响应面构建）。
+**1761 个测试分布在 106 个测试文件中**（1759 通过，2 个在无 GPU 环境跳过）。按领域覆盖：
+
+| 领域 | 单元测试钉住的内容 |
+| ---- | ------------------ |
+| 数据与 I/O | 文件格式检测、科研二进制 I/O（NetCDF/HDF5/FITS/Parquet/Zarr 辅助）、分块读取 |
+| 统计内核 | 描述统计、特殊函数、假设检验、效应量、多重比较校正、功效分析 |
+| 插件与沙箱 | cspkg 解析/校验、沙箱 RPC（含穿越 fake Worker 的端到端往返）、内置插件逻辑（含一键 PNG/CSV 导出动作、宿主按钮载荷与缺陷回归）、数据插件解析辅助（误差带、矩形树层级、QQ probit）、插件运行时生命周期、结构力学模拟器 |
+| GPU 计算 | WGSL 模板（粒子、N-Body、直方图、热力图、点云）、缓冲打包、CPU 积分器、服务门控 |
+| 区块系统 | `DataTable` ops、注册表、编译器（校验/拓扑/类型检查）、执行器（增量缓存 + 失效）、几何、目录执行器、`viz.*` → 插件渲染桥接、代码生成（JS/Python/R） |
+| 三模式 IR 同步 | 积木 ↔ 流程 ↔ 代码往返（含 `mergeFlowIR`、按会话语言互译、流程签名守卫）、Python/R/JavaScript 代码解析器、`examples-roundtrip` 经 IR 解释器端到端执行全部随附 `.clproj`、studio API 流程对齐方法、Pyodide worker 协议 |
+| 科研模块 | 不确定性套件（bootstrap、蒙特卡洛传播、GPU 引擎对拍、R-hat/ESS）、单位系统、实验记录（IndexedDB runs 存储）、数据血缘、图表组合、补充材料打包（zip 往返）、Notebook 模型、模型实验室、数据画像、信号工具箱、参数扫描执行器 + 草稿/响应面层、SQL 引擎、报告生成器、可复现锁、推断引擎模板（端到端采样 + WAIC/LOO/PPC + 确定性对拍）、`fmt` 边界安全 |
+| 可靠性内核 | 结构化错误分类法（归一化、因果链、Result 组合子、重试/中止、注册表去重、全局处理器）、校验框架（可组合校验器、嵌套问题路径、安全解析）、数据质量引擎（类型推断、IQR 离群值、期望规则、schema 推断、坏行隔离、DataTable 适配器） |
+| 平台 | i18n、app store、WASM 重试策略、出版级绘图引擎、可复现性内核、经 `import.meta.glob` 加载的管线示例 |
 
 针对生产预览的 E2E 套件（Playwright-core, headless Edge）：
 
