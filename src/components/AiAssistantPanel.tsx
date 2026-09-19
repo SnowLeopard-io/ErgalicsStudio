@@ -26,9 +26,13 @@ import {
   askAssistant,
   adviseOnRunError,
   getAssistantMode,
+  getProviderConfig,
   isOnlineAuthorized,
+  isOnlineConfigured,
   setAssistantMode,
   setOnlineAuthorized,
+  setProviderConfig,
+  type AiProviderConfig,
   type AssistantMode,
 } from '@/core/ai/provider';
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
@@ -60,6 +64,9 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
   const [advice, setAdvice] = useState<string | null>(null);
   const [mode, setMode] = useState<AssistantMode>(() => getAssistantMode());
   const [authorized, setAuthorized] = useState<boolean>(() => isOnlineAuthorized());
+  const [configured, setConfigured] = useState<boolean>(() => isOnlineConfigured());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [form, setForm] = useState<AiProviderConfig>(() => getProviderConfig());
   const lastRequestRef = useRef<{ prompt: string; kind: IntentKind; slots: IntentSlots } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +91,11 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
       // survive into the setHistory closure below (strict mode).
       const intent = reply.intent;
       const code = reply.code;
-      if (code && intent) {
+      if (reply.text) {
+        // Online model answered in natural language.
+        lastRequestRef.current = null;
+        setHistory((h) => [...h, { role: 'assistant', text: reply.text as string, note: reply.note ?? undefined }]);
+      } else if (code && intent) {
         lastRequestRef.current = { prompt: text, kind: intent.kind, slots: intent.slots };
         setHistory((h) => [
           ...h,
@@ -157,21 +168,39 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
   const toggleAuthorize = useCallback((value: boolean) => {
     setOnlineAuthorized(value);
     setAuthorized(value);
-    setAssistantMode(value ? 'online' : 'offline');
-    setMode(getAssistantMode());
+    if (!value) {
+      // Revoking authorization forces offline (provider policy).
+      setMode(getAssistantMode());
+    }
   }, []);
 
   const selectMode = useCallback((next: AssistantMode) => {
-    if (next === 'online' && !authorized) {
-      // Clicking online with the authorization notice right above is an
-      // explicit consent: grant it so the toggle responds instead of
-      // silently dead-ending on a disabled button.
-      setOnlineAuthorized(true);
-      setAuthorized(true);
+    if (next === 'online') {
+      // Clicking online is explicit consent: grant authorization so the
+      // toggle responds instead of silently dead-ending on a disabled button.
+      if (!authorized) {
+        setOnlineAuthorized(true);
+        setAuthorized(true);
+      }
+      // Online without a configured endpoint can never answer — open the
+      // settings form right away so the user sees what to fill in.
+      if (!isOnlineConfigured()) setSettingsOpen(true);
     }
     setAssistantMode(next);
     setMode(getAssistantMode());
   }, [authorized]);
+
+  const saveConfig = useCallback(() => {
+    const endpoint = form.endpoint.trim();
+    if (!endpoint) {
+      notify('warning', t('ai.config_endpoint_required'));
+      return;
+    }
+    setProviderConfig({ ...form, endpoint });
+    setForm((f) => ({ ...f, endpoint }));
+    setConfigured(isOnlineConfigured());
+    notify('success', t('ai.config_saved'));
+  }, [form, t]);
 
   return (
     <aside className="ai-panel" data-testid="ai-assistant-panel">
@@ -198,32 +227,106 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
       </div>
 
       <div className="ai-panel-policy">
-        <label className="ai-policy-row">
-          <input
-            type="checkbox"
-            checked={authorized}
-            onChange={(e) => toggleAuthorize(e.target.checked)}
-          />
-          <span>{t('ai.authorize_online')}</span>
-        </label>
-        <div className="ai-policy-row">
+        <div className="ai-mode-seg" role="group" aria-label={t('ai.title')}>
           <button
             type="button"
-            className={`btn btn-sm${mode === 'offline' ? ' btn-toggle-on' : ''}`}
+            className={`ai-mode-seg-btn${mode === 'offline' ? ' is-active' : ''}`}
+            aria-pressed={mode === 'offline'}
             onClick={() => selectMode('offline')}
           >
             {t('ai.mode.offline')}
           </button>
           <button
             type="button"
-            className={`btn btn-sm${mode === 'online' ? ' btn-toggle-on' : ''}`}
+            className={`ai-mode-seg-btn${mode === 'online' ? ' is-active' : ''}`}
+            aria-pressed={mode === 'online'}
             onClick={() => selectMode('online')}
-            title={authorized ? t('ai.mode.online') : t('ai.authorize_first')}
           >
             {t('ai.mode.online')}
           </button>
         </div>
-        <p className="ai-policy-note">{t('ai.privacy_note')}</p>
+
+        {mode === 'online' && (
+          <>
+            <label className="ai-policy-row">
+              <input
+                type="checkbox"
+                checked={authorized}
+                onChange={(e) => toggleAuthorize(e.target.checked)}
+              />
+              <span>{t('ai.authorize_online')}</span>
+            </label>
+
+            <div className="ai-service">
+              <button
+                type="button"
+                className="ai-service-toggle"
+                aria-expanded={settingsOpen}
+                onClick={() => setSettingsOpen((v) => !v)}
+              >
+                <span>{t('ai.service_settings')}</span>
+                <span className={`ai-service-state${configured ? ' is-ready' : ''}`}>
+                  {configured ? t('ai.config_ready') : t('ai.config_not_ready')}
+                </span>
+                <svg
+                  className={`ai-service-caret${settingsOpen ? ' is-open' : ''}`}
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {settingsOpen && (
+                <div className="ai-service-form">
+                  <label className="ai-field">
+                    <span>{t('ai.endpoint')}</span>
+                    <input
+                      type="url"
+                      className="input"
+                      value={form.endpoint}
+                      placeholder={t('ai.endpoint_placeholder')}
+                      onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))}
+                    />
+                  </label>
+                  <label className="ai-field">
+                    <span>{t('ai.model')}</span>
+                    <input
+                      type="text"
+                      className="input"
+                      value={form.model}
+                      placeholder={t('ai.model_placeholder')}
+                      onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+                    />
+                  </label>
+                  <label className="ai-field">
+                    <span>{t('ai.api_key')}</span>
+                    <input
+                      type="password"
+                      className="input"
+                      autoComplete="off"
+                      value={form.apiKey}
+                      placeholder={t('ai.api_key_placeholder')}
+                      onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                    />
+                  </label>
+                  <p className="ai-policy-note">{t('ai.key_hint')}</p>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={saveConfig}>
+                    {t('ai.save_config')}
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="ai-policy-note">{t('ai.privacy_note_online')}</p>
+          </>
+        )}
+
+        {mode === 'offline' && <p className="ai-policy-note">{t('ai.privacy_note')}</p>}
       </div>
 
       <div className="ai-chat" ref={listRef}>

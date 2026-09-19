@@ -12,8 +12,6 @@
 // standard dev ports (see each workspace's vite.config). The URLs are
 // overridable via env so a different layout or port is always possible.
 
-import.meta.env; // keep vite import.meta.env types stable under all tooling
-
 const WEBSITE_DEV = import.meta.env.VITE_WEBSITE_URL ?? 'http://localhost:5174/';
 const DOCS_DEV =
   import.meta.env.VITE_DOCS_URL ?? 'http://localhost:5175/';
