@@ -74,6 +74,25 @@ let autosaveTimer: ReturnType<typeof setInterval> | null = null;
  */
 let openSeq = 0;
 
+// An active session changes only when a project is installed or removed.
+// Unlike an id, it also distinguishes closing and reopening the same project.
+let projectSession = 0;
+let editRevision = 0;
+let saveSeq = 0;
+
+function isCurrentSession(session: number, projectId: string): boolean {
+  return session === projectSession && useProjectStore.getState().project?.id === projectId;
+}
+
+async function importProjectText(raw: string, seq: number): Promise<Project> {
+  const project = deserializeProject(raw);
+  // File reads participate in opening order before their first await.
+  if (seq !== openSeq) return project;
+  await saveProject(project);
+  if (seq === openSeq) applyOpenedProject(project);
+  return project;
+}
+
 /** Derive a data-file "format" tag from a filename extension. */
 function fileExtension(name: string): string {
   const idx = name.lastIndexOf('.');
@@ -118,7 +137,8 @@ function restoreEditor(state: {
  * restoration sequence and the stale-response guard.
  */
 function applyOpenedProject(project: Project): void {
-  useProjectStore.setState({ project, dirty: false });
+  projectSession += 1;
+  useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   syncProjectFiles(project);
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
@@ -147,18 +167,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   statusText: null,
 
   createProject: async (name) => {
+    const seq = ++openSeq;
     const project = createEmptyProject(name);
     await saveProject(project);
-    // A fresh project supersedes any project open still in flight.
-    openSeq += 1;
+    if (seq !== openSeq) return project;
+    projectSession += 1;
     // Clear the previous project's runtime state so a fresh project never
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
     useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
-    set({ project, dirty: false });
+    set({ project, dirty: false, status: 'ready', statusText: null });
     syncProjectFiles(project);
+    ensureAutosave();
     await get().loadRecent();
     return project;
   },
@@ -166,30 +188,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   openProject: async (id) => {
     const seq = ++openSeq;
     const project = await getProject(id);
-    if (!project) throw new Error('project not found');
     // A newer open/create/import (or a response that beat this one) wins.
     if (seq !== openSeq) return;
+    if (!project) throw new Error('project not found');
     applyOpenedProject(project);
   },
 
-  loadProjectFromText: async (raw) => {
-    const seq = ++openSeq;
-    const project = deserializeProject(raw);
-    await saveProject(project);
-    if (seq !== openSeq) return project;
-    applyOpenedProject(project);
-    return project;
-  },
+  loadProjectFromText: (raw) => importProjectText(raw, ++openSeq),
 
   save: async () => {
     const { project, status } = get();
     if (!project || status === 'saving') return;
+    const session = projectSession;
+    const revision = editRevision;
+    const seq = ++saveSeq;
     // Claim the 'saving' flag synchronously — previously it was set only
     // *after* two awaits, so Ctrl+S racing an autosave both passed the guard
     // and their final set() could overwrite each other out of order.
     set({ status: 'saving', statusText: null });
     try {
       await get().applyPluginParams();
+      if (!isCurrentSession(session, project.id)) return;
       get().applyBlockGraph();
       get().applyEditor();
       const current = get().project;
@@ -199,16 +218,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }
       const touched = touchProject(current);
       await saveProject(touched);
-      set({ project: touched, dirty: false, status: 'saved' });
+      if (!isCurrentSession(session, project.id)) return;
+      // Storage committed this snapshot, not edits made during its await.
+      // Runtime-only edits (plugins/editor/flow) may not replace the project
+      // object, so track dirty notifications as well as object identity.
+      const unchanged = get().project === current && editRevision === revision;
+      set(unchanged
+        ? { project: touched, dirty: false, status: 'saved' }
+        : { dirty: true, status: 'ready' });
       // Let plugins persist their own state alongside the project now that
       // the project itself is durably stored.
       usePluginStore.getState().notifyProjectLifecycle('save');
     } catch (err) {
       logger.error('project', 'save failed', err);
-      set({ status: 'error' });
+      if (isCurrentSession(session, project.id)) set({ status: 'error' });
     }
     setTimeout(() => {
-      if (useProjectStore.getState().status === 'saved') {
+      if (seq === saveSeq && isCurrentSession(session, project.id) && get().status === 'saved') {
         set({ status: 'ready' });
       }
     }, 1500);
@@ -230,8 +256,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   openFromFile: async (file) => {
+    const seq = ++openSeq;
     const raw = await file.text();
-    return get().loadProjectFromText(raw);
+    return importProjectText(raw, seq);
   },
 
   rename: (name) => {
@@ -246,7 +273,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await deleteRunsByProject(id).catch(() => undefined);
     await get().loadRecent();
     if (get().project?.id === id) {
-      set({ project: null, dirty: false });
+      projectSession += 1;
+      set({ project: null, dirty: false, status: 'ready', statusText: null });
       syncProjectFiles(null);
       // Clear the block graph, editor sessions and active plugin so the
       // canvas/editor never keep showing the deleted project's content.
@@ -261,11 +289,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ recent });
   },
 
-  setDirty: (dirty) => set({ dirty }),
+  setDirty: (dirty) => {
+    if (dirty) editRevision += 1;
+    set({ dirty });
+  },
   setStatus: (status, statusText = null) => set({ status, statusText }),
 
   applyPluginParams: async () => {
+    const session = projectSession;
+    const projectId = get().project?.id;
+    if (!projectId) return;
     const params = await usePluginStore.getState().getAllParams();
+    if (!isCurrentSession(session, projectId)) return;
     // Re-read the project *after* the await — the old snapshot could be
     // stale if a rename/setParam landed during the await, and applying it
     // would silently discard the concurrent update.
@@ -315,6 +350,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   addDataFile: async (file) => {
     const { project } = get();
     if (!project) return null;
+    const session = projectSession;
     // Boundary check: data files are stored/parsed as text. Binary picks must
     // go through the scientific import pipeline (useFileRouting), which
     // decodes them to CSV first.
@@ -322,6 +358,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error(`unsupported data file format: ${file.name}`);
     }
     const content = await file.text();
+    if (!isCurrentSession(session, project.id)) return null;
     // Re-read AFTER the await. Large/scientific imports parse for a while
     // before reaching here; using the pre-await snapshot previously replaced
     // the *whole* project object (potentially a different project the user
