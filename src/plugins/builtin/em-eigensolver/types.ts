@@ -1,0 +1,88 @@
+// ==========================================================================
+// EM Eigensolver plugin — shared types (plugin ⇄ client ⇄ worker protocol)
+// ==========================================================================
+
+/** Solver configuration mirroring the Python ``SolverConfig`` facade. */
+export interface EmSolverConfig {
+  /** auto | lanczos | lobpcg | jacobi-davidson */
+  method: 'auto' | 'lanczos' | 'lobpcg' | 'jacobi-davidson';
+  /** Number of eigenpairs. */
+  k: number;
+  /** Target shift; `null` selects extremal eigenvalues by `which`. */
+  sigma: number | null;
+  /** Extremal selection when sigma is null: LM | LA | SA. */
+  which: 'LM' | 'LA' | 'SA';
+  /** Relative residual tolerance. */
+  tol: number;
+  maxCycles: number;
+  maxIter: number;
+  /** Krylov / search-space width (memory knob). */
+  basisDim: number;
+  seed: number;
+  /** Direct LAPACK path for tiny problems. */
+  denseThreshold: number;
+}
+
+/** Where the matrix comes from. */
+export type EmSolveSource =
+  | { source: 'sample'; sample: string }
+  | { source: 'file'; filename: string; name: string; data: ArrayBuffer };
+
+/** host → worker messages. */
+export type EmWorkerRequest =
+  | { type: 'init'; indexURL: string }
+  | { type: 'solve'; id: number; request: EmSolveSource; config: EmSolverConfig }
+  | { type: 'export'; id: number };
+
+/** Per-cycle progress emitted by the kernels (JSON-safe subset).
+ *  Lanczos emits `cycle`+`residuals[]`; LOBPCG emits `iter`+`rel_residuals[]`;
+ *  Jacobi-Davidson emits `iter`+`rel` (scalar). All carry `matvecs`. */
+export interface EmProgressInfo {
+  cycle?: number;
+  residuals?: number[];
+  ritz?: number[];
+  matvecs?: number;
+  inner?: number;
+  sigma?: number | null;
+  iter?: number;
+  rel?: number;
+  locked?: number;
+  rel_residuals?: number[];
+}
+
+/** Solve report (EigenResult without eigenvectors). */
+export interface EmResultPayload {
+  eigenvalues: number[];
+  residuals: number[];
+  converged: boolean;
+  iterations: number;
+  matvecs: number;
+  method: string;
+  backend: string;
+  diagnostics: Record<string, unknown>;
+  meta: {
+    name: string;
+    description: string;
+    shape: [number, number];
+    nnz: number;
+    complex: boolean;
+  };
+}
+
+/** worker → host messages. */
+export type EmWorkerEvent =
+  | { type: 'ready'; version: string }
+  | { type: 'init-failed'; error: string }
+  | { type: 'stdout'; text: string }
+  | { type: 'progress'; id: number; info: EmProgressInfo }
+  | { type: 'result'; id: number; ok: boolean; payload?: EmResultPayload; error?: string; durationMs: number }
+  | { type: 'export-result'; id: number; ok: boolean; bytes?: ArrayBuffer; error?: string };
+
+/** Sample matrix ids offered by the plugin UI (see python/em_eigensolver/samples.py). */
+export const EM_SAMPLES = [
+  'cavity_small',
+  'cluster_zero',
+  'degenerate_pair',
+  'cavity_complex',
+  'cavity_large',
+] as const;

@@ -30,6 +30,16 @@ describe('detectByExtension', () => {
   it('marks results as extension-based', () => {
     expect(detectByExtension('a.csv')).toMatchObject({ format: 'csv', byMagic: false });
   });
+
+  it('detects plugin-declared scientific extensions (mtx/npz/npy/geojson)', () => {
+    // Regression: these extensions are declared by builtin plugins but were
+    // missing from EXTENSION_FORMATS, so drag-drop routed them to the
+    // "unsupported format" banner instead of the owning plugin.
+    expect(detectByExtension('cavity.mtx')?.format).toBe('mtx');
+    expect(detectByExtension('matrix.NPZ')?.format).toBe('npz');
+    expect(detectByExtension('dense.npy')?.format).toBe('npy');
+    expect(detectByExtension('map.geojson')?.format).toBe('geojson');
+  });
 });
 
 describe('detectFormatByMagic', () => {

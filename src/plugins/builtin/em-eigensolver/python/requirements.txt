@@ -1,0 +1,6 @@
+# em_eigensolver — required
+numpy>=1.24
+
+# optional: enables the scipy.sparse fast path (pure-NumPy fallback is used
+# when absent — this is the mode the browser Pyodide build always runs in)
+scipy>=1.10

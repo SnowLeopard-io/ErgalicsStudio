@@ -9,6 +9,7 @@ import {
   collectSupportedExtensions,
   detectScientificFormat,
   scientificFormatFromName,
+  isSupportedDataFileName,
 } from '@/core/fileFormat';
 import {
   loadScientificData,
@@ -59,6 +60,17 @@ export function useFileRouting() {
   const loadIntoPlugin = async (id: string, file: File) => {
     const pluginStore = usePluginStore.getState();
     if (pluginStore.activeId !== id) await pluginStore.activate(id);
+    // Register the dropped file in the project's data-file list so the top
+    // data area (TopBar count + ProjectFilesDialog) reflects the import.
+    // Binary formats (.npz/.npy) cannot be stored as text FileEntry content,
+    // so they stay unlisted and flow straight into the plugin.
+    if (isSupportedDataFileName(file.name)) {
+      try {
+        await useProjectStore.getState().addDataFile(file);
+      } catch (err) {
+        logger.warn('io', 'data file registration failed', err);
+      }
+    }
     try {
       await runTracked(
         {

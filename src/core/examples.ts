@@ -45,6 +45,7 @@ import opticsConcaveJson from '../../examples/data/optics-concave-diverging.json
 import opticsPrismJson from '../../examples/data/optics-prism-dispersion.json?raw';
 import structureTrussJson from '../../examples/data/structure-truss-bridge.json?raw';
 import structureRopeJson from '../../examples/data/structure-rope-bridge.json?raw';
+import emCavityMtx from '../../examples/data/em-cavity-degenerate.mtx?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -92,6 +93,25 @@ export interface BuiltinExample {
 }
 
 export const BUILTIN_EXAMPLES: BuiltinExample[] = [
+  {
+    id: 'em-cavity-degenerate',
+    filename: 'em-cavity-degenerate.mtx',
+    format: 'mtx',
+    mimeType: 'text/plain',
+    pluginId: 'example.em-eigensolver',
+    group: 'lab',
+    content: emCavityMtx,
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 简并腔体阵列（重特征值）',
+      'en-US': 'EM Resonance · Degenerate Cavity Array',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '600 阶厄密腔体矩阵：3 组不同参数的 10×10 谐振腔各重复两次，每个特征值恰好两重。加载后点击「运行求解」以稠密直解模式计算，查看谱、残差与收敛轨迹。',
+      'en-US':
+        'A 600-order Hermitian cavity matrix: three 10×10 cavity blocks repeated twice, so every eigenvalue is exactly double. Load it and press Solve for an instant dense-path run with spectrum, residuals and convergence.',
+    },
+  },
   {
     id: 'diamond-sphere',
     filename: 'diamond.xyz',

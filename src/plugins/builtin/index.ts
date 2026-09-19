@@ -49,6 +49,7 @@ import { truchetManifest } from './truchet';
 import { electromagManifest } from './electromag';
 import { opticsManifest } from './optics';
 import { structureManifest } from './structure';
+import { emEigensolverManifest } from './em-eigensolver/plugin';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -174,6 +175,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: structureManifest,
     load: async () => {
       const mod = await import('./structure');
+      return mod.default();
+    },
+  },
+  {
+    manifest: emEigensolverManifest,
+    load: async () => {
+      const mod = await import('./em-eigensolver');
       return mod.default();
     },
   },
