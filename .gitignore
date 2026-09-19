@@ -67,6 +67,11 @@ docs/.vitepress/*
 # Official website (npm workspace): build output.
 website/dist/
 
+# Technical documents mirrored from docs/technical by
+# scripts/copy-technical-docs.mjs for the website Downloads page.
+# Regenerated on dev/build (~35MB of PDFs — never commit them).
+website/public/technical/
+
 # Merged GitHub Pages artifact (website root + workstation under app/),
 # produced by scripts/merge-deploy.mjs. Regenerated on every deploy build.
 pages-out/

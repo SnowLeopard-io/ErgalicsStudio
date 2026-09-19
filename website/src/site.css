@@ -225,6 +225,23 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
 .plugin-desc { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6; flex: 1; }
 .plugin-actions { display: flex; gap: var(--space-2); }
 
+/* ---------- downloads ---------- */
+.dl-group { margin-bottom: var(--space-6); }
+.dl-group h2 { font-size: var(--font-size-lg); margin: 0 0 var(--space-1); letter-spacing: -0.01em; }
+.dl-group > .muted { margin: 0 0 var(--space-4); }
+.dl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+.doc-card {
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  transition: border-color var(--transition-fast);
+}
+.doc-card:hover { border-color: var(--color-border-hover); }
+.doc-card h3 { margin: 0; font-size: var(--font-size-md); }
+.doc-card p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6; flex: 1; }
+.dl-actions { justify-content: flex-start; margin-top: var(--space-2); }
+.dl-btn { font-family: var(--font-mono); }
+
 /* ---------- footer ---------- */
 .site-footer { border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); margin-top: auto; }
 .footer-inner {
@@ -250,6 +267,7 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
+  .dl-grid { grid-template-columns: 1fr; }
   .plugin-grid { grid-template-columns: 1fr; }
 }
 
@@ -264,6 +282,6 @@ a.gallery-card:hover, .gallery-card:hover { border-color: var(--color-border-hov
   }
   .site-nav.open { display: flex; }
   .site-nav .nav-studio { display: block; text-align: center; margin-top: var(--space-2); color: var(--color-accent-text); }
-  .feature-grid, .gallery-grid, .theme-grid { grid-template-columns: 1fr; }
+  .feature-grid, .gallery-grid, .theme-grid, .dl-grid { grid-template-columns: 1fr; }
   .site-main { padding: 0 var(--space-4); }
 }

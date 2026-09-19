@@ -30,6 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { to: '/gallery', label: t('nav.gallery') },
     { to: '/themes', label: t('nav.themes') },
     { to: '/plugins', label: t('nav.plugins') },
+    { to: '/downloads', label: t('nav.downloads') },
   ];
 
   return (

@@ -7,6 +7,12 @@ const D: Dict = {
   'nav.gallery': { zh: '作品画廊', en: 'Gallery' },
   'nav.themes': { zh: '主题市场', en: 'Themes' },
   'nav.plugins': { zh: '插件市场', en: 'Plugins' },
+  'nav.downloads': { zh: '资料下载', en: 'Downloads' },
+  'downloads.title': { zh: '资料下载', en: 'Downloads' },
+  'downloads.desc': {
+    zh: 'Ergalics Studio 技术文档与项目资料：完整技术总结、八章技术细节与双语项目说明，提供 PDF / HTML / Markdown 三种格式，可在线阅读或直接下载。',
+    en: 'Technical documentation and project materials: the full technical summary, eight technical chapters and bilingual readmes in PDF / HTML / Markdown — read online or download.',
+  },
   'nav.docs': { zh: '文档', en: 'Docs' },
   'nav.enter': { zh: '进入工作站', en: 'Enter Studio' },
   'footer.tagline': {
