@@ -42,22 +42,24 @@ jobs:
         run: npm run bench:ci
 
       # First run in a new environment (e.g. linux-x64) has no committed
-      # baseline: bench-compare.mjs records one and exits 0. Commit it here so
-      # subsequent runs actually gate against it. Pushing to main re-triggers
-      # this workflow once; the next run finds the baseline and compares.
+      # baseline: bench-compare.mjs records one and exits 0. Commit it once so
+      # subsequent runs on the same hardware actually gate against it. When
+      # GitHub rotates the runner CPU, bench-compare.mjs re-records the baseline
+      # (without failing) but we deliberately do NOT commit those re-recordings
+      # here — a rotating runner pool would otherwise cause a commit every run.
       - name: Commit environment baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           FILE="bench/baseline.$(node -e 'process.stdout.write(process.platform + "-" + process.arch)').json"
-          if [ -n "$(git status --porcelain -- "$FILE")" ]; then
+          if git rev-parse --verify --quiet HEAD:"$FILE" >/dev/null; then
+            echo "Baseline $FILE already tracked — skipping auto-commit (re-recorded baselines stay out of git to avoid churn)."
+          else
             git checkout -B "$GITHUB_REF_NAME"
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add "$FILE"
             git commit -m "ci(bench): record baseline for $(node -e 'process.stdout.write(process.platform + "-" + process.arch)')"
             git push
-          else
-            echo "Baseline $FILE unchanged — nothing to commit."
           fi
 
       - name: Record environment in job summary
