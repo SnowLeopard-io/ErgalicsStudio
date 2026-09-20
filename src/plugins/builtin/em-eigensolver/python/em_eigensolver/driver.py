@@ -15,6 +15,7 @@ as a compressed ``.npz``.
 from __future__ import annotations
 
 import json
+import math
 
 import numpy as np
 
@@ -72,10 +73,18 @@ def _nearest_grid(n: int) -> tuple[int, int]:
     Grid-geometry sample matrices (cavity_*) are square, so this recovers the
     exact resonator mesh; band-assembly samples get an approximate layout and
     the report flags it via ``"approx": true``.
+
+    Primes (and tiny n) have no factor pair with both sides >= 2, which would
+    collapse the 3D surface to a 1-row strip with zero quads — fall back to an
+    approximate 2-row layout instead; ``mode_fields`` zero-pads the remainder.
     """
     r = int(np.sqrt(n))
     while r > 1 and n % r != 0:
         r -= 1
+    if r < 2:
+        if n < 2:
+            return 1, 1
+        return 2, max(2, math.ceil(n / 2))
     return r, n // r
 
 
@@ -110,10 +119,12 @@ def mode_fields(max_modes: int = 6, target: int = 64) -> list[dict]:
     fields: list[dict] = []
     for j in range(min(v.shape[1], int(max_modes))):
         vec = v[:, j]
-        if np.iscomplexobj(vec):
-            grid = np.abs(vec).reshape(rows, cols)
-        else:
-            grid = np.real(vec).reshape(rows, cols)
+        data = np.abs(vec) if np.iscomplexobj(vec) else np.real(vec)
+        # Approximate layouts (primes) can have rows*cols > n — zero-pad.
+        flat = np.zeros(rows * cols, dtype=np.float64)
+        m = min(n, rows * cols)
+        flat[:m] = np.asarray(data[:m], dtype=np.float64)
+        grid = flat.reshape(rows, cols)
         small = _downsample_grid(np.asarray(grid, dtype=np.float64), target)
         peak = float(np.max(np.abs(small)))
         if peak <= 0.0:
@@ -127,6 +138,25 @@ def mode_fields(max_modes: int = 6, target: int = 64) -> list[dict]:
             "approx": bool(rows != cols),
         })
     return fields
+
+
+def _sanitize_json(obj, hit: list[bool]):
+    """Recursively replace NaN/Inf floats with ``None``.
+
+    ``json.dumps`` would happily emit bare ``NaN``/``Infinity`` tokens, which
+    crash ``JSON.parse`` on the host — a diverged solve must fail with a
+    readable message instead of a syntax error.
+    """
+    if isinstance(obj, float):
+        if not np.isfinite(obj):
+            hit[0] = True
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json(v, hit) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_json(v, hit) for v in obj]
+    return obj
 
 
 def solve_json(payload: str) -> str:
@@ -151,12 +181,19 @@ def solve_json(payload: str) -> str:
     report = res.to_dict()
     report.pop("eigenvectors", None)  # n x k: stay in Python, export on demand
     report["meta"] = meta
-    # Downsampled mode fields for the 3D visualisation (≤6 modes, ≤48x48
+    # Downsampled mode fields for the 3D visualisation (≤6 modes, ≤64x64
     # cells each) — small enough to ride along in the JSON report.
     # Key is camelCase to match the TS protocol (EmResultPayload.modeFields);
     # the report crosses to JS verbatim, with no case conversion.
     report["modeFields"] = mode_fields()
-    return json.dumps(report, default=float)
+    # NaN/Inf (diverged residuals, broken-down eigenvalues) must never reach
+    # the host as bare JSON tokens — sanitize to null and flag the report so
+    # the TS side can show a readable "likely diverged" message.
+    hit: list[bool] = [False]
+    clean = _sanitize_json(report, hit)
+    if hit[0]:
+        clean["nonfinite"] = True
+    return json.dumps(clean, default=float)
 
 
 def export_npz(path: str) -> str:

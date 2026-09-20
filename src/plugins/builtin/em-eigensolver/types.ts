@@ -82,8 +82,11 @@ export interface EmResultPayload {
     nnz: number;
     complex: boolean;
   };
-  /** Downsampled mode fields for the 3D view (≤6 modes, ≤48×48 cells). */
+  /** Downsampled mode fields for the 3D view (≤6 modes, ≤64×64 cells). */
   modeFields?: EmModeField[];
+  /** True when the report contained NaN/Inf (diverged) — driver nulled them;
+   *  the payload must not be rendered, surface a readable error instead. */
+  nonfinite?: boolean;
 }
 
 /** worker → host messages. */
