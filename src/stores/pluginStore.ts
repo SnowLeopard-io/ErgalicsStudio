@@ -11,6 +11,7 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import { getLocale, t, subscribeLocale } from '@/i18n';
+import { findBuiltin } from '@/plugins/builtin';
 import { on, emit, type BusSubscription } from '@/core/events';
 import { logger } from '@/core/logger';
 import { getGpuCompute } from '@/core/compute';
@@ -37,6 +38,8 @@ interface PluginStore {
   /** Load a plugin module (from builtin or installed package). */
   load: (plugin: Plugin) => Promise<void>;
   unload: (id: string) => Promise<void>;
+  /** Unload, rebuild from the builtin factory and reactivate (self-repair). */
+  reload: (id: string) => Promise<void>;
   activate: (id: string) => Promise<void>;
   deactivate: () => Promise<void>;
   isLoaded: (id: string) => boolean;
@@ -230,8 +233,7 @@ function buildPluginApi(pluginId: string): PluginApi {
     readText: async (file) => file.text(),
     readBinary: async (file) => file.arrayBuffer(),
     getParam: (key) => {
-      const { project } = useProjectStore.getState();
-      return project?.state.parameters[pluginId]?.[key];
+      return useProjectStore.getState().project?.state.parameters[pluginId]?.[key];
     },
     setParam: (key, value) => {
       useProjectStore.setState((s) => {
@@ -255,6 +257,12 @@ function buildPluginApi(pluginId: string): PluginApi {
       // Plugin-side param writes must mark the project dirty, otherwise
       // autosave never persists them.
       useProjectStore.getState().setDirty(true);
+    },
+    // Full self-reload: unload → fresh builtin instance → reactivate. Lets a
+    // plugin recover from a stuck worker or a missed host capability (e.g. a
+    // 3D container mounted before the plugin declared renderToScene).
+    reload: async () => {
+      await usePluginStore.getState().reload(pluginId);
     },
   };
 }
@@ -410,6 +418,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         activeId: s.activeId === id ? null : s.activeId,
       }));
     });
+  },
+
+  reload: async (id) => {
+    await get().unload(id);
+    const builtin = findBuiltin(id);
+    if (!builtin) {
+      logger.warn('plugin', 'reload skipped — not a builtin plugin', { id });
+      return;
+    }
+    const plugin = await builtin.load();
+    await get().load(plugin);
+    await get().activate(id);
   },
 
   activate: async (id) => {

@@ -29,6 +29,7 @@ const CHART_NOUN: Record<ChartKind, Phrase> = {
   scatter: { zh: '散点图', en: 'Scatter plot' },
   bar: { zh: '条形图', en: 'Bar chart' },
   histogram: { zh: '直方图', en: 'Histogram' },
+  field: { zh: '场分布图', en: 'Field map' },
 };
 
 /** Capitalize the leading letter (English phrases start a caption clause). */
@@ -78,6 +79,14 @@ function describeChart(kind: ChartKind, columns: string[], lang: NarrativeLang):
         ? zh
           ? `${noun}：${x} 的分布`
           : `${noun} of the distribution of ${x}`
+        : zh
+          ? `${noun}`
+          : `A ${noun.toLowerCase()}`;
+    case 'field':
+      return y
+        ? zh
+          ? `${noun}：${y} 的空间分布`
+          : `${noun} of the spatial distribution of ${y}`
         : zh
           ? `${noun}`
           : `A ${noun.toLowerCase()}`;
