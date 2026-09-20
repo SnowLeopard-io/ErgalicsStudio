@@ -26,14 +26,234 @@ const COLORBAR_STEPS = 32;
  * `t` is the normalized value in [-1, 1]; returns a CSS `rgb(...)` color.
  */
 export function fieldColorCss(t: number): string {
+  const [r, g, b] = fieldColorRgb(t);
+  return `rgb(${r},${g},${b})`;
+}
+
+/** RGB triple of the diverging field colormap (see `fieldColorCss`). */
+function fieldColorRgb(t: number): [number, number, number] {
   const NEG = [0, 114, 178];
   const POS = [213, 94, 0];
   const WHITE = [255, 255, 255];
   const a = Math.max(-1, Math.min(1, Number.isFinite(t) ? t : 0));
   // u=0 → white (zero), u=1 → full hue (|t| = 1).
   const [to, u] = a < 0 ? [NEG, -a] : [POS, a];
-  const c = WHITE.map((f, i) => Math.round(f + (to[i]! - f) * u));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+  return WHITE.map((f, i) => Math.round(f + (to[i]! - f) * u)) as [number, number, number];
+}
+
+/** mplot3d-style view constants: default elevation/azimuth, orthographic. */
+const VIEW_AZ = (-60 * Math.PI) / 180;
+const VIEW_EL = (30 * Math.PI) / 180;
+const VIEW_COS_AZ = Math.cos(VIEW_AZ);
+const VIEW_SIN_AZ = Math.sin(VIEW_AZ);
+const VIEW_COS_EL = Math.cos(VIEW_EL);
+const VIEW_SIN_EL = Math.sin(VIEW_EL);
+const Z_ASPECT = 0.75; // z axis height as a fraction of the x/y span
+const PANE_FILL = '#f1f1f6';
+const PANE_GRID = '#ffffff';
+/** World-space light direction for Lambert shading of the surface (unit). */
+const SURFACE_LIGHT = [0.36, -0.48, 0.8] as const;
+
+/**
+ * mplot3d-style 3D frame (orthographic, azim=-60°, elev=30°): three shaded
+ * background panes with white grid lines, the shaded surface inside the unit
+ * box, and dark axis edges with outward tick numbers — mirroring matplotlib's
+ * default `plot_surface` look. The whole unit box is projected and fitted
+ * into `box`, so the surface can never escape or misalign with the frame.
+ */
+function surfaceFrame(
+  field: FieldData,
+  box: { x: number; y: number; w: number; h: number },
+  labels?: { x?: string; y?: string; z?: string },
+): { base: string[]; quads: string[]; axes: string[] } {
+  const { values, rows, cols } = field;
+  const [fMin, fMax] = fieldDomain(field);
+  const span = fMax - fMin || 1;
+  // Height axis uses the *actual* data range so valleys sit on the floor and
+  // peaks reach the top (the color domain may be symmetric beyond it).
+  let dMin = Infinity;
+  let dMax = -Infinity;
+  for (const v of values) {
+    if (!Number.isFinite(v)) continue;
+    if (v < dMin) dMin = v;
+    if (v > dMax) dMax = v;
+  }
+  if (dMin > dMax) {
+    dMin = 0;
+    dMax = 1;
+  }
+  const dSpan = dMax - dMin || 1;
+
+  // mplot3d view basis (orthographic, azim=-60°, elev=30°). Returns
+  // [screen-right, screen-up, toward-viewer] for a point in the unit box.
+  const view = (x: number, y: number, z: number): [number, number, number] => [
+    -VIEW_SIN_AZ * x + VIEW_COS_AZ * y,
+    -VIEW_COS_AZ * VIEW_SIN_EL * x - VIEW_SIN_AZ * VIEW_SIN_EL * y + VIEW_COS_EL * z,
+    VIEW_COS_EL * VIEW_COS_AZ * x + VIEW_COS_EL * VIEW_SIN_AZ * y + VIEW_SIN_EL * z,
+  ];
+  const at = (c: number, r: number): number =>
+    values[Math.min(r, rows - 1) * cols + Math.min(c, cols - 1)] ?? 0;
+
+  // Fit the *whole unit box* (8 corners) into the panel — the surface lives
+  // inside the box, so fitting the box guarantees the surface can never
+  // escape the axes or drift out of register with the frame.
+  let uMin = Infinity;
+  let uMax = -Infinity;
+  let vMin = Infinity;
+  let vMax = -Infinity;
+  for (const z of [0, Z_ASPECT]) {
+    for (const x of [0, 1]) {
+      for (const y of [0, 1]) {
+        const p = view(x, y, z);
+        if (p[0] < uMin) uMin = p[0];
+        if (p[0] > uMax) uMax = p[0];
+        if (p[1] < vMin) vMin = p[1];
+        if (p[1] > vMax) vMax = p[1];
+      }
+    }
+  }
+  const s = Math.min((box.w * 0.98) / (uMax - uMin || 1), (box.h * 0.98) / (vMax - vMin || 1));
+  const ox = box.x + box.w / 2 - ((uMin + uMax) / 2) * s;
+  const oy = box.y + box.h / 2 + ((vMin + vMax) / 2) * s;
+  const S = (x: number, y: number, z: number): [number, number] => {
+    const p = view(x, y, z);
+    return [ox + p[0] * s, oy - p[1] * s];
+  };
+  // Data point → screen (world cube: x/y ∈ [0,1], z ∈ [0, Z_ASPECT]).
+  const P = (c: number, r: number, v: number): [number, number] => S(
+    c / Math.max(1, cols - 1),
+    r / Math.max(1, rows - 1),
+    ((v - dMin) / dSpan) * Z_ASPECT,
+  );
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    stroke: string,
+    w: number,
+  ): string =>
+    `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${stroke}" stroke-width="${w}"/>`;
+  const poly = (pts: Array<[number, number]>, fill: string): string =>
+    `<polygon points="${pts.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')}" fill="${fill}"/>`;
+
+  // --- Three background panes (floor + two back walls) with white grids. ---
+  const base: string[] = [];
+  base.push(poly([S(0, 0, 0), S(1, 0, 0), S(1, 1, 0), S(0, 1, 0)], PANE_FILL));
+  base.push(poly([S(0, 0, 0), S(0, 1, 0), S(0, 1, Z_ASPECT), S(0, 0, Z_ASPECT)], PANE_FILL));
+  base.push(poly([S(1, 1, 0), S(0, 1, 0), S(0, 1, Z_ASPECT), S(1, 1, Z_ASPECT)], PANE_FILL));
+  // Grid lines align with the tick positions on each axis (white on gray).
+  const clip = (t: number, lo: number, hi: number): boolean => t >= lo - 1e-9 && t <= hi + 1e-9;
+  const cxs = Math.max(1, cols - 1);
+  const rys = Math.max(1, rows - 1);
+  const xT = niceTicks(0, cxs, 5).ticks.filter((t) => clip(t, 0, cxs));
+  const yT = niceTicks(0, rys, 5).ticks.filter((t) => clip(t, 0, rys));
+  const zT = niceTicks(dMin, dMax, 5).ticks.filter((t) => clip(t, dMin, dMax));
+  for (const t of xT) {
+    base.push(seg(S(t / cxs, 0, 0), S(t / cxs, 1, 0), PANE_GRID, 1));
+    base.push(seg(S(t / cxs, 1, 0), S(t / cxs, 1, Z_ASPECT), PANE_GRID, 1));
+  }
+  for (const t of yT) {
+    base.push(seg(S(0, t / rys, 0), S(1, t / rys, 0), PANE_GRID, 1));
+    base.push(seg(S(0, t / rys, 0), S(0, t / rys, Z_ASPECT), PANE_GRID, 1));
+  }
+  for (const t of zT) {
+    const z = ((t - dMin) / dSpan) * Z_ASPECT;
+    base.push(seg(S(0, 0, z), S(0, 1, z), PANE_GRID, 1));
+    base.push(seg(S(0, 1, z), S(1, 1, z), PANE_GRID, 1));
+  }
+
+  // --- Shaded quads (painter's algorithm, back to front). ---
+  interface Quad { depth: number; path: string; fill: string; }
+  const quads: Quad[] = [];
+  const stepWx = 1 / cxs;
+  const stepWy = 1 / rys;
+  for (let r = 0; r < rows - 1; r += 1) {
+    for (let c = 0; c < cols - 1; c += 1) {
+      const v00 = at(c, r);
+      const v10 = at(c + 1, r);
+      const v01 = at(c, r + 1);
+      const v11 = at(c + 1, r + 1);
+      const p00 = P(c, r, v00);
+      const p10 = P(c + 1, r, v10);
+      const p11 = P(c + 1, r + 1, v11);
+      const p01 = P(c, r + 1, v01);
+      // Lambert shading from the world-space quad normal (two-sided, so
+      // backfacing slopes darken symmetrically instead of going black).
+      const az = ((v10 - v00) / dSpan) * Z_ASPECT;
+      const bz = ((v01 - v00) / dSpan) * Z_ASPECT;
+      const nxv = -az * stepWy;
+      const nyv = -bz * stepWx;
+      const nzv = stepWx * stepWy;
+      const nl = Math.hypot(nxv, nyv, nzv) || 1;
+      const lambert = Math.abs(
+        (nxv / nl) * SURFACE_LIGHT[0] + (nyv / nl) * SURFACE_LIGHT[1] + (nzv / nl) * SURFACE_LIGHT[2],
+      );
+      const shade = 0.58 + 0.42 * lambert;
+      const mean = (v00 + v10 + v01 + v11) / 4;
+      const [cr, cg, cb] = fieldColorRgb(((mean - fMin) / span) * 2 - 1);
+      quads.push({
+        depth:
+          VIEW_COS_EL * VIEW_COS_AZ * ((c + 0.5) * stepWx) +
+          VIEW_COS_EL * VIEW_SIN_AZ * ((r + 0.5) * stepWy) +
+          VIEW_SIN_EL * ((((v00 + v11) / 2 - dMin) / dSpan) * Z_ASPECT),
+        path: `M${p00[0].toFixed(1)} ${p00[1].toFixed(1)}L${p10[0].toFixed(1)} ${p10[1].toFixed(1)}L${p11[0].toFixed(1)} ${p11[1].toFixed(1)}L${p01[0].toFixed(1)} ${p01[1].toFixed(1)}Z`,
+        fill: `rgb(${Math.round(cr * shade)},${Math.round(cg * shade)},${Math.round(cb * shade)})`,
+      });
+    }
+  }
+  quads.sort((a, b) => a.depth - b.depth); // far (small viewer depth) first
+
+  // --- 3D axis kit: light box wireframe, dark axis edges, outward ticks. ---
+  const axes: string[] = [];
+  const Z0: Array<[number, number]> = [S(0, 0, 0), S(1, 0, 0), S(1, 1, 0), S(0, 1, 0)];
+  const ZT: Array<[number, number]> = [
+    S(0, 0, Z_ASPECT),
+    S(1, 0, Z_ASPECT),
+    S(1, 1, Z_ASPECT),
+    S(0, 1, Z_ASPECT),
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    axes.push(seg(Z0[i]!, Z0[(i + 1) % 4]!, '#b9b9c2', 0.8));
+    axes.push(seg(ZT[i]!, ZT[(i + 1) % 4]!, '#c9c9d2', 0.7));
+  }
+  axes.push(seg(Z0[1]!, ZT[1]!, '#b9b9c2', 0.8)); // vertical at (1,0)
+  axes.push(seg(Z0[3]!, ZT[3]!, '#b9b9c2', 0.8)); // vertical at (0,1)
+  // Dark axis lines: front x edge, front y edge, and the z edge at (1,1).
+  axes.push(seg(Z0[0]!, Z0[1]!, '#222', 1.2));
+  axes.push(seg(Z0[1]!, Z0[2]!, '#222', 1.2));
+  axes.push(seg(Z0[2]!, ZT[2]!, '#222', 1.2));
+  // Outward tick directions in screen space, derived from the view basis.
+  const dirOf = (x: number, y: number, z: number): [number, number] => {
+    const p = view(x, y, z);
+    const n = Math.hypot(p[0], p[1]) || 1;
+    return [p[0] / n, -p[1] / n];
+  };
+  const xDir = dirOf(0, -1, 0);
+  const yDir = dirOf(1, 0, 0);
+  const zDir = dirOf(1, 1, 0);
+  const tick = (p: [number, number], dir: [number, number], text: string) => {
+    axes.push(seg([p[0], p[1]], [p[0] + dir[0] * 4, p[1] + dir[1] * 4], '#222', 1));
+    axes.push(
+      `<text x="${(p[0] + dir[0] * 11).toFixed(1)}" y="${(p[1] + dir[1] * 11 + 3).toFixed(1)}" font-family="${FONT_AXIS}" font-size="10" text-anchor="middle" fill="#222">${escapeText(text)}</text>`,
+    );
+  };
+  for (const t of xT) tick(S(t / cxs, 0, 0), xDir, formatTick(t));
+  for (const t of yT) tick(S(1, t / rys, 0), yDir, formatTick(t));
+  for (const t of zT) tick(S(1, 1, ((t - dMin) / dSpan) * Z_ASPECT), zDir, formatTick(t));
+  // Axis labels, offset further out along the same outward directions.
+  const axisLabel = (p: [number, number], dir: [number, number], text: string) => {
+    axes.push(
+      `<text x="${(p[0] + dir[0] * 28).toFixed(1)}" y="${(p[1] + dir[1] * 28 + 4).toFixed(1)}" font-family="${FONT_AXIS}" font-size="12" font-style="italic" text-anchor="middle" fill="#000">${escapeText(text)}</text>`,
+    );
+  };
+  axisLabel(S(0.5, 0, 0), xDir, labels?.x || 'x');
+  axisLabel(S(1, 0.5, 0), yDir, labels?.y || 'y');
+  if (labels?.z) axisLabel(S(1, 1, Z_ASPECT / 2), zDir, labels.z);
+
+  return {
+    base,
+    quads: quads.map((q) => `<path d="${q.path}" fill="${q.fill}" stroke="${q.fill}" stroke-width="0.6"/>`),
+    axes,
+  };
 }
 
 /** Symmetric diverging domain for a field: [-m, m] when it straddles zero. */
@@ -164,22 +384,34 @@ export function renderSVG(spec: PlotSpec): string {
   // Series.
   for (const s of spec.series) {
     if (s.kind === 'field' && s.field) {
-      const { values, rows, cols } = s.field;
-      const [fMin, fMax] = fieldDomain(s.field);
-      const span = fMax - fMin || 1;
+      const { rows, cols } = s.field;
       const cw = plotW / Math.max(1, cols);
       const ch = plotH / Math.max(1, rows);
-      for (let r = 0; r < rows; r += 1) {
-        for (let c = 0; c < cols; c += 1) {
-          const v = values[r * cols + c];
-          if (v === undefined) continue;
-          // Row 0 is the top of the grid (image convention).
-          const px = MARGIN.left + c * cw;
-          const py = MARGIN.top + r * ch;
-          parts.push(
-            `<rect x="${px.toFixed(2)}" y="${py.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" ` +
-              `fill="${fieldColorCss(((v - fMin) / span) * 2 - 1)}"/>`,
-          );
+      if (s.field.surface) {
+        // Shaded 3D landscape in a real 3D box: floor grid behind, surface,
+        // then frame/z-axis/ticks on top.
+        const fr = surfaceFrame(
+          s.field,
+          { x: MARGIN.left, y: MARGIN.top, w: plotW, h: plotH },
+          { x: spec.xLabel, y: spec.yLabel, z: s.name },
+        );
+        parts.push(...fr.base, ...fr.quads, ...fr.axes);
+      } else {
+        const { values } = s.field;
+        const [fMin, fMax] = fieldDomain(s.field);
+        const span = fMax - fMin || 1;
+        for (let r = 0; r < rows; r += 1) {
+          for (let c = 0; c < cols; c += 1) {
+            const v = values[r * cols + c];
+            if (v === undefined) continue;
+            // Row 0 is the top of the grid (image convention).
+            const px = MARGIN.left + c * cw;
+            const py = MARGIN.top + r * ch;
+            parts.push(
+              `<rect x="${px.toFixed(2)}" y="${py.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" ` +
+                `fill="${fieldColorCss(((v - fMin) / span) * 2 - 1)}"/>`,
+            );
+          }
         }
       }
     } else if (s.kind === 'bar' || s.kind === 'histogram') {
@@ -214,15 +446,20 @@ export function renderSVG(spec: PlotSpec): string {
     }
   }
 
-  // Axes (drawn on top so they are never covered by data).
-  parts.push(
-    `<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
-  );
-  parts.push(
-    `<line x1="${MARGIN.left}" y1="${MARGIN.top + plotH}" x2="${MARGIN.left + plotW}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
-  );
+  // Axes (drawn on top so they are never covered by data). Surface panels
+  // draw their own 3D box instead of the flat 2D spines.
+  const isSurface = firstField?.field.surface === true;
+  if (!isSurface) {
+    parts.push(
+      `<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+    );
+    parts.push(
+      `<line x1="${MARGIN.left}" y1="${MARGIN.top + plotH}" x2="${MARGIN.left + plotW}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+    );
+  }
 
-  // X ticks + labels.
+  // X ticks + labels (2D panels only — surface panels tick the 3D floor).
+  if (!isSurface) {
   if (spec.xTicksOverride && spec.xTicksOverride.length > 0) {
     for (const t of spec.xTicksOverride) {
       const px = x.toPixel(t.pos);
@@ -268,6 +505,7 @@ export function renderSVG(spec: PlotSpec): string {
       `<text transform="translate(${16},${(MARGIN.top + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
     );
   }
+  } // end !isSurface (2D axes)
 
   // Field colorbar: a discrete diverging strip right of the plot area.
   if (firstField) {

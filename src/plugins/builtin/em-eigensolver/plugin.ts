@@ -73,7 +73,7 @@ export function modeFieldPanels(fields: readonly EmModeField[]): ModeFieldPanel[
           name: 'normalized |E|',
           kind: 'field',
           color: '#D55E00',
-          field: { values: f.values, rows: f.rows, cols: f.cols },
+          field: { values: f.values, rows: f.rows, cols: f.cols, surface: true },
         },
       ],
     },

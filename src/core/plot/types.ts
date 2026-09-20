@@ -18,6 +18,11 @@ export interface FieldData {
   cols: number;
   /** Value range for the diverging colormap/colorbar; defaults to data min/max. */
   domain?: [number, number];
+  /**
+   * Render as a shaded 3D surface (axonometric projection, painter's algorithm)
+   * instead of a top-down heatmap — the "resonant mode landscape" look.
+   */
+  surface?: boolean;
 }
 
 /** One drawable series in a plot. Coordinates are in *data* space. */

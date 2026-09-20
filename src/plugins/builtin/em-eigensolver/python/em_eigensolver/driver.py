@@ -88,7 +88,7 @@ def _block_bounds(size: int, target: int) -> tuple[np.ndarray, np.ndarray]:
     return bounds[:-1].astype(np.intp), np.diff(bounds).astype(np.float64)
 
 
-def _downsample_grid(g: np.ndarray, target: int = 48) -> np.ndarray:
+def _downsample_grid(g: np.ndarray, target: int = 64) -> np.ndarray:
     """Block-mean reduction to at most ``target`` cells per axis (any size)."""
     rs, rc = _block_bounds(g.shape[0], target)
     cs, cc = _block_bounds(g.shape[1], target)
@@ -96,7 +96,7 @@ def _downsample_grid(g: np.ndarray, target: int = 48) -> np.ndarray:
     return out / (rc[:, None] * cc[None, :])
 
 
-def mode_fields(max_modes: int = 6, target: int = 48) -> list[dict]:
+def mode_fields(max_modes: int = 6, target: int = 64) -> list[dict]:
     """Downsampled mode fields of the last solve, JSON-safe for the host.
 
     Complex eigenvectors become |field| magnitude; real ones keep their sign
