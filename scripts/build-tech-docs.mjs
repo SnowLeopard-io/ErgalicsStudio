@@ -432,10 +432,15 @@ const CSS = `
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
   h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  /* Numeral badge. A fixed 26px square fits 一…十, but the CJK numerals for
+     sections 11+ (十一 … 十四) are two glyphs wide and spill out of it. Use a
+     min-width so single-glyph badges stay square and wider numerals grow into
+     a pill instead of overflowing. */
   h2.sec .num {
     background: var(--accent); color: #fff; font-size: 11pt;
-    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px; flex: none;
     display: inline-flex; align-items: center; justify-content: center;
+    white-space: nowrap;
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }

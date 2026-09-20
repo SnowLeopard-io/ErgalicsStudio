@@ -117,10 +117,15 @@
   .toc-item .dots { flex: 1; border-bottom: 1.5px dotted #cbd5e1; margin: 0 8px; transform: translateY(-3px); }
   .toc-item .tp { color: var(--accent-deep); }
   h2.sec { font-size: 17pt; color: var(--ink); margin: 0 0 6mm; display: flex; align-items: center; gap: 10px; }
+  /* Numeral badge. A fixed 26px square fits 一…十, but the CJK numerals for
+     sections 11+ (十一 … 十四) are two glyphs wide and spill out of it. Use a
+     min-width so single-glyph badges stay square and wider numerals grow into
+     a pill instead of overflowing. */
   h2.sec .num {
     background: var(--accent); color: #fff; font-size: 11pt;
-    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px; flex: none;
     display: inline-flex; align-items: center; justify-content: center;
+    white-space: nowrap;
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
@@ -234,7 +239,7 @@
 <p>贡献指引要求：新插件或新功能必须附带端到端检查。</p>
 <h2 class="sec"><span class="num">三</span>性能基准与体积预算</h2>
 <p>性能回归靠<strong>基线对比</strong>而非绝对阈值，且基线按环境分文件：</p>
-<ul><li><code>src/core/bench/</code> 的 <code>runAllBenchmarks()</code> 执行导入 / GPU 内核 / 渲染帧率 / 内存四类关键路径套件，返回含环境信息（Node 版本、平台、架构、CPU 型号、日期）的结构化结果。</li><li><code>scripts/bench-run.mjs</code> 在 Node 中无头运行并写入 <code>bench-results.json</code>；<code>scripts/bench-compare.mjs</code> 与基线逐指标比对——<code>bench/baseline.json</code> 面向开发机，<code>bench/baseline.&lt;platform&gt;-&lt;arch&gt;.json</code>（仓库中已有 <code>baseline.linux-x64.json</code>）面向 CI，因为共享 Runner 上的数字与开发桌面没有可比性；<code>scripts/bench-report.mjs</code> 产出单文件 HTML 报告。</li><li>新环境首次运行没有基线时，<code>bench-compare.mjs</code> 记录一份并以 0 退出，由 bench 工作流把该文件提交回仓库，供后续运行真正设门禁；Runner CPU 轮换导致基线被重录时则<strong>故意不提交</strong>，避免&quot;每次运行都产生一次提交&quot;的噪声。</li><li>体积侧由 <code>scripts/build-budget.mjs</code> 分析构建产物，对照 <code>budget-baseline.json</code> 做门禁（FR-06）。</li></ul>
+<ul><li><code>src/core/bench/</code> 的 <code>runAllBenchmarks()</code> 执行导入 / GPU 内核 / 渲染帧率 / 内存四类关键路径套件，返回含环境信息（Node 版本、平台、架构、CPU 型号、日期）的结构化结果。</li><li><code>scripts/bench-run.mjs</code> 在 Node 中无头运行并写入 <code>bench-results.json</code>；<code>scripts/bench-compare.mjs</code> 与基线逐指标比对——<code>bench/baseline.json</code> 面向开发机，<code>bench/baseline.&lt;platform&gt;-&lt;arch&gt;.json</code>（仓库中已有 <code>baseline.linux-x64.json</code>）面向 CI，因为共享 Runner 上的数字与开发桌面没有可比性；<code>scripts/bench-report.mjs</code> 产出单文件 HTML 报告。</li><li>新环境首次运行没有基线时，<code>bench-compare.mjs</code> 记录一份并以 0 退出，由 bench 工作流把该文件提交回仓库，供后续运行真正设门禁。另有两类<strong>硬件噪声守卫</strong>会重录基线而非误报失败（重录文件<strong>故意不提交</strong>，避免&quot;每次运行都产生一次提交&quot;的噪声）：① Runner 报告的 CPU 型号或 Node 版本与基线不一致；② CPU/Node 字符串相同、但吞吐指标中 ≥75% 同向回归且内存指标全部持平——这是同型号 CPU 被换到不同宿主机（微码/固件/负载不同）的典型签名；选择性或混合方向的真实代码回归不会命中该守卫，仍会正常失败。</li><li>体积侧由 <code>scripts/build-budget.mjs</code> 分析构建产物，对照 <code>budget-baseline.json</code> 做门禁（FR-06）。</li></ul>
 <h2 class="sec"><span class="num">四</span>持续集成（5 条工作流）</h2>
 <table><thead><tr><th>工作流</th><th>触发</th><th>关键步骤与门禁</th></tr></thead><tbody><tr><td><strong>ci</strong></td><td>push 到 main、所有 PR</td><td>引用元数据检查（FR-10）→ <code>tsc --noEmit</code> → <code>npm test</code> → 生成 WASM 存根 → <code>build:web</code> → 性能预算（FR-06）。任一步失败即红</td></tr><tr><td><strong>bench</strong></td><td>push 到 main、发布 Release</td><td><code>npm run bench:ci</code>（跑基准 + 按环境基线比对）→ 首次运行提交环境基线 → 结果写入 job summary 并上传 artifact；发布时作为附件挂到 Release（FR-23）</td></tr></tbody></table>
 </div>
