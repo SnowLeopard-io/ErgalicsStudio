@@ -74,7 +74,7 @@ python tests/test_all.py
 
 ## 并行与运行环境
 
-纯 Python 内核受 NumPy/BLAS 性能支配：matvec 与小型 `eigh` 在本地自动派发到多线程 BLAS（`OMP_NUM_THREADS` / `MKL_NUM_THREADS`）。浏览器（Pyodide）构建按设计为单线程 WASM——全程无 GPU，因此不存在"缺 GPU 时的降级"问题：**任何环境（本地 CPython / 浏览器）跑的都是同一套求解核心**，这本身就是赛题要求的最小化降级模式。
+纯 Python 内核受 NumPy/BLAS 性能支配：matvec 与小型 `eigh` 在本地自动派发到多线程 BLAS（`OMP_NUM_THREADS` / `MKL_NUM_THREADS`）。浏览器（Pyodide）构建按设计为单线程 WASM——求解主循环全程保持 CPU f64 精确路径（GPU SpMV 内核为平台级独立 API，不在求解热循环内），因此不存在"缺 GPU 时的降级"问题：**任何环境（本地 CPython / 浏览器）跑的都是同一套求解核心**，这本身就是赛题要求的最小化降级模式。
 
 ## 内置样例与基准数据
 
@@ -108,11 +108,17 @@ python tests/test_all.py
 
 ## 测试与可复现性
 
-`python tests/test_all.py` 共 **15** 项测试（可独立运行或交给 pytest），覆盖：
+`python tests/test_all.py` 共 **22** 项测试（可独立运行或交给 pytest），覆盖：
 
 | 测试 | 覆盖点 |
 | --- | --- |
 | `test_csr_matvec_and_hermiticity` | 纯 NumPy CSR matvec、厄密性度量、存储估算 |
+| `test_numpy_csr_backend_matches_scipy` | 纯 NumPy 后端与 SciPy CSR 的 matvec / 索引 / 转置逐元素一致 |
+| `test_hermiticity_measure_defaults` | 厄密性度量的默认参数与缺省路径 |
+| `test_numpy_csr_parallel_matvec_matches_serial` | 行块多线程 matvec 与串行结果逐元素一致（含阈值路由） |
+| `test_jd_inner_tolerance_is_relaxed` | JD 内层 `rtol / maxiter` 的门面收紧逻辑 |
+| `test_driver_config_accepts_camel_case` | Worker 桥 camelCase / snake_case 双命名兼容 |
+| `test_export_npz_contains_residuals` | 导出 `.npz` 含 `residuals` 键 |
 | `test_mtx_npz_roundtrip` | `.mtx` 与稀疏 `.npz` 写读往返（误差 < 1e-12） |
 | `test_hermitize_and_materialize` | 三角恢复与厄密化投影 |
 | `test_minres_indefinite` | 不定系统 MINRES 收敛与真实残差 |
@@ -126,8 +132,10 @@ python tests/test_all.py
 | `test_driver_mode_fields` | 模式场降采样（网格还原 / 近似布局 / 64 格上限 / 复数取模） |
 | `test_nearest_grid_prime_falls_back` | 质数维度退化布局回退（两侧 ≥ 2 + 零填充） |
 | `test_sanitize_json_replaces_nonfinite` | NaN/Inf → null 清洗 + 标志位（杜绝非法 JSON） |
+| `test_parameter_sweep_curves` | 参数扫描曲线（`sweep.py`，扫描点间配置互不泄漏） |
+| `test_validate_correctness_fast_subset` | 正确性验证 fast 子集（extremal 路径 + k 完整护栏） |
 
-三个内核的数值结果均与稠密 LAPACK 参考比对，覆盖重特征值与谱内目标。**确定性**：所有随机初始化走 `np.random.default_rng(seed)`，`seed` 是界面参数与配置字段——同配置同种子结果可复现。完整套件为分钟到十数分钟量级（JD 与十万阶样例是主要耗时项），单项调试可用 `pytest -k <用例名>`。
+三个内核的数值结果均与稠密 LAPACK 参考比对，覆盖重特征值与谱内目标。**确定性**：所有随机初始化走 `np.random.default_rng(seed)`，`seed` 是界面参数与配置字段——同配置同种子结果可复现。完整套件为分钟到十数分钟量级（JD 与十万阶样例是主要耗时项），单项调试可用 `pytest -k <用例名>`。`benchmarks/` 目录另附性能基准（`perf_bench.py`）与正确性对抗基准（`validate_correctness.py`，13 用例含 8 组 adversarial 场景），实测结果 JSON 随仓库归档于 `bench/`。
 
 最小复现环境：Python 3.10+（浏览器侧由 Pyodide 的 CPython 承担）、`numpy >= 1.24`（必装，BSD-3-Clause）、`scipy >= 1.10`（可选，BSD-3-Clause，缺失即纯 NumPy 后端）。
 
@@ -147,15 +155,15 @@ python tests/test_all.py
 | 赛题要求 | 对应实现 |
 | --- | --- |
 | a. 统一的读取/预处理/迭代/收敛/输出 | `io_matrix.py` → `solver.py` → 三内核 → `write_eigen_npz` / `driver.py`；CLI 与插件共用同一门面 |
-| b. NumPy/SciPy 输入、稀疏存储、按需恢复三角/完整 | `.npy / .npz / .mtx` 全格式；`csr_from_coo(hermitian_fill=True)` 与 `materialize_triangle`，全程不经稠密 |
+| b. NumPy/SciPy 输入、稀疏存储、按需恢复三角/完整 | `.npy / .npz / .mtx` 全格式（本地另可直读 `.h5`/`.fits`/`.nc`，缺包时抛指名缺失包的 `MatrixIOError`）；`csr_from_coo(hermitian_fill=True)` 与 `materialize_triangle`，全程不经稠密 |
 | c. 适配非正定/不定的 Krylov / 现代迭代算法 | 厚重启 Lanczos（Krylov-Schur）、块 LOBPCG、Jacobi-Davidson，核组件独立成文件可单独导入 |
 | d. 位移策略（σ 近奇异）+ 自适应位移 | 位移逆变换 + 自适应 σ（内层速率触发、步长倍增、轨迹记录）；JD 投影校正天然规避近奇异 |
 | e. 收敛控制与精度 | 全内核真实残差判据 + 事后认证；diagnostics 全量报告 |
-| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；如实说明无 GPU/MPI 路径 |
+| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（大矩阵 1.49×@1e5，见 benchmarks）；WebGPU SpMV 内核为宿主平台资产 |
 | 可运行原型 | CLI + 插件图形界面，两条路径同一核心 |
 | 样例数据与基准、默认配置 | 5 个参数化样例 + 1 个 `.mtx` 示例文件；`config.example.json` 完整配置 |
 | 故障场景与验证 | 见"故障场景与处置建议"；测试覆盖重特征值、谱内目标、不定系统、退化布局、非有限值 |
-| 可复现材料 | 源码、`requirements.txt`、本 README、15 项 Python 测试 + 30 项前端用例、同种子确定性 |
+| 可复现材料 | 源码、`requirements.txt`、本 README、22 项 Python 测试 + 30 项前端用例、`benchmarks/`（性能与正确性基准 + 实测结果 JSON）、同种子确定性 |
 
 ## 已知边界
 
@@ -163,5 +171,5 @@ python tests/test_all.py
 | --- | --- |
 | 广义特征问题 | 仅支持 `A x = λ x`；`A x = λBx` 需使用者先变换（后续可在门面接受 `B`） |
 | 内层预条件 | 默认不施加（理由见上文）；LOBPCG 保留钩子 |
-| 并行与硬件加速 | 仅 BLAS 多线程；无 MPI / GPU；浏览器侧单线程 WASM |
+| 并行与硬件加速 | BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（线程池仅在 n ≳ 4×10⁴ 启用，实测拐点）；无 MPI；浏览器内同步求解循环无法委派异步 WebGPU（GPU SpMV 内核为平台级独立 API，求解主循环保持 CPU f64 路径，Python 侧留有同步桥钩子） |
 | 极端类型选择 | 插件固定 `which = 'LM'`；CLI 可传参 |

@@ -211,7 +211,15 @@ def read_npz(path_or_bytes, max_dense_cells: int = 4_000_000):
 
 
 def read_matrix(path: str, max_dense_cells: int = 4_000_000):
-    """Dispatch by extension: ``.mtx`` / ``.npz`` / ``.npy``."""
+    """Dispatch by extension: ``.mtx`` / ``.npz`` / ``.npy`` (+ local extras).
+
+    ``.h5``/``.hdf5`` (h5py), ``.fits`` (astropy) and ``.nc`` (scipy NetCDF)
+    are engineering-format extras: they load through their optional native
+    readers when available (local CLI / full CPython) and raise a clear
+    MatrixIOError naming the missing package otherwise — the browser build
+    (numpy-only Pyodide) keeps the privacy story: parse locally, upload
+    nothing.
+    """
     lower = path.lower()
     if lower.endswith(".mtx"):
         return read_mtx(path, max_dense_cells=max_dense_cells)
@@ -219,6 +227,12 @@ def read_matrix(path: str, max_dense_cells: int = 4_000_000):
         return read_npz(path, max_dense_cells=max_dense_cells)
     if lower.endswith(".npy"):
         return read_npy(path, max_dense_cells=max_dense_cells)
+    if lower.endswith((".h5", ".hdf5")):
+        return _read_hdf5(path, max_dense_cells)
+    if lower.endswith(".fits"):
+        return _read_fits(path, max_dense_cells)
+    if lower.endswith(".nc"):
+        return _read_netcdf(path, max_dense_cells)
     raise MatrixIOError(f"unsupported matrix extension: {path}")
 
 
@@ -233,6 +247,88 @@ def read_matrix_bytes(name: str, data: bytes, max_dense_cells: int = 4_000_000):
     if lower.endswith(".npy"):
         return read_npy(data, max_dense_cells=max_dense_cells)
     raise MatrixIOError(f"unsupported matrix extension: {name}")
+
+
+# --------------------------------------------------------------------------
+# Engineering-format extras (local CPython only; optional dependencies)
+# --------------------------------------------------------------------------
+
+def _read_hdf5(path: str, max_dense_cells: int):
+    """``.h5``/``.hdf5`` via h5py: sparse CSR-style datasets or a 2-D array."""
+    try:
+        import h5py
+    except Exception as exc:  # ImportError or Pyodide stub
+        raise MatrixIOError(
+            ".h5/.hdf5 input requires the optional 'h5py' package "
+            "(pip install h5py); the browser build supports .mtx/.npz/.npy"
+        ) from exc
+    with h5py.File(path, "r") as fh:
+        if all(k in fh for k in ("indptr", "indices", "data")):
+            if "shape" in fh:
+                shape = tuple(int(x) for x in np.asarray(fh["shape"]).ravel()[:2])
+            else:
+                shape = (int(fh["indptr"].shape[0]) - 1,
+                         int(np.max(fh["indices"][...])) + 1)
+            return csr_from_arrays(fh["indptr"][...], fh["indices"][...],
+                                   fh["data"][...], shape)
+        dense = _first_2d_hdf5(fh)
+    if dense is None:
+        raise MatrixIOError("h5: no 2-D dataset found")
+    return _dense_to_sparse(dense, max_dense_cells, "h5")
+
+
+def _first_2d_hdf5(group, depth: int = 0):
+    """Depth-first search for the first 2-D dataset (groups included)."""
+    if depth > 8:
+        return None
+    for key in group:
+        obj = group[key]
+        if hasattr(obj, "ndim"):  # Dataset
+            if obj.ndim == 2:
+                return np.asarray(obj[...], dtype=np.float64)
+        elif hasattr(obj, "keys"):  # nested Group
+            found = _first_2d_hdf5(obj, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _read_fits(path: str, max_dense_cells: int):
+    """``.fits`` via astropy: first 2-D image HDU."""
+    try:
+        from astropy.io import fits
+    except Exception as exc:
+        raise MatrixIOError(
+            ".fits input requires the optional 'astropy' package "
+            "(pip install astropy); the browser build supports .mtx/.npz/.npy"
+        ) from exc
+    with fits.open(path, memmap=False) as hdul:
+        for hdu in hdul:
+            data = getattr(hdu, "data", None)
+            if data is None:
+                continue
+            arr = np.asarray(data)
+            if arr.ndim == 2:
+                return _dense_to_sparse(
+                    arr.astype(np.float64), max_dense_cells, "fits")
+    raise MatrixIOError("fits: no 2-D image HDU found")
+
+
+def _read_netcdf(path: str, max_dense_cells: int):
+    """``.nc`` via ``scipy.io.netcdf_file``: first square 2-D variable."""
+    try:
+        from scipy.io import netcdf_file
+    except Exception as exc:
+        raise MatrixIOError(
+            ".nc input requires SciPy (scipy.io.netcdf_file); the browser "
+            "build supports .mtx/.npz/.npy"
+        ) from exc
+    with netcdf_file(path, "r", mmap=False) as nc:
+        for name, var in getattr(nc, "variables", {}).items():
+            arr = np.asarray(var[:], dtype=np.float64)
+            if arr.ndim == 2 and arr.shape[0] == arr.shape[1]:
+                return _dense_to_sparse(arr, max_dense_cells, f"nc:{name}")
+    raise MatrixIOError("nc: no square 2-D variable found")
 
 
 # --------------------------------------------------------------------------
@@ -305,17 +401,21 @@ def hermitize(A):
 # Writers
 # --------------------------------------------------------------------------
 
-def write_eigen_npz(path: str, w: np.ndarray, v: np.ndarray, meta: dict | None = None):
+def write_eigen_npz(path: str, w: np.ndarray, v: np.ndarray, meta: dict | None = None,
+                    residuals: np.ndarray | None = None):
     """Write eigenvalues/eigenvectors as a plain NumPy ``.npz``.
 
     Keys: ``eigenvalues`` (real float64), ``eigenvectors`` (float64 or
-    complex128, columns correspond to eigenvalues), optionally ``meta``.
+    complex128, columns correspond to eigenvalues), ``residuals`` (real
+    float64, when provided) and optionally ``meta`` (JSON string).
     Loadable directly with ``numpy.load`` / ``scipy``.
     """
     w = np.asarray(w, dtype=np.float64)
     if np.iscomplexobj(v) and np.max(np.abs(np.imag(v))) <= 1e-14:
         v = np.real(v)
     save_kw = {"eigenvalues": w, "eigenvectors": np.asarray(v)}
+    if residuals is not None and len(residuals):
+        save_kw["residuals"] = np.asarray(residuals, dtype=np.float64)
     if meta:
         save_kw["meta"] = np.asarray(_json_dumps(meta))
     np.savez(path, **save_kw)

@@ -207,6 +207,10 @@ export function buildFieldAnnotations(field: EmModeField, heightScale = 0.35): T
     const x = e.col - (field.cols - 1) / 2;
     const z = e.row - (field.rows - 1) / 2;
     const y = e.value * heightScale * extent;
+    // Labels for valleys hang BELOW the vertex so they float in the empty
+    // space under the surface instead of covering it; peaks keep the label
+    // above. Stem direction follows the same sign rule.
+    const up = e.value >= 0;
 
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(Math.max(extent * 0.015, 0.08), 16, 12),
@@ -215,11 +219,11 @@ export function buildFieldAnnotations(field: EmModeField, heightScale = 0.35): T
     marker.position.set(x, y, z);
     group.add(marker);
 
-    const top = y + extent * 0.14;
+    const tip = y + (up ? 1 : -1) * extent * 0.14;
     const stem = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(x, y, z),
-        new THREE.Vector3(x, top, z),
+        new THREE.Vector3(x, tip, z),
       ]),
       new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }),
     );
@@ -229,7 +233,7 @@ export function buildFieldAnnotations(field: EmModeField, heightScale = 0.35): T
     let text = `${prefix} ${sign}${Math.abs(e.value).toFixed(2)} (r${e.row},c${e.col})`;
     if ((prefix === 'max') === dominantPos) text += `\nλ=${field.eigenvalue.toExponential(2)}`;
     const spr = labelSprite(text, extent);
-    spr.position.set(x, top + extent * 0.1, z);
+    spr.position.set(x, tip + (up ? 1 : -1) * extent * 0.1, z);
     group.add(spr);
   }
   return group;

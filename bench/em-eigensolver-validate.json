@@ -1,0 +1,317 @@
+{
+  "backend": "scipy 1.18.1 (CPython)",
+  "reference": [
+    {
+      "case": "cavity_small",
+      "k": 6,
+      "k_returned": 6,
+      "sigma": null,
+      "method": "lanczos",
+      "n": 900,
+      "nnz": 4380,
+      "eigenvalues": [
+        8.393004701343871,
+        8.405424769733262,
+        8.415237686035127,
+        8.458695222956575,
+        8.459021524963752,
+        8.484725876667282
+      ],
+      "reference_eigenvalues": [
+        8.393004701343878,
+        8.405424769733242,
+        8.4152376860351,
+        8.458695222956571,
+        8.459021524963758,
+        8.484725876667282
+      ],
+      "max_eigenvalue_error": 2.6645352591003757e-14,
+      "max_eigenvalue_error_rel": 3.1403905062245563e-15,
+      "max_residual": 2.5322751585192663e-09,
+      "reference_residual": 6.2610749240494144e-15,
+      "iterations": 6,
+      "matvecs": 295,
+      "seconds": 0.038,
+      "converged": true,
+      "status": "PASS"
+    },
+    {
+      "case": "cavity_complex",
+      "k": 4,
+      "k_returned": 4,
+      "sigma": null,
+      "method": "lanczos",
+      "n": 576,
+      "nnz": 2784,
+      "eigenvalues": [
+        8.871698856214806,
+        8.928208600459383,
+        8.928670882426434,
+        8.971824796234605
+      ],
+      "reference_eigenvalues": [
+        8.871698856214795,
+        8.92820860045935,
+        8.928670882426456,
+        8.97182479623461
+      ],
+      "max_eigenvalue_error": 3.375077994860476e-14,
+      "max_eigenvalue_error_rel": 3.7618634687081315e-15,
+      "max_residual": 8.336968115557581e-10,
+      "reference_residual": 9.752472891609773e-16,
+      "iterations": 5,
+      "matvecs": 245,
+      "seconds": 0.029,
+      "converged": true,
+      "status": "PASS"
+    },
+    {
+      "case": "degenerate_pair",
+      "k": 4,
+      "k_returned": 4,
+      "sigma": -1.0,
+      "method": "jacobi-davidson",
+      "n": 300,
+      "nnz": 894,
+      "eigenvalues": [
+        -0.9996315833188706,
+        -0.9996315833188691,
+        -0.9994500140198243,
+        -0.9994500140198233
+      ],
+      "reference_eigenvalues": [
+        -0.9996315833188707,
+        -0.9996315833188707,
+        -0.9994500140198228,
+        -0.9994500140198228
+      ],
+      "max_eigenvalue_error": 1.5543122344752192e-15,
+      "max_eigenvalue_error_rel": 6.774939877222326e-16,
+      "max_residual": 6.853449726654894e-09,
+      "reference_residual": 2.1073716560522056e-16,
+      "iterations": 115,
+      "matvecs": 34810,
+      "seconds": 4.997,
+      "converged": true,
+      "status": "PASS"
+    },
+    {
+      "case": "cluster_zero",
+      "k": 4,
+      "k_returned": 4,
+      "sigma": 0.0,
+      "method": "jacobi-davidson",
+      "n": 720,
+      "nnz": 2148,
+      "eigenvalues": [
+        -0.0007593048636784519,
+        -0.0006968110492790615,
+        5.129073419674787e-05,
+        0.0006469728302743466
+      ],
+      "reference_eigenvalues": [
+        -0.0007593048636784541,
+        -0.0006968110492790564,
+        5.129073419674728e-05,
+        0.0006469728302743447
+      ],
+      "max_eigenvalue_error": 5.095750210681871e-18,
+      "max_eigenvalue_error_rel": 1.676390271298745e-17,
+      "max_residual": 3.4788742254935982e-09,
+      "reference_residual": 2.310427324279853e-15,
+      "iterations": 128,
+      "matvecs": 40137,
+      "seconds": 6.602,
+      "converged": true,
+      "status": "PASS"
+    },
+    {
+      "case": "cavity_small",
+      "k": 4,
+      "k_returned": 4,
+      "sigma": 8.3,
+      "method": "jacobi-davidson",
+      "n": 900,
+      "nnz": 4380,
+      "eigenvalues": [
+        8.295134836003182,
+        8.297837506628376,
+        8.308536802751089,
+        8.329202190300817
+      ],
+      "reference_eigenvalues": [
+        8.295134836003182,
+        8.297837506628369,
+        8.308536802751087,
+        8.329202190300819
+      ],
+      "max_eigenvalue_error": 7.105427357601002e-15,
+      "max_eigenvalue_error_rel": 8.374374683265484e-16,
+      "max_residual": 4.219231936165271e-09,
+      "reference_residual": 8.677419625721085e-16,
+      "iterations": 284,
+      "matvecs": 89933,
+      "seconds": 14.91,
+      "converged": true,
+      "status": "PASS"
+    }
+  ],
+  "stress": [
+    {
+      "case": "near_singular_shift",
+      "expectation": "converge",
+      "n": 720,
+      "nnz": 2148,
+      "sigma": 0.0,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 3.4788742254935982e-09,
+      "eigenvalues": [
+        5.129073419674787e-05,
+        0.0006469728302743466,
+        -0.0006968110492790615
+      ],
+      "finite": true,
+      "iterations": 99,
+      "matvecs": 31084,
+      "seconds": 5.001,
+      "status": "PASS"
+    },
+    {
+      "case": "dense_spectrum_interior",
+      "expectation": "converge",
+      "n": 720,
+      "nnz": 2148,
+      "sigma": 0.05,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 5.00000273669953e-09,
+      "eigenvalues": [
+        0.049837482439811065,
+        0.04969178064131903,
+        0.04885399867379273
+      ],
+      "finite": true,
+      "iterations": 72,
+      "matvecs": 22363,
+      "seconds": 3.61,
+      "status": "PASS"
+    },
+    {
+      "case": "repeated_eigenvalues",
+      "expectation": "converge",
+      "n": 300,
+      "nnz": 894,
+      "sigma": -1.0,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 6.853449726654894e-09,
+      "eigenvalues": [
+        -0.9996315833188706,
+        -0.9996315833188691,
+        -0.9994500140198243,
+        -0.9994500140198233
+      ],
+      "finite": true,
+      "iterations": 115,
+      "matvecs": 34810,
+      "seconds": 4.857,
+      "status": "PASS"
+    },
+    {
+      "case": "ill_conditioned_scale_1e9",
+      "expectation": "converge",
+      "n": 900,
+      "nnz": 4380,
+      "sigma": 600000000.0,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 1.3295677822217133e-09,
+      "eigenvalues": [
+        594575230.2667575,
+        606995298.6561236,
+        584762313.9648999
+      ],
+      "finite": true,
+      "iterations": 280,
+      "matvecs": 87363,
+      "seconds": 14.066,
+      "status": "PASS"
+    },
+    {
+      "case": "ill_conditioned_scale_1e-9",
+      "expectation": "converge",
+      "n": 900,
+      "nnz": 4380,
+      "sigma": 6e-10,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 4.578642789104854e-09,
+      "eigenvalues": [
+        5.945752392675122e-10,
+        1.0709387772721302e-09,
+        2.815915494444755e-09
+      ],
+      "finite": true,
+      "iterations": 134,
+      "matvecs": 42005,
+      "seconds": 7.02,
+      "status": "PASS"
+    },
+    {
+      "case": "complex_hermitian",
+      "expectation": "converge",
+      "n": 576,
+      "nnz": 2784,
+      "sigma": 1.2,
+      "method": "jacobi-davidson",
+      "converged": true,
+      "max_residual": 1.2263730162541182e-09,
+      "eigenvalues": [
+        1.202756945515759,
+        1.2085959051118356,
+        1.1598323738270844
+      ],
+      "finite": true,
+      "iterations": 211,
+      "matvecs": 64124,
+      "seconds": 11.17,
+      "status": "PASS"
+    },
+    {
+      "case": "large_scale_cavity_1e5",
+      "expectation": "converge",
+      "n": 102400,
+      "nnz": 510720,
+      "sigma": null,
+      "method": "lanczos",
+      "converged": true,
+      "max_residual": 2.199034210649667e-08,
+      "eigenvalues": [
+        8.042370751761112,
+        8.042370696677157,
+        8.042370696677152,
+        8.03639685864933,
+        8.036396774932857,
+        8.033412522376267
+      ],
+      "finite": true,
+      "iterations": 25,
+      "matvecs": 1207,
+      "seconds": 15.08,
+      "status": "PASS"
+    },
+    {
+      "case": "nonfinite_input",
+      "expectation": "flag",
+      "n": 900,
+      "nnz": 4380,
+      "sigma": 0.6,
+      "method": "auto",
+      "error": "LinAlgError: Eigenvalues did not converge",
+      "finite": false,
+      "seconds": 0.009,
+      "status": "PASS"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ linear indices with O(nnz log nnz) workspace only.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,6 +24,67 @@ from .backend import HAVE_SCIPY
 
 if HAVE_SCIPY:  # pragma: no cover
     import scipy.sparse as _sp
+
+
+# --------------------------------------------------------------------------
+# Optional GPU SpMV delegation (browser WebGPU bridge, see em-worker.ts).
+#
+# The host may register a GPU SpMV implementation via :func:`set_gpu_spmv`.
+# It is *opt-in* (``gpu_spmv`` config flag) and only used for real-valued
+# float matrices: the WebGPU kernel is f32, so results carry ~1e-7 relative
+# noise and the certified residual floor is correspondingly looser. Any GPU
+# failure returns ``None`` and the CPU path takes over transparently.
+# --------------------------------------------------------------------------
+
+_GPU_SPMV_UPLOAD = None     # host fn(indptr, indices, data) -> handle
+_GPU_SPMV_HOST = None       # host fn(handle, x32, y32) fills y32 in-place
+_GPU_SPMV_ENABLED = False
+_GPU_SPMV_MIN_ROWS = 4096
+
+
+def set_gpu_spmv(upload_fn, spmv_fn, enabled: bool = True) -> None:
+    """Register the host GPU SpMV bridge (call from the JS worker)."""
+    global _GPU_SPMV_UPLOAD, _GPU_SPMV_HOST, _GPU_SPMV_ENABLED
+    _GPU_SPMV_UPLOAD = upload_fn
+    _GPU_SPMV_HOST = spmv_fn
+    _GPU_SPMV_ENABLED = bool(enabled)
+
+
+def gpu_spmv_enabled() -> bool:
+    return bool(_GPU_SPMV_ENABLED and _GPU_SPMV_UPLOAD and _GPU_SPMV_HOST)
+
+
+def _worker_count() -> int:
+    """CPU matvec worker count (env override: ``EM_EIGENSOLVER_THREADS``)."""
+    env = os.environ.get("EM_EIGENSOLVER_THREADS")
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    try:
+        return max(1, min(8, os.cpu_count() or 1))
+    except Exception:  # pragma: no cover - defensive
+        return 1
+
+
+# Rows above this threshold are split into worker-sized blocks and multiplied
+# concurrently (the reduceat-based block kernel releases the GIL inside the
+# large ufuncs). Below it the single-block path is faster than any pool.
+# Measured crossover (8 workers, grid Laplacian): 10201 rows → 0.25× (pool
+# overhead dominates), 40000 rows → 1.40×, 102400 rows → 1.49×; hence 4e4.
+_PARALLEL_MIN_ROWS = 40000
+
+_POOL = None
+
+
+def _pool(workers: int):
+    """Lazily created, reused matvec pool (per-call pools cost ~0.5 ms)."""
+    global _POOL
+    if _POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _POOL = ThreadPoolExecutor(max_workers=workers)
+    return _POOL
 
 
 # --------------------------------------------------------------------------
@@ -67,20 +129,86 @@ class NumpyCSR:
 
     # -- linear algebra -----------------------------------------------------
 
+    def _gpu_dot(self, x: np.ndarray) -> np.ndarray | None:
+        """Delegate one matvec to the WebGPU host bridge (opt-in, f32).
+
+        Uploads the CSR arrays once per matrix, then per call only ships the
+        ``x`` / ``y`` vectors. Returns ``None`` whenever the GPU path is not
+        usable (not enabled, complex/integer data, host failure) so the
+        caller falls back to the exact CPU kernel.
+        """
+        if not gpu_spmv_enabled() or x.ndim != 1:
+            return None
+        if self.shape[0] < _GPU_SPMV_MIN_ROWS:
+            return None
+        if np.iscomplexobj(self.data) or not np.issubdtype(self.data.dtype, np.floating):
+            return None
+        try:
+            if not hasattr(self, "_gpu_handle"):
+                # pylint: disable=assignment-from-none
+                handle = _GPU_SPMV_UPLOAD(self.indptr, self.indices, self.data)
+                if handle is None:
+                    return None
+                self._gpu_handle = handle  # type: ignore[attr-defined]
+            x32 = np.ascontiguousarray(x, dtype=np.float32)
+            y32 = np.zeros(self.shape[0], dtype=np.float32)
+            _GPU_SPMV_HOST(self._gpu_handle, x32, y32)
+            return y32.astype(np.result_type(self.data.dtype, x.dtype))
+        except Exception:  # noqa: BLE001 — GPU must never kill a solve
+            self._gpu_handle = None  # type: ignore[attr-defined]
+            return None
+
+    def _dot_block(self, x: np.ndarray, lo: int, hi: int, dt) -> np.ndarray:
+        """Rows ``[lo, hi)`` of ``A @ x`` (vectorised reduceat, no densify).
+
+        Rows with no stored entries (or an empty trailing range) fall back to
+        the scalar per-row loop: ``np.add.reduceat`` cannot represent empty
+        segments.
+        """
+        s0, s1 = int(self.indptr[lo]), int(self.indptr[hi])
+        n_rows = hi - lo
+        if s0 == s1:
+            return np.zeros(n_rows, dtype=dt)
+        starts = (self.indptr[lo:hi] - s0).astype(np.intp)
+        has_empty = bool(np.any(starts[1:] == starts[:-1])) or starts[-1] == s1 - s0
+        if has_empty:
+            data, indices, indptr = self.data, self.indices, self.indptr
+            return np.array(
+                [
+                    np.sum(data[indptr[i]: indptr[i + 1]]
+                           * x[indices[indptr[i]: indptr[i + 1]]])
+                    for i in range(lo, hi)
+                ],
+                dtype=dt,
+            )
+        vals = self.data[s0:s1] * x[self.indices[s0:s1]]
+        return np.add.reduceat(vals, starts)
+
     def dot(self, x: np.ndarray) -> np.ndarray:
-        """Sparse matrix-vector / matrix-dense-matrix product (no densify)."""
+        """Sparse matrix-vector / matrix-dense-matrix product (no densify).
+
+        Row blocks above ``_PARALLEL_MIN_ROWS`` are multiplied on a thread
+        pool (``EM_EIGENSOLVER_THREADS`` caps the worker count, ``1`` forces
+        the serial path); results are bitwise identical across worker counts
+        because every row is reduced inside exactly one block.
+        """
         x = np.asarray(x)
         if x.shape[0] != self.shape[1]:
             raise ValueError("dimension mismatch")
         if x.ndim == 1:
-            return np.array(
-                [
-                    np.sum(self.data[self.indptr[i] : self.indptr[i + 1]]
-                           * x[self.indices[self.indptr[i] : self.indptr[i + 1]]])
-                    for i in range(self.shape[0])
-                ],
-                dtype=np.result_type(self.data.dtype, x.dtype),
-            )
+            dt = np.result_type(self.data.dtype, x.dtype)
+            gpu = self._gpu_dot(x)
+            if gpu is not None:
+                return gpu
+            n = self.shape[0]
+            workers = _worker_count() if n >= _PARALLEL_MIN_ROWS else 1
+            if workers > 1:
+                bounds = np.linspace(0, n, workers + 1).astype(np.int64)
+                spans = [(int(a), int(b)) for a, b in zip(bounds[:-1], bounds[1:]) if b > a]
+                parts = list(
+                    _pool(workers).map(lambda ab: self._dot_block(x, ab[0], ab[1], dt), spans))
+                return np.concatenate(parts) if parts else np.zeros(n, dtype=dt)
+            return self._dot_block(x, 0, n, dt)
         # Dense right-hand block with a small number of columns (basis blocks)
         # — iterating columns keeps peak memory O(nnz + n*k), never O(n^2).
         cols = [self.dot(x[:, j]) for j in range(x.shape[1])]
@@ -281,20 +409,28 @@ def hermiticity_measure(A, sample_size: int = 200_000, rng: np.random.Generator 
     """Relative Frobenius-norm estimate of ``||A - A^H|| / ||A||``.
 
     Uses a Hutchinson-style sampled product so the check is O(nnz)-ish and
-    never forms the dense difference.
+    never forms the dense difference. ``sample_size`` budgets the probe
+    work: ``num_probes = clip(sample_size // n, 1, 8)`` random columns are
+    used (more probes tighten the estimate on non-Hermitian input; a
+    Hermitian matrix measures exactly 0 with any probe count). ``rng``
+    defaults to a fixed-seed generator, so the result is reproducible.
     """
-    rng = rng or np.default_rng(0)
+    if rng is None:
+        rng = np.random.default_rng(0)
     n = A.shape[0]
-    if n != A.shape[1]:
+    if n != A.shape[1] or n == 0:
         return float("inf")
-    z = np.zeros(n, dtype=A.data.dtype if hasattr(A, "data") else float)
-    # Probe with +/-1 (and a random phase for complex matrices).
-    signs = rng.choice(np.array([-1.0, 1.0]), size=n)
-    if np.iscomplexobj(A.data if hasattr(A, "data") else np.zeros(1)):
-        signs = signs * np.exp(1j * rng.uniform(0, 2 * np.pi, size=n))
-    x = signs.astype(A.dtype if hasattr(A, "dtype") else signs.dtype)
-    ax = A @ x
-    ahx = A.conj().T @ x  # .H is not part of the scipy csr_matrix API
+    num_probes = int(min(8, max(1, sample_size // n)))
+    is_complex = np.iscomplexobj(A.data) if hasattr(A, "data") else False
+    dt = np.complex128 if is_complex else np.float64
+    signs = rng.choice(np.array([-1.0, 1.0]), size=(n, num_probes))
+    if is_complex:
+        X = signs * np.exp(1j * rng.uniform(0, 2 * np.pi, size=(n, num_probes)))
+    else:
+        X = signs
+    X = X.astype(dt)
+    ax = A @ X
+    ahx = A.conj().T @ X  # .H is not part of the scipy csr_matrix API
     err = float(np.linalg.norm(ax - ahx))
     ref = float(np.linalg.norm(ax) + np.linalg.norm(ahx)) + 1e-300
     return err / ref

@@ -10,6 +10,12 @@ Input formats: ``.npz`` (sparse CSR as written by ``write_csr_npz``, or scipy
 ``save_npz``, or dense array in ``.npy``), ``.npy`` (dense), ``.mtx``
 (Matrix Market).  Output ``.npz`` contains ``eigenvalues``, ``eigenvectors``
 (real/complex), ``residuals`` plus JSON metadata.
+
+Parameter sweep (service diagnostics): pass ``--sweep kind:param=v1,v2,...``
+(e.g. ``--sweep cavity:size=12,16,20,24`` or ``--sweep cavity:mu=0,0.5,1.0``)
+to re-solve across a cavity geometry/material knob and write a JSON
+diagnostic report (eigenvalue curves + certified residuals per point) to
+``--out`` instead of the ``.npz`` archive.
 """
 
 from __future__ import annotations
@@ -53,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
                    choices=["auto", "lanczos", "lobpcg", "jacobi-davidson"])
     p.add_argument("--tol", type=float, default=None)
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--sweep", default=None, metavar="KIND:PARAM=V1,V2",
+                   help="parameter sweep (service diagnostics): e.g. "
+                        "cavity:size=12,16,20,24 | cavity:mu=0,0.5,1.0 | "
+                        "cluster_zero:seed=1,2,3; writes a JSON report")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args(argv)
 
@@ -70,6 +80,41 @@ def main(argv: list[str] | None = None) -> int:
     except (TypeError, ValueError) as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
+
+    # ---- parameter sweep mode (service diagnostics, PRD 4.2) ---------------
+    if args.sweep:
+        try:
+            head, _, vals_text = args.sweep.partition("=")
+            kind, _, param = head.partition(":")
+            values = [float(v) for v in vals_text.split(",") if v.strip()]
+            if not kind or not param or not values:
+                raise ValueError("expected KIND:PARAM=V1,V2,...")
+            from .sweep import sweep_eigenvalues
+            result = sweep_eigenvalues(kind=kind, param=param, values=values,
+                                       config=cfg)
+        except (ValueError, ImportError) as exc:
+            print(f"sweep error: {exc}", file=sys.stderr)
+            return 2
+        if args.out.lower().endswith(".npz"):
+            args.out = args.out[:-4] + ".json"
+        with open(args.out, "w", encoding="utf-8") as fh:
+            json.dump({"backend": backend_name(), "config": {
+                "k": cfg.k, "sigma": cfg.sigma, "tol": cfg.tol,
+                "seed": cfg.seed, "method": cfg.method},
+                **result.to_dict()}, fh, ensure_ascii=False, indent=2)
+        ok = all(p.converged and p.error is None for p in result.points)
+        print(f"[em_eigensolver] sweep {result.kind}:{result.param} "
+              f"({len(result.points)} points, "
+              f"{'all converged' if ok else 'SOME POINTS FAILED'}) "
+              f"time={result.seconds:.2f}s", flush=True)
+        for pt in result.points:
+            lam = ", ".join(f"{v:.6g}" for v in pt.eigenvalues[:4])
+            print(f"  {result.param}={pt.value:g} n={pt.n} "
+                  f"maxres={max(pt.residuals, default=0):.2e} "
+                  f"lam~[{lam}]" + (f" ERROR={pt.error}" if pt.error else ""),
+                  flush=True)
+        print(f"[em_eigensolver] written: {args.out}", flush=True)
+        return 0 if ok else 1
 
     t0 = time.perf_counter()
     if args.sample:
@@ -105,7 +150,8 @@ def main(argv: list[str] | None = None) -> int:
         "sigma": cfg.sigma,
         **result.diagnostics,
     }
-    write_eigen_npz(args.out, result.eigenvalues, result.eigenvectors, meta)
+    write_eigen_npz(args.out, result.eigenvalues, result.eigenvectors, meta,
+                    residuals=result.residuals)
 
     print(f"[em_eigensolver] converged={result.converged} "
           f"iters={result.iterations} matvecs={result.matvecs} "

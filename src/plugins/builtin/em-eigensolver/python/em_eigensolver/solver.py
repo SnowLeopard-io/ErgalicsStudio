@@ -53,6 +53,7 @@ class SolverConfig:
     dense_threshold: int = 800       # direct LAPACK path for tiny problems
     minres_rtol: float = 1e-6
     minres_maxiter: int = 250
+    gpu_spmv: bool = False           # opt-in WebGPU SpMV delegation (f32)
     verbose: bool = False
 
     def normalized(self) -> "SolverConfig":
@@ -193,7 +194,10 @@ def solve(A, config: SolverConfig | None = None, on_progress=None) -> EigenResul
             matvec, n, k,
             sigma=float(cfg.sigma or 0.0), tol=cfg.tol, max_iter=cfg.max_iter,
             basis_dim=cfg.basis_dim, seed=cfg.seed,
-            minres_rtol=min(cfg.minres_rtol, 1e-4),
+            # The correction equation is solved *inexactly* on purpose (JD
+            # only needs a descent direction), so the inner rtol must never
+            # be stricter than JD's own 1e-4 default — hence max(), not min().
+            minres_rtol=max(cfg.minres_rtol, 1e-4),
             minres_maxiter=min(cfg.minres_maxiter, 160),
             verbose=cfg.verbose, on_progress=on_progress,
         )

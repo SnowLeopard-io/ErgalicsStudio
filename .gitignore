@@ -4,6 +4,10 @@ target/
 pkg/
 .native/
 *.log
+# Python bytecode caches (regenerated on every interpreter run; tracking them
+# causes binary diff noise and stale-cache churn across Python versions).
+__pycache__/
+*.py[cod]
 .DS_Store
 .idea/
 .vscode/
