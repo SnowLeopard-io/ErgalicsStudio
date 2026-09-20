@@ -491,6 +491,7 @@ export const zhCN: LocaleDictionary = {
   'figure.kind_scatter': '散点图',
   'figure.kind_histogram': '直方图',
   'figure.kind_bar': '条形图',
+  'figure.kind_field': '场分布图（3D 曲面）',
   'figure.panel_title': '标题（可选）',
   'figure.panel_xlabel': 'X 轴标签（可选）',
   'figure.panel_ylabel': 'Y 轴标签（可选）',
@@ -501,6 +502,8 @@ export const zhCN: LocaleDictionary = {
   'figure.panel_data': '数据',
   'figure.panel_data_hint':
     '每行一个点：折线/散点填 "x,y"（仅一个数时 x 取行号）；直方图/条形图填一个数值（自动分箱/计数），或 "x0,x1,y" 指定区间。以 # 开头的行为注释。',
+  'figure.panel_data_hint_field':
+    '每行为网格的一行，用逗号/空格分隔数值，所有行必须等长（渲染为 3D 曲面 + 发散色标）。以 # 开头的行为注释。',
   'figure.panel_data_invalid': '数据为空或格式无效 —— 每行至少一个数字',
   'figure.empty': '暂无面板 —— 添加第一个面板开始拼图',
   'figure.preview': '预览',
