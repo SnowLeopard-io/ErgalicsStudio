@@ -21,6 +21,10 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   canvas.style.inset = '0';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
+  // Stack above the workbench 2D canvas: .central-canvas comes *after* the
+  // dom-host in the DOM, so with equal stacking the stale 2D panels would
+  // paint on top of a visible 3D surface.
+  canvas.style.zIndex = '2';
   // Hidden until a 3D-capable plugin activates, so a stale 3D coordinate
   // system can never cover a 2D viewport.
   canvas.style.display = 'none';

@@ -7,8 +7,18 @@
 // description; `renderSVG` turns it into a string.
 // ==========================================================================
 
-export type ChartKind = 'line' | 'bar' | 'scatter' | 'histogram';
+export type ChartKind = 'line' | 'bar' | 'scatter' | 'histogram' | 'field';
 export type ScaleKind = 'linear' | 'log';
+
+/** Scalar field on a rows×cols grid (row-major), rendered as a heatmap. */
+export interface FieldData {
+  /** Row-major field values. */
+  values: number[];
+  rows: number;
+  cols: number;
+  /** Value range for the diverging colormap/colorbar; defaults to data min/max. */
+  domain?: [number, number];
+}
 
 /** One drawable series in a plot. Coordinates are in *data* space. */
 export interface PlotSeries {
@@ -26,6 +36,8 @@ export interface PlotSeries {
   bars?: Array<{ x0: number; x1: number; y: number }>;
   /** Line dash array (CSS) for line series, e.g. [4, 2] for dashed. */
   dash?: number[];
+  /** Grid payload for `field` series (mode fields, densities, …). */
+  field?: FieldData;
 }
 
 export interface PlotSpec {

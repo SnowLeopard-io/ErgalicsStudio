@@ -50,6 +50,21 @@ export interface EmProgressInfo {
   rel_residuals?: number[];
 }
 
+/** One downsampled mode field for the 3D visualisation (from driver.mode_fields). */
+export interface EmModeField {
+  /** Eigenvector index within the returned block. */
+  index: number;
+  /** Associated eigenvalue (real part). */
+  eigenvalue: number;
+  /** Field grid rows × cols (row-major `values`). */
+  rows: number;
+  cols: number;
+  /** Normalised field values, max |value| = 1. Complex modes are magnitudes. */
+  values: number[];
+  /** True when rows×cols is a nearest-factor layout, not the true mesh. */
+  approx: boolean;
+}
+
 /** Solve report (EigenResult without eigenvectors). */
 export interface EmResultPayload {
   eigenvalues: number[];
@@ -67,6 +82,8 @@ export interface EmResultPayload {
     nnz: number;
     complex: boolean;
   };
+  /** Downsampled mode fields for the 3D view (≤6 modes, ≤48×48 cells). */
+  modeFields?: EmModeField[];
 }
 
 /** worker → host messages. */

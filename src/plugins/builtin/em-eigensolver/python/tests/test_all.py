@@ -286,6 +286,53 @@ def test_driver_solve_json_flat_payload():
         raise AssertionError("nested payload must be rejected: schema is flat")
 
 
+def test_driver_mode_fields():
+    """3D visualisation bridge (driver.py): downsampled mode-field report.
+
+    Grid samples recover the exact square mesh (approx=False); band samples
+    get a nearest-factor layout flagged approx=True. Values are normalised
+    to max |1| and capped at 48x48 cells per mode.
+    """
+    from em_eigensolver import driver
+    payload = {"source": "sample", "sample": "cavity_small",
+               "config": {"k": 4, "tol": 1e-9, "dense_threshold": 5000}}
+    report = json.loads(driver.solve_json(json.dumps(payload)))
+    # camelCase key: the report crosses to the TS host verbatim.
+    fields = report["modeFields"]
+    assert len(fields) == 4
+    for j, f in enumerate(fields):
+        assert f["index"] == j
+        assert (f["rows"], f["cols"]) == (30, 30)
+        assert f["approx"] is False
+        assert len(f["values"]) == f["rows"] * f["cols"]
+        peak = max(abs(v) for v in f["values"])
+        assert abs(peak - 1.0) < 1e-9
+        assert abs(f["eigenvalue"] - report["eigenvalues"][j]) < 1e-9
+
+    # Band-assembled sample: 6 bands x 120 -> 720 unknowns -> 24x30 layout.
+    report2 = json.loads(driver.solve_json(json.dumps(
+        {"source": "sample", "sample": "cluster_zero",
+         "config": {"k": 2, "sigma": 0.0, "tol": 1e-6, "dense_threshold": 0}})))
+    f2 = report2["modeFields"]
+    assert len(f2) == 2 and (f2[0]["rows"], f2[0]["cols"]) == (24, 30)
+    assert f2[0]["approx"] is True
+
+    # Large grid downsamples to the 48x48 cap.
+    report3 = json.loads(driver.solve_json(json.dumps(
+        {"source": "sample", "sample": "cavity_large",
+         "config": {"k": 1, "sigma": 0.5, "tol": 1e-4, "basis_dim": 24}})))
+    f3 = report3["modeFields"][0]
+    assert f3["rows"] <= 48 and f3["cols"] <= 48
+    assert len(f3["values"]) == f3["rows"] * f3["cols"]
+
+    # Complex Hermitian sample: fields are |field| magnitudes (non-negative).
+    report4 = json.loads(driver.solve_json(json.dumps(
+        {"source": "sample", "sample": "cavity_complex",
+         "config": {"k": 1, "sigma": 1.2, "tol": 1e-9, "dense_threshold": 5000}})))
+    vals = report4["modeFields"][0]["values"]
+    assert min(vals) >= 0.0
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

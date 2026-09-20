@@ -458,6 +458,12 @@ export interface PluginApi {
    * Same sandbox caveat as `getParam`.
    */
   setParam(key: string, value: unknown): void;
+  /**
+   * Full self-reload: unload this plugin instance, build a fresh one from its
+   * builtin factory and reactivate it. For recovering from stuck states
+   * (killed workers, missed host capabilities) without a page reload.
+   */
+  reload?(): Promise<void>;
 }
 
 export type PluginHostStatus =

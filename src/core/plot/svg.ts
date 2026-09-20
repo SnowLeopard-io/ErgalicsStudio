@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { formatTick, makeScale, niceTicks, type Scale } from './scale';
-import type { PlotSpec, PlotSeries } from './types';
+import type { FieldData, PlotSpec, PlotSeries } from './types';
 
 const FONT = "'Helvetica Neue', Arial, sans-serif";
 const FONT_AXIS = "'Helvetica Neue', Arial, sans-serif";
@@ -15,6 +15,44 @@ const FONT_TITLE = "'Helvetica Neue', Arial, sans-serif";
 const MARGIN = { top: 36, right: 20, bottom: 48, left: 60 };
 const TICK_LEN = 6;
 const COL_W = 150; // legend column width budget
+/** Reserve space right of the plot area for a field colorbar. */
+const COLORBAR_SPACE = 52;
+const COLORBAR_W = 12;
+const COLORBAR_STEPS = 32;
+
+/**
+ * Diverging colormap for scalar fields on white: negative → Okabe-Ito blue,
+ * positive → Okabe-Ito vermilion, zero → white (colorblind-safe, print-safe).
+ * `t` is the normalized value in [-1, 1]; returns a CSS `rgb(...)` color.
+ */
+export function fieldColorCss(t: number): string {
+  const NEG = [0, 114, 178];
+  const POS = [213, 94, 0];
+  const WHITE = [255, 255, 255];
+  const a = Math.max(-1, Math.min(1, Number.isFinite(t) ? t : 0));
+  // u=0 → white (zero), u=1 → full hue (|t| = 1).
+  const [to, u] = a < 0 ? [NEG, -a] : [POS, a];
+  const c = WHITE.map((f, i) => Math.round(f + (to[i]! - f) * u));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/** Symmetric diverging domain for a field: [-m, m] when it straddles zero. */
+function fieldDomain(field: FieldData): [number, number] {
+  if (field.domain) return field.domain;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const v of field.values) {
+    if (!Number.isFinite(v)) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (min > max) return [-1, 1];
+  if (min < 0 && max > 0) {
+    const m = Math.max(Math.abs(min), Math.abs(max));
+    return [-m, m];
+  }
+  return [min, max];
+}
 
 /** Escape text content. `#` is *not* special here and must survive verbatim. */
 function escapeText(s: string): string {
@@ -61,19 +99,34 @@ function autoDomain(series: PlotSeries[], axis: 'x' | 'y'): [number, number] | u
 export function renderSVG(spec: PlotSpec): string {
   const width = spec.width || 640;
   const height = spec.height || 420;
-  const plotW = width - MARGIN.left - MARGIN.right;
+  // A field panel narrows the plot area to make room for its colorbar.
+  const firstField = spec.series.find(
+    (s): s is PlotSeries & { field: FieldData } => s.kind === 'field' && !!s.field,
+  );
+  const plotW = width - MARGIN.left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
   const plotH = height - MARGIN.top - MARGIN.bottom;
   const xScaleKind = spec.xScale ?? 'linear';
   const yScaleKind = spec.yScale ?? 'linear';
 
-  const xDomain = spec.xDomain ?? autoDomain(spec.series, 'x') ?? [0, 1];
-  const yDomain = spec.yDomain ?? autoDomain(spec.series, 'y') ?? [0, 1];
+  // A field grid spans exactly [0, cols] × [0, rows] unless overridden.
+  const xDomain =
+    spec.xDomain ?? (firstField ? [0, firstField.field.cols] : autoDomain(spec.series, 'x')) ?? [0, 1];
+  const yDomain =
+    spec.yDomain ?? (firstField ? [0, firstField.field.rows] : autoDomain(spec.series, 'y')) ?? [0, 1];
   const xTicksInfo = niceTicks(xDomain[0], xDomain[1], spec.ticks ?? 5);
   const yTicksInfo = niceTicks(yDomain[0], yDomain[1], spec.ticks ?? 5);
-  const xDom: [number, number] =
-    xScaleKind === 'log' ? [Math.max(1e-12, xTicksInfo.min), Math.max(1e-11, xTicksInfo.max)] : [xTicksInfo.min, xTicksInfo.max];
-  const yDom: [number, number] =
-    yScaleKind === 'log' ? [Math.max(1e-12, yTicksInfo.min), Math.max(1e-11, yTicksInfo.max)] : [yTicksInfo.min, yTicksInfo.max];
+  // A field grid maps 1:1 onto its data domain (niceTicks would pad it and
+  // leave the heatmap floating inside the axes).
+  const xDom: [number, number] = firstField
+    ? [xDomain[0], xDomain[1]]
+    : xScaleKind === 'log'
+      ? [Math.max(1e-12, xTicksInfo.min), Math.max(1e-11, xTicksInfo.max)]
+      : [xTicksInfo.min, xTicksInfo.max];
+  const yDom: [number, number] = firstField
+    ? [yDomain[0], yDomain[1]]
+    : yScaleKind === 'log'
+      ? [Math.max(1e-12, yTicksInfo.min), Math.max(1e-11, yTicksInfo.max)]
+      : [yTicksInfo.min, yTicksInfo.max];
 
   const x: Scale = makeScale(xScaleKind, xDom, [MARGIN.left, MARGIN.left + plotW]);
   const y: Scale = makeScale(yScaleKind, yDom, [MARGIN.top + plotH, MARGIN.top]);
@@ -110,7 +163,26 @@ export function renderSVG(spec: PlotSpec): string {
 
   // Series.
   for (const s of spec.series) {
-    if (s.kind === 'bar' || s.kind === 'histogram') {
+    if (s.kind === 'field' && s.field) {
+      const { values, rows, cols } = s.field;
+      const [fMin, fMax] = fieldDomain(s.field);
+      const span = fMax - fMin || 1;
+      const cw = plotW / Math.max(1, cols);
+      const ch = plotH / Math.max(1, rows);
+      for (let r = 0; r < rows; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+          const v = values[r * cols + c];
+          if (v === undefined) continue;
+          // Row 0 is the top of the grid (image convention).
+          const px = MARGIN.left + c * cw;
+          const py = MARGIN.top + r * ch;
+          parts.push(
+            `<rect x="${px.toFixed(2)}" y="${py.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" ` +
+              `fill="${fieldColorCss(((v - fMin) / span) * 2 - 1)}"/>`,
+          );
+        }
+      }
+    } else if (s.kind === 'bar' || s.kind === 'histogram') {
       for (const b of s.bars ?? []) {
         const x0 = x.toPixel(b.x0);
         const x1 = x.toPixel(b.x1);
@@ -195,6 +267,34 @@ export function renderSVG(spec: PlotSpec): string {
     parts.push(
       `<text transform="translate(${16},${(MARGIN.top + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
     );
+  }
+
+  // Field colorbar: a discrete diverging strip right of the plot area.
+  if (firstField) {
+    const [fMin, fMax] = fieldDomain(firstField.field);
+    const cbX = MARGIN.left + plotW + 14;
+    const stepH = plotH / COLORBAR_STEPS;
+    for (let i = 0; i < COLORBAR_STEPS; i += 1) {
+      // Top = fMax, bottom = fMin.
+      const t = 1 - (2 * (i + 0.5)) / COLORBAR_STEPS;
+      parts.push(
+        `<rect x="${cbX}" y="${(MARGIN.top + i * stepH).toFixed(1)}" width="${COLORBAR_W}" ` +
+          `height="${(stepH + 0.5).toFixed(1)}" fill="${fieldColorCss(t)}"/>`,
+      );
+    }
+    parts.push(
+      `<rect x="${cbX}" y="${MARGIN.top}" width="${COLORBAR_W}" height="${plotH}" fill="none" stroke="#222" stroke-width="1"/>`,
+    );
+    const lbl = (v: number, py: number) => {
+      parts.push(
+        `<text x="${cbX + COLORBAR_W + 4}" y="${(py + 4).toFixed(1)}" font-size="11" fill="#222">${escapeText(formatTick(v))}</text>`,
+      );
+    };
+    lbl(fMax, MARGIN.top);
+    lbl(fMin, MARGIN.top + plotH);
+    if (fMin < 0 && fMax > 0) {
+      lbl(0, MARGIN.top + plotH * (fMax / (fMax - fMin)));
+    }
   }
 
   // Title.

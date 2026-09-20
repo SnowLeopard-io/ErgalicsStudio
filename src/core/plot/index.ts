@@ -7,10 +7,11 @@ export type {
   ScaleKind,
   PlotSeries,
   PlotSpec,
+  FieldData,
   SvgPlotPayload,
   CategoricalTicks,
 } from './types';
-export { renderSVG } from './svg';
+export { renderSVG, fieldColorCss } from './svg';
 export {
   niceTicks,
   makeScale,

@@ -89,6 +89,18 @@ class NumpyCSR:
     def __matmul__(self, x):
         return self.dot(x)
 
+    def toarray(self) -> np.ndarray:
+        """Dense copy (caller decides when n^2 is acceptable, e.g. the
+        dense-lapack fast path for n <= dense_threshold)."""
+        out = np.zeros(self.shape, dtype=self.data.dtype)
+        for i in range(self.shape[0]):
+            sl = slice(self.indptr[i], self.indptr[i + 1])
+            out[i, self.indices[sl]] = self.data[sl]
+        return out
+
+    # scipy compatibility alias used by solver._dense_path detection.
+    todense = toarray
+
     def diagonal(self, k: int = 0) -> np.ndarray:
         if k != 0:
             raise NotImplementedError("only main diagonal is supported")
