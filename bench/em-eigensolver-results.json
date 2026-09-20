@@ -2,47 +2,52 @@
   "backend": "scipy 1.18.1 (CPython)",
   "workers": 8,
   "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
-  "date": "2026-09-20 18:37:53",
+  "date": "2026-09-20 20:04:32",
   "matvec": [
     {
       "n": 1024,
       "nnz": 4992,
-      "workers": 8,
+      "workers": 1,
+      "parallel_engaged": false,
       "serial_ms": 0.016,
-      "parallel_ms": 0.015,
-      "speedup": 1.03
+      "parallel_ms": 0.016,
+      "speedup": 1.0
     },
     {
       "n": 4096,
       "nnz": 20224,
-      "workers": 8,
-      "serial_ms": 0.047,
-      "parallel_ms": 0.487,
-      "speedup": 0.1
+      "workers": 1,
+      "parallel_engaged": false,
+      "serial_ms": 0.044,
+      "parallel_ms": 0.044,
+      "speedup": 1.0
     },
     {
       "n": 10201,
       "nnz": 50601,
-      "workers": 8,
-      "serial_ms": 0.106,
-      "parallel_ms": 0.418,
-      "speedup": 0.25
+      "workers": 1,
+      "parallel_engaged": false,
+      "serial_ms": 0.105,
+      "parallel_ms": 0.105,
+      "speedup": 1.0
     },
     {
       "n": 40000,
       "nnz": 199200,
       "workers": 8,
-      "serial_ms": 0.937,
-      "parallel_ms": 0.672,
-      "speedup": 1.4
+      "parallel_engaged": true,
+      "serial_ms": 0.864,
+      "parallel_ms": 0.745,
+      "speedup": 1.16
     },
     {
       "n": 102400,
       "nnz": 510720,
       "workers": 8,
-      "serial_ms": 2.592,
-      "parallel_ms": 1.745,
-      "speedup": 1.49
+      "parallel_engaged": true,
+      "serial_ms": 2.365,
+      "parallel_ms": 2.028,
+      "speedup": 1.17
     }
   ],
   "solve_curve": [
@@ -52,7 +57,12 @@
       "method": "lanczos",
       "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 7.190487770982427e-09,
+      "certified_rel_residual": 8.47e-10,
+      "converged": true,
       "eigenvalues": [
         8.487845121301524,
         8.465996443614458,
@@ -61,11 +71,9 @@
         8.417983379970114,
         8.404552577993265
       ],
-      "max_residual": 7.190487770982427e-09,
-      "converged": true,
       "iterations": 6,
       "matvecs": 295,
-      "seconds": 0.22,
+      "seconds": 0.21,
       "peak_memory_mb": 0.6,
       "workers": 8,
       "case": "grid-32x32"
@@ -76,7 +84,12 @@
       "method": "lanczos",
       "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 1.3288349674302323e-08,
+      "certified_rel_residual": 1.56e-09,
+      "converged": true,
       "eigenvalues": [
         8.514407711383194,
         8.511821801360616,
@@ -85,8 +98,6 @@
         8.485437541524753,
         8.481810250809353
       ],
-      "max_residual": 1.3288349674302323e-08,
-      "converged": true,
       "iterations": 13,
       "matvecs": 631,
       "seconds": 0.57,
@@ -100,7 +111,12 @@
       "method": "lanczos",
       "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 1.4385208149793255e-08,
+      "certified_rel_residual": 1.69e-09,
+      "converged": true,
       "eigenvalues": [
         8.52676697330366,
         8.526297932636348,
@@ -109,11 +125,9 @@
         8.508545655324903,
         8.508471201264403
       ],
-      "max_residual": 1.4385208149793255e-08,
-      "converged": true,
       "iterations": 13,
       "matvecs": 631,
-      "seconds": 3.37,
+      "seconds": 3.25,
       "peak_memory_mb": 5.8,
       "workers": 8,
       "case": "grid-101x101"
@@ -124,7 +138,12 @@
       "method": "lanczos",
       "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 8.348051063424463e-09,
+      "certified_rel_residual": 9.78e-10,
+      "converged": true,
       "eigenvalues": [
         8.53792641845696,
         8.537918954427742,
@@ -133,11 +152,9 @@
         8.528599909152277,
         8.528599908558553
       ],
-      "max_residual": 8.348051063424463e-09,
-      "converged": true,
       "iterations": 25,
       "matvecs": 1207,
-      "seconds": 9.6,
+      "seconds": 9.78,
       "peak_memory_mb": 22.5,
       "workers": 8,
       "case": "grid-200x200"
@@ -148,7 +165,12 @@
       "method": "lanczos",
       "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 3.614234290555579e-09,
+      "certified_rel_residual": 4.23e-10,
+      "converged": true,
       "eigenvalues": [
         8.54237075176112,
         8.542370696677194,
@@ -157,11 +179,9 @@
         8.53639677493278,
         8.533412522376196
       ],
-      "max_residual": 3.614234290555579e-09,
-      "converged": true,
       "iterations": 24,
       "matvecs": 1159,
-      "seconds": 16.75,
+      "seconds": 15.38,
       "peak_memory_mb": 57.4,
       "workers": 8,
       "case": "grid-320x320"
@@ -173,32 +193,13 @@
       "nnz": 510720,
       "method": "lanczos",
       "k": 6,
-      "sigma": 0.5,
-      "tol": 1e-08,
-      "eigenvalues": [
-        8.042370578640217,
-        8.042370516696877,
-        8.036396694407802,
-        8.036396591619752,
-        8.033412336027217,
-        8.033410896939714
-      ],
-      "max_residual": 5.9409040172787656e-05,
-      "converged": true,
-      "iterations": 9,
-      "matvecs": 41017,
-      "seconds": 374.79,
-      "peak_memory_mb": 123.4,
-      "workers": 8,
-      "case": "cavity_large_shift_invert"
-    },
-    {
-      "n": 102400,
-      "nnz": 510720,
-      "method": "lanczos",
-      "k": 6,
       "sigma": null,
-      "tol": 1e-08,
+      "tol_requested": 1e-08,
+      "tol_effective": 1e-08,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 3.7503997615265225e-09,
+      "certified_rel_residual": 4.66e-10,
+      "converged": true,
       "eigenvalues": [
         8.042370751761108,
         8.042370696677153,
@@ -207,14 +208,39 @@
         8.036396774932845,
         8.0334125223762
       ],
-      "max_residual": 3.7503997615265225e-09,
-      "converged": true,
       "iterations": 24,
       "matvecs": 1159,
-      "seconds": 13.75,
+      "seconds": 13.82,
       "peak_memory_mb": 57.4,
       "workers": 8,
       "case": "cavity_large_extremal"
+    },
+    {
+      "n": 102400,
+      "nnz": 510720,
+      "method": "lanczos",
+      "k": 6,
+      "sigma": 0.5,
+      "tol_requested": 1e-08,
+      "tol_effective": 1.9999999999999998e-05,
+      "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
+      "max_residual": 5.9409040172787656e-05,
+      "certified_rel_residual": 7.39e-06,
+      "converged": true,
+      "eigenvalues": [
+        8.042370578640217,
+        8.042370516696877,
+        8.036396694407802,
+        8.036396591619752,
+        8.033412336027217,
+        8.033410896939714
+      ],
+      "iterations": 9,
+      "matvecs": 41017,
+      "seconds": 359.64,
+      "peak_memory_mb": 122.7,
+      "workers": 8,
+      "case": "cavity_large_shift_invert"
     }
   ]
 }

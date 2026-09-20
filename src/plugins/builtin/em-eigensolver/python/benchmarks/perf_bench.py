@@ -78,11 +78,13 @@ def matvec_curve() -> list[dict]:
 
         os.environ["EM_EIGENSOLVER_THREADS"] = "1"
         t_serial = _best_of(lambda: A @ x)
+        os.environ.pop("EM_EIGENSOLVER_THREADS", None)
 
         engaged = n >= threshold
+        # NOTE: _worker_count() must be read *after* popping the env pin —
+        # it consults EM_EIGENSOLVER_THREADS on every call.
         workers = _worker_count() if engaged else 1
         if engaged and workers > 1:
-            os.environ.pop("EM_EIGENSOLVER_THREADS", None)
             t_par = _best_of(lambda: A @ x)
         else:
             t_par = t_serial
@@ -131,6 +133,7 @@ def _timed_solve(A, cfg: SolverConfig) -> dict:
         "certified_rel_residual": (float(f"{max_res / scale:.2e}")
                                    if max_res is not None else None),
         "converged": bool(res.converged),
+        "eigenvalues": [float(v) for v in lam],
         "iterations": int(res.iterations), "matvecs": int(res.matvecs),
         "seconds": round(seconds, 2),
         "peak_memory_mb": round(peak / 1e6, 1),
