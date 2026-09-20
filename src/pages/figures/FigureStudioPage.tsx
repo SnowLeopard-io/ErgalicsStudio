@@ -38,7 +38,7 @@ import {
 } from '@/core/plot';
 import type { PlotSpec, ChartKind } from '@/core/plot';
 
-type PanelKind = Extract<ChartKind, 'line' | 'scatter' | 'histogram' | 'bar'>;
+type PanelKind = Extract<ChartKind, 'line' | 'scatter' | 'histogram' | 'bar' | 'field'>;
 
 interface PanelDraft {
   kind: PanelKind;
@@ -69,6 +69,8 @@ interface ParsedData {
   points?: Array<{ x: number; y: number }>;
   values?: number[];
   bars?: Array<{ x0: number; x1: number; y: number }>;
+  /** Field grid: one entry per grid row, each of equal length. */
+  grid?: number[][];
 }
 
 /**
@@ -91,6 +93,13 @@ export function parsePanelData(kind: PanelKind, text: string): ParsedData | null
     if (nums.length > 0) rows.push(nums);
   }
   if (rows.length === 0) return null;
+
+  if (kind === 'field') {
+    // Field grid: each line is one grid row; all rows must have equal length.
+    const cols = rows[0]!.length;
+    if (cols < 2 || rows.some((r) => r.length !== cols)) return null;
+    return { grid: rows };
+  }
 
   if (kind === 'line' || kind === 'scatter') {
     const points = rows.map((r, i) =>
@@ -118,6 +127,26 @@ export function buildPanelSpec(draft: PanelDraft): PlotSpec | null {
     yLabel: draft.yLabel || undefined,
     color: draft.color || undefined,
   };
+
+  if (draft.kind === 'field' && parsed.grid) {
+    // Field map: rectangular grid rendered as a shaded 3D surface with a
+    // diverging colormap (the line color picker does not apply here).
+    const rows = parsed.grid.length;
+    const cols = parsed.grid[0]!.length;
+    return {
+      width: 336,
+      height: 252,
+      ...opts,
+      series: [
+        {
+          name: draft.seriesName || 'field',
+          kind: 'field',
+          color: draft.color || '#D55E00',
+          field: { values: parsed.grid.flat(), rows, cols, surface: true },
+        },
+      ],
+    };
+  }
 
   if (draft.kind === 'line' || draft.kind === 'scatter') {
     const xs = parsed.points!.map((p) => p.x);
@@ -167,7 +196,17 @@ function draftFromSpec(spec: PlotSpec, row: number, col: number): PanelDraft {
   const s = spec.series[0];
   const kind: PanelKind = (s?.kind as PanelKind) ?? 'line';
   let dataText = '';
-  if (s?.points) {
+  if (s?.field) {
+    // Round-trip the grid: one line per row, comma-separated values.
+    const { values, rows, cols } = s.field;
+    const lines: string[] = [];
+    for (let r = 0; r < rows; r += 1) {
+      lines.push(
+        Array.from({ length: cols }, (_, c) => String(values[r * cols + c] ?? 0)).join(','),
+      );
+    }
+    dataText = lines.join('\n');
+  } else if (s?.points) {
     dataText = s.points.map((p) => `${p.x},${p.y}`).join('\n');
   } else if (s?.bars) {
     dataText = s.bars.map((b) => `${b.x0},${b.x1},${b.y}`).join('\n');
@@ -558,6 +597,7 @@ export default function FigureStudioPage() {
                 <option value="scatter">{t('figure.kind_scatter')}</option>
                 <option value="histogram">{t('figure.kind_histogram')}</option>
                 <option value="bar">{t('figure.kind_bar')}</option>
+                <option value="field">{t('figure.kind_field')}</option>
               </select>
             </div>
             <div className="figures-field">
@@ -658,7 +698,11 @@ export default function FigureStudioPage() {
               value={draft.dataText}
               onChange={(e) => setDraft({ ...draft, dataText: e.target.value })}
             />
-            <span className="figures-field-hint">{t('figure.panel_data_hint')}</span>
+            <span className="figures-field-hint">
+              {draft.kind === 'field'
+                ? t('figure.panel_data_hint_field')
+                : t('figure.panel_data_hint')}
+            </span>
           </div>
         </div>
       </Modal>

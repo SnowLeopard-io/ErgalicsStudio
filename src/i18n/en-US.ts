@@ -487,6 +487,7 @@ export const enUS: LocaleDictionary = {
   'figure.kind_scatter': 'Scatter',
   'figure.kind_histogram': 'Histogram',
   'figure.kind_bar': 'Bar',
+  'figure.kind_field': 'Field map (3D surface)',
   'figure.panel_title': 'Title (optional)',
   'figure.panel_xlabel': 'X label (optional)',
   'figure.panel_ylabel': 'Y label (optional)',
@@ -497,6 +498,8 @@ export const enUS: LocaleDictionary = {
   'figure.panel_data': 'Data',
   'figure.panel_data_hint':
     'One point per line: "x,y" for line/scatter (a lone number uses the row index as x); one value per line for histogram/bar (auto-binned/counted), or "x0,x1,y" for explicit bins. Lines starting with # are comments.',
+  'figure.panel_data_hint_field':
+    'Each line is one grid row of numbers (comma/space separated); all rows must have equal length (rendered as a 3D surface with a diverging colormap). Lines starting with # are comments.',
   'figure.panel_data_invalid': 'Data is empty or invalid — at least one number per line',
   'figure.empty': 'No panels yet — add the first one to start composing',
   'figure.preview': 'Preview',
