@@ -160,6 +160,12 @@ function surfaceFrame(
     base.push(seg(S(0, 0, z), S(0, 1, z), PANE_GRID, 1));
     base.push(seg(S(0, 1, z), S(1, 1, z), PANE_GRID, 1));
   }
+  // Back box edges (left/back faces) — behind the surface, occluded by it.
+  base.push(seg(S(1, 1, 0), S(0, 1, 0), '#b9b9c2', 0.8));
+  base.push(seg(S(0, 1, 0), S(0, 0, 0), '#b9b9c2', 0.8));
+  base.push(seg(S(1, 1, Z_ASPECT), S(0, 1, Z_ASPECT), '#c9c9d2', 0.7));
+  base.push(seg(S(0, 1, Z_ASPECT), S(0, 0, Z_ASPECT), '#c9c9d2', 0.7));
+  base.push(seg(S(0, 1, 0), S(0, 1, Z_ASPECT), '#b9b9c2', 0.8));
 
   // --- Shaded quads (painter's algorithm, back to front). ---
   interface Quad { depth: number; path: string; fill: string; }
@@ -202,25 +208,20 @@ function surfaceFrame(
   }
   quads.sort((a, b) => a.depth - b.depth); // far (small viewer depth) first
 
-  // --- 3D axis kit: light box wireframe, dark axis edges, outward ticks. ---
+  // --- Ticks + labels on top (they sit outside the box, never covered). ---
   const axes: string[] = [];
-  const Z0: Array<[number, number]> = [S(0, 0, 0), S(1, 0, 0), S(1, 1, 0), S(0, 1, 0)];
-  const ZT: Array<[number, number]> = [
-    S(0, 0, Z_ASPECT),
-    S(1, 0, Z_ASPECT),
-    S(1, 1, Z_ASPECT),
-    S(0, 1, Z_ASPECT),
-  ];
-  for (let i = 0; i < 4; i += 1) {
-    axes.push(seg(Z0[i]!, Z0[(i + 1) % 4]!, '#b9b9c2', 0.8));
-    axes.push(seg(ZT[i]!, ZT[(i + 1) % 4]!, '#c9c9d2', 0.7));
-  }
-  axes.push(seg(Z0[1]!, ZT[1]!, '#b9b9c2', 0.8)); // vertical at (1,0)
-  axes.push(seg(Z0[3]!, ZT[3]!, '#b9b9c2', 0.8)); // vertical at (0,1)
-  // Dark axis lines: front x edge, front y edge, and the z edge at (1,1).
-  axes.push(seg(Z0[0]!, Z0[1]!, '#222', 1.2));
-  axes.push(seg(Z0[1]!, Z0[2]!, '#222', 1.2));
-  axes.push(seg(Z0[2]!, ZT[2]!, '#222', 1.2));
+
+  // Front + right face edges of the box, drawn *over* the surface so the
+  // near side of the frame always floats on top (matplotlib-like).
+  const Z = Z_ASPECT;
+  axes.push(seg(S(0, 0, 0), S(1, 0, 0), '#222', 1.2)); // x axis (front-bottom)
+  axes.push(seg(S(1, 0, 0), S(1, 1, 0), '#222', 1.2)); // y axis (right-bottom)
+  axes.push(seg(S(1, 1, 0), S(1, 1, Z), '#222', 1.2)); // z axis (right vertical)
+  axes.push(seg(S(0, 0, 0), S(0, 0, Z), '#b9b9c2', 0.8)); // front-left vertical
+  axes.push(seg(S(1, 0, 0), S(1, 0, Z), '#b9b9c2', 0.8)); // front-right vertical
+  axes.push(seg(S(0, 0, Z), S(1, 0, Z), '#c9c9d2', 0.7)); // front-top edge
+  axes.push(seg(S(1, 0, Z), S(1, 1, Z), '#c9c9d2', 0.7)); // right-top edge
+
   // Outward tick directions in screen space, derived from the view basis.
   const dirOf = (x: number, y: number, z: number): [number, number] => {
     const p = view(x, y, z);
@@ -393,7 +394,7 @@ export function renderSVG(spec: PlotSpec): string {
         const fr = surfaceFrame(
           s.field,
           { x: MARGIN.left, y: MARGIN.top, w: plotW, h: plotH },
-          { x: spec.xLabel, y: spec.yLabel, z: s.name },
+          { x: spec.xLabel, y: spec.yLabel },
         );
         parts.push(...fr.base, ...fr.quads, ...fr.axes);
       } else {

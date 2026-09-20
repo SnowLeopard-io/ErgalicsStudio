@@ -310,10 +310,10 @@ describe('modeFieldPanels (Figure Studio export)', () => {
     approx: false,
   });
 
-  it('builds one 2-column panel per mode with spreadsheet tags', () => {
+  it('builds one 3-column panel per mode with spreadsheet tags', () => {
     const panels = modeFieldPanels([field(0, 0.5), field(1, -1.5), field(2, 2.5)]);
     expect(panels.map((p) => p.tag)).toEqual(['a', 'b', 'c']);
-    expect(panels.map((p) => `${p.row}:${p.col}`)).toEqual(['0:0', '0:1', '1:0']);
+    expect(panels.map((p) => `${p.row}:${p.col}`)).toEqual(['0:0', '0:1', '0:2']);
   });
 
   it('carries a field series with the grid payload and a λ title', () => {
