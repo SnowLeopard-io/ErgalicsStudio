@@ -42,7 +42,7 @@ import {
 import emCavityMtx from '../../../../examples/data/em-cavity-degenerate.mtx?raw';
 
 /** Panels per figure row when exporting mode fields to Figure Studio. */
-const FIGURE_COLS = 2;
+const FIGURE_COLS = 3;
 
 export interface ModeFieldPanel {
   spec: PlotSpec;
