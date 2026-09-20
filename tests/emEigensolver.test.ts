@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '@/plugins/builtin/em-eigensolver/plugin';
 import { spectrumDomain, mapToX } from '@/plugins/builtin/em-eigensolver/render';
-import { fieldColor, surfaceBuffers } from '@/plugins/builtin/em-eigensolver/render3d';
+import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '@/plugins/builtin/em-eigensolver/render3d';
 import { findBuiltin } from '@/plugins/builtin';
 import type { EmModeField } from '@/plugins/builtin/em-eigensolver/types';
 import type { ParamDefinition, PluginApi, SelectParam } from '@/types/plugin';
@@ -94,17 +94,74 @@ describe('fieldColor (3D mode-field ramp)', () => {
     const [r2] = fieldColor(-5);
     expect(r1).toBeLessThanOrEqual(1);
     expect(r2).toBeGreaterThanOrEqual(0);
-    expect(fieldColor(NaN)).toEqual([0.12, 0.16, 0.23]);
+    expect(fieldColor(NaN)).toEqual([1, 1, 1]);
   });
 
-  it('is dark at zero and distinct at the two extremes', () => {
+  it('is white at zero and distinct at the two extremes', () => {
     const zero = fieldColor(0);
     const pos = fieldColor(1);
     const neg = fieldColor(-1);
-    expect(zero).toEqual([0.12, 0.16, 0.23]);
-    // amber positive arm vs teal negative arm
+    // zero is white (bright, matches the Figure Studio diverging export)
+    expect(zero).toEqual([1, 1, 1]);
+    // vermilion positive arm vs Okabe-Ito blue negative arm
     expect(pos[0]).toBeGreaterThan(pos[2]);
     expect(neg[2]).toBeGreaterThan(neg[0]);
+  });
+});
+
+describe('fieldPeak (3D annotation)', () => {
+  const field: EmModeField = {
+    index: 0,
+    eigenvalue: -1.5,
+    rows: 3,
+    cols: 4,
+    values: [
+      0, 0.25, -0.5, 1,
+      -1, 0.5, 0, 0.75,
+      0.25, -0.25, 1, 0,
+    ],
+    approx: false,
+  };
+
+  it('locates the first max-|value| vertex as row/col/value', () => {
+    expect(fieldPeak(field)).toEqual({ row: 0, col: 3, value: 1 });
+  });
+
+  it('keeps the sign of the extremum (negative peak)', () => {
+    expect(fieldPeak({ ...field, values: [0, -0.25, 0, -0.9, 0, 0.5, 0, 0, 0, 0, 0, 0] })).toEqual({
+      row: 0,
+      col: 3,
+      value: -0.9,
+    });
+  });
+});
+
+describe('fieldExtremes (3D dual annotation)', () => {
+  const field: EmModeField = {
+    index: 0,
+    eigenvalue: -1.5,
+    rows: 3,
+    cols: 4,
+    values: [
+      0, 0.25, -0.5, 1,
+      -1, 0.5, 0, 0.75,
+      0.25, -0.25, 1, 0,
+    ],
+    approx: false,
+  };
+
+  it('locates the strongest positive and negative vertices independently', () => {
+    expect(fieldExtremes(field)).toEqual({
+      pos: { row: 0, col: 3, value: 1 },
+      neg: { row: 1, col: 0, value: -1 },
+    });
+  });
+
+  it('returns null for the missing side on sign-definite fields', () => {
+    expect(fieldExtremes({ ...field, values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] })).toEqual({
+      pos: { row: 2, col: 3, value: 11 },
+      neg: null,
+    });
   });
 });
 
@@ -141,13 +198,14 @@ describe('surfaceBuffers (3D mode-field geometry)', () => {
     expect(Math.min(...ys)).toBeCloseTo(-0.5 * 4); // value -1
   });
 
-  it('colors match the field values through fieldColor', () => {
+  it('colors match the field values through fieldColor (sRGB→linear)', () => {
     const { colors } = surfaceBuffers(field, 0.35);
     // vertex 3 carries values[3] = 1 (peak of the positive arm)
-    const expected = fieldColor(1);
-    expect(colors[3 * 3]).toBeCloseTo(expected[0]);
-    expect(colors[3 * 3 + 1]).toBeCloseTo(expected[1]);
-    expect(colors[3 * 3 + 2]).toBeCloseTo(expected[2]);
+    const [r1, g1, b1] = fieldColor(1);
+    const [e0, e1, e2] = [srgbToLinear(r1), srgbToLinear(g1), srgbToLinear(b1)];
+    expect(colors[3 * 3]).toBeCloseTo(e0);
+    expect(colors[3 * 3 + 1]).toBeCloseTo(e1);
+    expect(colors[3 * 3 + 2]).toBeCloseTo(e2);
   });
 });
 

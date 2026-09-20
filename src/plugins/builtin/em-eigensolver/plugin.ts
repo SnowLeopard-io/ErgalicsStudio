@@ -23,13 +23,13 @@ import type {
   PluginManifest,
   Scene3DHandle,
 } from '@/types/plugin';
-import type { Mesh as ThreeMesh } from 'three';
+import type { Group as ThreeGroup, Mesh as ThreeMesh } from 'three';
 import { emit } from '@/core/events';
 import type { PlotSpec } from '@/core/plot';
 import { actionButton, actionFired, notify } from '../shared/enhance';
 import { EmSolverClient } from './em-client';
 import { drawPanels } from './render';
-import { buildFieldMesh, fitFieldCamera } from './render3d';
+import { buildFieldAnnotations, buildFieldMesh, disposeObjectTree, fitFieldCamera } from './render3d';
 import {
   EM_SAMPLES,
   type EmModeField,
@@ -177,8 +177,15 @@ export class EmEigensolverPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private three: Scene3DHandle | null = null;
   private fieldMesh: ThreeMesh | null = null;
+  /** Peak marker/label group accompanying `fieldMesh`. */
+  private fieldAnno: ThreeGroup | null = null;
   /** The mode field currently baked into `fieldMesh` (skip rebuilds). */
   private fieldMeshFor: EmModeField | null = null;
+  /** The scene handle `fieldMesh`/`fieldAnno` were added to. The host scene
+   *  is disposed and recreated whenever the workbench unmounts (e.g. a trip
+   *  to Figure Studio), so a cached mesh keyed only by field would leave the
+   *  fresh scene empty — a mismatch forces a rebuild from the kept result. */
+  private fieldScene: Scene3DHandle | null = null;
   private client = new EmSolverClient();
   private file: File | null = null;
   private result: EmResultPayload | null = null;
@@ -219,6 +226,10 @@ export class EmEigensolverPlugin implements Plugin {
 
   async init(api: PluginApi) {
     this.api = api;
+    // Report panels bake locale-sensitive text into the 2D canvas — redraw
+    // when the user switches language (host releases this subscription on
+    // unload).
+    api.onLocaleChange(() => this.draw());
   }
 
   async destroy() {
@@ -755,11 +766,14 @@ export class EmEigensolverPlugin implements Plugin {
   private draw3d(field: EmModeField) {
     const three = this.three;
     if (!three) return;
-    if (this.fieldMeshFor !== field) {
+    if (this.fieldMeshFor !== field || this.fieldScene !== three) {
       this.clearFieldMesh();
       this.fieldMesh = buildFieldMesh(field);
+      this.fieldAnno = buildFieldAnnotations(field);
       this.fieldMeshFor = field;
+      this.fieldScene = three;
       three.scene.add(this.fieldMesh);
+      three.scene.add(this.fieldAnno);
       fitFieldCamera(three.camera, three.controls, field.rows, field.cols);
       this.api?.log(
         'info',
@@ -773,12 +787,19 @@ export class EmEigensolverPlugin implements Plugin {
   }
 
   private clearFieldMesh() {
-    if (!this.fieldMesh) return;
-    this.three?.scene.remove(this.fieldMesh);
-    this.fieldMesh.geometry.dispose();
-    (this.fieldMesh.material as { dispose(): void }).dispose();
-    this.fieldMesh = null;
+    if (this.fieldMesh) {
+      this.three?.scene.remove(this.fieldMesh);
+      this.fieldMesh.geometry.dispose();
+      (this.fieldMesh.material as { dispose(): void }).dispose();
+      this.fieldMesh = null;
+    }
+    if (this.fieldAnno) {
+      this.three?.scene.remove(this.fieldAnno);
+      disposeObjectTree(this.fieldAnno);
+      this.fieldAnno = null;
+    }
     this.fieldMeshFor = null;
+    this.fieldScene = null;
   }
 
   /** Release the 3D surface (plugin deactivate/destroy or view switch). */
