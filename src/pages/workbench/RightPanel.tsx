@@ -39,7 +39,11 @@ export function RightPanel() {
       }),
     ];
     return () => subs.forEach((s) => s.unsubscribe());
-  }, [activeId, activePlugin]);
+    // `locale` in deps: a plugin's getParams() labels/options are
+    // locale-sensitive (built from api.locale at call time), so the panel
+    // must re-read them when the language switches — otherwise dropdown
+    // options keep the previous language until some unrelated event.
+  }, [activeId, activePlugin, locale]);
 
   const onChange = (key: string, value: unknown) => {
     if (!activeId) return;

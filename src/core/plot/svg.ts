@@ -194,8 +194,16 @@ function surfaceFrame(
         (nxv / nl) * SURFACE_LIGHT[0] + (nyv / nl) * SURFACE_LIGHT[1] + (nzv / nl) * SURFACE_LIGHT[2],
       );
       const shade = 0.58 + 0.42 * lambert;
-      const mean = (v00 + v10 + v01 + v11) / 4;
-      const [cr, cg, cb] = fieldColorRgb(((mean - fMin) / span) * 2 - 1);
+      // Color by the dominant corner (max |value|), not the quad mean:
+      // flat-mean colouring washes sharp peaks out to half saturation
+      // because their flanking quads average far below the tip.
+      const dom =
+        Math.abs(v10) > Math.abs(v00)
+          ? v10
+          : v00;
+      const dom2 = Math.abs(v11) > Math.abs(v01) ? v11 : v01;
+      const corner = Math.abs(dom2) > Math.abs(dom) ? dom2 : dom;
+      const [cr, cg, cb] = fieldColorRgb(((corner - fMin) / span) * 2 - 1);
       quads.push({
         depth:
           VIEW_COS_EL * VIEW_COS_AZ * ((c + 0.5) * stepWx) +
