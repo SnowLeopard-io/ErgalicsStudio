@@ -135,4 +135,22 @@ describe('field series (heatmap + colorbar)', () => {
     const cell = /<rect x="(6[0-9]\.[0-9]+)"/; // first cell starts near MARGIN.left=60
     expect(cell.test(svg)).toBe(true);
   });
+
+  it('surface mode renders shaded 3D quads instead of flat cells', () => {
+    const svg = renderSVG({
+      ...fieldSpec,
+      series: [
+        {
+          ...fieldSpec.series[0]!,
+          field: { ...fieldSpec.series[0]!.field!, surface: true },
+        },
+      ],
+    });
+    // One shaded path per grid quad (3x3 grid → 2x2 = 4 quads).
+    expect(svg.match(/<path d="M/g)?.length).toBe(4);
+    // No heatmap cell rects (only bg + colorbar rects remain).
+    expect(svg.match(/<rect /g)?.length).toBe(1 + 32 + 1);
+    // Lambert shading modulates the fills (same hue family, varied lightness).
+    expect(svg).toMatch(/rgb\(\d+,\d+,\d+\)/);
+  });
 });

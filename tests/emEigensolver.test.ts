@@ -320,7 +320,7 @@ describe('modeFieldPanels (Figure Studio export)', () => {
     const [panel] = modeFieldPanels([field(0, 0.5)]);
     const series = panel!.spec.series[0]!;
     expect(series.kind).toBe('field');
-    expect(series.field).toEqual({ values: [1, 0, 0, -1], rows: 2, cols: 2 });
+    expect(series.field).toEqual({ values: [1, 0, 0, -1], rows: 2, cols: 2, surface: true });
     expect(panel!.spec.title).toContain('Mode 1');
     expect(panel!.spec.title).toContain('λ');
   });

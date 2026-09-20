@@ -291,7 +291,7 @@ def test_driver_mode_fields():
 
     Grid samples recover the exact square mesh (approx=False); band samples
     get a nearest-factor layout flagged approx=True. Values are normalised
-    to max |1| and capped at 48x48 cells per mode.
+    to max |1| and capped at 64x64 cells per mode.
     """
     from em_eigensolver import driver
     payload = {"source": "sample", "sample": "cavity_small",
@@ -317,12 +317,12 @@ def test_driver_mode_fields():
     assert len(f2) == 2 and (f2[0]["rows"], f2[0]["cols"]) == (24, 30)
     assert f2[0]["approx"] is True
 
-    # Large grid downsamples to the 48x48 cap.
+    # Large grid downsamples to the 64x64 cap.
     report3 = json.loads(driver.solve_json(json.dumps(
         {"source": "sample", "sample": "cavity_large",
          "config": {"k": 1, "sigma": 0.5, "tol": 1e-4, "basis_dim": 24}})))
     f3 = report3["modeFields"][0]
-    assert f3["rows"] <= 48 and f3["cols"] <= 48
+    assert f3["rows"] <= 64 and f3["cols"] <= 64
     assert len(f3["values"]) == f3["rows"] * f3["cols"]
 
     # Complex Hermitian sample: fields are |field| magnitudes (non-negative).
