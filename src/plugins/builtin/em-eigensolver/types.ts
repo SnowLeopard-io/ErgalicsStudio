@@ -65,6 +65,48 @@ export interface EmModeField {
   approx: boolean;
 }
 
+/**
+ * Reproducible-solve credential (`ergalics.em-repro`, PRD REQ-F) attached to
+ * every solve report by driver.build_repro — matrix fingerprint, parameter
+ * hash, seed, code snapshot and result digest. Downloaded verbatim as
+ * `repro.json` via the "Export Repro Credential" action.
+ */
+export interface EmReproCredential {
+  schema: string;
+  version: number;
+  created_at: string;
+  source: string;
+  matrix: {
+    representation: string;
+    shape: [number, number];
+    nnz: number;
+    complex: boolean;
+    hash: string;
+  };
+  params: Record<string, unknown>;
+  params_hash: string;
+  seed: number;
+  code: {
+    package: string;
+    version: string;
+    python: string;
+    numpy: string;
+    backend: string;
+    files: Record<string, string | null>;
+    aggregate: string;
+  };
+  result: {
+    method: string;
+    backend: string;
+    converged: boolean;
+    iterations: number;
+    matvecs: number;
+    eigenvalues: number[];
+    eigenvalues_hash: string;
+    max_residual: number;
+  };
+}
+
 /** Solve report (EigenResult without eigenvectors). */
 export interface EmResultPayload {
   eigenvalues: number[];
@@ -84,6 +126,8 @@ export interface EmResultPayload {
   };
   /** Downsampled mode fields for the 3D view (≤6 modes, ≤64×64 cells). */
   modeFields?: EmModeField[];
+  /** Reproducible-solve credential (ergalics.em-repro, REQ-F). */
+  repro?: EmReproCredential;
   /** True when the report contained NaN/Inf (diverged) — driver nulled them;
    *  the payload must not be rendered, surface a readable error instead. */
   nonfinite?: boolean;

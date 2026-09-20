@@ -28,6 +28,7 @@ import { emit } from '@/core/events';
 import type { PlotSpec } from '@/core/plot';
 import { actionButton, actionFired, notify } from '../shared/enhance';
 import { EmSolverClient } from './em-client';
+import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';
 import { buildFieldAnnotations, buildFieldMesh, disposeObjectTree, fitFieldCamera } from './render3d';
 import {
@@ -308,7 +309,11 @@ export class EmEigensolverPlugin implements Plugin {
                 label: zh ? `导入的文件：${this.file.name}` : `Imported file: ${this.file.name}`,
               }]
             : [{
-                value: 'sample:cavity_file',
+                // Placeholder must NOT reuse "sample:cavity_file" — the select
+                // renders options keyed by value and that id is already the
+                // first entry (duplicate React key). Unknown values are
+                // ignored by the handler, so a sentinel is safe here.
+                value: 'placeholder',
                 label: zh ? '（拖入 .mtx/.npz/.npy 文件后此处显示）' : '(imported files appear here)',
               }]),
         ],
@@ -364,6 +369,8 @@ export class EmEigensolverPlugin implements Plugin {
       actionButton('run', this.busy ? 'Solving…' : 'Solve', this.busy ? '计算中…' : '运行求解', 'primary'),
       actionButton('abort', 'Abort', '终止求解'),
       actionButton('exportNpz', 'Export .npz', '导出 .npz'),
+      actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'),
+      actionButton('exportRepro', 'Export Repro Credential', '导出复现凭证'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
@@ -479,6 +486,8 @@ export class EmEigensolverPlugin implements Plugin {
     if (actionFired(params, 'run')) void this.runSolve();
     if (actionFired(params, 'abort')) this.abortSolve();
     if (actionFired(params, 'exportNpz')) void this.exportNpz();
+    if (actionFired(params, 'exportReport')) void this.exportReport();
+    if (actionFired(params, 'exportRepro')) void this.exportRepro();
     if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (actionFired(params, 'reloadPlugin')) {
       notify(this.api, 'info', 'Resetting plugin…', '正在重置插件…');
@@ -529,19 +538,7 @@ export class EmEigensolverPlugin implements Plugin {
   }
 
   private buildRequest() {
-    const sigma = parseSigma(this.state.sigmaText);
-    const config: EmSolverConfig = {
-      method: this.state.method,
-      k: this.state.k,
-      sigma,
-      which: 'LM',
-      tol: this.state.tol,
-      maxCycles: 60,
-      maxIter: 400,
-      basisDim: this.state.basisDim,
-      seed: this.state.seed,
-      denseThreshold: 800,
-    };
+    const config = this.currentConfig();
     if (this.state.source === 'file') {
       if (!this.file) {
         notify(this.api, 'warning', 'No file loaded — pick a sample instead.', '尚未导入文件——请改用样例矩阵。');
@@ -692,11 +689,70 @@ export class EmEigensolverPlugin implements Plugin {
     }
     try {
       const bytes = await this.client.exportNpz();
-      const base = (this.result.meta.name || 'eigen-result').replace(/\.[^.]+$/, '');
-      this.api.exportFile(`${base}.eigen.npz`, bytes, 'application/zip');
+      this.api.exportFile(`${this.resultBase()}.eigen.npz`, bytes, 'application/zip');
     } catch (err) {
       notify(this.api, 'error', err instanceof Error ? err.message : String(err), '导出失败。');
     }
+  }
+
+  /** Output base name derived from the solved matrix. */
+  private resultBase(): string {
+    return (this.result?.meta.name || 'eigen-result').replace(/\.[^.]+$/, '');
+  }
+
+  /** The exact configuration used by the next/current solve (mirror of the
+   *  config assembled in buildRequest, without the source side effects). */
+  private currentConfig(): EmSolverConfig {
+    return {
+      method: this.state.method,
+      k: this.state.k,
+      sigma: parseSigma(this.state.sigmaText),
+      which: 'LM',
+      tol: this.state.tol,
+      maxCycles: 60,
+      maxIter: 400,
+      basisDim: this.state.basisDim,
+      seed: this.state.seed,
+      denseThreshold: 800,
+    };
+  }
+
+  /** PRD REQ-G: one-click self-contained diagnostic report — spectrum,
+   *  residuals, convergence trace and every mode field as inline SVG in a
+   *  single offline HTML file (no scripts, no external assets). */
+  private exportReport(): void {
+    if (!this.result) {
+      notify(this.api, 'warning', 'Run a solve first.', '请先运行一次求解。');
+      return;
+    }
+    try {
+      const html = buildDiagReportHtml({
+        result: this.result,
+        config: this.currentConfig(),
+        history: this.history,
+        locale: this.api?.locale,
+      });
+      this.api.exportFile(`${this.resultBase()}.diag-report.html`, html, 'text/html');
+    } catch (err) {
+      notify(this.api, 'error', err instanceof Error ? err.message : String(err), '导出失败。');
+    }
+  }
+
+  /** PRD REQ-F: download the repro credential shipped with the last solve
+   *  report (matrix fingerprint + parameter hash + seed + code snapshot +
+   *  result digest) as repro.json. */
+  private exportRepro(): void {
+    const repro = this.result?.repro;
+    if (!repro) {
+      notify(
+        this.api,
+        'warning',
+        'Run a solve first — the credential ships with every solve report.',
+        '请先运行一次求解——复现凭证随每次求解报告生成。',
+      );
+      return;
+    }
+    this.api.exportFile(`${this.resultBase()}.repro.json`, JSON.stringify(repro, null, 2), 'application/json');
   }
 
   /**
@@ -745,7 +801,13 @@ export class EmEigensolverPlugin implements Plugin {
       return;
     }
     // Explain why the 3D view fell back to the 2D panels (once per cause).
-    if (this.state.view === 'mode3d' && this.mode3dHint !== 'fallback') {
+    // Gate the warning on an actually-present result: on project open the host
+    // auto-activates this plugin and restores its persisted `view: mode3d`
+    // before CentralArea has mounted hostContainers, so `three` is briefly null
+    // even though the user never asked for the 3D view yet. That is a benign
+    // transitional state — the host re-renders the plugin once containers are
+    // ready — so it must not surface a scary "container not mounted" error.
+    if (this.state.view === 'mode3d' && this.result && this.mode3dHint !== 'fallback') {
       this.mode3dHint = 'fallback';
       notify(
         this.api,

@@ -52,6 +52,12 @@ class SolverConfig:
     shift_adaptive: bool = True      # alias kept for lanczos kwargs
     dense_threshold: int = 800       # direct LAPACK path for tiny problems
     minres_rtol: float = 1e-6
+    # Shift-invert accounting (docs 09 §2.3/§4): the inner MINRES is
+    # intentionally inexact, so the outer loop judges convergence against
+    # max(tol, 20 * minres_rtol) — with defaults that floor is 2e-5, NOT the
+    # requested tol. Shift-invert results can therefore certify a true
+    # residual far above tol while converged=True is still self-consistent.
+    # For dense-spectrum interior targets prefer Jacobi-Davidson (auto route).
     minres_maxiter: int = 250
     gpu_spmv: bool = False           # opt-in WebGPU SpMV delegation (f32)
     verbose: bool = False

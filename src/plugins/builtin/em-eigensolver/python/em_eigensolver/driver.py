@@ -4,7 +4,8 @@ The browser Pyodide worker (``em-worker.ts``) imports this module and calls:
 
 * :func:`set_progress_sink` — register a JS callback receiving JSON strings;
 * :func:`solve_json` — run one solve request, return the report as JSON;
-* :func:`export_npz` — serialise the last result into the Pyodide FS.
+* :func:`export_npz` — serialise the last result into the Pyodide FS;
+* :func:`export_repro` — write the last solve's repro credential (JSON).
 
 Everything crossing the JS boundary is a JSON *string* (or a plain str):
 ``postMessage`` cannot structured-clone PyProxy objects, and the
@@ -20,6 +21,7 @@ import math
 import numpy as np
 
 from .io_matrix import read_matrix, write_eigen_npz
+from .repro import build_repro, repro_to_json
 from .solver import SolverConfig, solve, solve_sample
 
 _progress_sink = None
@@ -200,7 +202,8 @@ def solve_json(payload: str) -> str:
     _apply_gpu_spmv(cfg.gpu_spmv)
     if req.get("source") == "sample":
         res, sample = solve_sample(str(req["sample"]), cfg, _emit_progress)
-        meta = _meta_of(sample.name, sample.A, sample.description)
+        A = sample.A
+        meta = _meta_of(sample.name, A, sample.description)
     else:
         A = read_matrix(str(req["path"]))
         res = solve(A, cfg, _emit_progress)
@@ -227,6 +230,12 @@ def solve_json(payload: str) -> str:
     # Key is camelCase to match the TS protocol (EmResultPayload.modeFields);
     # the report crosses to JS verbatim, with no case conversion.
     report["modeFields"] = mode_fields()
+    # Repro credential (PRD REQ-F): matrix fingerprint + parameter hash +
+    # seed + code snapshot + result digest — small enough to ride along in
+    # every report; the host can download it verbatim as repro.json.
+    repro = build_repro(A, cfg, report, meta["name"])
+    _last["repro"] = repro
+    report["repro"] = repro
     # NaN/Inf (diverged residuals, broken-down eigenvalues) must never reach
     # the host as bare JSON tokens — sanitize to null and flag the report so
     # the TS side can show a readable "likely diverged" message.
@@ -243,4 +252,13 @@ def export_npz(path: str) -> str:
         raise RuntimeError("no result to export yet — run a solve first")
     write_eigen_npz(path, _last["w"], _last["v"], _last["meta"],
                     residuals=_last.get("residuals"))
+    return path
+
+
+def export_repro(path: str) -> str:
+    """Write the last solve's repro credential (repro.json) to ``path``."""
+    if _last is None or "repro" not in _last:
+        raise RuntimeError("no repro credential yet — run a solve first")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(repro_to_json(_last["repro"]))
     return path

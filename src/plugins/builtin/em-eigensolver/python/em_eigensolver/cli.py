@@ -63,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="parameter sweep (service diagnostics): e.g. "
                         "cavity:size=12,16,20,24 | cavity:mu=0,0.5,1.0 | "
                         "cluster_zero:seed=1,2,3; writes a JSON report")
+    p.add_argument("--repro", default=None, metavar="PATH",
+                   help="also write a reproducibility credential "
+                        "(repro.json: matrix fingerprint + parameter hash + "
+                        "seed + code snapshot + result digest)")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args(argv)
 
@@ -152,6 +156,23 @@ def main(argv: list[str] | None = None) -> int:
     }
     write_eigen_npz(args.out, result.eigenvalues, result.eigenvectors, meta,
                     residuals=result.residuals)
+
+    if args.repro:
+        # REQ-F credential: matrix fingerprint + parameter hash + seed + code
+        # snapshot + result digest — a third party re-runs the same input and
+        # asserts the digests (or the eigenvalues) byte-for-byte.
+        from .repro import build_repro, repro_to_json
+        report = result.to_dict()
+        report.pop("eigenvectors", None)  # n x k stays in the .npz
+        repro = build_repro(A, cfg, report,
+                            args.sample or args.input)
+        with open(args.repro, "w", encoding="utf-8") as fh:
+            fh.write(repro_to_json(repro))
+        print(f"[em_eigensolver] repro credential: "
+              f"matrix={repro['matrix']['hash']} "
+              f"params={repro['params_hash']} "
+              f"eigenvalues={repro['result']['eigenvalues_hash']}", flush=True)
+        print(f"[em_eigensolver] written: {args.repro}", flush=True)
 
     print(f"[em_eigensolver] converged={result.converged} "
           f"iters={result.iterations} matvecs={result.matvecs} "

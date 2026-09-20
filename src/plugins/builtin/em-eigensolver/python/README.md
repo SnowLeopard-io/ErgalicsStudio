@@ -20,6 +20,9 @@ python -m em_eigensolver.cli --sample cavity_large --sigma 0.5 --k 6 --basis_dim
 # 求解自己的矩阵
 python -m em_eigensolver.cli --input my_matrix.npz --sigma 1.25 --k 6
 
+# 求解并导出可复现凭证（矩阵指纹 + 参数哈希 + 种子 + 代码快照 + 结果摘要）
+python -m em_eigensolver.cli --input my_matrix.npz --k 6 --out eigen.npz --repro repro.json
+
 # 完整测试套件
 python tests/test_all.py
 ```
@@ -28,6 +31,7 @@ python tests/test_all.py
 - **输出**：特征值与特征向量写入 `--out` 指定的 `.npz`（`numpy.load` 直接可读，`meta` 键内附 JSON 元数据）；标准输出给出后端、方法、位移、收敛状态、迭代数、matvec 数、最大相对残差、耗时与特征值列表。
 - **退出码**：收敛 0；未收敛 1；配置或输入错误 2。
 - **配置**：`--config` 加载完整 JSON 配置，全部字段与默认值见 `config.example.json`。
+- **复现凭证**：`--repro PATH` 在求解后写一份 `repro.json`（schema `ergalics.em-repro` v1），含矩阵 SHA-256 指纹（逐字节、O(nnz)，不稠密化不采样）、解析后参数的 canonical-JSON 哈希、随机种子、全部内核模块的源码摘要与聚合值、特征值列表及其字节哈希。第三方用同一输入重跑后比对 `matrix.hash` / `params_hash` / `result.eigenvalues_hash` 即可断言复现。局限：不承诺跨 BLAS 实现逐位一致（特征值可能浮动在 1e-14 量级，此时哈希不同但最大残差认证仍有效）。
 
 ## 架构总览
 
@@ -41,8 +45,9 @@ python tests/test_all.py
 | `lobpcg.py` | 块 LOBPCG（`span{X, R, P}` 三块 Rayleigh-Ritz），天然处理重特征值 |
 | `jacdavid.py` | Jacobi-Davidson：投影校正方程 + 收缩锁定（deflation） |
 | `samples.py` | 参数化电磁仿真测试矩阵构造器（见"内置样例"） |
+| `repro.py` | 可复现凭证（`ergalics.em-repro`）：矩阵指纹 + 参数哈希 + 种子 + 代码快照 + 结果摘要 |
 | `solver.py` | `SolverConfig` / `EigenResult` / `solve()` 门面：方法路由与收敛认证 |
-| `driver.py` | 浏览器 Pyodide Worker 的 JSON 桥（`solve_json` / `export_npz`） |
+| `driver.py` | 浏览器 Pyodide Worker 的 JSON 桥（`solve_json` / `export_npz` / `export_repro`） |
 
 ## 方法路由（`method: "auto"`）
 
@@ -109,7 +114,7 @@ python tests/test_all.py
 
 ## 测试与可复现性
 
-`python tests/test_all.py` 共 **22** 项测试（可独立运行或交给 pytest），覆盖：
+`python tests/test_all.py` 共 **26** 项测试（可独立运行或交给 pytest），覆盖：
 
 | 测试 | 覆盖点 |
 | --- | --- |
@@ -135,8 +140,12 @@ python tests/test_all.py
 | `test_sanitize_json_replaces_nonfinite` | NaN/Inf → null 清洗 + 标志位（杜绝非法 JSON） |
 | `test_parameter_sweep_curves` | 参数扫描曲线（`sweep.py`，扫描点间配置互不泄漏） |
 | `test_validate_correctness_fast_subset` | 正确性验证 fast 子集（extremal 路径 + k 完整护栏） |
+| `test_repro_credential_determinism` | 复现凭证确定性：同输入摘要一致、全部内核模块参与代码快照、JSON 往返无损 |
+| `test_repro_fingerprint_sensitivity` | 矩阵指纹敏感性：不同矩阵/参数改摘要、相同重建不变、稠密路径 |
+| `test_driver_report_carries_repro` | Worker 报告自带凭证且 `export_repro` 可原文落盘 |
+| `test_cli_repro_export` | CLI `--repro` 端到端：凭证含矩阵形状、k 个特征值与 schema 标记 |
 
-三个内核的数值结果均与稠密 LAPACK 参考比对，覆盖重特征值与谱内目标。**确定性**：所有随机初始化走 `np.random.default_rng(seed)`，`seed` 是界面参数与配置字段——同配置同种子结果可复现。完整套件为分钟到十数分钟量级（JD 与十万阶样例是主要耗时项），单项调试可用 `pytest -k <用例名>`。`benchmarks/` 目录另附性能基准（`perf_bench.py`）与正确性对抗基准（`validate_correctness.py`，13 用例含 8 组 adversarial 场景），实测结果 JSON 随仓库归档于 `bench/`。
+三个内核的数值结果均与稠密 LAPACK 参考比对，覆盖重特征值与谱内目标。**确定性**：所有随机初始化走 `np.random.default_rng(seed)`，`seed` 是界面参数与配置字段——同配置同种子结果可复现。**可复现凭证**：CLI `--repro` 与插件"导出复现凭证"可导出 `repro.json`（`ergalics.em-repro` v1：矩阵指纹 + 参数哈希 + 种子 + 代码快照 + 结果摘要，详见技术文档 11.4 节）。完整套件为分钟到十数分钟量级（JD 与十万阶样例是主要耗时项），单项调试可用 `pytest -k <用例名>`。`benchmarks/` 目录另附性能基准（`perf_bench.py`）与正确性对抗基准（`validate_correctness.py`，13 用例含 8 组 adversarial 场景），实测结果 JSON 随仓库归档于 `bench/`。
 
 最小复现环境：Python 3.10+（浏览器侧由 Pyodide 的 CPython 承担）、`numpy >= 1.24`（必装，BSD-3-Clause）、`scipy >= 1.10`（可选，BSD-3-Clause，缺失即纯 NumPy 后端）。
 
@@ -164,7 +173,7 @@ python tests/test_all.py
 | 可运行原型 | CLI + 插件图形界面，两条路径同一核心 |
 | 样例数据与基准、默认配置 | 5 个参数化样例 + 1 个 `.mtx` 示例文件；`config.example.json` 完整配置 |
 | 故障场景与验证 | 见"故障场景与处置建议"；测试覆盖重特征值、谱内目标、不定系统、退化布局、非有限值 |
-| 可复现材料 | 源码、`requirements.txt`、本 README、22 项 Python 测试 + 30 项前端用例、`benchmarks/`（性能与正确性基准 + 实测结果 JSON）、同种子确定性 |
+| 可复现材料 | 源码、`requirements.txt`、本 README、26 项 Python 测试 + 35 项前端用例、`benchmarks/`（性能与正确性基准 + 实测结果 JSON）、同种子确定性、`repro.json` 复现凭证（CLI `--repro` / 插件一键导出） |
 
 ## 已知边界
 
