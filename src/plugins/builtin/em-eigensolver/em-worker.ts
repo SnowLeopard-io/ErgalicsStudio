@@ -25,6 +25,7 @@ import pkgLanczos from './python/em_eigensolver/lanczos.py?raw';
 import pkgLobpcg from './python/em_eigensolver/lobpcg.py?raw';
 import pkgJd from './python/em_eigensolver/jacdavid.py?raw';
 import pkgSamples from './python/em_eigensolver/samples.py?raw';
+import pkgRepro from './python/em_eigensolver/repro.py?raw';
 import pkgSolver from './python/em_eigensolver/solver.py?raw';
 import pkgSweep from './python/em_eigensolver/sweep.py?raw';
 import pkgDriver from './python/em_eigensolver/driver.py?raw';
@@ -44,6 +45,7 @@ const MODULES: Record<string, string> = {
   'lobpcg.py': pkgLobpcg,
   'jacdavid.py': pkgJd,
   'samples.py': pkgSamples,
+  'repro.py': pkgRepro,
   'solver.py': pkgSolver,
   'sweep.py': pkgSweep,
   'driver.py': pkgDriver,

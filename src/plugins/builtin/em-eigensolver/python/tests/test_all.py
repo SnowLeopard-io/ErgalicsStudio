@@ -533,6 +533,88 @@ def test_validate_correctness_fast_subset():
         assert r["max_residual"] <= 1e-6
 
 
+# ========================= repro credentials (REQ-F) ==========================
+
+def test_repro_credential_determinism():
+    """The credential's digests are stable for identical inputs, and every
+    kernel module participates in the code snapshot (nothing silently
+    excluded)."""
+    from em_eigensolver.repro import (REPRO_SCHEMA, build_repro,
+                                      repro_to_json)
+    s = build_sample("cavity_small")
+    cfg = SolverConfig(k=3, tol=1e-9, dense_threshold=5000)
+    r = solve(s.A, cfg)
+    rep = r.to_dict()
+    rep.pop("eigenvectors", None)
+    rp1 = build_repro(s.A, cfg, rep, s.name)
+    rp2 = build_repro(s.A, cfg, rep, s.name)
+    assert rp1["schema"] == REPRO_SCHEMA
+    assert rp1["matrix"]["hash"] == rp2["matrix"]["hash"]
+    assert rp1["params_hash"] == rp2["params_hash"]
+    assert rp1["code"]["aggregate"] == rp2["code"]["aggregate"]
+    assert rp1["result"]["eigenvalues_hash"] == rp2["result"]["eigenvalues_hash"]
+    assert rp1["seed"] == cfg.seed
+    assert rp1["matrix"]["nnz"] == s.A.nnz
+    assert all(rp1["code"]["files"].values())
+    j = json.loads(repro_to_json(rp1))
+    assert j["params_hash"] == rp1["params_hash"]
+
+
+def test_repro_fingerprint_sensitivity():
+    """Different matrices / parameters must change the digest; identical
+    reconstructions must not. Dense matrices take the dense path."""
+    from em_eigensolver.repro import matrix_fingerprint, params_hash
+    s1 = build_sample("cavity_small")
+    h1 = matrix_fingerprint(s1.A)["hash"]
+    assert h1 != matrix_fingerprint(build_sample("cluster_zero").A)["hash"]
+    assert matrix_fingerprint(build_sample("cavity_small").A)["hash"] == h1
+    d = matrix_fingerprint(np.zeros((4, 4)))
+    assert d["representation"] == "dense" and d["shape"] == [4, 4]
+    assert params_hash({"k": 3, "tol": 1e-8}) != params_hash({"k": 3, "tol": 1e-9})
+    assert params_hash({"k": 3, "seed": 0}) != params_hash({"k": 3, "seed": 1})
+
+
+def test_driver_report_carries_repro():
+    """solve_json attaches the credential to every report; export_repro
+    writes it verbatim (PRD REQ-F: plugin can download repro.json)."""
+    from em_eigensolver import driver
+    payload = {"source": "sample", "sample": "degenerate_pair",
+               "config": {"k": 2, "tol": 1e-9, "dense_threshold": 5000}}
+    report = json.loads(driver.solve_json(json.dumps(payload)))
+    rp = report["repro"]
+    assert rp["schema"] == "ergalics.em-repro"
+    assert rp["matrix"]["hash"] and rp["params_hash"]
+    assert rp["source"] == "degenerate_pair"
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "repro.json")
+    assert driver.export_repro(path) == path
+    with open(path, encoding="utf-8") as fh:
+        assert json.load(fh)["params_hash"] == rp["params_hash"]
+
+
+def test_cli_repro_export():
+    """CLI --repro writes a parseable credential end-to-end."""
+    tmp = tempfile.mkdtemp()
+    inp = os.path.join(tmp, "m.npz")
+    out = os.path.join(tmp, "e.npz")
+    rp = os.path.join(tmp, "repro.json")
+    A, _ = rand_herm_sparse(60, 0.1, False, seed=172)
+    write_csr_npz(inp, A)
+    cmd = [sys.executable, "-m", "em_eigensolver.cli", "--input", inp,
+           "--out", out, "--repro", rp, "--k", "3", "--tol", "1e-6"]
+    env = dict(os.environ)
+    pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env["PYTHONPATH"] = pkg_root + os.pathsep + env.get("PYTHONPATH", "")
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                          cwd=pkg_root)
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    with open(rp, encoding="utf-8") as fh:
+        d = json.load(fh)
+    assert d["schema"] == "ergalics.em-repro"
+    assert d["matrix"]["shape"] == [60, 60]
+    assert len(d["result"]["eigenvalues"]) == 3
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

@@ -2,9 +2,10 @@
 import { describe, it, expect } from 'vitest';
 import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '@/plugins/builtin/em-eigensolver/plugin';
 import { spectrumDomain, mapToX } from '@/plugins/builtin/em-eigensolver/render';
+import { buildDiagReportHtml, fieldColor as reportFieldColor, svgConvergence, svgModeField, svgResiduals, svgSpectrum } from '@/plugins/builtin/em-eigensolver/diag-report';
 import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '@/plugins/builtin/em-eigensolver/render3d';
 import { findBuiltin } from '@/plugins/builtin';
-import type { EmModeField } from '@/plugins/builtin/em-eigensolver/types';
+import type { EmModeField, EmResultPayload, EmSolverConfig } from '@/plugins/builtin/em-eigensolver/types';
 import type { ParamDefinition, PluginApi, SelectParam } from '@/types/plugin';
 
 /** Narrow a param definition to the select variant (options/value access). */
@@ -34,6 +35,17 @@ function fakeApi(locale = 'en-US'): PluginApi {
     readBinary: async () => new ArrayBuffer(0),
     getParam: () => undefined,
     setParam: () => {},
+  };
+}
+
+/** fakeApi variant that records every notify() payload for assertions. */
+function fakeApiWithNotify(notices: unknown[], locale = 'en-US'): PluginApi {
+  return {
+    ...fakeApi(locale),
+    notify: (kind, message) => {
+      notices.push(message);
+      void kind;
+    },
   };
 }
 
@@ -265,6 +277,40 @@ describe('EmEigensolverPlugin 3D view state', () => {
     // No result, no three handle — draw() must not throw (2D fallback).
     expect(() => plugin.render({} as never)).not.toThrow();
   });
+
+  // Regression: opening a project auto-activates this plugin and restores its
+  // persisted `view: mode3d` before CentralArea has mounted the 3D host
+  // container. At that point `three` is null but there is NO result yet, so the
+  // plugin must silently fall back to the report view instead of surfacing a
+  // confusing "3D container not mounted" warning.
+  it('does not warn when mode3d view is restored before any result exists', async () => {
+    const notices: unknown[] = [];
+    const plugin = new EmEigensolverPlugin();
+    await plugin.init(fakeApiWithNotify(notices));
+    plugin.updateParams({ view: 'mode3d' });
+    // Restore path: draw() against a container with no `three` handle. The
+    // node test env has no document, so a bare container is used — the
+    // "not mounted" decision happens in draw() before any canvas work.
+    plugin.render({} as never);
+    expect(notices.some((n) => String(n).includes('3D container not mounted'))).toBe(false);
+    expect(notices.some((n) => String(n).includes('not mounted'))).toBe(false);
+  });
+
+  // And the true failure — a real result present but the 3D surface missing —
+  // still surfaces the actionable warning.
+  it('still warns when mode3d is set with a result but no 3D surface', async () => {
+    const notices: unknown[] = [];
+    const plugin = new EmEigensolverPlugin();
+    await plugin.init(fakeApiWithNotify(notices));
+    plugin.updateParams({ view: 'mode3d' });
+    const p = plugin as unknown as { result: unknown };
+    p.result = {
+      meta: { name: 'x', nnz: 0, shape: [4, 4] },
+      modeFields: [{ index: 0, eigenvalue: 0.5, rows: 2, cols: 2, values: [1, 0, 0, 1], approx: false }],
+    };
+    plugin.render({} as never);
+    expect(notices.some((n) => String(n).includes('3D container not mounted'))).toBe(true);
+  });
 });
 
 describe('EmEigensolverPlugin parameter handling', () => {
@@ -328,8 +374,12 @@ describe('EmEigensolverPlugin parameter handling', () => {
     const matrix = selectParam(plugin.getParams().find((d) => d.key === 'matrix'));
     expect(matrix?.type).toBe('select');
     // 1 bundled file entry + EM_SAMPLES entries; no "file" entry until a
-    // file is imported.
-    expect(matrix?.options?.every((o) => o.value.startsWith('sample:'))).toBe(true);
+    // file is imported — every real entry is "sample:<id>".
+    const values = matrix?.options?.map((o) => o.value) ?? [];
+    expect(values.filter((v) => v !== 'placeholder').every((v) => v.startsWith('sample:'))).toBe(true);
+    // Option values are unique (the select keys options by value): the
+    // no-file placeholder must not reuse "sample:cavity_file".
+    expect(new Set(values).size).toBe(values.length);
     plugin.updateParams({ matrix: 'sample:cavity_small' });
     const p = plugin as unknown as { state: { source: string; sample: string } };
     expect(p.state.source).toBe('sample');
@@ -388,5 +438,94 @@ describe('modeFieldPanels (Figure Studio export)', () => {
     await plugin.init(fakeApi());
     const keys = plugin.getParams().map((d) => d.key);
     expect(keys).toContain('sendToFigure');
+  });
+});
+
+// ======================= diagnostic report (PRD REQ-G) ========================
+
+const reportConfig: EmSolverConfig = {
+  method: 'lanczos', k: 3, sigma: 0, which: 'LM', tol: 1e-8,
+  maxCycles: 60, maxIter: 400, basisDim: 48, seed: 0, denseThreshold: 800,
+};
+
+function reportResult(overrides: Partial<EmResultPayload> = {}): EmResultPayload {
+  return {
+    eigenvalues: [1.5, 0.5, -0.75],
+    residuals: [1e-12, 3e-10, 5e-9],
+    converged: true,
+    iterations: 4,
+    matvecs: 120,
+    method: 'lanczos',
+    backend: 'numpy',
+    diagnostics: {},
+    meta: {
+      name: '<script>alert(1)</script>cavity',
+      description: 'A & B "quoted"',
+      shape: [64, 64],
+      nnz: 320,
+      complex: false,
+    },
+    modeFields: [
+      { index: 0, eigenvalue: 1.5, rows: 2, cols: 2, values: [1, 0, 0, -1], approx: false },
+    ],
+    ...overrides,
+  };
+}
+
+describe('diagnostic report builder (REQ-G)', () => {
+  it('embeds all sections as inline SVG without any <script> tag', () => {
+    const html = buildDiagReportHtml({
+      result: reportResult(),
+      config: reportConfig,
+      history: [{ cycle: 1, residuals: [1e-2], matvecs: 30 }, { cycle: 2, residuals: [1e-6], matvecs: 60 }],
+    });
+    expect(html).toContain('<svg');
+    expect(html).toContain('Spectrum');
+    expect(html).toContain('Relative residuals');
+    expect(html).toContain('Outer convergence');
+    expect(html).toContain('Mode fields');
+    // self-contained and script-free by construction
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<link');
+    expect(html).not.toContain('https://');
+  });
+
+  it('escapes adversarial matrix names and descriptions', () => {
+    const html = buildDiagReportHtml({ result: reportResult(), config: reportConfig });
+    expect(html).not.toContain('<script>alert');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;cavity');
+    expect(html).toContain('A &amp; B &quot;quoted&quot;');
+  });
+
+  it('renders Chinese labels for zh-CN and omits the trace when empty', () => {
+    const html = buildDiagReportHtml({
+      result: reportResult(), config: reportConfig, history: [], locale: 'zh-CN',
+    });
+    expect(html).toContain('诊断报告');
+    expect(html).toContain('求解参数');
+    expect(html).toContain('本次会话无进度轨迹');
+    expect(svgConvergence([])).toBe('');
+    expect(svgResiduals([], 1e-8)).toBe('');
+  });
+
+  it('draws one dot per eigenvalue and colours field extremes blue/red', () => {
+    const spectrum = svgSpectrum([1, -1, 0.5], 0);
+    expect(spectrum.match(/<circle/g)?.length).toBe(3);
+    expect(spectrum).toContain('σ=');
+    const field = reportResult().modeFields![0]!;
+    expect(svgModeField(field).match(/<rect/g)?.length).toBeGreaterThan(2);
+    // diverging colormap: positive → red channel dominant, negative → blue
+    expect(reportFieldColor(1)).toBe('rgb(255,42,57)');
+    expect(reportFieldColor(-1)).toBe('rgb(61,114,255)');
+    expect(reportFieldColor(0)).toBe('rgb(255,255,255)');
+  });
+
+  it('exposes the two export action buttons', async () => {
+    const plugin = new EmEigensolverPlugin();
+    await plugin.init(fakeApi());
+    const keys = plugin.getParams().map((d) => d.key);
+    expect(keys).toContain('exportReport');
+    expect(keys).toContain('exportRepro');
   });
 });
