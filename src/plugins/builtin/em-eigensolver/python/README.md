@@ -99,6 +99,7 @@ python tests/test_all.py
 | --- | --- | --- |
 | 内层 MINRES 达到 `maxiter` | `σ` 几乎正好是一个特征值 | 自适应位移自动介入；否则加大基宽或提高 `minres_maxiter` |
 | 达到 `max_cycles` 仍未收敛 | 谱内密集簇而基宽不足 | 提高 `basis_dim`、放宽容差，或改用 Jacobi-Davidson |
+| 位移逆 Lanczos 报告收敛但特征值远离 `σ` | 谱内目标附近谱太密，内层持续高负载触发自适应位移把 `σ` 逐步移出谱（`diagnostics.shift_history` 呈倍增轨迹），最终锁定距终态位移最近的谱端特征对而非 `σ` 邻域目标 | 属机制性行为：谱内密集目标请改用 Jacobi-Davidson（`auto` 路由默认如此）；显式位移逆仅建议用于谱间隙内的目标 |
 | 选 `1e-12` 容差却停在约 `2e-5` | 位移逆 Lanczos 有效容差下限 `20 × minres_rtol` | 放宽预期或改用其他内核 |
 | 随机稀疏矩阵上进展缓慢 | 随机矩阵谱近似 Wigner 半圆，谱内目标附近天然密集 | 问题本身性质而非缺陷；改用有物理结构的矩阵 |
 | LOBPCG 下位移没生效 | 该内核只求极端特征值 | 需要谱内目标时改用 JD 或位移逆 Lanczos |
@@ -159,7 +160,7 @@ python tests/test_all.py
 | c. 适配非正定/不定的 Krylov / 现代迭代算法 | 厚重启 Lanczos（Krylov-Schur）、块 LOBPCG、Jacobi-Davidson，核组件独立成文件可单独导入 |
 | d. 位移策略（σ 近奇异）+ 自适应位移 | 位移逆变换 + 自适应 σ（内层速率触发、步长倍增、轨迹记录）；JD 投影校正天然规避近奇异 |
 | e. 收敛控制与精度 | 全内核真实残差判据 + 事后认证；diagnostics 全量报告 |
-| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（大矩阵 1.49×@1e5，见 benchmarks）；WebGPU SpMV 内核为宿主平台资产 |
+| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（线程池仅 n ≳ 4×10⁴ 启用，1.17×@1e5，见 benchmarks）；WebGPU SpMV 内核为宿主平台资产 |
 | 可运行原型 | CLI + 插件图形界面，两条路径同一核心 |
 | 样例数据与基准、默认配置 | 5 个参数化样例 + 1 个 `.mtx` 示例文件；`config.example.json` 完整配置 |
 | 故障场景与验证 | 见"故障场景与处置建议"；测试覆盖重特征值、谱内目标、不定系统、退化布局、非有限值 |
