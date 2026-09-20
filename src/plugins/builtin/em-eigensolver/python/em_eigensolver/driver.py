@@ -24,6 +24,24 @@ from .solver import SolverConfig, solve, solve_sample
 
 _progress_sink = None
 _last: dict | None = None
+# Host GPU SpMV bridge (registered by em-worker.ts via register_gpu_spmv).
+_gpu_upload = None
+_gpu_spmv = None
+
+
+def register_gpu_spmv(upload_fn, spmv_fn) -> None:
+    """Receive the WebGPU SpMV host bridge (upload once, then per-vector)."""
+    global _gpu_upload, _gpu_spmv
+    _gpu_upload = upload_fn
+    _gpu_spmv = spmv_fn
+
+
+def _apply_gpu_spmv(enabled: bool) -> None:
+    from . import csr as _csr
+    if enabled and _gpu_upload is not None and _gpu_spmv is not None:
+        _csr.set_gpu_spmv(_gpu_upload, _gpu_spmv, enabled=True)
+    else:
+        _csr.set_gpu_spmv(None, None, enabled=False)
 
 
 def set_progress_sink(fn) -> None:
@@ -43,19 +61,30 @@ def _emit_progress(info: dict) -> None:
 
 
 def _build_config(c: dict) -> SolverConfig:
-    sigma = c.get("sigma", None)
+    """Config from JSON, accepting both snake_case (Python/CLI) and the
+    camelCase keys the TS host sends (maxCycles/basisDim/...). Accepting the
+    host spelling here is not cosmetic: a pure snake_case reader silently
+    ignored the UI's basis-width knob and solved with the default."""
+    def get(*names, default=None):
+        for name in names:
+            if name in c and c[name] is not None:
+                return c[name]
+        return default
+
+    sigma = get("sigma")
     return SolverConfig(
-        method=str(c.get("method", "auto")),
-        k=int(c.get("k", 6)),
+        method=str(get("method", default="auto")),
+        k=int(get("k", default=6)),
         sigma=(float(sigma) if sigma is not None else None),
-        which=str(c.get("which", "LM")),
-        tol=float(c.get("tol", 1e-8)),
-        max_cycles=int(c.get("max_cycles", 60)),
-        max_iter=int(c.get("max_iter", 400)),
-        basis_dim=int(c.get("basis_dim", 48)),
-        seed=int(c.get("seed", 0)),
-        dense_threshold=int(c.get("dense_threshold", 800)),
-        verbose=bool(c.get("verbose", True)),
+        which=str(get("which", default="LM")),
+        tol=float(get("tol", default=1e-8)),
+        max_cycles=int(get("max_cycles", "maxCycles", default=60)),
+        max_iter=int(get("max_iter", "maxIter", default=400)),
+        basis_dim=int(get("basis_dim", "basisDim", default=48)),
+        seed=int(get("seed", default=0)),
+        dense_threshold=int(get("dense_threshold", "denseThreshold", default=800)),
+        gpu_spmv=bool(get("gpu_spmv", "gpuSpmv", default=False)),
+        verbose=bool(get("verbose", default=True)),
     )
 
 
@@ -168,6 +197,7 @@ def solve_json(payload: str) -> str:
     global _last
     req = json.loads(payload)
     cfg = _build_config(req.get("config", {}))
+    _apply_gpu_spmv(cfg.gpu_spmv)
     if req.get("source") == "sample":
         res, sample = solve_sample(str(req["sample"]), cfg, _emit_progress)
         meta = _meta_of(sample.name, sample.A, sample.description)
@@ -177,10 +207,21 @@ def solve_json(payload: str) -> str:
         meta = _meta_of(req.get("name") or req["path"], A, None)
 
     _last = {"w": np.asarray(res.eigenvalues, dtype=np.float64),
-             "v": res.eigenvectors, "meta": meta}
+             "v": res.eigenvectors, "meta": meta,
+             "residuals": np.asarray(res.residuals, dtype=np.float64)}
     report = res.to_dict()
     report.pop("eigenvectors", None)  # n x k: stay in Python, export on demand
     report["meta"] = meta
+    if cfg.gpu_spmv:
+        # Honest boundary (PRD 3.1): WebGPU readback is asynchronous while the
+        # Pyodide event loop is blocked by the sync solver loop, so a sync
+        # in-loop GPU bridge cannot exist in this build. Unless the host
+        # registered a synchronous bridge, the exact CPU f64 kernel ran.
+        report.setdefault("diagnostics", {})["gpu_spmv"] = (
+            "active via host bridge" if _gpu_spmv is not None else
+            "requested but unavailable: WebGPU SpMV is async and cannot be "
+            "called from the sync solve loop — exact CPU f64 path used "
+            "(browser kernel exposed via spmvAsync in src/core/gpu-kernels.ts)")
     # Downsampled mode fields for the 3D visualisation (≤6 modes, ≤64x64
     # cells each) — small enough to ride along in the JSON report.
     # Key is camelCase to match the TS protocol (EmResultPayload.modeFields);
@@ -200,5 +241,6 @@ def export_npz(path: str) -> str:
     """Write the last solve result (eigenvalues + eigenvectors) to ``path``."""
     if _last is None:
         raise RuntimeError("no result to export yet — run a solve first")
-    write_eigen_npz(path, _last["w"], _last["v"], _last["meta"])
+    write_eigen_npz(path, _last["w"], _last["v"], _last["meta"],
+                    residuals=_last.get("residuals"))
     return path

@@ -26,6 +26,7 @@ import pkgLobpcg from './python/em_eigensolver/lobpcg.py?raw';
 import pkgJd from './python/em_eigensolver/jacdavid.py?raw';
 import pkgSamples from './python/em_eigensolver/samples.py?raw';
 import pkgSolver from './python/em_eigensolver/solver.py?raw';
+import pkgSweep from './python/em_eigensolver/sweep.py?raw';
 import pkgDriver from './python/em_eigensolver/driver.py?raw';
 import type { EmWorkerEvent, EmWorkerRequest } from './types';
 
@@ -44,6 +45,7 @@ const MODULES: Record<string, string> = {
   'jacdavid.py': pkgJd,
   'samples.py': pkgSamples,
   'solver.py': pkgSolver,
+  'sweep.py': pkgSweep,
   'driver.py': pkgDriver,
 };
 

@@ -58,6 +58,17 @@ import {
   binningCPU,
   binningSumsBytes,
   packBinningParams,
+  SPMV_INDPTR_USAGE,
+  SPMV_INDICES_USAGE,
+  SPMV_VALUES_USAGE,
+  SPMV_X_USAGE,
+  SPMV_Y_USAGE,
+  SPMV_PARAMS_USAGE,
+  SPMV_BINDINGS,
+  spmvKernelWGSL,
+  spmvCPU,
+  spmvBytes,
+  packSpmvParams,
   type BinningMode,
   type BinningResult,
   type KMeansResult,
@@ -66,13 +77,14 @@ import {
 /**
  * Data-scale thresholds above which the GPU path is worth its upload/readback
  * overhead (spec FR-12). Units: matmul = output elements (m×n), fft = complex
- * samples, kmeans = points, binning = rows.
+ * samples, kmeans = points, binning = rows, spmv = stored entries (nnz).
  */
 export const GPU_KERNEL_THRESHOLDS = {
   matmul: 128 * 128,
   fft: 1024,
   kmeans: 2048,
   binning: 10000,
+  spmv: 65536,
 } as const;
 
 export type GpuKernelKind = keyof typeof GPU_KERNEL_THRESHOLDS;
@@ -152,6 +164,22 @@ export function binningKernelDescriptor(): GpuKernelDescriptor {
       { binding: BINNING_BINDINGS.PARAMS, bufferType: 'uniform' },
       { binding: BINNING_BINDINGS.SUMS, bufferType: 'storage' },
       { binding: BINNING_BINDINGS.COUNTS, bufferType: 'storage' },
+    ],
+  };
+}
+
+export function spmvKernelDescriptor(): GpuKernelDescriptor {
+  return {
+    label: 'spmv',
+    wgsl: spmvKernelWGSL(),
+    workgroupSize: [64, 1, 1],
+    bindings: [
+      { binding: SPMV_BINDINGS.INDPTR, bufferType: 'read-only-storage' },
+      { binding: SPMV_BINDINGS.INDICES, bufferType: 'read-only-storage' },
+      { binding: SPMV_BINDINGS.VALUES, bufferType: 'read-only-storage' },
+      { binding: SPMV_BINDINGS.X, bufferType: 'read-only-storage' },
+      { binding: SPMV_BINDINGS.Y, bufferType: 'storage' },
+      { binding: SPMV_BINDINGS.PARAMS, bufferType: 'uniform' },
     ],
   };
 }
@@ -496,6 +524,79 @@ async function tryBinningGpu(
     return { result, counts: countsOut };
   } catch (err) {
     logger.warn('gpu-kernels', 'binning GPU path failed, using CPU', err);
+    return null;
+  } finally {
+    for (const buf of buffers) buf.destroy();
+  }
+}
+
+// ---- spmv (CSR, em-eigensolver) --------------------------------------------
+
+/**
+ * y = A·x for a CSR matrix (row-major, one thread per row). Auto-routes
+ * GPU/CPU by nnz vs. threshold. The buffers arrive as typed views matching
+ * the WGSL storage types (u32 offsets/indices, f32 values); the caller owns
+ * them. GPU failure — missing device, failed compile, failed dispatch —
+ * always falls back to the mathematically equivalent `spmvCPU`.
+ */
+export async function spmvAsync(
+  indptr: Uint32Array,
+  indices: Uint32Array,
+  values: Float32Array,
+  x: Float32Array,
+  nrows: number,
+  opts: KernelRunOptions = {},
+): Promise<Float32Array> {
+  const started = performance.now();
+  const nnz = values.length;
+  const gpu = await trySpmvGpu(indptr, indices, values, x, nrows, opts.engine);
+  if (gpu) {
+    report('spmv', 'gpu', started, spmvBytes(nrows, nnz));
+    return gpu;
+  }
+  const y = spmvCPU(indptr, indices, values, x);
+  report('spmv', 'cpu', started, spmvBytes(nrows, nnz));
+  return y;
+}
+
+async function trySpmvGpu(
+  indptr: Uint32Array,
+  indices: Uint32Array,
+  values: Float32Array,
+  x: Float32Array,
+  nrows: number,
+  engine: KernelEngineChoice = 'auto',
+): Promise<Float32Array | null> {
+  const compute = getGpuCompute();
+  if (!compute) return null;
+  if (engine === 'cpu') return null;
+  const nnz = values.length;
+  if (engine === 'auto' && selectEngine(nnz, GPU_KERNEL_THRESHOLDS.spmv, true) === 'cpu') {
+    return null;
+  }
+  const buffers: ComputeBufferHandle[] = [];
+  try {
+    const kernel = compute.compileKernel(spmvKernelDescriptor());
+    if (!kernel) return null;
+    const indptrBuf = compute.createBuffer((nrows + 1) * 4, SPMV_INDPTR_USAGE, 'spmv-indptr');
+    const indicesBuf = compute.createBuffer(nnz * 4, SPMV_INDICES_USAGE, 'spmv-indices');
+    const valuesBuf = compute.createBuffer(nnz * 4, SPMV_VALUES_USAGE, 'spmv-values');
+    const xBuf = compute.createBuffer(x.length * 4, SPMV_X_USAGE, 'spmv-x');
+    const yBuf = compute.createBuffer(nrows * 4, SPMV_Y_USAGE, 'spmv-y');
+    const pBuf = compute.createBuffer(16, SPMV_PARAMS_USAGE, 'spmv-params');
+    if (!indptrBuf || !indicesBuf || !valuesBuf || !xBuf || !yBuf || !pBuf) return null;
+    buffers.push(indptrBuf, indicesBuf, valuesBuf, xBuf, yBuf, pBuf);
+    indptrBuf.write(indptr);
+    indicesBuf.write(indices);
+    valuesBuf.write(values);
+    xBuf.write(x);
+    pBuf.write(new Uint8Array(packSpmvParams(nrows)));
+    const ok = compute.run(kernel, [indptrBuf, indicesBuf, valuesBuf, xBuf, yBuf, pBuf], Math.ceil(nrows / 64), 1, 1);
+    if (!ok) return null;
+    const ab = await yBuf.read();
+    return new Float32Array(ab, 0, nrows);
+  } catch (err) {
+    logger.warn('gpu-kernels', 'spmv GPU path failed, using CPU', err);
     return null;
   } finally {
     for (const buf of buffers) buf.destroy();

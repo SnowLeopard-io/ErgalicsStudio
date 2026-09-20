@@ -2271,3 +2271,127 @@ export function binningCPU(
   }
   return { result, counts };
 }
+
+// ==========================================================================
+// CSR SpMV kernel (em-eigensolver, PRD 3.1) — y = A·x for a CSR matrix.
+//
+// Bind group layout (host descriptor must match, see gpu-kernels.ts):
+//   @binding(0) storage, read       — indptr  : u32[nrows + 1]  (row offsets)
+//   @binding(1) storage, read       — indices : u32[nnz]        (column idx)
+//   @binding(2) storage, read       — values  : f32[nnz]        (entries)
+//   @binding(3) storage, read       — x       : f32[ncols]
+//   @binding(4) storage, read_write — y       : f32[nrows]      (result)
+//   @binding(5) uniform             — params  : struct { nrows: u32,
+//                                              _pad0: u32, _pad1: u32,
+//                                              _pad2: u32 } (16 B)
+//
+// One thread per row (scalar row-level SpMV — grid-Laplacian style stencils
+// average ~5 entries per row, so per-row reduction beats a scan-based
+// segmented approach). Dispatch ceil(nrows / 64); the guard drops extras.
+// f32 throughout: the bridge documents ~1e-7 relative noise vs. the f64 CPU
+// solver, which is why GPU delegation is opt-in in the plugin (see the
+// em-eigensolver worker's `gpuSpmv` config flag).
+// ==========================================================================
+
+export const SPMV_INDPTR_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const SPMV_INDICES_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const SPMV_VALUES_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const SPMV_X_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const SPMV_Y_USAGE =
+  GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST | GPU_BUFFER_USAGE.COPY_SRC;
+
+export const SPMV_PARAMS_USAGE = GPU_BUFFER_USAGE.UNIFORM | GPU_BUFFER_USAGE.COPY_DST;
+
+/** Bind group layout shared by the WGSL source and the host descriptor. */
+export const SPMV_BINDINGS = {
+  INDPTR: 0,
+  INDICES: 1,
+  VALUES: 2,
+  X: 3,
+  Y: 4,
+  PARAMS: 5,
+} as const;
+
+export interface SpmvKernelOptions {
+  /** Workgroup size (threads per workgroup). Defaults to 64. */
+  workgroupSize?: number;
+}
+
+export function spmvKernelWGSL(opts: SpmvKernelOptions = {}): string {
+  const workgroupSize = opts.workgroupSize ?? 64;
+  return `struct Params {
+  nrows: u32,
+  _pad0: u32,
+  _pad1: u32,
+  _pad2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> indptr: array<u32>;
+@group(0) @binding(1) var<storage, read> indices: array<u32>;
+@group(0) @binding(2) var<storage, read> values: array<f32>;
+@group(0) @binding(3) var<storage, read> x: array<f32>;
+@group(0) @binding(4) var<storage, read_write> y: array<f32>;
+@group(0) @binding(5) var<uniform> params: Params;
+
+@compute @workgroup_size(${workgroupSize})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let row = gid.x;
+  if (row >= params.nrows) { return; }
+  let start = indptr[row];
+  let end = indptr[row + 1u];
+  var sum: f32 = 0.0;
+  for (var p = start; p < end; p = p + 1u) {
+    sum = sum + values[p] * x[indices[p]];
+  }
+  y[row] = sum;
+}
+`;
+}
+
+/** Byte size of the CSR + vectors + params GPU buffers for one run. */
+export function spmvBytes(nrows: number, nnz: number): number {
+  return (nrows + 1) * 4 + nnz * 4 * 2 + nrows * 4 * 2 + 16;
+}
+
+/** Pack the spmv uniform params into a 16-byte ArrayBuffer. */
+export function packSpmvParams(nrows: number): ArrayBuffer {
+  const buf = new ArrayBuffer(16);
+  const dv = new DataView(buf);
+  dv.setUint32(0, nrows >>> 0, true);
+  dv.setUint32(4, 0, true);
+  dv.setUint32(8, 0, true);
+  dv.setUint32(12, 0, true);
+  return buf;
+}
+
+/**
+ * CPU-equivalent of the spmv kernel: CSR row-level product y = A·x.
+ * Inputs are the same u32/f32 views uploaded to the GPU, so GPU and CPU
+ * paths agree within f32 rounding (host tests assert < 1e-6 relative).
+ */
+export function spmvCPU(
+  indptr: Uint32Array,
+  indices: Uint32Array,
+  values: Float32Array,
+  x: Float32Array,
+): Float32Array {
+  const nrows = indptr.length - 1;
+  if (nrows < 0) throw new Error('spmv: indptr must have at least one entry');
+  const y = new Float32Array(nrows);
+  for (let row = 0; row < nrows; row += 1) {
+    let sum = 0;
+    for (let p = indptr[row]!; p < indptr[row + 1]!; p += 1) {
+      sum += values[p]! * x[indices[p]!]!;
+    }
+    y[row] = sum;
+  }
+  return y;
+}

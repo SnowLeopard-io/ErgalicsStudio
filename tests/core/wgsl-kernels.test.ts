@@ -37,6 +37,11 @@ import {
   binningSumsBytes,
   packBinningParams,
   BINNING_BINDINGS,
+  spmvKernelWGSL,
+  spmvCPU,
+  spmvBytes,
+  packSpmvParams,
+  SPMV_BINDINGS,
 } from '@/core/wgsl';
 import {
   GPU_KERNEL_THRESHOLDS,
@@ -45,10 +50,12 @@ import {
   fftKernelDescriptor,
   kmeansKernelDescriptor,
   binningKernelDescriptor,
+  spmvKernelDescriptor,
   matmulAsync,
   fftAsync,
   kmeansAsync,
   binningAsync,
+  spmvAsync,
 } from '@/core/gpu-kernels';
 import {
   recordKernelExecution,
@@ -383,12 +390,128 @@ describe('binning kernel', () => {
   });
 });
 
+describe('spmv kernel (em-eigensolver CSR)', () => {
+  /** 4-row CSR: row0=[1,2]·x[0..1], row1=[], row2=[3,4,5], row3=[7]. */
+  function smallCsr(): {
+    indptr: Uint32Array;
+    indices: Uint32Array;
+    values: Float32Array;
+    x: Float32Array;
+  } {
+    return {
+      indptr: Uint32Array.from([0, 2, 2, 5, 6]),
+      indices: Uint32Array.from([0, 1, 0, 2, 3, 1]),
+      values: Float32Array.from([1, 2, 3, 4, 5, 7]),
+      x: Float32Array.from([1, 10, 100, 1000]),
+    };
+  }
+
+  it('multiplies a known CSR matrix by a vector (empty rows included)', () => {
+    const { indptr, indices, values, x } = smallCsr();
+    const y = spmvCPU(indptr, indices, values, x);
+    expect(Array.from(y)).toEqual([21, 0, 5403, 70]);
+  });
+
+  it('matches a dense f64 reference within f32 tolerance on a seeded matrix', () => {
+    const rand = mulberry32(2026);
+    const nrows = 200;
+    const nnz = 2000;
+    const entries: { r: number; c: number; v: number }[] = [];
+    for (let p = 0; p < nnz; p += 1) {
+      entries.push({
+        r: Math.floor(rand() * nrows),
+        c: Math.floor(rand() * nrows),
+        v: rand() * 2 - 1,
+      });
+    }
+    entries.sort((a, b) => a.r - b.r || a.c - b.c);
+    const indptr = new Uint32Array(nrows + 1);
+    const indices = new Uint32Array(nnz);
+    const values = new Float32Array(nnz);
+    const dense = new Float64Array(nrows * nrows);
+    let w = 0;
+    let last = -1;
+    let prevR = -1;
+    let prevC = -1;
+    for (const { r, c, v } of entries) {
+      while (last < r) {
+        last += 1;
+        indptr[last] = w; // start of row `last` (empty rows share the same w)
+      }
+      if (r === prevR && c === prevC) {
+        values[w - 1] = (values[w - 1] ?? 0) + v; // duplicate (r, c) merges
+      } else {
+        indices[w] = c;
+        values[w] = v;
+        prevR = r;
+        prevC = c;
+        w += 1;
+      }
+      dense[r * nrows + c] = (dense[r * nrows + c] ?? 0) + v;
+    }
+    indptr[nrows] = w;
+    const x = Float32Array.from({ length: nrows }, () => rand() * 2 - 1);
+    const y = spmvCPU(
+      indptr,
+      indices.slice(0, w),
+      values.slice(0, w),
+      x,
+    );
+    for (let r = 0; r < nrows; r += 1) {
+      let ref = 0;
+      for (let c = 0; c < nrows; c += 1) ref += (dense[r * nrows + c] ?? 0) * x[c]!;
+      expect(Math.abs(y[r]! - ref)).toBeLessThan(1e-6 * (Math.abs(ref) + 1));
+    }
+  });
+
+  it('emits a row-level CSR kernel with the documented 6-binding layout', () => {
+    const src = spmvKernelWGSL();
+    expect(src).toContain('@compute @workgroup_size(64)');
+    expect(src).toContain('if (row >= params.nrows)');
+    expect(src).toContain('var<storage, read_write> y: array<f32>');
+    expect(src).toContain('y[row] = sum');
+    expect(declaredBindings(src)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(spmvKernelWGSL({ workgroupSize: 128 })).toContain('@workgroup_size(128)');
+  });
+
+  it('descriptor bindings match the shader layout constants', () => {
+    const desc = spmvKernelDescriptor();
+    expect(desc.label).toBe('spmv');
+    expect(desc.bindings.map((b) => b.binding)).toEqual(declaredBindings(spmvKernelWGSL()));
+    expect(desc.bindings.map((b) => b.binding)).toEqual([
+      SPMV_BINDINGS.INDPTR,
+      SPMV_BINDINGS.INDICES,
+      SPMV_BINDINGS.VALUES,
+      SPMV_BINDINGS.X,
+      SPMV_BINDINGS.Y,
+      SPMV_BINDINGS.PARAMS,
+    ]);
+    expect(desc.workgroupSize).toEqual([64, 1, 1]);
+  });
+
+  it('packs params and sizes the GPU buffers', () => {
+    const buf = packSpmvParams(102400);
+    const dv = new DataView(buf);
+    expect(buf.byteLength).toBe(16);
+    expect(dv.getUint32(0, true)).toBe(102400);
+    // indptr (n+1) + indices + values + x + y + params
+    expect(spmvBytes(4, 6)).toBe(5 * 4 + 6 * 4 * 2 + 4 * 4 * 2 + 16);
+  });
+
+  it('spmvAsync falls back to spmvCPU without a WebGPU device', async () => {
+    const { indptr, indices, values, x } = smallCsr();
+    const y = await spmvAsync(indptr, indices, values, x, 4);
+    expect(Array.from(y)).toEqual(Array.from(spmvCPU(indptr, indices, values, x)));
+  });
+});
+
 describe('engine routing', () => {
   it('exposes the FR-12 thresholds', () => {
     expect(GPU_KERNEL_THRESHOLDS.matmul).toBe(128 * 128);
     expect(GPU_KERNEL_THRESHOLDS.fft).toBe(1024);
     expect(GPU_KERNEL_THRESHOLDS.kmeans).toBe(2048);
     expect(GPU_KERNEL_THRESHOLDS.binning).toBe(10000);
+    expect(GPU_KERNEL_THRESHOLDS.spmv).toBe(65536);
   });
 
   it('selects gpu only when available and above threshold', () => {

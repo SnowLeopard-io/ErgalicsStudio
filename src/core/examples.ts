@@ -107,9 +107,9 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
     descriptionI18n: {
       'zh-CN':
-        '600 阶厄密腔体矩阵：3 组不同参数的 10×10 谐振腔各重复两次，每个特征值恰好两重。加载后点击「运行求解」以稠密直解模式计算，查看谱、残差与收敛轨迹。',
+        '600 阶厄密腔体矩阵：3 组不同参数的 10×10 谐振腔各重复两次；受 10×10 网格谱内部简并影响，实测特征值重数分布为 2 / 4 / 20（均为偶数重）。加载后点击「运行求解」以稠密直解模式计算，查看谱、残差与收敛轨迹。',
       'en-US':
-        'A 600-order Hermitian cavity matrix: three 10×10 cavity blocks repeated twice, so every eigenvalue is exactly double. Load it and press Solve for an instant dense-path run with spectrum, residuals and convergence.',
+        'A 600-order Hermitian cavity matrix: three 10×10 cavity blocks repeated twice; measured eigenvalue multiplicities are 2 / 4 / 20 (the 10×10 grid spectrum itself is degenerate). Load it and press Solve for an instant dense-path run with spectrum, residuals and convergence.',
     },
   },
   {

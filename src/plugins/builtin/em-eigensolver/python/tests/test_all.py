@@ -86,17 +86,137 @@ def test_csr_matvec_and_hermiticity():
 
 
 def test_numpy_csr_backend_matches_scipy():
+    """Pure-NumPy CSR and the scipy CSR must agree on the same COO input.
+
+    Regression: this test once returned early because the two backends'
+    construction APIs differ. Both are now built through the shared
+    csr_from_coo / _coo_reduce path and compared on matvec results and
+    shapes (tolerance 1e-12).
+    """
+    from em_eigensolver.csr import _coo_reduce
+
     A, Ad = rand_herm_sparse(40, 0.15, False, seed=105)
     r, c, d = coo_of(A)
-    indptr, indices, values = NumpyCSR.build_from_coo(
-        r.astype(np.int64), c.astype(np.int64), d, 40, 40) \
-        if hasattr(NumpyCSR, "build_from_coo") else (None, None, None)
-    if indptr is None:
-        return  # NumpyCSR construction API differs; covered via backend switch
+    indptr, indices, values = _coo_reduce(
+        r.astype(np.int64), c.astype(np.int64), d, 40, 40)
     N = NumpyCSR(indptr, indices, values, (40, 40))
     x = np.random.default_rng(106).standard_normal(40)
-    assert np.allclose(N @ x, Ad @ x)
-    assert np.allclose(N.T @ x, Ad.T @ x)
+    y = np.random.default_rng(107).standard_normal(40)
+    # ``A`` is the backend csr (scipy when available); ``Ad`` is its dense copy
+    assert N.shape == A.shape and N.nnz == A.nnz
+    assert np.max(np.abs(Ad @ x - A @ x)) < 1e-12
+    assert np.max(np.abs(N @ x - A @ x)) < 1e-12
+    assert np.max(np.abs(N.T @ y - A.T @ y)) < 1e-12
+    assert np.max(np.abs(N @ (N @ x) - A @ (A @ x))) < 1e-12
+
+
+def test_hermiticity_measure_defaults():
+    """No-rng call must not raise (regression: ``np.default_rng`` typo) and
+    ``sample_size`` must actually budget the probe count."""
+    A, _ = rand_herm_sparse(50, 0.1, True, seed=170)
+    m_default = hermiticity_measure(A)          # rng + sample_size defaults
+    assert 0.0 <= m_default < 1e-12
+    assert hermiticity_measure(A, sample_size=50, rng=np.random.default_rng(1)) < 1e-12
+    assert hermiticity_measure(A, sample_size=1_000_000, rng=np.random.default_rng(2)) < 1e-12
+    # non-Hermitian input (missing conjugate block) yields a positive measure
+    Ar, _ = rand_herm_sparse(50, 0.1, False, seed=171)
+    r, c, d = coo_of(Ar)
+    keep = r >= c                       # drop the upper triangle off-diagonal
+    half = csr_from_coo(r[keep].astype(np.int64), c[keep].astype(np.int64),
+                        d[keep], 50, 50)
+    assert hermiticity_measure(half) > 1e-8
+
+
+def test_numpy_csr_parallel_matvec_matches_serial():
+    """Multithreaded row-block matvec must agree with the serial path.
+
+    The worker count is forced explicitly so the test is deterministic on
+    any machine (including 1-core CI): the parallel branch of ``dot`` is
+    taken with 4 workers and compared against the serial reduction.
+    """
+    from em_eigensolver import csr as csr_mod
+    from em_eigensolver.samples import _grid_laplacian
+
+    A = _grid_laplacian(100, 100, mu=0.5)          # n = 10000, 5-point stencil
+    r = np.repeat(np.arange(A.shape[0]), np.diff(A.indptr))
+    indptr, indices, values = csr_mod._coo_reduce(
+        r.astype(np.int64), A.indices.astype(np.int64), A.data, 10000, 10000)
+    N = csr_mod.NumpyCSR(indptr, indices, values, (10000, 10000))
+    assert not np.iscomplexobj(N.data)
+    x = np.random.default_rng(180).standard_normal(10000)
+
+    real_count = csr_mod._worker_count
+    real_threshold = csr_mod._PARALLEL_MIN_ROWS
+    try:
+        csr_mod._PARALLEL_MIN_ROWS = 1000   # force the parallel branch for n=10000
+        csr_mod._worker_count = lambda: 1
+        y_serial = N @ x
+        csr_mod._worker_count = lambda: 4
+        y_parallel = N @ x
+    finally:
+        csr_mod._worker_count = real_count
+        csr_mod._PARALLEL_MIN_ROWS = real_threshold
+    assert np.max(np.abs(y_parallel - y_serial)) == 0.0  # per-row reductions identical
+    # empty rows reduce to zero through both paths
+    indptr_e = np.array([0, 0, 3, 3], dtype=np.int64)
+    Ne = csr_mod.NumpyCSR(indptr_e, np.array([0, 1, 2], dtype=np.int64),
+                          np.array([1.0, 2.0, 3.0]), (3, 3))
+    ye = Ne @ np.ones(3)
+    assert np.allclose(ye, [0.0, 6.0, 0.0])
+
+
+def test_jd_inner_tolerance_is_relaxed():
+    """P0-2: the JD inner MINRES rtol is documented as deliberately relaxed,
+    so the facade must pass ``max(cfg.minres_rtol, 1e-4)`` — with the default
+    ``cfg.minres_rtol=1e-6`` that is 1e-4, not 1e-6 (stricter than JD)."""
+    import em_eigensolver.solver as solver_mod
+    captured: dict = {}
+    real_jd = solver_mod.jd_solve
+
+    def spy(matvec, n, k, **kw):
+        captured["minres_rtol"] = kw.get("minres_rtol")
+        return real_jd(matvec, n, k, **kw)
+
+    solver_mod.jd_solve = spy
+    try:
+        s = build_sample("cavity_small")
+        cfg = SolverConfig(method="jacobi-davidson", k=1, sigma=0.6,
+                           tol=1e-6, dense_threshold=0)
+        res = solve(s.A, cfg)
+        assert res.converged
+    finally:
+        solver_mod.jd_solve = real_jd
+    assert captured["minres_rtol"] == 1e-4
+
+
+def test_driver_config_accepts_camel_case():
+    """The TS host sends camelCase keys (maxCycles/basisDim/...); the driver
+    must honour them instead of silently falling back to defaults."""
+    from em_eigensolver import driver
+    cfg = driver._build_config({"k": 2, "basisDim": 128, "maxCycles": 7,
+                                "maxIter": 11, "denseThreshold": 5,
+                                "tol": 1e-6, "sigma": 0.6})
+    assert cfg.basis_dim == 128 and cfg.max_cycles == 7
+    assert cfg.max_iter == 11 and cfg.dense_threshold == 5
+    cfg2 = driver._build_config({"k": 2, "basis_dim": 64})   # snake_case still fine
+    assert cfg2.basis_dim == 64
+
+
+def test_export_npz_contains_residuals():
+    """P0-3: the exported/archived .npz must carry `residuals` exactly as the
+    CLI docstring and stdout promise."""
+    from em_eigensolver import driver
+
+    payload = {"source": "sample", "sample": "cavity_small",
+               "config": {"k": 2, "tol": 1e-8, "dense_threshold": 5000}}
+    driver.solve_json(json.dumps(payload))
+    tmp = tempfile.mkdtemp()
+    out = os.path.join(tmp, "r.npz")
+    driver.export_npz(out)
+    data = np.load(out, allow_pickle=False)
+    assert {"eigenvalues", "eigenvectors", "residuals"} <= set(data.files)
+    assert len(data["residuals"]) == 2
+    assert np.all(np.isfinite(data["residuals"]))
 
 
 # ============================ matrix IO ======================================
@@ -317,10 +437,13 @@ def test_driver_mode_fields():
     assert len(f2) == 2 and (f2[0]["rows"], f2[0]["cols"]) == (24, 30)
     assert f2[0]["approx"] is True
 
-    # Large grid downsamples to the 64x64 cap.
+    # Large grid downsamples to the 64x64 cap.  Extremal Lanczos (no sigma):
+    # an interior JD shift at this scale would push MINRES into an indefinite
+    # system and crawl — the point here is the downsample cap, not the shift.
     report3 = json.loads(driver.solve_json(json.dumps(
         {"source": "sample", "sample": "cavity_large",
-         "config": {"k": 1, "sigma": 0.5, "tol": 1e-4, "basis_dim": 24}})))
+         "config": {"k": 1, "method": "lanczos", "which": "LM",
+                    "tol": 1e-4, "basis_dim": 24}})))
     f3 = report3["modeFields"][0]
     assert f3["rows"] <= 64 and f3["cols"] <= 64
     assert len(f3["values"]) == f3["rows"] * f3["cols"]
@@ -364,6 +487,50 @@ def test_sanitize_json_replaces_nonfinite():
     # strictly valid JSON round-trips through the host parser
     text = json.dumps(clean)
     assert "NaN" not in text and "Infinity" not in text
+
+
+# ==================== PRD 4.2/4.3/4.4: sweep + validation ====================
+
+def test_parameter_sweep_curves():
+    """4.2: a cavity size sweep must produce eigenvalue curves with certified
+    residuals, JSON-serialisable, and one bad value must not kill the scan."""
+    from em_eigensolver.sweep import sweep_eigenvalues
+    out = sweep_eigenvalues("cavity", "size", [12.0, 16.0, 20.0],
+                            config=SolverConfig(k=2, sigma=0.6, tol=1e-8,
+                                                dense_threshold=0))
+    assert out.kind == "cavity" and len(out.points) == 3
+    for pt in out.points:
+        assert pt.error is None and pt.converged
+        assert len(pt.eigenvalues) == 2 and len(pt.residuals) == 2
+        assert max(pt.residuals) <= 1e-6
+        # grid Laplacian spectrum lives in [mu, mu + 8*scale] = [0.5, 8.5]
+        assert all(0.5 <= v <= 8.5 for v in pt.eigenvalues)
+        d = pt.to_dict()
+        json.dumps(d)  # must stay JSON-safe
+    # the 'mu' knob shifts the whole spectrum by mu: the smallest eigenvalue
+    # (selected with which='SA', no sigma) moves from lam0 to lam0 + mu
+    mu_out = sweep_eigenvalues("cavity", "mu", [0.0, 1.0],
+                               config=SolverConfig(k=1, which="SA", tol=1e-8,
+                                                   dense_threshold=0))
+    lams = [pt.eigenvalues[0] for pt in mu_out.points]
+    assert abs((lams[1] - lams[0]) - 1.0) < 1e-6
+    assert sweep_eigenvalues("cavity", "bogus", [10.0]).points[0].error
+
+
+def test_validate_correctness_fast_subset():
+    """4.3 + 4.4: run the fast validation subset (dense-reference comparison
+    plus the adversarial stress bench) — everything must PASS."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "benchmarks"))
+    import validate_correctness as vc
+    refs = vc.run_reference_cases(fast=True)
+    stress = vc.run_stress_bench(fast=True)
+    bad = [r["case"] for r in refs + stress if r["status"] != "PASS"]
+    assert not bad, f"validation failures: {bad}"
+    # reference comparison really is tight vs LAPACK
+    for r in refs:
+        assert r["max_eigenvalue_error_rel"] < 1e-8
+        assert r["max_residual"] <= 1e-6
 
 
 def main() -> int:
