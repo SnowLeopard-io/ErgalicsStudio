@@ -333,6 +333,39 @@ def test_driver_mode_fields():
     assert min(vals) >= 0.0
 
 
+def test_nearest_grid_prime_falls_back():
+    """Prime n must not collapse to a (1, n) strip: both sides >= 2, padded.
+
+    A 1-row layout yields zero quads in the TS surface mesh (blank 3D view),
+    so _nearest_grid falls back to an approximate 2-row grid that mode_fields
+    zero-pads via the approximate-layout path.
+    """
+    from em_eigensolver import driver
+    for n in (2, 3, 5, 7, 11, 101, 3071):
+        rows, cols = driver._nearest_grid(n)
+        assert rows >= 2 and cols >= 2, f"n={n} -> {(rows, cols)}"
+        assert rows * cols >= n, f"n={n} -> {(rows, cols)}"
+    # exact factors still recover the square mesh
+    assert driver._nearest_grid(900) == (30, 30)
+    assert driver._nearest_grid(720) == (24, 30)
+    assert driver._nearest_grid(1) == (1, 1)
+
+
+def test_sanitize_json_replaces_nonfinite():
+    """NaN/Inf must become null + hit flag, never bare JSON tokens."""
+    from em_eigensolver import driver
+    hit: list[bool] = [False]
+    clean = driver._sanitize_json(
+        {"a": float("nan"), "b": [1.0, float("inf")], "c": {"d": -float("inf")},
+         "e": "x", "f": 2.5}, hit)
+    assert clean == {"a": None, "b": [1.0, None], "c": {"d": None},
+                     "e": "x", "f": 2.5}
+    assert hit[0]
+    # strictly valid JSON round-trips through the host parser
+    text = json.dumps(clean)
+    assert "NaN" not in text and "Infinity" not in text
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

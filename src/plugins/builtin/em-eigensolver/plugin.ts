@@ -596,7 +596,26 @@ export class EmEigensolverPlugin implements Plugin {
         this.draw();
       });
       if (this.disposed) return payload;
+      if (payload.nonfinite) {
+        // The driver sanitized NaN/Inf (diverged solve) to null — rendering
+        // would crash downstream (eigenvalue.toExponential), so keep the
+        // result unset and surface a readable failure instead.
+        this.api.setStatus('error');
+        notify(
+          this.api,
+          'error',
+          'Result contains non-finite values (likely diverged) — adjust σ or tolerance and retry.',
+          '求解结果包含非有限值（可能发散/未收敛）——请调整位移 σ 或容差后重试。',
+        );
+        this.refreshParams();
+        this.draw();
+        return payload;
+      }
       this.result = payload;
+      // Guard the mode dropdown against a shrunk modeFields list on re-solves
+      // (render clamps, but the select display value must stay in range too).
+      const modes = payload.modeFields?.length ?? 0;
+      if (modes > 0) this.state.modeIndex = Math.min(Math.max(this.state.modeIndex, 1), modes);
       this.api.reportDataScale(payload.meta.nnz > 0 ? payload.meta.nnz : payload.meta.shape[0]);
       this.api.setStatus('ready');
       const secs = ((performance.now() - started) / 1000).toFixed(1);

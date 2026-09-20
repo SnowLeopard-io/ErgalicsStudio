@@ -474,7 +474,12 @@ const CSS = `
   figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
   .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
-  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
+  /* A portrait diagram must not claim a whole page. At 234mm the box (padding,
+     caption and margins included) measured 254mm against a 263mm column, so it
+     could not share a page with its own heading and pushed ~10mm past the
+     bottom. 190mm leaves room for a heading and a line of prose. Landscape
+     diagrams never reach this cap, so nothing else changes. */
+  .svgbox svg { max-width: 100%; max-height: 190mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
   .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
@@ -848,9 +853,18 @@ function packPages(blocks, measured) {
   }
 
   // Pull a trailing heading down to the next page (avoid orphaned headings).
+  // A pull can expose the heading that sat above it, so each page is drained
+  // until it no longer ends on a heading — checking once leaves the newly
+  // uncovered heading stranded at the foot of the page. The extra height this
+  // adds to the next page is absorbed by the shrink-and-repack pass rather
+  // than being refused here, otherwise a nearly full next page freezes the
+  // orphan in place.
   for (let p = 0; p < pages.length - 1; p++) {
-    const last = pages[p][pages[p].length - 1];
-    if (last && /^<h[234]/.test(last.html)) {
+    for (;;) {
+      const last = pages[p][pages[p].length - 1];
+      if (!last || !/^<h[234]/.test(last.html)) break;
+      // Never drain a page to nothing: an empty page becomes a blank sheet.
+      if (pages[p].length <= 1) break;
       pages[p].pop();
       pages[p + 1].unshift(last);
     }
@@ -1029,7 +1043,17 @@ function tocEntriesFrom(blocks) {
   }
   // A compendium has far too many sections for one TOC page; fall back to
   // chapter-level entries rather than spilling onto a second TOC page.
-  return out.length > 44 ? out.filter((e) => e.level === 2) : out;
+  //
+  // The budget is measured, not counted. The previous test was a raw entry
+  // count (more than 44), which has a blind spot: a document with ~36 entries
+  // sits under the count but still overflows the page, and that overflow then
+  // feeds the repack loop below. Per-entry heights are the rendered ones
+  // (.toc-item.l1 is 11.5pt bold with a 14px lead-in, .toc-item.l2 is 10pt),
+  // and the page leaves about 880px under its h1.
+  const TOC_BUDGET_PX = 880;
+  const entryHeight = (e) => (e.level === 2 ? 42 : 31);
+  const estimated = out.reduce((a, e) => a + entryHeight(e), 0);
+  return estimated > TOC_BUDGET_PX ? out.filter((e) => e.level === 2) : out;
 }
 
 function assembleHtml({ cover, tocHtml, pages, back = '' }) {
@@ -1092,6 +1116,10 @@ async function verifyLayout(page, htmlPath) {
       }
       if (maxBottom > limit + 1) {
         bad.push({
+          // The TOC is assembled outside `packPages`, so re-packing can never
+          // make room for it — flag it the way the cover is flagged so the
+          // caller reports it instead of trying to shrink the content height.
+          toc: pg.classList.contains('toc'),
           page: i + 1,
           overflowMm: +((maxBottom - limit) / 3.7795).toFixed(1),
           text: (culprit?.textContent || '').replace(/\s+/g, ' ').slice(0, 60),
@@ -1138,12 +1166,38 @@ const DOC_ORDER = [
   '06-GPU计算与原生核心',
   '07-科学计算子系统',
   '08-测试与质量保障',
+  '09-电磁谐振特征值求解器',
   'Ergalics Studio',
 ];
 
 const TOTAL_NUM = 8;
 
+// Documents delivered as standalone notes rather than numbered instalments of
+// the series. They build like any other document but carry their own footnote
+// instead of "第 N 篇（共 M 篇）", and they do not raise the series count.
+const FOOT_OVERRIDES = {
+  '09-电磁谐振特征值求解器': '独立专题文档 · Standalone Note',
+};
+
+// Hand-written cover abstracts, for documents whose opening paragraph is too
+// long or too technical to serve as a cover synopsis. The auto-derived abstract
+// is the lead paragraph truncated at 200 chars, which can wrap to four lines and
+// crowd the chapter chips — these are bounded to roughly two lines.
+const ABSTRACT_OVERRIDES = {
+  '09-电磁谐振特征值求解器':
+    '面向微波器件、天线与电磁兼容的稀疏厄密非正定本征问题。纯 Python 与 NumPy 实现，内置厚重启 Lanczos、块 LOBPCG、Jacobi-Davidson 三种内核，按真实残差认证收敛。',
+};
+
 function metaFor(base) {
+  if (FOOT_OVERRIDES[base]) {
+    return {
+      order: 9,
+      foot: FOOT_OVERRIDES[base],
+      // The standalone note carries the same three QR codes as the compendium
+      // cover, so a printed copy of either volume reaches the same homes.
+      qrOnCover: true,
+    };
+  }
   const m = /^(\d+)-(.+)$/.exec(base);
   if (m) {
     const n = Number(m[1]);
@@ -1219,8 +1273,10 @@ async function buildDoc(browser, page, base, opts = {}) {
 
   const firstP = blocks.find((b) => b.kind === 'p');
   // The cover carries the document's own lead paragraph only, bounded so it
-  // can never push the chapter chips or the colophon past the panel edge.
-  const rawAbstract = firstP ? firstP.text : '';
+  // can never push the chapter chips or the colophon past the panel edge. A
+  // document may override it with a purpose-written synopsis (see
+  // ABSTRACT_OVERRIDES) when its lead runs long.
+  const rawAbstract = ABSTRACT_OVERRIDES[base] || (firstP ? firstP.text : '');
   const abstract = rawAbstract.length > 200 ? rawAbstract.slice(0, 198) + '…' : rawAbstract;
 
   // Measurement must run against a clean, stylesheet-only page: the print
@@ -1315,8 +1371,11 @@ async function main() {
     const htmlPath = path.join(DOCS_DIR, `${base}.html`);
 
     // Build → verify → if any page's content crosses the bottom padding,
-    // shrink the usable height by the worst deficit and rebuild. Three
-    // attempts is plenty: the deficits shrink monotonically.
+    // shrink the usable height by the worst deficit and rebuild. Four attempts
+    // is plenty: the deficits shrink as the pages get shorter.
+    // See the guard inside the loop: never cut the usable height by more than
+    // a fifth of the column, however stubborn a deficit turns out to be.
+    const MAX_SHRINK_PX = 200;
     let shrink = 0;
     let pages = 0;
     let remaining = [];
@@ -1325,15 +1384,26 @@ async function main() {
       writeFileSync(htmlPath, built.html, 'utf8');
       pages = built.pages;
       remaining = await verifyLayout(measurePage, htmlPath);
-      // Cover overflow is a layout problem, not a pagination problem: repacking
-      // cannot shrink the cover, so report it and stop retrying.
-      const pageOverflows = remaining.filter((o) => !o.cover);
-      if (!remaining.length || !pageOverflows.length) break;
-      const worst = Math.max(...pageOverflows.map((o) => o.overflowMm));
+      // Only content pages can be helped by re-packing. The cover and the TOC
+      // are laid out outside `packPages`, so shrinking the usable height can
+      // never make room for them; re-adding such a deficit on every pass used
+      // to drive the usable height to zero and collapse the document to one
+      // block per page. Both are reported by the caller instead.
+      const repairable = remaining.filter((o) => !o.cover && !o.toc);
+      if (!remaining.length || !repairable.length) break;
+      const worst = Math.max(...repairable.map((o) => o.overflowMm));
       console.warn(
         `  ~ ${base}: pass ${attempt + 1} overflowed by up to ${worst}mm — repacking`,
       );
+      // Deficit that a pass could not clear: add it to the running shrink.
       shrink += worst * 3.7795 + 10;
+      // Hard guard. These deficits are expected to shrink as the pages get
+      // shorter; one that refuses to (an unsplittable block, or a page the
+      // packer cannot rearrange) would otherwise be re-added on every pass and
+      // cut the usable height by half, blowing the document up to one block
+      // per page. Cap the total at about a fifth of the column and let the
+      // residual overflow be reported as a warning instead.
+      if (shrink > MAX_SHRINK_PX) break;
     }
 
     let pdfNote = '';

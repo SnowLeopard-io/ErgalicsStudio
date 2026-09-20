@@ -159,7 +159,12 @@
   figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 2.5mm; text-align: center; line-height: 1.6; }
   figcaption b { color: var(--accent-deep); font-weight: bold; }
   .svgbox { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 4mm 4mm 3mm; margin: 4mm 0; text-align: center; }
-  .svgbox svg { max-width: 100%; max-height: 234mm; height: auto; display: block; margin: 0 auto; }
+  /* A portrait diagram must not claim a whole page. At 234mm the box (padding,
+     caption and margins included) measured 254mm against a 263mm column, so it
+     could not share a page with its own heading and pushed ~10mm past the
+     bottom. 190mm leaves room for a heading and a line of prose. Landscape
+     diagrams never reach this cap, so nothing else changes. */
+  .svgbox svg { max-width: 100%; max-height: 190mm; height: auto; display: block; margin: 0 auto; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
   .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
