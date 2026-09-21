@@ -9,30 +9,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
-export const scatterManifest: PluginManifest = {
-  id: 'example.scatter',
-  name: 'Scatter Plot',
-  nameI18n: { 'zh-CN': '散点图', 'en-US': 'Scatter Plot' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: '2-D scatter with color-by-value.',
-  descriptionI18n: {
-    'zh-CN': '渲染数值列（x y [值]）为二维散点，第三列可作为颜色通道。',
-    'en-US': 'Render numeric columns (x y [value]) as a 2-D scatter; 3rd column optional color ramp.',
-  },
-  license: 'MIT',
-  entry: 'example.scatter',
-  formats: [
-    { extension: '.dat', mimeTypes: ['application/octet-stream'], description: 'Scatter data' },
-    { extension: '.csv', mimeTypes: ['text/csv'], description: 'Scatter data' },
-    { extension: '.xyz', mimeTypes: ['text/plain', 'chemical/x-xyz'], description: 'Scatter data' },
-  ],
-};
+export { scatterManifest } from './scatterManifest';
+import { scatterManifest } from './scatterManifest';
 
 const MAX_POINTS = 60_000;
 

@@ -48,7 +48,7 @@ export function useSweepExecution({ saveResult, notify, t }: SweepExecutionOptio
       let evaluator: (params: Record<string, unknown>) => number;
       try {
         const expr = plan.expression?.trim() || 'p.a';
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+         
         const fn = new Function('p', `"use strict"; return (${expr});`) as (
           params: Record<string, unknown>,
         ) => unknown;

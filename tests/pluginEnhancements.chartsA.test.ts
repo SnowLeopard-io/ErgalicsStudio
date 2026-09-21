@@ -83,7 +83,7 @@ interface CaseDef {
   name: string;
   base: string;
   header: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   Ctor: new () => any;
   file: File;
 }

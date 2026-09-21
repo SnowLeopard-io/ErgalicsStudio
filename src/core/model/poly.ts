@@ -29,7 +29,7 @@ export function polyFit(x: number[], y: number[], degree = 2): PolyResult {
   const centre = x.reduce((a, b) => a + b, 0) / x.length;
   const X = x.map((v) => {
     const row: number[] = [];
-    let u = v - centre;
+    const u = v - centre;
     let uj = u;
     for (let j = 1; j <= degree; j += 1) {
       row.push(uj);

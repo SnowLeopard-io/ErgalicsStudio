@@ -29,7 +29,7 @@ export function logGamma(x: number): number {
     -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
   ];
   const n = g + 2;
-  let y = x - 1;
+  const y = x - 1;
   let a = c[0]!;
   for (let i = 1; i < n; i += 1) a += c[i]! / (y + i);
   const t = y + g + 0.5;

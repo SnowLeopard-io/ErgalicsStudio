@@ -92,7 +92,7 @@ export function qr(A: Matrix): QRDecomposition {
   // Q = H_0 H_1 … H_{m−1}: apply the reflectors in REVERSE of the order
   // they reduced R (R = H_{m−1}…H_0 A, and each H is symmetric, so
   // Q = H_0…H_{m−1}).
-  let Q = mat(n, n);
+  const Q = mat(n, n);
   for (let i = 0; i < n; i += 1) Q[i]![i] = 1;
   for (let k = vs.length - 1; k >= 0; k -= 1) {
     const tau = taus[k]!;

@@ -59,7 +59,7 @@ export function asFloat64(data: NumericArray | number[]): Float64Array {
 
 /** Make a string safe to use as a file name / variable id. */
 export function sanitizeName(name: string): string {
-  const cleaned = name.replace(/[^\w.\-]+/g, '_').replace(/^_+|_+$/g, '');
+  const cleaned = name.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '');
   return cleaned || 'var';
 }
 

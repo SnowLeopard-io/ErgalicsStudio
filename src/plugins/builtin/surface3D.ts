@@ -3,10 +3,11 @@
 //
 // Height-field surface z = f(x, y) rendered in the host Three.js scene.
 // Data comes from a project file (JSON 2-D grid or whitespace/comma number
-// rows); without a file the surface is sampled from a built-in parameter
-// function. Mesh generation is delegated to the pure pipeline in
-// `core/mesh3d` (unit-tested); this file only wires geometry into the
-// host-managed Scene3DHandle lifecycle (lazy creation, 2-D hides 3-D).
+// rows). The scene stays blank until a file is loaded; the built-in parameter
+// functions that used to render a default surface now ship as downloadable
+// example data instead (see core/examples.ts). Mesh generation is delegated
+// to the pure pipeline in `core/mesh3d` (unit-tested); this file only wires
+// geometry into the host-managed Scene3DHandle lifecycle.
 // ==========================================================================
 
 import * as THREE from 'three';
@@ -15,7 +16,6 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   Scene3DHandle,
 } from '@/types/plugin';
 import { heightFieldToMesh } from '@/core/mesh3d';
@@ -23,25 +23,8 @@ import { scalarRampColors } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
 import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
 
-export const surface3DManifest: PluginManifest = {
-  id: 'example.surface-3d',
-  name: '3D Surface',
-  nameI18n: { 'zh-CN': '3D 表面图', 'en-US': '3D Surface' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Height-field surface plots (z = f(x,y)) in the host 3D scene.',
-  descriptionI18n: {
-    'zh-CN': '三维表面图：高度场网格 z=f(x,y)，支持项目数据文件与参数函数，自适应视角。',
-    'en-US': '3D surface plots from height-field grids — project files or parameter functions, auto-fit view.',
-  },
-  license: 'MIT',
-  entry: 'example.surface-3d',
-  formats: [
-    { extension: '.json', mimeTypes: ['application/json'], description: '2D height grid' },
-    { extension: '.dat', mimeTypes: ['application/octet-stream'], description: '2D height grid' },
-    { extension: '.txt', mimeTypes: ['text/plain'], description: '2D height grid' },
-  ],
-};
+export { surface3DManifest } from './surface3DManifest';
+import { surface3DManifest } from './surface3DManifest';
 
 export type SurfaceFunction = 'sine' | 'gaussian' | 'saddle' | 'ripple' | 'paraboloid';
 
@@ -139,8 +122,6 @@ function clampGrid(rows: number[][]): number[][] {
 }
 
 interface State {
-  fn: SurfaceFunction;
-  resolution: number;
   heightScale: number;
   wireframe: boolean;
   hasFileData: boolean;
@@ -154,8 +135,6 @@ export class Surface3DPlugin implements Plugin {
   private three: Scene3DHandle | null = null;
   private mesh: THREE.Mesh | null = null;
   private state: State = {
-    fn: 'sine',
-    resolution: 96,
     heightScale: 1,
     wireframe: false,
     hasFileData: false,
@@ -207,14 +186,6 @@ export class Surface3DPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (typeof params.fn === 'string' && params.fn !== this.state.fn) {
-      this.state.fn = params.fn as SurfaceFunction;
-      this.rebuildMesh();
-    }
-    if (typeof params.resolution === 'number' && params.resolution !== this.state.resolution) {
-      this.state.resolution = Math.max(2, Math.min(MAX_GRID_SIDE, Math.floor(params.resolution)));
-      this.rebuildMesh();
-    }
     if (typeof params.heightScale === 'number' && params.heightScale !== this.state.heightScale) {
       this.state.heightScale = params.heightScale;
       this.rebuildMesh();
@@ -240,20 +211,6 @@ export class Surface3DPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     return [
-      {
-        key: 'fn',
-        label: 'Function',
-        type: 'select',
-        options: [
-          { value: 'sine', label: 'Sine × Cosine', labelI18n: { 'zh-CN': '正弦波', 'en-US': 'Sine × Cosine' } },
-          { value: 'gaussian', label: 'Gaussian', labelI18n: { 'zh-CN': '高斯峰', 'en-US': 'Gaussian' } },
-          { value: 'saddle', label: 'Saddle', labelI18n: { 'zh-CN': '鞍面', 'en-US': 'Saddle' } },
-          { value: 'ripple', label: 'Ripple', labelI18n: { 'zh-CN': '水波纹', 'en-US': 'Ripple' } },
-          { value: 'paraboloid', label: 'Paraboloid', labelI18n: { 'zh-CN': '抛物面', 'en-US': 'Paraboloid' } },
-        ],
-        value: this.state.fn,
-      },
-      { key: 'resolution', label: 'Resolution', type: 'range', min: 8, max: MAX_GRID_SIDE, step: 8, value: this.state.resolution },
       { key: 'heightScale', label: 'Height Scale', type: 'range', min: 0.1, max: 5, step: 0.1, value: this.state.heightScale },
       {
         key: 'wireframe',
@@ -295,15 +252,19 @@ export class Surface3DPlugin implements Plugin {
     this.draw();
   }
 
-  /** The grid currently rendered: loaded file data, else the parameter function. */
-  private currentGrid(): number[][] {
+  /** The grid currently rendered: loaded file data only; null = blank scene. */
+  private currentGrid(): number[][] | null {
     if (this.state.hasFileData && this.state.fileGrid) return this.state.fileGrid;
-    return sampleSurfaceFunction(this.state.fn, this.state.resolution);
+    return null;
   }
 
   /** Export the height grid (x, y, z) as CSV — the data, not the GPU buffers. */
   private exportCsv() {
     const grid = this.currentGrid();
+    if (!grid) {
+      this.api.notify('warning', this.translate('viz3d.surface.no_data'));
+      return;
+    }
     const rows: number[][] = [];
     for (let r = 0; r < grid.length; r += 1) {
       const row = grid[r]!;
@@ -328,8 +289,10 @@ export class Surface3DPlugin implements Plugin {
   private rebuildMesh() {
     if (!this.three) return;
     this.clearMesh();
-    const meshData = heightFieldToMesh(this.currentGrid(), {
-      cellSize: 24 / Math.max(1, this.state.resolution - 1),
+    const grid = this.currentGrid();
+    if (!grid) return;
+    const meshData = heightFieldToMesh(grid, {
+      cellSize: 24 / Math.max(1, grid.length - 1),
       heightScale: this.state.heightScale,
     });
     if (!meshData) return;
@@ -388,7 +351,7 @@ export class Surface3DPlugin implements Plugin {
 
   private draw() {
     if (this.three) {
-      if (!this.mesh) this.rebuildMesh();
+      if (this.state.hasFileData && !this.mesh) this.rebuildMesh();
       this.three.render();
       return;
     }
@@ -404,7 +367,10 @@ export class Surface3DPlugin implements Plugin {
     g.fillStyle = 'rgba(150, 165, 185, 0.85)';
     g.font = `12px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.textAlign = 'center';
-    g.fillText(this.translate('viz3d.no_container'), canvas.width / 2, canvas.height / 2);
+    const msg = this.state.hasFileData
+      ? this.translate('viz3d.no_container')
+      : this.translate('viz3d.surface.no_data');
+    g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
 }
 

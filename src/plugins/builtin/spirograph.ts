@@ -8,10 +8,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { spirographManifest } from './spirographManifest';
+import { spirographManifest } from './spirographManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -24,23 +26,6 @@ const SP_COLORS = ['#f472b6', '#22d3ee', '#a78bfa', '#34d399', '#fbbf24'];
 const randInt = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1));
 const randStep = (lo: number, hi: number, step: number) =>
   Math.round((lo + Math.random() * (hi - lo)) / step) * step;
-
-export const spirographManifest: PluginManifest = {
-  id: 'fun.spirograph',
-  name: 'Spirograph',
-  nameI18n: { 'zh-CN': '万花尺', 'en-US': 'Spirograph' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Hypotrochoid / epitrochoid spiral art generator.',
-  descriptionI18n: {
-    'zh-CN': '生成内旋轮线（万花尺）曲线艺术。',
-    'en-US': 'Generate hypotrochoid / epitrochoid spiral art.',
-  },
-  license: 'MIT',
-  entry: 'fun.spirograph',
-  category: 'fun',
-  icon: '✺',
-};
 
 type Shape = 'hypo' | 'epi';
 

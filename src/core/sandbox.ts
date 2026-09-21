@@ -191,7 +191,7 @@ const SHADOWED_GLOBALS = [
  * a non-simple parameter list; the caller passes `undefined` explicitly.
  */
 export function evaluatePluginLegacy(entrySource: string, api: PluginApi): Plugin {
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+   
   const factory = new Function(
     'api',
     ...SHADOWED_GLOBALS,

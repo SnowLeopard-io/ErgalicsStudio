@@ -46,6 +46,10 @@ import opticsPrismJson from '../../examples/data/optics-prism-dispersion.json?ra
 import structureTrussJson from '../../examples/data/structure-truss-bridge.json?raw';
 import structureRopeJson from '../../examples/data/structure-rope-bridge.json?raw';
 import emCavityMtx from '../../examples/data/em-cavity-degenerate.mtx?raw';
+import emCfdCaseAJson from '../../examples/data/em-cfd-case-a.json?raw';
+import emCfdCaseBJson from '../../examples/data/em-cfd-case-b.json?raw';
+import surfaceRippleJson from '../../examples/data/surface-ripple.json?raw';
+import voxelSphereJson from '../../examples/data/voxel-sphere.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -99,7 +103,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'mtx',
     mimeType: 'text/plain',
     pluginId: 'example.em-eigensolver',
-    group: 'lab',
     content: emCavityMtx,
     nameI18n: {
       'zh-CN': '电磁谐振 · 简并腔体阵列（重特征值）',
@@ -110,6 +113,42 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '600 阶厄密腔体矩阵：3 组不同参数的 10×10 谐振腔各重复两次；受 10×10 网格谱内部简并影响，实测特征值重数分布为 2 / 4 / 20（均为偶数重）。加载后点击「运行求解」以稠密直解模式计算，查看谱、残差与收敛轨迹。',
       'en-US':
         'A 600-order Hermitian cavity matrix: three 10×10 cavity blocks repeated twice; measured eigenvalue multiplicities are 2 / 4 / 20 (the 10×10 grid spectrum itself is degenerate). Load it and press Solve for an instant dense-path run with spectrum, residuals and convergence.',
+    },
+  },
+  {
+    id: 'em-cfd-case-a',
+    filename: 'em-cfd-case-a.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-cfd-coupler',
+    content: emCfdCaseAJson,
+    nameI18n: {
+      'zh-CN': '1D-3D 耦合 · 定常壅塞流（Case A）',
+      'en-US': '1D-3D Coupling · Steady Choked Flow (Case A)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一个 60 L 气室经喷管向 3-D 场排气的双向耦合算例：加载后自动运行 Case A，临界流量与解析解误差为 0，并绘制 1-D 出流与 3-D 背压时间序列。',
+      'en-US':
+        'Bidirectional coupling of a 60 L plenum venting through a nozzle into a 3-D box: loads and runs Case A automatically — choked-flow error vs analytic is 0 — plotting the 1-D outlet flow and 3-D back pressure.',
+    },
+  },
+  {
+    id: 'em-cfd-case-b',
+    filename: 'em-cfd-case-b.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-cfd-coupler',
+    content: emCfdCaseBJson,
+    nameI18n: {
+      'zh-CN': '1D-3D 耦合 · 毫秒级阀门控制（Case B）',
+      'en-US': '1D-3D Coupling · ms Valve Control (Case B)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '阀门在 40 ms 阶跃关闭至 20%、90 ms 重新全开的毫秒级控制算例：加载后自动运行 Case B，节流比约 0.80、控制同步误差为 0，演示控制逻辑与时间网格的对齐。',
+      'en-US':
+        'Millisecond valve step (to 20 % at 40 ms, reopen at 90 ms): loads and runs Case B automatically — throttle ratio ≈ 0.80, control-sync error 0 — showing how control triggers align to the 1-D grid.',
     },
   },
   {
@@ -494,6 +533,40 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '64×64 双高斯峰 + 波脊场，等高线追踪与配色示例。',
       'en-US': '64x64 field with twin gaussian peaks and a wavy ridge; contour demo.',
+    },
+  },
+
+  // ---- 3-D visualization (surface / voxel) --------------------------------
+  {
+    id: 'surface-sine',
+    filename: 'surface-ripple.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.surface-3d',
+    content: surfaceRippleJson,
+    nameI18n: {
+      'zh-CN': '3D 表面 · 正弦起伏',
+      'en-US': '3D Surface · Sine Ripple',
+    },
+    descriptionI18n: {
+      'zh-CN': '64×64 高度网格 z = sin(2πx)·cos(2πy)，加载后呈现经典波纹表面，可切换线框或导出网格 CSV。',
+      'en-US': 'A 64x64 height grid z = sin(2πx)·cos(2πy) that renders the classic ripple surface; toggle wireframe or export the mesh CSV.',
+    },
+  },
+  {
+    id: 'voxel-sphere',
+    filename: 'voxel-sphere.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.voxel-3d',
+    content: voxelSphereJson,
+    nameI18n: {
+      'zh-CN': '3D 体素 · 高斯球',
+      'en-US': '3D Voxel · Gaussian Sphere',
+    },
+    descriptionI18n: {
+      'zh-CN': '24×24×24 高斯径向标量场，等值面显示为球壳，切换半透明体素模式可观察内部采样密度。',
+      'en-US': 'A 24x24x24 gaussian radial scalar field; the isosurface reads as a shell and translucent-voxel mode reveals interior sampling density.',
     },
   },
 

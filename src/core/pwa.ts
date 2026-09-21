@@ -78,7 +78,7 @@ export function getInstallPrompt(): BeforeInstallPromptEvent | null {
   return deferredPrompt;
 }
 
-let installableListeners = new Set<() => void>();
+const installableListeners = new Set<() => void>();
 
 function emitInstallable(): void {
   installableListeners.forEach((l) => l());

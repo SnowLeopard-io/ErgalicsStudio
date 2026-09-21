@@ -154,7 +154,7 @@ export function exportRowsCsv(
     notify(api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
     return false;
   }
-  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([`\u{FEFF}${csv}`], { type: 'text/csv;charset=utf-8' });
   api.exportFile(`${safeBaseName(baseName)}.csv`, blob, 'text/csv;charset=utf-8');
   return true;
 }

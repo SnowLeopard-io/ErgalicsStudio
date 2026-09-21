@@ -1,0 +1,7 @@
+# em_cfd kernel runtime deps (pure-NumPy by design).
+#
+# The kernel intentionally has exactly ONE third-party dependency: numpy.
+# It runs unmodified under CPython (CLI / benchmarks) and under Pyodide (the
+# browser worker), which is what lets the in-browser results match the CLI
+# ones byte-for-byte.
+numpy>=1.24

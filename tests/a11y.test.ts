@@ -208,10 +208,10 @@ describe('FR-18 a11y static scan', () => {
     }
 
     const rate = checked > 0 ? passed / checked : 1;
-    // eslint-disable-next-line no-console
+     
     console.log(`[a11y] interactive elements: ${passed}/${checked} passed (${(rate * 100).toFixed(1)}%)`);
     if (rate < 0.95) {
-      // eslint-disable-next-line no-console
+       
       console.log('[a11y] failures:\n' + failures.slice(0, 40).join('\n'));
     }
     expect(failures.slice(0, 40)).toEqual([]);

@@ -20,7 +20,7 @@ function sliceNode(start?: number, stop?: number, step?: number): IRNode {
 /** Execute a generated JS program over `lst = [0..9]` and return `a`. */
 function runJS(node: IRNode): unknown {
   const out = codegenJS(makeProgram([{ kind: 'VarAssign', name: 'a', value: node, declare: true }]));
-  // eslint-disable-next-line no-new-func
+   
   const fn = new Function(`const lst = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];\n${out}\nreturn a;`);
   return fn();
 }

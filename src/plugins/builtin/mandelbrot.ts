@@ -8,10 +8,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { mandelbrotManifest } from './mandelbrotManifest';
+import { mandelbrotManifest } from './mandelbrotManifest';
 
 /** A button press arrives from the host as `{ [action]: true }`; older hosts
  *  forwarded `{ action }` payloads — accept both. */
@@ -19,23 +21,6 @@ function buttonPressed(params: Record<string, unknown>, key: string): boolean {
   const v = params[key];
   return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
 }
-
-export const mandelbrotManifest: PluginManifest = {
-  id: 'fun.mandelbrot',
-  name: 'Fractal Explorer',
-  nameI18n: { 'zh-CN': '分形浏览器', 'en-US': 'Fractal Explorer' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Mandelbrot & Julia set explorer with color palettes.',
-  descriptionI18n: {
-    'zh-CN': '曼德博集与茱莉亚集浏览器，支持多种配色方案与缩放。',
-    'en-US': 'Explore the Mandelbrot and Julia sets with several color palettes and zoom.',
-  },
-  license: 'MIT',
-  entry: 'fun.mandelbrot',
-  category: 'fun',
-  icon: '◉',
-};
 
 type Palette = 'fire' | 'ice' | 'rainbow' | 'grayscale';
 

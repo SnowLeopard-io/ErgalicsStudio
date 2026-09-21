@@ -84,9 +84,11 @@ landed: a GPU uncertainty engine, Sweep Studio, Signal Lab, Model Lab, Data
 Profiler, Repro Lock, a DuckDB-powered SQL Workbench, a Report Builder and
 Inference Forge (HMC/NUTS Bayesian inference) — every research tool is a
 standalone full-page lab sharing one unified shell. The code editor now
-speaks Python, R and JavaScript (R/JS run on the in-process IR engine);
-package signing for the plugin marketplace and a full free-form R runtime
-(webR) are the next milestones. Every
+speaks Python, R and JavaScript (R/JS run on the in-process IR engine —
+the IR base always ships, while a full free-form R runtime (webR) stays
+optional and is not vendored by default). Ed25519 package signing for
+the marketplace already ships (FR-05); consuming webR for free-form R
+syntax is the next milestone. Every
 module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
@@ -100,7 +102,7 @@ codebase keeps scaling without a rewrite.
 | Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine |
 | Research          | 19-page research workbench (Analysis, Runs, Uncertainty, Model Lab, Inference Forge, Model Inference, Profiler, Signal Lab, Sweeps, SQL, Cleaning, Report, Repro Lock, Lineage, Figure Studio, Notebook, Supplement, Course, Gallery) + unit-system and chunked-ingestion kernels |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace) deep-linked into the workbench |
-| Next up           | Plugin package signing, full free-form R runtime (webR) |
+| Next up           | Full free-form R runtime (webR, optional & not vendored by default) |
 
 ---
 
@@ -155,11 +157,15 @@ codebase keeps scaling without a rewrite.
   listed as placeholders.
 - `.cspkg` package loading (ZIP with `manifest.json` + entry + assets) with
   manifest validation (id format, entry path traversal guard, sandbox enum).
-- **Real sandbox isolation** (§6.2): third-party entry code runs inside a
+- **Worker-first plugin isolation** (§6.2): third-party entry code runs inside a
   Web Worker with a postMessage RPC bridge — no access to the host page's
   globals, DOM, or stores. Canvas rendering works via a transferred
-  `OffscreenCanvas`; a documented best-effort fallback exists when Workers
-  are unavailable.
+  `OffscreenCanvas`. When Workers are unavailable, execution falls back to a
+  best-effort restricted `new Function` scope on the main thread; that
+  fallback is **not a security sandbox** (a determined escape exists) and is
+  gated by the same signature gate as every `.cspkg` load — tampered packages
+  always throw, unsigned/unknown-key packages require explicit user trust
+  confirmation (FR-05). See `SECURITY.md` for the exact trust boundary.
 - Locale-aware parameter panels (range / select / number / checkbox / text /
   file / button / toggle).
 - One-click export on every built-in plugin: PNG snapshots of the 2-D

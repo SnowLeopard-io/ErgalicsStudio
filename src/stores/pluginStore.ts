@@ -129,6 +129,12 @@ export interface HostContainers {
   reportDataScale: (n: number) => void;
   /** Lazily create (and cache) the host-managed Three.js scene handle. */
   getThree?: () => Scene3DHandle | undefined;
+  /**
+   * Resolve once the Three.js scene handle exists (B1: three is a lazy
+   * chunk). The activation path awaits this for `renderToScene` plugins so
+   * `ctx.container.three` is populated before `activate` runs.
+   */
+  ensureThree?: () => Promise<Scene3DHandle | undefined>;
   /** Show/hide the cached 3D surface (3D-only plugins show it). */
   setThreeVisible?: (visible: boolean) => void;
   /** Clear the shared 2D canvas (prevents stale frames leaking between plugins). */
@@ -469,14 +475,19 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         }
         return true;
       };
-      const ctx = createContext(id);
       try {
         // Surface visibility is a host concern, decided here centrally: a 3D
         // coordinate system must never bleed into a 2D viewport and vice
         // versa. Only plugins that declare renderToScene get the 3D surface.
         const is3D = typeof plugin.renderToScene === 'function';
         if (is3D) {
-          hostContainers?.getThree?.();
+          // B1: three is a lazy chunk — materialize the WebGL scene *before*
+          // building the render context so ctx.container.three is populated.
+          await hostContainers?.ensureThree?.();
+          if (gen !== activationGen) return;
+        }
+        const ctx = createContext(id);
+        if (is3D) {
           hostContainers?.setThreeVisible?.(true);
           // Clear any stale 2D frame that would otherwise cover the scene.
           hostContainers?.clearCanvas2d?.();

@@ -1,0 +1,30 @@
+{
+  "case": "custom",
+  "net": {
+    "volume": 0.06,
+    "p0_init": 600000.0,
+    "t0_init": 330.0,
+    "throat_area": 1.0e-4,
+    "discharge_coeff": 0.96,
+    "valve_events": [
+      [0.0, 1.0, 0.0],
+      [0.04, 0.2, 0.0],
+      [0.09, 1.0, 0.0]
+    ]
+  },
+  "dom": {
+    "nx": 10,
+    "ny": 10,
+    "nz": 10,
+    "length": 0.12,
+    "diffusivity": 1.5e-4,
+    "advection": 0.05
+  },
+  "cpl": {
+    "dt1d": 0.002,
+    "dt3d": 0.00025,
+    "t_end": 0.16,
+    "exchange_period": 0.0,
+    "valve_events": [[0.0, 1.0, 0.0], [0.04, 0.2, 0.0], [0.09, 1.0, 0.0]]
+  }
+}

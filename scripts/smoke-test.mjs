@@ -30,13 +30,25 @@ try {
   step('plugins auto-loaded in sidebar', await page.locator('.plugin-item').allTextContents());
   step('recent list entries', await page.locator('.recent-item').count());
 
-  // Activate first plugin, then move a slider and check the value follows.
-  await page.locator('.plugin-item').first().click();
-  await sleep(900);
+  // Activate the first plugin that exposes a range param, then move the slider
+  // and check the value follows. The sidebar order is content-driven (e.g. the
+  // 3-D eigensolver — select-only params — currently sorts first), so never
+  // assume `.plugin-item` #1 has a slider.
+  const itemCount = await page.locator('.plugin-item').count();
+  let activated = false;
   const slider = page.locator('.param-range input[type=range]').first();
-  const sliderBefore = await slider.inputValue();
+  for (let i = 0; i < itemCount; i += 1) {
+    await page.locator('.plugin-item').nth(i).click();
+    await sleep(900);
+    if (await slider.isVisible().catch(() => false)) {
+      activated = true;
+      break;
+    }
+  }
+  step('plugin with range param activated', activated);
+  if (!activated) throw new Error('no sidebar plugin exposes a range param');
   const sliderValBefore = await page.locator('.param-value').first().textContent();
-  step('slider before', { sliderBefore, sliderValBefore });
+  step('slider before', { sliderBefore: await slider.inputValue(), sliderValBefore });
 
   // Set the slider to its legal maximum (fixture sliders use varied ranges, so
   // never assume a fixed target value).

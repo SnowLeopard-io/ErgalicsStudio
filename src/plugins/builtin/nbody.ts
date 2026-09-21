@@ -23,7 +23,6 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   Scene3DHandle,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
@@ -40,23 +39,8 @@ import {
   type NBodyBody,
 } from '@/core/wgsl';
 
-export const nbodyManifest: PluginManifest = {
-  id: 'example.nbody',
-  name: 'N-Body Gravity',
-  nameI18n: { 'zh-CN': '引力 N 体模拟', 'en-US': 'N-Body Gravity' },
-  version: '1.1.0',
-  author: 'Ergalics',
-  description: '3-D direct-summation gravity simulation with GPU compute.',
-  descriptionI18n: {
-    'zh-CN': '三维天体物理 N 体引力直接求和模拟，支持 GPU 全配对计算与 CPU 降级。',
-    'en-US': '3-D astrophysics direct-summation gravity with GPU all-pairs compute + CPU fallback.',
-  },
-  license: 'MIT',
-  entry: 'example.nbody',
-  formats: [
-    { extension: '.json', mimeTypes: ['application/json'], description: 'N-body initial conditions' },
-  ],
-};
+export { nbodyManifest } from './nbodyManifest';
+import { nbodyManifest } from './nbodyManifest';
 
 /** Hard cap on the CPU path so the one-shot Compute button cannot freeze the
  *  main thread. The GPU path is not capped — it dispatches the full N. */

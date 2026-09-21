@@ -8,10 +8,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { harmonographManifest } from './harmonographManifest';
+import { harmonographManifest } from './harmonographManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -22,23 +24,6 @@ function buttonPressed(params: Record<string, unknown>, key: string): boolean {
 
 const HG_COLORS = ['#a78bfa', '#22d3ee', '#34d399', '#f472b6', '#fbbf24'];
 const randFreq = () => Math.round((1 + Math.random() * 5) * 100) / 100;
-
-export const harmonographManifest: PluginManifest = {
-  id: 'fun.harmonograph',
-  name: 'Harmonograph',
-  nameI18n: { 'zh-CN': '谐振记录仪', 'en-US': 'Harmonograph' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Damped pendulum curve art (sum of decaying sinusoids).',
-  descriptionI18n: {
-    'zh-CN': '由衰减正弦叠加生成的谐振曲线艺术。',
-    'en-US': 'Curve art from summed decaying sinusoids.',
-  },
-  license: 'MIT',
-  entry: 'fun.harmonograph',
-  category: 'fun',
-  icon: '♪',
-};
 
 interface State {
   f1: number;

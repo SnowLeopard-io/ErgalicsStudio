@@ -9,10 +9,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { truchetManifest } from './truchetManifest';
+import { truchetManifest } from './truchetManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -35,23 +37,6 @@ const VARIANTS: Variant[] = ['random', 'diagonal', 'curve'];
 function isVariant(v: unknown): v is Variant {
   return typeof v === 'string' && (VARIANTS as string[]).includes(v);
 }
-
-export const truchetManifest: PluginManifest = {
-  id: 'fun.truchet',
-  name: 'Truchet Tiles',
-  nameI18n: { 'zh-CN': '特鲁谢瓷砖', 'en-US': 'Truchet Tiles' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Random quarter-circle arcs tiled into flowing patterns.',
-  descriptionI18n: {
-    'zh-CN': '用随机朝向的圆弧瓷砖拼出流动图案，支持密度与配色调节。',
-    'en-US': 'Randomly oriented quarter-circle tiles forming flowing patterns.',
-  },
-  license: 'MIT',
-  entry: 'fun.truchet',
-  category: 'fun',
-  icon: '⌗',
-};
 
 interface State {
   density: number;

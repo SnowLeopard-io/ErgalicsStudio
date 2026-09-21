@@ -204,7 +204,7 @@ function parseAxis(
 /** Compile the metric expression for syntax (never executes it here). */
 function compileExpression(expression: string): DraftIssue | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+     
     new Function('p', `"use strict"; return (${expression});`);
     return null;
   } catch (caught) {
