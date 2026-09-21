@@ -1172,6 +1172,7 @@ const DOC_ORDER = [
   '07-科学计算子系统',
   '08-测试与质量保障',
   '09-电磁谐振特征值求解器',
+  '10-EM流体双向耦合求解器',
   'Ergalics Studio',
 ];
 
@@ -1182,6 +1183,7 @@ const TOTAL_NUM = 8;
 // instead of "第 N 篇（共 M 篇）", and they do not raise the series count.
 const FOOT_OVERRIDES = {
   '09-电磁谐振特征值求解器': '独立专题文档 · Standalone Note',
+  '10-EM流体双向耦合求解器': '独立专题文档 · Standalone Note',
 };
 
 // Hand-written cover abstracts, for documents whose opening paragraph is too
@@ -1191,6 +1193,8 @@ const FOOT_OVERRIDES = {
 const ABSTRACT_OVERRIDES = {
   '09-电磁谐振特征值求解器':
     '面向微波器件、天线与电磁兼容的稀疏厄密非正定本征问题。纯 Python 与 NumPy 实现，内置厚重启 Lanczos、块 LOBPCG、Jacobi-Davidson 三种内核，按真实残差认证收敛。',
+  '10-EM流体双向耦合求解器':
+    '管网与场域的双向耦合。多速率时间子循环协调毫秒级 1D 管网与亚毫秒级 3D 场，正向注入质量与焓、反向反馈出口背压，配守恒审计、毫秒级阀门控制与精度-效率权衡曲线。',
 };
 
 function metaFor(base) {
