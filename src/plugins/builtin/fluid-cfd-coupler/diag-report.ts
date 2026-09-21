@@ -1,5 +1,5 @@
 // ==========================================================================
-// EM-CFD Coupler plugin — standalone diagnostic report
+// Fluid-CFD Coupler plugin — standalone diagnostic report
 //
 // buildDiagReportHtml renders ONE self-contained HTML file (inline CSS +
 // inline SVG, zero JavaScript) carrying the full engineering context of a
@@ -11,14 +11,14 @@
 // Pure: string in → string out, directly unit-testable.
 // ==========================================================================
 
-import type { EmCouplingResult, EmTradeRow, EmVerifyResult, EmWindowRecord } from './types';
+import type { FluidCouplingResult, FluidTradeRow, FluidVerifyResult, FluidWindowRecord } from './types';
 
 export const DIAG_REPORT_SCHEMA = 'ergalics.em-cfd-diag-report';
 export const DIAG_REPORT_VERSION = 1;
 
 interface DiagReportInput {
-  result: EmCouplingResult | null;
-  verify: EmVerifyResult | null;
+  result: FluidCouplingResult | null;
+  verify: FluidVerifyResult | null;
   /** 'zh-CN' renders Chinese labels, anything else English. */
   locale?: string;
   generatedAt?: Date;
@@ -48,7 +48,7 @@ function fmtShort(v: number): string {
 
 /** One line-series as inline SVG (time-series panels). */
 export function svgSeries(
-  ws: EmWindowRecord[],
+  ws: FluidWindowRecord[],
   key: 'md_1d' | 'p_back_3d' | 'iface_error',
   width = 660,
 ): string {
@@ -102,7 +102,7 @@ function repeatLines(lo: number, hi: number, py: (v: number) => number, x0: numb
 }
 
 /** Valve-opening step strip (0..1). */
-export function svgValve(ws: EmWindowRecord[], width = 660): string {
+export function svgValve(ws: FluidWindowRecord[], width = 660): string {
   const h = 76;
   const m = { left: 56, right: 16, top: 8, bottom: 14 };
   const x0 = m.left;
@@ -219,11 +219,11 @@ ${body}
 </html>`;
 }
 
-function tableMetricBlock(metrics: EmCouplingResult['metrics']): string {
+function tableMetricBlock(metrics: FluidCouplingResult['metrics']): string {
   return table(METRIC_ROWS.map(([label, key]) => [label, fmtShort(metrics[key as keyof typeof metrics] as number)]));
 }
 
-function tradeOffBlock(rows: EmTradeRow[]): string {
+function tradeOffBlock(rows: FluidTradeRow[]): string {
   if (!rows || rows.length === 0) return '';
   const head = ['period (ms)', 'freq (Hz)', 'latency (ms)', 'iface error', 'score'].map((c) => `<th>${c}</th>`).join('');
   const body = rows

@@ -12,7 +12,7 @@ import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
-const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.em-cfd-coupler'];
+const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
 
 export function Sidebar() {
   const t = useT();

@@ -59,7 +59,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.optics': 'physics',
   'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
-  'example.em-cfd-coupler': 'physics',
+  'example.fluid-cfd-coupler': 'physics',
 
   // Geography
   'example.geomap': 'geo',

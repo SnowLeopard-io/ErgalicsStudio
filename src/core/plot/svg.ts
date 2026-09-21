@@ -12,8 +12,20 @@ import type { FieldData, PlotSpec, PlotSeries } from './types';
 const FONT = "'Helvetica Neue', Arial, sans-serif";
 const FONT_AXIS = "'Helvetica Neue', Arial, sans-serif";
 const FONT_TITLE = "'Helvetica Neue', Arial, sans-serif";
-const MARGIN = { top: 36, right: 20, bottom: 48, left: 60 };
+const MARGIN = { top: 36, right: 20, bottom: 48, LEFT_FLOOR: 60 };
 const TICK_LEN = 6;
+
+/**
+ * Conservative width estimate for a 13px Arial tick label, measured without
+ * DOM access (digits ≈ 8px, narrow punctuation ≈ 5px). Used by renderSVG to
+ * size the left margin; overestimating is safe, underestimating would let
+ * wide exponential ticks ("2.0e-09") collide with the rotated y-axis title.
+ */
+function estTickWidth(text: string): number {
+  let w = 0;
+  for (const ch of text) w += ch === '.' || ch === '-' || ch === ':' || ch === ' ' ? 5 : ch === '1' ? 6 : 8;
+  return w;
+}
 const COL_W = 150; // legend column width budget
 /** Reserve space right of the plot area for a field colorbar. */
 const COLORBAR_SPACE = 52;
@@ -332,7 +344,6 @@ export function renderSVG(spec: PlotSpec): string {
   const firstField = spec.series.find(
     (s): s is PlotSeries & { field: FieldData } => s.kind === 'field' && !!s.field,
   );
-  const plotW = width - MARGIN.left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
   const plotH = height - MARGIN.top - MARGIN.bottom;
   const xScaleKind = spec.xScale ?? 'linear';
   const yScaleKind = spec.yScale ?? 'linear';
@@ -344,6 +355,15 @@ export function renderSVG(spec: PlotSpec): string {
     spec.yDomain ?? (firstField ? [0, firstField.field.rows] : autoDomain(spec.series, 'y')) ?? [0, 1];
   const xTicksInfo = niceTicks(xDomain[0], xDomain[1], spec.ticks ?? 5);
   const yTicksInfo = niceTicks(yDomain[0], yDomain[1], spec.ticks ?? 5);
+  // Dynamic left margin (matplotlib-style): wide y-tick labels such as the
+  // exponential "2.0e-09" would otherwise run from the axis into the rotated
+  // y-axis title. Size the margin from the widest tick label so the two never
+  // collide; narrow ticks keep the default 60px margin. The title itself sits
+  // a fixed 14px gap left of the widest tick text.
+  const yTickMaxW = Math.max(0, ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t))));
+  const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
+  const yLabelX = Math.max(14, Math.round(left - yTickMaxW - TICK_LEN - 6 - 14));
+  const plotW = width - left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
   // A field grid maps 1:1 onto its data domain (niceTicks would pad it and
   // leave the heatmap floating inside the axes).
   const xDom: [number, number] = firstField
@@ -357,7 +377,7 @@ export function renderSVG(spec: PlotSpec): string {
       ? [Math.max(1e-12, yTicksInfo.min), Math.max(1e-11, yTicksInfo.max)]
       : [yTicksInfo.min, yTicksInfo.max];
 
-  const x: Scale = makeScale(xScaleKind, xDom, [MARGIN.left, MARGIN.left + plotW]);
+  const x: Scale = makeScale(xScaleKind, xDom, [left, left + plotW]);
   const y: Scale = makeScale(yScaleKind, yDom, [MARGIN.top + plotH, MARGIN.top]);
 
   const parts: string[] = [];
@@ -368,7 +388,7 @@ export function renderSVG(spec: PlotSpec): string {
 
   // Plotting-area background.
   parts.push(
-    `<rect x="${MARGIN.left}" y="${MARGIN.top}" width="${plotW}" height="${plotH}" ` +
+    `<rect x="${left}" y="${MARGIN.top}" width="${plotW}" height="${plotH}" ` +
       `fill="#ffffff" stroke="none"/>`,
   );
 
@@ -378,12 +398,12 @@ export function renderSVG(spec: PlotSpec): string {
       const py = y.toPixel(t);
       if (py < MARGIN.top - 0.5 || py > MARGIN.top + plotH + 0.5) continue;
       parts.push(
-        `<line x1="${MARGIN.left}" y1="${py.toFixed(1)}" x2="${MARGIN.left + plotW}" y2="${py.toFixed(1)}" stroke="#e6e6e6" stroke-width="1"/>`,
+        `<line x1="${left}" y1="${py.toFixed(1)}" x2="${left + plotW}" y2="${py.toFixed(1)}" stroke="#e6e6e6" stroke-width="1"/>`,
       );
     }
     for (const t of xTicksInfo.ticks) {
       const px = x.toPixel(t);
-      if (px < MARGIN.left - 0.5 || px > MARGIN.left + plotW + 0.5) continue;
+      if (px < left - 0.5 || px > left + plotW + 0.5) continue;
       parts.push(
         `<line x1="${px.toFixed(1)}" y1="${MARGIN.top}" x2="${px.toFixed(1)}" y2="${MARGIN.top + plotH}" stroke="#e6e6e6" stroke-width="1"/>`,
       );
@@ -401,7 +421,7 @@ export function renderSVG(spec: PlotSpec): string {
         // then frame/z-axis/ticks on top.
         const fr = surfaceFrame(
           s.field,
-          { x: MARGIN.left, y: MARGIN.top, w: plotW, h: plotH },
+          { x: left, y: MARGIN.top, w: plotW, h: plotH },
           { x: spec.xLabel, y: spec.yLabel },
         );
         parts.push(...fr.base, ...fr.quads, ...fr.axes);
@@ -414,7 +434,7 @@ export function renderSVG(spec: PlotSpec): string {
             const v = values[r * cols + c];
             if (v === undefined) continue;
             // Row 0 is the top of the grid (image convention).
-            const px = MARGIN.left + c * cw;
+            const px = left + c * cw;
             const py = MARGIN.top + r * ch;
             parts.push(
               `<rect x="${px.toFixed(2)}" y="${py.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" ` +
@@ -460,10 +480,10 @@ export function renderSVG(spec: PlotSpec): string {
   const isSurface = firstField?.field.surface === true;
   if (!isSurface) {
     parts.push(
-      `<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+      `<line x1="${left}" y1="${MARGIN.top}" x2="${left}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
     );
     parts.push(
-      `<line x1="${MARGIN.left}" y1="${MARGIN.top + plotH}" x2="${MARGIN.left + plotW}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+      `<line x1="${left}" y1="${MARGIN.top + plotH}" x2="${left + plotW}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
     );
   }
 
@@ -482,7 +502,7 @@ export function renderSVG(spec: PlotSpec): string {
   } else {
     for (const t of xTicksInfo.ticks) {
       const px = x.toPixel(t);
-      if (px < MARGIN.left - 0.5 || px > MARGIN.left + plotW + 0.5) continue;
+      if (px < left - 0.5 || px > left + plotW + 0.5) continue;
       parts.push(
         `<line x1="${px.toFixed(1)}" y1="${MARGIN.top + plotH}" x2="${px.toFixed(1)}" y2="${(MARGIN.top + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
       );
@@ -496,22 +516,22 @@ export function renderSVG(spec: PlotSpec): string {
     const py = y.toPixel(t);
     if (py < MARGIN.top - 0.5 || py > MARGIN.top + plotH + 0.5) continue;
     parts.push(
-      `<line x1="${MARGIN.left}" y1="${py.toFixed(1)}" x2="${(MARGIN.left - TICK_LEN).toFixed(1)}" y2="${py.toFixed(1)}" stroke="#222" stroke-width="1"/>`,
+      `<line x1="${left}" y1="${py.toFixed(1)}" x2="${(left - TICK_LEN).toFixed(1)}" y2="${py.toFixed(1)}" stroke="#222" stroke-width="1"/>`,
     );
     parts.push(
-      `<text x="${(MARGIN.left - TICK_LEN - 6).toFixed(1)}" y="${(py + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#222">${escapeText(formatTick(t))}</text>`,
+      `<text x="${(left - TICK_LEN - 6).toFixed(1)}" y="${(py + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#222">${escapeText(formatTick(t))}</text>`,
     );
   }
 
   // Axis labels.
   if (spec.xLabel) {
     parts.push(
-      `<text x="${(MARGIN.left + plotW / 2).toFixed(1)}" y="${(height - 10).toFixed(1)}" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.xLabel)}</text>`,
+      `<text x="${(left + plotW / 2).toFixed(1)}" y="${(height - 10).toFixed(1)}" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.xLabel)}</text>`,
     );
   }
   if (spec.yLabel) {
     parts.push(
-      `<text transform="translate(${16},${(MARGIN.top + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
+      `<text transform="translate(${yLabelX},${(MARGIN.top + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
     );
   }
   } // end !isSurface (2D axes)
@@ -519,7 +539,7 @@ export function renderSVG(spec: PlotSpec): string {
   // Field colorbar: a discrete diverging strip right of the plot area.
   if (firstField) {
     const [fMin, fMax] = fieldDomain(firstField.field);
-    const cbX = MARGIN.left + plotW + 14;
+    const cbX = left + plotW + 14;
     const stepH = plotH / COLORBAR_STEPS;
     for (let i = 0; i < COLORBAR_STEPS; i += 1) {
       // Top = fMax, bottom = fMin.
@@ -555,7 +575,7 @@ export function renderSVG(spec: PlotSpec): string {
   const showLegend =
     spec.legend ?? spec.series.length > 1;
   if (showLegend && spec.series.length > 0) {
-    const legendX = MARGIN.left + plotW + 12;
+    const legendX = left + plotW + 12;
     const itemH = 20;
     spec.series.forEach((s, i) => {
       const ly = MARGIN.top + i * itemH + 4;

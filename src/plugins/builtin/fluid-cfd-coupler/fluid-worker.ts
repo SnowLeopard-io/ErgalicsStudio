@@ -1,7 +1,7 @@
 // ==========================================================================
-// EM-CFD Coupler plugin — Pyodide worker
+// Fluid-CFD Coupler plugin — Pyodide worker
 //
-// A dedicated module worker running the em_cfd Python package on real
+// A dedicated module worker running the fluid_cfd Python package on real
 // CPython (Pyodide). Mirrors the em-eigensolver worker: dynamic-import of
 // pyodide.mjs (worker.format 'es' forbids importScripts), package sources
 // written into the interpreter FS from Vite `?raw` imports, and a JSON-string
@@ -10,24 +10,24 @@
 // Python driver returns a plain dict, and JSON is the only representation
 // that transfers identically between the browser and the CLI.
 //
-// public/pyodide vendors core Pyodide + numpy only — the em_cfd package is
+// public/pyodide vendors core Pyodide + numpy only — the fluid_cfd package is
 // pure NumPy by design, so it runs unmodified in the browser.
 // ==========================================================================
 
 /// <reference lib="webworker" />
 
 import type { PyodideInterface } from 'pyodide';
-import pkgInit from './python/em_cfd/__init__.py?raw';
-import pkgAnalytic from './python/em_cfd/analytic.py?raw';
-import pkgCoupler from './python/em_cfd/coupler.py?raw';
-import pkgDomain from './python/em_cfd/domain_3d.py?raw';
-import pkgDriver from './python/em_cfd/driver.py?raw';
-import pkgNetwork from './python/em_cfd/network_1d.py?raw';
-import pkgUnits from './python/em_cfd/units.py?raw';
-import pkgVerify from './python/em_cfd/verify.py?raw';
-import type { EmWorkerEvent, EmWorkerRequest } from './types';
+import pkgInit from './python/fluid_cfd/__init__.py?raw';
+import pkgAnalytic from './python/fluid_cfd/analytic.py?raw';
+import pkgCoupler from './python/fluid_cfd/coupler.py?raw';
+import pkgDomain from './python/fluid_cfd/domain_3d.py?raw';
+import pkgDriver from './python/fluid_cfd/driver.py?raw';
+import pkgNetwork from './python/fluid_cfd/network_1d.py?raw';
+import pkgUnits from './python/fluid_cfd/units.py?raw';
+import pkgVerify from './python/fluid_cfd/verify.py?raw';
+import type { FluidWorkerEvent, FluidWorkerRequest } from './types';
 
-const PKG_DIR = '/lib/em_cfd';
+const PKG_DIR = '/lib/fluid_cfd';
 
 const MODULES: Record<string, string> = {
   '__init__.py': pkgInit,
@@ -46,7 +46,7 @@ let pkgReady = false;
 let indexURL = '';
 let activeJobId = 0;
 
-function post(message: EmWorkerEvent): void {
+function post(message: FluidWorkerEvent): void {
   postMessage(message);
 }
 
@@ -91,8 +91,8 @@ async function ensurePackage(py: PyodideInterface): Promise<void> {
   py.runPython('import sys\nif not "/lib" in sys.path: sys.path.insert(0, "/lib")');
   py.setStdout({ batched: (text: string) => postLog(text) });
   py.setStderr({ batched: (text: string) => postLog(text) });
-  await py.runPythonAsync('import em_cfd');
-  await py.runPythonAsync('from em_cfd import driver');
+  await py.runPythonAsync('import fluid_cfd');
+  await py.runPythonAsync('from fluid_cfd import driver');
   // Progress bridge: the coupler hands us (done, total) per exchange window.
   py.globals.set('_EM_PROGRESS_SINK', (done: number, total: number) => {
     post({ type: 'progress', id: activeJobId, done, total });
@@ -101,7 +101,7 @@ async function ensurePackage(py: PyodideInterface): Promise<void> {
   pkgReady = true;
 }
 
-async function handleInit(msg: Extract<EmWorkerRequest, { type: 'init' }>): Promise<void> {
+async function handleInit(msg: Extract<FluidWorkerRequest, { type: 'init' }>): Promise<void> {
   try {
     const py = await ensurePyodide(msg.indexURL);
     await py.loadPackage(['numpy']);
@@ -119,7 +119,7 @@ async function runJson(py: PyodideInterface, expr: string): Promise<unknown> {
   return JSON.parse(text) as unknown;
 }
 
-async function handleSolve(msg: Extract<EmWorkerRequest, { type: 'solve' }>): Promise<void> {
+async function handleSolve(msg: Extract<FluidWorkerRequest, { type: 'solve' }>): Promise<void> {
   const started = performance.now();
   try {
     const py = await ensurePyodide(indexURL);
@@ -130,7 +130,7 @@ async function handleSolve(msg: Extract<EmWorkerRequest, { type: 'solve' }>): Pr
     // payload crosses the boundary as a string (postMessage can't clone PyProxy),
     // so it is parsed back to a dict on the Python side before the call.
     py.globals.set('_EM_PAYLOAD', JSON.stringify(msg.payload));
-    const payload = (await runJson(py, 'driver.solve_json(json.loads(_EM_PAYLOAD))')) as import('./types').EmCouplingResult;
+    const payload = (await runJson(py, 'driver.solve_json(json.loads(_EM_PAYLOAD))')) as import('./types').FluidCouplingResult;
     post({ type: 'result', id: msg.id, ok: true, payload, durationMs: performance.now() - started });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -138,13 +138,13 @@ async function handleSolve(msg: Extract<EmWorkerRequest, { type: 'solve' }>): Pr
   }
 }
 
-async function handleVerify(msg: Extract<EmWorkerRequest, { type: 'verify' }>): Promise<void> {
+async function handleVerify(msg: Extract<FluidWorkerRequest, { type: 'verify' }>): Promise<void> {
   const started = performance.now();
   try {
     const py = await ensurePyodide(indexURL);
     await ensurePackage(py);
     activeJobId = msg.id;
-    const payload = (await runJson(py, 'driver.verify_json(None)')) as import('./types').EmVerifyResult;
+    const payload = (await runJson(py, 'driver.verify_json(None)')) as import('./types').FluidVerifyResult;
     post({ type: 'verify-result', id: msg.id, ok: true, payload, durationMs: performance.now() - started });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -152,13 +152,13 @@ async function handleVerify(msg: Extract<EmWorkerRequest, { type: 'verify' }>): 
   }
 }
 
-self.addEventListener('message', (ev: MessageEvent<EmWorkerRequest>) => {
+self.addEventListener('message', (ev: MessageEvent<FluidWorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === 'init') {
     void handleInit(msg);
   } else if (msg.type === 'solve') {
-    void handleSolve(msg as Extract<EmWorkerRequest, { type: 'solve' }>);
+    void handleSolve(msg as Extract<FluidWorkerRequest, { type: 'solve' }>);
   } else if (msg.type === 'verify') {
-    void handleVerify(msg as Extract<EmWorkerRequest, { type: 'verify' }>);
+    void handleVerify(msg as Extract<FluidWorkerRequest, { type: 'verify' }>);
   }
 });

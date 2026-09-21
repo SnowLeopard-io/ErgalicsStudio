@@ -4,9 +4,9 @@
 // loaded dynamically.
 import type { PluginManifest } from '@/types/plugin';
 
-export const emCfdCouplerManifest: PluginManifest = {
-  id: 'example.em-cfd-coupler',
-  name: 'EM-CFD Coupler',
+export const fluidCfdCouplerManifest: PluginManifest = {
+  id: 'example.fluid-cfd-coupler',
+  name: 'Fluid-CFD Coupler',
   nameI18n: {
     'zh-CN': '1D-3D 双向耦合求解器',
     'en-US': '1D-3D Coupled Solver',
@@ -22,7 +22,7 @@ export const emCfdCouplerManifest: PluginManifest = {
       'Join a coarse-time 1-D pipe network with a fine-time 3-D field solver: multi-rate sub-cycling, bidirectional boundary coupling, millisecond valve control, conservation auditing and precision-vs-efficiency trade-offs.',
   },
   license: 'MIT',
-  entry: 'example.em-cfd-coupler',
+  entry: 'example.fluid-cfd-coupler',
   category: 'scientific',
   sandbox: 'trusted',
 };

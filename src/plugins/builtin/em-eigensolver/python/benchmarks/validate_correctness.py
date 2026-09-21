@@ -20,6 +20,7 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -240,6 +241,34 @@ def run_stress_bench(fast: bool = False) -> list[dict]:
     return [run_stress_case(*case) for case in stress_cases(fast)]
 
 
+def _bench_dir() -> Path:
+    """Project-root bench/ folder, sibling of the plugin packages."""
+    return (Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent
+            / "bench")
+
+
+def write_stress_artifact(reference: list, stress: list) -> Path:
+    """EM-01 deliverable: adversarial stress bench + LAPACK reference table.
+
+    PRD EM-01 acceptance names ``bench/*stress*.json`` as the evidence
+    artifact, so the stress rows are archived standalone instead of being
+    buried inside the raw validate report.
+    """
+    dest = _bench_dir() / "em-eigensolver-stress.json"
+    _bench_dir().mkdir(exist_ok=True)
+    payload = {
+        "plugin": "em-eigensolver",
+        "benchmark": "EM-01 adversarial stress + LAPACK reference",
+        "backend": backend_name(),
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "reference": reference,
+        "stress": stress,
+    }
+    with open(dest, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    return dest
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--fast", action="store_true", help="skip the 1e5 case")
@@ -276,6 +305,9 @@ def main(argv: list[str] | None = None) -> int:
             json.dump({"backend": backend_name(), "reference": refs,
                        "stress": stress}, fh, indent=2)
         print(f"[validate] json written: {args.json_path}")
+    # EM-01 evidence: standalone stress artifact in the project bench folder.
+    stress_path = write_stress_artifact(refs, stress)
+    print(f"[validate] stress artifact written: {stress_path}")
     return 1 if n_fail else 0
 
 

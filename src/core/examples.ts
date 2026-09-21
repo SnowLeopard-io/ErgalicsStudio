@@ -46,8 +46,8 @@ import opticsPrismJson from '../../examples/data/optics-prism-dispersion.json?ra
 import structureTrussJson from '../../examples/data/structure-truss-bridge.json?raw';
 import structureRopeJson from '../../examples/data/structure-rope-bridge.json?raw';
 import emCavityMtx from '../../examples/data/em-cavity-degenerate.mtx?raw';
-import emCfdCaseAJson from '../../examples/data/em-cfd-case-a.json?raw';
-import emCfdCaseBJson from '../../examples/data/em-cfd-case-b.json?raw';
+import fluidCfdCaseAJson from '../../examples/data/fluid-cfd-case-a.json?raw';
+import fluidCfdCaseBJson from '../../examples/data/fluid-cfd-case-b.json?raw';
 import surfaceRippleJson from '../../examples/data/surface-ripple.json?raw';
 import voxelSphereJson from '../../examples/data/voxel-sphere.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
@@ -116,12 +116,12 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
-    id: 'em-cfd-case-a',
-    filename: 'em-cfd-case-a.json',
+    id: 'fluid-cfd-case-a',
+    filename: 'fluid-cfd-case-a.json',
     format: 'json',
     mimeType: 'application/json',
-    pluginId: 'example.em-cfd-coupler',
-    content: emCfdCaseAJson,
+    pluginId: 'example.fluid-cfd-coupler',
+    content: fluidCfdCaseAJson,
     nameI18n: {
       'zh-CN': '1D-3D 耦合 · 定常壅塞流（Case A）',
       'en-US': '1D-3D Coupling · Steady Choked Flow (Case A)',
@@ -134,12 +134,12 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
-    id: 'em-cfd-case-b',
-    filename: 'em-cfd-case-b.json',
+    id: 'fluid-cfd-case-b',
+    filename: 'fluid-cfd-case-b.json',
     format: 'json',
     mimeType: 'application/json',
-    pluginId: 'example.em-cfd-coupler',
-    content: emCfdCaseBJson,
+    pluginId: 'example.fluid-cfd-coupler',
+    content: fluidCfdCaseBJson,
     nameI18n: {
       'zh-CN': '1D-3D 耦合 · 毫秒级阀门控制（Case B）',
       'en-US': '1D-3D Coupling · ms Valve Control (Case B)',

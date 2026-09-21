@@ -1,9 +1,9 @@
 // ==========================================================================
-// EM-CFD Coupler plugin (1D 管网 ↔ 3D 场 双向耦合求解器)
+// Fluid-CFD Coupler plugin (1D 管网 ↔ 3D 场 双向耦合求解器)
 //
 // A coarse-time 1-D pipe/nozzle network is coupled to a fine-time 3-D scalar
 // field solver through multi-rate sub-cycling (exchange windows). Runs the
-// bundled em_cfd Python package (pure NumPy) on a dedicated Pyodide worker,
+// bundled fluid_cfd Python package (pure NumPy) on a dedicated Pyodide worker,
 // and renders the flow / valve-opening / back-pressure time series and the
 // verification trade-off on the host canvas.
 //
@@ -26,24 +26,24 @@ import type {
 import type { Group as ThreeGroup } from 'three';
 import { emit } from '@/core/events';
 import { actionButton, actionFired, notify } from '../shared/enhance';
-import { EmCfdClient } from './em-client';
+import { FluidCfdClient } from './fluid-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';
 import { buildFieldRender, disposeObjectTree, fitFieldCamera } from './render3d';
 import { couplingFigurePanels } from './figure';
-import { emCfdCouplerManifest } from './manifest';
-import type { CouplingPayload, EmCouplingResult, EmVerifyResult } from './types';
+import { fluidCfdCouplerManifest } from './manifest';
+import type { CouplingPayload, FluidCouplingResult, FluidVerifyResult } from './types';
 
-const PRESETS: Array<[EmCfdPreset, string, string]> = [
+const PRESETS: Array<[FluidCfdPreset, string, string]> = [
   ['case_a', 'Case A · steady choked', 'Case A · 定常壅塞'],
   ['case_b', 'Case B · ms valve control', 'Case B · 毫秒级阀门控制'],
   ['custom', 'Custom', '自定义'],
 ];
 
-type EmCfdPreset = 'case_a' | 'case_b' | 'custom';
+type FluidCfdPreset = 'case_a' | 'case_b' | 'custom';
 
 interface State {
-  preset: EmCfdPreset;
+  preset: FluidCfdPreset;
   view: 'coupling' | 'verify' | '3d';
   dt1dMs: number;
   dt3dUs: number;
@@ -54,8 +54,8 @@ interface State {
   throatAreaCm2: number;
 }
 
-export class EmCfdCouplerPlugin implements Plugin {
-  readonly manifest = emCfdCouplerManifest;
+export class FluidCfdCouplerPlugin implements Plugin {
+  readonly manifest = fluidCfdCouplerManifest;
 
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
@@ -64,9 +64,9 @@ export class EmCfdCouplerPlugin implements Plugin {
   /** Cache keys so the mesh is only rebuilt when the input changes. */
   private fieldKey = '';
   private fieldScene: Scene3DHandle | null = null;
-  private client = new EmCfdClient();
-  private result: EmCouplingResult | null = null;
-  private verify: EmVerifyResult | null = null;
+  private client = new FluidCfdClient();
+  private result: FluidCouplingResult | null = null;
+  private verify: FluidVerifyResult | null = null;
   private logs: string[] = [];
   private busy = false;
   private runEpoch = 0;
@@ -363,7 +363,7 @@ export class EmCfdCouplerPlugin implements Plugin {
   async runCoupling(
     onProgress?: (info: { done: number; total: number }) => void,
     keepVerify = false,
-  ): Promise<EmCouplingResult> {
+  ): Promise<FluidCouplingResult> {
     if (this.busy) {
       notify(this.api, 'warning', 'A run is already in progress.', '已有计算任务在运行。');
       throw new Error('busy');
@@ -388,7 +388,9 @@ export class EmCfdCouplerPlugin implements Plugin {
       this.result = result;
       if (result.ok) {
         this.api.setStatus('ready');
-        if (!keepVerify) {
+        if (result.nonfinite) {
+          notify(this.api, 'warning', 'Result contains non-finite values — the coupling likely diverged.', '结果包含非有限值（NaN/Inf）——耦合可能已发散，请检查参数。');
+        } else if (!keepVerify) {
           notify(this.api, 'success', `Coupling done: ${result.metrics.n_windows} windows.`, `耦合完成：${result.metrics.n_windows} 个交换窗口。`);
         }
       } else {
@@ -418,7 +420,7 @@ export class EmCfdCouplerPlugin implements Plugin {
   async runVerify(
     onProgress?: (info: { done: number; total: number }) => void,
     keepResult = false,
-  ): Promise<EmVerifyResult> {
+  ): Promise<FluidVerifyResult> {
     if (this.busy) throw new Error('busy');
     this.busy = true;
     this.runEpoch += 1;
@@ -437,7 +439,9 @@ export class EmCfdCouplerPlugin implements Plugin {
       if (this.disposed) return verify;
       this.verify = verify;
       this.api.setStatus('ready');
-      if (!keepResult) {
+      if (verify.nonfinite) {
+        notify(this.api, 'warning', 'Verification contains non-finite values — one case likely diverged.', '验证结果包含非有限值（NaN/Inf）——某个算例可能已发散。');
+      } else if (!keepResult) {
         notify(
           this.api,
           'success',
@@ -578,7 +582,9 @@ export class EmCfdCouplerPlugin implements Plugin {
     const nx = num('nx', 12);
     const ny = num('ny', 12);
     const nz = num('nz', 12);
-    const key = `${nx}x${ny}x${nz}:${raw.length}:${f3d?.field_max ?? 0}`;
+    // runEpoch: two runs with the same grid/max can still differ in the field
+    // distribution — a key without it reused the previous run's stale mesh.
+    const key = `e${this.runEpoch}:${nx}x${ny}x${nz}:${raw.length}:${f3d?.field_max ?? 0}`;
     if (this.fieldKey !== key || this.fieldScene !== three) {
       this.clearFieldGroup();
       this.fieldGroup = buildFieldRender({ values: raw, nx, ny, nz });
@@ -629,9 +635,9 @@ export class EmCfdCouplerPlugin implements Plugin {
         view,
       });
     } catch (err) {
-      this.api?.log('error', `[em-cfd-coupler] render error: ${String(err)}`);
+      this.api?.log('error', `[fluid-cfd-coupler] render error: ${String(err)}`);
     }
   }
 }
 
-export { emCfdCouplerManifest } from './manifest';
+export { fluidCfdCouplerManifest } from './manifest';

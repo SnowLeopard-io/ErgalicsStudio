@@ -1,5 +1,5 @@
 // ==========================================================================
-// EM-CFD Coupler — 3D field rendering helpers
+// Fluid-CFD Coupler — 3D field rendering helpers
 //
 // Paints the 3-D scalar field (heat-content proxy) returned by the coupled
 // solver as a coloured *voxel* cloud in the host Three.js scene: cells above a

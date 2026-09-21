@@ -103,6 +103,10 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   // dispose (see below).
   const grid = new THREE.GridHelper(24, 24, 0x334155, 0x1e293b);
   const axes = new THREE.AxesHelper(6);
+  // Lift the axes off the grid: the X/Z legs otherwise lie exactly on the
+  // grid's center lines, and two coplanar 1-px lines z-fight — the axes
+  // flicker while orbiting (per-frame depth-order flips), stable when idle.
+  axes.position.y = 0.02;
   scene.add(grid);
   scene.add(axes);
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));

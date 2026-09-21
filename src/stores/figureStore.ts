@@ -71,6 +71,13 @@ function writeSheets(sheets: FigureSheet[]): void {
   setDirty(true);
 }
 
+/** Persist immediately. Destructive edits (panel/sheet removal) bypass the
+ *  dirty-debounce: a refresh inside the debounce window would otherwise
+ *  resurrect the deleted item from the stale stored snapshot. */
+function saveNow(): void {
+  void useProjectStore.getState().save();
+}
+
 /** Apply `fn` to one sheet and persist; `fn` returning null declines the mutation. */
 function mutateSheet(
   sheetId: string,
@@ -122,6 +129,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
     if (useFigureStore.getState().activeSheetId === id) {
       set({ activeSheetId: next[0]?.id ?? null });
     }
+    saveNow();
   },
 
   updateSheet: (id, patch) => {
@@ -167,6 +175,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
       panels.splice(index, 1);
       return { ...sheet, panels };
     });
+    saveNow();
   },
 
   exportSheet: async (id, format) => {

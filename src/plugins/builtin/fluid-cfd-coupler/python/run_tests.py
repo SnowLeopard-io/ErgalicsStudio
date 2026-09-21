@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-assert test runner for em_cfd (no pytest required).
+"""Plain-assert test runner for fluid_cfd (no pytest required).
 
 Collects every ``test_*`` function from tests/test_coupling.py and runs it,
 so the competition kernel can be validated on a bare Python + NumPy install

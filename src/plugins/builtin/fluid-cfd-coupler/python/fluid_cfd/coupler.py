@@ -130,12 +130,12 @@ def run_coupling(
         Optional progress callback for the UI.
     """
     result = CouplingResult()
-    result.config = {
-        "net": net_cfg.normalized().__dict__,
-        "dom": dom_cfg.normalized().__dict__,
-        "cpl": cpl_cfg.normalized().__dict__,
-    }
     try:
+        result.config = {
+            "net": net_cfg.normalized().__dict__,
+            "dom": dom_cfg.normalized().__dict__,
+            "cpl": cpl_cfg.normalized().__dict__,
+        }
         return _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result)
     except Exception as exc:  # surface a clean error bundle to the front end
         result.ok = False

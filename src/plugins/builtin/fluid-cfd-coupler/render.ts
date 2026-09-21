@@ -1,5 +1,5 @@
 // ==========================================================================
-// EM-CFD Coupler plugin — canvas rendering
+// Fluid-CFD Coupler plugin — canvas rendering
 //
 // Two views on the host canvas2d surface:
 //   * coupling  — a single 1D-3D run: 1-D outlet flow & valve-opening time
@@ -10,11 +10,11 @@
 // Geometry helpers are pure and exported for unit tests.
 // ==========================================================================
 
-import type { EmCouplingResult, EmTradeRow, EmVerifyResult, EmWindowRecord } from './types';
+import type { FluidCouplingResult, FluidTradeRow, FluidVerifyResult, FluidWindowRecord } from './types';
 
 export interface DrawInput {
-  result: EmCouplingResult | null;
-  verify: EmVerifyResult | null;
+  result: FluidCouplingResult | null;
+  verify: FluidVerifyResult | null;
   logs: string[];
   busy: boolean;
   zh: boolean;
@@ -77,7 +77,7 @@ export function normT(v: number, lo: number, hi: number): number {
 }
 
 /** Milliseconds from a window time in seconds. */
-export function toMs(w: EmWindowRecord): number {
+export function toMs(w: FluidWindowRecord): number {
   return w.t * 1e3;
 }
 
@@ -148,8 +148,8 @@ function drawMissing(g: CanvasRenderingContext2D, area: Rect, zh: boolean, verif
 function drawHeader(
   g: CanvasRenderingContext2D,
   w: number,
-  result: EmCouplingResult | null,
-  verify: EmVerifyResult | null,
+  result: FluidCouplingResult | null,
+  verify: FluidVerifyResult | null,
   busy: boolean,
   zh: boolean,
   view: 'coupling' | 'verify',
@@ -181,7 +181,7 @@ function drawHeader(
     );
     return;
   }
-  g.fillText(zh ? '1D 管网 ↔ 3D 场 双向耦合（em-cfd-coupler）' : '1D pipe network ↔ 3D field bidirectional coupling', 10, 18);
+  g.fillText(zh ? '1D 管网 ↔ 3D 场 双向耦合（fluid-cfd-coupler）' : '1D pipe network ↔ 3D field bidirectional coupling', 10, 18);
   if (busy) {
     g.fillStyle = WARN;
     g.fillText(zh ? '● 计算中' : '● computing', w - 90, 18);
@@ -199,7 +199,7 @@ function clampText(text: string, maxW: number): string {
 function drawCoupling(
   g: CanvasRenderingContext2D,
   area: Rect,
-  result: EmCouplingResult,
+  result: FluidCouplingResult,
   zh: boolean,
 ): void {
   const ws = result.windows;
@@ -211,7 +211,7 @@ function drawCoupling(
 }
 
 /** Top: 1-D outlet mass flow (left) with the valve-opening band (right 0..1). */
-function drawFlowValve(g: CanvasRenderingContext2D, area: Rect, ws: EmWindowRecord[], zh: boolean): void {
+function drawFlowValve(g: CanvasRenderingContext2D, area: Rect, ws: FluidWindowRecord[], zh: boolean): void {
   const margin = { left: 52, right: 16, top: 18, bottom: 26 };
   const x0 = area.x + margin.left;
   const x1 = area.x + area.w - margin.right;
@@ -293,7 +293,7 @@ function drawFlowValve(g: CanvasRenderingContext2D, area: Rect, ws: EmWindowReco
 }
 
 /** Bottom: 3-D outlet back pressure (left) + interface error bars (right log). */
-function drawBackPressure(g: CanvasRenderingContext2D, area: Rect, ws: EmWindowRecord[], zh: boolean): void {
+function drawBackPressure(g: CanvasRenderingContext2D, area: Rect, ws: FluidWindowRecord[], zh: boolean): void {
   const margin = { left: 52, right: 48, top: 18, bottom: 26 };
   const x0 = area.x + margin.left;
   const x1 = area.x + area.w - margin.right;
@@ -366,7 +366,7 @@ function drawBackPressure(g: CanvasRenderingContext2D, area: Rect, ws: EmWindowR
 // ---------------------------------------------------------------------------
 // Verify view: analytic-baseline toplines + trade-off curve
 // ---------------------------------------------------------------------------
-function drawVerify(g: CanvasRenderingContext2D, area: Rect, verify: EmVerifyResult, zh: boolean): void {
+function drawVerify(g: CanvasRenderingContext2D, area: Rect, verify: FluidVerifyResult, zh: boolean): void {
   const a = verify.case_a;
   const b = verify.case_b;
   // metric block rows
@@ -377,6 +377,18 @@ function drawVerify(g: CanvasRenderingContext2D, area: Rect, verify: EmVerifyRes
     [zh ? 'Case B 控制同步误差（max）' : 'Case B control-sync (max)', `${b.control_sync_max_ms.toFixed(2)} ms`, b.control_sync_max_ms],
     [zh ? 'Case B 控制同步误差（mean）' : 'Case B control-sync (mean)', `${b.control_sync_mean_ms.toFixed(2)} ms`, b.control_sync_mean_ms],
   ];
+  // CFD-01/04/06 toplines (guarded: older workers may omit the new sections)
+  const c = verify.case_c;
+  const me = verify.min_exchange;
+  const sn = verify.sensitivity;
+  if (c && me && sn) {
+    rows.push(
+      [zh ? 'Case C 反向耦合背压抬升' : 'Case C back-pressure rise', `${c.back_pressure_rise_pa.toFixed(1)} Pa`, c.back_pressure_rise_pa],
+      [zh ? 'Case C 反向耦合参与度' : 'Case C reverse coupling', c.reverse_coupling_engagement, c.reverse_coupling_engagement === 'active' ? 2 : 0],
+      [zh ? '最小可行交换周期' : 'Min feasible exchange period', `${me.min_feasible_exchange_period_ms} ms`, me.min_feasible_exchange_period_ms ?? 0],
+      [zh ? 'Case A 偏差·模型假设' : 'Case A deviation · model bias', `${(sn.model_bias_rel * 100).toFixed(2)}%`, sn.model_bias_rel * 100],
+    );
+  }
   // vertical tolerance: analytic baseline parity for errors
   g.font = font(zh, 11);
   const statusColor = (name: string, err: number): string =>
@@ -405,7 +417,7 @@ function drawVerify(g: CanvasRenderingContext2D, area: Rect, verify: EmVerifyRes
 }
 
 /** Trade-off: bars of latency vs exchange period + composite score line. */
-export function drawTradeOff(g: CanvasRenderingContext2D, area: Rect, rows: EmTradeRow[], zh: boolean): void {
+export function drawTradeOff(g: CanvasRenderingContext2D, area: Rect, rows: FluidTradeRow[], zh: boolean): void {
   if (rows.length === 0) return;
   const margin = { left: 52, right: 48, top: 24, bottom: 26 };
   const x0 = area.x + margin.left;
