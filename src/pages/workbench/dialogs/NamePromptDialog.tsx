@@ -17,10 +17,11 @@ export function NamePromptDialog({ open, title, message, initial, onClose, onCon
 
   useEffect(() => {
     if (open) {
-      requestAnimationFrame(() => {
+      const raf = requestAnimationFrame(() => {
         ref.current?.focus();
         ref.current?.select();
       });
+      return () => cancelAnimationFrame(raf);
     }
   }, [open]);
 

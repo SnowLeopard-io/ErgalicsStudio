@@ -1,5 +1,5 @@
 // ==========================================================================
-// EM-CFD Coupler plugin — host-side worker client (RPC + progress)
+// Fluid-CFD Coupler plugin — host-side worker client (RPC + progress)
 //
 // Owns the worker lifecycle (spawn on first use, terminate on dispose) and
 // serialises run/verify requests: one job at a time, everything else queued
@@ -9,22 +9,22 @@
 
 import type {
   CouplingPayload,
-  EmCouplingResult,
-  EmProgressInfo,
-  EmVerifyResult,
-  EmWorkerEvent,
-  EmWorkerRequest,
+  FluidCouplingResult,
+  FluidProgressInfo,
+  FluidVerifyResult,
+  FluidWorkerEvent,
+  FluidWorkerRequest,
 } from './types';
 
 interface PendingJob {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
-  onProgress?: (info: EmProgressInfo) => void;
+  onProgress?: (info: FluidProgressInfo) => void;
 }
 
 const BOOT_TIMEOUT_MS = 120_000;
 
-export class EmCfdClient {
+export class FluidCfdClient {
   private worker: Worker | null = null;
   private readyPromise: Promise<Worker> | null = null;
   private bootSettle: ((err: Error | null) => void) | null = null;
@@ -38,7 +38,7 @@ export class EmCfdClient {
   private ensureWorker(): Promise<Worker> {
     if (!this.readyPromise) {
       this.readyPromise = new Promise<Worker>((resolve, reject) => {
-        const worker = new Worker(new URL('./em-worker.ts', import.meta.url), { type: 'module' });
+        const worker = new Worker(new URL('./fluid-worker.ts', import.meta.url), { type: 'module' });
         let settled = false;
         const settle = (err: Error | null) => {
           if (settled) return;
@@ -51,7 +51,7 @@ export class EmCfdClient {
         const bootTimer = setTimeout(() => settle(new Error('Python runtime boot timed out')), BOOT_TIMEOUT_MS);
         this.bootSettle = settle;
 
-        worker.addEventListener('message', (ev: MessageEvent<EmWorkerEvent>) => {
+        worker.addEventListener('message', (ev: MessageEvent<FluidWorkerEvent>) => {
           const msg = ev.data;
           if (msg.type === 'ready') {
             settle(null);
@@ -69,6 +69,11 @@ export class EmCfdClient {
         worker.addEventListener('error', (ev) => {
           const err = new Error(ev.message || 'worker crashed');
           if (settled) {
+            // A crash after boot used to leave this.worker/readyPromise
+            // pointing at the dead worker: the next request posted into it
+            // and hung forever. Reset so the next call respawns fresh.
+            this.worker = null;
+            this.readyPromise = null;
             this.failPending(err);
             return;
           }
@@ -81,13 +86,13 @@ export class EmCfdClient {
         worker.postMessage({
           type: 'init',
           indexURL: new URL('pyodide/', document.baseURI).href,
-        } satisfies EmWorkerRequest);
+        } satisfies FluidWorkerRequest);
       });
     }
     return this.readyPromise;
   }
 
-  private dispatch(msg: EmWorkerEvent): void {
+  private dispatch(msg: FluidWorkerEvent): void {
     if (msg.type === 'stdout') {
       this.onLog?.(msg.text);
       return;
@@ -101,7 +106,7 @@ export class EmCfdClient {
       if (!job) return;
       this.pending.delete(msg.id);
       if (msg.ok) {
-        job.resolve(msg.type === 'result' ? (msg.payload as EmCouplingResult) : (msg.payload as EmVerifyResult));
+        job.resolve(msg.type === 'result' ? (msg.payload as FluidCouplingResult) : (msg.payload as FluidVerifyResult));
       } else {
         job.reject(new Error(msg.error ?? 'compute failed'));
       }
@@ -120,7 +125,7 @@ export class EmCfdClient {
     return run;
   }
 
-  private postJob<T>(_type: 'solve' | 'verify', build: (id: number) => EmWorkerRequest, onProgress?: (info: EmProgressInfo) => void): Promise<T> {
+  private postJob<T>(_type: 'solve' | 'verify', build: (id: number) => FluidWorkerRequest, onProgress?: (info: FluidProgressInfo) => void): Promise<T> {
     return this.enqueue(async () => {
       const worker = await this.ensureWorker();
       if (worker !== this.worker) throw new Error('compute aborted');
@@ -133,13 +138,13 @@ export class EmCfdClient {
   }
 
   /** Run a single coupled 1D-3D simulation. */
-  runCoupling(payload: CouplingPayload, onProgress?: (info: EmProgressInfo) => void): Promise<EmCouplingResult> {
-    return this.postJob<EmCouplingResult>('solve', (id) => ({ type: 'solve', id, payload }), onProgress);
+  runCoupling(payload: CouplingPayload, onProgress?: (info: FluidProgressInfo) => void): Promise<FluidCouplingResult> {
+    return this.postJob<FluidCouplingResult>('solve', (id) => ({ type: 'solve', id, payload }), onProgress);
   }
 
   /** Run the verification suite (Case A + Case B + trade-off). */
-  verify(onProgress?: (info: EmProgressInfo) => void): Promise<EmVerifyResult> {
-    return this.postJob<EmVerifyResult>('verify', (id) => ({ type: 'verify', id }), onProgress);
+  verify(onProgress?: (info: FluidProgressInfo) => void): Promise<FluidVerifyResult> {
+    return this.postJob<FluidVerifyResult>('verify', (id) => ({ type: 'verify', id }), onProgress);
   }
 
   /** Kill the worker immediately (user abort); the next call respawns it. */

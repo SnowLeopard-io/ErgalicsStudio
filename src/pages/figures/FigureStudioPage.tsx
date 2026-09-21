@@ -274,7 +274,7 @@ export default function FigureStudioPage() {
       templateId: active.templateId,
       caption: active.caption,
     });
-  }, [active?.panels, active?.templateId, active?.caption]);
+  }, [active, active?.panels, active?.templateId, active?.caption]);
 
   const openAdd = () => {
     setEditIndex(null);

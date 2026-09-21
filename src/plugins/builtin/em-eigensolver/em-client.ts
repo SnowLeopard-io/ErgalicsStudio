@@ -76,6 +76,11 @@ export class EmSolverClient {
         worker.addEventListener('error', (ev) => {
           const err = new Error(ev.message || 'worker crashed');
           if (settled) {
+            // A crash after boot used to leave this.worker/readyPromise
+            // pointing at the dead worker: the next request posted into it
+            // and hung forever. Reset so the next call respawns fresh.
+            this.worker = null;
+            this.readyPromise = null;
             this.failPending(err);
             return;
           }

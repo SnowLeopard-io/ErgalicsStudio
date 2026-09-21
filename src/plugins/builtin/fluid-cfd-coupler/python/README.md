@@ -1,6 +1,6 @@
-# em_cfd — 1D 管网 ↔ 3D 场 双向耦合内核
+# fluid_cfd — 1D 管网 ↔ 3D 场 双向耦合内核
 
-`em_cfd` 是附属于 em-cfd-coupler 插件的纯 NumPy 数值内核。它将**粗时间步的
+`fluid_cfd` 是附属于 fluid-cfd-coupler 插件的纯 NumPy 数值内核。它将**粗时间步的
 1-D 管网/喷管网络**与**细时间步的 3-D 标量场求解器**通过**多速率子循环
 （multi-rate sub-cycling）** 在交换窗口（exchange window）处双向耦合起来，
 同时提供毫秒级阀门控制逻辑、守恒性审计以及精度-效率权衡曲线。
@@ -12,7 +12,7 @@
 
 ```
 python/
-├── em_cfd/
+├── fluid_cfd/
 │   ├── __init__.py     # 包导出 + 规范引用
 │   ├── units.py        # 单位约定、物性常数、无量纲一致性检验
 │   ├── analytic.py     # 解析解（临界流量、放气背压）——验证基准
@@ -39,11 +39,11 @@ pip install -r requirements.txt
 
 ```bash
 # 运行完整验证套件（Case A + Case B + 权衡曲线）→ JSON 到 stdout
-python -m em_cfd.driver verify
+python -m fluid_cfd.driver verify
 
 # 运行一个耦合（自定义或内置算例），payload 可选
-python -m em_cfd.driver solve '{"case":"a"}'
-python -m em_cfd.driver solve '{"net":{...},"dom":{...},"cpl":{...}}'
+python -m fluid_cfd.driver solve '{"case":"a"}'
+python -m fluid_cfd.driver solve '{"net":{...},"dom":{...},"cpl":{...}}'
 
 # 逐项单元测试（8 项断言，无需 pytest）
 python run_tests.py

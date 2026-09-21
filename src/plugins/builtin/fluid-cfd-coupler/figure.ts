@@ -1,5 +1,5 @@
 // ==========================================================================
-// EM-CFD Coupler — Figure Studio panels
+// Fluid-CFD Coupler — Figure Studio panels
 //
 // Turns a completed coupling result into publication-grade PlotSpec panels:
 //   1. a surface-heatmap of the 3-D field mid-plane slice,
@@ -11,7 +11,7 @@
 // ==========================================================================
 
 import type { PlotSpec } from '@/core/plot';
-import type { EmCouplingResult } from './types';
+import type { FluidCouplingResult } from './types';
 import { fieldIndex } from './render3d';
 
 /** One Figure Studio panel placement (row-major, spreadsheet-style tags). */
@@ -25,7 +25,7 @@ export interface FigurePanel {
 const COLS = 3;
 
 /** Pull the 3-D grid dims out of `result.config.dom` (falls back to 12×12×12). */
-function domDims(result: EmCouplingResult): { nx: number; ny: number; nz: number } {
+function domDims(result: FluidCouplingResult): { nx: number; ny: number; nz: number } {
   const dom = (result.config?.dom ?? {}) as Record<string, unknown>;
   const n = (k: string, d: number) =>
     typeof dom[k] === 'number' && (dom[k] as number) > 0 ? (dom[k] as number) : d;
@@ -47,7 +47,7 @@ function sliceField(values: number[], nx: number, ny: number, iz: number): { val
  * Build the full panel layout for one coupling result. Rows are filled
  * row-major with fixed panel spacing; tag letters a, b, c, … label each.
  */
-export function couplingFigurePanels(result: EmCouplingResult): FigurePanel[] {
+export function couplingFigurePanels(result: FluidCouplingResult): FigurePanel[] {
   const panels: FigurePanel[] = [];
   const w = result.windows ?? [];
   const { nx, ny, nz } = domDims(result);

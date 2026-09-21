@@ -33,12 +33,13 @@ void import('@/core/plugin-signing')
   .catch(() => undefined);
 
 // Keyboard shortcut: Ctrl+S saves the current project (spec §4.2).
-window.addEventListener('keydown', (event) => {
+const onKeyDown = (event: KeyboardEvent) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
     void import('@/stores/projectStore').then(({ useProjectStore }) => useProjectStore.getState().save());
   }
-});
+};
+window.addEventListener('keydown', onKeyDown);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -48,5 +49,8 @@ createRoot(document.getElementById('root')!).render(
 
 // Release listeners on HMR re-execution so dev re-runs do not stack them.
 if (import.meta.hot) {
-  import.meta.hot.dispose(teardownGlobalHandlers);
+  import.meta.hot.dispose(() => {
+    teardownGlobalHandlers();
+    window.removeEventListener('keydown', onKeyDown);
+  });
 }

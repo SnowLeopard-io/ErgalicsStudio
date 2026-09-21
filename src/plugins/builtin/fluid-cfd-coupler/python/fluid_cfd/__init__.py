@@ -1,4 +1,4 @@
-"""em_cfd — 1D pipe-network / 3D-field bidirectional coupling prototype.
+"""fluid_cfd — 1D pipe-network / 3D-field bidirectional coupling prototype.
 
 Competition deliverable (AI CFD track): implements the multi-rate
 time-step coordination and bidirectional boundary coupling between a
@@ -38,7 +38,15 @@ from .network_1d import (  # noqa: F401
     step_network,
     valve_opening,
 )
-from .verify import run_all, trade_off, verify_case_a, verify_case_b  # noqa: F401
+from .verify import (  # noqa: F401
+    min_feasible_exchange_period,
+    run_all,
+    sensitivity_case_a,
+    trade_off,
+    verify_case_a,
+    verify_case_b,
+    verify_case_c,
+)
 
 __all__ = [
     "NetworkConfig",
@@ -52,7 +60,10 @@ __all__ = [
     "run_all",
     "verify_case_a",
     "verify_case_b",
+    "verify_case_c",
     "trade_off",
+    "min_feasible_exchange_period",
+    "sensitivity_case_a",
     "nozzle_choked_flow",
     "blowdown_pressure",
     "thermally_relaxed_back_pressure",

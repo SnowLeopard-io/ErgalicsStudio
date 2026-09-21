@@ -127,7 +127,10 @@ export function reportPanels(payload?: EmResultPayload): ModeFieldPanel[] {
         height: 252,
         title: 'Spectral residual',
         xLabel: 'mode index',
-        yLabel: '‖Ax−λx‖',
+        // ASCII double bars + hyphen minus: U+2016 ‖ renders as two nearly
+        // touching strokes and U+2212 is very short in Arial, which visually
+        // "overlaps" at 14px rotated -90° on the exported figure's y axis.
+        yLabel: '||Ax - λx||',
         ticks: 6,
         grid: true,
         series: [

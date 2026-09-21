@@ -1,5 +1,8 @@
 {
+  "plugin": "em-eigensolver",
+  "benchmark": "EM-01 adversarial stress + LAPACK reference",
   "backend": "scipy 1.15.3 (CPython)",
+  "generated_at": "2026-09-21T12:31:42Z",
   "reference": [
     {
       "case": "cavity_small",

@@ -1,4 +1,4 @@
-# em_cfd kernel runtime deps (pure-NumPy by design).
+# fluid_cfd kernel runtime deps (pure-NumPy by design).
 #
 # The kernel intentionally has exactly ONE third-party dependency: numpy.
 # It runs unmodified under CPython (CLI / benchmarks) and under Pyodide (the

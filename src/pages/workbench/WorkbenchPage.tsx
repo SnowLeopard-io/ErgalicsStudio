@@ -98,7 +98,9 @@ export default function WorkbenchPage() {
       })();
     }
     return () => perfMonitor.stop();
-  }, []);
+    // `t` is a stable module-level function and the restore runs once per
+    // page load (restoreStarted guard), so re-running here cannot happen.
+  }, [t]);
 
   return (
     <div className="workbench">

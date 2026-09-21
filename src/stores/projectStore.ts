@@ -159,6 +159,32 @@ function ensureAutosave() {
   }, interval);
 }
 
+/** Short debounce after any dirty transition — the durable snapshot should
+ *  lag edits by seconds, not by the (minute-scale) autosave interval. */
+const DIRTY_FLUSH_DELAY_MS = 2_000;
+let dirtyFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleDirtyFlush() {
+  if (dirtyFlushTimer) clearTimeout(dirtyFlushTimer);
+  dirtyFlushTimer = setTimeout(() => {
+    dirtyFlushTimer = null;
+    const { project, dirty } = useProjectStore.getState();
+    if (project && dirty) void useProjectStore.getState().save();
+  }, DIRTY_FLUSH_DELAY_MS);
+}
+
+/** Best-effort immediate save when the page is about to go away. IndexedDB
+ *  commits usually survive pagehide; together with the debounced flush this
+ *  closes the refresh window that lost recent edits. */
+function flushDirtyOnExit() {
+  if (dirtyFlushTimer) {
+    clearTimeout(dirtyFlushTimer);
+    dirtyFlushTimer = null;
+  }
+  const { project, dirty } = useProjectStore.getState();
+  if (project && dirty) void useProjectStore.getState().save();
+}
+
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   project: null,
   recent: [],
@@ -290,7 +316,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   setDirty: (dirty) => {
-    if (dirty) editRevision += 1;
+    if (dirty) {
+      editRevision += 1;
+      // The autosave interval can be up to a minute away; a refresh inside
+      // that window silently discards the last edits (e.g. a deleted figure
+      // panel "reappearing" after reload). Follow the dirty flag with a short
+      // debounce so the durable snapshot lags edits by seconds, not minutes.
+      scheduleDirtyFlush();
+    }
     set({ dirty });
   },
   setStatus: (status, statusText = null) => set({ status, statusText }),
@@ -409,4 +442,10 @@ export function initProjectStore() {
   on(BLOCK_GRAPH_CHANGED, () => useProjectStore.getState().setDirty(true));
   // mark the project dirty when an editor session mutates
   on(EDITOR_STATE_CHANGED, () => useProjectStore.getState().setDirty(true));
+  // Flush pending edits when the page is hidden or unloaded (refresh inside
+  // the autosave interval would otherwise discard them).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushDirtyOnExit();
+  });
+  window.addEventListener('pagehide', flushDirtyOnExit);
 }
