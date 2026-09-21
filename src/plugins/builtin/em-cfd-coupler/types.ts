@@ -115,7 +115,7 @@ export interface EmProgressInfo {
 /** Front-end configuration knobs. */
 export interface EmCfdConfig {
   preset: 'case_a' | 'case_b' | 'custom';
-  view: 'coupling' | 'verify';
+  view: 'coupling' | 'verify' | '3d';
   // Custom couplings (SI-derived in the client):
   dt1dMs: number;
   dt3dUs: number;
