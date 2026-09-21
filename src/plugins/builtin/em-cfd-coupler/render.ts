@@ -18,6 +18,8 @@ export interface DrawInput {
   logs: string[];
   busy: boolean;
   zh: boolean;
+  /** Which 2-D panel the user selected — drives what gets drawn. */
+  view: 'coupling' | 'verify';
 }
 
 interface Rect {
@@ -89,17 +91,25 @@ export function drawPanels(canvas: HTMLCanvasElement, input: DrawInput): boolean
   g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
   g.fillRect(0, 0, w, h);
 
-  const { result, verify, logs, busy, zh } = input;
-  if (!result && !verify && !busy && logs.length === 0) {
+  const { result, verify, logs, busy, zh, view } = input;
+  if (view === 'verify' && !verify && !busy && logs.length === 0) {
+    drawEmpty(g, w, h, zh);
+    return false;
+  }
+  if (view === 'coupling' && !result && !busy && logs.length === 0 && !verify) {
     drawEmpty(g, w, h, zh);
     return false;
   }
 
   const headerH = 30;
-  drawHeader(g, w, result, verify, busy, zh);
+  drawHeader(g, w, result, verify, busy, zh, view);
 
-  if (verify) {
-    drawVerify(g, { x: 0, y: headerH, w, h: h - headerH }, verify, zh);
+  if (view === 'verify') {
+    if (verify) {
+      drawVerify(g, { x: 0, y: headerH, w, h: h - headerH }, verify, zh);
+    } else {
+      drawMissing(g, { x: 0, y: headerH, w, h: h - headerH }, zh, true);
+    }
   } else if (result) {
     drawCoupling(g, { x: 0, y: headerH, w, h: h - headerH }, result, zh);
   } else {
@@ -121,6 +131,20 @@ function drawEmpty(g: CanvasRenderingContext2D, w: number, h: number, zh: boolea
   );
 }
 
+/** Placeholder for a selected view whose data has not been generated yet. */
+function drawMissing(g: CanvasRenderingContext2D, area: Rect, zh: boolean, verify: boolean): void {
+  g.fillStyle = 'rgba(150, 165, 185, 0.7)';
+  g.font = font(zh, 11);
+  g.textAlign = 'center';
+  g.fillText(
+    zh
+      ? (verify ? '验证视图 — 请点击「运行验证」生成数据' : '耦合时间序列 — 请点击「运行耦合」生成数据')
+      : (verify ? 'Verification view — press "Run Verification" to generate data' : 'Coupling time series — press "Run Coupling" to generate data'),
+    area.x + area.w / 2,
+    area.y + area.h / 2,
+  );
+}
+
 function drawHeader(
   g: CanvasRenderingContext2D,
   w: number,
@@ -128,30 +152,31 @@ function drawHeader(
   verify: EmVerifyResult | null,
   busy: boolean,
   zh: boolean,
+  view: 'coupling' | 'verify',
 ): void {
   g.fillStyle = TEXT;
   g.font = font(zh, 11);
   g.textAlign = 'left';
-  if (verify) {
+  if (view === 'verify' && verify) {
     const a = verify.case_a;
     const b = verify.case_b;
     g.fillText(
       zh
         ? `验证基准：Case A 流量误差 ${(a.flow_rel_error * 100).toFixed(1)}% · 压力误差 ${(a.pressure_rel_error * 100).toFixed(1)}% · Case B 节流比 ${b.valve_throttle_ratio.toFixed(2)}`
         : `Verification: Case A flow err ${(a.flow_rel_error * 100).toFixed(1)}% · P err ${(a.pressure_rel_error * 100).toFixed(1)}% · Case B throttle ${b.valve_throttle_ratio.toFixed(2)}`,
-      w - 10,
+      10,
       18,
     );
     return;
   }
-  if (result) {
+  if (view === 'coupling' && result) {
     const m = result.metrics;
     const sync = m.control_sync_max_ms;
     g.fillText(
       zh
         ? `耦合完成 ${m.n_windows} 窗 · Δt1d:Δt3d=${m.time_ratio_1d_3d} · 最大误差 ${(m.worst_interface_error).toExponential(1)} · 控制同步 ${sync.toFixed(2)}ms`
         : `Coupling: ${m.n_windows} windows · ratio=${m.time_ratio_1d_3d} · worst err ${m.worst_interface_error.toExponential(1)} · sync ${sync.toFixed(2)}ms`,
-      w - 10,
+      10,
       18,
     );
     return;

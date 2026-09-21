@@ -80,6 +80,71 @@ export function modeFieldPanels(fields: readonly EmModeField[]): ModeFieldPanel[
   }));
 }
 
+/**
+ * The 2D report panels (eigenvalue spectrum + spectral residuals) that the
+ * "Solve report (2D panels)" view shows. Pure so it is unit-testable; exported
+ * alongside the mode-field panels when sending a solve to Figure Studio so BOTH
+ * views export, not just the 3D field.
+ */
+export function reportPanels(payload?: EmResultPayload): ModeFieldPanel[] {
+  const out: ModeFieldPanel[] = [];
+  const ev = payload?.eigenvalues ?? [];
+  const rs = payload?.residuals ?? [];
+
+  if (ev.length > 0) {
+    out.push({
+      row: 0,
+      col: 0,
+      tag: 'a',
+      spec: {
+        width: 336,
+        height: 252,
+        title: 'Eigenvalue spectrum',
+        xLabel: 'mode index',
+        yLabel: 'Re λ',
+        ticks: 6,
+        grid: true,
+        series: [
+          {
+            name: 'λ',
+            kind: 'line',
+            color: '#0072B2',
+            points: ev.map((v, i) => ({ x: i, y: v })),
+          },
+        ],
+      },
+    });
+  }
+
+  if (rs.length > 0) {
+    const idx = out.length % FIGURE_COLS;
+    out.push({
+      row: 0,
+      col: idx,
+      tag: String.fromCharCode(97 + out.length),
+      spec: {
+        width: 336,
+        height: 252,
+        title: 'Spectral residual',
+        xLabel: 'mode index',
+        yLabel: '‖Ax−λx‖',
+        ticks: 6,
+        grid: true,
+        series: [
+          {
+            name: 'residual',
+            kind: 'line',
+            color: '#009E73',
+            points: rs.map((v, i) => ({ x: i, y: v })),
+          },
+        ],
+      },
+    });
+  }
+
+  return out;
+}
+
 export { emEigensolverManifest } from './manifest';
 import { emEigensolverManifest } from './manifest';
 
@@ -739,32 +804,46 @@ export class EmEigensolverPlugin implements Plugin {
    * registry → this module, leaving registry entries undefined at init.
    */
   private async sendToFigure(): Promise<void> {
-    const fields = this.result?.modeFields ?? [];
-    if (fields.length === 0) {
+    const payload = this.result;
+    if (!payload) {
       notify(this.api, 'warning', 'Run a solve first.', '请先运行一次求解。');
       return;
     }
     const { useFigureStore } = await import('@/stores/figureStore');
     const zh = this.api?.locale === 'zh-CN';
+    // Export BOTH the 2D report charts and the mode fields, so the current view
+    // (report or 3D) never limits what lands in Figure Studio.
+    const reports = reportPanels(payload);
+    const fieldOffset = Math.ceil(reports.length / FIGURE_COLS);
+    const fields = modeFieldPanels(payload.modeFields ?? []).map((f) => ({
+      ...f,
+      row: f.row + fieldOffset,
+    }));
+    const panels = [...reports, ...fields];
+    if (panels.length === 0) {
+      notify(this.api, 'warning', 'No plottable data in this result.', '本次结果没有可绘图数据。');
+      return;
+    }
     const figure = useFigureStore.getState();
-    const sheetId = figure.createSheet(zh ? '电磁谐振模式场' : 'EM mode fields');
+    const sheetId = figure.createSheet(zh ? '电磁谐振求解' : 'EM resonance solve');
     if (!sheetId) {
       notify(this.api, 'warning', 'Open a project first.', '请先打开一个项目。');
       return;
     }
-    for (const panel of modeFieldPanels(fields)) {
+    for (const panel of panels) {
       figure.addPanel(sheetId, panel.spec, { row: panel.row, col: panel.col, tag: panel.tag });
     }
+    const nf = fields.length;
     figure.updateSheet(sheetId, {
       caption: zh
-        ? `电磁谐振模式场：${fields.length} 个归一化模式（发散色标，零场为白）。`
-        : `Resonant mode fields: ${fields.length} normalized modes (diverging colormap, zero field in white).`,
+        ? `电磁谐振求解：本征值谱与谱残差${nf > 0 ? `，以及 ${nf} 个归一化模式场（发散色标，零场为白）` : ''}。`
+        : `EM resonance solve: eigenvalue spectrum & residual${nf > 0 ? `, plus ${nf} normalized mode fields (diverging colormap, zero in white)` : ''}.`,
     });
     notify(
       this.api,
       'info',
-      `Sent ${fields.length} mode-field panels to Figure Studio.`,
-      `已将 ${fields.length} 个模式场面板发送到 Figure Studio。`,
+      `Sent ${panels.length} panels (${reports.length} report + ${nf} field) to Figure Studio.`,
+      `已将 ${panels.length} 个面板（${reports.length} 个报表 + ${nf} 个场）发送到 Figure Studio。`,
     );
   }
 
