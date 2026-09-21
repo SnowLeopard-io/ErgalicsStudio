@@ -129,6 +129,7 @@ def _timed_solve(A, cfg: SolverConfig) -> dict:
         "tol_requested": cfg.tol,
         "tol_effective": tol_effective,
         "residual_metric": "absolute ||Ay - λy||₂ (unscaled)",
+        "judgment_metric": "relative ||Ay - λy||₂ / max|λ| ≤ tol_effective",
         "max_residual": max_res,
         "certified_rel_residual": (float(f"{max_res / scale:.2e}")
                                    if max_res is not None else None),
