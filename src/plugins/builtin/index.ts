@@ -7,49 +7,50 @@
 // come last since the user picks them explicitly.
 
 import type { Plugin, PluginManifest } from '@/types/plugin';
-import { scatterManifest } from './scatter';
-import { timeSeriesManifest } from './timeSeries';
-import { histogramManifest } from './histogram';
-import { boxPlotManifest } from './boxPlot';
-import { heatmapManifest } from './heatmap';
-import { contourManifest } from './contour';
-import { nbodyManifest } from './nbody';
-import { fluidManifest } from './fluid';
-import { waveManifest } from './wave';
-import { pendulumManifest } from './doublePendulum';
-import { geoMapManifest } from './geoMap';
-import { aiTrainingManifest } from './ai-training';
-import { errorbandManifest } from './errorband';
-import { qqplotManifest } from './qqplot';
-import { violinPlotManifest } from './violinPlot';
-import { parallelCoordinatesManifest } from './parallelCoordinates';
-import { sankeyManifest } from './sankey';
-import { treemapManifest } from './treemap';
-import { networkGraphManifest } from './networkGraph';
-import { barChartManifest } from './barChart';
-import { bubbleChartManifest } from './bubbleChart';
-import { polarPlotManifest } from './polarPlot';
-import { pointCloudManifest } from './pointCloud';
-import { pointCloud3DManifest } from './pointCloud3D';
-import { surface3DManifest } from './surface3D';
-import { voxel3DManifest } from './voxel3D';
-import { particleManifest } from './particles';
-import { proteinManifest } from './protein';
-import { imageViewerManifest } from './imageViewer';
-import { mandelbrotManifest } from './mandelbrot';
-import { spirographManifest } from './spirograph';
-import { lissajousManifest } from './lissajous';
-import { lifeManifest } from './life';
-import { harmonographManifest } from './harmonograph';
-import { paletteManifest } from './palette';
-import { kochManifest } from './koch';
-import { barnsleyManifest } from './barnsley';
-import { fireworksManifest } from './fireworks';
-import { truchetManifest } from './truchet';
-import { electromagManifest } from './electromag';
-import { opticsManifest } from './optics';
-import { structureManifest } from './structure';
-import { emEigensolverManifest } from './em-eigensolver/plugin';
+import { scatterManifest } from './scatterManifest';
+import { timeSeriesManifest } from './timeSeriesManifest';
+import { histogramManifest } from './histogramManifest';
+import { boxPlotManifest } from './boxPlotManifest';
+import { heatmapManifest } from './heatmapManifest';
+import { contourManifest } from './contourManifest';
+import { nbodyManifest } from './nbodyManifest';
+import { fluidManifest } from './fluidManifest';
+import { waveManifest } from './waveManifest';
+import { pendulumManifest } from './pendulumManifest';
+import { geoMapManifest } from './geoMapManifest';
+import { aiTrainingManifest } from './ai-training/manifest';
+import { errorbandManifest } from './errorbandManifest';
+import { qqplotManifest } from './qqplotManifest';
+import { violinPlotManifest } from './violinPlotManifest';
+import { parallelCoordinatesManifest } from './parallelCoordinatesManifest';
+import { sankeyManifest } from './sankeyManifest';
+import { treemapManifest } from './treemapManifest';
+import { networkGraphManifest } from './networkGraphManifest';
+import { barChartManifest } from './barChartManifest';
+import { bubbleChartManifest } from './bubbleChartManifest';
+import { polarPlotManifest } from './polarPlotManifest';
+import { pointCloudManifest } from './pointCloudManifest';
+import { pointCloud3DManifest } from './pointCloud3DManifest';
+import { surface3DManifest } from './surface3DManifest';
+import { voxel3DManifest } from './voxel3DManifest';
+import { particleManifest } from './particleManifest';
+import { proteinManifest } from './proteinManifest';
+import { imageViewerManifest } from './imageViewerManifest';
+import { mandelbrotManifest } from './mandelbrotManifest';
+import { spirographManifest } from './spirographManifest';
+import { lissajousManifest } from './lissajousManifest';
+import { lifeManifest } from './lifeManifest';
+import { harmonographManifest } from './harmonographManifest';
+import { paletteManifest } from './paletteManifest';
+import { kochManifest } from './kochManifest';
+import { barnsleyManifest } from './barnsleyManifest';
+import { fireworksManifest } from './fireworksManifest';
+import { truchetManifest } from './truchetManifest';
+import { electromagManifest } from './electromagManifest';
+import { opticsManifest } from './opticsManifest';
+import { structureManifest } from './structureManifest';
+import { emEigensolverManifest } from './em-eigensolver/manifest';
+import { emCfdCouplerManifest } from './em-cfd-coupler/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -182,6 +183,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: emEigensolverManifest,
     load: async () => {
       const mod = await import('./em-eigensolver');
+      return mod.default();
+    },
+  },
+  {
+    manifest: emCfdCouplerManifest,
+    load: async () => {
+      const mod = await import('./em-cfd-coupler');
       return mod.default();
     },
   },

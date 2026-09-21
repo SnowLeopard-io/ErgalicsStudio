@@ -54,7 +54,7 @@ export interface IntentMatch {
 
 function extractStudioApiNames(source: string): string[] {
   const names = new Set<string>();
-  const re = /^    def (\w+)\(/gm;
+  const re = /^ {4}def (\w+)\(/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
     if (m[1] && !m[1].startsWith('_')) names.add(m[1]);

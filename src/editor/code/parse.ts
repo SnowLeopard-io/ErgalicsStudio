@@ -968,7 +968,7 @@ function rawBrace(header: string, body: BraceBody, lang: SourceLang): IRNode {
 // ---- simple statements (all languages) ----
 
 function parseSimple(raw: string, lang: SourceLang): IRNode | null {
-  let text = raw.trim();
+  const text = raw.trim();
   if (text === '') return null;
 
   // loop control

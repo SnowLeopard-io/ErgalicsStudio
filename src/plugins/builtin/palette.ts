@@ -8,10 +8,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportRowsCsv, notify } from './shared/enhance';
+
+export { paletteManifest } from './paletteManifest';
+import { paletteManifest } from './paletteManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -19,23 +21,6 @@ function buttonPressed(params: Record<string, unknown>, key: string): boolean {
   const v = params[key];
   return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
 }
-
-export const paletteManifest: PluginManifest = {
-  id: 'fun.palette',
-  name: 'Palette Explorer',
-  nameI18n: { 'zh-CN': '配色探索器', 'en-US': 'Palette Explorer' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Two-stop gradient preview with generated color swatches.',
-  descriptionI18n: {
-    'zh-CN': '两色渐变预览，并生成可查看的色板样例。',
-    'en-US': 'Two-stop gradient preview with generated swatches.',
-  },
-  license: 'MIT',
-  entry: 'fun.palette',
-  category: 'utility',
-  icon: '❖',
-};
 
 function hexToRgb(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());

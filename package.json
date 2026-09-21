@@ -22,11 +22,12 @@
     "docs:preview": "npm run preview --prefix docs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "eslint . && tsc --noEmit",
+    "lint:eslint": "eslint .",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/smoke-test.mjs && node scripts/verify-ui.mjs && node scripts/verify-fixes.mjs && node scripts/verify-3d.mjs && node scripts/verify-plugins.mjs && node scripts/verify-webgpu.mjs && node scripts/verify-block-mode.mjs && node scripts/verify-code-mode.mjs && node scripts/verify-ai-samples.mjs && node scripts/verify-ai-training.mjs && node scripts/verify-research.mjs",
+    "test:e2e": "node scripts/e2e-run.mjs",
     "verify": "npm run typecheck && npm test",
     "verify:site": "node scripts/verify-site.mjs --merge",
     "bench": "node --expose-gc scripts/bench-run.mjs && node scripts/bench-compare.mjs && node scripts/bench-report.mjs",
@@ -58,6 +59,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/lz-string": "^1.5.0",
     "@types/node": "^26.2.0",
     "@types/react": "^18.3.18",
@@ -65,9 +67,13 @@
     "@types/three": "^0.185.4",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
     "playwright-core": "^1.62.1",
     "typescript": "~5.7.2",
+    "typescript-eslint": "^8.70.0",
     "vite": "^6.0.7",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

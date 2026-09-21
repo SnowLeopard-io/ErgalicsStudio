@@ -14,9 +14,9 @@
 // ==========================================================================
 
 /** Bound to the host-provided `api` parameter at runtime. */
-var api: PluginApi;
+let api: PluginApi;
 
-var manifest: PluginManifest = {
+const manifest: PluginManifest = {
   id: 'com.example.starter',
   name: 'Starter Plugin',
   nameI18n: { 'zh-CN': '入门插件', 'en-US': 'Starter Plugin' },
@@ -43,7 +43,7 @@ interface State {
   showLabel: boolean;
 }
 
-var state: State = { count: 50, showLabel: true };
+const state: State = { count: 50, showLabel: true };
 
 // ---- Parameter panel (the host renders these into the right-hand panel) ----
 
@@ -80,21 +80,21 @@ function params(): ParamDefinition[] {
 // ---- Drawing ----
 
 function draw(container: ContainerCapabilities): void {
-  var canvas = container.canvas2d;
+  const canvas = container.canvas2d;
   if (!canvas) return;
-  var ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  var w = canvas.width;
-  var h = canvas.height;
+  const w = canvas.width;
+  const h = canvas.height;
   ctx.fillStyle = '#101418';
   ctx.fillRect(0, 0, w, h);
 
-  for (var i = 0; i < state.count; i++) {
-    var t = i / Math.max(1, state.count - 1);
-    var x = 40 + t * (w - 80);
-    var y = h / 2 + Math.sin(t * Math.PI * 4) * (h / 4);
-    var hue = (i * 7) % 360;
+  for (let i = 0; i < state.count; i++) {
+    const t = i / Math.max(1, state.count - 1);
+    const x = 40 + t * (w - 80);
+    const y = h / 2 + Math.sin(t * Math.PI * 4) * (h / 4);
+    const hue = (i * 7) % 360;
     ctx.fillStyle = 'hsl(' + hue + ', 65%, 60%)';
     ctx.beginPath();
     ctx.arc(x, y, 4, 0, Math.PI * 2);
@@ -102,7 +102,7 @@ function draw(container: ContainerCapabilities): void {
   }
 
   if (state.showLabel) {
-    var label = api.locale === 'zh-CN' ? '点数：' + state.count : 'Points: ' + state.count;
+    const label = api.locale === 'zh-CN' ? '点数：' + state.count : 'Points: ' + state.count;
     ctx.fillStyle = '#e6edf3';
     ctx.font = '16px sans-serif';
     ctx.fillText(label, 16, 28);
@@ -113,7 +113,7 @@ function draw(container: ContainerCapabilities): void {
 
 // ---- Plugin object (returned to the host by the built entry) ----
 
-var plugin: ErgalicsPlugin = {
+const plugin: ErgalicsPlugin = {
   manifest: manifest,
 
   init: function (a: PluginApi) {
@@ -128,7 +128,7 @@ var plugin: ErgalicsPlugin = {
   // Sandbox caveat: getParam/setParam resolve as Promises across the RPC
   // bridge — always await them.
   activate: async function (context: PluginRenderContext) {
-    var saved = (await context.api.getParam('count')) as number | undefined;
+    const saved = (await context.api.getParam('count')) as number | undefined;
     if (typeof saved === 'number') state.count = saved;
   },
 

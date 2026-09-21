@@ -248,7 +248,7 @@ export function createPluginWorkerRuntime(
             if (locale && locale in (dict ?? {})) currentLocale = locale as Locale;
             if (dict) dictionaries = dict;
             api = createApiProxy();
-            // eslint-disable-next-line @typescript-eslint/no-implied-eval
+             
             const factory = new Function('api', `"use strict";\n${entrySource}`) as (
               api: PluginApi,
             ) => Plugin;

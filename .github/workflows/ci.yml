@@ -33,6 +33,9 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
 
+      - name: Lint (ESLint)
+        run: npm run lint:eslint
+
       - name: Unit tests
         run: npm test
 
@@ -46,3 +49,35 @@ jobs:
 
       - name: Build performance budget (FR-06)
         run: node scripts/build-budget.mjs
+
+  # E2E smoke: the two fastest, most fundamental verifies (core interactions +
+  # post-redesign layout). Full suite stays local: `npm run test:e2e` runs all
+  # 11 scripts with --continue semantics via scripts/e2e-run.mjs.
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Stub native module for web build (no Rust in CI)
+        run: node scripts/make-wasm-stub.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: E2E smoke (smoke + ui)
+        run: node scripts/e2e-run.mjs smoke ui
+        env:
+          # ubuntu runners ship Google Chrome; pin it so the harness does not
+          # need a Playwright browser download (playwright-core has no installer).
+          CHROME_PATH: /usr/bin/google-chrome

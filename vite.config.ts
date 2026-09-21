@@ -102,8 +102,37 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
+        // B2: every large dependency gets a named chunk, via *function* form.
+        // (Object form once dragged Vite's preload helper into the
+        // 'export-pdf' chunk; the entry statically imports that helper for
+        // every dynamic import site, so the whole 154 kB jspdf/svg2pdf chunk
+        // became modulepreload-eager — caught by build-budget on 2026-09-21.)
+        // All deps listed here are reached exclusively through dynamic
+        // imports (three via scene3d, blockly/monaco via the lazy editors,
+        // the rest via the IO/runtime loaders); naming them keeps each one in
+        // its own cacheable file. The preload helper gets its own tiny chunk
+        // (see below) so the entry's static edge to it stays cheap.
+        manualChunks: (id: string): string | undefined => {
+          // Vite's preload helper is statically imported by the entry AND by
+          // every chunk holding a dynamic import; Rollup's greedy heuristic
+          // can drop it into a large manual chunk (it once landed in
+          // 'export-pdf', dragging 154 kB of jspdf into the first screen).
+          // Give it its own tiny chunk so that static edge stays cheap.
+          if (id.includes('vite/preload-helper')) return 'preload-helper';
+          const pkg = /[\\/]node_modules[\\/]((?:@[^\\/]+[\\/])?[^\\/]+)/.exec(id)?.[1];
+          if (!pkg) return undefined;
+          // Scoped packages: compare on the scope so @tensorflow/tfjs-*,
+          // @zarrita/*, @duckdb/* all collapse into their parent chunk.
+          const base = pkg.startsWith('@') ? pkg.split('/')[0]! : pkg;
+          if (base === 'react' || base === 'react-dom' || base === 'scheduler' || base === 'react-router' || base === 'react-router-dom' || base === '@remix-run') return 'react';
+          if (base === 'three') return 'three';
+          if (base === 'blockly') return 'blockly';
+          if (base === 'monaco-editor') return 'monaco';
+          if (base === '@duckdb') return 'duckdb';
+          if (base === '@tensorflow') return 'tfjs';
+          if (base === 'apache-arrow' || base === 'parquet-wasm' || base === 'h5wasm' || base === 'netcdfjs' || base === 'zarrita' || base === '@zarrita') return 'data-io';
+          if (base === 'jspdf' || base === 'svg2pdf.js') return 'export-pdf';
+          return undefined;
         },
       },
     },

@@ -9,10 +9,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { fireworksManifest } from './fireworksManifest';
+import { fireworksManifest } from './fireworksManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -20,23 +22,6 @@ function buttonPressed(params: Record<string, unknown>, key: string): boolean {
   const v = params[key];
   return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
 }
-
-export const fireworksManifest: PluginManifest = {
-  id: 'fun.fireworks',
-  name: 'Fireworks',
-  nameI18n: { 'zh-CN': '烟花', 'en-US': 'Fireworks' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Particle fireworks with gravity and trails.',
-  descriptionI18n: {
-    'zh-CN': '带重力与拖尾的粒子烟花，支持自动连发与手动引爆。',
-    'en-US': 'Particle fireworks with gravity and trails; auto-launch or manual bursts.',
-  },
-  license: 'MIT',
-  entry: 'fun.fireworks',
-  category: 'fun',
-  icon: '✹',
-};
 
 interface Particle {
   x: number;

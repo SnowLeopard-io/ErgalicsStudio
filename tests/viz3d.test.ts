@@ -249,7 +249,12 @@ describe('voxelIsosurface', () => {
     const merged = mergeByPosition(mesh.positions, mesh.indices);
     let unique = 0;
     const seen = new Set<number>();
-    for (const v of merged) if (!seen.has(v)) (seen.add(v), unique++);
+    for (const v of merged) {
+      if (!seen.has(v)) {
+        seen.add(v);
+        unique++;
+      }
+    }
     expect(unique).toBe(8); // the 8 cube corners
     expect(isWatertight(merged)).toBe(true);
   });
@@ -589,30 +594,27 @@ describe('parseVoxelField', () => {
 // ---- plugin lifecycles (no WebGPU in Node → CPU fallback paths) ------------
 
 describe('Surface3DPlugin', () => {
-  it('builds an indexed mesh into the host scene with vertex colors', async () => {
+  it('renders nothing before a file is loaded', async () => {
     const plugin = new Surface3DPlugin();
     await plugin.init(fakeApi());
     const { scene } = injectThree(plugin);
     plugin.updateParams({});
+    expect(scene.added).toHaveLength(0);
+    await plugin.destroy();
+  });
+
+  it('builds an indexed mesh into the host scene with vertex colors after loading a grid', async () => {
+    const plugin = new Surface3DPlugin();
+    await plugin.init(fakeApi());
+    const { scene } = injectThree(plugin);
+    await plugin.loadData(new File(['[[0,1,2],[3,4,5],[6,7,8]]'], 'h.json'));
     expect(scene.added).toHaveLength(1);
     const mesh = scene.added[0] as {
       geometry: { index: { count: number } | null; attributes: Record<string, { count: number }> };
     };
     expect(mesh.geometry.index).toBeTruthy();
-    expect(mesh.geometry.attributes.position!.count).toBe(96 * 96);
-    expect(mesh.geometry.attributes.color!.count).toBe(96 * 96);
-    await plugin.destroy();
-  });
-
-  it('switches parameter functions and resolution', async () => {
-    const plugin = new Surface3DPlugin();
-    await plugin.init(fakeApi());
-    const { scene } = injectThree(plugin);
-    plugin.updateParams({ fn: 'gaussian', resolution: 16 });
-    const mesh = scene.added[scene.added.length - 1] as {
-      geometry: { attributes: Record<string, { count: number }> };
-    };
-    expect(mesh.geometry.attributes.position!.count).toBe(16 * 16);
+    expect(mesh.geometry.attributes.position!.count).toBe(3 * 3);
+    expect(mesh.geometry.attributes.color!.count).toBe(3 * 3);
     await plugin.destroy();
   });
 
@@ -627,27 +629,42 @@ describe('Surface3DPlugin', () => {
     await plugin.destroy();
   });
 
-  it('warns (bilingual) on an unparseable file and keeps the function surface', async () => {
+  it('warns (bilingual) on an unparseable file and stays blank', async () => {
     const notify = vi.fn();
     const api = { ...fakeApi('zh-CN'), notify } as unknown as PluginApi;
     const plugin = new Surface3DPlugin();
     await plugin.init(api);
-    injectThree(plugin);
+    const { scene } = injectThree(plugin);
     await plugin.loadData(new File(['not a grid'], 'bad.txt'));
     expect(notify).toHaveBeenCalledWith('warning', expect.stringContaining('高度网格'));
+    expect(scene.added).toHaveLength(0);
     await plugin.destroy();
   });
 
-  it('exports the height grid as CSV', async () => {
+  it('exports the loaded height grid as CSV', async () => {
     const exportFile = vi.fn();
     const api = { ...fakeApi(), exportFile } as unknown as PluginApi;
     const plugin = new Surface3DPlugin();
     await plugin.init(api);
     injectThree(plugin);
+    await plugin.loadData(new File(['[[0,1,2],[3,4,5],[6,7,8]]'], 'h.json'));
     plugin.updateParams({ exportCsv: true });
     expect(exportFile).toHaveBeenCalledTimes(1);
     const name = exportFile.mock.calls[0]![0] as string;
     expect(name).toBe('surface3d.csv');
+    await plugin.destroy();
+  });
+
+  it('does not export a CSV when blank and warns instead', async () => {
+    const notify = vi.fn();
+    const exportFile = vi.fn();
+    const api = { ...fakeApi('zh-CN'), notify, exportFile } as unknown as PluginApi;
+    const plugin = new Surface3DPlugin();
+    await plugin.init(api);
+    injectThree(plugin);
+    plugin.updateParams({ exportCsv: true });
+    expect(exportFile).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith('warning', expect.stringContaining('表面'));
     await plugin.destroy();
   });
 

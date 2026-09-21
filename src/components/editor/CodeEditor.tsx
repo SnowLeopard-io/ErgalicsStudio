@@ -201,7 +201,7 @@ export function CodeEditor() {
       editorRef.current = null;
     };
     // Editor instance is bound to the active session (matches prior design).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeSessionId]);
 
   // ---- Pyodide runtime lifecycle (Python engine) -----------------------

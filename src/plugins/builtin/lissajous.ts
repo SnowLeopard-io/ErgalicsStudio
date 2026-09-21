@@ -8,10 +8,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { lissajousManifest } from './lissajousManifest';
+import { lissajousManifest } from './lissajousManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -19,23 +21,6 @@ function buttonPressed(params: Record<string, unknown>, key: string): boolean {
   const v = params[key];
   return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
 }
-
-export const lissajousManifest: PluginManifest = {
-  id: 'fun.lissajous',
-  name: 'Lissajous',
-  nameI18n: { 'zh-CN': '利萨茹曲线', 'en-US': 'Lissajous' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Animated Lissajous-style parametric curves.',
-  descriptionI18n: {
-    'zh-CN': '动画利萨茹参数曲线，可调频率与相位。',
-    'en-US': 'Animated Lissajous parametric curves with tunable frequency and phase.',
-  },
-  license: 'MIT',
-  entry: 'fun.lissajous',
-  category: 'fun',
-  icon: '∿',
-};
 
 interface State {
   a: number;

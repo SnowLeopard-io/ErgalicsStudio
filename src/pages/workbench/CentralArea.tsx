@@ -4,7 +4,12 @@ import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/store
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { logger } from '@/core/logger';
-import { createScene3D } from '@/core/scene3d';
+// B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
+// module is dynamically imported on first 3-D demand; the created handle is
+// still cached in `scene3dRef` and exposed synchronously via `getThree`, while
+// `ensureThree` lets the plugin-activation path await the handle's existence.
+let scene3dModule: Promise<typeof import('@/core/scene3d')> | null = null;
+const loadScene3dModule = () => (scene3dModule ??= import('@/core/scene3d'));
 import {
   getViewport2d,
   setViewport2d,
@@ -148,6 +153,18 @@ export function CentralArea() {
     // Inject the 2D viewport transform into the shared canvas context before
     // any plugin draws into it.
     wrapCanvas2d(canvasRef.current);
+    const ensureThree = async (): Promise<Scene3DHandle | undefined> => {
+      if (!domRef.current) return scene3dRef.current ?? undefined;
+      if (!scene3dRef.current) {
+        const mod = await loadScene3dModule();
+        // Re-check after the await: the component may have unmounted (or a
+        // concurrent ensure may already have created the handle).
+        if (!scene3dRef.current && domRef.current) {
+          scene3dRef.current = mod.createScene3D(domRef.current);
+        }
+      }
+      return scene3dRef.current ?? undefined;
+    };
     setHostContainers({
       dom: domRef.current,
       canvas2d: canvasRef.current,
@@ -155,10 +172,11 @@ export function CentralArea() {
       // Lazily create the 3D scene on first demand; cached for the session.
       getThree: () => {
         if (!scene3dRef.current && domRef.current) {
-          scene3dRef.current = createScene3D(domRef.current);
+          void ensureThree();
         }
         return scene3dRef.current ?? undefined;
       },
+      ensureThree,
       setThreeVisible: (visible) => {
         if (scene3dRef.current) scene3dRef.current.setVisible(visible);
       },

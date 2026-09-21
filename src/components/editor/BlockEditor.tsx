@@ -105,7 +105,7 @@ export function BlockEditor() {
       }
       window.clearTimeout(debounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [locale, dark]);
 
   // Ensure an active session exists, and (re)load its IR into the workspace

@@ -101,13 +101,18 @@ jobs:
       # transitive-only, false positive), add its GHSA id to AUDIT_ALLOWLIST
       # below with a comment stating WHY and a follow-up issue link. The step
       # downgrades only those ids to warnings; everything else still blocks.
+      # The full ledger (including below-threshold moderates) lives in
+      # SECURITY.md "Dependency vulnerability ledger".
       - name: npm audit (high/critical blocking)
         run: |
           # GHSA-fx2h-pf6j-xcff (vite dev server.fs.deny bypass on Windows
-          # alternate paths): vitepress@1.6.4 (latest) pins vite ^5.4.14; every
-          # vite <=6.4.2 is affected and the patch only landed in 6.4.3+, which
-          # vitepress cannot consume. Dev-server-only, docs workspace, static
-          # deploy — no fix available. Revisit on vitepress upgrade.
+          # alternate paths) — plus moderates GHSA-4w7w-66w2-5vf9 and
+          # GHSA-v6wh-96g9-6wx3 on the same lockfile node: the DOCS workspace
+          # only. vitepress@1.6.4 (latest) pins vite ^5.4.14 (resolved
+          # 5.4.21); every vite <=6.4.2 is affected and the patch only landed
+          # in 6.4.3+, which vitepress cannot consume. The app/website
+          # workspaces run vite@6.4.3 (patched). Dev-server-only, static
+          # deploy — no fix available. Revisit on the vitepress 2.x line.
           AUDIT_ALLOWLIST="GHSA-fx2h-pf6j-xcff"
           set +e
           npm audit --audit-level=high --json > audit.json

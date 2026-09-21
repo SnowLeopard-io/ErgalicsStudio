@@ -20,6 +20,7 @@ export interface GridSpec {
   steps: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- 空接口是轴类型契约占位，values 由调用侧按需扩展
 export interface ListSpec {
   // values carried on the axis itself
 }

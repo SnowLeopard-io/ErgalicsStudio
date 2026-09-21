@@ -8,30 +8,14 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
 import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
 
-export const heatmapManifest: PluginManifest = {
-  id: 'example.heatmap',
-  name: 'Heatmap',
-  nameI18n: { 'zh-CN': '热力图', 'en-US': 'Heatmap' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Visualize a 2-D numeric field as a heatmap.',
-  descriptionI18n: {
-    'zh-CN': '将二维数值网格（JSON 矩阵）渲染为热力图。',
-    'en-US': 'Visualize a 2-D numeric field as a heatmap.',
-  },
-  license: 'MIT',
-  entry: 'example.heatmap',
-  formats: [
-    { extension: '.json', mimeTypes: ['application/json'], description: '2-D numeric grid' },
-  ],
-};
+export { heatmapManifest } from './heatmapManifest';
+import { heatmapManifest } from './heatmapManifest';
 
 interface State {
   grid: number[][];

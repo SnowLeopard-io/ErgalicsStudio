@@ -83,7 +83,6 @@ export class PyodideClient {
     this.worker = worker;
     const ready = new Promise<void>((resolve, reject) => {
       let booted = false;
-      let timer: ReturnType<typeof setTimeout> | undefined;
       const clearTimer = () => {
         if (timer !== undefined) clearTimeout(timer);
       };
@@ -128,7 +127,7 @@ export class PyodideClient {
         this.rejectAllPending(err);
       };
 
-      timer = setTimeout(
+      const timer: ReturnType<typeof setTimeout> = setTimeout(
         () =>
           onFatal(
             new Error(

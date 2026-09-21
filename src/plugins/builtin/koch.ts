@@ -9,10 +9,12 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, exportCanvasPng } from './shared/enhance';
+
+export { kochManifest } from './kochManifest';
+import { kochManifest } from './kochManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
@@ -25,23 +27,6 @@ function canvasBackground(canvas: HTMLCanvasElement): string {
   if (typeof getComputedStyle === 'function') return getComputedStyle(canvas).backgroundColor || '#0a0e13';
   return '#0a0e13';
 }
-
-export const kochManifest: PluginManifest = {
-  id: 'fun.koch',
-  name: 'Koch Snowflake',
-  nameI18n: { 'zh-CN': '科赫雪花', 'en-US': 'Koch Snowflake' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Fractal snowflake built from recursive segments.',
-  descriptionI18n: {
-    'zh-CN': '用递归折线构造的科赫雪花分形，支持迭代深度调节。',
-    'en-US': 'The Koch snowflake fractal, built from recursive segments.',
-  },
-  license: 'MIT',
-  entry: 'fun.koch',
-  category: 'fun',
-  icon: '❋',
-};
 
 interface State {
   iterations: number;

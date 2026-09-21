@@ -1,5 +1,5 @@
 /* tslint:disable */
-/* eslint-disable */
+ 
 export const memory: WebAssembly.Memory;
 export const __wbg_gpubuffer_free: (a: number, b: number) => void;
 export const gpubuffer_buffer: (a: number) => any;

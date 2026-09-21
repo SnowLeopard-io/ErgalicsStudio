@@ -32,6 +32,8 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.timeseries': 'charts',
   'example.heatmap': 'charts',
   'example.contour': 'charts',
+  'example.surface-3d': 'charts',
+  'example.voxel-3d': 'charts',
   'example.bar_chart': 'charts',
   'example.bubble': 'charts',
   'example.polar': 'charts',
@@ -57,6 +59,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.optics': 'physics',
   'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
+  'example.em-cfd-coupler': 'physics',
 
   // Geography
   'example.geomap': 'geo',

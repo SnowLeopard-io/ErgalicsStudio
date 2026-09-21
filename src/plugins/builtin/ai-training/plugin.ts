@@ -4,7 +4,6 @@
 import type {
   Plugin,
   PluginApi,
-  PluginManifest,
   ContainerCapabilities,
   ParamDefinition,
   ComputeProgress,
@@ -34,26 +33,8 @@ import * as viz from './render';
 import { loadTf } from './tf';
 import { actionButton, exportRowsCsv } from '../shared/enhance';
 
-export const aiTrainingManifest: PluginManifest = {
-  id: 'example.ai-training',
-  name: 'AI Trainer',
-  nameI18n: { 'zh-CN': 'AI 训练', 'en-US': 'AI Trainer' },
-  version: '1.0.0',
-  author: 'Ergalics',
-  description: 'Train regression / classification models (TF.js) with live loss curves.',
-  descriptionI18n: {
-    'zh-CN': '基于 TF.js 训练回归/分类模型，实时显示损失曲线与可视化。',
-    'en-US': 'Train regression / classification models with TF.js; live loss curve & visualizations.',
-  },
-  license: 'MIT',
-  entry: 'example.ai-training',
-  category: 'scientific',
-  sandbox: 'trusted',
-  formats: [
-    { extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV' },
-    { extension: '.json', mimeTypes: ['application/json'], description: 'JSON (MNIST)' },
-  ],
-};
+export { aiTrainingManifest } from './manifest';
+import { aiTrainingManifest } from './manifest';
 
 const ZH = (api: PluginApi | undefined, en: string, zh: string) =>
   api?.locale === 'zh-CN' ? zh : en;
