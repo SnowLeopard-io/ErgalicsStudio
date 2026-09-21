@@ -101,6 +101,9 @@ def lanczos_solve(
         raise ValueError("k must be >= 1")
     # Inexact shift-invert: the outer residual cannot drop far below the
     # inner MINRES tolerance, so relax the effective tol accordingly.
+    # The convergence judgment below is RELATIVE (rel = residual / max|λ|),
+    # so this floor must never be compared against unscaled absolute
+    # residuals such as the bench's archived max_residual (docs 09 §2.3/§4).
     if sigma is not None:
         tol = max(tol, 20.0 * minres_rtol)
     m = int(max(basis_dim, k + 8))
@@ -205,6 +208,9 @@ def lanczos_solve(
                       for t in wanted], axis=1)
         lam = theta[wanted] if sigma is None else (sigma_current + 1.0 / theta[wanted])
 
+        # Certification basis (docs 09 §4): the RELATIVE residual — divided
+        # by max|λ| — is judged against tol. The unscaled absolute ‖Ay − λy‖₂
+        # (bench JSON's max_residual) is archived for transparency only.
         res_true = exact_residuals(Y, lam)
         scaleA = float(np.max(np.abs(lam))) or 1.0
         rel = res_true / max(scaleA, _EPS)

@@ -53,11 +53,16 @@ class SolverConfig:
     dense_threshold: int = 800       # direct LAPACK path for tiny problems
     minres_rtol: float = 1e-6
     # Shift-invert accounting (docs 09 §2.3/§4): the inner MINRES is
-    # intentionally inexact, so the outer loop judges convergence against
+    # intentionally inexact, so the outer loop relaxes tol to
     # max(tol, 20 * minres_rtol) — with defaults that floor is 2e-5, NOT the
-    # requested tol. Shift-invert results can therefore certify a true
-    # residual far above tol while converged=True is still self-consistent.
-    # For dense-spectrum interior targets prefer Jacobi-Davidson (auto route).
+    # requested tol. The judgment is RELATIVE: ||Ay - λy|| / max|λ| against
+    # that floor. Bench rows archive the UNSCALED absolute max_residual, so
+    # never compare max_residual against this floor — compare
+    # certified_rel_residual instead. Worked example (bench
+    # em-eigensolver-results.json, n=102400 σ=0.5): max_residual 5.9e-05 but
+    # certified_rel_residual 7.4e-06 ≤ 2e-5, converged at cycle 9 (well
+    # before the 60-cycle cap). For dense-spectrum interior targets prefer
+    # Jacobi-Davidson (auto route).
     minres_maxiter: int = 250
     gpu_spmv: bool = False           # opt-in WebGPU SpMV delegation (f32)
     verbose: bool = False
