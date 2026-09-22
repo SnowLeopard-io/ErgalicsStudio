@@ -106,6 +106,11 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   // Lift the axes off the grid: the X/Z legs otherwise lie exactly on the
   // grid's center lines, and two coplanar 1-px lines z-fight — the axes
   // flicker while orbiting (per-frame depth-order flips), stable when idle.
+  // A positional offset (not polygonOffset) because polygonOffset is
+  // unreliable for GL_LINES across GPU drivers. 0.02 is 2% of the 24-cell
+  // grid pitch: far below visual notice at typical camera distances, yet
+  // enough to separate the lines in the depth buffer. If a future plugin
+  // works at a very different scale, prefer scaling the helpers, not this.
   axes.position.y = 0.02;
   scene.add(grid);
   scene.add(axes);

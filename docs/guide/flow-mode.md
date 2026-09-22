@@ -30,7 +30,7 @@ blocks/
   executor       DagExecutor: run(), incremental cache, dirty propagation
   context        MemoryStorage + RuntimeEnvironment
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        37 built-in blocks (data_source → … → plot · visualize)
+  catalog        40+ built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -234,5 +234,5 @@ title.
 
 > Looking for a more imperative feel? Block mode is a sibling workbench
 > mode that shares the `DataValue` contract and the plugin bridge — see
-> [Block Mode](block-mode.md) for the architecture, the 30+ built-in
+> [Block Mode](block-mode.md) for the architecture, the 40+ built-in
 > blocks, and the 5 sample programs.

@@ -217,9 +217,11 @@ without any plugin code:
 
 ## Built-in example plugins
 
-Twenty-seven core example plugins ship in `src/plugins/builtin/` and cover the
-full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
-`compute`, and the `api.gpu` accelerated path:
+Thirty-four scientific/core plugins (plus a further ten `fun.*` toys
+declaring `autoload: false` — 44 built-ins in total) ship in
+`src/plugins/builtin/` and cover the full plugin contract surface — 2D
+canvas, host Three.js scene, `loadData`, `compute`, and the `api.gpu`
+accelerated path:
 
 | Plugin id           | Data                 | Capability                                        |
 | ------------------- | -------------------- | ------------------------------------------------- |
@@ -250,6 +252,13 @@ full plugin contract surface — 2D canvas, host Three.js scene, `loadData`,
 | `example.wave`          | `.json` (u / drive grids) | 2-D finite-difference wave equation (pulse / twin-source / double-slit), WGSL leapfrog kernel |
 | `example.pendulum`      | `.json` (initial conditions) | RK4 double pendulum with a chaos ghost twin offset by 0.001 rad |
 | `example.geomap`        | `.geojson`, `.json` | offline vector map with choropleth shading; Albers (China) / Web Mercator / equirectangular |
+| `example.surface-3d` | `.json` (grid) | three-dimensional surface with height-ramped coloration and OrbitControls |
+| `example.voxel-3d` | `.json` (field) | voxel volume/solid rendering with opacity and slicing |
+| `example.electromag` | `.json` (charges / field) | interactive electromagnetic field & force visualization |
+| `example.optics` | `.json` (rays / media) | ray-tracing optics lab with lenses, mirrors, media & focal readouts |
+| `example.structure` | `.json` (truss members) | pin-jointed truss: axial-force coloring, utilization readouts & overload collapse |
+| `example.em-eigensolver` | `.npz`, `.npy`, `.mtx` | sparse Hermitian eigenvalue solver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert), 2-D spectrum report & 3-D mode fields, Pyodide worker |
+| `example.fluid-cfd-coupler` | `.json` (network + 3-D field) | 1D pipeline–3D field bidirectional coupling with multi-rate time-step coordination, coarse–fine subcycling and millisecond valve control |
 
 Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
 Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on

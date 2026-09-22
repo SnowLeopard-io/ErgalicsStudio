@@ -23,19 +23,22 @@ The following are functional today:
   parameter panels, status/perf bars.
 - **Four workbench modes** — Standard (drag → see), Flow (compose a
   dataflow DAG → run), Block (Scratch-style scripted editor with a Run
-  hat, 30+ built-in blocks, shared IR, and 5 sample programs), and Code
+  hat, 40+ built-in blocks, shared IR, and 5 sample programs), and Code
   (free-form Python on a Pyodide CPython Worker, with a REPL console and
   9 sample programs). All three scripted modes share one IR, and Block ↔
   Flow ↔ Code round-trip is pinned by a `sync-threeway` test.
-- **40 built-in plugins** (30 core + 10 fun/utility) covering the 2D and
+- **44 built-in plugins** (34 scientific + 10 fun/utility) covering the 2D and
   3D rendering paths — including a 3-D N-body gravity simulator
   (astrophysics), a protein interaction network with force-directed layout
   (systems biology), D2Q9 lattice-Boltzmann fluid / wave-equation /
   double-pendulum simulations, an offline GeoJSON choropleth map, three
   interactive physics labs (electromagnetism, optics, structural
-  mechanics), and an
+  mechanics), an
   in-browser AI trainer (linear / non-linear NN / logistic / MNIST CNN on
-  TensorFlow.js).
+  TensorFlow.js), and two field-grade competition solvers: a sparse
+  Hermitian eigenvalue solver (`em-eigensolver`) and a 1D–3D bidirectional
+  fluid-network coupler (`fluid-cfd-coupler`), both run inside Pyodide
+  workers with millisecond-level control tooling.
 - Scientific computing subsystems in pure TypeScript: a statistics kernel
   (hypothesis tests, effect sizes, corrections, power analysis), scientific
   binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), a publication-grade
@@ -50,10 +53,13 @@ The following are functional today:
 - i18n (zh-CN / en-US) with reactive locale switching — Block mode uses
   Blockly's `BKY_*` key system so block labels re-localise with the rest.
 - Theming (dark / light), sharing, GitHub Actions CI, and automated tests
-  (417 unit tests across 46 test files plus Playwright E2E suites).
+  (1849 Vitest unit tests across 111 test files plus Playwright E2E suites).
 
-Not yet built: plugin-marketplace package signing and the third-party
-install pipeline, and the R runtime (webR) for Code mode.
+Built but not yet shipped as products: the fully-automated third-party
+submission & install pipeline for the plugin marketplace (the `.cspkg`
+package-signing gate — ed25519, FR-05 — is already live; see `SECURITY.md`),
+and the free-form R runtime (webR) for Code mode (the built-in IR already
+runs the full `studio.*` R DSL).
 
 > The intent is that the codebase keeps growing into a production system by
 > adding features **into** this structure — not by rewriting it.
