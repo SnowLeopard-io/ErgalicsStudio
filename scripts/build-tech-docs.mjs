@@ -101,7 +101,7 @@ function splitSubNumeral(title) {
  * into a `.page` and `kind` drives pagination rules.
  */
 function parseMarkdown(md) {
-  const lines = md.replace(/\r\n?/g, '\n').split('\n');
+  const lines = md.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n');
   const blocks = [];
   let title = null;
   let i = 0;
@@ -1213,6 +1213,9 @@ function metaFor(base) {
     return {
       order: n,
       foot: `技术文档系列 · 第 ${'一二三四五六七八九十'[n - 1]} 篇（共 ${TOTAL_NUM} 篇）`,
+      // Numbered instalments carry the same three QR codes on their covers so
+      // a printed copy of any volume reaches the same online homes.
+      qrOnCover: true,
     };
   }
   return {
@@ -1310,7 +1313,13 @@ async function buildDoc(browser, page, base, opts = {}) {
   );
 
   const coverHtml = buildCover({
-    title: base.startsWith('Ergalics') ? title : title.replace(/^Ergalics Studio\s*/, ''),
+    title:
+      base.startsWith('Ergalics') ||
+      meta.order >= 99 ||
+      /^\d+\s/.test(title) ||
+      FOOT_OVERRIDES[base]
+        ? title
+        : `${String(meta.order).padStart(2, '0')} ${title.replace(/^Ergalics Studio\s*/, '')}`,
     subtitle,
     abstract: abstract || firstP?.text || '',
     chips: h2s.map(chipLabel),

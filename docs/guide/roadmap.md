@@ -14,8 +14,8 @@ state, not aspirational designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 37 built-in blocks + Flow canvas + result preview + sample pipelines | Done      |
-| Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 30+ built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
+| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 40+ built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 40+ built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | Done      |
 | Settings      | general / GPU / data / about                                   | Done      |
@@ -37,7 +37,8 @@ state, not aspirational designs.
 | Reproducibility| seeded RNG, run manifests, DAG-to-Python export (`src/core/repro/`) | Done      |
 | Physics labs  | electromagnetism, optics (ray tracing with dispersion), structural mechanics (truss with collapse) — interactive, data-driven | Done      |
 | Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | Core done (Pyodide + sync) · Next (webR) |
-| Marketplace   | plugin registry UI, package signing, remote install            | Next      |
+| Scientific solvers | sparse Hermitian eigensolver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert, 2-D spectrum report + 3-D mode fields) and 1D–3D fluid-network bidirectional coupler (multi-rate time-step coordination + coarse–fine subcycling), both run in Pyodide workers — `em-eigensolver`, `fluid-cfd-coupler` | Done |
+| Marketplace   | plugin registry UI & remote install; `.cspkg` package-signing gate (ed25519, FR-05) live | Signing gate: Done · registry/install: Next |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | Done      |
 | Error handling| error boundaries, fallbacks, retry                            | Partial   |
 
@@ -63,8 +64,9 @@ state, not aspirational designs.
    R (webR) runtime remains as a follow-up item inside M3; the three-mode
    conversion (Block ↔ Flow ↔ Code round-trip through the shared IR) is
    already done and pinned by a `sync-threeway` unit test.
-4. **M4 — Marketplace**: package registry, versioning, signature
-   verification, and in-app install/update flows.
+4. **M4 — Marketplace**: package registry, versioning, and in-app
+   install/update flows. The `.cspkg` package-signing gate (ed25519, FR-05)
+   already shipped with the security work — see `SECURITY.md`.
 5. **M5 — CI + release**: GitHub Actions pipeline, artifact publishing,
    and the docs site deployed to Pages — **all complete** (see `.github/workflows/`).
 
@@ -72,7 +74,9 @@ state, not aspirational designs.
 
 - The plugin sandbox isolates the page context (globals, DOM, stores) but
   workers share the origin's IndexedDB — a malicious package could still
-  read app data. Package signing is planned for M4.
+  read app data. The `.cspkg` package-signing gate (ed25519, FR-05) is live
+  (see `SECURITY.md`); the missing piece is a self-service third-party submit
+  & install pipeline.
 - The legacy `new Function` fallback (when Workers are unavailable) is not a
   security boundary; the UI warns when it is used.
 - The WebGPU compute path requires a WebGPU-capable browser; without one the

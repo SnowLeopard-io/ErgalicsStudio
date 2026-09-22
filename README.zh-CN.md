@@ -65,13 +65,13 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 | **积木（Block）** | 学习者 / 喜欢命令式手感的人 | 类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序；完全可脚本化（变量、循环、条件、变换、绘图）。 |
 | **代码（Code）** | 真正的脚本编写 | 支持 **Python / R / JavaScript** 的 Monaco 编辑器：Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。 |
 
-Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；插件市场的包签名与完整的自由语法 R 运行时（webR）是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
+Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；同时新增两个赛题级科学求解器插件——电磁谐振特征值求解器（`em-eigensolver`）与流体双向耦合求解器（`fluid-cfd-coupler`），均运行于 Pyodide Worker 并复用共享线性代数内核。插件市场的 `.cspkg` 签名门禁（Ed25519，FR-05）已落地并写入 `SECURITY.md`；完整的自由语法 R 运行时（webR）仍是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
 > 状态：**积极开发**——今日即可使用。已交付内容：
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式（标准 / 流程 / 积木 / 代码）、42 个内置插件（32 核心 + 10 趣味）、沙箱化插件系统 + 市场目录 |
+| 工作台 | 四种模式（标准 / 流程 / 积木 / 代码）、44 个内置插件（34 科学 + 10 趣味）、沙箱化插件系统 + 市场目录 |
 | 计算 | 实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、统计分析子系统、可复现性支持 |
 | 代码编辑 | 三语言——Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎 |
@@ -97,7 +97,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 
 **插件系统**
 
-- **42 个内置插件**——32 个核心/科学插件外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
+- **44 个内置插件**——34 个核心/科学插件外加 10 个趣味与工具玩具——覆盖完整 API 面（2D canvas、Three.js 场景、WGSL 计算、按钮/开关、沙箱、浏览器内模型训练）。
 - **两级加载**：核心插件在启动时自动加载；趣味/工具插件声明 `autoload: false`，按需从内置面板或市场标签页加载，保持启动注册表精简。
 - **市场目录**（`src/plugins/marketplace.ts`）——每个内置插件均附带精选标签、流行度与分类筛选（科学 / 趣味 / 工具）；社区"敬请期待"提交作为占位符列出。
 - `.cspkg` 包加载（含 `manifest.json` + 入口 + 资源的 ZIP），并带有清单校验（id 格式、入口路径穿越防护、沙箱枚举）。
@@ -203,7 +203,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (32 核心 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (34 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["原生核心 (Rust→WASM)<br/>设备管理 · 计算<br/>内核调度<br/>文件类型检测"]
     end
 
@@ -321,7 +321,7 @@ cd docs && npm install && npm run dev
 │   │                         #     model-lab · profiler · reprolock ·
 │   │                         #     lineage · supplement）、signal、
 │   │                         #     sweeps、sql、report
-│   ├── plugins/builtin/      #   32 核心 + 10 趣味/工具插件 (2D + 3D)
+│   ├── plugins/builtin/      #   34 科学 + 10 趣味/工具插件 (2D + 3D)
 │   ├── plugins/marketplace.ts #   市场目录 (标签/流行度/筛选)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
 │   │                         #     editor/experiment/lineage/chunk/figure/notebook/
@@ -464,7 +464,7 @@ cd docs && npm install && npm run dev
 
 ### 内置插件
 
-**核心 / 科学插件**（启动时自动加载，共 32 个）：
+**核心 / 科学插件**（启动时自动加载，共 34 个）：
 
 | 插件                | 数据                        | 能力                      |
 | ------------------- | --------------------------- | ------------------------- |
@@ -500,6 +500,8 @@ cd docs && npm install && npm run dev
 | 电磁场（Electromagnetism） | `.json`（电荷 / 场）  | 可拖动电荷在库仑力与均匀磁场洛伦兹力共同作用下运动；回旋加速器螺线 |
 | 光学实验（Optics Lab） | `.json`（光学布局）       | 几何光学光线追踪：薄透镜、斯涅尔折射 + 色散三棱镜、可拖动光屏 |
 | 结构力学（Structure） | `.json`（桁架杆件）        | 铰接桁架：按轴力着色、利用率读数、超载断裂垮塌 |
+| 电磁谐振特征值求解器（EM Eigensolver） | `.npz`、`.npy`、`.mtx` | 稀疏厄密特征值求解器：thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES 位移反演，输出 2D 谱图报告与 3D 模式场，于 Pyodide Worker 中运行 |
+| 流体双向耦合求解器（Fluid CFD Coupler） | `.json`（管网 + 3D 场） | 1D 管网-3D 场双向耦合：多速率时间步协调、粗-细子循环、正反向边界耦合与毫秒级阀门控制 |
 
 模拟类插件严格数据驱动：初始为空，绝不伪造默认场景——流体障碍物、波动场景、
 双摆初始条件均来自内置示例或用户文件，**重置**仅重放已加载的数据。
@@ -691,18 +693,19 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 当前状态表见 [`docs/guide/roadmap.md`](docs/guide/roadmap.md)。要点：
 
 - [x] 工作台布局、项目管理、文件路由
-- [x] 42 个内置插件（32 核心 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
-- [x] 插件导出与分析增强——42 个插件全部支持一键 PNG 快照（3D 走场景快照）与 RFC-4180 CSV 导出，另有趋势线 / 移动均值 / 累积 / 密度 / 抖动 / 排序叠加层与仿真预设（生命游戏图案、Truchet 砖型）
+- [x] 44 个内置插件（34 科学 + 10 趣味/工具）、cspkg 加载、Worker 沙箱
+- [x] 插件导出与分析增强——44 个插件全部支持一键 PNG 快照（3D 走场景快照）与 RFC-4180 CSV 导出，另有趋势线 / 移动均值 / 累积 / 密度 / 抖动 / 排序叠加层与仿真预设（生命游戏图案、Truchet 砖型）
 - [x] 插件市场目录（精选标签 / 流行度 / 分类筛选，按需加载）
 - [x] WebGPU 设备管理 + 真实计算内核管线
 - [x] i18n、主题、性能监控、分享链接
-- [x] 流程模式——可视化数据流管线（编译器 + 增量执行器 + 42 个内置区块 + 画布 UI + `examples/projects/` 中的示例管线）
+- [x] 流程模式——可视化数据流管线（编译器 + 增量执行器 + 40+ 个内置区块 + 画布 UI + `examples/projects/` 中的示例管线）
 - [x] Vitest 单元测试 + Playwright E2E 套件
 - [x] 插件计算面（`api.gpu`）、WGSL 模板、Particles 加速
 - [x] 所有示例插件的 GPU 加速（直方图/热力图/点云）
-- [ ] 插件市场：包签名与第三方安装管线
+- [x] 插件 `.cspkg` 签名门禁（Ed25519，FR-05）——见 `SECURITY.md`
+- [ ] 插件市场：第三方自助提交与安装管线
 - [x] GitHub Actions CI（单元 + E2E + Pages 部署）
-- [x] 积木模式（类 Scratch，Google Blockly）——见 [积木模式](docs/guide/block-mode.md)。30+ 内置区块、与解释器共享的 IR、懒加载的 Blockly 13 及 5 个示例程序；位于顶栏 `Blocks` 槽位之后。
+- [x] 积木模式（类 Scratch，Google Blockly）——见 [积木模式](docs/guide/block-mode.md)。40+ 内置区块、与解释器共享的 IR、懒加载的 Blockly 13 及 5 个示例程序；位于顶栏 `Blocks` 槽位之后。
 - [x] 代码模式（Python / R / JavaScript）——带分段语言切换器的 Monaco 编辑器；Python 经 CPython Pyodide worker 运行（正经可导入的 `studio` 模块），R/JS 解析为共享 IR 并在内置解释器上执行；支持即时跨语言互译、REPL + 变量、worker 中断、Ctrl/⌘+Enter 运行，以及 `examples/code/` 下 9 个示例程序。
 - [x] 无缝三模式互转——积木 ↔ 流程 ↔ 代码经由共享 IR 往返（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `src/editor/code/parse.ts`）：拓扑排序、参数与区块目录对齐、`mergeFlowIR` 保留非 DAG 语句，并有防止节点丢失的注水签名守卫；由 `sync-threeway`、`flow-convert`、`editorStore`、`examples-roundtrip` 单元测试及 `verify-lang-modes` E2E 套件兜底。
 - [x] 统计分析子系统——假设检验、效应量、多重比较校正、功效分析（`src/core/stats/`），以 14 个流程模式 `stats.*` 区块呈现

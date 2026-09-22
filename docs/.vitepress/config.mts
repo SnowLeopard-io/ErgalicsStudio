@@ -80,6 +80,28 @@ export default defineConfig({
           },
         ],
       },
+      {
+        text: 'Technical Docs (中文)',
+        collapsible: true,
+        items: [
+          { text: '01 · 产品介绍', link: '/technical/01-产品介绍' },
+          { text: '02 · 系统架构', link: '/technical/02-系统架构' },
+          { text: '03 · 插件系统', link: '/technical/03-插件系统' },
+          { text: '04 · 四大工作模式', link: '/technical/04-四大工作模式' },
+          { text: '05 · 科研工具集', link: '/technical/05-科研工具集' },
+          { text: '06 · GPU计算与原生核心', link: '/technical/06-GPU计算与原生核心' },
+          { text: '07 · 科学计算子系统', link: '/technical/07-科学计算子系统' },
+          { text: '08 · 测试与质量保障', link: '/technical/08-测试与质量保障' },
+        ],
+      },
+      {
+        text: 'Solver 独立专题',
+        collapsible: true,
+        items: [
+          { text: '电磁谐振特征值求解器', link: '/technical/电磁谐振特征值求解器' },
+          { text: '流体双向耦合求解器', link: '/technical/流体双向耦合求解器' },
+        ],
+      },
     ],
     outline: { level: [2, 3] },
     socialLinks: [

@@ -170,12 +170,12 @@ have loose blocks, but the runtime only ever sees what is connected.
 When a node has no Blockly equivalent yet (anything we don't ship in
 `blocks.ts`), it is wrapped in a `studio_raw` block with the IR serialised
 into a multiline text field. Today that catch-all is rarely hit because we
-ship 30+ blocks; it is in place so future additions don't silently break
+ship 40+ blocks; it is in place so future additions don't silently break
 old workspaces.
 
 ## Built-in blocks
 
-`src/editor/block/blocks.ts` defines the catalogue (30+ entries). They are
+`src/editor/block/blocks.ts` defines the catalogue (40+ entries). They are
 laid out into nine toolbox categories (`src/editor/block/toolbox.ts`), each
 with a colour matching the Scratch convention:
 

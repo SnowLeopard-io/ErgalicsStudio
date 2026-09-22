@@ -96,7 +96,7 @@ codebase keeps scaling without a rewrite.
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes (Standard / Flow / Block / Code), 42 built-in plugins (32 core + 10 fun), sandboxed plugin system + marketplace catalog |
+| Workbench         | 4 modes (Standard / Flow / Block / Code), 44 built-in plugins (34 scientific + 10 fun), sandboxed plugin system + marketplace catalog |
 | Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
 | Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine |
@@ -145,7 +145,7 @@ codebase keeps scaling without a rewrite.
 
 **Plugin system**
 
-- **42 built-in plugins** — 32 core/scientific plugins plus 10 fun &
+- **44 built-in plugins** — 34 scientific/core plugins plus 10 fun &
   utility toys — covering the full API surface (2D canvas, Three.js scene,
   WGSL compute, buttons/toggles, sandboxing, in-browser model training).
 - **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
@@ -379,7 +379,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (32 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (34 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -510,7 +510,7 @@ See [Documentation](#documentation) for details.
 │   │                         #     uncertainty · model-lab · profiler ·
 │   │                         #     reprolock · lineage · supplement),
 │   │                         #     signal, sweeps, sql, report
-│   ├── plugins/builtin/      #   32 core + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   34 scientific + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
 │   │                         #     editor/experiment/lineage/chunk/figure/notebook/
@@ -687,7 +687,7 @@ on the roadmap; today's R tab covers the complete `studio.*` DSL.
 ## Research Modules (科研)
 
 The **科研** dropdown in the top bar — plus the **分析** quick-analysis
-button and the welcome page's quick-start cards — opens any of the fifteen
+button and the welcome page's quick-start cards — opens any of the 19
 standalone research pages. Every page shares the same lab shell (back to
 workbench + tool title + unconstrained scrollable body); every module is
 layered the same way: a pure-TypeScript core under `src/core/` (no React), a
@@ -766,7 +766,7 @@ answerable — and the answer ships with the paper via the supplement ZIP.
 
 ### Built-in plugins
 
-**Core / scientific plugins** (auto-loaded at startup, 32 total):
+**Core / scientific plugins** (auto-loaded at startup, 34 total):
 
 | Plugin               | Data                        | Capability                |
 | -------------------- | --------------------------- | ------------------------- |
@@ -802,6 +802,8 @@ answerable — and the answer ships with the paper via the supplement ZIP.
 | Electromagnetism     | `.json` (charges / fields)  | draggable charges under Coulomb + Lorentz forces in a uniform B field; cyclotron spirals |
 | Optics Lab           | `.json` (optical layout)    | geometric ray tracing with thin lenses, a Snell + dispersion prism, and a draggable light screen |
 | Structural Mechanics | `.json` (truss members)     | pin-jointed truss with axial-force coloring, utilization readouts and overload collapse |
+| EM Eigensolver | `.npz`, `.npy`, `.mtx` | sparse Hermitian eigenvalue solver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert) with 2-D spectrum report and 3-D mode fields, run in a Pyodide worker |
+| Fluid CFD Coupler | `.json` (network + 3-D field) | 1D pipeline–3D field bidirectional coupling with multi-rate time-step coordination, coarse–fine subcycling, forward/backward boundary coupling and millisecond valve control |
 
 Simulation plugins are strictly data-driven: they start empty and never
 fabricate a default scene — the flow obstacle, the wave scenario, and the
@@ -1085,18 +1087,19 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 42 built-in plugins (32 core + 10 fun/utility), cspkg loading, Worker sandbox
-- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 42 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
+- [x] 44 built-in plugins (34 scientific + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 44 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links
-- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 42 built-in blocks + canvas UI + sample pipelines in `examples/projects/`)
+- [x] Flow mode — visual dataflow pipeline (compiler + incremental executor + 40+ built-in block types + canvas UI + sample pipelines in `examples/projects/`)
 - [x] Vitest unit tests + Playwright E2E suites
 - [x] Plugin compute surface (`api.gpu`), WGSL templates, Particles accelerated
 - [x] GPU acceleration across all example plugins (histogram/heatmap/point cloud)
-- [ ] Plugin marketplace: package signing & third-party install pipeline
+- [x] Plugin `.cspkg` signing gate (ed25519, FR-05) — see `SECURITY.md`
+- [ ] Plugin marketplace: self-service third-party submit & install pipeline
 - [x] GitHub Actions CI (unit + E2E + Pages deploy)
-- [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 30+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
+- [x] Block mode (Scratch-like, Google Blockly) — see [Block Mode](docs/guide/block-mode.md). 40+ built-in blocks, shared IR with the interpreter, lazy-loaded Blockly 13, and 5 sample programs; lives behind the `Blocks` top-bar slot.
 - [x] Code mode (Python / R / JavaScript) — Monaco editor with a segmented language switcher; Python runs on a CPython Pyodide worker with a real importable `studio` module, R/JS parse to the shared IR and run on the in-process interpreter; instant cross-language buffer translation, REPL + variables, worker interrupt, Ctrl/⌘+Enter run, and 9 sample programs under `examples/code/`.
 - [x] Seamless three-mode conversion — Block ↔ Flow ↔ Code round-trip through the shared IR (`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `src/editor/code/parse.ts`) with topological ordering, catalog-aligned parameters, `mergeFlowIR` preservation of non-DAG statements and a hydration-signature guard against node loss; pinned by `sync-threeway`, `flow-convert`, `editorStore` and `examples-roundtrip` unit tests plus the `verify-lang-modes` E2E suite.
 - [x] Statistics subsystem — hypothesis tests, effect sizes, multiple-comparison corrections, power analysis (`src/core/stats/`), surfaced as 14 Flow-mode `stats.*` blocks
