@@ -118,12 +118,8 @@ export class ChemCrystalPlugin implements Plugin {
 
   async loadData(file: File) {
     const lower = file.name.toLowerCase();
-    if (lower.endsWith('.json')) {
-      this.loadJsonScene(file);
-      return;
-    }
     if (!/\.(cif|poscar|vasp|xyz)$/.test(lower)) {
-      this.api.notify('warning', this.zh ? '仅支持 CIF / POSCAR / XYZ / JSON 晶胞场景文件。' : 'Only CIF / POSCAR / XYZ / JSON scene files are supported.');
+      this.api.notify('warning', this.zh ? '仅支持 CIF / POSCAR / XYZ 结构文件。' : 'Only CIF / POSCAR / XYZ structure files are supported.');
       return;
     }
     try {
@@ -135,32 +131,6 @@ export class ChemCrystalPlugin implements Plugin {
     } catch (err) {
       this.api.notify('error', this.zh ? '无法解析结构文件。' : 'Failed to parse structure file.');
       this.api.log('error', `[chem-crystal] loadData: ${String(err)}`);
-    }
-    this.draw();
-    this.refreshParams();
-  }
-
-  /** Legacy JSON scene: `{ "crystal": "<sampleId>" }` → load built-in sample. */
-  private async loadJsonScene(file: File) {
-    try {
-      const text = await this.api.readText(file);
-      const json = JSON.parse(text) as { crystal?: string };
-      if (typeof json.crystal === 'string') {
-        const s = findSample(json.crystal);
-        if (s) {
-          this.state.source = 'sample';
-          this.state.sampleId = s.id;
-          delete this.state.file;
-          this.api.notify('info', this.zh ? `已加载晶胞：${s.nameZh}` : `Loaded crystal: ${s.nameEn}`);
-        } else {
-          this.api.notify('warning', this.zh ? '场景文件中的 crystal id 未知。' : 'Scene references an unknown crystal id.');
-        }
-      } else {
-        this.api.notify('warning', this.zh ? '晶胞场景文件缺少 "crystal" 字段。' : 'Crystal scene is missing a "crystal" field.');
-      }
-    } catch (err) {
-      this.api.notify('error', this.zh ? '无法解析晶胞场景文件。' : 'Failed to parse crystal scene file.');
-      this.api.log('error', `[chem-crystal] loadJsonScene: ${String(err)}`);
     }
     this.draw();
     this.refreshParams();

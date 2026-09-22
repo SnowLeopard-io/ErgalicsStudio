@@ -50,7 +50,20 @@ import fluidCfdCaseAJson from '../../examples/data/fluid-cfd-case-a.json?raw';
 import fluidCfdCaseBJson from '../../examples/data/fluid-cfd-case-b.json?raw';
 import surfaceRippleJson from '../../examples/data/surface-ripple.json?raw';
 import voxelSphereJson from '../../examples/data/voxel-sphere.json?raw';
-import chemNaclJson from '../../examples/data/chem-nacl.json?raw';
+import chemNaclCif from '../../examples/data/chem-nacl.cif?raw';
+import chemQuartzCif from '../../examples/data/chem-quartz.cif?raw';
+import chemCalciteCif from '../../examples/data/chem-calcite.cif?raw';
+import chemFluoriteCif from '../../examples/data/chem-fluorite.cif?raw';
+import chemRutileCif from '../../examples/data/chem-rutile.cif?raw';
+import chemPyriteCif from '../../examples/data/chem-pyrite.cif?raw';
+import reactionCuoH2 from '../../examples/data/reaction-cuo-h2.json?raw';
+import reactionCh4O2 from '../../examples/data/reaction-ch4-o2.json?raw';
+import reactionCaco3Cao from '../../examples/data/reaction-caco3-cao.json?raw';
+import reactionZnHcl from '../../examples/data/reaction-zn-hcl.json?raw';
+import reactionHclNaoh from '../../examples/data/reaction-hcl-naoh.json?raw';
+import reactionAgno3Nacl from '../../examples/data/reaction-agno3-nacl.json?raw';
+import reactionNaclElectrolysis from '../../examples/data/reaction-nacl-electrolysis.json?raw';
+import reactionC2h4Br2 from '../../examples/data/reaction-c2h4-br2.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -77,7 +90,7 @@ function aiExampleContent(name: string): Promise<string> {
  * own labelled section at the top of the "示例" dialog's dataset tab, ahead of
  * the general-purpose datasets, so flagship labs stay easy to find.
  */
-export type ExampleGroup = 'lab';
+export type ExampleGroup = 'lab' | 'chem';
 
 export interface BuiltinExample {
   id: string;
@@ -826,21 +839,270 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
 
   {
     id: 'chem-nacl',
-    filename: 'chem-nacl.json',
-    format: 'json',
-    mimeType: 'application/json',
+    filename: 'chem-nacl.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
     pluginId: 'example.chem-crystal',
-    group: 'lab',
-    content: chemNaclJson,
+    group: 'chem',
+    content: chemNaclCif,
     nameI18n: {
-      'zh-CN': '化学 · 氯化钠晶胞',
-      'en-US': 'Chemistry · NaCl unit cell',
+      'zh-CN': '化学 · 氯化钠晶胞（NaCl）',
+      'en-US': 'Chemistry · Halite unit cell (NaCl)',
     },
     descriptionI18n: {
       'zh-CN':
-        '加载 NaCl 岩盐型离子晶体晶胞：Cl⁻ 在角顶和面心、Na⁺ 在棱心和体心，自动统计有效原子数（各 4 个）与化学式配比 1:1，可切换球棍 / 空间填充并查看 3D 结构。',
+        'COD 收录的真实岩盐结构（Fm-3m，a≈5.62 Å）：Cl⁻ 立方面心堆积、Na⁺ 占据全部八面体空隙，对称展开出 4 Na + 4 Cl，配位数 6:6，可切换球棍 / 空间填充并查看 3D 结构。',
       'en-US':
-        'Loads the NaCl rock-salt unit cell (Cl⁻ at corners/faces, Na⁺ at edges/body) and auto-computes the 4:4 effective count and 1:1 formula ratio; switch ball-stick / space-filling.',
+        'Real halite from COD (Fm-3m, a≈5.62 Å): ccp Cl⁻ with Na⁺ in all octahedral holes; symmetry-expanded to 4 Na + 4 Cl with 6:6 coordination; switch ball-stick / space-filling.',
+    },
+  },
+  {
+    id: 'chem-quartz',
+    filename: 'chem-quartz.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
+    pluginId: 'example.chem-crystal',
+    group: 'chem',
+    content: chemQuartzCif,
+    nameI18n: {
+      'zh-CN': '化学 · α-石英晶胞（SiO₂）',
+      'en-US': 'Chemistry · α-Quartz unit cell (SiO₂)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'COD 开放晶体数据库收录的真实 α-石英结构（三方 P3₂21，a≈4.91 Å、γ=120°）：按对称操作自动展开出完整晶胞 3 Si + 6 O，统计化学式 SiO₂ 与理论密度约 2.65 g/cm³。',
+      'en-US':
+        'Real α-quartz from the Crystallography Open Database (trigonal P3₂21, a≈4.91 Å, γ=120°); symmetry-expanded to 3 Si + 6 O with the SiO₂ ratio and ~2.65 g/cm³ density.',
+    },
+  },
+  {
+    id: 'chem-calcite',
+    filename: 'chem-calcite.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
+    pluginId: 'example.chem-crystal',
+    group: 'chem',
+    content: chemCalciteCif,
+    nameI18n: {
+      'zh-CN': '化学 · 方解石晶胞（CaCO₃）',
+      'en-US': 'Chemistry · Calcite unit cell (CaCO₃)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'COD 收录的真实方解石结构（R-3c 菱方原始晶胞，a≈6.36 Å、α≈46°）：经典菱面体晶胞，展开出 2 Ca + 2 C + 6 O，配位数为平面三角形碳酸根与 6 配位钙。',
+      'en-US':
+        'Real calcite from COD (R-3c rhombohedral primitive cell, a≈6.36 Å, α≈46°): the classic cleavage rhombohedron, expanded to 2 Ca + 2 C + 6 O with trigonal carbonate groups.',
+    },
+  },
+  {
+    id: 'chem-fluorite',
+    filename: 'chem-fluorite.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
+    pluginId: 'example.chem-crystal',
+    group: 'chem',
+    content: chemFluoriteCif,
+    nameI18n: {
+      'zh-CN': '化学 · 萤石晶胞（CaF₂）',
+      'en-US': 'Chemistry · Fluorite unit cell (CaF₂)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'COD 收录的真实萤石结构（Fm-3m，a≈5.46 Å）：Ca²⁺ 立方面心堆积、F⁻ 占据全部四面体空隙，192 个对称操作展开出 4 Ca + 8 F，配位数 8:4。',
+      'en-US':
+        'Real fluorite from COD (Fm-3m, a≈5.46 Å): ccp Ca²⁺ with F⁻ in all tetrahedral holes; 192 symmetry ops expand to 4 Ca + 8 F, 8:4 coordination.',
+    },
+  },
+  {
+    id: 'chem-rutile',
+    filename: 'chem-rutile.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
+    pluginId: 'example.chem-crystal',
+    group: 'chem',
+    content: chemRutileCif,
+    nameI18n: {
+      'zh-CN': '化学 · 金红石晶胞（TiO₂）',
+      'en-US': 'Chemistry · Rutile unit cell (TiO₂)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'COD 收录的真实金红石结构（四方 P4₂/mnm，a≈4.59 Å、c≈2.96 Å）：Ti 配位 6、O 配位 3 的典型 AB₂ 型结构，展开出 2 Ti + 4 O。',
+      'en-US':
+        'Real rutile from COD (tetragonal P4₂/mnm, a≈4.59 Å, c≈2.96 Å): the prototype AB₂ structure with 6-coordinated Ti and 3-coordinated O, expanded to 2 Ti + 4 O.',
+    },
+  },
+  {
+    id: 'chem-pyrite',
+    filename: 'chem-pyrite.cif',
+    format: 'cif',
+    mimeType: 'text/plain',
+    pluginId: 'example.chem-crystal',
+    group: 'chem',
+    content: chemPyriteCif,
+    nameI18n: {
+      'zh-CN': '化学 · 黄铁矿晶胞（FeS₂）',
+      'en-US': 'Chemistry · Pyrite unit cell (FeS₂)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'COD 收录的真实黄铁矿结构（Pa-3，a≈5.42 Å）：Fe 六配位、S 以二硫阴离子 S₂²⁻ 成对出现，展开出 4 Fe + 8 S。',
+      'en-US':
+        'Real pyrite from COD (Pa-3, a≈5.42 Å): octahedral Fe with paired S₂²⁻ disulfide anions, expanded to 4 Fe + 8 S.',
+    },
+  },
+
+  // ---- Reaction mechanism 3D examples (chem-reaction) -------------------
+  {
+    id: 'chem-rxn-cuo-h2',
+    filename: 'reaction-cuo-h2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionCuoH2,
+    nameI18n: {
+      'zh-CN': '化学 · 氢气还原氧化铜（动力学）',
+      'en-US': 'Chemistry · H₂ + CuO redox dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '打开自由反应动力学 3D：CuO + H₂ → Cu + H₂O。设置温度与是否加催化剂，按「运行」后内置分子动力学引擎让 Cu–O 越过势垒断开、H–H 断裂并重组为 H₂O，原子随机热运动真实演化。',
+      'en-US':
+        'Opens the free-reaction-MD 3D lab for CuO + H₂ → Cu + H₂O. Set temperature and catalyst, press Run: the embedded engine fractures Cu–O past the barrier, severs H–H and recombines H₂O from genuine thermal motion.',
+    },
+  },
+  {
+    id: 'chem-rxn-ch4-o2',
+    filename: 'reaction-ch4-o2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionCh4O2,
+    nameI18n: {
+      'zh-CN': '化学 · 甲烷燃烧（动力学）',
+      'en-US': 'Chemistry · CH₄ combustion dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '甲烷完全燃烧：CH₄ + 2O₂ → CO₂ + 2H₂O。高温下 C–H、O=O 键随机断裂，碎片重组；反应完成后自动松弛，产物舒展为直线 CO₂ 与折角 H₂O。',
+      'en-US':
+        'Methane combustion: CH₄ + 2O₂ → CO₂ + 2H₂O. C–H and O=O bonds fracture at random at high temperature and fragments recombine; a final relaxation unfolds the products into linear CO₂ and bent H₂O.',
+    },
+  },
+  {
+    id: 'chem-rxn-caco3-cao',
+    filename: 'reaction-caco3-cao.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionCaco3Cao,
+    nameI18n: {
+      'zh-CN': '化学 · 碳酸钙高温分解（动力学）',
+      'en-US': 'Chemistry · CaCO₃ decomposition dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '碳酸钙高温分解：CaCO₃ → CaO + CO₂。Ca–O 与碳酸根的 C–O 键在高温下断裂，CO₂ 释放并松弛为直线构型，CaO 留在原处。',
+      'en-US':
+        'Calcium carbonate decomposition: CaCO₃ → CaO + CO₂. The carbonate C–O bond fractures at high temperature, CO₂ is released and relaxes to linear geometry, leaving solid CaO.',
+    },
+  },
+  {
+    id: 'chem-rxn-zn-hcl',
+    filename: 'reaction-zn-hcl.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionZnHcl,
+    nameI18n: {
+      'zh-CN': '化学 · 锌与稀盐酸置换氢气（动力学）',
+      'en-US': 'Chemistry · Zn + HCl single-replacement dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '单置换反应：Zn + 2HCl → ZnCl₂ + H₂。H–Cl 断裂、释放的 H 自由基两两捕获重组为 H₂ 逸出，Zn 与 Cl 结合成 ZnCl₂；高温下过程更剧烈。',
+      'en-US':
+        'Single-replacement: Zn + 2HCl → ZnCl₂ + H₂. H–Cl severs, the freed H radicals capture each other into H₂ gas while Zn binds Cl; fiercer at higher temperature.',
+    },
+  },
+  {
+    id: 'chem-rxn-hcl-naoh',
+    filename: 'reaction-hcl-naoh.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionHclNaoh,
+    nameI18n: {
+      'zh-CN': '化学 · 盐酸中和氢氧化钠（动力学）',
+      'en-US': 'Chemistry · HCl + NaOH neutralisation dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '中和反应：HCl + NaOH → NaCl + H₂O。H–Cl 与 Na–O 断裂交换，H、OH 自由基重组为 H₂O，Na、Cl 结合成 NaCl。',
+      'en-US':
+        'Neutralisation: HCl + NaOH → NaCl + H₂O. H–Cl and Na–O exchange partners; H and OH recombine into H₂O while Na and Cl form NaCl.',
+    },
+  },
+  {
+    id: 'chem-rxn-agno3-nacl',
+    filename: 'reaction-agno3-nacl.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionAgno3Nacl,
+    nameI18n: {
+      'zh-CN': '化学 · 硝酸银与氯化钠沉淀（动力学）',
+      'en-US': 'Chemistry · AgNO₃ + NaCl precipitation dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '沉淀反应：AgNO₃ + NaCl → AgCl↓ + NaNO₃。Ag–O 与 Na–Cl 断裂交换，Ag 与 Cl 结合析出 AgCl，Na 与 NO₃ 结合为 NaNO₃。',
+      'en-US':
+        'Precipitation: AgNO₃ + NaCl → AgCl↓ + NaNO₃. Ag–O and Na–Cl swap partners, Ag and Cl precipitate AgCl while Na and NO₃ combine into NaNO₃.',
+    },
+  },
+  {
+    id: 'chem-rxn-nacl-electrolysis',
+    filename: 'reaction-nacl-electrolysis.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionNaclElectrolysis,
+    nameI18n: {
+      'zh-CN': '化学 · 熔融氯化钠电解（动力学）',
+      'en-US': 'Chemistry · molten NaCl electrolysis dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '电解分解：2NaCl → 2Na + Cl₂。高温下两条 Na–Cl 键断裂，两个 Cl 自由基捕获重组为 Cl₂ 逸出，Na 原子留下。',
+      'en-US':
+        'Electrolysis decomposition: 2NaCl → 2Na + Cl₂. Both Na–Cl bonds fracture at high temperature, the two Cl radicals recombine into Cl₂ gas while Na atoms remain.',
+    },
+  },
+  {
+    id: 'chem-rxn-c2h4-br2',
+    filename: 'reaction-c2h4-br2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionC2h4Br2,
+    nameI18n: {
+      'zh-CN': '化学 · 乙烯与溴加成（动力学）',
+      'en-US': 'Chemistry · C₂H₄ + Br₂ addition dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '加成反应：C₂H₄ + Br₂ → C₂H₄Br₂。乙烯的 π 键与 Br–Br 断裂，两个 Br 各接到一个碳上生成 1,2-二溴乙烷；产物自动松弛展直。',
+      'en-US':
+        'Addition reaction: C₂H₄ + Br₂ → C₂H₄Br₂. The alkene π bond and Br–Br sever and one Br adds to each carbon, giving 1,2-dibromoethane; the product relaxes flat.',
     },
   },
 

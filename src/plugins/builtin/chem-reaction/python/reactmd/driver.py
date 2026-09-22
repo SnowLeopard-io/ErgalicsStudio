@@ -42,8 +42,10 @@ KB_EFF = 0.005        # kT = KB_EFF * T(K): Arrhenius barrier statistics
 KB_THERMO_FACT = 0.1  # visual thermostat energy = FACT × kT (calm vibration)
 EA_SCALE = 0.03       # display barrier = EA_SCALE × Ea(kJ/mol)
 NU0 = 8.0             # Arrhenius attempt frequency (1 / t-unit)
-K_BOND = 60.0         # spring constant base (energy / Å²) per bond order
-FBMAX = 12.0          # bond spring force cap (no catapulting)
+K_BOND = 200.0        # spring constant base (energy / Å²) per bond order —
+                      # stiff enough that products re-capture to bond length and
+                      # end in a stable bonded state (not a torn intermediate)
+FBMAX = 120.0         # bond spring force cap (no catapulting)
 LJ_CORE = 22.0        # soft core repulsion
 SIGMA_FACT = 0.82     # repulsion core at SIGMA_FACT × (rA + rB)
 KCENTER = 0.35        # weak "vessel" restoration toward the cluster centroid (Å·/t² per Å)
@@ -53,6 +55,15 @@ FORM_SET = 2.2        # form bond "formed" once distance < r0 × FORM_SET
 CAP_ABSOLUTE = 30.0   # absolute capture ceiling (Å): spans the whole reactant cluster
 K_FORM = 1.5          # approach speed (Å/t) while radical pair is outside lock radius
 K_CAPTURE = 0.30      # damping blend toward "point at partner" velocity (per step)
+
+# post-reaction relaxation: once every product bond has formed, we stop
+# injecting thermal energy, strongly damp the motion, and apply gentle bond-angle
+# potentials so finished multi-atom products unfold into their natural geometry
+# (linear CO₂, bent H₂O, tetrahedral CH₄) instead of freezing mid-scatter.
+RELAX_RATIO = 0.35    # extra integration length = RELAX_RATIO × `steps`
+GAMMA_RELAX = 10.0    # heavy friction during relaxation -> kinetic energy drains
+K_ANG = 80.0          # bond-angle spring (reduced units / rad²)
+ANG_MAX = 0.6         # per-angle torque cap (rad) -> no violent whipsaw
 
 
 def simulate(payload: dict):
@@ -182,7 +193,7 @@ def simulate(payload: dict):
                 b["alive"] = False
                 b["broken"] = True
                 free[a] = free[d] = True
-                break_events.append({"a": a, "b": d, "t": step})
+                break_events.append({"a": a, "b": d, "t": step // sample_every})
 
         # 2) product-bond formation (downhill, radical recombination)
         for b in bonds:
@@ -198,7 +209,7 @@ def simulate(payload: dict):
             if dist < b["r0"] * FORM_SET:
                 b["formed"] = True
                 b["pursue"] = False
-                form_events.append({"a": a, "b": d, "t": step})
+                form_events.append({"a": a, "b": d, "t": step // sample_every})
             elif dist < max(b["r0"] * FORM_PURSUE, CAP_ABSOLUTE):
                 b["pursue"] = True
 
@@ -256,6 +267,88 @@ def simulate(payload: dict):
 
     pos_traj.append(pos.copy())
     progress_out.append(float(sum(1 for b in bonds if b["formed"]) / max(1, n_form)))
+
+    # ---- post-reaction relaxation ------------------------------------------
+    # Only when every product bond has formed do we run the unfolding settle
+    # pass: no thermal noise, strong damping, gentle angle potentials. This turns
+    # the finished cluster from a frozen mid-scatter tangle into relaxed, natural
+    # molecule shapes. Unreacted runs (no product bonds) keep their thermal jiggle.
+    all_formed = n_form > 0 and sum(1 for b in bonds if b["formed"]) == n_form
+    if all_formed:
+        syms = [a.get("symbol", "X") for a in atoms]
+        lp = {"O", "N", "S", "P", "F", "Br", "I", "Se", "Te", "Cl"}
+
+        def theta0(sym, m):
+            if m >= 4:
+                return math.radians(109.5)
+            if m == 3:
+                return math.radians(120.0)
+            if m == 2:
+                return math.radians(109.5) if sym in lp else math.radians(180.0)
+            return math.radians(109.5)
+
+        # adjacency of the *finished* bond graph (keep/not-yet-broken/form-formed)
+        adj = [[] for _ in range(n)]
+        for b in bonds:
+            present = (b["kind"] == "form" and b["formed"]) or b["alive"]
+            if present:
+                adj[b["a"]].append(b["b"])
+                adj[b["b"]].append(b["a"])
+        angle_triples = []
+        for j in range(n):
+            nb = adj[j]
+            m = len(nb)
+            if m < 2:
+                continue
+            t0 = theta0(syms[j], m)
+            for ii in range(m):
+                for kk in range(ii + 1, m):
+                    angle_triples.append((j, nb[ii], nb[kk], t0))
+
+        relax_steps = max(1, int(steps * RELAX_RATIO))
+        inv = 1.0 / mass
+        step_skip = 0
+        for _ in range(relax_steps):
+            acc = forces()
+            if angle_triples:
+                # bond-angle restoring forces (equilibrium geometry, damped)
+                for (j, a, c, t0c) in angle_triples:
+                    ra = pos[a] - pos[j]
+                    rc = pos[c] - pos[j]
+                    da = math_len(ra)
+                    dc = math_len(rc)
+                    if da < 1e-6 or dc < 1e-6:
+                        continue
+                    ua = ra / da
+                    uc = rc / dc
+                    cosT = float(np.clip(float(np.dot(ua, uc)), -1.0, 1.0))
+                    sinT = math.sqrt(max(0.0, 1.0 - cosT * cosT))
+                    if sinT < 1e-4:
+                        continue
+                    T = math.acos(cosT)
+                    dT = T - t0c
+                    dT = max(-ANG_MAX, min(ANG_MAX, dT))
+                    Ja = (uc - cosT * ua) / (da * sinT)
+                    Jc = (ua - cosT * uc) / (dc * sinT)
+                    fa = K_ANG * dT * Ja * inv[a]
+                    fc = K_ANG * dT * Jc * inv[c]
+                    acc[a] += fa
+                    acc[c] += fc
+                    acc[j] -= (fa + fc)
+            vel += acc * DT
+            vel *= (1.0 - GAMMA_RELAX * DT)
+            pos += vel * DT
+            sp = np.linalg.norm(vel, axis=1)
+            too_fast = sp > VEL_CAP
+            if np.any(too_fast):
+                vel[too_fast] *= VEL_CAP / sp[too_fast, None]
+            vel -= vel.mean(axis=0)
+            pos += center0 - pos.mean(axis=0)
+            if step_skip % sample_every == 0:  # noqa: F821 — sampled like the main loop
+                pos_traj.append(pos.copy())
+            step_skip += 1
+        pos_traj.append(pos.copy())
+        progress_out.append(1.0)
 
     arr = np.stack(pos_traj, axis=0) if pos_traj else np.zeros((1, n, 3))
 
