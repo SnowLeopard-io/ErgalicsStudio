@@ -51,6 +51,8 @@ import { opticsManifest } from './opticsManifest';
 import { structureManifest } from './structureManifest';
 import { emEigensolverManifest } from './em-eigensolver/manifest';
 import { fluidCfdCouplerManifest } from './fluid-cfd-coupler/manifest';
+import { chemCrystalManifest } from './chem-crystal/manifest';
+import { chemReactionManifest } from './chem-reaction/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -190,6 +192,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: fluidCfdCouplerManifest,
     load: async () => {
       const mod = await import('./fluid-cfd-coupler');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemCrystalManifest,
+    load: async () => {
+      const mod = await import('./chem-crystal');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemReactionManifest,
+    load: async () => {
+      const mod = await import('./chem-reaction');
       return mod.default();
     },
   },

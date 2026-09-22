@@ -37,11 +37,12 @@ interface ParseResult {
 type Token =
   | { t: 'num'; v: number }
   | { t: 'str'; v: string }
+  | { t: 'tmpl'; v: string }
   | { t: 'id'; v: string }
   | { t: 'op'; v: string }
   | { t: 'punc'; v: string };
 
-const MULTI_OPS = ['**', '//', '==', '!=', '<=', '>=', '&&', '||', '<-', '->', '%%', '%/%'];
+const MULTI_OPS = ['**', '//', '==', '!=', '<=', '>=', '&&', '||', '<-', '->', '%%', '%/%', '|>', '%>%', '=>'];
 
 function tokenize(src: string): Token[] {
   const toks: Token[] = [];
@@ -80,6 +81,19 @@ function tokenize(src: string): Token[] {
         }
       }
       toks.push({ t: 'str', v: out });
+      i = j + 1;
+      continue;
+    }
+    // template literal (JS backticks). `${expr}` interpolations stay inline in
+    // the payload and are split out later by parseTemplate.
+    if (ch === '`') {
+      let j = i + 1;
+      let out = '';
+      while (j < n && src[j] !== '`') {
+        if (src[j] === '\\' && j + 1 < n) { out += src[j]! + src[j + 1]!; j += 2; }
+        else { out += src[j]!; j += 1; }
+      }
+      toks.push({ t: 'tmpl', v: out });
       i = j + 1;
       continue;
     }
@@ -126,6 +140,25 @@ class ExprParser {
     for (;;) {
       const t = this.peek();
       if (!t) break;
+      // Pipe operators (`|>` R native / magrittr `%>%`) bind loosest: they are
+      // only consumed at statement level (minPrec 0), so `a + 1 |> f()` reads
+      // as `f(a + 1)`. `x |> f(a)` becomes `f(x, a)`; a bare `x |> f` becomes
+      // `f(x)`; a `studio.*` RHS folds straight into the canonical IR call.
+      if (minPrec === 0 && t.t === 'op' && (t.v === '|>' || t.v === '%>%')) {
+        this.next();
+        const fnTok = this.next();
+        if (!fnTok || fnTok.t !== 'id') return null;
+        let args: IRNode[] = [left];
+        if (this.peek()?.t === 'punc' && this.peek()?.v === '(') {
+          const more = this.argList(')');
+          if (more === null) return null;
+          args = [left, ...more];
+        }
+        left = fnTok.v.startsWith('studio.')
+          ? buildStudioCall(fnTok.v.slice('studio.'.length), args) ?? { kind: 'Call', callee: fnTok.v, args }
+          : { kind: 'Call', callee: fnTok.v, args };
+        continue;
+      }
       // `and` / `or` are keyword identifiers in Python (R uses && / ||).
       const op = t.t === 'op' ? this.mapOp(t.v)
         : t.t === 'id' && (t.v === 'and' || t.v === 'or') ? t.v as BinaryOperator
@@ -138,6 +171,29 @@ class ExprParser {
           left = after;
           continue;
         }
+        // JS arrow function: `(v) => body` / `([x, y]) => body`. The params
+        // arrive as a grouped VarRef (or a List from `(a, b)` / `[a, b]`).
+        if (t.t === 'op' && t.v === '=>') {
+          const params = arrowParams(left);
+          if (!params) return null;
+          this.next();
+          const body = this.expression(0);
+          if (body === null) return null;
+          return { kind: 'Lambda', params, body };
+        }
+        // member access on any receiver: `(df).length`, `(xs).map(…).join(…)`,
+        // `(est).toFixed(4)`, `xs[0].length`.
+        if (t.t === 'op' && t.v === '.') {
+          const prop = this.toks[this.pos + 1];
+          const isCall = prop?.t === 'id' && this.toks[this.pos + 2]?.t === 'punc' && this.toks[this.pos + 2]!.v === '(';
+          if (prop?.t === 'id') {
+            const save = this.pos;
+            const handled = this.memberPostfix(left, prop.v, isCall);
+            if (handled !== null) { left = handled; continue; }
+            this.pos = save;
+          }
+          return null; // `(x).unknown` — not representable, keep the source raw
+        }
         break;
       }
       const prec = BIN_PREC[op];
@@ -146,6 +202,36 @@ class ExprParser {
       const right = this.expression(prec + 1); // left-assoc; power handled below
       if (right === null) return null;
       left = { kind: 'BinaryOp', op, left, right };
+      // Inverse of the JS two-arg round lowering (real JS ignores Math.round's
+      // second argument, so codegen emits the scaled-div form): fold
+      // `Math.round(x * 10 ** n) / 10 ** n` back into `round(x, n)`.
+      if (op === '/' && this.lang === 'js') {
+        const folded = foldJsScaledRound(left);
+        if (folded) left = folded;
+      }
+    }
+    if (minPrec === 0) {
+      // Python conditional expression `A if C else B`. The `else` lookahead
+      // keeps a comprehension filter (`[v for v in xs if v > 0]`) from being
+      // mistaken for a ternary.
+      if (this.lang === 'python' && this.peek()?.t === 'id' && this.peek()?.v === 'if') {
+        const save = this.pos;
+        this.next();
+        const cond = this.expression(0);
+        if (cond !== null && this.eatId('else')) {
+          const alt = this.expression(0);
+          if (alt !== null) return { kind: 'Ternary', cond, then: left, alt };
+        }
+        this.pos = save;
+      }
+      if (this.lang === 'js' && this.peek()?.t === 'op' && this.peek()?.v === '?') {
+        this.next();
+        const then = this.expression(0);
+        if (then !== null && this.eatPunc(':')) {
+          const alt = this.expression(0);
+          if (alt !== null) return { kind: 'Ternary', cond: left, then, alt };
+        }
+      }
     }
     return left;
   }
@@ -187,31 +273,107 @@ class ExprParser {
     const t = this.next();
     if (!t) return null;
     if (t.t === 'num') return { kind: 'Number', value: t.v };
-    if (t.t === 'str') return { kind: 'String', value: t.v };
+    if (t.t === 'tmpl') {
+      const parsed = parseTemplate(t.v, this.lang);
+      if (parsed) return parsed;
+    }
     if (t.t === 'id') {
       if (t.v === 'True' || t.v === 'TRUE' || t.v === 'true') return { kind: 'Boolean', value: true };
       if (t.v === 'False' || t.v === 'FALSE' || t.v === 'false') return { kind: 'Boolean', value: false };
       if (t.v === 'None' || t.v === 'NULL' || t.v === 'null') return { kind: 'Null' };
+      // python lambda expression.
+      if (t.v === 'lambda' && this.lang === 'python') {
+        const params: string[] = [];
+        for (;;) {
+          const p = this.peek();
+          if (p?.t === 'id' && p.v !== ':') { params.push(p.v); this.next(); if (this.eatPunc(',')) continue; }
+          break;
+        }
+        if (!this.eatPunc(':')) return null;
+        const body = this.expression(0);
+        if (body === null) return null;
+        return { kind: 'Lambda', params, body };
+      }
+      // Dialect constants fold into the canonical math.pi VarRef so codegen
+      // can re-render them per target (R `pi`, JS `Math.PI`, py `math.pi`).
+      if (t.v === 'Math.PI' || (t.v === 'pi' && this.lang === 'r')) {
+        return { kind: 'VarRef', name: 'math.pi' };
+      }
+      // Python f-string: the lexer yields id 'f' immediately followed by the
+      // quoted string (the `f` prefix is not part of any identifier).
+      if (t.v === 'f' && this.peek()?.t === 'str') {
+        const s = this.next()!;
+        if (s.t !== 'str') return null;
+        const parsed = parseFString(s.v, this.lang);
+        if (parsed) return parsed;
+      }
       // `studio.<method>(...)` lexes as one dotted identifier; dispatch DSL
       // calls to the IR mapping and keep the rest as generic VarRefs.
       if (t.v.startsWith('studio.')) {
         const method = t.v.slice('studio.'.length);
         if (this.peek()?.t === 'punc' && this.peek()?.v === '(') {
-          return this.studioCall(method);
+          const call = this.studioCall(method);
+          return call ? this.flattenChain(call) : null;
         }
         return { kind: 'VarRef', name: t.v };
       }
       // function call
       if (this.peek()?.t === 'punc' && this.peek()?.v === '(') {
-        return this.namedCall(t.v);
+        const call = this.namedCall(t.v);
+        return call ? this.flattenChain(call, t.v) : null;
       }
+      // `obj.method(...)` — the dot lexed separately (e.g. after an index),
+      // and `_random.Random(i).random()` style chains.
+      const chained = this.tryChain({ kind: 'VarRef', name: t.v });
+      if (chained) return chained;
+      // JS `xs.length` lexes as one dotted name → canonical len(xs).
+      const lenM = /^([A-Za-z_$][\w$]*)\.length$/.exec(t.v);
+      if (lenM) return { kind: 'Call', callee: 'len', args: [{ kind: 'VarRef', name: lenM[1]! }] };
       return { kind: 'VarRef', name: t.v };
+    }
+    if (t.t === 'str') {
+      // `'<sep>'.join(...)` — a string receiver cannot be a generic Call.
+      if (this.peek()?.t === 'op' && this.peek()?.v === '.') {
+        const save = this.pos;
+        this.next();
+        const prop = this.next();
+        if (prop?.t === 'id' && prop.v === 'join' && this.peek()?.v === '(') {
+          const args = this.argList(')');
+          if (args && args.length === 1) {
+            return { kind: 'Join', sep: t.v, items: args[0]! };
+          }
+        }
+        this.pos = save;
+      }
+      return { kind: 'String', value: t.v };
     }
     if (t.t === 'punc') {
       if (t.v === '(') {
-        const inner = this.expression(0);
-        if (inner === null || !this.eatPunc(')')) return null;
-        return inner;
+        // Grouping — or a tuple literal when a comma follows (`for k in (a, b)`).
+        const first = this.expression(0);
+        if (first === null) return null;
+        if (this.peek()?.t === 'punc' && this.peek()?.v === ',') {
+          const items: IRNode[] = [first];
+          while (this.eatPunc(',')) {
+            if (this.peek()?.t === 'punc' && this.peek()?.v === ')') break;
+            const e = this.expression(0);
+            if (e === null) return null;
+            items.push(e);
+          }
+          if (!this.eatPunc(')')) return null;
+          // codegen's JS seeded draw: `(setSeed(S), random01())` — a statement
+          // pair that semantically yields one seeded uniform draw, not a list.
+          if (items.length === 2) {
+            const [a, b] = items;
+            if (a && b && a.kind === 'Call' && a.callee === 'random.seed' && a.args.length === 1
+              && b.kind === 'Call' && b.callee === 'random.random' && b.args.length === 0) {
+              return { kind: 'Call', callee: '_random.Random.random', args: [a.args[0]!] };
+            }
+          }
+          return { kind: 'List', items };
+        }
+        if (!this.eatPunc(')')) return null;
+        return first;
       }
       if (t.v === '[') return this.listLit();
       if (t.v === '{') return this.dictLit();
@@ -220,25 +382,106 @@ class ExprParser {
     return null;
   }
 
+  /** Flatten `X.m1(...).m2(...)` chains into dotted callees so they survive
+   *  the Call node's string-callee shape (python round-trips verbatim).
+   *  Segment arguments merge into the final call's args in order, so
+   *  `_random.Random(i).random()` keeps its seed as args[0]. */
+  private flattenChain(node: IRNode, base?: string): IRNode {
+    let current = node;
+    let prefix = base ?? (current.kind === 'Call' ? current.callee : '');
+    let merged: IRNode[] = current.kind === 'Call' ? [...current.args] : [];
+    for (;;) {
+      const t = this.peek();
+      if (!t || t.t !== 'op' || t.v !== '.') break;
+      const prop = this.toks[this.pos + 1];
+      if (!prop || prop.t !== 'id' || this.toks[this.pos + 2]?.v !== '(') break;
+      // Member idioms (String(x).toFixed(4), .padStart(5, ' '), .map(…))
+      // take precedence over dotted-callee flattening, which would otherwise
+      // swallow `String(k).padStart(…)` into an unrepresentable callee.
+      const save = this.pos;
+      const handled = this.memberPostfix(current, prop.v, true);
+      if (handled !== null) return handled;
+      this.pos = save;
+      this.pos += 2;
+      const args = this.argList(')');
+      if (args === null) break;
+      prefix = `${prefix}.${prop.v}`;
+      merged = [...merged, ...args];
+      current = { kind: 'Call', callee: prefix, args: merged };
+    }
+    return current;
+  }
+
+  /** Chain handling for a bare identifier (`rng.random()`). */
+  private tryChain(node: IRNode): IRNode | null {
+    const t = this.peek();
+    if (!t || t.t !== 'op' || t.v !== '.') return null;
+    const prop = this.toks[this.pos + 1];
+    if (!prop || prop.t !== 'id' || this.toks[this.pos + 2]?.v !== '(') return null;
+    return this.flattenChain(node, node.kind === 'VarRef' ? node.name : '');
+  }
+
   private eatPunc(v: string): boolean {
     const t = this.peek();
     if (t?.t === 'punc' && t.v === v) { this.next(); return true; }
     return false;
   }
 
-  /** `[a, b, c]` and Python slices `[a:b:c]` are distinguished by the callee. */
+  /** `[a, b, c]`, Python slices `[a:b:c]`, and comprehensions
+   *  `[body for v in iter if cond]` are distinguished by what follows. */
   private listLit(): IRNode | null {
     const items: IRNode[] = [];
     if (this.eatPunc(']')) return { kind: 'List', items };
+    const first = this.expression(0);
+    if (first === null) return null;
+    // Comprehension header: `for var(s) in iter [if cond]`.
+    if (this.peek()?.t === 'id' && this.peek()?.v === 'for') {
+      const comp = this.compTail(first);
+      if (comp === null) return null;
+      if (!this.eatPunc(']')) return null;
+      return comp;
+    }
+    items.push(first);
     for (;;) {
-      const e = this.expression(0);
-      if (e === null) return null;
-      items.push(e);
-      if (this.eatPunc(',')) continue;
+      if (this.eatPunc(',')) {
+        if (this.peek()?.t === 'punc' && this.peek()?.v === ']') break;
+        const e = this.expression(0);
+        if (e === null) return null;
+        items.push(e);
+        continue;
+      }
       break;
     }
     if (!this.eatPunc(']')) return null;
     return { kind: 'List', items };
+  }
+
+  /** Parse `for v in iter [if cond]` after a leading body expression. */
+  private compTail(body: IRNode): IRNode | null {
+    if (!this.eatId('for')) return null;
+    const vars: string[] = [];
+    for (;;) {
+      const t = this.next();
+      if (!t || t.t !== 'id') return null;
+      vars.push(t.v);
+      if (!this.eatPunc(',')) break;
+    }
+    if (!this.eatId('in')) return null;
+    const iter = this.expression(0);
+    if (iter === null) return null;
+    let cond: IRNode | undefined;
+    if (this.peek()?.t === 'id' && this.peek()?.v === 'if') {
+      this.next();
+      cond = this.expression(0) ?? undefined;
+      if (!cond) return null;
+    }
+    return { kind: 'ListComp', vars, iter, body, ...(cond ? { cond } : {}) };
+  }
+
+  private eatId(v: string): boolean {
+    const t = this.peek();
+    if (t?.t === 'id' && t.v === v) { this.next(); return true; }
+    return false;
   }
 
   private dictLit(): IRNode | null {
@@ -312,13 +555,13 @@ class ExprParser {
     const startNode = part(start + 1, c1);
     const stopNode = part(stopStart, stopEnd);
     const stepNode = c2 >= 0 ? part(c2 + 1, close) : undefined;
-    const node: IRNode = {
+    const node: IRNode = canonSlice({
       kind: 'ListSlice',
       list: obj,
       ...(startNode ? { start: startNode } : {}),
       ...(stopNode ? { stop: stopNode } : {}),
       ...(stepNode ? { step: stepNode } : {}),
-    };
+    });
     this.pos = close + 1;
     return node;
   }
@@ -336,7 +579,9 @@ class ExprParser {
 
   /** R/Python collection constructors: `list(...)` and `c(...)`.
    *  Named members (`list(x = 'a')`) become a Dict — that is how R codegen
-   *  renders plot option objects. */
+   *  renders plot option objects. Also restores the dialect idioms the
+   *  codegen emits (sprintf ⇄ f-string, length ⇄ len, seq ⇄ range, …) back
+   *  into their canonical IR so conversions round-trip instead of drifting. */
   private namedCall(name: string): IRNode | null {
     const lower = name.toLowerCase();
     if (lower === 'list' || lower === 'c') {
@@ -347,8 +592,16 @@ class ExprParser {
       }
       return { kind: 'List', items: parsed.positional };
     }
-    const args = this.argList(')');
-    if (args === null) return null;
+    // codegen's inline seeded draw — intercept before generic arg parsing,
+    // whose `{ … }` statement block is not expression-parseable.
+    if (name === 'local' && this.lang === 'r') {
+      const seeded = this.trySeededLocal();
+      if (seeded) return seeded;
+    }
+    const parsed = this.namedArgs(')');
+    if (!parsed) return null;
+    const args = parsed.positional;
+    const named = parsed.named;
     if (name === 'print') return { kind: 'StudioCall', method: 'print', args };
     // Inverse of codegen's integer-division lowering:
     //   JS `Math.floor(a / b)` / R `floor(a / b)`  →  BinaryOp '//'
@@ -361,14 +614,194 @@ class ExprParser {
     const sliceM = /^([A-Za-z_$][\w$.]*)\.slice$/.exec(name);
     if (sliceM && this.lang !== 'python' && args.length >= 1 && args.length <= 2) {
       const isUndef = (n: IRNode | undefined): boolean => n?.kind === 'VarRef' && n.name === 'undefined';
-      return {
+      return canonSlice({
         kind: 'ListSlice',
         list: { kind: 'VarRef', name: sliceM[1]! },
         ...(args[0] && !isUndef(args[0]) ? { start: args[0] } : {}),
         ...(args[1] && !isUndef(args[1]) ? { stop: args[1] } : {}),
-      };
+      });
+    }
+    // ---- dialect idiom inverses → canonical IR ----
+    // sapply/lapply over a vector (optionally Filtered) ⇄ python comprehension.
+    if (name === 'sapply' || name === 'lapply') {
+      const [iter, fn] = args;
+      if (iter && fn?.kind === 'Lambda' && fn.params.length === 1) {
+        if (iter.kind === 'Call' && iter.callee === 'Filter' && iter.args.length === 2 && iter.args[0]!.kind === 'Lambda') {
+          const cf = iter.args[0] as Extract<IRNode, { kind: 'Lambda' }>;
+          return { kind: 'ListComp', vars: fn.params, iter: iter.args[1]!, body: fn.body, cond: cf.body };
+        }
+        return { kind: 'ListComp', vars: fn.params, iter, body: fn.body };
+      }
+    }
+    // mapply walks zipped sequences in lockstep ⇄ `for x, y in zip(a, b)`.
+    if (name === 'mapply' && args.length >= 2 && args[0]!.kind === 'Lambda') {
+      const fn = args[0] as Extract<IRNode, { kind: 'Lambda' }>;
+      const seqs = args.slice(1);
+      if (seqs.length === fn.params.length) {
+        return { kind: 'ListComp', vars: fn.params, iter: { kind: 'Call', callee: 'zip', args: seqs }, body: fn.body };
+      }
+    }
+    // JS `out.push(x)` — the dotted name lexed whole → python `.append`.
+    const pushM = /^([A-Za-z_$][\w$.]*)\.push$/.exec(name);
+    if (pushM && args.length === 1) return { kind: 'Call', callee: `${pushM[1]}.append`, args };
+    if (name === 'sprintf' && args.length >= 1 && args[0]!.kind === 'String') {
+      const fstr = sprintfToFString(args[0]!.value, args.slice(1));
+      if (fstr) return fstr;
+    }
+    if (name === 'length' && args.length === 1) return { kind: 'Call', callee: 'len', args };
+    // R `seq(0, (n) - 1)` is the emitted form of python `range(0, n)`.
+    if (name === 'seq' && args.length === 2) {
+      const stop = args[1]!;
+      if (stop.kind === 'BinaryOp' && stop.op === '-' && stop.right.kind === 'Number' && stop.right.value === 1) {
+        const start = args[0]!;
+        if (start.kind === 'Number' && start.value === 0) return { kind: 'Call', callee: 'range', args: [stop.left] };
+        return { kind: 'Call', callee: 'range', args: [start, stop.left] };
+      }
+    }
+    // Bare math functions in R/JS source (`sin(x)`) canonicalize to math.*.
+    if (this.lang !== 'python' && MATH_FN_ALIASES.includes(name) && args.length >= 1) {
+      return { kind: 'Call', callee: `math.${name}`, args };
+    }
+    if (name === 'set.seed' && args.length === 1) return { kind: 'Call', callee: 'random.seed', args };
+    if (name === 'setSeed' && args.length === 1) return { kind: 'Call', callee: 'random.seed', args };
+    // python RNG-object idiom: `rng = random.Random(S)` binds a seeded
+    // generator the shared engine models globally — the binding becomes a
+    // seed statement and `<var>.random()` a bare uniform draw, so the IR
+    // matches what R/JS set.seed / random01 sources parse back into.
+    if ((name === '_random.Random' || name === 'random.Random') && args.length === 1) {
+      return { kind: 'Call', callee: 'random.seed', args };
+    }
+    if (args.length === 0 && /^[A-Za-z_]\w*\.random$/.test(name)) {
+      return { kind: 'Call', callee: 'random.random', args: [] };
+    }
+    if (name === 'runif' && args.length === 1 && args[0]!.kind === 'Number' && args[0]!.value === 1) {
+      return { kind: 'Call', callee: 'random.random', args: [] };
+    }
+    if (name === 'random01' && args.length === 0) return { kind: 'Call', callee: 'random.random', args: [] };
+    if (name === 'ifelse' && args.length === 3) {
+      return { kind: 'Ternary', cond: args[0]!, then: args[1]!, alt: args[2]! };
+    }
+    // R `paste(items, collapse = sep)` ⇄ python `sep.join(items)`.
+    if (name === 'paste' && args.length === 1 && named.get('collapse')?.kind === 'String') {
+      return { kind: 'Join', sep: (named.get('collapse') as { value: string }).value, items: args[0]! };
+    }
+    // JS `Math.*` ⇄ python `math.*` (Math.PI folded to the constant VarRef).
+    // abs/min/max/round are python builtins, not math.* members — canonicalize
+    // them to the bare call every dialect renders back to Math.<fn> / base R.
+    if (name.startsWith('Math.')) {
+      const fn = name.slice('Math.'.length);
+      if (fn === 'PI') return { kind: 'VarRef', name: 'math.pi' };
+      if (fn === 'abs' || fn === 'min' || fn === 'max' || fn === 'round') {
+        return { kind: 'Call', callee: fn, args };
+      }
+      return { kind: 'Call', callee: `math.${fn}`, args };
     }
     return { kind: 'Call', callee: name, args };
+  }
+
+  /** `.prop` / `.method(args)` on any receiver. Recognizes the idioms the
+   *  codegen emits (map/filter → ListComp, toFixed/padStart → FString spec,
+   *  join → Join, length → len, push → append); anything else returns null so
+   *  the source degrades honestly. Tokens are consumed only on success. */
+  private memberPostfix(receiver: IRNode, prop: string, isCall: boolean): IRNode | null {
+    // Consume `.` + the member id up front; undo on failure (the caller also
+    // restores, so this just keeps argList's peek position correct).
+    this.pos += 2;
+    if (!isCall) {
+      if (prop === 'length') return { kind: 'Call', callee: 'len', args: [receiver] };
+      this.pos -= 2;
+      return null;
+    }
+    const args = this.argList(')');
+    if (args === null) {
+      this.pos -= 2;
+      return null;
+    }
+    const lambda = (n: IRNode | undefined): Extract<IRNode, { kind: 'Lambda' }> | null =>
+      n && n.kind === 'Lambda' ? n : null;
+    if (prop === 'map') {
+      const fn = args.length === 1 ? lambda(args[0]) : null;
+      if (fn) return { kind: 'ListComp', vars: fn.params, iter: receiver, body: fn.body };
+      return null;
+    }
+    if (prop === 'filter') {
+      const fn = args.length === 1 ? lambda(args[0]) : null;
+      if (!fn || fn.params.length !== 1) return null;
+      // `.filter(c).map(b)` is the emitted form of a conditional comprehension.
+      const t = this.peek();
+      if (t?.t === 'op' && t.v === '.' && (this.toks[this.pos + 1] as { v?: string })?.v === 'map'
+        && this.toks[this.pos + 2]?.t === 'punc' && this.toks[this.pos + 2]!.v === '(') {
+        this.pos += 2;
+        const mapArgs = this.argList(')');
+        const mapFn = mapArgs && mapArgs.length === 1 ? lambda(mapArgs[0]) : null;
+        if (!mapFn) return null;
+        return { kind: 'ListComp', vars: mapFn.params, iter: receiver, body: mapFn.body, cond: fn.body };
+      }
+      // A bare `.filter(c)` renders python `[v for v in xs if c]`.
+      return { kind: 'ListComp', vars: fn.params, iter: receiver, body: { kind: 'VarRef', name: fn.params[0]! }, cond: fn.body };
+    }
+    if (prop === 'join' && args.length === 1 && args[0]!.kind === 'String') {
+      return { kind: 'Join', sep: args[0]!.value, items: receiver };
+    }
+    if (prop === 'push' && args.length === 1 && receiver.kind === 'VarRef') {
+      return { kind: 'Call', callee: `${receiver.name}.append`, args };
+    }
+    // Formatting specs: `String(k).padStart(5, ' ')` / `(est).toFixed(4)`.
+    if (receiver.kind === 'Call' && receiver.callee === 'String' && receiver.args.length === 1
+      && (prop === 'toFixed' || prop === 'padStart' || prop === 'padEnd')) {
+      receiver = receiver.args[0]!;
+    }
+    if (prop === 'toFixed' && args.length === 1 && args[0]!.kind === 'Number') {
+      return { kind: 'FString', parts: [{ expr: receiver, spec: `.${args[0]!.value}f` }] };
+    }
+    if ((prop === 'padStart' || prop === 'padEnd') && args.length === 2
+      && args[0]!.kind === 'Number' && args[1]!.kind === 'String' && args[1]!.value === ' ') {
+      return { kind: 'FString', parts: [{ expr: receiver, spec: `${prop === 'padStart' ? '>' : '<'}${args[0]!.value}` }] };
+    }
+    return null;
+  }
+
+  /** codegen's inline seeded draw `local({ set.seed(S); runif(1) })` —
+   *  reverse it into the canonical `_random.Random.random` call. */
+  private trySeededLocal(): IRNode | null {
+    const save = this.pos;
+    if (!this.eatPunc('(') || !this.eatPunc('{')) { this.pos = save; return null; }
+    const fn = this.peek();
+    if (!fn || fn.t !== 'id' || fn.v !== 'set.seed') { this.pos = save; return null; }
+    this.pos += 1;
+    const seedArgs = this.argList(')');
+    if (!seedArgs || seedArgs.length !== 1) { this.pos = save; return null; }
+    if (!this.eatPunc(';')) { this.pos = save; return null; }
+    const rn = this.peek();
+    if (!rn || rn.t !== 'id' || rn.v !== 'runif') { this.pos = save; return null; }
+    this.pos += 1;
+    const rnArgs = this.argList(')');
+    if (!rnArgs || rnArgs.length !== 1 || rnArgs[0]!.kind !== 'Number' || rnArgs[0]!.value !== 1) {
+      this.pos = save;
+      return null;
+    }
+    if (!this.eatPunc('}') || !this.eatPunc(')')) { this.pos = save; return null; }
+    return { kind: 'Call', callee: '_random.Random.random', args: seedArgs };
+  }
+
+  /** R anonymous function in argument position: `function(v) expr`. */
+  private parseRFunction(): IRNode | null {
+    this.next(); // 'function'
+    if (!this.eatPunc('(')) return null;
+    const params: string[] = [];
+    if (!this.eatPunc(')')) {
+      for (;;) {
+        const t = this.next();
+        if (!t || t.t !== 'id') return null;
+        params.push(t.v);
+        if (this.eatPunc(',')) continue;
+        break;
+      }
+      if (!this.eatPunc(')')) return null;
+    }
+    const body = this.expression(0);
+    if (body === null) return null;
+    return { kind: 'Lambda', params, body };
   }
 
   private studioCall(method: string): IRNode | null {
@@ -392,6 +825,15 @@ class ExprParser {
     const closePunc = close;
     if (this.eatPunc(closePunc)) return { positional, named };
     for (;;) {
+      // R anonymous function in argument position: `sapply(X, function(v) …)`.
+      const t0 = this.peek();
+      if (t0?.t === 'id' && t0.v === 'function') {
+        const fn = this.parseRFunction();
+        if (!fn) return null;
+        positional.push(fn);
+        if (this.eatPunc(',')) continue;
+        break;
+      }
       // named argument: identifier (or R's quoted tag) followed by '='
       // (but never '==' / '=>')
       const save = this.pos;
@@ -410,6 +852,14 @@ class ExprParser {
       this.pos = save;
       const e = this.expression(0);
       if (e === null) return null;
+      // Bare generator expression: `sum(1 for i in range(k) if cond)`.
+      if (this.peek()?.t === 'id' && this.peek()?.v === 'for') {
+        const comp = this.compTail(e);
+        if (comp === null) return null;
+        positional.push(comp);
+        if (this.eatPunc(',')) continue;
+        break;
+      }
       positional.push(e);
       if (this.eatPunc(',')) continue;
       break;
@@ -427,6 +877,33 @@ const BIN_PREC: Partial<Record<BinaryOperator, number>> = {
   '**': 6,
 };
 
+/** Bare names in R/JS source that canonicalize to python `math.*` calls.
+ *  Excluded: `round`, `abs`, `min`, `max` — python builtins (there is no
+ *  `math.round`/`math.abs`/…), kept as bare calls in every dialect. */
+const MATH_FN_ALIASES = ['sin', 'cos', 'sqrt', 'log', 'exp', 'floor'];
+
+/** Canonical slice form: an explicit literal-0 start equals the omitted
+ *  default whenever no negative step is involved — drop it so `x[0:5]`,
+ *  `x[:5]` and JS `x.slice(0, 5)` share one IR shape. */
+function canonSlice(node: IRNode): IRNode {
+  if (node.kind !== 'ListSlice' || !node.start) return node;
+  if (node.start.kind !== 'Number' || node.start.value !== 0) return node;
+  if (node.step && !(node.step.kind === 'Number' && node.step.value > 0)) return node;
+  const { start: _dropped, ...rest } = node;
+  return rest;
+}
+
+/** Variable names bound by an arrow function's parameter list — a grouped
+ *  VarRef (`(v) => …`) or a List from `(a, b) =>` / destructured `[a, b] =>`. */
+function arrowParams(left: IRNode): string[] | null {
+  if (left.kind === 'VarRef' && /^[A-Za-z_$][\w$]*$/.test(left.name)) return [left.name];
+  if (left.kind === 'List' && left.items.length > 0
+    && left.items.every((i) => i.kind === 'VarRef' && /^[A-Za-z_$][\w$]*$/.test((i as { name: string }).name))) {
+    return left.items.map((i) => (i as { name: string }).name);
+  }
+  return null;
+}
+
 /** Parse a standalone expression (used by block argument fields too). */
 export function parseExpression(text: string, lang: SourceLang = 'python'): IRNode | null {
   try {
@@ -436,6 +913,133 @@ export function parseExpression(text: string, lang: SourceLang = 'python'): IRNo
   }
 }
 
+/** Parse the body of a python f-string into literal/expr parts. The lexer has
+ *  already resolved escape sequences, so `{{`/`}}` remain as the only escapes. */
+function parseFString(value: string, lang: SourceLang): IRNode | null {
+  const parts: { text?: string; expr?: IRNode; spec?: string }[] = [];
+  let text = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i]!;
+    if (ch === '{' && value[i + 1] === '{') { text += '{'; i += 1; continue; }
+    if (ch === '}' && value[i + 1] === '}') { text += '}'; i += 1; continue; }
+    if (ch === '{') {
+      const close = value.indexOf('}', i + 1);
+      if (close < 0) return null;
+      const raw = value.slice(i + 1, close);
+      i = close;
+      let exprSrc = raw;
+      let spec: string | undefined;
+      const colon = raw.indexOf(':');
+      if (colon >= 0) {
+        const tail = raw.slice(colon + 1);
+        if (/^[.<^>]?\d+(?:\.\d+)?[fdgs%]?$/.test(tail)) {
+          exprSrc = raw.slice(0, colon);
+          spec = tail;
+        }
+      }
+      const e = parseExpression(exprSrc, lang);
+      if (e === null) return null;
+      if (text) { parts.push({ text }); text = ''; }
+      parts.push({ expr: e, ...(spec ? { spec } : {}) });
+      continue;
+    }
+    text += ch;
+  }
+  if (text) parts.push({ text });
+  if (parts.length === 0) return { kind: 'String', value: '' };
+  return { kind: 'FString', parts };
+}
+
+/** Inverse of codegen's R `sprintf('…', …)` rendering of an FString: rebuild
+ *  the canonical FString from a printf format string. rFormat only ever emits
+ *  `%s`, `%.Nf`, `%[N]d`, `%[N]g`, `%[-]N s` — each maps back losslessly.
+ *  Returns null for any directive the spec vocabulary cannot express (or an
+ *  argument-count mismatch) so the original Call{sprintf} is preserved. */
+function sprintfToFString(fmt: string, args: IRNode[]): IRNode | null {
+  const parts: { text?: string; expr?: IRNode; spec?: string }[] = [];
+  let text = '';
+  let argIdx = 0;
+  let i = 0;
+  while (i < fmt.length) {
+    const ch = fmt[i]!;
+    if (ch !== '%') { text += ch; i += 1; continue; }
+    if (fmt[i + 1] === '%') { text += '%'; i += 2; continue; }
+    const m = /^%(-)?(\d+)?(?:\.(\d+))?([sdfgi])/.exec(fmt.slice(i));
+    if (!m) return null;
+    const [, left, width, frac, kind] = m;
+    if (argIdx >= args.length) return null;
+    if (text) { parts.push({ text }); text = ''; }
+    let spec: string | undefined;
+    if (frac) {
+      if (kind !== 'f') return null; // %.Ng / %.Ns → not expressible
+      spec = `.${frac}f`;
+    } else if (kind === 'f') spec = '.6f';
+    else if (kind === 'd' || kind === 'i') spec = `${width ?? ''}d`;
+    else if (kind === 'g') spec = `${width ?? ''}g`;
+    else if (width) spec = left ? `<${width}` : `>${width}`;
+    parts.push({ expr: args[argIdx]!, ...(spec ? { spec } : {}) });
+    argIdx += 1;
+    i += m[0].length;
+  }
+  // Leftover arguments would be dropped by an FString — keep the call instead.
+  if (argIdx !== args.length) return null;
+  if (text) parts.push({ text });
+  if (parts.length === 0) return { kind: 'String', value: '' };
+  return { kind: 'FString', parts };
+}
+
+/** Parse a JS template literal payload (backticks stripped by the lexer) into
+ *  FString parts. `${expr}` interpolations are parsed as expressions; a
+ *  single-part FString produced by a spec idiom (`(x).toFixed(2)`,
+ *  `String(k).padStart(5, ' ')`) flattens into the surrounding template. */
+function parseTemplate(value: string, lang: SourceLang): IRNode | null {
+  const parts: { text?: string; expr?: IRNode; spec?: string }[] = [];
+  let text = '';
+  let i = 0;
+  while (i < value.length) {
+    const ch = value[i]!;
+    if (ch === '\\' && i + 1 < value.length) {
+      const e = value[i + 1]!;
+      text += e === 'n' ? '\n' : e === 't' ? '\t' : e === 'r' ? '\r' : e;
+      i += 2;
+      continue;
+    }
+    if (ch === '$' && value[i + 1] === '{') {
+      const close = matchBrace(value, i + 1);
+      if (close < 0) return null;
+      const inner = value.slice(i + 2, close);
+      i = close + 1;
+      const e = parseExpression(inner, lang);
+      if (e === null) return null;
+      if (text) { parts.push({ text }); text = ''; }
+      if (e.kind === 'FString' && e.parts.length === 1 && e.parts[0]!.expr) {
+        parts.push(e.parts[0] as { expr: IRNode; spec?: string });
+      } else {
+        parts.push({ expr: e });
+      }
+      continue;
+    }
+    text += ch;
+    i += 1;
+  }
+  if (text) parts.push({ text });
+  if (parts.length === 0) return { kind: 'String', value: '' };
+  return { kind: 'FString', parts };
+}
+
+/** Index of the `}` matching the `{` at `open`, brace-depth aware. */
+function matchBrace(s: string, open: number): number {
+  let depth = 0;
+  for (let k = open; k < s.length; k += 1) {
+    if (s[k] === '{') depth += 1;
+    else if (s[k] === '}') {
+      depth -= 1;
+      if (depth === 0) return k;
+    }
+  }
+  return -1;
+}
+
 /** R 1-based offset inverse: `(x + 1)` → `x`. */
 function unwrapRBase1(node: IRNode, lang: SourceLang): IRNode {
   if (lang !== 'r') return node;
@@ -443,6 +1047,22 @@ function unwrapRBase1(node: IRNode, lang: SourceLang): IRNode {
     return node.left;
   }
   return node;
+}
+
+/** JS two-arg round inverse: python `round(x, n)` lowers to the executable
+ *  `Math.round(x * 10 ** n) / 10 ** n` (real JS ignores Math.round's second
+ *  argument). Fold that exact shape back into the canonical call. */
+function foldJsScaledRound(node: IRNode): IRNode | null {
+  if (node.kind !== 'BinaryOp' || node.op !== '/') return null;
+  const call = node.left;
+  const scale = node.right;
+  if (call.kind !== 'Call' || (call.callee !== 'round' && call.callee !== 'math.round') || call.args.length !== 1) return null;
+  if (scale.kind !== 'BinaryOp' || scale.op !== '**') return null;
+  if (!(scale.left.kind === 'Number' && scale.left.value === 10)) return null;
+  const scaled = call.args[0]!;
+  if (scaled.kind !== 'BinaryOp' || scaled.op !== '*') return null;
+  if (JSON.stringify(scaled.right) !== JSON.stringify(scale)) return null;
+  return { kind: 'Call', callee: 'round', args: [scaled.left, scale.right] };
 }
 
 // --------------------------------------------------------------------------
@@ -483,13 +1103,13 @@ function buildStudioCall(methodRaw: string, args: IRNode[]): IRNode | null {
   if (method === 'sliceList' || method === 'slice_list') {
     const [list, start, stop, step] = args;
     if (!list) return null;
-    return {
+    return canonSlice({
       kind: 'ListSlice',
       list,
       ...(start && start.kind !== 'Null' ? { start } : {}),
       ...(stop && stop.kind !== 'Null' ? { stop } : {}),
       ...(step && step.kind !== 'Null' ? { step } : {}),
-    };
+    });
   }
   if (method === 'range') {
     const start = asNumber(args[0]);
@@ -616,7 +1236,7 @@ export function parseCodeToIR(source: string, lang: SourceLang = 'python'): Pars
     lines.push({ text: noComment, indent });
   }
 
-  const body = lang === 'python' ? parsePyBlock(lines, { i: 0 }, -1) : parseBraceProgram(lines);
+  const body = lang === 'python' ? parsePyBlock(lines, { i: 0 }, -1) : parseBraceProgram(lines, lang);
   // Hoist top-level function definitions into program.functions, mirroring
   // codegen output (functions emitted first, separately from the body).
   const functions: IRNode[] = [];
@@ -753,16 +1373,22 @@ function parsePyStmt(lines: PhysLine[], cur: Cursor, indent: number): IRNode {
     return { kind: 'FuncDef', name: m[1]!, params: splitParams(m[2]!), body };
   }
 
+  // Imports are no-ops for execution but must round-trip instead of degrading.
+  m = /^import\s+([A-Za-z_][\w.]*)(?:\s+as\s+[A-Za-z_]\w*)?$/.exec(text);
+  if (m) return { kind: 'Import', module: m[1]! };
+  m = /^from\s+([A-Za-z_][\w.]*)\s+import\s+.+$/.exec(text);
+  if (m) return { kind: 'Import', module: m[1]! };
+
   return parseSimple(text, 'python') ?? { kind: 'RawCode', lang: 'python', text };
 }
 
 // ---- JS / R (brace languages) ----
 
-function parseBraceProgram(lines: PhysLine[]): IRNode[] {
+function parseBraceProgram(lines: PhysLine[], lang: 'js' | 'r'): IRNode[] {
   const out: IRNode[] = [];
   const cur: Cursor = { i: 0 };
   while (cur.i < lines.length) {
-    out.push(parseBraceStmt(lines, cur, 'js-or-r'));
+    out.push(parseBraceStmt(lines, cur, lang));
   }
   return out;
 }

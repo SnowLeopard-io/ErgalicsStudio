@@ -18,6 +18,7 @@ import { themeMarketZh, themeMarketEn } from './dicts/theme-market';
 import { pwaZh, pwaEn } from './dicts/pwa';
 import { galleryZh, galleryEn } from './dicts/gallery';
 import { aboutZh, aboutEn } from './dicts/about';
+import { chemZh, chemEn } from './dicts/chem';
 
 export const MODULE_ZH: LocaleDictionary = {
   ...pluginSigningZh,
@@ -36,6 +37,7 @@ export const MODULE_ZH: LocaleDictionary = {
   ...pwaZh,
   ...galleryZh,
   ...aboutZh,
+  ...chemZh,
 };
 export const MODULE_EN: LocaleDictionary = {
   ...pluginSigningEn,
@@ -54,4 +56,5 @@ export const MODULE_EN: LocaleDictionary = {
   ...pwaEn,
   ...galleryEn,
   ...aboutEn,
+  ...chemEn,
 };

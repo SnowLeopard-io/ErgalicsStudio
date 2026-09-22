@@ -50,6 +50,7 @@ import fluidCfdCaseAJson from '../../examples/data/fluid-cfd-case-a.json?raw';
 import fluidCfdCaseBJson from '../../examples/data/fluid-cfd-case-b.json?raw';
 import surfaceRippleJson from '../../examples/data/surface-ripple.json?raw';
 import voxelSphereJson from '../../examples/data/voxel-sphere.json?raw';
+import chemNaclJson from '../../examples/data/chem-nacl.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -820,6 +821,26 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '缆索只能承受拉力（受压时以松弛虚线显示），重物从上方落下后悬链下垂。点击「运行」开始，可调重力与负载质量观察下垂与断裂。',
       'en-US': 'Rope cannot push — slack members are drawn dashed. A weight drops onto the deck and the catenary sags. Press Run; raise gravity or the load mass to watch it sag and snap.',
+    },
+  },
+
+  {
+    id: 'chem-nacl',
+    filename: 'chem-nacl.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-crystal',
+    group: 'lab',
+    content: chemNaclJson,
+    nameI18n: {
+      'zh-CN': '化学 · 氯化钠晶胞',
+      'en-US': 'Chemistry · NaCl unit cell',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '加载 NaCl 岩盐型离子晶体晶胞：Cl⁻ 在角顶和面心、Na⁺ 在棱心和体心，自动统计有效原子数（各 4 个）与化学式配比 1:1，可切换球棍 / 空间填充并查看 3D 结构。',
+      'en-US':
+        'Loads the NaCl rock-salt unit cell (Cl⁻ at corners/faces, Na⁺ at edges/body) and auto-computes the 4:4 effective count and 1:1 formula ratio; switch ball-stick / space-filling.',
     },
   },
 

@@ -76,12 +76,13 @@ export default defineConfig({
     __ZENODO_DOI__: JSON.stringify(process.env.ZENODO_DOI ?? ''),
     // FR-04: webR is optional and not vendored by default. Knowing this at
     // build time lets the R runtime skip the dynamic import entirely instead
-    // of probing /webr/webr.mjs and logging a 404 on every R session. True
+    // of probing /webr/webr.js and logging a 404 on every R session. True
     // when the package is installed (the vendor plugin copies it at startup)
-    // or the bundle is already vendored into public/webr.
+    // or the bundle is already vendored into public/webr. (The browser entry
+    // is webr.js — dist/webr.mjs is a Node-only build.)
     __WEBR_AVAILABLE__: JSON.stringify(
       existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'node_modules/webr')) ||
-        existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'public/webr/webr.mjs')),
+        existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'public/webr/webr.js')),
     ),
   },
   base: './',

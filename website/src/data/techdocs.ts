@@ -31,24 +31,6 @@ const overview: TechDoc[] = [
     },
     formats: ['pdf', 'html', 'md'],
   },
-  {
-    file: 'README.md',
-    title: { zh: '项目说明（英文）', en: 'Project README (English)' },
-    desc: {
-      zh: '项目主页说明：功能特性、快速上手与部署方式。',
-      en: 'The project readme: features, quick start and deployment.',
-    },
-    formats: ['pdf', 'html', 'md'],
-  },
-  {
-    file: 'README.zh-CN.html',
-    title: { zh: '项目说明（中文）', en: 'Project README (Chinese)' },
-    desc: {
-      zh: '中文版项目说明文档。',
-      en: 'The Chinese project readme.',
-    },
-    formats: ['pdf', 'html'],
-  },
 ];
 
 const chapters: TechDoc[] = [
@@ -124,6 +106,24 @@ const chapters: TechDoc[] = [
     },
     formats: ['pdf', 'html', 'md'],
   },
+  {
+    file: '09-电磁谐振特征值求解器.md',
+    title: { zh: '09 · 电磁谐振特征值求解器', en: '09 · EM Resonance Eigensolver' },
+    desc: {
+      zh: '十万阶非正定厄密稀疏矩阵特征值求解：厚重启 Lanczos、块 LOBPCG、Jacobi-Davidson 与 MINRES 位移逆变换。',
+      en: 'Large-scale sparse Hermitian (indefinite) eigenpairs: thick-restart Lanczos, block LOBPCG, Jacobi-Davidson and MINRES shift-invert.',
+    },
+    formats: ['pdf', 'html', 'md'],
+  },
+  {
+    file: '10-流体双向耦合求解器.md',
+    title: { zh: '10 · 流体双向耦合求解器', en: '10 · Bidirectional Fluid-Coupling Solver' },
+    desc: {
+      zh: '1D 管网与 3D 场的双向耦合：多速率子循环、正反向边界耦合、毫秒级控制逻辑与守恒性审计。',
+      en: 'Bidirectional coupling of a 1-D pipe network with a 3-D field solver: multi-rate sub-cycling, forward/reverse boundary coupling, millisecond control logic and conservation auditing.',
+    },
+    formats: ['pdf', 'html', 'md'],
+  },
 ];
 
 export const TECH_DOC_GROUPS: TechDocGroup[] = [
@@ -131,8 +131,8 @@ export const TECH_DOC_GROUPS: TechDocGroup[] = [
     id: 'overview',
     title: { zh: '总览', en: 'Overview' },
     desc: {
-      zh: '完整技术总结与项目说明，适合首次了解 Ergalics Studio。',
-      en: 'The full technical summary and project readmes — best starting points.',
+      zh: '完整技术总结，适合首次系统了解 Ergalics Studio。',
+      en: 'The full technical summary — the best starting point.',
     },
     docs: overview,
   },
@@ -140,8 +140,8 @@ export const TECH_DOC_GROUPS: TechDocGroup[] = [
     id: 'chapters',
     title: { zh: '技术章节', en: 'Technical Chapters' },
     desc: {
-      zh: '八章技术细节，从产品定位讲到测试与质量保障。',
-      en: 'Eight chapters of technical detail, from product positioning to testing & QA.',
+      zh: '十章技术细节，从产品定位讲到流体双向耦合求解器。',
+      en: 'Ten chapters of technical detail, from product positioning to the bidirectional fluid-coupling solver.',
     },
     docs: chapters,
   },
