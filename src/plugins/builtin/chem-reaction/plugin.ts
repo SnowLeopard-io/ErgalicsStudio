@@ -174,6 +174,8 @@ export class ChemReactionPlugin implements Plugin {
       },
       actionButton('run', 'Run', '运行', 'primary'),
       actionButton('fitView', 'Fit view', '复位视角'),
+      actionButton('reset', 'Reset', '复位'),
+      actionButton('resetPlugin', 'Reset plugin', '重置插件'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
     ];
   }
@@ -205,6 +207,8 @@ export class ChemReactionPlugin implements Plugin {
     }
     if (actionFired(params, 'fitView')) this.fitView();
     if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'reset')) this.resetScene();
+    if (actionFired(params, 'resetPlugin')) this.resetPlugin();
     if (changes) this.rebuildNow();
   }
 
@@ -399,6 +403,23 @@ export class ChemReactionPlugin implements Plugin {
   private exportPng() {
     if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-reaction');
     else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
+  }
+
+  /** Restore the current reaction to its pristine initial scene (stop any replay). */
+  private resetScene() {
+    this.rebuildNow();
+  }
+
+  /** Reset the whole plugin to its default reaction/conditions. */
+  private resetPlugin() {
+    this.stopReplay();
+    this.computing = false;
+    this.state.reaction = 'cuo-h2';
+    this.state.temperature = TEMP_DEFAULT;
+    this.state.catalyst = false;
+    this.refreshParams();
+    this.rebuildNow();
+    this.api.notify('success', this.zh ? '插件已重置为默认反应。' : 'Plugin reset to the default reaction.');
   }
 
   // ---- rendering -----------------------------------------------------------

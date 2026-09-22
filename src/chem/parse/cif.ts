@@ -71,10 +71,11 @@ function tokenizeCif(text: string): Tok[] {
 
 // ---- symmetry ops ---------------------------------------------------------
 
-const FRACTION = /^(?:(-?\d+)\/)?(-?\d+(?:\.\d+)?)$/;
+const FRACTION = /^(?:(-?\d+)\/)?(-?\d+(?:\.\d*)?)$/;
 
 function toNumber(s: string): number {
-  const m = s.match(FRACTION);
+  // Strip standard-uncertainty suffixes, e.g. "5.4170(1)" → "5.4170".
+  const m = s.replace(/\(\d+\)$/, '').match(FRACTION);
   if (!m) return NaN;
   if (m[1] !== undefined && m[1] !== '') {
     // "num/den" → numerator / denominator (m[1] is num, m[2] is den).
@@ -144,30 +145,38 @@ interface RawSite {
   occupancy: number;
 }
 
-/** Merge generated symmetry images, wrapping and summing occupancies. */
+/**
+ * Expand the asymmetric unit through the symmetry operations, wrapping into
+ * the unit cell. Coincident images merge into one atom with a small
+ * tolerance — special positions reproduce the same site from several ops, and
+ * real refined coordinates can differ in their last decimals. Occupancy only
+ * accumulates when DIFFERENT elements share a position (disorder).
+ */
 function wrapSites(raw: RawSite[], params: CellParams, syms: SymOp[]): CellSite[] {
-  const map = new Map<string, { symbol: string; f: Vec3; occ: number }>();
-  const key = (f: Vec3) => {
-    const g = fractionalWrap(f);
-    return `${g.x.toFixed(6)},${g.y.toFixed(6)},${g.z.toFixed(6)}`;
-  };
+  const TOL2 = 1e-6; // (1e-3 fractional units)²
+  const folded = (d: number): number => d - Math.round(d); // PBC-aware delta
+  const acc: Array<{ symbol: string; f: Vec3; occ: number }> = [];
   for (const site of raw) {
     const base = site.fract ? { ...site.fract } : cartesianToFractional(params, site.cartn!);
     const ops = syms.length > 0 ? syms : [{ R: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], t: [0, 0, 0] }];
     for (const op of ops) {
-      const img = applySym(op, base);
-      const k = key(img);
-      const prev = map.get(k);
-      if (prev) prev.occ += site.occupancy;
-      else map.set(k, { symbol: site.symbol, f: fractionalWrap(img), occ: site.occupancy });
+      const f = fractionalWrap(applySym(op, base));
+      const hit = acc.find((s) => {
+        const dx = folded(s.f.x - f.x);
+        const dy = folded(s.f.y - f.y);
+        const dz = folded(s.f.z - f.z);
+        return dx * dx + dy * dy + dz * dz < TOL2;
+      });
+      if (hit) {
+        if (hit.symbol !== site.symbol) hit.occ += site.occupancy;
+      } else {
+        acc.push({ symbol: site.symbol, f, occ: site.occupancy });
+      }
     }
   }
-  const out: CellSite[] = [];
-  for (const { symbol, f, occ } of map.values()) {
-    if (occ <= 0) continue;
-    out.push({ symbol, fx: f.x, fy: f.y, fz: f.z, occupancy: occ });
-  }
-  return out;
+  return acc
+    .filter((s) => s.occ > 0)
+    .map(({ symbol, f, occ }) => ({ symbol, fx: f.x, fy: f.y, fz: f.z, occupancy: occ }));
 }
 
 /** Parse CIF text → cell + full unit cell. Throws descriptive Error if no atoms found. */
@@ -257,18 +266,19 @@ export function parseCif(text: string): CifCrystal {
   }
   if (!params) throw new Error('CIF missing valid unit-cell parameters (_cell_length_*).');
 
-  // symmetry ops
-  const symLoop = loops.find((l) => l.cols.includes('_symmetry_equiv_pos_as_xyz'));
+  // symmetry ops — old `_symmetry_equiv_pos_as_xyz` or CIF-core
+  // `_space_group_symop_operation_xyz` tag
+  const SYM_OP_TAGS = ['_symmetry_equiv_pos_as_xyz', '_space_group_symop_operation_xyz'];
+  const symLoop = loops.find((l) => l.cols.some((c) => SYM_OP_TAGS.includes(c)));
   const syms: SymOp[] = [];
   if (symLoop) {
-    let ci = symLoop.cols.indexOf('_symmetry_equiv_pos_as_xyz');
-    if (ci < 0) ci = symLoop.cols.indexOf('_symmetry_equiv_pos_as_xyz'); // already
+    const ci = symLoop.cols.findIndex((c) => SYM_OP_TAGS.includes(c));
     for (const row of symLoop.rows) {
       const expr: string = (row[ci] ?? '').toString();
       if (expr.trim()) syms.push(parseSymOp(expr));
     }
   } else {
-    const s = singles.get('_symmetry_equiv_pos_as_xyz');
+    const s = singles.get('_symmetry_equiv_pos_as_xyz') ?? singles.get('_space_group_symop_operation_xyz');
     if (s) syms.push(parseSymOp(s));
   }
 

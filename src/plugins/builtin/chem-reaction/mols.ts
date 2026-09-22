@@ -92,8 +92,9 @@ export const C2H4Br2: Mol = mol(
     atom('H', -0.66, -0.77, 0.66),
     atom('H', 0.66, -0.77, -0.66),
     atom('H', 2.2, -0.77, 0.66),
+    atom('H', 0.88, 0.77, 0.66),
   ],
-  [bond(0, 1), bond(0, 2), bond(1, 3), bond(0, 4), bond(0, 5), bond(1, 6)],
+  [bond(0, 1), bond(0, 2), bond(1, 3), bond(0, 4), bond(0, 5), bond(1, 6), bond(1, 7)],
 );
 
 // ---- ionic salts (represented as ion-pair molecules for structure use) ----

@@ -19,6 +19,12 @@ import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import type { PluginApi } from '@/types/plugin';
 
+import quartzCif from '../examples/data/chem-quartz.cif?raw';
+import calciteCif from '../examples/data/chem-calcite.cif?raw';
+import fluoriteCif from '../examples/data/chem-fluorite.cif?raw';
+import rutileCif from '../examples/data/chem-rutile.cif?raw';
+import pyriteCif from '../examples/data/chem-pyrite.cif?raw';
+
 const CIF_NACL = `data_nacl
 _cell_length_a 5.64
 _cell_length_b 5.64
@@ -119,22 +125,22 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
     expect(info.z).toBe(4);
   });
 
-  it('CsCl: 1+1, formula CsCl', () => {
-    const cell = findSample('cscl')!.cell;
-    const info = cellObservables(cell.params, cell.sites);
-    expect(info.counts.Cs).toBeCloseTo(1);
-    expect(info.counts.Cl).toBeCloseTo(1);
-    expect(info.formula).toBe('CsCl');
-    expect(info.z).toBe(1);
-  });
-
-  it('diamond: 8 C, formula C, Z 8, density ~3.5 g/cm³', () => {
-    const cell = findSample('diamond')!.cell;
-    const info = cellObservables(cell.params, cell.sites);
-    expect(info.counts.C).toBeCloseTo(8);
-    expect(info.formula).toBe('C');
-    expect(info.z).toBe(8);
-    expect(info.density).toBeCloseTo(3.5, 0);
+  it('COD-derived samples expand to the textbook stoichiometries', () => {
+    const expected: Record<string, { formula: string; sites: number }> = {
+      nacl: { formula: 'NaCl', sites: 8 },
+      quartz: { formula: 'SiO2', sites: 9 },
+      calcite: { formula: 'CaCO3', sites: 10 },
+      fluorite: { formula: 'CaF2', sites: 12 },
+      rutile: { formula: 'TiO2', sites: 6 },
+      pyrite: { formula: 'FeS2', sites: 12 },
+    };
+    for (const s of CRYSTAL_SAMPLES) {
+      const want = expected[s.id];
+      if (!want) throw new Error(`unexpected sample id ${s.id}`);
+      const info = cellObservables(s.cell.params, s.cell.sites);
+      expect(info.formula).toBe(want.formula);
+      expect(s.cell.sites).toHaveLength(want.sites);
+    }
   });
 
   it('NaCl density matches the rock-salt value (~2.16)', () => {
@@ -213,10 +219,10 @@ describe('ChemCrystalPlugin', () => {
     await plugin.init(fakeApi());
     const state = (plugin as unknown as { state: { source: string; sampleId: string } }).state;
     expect(state.sampleId).toBe('nacl');
-    plugin.updateParams({ sample: 'diamond' });
-    expect(state.sampleId).toBe('diamond');
+    plugin.updateParams({ sample: 'quartz' });
+    expect(state.sampleId).toBe('quartz');
     plugin.updateParams({ sample: 'does-not-exist' });
-    expect(state.sampleId).toBe('diamond');
+    expect(state.sampleId).toBe('quartz');
   });
 
   it('renders without a three handle without throwing', async () => {
@@ -226,14 +232,86 @@ describe('ChemCrystalPlugin', () => {
     plugin.updateParams({ representation: 'spacefill' });
     expect(() => plugin.render({} as never)).not.toThrow();
   });
+});
 
-  it('loads a legacy JSON crystal scene to a built-in sample', async () => {
-    const plugin = new ChemCrystalPlugin();
-    await plugin.init(fakeApi('{"crystal":"cscl"}'));
-    const file = { name: 'chem-cscl.json' } as File;
-    await plugin.loadData(file);
-    const state = (plugin as unknown as { state: { source: string; sampleId: string } }).state;
-    expect(state.source).toBe('sample');
-    expect(state.sampleId).toBe('cscl');
+describe('real COD CIF samples (真实晶体结构示例回归)', () => {
+  it('α-quartz: symmetry expansion → 3 Si + 6 O, formula SiO2, Z 3', () => {
+    const loaded = parseStructure(quartzCif, 'chem-quartz.cif');
+    expect(loaded.format).toBe('cif');
+    expect(loaded.hasLattice).toBe(true);
+    expect(loaded.cell.params.a).toBeCloseTo(4.91, 2);
+    expect(loaded.cell.params.gamma).toBeCloseTo(120);
+    expect(loaded.cell.sites).toHaveLength(9);
+    const info = cellObservables(loaded.cell.params, loaded.cell.sites);
+    expect(info.counts.Si).toBeCloseTo(3);
+    expect(info.counts.O).toBeCloseTo(6);
+    expect(info.formula).toBe('SiO2');
+    expect(info.z).toBe(3);
+    expect(info.density).toBeCloseTo(2.65, 1);
+  });
+
+  it('calcite: rhombohedral primitive cell → 2 Ca + 2 C + 6 O, formula CaCO3', () => {
+    const loaded = parseStructure(calciteCif, 'chem-calcite.cif');
+    expect(loaded.cell.params.a).toBeCloseTo(6.36, 2);
+    expect(loaded.cell.params.alpha).toBeCloseTo(46.1, 1);
+    expect(loaded.cell.sites).toHaveLength(10);
+    const info = cellObservables(loaded.cell.params, loaded.cell.sites);
+    expect(info.counts.Ca).toBeCloseTo(2);
+    expect(info.counts.C).toBeCloseTo(2);
+    expect(info.counts.O).toBeCloseTo(6);
+    expect(info.formula).toBe('CaCO3');
+  });
+
+  it('fluorite: 192-op expansion collapses to 4 Ca + 8 F, formula CaF2', () => {
+    const loaded = parseStructure(fluoriteCif, 'chem-fluorite.cif');
+    expect(loaded.cell.params.a).toBeCloseTo(5.462, 2);
+    expect(loaded.cell.sites).toHaveLength(12);
+    const info = cellObservables(loaded.cell.params, loaded.cell.sites);
+    expect(info.counts.Ca).toBeCloseTo(4);
+    expect(info.counts.F).toBeCloseTo(8);
+    expect(info.formula).toBe('CaF2');
+    expect(info.z).toBe(4);
+  });
+
+  it('rutile: 2 Ti + 4 O, formula TiO2, Z 2', () => {
+    const loaded = parseStructure(rutileCif, 'chem-rutile.cif');
+    expect(loaded.cell.params.a).toBeCloseTo(4.59, 2);
+    expect(loaded.cell.sites).toHaveLength(6);
+    const info = cellObservables(loaded.cell.params, loaded.cell.sites);
+    expect(info.counts.Ti).toBeCloseTo(2);
+    expect(info.counts.O).toBeCloseTo(4);
+    expect(info.formula).toBe('TiO2');
+  });
+
+  it('pyrite: _space_group_symop tag + uncertainties → 4 Fe + 8 S, formula FeS2', () => {
+    const loaded = parseStructure(pyriteCif, 'chem-pyrite.cif');
+    expect(loaded.cell.params.a).toBeCloseTo(5.417, 3);
+    expect(loaded.cell.sites).toHaveLength(12);
+    const info = cellObservables(loaded.cell.params, loaded.cell.sites);
+    expect(info.counts.Fe).toBeCloseTo(4);
+    expect(info.counts.S).toBeCloseTo(8);
+    expect(info.formula).toBe('FeS2');
+  });
+
+  it('expanded samples carry unit occupancy and finite wrapped coordinates', () => {
+    const cases = [
+      [quartzCif, 'chem-quartz.cif'],
+      [calciteCif, 'chem-calcite.cif'],
+      [fluoriteCif, 'chem-fluorite.cif'],
+      [rutileCif, 'chem-rutile.cif'],
+      [pyriteCif, 'chem-pyrite.cif'],
+    ] as const;
+    for (const [text, name] of cases) {
+      const { cell } = parseStructure(text, name);
+      expect(cell.sites.length).toBeGreaterThan(0);
+      for (const s of cell.sites) {
+        expect(s.occupancy).toBeCloseTo(1);
+        for (const f of [s.fx, s.fy, s.fz]) {
+          expect(Number.isFinite(f)).toBe(true);
+          expect(f).toBeGreaterThanOrEqual(0);
+          expect(f).toBeLessThan(1);
+        }
+      }
+    }
   });
 });

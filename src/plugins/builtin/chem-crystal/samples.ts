@@ -1,13 +1,22 @@
 // ==========================================================================
 // Built-in crystal samples for the crystal-preview plugin
 //
-// Real unit cells constructed from fractional coordinates (no symmetry magic
-// needed for these classic structures). They give the plugin something to show
-// before the user loads a CIF / POSCAR / XYZ file, and double as golden data
-// for the parser + renderer unit tests.
+// Every sample is a real structure from the Crystallography Open Database
+// (COD, CC0), bundled as a CIF and expanded through its symmetry operations
+// at module load. They give the plugin something to show before the user
+// loads a CIF / POSCAR / XYZ file, and double as golden data for the parser
+// + renderer unit tests.
 // ==========================================================================
 
-import type { CellParams, CellSite, CrystalCell } from '@/chem/structure';
+import type { CrystalCell } from '@/chem/structure';
+import { parseCif } from '@/chem/parse/cif';
+
+import naclCif from '../../../../examples/data/chem-nacl.cif?raw';
+import quartzCif from '../../../../examples/data/chem-quartz.cif?raw';
+import calciteCif from '../../../../examples/data/chem-calcite.cif?raw';
+import fluoriteCif from '../../../../examples/data/chem-fluorite.cif?raw';
+import rutileCif from '../../../../examples/data/chem-rutile.cif?raw';
+import pyriteCif from '../../../../examples/data/chem-pyrite.cif?raw';
 
 export interface CrystalSample {
   id: string;
@@ -16,59 +25,28 @@ export interface CrystalSample {
   cell: CrystalCell;
 }
 
-function cubicCell(a: number): CellParams {
-  return { a, b: a, c: a, alpha: 90, beta: 90, gamma: 90 };
+function fromCif(id: string, nameZh: string, nameEn: string, text: string): CrystalSample {
+  const parsed = parseCif(text);
+  return {
+    id,
+    nameZh,
+    nameEn,
+    cell: {
+      name: nameEn,
+      params: parsed.params,
+      sites: parsed.sites,
+      note: parsed.spaceGroup ? `Space group ${parsed.spaceGroup}` : undefined,
+    },
+  };
 }
-
-function site(symbol: string, fx: number, fy: number, fz: number): CellSite {
-  return { symbol, fx, fy, fz, occupancy: 1 };
-}
-
-const NaCl: CrystalCell = {
-  name: 'NaCl',
-  params: cubicCell(5.64),
-  sites: [
-    // Cl on a face-centred lattice (corners + face centres).
-    site('Cl', 0, 0, 0),
-    site('Cl', 0.5, 0.5, 0),
-    site('Cl', 0.5, 0, 0.5),
-    site('Cl', 0, 0.5, 0.5),
-    // Na in the octahedral holes (edge centres + body centre).
-    site('Na', 0.5, 0.5, 0.5),
-    site('Na', 0, 0, 0.5),
-    site('Na', 0, 0.5, 0),
-    site('Na', 0.5, 0, 0),
-  ],
-  note: 'Rock salt / 岩盐',
-};
-
-const CsCl: CrystalCell = {
-  name: 'CsCl',
-  params: cubicCell(4.113),
-  sites: [site('Cs', 0, 0, 0), site('Cl', 0.5, 0.5, 0.5)],
-  note: 'Caesium chloride / 氯化铯',
-};
-
-const Diamond: CrystalCell = {
-  name: 'C',
-  params: cubicCell(3.567),
-  sites: [
-    site('C', 0, 0, 0),
-    site('C', 0, 0.5, 0.5),
-    site('C', 0.5, 0, 0.5),
-    site('C', 0.5, 0.5, 0),
-    site('C', 0.25, 0.25, 0.25),
-    site('C', 0.25, 0.75, 0.75),
-    site('C', 0.75, 0.25, 0.75),
-    site('C', 0.75, 0.75, 0.25),
-  ],
-  note: 'Diamond / 金刚石',
-};
 
 export const CRYSTAL_SAMPLES: CrystalSample[] = [
-  { id: 'nacl', nameZh: '氯化钠', nameEn: 'Sodium chloride', cell: NaCl },
-  { id: 'cscl', nameZh: '氯化铯', nameEn: 'Caesium chloride', cell: CsCl },
-  { id: 'diamond', nameZh: '金刚石', nameEn: 'Diamond', cell: Diamond },
+  fromCif('nacl', '氯化钠', 'Sodium chloride', naclCif),
+  fromCif('quartz', 'α-石英', 'α-Quartz', quartzCif),
+  fromCif('calcite', '方解石', 'Calcite', calciteCif),
+  fromCif('fluorite', '萤石', 'Fluorite', fluoriteCif),
+  fromCif('rutile', '金红石', 'Rutile', rutileCif),
+  fromCif('pyrite', '黄铁矿', 'Pyrite', pyriteCif),
 ];
 
 export function findSample(id: string): CrystalSample | undefined {

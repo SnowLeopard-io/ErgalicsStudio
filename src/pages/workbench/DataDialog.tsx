@@ -44,12 +44,13 @@ interface DataDialogProps {
 }
 
 // Example categories for the datasets tab's left-hand type selector.
-// Interactive-lab samples (electromagnetism / optics / structure) get their
-// own pinned category at the top; everything else follows the plugin
-// discipline taxonomy (physics / charts / stats / geo / data / fun) so the
-// dialog's grouping matches the sidebar's plugin groups.
+// Interactive-lab and chemistry samples get their own pinned categories at the
+// top; everything else follows the plugin discipline taxonomy (physics /
+// charts / stats / geo / data / fun) so the dialog's grouping matches the
+// sidebar's plugin groups.
 const EXAMPLE_CATS: { id: string; nameI18n: Record<string, string> }[] = [
   { id: 'lab', nameI18n: { 'zh-CN': '交互实验', 'en-US': 'Interactive Labs' } },
+  { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   ...PLUGIN_DISCIPLINES,
 ];
 
@@ -149,7 +150,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const { exampleCats, catMap, firstCat } = useMemo(() => {
     const map: Record<string, BuiltinExample[]> = {};
     for (const ex of BUILTIN_EXAMPLES) {
-      const cat = ex.group === 'lab' ? 'lab' : disciplineOf(ex.pluginId);
+      const cat = ex.group ?? disciplineOf(ex.pluginId);
       (map[cat] ??= []).push(ex);
     }
     const visible = EXAMPLE_CATS.filter((c) => (map[c.id]?.length ?? 0) > 0);
@@ -160,7 +161,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const renderExampleCard = (ex: BuiltinExample) => (
     <div key={ex.id} className="plugin-card" data-example-id={ex.id}>
       <div className="plugin-card-main">
-        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : '▦'}</span>
+        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : '▦'}</span>
         <div className="plugin-card-info">
           <div className="plugin-card-title">{exampleName(ex, locale)}</div>
           <div className="plugin-card-meta">{exampleDescription(ex, locale)}</div>
