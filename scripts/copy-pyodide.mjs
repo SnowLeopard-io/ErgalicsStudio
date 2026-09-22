@@ -25,6 +25,9 @@ const DEST = resolve(ROOT, 'public/pyodide');
 
 const PYODIDE_VERSION = '314.0.3';
 const NUMPY_WHL = 'numpy-2.4.3-cp314-cp314-pyemscripten_2026_0_wasm32.whl';
+// Matching the exact wheel pinned in public/pyodide/pyodide-lock.json so that
+// loadPackage(['scipy']) resolves entirely from the local indexURL — no CDN.
+const SCIPY_WHL = 'scipy-1.18.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl';
 
 // Tried in order; first 200 wins. fastly/gcore mirrors are usually reachable
 // from mainland China when the jsdelivr main domain is not.
@@ -32,6 +35,11 @@ const NUMPY_MIRRORS = [
   `https://fastly.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${NUMPY_WHL}`,
   `https://gcore.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${NUMPY_WHL}`,
   `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${NUMPY_WHL}`,
+];
+const SCIPY_MIRRORS = [
+  `https://fastly.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${SCIPY_WHL}`,
+  `https://gcore.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${SCIPY_WHL}`,
+  `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${SCIPY_WHL}`,
 ];
 
 async function exists(p) {
@@ -79,9 +87,34 @@ async function downloadNumpy() {
   throw new Error(`could not download numpy wheel from any mirror: ${lastErr?.message ?? 'unknown'}`);
 }
 
+// scipy is optional but preferred: the chemistry engine uses it for ODE
+// integration when present, and falls back to a pure-NumPy RK4 otherwise.
+// So a failed download degrades gracefully (warn) instead of breaking the build.
+async function downloadScipy() {
+  const target = resolve(DEST, SCIPY_WHL);
+  if (await exists(target)) return; // already cached locally
+  let lastErr;
+  for (const url of SCIPY_MIRRORS) {
+    try {
+      console.log(`[copy-pyodide] fetching scipy wheel: ${url}`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      await writeFile(target, buf);
+      console.log(`[copy-pyodide] scipy wheel saved (${buf.length} bytes)`);
+      return;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[copy-pyodide] scipy mirror failed: ${url} — ${err.message}`);
+    }
+  }
+  console.warn(`[copy-pyodide] scipy wheel unavailable from all mirrors; chemistry kinetics will use the pure-NumPy fallback: ${lastErr?.message}`);
+}
+
 export async function ensurePyodideAssets() {
   await copyCore();
   await downloadNumpy();
+  await downloadScipy();
 }
 
 // Run only when executed directly (`node scripts/copy-pyodide.mjs`), not when

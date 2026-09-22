@@ -118,6 +118,181 @@ function dictExpr(node: Extract<IRNode, { kind: 'Dict' }>, c: Ctx): string {
   return `{ ${items.join(', ')} }`;
 }
 
+// ---- expression helpers for the extended IR surface ----
+
+/** printf-ish spec → sprintf conversion (R target). */
+function rFormat(spec: string | undefined): string {
+  if (!spec) return '%s';
+  // `.4f` is a precision spec (4 decimals), NOT an alignment+width pair.
+  const m = /^([<>^])?(\d+)?(?:\.(\d+))?([fdgs%])?$/.exec(spec);
+  if (!m) return '%s';
+  const [, align, width, frac, kind] = m;
+  if (frac) return `%.${frac}f`;
+  if (kind === 'd') return `%${width ?? ''}d`;
+  if (kind === 'g') return `%${width ?? ''}g`;
+  if (width) return align === '<' ? `%-${width}s` : `%${width}s`;
+  return '%s';
+}
+
+function fstringExpr(node: Extract<IRNode, { kind: 'FString' }>, c: Ctx): string {
+  if (c.lang === 'python') {
+    const body = node.parts
+      .map((p) => {
+        if (p.text !== undefined) {
+          return p.text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+        }
+        return `{${expr(p.expr!, c)}${p.spec ? `:${p.spec}` : ''}}`;
+      })
+      .join('');
+    return `f'${body}'`;
+  }
+  if (c.lang === 'r') {
+    // sprintf('…', args…) — literal % must be doubled.
+    let fmt = '';
+    const args: string[] = [];
+    for (const p of node.parts) {
+      if (p.text !== undefined) {
+        fmt += p.text.replace(/%/g, '%%').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+      } else {
+        fmt += rFormat(p.spec);
+        args.push(expr(p.expr!, c));
+      }
+    }
+    return `sprintf(${quote(fmt)}${args.length ? `, ${args.join(', ')}` : ''})`;
+  }
+  // JS: template literal with toFixed / padStart for the specs.
+  let out = '`';
+  for (const p of node.parts) {
+    if (p.text !== undefined) {
+      out += p.text.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${').replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+    } else {
+      const e = expr(p.expr!, c);
+      const m = p.spec ? /^\.(\d+)f$/.exec(p.spec) : null;
+      const pad = p.spec ? /^([<>^])(\d+)$/.exec(p.spec) : null;
+      if (m) out += `\${(${e}).toFixed(${m[1]})}`;
+      else if (pad) out += `\${String(${e}).padStart(${pad[2]}, ' ')}`;
+      else out += `\${${e}}`;
+    }
+  }
+  return `${out}\``;
+}
+
+function listCompExpr(node: Extract<IRNode, { kind: 'ListComp' }>, c: Ctx): string {
+  const vars = node.vars;
+  const body = expr(node.body, c);
+  const cond = node.cond ? expr(node.cond, c) : null;
+  const iter = node.iter;
+  const zip = iter.kind === 'Call' && iter.callee === 'zip' && iter.args.length === vars.length ? iter : null;
+
+  if (c.lang === 'python') {
+    const iterText = expr(iter, c);
+    return `[${body} for ${vars.join(', ')} in ${iterText}${cond ? ` if ${cond}` : ''}]`;
+  }
+  if (c.lang === 'r') {
+    if (zip) {
+      // zip-desugared: mapply walks the source vectors in lockstep.
+      const args = zip.args.map((a) => expr(a, c)).join(', ');
+      if (!cond) {
+        return `mapply(function(${vars.join(', ')}) ${body}, ${args}, USE.NAMES = FALSE)`;
+      }
+      return `local({ .out <- c(); for (__k in seq_len(length(${expr(zip.args[0]!, c)}))) { ${vars
+        .map((v, i) => `${v} <- ${expr(zip.args[i]!, c)}[[__k]]`)
+        .join('; ')}; if (${cond}) .out <- c(.out, ${body}) }; .out })`;
+    }
+    const it = expr(iter, c);
+    if (!cond) return `sapply(${it}, function(${vars[0]}) ${body})`;
+    // Filter keeps the conditional form parseable back into a ListComp
+    // (unlike a local({…}) statement sequence, which would degrade to raw).
+    return `sapply(Filter(function(${vars[0]}) ${cond}, ${it}), function(${vars[0]}) ${body})`;
+  }
+  // JS
+  if (zip) {
+    if (vars.length !== 2 || cond) {
+      // Only the two-variable zip form is representable; be honest otherwise.
+      return `/* unsupported comprehension */ null`;
+    }
+    // Destructuring keeps the zip pairing explicit and parseable back into a
+    // ListComp (the old `(a).map((x, __i) => …b[__i]…)` form loses the pair).
+    return `(${expr(iter, c)}).map(([${vars.join(', ')}]) => ${body})`;
+  }
+  const it = expr(iter, c);
+  if (!cond) return `(${it}).map((${vars[0]}) => ${body})`;
+  return `(${it}).filter((${vars[0]}) => ${cond}).map((${vars[0]}) => ${body})`;
+}
+
+/** Call rendering with python-stdlib / idiom mappings per dialect. */
+function callExpr(node: Extract<IRNode, { kind: 'Call' }>, c: Ctx): string {
+  const callee = node.callee;
+  const args = node.args.map((a) => expr(a, c)).join(', ');
+  // `out.append(x)` — python list growth. R grows vectors by reassignment;
+  // JS uses push. Both render as real statements of the target language.
+  if (callee.endsWith('.append') && node.args.length === 1) {
+    const obj = callee.slice(0, -'.append'.length);
+    if (c.lang === 'r') return `${obj} <- c(${obj}, ${args})`;
+    if (c.lang === 'js') return `${obj}.push(${args})`;
+    return `${obj}.append(${args})`;
+  }
+  // `rng.random()` (0 args) → one uniform draw from the seeded engine;
+  // `_random.Random(i).random()` (1 arg, chain-merged seed) seeds a fresh
+  // engine per draw, which R/JS express with an inline statement sequence.
+  if (/^[A-Za-z_][\w$.]*\.random$/.test(callee) && node.args.length <= 1) {
+    if (node.args.length === 1) {
+      const seed = expr(node.args[0]!, c);
+      if (c.lang === 'r') return `local({ set.seed(${seed}); runif(1) })`;
+      if (c.lang === 'js') return `(setSeed(${seed}), random01())`;
+      return `_random.Random(${seed}).random()`;
+    }
+    if (c.lang === 'r') return 'runif(1)';
+    if (c.lang === 'js') return 'random01()';
+    return `${callee}()`;
+  }
+  // `_random.Random(seed)` constructor → seed the engine (the binding is
+  // dropped for R/JS: the seed is engine-global there).
+  if (/\.Random$/.test(callee) && node.args.length === 1) {
+    if (c.lang === 'r') return `set.seed(${args})`;
+    if (c.lang === 'js') return `setSeed(${args})`;
+    return `${callee}(${args})`;
+  }
+  if (callee === 'set.seed') {
+    if (c.lang === 'python') return `random.seed(${args})`;
+    if (c.lang === 'js') return `setSeed(${args})`;
+    return `set.seed(${args})`;
+  }
+  // python `math.*` module functions/constants.
+  if (callee.startsWith('math.')) {
+    const fn = callee.slice('math.'.length);
+    if (c.lang === 'r') return `${fn === 'floor' ? 'floor' : fn}(${args})`;
+    if (c.lang === 'js') return `Math.${fn}(${args})`;
+    return `${callee}(${args})`;
+  }
+  if (c.lang === 'r') {
+    if (callee === 'len') return `length(${args})`;
+    if (callee === 'range') {
+      const [a, b, step] = node.args;
+      if (!a) return 'seq_len(0)';
+      if (!b) return `seq(0, (${expr(a, c)}) - 1)`;
+      const stop = `(${expr(b, c)}) - 1`;
+      return `seq(${expr(a, c)}, ${stop}${step ? `, by = ${expr(step, c)}` : ''})`;
+    }
+    // sum/sqrt/abs/min/max/round/sin/cos/log/exp are all base R.
+    return `${callee}(${args})`;
+  }
+  if (c.lang === 'js') {
+    if (callee === 'len' && node.args.length === 1) return `(${args}).length`;
+    if (['sqrt', 'abs', 'sin', 'cos', 'log', 'exp', 'floor', 'min', 'max'].includes(callee)) {
+      return `Math.${callee}(${args})`;
+    }
+    // `Math.round(v, digits)` is not real JS (the digit is ignored), so the
+    // two-arg form expands to the equivalent scale-round-scale expression.
+    if (callee === 'round' && node.args.length === 2) {
+      return `Math.round((${node.args[0] ? expr(node.args[0], c) : ''}) * 10 ** (${expr(node.args[1]!, c)})) / 10 ** (${expr(node.args[1]!, c)})`;
+    }
+    if (callee === 'round') return `Math.round(${args})`;
+    return `${callee}(${args})`;
+  }
+  return `${callee}(${args})`;
+}
+
 function expr(node: IRNode, c: Ctx): string {
   switch (node.kind) {
     case 'Number':
@@ -129,12 +304,17 @@ function expr(node: IRNode, c: Ctx): string {
     case 'Null':
       // R has no `None`; its null object is `NULL`.
       return c.lang === 'js' ? 'null' : c.lang === 'r' ? 'NULL' : 'None';
-    case 'VarRef':
+    case 'VarRef': {
+      // python's `math.pi` is a bare dotted name in the source; render the
+      // target dialect's constant instead of an undefined variable.
+      if (node.name === 'math.pi') return c.lang === 'r' ? 'pi' : c.lang === 'js' ? 'Math.PI' : 'math.pi';
       return node.name;
+    }
     case 'List': {
-      // `[a, b]` is a parse error in R — the vector/list constructor is `list`.
+      // R's vector constructor is `c(...)`; `list(...)` would create an
+      // unequal-length-semantics generic list instead of a flat vector.
       const items = node.items.map((i) => expr(i, c)).join(', ');
-      return c.lang === 'r' ? `list(${items})` : `[${items}]`;
+      return c.lang === 'r' ? `c(${items})` : `[${items}]`;
     }
     case 'ListIndex': {
       // R subscripts start at 1, so a numeric index needs the +1 offset. A
@@ -153,7 +333,32 @@ function expr(node: IRNode, c: Ctx): string {
     case 'UnaryOp':
       return unaryExpr(node, c);
     case 'Call':
-      return `${node.callee}(${node.args.map((a) => expr(a, c)).join(', ')})`;
+      return callExpr(node, c);
+    case 'Ternary': {
+      const cond = expr(node.cond, c);
+      const then = expr(node.then, c);
+      const alt = expr(node.alt, c);
+      if (c.lang === 'python') return `(${then} if ${cond} else ${alt})`;
+      if (c.lang === 'r') return `ifelse(${cond}, ${then}, ${alt})`;
+      return `(${cond} ? ${then} : ${alt})`;
+    }
+    case 'FString':
+      return fstringExpr(node, c);
+    case 'Lambda': {
+      const body = expr(node.body, c);
+      const params = node.params.join(', ');
+      if (c.lang === 'python') return `lambda ${params}: ${body}`;
+      if (c.lang === 'r') return `function(${params}) ${body}`;
+      return `(${params}) => ${body}`;
+    }
+    case 'ListComp':
+      return listCompExpr(node, c);
+    case 'Join': {
+      const items = expr(node.items, c);
+      if (c.lang === 'python') return `${quote(node.sep)}.join(${items})`;
+      if (c.lang === 'r') return `paste(${items}, collapse = ${quote(node.sep)})`;
+      return `(${items}).join(${quote(node.sep)})`;
+    }
     case 'LoadCSV':
     case 'LoadXYZ':
       return `studio.load(${quote(node.path)})`;
@@ -326,10 +531,23 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
       // function scope; a second `let x` in the same scope is a SyntaxError.
       const needsDecl = node.declare && c.lang === 'js' && !c.declared.has(node.name);
       if (needsDecl) c.declared.add(node.name);
+      // `rng = _random.Random(seed)` — R/JS seed the global engine instead of
+      // binding an RNG object (see callExpr).
+      if (
+        c.lang !== 'python' &&
+        node.value.kind === 'Call' &&
+        /\.Random$/.test(node.value.callee) &&
+        node.value.args.length === 1
+      ) {
+        return `${ind}${c.lang === 'r' ? 'set.seed' : 'setSeed'}(${expr(node.value.args[0]!, c)})${terminator(c)}`;
+      }
       const assignOp = c.lang === 'r' ? ' <- ' : ' = ';
       const prefix = needsDecl ? 'let ' : '';
       return `${ind}${prefix}${node.name}${assignOp}${expr(node.value, c)}${terminator(c)}`;
     }
+    case 'Import':
+      // Imports are execution no-ops in every dialect — emit nothing.
+      return '';
     case 'PlotScatter': {
       const entries = [
         { key: 'x', value: { kind: 'String', value: node.x } as IRNode },
@@ -421,6 +639,9 @@ export function generate(program: IRProgram, lang: CodegenLang): string {
     }
     if (program.body.length > 0) parts.push('');
   }
-  for (const node of program.body) parts.push(stmt(node, c, 0));
+  for (const node of program.body) {
+    const text = stmt(node, c, 0);
+    if (text !== '') parts.push(text); // Import and other no-op statements
+  }
   return parts.join('\n');
 }

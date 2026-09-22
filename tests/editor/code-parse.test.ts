@@ -194,6 +194,27 @@ describe('parseExpression', () => {
     expect(parseExpression("list(x = 'a')", 'r')).toMatchObject({ kind: 'Dict' });
   });
 
+  it('parses pipe chains into plain calls (R |> and magrittr %>%)', () => {
+    expect(parseExpression('df |> head(2)', 'r')).toMatchObject({
+      kind: 'Call', callee: 'head', args: [{ kind: 'VarRef', name: 'df' }, { kind: 'Number', value: 2 }],
+    });
+    expect(parseExpression('df %>% head(2)', 'r')).toMatchObject({ kind: 'Call', callee: 'head' });
+    expect(parseExpression('x |> mean', 'r')).toMatchObject({
+      kind: 'Call', callee: 'mean', args: [{ kind: 'VarRef', name: 'x' }],
+    });
+    // Pipe binds loosest: arithmetic on the left folds in before the call.
+    expect(parseExpression('a + 1 |> f()', 'r')).toMatchObject({
+      kind: 'Call', callee: 'f', args: [{ kind: 'BinaryOp', op: '+' }],
+    });
+    // Chains fold left-to-right.
+    const chained = parseExpression('x |> f() |> g()', 'r');
+    expect(chained).toMatchObject({ kind: 'Call', callee: 'g' });
+    // studio.* RHS with valid arguments folds into the canonical IR call,
+    // not a generic Call (invalid arg shapes stay generic Calls).
+    expect(parseExpression('df |> studio.filter("x", ">", 3)', 'r')).toMatchObject({ kind: 'Filter' });
+    expect(parseExpression('df |> studio.normalize()', 'r')).toMatchObject({ kind: 'Call', callee: 'studio.normalize' });
+  });
+
   it('parses Python slices with optional parts', () => {
     expect(parseExpression('a[1:3]', 'python')).toMatchObject({ kind: 'ListSlice' });
     expect(parseExpression('a[:2]', 'python')).toMatchObject({ kind: 'ListSlice' });

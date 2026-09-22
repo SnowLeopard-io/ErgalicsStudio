@@ -55,8 +55,9 @@ describe('BuiltinIRRuntime (FR-04 contract)', () => {
 
   it('exec counts statements degraded to RawCode', async () => {
     const rt = makeRuntime();
-    // The native R pipe is outside the IR subset → preserved as RawCode.
-    const result = await rt.exec('df <- studio.random(5)\nhead_df <- df |> head(2)');
+    // R formula syntax (`~`) is outside the IR subset → preserved as RawCode.
+    // (The native pipe `|>` IS parseable now, so it no longer degrades.)
+    const result = await rt.exec('df <- studio.random(5)\nmodel <- y ~ x');
     expect(result.ok).toBe(true);
     expect(result.skippedCount).toBeGreaterThanOrEqual(1);
   });

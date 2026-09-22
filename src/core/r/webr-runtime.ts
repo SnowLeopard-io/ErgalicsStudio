@@ -8,18 +8,19 @@
 // absent, which the runtime factory turns into a clean fallback to the
 // built-in IR engine.
 //
-// Vendoring (production): drop the webR distribution (webr.mjs + webr-worker.js
-// + webr-shims + the R base WASM) into `public/webr/` — `scripts/copy-webr.mjs`
+// Vendoring (production): drop the webR distribution (webr.js + webr-worker.js
+// + R.js/R.wasm) into `public/webr/` — `scripts/copy-webr.mjs`
 // copies it there automatically when a `webr` package is installed in
 // node_modules (it is a no-op otherwise, never breaking the build). The probe
 // order is: (1) a preloaded `globalThis.WebR`, (2) same-origin
-// `<base>/webr/webr.mjs` as an ES module.
+// `<base>/webr/webr.js` as an ES module. The bundle directory is passed as
+// webR's `baseUrl` so the worker and R WASM binaries load same-origin too.
 //
 // The `studio.*` bridge: a best-effort R-side `studio` environment is injected
-// after boot. Where webR's JS interop (`globalthis`) is available, the verbs
-// route back to the host through the `onStudioCall` callback (project data
-// semantics shared with Python / blocks); otherwise they fall back to plain R
-// base functions so user scripts still run.
+// after boot. webR's public API has no JS→R callback registry, so the host
+// sink (`onStudioCall`) is not wired in the full runtime — the injected verbs
+// degrade to invisible no-ops so user scripts calling studio.* still run.
+// The complete studio semantics live in the built-in IR engine.
 // ==========================================================================
 
 import {
@@ -30,18 +31,20 @@ import {
   type RLoadProgress,
 } from './types';
 
-/** Loose shape of the webR surface we touch (avoids a hard type dependency). */
+/** Loose shape of the webR surface we touch (avoids a hard type dependency).
+ *  Matches webr ≥ 0.6: `init()` to boot, `close()` to tear down, async
+ *  `flush()` for the output queue, `evalRString` for captured evaluation.
+ *  Legacy shapes (`ready` fn/promise) are still honoured so the adapter
+ *  survives minor upstream drift. */
 interface WebRInstance {
-  ready: Promise<unknown>;
+  init?(): Promise<unknown>;
+  ready?: unknown;
   evalRVoid(code: string): Promise<unknown>;
+  evalRString?(code: string, options?: Record<string, unknown>): Promise<string>;
   installPackages(pkgs: string[]): Promise<unknown>;
   interrupt?(): Promise<unknown> | void;
-  destroy?(): Promise<unknown> | void;
-  flush?(): { type: string; data: string }[];
-  globalThis?: {
-    set(name: string, value: unknown): Promise<unknown>;
-    unset(name: string): Promise<unknown>;
-  };
+  close?(): unknown;
+  flush?(): Promise<{ type: string; data: unknown }[]> | { type: string; data: unknown }[];
 }
 
 type WebRConstructor = new (options?: Record<string, unknown>) => WebRInstance;
@@ -49,8 +52,6 @@ type WebRConstructor = new (options?: Record<string, unknown>) => WebRInstance;
 export interface WebRRuntimeOptions {
   /** Directory the vendored bundle is served from (default: `<base>/webr/`). */
   baseUrl?: string;
-  /** Host-side `studio.*` sink for the injected R bridge (best-effort). */
-  onStudioCall?: (method: string, argsJson: string) => void;
   /** Override the module URL probed by the dynamic import (tests / alt layout). */
   moduleUrl?: string;
 }
@@ -60,25 +61,23 @@ const MAX_PACKAGES_PER_INSTALL = 3;
 
 /** R source defining the `studio` environment inside the webR session. */
 function studioBridgeSource(): string {
+  const verbs = [
+    '"load","loadCSV","loadXYZ","random","exampleData","grid","range",',
+    '"normalize","sort","select","addColumn","addConstantColumn","filter","filterRange",',
+    '"topK","renameColumn","summary","histogram","plot","getParam","setParam"',
+  ].join('');
   return [
     '# Ergalics Studio bridge (injected by the full R runtime, best effort)',
     'studio <- new.env(parent = emptyenv())',
     'studio$print <- function(...) base::print(list(...))',
     'studio$notify <- function(kind = "info", message = "") base::message(sprintf("[%s] %s", kind, message))',
-    'if (requireNamespace("globalthis", quietly = TRUE)) {',
-    '  .studio_host <- function(method, args_json) {',
-    '    globalthis::js$__studio_call(method, args_json)',
-    '    invisible(NULL)',
-    '  }',
-    '  for (.verb in c("load","loadCSV","loadXYZ","random","exampleData","grid","range",',
-    '    "normalize","sort","select","addColumn","addConstantColumn","filter","filterRange",',
-    '    "topK","renameColumn","summary","histogram","plot","getParam","setParam")) {',
-    '    local({',
-    '      .m <- .verb',
-    '      assign(.m, function(...) .studio_host(.m, jsonlite::toJSON(list(...), auto_unbox = TRUE)),',
-    '             envir = studio)',
-    '    })',
-    '  }',
+    // webR has no JS→R callback registry, so without the (optional) `globalthis`
+    // package the verbs cannot reach the host — degrade to invisible no-ops.
+    `for (.verb in c(${verbs})) {`,
+    '  local({',
+    '    .m <- .verb',
+    '    assign(.m, function(...) invisible(NULL), envir = studio)',
+    '  })',
     '}',
   ].join('\n');
 }
@@ -97,14 +96,24 @@ export class WebRRuntime implements RLanguageRuntime {
   }
 
   /** Same-origin default — resolved lazily so this module never touches DOM
-   *  at import time (Node tests import it safely). */
+   *  at import time (Node tests import it safely). The browser bundle is
+   *  `webr.js`: the package's `webr.mjs` is a Node build (it imports
+   *  node:module) and must never be loaded in a page. */
   private resolveModuleUrl(): string {
     if (this.opts.moduleUrl) return this.opts.moduleUrl;
-    if (this.opts.baseUrl) return `${this.opts.baseUrl.replace(/\/$/, '')}/webr.mjs`;
+    return this.resolveBaseUrl() + 'webr.js';
+  }
+
+  /** Directory the vendored bundle (webr.js, webr-worker.js, R.wasm) is
+   *  served from. MUST be passed as webR's `baseUrl` option: the worker and
+   *  the R WebAssembly binaries are fetched from it, and the default points
+   *  at the r-wasm CDN which this project never uses. */
+  private resolveBaseUrl(): string {
+    if (this.opts.baseUrl) return this.opts.baseUrl.replace(/\/$/, '') + '/';
     if (typeof document !== 'undefined') {
-      return new URL('webr/webr.mjs', document.baseURI).href;
+      return new URL('webr/', document.baseURI).href;
     }
-    return 'webr/webr.mjs';
+    return 'webr/';
   }
 
   /** Locate the webR constructor: preloaded global, then same-origin module. */
@@ -114,7 +123,8 @@ export class WebRRuntime implements RLanguageRuntime {
     // Build-time flag: when webR was not vendored, skip the dynamic import
     // entirely instead of firing a request that 404s on every R session.
     // (typeof guard keeps this module importable in plain Node tests.)
-    if (typeof __WEBR_AVAILABLE__ !== 'undefined' && !__WEBR_AVAILABLE__ && !this.opts.moduleUrl) {
+    const overridden = Boolean(this.opts.moduleUrl || this.opts.baseUrl);
+    if (typeof __WEBR_AVAILABLE__ !== 'undefined' && !__WEBR_AVAILABLE__ && !overridden) {
       throw new WebRUnavailableError(
         'webR bundle is not vendored — install `webr` or drop the distribution into public/webr/ to enable the full R runtime',
       );
@@ -139,6 +149,26 @@ export class WebRRuntime implements RLanguageRuntime {
     return ctor as WebRConstructor;
   }
 
+  /** Boot the instance. webr ≥ 0.6 exposes `init()`; older/loose shapes may
+   *  expose `ready` as a function or a promise. */
+  private async bootInstance(webr: WebRInstance): Promise<void> {
+    if (typeof webr.init === 'function') {
+      await webr.init();
+      return;
+    }
+    if (typeof webr.ready === 'function') {
+      await webr.ready();
+      return;
+    }
+    if (webr.ready && typeof (webr.ready as Promise<unknown>).then === 'function') {
+      await webr.ready;
+      return;
+    }
+    throw new WebRUnavailableError(
+      'the WebR instance exposes neither init() nor ready — unsupported webR build',
+    );
+  }
+
   async load(onProgress?: (progress: RLoadProgress) => void): Promise<void> {
     if (this.disposed) throw new Error('webR runtime has been disposed');
     if (this.boot) return this.boot;
@@ -146,10 +176,8 @@ export class WebRRuntime implements RLanguageRuntime {
       onProgress?.({ stage: 'probe', percent: 5 });
       const Ctor = await this.probeWebR();
       onProgress?.({ stage: 'boot', percent: 25 });
-      const webr = new Ctor(
-        this.opts.baseUrl ? { baseUrl: this.opts.baseUrl } : {},
-      );
-      await webr.ready;
+      const webr = new Ctor({ baseUrl: this.resolveBaseUrl() });
+      await this.bootInstance(webr);
       this.webr = webr;
       onProgress?.({ stage: 'studio', percent: 70 });
       await this.injectStudioBridge(webr);
@@ -158,18 +186,9 @@ export class WebRRuntime implements RLanguageRuntime {
     return this.boot;
   }
 
-  /** Register the JS callback and eval the R-side `studio` environment. */
+  /** Inject the R-side `studio` environment (best effort). */
   private async injectStudioBridge(webr: WebRInstance): Promise<void> {
     try {
-      if (webr.globalThis && this.opts.onStudioCall) {
-        await webr.globalThis.set('__studio_call', (method: string, argsJson: string) => {
-          try {
-            this.opts.onStudioCall?.(String(method), String(argsJson));
-          } catch {
-            /* host sink failures must never kill the R session */
-          }
-        });
-      }
       await webr.evalRVoid(studioBridgeSource());
     } catch (err) {
       // The bridge is best-effort: without it user R code still runs, so do
@@ -187,13 +206,49 @@ export class WebRRuntime implements RLanguageRuntime {
   }
 
   /** Collect any queued console output webR emitted during a call. */
-  private drainOutput(webr: WebRInstance): string {
+  private async drainOutput(webr: WebRInstance): Promise<string> {
     if (typeof webr.flush !== 'function') return '';
-    return webr
-      .flush()
+    const chunks = await webr.flush();
+    return chunks
       .filter((chunk) => typeof chunk?.data === 'string')
-      .map((chunk) => chunk.data)
+      .map((chunk) => chunk.data as string)
       .join('');
+  }
+
+  /** Marks where user-code stdout ends and the captured R error begins. */
+  private static readonly ERR_SENTINEL = '\u0001STUDIO_R_ERR\u0001';
+
+  /** Run the program and capture stdout + error as data.
+   *  Primary path: R-side `capture.output` around `eval(parse(text=...))`,
+   *  returning the result via `evalRString`. R errors are surfaced through a
+   *  sentinel instead of a rejection so partial output survives. (webR's
+   *  `captureR` throws a bare, message-less `Error` on the PostMessage
+   *  channel in webr 0.6, and the evalR* family routes output to the JS
+   *  console instead of returning it — both verified empirically.) */
+  private async execCaptured(
+    webr: WebRInstance,
+    src: string,
+  ): Promise<{ stdout: string; error?: string }> {
+    if (typeof webr.evalRString === 'function') {
+      const code = JSON.stringify(src); // a double-quoted literal is valid R
+      const sent = JSON.stringify(WebRRuntime.ERR_SENTINEL);
+      const wrapped =
+        `local({.err <- NULL;` +
+        `.o <- capture.output(withCallingHandlers(` +
+        `eval(parse(text=${code}), envir=globalenv()),` +
+        `error=function(e){.err <<- conditionMessage(e); invokeRestart("muffleError")}));` +
+        `paste0(paste(.o, collapse="\n"), if (!is.null(.err)) paste0("\n", ${sent}, .err))})`;
+      const ret = await webr.evalRString(wrapped);
+      const i = ret.indexOf(WebRRuntime.ERR_SENTINEL);
+      if (i < 0) return { stdout: ret };
+      return {
+        stdout: ret.slice(0, i).replace(/\n$/, ''),
+        error: ret.slice(i + WebRRuntime.ERR_SENTINEL.length),
+      };
+    }
+    // Loose/legacy shapes: eval + drain the channel output queue.
+    await webr.evalRVoid(src);
+    return { stdout: await this.drainOutput(webr) };
   }
 
   async exec(code: string): Promise<RExecResult> {
@@ -202,11 +257,11 @@ export class WebRRuntime implements RLanguageRuntime {
     const startedAt = Date.now();
     const webr = this.requireBooted();
     try {
-      await webr.evalRVoid(code);
-      const stdout = this.drainOutput(webr);
-      return { ok: true, stdout, durationMs: Date.now() - startedAt };
+      // Editors hand over CRLF line endings; R's parser rejects stray \r.
+      const { stdout, error } = await this.execCaptured(webr, code.replace(/\r\n?/g, '\n'));
+      return { ok: !error, stdout, error, durationMs: Date.now() - startedAt };
     } catch (err) {
-      const stdout = this.drainOutput(webr);
+      const stdout = await this.drainOutput(webr);
       return {
         ok: false,
         stdout,
@@ -250,9 +305,9 @@ export class WebRRuntime implements RLanguageRuntime {
     const webr = this.webr;
     this.webr = null;
     this.boot = null;
-    if (webr && typeof webr.destroy === 'function') {
+    if (webr && typeof webr.close === 'function') {
       try {
-        await webr.destroy();
+        webr.close();
       } catch {
         /* teardown errors are non-fatal */
       }

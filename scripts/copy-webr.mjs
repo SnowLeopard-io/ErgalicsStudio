@@ -45,7 +45,7 @@ async function exists(p) {
  * Copy the webR bundle into public/webr when the package is installed.
  * Returns true when assets are in place, false when webR is absent (no-op).
  */
-export async function ensureWebRAssets() {
+async function ensureWebRAssetsOnce() {
   if (!existsSync(SRC)) {
     // Optional enhancement only — nothing to vendor, build proceeds.
     console.log('[copy-webr] `webr` is not installed — skipping (R runs on the built-in IR engine)');
@@ -58,11 +58,26 @@ export async function ensureWebRAssets() {
     return true; // already vendored at the right version
   }
   console.log(`[copy-webr] copying webR ${version} from node_modules/webr …`);
-  // The package ships webr.mjs + the worker/wasm assets under dist/.
+  // The package ships the browser ESM (webr.js), the worker and the R wasm
+  // assets under dist/ — note dist/webr.mjs is a Node build, never used here.
   const dist = resolve(SRC, 'dist');
   await cp(existsSync(dist) ? dist : SRC, DEST, { recursive: true });
   await writeFile(marker, `${version}\n`);
   return true;
+}
+
+// Single-flight: Vite fires buildStart and configureServer around the same
+// time on dev-server startup, and two concurrent copies into the same
+// destination tree race on Windows (ENOENT unlink mid-copy). Share one run.
+let inflight = null;
+export function ensureWebRAssets() {
+  if (!inflight) {
+    inflight = ensureWebRAssetsOnce().catch((err) => {
+      inflight = null; // allow a retry after a failed run
+      throw err;
+    });
+  }
+  return inflight;
 }
 
 // Run only when executed directly, not when imported by vite.config.ts.

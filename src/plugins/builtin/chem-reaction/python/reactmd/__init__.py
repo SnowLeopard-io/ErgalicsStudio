@@ -1,0 +1,1 @@
+# reactmd — reactive molecular dynamics (pure NumPy). Engine lives in driver.py.

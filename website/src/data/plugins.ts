@@ -63,6 +63,28 @@ export const PLUGINS: PluginListing[] = [
     fingerprint: 'ed25519:88aa…5c12', signed: true, sizeKb: 63, updatedAt: '2026-07-28',
   },
   {
+    id: 'example.em-eigensolver',
+    name: { zh: '电磁谐振特征值求解器', en: 'EM Eigensolver' },
+    desc: {
+      zh: '十万阶非正定厄密稀疏矩阵特征值求解：厚重启 Lanczos、块 LOBPCG、Jacobi-Davidson 三内核 + MINRES 位移逆变换，支持 3D 模式场渲染。',
+      en: 'Large-scale sparse Hermitian (indefinite) eigenpairs via thick-restart Lanczos, block LOBPCG and Jacobi-Davidson with MINRES shift-invert; 3-D mode-field rendering included.',
+    },
+    author: 'Ergalics Official', version: '1.0.0', category: 'scientific',
+    tags: ['physics', 'eigenvalues', 'webgpu'], installs: 1873,
+    fingerprint: 'ed25519:3d5e…90af', signed: true, sizeKb: 148, updatedAt: '2026-09-14',
+  },
+  {
+    id: 'example.fluid-cfd-coupler',
+    name: { zh: '1D-3D 双向耦合求解器', en: '1D-3D Coupled Solver' },
+    desc: {
+      zh: '1D 管网与 3D 场双向耦合：多速率时间子循环、正反向边界耦合、毫秒级阀门控制、守恒性审计与精度-效率权衡曲线。',
+      en: 'Join a coarse-time 1-D pipe network with a fine-time 3-D field solver: multi-rate sub-cycling, bidirectional boundary coupling, millisecond valve control and conservation auditing.',
+    },
+    author: 'Ergalics Official', version: '1.0.0', category: 'scientific',
+    tags: ['physics', 'cfd', 'coupling', 'python'], installs: 1296,
+    fingerprint: 'ed25519:c81b…64e3', signed: true, sizeKb: 176, updatedAt: '2026-09-18',
+  },
+  {
     id: 'fun.life',
     name: { zh: '生命游戏', en: 'Game of Life' },
     desc: {

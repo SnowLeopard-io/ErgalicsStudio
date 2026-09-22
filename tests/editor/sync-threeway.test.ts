@@ -43,9 +43,11 @@ describe('程式碼 → IR（parseCodeToIR）', () => {
   });
 
   it('將無法識別的程式碼保留為 RawCode，而非丟棄', () => {
+    // `import` statements now round-trip as Import nodes (no-op for execution),
+    // so only the truly unparseable line stays raw.
     const code = ['df1 = studio.load("data.csv")', 'import numpy as np', 'print(np.mean(...))'].join('\n');
     const { rawCount } = parseCodeToIR(code, 'python');
-    expect(rawCount).toBe(2);
+    expect(rawCount).toBe(1);
   });
 
   it('也能解析 JS 拼寫（studio.loadCSV）', () => {

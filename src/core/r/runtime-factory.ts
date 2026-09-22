@@ -24,8 +24,6 @@ export interface CreateRRuntimeOptions {
   preferFull?: boolean;
   /** Builder for the `studio.*` API the builtin IR engine executes against. */
   getStudioApi: () => StudioApi;
-  /** Host-side studio sink forwarded to the webR bridge (best effort). */
-  onStudioCall?: (method: string, argsJson: string) => void;
   /** Override the webR module URL (tests / non-standard vendoring layout). */
   webrModuleUrl?: string;
   /** Progress callback for the full-runtime boot (UI loading indicator). */
@@ -62,7 +60,6 @@ export async function createRRuntime(
 
   try {
     const webr = new WebRRuntime({
-      onStudioCall: options.onStudioCall,
       moduleUrl: options.webrModuleUrl,
     });
     await webr.load((p) => options.onProgress?.(p.percent));

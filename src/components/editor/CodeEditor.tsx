@@ -252,14 +252,6 @@ export function CodeEditor() {
       const { runtime, engine, fallbackReason } = await createRRuntime({
         preferFull: true,
         getStudioApi: createWorkbenchStudioApi,
-        onStudioCall: (method, argsJson) => {
-          // Best-effort host-side studio sink for the webR bridge: forward to
-          // the console so R-side studio.* calls are visible in the page.
-          useEditorStore.getState().appendConsole({
-            stream: 'info',
-            text: `${t('r.console.full_prefix')} studio.${method}(${argsJson})`,
-          });
-        },
         onProgress: (percent) => setRLoadPercent(percent),
       });
       rRuntimeRef.current = runtime;

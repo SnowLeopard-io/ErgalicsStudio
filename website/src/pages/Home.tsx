@@ -26,9 +26,9 @@ export function Home() {
             <Link to="/gallery" className="btn btn-ghost btn-lg">{t('hero.cta2')}</Link>
           </div>
           <div className="hero-stats">
-            <div><b>15</b><span>{t('f2.t')}</span></div>
+            <div><b>19</b><span>{t('f2.t')}</span></div>
             <div><b>4</b><span>{t('f1.t')}</span></div>
-            <div><b>1000+</b><span>Unit Tests</span></div>
+            <div><b>1500+</b><span>Unit Tests</span></div>
             <div><b>0</b><span>{t('footer.license')}</span></div>
           </div>
         </div>

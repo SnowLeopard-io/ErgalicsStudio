@@ -101,6 +101,11 @@ export interface StudioApi {
   // ---- host interaction ----
   notify(kind: NotifyKind, message: string): void;
   print(...args: unknown[]): void;
+  // ---- deterministic scalar RNG (python random.seed / R set.seed) ----
+  /** Seed the shared scalar RNG; converted `random.seed`/`set.seed` calls. */
+  seedRandom(seed: number): void;
+  /** One uniform [0, 1) draw from the shared scalar RNG. */
+  random01(): number;
   // ---- project-scoped persistence ----
   getParam(key: string): unknown;
   setParam(key: string, value: unknown): void;
@@ -165,6 +170,9 @@ export function createStudioApi(
   host: StudioApiHost,
   params: Map<string, unknown> = new Map(),
 ): StudioApi {
+  // Shared scalar RNG for converted python/R random code. Seeded lazily so a
+  // program that never draws still gets reproducible output if it does.
+  let scalarRng: (() => number) | null = null;
   const api: StudioApi = {
     async load(path) {
       const text = await host.loadText(path);
@@ -353,6 +361,15 @@ export function createStudioApi(
 
     print(...args) {
       host.print(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+    },
+
+    seedRandom(seed) {
+      scalarRng = lcg(Number(seed));
+    },
+
+    random01() {
+      if (!scalarRng) scalarRng = lcg(1);
+      return scalarRng();
     },
 
     getParam(key) {

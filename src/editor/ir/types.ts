@@ -61,6 +61,26 @@ export type IRNode =
   | { kind: 'FuncDef'; name: string; params: string[]; body: IRNode[] }
   | { kind: 'Return'; value?: IRNode }
   | { kind: 'Call'; callee: string; args: IRNode[] }
+  // ---- expressions beyond the block surface ----
+  /** `import x` / `from x import y` — a no-op kept so imports round-trip
+   *  instead of degrading to raw code. */
+  | { kind: 'Import'; module: string }
+  /** Conditional expression: python `A if C else B` / JS `C ? A : B`.
+   *  R renders `ifelse(C, A, B)`. */
+  | { kind: 'Ternary'; cond: IRNode; then: IRNode; alt: IRNode }
+  /** String interpolation with optional format specs, e.g.
+   *  `f'pi ~ {est:.4f}'`. Text parts carry literal chunks; expr parts carry
+   *  an optional printf-ish spec (`.4f`, `>5`, …). */
+  | { kind: 'FString'; parts: { text?: string; expr?: IRNode; spec?: string }[] }
+  /** List comprehension: `[body for v in iter]` with optional filter.
+   *  Multi-variable forms (`for x, y in zip(a, b)`) keep the zip call in
+   *  `iter` and name the variables in `vars`. */
+  | { kind: 'ListComp'; vars: string[]; iter: IRNode; body: IRNode; cond?: IRNode }
+  /** `sep.join(items)` over a list/comprehension. */
+  | { kind: 'Join'; sep: string; items: IRNode }
+  /** Anonymous function expression: python `lambda p: e`, R `function(p) e`,
+   *  JS `(p) => e`. Mostly an intermediate of the comprehension inverses. */
+  | { kind: 'Lambda'; params: string[]; body: IRNode }
   // ---- data sources ----
   | { kind: 'LoadCSV'; path: string }
   | { kind: 'LoadXYZ'; path: string }
