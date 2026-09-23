@@ -167,6 +167,10 @@ export class NBodyPlugin implements Plugin {
       this.exportPng();
       return;
     }
+    if (this.buttonFired(params, 'exportObjPng')) {
+      this.exportObjPng();
+      return;
+    }
     if (this.buttonFired(params, 'exportCsv')) {
       this.exportCsv();
     }
@@ -211,6 +215,7 @@ export class NBodyPlugin implements Plugin {
         labelI18n: { 'zh-CN': '⚡ GPU 全配对计算', 'en-US': '⚡ GPU all-pairs' },
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Bodies CSV', '导出天体 CSV'),
     ];
   }
@@ -336,6 +341,11 @@ export class NBodyPlugin implements Plugin {
   /** Snapshot the host-managed 3-D scene as a PNG. */
   private exportPng() {
     exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'nbody');
+  }
+
+  /** Snapshot only the bodies (transparent background, no grid/axes) as PNG. */
+  private exportObjPng() {
+    exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'nbody');
   }
 
   /** Export the currently drawn bodies (position, velocity, mass) as CSV.

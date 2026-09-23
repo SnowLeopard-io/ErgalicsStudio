@@ -64,6 +64,12 @@ import reactionHclNaoh from '../../examples/data/reaction-hcl-naoh.json?raw';
 import reactionAgno3Nacl from '../../examples/data/reaction-agno3-nacl.json?raw';
 import reactionNaclElectrolysis from '../../examples/data/reaction-nacl-electrolysis.json?raw';
 import reactionC2h4Br2 from '../../examples/data/reaction-c2h4-br2.json?raw';
+import reactionEsterification from '../../examples/data/reaction-esterification.json?raw';
+import reactionC2h5ohO2 from '../../examples/data/reaction-c2h5oh-o2.json?raw';
+import reactionC2h5ohC2h4 from '../../examples/data/reaction-c2h5oh-c2h4.json?raw';
+import reactionCh4Cl2 from '../../examples/data/reaction-ch4-cl2.json?raw';
+import reactionC6h6H2 from '../../examples/data/reaction-c6h6-h2.json?raw';
+import reactionC7h8Kmno4 from '../../examples/data/reaction-c7h8-kmno4.json?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -1103,6 +1109,120 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '加成反应：C₂H₄ + Br₂ → C₂H₄Br₂。乙烯的 π 键与 Br–Br 断裂，两个 Br 各接到一个碳上生成 1,2-二溴乙烷；产物自动松弛展直。',
       'en-US':
         'Addition reaction: C₂H₄ + Br₂ → C₂H₄Br₂. The alkene π bond and Br–Br sever and one Br adds to each carbon, giving 1,2-dibromoethane; the product relaxes flat.',
+    },
+  },
+  {
+    id: 'chem-rxn-esterification',
+    filename: 'reaction-esterification.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionEsterification,
+    nameI18n: {
+      'zh-CN': '化学 · 乙酸乙酯的酯化合成（动力学）',
+      'en-US': 'Chemistry · esterification dynamics (EtOAc)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '酯化反应：C₂H₅OH + CH₃COOH → CH₃COOC₂H₅ + H₂O。乙醇的羟基氢与乙酸的羧基在高温下酯化，析出乙酸乙酯并脱去一分子水。',
+      'en-US':
+        'Esterification: C₂H₅OH + CH₃COOH → CH₃COOC₂H₅ + H₂O. The hydroxy H of ethanol couples with the carboxyl of acetic acid to give ethyl acetate and split off water.',
+    },
+  },
+  {
+    id: 'chem-rxn-c2h5oh-o2',
+    filename: 'reaction-c2h5oh-o2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionC2h5ohO2,
+    nameI18n: {
+      'zh-CN': '化学 · 乙醇催化氧化为乙醛（动力学）',
+      'en-US': 'Chemistry · ethanol → acetaldehyde dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '催化氧化：2C₂H₅OH + O₂ → 2CH₃CHO + 2H₂O。高温下 O–H 与 C–H 脱氢、O=O 断裂，乙醇转为乙醛并放出水。',
+      'en-US':
+        'Catalytic oxidation: 2C₂H₅OH + O₂ → 2CH₃CHO + 2H₂O. O–H / C–H dehydrogenation with O=O cleavage turns ethanol into acetaldehyde plus water.',
+    },
+  },
+  {
+    id: 'chem-rxn-c2h5oh-c2h4',
+    filename: 'reaction-c2h5oh-c2h4.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionC2h5ohC2h4,
+    nameI18n: {
+      'zh-CN': '化学 · 乙醇脱水制乙烯（动力学）',
+      'en-US': 'Chemistry · ethanol dehydration → ethene',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '消去/脱水：C₂H₅OH → C₂H₄ + H₂O。浓硫酸催化下高温脱水，C–O 与 C–H 键断裂脱去一分子水，生成烯烃 C₂H₄。',
+      'en-US':
+        'Elimination/dehydration: C₂H₅OH → C₂H₄ + H₂O. Conc. H₂SO₄ catalysis at high T severs C–O and C–H, eliminating water to give the alkene ethene.',
+    },
+  },
+  {
+    id: 'chem-rxn-ch4-cl2',
+    filename: 'reaction-ch4-cl2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionCh4Cl2,
+    nameI18n: {
+      'zh-CN': '化学 · 甲烷与氯气取代（动力学）',
+      'en-US': 'Chemistry · methane chlorination dynamics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '取代反应：CH₄ + Cl₂ → CH₃Cl + HCl。光照/高温下 C–H 与 Cl–Cl 断裂，一个 Cl 取代氢生成氯甲烷，另一 Cl 与 H 结合为 HCl。',
+      'en-US':
+        'Substitution: CH₄ + Cl₂ → CH₃Cl + HCl. Photochemically C–H and Cl–Cl sever; one Cl displaces a hydrogen to give chloromethane while the other pairs with H into HCl.',
+    },
+  },
+  {
+    id: 'chem-rxn-c6h6-h2',
+    filename: 'reaction-c6h6-h2.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionC6h6H2,
+    nameI18n: {
+      'zh-CN': '化学 · 苯与氢气加成制环己烷（动力学）',
+      'en-US': 'Chemistry · benzene + H₂ → cyclohexane',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '加成反应：C₆H₆ + 3H₂ → C₆H₁₂。Ni 催化、高温高压下苯环的 π 键逐条断裂，六分子 H₂ 加氢成饱和环己烷。',
+      'en-US':
+        'Addition: C₆H₆ + 3H₂ → C₆H₁₂. Ni-catalysed hydrogenation under heat/pressure saturates the aromatic ring with six added H into cyclohexane.',
+    },
+  },
+  {
+    id: 'chem-rxn-c7h8-kmno4',
+    filename: 'reaction-c7h8-kmno4.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.chem-reaction',
+    group: 'chem',
+    content: reactionC7h8Kmno4,
+    nameI18n: {
+      'zh-CN': '化学 · 甲苯被高锰酸钾氧化为苯甲酸（动力学）',
+      'en-US': 'Chemistry · toluene + KMnO₄ → benzoate',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '氧化：C₆H₅CH₃ + 2KMnO₄ → C₆H₅COOK + 2MnO₂ + KOH + H₂O。侧链甲基被氧化成羧基，MnO₄⁻ 还原为 MnO₂ 沉淀，演示芳环侧链的氧化。',
+      'en-US':
+        'Oxidation: C₆H₅CH₃ + 2KMnO₄ → C₆H₅COOK + 2MnO₂ + KOH + H₂O. The benzylic methyl is oxidised to a carboxyl while MnO₄⁻ reduces to MnO₂ — classic side-chain oxidation of an arene.',
     },
   },
 

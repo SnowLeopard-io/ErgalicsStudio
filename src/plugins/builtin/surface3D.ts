@@ -202,6 +202,10 @@ export class Surface3DPlugin implements Plugin {
       exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'surface3d');
       return;
     }
+    if (actionFired(params, 'exportObjPng')) {
+      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'surface3d');
+      return;
+    }
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
       return;
@@ -220,6 +224,7 @@ export class Surface3DPlugin implements Plugin {
       },
       actionButton('fitView', 'Auto-fit View', '自动适配视角'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Mesh CSV', '导出网格 CSV'),
     ];
   }

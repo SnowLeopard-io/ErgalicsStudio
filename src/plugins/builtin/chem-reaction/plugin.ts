@@ -256,6 +256,7 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('reset', 'Reset', '复位'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     );
     return params;
@@ -343,6 +344,7 @@ export class ChemReactionPlugin implements Plugin {
     }
     if (actionFired(params, 'fitView')) this.fitView();
     if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportObjPng')) this.exportObjPng();
     if (actionFired(params, 'reset')) this.resetScene();
     if (actionFired(params, 'reloadPlugin')) this.reloadPlugin();
     if (actionFired(params, 'sendToFigure')) this.sendToFigure();
@@ -553,6 +555,11 @@ export class ChemReactionPlugin implements Plugin {
 
   private exportPng() {
     if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-reaction');
+    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
+  }
+
+  private exportObjPng() {
+    if (this.three) exportSnapshotPng(this.api, this.three.snapshot({ transparent: true }), 'chem-reaction');
     else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
   }
 

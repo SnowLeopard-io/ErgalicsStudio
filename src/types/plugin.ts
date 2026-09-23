@@ -211,8 +211,12 @@ export interface Scene3DHandle {
   dispose(): void;
   /** Render one frame immediately. */
   render(): void;
-  /** Export the current frame as a PNG data URL. */
-  snapshot(): string;
+  /**
+   * Export the current frame as a PNG data URL. Pass `{ transparent: true }`
+   * to drop the background and reference furniture (grid/axes) so only the
+   * plugin's own objects are captured on a transparent canvas.
+   */
+  snapshot(opts?: { transparent?: boolean }): string;
 }
 
 export interface ContainerCapabilities {

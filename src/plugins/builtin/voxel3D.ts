@@ -185,6 +185,10 @@ export class Voxel3DPlugin implements Plugin {
       exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'voxel3d');
       return;
     }
+    if (actionFired(params, 'exportObjPng')) {
+      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'voxel3d');
+      return;
+    }
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
       return;
@@ -224,6 +228,7 @@ export class Voxel3DPlugin implements Plugin {
       },
       actionButton('fitView', 'Auto-fit View', '自动适配视角'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Field CSV', '导出标量场 CSV'),
     ];
   }

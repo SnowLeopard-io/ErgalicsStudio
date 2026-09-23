@@ -11,7 +11,7 @@
 
 import type { Molecule } from '@/chem/structure';
 import type { EngSpecies } from '@/chem/engine/reaction';
-import { H2, O2, CH4, CO2, H2O, HCl, CuO, Cu, CaCO3, CaO, Zn, ZnCl2, NaOH, NaCl, AgNO3, AgCl, NaNO3, Na, Cl2, Br2, C2H4, C2H4Br2 } from './mols';
+import { H2, O2, CH4, CO2, H2O, HCl, CuO, Cu, CaCO3, CaO, Zn, ZnCl2, NaOH, NaCl, AgNO3, AgCl, NaNO3, Na, Cl2, Br2, C2H4, C2H4Br2, C2H5OH, CH3COOH, CH3COOC2H5, C2H4O, CH3Cl, C6H6, C6H12, C7H8, KMnO4, C6H5COOK, MnO2, KOH } from './mols';
 
 export interface ReactionSpecies extends EngSpecies {
   /** Thermochemical species key if tabulated (e.g. "H2(g)"). */
@@ -95,6 +95,61 @@ export const REACTIONS: ReactionDef[] = [
     classification: 'addition',
     reactants: [sp('c2h4', 'C2H4', 1, C2H4), sp('br2', 'Br2', 1, Br2)],
     products: [sp('c2h4br2', 'C2H4Br2', 1, C2H4Br2)],
+  },
+
+  // ---- organic reactions --------------------------------------------------
+  {
+    id: 'esterification',
+    nameZh: '乙醇与乙酸的酯化反应',
+    nameEn: 'Esterification: C₂H₅OH + CH₃COOH',
+    classification: 'esterification',
+    reactants: [sp('ch3cooh', 'CH3COOH', 1, CH3COOH, 'CH3COOH(l)'), sp('c2h5oh', 'C2H5OH', 1, C2H5OH, 'C2H5OH(l)')],
+    products: [sp('ch3cooc2h5', 'CH3COOC2H5', 1, CH3COOC2H5, 'CH3COOC2H5(l)'), sp('h2o', 'H2O', 1, H2O, 'H2O(l)')],
+  },
+  {
+    id: 'c2h5oh-o2',
+    nameZh: '乙醇的催化氧化（生成乙醛）',
+    nameEn: 'Ethanol oxidation to acetaldehyde',
+    classification: 'oxidation',
+    reactants: [sp('c2h5oh', 'C2H5OH', 2, C2H5OH, 'C2H5OH(l)'), sp('o2', 'O2', 1, O2, 'O2(g)')],
+    products: [sp('c2h4o', 'C2H4O', 2, C2H4O, 'CH3CHO(l)'), sp('h2o', 'H2O', 2, H2O, 'H2O(l)')],
+  },
+  {
+    id: 'c2h5oh-c2h4',
+    nameZh: '乙醇脱水制乙烯',
+    nameEn: 'Ethanol dehydration to ethene',
+    classification: 'dehydration',
+    reactants: [sp('c2h5oh', 'C2H5OH', 1, C2H5OH, 'C2H5OH(l)')],
+    products: [sp('c2h4', 'C2H4', 1, C2H4, 'C2H4(g)'), sp('h2o', 'H2O', 1, H2O, 'H2O(l)')],
+  },
+  {
+    id: 'ch4-cl2',
+    nameZh: '甲烷与氯气的取代反应',
+    nameEn: 'Methane chlorination (substitution)',
+    classification: 'substitution',
+    reactants: [sp('ch4', 'CH4', 1, CH4, 'CH4(g)'), sp('cl2', 'Cl2', 1, Cl2, 'Cl2(g)')],
+    products: [sp('ch3cl', 'CH3Cl', 1, CH3Cl, 'CH3Cl(g)'), sp('hcl', 'HCl', 1, HCl, 'HCl(g)')],
+  },
+  {
+    id: 'c6h6-h2',
+    nameZh: '苯与氢气的加成（制环己烷）',
+    nameEn: 'Benzene hydrogenation to cyclohexane',
+    classification: 'addition',
+    reactants: [sp('c6h6', 'C6H6', 1, C6H6, 'C6H6(l)'), sp('h2', 'H2', 3, H2, 'H2(g)')],
+    products: [sp('c6h12', 'C6H12', 1, C6H12, 'C6H12(l)')],
+  },
+  {
+    id: 'c7h8-kmno4',
+    nameZh: '甲苯被高锰酸钾氧化（成苯甲酸）',
+    nameEn: 'Toluene oxidation by KMnO₄ → benzoate',
+    classification: 'oxidation',
+    reactants: [sp('c7h8', 'C7H8', 1, C7H8, 'C7H8(l)'), sp('kmno4', 'KMnO4', 2, KMnO4)],
+    products: [
+      sp('c6h5cook', 'C6H5COOK', 1, C6H5COOK),
+      sp('mno2', 'MnO2', 2, MnO2),
+      sp('koh', 'KOH', 1, KOH),
+      sp('h2o', 'H2O', 1, H2O, 'H2O(l)'),
+    ],
   },
 ];
 

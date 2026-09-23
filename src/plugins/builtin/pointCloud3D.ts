@@ -123,6 +123,10 @@ export class PointCloud3DPlugin implements Plugin {
       exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'pointcloud3d');
       return;
     }
+    if (fired('exportObjPng')) {
+      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'pointcloud3d');
+      return;
+    }
     if (fired('exportCsv')) {
       this.exportCsv();
       return;
@@ -154,6 +158,7 @@ export class PointCloud3DPlugin implements Plugin {
         value: this.state.colorMode,
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Points CSV', '导出点云 CSV'),
     ];
   }
