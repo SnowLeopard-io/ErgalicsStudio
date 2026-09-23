@@ -15,6 +15,8 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '
 import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { isZh, haversineKm } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { gpxTrackManifest } from './gpxTrackManifest';
 
 export { gpxTrackManifest } from './gpxTrackManifest';
@@ -120,6 +122,91 @@ export function trackStats(points: TrackPoint[]): TrackStats {
   return { totalKm: trackDistanceKm(points), ascent, descent, durationSec, maxEle, minEle };
 }
 
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+const GRADIENT_BINS = 40;
+
+/**
+ * Research sheet for one track: (a) elevation–distance profile, (b) gradient
+ * (%) aggregated into equal-distance bins so GPS jitter doesn't invent
+ * cliffs. Returns [] when the track carries no elevation.
+ */
+export function gpxFigurePanels(points: TrackPoint[]): GeoFigurePanel[] {
+  const cum: number[] = [0];
+  for (let i = 1; i < points.length; i += 1) {
+    cum.push(cum[i - 1]! + haversineKm(points[i - 1]!.lat, points[i - 1]!.lon, points[i]!.lat, points[i]!.lon));
+  }
+  const totalKm = cum[cum.length - 1] ?? 0;
+  const hasEle = points.some((p) => p.ele !== undefined && Number.isFinite(p.ele));
+  if (!hasEle || totalKm <= 0) return [];
+
+  // (a) elevation–distance profile.
+  const elevPts: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < points.length; i += 1) {
+    const ele = points[i]!.ele;
+    if (ele !== undefined && Number.isFinite(ele)) elevPts.push({ x: cum[i]!, y: ele });
+  }
+  const panels: GeoFigurePanel[] = [
+    {
+      ...panelPlace(0),
+      tag: panelTag(0),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: 'Elevation profile',
+        xLabel: 'distance [km]',
+        yLabel: 'elevation [m]',
+        ticks: 4,
+        grid: true,
+        series: [{ name: 'elevation', kind: 'line', color: '#7FB2E8', points: elevPts }],
+      },
+    },
+  ];
+
+  // (b) gradient per equal-distance bin: grade = net Δelevation / run · 100.
+  const nb = Math.max(8, Math.min(GRADIENT_BINS, points.length - 1));
+  const binUp = new Float64Array(nb);
+  const binDown = new Float64Array(nb);
+  const binKm = new Float64Array(nb);
+  for (let i = 1; i < points.length; i += 1) {
+    const b = Math.min(nb - 1, Math.floor((cum[i]! / totalKm) * nb));
+    binKm[b]! += cum[i]! - cum[i - 1]!;
+    const e0 = points[i - 1]!.ele;
+    const e1 = points[i]!.ele;
+    if (e0 !== undefined && e1 !== undefined && Number.isFinite(e0) && Number.isFinite(e1)) {
+      const d = e1 - e0;
+      if (d >= 0) binUp[b]! += d;
+      else binDown[b]! += -d;
+    }
+  }
+  const gradPts: Array<{ x: number; y: number }> = [];
+  for (let b = 0; b < nb; b += 1) {
+    if (binKm[b]! <= 1e-9) continue;
+    const grade = ((binUp[b]! - binDown[b]!) / (binKm[b]! * 1000)) * 100;
+    gradPts.push({ x: ((b + 0.5) / nb) * totalKm, y: grade });
+  }
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: 'Gradient [%]',
+      xLabel: 'distance [km]',
+      yLabel: 'grade [%]',
+      xDomain: [0, totalKm],
+      ticks: 4,
+      grid: true,
+      legend: true,
+      series: [
+        { name: 'grade', kind: 'line', color: '#FF9E64', points: gradPts },
+        { name: '0 %', kind: 'line', color: '#B07AA1', dash: [4, 2], points: [{ x: 0, y: 0 }, { x: totalKm, y: 0 }] },
+      ],
+    },
+  });
+  return panels;
+}
+
 // ---- Plugin ----------------------------------------------------------------
 
 interface State {
@@ -154,13 +241,17 @@ export class GpxTrackPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
+      return;
+    }
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-gpx');
     }
   }
 
   getParams(): ParamDefinition[] {
-    return [actionButton('exportPng', 'Snapshot PNG', '快照 PNG')];
+    return [actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'), actionButton('exportPng', 'Snapshot PNG', '快照 PNG')];
   }
 
   getSupportedFormats() {
@@ -330,6 +421,23 @@ export class GpxTrackPlugin implements Plugin {
     const dur = stats.durationSec !== undefined ? fmtDur(stats.durationSec) : '—';
     const range = hasEle ? `${(stats.minEle ?? 0).toFixed(0)}–${(stats.maxEle ?? 0).toFixed(0)} m` : '—';
     g.fillText(zh ? `用时 ${dur}\u3000海拔 ${range}\u3000右图为海拔-距离剖面` : `Duration ${dur}\u3000Elevation ${range}\u3000Right: elevation-distance profile`, 14, 38);
+  }
+
+  /** Stream the elevation / gradient research sheet to Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const points = this.state.points;
+    if (points.length < 2) return;
+    const stats = trackStats(points);
+    const caption: Bilingual = {
+      zh: `GPX 轨迹分析（${points.length} 点）：海拔-距离剖面与等距分箱坡度（坡度 = 净海拔变化 ÷ 水平距离 × 100%）。总里程 ${stats.totalKm.toFixed(2)} km，迟滞滤波（阈值 ${ASCENT_THRESHOLD_M} m）后累计爬升 ${stats.ascent.toFixed(0)} m / 下降 ${stats.descent.toFixed(0)} m。`,
+      en: `GPX track analysis (${points.length} points): elevation–distance profile and equal-distance-binned gradient (grade = net Δelevation ÷ run × 100%). Total ${stats.totalKm.toFixed(2)} km; hysteresis-filtered (threshold ${ASCENT_THRESHOLD_M} m) ascent ${stats.ascent.toFixed(0)} m / descent ${stats.descent.toFixed(0)} m.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'GPX 轨迹分析', en: 'GPX track analysis' },
+      caption,
+      gpxFigurePanels(points),
+    );
   }
 }
 

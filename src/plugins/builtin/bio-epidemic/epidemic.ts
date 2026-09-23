@@ -211,37 +211,49 @@ function toNum(v: string): number {
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
+/** True when a series holds cumulative counts (monotone non-decreasing). */
+function looksCumulative(values: number[]): boolean {
+  return values.every((v, i) => i === 0 || v >= values[i - 1]!) && values.length >= 2;
+}
+
 /**
  * Parse an observed daily case-count series from CSV / TSV / JSON text.
- * Accepted tables: a header row naming the columns is optional — we match the
- * daily-incident column (day / date / t) and cases (cases / new_cases / new /
- * daily / cumulative). When only cumulative counts are given, `newCases` is
- * computed as first differences (clamped ≥ 0); when only new cases are given,
- * `cumulative` is the running sum. Returns null when < 2 usable day rows.
+ * Accepted tables: an optional header names the columns — the case column is
+ * authoritative: tokens containing `cumul` are treated as cumulative counts
+ * (new cases derived by first differences), otherwise the column is treated as
+ * daily NEW cases and the cumulative curve is the running sum. For header-less
+ * numeric input we fall back to a monotone-increasing heuristic (cumulative
+ * when the series never decreases). Returns null when < 2 day rows.
  */
 export function parseObservedSeries(text: string): ObservedSeries | null {
   const trim = text.trim();
   if (!trim) return null;
 
-  // JSON arrays of {day, cases} / {t, new_cases} / etc.
+  // JSON arrays of {day, cases} / {t, new_cases} / {day, cumulative} etc.
   if (trim.startsWith('[') || trim.startsWith('{')) {
     try {
       const json = JSON.parse(trim) as unknown;
       const arr = Array.isArray(json) ? json : (json as { data?: unknown; series?: unknown }).data ?? json;
-      if (Array.isArray(arr)) {
+      if (Array.isArray(arr) && arr.length > 0) {
         const days: number[] = [];
         const inc: number[] = [];
+        let mode: 'new' | 'cum' | null = null;
         for (const it of arr) {
           if (!it || typeof it !== 'object') continue;
           const o = it as Record<string, unknown>;
           const d = toNum(String(o.day ?? o.date ?? o.t ?? o.x ?? 0));
-          const c = toNum(String(o.cases ?? o.new_cases ?? o.new ?? o.daily ?? o.cumulative ?? o.y ?? 0));
-          if (Number.isFinite(d) && Number.isFinite(c)) {
-            days.push(d);
-            inc.push(Math.max(0, c));
-          }
+          if (!Number.isFinite(d)) continue;
+          const hasCum = 'cumulative' in o || 'cum' in o;
+          const hasNew = 'new_cases' in o || 'new' in o || 'daily' in o;
+          const c = toNum(
+            String(o.cumulative ?? o.cum ?? o.new_cases ?? o.new ?? o.daily ?? o.cases ?? o.y ?? 0),
+          );
+          if (!Number.isFinite(c)) continue;
+          if (mode === null) mode = hasCum && !hasNew ? 'cum' : 'new';
+          days.push(d);
+          inc.push(Math.max(0, c));
         }
-        if (days.length >= 2 && days.length === inc.length) return buildSeries(days, inc);
+        if (days.length >= 2 && days.length === inc.length) return buildSeries(days, inc, mode ?? inferSeriesType(inc));
       }
     } catch {
       /* fall through to table parsing */
@@ -256,12 +268,17 @@ export function parseObservedSeries(text: string): ObservedSeries | null {
   if (rows.length === 0) return null;
 
   // Detect header: first row contains at least one non-numeric cell.
-  const isHeader = (r: string): boolean =>
-    r.split(/[,;\t ]+/).some((c) => c !== '' && !/^-?\d+(\.\d+)?$/.test(c));
-  const body = isHeader(rows[0]!) ? rows.slice(1) : rows;
+  const isNumericCell = (c: string) => c !== '' && /^-?\d+(\.\d+)?$/.test(c);
+  const isHeader = rows[0]!.split(/[,;\t ]+/).some((c) => !isNumericCell(c));
+  const headerCells = isHeader ? rows[0]!.split(/[,;\t ]+/).filter((c) => c !== '') : null;
+  // headerCells = [dayToken, caseToken] (caseToken may be empty)
+  const caseToken = headerCells && headerCells.length >= 2 ? headerCells[1]!.toLowerCase() : '';
+  const mode: SeriesType =
+    headerCells !== null && caseToken.includes('cumul') ? 'cum' : headerCells !== null ? 'new' : 'auto';
+
+  const body = isHeader ? rows.slice(1) : rows;
   const days: number[] = [];
   const inc: number[] = [];
-  let cumulativeOnly = false;
   for (const row of body) {
     const cells = row.split(/[,;\t ]+/).filter((c) => c !== '');
     if (cells.length < 2) continue;
@@ -272,29 +289,39 @@ export function parseObservedSeries(text: string): ObservedSeries | null {
     inc.push(Math.max(0, c));
   }
   if (days.length < 2) return null;
-  // Heuristic: non-monotone-ish daily column → treat the second column as
-  // daily new cases if it does not grow monotonically, else as cumulative.
-  const mono = inc.every((v, i) => i === 0 || v >= inc[i - 1]!);
-  const cumulativeOnly = mono && inc[inc.length - 1]! >= inc[0]!;
-  return buildSeries(days, cumulativeOnly ? inc : inc);
+  return buildSeries(days, inc, mode === 'auto' ? inferSeriesType(inc) : mode);
 }
 
-/** Normalize day offsets to 0..max and derive the missing new/cumulative axis. */
-export function buildSeries(days: number[], incident: number[]): ObservedSeries {
+type SeriesType = 'new' | 'cum' | 'auto';
+
+/** Heuristic for header-less input: cumulative if values never decrease. */
+function inferSeriesType(values: number[]): SeriesType {
+  return values.every((v, i) => i === 0 || v >= values[i - 1]!) ? 'cum' : 'new';
+}
+
+/** Normalize day offsets to 0..max and derive both the cumulative and new-case axes. */
+export function buildSeries(days: number[], incident: number[], mode: SeriesType = 'auto'): ObservedSeries {
   const min = Math.min(...days);
   const norm = days.map((d) => Math.round(d - min));
-  const n = norm.length;
-  // Provided values are treated as the "new" axis; cumulative is derived.
-  const newCases: number[] = [];
-  for (let i = 0; i < n; i += 1) {
-    const cur = Math.max(0, Math.round(incident[i]!));
-    newCases.push(i === 0 ? cur : Math.max(0, cur - Math.max(0, Math.round(incident[i - 1]!))));
+  const rounded = incident.map((v) => Math.max(0, Math.round(v)));
+  const isCum = mode === 'cum' || (mode === 'auto' && inferSeriesType(rounded) === 'cum');
+  if (isCum) {
+    // Input is cumulative: new = first differences (>0), re-accumulate exactly.
+    const newCases: number[] = rounded.map((v, i) => (i === 0 ? v : Math.max(0, v - rounded[i - 1]!)));
+    const cumulative: number[] = [];
+    let acc = 0;
+    for (const x of newCases) {
+      acc += x;
+      cumulative.push(acc);
+    }
+    return { days: norm, newCases, cumulative };
   }
+  // Input is daily new cases: cumulative is the running sum.
   const cumulative: number[] = [];
   let acc = 0;
-  for (let i = 0; i < n; i += 1) {
-    acc += newCases[i]!;
+  for (const x of rounded) {
+    acc += x;
     cumulative.push(acc);
   }
-  return { days: norm, newCases, cumulative };
+  return { days: norm, newCases: rounded, cumulative };
 }

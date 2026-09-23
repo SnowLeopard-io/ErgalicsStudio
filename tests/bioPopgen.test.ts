@@ -5,6 +5,8 @@ import {
   effectiveHeterozygosity,
   hweTest,
   mulberry32,
+  parseGenotypeCounts,
+  parseVcfGenotypes,
   wrightFisher,
 } from '../src/plugins/builtin/bio-popgen/popgen';
 
@@ -90,5 +92,41 @@ describe('bio-popgen kernel', () => {
     expect(p2).toBeGreaterThan(0.5);
     // s=0 → unchanged
     expect(applySelection(0.5, 0, 0)).toBeCloseTo(0.5, 9);
+  });
+});
+
+describe('bio-popgen genotype parsers', () => {
+  it('parses a header + comment CSV of AA,Aa,aa counts', () => {
+    const c = parseGenotypeCounts('# note\nAA,Aa,aa\n52,96,50');
+    expect(c).toEqual({ AA: 52, Aa: 96, aa: 50 });
+  });
+
+  it('parses a bare three-number row and a JSON object / array', () => {
+    expect(parseGenotypeCounts('10 20 30')).toEqual({ AA: 10, Aa: 20, aa: 30 });
+    expect(parseGenotypeCounts('{"AA":2,"Aa":3,"aa":5}')).toEqual({ AA: 2, Aa: 3, aa: 5 });
+    expect(parseGenotypeCounts('[2,3,5]')).toEqual({ AA: 2, Aa: 3, aa: 5 });
+  });
+
+  it('returns null for invalid / negative counts', () => {
+    expect(parseGenotypeCounts('')).toBeNull();
+    expect(parseGenotypeCounts('a,b,c')).toBeNull();
+    expect(parseGenotypeCounts('10,-2,5')).toBeNull();
+  });
+
+  it('parses VCF genotypes: 0/0→AA, 0/1→Aa, 1/1→aa', () => {
+    const vcf = `##fileformat=VCFv4.2
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\tS3
+chr1\t1\t.\tA\tG\t.\tPASS\t.\tGT\t0/0\t0/1\t1/1
+chr1\t2\t.\tA\tG\t.\tPASS\t.\tGT\t0|1\t0/0\t1|1`;
+    const c = parseVcfGenotypes(vcf);
+    expect(c).toEqual({ AA: 2, Aa: 2, aa: 2 });
+  });
+
+  it('ignores missing ./ and non-GT columns in VCF', () => {
+    const vcf = `##fileformat=VCFv4.2
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\tS3
+chrX\t7\t.\tC\tT\t.\tPASS\t.\tGT\t./.\t0/1\t0/0`;
+    const c = parseVcfGenotypes(vcf);
+    expect(c).toEqual({ AA: 1, Aa: 1, aa: 0 });
   });
 });

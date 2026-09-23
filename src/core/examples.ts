@@ -85,8 +85,10 @@ import geoMeasurePoints from '../../examples/data/geo-measure-points.json?raw';
 import geoTerrainDemoAsc from '../../examples/data/geo-terrain-demo-synthetic.asc?raw';
 import bioEnzymeMildCsv from '../../examples/data/bio-enzyme-mild.csv?raw';
 import bioEpidemicMeaslesJson from '../../examples/data/bio-epidemic-measles.json?raw';
+import bioEpidemicInfluenzaCsv from '../../examples/data/bio-epidemic-influenza.csv?raw';
 import bioSeqalignHemoglobinFasta from '../../examples/data/bio-seqalign-hemoglobin.fasta?raw';
 import bioPopgenHweCsv from '../../examples/data/bio-popgen-hwe.csv?raw';
+import bioPopgenExampleVcf from '../../examples/data/bio-popgen-example.vcf?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -419,6 +421,25 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
+    id: 'bio-epidemic-influenza',
+    filename: 'bio-epidemic-influenza.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-epidemic',
+    group: 'bio',
+    content: bioEpidemicInfluenzaCsv,
+    nameI18n: {
+      'zh-CN': '传染病模型 · 流感逐日新增病例',
+      'en-US': 'Epidemic · Influenza Daily New Cases',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一个温带国家冬季流感样疾病（ILI）逐日新增病例序列（约 5 周）。加载后作为蓝色的观测折线叠加在 SIR/SEIR 模拟曲线上，直观比较模型峰值与真实流行波形。',
+      'en-US':
+        'A ~5-week daily new-case series of influenza-like illness (ILI) in a temperate country. Loaded it renders as a blue observed-polyline over the SIR/SEIR model curve, comparing the modelled peak with the real epidemic waveform.',
+    },
+  },
+  {
     id: 'bio-seqalign-hemoglobin',
     filename: 'bio-seqalign-hemoglobin.fasta',
     format: 'fasta',
@@ -454,6 +475,25 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '一个双等位基因位点的基因型计数（AA=52，Aa=96，aa=50，n=198，p≈0.505）。加载后自动执行 HWE 卡方检验并绘图；再用「漂变」视图模拟同一群体的遗传漂变。',
       'en-US':
         'Genotype counts at one locus (AA=52, Aa=96, aa=50; n=198, p≈0.505). Loading runs the Hardy-Weinberg chi-square test and plots observed vs expected; switch to the drift view to simulate the same population.',
+    },
+  },
+  {
+    id: 'bio-popgen-vcf',
+    filename: 'bio-popgen-example.vcf',
+    format: 'vcf',
+    mimeType: 'text/plain',
+    pluginId: 'example.bio-popgen',
+    group: 'bio',
+    content: bioPopgenExampleVcf,
+    nameI18n: {
+      'zh-CN': '群体遗传 · VCF 基因型计数',
+      'en-US': 'Population Genetics · VCF Genotype Call',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一段示例 VCF（两个位点的双等位基因 GT 调用）。从 VCF 的 FORMAT/GT 字段统计 0/0、0/1 与 1/1 基因型，获得 AA/Aa/aa 计数后执行哈代-温伯格检验。',
+      'en-US':
+        'An example VCF (biallelic GT calls at two records). Counts 0/0, 0/1 and 1/1 genotypes from the FORMAT/GT field to obtain AA/Aa/aa counts and then runs the Hardy-Weinberg test.',
     },
   },
   {

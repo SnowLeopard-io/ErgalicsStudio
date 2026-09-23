@@ -16,6 +16,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
 import { isZh } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { tissotManifest } from './tissotManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';
 
@@ -193,6 +195,124 @@ export function tissotCircle(lat: number, lon: number, epsDeg: number, samples =
   return out;
 }
 
+// ---- Local distortion metrics (exported for tests) --------------------------
+
+export interface DistortionMetrics {
+  /** Areal scale factor S = h·k (1 = true area). */
+  areaRatio: number;
+  /** Axis ratio a/b of the local ellipse = max(h,k)/min(h,k) (1 = conformal). */
+  flattening: number;
+  /** Meridian scale factor h. */
+  h: number;
+  /** Parallel scale factor k. */
+  k: number;
+}
+
+/**
+ * Local linear-scale factors at (lon, lat) from a central-difference Jacobian
+ * of the projection (unit sphere): h = |∂(x,y)/∂φ| and
+ * k = |∂(x,y)/∂λ| / cos φ. Returns null where the projection hides the point
+ * (orthographic far hemisphere) or the metrics are degenerate.
+ */
+export function distortionAt(proj: ProjFn, lon: number, lat: number, stepDeg = 0.01): DistortionMetrics | null {
+  const d = stepDeg;
+  const xm = proj(lon - d, lat);
+  const xp = proj(lon + d, lat);
+  const ym = proj(lon, lat - d);
+  const yp = proj(lon, lat + d);
+  if (!xm || !xp || !ym || !yp) return null;
+  const dxdl = (xp[0] - xm[0]) / (2 * d * D2R);
+  const dydl = (xp[1] - xm[1]) / (2 * d * D2R);
+  const dxdp = (yp[0] - ym[0]) / (2 * d * D2R);
+  const dydp = (yp[1] - ym[1]) / (2 * d * D2R);
+  const cosPhi = Math.cos((lat * Math.PI) / 180);
+  if (cosPhi < 1e-6) return null;
+  const k = Math.hypot(dxdl, dydl) / cosPhi;
+  const h = Math.hypot(dxdp, dydp);
+  if (!Number.isFinite(h) || !Number.isFinite(k) || h <= 0 || k <= 0) return null;
+  return { areaRatio: h * k, flattening: Math.max(h, k) / Math.min(h, k), h, k };
+}
+
+/**
+ * Distortion profiles along the lon = 0 meridian for a projection: area
+ * ratio and flattening sampled from `latLo` to `latHi`.
+ */
+export function distortionProfiles(
+  projId: ProjId,
+  latLo = -80,
+  latHi = 80,
+  step = 2,
+): Array<{ lat: number; metrics: DistortionMetrics }> {
+  const proj = projectionFn(projId);
+  const out: Array<{ lat: number; metrics: DistortionMetrics }> = [];
+  for (let lat = latLo; lat <= latHi + 1e-9; lat += step) {
+    const m = distortionAt(proj, 0, lat);
+    if (m) out.push({ lat, metrics: m });
+  }
+  return out;
+}
+
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+/**
+ * Figure sheet for one projection: areal-scale profile S(φ) with the 1:1
+ * reference, and the axis-ratio (angular-distortion) profile a/b(φ).
+ */
+export function tissotFigurePanels(projId: ProjId): GeoFigurePanel[] {
+  const prof = distortionProfiles(projId);
+  const areaPts = prof.map((p) => ({ x: p.lat, y: p.metrics.areaRatio }));
+  const flatPts = prof.map((p) => ({ x: p.lat, y: p.metrics.flattening }));
+  const name = PROJ_NAMES[projId]!.en;
+  const areaMax = Math.max(1, ...areaPts.map((p) => p.y));
+  const flatMax = Math.max(1, ...flatPts.map((p) => p.y));
+  const refLine = (ymax: number): Array<{ x: number; y: number }> => [
+    { x: -80, y: Math.min(1, ymax) },
+    { x: 80, y: Math.min(1, ymax) },
+  ];
+  return [
+    {
+      ...panelPlace(0),
+      tag: panelTag(0),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: `Areal distortion S(φ) — ${name}`,
+        xLabel: 'latitude °',
+        yLabel: 'area ratio h·k',
+        xDomain: [-80, 80],
+        yDomain: [0, areaMax],
+        ticks: 5,
+        grid: true,
+        legend: true,
+        series: [
+          { name: 'S(φ)', kind: 'line', color: '#FF9E64', points: areaPts },
+          { name: 'true area', kind: 'line', color: '#8A98AC', dash: [4, 2], points: refLine(areaMax) },
+        ],
+      },
+    },
+    {
+      ...panelPlace(1),
+      tag: panelTag(1),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: `Angular distortion a/b(φ) — ${name}`,
+        xLabel: 'latitude °',
+        yLabel: 'axis ratio max(h,k)/min(h,k)',
+        xDomain: [-80, 80],
+        yDomain: flatMax > 12 ? [0, flatMax] : [0, 12],
+        ticks: 5,
+        grid: true,
+        legend: true,
+        series: [
+          { name: 'a/b(φ)', kind: 'line', color: '#7FB2E8', points: flatPts },
+          { name: 'conformal', kind: 'line', color: '#8A98AC', dash: [4, 2], points: refLine(12) },
+        ],
+      },
+    },
+  ];
+}
+
 // ---- GeoJSON coastline -----------------------------------------------------
 
 interface Ring {
@@ -248,7 +368,7 @@ const PROJ_NAMES: Record<ProjId, { zh: string; en: string }> = {
   mollweide: { zh: '摩尔威德投影（等积）', en: 'Mollweide (equal-area)' },
   'gall-peters': { zh: '高尔-彼得斯投影（等积）', en: 'Gall–Peters (equal-area)' },
   'lambert-az-eq': { zh: '方位等积投影', en: 'Lambert azimuthal equal-area' },
-  orthographic: { zh: '正射投影（地球仪·拖拽转动）', en: 'Orthographic (globe · drag to spin)' },
+  orthographic: { zh: '正射投影', en: 'Orthographic' },
 };
 
 export class TissotPlugin implements Plugin {
@@ -291,6 +411,10 @@ export class TissotPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-tissot');
+      return;
+    }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
       return;
     }
     let redraw = false;
@@ -358,8 +482,25 @@ export class TissotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showCoast,
       },
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
+  }
+
+  /** Stream the distortion-profile sheet (S(φ), a/b(φ)) to Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const zh = isZh(this.api.locale);
+    const name = zh ? PROJ_NAMES[this.state.proj]!.zh : PROJ_NAMES[this.state.proj]!.en;
+    const caption: Bilingual = {
+      zh: `${name} 的变形随纬度分布（中央经线采样）：面积比 S = h·k（1 = 等积）与轴比 max(h,k)/min(h,k)（1 = 保角）。比例因子由投影的中央差分雅可比矩阵得到。`,
+      en: `Distortion vs latitude for ${name} (sampled on the central meridian): areal ratio S = h·k (1 = equal-area) and axis ratio max(h,k)/min(h,k) (1 = conformal). Scale factors from a central-difference Jacobian of the projection.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: `投影变形 · ${name}`, en: `Projection distortion · ${name}` },
+      caption,
+      tissotFigurePanels(this.state.proj),
+    );
   }
 
   getSupportedFormats() {

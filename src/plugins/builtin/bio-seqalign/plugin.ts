@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
 import { bioSeqalignManifest } from './manifest';
 import {
   alignGlobal,
@@ -18,8 +18,13 @@ import {
   baseStats,
   gcWindow,
   makeMatrix,
+  parseBareSequences,
+  parseFasta,
+  parseSequenceJson,
+  parseSequenceTable,
   type AlignResult,
   type MatrixName,
+  type SeqEntry,
 } from './align';
 
 export { bioSeqalignManifest } from './manifest';
@@ -37,17 +42,15 @@ interface State {
   view: View;
 }
 
-const DEFAULT_A = 'ATGGCGATGGTGGCGATGATGCTGGCCGGCGCCGCCGCCGCTATCGA';
-const DEFAULT_B = 'ATGGCGATGGTGGCGATGATGCTGGCCGGCGCCGCCGCCGCTATCGT';
-
 export class BioSeqalignPlugin implements Plugin {
   readonly manifest = bioSeqalignManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
+  private hasData = false;
   private state: State = {
-    seqA: DEFAULT_A,
-    seqB: DEFAULT_B,
+    seqA: '',
+    seqB: '',
     matrix: 'NUC.4.4',
     mode: 'global',
     gapOpen: -10,
@@ -218,35 +221,90 @@ export class BioSeqalignPlugin implements Plugin {
 
   async loadData(file: File) {
     const low = file.name.toLowerCase();
-    if (!low.endsWith('.fasta') && !low.endsWith('.fa') && !low.endsWith('.txt')) {
-      notify(this.api, 'warning', 'seqalign accepts FASTA (.fasta/.fa).', '序列分析接受 FASTA（.fasta/.fa）。');
+    const isJson = low.endsWith('.json');
+    const isFasta = low.endsWith('.fasta') || low.endsWith('.fa');
+    const isCsv = low.endsWith('.csv') || low.endsWith('.tsv');
+    const isPlain = low.endsWith('.txt');
+    if (!isJson && !isFasta && !isCsv && !isPlain) {
+      notify(
+        this.api,
+        'warning',
+        'seqalign accepts FASTA, bare sequences, JSON or CSV/TSV.',
+        '序列分析接受 FASTA、裸序列、JSON 或 CSV/TSV。',
+      );
       return;
     }
     const text = await file.text();
-    const seqs: string[] = [];
-    let cur = '';
-    for (const line of text.split(/\r?\n/)) {
-      const s = line.trim();
-      if (!s) continue;
-      if (s.startsWith('>')) {
-        if (cur) {
-          seqs.push(cur);
-          cur = '';
-        }
-      } else {
-        cur += s.replace(/\s/g, '').toUpperCase();
+    if (isJson) {
+      const entries = parseSequenceJson(text);
+      if (!entries || entries.length === 0) {
+        notify(this.api, 'warning', 'JSON contains no sequences.', 'JSON 中未找到序列。');
+        return;
       }
-    }
-    if (cur) seqs.push(cur);
-    if (seqs.length < 2) {
-      notify(this.api, 'warning', 'Need ≥2 FASTA sequences.', '需要至少两条 FASTA 序列。');
+      this.applyEntry(entries[0]!, 0);
+      this.applyEntry(entries[1] ?? entries[0]!, 1);
+      this.run();
+      notify(this.api, 'success', `Loaded ${entries.length} sequences from JSON.`, `已从 JSON 加载 ${entries.length} 条序列。`);
+      this.draw();
       return;
     }
-    this.state.seqA = seqs[0]!.slice(0, 200);
-    this.state.seqB = seqs[1]!.slice(0, 200);
-    this.run();
-    notify(this.api, 'success', `Loaded ${seqs.length} FASTA entries (first two aligned).`, `已加载 ${seqs.length} 条 FASTA（取前两条比对）。`);
-    this.draw();
+    if (isFasta) {
+      const entries = parseFasta(text);
+      if (entries.length < 2) {
+        notify(this.api, 'warning', 'Need ≥2 FASTA sequences.', '需要至少两条 FASTA 序列。');
+        return;
+      }
+      this.applyEntry(entries[0]!, 0);
+      this.applyEntry(entries[1]!, 1);
+      this.run();
+      notify(this.api, 'success', `Loaded ${entries.length} FASTA entries (first two aligned).`, `已加载 ${entries.length} 条 FASTA（取前两条比对）。`);
+      this.draw();
+      return;
+    }
+    if (isCsv) {
+      const entries = parseSequenceTable(text);
+      if (entries.length < 2) {
+        notify(this.api, 'warning', 'Need ≥2 sequence columns in CSV/TSV.', 'CSV/TSV 至少需要两列序列。');
+        return;
+      }
+      this.applyEntry(entries[0]!, 0);
+      this.applyEntry(entries[1]!, 1);
+      this.run();
+      notify(this.api, 'success', 'Loaded two sequences from CSV/TSV.', '已从 CSV/TSV 加载两条序列。');
+      this.draw();
+      return;
+    }
+    // Plain text: FASTA-shaped or bare sequences.
+    const fasta = parseFasta(text);
+    const bare = parseBareSequences(text);
+    const entries = fasta.length >= 2 ? fasta : [];
+    if (entries.length >= 2) {
+      this.applyEntry(entries[0]!, 0);
+      this.applyEntry(entries[1]!, 1);
+      this.run();
+      notify(this.api, 'success', `Loaded ${entries.length} FASTA entries (first two aligned).`, `已加载 ${entries.length} 条 FASTA（取前两条比对）。`);
+      this.draw();
+      return;
+    }
+    if (bare.length >= 2) {
+      this.applyEntry({ sequence: bare[0]! }, 0);
+      this.applyEntry({ sequence: bare[1]! }, 1);
+      this.run();
+      notify(this.api, 'success', 'Loaded two bare sequences.', '已加载两条裸序列。');
+      this.draw();
+      return;
+    }
+    notify(this.api, 'warning', 'Need ≥2 sequences (FASTA, bare or JSON).', '需要至少两条序列（FASTA、裸序列或 JSON）。');
+  }
+
+  private applyEntry(e: SeqEntry, index: 0 | 1) {
+    const seq = e.sequence.toUpperCase().replace(/\s/g, '').slice(0, 200);
+    if (index === 0) this.state.seqA = seq;
+    else this.state.seqB = seq;
+    if (e.sequence && [...e.sequence].some((c) => !'ATCGNRYSWKMBDHVU'.includes(c.toUpperCase()))) {
+      // protein-like input → use BLOSUM62
+      if (this.state.matrix !== 'BLOSUM62') this.state.matrix = 'BLOSUM62';
+    }
   }
 
   private run() {
@@ -254,6 +312,7 @@ export class BioSeqalignPlugin implements Plugin {
     const gap = { open: this.state.gapOpen, extend: this.state.gapExtend };
     const a = this.state.seqA.toUpperCase().replace(/\s/g, '');
     const b = this.state.seqB.toUpperCase().replace(/\s/g, '');
+    this.hasData = a.length > 0 && b.length > 0;
     this.result = this.state.mode === 'local' ? alignLocal(a, b, matrix, gap) : alignGlobal(a, b, matrix, gap);
   }
 
@@ -276,6 +335,15 @@ export class BioSeqalignPlugin implements Plugin {
     canvas.height = canvas.clientHeight || 420;
     const g = canvas.getContext('2d');
     if (!g) return;
+    if (!this.hasData) {
+      drawEmptyCanvas(this.api, canvas, {
+        title: 'No sequences loaded',
+        titleZh: '尚未加载序列',
+        hint: 'Load ≥2 sequences via FASTA (.fasta/.fa/.txt), bare text, JSON, or CSV/TSV.',
+        hintZh: '载入至少两条序列：FASTA（.fasta/.fa/.txt）、裸序列、JSON 或 CSV/TSV。',
+      });
+      return;
+    }
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);

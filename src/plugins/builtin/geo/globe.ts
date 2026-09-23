@@ -242,6 +242,9 @@ export class GlobePlugin implements Plugin {
 
   async deactivate() {
     this.stopTick();
+    // Drop our meshes from the SHARED host scene: the next 3-D plugin re-shows
+    // the same surface and would otherwise render on top of our leftovers.
+    this.clearGroup();
     this.three?.setVisible(false);
   }
 

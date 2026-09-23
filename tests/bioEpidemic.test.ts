@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CONFIG,
+  buildSeries,
+  parseObservedSeries,
   reportEpidemic,
   simulateEpidemic,
   type ModelConfig,
@@ -86,5 +88,45 @@ describe('bio-epidemic compartment kernel', () => {
     const rep = reportEpidemic(c, t);
     expect(rep.totalCasesFraction).toBeGreaterThan(0.55);
     expect(rep.totalCasesFraction).toBeLessThan(0.9);
+  });
+});
+
+describe('bio-epidemic observed-series parser', () => {
+  it('parses a CSV of daily new cases with a header + comment lines', () => {
+    const csv = `# syndromic ILI
+day,cases
+0,22
+1,31
+2,42
+3,58
+4,79`;
+    const s = parseObservedSeries(csv);
+    expect(s).not.toBeNull();
+    expect(s!.days).toEqual([0, 1, 2, 3, 4]);
+    expect(s!.newCases).toEqual([22, 31, 42, 58, 79]);
+    expect(s!.cumulative).toEqual([22, 53, 95, 153, 232]);
+  });
+
+  it('treats a monotone column as cumulative and derives new cases by diff', () => {
+    const s = buildSeries([0, 1, 2, 3], [10, 25, 45, 60]);
+    expect(s.cumulative).toEqual([10, 25, 45, 60]);
+    expect(s.newCases).toEqual([10, 15, 20, 15]);
+  });
+
+  it('normalizes day offsets to start at 0', () => {
+    const s = parseObservedSeries('104,5\n108,9');
+    expect(s!.days).toEqual([0, 4]);
+    expect(s!.newCases).toEqual([5, 9]);
+  });
+
+  it('parses a JSON point array', () => {
+    const s = parseObservedSeries('[{"day":0,"new":2},{"day":1,"new":3},{"day":2,"new":1}]');
+    expect(s!.cumulative).toEqual([2, 5, 6]);
+  });
+
+  it('returns null for non-parsable / too-short input', () => {
+    expect(parseObservedSeries('0,5')).toBeNull();
+    expect(parseObservedSeries('')).toBeNull();
+    expect(parseObservedSeries('a,b\nc,d')).toBeNull();
   });
 });

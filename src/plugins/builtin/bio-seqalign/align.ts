@@ -365,3 +365,110 @@ export function revcomp(seq: string): string {
   const map: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N', a: 't', t: 'a', g: 'c', c: 'g', n: 'n' };
   return [...seq].reverse().map((c) => map[c] ?? 'N').join('');
 }
+
+/** A named sequence record. */
+export interface SeqEntry {
+  id?: string;
+  description?: string;
+  sequence: string;
+}
+
+/** Parse FASTA text into named sequence records (empty id when no header). */
+export function parseFasta(text: string): SeqEntry[] {
+  const out: SeqEntry[] = [];
+  let cur: { id: string; description: string; seq: string[] } | null = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('>')) {
+      if (cur) out.push({ id: cur.id || undefined, description: cur.description || undefined, sequence: cur.seq.join('') });
+      const header = line.slice(1).trim();
+      const [id, ...desc] = header.split(/\s+/);
+      cur = { id: id ?? '', description: desc.join(' '), seq: [] };
+    } else if (cur) {
+      cur.seq.push(line.replace(/[\s0-9]/g, ''));
+    }
+  }
+  if (cur) out.push({ id: cur.id || undefined, description: cur.description || undefined, sequence: cur.seq.join('') });
+  return out.filter((e) => e.sequence.length > 0);
+}
+
+/** One or two bare sequences separated by a blank line / `seqA:seqB`. */
+export function parseBareSequences(text: string): string[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
+  const labelRe = /^seq[A-Za-z]*\s*[:=]\s*/i;
+  // Labeled lines: `sequenceA: ATGC` / `sequenceA=ATGC` → one entry per line.
+  if (lines.every((l) => labelRe.test(l))) {
+    return lines.map((l) => l.replace(labelRe, '').replace(/[\s0-9]/g, '')).filter((s) => s.length > 0);
+  }
+  const hasBlank = /\r?\n\s*\r?\n/.test(text);
+  const clean = (s: string) => s.replace(/[\s0-9]/g, '');
+  if (hasBlank) {
+    // Blank-line separated blocks → each block is one sequence.
+    const blocks = text
+      .split(/\r?\n\s*\r?\n/)
+      .map((b) => clean(b.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join('')))
+      .filter((s) => s.length > 0);
+    return blocks;
+  }
+  // No blank-lines → treat each nonempty line as a separate sequence.
+  return lines.map(clean).filter((s) => s.length > 0);
+}
+
+/**
+ * Parse sequence data from JSON text: either `[seqA, seqB]`, `{a,b}` /
+ * `{seqA,seqB}`, a FASTA-shaped object, or an array of `{id,sequence}`.
+ */
+export function parseSequenceJson(text: string): SeqEntry[] | null {
+  try {
+    const json = JSON.parse(text) as unknown;
+    if (typeof json === 'string') return [{ sequence: json.replace(/[\s0-9]/g, '') }];
+    if (Array.isArray(json)) {
+      const out: SeqEntry[] = [];
+      for (const it of json) {
+        if (typeof it === 'string') out.push({ sequence: it.replace(/[\s0-9]/g, '') });
+        else if (it && typeof it === 'object') {
+          const o = it as { id?: string; header?: string; def?: string; sequence?: string; seq?: string };
+          const s = (o.sequence ?? o.seq ?? '') as string;
+          if (s) out.push({ id: o.id ?? o.header ?? o.def, sequence: s.replace(/[\s0-9]/g, '') });
+        }
+      }
+      return out;
+    }
+    if (json && typeof json === 'object') {
+      const o = json as Record<string, unknown>;
+      const seqA = o.sequenceA ?? o.a ?? o.seqA ?? o['sequence a'];
+      const seqB = o.sequenceB ?? o.b ?? o.seqB ?? o['sequence b'];
+      const a = typeof seqA === 'string' ? seqA.replace(/[\s0-9]/g, '') : '';
+      const b = typeof seqB === 'string' ? seqB.replace(/[\s0-9]/g, '') : '';
+      const out: SeqEntry[] = [];
+      if (a) out.push({ id: 'a', sequence: a });
+      if (b) out.push({ id: 'b', sequence: b });
+      return out.length ? out : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parse two-column CSV/TSV into up to two sequence entries. */
+export function parseSequenceTable(text: string): SeqEntry[] {
+  const headerRe = /^(id|seq|sequenc[ea])\s*(a|b)?$/i;
+  const out: SeqEntry[] = [];
+  outer: for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const cells = line.split(/[,\t]+/).map((c) => c.trim()).filter(Boolean);
+    // Skip a header / index row entirely (all tokens are non-sequence).
+    if (cells.every((c) => headerRe.test(c) || !/[ACGUacgu]/.test(c))) continue;
+    for (const cell of cells) {
+      if (/^[ACGTUNRYSWKMBDHVacgtunryswkmbdhv]+$/.test(cell.replace(/^"?|"?$/g, ''))) {
+        out.push({ sequence: cell.replace(/[\s0-9"']/g, '') });
+        if (out.length >= 2) break outer;
+      }
+    }
+  }
+  return out.filter((e) => e.sequence.length > 0);
+}

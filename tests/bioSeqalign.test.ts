@@ -7,6 +7,10 @@ import {
   codonGc,
   gcWindow,
   makeMatrix,
+  parseBareSequences,
+  parseFasta,
+  parseSequenceJson,
+  parseSequenceTable,
   revcomp,
 } from '../src/plugins/builtin/bio-seqalign/align';
 
@@ -89,5 +93,44 @@ describe('bio-seqalign kernel', () => {
 
   it('dot-oriented sanity: untranslated empty handling does not crash', () => {
     expect(alignGlobal('', 'A', nuc, { open: -5, extend: -1 }).score).toBe(0);
+  });
+});
+
+describe('bio-seqalign parsers', () => {
+  it('parseFasta reads headers + sequence lines, tolerating numbers/whitespace', () => {
+    const txt = `>seq1 human
+ACGT
+ACGT
+>seq2 mouse
+ACGA`;
+    const e = parseFasta(txt);
+    expect(e).toHaveLength(2);
+    expect(e[0]!.id).toBe('seq1');
+    expect(e[0]!.sequence).toBe('ACGTACGT');
+    expect(e[1]!.id).toBe('seq2');
+  });
+
+  it('parseFasta returns only non-empty entries', () => {
+    expect(parseFasta('   \n>only-header\n')).toHaveLength(0);
+  });
+
+  it('parseBareSequences splits labeled or blank-line-separated sequences', () => {
+    expect(parseBareSequences('ACGT\nTGCA')).toEqual(['ACGT', 'TGCA']);
+    expect(parseBareSequences('sequenceA: ATGC\nsequenceB: GCAT')).toEqual(['ATGC', 'GCAT']);
+  });
+
+  it('parseSequenceJson handles two-string, array and keyed object forms', () => {
+    expect(parseSequenceJson('["ACGT","TGCA"]')).toMatchObject([
+      { sequence: 'ACGT' },
+      { sequence: 'TGCA' },
+    ]);
+    expect(parseSequenceJson('{"a":"ATGC","b":"GCAT"}')![0]!.id).toBe('a');
+    expect(parseSequenceJson('[{"id":"x","sequence":"ACGT"}]')![0]!.id).toBe('x');
+    expect(parseSequenceJson('not json')).toBeNull();
+  });
+
+  it('parseSequenceTable takes up to two sequence columns', () => {
+    expect(parseSequenceTable('id,seqA,seqB\n1,ACGT,TGCA')).toHaveLength(2);
+    expect(parseSequenceTable('ACGT,TGCA')).toHaveLength(2);
   });
 });

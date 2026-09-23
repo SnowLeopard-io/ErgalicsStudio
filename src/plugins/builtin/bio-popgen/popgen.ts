@@ -212,3 +212,96 @@ export function effectiveHeterozygosity(paths: number[][]): number {
 
 export const DEFAULT_COUNTS: GenotypeCounts = { AA: 42, Aa: 46, aa: 12 };
 export const DEFAULT_WF: WfConfig = { p0: 0.5, diploidN: 50, generations: 60, replicates: 40, selection: 0, dominance: 0.5, seed: 20260922 };
+
+/** Parse genotype counts (AA, Aa, aa) from CSV/TSV/JSON text. Accepts
+ *  `AA,Aa,aa` rows, lone numeric rows, or a JSON object `{AA,Aa,aa}` /
+ *  array `[AA,Aa,aa]`. Returns null when counts are invalid/non-finite. */
+export function parseGenotypeCounts(text: string): GenotypeCounts | null {
+  const trim = text.trim();
+  if (!trim) return null;
+  let AA: number | null = null;
+  let Aa: number | null = null;
+  let aa: number | null = null;
+
+  if (trim.startsWith('{') || trim.startsWith('[')) {
+    try {
+      const json = JSON.parse(trim) as unknown;
+      if (Array.isArray(json)) {
+        if (json.length >= 3) {
+          AA = Number(json[0]);
+          Aa = Number(json[1]);
+          aa = Number(json[2]);
+        }
+      } else if (json && typeof json === 'object') {
+        const o = json as { AA?: unknown; Aa?: unknown; aa?: unknown; genotypes?: { AA?: unknown; Aa?: unknown; aa?: unknown } };
+        AA = Number(o.AA ?? o.genotypes?.AA);
+        Aa = Number(o.Aa ?? o.genotypes?.Aa);
+        aa = Number(o.aa ?? o.genotypes?.aa);
+      }
+    } catch {
+      return null;
+    }
+  } else {
+    for (const raw of trim.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const cells = line.split(/[,;\t ]+/).filter((c) => c !== '');
+      if (cells.length === 3 && cells.every(isFiniteNum)) {
+        AA = Number(cells[0]);
+        Aa = Number(cells[1]);
+        aa = Number(cells[2]);
+      } else if (/^a|^A|^a/i.test(cells.join())) {
+        // header row (AA,Aa,aa) — skip
+        continue;
+      }
+    }
+  }
+
+  if (AA === null || Aa === null || aa === null) return null;
+  if (!Number.isFinite(AA) || !Number.isFinite(Aa) || !Number.isFinite(aa)) return null;
+  if (AA < 0 || Aa < 0 || aa < 0) return null;
+  return { AA, Aa, aa };
+}
+
+function isFiniteNum(v: string): boolean {
+  return Number.isFinite(Number(v));
+}
+
+/**
+ * Count genotypes from a VCF (variant-call format) text. Reads the FORMAT/GT
+ * field of each sample column; 0/0 & 0|0 → AA (homozygous ref), 1/1 & 1|1 →
+ * aa (homozygous alt), any 0/1, 1/0, 0|1, 1|0 → Aa (heterozygous), and any
+ * missing (./.) is skipped. Returns null when no usable diploid genotypes are
+ * found.
+ */
+export function parseVcfGenotypes(text: string): GenotypeCounts | null {
+  let AA = 0;
+  let Aa = 0;
+  let aa = 0;
+  let seen = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const tokens = line.split('\t');
+    if (tokens.length < 10) continue; // need at least one sample column
+    const format = tokens[8]!.toUpperCase().split(':')[0]!;
+    if (format !== 'GT') continue;
+    for (let i = 9; i < tokens.length; i += 1) {
+      const gt = tokens[i]!.split(':')[0]!;
+      if (!gt || gt === './.' || gt === '.') continue;
+      const alleles = gt.replace('|', '/').split('/');
+      if (alleles.length !== 2) continue;
+      const a = alleles[0]!;
+      const b = alleles[1]!;
+      seen += 1;
+      if (a === b) {
+        if (a === '0') AA += 1;
+        else if (a === '1') aa += 1;
+      } else {
+        Aa += 1;
+      }
+    }
+  }
+  if (seen === 0) return null;
+  return { AA, Aa, aa };
+}

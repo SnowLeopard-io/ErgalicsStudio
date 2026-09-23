@@ -10,12 +10,19 @@
 //                                    + sin(zenith)·sin(slope)·cos(A − aspect),
 // using Horn's 3×3 (ROOK+SIGNED style) finite differences for dz/dx, dz/dy.
 // NoData cells propagate as NaN and render as the canvas background.
+//
+// The watershed mode runs the classic hydrological pipeline: priority-flood
+// depression filling (Barnes et al. 2014, epsilon gradient), D8 flow
+// directions (steepest strict descent) and flow accumulation in Kahn
+// topological order.
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '../shared/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { isZh, marchingSquares } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { terrainManifest } from './terrainManifest';
 import { buildTerrainGroup, fitTerrainCamera } from './terrain3d';
 import type { Group } from 'three';
@@ -143,9 +150,301 @@ export function hillshadeFromSlope(
   return out;
 }
 
+// ---- Watershed analysis (priority-flood + D8, exported for tests) -----------
+
+/** Binary min-heap over grid indices keyed by external numeric keys. */
+class MinHeap {
+  private idx: number[] = [];
+  private keys: number[] = [];
+
+  get size(): number {
+    return this.idx.length;
+  }
+
+  push(idx: number, key: number): void {
+    this.idx.push(idx);
+    this.keys.push(key);
+    let i = this.idx.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if ((this.keys[parent] ?? Infinity) <= (this.keys[i] ?? Infinity)) break;
+      this.swap(i, parent);
+      i = parent;
+    }
+  }
+
+  /** Remove and return the index carrying the smallest key. */
+  pop(): number {
+    const top = this.idx[0]!;
+    const last = this.idx.length - 1;
+    this.swap(0, last);
+    this.idx.pop();
+    this.keys.pop();
+    let i = 0;
+    for (;;) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let s = i;
+      if (l < this.idx.length && (this.keys[l] ?? Infinity) < (this.keys[s] ?? Infinity)) s = l;
+      if (r < this.idx.length && (this.keys[r] ?? Infinity) < (this.keys[s] ?? Infinity)) s = r;
+      if (s === i) break;
+      this.swap(i, s);
+      i = s;
+    }
+    return top;
+  }
+
+  private swap(a: number, b: number): void {
+    const ti = this.idx[a]!;
+    this.idx[a] = this.idx[b]!;
+    this.idx[b] = ti;
+    const tk = this.keys[a]!;
+    this.keys[a] = this.keys[b]!;
+    this.keys[b] = tk;
+  }
+}
+
+/**
+ * Priority-flood depression filling (Barnes et al. 2014) with an epsilon
+ * gradient: cells inside depressions are raised to just above their spill
+ * level so the filled surface strictly increases away from the drainage
+ * seeds — this guarantees D8 finds a downslope neighbour even on flats.
+ * Boundary cells seed the flood; NoData cells (also interior holes) seed at
+ * key −Infinity so they act as drains, and stay NaN in the output.
+ */
+export function fillDepressions(values: Float64Array, ncols: number, nrows: number): Float64Array {
+  const n = ncols * nrows;
+  const filled = new Float64Array(n);
+  const closed = new Uint8Array(n);
+  const heap = new MinHeap();
+  for (let y = 0; y < nrows; y += 1) {
+    for (let x = 0; x < ncols; x += 1) {
+      const i = y * ncols + x;
+      const v = values[i]!;
+      filled[i] = v;
+      if (x === 0 || y === 0 || x === ncols - 1 || y === nrows - 1 || !Number.isFinite(v)) {
+        closed[i] = 1;
+        heap.push(i, Number.isFinite(v) ? v : -Infinity);
+      }
+    }
+  }
+  while (heap.size > 0) {
+    const cur = heap.pop();
+    const cy = Math.floor(cur / ncols);
+    const cx = cur % ncols;
+    const zc = filled[cur]!;
+    const curNoData = !Number.isFinite(zc);
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= ncols || ny >= nrows) continue;
+        const ni = ny * ncols + nx;
+        if (closed[ni]) continue;
+        closed[ni] = 1;
+        const zv = values[ni]!;
+        if (!Number.isFinite(zv)) {
+          filled[ni] = NaN;
+          heap.push(ni, -Infinity);
+          continue;
+        }
+        const eps = Math.max(1e-6, Math.abs(zc) * 1e-9);
+        filled[ni] = curNoData || zv > zc ? zv : zc + eps;
+        heap.push(ni, filled[ni]!);
+      }
+    }
+  }
+  return filled;
+}
+
+/** Direction code meaning "no downslope neighbour" (NoData or outlet). */
+export const D8_NODIR = -1;
+
+/**
+ * D8 flow directions on the filled surface: each cell points at its steepest
+ * strictly-downslope neighbour (cardinal distance = cellsize, diagonal =
+ * cellsize·√2). Strictly positive slope makes cycles impossible, so the
+ * graph is a DAG ready for topological accumulation.
+ */
+export function d8FlowDirections(filled: Float64Array, ncols: number, nrows: number, cellsize: number): Int32Array {
+  const dir = new Int32Array(ncols * nrows).fill(D8_NODIR);
+  const at = (x: number, y: number): number =>
+    x < 0 || y < 0 || x >= ncols || y >= nrows ? NaN : filled[y * ncols + x]!;
+  for (let y = 0; y < nrows; y += 1) {
+    for (let x = 0; x < ncols; x += 1) {
+      const i = y * ncols + x;
+      const z = filled[i]!;
+      if (!Number.isFinite(z)) continue;
+      let bestSlope = 0;
+      let bestIdx = D8_NODIR;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const nz = at(x + dx, y + dy);
+          if (!Number.isFinite(nz)) continue;
+          const dist = dx !== 0 && dy !== 0 ? cellsize * Math.SQRT2 : cellsize;
+          const slope = (z - nz) / dist;
+          if (slope > bestSlope) {
+            bestSlope = slope;
+            bestIdx = (y + dy) * ncols + (x + dx);
+          }
+        }
+      }
+      dir[i] = bestIdx;
+    }
+  }
+  return dir;
+}
+
+/**
+ * Flow accumulation by Kahn topological traversal of the D8 graph: every
+ * valid cell contributes 1 unit of rain and passes its running total to its
+ * downstream neighbour. NoData cells contribute 0.
+ */
+export function flowAccumulation(filled: Float64Array, dir: Int32Array): Float64Array {
+  const n = filled.length;
+  const acc = new Float64Array(n);
+  const indeg = new Int32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    acc[i] = Number.isFinite(filled[i]!) ? 1 : 0;
+    const d = dir[i]!;
+    if (d >= 0) indeg[d]! += 1;
+  }
+  const queue: number[] = [];
+  for (let i = 0; i < n; i += 1) {
+    if (indeg[i] === 0 && Number.isFinite(filled[i]!)) queue.push(i);
+  }
+  for (let head = 0; head < queue.length; head += 1) {
+    const cur = queue[head]!;
+    const d = dir[cur]!;
+    if (d < 0) continue;
+    acc[d]! += acc[cur]!;
+    indeg[d]! -= 1;
+    if (indeg[d] === 0) queue.push(d);
+  }
+  return acc;
+}
+
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+/**
+ * Research sheet for one DEM: (a) elevation field, (b) Horn slope,
+ * (c) D8 flow accumulation on a log₁₀ scale after priority-flood filling.
+ */
+export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
+  const panels: GeoFigurePanel[] = [];
+  const { ncols, nrows, values, cellsize } = grid;
+
+  // (a) elevation, NoData mapped to the field minimum.
+  let zmin = Infinity;
+  let zmax = -Infinity;
+  for (const v of values) {
+    if (!Number.isFinite(v)) continue;
+    if (v < zmin) zmin = v;
+    if (v > zmax) zmax = v;
+  }
+  if (!Number.isFinite(zmin) || !Number.isFinite(zmax)) {
+    zmin = 0;
+    zmax = 1;
+  }
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: 'Elevation [m]',
+      xLabel: 'col',
+      yLabel: 'row',
+      ticks: 4,
+      series: [
+        {
+          name: 'elevation',
+          kind: 'field',
+          color: '#3CA0FF',
+          field: {
+            values: Array.from(values, (v) => (Number.isFinite(v) ? v : zmin)),
+            rows: nrows,
+            cols: ncols,
+            domain: [zmin, zmax],
+          },
+        },
+      ],
+    },
+  });
+
+  // (b) Horn slope, NoData mapped to 0.
+  const { slope } = hornSlopeAspect(values, ncols, nrows, cellsize);
+  let smax = 0;
+  for (const s of slope) {
+    if (Number.isFinite(s) && s > smax) smax = s;
+  }
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: 'Slope (Horn 3×3) [°]',
+      xLabel: 'col',
+      yLabel: 'row',
+      ticks: 4,
+      series: [
+        {
+          name: 'slope',
+          kind: 'field',
+          color: '#E6A23C',
+          field: {
+            values: Array.from(slope, (s) => (Number.isFinite(s) ? s : 0)),
+            rows: nrows,
+            cols: ncols,
+            domain: [0, smax],
+          },
+        },
+      ],
+    },
+  });
+
+  // (c) flow accumulation on a log₁₀ scale after depression filling.
+  const filled = fillDepressions(values, ncols, nrows);
+  const dir = d8FlowDirections(filled, ncols, nrows, cellsize);
+  const acc = flowAccumulation(filled, dir);
+  let amax = 1;
+  for (const a of acc) {
+    if (a > amax) amax = a;
+  }
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: 'Flow accumulation (D8, log₁₀)',
+      xLabel: 'col',
+      yLabel: 'row',
+      ticks: 4,
+      series: [
+        {
+          name: 'log10(acc)',
+          kind: 'field',
+          color: '#5FD0A5',
+          field: {
+            values: Array.from(acc, (a) => (Number.isFinite(a) ? Math.log10(a + 1) : 0)),
+            rows: nrows,
+            cols: ncols,
+            domain: [0, Math.log10(amax + 1)],
+          },
+        },
+      ],
+    },
+  });
+  return panels;
+}
+
 // ---- Plugin ----------------------------------------------------------------
 
-type TerrainMode = 'elevation' | 'hillshade' | 'slope' | 'aspect' | '3d';
+type TerrainMode = 'elevation' | 'hillshade' | 'slope' | 'aspect' | 'watershed' | '3d';
 
 interface State {
   grid: AscGrid | null;
@@ -168,6 +467,9 @@ export class TerrainPlugin implements Plugin {
   private terrainGroup: Group | null = null;
   private groupFor: AscGrid | null = null;
   private groupExag = -1;
+  // Flow-accumulation cache (fill + D8 + Kahn is O(n log n) per run).
+  private accFor: AscGrid | null = null;
+  private accCache: Float64Array | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -177,6 +479,8 @@ export class TerrainPlugin implements Plugin {
     this.teardown3d();
     this.ctx = null;
     this.state.grid = null;
+    this.accFor = null;
+    this.accCache = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -206,12 +510,17 @@ export class TerrainPlugin implements Plugin {
       else exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-terrain');
       return;
     }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
+      return;
+    }
     let redraw = false;
     if (
       params.mode === 'elevation' ||
       params.mode === 'hillshade' ||
       params.mode === 'slope' ||
       params.mode === 'aspect' ||
+      params.mode === 'watershed' ||
       params.mode === '3d'
     ) {
       this.state.mode = params.mode;
@@ -241,6 +550,7 @@ export class TerrainPlugin implements Plugin {
           { value: 'hillshade', label: 'Hillshade', labelI18n: { 'zh-CN': '山体阴影', 'en-US': 'Hillshade' } },
           { value: 'slope', label: 'Slope', labelI18n: { 'zh-CN': '坡度', 'en-US': 'Slope' } },
           { value: 'aspect', label: 'Aspect', labelI18n: { 'zh-CN': '坡向', 'en-US': 'Aspect' } },
+          { value: 'watershed', label: 'Flow accumulation (D8)', labelI18n: { 'zh-CN': '汇流累积（D8）', 'en-US': 'Flow accumulation (D8)' } },
           { value: '3d', label: '3D Mesh', labelI18n: { 'zh-CN': '3D 建模视图', 'en-US': '3D Mesh View' } },
         ],
       },
@@ -261,6 +571,7 @@ export class TerrainPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showContours,
       },
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
@@ -338,6 +649,10 @@ export class TerrainPlugin implements Plugin {
       if (v > vmax) vmax = v;
     }
     if (!(vmax > vmin)) vmax = vmin + 1e-9;
+    // Watershed accumulations span decades — colour on a log scale.
+    const logScale = this.state.mode === 'watershed';
+    const logVmin = Math.log(Math.max(vmin, 0) + 1);
+    const logVmax = Math.log(vmax + 1);
 
     const off = document.createElement('canvas');
     off.width = ncols;
@@ -351,7 +666,9 @@ export class TerrainPlugin implements Plugin {
         img.data[i * 4 + 3] = 0;
         continue;
       }
-      const t = (v - vmin) / (vmax - vmin);
+      const t = logScale
+        ? (Math.log(v + 1) - logVmin) / Math.max(logVmax - logVmin, 1e-9)
+        : (v - vmin) / (vmax - vmin);
       let r: number;
       let gg: number;
       let b: number;
@@ -382,7 +699,7 @@ export class TerrainPlugin implements Plugin {
     g.drawImage(off, ox, oy, w, h);
 
     // Contour overlay on the elevation field.
-    if (this.state.showContours && this.state.mode !== 'aspect') {
+    if (this.state.showContours && this.state.mode !== 'aspect' && this.state.mode !== 'watershed') {
       let zmin = Infinity;
       let zmax = -Infinity;
       for (let i = 0; i < values.length; i += 1) {
@@ -415,6 +732,7 @@ export class TerrainPlugin implements Plugin {
       hillshade: { zh: '山体阴影（315°/45°）', en: 'Hillshade (315°/45°)' },
       slope: { zh: '坡度', en: 'Slope' },
       aspect: { zh: '坡向', en: 'Aspect' },
+      watershed: { zh: '汇流累积（D8）', en: 'Flow accumulation (D8)' },
       '3d': { zh: '3D 建模视图', en: '3D Mesh View' },
     };
     const rangeLabel =
@@ -424,7 +742,9 @@ export class TerrainPlugin implements Plugin {
           ? `0–${fmtM(vmax)}°`
           : this.state.mode === 'aspect'
             ? '0–360°'
-            : '';
+            : this.state.mode === 'watershed'
+              ? `1–${fmtM(vmax)} ${zh ? '格' : 'cells'}`
+              : '';
     g.fillText(
       zh
         ? `DEM ${ncols}×${nrows}，像元 ${grid.cellsize} m\u3000|\u3000${modeNames[this.state.mode]!.zh}\u3000${rangeLabel}`
@@ -435,22 +755,35 @@ export class TerrainPlugin implements Plugin {
     if (this.state.mode !== 'aspect') {
       const grad = g.createLinearGradient(14, 0, 154, 0);
       for (let i = 0; i <= 10; i += 1) {
-        const t = i / 10;
+        const p = i / 10;
         let rgb: [number, number, number];
         if (this.state.mode === 'hillshade') {
-          const s = 0.12 + 0.8 * t;
+          const s = 0.12 + 0.8 * p;
           rgb = [s, s, s];
+        } else if (logScale) {
+          // Legend ramp follows the log normalisation used for the pixels.
+          const vp = vmin + p * (vmax - vmin);
+          const tl = (Math.log(vp + 1) - logVmin) / Math.max(logVmax - logVmin, 1e-9);
+          rgb = heatmapColor(Math.max(0, Math.min(1, tl)));
         } else {
-          rgb = heatmapColor(t);
+          rgb = heatmapColor(p);
         }
-        grad.addColorStop(t, `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`);
+        grad.addColorStop(p, `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`);
       }
       g.fillStyle = grad;
       g.fillRect(14, canvas.height - 24, 140, 10);
       g.fillStyle = 'rgba(220, 228, 240, 0.95)';
-      g.fillText(this.state.mode === 'elevation' ? fmtM(vmin) : '0', 14, canvas.height - 28);
+      g.fillText(this.state.mode === 'elevation' || logScale ? fmtM(vmin) : '0', 14, canvas.height - 28);
       g.textAlign = 'right';
-      g.fillText(this.state.mode === 'elevation' ? fmtM(vmax) : this.state.mode === 'slope' ? `${vmax.toFixed(0)}°` : '1', 154, canvas.height - 28);
+      g.fillText(
+        this.state.mode === 'elevation' || logScale
+          ? fmtM(vmax)
+          : this.state.mode === 'slope'
+            ? `${vmax.toFixed(0)}°`
+            : '1',
+        154,
+        canvas.height - 28,
+      );
       g.textAlign = 'left';
     }
   }
@@ -459,10 +792,34 @@ export class TerrainPlugin implements Plugin {
   private buildRaster(): Float64Array {
     const grid = this.state.grid!;
     if (this.state.mode === 'elevation') return grid.values;
+    if (this.state.mode === 'watershed') {
+      if (this.accFor === grid && this.accCache) return this.accCache;
+      const filled = fillDepressions(grid.values, grid.ncols, grid.nrows);
+      const dir = d8FlowDirections(filled, grid.ncols, grid.nrows, grid.cellsize);
+      this.accCache = flowAccumulation(filled, dir);
+      this.accFor = grid;
+      return this.accCache;
+    }
     const { slope, aspect } = hornSlopeAspect(grid.values, grid.ncols, grid.nrows, grid.cellsize);
     if (this.state.mode === 'slope') return slope;
     if (this.state.mode === 'aspect') return aspect;
     return hillshadeFromSlope(slope, aspect);
+  }
+
+  /** Stream the elevation / slope / flow-accumulation research sheet to Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const grid = this.state.grid;
+    if (!grid) return;
+    const caption: Bilingual = {
+      zh: `地形分析（${grid.ncols}×${grid.nrows} 网格，像元 ${grid.cellsize} m）：高程场、Horn 3×3 差分坡度，以及填洼后的 D8 汇流累积（log₁₀ 刻度）。洼地填充用 priority-flood 优先级泛洪（Barnes 等 2014，ε 梯度），D8 方向取最陡下降 s = Δz / d（对角 d = √2·像元），汇流按 Kahn 拓扑序逐格累加。`,
+      en: `Terrain analysis (${grid.ncols}×${grid.nrows} grid, ${grid.cellsize} m cells): elevation, Horn 3×3 slope, and D8 flow accumulation (log₁₀ scale) after depression filling. Depressions are filled by priority-flood (Barnes et al. 2014, epsilon gradient); D8 picks the steepest descent s = Δz / d (diagonal d = √2·cell); accumulation follows Kahn topological order.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '地形分析', en: 'Terrain analysis' },
+      caption,
+      terrainFigurePanels(grid),
+    );
   }
 
   /** Show (or reuse) the displaced 3D terrain mesh in the host scene. */
@@ -482,9 +839,11 @@ export class TerrainPlugin implements Plugin {
     three.render();
   }
 
-  /** Hide + free the 3D surface (2D view switch, deactivate, destroy). */
+  /** Hide + free the 3D surface (2D view switch, deactivate, destroy).
+   *  Always dispose: the host scene is SHARED, so a later 3-D plugin
+   *  re-showing the surface must not find our mesh still in it. */
   private teardown3d() {
-    if (this.state.mode !== '3d') this.disposeGroup();
+    this.disposeGroup();
     this.three?.setVisible(false);
   }
 
