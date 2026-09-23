@@ -18,6 +18,8 @@ export interface CrystalRenderOptions {
   representation: Representation;
   showBonds: boolean;
   showCell: boolean;
+  /** Cut every atom and bond at the six cell faces (boundary-model view). */
+  clipToCell?: boolean;
 }
 
 /**
@@ -220,6 +222,9 @@ export function buildCrystalGroup(cell: CrystalCell, opts: CrystalRenderOptions)
   const fillRadiusOf = (symbol: string): number =>
     fillRadii?.get(symbol) ?? vdWRadius(symbol);
 
+  // Boundary-model view: cut atoms and bonds at the six cell faces.
+  const clipPlanes = opts.clipToCell ? cellClipPlanes(a, b, c, center) : null;
+
   // Atoms (sphere + optional element label handled as a shared sphere).
   const sphereGeo = new THREE.SphereGeometry(1, 28, 20);
   shared.push(sphereGeo);
@@ -230,6 +235,8 @@ export function buildCrystalGroup(cell: CrystalCell, opts: CrystalRenderOptions)
         color: cpkColor(symbol),
         roughness: opts.representation === 'spacefill' ? 0.45 : 0.28,
         metalness: 0.08,
+        // DoubleSide so a sphere cut by a face shows a solid cap, not a hole.
+        ...(clipPlanes ? { clippingPlanes: clipPlanes, side: THREE.DoubleSide } : {}),
       }),
     );
     const r = fillRadii
@@ -293,7 +300,11 @@ export function buildCrystalGroup(cell: CrystalCell, opts: CrystalRenderOptions)
     );
     const cyl = new THREE.CylinderGeometry(0.055, 0.055, 1, 8);
     shared.push(cyl);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x8b98a8, roughness: 0.6 });
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x8b98a8,
+      roughness: 0.6,
+      ...(clipPlanes ? { clippingPlanes: clipPlanes, side: THREE.DoubleSide } : {}),
+    });
     const toScene = (f: { x: number; y: number; z: number }): THREE.Vector3 => {
       const c = fractionalToCartesian(cell.params, f);
       return new THREE.Vector3(c.x - center.x, c.y - center.y, c.z - center.z);
@@ -401,6 +412,36 @@ export function buildCrystalGroup(cell: CrystalCell, opts: CrystalRenderOptions)
 
   group.userData.sharedGeometries = shared;
   return group;
+}
+
+/**
+ * Six clipping planes flush with the cell faces, keeping the interior —
+ * the boundary-model view that cuts atoms and bonds at the cell boundary.
+ * Scene coordinates (the group is centred on the cell centre).
+ */
+function cellClipPlanes(a: Corner, b: Corner, c: Corner, center: Corner): THREE.Plane[] {
+  const cross = (u: Corner, v: Corner): THREE.Vector3 => new THREE.Vector3(
+    u.y * v.z - u.z * v.y,
+    u.z * v.x - u.x * v.z,
+    u.x * v.y - u.y * v.x,
+  );
+  // Scalar triple product a·(b×c) — the signed cell volume, positive for the
+  // right-handed lattice basis used here.
+  const bx_c = cross(b, c);
+  const volume = a.x * bx_c.x + a.y * bx_c.y + a.z * bx_c.z;
+  const centerV = new THREE.Vector3(center.x, center.y, center.z);
+  const planes: THREE.Plane[] = [];
+  for (const [u, v] of [[b, c], [c, a], [a, b]] as const) {
+    // u×v points into the cell along this axis: (u×v)·p_cart = axis coord × V.
+    const g = cross(u, v);
+    const n = g.clone().normalize();
+    const dCenter = n.dot(centerV);
+    // Keep axis coordinate ≥ 0 …
+    planes.push(new THREE.Plane(n.clone(), dCenter));
+    // … and ≤ 1 (normal flipped, plane offset through the opposite face).
+    planes.push(new THREE.Plane(n.clone().negate(), -dCenter + volume / g.length()));
+  }
+  return planes;
 }
 
 /** Build the translucent unit-cell wireframe along the true lattice vectors. */

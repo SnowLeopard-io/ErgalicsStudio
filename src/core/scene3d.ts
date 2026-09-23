@@ -36,6 +36,9 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(width, height);
+  // Required for material-level clippingPlanes (used by the crystal plugin's
+  // "clip to cell" view); harmless for every other plugin.
+  renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SCENE_BACKGROUND);

@@ -1,5 +1,6 @@
 // chem-crystal (crystal unit-cell preview) plugin — pure-logic & data tests.
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
 import {
   effectiveCounts,
   reduceCounts,
@@ -8,6 +9,7 @@ import {
   cellObservables,
 } from '@/plugins/builtin/chem-crystal/cellInfo';
 import { CRYSTAL_SAMPLES, findSample } from '@/plugins/builtin/chem-crystal/samples';
+import { buildCrystalGroup } from '@/plugins/builtin/chem-crystal/crystal3d';
 import { minImageDistance, inferBonds } from '@/chem/structure';
 import {
   detectFormat,
@@ -338,6 +340,7 @@ describe('ChemCrystalPlugin', () => {
     expect(keys).toContain('representation');
     expect(keys).toContain('showBonds');
     expect(keys).toContain('showCell');
+    expect(keys).toContain('clipToCell');
     expect(keys).toContain('reset');
     expect(keys).toContain('exportPng');
   });
@@ -359,6 +362,45 @@ describe('ChemCrystalPlugin', () => {
     expect(() => plugin.render({} as never)).not.toThrow();
     plugin.updateParams({ representation: 'spacefill' });
     expect(() => plugin.render({} as never)).not.toThrow();
+  });
+});
+
+describe('clip-to-cell boundary view (按边框裁剪)', () => {
+  const nacl = findSample('nacl')!;
+
+  it('attaches the six cell-face clipping planes to atom and bond materials', () => {
+    const group = buildCrystalGroup(nacl.cell, {
+      representation: 'ball-stick',
+      showBonds: true,
+      showCell: true,
+      clipToCell: true,
+    });
+    let spheres = 0;
+    let sticks = 0;
+    for (const obj of group.children) {
+      const mesh = obj as THREE.Mesh;
+      if (!(mesh instanceof THREE.Mesh)) continue;
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      expect(mat.clippingPlanes).toHaveLength(6);
+      expect(mat.side).toBe(THREE.DoubleSide);
+      if (mesh.userData.element) spheres += 1;
+      else sticks += 1;
+    }
+    expect(spheres).toBeGreaterThan(0);
+    expect(sticks).toBeGreaterThan(0);
+  });
+
+  it('leaves materials unclipped when the toggle is off', () => {
+    const group = buildCrystalGroup(nacl.cell, {
+      representation: 'ball-stick',
+      showBonds: true,
+      showCell: true,
+    });
+    for (const obj of group.children) {
+      const mesh = obj as THREE.Mesh;
+      if (!(mesh instanceof THREE.Mesh)) continue;
+      expect((mesh.material as THREE.MeshStandardMaterial).clippingPlanes ?? null).toBeNull();
+    }
   });
 });
 
