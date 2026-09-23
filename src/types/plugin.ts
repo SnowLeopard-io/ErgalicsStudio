@@ -98,6 +98,17 @@ export interface BaseParam {
   labelI18n?: Record<string, string>;
   type: ParamControlType;
   hint?: string;
+  /**
+   * Optional layout group id. Params sharing the same group are laid out
+   * together and auto-wrap (side-by-side) inside the param panel instead of
+   * stacking one-per-row. Omit for the default single-column layout.
+   */
+  group?: string;
+  /**
+   * When grouped, shrink the control to fit next to siblings (e.g. a small
+   * numeric input). Only honoured inside a group.
+   */
+  inline?: boolean;
 }
 
 export interface RangeParam extends BaseParam {

@@ -1,0 +1,73 @@
+#------------------------------------------------------------------------------
+#$Date: 2022-08-17 13:16:20 +0300 (Wed, 17 Aug 2022) $
+#$Revision: 277276 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/56/74/1567488.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1567488
+loop_
+_publ_author_name
+'Ali, R.'
+'Yashima, M.'
+_publ_section_title
+;
+ Space group and crystal structure of the perovskite CaTiO3 from 296 to
+ 1720 K : ortho phase at 296 K
+;
+_journal_name_full               'Journal of Solid State Chemistry'
+_journal_page_first              2867
+_journal_page_last               2872
+_journal_paper_doi               10.1016/j.jssc.2005.06.027
+_journal_volume                  178
+_journal_year                    2005
+_chemical_formula_sum            'Ca O3 Ti'
+_chemical_name_common            CaTiO3
+_chemical_name_mineral           perovskite
+_space_group_IT_number           62
+_space_group_name_Hall           '-P 2c 2ab'
+_space_group_name_H-M_alt        'P b n m'
+_cell_angle_alpha                90.000000
+_cell_angle_beta                 90.000000
+_cell_angle_gamma                90.000000
+_cell_formula_units_Z            4
+_cell_length_a                   5.3789(2)
+_cell_length_b                   5.4361(2)
+_cell_length_c                   7.6388(3)
+_cell_volume                     223.360(15)
+_diffrn_ambient_pressure         100
+_diffrn_ambient_temperature      298
+_cod_data_source_file            CaTiO3-ortho.cif
+_cod_data_source_block           CaTiO3-ortho
+_cod_original_cell_volume        223.360
+_cod_original_formula_sum        'Ca Ti O3'
+_cod_database_code               1567488
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 x,y,z
+2 -x,-y,-z
+3 x+1/2,-y+1/2,-z
+4 -x+1/2,y+1/2,z
+5 -x,-y,z+1/2
+6 x,y,-z+1/2
+7 -x+1/2,y+1/2,-z+1/2
+8 x+1/2,-y+1/2,z+1/2
+loop_
+_atom_site_label
+_atom_site_occupancy
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_adp_type
+_atom_site_B_iso_or_equiv
+_atom_site_type_symbol
+Ca 1.0 -0.0078(6) 0.0357(4) 0.250000 Biso 0.58(7) Ca
+Ti 1.0 0.000000 0.500000 0.000000 Biso 0.34(9) Ti
+O1 1.0 0.0736(4) 0.4828(4) 0.250000 Biso 0.53 O
+O2 1.0 0.7113(3) 0.2893(3) 0.0375(2) Biso 0.51 O

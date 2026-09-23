@@ -1,0 +1,109 @@
+#------------------------------------------------------------------------------
+#$Date: 2025-03-07 16:07:45 +0200 (Fri, 07 Mar 2025) $
+#$Revision: 298323 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/57/40/1574067.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1574067
+loop_
+_publ_author_name
+'Lebeda, Miroslav'
+'Drahokoupil, Jan'
+'Kamba, Stanislav'
+'Svoboda, \<Simon'
+'Smola, Vojt\<ech'
+'Dabrowski, Bogdan'
+'Vl\<c\'ak, Petr'
+_publ_section_title
+;
+ Lattice parameters and bulk modulus of SrTi1-xMnxO3 perovskites: A
+ comparison of exchange-correlation functionals with experimental
+ validation
+;
+_journal_name_full               'Computational Condensed Matter'
+_journal_page_first              e01030
+_journal_paper_doi               10.1016/j.cocom.2025.e01030
+_journal_volume                  43
+_journal_year                    2025
+_chemical_formula_sum            'O3 Sr Ti'
+_space_group_IT_number           221
+_space_group_name_Hall           '-P 4 2 3'
+_space_group_name_H-M_alt        'P m -3 m'
+_cell_angle_alpha                90.000000
+_cell_angle_beta                 90.000000
+_cell_angle_gamma                90.000000
+_cell_formula_units_Z            3
+_cell_length_a                   3.905900
+_cell_length_b                   3.905900
+_cell_length_c                   3.905900
+_cell_volume                     59.589
+_cod_data_source_file            SrTiO3_v.cif
+_cod_depositor_comments          'Correcting publication title'
+_cod_original_cell_volume        59.58862448
+_cod_database_code               1574067
+loop_
+_space_group_symop_operation_xyz
+'x, y, z'
+'-x, -y, -z'
+'-x, -y, z'
+'x, y, -z'
+'-x, y, -z'
+'x, -y, z'
+'x, -y, -z'
+'-x, y, z'
+'z, x, y'
+'-z, -x, -y'
+'z, -x, -y'
+'-z, x, y'
+'-z, -x, y'
+'z, x, -y'
+'-z, x, -y'
+'z, -x, y'
+'y, z, x'
+'-y, -z, -x'
+'-y, z, -x'
+'y, -z, x'
+'y, -z, -x'
+'-y, z, x'
+'-y, -z, x'
+'y, z, -x'
+'y, x, -z'
+'-y, -x, z'
+'-y, -x, -z'
+'y, x, z'
+'y, -x, z'
+'-y, x, -z'
+'-y, x, z'
+'y, -x, -z'
+'x, z, -y'
+'-x, -z, y'
+'-x, z, y'
+'x, -z, -y'
+'-x, -z, -y'
+'x, z, y'
+'x, -z, y'
+'-x, z, -y'
+'z, y, -x'
+'-z, -y, x'
+'z, -y, x'
+'-z, y, -x'
+'-z, y, x'
+'z, -y, -x'
+'-z, -y, -x'
+'z, y, x'
+loop_
+_atom_site_label
+_atom_site_occupancy
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_type_symbol
+Sr1 1.0 0.000000 0.000000 0.000000 Sr
+Ti1 1.0 0.500000 0.500000 0.500000 Ti
+O1 1.0 0.000000 0.500000 0.500000 O

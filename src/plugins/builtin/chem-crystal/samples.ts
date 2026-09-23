@@ -17,6 +17,13 @@ import calciteCif from '../../../../examples/data/chem-calcite.cif?raw';
 import fluoriteCif from '../../../../examples/data/chem-fluorite.cif?raw';
 import rutileCif from '../../../../examples/data/chem-rutile.cif?raw';
 import pyriteCif from '../../../../examples/data/chem-pyrite.cif?raw';
+import diamondCif from '../../../../examples/data/chem-diamond.cif?raw';
+import graphiteCif from '../../../../examples/data/chem-graphite.cif?raw';
+import zincblendeCif from '../../../../examples/data/chem-zincblende.cif?raw';
+import copperCif from '../../../../examples/data/chem-copper.cif?raw';
+import dryiceCif from '../../../../examples/data/chem-dryice.cif?raw';
+import perovskiteCif from '../../../../examples/data/chem-perovskite.cif?raw';
+import perovskiteStCif from '../../../../examples/data/chem-perovskite-st.cif?raw';
 
 export interface CrystalSample {
   id: string;
@@ -50,6 +57,13 @@ export const CRYSTAL_SAMPLES: CrystalSample[] = [
   fromCif('fluorite', '萤石', 'Fluorite', 'COD 1000043', fluoriteCif),
   fromCif('rutile', '金红石', 'Rutile', 'COD 1530150', rutileCif),
   fromCif('pyrite', '黄铁矿', 'Pyrite', 'COD 1544891', pyriteCif),
+  fromCif('diamond', '金刚石', 'Diamond', 'COD 2300702', diamondCif),
+  fromCif('graphite', '石墨', 'Graphite', 'COD 1200017', graphiteCif),
+  fromCif('zincblende', '闪锌矿', 'Zinc blende', 'COD 1100043', zincblendeCif),
+  fromCif('copper', '铜', 'Copper', 'COD 5000216', copperCif),
+  fromCif('dryice', '干冰', 'Dry ice', 'COD 1010489', dryiceCif),
+  fromCif('perovskite', '钙钛矿', 'Perovskite', 'COD 1567488', perovskiteCif),
+  fromCif('perovskite-st', '钛酸锶', 'Strontium titanate', 'COD 1574067', perovskiteStCif),
 ];
 
 export function findSample(id: string): CrystalSample | undefined {

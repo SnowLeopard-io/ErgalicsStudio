@@ -327,7 +327,9 @@ export function parseCif(text: string): CifCrystal {
 
   const spaceGroup =
     singles.get('_symmetry_space_group_name_h-m')?.replace(/['"]/g, '').trim() ||
-    singles.get('_space_group_name_h-m')?.replace(/['"]/g, '').trim();
+    singles.get('_space_group_name_h-m')?.replace(/['"]/g, '').trim() ||
+    singles.get('_space_group_name_h-m_alt')?.replace(/['"]/g, '').trim() ||
+    singles.get('_symmetry_space_group_name_h-m_alt')?.replace(/['"]/g, '').trim();
 
   return { name: name || 'crystal', params, sites, spaceGroup };
 }

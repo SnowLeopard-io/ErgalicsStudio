@@ -257,6 +257,7 @@ export function pushFigure(sheetName: string, spec: PlotSpec): boolean {
 export function pushAllFigures(
   def: ReactionDef,
   payload: PhysicsPayload | null,
+  captionNote?: string,
 ): string[] {
   const sent: string[] = [];
   const store = useFigureStore.getState();
@@ -267,8 +268,9 @@ export function pushAllFigures(
   if (sheetId && (def.nameZh || def.nameEn)) {
     // The balanced equation belongs in the caption once, not repeated atop
     // every subplot (keeps titles short so nothing clips or overlaps the tag).
+    const note = captionNote ? ` — ${captionNote}` : '';
     store.updateSheet(sheetId, {
-      caption: `${L(def.nameZh, def.nameEn)}: ${equationOf(def)}`,
+      caption: `${L(def.nameZh, def.nameEn)}: ${equationOf(def)}${note}`,
     });
   }
   const push = (spec: PlotSpec | null, label: string) => {

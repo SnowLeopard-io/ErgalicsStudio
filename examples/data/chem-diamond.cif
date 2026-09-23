@@ -1,0 +1,381 @@
+#------------------------------------------------------------------------------
+#$Date: 2023-07-06 21:22:10 +0300 (Thu, 06 Jul 2023) $
+#$Revision: 285062 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/2/30/07/2300702.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/. The original data for this entry
+# were provided by IUCr Journals, http://journals.iucr.org/.
+#
+# The file may be used within the scientific community so long as
+# proper attribution is given to the journal article from which the
+# data were obtained.
+#
+data_2300702
+loop_
+_publ_author_name
+'Houben, Andreas'
+'Meinerzhagen, Yannick'
+'Nachtigall, Noah'
+'Jacobs, Philipp'
+'Dronskowski, Richard'
+_publ_section_title
+;
+ POWTEX visits POWGEN.
+;
+_journal_issue                   'Pt 3'
+_journal_name_full               'Journal of applied crystallography'
+_journal_page_first              633
+_journal_page_last               642
+_journal_paper_doi               10.1107/S1600576723002819
+_journal_volume                  56
+_journal_year                    2023
+_chemical_formula_structural     C
+_chemical_formula_sum            C
+_chemical_formula_weight         12.01
+_chemical_name_common            Diamond
+_chemical_name_systematic        Carbon
+_space_group_IT_number           227
+_space_group_name_Hall           '-F 4vw 2vw 3'
+_space_group_name_H-M_alt        'F d -3 m :2'
+_symmetry_cell_setting           cubic
+_symmetry_Int_Tables_number      227
+_symmetry_space_group_name_Hall  '-F 4vw 2vw 3'
+_symmetry_space_group_name_H-M   'F d -3 m :2'
+_audit_creation_date             2022-12-05T17:17
+_audit_creation_method           'created in GSAS-II'
+_audit_update_record
+'2022-12-05T17:17  Initial software-generated CIF'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            8
+_cell_length_a                   3.566636(7)
+_cell_length_b                   3.566636(7)
+_cell_length_c                   3.566636(7)
+_cell_measurement_temperature    293
+_cell_volume                     45.37079(15)
+_computing_data_reduction        'PowderReduceP2D in Mantid'
+_computing_structure_refinement
+'GSAS-II (Toby & Von Dreele, J. Appl. Cryst. 46, 544-549, 2013)'
+_diffrn_ambient_pressure         100
+_diffrn_ambient_temperature      293
+_diffrn_radiation_probe          neutron
+_diffrn_source                   'neutron spallation source'
+_exptl_crystal_density_diffrn    3.5168
+_pd_block_id
+2022-12-05T17:17|PTX_diamond_edge_20_200_2D|HoubenAndreas|POWTEX
+_pd_calc_method                  'Rietveld Refinement'
+_pd_instr_dist_src/spec          60000
+_pd_instr_location               ' POWTEX-detector at POWGEN, SNS, ORNL, USA'
+_pd_meas_number_of_points        343521
+_pd_meas_scan_method             tof
+_pd_phase_name                   C1
+_pd_proc_info_datetime           2022-12-05T17:17
+_pd_proc_ls_background_function
+;
+Background functions: chebyshev, chebyshev function with 15 + 15 terms:
+    0.420, 0.142, 0.094, 0.068, -0.159, -0.015, -0.010, 0.149, 
+    0.063, -0.153, 0.098, -0.286, 0.064, 0.280, -0.165, 0.420, 
+    -0.593, 0.202, 0.159, 0.868, -0.197, -1.147, -0.244, -0.435, 
+    0.189, 0.775, 0.484, 0.837, -0.395, -0.782, 
+;
+_pd_proc_ls_pref_orient_corr
+'March-Dollase correction coef. = 1.000 axis = [0, 0, 1]'
+_pd_proc_ls_profile_function
+;
+Houben-Jacobs-Meinerzhagen function parameters for multi-dimensional data sets (pfType = 8)
+   similar to Von Dreele-Jorgenson-Windsor function parameters
+   alpha-0,alpha-1,beta-0,beta-1,beta-q,L2A,L2B,div,DthDet,Dtt,DL,DthF,Add,W-Pixel,W-Sample,Eta
+303(6), 416(3), 335(11), 682(8), 0.000000, 0.810000, 0.000000, 0.001920, 0.006780, 0.000623, 0.002000, 1.03126(8), 0.001480, 0.000000, 0.004330, 0.210000, 
+  Crystallite size in microns with "isotropic" model:
+  parameters: Size, G/L mix
+    1.000, 1.000, 
+  Microstrain, "isotropic" model (10^6^ * delta Q/Q)
+    parameters: Mustrain, G/L mix
+    1000.000, 1.000, 
+
+;
+_pd_proc_ls_prof_R_factor        0.08431
+_pd_proc_ls_prof_wR_expected     0.66284
+_pd_proc_ls_prof_wR_factor       0.11027
+_pd_spec_mount_mode              transmission
+_pd_spec_shape                   cylinder
+_refine_ls_goodness_of_fit_all   0.166
+_refine_ls_matrix_type           full
+_refine_ls_number_parameters     38
+_refine_ls_R_Fsqd_factor         1.00000
+_refine_ls_wR_factor_obs         0.11027
+_reflns_d_resolution_high        0.174
+_reflns_d_resolution_low         1.261
+_reflns_limit_h_max              20
+_reflns_limit_h_min              2
+_reflns_limit_k_max              14
+_reflns_limit_k_min              0
+_reflns_limit_l_max              11
+_reflns_limit_l_min              0
+_reflns_number_total             256
+_cod_data_source_file            diamond_2D_without_pattern.cif
+_cod_data_source_block           PTX_diamond_edge_20_200_2D
+_cod_depositor_comments
+;Adding full bibliography for 2300700--2300703.cif.
+
+ Adding full bibliography for 2300700--2300703.cif.
+;
+_cod_original_cell_volume        45.37078(26)
+_cod_original_sg_symbol_Hall     '-F 4vw 2vw'
+_cod_original_sg_symbol_H-M      'F d -3 m'
+_cod_original_formula_sum        C1
+_cod_database_code               2300702
+_refine_ls_r_f_factor            0.99879
+_gsas_proc_ls_prof_r_b_factor    0.07489
+_gsas_proc_ls_prof_wr_b_factor   0.09124
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 x,y,z
+2 z,x,y
+3 y,z,x
+4 1/4+x,1/4+y,-z
+5 -z,1/4+x,1/4+y
+6 1/4+y,-z,1/4+x
+7 1/4-z,1/2+x,3/4-y
+8 3/4-y,1/4-z,1/2+x
+9 1/2+y,1/4-z,3/4-x
+10 3/4-x,1/2+y,1/4-z
+11 1/4-z,3/4-x,1/2+y
+12 1/2+x,3/4-y,1/4-z
+13 y,x,z
+14 z,y,x
+15 x,z,y
+16 1/4+y,1/4+x,-z
+17 -z,1/4+y,1/4+x
+18 1/4+x,-z,1/4+y
+19 1/4-z,1/2+y,3/4-x
+20 3/4-x,1/4-z,1/2+y
+21 1/2+x,1/4-z,3/4-y
+22 3/4-y,1/2+x,1/4-z
+23 1/4-z,3/4-y,1/2+x
+24 1/2+y,3/4-x,1/4-z
+25 -x,-y,-z
+26 -z,-x,-y
+27 -y,-z,-x
+28 3/4-x,3/4-y,z
+29 z,3/4-x,3/4-y
+30 3/4-y,z,3/4-x
+31 3/4+z,1/2-x,1/4+y
+32 1/4+y,3/4+z,1/2-x
+33 1/2-y,3/4+z,1/4+x
+34 1/4+x,1/2-y,3/4+z
+35 3/4+z,1/4+x,1/2-y
+36 1/2-x,1/4+y,3/4+z
+37 -y,-x,-z
+38 -z,-y,-x
+39 -x,-z,-y
+40 3/4-y,3/4-x,z
+41 z,3/4-y,3/4-x
+42 3/4-x,z,3/4-y
+43 3/4+z,1/2-y,1/4+x
+44 1/4+x,3/4+z,1/2-y
+45 1/2-x,3/4+z,1/4+y
+46 1/4+y,1/2-x,3/4+z
+47 3/4+z,1/4+y,1/2-x
+48 1/2-y,1/4+x,3/4+z
+49 x,1/2+y,1/2+z
+50 z,1/2+x,1/2+y
+51 y,1/2+z,1/2+x
+52 1/4+x,3/4+y,1/2-z
+53 -z,3/4+x,3/4+y
+54 1/4+y,1/2-z,3/4+x
+55 1/4-z,x,1/4-y
+56 3/4-y,3/4-z,x
+57 1/2+y,3/4-z,1/4-x
+58 3/4-x,y,3/4-z
+59 1/4-z,1/4-x,y
+60 1/2+x,1/4-y,3/4-z
+61 y,1/2+x,1/2+z
+62 z,1/2+y,1/2+x
+63 x,1/2+z,1/2+y
+64 1/4+y,3/4+x,1/2-z
+65 -z,3/4+y,3/4+x
+66 1/4+x,1/2-z,3/4+y
+67 1/4-z,y,1/4-x
+68 3/4-x,3/4-z,y
+69 1/2+x,3/4-z,1/4-y
+70 3/4-y,x,3/4-z
+71 1/4-z,1/4-y,x
+72 1/2+y,1/4-x,3/4-z
+73 -x,1/2-y,1/2-z
+74 -z,1/2-x,1/2-y
+75 -y,1/2-z,1/2-x
+76 3/4-x,1/4-y,1/2+z
+77 z,1/4-x,1/4-y
+78 3/4-y,1/2+z,1/4-x
+79 3/4+z,-x,3/4+y
+80 1/4+y,1/4+z,-x
+81 1/2-y,1/4+z,3/4+x
+82 1/4+x,-y,1/4+z
+83 3/4+z,3/4+x,-y
+84 1/2-x,3/4+y,1/4+z
+85 -y,1/2-x,1/2-z
+86 -z,1/2-y,1/2-x
+87 -x,1/2-z,1/2-y
+88 3/4-y,1/4-x,1/2+z
+89 z,1/4-y,1/4-x
+90 3/4-x,1/2+z,1/4-y
+91 3/4+z,-y,3/4+x
+92 1/4+x,1/4+z,-y
+93 1/2-x,1/4+z,3/4+y
+94 1/4+y,-x,1/4+z
+95 3/4+z,3/4+y,-x
+96 1/2-y,3/4+x,1/4+z
+97 1/2+x,y,1/2+z
+98 1/2+z,x,1/2+y
+99 1/2+y,z,1/2+x
+100 3/4+x,1/4+y,1/2-z
+101 1/2-z,1/4+x,3/4+y
+102 3/4+y,-z,3/4+x
+103 3/4-z,1/2+x,1/4-y
+104 1/4-y,1/4-z,x
+105 y,1/4-z,1/4-x
+106 1/4-x,1/2+y,3/4-z
+107 3/4-z,3/4-x,y
+108 x,3/4-y,3/4-z
+109 1/2+y,x,1/2+z
+110 1/2+z,y,1/2+x
+111 1/2+x,z,1/2+y
+112 3/4+y,1/4+x,1/2-z
+113 1/2-z,1/4+y,3/4+x
+114 3/4+x,-z,3/4+y
+115 3/4-z,1/2+y,1/4-x
+116 1/4-x,1/4-z,y
+117 x,1/4-z,1/4-y
+118 1/4-y,1/2+x,3/4-z
+119 3/4-z,3/4-y,x
+120 y,3/4-x,3/4-z
+121 1/2-x,-y,1/2-z
+122 1/2-z,-x,1/2-y
+123 1/2-y,-z,1/2-x
+124 1/4-x,3/4-y,1/2+z
+125 1/2+z,3/4-x,1/4-y
+126 1/4-y,z,1/4-x
+127 1/4+z,1/2-x,3/4+y
+128 3/4+y,3/4+z,-x
+129 -y,3/4+z,3/4+x
+130 3/4+x,1/2-y,1/4+z
+131 1/4+z,1/4+x,-y
+132 -x,1/4+y,1/4+z
+133 1/2-y,-x,1/2-z
+134 1/2-z,-y,1/2-x
+135 1/2-x,-z,1/2-y
+136 1/4-y,3/4-x,1/2+z
+137 1/2+z,3/4-y,1/4-x
+138 1/4-x,z,1/4-y
+139 1/4+z,1/2-y,3/4+x
+140 3/4+x,3/4+z,-y
+141 -x,3/4+z,3/4+y
+142 3/4+y,1/2-x,1/4+z
+143 1/4+z,1/4+y,-x
+144 -y,1/4+x,1/4+z
+145 1/2+x,1/2+y,z
+146 1/2+z,1/2+x,y
+147 1/2+y,1/2+z,x
+148 3/4+x,3/4+y,-z
+149 1/2-z,3/4+x,1/4+y
+150 3/4+y,1/2-z,1/4+x
+151 3/4-z,x,3/4-y
+152 1/4-y,3/4-z,1/2+x
+153 y,3/4-z,3/4-x
+154 1/4-x,y,1/4-z
+155 3/4-z,1/4-x,1/2+y
+156 x,1/4-y,1/4-z
+157 1/2+y,1/2+x,z
+158 1/2+z,1/2+y,x
+159 1/2+x,1/2+z,y
+160 3/4+y,3/4+x,-z
+161 1/2-z,3/4+y,1/4+x
+162 3/4+x,1/2-z,1/4+y
+163 3/4-z,y,3/4-x
+164 1/4-x,3/4-z,1/2+y
+165 x,3/4-z,3/4-y
+166 1/4-y,x,1/4-z
+167 3/4-z,1/4-y,1/2+x
+168 y,1/4-x,1/4-z
+169 1/2-x,1/2-y,-z
+170 1/2-z,1/2-x,-y
+171 1/2-y,1/2-z,-x
+172 1/4-x,1/4-y,z
+173 1/2+z,1/4-x,3/4-y
+174 1/4-y,1/2+z,3/4-x
+175 1/4+z,-x,1/4+y
+176 3/4+y,1/4+z,1/2-x
+177 -y,1/4+z,1/4+x
+178 3/4+x,-y,3/4+z
+179 1/4+z,3/4+x,1/2-y
+180 -x,3/4+y,3/4+z
+181 1/2-y,1/2-x,-z
+182 1/2-z,1/2-y,-x
+183 1/2-x,1/2-z,-y
+184 1/4-y,1/4-x,z
+185 1/2+z,1/4-y,3/4-x
+186 1/4-x,1/2+z,3/4-y
+187 1/4+z,-y,1/4+x
+188 3/4+x,1/4+z,1/2-y
+189 -x,1/4+z,1/4+y
+190 3/4+y,-x,3/4+z
+191 1/4+z,3/4+y,1/2-x
+192 -y,3/4+x,3/4+z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_adp_type
+_atom_site_U_iso_or_equiv
+_atom_site_site_symmetry_multiplicity
+C1 C 0.12500 0.12500 0.12500 1.000 Uiso 0.001710(4) 8
+loop_
+_atom_type_symbol
+_atom_type_number_in_cell
+_atom_type_scat_Cromer_Mann_a1
+_atom_type_scat_Cromer_Mann_a2
+_atom_type_scat_Cromer_Mann_a3
+_atom_type_scat_Cromer_Mann_a4
+_atom_type_scat_Cromer_Mann_b1
+_atom_type_scat_Cromer_Mann_b2
+_atom_type_scat_Cromer_Mann_b3
+_atom_type_scat_Cromer_Mann_b4
+_atom_type_scat_Cromer_Mann_c
+_atom_type_scat_length_neutron
+_atom_type_scat_source
+C 8 2.31 1.02 1.5886 0.865 20.8439 10.2075 0.5687 51.6512 0.2156 0.6648
+https://subversion.xray.aps.anl.gov/pyGSAS/trunk/atmdata.py
+loop_
+_geom_angle_atom_site_label_1
+_geom_angle_atom_site_label_2
+_geom_angle_atom_site_label_3
+_geom_angle
+_geom_angle_site_symmetry_1
+_geom_angle_site_symmetry_2
+_geom_angle_site_symmetry_3
+_geom_angle_publ_flag
+C1 C1 C1 109.471 4_555 1_555 5_555 yes
+C1 C1 C1 109.471 4_555 1_555 6_555 yes
+C1 C1 C1 109.471 5_555 1_555 6_555 yes
+C1 C1 C1 109.471 4_555 1_555 25_555 yes
+C1 C1 C1 109.471 5_555 1_555 25_555 yes
+C1 C1 C1 109.471 6_555 1_555 25_555 yes
+loop_
+_geom_bond_atom_site_label_1
+_geom_bond_atom_site_label_2
+_geom_bond_distance
+_geom_bond_site_symmetry_1
+_geom_bond_site_symmetry_2
+_geom_bond_publ_flag
+C1 C1 1.5444 1_555 4_555 yes
+C1 C1 1.5444 1_555 5_555 yes
+C1 C1 1.5444 1_555 6_555 yes
+C1 C1 1.5444 1_555 25_555 yes
