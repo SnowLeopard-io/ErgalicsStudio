@@ -5,10 +5,14 @@
 // interaction (PPI) network (proteins + weighted edges) and computes a
 // force-directed layout (Fruchterman-Reingold spring-electrical model). The
 // layout is genuinely heavy: every iteration is O(V²) repulsion plus O(E)
-// attraction over `iterations` steps. As a by-product it reports biology-
-// relevant metrics — node degree, number of connected components (putative
-// complexes/modules), and the largest component size — which are standard
-// first-pass analyses for interaction networks.
+// attraction over `iterations` steps.
+//
+// On top of the layout it runs a systems-biology analysis over the loaded
+// network (see proteinAnalytics.ts): Louvain community detection (functional
+// modules/complexes), degree-z hub ranking, local clustering coefficient,
+// degree assortativity, and the connected-component size distribution. Nodes
+// are optionally coloured by community and hubs get a ring highlight; the
+// metrics are drawn as an on-canvas stats strip.
 // ==========================================================================
 
 import type {
@@ -19,7 +23,9 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { analyzeNetwork } from './proteinAnalytics';
+import type { NetworkMetrics, WEdge } from './proteinAnalytics';
 
 export { proteinManifest } from './proteinManifest';
 import { proteinManifest } from './proteinManifest';
@@ -29,13 +35,19 @@ const CPU_PROTEIN_CAP = 1500;
 /** Slider granularity for the Proteins count (also its lower bound). */
 const PROTEIN_COUNT_STEP = 20;
 
+/** Node fill mode. "community" colours by Louvain module, "degree" by degree. */
+type ColorBy = 'community' | 'degree';
+
 interface ProteinNode {
   id: string;
   name: string;
   x: number;
   y: number;
   degree: number;
+  /** Louvain community id (filled by runAnalytics). */
   module: number;
+  /** Whether the node is a degree-z hub. */
+  hub: boolean;
 }
 
 interface ProteinEdge {
@@ -50,6 +62,8 @@ interface State {
   repulsion: number;
   running: boolean;
   hasData: boolean;
+  colorBy: ColorBy;
+  showHubs: boolean;
 }
 
 export class ProteinPlugin implements Plugin {
@@ -62,9 +76,14 @@ export class ProteinPlugin implements Plugin {
     repulsion: 0.08,
     running: false,
     hasData: false,
+    colorBy: 'degree',
+    showHubs: true,
   };
   private nodes: ProteinNode[] = [];
   private edges: ProteinEdge[] = [];
+  /** Systems-biology metrics over the current working network (see
+   *  proteinAnalytics.ts). Recomputed on load, on resample and on demand. */
+  private analytics: NetworkMetrics | null = null;
   /** Original loaded network, never mutated. The count slider resamples from
    *  here, so lowering then raising it restores the full network — resampling
    *  from the working set previously destroyed the loaded data permanently. */
@@ -126,9 +145,29 @@ export class ProteinPlugin implements Plugin {
       if (params.start) this.start();
       else this.stop();
     }
+    if (typeof params.colorBy === 'string') {
+      const cb = params.colorBy === 'community' ? 'community' : 'degree';
+      if (cb !== this.state.colorBy) {
+        this.state.colorBy = cb;
+        this.draw();
+      }
+    }
+    if (typeof params.showHubs === 'boolean' && params.showHubs !== this.state.showHubs) {
+      this.state.showHubs = params.showHubs;
+      this.draw();
+    }
     // The button param is emitted under `params.compute.action` (see
     // ParamPanel) — checking params.action directly was always undefined,
     // so the "Compute Layout" button never ran.
+    if (actionFired(params, 'runAnalytics')) {
+      this.runAnalytics();
+      this.api.notify(
+        'success',
+        this.api.locale === 'zh-CN'
+          ? `已重算社区 — ${this.analytics?.numCommunities ?? '?'} 个模块，Q=${this.analytics?.modularity.toFixed(3) ?? '?'}`
+          : `Communities recomputed — ${this.analytics?.numCommunities ?? '?'} modules, Q=${this.analytics?.modularity.toFixed(3) ?? '?'}`,
+      );
+    }
     if ((params as { compute?: { action?: string } })?.compute?.action === 'layout-compute') {
       void this.runCompute();
     }
@@ -179,21 +218,47 @@ export class ProteinPlugin implements Plugin {
         action: 'layout-compute',
         labelI18n: { 'zh-CN': '⚡ 计算力导向布局', 'en-US': '⚡ Compute layout' },
       },
+      {
+        key: 'colorBy',
+        label: 'Colour by',
+        type: 'select',
+        value: this.state.colorBy,
+        options: [
+          { value: 'degree', label: 'Degree', labelI18n: { 'zh-CN': '节点度', 'en-US': 'Degree' } },
+          { value: 'community', label: 'Module', labelI18n: { 'zh-CN': '社区模块', 'en-US': 'Module' } },
+        ],
+      },
+      {
+        key: 'showHubs',
+        label: 'Highlight hubs',
+        type: 'toggle',
+        value: this.state.showHubs,
+        offLabelI18n: { 'zh-CN': '隐藏 hub 圈标', 'en-US': 'Hide hub rings' },
+        onLabelI18n: { 'zh-CN': '显示 hub 圈标', 'en-US': 'Show hub rings' },
+      },
+      actionButton('runAnalytics', 'Recompute modules', '重算社区 (Louvain)', 'primary'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Nodes CSV', '导出节点 CSV'),
     ];
   }
 
-  /** Export the node table (id, name, degree, x, y) as CSV. */
+  /** Export the node table (id, name, degree, community, hub, x, y) as CSV. */
   private exportNodesCsv() {
     const rows: Array<number | string>[] = this.nodes.map((n) => [
       n.id,
       n.name,
       n.degree,
+      n.module,
+      n.hub ? 'hub' : '',
       n.x,
       n.y,
     ]);
-    exportRowsCsv(this.api, 'protein-nodes', ['id', 'name', 'degree', 'x', 'y'], rows);
+    exportRowsCsv(
+      this.api,
+      'protein-nodes',
+      ['id', 'name', 'degree', 'module', 'hub', 'x', 'y'],
+      rows,
+    );
   }
 
   getSupportedFormats() {
@@ -225,6 +290,7 @@ export class ProteinPlugin implements Plugin {
     } else {
       this.state.count = Math.max(PROTEIN_COUNT_STEP, this.nodes.length);
       this.computeDegrees();
+      this.runAnalytics();
       this.api.reportDataScale(this.nodes.length);
       this.draw();
     }
@@ -269,15 +335,26 @@ export class ProteinPlugin implements Plugin {
       dst.y = src.y;
     }
     this.computeDegrees();
+    this.runAnalytics();
     this.draw();
 
     const ms = performance.now() - t0;
     this.api.reportGpuTime(ms);
     const metrics2 = this.networkMetrics(cap);
+    const a = this.analytics;
     return {
       ok: true,
       // Report the sub-network actually laid out, matching the metrics.
-      output: { nodes: cap, edges: edges.length, ...metrics2 },
+      output: {
+        nodes: cap,
+        edges: edges.length,
+        ...metrics2,
+        communities: a?.numCommunities ?? 0,
+        modularity: a?.modularity ?? 0,
+        meanClustering: a?.meanClustering ?? 0,
+        assortativity: a?.assortativity ?? 0,
+        hubs: a?.hubs.length ?? 0,
+      },
       metrics: { gpuMs: ms, bytes: cap * 16 + edges.length * 12 },
     };
   }
@@ -409,6 +486,7 @@ export class ProteinPlugin implements Plugin {
       .map((e) => ({ a: indexMap.get(e.a) as number, b: indexMap.get(e.b) as number, weight: e.weight }));
     this.state.count = this.nodes.length;
     this.computeDegrees();
+    this.runAnalytics();
     this.api.reportDataScale(this.nodes.length);
     this.draw();
   }
@@ -440,6 +518,29 @@ export class ProteinPlugin implements Plugin {
     let maxComp = 0;
     for (const v of comps.values()) maxComp = Math.max(maxComp, v);
     return { components: comps.size, maxComponent: maxComp };
+  }
+
+  /** Run the systems-biology analysis over the current working network and
+   *  stamp communities + hub flags onto the nodes. Deterministic and O(N+E). */
+  private runAnalytics(): void {
+    if (this.nodes.length === 0) {
+      this.analytics = null;
+      return;
+    }
+    const nodes: { id: string; name: string }[] = this.nodes.map((n) => ({ id: n.id, name: n.name }));
+    const edges: WEdge[] = this.edges.map((e) => ({ a: e.a, b: e.b, weight: e.weight }));
+    this.analytics = analyzeNetwork(nodes, edges);
+
+    const community = this.analytics.community;
+    for (let i = 0; i < this.nodes.length; i += 1) {
+      const node = this.nodes[i] as ProteinNode;
+      if (i < community.length) node.module = community[i] as number;
+      node.hub = false;
+    }
+    const hubIds = new Set(this.analytics.hubs.map((h) => h.id));
+    for (const node of this.nodes) {
+      if (hubIds.has(node.id)) node.hub = true;
+    }
   }
 
   /** Parse a PPI JSON: { proteins:[{id,name}], interactions:[{a,b,weight}|{source,target,weight}|[i,j,w]] }. */
@@ -476,6 +577,7 @@ export class ProteinPlugin implements Plugin {
         y: radius * Math.sin(angle),
         degree: 0,
         module: 0,
+        hub: false,
       });
     }
 
@@ -579,17 +681,32 @@ export class ProteinPlugin implements Plugin {
       g.stroke();
     }
 
-    // Nodes colored by degree.
+    // Nodes — filled by community (categorical palette) or degree (viridis
+    // ramp). Hubs get a gold ring.
+    const colorByCommunity = this.state.colorBy === 'community';
     const maxD = Math.max(1, this.maxDegree);
     for (const n of this.nodes) {
       const sx = cx + n.x * scale;
       const sy = cy + n.y * scale;
-      const t = Math.min(1, n.degree / maxD);
-      g.fillStyle = degreeColor(t);
+      g.fillStyle = colorByCommunity
+        ? catColor(n.module)
+        : degreeColor(Math.min(1, n.degree / maxD));
       const r = 1.5 + Math.sqrt(n.degree) * 1.1;
       g.beginPath();
       g.arc(sx, sy, r, 0, Math.PI * 2);
       g.fill();
+      if (this.state.showHubs && n.hub) {
+        g.strokeStyle = 'rgba(248,231,120,0.95)';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(sx, sy, r + 3, 0, Math.PI * 2);
+        g.stroke();
+      }
+    }
+
+    if (this.analytics) {
+      if (colorByCommunity) this.drawLegend(g, canvas, this.analytics);
+      this.drawStats(g, this.analytics);
     }
 
     if (this.nodes.length === 0) {
@@ -601,6 +718,56 @@ export class ProteinPlugin implements Plugin {
           ? '拖入 .json 网络或打开「示例数据」'
           : 'Drop a .json network or load sample data';
       g.fillText(msg, canvas.width / 2, canvas.height / 2);
+    }
+  }
+
+  /** On-canvas stats strip (top-left): size, modularity, assortativity, etc. */
+  private drawStats(g: CanvasRenderingContext2D, a: NetworkMetrics): void {
+    const zh = this.api.locale === 'zh-CN';
+    const font = zh ? "'Microsoft YaHei'" : 'Consolas';
+    const bits = [
+      `${a.n} N`,
+      `${Math.round(a.m)} E`,
+      `k̄ ${a.meanDegree.toFixed(2)}`,
+      `Q ${a.modularity.toFixed(3)}`,
+      `${a.numCommunities} ${zh ? '模块' : 'mod'}`,
+      `α ${a.assortativity.toFixed(2)}`,
+      `C̄ ${a.meanClustering.toFixed(2)}`,
+      `${a.hubs.length} hub`,
+    ].join('  ·  ');
+    g.font = `11px ${font}, monospace`;
+    const w = g.measureText(bits).width + 16;
+    g.fillStyle = 'rgba(10,14,19,0.74)';
+    g.fillRect(8, 8, w, 22);
+    g.fillStyle = 'rgba(214,225,238,0.96)';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(bits, 16, 8 + 11);
+  }
+
+  /** Bottom-left categorical legend for community colouring (largest modules). */
+  private drawLegend(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, a: NetworkMetrics): void {
+    const zh = this.api.locale === 'zh-CN';
+    const font = zh ? "'Microsoft YaHei'" : 'Consolas';
+    g.font = `10px ${font}, monospace`;
+    const cols = a.communities.slice(0, 8);
+    let x = 10;
+    let y = canvas.height - 12;
+    for (const c of cols) {
+      const label = `${zh ? '模块' : 'C'}${c.id}(${c.count})`;
+      const sw = 10;
+      const gap = 8;
+      g.fillStyle = catColor(c.id);
+      g.fillRect(x, y - 8, sw, sw);
+      g.fillStyle = 'rgba(214,225,238,0.9)';
+      g.textAlign = 'left';
+      g.textBaseline = 'middle';
+      g.fillText(label, x + sw + 4, y - 3);
+      x += sw + 4 + g.measureText(label).width + gap;
+      if (x > canvas.width - 40) {
+        x = 10;
+        y -= 16;
+      }
     }
   }
 }
@@ -621,6 +788,28 @@ function degreeColor(t: number): string {
   const gg = Math.round(a[1]! + (b[1]! - a[1]!) * local);
   const bl = Math.round(a[2]! + (b[2]! - a[2]!) * local);
   return `rgb(${r}, ${gg}, ${bl})`;
+}
+
+/** Categorical palette for Louvain communities (distinct, colour-blind aware
+ *  hues); wraps by index for networks with many modules. */
+const CATEGORICAL: Array<[number, number, number]> = [
+  [231, 104, 115],
+  [64, 158, 226],
+  [121, 203, 122],
+  [245, 158, 64],
+  [158, 143, 222],
+  [76, 201, 191],
+  [250, 100, 62],
+  [236, 172, 215],
+  [108, 199, 99],
+  [255, 213, 79],
+  [150, 166, 90],
+  [117, 136, 149],
+];
+
+function catColor(id: number): string {
+  const c = CATEGORICAL[((id % CATEGORICAL.length) + CATEGORICAL.length) % CATEGORICAL.length]!;
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 }
 
 export default function createProteinPlugin(): Plugin {

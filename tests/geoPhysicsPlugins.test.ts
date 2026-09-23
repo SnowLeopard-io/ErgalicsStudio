@@ -18,7 +18,7 @@ import { packWaveParams, waveKernelWGSL, waveStepCPU } from '@/core/wgsl';
 import {
   parseGeoJSON,
   numericPropertyKeys,
-} from '@/plugins/builtin/geoMap';
+} from '@/plugins/builtin/geo/geoMap';
 import {
   pendulumDeriv,
   pendulumEnergy,

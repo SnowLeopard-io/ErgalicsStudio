@@ -12,11 +12,13 @@
 // NoData cells propagate as NaN and render as the canvas background.
 // ==========================================================================
 
-import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
+import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
+import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '../shared/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { isZh, marchingSquares } from './geoCore';
 import { terrainManifest } from './terrainManifest';
+import { buildTerrainGroup, fitTerrainCamera } from './terrain3d';
+import type { Group } from 'three';
 
 export { terrainManifest } from './terrainManifest';
 
@@ -143,12 +145,13 @@ export function hillshadeFromSlope(
 
 // ---- Plugin ----------------------------------------------------------------
 
-type TerrainMode = 'elevation' | 'hillshade' | 'slope' | 'aspect';
+type TerrainMode = 'elevation' | 'hillshade' | 'slope' | 'aspect' | '3d';
 
 interface State {
   grid: AscGrid | null;
   mode: TerrainMode;
   showContours: boolean;
+  verticalExaggeration: number;
 }
 
 const CONTOUR_TARGET = 10;
@@ -157,40 +160,69 @@ export class TerrainPlugin implements Plugin {
   readonly manifest = terrainManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { grid: null, mode: 'hillshade', showContours: false };
+  private state: State = { grid: null, mode: 'hillshade', showContours: false, verticalExaggeration: 1 };
+  // 3D scene plumbing (see terrain3d.ts) — the group is cached against the
+  // grid + exaggeration it was built from and rebuilt when either changes.
+  private three: Scene3DHandle | null = null;
+  private sceneHandle: Scene3DHandle | null = null;
+  private terrainGroup: Group | null = null;
+  private groupFor: AscGrid | null = null;
+  private groupExag = -1;
 
   async init(api: PluginApi) {
     this.api = api;
   }
 
   async destroy() {
+    this.teardown3d();
     this.ctx = null;
     this.state.grid = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
+    if (context.container.three) this.three = context.container.three;
   }
 
-  async deactivate() {}
+  async deactivate() {
+    this.teardown3d();
+  }
+
+  /** Host entry for 3D-capable plugins (see pluginStore activation). */
+  renderToScene(scene: Scene3DHandle) {
+    this.three = scene;
+    this.draw();
+  }
 
   render(container: ContainerCapabilities) {
     this.ctx = container;
+    if (container.three) this.three = container.three;
     this.draw();
   }
 
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-terrain');
+      if (this.state.mode === '3d') exportSnapshotPng(this.api, this.three?.snapshot(), 'geo-terrain-3d');
+      else exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-terrain');
       return;
     }
     let redraw = false;
-    if (params.mode === 'elevation' || params.mode === 'hillshade' || params.mode === 'slope' || params.mode === 'aspect') {
+    if (
+      params.mode === 'elevation' ||
+      params.mode === 'hillshade' ||
+      params.mode === 'slope' ||
+      params.mode === 'aspect' ||
+      params.mode === '3d'
+    ) {
       this.state.mode = params.mode;
       redraw = true;
     }
     if (typeof params.showContours === 'boolean') {
       this.state.showContours = params.showContours;
+      redraw = true;
+    }
+    if (typeof params.verticalExaggeration === 'number') {
+      this.state.verticalExaggeration = Math.max(0.5, Math.min(3, params.verticalExaggeration));
       redraw = true;
     }
     if (redraw) this.draw();
@@ -209,7 +241,18 @@ export class TerrainPlugin implements Plugin {
           { value: 'hillshade', label: 'Hillshade', labelI18n: { 'zh-CN': '山体阴影', 'en-US': 'Hillshade' } },
           { value: 'slope', label: 'Slope', labelI18n: { 'zh-CN': '坡度', 'en-US': 'Slope' } },
           { value: 'aspect', label: 'Aspect', labelI18n: { 'zh-CN': '坡向', 'en-US': 'Aspect' } },
+          { value: '3d', label: '3D Mesh', labelI18n: { 'zh-CN': '3D 建模视图', 'en-US': '3D Mesh View' } },
         ],
+      },
+      {
+        key: 'verticalExaggeration',
+        label: 'Vertical exaggeration',
+        labelI18n: { 'zh-CN': '垂直夸张系数', 'en-US': 'Vertical exaggeration' },
+        type: 'range',
+        min: 0.5,
+        max: 3,
+        step: 0.1,
+        value: this.state.verticalExaggeration,
       },
       {
         key: 'showContours',
@@ -246,6 +289,13 @@ export class TerrainPlugin implements Plugin {
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
+    // 3D mesh view: needs a grid and the host WebGL scene; anything else
+    // falls back to the 2D raster path (which also hides the 3D overlay).
+    if (this.state.mode === '3d' && this.state.grid && this.three) {
+      this.draw3d();
+      return;
+    }
+    this.teardown3d();
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
     canvas.width = canvas.clientWidth || 640;
@@ -365,6 +415,7 @@ export class TerrainPlugin implements Plugin {
       hillshade: { zh: '山体阴影（315°/45°）', en: 'Hillshade (315°/45°)' },
       slope: { zh: '坡度', en: 'Slope' },
       aspect: { zh: '坡向', en: 'Aspect' },
+      '3d': { zh: '3D 建模视图', en: '3D Mesh View' },
     };
     const rangeLabel =
       this.state.mode === 'elevation'
@@ -376,8 +427,8 @@ export class TerrainPlugin implements Plugin {
             : '';
     g.fillText(
       zh
-        ? `DEM ${ncols}×${nrows}，像元 ${grid.cellsize} m　|　${modeNames[this.state.mode]!.zh}　${rangeLabel}`
-        : `DEM ${ncols}×${nrows}, cell ${grid.cellsize} m　|　${modeNames[this.state.mode]!.en}　${rangeLabel}`,
+        ? `DEM ${ncols}×${nrows}，像元 ${grid.cellsize} m\u3000|\u3000${modeNames[this.state.mode]!.zh}\u3000${rangeLabel}`
+        : `DEM ${ncols}×${nrows}, cell ${grid.cellsize} m\u3000|\u3000${modeNames[this.state.mode]!.en}\u3000${rangeLabel}`,
       14,
       20,
     );
@@ -412,6 +463,43 @@ export class TerrainPlugin implements Plugin {
     if (this.state.mode === 'slope') return slope;
     if (this.state.mode === 'aspect') return aspect;
     return hillshadeFromSlope(slope, aspect);
+  }
+
+  /** Show (or reuse) the displaced 3D terrain mesh in the host scene. */
+  private draw3d() {
+    const three = this.three!;
+    const grid = this.state.grid!;
+    if (this.groupFor !== grid || this.groupExag !== this.state.verticalExaggeration || this.sceneHandle !== three) {
+      this.disposeGroup();
+      this.terrainGroup = buildTerrainGroup(grid, this.state.verticalExaggeration);
+      this.groupFor = grid;
+      this.groupExag = this.state.verticalExaggeration;
+      this.sceneHandle = three;
+      three.scene.add(this.terrainGroup);
+      fitTerrainCamera(three.camera, three.controls, this.state.verticalExaggeration);
+    }
+    three.setVisible(true);
+    three.render();
+  }
+
+  /** Hide + free the 3D surface (2D view switch, deactivate, destroy). */
+  private teardown3d() {
+    if (this.state.mode !== '3d') this.disposeGroup();
+    this.three?.setVisible(false);
+  }
+
+  private disposeGroup() {
+    if (!this.terrainGroup) return;
+    this.terrainGroup.parent?.remove(this.terrainGroup);
+    this.terrainGroup.traverse((obj) => {
+      const withGeo = obj as unknown as { geometry?: { dispose(): void }; material?: { dispose(): void } };
+      withGeo.geometry?.dispose();
+      withGeo.material?.dispose();
+    });
+    this.terrainGroup = null;
+    this.groupFor = null;
+    this.groupExag = -1;
+    this.sceneHandle = null;
   }
 }
 

@@ -178,6 +178,60 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     notifyChanged();
   },
 
+  /** Commit an accepted (possibly user-edited) translation. Writes the target
+   *  language and the given code verbatim (no re-translation, no anti-wipe). */
+  applyLanguageWithCode: (id, language, code) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              language,
+              lastCode: code,
+              ir: code.trim() !== '' ? parseCodeToIR(code, codegenLang(language) === 'r' ? 'r' : codegenLang(language) === 'js' ? 'js' : 'python').program : makeProgram([]),
+              forceBlank: false,
+              syncState: 'code-dirty',
+              updatedAt: Date.now(),
+            }
+          : x,
+      ),
+    }));
+    notifyChanged();
+  },
+
+  /** Discard the translation: switch to the target language with a BLANK
+   *  buffer (one-shot forceBlank overrides the anti-wipe guard in CodeEditor). */
+  blankSession: (id, language) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? { ...x, language, lastCode: '', ir: makeProgram([]), forceBlank: true, syncState: 'code-dirty', updatedAt: Date.now() }
+          : x,
+      ),
+    }));
+    notifyChanged();
+  },
+
+  /** Undo a "discard" by restoring the pre-switch snapshot (language, IR, text). */
+  restoreSessionSnapshot: (id, snap) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              language: snap.language,
+              lastCode: snap.lastCode,
+              ir: snap.ir,
+              forceBlank: false,
+              syncState: x.syncState,
+              updatedAt: Date.now(),
+            }
+          : x,
+      ),
+    }));
+    notifyChanged();
+  },
+
   setActiveSession: (id) => {
     if (!get().sessions.some((s) => s.id === id)) return;
     set({ activeSessionId: id });

@@ -66,7 +66,9 @@ describe('IR → 程式碼（codegen）', () => {
     expect(py).toContain('studio.normalize');
     const r = codegen(ir, 'r');
     expect(r).toContain(' <- ');
-    expect(r).toContain('studio.load');
+    // R reaches the DSL through the `studio` environment, not dotted names.
+    expect(r).toContain('studio$load');
+    expect(r).toContain('studio$filter');
   });
 });
 

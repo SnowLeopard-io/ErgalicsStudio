@@ -181,3 +181,39 @@ function safeBaseName(name: string): string {
   const cleaned = name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'export';
   return cleaned.slice(0, 80);
 }
+
+/**
+ * Draw the shared "no data loaded" empty state onto a 2-D canvas. Called by
+ * data-driven plugins that opt out of built-in demo content so they open with
+ * a clear prompt to load a file (sample-data bar or Open File) instead of a
+ * fabricated demo.
+ */
+export function drawEmptyCanvas(
+  api: PluginApi,
+  canvas: HTMLCanvasElement | null | undefined,
+  opts?: { hint?: string; hintZh?: string; title?: string; titleZh?: string },
+): void {
+  if (!canvas) return;
+  canvas.width = canvas.clientWidth || 760;
+  canvas.height = canvas.clientHeight || 420;
+  const g = canvas.getContext('2d');
+  if (!g) return;
+  const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
+  g.fillStyle = bg;
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  const zh = api.locale === 'zh-CN';
+
+  const title = zh ? (opts?.titleZh ?? '尚未加载数据') : (opts?.title ?? 'No data loaded');
+  const hint = zh
+    ? (opts?.hintZh ?? '请通过顶部「示例数据」或「打开文件」载入数据')
+    : (opts?.hint ?? 'Load a dataset via the sample-data bar or Open File.');
+
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(230,238,248,0.95)';
+  g.font = `14px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+  g.fillText(title, canvas.width / 2, canvas.height / 2 - 12);
+
+  g.fillStyle = 'rgba(160,175,195,0.9)';
+  g.font = `12px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+  g.fillText(hint, canvas.width / 2, canvas.height / 2 + 14);
+}
