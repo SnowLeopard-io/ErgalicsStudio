@@ -28,6 +28,9 @@ export interface BondRecord {
   b: number;
   /** Bond order: 1 single, 2 double, 3 triple, etc. */
   order: number;
+  /** Fractional delta from atom `a` to the bonded periodic image of `b`
+   *  (periodic cells only; several records may exist for one atom pair). */
+  image?: Vec3;
 }
 
 /** A finite molecular structure (not necessarily periodic). */
@@ -204,11 +207,45 @@ export function cartesianToFractional(p: CellParams, c: Vec3): Vec3 {
 }
 
 /**
+ * True minimum-image fractional delta from `a` to the nearest periodic image
+ * of `b` (add it to `a` in fractional space to reach that image). Component-
+ * wise wrapping (`reducedImage`) is not the true minimum for strongly
+ * non-orthogonal lattices (hexagonal γ=120°, rhombohedral α≈46°), so images
+ * within ±2 neighbouring cells are compared explicitly.
+ */
+export function minImageDelta(p: CellParams, a: Vec3, b: Vec3): Vec3 {
+  const [A, B, C] = latticeMatrix(p);
+  const lenSq = (f: Vec3): number => {
+    const x = A.x * f.x + B.x * f.y + C.x * f.z;
+    const y = A.y * f.x + B.y * f.y + C.y * f.z;
+    const z = A.z * f.x + B.z * f.y + C.z * f.z;
+    return x * x + y * y + z * z;
+  };
+  const base = reducedImage({ x: b.x - a.x, y: b.y - a.y, z: b.z - a.z });
+  let best: Vec3 = base;
+  let bestLen = lenSq(base);
+  for (let i = -2; i <= 2; i += 1) {
+    for (let j = -2; j <= 2; j += 1) {
+      for (let k = -2; k <= 2; k += 1) {
+        if (i === 0 && j === 0 && k === 0) continue;
+        const cand: Vec3 = { x: base.x + i, y: base.y + j, z: base.z + k };
+        const len = lenSq(cand);
+        if (len < bestLen) {
+          bestLen = len;
+          best = cand;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * Minimum-image distance between two fractional positions in a periodic cell.
  * Infinity when no cell is supplied (caller should use vecDist).
  */
 export function minImageDistance(p: CellParams, a: Vec3, b: Vec3): number {
-  const d = reducedImage({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const d = minImageDelta(p, a, b);
   return vecDist({ x: 0, y: 0, z: 0 }, fractionalToCartesian(p, d));
 }
 
@@ -224,6 +261,43 @@ export interface BondInferOptions {
 const DEFAULT_BOND_TOLERANCE = 1.18;
 
 /**
+ * Elements whose same-element contacts are genuine covalent bonds (C–C
+ * skeletons, S–S disulfide dimers, Si–Si, peroxides, halogens). Same-element
+ * contacts between metals or metal–nonmetal partners within the radius cutoff
+ * are lattice packing distances, not bonds, and must not be drawn.
+ */
+const COVALENT_SAME_ELEMENT = new Set([
+  'H', 'B', 'C', 'N', 'O', 'F', 'Si', 'P', 'S', 'Cl', 'Se', 'Br', 'Te', 'I',
+]);
+
+/**
+ * Every lattice-image deltas from `a` to periodic images of `b` whose
+ * cartesian length is below `cutoff` (bonding to several images of the same
+ * site is what completes e.g. the 6-coordination of rock-salt Na).
+ */
+function imagesWithinCutoff(p: CellParams, a: Vec3, b: Vec3, cutoff: number): Vec3[] {
+  const [A, B, C] = latticeMatrix(p);
+  const lenOf = (f: Vec3): number => {
+    const x = A.x * f.x + B.x * f.y + C.x * f.z;
+    const y = A.y * f.x + B.y * f.y + C.y * f.z;
+    const z = A.z * f.x + B.z * f.y + C.z * f.z;
+    return Math.sqrt(x * x + y * y + z * z);
+  };
+  const base = reducedImage({ x: b.x - a.x, y: b.y - a.y, z: b.z - a.z });
+  const out: Vec3[] = [];
+  for (let u = -2; u <= 2; u += 1) {
+    for (let v = -2; v <= 2; v += 1) {
+      for (let w = -2; w <= 2; w += 1) {
+        const d: Vec3 = { x: base.x + u, y: base.y + v, z: base.z + w };
+        const len = lenOf(d);
+        if (len < cutoff && len > 1e-6) out.push(d);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Infer a covalent-bond graph from 3-D coordinates using the covalent-radius
  * rule: a bond exists when the distance is within `tolerance`× the sum of the
  * two covalent radii. Supports a periodic cell (min-image) for crystals.
@@ -236,8 +310,15 @@ export function inferBonds(atoms: Atom[], opts: BondInferOptions = {}): BondReco
       const ra = covalentRadius(atoms[i]!.symbol);
       const rb = covalentRadius(atoms[j]!.symbol);
       if (ra <= 0 || rb <= 0) continue;
-      const d = opts.cell ? minImageDistance(opts.cell, atoms[i]!, atoms[j]!) : vecDist(atoms[i]!, atoms[j]!);
-      if (d < (ra + rb) * tol) out.push({ a: i, b: j, order: 1 });
+      if (atoms[i]!.symbol === atoms[j]!.symbol && !COVALENT_SAME_ELEMENT.has(atoms[i]!.symbol)) continue;
+      const cutoff = (ra + rb) * tol;
+      if (opts.cell) {
+        for (const image of imagesWithinCutoff(opts.cell, atoms[i]!, atoms[j]!, cutoff)) {
+          out.push({ a: i, b: j, order: 1, image });
+        }
+      } else if (vecDist(atoms[i]!, atoms[j]!) < cutoff) {
+        out.push({ a: i, b: j, order: 1 });
+      }
     }
   }
   return out;

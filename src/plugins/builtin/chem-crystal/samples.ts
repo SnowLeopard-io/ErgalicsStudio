@@ -22,15 +22,18 @@ export interface CrystalSample {
   id: string;
   nameZh: string;
   nameEn: string;
+  /** Provenance: COD entry number of the bundled CIF. */
+  source: string;
   cell: CrystalCell;
 }
 
-function fromCif(id: string, nameZh: string, nameEn: string, text: string): CrystalSample {
+function fromCif(id: string, nameZh: string, nameEn: string, source: string, text: string): CrystalSample {
   const parsed = parseCif(text);
   return {
     id,
     nameZh,
     nameEn,
+    source,
     cell: {
       name: nameEn,
       params: parsed.params,
@@ -41,12 +44,12 @@ function fromCif(id: string, nameZh: string, nameEn: string, text: string): Crys
 }
 
 export const CRYSTAL_SAMPLES: CrystalSample[] = [
-  fromCif('nacl', '氯化钠', 'Sodium chloride', naclCif),
-  fromCif('quartz', 'α-石英', 'α-Quartz', quartzCif),
-  fromCif('calcite', '方解石', 'Calcite', calciteCif),
-  fromCif('fluorite', '萤石', 'Fluorite', fluoriteCif),
-  fromCif('rutile', '金红石', 'Rutile', rutileCif),
-  fromCif('pyrite', '黄铁矿', 'Pyrite', pyriteCif),
+  fromCif('nacl', '氯化钠', 'Sodium chloride', 'COD 1000041', naclCif),
+  fromCif('quartz', 'α-石英', 'α-Quartz', 'COD 1011159', quartzCif),
+  fromCif('calcite', '方解石', 'Calcite', 'COD 1010928', calciteCif),
+  fromCif('fluorite', '萤石', 'Fluorite', 'COD 1000043', fluoriteCif),
+  fromCif('rutile', '金红石', 'Rutile', 'COD 1530150', rutileCif),
+  fromCif('pyrite', '黄铁矿', 'Pyrite', 'COD 1544891', pyriteCif),
 ];
 
 export function findSample(id: string): CrystalSample | undefined {

@@ -20,6 +20,7 @@ import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
 import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '../shared/enhance';
 import { REACTIONS, findReaction, type ReactionDef } from './catalog';
+import { pushAllFigures } from './figures';
 import { buildPhysicsPayload, DEFAULT_FRAMES, DEFAULT_STEPS, type BuiltPayload } from './reactmd/payload';
 import { ReactMDClient } from './reactmd/client';
 import type { PhysicsPayload, SimulationResult } from './reactmd/types';
@@ -175,8 +176,9 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('run', 'Run', '运行', 'primary'),
       actionButton('fitView', 'Fit view', '复位视角'),
       actionButton('reset', 'Reset', '复位'),
-      actionButton('resetPlugin', 'Reset plugin', '重置插件'),
+      actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -208,7 +210,8 @@ export class ChemReactionPlugin implements Plugin {
     if (actionFired(params, 'fitView')) this.fitView();
     if (actionFired(params, 'exportPng')) this.exportPng();
     if (actionFired(params, 'reset')) this.resetScene();
-    if (actionFired(params, 'resetPlugin')) this.resetPlugin();
+    if (actionFired(params, 'reloadPlugin')) this.reloadPlugin();
+    if (actionFired(params, 'sendToFigure')) this.sendToFigure();
     if (changes) this.rebuildNow();
   }
 
@@ -405,13 +408,34 @@ export class ChemReactionPlugin implements Plugin {
     else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
   }
 
+  /** Push analysis figures (ΔG(T), Arrhenius, van't Hoff, α–pH, Ksp, atom map)
+   *  for the current reaction into Figure Studio. */
+  private sendToFigure() {
+    const def = findReaction(this.state.reaction);
+    if (!def) {
+      this.api.notify('warning', this.zh ? '没有可分析的反应。' : 'No reaction to analyse.');
+      return;
+    }
+    const labels = pushAllFigures(def, this.builtPayload().payload);
+    if (!labels.length) {
+      this.api.notify('warning', this.zh ? '当前反应暂无可生成的图表。' : 'No figures are computable for this reaction.');
+      return;
+    }
+    this.api.notify(
+      'success',
+      this.zh
+        ? `已发送到 Figure Studio：${labels.join('、')}`
+        : `Sent to Figure Studio: ${labels.join(', ')}`,
+    );
+  }
+
   /** Restore the current reaction to its pristine initial scene (stop any replay). */
   private resetScene() {
     this.rebuildNow();
   }
 
   /** Reset the whole plugin to its default reaction/conditions. */
-  private resetPlugin() {
+  private reloadPlugin() {
     this.stopReplay();
     this.computing = false;
     this.state.reaction = 'cuo-h2';
