@@ -445,7 +445,7 @@ export class TissotPlugin implements Plugin {
     const name = zh ? PROJ_NAMES[this.state.proj]!.zh : PROJ_NAMES[this.state.proj]!.en;
     g.fillText(
       zh
-        ? `${name}　—　橙色为 Tissot 变形圆（每 ${spacing}°，半径 ${this.state.circleSize}°）`
+        ? `${name}\u3000—\u3000橙色为 Tissot 变形圆（每 ${spacing}°，半径 ${this.state.circleSize}°）`
         : `${name} — Tissot circles every ${spacing}° (radius ${this.state.circleSize}°)`,
       14,
       20,
@@ -454,7 +454,7 @@ export class TissotPlugin implements Plugin {
     g.fillText(
       isGlobe
         ? zh
-          ? `中心 (${Math.round(this.state.globeLat)}°, ${Math.round(this.state.globeLon)}°)　—　按住拖拽转动地球仪`
+          ? `中心 (${Math.round(this.state.globeLat)}°, ${Math.round(this.state.globeLon)}°)\u3000—\u3000按住拖拽转动地球仪`
           : `Centre (${Math.round(this.state.globeLat)}°, ${Math.round(this.state.globeLon)}°) — drag to spin the globe`
         : zh
           ? '面积比 → 面积变形；扁率 → 角度变形。海岸线：Natural Earth 110m'

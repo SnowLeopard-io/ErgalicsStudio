@@ -6,6 +6,7 @@
 // ==========================================================================
 
 import type { Locale } from '@/i18n/types';
+import type { PluginDiscipline } from '@/plugins/categories';
 
 import diamondXyz from '../../examples/data/diamond.xyz?raw';
 import crystalXyz from '../../examples/data/crystal.xyz?raw';
@@ -82,6 +83,10 @@ import geoPopNigeria from '../../examples/data/geo-pop-nigeria.csv?raw';
 import geoInterpStations from '../../examples/data/geo-interp-stations.csv?raw';
 import geoMeasurePoints from '../../examples/data/geo-measure-points.json?raw';
 import geoTerrainDemoAsc from '../../examples/data/geo-terrain-demo-synthetic.asc?raw';
+import bioEnzymeMildCsv from '../../examples/data/bio-enzyme-mild.csv?raw';
+import bioEpidemicMeaslesJson from '../../examples/data/bio-epidemic-measles.json?raw';
+import bioSeqalignHemoglobinFasta from '../../examples/data/bio-seqalign-hemoglobin.fasta?raw';
+import bioPopgenHweCsv from '../../examples/data/bio-popgen-hwe.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -104,11 +109,11 @@ function aiExampleContent(name: string): Promise<string> {
 }
 
 /**
- * Optional grouping key for a built-in sample. Groups are rendered as their
- * own labelled section at the top of the "示例" dialog's dataset tab, ahead of
- * the general-purpose datasets, so flagship labs stay easy to find.
+ * Optional grouping key for a built-in sample. 'chem' pins the chemistry
+ * suite to the top of the "示例" dialog's dataset tab; otherwise samples
+ * inherit their plugin's sidebar discipline.
  */
-export type ExampleGroup = 'lab' | 'chem';
+export type ExampleGroup = 'lab' | 'chem' | PluginDiscipline;
 
 export interface BuiltinExample {
   id: string;
@@ -373,6 +378,82 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '560 个蛋白、约 1700 条加权交互的模块化网络，力导向布局计算示例。',
       'en-US': '560 proteins, ~1700 weighted interactions in a modular network; force-directed layout demo.',
+    },
+  },
+  {
+    id: 'bio-enzyme-invertase',
+    filename: 'bio-enzyme-mild.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-enzyme',
+    group: 'bio',
+    content: bioEnzymeMildCsv,
+    nameI18n: {
+      'zh-CN': '酶动力学 · 蔗糖酶初速度测定',
+      'en-US': 'Enzyme Kinetics · Invertase v0 Assay',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '蔗糖酶（β-呋喃果糖苷酶）在不同底物浓度下的初速度（[E]₀=1.2 n·M，1 min，含近似噪声）。加载后用 Levenberg-Marquardt 拟合 Michaelis-Menten，反解 Vmax 与 Km。',
+      'en-US':
+        'Invertase initial rates across a substrate dilution series ([E]0 = 1.2 nM, 1 min, approximate noise). Load it and a Levenberg-Marquardt fit recovers Vmax and Km from the Michaelis-Menten curve.',
+    },
+  },
+  {
+    id: 'bio-epidemic-measles',
+    filename: 'bio-epidemic-measles.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.bio-epidemic',
+    group: 'bio',
+    content: bioEpidemicMeaslesJson,
+    nameI18n: {
+      'zh-CN': '传染病模型 · 麻疹 SEIR 暴发参数',
+      'en-US': 'Epidemic · Measles SEIR Outbreak',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'R₀=2.8、潜伏期 4 天、传染期 6 天、10 万人的 SEIR 设置（≈麻疹流行学特征）。加载后自动积分曲线上叠加 R_eff，查看峰值、群体免疫阈值与总感染率。',
+      'en-US':
+        'An SEIR setup (R₀=2.8, 4-day latent, 6-day infectious, 100k population) close to measles epidemiology. It auto-runs with an R_eff overlay to inspect peak timing, herd immunity and attack rate.',
+    },
+  },
+  {
+    id: 'bio-seqalign-hemoglobin',
+    filename: 'bio-seqalign-hemoglobin.fasta',
+    format: 'fasta',
+    mimeType: 'text/plain',
+    pluginId: 'example.bio-seqalign',
+    group: 'bio',
+    content: bioSeqalignHemoglobinFasta,
+    nameI18n: {
+      'zh-CN': '序列比对 · 人血红蛋白 α/β 亚基',
+      'en-US': 'Sequence Alignment · Human Hb a/b',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '人血红蛋白 α 与 β 亚基的蛋白质序列（UniProt P69905 / P68871）。用 BLOSUM62 做全局或局部比对，查看同源区、替换与 GC/组成分析；示范真实同源蛋白的比对。',
+      'en-US':
+        'Human haemoglobin alpha vs beta subunit sequences (UniProt P69905 / P68871). Align with BLOSUM62 globally or locally and run composition / GC analysis — a real homologous-protein demo.',
+    },
+  },
+  {
+    id: 'bio-popgen-hwe',
+    filename: 'bio-popgen-hwe.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-popgen',
+    group: 'bio',
+    content: bioPopgenHweCsv,
+    nameI18n: {
+      'zh-CN': '群体遗传 · 哈代-温伯格基因型示例',
+      'en-US': 'Population Genetics · HWE Genotype Sample',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一个双等位基因位点的基因型计数（AA=52，Aa=96，aa=50，n=198，p≈0.505）。加载后自动执行 HWE 卡方检验并绘图；再用「漂变」视图模拟同一群体的遗传漂变。',
+      'en-US':
+        'Genotype counts at one locus (AA=52, Aa=96, aa=50; n=198, p≈0.505). Loading runs the Hardy-Weinberg chi-square test and plots observed vs expected; switch to the drift view to simulate the same population.',
     },
   },
   {
@@ -947,7 +1028,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.electromag',
-    group: 'lab',
     content: electromagCyclotronJson,
     nameI18n: {
       'zh-CN': '电磁场 · 磁场中的回旋运动',
@@ -966,7 +1046,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.electromag',
-    group: 'lab',
     content: electromagQuadrupoleJson,
     nameI18n: {
       'zh-CN': '电磁场 · 四极静电场',
@@ -983,7 +1062,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.optics',
-    group: 'lab',
     content: opticsConvexJson,
     nameI18n: {
       'zh-CN': '光学 · 凸透镜成像',
@@ -1000,7 +1078,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.optics',
-    group: 'lab',
     content: opticsPrismJson,
     nameI18n: {
       'zh-CN': '光学 · 三棱镜色散',
@@ -1017,7 +1094,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.optics',
-    group: 'lab',
     content: opticsConcaveJson,
     nameI18n: {
       'zh-CN': '光学 · 凹透镜发散',
@@ -1034,7 +1110,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.structure',
-    group: 'lab',
     content: structureTrussJson,
     nameI18n: {
       'zh-CN': '结构 · 钢桁架桥承重',
@@ -1051,7 +1126,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.structure',
-    group: 'lab',
     content: structureRopeJson,
     nameI18n: {
       'zh-CN': '结构 · 缆索吊桥（只受拉）',

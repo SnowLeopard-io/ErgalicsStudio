@@ -248,8 +248,8 @@ export class PopPyramidPlugin implements Plugin {
       : { expansive: 'expansive', stable: 'stable', contractive: 'contractive' }[s.shape];
     g.fillText(
       zh
-        ? `总人口 ${fmtN(s.total)} 千　0-14 ${s.youngPct.toFixed(1)}%　15-64 ${s.workingPct.toFixed(1)}%　65+ ${s.oldPct.toFixed(1)}%　性别比 ${s.sexRatio.toFixed(1)}　→ ${shapeText}`
-        : `Total ${fmtN(s.total)} k　0-14 ${s.youngPct.toFixed(1)}%　15-64 ${s.workingPct.toFixed(1)}%　65+ ${s.oldPct.toFixed(1)}%　Sex ratio ${s.sexRatio.toFixed(1)}　→ ${shapeText}`,
+        ? `总人口 ${fmtN(s.total)} 千\u30000-14 ${s.youngPct.toFixed(1)}%\u300015-64 ${s.workingPct.toFixed(1)}%\u300065+ ${s.oldPct.toFixed(1)}%\u3000性别比 ${s.sexRatio.toFixed(1)}\u3000→ ${shapeText}`
+        : `Total ${fmtN(s.total)} k\u30000-14 ${s.youngPct.toFixed(1)}%\u300015-64 ${s.workingPct.toFixed(1)}%\u300065+ ${s.oldPct.toFixed(1)}%\u3000Sex ratio ${s.sexRatio.toFixed(1)}\u3000→ ${shapeText}`,
       14,
       38,
     );

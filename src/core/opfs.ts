@@ -194,6 +194,18 @@ export class OpfsChunkStore {
     }
   }
 
+  /** Remove a project's whole directory. Missing projects are no-ops. */
+  async removeProject(projectId: string): Promise<void> {
+    try {
+      const root = await this.root();
+      const top = await root.getDirectoryHandle(ROOT_DIR, { create: false });
+      await top.removeEntry(projectId, { recursive: true });
+    } catch (err) {
+      if (isNotFoundError(err)) return;
+      throw err;
+    }
+  }
+
   /** List every stored file (optionally within one project). */
   async listFiles(projectId?: string): Promise<OpfsFileRef[]> {
     const refs: OpfsFileRef[] = [];

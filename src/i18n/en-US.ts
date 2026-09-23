@@ -178,7 +178,7 @@ export const enUS: LocaleDictionary = {
   'tour.examples_title': 'Hands-on · Open the examples library',
   'tour.examples_body': 'Now that you know the layout, let us run the first sample: click the "Examples" button in the top bar — every built-in sample is reached from here.',
   'tour.load_title': 'Hands-on · Load the structure sample',
-  'tour.load_body': 'Under the "Interactive Labs" category, find "Truss Bridge" — it sits low in the list, so the tour scrolls it into view and highlights it. Click its "Load" button.',
+  'tour.load_body': 'Under the "Physics" category, find "Truss Bridge" — it sits low in the list, so the tour scrolls it into view and highlights it. Click its "Load" button.',
   'tour.run_title': 'Hands-on · Run the simulation',
   'tour.run_body': 'Click "Run" in the right-hand parameter panel — the truss starts carrying its load. Member colors show axial force (orange = tension, cyan = compression) and overloaded members snap.',
   'tour.done_title': 'Tour complete',

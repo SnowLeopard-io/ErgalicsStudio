@@ -17,7 +17,7 @@ import { nbodyManifest } from './nbodyManifest';
 import { fluidManifest } from './fluidManifest';
 import { waveManifest } from './waveManifest';
 import { pendulumManifest } from './pendulumManifest';
-import { geoMapManifest } from './geoMapManifest';
+import { geoMapManifest } from './geo/geoMapManifest';
 import { solarManifest } from './geo/solarManifest';
 import { climographManifest } from './geo/climographManifest';
 import { popPyramidManifest } from './geo/popPyramidManifest';
@@ -62,6 +62,10 @@ import { emEigensolverManifest } from './em-eigensolver/manifest';
 import { fluidCfdCouplerManifest } from './fluid-cfd-coupler/manifest';
 import { chemCrystalManifest } from './chem-crystal/manifest';
 import { chemReactionManifest } from './chem-reaction/manifest';
+import { bioEnzymeManifest } from './bio-enzyme/manifest';
+import { bioEpidemicManifest } from './bio-epidemic/manifest';
+import { bioSeqalignManifest } from './bio-seqalign/manifest';
+import { bioPopgenManifest } from './bio-popgen/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -151,7 +155,7 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
   {
     manifest: geoMapManifest,
     load: async () => {
-      const mod = await import('./geoMap');
+      const mod = await import('./geo/geoMap');
       return mod.default();
     },
   },
@@ -278,6 +282,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: chemReactionManifest,
     load: async () => {
       const mod = await import('./chem-reaction');
+      return mod.default();
+    },
+  },
+  // ---- Biology suite (research-grade kernels) ------------------------------
+  {
+    manifest: bioEnzymeManifest,
+    load: async () => {
+      const mod = await import('./bio-enzyme');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioEpidemicManifest,
+    load: async () => {
+      const mod = await import('./bio-epidemic');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioSeqalignManifest,
+    load: async () => {
+      const mod = await import('./bio-seqalign');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioPopgenManifest,
+    load: async () => {
+      const mod = await import('./bio-popgen');
       return mod.default();
     },
   },

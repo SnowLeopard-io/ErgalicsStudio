@@ -247,10 +247,10 @@ export class SolarPlugin implements Plugin {
     const dateStr = zh ? `${month}月${day}日` : `${MONTHS_EN[month - 1]} ${day}`;
     const info =
       zh
-        ? `太阳赤纬 δ = ${fmt(decl)}°　正午太阳高度 H = ${fmt(elev)}°　昼长 = ${fmt(len)} h` +
-          (ss ? `　日出 ${fmtH(ss[0])} / 日落 ${fmtH(ss[1])}（地方时）` : '')
-        : `Declination δ = ${fmt(decl)}°　Noon elevation H = ${fmt(elev)}°　Day length = ${fmt(len)} h` +
-          (ss ? `　Sunrise ${fmtH(ss[0])} / Sunset ${fmtH(ss[1])} (solar time)` : '');
+        ? `太阳赤纬 δ = ${fmt(decl)}°\u3000正午太阳高度 H = ${fmt(elev)}°\u3000昼长 = ${fmt(len)} h` +
+          (ss ? `\u3000日出 ${fmtH(ss[0])} / 日落 ${fmtH(ss[1])}（地方时）` : '')
+        : `Declination δ = ${fmt(decl)}°\u3000Noon elevation H = ${fmt(elev)}°\u3000Day length = ${fmt(len)} h` +
+          (ss ? `\u3000Sunrise ${fmtH(ss[0])} / Sunset ${fmtH(ss[1])} (solar time)` : '');
     g.fillText(info, 14, 40);
     const polar = polarState(lat, decl);
     if (polar !== 'normal') {

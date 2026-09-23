@@ -1,6 +1,6 @@
 // Codegen tests — IR → JS/Python text.
 import { describe, it, expect } from 'vitest';
-import { codegenJS, codegenPython } from '@/editor/codegen';
+import { codegenJS, codegenPython, codegen } from '@/editor/codegen';
 import { makeProgram } from '@/editor/ir';
 import type { IRNode } from '@/editor/ir';
 
@@ -120,5 +120,19 @@ describe('codegenPython', () => {
   it('renders an open-ended reverse slice natively in Python', () => {
     const out = codegenPython(makeProgram([{ kind: 'VarAssign', name: 'a', value: sliceNode(undefined, undefined, -1), declare: true }]));
     expect(out).toContain('a = lst[::-1]');
+  });
+});
+
+describe('codegenR', () => {
+  it('calls table members via `$` instead of a dotted name', () => {
+    const program = makeProgram([
+      { kind: 'VarAssign', name: 'df', value: { kind: 'LoadCSV', path: 'data.csv' }, declare: true },
+      { kind: 'VarAssign', name: 'cols', value: { kind: 'Call', callee: 'df.column_names', args: [] }, declare: true },
+    ]);
+    const out = codegen(program, 'r');
+    expect(out).toContain('df <- studio$load(\'data.csv\')');
+    // A dotted IR callee must become an R `$` member call, not `df.column_names()`.
+    expect(out).toContain('cols <- df$column_names()');
+    expect(out).not.toContain('df.column_names()');
   });
 });

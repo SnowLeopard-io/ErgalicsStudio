@@ -123,7 +123,8 @@ describe('editorStore', () => {
     expect(updated.language).toBe('r');
     // R codegen: <- assignment and studio.* calls.
     expect(updated.lastCode).toContain('<-');
-    expect(updated.lastCode).toMatch(/studio\./);
+    // R reaches the DSL via the `studio` environment: `studio$random(...)`.
+    expect(updated.lastCode).toMatch(/studio\$/);
     // IR itself is language-agnostic and unchanged in shape.
     expect(updated.ir.body).toHaveLength(1);
 

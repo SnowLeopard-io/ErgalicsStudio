@@ -350,8 +350,8 @@ export class ClimographPlugin implements Plugin {
     g.textAlign = 'left';
     g.fillStyle = 'rgba(170, 182, 200, 0.95)';
     const line1 = zh
-      ? `年均温 ${s.annualTemp.toFixed(1)} °C　年降水 ${Math.round(s.annualPrecip)} mm　年较差 ${s.range.toFixed(1)} °C`
-      : `Mean ${s.annualTemp.toFixed(1)} °C　Annual rain ${Math.round(s.annualPrecip)} mm　Range ${s.range.toFixed(1)} °C`;
+      ? `年均温 ${s.annualTemp.toFixed(1)} °C\u3000年降水 ${Math.round(s.annualPrecip)} mm\u3000年较差 ${s.range.toFixed(1)} °C`
+      : `Mean ${s.annualTemp.toFixed(1)} °C\u3000Annual rain ${Math.round(s.annualPrecip)} mm\u3000Range ${s.range.toFixed(1)} °C`;
     const line2 = zh
       ? `判读：${groupNoteZh[s.group]}，${regimeZh[s.regime]}（最冷月 ${s.coldest.toFixed(1)} °C，最热月 ${s.warmest.toFixed(1)} °C）`
       : `Reading: ${groupNoteEn[s.group]}, ${regimeEn[s.regime]} (coldest ${s.coldest.toFixed(1)} °C, warmest ${s.warmest.toFixed(1)} °C)`;

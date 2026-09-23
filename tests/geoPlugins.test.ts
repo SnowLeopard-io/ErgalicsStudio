@@ -36,6 +36,8 @@ import {
   latLonToVec,
 } from '@/plugins/builtin/geo/tissot';
 import { parseAsciiGrid, hornSlopeAspect, hillshadeFromSlope } from '@/plugins/builtin/geo/terrain';
+import type { AscGrid } from '@/plugins/builtin/geo/terrain';
+import { downsampleGrid, buildTerrainMesh } from '@/plugins/builtin/geo/terrain3d';
 import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats } from '@/plugins/builtin/geo/gpxTrack';
 import { lonLatToVec3, angularDistance } from '@/plugins/builtin/geo/globe';
 
@@ -433,6 +435,57 @@ describe('3D globe', () => {
       const dot = centre[0] * v[0] + centre[1] * v[1] + centre[2] * v[2];
       expect(closeTo(dot, Math.cos((eps * Math.PI) / 180), 1e-9)).toBe(true);
     }
+  });
+});
+
+// ---- 3D terrain mesh ----------------------------------------------------------
+
+describe('terrain 3D mesh', () => {
+  it('downsampleGrid shrinks large grids by integer stride and scales cellsize', () => {
+    const big: AscGrid = {
+      ncols: 10,
+      nrows: 10,
+      xllcorner: 0,
+      yllcorner: 0,
+      cellsize: 30,
+      nodata: -9999,
+      values: new Float64Array(100).map((_, i) => i),
+    };
+    const small = downsampleGrid(big, 5);
+    expect(small.ncols).toBe(5);
+    expect(small.nrows).toBe(5);
+    expect(small.cellsize).toBe(60);
+    expect(small.values[0]).toBe(0);
+    expect(small.values[small.values.length - 1]).toBe(big.values[8 * 10 + 8]); // sampled (8,8)
+    expect(downsampleGrid(big, 20)).toBe(big); // stride 1 → same object
+  });
+  it('buildTerrainMesh: one vertex per cell, heights normalised to 0.55·exaggeration', () => {
+    const grid: AscGrid = {
+      ncols: 4,
+      nrows: 3,
+      xllcorner: 0,
+      yllcorner: 0,
+      cellsize: 10,
+      nodata: -9999,
+      values: new Float64Array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110]),
+    };
+    const mesh = buildTerrainMesh(grid, 1);
+    const pos = mesh.geometry.getAttribute('position');
+    expect(pos.count).toBe(12);
+    let yMax = -Infinity;
+    let yMin = Infinity;
+    for (let i = 0; i < pos.count; i += 1) {
+      const y = pos.getY(i);
+      if (y > yMax) yMax = y;
+      if (y < yMin) yMin = y;
+    }
+    expect(closeTo(yMin, 0, 1e-9)).toBe(true);
+    expect(closeTo(yMax, 0.55, 1e-6)).toBe(true); // Float32 vertex storage
+    // colour attribute present and unit-interval
+    const col = mesh.geometry.getAttribute('color');
+    expect(col.count).toBe(12);
+    mesh.geometry.dispose();
+    (mesh.material as { dispose(): void }).dispose();
   });
 });
 

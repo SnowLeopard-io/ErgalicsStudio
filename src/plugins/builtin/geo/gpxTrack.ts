@@ -321,15 +321,15 @@ export class GpxTrackPlugin implements Plugin {
     const title = this.state.name || (zh ? 'GPX 轨迹' : 'GPX track');
     g.fillText(
       zh
-        ? `${title}　${points.length} 点　里程 ${stats.totalKm.toFixed(2)} km　爬升 ${stats.ascent.toFixed(0)} m　下降 ${stats.descent.toFixed(0)} m`
-        : `${title}　${points.length} pts　${stats.totalKm.toFixed(2)} km　+${stats.ascent.toFixed(0)} m / −${stats.descent.toFixed(0)} m`,
+        ? `${title}\u3000${points.length} 点\u3000里程 ${stats.totalKm.toFixed(2)} km\u3000爬升 ${stats.ascent.toFixed(0)} m\u3000下降 ${stats.descent.toFixed(0)} m`
+        : `${title}\u3000${points.length} pts\u3000${stats.totalKm.toFixed(2)} km\u3000+${stats.ascent.toFixed(0)} m / −${stats.descent.toFixed(0)} m`,
       14,
       20,
     );
     g.fillStyle = 'rgba(170, 182, 200, 0.9)';
     const dur = stats.durationSec !== undefined ? fmtDur(stats.durationSec) : '—';
     const range = hasEle ? `${(stats.minEle ?? 0).toFixed(0)}–${(stats.maxEle ?? 0).toFixed(0)} m` : '—';
-    g.fillText(zh ? `用时 ${dur}　海拔 ${range}　右图为海拔-距离剖面` : `Duration ${dur}　Elevation ${range}　Right: elevation-distance profile`, 14, 38);
+    g.fillText(zh ? `用时 ${dur}\u3000海拔 ${range}\u3000右图为海拔-距离剖面` : `Duration ${dur}\u3000Elevation ${range}\u3000Right: elevation-distance profile`, 14, 38);
   }
 }
 

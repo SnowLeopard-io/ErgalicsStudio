@@ -59,8 +59,8 @@ export interface WebRRuntimeOptions {
 /** Cap on a single install request so one call cannot exhaust WASM memory. */
 const MAX_PACKAGES_PER_INSTALL = 3;
 
-/** R source defining the `studio` environment inside the webR session. */
-function studioBridgeSource(): string {
+/** R source injected after boot. Exported for regression tests. */
+export function studioBridgeSource(): string {
   const verbs = [
     '"load","loadCSV","loadXYZ","random","exampleData","grid","range",',
     '"normalize","sort","select","addColumn","addConstantColumn","filter","filterRange",',

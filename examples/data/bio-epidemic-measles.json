@@ -1,0 +1,10 @@
+{
+  "model": "SEIR",
+  "r0": 2.8,
+  "infectiousDays": 6,
+  "latentDays": 4,
+  "population": 100000,
+  "initialInfected": 12,
+  "initialExposed": 80,
+  "days": 120
+}

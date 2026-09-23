@@ -16,7 +16,7 @@ import { NBodyPlugin } from '@/plugins/builtin/nbody';
 import { FluidPlugin } from '@/plugins/builtin/fluid';
 import { WavePlugin } from '@/plugins/builtin/wave';
 import { DoublePendulumPlugin } from '@/plugins/builtin/doublePendulum';
-import { GeoMapPlugin } from '@/plugins/builtin/geoMap';
+import { GeoMapPlugin } from '@/plugins/builtin/geo/geoMap';
 import { AITrainingPlugin } from '@/plugins/builtin/ai-training/plugin';
 import { ElectromagPlugin } from '@/plugins/builtin/electromag';
 import { OpticsPlugin } from '@/plugins/builtin/optics';
@@ -201,6 +201,20 @@ function proteinFile(): File {
     { id: 'p3', name: 'p3' },
   ];
   return new File([JSON.stringify({ proteins, interactions: [] })], 'protein.json');
+}
+
+/** Star network: p0 connects to every leaf → p0 is the unique degree-z hub. */
+function proteinStarFile(): File {
+  const proteins = [
+    { id: 'p0', name: 'p0' },
+    { id: 'p1', name: 'p1' },
+    { id: 'p2', name: 'p2' },
+    { id: 'p3', name: 'p3' },
+    { id: 'p4', name: 'p4' },
+    { id: 'p5', name: 'p5' },
+  ];
+  const interactions = [1, 2, 3, 4, 5].map((b) => ({ a: 0, b, weight: 1 }));
+  return new File([JSON.stringify({ proteins, interactions })], 'star.json');
 }
 
 function pointsFile(): File {
@@ -702,7 +716,7 @@ describe('protein export buttons', () => {
     assertActionButton(plugin, 'exportCsv');
   });
 
-  it('exports node rows (id, name, degree, x, y) after loading and refuses before', async () => {
+  it('exports node rows (id, name, degree, module, hub, x, y) after loading and refuses before', async () => {
     const empty = await fresh(ProteinPlugin);
     empty.plugin.updateParams({ exportCsv: true });
     expect(empty.exportFile).not.toHaveBeenCalled();
@@ -711,8 +725,18 @@ describe('protein export buttons', () => {
     await h.plugin.loadData(proteinFile());
     h.plugin.updateParams({ exportCsv: true });
     const text = await expectCsvExported(h.exportFile);
-    expect(text).toContain('id,name,degree,x,y');
+    expect(text).toContain('id,name,degree,module,hub,x,y');
     expect(text).toContain('p0,p0,');
+  });
+
+  it('stamps the center of a star network as the hub in the exported rows', async () => {
+    const h = await fresh(ProteinPlugin);
+    await h.plugin.loadData(proteinStarFile());
+    h.plugin.updateParams({ exportCsv: true });
+    const text = await expectCsvExported(h.exportFile);
+    // p0 has degree 5 → the single degree-z hub; leaves are not hubs.
+    expect(text).toContain('p0,p0,5,0,hub,');
+    expect(text).toContain('\r\np1,p1,1,0,,');
   });
 
   it('snapshots the canvas as PNG', async () => {

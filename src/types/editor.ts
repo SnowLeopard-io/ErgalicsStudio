@@ -43,6 +43,9 @@ export interface EditorSession {
   ir: IRProgram;
   /** Last synced code text (used to restore cursor/diff on re-sync). */
   lastCode: string;
+  /** One-shot flag: force the code buffer empty on the next load, undoing the
+   *  anti-wipe guard (used after "discard translation" blanking). */
+  forceBlank?: boolean;
   /** Blockly workspace JSON (Block mode's visual state). */
   blockGraph?: unknown;
   /** Flow DAG state (Flow mode's visual state). */

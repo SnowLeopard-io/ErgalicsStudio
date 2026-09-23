@@ -8,7 +8,7 @@
 // ids fall back to the charts group so third-party plugins always show up.
 // ==========================================================================
 
-export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'geo' | 'data' | 'fun';
+export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'bio' | 'geo' | 'data' | 'fun';
 
 export interface DisciplineInfo {
   id: PluginDiscipline;
@@ -20,6 +20,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
+  { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
@@ -41,6 +42,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.sankey': 'charts',
   'example.treemap': 'charts',
   'example.parallel': 'charts',
+  'example.point-cloud': 'charts',
+  'example.point-cloud-3d': 'charts',
+  'example.image': 'charts',
 
   // Statistics & math
   'example.histogram': 'stats',
@@ -75,11 +79,14 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-gpx': 'geo',
   'example.geo-globe': 'geo',
 
+  // Biology
+  'example.protein': 'bio',
+  'example.bio-enzyme': 'bio',
+  'example.bio-epidemic': 'bio',
+  'example.bio-seqalign': 'bio',
+  'example.bio-popgen': 'bio',
+
   // Data & AI
-  'example.point-cloud': 'data',
-  'example.point-cloud-3d': 'data',
-  'example.image': 'data',
-  'example.protein': 'data',
   'example.ai-training': 'data',
 
   // Fun & utility

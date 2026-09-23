@@ -563,8 +563,8 @@ export class SpatialInterpPlugin implements Plugin {
           : 'Ordinary Kriging';
     g.fillText(
       zh
-        ? `${this.state.title || '空间插值'}　${methodLabel}　${pts.length} 站点`
-        : `${this.state.title || 'Spatial interpolation'}　${methodLabel}　${pts.length} stations`,
+        ? `${this.state.title || '空间插值'}\u3000${methodLabel}\u3000${pts.length} 站点`
+        : `${this.state.title || 'Spatial interpolation'}\u3000${methodLabel}\u3000${pts.length} stations`,
       14,
       20,
     );

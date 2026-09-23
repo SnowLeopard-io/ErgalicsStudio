@@ -14,7 +14,10 @@ import {
   listProjects,
   getProject,
   deleteRunsByProject,
+  deleteFileChunks,
+  deleteCoursePartition,
 } from '@/core/storage';
+import { OpfsChunkStore } from '@/core/opfs';
 import { logger } from '@/core/logger';
 import { useSettingsStore } from './settingsStore';
 import { usePluginStore } from './pluginStore';
@@ -297,6 +300,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await deleteProject(id);
     // Cascade: run records live in their own store, not inside the project.
     await deleteRunsByProject(id).catch(() => undefined);
+    // Same cascade for the auxiliary stores keyed by projectId: legacy IDB
+    // file chunks (FR-17), the course-mode partition (FR-13) and the OPFS
+    // chunk copies. Without these, deleting a project silently leaks its
+    // largest stored data until the user manually clears the whole cache.
+    await deleteFileChunks(id).catch(() => undefined);
+    await deleteCoursePartition(id).catch(() => undefined);
+    await new OpfsChunkStore().removeProject(id).catch(() => undefined);
     await get().loadRecent();
     if (get().project?.id === id) {
       projectSession += 1;
@@ -424,6 +434,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const files = project.data.files.filter((f) => f.id !== id);
     set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
     setProjectFiles(files);
+    // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
+    // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
+    // reach, so the bytes would stay parked in storage forever.
+    void deleteFileChunks(project.id, id).catch(() => undefined);
+    void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
   },
 }));
 

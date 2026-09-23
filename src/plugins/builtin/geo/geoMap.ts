@@ -18,7 +18,7 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { heatmapColor } from '@/core/wgsl';
-import { actionButton, exportCanvasPng } from './shared/enhance';
+import { actionButton, exportCanvasPng } from '../shared/enhance';
 
 export { geoMapManifest } from './geoMapManifest';
 import { geoMapManifest } from './geoMapManifest';

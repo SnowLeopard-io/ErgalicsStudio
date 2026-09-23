@@ -62,9 +62,10 @@ describe('built-in examples cross-language conversion', () => {
 
       for (const lang of LANGS) {
         const text = codegen(program, lang);
-        // Non-empty, keeps the studio DSL surface.
+        // Non-empty, keeps the studio DSL surface (dotted for Python/JS,
+        // `studio$method` on R — the DSL is a `studio` environment there).
         expect(text.trim().length, `${file} -> ${lang} generated empty code`).toBeGreaterThan(0);
-        expect(text, `${file} -> ${lang} dropped the studio DSL`).toMatch(/studio\./);
+        expect(text, `${file} -> ${lang} dropped the studio DSL`).toMatch(/studio[.$]/);
 
         // Re-parse the generated dialect text back into IR. Any statement that
         // degraded to a RawCode passthrough means the dialect isn't genuinely

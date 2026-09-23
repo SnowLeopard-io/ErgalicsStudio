@@ -154,9 +154,10 @@ class ExprParser {
           if (more === null) return null;
           args = [left, ...more];
         }
-        left = fnTok.v.startsWith('studio.')
-          ? buildStudioCall(fnTok.v.slice('studio.'.length), args) ?? { kind: 'Call', callee: fnTok.v, args }
-          : { kind: 'Call', callee: fnTok.v, args };
+        const fnName = this.lang === 'r' ? fnTok.v.replace(/\$/g, '.') : fnTok.v;
+        left = fnName.startsWith('studio.')
+          ? buildStudioCall(fnName.slice('studio.'.length), args) ?? { kind: 'Call', callee: fnName, args }
+          : { kind: 'Call', callee: fnName, args };
         continue;
       }
       // `and` / `or` are keyword identifiers in Python (R uses && / ||).
@@ -270,7 +271,7 @@ class ExprParser {
   }
 
   private primary(): IRNode | null {
-    const t = this.next();
+    let t = this.next();
     if (!t) return null;
     if (t.t === 'num') return { kind: 'Number', value: t.v };
     if (t.t === 'tmpl') {
@@ -278,6 +279,9 @@ class ExprParser {
       if (parsed) return parsed;
     }
     if (t.t === 'id') {
+      // R accesses the Studio DSL through `studio$load`; fold `$` to `.` so the
+      // dotted studio-dispatch / VarRef / chaining paths below behave like Python.
+      if (this.lang === 'r') t = { ...t, v: t.v.replace(/\$/g, '.') };
       if (t.v === 'True' || t.v === 'TRUE' || t.v === 'true') return { kind: 'Boolean', value: true };
       if (t.v === 'False' || t.v === 'FALSE' || t.v === 'false') return { kind: 'Boolean', value: false };
       if (t.v === 'None' || t.v === 'NULL' || t.v === 'null') return { kind: 'Null' };
@@ -329,7 +333,7 @@ class ExprParser {
       // JS `xs.length` lexes as one dotted name → canonical len(xs).
       const lenM = /^([A-Za-z_$][\w$]*)\.length$/.exec(t.v);
       if (lenM) return { kind: 'Call', callee: 'len', args: [{ kind: 'VarRef', name: lenM[1]! }] };
-      return { kind: 'VarRef', name: t.v };
+      return { kind: 'VarRef', name: this.lang === 'r' ? t.v.replace(/\$/g, '.') : t.v };
     }
     if (t.t === 'str') {
       // `'<sep>'.join(...)` — a string receiver cannot be a generic Call.

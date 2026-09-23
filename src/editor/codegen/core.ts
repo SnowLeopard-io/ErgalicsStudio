@@ -1,4 +1,4 @@
-// ==========================================================================
+﻿// ==========================================================================
 // Ergalics Studio — IR → code generator (shared core)
 //
 // Pure, side-effect-free walker that renders an IRProgram as JavaScript or
@@ -274,8 +274,9 @@ function callExpr(node: Extract<IRNode, { kind: 'Call' }>, c: Ctx): string {
       const stop = `(${expr(b, c)}) - 1`;
       return `seq(${expr(a, c)}, ${stop}${step ? `, by = ${expr(step, c)}` : ''})`;
     }
-    // sum/sqrt/abs/min/max/round/sin/cos/log/exp are all base R.
-    return `${callee}(${args})`;
+    // sum/sqrt/abs/min/max/round/sin/cos/log/exp are all base R. Dotted IR
+    // names (`df.column_names`) call a table member, which R reaches via `$`.
+    return `${callee.split('.').join('$')}(${args})`;
   }
   if (c.lang === 'js') {
     if (callee === 'len' && node.args.length === 1) return `(${args}).length`;
@@ -293,6 +294,15 @@ function callExpr(node: Extract<IRNode, { kind: 'Call' }>, c: Ctx): string {
   return `${callee}(${args})`;
 }
 
+/**
+ * Studio API callee prefix. Python/JS access the DSL via dotted names
+ * (`studio.random`); R has no dotted member access, so the bridge exposes the
+ * DSL as a `studio` environment and calls use `studio$random`.
+ */
+function studioCall(c: Ctx): string {
+  return c.lang === 'r' ? 'studio$' : 'studio.';
+}
+
 function expr(node: IRNode, c: Ctx): string {
   switch (node.kind) {
     case 'Number':
@@ -308,6 +318,10 @@ function expr(node: IRNode, c: Ctx): string {
       // python's `math.pi` is a bare dotted name in the source; render the
       // target dialect's constant instead of an undefined variable.
       if (node.name === 'math.pi') return c.lang === 'r' ? 'pi' : c.lang === 'js' ? 'Math.PI' : 'math.pi';
+      // R has no dotted member access — the dotted IR name maps to a `$` field
+      // read (`df.columns` → `df$columns`), which is how the R runtime models
+      // Studio data tables.
+      if (c.lang === 'r' && node.name.includes('.')) return node.name.split('.').join('$');
       return node.name;
     }
     case 'List': {
@@ -361,32 +375,32 @@ function expr(node: IRNode, c: Ctx): string {
     }
     case 'LoadCSV':
     case 'LoadXYZ':
-      return `studio.load(${quote(node.path)})`;
+      return `${studioCall(c)}load(${quote(node.path)})`;
     case 'Random':
-      return `studio.random(${expr(node.count, c)}${node.seed ? `, ${expr(node.seed, c)}` : ''})`;
+      return `${studioCall(c)}random(${expr(node.count, c)}${node.seed ? `, ${expr(node.seed, c)}` : ''})`;
     case 'Range': {
       const step = node.step ? `, ${expr(node.step, c)}` : '';
-      return `studio.range(${expr(node.start, c)}, ${expr(node.stop, c)}${step})`;
+      return `${studioCall(c)}range(${expr(node.start, c)}, ${expr(node.stop, c)}${step})`;
     }
     case 'Filter':
-      return `studio.filter(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.op)}, ${expr(node.value, c)})`;
+      return `${studioCall(c)}filter(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.op)}, ${expr(node.value, c)})`;
     case 'Normalize':
-      return `studio.normalize(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.mode)})`;
+      return `${studioCall(c)}normalize(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.mode)})`;
     case 'Sort':
-      return `studio.sort(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.direction)})`;
+      return `${studioCall(c)}sort(${expr(node.data, c)}, ${quote(node.column)}, ${quote(node.direction)})`;
     case 'Select': {
       // R has no `[...]` literal — wrap columns in `list(...)` so the output
       // is valid R and round-trips through the parser.
       const cols = node.columns.map(quote).join(', ');
       const wrapped = c.lang === 'r' ? `list(${cols})` : `[${cols}]`;
-      return `studio.select(${expr(node.data, c)}, ${wrapped})`;
+      return `${studioCall(c)}select(${expr(node.data, c)}, ${wrapped})`;
     }
     case 'AddColumn':
-      return `studio.addColumn(${expr(node.data, c)}, ${quote(node.name)}, ${expr(node.values, c)})`;
+      return `${studioCall(c)}addColumn(${expr(node.data, c)}, ${quote(node.name)}, ${expr(node.values, c)})`;
     case 'Summary':
-      return `studio.summary(${expr(node.data, c)}, ${quote(node.column)})`;
+      return `${studioCall(c)}summary(${expr(node.data, c)}, ${quote(node.column)})`;
     case 'Histogram':
-      return `studio.histogram(${expr(node.data, c)}, ${quote(node.column)}, ${expr(node.bins, c)})`;
+      return `${studioCall(c)}histogram(${expr(node.data, c)}, ${quote(node.column)}, ${expr(node.bins, c)})`;
     case 'GpuRun':
       // There is no `studio.gpu.run` API in any runtime, so emitting one would
       // fail at run time with a confusing "studio.gpu is not defined". Surface
@@ -394,7 +408,7 @@ function expr(node: IRNode, c: Ctx): string {
       // rejects GpuRun, and the block converter degrades it to raw code).
       throw new Error('GpuRun nodes cannot be generated — GPU kernels are not supported by the studio runtime');
     case 'StudioCall':
-      return `studio.${node.method}(${node.args.map((a) => expr(a, c)).join(', ')})`;
+      return `${studioCall(c)}${node.method}(${node.args.map((a) => expr(a, c)).join(', ')})`;
     case 'RawCode':
       return node.text;
     case 'RawExpr':
@@ -559,7 +573,7 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
         ...(node.color ? [{ key: 'color', value: { kind: 'String', value: node.color } as IRNode }] : []),
       ];
       const opts = dictExpr({ kind: 'Dict', entries }, c);
-      return `${ind}studio.plot('scatter', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+      return `${ind}${studioCall(c)}plot('scatter', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
     }
     case 'PlotLine': {
       const opts = dictExpr({
@@ -569,14 +583,14 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
           { key: 'y', value: { kind: 'String', value: node.y } as IRNode },
         ],
       }, c);
-      return `${ind}studio.plot('line', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+      return `${ind}${studioCall(c)}plot('line', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
     }
     case 'PlotHistogram': {
       const opts = dictExpr({
         kind: 'Dict',
         entries: [{ key: 'column', value: { kind: 'String', value: node.column } as IRNode }],
       }, c);
-      return `${ind}studio.plot('histogram', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+      return `${ind}${studioCall(c)}plot('histogram', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
     }
     case 'PlotPointCloud': {
       const opts = dictExpr({
@@ -587,7 +601,7 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
           { key: 'z', value: { kind: 'String', value: node.z } as IRNode },
         ],
       }, c);
-      return `${ind}studio.plot('pointcloud', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
+      return `${ind}${studioCall(c)}plot('pointcloud', ${expr(node.data, c)}, ${opts})${terminator(c)}`;
     }
     case 'If':
       return ifStmt(node, c, level);
