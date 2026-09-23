@@ -12,6 +12,10 @@ import { REACTIONS, findReaction } from '@/plugins/builtin/chem-reaction/catalog
 import { buildMechanism } from '@/plugins/builtin/chem-reaction/mech';
 import { ChemReactionPlugin, equationOf, renderFormula } from '@/plugins/builtin/chem-reaction/plugin';
 import { buildPhysicsPayload } from '@/plugins/builtin/chem-reaction/reactmd/payload';
+import { entropyGibbsSpec } from '@/plugins/builtin/chem-reaction/figures';
+import { renderSVG } from '@/core/plot';
+import { templateById } from '@/core/figure/compose';
+import type { PlotSpec } from '@/core/plot';
 import { chemReactionManifest } from '@/plugins/builtin/chem-reaction/manifest';
 import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
@@ -163,7 +167,7 @@ describe('chem-reaction plugin', () => {
     const plugin = new ChemReactionPlugin();
     await plugin.init(fakeApi());
     const keys = plugin.getParams().map((d) => d.key);
-    expect(keys).toEqual(expect.arrayContaining(['reaction', 'temperature', 'catalyst', 'showCard', 'run', 'exportPng']));
+    expect(keys).toEqual(expect.arrayContaining(['reaction', 'temperature', 'catalyst', 'run', 'fitView', 'reset', 'reloadPlugin', 'exportPng', 'sendToFigure']));
   });
 
   it('switches reaction and renders without a three handle safely', async () => {
@@ -229,5 +233,42 @@ describe('reactmd payload builder', () => {
       expect(built.payload.atoms.length).toBeGreaterThan(0);
       expect(built.payload.bonds.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('figure titles fit narrow IEEE cells (wrap, no overflow, no ellipsis)', () => {
+  function titleText(svg: string): { y: number; text: string }[] {
+    const out: { y: number; text: string }[] = [];
+    for (const m of svg.matchAll(/<text x="[\d.]+" y="(\d+)" font-family="[^"]+" font-size="15" text-anchor="middle"[^>]*>(.*?)<\/text>/g)) {
+      out.push({ y: Number(m[1]), text: m[2]! });
+    }
+    return out;
+  }
+
+  it('wraps an over-long title to multiple lines within a 336px cell', () => {
+    const tpl = templateById('ieee_single');
+    const spec = entropyGibbsSpec(findReaction('ch4-o2')!);
+    const long = {
+      ...spec,
+      title: '一个超长的反应动力学与热力学标题，用于验证在窄的单栏期刊单元格中会自动换行而不会越界或被省略 CH₄+2O₂→CO₂+2H₂O',
+    };
+    const svg = renderSVG({ ...long, width: tpl.panelWidth, height: tpl.panelHeight } as PlotSpec);
+    const lines = titleText(svg);
+    expect(lines.length).toBeGreaterThan(1); // wrap actually happened
+    const maxW = tpl.panelWidth - 36;
+    for (const { text } of lines) {
+      let w = 0;
+      for (const ch of text) w += ch.charCodeAt(0) > 0x2e80 ? 15 : ch === ' ' ? 4 : 7;
+      expect(w).toBeLessThanOrEqual(maxW + 1); // no line overflows (clears the corner tag)
+    }
+  });
+
+  it('still renders a concise title on one centred line', () => {
+    const tpl = templateById('ieee_single');
+    const spec = entropyGibbsSpec(findReaction('ch4-o2')!);
+    const svg = renderSVG({ ...spec, width: tpl.panelWidth, height: tpl.panelHeight } as PlotSpec);
+    const lines = titleText(svg);
+    expect(lines.length).toBe(1);
+    expect(lines[0]!.text).toContain('CH₄');
   });
 });

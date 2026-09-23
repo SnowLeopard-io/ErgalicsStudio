@@ -336,15 +336,75 @@ function autoDomain(series: PlotSeries[], axis: 'x' | 'y'): [number, number] | u
   return [min, max];
 }
 
+/** Approx. glyph width at title font-size 15 (CJK wider). */
+function titleCharW(ch: string): number {
+  const c = ch.charCodeAt(0);
+  return c > 0x2e80 ? 15 : c === 0x20 ? 4 : 7;
+}
+function titleWordW(word: string): number {
+  let w = 0;
+  for (const ch of word) w += titleCharW(ch);
+  return w;
+}
+/** Break an over-long word into pieces each ≤ maxW. */
+function breakTitleWord(word: string, maxW: number): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let curW = 0;
+  for (const ch of word) {
+    const w = titleCharW(ch);
+    if (curW + w > maxW && cur) {
+      out.push(cur);
+      cur = '';
+      curW = 0;
+    }
+    cur += ch;
+    curW += w;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+/** Word-wrap a title into centered lines, each ≤ maxW (no ellipsis, no clip). */
+function wrapTitle(text: string, maxW: number): string[] {
+  const lines: string[] = [];
+  let cur = '';
+  let curW = 0;
+  const flush = () => {
+    if (cur) lines.push(cur);
+    cur = '';
+    curW = 0;
+  };
+  for (const word of text.split(/\s+/)) {
+    if (word === '') continue;
+    for (const piece of breakTitleWord(word, maxW)) {
+      const w = titleWordW(piece);
+      const sep = cur ? titleCharW(' ') : 0;
+      if (curW + sep + w > maxW) flush();
+      if (cur) cur += ' ';
+      cur += piece;
+      curW += (cur ? sep : 0) + w;
+    }
+  }
+  flush();
+  return lines;
+}
+
 /** Render a PlotSpec to a standalone SVG document string. */
 export function renderSVG(spec: PlotSpec): string {
   const width = spec.width || 640;
   const height = spec.height || 420;
+  // Multi-line title: wrap within the canvas (inset clears the top-left panel
+  // tag) and push the plot area down so wrapped lines never collide.
+  const TITLE_INSET = 18;
+  const titleLines = spec.title
+    ? wrapTitle(spec.title, Math.max(width - TITLE_INSET * 2, 60))
+    : [];
+  const topV = MARGIN.top + Math.max(0, (titleLines.length - 1) * 16);
   // A field panel narrows the plot area to make room for its colorbar.
   const firstField = spec.series.find(
     (s): s is PlotSeries & { field: FieldData } => s.kind === 'field' && !!s.field,
   );
-  const plotH = height - MARGIN.top - MARGIN.bottom;
+  const plotH = height - topV - MARGIN.bottom;
   const xScaleKind = spec.xScale ?? 'linear';
   const yScaleKind = spec.yScale ?? 'linear';
 
@@ -378,7 +438,7 @@ export function renderSVG(spec: PlotSpec): string {
       : [yTicksInfo.min, yTicksInfo.max];
 
   const x: Scale = makeScale(xScaleKind, xDom, [left, left + plotW]);
-  const y: Scale = makeScale(yScaleKind, yDom, [MARGIN.top + plotH, MARGIN.top]);
+  const y: Scale = makeScale(yScaleKind, yDom, [topV + plotH, topV]);
 
   const parts: string[] = [];
   parts.push(
@@ -388,7 +448,7 @@ export function renderSVG(spec: PlotSpec): string {
 
   // Plotting-area background.
   parts.push(
-    `<rect x="${left}" y="${MARGIN.top}" width="${plotW}" height="${plotH}" ` +
+    `<rect x="${left}" y="${topV}" width="${plotW}" height="${plotH}" ` +
       `fill="#ffffff" stroke="none"/>`,
   );
 
@@ -396,7 +456,7 @@ export function renderSVG(spec: PlotSpec): string {
   if (spec.grid) {
     for (const t of yTicksInfo.ticks) {
       const py = y.toPixel(t);
-      if (py < MARGIN.top - 0.5 || py > MARGIN.top + plotH + 0.5) continue;
+      if (py < topV - 0.5 || py > topV + plotH + 0.5) continue;
       parts.push(
         `<line x1="${left}" y1="${py.toFixed(1)}" x2="${left + plotW}" y2="${py.toFixed(1)}" stroke="#e6e6e6" stroke-width="1"/>`,
       );
@@ -405,7 +465,7 @@ export function renderSVG(spec: PlotSpec): string {
       const px = x.toPixel(t);
       if (px < left - 0.5 || px > left + plotW + 0.5) continue;
       parts.push(
-        `<line x1="${px.toFixed(1)}" y1="${MARGIN.top}" x2="${px.toFixed(1)}" y2="${MARGIN.top + plotH}" stroke="#e6e6e6" stroke-width="1"/>`,
+        `<line x1="${px.toFixed(1)}" y1="${topV}" x2="${px.toFixed(1)}" y2="${topV + plotH}" stroke="#e6e6e6" stroke-width="1"/>`,
       );
     }
   }
@@ -421,7 +481,7 @@ export function renderSVG(spec: PlotSpec): string {
         // then frame/z-axis/ticks on top.
         const fr = surfaceFrame(
           s.field,
-          { x: left, y: MARGIN.top, w: plotW, h: plotH },
+          { x: left, y: topV, w: plotW, h: plotH },
           { x: spec.xLabel, y: spec.yLabel },
         );
         parts.push(...fr.base, ...fr.quads, ...fr.axes);
@@ -435,7 +495,7 @@ export function renderSVG(spec: PlotSpec): string {
             if (v === undefined) continue;
             // Row 0 is the top of the grid (image convention).
             const px = left + c * cw;
-            const py = MARGIN.top + r * ch;
+            const py = topV + r * ch;
             parts.push(
               `<rect x="${px.toFixed(2)}" y="${py.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" ` +
                 `fill="${fieldColorCss(((v - fMin) / span) * 2 - 1)}"/>`,
@@ -449,7 +509,7 @@ export function renderSVG(spec: PlotSpec): string {
         const x1 = x.toPixel(b.x1);
         const yTop = y.toPixel(b.y);
         const w = Math.max(0.5, Math.abs(x1 - x0) - 1);
-        const h = Math.max(0, MARGIN.top + plotH - yTop);
+        const h = Math.max(0, topV + plotH - yTop);
         parts.push(
           `<rect x="${(Math.min(x0, x1) + 0.5).toFixed(1)}" y="${yTop.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${escapeAttr(s.color)}"/>`,
         );
@@ -480,10 +540,10 @@ export function renderSVG(spec: PlotSpec): string {
   const isSurface = firstField?.field.surface === true;
   if (!isSurface) {
     parts.push(
-      `<line x1="${left}" y1="${MARGIN.top}" x2="${left}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+      `<line x1="${left}" y1="${topV}" x2="${left}" y2="${topV + plotH}" stroke="#222" stroke-width="1"/>`,
     );
     parts.push(
-      `<line x1="${left}" y1="${MARGIN.top + plotH}" x2="${left + plotW}" y2="${MARGIN.top + plotH}" stroke="#222" stroke-width="1"/>`,
+      `<line x1="${left}" y1="${topV + plotH}" x2="${left + plotW}" y2="${topV + plotH}" stroke="#222" stroke-width="1"/>`,
     );
   }
 
@@ -493,10 +553,10 @@ export function renderSVG(spec: PlotSpec): string {
     for (const t of spec.xTicksOverride) {
       const px = x.toPixel(t.pos);
       parts.push(
-        `<line x1="${px.toFixed(1)}" y1="${MARGIN.top + plotH}" x2="${px.toFixed(1)}" y2="${(MARGIN.top + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
+        `<line x1="${px.toFixed(1)}" y1="${topV + plotH}" x2="${px.toFixed(1)}" y2="${(topV + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
       );
       parts.push(
-        `<text x="${px.toFixed(1)}" y="${MARGIN.top + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(t.label)}</text>`,
+        `<text x="${px.toFixed(1)}" y="${topV + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(t.label)}</text>`,
       );
     }
   } else {
@@ -504,17 +564,17 @@ export function renderSVG(spec: PlotSpec): string {
       const px = x.toPixel(t);
       if (px < left - 0.5 || px > left + plotW + 0.5) continue;
       parts.push(
-        `<line x1="${px.toFixed(1)}" y1="${MARGIN.top + plotH}" x2="${px.toFixed(1)}" y2="${(MARGIN.top + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
+        `<line x1="${px.toFixed(1)}" y1="${topV + plotH}" x2="${px.toFixed(1)}" y2="${(topV + plotH + TICK_LEN).toFixed(1)}" stroke="#222" stroke-width="1"/>`,
       );
       parts.push(
-        `<text x="${px.toFixed(1)}" y="${MARGIN.top + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(formatTick(t))}</text>`,
+        `<text x="${px.toFixed(1)}" y="${topV + plotH + TICK_LEN + 16}" font-size="13" text-anchor="middle" fill="#222">${escapeText(formatTick(t))}</text>`,
       );
     }
   }
   // Y ticks + labels.
   for (const t of yTicksInfo.ticks) {
     const py = y.toPixel(t);
-    if (py < MARGIN.top - 0.5 || py > MARGIN.top + plotH + 0.5) continue;
+    if (py < topV - 0.5 || py > topV + plotH + 0.5) continue;
     parts.push(
       `<line x1="${left}" y1="${py.toFixed(1)}" x2="${(left - TICK_LEN).toFixed(1)}" y2="${py.toFixed(1)}" stroke="#222" stroke-width="1"/>`,
     );
@@ -531,7 +591,7 @@ export function renderSVG(spec: PlotSpec): string {
   }
   if (spec.yLabel) {
     parts.push(
-      `<text transform="translate(${yLabelX},${(MARGIN.top + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
+      `<text transform="translate(${yLabelX},${(topV + plotH / 2).toFixed(1)}) rotate(-90)" font-family="${FONT_AXIS}" font-size="14" text-anchor="middle" fill="#000">${escapeText(spec.yLabel)}</text>`,
     );
   }
   } // end !isSurface (2D axes)
@@ -545,30 +605,34 @@ export function renderSVG(spec: PlotSpec): string {
       // Top = fMax, bottom = fMin.
       const t = 1 - (2 * (i + 0.5)) / COLORBAR_STEPS;
       parts.push(
-        `<rect x="${cbX}" y="${(MARGIN.top + i * stepH).toFixed(1)}" width="${COLORBAR_W}" ` +
+        `<rect x="${cbX}" y="${(topV + i * stepH).toFixed(1)}" width="${COLORBAR_W}" ` +
           `height="${(stepH + 0.5).toFixed(1)}" fill="${fieldColorCss(t)}"/>`,
       );
     }
     parts.push(
-      `<rect x="${cbX}" y="${MARGIN.top}" width="${COLORBAR_W}" height="${plotH}" fill="none" stroke="#222" stroke-width="1"/>`,
+      `<rect x="${cbX}" y="${topV}" width="${COLORBAR_W}" height="${plotH}" fill="none" stroke="#222" stroke-width="1"/>`,
     );
     const lbl = (v: number, py: number) => {
       parts.push(
         `<text x="${cbX + COLORBAR_W + 4}" y="${(py + 4).toFixed(1)}" font-size="11" fill="#222">${escapeText(formatTick(v))}</text>`,
       );
     };
-    lbl(fMax, MARGIN.top);
-    lbl(fMin, MARGIN.top + plotH);
+    lbl(fMax, topV);
+    lbl(fMin, topV + plotH);
     if (fMin < 0 && fMax > 0) {
-      lbl(0, MARGIN.top + plotH * (fMax / (fMax - fMin)));
+      lbl(0, topV + plotH * (fMax / (fMax - fMin)));
     }
   }
 
-  // Title.
+  // Title. Uniform 15px, fully rendered; long titles wrap onto wrapped lines
+  // (never ellipsised, never resized, never clipped past the canvas edge).
   if (spec.title) {
-    parts.push(
-      `<text x="${(width / 2).toFixed(1)}" y="22" font-family="${FONT_TITLE}" font-size="16" text-anchor="middle" fill="#000">${escapeText(spec.title)}</text>`,
-    );
+    titleLines.forEach((line, i) => {
+      parts.push(
+        `<text x="${(width / 2).toFixed(1)}" y="${22 + i * 16}" font-family="${FONT_TITLE}" ` +
+          `font-size="15" text-anchor="middle" fill="#000">${escapeText(line)}</text>`,
+      );
+    });
   }
 
   // Legend.
@@ -578,7 +642,7 @@ export function renderSVG(spec: PlotSpec): string {
     const legendX = left + plotW + 12;
     const itemH = 20;
     spec.series.forEach((s, i) => {
-      const ly = MARGIN.top + i * itemH + 4;
+      const ly = topV + i * itemH + 4;
       if (s.kind === 'line') {
         parts.push(
           `<line x1="${legendX}" y1="${ly}" x2="${legendX + 18}" y2="${ly}" stroke="${escapeAttr(s.color)}" stroke-width="2"/>`,

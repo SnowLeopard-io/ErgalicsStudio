@@ -8,6 +8,7 @@ import {
   cellObservables,
 } from '@/plugins/builtin/chem-crystal/cellInfo';
 import { CRYSTAL_SAMPLES, findSample } from '@/plugins/builtin/chem-crystal/samples';
+import { minImageDistance, inferBonds } from '@/chem/structure';
 import {
   detectFormat,
   parseStructure,
@@ -140,6 +141,88 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
       const info = cellObservables(s.cell.params, s.cell.sites);
       expect(info.formula).toBe(want.formula);
       expect(s.cell.sites).toHaveLength(want.sites);
+    }
+  });
+
+  it('minimum-image bond distances match textbook values (Å)', () => {
+    const nearest = (cell: (typeof CRYSTAL_SAMPLES)[number]['cell'], from: string, to: string): number => {
+      let worst = Infinity;
+      for (const a of cell.sites.filter((s) => s.symbol === from)) {
+        let best = Infinity;
+        for (const b of cell.sites.filter((s) => s.symbol === to)) {
+          const d = minImageDistance(cell.params, { x: a.fx, y: a.fy, z: a.fz }, { x: b.fx, y: b.fy, z: b.fz });
+          if (d > 1e-6 && d < best) best = d;
+        }
+        worst = Math.min(worst, best);
+      }
+      return worst;
+    };
+    const cellOf = (id: string) => CRYSTAL_SAMPLES.find((s) => s.id === id)!.cell;
+    // Na–Cl in rock salt = a/2 = 2.81 Å.
+    expect(nearest(cellOf('nacl'), 'Na', 'Cl')).toBeCloseTo(2.81, 1);
+    // Si–O in α-quartz ≈ 1.61 Å.
+    const siO = nearest(cellOf('quartz'), 'Si', 'O');
+    expect(siO).toBeGreaterThan(1.55);
+    expect(siO).toBeLessThan(1.70);
+    // C–O in the carbonate group ≈ 1.28 Å.
+    const co = nearest(cellOf('calcite'), 'C', 'O');
+    expect(co).toBeGreaterThan(1.24);
+    expect(co).toBeLessThan(1.33);
+    // Ca–F in fluorite = a·√3/4 ≈ 2.37 Å.
+    expect(nearest(cellOf('fluorite'), 'Ca', 'F')).toBeCloseTo(2.37, 1);
+    // Ti–O in rutile: 1.86 (apical) / 2.12 (equatorial) in the bundled
+    // electron-diffraction refinement (COD 1530150).
+    const tiO = nearest(cellOf('rutile'), 'Ti', 'O');
+    expect(tiO).toBeGreaterThan(1.80);
+    expect(tiO).toBeLessThan(2.20);
+    // Fe–S in pyrite ≈ 2.26 Å.
+    const feS = nearest(cellOf('pyrite'), 'Fe', 'S');
+    expect(feS).toBeGreaterThan(2.20);
+    expect(feS).toBeLessThan(2.34);
+  });
+
+  it('periodic bonds enumerate every image and skip metal-metal contacts', () => {
+    const infer = (id: string) => {
+      const cell = CRYSTAL_SAMPLES.find((s) => s.id === id)!.cell;
+      return inferBonds(
+        cell.sites.map((s) => ({ symbol: s.symbol, x: s.fx, y: s.fy, z: s.fz })),
+        { cell: cell.params },
+      );
+    };
+    // Rock salt: each of the 4 Na bonds all 6 chloride images (not just the
+    // nearest one per site pair) → 24 bonds.
+    expect(infer('nacl')).toHaveLength(24);
+    // Rutile: each Ti reaches a complete octahedron of 6 O images → 12, no Ti–Ti.
+    expect(infer('rutile')).toHaveLength(12);
+    // Calcite: 6 C–O + 12 Ca–O; the 4.04 Å Ca–Ca lattice contact is not a bond.
+    expect(infer('calcite')).toHaveLength(18);
+    // Fluorite: 4 Ca × 8 F; 3.86 Å Ca–Ca contacts are not bonds.
+    expect(infer('fluorite')).toHaveLength(32);
+    // Pyrite keeps its 4 real S–S disulfide dimers alongside 24 Fe–S bonds.
+    const pyriteCell = CRYSTAL_SAMPLES.find((s) => s.id === 'pyrite')!.cell;
+    const ss = infer('pyrite').filter(
+      ({ a, b }) => pyriteCell.sites[a]!.symbol === 'S' && pyriteCell.sites[b]!.symbol === 'S',
+    );
+    expect(ss).toHaveLength(4);
+  });
+
+  it('calcite coordination shells are complete (Ca 6×O ≈ 2.36, C 3×O ≈ 1.28)', () => {
+    const cell = CRYSTAL_SAMPLES.find((s) => s.id === 'calcite')!.cell;
+    const shell = (site: (typeof cell.sites)[number], to: string, n: number): number[] =>
+      cell.sites
+        .filter((s) => s.symbol === to)
+        .map((o) => minImageDistance(cell.params, { x: site.fx, y: site.fy, z: site.fz }, { x: o.fx, y: o.fy, z: o.fz }))
+        .sort((x, y) => x - y)
+        .slice(0, n);
+    for (const ca of cell.sites.filter((s) => s.symbol === 'Ca')) {
+      const six = shell(ca, 'O', 6);
+      expect(six[0]!).toBeGreaterThan(2.2);
+      expect(six[5]!).toBeLessThan(2.5);
+    }
+    for (const c of cell.sites.filter((s) => s.symbol === 'C')) {
+      const three = shell(c, 'O', 3);
+      expect(three[0]!).toBeGreaterThan(1.2);
+      expect(three[2]!).toBeLessThan(1.35);
     }
   });
 

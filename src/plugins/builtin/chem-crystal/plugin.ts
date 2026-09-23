@@ -113,7 +113,7 @@ export class ChemCrystalPlugin implements Plugin {
       return this.zh ? `已加载：${this.state.file.name}` : `Loaded: ${this.state.file.name}`;
     }
     const s = findSample(this.state.sampleId);
-    return s ? (this.zh ? `${s.nameZh}（示例）` : `${s.nameEn} (sample)`) : null;
+    return s ? (this.zh ? `${s.nameZh}（示例 · ${s.source}）` : `${s.nameEn} (sample · ${s.source})`) : null;
   }
 
   async loadData(file: File) {
@@ -146,7 +146,7 @@ export class ChemCrystalPlugin implements Plugin {
         type: 'select',
         options: CRYSTAL_SAMPLES.map((s) => ({
           value: s.id,
-          label: zh ? `${s.nameZh}（示例）` : `${s.nameEn} (sample)`,
+          label: zh ? `${s.nameZh} · ${s.source}` : `${s.nameEn} · ${s.source}`,
         })),
         value: this.state.source === 'sample' ? this.state.sampleId : this.state.sampleId,
       },

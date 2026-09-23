@@ -927,9 +927,9 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
     descriptionI18n: {
       'zh-CN':
-        'COD 收录的真实金红石结构（四方 P4₂/mnm，a≈4.59 Å、c≈2.96 Å）：Ti 配位 6、O 配位 3 的典型 AB₂ 型结构，展开出 2 Ti + 4 O。',
+        'COD 收录的真实金红石结构（四方 P4₂/mnm，a≈4.61 Å、c≈2.97 Å）：Ti 配位 6、O 配位 3 的典型 AB₂ 型结构，展开出 2 Ti + 4 O。',
       'en-US':
-        'Real rutile from COD (tetragonal P4₂/mnm, a≈4.59 Å, c≈2.96 Å): the prototype AB₂ structure with 6-coordinated Ti and 3-coordinated O, expanded to 2 Ti + 4 O.',
+        'Real rutile from COD (tetragonal P4₂/mnm, a≈4.61 Å, c≈2.97 Å): the prototype AB₂ structure with 6-coordinated Ti and 3-coordinated O, expanded to 2 Ti + 4 O.',
     },
   },
   {
