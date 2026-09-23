@@ -50,6 +50,8 @@ export class ChemCrystalPlugin implements Plugin {
   private three: Scene3DHandle | null = null;
   private crystalGroup: ThreeGroup | null = null;
   private threeKey = '';
+  /** Cell identity the camera was last fitted to (skips refits on toggles). */
+  private fittedCellKey = '';
   private sceneHandle: Scene3DHandle | null = null;
   private state: State = {
     source: 'sample',
@@ -187,6 +189,7 @@ export class ChemCrystalPlugin implements Plugin {
       },
       actionButton('reset', 'Fit view', '复位视角'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
+      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
     ];
   }
 
@@ -226,6 +229,7 @@ export class ChemCrystalPlugin implements Plugin {
     }
     if (actionFired(params, 'reset')) this.resetView();
     if (actionFired(params, 'exportPng')) this.exportPng();
+    if (actionFired(params, 'exportObjPng')) this.exportObjPng();
     if (redraw) this.draw();
   }
 
@@ -242,6 +246,11 @@ export class ChemCrystalPlugin implements Plugin {
 
   private exportPng() {
     if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-crystal');
+    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-crystal');
+  }
+
+  private exportObjPng() {
+    if (this.three) exportSnapshotPng(this.api, this.three.snapshot({ transparent: true }), 'chem-crystal');
     else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-crystal');
   }
 
@@ -271,6 +280,8 @@ export class ChemCrystalPlugin implements Plugin {
       this.state.clipToCell,
     ].join('|');
     if (this.threeKey !== key || this.sceneHandle !== three) {
+      // Captured before clear3d() resets sceneHandle.
+      const containerChanged = this.sceneHandle !== three;
       this.clear3d();
       this.crystalGroup = buildCrystalGroup(cell, {
         representation: this.state.representation,
@@ -279,7 +290,22 @@ export class ChemCrystalPlugin implements Plugin {
         clipToCell: this.state.clipToCell,
       });
       three.scene.add(this.crystalGroup);
-      fitCrystalCamera(three.camera, three.controls, cell);
+      // Refit the camera only when the crystal itself (or the 3-D container)
+      // changed — display toggles must keep the user's orbit/zoom intact.
+      const fitKey = [
+        this.state.source,
+        this.state.sampleId,
+        this.state.file?.name ?? '',
+        cell.name,
+        cell.sites.length,
+        cell.params.a.toFixed(3),
+        cell.params.b.toFixed(3),
+        cell.params.c.toFixed(3),
+      ].join('|');
+      if (this.fittedCellKey !== fitKey || containerChanged) {
+        fitCrystalCamera(three.camera, three.controls, cell);
+        this.fittedCellKey = fitKey;
+      }
       this.threeKey = key;
       this.sceneHandle = three;
     }

@@ -33,7 +33,16 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   const width = container.clientWidth || 640;
   const height = container.clientHeight || 480;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  // preserveDrawingBuffer: WebGL otherwise clears the color buffer after
+  // compositing, so toDataURL snapshotting outside the render loop would
+  // produce an entirely transparent PNG. alpha: the PNG export can clear the
+  // background to a transparent channel when requested (see snapshot).
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    preserveDrawingBuffer: true,
+    alpha: true,
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(width, height);
   // Required for material-level clippingPlanes (used by the crystal plugin's
@@ -182,7 +191,32 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
     },
     isVisible: () => visible,
     render: renderFrame,
-    snapshot: () => renderer.domElement.toDataURL('image/png'),
+    snapshot: (opts?: { transparent?: boolean }) => {
+      // Render immediately before exporting so the captured frame matches the
+      // current camera/state even if the rAF loop isn't actively drawing.
+      // In transparent mode, temporarily drop the background and reference
+      // furniture (grid/axes) so only the plugin's own objects are exported.
+      const bg = scene.background;
+      const gridVisible = grid.visible;
+      const axesVisible = axes.visible;
+      if (opts?.transparent) {
+        scene.background = null;
+        grid.visible = false;
+        axes.visible = false;
+        renderer.setClearColor(0x000000, 0);
+      }
+      try {
+        renderFrame();
+        return renderer.domElement.toDataURL('image/png');
+      } finally {
+        scene.background = bg;
+        grid.visible = gridVisible;
+        axes.visible = axesVisible;
+        if (opts?.transparent) {
+          renderer.setClearColor(SCENE_BACKGROUND, 1);
+        }
+      }
+    },
     dispose: () => {
       disposed = true;
       stopLoop();

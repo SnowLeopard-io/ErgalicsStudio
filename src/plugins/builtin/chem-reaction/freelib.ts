@@ -24,7 +24,7 @@ import { buildPhysicsPayload } from './reactmd/payload';
 import type { PhysBond, PhysAtom, PhysicsPayload } from './reactmd/types';
 import {
   H2, O2, CH4, CO2, H2O, HCl, CuO, CaCO3, CaO, Zn, NaOH, NaCl,
-  AgNO3, Cu, Cl2, Na, Br2, C2H4,
+  AgNO3, Cu, Cl2, Na, Br2, C2H4, C2H5OH, CH3COOH, C2H4O, CH3Cl, C6H6, C7H8, KMnO4,
 } from './mols';
 
 export interface FreeSpecies {
@@ -49,6 +49,13 @@ export const FREE_REAGENTS: FreeSpecies[] = [
   { formula: 'NaCl', mol: NaCl, nameZh: '氯化钠', nameEn: 'sodium chloride' },
   { formula: 'C2H4', mol: C2H4, nameZh: '乙烯', nameEn: 'ethene' },
   { formula: 'Br2', mol: Br2, nameZh: '溴', nameEn: 'bromine' },
+  { formula: 'C2H5OH', mol: C2H5OH, nameZh: '乙醇', nameEn: 'ethanol' },
+  { formula: 'CH3COOH', mol: CH3COOH, nameZh: '乙酸', nameEn: 'acetic acid' },
+  { formula: 'C2H4O', mol: C2H4O, nameZh: '乙醛', nameEn: 'acetaldehyde' },
+  { formula: 'CH3Cl', mol: CH3Cl, nameZh: '氯甲烷', nameEn: 'chloromethane' },
+  { formula: 'C6H6', mol: C6H6, nameZh: '苯', nameEn: 'benzene' },
+  { formula: 'C7H8', mol: C7H8, nameZh: '甲苯', nameEn: 'toluene' },
+  { formula: 'KMnO4', mol: KMnO4, nameZh: '高锰酸钾', nameEn: 'potassium permanganate' },
   { formula: 'H2O', mol: H2O, nameZh: '水', nameEn: 'water' },
   { formula: 'CO2', mol: CO2, nameZh: '二氧化碳', nameEn: 'carbon dioxide' },
   { formula: 'Na', mol: Na, nameZh: '钠', nameEn: 'sodium' },
