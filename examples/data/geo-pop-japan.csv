@@ -1,0 +1,24 @@
+# station: Japan 2020 population pyramid
+# source: Statistics Bureau of Japan (2020 census), public record; values approximate, in thousands
+# columns: age group, male (thousands), female (thousands)
+age,male_k,female_k
+0-4,1980,1890
+5-9,2590,2460
+10-14,2770,2630
+15-19,2875,2875
+20-24,3050,3050
+25-29,3350,3350
+30-34,3600,3600
+35-39,4010,3990
+40-44,4430,4370
+45-49,4970,4930
+50-54,4830,4790
+55-59,4100,4130
+60-64,4060,4210
+65-69,3940,4140
+70-74,4290,4600
+75-79,2690,3110
+80-84,2330,3060
+85-89,1360,2110
+90-94,600,1180
+95+,190,570

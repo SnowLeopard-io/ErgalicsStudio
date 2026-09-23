@@ -341,10 +341,16 @@ export function CodeEditor() {
     const sess = useEditorStore.getState().sessions.find((s) => s.id === activeSessionId);
     const editor = editorRef.current;
     if (editor && sess) {
+      // The IR round-trip is lossy for imports/comments/mid-edit text, so a
+      // language switch can yield an empty translation. Never let that wipe a
+      // non-empty buffer — keep the user's source when there is nothing real
+      // to show, so switching languages cannot clear their code.
+      const current = editor.getValue();
+      const value = sess.lastCode.trim() !== '' || !current || current.trim() === '' ? sess.lastCode : current;
       // setValue fires onDidChangeModelContent — suppress the echo so a
       // freshly translated buffer is not re-parsed straight back.
       silentSetRef.current = true;
-      editor.setValue(sess.lastCode);
+      editor.setValue(value);
       monaco.editor.setModelLanguage(editor.getModel()!, MONACO_LANG[language]);
       editor.updateOptions({ tabSize: LANG_TAB_SIZE[language] });
       window.requestAnimationFrame(() => {

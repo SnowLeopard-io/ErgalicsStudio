@@ -142,6 +142,46 @@ describe('editorStore', () => {
     expect(useEditorStore.getState().sessions).toHaveLength(1);
   });
 
+  it('setSessionLanguage never wipes a session and translates imports into the new dialect', () => {
+    // An import-only program previously translated to "" (Import emitted
+    // nothing), so switching language would clear the buffer. The import must
+    // now survive as a real statement of the target dialect.
+    const session = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().updateSessionIR(
+      session.id,
+      makeProgram([{ kind: 'Import', module: 'studio' }]),
+      'import studio',
+    );
+    useEditorStore.getState().setSessionLanguage(session.id, 'r');
+    const updated = useEditorStore.getState().sessions[0]!;
+    expect(updated.lastCode.trim().length).toBeGreaterThan(0);
+    expect(updated.lastCode).toContain('studio');
+  });
+
+  it('setSessionLanguage translates a text-only session whose IR was empty', () => {
+    // Code samples / wizard-cleaned scripts are created with an EMPTY IR and a
+    // raw-text buffer. A switch on an empty IR used to codegen to "" and the
+    // anti-wipe guard kept the old text, so the switch looked like nothing
+    // happened. The store must re-parse the buffer and translate it for real.
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const src =
+      "import studio\nimport math\nvals = [v * v for v in studio.range(0, 10)]\nstudio.print(vals)\n";
+    // Precondition: the empty-IR + text buffer shape used by loadCodeSample.
+    useEditorStore.getState().updateSessionIR(session.id, makeProgram([], [], 'python'), src);
+
+    useEditorStore.getState().setSessionLanguage(session.id, 'js');
+    const updated = useEditorStore.getState().sessions[0]!;
+    expect(updated.language).toBe('js');
+    // Must be a real JS translation, not the python source kept verbatim.
+    expect(updated.lastCode).toContain("import 'studio'");
+    expect(updated.lastCode).toContain('studio.print');
+    expect(updated.lastCode.trim().length).toBeGreaterThan(0);
+    // The rebuilt IR was persisted, so a further switch still works.
+    expect(updated.ir.body.length).toBeGreaterThan(0);
+    useEditorStore.getState().setSessionLanguage(session.id, 'r');
+    expect(useEditorStore.getState().sessions[0]!.lastCode).toContain('library(studio)');
+  });
+
   it('persisted sessions survive a JSON stringify round-trip (plain JSON)', () => {
     const session = useEditorStore.getState().createSession('block', 'python');
     const ir = makeProgram([{ kind: 'VarAssign', name: 'x', value: { kind: 'Number', value: 5 }, declare: true }]);

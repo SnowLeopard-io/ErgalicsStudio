@@ -1,0 +1,16 @@
+# station: Beijing (39.9N, 116.4E)
+# source: WMO climate normals (1991-2020), public record; values approximate
+# columns: month(1-12), temp_c(°C), precip_mm
+month,temp_c,precip_mm
+1,-3.1,3
+2,0.1,6
+3,6.6,9
+4,14.2,21
+5,20.3,34
+6,24.5,71
+7,26.8,160
+8,25.4,144
+9,20.5,47
+10,13.5,22
+11,4.8,8
+12,-1.3,2

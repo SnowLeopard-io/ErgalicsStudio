@@ -1,0 +1,16 @@
+# station: Cairo (30.0N, 31.2E)
+# source: WMO climate normals (1991-2020), public record; values approximate
+# columns: month(1-12), temp_c(°C), precip_mm
+month,temp_c,precip_mm
+1,14.3,5
+2,15.5,4
+3,18.5,3
+4,22.6,1
+5,26.2,1
+6,28.3,0
+7,29.4,0
+8,29.4,0
+9,27.9,0
+10,24.6,1
+11,20.0,3
+12,16.0,6

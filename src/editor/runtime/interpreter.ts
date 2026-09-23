@@ -398,20 +398,34 @@ export class Interpreter {
     if (name.endsWith('.columns')) {
       const table = this.lookup(name.slice(0, -'.columns'.length));
       if (table !== undefined && isTableValue(table)) {
-        return table.columnNames().map((n) => {
-          const col = table.getColumn(n);
-          const data = col && 'data' in col ? (col.data as ArrayLike<unknown>) : [];
-          return [n, Array.from(data)] as Value;
+        // getColumn returns the raw column payload (a typed/number array), not a
+        // `{ data }` wrapper — so iterate the payload directly. Each element is
+        // a `[name, values]` pair, indexed elsewhere as `[0]`/`[1]`.
+        return table.columnNames().map((n): Value => {
+          const payload = table.getColumn(n);
+          if (payload === undefined || payload === null) return [n, [] as Value[]] as Value;
+          const values = Array.from(payload as ArrayLike<unknown>).map((v) =>
+            typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean'
+              ? v
+              : String(v),
+          ) as Value[];
+          return [n, values] as Value;
         });
       }
     }
     throw new Error(`variable "${name}" is not defined`);
   }
 
-  /** Like `varRef` but reports failure with `undefined` (dotted dispatch). */
+  /** Like `resolve` but reports failure with `undefined` (dotted dispatch).
+   *
+   *  IMPORTANT: callers pass plain variable names (`df`, `out`, `nums`), which
+   *  `varRef` would reject (it only knows dotted specials like `math.pi` /
+   *  `.columns`) — so we must run the full scope+buitin+cooked-var lookup, and
+   *  only swallow the miss. Feeding a dotted name here returns undefined (the
+   *  dotted form is dispatched by the caller, not here). */
   private tryVarRef(name: string): Value | undefined {
     try {
-      return this.varRef(name);
+      return this.resolve(name);
     } catch {
       return undefined;
     }

@@ -67,18 +67,69 @@ function studioBridgeSource(): string {
     '"topK","renameColumn","summary","histogram","plot","getParam","setParam"',
   ].join('');
   return [
-    '# Ergalics Studio bridge (injected by the full R runtime, best effort)',
+    '# Ergalics Studio bridge (injected by the full R runtime)',
+    '# Light data-table model for the studio.* verbs: a named list of numeric',
+    '# columns exposed as `df$columns` — each entry is list(name, values) so R',
+    '# codegen\'s 0-based `df.columns[0][1]` (rendered `df$columns[[1]][[2]]`)',
+    '# selects the values vector of the 0-th column.',
     'studio <- new.env(parent = emptyenv())',
+    'studio$table <- function(cols) {',
+    '  .ov <- lapply(names(cols), function(.n) list(.n, cols[[.n]]))',
+    '  structure(list(columns = .ov, column_names = function() names(cols)), class = "studio_table")',
+    '}',
     'studio$print <- function(...) base::print(list(...))',
     'studio$notify <- function(kind = "info", message = "") base::message(sprintf("[%s] %s", kind, message))',
-    // webR has no JS→R callback registry, so without the (optional) `globalthis`
-    // package the verbs cannot reach the host — degrade to invisible no-ops.
+    // Verbs strong enough to run the built-in examples (numeric kernels below
+    // are implemented inline; still no JS→R callback channel in webR).
+    'studio$random <- function(n, seed = 1) {',
+    '  n <- max(1, floor(as.numeric(n)[1]))',
+    '  s <- as.numeric(seed)[1]; if (is.na(s)) s <- 1',
+    '  set.seed(s)',
+    '  studio$table(list(x = runif(n)))',
+    '}',
+    'studio$addColumn <- function(df, name, values) {',
+    '  .cols <- lapply(df$columns, function(.col) .col[[2]])',
+    '  .nms <- vapply(df$columns, function(.col) .col[[1]], character(1))',
+    '  names(.cols) <- .nms',
+    '  .cols[[as.character(name)[1]]] <- as.numeric(values)',
+    '  studio$table(.cols)',
+    '}',
+    'studio$plot <- function(type, data, opts = list()) invisible(NULL)',
+    // Remaining verbs degrade to invisible no-ops (no host callback sink).
     `for (.verb in c(${verbs})) {`,
     '  local({',
     '    .m <- .verb',
-    '    assign(.m, function(...) invisible(NULL), envir = studio)',
+    '    if (!.m %in% c("random", "addColumn", "plot", "print", "notify", "table"))',
+    '      assign(.m, function(...) invisible(NULL), envir = studio)',
     '  })',
     '}',
+    // Intercept library()/require() so code translated from Python
+    // (`import studio`, `import math`) does not fail with "no package".
+    // Everything else delegates to the base package with the ORIGINAL call
+    // (rebuilt via match.call and evaluated in the caller's frame), preserving
+    // base's own `library(pkg)` name handling untouched.
+    '.studio__lib <- local({',
+    '  .builtin <- c("studio", "math")',
+    '  function(package, ...) {',
+    '    .nm <- tryCatch(as.character(substitute(package)), error = function(e) character(0))',
+    '    if (length(.nm) == 1L && !is.na(.nm[1]) && .nm[1] %in% .builtin) return(invisible(NULL))',
+    '    .call <- match.call()',
+    '    .call[[1L]] <- quote(base::library)',
+    '    eval(.call, envir = parent.frame())',
+    '  }',
+    '})',
+    'assign("library", .studio__lib, envir = globalenv())',
+    '.studio__req <- local({',
+    '  .builtin <- c("studio", "math")',
+    '  function(package, ...) {',
+    '    .nm <- tryCatch(as.character(substitute(package)), error = function(e) character(0))',
+    '    if (length(.nm) == 1L && !is.na(.nm[1]) && .nm[1] %in% .builtin) return(invisible(TRUE))',
+    '    .call <- match.call()',
+    '    .call[[1L]] <- quote(base::require)',
+    '    eval(.call, envir = parent.frame())',
+    '  }',
+    '})',
+    'assign("require", .studio__req, envir = globalenv())',
   ].join('\n');
 }
 
@@ -234,9 +285,9 @@ export class WebRRuntime implements RLanguageRuntime {
       const sent = JSON.stringify(WebRRuntime.ERR_SENTINEL);
       const wrapped =
         `local({.err <- NULL;` +
-        `.o <- capture.output(withCallingHandlers(` +
+        `.o <- capture.output(tryCatch(` +
         `eval(parse(text=${code}), envir=globalenv()),` +
-        `error=function(e){.err <<- conditionMessage(e); invokeRestart("muffleError")}));` +
+        `error=function(e){.err <<- conditionMessage(e); NULL}));` +
         `paste0(paste(.o, collapse="\n"), if (!is.null(.err)) paste0("\n", ${sent}, .err))})`;
       const ret = await webr.evalRString(wrapped);
       const i = ret.indexOf(WebRRuntime.ERR_SENTINEL);

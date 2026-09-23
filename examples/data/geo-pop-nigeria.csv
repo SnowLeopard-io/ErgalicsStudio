@@ -1,0 +1,24 @@
+# station: Nigeria 2020 population pyramid
+# source: UN World Population Prospects (2022 revision, 2020 values), public record; values approximate, in thousands
+# columns: age group, male (thousands), female (thousands)
+age,male_k,female_k
+0-4,17700,17100
+5-9,15600,15000
+10-14,13700,13300
+15-19,12000,11600
+20-24,10200,10000
+25-29,8600,8600
+30-34,7200,7300
+35-39,5900,6100
+40-44,4700,5000
+45-49,3700,4100
+50-54,2900,3300
+55-59,2200,2700
+60-64,1700,2100
+65-69,1300,1600
+70-74,900,1200
+75-79,600,800
+80-84,400,500
+85-89,200,300
+90-94,100,150
+95+,40,60

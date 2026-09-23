@@ -34,7 +34,7 @@ import {
   codeSampleName,
   codeSampleDescription,
 } from '@/editor/code/samples';
-import { makeProgram } from '@/editor/ir';
+import { parseCodeToIR } from '@/editor/code/parse';
 import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
 
@@ -133,9 +133,13 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     const sample = CODE_SAMPLES.find((s) => s.id === id);
     if (!sample) return;
     // Load the sample into a *fresh* code session so it never overwrites the
-    // user's active work; the editor shows the sample text on activation.
+    // user's active work; parse the sample text into the IR hub so switching
+    // languages later can actually translate it (an empty IR would make every
+    // switch silently keep the current text). The editor shows the sample text
+    // on activation.
+    const { program } = parseCodeToIR(sample.python, 'python');
     const sid = useEditorStore.getState().createSession('code', 'python').id;
-    useEditorStore.getState().updateSessionIR(sid, makeProgram([], [], 'python'), sample.python);
+    useEditorStore.getState().updateSessionIR(sid, program, sample.python);
     useEditorStore.getState().setActiveSession(sid);
     // Drop the previous run's results so a second sample never shows the
     // first one's output before the user re-runs.

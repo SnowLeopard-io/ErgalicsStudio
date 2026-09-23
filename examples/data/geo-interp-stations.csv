@@ -1,0 +1,35 @@
+# Chinese major cities: annual mean precipitation (mm)
+# source: public climate normals (long-term means); values approximate, coordinates rounded
+# columns: lon(deg E), lat(deg N), annual_precip_mm, city
+lon,lat,annual_precip_mm,city
+87.6,43.8,280,Urumqi
+91.1,29.7,440,Lhasa
+101.8,36.6,380,Xining
+103.8,36.1,320,Lanzhou
+104.1,30.7,980,Chengdu
+106.2,38.5,200,Yinchuan
+106.5,29.6,1100,Chongqing
+106.7,26.6,1150,Guiyang
+108.3,22.8,1300,Nanning
+108.9,34.3,570,Xi'an
+110.3,20.0,1650,Haikou
+111.7,40.8,400,Hohhot
+112.5,37.9,450,Taiyuan
+113.0,28.2,1450,Changsha
+113.3,23.1,1800,Guangzhou
+113.6,34.7,640,Zhengzhou
+114.3,30.6,1250,Wuhan
+114.5,38.0,530,Shijiazhuang
+115.9,28.7,1600,Nanchang
+116.4,39.9,570,Beijing
+117.0,36.7,670,Jinan
+117.2,39.1,540,Tianjin
+117.3,31.9,1000,Hefei
+118.1,24.5,1350,Xiamen
+118.8,32.1,1080,Nanjing
+119.3,26.1,1400,Fuzhou
+120.2,30.3,1450,Hangzhou
+121.5,31.2,1180,Shanghai
+123.4,41.8,690,Shenyang
+125.3,43.9,570,Changchun
+126.6,45.8,550,Harbin

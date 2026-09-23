@@ -17,7 +17,7 @@ import { ToolShell } from '@/components/ToolShell';
 import { useProjectStore } from '@/stores/projectStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
-import { makeProgram } from '@/editor/ir';
+import { parseCodeToIR } from '@/editor/code/parse';
 import { hashString } from '@/core/repro/random';
 import { useExperimentStore } from '@/stores/experimentStore';
 import {
@@ -165,8 +165,9 @@ export default function CleaningWizardPage() {
   const saveSession = () => {
     if (script === null) return;
     const editor = useEditorStore.getState();
+    const { program } = parseCodeToIR(script, 'python');
     const session = editor.createSession('code', 'python');
-    editor.updateSessionIR(session.id, makeProgram([], [], 'python'), script);
+    editor.updateSessionIR(session.id, program, script);
     void useProjectStore.getState().save();
     setNote(t('clean.session_saved'));
   };
