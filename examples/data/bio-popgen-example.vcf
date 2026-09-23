@@ -1,0 +1,8 @@
+# Example VCF excerpt: diploid genotype calls at a single biallelic locus
+# (illustrative calls; counts AA=52, Aa=96, aa=50 across 198 samples)
+##fileformat=VCFv4.2
+##contig=<ID=chr1>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4	S5	S6	S7	S8	S9	S10
+chr1	1000	rs01	A	G	.	PASS	.	GT	0/1	0/1	0/0	1/1	0/1	0/1	0/0	0|1	0/0	0/0
+chr1	1000	rs01	A	G	.	PASS	.	GT	0/1	1/0	0/0	1/0	1/1	0/0	1|1	0/0	0|0	0/1

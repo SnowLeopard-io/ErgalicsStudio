@@ -17,5 +17,12 @@ export const bioSeqalignManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-seqalign',
   category: 'scientific',
-  formats: [{ extension: '.fasta', mimeTypes: ['text/plain', 'text/fasta'], description: 'FASTA nucleotide/protein sequences' }],
+  formats: [
+    { extension: '.fasta', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA nucleotide/protein sequences' },
+    { extension: '.fa', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA (short extension)' },
+    { extension: '.txt', mimeTypes: ['text/plain'], description: 'bare / FASTA text sequences' },
+    { extension: '.json', mimeTypes: ['application/json'], description: 'single/two/multi sequences in JSON' },
+    { extension: '.csv', mimeTypes: ['text/csv'], description: 'two-column sequence table' },
+    { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'two-column tab-separated sequences' },
+  ],
 };

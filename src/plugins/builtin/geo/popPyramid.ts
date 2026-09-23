@@ -16,6 +16,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
 import { isZh, parseDelimited } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import type { CategoricalTicks } from '@/core/plot';
 import { popPyramidManifest } from './popPyramidManifest';
 
 export { popPyramidManifest } from './popPyramidManifest';
@@ -140,6 +143,46 @@ export function summarizePyramid(rows: PyramidRow[]): PyramidSummary {
   };
 }
 
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+/**
+ * Figure sheet: male and female population by age group as vertical bars
+ * (two panels). Bars span each parsed age band; the open-ended "95+" band
+ * is drawn 5 years wide so the axis stays finite.
+ */
+export function pyramidFigurePanels(data: PyramidData): GeoFigurePanel[] {
+  const ageTicks: CategoricalTicks[] = data.rows.map((r) => ({
+    pos: (r.ageLo + Math.min(r.ageHi, r.ageLo + 5)) / 2,
+    label: r.label,
+  }));
+  const panels: GeoFigurePanel[] = [];
+  const make = (sex: 'male' | 'female', ordinal: number): GeoFigurePanel => ({
+    ...panelPlace(ordinal),
+    tag: panelTag(ordinal),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: `${sex === 'male' ? 'Male' : 'Female'} population by age — ${data.title || 'pyramid'}`,
+      xLabel: 'age group',
+      yLabel: sex === 'male' ? 'males' : 'females',
+      xTicksOverride: ageTicks,
+      ticks: 4,
+      grid: true,
+      series: [
+        {
+          name: sex,
+          kind: 'bar',
+          color: sex === 'male' ? '#4D9DE0' : '#E8896A',
+          bars: data.rows.map((r) => ({ x0: r.ageLo, x1: Math.min(r.ageHi, r.ageLo + 5), y: sex === 'male' ? r.male : r.female })),
+        },
+      ],
+    },
+  });
+  panels.push(make('male', 0));
+  panels.push(make('female', 1));
+  return panels;
+}
+
 // ---- Plugin ----------------------------------------------------------------
 
 interface State {
@@ -175,11 +218,38 @@ export class PopPyramidPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-pop-pyramid');
+      return;
+    }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
     }
   }
 
+  /** Stream the male/female age-structure sheet for the loaded pyramid. */
+  private async sendToFigure(): Promise<void> {
+    const data = this.state.data;
+    if (!data) return;
+    const s = summarizePyramid(data.rows);
+    const name = data.title || (isZh(this.api.locale) ? '人口' : 'population');
+    const shapeZh = { expansive: '增长型', stable: '稳定型', contractive: '缩减型' }[s.shape];
+    const shapeEn = { expansive: 'expansive', stable: 'stable', contractive: 'contractive' }[s.shape];
+    const caption: Bilingual = {
+      zh: `${name} 年龄结构：总人口 ${s.total}，0-14 岁 ${s.youngPct.toFixed(1)}%，15-64 岁 ${s.workingPct.toFixed(1)}%，65+ 岁 ${s.oldPct.toFixed(1)}%，性别比（男/女×100）${s.sexRatio.toFixed(1)}，形态判读为${shapeZh}。`,
+      en: `Age structure of ${name}: total ${s.total}, 0-14 ${s.youngPct.toFixed(1)}%, 15-64 ${s.workingPct.toFixed(1)}%, 65+ ${s.oldPct.toFixed(1)}%, sex ratio (M per 100 F) ${s.sexRatio.toFixed(1)}, shape reading ${shapeEn}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: `人口金字塔 · ${name}`, en: `Population pyramid · ${name}` },
+      caption,
+      pyramidFigurePanels(data),
+    );
+  }
+
   getParams(): ParamDefinition[] {
-    return [actionButton('exportPng', 'Snapshot PNG', '快照 PNG')];
+    return [
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
+      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+    ];
   }
 
   getSupportedFormats() {

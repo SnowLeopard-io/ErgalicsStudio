@@ -15,6 +15,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired } from '../shared/enhance';
 import { isZh } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { solarManifest } from './solarManifest';
 
 export { solarManifest } from './solarManifest';
@@ -70,6 +72,99 @@ export function monthDayToDoy(month: number, day: number): number {
   return Math.min(365, cum[m - 1]! + d);
 }
 
+// ---- Daily radiation (FAO-56, exported for tests) ---------------------------
+
+/** Solar constant Gsc = 0.082 MJ·m⁻²·min⁻¹ (FAO-56 eq. 21). */
+export const SOLAR_CONSTANT_MJ = 0.082;
+
+/**
+ * Extraterrestrial daily radiation R_a (MJ·m⁻²·day⁻¹) — FAO-56 eq. 21:
+ * R_a = (24·60/π)·Gsc·dr·(ωs·sinφ·sinδ + cosφ·cosδ·sinωs) with the
+ * inverse-relative Earth–Sun distance dr = 1 + 0.033·cos(2πn/365) and the
+ * sunrise hour angle ωs = arccos(−tanφ·tanδ). Polar day/night clamp ωs to
+ * π / 0 so the poles integrate to the flat 24 h / 0 h plateaus.
+ */
+export function extraterrestrialRadiation(lat: number, declinationDeg: number, doy: number): number {
+  const phi = (lat * Math.PI) / 180;
+  const delta = (declinationDeg * Math.PI) / 180;
+  const sinWs = -Math.tan(phi) * Math.tan(delta);
+  const ws = sinWs >= 1 ? 0 : sinWs <= -1 ? Math.PI : Math.acos(Math.max(-1, Math.min(1, sinWs)));
+  const dr = 1 + 0.033 * Math.cos((2 * Math.PI * doy) / 365);
+  const term = ws * Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.sin(ws);
+  return ((24 * 60) / Math.PI) * SOLAR_CONSTANT_MJ * dr * Math.max(0, term);
+}
+
+/**
+ * Clear-sky daily radiation R_so = (0.75 + 2·10⁻⁵·z)·R_a — FAO-56 eq. 37,
+ * z the site elevation in metres (0 = sea level ⇒ 75 % transmission).
+ */
+export function clearSkyRadiation(r_a: number, elevationM = 0): number {
+  return (0.75 + 2e-5 * elevationM) * r_a;
+}
+
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+function annualCurvePoints(pick: (decl: number) => number): Array<{ x: number; y: number }> {
+  const pts: Array<{ x: number; y: number }> = [];
+  for (let d = 1; d <= 365; d += 1) pts.push({ x: d, y: pick(solarDeclination(d)) });
+  return pts;
+}
+
+/**
+ * Figure sheet for one latitude: annual day length, annual noon elevation
+ * and annual daily radiation (extraterrestrial R_a + clear-sky R_so lines).
+ */
+export function solarFigurePanels(lat: number): GeoFigurePanel[] {
+  const panels: GeoFigurePanel[] = [];
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: `Annual day length — lat ${lat}°`,
+      xLabel: 'day of year',
+      yLabel: 'hours',
+      ticks: 5,
+      grid: true,
+      series: [{ name: 'day length', kind: 'line', color: '#E6A23C', points: annualCurvePoints((d) => dayLengthHours(lat, d)) }],
+    },
+  });
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: `Annual noon solar elevation — lat ${lat}°`,
+      xLabel: 'day of year',
+      yLabel: '°',
+      ticks: 5,
+      grid: true,
+      series: [{ name: 'noon elevation', kind: 'line', color: '#4DA3FF', points: annualCurvePoints((d) => Math.max(0, noonElevation(lat, d))) }],
+    },
+  });
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: `Daily radiation — lat ${lat}°`,
+      xLabel: 'day of year',
+      yLabel: 'MJ·m⁻²·day⁻¹',
+      ticks: 5,
+      grid: true,
+      legend: true,
+      series: [
+        { name: 'R_a extraterrestrial', kind: 'line', color: '#B07AA1', points: annualCurvePoints((d) => extraterrestrialRadiation(lat, solarDeclination(d), d)) },
+        { name: 'R_so clear-sky', kind: 'line', color: '#5FD0A5', dash: [4, 2], points: annualCurvePoints((d) => clearSkyRadiation(extraterrestrialRadiation(lat, solarDeclination(d), d))) },
+      ],
+    },
+  });
+  return panels;
+}
+
 const MONTHS_ZH = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -111,6 +206,10 @@ export class SolarPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-solar');
+      return;
+    }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
       return;
     }
     let redraw = false;
@@ -178,8 +277,23 @@ export class SolarPlugin implements Plugin {
         step: 1,
         value: this.state.day,
       },
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
+  }
+
+  /** Stream the annual-geometry sheet (day length / elevation / radiation). */
+  private async sendToFigure(): Promise<void> {
+    const caption: Bilingual = {
+      zh: `纬度 ${this.state.lat}° 的年昼长、正午太阳高度与日辐射曲线。R_a = (24·60/π)·Gsc·dr·(ωs·sinφ·sinδ + cosφ·cosδ·sinωs)，R_so = (0.75 + 2·10⁻⁵·z)·R_a（FAO-56）。`,
+      en: `Annual day length, noon solar elevation and daily radiation at lat ${this.state.lat}°. R_a = (24·60/π)·Gsc·dr·(ωs·sinφ·sinδ + cosφ·cosδ·sinωs), R_so = (0.75 + 2·10⁻⁵·z)·R_a (FAO-56).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '太阳几何与辐射', en: 'Solar geometry & radiation' },
+      caption,
+      solarFigurePanels(this.state.lat),
+    );
   }
 
   getSupportedFormats() {
@@ -245,6 +359,8 @@ export class SolarPlugin implements Plugin {
 
     g.fillStyle = 'rgba(170, 182, 200, 0.95)';
     const dateStr = zh ? `${month}月${day}日` : `${MONTHS_EN[month - 1]} ${day}`;
+    const ra = extraterrestrialRadiation(lat, decl, doy);
+    const rso = clearSkyRadiation(ra);
     const info =
       zh
         ? `太阳赤纬 δ = ${fmt(decl)}°\u3000正午太阳高度 H = ${fmt(elev)}°\u3000昼长 = ${fmt(len)} h` +
@@ -252,13 +368,21 @@ export class SolarPlugin implements Plugin {
         : `Declination δ = ${fmt(decl)}°\u3000Noon elevation H = ${fmt(elev)}°\u3000Day length = ${fmt(len)} h` +
           (ss ? `\u3000Sunrise ${fmtH(ss[0])} / Sunset ${fmtH(ss[1])} (solar time)` : '');
     g.fillText(info, 14, 40);
+    g.fillStyle = 'rgba(190, 200, 216, 0.95)';
+    g.fillText(
+      zh
+        ? `日辐射（FAO-56）：R_a = ${ra.toFixed(1)} MJ·m⁻²\u3000R_so（晴空） = ${rso.toFixed(1)} MJ·m⁻²`
+        : `Daily radiation (FAO-56): R_a = ${ra.toFixed(1)} MJ·m⁻²\u3000R_so (clear-sky) = ${rso.toFixed(1)} MJ·m⁻²`,
+      14,
+      58,
+    );
     const polar = polarState(lat, decl);
     if (polar !== 'normal') {
       g.fillStyle = polar === 'polar-day' ? 'rgba(255, 200, 90, 0.95)' : 'rgba(120, 180, 255, 0.95)';
       g.fillText(
         polar === 'polar-day' ? `☀ ${dateStr}：${zh ? '极昼' : 'Polar day'}` : `☾ ${dateStr}：${zh ? '极夜' : 'Polar night'}`,
         14,
-        60,
+        78,
       );
     }
 
@@ -272,7 +396,7 @@ export class SolarPlugin implements Plugin {
     const zh = isZh(this.api.locale);
     const padL = 46;
     const padR = 14;
-    const gapTop = upper ? 74 : 0;
+    const gapTop = upper ? 90 : 0;
     const halfH = (canvas.height - gapTop) / (upper ? 2 : 1);
     const x0 = padL;
     const x1 = canvas.width - padR;

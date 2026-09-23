@@ -17,5 +17,10 @@ export const bioEpidemicManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-epidemic',
   category: 'scientific',
-  formats: [{ extension: '.json', mimeTypes: ['application/json'], description: 'model config JSON' }],
+  formats: [
+    { extension: '.json', mimeTypes: ['application/json'], description: 'model config JSON' },
+    { extension: '.csv', mimeTypes: ['text/csv'], description: 'daily new / cumulative case counts (day, cases)' },
+    { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'daily case counts (day \\t cases)' },
+    { extension: '.dat', mimeTypes: ['text/plain'], description: 'daily case counts (whitespace columns)' },
+  ],
 };

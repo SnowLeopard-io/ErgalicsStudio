@@ -14,9 +14,12 @@ import {
   polarState,
   sunriseSunset,
   monthDayToDoy,
+  extraterrestrialRadiation,
+  clearSkyRadiation,
+  solarFigurePanels,
 } from '@/plugins/builtin/geo/solar';
-import { parseClimateCsv, summarizeClimate } from '@/plugins/builtin/geo/climograph';
-import { parsePyramidCsv, summarizePyramid } from '@/plugins/builtin/geo/popPyramid';
+import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '@/plugins/builtin/geo/climograph';
+import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '@/plugins/builtin/geo/popPyramid';
 import {
   parsePointsCsv,
   boundsOf,
@@ -24,8 +27,17 @@ import {
   fitVariogram,
   krigingGrid,
   solveLinear,
+  loocvValidate,
+  moransI,
+  interpFigurePanels,
 } from '@/plugins/builtin/geo/spatialInterp';
-import { parseWaypoints, chainLengthKm, polygonAreaKm2 } from '@/plugins/builtin/geo/geoMeasure';
+import {
+  parseWaypoints,
+  chainLengthKm,
+  polygonAreaKm2,
+  standardDeviationalEllipse,
+  measureFigurePanels,
+} from '@/plugins/builtin/geo/geoMeasure';
 import {
   projectMercator,
   projectMollweide,
@@ -34,11 +46,22 @@ import {
   projectOrthographicRot,
   tissotCircle,
   latLonToVec,
+  distortionAt,
+  tissotFigurePanels,
 } from '@/plugins/builtin/geo/tissot';
-import { parseAsciiGrid, hornSlopeAspect, hillshadeFromSlope } from '@/plugins/builtin/geo/terrain';
-import type { AscGrid } from '@/plugins/builtin/geo/terrain';
+import {
+  parseAsciiGrid,
+  hornSlopeAspect,
+  hillshadeFromSlope,
+  fillDepressions,
+  d8FlowDirections,
+  flowAccumulation,
+  D8_NODIR,
+  terrainFigurePanels,
+} from '@/plugins/builtin/geo/terrain';
+import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '@/plugins/builtin/geo/gpxTrack';
 import { downsampleGrid, buildTerrainMesh } from '@/plugins/builtin/geo/terrain3d';
-import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats } from '@/plugins/builtin/geo/gpxTrack';
+import type { AscGrid } from '@/plugins/builtin/geo/terrain';
 import { lonLatToVec3, angularDistance } from '@/plugins/builtin/geo/globe';
 
 import fellsGpx from '../examples/data/geo-fells-loop.gpx?raw';
@@ -486,6 +509,212 @@ describe('terrain 3D mesh', () => {
     expect(col.count).toBe(12);
     mesh.geometry.dispose();
     (mesh.material as { dispose(): void }).dispose();
+  });
+});
+
+// ---- research upgrades: FAO-56 radiation --------------------------------------
+
+describe('solar radiation (FAO-56)', () => {
+  it('R_a at the equator on an equinox ≈ 37.6 MJ·m⁻²·day⁻¹', () => {
+    const ra = extraterrestrialRadiation(0, 0, 91);
+    expect(closeTo(ra, 37.6, 0.15)).toBe(true);
+  });
+  it('polar night → zero extraterrestrial radiation', () => {
+    expect(extraterrestrialRadiation(80, -23.44, 173)).toBe(0);
+  });
+  it('clear-sky R_so scales with elevation transmission', () => {
+    expect(closeTo(clearSkyRadiation(30, 0), 22.5, 1e-9)).toBe(true);
+    expect(closeTo(clearSkyRadiation(30, 1000), 0.77 * 30, 1e-9)).toBe(true);
+  });
+});
+
+// ---- research upgrades: LOOCV & Moran's I --------------------------------------
+
+describe("LOOCV cross-validation & Moran's I", () => {
+  // 5×5 regular grid with a linear trend: symmetric IDW neighbours make
+  // interior predictions exact, so RMSE stays a small fraction of the span.
+  const trend: Array<{ lon: number; lat: number; value: number }> = [];
+  for (let j = 0; j < 5; j += 1) {
+    for (let i = 0; i < 5; i += 1) {
+      trend.push({ lon: 100 + i * 0.25, lat: 30 + j * 0.25, value: 10 * i + 100 * j });
+    }
+  }
+  it('LOOCV on a smooth trend field keeps RMSE well below the data span', () => {
+    const res = loocvValidate(trend, 'idw', 2)!;
+    expect(res.n).toBe(25);
+    expect(res.rows.length).toBe(25);
+    expect(res.mae).toBeLessThan(res.rmse + 1e-9);
+    expect(res.rmse).toBeLessThan(0.25 * 440); // span = 10·4 + 100·4
+  });
+  it('LOOCV needs ≥ 4 stations; kriging LOOCV runs on small sets', () => {
+    expect(loocvValidate(trend.slice(0, 3), 'idw', 2)).toBeNull();
+    const res = loocvValidate(trend.slice(0, 9), 'kriging', 2);
+    expect(res).not.toBeNull();
+    expect(Number.isFinite(res!.rmse)).toBe(true);
+  });
+  it("Moran's I: clustered values → positive I, alternating → negative I", () => {
+    const clustered: Array<{ lon: number; lat: number; value: number }> = [];
+    for (let i = 0; i < 5; i += 1) {
+      clustered.push({ lon: 110 + i * 0.02, lat: 30 + i * 0.02, value: 100 });
+      clustered.push({ lon: 112 + i * 0.02, lat: 32 + i * 0.02, value: 0 });
+    }
+    const pos = moransI(clustered)!;
+    expect(pos.i).toBeGreaterThan(0.5);
+    expect(pos.z).toBeGreaterThan(0);
+    const shuffled = clustered.map((p, k) => ({ ...p, value: k % 2 === 0 ? 100 : 0 }));
+    expect(moransI(shuffled)!.i).toBeGreaterThan(0); // same pattern → still clustered
+    // Alternating values along one tight line: close neighbours disagree → I < 0.
+    const dispersed: Array<{ lon: number; lat: number; value: number }> = [];
+    for (let i = 0; i < 10; i += 1) {
+      dispersed.push({ lon: 110 + i * 0.01, lat: 30 + i * 0.01, value: i % 2 === 0 ? 100 : 0 });
+    }
+    expect(moransI(dispersed)!.i).toBeLessThan(0);
+  });
+  it("Moran's I needs ≥ 4 points", () => {
+    expect(moransI(trend.slice(0, 3))).toBeNull();
+  });
+});
+
+// ---- research upgrades: standard deviational ellipse ---------------------------
+
+describe('standard deviational ellipse', () => {
+  it('E-W stretched pattern → major axis bearing 90°, a > b, closed-form axes', () => {
+    const pts = [
+      { lat: 30, lon: 100 },
+      { lat: 30, lon: 102 },
+      { lat: 30, lon: 104 },
+      { lat: 31, lon: 101 },
+      { lat: 29, lon: 101 },
+    ];
+    const sde = standardDeviationalEllipse(pts)!;
+    expect(closeTo(sde.centerLon, 101.6, 1e-9)).toBe(true);
+    expect(closeTo(sde.centerLat, 30, 1e-9)).toBe(true);
+    expect(sde.azimuthDeg > 89 && sde.azimuthDeg < 91).toBe(true);
+    expect(sde.semiMajorKm).toBeGreaterThan(sde.semiMinorKm);
+    // Closed form: a = √(Σx²/n) = K·√1.38, b = K·√0.4 with K = 110.574.
+    expect(closeTo(sde.semiMajorKm, 130.8, 3)).toBe(true);
+    expect(closeTo(sde.semiMinorKm, 69.9, 3)).toBe(true);
+  });
+  it('needs ≥ 3 points', () => {
+    expect(standardDeviationalEllipse([{ lat: 0, lon: 0 }, { lat: 1, lon: 1 }])).toBeNull();
+  });
+});
+
+// ---- research upgrades: Mercator distortion -------------------------------------
+
+describe('local distortion metrics', () => {
+  it('Mercator is conformal with h = k = sec φ (×2 at 60°)', () => {
+    const d = distortionAt(projectMercator, 0, 60)!;
+    expect(closeTo(d.h, 2, 0.01)).toBe(true);
+    expect(closeTo(d.k, 2, 0.01)).toBe(true);
+    expect(closeTo(d.areaRatio, 4, 0.05)).toBe(true);
+    expect(closeTo(d.flattening, 1, 0.01)).toBe(true);
+  });
+});
+
+// ---- research upgrades: watershed ------------------------------------------------
+
+describe('watershed: priority-flood / D8 / accumulation', () => {
+  it('priority-flood raises an interior depression just above its spill level', () => {
+    const values = new Float64Array([5, 5, 5, 5, 1, 5, 5, 5, 5]);
+    const filled = fillDepressions(values, 3, 3);
+    expect(filled[4]!).toBeGreaterThan(5);
+    expect(filled[4]!).toBeLessThan(5.001);
+    expect(filled[0]!).toBe(5); // boundary cells are untouched
+  });
+  it('interior NoData stays NaN and acts as a drain', () => {
+    const values = new Float64Array([5, 5, 5, 5, NaN, 5, 5, 5, 5]);
+    const filled = fillDepressions(values, 3, 3);
+    expect(Number.isNaN(filled[4]!)).toBe(true);
+    expect(filled[1]!).toBe(5);
+  });
+  it('D8 directions descend a tilted plane toward the corner; accumulation sums to n²', () => {
+    // A closed cone would be an endoreic basin that priority-flood fills
+    // completely; a plane draining to the (0,0) corner is the clean case.
+    const n = 5;
+    const values = new Float64Array(n * n);
+    for (let y = 0; y < n; y += 1) {
+      for (let x = 0; x < n; x += 1) values[y * n + x] = x + y;
+    }
+    const filled = fillDepressions(values, n, n);
+    const dir = d8FlowDirections(filled, n, n, 1);
+    const acc = flowAccumulation(filled, dir);
+    expect(dir[0]!).toBe(D8_NODIR); // (0,0) is the outlet
+    expect(closeTo(acc[0]!, 25, 1e-9)).toBe(true);
+    for (let i = 1; i < n * n; i += 1) {
+      const d = dir[i]!;
+      expect(d).toBeGreaterThanOrEqual(0);
+      expect(filled[d]!).toBeLessThan(filled[i]!);
+    }
+    expect(acc[0]!).toBeGreaterThan(acc[n * n - 1]!);
+  });
+  it('figure panels: three field rasters sized to the grid', () => {
+    const grid: AscGrid = {
+      ncols: 5,
+      nrows: 5,
+      xllcorner: 0,
+      yllcorner: 0,
+      cellsize: 1,
+      nodata: -9999,
+      values: new Float64Array(25).map((_, i) => Math.hypot((i % 5) - 2, Math.floor(i / 5) - 2)),
+    };
+    const panels = terrainFigurePanels(grid);
+    expect(panels.length).toBe(3);
+    for (const p of panels) {
+      const series = p.spec.series[0]!;
+      expect(series.kind).toBe('field');
+      expect(series.field!.values.length).toBe(25);
+    }
+  });
+});
+
+// ---- Figure Studio panel exports -------------------------------------------------
+
+describe('geo Figure Studio panels', () => {
+  it('solar: three annual-curve panels with row-major placement', () => {
+    const panels = solarFigurePanels(40);
+    expect(panels.length).toBe(3);
+    panels.forEach((p, i) => {
+      expect(p.spec.series.length).toBeGreaterThan(0);
+      expect(p.row).toBe(Math.floor(i / 3));
+      expect(p.col).toBe(i % 3);
+    });
+  });
+  it('climograph: temperature line + precipitation bars', () => {
+    const panels = climographFigurePanels(parseClimateCsv(climateBeijingCsv)!);
+    expect(panels.length).toBe(2);
+    expect(panels[0]!.spec.series[0]!.kind).toBe('line');
+    expect(panels[1]!.spec.series[0]!.kind).toBe('bar');
+  });
+  it('pyramid: male + female bar panels', () => {
+    const panels = pyramidFigurePanels(parsePyramidCsv(popChinaCsv)!);
+    expect(panels.length).toBe(2);
+    for (const p of panels) expect(p.spec.series[0]!.kind).toBe('bar');
+  });
+  it('interp: field surface (+ variogram for kriging) + LOOCV scatter', () => {
+    const stations = parsePointsCsv(stationsCsv);
+    const idw = interpFigurePanels(stations, 'idw', 2);
+    expect(idw.length).toBe(2);
+    expect(idw[0]!.spec.series[0]!.kind).toBe('field');
+    expect(interpFigurePanels(stations, 'kriging', 2).length).toBe(3);
+  });
+  it('measure: segment bars + cumulative distance line', () => {
+    expect(measureFigurePanels(parseWaypoints(measurePointsJson)).length).toBe(2);
+  });
+  it('tissot: area + axis-ratio profiles', () => {
+    expect(tissotFigurePanels('mercator').length).toBe(2);
+  });
+  it('terrain: three field panels from the sample DEM', () => {
+    expect(terrainFigurePanels(parseAsciiGrid(terrainAsc)!).length).toBe(3);
+  });
+  it('gpx: elevation + gradient panels; no-elevation track → []', () => {
+    const pts = parseGpx(fellsGpx);
+    const panels = gpxFigurePanels(pts);
+    expect(panels.length).toBe(2);
+    expect(panels[0]!.spec.series[0]!.points!.length).toBeGreaterThan(0);
+    expect(panels[1]!.spec.series[0]!.points!.length).toBeGreaterThan(0);
+    expect(closeTo(panels[1]!.spec.xDomain![1]!, trackStats(pts).totalKm, 1e-6)).toBe(true);
+    expect(gpxFigurePanels([{ lat: 47, lon: 7 }, { lat: 47.1, lon: 7.1 }])).toEqual([]);
   });
 });
 

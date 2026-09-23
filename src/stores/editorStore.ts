@@ -50,6 +50,14 @@ export interface EditorStore {
   createSession: (mode: 'block' | 'code', language: CodeLanguage) => EditorSession;
   /** Switch a code session's language and translate its code from the IR. */
   setSessionLanguage: (id: string, language: CodeLanguage) => void;
+  /** Commit an accepted (possibly user-edited) translation verbatim. */
+  applyLanguageWithCode: (id: string, language: CodeLanguage, code: string) => void;
+  /** Discard the translation: switch language with a blank buffer. */
+  blankSession: (id: string, language: CodeLanguage) => void;
+  /** Undo a "discard" from a pre-switch snapshot. */
+  restoreSessionSnapshot: (id: string, snap: { language: CodeLanguage; ir: IRProgram; lastCode: string }) => void;
+  /** Clear the one-shot forceBlank flag after CodeEditor has emptied the buffer. */
+  consumeForceBlank: (id: string) => void;
   setActiveSession: (id: string) => void;
   updateSessionIR: (id: string, ir: IRProgram, lastCode?: string) => void;
   removeSession: (id: string) => void;
@@ -188,7 +196,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
               ...x,
               language,
               lastCode: code,
-              ir: code.trim() !== '' ? parseCodeToIR(code, codegenLang(language) === 'r' ? 'r' : codegenLang(language) === 'js' ? 'js' : 'python').program : makeProgram([]),
+              ir: code.trim() !== '' ? parseCodeToIR(code, codegenLang(language)).program : makeProgram([]),
               forceBlank: false,
               syncState: 'code-dirty',
               updatedAt: Date.now(),
@@ -230,6 +238,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       ),
     }));
     notifyChanged();
+  },
+
+  consumeForceBlank: (id) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id ? { ...x, forceBlank: false } : x,
+      ),
+    }));
   },
 
   setActiveSession: (id) => {

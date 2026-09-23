@@ -11,9 +11,9 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
 import { bioPopgenManifest } from './manifest';
-import { DEFAULT_COUNTS, DEFAULT_WF, hweTest, wrightFisher, type WfResult } from './popgen';
+import { DEFAULT_WF, hweTest, parseGenotypeCounts, parseVcfGenotypes, wrightFisher, type WfResult } from './popgen';
 
 export { bioPopgenManifest } from './manifest';
 
@@ -38,6 +38,7 @@ export class BioPopgenPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
+  private hasData = false;
   private state: State = {
     view: 'drift',
     p0: DEFAULT_WF.p0,
@@ -47,9 +48,9 @@ export class BioPopgenPlugin implements Plugin {
     selection: DEFAULT_WF.selection,
     dominance: DEFAULT_WF.dominance,
     seed: DEFAULT_WF.seed,
-    AA: DEFAULT_COUNTS.AA,
-    Aa: DEFAULT_COUNTS.Aa,
-    aa: DEFAULT_COUNTS.aa,
+    AA: 0,
+    Aa: 0,
+    aa: 0,
   };
   private wf: WfResult | null = null;
 
@@ -60,7 +61,6 @@ export class BioPopgenPlugin implements Plugin {
       this.zh = l === 'zh-CN';
       this.draw();
     });
-    this.recompute();
   }
 
   async destroy() {
@@ -79,6 +79,7 @@ export class BioPopgenPlugin implements Plugin {
   }
 
   private recompute() {
+    this.hasData = true;
     this.wf = wrightFisher({
       p0: this.state.p0,
       diploidN: this.state.diploidN,
@@ -242,12 +243,15 @@ export class BioPopgenPlugin implements Plugin {
     if (typeof params.dominance === 'string' && ['0', '0.5', '1'].includes(params.dominance)) this.state.dominance = Number(params.dominance);
     num('AA', (n) => {
       this.state.AA = Math.max(0, Math.round(n));
+      this.hasData = true;
     });
     num('Aa', (n) => {
       this.state.Aa = Math.max(0, Math.round(n));
+      this.hasData = true;
     });
     num('aa', (n) => {
       this.state.aa = Math.max(0, Math.round(n));
+      this.hasData = true;
     });
     if (actionFired(params, 'rerun')) recompute = true;
     if (actionFired(params, 'exportCsv')) {
@@ -272,22 +276,40 @@ export class BioPopgenPlugin implements Plugin {
 
   async loadData(file: File) {
     const low = file.name.toLowerCase();
-    if (!low.endsWith('.csv') && !low.endsWith('.txt')) {
-      notify(this.api, 'warning', 'popgen accepts AA,Aa,aa counts CSV.', '群体遗传学接受 AA,Aa,aa 计数 CSV。');
+    const isVcf = low.endsWith('.vcf') || low.endsWith('.vcf.gz');
+    const isJson = low.endsWith('.json');
+    const isTabular = low.endsWith('.csv') || low.endsWith('.tsv') || low.endsWith('.txt') || low.endsWith('.dat');
+    if (!isVcf && !isJson && !isTabular) {
+      notify(this.api, 'warning', 'popgen accepts genotype-count CSV/TSV/JSON or a VCF.', '群体遗传学接受基因型计数 CSV/TSV/JSON 或 VCF。');
       return;
     }
     const text = await file.text();
-    const nums = text.split(/[,\t\r\n;]+/).map((x) => Number(x)).filter((x) => Number.isFinite(x) && x >= 0);
-    if (nums.length >= 3) {
-      this.state.AA = Math.round(nums[0]!);
-      this.state.Aa = Math.round(nums[1]!);
-      this.state.aa = Math.round(nums[2]!);
-      this.state.view = 'hwe';
-      notify(this.api, 'success', `Loaded AA=${this.state.AA}, Aa=${this.state.Aa}, aa=${this.state.aa}.`, `已加载 AA=${this.state.AA}，Aa=${this.state.Aa}，aa=${this.state.aa}。`);
-      this.draw();
+    const vcf = parseVcfGenotypes(text);
+    if (vcf) {
+      this.applyCounts(vcf, 'VCF');
       return;
     }
-    notify(this.api, 'warning', 'Need ≥3 numeric columns (AA,Aa,aa).', '需要至少 3 列数值（AA,Aa,aa）。');
+    const parsed = parseGenotypeCounts(text);
+    if (parsed) {
+      this.applyCounts(parsed, low.toUpperCase());
+      return;
+    }
+    notify(this.api, 'warning', 'Could not parse genotypes from this file.', '无法从该文件解析出基因型计数。');
+  }
+
+  private applyCounts(counts: { AA: number; Aa: number; aa: number }, src: string) {
+    this.state.AA = Math.round(counts.AA);
+    this.state.Aa = Math.round(counts.Aa);
+    this.state.aa = Math.round(counts.aa);
+    this.state.view = 'hwe';
+    this.hasData = true;
+    notify(
+      this.api,
+      'success',
+      `Loaded ${src}: AA=${this.state.AA}, Aa=${this.state.Aa}, aa=${this.state.aa} (N=${this.state.AA + this.state.Aa + this.state.aa}).`,
+      `已加载 ${src}：AA=${this.state.AA}，Aa=${this.state.Aa}，aa=${this.state.aa}（N=${this.state.AA + this.state.Aa + this.state.aa}）。`,
+    );
+    this.draw();
   }
 
   private exportCsv() {
@@ -310,6 +332,15 @@ export class BioPopgenPlugin implements Plugin {
     canvas.height = canvas.clientHeight || 420;
     const g = canvas.getContext('2d');
     if (!g) return;
+    if (!this.hasData) {
+      drawEmptyCanvas(this.api, canvas, {
+        title: 'No population-genetics data',
+        titleZh: '尚未加载群体遗传数据',
+        hint: 'Re-run drift from parameters, or load genotype counts (HWE CSV/JSON or VCF) for the Hardy-Weinberg test.',
+        hintZh: '可从参数重跑漂变，或载入基因型计数（HWE CSV/JSON 或 VCF）进行哈代-温伯格检验。',
+      });
+      return;
+    }
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);

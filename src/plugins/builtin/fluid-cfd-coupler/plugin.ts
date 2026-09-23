@@ -102,6 +102,12 @@ export class FluidCfdCouplerPlugin implements Plugin {
     this.client.dispose();
   }
 
+  async deactivate() {
+    // The host scene is SHARED between 3-D plugins: drop our field mesh on
+    // every switch-away or the next 3-D plugin renders on top of it.
+    this.teardown3d();
+  }
+
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
     if (context.container.three) this.three = context.container.three;

@@ -17,5 +17,11 @@ export const bioPopgenManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-popgen',
   category: 'scientific',
-  formats: [{ extension: '.csv', mimeTypes: ['text/csv'], description: 'genotype AA,Aa,aa counts or drift paths' }],
+  formats: [
+    { extension: '.csv', mimeTypes: ['text/csv'], description: 'genotype AA,Aa,aa counts' },
+    { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'tab-separated AA,Aa,aa counts' },
+    { extension: '.json', mimeTypes: ['application/json'], description: 'genotype counts {AA,Aa,aa} / [AA,Aa,aa]' },
+    { extension: '.vcf', mimeTypes: ['text/vcard', 'text/plain', 'application/gzip'], description: 'VCF variant-call genotypes (GT)' },
+    { extension: '.dat', mimeTypes: ['text/plain'], description: 'whitespace AA,Aa,aa counts' },
+  ],
 };

@@ -14,6 +14,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
 import { isZh, parseDelimited } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import type { CategoricalTicks } from '@/core/plot';
 import { climographManifest } from './climographManifest';
 
 export { climographManifest } from './climographManifest';
@@ -121,6 +124,53 @@ export function summarizeClimate(months: ClimateMonth[]): ClimateSummary {
   return { coldest, warmest, annualTemp, annualPrecip, range: warmest - coldest, regime, group };
 }
 
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+const MONTH_TICKS: CategoricalTicks[] = Array.from({ length: 12 }, (_, i) => ({ pos: i + 1, label: String(i + 1) }));
+
+/** Figure sheet for one station: temperature line + precipitation bars. */
+export function climographFigurePanels(station: ClimateStation): GeoFigurePanel[] {
+  const months = station.months;
+  const tempPts = months.map((m) => ({ x: m.month, y: m.temp }));
+  const bars = months.map((m) => ({ x0: m.month - 0.4, x1: m.month + 0.4, y: m.precip }));
+  const pMax = Math.max(...months.map((m) => m.precip), 10);
+  return [
+    {
+      ...panelPlace(0),
+      tag: panelTag(0),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: `Temperature — ${station.station || 'station'}`,
+        xLabel: 'month',
+        yLabel: '°C',
+        xDomain: [0.5, 12.5],
+        xTicksOverride: MONTH_TICKS,
+        ticks: 5,
+        grid: true,
+        series: [{ name: 'mean temp', kind: 'line', color: '#FF9678', points: tempPts }],
+      },
+    },
+    {
+      ...panelPlace(1),
+      tag: panelTag(1),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: `Precipitation — ${station.station || 'station'}`,
+        xLabel: 'month',
+        yLabel: 'mm',
+        xDomain: [0.5, 12.5],
+        yDomain: [0, pMax],
+        xTicksOverride: MONTH_TICKS,
+        ticks: 5,
+        grid: true,
+        series: [{ name: 'precip', kind: 'bar', color: '#64A0F0', bars }],
+      },
+    },
+  ];
+}
+
 // ---- Plugin ----------------------------------------------------------------
 
 interface State {
@@ -161,10 +211,32 @@ export class ClimographPlugin implements Plugin {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-climograph');
       return;
     }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
+      return;
+    }
     if (typeof params.showValues === 'boolean') {
       this.state.showValues = params.showValues;
       this.draw();
     }
+  }
+
+  /** Stream the temperature/precipitation sheet for the loaded station. */
+  private async sendToFigure(): Promise<void> {
+    const st = this.state.station;
+    if (!st) return;
+    const s = summarizeClimate(st.months);
+    const name = st.station || (isZh(this.api.locale) ? '站点' : 'station');
+    const caption: Bilingual = {
+      zh: `${name} 气候直方图：年均温 ${s.annualTemp.toFixed(1)} °C，年降水 ${Math.round(s.annualPrecip)} mm，年较差 ${s.range.toFixed(1)} °C；最冷月 ${s.coldest.toFixed(1)} °C，最热月 ${s.warmest.toFixed(1)} °C（柯本组 ${s.group}）。`,
+      en: `Climatograph of ${name}: mean ${s.annualTemp.toFixed(1)} °C, annual rain ${Math.round(s.annualPrecip)} mm, range ${s.range.toFixed(1)} °C; coldest ${s.coldest.toFixed(1)} °C, warmest ${s.warmest.toFixed(1)} °C (Köppen group ${s.group}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: `气候直方图 · ${name}`, en: `Climatograph · ${name}` },
+      caption,
+      climographFigurePanels(st),
+    );
   }
 
   getParams(): ParamDefinition[] {
@@ -176,6 +248,7 @@ export class ClimographPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showValues,
       },
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }

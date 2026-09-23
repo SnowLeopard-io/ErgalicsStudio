@@ -3,6 +3,7 @@ import {
   apparentParams,
   fitMichaelisMenten,
   initialRate,
+  parseRateData,
   reportFit,
   synthesizeRates,
   type RateParams,
@@ -78,5 +79,37 @@ describe('bio-enzyme kinetics kernel', () => {
     const rest = fitMichaelisMenten(synthesizeRates(truth, pts, 0.1))!;
     expect(Math.abs((rest.vmax - 80) / 80)).toBeLessThan(0.08);
     expect(Math.abs((rest.km - 4) / 4)).toBeLessThan(0.18);
+  });
+});
+
+describe('bio-enzyme data parser', () => {
+  it('parses comment + header CSV into (substrate, v0) points', () => {
+    const txt = `# assay
+substrate,v0
+0.5,1.0
+1,2.0
+2,3.0`;
+    const pts = parseRateData(txt);
+    expect(pts).toHaveLength(3);
+    expect(pts[0]).toEqual({ s: 0.5, v: 1 });
+    expect(pts[2]).toEqual({ s: 2, v: 3 });
+  });
+
+  it('parses whitespace / tab separated columns', () => {
+    const pts = parseRateData('0.5 1.0\n1.0 2.0\n2.0 3.5');
+    expect(pts.map((p) => p.s)).toEqual([0.5, 1, 2]);
+  });
+
+  it('parses an array of JSON objects with s/v or substrate/v0 keys', () => {
+    const a = parseRateData('[{"s":1,"v":2},{"s":2,"v":3.5}]');
+    expect(a).toEqual([{ s: 1, v: 2 }, { s: 2, v: 3.5 }]);
+    const b = parseRateData('[{"substrate":5,"v0":20}]');
+    expect(b).toEqual([{ s: 5, v: 20 }]);
+  });
+
+  it('drops rows with zero/negative substrate and returns [] for empty text', () => {
+    expect(parseRateData('0,5\n-1,3\n2,4')).toEqual([{ s: 2, v: 4 }]);
+    expect(parseRateData('')).toEqual([]);
+    expect(parseRateData('   ')).toEqual([]);
   });
 });

@@ -10,14 +10,16 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
 import { bioEpidemicManifest } from './manifest';
 import {
   DEFAULT_CONFIG,
+  parseObservedSeries,
   reportEpidemic,
   simulateEpidemic,
   type EpidemicReport,
   type ModelConfig,
+  type ObservedSeries,
 } from './epidemic';
 
 export { bioEpidemicManifest } from './manifest';
@@ -39,6 +41,8 @@ export class BioEpidemicPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
+  private hasData = false;
+  private observed: ObservedSeries | null = null;
   private state: State = {
     model: DEFAULT_CONFIG.model,
     r0: DEFAULT_CONFIG.r0,
@@ -50,14 +54,8 @@ export class BioEpidemicPlugin implements Plugin {
     showSensitivity: false,
     logY: false,
   };
-  private report: EpidemicReport;
+  private report: EpidemicReport | null = null;
   private trajectories: Array<{ r0: number; lat?: number[]; inc?: number[]; fr?: number[]; rec: number[]; days: number[] }> = [];
-
-  constructor() {
-    const cfg = this.config();
-    const traj = simulateEpidemic(cfg);
-    this.report = reportEpidemic(cfg, traj);
-  }
 
   async init(api: PluginApi) {
     this.api = api;
@@ -263,12 +261,39 @@ export class BioEpidemicPlugin implements Plugin {
   }
 
   async loadData(file: File) {
-    if (!file.name.toLowerCase().endsWith('.json')) {
-      notify(this.api, 'warning', 'Epidemic accepts model-config .json.', '传染病插件接受模型配置 .json。');
+    const low = file.name.toLowerCase();
+    const isJson = low.endsWith('.json');
+    const isTabular = low.endsWith('.csv') || low.endsWith('.tsv') || low.endsWith('.txt') || low.endsWith('.dat');
+    if (!isJson && !isTabular) {
+      notify(this.api, 'warning', 'Epidemic accepts model-config JSON or daily-case CSV/TSV.', '传染病插件接受模型配置 JSON 或逐日病例 CSV/TSV。');
+      return;
+    }
+    const text = await file.text();
+    if (isTabular) {
+      const obs = parseObservedSeries(text);
+      if (!obs) {
+        notify(this.api, 'warning', 'Need at least 2 day, cases rows.', '至少需要 2 行 day,cases 数据。');
+        return;
+      }
+      this.observed = obs;
+      this.hasData = true;
+      // Align the model horizon with the observed series so the overlay fits.
+      this.state.days = Math.max(this.state.days, obs.days[obs.days.length - 1]! + 1);
+      const src = obs.cumulative[obs.cumulative.length - 1]!;
+      // Infer a plausible total population from the cumulative case total + margin.
+      if (src > 0) this.state.population = Math.max(this.state.population, Math.round(src * 4));
+      this.recompute();
+      notify(
+        this.api,
+        'success',
+        `Loaded ${obs.days.length} daily-case rows (peak new ${Math.max(...obs.newCases)}).`,
+        `已加载 ${obs.days.length} 行逐日病例（新增峰值 ${Math.max(...obs.newCases)}）。`,
+      );
+      this.draw();
       return;
     }
     try {
-      const cfg = JSON.parse(await file.text()) as Partial<ModelConfig>;
+      const cfg = JSON.parse(text) as Partial<ModelConfig>;
       const s = this.state;
       if (typeof cfg.r0 === 'number') s.r0 = cfg.r0;
       if (typeof cfg.infectiousDays === 'number') s.infectiousDays = cfg.infectiousDays;
@@ -277,6 +302,7 @@ export class BioEpidemicPlugin implements Plugin {
       if (typeof cfg.initialInfected === 'number') s.initialInfected = cfg.initialInfected;
       if (typeof cfg.days === 'number') s.days = cfg.days;
       if (cfg.model === 'SIR' || cfg.model === 'SEIR') s.model = cfg.model;
+      this.hasData = true;
       this.recompute();
       notify(this.api, 'success', 'Config loaded.', '已加载模型配置。');
       this.draw();
@@ -330,6 +356,15 @@ export class BioEpidemicPlugin implements Plugin {
     canvas.height = canvas.clientHeight || 420;
     const g = canvas.getContext('2d');
     if (!g) return;
+    if (!this.hasData) {
+      drawEmptyCanvas(this.api, canvas, {
+        title: 'No epidemic data',
+        titleZh: '尚未加载传染病数据',
+        hint: 'Load a model-config JSON or a daily case-count CSV / TSV to run the model.',
+        hintZh: '载入模型配置 JSON 或逐日病例 CSV/TSV 以运行模型。',
+      });
+      return;
+    }
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);
@@ -339,11 +374,64 @@ export class BioEpidemicPlugin implements Plugin {
     const N = cfg.population;
     this.plotCompartment(g, canvas, traj.days, traj.susceptible, traj.infectious, traj.recovered, traj.exposed ?? null, N);
 
+    if (this.observed) this.plotObserved(g, canvas, N);
+
     if (this.state.showSensitivity) {
       for (const t of this.trajectories.length ? this.trajectories : this.overlayTrajectories()) {
         this.plotOverlay(g, canvas, t.days, t.inc!, N, t.r0);
       }
     }
+  }
+
+  /** Overlay observed daily case counts as a filled blue step + dots. */
+  private plotObserved(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, pop: number) {
+    const obs = this.observed;
+    if (!obs || obs.days.length === 0) return;
+    const maxDay = Math.max(this.config().days, obs.days[obs.days.length - 1]!);
+    const maxVal = this.state.logY ? Math.log10(Math.max(pop * 1.05, Math.max(...obs.newCases, 1))) : Math.max(pop * 1.05, Math.max(...obs.newCases));
+    const x0 = 62;
+    const x1 = canvas.width - 20;
+    const y0 = 46;
+    const y1 = canvas.height - 46;
+    const plotW = Math.max(x1 - x0, 10);
+    const plotH = Math.max(y1 - y0, 10);
+    const px = (d: number) => x0 + (plotW * d) / maxDay;
+    const py = (v: number) => {
+      const vv = this.state.logY ? Math.log10(Math.max(v, 1)) : v;
+      return y1 - (plotH * vv) / maxVal;
+    };
+    g.fillStyle = 'rgba(120,200,250,0.25)';
+    g.beginPath();
+    for (let i = 0; i < obs.days.length; i += 1) {
+      const x = px(obs.days[i]!);
+      const y = py(obs.newCases[i]!);
+      if (i === 0) g.moveTo(x, y1);
+      g.lineTo(x, y);
+    }
+    const lastX = px(obs.days[obs.days.length - 1]!);
+    g.lineTo(lastX, y1);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = 'rgba(120,200,250,0.9)';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    for (let i = 0; i < obs.days.length; i += 1) {
+      const x = px(obs.days[i]!);
+      const y = py(obs.newCases[i]!);
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+    g.fillStyle = 'rgba(150,220,255,0.95)';
+    for (let i = 0; i < obs.days.length; i += 1) {
+      g.beginPath();
+      g.arc(px(obs.days[i]!), py(obs.newCases[i]!), 2.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.font = `${this.zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+    g.fillStyle = 'rgba(150,220,255,0.95)';
+    g.textAlign = 'left';
+    g.fillText(this.zh ? '观测新增病例' : 'observed new cases', x0 + 4, y0 + 12);
   }
 
   private plotCompartment(
@@ -462,6 +550,7 @@ export class BioEpidemicPlugin implements Plugin {
     g.fillStyle = 'rgba(232,238,248,0.95)';
     const r = this.report;
     const fmt = (x: number) => (x < 100 ? x.toFixed(0) : x.toLocaleString());
+    if (!r) return;
     g.fillText(
       zh
         ? `峰值感染 ${fmt(r.peakInfectious)}（第 ${r.peakDay.toFixed(1)} 天） · 峰占比 ${(r.peakFraction * 100).toFixed(1)}% · 总感染率 ${(r.attackRateFraction * 100).toFixed(1)}% · R₀=${r.r0} · 群体免疫阈值 ${(r.herdImmunityFraction * 100).toFixed(1)}%`

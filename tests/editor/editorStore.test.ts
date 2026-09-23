@@ -191,4 +191,54 @@ describe('editorStore', () => {
     const parsed = JSON.parse(raw) as { sessions: EditorSession[] };
     expect(parsed.sessions[0]!.ir.body[0]!.kind).toBe('VarAssign');
   });
+
+  it('applyLanguageWithCode writes an accepted translation verbatim', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().updateSessionIR(
+      session.id,
+      makeProgram([{ kind: 'Random', count: { kind: 'Number', value: 3 } }]),
+      'df = studio.load(...)',
+    );
+    // Accept an edited version; it must be stored exactly, not re-translated.
+    useEditorStore.getState().applyLanguageWithCode(session.id, 'r', 'df <- read.csv(\'x.csv\')');
+    const s = useEditorStore.getState().sessions[0]!;
+    expect(s.language).toBe('r');
+    expect(s.lastCode).toBe("df <- read.csv('x.csv')");
+    expect(s.forceBlank).toBe(false);
+    expect(s.syncState).toBe('code-dirty');
+    // IR was re-parsed from the accepted text so downstream sync works.
+    expect(s.ir.body.length).toBeGreaterThan(0);
+  });
+
+  it('blankSession switches language with a blanked buffer and sets forceBlank', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().updateSessionIR(session.id, makeProgram([{ kind: 'Number', value: 1 }]), 'x = 1');
+    useEditorStore.getState().blankSession(session.id, 'r');
+    const s = useEditorStore.getState().sessions[0]!;
+    expect(s.language).toBe('r');
+    expect(s.lastCode).toBe('');
+    expect(s.ir.body).toHaveLength(0);
+    // The one-shot flag lets CodeEditor override the anti-wipe guard.
+    expect(s.forceBlank).toBe(true);
+  });
+
+  it('restoreSessionSnapshot undoes a discard, and consumeForceBlank clears the flag', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const origIR = makeProgram([{ kind: 'VarAssign', name: 'x', value: { kind: 'Number', value: 7 }, declare: true }]);
+    useEditorStore.getState().updateSessionIR(session.id, origIR, 'x = 7');
+    const snap = { language: 'python' as const, ir: origIR, lastCode: 'x = 7' };
+    // Copy the state a discard would have produced, then undo it.
+    useEditorStore.getState().blankSession(session.id, 'r');
+    useEditorStore.getState().restoreSessionSnapshot(session.id, snap);
+    const s = useEditorStore.getState().sessions[0]!;
+    expect(s.language).toBe('python');
+    expect(s.lastCode).toBe('x = 7');
+    expect(s.ir).toBe(origIR);
+    expect(s.forceBlank).toBe(false);
+
+    useEditorStore.getState().blankSession(session.id, 'js');
+    expect(useEditorStore.getState().sessions[0]!.forceBlank).toBe(true);
+    useEditorStore.getState().consumeForceBlank(session.id);
+    expect(useEditorStore.getState().sessions[0]!.forceBlank).toBe(false);
+  });
 });

@@ -14,6 +14,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
 import { isZh, parseDelimited, stripHeaderIfNonNumeric, haversineKm, sphericalAreaKm2 } from './geoCore';
+import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
+import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { geoMeasureManifest } from './geoMeasureManifest';
 
 export { geoMeasureManifest } from './geoMeasureManifest';
@@ -77,6 +79,105 @@ export function polygonAreaKm2(points: Waypoint[]): { area: number; perimeter: n
   return { area: sphericalAreaKm2(ring), perimeter };
 }
 
+// ---- Standard deviational ellipse (exported for tests) ----------------------
+
+export interface SdeResult {
+  /** Centre latitude / longitude (arithmetic mean of the waypoints). */
+  centerLat: number;
+  centerLon: number;
+  /** Semi-major axis (km). */
+  semiMajorKm: number;
+  /** Semi-minor axis (km). */
+  semiMinorKm: number;
+  /** Compass bearing of the major axis, 0–180° from north. */
+  azimuthDeg: number;
+}
+
+/**
+ * Standard deviational ellipse (unweighted, 1σ) of a point pattern — the
+ * classic directional-distribution summary. Local planar coordinates are
+ * built around the mean (equirectangular at the mean latitude); the axes
+ * are the square roots of the covariance eigenvalues
+ * λ± = [(sx+sy) ± √((sx−sy)²+4sxy²)] / (2n) and the rotation from
+ * tan 2θ = 2sxy / (sx − sy).
+ */
+export function standardDeviationalEllipse(points: Waypoint[]): SdeResult | null {
+  const n = points.length;
+  if (n < 3) return null;
+  const meanLat = points.reduce((a, p) => a + p.lat, 0) / n;
+  const meanLon = points.reduce((a, p) => a + p.lon, 0) / n;
+  const kx = KM_PER_DEG_LON_EQ * Math.max(0.2, Math.cos((meanLat * Math.PI) / 180));
+  let sx = 0;
+  let sy = 0;
+  let sxy = 0;
+  for (const p of points) {
+    const x = (p.lon - meanLon) * kx;
+    const y = (p.lat - meanLat) * KM_PER_DEG_LAT;
+    sx += x * x;
+    sy += y * y;
+    sxy += x * y;
+  }
+  const disc = Math.sqrt((sx - sy) ** 2 + 4 * sxy * sxy);
+  const a = Math.sqrt((sx + sy + disc) / (2 * n));
+  const b = Math.sqrt(Math.max(sx + sy - disc, 0) / (2 * n));
+  // θ measured from the x-axis (east); convert to compass bearing.
+  const theta = Math.atan2(2 * sxy, sx - sy) / 2;
+  let az = 90 - (theta * 180) / Math.PI;
+  az = ((az % 180) + 180) % 180;
+  return { centerLat: meanLat, centerLon: meanLon, semiMajorKm: a, semiMinorKm: b, azimuthDeg: az };
+}
+
+// ---- Figure Studio panels (exported for tests) ------------------------------
+
+/** Figure sheet: per-segment length bars + cumulative distance profile. */
+export function measureFigurePanels(points: Waypoint[]): GeoFigurePanel[] {
+  const panels: GeoFigurePanel[] = [];
+  const segKm: number[] = [];
+  for (let i = 1; i < points.length; i += 1) {
+    segKm.push(haversineKm(points[i - 1]!.lat, points[i - 1]!.lon, points[i]!.lat, points[i]!.lon));
+  }
+  if (segKm.length > 0) {
+    panels.push({
+      ...panelPlace(panels.length),
+      tag: panelTag(panels.length),
+      spec: {
+        width: GEO_PANEL_WIDTH,
+        height: GEO_PANEL_HEIGHT,
+        title: 'Segment length per leg',
+        xLabel: 'segment #',
+        yLabel: 'km',
+        ticks: 5,
+        grid: true,
+        series: [
+          {
+            name: 'leg length',
+            kind: 'bar',
+            color: '#5FD0A5',
+            bars: segKm.map((km, i) => ({ x0: i + 0.6, x1: i + 1.4, y: km })),
+          },
+        ],
+      },
+    });
+  }
+  const cum: number[] = [0];
+  for (const km of segKm) cum.push(cum[cum.length - 1]! + km);
+  panels.push({
+    ...panelPlace(panels.length),
+    tag: panelTag(panels.length),
+    spec: {
+      width: GEO_PANEL_WIDTH,
+      height: GEO_PANEL_HEIGHT,
+      title: 'Cumulative distance along the chain',
+      xLabel: 'vertex #',
+      yLabel: 'km',
+      ticks: 5,
+      grid: true,
+      series: [{ name: 'cumulative', kind: 'line', color: '#FFD479', points: cum.map((km, i) => ({ x: i, y: km })) }],
+    },
+  });
+  return panels;
+}
+
 // ---- Plugin ----------------------------------------------------------------
 
 const KM_PER_DEG_LAT = 110.574;
@@ -92,6 +193,7 @@ interface State {
   mode: 'distance' | 'area';
   points: Waypoint[];
   view: ViewState;
+  showSde: boolean;
 }
 
 export class GeoMeasurePlugin implements Plugin {
@@ -102,6 +204,7 @@ export class GeoMeasurePlugin implements Plugin {
     mode: 'distance',
     points: [],
     view: { centerLat: 36, centerLon: 105, kmPerPx: 120 },
+    showSde: false,
   };
 
   // DOM listener bookkeeping (removed in destroy / re-render).
@@ -149,10 +252,35 @@ export class GeoMeasurePlugin implements Plugin {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-measure');
       return;
     }
+    if (actionFired(params, 'sendToFigure')) {
+      void this.sendToFigure();
+      return;
+    }
     if (params.mode === 'distance' || params.mode === 'area') {
       this.state.mode = params.mode;
       this.draw();
     }
+    if (typeof params.showSde === 'boolean') {
+      this.state.showSde = params.showSde;
+      this.draw();
+    }
+  }
+
+  /** Stream the segment/cumulative-distance sheet to Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    if (this.state.points.length < 2) return;
+    const total = chainLengthKm(this.state.points);
+    const { area } = polygonAreaKm2(this.state.points);
+    const caption: Bilingual = {
+      zh: `测距测面：${this.state.points.length} 个点位，折线总长 ${total.toFixed(1)} km${area > 0 ? `，多边形面积 ${area.toFixed(1)} km²（球面多边形过剩公式）` : ''}。面板为分段长度与累计距离。`,
+      en: `Distance & area measure: ${this.state.points.length} waypoints, chain length ${total.toFixed(1)} km${area > 0 ? `, polygon area ${area.toFixed(1)} km² (spherical polygon excess)` : ''}. Panels show per-segment and cumulative distance.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '测距测面', en: 'Distance & area measure' },
+      caption,
+      measureFigurePanels(this.state.points),
+    );
   }
 
   getParams(): ParamDefinition[] {
@@ -171,6 +299,14 @@ export class GeoMeasurePlugin implements Plugin {
       actionButton('undo', 'Undo point', '撤销上一点'),
       actionButton('clear', 'Clear all points', '清空所有点'),
       actionButton('fitView', 'Re-fit view', '视图复位'),
+      {
+        key: 'showSde',
+        label: 'Std. deviational ellipse (≥ 3 points)',
+        labelI18n: { 'zh-CN': '标准差椭圆（≥3 点）', 'en-US': 'Std. deviational ellipse (≥ 3 points)' },
+        type: 'checkbox',
+        value: this.state.showSde,
+      },
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
@@ -360,6 +496,41 @@ export class GeoMeasurePlugin implements Plugin {
     g.stroke();
     g.fillStyle = 'rgba(220, 228, 240, 0.9)';
     g.fillText(fmtKm(barKm), 14, canvas.height - 26);
+
+    // Standard deviational ellipse overlay (1σ and 2σ) + centre cross.
+    if (this.state.showSde && pts.length >= 3) {
+      const sde = standardDeviationalEllipse(pts);
+      if (sde) {
+        const pxPerKm = 1 / kmPerPx;
+        const cx = px(sde.centerLon);
+        const cy = py(sde.centerLat);
+        const rot = ((sde.azimuthDeg - 90) * Math.PI) / 180; // compass → canvas
+        for (const sigma of [1, 2] as const) {
+          g.strokeStyle = sigma === 1 ? 'rgba(255, 158, 100, 0.95)' : 'rgba(255, 158, 100, 0.45)';
+          g.lineWidth = 1.5;
+          g.beginPath();
+          g.ellipse(cx, cy, sde.semiMajorKm * sigma * pxPerKm, sde.semiMinorKm * sigma * pxPerKm, rot, 0, Math.PI * 2);
+          g.stroke();
+        }
+        g.strokeStyle = '#ff9e64';
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(cx - 5, cy);
+        g.lineTo(cx + 5, cy);
+        g.moveTo(cx, cy - 5);
+        g.lineTo(cx, cy + 5);
+        g.stroke();
+        g.fillStyle = 'rgba(255, 178, 130, 0.95)';
+        g.textAlign = 'left';
+        g.fillText(
+          zh
+            ? `SDE：a ${sde.semiMajorKm.toFixed(1)} km，b ${sde.semiMinorKm.toFixed(1)} km，方位 ${sde.azimuthDeg.toFixed(0)}°`
+            : `SDE: a ${sde.semiMajorKm.toFixed(1)} km, b ${sde.semiMinorKm.toFixed(1)} km, azimuth ${sde.azimuthDeg.toFixed(0)}°`,
+          14,
+          38,
+        );
+      }
+    }
   }
 }
 
