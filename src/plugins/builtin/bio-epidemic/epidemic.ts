@@ -211,20 +211,12 @@ function toNum(v: string): number {
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
-/** True when a series holds cumulative counts (monotone non-decreasing). */
-function looksCumulative(values: number[]): boolean {
-  return values.every((v, i) => i === 0 || v >= values[i - 1]!) && values.length >= 2;
-}
-
-/**
- * Parse an observed daily case-count series from CSV / TSV / JSON text.
+/** Parse an observed daily case-count series from CSV / TSV / JSON text.
  * Accepted tables: an optional header names the columns — the case column is
  * authoritative: tokens containing `cumul` are treated as cumulative counts
  * (new cases derived by first differences), otherwise the column is treated as
- * daily NEW cases and the cumulative curve is the running sum. For header-less
- * numeric input we fall back to a monotone-increasing heuristic (cumulative
- * when the series never decreases). Returns null when < 2 day rows.
- */
+ * daily NEW cases. For header-less input we default to daily NEW cases.
+ * Returns null when fewer than 2 day rows are found. */
 export function parseObservedSeries(text: string): ObservedSeries | null {
   const trim = text.trim();
   if (!trim) return null;
@@ -273,8 +265,10 @@ export function parseObservedSeries(text: string): ObservedSeries | null {
   const headerCells = isHeader ? rows[0]!.split(/[,;\t ]+/).filter((c) => c !== '') : null;
   // headerCells = [dayToken, caseToken] (caseToken may be empty)
   const caseToken = headerCells && headerCells.length >= 2 ? headerCells[1]!.toLowerCase() : '';
+  // Headered tables classify by the case-column token (cumul → cumulative);
+  // bare header-less numeric pairs are daily (day, new-cases) by default.
   const mode: SeriesType =
-    headerCells !== null && caseToken.includes('cumul') ? 'cum' : headerCells !== null ? 'new' : 'auto';
+    headerCells !== null && caseToken.includes('cumul') ? 'cum' : 'new';
 
   const body = isHeader ? rows.slice(1) : rows;
   const days: number[] = [];
@@ -289,7 +283,7 @@ export function parseObservedSeries(text: string): ObservedSeries | null {
     inc.push(Math.max(0, c));
   }
   if (days.length < 2) return null;
-  return buildSeries(days, inc, mode === 'auto' ? inferSeriesType(inc) : mode);
+  return buildSeries(days, inc, mode);
 }
 
 type SeriesType = 'new' | 'cum' | 'auto';

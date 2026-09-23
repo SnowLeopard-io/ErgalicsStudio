@@ -92,7 +92,8 @@ export class BioPopgenPlugin implements Plugin {
   }
 
   getParams(): ParamDefinition[] {
-    return [
+    const isDrift = this.state.view === 'drift';
+    const defs: ParamDefinition[] = [
       {
         key: 'view',
         label: 'View',
@@ -104,100 +105,108 @@ export class BioPopgenPlugin implements Plugin {
         ],
         value: this.state.view,
       },
-      {
-        key: 'p0',
-        label: 'p₀',
-        labelI18n: { 'zh-CN': '初始等位基因频率 p₀', 'en-US': 'Initial allele freq p₀' },
-        type: 'range',
-        min: 0.05,
-        max: 0.95,
-        step: 0.05,
-        value: this.state.p0,
-      },
-      {
-        key: 'diploidN',
-        label: 'N (2N)',
-        labelI18n: { 'zh-CN': '有效群体大小 N（2N 等位基因）', 'en-US': 'Pop size N (2N alleles)' },
-        type: 'range',
-        min: 4,
-        max: 500,
-        step: 2,
-        value: this.state.diploidN,
-      },
-      {
-        key: 'generations',
-        label: 'Gen',
-        labelI18n: { 'zh-CN': '世代数', 'en-US': 'Generations' },
-        type: 'range',
-        min: 10,
-        max: 300,
-        step: 5,
-        value: this.state.generations,
-      },
-      {
-        key: 'replicates',
-        label: 'R',
-        labelI18n: { 'zh-CN': '重复实验份数', 'en-US': 'Replicates' },
-        type: 'range',
-        min: 8,
-        max: 200,
-        step: 4,
-        value: this.state.replicates,
-      },
-      {
-        key: 'selection',
-        label: 's',
-        labelI18n: { 'zh-CN': '选择系数 s', 'en-US': 'Selection s' },
-        type: 'range',
-        min: 0,
-        max: 0.3,
-        step: 0.01,
-        value: this.state.selection,
-      },
-      {
-        key: 'dominance',
-        label: 'h',
-        labelI18n: { 'zh-CN': '显性度 h', 'en-US': 'Dominance h' },
-        type: 'select',
-        options: [
-          { value: '0', label: '0 · recessive', labelI18n: { 'zh-CN': '0 · 隐性', 'en-US': '0 · recessive' } },
-          { value: '0.5', label: '0.5 · additive', labelI18n: { 'zh-CN': '0.5 · 加性', 'en-US': '0.5 · additive' } },
-          { value: '1', label: '1 · dominant', labelI18n: { 'zh-CN': '1 · 显性', 'en-US': '1 · dominant' } },
-        ],
-        value: String(this.state.dominance),
-      },
-      {
-        key: 'seed',
-        label: 'Seed',
-        labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Random seed' },
-        type: 'number',
-        value: this.state.seed,
-      },
-      {
-        key: 'AA',
-        label: 'n(AA)',
-        labelI18n: { 'zh-CN': '基因型 AA 计数', 'en-US': 'AA genotype count' },
-        type: 'number',
-        value: this.state.AA,
-      },
-      {
-        key: 'Aa',
-        label: 'n(Aa)',
-        labelI18n: { 'zh-CN': '基因型 Aa 计数', 'en-US': 'Aa genotype count' },
-        type: 'number',
-        value: this.state.Aa,
-      },
-      {
-        key: 'aa',
-        label: 'n(aa)',
-        labelI18n: { 'zh-CN': '基因型 aa 计数', 'en-US': 'aa genotype count' },
-        type: 'number',
-        value: this.state.aa,
-      },
-      actionButton('rerun', 'Re-run drift', '重新运行漂变', 'primary'),
-      actionButton('exportCsv', 'Export drift CSV', '导出漂变 CSV'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
+    if (isDrift) {
+      defs.push(
+        {
+          key: 'p0',
+          label: 'p₀',
+          labelI18n: { 'zh-CN': '初始等位基因频率 p₀', 'en-US': 'Initial allele freq p₀' },
+          type: 'range',
+          min: 0.05,
+          max: 0.95,
+          step: 0.05,
+          value: this.state.p0,
+        },
+        {
+          key: 'diploidN',
+          label: 'N (2N)',
+          labelI18n: { 'zh-CN': '有效群体大小 N（2N 等位基因）', 'en-US': 'Pop size N (2N alleles)' },
+          type: 'range',
+          min: 4,
+          max: 500,
+          step: 2,
+          value: this.state.diploidN,
+        },
+        {
+          key: 'generations',
+          label: 'Gen',
+          labelI18n: { 'zh-CN': '世代数', 'en-US': 'Generations' },
+          type: 'range',
+          min: 10,
+          max: 300,
+          step: 5,
+          value: this.state.generations,
+        },
+        {
+          key: 'replicates',
+          label: 'R',
+          labelI18n: { 'zh-CN': '重复实验份数', 'en-US': 'Replicates' },
+          type: 'range',
+          min: 8,
+          max: 200,
+          step: 4,
+          value: this.state.replicates,
+        },
+        {
+          key: 'selection',
+          label: 's',
+          labelI18n: { 'zh-CN': '选择系数 s', 'en-US': 'Selection s' },
+          type: 'range',
+          min: 0,
+          max: 0.3,
+          step: 0.01,
+          value: this.state.selection,
+        },
+        {
+          key: 'dominance',
+          label: 'h',
+          labelI18n: { 'zh-CN': '显性度 h', 'en-US': 'Dominance h' },
+          type: 'select',
+          options: [
+            { value: '0', label: '0 · recessive', labelI18n: { 'zh-CN': '0 · 隐性', 'en-US': '0 · recessive' } },
+            { value: '0.5', label: '0.5 · additive', labelI18n: { 'zh-CN': '0.5 · 加性', 'en-US': '0.5 · additive' } },
+            { value: '1', label: '1 · dominant', labelI18n: { 'zh-CN': '1 · 显性', 'en-US': '1 · dominant' } },
+          ],
+          value: String(this.state.dominance),
+        },
+        {
+          key: 'seed',
+          label: 'Seed',
+          labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Random seed' },
+          type: 'number',
+          value: this.state.seed,
+        },
+        actionButton('rerun', 'Re-run drift', '重新运行漂变', 'primary'),
+        actionButton('exportCsv', 'Export drift CSV', '导出漂变 CSV'),
+      );
+    } else {
+      defs.push(
+        {
+          key: 'AA',
+          label: 'n(AA)',
+          labelI18n: { 'zh-CN': '基因型 AA 计数', 'en-US': 'AA genotype count' },
+          type: 'number',
+          value: this.state.AA,
+        },
+        {
+          key: 'Aa',
+          label: 'n(Aa)',
+          labelI18n: { 'zh-CN': '基因型 Aa 计数', 'en-US': 'Aa genotype count' },
+          type: 'number',
+          value: this.state.Aa,
+        },
+        {
+          key: 'aa',
+          label: 'n(aa)',
+          labelI18n: { 'zh-CN': '基因型 aa 计数', 'en-US': 'aa genotype count' },
+          type: 'number',
+          value: this.state.aa,
+        },
+      );
+    }
+    defs.push(actionButton('exportPng', 'Snapshot PNG', '快照 PNG'));
+    return defs;
   }
 
   updateParams(params: Record<string, unknown>) {

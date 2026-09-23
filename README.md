@@ -83,8 +83,16 @@ packaging and a notebook), a second-generation research platform has
 landed: a GPU uncertainty engine, Sweep Studio, Signal Lab, Model Lab, Data
 Profiler, Repro Lock, a DuckDB-powered SQL Workbench, a Report Builder and
 Inference Forge (HMC/NUTS Bayesian inference) — every research tool is a
-standalone full-page lab sharing one unified shell. The code editor now
-speaks Python, R and JavaScript (R/JS run on the in-process IR engine —
+standalone full-page lab sharing one unified shell. A ten-plugin
+**geography suite** has landed as well — mapping, solar geometry,
+climographs, population pyramids, IDW/kriging interpolation, distance &
+area measure with standard-deviational ellipses, Tissot projection
+distortion, DEM terrain analysis with watershed delineation, GPX tracks
+and a 3-D globe — each built on research-grade algorithms (LOOCV +
+global Moran's I, priority-flood → D8 → flow accumulation, FAO-56
+radiation) and each with a one-click **Send to Figure Studio** action
+that composes a multi-panel figure with a bilingual method caption. The
+code editor now speaks Python, R and JavaScript (R/JS run on the in-process IR engine —
 the IR base always ships, while a full free-form R runtime (webR) stays
 optional and is not vendored by default). Ed25519 package signing for
 the marketplace already ships (FR-05); consuming webR for free-form R
@@ -96,7 +104,7 @@ codebase keeps scaling without a rewrite.
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes (Standard / Flow / Block / Code), 44 built-in plugins (34 scientific + 10 fun), sandboxed plugin system + marketplace catalog |
+| Workbench         | 4 modes (Standard / Flow / Block / Code), 59 built-in plugins (49 scientific + 10 fun), sandboxed plugin system + marketplace catalog |
 | Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
 | Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine |
@@ -126,7 +134,9 @@ codebase keeps scaling without a rewrite.
   format stored in IndexedDB).
 - File routing: drag & drop any file; the host detects the format by magic
   number **and** extension (with optional WASM assist) and routes it to a
-  matching plugin — with a picker dialog when multiple plugins match.
+  matching plugin — with a picker dialog when multiple plugins match, and
+  a replace confirmation when a data file with the same name already
+  exists in the project.
   Import dialogs filter by file format so unrecognized files never reach a
   parser.
 
@@ -142,10 +152,13 @@ codebase keeps scaling without a rewrite.
   The 3D surface is created lazily — only for plugins that declare 3D
   capability (`renderToScene`) — and is **automatically hidden when a 2D
   plugin is active**, so a 3D coordinate system never bleeds into a 2D view.
+  All 3-D plugins share this one host scene, and every plugin switch fully
+  clears the previous plugin's objects, so nothing leaks between views even
+  when jumping directly from one 3-D plugin to another.
 
 **Plugin system**
 
-- **44 built-in plugins** — 34 scientific/core plugins plus 10 fun &
+- **59 built-in plugins** — 49 scientific/core plugins plus 10 fun &
   utility toys — covering the full API surface (2D canvas, Three.js scene,
   WGSL compute, buttons/toggles, sandboxing, in-browser model training).
 - **Two-tier loading**: core plugins are auto-loaded at startup; fun/utility
@@ -174,7 +187,10 @@ codebase keeps scaling without a rewrite.
   tabular data. Several plugins also gained analysis overlays — OLS
   trendlines and rolling means, cumulative/density histograms, box-plot
   mean markers, violin jitter points, bar ordering, and Game-of-Life
-  pattern presets.
+  pattern presets. Every plugin in the geography suite additionally ships
+  a **Send to Figure Studio** action that composes a multi-panel figure
+  sheet — auto panel tags plus a bilingual (English / 中文) caption
+  stating the method and formulas.
 
 **Infrastructure**
 
@@ -379,7 +395,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (34 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (49 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -510,7 +526,7 @@ See [Documentation](#documentation) for details.
 │   │                         #     uncertainty · model-lab · profiler ·
 │   │                         #     reprolock · lineage · supplement),
 │   │                         #     signal, sweeps, sql, report
-│   ├── plugins/builtin/      #   34 scientific + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   49 scientific + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts #   marketplace catalog (tags/popularity/filters)
 │   ├── stores/               #   zustand stores (app/project/plugin/settings/block/
 │   │                         #     editor/experiment/lineage/chunk/figure/notebook/
@@ -734,7 +750,9 @@ count is shown before you commit to SVG / PDF / PNG-600dpi. A **caption
 drafter** turns the chart kind, column names and an optional statistic into an
 editable "Figure 1. …" caption in English or 中文, and panels can carry
 **metadata annotations** that feed both the submission gate and the supplement
-manifest.
+manifest. Panel chart kinds now include a **3-D field map**: a shaded
+surface drawn in a true 3-D box — floor grid, surface quads and z-axis —
+rendered by the same SVG engine.
 
 Runs recorded from Flow / Block / Code / Notebook / Sweeps / Uncertainty /
 Model Lab / Inference Forge all land in the same history and the same
@@ -766,7 +784,7 @@ answerable — and the answer ships with the paper via the supplement ZIP.
 
 ### Built-in plugins
 
-**Core / scientific plugins** (auto-loaded at startup, 34 total):
+**Core / scientific plugins** (auto-loaded at startup, 49 total):
 
 | Plugin               | Data                        | Capability                |
 | -------------------- | --------------------------- | ------------------------- |
@@ -804,6 +822,21 @@ answerable — and the answer ships with the paper via the supplement ZIP.
 | Structural Mechanics | `.json` (truss members)     | pin-jointed truss with axial-force coloring, utilization readouts and overload collapse |
 | EM Eigensolver | `.npz`, `.npy`, `.mtx` | sparse Hermitian eigenvalue solver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert) with 2-D spectrum report and 3-D mode fields, run in a Pyodide worker |
 | Fluid CFD Coupler | `.json` (network + 3-D field) | 1D pipeline–3D field bidirectional coupling with multi-rate time-step coordination, coarse–fine subcycling, forward/backward boundary coupling and millisecond valve control |
+| Solar Elevation & Day Length | `.json` (site + year) | noon solar elevation, declination and day length across the year; FAO-56 daily radiation (extraterrestrial R_a eq. 21 + clear-sky R_so eq. 37) |
+| Climatograph | `.csv`, `.txt` (month, temp, precip) | temperature-line / precipitation-bar climate diagram with a Köppen-style classification summary |
+| Population Pyramid | `.csv` (age × sex) | back-to-back age-sex pyramid with dependency ratios and growth-shape reading |
+| Spatial Interpolation | `.csv` (station x, y, value) | IDW + ordinary-kriging gridding (auto-fitted variogram) with LOOCV RMSE/MAE scoring and a global Moran's I randomization test |
+| Distance & Area Measure | `.json`, `.csv` | great-circle distances, spherical polygon areas and a closed-form standard deviational ellipse (1σ / 2σ) |
+| Projection Distortion (Tissot) | `.json` | seven world projections with Tissot indicatrices and local h / k / area-ratio distortion metrics |
+| DEM Terrain Analysis | `.asc` (ESRI ASCII Grid) | hillshade / slope / aspect / contours, a 3-D mesh view, and watershed analysis: priority-flood depression filling → D8 flow directions → flow accumulation |
+| GPX Track Analysis | `.gpx` | distance, hysteresis-filtered ascent/descent, duration and an elevation profile |
+| Interactive Globe (3D) | `.json` | drag-to-spin 3-D globe with coastlines, graticule, spherical Tissot circles and auto-rotation |
+| Crystal · 3D Unit Cell | `.cif`, `.poscar`, `.vasp`, `.xyz` | 3-D unit-cell preview: atoms, periodic bonds, reduced formula and density estimate |
+| Reaction · MD 3D | `.json` (reaction scene) | 3-D reaction molecular dynamics on a NumPy/Langevin engine — bonds fracture over Arrhenius barriers and reform |
+| Enzyme Kinetics | `.csv`, `.tsv`, `.json`, `.dat` | Michaelis–Menten fit (Levenberg–Marquardt) with competitive / non-competitive / uncompetitive inhibition and Lineweaver–Burk linearisation |
+| Epidemic Modeling | `.json` (config), `.csv` / `.tsv` / `.dat` (cases) | deterministic SIR / SEIR compartments via RK4 with R₀, herd-immunity threshold, peak timing and attack-rate reporting |
+| Sequence Alignment | `.fasta`, `.fa`, `.json`, `.csv`, `.tsv` | Needleman-Wunsch / Smith-Waterman pairwise alignment (affine gaps) plus composition and sliding-window GC profiling |
+| Population Genetics | `.csv`, `.tsv`, `.json`, `.vcf`, `.dat` | Hardy–Weinberg chi-square test plus a seeded, fully reproducible Wright–Fisher drift simulation with optional selection |
 
 Simulation plugins are strictly data-driven: they start empty and never
 fabricate a default scene — the flow obstacle, the wave scenario, and the
@@ -892,6 +925,27 @@ with utilization readouts, and snap once overloaded until the frame
 collapses.
 
 ![Structural Mechanics — a 17-member deck truss carrying two weights, members colored by axial force (orange = tension, cyan = compression)](docs/structure.png)
+
+**Geography suite** — nine further research-grade geo plugins beyond the
+GeoJSON Map above (`src/plugins/builtin/geo/`), every one of them
+one-click exportable to Figure Studio as a multi-panel sheet with a
+bilingual (English / 中文) method-and-formula caption. Highlights:
+**Spatial Interpolation** grids scattered stations with IDW or ordinary
+kriging (automatic variogram fit), scores itself with leave-one-out
+cross-validation (RMSE / MAE) and runs a global Moran's I
+spatial-autocorrelation test (randomization z-score); **DEM Terrain
+Analysis** renders hillshade / slope / aspect / contours from ESRI ASCII
+grids, offers a 3-D mesh view, and delineates watersheds with the full
+priority-flood (Barnes 2014, ε gradient) → D8 flow directions →
+Kahn-topology flow-accumulation trio; **Distance & Area Measure**
+computes great-circle distances, spherical polygon areas and a
+closed-form 1σ / 2σ standard deviational ellipse; **Solar Elevation &
+Day Length** estimates daily radiation with the FAO-56 equations
+(extraterrestrial R_a, eq. 21 + clear-sky R_so, eq. 37). The remaining
+five cover projection distortion (Tissot indicatrices with local h / k /
+area-ratio metrics), Köppen-style climatographs, population pyramids,
+GPX tracks (hysteresis-filtered ascent + elevation profile) and a
+drag-to-spin 3-D globe.
 
 **Fun & utility plugins** (`autoload: false`, 10 total — loaded on demand
 from the built-in panel or marketplace tab):
@@ -1087,8 +1141,9 @@ See [`docs/guide/roadmap.md`](docs/guide/roadmap.md) for the current status
 table. Highlights:
 
 - [x] Workbench layout, project management, file routing
-- [x] 44 built-in plugins (34 scientific + 10 fun/utility), cspkg loading, Worker sandbox
-- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 44 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
+- [x] 59 built-in plugins (49 scientific + 10 fun/utility), cspkg loading, Worker sandbox
+- [x] Plugin export & analysis pass — one-click PNG snapshots (3-D via scene snapshots) and RFC-4180 CSV export on all 59 plugins, plus trendline / rolling-mean / cumulative / density / jitter / ordering overlays and simulation presets (Game of Life patterns, Truchet variants)
+- [x] Geography plugin suite — ten research-grade geo plugins (spatial interpolation with LOOCV + Moran's I, terrain analysis with priority-flood → D8 → flow-accumulation watersheds, FAO-56 solar radiation, Tissot indicatrices, standard-deviational-ellipse measure, Köppen climograph, population pyramid, GPX tracks, 3-D globe), each with one-click multi-panel Figure Studio export and bilingual captions
 - [x] Plugin marketplace catalog (curated tags / popularity / category filters, on-demand loading)
 - [x] WebGPU device management + real compute-kernel pipeline
 - [x] i18n, theming, perf monitoring, share links

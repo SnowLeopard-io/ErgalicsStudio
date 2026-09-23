@@ -109,7 +109,7 @@ export function louvain(n: number, edges: WEdge[], maxPasses = 32): { community:
   let community = Array.from({ length: n }, (_, i) => i);
   let sumTot = k.slice();
   // Original node i currently lives in coarse node origToNode[i].
-  let origToNode = Array.from({ length: origN }, (_, i) => i);
+  const origToNode = Array.from({ length: origN }, (_, i) => i);
 
   let bestQ = modularityOf(origN, origEdges, Array.from({ length: origN }, (_, i) => i));
   let bestPartition = Array.from({ length: origN }, (_, i) => i);
