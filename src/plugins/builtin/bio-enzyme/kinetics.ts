@@ -277,7 +277,7 @@ export function parseRateData(text: string): FitPoint[] {
   for (const line of trim.split(/\r?\n/)) {
     const l = line.trim();
     if (!l || l.startsWith('#')) continue;
-    const cells = l.split(/[,;\t]+/).map((c) => c.trim()).filter(Boolean);
+    const cells = l.split(/[,\s;]+/).map((c) => c.trim()).filter(Boolean);
     if (cells.length < 2) continue;
     const s = Number(cells[0]);
     const v = Number(cells[1]);
