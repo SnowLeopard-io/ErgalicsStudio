@@ -37,6 +37,8 @@ interface State {
   representation: Representation;
   showBonds: boolean;
   showCell: boolean;
+  /** Cut atoms and bonds at the cell faces (boundary-model view). */
+  clipToCell: boolean;
   /** Loaded file cell + provenance (undefined while showing a sample). */
   file?: { cell: CrystalCell; name: string; format: StructuralFormat };
 }
@@ -55,6 +57,7 @@ export class ChemCrystalPlugin implements Plugin {
     representation: 'ball-stick',
     showBonds: true,
     showCell: true,
+    clipToCell: false,
   };
   private zh = false;
 
@@ -175,6 +178,13 @@ export class ChemCrystalPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showCell,
       },
+      {
+        key: 'clipToCell',
+        label: 'Clip to cell',
+        labelI18n: { 'zh-CN': '按边框裁剪（实际晶胞）', 'en-US': 'Clip to cell box (boundary model)' },
+        type: 'checkbox',
+        value: this.state.clipToCell,
+      },
       actionButton('reset', 'Fit view', '复位视角'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
     ];
@@ -205,6 +215,12 @@ export class ChemCrystalPlugin implements Plugin {
     if (params.showCell === true || params.showCell === false) {
       if (params.showCell !== this.state.showCell) {
         this.state.showCell = params.showCell;
+        redraw = true;
+      }
+    }
+    if (params.clipToCell === true || params.clipToCell === false) {
+      if (params.clipToCell !== this.state.clipToCell) {
+        this.state.clipToCell = params.clipToCell;
         redraw = true;
       }
     }
@@ -247,13 +263,20 @@ export class ChemCrystalPlugin implements Plugin {
       three.setVisible(false);
       return;
     }
-    const key = [cell.name, this.state.representation, this.state.showBonds, this.state.showCell].join('|');
+    const key = [
+      cell.name,
+      this.state.representation,
+      this.state.showBonds,
+      this.state.showCell,
+      this.state.clipToCell,
+    ].join('|');
     if (this.threeKey !== key || this.sceneHandle !== three) {
       this.clear3d();
       this.crystalGroup = buildCrystalGroup(cell, {
         representation: this.state.representation,
         showBonds: this.state.showBonds,
         showCell: this.state.showCell,
+        clipToCell: this.state.clipToCell,
       });
       three.scene.add(this.crystalGroup);
       fitCrystalCamera(three.camera, three.controls, cell);
