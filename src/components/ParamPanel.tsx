@@ -16,15 +16,51 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
   const label = (def: ParamDefinition) =>
     def.labelI18n?.[api.locale] ?? def.label;
 
+  // Bucket params: grouped ones (sharing a `group` id) flow side-by-side inside
+  // a wrap container. Rendering keeps the param array's declared order, so each
+  // group is laid out at the position of its first member (e.g. the reactant
+  // slots right under the mode selector, before the action buttons).
+  const groups = new Map<string, ParamDefinition[]>();
+  for (const def of params) {
+    if (!def.group) continue;
+    const arr = groups.get(def.group) ?? [];
+    arr.push(def);
+    groups.set(def.group, arr);
+  }
+  const renderedGroups = new Set<string>();
+  const rendered: Array<
+    | { kind: 'single'; def: ParamDefinition }
+    | { kind: 'group'; group: string; defs: ParamDefinition[] }
+  > = [];
+  for (const def of params) {
+    if (def.group) {
+      if (renderedGroups.has(def.group)) continue;
+      renderedGroups.add(def.group);
+      rendered.push({ kind: 'group', group: def.group, defs: groups.get(def.group)! });
+    } else {
+      rendered.push({ kind: 'single', def });
+    }
+  }
+
+  const field = (def: ParamDefinition, key: string) => (
+    <div className={`field ${def.inline ? 'field-inline' : ''}`} key={key}>
+      <label className="field-label">{label(def)}</label>
+      <Control def={def} api={api} onChange={onChange} />
+      {def.hint && <span className="empty-hint">{def.hint}</span>}
+    </div>
+  );
+
   return (
     <div className="param-panel">
-      {params.map((def) => (
-        <div className="field" key={def.key}>
-          <label className="field-label">{label(def)}</label>
-          <Control def={def} api={api} onChange={onChange} />
-          {def.hint && <span className="empty-hint">{def.hint}</span>}
-        </div>
-      ))}
+      {rendered.map((it) =>
+        it.kind === 'single'
+          ? field(it.def, it.def.key)
+          : (
+            <div className="param-group" key={it.group}>
+              {it.defs.map((def) => field(def, def.key))}
+            </div>
+          ),
+      )}
     </div>
   );
 }

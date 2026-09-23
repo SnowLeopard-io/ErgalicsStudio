@@ -16,6 +16,12 @@ import { entropyGibbsSpec } from '@/plugins/builtin/chem-reaction/figures';
 import { renderSVG } from '@/core/plot';
 import { templateById } from '@/core/figure/compose';
 import type { PlotSpec } from '@/core/plot';
+import {
+  matchReaction,
+  combustionSide,
+  buildFreePayload,
+  feedElements,
+} from '@/plugins/builtin/chem-reaction/freelib';
 import { chemReactionManifest } from '@/plugins/builtin/chem-reaction/manifest';
 import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
@@ -270,5 +276,63 @@ describe('figure titles fit narrow IEEE cells (wrap, no overflow, no ellipsis)',
     const lines = titleText(svg);
     expect(lines.length).toBe(1);
     expect(lines[0]!.text).toContain('CH₄');
+  });
+});
+
+describe('free-reactant mode (freelib)', () => {
+  it('matches the catalog reaction for a stoichiometric feed', () => {
+    const m = matchReaction({ CH4: 1, O2: 2 });
+    expect(m?.reaction.id).toBe('ch4-o2');
+    expect(m?.equivalents).toBe(1);
+    expect(Object.keys(m!.spectators)).toHaveLength(0);
+  });
+
+  it('keeps the excess reagent as an unreacted spectator', () => {
+    const m = matchReaction({ CH4: 2, O2: 2 })!;
+    expect(m.reaction.id).toBe('ch4-o2');
+    expect(m.equivalents).toBe(1); // only 1 equivalent of O₂ available
+    expect(m.spectators).toEqual({ CH4: 1 });
+  });
+
+  it('returns null (dissociation fallback) for an unknown balance', () => {
+    expect(matchReaction({ CH4: 1, O2: 1 })).toBeNull();
+    expect(matchReaction({ Zn: 1, CuO: 1 })).toBeNull();
+    expect(matchReaction({ O2: 3 })).toBeNull();
+  });
+
+  it('matches several other curated reactions', () => {
+    expect(matchReaction({ CuO: 1, H2: 1 })?.reaction.id).toBe('cuo-h2');
+    expect(matchReaction({ Zn: 1, HCl: 2 })?.reaction.id).toBe('zn-hcl');
+    expect(matchReaction({ NaCl: 2 })?.reaction.id).toBe('nacl-electrolysis');
+  });
+
+  it('combustion honours the real O₂:CH₄ balance (side reactions)', () => {
+    expect(combustionSide(1, 2)?.textEn).toContain('Complete');
+    expect(combustionSide(1, 3)?.textEn).toContain('left over');
+    expect(combustionSide(2, 3)?.textEn).toContain('CO/CO₂'); // partial oxidation
+    expect(combustionSide(1, 2)).toEqual(combustionSide(1, 2)); // deterministic
+  });
+
+  it('builds a real-product payload for a matched feed', () => {
+    const { match, payload } = buildFreePayload({ CH4: 1, O2: 2 });
+    expect(match?.reaction.id).toBe('ch4-o2');
+    expect(payload.bonds.some((b) => b.kind === 'form')).toBe(true);
+    expect(payload.bonds.some((b) => b.kind === 'break')).toBe(true);
+    expect(payload.atoms.length).toBeGreaterThan(0);
+  });
+
+  it('builds a dissociation payload (all bonds break) when nothing matches', () => {
+    const { match, payload } = buildFreePayload({ CH4: 1, O2: 1 });
+    expect(match).toBeNull();
+    expect(payload.bonds.length).toBeGreaterThan(0);
+    expect(payload.bonds.every((b) => b.kind === 'break')).toBe(true);
+    expect(payload.target.every((t) => t === null)).toBe(true);
+  });
+
+  it('feed element balance is conserved', () => {
+    const el = feedElements({ CH4: 1, O2: 2 });
+    expect(el.get('C')).toBe(1);
+    expect(el.get('H')).toBe(4);
+    expect(el.get('O')).toBe(4);
   });
 });

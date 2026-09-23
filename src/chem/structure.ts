@@ -271,6 +271,21 @@ const COVALENT_SAME_ELEMENT = new Set([
 ]);
 
 /**
+ * Metallic elements (post-transition, transition, alkali/alkaline-earth,
+ * lanthanides). Contacts between two metals — same or different element —
+ * are lattice packing / alloy skeleton distances (e.g. Cu–Cu in fcc copper,
+ * Ca–Ti or Sr–Ti in perovskites), not localised covalent bonds, and must not
+ * be drawn.
+ */
+const METALLIC = new Set([
+  'Li', 'Be', 'Na', 'Mg', 'Al', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe',
+  'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru',
+  'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
+  'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W',
+  'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'Ra',
+]);
+
+/**
  * Every lattice-image deltas from `a` to periodic images of `b` whose
  * cartesian length is below `cutoff` (bonding to several images of the same
  * site is what completes e.g. the 6-coordination of rock-salt Na).
@@ -310,7 +325,10 @@ export function inferBonds(atoms: Atom[], opts: BondInferOptions = {}): BondReco
       const ra = covalentRadius(atoms[i]!.symbol);
       const rb = covalentRadius(atoms[j]!.symbol);
       if (ra <= 0 || rb <= 0) continue;
-      if (atoms[i]!.symbol === atoms[j]!.symbol && !COVALENT_SAME_ELEMENT.has(atoms[i]!.symbol)) continue;
+      const symA = atoms[i]!.symbol;
+      const symB = atoms[j]!.symbol;
+      if (symA === symB && !COVALENT_SAME_ELEMENT.has(symA)) continue;
+      if (symA !== symB && METALLIC.has(symA) && METALLIC.has(symB)) continue;
       const cutoff = (ra + rb) * tol;
       if (opts.cell) {
         for (const image of imagesWithinCutoff(opts.cell, atoms[i]!, atoms[j]!, cutoff)) {

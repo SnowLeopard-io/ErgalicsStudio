@@ -21,6 +21,13 @@ import type { Group as ThreeGroup } from 'three';
 import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '../shared/enhance';
 import { REACTIONS, findReaction, type ReactionDef } from './catalog';
 import { pushAllFigures } from './figures';
+import {
+  FREE_REAGENTS,
+  buildFreePayload,
+  combustionSide,
+  matchReaction,
+  type Feed,
+} from './freelib';
 import { buildPhysicsPayload, DEFAULT_FRAMES, DEFAULT_STEPS, type BuiltPayload } from './reactmd/payload';
 import { ReactMDClient } from './reactmd/client';
 import type { PhysicsPayload, SimulationResult } from './reactmd/types';
@@ -48,10 +55,20 @@ const REPLAY_STEP = 2;
 
 const SUB = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
 
+const SLOT_LABEL_ZH = ['反应物①', '反应物②', '反应物③'];
+const SLOT_LABEL_EN = ['Reagent 1', 'Reagent 2', 'Reagent 3'];
+
+interface FreeSlot {
+  species: string;
+  amount: number;
+}
+
 interface State {
+  mode: 'catalog' | 'free';
   reaction: string;
   temperature: number;
   catalyst: boolean;
+  slots: [FreeSlot, FreeSlot, FreeSlot];
 }
 
 export class ChemReactionPlugin implements Plugin {
@@ -60,9 +77,15 @@ export class ChemReactionPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private three: Scene3DHandle | null = null;
   private state: State = {
+    mode: 'catalog',
     reaction: 'cuo-h2',
     temperature: TEMP_DEFAULT,
     catalyst: false,
+    slots: [
+      { species: '', amount: 0 },
+      { species: '', amount: 0 },
+      { species: '', amount: 0 },
+    ],
   };
 
   private client = new ReactMDClient();
@@ -145,15 +168,70 @@ export class ChemReactionPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     const zh = this.zh;
-    return [
-      {
+    const params: ParamDefinition[] = [];
+
+    params.push({
+      key: 'mode',
+      label: 'Mode',
+      labelI18n: { 'zh-CN': '模式', 'en-US': 'Mode' },
+      type: 'select',
+      options: [
+        { value: 'catalog', label: zh ? '内置反应库' : 'Built-in reactions' },
+        { value: 'free', label: zh ? '自由投料（任选反应物）' : 'Free reactants' },
+      ],
+      value: this.state.mode,
+    });
+
+    if (this.state.mode === 'free') {
+      const empty = { value: '', label: zh ? '（不选）' : '(none)' };
+      const speciesOpts = [empty].concat(
+        FREE_REAGENTS.map((r) => ({ value: r.formula, label: `${r.formula} · ${zh ? r.nameZh : r.nameEn}` })),
+      );
+      for (let i = 0; i < 3; i += 1) {
+        const slot = this.state.slots[i]!;
+        const grp = `slot${i}`;
+        params.push({
+          key: `slotSpecies:${i}`,
+          label: this.zh ? SLOT_LABEL_ZH[i]! : SLOT_LABEL_EN[i]!,
+          labelI18n: { 'zh-CN': `种类${i + 1}`, 'en-US': `Type ${i + 1}` },
+          type: 'select',
+          group: grp,
+          options: speciesOpts,
+          value: slot.species,
+        });
+        params.push({
+          key: `slotAmount:${i}`,
+          label: 'Quantity',
+          labelI18n: { 'zh-CN': '数量', 'en-US': 'Quantity' },
+          type: 'text',
+          group: grp,
+          inline: true,
+          placeholder: zh ? '份数' : 'amount',
+          value: slot.amount > 0 ? String(slot.amount) : '',
+        });
+      }
+    }
+
+    if (this.state.mode === 'free') {
+      params.push({
+        key: 'freeInfo',
+        label: 'Match',
+        labelI18n: { 'zh-CN': '匹配结果', 'en-US': 'Match' },
+        type: 'text',
+        value: this.freeInfoText(),
+      });
+    } else {
+      params.push({
         key: 'reaction',
         label: 'Reaction',
         labelI18n: { 'zh-CN': '选择反应', 'en-US': 'Reaction' },
         type: 'select',
         options: REACTIONS.map((r) => ({ value: r.id, label: zh ? r.nameZh : r.nameEn })),
         value: this.state.reaction,
-      },
+      });
+    }
+
+    params.push(
       {
         key: 'temperature',
         label: 'Temperature',
@@ -179,15 +257,71 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-    ];
+    );
+    return params;
+  }
+
+  /** Reduce the three reagent slots to a Feed (formula → amount). */
+  private feedFromSlots(): Feed {
+    const feed: Feed = {};
+    for (const s of this.state.slots) {
+      if (s.species && s.amount > 0) feed[s.species] = s.amount;
+    }
+    return feed;
+  }
+
+  /** Human-readable description of what the current free feed resolves to. */
+  private freeInfoText(): string {
+    const feed = this.feedFromSlots();
+    const zh = this.zh;
+    const any = Object.keys(feed).some((f) => (feed[f] ?? 0) > 0);
+    if (!any) return zh ? '选择反应物并输入份数，再按运行。' : 'Pick reagents and enter amounts, then press Run.';
+    const m = matchReaction(feed);
+    if (m) {
+      let base = zh
+        ? `命中：${m.reaction.nameZh} ${equationOf(m.reaction)}${m.equivalents > 1 ? `（×${m.equivalents} equiv；余量作旁观）` : ''}`
+        : `Match: ${m.reaction.nameEn} ${equationOf(m.reaction)}${m.equivalents > 1 ? ` (×${m.equivalents} equiv; excess kept as spectator)` : ''}`;
+      if (m.reaction.id === 'ch4-o2') {
+        const note = combustionSide(feed['CH4'] ?? 0, feed['O2'] ?? 0);
+        if (note) base += ` — ${zh ? note.textZh : note.textEn}`;
+      }
+      return base;
+    }
+    return zh
+      ? '未匹配已知配平反应 → 自由热运动 / 高温解离演示（可再试其他投料比）'
+      : 'No balanced partner matched → free thermal / dissociation demo (try other ratios)';
   }
 
   updateParams(params: Record<string, unknown>) {
     let changes = false;
+    if (params.mode === 'catalog' || params.mode === 'free') {
+      if (params.mode !== this.state.mode) {
+        this.state.mode = params.mode;
+        changes = true;
+      }
+    }
     if (typeof params.reaction === 'string' && findReaction(params.reaction)) {
       if (params.reaction !== this.state.reaction) {
         this.state.reaction = params.reaction;
         changes = true;
+      }
+    }
+    for (let i = 0; i < 3; i += 1) {
+      const spKey = `slotSpecies:${i}`;
+      if (typeof params[spKey] === 'string') {
+        const v = params[spKey] as string;
+        if (v !== this.state.slots[i]!.species) {
+          this.state.slots[i]!.species = v;
+          changes = true;
+        }
+      }
+      const amtKey = `slotAmount:${i}`;
+      if (typeof params[amtKey] === 'string') {
+        const n = Math.max(0, Math.min(12, Math.round(Number(params[amtKey])) || 0));
+        if (n !== this.state.slots[i]!.amount) {
+          this.state.slots[i]!.amount = n;
+          changes = true;
+        }
       }
     }
     if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
@@ -222,12 +356,26 @@ export class ChemReactionPlugin implements Plugin {
   // ---- static / replay scene management -----------------------------------
 
   private builtPayload(): BuiltPayload {
+    if (this.state.mode === 'free') {
+      return this.rebuildFreePayload();
+    }
     if (this.built && this.built.payload && this.state.reaction === this.built.reaction) return this.built;
     const def = findReaction(this.state.reaction);
     if (!def) throw new Error(`unknown reaction: ${this.state.reaction}`);
     this.built = buildPhysicsPayload(def);
     this.built.reaction = def.id;
     return this.built;
+  }
+
+  /** Build the payload for the current free feed (not cached; feed may change). */
+  private rebuildFreePayload(): BuiltPayload {
+    const b = buildFreePayload(this.feedFromSlots());
+    return {
+      payload: b.payload,
+      atomSymbols: b.atomSymbols,
+      reactantExtent: 0,
+      reaction: b.match ? `free::${b.match.reaction.id}` : 'free-none',
+    };
   }
 
   private conditionPayload(): PhysicsPayload {
@@ -411,6 +559,10 @@ export class ChemReactionPlugin implements Plugin {
   /** Push analysis figures (ΔG(T), Arrhenius, van't Hoff, α–pH, Ksp, atom map)
    *  for the current reaction into Figure Studio. */
   private sendToFigure() {
+    if (this.state.mode === 'free') {
+      this.sendFreeToFigure();
+      return;
+    }
     const def = findReaction(this.state.reaction);
     if (!def) {
       this.api.notify('warning', this.zh ? '没有可分析的反应。' : 'No reaction to analyse.');
@@ -429,6 +581,38 @@ export class ChemReactionPlugin implements Plugin {
     );
   }
 
+  private sendFreeToFigure() {
+    const feed = this.feedFromSlots();
+    const any = Object.keys(feed).some((f) => (feed[f] ?? 0) > 0);
+    if (!any) {
+      this.api.notify('warning', this.zh ? '请先选择反应物并设投料比。' : 'Pick reagents and set feed ratios first.');
+      return;
+    }
+    const m = matchReaction(feed);
+    if (!m) {
+      this.api.notify(
+        'info',
+        this.zh
+          ? '该组合未命中已知配平反应，作自由热运动/解离演示——无热力学产物图。按运行即可观看。'
+          : 'This feed matches no balanced reaction, so it runs as a free thermal/dissociation demo — no thermodynamic product figures. Press Run to watch.',
+      );
+      return;
+    }
+    let note: string | undefined;
+    if (m.reaction.id === 'ch4-o2') {
+      const side = combustionSide(feed['CH4'] ?? 0, feed['O2'] ?? 0);
+      if (side) note = this.zh ? side.textZh : side.textEn;
+    }
+    const labels = pushAllFigures(m.reaction, this.builtPayload().payload, note);
+    if (!labels.length) return;
+    this.api.notify(
+      'success',
+      this.zh
+        ? `已发送到 Figure Studio：${labels.join('、')}`
+        : `Sent to Figure Studio: ${labels.join(', ')}`,
+    );
+  }
+
   /** Restore the current reaction to its pristine initial scene (stop any replay). */
   private resetScene() {
     this.rebuildNow();
@@ -438,9 +622,15 @@ export class ChemReactionPlugin implements Plugin {
   private reloadPlugin() {
     this.stopReplay();
     this.computing = false;
+    this.state.mode = 'catalog';
     this.state.reaction = 'cuo-h2';
     this.state.temperature = TEMP_DEFAULT;
     this.state.catalyst = false;
+    this.state.slots = [
+      { species: '', amount: 0 },
+      { species: '', amount: 0 },
+      { species: '', amount: 0 },
+    ];
     this.refreshParams();
     this.rebuildNow();
     this.api.notify('success', this.zh ? '插件已重置为默认反应。' : 'Plugin reset to the default reaction.');

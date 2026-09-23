@@ -134,6 +134,13 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
       fluorite: { formula: 'CaF2', sites: 12 },
       rutile: { formula: 'TiO2', sites: 6 },
       pyrite: { formula: 'FeS2', sites: 12 },
+      diamond: { formula: 'C', sites: 8 },
+      graphite: { formula: 'C', sites: 4 },
+      zincblende: { formula: 'ZnS', sites: 8 },
+      copper: { formula: 'Cu', sites: 4 },
+      dryice: { formula: 'CO2', sites: 12 },
+      perovskite: { formula: 'CaTiO3', sites: 20 },
+      'perovskite-st': { formula: 'SrTiO3', sites: 5 },
     };
     for (const s of CRYSTAL_SAMPLES) {
       const want = expected[s.id];
@@ -179,6 +186,12 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
     const feS = nearest(cellOf('pyrite'), 'Fe', 'S');
     expect(feS).toBeGreaterThan(2.20);
     expect(feS).toBeLessThan(2.34);
+    // C–C in diamond = a·√3/4 ≈ 1.54 Å.
+    expect(nearest(cellOf('diamond'), 'C', 'C')).toBeCloseTo(1.54, 1);
+    // Zn–S in zinc blende = a·√3/4 ≈ 2.34 Å.
+    expect(nearest(cellOf('zincblende'), 'Zn', 'S')).toBeCloseTo(2.34, 1);
+    // Ti–O in cubic SrTiO3 = a/2 ≈ 1.95 Å.
+    expect(nearest(cellOf('perovskite-st'), 'Ti', 'O')).toBeCloseTo(1.95, 1);
   });
 
   it('periodic bonds enumerate every image and skip metal-metal contacts', () => {
@@ -204,6 +217,38 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
       ({ a, b }) => pyriteCell.sites[a]!.symbol === 'S' && pyriteCell.sites[b]!.symbol === 'S',
     );
     expect(ss).toHaveLength(4);
+    // Diamond: 8 C × 4 neighbours / 2 → complete tetrahedral network.
+    expect(infer('diamond')).toHaveLength(16);
+    // Graphite: in-plane C–C only (3 per atom); the 3.35 Å interlayer gap bonds nothing.
+    expect(infer('graphite')).toHaveLength(6);
+    // Zinc blende: 4 Zn × 4 S tetrahedral contacts, no Zn–Zn.
+    expect(infer('zincblende')).toHaveLength(16);
+    // Dry ice: molecular crystal — only the 8 intramolecular C=O contacts.
+    expect(infer('dryice')).toHaveLength(8);
+  });
+
+  it('metal–metal contacts are never bonds (金属间不画键)', () => {
+    const infer = (id: string) => {
+      const cell = CRYSTAL_SAMPLES.find((s) => s.id === id)!.cell;
+      return inferBonds(
+        cell.sites.map((s) => ({ symbol: s.symbol, x: s.fx, y: s.fy, z: s.fz })),
+        { cell: cell.params },
+      );
+    };
+    // fcc copper: 2.56 Å nearest-neighbour packing is metallic, not covalent.
+    expect(infer('copper')).toHaveLength(0);
+    // Perovskites: the A-site/B-site skeleton distance (Ca–Ti ≈ 3.2 Å,
+    // Sr–Ti ≈ 3.4 Å) lies inside the naive radius cutoff but is not a bond.
+    const noAB = (id: string, aSym: string, bSym: string) => {
+      const cell = CRYSTAL_SAMPLES.find((s) => s.id === id)!.cell;
+      return infer(id).filter(
+        ({ a, b }) =>
+          (cell.sites[a]!.symbol === aSym && cell.sites[b]!.symbol === bSym) ||
+          (cell.sites[a]!.symbol === bSym && cell.sites[b]!.symbol === aSym),
+      );
+    };
+    expect(noAB('perovskite', 'Ca', 'Ti')).toHaveLength(0);
+    expect(noAB('perovskite-st', 'Sr', 'Ti')).toHaveLength(0);
   });
 
   it('calcite coordination shells are complete (Ca 6×O ≈ 2.36, C 3×O ≈ 1.28)', () => {
