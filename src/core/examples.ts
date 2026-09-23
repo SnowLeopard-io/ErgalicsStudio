@@ -70,6 +70,18 @@ import reactionC2h5ohC2h4 from '../../examples/data/reaction-c2h5oh-c2h4.json?ra
 import reactionCh4Cl2 from '../../examples/data/reaction-ch4-cl2.json?raw';
 import reactionC6h6H2 from '../../examples/data/reaction-c6h6-h2.json?raw';
 import reactionC7h8Kmno4 from '../../examples/data/reaction-c7h8-kmno4.json?raw';
+import geoFellsLoopGpx from '../../examples/data/geo-fells-loop.gpx?raw';
+import geoWorldLandJson from '../../examples/data/geo-world-110m-land.json?raw';
+import geoClimateBeijing from '../../examples/data/geo-climate-beijing.csv?raw';
+import geoClimateSingapore from '../../examples/data/geo-climate-singapore.csv?raw';
+import geoClimateLondon from '../../examples/data/geo-climate-london.csv?raw';
+import geoClimateCairo from '../../examples/data/geo-climate-cairo.csv?raw';
+import geoPopChina from '../../examples/data/geo-pop-china.csv?raw';
+import geoPopJapan from '../../examples/data/geo-pop-japan.csv?raw';
+import geoPopNigeria from '../../examples/data/geo-pop-nigeria.csv?raw';
+import geoInterpStations from '../../examples/data/geo-interp-stations.csv?raw';
+import geoMeasurePoints from '../../examples/data/geo-measure-points.json?raw';
+import geoTerrainDemoAsc from '../../examples/data/geo-terrain-demo-synthetic.asc?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -637,6 +649,214 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '34 个省级行政区 + 九段线的标准边界数据（审图号 GS(2024)0650 号 · 数据来源：阿里云 DataV.GeoAtlas），可按 adcode 着色或以轮廓模式查看。',
       'en-US': 'Standard boundaries of 34 province-level regions plus the nine-dash line (source: DataV.GeoAtlas); color by adcode or view as outlines.',
+    },
+  },
+  {
+    id: 'geo-climate-beijing',
+    filename: 'geo-climate-beijing.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-climograph',
+    content: geoClimateBeijing,
+    nameI18n: {
+      'zh-CN': '气候直方图 · 北京',
+      'en-US': 'Climatograph · Beijing',
+    },
+    descriptionI18n: {
+      'zh-CN': '北京 1991-2020 气候标准值（月均温/月降水，数值取自公开记录的近似值）：雨热同期夏雨型，温带季风气候代表。',
+      'en-US': 'Beijing 1991-2020 climate normals (monthly mean temp/precip, approximate public record): summer-wet monsoon signature.',
+    },
+  },
+  {
+    id: 'geo-climate-singapore',
+    filename: 'geo-climate-singapore.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-climograph',
+    content: geoClimateSingapore,
+    nameI18n: {
+      'zh-CN': '气候直方图 · 新加坡',
+      'en-US': 'Climatograph · Singapore',
+    },
+    descriptionI18n: {
+      'zh-CN': '新加坡 1991-2020 气候标准值（近似公开记录）：全年高温多雨，热带雨林气候（柯本 Af）代表。',
+      'en-US': 'Singapore 1991-2020 climate normals (approximate public record): hot and wet year-round — tropical rainforest (Köppen Af).',
+    },
+  },
+  {
+    id: 'geo-climate-london',
+    filename: 'geo-climate-london.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-climograph',
+    content: geoClimateLondon,
+    nameI18n: {
+      'zh-CN': '气候直方图 · 伦敦',
+      'en-US': 'Climatograph · London',
+    },
+    descriptionI18n: {
+      'zh-CN': '伦敦 1991-2020 气候标准值（近似公开记录）：冬温夏凉、降水全年均匀，温带海洋性气候（Cfb）代表。',
+      'en-US': 'London 1991-2020 climate normals (approximate public record): mild winters, even precipitation — oceanic (Köppen Cfb).',
+    },
+  },
+  {
+    id: 'geo-climate-cairo',
+    filename: 'geo-climate-cairo.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-climograph',
+    content: geoClimateCairo,
+    nameI18n: {
+      'zh-CN': '气候直方图 · 开罗',
+      'en-US': 'Climatograph · Cairo',
+    },
+    descriptionI18n: {
+      'zh-CN': '开罗 1991-2020 气候标准值（近似公开记录）：全年干旱少雨，热带沙漠气候（BWh）代表。',
+      'en-US': 'Cairo 1991-2020 climate normals (approximate public record): arid all year — hot desert (Köppen BWh).',
+    },
+  },
+  {
+    id: 'geo-pop-china',
+    filename: 'geo-pop-china.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-pop-pyramid',
+    content: geoPopChina,
+    nameI18n: {
+      'zh-CN': '人口金字塔 · 中国（2020）',
+      'en-US': 'Population Pyramid · China (2020)',
+    },
+    descriptionI18n: {
+      'zh-CN': '中国 2020 七普年龄结构（近似公开数据，千人）：底部收窄、中部隆起，向稳定型/缩减型过渡的金字塔。',
+      'en-US': 'China 2020 census age structure (approximate public data, thousands): narrowing base and mid-age bulge — stabilising pyramid.',
+    },
+  },
+  {
+    id: 'geo-pop-japan',
+    filename: 'geo-pop-japan.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-pop-pyramid',
+    content: geoPopJapan,
+    nameI18n: {
+      'zh-CN': '人口金字塔 · 日本（2020）',
+      'en-US': 'Population Pyramid · Japan (2020)',
+    },
+    descriptionI18n: {
+      'zh-CN': '日本 2020 总务省年龄结构（近似公开数据，千人）：塔顶宽、塔基窄的典型缩减型（老龄化）金字塔。',
+      'en-US': 'Japan 2020 age structure (Statistics Bureau, approximate public data, thousands): wide top, narrow base — classic contractive (ageing) pyramid.',
+    },
+  },
+  {
+    id: 'geo-pop-nigeria',
+    filename: 'geo-pop-nigeria.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-pop-pyramid',
+    content: geoPopNigeria,
+    nameI18n: {
+      'zh-CN': '人口金字塔 · 尼日利亚（2020）',
+      'en-US': 'Population Pyramid · Nigeria (2020)',
+    },
+    descriptionI18n: {
+      'zh-CN': '尼日利亚 2020 联合国 WPP 年龄结构（近似公开数据，千人）：底座极宽的典型增长型（扩张型）金字塔。',
+      'en-US': 'Nigeria 2020 age structure (UN WPP, approximate public data, thousands): very broad base — classic expansive pyramid.',
+    },
+  },
+  {
+    id: 'geo-interp-stations',
+    filename: 'geo-interp-stations.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-interp',
+    content: geoInterpStations,
+    nameI18n: {
+      'zh-CN': '空间插值 · 中国主要城市年降水量',
+      'en-US': 'Spatial Interpolation · Annual Precipitation',
+    },
+    descriptionI18n: {
+      'zh-CN': '31 个主要城市的经纬度与年均降水量（近似公开气候标准值）：东南向西北递减，试 IDW 与克里金两种网格化方法。',
+      'en-US': '31 major cities with lon/lat and mean annual precipitation (approximate public normals): NW-drying gradient to grid with IDW or kriging.',
+    },
+  },
+  {
+    id: 'geo-measure-points',
+    filename: 'geo-measure-points.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.geo-measure',
+    content: geoMeasurePoints,
+    nameI18n: {
+      'zh-CN': '量算示例 · 长江沿线航点',
+      'en-US': 'Measure Demo · Yangtze Waypoints',
+    },
+    descriptionI18n: {
+      'zh-CN': '长江沿线 6 个城市航点（上海—宜宾）：导入后自动适配视图，查看逐段大圆距离与累计里程。',
+      'en-US': 'Six waypoints along the Yangtze (Shanghai–Yibin): auto-fitted view with per-segment great-circle distances.',
+    },
+  },
+  {
+    id: 'geo-terrain-demo',
+    filename: 'geo-terrain-demo-synthetic.asc',
+    format: 'asc',
+    mimeType: 'text/plain',
+    pluginId: 'example.geo-terrain',
+    content: geoTerrainDemoAsc,
+    nameI18n: {
+      'zh-CN': 'DEM 地形 · 合成分形山体',
+      'en-US': 'DEM · Synthetic Fractal Terrain',
+    },
+    descriptionI18n: {
+      'zh-CN': '256×256 确定性合成 DEM（SYNTHETIC，多倍频值噪声 + 山脊 + 盆地，30 m 像元，高程约 250-2900 m），演示山体阴影/坡度/坡向/等高线。',
+      'en-US': '256×256 deterministic synthetic DEM (SYNTHETIC, fBm value noise + ridge + basin, 30 m cells, ~250-2900 m) for hillshade/slope/aspect/contours.',
+    },
+  },
+  {
+    id: 'geo-gpx-fells-loop',
+    filename: 'geo-fells-loop.gpx',
+    format: 'gpx',
+    mimeType: 'application/gpx+xml',
+    pluginId: 'example.geo-gpx',
+    content: geoFellsLoopGpx,
+    nameI18n: {
+      'zh-CN': 'GPX 轨迹 · Fells Loop（样例）',
+      'en-US': 'GPX Track · Fells Loop (sample)',
+    },
+    descriptionI18n: {
+      'zh-CN': 'TopoGrafix 官方样例轨迹（Middlesex Fells 环线）：含海拔与时间，查看里程、累计爬升/下降与海拔剖面。',
+      'en-US': 'The official TopoGrafix sample track (Middlesex Fells Loop) with elevation and timestamps: distance, ascent/descent and profile.',
+    },
+  },
+  {
+    id: 'geo-tissot-world-land',
+    filename: 'geo-world-110m-land.json',
+    format: 'geojson',
+    mimeType: 'application/geo+json',
+    pluginId: 'example.geo-tissot',
+    content: geoWorldLandJson,
+    nameI18n: {
+      'zh-CN': 'Tissot 投影 · 世界海岸线',
+      'en-US': 'Tissot · World Coastlines',
+    },
+    descriptionI18n: {
+      'zh-CN': 'Natural Earth 110m 陆地轮廓（公有领域）：作为投影变形演示的海岸线图层（插件内置同款数据，此条目供自定义复载）。',
+      'en-US': 'Natural Earth 110m land polygons (public domain): the coastline layer for the distortion demo (the plugin bundles the same data; this entry allows reloading).',
+    },
+  },
+  {
+    id: 'geo-globe-earth',
+    filename: 'geo-world-110m-land.json',
+    format: 'geojson',
+    mimeType: 'application/geo+json',
+    pluginId: 'example.geo-globe',
+    content: geoWorldLandJson,
+    nameI18n: {
+      'zh-CN': '交互地球仪 · 世界海岸线',
+      'en-US': 'Globe · World Coastlines',
+    },
+    descriptionI18n: {
+      'zh-CN': 'Natural Earth 110m 陆地轮廓（公有领域）：加载后贴到三维球面，拖拽旋转、滚轮缩放，并在真实球面上观察 Tissot 变形圆。',
+      'en-US': 'Natural Earth 110m land polygons (public domain): draped on the 3D sphere — drag to spin, scroll to zoom, and watch the Tissot circles on the true globe.',
     },
   },
   {

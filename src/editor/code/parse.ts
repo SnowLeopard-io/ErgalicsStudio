@@ -805,9 +805,13 @@ class ExprParser {
   }
 
   private studioCall(method: string): IRNode | null {
-    const args = this.argList(')');
-    if (args === null) return null;
-    return buildStudioCall(method, args) ?? { kind: 'StudioCall', method, args };
+    const parsed = this.namedArgs(')');
+    if (!parsed) return null;
+    const args = parsed.positional;
+    // Keep keyword args (python `studio.random(200, seed=7)`, R `n =`, …)
+    // attached so buildStudioCall can read them; the signature of
+    // buildStudioCall stays positional for existing explicit-seed sources.
+    return buildStudioCall(method, args, parsed.named) ?? { kind: 'StudioCall', method, args };
   }
 
   private argList(close: ')' | ']'): IRNode[] | null {
@@ -1076,7 +1080,7 @@ function asNumber(node: IRNode | undefined): number | null {
   return node?.kind === 'Number' ? node.value : null;
 }
 
-function buildStudioCall(methodRaw: string, args: IRNode[]): IRNode | null {
+function buildStudioCall(methodRaw: string, args: IRNode[], named?: Map<string, IRNode>): IRNode | null {
   const method = methodRaw;
 
   // --- data sources ---
@@ -1096,7 +1100,10 @@ function buildStudioCall(methodRaw: string, args: IRNode[]): IRNode | null {
   if (method === 'random' || method === 'generate_random' || method === 'generateRandom') {
     const count = asNumber(args[0]);
     if (count == null) return null;
-    const seed = asNumber(args[1]);
+    // python `studio.random(200, seed=7)` names the seed as a keyword arg;
+    // R/JS explicit-seed forms pass it positionally.
+    const seedArg = named?.get('seed') ?? args[1];
+    const seed = asNumber(seedArg);
     return { kind: 'Random', count: { kind: 'Number', value: count }, ...(seed != null ? { seed: { kind: 'Number', value: seed } } : {}) };
   }
   // R-only rendering of a Python-style slice (0-based, half-open).
@@ -1404,6 +1411,13 @@ function parseBraceStmt(lines: PhysLine[], cur: Cursor, fb: 'js' | 'r' | 'js-or-
   const raw = lines[cur.i]!.text.trim().replace(/;+$/, '').trim();
   cur.i += 1;
   const text = raw;
+
+  // Imports / library round-trip back into an Import node so an emitted
+  // `library(studio)` (R) or `import 'studio';` (JS) re-parses losslessly.
+  let im = /^library\(\s*([A-Za-z_][\w.]*)\s*\)$/.exec(text);
+  if (im) return { kind: 'Import', module: im[1]! };
+  im = /^import\s+['"]([^'"]+)['"]$/.exec(text);
+  if (im) return { kind: 'Import', module: im[1]! };
 
   // function defs
   let m = /^function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)\s*\{\s*(.*)$/.exec(text);

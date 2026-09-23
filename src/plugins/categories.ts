@@ -65,6 +65,15 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
 
   // Geography
   'example.geomap': 'geo',
+  'example.geo-solar': 'geo',
+  'example.geo-climograph': 'geo',
+  'example.geo-pop-pyramid': 'geo',
+  'example.geo-interp': 'geo',
+  'example.geo-measure': 'geo',
+  'example.geo-tissot': 'geo',
+  'example.geo-terrain': 'geo',
+  'example.geo-gpx': 'geo',
+  'example.geo-globe': 'geo',
 
   // Data & AI
   'example.point-cloud': 'data',

@@ -151,13 +151,28 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setSessionLanguage: (id, language) => {
     const sess = get().sessions.find((s) => s.id === id);
     if (!sess || sess.language === language) return;
+    // Text-only sessions (code samples, wizard-cleaned scripts) are created
+    // with an EMPTY IR and a raw-text buffer — parsing was deferred, so a
+    // language switch used to hit empty IR → empty codegen → the anti-wipe
+    // guard below kept the old text and the switch looked like it did nothing.
+    // Rebuild the IR from the current text so switching really translates.
+    let ir = sess.ir;
+    if ((!ir || ir.body.length === 0) && sess.lastCode.trim() !== '') {
+      const curLang = sess.language === 'js' ? 'js' : sess.language === 'r' ? 'r' : 'python';
+      ir = parseCodeToIR(sess.lastCode, curLang).program;
+    }
     // Translate the canonical IR into the new dialect; block/flow surfaces
     // are unchanged (they derive from the same IR). Any code that could not
     // be parsed into IR is carried over as RawCode and marked with a note.
-    const code = codegen(sess.ir, codegenLang(language));
+    const code = codegen(ir, codegenLang(language));
+    // The IR round-trip is lossy (imports/comments are not reproduced), so a
+    // nearly-empty program can translate to "". Never let that wipe a session
+    // that already holds real source text — preserve it as the new buffer so
+    // switching languages cannot clear the user's code.
+    const next = code.trim() !== '' || sess.lastCode.trim() === '' ? code : sess.lastCode;
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, language, lastCode: code, syncState: 'code-dirty', updatedAt: Date.now() } : x,
+        x.id === id ? { ...x, language, ir, lastCode: next, syncState: 'code-dirty', updatedAt: Date.now() } : x,
       ),
     }));
     notifyChanged();

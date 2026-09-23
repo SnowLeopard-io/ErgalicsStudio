@@ -1,0 +1,16 @@
+# station: Singapore (1.35N, 103.8E)
+# source: WMO climate normals (1991-2020), public record; values approximate
+# columns: month(1-12), temp_c(°C), precip_mm
+month,temp_c,precip_mm
+1,26.9,218
+2,27.3,106
+3,27.6,152
+4,27.9,172
+5,28.3,172
+6,28.2,144
+7,27.9,158
+8,27.8,171
+9,27.7,172
+10,27.7,188
+11,27.4,255
+12,27.0,288

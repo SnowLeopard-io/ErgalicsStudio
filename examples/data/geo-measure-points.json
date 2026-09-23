@@ -1,0 +1,12 @@
+{
+  "title": "Yangtze corridor sample waypoints",
+  "description": "Sample waypoints along the Yangtze (Shanghai to Yibin) for distance/area measurement demo.",
+  "points": [
+    { "name": "Shanghai", "lat": 31.23, "lon": 121.47 },
+    { "name": "Nanjing", "lat": 32.06, "lon": 118.8 },
+    { "name": "Wuhan", "lat": 30.59, "lon": 114.31 },
+    { "name": "Yichang", "lat": 30.69, "lon": 111.29 },
+    { "name": "Chongqing", "lat": 29.56, "lon": 106.55 },
+    { "name": "Yibin", "lat": 28.77, "lon": 104.64 }
+  ]
+}

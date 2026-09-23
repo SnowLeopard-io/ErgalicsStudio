@@ -253,7 +253,7 @@ function callExpr(node: Extract<IRNode, { kind: 'Call' }>, c: Ctx): string {
     if (c.lang === 'js') return `setSeed(${args})`;
     return `${callee}(${args})`;
   }
-  if (callee === 'set.seed') {
+  if (callee === 'set.seed' || callee === 'random.seed') {
     if (c.lang === 'python') return `random.seed(${args})`;
     if (c.lang === 'js') return `setSeed(${args})`;
     return `set.seed(${args})`;
@@ -546,8 +546,12 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
       return `${ind}${prefix}${node.name}${assignOp}${expr(node.value, c)}${terminator(c)}`;
     }
     case 'Import':
-      // Imports are execution no-ops in every dialect — emit nothing.
-      return '';
+      // Rendered as a real dialect statement so the import survives a round
+      // trip and the source reads as legitimate target code. Each form below
+      // is re-parsed back into an Import node by the parser.
+      if (c.lang === 'python') return `import ${node.module}`;
+      if (c.lang === 'r') return `library(${node.module})`;
+      return `import '${node.module}';`;
     case 'PlotScatter': {
       const entries = [
         { key: 'x', value: { kind: 'String', value: node.x } as IRNode },

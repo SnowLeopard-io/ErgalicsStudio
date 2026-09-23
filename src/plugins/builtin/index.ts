@@ -18,6 +18,15 @@ import { fluidManifest } from './fluidManifest';
 import { waveManifest } from './waveManifest';
 import { pendulumManifest } from './pendulumManifest';
 import { geoMapManifest } from './geoMapManifest';
+import { solarManifest } from './geo/solarManifest';
+import { climographManifest } from './geo/climographManifest';
+import { popPyramidManifest } from './geo/popPyramidManifest';
+import { spatialInterpManifest } from './geo/spatialInterpManifest';
+import { geoMeasureManifest } from './geo/geoMeasureManifest';
+import { tissotManifest } from './geo/tissotManifest';
+import { terrainManifest } from './geo/terrainManifest';
+import { gpxTrackManifest } from './geo/gpxTrackManifest';
+import { globeManifest } from './geo/globeManifest';
 import { aiTrainingManifest } from './ai-training/manifest';
 import { errorbandManifest } from './errorbandManifest';
 import { qqplotManifest } from './qqplotManifest';
@@ -143,6 +152,69 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: geoMapManifest,
     load: async () => {
       const mod = await import('./geoMap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: solarManifest,
+    load: async () => {
+      const mod = await import('./geo/solar');
+      return mod.default();
+    },
+  },
+  {
+    manifest: climographManifest,
+    load: async () => {
+      const mod = await import('./geo/climograph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: popPyramidManifest,
+    load: async () => {
+      const mod = await import('./geo/popPyramid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: spatialInterpManifest,
+    load: async () => {
+      const mod = await import('./geo/spatialInterp');
+      return mod.default();
+    },
+  },
+  {
+    manifest: geoMeasureManifest,
+    load: async () => {
+      const mod = await import('./geo/geoMeasure');
+      return mod.default();
+    },
+  },
+  {
+    manifest: tissotManifest,
+    load: async () => {
+      const mod = await import('./geo/tissot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: terrainManifest,
+    load: async () => {
+      const mod = await import('./geo/terrain');
+      return mod.default();
+    },
+  },
+  {
+    manifest: gpxTrackManifest,
+    load: async () => {
+      const mod = await import('./geo/gpxTrack');
+      return mod.default();
+    },
+  },
+  {
+    manifest: globeManifest,
+    load: async () => {
+      const mod = await import('./geo/globe');
       return mod.default();
     },
   },
