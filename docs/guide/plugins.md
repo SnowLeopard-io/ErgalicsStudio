@@ -266,7 +266,9 @@ demand from the built-in panel or the marketplace tab.
 
 ### Contour (`example.contour`)
 
-![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](../field.png)
+![Contour — twin gaussian peaks with wavy ridge, viridis ramp + isolines](../assets/screenshots/plugins/contour.png)
+
+*A 64×64 scalar field rendered as a viridis ramp plus marching-squares isolines — the sample twin-peak field. Demonstrates data-driven loading with the host auto-routing a `.json` grid to the plugin.*
 
 A 64×64 scalar-field viewer: viridis color ramp plus marching-squares
 isolines. Its grid normalization logic is covered by `builtinPlugins.test.ts`,
@@ -274,7 +276,9 @@ and the bundled sample (`field.json`) renders the twin-peak field above.
 
 ### AI Trainer (`example.ai-training`)
 
-![AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)](../AImnistcnn.png)
+![AI Trainer — MNIST CNN trained for 10 epochs on a 200-image synthetic digit set, grid shows predictions (green) vs. ground truth (red)](../assets/screenshots/plugins/ai-mnist.png)
+
+*In-browser model training: the MNIST CNN grid shows prediction (green) vs. ground truth (red) per digit after 10 epochs, alongside the live-updating loss curve.*
 
 A drop-in for "train a small model in the browser without writing code".
 Four model kinds — `linear`, `nonlinear-nn`, `logistic`, `mnist` — share the
@@ -305,7 +309,9 @@ exercises several host features at once:
 
 ### N-Body Gravity (`example.nbody`)
 
-![N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)](../Nbody.png)
+![N-Body Gravity — a 4096-body torus ring orbiting a central mass (3D, WGSL all-pairs)](../assets/screenshots/plugins/nbody-3d.png)
+
+*4096-body torus ring orbiting a central mass: direct-summation gravity rendered as THREE.Points via the host Three.js scene, physics advancing on the device with the WGSL all-pairs kernel.*
 
 A 3-D astrophysics demo: direct-summation gravity where every body feels the
 pull of every other body — **O(N²) per step**. It declares `renderToScene`,
@@ -333,7 +339,9 @@ as `THREE.Points` (colored by speed, camera auto-fit).
 
 ### Protein Interactions (`example.protein`)
 
-![Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network, colored and sized by degree](../protein.png)
+![Protein Interactions — a force-directed layout of a 560-protein / ~1700-interaction network, colored and sized by degree](../assets/screenshots/plugins/protein-network.png)
+
+*Force-directed (Fruchterman-Reingold) layout of the 560-protein PPI network, nodes colored and sized by degree; the layout anneals to convergence and reports connected components.*
 
 A systems-biology demo. Loads a protein-protein interaction (PPI) network and
 computes a **force-directed layout** (Fruchterman-Reingold spring-electrical
@@ -361,7 +369,9 @@ convergence — then reports biology-relevant metrics.
 
 ### LBM Fluid (`example.fluid`)
 
-![LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view](../airplane.png)
+![LBM Fluid — lattice-Boltzmann flow past an airfoil obstacle, Wind Flow view](../assets/screenshots/plugins/lbm-fluid.png)
+
+*Lattice-Boltzmann (D2Q9) channel flow past an airfoil mask in the Wind Flow view; collide and stream run as WGSL kernels and develop a Kármán vortex street.*
 
 A 2-D lattice-Boltzmann channel flow (D2Q9) around a user-supplied obstacle
 mask. Collide and stream steps run as **WGSL kernels** (with a matching
@@ -378,7 +388,9 @@ Kármán vortex street.
 
 ### Wave Equation (`example.wave`)
 
-![Wave Equation — twin-source interference pattern, orange/blue amplitude field](../waveequation.png)
+![Wave Equation — twin-source interference pattern, orange/blue amplitude field](../assets/screenshots/plugins/wave-interference.png)
+
+*2-D finite-difference wave equation (leapfrog WGSL kernel): the twin-source sample shows two circular waves interfering into the characteristic orange/blue amplitude lattice.*
 
 A 2-D finite-difference wave equation on a grid, integrated by a **WGSL
 leapfrog kernel** (`waveStepCPU` as tested CPU fallback).
@@ -392,7 +404,9 @@ leapfrog kernel** (`waveStepCPU` as tested CPU fallback).
 
 ### Double Pendulum (`example.pendulum`)
 
-![Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°](../doublependulum.png)
+![Double Pendulum — two trajectories diverging, HUD reads Ghost divergence: 137.42°](../assets/screenshots/plugins/double-pendulum.png)
+
+*Two RK4-integrated double pendulums whose initial angles differ by only 0.001 rad; the HUD shows the live ghost divergence (137.42°) as the trajectories peel apart — a direct visual of chaos.*
 
 A chaos demonstration: two double pendulums integrated with **RK4**, the
 ghost twin starting at an angle offset of just **0.001 rad**. The HUD reads
@@ -406,7 +420,9 @@ is directly visible as the trajectories peel apart.
 
 ### GeoJSON Map (`example.geomap`)
 
-![GeoJSON Map — China provinces choropleth in the Albers (China) projection](../geojsonmap.png)
+![GeoJSON Map — China provinces choropleth in the Albers (China) projection](../assets/screenshots/plugins/geojson-map.png)
+
+*Offline GeoJSON choropleth of China's provinces shaded by a property in the Albers (China) projection — no tile server, no network.*
 
 An **offline** vector map: loads a GeoJSON FeatureCollection and shades each
 feature by a chosen property (choropleth) — no tile server, no network.

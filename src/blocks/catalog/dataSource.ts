@@ -156,7 +156,7 @@ export const projectFileBlock: BlockDefinition = defineBlock(
     if (!fileName) {
       throw new Error('this block is not configured — pick a project file');
     }
-    const text = resolveDataFile(fileName);
+    const text = await resolveDataFile(fileName);
     if (text === undefined) {
       throw new Error(`file "${fileName}" not found in project`);
     }

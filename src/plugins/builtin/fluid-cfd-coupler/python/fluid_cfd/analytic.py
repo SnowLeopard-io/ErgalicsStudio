@@ -38,6 +38,58 @@ def nozzle_choked_flow(
     return area * p0 / np.sqrt(t0) * np.sqrt(choke / r_specific)
 
 
+def critical_pressure_ratio(gamma: float = GAMMA_AIR) -> float:
+    """Isentropic critical (throat) pressure ratio ``PR* = (2/(γ+1))^(γ/(γ-1))``.
+
+    For air (γ = 1.4) this is ``≈ 0.5283``.  It is the standard gas-dynamic
+    result that marks the choked / subsonic boundary of a converging nozzle
+    (literature: e.g. Shapiro, *The Dynamics and Thermodynamics of Compressible
+    Fluid Flow*, and every compressible-flow text).  Used as the *literature
+    baseline* to assert the solver's subsonic branch only engages the expected
+    pressure-ratio interval and recovers the choked value at ``PR*``.
+    """
+    return (2.0 / (gamma + 1.0)) ** (gamma / (gamma - 1.0))
+
+
+def nozzle_subsonic_flow(
+    p0: float,
+    t0: float,
+    p_down: float,
+    area: float,
+    *,
+    gamma: float = GAMMA_AIR,
+    r_specific: float = R_AIR,
+) -> float:
+    """Isentropic subsonic (non-choked) nozzle mass flow [kg/s].
+
+    The subsonic branch of the standard isentropic converging-nozzle mass-flow
+    relation, valid for the pressure ratio ``r = p_down/p0`` in the open
+    interval ``(PR*, 1)``::
+
+        m_dot = A·P0/√T0 · √( (2γ/(γ−1)) · (r^(2/γ) − r^((γ+1)/γ)) / R )
+
+    This closed form is the **literature baseline** for the subsonic test case:
+    it is independent of the discretised solver's own implementation yet
+    mathematically identical to it, so a match at float precision certifies
+    that the coupled solver reproduces the literature standard relation on the
+    subsonic branch (the reverse-coupling back pressure directly throttles it).
+    """
+    g = gamma
+    r = max(p_down / max(p0, 1e-9), 1e-12)
+    if r >= 1.0:
+        return 0.0
+    # At r <= PR* the term approaches the choked value; the relation is
+    # continuous across the throat, so no special-casing is needed here for a
+    # strictly-subsonic baseline (the caller keeps to the (PR*, 1) interval).
+    term = max(r ** (2.0 / g) - r ** ((g + 1.0) / g), 0.0)
+    return float(
+        area
+        * p0
+        / np.sqrt(max(t0, 1e-9))
+        * np.sqrt((2.0 * g / (g - 1.0)) * term / r_specific)
+    )
+
+
 def blowdown_pressure(
     p0_init: float,
     t0_init: float,
@@ -104,6 +156,8 @@ def interface_tradeoff_curve(exchange_periods_ms, latencies_ms, iface_errors,
 
 __all__ = [
     "nozzle_choked_flow",
+    "critical_pressure_ratio",
+    "nozzle_subsonic_flow",
     "blowdown_pressure",
     "thermally_relaxed_back_pressure",
     "interface_tradeoff_curve",

@@ -76,7 +76,7 @@ export default function CleaningWizardPage() {
 
   // ---- data source -----------------------------------------------------------
 
-  const loadFile = useCallback((name: string) => {
+  const loadFile = useCallback(async (name: string) => {
     setFileName(name);
     setScript(null);
     setError('');
@@ -85,7 +85,7 @@ export default function CleaningWizardPage() {
       setSource(null);
       return;
     }
-    const text = resolveDataFile(name);
+    const text = await resolveDataFile(name);
     if (text === undefined) {
       setSource(null);
       setParseError(t('clean.error.parse', { msg: name }));
@@ -102,7 +102,7 @@ export default function CleaningWizardPage() {
   }, [t]);
 
   useEffect(() => {
-    if (fileName && !source && !parseError) loadFile(fileName);
+    if (fileName && !source && !parseError) void loadFile(fileName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);
 
@@ -210,7 +210,7 @@ export default function CleaningWizardPage() {
             {/* ---- source picker ---- */}
             <h4 className="share-section-title">{t('clean.source')}</h4>
             <div className="analysis-row">
-              <select className="input" value={fileName} onChange={(e) => loadFile(e.target.value)}>
+              <select className="input" value={fileName} onChange={(e) => void loadFile(e.target.value)}>
                 <option value="">{t('clean.pick_file')}</option>
                 {fileGroups.project.length + fileGroups.examples.length === 0 && (
                   <option value="" disabled>{t('clean.no_files')}</option>

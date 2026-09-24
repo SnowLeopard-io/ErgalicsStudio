@@ -157,14 +157,14 @@ export default function UncertaintyPage() {
   // mid-run would log a result under the wrong data column.
   const busy = bsProgress !== null || mcmcRunning;
 
-  const loadFile = (name: string) => {
+  const loadFile = async (name: string) => {
     setFile(name);
     setParseError('');
     if (!name) {
       setTable(null);
       return;
     }
-    const text = resolveDataFile(name);
+    const text = await resolveDataFile(name);
     if (text === undefined) {
       setTable(null);
       setParseError(t('analysis.no_data'));
@@ -398,7 +398,7 @@ export default function UncertaintyPage() {
           {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
-            <select className="input" value={file} disabled={busy} onChange={(e) => loadFile(e.target.value)}>
+            <select className="input" value={file} disabled={busy} onChange={(e) => void loadFile(e.target.value)}>
               <option value="">{t('analysis.select_file')}</option>
               {fileGroups.project.length > 0 && (
                 <optgroup label={t('datafiles.group_project')}>

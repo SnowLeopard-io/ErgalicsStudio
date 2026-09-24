@@ -84,9 +84,14 @@ export default function SqlWorkbenchPage() {
         setStatus('ready');
       }
       if (registeredKeyRef.current !== filesKey) {
-        const files = allFileNames
-          .map((name) => ({ name, text: resolveDataFile(name) }))
-          .filter((f): f is { name: string; text: string } => f.text !== undefined);
+        const files = (
+          await Promise.all(
+            allFileNames.map(async (name) => ({
+              name,
+              text: await resolveDataFile(name),
+            })),
+          )
+        ).filter((f): f is { name: string; text: string } => f.text !== undefined);
         setSchemas(await engine.registerFiles(files));
         registeredKeyRef.current = filesKey;
         setStatus('ready');

@@ -32,7 +32,7 @@ export function createWorkbenchStudioApi(): StudioApi {
 
   return createStudioApi({
     loadText: async (path) => {
-      const text = resolveDataFile(path);
+      const text = await resolveDataFile(path);
       if (text === undefined) {
         throw new Error(`file "${path}" not found (available: ${listDataFiles().join(', ')})`);
       }

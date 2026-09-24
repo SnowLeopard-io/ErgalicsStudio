@@ -15,11 +15,28 @@
 import type { FileEntry } from '@/types/project';
 import { isSupportedDataFileName } from './fileFormat';
 
+// Bundled examples are loaded lazily: a non-eager glob keeps the heavy
+// datasets (geo/point-cloud/flux JSON — hundreds of KB each) out of the
+// first-screen bundle and fetches them on demand when actually opened.
+// `Object.keys` still enumerates names synchronously for pickers.
 const bundledFiles = import.meta.glob('../../examples/data/*', {
   query: '?raw',
   import: 'default',
-  eager: true,
-}) as Record<string, string>;
+}) as Record<string, () => Promise<string>>;
+
+/** Module cache so repeated resolution of the same example stays cheap. */
+const bundledLoaders = new Map<string, Promise<string | undefined>>();
+
+function loadBundledFile(path: string): Promise<string | undefined> {
+  const base = basename(path);
+  const hit = Object.entries(bundledFiles).find(([key]) => basename(key) === base);
+  if (!hit) return Promise.resolve(undefined);
+  const cached = bundledLoaders.get(base);
+  if (cached) return cached;
+  const p = hit[1]().then((text) => text as string).catch(() => undefined);
+  bundledLoaders.set(base, p);
+  return p;
+}
 
 function basename(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -53,17 +70,13 @@ export function resolveProjectFile(path: string): string | undefined {
 }
 
 /** Resolve any file — project files take priority, then bundled examples. */
-export function resolveDataFile(path: string): string | undefined {
+export async function resolveDataFile(path: string): Promise<string | undefined> {
   return resolveProjectFile(path) ?? resolveBundledFile(path);
 }
 
-/** Resolve a bundled example file by name (or undefined). */
-export function resolveBundledFile(path: string): string | undefined {
-  const base = basename(path);
-  for (const [key, text] of Object.entries(bundledFiles)) {
-    if (basename(key) === base) return text;
-  }
-  return undefined;
+/** Resolve a bundled example file by name (async — lazily fetched). */
+export async function resolveBundledFile(path: string): Promise<string | undefined> {
+  return loadBundledFile(path);
 }
 
 /** All resolvable file names (project files first, then bundled examples). */

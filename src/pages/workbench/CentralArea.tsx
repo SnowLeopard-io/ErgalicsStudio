@@ -39,6 +39,11 @@ export function CentralArea() {
   const [dragOver, setDragOver] = useState(false);
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
+  // Mirror of the viewport scale for rendering: the viewport store lives
+  // outside React, so this state exists purely to surface a visible zoom
+  // badge (invisible viewport state already caused two "render is broken"
+  // reports — pan drift and accidental wheel shrink).
+  const [zoom2d, setZoom2d] = useState(1);
 
   // File ingestion (drop → sniff → scientific import / plugin routing) lives
   // in its own hook so this component stays focused on the viewport.
@@ -66,6 +71,10 @@ export function CentralArea() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
+    // Panning at scale 1 just shifts the frame into a confusing floating
+    // position (the classic "my render is broken" report) — only allow it
+    // once the user has actually zoomed. Double-click still resets.
+    if (getViewport2d().scale === 1) return;
     const v = getViewport2d();
     drag2d.current = {
       startX: e.clientX,
@@ -87,7 +96,7 @@ export function CentralArea() {
         scale: v.scale,
       });
       rerenderActivePlugin();
-    } else if (pan2dAllowed(e.target)) {
+    } else if (pan2dAllowed(e.target) && getViewport2d().scale !== 1) {
       e.currentTarget.style.cursor = 'grab';
     } else {
       e.currentTarget.style.cursor = '';
@@ -108,6 +117,7 @@ export function CentralArea() {
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
     resetViewport2d();
+    setZoom2d(1);
     rerenderActivePlugin();
   };
 
@@ -118,6 +128,11 @@ export function CentralArea() {
     const onWheel = (e: WheelEvent) => {
       if (scene3dRef.current?.isVisible()) return;
       if (e.target !== domRef.current) return;
+      // Plain wheel must not zoom: rolling the wheel while hovering the canvas
+      // silently shrank the whole view toward the top-left corner. Zoom needs
+      // ctrl/cmd — trackpad pinch already arrives as ctrl+wheel. Double-click
+      // (or the badge) still resets.
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -134,6 +149,7 @@ export function CentralArea() {
         y: py - (py - v.y) * k,
         scale: next,
       });
+      setZoom2d(next);
       rerenderActivePlugin();
     };
     host.addEventListener('wheel', onWheel, { passive: false });
@@ -145,6 +161,7 @@ export function CentralArea() {
   const activeId = usePluginStore((s) => s.activeId);
   useEffect(() => {
     resetViewport2d();
+    setZoom2d(1);
     rerenderActivePlugin();
   }, [activeId]);
 
@@ -275,6 +292,20 @@ export function CentralArea() {
             <span className="spinner" />
             <span>{t(`status.${status}`)}</span>
           </div>
+        )}
+        {Math.round(zoom2d * 100) !== 100 && (
+          <button
+            type="button"
+            className="central-zoom-badge"
+            title="Ctrl+wheel · 100%"
+            onClick={() => {
+              resetViewport2d();
+              setZoom2d(1);
+              rerenderActivePlugin();
+            }}
+          >
+            {Math.round(zoom2d * 100)}%
+          </button>
         )}
       </div>
       {!activePlugin && (

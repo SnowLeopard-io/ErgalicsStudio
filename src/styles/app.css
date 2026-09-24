@@ -808,6 +808,26 @@
   z-index: 6;
 }
 
+.central-zoom-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-accent);
+  box-shadow: var(--shadow-1);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  font-family: Consolas, monospace;
+  cursor: pointer;
+  z-index: 6;
+}
+
+.central-zoom-badge:hover {
+  filter: brightness(1.15);
+}
+
 .central-drop-hint {
   position: absolute;
   inset: 14px;

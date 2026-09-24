@@ -7,6 +7,7 @@
 // and CSV assembly for derived outputs saved back into the project.
 // ==========================================================================
 
+import { useEffect, useState } from 'react';
 import { listDataFilesGrouped, resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { isNumericType } from '@/blocks/ops';
@@ -28,21 +29,82 @@ export function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
  * The bundled examples mix real datasets with simulation *configs* (physics
  * JSON such as `{ B, damping, charges }`, lens/bridge/pendulum setups) that
  * a table picker must not offer — selecting one could only ever error.
- * Each candidate is parse-sniffed (cheap: example files are small; re-runs
- * only when the caller's memo deps change) and failures are dropped.
+ * Each candidate's content is loaded lazily and parse-sniffed, so this is
+ * async (bundled example datasets are fetched on demand, not at first paint).
  */
-export function tabularDataGroups(allow?: readonly string[]): DataFileGroups {
+export async function tabularDataGroups(allow?: readonly string[]): Promise<DataFileGroups> {
   const groups = groupedDataFiles(allow);
-  const parses = (name: string): boolean => {
-    const text = resolveDataFile(name);
-    if (text === undefined) return false;
-    try {
-      return parseDataText(text, name).length > 0;
-    } catch {
-      return false;
-    }
+  const candidates = [...groups.project, ...groups.examples];
+  const parsed = new Map<string, boolean>();
+  await Promise.all(
+    candidates.map(async (name) => {
+      const text = await resolveDataFile(name);
+      if (text === undefined) {
+        parsed.set(name, false);
+        return;
+      }
+      try {
+        parsed.set(name, parseDataText(text, name).length > 0);
+      } catch {
+        parsed.set(name, false);
+      }
+    }),
+  );
+  return {
+    project: groups.project.filter((n) => parsed.get(n) === true),
+    examples: groups.examples.filter((n) => parsed.get(n) === true),
   };
-  return { project: groups.project.filter(parses), examples: groups.examples.filter(parses) };
+}
+
+/**
+ * React hook that resolves `tabularDataGroups` and re-runs when `key`
+ * changes (pass `project?.data.files`). Bundled examples load lazily.
+ */
+export function useTabularDataGroups(
+  allow: readonly string[] | undefined,
+  key: unknown,
+): DataFileGroups {
+  const [groups, setGroups] = useState<DataFileGroups>({ project: [], examples: [] });
+  useEffect(() => {
+    let cancelled = false;
+    void tabularDataGroups(allow)
+      .then((g) => {
+        if (!cancelled) setGroups(g);
+      })
+      .catch(() => {
+        if (!cancelled) setGroups({ project: [], examples: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, allow]);
+  return groups;
+}
+
+/** React hook resolving + parsing the selected file's numeric columns. */
+export function useFileCols(file: string): Pick<LoadedTable, 'numericCols' | 'allCols'> {
+  const [cols, setCols] = useState<Pick<LoadedTable, 'numericCols' | 'allCols'>>({
+    numericCols: [],
+    allCols: [],
+  });
+  useEffect(() => {
+    let cancelled = false;
+    if (!file) {
+      setCols({ numericCols: [], allCols: [] });
+      return;
+    }
+    void loadTable(file)
+      .then((lt) => {
+        if (!cancelled) setCols({ numericCols: lt.numericCols, allCols: lt.allCols });
+      })
+      .catch(() => {
+        if (!cancelled) setCols({ numericCols: [], allCols: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+  return cols;
 }
 
 export interface LoadedTable {
@@ -52,8 +114,8 @@ export interface LoadedTable {
 }
 
 /** Resolve + parse a data file; throws with a readable message on failure. */
-export function loadTable(name: string): LoadedTable {
-  const text = resolveDataFile(name);
+export async function loadTable(name: string): Promise<LoadedTable> {
+  const text = await resolveDataFile(name);
   if (text === undefined) throw new Error(`data file not found: ${name}`);
   const table = parseDataText(text, name);
   const numericCols = table.columns

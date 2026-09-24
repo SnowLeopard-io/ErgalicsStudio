@@ -2,7 +2,7 @@
   "plugin": "em-eigensolver",
   "benchmark": "EM-01 adversarial stress + LAPACK reference",
   "backend": "scipy 1.15.3 (CPython)",
-  "generated_at": "2026-09-21T12:31:42Z",
+  "generated_at": "2026-09-24T13:09:09Z",
   "reference": [
     {
       "case": "cavity_small",
@@ -13,28 +13,28 @@
       "n": 900,
       "nnz": 4380,
       "eigenvalues": [
-        8.39300470134389,
-        8.405424769733226,
-        8.415237686035109,
-        8.458695222956594,
-        8.45902152496377,
-        8.484725876667284
-      ],
-      "reference_eigenvalues": [
-        8.393004701343878,
-        8.405424769733242,
+        8.393004701343859,
+        8.405424769733235,
         8.4152376860351,
         8.458695222956571,
-        8.459021524963758,
+        8.459021524963761,
         8.484725876667282
       ],
-      "max_eigenvalue_error": 2.3092638912203256e-14,
-      "max_eigenvalue_error_rel": 2.721671772061282e-15,
-      "max_residual": 2.5322687529884745e-09,
-      "reference_residual": 8.584474749361652e-16,
+      "reference_eigenvalues": [
+        8.393004701343877,
+        8.405424769733244,
+        8.4152376860351,
+        8.45869522295657,
+        8.459021524963756,
+        8.484725876667284
+      ],
+      "max_eigenvalue_error": 1.7763568394002505e-14,
+      "max_eigenvalue_error_rel": 2.0935936708163704e-15,
+      "max_residual": 2.5322656336310844e-09,
+      "reference_residual": 7.706972639707387e-16,
       "iterations": 6,
       "matvecs": 295,
-      "seconds": 0.034,
+      "seconds": 0.084,
       "converged": true,
       "status": "PASS"
     },
@@ -47,24 +47,24 @@
       "n": 576,
       "nnz": 2784,
       "eigenvalues": [
-        8.871698856214847,
-        8.92820860045938,
-        8.928670882426466,
-        8.971824796234605
+        8.87169885621479,
+        8.928208600459378,
+        8.928670882426498,
+        8.971824796234603
       ],
       "reference_eigenvalues": [
-        8.871698856214795,
+        8.871698856214797,
         8.92820860045935,
         8.928670882426456,
         8.97182479623461
       ],
-      "max_eigenvalue_error": 5.1514348342607263e-14,
-      "max_eigenvalue_error_rel": 5.7417916101334645e-15,
-      "max_residual": 8.336919523838024e-10,
-      "reference_residual": 1.090976865757219e-15,
+      "max_eigenvalue_error": 4.263256414560601e-14,
+      "max_eigenvalue_error_rel": 4.751827539420798e-15,
+      "max_residual": 8.336933849789367e-10,
+      "reference_residual": 1.0241055156454109e-15,
       "iterations": 5,
       "matvecs": 245,
-      "seconds": 0.029,
+      "seconds": 0.085,
       "converged": true,
       "status": "PASS"
     },
@@ -77,10 +77,10 @@
       "n": 300,
       "nnz": 894,
       "eigenvalues": [
-        -0.9996315833188711,
-        -0.9996315833186633,
-        -0.9994500140200038,
-        -0.999450014019841
+        -0.9996315833188656,
+        -0.9996315833187898,
+        -0.9994500140198659,
+        -0.9994500140198637
       ],
       "reference_eigenvalues": [
         -0.9996315833188707,
@@ -88,13 +88,13 @@
         -0.9994500140198228,
         -0.9994500140198228
       ],
-      "max_eigenvalue_error": 2.0738966099997924e-13,
-      "max_eigenvalue_error_rel": 9.039705493322362e-14,
-      "max_residual": 9.896695604086995e-09,
-      "reference_residual": 2.1073745827276663e-16,
-      "iterations": 93,
-      "matvecs": 27688,
-      "seconds": 4.805,
+      "max_eigenvalue_error": 8.093525849517391e-14,
+      "max_eigenvalue_error_rel": 3.5278079789250547e-14,
+      "max_residual": 6.9417161267117e-09,
+      "reference_residual": 2.1073745827307727e-16,
+      "iterations": 108,
+      "matvecs": 32541,
+      "seconds": 9.459,
       "converged": true,
       "status": "PASS"
     },
@@ -107,10 +107,10 @@
       "n": 720,
       "nnz": 2148,
       "eigenvalues": [
-        -0.00075930486367845,
-        -0.0006968110492790582,
-        5.129073419674778e-05,
-        0.0006469728302743408
+        -0.0007593048636784528,
+        -0.0006968110492790561,
+        5.129073419674688e-05,
+        0.0006469728302743452
       ],
       "reference_eigenvalues": [
         -0.0007593048636784541,
@@ -118,43 +118,13 @@
         5.129073419674728e-05,
         0.0006469728302743447
       ],
-      "max_eigenvalue_error": 4.119968255444917e-18,
-      "max_eigenvalue_error_rel": 1.3553793682840918e-17,
-      "max_residual": 3.4788735053895696e-09,
+      "max_eigenvalue_error": 1.3010426069826053e-18,
+      "max_eigenvalue_error_rel": 4.2801453735287105e-18,
+      "max_residual": 3.478875624313127e-09,
       "reference_residual": 3.513682942473175e-16,
       "iterations": 128,
       "matvecs": 40137,
-      "seconds": 10.241,
-      "converged": true,
-      "status": "PASS"
-    },
-    {
-      "case": "cavity_small",
-      "k": 4,
-      "k_returned": 4,
-      "sigma": 8.3,
-      "method": "jacobi-davidson",
-      "n": 900,
-      "nnz": 4380,
-      "eigenvalues": [
-        8.295134836003182,
-        8.297837506628364,
-        8.308536802751084,
-        8.329202190300817
-      ],
-      "reference_eigenvalues": [
-        8.295134836003182,
-        8.297837506628369,
-        8.308536802751087,
-        8.329202190300819
-      ],
-      "max_eigenvalue_error": 5.329070518200751e-15,
-      "max_eigenvalue_error_rel": 6.280781012449112e-16,
-      "max_residual": 4.3940665508005215e-09,
-      "reference_residual": 8.385126924746761e-16,
-      "iterations": 282,
-      "matvecs": 89215,
-      "seconds": 23.142,
+      "seconds": 19.671,
       "converged": true,
       "status": "PASS"
     }
@@ -168,16 +138,16 @@
       "sigma": 0.0,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 3.4788735053895696e-09,
+      "max_residual": 3.478875624313127e-09,
       "eigenvalues": [
-        5.129073419674778e-05,
-        0.0006469728302743408,
-        -0.0006968110492790582
+        5.129073419674688e-05,
+        0.0006469728302743452,
+        -0.0006968110492790561
       ],
       "finite": true,
       "iterations": 99,
       "matvecs": 31084,
-      "seconds": 7.881,
+      "seconds": 17.268,
       "status": "PASS"
     },
     {
@@ -188,16 +158,16 @@
       "sigma": 0.05,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 4.999994065030783e-09,
+      "max_residual": 4.99999417024169e-09,
       "eigenvalues": [
-        0.04983748243981104,
-        0.049691780641319044,
-        0.048853998673792726
+        0.04983748243981103,
+        0.04969178064131906,
+        0.04885399867379268
       ],
       "finite": true,
       "iterations": 72,
       "matvecs": 22363,
-      "seconds": 5.616,
+      "seconds": 12.539,
       "status": "PASS"
     },
     {
@@ -208,17 +178,17 @@
       "sigma": -1.0,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 9.896695604086995e-09,
+      "max_residual": 6.9417161267117e-09,
       "eigenvalues": [
-        -0.9996315833188711,
-        -0.9996315833186633,
-        -0.9994500140200038,
-        -0.999450014019841
+        -0.9996315833188656,
+        -0.9996315833187898,
+        -0.9994500140198659,
+        -0.9994500140198637
       ],
       "finite": true,
-      "iterations": 93,
-      "matvecs": 27688,
-      "seconds": 5.782,
+      "iterations": 108,
+      "matvecs": 32541,
+      "seconds": 16.589,
       "status": "PASS"
     },
     {
@@ -229,16 +199,16 @@
       "sigma": 600000000.0,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 1.5242685046273508e-09,
+      "max_residual": 7.885013628876879e-09,
       "eigenvalues": [
-        594575230.2667553,
-        606995298.6561244,
-        584762313.9649013
+        594575230.2667562,
+        606995298.6561239,
+        584762313.9648998
       ],
       "finite": true,
-      "iterations": 304,
-      "matvecs": 93211,
-      "seconds": 23.664,
+      "iterations": 292,
+      "matvecs": 89631,
+      "seconds": 39.841,
       "status": "PASS"
     },
     {
@@ -249,16 +219,16 @@
       "sigma": 6e-10,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 7.334361197781441e-09,
+      "max_residual": 4.578642795113006e-09,
       "eigenvalues": [
-        7.577064518480379e-10,
-        1.9774461547329253e-09,
-        2.815915494444404e-09
+        5.945752302596876e-10,
+        6.06973802413659e-10,
+        2.8159154944445344e-09
       ],
       "finite": true,
-      "iterations": 105,
-      "matvecs": 33030,
-      "seconds": 8.449,
+      "iterations": 150,
+      "matvecs": 46869,
+      "seconds": 19.691,
       "status": "PASS"
     },
     {
@@ -269,39 +239,16 @@
       "sigma": 1.2,
       "method": "jacobi-davidson",
       "converged": true,
-      "max_residual": 2.7645177114458834e-09,
+      "max_residual": 9.337452192690135e-09,
       "eigenvalues": [
-        1.202756945515759,
+        1.2027569455157596,
         1.208595905111835,
-        1.2567423034382903
+        1.1598323738270815
       ],
       "finite": true,
-      "iterations": 206,
-      "matvecs": 63349,
-      "seconds": 15.593,
-      "status": "PASS"
-    },
-    {
-      "case": "large_scale_cavity_1e5",
-      "expectation": "converge",
-      "n": 102400,
-      "nnz": 510720,
-      "sigma": null,
-      "method": "lanczos",
-      "converged": true,
-      "max_residual": 8.908629951981585e-09,
-      "eigenvalues": [
-        8.042370751761116,
-        8.04237069667718,
-        8.042370696677146,
-        8.036396858649198,
-        8.036396774932808,
-        8.033412522376262
-      ],
-      "finite": true,
-      "iterations": 24,
-      "matvecs": 1159,
-      "seconds": 15.172,
+      "iterations": 218,
+      "matvecs": 66593,
+      "seconds": 26.241,
       "status": "PASS"
     },
     {
@@ -313,7 +260,7 @@
       "method": "auto",
       "error": "LinAlgError: Eigenvalues did not converge",
       "finite": false,
-      "seconds": 0.008,
+      "seconds": 0.021,
       "status": "PASS"
     }
   ]

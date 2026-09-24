@@ -9,7 +9,7 @@
 // histograms to Figure Studio.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -22,7 +22,7 @@ import { fingerprint } from '@/core/chunked/reader';
 import { resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
-import { tabularDataGroups, sendSpecToFigure, fmt } from '../research/researchUi';
+import { useTabularDataGroups, sendSpecToFigure, fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 
 interface ScanState {
@@ -100,7 +100,7 @@ export default function ProfilerPage() {
   const saveProfile = useResearchStore((s) => s.saveProfile);
   // Parse-sniffed list: simulation configs (electromag/pendulum/... JSON)
   // must not appear — they are not tabular and could only error (FR5).
-  const groups = useMemo(() => tabularDataGroups(), [project?.data.files]);
+  const groups = useTabularDataGroups(undefined, project?.data.files);
 
   const [file, setFile] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -125,7 +125,7 @@ export default function ProfilerPage() {
     if (!scanFile) return;
     setError('');
     setState(null);
-    const text = resolveDataFile(scanFile);
+    const text = await resolveDataFile(scanFile);
     if (text === undefined) {
       setError(t('profile.data_file_not_found', { file: scanFile }));
       return;

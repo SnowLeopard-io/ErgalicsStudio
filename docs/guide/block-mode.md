@@ -1,6 +1,6 @@
 # Block Mode
 
-![Block mode — a "Run" hat block kicks off a program that loads telemetry, normalises, and plots](../block.png)
+![Block mode — a "Run" hat block kicks off a program that loads telemetry, normalises, and plots](../assets/screenshots/platform/mode-block.png)
 
 **Block mode** is Ergalics Studio's third workbench mode, sitting next to
 [Standard](introduction.md#standard-mode) and [Flow](flow-mode.md). It is a

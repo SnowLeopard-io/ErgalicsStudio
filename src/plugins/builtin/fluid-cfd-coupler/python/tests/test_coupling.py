@@ -20,6 +20,8 @@ from fluid_cfd.verify import (  # noqa: E402
     verify_case_a,
     verify_case_b,
     verify_case_c,
+    verify_case_d,
+    verify_subsonic_curve,
     trade_off,
     min_feasible_exchange_period,
     sensitivity_case_a,
@@ -186,6 +188,36 @@ def test_case_c_variant_certified():
 
 
 # ---------------------------------------------------------------------------
+# 文献基准 Case D — 亚临界（非壅塞）等熵喷管流量对照
+# ---------------------------------------------------------------------------
+
+def test_case_d_subsonic_literature_certified():
+    """Case D: the subsonic coupled flow must match the literature isentropic
+    relation at the actual coupled back pressure, in a genuinely subsonic
+    (non-choked) regime where the reverse-coupled back pressure throttles the
+    nozzle."""
+    out = verify_case_d()
+    assert out["ok"] is True
+    assert out["subsonic_engaged"] is True
+    assert out["pressure_ratio_actual"] > out["critical_pressure_ratio_lit"]
+    assert out["flow_rel_error"] < 0.05
+    assert out["reverse_coupling_engaged"] is True
+    assert out["certification"]["all_pass"] is True
+
+
+def test_subsonic_curve_matches_literature():
+    """The solver's subsonic branch reproduces the literature isentropic
+    relation at float precision, and the back-pressure sensitivity is negative
+    (raising the outlet back pressure lowers the flow — reverse coupling
+    throttles in the expected direction)."""
+    s = verify_subsonic_curve()
+    assert s["max_rel_error"] < 1e-9
+    assert s["sensitivity_dln_md_over_dln_r"] < 0.0
+    assert s["certification"]["all_pass"] is True
+    assert all(row["subsonic"] for row in s["rows"])
+
+
+# ---------------------------------------------------------------------------
 # CFD-08 — fault tolerance (invalid inputs must return clean ok=false)
 # ---------------------------------------------------------------------------
 
@@ -250,7 +282,8 @@ def test_run_all_covers_new_sections():
     """run_all must include every PRD section for the bench artifact."""
     from fluid_cfd.verify import run_all
     data = run_all()
-    for key in ("case_a", "case_b", "case_c", "trade_off", "min_exchange", "sensitivity"):
+    for key in ("case_a", "case_b", "case_c", "case_d", "subsonic_curve",
+                "trade_off", "min_exchange", "sensitivity"):
         assert key in data
     assert data["min_exchange"]["min_feasible_exchange_period_ms"] == 1.0
 

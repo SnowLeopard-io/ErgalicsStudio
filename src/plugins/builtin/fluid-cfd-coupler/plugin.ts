@@ -8,10 +8,12 @@
 // verification trade-off on the host canvas.
 //
 // Two workloads:
-//   * Run Coupling — one 1D-3D run (Case A / Case B / custom) → time-series
-//     panels plus the coupling metrics (latency, interface error, sync error).
+//   * Run Coupling — one 1D-3D run (Case A / Case B / Case C / Case D /
+//     custom) → time-series panels plus the coupling metrics (latency,
+//     interface error, sync error).
 //   * Verify — Case A vs analytic choked flow, Case B vs millisecond valve
-//     control, plus the precision-vs-efficiency trade-off curve.
+//     control, Case C energy-channel variant, Case D subsonic literature
+//     baseline, plus the precision-vs-efficiency trade-off curve.
 // ==========================================================================
 
 import type {
@@ -37,10 +39,12 @@ import type { CouplingPayload, FluidCouplingResult, FluidVerifyResult } from './
 const PRESETS: Array<[FluidCfdPreset, string, string]> = [
   ['case_a', 'Case A · steady choked', 'Case A · 定常壅塞'],
   ['case_b', 'Case B · ms valve control', 'Case B · 毫秒级阀门控制'],
+  ['case_c', 'Case C · energy channel', 'Case C · 能量/核安全通道'],
+  ['case_d', 'Case D · subsonic flow', 'Case D · 亚临界流动'],
   ['custom', 'Custom', '自定义'],
 ];
 
-type FluidCfdPreset = 'case_a' | 'case_b' | 'custom';
+type FluidCfdPreset = 'case_a' | 'case_b' | 'case_c' | 'case_d' | 'custom';
 
 interface State {
   preset: FluidCfdPreset;
@@ -239,10 +243,25 @@ export class FluidCfdCouplerPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     let redraw = false;
-    if (params.preset === 'case_a' || params.preset === 'case_b' || params.preset === 'custom') {
+    if (params.preset === 'case_a' || params.preset === 'case_b' || params.preset === 'case_c' || params.preset === 'case_d' || params.preset === 'custom') {
       if (params.preset !== this.state.preset) {
         this.state.preset = params.preset;
         redraw = true;
+        // A different preset produces a different coupled field. Drop the
+        // previous coupling result + 3-D voxels so the old case can never
+        // masquerade as the newly-selected one — the 3-D view must be
+        // populated by re-running Coupling for the new preset.
+        if (this.result) {
+          this.result = null;
+          this.clearFieldGroup();
+          this.fieldKey = '';
+        }
+        notify(
+          this.api,
+          'info',
+          `Preset switched to ${params.preset} — press "Run Coupling" to compute its 3-D field.`,
+          '算例已切换——请点击「运行耦合」重新计算该算例的 3D 场。',
+        );
       }
     }
     if (params.view === 'coupling' || params.view === 'verify' || params.view === '3d') {
@@ -285,7 +304,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
   async compute(input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
     if (input && typeof input === 'object' && 'preset' in input) {
       const p = (input as { preset?: unknown }).preset;
-      if (p === 'case_a' || p === 'case_b' || p === 'custom') this.state.preset = p;
+      if (p === 'case_a' || p === 'case_b' || p === 'case_c' || p === 'case_d' || p === 'custom') this.state.preset = p;
     }
     try {
       const result = await this.runCoupling((info) => {
@@ -313,8 +332,8 @@ export class FluidCfdCouplerPlugin implements Plugin {
         cpl?: Record<string, unknown>;
       };
       const c = data.case;
-      if (c === 'a' || c === 'b') {
-        this.state.preset = c === 'a' ? 'case_a' : 'case_b';
+      if (c === 'a' || c === 'b' || c === 'c' || c === 'd') {
+        this.state.preset = { a: 'case_a', b: 'case_b', c: 'case_c', d: 'case_d' }[c] as FluidCfdPreset;
       } else {
         this.state.preset = 'custom';
         this.tryNum(data.net ?? {}, 'volume', (v) => (this.state.volumeL = v * 1e3));
@@ -354,6 +373,8 @@ export class FluidCfdCouplerPlugin implements Plugin {
     const s = this.state;
     if (s.preset === 'case_a') return { case: 'a' };
     if (s.preset === 'case_b') return { case: 'b' };
+    if (s.preset === 'case_c') return { case: 'c' };
+    if (s.preset === 'case_d') return { case: 'd' };
     const cpl: Record<string, unknown> = {
       dt1d: s.dt1dMs * 1e-3,
       dt3d: s.dt3dUs * 1e-6,

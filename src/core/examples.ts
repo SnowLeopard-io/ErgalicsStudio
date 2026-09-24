@@ -8,17 +8,9 @@
 import type { Locale } from '@/i18n/types';
 import type { PluginDiscipline } from '@/plugins/categories';
 
-import diamondXyz from '../../examples/data/diamond.xyz?raw';
 import crystalXyz from '../../examples/data/crystal.xyz?raw';
-import tornadoXyz from '../../examples/data/tornado.xyz?raw';
-import galaxyDat from '../../examples/data/galaxy.dat?raw';
 import telemetryCsv from '../../examples/data/telemetry.csv?raw';
 import datasetJson from '../../examples/data/dataset.json?raw';
-import distributionDat from '../../examples/data/distribution.dat?raw';
-import scatterClustersDat from '../../examples/data/scatter-clusters.dat?raw';
-import fieldJson from '../../examples/data/field.json?raw';
-import nbodyJson from '../../examples/data/nbody.json?raw';
-import proteinJson from '../../examples/data/protein.json?raw';
 import barDataCsv from '../../examples/data/bar-data.csv?raw';
 import radarDataCsv from '../../examples/data/radar-data.csv?raw';
 import networkEdgesCsv from '../../examples/data/network-edges.csv?raw';
@@ -30,11 +22,7 @@ import parallelDataCsv from '../../examples/data/parallel-data.csv?raw';
 import errorbandDataCsv from '../../examples/data/errorband-data.csv?raw';
 import treemapDataCsv from '../../examples/data/treemap-data.csv?raw';
 import qqDataDat from '../../examples/data/qq-data.dat?raw';
-import contourDataJson from '../../examples/data/contour-data.json?raw';
-import fluidObstacleJson from '../../examples/data/fluid-obstacle.json?raw';
 import choroplethGeojson from '../../examples/data/choropleth-sample.geojson?raw';
-import chinaProvincesGeojson from '../../examples/data/china-provinces.geojson?raw';
-import wavePulseJson from '../../examples/data/wave-pulse.json?raw';
 import waveTwinJson from '../../examples/data/wave-twin.json?raw';
 import waveSlitJson from '../../examples/data/wave-slit.json?raw';
 import pendulumChaosJson from '../../examples/data/pendulum-chaos.json?raw';
@@ -46,11 +34,6 @@ import opticsConcaveJson from '../../examples/data/optics-concave-diverging.json
 import opticsPrismJson from '../../examples/data/optics-prism-dispersion.json?raw';
 import structureTrussJson from '../../examples/data/structure-truss-bridge.json?raw';
 import structureRopeJson from '../../examples/data/structure-rope-bridge.json?raw';
-import emCavityMtx from '../../examples/data/em-cavity-degenerate.mtx?raw';
-import fluidCfdCaseAJson from '../../examples/data/fluid-cfd-case-a.json?raw';
-import fluidCfdCaseBJson from '../../examples/data/fluid-cfd-case-b.json?raw';
-import surfaceRippleJson from '../../examples/data/surface-ripple.json?raw';
-import voxelSphereJson from '../../examples/data/voxel-sphere.json?raw';
 import chemNaclCif from '../../examples/data/chem-nacl.cif?raw';
 import chemQuartzCif from '../../examples/data/chem-quartz.cif?raw';
 import chemCalciteCif from '../../examples/data/chem-calcite.cif?raw';
@@ -71,8 +54,7 @@ import reactionC2h5ohC2h4 from '../../examples/data/reaction-c2h5oh-c2h4.json?ra
 import reactionCh4Cl2 from '../../examples/data/reaction-ch4-cl2.json?raw';
 import reactionC6h6H2 from '../../examples/data/reaction-c6h6-h2.json?raw';
 import reactionC7h8Kmno4 from '../../examples/data/reaction-c7h8-kmno4.json?raw';
-import geoFellsLoopGpx from '../../examples/data/geo-fells-loop.gpx?raw';
-import geoWorldLandJson from '../../examples/data/geo-world-110m-land.json?raw';
+
 import geoClimateBeijing from '../../examples/data/geo-climate-beijing.csv?raw';
 import geoClimateSingapore from '../../examples/data/geo-climate-singapore.csv?raw';
 import geoClimateLondon from '../../examples/data/geo-climate-london.csv?raw';
@@ -82,7 +64,6 @@ import geoPopJapan from '../../examples/data/geo-pop-japan.csv?raw';
 import geoPopNigeria from '../../examples/data/geo-pop-nigeria.csv?raw';
 import geoInterpStations from '../../examples/data/geo-interp-stations.csv?raw';
 import geoMeasurePoints from '../../examples/data/geo-measure-points.json?raw';
-import geoTerrainDemoAsc from '../../examples/data/geo-terrain-demo-synthetic.asc?raw';
 import bioEnzymeMildCsv from '../../examples/data/bio-enzyme-mild.csv?raw';
 import bioEpidemicMeaslesJson from '../../examples/data/bio-epidemic-measles.json?raw';
 import bioEpidemicInfluenzaCsv from '../../examples/data/bio-epidemic-influenza.csv?raw';
@@ -105,6 +86,26 @@ function aiExampleContent(name: string): Promise<string> {
   if (!hit) {
     throw new Error(
       `AI sample "${name}" is not bundled (glob keys: ${Object.keys(aiExampleModules).join(', ') || 'none'})`,
+    );
+  }
+  return hit[1]();
+}
+
+// Large sample datasets (geojson/terrain/point clouds/matrices…) are loaded
+// lazily via a build-time glob, exactly like the AI samples above, so they
+// never enter the first-screen bundle (FR-06). Each file becomes its own lazy
+// chunk that only downloads when the user opens that sample; small samples
+// keep their eager static `?raw` imports above instead.
+const exampleModules = import.meta.glob('../../examples/data/*', {
+  query: '?raw',
+  import: 'default',
+}) as Record<string, () => Promise<string>>;
+
+function exampleContent(name: string): Promise<string> {
+  const hit = Object.entries(exampleModules).find(([key]) => key.endsWith(`/${name}`));
+  if (!hit) {
+    throw new Error(
+      `Sample "${name}" is not bundled (glob keys: ${Object.keys(exampleModules).join(', ') || 'none'})`,
     );
   }
   return hit[1]();
@@ -142,7 +143,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'mtx',
     mimeType: 'text/plain',
     pluginId: 'example.em-eigensolver',
-    content: emCavityMtx,
+    loadContent: () => exampleContent('em-cavity-degenerate.mtx'),
     nameI18n: {
       'zh-CN': '电磁谐振 · 简并腔体阵列（重特征值）',
       'en-US': 'EM Resonance · Degenerate Cavity Array',
@@ -160,7 +161,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.fluid-cfd-coupler',
-    content: fluidCfdCaseAJson,
+    loadContent: () => exampleContent('fluid-cfd-case-a.json'),
     nameI18n: {
       'zh-CN': '1D-3D 耦合 · 定常壅塞流（Case A）',
       'en-US': '1D-3D Coupling · Steady Choked Flow (Case A)',
@@ -178,7 +179,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.fluid-cfd-coupler',
-    content: fluidCfdCaseBJson,
+    loadContent: () => exampleContent('fluid-cfd-case-b.json'),
     nameI18n: {
       'zh-CN': '1D-3D 耦合 · 毫秒级阀门控制（Case B）',
       'en-US': '1D-3D Coupling · ms Valve Control (Case B)',
@@ -196,7 +197,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'xyz',
     mimeType: 'text/plain',
     pluginId: 'example.point-cloud',
-    content: diamondXyz,
+    loadContent: () => exampleContent('diamond.xyz'),
     nameI18n: {
       'zh-CN': '斐波那契球面点云',
       'en-US': 'Fibonacci Sphere Cloud',
@@ -228,7 +229,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'xyz',
     mimeType: 'text/plain',
     pluginId: 'example.point-cloud-3d',
-    content: tornadoXyz,
+    loadContent: () => exampleContent('tornado.xyz'),
     nameI18n: {
       'zh-CN': '龙卷风螺旋点云',
       'en-US': 'Tornado Helix Cloud',
@@ -244,7 +245,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'dat',
     mimeType: 'application/octet-stream',
     pluginId: 'example.particles',
-    content: galaxyDat,
+    loadContent: () => exampleContent('galaxy.dat'),
     nameI18n: {
       'zh-CN': '星系粒子数据',
       'en-US': 'Galaxy Particle Data',
@@ -292,7 +293,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'dat',
     mimeType: 'application/octet-stream',
     pluginId: 'example.histogram',
-    content: distributionDat,
+    loadContent: () => exampleContent('distribution.dat'),
     nameI18n: {
       'zh-CN': '混合分布样本',
       'en-US': 'Mixture Distribution Samples',
@@ -308,7 +309,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'dat',
     mimeType: 'application/octet-stream',
     pluginId: 'example.scatter',
-    content: scatterClustersDat,
+    loadContent: () => exampleContent('scatter-clusters.dat'),
     nameI18n: {
       'zh-CN': '三簇散点数据',
       'en-US': 'Cluster Scatter Data',
@@ -324,7 +325,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.heatmap',
-    content: fieldJson,
+    loadContent: () => exampleContent('field.json'),
     nameI18n: {
       'zh-CN': '涡旋场（48×48）',
       'en-US': 'Vortex Field (48x48)',
@@ -356,7 +357,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.nbody',
-    content: nbodyJson,
+    loadContent: () => exampleContent('nbody.json'),
     nameI18n: {
       'zh-CN': '立体环形 N 体初始条件',
       'en-US': 'Torus N-Body Initial Conditions',
@@ -372,7 +373,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.protein',
-    content: proteinJson,
+    loadContent: () => exampleContent('protein.json'),
     nameI18n: {
       'zh-CN': '蛋白质交互网络',
       'en-US': 'Protein Interaction Network',
@@ -678,7 +679,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.contour',
-    content: contourDataJson,
+    loadContent: () => exampleContent('contour-data.json'),
     nameI18n: {
       'zh-CN': '双峰等高线场',
       'en-US': 'Twin-Peak Contour Field',
@@ -696,7 +697,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.surface-3d',
-    content: surfaceRippleJson,
+    loadContent: () => exampleContent('surface-ripple.json'),
     nameI18n: {
       'zh-CN': '3D 表面 · 正弦起伏',
       'en-US': '3D Surface · Sine Ripple',
@@ -712,7 +713,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.voxel-3d',
-    content: voxelSphereJson,
+    loadContent: () => exampleContent('voxel-sphere.json'),
     nameI18n: {
       'zh-CN': '3D 体素 · 高斯球',
       'en-US': '3D Voxel · Gaussian Sphere',
@@ -729,7 +730,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.fluid',
-    content: fluidObstacleJson,
+    loadContent: () => exampleContent('fluid-obstacle.json'),
     nameI18n: {
       'zh-CN': 'LBM 机翼绕流掩膜',
       'en-US': 'LBM Airfoil Mask',
@@ -762,7 +763,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'geojson',
     mimeType: 'application/geo+json',
     pluginId: 'example.geomap',
-    content: chinaProvincesGeojson,
+    loadContent: () => exampleContent('china-provinces.geojson'),
     nameI18n: {
       'zh-CN': '中国省级行政区划',
       'en-US': 'China Province Boundaries',
@@ -922,7 +923,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'asc',
     mimeType: 'text/plain',
     pluginId: 'example.geo-terrain',
-    content: geoTerrainDemoAsc,
+    loadContent: () => exampleContent('geo-terrain-demo-synthetic.asc'),
     nameI18n: {
       'zh-CN': 'DEM 地形 · 合成分形山体',
       'en-US': 'DEM · Synthetic Fractal Terrain',
@@ -938,7 +939,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'gpx',
     mimeType: 'application/gpx+xml',
     pluginId: 'example.geo-gpx',
-    content: geoFellsLoopGpx,
+    loadContent: () => exampleContent('geo-fells-loop.gpx'),
     nameI18n: {
       'zh-CN': 'GPX 轨迹 · Fells Loop（样例）',
       'en-US': 'GPX Track · Fells Loop (sample)',
@@ -954,7 +955,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'geojson',
     mimeType: 'application/geo+json',
     pluginId: 'example.geo-tissot',
-    content: geoWorldLandJson,
+    loadContent: () => exampleContent('geo-world-110m-land.json'),
     nameI18n: {
       'zh-CN': 'Tissot 投影 · 世界海岸线',
       'en-US': 'Tissot · World Coastlines',
@@ -970,7 +971,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'geojson',
     mimeType: 'application/geo+json',
     pluginId: 'example.geo-globe',
-    content: geoWorldLandJson,
+    loadContent: () => exampleContent('geo-world-110m-land.json'),
     nameI18n: {
       'zh-CN': '交互地球仪 · 世界海岸线',
       'en-US': 'Globe · World Coastlines',
@@ -986,7 +987,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.wave',
-    content: wavePulseJson,
+    loadContent: () => exampleContent('wave-pulse.json'),
     nameI18n: {
       'zh-CN': '波动 · 高斯脉冲',
       'en-US': 'Wave · Gaussian Pulse',

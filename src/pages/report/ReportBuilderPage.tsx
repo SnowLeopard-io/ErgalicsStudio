@@ -17,7 +17,7 @@ import { useResearchStore } from '@/stores/researchStore';
 import { buildReportHtml } from '@/core/report/builder';
 import type { ReportSection, ReportSpec, ReportTheme, ReportLang } from '@/core/report/builder';
 import { downloadBlob } from '@/core/download';
-import { tabularDataGroups } from '../research/researchUi';
+import { useTabularDataGroups } from '../research/researchUi';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type SectionType = ReportSection['type'];
@@ -127,7 +127,7 @@ export default function ReportBuilderPage() {
   const sheets = project?.state.figureSheets ?? [];
   // Parse-sniffed: the table section embeds parsed rows, so simulation-config
   // JSON files (which can never parse) must not be offered here.
-  const groups = useMemo(() => tabularDataGroups(), [project?.data.files]);
+  const groups = useTabularDataGroups(undefined, project?.data.files);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);

@@ -62,7 +62,7 @@ export default function AnalysisPage() {
     [table],
   );
 
-  const loadFile = (name: string) => {
+  const loadFile = async (name: string) => {
     setFile(name);
     setPreview(null);
     setParseError('');
@@ -70,7 +70,7 @@ export default function AnalysisPage() {
       setTable(null);
       return;
     }
-    const text = resolveDataFile(name);
+    const text = await resolveDataFile(name);
     if (text === undefined) {
       setTable(null);
       setParseError(t('analysis.no_data'));
@@ -211,7 +211,7 @@ export default function AnalysisPage() {
           {fileGroups.project.length === 0 && fileGroups.examples.length === 0 ? (
             <span className="analysis-note">{t('analysis.no_data')}</span>
           ) : (
-            <select className="input" value={file} onChange={(e) => loadFile(e.target.value)}>
+            <select className="input" value={file} onChange={(e) => void loadFile(e.target.value)}>
               <option value="">{t('analysis.select_file')}</option>
               {fileGroups.project.length > 0 && (
                 <optgroup label={t('datafiles.group_project')}>

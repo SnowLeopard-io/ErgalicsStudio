@@ -135,7 +135,7 @@ export default function InferencePage() {
       if (activeModel.kind === 'text') {
         let input = text;
         if (dataFile) {
-          const content = resolveDataFile(dataFile);
+          const content = await resolveDataFile(dataFile);
           if (content === undefined) throw new Error(t('infer.file_missing', { name: dataFile }));
           input = content;
         }
