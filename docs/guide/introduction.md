@@ -27,7 +27,7 @@ The following are functional today:
   (free-form Python on a Pyodide CPython Worker, with a REPL console and
   9 sample programs). All three scripted modes share one IR, and Block ↔
   Flow ↔ Code round-trip is pinned by a `sync-threeway` test.
-- **44 built-in plugins** (34 scientific + 10 fun/utility) covering the 2D and
+- **59 built-in plugins** (49 scientific + 10 fun/utility) covering the 2D and
   3D rendering paths — including a 3-D N-body gravity simulator
   (astrophysics), a protein interaction network with force-directed layout
   (systems biology), D2Q9 lattice-Boltzmann fluid / wave-equation /
@@ -53,7 +53,7 @@ The following are functional today:
 - i18n (zh-CN / en-US) with reactive locale switching — Block mode uses
   Blockly's `BKY_*` key system so block labels re-localise with the rest.
 - Theming (dark / light), sharing, GitHub Actions CI, and automated tests
-  (1849 Vitest unit tests across 111 test files plus Playwright E2E suites).
+  (2233 Vitest unit tests across 123 test files plus Playwright E2E suites).
 
 Built but not yet shipped as products: the fully-automated third-party
 submission & install pipeline for the plugin marketplace (the `.cspkg`

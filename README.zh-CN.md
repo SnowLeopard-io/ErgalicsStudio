@@ -63,9 +63,9 @@ Ergalics Studio 是一款完全运行于浏览器中的专业科学计算工作�
 | **标准（Standard）** | "我有数据 → 我看到结果" | 将数据集拖入插件即可看到可视化——最快路径。 |
 | **流程（Flow）** | 管线搭建者 | 从内置区块组合出可视化数据流管线，按拓扑顺序运行，并检查每个节点的输出。 |
 | **积木（Block）** | 学习者 / 喜欢命令式手感的人 | 类 Scratch 的积木编辑器，单个"运行"帽子区块即可启动程序；完全可脚本化（变量、循环、条件、变换、绘图）。 |
-| **代码（Code）** | 真正的脚本编写 | 支持 **Python / R / JavaScript** 的 Monaco 编辑器：Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。 |
+| **代码（Code）** | 真正的脚本编写 | 支持 **Python / R / JavaScript** 的 Monaco 编辑器：Python 经 Pyodide Worker 运行 CPython（自由语法），R 与 JavaScript 在与积木模式相同的内置 IR 引擎上执行，且 R 会优先升级到完整自由的 webR 运行时（R 编译为 WASM、已内置同源分发）；切换语言时整份代码经共享 IR 即时互译。附带 REPL 控制台、变量面板与 `studio.*` 自动补全。 |
 
-Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；同时新增两个赛题级科学求解器插件——电磁谐振特征值求解器（`em-eigensolver`）与流体双向耦合求解器（`fluid-cfd-coupler`），均运行于 Pyodide Worker 并复用共享线性代数内核。同期落地的还有十个插件组成的**地理插件系列**（`src/plugins/builtin/geo/`）——地图、太阳高度与昼长、气候图、人口金字塔、空间插值、测距测面、投影变形、地形分析、GPX 轨迹与 3D 地球仪——每个均内置科研级算法（LOOCV + 全局 Moran's I、priority-flood → D8 → 汇流累积的流域三件套、FAO-56 日辐射估算等），并支持一键发送 Figure Studio 组装多面板图组（中英双语方法图注）。插件市场的 `.cspkg` 签名门禁（Ed25519，FR-05）已落地并写入 `SECURITY.md`；完整的自由语法 R 运行时（webR）仍是接下来的里程碑。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
+Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭环（项目管理、数据加载、插件注册、2D/3D 渲染、i18n、主题、性能监控、流程模式、积木模式，以及支持 Python/R/JavaScript 的代码模式）均已可用并由测试覆盖。GPU 加速覆盖 Particles、N-Body、流体（LBM）、波动方程、直方图、热力图与点云内核。在第一代科研工具集（实验记录、不确定性量化、单位系统、数据血缘、分块读取、图表工作台、补充材料打包与 Notebook）之上，第二代科研平台已经落地：GPU 不确定性引擎、Sweep Studio（参数扫描）、Signal Lab（信号实验室）、Model Lab（回归建模）、Data Profiler（数据画像）、Repro Lock（可复现锁文件）、DuckDB 驱动的 SQL 工作台、报告生成器，以及 Inference Forge（HMC/NUTS 贝叶斯推断）——每个科研工具都是一个共享统一外壳的独立整页实验室。代码编辑器现已支持 Python、R 与 JavaScript（R/JS 运行于内置 IR 引擎）；同时新增两个赛题级科学求解器插件——电磁谐振特征值求解器（`em-eigensolver`）与流体双向耦合求解器（`fluid-cfd-coupler`），均运行于 Pyodide Worker 并复用共享线性代数内核。同期落地的还有十个插件组成的**地理插件系列**（`src/plugins/builtin/geo/`）——地图、太阳高度与昼长、气候图、人口金字塔、空间插值、测距测面、投影变形、地形分析、GPX 轨迹与 3D 地球仪——每个均内置科研级算法（LOOCV + 全局 Moran's I、priority-flood → D8 → 汇流累积的流域三件套、FAO-56 日辐射估算等），并支持一键发送 Figure Studio 组装多面板图组（中英双语方法图注）。插件市场的 `.cspkg` 签名门禁（Ed25519，FR-05）已落地并写入 `SECURITY.md`；完整自由的 R 运行时（webR）也已交付——同源内置、默认优先加载，缺失时无缝回退到内置 IR 引擎。每个模块都刻意保持小巧且可测试，使代码库能持续扩展而无需重写。
 
 > 状态：**积极开发**——今日即可使用。已交付内容：
 
@@ -74,10 +74,9 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 | 工作台 | 四种模式（标准 / 流程 / 积木 / 代码）、59 个内置插件（49 科学 + 10 趣味）、沙箱化插件系统 + 市场目录 |
 | 计算 | 实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图引擎、统计分析子系统、可复现性支持 |
-| 代码编辑 | 三语言——Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎 |
+| 代码编辑 | 三语言——Python 经 Pyodide；R 与 JavaScript 经共享的内置 IR 引擎，且 R 在存在内置 webR 分发包时升级为完整自由的运行时 |
 | 科研 | 19 个独立页面组成的科研工作台（分析、实验记录、不确定性、模型实验室、Inference Forge、模型推理、数据画像、信号实验室、参数扫描、SQL 工作台、数据清洗向导、报告生成器、可复现锁、数据血缘、Figure Studio、Notebook、补充材料打包、课程模式、作品画廊）+ 单位系统、分块读取配套内核 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场），与工作台深链打通 |
-| 后续工作 | 完整的自由语法 R 运行时（webR，可选、默认不内置——IR 底座始终随发行版提供） |
 
 ---
 
@@ -86,7 +85,7 @@ Ergalics Studio 处于**积极开发**中，且已可端到端使用：核心闭
 **工作台**
 
 - 四区布局：侧边栏（项目 / 插件）、中央视口、右侧参数面板，以及带 GPU/性能指示器的状态栏。顶栏按语义分为五组、以竖直分隔线相隔——`[标准 | 流程 | 积木 | 代码]` 模式切换、`[数据⓷ | 示例]` 数据组、`[项目▾ | 保存 | 分享]` 项目组（项目▾ = 新建 / 打开 / 另存为 / 导出日志）、`[分析 | 科研▾]` 科研组，以及 `[⚙ | ? | FPS | 语言 | 主题]` 环境组。
-- 欢迎页快速开始：四张工作台模式卡片（标准 / 流程 / 积木 / 代码），外加一个可搜索的启动网格，收录全部 14 个独立科研工具（分析页另有自己的快捷入口）；同一组模式卡片也会渲染在工作台空状态中。顶栏的 `?` 按钮提供引导式新手导览。
+- 欢迎页快速开始：四张工作台模式卡片（标准 / 流程 / 积木 / 代码），外加一个可搜索的启动网格，收录全部 18 个独立科研工具（分析页另有自己的快捷入口）；同一组模式卡片也会渲染在工作台空状态中。顶栏的 `?` 按钮提供引导式新手导览。
 - 项目生命周期：创建 / 打开 / 保存 / 自动保存 / 分享（`.clproj` 格式存储于 IndexedDB）。
 - 文件路由：拖放任意文件；宿主通过魔数**与**扩展名（可选 WASM 辅助）检测格式，并将其路由到匹配的插件——当多个插件匹配时弹出选择对话框；当项目内已存在同名数据文件时，会先弹出替换确认。导入对话框均带文件格式过滤，避免无法识别的文件进入解析器。
 
@@ -389,10 +388,11 @@ cd docs && npm install && npm run dev
 
 ![代码模式 — 支持 Python/R/JavaScript 的 Monaco 编辑器：Python 经 Pyodide，R/JS 经内置 IR 引擎，带 REPL 控制台与实时绘图预览](docs/code.png)
 
-用于第四个工作台模式的真正脚本编辑器。工具栏提供分段的 **Python / R / JS** 切换器与引擎徽章：**Python** 通过 Pyodide Web Worker 在浏览器中运行 **CPython**；**R** 与 **JavaScript** 解析为共享 IR，在与积木模式相同的内置解释器上执行。无论哪种语言，你针对的都是积木所生成的同一套 `studio.*` API——无需脚手架，无需上下文切换。
+用于第四个工作台模式的真正脚本编辑器。工具栏提供分段的 **Python / R / JS** 切换器与引擎徽章：**Python** 通过 Pyodide Web Worker 在浏览器中运行 **CPython**；**R** 与 **JavaScript** 解析为共享 IR，在与积木模式相同的内置解释器上执行——其中 R 会优先升级到内置的完整 webR 运行时，缺失时再回退到 IR 引擎。无论哪种语言，你针对的都是积木所生成的同一套 `studio.*` API——无需脚手架，无需上下文切换。
 
 - **Monaco 编辑器**（`src/components/editor/CodeEditor.tsx`），带 python/r/javascript 语法高亮、暗/亮主题、自动换行、按语言区分的 Tab 宽度以及 `studio.*` 自动补全（JavaScript 语言服务运行在正确分发的 TypeScript worker 上）。
 - **Pyodide worker 运行时**（`src/core/pyodide/`）——Web Worker 中真正的 CPython。`studio` 模块作为正经的可导入模块（`sys.modules['studio']`）注入，项目数据文件以 `_FILES` 形式送入 worker，因此 `studio.load('telemetry.csv')` 可同步解析。
+- **面向 R 的完整 webR 运行时**（`src/core/r/`）——R 编译为 WASM，同源内置在 `public/webr/` 并在启动时探测。`createRRuntime({ preferFull: true })`（R 的默认路径）先启动真实解释器，当分发包缺失或加载失败时回退到内置 IR 引擎并记录 `fallbackReason`，因此 R 代码模式始终可用。
 - **R / JavaScript IR 运行时**——`parseCodeToIR`（`src/editor/code/parse.ts`）把缓冲区解析为规范 IR，`interpret`（`src/editor/runtime/interpreter.ts`）在工作台 studio host（`createWorkbenchStudioApi`）上执行。R 生成 `<-` 赋值、JS 生成 `const/let/var`；超出 DSL 语法的语句保留为原始代码节点，运行时跳过，并在控制台一次性报告跳过条数。
 - **经 IR 中枢的语言互译**——切换标签即按当前 IR 翻译整个程序（`setSessionLanguage`）；编辑以 150ms 防抖解析回 IR，并带有防护：程序化替换缓冲区或语言切换途中的旧文本绝不会被当作错的方言解析。
 - **处处相同的 Studio API**——`studio.load / random / range / exampleData / grid / normalize / sort / select / addColumn / addConstantColumn / filter / filterRange / topK / renameColumn / summary / histogram / plot / print / notify / getParam / setParam`。`studio.plot(...)` 通过与流程模式 `viz.*` 区块完全相同的插件桥接渲染，因此绘图会落到同一个散点 / 折线 / 直方图插件。
@@ -404,7 +404,7 @@ cd docs && npm install && npm run dev
 
 **流程 ⇄ 积木 ⇄ 代码无缝互转**——共享的 IR 是三种编辑模式的唯一中枢：`src/editor/flow/convert.ts` 负责 IR ↔ 流程 DAG 的往返（`irToFlow` / `flowToIR`），采用 Kahn 拓扑排序、参数与区块目录 1:1 对齐；`src/editor/block/convert.ts` 负责 Blockly JSON ↔ IR 的往返；`src/editor/code/parse.ts` 把 Python/R/JavaScript 缓冲区解析回 IR（无法解析的行以原始代码节点保留）。流程编辑以**合并**（`mergeFlowIR`）方式写回 IR 而非降维覆盖：print/循环/if/函数等语句原位保留，仅替换 DAG 节点；`src/stores/useFlowSync.ts` 中的图签名守卫会忽略注水产生的防抖回声，因此反复进出模式也不会丢节点。在流程模式中编辑一条管线，切换到积木即可看到同一逻辑以 Scratch 积木呈现，再跳转到代码模式即可查看 Python、R 或 JS——全部由同一份 IR 驱动。往返由 `sync-threeway`、`flow-convert`、`editorStore`、`examples-roundtrip` 单元测试及 `verify-lang-modes` E2E 套件兜底；随附的 8 个 `.clproj` 示例工程均可经 IR 解释器执行。
 
-架构详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。完整的自由语法 R 运行时（webR，可装 CRAN 包）仍在路线图上；当前 R 标签已覆盖完整的 `studio.*` DSL。
+架构详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。在 R 代码模式中，默认路径会通过内置的 webR 分发包启动完整自由的 R 运行时（任意 R 语法与第三方库）；完整的 `studio.*` DSL 始终在内置 IR 引擎上作为兜底可用。市场中的插件包带有 Ed25519 签名（`src/core/plugin-signing.ts`），安装前会先校验。
 
 ---
 
@@ -646,7 +646,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-**1761 个测试分布在 106 个测试文件中**（1759 通过，2 个在无 GPU 环境跳过）。按领域覆盖：
+**2233 个测试分布在 123 个测试文件中**（2231 通过，2 个在无 GPU 环境跳过）。按领域覆盖：
 
 | 领域 | 单元测试钉住的内容 |
 | ---- | ------------------ |
@@ -745,7 +745,7 @@ npm run build     # 静态站点 → docs/.vitepress/dist
 - [x] 官方网站（`website/`）——画廊（含图表面板）、主题市场与插件市场，i18n，暗/亮双主题；深链可直接应用画廊主题并进入工作台，而无需停留在欢迎页
 - [x] 官网与工作站插件打通——市场"下载"产出真实可加载的 `.cspkg` ZIP 归档（manifest + 入口），工作站沙箱可直接导入，而不再是单纯 JSON 清单；修复主题 / 插件深链与暗色模式下的按钮样式
 - [x] AI 助手——项目级悬浮聊天面板，自然语言 → 意图识别 → 可编辑 `studio.*` 代码草稿 → 插入 / 运行；支持在线 / 离线两种模式，一键切换在线即自动授权，并在无真实端点时优雅降级并友好提示
-- [ ] 代码模式：完整的自由语法 R 运行时（webR + CRAN 包）——当前 R 标签已能在 IR 引擎上运行完整的 `studio.*` DSL；webR 将进一步支持任意 R 语法与第三方库
+- [x] 代码模式：完整的自由语法 R 运行时（webR + CRAN 包）——R 标签默认从内置 webR 分发包启动真实解释器（支持任意 R 语法与第三方库），缺失时无缝回退，在 IR 引擎上运行完整的 `studio.*` DSL
 
 ---
 

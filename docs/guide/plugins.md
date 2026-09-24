@@ -217,8 +217,8 @@ without any plugin code:
 
 ## Built-in example plugins
 
-Thirty-four scientific/core plugins (plus a further ten `fun.*` toys
-declaring `autoload: false` — 44 built-ins in total) ship in
+Forty-nine scientific/core plugins (plus a further ten `fun.*` toys
+declaring `autoload: false` — 59 built-ins in total) ship in
 `src/plugins/builtin/` and cover the full plugin contract surface — 2D
 canvas, host Three.js scene, `loadData`, `compute`, and the `api.gpu`
 accelerated path:

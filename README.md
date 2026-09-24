@@ -92,11 +92,11 @@ and a 3-D globe — each built on research-grade algorithms (LOOCV +
 global Moran's I, priority-flood → D8 → flow accumulation, FAO-56
 radiation) and each with a one-click **Send to Figure Studio** action
 that composes a multi-panel figure with a bilingual method caption. The
-code editor now speaks Python, R and JavaScript (R/JS run on the in-process IR engine —
-the IR base always ships, while a full free-form R runtime (webR) stays
-optional and is not vendored by default). Ed25519 package signing for
-the marketplace already ships (FR-05); consuming webR for free-form R
-syntax is the next milestone. Every
+code editor now speaks Python, R and JavaScript. R/JS run on the in-process IR engine —
+the IR base always ships, and R code mode also boots a full free-form R runtime from the
+vendored webR bundle (R compiled to WASM): when the bundle is present the real interpreter
+is used by default, with a seamless fallback to the IR engine if it is absent. Ed25519 package
+signature verification (`.cspkg`) for the marketplace ships today (FR-05). Every
 module is kept deliberately small and testable so the
 codebase keeps scaling without a rewrite.
 
@@ -107,10 +107,9 @@ codebase keeps scaling without a rewrite.
 | Workbench         | 4 modes (Standard / Flow / Block / Code), 59 built-in plugins (49 scientific + 10 fun), sandboxed plugin system + marketplace catalog |
 | Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
-| Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine |
+| Code editing      | Three languages — Python via Pyodide; R and JavaScript via the shared in-process IR engine, with R upgraded to a full free-form webR runtime (vendored) when the bundle is present |
 | Research          | 19-page research workbench (Analysis, Runs, Uncertainty, Model Lab, Inference Forge, Model Inference, Profiler, Signal Lab, Sweeps, SQL, Cleaning, Report, Repro Lock, Lineage, Figure Studio, Notebook, Supplement, Course, Gallery) + unit-system and chunked-ingestion kernels |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace) deep-linked into the workbench |
-| Next up           | Full free-form R runtime (webR, optional & not vendored by default) |
 
 ---
 
@@ -126,7 +125,7 @@ codebase keeps scaling without a rewrite.
   export log), `[分析 | 科研▾]` research cluster, and `[⚙ | ? | FPS | 语言 |
   主题]` environment cluster.
 - Welcome-page quick start: four workbench mode cards (Standard / Flow /
-  Block / Code) plus a searchable launch grid for all 14 standalone
+  Block / Code) plus a searchable launch grid for all 18 standalone
   research tools (Analysis keeps its own quick entry); the same four mode
   cards render in the workbench empty state. A guided tour (`?` in the top
   bar) walks new users through the workbench.
@@ -646,6 +645,11 @@ the blocks generate — no scaffolding, no context switching.
   Worker. The `studio` module is injected as a proper importable module
   (`sys.modules['studio']`), and project data files ship into the worker as
   `_FILES` so `studio.load('telemetry.csv')` resolves synchronously.
+- **WebR full runtime for R** (`src/core/r/`) — R compiled to WASM, vendored
+  at `public/webr/` and probed at load. `createRRuntime({ preferFull: true })`
+  (the default for R) boots the real interpreter first and falls back to the
+  built-in IR engine with a recorded `fallbackReason` when the bundle is
+  missing or fails to start, so R code mode always runs.
 - **R / JavaScript IR runtime** — `parseCodeToIR`
   (`src/editor/code/parse.ts`) parses the buffer into the canonical IR and
   `interpret` (`src/editor/runtime/interpreter.ts`) executes it against the
@@ -695,8 +699,11 @@ The round-trips are pinned by `sync-threeway`, `flow-convert`,
 execute through the IR interpreter.
 
 See [`docs/guide/block-mode.md`](docs/guide/block-mode.md) for the
-architecture. A full free-form R runtime (webR, with CRAN packages) remains
-on the roadmap; today's R tab covers the complete `studio.*` DSL.
+architecture. In R code mode the default path boots the full free-form webR
+runtime (arbitrary R syntax and CRAN packages) when the vendored bundle is
+present, and the complete `studio.*` DSL is always available on the IR engine
+as the baked-in fallback. Plugin packages in the marketplace carry Ed25519
+signatures (`src/core/plugin-signing.ts`) verified before install.
 
 ---
 
@@ -1059,7 +1066,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**1761 tests across 106 test files** (1759 passing, 2 skipped on GPU-less CI).
+**2233 tests across 123 test files** (2231 passing, 2 skipped on GPU-less CI).
 Coverage by area:
 
 | Area | What the unit tests pin down |
@@ -1176,7 +1183,7 @@ table. Highlights:
 - [x] Official website (`website/`) — gallery with chart panels, theme marketplace and plugin marketplace, i18n, dark/light theming; deep links apply a gallery theme and open straight into the workbench instead of the welcome page
 - [x] Website ↔ workstation plugin install — marketplace "download" produces a real, loadable `.cspkg` ZIP archive (manifest + entry) that the workstation's sandbox correctly imports, rather than a bare JSON manifest; theme/plugin deep links and button styles fixed for dark mode
 - [x] AI assistant online/offline modes — one-click switch to online mode with automatic authorization, graceful degradation to the off-line rule engine with a friendly notice when a real endpoint is unavailable
-- [ ] Code mode: full free-form R runtime (webR with CRAN packages) — the current R tab runs the complete `studio.*` DSL on the IR engine; webR would add arbitrary R syntax/libraries
+- [x] Code mode: full free-form R runtime (webR with CRAN packages) — the R tab boots the real webR interpreter from the vendored bundle by default (arbitrary R syntax/libraries), and seamlessly falls back to the complete `studio.*` DSL on the IR engine when the bundle is absent
 
 ---
 

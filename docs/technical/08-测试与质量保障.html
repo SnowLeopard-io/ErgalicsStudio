@@ -227,7 +227,7 @@
 <div class="page">
 <p>测试被视为代码库的一等公民：纯逻辑在 Node 环境用 Vitest 做单元测试，产品行为用 Playwright-core 驱动无头浏览器对生产预览做端到端验证，性能与体积则由基线与预算在 CI 中把守。</p>
 <p>当前基线：</p>
-<table><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody><tr><td>单元测试文件</td><td>106 个（<code>tests/</code> 下共 108 个 <code>.ts</code>，其中 2 个是共享辅助模块）</td></tr><tr><td>单元测试用例</td><td>1849 个（1847 通过，2 个在无 GPU 的 CI 上跳过）</td></tr><tr><td>端到端套件</td><td>13 套（1 个冒烟脚本 + 12 个 <code>verify-*</code> 脚本）</td></tr><tr><td>CI 工作流</td><td>5 条（ci、bench、security、release、deploy）</td></tr><tr><td>类型检查</td><td><code>tsc --noEmit</code> 严格模式，零发布；同时充当 lint（<code>npm run lint</code> 即 typecheck）</td></tr></tbody></table>
+<table><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody><tr><td>单元测试文件</td><td>123 个（<code>tests/</code> 下共 125 个 <code>.ts</code>，其中 2 个是共享辅助模块）</td></tr><tr><td>单元测试用例</td><td>2233 个（2231 通过，2 个在无 GPU 的 CI 上跳过）</td></tr><tr><td>端到端套件</td><td>13 套（1 个冒烟脚本 + 12 个 <code>verify-*</code> 脚本）</td></tr><tr><td>CI 工作流</td><td>5 条（ci、bench、security、release、deploy）</td></tr><tr><td>类型检查</td><td><code>tsc --noEmit</code> 严格模式，零发布；同时充当 lint（<code>npm run lint</code> 即 typecheck）</td></tr></tbody></table>
 <h2 class="sec"><span class="num">一</span>单元测试（Vitest）</h2>
 <p>运行方式：<code>npm test</code>（即 <code>vitest run</code>）执行全部单测；<code>npm run verify</code> 先做类型检查再跑单测，是贡献指引中要求保持绿色的组合检查。</p>
 <p>测试文件按主题组织在 <code>tests/</code> 下，根目录与子目录各占一半：</p>
