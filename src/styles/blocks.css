@@ -104,6 +104,34 @@
   font-weight: 500;
 }
 
+/* Node delete ✕ — hidden until the node is hovered or selected so the
+   header stays clean; click removes the block and its connections. */
+.block-node-delete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.block-node:hover .block-node-delete,
+.block-node.is-selected .block-node-delete {
+  display: inline-flex;
+}
+
+.block-node-delete:hover {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.15);
+}
+
 .block-node-dot {
   width: 8px;
   height: 8px;

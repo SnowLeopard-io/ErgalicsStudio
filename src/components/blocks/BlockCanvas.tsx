@@ -175,6 +175,32 @@ function BlockCanvasImpl() {
     [],
   );
 
+  // Node ✕ button — removeInstance cascades its connections + outputs.
+  const onNodeDelete = useCallback((id: string) => {
+    useBlockStore.getState().removeInstance(id);
+  }, []);
+
+  // Delete/Backspace removes the selected blocks. Ignored while typing in
+  // the param editor or any other editable surface.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      const store = useBlockStore.getState();
+      if (store.selectedIds.length === 0) return;
+      e.preventDefault();
+      for (const id of store.selectedIds) store.removeInstance(id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
@@ -282,6 +308,7 @@ function BlockCanvasImpl() {
             height={nodeHeight(meta.inputs.length, meta.outputs.length, paramRowsOf(inst))}
             onNodePointerDown={onNodePointerDown}
             onPortPointerDown={onPortPointerDown}
+            onDelete={onNodeDelete}
           />
         );
       })}

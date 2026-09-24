@@ -9,8 +9,9 @@
 import { memo } from 'react';
 import type { BlockInstance, BlockMeta } from '@/types/block';
 import type { NodeStatus } from '@/stores/blockStore';
-import { useLocale } from '@/i18n';
+import { useLocale, useT } from '@/i18n';
 import { blockName } from '@/blocks/l10n';
+import { CloseIcon } from '@/components/icons';
 import {
   MAX_PARAM_ROWS,
   NODE_HEADER_HEIGHT,
@@ -35,6 +36,7 @@ interface BlockNodeProps {
     portId: string,
     side: 'in' | 'out',
   ) => void;
+  onDelete: (id: string) => void;
 }
 
 function formatParam(value: unknown): string {
@@ -57,6 +59,7 @@ function portTop(index: number, paramRows: number): number {
 export function BlockNodeImpl(props: BlockNodeProps) {
   const { instance, meta, selected, status, screenPos, height } = props;
   const { locale } = useLocale();
+  const t = useT();
   const paramEntries = Object.entries(instance.params).slice(0, MAX_PARAM_ROWS);
   const paramRows = paramEntries.length;
 
@@ -74,6 +77,18 @@ export function BlockNodeImpl(props: BlockNodeProps) {
         <span className="block-node-dot" style={{ background: meta.color }} />
         <span className="block-node-name">{blockName(meta, locale)}</span>
         {status !== 'idle' && <span className={`block-node-state is-${status}`} />}
+        <button
+          type="button"
+          className="block-node-delete"
+          title={t('common.delete')}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onDelete(instance.id);
+          }}
+        >
+          <CloseIcon size={11} />
+        </button>
       </div>
 
       {paramEntries.length > 0 && (
@@ -133,5 +148,6 @@ export const BlockNode = memo(
     a.screenPos.x === b.screenPos.x &&
     a.screenPos.y === b.screenPos.y &&
     a.onNodePointerDown === b.onNodePointerDown &&
-    a.onPortPointerDown === b.onPortPointerDown,
+    a.onPortPointerDown === b.onPortPointerDown &&
+    a.onDelete === b.onDelete,
 );

@@ -10,6 +10,7 @@ import { storageAvailable } from '@/core/storage';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 import { TemplatePanel } from './TemplatePanel';
 import { ToolGrid } from './ToolGrid';
@@ -21,6 +22,7 @@ import {
   ClockIcon,
   BookIcon,
   LayersIcon,
+  CloseIcon,
 } from '@/components/icons';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
@@ -49,6 +51,8 @@ export default function WelcomePage() {
   const createProject = useProjectStore((s) => s.createProject);
   const openProject = useProjectStore((s) => s.openProject);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const removeProject = useProjectStore((s) => s.remove);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [hardware, setHardware] = useState<HardwareState>({
     webgpu: 'pending',
     gpuName: '',
@@ -277,15 +281,25 @@ export default function WelcomePage() {
               {recent.length > 0 ? (
                 <span className="start-recent-list">
                   {recent.slice(0, 3).map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="start-recent-item"
-                      onClick={() => void continueProject(p.id)}
-                      disabled={busy}
-                    >
-                      {p.name || DEFAULT_PROJECT_NAME}
-                    </button>
+                    <span key={p.id} className="start-recent-item">
+                      <button
+                        type="button"
+                        className="start-recent-open"
+                        onClick={() => void continueProject(p.id)}
+                        disabled={busy}
+                      >
+                        {p.name || DEFAULT_PROJECT_NAME}
+                      </button>
+                      <button
+                        type="button"
+                        className="start-recent-delete"
+                        title={t('common.delete')}
+                        disabled={busy}
+                        onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
+                      >
+                        <CloseIcon size={11} />
+                      </button>
+                    </span>
                   ))}
                 </span>
               ) : (
@@ -413,6 +427,18 @@ export default function WelcomePage() {
           {t('welcome.footer.market')}
         </button>
       </footer>
+      {/* Deleting a pipeline/project is irreversible — confirm first. */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('common.delete')}
+        message={t('project.remove_confirm')}
+        name={deleteTarget?.name}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => {
+          if (deleteTarget) void removeProject(deleteTarget.id);
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

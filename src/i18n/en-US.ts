@@ -133,6 +133,7 @@ export const enUS: LocaleDictionary = {
   'project.open': 'Open Project',
   'project.save': 'Save',
   'project.save_as': 'Save As',
+  'project.delete': 'Delete project',
   'project.name': 'Project Name',
   'project.auto_save': 'Auto-saving',
   'project.saved': 'Saved',

@@ -17,6 +17,9 @@ import {
   extraterrestrialRadiation,
   clearSkyRadiation,
   solarFigurePanels,
+  equationOfTimeMinutes,
+  timezoneFromLongitude,
+  solarToClockHours,
 } from '@/plugins/builtin/geo/solar';
 import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '@/plugins/builtin/geo/climograph';
 import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '@/plugins/builtin/geo/popPyramid';
@@ -134,6 +137,21 @@ describe('solar', () => {
     expect(monthDayToDoy(1, 1)).toBe(1);
     expect(monthDayToDoy(6, 22)).toBe(173);
     expect(monthDayToDoy(12, 31)).toBe(365);
+  });
+  it('equation of time: Feb minimum ≈ −14.2 min, Nov maximum ≈ +16.4 min', () => {
+    expect(closeTo(equationOfTimeMinutes(42), -14.2, 0.5)).toBe(true);
+    expect(closeTo(equationOfTimeMinutes(307), 16.4, 0.5)).toBe(true);
+    for (let doy = 1; doy <= 365; doy += 1) {
+      expect(Math.abs(equationOfTimeMinutes(doy))).toBeLessThan(17);
+    }
+  });
+  it('longitude → zone offset, solar time → clock time', () => {
+    expect(timezoneFromLongitude(116.4)).toBe(8);
+    expect(timezoneFromLongitude(-75)).toBe(-5);
+    expect(timezoneFromLongitude(0)).toBe(0);
+    // doy 164 (Jun 13): EoT ≈ 0; lon 116.4 → tz 8 → correction +0.24 h.
+    expect(closeTo(solarToClockHours(12, 116.4, 164), 12.24, 0.02)).toBe(true);
+    expect(closeTo(solarToClockHours(12, 0, 164), 12, 0.02)).toBe(true);
   });
 });
 
