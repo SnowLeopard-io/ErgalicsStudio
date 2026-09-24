@@ -3,8 +3,8 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Ergalics Studio"
-version: "0.1.0"
-date-released: "2026-09-18"
+version: "1.9.0"
+date-released: "2026-09-24"
 repository-code: "https://github.com/SnowLeopard-io/ErgalicsStudio"
 license: "MIT"
 authors:
