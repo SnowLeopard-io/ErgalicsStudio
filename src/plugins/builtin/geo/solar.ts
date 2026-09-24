@@ -63,6 +63,38 @@ export function sunriseSunset(lat: number, declinationDeg: number): [number, num
   return [12 - len / 2, 12 + len / 2];
 }
 
+/**
+ * Equation of time (minutes): apparent − mean solar time (Spencer 1971
+ * Fourier approximation, ~±0.5 min accuracy). Zero near Apr 15 / Jun 13 /
+ * Sep 1 / Dec 25; ranges −14.2 min (mid-Feb) to +16.4 min (early Nov).
+ */
+export function equationOfTimeMinutes(doy: number): number {
+  const g = ((2 * Math.PI) / 365) * (doy - 1);
+  return (
+    229.18 *
+    (0.000075 +
+      0.001868 * Math.cos(g) -
+      0.032077 * Math.sin(g) -
+      0.014615 * Math.cos(2 * g) -
+      0.040849 * Math.sin(2 * g))
+  );
+}
+
+/** Whole-hour UTC offset estimated from longitude (political zones vary). */
+export function timezoneFromLongitude(lon: number): number {
+  return Math.max(-12, Math.min(12, Math.round(lon / 15)));
+}
+
+/**
+ * Apparent solar time (hours) → zone clock time (hours, wrapped to 0-24):
+ * mean = apparent − EoT, then clock = mean − lon/15 + tz. The longitude
+ * correction: the sun crosses meridian lon at UTC 12 − lon/15.
+ */
+export function solarToClockHours(apparentHours: number, lon: number, doy: number): number {
+  const h = apparentHours - equationOfTimeMinutes(doy) / 60 - lon / 15 + timezoneFromLongitude(lon);
+  return ((h % 24) + 24) % 24;
+}
+
 /** Month (1-12) and day (1-31) → day of year 1-366 (non-leap mapping). */
 export function monthDayToDoy(month: number, day: number): number {
   const cum = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -363,28 +395,40 @@ export class SolarPlugin implements Plugin {
     const rso = clearSkyRadiation(ra);
     const info =
       zh
-        ? `太阳赤纬 δ = ${fmt(decl)}°\u3000正午太阳高度 H = ${fmt(elev)}°\u3000昼长 = ${fmt(len)} h` +
-          (ss ? `\u3000日出 ${fmtH(ss[0])} / 日落 ${fmtH(ss[1])}（地方时）` : '')
-        : `Declination δ = ${fmt(decl)}°\u3000Noon elevation H = ${fmt(elev)}°\u3000Day length = ${fmt(len)} h` +
-          (ss ? `\u3000Sunrise ${fmtH(ss[0])} / Sunset ${fmtH(ss[1])} (solar time)` : '');
+        ? `太阳赤纬 δ = ${fmt(decl)}°\u3000正午太阳高度 H = ${fmt(elev)}°\u3000昼长 = ${fmt(len)} h`
+        : `Declination δ = ${fmt(decl)}°\u3000Noon elevation H = ${fmt(elev)}°\u3000Day length = ${fmt(len)} h`;
     g.fillText(info, 14, 40);
+    // Sun times on their own line: local apparent solar time plus zone clock
+    // time (longitude + equation-of-time correction). In polar day/night
+    // there is no sunrise/sunset — show the polar badge in this slot instead.
+    const polar = polarState(lat, decl);
+    if (ss) {
+      const tz = timezoneFromLongitude(lon);
+      const sign = tz >= 0 ? '+' : '';
+      const clock = zh ? '钟表时' : 'clock';
+      g.fillText(
+        zh
+          ? `日出 ${fmtH(ss[0])} / 日落 ${fmtH(ss[1])}（地方时）｜${clock} ${fmtH(solarToClockHours(ss[0], lon, doy))} / ${fmtH(solarToClockHours(ss[1], lon, doy))}（UTC${sign}${tz}）`
+          : `Sunrise ${fmtH(ss[0])} / Sunset ${fmtH(ss[1])} (solar time) | ${clock} ${fmtH(solarToClockHours(ss[0], lon, doy))} / ${fmtH(solarToClockHours(ss[1], lon, doy))} (UTC${sign}${tz})`,
+        14,
+        58,
+      );
+    } else {
+      g.fillStyle = polar === 'polar-day' ? 'rgba(255, 200, 90, 0.95)' : 'rgba(120, 180, 255, 0.95)';
+      g.fillText(
+        polar === 'polar-day' ? `☀ ${dateStr}：${zh ? '极昼' : 'Polar day'}` : `☾ ${dateStr}：${zh ? '极夜' : 'Polar night'}`,
+        14,
+        58,
+      );
+    }
     g.fillStyle = 'rgba(190, 200, 216, 0.95)';
     g.fillText(
       zh
         ? `日辐射（FAO-56）：R_a = ${ra.toFixed(1)} MJ·m⁻²\u3000R_so（晴空） = ${rso.toFixed(1)} MJ·m⁻²`
         : `Daily radiation (FAO-56): R_a = ${ra.toFixed(1)} MJ·m⁻²\u3000R_so (clear-sky) = ${rso.toFixed(1)} MJ·m⁻²`,
       14,
-      58,
+      76,
     );
-    const polar = polarState(lat, decl);
-    if (polar !== 'normal') {
-      g.fillStyle = polar === 'polar-day' ? 'rgba(255, 200, 90, 0.95)' : 'rgba(120, 180, 255, 0.95)';
-      g.fillText(
-        polar === 'polar-day' ? `☀ ${dateStr}：${zh ? '极昼' : 'Polar day'}` : `☾ ${dateStr}：${zh ? '极夜' : 'Polar night'}`,
-        14,
-        78,
-      );
-    }
 
     if (canvas.height < 180) return;
     this.drawAnnualCurve(g, canvas, true, doy);
@@ -396,8 +440,13 @@ export class SolarPlugin implements Plugin {
     const zh = isZh(this.api.locale);
     const padL = 46;
     const padR = 14;
-    const gapTop = upper ? 90 : 0;
-    const halfH = (canvas.height - gapTop) / (upper ? 2 : 1);
+    // Two stacked bands below the header zone: day length on top (hours,
+    // 0-24), noon elevation below (degrees, 0-90). Both share the same
+    // 90 px header reserve — the lower band must NOT span the full canvas
+    // or it overprints the upper band's curve and axis ticks.
+    const bandTop = 90;
+    const halfH = (canvas.height - bandTop) / 2;
+    const gapTop = upper ? bandTop : bandTop + halfH;
     const x0 = padL;
     const x1 = canvas.width - padR;
     const y0 = gapTop + 14;

@@ -137,6 +137,7 @@ export const zhCN: LocaleDictionary = {
   'project.open': '打开项目',
   'project.save': '保存',
   'project.save_as': '另存为',
+  'project.delete': '删除项目',
   'project.name': '项目名称',
   'project.auto_save': '自动保存中',
   'project.saved': '已保存',

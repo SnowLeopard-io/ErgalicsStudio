@@ -157,6 +157,12 @@ export function TopBar() {
               { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
               { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
               {
+                key: 'delete',
+                label: t('project.delete'),
+                disabled: !project,
+                onClick: openDialog('project_delete'),
+              },
+              {
                 key: 'export_log',
                 label: t('workbench.export_log'),
                 onClick: () => {

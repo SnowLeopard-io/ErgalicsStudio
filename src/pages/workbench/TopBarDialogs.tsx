@@ -1,5 +1,6 @@
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
 import { DataDialog } from './DataDialog';
@@ -16,7 +17,8 @@ export type TopBarDialogKey =
   | 'files'
   | 'perf'
   | 'new'
-  | 'rename';
+  | 'rename'
+  | 'project_delete';
 
 interface TopBarDialogsProps {
   dialog: TopBarDialogKey | null;
@@ -29,6 +31,7 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
   const project = useProjectStore((s) => s.project);
   const rename = useProjectStore((s) => s.rename);
   const createProject = useProjectStore((s) => s.createProject);
+  const removeProject = useProjectStore((s) => s.remove);
 
   return (
     <>
@@ -55,6 +58,18 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
         }}
       />
       <ShareDialog open={dialog === 'share'} onClose={onClose} />
+      <ConfirmDialog
+        open={dialog === 'project_delete'}
+        title={t('common.delete')}
+        message={t('project.remove_confirm')}
+        name={project?.name || undefined}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => {
+          if (project) void removeProject(project.id);
+          onClose();
+        }}
+        onClose={onClose}
+      />
       <DataDialog open={dialog === 'data'} onClose={onClose} />
       <ProjectFilesDialog open={dialog === 'files'} onClose={onClose} />
       <PerfDialog open={dialog === 'perf'} onClose={onClose} />

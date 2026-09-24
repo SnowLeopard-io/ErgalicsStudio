@@ -4558,23 +4558,55 @@ button.start-card:hover {
 }
 
 .start-recent-item {
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px 3px 10px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-  cursor: pointer;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 240px;
   transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .start-recent-item:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
+}
+
+.start-recent-open {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-recent-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.start-recent-delete:hover {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.15);
 }
 
 /* ---- FR-01: subject template browser + guided tour ----------------------- */
