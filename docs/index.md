@@ -40,7 +40,7 @@ features:
     details: "A Rust core compiles WGSL kernels with real bind-group layouts, dispatches workgroups, and reports shader diagnostics."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 4-3.5 3.5L9 7z"/><path d="M10 8.5V5"/><path d="M5.5 21 10 15.5l2-3.4 2 3.4L18.5 21z"/></svg>' }
     title: Testable by design
-    details: "1849 unit tests (Vitest) across 111 files plus Playwright E2E suites, all wired into npm scripts and kept green on every change."
+    details: "2233 unit tests (Vitest) across 123 files plus Playwright E2E suites, all wired into npm scripts and kept green on every change."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.8 3.8 9S14.5 18.4 12 21M12 3c-2.5 2.6-3.8 5.8-3.8 9S9.5 18.4 12 21"/></svg>' }
     title: i18n & theming
     details: "Chinese/English localization with reactive switching (and Blockly BKY_* keys for Block mode), and dark/light themes driven by CSS variables."

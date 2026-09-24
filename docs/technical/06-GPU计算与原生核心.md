@@ -47,7 +47,7 @@ flowchart TD
 
 ## 三、可复用 WGSL 内核
 
-`src/core/wgsl.ts` 收纳可复用的 WGSL 计算内核，并配套与内核数学一致的宿主侧打包 / 解包辅助函数供 CPU 回退使用。当前共 **13 个内核**：
+`src/core/wgsl.ts` 收纳可复用的 WGSL 计算内核，并配套与内核数学一致的宿主侧打包 / 解包辅助函数供 CPU 回退使用。当前共 **14 个内核**：
 
 | 内核 | 数学内容 | 主要使用方 |
 | --- | --- | --- |
@@ -64,6 +64,7 @@ flowchart TD
 | fftKernelWGSL | 按级迭代的基 2 FFT（最大 N = 4096） | 信号实验室 |
 | kmeansKernelWGSL | K-means 指派与质心累加 | 数据画像与聚类 |
 | binningKernelWGSL | 键值分箱聚合（sum / mean / count） | 分箱统计与扫描 |
+| spmvKernelWGSL | 稀疏矩阵-向量乘（CSR 行式逐步） | 宿主侧稀疏线性代数内核库（暂无内置插件直接调用；em-eigensolver 改在 Pyodide 上以 NumPy 求解） |
 
 两种典型的内核调用路径：
 
