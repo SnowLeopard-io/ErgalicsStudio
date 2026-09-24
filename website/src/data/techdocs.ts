@@ -1,8 +1,9 @@
-// Technical documents listed on the Downloads page. Mirrors the files under
-// docs/technical/, which scripts/copy-technical-docs.mjs copies into
-// website/public/technical/ at build time. The `file` values must match the
-// real filenames exactly — they get URL-encoded when linked. `formats`
-// declares which renderings actually exist for each document.
+// Technical documents listed on the Downloads page. Single source of truth is
+// docs/technical/: website/vite.config.ts streams them in dev (the /technical
+// middleware) and copies them into dist/technical on closeBundle — there is no
+// separate copy script. The `file` values must match the real filenames
+// exactly — they get URL-encoded when linked. `formats` declares which
+// renderings actually exist for each document.
 
 export type DocFormat = 'pdf' | 'html' | 'md';
 
