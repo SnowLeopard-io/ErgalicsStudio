@@ -13,7 +13,7 @@ import type { Locale } from '@/i18n/types';
 function injectedVersion(): string {
   // Vitest / node runs do not apply vite `define`, so guard with typeof and
   // fall back to the package.json version (kept in sync by check-citation).
-  return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
+  return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.9.0';
 }
 
 function injectedDoi(): string {
