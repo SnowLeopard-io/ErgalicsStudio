@@ -68,7 +68,7 @@ def solve_json(payload: dict) -> dict:
     results.
 
     Payload keys (all optional):
-        case : 'a' | 'b' | None        short run using the benchmark configs
+        case : 'a' | 'b' | 'c' | 'd' | None   short run using the benchmark configs
         net  : dict                     overrides for NetworkConfig
         dom  : dict                     overrides for DomainConfig
         cpl  : dict                     overrides for CouplerConfig
@@ -84,6 +84,12 @@ def solve_json(payload: dict) -> dict:
     elif case == "b":
         from .verify import case_b_config
         net, dom, cpl = _unpack(case_b_config())
+    elif case == "c":
+        from .verify import case_c_config
+        net, dom, cpl = _unpack(case_c_config())
+    elif case == "d":
+        from .verify import case_d_config
+        net, dom, cpl = _unpack(case_d_config())
     else:
         net = NetworkConfig(**payload.get("net", {}))
         dom = DomainConfig(**payload.get("dom", {}))
@@ -110,13 +116,16 @@ def _unpack(cfg: dict):
 
 
 def verify_json(payload: dict | None = None) -> dict:
-    """Run the full benchmark suite (Case A + Case B + Case C + trade-off +
-    minimal feasible period + sensitivity attribution)."""
+    """Run the full benchmark suite (Case A + Case B + Case C + Case D +
+    subsonic curve + trade-off + minimal feasible period + sensitivity
+    attribution)."""
     from . import verify
     out = {
         "case_a": verify.verify_case_a(),
         "case_b": verify.verify_case_b(),
         "case_c": verify.verify_case_c(),
+        "case_d": verify.verify_case_d(),
+        "subsonic_curve": verify.verify_subsonic_curve(),
         "trade_off": verify.trade_off(),
         "min_exchange": verify.min_feasible_exchange_period(),
         "sensitivity": verify.sensitivity_case_a(),

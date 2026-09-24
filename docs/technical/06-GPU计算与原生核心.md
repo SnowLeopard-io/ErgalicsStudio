@@ -83,9 +83,13 @@ flowchart LR
     D -- 停止 --> F["一次性读回<br/>交给 Three.js 渲染"]
 ```
 
-![N-Body 引力](../Nbody.png)
+![N-Body 引力](../assets/screenshots/plugins/nbody-3d.png)
 
-![格子 Boltzmann 流体绕机翼](../airplane.png)
+*N-Body 引力在 GPU 上的全对求和：数天体绕中心质量的三维引力轨迹，WGSL 内核计算并一次性读回交给 Three.js 渲染。*
+
+![格子 Boltzmann 流体绕机翼](../assets/screenshots/plugins/lbm-fluid.png)
+
+*格子 Boltzmann 流体：WGSL 编译期推导 D2Q9 碰撞 / 流 / 涡量三内核并逐步计算，绕翼流场与卡门涡街清晰可见，小规模自动回退 CPU。*
 
 ### 3.1 引擎选择与数据规模阈值
 

@@ -113,8 +113,9 @@ compute_back_pressure`），升级路径是**替换内核、保留耦合层**：
 
 ## 3. 算例报告（基准结果）
 
-基准由 `benchmarks/bench_coupling.py` 生成，落盘于 `bench/em-cfd-results.json`
-（含 `case_a / case_b / case_c / trade_off / min_exchange / sensitivity` 六组数据）。
+基准由 `benchmarks/bench_coupling.py` 生成，落盘于 `bench/fluid-cfd-results.json`
+（含 `case_a / case_b / case_c / case_d / subsonic_curve / trade_off /
+min_exchange / sensitivity` 八组数据）。
 运行环境：Windows + CPython + NumPy。
 
 ### 3.1 Case A —— 定常壅塞流（解析对照）
@@ -186,6 +187,29 @@ Case C 是 Case A 的**场类型/边界变体**：提高 3-D 侧扩散系数并�
 
 Case C 证明反向耦合分支（3-D 背压 → 1-D）在参数变体下**实质性参与**，而不仅是
 Case A 中的可忽略扰动；同一认证基线复用，保证变体不破坏壅塞正确性。
+
+### 3.4.1 Case D —— 亚临界非壅塞流（文献基准对照）
+
+Case A/C 验证的是**壅塞**（choked）分支；Case D 补上赛题"至少两个典型双向耦合用例
+对照解析/实验基线"（CFD-05）的**非壅塞**侧：压比 `r = p_back/p0` 被压到临界压比
+`PR* = 0.5283` 与 1 之间，喷嘴工作在**亚临界**区间，此时出口流量对背压**强敏感**
+（这一点与壅塞区相反），反向耦合分支在最需要它的工况下被实质性地驱动。出口流量与
+独立文献中的等熵亚临界收敛喷嘴关系对照。
+
+| 指标 | 数值 | 判定 |
+| --- | --- | --- |
+| 压比 `r = p_back/p0` | **0.5954** | 处于 `(PR*=0.5283, 1)` 亚临界区间 ✓ |
+| 流量（求解器耦合） | `0.022113 kg/s` | — |
+| 流量（文献等熵亚临界） | `0.022089 kg/s` | **相对误差 0.107%** |
+| 反向耦合参与 | **active** | 3-D 背压波幅 0.08 Pa，仍驱动亚临界流量 |
+| 亚临界区间扫点 `subsonic_curve` | 9 点 / 最大误差 **0.0%** | 求解器复现文献公式到浮点精度 |
+| 背压敏感度 `d ln ṁ/d ln r` | **−1.83** | 背压↑ → 流量↓（反向耦合方向正确） |
+| 认证断言 `certification.all_pass` | **True** | 流量误差 ≤ 5% 且亚临界成立 |
+
+**亚临界流量与文献关系精确吻合（0.107%）**，且 `verify_subsonic_curve()` 在整段
+亚临界区间把求解器自身分支与文献等熵公式逐点对照，**最大相对误差 0.0%**——这直接
+证明 1-D 喷嘴模型在两个分支（壅塞/亚临界）上都复现了教科书基准。负的背压敏感度
+`−1.83` 坐实"增大 3-D 反馈背压会降低出口流量"这一反向耦合在亚临界区的预期行为。
 
 ### 3.5 最小可行交换周期（CFD-01）
 
@@ -266,11 +290,13 @@ PRD 要求评估浏览器/WASM 下交换延迟是否可再降。实测结论：*
 | `test_valve_step_reduces_flow` | 阀阶跃显著降低流量 ✓ |
 | `test_trade_off_returns_curve` | 权衡曲线输出 ✓ |
 | `test_case_c_reverse_coupling_active` | Case C 反向耦合参与 ✓ |
+| `test_case_d_subsonic_literature_certified` | Case D 亚临界文献基线 ✓ |
+| `test_subsonic_curve_matches_literature` | 亚临界区间复现文献公式 ✓ |
 | `test_min_feasible_exchange_period_is_tight_coupling_limit` | 最小周期=紧耦合极限 ✓ |
 | `test_sensitivity_attribution_isolation` | 1.68% 偏差归因到模型假设 ✓ |
 | `test_fault_*`（负面积/零体积/NaN 步长） | 全部非崩溃 `ok=false` ✓ |
 
-**Python 内核 `22 passed, 0 failed`**；前端纯函数单测（CFD-03，见 4.4）
+**Python 内核 `24 passed, 0 failed`**；前端纯函数单测（CFD-03，见 4.4）
 **`8 passed`**。
 
 ---
@@ -290,7 +316,7 @@ Node 18+ / npm        （前端 typecheck / 构建）
 ```bash
 cd src/plugins/builtin/fluid-cfd-coupler/python
 
-# 完整验证套件（Case A/B/C + 权衡 + 最小周期 + 敏感性）→ JSON
+# 完整验证套件（Case A/B/C/D + 亚临界曲线 + 权衡 + 最小周期 + 敏感性）→ JSON
 python -m fluid_cfd.driver verify
 
 # 单次耦合，自定义 payload
@@ -298,10 +324,10 @@ python -m fluid_cfd.driver solve '{"case":"b"}'
 python -m fluid_cfd.driver solve @config.example.json   # 或直接 inline 传 JSON
 
 # 逐项断言测试（无 pytest 依赖）
-python run_tests.py            # → 22 passed, 0 failed
+python run_tests.py            # → 24 passed, 0 failed
 
-# 生成基准（6 组数据）
-python benchmarks/bench_coupling.py   # → bench/em-cfd-results.json
+# 生成基准（8 组数据）
+python benchmarks/bench_coupling.py   # → bench/fluid-cfd-results.json
 ```
 
 ### 4.3 方式二：浏览器插件（工作台）
@@ -349,6 +375,6 @@ npm test            # vitest run（含 CFD 前端 8 项）
 | `fluid-worker.ts` / `fluid-client.ts` / `plugin.ts` | 前端 Worker / RPC / 控制器 |
 | `render.ts` / `diag-report.ts` / `types.ts` | 可视化 / 诊断报告 / 协议类型 |
 | `manifest.ts` / `index.ts` | 插件清单与注册 |
-| `bench/em-cfd-results.json` | 已生成的基准结果（A/B/C + 权衡 + 最小周期 + 归因） |
+| `bench/fluid-cfd-results.json` | 已生成的基准结果（A/B/C/D + 亚临界 + 权衡 + 最小周期 + 归因） |
 | `tests/fluidCfdCoupler.test.ts` | 前端纯函数单测（CFD-03） |
 | `src/plugins/builtin/index.ts` | 已注册进内置插件列表 |

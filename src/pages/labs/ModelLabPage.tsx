@@ -8,7 +8,7 @@
 // Fits can be recorded in experiment history (source 'model').
 // ==========================================================================
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -22,7 +22,13 @@ import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
 import { std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
-import { tabularDataGroups, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
+import {
+  useTabularDataGroups,
+  useFileCols,
+  loadTable,
+  sendSpecToFigure,
+  fmt,
+} from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
 import { NarrativePanel } from '@/components/NarrativePanel';
@@ -114,7 +120,7 @@ export default function ModelLabPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
+  const fileGroups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [target, setTarget] = useState('');
@@ -127,14 +133,7 @@ export default function ModelLabPage() {
   const [outcome, setOutcome] = useState<FitOutcome | null>(null);
   const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
 
-  const cols = useMemo(() => {
-    if (!file) return [] as string[];
-    try {
-      return loadTable(file).numericCols;
-    } catch {
-      return [];
-    }
-  }, [file]);
+  const cols = useFileCols(file).numericCols;
 
   const selectFile = (name: string) => {
     setFile(name);
@@ -154,7 +153,7 @@ export default function ModelLabPage() {
     );
   };
 
-  const fit = () => {
+  const fit = async () => {
     setError('');
     setOutcome(null);
     setNarrativeInput(null);
@@ -171,7 +170,7 @@ export default function ModelLabPage() {
       return;
     }
     try {
-      const { table } = loadTable(file);
+      const { table } = await loadTable(file);
       const fullY = Array.from((table.getColumn(target) as Float64Array | undefined) ?? []) as number[];
       const fullXs = predictors.map((c) =>
         Array.from((table.getColumn(c) as Float64Array | undefined) ?? []) as number[],
@@ -352,7 +351,7 @@ export default function ModelLabPage() {
             <input className="input research-num" title={t('model.threshold')} value={threshold}
               onChange={(e) => { setThreshold(e.target.value); setOutcome(null); }} />
           )}
-          <button type="button" className="btn btn-primary" onClick={fit}>{t('model.fit')}</button>
+          <button type="button" className="btn btn-primary" onClick={() => void fit()}>{t('model.fit')}</button>
         </div>
 
         {file && (

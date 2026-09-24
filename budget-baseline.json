@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "updated": "2026-09-21T08:19:46.678Z",
-  "first_screen_gzip_kb": 685.6,
-  "lazy_chunk_count": 444,
+  "updated": "2026-09-24T11:53:49.516Z",
+  "first_screen_gzip_kb": 196.5,
+  "lazy_chunk_count": 246,
   "research_page_chunks": 25,
   "files": {
     "assets/preload-helper*.js": 0.7,
     "assets/react*.js": 58.5,
-    "assets/index*.js": 626.4
+    "assets/index*.js": 137.3
   }
 }

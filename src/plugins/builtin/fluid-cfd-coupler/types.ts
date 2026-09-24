@@ -117,6 +117,47 @@ export interface FluidVerifyCaseC {
   certification: FluidCertification;
 }
 
+/** Case D verification topline (subsonic / non-choked bidirectional coupling,
+ * literature isentropic-subsonic baseline). */
+export interface FluidVerifyCaseD {
+  case: string;
+  ok: boolean;
+  pressure_ratio_actual: number;
+  critical_pressure_ratio_lit: number;
+  subsonic_engaged: boolean;
+  md_solver_kg_s: number;
+  md_literature_kg_s: number;
+  flow_rel_error: number;
+  back_pressure_pa: number;
+  plenum_pressure_final_pa: number;
+  reverse_coupling_engaged: boolean;
+  mean_interface_error: number;
+  metrics: FluidCplMetrics;
+  windows: FluidWindowRecord[];
+  basis: Record<string, string>;
+  certification: FluidCertification;
+}
+
+/** One row of the subsonic-branch literature scan (verify_subsonic_curve). */
+export interface FluidSubsonicCurveRow {
+  pressure_ratio: number;
+  subsonic: boolean;
+  md_solver_kg_s: number;
+  md_literature_kg_s: number;
+  rel_error: number;
+}
+
+/** Subsonic-branch literature scan (mirrors verify_subsonic_curve). */
+export interface FluidSubsonicCurve {
+  case: string;
+  critical_pressure_ratio_lit: number;
+  max_rel_error: number;
+  sensitivity_dln_md_over_dln_r: number;
+  rows: FluidSubsonicCurveRow[];
+  basis: Record<string, string>;
+  certification: Record<string, boolean | string>;
+}
+
 /** One precision-vs-efficiency row (mirrors interface_tradeoff_curve). */
 export interface FluidTradeRow {
   exchange_period_ms: number;
@@ -170,6 +211,8 @@ export interface FluidVerifyResult {
   case_a: FluidVerifyCaseA;
   case_b: FluidVerifyCaseB;
   case_c: FluidVerifyCaseC;
+  case_d: FluidVerifyCaseD;
+  subsonic_curve: FluidSubsonicCurve;
   trade_off: FluidTradeRow[];
   min_exchange: FluidMinExchangeResult;
   sensitivity: FluidSensitivityResult;
@@ -181,6 +224,8 @@ export interface FluidVerifyResult {
 export type CouplingPayload =
   | { case: 'a' }
   | { case: 'b' }
+  | { case: 'c' }
+  | { case: 'd' }
   | {
       net?: Record<string, unknown>;
       dom?: Record<string, unknown>;
@@ -195,7 +240,7 @@ export interface FluidProgressInfo {
 
 /** Front-end configuration knobs. */
 export interface FluidCfdConfig {
-  preset: 'case_a' | 'case_b' | 'custom';
+  preset: 'case_a' | 'case_b' | 'case_c' | 'case_d' | 'custom';
   view: 'coupling' | 'verify' | '3d';
   // Custom couplings (SI-derived in the client):
   dt1dMs: number;

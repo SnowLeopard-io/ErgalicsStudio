@@ -1,6 +1,6 @@
 # Flow Mode
 
-![Flow mode — a sample pipeline and its live result preview](../flow.png)
+![Flow mode — a sample pipeline and its live result preview](../assets/screenshots/platform/mode-flow.png)
 
 **Flow mode** is the workbench's second mode (the first is *Standard* — drag
 data onto a plugin). In Flow mode you compose a **visual dataflow pipeline**:

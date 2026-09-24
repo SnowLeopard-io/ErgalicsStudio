@@ -8,7 +8,7 @@
 // The whole inference is recorded as a single run (source 'inference').
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -27,7 +27,13 @@ import {
   type TemplateKind,
 } from '@/core/inference/templates';
 import type { ChainSamples, InferenceConfig, InferenceResult } from '@/core/inference/types';
-import { tabularDataGroups, loadTable, sendSpecToFigure, fmt } from '../research/researchUi';
+import {
+  useTabularDataGroups,
+  useFileCols,
+  loadTable,
+  sendSpecToFigure,
+  fmt,
+} from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -115,7 +121,7 @@ export default function InferenceForgePage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
-  const fileGroups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
+  const fileGroups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [kind, setKind] = useState<TemplateKind>('normal-mean');
@@ -147,14 +153,7 @@ export default function InferenceForgePage() {
     };
   }, []);
 
-  const cols = useMemo(() => {
-    if (!file) return [] as string[];
-    try {
-      return loadTable(file).numericCols;
-    } catch {
-      return [];
-    }
-  }, [file]);
+  const cols = useFileCols(file).numericCols;
 
   const cancel = () => abortRef.current?.abort();
 
@@ -193,7 +192,7 @@ export default function InferenceForgePage() {
     setRunning(true);
     setProgress({ done: 0, total: cfg.chains });
     try {
-      const { table } = loadTable(ctx.file);
+      const { table } = await loadTable(ctx.file);
       const arrays = {
         y: (table.getColumn(ctx.yCol) as Float64Array | undefined) ?? new Float64Array(0),
         x: ctx.kind === 'normal-linear' ? (table.getColumn(ctx.xCol) as Float64Array | undefined) ?? undefined : undefined,

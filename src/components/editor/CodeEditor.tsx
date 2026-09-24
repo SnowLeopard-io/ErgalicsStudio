@@ -402,10 +402,10 @@ export function CodeEditor() {
   }, [pendingLoad]);
 
   /** Ship every resolvable data file into the worker as _FILES. */
-  const collectFiles = (): Record<string, string> => {
+  const collectFiles = async (): Promise<Record<string, string>> => {
     const files: Record<string, string> = {};
     for (const name of listDataFiles()) {
-      const text = resolveDataFile(name);
+      const text = await resolveDataFile(name);
       if (text !== undefined) files[name] = text;
     }
     return files;
@@ -477,7 +477,7 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, collectFiles(), {});
+        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
         if (result.ok) {
           ok = true;
           outputs = result.outputs;
@@ -547,7 +547,7 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, collectFiles(), {});
+        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
         ok = result.ok;
         if (result.ok) {
           outputs = result.outputs;

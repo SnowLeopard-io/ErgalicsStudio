@@ -11,7 +11,7 @@
 // Pure: string in → string out, directly unit-testable.
 // ==========================================================================
 
-import type { FluidCouplingResult, FluidTradeRow, FluidVerifyResult, FluidWindowRecord } from './types';
+import type { FluidCouplingResult, FluidSubsonicCurve, FluidTradeRow, FluidVerifyResult, FluidWindowRecord } from './types';
 
 export const DIAG_REPORT_SCHEMA = 'ergalics.em-cfd-diag-report';
 export const DIAG_REPORT_VERSION = 1;
@@ -157,18 +157,28 @@ export function buildDiagReportHtml(input: DiagReportInput): string {
   if (verify) {
     const a = verify.case_a;
     const b = verify.case_b;
+    const c = verify.case_c;
+    const d = verify.case_d;
     body += `<h2>${L.verifyHeading}</h2>`;
     body += table([
       ['Case A · flow rel. err', `${(a.flow_rel_error * 100).toFixed(3)}%`],
       ['Case A · pressure rel. err', `${(a.pressure_rel_error * 100).toFixed(3)}%`],
       ['Case B · valve throttle ratio', b.valve_throttle_ratio.toFixed(3)],
       ['Case B · control-sync max (ms)', `${b.control_sync_max_ms.toFixed(3)}`],
-      ['Case B · control-sync mean (ms)', `${b.control_sync_mean_ms.toFixed(3)}`],
+      ['Case C · flow rel. err', `${(c.flow_rel_error * 100).toFixed(3)}%`],
+      ['Case C · back pressure rise (Pa)', c.back_pressure_rise_pa.toFixed(1)],
+      ['Case D · flow rel. err', `${(d.flow_rel_error * 100).toFixed(3)}%`],
+      ['Case D · pressure ratio (r)', d.pressure_ratio_actual.toFixed(3)],
     ]);
     body += `<h2>${L.metricsHeading}</h2>`;
     body += tableMetricBlock(a.metrics);
     body += `<h2>${L.caseBHeading}</h2>`;
     body += tableMetricBlock(b.metrics);
+    body += `<h2>${L.caseCHeading}</h2>`;
+    body += tableMetricBlock(c.metrics);
+    body += `<h2>${L.caseDHeading}</h2>`;
+    body += tableMetricBlock(d.metrics);
+    body += subsonicBlock(verify.subsonic_curve);
     body += tradeOffBlock(verify.trade_off);
   } else if (result) {
     body += `<h2>${L.metricsHeading}</h2>`;
@@ -232,11 +242,30 @@ function tradeOffBlock(rows: FluidTradeRow[]): string {
   return `<h2>Precision-vs-efficiency trade-off</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
+/** Subsonic-branch literature scan table (Case D supporting evidence). */
+function subsonicBlock(sc: FluidSubsonicCurve): string {
+  if (!sc || !sc.rows || sc.rows.length === 0) return '';
+  const cells = [
+    `critical ratio PR* = ${sc.critical_pressure_ratio_lit.toFixed(4)}`,
+    `max rel err = ${fmtShort(sc.max_rel_error)}`,
+    `sens dln mdot/dln r = ${sc.sensitivity_dln_md_over_dln_r.toFixed(4)}`,
+  ]
+    .map((t) => `<span class="badge">${esc(t)}</span>`)
+    .join('');
+  const head = ['pressure ratio', 'subsonic', 'solver mdot (kg/s)', 'literature mdot (kg/s)', 'rel error'].map((c) => `<th>${c}</th>`).join('');
+  const body = sc.rows
+    .map((r) => `<tr><td>${r.pressure_ratio.toFixed(4)}</td><td>${r.subsonic ? '✓' : '—'}</td><td>${fmtShort(r.md_solver_kg_s)}</td><td>${fmtShort(r.md_literature_kg_s)}</td><td>${fmtShort(r.rel_error)}</td></tr>`)
+    .join('\n');
+  return `<h2>Subsonic literature scan (Case D)</h2><div>${cells}</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
 const zh = {
   heading: '1D 管网 ↔ 3D 场 双向耦合 — 诊断报告',
   verifyHeading: '验证基准（解析解对照）',
   metricsHeading: '耦合关键指标',
   caseBHeading: 'Case B（毫秒级阀门控制）',
+  caseCHeading: 'Case C（能量/核安全通道）',
+  caseDHeading: 'Case D（亚临界双向耦合）',
   flowSeries: '1-D 出口流量 vs 时间',
   valveSeries: '阀门开度（0..1, 毫秒级控制）',
   bpSeries: '3-D 出口背压（反向耦合反馈）',
@@ -249,6 +278,8 @@ const en = {
   verifyHeading: 'Verification baseline (analytical comparison)',
   metricsHeading: 'Coupling metrics',
   caseBHeading: 'Case B (millisecond valve control)',
+  caseCHeading: 'Case C (energy / nuclear-safety channel)',
+  caseDHeading: 'Case D (subsonic bidirectional coupling)',
   flowSeries: '1-D outlet flow vs time',
   valveSeries: 'Valve opening (0..1, ms control)',
   bpSeries: '3-D outlet back pressure (reverse coupling)',

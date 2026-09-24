@@ -379,12 +379,15 @@ function drawVerify(g: CanvasRenderingContext2D, area: Rect, verify: FluidVerify
   ];
   // CFD-01/04/06 toplines (guarded: older workers may omit the new sections)
   const c = verify.case_c;
+  const d = verify.case_d;
   const me = verify.min_exchange;
   const sn = verify.sensitivity;
-  if (c && me && sn) {
+  if (c && d && me && sn) {
     rows.push(
       [zh ? 'Case C 反向耦合背压抬升' : 'Case C back-pressure rise', `${c.back_pressure_rise_pa.toFixed(1)} Pa`, c.back_pressure_rise_pa],
       [zh ? 'Case C 反向耦合参与度' : 'Case C reverse coupling', c.reverse_coupling_engagement, c.reverse_coupling_engagement === 'active' ? 2 : 0],
+      [zh ? 'Case D 流量相对误差' : 'Case D flow rel. err', `${(d.flow_rel_error * 100).toFixed(3)}%`, d.flow_rel_error],
+      [zh ? 'Case D 实际压比 r' : 'Case D pressure ratio r', d.pressure_ratio_actual.toFixed(3), d.pressure_ratio_actual],
       [zh ? '最小可行交换周期' : 'Min feasible exchange period', `${me.min_feasible_exchange_period_ms} ms`, me.min_feasible_exchange_period_ms ?? 0],
       [zh ? 'Case A 偏差·模型假设' : 'Case A deviation · model bias', `${(sn.model_bias_rel * 100).toFixed(2)}%`, sn.model_bias_rel * 100],
     );

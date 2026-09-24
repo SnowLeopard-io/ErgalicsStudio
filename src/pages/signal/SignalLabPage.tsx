@@ -7,7 +7,7 @@
 // back as a new project CSV file (derived-from provenance in the file name).
 // ==========================================================================
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
@@ -28,7 +28,14 @@ import {
   WINDOW_KINDS,
   type WindowKind,
 } from '@/core/signal';
-import { tabularDataGroups, loadTable, sendSpecToFigure, toCsv, fmt } from '../research/researchUi';
+import {
+  useTabularDataGroups,
+  useFileCols,
+  loadTable,
+  sendSpecToFigure,
+  toCsv,
+  fmt,
+} from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 
 type Op = 'spectrum' | 'welch' | 'filter' | 'correlation' | 'decompose';
@@ -91,7 +98,7 @@ export default function SignalLabPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const addDataFile = useProjectStore((s) => s.addDataFile);
-  const groups = useMemo(() => tabularDataGroups(DATA_EXTS_SERIES), [project?.data.files]);
+  const groups = useTabularDataGroups(DATA_EXTS_SERIES, project?.data.files);
 
   const [file, setFile] = useState('');
   const [timeCol, setTimeCol] = useState('');
@@ -110,19 +117,11 @@ export default function SignalLabPage() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<ResultOut | null>(null);
 
-  const cols = useMemo(() => {
-    if (!file) return { numericCols: [] as string[], allCols: [] as string[] };
-    try {
-      const loaded = loadTable(file);
-      return { numericCols: loaded.numericCols, allCols: loaded.allCols };
-    } catch {
-      return { numericCols: [] as string[], allCols: [] as string[] };
-    }
-  }, [file]);
+  const cols = useFileCols(file);
 
   const numericOptions = cols.numericCols;
 
-  const compute = () => {
+  const compute = async () => {
     setError('');
     setResult(null);
     if (!file || !valueCol) {
@@ -130,7 +129,7 @@ export default function SignalLabPage() {
       return;
     }
     try {
-      const { table } = loadTable(file);
+      const { table } = await loadTable(file);
       const xRaw = Array.from(
         (table.getColumn(valueCol) as Float64Array | undefined) ?? [],
       ) as number[];
@@ -387,7 +386,7 @@ export default function SignalLabPage() {
               onChange={(e) => setPeriod(e.target.value)} />
           )}
 
-          <button type="button" className="btn btn-primary" onClick={compute}>{t('signal.run')}</button>
+          <button type="button" className="btn btn-primary" onClick={() => void compute()}>{t('signal.run')}</button>
         </div>
       )}
 

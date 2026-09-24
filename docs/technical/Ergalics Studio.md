@@ -40,25 +40,33 @@ Ergalics Studio 是一款完全运行在浏览器中的科学计算工作站：�
 
 **标准模式**是产品的"前门"。工作台采用经典的四区布局：顶栏负责项目与模式切换，左侧是项目树与插件列表，中央视口承载插件渲染，右侧是与所选插件实时绑定的参数面板。把文件拖进窗口，宿主会通过文件格式检测（按魔数识别，辅以扩展名，可选 WASM 辅助）自动路由到匹配的插件，例如拖入 .xyz 文件直接得到点云渲染；多个插件同时匹配时弹出选择框由用户决定。
 
-![Ergalics Studio 标准模式主界面](../Estudio.png)
+![Ergalics Studio 标准模式主界面](../assets/screenshots/platform/mode-standard-welcome.png)
+
+*标准模式主界面：四区布局（顶栏模式切换、左侧项目与插件、中央插件渲染视口、右侧参数面板），文件拖入即自动路由到匹配插件。*
 
 <!-- pagebreak -->
 
 **流程模式**把分析过程显式化为一张有向无环图。用户从区块目录拖出数据源、变换、过滤、数学、统计、单位、可视化与绘图区块，连线成管线；编译器先做结构校验（端口匹配、必填参数、类型检查）与环检测、拓扑排序，执行器再按序执行并对每个节点做增量缓存，改动一个参数只重算受影响的下游节点。每个区块的输出都可以就地预览：可视化区块弹出插件渲染，统计区块以只读数据表或标量形式呈现。
 
-![流程模式：可视化数据流管线](../flow.png)
+![流程模式：可视化数据流管线](../assets/screenshots/platform/mode-flow.png)
+
+*流程模式：以 DAG 管线连接数据源 / 变换 / 统计 / 可视化区块，编译后增量执行、就地预览。*
 
 <!-- pagebreak -->
 
 **积木模式**面向编程启蒙。类 Scratch 的画布上，绿色"运行时"帽子区块是脚本的唯一入口，帽子下方未连接的孤立区块永不运行，从根本上杜绝误执行破损代码；数据加载、变量、循环、数学运算与绘图积木拼在其下。点击运行后，宿主把积木图编译为共享中间表示（IR），由内置解释器逐节点执行。积木名称、提示与下拉选项均已本地化，5 个内置示例程序开箱即玩。
 
-![积木模式：帽子区块启动脚本](../block.png)
+![积木模式：帽子区块启动脚本](../assets/screenshots/platform/mode-block.png)
+
+*积木模式：类 Scratch 画布以帽子区块启动脚本，积木图编译为共享 IR 执行。*
 
 <!-- pagebreak -->
 
 **代码模式**面向真实脚本用户。Monaco 编辑器之外，侧栏提供控制台与变量面板；Python 代码运行在 Pyodide Worker 中，是货真价实的 CPython，`studio` 作为正经可导入模块注入；R 与 JavaScript 走进程内 IR 引擎，与积木模式共用同一个解释器。仓库在 `examples/code` 目录提供 9 个可直接运行的示例程序，从蒙特卡洛求圆周率到信号分析一应俱全。
 
-![代码模式：Monaco 编辑器与 Pyodide 运行时](../code.png)
+![代码模式：Monaco 编辑器与 Pyodide 运行时](../assets/screenshots/platform/mode-code.png)
+
+*代码模式：Monaco 编辑器 + 控制台 / 变量面板，Python 运行于 Pyodide Worker，注入 `studio` 模块。*
 
 三个脚本模式共享同一份 IR：流程里搭好的管线可以变成积木，积木可以生成 Python 代码，代码模式下编辑的 studio 调用也能解析回积木图。一次编辑，三种表达，由专门的往返互转单元测试兜底。
 
@@ -538,11 +546,17 @@ flowchart LR
 
 所有仿真类插件严格数据驱动：初始为空，绝不伪造默认场景；画布给出明确的空态提示，运行按钮带数据守卫，空数据启动会收到提示而非静默空跑；"重置"只重放已加载的数据，回归作者基准构型。每个核心插件都附带示例数据集（见 `examples/data/`），在"示例"对话框中一键加载即可看到真实可视化。
 
-![电磁场：回旋加速器示例](../Cyclotron.png)
+![电磁场：回旋加速器示例](../assets/screenshots/plugins/electromagnetism.png)
 
-![光学实验：棱镜色散](../light.png)
+*电磁场：在画布上拖动并释放电荷，电荷在库仑力与均匀磁场的洛伦兹力共同作用下做回旋运动。*
 
-![结构力学：桁架受力着色](../structure.png)
+![光学实验：棱镜色散](../assets/screenshots/plugins/optics-prism.png)
+
+*光学实验：几何光学光线追踪，白光束经三棱镜折射色散，薄透镜成像焦距演示，元件均可拖动。*
+
+![结构力学：桁架受力着色](../assets/screenshots/plugins/structure-truss.png)
+
+*结构力学：铰接桁架实时承重，杆件按轴力着色，超载时依次断裂直至整体垮塌。*
 
 ### 3.3 市场目录与两级加载
 
@@ -642,7 +656,9 @@ flowchart TD
 
 适合"我已经知道哪个插件能回答我的问题，只想把文件指给它"的场景。
 
-![标准模式](../Estudio.png)
+![标准模式](../assets/screenshots/platform/mode-standard-welcome.png)
+
+*标准模式：四区布局工作台，中央视口承载插件渲染、右侧参数面板实时联动，是默认探索入口。*
 
 ### 4.2 流程模式（Flow）
 
@@ -685,7 +701,9 @@ flowchart LR
 
 底部预览随所选节点输出类型自适应：`RenderedView` 走既有插件渲染器（散点、直方图等）；`DataTable` 输出（如 `stats.summary`、`stats.histogram` 的分箱结果）渲染为只读表格，使非可视化输出也看得见；`Scalar` 内联显示。管线有多个输出时由芯片切换器选择检视节点。
 
-![流程模式](../flow.png)
+![流程模式](../assets/screenshots/platform/mode-flow.png)
+
+*流程模式：以 DAG 管线连接数据源 / 变换 / 统计 / 可视化区块，编译后增量执行、就地预览。*
 
 #### 4.2.4 示例管线
 
@@ -723,7 +741,9 @@ flowchart LR
 | 控制流 | 如果、重复、当循环、遍历 |
 | 工具 | 打印、原始文本 |
 
-![积木模式](../block.png)
+![积木模式](../assets/screenshots/platform/mode-block.png)
+
+*积木模式：类 Scratch 画布以帽子区块启动脚本，积木拼图编译为共享 IR 执行。*
 
 技术要点：
 
@@ -763,7 +783,9 @@ flowchart LR
 
 9 个示例程序以真实文件存放在 `examples/code`（EDA 管线、蒙特卡洛估圆、信号平滑、遥测探索、星系散点、随机直方图、范围循环、添加列绘图、归一化过滤），经"示例"对话框加载。
 
-![代码模式](../code.png)
+![代码模式](../assets/screenshots/platform/mode-code.png)
+
+*代码模式：Monaco 编辑器 + 控制台 / 变量面板，Python 运行于 Pyodide Worker，注入 `studio` 模块。*
 
 ### 4.5 三模式互转（共享 IR）
 
@@ -865,19 +887,42 @@ flowchart TD
 #### 5.2.1 测量与评估
 
 - **不确定性套件（`uncertainty`）**——把"这个数字有多确定"变成可计算的对象。提供 Bootstrap 置信区间、蒙特卡洛传播与 MCMC 采样三条路径，并给出 R-hat、有效样本量 ESS、HDI 与 MCSE 等收敛诊断；样本量足够大时自动切到 WGSL GPU 引擎（每链一个 workgroup），未达阈值或设备不可用时回落到 CPU，两条路径在同一随机数序列下结果在数值容差内一致（内核细节见 07 篇）。
+
+![不确定性套件：Bootstrap 置信区间](../assets/screenshots/platform/laboratory/uncertainty-bootstrap.png)
+
+*不确定性套件以 Bootstrap 重采样给出分位数置信区间，配合蒙特卡洛传播与 MCMC，输出 HDI、R-hat、ESS 与 MCSE 等收敛诊断；样本量足够大时自动切到 WGSL GPU 引擎并按同一随机序列与 CPU 核对。*
+
+![数据画像：相关矩阵与列统计质量报告](../assets/screenshots/platform/laboratory/data-profiler.png)
+
+*数据画像对一份 CSV 生成相关矩阵、列级直方图与缺失统计，并综合成 0–100 的确定性质量分与问题清单。*
+
 - **数据画像（`profiler`）**——数据体检。流式单遍计算：数值列用 Welford 递推求精确均值与方差、蓄水池采样求分位数与 MAD，并以修正 z 分数标记离群；文本列用 HyperLogLog 估计基数、Space-Saving 求 Top-K；表级给出 Pearson / Spearman 相关与重复率，最终综合成 0–100 的确定性质量分与问题清单，按内容指纹缓存以支持重复打开。
 
 #### 5.2.2 建模与推断
 
 - **模型工作台（`model-lab`）**——拟合与诊断。支持普通最小二乘（Householder QR）、逻辑回归（IRLS）、岭回归（K 折交叉验证选参）与多项式拟合，产出含估计值、标准误、p 值与置信区间的系数表，并附 2×2 残差诊断图（残差-拟合、QQ、尺度-位置、残差-杠杆），支持多模型横向对比。
+
+![模型工作台：OLS 拟合与残差诊断](../assets/screenshots/platform/laboratory/model-lab.png)
+
+*模型工作台拟合线性模型并附 2×2 残差诊断图（残差-拟合、QQ、尺度-位置、残差-杠杆），系数表含估计值、标准误、p 值与置信区间。*
+
 - **贝叶斯推断（`inference`）**——Inference Forge。HMC / NUTS 采样器（NUTS 带 U 形回旋判据与 Dual Averaging 步长自适应，无须手工设步数）、声明式似然模板配数据尺度化的弱先验、R-hat 与 bulk / tail-ESS 等后验诊断，以及 WAIC 与 PSIS-LOO 模型比较。
 
-![贝叶斯推断：浏览器内的 NUTS 采样与后验诊断](../InferenceForge.png)
+![贝叶斯推断：浏览器内的 NUTS 采样与后验诊断](../assets/screenshots/platform/laboratory/inferenceforge-posterior.png)
 
 *Inference Forge 在浏览器内（WebAssembly）跑 NUTS 采样，并把收敛情况讲完整：后验摘要给出 94% HDI、MCSE、R-hat 与 ESS，另有逐链诊断、WAIC / PSIS-LOO 模型比较、后验预测检验，以及轨迹图与后验密度图。*
 
 - **模型推理（`model-inference`）**——把已训练好的模型搬进浏览器：用 WebGPU 运行 ONNX 模型并查看推理结果，适合"模型在别处训练、结论要在这里复现"的场景。
+
+![模型推理：浏览器内运行 ONNX 情感分类](../assets/screenshots/platform/laboratory/model-inference.png)
+
+*模型推理在浏览器内用 WebGPU 运行 ONNX 情感分类模型，逐样本给出预测、置信度与端到端延迟。*
+
 - **参数扫描（`sweeps`）**——`expandPlan` 把扫描计划展开为确定性设计点：全网格 / 列表轴走完整笛卡尔积，全拉丁超立方轴按维度分层抽样；混合 lhs 与 grid 的方案被显式拒绝，因为样本量此时没有无歧义的定义。执行后可看响应面。
+
+![参数扫描：扫描计划配置](../assets/screenshots/platform/laboratory/parameter-sweeps.png)
+
+*参数扫描把扫描计划展开为确定性设计点（全网格 / 拉丁超立方按维度分层抽样），执行后可查看响应面。*
 
 #### 5.2.3 数据与谱系
 
@@ -885,20 +930,24 @@ flowchart TD
 - **数据血缘（`lineage`）**——以运行记录上的文件 id 把项目文件（源）连到运行（变换），绘制成 Sugiyama 式分层 DAG（最长路径分层、单趟重心排序、行居中）。领域层无 React / store / DOM 依赖，画布可独立测试。
 - **图表工作台（`figures`）**——出版级组图。`FigureSpec` 是挂在期刊模板网格（IEEE / Elsevier 栏宽、色盲友好调色板）上的多面板容器，`composeFigure` 渲染为单张独立 SVG（嵌套面板 viewport 加 a / b / c 面板标签），`exportFigure` 处理 SVG / PDF / PNG-600dpi 下载。组图只重新定尺寸，绝不修改原 `PlotSpec`。
 
-![图表工作台：IEEE 单栏模板上的 2×2 OLS 诊断组图](../figurestudio.png)
+![图表工作台：IEEE 单栏模板上的 2×2 OLS 诊断组图](../assets/screenshots/platform/laboratory/figurestudio-em.png)
 
 *图表工作台在 IEEE 单栏模板上排一张 2×2 的 OLS 诊断组图：逐面板布局、图注草拟、投稿前检查，以及 SVG / PDF / 600dpi PNG 导出。*
 
 - **数据分析（`analysis`）**——假设检验、相关性与基础统计分析的常规入口：t 检验族、单因素方差分析、Mann-Whitney U、卡方独立性检验、Cohen's d 效应量，以及 Bonferroni 与 Benjamini-Hochberg 多重比较校正；结果可直接转写成中英双语的出版级句子。
 - **数据清洗向导（`cleaning`）**——分步引导。步骤模型是五类可序列化操作：类型转换、缺失值策略（删除 / 均值 / 中位数 / 零 / 前向填充）、离群标注（IQR / z 分数）、去重、列重命名。每一步永不改写输入表，因此可以逐步前进、回退、跳转或"撤销该步"；质量侧的期望契约由 `data-quality` 提供（见 07 篇）。
 
+![数据清洗向导：类型转换分步预览](../assets/screenshots/platform/laboratory/data-cleaning.png)
+
+*数据清洗向导以分步卡片引导完成类型转换、缺失值处理、去重与列重命名，每一步预览前后差异且不改写原表。*
+
 #### 5.2.4 信号与记录
 
 - **信号实验室（`signal`）**——频谱、滤波与时域处理。基 2 FFT 与幅值谱（与 GPU 端 `fftKernelWGSL` 数学一致）、Hann / Hamming / Blackman 等窗函数、Savitzky-Golay 平滑与滑动平均、自相关 ACF 与偏自相关 PACF，以及经典加性时序分解 x = 趋势 + 季节 + 残差。滤波后的列可作为派生文件保存回项目，并自动进入血缘图。
 
-![信号实验室：剂量-响应序列的幅值谱（FFT）](../SignalLab.png)
+![信号实验室：振动信号的 Welch PSD 功率谱](../assets/screenshots/platform/laboratory/signallab-psd.png)
 
-*信号实验室对一组剂量-响应序列做频域分析——图中为幅值谱（FFT）；算完的图可以直接送往图表工作台，也可以作为派生文件保存回项目。*
+*信号实验室对加速度时序做频谱分析：Welch PSD（矩形窗、nfft=256、7 段）主峰落在约 0.02 Hz 并伴谐波，支持 FFT 幅值谱 / 窗函数 / 滤波与时域处理，可将图表送图表工作台或存回项目。*
 
 - **Notebook（`notebook`）**——Markdown 与 Python 单元混排的可复现实验记录，执行走代码模式同一个 Pyodide 运行时，因此 notebook 与脚本看到的是同一个 `studio` API；单元列表持久化在 `project.state.notebook`。
 - **实验记录（`runs`）**——全工具的运行台账。流程、积木、代码、笔记本、扫描、不确定度、建模、推断的每一次执行都会留下耐久快照（参数、指标、耗时、来源），支持指标差异与成对对比。记录存于 IndexedDB 的 `runs` 存储而**不**写进 `.clproj`，使项目文件保持小巧，并随项目删除一并清理。
@@ -906,12 +955,31 @@ flowchart TD
 #### 5.2.5 报告与复现
 
 - **报告生成器（`report`）**——`buildReport` 把有序章节（标题、Markdown、图表工作台的图、数据表、运行摘要、筛选器）构建成**单一自包含 HTML**：内联 CSS、内联 SVG、内联 JSON 数据与零依赖原生 JS 控制器。所有用户字符串先转义，内嵌 JSON 以 `<script type="application/json">` 输出并把 `<` 做 unicode 转义，杜绝 `</script>` 载荷逃逸——报告可以安全地直接投递给他人。
+
+![报告生成器：交互式 HTML 报告](../assets/screenshots/platform/laboratory/report-builder.png)
+
+*报告生成器把标题、图表工作台的组图、数据表与运行摘要构建成单一自包含 HTML，零依赖控制器，可安全投递。*
+
 - **可复现锁（`reprolock`）**——导出与校验 `repro.lock`：数据指纹、参数哈希、种子与代码快照，支持五类漂移判定与一键重跑；环境快照（版本、平台与内核可用性）一并纳入锁文件，使"漂移发生在数据还是环境"有明确答案。
+
+![可复现锁：五类指纹漂移校验](../assets/screenshots/platform/laboratory/reproducibility-lock.png)
+
+*可复现锁校验数据指纹、参数哈希、种子与代码快照并纳入环境快照，给出漂移发生在数据还是环境的判定。*
+
 - **补充材料打包（`supplement`）**——`manifest.json`（项目元数据、运行记录、血缘图、作者与许可表单）加可选的原始数据文件与代码会话，用 fflate 打成研究者随论文一起上传的 ZIP。
+
+![补充材料打包：manifest 与数据代码的 ZIP 打包](../assets/screenshots/platform/laboratory/supplementary-materials.png)
+
+*补充材料打包把 manifest、原始数据与代码会话用 fflate 打成随论文上传的 ZIP。*
+
 - **课程模式（`course`）**——本地优先的教学闭环：教师创建课程（由本地身份字符串标识，无账号体系）、发布绑定学科模板的作业；学生领取任务、在项目中作业并提交运行结果的 `repro.lock` 快照；教师查看学生 × 作业矩阵、记录评分与评语，并把整个班级按学生一目录导出为包。持久化在 IndexedDB `courses` 存储。
+
+![课程模式：教师与学生角色界面](../assets/screenshots/platform/laboratory/course-mode.png)
+
+*课程模式以本地优先实现教师布置作业、学生提交 repro.lock 快照、教师批改并整班导出的教学闭环。*
 - **作品画廊（`gallery`）**——本地"我的分享"存储（localStorage），记录分享出去的作品元数据与净化后的快照 HTML，使详情弹窗可离线重开。v1 不上传任何内容，下架只做标记（保留审计轨迹）并从所有列表过滤。
 
-![作品画廊：按学科整理的可复现作品库](../WorkGallery.png)
+![作品画廊：按学科整理的可复现作品库](../assets/screenshots/platform/laboratory/workgallery-gallery.png)
 
 *作品画廊陈列按学科整理的可复现作品，每件标注主题与可复现锁状态（已锁定 / 检测到漂移 / 未锁定）以及作者与许可，便于发现与引用。*
 
@@ -1038,9 +1106,13 @@ flowchart LR
     D -- 停止 --> F["一次性读回<br/>交给 Three.js 渲染"]
 ```
 
-![N-Body 引力](../Nbody.png)
+![N-Body 引力](../assets/screenshots/plugins/nbody-3d.png)
 
-![格子 Boltzmann 流体绕机翼](../airplane.png)
+*N-Body 引力在 GPU 上的全对求和：数天体绕中心质量的三维引力轨迹，WGSL 内核计算并一次性读回交给 Three.js 渲染。*
+
+![格子 Boltzmann 流体绕机翼](../assets/screenshots/plugins/lbm-fluid.png)
+
+*格子 Boltzmann 流体：D2Q9 通道流绕翼型障碍物，展示卡门涡街与机翼绕流，GPU 三内核逐步计算 + CPU 降级。*
 
 #### 6.3.1 引擎选择与数据规模阈值
 
@@ -1466,7 +1538,9 @@ MIT。软件引用与归档元数据由 `CITATION.cff` 维护（由脚本从 pac
 
 覆盖统计分析与工程绘图的常见图型：散点、折线、直方图、热力图、等值线、箱线图、小提琴图、误差带、平行坐标、桑基图、矩形树图、QQ 图、气泡图、雷达图、网络图等；数据格式上除 CSV、JSON、XYZ 外，还支持 HDF5、NetCDF、FITS、Zarr、Parquet 等科研领域常用的二进制格式导入，可服务地学、天文、生物等学科的数据探索需求。下图是等值线插件渲染的双高斯标量场。
 
-![等值线：双高斯标量场](../field.png)
+![等值线：双高斯标量场](../assets/screenshots/plugins/contour.png)
+
+*等值线：对二维标量场（JSON 网格）渲染色带 + 等值线，双高斯双峰可清晰呈现山谷与脊线，适合涡旋场、地形等数据。*
 
 #### 10.1.2 物理仿真与教学演示
 
@@ -1482,21 +1556,67 @@ MIT。软件引用与归档元数据由 `CITATION.cff` 维护（由脚本从 pac
 | 光学实验 | 薄透镜成像、三棱镜折射与色散，元件可在画布上直接拖动 |
 | 结构力学 | 铰接桁架实时承重，杆件按轴力着色，超载断裂直至垮塌 |
 
-![N-Body 引力：三维星环](../Nbody.png)
+![N-Body 引力：三维星环](../assets/screenshots/plugins/nbody-3d.png)
 
-![格子 Boltzmann 流体绕机翼](../airplane.png)
+*引力 N 体模拟：4096 体的三维全对引力直接求和，三维星环绕中心质量运行，WGSL 内核 GPU 加速 + CPU 降级。*
 
-![波动方程：双缝衍射干涉](../waveequation.png)
+![格子 Boltzmann 流体绕机翼](../assets/screenshots/plugins/lbm-fluid.png)
 
-![双摆：混沌幽灵摆](../doublependulum.png)
+*格子 Boltzmann 流体：D2Q9 通道流绕翼型障碍物，展示卡门涡街与机翼绕流，GPU 三内核逐步计算 + CPU 降级。*
 
-![电磁场：回旋加速器示例](../Cyclotron.png)
+![波动方程：双缝衍射干涉](../assets/screenshots/plugins/wave-interference.png)
 
-![光学实验：棱镜色散](../light.png)
+*波动方程：二维有限差分模拟高斯脉冲 / 双源干涉 / 双缝衍射，leapfrog 内核逐步积分，图为双缝衍射干涉。*
 
-![结构力学：桁架受力着色](../structure.png)
+![双摆：混沌幽灵摆](../assets/screenshots/plugins/double-pendulum.png)
 
-![蛋白质互作网络：力导向布局](../protein.png)
+*双摆：RK4 积分，主摆与初始角仅差 0.001 rad 的"幽灵摆"并行演化，轨迹快速发散，直观展示混沌对初值的敏感依赖。*
+
+![电磁场：回旋加速器示例](../assets/screenshots/plugins/electromagnetism.png)
+
+*电磁场：在画布上拖动并释放电荷，电荷在库仑力与均匀磁场的洛伦兹力共同作用下做回旋运动。*
+
+![光学实验：棱镜色散](../assets/screenshots/plugins/optics-prism.png)
+
+*光学实验：几何光学光线追踪，白光束经三棱镜折射色散，薄透镜成像焦距演示，元件均可拖动。*
+
+![结构力学：桁架受力着色](../assets/screenshots/plugins/structure-truss.png)
+
+*结构力学：铰接桁架实时承重，杆件按轴力着色，超载时依次断裂直至整体垮塌。*
+
+![蛋白质互作网络：力导向布局](../assets/screenshots/plugins/protein-network.png)
+
+*蛋白质互作网络：560 蛋白 / ~1700 互作边的力导向布局，按度着色与定径，输出度分布与连通分量等生物学指标。*
+
+物理仿真之外，插件库同样覆盖化学与生物学科的数据驱动演示——从分子尺度（晶胞、反应动力学）到群体尺度（酶动力学、传染病、序列比对、群体遗传学），全部以真实数据或算法渲染，并把结果送给分析叠加层与 Figure Studio：
+
+![晶胞 · 3D 预览（Rutile，COD 1530150）](../assets/screenshots/plugins/chem-crystal/cell3d.png)
+
+*晶胞 · 3D 预览：加载 CIF 格式晶胞以球棍模型查看原子、周期性化学键与晶胞框，Rutile 示例含 8 个原子，并可结合有效组成与密度估算。*
+
+![反应 · 自由反应动力学 3D](../assets/screenshots/plugins/chem-reaction/md3d.png)
+
+*自由反应动力学 3D：内置 NumPy / Langevin 引擎在设定温度与催化剂条件下积分真实轨迹——酯化反应（乙醇 + 乙酸）中键越过 Arrhenius 势垒断裂、自由基重组而成键，原子运动来自真实物理而非脚本动画。*
+
+![酶动力学：Michaelis-Menten 饱和曲线 v=f([S])](../assets/screenshots/plugins/bio-enzyme/saturation.png)
+
+*酶动力学：以 v=f([S]) 饱和曲线对照无抑制 / 竞争性 / 非竞争性 / 反竞争性四种情形，并用 Levenberg-Marquardt 从含噪初速度数据反解 Vmax、Km，输出 kcat 与催化效率。*
+
+![传染病分室模型：SEIR（N=100,000，R₀=2.8）](../assets/screenshots/plugins/bio-epidemic/sirseir.png)
+
+*传染病分室模型：确定性 SIR / SEIR 用经典 RK4 积分，图中 SEIR 显示 S/E/I/R 随时间演化，给出感染峰值时刻、总感染率与群体免疫阈值。*
+
+![序列比对：Needleman-Wunsch 全局比对（BLOSUM62）](../assets/screenshots/plugins/bio-seqalign/alignment.png)
+
+*序列比对：BLOSUM62 打分矩阵的双序列全局（NW）或局部（SW）比对与仿射空位罚分，图中给出两条蛋白序列的对齐、一致性与空位及 GC 分析。*
+
+![群体遗传学：Hardy-Weinberg 平衡检验](../assets/screenshots/plugins/bio-popgen/hwe.png)
+
+*群体遗传学 HWE 检验：输入三个基因型计数，χ² 检验观察值与 HWE 期望值之差，p ≥ 0.05 判定处于平衡。*
+
+![群体遗传学：Wright-Fisher 遗传漂变（N=50，40 次重复）](../assets/screenshots/plugins/bio-popgen/drift.png)
+
+*群体遗传学遗传漂变：可复现的 Wright-Fisher 模拟，40 条轨迹展示等位基因频率的随机游走，记录固定 / 丢失次数与平均固定代数，支持可选隐性 / 加性 / 显性选择。*
 
 #### 10.1.3 编程与计算思维教学
 
@@ -1506,13 +1626,55 @@ MIT。软件引用与归档元数据由 `CITATION.cff` 维护（由脚本从 pac
 
 AI 训练插件基于 TensorFlow.js，支持线性回归、非线性神经网络、逻辑回归与卷积神经网络四类模型，画布上方实时绘制损失曲线，下方按模型切换散点加拟合线、二维决策边界或 MNIST 数字识别网格。训练样本内置（线性、三次加正弦、双高斯分类、200 张 MNIST 子集），TF.js 依赖在首次点击训练时才懒加载，避免拖慢启动。
 
-![AI 训练插件：MNIST CNN 训练与预测网格](../AImnistcnn.png)
+![AI 训练插件：MNIST CNN 训练与预测网格](../assets/screenshots/plugins/ai-mnist.png)
+
+*AI 训练：TF.js 四类模型（线性回归 / 神经网络 / 逻辑回归 / MNIST 卷积网络），上方实时损失曲线、下方按模型切换拟合线 / 决策边界 / MNIST 预测网格。*
 
 #### 10.1.5 地理可视化与算法艺术
 
 离线 GeoJSON 分级设色地图支持 Albers（中国）、Web 墨卡托与等距圆柱投影，内置中国省份示例；Mandelbrot 与 Julia 集、科赫雪花、巴恩斯利蕨、Spirograph 等 10 个趣味插件适合课堂演示与兴趣探索。
 
-![GeoJSON 地图：Albers 投影下的中国省份](../geojsonmap.png)
+![GeoJSON 地图：Albers 投影下的中国省份](../assets/screenshots/plugins/geojson-map.png)
+
+*GeoJSON 地图：离线分级设色地图，支持 Albers（中国）/ Web 墨卡托 / 等距圆柱三种投影，内置中国省份示例。*
+
+离线地图之外，地理套件还覆盖人口结构、空间插值、投影变形分析、距离与面积量算、地形与轨迹等计算地理能力：
+
+![气候直方图：北京月度气温与降水](../assets/screenshots/plugins/climatograph.png)
+
+*气候直方图：以气温折线（左轴）+ 降水柱状（右轴）双轴绘制月度气候图，图上北京自动汇总年均温 12.7 ℃、年降水 527 mm、年较差 29.9 ℃并判读气候类型。*
+
+![人口金字塔：中国 2020](../assets/screenshots/plugins/population-pyramid.png)
+
+*人口金字塔：背靠背年龄性别分组（左男右女），自动计算 0-14 / 15-64 / 65+ 占比、性别比（105.7）并判读增长型 / 稳定型 / 缩减型结构。*
+
+![空间插值：IDW 对 31 个站点的网格化](../assets/screenshots/plugins/spatial-interpolation.png)
+
+*空间插值：将离散站点观测值网格化——图中 IDW（p=2）对 31 站点生成热力面与等值线，附 LOOCV 交叉验证 RMSE / MAE 与 Moran's I 空间自相关检验。*
+
+![投影变形：Mollweide 等积投影下的 Tissot 圆](../assets/screenshots/plugins/projection-distortion.png)
+
+*投影变形（Tissot 圆）：在七种投影下绘制世界海岸线与 Tissot 变形圆，圆面积比表征面积变形、扁率表征角度（形状）变形。*
+
+![距离与面积量算：长江沿岸 6 城测距与标准差椭圆](../assets/screenshots/plugins/standard-deviation-ellipse.png)
+
+*距离与面积量算：画布点选加点后逐段给出大圆距离与累计里程，对 ≥3 点还可计算标准差椭圆（SDE a / b 半轴与方位角）与围合面积。*
+
+![DEM 地形分析：3D Mesh 曲面](../assets/screenshots/plugins/terrain-3d-mesh.png)
+
+*DEM 地形分析（3D Mesh 视图）：解析 ESRI ASCII Grid 高程数据，三维曲面按高程设色、垂直夸张系数可调，并可叠加等高线。*
+
+![DEM 地形分析：坡度视图](../assets/screenshots/plugins/terrain-slope.png)
+
+*DEM 地形分析（坡度视图）：按 Horn 法计算坡度（0-72°）并叠加等高线，另一模式给出山体阴影，用于提取地形坡度与坡向。*
+
+![GPX 轨迹分析：海拔着色路径与海拔剖面](../assets/screenshots/plugins/gpx-track.png)
+
+*GPX 轨迹分析：解析 GPX 轨迹点，左图按海拔着色显示路径，右图绘制海拔-距离剖面，并统计总里程与累计爬升 / 下降。*
+
+![交互地球仪：3D 球面与 Tissot 变形圆](../assets/screenshots/plugins/globe-3d.png)
+
+*交互地球仪（3D）：可拖拽旋转、滚轮缩放的真三维地球仪，Natural Earth 110m 海岸线贴于球面，叠加球面 Tissot 变形圆并支持自动自转。*
 
 #### 10.1.6 研究交付与协作
 

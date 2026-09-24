@@ -399,12 +399,22 @@ export class BioSeqalignPlugin implements Plugin {
       linesA.push(mA.slice(i, i + perLine));
       linesB.push(mB.slice(i, i + perLine));
     }
-    let y = 62;
-    const maxRows = Math.max(1, Math.floor((canvas.height - 96) / 17));
+    const ROW_H = 18;
+    const BLOCK_H = 52;
+    let y = 74;
+    const maxRows = Math.max(1, Math.floor((canvas.height - 100) / BLOCK_H));
     const show = linesA.slice(0, maxRows);
     for (let k = 0; k < show.length; k += 1) {
       const ra = linesA[k]!;
       const rb = linesB[k]!;
+      // Residue numbering on its own ruler line above each block, right-aligned
+      // to every 10th residue (NCBI-style) instead of overlapping the glyphs.
+      g.textAlign = 'right';
+      g.fillStyle = 'rgba(120,130,150,0.55)';
+      for (let c = 9; c < ra.length; c += 10) {
+        g.fillText(String(k * perLine + c + 1), 54 + (c + 1) * charW, y - 16);
+      }
+      g.textAlign = 'left';
       for (let c = 0; c < ra.length; c += 1) {
         const x = 54 + c * charW;
         const aa = ra[c]!;
@@ -419,23 +429,18 @@ export class BioSeqalignPlugin implements Plugin {
           g.fillStyle = 'rgba(120,220,160,0.95)';
           g.fillText(aa, x, y);
           g.fillStyle = 'rgba(120,220,160,0.55)';
-          g.fillText(bb, x, y + 15);
+          g.fillText(bb, x, y + ROW_H);
         } else {
           g.fillStyle = 'rgba(240,150,130,0.95)';
           g.fillText(aa, x, y);
           g.fillStyle = 'rgba(240,150,130,0.7)';
-          g.fillText(bb, x, y + 15);
-        }
-        if ((c + 1) % 10 === 0) {
-          g.fillStyle = 'rgba(120,130,150,0.6)';
-          g.fillText(String(((k * perLine + c + 1) * 1)).padStart(3), x, y - 4);
-          g.fillStyle = this.colorFor(0);
+          g.fillText(bb, x, y + ROW_H);
         }
       }
       g.fillStyle = 'rgba(170,182,200,0.85)';
       g.fillText('A', 54 + ra.length * charW + 10, y);
-      g.fillText('B', 54 + ra.length * charW + 10, y + 15);
-      y += 34;
+      g.fillText('B', 54 + ra.length * charW + 10, y + ROW_H);
+      y += BLOCK_H;
     }
     if (linesA.length > show.length) {
       g.fillStyle = 'rgba(130,140,160,0.7)';
@@ -456,10 +461,6 @@ export class BioSeqalignPlugin implements Plugin {
       54,
       canvas.height - 12,
     );
-  }
-
-  private colorFor(_x: number): string {
-    return 'rgba(200,210,225,0.95)';
   }
 
   private drawGc(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
