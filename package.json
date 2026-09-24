@@ -1,6 +1,6 @@
 {
   "name": "ergalics-studio",
-  "version": "0.1.0",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "description": "Ergalics Studio - A browser-based scientific computing workstation framework",
