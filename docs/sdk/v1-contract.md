@@ -125,6 +125,7 @@
 | 日志 | `log(level: PluginLogLevel, message, details?)`——按 `plugin:<id>` 作用域记录，随运行日志导出；沙箱内为 fire-and-forget | 稳定 |
 | 导出 | `exportFile(fileName, data: string \| ArrayBuffer \| Blob, mimeType?)` | 稳定 |
 | 缓存 | `cache: PluginCacheApi`（见下） | 稳定 |
+| 生命周期 | `reload?(): Promise<void>`——卸载当前实例、从工厂重建并重新激活，用于从卡死状态（Worker 被杀、宿主能力缺失）恢复而无需整页刷新 | 可选 |
 | GPU | `gpu?: GpuComputeApi`——仅 WebGPU 可用时存在；Worker 沙箱内恒为 `undefined`，必须判空并 CPU 回退 | 可选 |
 | 文件 | `openFile(): Promise<File \| null>`、`readText(file)`、`readBinary(file)` | 稳定 |
 | 持久化 | `getParam(key): unknown`、`setParam(key, value): void`——项目级、插件作用域 | 稳定（沙箱内以 Promise 形式到达，见下方告诫） |

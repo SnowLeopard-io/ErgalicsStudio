@@ -83,8 +83,8 @@ v0 中 `Scene3DHandle` 的 `scene` / `camera` / `controls` / `renderer` 字段�
 | --- | --- | --- |
 | manifest | `sandbox`、`category`、`signature`（宿主注入）、`nameI18n` / `descriptionI18n`、`license` / `icon` / `homepage` / `dependencies` / `formats` | 第三方分发一律保持 `isolated`（缺省即安全）；市场展示补 `category` 与 i18n |
 | 参数控件 | 第 8 类 `toggle` | 启停类布尔开关优先用 `toggle`（带 `on/offLabel`），普通布尔用 `checkbox` |
-| PluginApi | `notify`、`log`、`cache`、`exportFile`、`gpu?` | 日志改用 `api.log` 而非 `console.*`（随运行日志导出、可复现）；`gpu` 必须判 `available` 并 CPU 回退 |
-| 生命周期 | `compute`、`loadData`、`renderToScene`、`onProjectSave`、`onProjectLoad` | 数据驱动插件实现 `loadData` + `getSupportedFormats`；需要项目持久化时机用 `onProjectSave/Load` |
+| PluginApi | `notify`、`log`、`cache`、`exportFile`、`gpu?`、`reload?` | 日志改用 `api.log` 而非 `console.*`（随运行日志导出、可复现）；`gpu` 必须判 `available` 并 CPU 回退 |
+| 生命周期 | `compute`、`loadData`、`renderToScene`、`onProjectSave`、`onProjectLoad`、`reload?()` | 数据驱动插件实现 `loadData` + `getSupportedFormats`；需要项目持久化时机用 `onProjectSave/Load`；卡死恢复用 `reload()`（卸载→从工厂重建→重新激活） |
 | 观测（宿主侧） | `PluginRunRecord`、`ParameterSnapshot`、`PluginInstallState`、`PluginRegistryEntry.nameI18n/descriptionI18n` | 只读消费，无需迁移 |
 
 完整签名以 [v1 契约](./v1-contract) 为准。

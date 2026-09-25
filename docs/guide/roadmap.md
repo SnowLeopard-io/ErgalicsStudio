@@ -36,7 +36,7 @@ state, not aspirational designs.
 | Plot engine   | pure-TS SVG renderer with scales/ticks, SVG + PDF export (`src/core/plot/`) | Done      |
 | Reproducibility| seeded RNG, run manifests, DAG-to-Python export (`src/core/repro/`) | Done      |
 | Physics labs  | electromagnetism, optics (ray tracing with dispersion), structural mechanics (truss with collapse) — interactive, data-driven | Done      |
-| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; R (webR) remains | Core done (Pyodide + sync) · Next (webR) |
+| Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; **R ships as a full webR runtime** (vendored in `public/webr/`, auto-copied by `scripts/copy-webr.mjs`, missing bundle falls back to the IR engine) | Done |
 | Scientific solvers | sparse Hermitian eigensolver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert, 2-D spectrum report + 3-D mode fields) and 1D–3D fluid-network bidirectional coupler (multi-rate time-step coordination + coarse–fine subcycling), both run in Pyodide workers — `em-eigensolver`, `fluid-cfd-coupler` | Done |
 | Marketplace   | plugin registry UI & remote install; `.cspkg` package-signing gate (ed25519, FR-05) live | Signing gate: Done · registry/install: Next |
 | CI            | GitHub Actions (unit + E2E + Pages deploy)                     | Done      |
@@ -51,8 +51,10 @@ state, not aspirational designs.
    compute surface, and reusable WGSL templates live in `src/core/wgsl.ts`.
    GPU acceleration now spans Particles (single-buffer integration), N-Body
    Gravity (3-D all-pairs with ping-pong buffers), the D2Q9 LBM fluid
-   (collide + stream), the wave-equation leapfrog, and the histogram /
-   heatmap / point-cloud kernels — each with a matching CPU fallback.
+   (collide + stream), the wave-equation leapfrog, the histogram /
+   heatmap / point-cloud kernels, the matmul / FFT / k-means / binning
+   compute kernels, and the sparse matrix–vector multiply (SpMV) kernel —
+   each with a matching CPU fallback.
    `npm run test:e2e` drives the real WebGPU path in headless Edge
    (SwiftShader): a numeric harness compares the GPU result against the CPU
    integrator (passing within ~2e-6), and an app integration step clicks
@@ -61,9 +63,11 @@ state, not aspirational designs.
 3. **M3 — Code mode**: Python (Pyodide) is complete — Monaco editor,
    CPython Worker runtime with importable `studio` module, REPL + variable
    snapshots, worker interrupt, and 9 sample programs under `examples/code/`.
-   R (webR) runtime remains as a follow-up item inside M3; the three-mode
-   conversion (Block ↔ Flow ↔ Code round-trip through the shared IR) is
-   already done and pinned by a `sync-threeway` unit test.
+   **R is complete too** — a full webR runtime is vendored in `public/webr/`
+   (auto-copied by `scripts/copy-webr.mjs` and verified by
+   `verify-r-runtime.mjs`), falling back to the IR engine when the bundle is
+   absent. The three-mode conversion (Block ↔ Flow ↔ Code round-trip through
+   the shared IR) is done and pinned by a `sync-threeway` unit test.
 4. **M4 — Marketplace**: package registry, versioning, and in-app
    install/update flows. The `.cspkg` package-signing gate (ed25519, FR-05)
    already shipped with the security work — see `SECURITY.md`.

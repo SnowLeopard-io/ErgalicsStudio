@@ -55,11 +55,11 @@ The following are functional today:
 - Theming (dark / light), sharing, GitHub Actions CI, and automated tests
   (2233 Vitest unit tests across 123 test files plus Playwright E2E suites).
 
-Built but not yet shipped as products: the fully-automated third-party
+Built but not yet shipped as a product: the fully-automated third-party
 submission & install pipeline for the plugin marketplace (the `.cspkg`
-package-signing gate — ed25519, FR-05 — is already live; see `SECURITY.md`),
-and the free-form R runtime (webR) for Code mode (the built-in IR already
-runs the full `studio.*` R DSL).
+package-signing gate — ed25519, FR-05 — is already live; see `SECURITY.md`).
+R for Code mode is a full webR runtime (vendored in `public/webr/`, falling
+back to the built-in IR engine when the bundle is absent) — see `guide/roadmap`.
 
 > The intent is that the codebase keeps growing into a production system by
 > adding features **into** this structure — not by rewriting it.
