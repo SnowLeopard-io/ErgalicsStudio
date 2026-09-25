@@ -17,10 +17,17 @@ import type { BenchMetric, BenchSuite } from './types';
 
 const ROWS = 200_000;
 
-function heapUsedBytes(): number {
-  return typeof process !== 'undefined' && process.memoryUsage
-    ? process.memoryUsage().heapUsed
-    : 0;
+/**
+ * Footprint = JS heap + ArrayBuffer backing stores. The DataTable's numeric
+ * columns are Float64Arrays whose backing buffers live in V8's *external*
+ * memory — `heapUsed` alone doesn't see them, so a heap-only "retained"
+ * reading actually measured garbage accumulated during the import (which
+ * scales with host speed, not with the table).
+ */
+function footprintBytes(): number {
+  if (typeof process === 'undefined' || !process.memoryUsage) return 0;
+  const mem = process.memoryUsage();
+  return mem.heapUsed + (mem.arrayBuffers ?? 0);
 }
 
 export function runMemoryBench(): BenchSuite {
@@ -37,12 +44,19 @@ export function runMemoryBench(): BenchSuite {
     // otherwise fall back to the raw reading (still comparable run to run).
     const gc = (globalThis as { gc?: () => void }).gc;
     if (gc) gc();
-    const before = heapUsedBytes();
+    const before = footprintBytes();
     const table = parseDataText(csv, 'memory.csv');
     if (table.length !== ROWS) throw new Error('memory bench: row count drift');
-    const after = heapUsedBytes();
-    tableRetainedKb = Math.max(0, Math.round((after - before) / 1024));
-    peakKb = Math.round(after / 1024);
+    // Force a second GC before measuring the retained delta: without it the
+    // reading includes young-gen garbage whose amount depends on GC timing,
+    // which varies with host speed (a slower CI runner accumulated more
+    // garbage and reported ~+18% "retained" on identical input).
+    if (gc) gc();
+    const settled = footprintBytes();
+    tableRetainedKb = Math.max(0, Math.round((settled - before) / 1024));
+    // Post-GC total footprint (idle heap + table): deterministic, unlike the
+    // raw post-import reading whose garbage content scales with host speed.
+    peakKb = Math.round(settled / 1024);
     void table; // keep the table alive until after the measurement
   }
 
@@ -57,7 +71,7 @@ export function runMemoryBench(): BenchSuite {
     },
     {
       id: 'memory.heap_peak_kb',
-      label: '加载后堆峰值',
+      label: `加载后驻留足迹（GC 后，${ROWS} 行 CSV → DataTable）`,
       value: peakKb,
       unit: 'KB',
       direction: 'down',
