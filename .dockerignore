@@ -12,8 +12,7 @@ node_modules
 dist
 website/dist
 website/node_modules
-docs/node_modules
-docs/.vitepress
+docs
 *.tsbuildinfo
 
 # —— 数值/基准运行产物 ——
@@ -22,6 +21,10 @@ tmp
 promo
 .npm
 coverage
+
+# —— Python 字节码缓存 ——
+__pycache__
+*.py[cod]
 
 # —— Rust 原生工具链（容器用 dev server，不需要） ——
 native/target
