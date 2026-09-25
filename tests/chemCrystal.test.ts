@@ -98,8 +98,8 @@ describe('chem-crystal manifest & registration', () => {
     expect(findBuiltin('example.chem-cell')).toBeUndefined();
   });
 
-  it('sits in the physics sidebar discipline', () => {
-    expect(disciplineOf('example.chem-crystal')).toBe('physics');
+  it('sits in the chemistry sidebar discipline', () => {
+    expect(disciplineOf('example.chem-crystal')).toBe('chem');
   });
 
   it('every built-in sample is a valid, non-empty cell', () => {

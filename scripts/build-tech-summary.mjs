@@ -145,12 +145,14 @@ npm run bench        # 性能基准并对基线
 
 | 类别 | 格式 | 说明 |
 | --- | --- | --- |
-| 文本与表格 | CSV、TSV、DAT、TXT | 按分隔符推断列类型 |
-| 结构数据 | JSON（点集、网格、网络、天体、桁架等） | 各插件声明自己接受的结构 |
-| 点云与网格 | XYZ | 2D 与 3D 点云 |
-| 图像 | PNG | 图像查看器与示例资源 |
-| 地理 | GeoJSON | 离线矢量地图分级设色 |
-| 科研二进制 | HDF5、NetCDF、FITS、Zarr、Parquet | 纯 TypeScript 调度器按魔数分派到各加载器 |
+| 表格与文本 | CSV、TSV、DAT、TXT、MD | 分隔文本与表格数据，项目数据文件可直接导入 |
+| 网格与点数据 | JSON、XYZ | 数值网格、标量场与点云（JSON 矩阵 / XYZ 列） |
+| 矩阵与数组 | MTX、NPY、NPZ | Matrix Market 稀疏矩阵与 NumPy 数组（电磁谐振特征值求解等） |
+| 化学结构 | CIF、POSCAR、VASP | 晶胞结构：原子、周期性化学键与密度估算 |
+| 地理与轨迹 | GeoJSON、GPX、ASC | 矢量地图、GPS 轨迹、ESRI ASCII Grid 高程 |
+| 生物序列与遗传 | FASTA、FA、VCF | 序列比对与分析、群体遗传变异数据 |
+| 图像 | PNG、JPEG、WEBP、GIF | 图像查看器加载位图 |
+| 科研二进制 | HDF5（.h5/.hdf5/.hdf、MAT v7.3、h5ad）、NetCDF（.nc）、FITS（.fits/.fit）、Zarr（.zarr）、Parquet（.parquet） | 纯 TypeScript 调度器按魔数分派到各加载器，解码后以 CSV 落入项目 |
 | 项目 | .clproj | 工程自有格式，lz-string 压缩 |
 | 插件包 | .cspkg | fflate 打包，加载时校验清单与可选签名 |
 | 主题包 | .cstheme | 纯声明式数据，绝不携带可执行内容 |
@@ -207,7 +209,8 @@ Ergalics Studio 是一款完全运行在浏览器中的科学计算工作站：�
 
 const lines = [intro];
 
-const pick01 = (s, i) => i <= 3; // §一 背景与目标 / §二 技术架构 / §三 功能全景
+// §一 背景与目标 + §三 功能全景（§二 技术架构与第二章「系统架构」内容重复，不再并入第一章）
+const pick01 = (s, i) => i === 1 || i === 3;
 const pick01Scenario = (s, i) => i === 4; // §四 应用场景
 const pick01Innovation = (s, i) => i === 5; // §五 创新点
 

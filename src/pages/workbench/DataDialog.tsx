@@ -44,11 +44,10 @@ interface DataDialogProps {
 }
 
 // Example categories for the datasets tab's left-hand type selector.
-// Chemistry samples get a pinned category at the top; everything else follows
-// the plugin discipline taxonomy (charts / stats / physics / geo / data / fun)
-// so the dialog's grouping matches the sidebar's plugin groups.
+// Samples follow the plugin discipline taxonomy (charts / stats / physics /
+// chem / bio / geo / data / fun) so the dialog's grouping matches the
+// sidebar's plugin groups.
 const EXAMPLE_CATS: { id: string; nameI18n: Record<string, string> }[] = [
-  { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   ...PLUGIN_DISCIPLINES,
 ];
 
