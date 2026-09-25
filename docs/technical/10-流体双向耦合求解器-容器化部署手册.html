@@ -247,7 +247,7 @@
 <pre><code># 在项目根目录执行
 docker compose up -d --build studio</code></pre>
 <p>首次构建会安装前端依赖，需 2–8 分钟；之后启动为秒级。</p>
-<p>浏览器访问 <strong>http://localhost:5173</strong>，进入左侧插件栏 <code>最新上架 → 流体双向耦合求解器</code>：</p>
+<p>浏览器访问 <strong><code>http://localhost:5173</code></strong>，进入左侧插件栏 <code>最新上架 → 流体双向耦合求解器</code>：</p>
 <ol><li>选择算例（Case A 壅塞 / Case B 毫秒阀控 / Case C 能量通道 / Case D 亚声速 / 自定义）；</li><li>点 <strong>Run Coupling</strong> 运行 1D 管网 ↔ 3D N–S 双向耦合；</li><li>查看 1D 流量 / 阀门开度 / 背压时间序列，以及 <strong>3D 场动态回放</strong>（温度 / 速度幅值双通道、时间轴拖动播放）。</li></ol>
 <div class="callout">CFD 求解器为纯 Python + Pyodide，<strong>完全在浏览器端执行</strong>，无需任何后端 Python。 原型容器只负责托管工作台前端，因此 <code>studio</code> 镜像无需 Rust/WASM 工具链，构建快、体积可控。</div>
 </div>
@@ -261,11 +261,11 @@ docker compose run --rm cfd-verify
 # 指定数值求解入口（输出 JSON 到 stdout）
 docker compose run --rm cfd-verify python -m fluid_cfd.driver verify
 
-# 生成精度-效率基准 JSON（写回 /fluid 相对路径）
-docker compose run --rm cfd-verify python benchmarks/bench_coupling.py
+# 生成精度-效率基准 JSON（显式写回 /fluid；容器为一次性执行，如需保留可挂载卷或 docker cp）
+docker compose run --rm cfd-verify python benchmarks/bench_coupling.py /fluid/fluid-cfd-results.json
 
-# 单算例耦合（自定义 payload，见 config.example.json）
-docker compose run --rm cfd-verify python -m fluid_cfd.driver solve_json</code></pre>
+# 单算例耦合（自定义 payload，见 config.example.json；CLI 子命令为 solve，后接 JSON 字符串）
+docker compose run --rm cfd-verify python -m fluid_cfd.driver solve '{&quot;case&quot;: &quot;a&quot;}'</code></pre>
 <p>以上与浏览器插件共用<strong>同一份 <code>fluid_cfd</code> 源码</strong>，结果逐字节一致。</p>
 <h3><span class="hn">3.3</span>可选：生产静态模式（预构建 + nginx）</h3>
 <p><code>studio</code> 默认以 dev server 运行，够演示且构建快。若需要更贴近&quot;生产部署&quot;的静态形态， 可用本地工具链预构建后交给任意静态服务器（本仓库用于 GitHub Pages 的构建命令）：</p>
