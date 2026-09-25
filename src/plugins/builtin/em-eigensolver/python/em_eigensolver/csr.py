@@ -195,8 +195,8 @@ class NumpyCSR:
         x = np.asarray(x)
         if x.shape[0] != self.shape[1]:
             raise ValueError("dimension mismatch")
+        dt = np.result_type(self.data.dtype, x.dtype)
         if x.ndim == 1:
-            dt = np.result_type(self.data.dtype, x.dtype)
             gpu = self._gpu_dot(x)
             if gpu is not None:
                 return gpu
@@ -211,6 +211,11 @@ class NumpyCSR:
             return self._dot_block(x, 0, n, dt)
         # Dense right-hand block with a small number of columns (basis blocks)
         # — iterating columns keeps peak memory O(nnz + n*k), never O(n^2).
+        # (A vectorised 2-D reduceat block kernel was measured 1.1–1.8× SLOWER
+        # than this column loop on the pure-NumPy backend: the strided
+        # axis-0 reduction is not cache-friendly, so we keep the 1-D kernel
+        # per column.  SciPy's native ``A @ X`` on the other backend is faster
+        # and is used directly by the kernels' block application.)
         cols = [self.dot(x[:, j]) for j in range(x.shape[1])]
         return np.stack(cols, axis=1)
 

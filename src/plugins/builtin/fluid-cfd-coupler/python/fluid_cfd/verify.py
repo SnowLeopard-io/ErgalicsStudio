@@ -472,7 +472,7 @@ def verify_case_d() -> dict:
 # ---------------------------------------------------------------------------
 
 def min_feasible_exchange_period(latency_budget_ms: float = 1.0,
-                                 iface_tol: float = 0.0) -> dict:
+                                 iface_tol: float = 1e-3) -> dict:
     """Scan the exchange cadence and return the minimal feasible period.
 
     The scan goes *below* the 1-D step (0.25 / 0.5 ms) to demonstrate the

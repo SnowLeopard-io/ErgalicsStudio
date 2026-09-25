@@ -32,6 +32,7 @@ import { FluidCfdClient } from './fluid-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';
 import { buildFieldRender, disposeObjectTree, fitFieldCamera } from './render3d';
+import type { FluidFieldChannel } from './render3d';
 import { couplingFigurePanels } from './figure';
 import { fluidCfdCouplerManifest } from './manifest';
 import type { CouplingPayload, FluidCouplingResult, FluidVerifyResult } from './types';
@@ -49,6 +50,7 @@ type FluidCfdPreset = 'case_a' | 'case_b' | 'case_c' | 'case_d' | 'custom';
 interface State {
   preset: FluidCfdPreset;
   view: 'coupling' | 'verify' | '3d';
+  channel: FluidFieldChannel;
   dt1dMs: number;
   dt3dUs: number;
   tEndS: number;
@@ -68,6 +70,12 @@ export class FluidCfdCouplerPlugin implements Plugin {
   /** Cache keys so the mesh is only rebuilt when the input changes. */
   private fieldKey = '';
   private fieldScene: Scene3DHandle | null = null;
+  /** Extent already framed into the camera; re-frames only when it changes. */
+  private framedExtent = 0;
+  /** Dynamic 3-D playback: current frame index + the running timer. */
+  private frameIndex = 0;
+  private playing = false;
+  private playTimer: ReturnType<typeof setInterval> | null = null;
   private client = new FluidCfdClient();
   private result: FluidCouplingResult | null = null;
   private verify: FluidVerifyResult | null = null;
@@ -78,6 +86,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
   private state: State = {
     preset: 'case_a',
     view: 'coupling',
+    channel: 'temperature',
     dt1dMs: 2.0,
     dt3dUs: 250,
     tEndS: 0.16,
@@ -102,6 +111,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
 
   async destroy() {
     this.disposed = true;
+    this.stopPlay();
     this.teardown3d();
     this.client.dispose();
   }
@@ -153,6 +163,18 @@ export class FluidCfdCouplerPlugin implements Plugin {
           { value: '3d', label: zh ? '3D 场体素（耦合场）' : '3D field voxels' },
         ],
         value: this.state.view,
+      },
+      {
+        key: 'channel',
+        label: '3D channel',
+        labelI18n: { 'zh-CN': '3D 通道', 'en-US': '3D channel' },
+        type: 'select',
+        options: [
+          { value: 'temperature', label: zh ? '温度场（热羽流）' : 'Temperature (plume)' },
+          { value: 'speed', label: zh ? '速度场（流速）' : 'Velocity magnitude' },
+        ],
+        value: this.state.channel,
+        hint: '3d',
       },
       {
         key: 'dt1dMs',
@@ -234,6 +256,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
       actionButton('runAll', this.busy ? 'Running all…' : 'Run All (Verify + Coupling)', this.busy ? '运行全部中…' : '运行全部（验证 + 耦合）', 'primary'),
       actionButton('run', this.busy ? 'Coupling…' : 'Run Coupling', this.busy ? '耦合计算中…' : '运行耦合', 'primary'),
       actionButton('verify', 'Verify', '运行验证'),
+      actionButton('play3d', this.playing ? 'Pause 3D' : 'Play 3D', this.playing ? '暂停动态' : '播放动态', 'primary'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('abort', 'Abort', '终止'),
       actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'),
@@ -270,6 +293,13 @@ export class FluidCfdCouplerPlugin implements Plugin {
         redraw = true;
       }
     }
+    if (params.channel === 'temperature' || params.channel === 'speed') {
+      if (params.channel !== this.state.channel) {
+        this.state.channel = params.channel;
+        this.fieldKey = ''; // different ramp → rebuild the voxel mesh
+        redraw = true;
+      }
+    }
     redraw = this.numParam(params, 'dt1dMs', this.state.dt1dMs) || redraw;
     redraw = this.numParam(params, 'dt3dUs', this.state.dt3dUs) || redraw;
     redraw = this.numParam(params, 'tEndS', this.state.tEndS) || redraw;
@@ -281,6 +311,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
     if (actionFired(params, 'runAll')) void this.runAll();
     if (actionFired(params, 'run')) void this.runCoupling();
     if (actionFired(params, 'verify')) void this.runVerify();
+    if (actionFired(params, 'play3d')) this.togglePlay();
     if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (actionFired(params, 'abort')) this.abort();
     if (actionFired(params, 'exportReport')) this.exportReport();
@@ -413,6 +444,8 @@ export class FluidCfdCouplerPlugin implements Plugin {
       });
       if (this.disposed) return result;
       this.result = result;
+      this.stopPlay();
+      this.frameIndex = 0;
       if (result.ok) {
         this.api.setStatus('ready');
         if (result.nonfinite) {
@@ -594,31 +627,52 @@ export class FluidCfdCouplerPlugin implements Plugin {
 
   /**
    * Paint the coupled 3-D field as a voxel cloud in the host scene. The mesh
-   * is rebuilt only when the underlying result (content) or the scene (host
-   * remount) changes; otherwise we just re-show the cached object.
+   * is rebuilt only when the underlying result (content), the channel, its
+   * frame, or the scene (host remount) changes; otherwise we just re-show the
+   * cached object. When the solver captured dynamic frames, the current frame
+   * drives the render (temperature or velocity magnitude per `channel`); the
+   * static final field is the fallback for older results without frames.
    */
   private draw3d(): void {
     const three = this.three;
     const result = this.result;
     if (!three || !result || !result.ok) return;
+
+    const frames = result.frames_3d;
+    const frame = frames && frames.length > 0 ? frames[this.frameIndex % frames.length] : null;
     const f3d = result.final_state_3d;
-    const raw = Array.isArray(f3d?.field) ? (f3d.field as number[]) : [];
     const dom = (result.config?.dom ?? {}) as Record<string, unknown>;
     const num = (k: string, d: number) =>
       typeof dom[k] === 'number' && (dom[k] as number) > 0 ? (dom[k] as number) : d;
     const nx = num('nx', 12);
     const ny = num('ny', 12);
     const nz = num('nz', 12);
-    // runEpoch: two runs with the same grid/max can still differ in the field
-    // distribution — a key without it reused the previous run's stale mesh.
-    const key = `e${this.runEpoch}:${nx}x${ny}x${nz}:${raw.length}:${f3d?.field_max ?? 0}`;
-    if (this.fieldKey !== key || this.fieldScene !== three) {
+    // channel: speed → velocity magnitude, else temperature.
+    const channel = this.state.channel;
+    const raw = frame
+      ? (channel === 'speed' ? frame.speed : frame.field)
+      : (Array.isArray(f3d?.field) ? (f3d.field as number[]) : []);
+    const speedRaw = frame ? frame.speed : (Array.isArray(f3d?.speed) ? (f3d.speed as number[]) : []);
+    const values = channel === 'speed' ? (Array.isArray(speedRaw) ? speedRaw : raw) : raw;
+    // runEpoch + frame + grid + channel: any change invalidates the cached mesh.
+    const key = `e${this.runEpoch}:${channel}:${this.frameIndex}:${nx}x${ny}x${nz}:${values.length}:${frame ? 'f' : 's'}`;
+    const mounted = this.fieldScene === three && !!this.fieldGroup;
+    const extent = Math.max(nx, ny, nz);
+    if (this.fieldKey !== key || !mounted) {
       this.clearFieldGroup();
-      this.fieldGroup = buildFieldRender({ values: raw, nx, ny, nz });
+      this.fieldGroup = buildFieldRender({ values, nx, ny, nz }, 0.045, 30000, channel);
       this.fieldKey = key;
       this.fieldScene = three;
       three.scene.add(this.fieldGroup);
-      fitFieldCamera(three.camera, three.controls, Math.max(nx, ny, nz));
+      // Only frame the camera on the initial mount or when the grid extent
+      // changes. On playback frame-step only the mesh swaps — re-calling
+      // fitFieldCamera here would yank the user's current orbit/zoom back to
+      // the default every frame, making the viewport impossible to control
+      // during dynamic playback.
+      if (!mounted || this.framedExtent !== extent) {
+        fitFieldCamera(three.camera, three.controls, extent);
+        this.framedExtent = extent;
+      }
     }
     three.setVisible(true);
     three.render();
@@ -635,8 +689,45 @@ export class FluidCfdCouplerPlugin implements Plugin {
   }
 
   private teardown3d() {
+    this.stopPlay();
     this.clearFieldGroup();
     this.three?.setVisible(false);
+  }
+
+  /** Toggle the dynamic 3-D playback forward through the captured frames. */
+  private togglePlay(): void {
+    const frames = this.result?.frames_3d;
+    if (!frames || frames.length < 2) {
+      notify(this.api, 'warning', 'Run a coupling to capture 3D frames first.', '请先运行一次耦合以捕获 3D 动态帧。');
+      return;
+    }
+    if (this.playing) {
+      this.stopPlay();
+    } else {
+      if (this.frameIndex >= frames.length) this.frameIndex = 0;
+      this.playing = true;
+      this.draw3d();
+      this.playTimer = setInterval(() => {
+        if (!this.result?.frames_3d) return;
+        this.frameIndex = (this.frameIndex + 1) % this.result.frames_3d.length;
+        // Do NOT clearFieldGroup()/fieldKey here: draw3d() already rebuilds the
+        // mesh on frameIndex change (its key includes the frame), and clearing
+        // first would null fieldScene → mounted=false → fitFieldCamera() re-frames
+        // every 300 ms, yanking the user's orbit/zoom away during playback.
+        this.api?.setStatus('ready');
+        this.refreshParams();
+        this.draw3d();
+      }, 300);
+    }
+  }
+
+  private stopPlay(): void {
+    this.playing = false;
+    if (this.playTimer) {
+      clearInterval(this.playTimer);
+      this.playTimer = null;
+    }
+    this.refreshParams();
   }
 
   private draw(): void {

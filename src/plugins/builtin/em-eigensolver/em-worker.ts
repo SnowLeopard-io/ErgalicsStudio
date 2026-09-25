@@ -8,9 +8,9 @@
 // JSON-string payloads only across the JS boundary (postMessage cannot
 // structured-clone PyProxy objects).
 //
-// public/pyodide vendors core Pyodide + numpy only — no scipy — so the
-// package runs in its pure-NumPy degraded backend by design (validated by
-// the Python test suite with scipy import blocked).
+// public/pyodide vendors core Pyodide + numpy + scipy, so the browser runs
+// the SciPy-backed path (numpy-only degraded backend is only a fallback when
+// the scipy wheel fails to load).
 // ==========================================================================
 
 /// <reference lib="webworker" />
@@ -131,7 +131,7 @@ async function ensurePackage(py: PyodideInterface): Promise<void> {
 async function handleInit(msg: Extract<EmWorkerRequest, { type: 'init' }>): Promise<void> {
   try {
     const py = await ensurePyodide(msg.indexURL);
-    await py.loadPackage(['numpy']);
+    await py.loadPackage(['numpy', 'scipy']);
     await ensurePackage(py);
     post({ type: 'ready', version: 'pyodide' });
   } catch (err) {
@@ -166,11 +166,13 @@ async function handleSolve(msg: Extract<EmWorkerRequest, { type: 'solve' }>): Pr
     // driver's source dispatch and raised KeyError 'path' on samples).
     py.globals.set('_EM_PAYLOAD', JSON.stringify({ ...request, config: msg.config }));
     const reportJson = await py.runPythonAsync('driver.solve_json(_EM_PAYLOAD)');
+    const payload = JSON.parse(String(reportJson));
+    postLog(`[em] backend=${payload?.backend ?? 'unknown'} method=${payload?.method ?? '?'}`);
     post({
       type: 'result',
       id: msg.id,
       ok: true,
-      payload: JSON.parse(String(reportJson)),
+      payload,
       durationMs: performance.now() - started,
     });
   } catch (err) {
