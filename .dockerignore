@@ -1,0 +1,29 @@
+# Ergalics Studio 容器化构建排除项
+# 仅排除体积大、与运行无关的产物，保留 vite dev/build 所需的 src/、public/
+# index.html、package*.json、配置文件。
+
+# —— 版本控制 / CI ——
+.git
+.gitignore
+*.log
+
+# —— 依赖与构建产物 ——
+node_modules
+dist
+website/dist
+website/node_modules
+docs/node_modules
+docs/.vitepress
+*.tsbuildinfo
+
+# —— 数值/基准运行产物 ——
+bench
+tmp
+promo
+.npm
+coverage
+
+# —— Rust 原生工具链（容器用 dev server，不需要） ——
+native/target
+native/node_modules
+cargo-vendor

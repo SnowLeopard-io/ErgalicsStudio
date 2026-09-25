@@ -959,7 +959,7 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
   return `<div class="page cover">
   <div class="cover-panel">
     <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
-    <h1>${esc(title)}</h1>
+    <h1>${esc(title).replace(/·/, '<br>')}</h1>
     <div class="sub">${esc(subtitle)}</div>
     <div class="cover-rule"></div>
     <div class="cover-abstract">${esc(abstract)}</div>
@@ -1173,6 +1173,7 @@ const DOC_ORDER = [
   '08-测试与质量保障',
   '09-电磁谐振特征值求解器',
   '10-流体双向耦合求解器',
+  '10-流体双向耦合求解器-容器化部署手册',
   'Ergalics Studio',
 ];
 
@@ -1184,6 +1185,7 @@ const TOTAL_NUM = 8;
 const FOOT_OVERRIDES = {
   '09-电磁谐振特征值求解器': '独立专题文档 · Standalone Note',
   '10-流体双向耦合求解器': '独立专题文档 · Standalone Note',
+  '10-流体双向耦合求解器-容器化部署手册': '独立专题文档 · Standalone Note',
 };
 
 // Hand-written cover abstracts, for documents whose opening paragraph is too
@@ -1195,6 +1197,8 @@ const ABSTRACT_OVERRIDES = {
     '面向微波器件、天线与电磁兼容的稀疏厄密非正定本征问题。纯 Python 与 NumPy 实现，内置厚重启 Lanczos、块 LOBPCG、Jacobi-Davidson 三种内核，按真实残差认证收敛。',
   '10-流体双向耦合求解器':
     '管网与场域的双向耦合。多速率时间子循环协调毫秒级 1D 管网与亚毫秒级 3D 场，正向注入质量与焓、反向反馈出口背压，配守恒审计、毫秒级阀门控制、精度-效率权衡与误差归属分析。',
+  '10-流体双向耦合求解器-容器化部署手册':
+    '在任意装有 Docker 的主机上一条命令运行双向耦合可运行原型，并在容器内复现 26 项验证断言与基准。含一键编排、CLI 复现、生产静态模式与故障排查。',
 };
 
 function metaFor(base) {
