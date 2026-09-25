@@ -162,6 +162,10 @@ importable through the normal project picker):
 | `block-02-random-distribution.clproj`      | 500 uniform randoms → histogram + summary                    |
 | `block-03-grid-scatter.clproj`             | 20×20 grid → scatter                                         |
 | `block-04-range-filter.clproj`             | Sine → range filter → scatter                                |
+| `block-05-dual-pipeline.clproj`            | Sine forked into normalize→scatter and range-filter→line     |
+| `block-06-topk-pipeline.clproj`            | Dataset → Top-K selection → table / plot                    |
+| `block-07-binning-stats.clproj`            | Numeric column → histogram binning + summary stats           |
+| `block-08-normalize-grid.clproj`           | Grid data → normalize → scatter / line                       |
 
 Discovery uses `import.meta.glob('../../examples/projects/block-*.clproj',
 { query: '?raw', import: 'default', eager: true })`. The `samples` tab of
