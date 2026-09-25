@@ -86,86 +86,13 @@ export function buildFieldRender(
   cap = 30000,
   channel: FluidFieldChannel = 'temperature',
 ): THREE.Group {
-  const group = new THREE.Group();
-  const { nx, ny, nz, values } = field;
-  if (!values || values.length < 1 || nx < 1 || ny < 1 || nz < 1) return group;
-
-  // Normalize colours against the field's OWN [min, max] span rather than
-  // [0, max]. A temperature field that lives in ~[266, 300] would otherwise map
-  // every cell to v/max ≈ 0.9–1.0 (all near-amber), making the plume invisible
-  // against its background and its evolution during playback impossible to see.
-  let vmin = Infinity;
-  let vmax = -Infinity;
-  for (const v of values) {
-    if (!Number.isFinite(v)) continue;
-    if (v < vmin) vmin = v;
-    if (v > vmax) vmax = v;
-  }
-  const span = vmax - vmin;
-  if (!Number.isFinite(span) || span <= 0) return group;
-
-  // Keep only cells standing out from the lower baseline of the span:
-  // normalized t = (v − vmin)/span ≥ thresholdFrac, so a submerged thermal
-  // plume (small variation on a large ambient background) keeps its cool rim
-  // cells hidden while its hot peak lights up amber.
-  const thresh = thresholdFrac;
-  const ramp = channel === 'speed' ? speedColor : heatColor;
-
-  // Emit visible cells (bounded) as instanced cubes spaced on a unit lattice,
-  // centred at the origin.
-  const xs: number[] = [];
-  const ys: number[] = [];
-  const zs: number[] = [];
-  const cs: [number, number, number][] = [];
-  for (let iz = 0; iz < nz; iz += 1) {
-    for (let iy = 0; iy < ny; iy += 1) {
-      for (let ix = 0; ix < nx; ix += 1) {
-        if (xs.length >= cap) break;
-        const v = values[fieldIndex(ix, iy, iz, nx, ny)] ?? 0;
-        const t = Number.isFinite(v) ? (v - vmin) / span : 0;
-        if (t < thresh) continue;
-        xs.push(ix - (nx - 1) / 2);
-        ys.push(iy - (ny - 1) / 2);
-        zs.push(iz - (nz - 1) / 2);
-        const c = ramp(t);
-        cs.push([srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])]);
-      }
-      if (xs.length >= cap) break;
-    }
-    if (xs.length >= cap) break;
-  }
-
-  if (xs.length > 0) {
-    const size = 0.82;
-    const geom = new THREE.BoxGeometry(size, size, size);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.7,
-      metalness: 0.05,
-    });
-    const mesh = new THREE.InstancedMesh(geom, mat, xs.length);
-    const dummy = new THREE.Object3D();
-    const color = new THREE.Color();
-    for (let i = 0; i < xs.length; i += 1) {
-      dummy.position.set(xs[i]!, ys[i]!, zs[i]!);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      mesh.setColorAt(i, color.setRGB(cs[i]![0], cs[i]![1], cs[i]![2]));
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    group.add(mesh);
-  }
-
-  // Translucent outline so the empty remainder of the domain still reads as a
-  // bounded box (and the outlet-face orientation is legible against the grid).
-  const frame = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(nx, ny, nz)),
-    new THREE.LineBasicMaterial({ color: 0x5b6b81, transparent: true, opacity: 0.35 }),
-  );
-  group.add(frame);
-
+  // Single-shot build: one fresh VoxelCloud serves the static view. (Playback
+  // reuses a persistent VoxelCloud so it never tears down/recreates the mesh.)
+  const cloud = new VoxelCloud();
+  const group = cloud.render(field, thresholdFrac, cap, channel);
+  // .dispose() would free the objects; the caller owns the returned group, so
+  // keep the cloud instance only as a carrier for the group reference. The
+  // caller disposes via disposeObjectTree() as before.
   return group;
 }
 
@@ -180,6 +107,133 @@ export function disposeObjectTree(root: THREE.Object3D): void {
       (m as THREE.Material).dispose();
     }
   });
+}
+
+/**
+ * A single `InstancedMesh` whose per-instance matrices/colors are updated in
+ * place on every frame instead of tearing down and rebuilding the whole object
+ * tree. During dynamic playback the grid is constant — only the per-cell color
+ * (and the visible-cell set) changes — so this avoids the per-frame allocation
+ * of a new `BoxGeometry`, `MeshStandardMaterial`, `InstancedMesh` and edges
+ * frame plus their disposal, which was the dominant GC/GPU churn at playback
+ * cadence. The mesh is sized once to the on-grid capacity (≤ cap) and
+ * `mesh.count` is flipped to the actual visible count each frame.
+ */
+export class VoxelCloud {
+  private group: THREE.Group | null = null;
+  private mesh: THREE.InstancedMesh | null = null;
+  private geom: THREE.BoxGeometry | null = null;
+  private mat: THREE.MeshStandardMaterial | null = null;
+  private edgeGeom: THREE.EdgesGeometry | null = null;
+  private edgeMat: THREE.LineBasicMaterial | null = null;
+  private signature = '';
+  private capacity = 0;
+
+  /** Render `field` into one shared cloud; lazily builds the mesh on first use. */
+  render(
+    field: Field3D,
+    thresholdFrac: number,
+    cap: number,
+    channel: FluidFieldChannel = 'temperature',
+  ): THREE.Group {
+    const { nx, ny, nz, values } = field;
+    if (!this.group || !this.mesh) this.rebuild(field, cap, channel);
+
+    // Grid + channel + capacity are fixed for a result; only when those change
+    // (e.g. user picks a different case with a different grid) do we rebuild.
+    const sig = `${nx}x${ny}x${nz}:${channel}:${cap}`;
+    if (sig !== this.signature) this.rebuild(field, cap, channel);
+
+    // Normalize colours against this frame's own [min, max] span (see
+    // buildFieldRender for why). Empty/uniform → clear to nothing.
+    let vmin = Infinity;
+    let vmax = -Infinity;
+    for (const v of values) {
+      if (!Number.isFinite(v)) continue;
+      if (v < vmin) vmin = v;
+      if (v > vmax) vmax = v;
+    }
+    const span = vmax - vmin;
+    const ramp = channel === 'speed' ? speedColor : heatColor;
+    const mesh = this.mesh!;
+    if (!Number.isFinite(span) || span <= 0) {
+      mesh.count = 0;
+      this.meshNeedsUpdate();
+      return this.group!;
+    }
+    const thresh = thresholdFrac;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    let n = 0;
+    const capacity = this.capacity;
+    for (let iz = 0; iz < nz; iz += 1) {
+      for (let iy = 0; iy < ny; iy += 1) {
+        for (let ix = 0; ix < nx; ix += 1) {
+          if (n >= capacity) break;
+          const v = values[fieldIndex(ix, iy, iz, nx, ny)] ?? 0;
+          const t = Number.isFinite(v) ? (v - vmin) / span : 0;
+          if (t < thresh) continue;
+          dummy.position.set(ix - (nx - 1) / 2, iy - (ny - 1) / 2, iz - (nz - 1) / 2);
+          dummy.updateMatrix();
+          mesh.setMatrixAt(n, dummy.matrix);
+          const c = ramp(t);
+          mesh.setColorAt(n, color.setRGB(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
+          n += 1;
+        }
+        if (n >= capacity) break;
+      }
+      if (n >= capacity) break;
+    }
+    mesh.count = n;
+    this.meshNeedsUpdate();
+    return this.group!;
+  }
+
+  /** (re)build the mesh tree once; ownership differs from the rebuild-loop. */
+  private rebuild(field: Field3D, cap: number, channel: FluidFieldChannel): void {
+    const { nx, ny, nz } = field;
+    this.dispose();
+    // Capacity can never exceed the cell count; size the GPU buffers once.
+    const capacity = Math.max(0, Math.min(field.values.length, nx * ny * nz, cap));
+    this.capacity = capacity;
+    this.signature = `${nx}x${ny}x${nz}:${channel}:${cap}`;
+
+    const group = new THREE.Group();
+    this.geom = new THREE.BoxGeometry(0.82, 0.82, 0.82);
+    this.mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7, metalness: 0.05 });
+    this.mesh = new THREE.InstancedMesh(this.geom, this.mat, capacity);
+    this.mesh.count = 0;
+    // Edges frame (translucent outline) so the empty remainder of the domain
+    // still reads as a bounded box against the grid.
+    this.edgeGeom = new THREE.EdgesGeometry(new THREE.BoxGeometry(nx, ny, nz));
+    this.edgeMat = new THREE.LineBasicMaterial({ color: 0x5b6b81, transparent: true, opacity: 0.35 });
+    group.add(this.mesh);
+    group.add(new THREE.LineSegments(this.edgeGeom, this.edgeMat));
+    this.group = group;
+  }
+
+  private meshNeedsUpdate(): void {
+    const mesh = this.mesh;
+    if (!mesh) return;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  get object(): THREE.Group | null {
+    return this.group;
+  }
+
+  dispose(): void {
+    if (this.group) disposeObjectTree(this.group);
+    this.group = null;
+    this.mesh = null;
+    this.geom = null;
+    this.mat = null;
+    this.edgeGeom = null;
+    this.edgeMat = null;
+    this.signature = '';
+    this.capacity = 0;
+  }
 }
 
 /** Frame the camera so the whole voxel volume fits the view. */

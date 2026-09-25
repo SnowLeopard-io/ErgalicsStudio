@@ -1,0 +1,33 @@
+# =============================================================================
+# Ergalics Studio — 容器化部署编排
+#
+#   studio      : 双向耦合求解器可运行原型（Vite dev server，浏览器内跑 CFD）
+#   cfd-verify  : 同一求解内核的 CLI 复现（纯 NumPy，跑完整验证套件）
+#
+# 常用命令见 docs/technical/10-流体双向耦合求解器-容器化部署手册.md
+# =============================================================================
+
+services:
+  # —— 可运行原型：浏览器打开 http://localhost:5173 ——
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ergalics-studio:latest
+    container_name: ergalics-studio
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+
+  # —— CLI 复现：docker compose run --rm cfd-verify ——
+  cfd-verify:
+    build:
+      context: .
+      dockerfile: docker/cfd.Dockerfile
+    image: ergalics-cfd-verify:latest
+    container_name: ergalics-cfd-verify
+    working_dir: /fluid
+    # 覆盖默认 run_tests.py 时：
+    #   docker compose run --rm cfd-verify python -m fluid_cfd.driver verify
+    #   docker compose run --rm cfd-verify python benchmarks/bench_coupling.py
+    command: ["python", "run_tests.py"]

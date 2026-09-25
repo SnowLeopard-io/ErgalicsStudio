@@ -31,7 +31,7 @@ import { actionButton, actionFired, notify } from '../shared/enhance';
 import { FluidCfdClient } from './fluid-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';
-import { buildFieldRender, disposeObjectTree, fitFieldCamera } from './render3d';
+import { fitFieldCamera, VoxelCloud } from './render3d';
 import type { FluidFieldChannel } from './render3d';
 import { couplingFigurePanels } from './figure';
 import { fluidCfdCouplerManifest } from './manifest';
@@ -67,6 +67,8 @@ export class FluidCfdCouplerPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private three: Scene3DHandle | null = null;
   private fieldGroup: ThreeGroup | null = null;
+  /** Persistent voxel cloud reused across playback frames (no per-frame teardown). */
+  private voxelCloud: VoxelCloud | null = null;
   /** Cache keys so the mesh is only rebuilt when the input changes. */
   private fieldKey = '';
   private fieldScene: Scene3DHandle | null = null;
@@ -659,13 +661,16 @@ export class FluidCfdCouplerPlugin implements Plugin {
     const mounted = this.fieldScene === three && !!this.fieldGroup;
     const extent = Math.max(nx, ny, nz);
     if (this.fieldKey !== key || !mounted) {
-      this.clearFieldGroup();
-      this.fieldGroup = buildFieldRender({ values, nx, ny, nz }, 0.045, 30000, channel);
+      // Remove the previous cloud from the scene (VoxelCloud owns its objects
+      // and disposables internally; it reuses the mesh across playback frames).
+      const cloud = this.voxelCloud ?? (this.voxelCloud = new VoxelCloud());
+      this.removeFieldGroupFromScene();
+      this.fieldGroup = cloud.render({ values, nx, ny, nz }, 0.045, 30000, channel) as ThreeGroup;
       this.fieldKey = key;
       this.fieldScene = three;
       three.scene.add(this.fieldGroup);
       // Only frame the camera on the initial mount or when the grid extent
-      // changes. On playback frame-step only the mesh swaps — re-calling
+      // changes. On playback frame-step only the colors move — re-calling
       // fitFieldCamera here would yank the user's current orbit/zoom back to
       // the default every frame, making the viewport impossible to control
       // during dynamic playback.
@@ -678,12 +683,17 @@ export class FluidCfdCouplerPlugin implements Plugin {
     three.render();
   }
 
-  private clearFieldGroup() {
+  private removeFieldGroupFromScene() {
     if (this.fieldGroup) {
       this.three?.scene.remove(this.fieldGroup);
-      disposeObjectTree(this.fieldGroup);
       this.fieldGroup = null;
     }
+  }
+
+  private clearFieldGroup() {
+    this.removeFieldGroupFromScene();
+    this.voxelCloud?.dispose();
+    this.voxelCloud = null;
     this.fieldKey = '';
     this.fieldScene = null;
   }

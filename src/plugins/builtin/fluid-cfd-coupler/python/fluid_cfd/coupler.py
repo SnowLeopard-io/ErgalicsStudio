@@ -177,8 +177,11 @@ def _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result: CouplingResult) -> Co
     # 3-D solver `K3` sub-steps per window using the current inlet BC.
     K3 = max(int(round(exch / cx.dt3d)), 1)
 
-    # dynamic 3-D playback: snapshot every `snap_every` windows (min 4 frames)
-    snap_every = max(int(np.ceil((cx.t_end / max(exch, _EPS)) / 24.0)), 1)
+    # dynamic 3-D playback: snapshot ~12 frames across the horizon (halved from
+    # 24 to cut the worker→host payload roughly in half; 12 frames still reads
+    # as fluid motion at the 300 ms playback cadence while measurably shrinking
+    # serialization time on the Pyodide side).
+    snap_every = max(int(np.ceil((cx.t_end / max(exch, _EPS)) / 12.0)), 1)
 
     while t < cx.t_end - _EPS:
         _win_t0 = _time.perf_counter()
