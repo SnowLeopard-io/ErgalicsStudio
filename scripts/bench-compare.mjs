@@ -62,7 +62,10 @@ function snapshot(results) {
     schema: 1,
     updated_from_environment: results.environment,
     metrics: Object.fromEntries(
-      [...flatten(results).entries()].map(([id, m]) => [id, { value: m.value, unit: m.unit, direction: m.direction }]),
+      [...flatten(results).entries()].map(([id, m]) => [
+        id,
+        { value: m.value, unit: m.unit, direction: m.direction, workload: m.workload ?? null },
+      ]),
     ),
   };
 }
@@ -121,6 +124,37 @@ if (envBaseline && baseline.updated_from_environment) {
     await writeFile(targetBaselineFile, JSON.stringify(fresh, null, 2), 'utf8');
     process.stdout.write(
       `\n[bench] environment changed (cpu "${ref.cpu}" -> "${cur.cpu}", node ${ref.node} -> ${cur.node}) — re-recorded ${path.relative(root, targetBaselineFile)} instead of comparing.\n`,
+    );
+    process.exit(0);
+  }
+}
+
+// Workload drift: a benchmark's workload is part of its identity (FR-23).
+// Comparing numbers measured under different workloads is meaningless — e.g.
+// the virtualization metric previously ran 200 scroll steps and now runs
+// 1000 (sized for a stable, gateable micro-benchmark). Re-record instead of
+// failing on workload noise, mirroring the environment-change policy above.
+// A baseline missing `workload` entirely (pre-workload format) counts as
+// drift too: those numbers were taken under unknown workloads.
+if (envBaseline) {
+  const curMetrics = flatten(results);
+  let workloadDrift = false;
+  for (const [id, cur] of curMetrics) {
+    const ref = (baseline.metrics ?? {})[id];
+    if (!ref) continue;
+    if (cur.workload && (!ref.workload || cur.workload !== ref.workload)) {
+      workloadDrift = true;
+      process.stdout.write(
+        `  workload drift: ${id} ${ref.workload ? `"${ref.workload}" -> "${cur.workload}"` : '(baseline lacks workload)'}\n`,
+      );
+    }
+  }
+  if (workloadDrift) {
+    const fresh = snapshot(results);
+    if (!existsSync(baselineDir)) await mkdir(baselineDir, { recursive: true });
+    await writeFile(targetBaselineFile, JSON.stringify(fresh, null, 2), 'utf8');
+    process.stdout.write(
+      `\n[bench] workload changed — re-recorded ${path.relative(root, targetBaselineFile)} instead of comparing.\n`,
     );
     process.exit(0);
   }

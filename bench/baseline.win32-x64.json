@@ -1,48 +1,79 @@
 {
   "schema": 1,
   "updated_from_environment": {
-    "node": "v22.23.2",
+    "node": "v22.16.0",
     "platform": "win32",
     "arch": "x64",
-    "cpu": "test-cpu",
-    "date": "2026-09-19T00:00:00.000Z",
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "date": "2026-09-25T11:01:13.664Z",
     "runtime": "node"
   },
   "metrics": {
     "import.csv_rows_per_sec": {
-      "value": 1289181,
+      "value": 496005,
       "unit": "rows/s",
-      "direction": "up"
+      "direction": "up",
+      "workload": "50000 rows, seed=42"
     },
     "import.json_rows_per_sec": {
-      "value": 3298240,
+      "value": 1710928,
       "unit": "rows/s",
-      "direction": "up"
+      "direction": "up",
+      "workload": "50000 records, seed=42"
     },
     "compute.matmul_gflops": {
-      "value": 1.76,
+      "value": 0.79,
       "unit": "GFLOP/s",
-      "direction": "up"
+      "direction": "up",
+      "workload": "256x256x256, seed=7"
     },
     "compute.fft_ms": {
-      "value": 0.15,
+      "value": 0.31,
       "unit": "ms",
-      "direction": "down"
+      "direction": "down",
+      "workload": "n=4096 radix-2, seed=11"
+    },
+    "compute.kmeans_ms": {
+      "value": 95.19,
+      "unit": "ms",
+      "direction": "down",
+      "workload": "20000x3, k=8, maxIter=20, seed=23"
+    },
+    "compute.binning_rows_per_sec": {
+      "value": 72217027,
+      "unit": "rows/s",
+      "direction": "up",
+      "workload": "200000 rows, 256 bins, seed=31"
     },
     "render.chart_spec_ms": {
-      "value": 6.88,
+      "value": 21.84,
       "unit": "ms",
-      "direction": "down"
+      "direction": "down",
+      "workload": "100000 rows, seed=42"
+    },
+    "render.virtual_scroll_steps_per_sec": {
+      "value": 11884954,
+      "unit": "steps/s",
+      "direction": "up",
+      "workload": "100000 rows, window=40, 1000 steps, best-of-7"
     },
     "memory.table_retained_kb": {
-      "value": 39267,
+      "value": 66338,
       "unit": "KB",
-      "direction": "down"
+      "direction": "down",
+      "workload": "200000 rows, seed=42"
+    },
+    "memory.heap_peak_kb": {
+      "value": 96087,
+      "unit": "KB",
+      "direction": "down",
+      "workload": "200000 rows, seed=42"
     },
     "memory.input_bytes": {
       "value": 5775182,
       "unit": "B",
-      "direction": "down"
+      "direction": "down",
+      "workload": "200000 rows, seed=42"
     }
   }
 }
