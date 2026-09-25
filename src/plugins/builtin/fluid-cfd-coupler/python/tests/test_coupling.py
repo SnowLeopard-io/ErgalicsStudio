@@ -288,6 +288,59 @@ def test_run_all_covers_new_sections():
     assert data["min_exchange"]["min_feasible_exchange_period_ms"] == 1.0
 
 
+# ---------------------------------------------------------------------------
+# 3-D incompressible N-S benchmark — lid-driven cavity (Ghia-style vortex)
+# ---------------------------------------------------------------------------
+
+def test_ns_lid_driven_cavity_recirculates():
+    """The 3-D N-S core must reproduce the primary recirculation vortex of a
+    lid-driven cavity: the lid drags the flow forward near the top (u ~ +Ulid)
+    and the conservation/projection produces a *reverse* return flow near the
+    bottom (u < 0).  This is the classic sanity signal that the momentum + 
+    pressure-projection chain is solving real N-S rather than passive transport.
+
+    Lid override: the solver's own walls are no-slip; we impose the moving lid
+    velocity on the top row each step (u = Ulid, v = w = 0)."""
+    from fluid_cfd.domain_3d import _div
+    cfg = DomainConfig(nx=12, ny=12, nz=4, length=0.12, viscosity=0.01,
+                       diffusivity=1e-5, gravity=0.0, advection=0.0,
+                       sor_iters=60).normalized()
+    dom = make_initial(cfg)
+    Ulid = 0.2
+    for _ in range(400):
+        step_domain_3d(cfg, dom, 2.0e-4, 0.0, cfg.t_ref)
+        dom.u[:, -1, :] = Ulid   # moving-lid x-velocity
+        dom.v[:, -1, :] = 0.0
+        dom.u[:, 0, :] = 0.0
+    assert np.all(np.isfinite(dom.u)) and np.all(np.isfinite(dom.field))
+    i_mid, z_mid = cfg.nx // 2, 1
+    u_near_top = float(dom.u[i_mid, -2, z_mid])   # just under the lid
+    u_near_bottom = float(dom.u[i_mid, 1, z_mid])  # near the stationary floor
+    # dragged forward near the lid, driven back near the floor => one vortex
+    assert u_near_top > 0.3 * Ulid, f"lid drag not present: u_near_top={u_near_top}"
+    assert u_near_bottom < 0.0, f"no return flow (no vortex): u_near_bottom={u_near_bottom}"
+    div = _div(dom.u, dom.v, dom.w, cfg.length / cfg.nx)
+    assert np.max(np.abs(div)) < 10.0  # bounded divergence after projection
+
+
+def test_ns_temperature_bounded_convex():
+    """The advective-form temperature transport must keep the field within
+    [ambient, inlet_temp]: hot discharge never overcools the walls below the
+    ambient nor overshoots the inlet (max principle for a stable upwind
+    scheme with the Boussinesq plume)."""
+    cfg = DomainConfig(nx=8, ny=8, nz=8, length=0.10).normalized()
+    dom = make_initial(cfg)
+    for _ in range(240):
+        step_domain_3d(cfg, dom, 2.5e-4, 2.5e-3, 340.0)
+    assert np.all(np.isfinite(dom.field))
+    assert dom.field.min() >= cfg.t_ref - 1e-6
+    assert dom.field.max() <= 340.0 + 1e-6
+    # the hot plume must actually have risen: upwind w on the axis > 0
+    nx, ny, nz = cfg.nx, cfg.ny, cfg.nz
+    w_axis = dom.w[nx // 2, ny // 2, :]
+    assert w_axis.max() > 0.02, f"no plume rise: w_axis_max={w_axis.max()}"
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q"]))

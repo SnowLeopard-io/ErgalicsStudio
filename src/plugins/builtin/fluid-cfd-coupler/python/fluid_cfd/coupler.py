@@ -38,7 +38,14 @@ from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
-from .domain_3d import DomainConfig, DomainState, compute_back_pressure, make_initial, step_domain_3d
+from .domain_3d import (
+    DomainConfig,
+    DomainState,
+    compute_back_pressure,
+    make_initial,
+    sample_snapshot,
+    step_domain_3d,
+)
 from .network_1d import NetworkConfig, NetworkState, step_network as net_step
 from .units import CP_AIR
 
@@ -101,6 +108,7 @@ class CouplingResult:
     metrics: dict = field(default_factory=dict)
     final_state_1d: NetworkState | None = None
     final_state_3d: DomainState | None = None
+    frames_3d: list = field(default_factory=list)   # dynamic-playback snapshots
     error: str = ""
 
     def to_dict(self) -> dict:
@@ -111,6 +119,7 @@ class CouplingResult:
             "metrics": self.metrics,
             "final_state_1d": self.final_state_1d.to_dict() if self.final_state_1d else None,
             "final_state_3d": self.final_state_3d.to_dict() if self.final_state_3d else None,
+            "frames_3d": self.frames_3d,
             "error": self.error,
         }
 
@@ -156,6 +165,7 @@ def _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result: CouplingResult) -> Co
         exch = cx.dt1d
 
     windows: list[CouplingWindowRecord] = []
+    frames: list = []
     t = 0.0
     worst_latency = 0.0
     total_latency = 0.0
@@ -166,6 +176,9 @@ def _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result: CouplingResult) -> Co
     # We exchange on the *1-D* cadence (or the configured period), cycling the
     # 3-D solver `K3` sub-steps per window using the current inlet BC.
     K3 = max(int(round(exch / cx.dt3d)), 1)
+
+    # dynamic 3-D playback: snapshot every `snap_every` windows (min 4 frames)
+    snap_every = max(int(np.ceil((cx.t_end / max(exch, _EPS)) / 24.0)), 1)
 
     while t < cx.t_end - _EPS:
         _win_t0 = _time.perf_counter()
@@ -224,6 +237,8 @@ def _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result: CouplingResult) -> Co
             )
         )
         t = net.t
+        if nwin % snap_every == 0:
+            frames.append(sample_snapshot(dx, dom))
         if progress:
             progress(int(t / cx.t_end * 100), 100)
 
@@ -234,6 +249,7 @@ def _run_impl(net_cfg, dom_cfg, cpl_cfg, progress, result: CouplingResult) -> Co
     result.windows = windows
     result.final_state_1d = net
     result.final_state_3d = dom
+    result.frames_3d = frames
     result.metrics = {
         "n_windows": nwin,
         "total_sim_time": t,

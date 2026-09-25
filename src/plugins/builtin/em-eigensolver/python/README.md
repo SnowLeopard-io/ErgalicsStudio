@@ -169,7 +169,7 @@ python tests/test_all.py
 | c. 适配非正定/不定的 Krylov / 现代迭代算法 | 厚重启 Lanczos（Krylov-Schur）、块 LOBPCG、Jacobi-Davidson，核组件独立成文件可单独导入 |
 | d. 位移策略（σ 近奇异）+ 自适应位移 | 位移逆变换 + 自适应 σ（内层速率触发、步长倍增、轨迹记录）；JD 投影校正天然规避近奇异 |
 | e. 收敛控制与精度 | 全内核真实残差判据 + 事后认证；diagnostics 全量报告 |
-| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（线程池仅 n ≳ 4×10⁴ 启用，1.17×@1e5，见 benchmarks）；WebGPU SpMV 内核为宿主平台资产 |
+| f. 内存峰值控制、避免稠密化 | `basis_dim` 内存旋钮、`memory_hint_mb`、双重护栏；BLAS 多线程 + 纯 NumPy 后端行块多线程 matvec（线程池仅 n ≳ 4×10⁴ 启用，约 1.06–1.41×@4e4–1e5，见 benchmarks）；块稀疏乘（`lobpcg._mat_cols`）相对逐列调用有 1.2–3.8× 的 matvec 收益；WebGPU SpMV 内核为宿主平台资产 |
 | 可运行原型 | CLI + 插件图形界面，两条路径同一核心 |
 | 样例数据与基准、默认配置 | 5 个参数化样例 + 1 个 `.mtx` 示例文件；`config.example.json` 完整配置 |
 | 故障场景与验证 | 见"故障场景与处置建议"；测试覆盖重特征值、谱内目标、不定系统、退化布局、非有限值 |

@@ -39,6 +39,18 @@ export interface FluidCplMetrics {
   control_sync_mean_ms: number;
 }
 
+/** One dynamic-playback snapshot of the 3-D field (mirrors sample_snapshot). */
+export interface FluidFrame3D {
+  t: number;                 // [s] simulation time at this frame
+  /** temperature field, z-major flat (len == nx*ny*nz) */
+  field: number[];
+  /** velocity-magnitude field, z-major flat (len == nx*ny*nz) */
+  speed: number[];
+  nx: number;
+  ny: number;
+  nz: number;
+}
+
 /** A single coupling run (mirrors CouplingResult.to_dict). */
 export interface FluidCouplingResult {
   ok: boolean;
@@ -47,6 +59,8 @@ export interface FluidCouplingResult {
   metrics: FluidCplMetrics;
   final_state_1d?: Record<string, unknown> | null;
   final_state_3d?: Record<string, unknown> | null;
+  /** Time-stamped snapshots of the 3-D field across the run (dynamic playback). */
+  frames_3d?: FluidFrame3D[];
   error: string;
   /** Set by the Python driver when any NaN/Inf was replaced with null. */
   nonfinite?: boolean;

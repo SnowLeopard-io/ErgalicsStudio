@@ -44,6 +44,30 @@ export function heatColor(t: number): [number, number, number] {
   return c;
 }
 
+/**
+ * Sequential velocity ramp for the velocity-magnitude field. Dark graphite →
+ * amber → bright red-hot conveys "speed" distinctly from the blue-amber heat
+ * ramp, so temperature and velocity channels are not confused at a glance.
+ */
+export function speedColor(t: number): [number, number, number] {
+  const v = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0;
+  const LO = [30, 30, 38] as const;
+  const MID = [230, 120, 40] as const;
+  const HI = [255, 60, 45] as const;
+  const u = v < 0.5 ? v / 0.5 : (v - 0.5) / 0.5;
+  const A = v < 0.5 ? LO : MID;
+  const B = v < 0.5 ? MID : HI;
+  const c: [number, number, number] = [
+    (A[0] + (B[0] - A[0]) * u) / 255,
+    (A[1] + (B[1] - A[1]) * u) / 255,
+    (A[2] + (B[2] - A[2]) * u) / 255,
+  ];
+  return c;
+}
+
+/** Which physical channel a 3-D field snapshot represents. */
+export type FluidFieldChannel = 'temperature' | 'speed';
+
 /** Extract the z-major flat layout index for cell (ix, iy, iz). */
 export function fieldIndex(ix: number, iy: number, iz: number, nx: number, ny: number): number {
   return iz * ny * nx + iy * nx + ix;
@@ -52,19 +76,40 @@ export function fieldIndex(ix: number, iy: number, iz: number, nx: number, ny: n
 /**
  * Build the voxel cloud + outline box for one coupled field. Cells whose
  * magnitude is below `thresholdFrac` of the max are skipped (near-empty tail
- * costs thousands of invisible cubes on bigger grids). Returns an empty group
- * when every cell is below threshold.
+ * costs thousands of invisible cubes on bigger grids). `channel` selects the
+ * color ramp: temperature → blue/amber heat; speed → graphite/amber/red.
+ * Returns an empty group when every cell is below threshold.
  */
-export function buildFieldRender(field: Field3D, thresholdFrac = 0.045, cap = 30000): THREE.Group {
+export function buildFieldRender(
+  field: Field3D,
+  thresholdFrac = 0.045,
+  cap = 30000,
+  channel: FluidFieldChannel = 'temperature',
+): THREE.Group {
   const group = new THREE.Group();
   const { nx, ny, nz, values } = field;
   if (!values || values.length < 1 || nx < 1 || ny < 1 || nz < 1) return group;
 
-  let max = 0;
-  for (const v of values) if (Number.isFinite(v) && v > max) max = v;
-  if (max <= 0) return group;
+  // Normalize colours against the field's OWN [min, max] span rather than
+  // [0, max]. A temperature field that lives in ~[266, 300] would otherwise map
+  // every cell to v/max ≈ 0.9–1.0 (all near-amber), making the plume invisible
+  // against its background and its evolution during playback impossible to see.
+  let vmin = Infinity;
+  let vmax = -Infinity;
+  for (const v of values) {
+    if (!Number.isFinite(v)) continue;
+    if (v < vmin) vmin = v;
+    if (v > vmax) vmax = v;
+  }
+  const span = vmax - vmin;
+  if (!Number.isFinite(span) || span <= 0) return group;
 
-  const thresh = max * thresholdFrac;
+  // Keep only cells standing out from the lower baseline of the span:
+  // normalized t = (v − vmin)/span ≥ thresholdFrac, so a submerged thermal
+  // plume (small variation on a large ambient background) keeps its cool rim
+  // cells hidden while its hot peak lights up amber.
+  const thresh = thresholdFrac;
+  const ramp = channel === 'speed' ? speedColor : heatColor;
 
   // Emit visible cells (bounded) as instanced cubes spaced on a unit lattice,
   // centred at the origin.
@@ -77,11 +122,12 @@ export function buildFieldRender(field: Field3D, thresholdFrac = 0.045, cap = 30
       for (let ix = 0; ix < nx; ix += 1) {
         if (xs.length >= cap) break;
         const v = values[fieldIndex(ix, iy, iz, nx, ny)] ?? 0;
-        if (v < thresh) continue;
+        const t = Number.isFinite(v) ? (v - vmin) / span : 0;
+        if (t < thresh) continue;
         xs.push(ix - (nx - 1) / 2);
         ys.push(iy - (ny - 1) / 2);
         zs.push(iz - (nz - 1) / 2);
-        const c = heatColor(v / max);
+        const c = ramp(t);
         cs.push([srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])]);
       }
       if (xs.length >= cap) break;

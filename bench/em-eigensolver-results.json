@@ -1,16 +1,16 @@
 {
-  "backend": "scipy 1.18.1 (CPython)",
+  "backend": "scipy 1.15.3 (CPython)",
   "workers": 8,
-  "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
-  "date": "2026-09-20 20:04:32",
+  "cpu": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+  "date": "2026-09-25 08:16:39",
   "matvec": [
     {
       "n": 1024,
       "nnz": 4992,
       "workers": 1,
       "parallel_engaged": false,
-      "serial_ms": 0.016,
-      "parallel_ms": 0.016,
+      "serial_ms": 0.026,
+      "parallel_ms": 0.026,
       "speedup": 1.0
     },
     {
@@ -18,8 +18,8 @@
       "nnz": 20224,
       "workers": 1,
       "parallel_engaged": false,
-      "serial_ms": 0.044,
-      "parallel_ms": 0.044,
+      "serial_ms": 0.063,
+      "parallel_ms": 0.063,
       "speedup": 1.0
     },
     {
@@ -27,8 +27,8 @@
       "nnz": 50601,
       "workers": 1,
       "parallel_engaged": false,
-      "serial_ms": 0.105,
-      "parallel_ms": 0.105,
+      "serial_ms": 0.385,
+      "parallel_ms": 0.385,
       "speedup": 1.0
     },
     {
@@ -36,18 +36,18 @@
       "nnz": 199200,
       "workers": 8,
       "parallel_engaged": true,
-      "serial_ms": 0.864,
-      "parallel_ms": 0.745,
-      "speedup": 1.16
+      "serial_ms": 1.19,
+      "parallel_ms": 1.127,
+      "speedup": 1.06
     },
     {
       "n": 102400,
       "nnz": 510720,
       "workers": 8,
       "parallel_engaged": true,
-      "serial_ms": 2.365,
-      "parallel_ms": 2.028,
-      "speedup": 1.17
+      "serial_ms": 3.791,
+      "parallel_ms": 2.682,
+      "speedup": 1.41
     }
   ],
   "solve_curve": [
@@ -61,21 +61,21 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 7.190487770982427e-09,
+      "max_residual": 7.190477577499095e-09,
       "certified_rel_residual": 8.47e-10,
       "converged": true,
       "eigenvalues": [
         8.487845121301524,
-        8.465996443614458,
-        8.46572656369918,
+        8.465996443614493,
+        8.46572656369915,
         8.424869922353086,
-        8.417983379970114,
-        8.404552577993265
+        8.417983379970112,
+        8.404552577993266
       ],
       "iterations": 6,
       "matvecs": 295,
-      "seconds": 0.21,
-      "peak_memory_mb": 0.6,
+      "seconds": 0.16,
+      "peak_memory_mb": 0.7,
       "workers": 8,
       "case": "grid-32x32"
     },
@@ -89,20 +89,20 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 1.3288349674302323e-08,
+      "max_residual": 1.328835069968137e-08,
       "certified_rel_residual": 1.56e-09,
       "converged": true,
       "eigenvalues": [
-        8.514407711383194,
-        8.511821801360616,
-        8.511809252287572,
+        8.514407711383202,
+        8.511821801360684,
+        8.51180925228759,
         8.48919586008785,
-        8.485437541524753,
-        8.481810250809353
+        8.485437541524814,
+        8.481810250809323
       ],
       "iterations": 13,
       "matvecs": 631,
-      "seconds": 0.57,
+      "seconds": 0.49,
       "peak_memory_mb": 2.4,
       "workers": 8,
       "case": "grid-64x64"
@@ -117,20 +117,20 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 1.4385208149793255e-08,
+      "max_residual": 1.438520550722952e-08,
       "certified_rel_residual": 1.69e-09,
       "converged": true,
       "eigenvalues": [
         8.52676697330366,
-        8.526297932636348,
-        8.526297807189227,
-        8.509264326911833,
-        8.508545655324903,
-        8.508471201264403
+        8.526297932636334,
+        8.526297807189215,
+        8.509264326911795,
+        8.508545655324884,
+        8.508471201264381
       ],
       "iterations": 13,
       "matvecs": 631,
-      "seconds": 3.25,
+      "seconds": 3.05,
       "peak_memory_mb": 5.8,
       "workers": 8,
       "case": "grid-101x101"
@@ -145,20 +145,20 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 8.348051063424463e-09,
-      "certified_rel_residual": 9.78e-10,
+      "max_residual": 8.398927228549571e-09,
+      "certified_rel_residual": 9.84e-10,
       "converged": true,
       "eigenvalues": [
-        8.53792641845696,
-        8.537918954427742,
-        8.537918954427603,
-        8.52861107434166,
-        8.528599909152277,
-        8.528599908558553
+        8.537926418456955,
+        8.537918954427768,
+        8.537918954427585,
+        8.528611074341566,
+        8.528599909152213,
+        8.528599908558546
       ],
       "iterations": 25,
       "matvecs": 1207,
-      "seconds": 9.78,
+      "seconds": 12.82,
       "peak_memory_mb": 22.5,
       "workers": 8,
       "case": "grid-200x200"
@@ -173,20 +173,20 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 3.614234290555579e-09,
-      "certified_rel_residual": 4.23e-10,
+      "max_residual": 2.1236442728739258e-08,
+      "certified_rel_residual": 2.49e-09,
       "converged": true,
       "eigenvalues": [
-        8.54237075176112,
-        8.542370696677194,
-        8.542370696677171,
-        8.536396858649182,
-        8.53639677493278,
-        8.533412522376196
+        8.542370751761117,
+        8.542370696677223,
+        8.542370696677173,
+        8.53639685864928,
+        8.536396774932884,
+        8.533412522376231
       ],
-      "iterations": 24,
-      "matvecs": 1159,
-      "seconds": 15.38,
+      "iterations": 25,
+      "matvecs": 1207,
+      "seconds": 32.53,
       "peak_memory_mb": 57.4,
       "workers": 8,
       "case": "grid-320x320"
@@ -203,20 +203,20 @@
       "tol_effective": 1e-08,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 3.7503997615265225e-09,
-      "certified_rel_residual": 4.66e-10,
+      "max_residual": 3.4388494072079673e-08,
+      "certified_rel_residual": 4.28e-09,
       "converged": true,
       "eigenvalues": [
-        8.042370751761108,
-        8.042370696677153,
-        8.042370696677125,
-        8.036396858649198,
-        8.036396774932845,
-        8.0334125223762
+        8.042370751761116,
+        8.04237069667721,
+        8.042370696677157,
+        8.036396858649175,
+        8.036396774932745,
+        8.03341252237626
       ],
-      "iterations": 24,
-      "matvecs": 1159,
-      "seconds": 13.82,
+      "iterations": 25,
+      "matvecs": 1207,
+      "seconds": 25.15,
       "peak_memory_mb": 57.4,
       "workers": 8,
       "case": "cavity_large_extremal"
@@ -231,21 +231,21 @@
       "tol_effective": 1.9999999999999998e-05,
       "residual_metric": "absolute ||Ay - \u03bby||\u2082 (unscaled)",
       "judgment_metric": "relative ||Ay - \u03bby||\u2082 / max|\u03bb| \u2264 tol_effective",
-      "max_residual": 5.9409040172787656e-05,
+      "max_residual": 5.940904032196597e-05,
       "certified_rel_residual": 7.39e-06,
       "converged": true,
       "eigenvalues": [
         8.042370578640217,
-        8.042370516696877,
-        8.036396694407802,
-        8.036396591619752,
-        8.033412336027217,
-        8.033410896939714
+        8.042370516696886,
+        8.036396694407795,
+        8.036396591619749,
+        8.033412336027219,
+        8.033410896939712
       ],
       "iterations": 9,
       "matvecs": 41017,
-      "seconds": 359.64,
-      "peak_memory_mb": 122.7,
+      "seconds": 797.15,
+      "peak_memory_mb": 122.2,
       "workers": 8,
       "case": "cavity_large_shift_invert"
     }

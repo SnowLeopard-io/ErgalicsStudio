@@ -82,11 +82,23 @@ def _orthonormalize(V: np.ndarray, rng: np.random.Generator,
 
 
 def _mat_cols(matvec, X: np.ndarray, counter: list[int]) -> np.ndarray:
-    """Apply the operator column-wise (never densifying anything)."""
-    out = np.empty_like(X)
-    for j in range(X.shape[1]):
-        out[:, j] = matvec(X[:, j])
-        counter[0] += 1
+    """Apply the operator to the whole block at once (never densifying).
+
+    A block-capable ``matvec`` (sparse ``A @ X``) shares one pass over the
+    CSR indices across all k columns — far cheaper than k independent
+    single-column calls.  Fall back to column-wise application when the
+    operator only accepts 1-D vectors (e.g. a shift-inverted wrapper).
+    """
+    k = X.shape[1]
+    try:
+        out = matvec(X)
+    except Exception:  # noqa: BLE001 — operator may be single-column only
+        out = None
+    if out is None or out.shape != X.shape:
+        out = np.empty_like(X)
+        for j in range(k):
+            out[:, j] = matvec(X[:, j])
+    counter[0] += k
     return out
 
 
@@ -211,9 +223,9 @@ def lobpcg_solve(
     X = X @ S_f
     res = np.empty(k)
     scaleA = float(np.max(np.abs(theta_f))) or 1.0
+    AXf = _mat_cols(matvec, X, counter)
     for i in range(k):
-        r = matvec(X[:, i]) - theta_f[i] * X[:, i]
-        counter[0] += 1
+        r = AXf[:, i] - theta_f[i] * X[:, i]
         res[i] = float(np.linalg.norm(r)) / scaleA
 
     return LobpcgResult(
