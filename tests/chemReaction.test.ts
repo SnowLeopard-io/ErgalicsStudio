@@ -165,7 +165,7 @@ describe('chem-reaction plugin', () => {
   it('is registered under the new id with formats', () => {
     expect(chemReactionManifest.id).toBe('example.chem-reaction');
     expect(findBuiltin('example.chem-reaction')?.manifest.id).toBe('example.chem-reaction');
-    expect(disciplineOf('example.chem-reaction')).toBe('physics');
+    expect(disciplineOf('example.chem-reaction')).toBe('chem');
     expect((chemReactionManifest.formats ?? [])[0]!.extension).toBe('.json');
   });
 

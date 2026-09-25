@@ -3,12 +3,13 @@
 //
 // The marketplace `category` (scientific / fun / utility) is too coarse for
 // browsing, so the sidebar groups the registry into disciplines — charts,
-// statistics, physics, geography, data & AI, and fun & utility. The mapping
-// is by plugin id and lives here as the single source of truth; unmapped
-// ids fall back to the charts group so third-party plugins always show up.
+// statistics, physics, chemistry, geography, data & AI, and fun & utility.
+// The mapping is by plugin id and lives here as the single source of truth;
+// unmapped ids fall back to the charts group so third-party plugins always
+// show up.
 // ==========================================================================
 
-export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'bio' | 'geo' | 'data' | 'fun';
+export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'chem' | 'bio' | 'geo' | 'data' | 'fun';
 
 export interface DisciplineInfo {
   id: PluginDiscipline;
@@ -20,6 +21,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
+  { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
@@ -64,8 +66,10 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
   'example.fluid-cfd-coupler': 'physics',
-  'example.chem-crystal': 'physics',
-  'example.chem-reaction': 'physics',
+
+  // Chemistry
+  'example.chem-crystal': 'chem',
+  'example.chem-reaction': 'chem',
 
   // Geography
   'example.geomap': 'geo',
