@@ -142,17 +142,23 @@ export class FluidCfdCouplerPlugin implements Plugin {
     this.draw();
   }
 
+  /**
+   * Params are contextual: the panel only lists controls that are meaningful
+   * for the current preset/view/run state, so the primary actions stay
+   * visible without scrolling. Preset/view changes call refreshParams()
+   * (host:params:changed) so the panel re-reads this list.
+   */
   getParams(): ParamDefinition[] {
     const zh = this.api?.locale === 'zh-CN';
-    const preset = this.state.preset;
-    return [
+    const s = this.state;
+    const params: ParamDefinition[] = [
       {
         key: 'preset',
         label: 'Workload',
         labelI18n: { 'zh-CN': '算例', 'en-US': 'Workload' },
         type: 'select',
         options: PRESETS.map(([value, en, c]) => ({ value, label: zh ? c : en })),
-        value: preset,
+        value: s.preset,
       },
       {
         key: 'view',
@@ -164,9 +170,11 @@ export class FluidCfdCouplerPlugin implements Plugin {
           { value: 'verify', label: zh ? '验证 + 权衡曲线' : 'Verification + trade-off' },
           { value: '3d', label: zh ? '3D 场体素（耦合场）' : '3D field voxels' },
         ],
-        value: this.state.view,
+        value: s.view,
       },
-      {
+    ];
+    if (s.view === '3d') {
+      params.push({
         key: 'channel',
         label: '3D channel',
         labelI18n: { 'zh-CN': '3D 通道', 'en-US': '3D channel' },
@@ -175,103 +183,131 @@ export class FluidCfdCouplerPlugin implements Plugin {
           { value: 'temperature', label: zh ? '温度场（热羽流）' : 'Temperature (plume)' },
           { value: 'speed', label: zh ? '速度场（流速）' : 'Velocity magnitude' },
         ],
-        value: this.state.channel,
-        hint: '3d',
-      },
-      {
-        key: 'dt1dMs',
-        label: '1-D step dt1d (ms)',
-        labelI18n: { 'zh-CN': '1-D 时间步 dt1d（ms）', 'en-US': '1-D step dt1d (ms)' },
-        type: 'number',
-        min: 0.1,
-        max: 50,
-        step: 0.1,
-        value: this.state.dt1dMs,
-        hint: 'custom',
-      },
-      {
-        key: 'dt3dUs',
-        label: '3-D step dt3d (µs)',
-        labelI18n: { 'zh-CN': '3-D 时间步 dt3d（µs）', 'en-US': '3-D step dt3d (µs)' },
-        type: 'number',
-        min: 10,
-        max: 5000,
-        step: 10,
-        value: this.state.dt3dUs,
-        hint: 'custom',
-      },
-      {
-        key: 'tEndS',
-        label: 'Horizon t_end (s)',
-        labelI18n: { 'zh-CN': '仿真时长 t_end（s）', 'en-US': 'Horizon t_end (s)' },
-        type: 'number',
-        min: 0.01,
-        max: 2,
-        step: 0.01,
-        value: this.state.tEndS,
-        hint: 'custom',
-      },
-      {
-        key: 'exchangePeriodMs',
-        label: 'Exchange period (ms, 0=each 1-D step)',
-        labelI18n: { 'zh-CN': '交换周期（ms，0=每 1-D 步交换）', 'en-US': 'Exchange period (ms, 0=each 1-D step)' },
-        type: 'number',
-        min: 0,
-        max: 50,
-        step: 0.5,
-        value: this.state.exchangePeriodMs,
-        hint: 'custom',
-      },
-      {
-        key: 'volumeL',
-        label: 'Plenum volume (L)',
-        labelI18n: { 'zh-CN': '气室容积（L）', 'en-US': 'Plenum volume (L)' },
-        type: 'number',
-        min: 1,
-        max: 500,
-        step: 1,
-        value: this.state.volumeL,
-        hint: 'custom',
-      },
-      {
-        key: 'p0InitBar',
-        label: 'Initial plenum pressure (bar)',
-        labelI18n: { 'zh-CN': '初始气室压力（bar）', 'en-US': 'Initial plenum pressure (bar)' },
-        type: 'number',
-        min: 1,
-        max: 50,
-        step: 0.5,
-        value: this.state.p0InitBar,
-        hint: 'custom',
-      },
-      {
-        key: 'throatAreaCm2',
-        label: 'Nozzle throat area (cm²)',
-        labelI18n: { 'zh-CN': '喷管喉部面积（cm²）', 'en-US': 'Nozzle throat area (cm²)' },
-        type: 'number',
-        min: 0.1,
-        max: 10,
-        step: 0.1,
-        value: this.state.throatAreaCm2,
-        hint: 'custom',
-      },
+        value: s.channel,
+      });
+    }
+    // Custom knobs only exist in the Custom preset — preset cases hardcode
+    // them inside driver.solve_json, so showing them otherwise is noise.
+    if (s.preset === 'custom') {
+      params.push(
+        {
+          key: 'dt1dMs',
+          label: 'dt1d (ms)',
+          labelI18n: { 'zh-CN': '1-D 时间步（ms）', 'en-US': 'dt1d (ms)' },
+          type: 'number',
+          min: 0.1,
+          max: 50,
+          step: 0.1,
+          value: s.dt1dMs,
+          group: 'steps',
+          inline: true,
+        },
+        {
+          key: 'dt3dUs',
+          label: 'dt3d (µs)',
+          labelI18n: { 'zh-CN': '3-D 时间步（µs）', 'en-US': 'dt3d (µs)' },
+          type: 'number',
+          min: 10,
+          max: 5000,
+          step: 10,
+          value: s.dt3dUs,
+          group: 'steps',
+          inline: true,
+        },
+        {
+          key: 'tEndS',
+          label: 't_end (s)',
+          labelI18n: { 'zh-CN': '仿真时长（s）', 'en-US': 't_end (s)' },
+          type: 'number',
+          min: 0.01,
+          max: 2,
+          step: 0.01,
+          value: s.tEndS,
+          group: 'horizon',
+          inline: true,
+        },
+        {
+          key: 'exchangePeriodMs',
+          label: 'exchange (ms, 0=per 1-D step)',
+          labelI18n: { 'zh-CN': '交换周期（ms，0=每 1-D 步）', 'en-US': 'exchange (ms, 0=per 1-D step)' },
+          type: 'number',
+          min: 0,
+          max: 50,
+          step: 0.5,
+          value: s.exchangePeriodMs,
+          group: 'horizon',
+          inline: true,
+        },
+        {
+          key: 'volumeL',
+          label: 'Plenum (L)',
+          labelI18n: { 'zh-CN': '气室容积（L）', 'en-US': 'Plenum (L)' },
+          type: 'number',
+          min: 1,
+          max: 500,
+          step: 1,
+          value: s.volumeL,
+          group: 'plenum',
+          inline: true,
+        },
+        {
+          key: 'p0InitBar',
+          label: 'p0 (bar)',
+          labelI18n: { 'zh-CN': '初始压力（bar）', 'en-US': 'p0 (bar)' },
+          type: 'number',
+          min: 1,
+          max: 50,
+          step: 0.5,
+          value: s.p0InitBar,
+          group: 'plenum',
+          inline: true,
+        },
+        {
+          key: 'throatAreaCm2',
+          label: 'throat (cm²)',
+          labelI18n: { 'zh-CN': '喉部面积（cm²）', 'en-US': 'throat (cm²)' },
+          type: 'number',
+          min: 0.1,
+          max: 10,
+          step: 0.1,
+          value: s.throatAreaCm2,
+          group: 'plenum',
+          inline: true,
+        },
+      );
+    }
+    // Playback belongs with the 3D controls it drives: right under the channel
+    // selector, not mixed in with the compute actions.
+    if (s.view === '3d') {
+      params.push(actionButton('play3d', this.playing ? 'Pause 3D' : 'Play 3D', this.playing ? '暂停动态' : '播放动态', 'primary'));
+    }
+    params.push(
       actionButton('runAll', this.busy ? 'Running all…' : 'Run All (Verify + Coupling)', this.busy ? '运行全部中…' : '运行全部（验证 + 耦合）', 'primary'),
       actionButton('run', this.busy ? 'Coupling…' : 'Run Coupling', this.busy ? '耦合计算中…' : '运行耦合', 'primary'),
       actionButton('verify', 'Verify', '运行验证'),
-      actionButton('play3d', this.playing ? 'Pause 3D' : 'Play 3D', this.playing ? '暂停动态' : '播放动态', 'primary'),
-      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('abort', 'Abort', '终止'),
-      actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'),
-      actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
-    ];
+    );
+    // Contextual actions: only when they can actually do something.
+    if (this.result?.ok) {
+      params.push(actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'));
+    }
+    if (this.busy) {
+      params.push(actionButton('abort', 'Abort', '终止'));
+    }
+    if (this.result || this.verify) {
+      params.push(actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'));
+    }
+    params.push(actionButton('reloadPlugin', 'Reset Plugin', '重置插件'));
+    return params;
   }
 
   updateParams(params: Record<string, unknown>) {
     let redraw = false;
+    let panelDirty = false;
     if (params.preset === 'case_a' || params.preset === 'case_b' || params.preset === 'case_c' || params.preset === 'case_d' || params.preset === 'custom') {
       if (params.preset !== this.state.preset) {
         this.state.preset = params.preset;
         redraw = true;
+        panelDirty = true;
         // A different preset produces a different coupled field. Drop the
         // previous coupling result + 3-D voxels so the old case can never
         // masquerade as the newly-selected one — the 3-D view must be
@@ -293,6 +329,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
       if (params.view !== this.state.view) {
         this.state.view = params.view;
         redraw = true;
+        panelDirty = true;
       }
     }
     if (params.channel === 'temperature' || params.channel === 'speed') {
@@ -321,6 +358,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
       notify(this.api, 'info', 'Resetting plugin…', '正在重置插件…');
       void this.api.reload?.();
     }
+    if (panelDirty) this.refreshParams(); // re-read the contextual param list
     if (redraw) this.draw();
   }
 

@@ -330,7 +330,7 @@ export class EmEigensolverPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     const zh = this.api?.locale === 'zh-CN';
-    return [
+    const params: ParamDefinition[] = [
       {
         // Single flat data-source dropdown: every built-in sample plus the
         // imported file (when one is loaded). Replaces the old two-level
@@ -403,22 +403,31 @@ export class EmEigensolverPlugin implements Plugin {
         ],
         value: this.state.view,
       },
-      {
+    ];
+    // The resonant-mode selector drives the 3D mode-field playback only.
+    if (this.state.view === 'mode3d') {
+      params.push({
         key: 'modeIndex',
         label: 'Resonant Mode (3D view)',
         labelI18n: { 'zh-CN': '谐振模式（3D 视图）', 'en-US': 'Resonant mode (3D view)' },
         type: 'select',
         options: this.modeOptions(zh),
         value: String(this.state.modeIndex),
-      },
-      actionButton('run', this.busy ? 'Solving…' : 'Solve', this.busy ? '计算中…' : '运行求解', 'primary'),
-      actionButton('abort', 'Abort', '终止求解'),
-      actionButton('exportNpz', 'Export .npz', '导出 .npz'),
-      actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'),
-      actionButton('exportRepro', 'Export Repro Credential', '导出复现凭证'),
-      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
-    ];
+      });
+    }
+    params.push(actionButton('run', this.busy ? 'Solving…' : 'Solve', this.busy ? '计算中…' : '运行求解', 'primary'));
+    // Contextual actions: only when they can actually do something.
+    if (this.busy) params.push(actionButton('abort', 'Abort', '终止求解'));
+    if (this.result) {
+      params.push(
+        actionButton('exportNpz', 'Export .npz', '导出 .npz'),
+        actionButton('exportReport', 'Export Diagnostic Report', '导出诊断报告'),
+        actionButton('exportRepro', 'Export Repro Credential', '导出复现凭证'),
+        actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
+      );
+    }
+    params.push(actionButton('reloadPlugin', 'Reset Plugin', '重置插件'));
+    return params;
   }
 
   /** Dropdown entries for the resonant-mode selector: one per returned mode
@@ -517,6 +526,9 @@ export class EmEigensolverPlugin implements Plugin {
       if (params.view !== this.state.view) {
         this.state.view = params.view;
         redraw = true;
+        // The modeIndex selector is view-gated in getParams() — the panel
+        // must re-read the list when the view flips.
+        this.refreshParams();
       }
     }
     if (params.modeIndex !== undefined && params.modeIndex !== null) {
