@@ -174,8 +174,8 @@ cd src/plugins/builtin/em-eigensolver/python
 # 零附近密集谱 + 近奇异位移（低频击穿场景）
 python -m em_eigensolver.cli --sample cluster_zero --sigma 0 --k 8 --verbose --out eigen.npz
 
-# 十万阶量级实证（n=102400）
-python -m em_eigensolver.cli --sample cavity_large --sigma 0.5 --k 6 --basis_dim 48 --out large.npz
+# 十万阶量级实证（n=102400，极值路径约 25 s 收敛；位移逆路径约 13 min，见 bench 归档）
+python -m em_eigensolver.cli --sample cavity_large --k 6 --out large.npz
 
 # 求解自己的矩阵（npz/mtx/npy 均可）并导出复现凭证
 python -m em_eigensolver.cli --input my_matrix.npz --sigma 1.25 --k 6 --out eigen.npz --repro repro.json
