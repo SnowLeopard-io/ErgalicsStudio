@@ -279,6 +279,7 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   },
 
   clear: () => {
+    get().stop();
     set({
       instances: [],
       connections: [],
@@ -304,6 +305,9 @@ export const useBlockStore = create<BlockStore>((set, get) => ({
   }),
 
   fromJSON: (state) => {
+    get().stop();
+    if (notifyTimer) clearTimeout(notifyTimer);
+    notifyTimer = null;
     // A persisted graph is external input: an older build — or a hand-edited
     // `.clproj` — can carry an object whose arrays are missing. That used to
     // throw inside project restore and silently break opening the project, so
