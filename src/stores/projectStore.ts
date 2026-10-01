@@ -84,6 +84,11 @@ let projectSession = 0;
 let editRevision = 0;
 let saveSeq = 0;
 
+/** Distinguishes switching away and reopening even the same project id. */
+export function getProjectSession(): number {
+  return projectSession;
+}
+
 function isCurrentSession(session: number, projectId: string): boolean {
   return session === projectSession && useProjectStore.getState().project?.id === projectId;
 }
