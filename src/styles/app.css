@@ -898,6 +898,23 @@
 .param-group > .field.field-inline {
   width: 6.5em;
 }
+/* Numeric inline fields stretch to fill the row (no dead space on the right);
+   :has() keeps the compact fixed-width text slots (chem reactants) untouched. */
+.param-group > .field.field-inline:has(input[type='number']) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 5.5em;
+}
+/* Number params are pure text-entry boxes — hide the native spin buttons. */
+.param-panel input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.param-panel input[type='number']::-webkit-outer-spin-button,
+.param-panel input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .param-group .field.field-inline .input {
   width: 100%;
 }

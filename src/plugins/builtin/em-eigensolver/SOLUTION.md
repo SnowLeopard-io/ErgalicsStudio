@@ -149,9 +149,8 @@ FEM / MoM 离散后的电磁算子 `A` 规模可达**十万阶**，稀疏、厄�
 - **避免稠密化**：纯 NumPy CSR 后端 `csr.py::dot()` 对多列右端项按列迭代，峰值
   O(nnz + n·k)，不生成中间稠密矩阵；`basis_dim` 同时是基块内存与收敛速度旋钮。
 - **多线程**：BLAS 多线程（`OMP_NUM_THREADS`）+ 纯 NumPy 后端行块
-  ThreadPoolExecutor matvec（线程池仅 n ≳ 4×10⁴ 启用；实测 102400 行 ~1.49x）。
-- **十万阶实证**：`cavity_large`（n=102400）默认配置极值路径约 15 s 收敛，内层最小
-  迭代 3.6e-9；σ 邻域对照行绝对残差 5.9e-05 ↔ 相对 7.4e-06 ≤ 有效容差 2×10⁻⁵。
+  ThreadPoolExecutor matvec（线程池仅 n ≳ 4×10⁴ 启用；实测 102400 行 1.41×）。
+- **十万阶实证**：`cavity_large`（n=102400）默认配置极值路径约 25 s 收敛、相对残差 4.28e-09；σ 邻域对照行绝对残差 5.9e-05 ↔ 相对 7.4e-06 ≤ 有效容差 2×10⁻⁵。
 - 浏览器 / 本地 CPython 跑同一 CPU f64 求解核心，天然满足赛题"缺 GPU 的最小化降级模式"。
 
 ---
@@ -174,8 +173,8 @@ cd src/plugins/builtin/em-eigensolver/python
 # 零附近密集谱 + 近奇异位移（低频击穿场景）
 python -m em_eigensolver.cli --sample cluster_zero --sigma 0 --k 8 --verbose --out eigen.npz
 
-# 十万阶量级实证（n=102400）
-python -m em_eigensolver.cli --sample cavity_large --sigma 0.5 --k 6 --basis_dim 48 --out large.npz
+# 十万阶量级实证（n=102400，极值路径约 25 s 收敛；位移逆路径约 13 min，见 bench 归档）
+python -m em_eigensolver.cli --sample cavity_large --k 6 --out large.npz
 
 # 求解自己的矩阵（npz/mtx/npy 均可）并导出复现凭证
 python -m em_eigensolver.cli --input my_matrix.npz --sigma 1.25 --k 6 --out eigen.npz --repro repro.json

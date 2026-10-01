@@ -14,8 +14,9 @@ pip install -r requirements.txt            # numpy 必装；scipy 可选（缺�
 # 内置样例：零附近密集谱 + 近奇异位移 σ=0
 python -m em_eigensolver.cli --sample cluster_zero --sigma 0 --k 8 --verbose --out eigen.npz
 
-# 十万阶量级实证用例（n=102400, nnz=510720）
-python -m em_eigensolver.cli --sample cavity_large --sigma 0.5 --k 6 --basis_dim 48 --out large.npz
+# 十万阶量级实证用例（n=102400, nnz=510720；极值路径约 25 s 收敛，
+# 位移逆路径约 13 min，见 bench 归档）
+python -m em_eigensolver.cli --sample cavity_large --k 6 --out large.npz
 
 # 求解自己的矩阵
 python -m em_eigensolver.cli --input my_matrix.npz --sigma 1.25 --k 6
@@ -87,12 +88,13 @@ python tests/test_all.py
 
 | 样例 | n | nnz | CSR 存储 | 推荐 σ | 推荐 k | 谱范围（实测） | 覆盖场景 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `cavity_small` | 900 | 4380 | 0.06 MB | 0.6 | 6 | 0.5153 … 8.4847 | 小规模冒烟测试、低内存环境 |
+| `cavity_small` | 900 | 4380 | 0.06 MB | —（极值） | 6 | 0.5153 … 8.4847 | 小规模冒烟测试、低内存环境 |
 | `cluster_zero` | 720 | 2148 | 0.03 MB | 0.0 | 8 | −0.2836 … 0.3040 | 零附近密集谱 + 近奇异位移 |
 | `degenerate_pair` | 300 | 894 | 0.01 MB | −1.0 | 6 | −1.2511 … 2.2942 | 重特征值（收缩与块迭代） |
 | `cavity_complex` | 576 | 2784 | 0.06 MB | 1.2 | 6 | 1.0282 … 8.9718（复厄密） | 复厄密算子 |
-| `cavity_large` | 102400 | 510720 | 6.54 MB | 0.5 | 6 | 五点差分网格，理论 0 … 8 | 十万阶、控内存 |
+| `cavity_large` | 102400 | 510720 | 6.54 MB | —（极值） | 6 | 五点差分网格，理论 0 … 8 | 十万阶、控内存 |
 
+- 推荐 σ 为 **—（极值）** 的样例（`cavity_small` / `cavity_large`）：CLI 与插件默认走极端特征值路径（秒级收敛，见 9.4 节基准）；如需谱内位移目标，请显式传 `σ`——`auto` 路由会自动切换到 Jacobi-Davidson（密集谱内点建议 JD 而非位移逆，见"故障场景与处置建议"）。
 - `cavity_*` 是二维五点差分网格 Laplacian 加确定性材料不均匀项；`cavity_complex` 给水平耦合加常数相位 `e^{iφ}`（保持厄密）。
 - `cluster_zero` 由 6 个窄带三对角块拼装，实测 153 个特征值满足 `|λ| < 0.05`、35 个满足 `|λ| < 0.01`——默认 `σ = 0` 确实落在密集谱内部。
 - `degenerate_pair` 的前两个三对角块完全相同，该带每个特征值恰好二重。

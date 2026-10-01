@@ -254,10 +254,10 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('run', 'Run', '运行', 'primary'),
       actionButton('fitView', 'Fit view', '复位视角'),
       actionButton('reset', 'Reset', '复位'),
-      actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
       actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
+      actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     );
     return params;
   }

@@ -158,6 +158,32 @@ export function rerenderActivePlugin(): void {
   if (!activeId || !hostContainers) return;
   const entry = registry.find((e) => e.id === activeId);
   if (!entry?.plugin) return;
+  // 3D plugins may rerender right after CentralArea remounted (page switch /
+  // block-mode toggle): the previous WebGL scene was disposed on unmount and
+  // the plugin still holds that stale handle — rendering into it produces
+  // nothing, and the stale 2D frame is never cleared. Rebind the plugin to a
+  // freshly-created scene first (the same sequence the activation path runs:
+  // ensureThree → setThreeVisible → clearCanvas2d → renderToScene → render).
+  if (typeof entry.plugin.renderToScene === 'function' && hostContainers.ensureThree) {
+    void (async () => {
+      try {
+        const scene = await hostContainers?.ensureThree?.();
+        const current = usePluginStore.getState();
+        const fresh = current.registry.find((e) => e.id === activeId);
+        // The active plugin (or the whole app page) may have changed while the
+        // lazy three.js chunk was loading — never render on stale state.
+        if (!scene || !fresh?.plugin || current.activeId !== activeId) return;
+        hostContainers?.setThreeVisible?.(true);
+        hostContainers?.clearCanvas2d?.();
+        await fresh.plugin.renderToScene?.(scene);
+        const ctx = createContext(activeId);
+        await fresh.plugin.render?.(ctx.container);
+      } catch (err: unknown) {
+        logger.warn('plugin', '3D rerender rejected', { id: activeId }, err);
+      }
+    })();
+    return;
+  }
   const ctx = createContext(activeId);
   // render() is an RPC for sandboxed plugins; it can reject (timeout while a
   // long compute owns the worker). A bare `void` made each pan/wheel during a

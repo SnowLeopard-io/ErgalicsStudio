@@ -137,8 +137,8 @@ def cavity_small(seed: int = 0) -> SampleMatrix:
         name="cavity_small",
         description="2D resonant cavity (900 unknowns), spectrum in [0.5, 8.5]."
                     " Small enough for memory-limited environments.",
-        A=A, recommended_sigma=0.6, recommended_k=6,
-        meta=_meta(A, 0.6, 6, {"regime": "memory-limited small scale"}),
+        A=A, recommended_sigma=None, recommended_k=6,
+        meta=_meta(A, None, 6, {"regime": "memory-limited small scale"}),
     )
 
 
@@ -200,8 +200,8 @@ def cavity_large(nx: int = 320, ny: int = 320, seed: int = 4) -> SampleMatrix:
         name="cavity_large",
         description=f"Large-scale 2D cavity ({nx * ny} unknowns, five-point "
                     "stencil); targets ~1e5-order capability check.",
-        A=A, recommended_sigma=0.5, recommended_k=6,
-        meta=_meta(A, 0.5, 6, {"regime": "large scale"}),
+        A=A, recommended_sigma=None, recommended_k=6,
+        meta=_meta(A, None, 6, {"regime": "large scale"}),
     )
 
 

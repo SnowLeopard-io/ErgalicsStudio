@@ -90,6 +90,7 @@ export class TimeSeriesPlugin implements Plugin {
   }
 
   getParams(): ParamDefinition[] {
+    const zh = this.api?.locale === 'zh-CN';
     const all = this.state.cols.length > 0 ? this.state.cols.map((c) => c.name) : [];
     return [
       {
@@ -114,14 +115,14 @@ export class TimeSeriesPlugin implements Plugin {
           { value: 'blue', label: 'Blue', labelI18n: { 'zh-CN': '蓝', 'en-US': 'Blue' } },
         ],
       },
-      { key: 'width', label: 'Width', type: 'range', min: 1, max: 4, step: 0.5, value: this.state.width },
-      { key: 'grid', label: 'Grid', type: 'checkbox', value: this.state.grid },
-      { key: 'normalize', label: 'Normalize', type: 'checkbox', value: this.state.normalize },
+      { key: 'width', label: 'Width', labelI18n: { 'zh-CN': '线宽', 'en-US': 'Width' }, type: 'range', min: 1, max: 4, step: 0.5, value: this.state.width },
+      { key: 'grid', label: 'Grid', labelI18n: { 'zh-CN': '网格线', 'en-US': 'Grid' }, type: 'checkbox', value: this.state.grid },
+      { key: 'normalize', label: 'Normalize', labelI18n: { 'zh-CN': '归一化', 'en-US': 'Normalize' }, type: 'checkbox', value: this.state.normalize },
       {
         key: 'rollWindow',
         label: 'Rolling Mean',
         labelI18n: { 'zh-CN': '移动平均', 'en-US': 'Rolling Mean' },
-        hint: '0 = off',
+        hint: zh ? '0 = 关闭' : '0 = off',
         type: 'range',
         min: 0,
         max: 40,
