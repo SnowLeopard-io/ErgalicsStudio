@@ -241,7 +241,10 @@ describe('EmEigensolverPlugin 3D view state', () => {
   it('mode selector lists one entry per returned mode with its eigenvalue', async () => {
     const plugin = new EmEigensolverPlugin();
     await plugin.init(fakeApi());
-    // Before any solve: a single placeholder entry.
+    // The mode selector is view-gated: hidden in the report view…
+    expect(plugin.getParams().some((d) => d.key === 'modeIndex')).toBe(false);
+    // …and shown in the 3D mode-field view, with a placeholder before any solve.
+    plugin.updateParams({ view: 'mode3d' });
     let params = plugin.getParams();
     let mode = selectParam(params.find((d) => d.key === 'modeIndex'));
     expect(mode?.type).toBe('select');
@@ -267,7 +270,10 @@ describe('EmEigensolverPlugin 3D view state', () => {
     const view = selectParam(params.find((d) => d.key === 'view'));
     expect(view?.type).toBe('select');
     expect(view?.options?.map((o) => o.value)).toEqual(['report', 'mode3d']);
-    expect(params.some((d) => d.key === 'modeIndex')).toBe(true);
+    // modeIndex is view-gated: absent in the report view, present in mode3d.
+    expect(params.some((d) => d.key === 'modeIndex')).toBe(false);
+    plugin.updateParams({ view: 'mode3d' });
+    expect(plugin.getParams().some((d) => d.key === 'modeIndex')).toBe(true);
   });
 
   it('falls back to the 2D canvas when mode3d is set without fields', async () => {
@@ -357,8 +363,14 @@ describe('EmEigensolverPlugin parameter handling', () => {
   it('exposes parameter definitions with buttons for solve/export', async () => {
     const plugin = new EmEigensolverPlugin();
     await plugin.init(fakeApi());
+    // Result-gated exports only appear once a solve produced a result.
     const params = plugin.getParams();
-    const keys = params.map((d) => d.key);
+    expect(params.map((d) => d.key)).not.toContain('exportNpz');
+    (plugin as unknown as { result: unknown }).result = {
+      meta: { name: 'x', nnz: 0, shape: [4, 4] },
+      modeFields: [],
+    };
+    const keys = plugin.getParams().map((d) => d.key);
     expect(keys).toContain('matrix');
     expect(keys).toContain('sigma');
     expect(keys).toContain('run');
@@ -433,9 +445,14 @@ describe('modeFieldPanels (Figure Studio export)', () => {
     expect(panel!.spec.title).toContain('λ');
   });
 
-  it('exposes the send-to-figure action button', async () => {
+  it('exposes the send-to-figure action button once a result exists', async () => {
     const plugin = new EmEigensolverPlugin();
     await plugin.init(fakeApi());
+    expect(plugin.getParams().map((d) => d.key)).not.toContain('sendToFigure');
+    (plugin as unknown as { result: unknown }).result = {
+      meta: { name: 'x', nnz: 0, shape: [4, 4] },
+      modeFields: [],
+    };
     const keys = plugin.getParams().map((d) => d.key);
     expect(keys).toContain('sendToFigure');
   });
@@ -521,9 +538,14 @@ describe('diagnostic report builder (REQ-G)', () => {
     expect(reportFieldColor(0)).toBe('rgb(255,255,255)');
   });
 
-  it('exposes the two export action buttons', async () => {
+  it('exposes the two export action buttons once a result exists', async () => {
     const plugin = new EmEigensolverPlugin();
     await plugin.init(fakeApi());
+    expect(plugin.getParams().map((d) => d.key)).not.toContain('exportReport');
+    (plugin as unknown as { result: unknown }).result = {
+      meta: { name: 'x', nnz: 0, shape: [4, 4] },
+      modeFields: [],
+    };
     const keys = plugin.getParams().map((d) => d.key);
     expect(keys).toContain('exportReport');
     expect(keys).toContain('exportRepro');

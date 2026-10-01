@@ -44,8 +44,16 @@ def main() -> int:
 
     dest = args.out
     if not dest:
-        # default to the project-root bench folder, sibling of the package
-        root = Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent
+        # default to the project-root bench folder: walk up from the package
+        # folder to the first ancestor that owns a top-level bench/ dir
+        # (location-independent, works both embedded in the workbench and as
+        # a standalone plugin repo checkout)
+        start = Path(__file__).resolve().parent.parent
+        root = start
+        for cand in [start, *start.parents]:
+            if (cand / "bench").is_dir():
+                root = cand
+                break
         bench_dir = root / "bench"
         bench_dir.mkdir(exist_ok=True)
         dest = str(bench_dir / "fluid-cfd-results.json")
