@@ -61,6 +61,7 @@ export class WorkerPool {
   private readonly queue: Array<{ id: number; task: ParseTask }> = [];
   private nextId = 1;
   private terminated = false;
+  private retiring = false;
 
   constructor(opts: PoolOptions = {}) {
     this.size = Math.max(1, Math.floor(opts.size ?? defaultPoolSize()));
@@ -72,6 +73,7 @@ export class WorkerPool {
   /** Run a task; resolves with the worker's result (or inline equivalent). */
   exec<T = unknown>(task: ParseTask, onProgress?: (p: PoolProgress) => void): Promise<T> {
     if (this.terminated) return Promise.reject(new Error('worker pool terminated'));
+    if (this.retiring) return Promise.reject(new Error('worker pool retired'));
 
     if (!this.workerCtor) {
       // Inline fallback: same runner, same progress contract, main thread.
@@ -90,6 +92,12 @@ export class WorkerPool {
     this.queue.push({ id, task });
     this.pump();
     return promise;
+  }
+
+  /** Drain accepted work, then release workers without aborting imports. */
+  retire(): void {
+    this.retiring = true;
+    this.pump();
   }
 
   /** Terminate every worker and reject queued + in-flight tasks. */
@@ -196,6 +204,7 @@ export class WorkerPool {
 
   /** Hand queued tasks to any free slot (FIFO). */
   private pump(): void {
+    if (this.terminated) return;
     while (this.queue.length > 0) {
       const free = this.slots.find((s) => !s.busy);
       if (free) {
@@ -223,6 +232,7 @@ export class WorkerPool {
       }
       break;
     }
+    if (this.retiring && this.pending.size === 0) this.terminateAll();
   }
 }
 
@@ -243,6 +253,7 @@ export function getSharedPool(): WorkerPool {
     requested = 'auto';
   }
   if (!shared || requested !== sharedSize) {
+    shared?.retire();
     shared = new WorkerPool(requested === 'auto' ? undefined : { size: requested });
     sharedSize = requested;
   }
