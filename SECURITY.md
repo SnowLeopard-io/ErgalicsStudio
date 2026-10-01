@@ -96,7 +96,7 @@ high/critical advisories fail CI unless explicitly allow-listed in
 `security.yml` (`AUDIT_ALLOWLIST`) with a reason; moderate findings are
 tracked here.
 
-State as of **2026-09-21** (app workspace runs `vite@6.4.3`, which is
+State as of **2026-10-01** (app workspace runs `vite@6.4.3`, which is
 patched; every remaining finding is rooted in the docs workspace):
 
 | Package | Severity | Advisory(s) | Status | Reason / plan |
@@ -111,6 +111,18 @@ Cleared in the 2026-09-21 upgrade window:
 - `@vitest/mocker` + `vitest` — GHSA-82fw-gwwq-j7x9 (path traversal via
   mocker redirect mock, dev/test only) — fixed by upgrading
   vitest 4.1.10 → 4.1.11.
+
+Cleared in the 2026-10-01 upgrade window:
+
+- `undici` — GHSA-rfgv-xxqx-mfg5 (DoS via unrequested WebSocket subprotocol)
+  and GHSA-w293-vg96-wgc3 (TLS certificate validation bypass via dropped
+  connect options in `BalancedPool`), plus nine further advisories on the
+  same node — fixed by upgrading undici 7.29.0 → 7.30.0. Transitive via
+  `jsdom` (vitest's optional peer, test environment only); jsdom's `^7.25.0`
+  floor admits the patch, so no `overrides` entry was needed.
+- `dompurify` — GHSA-p98j-92pf-mc4p (DOM XSS via `IN_PLACE` node-removing
+  `afterSanitize` hook) — fixed by upgrading dompurify 3.4.14 → 3.4.16.
+  Transitive via `jspdf`'s optional dependencies.
 
 ## Security hardening on the roadmap
 
