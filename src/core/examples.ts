@@ -192,6 +192,42 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
+    id: 'fluid-cfd-case-c',
+    filename: 'fluid-cfd-case-c.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.fluid-cfd-coupler',
+    loadContent: () => exampleContent('fluid-cfd-case-c.json'),
+    nameI18n: {
+      'zh-CN': '1D-3D 耦合 · 高扩散能量通道（Case C）',
+      'en-US': '1D-3D Coupling · High-Diffusion Energy Channel (Case C)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Case A 的场类型/边界变体：提高 3-D 侧扩散系数并加压差，映射航空航天/能源通道类多物理场景。加载后选中 Case C 预设，点击「运行耦合」——反向耦合分支实质性参与，背压抬升 18.15 kPa（Case A 仅约 0.5 Pa），而壅塞流量误差仍为 0，认证断言全部通过。',
+      'en-US':
+        'A field-type/boundary variant of Case A with higher 3-D diffusivity and a larger pressure difference, mapping energy-channel multi-physics. Load Case C, press Run Coupling: the reverse-coupling branch genuinely engages — an 18.15 kPa back-pressure rise (Case A only ~0.5 Pa) while the choked-flow error stays 0 and every certification assertion passes.',
+    },
+  },
+  {
+    id: 'fluid-cfd-case-d',
+    filename: 'fluid-cfd-case-d.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.fluid-cfd-coupler',
+    loadContent: () => exampleContent('fluid-cfd-case-d.json'),
+    nameI18n: {
+      'zh-CN': '1D-3D 耦合 · 亚临界非壅塞流（Case D）',
+      'en-US': '1D-3D Coupling · Subsonic Non-Choked Flow (Case D)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '补上壅塞算例之外的非壅塞工况：反向耦合把背压抬到压比 r = 0.5954（落在临界压比 0.5283 与 1 之间），喷嘴工作在亚临界区，出口流量对背压强敏感。加载后选中 Case D 预设并点击「运行耦合」，出口流量与文献等熵关系误差 0.107%，背压敏感度 −1.83（背压升 → 流量降），亚临界区间逐点对照最大误差 0.0%。',
+      'en-US':
+        'The non-choked counterpart of the choked cases: reverse coupling holds the back pressure at r = 0.5954 (between the critical 0.5283 and 1), so the nozzle runs subsonic where the outlet flow is strongly back-pressure sensitive. Load Case D and press Run Coupling: flow matches the literature isentropic relation to 0.107%, the sensitivity dln m/dln r is −1.83, and the subsonic sweep reproduces the formula to 0.0%.',
+    },
+  },
+  {
     id: 'diamond-sphere',
     filename: 'diamond.xyz',
     format: 'xyz',
