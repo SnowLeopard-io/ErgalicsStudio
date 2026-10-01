@@ -113,13 +113,18 @@ export const useChunkStore = create<ChunkStore>((set, get) => {
                 { provenance: 'chunked' },
               )
             : null;
+        const preview = s.preview ?? (await previewSample(entry.content, 20));
+        // Preview generation also awaits: cancellation/reset/new ingestion may
+        // have replaced this state since the worker completed.
+        const latest = get().state;
+        if (!latest || latest.cancelled || latest.fileId !== entry.id || latest.runId !== myRunId) return;
         set({
           state: {
-            ...s,
+            ...latest,
             totalRows: result.totalRows,
             chunkCount: result.chunks,
-            preview: s.preview ?? (await previewSample(entry.content, 20)),
-            current: current ?? s.current,
+            preview,
+            current: current ?? latest.current,
             currentChunkIndex: Math.max(0, result.chunks - 1),
             running: false,
             done: true,
@@ -128,9 +133,8 @@ export const useChunkStore = create<ChunkStore>((set, get) => {
         emit(DATA_INGESTED, { fileId: entry.id, hash, rows: result.totalRows });
       } catch (err) {
         const s = get().state;
-        if (s && s.fileId === entry.id && s.runId === myRunId) {
-          set({ state: { ...s, running: false } });
-        }
+        if (!s || s.cancelled || s.fileId !== entry.id || s.runId !== myRunId) return;
+        set({ state: { ...s, running: false } });
         const message = err instanceof Error ? err.message : String(err);
         useAppStore
           .getState()
@@ -168,7 +172,7 @@ export const useChunkStore = create<ChunkStore>((set, get) => {
 
   cancel: () => {
     const s = get().state;
-    if (s?.running) set({ state: { ...s, cancelled: true } });
+    if (s?.running) set({ state: { ...s, cancelled: true, running: false } });
   },
 
   reset: () => set({ state: null }),
