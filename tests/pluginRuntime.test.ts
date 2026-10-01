@@ -44,6 +44,12 @@ interface Probe {
   events: string[];
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 /** A minimal plugin that records lifecycle calls. */
 function makePlugin(id: string, probe: Probe, overrides: Partial<Plugin> = {}): Plugin {
   return {
@@ -261,6 +267,92 @@ describe('pluginStore lifecycle', () => {
 });
 
 // ---- run history & traceability ------------------------------------------
+
+describe('project plugin restoration', () => {
+  beforeEach(() => {
+    vi.spyOn(usePluginStore.getState(), 'ensureBuiltinsLoaded').mockResolvedValue(undefined);
+  });
+
+  it('restores an active plugin and its stored parameters', async () => {
+    const updateParams = vi.fn();
+    await usePluginStore.getState().load(makePlugin('restore.active', { events: [] }, { updateParams }));
+    await usePluginStore.getState().restoreState({ state: {
+      activePlugin: 'restore.active', parameters: { 'restore.active': { size: 8 } },
+    } });
+    expect(usePluginStore.getState().activeId).toBe('restore.active');
+    expect(updateParams).toHaveBeenLastCalledWith({ size: 8 });
+  });
+
+  it('deactivates the previous plugin when the opened project has no active plugin', async () => {
+    const deactivate = vi.fn();
+    await usePluginStore.getState().load(makePlugin('restore.empty', { events: [] }, { deactivate }));
+    await usePluginStore.getState().activate('restore.empty');
+    await usePluginStore.getState().restoreState({ state: { activePlugin: null } });
+    expect(usePluginStore.getState().activeId).toBeNull();
+    expect(deactivate).toHaveBeenCalledOnce();
+  });
+
+  it('discards a restoration that resumes after a newer project has restored', async () => {
+    const updateParams = vi.fn();
+    await usePluginStore.getState().load(makePlugin('restore.params', { events: [] }, { updateParams }));
+    const loading = deferred<void>();
+    vi.mocked(usePluginStore.getState().ensureBuiltinsLoaded).mockReturnValueOnce(loading.promise);
+    const lifecycle = vi.spyOn(usePluginStore.getState(), 'notifyProjectLifecycle');
+    const old = usePluginStore.getState().restoreState({ state: { parameters: { 'restore.params': { size: 1 } } } });
+    await usePluginStore.getState().restoreState({ state: { parameters: { 'restore.params': { size: 2 } } } });
+    loading.resolve();
+    await old;
+    expect(updateParams).toHaveBeenCalledExactlyOnceWith({ size: 2 });
+    expect(lifecycle).toHaveBeenCalledExactlyOnceWith('load');
+  });
+
+  it('invalidates a pending restore on explicit deactivation (create/remove/mode switch)', async () => {
+    await usePluginStore.getState().load(makePlugin('restore.cancel', { events: [] }));
+    const loading = deferred<void>();
+    vi.mocked(usePluginStore.getState().ensureBuiltinsLoaded).mockReturnValueOnce(loading.promise);
+    const old = usePluginStore.getState().restoreState({ state: { activePlugin: 'restore.cancel' } });
+    await usePluginStore.getState().deactivate();
+    loading.resolve();
+    await old;
+    expect(usePluginStore.getState().activeId).toBeNull();
+  });
+
+  it('applies the newer params last even when the older update RPC has already started', async () => {
+    let value = 0;
+    const started = deferred<void>();
+    const rpc = deferred<void>();
+    await usePluginStore.getState().load(makePlugin('restore.rpc', { events: [] }, {
+      updateParams: async (params) => {
+        if (params.size === 1) { started.resolve(); await rpc.promise; }
+        value = params.size as number;
+      },
+    }));
+    const lifecycle = vi.spyOn(usePluginStore.getState(), 'notifyProjectLifecycle');
+    const old = usePluginStore.getState().restoreState({ state: { parameters: { 'restore.rpc': { size: 1 } } } });
+    await started.promise;
+    const latest = usePluginStore.getState().restoreState({ state: { parameters: { 'restore.rpc': { size: 2 } } } });
+    rpc.resolve();
+    await Promise.all([old, latest]);
+    expect(value).toBe(2);
+    expect(lifecycle).toHaveBeenCalledExactlyOnceWith('load');
+  });
+
+  it('cleans up an old activation superseded by opening an empty project', async () => {
+    const started = deferred<void>();
+    const rpc = deferred<void>();
+    const deactivate = vi.fn();
+    await usePluginStore.getState().load(makePlugin('restore.slow', { events: [] }, {
+      activate: () => { started.resolve(); return rpc.promise; }, deactivate,
+    }));
+    const old = usePluginStore.getState().restoreState({ state: { activePlugin: 'restore.slow' } });
+    await started.promise;
+    const latest = usePluginStore.getState().restoreState({ state: { activePlugin: null } });
+    rpc.resolve();
+    await Promise.all([old, latest]);
+    expect(usePluginStore.getState().activeId).toBeNull();
+    expect(deactivate).toHaveBeenCalledOnce();
+  });
+});
 
 describe('run history', () => {
   it('records duration and outcome for a tracked run', async () => {
