@@ -14,7 +14,7 @@ import { create } from 'zustand';
 import { RUN_COMPLETED, emit, on } from '@/core/events';
 import { createRunRecord, type RunRecord, type RunSource } from '@/core/experiment/record';
 import { saveRun, listRuns, deleteRun, deleteRunsByProject } from '@/core/storage';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getProjectSession } from '@/stores/projectStore';
 import { FLOW_RUN_FINISHED } from '@/stores/blockStore';
 import type { FlowRunFinishedPayload } from '@/stores/blockStore';
 
@@ -51,6 +51,11 @@ interface ExperimentStore {
 }
 
 const MAX_METRICS = 10;
+let loadSeq = 0;
+
+function isCurrent(session: number, projectId: string): boolean {
+  return session === getProjectSession() && useProjectStore.getState().project?.id === projectId;
+}
 
 /**
  * Pull scalar numeric entries out of a run's outputs so the history table can
@@ -71,16 +76,20 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
   loading: false,
 
   loadRuns: async () => {
+    const request = ++loadSeq;
+    const session = getProjectSession();
     const projectId = useProjectStore.getState().project?.id;
     if (!projectId) {
-      set({ runs: [] });
+      set({ runs: [], loading: false });
       return;
     }
     set({ loading: true });
     try {
       const runs = await listRuns(projectId);
+      if (request !== loadSeq || !isCurrent(session, projectId)) return;
       set({ runs, loading: false });
     } catch {
+      if (request !== loadSeq || !isCurrent(session, projectId)) return;
       // Storage unavailable (private mode, quota) — tracking degrades to a
       // no-op rather than breaking the dialog.
       set({ runs: [], loading: false });
@@ -88,6 +97,7 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
   },
 
   recordRun: async (input) => {
+    const session = getProjectSession();
     const projectId = useProjectStore.getState().project?.id;
     if (!projectId) return null;
     const run = createRunRecord({
@@ -109,6 +119,7 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
     } catch {
       return null; // storage unavailable — never break the running feature
     }
+    if (!isCurrent(session, projectId)) return run;
     if (get().runs.some((r) => r.id === run.id)) return run; // dedup
     set((s) => ({ runs: [run, ...s.runs].slice(0, 200) }));
     emit(RUN_COMPLETED, { run });
@@ -116,18 +127,24 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
   },
 
   removeRun: async (id) => {
+    const session = getProjectSession();
+    const projectId = useProjectStore.getState().project?.id;
     try {
       await deleteRun(id);
     } catch {
       /* ignore */
     }
-    set((s) => ({ runs: s.runs.filter((r) => r.id !== id) }));
+    if (projectId && isCurrent(session, projectId)) {
+      set((s) => ({ runs: s.runs.filter((r) => r.id !== id) }));
+    }
   },
 
   clearRuns: async () => {
+    const session = getProjectSession();
+    ++loadSeq; // A pending read must not repopulate a cleared history.
     const projectId = useProjectStore.getState().project?.id;
     if (!projectId) {
-      set({ runs: [] });
+      set({ runs: [], loading: false });
       return;
     }
     try {
@@ -135,13 +152,25 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
     } catch {
       /* ignore */
     }
-    set({ runs: [] });
+    if (isCurrent(session, projectId)) set({ runs: [], loading: false });
   },
 }));
 
 // ---- app wiring -----------------------------------------------------------
 
 let initialized = false;
+
+let historySession = getProjectSession();
+let historyProjectId = useProjectStore.getState().project?.id;
+useProjectStore.subscribe((state) => {
+  const session = getProjectSession();
+  if (session === historySession && state.project?.id === historyProjectId) return;
+  historySession = session;
+  historyProjectId = state.project?.id;
+  ++loadSeq;
+  useExperimentStore.setState({ runs: [], loading: false });
+  if (initialized) void useExperimentStore.getState().loadRuns();
+});
 
 /**
  * Subscribe long-lived listeners. Called once from `App.tsx` (mirrors

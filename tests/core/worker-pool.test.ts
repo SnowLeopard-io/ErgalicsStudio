@@ -4,7 +4,7 @@
 // ==========================================================================
 
 import { describe, expect, it, vi } from 'vitest';
-import { WorkerPool } from '@/core/worker-pool';
+import { WorkerPool, getSharedPool } from '@/core/worker-pool';
 import { createParseWorkerRuntime } from '@/core/parse-worker';
 import { fingerprint } from '@/core/chunked/reader';
 import type { ParseResult } from '@/core/parse-tasks';
@@ -36,6 +36,69 @@ const fakeCtor = FakeWorker as unknown as new (
   url: string | URL,
   opts?: WorkerOptions,
 ) => Worker;
+
+describe('shared pool replacement', () => {
+  it('releases idle workers every time the configured size changes', async () => {
+    const workers: FakeWorker[] = [];
+    class TrackedWorker extends FakeWorker {
+      constructor(url: string | URL, opts?: WorkerOptions) { super(url, opts); workers.push(this); }
+    }
+    let size = 1;
+    vi.stubGlobal('Worker', TrackedWorker);
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ workerPoolSize: size }) });
+    let pool = getSharedPool();
+    try {
+      for (const nextSize of [2, 1, 2]) {
+        await pool.exec({ kind: 'fingerprint', text: CSV });
+        const previous = pool;
+        size = nextSize;
+        pool = getSharedPool();
+        expect(pool).not.toBe(previous);
+        expect(workers.every((worker) => worker.terminated)).toBe(true);
+      }
+      expect(await pool.exec({ kind: 'fingerprint', text: CSV })).toBe(fingerprint(CSV));
+    } finally { pool.terminateAll(); vi.unstubAllGlobals(); }
+  });
+
+  it('drains in-flight and queued tasks in the retired pool before terminating', async () => {
+    const workers: ControlledWorker[] = [];
+    class ControlledWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: ((ev: { message: string }) => void) | null = null;
+      onmessageerror: (() => void) | null = null;
+      messages: Array<{ id: number }> = [];
+      terminated = false;
+      constructor() { workers.push(this); }
+      postMessage(msg: { id: number }) { this.messages.push(msg); }
+      terminate() { this.terminated = true; }
+      finish(result: string) {
+        const msg = this.messages.shift()!;
+        this.onmessage?.({ data: { id: msg.id, ok: true, result } });
+      }
+    }
+    let size = 1;
+    vi.stubGlobal('Worker', ControlledWorker);
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ workerPoolSize: size }) });
+    const oldPool = getSharedPool();
+    const a = oldPool.exec({ kind: 'fingerprint', text: 'a' });
+    const b = oldPool.exec({ kind: 'fingerprint', text: 'b' });
+    const results = Promise.all([a, b]);
+    size = 2;
+    const newPool = getSharedPool();
+    try {
+      expect(workers[0]!.terminated).toBe(false);
+      await expect(oldPool.exec({ kind: 'fingerprint', text: 'late' })).rejects.toThrow('retired');
+      workers[0]!.finish('a');
+      expect(workers[0]!.terminated).toBe(false);
+      workers[0]!.finish('b');
+      expect(await results).toEqual(['a', 'b']);
+      expect(workers[0]!.terminated).toBe(true);
+      const next = newPool.exec({ kind: 'fingerprint', text: 'new' });
+      workers[1]!.finish('new');
+      expect(await next).toBe('new');
+    } finally { oldPool.terminateAll(); newPool.terminateAll(); vi.unstubAllGlobals(); }
+  });
+});
 
 // ---- inline fallback (no Worker available) ---------------------------------
 
