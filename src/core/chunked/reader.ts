@@ -13,6 +13,7 @@ import type { DataTable } from '@/types/datatable';
 import { hashString } from '@/core/repro/random';
 import { listFileChunks } from '@/core/storage';
 import { OpfsChunkStore } from '@/core/opfs';
+import { isNumericToken } from '@/core/io/numericToken';
 
 export interface ChunkedReadOptions {
   /** Rows per chunk (default 50_000). */
@@ -117,17 +118,29 @@ function splitTokens(line: string): string[] {
 
 // ---- header / column model -------------------------------------------------
 
+/** Data rows inspected before column types are locked (schema sample). */
+const SCHEMA_SAMPLE_ROWS = 1000;
+
 interface ChunkerState {
   names: string[];
   /** Projection: parsed-column index → output slot (−1 = dropped). */
   take: number[];
   width: number;
   started: boolean;
+  /**
+   * Per-parsed-column type, locked after inspecting the schema sample
+   * (mirrors the whole-file parser: a column with at least one finite
+   * numeric token is f64, otherwise it is a string/label column). Null
+   * while the first rows are still being sampled.
+   */
+  kinds: ('f64' | 'string')[] | null;
 }
 
 /** Decide whether the first data-bearing line is a header. */
 function isHeaderLine(tokens: string[]): boolean {
-  return tokens.some((t) => t !== '' && !Number.isFinite(Number(t)));
+  // NaN / Infinity / overflowing literals are numeric cells, not header
+  // evidence — only genuinely non-numeric tokens (labels, ids) count (EG1-105).
+  return tokens.some((t) => t !== '' && !isNumericToken(t));
 }
 
 function initState(headerTokens: string[] | null, firstRow: string[], projection: string[]): ChunkerState {
@@ -145,7 +158,7 @@ function initState(headerTokens: string[] | null, firstRow: string[], projection
   } else {
     for (let i = 0; i < width; i += 1) take.push(projection.includes(names[i]!) ? i : -1);
   }
-  return { names, take, width, started: true };
+  return { names, take, width, started: true, kinds: null };
 }
 
 /** Iterate data-bearing lines lazily (no whole-file split allocation). */
@@ -166,16 +179,26 @@ function* dataLines(text: string): Generator<string> {
 
 function buildChunkTable(
   state: ChunkerState,
-  columns: number[][],
+  numeric: number[][],
+  strings: string[][],
   index: number,
 ): DataTable {
+  const kinds = state.kinds!;
   const specs = state.take
     .filter((i) => i >= 0)
-    .map((i) => ({
-      name: state.names[i]!,
-      type: 'f64' as const,
-      data: Float64Array.from(columns[i]!),
-    }));
+    .map((i) =>
+      kinds[i] === 'string'
+        ? {
+            name: state.names[i]!,
+            type: 'string' as const,
+            data: strings[i]!,
+          }
+        : {
+            name: state.names[i]!,
+            type: 'f64' as const,
+            data: Float64Array.from(numeric[i]!),
+          },
+    );
   return createDataTable(`chunk-${index}`, specs, { provenance: 'chunked' });
 }
 
@@ -183,7 +206,10 @@ function buildChunkTable(
  * Read a delimited file in row windows. Yields one `ChunkedChunk` per window;
  * only the window's lines are held/parsed at a time. Semantics mirror the
  * whole-file delimited parser: header detection from the first data line,
- * malformed rows skipped, short rows NaN-padded, width from the first row.
+ * column typing from a leading sample (f64 when the column holds any finite
+ * numeric token, string/label otherwise), non-finite or missing numeric cells
+ * become NaN, short rows NaN/''-padded, and only genuinely over-long rows are
+ * skipped.
  */
 export async function* chunkedRead(
   text: string,
@@ -210,13 +236,62 @@ async function* chunkedReadFromLines(
 ): AsyncGenerator<ChunkedChunk> {
   const chunkRows = Math.max(1, Math.floor(opts.chunkRows ?? DEFAULT_CHUNK_ROWS));
   const projection = opts.columns ?? [];
+  // Lock column types after this many data rows (or the whole file when it
+  // is shorter); small windows (previews) lock earlier so a preview never
+  // exceeds its requested size.
+  const sampleRows = Math.min(SCHEMA_SAMPLE_ROWS, chunkRows);
 
   let headerTokens: string[] | null = null;
+  // Header detection is a one-shot decision on the first data-bearing line.
+  // Gating it on `!state` let label-like data rows ('s1,a,1.5') be re-eaten
+  // as headers forever, so a categorical-first file yielded zero rows (EG2-20).
+  let headerDecided = false;
   let state: ChunkerState | null = null;
-  let columns: number[][] = [];
+  // Pre-lock: raw token rows buffered for schema inference.
+  let sample: string[][] = [];
+  // Per-parsed-column accumulation buffers (post-lock).
+  let numeric: number[][] = [];
+  let strings: string[][] = [];
   let chunkIndex = 0;
   let totalRows = 0;
   let buffered = 0;
+
+  /** Infer column kinds from the sample, then replay it into the buffers. */
+  const lockSchema = (): void => {
+    const kinds: ('f64' | 'string')[] = [];
+    for (let i = 0; i < state!.width; i += 1) {
+      let hasFinite = false;
+      for (const row of sample) {
+        const t = row[i];
+        if (t !== undefined && t !== '' && Number.isFinite(Number(t))) {
+          hasFinite = true;
+          break;
+        }
+      }
+      kinds.push(hasFinite ? 'f64' : 'string');
+    }
+    state!.kinds = kinds;
+    numeric = state!.width ? Array.from({ length: state!.width }, () => [] as number[]) : [];
+    strings = state!.width ? Array.from({ length: state!.width }, () => [] as string[]) : [];
+    for (const tokens of sample) appendRow(tokens);
+    sample = [];
+  };
+
+  /** Type one data row into the buffers (EG2-20: rows are never dropped for
+   * their cell values — non-finite/missing numeric cells become NaN). */
+  const appendRow = (tokens: string[]): void => {
+    for (let i = 0; i < state!.width; i += 1) {
+      const t = i < tokens.length ? tokens[i]! : '';
+      if (state!.kinds![i] === 'string') {
+        strings[i]!.push(t);
+      } else {
+        const n = t === '' ? NaN : Number(t);
+        numeric[i]!.push(Number.isFinite(n) ? n : NaN);
+      }
+    }
+    buffered += 1;
+    totalRows += 1;
+  };
 
   const flush = (done: boolean): ChunkedChunk => {
     const index = chunkIndex;
@@ -224,8 +299,13 @@ async function* chunkedReadFromLines(
     const rows = buffered;
     buffered = 0;
     const table =
-      state && rows > 0 ? buildChunkTable(state, columns, index) : null;
-    columns = state ? state.take.map(() => []) : [];
+      state && state.kinds !== null && rows > 0
+        ? buildChunkTable(state, numeric, strings, index)
+        : null;
+    if (state && state.kinds !== null) {
+      numeric = numeric.map(() => []);
+      strings = strings.map(() => []);
+    }
     return { table, index, rows, totalRows, done };
   };
 
@@ -234,35 +314,38 @@ async function* chunkedReadFromLines(
     // Separator-only lines (`,,` / blank runs) carry no data.
     if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
 
-    // Only the first data-bearing line can be a header; once parsing has
-    // started, non-numeric lines fall through and are skipped as malformed.
-    if (!state && isHeaderLine(tokens)) {
-      headerTokens = tokens;
-      continue;
+    // Only the first data-bearing line can be a header; later label-like
+    // lines flow through as string cells instead of being dropped (the
+    // whole-file parser keeps them too).
+    if (!headerDecided) {
+      headerDecided = true;
+      if (isHeaderLine(tokens)) {
+        headerTokens = tokens;
+        continue;
+      }
     }
 
     if (!state) {
       state = initState(headerTokens, tokens, projection);
-      columns = state.take.map(() => []);
     }
 
     // An empty cell means "missing" (NaN), not zero; over-long rows are
-    // malformed and skipped; short rows keep their cells and NaN-pad.
-    const values = tokens.map((t) => (t === '' ? NaN : Number(t)));
-    const malformed = tokens.some((t, i) => t !== '' && !Number.isFinite(values[i]!));
-    if (malformed || tokens.length > state.width) continue;
+    // malformed and skipped; short rows keep their cells and are padded.
+    if (tokens.length > state.width) continue;
 
-    for (let i = 0; i < state.width; i += 1) {
-      columns[i]!.push(i < tokens.length ? values[i]! : NaN);
+    if (state.kinds === null) {
+      sample.push(tokens);
+      if (sample.length >= sampleRows) lockSchema();
+    } else {
+      appendRow(tokens);
     }
-    buffered += 1;
-    totalRows += 1;
 
     if (buffered >= chunkRows) {
       yield flush(false);
     }
   }
 
+  if (state && state.kinds === null) lockSchema();
   if (buffered > 0 || chunkIndex === 0) {
     // Trailing partial chunk — or a single done-marker for a dataless file.
     yield flush(true);

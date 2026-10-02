@@ -75,7 +75,16 @@ export async function loadFits(buffer: ArrayBuffer): Promise<RawVariable[]> {
         const col = record[k];
         for (let r = 0; r < nRows; r += 1) {
           const v = col ? col[r] : undefined;
-          flat[r * nCols + c] = typeof v === 'number' ? v : Number(v) || NaN;
+          // Convert first, then test finiteness: `Number(v) || NaN` mapped a
+          // valid numeric zero ("0") to NaN because 0 is falsy. Blank/
+          // whitespace-only cells stay missing (NaN), not zero.
+          const n =
+            typeof v === 'number'
+              ? v
+              : typeof v === 'string' && v.trim() === ''
+                ? NaN
+                : Number(v);
+          flat[r * nCols + c] = Number.isFinite(n) ? n : NaN;
         }
       });
       out.push({

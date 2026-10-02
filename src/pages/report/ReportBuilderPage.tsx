@@ -39,18 +39,25 @@ interface SectionDraft {
   kind: 'range' | 'categorical';
 }
 
+// EG4-35: per-section ids are generated fresh on addSection/fromSection —
+// EMPTY_SECTION is a shared module constant, and copying fixed ids from it
+// made every table (and every filter) in a report share one DOM id, so the
+// filter controls cross-drove all tables and the exported HTML duplicated ids.
+const freshTableId = (): string => `t${crypto.randomUUID().slice(0, 8)}`;
+const freshFilterId = (): string => `f${crypto.randomUUID().slice(0, 8)}`;
+
 const EMPTY_SECTION: SectionDraft = {
   type: 'heading',
   text: '',
   level: 2,
   sheetId: '',
   caption: '',
-  tableId: `t${Math.random().toString(36).slice(2, 8)}`,
+  tableId: '',
   title: '',
   fileId: '',
   maxRows: '200',
   includeFull: false,
-  filterId: `f${Math.random().toString(36).slice(2, 8)}`,
+  filterId: '',
   field: '',
   label: '',
   kind: 'range',
@@ -90,7 +97,7 @@ function toSection(d: SectionDraft): ReportSection | null {
 }
 
 function fromSection(s: ReportSection): SectionDraft {
-  const d = { ...EMPTY_SECTION, type: s.type, tableId: `t${Math.random().toString(36).slice(2, 8)}`, filterId: `f${Math.random().toString(36).slice(2, 8)}` };
+  const d = { ...EMPTY_SECTION, type: s.type, tableId: freshTableId(), filterId: freshFilterId() };
   if (s.type === 'heading') {
     d.text = s.text;
     d.level = s.level ?? 2;
@@ -211,7 +218,11 @@ export default function ReportBuilderPage() {
   };
 
   const addSection = (type: SectionType) => {
-    setDrafts((arr) => [...arr, { ...EMPTY_SECTION, type }]);
+    setDrafts((arr) => [
+      ...arr,
+      // Fresh ids per section (EG4-35) — never the shared constant's.
+      { ...EMPTY_SECTION, type, tableId: freshTableId(), filterId: freshFilterId() },
+    ]);
   };
 
   const patchDraft = (i: number, patch: Partial<SectionDraft>) => {

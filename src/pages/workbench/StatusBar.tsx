@@ -45,15 +45,19 @@ export function StatusBar() {
   };
 
   const leftText =
-    projectStatus === 'saved'
-      ? t('project.saved')
-      : projectStatus === 'saving'
-        ? t('status.saving')
-        : t(statusKey[status] ?? 'status.ready');
+    // EG3-111: a failed save used to fall through to the host status ("Ready"),
+    // silently hiding data that only lives in memory. Render it explicitly.
+    projectStatus === 'error'
+      ? t('project.save_failed')
+      : projectStatus === 'saved'
+        ? t('project.saved')
+        : projectStatus === 'saving'
+          ? t('status.saving')
+          : t(statusKey[status] ?? 'status.ready');
 
   return (
     <footer className="statusbar">
-      <div className="statusbar-left">{leftText}</div>
+      <div className={`statusbar-left${projectStatus === 'error' ? ' statusbar-error' : ''}`}>{leftText}</div>
       <div className="statusbar-center">
         <span className={`gpu-chip${gpuActive ? ' gpu-active' : ''}`}>
           {gpu.name} · {gpu.available ? 'WebGPU' : 'CPU'}

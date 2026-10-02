@@ -1013,6 +1013,12 @@
   gap: var(--space-3);
 }
 
+/* EG3-111: project save failures must be visible in the status bar. */
+.statusbar-left.statusbar-error {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
 .gpu-chip {
   padding: 1px 8px;
   border-radius: 999px;

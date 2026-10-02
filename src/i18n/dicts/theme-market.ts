@@ -40,6 +40,7 @@ export const themeMarketZh: LocaleDictionary = {
   'theme.chart_note': '图表配色联动：应用主题后，图表将优先使用其推荐色板；主题未提供色板时自动回退默认配色。',
   'theme.orthogonal_note': '主题与暗/亮模式正交兼容：切换明暗模式后主题仍然生效。',
   'theme.empty_installed': '暂无已安装的第三方主题。',
+  'theme.deep_link_not_found': '未找到主题「{id}」——请先在主题市场中安装后重试。',
 };
 
 export const themeMarketEn: LocaleDictionary = {
@@ -79,4 +80,5 @@ export const themeMarketEn: LocaleDictionary = {
   'theme.chart_note': 'Chart color linkage: with a theme applied, charts prefer its recommended palette; themes without one fall back to the default colors.',
   'theme.orthogonal_note': 'Themes are orthogonal to light/dark mode: switching modes keeps the theme active.',
   'theme.empty_installed': 'No third-party themes installed yet.',
+  'theme.deep_link_not_found': 'Theme "{id}" not found — install it from the theme market first.',
 };

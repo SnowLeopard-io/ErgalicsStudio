@@ -31,13 +31,15 @@ export const MAX_WASM_RETRIES = 3;
 export const WASM_RETRY_DELAY_MS = 1000;
 
 /**
- * Loader for the native module. The default dynamic import is marked
- * `@vite-ignore` on purpose: the module may be absent in dev / CI until
- * `build:wasm` runs, and Rollup must not try to resolve it for `build:web`.
- * Tests swap this via `__setWasmLoader` so they never touch the real file.
+ * Loader for the native module. The dynamic import uses a resolvable relative
+ * specifier so Vite/Rollup rewrite it (an alias would be left untouched under
+ * a browser `import()` and fail): builds always run `make-wasm-stub.mjs` (or
+ * `build:wasm`) first so the module exists at bundle time, and in dev a
+ * missing file rejects the import, which `tryLoad` catches for graceful
+ * degradation. Tests swap this via `__setWasmLoader`.
  */
 type WasmLoader = () => Promise<{ default?: unknown } & WasmModule>;
-let wasmLoader: WasmLoader = () => import(/* @vite-ignore */ '@/native/ergalics_core.js');
+let wasmLoader: WasmLoader = () => import('../native/ergalics_core.js');
 
 /** Test / environment hook: replace the module loader (see tests/wasm.test.ts). */
 export function __setWasmLoader(loader: WasmLoader): void {

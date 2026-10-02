@@ -25,5 +25,8 @@ export function twoSampleTTestPower(
 ): number {
   const ncp = Math.abs(d) * Math.sqrt(nPerGroup / 2);
   const zcrit = normalInv(1 - alpha / (twoSided ? 2 : 1));
-  return 1 - normalCdf(zcrit - ncp);
+  if (!twoSided) return 1 - normalCdf(zcrit - ncp);
+  // Two-sided rejection probability = upper tail + lower tail. Dropping the
+  // lower term returned α/2 at zero effect instead of α (EG1-104).
+  return 1 - normalCdf(zcrit - ncp) + normalCdf(-zcrit - ncp);
 }

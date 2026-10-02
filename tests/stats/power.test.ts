@@ -20,4 +20,14 @@ describe('stats/power', () => {
     const d2 = twoSampleTTestPower(0.8, 100, 0.05, true);
     expect(d2).toBeGreaterThan(d1);
   });
+
+  it('zero effect returns exactly α for a two-sided test (EG1-104)', () => {
+    const power = twoSampleTTestPower(0, 64, 0.05, true);
+    expect(close(power, 0.05, 1e-9)).toBe(true);
+  });
+
+  it('zero effect returns α for a one-sided test too', () => {
+    const power = twoSampleTTestPower(0, 64, 0.05, false);
+    expect(close(power, 0.05, 1e-9)).toBe(true);
+  });
 });

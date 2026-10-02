@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:wasm && tsc --noEmit && vite build && node scripts/build-docs.mjs",
-    "build:web": "tsc --noEmit && vite build && node scripts/build-docs.mjs",
+    "build:web": "node scripts/make-wasm-stub.mjs && tsc --noEmit && vite build && node scripts/build-docs.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "build:website": "npm run build --prefix website",

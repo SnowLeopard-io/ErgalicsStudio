@@ -39,12 +39,16 @@ describe('chunkedRead — boundaries', () => {
     expect(chunks[0]!.rows).toBe(2);
   });
 
-  it('skips malformed rows and counts only data rows', async () => {
+  it('keeps rows with non-finite/label cells, dropping only over-long rows (EG2-20)', async () => {
     const text = ['x,y', '1,2', 'oops,not-a-number', '3,4', '5,6,7', '5,', ''].join('\n');
     const chunks = await collect(text, { chunkRows: 100 });
-    expect(chunks[0]!.rows).toBe(3); // 1,2 · 3,4 · 5,(NaN)
+    // 1,2 · oops,NaN · 3,4 · 5,(NaN) — only the over-long 5,6,7 is malformed.
+    expect(chunks[0]!.rows).toBe(4);
+    const x = chunks[0]!.table!.getColumn('x') as Float64Array;
     const y = chunks[0]!.table!.getColumn('y') as Float64Array;
-    expect(y[2]).toBeNaN();
+    expect(x[1]).toBeNaN();
+    expect(y[1]).toBeNaN();
+    expect(y[3]).toBeNaN();
   });
 });
 
@@ -75,6 +79,37 @@ describe('chunkedRead — header & columns', () => {
     const quoted = await collect('"a,b",c\n1.5,3', { chunkRows: 10 });
     const first = quoted[0]!.table!.getColumn('a,b') as Float64Array;
     expect(Array.from(first)).toEqual([1.5]);
+  });
+
+  it('does not treat NaN/Infinity/overflow rows as headers (EG1-105)', async () => {
+    const chunks = await collect('NaN,Infinity,1e999\n1,2,3\n4,5,6', { chunkRows: 10 });
+    // The leading non-finite line is data (headerless → x/y/z defaults), and
+    // its rows survive instead of being swallowed as a phantom header.
+    const table = chunks[0]!.table!;
+    expect(table.columnNames()).toEqual(['x', 'y', 'z']);
+    expect(table.length).toBe(3);
+    const x = Array.from(table.getColumn('x') as Float64Array);
+    expect(Number.isNaN(x[0]!)).toBe(true);
+    expect(x[1]).toBe(1);
+    expect(x[2]).toBe(4);
+  });
+
+  it('keeps categorical label columns as string columns (EG2-20)', async () => {
+    const text = ['sample,group,value', 's1,a,1.5', 's2,b,2.5', 's3,a,3.5'].join('\n');
+    const chunks = await collect(text, { chunkRows: 2 });
+    const first = chunks[0]!.table!;
+    expect(first.columnNames()).toEqual(['sample', 'group', 'value']);
+    expect(first.columns.find((c) => c.name === 'sample')!.type).toBe('string');
+    expect(first.columns.find((c) => c.name === 'group')!.type).toBe('string');
+    expect(first.columns.find((c) => c.name === 'value')!.type).toBe('f64');
+    const sample = first.getColumn('sample');
+    expect(Array.isArray(sample) ? Array.from(sample as string[]) : []).toEqual(['s1', 's2']);
+    expect(Array.from(first.getColumn('value') as Float64Array)).toEqual([1.5, 2.5]);
+    // Types stay stable across chunk boundaries.
+    const second = chunks[1]!.table!;
+    expect(second.columns.find((c) => c.name === 'sample')!.type).toBe('string');
+    expect(second.getColumn('sample')).toEqual(['s3']);
+    expect(Array.from(second.getColumn('value') as Float64Array)).toEqual([3.5]);
   });
 
   it('yields chunks lazily (consumers can stop early)', async () => {
