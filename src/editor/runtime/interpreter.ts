@@ -96,6 +96,10 @@ function formatSpec(v: Value, spec: string | undefined): string {
 /** The language builtins every parsed program may call. Seeded with the
  *  studio api so `random.seed` / scalar draws hit the same shared engine. */
 function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
+  // Builtin loop generators (range/seq/seq_len/runif) share the While/Repeat
+  // iteration budget — they used to push into plain arrays with no cap, which
+  // froze the main thread on huge arguments (EG4-21).
+  const MAX_BUILTIN_ELEMS = 1_000_000;
   const one = (f: (x: number) => number): NativeFunc => ({
     kind: 'native-func',
     fn: (args) => f(toNum(args[0] ?? null)),
@@ -147,7 +151,12 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
       const stop = b === undefined ? a : b;
       const s = step === 0 ? 1 : step;
       const out: Value[] = [];
-      for (let v = start; s > 0 ? v < stop : v > stop; v += s) out.push(v);
+      // Bounded like While/Repeat: an unbounded generator would freeze the
+      // main thread instead of surfacing an error (EG4-21).
+      for (let v = start; s > 0 ? v < stop : v > stop; v += s) {
+        if (out.length >= MAX_BUILTIN_ELEMS) throw new Error(`range exceeded ${MAX_BUILTIN_ELEMS} elements`);
+        out.push(v);
+      }
       return out;
     },
   });
@@ -163,6 +172,22 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
   });
   // ---- R-flavoured aliases (running R-side IR in the builtin engine) ----
   map.set('length', { kind: 'native-func', fn: (args) => map.get('len')!.fn(args) });
+  // R's vector constructor: `c()` is the empty vector, `c(a, b, …)` flattens
+  // any list arguments and concatenates scalars. The R codegen renders every
+  // IR list literal as `c(…)` (core.ts List case) and grows vectors with
+  // `out <- c(out, x)`, so the interpreter must understand it for R-side
+  // programs to round-trip and execute.
+  map.set('c', {
+    kind: 'native-func',
+    fn: (args) => {
+      const out: Value[] = [];
+      for (const a of args) {
+        if (Array.isArray(a)) for (const x of a) out.push(x);
+        else out.push(a ?? null);
+      }
+      return out;
+    },
+  });
   map.set('seq', {
     kind: 'native-func',
     // R seq is inclusive on both ends.
@@ -170,8 +195,14 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
       const a = toNum(args[0] ?? null);
       const b = toNum(args[1] ?? null);
       const step = args.length > 2 && args[2] !== null ? Math.abs(toNum(args[2]!)) : 1;
+      // step=0 never advances the cursor — an unbounded loop that OOM-freezes
+      // the page. R errors on seq(…, by = 0); match it (EG4-21).
+      if (step === 0) throw new Error('seq step cannot be zero');
       const out: Value[] = [];
-      for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push(v);
+      for (let v = a; step > 0 ? v <= b : v >= b; v += step) {
+        if (out.length >= MAX_BUILTIN_ELEMS) throw new Error(`seq exceeded ${MAX_BUILTIN_ELEMS} elements`);
+        out.push(v);
+      }
       return out;
     },
   });
@@ -179,6 +210,7 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
     kind: 'native-func',
     fn: (args) => {
       const n = Math.max(0, Math.floor(toNum(args[0] ?? null)));
+      if (n > MAX_BUILTIN_ELEMS) throw new Error(`seq_len exceeded ${MAX_BUILTIN_ELEMS} elements`);
       const out: Value[] = [];
       for (let v = 1; v <= n; v += 1) out.push(v);
       return out;
@@ -236,6 +268,7 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
     fn: (args) => {
       const n = args.length > 0 ? Math.floor(toNum(args[0]!)) : 1;
       if (n === 1) return studio.random01();
+      if (n > MAX_BUILTIN_ELEMS) throw new Error(`runif exceeded ${MAX_BUILTIN_ELEMS} elements`);
       const out: Value[] = [];
       for (let i = 0; i < n; i += 1) out.push(studio.random01());
       return out;
