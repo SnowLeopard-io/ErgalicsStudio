@@ -3,8 +3,12 @@ import { createEmptyProject, type Project } from '@/types/project';
 import { getProject, listProjects, saveProject } from '@/core/storage';
 import { listProjectFiles, setProjectFiles } from '@/core/dataFiles';
 import { useProjectStore } from '@/stores/projectStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { useBlockStore } from '@/stores/blockStore';
+import { useAppStore } from '@/stores/appStore';
 
 const plugins = vi.hoisted(() => ({
+  activeId: null as string | null,
   getAllParams: vi.fn<() => Promise<Record<string, Record<string, unknown>>>>(),
   restoreState: vi.fn(),
   deactivate: vi.fn(),
@@ -43,13 +47,74 @@ beforeEach(() => {
   vi.mocked(saveProject).mockResolvedValue(undefined);
   vi.mocked(listProjects).mockResolvedValue([]);
   plugins.getAllParams.mockResolvedValue({});
+  plugins.activeId = null;
   useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null });
   setProjectFiles([]);
+  useEditorStore.getState().fromJSON({ sessions: [] });
+  useBlockStore.getState().fromJSON({ instances: [], connections: [], viewport: { x: 0, y: 0, zoom: 1 } });
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.clearAllTimers();
   vi.useRealTimers();
+});
+
+describe('live project snapshots', () => {
+  it('exports unsaved editor, graph and plugin state without claiming a durable save', async () => {
+    await open(createEmptyProject('export'));
+    const session = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().applyLanguageWithCode(session.id, 'python', 'answer = 42');
+    useAppStore.getState().setMode('code');
+    useBlockStore.getState().fromJSON({
+      instances: [{ id: 'node', blockId: 'test.source', params: { value: 7 }, position: { x: 1, y: 2 } }],
+      connections: [], viewport: { x: 10, y: 20, zoom: 2 },
+    });
+    plugins.activeId = 'test.plugin';
+    plugins.getAllParams.mockResolvedValue({ 'test.plugin': { value: 42 } });
+    useProjectStore.getState().setDirty(true);
+    let downloaded!: Blob;
+    const click = vi.fn();
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => { downloaded = blob as Blob; return 'blob:test'; });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.stubGlobal('document', { createElement: () => ({ click }) });
+    await useProjectStore.getState().saveAs();
+    const exported = JSON.parse(await downloaded.text()) as Project;
+    expect(exported.state.editorSessions?.[0]?.lastCode).toBe('answer = 42');
+    expect(exported.state.activeEditorSession).toBe(session.id);
+    expect(exported.state.workbenchMode).toBe('code');
+    expect(exported.state.blockGraph?.instances[0]?.params.value).toBe(7);
+    expect(exported.state.parameters).toEqual({ 'test.plugin': { value: 42 } });
+    expect(exported.state.activePlugin).toBe('test.plugin');
+    expect(useProjectStore.getState().dirty).toBe(true);
+    expect(saveProject).not.toHaveBeenCalled();
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])('cancels an export if its project session changes (reopen=%s)', async (reopen) => {
+    const a = createEmptyProject('A');
+    await open(a);
+    const params = deferred<Record<string, Record<string, unknown>>>();
+    plugins.getAllParams.mockReturnValueOnce(params.promise);
+    const download = vi.spyOn(URL, 'createObjectURL');
+    const exporting = useProjectStore.getState().saveAs();
+    await open(createEmptyProject('B'));
+    if (reopen) await open(a);
+    params.resolve({ old: { value: 1 } });
+    await exporting;
+    expect(download).not.toHaveBeenCalled();
+    expect(useProjectStore.getState().project?.state.parameters).toEqual({});
+  });
+
+  it('persists activation changes during ordinary saves', async () => {
+    await open(createEmptyProject('A'));
+    plugins.activeId = 'test.active';
+    await useProjectStore.getState().save();
+    expect(vi.mocked(saveProject).mock.lastCall?.[0].state.activePlugin).toBe('test.active');
+    plugins.activeId = null;
+    await useProjectStore.getState().save();
+    expect(vi.mocked(saveProject).mock.lastCall?.[0].state.activePlugin).toBeNull();
+  });
 });
 
 describe('project save concurrency', () => {

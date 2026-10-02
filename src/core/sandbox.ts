@@ -104,6 +104,7 @@ export function encodeArgs(
       // Float64Array flattens it into `{0,1,2,...}`, silently converting a
       // 4-byte-per-element buffer into thousands of boxed number entries.
       if (
+        value instanceof ArrayBuffer ||
         ArrayBuffer.isView(value) ||
         (typeof File !== 'undefined' && value instanceof File) ||
         (typeof Blob !== 'undefined' && value instanceof Blob) ||
@@ -142,7 +143,7 @@ export function decodeArgs(
       // .text()/.arrayBuffer()/.slice()/getContext() and break sandboxed
       // loadData / api.readText round trips and canvas rendering. Typed
       // arrays likewise (see encodeArgs).
-      if (ArrayBuffer.isView(value)) return value;
+      if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return value;
       if (typeof File !== 'undefined' && value instanceof File) return value;
       if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
       if (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas) {

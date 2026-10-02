@@ -9,6 +9,7 @@ import { useFigureStore } from '@/stores/figureStore';
 import type { FigureSheet } from '@/types/project';
 
 const plugins = vi.hoisted(() => ({
+  activeId: null,
   getAllParams: vi.fn<() => Promise<Record<string, Record<string, unknown>>>>(),
   restoreState: vi.fn(),
   deactivate: vi.fn(),
@@ -61,6 +62,9 @@ describe('figure panel removal persistence', () => {
 
     expect(useFigureStore.getState().activeSheetId).toBe(null);
     useFigureStore.getState().setActive('sheet-1');
+    let committed!: (snapshot: Project) => void;
+    const commit = new Promise<Project>((resolve) => { committed = resolve; });
+    vi.mocked(saveProject).mockImplementationOnce(async (snapshot) => { committed(snapshot); });
     useFigureStore.getState().removePanel('sheet-1', 1);
 
     const afterRemove = useProjectStore.getState().project?.state.figureSheets?.[0]?.panels.length;
@@ -68,10 +72,8 @@ describe('figure panel removal persistence', () => {
 
     // Destructive edits persist immediately — a refresh right after the
     // click must not resurrect the panel from the stale snapshot.
-    await Promise.resolve();
-    await Promise.resolve();
+    const saved = await commit;
     expect(vi.mocked(saveProject)).toHaveBeenCalled();
-    const saved = vi.mocked(saveProject).mock.lastCall?.[0];
     expect(saved?.state.figureSheets?.[0]?.panels.length).toBe(1);
 
     // Simulate the refresh: reopen the persisted snapshot.
