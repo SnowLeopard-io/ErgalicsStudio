@@ -5,8 +5,9 @@
 // body: `new Function('api', source)`. Therefore:
 //   - no `import` / `export` statements anywhere in this file (the build
 //     compiles in script mode — see tsconfig.json);
-//   - `api` below is the host-provided parameter (a bare `var` declaration
-//     is emitted, which binds to it without clobbering);
+//   - `api` below must be a `var`, never a `let`/`const`: the host executes
+//     this file as `new Function('api', source)`, and a `let` sharing the
+//     parameter name is a SyntaxError — `var` shares the parameter binding;
 //   - the emitted body ends with `return plugin;` (appended by build.mjs),
 //     handing the host an object that implements the `Plugin` contract.
 //
@@ -14,7 +15,7 @@
 // ==========================================================================
 
 /** Bound to the host-provided `api` parameter at runtime. */
-let api: PluginApi;
+var api: PluginApi;
 
 const manifest: PluginManifest = {
   id: 'com.example.starter',
