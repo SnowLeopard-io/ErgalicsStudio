@@ -105,11 +105,13 @@ export const useChunkStore = create<ChunkStore>((set, get) => {
           result.rows > 0 && result.columnNames.length > 0
             ? createDataTable(
                 `chunk-${Math.max(0, result.chunks - 1)}`,
-                result.columnNames.map((name, i) => ({
-                  name,
-                  type: 'f64' as const,
-                  data: Float64Array.from(result.columnData[i] ?? []),
-                })),
+                result.columnNames.map((name, i) => {
+                  const isString = result.columnTypes?.[i] === 'string';
+                  const data = result.columnData[i] ?? [];
+                  return isString
+                    ? { name, type: 'string' as const, data: (data as unknown[]).map((v) => String(v)) }
+                    : { name, type: 'f64' as const, data: Float64Array.from(data as number[]) };
+                }),
                 { provenance: 'chunked' },
               )
             : null;
