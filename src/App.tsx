@@ -42,14 +42,14 @@ function AppShell() {
   const location = useLocation();
   // The stage renders a *snapshot* of the router location so a navigation can
   // be cross-faded: we keep the previous page mounted over the new one for the
-  // duration of the transition, then let `loc` catch up. `key` (unique per
-  // navigation, unlike pathname) decides what counts as a real navigation.
-  const lastKey = useRef(location.key);
+  // duration of the transition, then let `loc` catch up. Native hash changes
+  // can share the same history key, so compare router location objects.
+  const lastLocation = useRef(location);
   const [loc, setLoc] = useState(location);
 
   useLayoutEffect(() => {
-    if (location.key === lastKey.current) return;
-    lastKey.current = location.key;
+    if (location === lastLocation.current) return;
+    lastLocation.current = location;
     const commit = () => flushSync(() => setLoc(location));
     const doc = document as ViewTransitionDocument;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;

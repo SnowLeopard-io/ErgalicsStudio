@@ -27,6 +27,7 @@ import { useAppStore } from './appStore';
 import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
+import { t } from '@/i18n';
 
 export type ProjectStatus =
   | 'ready'
@@ -47,7 +48,7 @@ interface ProjectStore {
   openProject: (id: string) => Promise<void>;
   loadProjectFromText: (raw: string) => Promise<Project>;
   save: () => Promise<void>;
-  saveAs: (fileName?: string) => void;
+  saveAs: (fileName?: string) => Promise<void>;
   openFromFile: (file: File) => Promise<Project>;
   rename: (name: string) => void;
   remove: (id: string) => Promise<void>;
@@ -83,8 +84,25 @@ let projectSession = 0;
 let editRevision = 0;
 let saveSeq = 0;
 
+/** Distinguishes switching away and reopening even the same project id. */
+export function getProjectSession(): number {
+  return projectSession;
+}
+
 function isCurrentSession(session: number, projectId: string): boolean {
   return session === projectSession && useProjectStore.getState().project?.id === projectId;
+}
+
+/** Both durable saves and downloads must collect the live runtime state. */
+async function collectProjectSnapshot(): Promise<Project | null> {
+  const { project } = useProjectStore.getState();
+  if (!project) return null;
+  const session = projectSession;
+  await useProjectStore.getState().applyPluginParams();
+  if (!isCurrentSession(session, project.id)) return null;
+  useProjectStore.getState().applyBlockGraph();
+  useProjectStore.getState().applyEditor();
+  return useProjectStore.getState().project;
 }
 
 async function importProjectText(raw: string, seq: number): Promise<Project> {
@@ -236,11 +254,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // and their final set() could overwrite each other out of order.
     set({ status: 'saving', statusText: null });
     try {
-      await get().applyPluginParams();
+      const current = await collectProjectSnapshot();
       if (!isCurrentSession(session, project.id)) return;
-      get().applyBlockGraph();
-      get().applyEditor();
-      const current = get().project;
       if (!current) {
         set({ status: 'ready' });
         return;
@@ -269,19 +284,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }, 1500);
   },
 
-  saveAs: (fileName) => {
-    const { project } = get();
-    if (!project) return;
-    const json = serializeProject(project);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName ?? project.name ?? 'project'}.clproj`;
-    a.click();
-    // Defer revoking: in some browsers revoking synchronously cancels the
-    // download before the browser has begun fetching the blob URL.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveAs: async (fileName) => {
+    try {
+      const project = await collectProjectSnapshot();
+      if (!project) return;
+      const json = serializeProject(project);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName ?? project.name ?? 'project'}.clproj`;
+      a.click();
+      // Allow the browser to begin fetching the blob before revoking it.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      logger.error('project', 'export failed', err);
+      useAppStore.getState().notify('error', t('project.save_failed'));
+    }
   },
 
   openFromFile: async (file) => {
@@ -355,6 +374,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         state: {
           ...project.state,
           parameters: params,
+          activePlugin: usePluginStore.getState().activeId,
         },
       },
     });

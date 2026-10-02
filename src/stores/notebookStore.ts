@@ -15,7 +15,7 @@ import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
 import type { VariableSnapshot } from '@/core/pyodide/protocol';
 import type { NotebookCell, NotebookCellOutput } from '@/core/notebook/notebook';
 import { createCell } from '@/core/notebook/notebook';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getProjectSession } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
 import { logger } from '@/core/logger';
 
@@ -34,14 +34,17 @@ interface NotebookStore {
 
 /** Lazily-created runtime; a fresh interpreter per Notebook mount. */
 let runtime: CodeRuntime | null = null;
+let runtimeGen = 0;
+let runSeq = 0;
 /** Per-run stream buffers, drained by runCell (single-flight). */
 let streamBuf: { stdout: string[]; stderr: string[] } = { stdout: [], stderr: [] };
 
 function ensureRuntime(): CodeRuntime {
   if (!runtime) {
+    const gen = runtimeGen;
     runtime = createCodeRuntime({
-      onStdout: (text) => streamBuf.stdout.push(text),
-      onStderr: (text) => streamBuf.stderr.push(text),
+      onStdout: (text) => { if (gen === runtimeGen) streamBuf.stdout.push(text); },
+      onStderr: (text) => { if (gen === runtimeGen) streamBuf.stderr.push(text); },
       // Plot payloads need a plugin host the Notebook doesn't have — drop
       // them; stdout/vars outputs are the notebook's contract.
       activatePlugin: async () => null,
@@ -115,8 +118,13 @@ export const useNotebookStore = create<NotebookStore>((set) => ({
   runCell: async (id) => {
     const { project } = useProjectStore.getState();
     const cell = project?.state.notebook?.cells.find((c) => c.id === id);
-    if (!cell || cell.type !== 'code') return;
+    if (!project || !cell || cell.type !== 'code') return;
     if (useNotebookStore.getState().runningCellId) return; // one cell at a time
+
+    const token = ++runSeq;
+    const session = getProjectSession();
+    const isCurrent = () => token === runSeq && session === getProjectSession()
+      && useProjectStore.getState().project?.id === project.id;
 
     set({ runningCellId: id });
     const started = performance.now();
@@ -132,6 +140,7 @@ export const useNotebookStore = create<NotebookStore>((set) => ({
       for (const f of project?.data.files ?? []) files[f.name] = f.content;
 
       const result = await rt.runPython(cell.source, files, {});
+      if (!isCurrent()) return;
       durationMs = result.durationMs || Math.round(performance.now() - started);
       ok = result.ok;
 
@@ -150,18 +159,25 @@ export const useNotebookStore = create<NotebookStore>((set) => ({
       );
       if (entries.length > 0) outputs.push({ kind: 'vars', entries });
     } catch (err) {
+      if (!isCurrent()) return;
       durationMs = Math.round(performance.now() - started);
       ok = false;
       outputs = [{ kind: 'error', text: String(err) }];
       logger.error('notebook', 'cell execution failed', err);
     }
 
-    mutateCells((cells) =>
-      cells.map((c) => (c.id === id ? { ...c, outputs, ok, durationMs } : c)),
-    );
+    if (!isCurrent()) return;
+    const currentCell = useProjectStore.getState().project?.state.notebook?.cells.find((c) => c.id === id);
+    // A result describes the executed source, not edits made during its await.
+    if (currentCell?.source === cell.source && currentCell.type === cell.type) {
+      mutateCells((cells) =>
+        cells.map((c) => (c.id === id ? { ...c, outputs, ok, durationMs } : c)),
+      );
+    }
     set({ runningCellId: null });
 
     emit(NOTEBOOK_EXECUTED, { cellId: id, ok, durationMs });
+    if (!isCurrent()) return;
     // Feed the experiment history so notebook runs appear in 运行记录/血缘.
     await useExperimentStore.getState().recordRun({
       source: 'notebook',
@@ -172,7 +188,22 @@ export const useNotebookStore = create<NotebookStore>((set) => ({
   },
 
   disposeRuntime: () => {
-    runtime?.dispose();
+    ++runSeq;
+    ++runtimeGen;
+    const previous = runtime;
     runtime = null;
+    set({ runningCellId: null });
+    previous?.dispose();
   },
 }));
+
+// A Python interpreter's globals and callbacks belong to one project session.
+let notebookSession = getProjectSession();
+let notebookProjectId = useProjectStore.getState().project?.id;
+useProjectStore.subscribe((state) => {
+  const session = getProjectSession();
+  if (session === notebookSession && state.project?.id === notebookProjectId) return;
+  notebookSession = session;
+  notebookProjectId = state.project?.id;
+  useNotebookStore.getState().disposeRuntime();
+});

@@ -64,6 +64,23 @@ describe('RPC encode/decode helpers', () => {
     const callbacks = new Map<number, (...a: unknown[]) => void>();
     expect(encodeArgs([42, 'x', [1, 2], null, undefined], callbacks)).toEqual([42, 'x', [1, 2], null, undefined]);
   });
+
+  it('preserves ArrayBuffer bytes during encoding, decoding and structured-clone round trips', () => {
+    const buffer = new Uint8Array([1, 2, 3, 255]).buffer;
+    const callbacks = new Map<number, (...a: unknown[]) => void>();
+    const encoded = encodeArgs([{ chunks: [buffer], view: new Uint8Array(buffer) }], callbacks) as [
+      { chunks: ArrayBuffer[]; view: Uint8Array },
+    ];
+    expect(encoded[0].chunks[0]).toBe(buffer);
+    // Decode an unencoded buffer too: encode and decode each need to preserve it.
+    expect(decodeArgs([buffer], () => {})[0]).toBe(buffer);
+    const decoded = decodeArgs(structuredClone(encoded), () => {}) as typeof encoded;
+    expect(decoded[0].chunks[0]).toBeInstanceOf(ArrayBuffer);
+    expect(Array.from(new Uint8Array(decoded[0].chunks[0]!))).toEqual([1, 2, 3, 255]);
+    expect(decoded[0].view).toBeInstanceOf(Uint8Array);
+    expect(Array.from(decoded[0].view)).toEqual([1, 2, 3, 255]);
+    expect(decoded[0].view.buffer).toBe(decoded[0].chunks[0]);
+  });
 });
 
 // ---- legacy fallback executor ----
@@ -133,6 +150,23 @@ class FakeWorker {
 }
 
 describe('createPluginSandbox (worker RPC)', () => {
+  it('delivers binary compute input to a sandboxed plugin intact', async () => {
+    const sandboxed = await createPluginSandbox({
+      entrySource: `return {
+        manifest: { id: 'x', name: 'x', version: '0', author: 'a', description: 'd', entry: 'e' },
+        init() {}, destroy() {}, activate() {}, deactivate() {}, getParams() { return []; },
+        async compute(input) { return { bytes: Array.from(new Uint8Array(input)), byteLength: input.byteLength }; }
+      };`,
+      manifest: MANIFEST, getApi: makeApi,
+      workerCtor: FakeWorker as unknown as typeof Worker,
+    });
+    expect(sandboxed).not.toBeNull();
+    try {
+      const buffer = new Uint8Array([1, 2, 3, 255]).buffer;
+      expect(await sandboxed!.plugin.compute!(buffer)).toEqual({ bytes: [1, 2, 3, 255], byteLength: 4 });
+    } finally { await sandboxed!.plugin.destroy?.(); }
+  });
+
   const ENTRY = `
     let internal;
     return {

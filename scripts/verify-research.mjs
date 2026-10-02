@@ -93,6 +93,9 @@ try {
     // Export SVG → expect a download event.
     const downloadPromise = page.waitForEvent('download', { timeout: 8000 });
     await page.getByRole('button', { name: 'SVG', exact: true }).click();
+    // The minimal fixture has incomplete submission metadata. Confirm the
+    // warning before expecting the export to reach the download handler.
+    await page.getByRole('dialog').getByRole('button', { name: /继续导出|Export anyway/i }).click();
     const download = await downloadPromise;
     report.step('svg download', download.suggestedFilename());
     await page.screenshot({ path: shot('research-03-figures.png') });
@@ -103,7 +106,9 @@ try {
   // ---- stage 4: supplement packaging ---------------------------------------
   try {
     await page.goto(`${server.url}/#/studio/supplement`, { waitUntil: 'domcontentloaded' });
-    await sleep(1000);
+    // Consecutive native hash navigations may share the same history key.
+    // Wait for the rendered route, not just the address bar, to catch up.
+    await page.locator('.supplement-form').waitFor({ timeout: 5000 });
     const formOpen = await page.evaluate(() => !!document.querySelector('.supplement-form'));
     report.step('supplement page opens (/studio/supplement)', formOpen);
     await page.locator('#supplement-author').fill('E2E Bot');
@@ -118,7 +123,7 @@ try {
   // ---- stage 5: notebook -----------------------------------------------------
   try {
     await page.goto(`${server.url}/#/studio/notebook`, { waitUntil: 'domcontentloaded' });
-    await sleep(1200);
+    await page.getByRole('button', { name: '+ PY', exact: true }).first().waitFor({ timeout: 5000 });
     await page.getByRole('button', { name: '+ PY', exact: true }).first().click();
     await sleep(300);
     await page.locator('.nb-source-code').fill("print('hello notebook')");
