@@ -276,6 +276,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (err) {
       logger.error('project', 'save failed', err);
       if (isCurrentSession(session, project.id)) set({ status: 'error' });
+      // EG3-111: the status flag alone left the failure invisible (the status
+      // bar showed the host status). Surface it in the toast layer as well.
+      useAppStore.getState().notify('error', t('project.save_failed'));
     }
     setTimeout(() => {
       if (seq === saveSeq && isCurrentSession(session, project.id) && get().status === 'saved') {
