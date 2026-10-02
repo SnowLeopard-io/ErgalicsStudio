@@ -1,10 +1,16 @@
 // WASM loader retry logic tests (spec §11.1: retry 3x, 1s interval).
 //
-// The native module (`@/native/ergalics_core.js`) is a build artifact that
-// is git-untracked and absent in a clean clone / CI until `build:wasm` runs,
-// so these tests inject a mock loader via `__setWasmLoader` instead of
-// relying on module resolution or `vi.doMock` (the dynamic import is
-// intentionally `@vite-ignore`d, which vitest cannot intercept).
+// Two layers are covered:
+//  1. Retry/backoff policy — via a mock loader injected through
+//     `__setWasmLoader` (pure policy tests, no module resolution involved).
+//  2. The real import path (EG2-39) — a real ESM fixture module under
+//     `tests/fixtures/native-esm.js` flows through an actual `import()`, so
+//     the loader contract (default init callable, named bindings surfaced,
+//     init failure retry) is verified rather than assumed. A conditional test
+//     also covers the default loader's graceful degradation when the native
+//     module is absent (clean clone / CI).
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const moduleMock = vi.hoisted(() => ({
@@ -25,6 +31,13 @@ async function freshWasm() {
       log: () => {},
     }),
   );
+  return wasm;
+}
+
+/** Fresh wasm module whose loader points at the REAL fixture module. */
+async function fixtureWasm() {
+  const wasm = await import('@/core/wasm');
+  wasm.__setWasmLoader(() => import('./fixtures/native-esm.js'));
   return wasm;
 }
 
@@ -63,4 +76,57 @@ describe('wasm loader', () => {
     expect(mod).toBeNull();
     expect(moduleMock.init.mock.calls.length).toBe(MAX_WASM_RETRIES);
   });
+});
+
+describe('wasm loader — real import path', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('loads a real ESM fixture: default init called, named bindings surfaced', async () => {
+    const fixture = await import('./fixtures/native-esm.js');
+    await fixture.setInitBehavior({ failTimes: 0 });
+    const { loadWasm } = await fixtureWasm();
+    const mod = await loadWasm();
+    expect(mod).not.toBeNull();
+    // The default export was invoked once as init…
+    expect(fixture.__fixtureInitCalls()).toBe(1);
+    // …and the named bindings flow through the real import.
+    expect(mod!.core_version()).toBe('fixture-core');
+    expect(mod!.detect_file_kind(new Uint8Array(4))).toBe(0);
+    expect(typeof mod!.log).toBe('function');
+  });
+
+  it('retries a real fixture whose default init fails, then succeeds', async () => {
+    const fixture = await import('./fixtures/native-esm.js');
+    await fixture.setInitBehavior({ failTimes: 2 }); // attempts 1–2 throw, 3 succeeds
+    const { loadWasm, WASM_RETRY_DELAY_MS } = await fixtureWasm();
+    const promise = loadWasm();
+    await vi.advanceTimersByTimeAsync(WASM_RETRY_DELAY_MS * 3 + 100);
+    const mod = await promise;
+    expect(mod).not.toBeNull();
+    expect(fixture.__fixtureInitCalls()).toBe(3);
+  });
+
+  it('default loader degrades to null when the native module is absent', async () => {
+    // Only meaningful on a clean checkout / CI where src/native/ergalics_core.js
+    // has not been generated (make-wasm-stub / build:wasm). When a developer
+    // has built the real module locally this path legitimately loads it.
+    const nativeModule = fileURLToPath(
+      new URL('../src/native/ergalics_core.js', import.meta.url),
+    );
+    if (existsSync(nativeModule)) return;
+    // Real timers: the default loader drives a REAL vite import(), whose
+    // failure propagation is not reliably driven by fake timers (the module
+    // runner can hold internal timer races). The real retry backoff is only
+    // ~2s total, well under the timeout.
+    vi.useRealTimers();
+    const { loadWasm } = await import('@/core/wasm');
+    await expect(loadWasm()).resolves.toBeNull();
+  }, 30_000);
 });

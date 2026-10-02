@@ -8,6 +8,7 @@
 // ==========================================================================
 
 import { createDataTable, type DataTable } from '@/types/datatable';
+import { isNumericToken } from '@/core/io/numericToken';
 
 interface ParsedColumn {
   name: string;
@@ -123,9 +124,10 @@ function parseDelimitedColumns(
     if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
 
     // The first data-bearing line is a header when it contains any non-numeric
-    // token. Once data rows exist the table width is fixed, so a later header
-    // can no longer be detected — matching the old behaviour.
-    if (headerArr === null && raw.length === 0 && tokens.some((t) => t !== '' && !Number.isFinite(Number(t)))) {
+    // token (NaN / Infinity / overflowing literals are numeric cells — see
+    // isNumericToken). Once data rows exist the table width is fixed, so a
+    // later header can no longer be detected — matching the old behaviour.
+    if (headerArr === null && raw.length === 0 && tokens.some((t) => t !== '' && !isNumericToken(t))) {
       headerArr = tokens;
       continue;
     }

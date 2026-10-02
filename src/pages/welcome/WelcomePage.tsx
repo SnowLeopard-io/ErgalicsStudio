@@ -92,11 +92,21 @@ export default function WelcomePage() {
         next.delete('theme');
         return next;
       }, { replace: true });
-      void import('@/core/theme-pack/registry').then(({ findThemeById, applyAndRemember }) => {
-        const theme = findThemeById(themeId);
+      void Promise.all([
+        import('@/core/theme-pack/registry'),
+        import('@/core/theme-pack/market'),
+      ]).then(([{ findThemeById, installTheme, applyAndRemember }, { findMarketEntry }]) => {
+        // Website cards carry market-catalog ids ('journal-serif', …) that
+        // never match the registry until explicitly installed — resolve via
+        // the market catalog first so a fresh browser still gets the theme
+        // applied, and report unknown ids instead of failing silently (EG4-80).
+        const entry = findMarketEntry(themeId);
+        const theme = entry ? installTheme(entry.theme) : findThemeById(themeId);
         if (theme) {
           applyAndRemember(theme);
           notify('success', t('theme.applied_deep_link', { name: theme.name }));
+        } else {
+          notify('warning', t('theme.deep_link_not_found', { id: themeId }));
         }
       });
       // "Apply in Studio" must land on the topic's settings page with the

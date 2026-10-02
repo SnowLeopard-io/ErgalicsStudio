@@ -1,4 +1,4 @@
-﻿// ==========================================================================
+// ==========================================================================
 // Ergalics Studio — IR → code generator (shared core)
 //
 // Pure, side-effect-free walker that renders an IRProgram as JavaScript or
@@ -224,11 +224,15 @@ function listCompExpr(node: Extract<IRNode, { kind: 'ListComp' }>, c: Ctx): stri
 function callExpr(node: Extract<IRNode, { kind: 'Call' }>, c: Ctx): string {
   const callee = node.callee;
   const args = node.args.map((a) => expr(a, c)).join(', ');
-  // `out.append(x)` — python list growth. R grows vectors by reassignment;
-  // JS uses push. Both render as real statements of the target language.
+  // `out.append(x)` — python list growth. JS uses `.push` (in-place, keeps the
+  // Call node so round-trips are stable). R keeps the dotted `out.append(x)`
+  // form: R identifiers allow `.`, so the parser restores it as a
+  // `Call('out.append')` which the interpreter's dotted dispatcher turns into
+  // a push. Emitting R's idiomatic `out <- c(out, x)` would be parsed back as
+  // a nested `List` (parse.ts treats `c(...)` as a list literal), changing
+  // flattening semantics and breaking the round-trip (EG4-22).
   if (callee.endsWith('.append') && node.args.length === 1) {
     const obj = callee.slice(0, -'.append'.length);
-    if (c.lang === 'r') return `${obj} <- c(${obj}, ${args})`;
     if (c.lang === 'js') return `${obj}.push(${args})`;
     return `${obj}.append(${args})`;
   }
@@ -519,6 +523,12 @@ function funcStmt(node: Extract<IRNode, { kind: 'FuncDef' }>, c: Ctx, level: num
   }
   // Function bodies are a fresh declaration scope with top-level-return legal.
   const fc: Ctx = { ...c, declared: new Set(), inFunction: true };
+  if (c.lang === 'js') {
+    // Names first assigned inside the function's blocks need a scope-top
+    // `let` — same block-scoping reasoning as the program prelude (EG4-23).
+    const prelude = applyJsPrelude(jsScopePrelude(node.body), fc.declared);
+    if (prelude !== '') lines.push(`${c.indentUnit.repeat(level + 1)}${prelude}`);
+  }
   node.body.forEach((s) => lines.push(stmt(s, fc, level + 1)));
   if (c.lang !== 'python') lines.push(`${ind}}`);
   return block(lines);
@@ -535,6 +545,126 @@ function rawStmt(node: Extract<IRNode, { kind: 'RawCode' }>, c: Ctx, level: numb
     .split('\n')
     .map((l) => ind + l)
     .join('\n');
+}
+
+// ---- JS declaration hoisting (EG4-23) --------------------------------------
+
+/**
+ * Names that must be `let`-declared at the top of this scope so JS's block
+ * scoping does not leave top-level uses dangling. A name is hoisted only when
+ * its first `declare` assignment sits inside a nested block *and* it is
+ * referenced at a level above that block (it escapes). A variable used only
+ * inside its declaring block is genuinely block-local and must NOT be hoisted
+ * — hoisting it would inject a spurious top-level statement and break IR
+ * round-trips (EG4-23). Nested FuncDefs own a fresh scope and are excluded.
+ */
+function jsScopePrelude(nodes: IRNode[]): string[] {
+  const decl = new Map<string, number>();
+  const ref = new Map<string, number>();
+  scanScope(nodes, 0, decl, ref);
+  const names: string[] = [];
+  for (const [name, declLv] of decl) {
+    if (declLv <= 0) continue;
+    const refLv = ref.get(name);
+    if (refLv !== undefined && refLv < declLv) names.push(name);
+  }
+  return names;
+}
+
+/** Record, per name, the minimum statement-block nesting level at which it is
+ *  declared (a `declare` VarAssign) and referenced (any VarRef). FuncDefs own
+ *  their own scope and are skipped here; funcStmt computes a separate prelude. */
+function scanScope(
+  nodes: IRNode[],
+  level: number,
+  decl: Map<string, number>,
+  ref: Map<string, number>,
+): void {
+  const recordRef = (name: string) => {
+    const prev = ref.get(name);
+    if (prev === undefined || level < prev) ref.set(name, level);
+  };
+  for (const node of nodes) {
+    collectExprRefs(node, recordRef);
+    if (node.kind === 'VarAssign') {
+      if (node.declare) {
+        const prev = decl.get(node.name);
+        if (prev === undefined || level < prev) decl.set(node.name, level);
+      }
+      continue; // value already scanned by collectExprRefs
+    }
+    switch (node.kind) {
+      case 'If':
+        node.branches.forEach((b) => scanScope(b.body, level + 1, decl, ref));
+        if (node.elseBody) scanScope(node.elseBody, level + 1, decl, ref);
+        break;
+      case 'While':
+      case 'Repeat':
+      case 'ForEach':
+        scanScope(node.body, level + 1, decl, ref);
+        break;
+      // FuncDef owns its scope; funcStmt computes its own prelude.
+    }
+  }
+}
+
+/** Extract every VarRef name from the expression sub-trees of `node`. Nested
+ *  statement bodies (If.branches[].body, While.body, …) are intentionally NOT
+ *  descended — scanScope walks them at their own nesting level, so their
+ *  references get the correct (deeper) level. */
+function collectExprRefs(node: IRNode, emit: (name: string) => void): void {
+  const walk = (n: IRNode | undefined): void => {
+    if (!n) return;
+    switch (n.kind) {
+      case 'VarRef': emit(n.name); return;
+      case 'List': n.items.forEach(walk); return;
+      case 'ListIndex': walk(n.list); walk(n.index); return;
+      case 'ListSlice': walk(n.list); walk(n.start); walk(n.stop); walk(n.step); return;
+      case 'Dict': n.entries.forEach((e) => walk(e.value)); return;
+      case 'BinaryOp': walk(n.left); walk(n.right); return;
+      case 'UnaryOp': walk(n.operand); return;
+      case 'Ternary': walk(n.cond); walk(n.then); walk(n.alt); return;
+      case 'FString': n.parts.forEach((p) => walk(p.expr)); return;
+      case 'ListComp': walk(n.iter); walk(n.body); walk(n.cond); return;
+      case 'Join': walk(n.items); return;
+      case 'Lambda': walk(n.body); return; // params are bindings, not refs
+      case 'Call':
+      case 'StudioCall':
+      case 'GpuRun': n.args.forEach(walk); return;
+      case 'Random': walk(n.count); walk(n.seed); return;
+      case 'Range': walk(n.start); walk(n.stop); walk(n.step); return;
+      case 'Filter': walk(n.data); walk(n.value); return;
+      case 'Normalize':
+      case 'Sort':
+      case 'Select': walk(n.data); return;
+      case 'AddColumn': walk(n.data); walk(n.values); return;
+      case 'Summary': walk(n.data); return;
+      case 'Histogram': walk(n.data); walk(n.bins); return;
+      case 'PlotScatter':
+      case 'PlotLine':
+      case 'PlotHistogram':
+      case 'PlotPointCloud': walk(n.data); return;
+      case 'VarAssign': walk(n.value); return;
+      case 'Return': walk(n.value); return;
+      case 'If': n.branches.forEach((b) => walk(b.cond)); return;
+      case 'While': walk(n.cond); return;
+      case 'Repeat': walk(n.count); return;
+      case 'ForEach': walk(n.iterable); return;
+      // Literals / Break / Continue / Import / FuncDef / RawCode / RawExpr
+      // expose no expression sub-trees here.
+      default: return;
+    }
+  };
+  walk(node);
+}
+
+/** Emit `let name = null;` lines for the scope prelude and register the names
+ *  as declared so in-body assignments render bare. The value is `null` (not a
+ *  bare `let name;`) so the generated statement round-trips through the JS
+ *  parser, which requires an initializer on `let`/`const`/`var` (EG4-23). */
+function applyJsPrelude(names: string[], declared: Set<string>): string {
+  names.forEach((name) => declared.add(name));
+  return names.map((name) => `let ${name} = null;`).join('\n');
 }
 
 function stmt(node: IRNode, c: Ctx, level: number): string {
@@ -635,7 +765,11 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
     case 'RawCode':
       return rawStmt(node, c, level);
     case 'Call':
-      return `${ind}${node.callee}(${node.args.map((a) => expr(a, c)).join(', ')})${terminator(c)}`;
+      // Route statement-position calls through callExpr so the dialect
+      // mappings (out.append → push / c(...), random.seed → setSeed, …)
+      // apply exactly as in expression position — emitting the raw callee
+      // produced `out.append(x)` in JS/R, a runtime error (EG4-22).
+      return `${ind}${callExpr(node, c)}${terminator(c)}`;
     default:
       // A bare expression statement — evaluate for side effects.
       return `${ind}${expr(node, c)}${terminator(c)}`;
@@ -646,6 +780,16 @@ function stmt(node: IRNode, c: Ctx, level: number): string {
 export function generate(program: IRProgram, lang: CodegenLang): string {
   const c: Ctx = { lang, indentUnit: lang === 'js' ? '  ' : '    ', declared: new Set(), inFunction: false };
   const parts: string[] = [];
+  if (lang === 'js') {
+    // EG4-23: declare names whose first assignment lives inside a nested
+    // block at the very top of the program, so later top-level uses are not
+    // dangling references.
+    const prelude = applyJsPrelude(jsScopePrelude(program.body), c.declared);
+    if (prelude !== '') {
+      parts.push(prelude);
+      if (program.functions.length > 0 || program.body.length > 0) parts.push('');
+    }
+  }
   if (program.functions.length > 0) {
     // Emit each function once — a duplicated FuncDef would define the same
     // symbol twice (a redeclaration error in strict JS).

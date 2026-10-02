@@ -29,8 +29,13 @@ export interface PoolProgress {
 /** Chunked parse result in clone-safe form (columns as plain arrays). */
 export interface ParseResult {
   columnNames: string[];
+  /**
+   * Per-column type ('f64' | 'string'), aligned with columnNames. Optional:
+   * older workers may omit it, in which case callers assume f64.
+   */
+  columnTypes?: Array<'f64' | 'string'>;
   /** Columns of the LAST non-empty chunk (inspection data). */
-  columnData: number[][];
+  columnData: number[][] | unknown[][];
   /** Rows in the last chunk. */
   rows: number;
   /** Cumulative data rows across all chunks. */
@@ -77,9 +82,13 @@ async function runChunked(
       // The trailing done-marker (rows=0) is not a data chunk.
       result.chunks = chunk.index + 1;
       result.rows = chunk.rows;
-      result.columnNames = chunk.table!.columnNames();
+      const table = chunk.table!;
+      result.columnNames = table.columnNames();
+      result.columnTypes = table.columns.map((c) =>
+        c.type === 'string' ? ('string' as const) : ('f64' as const),
+      );
       result.columnData = result.columnNames.map((name) =>
-        Array.from(chunk.table!.getColumn(name) as ArrayLike<number>),
+        Array.from(table.getColumn(name) as ArrayLike<number>),
       );
     }
     onProgress?.({ done: Math.min(chunk.totalRows, total), total });
