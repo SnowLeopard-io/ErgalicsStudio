@@ -40,9 +40,9 @@
   --right-panel-width: 284px;
   --transition-fast: 120ms ease;
   --transition-base: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
-  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.22);
-  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.32);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.10);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.16);
+  --shadow-3: 0 10px 28px rgba(0, 0, 0, 0.22);
   --focus-ring: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent);
   /* Motion easing. `--ease-out` matches the console's calm settle;
      `--ease-spring` adds a hair of overshoot for "pop" entrances without
@@ -73,31 +73,29 @@
   --color-border-hover: #33465c;
   --color-border-strong: #4c6480;
 
-  --color-accent: #2dd4bf;
-  --color-accent-hover: #5eead4;
-  --color-accent-active: #14b8a6;
-  --color-accent-soft: rgba(45, 212, 191, 0.14);
-  --color-accent-text: #5eead4;
+  --color-accent: #4c8dff;
+  --color-accent-hover: #6ea3ff;
+  --color-accent-active: #3b78e8;
+  --color-accent-soft: rgba(76, 141, 255, 0.12);
+  --color-accent-text: #7fa9ff;
 
-  /* Block-category badge hues (consumed by .cat-* in app.css). Defined per
-     theme: the bright dark-theme accents fail contrast on a light surface. */
-  --cat-scientific: #22d3ee;
-  --cat-scientific-soft: rgba(34, 211, 238, 0.16);
-  --cat-fun: #f472b6;
-  --cat-fun-soft: rgba(244, 114, 182, 0.16);
-  --cat-utility: #a78bfa;
-  --cat-utility-soft: rgba(167, 139, 250, 0.16);
+  --cat-scientific: #4aa3df;
+  --cat-scientific-soft: rgba(74, 163, 223, 0.12);
+  --cat-fun: #d98fc0;
+  --cat-fun-soft: rgba(217, 143, 192, 0.12);
+  --cat-utility: #9b8ce8;
+  --cat-utility-soft: rgba(155, 140, 232, 0.12);
 
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-error: #f87171;
-  --color-success-soft: rgba(52, 211, 153, 0.14);
-  --color-warning-soft: rgba(251, 191, 36, 0.16);
-  --color-error-soft: rgba(248, 113, 113, 0.16);
+  --color-success-soft: rgba(52, 211, 153, 0.12);
+  --color-warning-soft: rgba(251, 191, 36, 0.14);
+  --color-error-soft: rgba(248, 113, 113, 0.14);
 
   --color-canvas: #0a0e13;
   --color-scrollbar: #27313d;
-  --color-glow: rgba(45, 212, 191, 0.22);
+  --color-glow: rgba(0, 0, 0, 0);
 }
 
 /* ---- light theme — cool laboratory ---- */
@@ -260,14 +258,11 @@ button {
 .btn:hover:not(:disabled) {
   background: var(--color-bg-hover);
   border-color: var(--color-border-hover);
-  transform: translateY(-1px);
-  will-change: transform;
 }
 
 .btn:active:not(:disabled) {
   background: var(--color-bg-active);
-  transform: translateY(0) scale(0.97);
-  will-change: transform;
+  border-color: var(--color-border-strong);
 }
 
 .btn:disabled {
@@ -414,9 +409,8 @@ button {
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-2);
   border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-1);
 }
 
 .tag {
@@ -468,7 +462,7 @@ button {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   color: var(--color-text-tertiary);
 }
 
@@ -868,7 +862,7 @@ button {
   width: 100%;
   height: 100%;
   min-height: 0;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.22);
 }
 
 .ai-panel-head-actions {

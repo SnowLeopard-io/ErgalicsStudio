@@ -95,8 +95,8 @@
 }
 
 .gallery-card:hover .gallery-card-hit {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.12);
+  border-color: var(--color-border-hover);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.10);
 }
 
 .gallery-card:focus-within .gallery-card-hit {
