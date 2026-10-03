@@ -15,6 +15,10 @@
 // ==========================================================================
 
 /** Bound to the host-provided `api` parameter at runtime. */
+// The host runs this compiled as `new Function('api', source)`; a `let`/`const`
+// redeclaring the parameter name is a SyntaxError, so only `var` may shadow the
+// parameter binding. Keep the disable directive on the line directly above `var`.
+// eslint-disable-next-line no-var
 var api: PluginApi;
 
 const manifest: PluginManifest = {

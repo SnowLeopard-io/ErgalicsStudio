@@ -213,7 +213,7 @@ export class NBodyPlugin implements Plugin {
         type: 'button',
         variant: 'primary',
         action: 'gpu-compute',
-        labelI18n: { 'zh-CN': '⚡ GPU 全配对计算', 'en-US': '⚡ GPU all-pairs' },
+        labelI18n: { 'zh-CN': 'GPU 全配对计算', 'en-US': 'GPU all-pairs' },
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),

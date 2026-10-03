@@ -137,7 +137,7 @@ export class ParticlePlugin implements Plugin {
         type: 'button',
         variant: 'primary',
         action: 'gpu-compute',
-        labelI18n: { 'zh-CN': '⚡ GPU 加速计算', 'en-US': '⚡ GPU compute' },
+        labelI18n: { 'zh-CN': 'GPU 加速计算', 'en-US': 'GPU compute' },
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Particles CSV', '导出粒子 CSV'),

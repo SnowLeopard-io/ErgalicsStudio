@@ -6,9 +6,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(1100px 520px at 50% -10%, var(--color-accent-soft), transparent 70%),
-    var(--color-bg-primary);
+  background: var(--color-bg-primary);
 }
 
 .welcome-topbar,
@@ -1041,7 +1039,7 @@
     box-shadow: 0 0 4px var(--color-accent-soft);
   }
   50% {
-    box-shadow: 0 0 14px var(--color-accent);
+    box-shadow: 0 0 6px var(--color-accent-soft);
   }
 }
 
@@ -1146,13 +1144,11 @@
   height: 7px;
   border-radius: 50%;
   background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
   flex-shrink: 0;
 }
 
 .perf-entry.perf-warn .perf-dot {
   background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
 }
 
 /* ==========================================================================
@@ -1519,9 +1515,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(1000px 480px at 50% -10%, var(--color-accent-soft), transparent 70%),
-    var(--color-bg-primary);
+  background: var(--color-bg-primary);
 }
 
 .settings-topbar-left {
@@ -2216,7 +2210,7 @@
   width: min(460px, calc(100vw - 48px));
   padding: var(--space-5);
   border-top: 3px solid var(--color-accent);
-  box-shadow: var(--shadow-3), 0 0 48px var(--color-accent-soft);
+  box-shadow: var(--shadow-3);
 }
 
 .tour-tip-hero .tour-tip-title {
