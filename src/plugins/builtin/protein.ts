@@ -216,7 +216,7 @@ export class ProteinPlugin implements Plugin {
         type: 'button',
         variant: 'primary',
         action: 'layout-compute',
-        labelI18n: { 'zh-CN': '⚡ 计算力导向布局', 'en-US': '⚡ Compute layout' },
+        labelI18n: { 'zh-CN': '计算力导向布局', 'en-US': 'Compute layout' },
       },
       {
         key: 'colorBy',
