@@ -104,6 +104,9 @@ export class NBodyPlugin implements Plugin {
   private e0: number | null = null;
   /** Last science-output publish time (throttle: ≥ 0.5 s between writes). */
   private lastPub = 0;
+  /** Set by the host cancel handler while a one-shot compute is in flight;
+   *  the step loops check it between steps and bail out cleanly. */
+  private computeCancel = false;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -303,55 +306,76 @@ export class NBodyPlugin implements Plugin {
    * measured time to the perf panel.
    */
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
-    if (this.bodies.length === 0) {
-      return { ok: false, error: this.api.locale === 'zh-CN' ? '未加载数据 — 请先拖入 .json 文件或打开「示例数据」' : 'no data — load a .json file or sample data first' };
-    }
-    const steps = this.state.steps;
-    const { dt, G, softening } = this.state;
-    const t0 = performance.now();
-    const gpu = this.api.gpu;
-    const n = this.bodies.length;
-
-    if (gpu?.available) {
-      this.api.setStatus('computing');
-      const ok = await this.gpuIntegrate(gpu, steps, onProgress);
-      this.api.setStatus('ready');
-      if (ok) {
-        const ms = performance.now() - t0;
-        this.api.reportGpuTime(ms);
-        this.state.simTime += dt * steps;
-        this.updateGeometry();
-        this.draw();
-        this.publish(true);
-        return { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+    this.computeCancel = false;
+    // Host cancellation (status-bar 取消 / stop): flip the flag so the step
+    // loops below can bail out between steps; always unsubscribe on settle.
+    const offCancel = this.api.onCancel?.(() => {
+      this.computeCancel = true;
+    });
+    try {
+      if (this.bodies.length === 0) {
+        return { ok: false, error: this.api.locale === 'zh-CN' ? '未加载数据 — 请先拖入 .json 文件或打开「示例数据」' : 'no data — load a .json file or sample data first' };
       }
-    }
+      const steps = this.state.steps;
+      const { dt, G, softening } = this.state;
+      const t0 = performance.now();
+      const gpu = this.api.gpu;
+      const n = this.bodies.length;
 
-    // CPU fallback — mirror of the WGSL kernel.
-    const cap = Math.min(n, CPU_NBODY_CAP);
-    if (cap < n) {
-      this.api.notify(
-        'info',
-        this.api.locale === 'zh-CN'
-          ? `CPU 模式仅模拟前 ${cap} / ${n} 个天体（GPU 模式使用全部）`
-          : `CPU mode simulates the first ${cap} / ${n} bodies (GPU uses all)`,
-      );
+      if (gpu?.available) {
+        this.api.setStatus('computing');
+        const ok = await this.gpuIntegrate(gpu, steps, onProgress, () => this.computeCancel);
+        this.api.setStatus('ready');
+        if (this.computeCancel) {
+          // Cancelled mid-dispatch: report and stop — never fall through to
+          // the CPU fallback (a plain `ok === false` there means kernel failure).
+          this.api.notify('info', this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled');
+          return { ok: false, error: 'cancelled' };
+        }
+        if (ok) {
+          const ms = performance.now() - t0;
+          this.api.reportGpuTime(ms);
+          this.state.simTime += dt * steps;
+          this.updateGeometry();
+          this.draw();
+          this.publish(true);
+          return { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+        }
+      }
+
+      // CPU fallback — mirror of the WGSL kernel.
+      const cap = Math.min(n, CPU_NBODY_CAP);
+      if (cap < n) {
+        this.api.notify(
+          'info',
+          this.api.locale === 'zh-CN'
+            ? `CPU 模式仅模拟前 ${cap} / ${n} 个天体（GPU 模式使用全部）`
+            : `CPU mode simulates the first ${cap} / ${n} bodies (GPU uses all)`,
+        );
+      }
+      const work = this.bodies.slice(0, cap);
+      for (let s = 0; s < steps; s += 1) {
+        if (this.computeCancel) {
+          this.api.setStatus('ready');
+          this.api.notify('info', this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled');
+          return { ok: false, error: 'cancelled' };
+        }
+        advanceNBodyCPU(work, dt, G, softening);
+        onProgress?.({ done: s + 1, total: steps });
+      }
+      for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
+      this.state.simTime += dt * steps;
+      this.updateGeometry();
+      this.draw();
+      this.publish(true);
+      const ms = performance.now() - t0;
+      this.api.reportGpuTime(ms);
+      // Report the work actually done — the CPU path only simulated `cap` bodies,
+      // so `bytes` must not claim the full-N buffer allocation.
+      return { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
+    } finally {
+      offCancel?.();
     }
-    const work = this.bodies.slice(0, cap);
-    for (let s = 0; s < steps; s += 1) {
-      advanceNBodyCPU(work, dt, G, softening);
-      onProgress?.({ done: s + 1, total: steps });
-    }
-    for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
-    this.state.simTime += dt * steps;
-    this.updateGeometry();
-    this.draw();
-    this.publish(true);
-    const ms = performance.now() - t0;
-    this.api.reportGpuTime(ms);
-    // Report the work actually done — the CPU path only simulated `cap` bodies,
-    // so `bytes` must not claim the full-N buffer allocation.
-    return { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
   }
 
   /** Trigger the accelerated compute path from the params button. */
@@ -375,6 +399,12 @@ export class NBodyPlugin implements Plugin {
         this.api.locale === 'zh-CN'
           ? `计算完成（${engine}）— ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`
           : `Compute done (${engine}) — ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`,
+      );
+    } else if (result.error === 'cancelled') {
+      // Cancelled by the user — informational, not an error.
+      this.api.notify(
+        'info',
+        this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled',
       );
     } else {
       this.api.notify('error', result.error ?? 'compute failed');
@@ -410,12 +440,15 @@ export class NBodyPlugin implements Plugin {
   /**
    * Real WGSL all-pairs path with ping-pong buffers so the N step dispatches
    * stay on the device (no per-step read-back). Returns false on any failure
-   * so `compute()` can transparently fall back to CPU.
+   * so `compute()` can transparently fall back to CPU — except when the
+   * `isCancelled` predicate fires, which `compute()` detects via its own
+   * cancel flag and reports as a cancellation instead of a fallback.
    */
   private async gpuIntegrate(
     gpu: GpuComputeApi,
     steps: number,
     onProgress?: (p: ComputeProgress) => void,
+    isCancelled?: () => boolean,
   ): Promise<boolean> {
     const n = this.bodies.length;
     let bufA: ComputeBufferHandle | null = null;
@@ -457,6 +490,9 @@ export class NBodyPlugin implements Plugin {
 
       let lastOut: ComputeBufferHandle = bufB;
       for (let s = 0; s < steps; s += 1) {
+        // Bail before the next dispatch when the host cancelled: the finally
+        // block destroys the buffers and no result is read back.
+        if (isCancelled?.()) return false;
         const inBuf = s % 2 === 0 ? bufA : bufB;
         const outBuf = s % 2 === 0 ? bufB : bufA;
         if (!gpu.run(kernel, [inBuf, outBuf, paramsBuf], workgroups, 1, 1)) return false;

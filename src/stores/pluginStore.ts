@@ -19,6 +19,7 @@ import { createPluginCache, disposePluginCache } from '@/core/pluginCache';
 import { downloadBlob } from '@/core/download';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
+import { clearScienceOutputs } from '@/core/research/scienceOutput';
 
 export interface BeginRunInput {
   pluginId: string;
@@ -56,6 +57,14 @@ interface PluginStore {
   /** Close a run record as succeeded or failed. */
   finishRun: (id: string, ok: boolean, error?: string) => void;
   /**
+   * Cancel the active task: invoke the active plugin's registered cancel
+   * handlers (each guarded — a broken plugin must not crash the host),
+   * broadcast `host:cancel-task` (block-run mode still relies on it) and reset
+   * a stuck 'computing'/'loading' status so the host never stays busy when a
+   * plugin ignores the cancellation.
+   */
+  cancelActiveTask: () => void;
+  /**
    * Snapshot every loaded plugin's live parameters next to its version, so a
    * result can be attributed to the exact configuration that produced it.
    */
@@ -71,6 +80,9 @@ interface PluginStore {
 const paramSubscriptions = new Map<string, BusSubscription[]>();
 /** Per-plugin locale subscriptions so they can be released on unload. */
 const localeSubscriptions = new Map<string, Array<() => void>>();
+/** Per-plugin cancel handlers registered through `api.onCancel`, invoked when
+ *  the user cancels the active task from the status bar. */
+const cancelHandlers = new Map<string, Set<() => void>>();
 /** Sandboxed plugins receive locale pushes over the worker bridge. */
 const sandboxLocaleUpdaters = new Map<string, (locale: string) => void>();
 /**
@@ -227,6 +239,20 @@ function buildPluginApi(pluginId: string): PluginApi {
       return getGpuCompute() ?? undefined;
     },
     notify: (kind, message) => useAppStore.getState().notify(kind, message),
+    // Register a cancel handler for this plugin. Handlers live in a module-level
+    // map keyed by plugin id (api objects are rebuilt per context, but handlers
+    // must survive); the returned fn unsubscribes.
+    onCancel: (handler) => {
+      const handlers = cancelHandlers.get(pluginId) ?? new Set<() => void>();
+      handlers.add(handler);
+      cancelHandlers.set(pluginId, handlers);
+      return () => {
+        const current = cancelHandlers.get(pluginId);
+        if (!current) return;
+        current.delete(handler);
+        if (current.size === 0) cancelHandlers.delete(pluginId);
+      };
+    },
     // Structured logging: the scope carries the plugin id so an exported
     // trace can be filtered per plugin without parsing message text.
     log: (level, message, details) => {
@@ -551,6 +577,12 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
+        // A parameter change invalidates previously published conclusions:
+        // clear them *before* updateParams so a fresh publish made inside the
+        // call survives. Env-style plugins re-publish during draw(); for
+        // compute-style plugins the stale metrics honestly disappear until the
+        // next computation (scienceOutput contract: stale results never linger).
+        clearScienceOutputs(id);
         void Promise.resolve()
           .then(() => plugin.updateParams?.(params))
           .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
@@ -755,6 +787,29 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         };
       }),
     }));
+  },
+
+  cancelActiveTask: () => {
+    const { activeId } = get();
+    if (activeId) {
+      for (const handler of cancelHandlers.get(activeId) ?? []) {
+        // One misbehaving plugin must not abort the fan-out to the others.
+        try {
+          handler();
+        } catch (err) {
+          logger.warn('plugin', 'cancel handler failed', { id: activeId }, err);
+        }
+      }
+    }
+    // Block-run mode still listens for the broadcast.
+    emit('host:cancel-task', {});
+    // A plugin that ignores cancellation must not leave the host stuck on
+    // "computing"/"loading" — reset it (same semantics as the api's
+    // setStatus, which syncs useAppStore).
+    const status = useAppStore.getState().status;
+    if (status === 'computing' || status === 'loading') {
+      useAppStore.getState().setStatus('ready');
+    }
   },
 
   exportParameterSnapshot: async () => {

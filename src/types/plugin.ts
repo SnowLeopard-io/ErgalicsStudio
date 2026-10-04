@@ -462,6 +462,11 @@ export interface PluginApi {
   /** Show a toast notification to the user. */
   notify(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
 
+  /** Subscribe to host cancellation (status-bar 取消 / stop). Returns an unsubscribe fn.
+   * Host invokes handlers when the user cancels the active task; long computations
+   * should check their cancel flag between steps and bail out cleanly. */
+  onCancel?(handler: () => void): () => void;
+
   /**
    * Emit a structured log line under the `plugin:<id>` scope.
    *

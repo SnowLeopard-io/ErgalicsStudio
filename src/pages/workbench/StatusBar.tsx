@@ -6,7 +6,6 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { getGpuBackend } from '@/core/gpu';
 import { subscribeGpuActivity } from '@/core/compute';
-import { emit } from '@/core/events';
 
 export function StatusBar() {
   const t = useT();
@@ -85,8 +84,9 @@ export function StatusBar() {
           : t(statusKey[status] ?? 'status.ready');
 
   // Long-running task indicator: visible while the host computes, loads or
-  // saves. Cancel stops the active block run and broadcasts a cancel request
-  // (plugin workers may subscribe to 'host:cancel-task').
+  // saves. Cancel stops the active block run and asks the plugin store to
+  // cancel the active task (fan-out to registered plugin handlers, broadcast
+  // 'host:cancel-task', reset a stuck busy status).
   const busy = status === 'computing' || status === 'loading' || projectStatus === 'saving';
   const busyLabel = projectStatus === 'saving'
     ? t('ux.progress.saving')
@@ -96,7 +96,7 @@ export function StatusBar() {
 
   const cancelTask = () => {
     useBlockStore.getState().stop();
-    emit('host:cancel-task', {});
+    usePluginStore.getState().cancelActiveTask?.();
   };
 
   return (
