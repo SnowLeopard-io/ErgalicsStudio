@@ -107,14 +107,44 @@ const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
 /** Warn when GPU memory exceeds 80% of this assumed budget (spec §7.3). */
 const MEMORY_WARN_MB = 0.8 * 512;
 
-export const useAppStore = create<AppStore>((set, get) => ({
+/** Panel visibility persists across reloads so a deliberately closed sidebar
+ *  (or code/flow panel) stays closed next launch. */
+const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
+const PANEL_DEFAULTS = { sidebarOpen: true, rightPanelOpen: true, modePanelOpen: true } as const;
+
+function loadPanelPrefs(): typeof PANEL_DEFAULTS {
+  try {
+    const raw = localStorage.getItem(PANEL_PREFS_KEY);
+    if (!raw) return { ...PANEL_DEFAULTS };
+    const parsed = JSON.parse(raw) as Partial<typeof PANEL_DEFAULTS>;
+    return {
+      sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
+      rightPanelOpen: parsed.rightPanelOpen ?? PANEL_DEFAULTS.rightPanelOpen,
+      modePanelOpen: parsed.modePanelOpen ?? PANEL_DEFAULTS.modePanelOpen,
+    };
+  } catch {
+    return { ...PANEL_DEFAULTS };
+  }
+}
+
+const persistPanelPrefs = (s: { sidebarOpen: boolean; rightPanelOpen: boolean; modePanelOpen: boolean }) => {
+  try {
+    localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
+  } catch {
+    /* private mode — prefs simply do not persist */
+  }
+};
+
+export const useAppStore = create<AppStore>((set, get) => {
+  const panelPrefs = loadPanelPrefs();
+  return {
   status: 'ready',
   banners: [],
   notifications: [],
   perf: DEFAULT_PERF,
-  sidebarOpen: true,
-  rightPanelOpen: true,
-  modePanelOpen: true,
+  sidebarOpen: panelPrefs.sidebarOpen,
+  rightPanelOpen: panelPrefs.rightPanelOpen,
+  modePanelOpen: panelPrefs.modePanelOpen,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -187,9 +217,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setPerfMemory: (jsHeapMb, deviceMemoryMb) =>
     set((s) => ({ perf: { ...s.perf, jsHeapMb, deviceMemoryMb } })),
 
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-  toggleModePanel: () => set((s) => ({ modePanelOpen: !s.modePanelOpen })),
+  toggleSidebar: () =>
+    set((s) => {
+      const next = { ...s, sidebarOpen: !s.sidebarOpen };
+      persistPanelPrefs(next);
+      return next;
+    }),
+  toggleRightPanel: () =>
+    set((s) => {
+      const next = { ...s, rightPanelOpen: !s.rightPanelOpen };
+      persistPanelPrefs(next);
+      return next;
+    }),
+  toggleModePanel: () =>
+    set((s) => {
+      const next = { ...s, modePanelOpen: !s.modePanelOpen };
+      persistPanelPrefs(next);
+      return next;
+    }),
   setMode: (mode) => {
     if (mode === get().mode) return;
     set({ mode });
@@ -203,4 +248,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
         .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
     }
   },
-}));
+  };
+});

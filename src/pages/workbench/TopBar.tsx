@@ -13,6 +13,9 @@ import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
+import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
+import { useShortcutsStore } from '@/stores/shortcutsStore';
+import { useModeSync } from '@/hooks/useModeSync';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 
 const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
@@ -39,6 +42,7 @@ export function TopBar() {
   const startTour = useTourStore((s) => s.start);
   const aiOpen = useAiPanelStore((s) => s.open);
   const toggleAi = useAiPanelStore((s) => s.toggle);
+  const syncState = useModeSync();
 
   // Single dialog key: only one TopBar dialog can be open at a time, so the
   // previous eleven booleans collapse into this one piece of state (rendered
@@ -113,6 +117,14 @@ export function TopBar() {
               {t(`workbench.mode.${key}`)}
             </button>
           ))}
+          {syncState !== 'idle' && (
+            <span
+              className={`mode-sync-dot is-${syncState}`}
+              data-sync={syncState}
+              title={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
+              aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
+            />
+          )}
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />
@@ -206,6 +218,28 @@ export function TopBar() {
         {/* Zone 4 — global tools. The icon trio collapses into the ⋯ overflow
             menu on narrow screens (see topbar-resp CSS). */}
         <div className="topbar-cluster cluster-icons">
+          <button
+            type="button"
+            className="cluster-btn icon-only topbar-hide-narrow"
+            title={t('ux.palette.open')}
+            aria-label={t('ux.palette.open')}
+            onClick={() => useCommandPaletteStore.getState().toggle()}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M7 9l3 3-3 3" />
+              <path d="M13 15h4" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="cluster-btn icon-only topbar-hide-narrow"
+            title={t('ux.shortcuts.title')}
+            aria-label={t('ux.shortcuts.title')}
+            onClick={() => useShortcutsStore.getState().toggle()}
+          >
+            <span className="cluster-btn-glyph">?</span>
+          </button>
           <button
             type="button"
             className={`cluster-btn icon-only${aiOpen ? ' is-active' : ''}`}

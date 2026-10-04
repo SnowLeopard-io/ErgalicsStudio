@@ -3,8 +3,10 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
+import { EmptyState } from '@/components/EmptyState';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
+import { usePanelWidth } from '@/hooks/usePanelWidth';
 
 export function RightPanel() {
   const t = useT();
@@ -14,6 +16,7 @@ export function RightPanel() {
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
+  const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520);
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
   useEffect(() => {
@@ -53,12 +56,25 @@ export function RightPanel() {
   if (!rightPanelOpen) return null;
 
   return (
-    <aside className="right-panel">
+    <aside className="right-panel" style={{ width: resize.width }}>
+      <div
+        className="panel-resize-handle panel-resize-left"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('ux.resize.right')}
+        title={t('ux.resize.right')}
+        onPointerDown={resize.onPointerDown}
+        onPointerMove={resize.onPointerMove}
+        onPointerUp={resize.onPointerUp}
+      />
       <h3 className="panel-title">{t('workbench.right.params')}</h3>
       {activeId && activePlugin ? (
         <>
           {params.length === 0 && (
-            <div className="empty-hint right-panel-empty">{t('workbench.right.no_params')}</div>
+            <EmptyState
+              className="right-panel-empty"
+              title={t('workbench.right.no_params')}
+            />
           )}
           <ParamPanel
             params={params}
@@ -72,7 +88,11 @@ export function RightPanel() {
           </div>
         </>
       ) : (
-        <div className="empty-hint right-panel-empty">{t('workbench.right.no_plugin')}</div>
+        <EmptyState
+          className="right-panel-empty"
+          title={t('workbench.right.no_plugin')}
+          description={t('workbench.empty.subtitle')}
+        />
       )}
     </aside>
   );

@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -392,7 +393,7 @@ export default function SignalLabPage() {
 
       {error && <p className="analysis-error">{error}</p>}
 
-      {project && !result && !error && <div className="empty-hint">{t('signal.no_result')}</div>}
+      {project && !result && !error && <EmptyState title={t('signal.no_result')} />}
 
       {result && (
         <div className="research-results">

@@ -316,6 +316,32 @@ export class EmEigensolverPlugin implements Plugin {
 
   async loadData(file: File) {
     const lower = file.name.toLowerCase();
+    // Top-bar sample markers ({"em_sample": "cavity_small"}) route into the
+    // built-in sample path instead of the matrix-file path, mirroring the
+    // fluid plugin's case markers.
+    if (lower.endsWith('.json')) {
+      try {
+        const text = await file.text();
+        const marker = JSON.parse(text) as { em_sample?: string };
+        const id = marker.em_sample;
+        if (id && EM_SAMPLES.includes(id as (typeof EM_SAMPLES)[number])) {
+          this.file = null;
+          this.state.source = 'sample';
+          this.state.sample = id;
+          this.result = null;
+          this.history = [];
+          this.refreshParams();
+          const label = SAMPLE_LABELS[id]?.zh ?? id;
+          notify(this.api, 'info', `Sample ${label} loaded — press Solve.`, `已加载样例「${label}」——点击「运行求解」。`);
+          this.draw();
+          return;
+        }
+      } catch {
+        // fall through to the unsupported-format warning below
+      }
+      notify(this.api, 'warning', 'Unsupported file — use .npz / .npy / .mtx.', '不支持的文件格式——请使用 .npz / .npy / .mtx。');
+      return;
+    }
     if (!lower.endsWith('.npz') && !lower.endsWith('.npy') && !lower.endsWith('.mtx')) {
       notify(this.api, 'warning', 'Unsupported file — use .npz / .npy / .mtx.', '不支持的文件格式——请使用 .npz / .npy / .mtx。');
       return;

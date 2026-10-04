@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -213,9 +214,7 @@ export default function NotebookPage() {
         </>
       }
     >
-      {project && cells.length === 0 && (
-        <div className="empty-hint">{t('notebook.empty')}</div>
-      )}
+      {project && cells.length === 0 && <EmptyState title={t('notebook.empty')} />}
 
       <div className="nb-cells">
         {cells.map((cell, i) => (

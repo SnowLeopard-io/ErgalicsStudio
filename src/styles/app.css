@@ -833,8 +833,10 @@
   inset: 14px;
   z-index: 10;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-3);
   border: 2px dashed var(--color-accent);
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
@@ -843,6 +845,19 @@
   font-weight: 600;
   pointer-events: none;
   backdrop-filter: blur(1px);
+  animation: drop-hint-pulse 1.4s ease-in-out infinite;
+}
+
+/* Restrained instrument-console pulse: the dashed frame breathes, the icon
+   stays still — signaling "drop here" without a bouncing payload. */
+@keyframes drop-hint-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 var(--color-glow); }
+  50% { box-shadow: inset 0 0 0 4px var(--color-glow); }
+}
+
+.central-drop-hint-icon {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 6px var(--color-glow));
 }
 
 /* ---- right panel ---- */
@@ -4478,6 +4493,15 @@
   box-shadow: 0 0 5px var(--color-success);
 }
 
+/* "?" glyph for the keyboard-shortcuts entry — sits inside an icon-only
+   button, sized to read like a keycap rather than a text character. */
+.cluster-btn-glyph {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 1;
+}
+
 .perf-entry.perf-warn {
   color: var(--color-warning);
 }
@@ -5914,4 +5938,543 @@ button.start-card:hover {
 .tool-content input:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* ==========================================================================
+   UX 改进层 — 命令面板 / 模式同步点 / 面板拖拽 / 状态栏弹层与进度 /
+   AI 悬浮球 / 图表读出 / 紧凑空状态
+   全部为新增选择器，不触碰既有规则；发光分层遵循 --glow-hover（hover
+   克制）与 --color-glow（状态指示）两档 token。
+   ========================================================================== */
+
+/* ---- 全局命令面板 (Ctrl+K) ---- */
+
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 11vh;
+  /* Above modals (2000) and the tour layer (2500) so Ctrl+K always wins. */
+  z-index: 2600;
+}
+
+.palette {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.palette-search-icon {
+  display: inline-flex;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: var(--font-mono);
+  outline: none;
+  padding: 0;
+}
+
+.palette-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.palette-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.palette-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.palette-empty {
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.palette-group {
+  padding-bottom: var(--space-1);
+}
+
+.palette-group-label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette-item.is-active {
+  background: var(--color-accent-soft);
+  border-left-color: var(--color-accent);
+}
+
+.palette-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-item-hint {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 快捷键帮助对话框 ---- */
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shortcuts-group-label {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.shortcuts-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.shortcuts-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.shortcuts-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.shortcuts-kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.shortcuts-plus {
+  margin: 0 2px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+/* ---- 模式同步指示点 ---- */
+
+.mode-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mode-sync-dot.is-synced {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+
+.mode-sync-dot.is-diverged {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px var(--color-warning);
+}
+
+/* ---- 侧栏 / 右栏拖拽手柄 ---- */
+
+.panel-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  z-index: 20;
+  cursor: col-resize;
+  touch-action: none;
+  transition: background var(--transition-fast);
+}
+
+.panel-resize-right {
+  right: -2px;
+}
+
+.panel-resize-left {
+  left: -2px;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle:active {
+  background: var(--color-accent-soft);
+}
+
+/* 侧栏/右栏本身需要相对定位才能容纳手柄。 */
+.sidebar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.right-panel {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ---- 状态栏：可点击性能弹层 ---- */
+
+.statusbar-center {
+  position: relative;
+}
+
+.statusbar-btn {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.statusbar-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+  box-shadow: 0 0 8px var(--glow-hover);
+}
+
+.statusbar-btn.is-warn {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.statusbar-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
+  padding: var(--space-3);
+  z-index: 60;
+}
+
+.statusbar-popover-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.statusbar-popover-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.statusbar-popover-grid dt {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.statusbar-popover-grid dd {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.statusbar-popover-grid dd.is-warn {
+  color: var(--color-warning);
+}
+
+.statusbar-popover-unit {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.statusbar-popover-warn {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 10px;
+}
+
+.statusbar-popover-footer {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.statusbar-popover-footer.is-warn {
+  color: var(--color-warning);
+}
+
+/* ---- 状态栏：长任务进度 + 取消 ---- */
+
+.statusbar-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.statusbar-progress-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.statusbar-progress-track {
+  width: 120px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.statusbar-progress-bar {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  animation: ux-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes ux-progress-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.statusbar-progress-cancel {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.statusbar-progress-cancel:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* ---- AI 助手悬浮球 ---- */
+
+.ai-overlay.is-closed {
+  display: none;
+}
+
+.ai-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--statusbar-height) + 12px);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  box-shadow: 0 0 12px var(--color-glow);
+  cursor: pointer;
+  /* Above toasts (1600), below the AI window (1700) when it reopens. */
+  z-index: 1650;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ai-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 0 16px var(--glow-hover);
+}
+
+/* ---- 图表读出：十字线 + mono 读数卡 ---- */
+
+.plot-readout {
+  position: relative;
+}
+
+.plot-crosshair {
+  position: absolute;
+  pointer-events: none;
+  background: var(--color-accent);
+  opacity: 0.65;
+  z-index: 30;
+}
+
+.plot-crosshair-vertical {
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.plot-crosshair-horizontal {
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.plot-readout-card {
+  position: absolute;
+  pointer-events: none;
+  z-index: 40;
+  min-width: 118px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  /* Default: just below the cursor; flipped above when near the bottom. */
+  transform: translate(-50%, 8px);
+}
+
+.plot-readout-card.is-flipped {
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.plot-readout-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.plot-readout-key {
+  color: var(--color-text-tertiary);
+}
+
+.plot-readout-val {
+  color: var(--color-text-primary);
+}
+
+.plot-readout-nearest .plot-readout-key {
+  color: var(--color-accent);
+}
+
+.plot-readout-nearest .plot-readout-val {
+  color: var(--color-accent-text);
+}
+
+/* ---- 紧凑空状态（列表/侧栏内的空提示） ---- */
+
+.empty-state-inline {
+  align-items: flex-start;
+  text-align: left;
+  padding: var(--space-2) 0;
+  margin: 0;
+}
+
+.empty-state-inline .empty-state-title {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-tertiary);
 }

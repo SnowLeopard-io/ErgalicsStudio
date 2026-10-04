@@ -18,7 +18,7 @@ import {
   getTool,
   type ResearchGroupId,
 } from '@/pages/research/toolRegistry';
-import { recordTool } from '@/core/recentTools';
+import { getRecentTools, recordTool } from '@/core/recentTools';
 
 export function ToolGrid() {
   const t = useT();
@@ -34,6 +34,16 @@ export function ToolGrid() {
       return toolDef.id.includes(q) || title.includes(q) || desc.includes(q);
     });
   }, [q, t]);
+
+  // Recently launched tools float to the top while browsing (hidden while
+  // searching — the search results already rank by match). Re-reads on every
+  // remount, so returning from a tool lands on an up-to-date list.
+  const recentTools = useMemo(() => {
+    if (q) return [];
+    return getRecentTools()
+      .map((id) => getTool(id))
+      .filter((x): x is NonNullable<typeof x> => x !== undefined && x.inGrid);
+  }, [q]);
 
   const open = (id: string) => {
     const toolDef = getTool(id);
@@ -78,20 +88,34 @@ export function ToolGrid() {
             ))}
           </div>
         )
-        : GRID_GROUPS.map((group) => {
-            const groupTools = filtered.filter((x) => x.group === (group as ResearchGroupId));
-            if (groupTools.length === 0) return null;
-            return (
-              <div key={group} className="tool-grid-group">
-                <h3 className="tool-grid-label">{t(`tool.group.${group}`)}</h3>
+        : (
+          <>
+            {recentTools.length > 0 && (
+              <div className="tool-grid-group">
+                <h3 className="tool-grid-label">{t('launcher.recent_group')}</h3>
                 <div className="tool-grid">
-                  {groupTools.map((toolDef) => (
+                  {recentTools.map((toolDef) => (
                     <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
                   ))}
                 </div>
               </div>
-            );
-          })}
+            )}
+            {GRID_GROUPS.map((group) => {
+              const groupTools = filtered.filter((x) => x.group === (group as ResearchGroupId));
+              if (groupTools.length === 0) return null;
+              return (
+                <div key={group} className="tool-grid-group">
+                  <h3 className="tool-grid-label">{t(`tool.group.${group}`)}</h3>
+                  <div className="tool-grid">
+                    {groupTools.map((toolDef) => (
+                      <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
     </section>
   );
 }

@@ -16,6 +16,7 @@ import {
   resetViewport2d,
   wrapCanvas2d,
   clearCanvas2dInViewport,
+  type Viewport2D,
 } from '@/core/viewport2d';
 import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
@@ -39,11 +40,11 @@ export function CentralArea() {
   const [dragOver, setDragOver] = useState(false);
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
-  // Mirror of the viewport scale for rendering: the viewport store lives
-  // outside React, so this state exists purely to surface a visible zoom
-  // badge (invisible viewport state already caused two "render is broken"
-  // reports — pan drift and accidental wheel shrink).
-  const [zoom2d, setZoom2d] = useState(1);
+  // Mirror of the viewport for rendering: the viewport store lives outside
+  // React, so this state exists purely to surface a visible zoom badge /
+  // reset affordance (invisible viewport state already caused two "render is
+  // broken" reports — pan drift and accidental wheel shrink).
+  const [vp2d, setVp2d] = useState<Viewport2D>({ x: 0, y: 0, scale: 1 });
 
   // File ingestion (drop → sniff → scientific import / plugin routing) lives
   // in its own hook so this component stays focused on the viewport.
@@ -69,12 +70,25 @@ export function CentralArea() {
   const pan2dAllowed = (target: EventTarget | null) =>
     !scene3dRef.current?.isVisible() && target === domRef.current;
 
+  // Clamp the drag so the frame can never be shifted fully out of view. At
+  // scale 1 most plugins paint exactly the canvas area, and an unbounded pan
+  // used to reveal a fully empty bitmap that read as "the render broke".
+  // Reaching content a plugin draws beyond its frame needs slack, so the cap
+  // is 2× the host size — enough for off-frame data, never empty-screenable.
+  const clampPan = (x: number, y: number): { x: number; y: number } => {
+    const host = wrapperRef.current;
+    if (!host) return { x, y };
+    const r = host.getBoundingClientRect();
+    const maxX = r.width * 2;
+    const maxY = r.height * 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
-    // Panning at scale 1 just shifts the frame into a confusing floating
-    // position (the classic "my render is broken" report) — only allow it
-    // once the user has actually zoomed. Double-click still resets.
-    if (getViewport2d().scale === 1) return;
     const v = getViewport2d();
     drag2d.current = {
       startX: e.clientX,
@@ -90,13 +104,14 @@ export function CentralArea() {
     const drag = drag2d.current;
     if (drag) {
       const v = getViewport2d();
-      setViewport2d({
-        x: drag.baseX + (e.clientX - drag.startX),
-        y: drag.baseY + (e.clientY - drag.startY),
-        scale: v.scale,
-      });
+      const p = clampPan(
+        drag.baseX + (e.clientX - drag.startX),
+        drag.baseY + (e.clientY - drag.startY),
+      );
+      setViewport2d({ x: p.x, y: p.y, scale: v.scale });
+      setVp2d({ x: p.x, y: p.y, scale: v.scale });
       rerenderActivePlugin();
-    } else if (pan2dAllowed(e.target) && getViewport2d().scale !== 1) {
+    } else if (pan2dAllowed(e.target)) {
       e.currentTarget.style.cursor = 'grab';
     } else {
       e.currentTarget.style.cursor = '';
@@ -117,7 +132,7 @@ export function CentralArea() {
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
     resetViewport2d();
-    setZoom2d(1);
+    setVp2d({ x: 0, y: 0, scale: 1 });
     rerenderActivePlugin();
   };
 
@@ -128,11 +143,10 @@ export function CentralArea() {
     const onWheel = (e: WheelEvent) => {
       if (scene3dRef.current?.isVisible()) return;
       if (e.target !== domRef.current) return;
-      // Plain wheel must not zoom: rolling the wheel while hovering the canvas
-      // silently shrank the whole view toward the top-left corner. Zoom needs
-      // ctrl/cmd — trackpad pinch already arrives as ctrl+wheel. Double-click
-      // (or the badge) still resets.
-      if (!e.ctrlKey && !e.metaKey) return;
+      // Plain wheel zooms around the cursor — the universal canvas gesture.
+      // Ctrl/cmd+wheel (trackpad pinch arrives as ctrl+wheel) also works.
+      // An accidental zoom is never "stuck": the badge offers one-click reset
+      // and double-click resets too.
       e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -144,12 +158,13 @@ export function CentralArea() {
       const next = Math.min(12, Math.max(0.1, v.scale * factor));
       const k = next / v.scale;
       // Keep the point under the cursor stationary while zooming.
-      setViewport2d({
+      const nextVp = {
         x: px - (px - v.x) * k,
         y: py - (py - v.y) * k,
         scale: next,
-      });
-      setZoom2d(next);
+      };
+      setViewport2d(nextVp);
+      setVp2d(nextVp);
       rerenderActivePlugin();
     };
     host.addEventListener('wheel', onWheel, { passive: false });
@@ -161,7 +176,7 @@ export function CentralArea() {
   const activeId = usePluginStore((s) => s.activeId);
   useEffect(() => {
     resetViewport2d();
-    setZoom2d(1);
+    setVp2d({ x: 0, y: 0, scale: 1 });
     rerenderActivePlugin();
   }, [activeId]);
 
@@ -293,18 +308,19 @@ export function CentralArea() {
             <span>{t(`status.${status}`)}</span>
           </div>
         )}
-        {Math.round(zoom2d * 100) !== 100 && (
+        {(vp2d.x !== 0 || vp2d.y !== 0 || vp2d.scale !== 1) && (
           <button
             type="button"
             className="central-zoom-badge"
-            title="Ctrl+wheel · 100%"
+            title={t('ux.view.reset')}
+            aria-label={t('ux.view.reset')}
             onClick={() => {
               resetViewport2d();
-              setZoom2d(1);
+              setVp2d({ x: 0, y: 0, scale: 1 });
               rerenderActivePlugin();
             }}
           >
-            {Math.round(zoom2d * 100)}%
+            {Math.round(vp2d.scale * 100)}%
           </button>
         )}
       </div>
@@ -342,7 +358,16 @@ export function CentralArea() {
         </div>
       )}
 
-      {dragOver && <div className="central-drop-hint">{t('workbench.drag_hint')}</div>}
+      {dragOver && (
+        <div className="central-drop-hint">
+          <svg className="central-drop-hint-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 16V4" />
+            <path d="M7 9l5-5 5 5" />
+            <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+          </svg>
+          <span>{t('workbench.drag_hint')}</span>
+        </div>
+      )}
 
       <FileRouterDialog
         open={chooser.open}

@@ -12,6 +12,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useResearchStore } from '@/stores/researchStore';
@@ -183,7 +184,7 @@ export default function SweepsPage() {
           />
 
           <section className="figures-stage">
-            {!plan && !editing && <div className="empty-hint">{t('sweep.no_plans')}</div>}
+            {!plan && !editing && <EmptyState title={t('sweep.no_plans')} />}
 
             {plan && !editing && (
               <div className="sweep-view">
@@ -252,7 +253,7 @@ export default function SweepsPage() {
           </section>
         </div>
       ) : (
-        <div className="empty-hint">{t('sweep.need_project')}</div>
+        <EmptyState title={t('sweep.need_project')} />
       )}
 
       <ConfirmDialog

@@ -10,9 +10,37 @@ import { CloseIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
+import { usePanelWidth } from '@/hooks/usePanelWidth';
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
+
+/** Collapsed discipline groups persist per-machine so the sidebar layout
+ *  survives reloads (mirrors the panel-prefs persistence in appStore). */
+const GROUPS_PREFS_KEY = 'ergalics:sidebar-groups';
+
+function loadCollapsedGroups(): Partial<Record<string, boolean>> {
+  try {
+    const raw = localStorage.getItem(GROUPS_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Partial<Record<string, boolean>> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function persistCollapsedGroups(collapsed: Partial<Record<string, boolean>>): void {
+  try {
+    localStorage.setItem(GROUPS_PREFS_KEY, JSON.stringify(collapsed));
+  } catch {
+    /* private mode — no persistence */
+  }
+}
 
 export function Sidebar() {
   const t = useT();
@@ -31,8 +59,10 @@ export function Sidebar() {
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
   /** Pending destructive action: project awaiting delete confirmation. */
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  /** Collapsed discipline groups (in-memory; all expanded by default). */
-  const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>({});
+  /** Collapsed discipline groups (all expanded by default; persists). */
+  const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
+
+  const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -81,11 +111,23 @@ export function Sidebar() {
   }, [groups, registry, t]);
 
   const toggleGroup = (id: string) => {
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+    const next = { ...collapsed, [id]: !collapsed[id] };
+    setCollapsed(next);
+    persistCollapsedGroups(next);
   };
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ width: resize.width }}>
+      <div
+        className="panel-resize-handle panel-resize-right"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('ux.resize.sidebar')}
+        title={t('ux.resize.sidebar')}
+        onPointerDown={resize.onPointerDown}
+        onPointerMove={resize.onPointerMove}
+        onPointerUp={resize.onPointerUp}
+      />
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.project')}</h3>
         {recent.length > 0 ? (

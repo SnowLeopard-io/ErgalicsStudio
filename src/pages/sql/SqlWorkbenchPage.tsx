@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -213,7 +214,7 @@ export default function SqlWorkbenchPage() {
   return (
     <ToolShell toolId="sql">
       {!project ? (
-        <div className="empty-hint">{t('sql.need_project')}</div>
+        <EmptyState title={t('sql.need_project')} />
       ) : (
         <div className="sql-layout">
           <aside className="sql-sidebar">
@@ -322,7 +323,7 @@ export default function SqlWorkbenchPage() {
                   )}
                 </div>
                 {result.rows.length === 0 ? (
-                  <div className="empty-hint">{t('sql.result_empty')}</div>
+                  <EmptyState className="empty-state-inline" title={t('sql.result_empty')} />
                 ) : (
                   <VirtualTable
                     columns={result.columns.map((c) => ({ name: c.name, title: c.type }))}

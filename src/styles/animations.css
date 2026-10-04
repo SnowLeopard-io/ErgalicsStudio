@@ -336,7 +336,8 @@
   .welcome-version,
   .welcome-signal,
   .welcome-enter,
-  .welcome-hardware {
+  .welcome-hardware,
+  .central-drop-hint {
     animation: none !important;
   }
 

@@ -1,0 +1,5 @@
+pool,initial_gtc,flux_in,flux_out
+atmosphere,590,9,0
+vegetation,550,0,1.5
+soil,2000,0,0
+ocean,38000,0,0

@@ -1,0 +1,150 @@
+// ==========================================================================
+// Multi-panel figure readout: crosshair + mono readout for composed figures
+//
+// Wraps the composed figure SVG (one inline svg root with nested per-panel viewports).
+// Pointer hits are mapped to figure coordinates, then to the panel under the
+// cursor (panels are placed at known x/y with per-panel plotGeometry). The
+// crosshair stays inside the hit panel's axes box and the readout card follows
+// the cursor — flipped above when near the bottom so it never clips.
+// ==========================================================================
+
+import { useRef, useState, type ReactNode } from 'react';
+import type { PlotGeometry } from '@/core/plot/geometry';
+import { fromPixel } from '@/core/plot/geometry';
+import { formatTick } from '@/core/plot/scale';
+
+export interface FigurePanelGeom {
+  /** Panel origin in figure coordinates. */
+  x: number;
+  y: number;
+  geometry: PlotGeometry;
+}
+
+interface HoverState {
+  /** Hit panel origin + cursor position in figure coordinates. */
+  panel: FigurePanelGeom;
+  fx: number;
+  fy: number;
+  dataX: number;
+  dataY: number;
+}
+
+interface FigureReadoutProps {
+  panels: FigurePanelGeom[];
+  children: ReactNode;
+  formatX?: (v: number) => string;
+  formatY?: (v: number) => string;
+}
+
+export function FigureReadout({
+  panels,
+  children,
+  formatX = formatTick,
+  formatY = formatTick,
+}: FigureReadoutProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
+
+  const hitTest = (fx: number, fy: number): FigurePanelGeom | null => {
+    for (const p of panels) {
+      const { left, topV, plotW, plotH } = p.geometry;
+      if (fx >= p.x + left && fx <= p.x + left + plotW && fy >= p.y + topV && fy <= p.y + topV + plotH) {
+        return p;
+      }
+    }
+    return null;
+  };
+
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const wrap = wrapRef.current;
+    if (!wrap || panels.length === 0) {
+      setHover(null);
+      return;
+    }
+    const svg = wrap.querySelector('svg');
+    const svgRect = svg ? svg.getBoundingClientRect() : wrap.getBoundingClientRect();
+    if (svgRect.width === 0 || svgRect.height === 0) return;
+    // Client → figure viewBox coordinates (the figure may be CSS-scaled).
+    const svgViewW = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[2]) || svgRect.width : svgRect.width;
+    const svgViewH = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[3]) || svgRect.height : svgRect.height;
+    const fx = (e.clientX - svgRect.left) * (svgViewW / svgRect.width);
+    const fy = (e.clientY - svgRect.top) * (svgViewH / svgRect.height);
+
+    const panel = hitTest(fx, fy);
+    if (!panel) {
+      setHover(null);
+      return;
+    }
+    const g = panel.geometry;
+    const lx = fx - panel.x;
+    const ly = fy - panel.y;
+    const dataX = fromPixel(g.xScaleKind, g.xDom, [g.left, g.left + g.plotW], lx);
+    const dataY = fromPixel(g.yScaleKind, g.yDom, [g.topV + g.plotH, g.topV], ly);
+    setHover({ panel, fx, fy, dataX, dataY });
+  };
+
+  // Crosshair box in figure coordinates (the hit panel's plot area).
+  let cross = { left: 0, top: 0, width: 0, height: 0, x: 0, y: 0 };
+  if (hover) {
+    const g = hover.panel.geometry;
+    cross = {
+      left: hover.panel.x + g.left,
+      top: hover.panel.y + g.topV,
+      width: g.plotW,
+      height: g.plotH,
+      x: hover.fx,
+      y: hover.fy,
+    };
+  }
+
+  // Readout card position in container (CSS px) coordinates.
+  const card = useRef<{ left: number; top: number } | null>(null);
+  if (hover && wrapRef.current) {
+    const svg = wrapRef.current.querySelector('svg');
+    const svgRect = svg ? svg.getBoundingClientRect() : wrapRef.current.getBoundingClientRect();
+    const wrapRect = wrapRef.current.getBoundingClientRect();
+    const svgViewW = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[2]) || svgRect.width : svgRect.width;
+    const svgViewH = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[3]) || svgRect.height : svgRect.height;
+    card.current = {
+      left: svgRect.left - wrapRect.left + hover.fx * (svgRect.width / svgViewW),
+      top: svgRect.top - wrapRect.top + hover.fy * (svgRect.height / svgViewH),
+    };
+  } else {
+    card.current = null;
+  }
+
+  const flipUp = card.current ? card.current.top > (wrapRef.current?.clientHeight ?? 0) * 0.6 : false;
+
+  return (
+    <div className="plot-readout" ref={wrapRef} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+      {children}
+      {hover && cross.width > 0 && (
+        <>
+          <div
+            className="plot-crosshair plot-crosshair-vertical"
+            style={{ left: cross.x, top: cross.top, height: cross.height }}
+          />
+          <div
+            className="plot-crosshair plot-crosshair-horizontal"
+            style={{ top: cross.y, left: cross.left, width: cross.width }}
+          />
+          {card.current && (
+            <div
+              className={`plot-readout-card${flipUp ? ' is-flipped' : ''}`}
+              style={{ left: card.current.left, top: card.current.top }}
+            >
+              <div className="plot-readout-row">
+                <span className="plot-readout-key">x</span>
+                <span className="plot-readout-val">{formatX(hover.dataX)}</span>
+              </div>
+              <div className="plot-readout-row">
+                <span className="plot-readout-key">y</span>
+                <span className="plot-readout-val">{formatY(hover.dataY)}</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
