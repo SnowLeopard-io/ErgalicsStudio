@@ -6,6 +6,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { GitPanel } from '@/components/GitPanel';
 import { CloseIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
@@ -152,6 +153,8 @@ export function Sidebar() {
           <EmptyState className="sidebar-plugin-empty" title={t('workbench.sidebar.no_recent')} />
         )}
       </nav>
+
+      <GitPanel />
 
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.plugins')}</h3>

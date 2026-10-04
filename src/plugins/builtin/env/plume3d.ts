@@ -23,6 +23,7 @@ import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { plumeConcentration, type StabilityClass } from './envCore';
+import { setScienceOutputs, clearScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
 import { buildTerrainMesh } from '../geo/terrain3d';
 import type { AscGrid } from '../geo/terrain';
@@ -245,6 +246,7 @@ export class Plume3DPlugin implements Plugin {
     this.three = null;
     this.solver = null;
     this.state.custom = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -538,6 +540,70 @@ export class Plume3DPlugin implements Plugin {
   private sectionNx = 60;
   private sectionNz = 24;
 
+  // ---- scientific outputs -----------------------------------------------------
+
+  /**
+   * Publish the domain parameters, the CFD-vs-analytic centreline agreement
+   * and the grid-convergence note. `nrmse`/peaks are null while no live CFD
+   * centreline exists (CSV import or paused start).
+   */
+  private publishScience(nrmse: number | null, peakCfdKm: number | null, peakGauKm: number | null): void {
+    const zh = this.api.locale === 'zh-CN';
+    const custom = this.state.custom;
+    const res = RESOLUTION_PRESETS[this.state.dim];
+    const grid = custom ? `${custom.nx}×${custom.ny}×${custom.nz} (imported)` : `${res.nx}×${res.ny}×${res.nz}`;
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'grid',
+        label: 'GRID',
+        value: `${grid} · GS×${PRESSURE_ITERATIONS}`,
+        hint: zh
+          ? 'Stable-fluids 网格（nx×ny×nz）与压力投影 Gauss-Seidel 迭代数'
+          : 'stable-fluids grid (nx×ny×nz) and Gauss-Seidel pressure iterations',
+      },
+      {
+        key: 'domain',
+        label: 'DOMAIN',
+        value: `${X_MAX / 1000}×${(2 * Y_MAX) / 1000}×${Z_MAX / 1000} km`,
+        hint: zh ? '物理域尺寸：下风 × 侧风 × 垂直' : 'physical extent: downwind × crosswind × vertical',
+      },
+      {
+        key: 'src',
+        label: 'SRC/WIND',
+        value: `Q=${this.state.q} g/s · u=${this.state.u} m/s · ${this.state.cls} · H=${this.state.stackH} m`,
+        hint: zh ? '源强、风速、稳定度等级与有效源高' : 'source strength, wind speed, stability class, effective stack height',
+      },
+    ];
+    if (nrmse !== null) {
+      metrics.push({
+        key: 'nrmse',
+        label: 'nRMSE CFD-Gauss',
+        value: `${(nrmse * 100).toFixed(1)}%`,
+        severity: nrmse <= 0.35 ? 'ok' : 'warn',
+        hint: zh
+          ? 'CFD 与高斯解析解中心线（z=H，归一化）的归一化 RMSE；CFD 含湍流与数值扩散，偏差属预期'
+          : 'normalised RMSE between CFD and the analytic Gaussian centreline (z=H, normalised); CFD turbulence and numerical diffusion make the offset expected',
+      });
+      if (peakCfdKm !== null && peakGauKm !== null) {
+        metrics.push({
+          key: 'peak',
+          label: 'PEAK Δx',
+          value: `${peakCfdKm.toFixed(1)} vs ${peakGauKm.toFixed(1)} km (Δ ${(peakCfdKm - peakGauKm).toFixed(1)})`,
+          hint: zh ? 'CFD 与解析解的峰值下风距离及偏移' : 'peak downwind positions (CFD vs analytic) and their offset',
+        });
+      }
+    }
+    metrics.push({
+      key: 'convergence',
+      label: 'CONVERGENCE',
+      value: this.state.dim,
+      hint: zh
+        ? '网格收敛注记：结果依赖分辨率；对比 低/中/高 预设，网格加密时中心线 nRMSE 应下降（教学注记，未内嵌系统性收敛研究）'
+        : 'grid-convergence note: results are resolution-dependent; compare the Low/Medium/High presets — centreline nRMSE should drop as the grid refines (teaching note, no embedded convergence study)',
+    });
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
   // ---- HUD (CFD vs analytic centreline) --------------------------------------
 
   private redrawHud(): void {
@@ -641,6 +707,7 @@ export class Plume3DPlugin implements Plugin {
     ctx.fillStyle = 'rgba(200,212,228,0.95)';
     if (!cfdOk) {
       ctx.fillText(zh ? 'CFD 曲线随仿真播放生成' : 'The CFD curve builds up while the simulation plays', 12, H - 34);
+      this.publishScience(null, null, null);
     } else {
       let se = 0;
       for (let s = 0; s < N; s += 1) {
@@ -648,10 +715,13 @@ export class Plume3DPlugin implements Plugin {
         se += d * d;
       }
       const nrmse = Math.sqrt(se / N);
+      const pkCfd = peakOf(cfd);
+      const pkGau = peakOf(gau);
       const text = zh
-        ? `峰值 CFD @ ${peakOf(cfd).toFixed(1)} km · 高斯 @ ${peakOf(gau).toFixed(1)} km · 归一化 RMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`
-        : `peak CFD @ ${peakOf(cfd).toFixed(1)} km · Gaussian @ ${peakOf(gau).toFixed(1)} km · nRMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`;
+        ? `峰值 CFD @ ${pkCfd.toFixed(1)} km · 高斯 @ ${pkGau.toFixed(1)} km · 归一化 RMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`
+        : `peak CFD @ ${pkCfd.toFixed(1)} km · Gaussian @ ${pkGau.toFixed(1)} km · nRMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`;
       ctx.fillText(text, 12, H - 34);
+      this.publishScience(nrmse, pkCfd, pkGau);
     }
     // Explain the CFD-vs-analytic peak offset so the mismatch reads as
     // physics, not a bug.

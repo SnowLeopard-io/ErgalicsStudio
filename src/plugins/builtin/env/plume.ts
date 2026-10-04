@@ -14,15 +14,53 @@ import {
   maxGroundConcentration,
   plumeConcentration,
   envRampColor,
+  numCell,
   sigmaYZ,
   type StabilityClass,
 } from './envCore';
+import { setScienceOutputs, clearScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
 import { plumeManifest } from './plumeManifest';
 
 const MAX_CELLS = 160; // per-axis cap: 160² = 25.6k cells stays interactive
+
+// ---- Receptor CSV (exported for tests) --------------------------------------
+
+export interface PlumeReceptor {
+  /** Downwind distance (m, > 0). */
+  x: number;
+  /** Crosswind offset (m, default 0). */
+  y: number;
+  /** Observed concentration (any unit). */
+  c: number;
+}
+
+/**
+ * Parse receptor observations: a header row with an x, an optional y and a
+ * concentration column (`c`/`conc`/`concentration`/`obs`/`measured`); only
+ * downwind rows (x > 0, c ≥ 0) count. Requires ≥ 5 valid receptors.
+ */
+export function parseReceptorCsv(text: string): PlumeReceptor[] | null {
+  const rows = parseDelimited(text);
+  if (rows.length < 2) return null;
+  const header = rows[0]!.map((c) => c.toLowerCase());
+  const xi = header.findIndex((c) => /^(x|downwind_x|downwind)$/.test(c));
+  const yi = header.findIndex((c) => /^(y|crosswind_y|crosswind)$/.test(c));
+  const ci = header.findIndex((c) => /^(c|conc|concentration|obs|measured|c_obs)$/.test(c));
+  if (xi < 0 || ci < 0) return null;
+  const rec: PlumeReceptor[] = [];
+  for (const row of rows.slice(1)) {
+    const x = numCell(row[xi]);
+    const c = numCell(row[ci]);
+    if (x === null || c === null || x <= 0 || c < 0) continue;
+    const y = yi >= 0 ? (numCell(row[yi]) ?? 0) : 0;
+    rec.push({ x, y, c });
+  }
+  return rec.length >= 5 ? rec : null;
+}
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
@@ -103,9 +141,10 @@ interface State {
   cls: StabilityClass;
   cells: number;
   stackH: number; // m (fixed teaching chimney at 50 m effective height)
+  receptors: PlumeReceptor[] | null;
 }
 
-const DEFAULTS: State = { q: 100, u: 4, cls: 'C', cells: 60, stackH: 50 };
+const DEFAULTS: State = { q: 100, u: 4, cls: 'C', cells: 60, stackH: 50, receptors: null };
 
 export class PlumePlugin implements Plugin {
   readonly manifest = plumeManifest;
@@ -119,6 +158,7 @@ export class PlumePlugin implements Plugin {
 
   async destroy() {
     this.ctx = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -181,6 +221,17 @@ export class PlumePlugin implements Plugin {
         hint: zh ? `上限 ${MAX_CELLS}` : `Capped at ${MAX_CELLS}`,
       },
       {
+        key: 'receptors',
+        label: 'Receptor CSV (x,y,c)',
+        labelI18n: { 'zh-CN': '受体浓度 CSV（x,y,c）', 'en-US': 'Receptor CSV (x,y,c)' },
+        type: 'file',
+        accept: '.csv',
+        value: null,
+        hint: zh
+          ? '≥5 行下风受体观测（x,y,c 表头），载入后发布 BIAS/RMSE 对拍'
+          : '≥5 downwind receptor rows (x,y,c header); publishes BIAS/RMSE against the model',
+      },
+      {
         key: 'reset',
         label: 'Reset to defaults',
         labelI18n: { 'zh-CN': '回到初始参数', 'en-US': 'Reset to defaults' },
@@ -193,7 +244,28 @@ export class PlumePlugin implements Plugin {
     ];
   }
 
+  getSupportedFormats() {
+    return this.manifest.formats ?? [];
+  }
+
+  /** Receptor CSV dropped onto the plugin / loaded via the param file picker. */
+  async loadData(file: File) {
+    const rec = parseReceptorCsv(await file.text());
+    if (!rec) {
+      notify(this.api, 'warning', 'Expected x,y,c receptor rows (≥5)', '需要 x,y,c 受体数据行（≥5 行）');
+      return;
+    }
+    this.state.receptors = rec;
+    this.api.reportDataScale(rec.length);
+    notify(this.api, 'success', `Loaded ${rec.length} receptor(s)`, `已加载 ${rec.length} 个受体`);
+    this.draw();
+  }
+
   updateParams(params: Record<string, unknown>) {
+    if (params.receptors instanceof File) {
+      void this.loadData(params.receptors);
+      return;
+    }
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-plume');
       return;
@@ -252,6 +324,96 @@ export class PlumePlugin implements Plugin {
 
   // ---- drawing -------------------------------------------------------------
 
+  /**
+   * Publish receptor-vs-model agreement (bias / RMSE / correlation, all
+   * scale-free since receptor units are unknown) plus the analytic peak
+   * ground-level concentration. Only meaningful with loaded receptor data
+   * and non-calm wind; otherwise the previous outputs are cleared.
+   */
+  private publishScience() {
+    const rec = this.state.receptors;
+    if (!rec || rec.length < 5 || this.state.u <= 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const qUgs = this.state.q * 1e6;
+    const model: number[] = [];
+    const obs: number[] = [];
+    for (const r of rec) {
+      const c = plumeConcentration(qUgs, this.state.u, this.state.cls, this.state.stackH, r.x, r.y, 0);
+      model.push(c);
+      obs.push(r.c);
+    }
+    const n = obs.length;
+    const meanObs = obs.reduce((a, b) => a + b, 0) / n;
+    const bias = model.reduce((a, c, i) => a + (c - obs[i]!), 0) / n;
+    const rmse = Math.sqrt(model.reduce((a, c, i) => a + (c - obs[i]!) ** 2, 0) / n);
+    // Pearson r between model and observations.
+    const meanModel = model.reduce((a, b) => a + b, 0) / n;
+    let cov = 0;
+    let varM = 0;
+    let varO = 0;
+    for (let i = 0; i < n; i += 1) {
+      const dm = model[i]! - meanModel;
+      const dobs = obs[i]! - meanObs;
+      cov += dm * dobs;
+      varM += dm * dm;
+      varO += dobs * dobs;
+    }
+    const r = varM > 0 && varO > 0 ? cov / Math.sqrt(varM * varO) : null;
+
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'n_receptors',
+        label: 'n',
+        value: String(n),
+        severity: 'info',
+        hint: isZh(this.api.locale) ? '参与对拍的受体数量。' : 'Receptors used in the comparison.',
+      },
+      {
+        key: 'norm_bias',
+        label: 'BIAS/mean',
+        value: meanObs > 0 ? `${((bias / meanObs) * 100).toFixed(1)}%` : '—',
+        severity: meanObs > 0 && Math.abs(bias / meanObs) < 0.5 ? 'ok' : 'warn',
+        hint: isZh(this.api.locale)
+          ? '归一化平均偏差 =（模型−观测）均值 / 观测均值。受体单位未知，故用无量纲比值。'
+          : 'Normalized bias = mean(model−obs) / mean(obs). Scale-free because receptor units are unknown.',
+      },
+      {
+        key: 'norm_rmse',
+        label: 'RMSE/mean',
+        value: meanObs > 0 ? `${((rmse / meanObs) * 100).toFixed(1)}%` : '—',
+        severity: meanObs > 0 && rmse / meanObs < 1 ? 'ok' : 'warn',
+        hint: isZh(this.api.locale)
+          ? '归一化均方根误差 = RMSE / 观测均值。'
+          : 'Normalized RMSE = RMSE / mean(obs).',
+      },
+    ];
+    if (r !== null) {
+      metrics.push({
+        key: 'r',
+        label: 'r',
+        value: r.toFixed(3),
+        severity: Math.abs(r) > 0.7 ? 'ok' : 'warn',
+        hint: isZh(this.api.locale)
+          ? '模型浓度与受体观测的 Pearson 相关系数。'
+          : 'Pearson correlation between modelled and observed concentrations.',
+      });
+    }
+    const peak = maxGroundConcentration(qUgs, this.state.u, this.state.cls, this.state.stackH);
+    metrics.push({
+      key: 'peak_c',
+      label: 'C_max',
+      value: peak.c.toFixed(1),
+      unit: 'µg/m³',
+      severity: 'info',
+      hint: isZh(this.api.locale)
+        ? `最大落地浓度位于下风向 ${(peak.x / 1000).toFixed(1)} km。`
+        : `Peak ground-level concentration at ${(peak.x / 1000).toFixed(1)} km downwind.`,
+    });
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
   private draw() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
@@ -264,6 +426,7 @@ export class PlumePlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
     const zh = isZh(this.api.locale);
     g.font = "11px 'Microsoft YaHei', Consolas, monospace";
+    this.publishScience();
 
     if (this.state.u <= 0) {
       g.textAlign = 'center';

@@ -14,6 +14,8 @@ import type {
   ComputeResult,
 } from '@/types/plugin';
 import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { olsTrend, mannKendall, lag1Autocorr, bi, pm, fmtP } from './chartStats';
 
 export { timeSeriesManifest } from './timeSeriesManifest';
 import { timeSeriesManifest } from './timeSeriesManifest';
@@ -60,6 +62,7 @@ export class TimeSeriesPlugin implements Plugin {
 
   async destroy() {
     this.ctx = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -80,7 +83,12 @@ export class TimeSeriesPlugin implements Plugin {
     if (typeof params.width === 'number') this.state.width = params.width;
     if (typeof params.grid === 'boolean') this.state.grid = params.grid;
     if (typeof params.normalize === 'boolean') this.state.normalize = params.normalize;
-    if (typeof params.selected === 'string') this.state.selected = params.selected;
+    if (typeof params.selected === 'string') {
+      const changed = params.selected !== this.state.selected;
+      this.state.selected = params.selected;
+      // The published statistics follow the visible series.
+      if (changed) this.publishStats();
+    }
     if (typeof params.rollWindow === 'number') {
       this.state.rollWindow = Math.max(0, Math.min(40, Math.round(params.rollWindow)));
     }
@@ -152,6 +160,92 @@ export class TimeSeriesPlugin implements Plugin {
     this.state.selected = 'all';
     this.api.reportDataScale(cols.reduce((n, c) => n + c.values.length, 0));
     this.draw();
+    this.publishStats();
+  }
+
+  /**
+   * Publish trend statistics for the visible series: OLS slope ± SE,
+   * Mann-Kendall S / var(S) / two-sided p (tie-corrected), lag-1
+   * autocorrelation, n. With a single visible series every statistic is
+   * published; with several, one slope/p row per series (capped at 5).
+   * Mann-Kendall is O(n²) and skipped for series longer than 5000 points.
+   */
+  private publishStats() {
+    const visible = this.visibleSeries();
+    if (visible.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const metrics: ScienceMetric[] = [];
+    const detail = visible.length === 1;
+    const cap = detail ? 1 : 5;
+    let nTotal = 0;
+    for (const c of visible) nTotal += c.values.length;
+    let published = 0;
+    for (const c of visible) {
+      if (published >= cap) break;
+      published += 1;
+      const shortName = c.name.length > 12 ? `${c.name.slice(0, 12)}…` : c.name;
+      const trend = olsTrend(c.values);
+      if (trend) {
+        metrics.push({
+          key: `trend:${c.name}`,
+          label: detail ? 'slope' : `slope:${shortName}`,
+          value: pm(trend.slope, trend.se),
+          severity: 'info',
+          hint: bi(this.api, 'OLS slope of the series against index t (±1 SE).', '序列对索引 t 的 OLS 斜率（±1 标准误）。'),
+        });
+        if (detail) {
+          metrics.push({
+            key: `ptrend:${c.name}`,
+            label: 'p(slope)',
+            value: fmtP(trend.p),
+            severity: 'info',
+            hint: bi(this.api, 'Two-sided p for zero OLS slope (t, df = n−2).', 'OLS 斜率为零的双侧 p 值（t 分布，df = n−2）。'),
+          });
+        }
+      }
+      const mk = c.values.length <= 5000 ? mannKendall(c.values) : null;
+      if (mk) {
+        if (detail) {
+          metrics.push({
+            key: `s:${c.name}`,
+            label: 'S',
+            value: fmtMetric(mk.s),
+            severity: 'info',
+            hint: bi(this.api, 'Mann-Kendall S statistic (sum of pairwise signs).', 'Mann-Kendall S 统计量（成对符号之和）。'),
+          });
+          metrics.push({
+            key: `varS:${c.name}`,
+            label: 'var(S)',
+            value: fmtMetric(mk.varS),
+            severity: 'info',
+            hint: bi(this.api, 'Mann-Kendall variance with tie correction.', '经结修正的 Mann-Kendall 方差。'),
+          });
+        }
+        metrics.push({
+          key: `mkp:${c.name}`,
+          label: detail ? 'p(MK)' : `p(MK):${shortName}`,
+          value: fmtP(mk.p),
+          severity: 'info',
+          hint: bi(this.api, 'Two-sided Mann-Kendall trend p (normal approx with continuity correction).', 'Mann-Kendall 趋势双侧 p 值（正态近似，含连续性校正）。'),
+        });
+      }
+      if (detail) {
+        const rho1 = lag1Autocorr(c.values);
+        if (rho1 !== null) {
+          metrics.push({
+            key: `rho1:${c.name}`,
+            label: 'ρ₁',
+            value: fmtMetric(rho1),
+            severity: 'info',
+            hint: bi(this.api, 'Lag-1 autocorrelation (persistence indicator).', '滞后 1 阶自相关（持续性指标）。'),
+          });
+        }
+      }
+    }
+    metrics.push({ key: 'n', label: 'n', value: String(nTotal), severity: 'info' });
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
@@ -206,12 +300,14 @@ export class TimeSeriesPlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
 
     if (this.state.cols.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       this.drawHint(g, canvas);
       return;
     }
 
     const visible = this.visibleSeries();
     if (visible.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       this.drawHint(g, canvas);
       return;
     }

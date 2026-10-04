@@ -21,6 +21,16 @@ export const plume3dManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.env-plume3d',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { distance: 'm', concentration: 'µg/m³', wind: 'm/s', emission: 'g/s' },
+    reproducible: true,
+    notes: 'Deterministic stable-fluids CFD cross-checked against the analytic Gaussian centreline (nRMSE + peak offset published each redraw). Teaching tuning constants (wind scaling, GS iterations) are not physical parameters; the convergence note is qualitative, not a grid study.',
+    notesI18n: {
+      'zh-CN': '确定性 Stable-fluids CFD 与高斯解析解中心线对拍（每次重绘发布 nRMSE 与峰值偏移）。教学调参常数（风速缩放、GS 迭代数）非物理参数；收敛注记为定性说明，非系统性网格研究。',
+      'en-US': 'Deterministic stable-fluids CFD cross-checked against the analytic Gaussian centreline (nRMSE + peak offset published each redraw). Teaching tuning constants (wind scaling, GS iterations) are not physical parameters; the convergence note is qualitative, not a grid study.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'x,y,z,conc voxel field' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'x,y,z,conc voxel field' },

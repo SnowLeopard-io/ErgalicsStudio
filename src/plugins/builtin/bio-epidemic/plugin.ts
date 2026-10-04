@@ -11,15 +11,20 @@
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioEpidemicManifest } from './manifest';
 import {
   DEFAULT_CONFIG,
+  conservationDrift,
+  earlyGrowthRt,
+  finalSizeCheck,
   parseObservedSeries,
   reportEpidemic,
   simulateEpidemic,
   type EpidemicReport,
   type ModelConfig,
   type ObservedSeries,
+  type Trajectory,
 } from './epidemic';
 
 export { bioEpidemicManifest } from './manifest';
@@ -55,6 +60,7 @@ export class BioEpidemicPlugin implements Plugin {
     logY: false,
   };
   private report: EpidemicReport | null = null;
+  private lastTraj: Trajectory | null = null;
   private trajectories: Array<{ r0: number; lat?: number[]; inc?: number[]; fr?: number[]; rec: number[]; days: number[] }> = [];
 
   async init(api: PluginApi) {
@@ -67,6 +73,7 @@ export class BioEpidemicPlugin implements Plugin {
   }
 
   async destroy() {
+    clearScienceOutputs(this.manifest.id);
     this.ctx = null;
   }
 
@@ -315,7 +322,65 @@ export class BioEpidemicPlugin implements Plugin {
     const cfg = this.config();
     const traj = simulateEpidemic(cfg);
     this.report = reportEpidemic(cfg, traj);
+    this.lastTraj = traj;
+    this.publish();
     if (this.state.showSensitivity) this.trajectories = this.overlayTrajectories();
+  }
+
+  /**
+   * Publish the run's scientific outputs: N-conservation drift, R₀ / early
+   * growth R_t, peak timing and scale, and the final-size relation check.
+   * Only published once the user has loaded a config / data — never fabricated.
+   */
+  private publish() {
+    if (!this.hasData || !this.report || !this.lastTraj) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const cfg = this.config();
+    const traj = this.lastTraj;
+    const r = this.report;
+    const drift = conservationDrift(traj, cfg.population);
+    const growth = earlyGrowthRt(cfg, traj);
+    const fin = finalSizeCheck(cfg, traj);
+    const zh = this.zh;
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'n-conservation',
+        label: '|ΔN|/N',
+        value: fmtMetric(drift),
+        severity: drift <= 1e-6 ? 'ok' : drift <= 1e-3 ? 'warn' : 'error',
+        hint: zh ? '分室总人口 N(t)=S+E+I+R 的最大相对漂移（RK4 守恒诊断）' : 'max relative drift of the total N(t)=S+E+I+R (RK4 conservation check)',
+      },
+      { key: 'r0', label: 'R₀', value: fmtMetric(cfg.r0), severity: 'info', hint: zh ? '基本再生数（输入参数）' : 'basic reproduction number (input)' },
+      {
+        key: 'rt-early',
+        label: 'R_t (early)',
+        value: growth ? fmtMetric(growth.rt) : '—',
+        severity: 'info',
+        hint: zh
+          ? `早期指数增长：ln I(t) 对数斜率拟合 r=${growth ? fmtMetric(growth.growthRate) : '—'}（n=${growth?.points ?? 0}），R_t≈1+r·D_inf`
+          : `early exponential growth: log-slope r=${growth ? fmtMetric(growth.growthRate) : '—'} (n=${growth?.points ?? 0}), R_t ≈ 1 + r·D_inf`,
+      },
+      {
+        key: 'peak-day',
+        label: 't_peak',
+        value: fmtMetric(r.peakDay),
+        unit: 'd',
+        severity: 'info',
+        hint: zh ? `感染峰值 ${r.peakInfectious.toLocaleString()} 人（占比 ${(r.peakFraction * 100).toFixed(1)}%）` : `peak infectious ${r.peakInfectious.toLocaleString()} (${(r.peakFraction * 100).toFixed(1)}% of N)`,
+      },
+      {
+        key: 'final-size',
+        label: 'R∞ err',
+        value: fin ? fmtMetric(fin.relErr * 100) + '%' : '—',
+        severity: fin ? (fin.relErr < 0.01 ? 'ok' : fin.relErr < 0.05 ? 'warn' : 'error') : 'info',
+        hint: zh
+          ? `终局关系校验：−ln(s∞)=${fin ? fmtMetric(fin.lhs) : '—'} vs R₀(1−s∞)=${fin ? fmtMetric(fin.rhs) : '—'}`
+          : `final-size relation: −ln(s∞)=${fin ? fmtMetric(fin.lhs) : '—'} vs R₀(1−s∞)=${fin ? fmtMetric(fin.rhs) : '—'}`,
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   private overlayTrajectories() {
@@ -357,6 +422,7 @@ export class BioEpidemicPlugin implements Plugin {
     const g = canvas.getContext('2d');
     if (!g) return;
     if (!this.hasData) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: 'No epidemic data',
         titleZh: '尚未加载传染病数据',

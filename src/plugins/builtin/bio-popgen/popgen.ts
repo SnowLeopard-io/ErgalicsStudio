@@ -5,25 +5,21 @@
 //  1. Hardy-Weinberg equilibrium — allele frequencies from genotype counts,
 //     expected genotype proportions under random mating, and a chi-square
 //     goodness-of-fit test (df=1, p-value from the exact normal-tail of a
-//     chi-square-1 variate).
+//     chi-square-1 variate) plus the Haldane continuity-corrected statistic.
 //  2. Wright-Fisher genetic drift with optional additive/recessive/dominant
 //     selection — a seeded pseudo-random, fully reproducible many-replicate
-//     simulation tracking allele-frequency trajectories and fixation.
+//     simulation tracking allele-frequency trajectories, heterozygosity decay
+//     (empirical vs the neutral H₀(1−1/2N)^t expectation) and variance.
+//
+// Research-grade layer (docs/technical/11 §2.4 / §3 L2+L5): all randomness is
+// the deterministic mulberry32 PRNG from the core repro module, seeded from
+// the run seed (currentSeed) so drift runs replay exactly.
 // ==========================================================================
 
-// ---------------- RNG -------------------------------------------------------
+import { currentSeed, mulberry32 } from '@/core/repro/random';
 
-/** Deterministic mulberry32 generator (seeded) → unit uniform [0,1). */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// Re-exported so existing importers of the local copy keep working.
+export { mulberry32 };
 
 // ---------------- Hardy-Weinberg -------------------------------------------
 
@@ -41,6 +37,10 @@ export interface HweResult {
   chi2: number;
   df: number;
   pValue: number;
+  /** Haldane continuity-corrected chi-square (same df=1). */
+  chi2Corrected: number;
+  /** p-value of the Haldane-corrected statistic. */
+  pValueCorrected: number;
   /** statistical significance at the conventional 0.05 level */
   deviates: boolean;
 }
@@ -53,13 +53,27 @@ function normalCdf(x: number): number {
   return x >= 0 ? 1 - p : p;
 }
 
+/** p-value of a chi-square-1 variate: P(X > x) = 2·(1 − Phi(√x)). */
+function chi2OneTail(x: number): number {
+  return x <= 0 ? 1 : Math.min(1, Math.max(0, 2 * (1 - normalCdf(Math.sqrt(x)))));
+}
+
 /**
  * HWE test for a biallelic locus. A chi-square-1 variate is the square of a
- * standard normal, so P(X ≤ x) is exact via the normal CDF.
+ * standard normal, so P(X ≤ x) is exact via the normal CDF. Both the raw
+ * statistic and the Haldane (1954) continuity-corrected statistic are
+ * reported: the heterozygote deviation D = n(Aa) − 2Npq advances in steps of
+ * 0.5, so the corrected statistic replaces D by (|D| − 0.5)⁺ with
+ * χ² = D²/(4Np²q²) (algebraically identical to the 3-cell sum with df=1).
  */
 export function hweTest(counts: GenotypeCounts): HweResult {
   const n = counts.AA + counts.Aa + counts.aa;
-  if (n === 0) return { nInd: 0, alleleA: 0, alleleB: 0, expected: { AA: 0, Aa: 0, aa: 0 }, chi2: 0, df: 1, pValue: 1, deviates: false };
+  if (n === 0) {
+    return {
+      nInd: 0, alleleA: 0, alleleB: 0, expected: { AA: 0, Aa: 0, aa: 0 },
+      chi2: 0, df: 1, pValue: 1, chi2Corrected: 0, pValueCorrected: 1, deviates: false,
+    };
+  }
   const nAlleles = 2 * n;
   const p = (2 * counts.AA + counts.Aa) / nAlleles;
   const q = 1 - p;
@@ -72,8 +86,11 @@ export function hweTest(counts: GenotypeCounts): HweResult {
   for (let i = 0; i < 3; i += 1) {
     if (exp[i]! > 0) chi2 += (obs[i]! - exp[i]!) ** 2 / exp[i]!;
   }
-  // p-value = P(chi2_1 > chi2) = 2·(1 − Phi(√chi2))
-  const pValue = chi2 <= 0 ? 1 : 2 * (1 - normalCdf(Math.sqrt(chi2)));
+  const D = counts.Aa - eAa; // heterozygote deviation
+  const dc = Math.max(0, Math.abs(D) - 0.5);
+  const chi2Corrected = 4 * n * p * p * q * q > 0 ? (dc * dc) / (4 * n * p * p * q * q) : 0;
+  const pValue = chi2OneTail(chi2);
+  const pValueCorrected = chi2OneTail(chi2Corrected);
   return {
     nInd: n,
     alleleA: p,
@@ -81,9 +98,26 @@ export function hweTest(counts: GenotypeCounts): HweResult {
     expected: { AA: eAA, Aa: eAa, aa: eaa },
     chi2,
     df: 1,
-    pValue: Math.min(1, Math.max(0, pValue)),
+    pValue,
+    chi2Corrected,
+    pValueCorrected,
     deviates: pValue < 0.05,
   };
+}
+
+/**
+ * Wilson score 95% CI for a binomial proportion — used for the allele
+ * frequency p̂ = k/n with k = 2·n(AA) + n(Aa), n = 2N alleles. Returns null
+ * when n is 0.
+ */
+export function wilsonCI(k: number, n: number, z = 1.959963985): [number, number] | null {
+  if (n <= 0 || !Number.isFinite(k) || !Number.isFinite(n)) return null;
+  const p = k / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const centre = (p + z2 / (2 * n)) / denom;
+  const half = (z / denom) * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+  return [Math.max(0, centre - half), Math.min(1, centre + half)];
 }
 
 // ---------------- Wright-Fisher drift --------------------------------------
@@ -109,6 +143,12 @@ export interface WfResult {
   lostA: number;
   /** generations averaged over replicates until fixation (null if < 2 fixed+lost). */
   meanFixationTime: number | null;
+  /** mean heterozygosity 2p(1−p) across replicates, per generation. */
+  heterozygosity: number[];
+  /** cross-replicate variance of p, per generation. */
+  variance: number[];
+  /** neutral expected decay H₀·(1−1/2N)^g (null under selection s ≠ 0). */
+  heterozygosityExpected: number[] | null;
 }
 
 /**
@@ -125,7 +165,7 @@ export function wrightFisher(cfg: WfConfig): WfResult {
   const p0 = Math.min(1, Math.max(0, cfg.p0));
   const s = cfg.selection;
   const h = cfg.dominance;
-  const rand = mulberry32(cfg.seed);
+  const rand = mulberry32(cfg.seed || currentSeed());
 
   const paths: number[][] = Array.from({ length: reps }, () => []);
   const nGametes = 2 * N;
@@ -174,6 +214,34 @@ export function wrightFisher(cfg: WfConfig): WfResult {
     mean.push(sum / reps);
   }
 
+  // mean heterozygosity 2p(1−p) and cross-replicate variance of p per generation
+  const heterozygosity: number[] = [];
+  const variance: number[] = [];
+  for (let g = 0; g <= gens; g += 1) {
+    let hSum = 0;
+    let pSum = 0;
+    for (let r = 0; r < reps; r += 1) {
+      const p = paths[r]![g]!;
+      hSum += 2 * p * (1 - p);
+      pSum += p;
+    }
+    const pMean = pSum / reps;
+    let vSum = 0;
+    for (let r = 0; r < reps; r += 1) {
+      const d = paths[r]![g]! - pMean;
+      vSum += d * d;
+    }
+    heterozygosity.push(hSum / reps);
+    variance.push(vSum / reps);
+  }
+
+  // neutral expectation H₀(1−1/2N)^g (drift-only); under selection the classic
+  // closed form does not apply, so report the empirical curve only (null).
+  const heterozygosityExpected: number[] | null =
+    s === 0
+      ? Array.from({ length: gens + 1 }, (_, g) => heterozygosity[0]! * (1 - 1 / nGametes) ** g)
+      : null;
+
   return {
     generations: Array.from({ length: gens + 1 }, (_, i) => i),
     paths,
@@ -181,6 +249,9 @@ export function wrightFisher(cfg: WfConfig): WfResult {
     fixedA: fixed,
     lostA: lost,
     meanFixationTime: fixGens.length >= 2 ? fixGens.reduce((a, b) => a + b, 0) / fixGens.length : null,
+    heterozygosity,
+    variance,
+    heterozygosityExpected,
   };
 }
 

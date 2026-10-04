@@ -23,7 +23,8 @@
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { envRampColor3, lakeProfile, numCell, type LakeProfilePoint } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { actionButton, actionFired, exportSnapshotPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { LakeSph, profileBins } from './sph';
 import { LabelSet } from './label3d';
@@ -200,6 +201,9 @@ export class Lake3DPlugin implements Plugin {
   private lastT = 0;
   private lastPanel = 0;
   private lastNaNNotify = -1e9;
+  /** Per-particle total energy (solver units) captured after each reseed —
+   * the reference for the energy-drift diagnostic. */
+  private baseEnergy = 0;
   private state: State = { ...DEFAULTS };
 
   async init(api: PluginApi) {
@@ -217,6 +221,7 @@ export class Lake3DPlugin implements Plugin {
     this.three = null;
     this.ctx = null;
     this.state.measured = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -297,6 +302,7 @@ export class Lake3DPlugin implements Plugin {
         ],
       },
       actionButton('resetSim', 'Reset simulation', '重置仿真'),
+      actionButton('exportProfile', 'Export profile CSV (binned)', '导出分层统计 CSV'),
       { key: 'reset', label: 'Reset to defaults', labelI18n: { 'zh-CN': '回到初始参数', 'en-US': 'Reset to defaults' }, type: 'button', action: 'reset' },
       actionButton('fitView', 'Fit view', '重置视角'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
@@ -332,9 +338,14 @@ export class Lake3DPlugin implements Plugin {
       if (this.sim) {
         this.sim.reset();
         this.seedField(this.sim);
+        this.captureBaseline();
         this.drawPanel();
       }
       notify(this.api, 'success', 'Simulation reset.', '已重置仿真。');
+      return;
+    }
+    if (actionFired(params, 'exportProfile')) {
+      this.exportProfileCsv();
       return;
     }
     if (typeof params.runSim === 'boolean') {
@@ -446,6 +457,7 @@ export class Lake3DPlugin implements Plugin {
     this.simDepth = D;
     this.simCount = count;
     this.seedKey = key;
+    this.captureBaseline();
   }
 
   // ---- scene -----------------------------------------------------------------
@@ -734,10 +746,119 @@ export class Lake3DPlugin implements Plugin {
     if (!hasNaN(sim.pos) && !hasNaN(sim.vel)) return;
     sim.reset();
     this.seedField(sim);
+    this.captureBaseline();
     if (t - this.lastNaNNotify > 5000) {
       this.lastNaNNotify = t;
       notify(this.api, 'warning', 'Solver instability detected — particles were reset.', '检测到求解器不稳定 — 粒子已重置。');
     }
+  }
+
+  // ---- scientific outputs -----------------------------------------------------
+
+  /** Capture the per-particle reference energy e = ½|v|² + g·y (mass = 1,
+   * y ≤ 0 below the waterline) right after a (re)seed. */
+  private captureBaseline(): void {
+    const sim = this.sim;
+    if (!sim) return;
+    let sum = 0;
+    for (let i = 0; i < sim.count; i += 1) {
+      const vx = sim.vel[i * 3]!;
+      const vy = sim.vel[i * 3 + 1]!;
+      const vz = sim.vel[i * 3 + 2]!;
+      const y = sim.pos[i * 3 + 1]!;
+      sum += 0.5 * (vx * vx + vy * vy + vz * vz) + sim.gEff * y;
+    }
+    this.baseEnergy = sum / sim.count;
+  }
+
+  /** SPH diagnostics: particle count, mean kinetic energy, energy drift vs the
+   * post-seed baseline, plus the DO teaching-approximation note. */
+  private publishScience(): void {
+    const sim = this.sim;
+    if (!sim) return;
+    let ke = 0;
+    let energy = 0;
+    for (let i = 0; i < sim.count; i += 1) {
+      const vx = sim.vel[i * 3]!;
+      const vy = sim.vel[i * 3 + 1]!;
+      const vz = sim.vel[i * 3 + 2]!;
+      const v2 = vx * vx + vy * vy + vz * vz;
+      ke += 0.5 * v2;
+      energy += 0.5 * v2 + sim.gEff * sim.pos[i * 3 + 1]!;
+    }
+    const keMean = ke / sim.count;
+    const eMean = energy / sim.count;
+    const drift = Math.abs(this.baseEnergy) > 1e-9 ? (eMean - this.baseEnergy) / Math.abs(this.baseEnergy) : 0;
+    const zh = isZh(this.api.locale);
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'particles',
+        label: 'N particles',
+        value: String(sim.count),
+        hint: zh ? 'WCSPH 粒子数（分辨率预设）' : 'WCSPH particle count (quality preset)',
+      },
+      {
+        key: 'ke',
+        label: 'KE/particle',
+        value: fmtMetric(keMean),
+        hint: zh ? '平均动能 ½|v|²，求解器世界单位（非 SI）' : 'mean kinetic energy ½|v|² in solver world units (not SI)',
+      },
+      {
+        key: 'drift',
+        label: 'E drift',
+        value: `${(drift * 100).toFixed(2)}%`,
+        severity: Math.abs(drift) <= 0.05 ? 'ok' : Math.abs(drift) <= 0.25 ? 'info' : 'warn',
+        hint: zh
+          ? '总能量（动能+重力势）相对播种基线的漂移；WCSPH 为弱可压缩格式，小幅漂移属预期'
+          : 'total-energy (kinetic + gravitational potential) drift vs the post-seed baseline; small drift is expected for weakly compressible WCSPH',
+      },
+      {
+        key: 'do_model',
+        label: 'DO MODEL',
+        value: 'Benson-Krause + consumption',
+        hint: zh
+          ? 'DO 经验近似适用范围：0–40 °C 淡水饱和多项式 + 25% 水深以下线性消耗；教学近似，不能用于实际水质评价'
+          : 'DO empirical approximation scope: 0–40 °C freshwater saturation polynomial + linear consumption below 25% depth; teaching approximation, not for real assessment',
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** Binned depth statistics CSV: per-depth-band simulated T/DO and theory. */
+  private exportProfileCsv(): void {
+    const sim = this.sim;
+    if (!sim) {
+      notify(this.api, 'warning', 'No simulation yet.', '尚无仿真数据。');
+      return;
+    }
+    const depthM = this.state.depth;
+    const bins = profileBins(sim.pos, sim.temp, this.worldDepth(), depthM, N_BINS);
+    const theory = lakeProfile(depthM, this.state.surfaceTemp, this.state.wind, this.state.nutrients);
+    const theoryDoAt = (d: number): number => {
+      let j = 0;
+      while (j + 1 < theory.length && theory[j + 1]!.depth < d) j += 1;
+      const a = theory[j]!;
+      const b = theory[Math.min(j + 1, theory.length - 1)]!;
+      const f = b.depth > a.depth ? (d - a.depth) / (b.depth - a.depth) : 0;
+      return a.do + (b.do - a.do) * Math.min(1, Math.max(0, f));
+    };
+    const header = ['bin', 'depth_m', 'particles', 'temp_sim_C', 'do_sim_mg_L', 'temp_theory_C', 'do_theory_mg_L'];
+    const rows: string[][] = [];
+    for (let b = 0; b < N_BINS; b += 1) {
+      const n = bins.count[b] ?? 0;
+      if (n <= 0) continue;
+      const d = bins.depth[b]!;
+      rows.push([
+        String(b + 1),
+        d.toFixed(2),
+        String(n),
+        (bins.temp[b] ?? 0).toFixed(3),
+        simDoFromTemp(bins.temp[b] ?? 0, d / Math.max(depthM, 1e-6)).toFixed(3),
+        this.sampleProfile(theory, d).toFixed(3),
+        theoryDoAt(d).toFixed(3),
+      ]);
+    }
+    exportRowsCsv(this.api, 'env-lake3d-profile', header, rows);
   }
 
   // ---- 2-D science panel: T(z) / DO(z) comparison -----------------------------
@@ -831,6 +952,7 @@ export class Lake3DPlugin implements Plugin {
     );
     g.textAlign = 'left';
 
+    this.publishScience();
     const depthM = this.state.depth;
     const px0 = 56;
     const py0 = 62;

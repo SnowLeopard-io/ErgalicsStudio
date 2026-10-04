@@ -852,6 +852,151 @@
   animation: drop-hint-pulse 1.4s ease-in-out infinite;
 }
 
+/* Unified scientific-output strip: structured numerical conclusions
+   (R², residuals, CIs, conservation diagnostics) published by the active
+   plugin, rendered as an instrument readout under the viewport. */
+.science-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.science-strip-title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-accent-text);
+  flex-shrink: 0;
+}
+
+.science-strip-items {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.science-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.science-metric-label {
+  color: var(--color-text-tertiary);
+}
+
+.science-metric-value {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.science-metric-unit {
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.science-metric.sev-ok .science-metric-value { color: var(--color-success, #2e9e5b); }
+.science-metric.sev-warn .science-metric-value { color: var(--color-warning, #c28a1f); }
+.science-metric.sev-error .science-metric-value { color: var(--color-danger, #c0392b); }
+
+/* Sidebar Git panel (requirements/01 Phase 3, minimal scope). */
+.git-panel-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.git-panel-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.git-branch {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-panel-changes {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.git-clean {
+  color: var(--color-text-tertiary);
+}
+
+.git-changes-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  text-decoration: underline dotted;
+}
+
+.git-changes-btn:hover {
+  text-decoration-style: solid;
+}
+
+.git-commit-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.git-commit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.git-log {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.git-log-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.git-log-hash {
+  font-family: var(--font-mono);
+  color: var(--color-accent-text);
+  flex-shrink: 0;
+}
+
+.git-log-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
+}
+
 /* Restrained instrument-console pulse: the dashed frame breathes, the icon
    stays still — signaling "drop here" without a bouncing payload. */
 @keyframes drop-hint-pulse {
@@ -1324,6 +1469,52 @@
   font-size: 10px;
   font-weight: 500;
   vertical-align: middle;
+}
+
+/* Research-readiness tier badges (docs/technical/11-插件科研化整改方案.md). */
+.tier-research {
+  background: var(--color-accent-soft, rgba(46, 158, 91, 0.15));
+  color: var(--color-accent-text);
+}
+
+.tier-quasi-research {
+  background: rgba(46, 134, 193, 0.14);
+  color: #2e86c1;
+}
+
+.tier-demonstration {
+  background: rgba(194, 138, 31, 0.14);
+  color: #c28a1f;
+}
+
+.tier-educational {
+  background: var(--color-border, rgba(128, 128, 128, 0.15));
+  color: var(--color-text-tertiary);
+}
+
+.plugin-detail-research {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.plugin-detail-research .plugin-badge {
+  margin-left: 0;
+}
+
+.plugin-detail-research-notes {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.plugin-detail-research-units {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .cat-scientific {

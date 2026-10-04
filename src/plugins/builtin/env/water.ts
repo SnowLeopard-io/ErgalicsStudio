@@ -22,8 +22,11 @@ import {
   numCell,
   type WaterSiteInput,
   type WaterSiteResult,
+  computeWqi,
+  wqiSubindices,
   wqiRating,
 } from './envCore';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
@@ -71,6 +74,60 @@ export function parseWaterCsv(text: string): WaterSheet | null {
     sites.push({ name: nameCol >= 0 ? (row[nameCol] ?? '') || `#${n + 1}` : `#${n + 1}`, values });
   });
   return sites.length > 0 ? { sites } : null;
+}
+
+// ---- Weight sensitivity & missing stats (exported for tests) ----------------
+
+export interface WqiSensitivity {
+  /** Equal-weight (base) WQI. */
+  base: number | null;
+  /** Envelope of WQI under ±10% single-indicator weight perturbations. */
+  low: number;
+  high: number;
+  /** Per-indicator [w×0.9, w×1.1] WQI interval (weights renormalised). */
+  perIndicator: Array<{ ind: WaterIndicator; low: number; high: number }>;
+}
+
+/**
+ * Weight-sensitivity of the weighted-arithmetic WQI: each indicator's
+ * implicit weight is perturbed by ±10% (one at a time), weights renormalised,
+ * and the WQI recomputed from the same sub-indices. With n indicators and
+ * sub-indices q_i: WQI' = (Σq ± 0.1·q_i) / (n ± 0.1). Pure.
+ */
+export function wqiWeightSensitivity(values: Partial<Record<WaterIndicator, number>>): WqiSensitivity | null {
+  const sub = wqiSubindices(values);
+  const entries = Object.entries(sub) as Array<[WaterIndicator, number]>;
+  const n = entries.length;
+  if (n === 0) return null;
+  const sum = entries.reduce((a, [, q]) => a + q, 0);
+  const perIndicator = entries.map(([ind, q]) => ({
+    ind,
+    low: (sum - 0.1 * q) / (n - 0.1),
+    high: (sum + 0.1 * q) / (n + 0.1),
+  }));
+  const low = Math.min(...perIndicator.map((p) => p.low));
+  const high = Math.max(...perIndicator.map((p) => p.high));
+  return { base: computeWqi(values), low, high, perIndicator };
+}
+
+export interface WaterMissingStat {
+  ind: WaterIndicator;
+  present: number;
+  missing: number;
+  rate: number;
+}
+
+/** Per-indicator missing-record statistics across the loaded sites. */
+export function waterMissingStats(sites: WaterSiteInput[]): WaterMissingStat[] {
+  const total = sites.length;
+  return WATER_INDICATORS.map((ind) => {
+    const present = sites.filter((s) => {
+      const v = s.values[ind];
+      return v !== undefined && Number.isFinite(v);
+    }).length;
+    const missing = total - present;
+    return { ind, present, missing, rate: total > 0 ? missing / total : 0 };
+  });
 }
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
@@ -146,6 +203,7 @@ export class WaterPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.state.sheet = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -181,6 +239,7 @@ export class WaterPlugin implements Plugin {
         value: this.state.showWqi,
       },
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
+      actionButton('exportSub', 'Export sub-index CSV', '导出子指数 CSV'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
@@ -194,6 +253,10 @@ export class WaterPlugin implements Plugin {
     }
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
+      return;
+    }
+    if (actionFired(params, 'exportSub')) {
+      this.exportSubindicesCsv();
       return;
     }
     if (actionFired(params, 'sendToFigure')) {
@@ -238,6 +301,96 @@ export class WaterPlugin implements Plugin {
     const values = { ...site.values };
     if (!this.state.includeBod) delete values.bod;
     return evaluateWaterSite({ name: site.name, values });
+  }
+
+  // ---- scientific outputs ---------------------------------------------------
+
+  private publishScience(): void {
+    const sheet = this.state.sheet;
+    if (!sheet || sheet.sites.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const zh = isZh(this.api.locale);
+    const sites = sheet.sites;
+    const results = sites.map((s) => this.evaluate(s));
+    const wqis = results.map((r) => r.wqi).filter((w): w is number => w !== null);
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'n',
+        label: 'N sites',
+        value: String(sites.length),
+        hint: zh ? '载入样点数' : 'loaded sites',
+      },
+    ];
+    if (wqis.length > 0) {
+      const wMin = Math.min(...wqis);
+      const wMax = Math.max(...wqis);
+      const wMed = wqis.slice().sort((a, b) => a - b);
+      const med = wMed.length % 2 === 1 ? wMed[(wMed.length - 1) / 2]! : (wMed[wMed.length / 2 - 1]! + wMed[wMed.length / 2]!) / 2;
+      metrics.push({
+        key: 'wqi_range',
+        label: 'WQI min–max',
+        value: `${fmtMetric(wMin)}–${fmtMetric(wMax)} (med ${fmtMetric(med)})`,
+        hint: zh ? '各样点加权算术 WQI（等权）范围与中位数' : 'per-site weighted-arithmetic WQI range and median',
+      });
+      // (a) weight sensitivity: ±10% per-indicator weight perturbation.
+      let lo = Infinity;
+      let hi = -Infinity;
+      let hit = 0;
+      for (const s of sites) {
+        const sens = wqiWeightSensitivity(s.values);
+        if (!sens) continue;
+        lo = Math.min(lo, sens.low);
+        hi = Math.max(hi, sens.high);
+        hit += 1;
+      }
+      if (hit > 0) {
+        metrics.push({
+          key: 'wqi_sens',
+          label: 'WQI ±10%w',
+          value: `[${fmtMetric(lo)} – ${fmtMetric(hi)}]`,
+          hint: zh
+            ? '各指标权重 ±10% 扰动（归一化）后 WQI 的全样点包络区间'
+            : 'envelope of WQI over all sites with each weight perturbed ±10% (renormalised)',
+        });
+      }
+    }
+    // (b) missing records per indicator.
+    for (const m of waterMissingStats(sites)) {
+      metrics.push({
+        key: `miss_${m.ind}`,
+        label: `MISS ${WATER_LABELS[m.ind].en}`,
+        value: `${m.missing}/${m.present + m.missing} (${(m.rate * 100).toFixed(1)}%)`,
+        severity: m.rate >= 0.2 ? 'warn' : 'info',
+        hint: zh ? '缺测记录数 / 样点数（缺失率）' : 'missing records / sites (missing rate)',
+      });
+    }
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** (c) Sub-index table CSV: q_i per site plus the WQI sensitivity interval. */
+  private exportSubindicesCsv(): void {
+    const sheet = this.state.sheet;
+    if (!sheet) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    const header = ['site', ...WATER_INDICATORS.map((i) => `q_${i}`), 'wqi', 'wqi_sens_low', 'wqi_sens_high'];
+    const rows = sheet.sites.map((s) => {
+      const values = { ...s.values };
+      if (!this.state.includeBod) delete values.bod;
+      const sub = wqiSubindices(values);
+      const sens = wqiWeightSensitivity(values);
+      return [
+        s.name,
+        ...WATER_INDICATORS.map((ind) => sub[ind]?.toFixed(2) ?? ''),
+        computeWqi(values)?.toFixed(2) ?? '',
+        sens ? sens.low.toFixed(2) : '',
+        sens ? sens.high.toFixed(2) : '',
+      ];
+    });
+    exportRowsCsv(this.api, 'env-water-subindices', header, rows);
   }
 
   private exportCsv() {
@@ -292,6 +445,7 @@ export class WaterPlugin implements Plugin {
     if (!g) return;
     const zh = isZh(this.api.locale);
     if (!this.state.sheet) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: zh ? '水质评价（GB 3838-2002）' : 'Water Quality (GB 3838-2002)',
         hintZh: '拖入或从「示例数据」载入水样 CSV（site,ph,do,cod,bod,nh3_n,tp）',
@@ -299,6 +453,7 @@ export class WaterPlugin implements Plugin {
       });
       return;
     }
+    this.publishScience();
     canvas.width = canvas.clientWidth || 760;
     canvas.height = canvas.clientHeight || 460;
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';

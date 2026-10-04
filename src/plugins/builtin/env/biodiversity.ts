@@ -12,6 +12,8 @@
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { diversityIndex, numCell, type DiversityIndex } from './envCore';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { mulberry32, currentSeed } from '@/core/repro/random';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
@@ -62,6 +64,151 @@ export function parseAbundanceCsv(text: string): AbundanceMatrix | null {
   const droppedSites = width < sites.length ? sites.slice(width) : [];
   return { species, sites: sites.slice(0, width), counts, droppedSites };
 }
+
+// ---- Rarefaction / bootstrap / Chao1 (exported for tests) -------------------
+
+/** Percentile of a sorted array (linear interpolation, type-7). */
+function pctlSorted(sorted: number[], q: number): number {
+  if (sorted.length === 0) return NaN;
+  if (sorted.length === 1) return sorted[0]!;
+  const pos = (sorted.length - 1) * Math.min(1, Math.max(0, q));
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  return lo === hi ? sorted[lo]! : sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (pos - lo);
+}
+
+/**
+ * Bias-corrected Chao1 richness estimator: S_obs + f1(f1−1)/(2(f2+1)) with
+ * f1/f2 the singleton/doubleton counts. Falls back to S_obs when f1 = 0.
+ */
+export function chao1(counts: number[]): number | null {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total <= 0) return null;
+  const sObs = counts.filter((c) => c > 0).length;
+  const f1 = counts.filter((c) => c === 1).length;
+  const f2 = counts.filter((c) => c === 2).length;
+  if (f1 === 0) return sObs;
+  return sObs + (f1 * (f1 - 1)) / (2 * (f2 + 1));
+}
+
+export interface CiInterval {
+  low: number;
+  high: number;
+}
+
+/**
+ * Nonparametric bootstrap 95% CI for Shannon H′: resample N individuals
+ * with replacement from the empirical relative abundances (multinomial via
+ * cumulative-probability search) and take the percentile interval of the
+ * resampled H′ values. Deterministic given the seeded rng.
+ */
+export function shannonBootstrapCi(
+  counts: number[],
+  opts: { draws?: number; rng: () => number },
+): CiInterval | null {
+  const total = counts.reduce((a, b) => a + b, 0);
+  const sObs = counts.filter((c) => c > 0).length;
+  if (total <= 0 || sObs === 0) return null;
+  const draws = Math.max(1, opts.draws ?? 200);
+  const cum: number[] = [];
+  let acc = 0;
+  for (const c of counts) {
+    acc += c;
+    cum.push(acc / total);
+  }
+  const nSpecies = counts.length;
+  const hVals: number[] = [];
+  for (let d = 0; d < draws; d += 1) {
+    const resampled = new Array<number>(nSpecies).fill(0);
+    for (let i = 0; i < total; i += 1) {
+      const u = opts.rng();
+      let lo = 0;
+      let hi = nSpecies - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (u <= cum[mid]!) hi = mid;
+        else lo = mid + 1;
+      }
+      resampled[lo] = (resampled[lo] ?? 0) + 1;
+    }
+    let h = 0;
+    for (const c of resampled) {
+      if (c <= 0) continue;
+      const p = c / total;
+      h -= p * Math.log(p);
+    }
+    hVals.push(h);
+  }
+  hVals.sort((a, b) => a - b);
+  return { low: pctlSorted(hVals, 0.025), high: pctlSorted(hVals, 0.975) };
+}
+
+export interface RarefactionPoint {
+  /** Subsample size (individuals). */
+  n: number;
+  /** Expected distinct species count at n. */
+  mean: number;
+  /** SD across draws. */
+  sd: number;
+}
+
+/**
+ * Individual-based rarefaction: expected species richness S(n) for random
+ * subsamples of n individuals, mean ± SD over `draws` permutations. Each draw
+ * performs one full Fisher–Yates shuffle of the individual-level species
+ * labels, then a prefix walk counts distinct species at every n at once.
+ * Sample sizes are `steps` evenly spaced points from 1 to N (N included).
+ */
+export function rarefactionCurve(
+  counts: number[],
+  opts: { draws?: number; steps?: number; rng: () => number },
+): RarefactionPoint[] | null {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total <= 0) return null;
+  const draws = Math.max(1, opts.draws ?? 100);
+  const labels: number[] = [];
+  counts.forEach((c, s) => {
+    for (let i = 0; i < c; i += 1) labels.push(s);
+  });
+  const n = labels.length;
+  const nSteps = Math.max(2, Math.min(opts.steps ?? 10, n));
+  const stepAt = new Set<number>();
+  for (let k = 0; k < nSteps; k += 1) stepAt.add(Math.round(1 + ((n - 1) * k) / (nSteps - 1)));
+  stepAt.add(n);
+  const sums = new Map<number, { sum: number; sumSq: number }>();
+  for (let d = 0; d < draws; d += 1) {
+    for (let i = n - 1; i > 0; i -= 1) {
+      const j = Math.floor(opts.rng() * (i + 1));
+      const t = labels[i]!;
+      labels[i] = labels[j]!;
+      labels[j] = t;
+    }
+    const seen = new Set<number>();
+    for (let k = 1; k <= n; k += 1) {
+      seen.add(labels[k - 1]!);
+      if (!stepAt.has(k)) continue;
+      const acc2 = sums.get(k) ?? { sum: 0, sumSq: 0 };
+      acc2.sum += seen.size;
+      acc2.sumSq += seen.size * seen.size;
+      sums.set(k, acc2);
+    }
+  }
+  const points: RarefactionPoint[] = [...sums.keys()].sort((a, b) => a - b).map((k) => {
+    const acc2 = sums.get(k)!;
+    const mean = acc2.sum / draws;
+    const variance = Math.max(0, acc2.sumSq / draws - mean * mean);
+    return { n: k, mean, sd: Math.sqrt(variance) };
+  });
+  return points;
+}
+
+/** Seeded rng variants bound to the process seed (distinct streams per use). */
+function statsRng(salt: number): () => number {
+  return mulberry32((currentSeed() ^ salt) >>> 0);
+}
+
+const RAREFACTION_DRAWS = 100;
+const BOOTSTRAP_DRAWS = 200;
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
@@ -127,6 +274,7 @@ export class BiodiversityPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.state.matrix = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -165,6 +313,7 @@ export class BiodiversityPlugin implements Plugin {
         value: this.state.useEvenness,
       },
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
+      actionButton('exportStats', 'Export stats CSV (Chao1/CI/rarefaction)', '导出统计 CSV（Chao1/CI/稀疏化）'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
@@ -178,6 +327,10 @@ export class BiodiversityPlugin implements Plugin {
     }
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
+      return;
+    }
+    if (actionFired(params, 'exportStats')) {
+      this.exportStatsCsv();
       return;
     }
     if (actionFired(params, 'sendToFigure')) {
@@ -270,6 +423,114 @@ export class BiodiversityPlugin implements Plugin {
     await pushPanelsToFigure(this.api, { zh: '生物多样性指数', en: 'Biodiversity Indices' }, caption, biodiversityFigurePanels(m));
   }
 
+  // ---- scientific outputs ---------------------------------------------------
+
+  private publishScience(): void {
+    const m = this.state.matrix;
+    if (!m || m.sites.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const zh = isZh(this.api.locale);
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'n',
+        label: 'N sites × species',
+        value: `${m.sites.length} × ${m.species.length}`,
+        hint: zh ? '载入样地数 × 物种数' : 'loaded sites × species',
+      },
+    ];
+    for (let i = 0; i < m.sites.length; i += 1) {
+      const site = m.sites[i]!;
+      const counts = m.counts[i]!;
+      const d = diversityIndex(counts, m.species);
+      if (d.total <= 0 || d.richness === 0) continue;
+      // Chao1 estimated richness vs observed.
+      const ch = chao1(counts);
+      if (ch !== null) {
+        metrics.push({
+          key: `chao1_${i}`,
+          label: `CHAO1 ${site}`,
+          value: fmtMetric(ch),
+          hint: zh
+            ? `偏差修正 Chao1 丰富度估计（观测 S=${d.richness}）`
+            : `bias-corrected Chao1 richness estimate (observed S=${d.richness})`,
+        });
+      }
+      // Shannon bootstrap 95% CI.
+      if (d.shannon !== null) {
+        const ci = shannonBootstrapCi(counts, { draws: BOOTSTRAP_DRAWS, rng: statsRng(0x5eed0001) });
+        if (ci) {
+          metrics.push({
+            key: `hci_${i}`,
+            label: `H'95CI ${site}`,
+            value: `[${fmtMetric(ci.low, 3)}, ${fmtMetric(ci.high, 3)}]`,
+            hint: zh
+              ? `Shannon H′ 的 bootstrap 95% 置信区间（${BOOTSTRAP_DRAWS} 次有放回重抽样）`
+              : `bootstrap 95% CI of Shannon H′ (${BOOTSTRAP_DRAWS} resamples with replacement)`,
+          });
+        }
+      }
+      // Rarefaction: expected richness at half sampling, mean ± SD.
+      const rare = rarefactionCurve(counts, { draws: RAREFACTION_DRAWS, rng: statsRng(0x5eed0002) });
+      if (rare && rare.length >= 2) {
+        const half = rare[Math.floor(rare.length / 2) - 1]!;
+        metrics.push({
+          key: `rare_${i}`,
+          label: `RAREF ${site}`,
+          value: `${fmtMetric(half.mean, 2)}±${fmtMetric(half.sd, 2)} @n=${half.n}`,
+          hint: zh
+            ? `个体稀疏化：抽取 ${half.n} 个个体的期望物种数（${RAREFACTION_DRAWS} 次均值±SD）`
+            : `individual rarefaction: expected species at n=${half.n} individuals (mean±SD over ${RAREFACTION_DRAWS} draws)`,
+        });
+      }
+    }
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** Statistics CSV: per-site Chao1, Shannon CI and the full rarefaction curve. */
+  private exportStatsCsv(): void {
+    const m = this.state.matrix;
+    if (!m) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    const header = ['site', 'S_observed', 'N_individuals', 'chao1', 'shannon_ci_low', 'shannon_ci_high', 'rare_n_half', 'rare_mean', 'rare_sd'];
+    const rows: string[][] = [];
+    for (let i = 0; i < m.sites.length; i += 1) {
+      const site = m.sites[i]!;
+      const counts = m.counts[i]!;
+      const d = diversityIndex(counts, m.species);
+      if (d.total <= 0 || d.richness === 0) continue;
+      const ch = chao1(counts);
+      const ci = d.shannon !== null ? shannonBootstrapCi(counts, { draws: BOOTSTRAP_DRAWS, rng: statsRng(0x5eed0001) }) : null;
+      const rare = rarefactionCurve(counts, { draws: RAREFACTION_DRAWS, rng: statsRng(0x5eed0002) });
+      const half = rare && rare.length >= 2 ? rare[Math.floor(rare.length / 2) - 1]! : null;
+      rows.push([
+        site,
+        String(d.richness),
+        String(d.total),
+        ch?.toFixed(3) ?? '',
+        ci ? ci.low.toFixed(4) : '',
+        ci ? ci.high.toFixed(4) : '',
+        half ? String(half.n) : '',
+        half ? half.mean.toFixed(3) : '',
+        half ? half.sd.toFixed(3) : '',
+      ]);
+    }
+    // Rarefaction curve of the first evaluable site as a second block.
+    const first = m.counts.findIndex((c) => diversityIndex(c, m.species).total > 0);
+    if (first >= 0) {
+      const rare = rarefactionCurve(m.counts[first]!, { draws: RAREFACTION_DRAWS, rng: statsRng(0x5eed0002) });
+      if (rare) {
+        rows.push([]);
+        rows.push([`rarefaction_curve:${m.sites[first]!}`, 'n', 'mean_S', 'sd']);
+        for (const p of rare) rows.push(['', String(p.n), p.mean.toFixed(3), p.sd.toFixed(3)]);
+      }
+    }
+    exportRowsCsv(this.api, 'env-biodiversity-stats', header, rows);
+  }
+
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
@@ -279,6 +540,7 @@ export class BiodiversityPlugin implements Plugin {
     if (!g) return;
     const zh = isZh(this.api.locale);
     if (!this.state.matrix) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: zh ? '生物多样性指数' : 'Biodiversity Indices',
         hintZh: '拖入或从「示例数据」载入丰度矩阵 CSV（species,site_1,…,site_n）',
@@ -286,6 +548,7 @@ export class BiodiversityPlugin implements Plugin {
       });
       return;
     }
+    this.publishScience();
     canvas.width = canvas.clientWidth || 760;
     canvas.height = canvas.clientHeight || 460;
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';

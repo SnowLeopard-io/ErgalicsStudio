@@ -398,14 +398,12 @@ export function wqiRating(wqi: number, zh: boolean): string {
 }
 
 /**
- * Weighted-arithmetic WQI with unit weights (K = 1, equal weighting):
- * q_i = 100 × (C_i,s / C_i) for lower-better parameters (C_i,s = Class Ⅰ
- * limit, best), DO inverted (q = 100 × C/7.5 capped at 100), pH two-sided
- * around 7.5. WQI = Σq/n. Teaching-scale index, not a compliance metric.
+ * Per-indicator sub-indices q_i (0–100) of the weighted-arithmetic WQI.
+ * Exported so the water plugin can run weight-sensitivity analysis on the
+ * same q values the headline WQI uses (single source of truth).
  */
-export function computeWqi(values: Partial<Record<WaterIndicator, number>>): number | null {
-  let sum = 0;
-  let n = 0;
+export function wqiSubindices(values: Partial<Record<WaterIndicator, number>>): Partial<Record<WaterIndicator, number>> {
+  const out: Partial<Record<WaterIndicator, number>> = {};
   for (const ind of WATER_INDICATORS) {
     const v = values[ind];
     if (v === undefined || !Number.isFinite(v)) continue;
@@ -418,10 +416,21 @@ export function computeWqi(values: Partial<Record<WaterIndicator, number>>): num
       const best = GB3838_LIMITS[ind]!.limits[0]!;
       q = v > 0 ? Math.min(100, (best / v) * 100) : 100;
     }
-    sum += q;
-    n += 1;
+    out[ind] = q;
   }
-  return n > 0 ? sum / n : null;
+  return out;
+}
+
+/**
+ * Weighted-arithmetic WQI with unit weights (K = 1, equal weighting):
+ * q_i = 100 × (C_i,s / C_i) for lower-better parameters (C_i,s = Class Ⅰ
+ * limit, best), DO inverted (q = 100 × C/7.5 capped at 100), pH two-sided
+ * around 7.5. WQI = Σq/n. Teaching-scale index, not a compliance metric.
+ */
+export function computeWqi(values: Partial<Record<WaterIndicator, number>>): number | null {
+  const sub = wqiSubindices(values);
+  const qs = Object.values(sub) as number[];
+  return qs.length > 0 ? qs.reduce((a, b) => a + b, 0) / qs.length : null;
 }
 
 /** Single-factor classification (worst class governs) + optional WQI. */
@@ -577,20 +586,24 @@ export interface CarbonYearPoint {
  * One explicit Euler step (dt = 1 yr). Returns the state after the step plus
  * the atmosphere increment. `external` carries net human fluxes per pool
  * (GtC/yr, e.g. emissions into air, deforestation out of vegetation).
+ * `kOverrides` additively perturbs rate constants (1/yr) per `from>to` key —
+ * used by uncertainty analysis; omitted keys keep the calibrated value.
  * Clamps pools at zero (teaching model).
  */
 export function carbonStep(
   state: CarbonState,
   emission: number,
   external?: Partial<Record<CarbonPool, number>>,
+  kOverrides?: Record<string, number>,
 ): { next: CarbonState; atmChange: number } {
+  const k = (key: string): number => CARBON_K[key]! + (kOverrides?.[key] ?? 0);
   const flows: Array<[CarbonPool, CarbonPool, number]> = [
-    ['atmosphere', 'vegetation', CARBON_K['atmosphere>vegetation']! * state.atmosphere],
-    ['vegetation', 'atmosphere', CARBON_K['vegetation>atmosphere']! * state.vegetation],
-    ['vegetation', 'soil', CARBON_K['vegetation>soil']! * state.vegetation],
-    ['soil', 'atmosphere', CARBON_K['soil>atmosphere']! * state.soil],
-    ['atmosphere', 'ocean', CARBON_K['atmosphere>ocean']! * state.atmosphere],
-    ['ocean', 'atmosphere', CARBON_K['ocean>atmosphere']! * state.ocean],
+    ['atmosphere', 'vegetation', k('atmosphere>vegetation') * state.atmosphere],
+    ['vegetation', 'atmosphere', k('vegetation>atmosphere') * state.vegetation],
+    ['vegetation', 'soil', k('vegetation>soil') * state.vegetation],
+    ['soil', 'atmosphere', k('soil>atmosphere') * state.soil],
+    ['atmosphere', 'ocean', k('atmosphere>ocean') * state.atmosphere],
+    ['ocean', 'atmosphere', k('ocean>atmosphere') * state.ocean],
   ];
   const next: CarbonState = { ...state };
   for (const [from, to, f] of flows) {
@@ -618,11 +631,12 @@ export function carbonRun(
   emission: number,
   years: number,
   external?: Partial<Record<CarbonPool, number>>,
+  kOverrides?: Record<string, number>,
 ): CarbonYearPoint[] {
   const points: CarbonYearPoint[] = [{ year: 0, pools: { ...initial }, atmChange: 0 }];
   let cur = initial;
   for (let y = 1; y <= years; y += 1) {
-    const { next, atmChange } = carbonStep(cur, emission, external);
+    const { next, atmChange } = carbonStep(cur, emission, external, kOverrides);
     cur = next;
     points.push({ year: y, pools: { ...cur }, atmChange });
   }

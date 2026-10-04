@@ -22,6 +22,7 @@ import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 
@@ -324,6 +325,7 @@ export function CentralArea() {
           </button>
         )}
       </div>
+      <ScienceOutputStrip />
       {!activePlugin && (
         <div className="central-empty">
           {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}

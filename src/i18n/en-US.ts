@@ -205,6 +205,22 @@ export const enUS: LocaleDictionary = {
   'plugin.tags': 'Tags',
   'plugin.coming_soon': 'Coming soon',
 
+  'research.tier.research': 'Research',
+  'research.tier.quasi-research': 'Quasi-research',
+  'research.tier.demonstration': 'Demo',
+  'research.tier.educational': 'Teaching demo',
+  'research.reproducible': 'Reproducible (seed-controlled)',
+  'research.science_outputs': 'Scientific outputs',
+
+  'git.panel_title': 'Git',
+  'git.no_repo': 'Git repo unavailable for this project.',
+  'git.branch': 'Current branch',
+  'git.refresh': 'Refresh status',
+  'git.clean': 'Working tree clean',
+  'git.stage_commit_all': 'Stage & commit ({n})',
+  'git.commit_placeholder': 'Commit message (default: save: <project>)',
+  'git.commit': 'Commit',
+
   'settings.title': 'Settings',
   'settings.general': 'General',
   'settings.language': 'Language',

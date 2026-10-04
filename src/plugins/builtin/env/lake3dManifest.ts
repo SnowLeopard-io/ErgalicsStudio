@@ -21,6 +21,16 @@ export const lake3dManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.env-lake3d',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { temperature: '°C', do: 'mg/L', depth: 'm', energy: 'solver units' },
+    reproducible: false,
+    notes: 'WCSPH diagnostics (particle count, mean KE, energy drift vs post-seed baseline) are published live. Particle seeding carries unseeded jitter (shared SPH module), so trajectories differ run-to-run — read statistics ensemble-level. The DO profile is an empirical saturation formula with a linear consumption term (0–40 °C freshwater), a teaching approximation.',
+    notesI18n: {
+      'zh-CN': '实时发布 WCSPH 诊断量（粒子数、平均动能、相对播种基线的能量漂移）。粒子播种含未种子化抖动（共享 SPH 模块），轨迹逐次不同——统计量请按系综解读。DO 剖面为经验饱和公式 + 线性消耗项（0–40 °C 淡水），属教学近似。',
+      'en-US': 'WCSPH diagnostics (particle count, mean KE, energy drift vs post-seed baseline) are published live. Particle seeding carries unseeded jitter (shared SPH module), so trajectories differ run-to-run — read statistics ensemble-level. The DO profile is an empirical saturation formula with a linear consumption term (0–40 °C freshwater), a teaching approximation.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'depth,temp,do measured profile' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'depth,temp,do measured profile' },

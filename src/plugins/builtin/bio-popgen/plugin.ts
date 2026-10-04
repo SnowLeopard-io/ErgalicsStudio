@@ -12,8 +12,9 @@
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioPopgenManifest } from './manifest';
-import { DEFAULT_WF, hweTest, parseGenotypeCounts, parseVcfGenotypes, wrightFisher, type WfResult } from './popgen';
+import { DEFAULT_WF, hweTest, parseGenotypeCounts, parseVcfGenotypes, wilsonCI, wrightFisher, type WfResult } from './popgen';
 
 export { bioPopgenManifest } from './manifest';
 
@@ -64,6 +65,7 @@ export class BioPopgenPlugin implements Plugin {
   }
 
   async destroy() {
+    clearScienceOutputs(this.manifest.id);
     this.ctx = null;
   }
 
@@ -203,6 +205,7 @@ export class BioPopgenPlugin implements Plugin {
           type: 'number',
           value: this.state.aa,
         },
+        actionButton('exportGenotypes', 'Export genotype CSV', '导出基因型 CSV'),
       );
     }
     defs.push(actionButton('exportPng', 'Snapshot PNG', '快照 PNG'));
@@ -265,6 +268,10 @@ export class BioPopgenPlugin implements Plugin {
     if (actionFired(params, 'rerun')) recompute = true;
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
+      return;
+    }
+    if (actionFired(params, 'exportGenotypes')) {
+      this.exportGenotypesCsv();
       return;
     }
     if (actionFired(params, 'exportPng')) {
@@ -332,24 +339,122 @@ export class BioPopgenPlugin implements Plugin {
     exportRowsCsv(this.api, 'drift-mean', ['generation', 'mean_p(A)'], rows);
   }
 
+  /** Genotype counts + HWE expectations + allele-frequency Wilson CI as CSV. */
+  private exportGenotypesCsv() {
+    const c = this.state;
+    const r = hweTest({ AA: c.AA, Aa: c.Aa, aa: c.aa });
+    if (r.nInd === 0) {
+      notify(this.api, 'warning', 'No genotype counts to export.', '没有可导出的基因型计数。');
+      return;
+    }
+    const rows: Array<Array<string | number>> = [
+      ['AA', c.AA, Number(r.expected.AA.toFixed(4))],
+      ['Aa', c.Aa, Number(r.expected.Aa.toFixed(4))],
+      ['aa', c.aa, Number(r.expected.aa.toFixed(4))],
+    ];
+    const ci = wilsonCI(2 * c.AA + c.Aa, 2 * r.nInd);
+    if (ci) {
+      rows.push(['allele_p', Number(r.alleleA.toFixed(6)), `Wilson 95% CI [${ci[0].toFixed(6)}, ${ci[1].toFixed(6)}]`]);
+    }
+    rows.push(['chi2', Number(r.chi2.toFixed(6)), `p=${r.pValue.toFixed(6)}`]);
+    rows.push(['chi2_haldane', Number(r.chi2Corrected.toFixed(6)), `p=${r.pValueCorrected.toFixed(6)}`]);
+    exportRowsCsv(this.api, 'genotype-counts', ['item', 'value', 'detail'], rows);
+  }
+
+  // ---- science outputs ------------------------------------------------------
+
+  /** Publish per-view metrics to the science panel (canvas-independent). */
+  private publish() {
+    const pid = this.manifest.id;
+    if (this.state.view === 'hwe') {
+      const c = this.state;
+      const r = hweTest({ AA: c.AA, Aa: c.Aa, aa: c.aa });
+      if (r.nInd === 0) {
+        clearScienceOutputs(pid);
+        return;
+      }
+      const ci = wilsonCI(2 * c.AA + c.Aa, 2 * r.nInd);
+      const metrics: ScienceMetric[] = [
+        { key: 'hwe_chisq', label: 'χ² (HW)', value: fmtMetric(r.chi2), severity: 'info' },
+        { key: 'hwe_chisq_haldane', label: 'χ² (Haldane)', value: fmtMetric(r.chi2Corrected), severity: 'info' },
+        { key: 'hwe_p', label: 'p (HW)', value: fmtMetric(r.pValue), severity: r.pValue >= 0.05 ? 'ok' : 'warn' },
+        {
+          key: 'hwe_p_haldane',
+          label: 'p (Haldane)',
+          value: fmtMetric(r.pValueCorrected),
+          severity: r.pValueCorrected >= 0.05 ? 'ok' : 'warn',
+          hint: this.zh
+            ? 'Haldane 连续性校正后的检验：杂合子偏差以 0.5 为步长，校正可避免小样本高估显著性。'
+            : 'Continuity-corrected test: the heterozygote deviation moves in steps of 0.5, correction avoids inflating significance in small samples.',
+        },
+        {
+          key: 'allele_p_ci95',
+          label: 'p̂ [95% CI]',
+          value: ci ? `${fmtMetric(r.alleleA)} [${fmtMetric(ci[0])}, ${fmtMetric(ci[1])}]` : '—',
+          severity: 'info',
+          hint: this.zh
+            ? '等位基因频率的 Wilson score 95% 置信区间（小样本稳健）。'
+            : 'Wilson score 95% CI for the allele frequency (robust for small samples).',
+        },
+      ];
+      setScienceOutputs(pid, metrics);
+      return;
+    }
+    const wf = this.wf;
+    if (!wf) {
+      clearScienceOutputs(pid);
+      return;
+    }
+    const last = wf.generations.length - 1;
+    const hObs = wf.heterozygosity[last]!;
+    const hExpFinal = wf.heterozygosityExpected ? wf.heterozygosityExpected[last]! : null;
+    const dev = hExpFinal != null && hExpFinal > 1e-12 ? Math.abs(hObs - hExpFinal) / hExpFinal : null;
+    setScienceOutputs(pid, [
+      { key: 'heterozygosity_initial', label: 'H₀', value: fmtMetric(wf.heterozygosity[0]!), severity: 'info' },
+      { key: 'heterozygosity_final_obs', label: 'H final (obs)', value: fmtMetric(hObs), severity: 'info' },
+      {
+        key: 'heterozygosity_final_exp',
+        label: 'H final (exp)',
+        value: hExpFinal == null ? '—' : fmtMetric(hExpFinal),
+        severity: dev == null ? 'info' : dev <= 0.25 ? 'ok' : 'warn',
+        hint: this.zh
+          ? '中性期望 H₀(1−1/2N)^g（仅 s=0）；观测值与期望相对偏差 ≤25% 视为一致。'
+          : 'Neutral expectation H₀(1−1/2N)^g (only when s=0); observed vs expected relative deviation ≤25% is consistent.',
+      },
+      { key: 'variance_p_final', label: 'Var(p) final', value: fmtMetric(wf.variance[last]!), severity: 'info' },
+      {
+        key: 'mean_fixation_time',
+        label: '⟨t_fix⟩',
+        value: wf.meanFixationTime == null ? '—' : fmtMetric(wf.meanFixationTime),
+        unit: 'gen',
+        severity: 'info',
+      },
+      { key: 'fixed_lost', label: 'fixed / lost', value: `${wf.fixedA} / ${wf.lostA}`, severity: 'info' },
+    ]);
+  }
+
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
     const canvas = this.ctx?.canvas2d;
+    if (!this.hasData) {
+      clearScienceOutputs(this.manifest.id);
+      if (canvas) {
+        drawEmptyCanvas(this.api, canvas, {
+          title: 'No population-genetics data',
+          titleZh: '尚未加载群体遗传数据',
+          hint: 'Re-run drift from parameters, or load genotype counts (HWE CSV/JSON or VCF) for the Hardy-Weinberg test.',
+          hintZh: '可从参数重跑漂变，或载入基因型计数（HWE CSV/JSON 或 VCF）进行哈代-温伯格检验。',
+        });
+      }
+      return;
+    }
+    this.publish();
     if (!canvas) return;
     canvas.width = canvas.clientWidth || 760;
     canvas.height = canvas.clientHeight || 420;
     const g = canvas.getContext('2d');
     if (!g) return;
-    if (!this.hasData) {
-      drawEmptyCanvas(this.api, canvas, {
-        title: 'No population-genetics data',
-        titleZh: '尚未加载群体遗传数据',
-        hint: 'Re-run drift from parameters, or load genotype counts (HWE CSV/JSON or VCF) for the Hardy-Weinberg test.',
-        hintZh: '可从参数重跑漂变，或载入基因型计数（HWE CSV/JSON 或 VCF）进行哈代-温伯格检验。',
-      });
-      return;
-    }
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);
