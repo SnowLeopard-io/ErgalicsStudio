@@ -90,6 +90,9 @@ export class Earth3DPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private three: Scene3DHandle | null = null;
   private group: THREE.Group | null = null;
+  /** Fit the camera only on first show / re-activation — never yank it back
+   * while the user is orbiting or dragging parameter sliders. */
+  private needsFit = true;
   private state: State = { ...DEFAULTS };
   private rings: Ring[] = [];
 
@@ -111,6 +114,7 @@ export class Earth3DPlugin implements Plugin {
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
     if (context.container.three) this.three = context.container.three;
+    this.needsFit = true;
     this.rebuild();
   }
 
@@ -301,7 +305,10 @@ export class Earth3DPlugin implements Plugin {
 
     this.group = group;
     three.scene.add(group);
-    this.fitCamera();
+    if (this.needsFit) {
+      this.fitCamera();
+      this.needsFit = false;
+    }
     three.setVisible(true);
     this.drawLegend();
     three.render();

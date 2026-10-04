@@ -426,6 +426,10 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   overflow-y: auto;
+  /* The resize handle hangs 2px past the right edge (absolute) and would
+     otherwise surface a meaningless horizontal scrollbar whenever the
+     sidebar scrolls vertically. Every text row already ellipsizes. */
+  overflow-x: hidden;
 }
 
 .sidebar-group {
@@ -869,6 +873,7 @@
   border-left: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .panel-title {

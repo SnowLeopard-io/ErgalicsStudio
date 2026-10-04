@@ -1,34 +1,60 @@
 // ==========================================================================
-// Example plugin: 3-D plume dispersion
+// Example plugin: 3-D plume dispersion — real CFD
 //
-// The Gaussian-plume kernel from envCore evaluated on a 3-D grid (x downwind,
-// y crosswind, z vertical) and rendered as a translucent voxel cloud over a
-// teaching terrain (the shared geo terrain mesh builder fed a synthetic
-// DEM). Optional downwind cross-section (a vertex-coloured plane at y = 0)
-// and a colour legend. OrbitControls come from the host Scene3DHandle.
+// The analytic Gaussian-plume voxel view grew a genuine fluid solver: an
+// incompressible Navier–Stokes "Stable Fluids" scheme (semi-Lagrangian
+// advection + Gauss-Seidel pressure projection, see ./cfd.ts) drives a smoke
+// density field from a continuous stack inflow with thermal buoyancy and an
+// ambient wind. The concentration isosurface is meshed every frame with
+// three's MarchingCubes (smooth surface instead of voxel blocks); the solver
+// state feeds a downwind cross-section and a canvas-texture panel that
+// overlays the CFD centreline against the analytic Gaussian plume with peak
+// positions and a normalised RMSE — the same verify-culture as the
+// fluid-cfd-coupler's verify view.
 //
-// Dense-grid compute stays on the CPU at teaching-scale resolutions
-// (capped at 48³ ≈ 110k cells) so the module works identically with or
-// without a WebGPU device — the host `PluginApi.gpu` presence is reported to
-// the log but never required.
+// Pure helpers kept for the test suite: `computePlumeField` (the analytic
+// reference) and `parseConcCsv` (external x,y,z,conc fields, rendered through
+// the same MarchingCubes path). The rAF tick starts on activate and is
+// cancelled on deactivate/destroy, with geometry/material disposal — the
+// host scene is shared between 3-D plugins.
 // ==========================================================================
 
 import * as THREE from 'three';
+import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { plumeConcentration, rampColor3, type StabilityClass } from './envCore';
 import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
 import { buildTerrainGroup } from '../geo/terrain3d';
 import type { AscGrid } from '../geo/terrain';
+import { FluidSolver, PRESSURE_ITERATIONS, RESOLUTION_PRESETS, type CfdQuality, type CfdSourceSpec } from './cfd';
 import { plume3dManifest } from './plume3dManifest';
 
 export { plume3dManifest } from './plume3dManifest';
 
-const MAX_DIM = 48; // per-axis cap → 110k cells
-const X_MAX = 10000; // m
-const Y_MAX = 2000; // m
-const Z_MAX = 600; // m
+// ---- physical + world-space extents ----------------------------------------
 
-// ---- Voxel field computation (exported for tests) ---------------------------
+const X_MAX = 10000; // m downwind
+const Y_MAX = 2000; // m crosswind
+const Z_MAX = 600; // m vertical
+
+/** World-space compute-domain box (three.js units, Y-up) — the plume and the
+ * section live inside it; the analytic compare quotes metres separately. */
+const DOM_W = 1.9;
+const DOM_H = 0.62;
+const DOM_D = 0.9;
+const DOM_X0 = -0.75;
+const DOM_Y0 = 0.06;
+const DOM_CX = DOM_X0 + DOM_W / 2;
+const DOM_CY = DOM_Y0 + DOM_H / 2;
+
+/** m/s wind → cells/step (teaching tuning, not physics). */
+const WIND_SCALE = 0.15;
+/** Solver substeps per frame (cap 2). */
+const SUBSTEPS = 2;
+/** Stack-top downwind cell (a little off the inflow face). */
+const STACK_I = 2;
+
+// ---- analytic reference + CSV import (exported for tests) -------------------
 
 export interface VoxelField3D {
   nx: number;
@@ -118,52 +144,101 @@ interface State {
   u: number;
   cls: StabilityClass;
   stackH: number;
-  dim: number;
+  dim: CfdQuality;
   showSection: boolean;
-  thresholdT: number; // fraction of cMax below which voxels hide
-  /** When set, the CSV field replaces the computed plume. */
+  /** Overlay the analytic Gaussian centreline against the CFD one. */
+  compareGauss: boolean;
+  /** Run the solver (false = pause). */
+  play: boolean;
+  thresholdT: number; // isosurface threshold, fraction of the smoke peak
+  /** When set, the CSV field replaces the live simulation. */
   custom: VoxelField3D | null;
 }
 
-const DEFAULTS: State = { q: 100, u: 4, cls: 'C', stackH: 50, dim: 36, showSection: false, thresholdT: 0.02, custom: null };
+const DEFAULTS: State = {
+  q: 100,
+  u: 4,
+  cls: 'C',
+  stackH: 50,
+  dim: '48',
+  showSection: false,
+  compareGauss: true,
+  play: true,
+  thresholdT: 0.05,
+  custom: null,
+};
+
+const CFD_COLOR = '#f5a25a';
+const GAUSS_COLOR = '#58a6d6';
 
 export class Plume3DPlugin implements Plugin {
   readonly manifest = plume3dManifest;
   private api!: PluginApi;
   private three: Scene3DHandle | null = null;
   private group: THREE.Group | null = null;
+  /** Fit the camera only on first show / re-activation — never yank it back
+   * while the user is orbiting or dragging parameter sliders. */
+  private needsFit = true;
+  private rafId = 0;
+  private frame = 0;
+
   private state: State = { ...DEFAULTS };
+  private solver: FluidSolver | null = null;
+  private densMaxSm = 0; // smoothed smoke peak (steady isosurface threshold)
+  private nanNotified = false;
+
+  // scene refs (all owned by `group`, cleared with it)
+  private mc: MarchingCubes | null = null;
+  private mcSize = 48;
+  private mapI: Int32Array | null = null;
+  private mapJ: Int32Array | null = null;
+  private mapK: Int32Array | null = null;
+  private mapSrc = '';
+  private sectionMesh: THREE.Mesh | null = null;
+  private sectionColors: THREE.BufferAttribute | null = null;
+  private stackMesh: THREE.Mesh | null = null;
+  private hudMesh: THREE.Mesh | null = null;
+  private hudCanvas: HTMLCanvasElement | null = null;
+  private hudCtx: CanvasRenderingContext2D | null = null;
+  private hudTexture: THREE.CanvasTexture | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
     if (api.gpu) {
-      api.log('info', `GPU compute surface: ${api.gpu.available ? api.gpu.backend : 'unavailable'} — teaching-scale fields stay on CPU`);
+      api.log('info', `GPU compute surface: ${api.gpu.available ? api.gpu.backend : 'unavailable'} — the stable-fluids solver stays on CPU`);
     }
   }
 
   async destroy() {
+    this.stopTick();
     this.clearGroup();
+    this.three?.setVisible(false);
     this.three = null;
+    this.solver = null;
     this.state.custom = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
-    if (context.container.three) this.three = context.container.three;
+    this.three = context.container.three ?? null;
+    this.needsFit = true;
+    this.rebuild();
+  }
+
+  /** Host-driven 3D wiring (mirrors the geo 3-D plugins). */
+  renderToScene(scene: Scene3DHandle) {
+    this.three = scene;
+    this.needsFit = true;
     this.rebuild();
   }
 
   async deactivate() {
+    this.stopTick();
     this.clearGroup();
     this.three?.setVisible(false);
   }
 
   render(container: ContainerCapabilities) {
     if (container.three) this.three = container.three;
-    this.rebuild();
-  }
-
-  renderToScene(scene: Scene3DHandle) {
-    this.three = scene;
     this.rebuild();
   }
 
@@ -180,9 +255,34 @@ export class Plume3DPlugin implements Plugin {
         options: (['A', 'B', 'C', 'D', 'E', 'F'] as StabilityClass[]).map((c) => ({ value: c, label: c, labelI18n: { 'zh-CN': c, 'en-US': c } })),
       },
       { key: 'stackH', label: 'Effective stack height H (m)', labelI18n: { 'zh-CN': '有效源高 H（m）', 'en-US': 'Effective stack height H (m)' }, type: 'number', min: 5, max: 300, step: 5, value: this.state.stackH },
-      { key: 'dim', label: 'Grid resolution (x cells)', labelI18n: { 'zh-CN': '网格分辨率（x 向格点）', 'en-US': 'Grid resolution (x cells)' }, type: 'number', min: 16, max: MAX_DIM, step: 4, value: this.state.dim, hint: `≤ ${MAX_DIM}³` },
-      { key: 'threshold', label: 'Isosurface threshold', labelI18n: { 'zh-CN': '等值面阈值', 'en-US': 'Isosurface threshold' }, type: 'range', min: 0.005, max: 0.3, step: 0.005, value: this.state.thresholdT },
+      {
+        key: 'dim',
+        label: 'Solver resolution',
+        labelI18n: { 'zh-CN': '求解器分辨率', 'en-US': 'Solver resolution' },
+        type: 'select',
+        value: this.state.dim,
+        hint: 'Stable-fluids grid (nx×ny×nz)',
+        options: [
+          { value: '32', label: 'Low · 32×32×24', labelI18n: { 'zh-CN': '低 · 32×32×24', 'en-US': 'Low · 32×32×24' } },
+          { value: '48', label: 'Medium · 48×32×24', labelI18n: { 'zh-CN': '中 · 48×32×24', 'en-US': 'Medium · 48×32×24' } },
+          { value: '64', label: 'High · 64×40×28', labelI18n: { 'zh-CN': '高 · 64×40×28', 'en-US': 'High · 64×40×28' } },
+        ],
+      },
+      { key: 'threshold', label: 'Isosurface threshold', labelI18n: { 'zh-CN': '等值面阈值', 'en-US': 'Isosurface threshold' }, type: 'range', min: 0.01, max: 0.5, step: 0.005, value: this.state.thresholdT, hint: '× smoke peak' },
       { key: 'showSection', label: 'Show downwind cross-section', labelI18n: { 'zh-CN': '显示横切面', 'en-US': 'Show downwind cross-section' }, type: 'checkbox', value: this.state.showSection },
+      { key: 'compareGauss', label: 'Compare analytic solution', labelI18n: { 'zh-CN': '对照解析解', 'en-US': 'Compare analytic solution' }, type: 'checkbox', value: this.state.compareGauss, hint: 'CFD vs Gaussian centreline' },
+      {
+        key: 'play',
+        label: 'Simulation',
+        labelI18n: { 'zh-CN': '仿真播放', 'en-US': 'Simulation' },
+        type: 'toggle',
+        value: this.state.play,
+        offLabel: 'Play',
+        onLabel: 'Pause',
+        offLabelI18n: { 'zh-CN': '播放', 'en-US': 'Play' },
+        onLabelI18n: { 'zh-CN': '暂停', 'en-US': 'Pause' },
+      },
+      actionButton('resetSim', 'Reset simulation', '重置仿真'),
       { key: 'reset', label: 'Reset to defaults', labelI18n: { 'zh-CN': '回到初始参数', 'en-US': 'Reset to defaults' }, type: 'button', action: 'reset' },
       actionButton('fitView', 'Fit view', '重置视角'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
@@ -209,41 +309,54 @@ export class Plume3DPlugin implements Plugin {
       void this.api.reload?.();
       return;
     }
+    if (actionFired(params, 'resetSim')) {
+      this.solver?.reset();
+      this.densMaxSm = 0;
+      this.nanNotified = false;
+      notify(this.api, 'success', 'Simulation reset', '仿真已重置');
+      return;
+    }
     if (actionFired(params, 'reset')) {
       this.state = { ...DEFAULTS };
       this.rebuild();
       return;
     }
-    let rebuild = false;
-    if (typeof params.q === 'number' && params.q >= 1 && params.q !== this.state.q) {
-      this.state.q = params.q;
-      rebuild = true;
-    }
-    if (typeof params.u === 'number' && params.u > 0 && params.u !== this.state.u) {
-      this.state.u = params.u;
-      rebuild = true;
-    }
+
+    // Live source/wind/stability changes ride the running solver.
+    if (typeof params.q === 'number' && params.q >= 1 && params.q !== this.state.q) this.state.q = params.q;
+    if (typeof params.u === 'number' && params.u > 0 && params.u !== this.state.u) this.state.u = params.u;
     if (typeof params.cls === 'string' && /^[A-F]$/.test(params.cls) && params.cls !== this.state.cls) {
       this.state.cls = params.cls as StabilityClass;
-      rebuild = true;
     }
     if (typeof params.stackH === 'number' && params.stackH >= 5 && params.stackH !== this.state.stackH) {
       this.state.stackH = params.stackH;
-      rebuild = true;
+      this.updateStack(); // chimney + source cell follow, the run continues
     }
-    if (typeof params.dim === 'number' && params.dim !== this.state.dim) {
-      this.state.dim = Math.min(MAX_DIM, Math.max(16, Math.round(params.dim)));
-      rebuild = true;
+    if (typeof params.dim === 'string' && params.dim in RESOLUTION_PRESETS && params.dim !== this.state.dim) {
+      this.state.dim = params.dim as CfdQuality;
+      this.rebuild(); // new grid → fresh solver
+      return;
     }
     if (typeof params.threshold === 'number' && params.threshold !== this.state.thresholdT) {
-      this.state.thresholdT = params.threshold;
-      rebuild = true;
+      this.state.thresholdT = params.threshold; // read every frame
     }
     if (typeof params.showSection === 'boolean' && params.showSection !== this.state.showSection) {
       this.state.showSection = params.showSection;
-      rebuild = true;
+      if (this.sectionMesh) {
+        this.sectionMesh.visible = params.showSection;
+        if (params.showSection) this.updateSection();
+      }
     }
-    if (rebuild) this.rebuild();
+    if (typeof params.compareGauss === 'boolean' && params.compareGauss !== this.state.compareGauss) {
+      this.state.compareGauss = params.compareGauss;
+      if (this.hudMesh) {
+        this.hudMesh.visible = params.compareGauss && !this.state.custom;
+        if (params.compareGauss) this.redrawHud();
+      }
+    }
+    if (typeof params.play === 'boolean' && params.play !== this.state.play) {
+      this.state.play = params.play;
+    }
   }
 
   getSupportedFormats() {
@@ -262,17 +375,271 @@ export class Plume3DPlugin implements Plugin {
     this.rebuild();
   }
 
-  // ---- scene ---------------------------------------------------------------
+  // ---- solver mapping --------------------------------------------------------
+
+  private sourceK(): number {
+    const res = RESOLUTION_PRESETS[this.state.dim];
+    return Math.min(res.nz - 2, Math.max(1, Math.round((this.state.stackH / Z_MAX) * (res.nz - 1))));
+  }
+
+  private buildSourceSpec(): CfdSourceSpec {
+    const res = RESOLUTION_PRESETS[this.state.dim];
+    return {
+      i: STACK_I,
+      j: res.ny >> 1,
+      k: this.sourceK(),
+      wind: this.state.u * WIND_SCALE,
+      densIn: Math.min(3, Math.max(0.2, 0.2 + this.state.q / 80)),
+      heatIn: 1.0,
+      exitV: 0.9,
+      buoyancy: 0.06,
+    };
+  }
+
+  /** Peak-relative isolation for the MarchingCubes surface (fast attack, slow decay). */
+  private isolationValue(): number {
+    const raw = this.state.custom ? this.state.custom.cMax : this.solver?.densMax ?? 0;
+    this.densMaxSm = Math.max(raw, this.densMaxSm * 0.97);
+    return Math.min(4, Math.max(0.008, this.state.thresholdT * this.densMaxSm));
+  }
+
+  /** Resampling maps sim (nx,ny,nz) → MarchingCubes cube of `size`³ (nearest). */
+  private ensureMaps(snx: number, sny: number, snz: number): void {
+    const key = `${snx}:${sny}:${snz}:${this.mcSize}`;
+    if (this.mapSrc === key && this.mapI && this.mapJ && this.mapK) return;
+    const axis = (src: number) => {
+      const m = new Int32Array(this.mcSize);
+      for (let a = 0; a < this.mcSize; a += 1) {
+        m[a] = Math.min(src - 1, Math.round((a / (this.mcSize - 1)) * (src - 1)));
+      }
+      return m;
+    };
+    this.mapI = axis(snx);
+    this.mapJ = axis(sny);
+    this.mapK = axis(snz);
+    this.mapSrc = key;
+  }
+
+  /** reset() → write density → isolation → update() on the MarchingCubes mesh. */
+  private updateMcField(): void {
+    const mc = this.mc;
+    if (!mc) return;
+    const custom = this.state.custom;
+    const solver = this.solver;
+    const src = custom ? custom.c : solver?.dens;
+    if (!src) return;
+    const snx = custom ? custom.nx : solver!.nx;
+    const sny = custom ? custom.ny : solver!.ny;
+    const snz = custom ? custom.nz : solver!.nz;
+    this.ensureMaps(snx, sny, snz);
+
+    mc.reset();
+    const field = mc.field;
+    const size = this.mcSize;
+    const size2 = size * size;
+    const mi = this.mapI!;
+    const mj = this.mapJ!;
+    const mk = this.mapK!;
+    for (let mz = 0; mz < size; mz += 1) {
+      const zBase = mk[mz]! * sny * snx;
+      const offZ = mz * size2;
+      for (let my = 0; my < size; my += 1) {
+        const yBase = zBase + mj[my]! * snx;
+        const off = offZ + my * size;
+        for (let mx = 0; mx < size; mx += 1) {
+          field[off + mx] = src[yBase + mi[mx]!]!;
+        }
+      }
+    }
+    mc.isolation = this.isolationValue();
+    mc.update();
+  }
+
+  /** Sample the custom field at normalised (x,y,z) ∈ [0,1]³. */
+  private sampleCustom(f: VoxelField3D, tx: number, ty: number, tz: number): number {
+    const i = Math.min(f.nx - 1, Math.max(0, Math.floor(tx * f.nx)));
+    const j = Math.min(f.ny - 1, Math.max(0, Math.floor(ty * f.ny)));
+    const k = Math.min(f.nz - 1, Math.max(0, Math.floor(tz * f.nz)));
+    return f.c[(k * f.ny + j) * f.nx + i] ?? 0;
+  }
+
+  /** Refresh the y=0 section colours from the active field. */
+  private updateSection(): void {
+    const attr = this.sectionColors;
+    if (!attr) return;
+    const custom = this.state.custom;
+    const solver = this.solver;
+    const norm = Math.max(custom ? custom.cMax : this.densMaxSm, 1e-9);
+    const colors = attr.array as Float32Array;
+    const snx = this.sectionNx;
+    const snz = this.sectionNz;
+    const srcNz = custom ? custom.nz : solver?.nz ?? 1;
+    for (let k = 0; k <= snz; k += 1) {
+      const tz = k / snz;
+      const sk = Math.min(srcNz - 1, Math.round(tz * (srcNz - 1)));
+      for (let i = 0; i <= snx; i += 1) {
+        const tx = i / snx;
+        let v: number;
+        if (custom) {
+          v = this.sampleCustom(custom, tx, 0.5, tz);
+        } else if (solver) {
+          const si = Math.min(solver.nx - 1, Math.round(tx * (solver.nx - 1)));
+          v = solver.dens[(sk * solver.ny + (solver.ny >> 1)) * solver.nx + si] ?? 0;
+        } else {
+          v = 0;
+        }
+        const [r, g2, b] = rampColor3(Math.min(1, Math.max(0, v / norm)));
+        const o = (k * (snx + 1) + i) * 3;
+        colors[o] = r;
+        colors[o + 1] = g2;
+        colors[o + 2] = b;
+      }
+    }
+    attr.needsUpdate = true;
+  }
+
+  private sectionNx = 60;
+  private sectionNz = 24;
+
+  // ---- HUD (CFD vs analytic centreline) --------------------------------------
+
+  private redrawHud(): void {
+    const ctx = this.hudCtx;
+    const canvas = this.hudCanvas;
+    if (!ctx || !canvas) return;
+    const zh = this.api.locale === 'zh-CN';
+    const W = canvas.width;
+    const H = canvas.height;
+    const font = (px: number) => `${px}px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(10, 14, 20, 0.85)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#3d5a80';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.95)';
+    ctx.font = font(14);
+    ctx.textAlign = 'left';
+    ctx.fillText(zh ? '中心线浓度对比（z = H，归一化）' : 'Centreline comparison (z = H, normalised)', 12, 22);
+
+    // Sample both centreline profiles.
+    const N = 64;
+    const gau: number[] = [];
+    const cfd: number[] = [];
+    const solver = this.solver;
+    const custom = this.state.custom;
+    const live = !!solver && !custom;
+    let cfdMax = 0;
+    for (let s = 0; s < N; s += 1) {
+      const t = s / (N - 1);
+      gau.push(plumeConcentration(this.state.q * 1e6, this.state.u, this.state.cls, this.state.stackH, t * X_MAX, 0, this.state.stackH));
+      if (solver && live) {
+        const si = Math.round(t * (solver.nx - 1));
+        const v = solver.dens[(this.sourceK() * solver.ny + (solver.ny >> 1)) * solver.nx + si] ?? 0;
+        cfd.push(v);
+        if (v > cfdMax) cfdMax = v;
+      }
+    }
+    let gauMax = 0;
+    for (const g of gau) if (g > gauMax) gauMax = g;
+    const cfdOk = live && cfdMax > 0 && gauMax > 0;
+    if (gauMax > 0) for (let s = 0; s < N; s += 1) gau[s] = gau[s]! / gauMax;
+    if (cfdMax > 0) for (let s = 0; s < N; s += 1) cfd[s] = cfd[s]! / cfdMax;
+
+    // Plot frame.
+    const x0 = 46;
+    const x1 = W - 14;
+    const y0 = 34;
+    const y1 = 196;
+    ctx.strokeStyle = 'rgba(120,132,150,0.7)';
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x0, y1);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(150,165,185,0.9)';
+    ctx.font = font(10);
+    ctx.textAlign = 'center';
+    for (let km = 0; km <= 10; km += 2) {
+      ctx.fillText(`${km}`, x0 + (km / 10) * (x1 - x0), y1 + 12);
+    }
+    ctx.fillText(zh ? '下风距离 km' : 'downwind km', x1 - 18, y1 + 24);
+
+    const drawCurve = (vals: number[], color: string) => {
+      if (vals.length === 0) return;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let s = 0; s < vals.length; s += 1) {
+        const px = x0 + (s / (vals.length - 1)) * (x1 - x0);
+        const py = y1 - Math.min(1, Math.max(0, vals[s]!)) * (y1 - y0 - 6) - 3;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    };
+    drawCurve(gau, GAUSS_COLOR);
+    if (cfdOk) drawCurve(cfd, CFD_COLOR);
+
+    // Legend.
+    ctx.font = font(11);
+    ctx.textAlign = 'left';
+    const legend = (lx: number, color: string, label: string) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(lx, 40, 14, 3);
+      ctx.fillText(label, lx + 18, 46);
+    };
+    if (cfdOk) legend(x1 - 150, CFD_COLOR, 'CFD');
+    legend(x1 - 70, GAUSS_COLOR, zh ? '高斯解析' : 'Gaussian');
+
+    // Footnote: peak positions + normalised RMSE.
+    const peakOf = (vals: number[]) => {
+      let best = 0;
+      for (let s = 0; s < vals.length; s += 1) if (vals[s]! > vals[best]!) best = s;
+      return ((best / Math.max(1, vals.length - 1)) * X_MAX) / 1000;
+    };
+    ctx.font = font(11);
+    ctx.fillStyle = 'rgba(200,212,228,0.95)';
+    if (!cfdOk) {
+      ctx.fillText(zh ? 'CFD 曲线随仿真播放生成' : 'The CFD curve builds up while the simulation plays', 12, H - 12);
+    } else {
+      let se = 0;
+      for (let s = 0; s < N; s += 1) {
+        const d = cfd[s]! - gau[s]!;
+        se += d * d;
+      }
+      const nrmse = Math.sqrt(se / N);
+      const text = zh
+        ? `峰值 CFD @ ${peakOf(cfd).toFixed(1)} km · 高斯 @ ${peakOf(gau).toFixed(1)} km · 归一化 RMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`
+        : `peak CFD @ ${peakOf(cfd).toFixed(1)} km · Gaussian @ ${peakOf(gau).toFixed(1)} km · nRMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`;
+      ctx.fillText(text, 12, H - 12);
+    }
+    this.hudTexture!.needsUpdate = true;
+  }
+
+  // ---- scene assembly ----------------------------------------------------------
 
   private clearGroup() {
     if (!this.group) return;
     this.three?.scene.remove(this.group);
     this.group.traverse((obj) => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) {
-        obj.geometry.dispose();
-        (obj.material as THREE.Material).dispose();
-      }
+      const withGeo = obj as THREE.Mesh;
+      withGeo.geometry?.dispose();
+      const mat = (withGeo as unknown as { material?: THREE.Material | THREE.Material[] }).material;
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+      else mat?.dispose();
     });
+    this.hudTexture?.dispose();
+    this.mc = null;
+    this.sectionMesh = null;
+    this.sectionColors = null;
+    this.stackMesh = null;
+    this.hudMesh = null;
+    this.hudCanvas = null;
+    this.hudCtx = null;
+    this.hudTexture = null;
     this.group = null;
   }
 
@@ -287,6 +654,7 @@ export class Plume3DPlugin implements Plugin {
   private rebuild() {
     const three = this.three;
     if (!three) return;
+    this.stopTick();
     this.clearGroup();
     const group = new THREE.Group();
 
@@ -299,111 +667,167 @@ export class Plume3DPlugin implements Plugin {
     // Teaching terrain as the ground plane.
     group.add(buildTerrainGroup(syntheticDem(), 0.35));
 
-    const field = this.state.custom ?? computePlumeField(this.state.q * 1e6, this.state.u, this.state.cls, this.state.stackH, this.state.dim);
-    this.api.reportDataScale(field.nx * field.ny * field.nz);
-    if (field.cMax <= 0) {
-      this.group = group;
-      three.scene.add(group);
-      this.fitCamera();
-      three.setVisible(true);
-      three.render();
-      return;
-    }
+    // Compute-domain wireframe.
+    const box = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(DOM_W, DOM_H, DOM_D)),
+      new THREE.LineBasicMaterial({ color: 0x44607e, transparent: true, opacity: 0.6 }),
+    );
+    box.position.set(DOM_CX, DOM_CY, 0);
+    group.add(box);
 
-    // Voxel cloud above the threshold.
-    const threshold = this.state.thresholdT * field.cMax;
-    const visible: number[] = [];
-    for (let k = 0; k < field.nz; k += 1) {
-      for (let j = 0; j < field.ny; j += 1) {
-        for (let i = 0; i < field.nx; i += 1) {
-          const v = field.c[(k * field.ny + j) * field.nx + i]!;
-          if (v >= threshold) visible.push(i, j, k, v);
-        }
-      }
-    }
-    const count = visible.length / 4;
-    if (count > 0) {
-      const geo = new THREE.BoxGeometry(1, 1, 1);
-      const mat = new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.45, roughness: 0.6, metalness: 0.05 });
-      const inst = new THREE.InstancedMesh(geo, mat, count);
-      const m = new THREE.Matrix4();
-      const colors = new Float32Array(count * 3);
-      // Map field axes to world: x → +X (downwind), y → Z, z → Y, centred.
-      const sx = 1.9 / field.nx;
-      const sy = 0.62 / field.nz;
-      const sz = 0.9 / field.ny;
-      for (let n = 0; n < count; n += 1) {
-        const i = visible[n * 4]!;
-        const j = visible[n * 4 + 1]!;
-        const k = visible[n * 4 + 2]!;
-        const v = visible[n * 4 + 3]!;
-        const wx = (i + 0.5) * sx - 0.75;
-        const wy = (k + 0.5) * sy + 0.06;
-        const wz = (j + 0.5) * sz - 0.45;
-        const shrink = 0.75 + 0.25 * (v / field.cMax);
-        m.makeScale(sx * shrink, sy * shrink, sz * shrink);
-        m.setPosition(wx, wy, wz);
-        inst.setMatrixAt(n, m);
-        const [r, g2, b] = rampColor3(v / field.cMax);
-        colors[n * 3] = r;
-        colors[n * 3 + 1] = g2;
-        colors[n * 3 + 2] = b;
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      (mat as THREE.MeshStandardMaterial).vertexColors = true;
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-    }
+    // Solver (fresh grid on every rebuild) + data-scale report.
+    const res = RESOLUTION_PRESETS[this.state.dim];
+    this.solver = new FluidSolver(res.nx, res.ny, res.nz);
+    this.densMaxSm = 0;
+    this.nanNotified = false;
+    this.api.reportDataScale(this.state.custom ? this.state.custom.nx * this.state.custom.ny * this.state.custom.nz : this.solver.cells);
 
-    // Downwind cross-section at y = 0 (vertex-coloured plane in the x–z plane).
-    if (this.state.showSection) {
-      const snx = 60;
-      const snz = 24;
-      const positions: number[] = [];
-      const colorsSec: number[] = [];
-      const indices: number[] = [];
-      for (let k = 0; k <= snz; k += 1) {
-        for (let i = 0; i <= snx; i += 1) {
-          const x = (i / snx) * X_MAX;
-          const z = (k / snz) * Z_MAX;
-          const v = this.state.custom
-            ? this.sampleCustom(this.state.custom, x / X_MAX, 0.5, z / Z_MAX)
-            : plumeConcentration(this.state.q * 1e6, this.state.u, this.state.cls, this.state.stackH, x, 0, z);
-          positions.push((i / snx) * 1.9 - 0.75, (k / snz) * 0.62 + 0.06, 0);
-          const [r, g2, b] = rampColor3(v / field.cMax);
-          colorsSec.push(r, g2, b);
-        }
+    // Smoke isosurface (MarchingCubes over the density field).
+    this.mcSize = res.nx;
+    const smokeMat = new THREE.MeshStandardMaterial({
+      color: 0xc9beb2,
+      emissive: 0x8a5a33,
+      emissiveIntensity: 0.4,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.75,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const mc = new MarchingCubes(this.mcSize, smokeMat, false, false, 40000);
+    mc.scale.set(DOM_W / 2, DOM_D / 2, DOM_H / 2); // MC cube [-1,1]³ → domain box
+    mc.position.set(DOM_CX, DOM_CY, 0);
+    mc.renderOrder = 2;
+    this.mc = mc;
+    group.add(mc);
+
+    // Stack chimney up to the source cell.
+    const stack = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.014, 0.02, 1, 12),
+      new THREE.MeshStandardMaterial({ color: 0x9aa7b4, roughness: 0.55, metalness: 0.15 }),
+    );
+    this.stackMesh = stack;
+    group.add(stack);
+    this.updateStack();
+
+    // Downwind cross-section at y = 0 (vertex colours refreshed per frame).
+    const snx = this.sectionNx;
+    const snz = this.sectionNz;
+    const positions: number[] = [];
+    const indices: number[] = [];
+    for (let k = 0; k <= snz; k += 1) {
+      for (let i = 0; i <= snx; i += 1) {
+        positions.push(DOM_X0 + (i / snx) * DOM_W, DOM_Y0 + (k / snz) * DOM_H, 0);
       }
-      for (let k = 0; k < snz; k += 1) {
-        for (let i = 0; i < snx; i += 1) {
-          const a = k * (snx + 1) + i;
-          indices.push(a, a + snx + 1, a + 1, a + 1, a + snx + 1, a + snx + 2);
-        }
-      }
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geom.setAttribute('color', new THREE.Float32BufferAttribute(colorsSec, 3));
-      geom.setIndex(indices);
-      geom.computeVertexNormals();
-      const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
-      mesh.position.z = 0;
-      group.add(mesh);
     }
+    for (let k = 0; k < snz; k += 1) {
+      for (let i = 0; i < snx; i += 1) {
+        const a = k * (snx + 1) + i;
+        indices.push(a, a + snx + 1, a + 1, a + 1, a + snx + 1, a + snx + 2);
+      }
+    }
+    const secGeom = new THREE.BufferGeometry();
+    secGeom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    this.sectionColors = new THREE.BufferAttribute(new Float32Array((snx + 1) * (snz + 1) * 3), 3);
+    secGeom.setAttribute('color', this.sectionColors);
+    secGeom.setIndex(indices);
+    const section = new THREE.Mesh(
+      secGeom,
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    section.visible = this.state.showSection;
+    section.renderOrder = 1;
+    this.sectionMesh = section;
+    group.add(section);
+
+    // Compare panel (canvas texture, camera-facing).
+    const hudCanvas = document.createElement('canvas');
+    hudCanvas.width = 512;
+    hudCanvas.height = 256;
+    const hudTexture = new THREE.CanvasTexture(hudCanvas);
+    hudTexture.colorSpace = THREE.SRGBColorSpace;
+    const hud = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.95, 0.475),
+      new THREE.MeshBasicMaterial({ map: hudTexture, transparent: true, depthWrite: false }),
+    );
+    hud.position.set(DOM_CX, 0.4, DOM_D / 2 + 0.28);
+    hud.visible = this.state.compareGauss && !this.state.custom;
+    hud.renderOrder = 3;
+    this.hudMesh = hud;
+    this.hudCanvas = hudCanvas;
+    this.hudCtx = hudCanvas.getContext('2d');
+    this.hudTexture = hudTexture;
+    group.add(hud);
 
     this.group = group;
     three.scene.add(group);
-    this.fitCamera();
+
+    // Static fields (CSV import / paused start) paint once here; the live
+    // sim repaints in the tick loop.
+    if (this.state.custom) {
+      this.updateMcField();
+      this.updateSection();
+      this.redrawHud();
+    }
+    this.frame = 0;
+    if (this.needsFit) {
+      this.fitCamera();
+      this.needsFit = false;
+    }
     three.setVisible(true);
     three.render();
+    this.rafId = requestAnimationFrame(this.tick);
   }
 
-  /** Sample the custom field at normalised (x,y,z) ∈ [0,1]³. */
-  private sampleCustom(f: VoxelField3D, tx: number, ty: number, tz: number): number {
-    const i = Math.min(f.nx - 1, Math.max(0, Math.floor(tx * f.nx)));
-    const j = Math.min(f.ny - 1, Math.max(0, Math.floor(ty * f.ny)));
-    const k = Math.min(f.nz - 1, Math.max(0, Math.floor(tz * f.nz)));
-    return f.c[(k * f.ny + j) * f.nx + i]!;
+  /** Move the chimney and the solver source cell to the current stack height. */
+  private updateStack(): void {
+    const mesh = this.stackMesh;
+    if (!mesh) return;
+    const res = RESOLUTION_PRESETS[this.state.dim];
+    const k = this.sourceK();
+    const topY = DOM_Y0 + ((k + 0.5) / res.nz) * DOM_H;
+    const baseY = DOM_Y0 - 0.04;
+    const h = Math.max(0.02, topY - baseY);
+    mesh.scale.set(1, h, 1);
+    mesh.position.set(DOM_X0 + ((STACK_I + 0.5) / res.nx) * DOM_W, baseY + h / 2, 0);
   }
+
+  // ---- tick loop ---------------------------------------------------------------
+
+  private stopTick() {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+  }
+
+  private tick = (_t: number) => {
+    this.rafId = 0;
+    const three = this.three;
+    if (!three || !this.group) return;
+    this.frame += 1;
+    const solver = this.solver;
+    if (this.state.play && solver && !this.state.custom) {
+      const src = this.buildSourceSpec();
+      for (let s = 0; s < SUBSTEPS; s += 1) solver.step(src);
+      if (solver.hadNaN) {
+        solver.reset();
+        this.densMaxSm = 0;
+        if (!this.nanNotified) {
+          this.nanNotified = true;
+          notify(this.api, 'warning', 'Numerical instability detected — velocity field reset', '检测到数值发散，速度场已重置');
+        }
+      }
+      this.updateMcField();
+      this.updateSection();
+      if (this.state.compareGauss && this.frame % 20 === 0) this.redrawHud();
+    }
+    if (this.hudMesh?.visible) this.hudMesh.quaternion.copy(three.camera.quaternion);
+    three.controls.update?.();
+    three.render();
+    this.rafId = requestAnimationFrame(this.tick);
+  };
 }
 
 export default function createPlume3DPlugin(): Plugin {
