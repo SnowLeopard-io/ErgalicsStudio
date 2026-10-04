@@ -316,13 +316,16 @@ export class FluidCfdCouplerPlugin implements Plugin {
           this.result = null;
           this.clearFieldGroup();
           this.fieldKey = '';
+          // Only notify when a real computed field was actually dropped —
+          // preset changes arriving via project-state restore (no result
+          // yet) would otherwise toast on every workspace entry.
+          notify(
+            this.api,
+            'info',
+            `Preset switched to ${params.preset} — press "Run Coupling" to compute its 3-D field.`,
+            '算例已切换——请点击「运行耦合」重新计算该算例的 3D 场。',
+          );
         }
-        notify(
-          this.api,
-          'info',
-          `Preset switched to ${params.preset} — press "Run Coupling" to compute its 3-D field.`,
-          '算例已切换——请点击「运行耦合」重新计算该算例的 3D 场。',
-        );
       }
     }
     if (params.view === 'coupling' || params.view === 'verify' || params.view === '3d') {
