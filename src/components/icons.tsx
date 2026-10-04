@@ -118,6 +118,15 @@ export const HelpIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const KeyboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01" />
+    <path d="M6 13h.01M10 13h.01M14 13h.01M18 13h.01" />
+    <path d="M8 17h8" />
+  </Svg>
+);
+
 export const SettingsIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="3" />

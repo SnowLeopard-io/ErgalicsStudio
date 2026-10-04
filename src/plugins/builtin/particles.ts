@@ -19,7 +19,7 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 import {
   advanceParticleCPU,
   packParticleParams,
@@ -31,8 +31,7 @@ import {
   unpackParticles,
 } from '@/core/wgsl';
 
-export { particleManifest } from './particleManifest';
-import { particleManifest } from './particleManifest';
+import { particleManifest } from './particlesManifest';
 
 interface RawParticle {
   x: number;

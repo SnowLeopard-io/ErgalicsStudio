@@ -24,7 +24,7 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import {
   FLUID_DIRECTIONS,
   FLUID_FIELD_USAGE,

@@ -10,7 +10,7 @@
 
 import type { PlotSpec } from '@/core/plot';
 import type { PluginApi } from '@/types/plugin';
-import { notify } from '../shared/enhance';
+import { notify } from '@/core/plugin-tools/enhance';
 
 /** One Figure Studio panel placement (row-major, spreadsheet-style tags). */
 export interface GeoFigurePanel {

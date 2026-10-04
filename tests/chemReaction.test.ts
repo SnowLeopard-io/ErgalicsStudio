@@ -6,7 +6,7 @@ import {
   analyseReaction,
   electronsTransferred,
   classifyReaction,
-} from '@/chem/engine/reaction';
+} from '@/core/chem/engine/reaction';
 import { H2O, CH4, CO2, O2, HCl, NaCl } from '@/plugins/builtin/chem-reaction/mols';
 import { REACTIONS, findReaction } from '@/plugins/builtin/chem-reaction/catalog';
 import { buildMechanism } from '@/plugins/builtin/chem-reaction/mech';
@@ -26,7 +26,7 @@ import { chemReactionManifest } from '@/plugins/builtin/chem-reaction/manifest';
 import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import type { PluginApi } from '@/types/plugin';
-import type { EngReaction, EngSpecies } from '@/chem/engine/reaction';
+import type { EngReaction, EngSpecies } from '@/core/chem/engine/reaction';
 
 function oxMap(mol: { atoms: Array<{ symbol: string }> }): Record<number, number> {
   const ox = oxidationNumbers(mol as never);

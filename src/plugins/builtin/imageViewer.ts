@@ -12,7 +12,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from './shared/enhance';
+import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { imageViewerManifest } from './imageViewerManifest';
 import { imageViewerManifest } from './imageViewerManifest';

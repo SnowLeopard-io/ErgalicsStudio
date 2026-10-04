@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest';
 import {
   haversineKm,
   sphericalAreaKm2,
-  parseDelimited,
   marchingSquares,
 } from '@/plugins/builtin/geo/geoCore';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   solarDeclination,
   noonElevation,

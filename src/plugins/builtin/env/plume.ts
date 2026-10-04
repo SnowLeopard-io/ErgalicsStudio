@@ -11,18 +11,16 @@
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import {
-  isZh,
   maxGroundConcentration,
   plumeConcentration,
-  rampColor,
+  envRampColor,
   sigmaYZ,
   type StabilityClass,
 } from './envCore';
-import { actionButton, actionFired, exportCanvasPng, notify } from '../shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
 import { plumeManifest } from './plumeManifest';
-
-export { plumeManifest } from './plumeManifest';
 
 const MAX_CELLS = 160; // per-axis cap: 160² = 25.6k cells stays interactive
 
@@ -309,7 +307,7 @@ export class PlumePlugin implements Plugin {
       for (let i = 0; i < nx; i += 1) {
         const c = field[j * nx + i]!;
         if (c <= cMax * 0.001) continue;
-        g.fillStyle = rampColor(c / cMax);
+        g.fillStyle = envRampColor(c / cMax);
         g.fillRect(gx0 + i * cellW, gy0 + (ny - 1 - j) * cellH, Math.ceil(cellW), Math.ceil(cellH));
       }
     }
@@ -361,7 +359,7 @@ export class PlumePlugin implements Plugin {
     );
     const lgW = 140;
     for (let i = 0; i < lgW; i += 1) {
-      g.fillStyle = rampColor(i / (lgW - 1));
+      g.fillStyle = envRampColor(i / (lgW - 1));
       g.fillRect(gx1 - lgW + i, gy1 + 4, 1, 8);
     }
     g.textAlign = 'center';

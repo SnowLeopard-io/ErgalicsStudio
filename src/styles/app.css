@@ -4498,15 +4498,6 @@
   box-shadow: 0 0 5px var(--color-success);
 }
 
-/* "?" glyph for the keyboard-shortcuts entry — sits inside an icon-only
-   button, sized to read like a keycap rather than a text character. */
-.cluster-btn-glyph {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  line-height: 1;
-}
-
 .perf-entry.perf-warn {
   color: var(--color-warning);
 }

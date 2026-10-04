@@ -12,8 +12,10 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
-import { isZh, parseDelimited, stripHeaderIfNonNumeric, haversineKm, sphericalAreaKm2 } from './geoCore';
+import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import { haversineKm, sphericalAreaKm2 } from './geoCore';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited, stripHeaderIfNonNumeric } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
 import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { geoMeasureManifest } from './geoMeasureManifest';

@@ -8,7 +8,7 @@
 // coordinates drive the 3-D rendering and the reactant→product displacement.
 // ==========================================================================
 
-import type { Molecule, Atom, BondRecord } from '@/chem/structure';
+import type { Molecule, Atom, BondRecord } from '@/core/chem/structure';
 
 export type Mol = Molecule;
 

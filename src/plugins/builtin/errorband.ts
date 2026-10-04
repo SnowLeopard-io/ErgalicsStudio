@@ -12,7 +12,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { errorbandManifest } from './errorbandManifest';
 import { errorbandManifest } from './errorbandManifest';

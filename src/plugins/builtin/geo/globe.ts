@@ -17,7 +17,7 @@
 
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
+import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
 import { tissotCircle } from './tissot';
 import { globeManifest } from './globeManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';

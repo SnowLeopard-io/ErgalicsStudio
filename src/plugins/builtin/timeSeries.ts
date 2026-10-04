@@ -13,7 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { timeSeriesManifest } from './timeSeriesManifest';
 import { timeSeriesManifest } from './timeSeriesManifest';

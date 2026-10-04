@@ -13,8 +13,8 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired } from '../shared/enhance';
-import { isZh } from './geoCore';
+import { actionButton, exportCanvasPng, actionFired } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
 import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { solarManifest } from './solarManifest';

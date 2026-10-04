@@ -4,7 +4,7 @@
 | --- | --- |
 | 适用版本 | v1.9.0 |
 | 性质 | 架构整改建议，基于 `src/` 全部相关源码逐文件核对 |
-| 状态 | 待决断 |
+| 状态 | 执行中（2026-10-04）：方案 A 完成，方案 B 大部分完成；env 相关项待环境插件并发修改结束后执行 |
 
 ## 1. 范围与方法
 
@@ -177,3 +177,22 @@
 - `src/core/plugin-tools/` 为新增目录，不改变现有运行行为，可通过单次 commit 回滚。
 - `rampColor` 统一涉及 GPU 路径，改动后需重点回归 WebGPU 相关测试。
 - 方案 C 若实施，需在加载流程中保证对无依赖声明的旧 `.cspkg` 包兼容（缺失 `dependencies` 字段时跳过解析）。
+
+## 9. 执行记录（2026-10-04）
+
+| 项目 | 状态 | 说明 |
+| --- | --- | --- |
+| 方案 A-1 架构文档依赖边 | 完成 | `docs/guide/architecture.md` 新增 "Engine reuse inside core" 小节，列出 6 条实际依赖边 |
+| 方案 A-2 插件共享约定 | 完成 | `docs/guide/plugins.md` 新增 "Built-in plugin conventions" 小节 |
+| 方案 A-3 去重 toCsv/csvCell | 完成 | 统一至 `src/core/plugin-tools/enhance.ts`；`researchUi.ts` 删除两个导出，`SqlWorkbenchPage.tsx`、`SignalLabPage.tsx` 改 import；`core/templates/data.ts` 改 import |
+| 方案 B-1 迁出 enhance.ts | 完成 | 新建 `src/core/plugin-tools/enhance.ts`；全部内置插件 + 测试文件改 import；env 批次切换后 `src/plugins/builtin/shared/` 已删除 |
+| 方案 B-2 合并通用函数 | 完成 | 新建 `src/core/plugin-tools/table.ts`（`parseDelimited`、`stripHeaderIfNonNumeric`）、`locale.ts`（`isZh`）；`geoCore.ts` 删除重复函数；10 个 env 插件与 8 个 geo 插件改 import；`envCore.ts` 删除 `isZh`/`parseDelimited`/`stripHeaderIfNonNumeric`/`drawEmptyMessage`（`drawEmptyMessage` 并入 core enhance） |
+| 方案 B-3 统一 rampColor | 完成 | `envCore.ts` 的 `rampColor`/`rampColor3` 重命名为 `envRampColor`/`envRampColor3`（turbo ramp 的 CSS 字符串 / Three.js 浮点变体），与 `core/pointcloud-gpu.ts` 的 `rampColor` 同名异签消除；4 个使用方（aqi、plume、earth3d、lake3d）同步更新 |
+| 方案 B-4 迁入 chem | 完成 | 8 个文件 `git mv` 至 `src/core/chem/`，14 处 import 更新，`src/chem/` 删除 |
+| 方案 B-5 统一 manifest 命名 | 完成 | `particleManifest.ts`→`particlesManifest.ts`、`pendulumManifest.ts`→`doublePendulumManifest.ts`；删除 `particles.ts`、`doublePendulum.ts`、`scatter.ts` 三处冗余 re-export |
+| 方案 C | 未实施 | 可选，无第三方插件互相依赖需求前不做 |
+| 验收-1 typecheck | 通过 | `tsc --noEmit` 零错误（env 批次后并发编辑遗留的 `groundwater3d.ts` 4 个错误已由另一智能体修复） |
+| 验收-1 测试 | 通过 | `vitest run`：130 个文件，2322 个测试通过，2 个跳过 |
+| 验收-2 无 shared 引用 | 通过 | `rg "shared/enhance" src/` 无结果，`src/plugins/builtin/shared/` 目录已删除 |
+| 验收-3 唯一定义 | 达成 | `function toCsv`/`csvCell` 仅 core 版；`function rampColor` 仅 `core/pointcloud-gpu.ts`；`rampColor3` 无定义（envCore 侧已改名） |
+| 验收-4 依赖边 | 文档路线 | `architecture.md` 已同步实际依赖边；blocks/editor 迁入 core 未列入方案 B 具体动作，维持现状 |

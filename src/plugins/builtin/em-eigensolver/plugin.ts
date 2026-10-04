@@ -25,7 +25,7 @@ import type {
 import type { Group as ThreeGroup, Mesh as ThreeMesh } from 'three';
 import { emit } from '@/core/events';
 import type { PlotSpec } from '@/core/plot';
-import { actionButton, actionFired, notify } from '../shared/enhance';
+import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { EmSolverClient } from './em-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';

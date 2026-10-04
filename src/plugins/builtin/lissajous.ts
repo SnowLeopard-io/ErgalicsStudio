@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from './shared/enhance';
+import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { lissajousManifest } from './lissajousManifest';
 import { lissajousManifest } from './lissajousManifest';

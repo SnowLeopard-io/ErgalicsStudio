@@ -19,18 +19,16 @@ import {
   type WaterIndicator,
   evaluateWaterSite,
   findColumn,
-  isZh,
   numCell,
-  parseDelimited,
   type WaterSiteInput,
   type WaterSiteResult,
   wqiRating,
 } from './envCore';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
 import { waterManifest } from './waterManifest';
-
-export { waterManifest } from './waterManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
 

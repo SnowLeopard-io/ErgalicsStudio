@@ -15,9 +15,9 @@
 // behaviour instead of assuming a single balanced equation.
 // ==========================================================================
 
-import type { Molecule } from '@/chem/structure';
-import { atomicMass, covalentRadius } from '@/chem/elements';
-import { bondEnergy } from '@/chem/thermo';
+import type { Molecule } from '@/core/chem/structure';
+import { atomicMass, covalentRadius } from '@/core/chem/elements';
+import { bondEnergy } from '@/core/chem/thermo';
 import type { ReactionDef, ReactionSpecies } from './catalog';
 import { REACTIONS } from './catalog';
 import { buildPhysicsPayload } from './reactmd/payload';

@@ -22,14 +22,13 @@
 import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { plumeConcentration, rampColor3, type StabilityClass } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
-import { buildTerrainGroup } from '../geo/terrain3d';
+import { plumeConcentration, type StabilityClass } from './envCore';
+import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import { buildTerrainMesh } from '../geo/terrain3d';
 import type { AscGrid } from '../geo/terrain';
 import { FluidSolver, PRESSURE_ITERATIONS, RESOLUTION_PRESETS, type CfdQuality, type CfdSourceSpec } from './cfd';
+import { LabelSet } from './label3d';
 import { plume3dManifest } from './plume3dManifest';
-
-export { plume3dManifest } from './plume3dManifest';
 
 // ---- physical + world-space extents ----------------------------------------
 
@@ -171,6 +170,27 @@ const DEFAULTS: State = {
 const CFD_COLOR = '#f5a25a';
 const GAUSS_COLOR = '#58a6d6';
 
+/** Restrained scientific ramp for the ground panels: deep blue-grey (low)
+ * through slate and tan to amber / burnt orange (high) — replaces the
+ * rainbow so the terrain never competes with the plume for attention. */
+const GROUND_STOPS: Array<[number, number, number]> = [
+  [38, 48, 66],
+  [88, 100, 116],
+  [172, 158, 126],
+  [224, 160, 66],
+  [192, 78, 38],
+];
+
+function groundRamp3(t: number): [number, number, number] {
+  const x = Math.min(1, Math.max(0, t));
+  const seg = x * (GROUND_STOPS.length - 1);
+  const i = Math.min(GROUND_STOPS.length - 2, Math.floor(seg));
+  const f = seg - i;
+  const a = GROUND_STOPS[i]!;
+  const b = GROUND_STOPS[i + 1]!;
+  return [(a[0] + f * (b[0] - a[0])) / 255, (a[1] + f * (b[1] - a[1])) / 255, (a[2] + f * (b[2] - a[2])) / 255];
+}
+
 export class Plume3DPlugin implements Plugin {
   readonly manifest = plume3dManifest;
   private api!: PluginApi;
@@ -186,9 +206,14 @@ export class Plume3DPlugin implements Plugin {
   private solver: FluidSolver | null = null;
   private densMaxSm = 0; // smoothed smoke peak (steady isosurface threshold)
   private nanNotified = false;
+  /** Bilingual scene annotations (stack / domain / isosurface / ground). */
+  private labels = new LabelSet();
 
   // scene refs (all owned by `group`, cleared with it)
   private mc: MarchingCubes | null = null;
+  /** Fainter lower-threshold halo around the main isosurface (edge dissipation). */
+  private mcOuter: MarchingCubes | null = null;
+  private stackLabel: THREE.Sprite | null = null;
   private mcSize = 48;
   private mapI: Int32Array | null = null;
   private mapJ: Int32Array | null = null;
@@ -204,6 +229,10 @@ export class Plume3DPlugin implements Plugin {
 
   async init(api: PluginApi) {
     this.api = api;
+    api.onLocaleChange((l) => {
+      this.labels.refresh(l === 'zh-CN' ? 'zh-CN' : 'en-US');
+      this.redrawHud(); // guards itself when no panel exists yet
+    });
     if (api.gpu) {
       api.log('info', `GPU compute surface: ${api.gpu.available ? api.gpu.backend : 'unavailable'} — the stable-fluids solver stays on CPU`);
     }
@@ -453,6 +482,14 @@ export class Plume3DPlugin implements Plugin {
     }
     mc.isolation = this.isolationValue();
     mc.update();
+    // The halo reuses the same sampled field at a lower isolation — a bigger,
+    // fainter envelope that sells the smoke's edge dissipation.
+    const halo = this.mcOuter;
+    if (halo) {
+      halo.field.set(mc.field);
+      halo.isolation = Math.max(0.004, mc.isolation * 0.45);
+      halo.update();
+    }
   }
 
   /** Sample the custom field at normalised (x,y,z) ∈ [0,1]³. */
@@ -488,7 +525,7 @@ export class Plume3DPlugin implements Plugin {
         } else {
           v = 0;
         }
-        const [r, g2, b] = rampColor3(Math.min(1, Math.max(0, v / norm)));
+        const [r, g2, b] = groundRamp3(Math.min(1, Math.max(0, v / norm)));
         const o = (k * (snx + 1) + i) * 3;
         colors[o] = r;
         colors[o + 1] = g2;
@@ -552,7 +589,7 @@ export class Plume3DPlugin implements Plugin {
     const x0 = 46;
     const x1 = W - 14;
     const y0 = 34;
-    const y1 = 196;
+    const y1 = 186;
     ctx.strokeStyle = 'rgba(120,132,150,0.7)';
     ctx.beginPath();
     ctx.moveTo(x0, y0);
@@ -603,7 +640,7 @@ export class Plume3DPlugin implements Plugin {
     ctx.font = font(11);
     ctx.fillStyle = 'rgba(200,212,228,0.95)';
     if (!cfdOk) {
-      ctx.fillText(zh ? 'CFD 曲线随仿真播放生成' : 'The CFD curve builds up while the simulation plays', 12, H - 12);
+      ctx.fillText(zh ? 'CFD 曲线随仿真播放生成' : 'The CFD curve builds up while the simulation plays', 12, H - 34);
     } else {
       let se = 0;
       for (let s = 0; s < N; s += 1) {
@@ -614,7 +651,17 @@ export class Plume3DPlugin implements Plugin {
       const text = zh
         ? `峰值 CFD @ ${peakOf(cfd).toFixed(1)} km · 高斯 @ ${peakOf(gau).toFixed(1)} km · 归一化 RMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`
         : `peak CFD @ ${peakOf(cfd).toFixed(1)} km · Gaussian @ ${peakOf(gau).toFixed(1)} km · nRMSE ${nrmse.toFixed(3)} · GS×${PRESSURE_ITERATIONS}`;
-      ctx.fillText(text, 12, H - 12);
+      ctx.fillText(text, 12, H - 34);
+    }
+    // Explain the CFD-vs-analytic peak offset so the mismatch reads as
+    // physics, not a bug.
+    ctx.font = font(10);
+    ctx.fillStyle = 'rgba(150,164,182,0.9)';
+    if (zh) {
+      ctx.fillText('注：CFD 含湍流/数值扩散且非稳态，峰值偏下游属预期；解析解假设理想稳态高斯烟羽', 12, H - 8);
+    } else {
+      ctx.fillText('Note: CFD includes turbulence, numerical diffusion and transient effects —', 12, H - 20);
+      ctx.fillText('a downstream-shifted peak is expected; the analytic plume is idealised steady Gaussian.', 12, H - 8);
     }
     this.hudTexture!.needsUpdate = true;
   }
@@ -624,6 +671,10 @@ export class Plume3DPlugin implements Plugin {
   private clearGroup() {
     if (!this.group) return;
     this.three?.scene.remove(this.group);
+    // Dispose the label sprites (textures + materials) and detach them before
+    // the mesh traverse — sprites share a module-level geometry that must not
+    // be disposed here. LabelSet stays reusable for the next rebuild.
+    this.labels.dispose();
     this.group.traverse((obj) => {
       const withGeo = obj as THREE.Mesh;
       withGeo.geometry?.dispose();
@@ -633,6 +684,8 @@ export class Plume3DPlugin implements Plugin {
     });
     this.hudTexture?.dispose();
     this.mc = null;
+    this.mcOuter = null;
+    this.stackLabel = null;
     this.sectionMesh = null;
     this.sectionColors = null;
     this.stackMesh = null;
@@ -645,8 +698,13 @@ export class Plume3DPlugin implements Plugin {
 
   private fitCamera() {
     if (!this.three) return;
-    this.three.camera.position.set(2.6, 1.7, 2.9);
-    this.three.camera.lookAt(0, 0.15, 0);
+    // Oblique "stack → plume → downwind" story view: ~35° azimuth, ~25°
+    // elevation — the stack sits in the left third of the frame and the
+    // plume drifts to the right, never a top-down carpet view.
+    const target = new THREE.Vector3(DOM_CX, 0.3, 0);
+    this.three.camera.position.set(1.7, 1.55, 2.15);
+    this.three.camera.lookAt(target);
+    this.three.controls.target.copy(target);
     this.three.controls.update?.();
     this.three.render();
   }
@@ -664,8 +722,26 @@ export class Plume3DPlugin implements Plugin {
     sun.position.set(2.4, 3.2, 1.6);
     group.add(sun);
 
-    // Teaching terrain as the ground plane.
-    group.add(buildTerrainGroup(syntheticDem(), 0.35));
+    // Teaching terrain as the ground-concentration board: recoloured to the
+    // restrained scientific ramp, semi-transparent, flattened slightly and
+    // clipped to the exact compute-domain footprint so it stops competing
+    // with the plume (the raw mesh spans 2×2 world units, the box only 1.9×0.9).
+    const terrain = buildTerrainMesh(syntheticDem(), 0.18);
+    const tPos = terrain.geometry.getAttribute('position');
+    const tCol = terrain.geometry.getAttribute('color');
+    const hMax = 0.55 * 0.18;
+    for (let v = 0; v < tCol.count; v += 1) {
+      const [r, g, b] = groundRamp3(tPos.getY(v) / hMax);
+      tCol.setXYZ(v, r, g, b);
+    }
+    tCol.needsUpdate = true;
+    const tMat = terrain.material as THREE.MeshStandardMaterial;
+    tMat.transparent = true;
+    tMat.opacity = 0.88;
+    tMat.needsUpdate = true;
+    terrain.scale.set(DOM_W / 2, 1, DOM_D / 2); // [-1,1]² footprint → domain box footprint
+    terrain.position.set(DOM_CX, 0, 0);
+    group.add(terrain);
 
     // Compute-domain wireframe.
     const box = new THREE.LineSegments(
@@ -682,25 +758,40 @@ export class Plume3DPlugin implements Plugin {
     this.nanNotified = false;
     this.api.reportDataScale(this.state.custom ? this.state.custom.nx * this.state.custom.ny * this.state.custom.nz : this.solver.cells);
 
-    // Smoke isosurface (MarchingCubes over the density field).
+    // Smoke isosurface (MarchingCubes over the density field) — a matte
+    // grey-white translucent shell plus a fainter, lower-threshold halo so
+    // the plume reads as smoke dissolving at its edges instead of glass.
     this.mcSize = res.nx;
-    const smokeMat = new THREE.MeshStandardMaterial({
-      color: 0xc9beb2,
-      emissive: 0x8a5a33,
-      emissiveIntensity: 0.4,
-      transparent: true,
-      opacity: 0.5,
-      roughness: 0.75,
-      metalness: 0.0,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const mc = new MarchingCubes(this.mcSize, smokeMat, false, false, 40000);
-    mc.scale.set(DOM_W / 2, DOM_D / 2, DOM_H / 2); // MC cube [-1,1]³ → domain box
+    const smokeShell = () =>
+      new THREE.MeshStandardMaterial({
+        color: 0xcfd8dc,
+        transparent: true,
+        roughness: 0.95,
+        metalness: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+    const innerMat = smokeShell();
+    innerMat.opacity = 0.24;
+    const outerMat = smokeShell();
+    outerMat.color.set(0xdde4e8);
+    outerMat.opacity = 0.1;
+    const mc = new MarchingCubes(this.mcSize, innerMat, false, false, 40000);
+    // MC field is indexed size²·z + size·y + x with x = downwind, y = crosswind,
+    // z = vertical, so local z must map onto world Y (up) and local y onto
+    // world Z (crosswind). The previous scale swapped these two: the plume
+    // rose sideways and poked through the box's top/bottom faces.
+    mc.scale.set(DOM_W / 2, DOM_H / 2, DOM_D / 2);
     mc.position.set(DOM_CX, DOM_CY, 0);
     mc.renderOrder = 2;
     this.mc = mc;
     group.add(mc);
+    const halo = new MarchingCubes(this.mcSize, outerMat, false, false, 40000);
+    halo.scale.copy(mc.scale);
+    halo.position.copy(mc.position);
+    halo.renderOrder = 2;
+    this.mcOuter = halo;
+    group.add(halo);
 
     // Stack chimney up to the source cell.
     const stack = new THREE.Mesh(
@@ -760,6 +851,15 @@ export class Plume3DPlugin implements Plugin {
     this.hudTexture = hudTexture;
     group.add(hud);
 
+    // Bilingual annotations (the stack is the source — one label covers both).
+    const locale: 'zh-CN' | 'en-US' = this.api.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
+    this.stackLabel = this.labels.add('烟囱（源）', 'Stack (source)', locale, [DOM_X0, 0.4, 0], { font: 36 });
+    this.labels.add('计算域', 'Domain', locale, [DOM_X0, DOM_Y0 + DOM_H + 0.07, DOM_D / 2], { font: 36 });
+    this.labels.add('烟羽浓度等值面', 'Plume isosurface', locale, [0.55, DOM_Y0 + DOM_H + 0.09, -DOM_D / 2], { font: 36 });
+    this.labels.add('地面浓度', 'Ground concentration', locale, [DOM_X0 + DOM_W - 0.22, 0.03, DOM_D / 2 + 0.14], { font: 36 });
+    group.add(this.labels.group);
+    this.updateStack(); // place the mesh and its label at the current stack height
+
     this.group = group;
     three.scene.add(group);
 
@@ -791,6 +891,7 @@ export class Plume3DPlugin implements Plugin {
     const h = Math.max(0.02, topY - baseY);
     mesh.scale.set(1, h, 1);
     mesh.position.set(DOM_X0 + ((STACK_I + 0.5) / res.nx) * DOM_W, baseY + h / 2, 0);
+    this.stackLabel?.position.set(mesh.position.x, baseY + h + 0.1, 0);
   }
 
   // ---- tick loop ---------------------------------------------------------------

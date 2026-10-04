@@ -16,10 +16,9 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
-export { pendulumManifest } from './pendulumManifest';
-import { pendulumManifest } from './pendulumManifest';
+import { pendulumManifest } from './doublePendulumManifest';
 
 // ---- Physics (exported for tests) ------------------------------------------
 

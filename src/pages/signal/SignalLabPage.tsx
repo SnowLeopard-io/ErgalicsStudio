@@ -34,9 +34,9 @@ import {
   useFileCols,
   loadTable,
   sendSpecToFigure,
-  toCsv,
   fmt,
 } from '../research/researchUi';
+import { toCsv } from '@/core/plugin-tools/enhance';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 
 type Op = 'spectrum' | 'welch' | 'filter' | 'correlation' | 'decompose';

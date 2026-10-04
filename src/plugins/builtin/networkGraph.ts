@@ -12,7 +12,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { networkGraphManifest } from './networkGraphManifest';
 import { networkGraphManifest } from './networkGraphManifest';

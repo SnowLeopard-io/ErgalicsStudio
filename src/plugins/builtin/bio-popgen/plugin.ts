@@ -11,7 +11,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { bioPopgenManifest } from './manifest';
 import { DEFAULT_WF, hweTest, parseGenotypeCounts, parseVcfGenotypes, wrightFisher, type WfResult } from './popgen';
 

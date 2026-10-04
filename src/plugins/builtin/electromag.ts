@@ -17,7 +17,7 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 
 export { electromagManifest } from './electromagManifest';
 import { electromagManifest } from './electromagManifest';

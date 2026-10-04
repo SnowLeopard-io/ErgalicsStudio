@@ -11,7 +11,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
+import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -238,7 +238,7 @@ export function TopBar() {
             aria-label={t('ux.shortcuts.title')}
             onClick={() => useShortcutsStore.getState().toggle()}
           >
-            <span className="cluster-btn-glyph">?</span>
+            <KeyboardIcon size={15} />
           </button>
           <button
             type="button"
@@ -301,6 +301,8 @@ export function TopBar() {
           align="right"
           trigger={<MoreIcon size={16} />}
           items={[
+            { key: 'palette', label: t('ux.palette.open'), onClick: () => useCommandPaletteStore.getState().toggle() },
+            { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
             ...(mode === 'standard'
               ? [{ key: 'right', label: t('workbench.menu.toggle_right'), onClick: toggleRightPanel }]

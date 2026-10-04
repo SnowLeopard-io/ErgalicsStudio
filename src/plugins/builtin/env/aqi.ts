@@ -21,14 +21,13 @@ import {
   type AqiStandard,
   aqiBand,
   computeAqi,
-  drawEmptyMessage,
+  envRampColor,
   findColumn,
-  isZh,
   numCell,
-  parseDelimited,
-  rampColor,
 } from './envCore';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, drawEmptyMessage, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   pushPanelsToFigure,
   panelTag,
@@ -39,8 +38,6 @@ import {
   type GeoFigurePanel,
 } from '../geo/geoFigure';
 import { aqiManifest } from './aqiManifest';
-
-export { aqiManifest } from './aqiManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
 
@@ -440,7 +437,7 @@ export class AqiPlugin implements Plugin {
       const bwid = Math.min(220, canvas.width * 0.28);
       g.fillStyle = 'rgba(255,255,255,0.08)';
       g.fillRect(bx, y + 2, bwid, 9);
-      g.fillStyle = rampColor(v / (barMax * 1.6));
+      g.fillStyle = envRampColor(v / (barMax * 1.6));
       g.fillRect(bx, y + 2, (bwid * v) / barMax, 9);
       g.fillStyle = peak.res.primary === k && this.state.showPrimary ? '#e05e4b' : 'rgba(200, 210, 225, 0.9)';
       g.fillText(v.toFixed(0), bx + bwid + 8, y + 10);

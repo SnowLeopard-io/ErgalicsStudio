@@ -21,7 +21,7 @@ import type {
 import { voxelIsosurface, voxelSolidCells, type VoxelField } from '@/core/mesh3d';
 import { rampColor, scalarRampColors } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
+import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
 
 export { voxel3DManifest } from './voxel3DManifest';
 import { voxel3DManifest } from './voxel3DManifest';

@@ -20,12 +20,10 @@ import {
   FORCING_COEFF,
   CO2_REFERENCE,
   greenhouseModel,
-  isZh,
 } from './envCore';
-import { actionButton, actionFired, exportCanvasPng, notify } from '../shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { greenhouseManifest } from './greenhouseManifest';
-
-export { greenhouseManifest } from './greenhouseManifest';
 
 // ---- Plugin ----------------------------------------------------------------
 
@@ -203,7 +201,7 @@ export class GreenhousePlugin implements Plugin {
 
     // Two-column layout: current equilibrium temperature vs ΔT.
     const colW = canvas.width / 2;
-    const cy = canvas.height * 0.44;
+    const cy = canvas.height * 0.32;
     g.font = "11px 'Microsoft YaHei', Consolas, monospace";
     g.fillStyle = 'rgba(150, 165, 185, 0.95)';
     g.fillText(zh ? '平衡地表温度 Ts' : 'Equilibrium surface temperature', colW / 2, cy - 46);
@@ -230,27 +228,53 @@ export class GreenhousePlugin implements Plugin {
     g.fillText(line1, canvas.width / 2, cy + 42);
     g.fillText(line2, canvas.width / 2, cy + 62);
 
-    // ΔT vs CO₂ mini-curve (the monotonic teaching takeaway).
+    // ΔT vs CO₂ mini-curve (the monotonic teaching takeaway). The y-window
+    // follows the swept data so the curve stays inside the panel at any albedo.
     const gx0 = canvas.width * 0.18;
     const gx1 = canvas.width * 0.82;
-    const gy0 = canvas.height - 96;
-    const gy1 = canvas.height - 34;
+    const gy0 = canvas.height - 150;
+    const gy1 = canvas.height - 42;
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i <= 60; i += 1) {
+      const c = GREENHOUSE_LIMITS.co2Min + ((GREENHOUSE_LIMITS.co2Max - GREENHOUSE_LIMITS.co2Min) * i) / 60;
+      pts.push([c, greenhouseModel({ co2ppm: c, albedo: this.state.albedo, cloud: this.state.cloud }).deltaT]);
+    }
+    let tMin = Infinity;
+    let tMax = -Infinity;
+    for (const [, t] of pts) {
+      tMin = Math.min(tMin, t);
+      tMax = Math.max(tMax, t);
+    }
+    if (tMax - tMin < 1e-6) {
+      tMin -= 1;
+      tMax += 1;
+    }
+    const tPad = (tMax - tMin) * 0.12;
+    tMin -= tPad;
+    tMax += tPad;
+    const xOf = (c: number) =>
+      gx0 + ((gx1 - gx0) * (c - GREENHOUSE_LIMITS.co2Min)) / (GREENHOUSE_LIMITS.co2Max - GREENHOUSE_LIMITS.co2Min);
+    const yOf = (t: number) => gy1 - ((gy1 - gy0) * (t - tMin)) / (tMax - tMin);
     g.strokeStyle = 'rgba(255,255,255,0.14)';
     g.strokeRect(gx0, gy0, gx1 - gx0, gy1 - gy0);
     g.strokeStyle = 'rgba(255, 150, 120, 0.95)';
     g.lineWidth = 2;
     g.beginPath();
-    for (let i = 0; i <= 60; i += 1) {
-      const c = GREENHOUSE_LIMITS.co2Min + ((GREENHOUSE_LIMITS.co2Max - GREENHOUSE_LIMITS.co2Min) * i) / 60;
-      const pt = greenhouseModel({ co2ppm: c, albedo: this.state.albedo, cloud: this.state.cloud });
-      const px = gx0 + ((gx1 - gx0) * i) / 60;
-      const py = gy1 - ((gy1 - gy0) * (pt.deltaT + 2)) / 10; // −2…+8 K window
+    pts.forEach(([c, t], i) => {
+      const px = xOf(c);
+      const py = yOf(t);
       if (i === 0) g.moveTo(px, py);
       else g.lineTo(px, py);
-    }
+    });
     g.stroke();
     g.lineWidth = 1;
-    const markerX = gx0 + ((gx1 - gx0) * (this.state.co2 - GREENHOUSE_LIMITS.co2Min)) / (GREENHOUSE_LIMITS.co2Max - GREENHOUSE_LIMITS.co2Min);
+    // Y-axis range ticks — data-driven, so they track the albedo sweep.
+    g.fillStyle = 'rgba(150, 165, 185, 0.9)';
+    g.textAlign = 'right';
+    g.fillText(`${tMax >= 0 ? '+' : ''}${tMax.toFixed(1)}`, gx0 - 6, gy0 + 4);
+    g.fillText(`${tMin >= 0 ? '+' : ''}${tMin.toFixed(1)}`, gx0 - 6, gy1);
+    g.fillText('ΔT (K)', gx0 - 6, (gy0 + gy1) / 2);
+    const markerX = xOf(this.state.co2);
     g.strokeStyle = 'rgba(230, 238, 248, 0.5)';
     g.beginPath();
     g.moveTo(markerX, gy0);

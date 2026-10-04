@@ -26,7 +26,7 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
-import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
+import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
 import {
   advanceNBodyCPU,
   nbodyBufferBytes,

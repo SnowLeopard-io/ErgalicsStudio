@@ -135,7 +135,7 @@ export function csvCell(value: unknown): string {
  */
 export function toCsv(
   header: Array<string | number>,
-  rows: Iterable<Array<string | number | null | undefined>>,
+  rows: Iterable<Array<unknown>>,
 ): string {
   const lines: string[] = [header.map(csvCell).join(',')];
   for (const row of rows) lines.push(row.map(csvCell).join(','));
@@ -216,4 +216,21 @@ export function drawEmptyCanvas(
   g.fillStyle = 'rgba(160,175,195,0.9)';
   g.font = `12px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
   g.fillText(hint, canvas.width / 2, canvas.height / 2 + 14);
+}
+
+/** Draw a short centred message on a 2-D canvas (caller owns the background). */
+export function drawEmptyMessage(
+  g: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  msg: string,
+  hint?: string,
+): void {
+  g.fillStyle = 'rgba(150, 165, 185, 0.85)';
+  g.font = "12px 'Microsoft YaHei', Consolas, monospace";
+  g.textAlign = 'center';
+  g.fillText(msg, canvas.width / 2, canvas.height / 2);
+  if (hint) {
+    g.fillStyle = 'rgba(120, 132, 150, 0.9)';
+    g.fillText(hint, canvas.width / 2, canvas.height / 2 + 20);
+  }
 }

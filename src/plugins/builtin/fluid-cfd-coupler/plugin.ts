@@ -27,7 +27,7 @@ import type {
 } from '@/types/plugin';
 import type { Group as ThreeGroup } from 'three';
 import { emit } from '@/core/events';
-import { actionButton, actionFired, notify } from '../shared/enhance';
+import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { FluidCfdClient } from './fluid-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';

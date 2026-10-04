@@ -30,10 +30,17 @@
 //   Rendering — the plume is a continuous concentration iso-surface
 //   (three.js MarchingCubes), not voxels: each frame the grid field is
 //   trilinearly resampled into the marching-cubes field, and two nested
-//   warm-coloured contours (low = amber outer shell, high = deep orange
-//   core) read as a concentration ramp through the plume. Darcy arrows are
-//   oriented and sized by the synthesised velocity field itself, so the
-//   converging/diverging flow around the wells is visible directly.
+//   warm-coloured contours (low = amber outer shell, high = deep red core)
+//   read as a concentration ramp through the plume — the same amber→deep-red
+//   ramp as the vertical colour bar in the 2-D legend. The default iso-value
+//   sits above the thin dispersion skirt so the surface traces the physical
+//   plume core (teardrop from source to well), not numerical noise. Darcy
+//   arrows are oriented and sized by the synthesised velocity field itself,
+//   so the converging/diverging flow around the wells is visible directly.
+//   Readability: bilingual camera-facing labels (LabelSet) annotate the well,
+//   source, plume and aquifer; the 2-D legend carries the story line
+//   (source releases → migrates with the flow → well captures) and the flow
+//   direction key; the first-fit camera frames source-left / well-right.
 //
 // The source injects continuously at the user-set (x, depth); first arrival
 // of the front (≥ 1 mg/L) at the well is recorded and announced once. A NaN
@@ -45,11 +52,11 @@
 import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { isZh, pumpWell, type GroundwaterGrid } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
+import { pumpWell, type GroundwaterGrid } from './envCore';
+import { LabelSet } from './label3d';
+import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { groundwater3dManifest } from './groundwater3dManifest';
-
-export { groundwater3dManifest } from './groundwater3dManifest';
 
 const NX = 40;
 const NY = 18;
@@ -85,15 +92,23 @@ const DEFAULTS: State = {
   srcX: 0.25,
   srcZ: 0.5,
   srcRate: 100,
-  isovalue: 2,
+  // Default raised from 2 mg/L: at very low thresholds the surface follows the
+  // thin dispersion skirt (numerical noise halo) and reads as a wavy flag
+  // instead of the physical plume. ~6% of C₀ traces the teardrop core that
+  // migrates from the source toward the well.
+  isovalue: 6,
   playing: true,
 };
 
 export class Groundwater3DPlugin implements Plugin {
   readonly manifest = groundwater3dManifest;
   private api!: PluginApi;
+  private ctx: ContainerCapabilities | null = null;
   private three: Scene3DHandle | null = null;
   private group: THREE.Group | null = null;
+  /** Bilingual camera-facing text annotations (well / source / plume / aquifer). */
+  private labels = new LabelSet();
+  private offLocale: (() => void) | null = null;
   /** Fit the camera only on first show / re-activation — never yank it back
    * while the user is orbiting or dragging parameter sliders. */
   private needsFit = true;
@@ -120,16 +135,26 @@ export class Groundwater3DPlugin implements Plugin {
 
   async init(api: PluginApi) {
     this.api = api;
+    // Locale switch: re-render the bilingual 3-D labels + 2-D legend in place.
+    this.offLocale = api.onLocaleChange((l) => {
+      this.labels.refresh(isZh(l) ? 'zh-CN' : 'en-US');
+      this.drawLegend();
+      this.three?.render();
+    });
   }
 
   async destroy() {
+    this.offLocale?.();
+    this.offLocale = null;
     this.stopTick();
     this.clearGroup();
     this.grid = null;
     this.three = null;
+    this.ctx = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
+    this.ctx = context.container;
     if (context.container.three) this.three = context.container.three;
     this.needsFit = true;
     this.resetSim();
@@ -143,6 +168,7 @@ export class Groundwater3DPlugin implements Plugin {
   }
 
   render(container: ContainerCapabilities) {
+    this.ctx = container;
     if (container.three) this.three = container.three;
     this.resetSim();
     this.rebuild();
@@ -286,10 +312,12 @@ export class Groundwater3DPlugin implements Plugin {
     } else if (fieldReset) {
       this.resetSim();
       this.refreshSurfaces(true);
+      this.drawLegend();
     } else {
       // Isovalue (and other render-only) changes: cheap isolation update,
       // also renders one frame while paused.
       this.refreshSurfaces();
+      this.drawLegend();
     }
     if (this.state.playing) this.ensureTick();
   }
@@ -568,6 +596,10 @@ export class Groundwater3DPlugin implements Plugin {
 
   /** Remove the group from the SHARED host scene and dispose everything. */
   private clearGroup() {
+    // Labels first: they own canvas textures + sprite materials and keep
+    // bookkeeping state — dispose() also empties labels.group so a rebuild
+    // starts clean (no duplicates, no leaks).
+    this.labels.dispose();
     if (!this.group) return;
     this.group.parent?.remove(this.group);
     this.group.traverse((obj) => {
@@ -584,8 +616,12 @@ export class Groundwater3DPlugin implements Plugin {
 
   private fitCamera() {
     if (!this.three) return;
-    this.three.camera.position.set(2.6, 1.8, 2.9);
-    this.three.camera.lookAt(0, 0, 0);
+    // Story framing: injection source on the LEFT, pumping well on the RIGHT,
+    // seen from an oblique angle that faces the flow plane so the Darcy
+    // arrows run left → right into the well — source releases → contaminant
+    // migrates with the flow → well captures.
+    this.three.camera.position.set(1.9, 1.3, 3.2);
+    this.three.camera.lookAt(0.1, 0.2, 0);
     this.three.controls.update?.();
     this.three.render();
   }
@@ -618,27 +654,29 @@ export class Groundwater3DPlugin implements Plugin {
     ground.position.y = 0.535;
     group.add(ground);
 
-    // Darcy flow arrows: sparse samples of the synthesised velocity field
-    // (every 4th plan cell), oriented along the local Darcy velocity with
-    // length ∝ speed — the diverging cone at the injector and the converging
-    // cone at the well are visible directly.
+    // Darcy flow arrows: samples of the synthesised velocity field (every 3rd
+    // plan cell), oriented along the local Darcy velocity with length ∝ speed
+    // — the diverging cone at the injector and the converging cone at the well
+    // are visible directly. Kept slim (small heads, translucent) so the field
+    // reads as a flow texture, not a wall of grey icons; direction is also
+    // explained in the 2-D legend instead of a floating 3-D label.
     const vRef = Math.max(this.velocity(), 0.5);
-    const arrowMat = new THREE.LineBasicMaterial({ color: 0x6f8ba8, transparent: true, opacity: 0.9 });
-    for (let gy = 2; gy < NY; gy += 4) {
-      for (let gx = 2; gx < NX; gx += 4) {
+    const arrowMat = new THREE.LineBasicMaterial({ color: 0x8fa8c0, transparent: true, opacity: 0.65 });
+    for (let gy = 2; gy < NY; gy += 3) {
+      for (let gx = 2; gx < NX; gx += 3) {
         const p = gy * NX + gx;
         const vx = this.vx[p]!;
         const vz = this.vz[p]!;
         const sp = Math.hypot(vx, vz);
         if (sp < 0.02) continue;
-        const len = 0.06 + 0.11 * Math.min(sp / vRef, 2);
+        const len = 0.05 + 0.09 * Math.min(sp / vRef, 2);
         const arrow = new THREE.ArrowHelper(
           new THREE.Vector3(vx / sp, 0, vz / sp),
           new THREE.Vector3(((gx + 0.5) / NX) * 1.9 - 0.95, 0.28, ((gy + 0.5) / NY) * 0.9 - 0.45),
           len,
-          0x6f8ba8,
-          len * 0.32,
-          len * 0.16,
+          0x8fa8c0,
+          len * 0.16, // head length — halved from the old chunky look
+          len * 0.08, // head width — halved
         );
         (arrow.line as THREE.Line).material = arrowMat;
         (arrow.cone as THREE.Mesh).material = arrowMat;
@@ -646,11 +684,12 @@ export class Groundwater3DPlugin implements Plugin {
       }
     }
 
-    // Source marker (red) + well (blue cylinder).
+    // Source marker (pink — kept distinct from the red plume surface) + well
+    // (blue cylinder), each annotated with a camera-facing bilingual label.
     const [sx, , sz] = this.srcCell();
     const source = new THREE.Mesh(
       new THREE.SphereGeometry(0.045, 16, 12),
-      new THREE.MeshStandardMaterial({ color: 0xe05e4b, emissive: 0x531710 }),
+      new THREE.MeshStandardMaterial({ color: 0xef5f9a, emissive: 0x4a0f2a }),
     );
     source.position.set((sx / NX) * 1.9 - 0.95, 0.28, (sz / NZ) * 0.9 - 0.45);
     group.add(source);
@@ -662,14 +701,26 @@ export class Groundwater3DPlugin implements Plugin {
     well.position.set((wx / NX) * 1.9 - 0.95, 0.28, (wz / NZ) * 0.9 - 0.45);
     group.add(well);
 
+    // Text annotations (bilingual, always camera-facing) so the user can read
+    // the scene at a glance. Flow direction gets a legend line instead of a
+    // floating label — the arrows span the whole domain, one label there would
+    // be more confusing than helpful.
+    const locale: 'zh-CN' | 'en-US' = isZh(this.api.locale) ? 'zh-CN' : 'en-US';
+    this.labels.add('抽水井', 'Pumping well', locale, [(wx / NX) * 1.9 - 0.95, 0.68, (wz / NZ) * 0.9 - 0.45], { font: 42 });
+    this.labels.add('注入源', 'Injection source', locale, [(sx / NX) * 1.9 - 0.95, 0.44, (sz / NZ) * 0.9 - 0.45], { font: 42 });
+    this.labels.add('污染羽', 'Contaminant plume', locale, [((sx / NX) * 1.9 - 0.95 + (wx / NX) * 1.9 - 0.95) / 2, 0.74, 0], { font: 42 });
+    this.labels.add('含水层', 'Aquifer', locale, [-0.9, 0.06, 0.42], { font: 34 });
+    group.add(this.labels.group);
+
     // Plume iso-surfaces (MarchingCubes, replaces the voxel cloud): two
-    // nested warm contours — an amber outer shell at the isovalue and a deep
-    // orange core at ~3× — read as a concentration ramp through the plume.
+    // nested warm contours on one scientific ramp — an amber outer shell at
+    // the isovalue and a deep-red core at ~3× — matching the colour bar in
+    // the 2-D legend (amber = low, deep red = high concentration).
     // Translucent, depthWrite off so the interior stays visible.
     const mcOuter = new MarchingCubes(
       MC_RES,
       new THREE.MeshStandardMaterial({
-        color: 0xf5a251,
+        color: 0xf0a24a,
         transparent: true,
         opacity: 0.35,
         depthWrite: false,
@@ -690,7 +741,7 @@ export class Groundwater3DPlugin implements Plugin {
     const mcInner = new MarchingCubes(
       MC_RES,
       new THREE.MeshStandardMaterial({
-        color: 0xd8401f,
+        color: 0x9c1408, // deep red — clearly "hotter" than the amber shell
         transparent: true,
         opacity: 0.62,
         depthWrite: false,
@@ -717,8 +768,85 @@ export class Groundwater3DPlugin implements Plugin {
       this.needsFit = false;
     }
     three.setVisible(true);
+    this.drawLegend();
     three.render();
     if (this.state.playing) this.ensureTick();
+  }
+
+  /**
+   * 2-D overlay legend (when a canvas2d exists): a one-line story caption
+   * (source releases → migrates with the flow → well captures) plus a
+   * vertical concentration colour bar — amber (low) → deep red (high),
+   * matching the plume contours — titled 「浓度 (mg/L) / Concentration (mg/L)」
+   * with the outer iso-surface threshold ticked on the ramp.
+   */
+  private drawLegend() {
+    const canvas = this.ctx?.canvas2d;
+    if (!canvas) return;
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    const zh = isZh(this.api.locale);
+    canvas.width = canvas.clientWidth || 760;
+    canvas.height = canvas.clientHeight || 460;
+    const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
+    g.fillStyle = bg;
+    g.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Story caption + furniture key (flow direction is explained here rather
+    // than by a floating 3-D label — the arrows span the whole domain).
+    g.font = "12px 'Microsoft YaHei', Consolas, monospace";
+    g.textAlign = 'left';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = 'rgba(230, 238, 248, 0.95)';
+    g.fillText(
+      zh ? '地下水污染运移 — 注入源释放 → 随水流迁移 → 抽水井捕获' : 'Contaminant transport — source releases → migrates with the flow → well captures',
+      16,
+      24,
+    );
+    g.fillStyle = 'rgba(150, 168, 190, 0.9)';
+    g.fillText(
+      zh
+        ? '灰箭头：地下水流向（达西流速，长度∝流速） · 蓝圆柱：抽水井 · 粉球：注入源'
+        : 'Grey arrows: flow direction (Darcy velocity, length ∝ speed) · Blue cylinder: pumping well · Pink sphere: injection source',
+      16,
+      42,
+    );
+
+    // Vertical colour bar: low (amber, bottom) → high (deep red, top).
+    const barW = 14;
+    const barH = Math.min(150, Math.max(90, canvas.height * 0.32));
+    const bx = canvas.width - barW - 24;
+    const by = canvas.height - barH - 34;
+    const grad = g.createLinearGradient(0, by + barH, 0, by);
+    grad.addColorStop(0, '#f0a24a');
+    grad.addColorStop(0.55, '#c23a12');
+    grad.addColorStop(1, '#9c1408');
+    g.fillStyle = grad;
+    g.fillRect(bx, by, barW, barH);
+    g.strokeStyle = 'rgba(150, 168, 190, 0.55)';
+    g.lineWidth = 1;
+    g.strokeRect(bx + 0.5, by + 0.5, barW - 1, barH - 1);
+    // Title above the bar.
+    g.fillStyle = 'rgba(230, 238, 248, 0.95)';
+    g.textAlign = 'center';
+    g.fillText(zh ? '浓度 (mg/L)' : 'Concentration (mg/L)', bx + barW / 2, by - 10);
+    // Range labels: 0 at the bottom, C₀ (the held source concentration) on top.
+    g.fillStyle = 'rgba(150, 165, 185, 0.9)';
+    g.textAlign = 'right';
+    g.fillText('0', bx - 6, by + barH);
+    g.fillText(String(Math.round(this.state.srcRate)), bx - 6, by + 10);
+    // Tick where the outer iso-surface sits on the ramp.
+    const iso = this.state.isovalue;
+    if (iso > 0 && iso < this.state.srcRate) {
+      const ty = by + barH * (1 - iso / this.state.srcRate);
+      g.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      g.beginPath();
+      g.moveTo(bx - 4, ty);
+      g.lineTo(bx + barW + 4, ty);
+      g.stroke();
+      g.fillStyle = 'rgba(230, 238, 248, 0.95)';
+      g.fillText(String(iso), bx - 6, ty + 4);
+    }
   }
 
   /**

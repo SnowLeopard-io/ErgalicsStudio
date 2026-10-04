@@ -17,8 +17,8 @@ import type {
 } from '@/types/plugin';
 import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
-import type { CrystalCell } from '@/chem/structure';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '../shared/enhance';
+import type { CrystalCell } from '@/core/chem/structure';
+import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '@/core/plugin-tools/enhance';
 import { CRYSTAL_SAMPLES, findSample } from './samples';
 import { parseStructure, type StructuralFormat } from './parse';
 import {

@@ -11,12 +11,12 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { diversityIndex, isZh, numCell, parseDelimited, type DiversityIndex } from './envCore';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { diversityIndex, numCell, type DiversityIndex } from './envCore';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
 import { biodiversityManifest } from './biodiversityManifest';
-
-export { biodiversityManifest } from './biodiversityManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
 

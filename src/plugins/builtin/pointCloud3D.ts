@@ -24,7 +24,7 @@ import {
   preparePointCloud,
 } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
+import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
 
 export { pointCloud3DManifest } from './pointCloud3DManifest';
 import { pointCloud3DManifest } from './pointCloud3DManifest';

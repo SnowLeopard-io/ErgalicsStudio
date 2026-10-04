@@ -12,7 +12,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { histogramManifest } from './histogramManifest';
 import { histogramManifest } from './histogramManifest';

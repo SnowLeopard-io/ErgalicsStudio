@@ -2,6 +2,8 @@
 // Shared numeric / parsing kernels for the environmental-science plugin
 // suite. Pure, dependency-free functions only so they unit-test without a
 // canvas or a 3-D context (mirrors geo/geoCore.ts for the geo suite).
+// Generic helpers (`isZh`, `parseDelimited`, `stripHeaderIfNonNumeric`,
+// `drawEmptyMessage`) live in `src/core/plugin-tools/`.
 //
 // Standards & models referenced (hard-coded teaching defaults, PRD §8):
 //   - AQI:    HJ 633-2012 / GB 3095-2012 breakpoints (CN) and the 2024 US
@@ -12,34 +14,6 @@
 //   - Plume:  Pasquill–Gifford open-country σy/σz (Turner 1970) + Gaussian
 //             plume with ground reflection.
 // ==========================================================================
-
-/** Locale helper used by every env plugin. */
-export function isZh(locale: string): boolean {
-  return locale === 'zh-CN';
-}
-
-// ---- shared CSV ----------------------------------------------------------
-
-/**
- * Relaxed delimited-text reader: rows on newlines, cells on commas
- * (semicolon/tab also accepted), blank lines and `#`/`//` comments dropped.
- */
-export function parseDelimited(text: string): string[][] {
-  const rows: string[][] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#') || line.startsWith('//')) continue;
-    rows.push(line.split(/[,;\t]+/).map((c) => c.trim()));
-  }
-  return rows;
-}
-
-/** Drop a leading header row when no cell parses as a finite number. */
-export function stripHeaderIfNonNumeric(rows: string[][]): string[][] {
-  if (rows.length === 0) return rows;
-  const looksNumeric = rows[0]!.some((c) => c !== '' && Number.isFinite(Number(c)));
-  return looksNumeric ? rows : rows.slice(1);
-}
 
 /** Case-insensitive column resolver against a list of alias patterns. */
 export function findColumn(header: string[], aliases: RegExp[]): number {
@@ -924,28 +898,11 @@ export function pumpWell(grid: GroundwaterGrid, x: number, y: number, z: number,
 }
 
 // ==========================================================================
-// Canvas helpers (shared empty state, colour ramp)
+// Canvas helpers (colour ramp)
 // ==========================================================================
 
-/** Shared "no data" empty state painted onto a 2-D canvas. */
-export function drawEmptyMessage(
-  g: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
-  msg: string,
-  hint?: string,
-): void {
-  g.fillStyle = 'rgba(150, 165, 185, 0.85)';
-  g.font = "12px 'Microsoft YaHei', Consolas, monospace";
-  g.textAlign = 'center';
-  g.fillText(msg, canvas.width / 2, canvas.height / 2);
-  if (hint) {
-    g.fillStyle = 'rgba(120, 132, 150, 0.9)';
-    g.fillText(hint, canvas.width / 2, canvas.height / 2 + 20);
-  }
-}
-
 /** Turbo-like colour ramp t∈[0,1] → CSS rgb (shared by plume/heatmap views). */
-export function rampColor(t: number): string {
+export function envRampColor(t: number): string {
   const x = Math.min(1, Math.max(0, t));
   const stops: Array<[number, number, number]> = [
     [34, 52, 92],
@@ -968,8 +925,8 @@ export function rampColor(t: number): string {
 }
 
 /** Same ramp as [r,g,b] floats for Three.js vertex colours. */
-export function rampColor3(t: number): [number, number, number] {
-  const css = rampColor(t);
+export function envRampColor3(t: number): [number, number, number] {
+  const css = envRampColor(t);
   const m = /rgb\((\d+),(\d+),(\d+)\)/.exec(css);
   if (!m) return [1, 1, 1];
   return [Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255];

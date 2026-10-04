@@ -19,11 +19,11 @@ import {
   type CarbonScenario,
   type CarbonState,
   carbonRun,
-  isZh,
   numCell,
-  parseDelimited,
 } from './envCore';
-import { actionButton, actionFired, exportCanvasPng, notify } from '../shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   pushPanelsToFigure,
   panelTag,
@@ -34,8 +34,6 @@ import {
   type GeoFigurePanel,
 } from '../geo/geoFigure';
 import { carbonManifest } from './carbonManifest';
-
-export { carbonManifest } from './carbonManifest';
 
 const MAX_YEARS = 500;
 

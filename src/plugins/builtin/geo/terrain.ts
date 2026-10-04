@@ -18,9 +18,10 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '../shared/enhance';
+import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
-import { isZh, marchingSquares } from './geoCore';
+import { marchingSquares } from './geoCore';
+import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
 import type { GeoFigurePanel, Bilingual } from './geoFigure';
 import { terrainManifest } from './terrainManifest';

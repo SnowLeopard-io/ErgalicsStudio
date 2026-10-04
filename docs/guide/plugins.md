@@ -215,6 +215,23 @@ without any plugin code:
 }
 ```
 
+## Built-in plugin conventions
+
+Built-in plugins share framework-level helpers through `src/core/` only:
+
+- **Shared tooling** — button factories, notifications, PNG/CSV export and
+  the empty-state canvas live in `@/core/plugin-tools/` (`enhance.ts`,
+  `table.ts`, `locale.ts`). Data-driven parsing helpers (`parseDelimited`,
+  `stripHeaderIfNonNumeric`) are in `@/core/plugin-tools/table.ts`.
+- **No plugin-to-plugin imports** — a built-in must never import another
+  built-in's module. Shared logic that several plugins need belongs in
+  `src/core/` first; if it is plugin-specific enough to stay in
+  `src/plugins/`, put it in a shared file inside the plugin's own suite
+  directory and have the suite's plugins import it there.
+- **Manifest naming** — each plugin's manifest file is named after the
+  plugin entry file (`scatter.ts` → `scatterManifest.ts`), and the entry
+  imports it once without re-exporting it.
+
 ## Built-in example plugins
 
 Forty-nine scientific/core plugins (plus a further ten `fun.*` toys

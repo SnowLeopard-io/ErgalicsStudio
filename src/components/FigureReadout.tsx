@@ -27,6 +27,10 @@ interface HoverState {
   fy: number;
   dataX: number;
   dataY: number;
+  /** Crosshair geometry in wrapper CSS-px (converted from figure coords —
+   *  the SVG may be CSS-scaled, and the crosshair is absolutely positioned
+   *  in the wrapper, so figure coords must be mapped into the same space). */
+  css: { left: number; top: number; width: number; height: number; x: number; y: number };
 }
 
 interface FigureReadoutProps {
@@ -80,40 +84,37 @@ export function FigureReadout({
     const ly = fy - panel.y;
     const dataX = fromPixel(g.xScaleKind, g.xDom, [g.left, g.left + g.plotW], lx);
     const dataY = fromPixel(g.yScaleKind, g.yDom, [g.topV + g.plotH, g.topV], ly);
-    setHover({ panel, fx, fy, dataX, dataY });
+    // Figure viewBox → wrapper CSS-px for the crosshair (the composed SVG is
+    // CSS-scaled into its container; the crosshair is absolutely positioned
+    // in the wrapper so the mapping must be explicit).
+    const wrapRect = wrap.getBoundingClientRect();
+    const originX = svgRect.left - wrapRect.left;
+    const originY = svgRect.top - wrapRect.top;
+    const kx = svgRect.width / svgViewW;
+    const ky = svgRect.height / svgViewH;
+    setHover({
+      panel,
+      fx,
+      fy,
+      dataX,
+      dataY,
+      css: {
+        left: originX + (panel.x + g.left) * kx,
+        top: originY + (panel.y + g.topV) * ky,
+        width: g.plotW * kx,
+        height: g.plotH * ky,
+        x: originX + fx * kx,
+        y: originY + fy * ky,
+      },
+    });
   };
 
-  // Crosshair box in figure coordinates (the hit panel's plot area).
+  // Crosshair box in wrapper CSS-px (the hit panel's plot area).
   let cross = { left: 0, top: 0, width: 0, height: 0, x: 0, y: 0 };
-  if (hover) {
-    const g = hover.panel.geometry;
-    cross = {
-      left: hover.panel.x + g.left,
-      top: hover.panel.y + g.topV,
-      width: g.plotW,
-      height: g.plotH,
-      x: hover.fx,
-      y: hover.fy,
-    };
-  }
+  if (hover) cross = hover.css;
 
-  // Readout card position in container (CSS px) coordinates.
-  const card = useRef<{ left: number; top: number } | null>(null);
-  if (hover && wrapRef.current) {
-    const svg = wrapRef.current.querySelector('svg');
-    const svgRect = svg ? svg.getBoundingClientRect() : wrapRef.current.getBoundingClientRect();
-    const wrapRect = wrapRef.current.getBoundingClientRect();
-    const svgViewW = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[2]) || svgRect.width : svgRect.width;
-    const svgViewH = svg ? Number(svg.getAttribute('viewBox')?.split(' ')[3]) || svgRect.height : svgRect.height;
-    card.current = {
-      left: svgRect.left - wrapRect.left + hover.fx * (svgRect.width / svgViewW),
-      top: svgRect.top - wrapRect.top + hover.fy * (svgRect.height / svgViewH),
-    };
-  } else {
-    card.current = null;
-  }
-
-  const flipUp = card.current ? card.current.top > (wrapRef.current?.clientHeight ?? 0) * 0.6 : false;
+  const card = hover ? { left: hover.css.x, top: hover.css.y } : null;
+  const flipUp = card ? card.top > (wrapRef.current?.clientHeight ?? 0) * 0.6 : false;
 
   return (
     <div className="plot-readout" ref={wrapRef} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
@@ -128,10 +129,10 @@ export function FigureReadout({
             className="plot-crosshair plot-crosshair-horizontal"
             style={{ top: cross.y, left: cross.left, width: cross.width }}
           />
-          {card.current && (
+          {card && (
             <div
               className={`plot-readout-card${flipUp ? ' is-flipped' : ''}`}
-              style={{ left: card.current.left, top: card.current.top }}
+              style={{ left: card.left, top: card.top }}
             >
               <div className="plot-readout-row">
                 <span className="plot-readout-key">x</span>

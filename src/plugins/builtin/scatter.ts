@@ -11,9 +11,8 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
-export { scatterManifest } from './scatterManifest';
 import { scatterManifest } from './scatterManifest';
 
 const MAX_POINTS = 60_000;

@@ -22,7 +22,7 @@ import {
   type SqlQueryResult,
   type SqlTableSchema,
 } from '@/core/sql/engine';
-import { toCsv } from '../research/researchUi';
+import { toCsv } from '@/core/plugin-tools/enhance';
 import { ToolShell } from '@/components/ToolShell';
 import { VirtualTable } from '@/components/VirtualTable';
 

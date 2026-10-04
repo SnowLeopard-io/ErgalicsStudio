@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from './shared/enhance';
+import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { spirographManifest } from './spirographManifest';
 import { spirographManifest } from './spirographManifest';

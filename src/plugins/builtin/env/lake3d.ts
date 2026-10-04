@@ -22,12 +22,12 @@
 
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { isZh, lakeProfile, rampColor3, numCell, type LakeProfilePoint } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
+import { envRampColor3, lakeProfile, numCell, type LakeProfilePoint } from './envCore';
+import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { LakeSph, profileBins } from './sph';
+import { LabelSet } from './label3d';
 import { lake3dManifest } from './lake3dManifest';
-
-export { lake3dManifest } from './lake3dManifest';
 
 // ---- Profile helpers (exported for tests) -----------------------------------
 
@@ -190,6 +190,10 @@ export class Lake3DPlugin implements Plugin {
   private sliceMesh: THREE.Mesh | null = null;
   private bloomMat: THREE.MeshStandardMaterial | null = null;
   private bloomMesh: THREE.Mesh | null = null;
+  /** Bloom annotation sprite — hidden while nutrient load is 0. */
+  private bloomLabel: THREE.Sprite | null = null;
+  /** Bilingual 3-D scene annotations (湖面 / 湖底 / 温跃层 / 藻华). */
+  private labels = new LabelSet();
   /** Mean height of the above-waterline particles — the bloom film rides it. */
   private surfaceY = 0.02;
   private rafId = 0;
@@ -200,6 +204,10 @@ export class Lake3DPlugin implements Plugin {
 
   async init(api: PluginApi) {
     this.api = api;
+    // Re-render the 3-D annotations in place on a locale switch (no rebuild);
+    // refreshing a disposed (empty) LabelSet is a no-op, so this is safe while
+    // the plugin is deactivated.
+    api.onLocaleChange((l) => this.labels.refresh(isZh(l) ? 'zh-CN' : 'en-US'));
   }
 
   async destroy() {
@@ -358,6 +366,7 @@ export class Lake3DPlugin implements Plugin {
     if (typeof params.nutrients === 'number' && params.nutrients !== this.state.nutrients) {
       this.state.nutrients = Math.min(1, Math.max(0, params.nutrients));
       if (this.bloomMat) this.bloomMat.opacity = bloomOpacity(this.state.nutrients);
+      if (this.bloomLabel) this.bloomLabel.visible = this.state.nutrients > 0;
     }
     if ((params.sliceAxis === 'x' || params.sliceAxis === 'z') && params.sliceAxis !== this.state.sliceAxis) {
       this.state.sliceAxis = params.sliceAxis;
@@ -444,6 +453,7 @@ export class Lake3DPlugin implements Plugin {
   private clearGroup() {
     if (!this.group) return;
     this.three?.scene.remove(this.group);
+    this.labels.dispose(); // detach + dispose label sprites/textures first
     this.group.traverse((obj) => {
       const o = obj as THREE.Mesh;
       o.geometry?.dispose?.();
@@ -457,6 +467,7 @@ export class Lake3DPlugin implements Plugin {
     this.sliceMesh = null;
     this.bloomMat = null;
     this.bloomMesh = null;
+    this.bloomLabel = null;
   }
 
   private fitCamera() {
@@ -567,7 +578,7 @@ export class Lake3DPlugin implements Plugin {
       const y = -(p.depth / this.state.depth) * D;
       const half = R * Math.sqrt(Math.max(0, 1 - (y * y) / (D * D)));
       positions.push(-half, y, 0, half, y, 0);
-      const [r, g2, b] = rampColor3((p.temp - TEMP_MIN) / (TEMP_MAX - TEMP_MIN));
+      const [r, g2, b] = envRampColor3((p.temp - TEMP_MIN) / (TEMP_MAX - TEMP_MIN));
       colors.push(r, g2, b, r, g2, b);
     }
     for (let i = 0; i < sn; i += 1) {
@@ -617,6 +628,37 @@ export class Lake3DPlugin implements Plugin {
     this.pointsGeo = geo;
     this.pointsMat = mat;
     group.add(points);
+
+    // Static bilingual annotations: camera-facing sprites anchored to scene
+    // geometry (never to moving particles). depthTest off + renderOrder 20
+    // keeps them readable on top of the translucent stack.
+    const locale: 'zh-CN' | 'en-US' = isZh(this.api.locale) ? 'zh-CN' : 'en-US';
+    // Waterline edge (diagonal anchor, slightly above the surface film).
+    this.labels.add('湖面', 'Lake surface', locale, [R * 0.68, 0.14, R * 0.68], { font: 42 });
+    // Sediment zone — above the bowl bottom, per teaching convention.
+    this.labels.add('湖底沉积区', 'Sediment zone', locale, [0.34, -0.7 * D, 0.34], { font: 42 });
+    // Thermocline anchor: depth of steepest temperature drop in the seeding
+    // profile (the slice plane visualises exactly that gradient). A well-mixed
+    // water column has no distinct thermocline — fall back to the bowl wall at
+    // half depth.
+    let thermFrac = 0.5;
+    let bestGrad = 0;
+    for (let i = 1; i < prof.length; i += 1) {
+      const a = prof[i - 1]!;
+      const b = prof[i]!;
+      const grad = Math.abs(b.temp - a.temp) / Math.max(0.1, b.depth - a.depth);
+      if (grad > bestGrad && grad >= 1.0) {
+        bestGrad = grad;
+        thermFrac = Math.min(0.85, Math.max(0.15, (0.5 * (a.depth + b.depth)) / this.state.depth));
+      }
+    }
+    const rWall = R * Math.sqrt(Math.max(0.02, 1 - thermFrac * thermFrac));
+    this.labels.add('温跃层', 'Thermocline', locale, [rWall * 0.72, -thermFrac * D, rWall * 0.5], { font: 42 });
+    // Algal bloom annotation rides the bloom film's rim — visible only when
+    // the nutrient load is non-zero (toggled live from updateParams).
+    this.bloomLabel = this.labels.add('藻华（营养盐）', 'Algal bloom', locale, [R * 0.6, 0.2, -R * 0.6], { font: 42 });
+    this.bloomLabel.visible = this.state.nutrients > 0;
+    group.add(this.labels.group);
 
     this.group = group;
     three.scene.add(group);

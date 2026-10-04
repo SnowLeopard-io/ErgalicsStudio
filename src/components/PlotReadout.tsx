@@ -20,6 +20,11 @@ interface HoverState {
   dataX: number;
   dataY: number;
   inside: boolean;
+  /** Wrapper CSS-px position of the pointer — crosshair and card both anchor
+   *  here so they always sit exactly under the cursor, even when the SVG is
+   *  CSS-scaled away from its viewBox aspect. */
+  cssX: number;
+  cssY: number;
 }
 
 interface PlotReadoutProps {
@@ -66,32 +71,22 @@ export function PlotReadout({
     }
     const dataX = fromPixel(geom.xScaleKind, geom.xDom, [geom.left, geom.left + geom.plotW], sx);
     const dataY = fromPixel(geom.yScaleKind, geom.yDom, [geom.topV + geom.plotH, geom.topV], sy);
-    setHover({ sx, sy, dataX, dataY, inside });
+    // viewBox → wrapper CSS-px (SVG may be CSS-scaled; the crosshair and card
+    // are absolutely positioned in the wrapper, so the cursor must be mapped
+    // into the same space).
+    const wrapRect = wrap.getBoundingClientRect();
+    const cssX = svgRect.left - wrapRect.left + sx * (svgRect.width / geom.width);
+    const cssY = svgRect.top - wrapRect.top + sy * (svgRect.height / geom.height);
+    setHover({ sx, sy, dataX, dataY, inside, cssX, cssY });
   };
 
   const geom = geometry;
-  const crossX = hover && geom ? hover.sx : 0;
-  const crossY = hover && geom ? hover.sy : 0;
+  const crossX = hover && geom ? hover.cssX : 0;
+  const crossY = hover && geom ? hover.cssY : 0;
   const pt = hover && nearest ? nearest(hover.dataX, hover.dataY) : null;
 
-  // Readout card position in container (CSS px) coordinates.
-  const cardPos = useRef<{ left: number; top: number } | null>(null);
-  if (hover && geom && wrapRef.current) {
-    const svg = wrapRef.current.querySelector('svg');
-    const svgRect = svg ? svg.getBoundingClientRect() : wrapRef.current.getBoundingClientRect();
-    const wrapRect = wrapRef.current.getBoundingClientRect();
-    const scaleX = svgRect.width / geom.width;
-    const scaleY = svgRect.height / geom.height;
-    cardPos.current = {
-      left: svgRect.left - wrapRect.left + hover.sx * scaleX,
-      top: svgRect.top - wrapRect.top + hover.sy * scaleY,
-    };
-  } else {
-    cardPos.current = null;
-  }
-
-  const card = cardPos.current;
-  const flipUp = card ? card.top > (geom ? geom.height * 0.62 : 0) : false;
+  const card = hover && geom ? { left: hover.cssX, top: hover.cssY } : null;
+  const flipUp = card ? card.top > (wrapRef.current?.clientHeight ?? 0) * 0.62 : false;
 
   return (
     <div className="plot-readout" ref={wrapRef} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>

@@ -11,12 +11,11 @@
 
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { isZh, rampColor3, surfaceAlbedo, surfaceCo2 } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '../shared/enhance';
+import { envRampColor3, surfaceAlbedo, surfaceCo2 } from './envCore';
+import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
 import { angularDistance, lonLatToVec3 } from '../geo/globe';
 import { earth3dManifest } from './earth3dManifest';
-
-export { earth3dManifest } from './earth3dManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';
 
 type Layer = 'co2' | 'albedo' | 'currents';
@@ -227,12 +226,12 @@ export class Earth3DPlugin implements Plugin {
   private layerColor(latDeg: number, _lonDeg: number): [number, number, number] {
     if (this.state.layer === 'albedo') {
       const a = surfaceAlbedo(latDeg);
-      const [r, g2, b] = rampColor3(1 - a / 0.8); // high albedo → cold colours
+      const [r, g2, b] = envRampColor3(1 - a / 0.8); // high albedo → cold colours
       return [r, g2, b];
     }
     const co2 = surfaceCo2(latDeg, this.state.month);
     // 410–440 ppm window for the teaching ramp.
-    const [r, g2, b] = rampColor3((co2 - 405) / 35);
+    const [r, g2, b] = envRampColor3((co2 - 405) / 35);
     return [r, g2, b];
   }
 
@@ -347,7 +346,7 @@ export class Earth3DPlugin implements Plugin {
     const lx = 16;
     const ly = canvas.height - 34;
     for (let i = 0; i < lgW; i += 1) {
-      const [r, g2, b] = rampColor3(i / (lgW - 1));
+      const [r, g2, b] = envRampColor3(i / (lgW - 1));
       g.fillStyle = `rgb(${Math.round(r * 255)},${Math.round(g2 * 255)},${Math.round(b * 255)})`;
       g.fillRect(lx + i, ly, 1, 10);
     }

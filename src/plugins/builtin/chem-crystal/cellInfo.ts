@@ -7,9 +7,9 @@
 // molar mass and an estimated density. Kept dependency-free for unit tests.
 // ==========================================================================
 
-import type { CellParams, CellSite } from '@/chem/structure';
-import { atomicMass, electronegativity } from '@/chem/elements';
-import { cellDensity } from '@/chem/structure';
+import type { CellParams, CellSite } from '@/core/chem/structure';
+import { atomicMass, electronegativity } from '@/core/chem/elements';
+import { cellDensity } from '@/core/chem/structure';
 
 export interface CellObservables {
   /** Effective atom counts per element (sum of occupancies). */

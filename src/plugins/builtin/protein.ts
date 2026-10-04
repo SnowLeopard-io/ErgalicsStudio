@@ -23,7 +23,7 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 import { analyzeNetwork } from './proteinAnalytics';
 import type { NetworkMetrics, WEdge } from './proteinAnalytics';
 

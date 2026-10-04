@@ -18,7 +18,7 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '../shared/enhance';
+import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '@/core/plugin-tools/enhance';
 import { REACTIONS, findReaction, type ReactionDef } from './catalog';
 import { pushAllFigures } from './figures';
 import {

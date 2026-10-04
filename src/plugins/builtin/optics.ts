@@ -19,7 +19,7 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 
 export { opticsManifest } from './opticsManifest';
 import { opticsManifest } from './opticsManifest';
