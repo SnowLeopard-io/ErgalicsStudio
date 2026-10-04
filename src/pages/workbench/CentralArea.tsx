@@ -274,8 +274,9 @@ export function CentralArea() {
   };
 
   return (
-    <div
-      className="central"
+    <div className="central-wrap">
+      <div
+        className="central"
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current += 1;
@@ -325,7 +326,6 @@ export function CentralArea() {
           </button>
         )}
       </div>
-      <ScienceOutputStrip />
       {!activePlugin && (
         <div className="central-empty">
           {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
@@ -385,6 +385,12 @@ export function CentralArea() {
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
       <DataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
+      </div>
+      {/* Science readout sits BELOW the viewfinder, in normal flow — the
+          plugin host itself is position:absolute (out of flow), so keeping
+          the strip inside `.central` made it the only flex child and it
+          floated over the canvas (vertically centered, full-bleed). */}
+      <ScienceOutputStrip />
     </div>
   );
 }

@@ -600,17 +600,24 @@ export class BiodiversityPlugin implements Plugin {
     });
 
     // ---- Stacked abundance bars per site ------------------------------------
-    const barTop = canvas.height - 150;
-    const barBottom = canvas.height - 44;
+    // The band claims the vertical span between the table and the footnote
+    // (capped, then centered in that span) so tall viewports don't leave a
+    // dead void in the middle of the canvas.
+    const nSites = m.sites.length;
+    const tableBottom = 64 + nSites * 22;
+    const footnoteTop = canvas.height - 40;
+    const bandH = Math.min(360, Math.max(90, footnoteTop - tableBottom - 70));
+    const bandCenter = (tableBottom + 34 + footnoteTop) / 2;
+    const barTop = bandCenter - bandH / 2;
+    const barBottom = bandCenter + bandH / 2;
     const barX0 = 60;
     const barX1 = canvas.width - 24;
     const plotW = Math.max(barX1 - barX0, 10);
     g.textAlign = 'center';
     g.fillStyle = 'rgba(150, 165, 185, 0.9)';
-    g.fillText(zh ? '各样地物种丰度占比（堆叠）' : 'Relative abundance per site (stacked)', canvas.width / 2, barTop - 10);
+    g.fillText(zh ? '各样地物种丰度占比（堆叠）' : 'Relative abundance per site (stacked)', canvas.width / 2, barTop - 12);
     const palette = ['#64a0f0', '#40c463', '#e8a33d', '#e05e4b', '#a4764e', '#8fd06a', '#d4c447', '#7ec8e3', '#b08be8', '#e88bb0'];
-    const nSites = m.sites.length;
-    const bw = Math.min(64, (plotW / nSites) * 0.62);
+    const bw = Math.max(40, Math.min(120, (plotW / nSites) * 0.5));
     m.sites.forEach((site, i) => {
       const total = m.counts[i]!.reduce((a, b) => a + b, 0);
       const bx = barX0 + (plotW * (i + 0.5)) / nSites - bw / 2;
@@ -627,6 +634,11 @@ export class BiodiversityPlugin implements Plugin {
         const segH = (barBottom - barTop) * frac;
         g.fillStyle = palette[s % palette.length]!;
         g.fillRect(bx, barBottom - yAcc - segH, bw, Math.max(segH - 0.5, 0.5));
+        // In-bar share label fills the taller band with readable content.
+        if (bw >= 48 && segH >= 16 && frac >= 0.06) {
+          g.fillStyle = 'rgba(10, 14, 19, 0.82)';
+          g.fillText(`${Math.round(frac * 100)}%`, bx + bw / 2, barBottom - yAcc - segH / 2 + 4);
+        }
         yAcc += segH;
       });
       g.fillStyle = 'rgba(150, 165, 185, 0.9)';
