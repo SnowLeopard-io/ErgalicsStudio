@@ -942,6 +942,38 @@
   white-space: nowrap;
 }
 
+.git-ahead-behind {
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.git-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.git-branch-row,
+.git-clone-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.git-branch-input,
+.git-clone-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
 .git-panel-changes {
   margin-top: var(--space-2);
   font-size: var(--font-size-sm);

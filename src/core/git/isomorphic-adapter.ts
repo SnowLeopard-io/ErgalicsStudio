@@ -17,6 +17,7 @@ import {
   GitBranch,
   GitRemote,
   GitHook,
+  GitError,
   DiffResult,
   DiffHunk,
   LogOptions,
@@ -27,7 +28,9 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  GIT_ERROR_CODES,
 } from './types';
+import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
 
 // Lazy singleton: constructing LightningFS requires `indexedDB`, which does
 // not exist in Node (unit tests) — so instantiate on first use, not at import.
@@ -42,23 +45,20 @@ const GIT_DIR = (repoPath: string) => `${repoPath}/.git`;
 const DEFAULT_AUTHOR = { name: 'Ergalics Studio', email: 'studio@ergalics.local' };
 
 /**
- * LightningFS `mkdir` has no `recursive` option — create every missing
- * segment ourselves.
+ * Create `dirPath` segment by segment (absolute, from the fs root).
+ * LightningFS `mkdir` has no `recursive` option and `writeFile` does not
+ * create missing parents, so every level must be mkdir'ed explicitly. The
+ * first implementation double-prefixed the repo path and never created the
+ * target directory itself, which broke every nested write (runs/, hooks/…).
  */
-async function mkdirp(repoPath: string, dirPath: string): Promise<void> {
-  const fs = getFS();
+async function mkdirp(fs: LightningFS, dirPath: string): Promise<void> {
   const parts = dirPath.split('/').filter(Boolean);
-  let current = parts[0];
-  if (!dirPath.startsWith('/')) {
-    current = `${repoPath}/${parts[0]}`;
-  } else {
-    current = `/${parts[0]}`;
-  }
+  let current = '';
   for (const part of parts) {
+    current = `${current}/${part}`;
     await fs.promises.mkdir(current, undefined).catch(() => {
       /* already exists */
     });
-    current = `${current}/${part}`;
   }
 }
 
@@ -158,31 +158,34 @@ function lcsDiffLines(
 export class IsomorphicGitAdapter implements GitAdapter {
   private controllers: Map<string, AbortController> = new Map();
 
+  /**
+   * Injection point for unit tests: Node has no `indexedDB`, so tests pass a
+   * minimal in-memory fs (promises: readFile/writeFile/mkdir/rmdir/unlink/
+   * readdir/stat/lstat — the subset isomorphic-git's FileSystem wraps).
+   */
+  constructor(private readonly fsOverride?: LightningFS) {}
+
+  private getFS(): LightningFS {
+    return this.fsOverride ?? getFS();
+  }
+
   async init(repoPath: string, template: 'standard' | 'minimal' = 'standard'): Promise<void> {
-    const fs = getFS();
-    await mkdirp(repoPath, repoPath);
+    const fs = this.getFS();
+    await mkdirp(fs, repoPath);
     await Git.init({ fs, dir: repoPath, defaultBranch: 'main' });
     if (template === 'standard') {
       await this.writeStandardTemplate(repoPath);
+      // §3.6: preinstall the Ergalics hooks into .git/hooks.
+      await this.installHooks(repoPath, STANDARD_HOOKS);
     }
   }
 
   private async writeStandardTemplate(repoPath: string): Promise<void> {
-    const fs = getFS();
-    const files = [
-      { path: '.gitignore', content: STANDARD_GITIGNORE },
-      { path: '.gitattributes', content: STANDARD_GITATTRIBUTES },
-      { path: 'project.clproj', content: '{\n}' },
-      { path: 'runs/.gitkeep', content: '' },
-      { path: 'figures/.gitkeep', content: '' },
-      { path: 'manuscript/.gitkeep', content: '' },
-      { path: 'data/.gitkeep', content: '' },
-      { path: 'code/.gitkeep', content: '' },
-    ];
+    const fs = this.getFS();
 
-    for (const f of files) {
+    for (const f of STANDARD_TEMPLATE_FILES) {
       const fullPath = `${repoPath}/${f.path}`;
-      await mkdirp(repoPath, fullPath.substring(0, fullPath.lastIndexOf('/')));
+      await mkdirp(fs, fullPath.substring(0, fullPath.lastIndexOf('/')));
       await fs.promises.writeFile(fullPath, f.content);
     }
 
@@ -198,8 +201,8 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async clone(url: string, targetPath: string, opts?: CloneOptions): Promise<void> {
     const controller = new AbortController();
     this.controllers.set(`${targetPath}:clone`, controller);
-    const fs = getFS();
-    await mkdirp(targetPath, targetPath);
+    const fs = this.getFS();
+    await mkdirp(fs, targetPath);
 
     await Git.clone({
       fs,
@@ -217,7 +220,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async isRepo(repoPath: string): Promise<boolean> {
     try {
       // LightningFS exposes no `access`; stat the .git dir instead.
-      await getFS().promises.stat(GIT_DIR(repoPath));
+      await this.getFS().promises.stat(GIT_DIR(repoPath));
       return true;
     } catch {
       return false;
@@ -225,7 +228,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async status(repoPath: string): Promise<GitStatus> {
-    const fs = getFS();
+    const fs = this.getFS();
     const matrix = await Git.statusMatrix({ fs, dir: repoPath });
     const result: GitStatus = {
       clean: true,
@@ -245,14 +248,56 @@ export class IsomorphicGitAdapter implements GitAdapter {
       const branch = await Git.currentBranch({ fs, dir: repoPath });
       result.currentBranch = branch || 'main';
       result.currentCommit = await this.getCurrentCommit(repoPath);
+      const aheadBehind = await this.computeAheadBehind(repoPath, result.currentBranch);
+      result.ahead = aheadBehind.ahead;
+      result.behind = aheadBehind.behind;
     } catch {
       // Freshly init'ed repo without commits — defaults stand.
     }
     return result;
   }
 
+  /**
+   * Count commits ahead/behind the upstream (`<remote>/<branch>`, remote
+   * defaults to `origin`, then the first configured remote). No upstream ref
+   * (offline repo, never pushed) → 0/0. Histories are capped at 1000 commits
+   * each; isomorphic-git has no merge-base primitive, so set differences of
+   * the two walks stand in for one.
+   */
+  private async computeAheadBehind(
+    repoPath: string,
+    branch: string,
+  ): Promise<{ ahead: number; behind: number }> {
+    try {
+      const fs = this.getFS();
+      const remotes = await Git.listRemotes({ fs, dir: repoPath });
+      const remote = remotes.find((r) => r.remote === 'origin')?.remote ?? remotes[0]?.remote;
+      if (!remote) return { ahead: 0, behind: 0 };
+      const localRef = `refs/heads/${branch}`;
+      const upstreamRef = `refs/remotes/${remote}/${branch}`;
+      const [local, upstream] = await Promise.all([
+        Git.resolveRef({ fs, dir: repoPath, ref: localRef }).catch(() => null),
+        Git.resolveRef({ fs, dir: repoPath, ref: upstreamRef }).catch(() => null),
+      ]);
+      if (!local || !upstream || local === upstream) return { ahead: 0, behind: 0 };
+      const [localLog, upstreamLog] = await Promise.all([
+        Git.log({ fs, dir: repoPath, ref: localRef, depth: 1000 }),
+        Git.log({ fs, dir: repoPath, ref: upstreamRef, depth: 1000 }),
+      ]);
+      const localOids = new Set(localLog.map((c) => c.oid));
+      const upstreamOids = new Set(upstreamLog.map((c) => c.oid));
+      let ahead = 0;
+      for (const oid of localOids) if (!upstreamOids.has(oid)) ahead++;
+      let behind = 0;
+      for (const oid of upstreamOids) if (!localOids.has(oid)) behind++;
+      return { ahead, behind };
+    } catch {
+      return { ahead: 0, behind: 0 };
+    }
+  }
+
   async log(repoPath: string, opts?: LogOptions): Promise<GitCommit[]> {
-    const fs = getFS();
+    const fs = this.getFS();
     const commits = await Git.log({
       fs,
       dir: repoPath,
@@ -267,7 +312,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
    * reader, so `opts.staged` diffs are not yet supported (returns []).
    */
   async diff(repoPath: string, opts?: DiffOptions): Promise<DiffResult[]> {
-    const fs = getFS();
+    const fs = this.getFS();
     const results: DiffResult[] = [];
     const matrix = await Git.statusMatrix({ fs, dir: repoPath });
     let files: string[] = matrix.map((row) => row[0]);
@@ -351,7 +396,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async branches(repoPath: string): Promise<GitBranch[]> {
-    const fs = getFS();
+    const fs = this.getFS();
     const names = await Git.listBranches({ fs, dir: repoPath });
     const current = await Git.currentBranch({ fs, dir: repoPath });
     const result: GitBranch[] = [];
@@ -369,20 +414,20 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async remotes(repoPath: string): Promise<GitRemote[]> {
-    const fs = getFS();
+    const fs = this.getFS();
     const remotes = await Git.listRemotes({ fs, dir: repoPath });
     return remotes.map((r) => ({ name: r.remote, url: r.url }));
   }
 
   async add(repoPath: string, files: string[]): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     for (const file of files) {
       await Git.add({ fs, dir: repoPath, filepath: file });
     }
   }
 
   async commit(repoPath: string, message: string, opts?: CommitOptions): Promise<string> {
-    const fs = getFS();
+    const fs = this.getFS();
     return Git.commit({
       fs,
       dir: repoPath,
@@ -391,8 +436,33 @@ export class IsomorphicGitAdapter implements GitAdapter {
     });
   }
 
+  /**
+   * Switch to `ref`. A plain checkout (create=false) refuses to run with
+   * staged/unstaged changes — switching would silently discard them (the old
+   * implementation always passed `force: true`). Pass create=true (new
+   * branch at HEAD, working tree untouched) or commit first. Untracked files
+   * are allowed, matching git's tolerance when they are not overwritten.
+   */
   async checkout(repoPath: string, ref: string, create = false): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
+    if (!create) {
+      // Unborn HEAD resolves to undefined — nothing to lose yet.
+      const current = await Git.currentBranch({ fs, dir: repoPath }).catch(() => undefined);
+      if (current && current !== ref) {
+        const st = await this.status(repoPath);
+        const dirty = [...st.staged, ...st.unstaged];
+        if (dirty.length > 0) {
+          const err = new Error(
+            `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
+              'Commit these files first:\n' +
+              dirty.map((f) => `  ${f}`).join('\n'),
+          ) as GitError;
+          err.code = GIT_ERROR_CODES.DIRTY;
+          err.gitCommand = 'checkout';
+          throw err;
+        }
+      }
+    }
     if (create) {
       await Git.branch({ fs, dir: repoPath, ref });
     }
@@ -400,12 +470,12 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async branch(repoPath: string, name: string, startPoint?: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.branch({ fs, dir: repoPath, ref: name, object: startPoint });
   }
 
   async deleteBranch(repoPath: string, name: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.deleteBranch({ fs, dir: repoPath, ref: name });
   }
 
@@ -415,7 +485,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
    * surfaces as a generic conflict result.
    */
   async merge(repoPath: string, branch: string): Promise<MergeResult> {
-    const fs = getFS();
+    const fs = this.getFS();
     try {
       const result = await Git.merge({ fs, dir: repoPath, theirs: branch });
       return { success: true, commitHash: result.oid };
@@ -427,7 +497,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async push(repoPath: string, opts: PushOptions): Promise<void> {
     const controller = new AbortController();
     this.controllers.set(`${repoPath}:push`, controller);
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.push({
       fs,
       http,
@@ -442,7 +512,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async pull(repoPath: string, opts: PullOptions): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     // Note: isomorphic-git v1 has no `--rebase`; pulls are merge-based.
     await Git.pull({
       fs,
@@ -458,7 +528,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async fetch(repoPath: string, remote: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.fetch({
       fs,
       http,
@@ -469,19 +539,19 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async addRemote(repoPath: string, name: string, url: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.addRemote({ fs, dir: repoPath, remote: name, url });
   }
 
   async removeRemote(repoPath: string, name: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.deleteRemote({ fs, dir: repoPath, remote: name });
   }
 
   async installHooks(repoPath: string, hooks: GitHook[]): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     const hooksDir = `${GIT_DIR(repoPath)}/hooks`;
-    await mkdirp(repoPath, hooksDir);
+    await mkdirp(fs, hooksDir);
     for (const hook of hooks) {
       const hookPath = `${hooksDir}/${hook.type}`;
       await fs.promises.writeFile(hookPath, `#!/bin/sh\n${hook.content}`);
@@ -491,14 +561,19 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async writeFile(repoPath: string, filePath: string, content: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     const fullPath = `${repoPath}/${filePath}`;
-    await mkdirp(repoPath, fullPath.substring(0, fullPath.lastIndexOf('/')));
+    await mkdirp(fs, fullPath.substring(0, fullPath.lastIndexOf('/')));
     await fs.promises.writeFile(fullPath, content);
   }
 
+  async readFile(repoPath: string, filePath: string): Promise<string> {
+    const data = await this.getFS().promises.readFile(`${repoPath}/${filePath}`);
+    return typeof data === 'string' ? data : new TextDecoder().decode(data);
+  }
+
   async getHook(repoPath: string, type: HookType): Promise<string | null> {
-    const fs = getFS();
+    const fs = this.getFS();
     try {
       const content = await fs.promises.readFile(`${GIT_DIR(repoPath)}/hooks/${type}`);
       const text = typeof content === 'string' ? content : new TextDecoder().decode(content);
@@ -509,7 +584,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async removeHook(repoPath: string, type: HookType): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     try {
       await fs.promises.unlink(`${GIT_DIR(repoPath)}/hooks/${type}`);
     } catch {
@@ -519,7 +594,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
 
   async getRootDir(repoPath: string): Promise<string | null> {
     try {
-      const fs = getFS();
+      const fs = this.getFS();
       return (await Git.findRoot({ fs, filepath: repoPath })) || null;
     } catch {
       return null;
@@ -528,7 +603,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
 
   async getConfig(repoPath: string, key: string): Promise<string | null> {
     try {
-      const fs = getFS();
+      const fs = this.getFS();
       return (await Git.getConfig({ fs, dir: repoPath, path: key })) ?? null;
     } catch {
       return null;
@@ -536,13 +611,13 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async setConfig(repoPath: string, key: string, value: string): Promise<void> {
-    const fs = getFS();
+    const fs = this.getFS();
     await Git.setConfig({ fs, dir: repoPath, path: key, value });
   }
 
   private async getCurrentCommit(repoPath: string): Promise<string | undefined> {
     try {
-      const fs = getFS();
+      const fs = this.getFS();
       return await Git.resolveRef({ fs, dir: repoPath, ref: 'HEAD' });
     } catch {
       return undefined;
@@ -553,40 +628,3 @@ export class IsomorphicGitAdapter implements GitAdapter {
     this.controllers.get(`${repoPath}:${op}`)?.abort();
   }
 }
-
-const STANDARD_GITIGNORE = `# Ergalics Studio local state
-.ergalics/
-*.log
-.DS_Store
-
-# Large data files (use Git LFS instead)
-data/*.h5
-data/*.nc
-data/*.parquet
-data/*.zarr/
-data/*.fits
-data/*.hdf5
-
-# Build artifacts
-manuscript/build/
-figures/exports/
-supplement/*.zip
-
-# Runtime
-node_modules/
-dist/
-*.wasm
-`;
-
-const STANDARD_GITATTRIBUTES = `# Git LFS for large binary files
-*.h5 filter=lfs diff=lfs merge=lfs -text
-*.nc filter=lfs diff=lfs merge=lfs -text
-*.parquet filter=lfs diff=lfs merge=lfs -text
-*.zarr filter=lfs diff=lfs merge=lfs -text
-*.fits filter=lfs diff=lfs merge=lfs -text
-*.hdf5 filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.pdf filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-`;

@@ -167,6 +167,10 @@ export interface GitAdapter {
    *  parent directories). Used to sync project state into the repo. */
   writeFile(repoPath: string, filePath: string, content: string): Promise<void>;
 
+  /** Read a plain-text file from the repo working tree (UTF-8 decoded).
+   *  Used to read run indexes and cloned project.clproj files. */
+  readFile(repoPath: string, filePath: string): Promise<string>;
+
   // Utilities
   getRootDir(repoPath: string): Promise<string | null>;
   getConfig(repoPath: string, key: string): Promise<string | null>;
