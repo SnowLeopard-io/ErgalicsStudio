@@ -44,6 +44,35 @@ function getFS(): LightningFS {
 const GIT_DIR = (repoPath: string) => `${repoPath}/.git`;
 const DEFAULT_AUTHOR = { name: 'Ergalics Studio', email: 'studio@ergalics.local' };
 
+// ---- CORS proxy -------------------------------------------------------------
+// Browser git needs a CORS proxy for every remote HTTP call. The public
+// isomorphic-git proxy does not cover every host (gitee notably fails with a
+// bare ERR_FAILED), so the proxy is user-configurable and persisted in
+// localStorage; `setGitCorsProxy('')` restores the public default.
+const CORS_PROXY_KEY = 'ergalics:git-cors-proxy';
+const DEFAULT_GIT_CORS_PROXY = 'https://cors.isomorphic-git.org';
+let gitCorsProxy = DEFAULT_GIT_CORS_PROXY;
+if (typeof localStorage !== 'undefined') {
+  gitCorsProxy = localStorage.getItem(CORS_PROXY_KEY) || DEFAULT_GIT_CORS_PROXY;
+}
+
+export function getGitCorsProxy(): string {
+  return gitCorsProxy;
+}
+
+export function setGitCorsProxy(url: string): void {
+  const next = url.trim();
+  gitCorsProxy = next.length > 0 ? next : DEFAULT_GIT_CORS_PROXY;
+  try {
+    localStorage.setItem(CORS_PROXY_KEY, gitCorsProxy);
+  } catch {
+    // Private-mode storage quota — the in-memory value still applies.
+  }
+}
+
+/** Per-call override falling back to the persisted global proxy. */
+const proxyFor = (opts?: { corsProxy?: string }) => opts?.corsProxy ?? getGitCorsProxy();
+
 /**
  * Create `dirPath` segment by segment (absolute, from the fs root).
  * LightningFS `mkdir` has no `recursive` option and `writeFile` does not
@@ -209,7 +238,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       http,
       dir: targetPath,
       url,
-      corsProxy: 'https://cors.isomorphic-git.org',
+      corsProxy: proxyFor(opts),
       ref: opts?.branch || 'main',
       singleBranch: opts?.singleBranch ?? true,
       depth: opts?.depth,
@@ -515,7 +544,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       remote: opts.remote,
       ref: opts.branch,
       force: opts.force,
-      corsProxy: 'https://cors.isomorphic-git.org',
+      corsProxy: proxyFor(opts),
       onProgress: toProgressHandler(opts.onProgress),
       signal: controller.signal,
     });
@@ -530,7 +559,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       dir: repoPath,
       remote: opts.remote,
       ref: opts.branch,
-      corsProxy: 'https://cors.isomorphic-git.org',
+      corsProxy: proxyFor(opts),
       fastForward: true,
       singleBranch: true,
       author: DEFAULT_AUTHOR,
@@ -544,7 +573,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       http,
       dir: repoPath,
       remote,
-      corsProxy: 'https://cors.isomorphic-git.org',
+      corsProxy: getGitCorsProxy(),
     });
   }
 

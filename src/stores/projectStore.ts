@@ -114,7 +114,12 @@ interface ProjectStore {
   /** Clone a remote repo and open it as the active project (US-04:
    *  "File → Open from Git URL"). `targetPath` defaults to a fresh
    *  per-project repo path. */
-  gitClone: (url: string, targetPath?: string, branch?: string) => Promise<Project>;
+  gitClone: (
+    url: string,
+    targetPath?: string,
+    branch?: string,
+    onProgress?: (phase: string, loaded: number, total: number) => void,
+  ) => Promise<Project>;
   loadGitLog: (limit?: number) => Promise<void>;
   getGitDiff: (filePath?: string, staged?: boolean) => Promise<DiffResult[] | undefined>;
 }
@@ -750,13 +755,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await refreshGitStatusForProject(project);
   },
 
-  gitClone: async (url, targetPath, branch) => {
+  gitClone: async (url, targetPath, branch, onProgress) => {
     const adapter = getGitAdapter();
     // Clone into a fresh per-project repo path (US-04: one click, then the
     // cloned project opens directly in the workbench).
     const seed = createEmptyProject('Cloned Project');
     const repoPath = targetPath || getProjectRepoPath(seed);
-    await adapter.clone(url, repoPath, branch ? { branch } : undefined);
+    await adapter.clone(url, repoPath, { branch, onProgress });
 
     // A git-backed project must carry a project.clproj at its root (§3.1).
     const raw = await adapter.readFile(repoPath, 'project.clproj');

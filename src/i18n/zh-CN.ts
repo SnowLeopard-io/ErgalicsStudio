@@ -232,6 +232,9 @@ export const zhCN: LocaleDictionary = {
   'git.clone': '从 Git URL 克隆',
   'git.clone_placeholder': 'https://github.com/user/repo.git',
   'git.cloned': '仓库已克隆并打开。',
+  'git.cors_proxy': 'CORS 代理地址',
+  'git.cors_saved': 'Git CORS 代理已更新。',
+  'git.cors_hint': '请求被 CORS 拦截：公共代理可能不支持该托管站，可自建代理后把地址填入 Git 面板的代理输入框。',
   'git.op_failed': 'Git 操作失败：{reason}',
 
   'settings.title': '设置',

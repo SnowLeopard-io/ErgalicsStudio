@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore, generateCommitMessage } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
+import { getGitCorsProxy, setGitCorsProxy } from '@/core/git/isomorphic-adapter';
 
 /**
  * Git panel (§3.5): branch + ahead/behind, Pull/Push/Fetch, new-branch and
@@ -21,6 +22,8 @@ export function GitPanel() {
   const [message, setMessage] = useState('');
   const [newBranch, setNewBranch] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneStatus, setCloneStatus] = useState('');
+  const [proxy, setProxy] = useState(getGitCorsProxy());
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -41,8 +44,13 @@ export function GitPanel() {
     // `String(err)` yields unreadable "Error: ENOENT: no such file or
     // directory, unlink '/…'" — surface the short code plus the message.
     const code = (err as { code?: string } | null)?.code;
-    const msg = err instanceof Error ? err.message : String(err);
-    const reason = code && !msg.startsWith(code) ? `${code}: ${msg}` : msg;
+    const raw = err instanceof Error ? err.message : String(err);
+    let reason = code && !raw.startsWith(code) ? `${code}: ${raw}` : raw;
+    // Network-level failures almost always mean the CORS proxy refused the
+    // host — tell the user there is a way out instead of a bare ERR_FAILED.
+    if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
+      reason += ` — ${t('git.cors_hint')}`;
+    }
     notify('error', t('git.op_failed', { reason }));
   };
 
@@ -106,15 +114,27 @@ export function GitPanel() {
     const url = cloneUrl.trim();
     if (!url) return;
     setBusy(true);
+    setCloneStatus('…');
     try {
-      await useProjectStore.getState().gitClone(url);
+      await useProjectStore.getState().gitClone(url, undefined, undefined, (phase, loaded, total) => {
+        // isomorphic-git streams {phase, loaded, total}; totals can be 0
+        // while sizes are still unknown.
+        setCloneStatus(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
       setCloneUrl('');
+      setCloneStatus('');
       notify('success', t('git.cloned'));
     } catch (err) {
       reportError(err);
     } finally {
+      setCloneStatus('');
       setBusy(false);
     }
+  };
+
+  const applyProxy = () => {
+    setGitCorsProxy(proxy);
+    notify('success', t('git.cors_saved'));
   };
 
   const dirtyText =
@@ -145,6 +165,23 @@ export function GitPanel() {
         >
           {t('git.clone')}
         </button>
+      </div>
+      {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
+      <div className="git-clone-row git-proxy-row">
+        <input
+          className="git-clone-input"
+          type="text"
+          value={proxy}
+          placeholder={t('git.cors_proxy')}
+          title={t('git.cors_hint')}
+          onChange={(e) => setProxy(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') applyProxy();
+          }}
+          onBlur={() => {
+            if (proxy.trim() !== getGitCorsProxy()) applyProxy();
+          }}
+        />
       </div>
       {!repo ? (
         <p className="git-panel-hint">{t('git.no_repo')}</p>

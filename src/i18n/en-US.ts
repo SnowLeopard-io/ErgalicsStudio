@@ -228,6 +228,9 @@ export const enUS: LocaleDictionary = {
   'git.clone': 'Clone from Git URL',
   'git.clone_placeholder': 'https://github.com/user/repo.git',
   'git.cloned': 'Repository cloned and opened.',
+  'git.cors_proxy': 'CORS proxy URL',
+  'git.cors_saved': 'Git CORS proxy updated.',
+  'git.cors_hint': 'Request blocked by CORS: the public proxy may not cover this host — run your own proxy and put its URL in the Git panel proxy field.',
   'git.op_failed': 'Git operation failed: {reason}',
 
   'settings.title': 'Settings',

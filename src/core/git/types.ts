@@ -86,6 +86,8 @@ export interface CloneOptions {
   depth?: number;
   branch?: string;
   singleBranch?: boolean;
+  /** Per-call CORS proxy override (falls back to the persisted global one). */
+  corsProxy?: string;
   onProgress?: (phase: string, loaded: number, total: number) => void;
 }
 
@@ -106,6 +108,7 @@ export interface PushOptions {
   branch: string;
   force?: boolean;
   setUpstream?: boolean;
+  corsProxy?: string;
   onProgress?: (phase: string, loaded: number, total: number) => void;
 }
 
@@ -113,6 +116,7 @@ export interface PullOptions {
   remote: string;
   branch: string;
   rebase?: boolean;
+  corsProxy?: string;
 }
 
 export type HookType =

@@ -962,6 +962,25 @@
   margin-top: var(--space-2);
 }
 
+/* Clone progress line + the CORS-proxy field sit tight under the clone row. */
+.git-clone-progress {
+  margin: 2px 0 0;
+  font-size: 11px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-proxy-row {
+  margin-top: 4px;
+}
+
+.git-proxy-row .git-clone-input {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
 .git-branch-input,
 .git-clone-input {
   flex: 1;
