@@ -110,6 +110,14 @@ let lifecycleChain: Promise<void> = Promise.resolve();
 let activationGen = 0;
 /** Invalidates restoration on a new project or explicit deactivation. */
 let restoreGen = 0;
+/**
+ * Plugins currently mid-activation: from just before their render context is
+ * built until `activeId` is published (activate() is deliberately awaited
+ * *before* the store publishes `activeId`, so without this window the first
+ * activate()/render() draws would be gated away and the panel would come up
+ * blank). The canvas gate in `createContext` treats these ids as active.
+ */
+const activatingIds = new Set<string>();
 
 function enqueueLifecycle(task: () => Promise<void> | void): Promise<void> {
   lifecycleChain = lifecycleChain.then(task, task);
@@ -375,7 +383,20 @@ function createContext(pluginId: string): PluginRenderContext {
   if (hostContainers) {
     return {
       container: {
-        canvas2d: hostContainers.canvas2d,
+        // Host-side invariant, enforced ONCE here at the boundary: a plugin
+        // that is not the active one must be physically unable to paint into
+        // the shared canvas. `canvas2d` is therefore a live getter, not a
+        // captured element — for a background plugin it resolves to undefined,
+        // which turns every draw call into a no-op via the plugins' existing
+        // `if (!canvas) return` idiom. Per-call-site `isActive` guards inside
+        // plugins remain only as defense in depth (they skip pointless work,
+        // they are no longer load-bearing for correctness).
+        get canvas2d() {
+          const state = usePluginStore.getState();
+          return state.activeId === pluginId || activatingIds.has(pluginId)
+            ? hostContainers!.canvas2d
+            : undefined;
+        },
         dom: hostContainers.dom,
         three,
         reportDataScale: (n) => hostContainers!.reportDataScale(n),
@@ -570,6 +591,20 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (usePluginStore.getState().activeId === id) return;
       await deactivateCurrentPlugin();
       if (gen !== activationGen) return;
+      // Mid-activation window: open the canvas gate for this plugin across
+      // createContext → activate() → render() → param restore, because
+      // `activeId` is published only at the very end of runActivation. The
+      // window must always close (finally) — a leaked id would let a
+      // background plugin paint into the shared canvas forever.
+      activatingIds.add(id);
+      try {
+        await runActivation();
+      } finally {
+        activatingIds.delete(id);
+      }
+    };
+
+    const runActivation = async () => {
       // Once plugin.activate() has resolved, the plugin owns live resources
       // (RAF loops, canvas listeners, 3-D surfaces). If this attempt is
       // superseded *after* that point, the queued newer transition cannot

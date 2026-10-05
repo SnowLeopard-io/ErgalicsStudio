@@ -22,7 +22,7 @@ import { setScienceOutputs, clearScienceOutputs, type ScienceMetric } from '@/co
 import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
 import { plumeManifest } from './plumeManifest';
 
 const MAX_CELLS = 160; // per-axis cap: 160² = 25.6k cells stays interactive
@@ -64,7 +64,7 @@ export function parseReceptorCsv(text: string): PlumeReceptor[] | null {
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function plumeFigurePanels(q: number, u: number, cls: StabilityClass, h: number, cells = 80): GeoFigurePanel[] {
+export function plumeFigurePanels(q: number, u: number, cls: StabilityClass, h: number, cells = 80): FigurePanelSpec[] {
   const nx = cells;
   const ny = Math.round(cells / 2);
   const xMaxM = 10000;
@@ -85,8 +85,8 @@ export function plumeFigurePanels(q: number, u: number, cls: StabilityClass, h: 
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Ground-level concentration (${cls} class)`,
         xLabel: 'downwind x (km)',
         yLabel: 'crosswind y (km)',
@@ -108,8 +108,8 @@ export function plumeFigurePanels(q: number, u: number, cls: StabilityClass, h: 
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Centreline C(x, 0)',
         xLabel: 'downwind x (km)',
         yLabel: 'μg/m³',

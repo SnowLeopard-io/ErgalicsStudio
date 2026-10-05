@@ -102,7 +102,11 @@ export class FluidCfdCouplerPlugin implements Plugin {
     this.client.onLog = (text) => {
       this.logs.push(text);
       if (this.logs.length > 8) this.logs.splice(0, this.logs.length - 8);
-      this.draw();
+      // Defense in depth: the host canvas gate already blanks `canvas2d` for
+      // background plugins, so a gated draw is a no-op — this guard keeps the
+      // redraw work itself off the path when the user switched plugins
+      // mid-compute (same idiom as the progress callback in runCoupling).
+      if (this.api.isActive?.() !== false) this.draw();
     };
   }
 

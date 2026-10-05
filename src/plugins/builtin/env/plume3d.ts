@@ -25,8 +25,7 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3D
 import { plumeConcentration, type StabilityClass } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
-import { buildTerrainMesh } from '../geo/terrain3d';
-import type { AscGrid } from '../geo/terrain';
+import { buildTerrainMesh, type AscGrid } from '@/core/geo/terrainMesh';
 import { FluidSolver, PRESSURE_ITERATIONS, RESOLUTION_PRESETS, type CfdQuality, type CfdSourceSpec } from './cfd';
 import { LabelSet } from './label3d';
 import { plume3dManifest } from './plume3dManifest';

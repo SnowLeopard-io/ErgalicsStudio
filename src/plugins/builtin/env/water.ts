@@ -30,7 +30,7 @@ import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric }
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
 import { waterManifest } from './waterManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
@@ -132,7 +132,7 @@ export function waterMissingStats(sites: WaterSiteInput[]): WaterMissingStat[] {
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function waterFigurePanels(sheet: WaterSheet): GeoFigurePanel[] {
+export function waterFigurePanels(sheet: WaterSheet): FigurePanelSpec[] {
   const results = sheet.sites.map((s) => evaluateWaterSite(s));
   const radarAxes = WATER_INDICATORS;
   const limitOf = (ind: WaterIndicator) => GB3838_LIMITS[ind]!.limits[2] ?? 1; // Class Ⅲ limit as reference
@@ -150,8 +150,8 @@ export function waterFigurePanels(sheet: WaterSheet): GeoFigurePanel[] {
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `${firstSite.name || 'site'} — value / Class-Ⅲ limit`,
         xLabel: 'indicator',
         yLabel: 'ratio',
@@ -167,8 +167,8 @@ export function waterFigurePanels(sheet: WaterSheet): GeoFigurePanel[] {
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'WQI per site',
         xLabel: 'site',
         yLabel: 'WQI',

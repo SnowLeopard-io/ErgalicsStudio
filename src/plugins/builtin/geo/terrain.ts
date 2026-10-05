@@ -30,26 +30,18 @@ import { marchingSquares } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric } from '@/core/research/scienceOutput';
 import type { ScienceMetric } from '@/core/research/scienceOutput';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { terrainManifest } from './terrainManifest';
 import { buildTerrainGroup, fitTerrainCamera } from './terrain3d';
 import type { Group } from 'three';
+import type { AscGrid } from '@/core/geo/terrainMesh';
+
+export type { AscGrid };
 
 export { terrainManifest } from './terrainManifest';
 
 // ---- Parsing & terrain math (exported for tests) ---------------------------
-
-export interface AscGrid {
-  ncols: number;
-  nrows: number;
-  xllcorner: number;
-  yllcorner: number;
-  cellsize: number;
-  nodata: number;
-  /** Row-major elevations (metres); NoData replaced by NaN. */
-  values: Float64Array;
-}
 
 const HEADER_KEYS = /^(ncols|nrows|xllcorner|yllcorner|cellsize|nodata_value)$/i;
 
@@ -614,8 +606,8 @@ export function runAnalyticSurfaceBenchmark(): AnalyticSurfaceBenchmark | null {
  * Research sheet for one DEM: (a) elevation field, (b) Horn slope,
  * (c) D8 flow accumulation on a log₁₀ scale after priority-flood filling.
  */
-export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+export function terrainFigurePanels(grid: AscGrid): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   const { ncols, nrows, values, cellsize } = grid;
 
   // (a) elevation, NoData mapped to the field minimum.
@@ -634,8 +626,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Elevation [m]',
       xLabel: 'col',
       yLabel: 'row',
@@ -666,8 +658,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Slope (Horn 3×3) [°]',
       xLabel: 'col',
       yLabel: 'row',
@@ -700,8 +692,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Flow accumulation (D8, log₁₀)',
       xLabel: 'col',
       yLabel: 'row',

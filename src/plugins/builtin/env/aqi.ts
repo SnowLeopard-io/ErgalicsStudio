@@ -34,11 +34,11 @@ import {
   pushPanelsToFigure,
   panelTag,
   panelPlace,
-  GEO_PANEL_WIDTH,
-  GEO_PANEL_HEIGHT,
+  FIGURE_PANEL_WIDTH,
+  FIGURE_PANEL_HEIGHT,
   type Bilingual,
-  type GeoFigurePanel,
-} from '../geo/geoFigure';
+  type FigurePanelSpec,
+} from '@/core/figure/sheet';
 import { aqiManifest } from './aqiManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
@@ -213,7 +213,7 @@ export function bandDistribution(aqis: number[]): number[] {
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): GeoFigurePanel[] {
+export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): FigurePanelSpec[] {
   const evaluated = samples
     .map((s, i) => ({ label: s.label, index: i, res: computeAqi(s.values, standard) }))
     .filter((r) => r.res.aqi !== null);
@@ -231,8 +231,8 @@ export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): Ge
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Daily AQI (${standard === 'us' ? 'US EPA' : 'GB/HJ'})`,
         xLabel: 'sample',
         yLabel: 'AQI',
@@ -247,8 +247,8 @@ export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): Ge
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `IAQI breakdown — ${peak.label}`,
         xLabel: 'pollutant',
         yLabel: 'IAQI',

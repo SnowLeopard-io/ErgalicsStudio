@@ -573,7 +573,7 @@ export const CARBON_SCENARIOS: Record<CarbonScenario, number> = {
   mitigation: 2,
 };
 
-export interface CarbonState extends Record<CarbonPool, number> {}
+export type CarbonState = Record<CarbonPool, number>;
 
 export interface CarbonYearPoint {
   year: number;

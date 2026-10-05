@@ -31,11 +31,11 @@ import {
   pushPanelsToFigure,
   panelTag,
   panelPlace,
-  GEO_PANEL_WIDTH,
-  GEO_PANEL_HEIGHT,
+  FIGURE_PANEL_WIDTH,
+  FIGURE_PANEL_HEIGHT,
   type Bilingual,
-  type GeoFigurePanel,
-} from '../geo/geoFigure';
+  type FigurePanelSpec,
+} from '@/core/figure/sheet';
 import { carbonManifest } from './carbonManifest';
 
 const MAX_YEARS = 500;
@@ -202,7 +202,7 @@ export function parseCarbonCsv(text: string): CarbonCustom | null {
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFigurePanel[] {
+export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): FigurePanelSpec[] {
   const colors: Record<CarbonPool, string> = {
     atmosphere: '#e8a33d',
     vegetation: '#40c463',
@@ -215,8 +215,8 @@ export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFig
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Atmospheric carbon',
         xLabel: 'year',
         yLabel: 'GtC',
@@ -238,8 +238,8 @@ export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFig
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Land & ocean pools',
         xLabel: 'year',
         yLabel: 'GtC',

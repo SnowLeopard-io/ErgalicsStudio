@@ -28,8 +28,8 @@ import { parseDelimited, stripHeaderIfNonNumeric } from '@/core/plugin-tools/tab
 import { setScienceOutputs, clearScienceOutputs, fmtMetric } from '@/core/research/scienceOutput';
 import type { ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32 } from '@/core/repro/random';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { spatialInterpManifest } from './spatialInterpManifest';
 
 export { spatialInterpManifest } from './spatialInterpManifest';
@@ -639,8 +639,8 @@ export function interpFigurePanels(
   points: InterpPoint[],
   method: 'idw' | 'kriging',
   power: number,
-): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   const bounds = boundsOf(points);
 
   // (a) interpolated surface at figure resolution.
@@ -666,8 +666,8 @@ export function interpFigurePanels(
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `Interpolated surface — ${methodLabel}`,
       xLabel: 'lon',
       yLabel: 'lat',
@@ -697,8 +697,8 @@ export function interpFigurePanels(
       ...panelPlace(panels.length),
       tag: panelTag(panels.length),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Variogram — ${vario.model}, range ${vario.range.toFixed(0)} km`,
         xLabel: 'h [km]',
         yLabel: 'γ(h)',
@@ -728,8 +728,8 @@ export function interpFigurePanels(
       ...panelPlace(panels.length),
       tag: panelTag(panels.length),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `LOOCV — RMSE ${loocv.rmse.toFixed(2)}, MAE ${loocv.mae.toFixed(2)}`,
         xLabel: 'observed',
         yLabel: 'predicted',

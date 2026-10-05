@@ -17,7 +17,7 @@ import { mulberry32, currentSeed } from '@/core/repro/random';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT, type Bilingual, type GeoFigurePanel } from '../geo/geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
 import { biodiversityManifest } from './biodiversityManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
@@ -212,7 +212,7 @@ const BOOTSTRAP_DRAWS = 200;
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function biodiversityFigurePanels(matrix: AbundanceMatrix): GeoFigurePanel[] {
+export function biodiversityFigurePanels(matrix: AbundanceMatrix): FigurePanelSpec[] {
   const perSite = matrix.counts.map((c) => diversityIndex(c, matrix.species));
   const shannonPts = perSite.map((d, i) => ({ x: i + 1, y: d.shannon ?? 0 }));
   const simpsonPts = perSite.map((d, i) => ({ x: i + 1, y: d.simpson ?? 0 }));
@@ -221,8 +221,8 @@ export function biodiversityFigurePanels(matrix: AbundanceMatrix): GeoFigurePane
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Shannon H′ per site',
         xLabel: 'site',
         yLabel: "H′ (nats)",
@@ -237,8 +237,8 @@ export function biodiversityFigurePanels(matrix: AbundanceMatrix): GeoFigurePane
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Gini–Simpson per site',
         xLabel: 'site',
         yLabel: '1−Σp²',
