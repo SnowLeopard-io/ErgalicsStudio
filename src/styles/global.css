@@ -736,6 +736,24 @@ button {
   }
 }
 
+/* Call-to-action button on a toast (e.g. a background compute offering to
+   jump back to the plugin that finished). */
+.toast-action {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: var(--color-bg-hover);
+}
+
 .toast-info {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);

@@ -460,12 +460,19 @@ export interface PluginApi {
   /** Report data scale for the perf panel. */
   reportDataScale(n: number): void;
   /** Show a toast notification to the user. */
-  notify(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
+  notify(kind: 'info' | 'success' | 'warning' | 'error', message: string, action?: { label: string; run: () => void }): void;
 
   /** Subscribe to host cancellation (status-bar 取消 / stop). Returns an unsubscribe fn.
    * Host invokes handlers when the user cancels the active task; long computations
    * should check their cancel flag between steps and bail out cleanly. */
   onCancel?(handler: () => void): () => void;
+
+  /**
+   * True when this plugin is the currently active one. Completion callbacks of
+   * long-running computations must check this before touching the shared
+   * canvas — a background plugin must never draw over the active plugin.
+   */
+  isActive?(): boolean;
 
   /**
    * Emit a structured log line under the `plugin:<id>` scope.

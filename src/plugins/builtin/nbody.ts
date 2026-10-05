@@ -26,6 +26,7 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
+import { emit } from '@/core/events';
 import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32 } from '@/core/repro/random';
@@ -334,12 +335,29 @@ export class NBodyPlugin implements Plugin {
         }
         if (ok) {
           const ms = performance.now() - t0;
+          const engine = gpu.backend;
           this.api.reportGpuTime(ms);
           this.state.simTime += dt * steps;
           this.updateGeometry();
-          this.draw();
           this.publish(true);
-          return { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+          const result: ComputeResult = { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+          // Background completion (the user switched plugins mid-run): the
+          // instance keeps the result (singleton state), but never draw into
+          // the shared canvas the now-active plugin owns — surface a
+          // non-intrusive jump-back toast instead.
+          if (this.api.isActive?.() === false) {
+            const zh = this.api.locale === 'zh-CN';
+            this.api.notify(
+              'success',
+              zh
+                ? `计算完成（后台，${engine}）— ${ms.toFixed(1)} ms`
+                : `Compute finished (background, ${engine}) — ${ms.toFixed(1)} ms`,
+              { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+            );
+            return result;
+          }
+          this.draw();
+          return result;
         }
       }
 
@@ -366,13 +384,27 @@ export class NBodyPlugin implements Plugin {
       for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
       this.state.simTime += dt * steps;
       this.updateGeometry();
-      this.draw();
       this.publish(true);
       const ms = performance.now() - t0;
       this.api.reportGpuTime(ms);
       // Report the work actually done — the CPU path only simulated `cap` bodies,
       // so `bytes` must not claim the full-N buffer allocation.
-      return { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
+      const result: ComputeResult = { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
+      // Background completion: same contract as the GPU path — keep the
+      // result on the instance, notify with a jump-back, never draw.
+      if (this.api.isActive?.() === false) {
+        const zh = this.api.locale === 'zh-CN';
+        this.api.notify(
+          'success',
+          zh
+            ? `计算完成（后台，cpu）— ${ms.toFixed(1)} ms`
+            : `Compute finished (background, cpu) — ${ms.toFixed(1)} ms`,
+          { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+        );
+        return result;
+      }
+      this.draw();
+      return result;
     } finally {
       offCancel?.();
     }
@@ -393,6 +425,9 @@ export class NBodyPlugin implements Plugin {
       this.api.notify('info', `${p.done}/${p.total}`);
     });
     if (result.ok) {
+      // A background completion already surfaced its own jump-back toast in
+      // compute() — don't double-notify.
+      if (this.api.isActive?.() === false) return;
       const engine = this.api.gpu?.available ? this.api.gpu?.backend : 'cpu';
       this.api.notify(
         'success',

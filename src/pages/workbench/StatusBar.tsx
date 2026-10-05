@@ -84,9 +84,12 @@ export function StatusBar() {
           : t(statusKey[status] ?? 'status.ready');
 
   // Long-running task indicator: visible while the host computes, loads or
-  // saves. Cancel stops the active block run and asks the plugin store to
-  // cancel the active task (fan-out to registered plugin handlers, broadcast
-  // 'host:cancel-task', reset a stuck busy status).
+  // saves. The cancel button is capability-aware: it only appears when the
+  // plugin that started the in-flight computation registered an `api.onCancel`
+  // handler (nbody, EM eigensolver, …). Plain loads/saves and computes in
+  // plugins without cancellation support show the progress bar alone — an
+  // unconditional button would promise a cancel that cannot happen.
+  const canCancel = usePluginStore((s) => s.canCancelActive);
   const busy = status === 'computing' || status === 'loading' || projectStatus === 'saving';
   const busyLabel = projectStatus === 'saving'
     ? t('ux.progress.saving')
@@ -109,9 +112,11 @@ export function StatusBar() {
             <span className="statusbar-progress-track">
               <span className="statusbar-progress-bar" />
             </span>
-            <button type="button" className="statusbar-progress-cancel" onClick={cancelTask}>
-              {t('ux.progress.cancel')}
-            </button>
+            {canCancel ? (
+              <button type="button" className="statusbar-progress-cancel" onClick={cancelTask}>
+                {t('ux.progress.cancel')}
+              </button>
+            ) : null}
           </div>
         ) : (
           <>
