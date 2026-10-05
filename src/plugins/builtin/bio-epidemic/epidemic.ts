@@ -196,6 +196,92 @@ export const DEFAULT_CONFIG: ModelConfig = {
   days: 120,
 };
 
+// ---- research-grade diagnostics (docs/technical/11 §2.4 / §3 L2) -----------
+
+/**
+ * Population-conservation diagnostic: max |N(t) − N₀| / N₀ over the sampled
+ * trajectory, where N(t) is the sum of all compartments. A correct RK4
+ * integration conserves N to rounding error; drift above ~1e-6 signals a
+ * step-size or clipping problem.
+ */
+export function conservationDrift(traj: Trajectory, pop: number): number {
+  const N = Math.max(1, pop);
+  const hasE = Boolean(traj.exposed);
+  let max = 0;
+  for (let i = 0; i < traj.days.length; i += 1) {
+    const n = traj.susceptible[i]! + traj.infectious[i]! + traj.recovered[i]! + (hasE ? traj.exposed![i]! : 0);
+    const d = Math.abs(n - N) / N;
+    if (d > max) max = d;
+  }
+  return max;
+}
+
+export interface EarlyGrowth {
+  /** Fitted exponential growth rate r = d(ln I)/dt (per day). */
+  growthRate: number;
+  /** R_t ≈ 1 + r·D_infectious (SIR early-growth approximation). */
+  rt: number;
+  /** Number of log-slope points used. */
+  points: number;
+}
+
+/**
+ * Early-exponential-growth R_t estimate: log-linear fit of ln I(t) over the
+ * rising segment before the peak, then the SIR relation R_t ≈ 1 + r/γ.
+ * Returns null when the rising branch is too short to fit (≥4 points).
+ */
+export function earlyGrowthRt(cfg: ModelConfig, traj: Trajectory): EarlyGrowth | null {
+  let peak = 0;
+  for (let i = 0; i < traj.infectious.length; i += 1) {
+    if (traj.infectious[i]! > traj.infectious[peak]!) peak = i;
+  }
+  const pts: Array<{ x: number; y: number }> = [];
+  for (let i = 1; i <= peak && pts.length < 30; i += 1) {
+    const v = traj.infectious[i]!;
+    const prev = traj.infectious[i - 1]!;
+    if (v > 0 && prev > 0 && v >= prev) pts.push({ x: traj.days[i]!, y: Math.log(v) });
+    else break; // stop at the first non-growing sample
+  }
+  if (pts.length < 4) return null;
+  const n = pts.length;
+  let sx = 0;
+  let sy = 0;
+  let sxx = 0;
+  let sxy = 0;
+  for (const p of pts) {
+    sx += p.x;
+    sy += p.y;
+    sxx += p.x * p.x;
+    sxy += p.x * p.y;
+  }
+  const denom = n * sxx - sx * sx;
+  const r = Math.abs(denom) < 1e-30 ? 0 : (n * sxy - sx * sy) / denom;
+  return { growthRate: r, rt: 1 + r * cfg.infectiousDays, points: n };
+}
+
+export interface FinalSizeCheck {
+  /** −ln(s∞) from the simulated endpoint. */
+  lhs: number;
+  /** R₀·(1 − s∞) from the analytic final-size relation. */
+  rhs: number;
+  /** Relative discrepancy |lhs − rhs| / |lhs|. */
+  relErr: number;
+}
+
+/**
+ * Final-size relation check for the SIR/SEIR endpoint: s∞ must satisfy
+ * −ln(s∞) = R₀·(1 − s∞), independent of the latent period. Returns null when
+ * the endpoint is degenerate (s∞ = 0 or 1).
+ */
+export function finalSizeCheck(cfg: ModelConfig, traj: Trajectory): FinalSizeCheck | null {
+  const N = Math.max(1, cfg.population);
+  const sInf = traj.susceptible[traj.susceptible.length - 1]! / N;
+  if (sInf <= 0 || sInf >= 1) return null;
+  const lhs = -Math.log(sInf);
+  const rhs = cfg.r0 * (1 - sInf);
+  return { lhs, rhs, relErr: Math.abs(lhs - rhs) / Math.abs(lhs) };
+}
+
 /** Parsed daily epidemic incidence series (observed data, not modeled). */
 export interface ObservedSeries {
   /** Day index (0-based). */

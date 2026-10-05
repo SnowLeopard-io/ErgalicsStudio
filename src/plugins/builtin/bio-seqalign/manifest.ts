@@ -17,6 +17,18 @@ export const bioSeqalignManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-seqalign',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes:
+      'Pairwise alignment only (no MSA / database search); the empirical p-value comes from composition-preserving shuffles of sequence B and reflects score rarity, not homology probability.',
+    notesI18n: {
+      'zh-CN':
+        '仅支持双序列比对（无多序列比对 / 数据库搜索）；经验 p 值来自对序列 B 的保组成置换，反映得分的稀有程度而非同源概率。',
+      'en-US':
+        'Pairwise alignment only (no MSA / database search); the empirical p-value comes from composition-preserving shuffles of sequence B and reflects score rarity, not homology probability.',
+    },
+  },
   formats: [
     { extension: '.fasta', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA nucleotide/protein sequences' },
     { extension: '.fa', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA (short extension)' },

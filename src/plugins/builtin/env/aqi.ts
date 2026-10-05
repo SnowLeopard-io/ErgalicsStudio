@@ -14,6 +14,7 @@
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import {
+  AQI_BANDS,
   POLLUTANT_COLUMNS,
   POLLUTANT_LABELS,
   type AqiInput,
@@ -25,18 +26,19 @@ import {
   findColumn,
   numCell,
 } from './envCore';
-import { actionButton, actionFired, drawEmptyCanvas, drawEmptyMessage, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { actionButton, actionFired, drawEmptyCanvas, drawEmptyMessage, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   pushPanelsToFigure,
   panelTag,
   panelPlace,
-  GEO_PANEL_WIDTH,
-  GEO_PANEL_HEIGHT,
+  FIGURE_PANEL_WIDTH,
+  FIGURE_PANEL_HEIGHT,
   type Bilingual,
-  type GeoFigurePanel,
-} from '../geo/geoFigure';
+  type FigurePanelSpec,
+} from '@/core/figure/sheet';
 import { aqiManifest } from './aqiManifest';
 
 // ---- Parsing (exported for tests) ------------------------------------------
@@ -86,9 +88,132 @@ export function parseAqiCsv(text: string): AqiSample[] | null {
   return samples.length > 0 ? samples : null;
 }
 
+// ---- Statistics (exported for tests) ----------------------------------------
+
+export interface ConcSummary {
+  n: number;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  max: number;
+  iqr: number;
+}
+
+/** Type-7 (linear-interpolation) quantile of an ascending-sorted array. */
+export function quantileSorted(sorted: number[], q: number): number {
+  if (sorted.length === 0) return NaN;
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  const f = pos - lo;
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * f;
+}
+
+/** min / median / max / IQR summary of a concentration series. */
+export function concSummary(values: Array<number | null | undefined>): ConcSummary | null {
+  const v = values.filter((x): x is number => x !== null && x !== undefined && Number.isFinite(x)).sort((a, b) => a - b);
+  if (v.length === 0) return null;
+  const q1 = quantileSorted(v, 0.25);
+  const median = quantileSorted(v, 0.5);
+  const q3 = quantileSorted(v, 0.75);
+  return { n: v.length, min: v[0]!, q1, median, q3, max: v[v.length - 1]!, iqr: q3 - q1 };
+}
+
+export interface MissingStat {
+  pollutant: AqiPollutant;
+  present: number;
+  missing: number;
+  /** missing / total samples (0 when the sheet is empty). */
+  rate: number;
+}
+
+/** Per-pollutant missing-record statistics over the sample sheet. */
+export function missingStats(samples: AqiSample[]): MissingStat[] {
+  const total = samples.length;
+  return (Object.keys(POLLUTANT_COLUMNS) as AqiPollutant[]).map((k) => {
+    const present = samples.filter((s) => {
+      const v = s.values[k];
+      return v !== null && v !== undefined && Number.isFinite(v);
+    }).length;
+    const missing = total - present;
+    return { pollutant: k, present, missing, rate: total > 0 ? missing / total : 0 };
+  });
+}
+
+export interface TrendStat {
+  n: number;
+  /** OLS slope per sample (x = sample index). */
+  slope: number;
+  intercept: number;
+  /** Mann–Kendall S statistic (sum of pairwise signs). */
+  mkS: number;
+  /** Variance of S with the tie correction; no significance is claimed. */
+  mkVarS: number;
+}
+
+/** OLS slope + Mann–Kendall S and its variance for an ordered series. */
+export function trendStats(values: Array<number | null | undefined>): TrendStat | null {
+  const y = values.filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v));
+  const n = y.length;
+  if (n < 2) return null;
+  const xMean = (n - 1) / 2;
+  let sx = 0;
+  let sxy = 0;
+  for (let i = 0; i < n; i += 1) {
+    sx += (i - xMean) ** 2;
+    sxy += (i - xMean) * y[i]!;
+  }
+  const slope = sx > 0 ? sxy / sx : 0;
+  const yMean = y.reduce((a, b) => a + b, 0) / n;
+  const intercept = yMean - slope * xMean;
+  let s = 0;
+  for (let i = 0; i < n - 1; i += 1) {
+    for (let j = i + 1; j < n; j += 1) {
+      const d = y[j]! - y[i]!;
+      s += d > 0 ? 1 : d < 0 ? -1 : 0;
+    }
+  }
+  const counts = new Map<number, number>();
+  for (const v of y) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let tieTerm = 0;
+  for (const t of counts.values()) if (t > 1) tieTerm += t * (t - 1) * (2 * t + 5);
+  const varS = (n * (n - 1) * (2 * n + 5) - tieTerm) / 18;
+  return { n, slope, intercept, mkS: s, mkVarS: varS };
+}
+
+/** Most frequent primary pollutant across evaluated samples. */
+export function primaryMode(samples: AqiSample[], standard: AqiStandard): AqiPollutant | null {
+  const tally = new Map<AqiPollutant, number>();
+  let best: AqiPollutant | null = null;
+  let bestN = 0;
+  for (const s of samples) {
+    const p = computeAqi(s.values, standard).primary;
+    if (!p) continue;
+    const c = (tally.get(p) ?? 0) + 1;
+    tally.set(p, c);
+    if (c > bestN) {
+      bestN = c;
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** Counts of AQI values across the six bands (index 0 = 优 … 5 = 严重). */
+export function bandDistribution(aqis: number[]): number[] {
+  const counts = [0, 0, 0, 0, 0, 0];
+  for (const a of aqis) {
+    if (!Number.isFinite(a)) continue;
+    const idx = AQI_BANDS.findIndex((b) => a <= b.max);
+    counts[idx === -1 ? AQI_BANDS.length - 1 : idx]! += 1;
+  }
+  return counts;
+}
+
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): GeoFigurePanel[] {
+export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): FigurePanelSpec[] {
   const evaluated = samples
     .map((s, i) => ({ label: s.label, index: i, res: computeAqi(s.values, standard) }))
     .filter((r) => r.res.aqi !== null);
@@ -106,8 +231,8 @@ export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): Ge
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Daily AQI (${standard === 'us' ? 'US EPA' : 'GB/HJ'})`,
         xLabel: 'sample',
         yLabel: 'AQI',
@@ -122,8 +247,8 @@ export function aqiFigurePanels(samples: AqiSample[], standard: AqiStandard): Ge
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `IAQI breakdown — ${peak.label}`,
         xLabel: 'pollutant',
         yLabel: 'IAQI',
@@ -168,6 +293,7 @@ export class AqiPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.state.samples = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -223,6 +349,7 @@ export class AqiPlugin implements Plugin {
         hint: zh ? '非负浓度；全部为 0 时不启用手动样例' : 'Non-negative; all zeros disable the manual sample',
       })),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportStats', 'Export stats CSV', '导出统计 CSV'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
@@ -231,6 +358,10 @@ export class AqiPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-aqi');
+      return;
+    }
+    if (actionFired(params, 'exportStats')) {
+      this.exportStatsCsv();
       return;
     }
     if (actionFired(params, 'sendToFigure')) {
@@ -293,6 +424,149 @@ export class AqiPlugin implements Plugin {
     return out;
   }
 
+  /** Pollutant concentration series (finite values) in sheet order. */
+  private static seriesOf(samples: AqiSample[], k: AqiPollutant): number[] {
+    return samples
+      .map((s) => s.values[k])
+      .filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v));
+  }
+
+  private static unitOf(k: AqiPollutant): string {
+    return k === 'co' ? 'mg/m³' : 'µg/m³';
+  }
+
+  // ---- scientific outputs ---------------------------------------------------
+
+  private publishScience(samples: AqiSample[]): void {
+    if (samples.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const zh = isZh(this.api.locale);
+    const standard = this.state.standard;
+    const validAqis = samples
+      .map((s) => computeAqi(s.values, standard).aqi)
+      .filter((a): a is number => a !== null);
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'n',
+        label: 'N samples',
+        value: `${validAqis.length}/${samples.length}`,
+        hint: zh ? '可评价样本数 / 载入样本数' : 'evaluable / loaded samples',
+      },
+    ];
+    // (a) missing records per pollutant.
+    for (const m of missingStats(samples)) {
+      metrics.push({
+        key: `miss_${m.pollutant}`,
+        label: `MISS ${POLLUTANT_LABELS[m.pollutant].en}`,
+        value: `${m.missing}/${m.present + m.missing} (${(m.rate * 100).toFixed(1)}%)`,
+        severity: m.rate >= 0.2 ? 'warn' : 'info',
+        hint: zh ? '缺测记录数 / 样本数（缺失率）' : 'missing records / samples (missing rate)',
+      });
+    }
+    // (b) concentration median & IQR per pollutant (min/max in the CSV export).
+    for (const k of Object.keys(POLLUTANT_COLUMNS) as AqiPollutant[]) {
+      const summ = concSummary(AqiPlugin.seriesOf(samples, k));
+      if (!summ) continue;
+      metrics.push({
+        key: `conc_${k}`,
+        label: `MED·IQR ${POLLUTANT_LABELS[k].en}`,
+        value: `${fmtMetric(summ.median)} [${fmtMetric(summ.q1)}–${fmtMetric(summ.q3)}]`,
+        unit: AqiPlugin.unitOf(k),
+        hint: zh
+          ? `min ${fmtMetric(summ.min)} · max ${fmtMetric(summ.max)}；完整统计见统计 CSV 导出`
+          : `min ${fmtMetric(summ.min)} · max ${fmtMetric(summ.max)}; full stats in the CSV export`,
+      });
+    }
+    // (c) trend of the dominant primary pollutant: OLS slope + MK S / varS.
+    const primary = primaryMode(samples, standard);
+    if (primary) {
+      const t = trendStats(AqiPlugin.seriesOf(samples, primary));
+      if (t) {
+        metrics.push({
+          key: 'trend_slope',
+          label: `SLOPE ${POLLUTANT_LABELS[primary].en}`,
+          value: fmtMetric(t.slope),
+          unit: `${AqiPlugin.unitOf(primary)}/sample`,
+          hint: zh ? 'OLS 斜率，x = 样本序号（假设等间隔采样）' : 'OLS slope, x = sample index (assumes regular sampling)',
+        });
+        metrics.push({
+          key: 'trend_mks',
+          label: 'MK S',
+          value: fmtMetric(t.mkS, 6),
+          hint: zh ? 'Mann–Kendall 统计量 S（成对符号之和）' : 'Mann–Kendall S statistic (sum of pairwise signs)',
+        });
+        metrics.push({
+          key: 'trend_mkvar',
+          label: 'MK varS',
+          value: fmtMetric(t.mkVarS, 6),
+          hint: zh ? 'S 的方差（含结修正），未做显著性判定' : 'variance of S (tie-corrected); no significance claimed',
+        });
+      }
+    }
+    // (d) AQI level distribution.
+    const bands = bandDistribution(validAqis);
+    const bandTxt = AQI_BANDS.map((b, i) =>
+      bands[i]! > 0 ? `${b.max === Infinity ? '>300' : `≤${b.max}`}:${bands[i]}` : '',
+    )
+      .filter(Boolean)
+      .join(' · ');
+    metrics.push({
+      key: 'bands',
+      label: 'AQI bands',
+      value: bandTxt || '—',
+      hint: zh ? '各等级样本数（优/良/轻度/中度/重度/严重污染）' : 'samples per level (Good … Hazardous)',
+    });
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** (e) Statistics table CSV: per-pollutant summary + trend + AQI bands. */
+  private exportStatsCsv(): void {
+    const samples = this.effectiveSamples();
+    if (samples.length === 0) {
+      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
+      return;
+    }
+    const header = [
+      'pollutant', 'n', 'missing', 'missing_rate', 'min', 'q1', 'median', 'q3', 'max', 'iqr',
+      'slope_per_sample', 'mk_S', 'mk_varS',
+    ];
+    const rows: Array<Array<string | number>> = [];
+    const primary = primaryMode(samples, this.state.standard);
+    for (const k of Object.keys(POLLUTANT_COLUMNS) as AqiPollutant[]) {
+      const series = AqiPlugin.seriesOf(samples, k);
+      const summ = concSummary(series);
+      const miss = series.length;
+      const t = k === primary ? trendStats(series) : null;
+      rows.push([
+        POLLUTANT_LABELS[k].en,
+        summ?.n ?? 0,
+        samples.length - miss,
+        samples.length > 0 ? Number(((samples.length - miss) / samples.length).toFixed(4)) : 0,
+        summ?.min.toFixed(4) ?? '',
+        summ?.q1.toFixed(4) ?? '',
+        summ?.median.toFixed(4) ?? '',
+        summ?.q3.toFixed(4) ?? '',
+        summ?.max.toFixed(4) ?? '',
+        summ?.iqr.toFixed(4) ?? '',
+        t ? t.slope.toPrecision(6) : '',
+        t ? t.mkS : '',
+        t ? t.mkVarS.toFixed(2) : '',
+      ]);
+    }
+    const validAqis = samples
+      .map((s) => computeAqi(s.values, this.state.standard).aqi)
+      .filter((a): a is number => a !== null);
+    const bands = bandDistribution(validAqis);
+    rows.push([]);
+    rows.push(['aqi_band', 'count', 'share']);
+    AQI_BANDS.forEach((b, i) => {
+      rows.push([b.max === Infinity ? '>300' : `<=${b.max}`, bands[i]!, validAqis.length > 0 ? Number((bands[i]! / validAqis.length).toFixed(4)) : 0]);
+    });
+    exportRowsCsv(this.api, 'env-aqi-stats', header, rows);
+  }
+
   private async sendToFigure(): Promise<void> {
     const samples = this.effectiveSamples();
     if (samples.length === 0) {
@@ -323,6 +597,7 @@ export class AqiPlugin implements Plugin {
     const zh = isZh(this.api.locale);
     const samples = this.effectiveSamples();
     if (samples.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: zh ? '空气质量评价（AQI）' : 'Air Quality (AQI)',
         hintZh: '拖入或从「示例数据」载入空气监测 CSV（so2,no2,pm25,pm10,co,o3），或填写右侧手动浓度',
@@ -330,6 +605,7 @@ export class AqiPlugin implements Plugin {
       });
       return;
     }
+    this.publishScience(samples);
     canvas.width = canvas.clientWidth || 760;
     canvas.height = canvas.clientHeight || 460;
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';

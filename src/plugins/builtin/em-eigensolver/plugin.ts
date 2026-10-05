@@ -239,6 +239,8 @@ export class EmEigensolverPlugin implements Plugin {
   private logs: string[] = [];
   private busy = false;
   private disposed = false;
+  /** Unsubscribe for the host's status-bar cancel (registered in init). */
+  private unsubCancel: (() => void) | null = null;
   /** Bumped per runSolve; stale rejections (post-abort) are identified by it. */
   private solveEpoch = 0;
   /** Dedupe flag for the "3D view fell back to 2D" warning. */
@@ -276,10 +278,18 @@ export class EmEigensolverPlugin implements Plugin {
     // when the user switches language (host releases this subscription on
     // unload).
     api.onLocaleChange(() => this.draw());
+    // Status-bar 取消 → hard-reset the running solve (same path as the
+    // plugin's own abort): the worker is terminated, busy/labels/status are
+    // restored synchronously, so the Solve button never sticks on 计算中….
+    this.unsubCancel = api.onCancel?.(() => {
+      if (!this.disposed && this.busy) this.abortSolve();
+    }) ?? null;
   }
 
   async destroy() {
     this.disposed = true;
+    this.unsubCancel?.();
+    this.unsubCancel = null;
     this.ctx = null;
     this.file = null;
     this.teardown3d();
@@ -673,7 +683,9 @@ export class EmEigensolverPlugin implements Plugin {
       const payload = await this.client.solve(source, req.config, (info) => {
         this.history.push(info);
         onProgress?.(info);
-        this.draw();
+        // Progress redraws only while this plugin is visible — a background
+        // solve must never paint over the plugin the user switched to.
+        if (this.api.isActive?.() !== false) this.draw();
       });
       if (this.disposed) return payload;
       if (payload.nonfinite) {
@@ -688,7 +700,7 @@ export class EmEigensolverPlugin implements Plugin {
           '求解结果包含非有限值（可能发散/未收敛）——请调整位移 σ 或容差后重试。',
         );
         this.refreshParams();
-        this.draw();
+        if (this.api.isActive?.() !== false) this.draw();
         return payload;
       }
       this.result = payload;
@@ -699,6 +711,22 @@ export class EmEigensolverPlugin implements Plugin {
       this.api.reportDataScale(payload.meta.nnz > 0 ? payload.meta.nnz : payload.meta.shape[0]);
       this.api.setStatus('ready');
       const secs = ((performance.now() - started) / 1000).toFixed(1);
+      // Background completion (the user switched plugins while the solve ran):
+      // skip the draw — it would paint over the other plugin's shared canvas —
+      // and offer a non-intrusive jump back instead. The result stays on the
+      // instance (singletons keep state), so "view results" restores the view.
+      if (this.api.isActive?.() === false) {
+        const zh = this.api?.locale === 'zh-CN';
+        this.api.notify(
+          payload.converged ? 'success' : 'warning',
+          payload.converged
+            ? `EM 本征求解已完成（后台）— 用时 ${secs}s（${payload.method}，${payload.iterations} 轮）。`
+            : `EM eigensolve ended in background (not converged) — ${payload.iterations} cycles (${secs}s).`,
+          { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+        );
+        this.refreshParams();
+        return payload;
+      }
       notify(
         this.api,
         payload.converged ? 'success' : 'warning',
@@ -724,7 +752,7 @@ export class EmEigensolverPlugin implements Plugin {
           this.api.setStatus('ready');
           notify(this.api, 'info', 'Solve aborted — compute worker fully reset.', '求解已终止，计算线程已整体重置。');
           this.refreshParams();
-          this.draw();
+          if (this.api.isActive?.() !== false) this.draw();
         }
       } else if (!this.disposed) {
         this.api.setStatus('error');
@@ -762,7 +790,9 @@ export class EmEigensolverPlugin implements Plugin {
     this.bindClientLog();
     notify(this.api, 'info', 'Solve aborted — compute worker fully reset.', '求解已终止，计算线程已整体重置。');
     this.refreshParams();
-    this.draw();
+    // Cancellation can arrive while the user is viewing another plugin
+    // (status-bar cancel is global) — never paint over that plugin's canvas.
+    if (this.api.isActive?.() !== false) this.draw();
   }
 
   private async exportNpz(): Promise<void> {

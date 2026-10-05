@@ -16,6 +16,12 @@ export interface Notification {
   id: number;
   kind: 'info' | 'success' | 'warning' | 'error';
   message: string;
+  /**
+   * Optional call-to-action rendered as a button on the toast (e.g. a
+   * background compute offering "view results"). Clicking it runs `run` and
+   * dismisses the toast.
+   */
+  action?: { label: string; run: () => void };
 }
 
 export interface PerfMetrics {
@@ -80,7 +86,7 @@ interface AppStore {
   setBanner: (messageKey: string) => void;
   removeBanner: (id: number) => void;
   setError: (pluginId: string) => void;
-  notify: (kind: Notification['kind'], message: string) => void;
+  notify: (kind: Notification['kind'], message: string, action?: Notification['action']) => void;
   dismissNotification: (id: number) => void;
 
   setFps: (fps: number, frameMs: number) => void;
@@ -178,13 +184,15 @@ export const useAppStore = create<AppStore>((set, get) => {
       banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey: 'error.plugin_crash', dismissible: true, pluginId: raw }],
     }));
   },
-  notify: (kind, message) => {
+  notify: (kind, message, action) => {
     const id = ++notifId;
-    set((s) => ({ notifications: [...s.notifications, { id, kind, message }] }));
+    set((s) => ({ notifications: [...s.notifications, { id, kind, message, action }] }));
+    // Action toasts stay up longer so the user can actually click through.
+    const ttl = action ? 8000 : 4000;
     const timer = setTimeout(() => {
       notifTimers.delete(id);
       get().dismissNotification(id);
-    }, 4000);
+    }, ttl);
     notifTimers.set(id, timer);
   },
   dismissNotification: (id) => {

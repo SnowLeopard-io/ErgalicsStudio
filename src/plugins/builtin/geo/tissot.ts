@@ -16,8 +16,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { tissotManifest } from './tissotManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';
 
@@ -258,7 +258,7 @@ export function distortionProfiles(
  * Figure sheet for one projection: areal-scale profile S(φ) with the 1:1
  * reference, and the axis-ratio (angular-distortion) profile a/b(φ).
  */
-export function tissotFigurePanels(projId: ProjId): GeoFigurePanel[] {
+export function tissotFigurePanels(projId: ProjId): FigurePanelSpec[] {
   const prof = distortionProfiles(projId);
   const areaPts = prof.map((p) => ({ x: p.lat, y: p.metrics.areaRatio }));
   const flatPts = prof.map((p) => ({ x: p.lat, y: p.metrics.flattening }));
@@ -274,8 +274,8 @@ export function tissotFigurePanels(projId: ProjId): GeoFigurePanel[] {
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Areal distortion S(φ) — ${name}`,
         xLabel: 'latitude °',
         yLabel: 'area ratio h·k',
@@ -294,8 +294,8 @@ export function tissotFigurePanels(projId: ProjId): GeoFigurePanel[] {
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Angular distortion a/b(φ) — ${name}`,
         xLabel: 'latitude °',
         yLabel: 'axis ratio max(h,k)/min(h,k)',

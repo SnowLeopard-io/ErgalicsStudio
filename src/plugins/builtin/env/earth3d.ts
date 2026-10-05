@@ -14,7 +14,7 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3D
 import { envRampColor3, surfaceAlbedo, surfaceCo2 } from './envCore';
 import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
-import { angularDistance, lonLatToVec3 } from '../geo/globe';
+import { angularDistance, lonLatToVec3 } from '@/core/geo/spherical';
 import { earth3dManifest } from './earth3dManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';
 

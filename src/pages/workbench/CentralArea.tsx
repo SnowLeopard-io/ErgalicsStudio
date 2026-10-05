@@ -22,6 +22,7 @@ import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 
@@ -31,6 +32,11 @@ export function CentralArea() {
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
   const status = useAppStore((s) => s.status);
+  // Plugin that started the in-flight computation (null = host-driven, e.g.
+  // a project load). The overlay only masks the owning plugin's own viewport:
+  // a background compute must never cover the plugin the user switched to.
+  // `activeId` is selected further below (viewport-reset hook).
+  const computingId = usePluginStore((s) => s.computingId);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -273,8 +279,9 @@ export function CentralArea() {
   };
 
   return (
-    <div
-      className="central"
+    <div className="central-wrap">
+      <div
+        className="central"
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current += 1;
@@ -302,7 +309,7 @@ export function CentralArea() {
       >
         <div ref={domRef} className="central-dom-host" />
         <canvas ref={canvasRef} className="central-canvas" />
-        {(status === 'computing' || status === 'loading') && activePlugin && (
+        {(status === 'computing' || status === 'loading') && activePlugin && (computingId === null || computingId === activeId) && (
           <div className="central-progress">
             <span className="spinner" />
             <span>{t(`status.${status}`)}</span>
@@ -383,6 +390,12 @@ export function CentralArea() {
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
       <DataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
+      </div>
+      {/* Science readout sits BELOW the viewfinder, in normal flow — the
+          plugin host itself is position:absolute (out of flow), so keeping
+          the strip inside `.central` made it the only flex child and it
+          floated over the canvas (vertically centered, full-bleed). */}
+      <ScienceOutputStrip />
     </div>
   );
 }

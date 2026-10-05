@@ -74,8 +74,6 @@ import envAqiWeekCsv from '../../examples/data/env-aqi-week.csv?raw';
 import envWaterRiverCsv from '../../examples/data/env-water-river.csv?raw';
 import envBiodiversitySitesCsv from '../../examples/data/env-biodiversity-sites.csv?raw';
 import envCarbonPoolsCsv from '../../examples/data/env-carbon-pools.csv?raw';
-import envPlume3dFieldCsv from '../../examples/data/env-plume3d-field.csv?raw';
-import envLake3dProfileCsv from '../../examples/data/env-lake3d-profile.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -699,42 +697,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '四库初始库存（大气 590 / 植被 550 / 土壤 2000 / 海洋 38000 GtC）与人为净通量：大气 +9 GtC/yr（化石+工业排放），植被 −1.5 GtC/yr（毁林）。在插件的「自定义 CSV」情景中选择此文件运行，查看扰动下的库演化与守恒残差。',
       'en-US':
         'Four-pool initial stocks (atmosphere 590 / vegetation 550 / soil 2000 / ocean 38000 GtC) with human net fluxes: +9 GtC/yr into the atmosphere (fossil+industry), −1.5 GtC/yr from vegetation (deforestation). Pick it as the plugin\'s custom-CSV scenario to run the perturbed evolution and check conservation residuals.',
-    },
-  },
-  {
-    id: 'env-plume3d-field',
-    filename: 'env-plume3d-field.csv',
-    format: 'csv',
-    mimeType: 'text/csv',
-    pluginId: 'example.env-plume3d',
-    content: envPlume3dFieldCsv,
-    nameI18n: {
-      'zh-CN': '环境 · 烟羽三维浓度场实测点（x,y,z,c）',
-      'en-US': 'Environmental · 3-D Plume Concentration Points (x,y,z,c)',
-    },
-    descriptionI18n: {
-      'zh-CN':
-        '地面源下风向的浓度采样点（x,y,z,conc，28 行）：沿中心线与横风向/垂直方向布点，峰值位于 x≈50 m。加载后归一化到 24³ 体素网格渲染三维浓度云，可切换横切面观察扩散结构。',
-      'en-US':
-        'Downwind concentration samples (x,y,z,conc; 28 rows) from a ground source, laid out along the centerline and crosswind/vertical profiles with the peak near x≈50 m. Loading normalises them onto a 24³ voxel grid and renders the 3-D cloud with a cross-section view.',
-    },
-  },
-  {
-    id: 'env-lake3d-profile',
-    filename: 'env-lake3d-profile.csv',
-    format: 'csv',
-    mimeType: 'text/csv',
-    pluginId: 'example.env-lake3d',
-    content: envLake3dProfileCsv,
-    nameI18n: {
-      'zh-CN': '环境 · 夏季湖泊垂向剖面（温度/溶解氧）',
-      'en-US': 'Environmental · Summer Lake Vertical Profile (T/DO)',
-    },
-    descriptionI18n: {
-      'zh-CN':
-        '夏季分层期实测垂向剖面（12 个深度）：表层 26.5 ℃，8–14 m 温跃层陡降，底层 9.1 ℃；溶解氧随深度耗竭至近零，底层缺氧。加载后按深度渲染分层水体与 T/DO 垂向曲线，可对照模拟剖面。',
-      'en-US':
-        'A measured summer-stratified profile (12 depths): 26.5 ℃ at the surface, a steep thermocline across 8–14 m, 9.1 ℃ at the bottom; dissolved oxygen is depleted to near zero below the thermocline. Loading renders the stratified water column and T/DO curves against depth.',
     },
   },
   {

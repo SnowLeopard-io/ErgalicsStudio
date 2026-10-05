@@ -13,6 +13,7 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import {
   CARBON_INITIAL,
+  CARBON_K,
   CARBON_POOL_LABELS,
   CARBON_SCENARIOS,
   type CarbonPool,
@@ -21,21 +22,122 @@ import {
   carbonRun,
   numCell,
 } from './envCore';
-import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { mulberry32, currentSeed } from '@/core/repro/random';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   pushPanelsToFigure,
   panelTag,
   panelPlace,
-  GEO_PANEL_WIDTH,
-  GEO_PANEL_HEIGHT,
+  FIGURE_PANEL_WIDTH,
+  FIGURE_PANEL_HEIGHT,
   type Bilingual,
-  type GeoFigurePanel,
-} from '../geo/geoFigure';
+  type FigurePanelSpec,
+} from '@/core/figure/sheet';
 import { carbonManifest } from './carbonManifest';
 
 const MAX_YEARS = 500;
+/** Monte-Carlo draws for the uncertainty band (seeded mulberry32). */
+const MC_DRAWS = 200;
+/** All six rate-constant keys (from>to), perturbed ±10% per draw. */
+const K_KEYS = [
+  'atmosphere>vegetation',
+  'vegetation>atmosphere',
+  'vegetation>soil',
+  'soil>atmosphere',
+  'atmosphere>ocean',
+  'ocean>atmosphere',
+] as const;
+const MC_POOLS: CarbonPool[] = ['atmosphere', 'vegetation', 'soil', 'ocean'];
+
+/** Percentile of a sorted array (linear interpolation, type-7). */
+function pctl(sorted: number[], q: number): number {
+  if (sorted.length === 0) return NaN;
+  if (sorted.length === 1) return sorted[0]!;
+  const pos = (sorted.length - 1) * Math.min(1, Math.max(0, q));
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  return lo === hi ? sorted[lo]! : sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (pos - lo);
+}
+
+// ---- Monte-Carlo uncertainty (exported for tests) ---------------------------
+
+export interface CarbonMcYear {
+  /** Base-run pool values (GtC) at this year. */
+  base: Record<CarbonPool, number>;
+  /** 95% percentile interval over the draws. */
+  ci: Record<CarbonPool, { low: number; high: number }>;
+}
+
+export interface CarbonMcResult {
+  /** Key years (horizon/2 and horizon). */
+  years: number[];
+  /** Base + 95% CI per pool at each key year. */
+  at: Record<number, CarbonMcYear>;
+  /** Mass-balance deviation |Σpools(T) − Σpools(0) − inputs·T| across draws, GtC. */
+  consBias: { mean: number; max: number };
+  draws: number;
+}
+
+/**
+ * Monte-Carlo uncertainty for the box model: each draw multiplicatively
+ * perturbs every rate constant and the emission by ±10% (uniform, seeded
+ * rng), reruns the trajectory and collects per-pool 95% intervals at
+ * horizon/2 and horizon. The per-draw conservation deviation doubles as a
+ * clamping diagnostics (mass lost when a pool is drained to zero).
+ */
+export function carbonMonteCarlo(
+  initial: CarbonState,
+  emission: number,
+  external: Partial<Record<CarbonPool, number>> | undefined,
+  years: number,
+  opts: { draws?: number; rng: () => number },
+): CarbonMcResult {
+  const draws = Math.max(2, opts.draws ?? MC_DRAWS);
+  const h1 = Math.max(1, Math.round(years / 2));
+  const keyYears = h1 === years ? [years] : [h1, years];
+  const samples = new Map<number, Map<CarbonPool, number[]>>();
+  for (const y of keyYears) {
+    const m = new Map<CarbonPool, number[]>();
+    for (const p of MC_POOLS) m.set(p, []);
+    samples.set(y, m);
+  }
+  const extNet = (Object.values(external ?? {}) as number[]).reduce((a, b) => a + b, 0);
+  const sum0 = (Object.values(initial) as number[]).reduce((a, b) => a + b, 0);
+  let biasSum = 0;
+  let biasMax = 0;
+  for (let d = 0; d < draws; d += 1) {
+    const kOverrides: Record<string, number> = {};
+    for (const key of K_KEYS) kOverrides[key] = CARBON_K[key]! * (1 + (opts.rng() * 2 - 1) * 0.1);
+    const e = emission * (1 + (opts.rng() * 2 - 1) * 0.1);
+    const pts = carbonRun(initial, e, years, external, kOverrides);
+    for (const y of keyYears) {
+      const poolsAtY = pts[y]!.pools;
+      const m = samples.get(y)!;
+      for (const p of MC_POOLS) m.get(p)!.push(poolsAtY[p]);
+    }
+    const last = pts[pts.length - 1]!.pools;
+    const sumN = (Object.values(last) as number[]).reduce((a, b) => a + b, 0);
+    const bias = Math.abs(sumN - sum0 - (e + extNet) * years);
+    biasSum += bias;
+    biasMax = Math.max(biasMax, bias);
+  }
+  const base = carbonRun(initial, emission, years, external);
+  const at: Record<number, CarbonMcYear> = {};
+  for (const y of keyYears) {
+    const m = samples.get(y)!;
+    const ci = {} as Record<CarbonPool, { low: number; high: number }>;
+    for (const p of MC_POOLS) {
+      const arr = m.get(p)!.sort((a, b) => a - b);
+      ci[p] = { low: pctl(arr, 0.025), high: pctl(arr, 0.975) };
+    }
+    at[y] = { base: { ...base[y]!.pools }, ci };
+  }
+  return { years: keyYears, at, consBias: { mean: biasSum / draws, max: biasMax }, draws };
+}
+
 
 // ---- Custom scenario parsing (exported for tests) ---------------------------
 
@@ -100,7 +202,7 @@ export function parseCarbonCsv(text: string): CarbonCustom | null {
 
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
-export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFigurePanel[] {
+export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): FigurePanelSpec[] {
   const colors: Record<CarbonPool, string> = {
     atmosphere: '#e8a33d',
     vegetation: '#40c463',
@@ -113,8 +215,8 @@ export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFig
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Atmospheric carbon',
         xLabel: 'year',
         yLabel: 'GtC',
@@ -136,8 +238,8 @@ export function carbonFigurePanels(points: ReturnType<typeof carbonRun>): GeoFig
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Land & ocean pools',
         xLabel: 'year',
         yLabel: 'GtC',
@@ -182,6 +284,7 @@ export class CarbonPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.state = { ...DEFAULTS, initial: null, external: null };
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -243,6 +346,7 @@ export class CarbonPlugin implements Plugin {
         action: 'reset',
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
+      actionButton('exportScenario', 'Export scenario CSV (+MC)', '导出情景 CSV（含 MC）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
@@ -251,6 +355,10 @@ export class CarbonPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-carbon');
+      return;
+    }
+    if (actionFired(params, 'exportScenario')) {
+      this.exportScenarioCsv();
       return;
     }
     if (actionFired(params, 'sendToFigure')) {
@@ -330,6 +438,98 @@ export class CarbonPlugin implements Plugin {
     return { points, residual, anyNegative };
   }
 
+  /** Seeded rng for the MC (bound to the process seed, distinct stream). */
+  private mcRng(): () => number {
+    return mulberry32((currentSeed() ^ 0xca1b0c) >>> 0);
+  }
+
+  // ---- scientific outputs -----------------------------------------------------
+
+  private publishScience(): void {
+    const zh = isZh(this.api.locale);
+    const initial: CarbonState = this.state.initial ?? { ...CARBON_INITIAL };
+    const external = this.state.external ?? undefined;
+    const mc = carbonMonteCarlo(initial, this.state.emission, external, this.state.years, {
+      draws: MC_DRAWS,
+      rng: this.mcRng(),
+    });
+    const poolTag: Record<CarbonPool, string> = { atmosphere: 'ATM', vegetation: 'VEG', soil: 'SOIL', ocean: 'OCN' };
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'mc',
+        label: 'MC draws',
+        value: `${mc.draws} × ±10% k,E`,
+        hint: zh
+          ? `Monte-Carlo 不确定度：6 个速率常数与排放各 ±10% 均匀扰动，${mc.draws} 次（种子化 mulberry32）`
+          : `Monte-Carlo uncertainty: all 6 rate constants and the emission perturbed ±10% uniformly, ${mc.draws} draws (seeded mulberry32)`,
+      },
+    ];
+    for (const y of mc.years) {
+      const { base, ci } = mc.at[y]!;
+      metrics.push({
+        key: `ci_atm_${y}`,
+        label: `ATM 95CI @${y}yr`,
+        value: `[${fmtMetric(ci.atmosphere!.low, 1)}, ${fmtMetric(ci.atmosphere!.high, 1)}]`,
+        hint: zh
+          ? `大气碳库 95% 区间（GtC；基准 ${fmtMetric(base.atmosphere, 1)} GtC）`
+          : `atmospheric-pool 95% interval (GtC; base run ${fmtMetric(base.atmosphere, 1)} GtC)`,
+      });
+    }
+    const yFinal = mc.years[mc.years.length - 1]!;
+    const finalCi = mc.at[yFinal]!.ci;
+    for (const p of MC_POOLS) {
+      if (p === 'atmosphere') continue; // already published per key year
+      metrics.push({
+        key: `ci_${p}_${yFinal}`,
+        label: `${poolTag[p]} 95CI @${yFinal}yr`,
+        value: `[${fmtMetric(finalCi[p]!.low, 1)}, ${fmtMetric(finalCi[p]!.high, 1)}]`,
+        hint: zh
+          ? `${yFinal} 年时该碳库的 95% 区间（GtC）`
+          : `95% interval of this pool at year ${yFinal} (GtC)`,
+      });
+    }
+    metrics.push({
+      key: 'cons',
+      label: 'CONS BIAS',
+      value: `${fmtMetric(mc.consBias.mean, 2)} GtC (max ${fmtMetric(mc.consBias.max, 2)})`,
+      severity: mc.consBias.max < 1 ? 'ok' : mc.consBias.max < 10 ? 'info' : 'warn',
+      hint: zh
+        ? '质量守恒偏差 |Σ库(T) − Σ库(0) − 输入×T| 的均值/最大值；偏差大通常意味着某库被抽干触发截零（模型超出适用范围）'
+        : 'mass-balance deviation |Σpools(T) − Σpools(0) − inputs·T|, mean/max; a large bias usually means a pool was drained into the zero-clamp (model out of range)',
+    });
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** Scenario CSV: base trajectory, MC 95% intervals at key years, conservation bias. */
+  private exportScenarioCsv(): void {
+    const { points } = this.simulate();
+    const initial: CarbonState = this.state.initial ?? { ...CARBON_INITIAL };
+    const external = this.state.external ?? undefined;
+    const mc = carbonMonteCarlo(initial, this.state.emission, external, this.state.years, {
+      draws: MC_DRAWS,
+      rng: this.mcRng(),
+    });
+    const rows: string[][] = points.map((p) => [
+      String(p.year),
+      p.pools.atmosphere.toFixed(2),
+      p.pools.vegetation.toFixed(2),
+      p.pools.soil.toFixed(2),
+      p.pools.ocean.toFixed(2),
+      p.atmChange.toFixed(3),
+    ]);
+    rows.push([]);
+    rows.push(['monte_carlo_95ci', 'year', 'pool', 'base_gtc', 'p2_5_gtc', 'p97_5_gtc']);
+    for (const y of mc.years) {
+      const { base, ci } = mc.at[y]!;
+      for (const p of MC_POOLS) {
+        rows.push(['', String(y), p, base[p].toFixed(2), ci[p]!.low.toFixed(2), ci[p]!.high.toFixed(2)]);
+      }
+    }
+    rows.push([]);
+    rows.push(['conservation_bias_gtc', 'mean', 'max', mc.consBias.mean.toFixed(3), mc.consBias.max.toFixed(3)]);
+    exportRowsCsv(this.api, 'env-carbon-scenario', ['year', 'atmosphere', 'vegetation', 'soil', 'ocean', 'atm_change'], rows);
+  }
+
   private async sendToFigure(): Promise<void> {
     const { points } = this.simulate();
     const last = points[points.length - 1]!.pools;
@@ -366,6 +566,7 @@ export class CarbonPlugin implements Plugin {
     );
 
     const { points, residual, anyNegative } = this.simulate();
+    this.publishScience();
     g.font = "11px 'Microsoft YaHei', Consolas, monospace";
 
     if (anyNegative) {

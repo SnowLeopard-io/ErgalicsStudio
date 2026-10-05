@@ -23,6 +23,7 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
+import { emit } from '@/core/events';
 import { actionButton, actionFired, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 import { analyzeNetwork } from './proteinAnalytics';
 import type { NetworkMetrics, WEdge } from './proteinAnalytics';
@@ -336,9 +337,24 @@ export class ProteinPlugin implements Plugin {
     }
     this.computeDegrees();
     this.runAnalytics();
-    this.draw();
-
     const ms = performance.now() - t0;
+    // Background completion (the user switched plugins mid-solve): keep the
+    // laid-out result on the instance (singletons keep state), but never draw
+    // into the shared canvas the now-active plugin owns — surface a
+    // non-intrusive jump-back toast instead.
+    if (this.api.isActive?.() === false) {
+      const zh = this.api.locale === 'zh-CN';
+      this.api.notify(
+        'success',
+        zh
+          ? `蛋白质网络布局已完成（后台）— ${ms.toFixed(1)} ms`
+          : `Protein layout finished (background) — ${ms.toFixed(1)} ms`,
+        { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+      );
+    } else {
+      this.draw();
+    }
+
     this.api.reportGpuTime(ms);
     const metrics2 = this.networkMetrics(cap);
     const a = this.analytics;
@@ -374,6 +390,9 @@ export class ProteinPlugin implements Plugin {
       this.api.notify('info', `${p.done}/${p.total}`);
     });
     if (result.ok) {
+      // A background completion already surfaced its own jump-back toast in
+      // compute() — don't double-notify.
+      if (this.api.isActive?.() === false) return;
       const o = result.output as { components?: number; maxComponent?: number };
       const ms = result.metrics?.gpuMs?.toFixed(1) ?? '?';
       this.api.notify(

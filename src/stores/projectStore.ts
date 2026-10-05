@@ -28,6 +28,8 @@ import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
 import { t } from '@/i18n';
+import { getGitAdapter } from '@/core/git';
+import type { GitStatus, GitCommit, GitBranch, DiffResult } from '@/core/git/types';
 
 export type ProjectStatus =
   | 'ready'
@@ -37,12 +39,25 @@ export type ProjectStatus =
   | 'loading'
   | 'error';
 
+export interface GitRepoInfo {
+  isRepo: boolean;
+  status: GitStatus | null;
+  branches: GitBranch[];
+  currentBranch: string;
+  remotes: string[];
+}
+
 interface ProjectStore {
   project: Project | null;
   recent: Project[];
   dirty: boolean;
   status: ProjectStatus;
   statusText: string | null;
+
+  // Git integration
+  gitRepo: GitRepoInfo | null;
+  gitCommits: GitCommit[];
+  gitLoading: boolean;
 
   createProject: (name: string) => Promise<Project>;
   openProject: (id: string) => Promise<void>;
@@ -66,6 +81,22 @@ interface ProjectStore {
   addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
+
+  // Git operations
+  initGitRepo: (template?: 'standard' | 'minimal') => Promise<void>;
+  refreshGitStatus: () => Promise<void>;
+  gitAdd: (files: string[]) => Promise<void>;
+  gitCommit: (message: string) => Promise<string>;
+  gitCheckout: (ref: string, create?: boolean) => Promise<void>;
+  gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
+  gitMerge: (branch: string) => Promise<void>;
+  gitPush: (remote: string, branch: string, setUpstream?: boolean) => Promise<void>;
+  gitPull: (remote: string, branch: string) => Promise<void>;
+  gitFetch: (remote: string) => Promise<void>;
+  gitAddRemote: (name: string, url: string) => Promise<void>;
+  gitClone: (url: string, targetPath: string, branch?: string) => Promise<Project>;
+  loadGitLog: (limit?: number) => Promise<void>;
+  getGitDiff: (filePath?: string, staged?: boolean) => Promise<DiffResult[] | undefined>;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -194,6 +225,75 @@ function scheduleDirtyFlush() {
   }, DIRTY_FLUSH_DELAY_MS);
 }
 
+function getProjectRepoPath(project: Project): string {
+  // In browser, we use a virtual path based on project ID
+  return `ergalics-projects/${project.id}`;
+}
+
+async function initGitForProject(project: Project, template: 'standard' | 'minimal' = 'standard'): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const isRepo = await adapter.isRepo(repoPath);
+  if (!isRepo) {
+    await adapter.init(repoPath, template);
+  }
+  await syncProjectToRepo(project);
+  await refreshGitStatusForProject(project);
+}
+
+async function refreshGitStatusForProject(project: Project): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const isRepo = await adapter.isRepo(repoPath);
+  if (!isRepo) {
+    useProjectStore.setState({ gitRepo: { isRepo: false, status: null, branches: [], currentBranch: '', remotes: [] } });
+    return;
+  }
+  const [status, branches, remotes] = await Promise.all([
+    adapter.status(repoPath),
+    adapter.branches(repoPath),
+    adapter.remotes(repoPath),
+  ]);
+  useProjectStore.setState({
+    gitRepo: {
+      isRepo: true,
+      status,
+      branches,
+      currentBranch: status.currentBranch,
+      remotes: remotes.map(r => r.name),
+    },
+  });
+}
+
+export function generateCommitMessage(type: 'save' | 'run' | 'figure' | 'manuscript' | 'data' | 'code', details: string): string {
+  const prefixes: Record<string, string> = {
+    save: 'save',
+    run: 'run',
+    figure: 'figure',
+    manuscript: 'manuscript',
+    data: 'data',
+    code: 'code',
+  };
+  return `${prefixes[type]}: ${details}`;
+}
+
+/**
+ * Mirror the current project snapshot into the repo working tree
+ * (`project.clproj`) so the Git panel sees real, reviewable changes and
+ * commits capture the full project state. Best-effort: failures never
+ * block the normal IndexedDB save path.
+ */
+async function syncProjectToRepo(project: Project): Promise<void> {
+  try {
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    if (!(await adapter.isRepo(repoPath))) return;
+    await adapter.writeFile(repoPath, 'project.clproj', serializeProject(project));
+  } catch (err) {
+    logger.warn('project', 'git working-tree sync failed', err);
+  }
+}
+
 /** Best-effort immediate save when the page is about to go away. IndexedDB
  *  commits usually survive pagehide; together with the debounced flush this
  *  closes the refresh window that lost recent edits. */
@@ -212,6 +312,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   dirty: false,
   status: 'ready',
   statusText: null,
+  gitRepo: null,
+  gitCommits: [],
+  gitLoading: false,
 
   createProject: async (name) => {
     const seq = ++openSeq;
@@ -229,6 +332,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     syncProjectFiles(project);
     ensureAutosave();
     await get().loadRecent();
+    // Initialize Git repo for new project
+    void get().initGitRepo('standard');
     return project;
   },
 
@@ -273,6 +378,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // Let plugins persist their own state alongside the project now that
       // the project itself is durably stored.
       usePluginStore.getState().notifyProjectLifecycle('save');
+      // Mirror the snapshot into the Git working tree (fire-and-forget) so
+      // the Git panel shows reviewable changes right after any save.
+      void syncProjectToRepo(touched);
     } catch (err) {
       logger.error('project', 'save failed', err);
       if (isCurrentSession(session, project.id)) set({ status: 'error' });
@@ -462,6 +570,145 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // reach, so the bytes would stay parked in storage forever.
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
+  },
+
+  // Git operations
+  initGitRepo: async (template = 'standard') => {
+    const { project } = get();
+    if (!project) return;
+    await initGitForProject(project, template);
+  },
+
+  refreshGitStatus: async () => {
+    const { project } = get();
+    if (!project) return;
+    await refreshGitStatusForProject(project);
+  },
+
+  gitAdd: async (files: string[]) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.add(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCommit: async (message: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    // Capture the live project state, not whatever the last save left.
+    await syncProjectToRepo(project);
+    const hash = await adapter.commit(repoPath, message);
+    await refreshGitStatusForProject(project);
+    await get().loadGitLog();
+    return hash;
+  },
+
+  gitCheckout: async (ref: string, create = false) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.checkout(repoPath, ref, create);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCreateBranch: async (name: string, startPoint?: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.branch(repoPath, name, startPoint);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitMerge: async (branch: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const result = await adapter.merge(repoPath, branch);
+    if (!result.success && result.conflicts && result.conflicts.length > 0) {
+      throw new Error(`Merge conflicts in: ${result.conflicts.join(', ')}`);
+    }
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPush: async (remote: string, branch: string, setUpstream = false) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.push(repoPath, { remote, branch, setUpstream });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPull: async (remote: string, branch: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.pull(repoPath, { remote, branch });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitFetch: async (remote: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.fetch(repoPath, remote);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitAddRemote: async (name: string, url: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.addRemote(repoPath, name, url);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitClone: async (url: string, targetPath: string, branch?: string) => {
+    const adapter = getGitAdapter();
+    await adapter.clone(url, targetPath, { branch });
+    // After clone, we need to open the project
+    // The project should be at targetPath/project.clproj
+    // For now, return the cloned project path
+    // This would need to be integrated with the project loading logic
+    throw new Error('gitClone: project loading not yet implemented');
+  },
+
+  loadGitLog: async (limit = 50) => {
+    const { project } = get();
+    if (!project) {
+      set({ gitCommits: [] });
+      return;
+    }
+    set({ gitLoading: true });
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      const commits = await adapter.log(repoPath, { limit });
+      set({ gitCommits: commits, gitLoading: false });
+    } catch {
+      set({ gitCommits: [], gitLoading: false });
+    }
+  },
+
+  getGitDiff: async (filePath?: string, staged = false) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const diffs = await adapter.diff(repoPath, { filePath, staged });
+    // Store diffs in state if needed
+    // For now, just return them
+    return diffs;
   },
 }));
 

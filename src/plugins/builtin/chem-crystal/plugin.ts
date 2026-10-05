@@ -18,9 +18,12 @@ import type {
 import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
 import type { CrystalCell } from '@/core/chem/structure';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { cellVolume } from '@/core/chem/structure';
+import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { CRYSTAL_SAMPLES, findSample } from './samples';
 import { parseStructure, type StructuralFormat } from './parse';
+import { cellObservables, densityDeviation, matchLatticeReference } from './cellInfo';
 import {
   buildCrystalGroup,
   fitCrystalCamera,
@@ -73,6 +76,7 @@ export class ChemCrystalPlugin implements Plugin {
   }
 
   async destroy() {
+    clearScienceOutputs(this.manifest.id);
     this.clear3d();
     this.three?.setVisible(false);
     this.ctx = null;
@@ -190,6 +194,7 @@ export class ChemCrystalPlugin implements Plugin {
       actionButton('reset', 'Fit view', '复位视角'),
       actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
       actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
+      actionButton('exportCsv', 'Export atom CSV', '导出原子坐标 CSV'),
     ];
   }
 
@@ -230,6 +235,10 @@ export class ChemCrystalPlugin implements Plugin {
     if (actionFired(params, 'reset')) this.resetView();
     if (actionFired(params, 'exportPng')) this.exportPng();
     if (actionFired(params, 'exportObjPng')) this.exportObjPng();
+    if (actionFired(params, 'exportCsv')) {
+      this.exportAtomsCsv();
+      return;
+    }
     if (redraw) this.draw();
   }
 
@@ -254,9 +263,79 @@ export class ChemCrystalPlugin implements Plugin {
     else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-crystal');
   }
 
+  /** Fractional coordinates of every site as CSV. */
+  private exportAtomsCsv() {
+    const cell = this.currentCell();
+    if (!cell) {
+      notify(this.api, 'warning', 'No crystal cell to export.', '没有可导出的晶胞。');
+      return;
+    }
+    const rows = cell.sites.map((s) => [s.symbol, s.fx.toFixed(6), s.fy.toFixed(6), s.fz.toFixed(6), s.occupancy]);
+    exportRowsCsv(this.api, 'crystal-atoms', ['symbol', 'fx', 'fy', 'fz', 'occupancy'], rows);
+  }
+
+  // ---- science outputs ------------------------------------------------------
+
+  /** Publish unit-cell volume, density diagnostics and the literature check. */
+  private publishScience(cell: CrystalCell) {
+    const v = cellVolume(cell.params);
+    const obs = cellObservables(cell.params, cell.sites);
+    const dens = densityDeviation(cell.params, cell.sites);
+    const lit = matchLatticeReference(cell.params, obs.formula);
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'cell_volume',
+        label: 'V cell',
+        value: fmtMetric(v),
+        unit: 'Å³',
+        severity: 'info',
+      },
+      {
+        key: 'density_est',
+        label: 'ρ est',
+        value: fmtMetric(obs.density),
+        unit: 'g/cm³',
+        severity: 'info',
+        hint: this.zh
+          ? `按占位率加权估算：化学式 ${obs.formula}，Z=${obs.z}，M=${obs.molarMass.toFixed(2)} g/mol。`
+          : `Occupancy-weighted estimate: formula ${obs.formula}, Z=${obs.z}, M=${obs.molarMass.toFixed(2)} g/mol.`,
+      },
+    ];
+    if (dens) {
+      metrics.push({
+        key: 'density_dev',
+        label: 'Δρ',
+        value: fmtMetric(dens.relDevPct),
+        unit: '%',
+        severity: Math.abs(dens.relDevPct) < 2 ? 'ok' : 'warn',
+        hint: this.zh
+          ? `占位加权密度与理想化学计量密度 Z·M/(N_A·V)（=${dens.stoichiometric.toFixed(3)} g/cm³）的相对偏差；|Δρ|<2% 视为自洽。`
+          : `Relative gap between the occupancy-weighted density and the ideal stoichiometric density Z·M/(N_A·V) (=${dens.stoichiometric.toFixed(3)} g/cm³); |Δρ|<2% is self-consistent.`,
+      });
+    }
+    metrics.push({
+      key: 'lattice_dev',
+      label: 'Δa lit',
+      value: lit ? fmtMetric(lit.devPct) : '—',
+      unit: lit ? '%' : undefined,
+      severity: lit ? (Math.abs(lit.devPct) < 2 ? 'ok' : 'warn') : 'info',
+      hint: lit
+        ? this.zh
+          ? `vs 文献 ${lit.reference.formula}（${lit.reference.phase}）：a=${lit.reference.a} Å${lit.reference.c ? `，c=${lit.reference.c} Å` : ''}；各轴平均相对偏差，|Δ|<2% 视为一致。`
+          : `vs literature ${lit.reference.formula} (${lit.reference.phase}): a=${lit.reference.a} Å${lit.reference.c ? `, c=${lit.reference.c} Å` : ''}; mean relative deviation over defined axes, |Δ|<2% is consistent.`
+        : this.zh
+          ? '该化学式不在内置文献晶胞表中，无法对比。'
+          : 'Formula not in the built-in literature lattice table; no comparison available.',
+    });
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
   // ---- rendering ----------------------------------------------------------
 
   private draw() {
+    const cell = this.currentCell();
+    if (cell) this.publishScience(cell);
+    else clearScienceOutputs(this.manifest.id);
     if (this.three) {
       this.draw3d();
       return;

@@ -209,6 +209,22 @@ export const zhCN: LocaleDictionary = {
   'plugin.tags': '标签',
   'plugin.coming_soon': '即将上线',
 
+  'research.tier.research': '研究级',
+  'research.tier.quasi-research': '准研究级',
+  'research.tier.demonstration': '演示级',
+  'research.tier.educational': '教学演示',
+  'research.reproducible': '结果可复现（种子控制）',
+  'research.science_outputs': '科学输出',
+
+  'git.panel_title': 'Git',
+  'git.no_repo': '当前项目没有可用的 Git 仓库。',
+  'git.branch': '当前分支',
+  'git.refresh': '刷新状态',
+  'git.clean': '工作区无变更',
+  'git.stage_commit_all': '暂存并提交（{n}）',
+  'git.commit_placeholder': '提交说明（默认 save: <项目名>）',
+  'git.commit': '提交',
+
   'settings.title': '设置',
   'settings.general': '通用',
   'settings.language': '语言',

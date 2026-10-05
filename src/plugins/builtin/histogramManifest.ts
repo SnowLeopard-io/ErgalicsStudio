@@ -19,6 +19,15 @@ export const histogramManifest: PluginManifest = {
   },
   license: 'MIT',
   entry: 'example.histogram',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes: 'Publishes n/mean/sd/skewness/kurtosis, Sturges vs Freedman–Diaconis binning and the Silverman KDE bandwidth.',
+    notesI18n: {
+      'en-US': 'Publishes n/mean/sd/skewness/kurtosis, Sturges vs Freedman–Diaconis binning and the Silverman KDE bandwidth.',
+      'zh-CN': '发布 n/均值/标准差/偏度/峰度、Sturges 与 Freedman–Diaconis 分箱对比及 Silverman KDE 带宽。',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV' },
     { extension: '.dat', mimeTypes: ['application/octet-stream'], description: 'Raw data' },

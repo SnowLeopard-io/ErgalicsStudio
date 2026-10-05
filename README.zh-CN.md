@@ -39,6 +39,7 @@
 - [项目结构](#项目结构)
 - [四种工作模式](#四种工作模式)
 - [科研模块](#科研模块)
+- [版本控制](#版本控制git-仓库化项目)
 - [插件系统](#插件系统)
 - [GPU 计算与原生核心](#gpu-计算与原生核心)
 - [测试](#测试)
@@ -64,11 +65,12 @@ Ergalics Studio 是完全运行于浏览器中的专业科学计算工作站：R
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、59 个内置插件（49 科学 + 10 趣味/工具）、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、66 个内置插件（56 科学 + 10 趣味/工具）、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 GPU 计算、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（NetCDF / HDF5 / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持 |
 | 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时 |
-| 科研 | 19 个独立整页科研工具 + 单位系统、分块读取配套内核 |
+| 科研 | 19 个独立整页科研工具、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
+| 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场），与工作台深链打通 |
 
 ---
@@ -84,10 +86,20 @@ Ergalics Studio 是完全运行于浏览器中的专业科学计算工作站：R
 
 **插件系统**
 
-- **59 个内置插件**（49 科学 + 10 趣味/工具），覆盖完整 API 面；两级加载（核心自动 / 趣味按需）。
+- **66 个内置插件**（56 科学 + 10 趣味/工具），覆盖完整 API 面；两级加载（核心自动 / 趣味按需），并在侧边栏按九大学科分组（图表 / 统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 数据与智能 / 趣味）。
 - 市场目录 `src/plugins/marketplace.ts`（精选标签 / 流行度 / 分类筛选）。
 - `.cspkg` 包加载 + 清单校验 + **Worker 优先隔离**（§沙箱）：第三方入口经 postMessage 桥接与 OffscreenCanvas 渲染，回退为受限制作用域的 `new Function`（非安全边界）；两者均受 Ed25519 签名门禁约束（FR-05，见 `SECURITY.md`）。
 - 本地化参数面板；所有插件一键导出 PNG / CSV，多个插件带分析叠加层（趋势线、累积/密度直方图、均值标记、抖动点、排序）与发送至 Figure Studio 动作。
+
+**科研级插件**
+
+- `PluginManifest.research` 元数据契约（`src/types/plugin.ts`）：科研就绪分级（`research` 研究级 / `quasi-research` 准研究级 / `demonstration` 演示级 / `educational` 教学演示），并声明物理量单位、内置验证基准 id、可复现标记与适用范围说明——在市场与详情面板以语义色徽章呈现（中英双语）。
+- 统一科学输出总线 `src/core/research/scienceOutput.ts` 与视口下方的 `ScienceOutputStrip` 输出栏：插件发布结构化结论（R²、RMSE、LOOCV、置信区间、收敛 / 守恒诊断），让每张图都附带其数值结论。
+
+**版本控制**
+
+- Git 仓库化项目：`src/core/git/` 以单一 `GitAdapter` 接口提供浏览器端实现（isomorphic-git + LightningFS，IndexedDB 工作区）与 Node 端实现（运行时加载 simple-git），覆盖 init / status / log / diff / add / commit / checkout / branch / merge / remote / hooks。
+- `projectStore` 将保存快照镜像到仓库工作区（`project.clproj`），并驱动侧边栏 **Git 面板**（分支、暂存并提交 + 规范提交信息、近期提交日志）。
 
 **基础设施**
 
@@ -115,6 +127,7 @@ Ergalics Studio 是完全运行于浏览器中的专业科学计算工作站：R
 | 原生    | Rust → wasm32-unknown-unknown, wasm-bindgen 0.2            |
 | GPU     | WebGPU / WGSL via web-sys                                  |
 | SQL     | DuckDB-WASM（懒加载）+ Apache Arrow                        |
+| 版本控制 | isomorphic-git 1 + LightningFS（浏览器）· simple-git（Node） |
 | 测试    | Vitest (单元) + Playwright-core (E2E, headless Edge)       |
 | 文档    | VitePress (独立的 `docs/` workspace)                       |
 | 打包    | fflate (cspkg ZIP), lz-string (项目压缩)                   |
@@ -152,7 +165,7 @@ flowchart TB
 
     subgraph State["状态与核心服务"]
         B1["Zustand stores<br/>app / project / plugin / settings / block"]
-        B2["核心服务<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox"]
+        B2["核心服务<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>git · research/scienceOutput"]
     end
 
     subgraph Blocks["区块系统 (流程模式, src/blocks)"]
@@ -163,7 +176,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (49 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (56 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["原生核心 (Rust→WASM)<br/>设备管理 · 计算<br/>内核调度<br/>文件类型检测"]
     end
 
@@ -197,7 +210,8 @@ flowchart TB
 │   │                         #   data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal,
-│   │                         #   sweep, profiler, sql, report, inference, logger
+│   │                         #   sweep, profiler, sql, report, inference, logger,
+│   │                         #   git (版本控制), research (科学输出)
 │   ├── blocks/               #   区块系统 (流程模式): types · registry · compiler ·
 │   │                         #     executor · ops · catalog · sample · l10n · render
 │   ├── editor/               #   积木与代码模式: ir · block (Blockly) · code · codegen ·
@@ -207,7 +221,7 @@ flowchart TB
 │   │                         #     labs (runs · analysis · uncertainty · model-lab ·
 │   │                         #     profiler · reprolock · lineage · supplement)、signal、
 │   │                         #     sweeps、sql、report
-│   ├── plugins/builtin/      #   49 科学 + 10 趣味/工具插件 (2D + 3D)
+│   ├── plugins/builtin/      #   56 科学 + 10 趣味/工具插件 (2D + 3D)
 │   ├── plugins/marketplace.ts#   市场目录
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   插件 & 项目 & 编辑器契约
@@ -287,22 +301,40 @@ flowchart TB
 
 ---
 
+## 版本控制（Git 仓库化项目）
+
+项目以 **Git 仓库**为存储底座：`src/core/git/` 定义单一 `GitAdapter` 接口，运行时按环境注入实现。
+
+| 环境 | 实现 |
+| ---- | ---- |
+| 浏览器 | `isomorphic-git` + `LightningFS`（IndexedDB 承载工作区） |
+| Node / 桌面端 | `simple-git`（运行时按需加载，驱动系统 `git` 二进制） |
+
+适配器覆盖仓库生命周期（`init` / `clone` / `isRepo`）、读取（`status` / `log` / `diff` / `branches` / `remotes`）、写入（`add` / `commit` / `checkout` / `branch` / `merge`）、远程（`push` / `pull` / `fetch`）、钩子（`installHooks` / `getHook` / `removeHook`）与 `writeFile` 辅助。`projectStore` 每次保存都把快照镜像到工作区 `project.clproj`，因此侧边栏 **Git 面板**始终显示可审阅的真实变更；提交信息由 `generateCommitMessage` 按 Conventional Commits 生成（`save:` / `run:` / `figure:` / `manuscript:` 等）。
+
+本阶段已交付适配器、store 集成与最小 Git 面板（分支、暂存并提交、近期提交日志）；文件级 diff 查看器、远程同步与冲突向导随后跟进。设计说明与验收标准见 [`docs/requirements/01-git-backed-project-version-control.md`](docs/requirements/01-git-backed-project-version-control.md)。
+
+---
+
 ## 插件系统
 
 ### 内置插件
 
-**核心 / 科学插件**（启动时自动加载，共 49 个）：
+**核心 / 科学插件**（启动时自动加载，共 56 个，侧边栏按学科分组——图表 / 统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 数据与智能）：
 
 - 二维与三维可视化：Point Cloud、Point Cloud 3D、3D Surface、3D Voxel Field、Time Series、Histogram、Heatmap、Image Viewer、Contour、Scatter、Bar / Polar / Radar、Network Graph、Bubble、Violin、Sankey、Box、Parallel Coordinates、Error Band、Treemap、QQ Plot，以及 Particles（真实 WGSL 计算）。
 - GPU 仿真引擎：N-Body Gravity（WGSL 全对齐）、LBM Fluid（D2Q9 格子 Boltzmann，collide+stream，卡门涡街）、Wave Equation（WGSL leapfrog，高斯脉冲 / 双源干涉 / 双缝衍射）、Double Pendulum（RK4 + 混沌幽灵摆）。
 - 物理实验室：电磁场、光学实验、结构力学（均可直接在画布上操作）。
 - 生物与生化：晶胞 3D 预览、反应分子动力学 3D、酶动力学（米氏方程 LM 拟合）、传染病分室模型、序列比对（NW/SW）、群体遗传学（HW 检验 + Wright–Fisher 漂变）、AI Trainer（浏览器内用 TF.js 训练 4 种模型，含 MNIST CNN）。
 - 地理插件系列（`geo/`，均支持一键发送 Figure Studio）：GeoJSON Map、太阳高度与昼长（FAO-56）、气候图（柯本）、人口金字塔、空间插值（IDW / 普通克里金 + LOOCV + Moran's I）、测距测面（标准差椭圆）、投影变形（Tissot）、地形分析（priority-flood → D8 → 汇流累积流域三件套）、GPX 轨迹、3D 地球仪。
+- 环境学插件系列（`env/`，数据驱动，示例经"示例"对话框加载）：空气质量评价（AQI，HJ 633-2012，附 US EPA 断点对照）、水质评价（GB 3838-2002 Ⅰ–Ⅴ 类 + 加权 WQI）、温室效应模拟（零维辐射收支）、碳循环推演（四碳库箱模型）、生物多样性指数（Shannon / Gini-Simpson / Pielou + Chao1 与稀疏化）、污染物扩散模拟（高斯烟羽，Pasquill–Gifford）、3D 全球环境（教学近似 CO₂ / 反照率 / 洋流图层）。
 - **两个赛题级科学求解器**（Pyodide Worker 运行，见 `docs/technical/09|10`）：
   - **电磁谐振特征值求解器**（EM Eigensolver）——稀疏厄密特征值求解：thick-restart Lanczos / 块 LOBPCG / Jacobi-Davidson + MINRES 位移反演、自适应位移、真实残差认证；输出 2D 谱报告与 3D 模式场，十万阶低内存。
   - **流体双向耦合求解器**（Fluid CFD Coupler）——1D 管网与 3D 标量场双向耦合：多速率时间步协调、正反向边界耦合、毫秒级阀门控制、守恒审计；含壅塞（Case A/C）与亚临界文献（Case D）验证。
 
 模拟类插件严格数据驱动：初始为空、绝不伪造默认场景，**重置**仅重放已加载的数据。每个核心插件都附示例数据集（`examples/data/`），经 **示例** 对话框一键加载即可产出真实可视化。
+
+插件还可声明**科研元数据**（`manifest.research`）——科研就绪分级（研究级 / 准研究级 / 演示级 / 教学演示），在市场与详情面板以语义色徽章呈现，并附带物理量单位、验证基准 id 与适用范围说明；同时可向视口下方的共享**科学输出栏**发布结构化结论（拟合质量、残差、置信区间、收敛 / 守恒诊断），让每张图都不缺数值依据。
 
 其中四个依赖非平凡计算路径的插件：
 
@@ -405,7 +437,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-**2233 个测试分布在 123 个测试文件中**（2231 通过，2 个在无 GPU 环境跳过），覆盖：数据与 I/O、统计内核、插件与沙箱、GPU 计算、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎）、可靠性内核、平台。
+**2322 个测试分布在 130 个测试文件中**（2320 通过，2 个在无 GPU 环境跳过），覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎）、可靠性内核、平台。
 
 E2E 套件（Playwright-core, headless Edge）：
 
@@ -439,10 +471,13 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 要点（完整状态见 [`docs/guide/roadmap.md`](docs/guide/roadmap.md)）：
 
 - [x] 工作台布局、项目管理、文件路由；四种模式（标准 / 流程 / 积木 / 代码）
-- [x] 59 个内置插件、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
+- [x] 66 个内置插件、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
 - [x] 插件全量一键 PNG/CSV 导出 + 分析叠加层；市场目录
 - [x] WebGPU 设备管理 + 真实计算内核管线（Particles / N-Body / LBM / 波动方程…）
 - [x] 地理插件系列（空间插值含 LOOCV + Moran's I、地形分析流域三件套、FAO-56 等），全部支持发送 Figure Studio
+- [x] 环境学插件系列（空气质量 / 水质 / 碳循环 / 生物多样性 / 高斯烟羽 / 温室效应 / 3D 全球环境）
+- [x] 科研级插件元数据（四级徽章）+ 统一科学输出栏
+- [x] Git 仓库化项目——适配器、项目 store 同步与侧边栏 Git 面板（第一阶段）
 - [x] 流程模式（编译器 + 增量执行器 + 40+ 区块）、积木模式（Blockly 13 + 共享 IR）、代码模式（Python / R / JavaScript，多语言互译）
 - [x] 三模式无缝互转（共享 IR 中枢，`mergeFlowIR` + 签名守卫）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核

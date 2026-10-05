@@ -37,12 +37,14 @@
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
+    "@isomorphic-git/lightning-fs": "^4.10.3",
     "@tensorflow/tfjs": "^4.22.0",
     "apache-arrow": "^21.2.0",
     "blockly": "^13.2.1",
     "fflate": "^0.8.2",
     "fitsjs": "^0.6.6",
     "h5wasm": "^0.10.3",
+    "isomorphic-git": "^1.43.0",
     "jspdf": "^4.2.1",
     "lz-string": "^1.5.0",
     "monaco-editor": "^0.52.2",
@@ -61,7 +63,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/lz-string": "^1.5.0",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.185.4",

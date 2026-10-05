@@ -12,6 +12,8 @@ import type {
   ContainerCapabilities,
 } from '@/types/plugin';
 import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { kruskalWallis, bi, fmtP } from './chartStats';
 
 export { boxPlotManifest } from './boxPlotManifest';
 import { boxPlotManifest } from './boxPlotManifest';
@@ -26,6 +28,8 @@ interface BoxStats {
   mean: number;
   n: number;
   outliers: number[];
+  /** Raw values retained so the Kruskal-Wallis test can run across groups. */
+  values?: number[];
 }
 
 interface State {
@@ -51,6 +55,7 @@ export class BoxPlotPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.boxes = [];
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -115,6 +120,84 @@ export class BoxPlotPlugin implements Plugin {
     for (const b of boxes) total += (b.outliers.length || 0) + 5;
     this.api.reportDataScale(total);
     this.draw();
+    this.publishStats();
+  }
+
+  /**
+   * Publish per-group five-number summaries (n, median, Q1/Q3 via the IQR
+   * chip, Tukey outlier count; capped at 6 groups to keep the strip
+   * readable) plus the Kruskal-Wallis H test across groups when ≥ 2 groups.
+   */
+  private publishStats() {
+    if (this.boxes.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const metrics: ScienceMetric[] = [];
+    let nTotal = 0;
+    let outTotal = 0;
+    for (const b of this.boxes) {
+      nTotal += b.n;
+      outTotal += b.outliers.length;
+    }
+    const detail = this.boxes.slice(0, 6);
+    for (const b of detail) {
+      const shortName = b.name.length > 8 ? `${b.name.slice(0, 8)}…` : b.name;
+      metrics.push({ key: `n:${b.name}`, label: `n:${shortName}`, value: String(b.n), severity: 'info' });
+      metrics.push({
+        key: `med:${b.name}`,
+        label: `med:${shortName}`,
+        value: fmtMetric(b.median),
+        severity: 'info',
+      });
+      metrics.push({
+        key: `iqr:${b.name}`,
+        label: `IQR:${shortName}`,
+        value: fmtMetric(b.q3 - b.q1),
+        severity: 'info',
+        hint: bi(this.api, `Q1 = ${fmtMetric(b.q1)}, Q3 = ${fmtMetric(b.q3)}.`, `Q1 = ${fmtMetric(b.q1)}，Q3 = ${fmtMetric(b.q3)}。`),
+      });
+      metrics.push({
+        key: `out:${b.name}`,
+        label: `out:${shortName}`,
+        value: String(b.outliers.length),
+        severity: b.outliers.length > 0 ? 'warn' : 'ok',
+        hint: bi(this.api, 'Tukey fence outliers (1.5·IQR beyond the box).', 'Tukey 围栏离群点数（超出箱体 1.5·IQR）。'),
+      });
+    }
+    const kw = kruskalWallis(
+      this.boxes
+        .map((b) => b.values ?? [])
+        .filter((vals) => vals.length > 0),
+    );
+    if (kw) {
+      metrics.push({
+        key: 'kwH',
+        label: 'H',
+        value: fmtMetric(kw.h),
+        severity: kw.p < 0.05 ? 'warn' : 'ok',
+        hint: bi(
+          this.api,
+          `Kruskal-Wallis H across ${kw.df + 1} groups (χ² approximation, df = ${kw.df}).`,
+          `${kw.df + 1} 组间的 Kruskal-Wallis H（χ² 近似，df = ${kw.df}）。`,
+        ),
+      });
+      metrics.push({
+        key: 'kwP',
+        label: 'p(H)',
+        value: fmtP(kw.p),
+        severity: kw.p < 0.05 ? 'warn' : 'ok',
+        hint: bi(this.api, 'Two-sided p: at least one group tends to differ.', '双侧 p 值：至少有一组分布趋于不同。'),
+      });
+    }
+    metrics.push({
+      key: 'outTotal',
+      label: 'outΣ',
+      value: String(outTotal),
+      severity: outTotal > 0 ? 'warn' : 'ok',
+    });
+    metrics.push({ key: 'n', label: 'n', value: String(nTotal), severity: 'info' });
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   private draw() {
@@ -128,6 +211,7 @@ export class BoxPlotPlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!this.state.hasData || this.boxes.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       this.drawEmpty(g, canvas);
       return;
     }
@@ -336,6 +420,7 @@ export function parseBoxData(text: string): BoxStats[] {
     return Array.from(groups.entries()).map(([name, values]) => ({
       name,
       ...stats(values),
+      values,
     }));
   }
 
@@ -356,6 +441,7 @@ export function parseBoxData(text: string): BoxStats[] {
     .map((values, i) => ({
       name: header?.[i] ?? `col${i + 1}`,
       ...stats(values),
+      values,
     }));
 }
 
