@@ -19,6 +19,7 @@ import {
   GitBranch,
   GitRemote,
   GitHook,
+  GitError,
   DiffResult,
   DiffHunk,
   LogOptions,
@@ -29,7 +30,9 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  GIT_ERROR_CODES,
 } from './types';
+import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
 
 function loadSimpleGit(): (opts?: Partial<SimpleGitOptions>) => SimpleGit {
   // Node/Electron only; never called in the browser bundle.
@@ -65,25 +68,15 @@ export class NodeGitAdapter implements GitAdapter {
       await this.writeStandardTemplate(repoPath);
       await git.add('.');
       await git.commit('chore: init project with standard structure');
+      // §3.6: preinstall the Ergalics hooks into .git/hooks (chmod 755).
+      await this.installHooks(repoPath, STANDARD_HOOKS);
     }
   }
 
   private async writeStandardTemplate(repoPath: string): Promise<void> {
     const fs = await import('fs/promises');
     const path = await import('path');
-    const files = [
-      { path: '.gitignore', content: STANDARD_GITIGNORE },
-      { path: '.gitattributes', content: STANDARD_GITATTRIBUTES },
-      { path: 'project.clproj', content: '{}' },
-      { path: 'runs/.gitkeep', content: '' },
-      { path: 'figures/.gitkeep', content: '' },
-      { path: 'manuscript/.gitkeep', content: '' },
-      { path: 'data/.gitkeep', content: '' },
-      { path: 'code/.gitkeep', content: '' },
-      { path: '.ergalics/.gitkeep', content: '' },
-    ];
-
-    for (const f of files) {
+    for (const f of STANDARD_TEMPLATE_FILES) {
       const fullPath = path.join(repoPath, f.path);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, f.content);
@@ -269,6 +262,22 @@ export class NodeGitAdapter implements GitAdapter {
 
   async checkout(repoPath: string, ref: string, create = false): Promise<void> {
     const git = this.getGit(repoPath);
+    if (!create) {
+      // Refuse to silently discard uncommitted work (mirrors the isomorphic
+      // adapter): staged/modified files and a different target branch → EDIRTY.
+      const st = await git.status();
+      const dirty = [...st.staged, ...st.modified];
+      if (st.current && st.current !== ref && dirty.length > 0) {
+        const err = new Error(
+          `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
+            'Commit these files first:\n' +
+            dirty.map((f) => `  ${f}`).join('\n'),
+        ) as GitError;
+        err.code = GIT_ERROR_CODES.DIRTY;
+        err.gitCommand = 'checkout';
+        throw err;
+      }
+    }
     if (create) {
       await git.checkoutLocalBranch(ref);
     } else {
@@ -349,6 +358,12 @@ export class NodeGitAdapter implements GitAdapter {
     await fs.writeFile(fullPath, content, 'utf-8');
   }
 
+  async readFile(repoPath: string, filePath: string): Promise<string> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    return fs.readFile(path.join(repoPath, filePath), 'utf-8');
+  }
+
   async getHook(repoPath: string, type: HookType): Promise<string | null> {
     const fs = await import('fs/promises');
     const path = await import('path');
@@ -396,11 +411,19 @@ export class NodeGitAdapter implements GitAdapter {
 
   private async getAheadBehind(repoPath: string, branch: string): Promise<{ ahead: number; behind: number }> {
     const git = this.getGit(repoPath);
+    if (!branch) return { ahead: 0, behind: 0 };
     try {
       await git.revparse([`${branch}@{upstream}`]);
-      // Simplified — a real ahead/behind needs the merge-base.
-      return { ahead: 0, behind: 0 };
+      const raw = await git.raw([
+        'rev-list',
+        '--left-right',
+        '--count',
+        `${branch}...${branch}@{upstream}`,
+      ]);
+      const [ahead, behind] = raw.trim().split(/\s+/).map((n: string) => Number(n) || 0);
+      return { ahead, behind };
     } catch {
+      // No upstream configured — a local-only repo is 0/0.
       return { ahead: 0, behind: 0 };
     }
   }
@@ -424,40 +447,3 @@ export class NodeGitAdapter implements GitAdapter {
     }
   }
 }
-
-const STANDARD_GITIGNORE = `# Ergalics Studio local state
-.ergalics/
-*.log
-.DS_Store
-
-# Large data files (use Git LFS instead)
-data/*.h5
-data/*.nc
-data/*.parquet
-data/*.zarr/
-data/*.fits
-data/*.hdf5
-
-# Build artifacts
-manuscript/build/
-figures/exports/
-supplement/*.zip
-
-# Runtime
-node_modules/
-dist/
-*.wasm
-`;
-
-const STANDARD_GITATTRIBUTES = `# Git LFS for large binary files
-*.h5 filter=lfs diff=lfs merge=lfs -text
-*.nc filter=lfs diff=lfs merge=lfs -text
-*.parquet filter=lfs diff=lfs merge=lfs -text
-*.zarr filter=lfs diff=lfs merge=lfs -text
-*.fits filter=lfs diff=lfs merge=lfs -text
-*.hdf5 filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.pdf filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-`;

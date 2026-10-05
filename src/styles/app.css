@@ -942,6 +942,57 @@
   white-space: nowrap;
 }
 
+.git-ahead-behind {
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.git-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.git-branch-row,
+.git-clone-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Clone progress line + the CORS-proxy field sit tight under the clone row. */
+.git-clone-progress {
+  margin: 2px 0 0;
+  font-size: 11px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-proxy-row {
+  margin-top: 4px;
+}
+
+.git-proxy-row .git-clone-input {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.git-branch-input,
+.git-clone-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
 .git-panel-changes {
   margin-top: var(--space-2);
   font-size: var(--font-size-sm);

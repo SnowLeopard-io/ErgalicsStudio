@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="ico.ico" alt="Ergalics Studio logo" width="96" />
 
@@ -99,7 +99,7 @@ Ergalics Studio 是完全运行于浏览器中的专业科学计算工作站：R
 **版本控制**
 
 - Git 仓库化项目：`src/core/git/` 以单一 `GitAdapter` 接口提供浏览器端实现（isomorphic-git + LightningFS，IndexedDB 工作区）与 Node 端实现（运行时加载 simple-git），覆盖 init / status / log / diff / add / commit / checkout / branch / merge / remote / hooks。
-- `projectStore` 将保存快照镜像到仓库工作区（`project.clproj`），并驱动侧边栏 **Git 面板**（分支、暂存并提交 + 规范提交信息、近期提交日志）。
+- `projectStore` 将保存快照镜像到仓库工作区（`project.clproj`），并驱动侧边栏 **Git 面板**（分支 + 领先/落后、暂存并提交 + 规范提交信息、近期提交日志、分支 / 克隆 / pull / push / fetch（可配置 CORS 代理）、运行与图像的自动提交）。
 
 **基础设施**
 
@@ -312,7 +312,7 @@ flowchart TB
 
 适配器覆盖仓库生命周期（`init` / `clone` / `isRepo`）、读取（`status` / `log` / `diff` / `branches` / `remotes`）、写入（`add` / `commit` / `checkout` / `branch` / `merge`）、远程（`push` / `pull` / `fetch`）、钩子（`installHooks` / `getHook` / `removeHook`）与 `writeFile` 辅助。`projectStore` 每次保存都把快照镜像到工作区 `project.clproj`，因此侧边栏 **Git 面板**始终显示可审阅的真实变更；提交信息由 `generateCommitMessage` 按 Conventional Commits 生成（`save:` / `run:` / `figure:` / `manuscript:` 等）。
 
-本阶段已交付适配器、store 集成与最小 Git 面板（分支、暂存并提交、近期提交日志）；文件级 diff 查看器、远程同步与冲突向导随后跟进。设计说明与验收标准见 [`docs/requirements/01-git-backed-project-version-control.md`](docs/requirements/01-git-backed-project-version-control.md)。
+Git 面板已交付：分支 + 领先/落后计数、一键暂存并提交、近期提交日志、分支创建（切换时拒绝丢弃未提交变更）、从 URL 克隆，以及远程同步（`pull` / `push` / `fetch`，走可配置的 CORS 代理——公共 isomorphic-git 代理并不覆盖所有托管站，如 Gitee）。自动提交在运行完成、图像保存、手动保存与补充材料导出时触发；`init` 会预装 Ergalics 钩子（`pre-commit` 校验 `repro.lock`、`pre-push` 跑单元测试），标准模板附带 GitHub Actions 工作流（`.github/workflows/ergalics.yml`）。文件级 diff 查看器与冲突向导仍在路线图上。设计说明与验收标准见 [`docs/requirements/01-git-backed-project-version-control.md`](docs/requirements/01-git-backed-project-version-control.md)。
 
 ---
 
@@ -477,7 +477,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 - [x] 地理插件系列（空间插值含 LOOCV + Moran's I、地形分析流域三件套、FAO-56 等），全部支持发送 Figure Studio
 - [x] 环境学插件系列（空气质量 / 水质 / 碳循环 / 生物多样性 / 高斯烟羽 / 温室效应 / 3D 全球环境）
 - [x] 科研级插件元数据（四级徽章）+ 统一科学输出栏
-- [x] Git 仓库化项目——适配器、项目 store 同步与侧边栏 Git 面板（第一阶段）
+- [x] Git 仓库化项目——适配器、项目 store 同步与 Git 面板（分支 / 提交 / 克隆 / 远程同步 / 自动提交 / 预装钩子 / CI 模板；diff 查看器与冲突向导待做）
 - [x] 流程模式（编译器 + 增量执行器 + 40+ 区块）、积木模式（Blockly 13 + 共享 IR）、代码模式（Python / R / JavaScript，多语言互译）
 - [x] 三模式无缝互转（共享 IR 中枢，`mergeFlowIR` + 签名守卫）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核

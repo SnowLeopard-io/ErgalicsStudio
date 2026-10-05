@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore, generateCommitMessage } from '@/stores/projectStore';
+import { useAppStore } from '@/stores/appStore';
+import { getGitCorsProxy, setGitCorsProxy } from '@/core/git/isomorphic-adapter';
 
 /**
- * Minimal Git panel (Phase 3 of docs/requirements/01): branch + change
- * summary, a one-field commit box (stages every pending change, Conventional
- * Commit via `generateCommitMessage`), and the recent-commit log. Deeper
- * flows (diff viewer, remote sync, conflict wizard) land with the full
- * Phase 3/4 work.
+ * Git panel (§3.5): branch + ahead/behind, Pull/Push/Fetch, new-branch and
+ * clone-from-URL entry points, a one-field commit box (stages every pending
+ * change, Conventional Commit via `generateCommitMessage`) and the
+ * recent-commit log. Remote failures surface through the shared notify
+ * channel; deeper flows (diff viewer, conflict wizard) land with Phase 4.
  */
 export function GitPanel() {
   const t = useT();
@@ -15,8 +17,13 @@ export function GitPanel() {
   const gitRepo = useProjectStore((s) => s.gitRepo);
   const gitCommits = useProjectStore((s) => s.gitCommits);
   const gitLoading = useProjectStore((s) => s.gitLoading);
+  const notify = useAppStore((s) => s.notify);
 
   const [message, setMessage] = useState('');
+  const [newBranch, setNewBranch] = useState('');
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneStatus, setCloneStatus] = useState('');
+  const [proxy, setProxy] = useState(getGitCorsProxy());
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -33,6 +40,20 @@ export function GitPanel() {
     ? status.staged.length + status.unstaged.length + status.untracked.length
     : 0;
 
+  const reportError = (err: unknown) => {
+    // `String(err)` yields unreadable "Error: ENOENT: no such file or
+    // directory, unlink '/…'" — surface the short code plus the message.
+    const code = (err as { code?: string } | null)?.code;
+    const raw = err instanceof Error ? err.message : String(err);
+    let reason = code && !raw.startsWith(code) ? `${code}: ${raw}` : raw;
+    // Network-level failures almost always mean the CORS proxy refused the
+    // host — tell the user there is a way out instead of a bare ERR_FAILED.
+    if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
+      reason += ` — ${t('git.cors_hint')}`;
+    }
+    notify('error', t('git.op_failed', { reason }));
+  };
+
   const commit = async () => {
     if (!status || pending === 0) return;
     setBusy(true);
@@ -44,14 +65,124 @@ export function GitPanel() {
         message.trim() || generateCommitMessage('save', project.name || project.id),
       );
       setMessage('');
+    } catch (err) {
+      reportError(err);
     } finally {
       setBusy(false);
     }
   };
 
+  /** Pull/Push/Fetch against the first configured remote (§3.5 header). */
+  const remoteOp = async (op: 'pull' | 'push' | 'fetch') => {
+    if (!repo) return;
+    setBusy(true);
+    try {
+      const store = useProjectStore.getState();
+      const remote = repo.remotes[0] ?? 'origin';
+      if (op === 'fetch') {
+        await store.gitFetch(remote);
+      } else if (op === 'pull') {
+        await store.gitPull(remote, repo.currentBranch);
+      } else {
+        await store.gitPush(remote, repo.currentBranch, true);
+      }
+      await useProjectStore.getState().loadGitLog();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createBranch = async () => {
+    const name = newBranch.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      const store = useProjectStore.getState();
+      await store.gitCreateBranch(name);
+      await store.gitCheckout(name);
+      setNewBranch('');
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clone = async () => {
+    const url = cloneUrl.trim();
+    if (!url) return;
+    setBusy(true);
+    setCloneStatus('…');
+    try {
+      await useProjectStore.getState().gitClone(url, undefined, undefined, (phase, loaded, total) => {
+        // isomorphic-git streams {phase, loaded, total}; totals can be 0
+        // while sizes are still unknown.
+        setCloneStatus(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
+      setCloneUrl('');
+      setCloneStatus('');
+      notify('success', t('git.cloned'));
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setCloneStatus('');
+      setBusy(false);
+    }
+  };
+
+  const applyProxy = () => {
+    setGitCorsProxy(proxy);
+    notify('success', t('git.cors_saved'));
+  };
+
+  const dirtyText =
+    status && (status.ahead > 0 || status.behind > 0)
+      ? ` ↑${status.ahead} ↓${status.behind}`
+      : '';
+
   return (
     <nav className="sidebar-group git-panel">
       <h3 className="sidebar-heading">{t('git.panel_title')}</h3>
+      <div className="git-clone-row">
+        <input
+          className="git-clone-input"
+          type="text"
+          value={cloneUrl}
+          placeholder={t('git.clone_placeholder')}
+          onChange={(e) => setCloneUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void clone();
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={busy || !cloneUrl.trim()}
+          onClick={() => void clone()}
+          title={t('git.clone')}
+        >
+          {t('git.clone')}
+        </button>
+      </div>
+      {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
+      <div className="git-clone-row git-proxy-row">
+        <input
+          className="git-clone-input"
+          type="text"
+          value={proxy}
+          placeholder={t('git.cors_proxy')}
+          title={t('git.cors_hint')}
+          onChange={(e) => setProxy(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') applyProxy();
+          }}
+          onBlur={() => {
+            if (proxy.trim() !== getGitCorsProxy()) applyProxy();
+          }}
+        />
+      </div>
       {!repo ? (
         <p className="git-panel-hint">{t('git.no_repo')}</p>
       ) : (
@@ -59,17 +190,68 @@ export function GitPanel() {
           <div className="git-panel-status">
             <span className="git-branch" title={t('git.branch')}>
               ⎇ {repo.currentBranch}
+              {dirtyText && <span className="git-ahead-behind">{dirtyText}</span>}
             </span>
+            <span className="git-remote-row">
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('git.pull')}
+                disabled={busy}
+                onClick={() => void remoteOp('pull')}
+              >
+                ⇥
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('git.push')}
+                disabled={busy}
+                onClick={() => void remoteOp('push')}
+              >
+                ⇤
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('git.fetch')}
+                disabled={busy}
+                onClick={() => void remoteOp('fetch')}
+              >
+                ⇣
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('git.refresh')}
+                onClick={() => {
+                  void useProjectStore.getState().refreshGitStatus();
+                  void useProjectStore.getState().loadGitLog();
+                }}
+              >
+                ⟳
+              </button>
+            </span>
+          </div>
+          <div className="git-branch-row">
+            <input
+              className="git-branch-input"
+              type="text"
+              value={newBranch}
+              placeholder={t('git.new_branch_placeholder')}
+              onChange={(e) => setNewBranch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void createBranch();
+              }}
+            />
             <button
               type="button"
-              className="icon-btn"
-              title={t('git.refresh')}
-              onClick={() => {
-                void useProjectStore.getState().refreshGitStatus();
-                void useProjectStore.getState().loadGitLog();
-              }}
+              className="btn btn-sm"
+              disabled={busy || !newBranch.trim()}
+              onClick={() => void createBranch()}
+              title={t('git.new_branch')}
             >
-              ⟳
+              ＋
             </button>
           </div>
           <div className="git-panel-changes">

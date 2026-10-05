@@ -86,6 +86,8 @@ export interface CloneOptions {
   depth?: number;
   branch?: string;
   singleBranch?: boolean;
+  /** Per-call CORS proxy override (falls back to the persisted global one). */
+  corsProxy?: string;
   onProgress?: (phase: string, loaded: number, total: number) => void;
 }
 
@@ -106,6 +108,7 @@ export interface PushOptions {
   branch: string;
   force?: boolean;
   setUpstream?: boolean;
+  corsProxy?: string;
   onProgress?: (phase: string, loaded: number, total: number) => void;
 }
 
@@ -113,6 +116,7 @@ export interface PullOptions {
   remote: string;
   branch: string;
   rebase?: boolean;
+  corsProxy?: string;
 }
 
 export type HookType =
@@ -166,6 +170,10 @@ export interface GitAdapter {
   /** Write a plain-text file inside the repo working tree (auto-creates
    *  parent directories). Used to sync project state into the repo. */
   writeFile(repoPath: string, filePath: string, content: string): Promise<void>;
+
+  /** Read a plain-text file from the repo working tree (UTF-8 decoded).
+   *  Used to read run indexes and cloned project.clproj files. */
+  readFile(repoPath: string, filePath: string): Promise<string>;
 
   // Utilities
   getRootDir(repoPath: string): Promise<string | null>;
