@@ -72,10 +72,7 @@ import { greenhouseManifest } from './env/greenhouseManifest';
 import { carbonManifest } from './env/carbonManifest';
 import { biodiversityManifest } from './env/biodiversityManifest';
 import { plumeManifest } from './env/plumeManifest';
-import { plume3dManifest } from './env/plume3dManifest';
-import { lake3dManifest } from './env/lake3dManifest';
 import { earth3dManifest } from './env/earth3dManifest';
-import { groundwater3dManifest } from './env/groundwater3dManifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -368,30 +365,9 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     },
   },
   {
-    manifest: plume3dManifest,
-    load: async () => {
-      const mod = await import('./env/plume3d');
-      return mod.default();
-    },
-  },
-  {
-    manifest: lake3dManifest,
-    load: async () => {
-      const mod = await import('./env/lake3d');
-      return mod.default();
-    },
-  },
-  {
     manifest: earth3dManifest,
     load: async () => {
       const mod = await import('./env/earth3d');
-      return mod.default();
-    },
-  },
-  {
-    manifest: groundwater3dManifest,
-    load: async () => {
-      const mod = await import('./env/groundwater3d');
       return mod.default();
     },
   },

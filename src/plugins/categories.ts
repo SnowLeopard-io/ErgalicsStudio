@@ -91,10 +91,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.env-carbon': 'env',
   'example.env-biodiversity': 'env',
   'example.env-plume': 'env',
-  'example.env-plume3d': 'env',
-  'example.env-lake3d': 'env',
   'example.env-earth3d': 'env',
-  'example.env-groundwater3d': 'env',
 
   // Biology
   'example.protein': 'bio',

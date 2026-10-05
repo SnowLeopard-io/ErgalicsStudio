@@ -121,25 +121,10 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['environment', 'gaussian-plume', 'air-pollution', 'dispersion'],
     popularity: 67,
   },
-  'example.env-plume3d': {
-    category: 'scientific',
-    tags: ['environment', '3d', 'plume', 'voxels', 'dispersion'],
-    popularity: 69,
-  },
-  'example.env-lake3d': {
-    category: 'scientific',
-    tags: ['environment', '3d', 'lake', 'stratification', 'limnology'],
-    popularity: 65,
-  },
   'example.env-earth3d': {
     category: 'scientific',
     tags: ['environment', '3d', 'globe', 'co2', 'climate'],
     popularity: 70,
-  },
-  'example.env-groundwater3d': {
-    category: 'scientific',
-    tags: ['environment', '3d', 'groundwater', 'darcy', 'contaminant-transport'],
-    popularity: 63,
   },
 };
 
