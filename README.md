@@ -41,6 +41,7 @@ running in the browser with a Rust/WASM core.</p>
 - [Project Layout](#project-layout)
 - [Four Workbench Modes](#four-workbench-modes)
 - [Research Modules](#research-modules)
+- [Version Control](#version-control-git-backed-projects)
 - [Plugin System](#plugin-system)
 - [GPU Compute & Native Core](#gpu-compute--native-core)
 - [Testing](#testing)
@@ -71,11 +72,12 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, 59 built-in plugins (49 scientific + 10 fun), sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, 66 built-in plugins (56 scientific + 10 fun), sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored |
-| Research          | 19 standalone research pages + unit-system and chunked-ingestion kernels |
+| Research          | 19 standalone research pages, research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace) deep-linked into the workbench |
 
 ---
@@ -99,8 +101,10 @@ What ships today:
 
 **Plugin system**
 
-- **59 built-in plugins** (49 scientific + 10 fun) over the full API surface;
-  two-tier loading (core auto-loads, fun loads on demand).
+- **66 built-in plugins** (56 scientific + 10 fun) over the full API surface;
+  two-tier loading (core auto-loads, fun loads on demand), grouped into nine
+  disciplines (charts / statistics / physics / chemistry / biology /
+  geography / environmental / data & AI / fun).
 - Marketplace catalog `src/plugins/marketplace.ts` (curated tags, popularity,
   category filters).
 - `.cspkg` package loading + manifest validation + **Worker-first isolation**
@@ -111,6 +115,28 @@ What ships today:
 - Locale-aware parameter panels; one-click PNG / CSV export on every plugin,
   analysis overlays (trendlines, density/cumulative histograms, mean markers,
   jitter, bar ordering), and a **Send to Figure Studio** action.
+
+**Research-grade plugins**
+
+- `PluginManifest.research` metadata (`src/types/plugin.ts`): a
+  research-readiness tier (`research` / `quasi-research` / `demonstration` /
+  `educational`) plus declared physical units, embedded benchmark ids, a
+  reproducibility flag and scope notes — rendered as a colour-coded badge in
+  the plugin market and detail panel (zh-CN / en-US).
+- Unified scientific-output bus `src/core/research/scienceOutput.ts` with a
+  `ScienceOutputStrip` under the viewport: plugins publish structured
+  conclusions (R², RMSE, LOOCV, confidence intervals, convergence /
+  conservation diagnostics) so every plot is paired with its numbers.
+
+**Version control**
+
+- Git-backed projects: `src/core/git/` exposes one `GitAdapter` with a browser
+  implementation (isomorphic-git + LightningFS over IndexedDB) and a Node
+  implementation (lazily-loaded simple-git), covering init / status / log /
+  diff / add / commit / checkout / branch / merge / remotes / hooks.
+- `projectStore` mirrors the saved snapshot into the repo working tree as
+  `project.clproj` and drives a sidebar **Git panel** (branch, stage-all +
+  Conventional-Commit, recent log).
 
 **Infrastructure**
 
@@ -146,6 +172,7 @@ What ships today:
 | Native   | Rust → wasm32-unknown-unknown, wasm-bindgen 0.2              |
 | GPU      | WebGPU / WGSL via web-sys                                    |
 | SQL      | DuckDB-WASM (lazy) + Apache Arrow                            |
+| VCS      | isomorphic-git 1 + LightningFS (browser) · simple-git (Node)  |
 | Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
@@ -185,7 +212,7 @@ flowchart TB
 
     subgraph State["State & core services"]
         B1["Zustand stores<br/>app / project / plugin / settings / block"]
-        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox"]
+        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>git · research/scienceOutput"]
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
@@ -196,7 +223,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (49 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (56 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel dispatch<br/>file-kind detection"]
     end
 
@@ -235,7 +262,8 @@ flowchart TB
 │   │                         #   data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal,
-│   │                         #   sweep, profiler, sql, report, inference, logger
+│   │                         #   sweep, profiler, sql, report, inference, logger,
+│   │                         #   git (version control), research (science output)
 │   ├── blocks/               #   block system (Flow mode): types · registry · compiler ·
 │   │                         #     executor · ops · catalog · sample · l10n · render
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
@@ -245,7 +273,7 @@ flowchart TB
 │   │                         #     notebook, labs (runs · analysis · uncertainty · model-lab ·
 │   │                         #     profiler · reprolock · lineage · supplement), signal,
 │   │                         #     sweeps, sql, report
-│   ├── plugins/builtin/      #   49 scientific + 10 fun/utility plugins (2D + 3D)
+│   ├── plugins/builtin/      #   56 scientific + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -372,11 +400,39 @@ citation.*
 
 ---
 
+## Version Control (Git-backed Projects)
+
+Projects are **Git-backed**: `src/core/git/` defines a single `GitAdapter`
+interface with two implementations chosen at runtime.
+
+| Environment     | Implementation                                                       |
+| --------------- | -------------------------------------------------------------------- |
+| Browser         | `isomorphic-git` + `LightningFS` (IndexedDB-backed working tree)      |
+| Node / desktop  | `simple-git` (lazily imported; drives the system `git` binary)        |
+
+The adapter covers the repository lifecycle (`init` / `clone` / `isRepo`),
+reads (`status` / `log` / `diff` / `branches` / `remotes`), writes (`add` /
+`commit` / `checkout` / `branch` / `merge`), remotes (`push` / `pull` /
+`fetch`), hooks (`installHooks` / `getHook` / `removeHook`) and a `writeFile`
+helper. `projectStore` mirrors every save into the working tree as
+`project.clproj`, so the sidebar **Git panel** always shows real, reviewable
+changes; commits use Conventional-Commit messages (`save:` / `run:` /
+`figure:` / `manuscript:` …) generated by `generateCommitMessage`.
+
+This first phase ships the adapter, the store integration and the minimal Git
+panel (branch, stage-all + commit, recent log); the diff viewer, remote sync
+and the conflict wizard follow. Design notes and acceptance criteria:
+[`docs/requirements/01-git-backed-project-version-control.md`](docs/requirements/01-git-backed-project-version-control.md).
+
+---
+
 ## Plugin System
 
 ### Built-in plugins
 
-**Core / scientific plugins** (auto-loaded at startup; 49 total):
+**Core / scientific plugins** (auto-loaded at startup; 56 total, grouped into
+disciplines in the sidebar — charts / statistics / physics / chemistry /
+biology / geography / environmental / data & AI):
 
 - 2-D & 3-D visualisation: Point Cloud, Point Cloud 3D, 3D Surface, 3D Voxel
   Field, Time Series, Histogram, Heatmap, Image Viewer, Contour, Scatter,
@@ -400,6 +456,14 @@ citation.*
   ellipse), Projection Distortion (Tissot), DEM Terrain Analysis
   (priority-flood → D8 → flow accumulation watershed triple), GPX Tracks,
   and an Interactive 3D Globe.
+- Environmental science suite (`env/`; data-driven, samples via the examples
+  dialog): Air Quality (AQI per HJ 633-2012, US EPA breakpoints as a
+  comparison), Water Quality (GB 3838-2002 classes Ⅰ–Ⅴ + weighted WQI),
+  Greenhouse Effect (0-D radiative balance), Carbon Cycle (four-pool box
+  model), Biodiversity Indices (Shannon / Gini-Simpson / Pielou + Chao1 &
+  rarefaction), Pollutant Dispersion (Gaussian plume, Pasquill–Gifford),
+  and a 3-D Global Environment globe (teaching-approximate CO₂ / albedo /
+  current layers).
 - **Two competition-grade scientific solvers** (Pyodide Worker, see
   `docs/technical/09|10`):
   - **EM Eigensolver** — sparse Hermitian eigensolver: thick-restart
@@ -414,6 +478,14 @@ citation.*
 Simulation plugins are strictly data-driven: empty on load, never faking a
 default scene; **Reset** only replays loaded data. Every core plugin ships a
 sample dataset under `examples/data/`, one click away in the examples dialog.
+
+Plugins may also declare **research metadata** (`manifest.research`) — a
+research-readiness tier (`research` / `quasi-research` / `demonstration` /
+`educational`) shown as a colour-coded badge in the market and detail panel,
+together with physical units, benchmark ids and scope notes — and publish
+**structured scientific outputs** to the shared output strip under the
+viewport (fit quality, residuals, confidence intervals, convergence /
+conservation diagnostics), so a plot is never left without its numbers.
 
 Four plugins with non-trivial compute paths:
 
@@ -558,12 +630,13 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**2233 tests across 123 files** (2231 pass; 2 skipped without a GPU), covering:
-data & I/O, the statistics kernel, plugins & sandbox, GPU compute, the block
-system, three-mode IR sync (Block ↔ Flow ↔ Code round-trips), the research
-modules (uncertainty / units / runs / lineage / figures / packaging /
-notebook / model / profiler / signal / sweeps / SQL / report / repro-lock /
-inference), the reliability core, and the platform.
+**2322 tests across 130 files** (2320 pass; 2 skipped without a GPU), covering:
+data & I/O, the statistics kernel, plugins & sandbox, the environmental and
+bio suites, GPU compute, the Git adapter & project sync, the research-grade
+science-output bus, the block system, three-mode IR sync (Block ↔ Flow ↔ Code
+round-trips), the research modules (uncertainty / units / runs / lineage /
+figures / packaging / notebook / model / profiler / signal / sweeps / SQL /
+report / repro-lock / inference), the reliability core, and the platform.
 
 E2E suite (Playwright-core, headless Edge):
 
@@ -606,10 +679,13 @@ navigation regressions fail CI instead of silently producing a dead link.
 Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
-- [x] 59 built-in plugins, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 66 built-in plugins, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] One-click PNG/CSV export + analysis overlays on every plugin; marketplace catalog
 - [x] WebGPU device management + real compute kernels (Particles / N-Body / LBM / wave equation …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
+- [x] Environmental science suite (AQI / water quality / carbon / biodiversity / plume / greenhouse / 3-D globe)
+- [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
+- [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (first phase)
 - [x] Flow mode (compiler + incremental executor + 40+ blocks), Block mode (Blockly 13 + shared IR), Code mode (Python / R / JavaScript, multi-language translation)
 - [x] Seamless three-mode round-trip via the shared IR hub (`mergeFlowIR` + signature guard)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
