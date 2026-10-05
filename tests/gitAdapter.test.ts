@@ -262,6 +262,29 @@ describe('auto-commit helpers (§3.4)', () => {
   });
 });
 
+// ---- ⑤ stale file-list tolerance --------------------------------------------
+
+describe('add tolerates stale status snapshots', () => {
+  it('skips vanished files and directory entries instead of throwing ENOENT', async () => {
+    const { adapter } = makeAdapter();
+    const repo = nextRepo();
+    await adapter.init(repo, 'standard');
+
+    await adapter.writeFile(repo, 'runs/keep.json', '{"id":"keep"}');
+    // A snapshot taken before an auto-commit consumed part of the tree:
+    // gone.json never existed and `runs` is a directory, not a file.
+    const staleList = ['runs/keep.json', 'runs/gone.json', 'runs'];
+    await expect(adapter.add(repo, staleList)).resolves.toBeUndefined();
+
+    await adapter.commit(repo, 'data: keep only');
+    const st = await adapter.status(repo);
+    expect(st.clean).toBe(true);
+    const log = await adapter.log(repo);
+    expect(log[0]!.message).toContain('data: keep only');
+  });
+});
+
+
 // ---- ④ ahead/behind + checkout guard ---------------------------------------
 
 describe('ahead/behind (§3.3 GitStatus)', () => {

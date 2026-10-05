@@ -246,8 +246,11 @@ function scheduleDirtyFlush() {
 }
 
 function getProjectRepoPath(project: Project): string {
-  // In browser, we use a virtual path based on project ID
-  return `ergalics-projects/${project.id}`;
+  // LightningFS resolves paths against its own "/" root: a RELATIVE repo path
+  // makes isomorphic-git's internal dirname('x') → '.', which CacheFS cannot
+  // look up ("ENOENT: ." — every git op died silently until now). Always
+  // hand the adapter an absolute path.
+  return `/ergalics-projects/${project.id}`;
 }
 
 async function initGitForProject(project: Project, template: 'standard' | 'minimal' = 'standard'): Promise<void> {

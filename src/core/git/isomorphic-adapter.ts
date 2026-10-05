@@ -422,6 +422,16 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async add(repoPath: string, files: string[]): Promise<void> {
     const fs = this.getFS();
     for (const file of files) {
+      // The file list comes from a status snapshot taken earlier; anything
+      // deleted (or already committed) since then would abort the whole add
+      // with a raw ENOENT from isomorphic-git. Skip vanished entries and
+      // directories — commit picks up whatever still exists.
+      try {
+        const st = await fs.promises.stat(`${repoPath}/${file}`);
+        if (st.isDirectory()) continue;
+      } catch {
+        continue;
+      }
       await Git.add({ fs, dir: repoPath, filepath: file });
     }
   }

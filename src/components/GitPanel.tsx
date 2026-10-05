@@ -38,7 +38,12 @@ export function GitPanel() {
     : 0;
 
   const reportError = (err: unknown) => {
-    notify('error', t('git.op_failed', { reason: String(err) }));
+    // `String(err)` yields unreadable "Error: ENOENT: no such file or
+    // directory, unlink '/…'" — surface the short code plus the message.
+    const code = (err as { code?: string } | null)?.code;
+    const msg = err instanceof Error ? err.message : String(err);
+    const reason = code && !msg.startsWith(code) ? `${code}: ${msg}` : msg;
+    notify('error', t('git.op_failed', { reason }));
   };
 
   const commit = async () => {
