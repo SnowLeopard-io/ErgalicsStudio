@@ -447,6 +447,54 @@
   letter-spacing: 0.16em;
 }
 
+/* Git panel ships collapsed behind a <details> summary row. */
+.git-panel > summary.git-panel-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.git-panel > summary.git-panel-summary::-webkit-details-marker {
+  display: none;
+}
+.git-panel-caret {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 10px;
+}
+.git-panel[open] > summary.git-panel-summary .git-panel-caret {
+  transform: rotate(90deg);
+}
+.git-panel-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-size-xs);
+}
+.git-pending-dot {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .sidebar-actions {
   display: flex;
   flex-direction: column;
