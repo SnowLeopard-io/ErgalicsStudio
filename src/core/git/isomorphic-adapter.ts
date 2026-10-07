@@ -28,6 +28,7 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  RepoEntry,
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
@@ -609,6 +610,37 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async readFile(repoPath: string, filePath: string): Promise<string> {
     const data = await this.getFS().promises.readFile(`${repoPath}/${filePath}`);
     return typeof data === 'string' ? data : new TextDecoder().decode(data);
+  }
+
+  /** LightningFS readdir yields bare names — stat each child for the
+   * dir/file split. N+1 stats are fine: explorer listings are small and
+   * lazy per directory. */
+  async readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]> {
+    const fs = this.getFS();
+    const full = dirPath ? `${repoPath}/${dirPath}` : repoPath;
+    let names: string[];
+    try {
+      names = (await fs.promises.readdir(full)) as string[];
+    } catch {
+      return [];
+    }
+    const entries = await Promise.all(
+      names.map(async (name) => {
+        const path = dirPath ? `${dirPath}/${name}` : name;
+        try {
+          const st = (await fs.promises.stat(`${full}/${name}`)) as {
+            isDirectory(): boolean;
+            size?: number;
+          };
+          return { name, path, isDir: st.isDirectory(), size: st.size ?? 0 } satisfies RepoEntry;
+        } catch {
+          return { name, path, isDir: false, size: 0 } satisfies RepoEntry;
+        }
+      }),
+    );
+    return entries.sort((a, b) =>
+      a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name),
+    );
   }
 
   async getHook(repoPath: string, type: HookType): Promise<string | null> {

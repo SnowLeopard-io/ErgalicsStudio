@@ -186,6 +186,36 @@ describe('mkdirp regression (§3.1 nested writes)', () => {
   });
 });
 
+// ---- ②b readDir (file explorer listings) ------------------------------------
+
+describe('readDir (§3.1 tree listings)', () => {
+  it('lists dirs first, then files, with sizes; missing dirs yield []', async () => {
+    const { adapter } = makeAdapter();
+    const repo = nextRepo();
+    await adapter.init(repo, 'standard');
+    await adapter.writeFile(repo, 'runs/run-1.json', '{"id":"run-1"}');
+
+    const root = await adapter.readDir(repo, '');
+    const names = root.map((e) => e.name);
+    // .git / .ergalics / data / figures / runs / ... all present at root.
+    expect(names).toContain('.gitignore');
+    expect(names).toContain('runs');
+    expect(names).toContain('project.clproj');
+    // Directories sort before files.
+    expect(root.filter((e) => e.isDir).length).toBeGreaterThan(0);
+    const firstFile = root.findIndex((e) => !e.isDir);
+    expect(root.slice(firstFile).some((e) => e.isDir)).toBe(false);
+
+    const runs = await adapter.readDir(repo, 'runs');
+    const run1 = runs.find((e) => e.name === 'run-1.json');
+    expect(run1?.isDir).toBe(false);
+    expect(run1?.size).toBeGreaterThan(0);
+
+    // Missing directory → [] rather than a throw (explorer UX contract).
+    expect(await adapter.readDir(repo, 'does/not/exist')).toEqual([]);
+  });
+});
+
 // ---- ② init → status → add → commit → log full chain -----------------------
 
 describe('init → status → add → commit → log (§3.3)', () => {

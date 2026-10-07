@@ -30,6 +30,7 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  RepoEntry,
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
@@ -362,6 +363,40 @@ export class NodeGitAdapter implements GitAdapter {
     const fs = await import('fs/promises');
     const path = await import('path');
     return fs.readFile(path.join(repoPath, filePath), 'utf-8');
+  }
+
+  async readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const full = path.join(repoPath, dirPath ?? '');
+    let dirents: import('fs').Dirent[];
+    try {
+      dirents = await fs.readdir(full, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const entries = await Promise.all(
+      dirents.map(async (d) => {
+        const isDir = d.isDirectory();
+        let size = 0;
+        if (!isDir) {
+          try {
+            size = (await fs.stat(path.join(full, d.name))).size;
+          } catch {
+            // Raced with a deletion — size 0 is fine for a listing.
+          }
+        }
+        return {
+          name: d.name,
+          path: dirPath ? `${dirPath}/${d.name}` : d.name,
+          isDir,
+          size,
+        } satisfies RepoEntry;
+      }),
+    );
+    return entries.sort((a, b) =>
+      a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name),
+    );
   }
 
   async getHook(repoPath: string, type: HookType): Promise<string | null> {

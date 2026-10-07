@@ -112,6 +112,9 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('cleaning', () => import('@/pages/labs/CleaningWizardPage'), {
     icon: 'cleaning', titleKey: 'tool.cleaning.title', group: 'data', requireProject: true,
   }),
+  tool('files', () => import('@/pages/labs/FileExplorerPage'), {
+    icon: 'files', titleKey: 'tool.files.title', group: 'data', requireProject: true,
+  }),
   tool('gallery', () => import('@/pages/gallery/GalleryPage'), {
     icon: 'gallery', titleKey: 'tool.gallery.title', group: 'deliver',
   }),

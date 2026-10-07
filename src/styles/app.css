@@ -495,6 +495,137 @@
   font-weight: 700;
 }
 
+/* ---- File explorer (/studio/files) ------------------------------------- */
+.explorer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+.explorer-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 34%) 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+.explorer-tree {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2);
+  max-height: 60vh;
+  overflow: auto;
+}
+.explorer-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+.explorer-node:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.explorer-node.is-active {
+  background: var(--color-accent-soft, rgba(45, 212, 191, 0.14));
+  color: var(--color-text-primary);
+}
+.explorer-twisty {
+  width: 12px;
+  flex: none;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+.explorer-twisty.is-open {
+  transform: rotate(90deg);
+}
+.explorer-twisty.is-leaf {
+  visibility: hidden;
+}
+.explorer-name.is-dir {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.explorer-size {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+.explorer-empty {
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+.explorer-view {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3);
+  min-height: 200px;
+}
+.explorer-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.explorer-crumb code {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+.explorer-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+.explorer-pre {
+  margin: 0;
+  max-height: 48vh;
+  overflow: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.explorer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+.explorer-guide {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+.explorer-guide-list {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.explorer-guide-list li::before {
+  content: '▸ ';
+  color: var(--color-text-tertiary);
+}
+
 .sidebar-actions {
   display: flex;
   flex-direction: column;

@@ -134,6 +134,17 @@ export interface GitHook {
   content: string;
 }
 
+/** One entry of a repo directory listing (file explorer §UI). */
+export interface RepoEntry {
+  /** Base name ('run-42.json'), not the full path. */
+  name: string;
+  /** Repo-relative path ('runs/run-42.json'). */
+  path: string;
+  isDir: boolean;
+  /** File size in bytes (0 for directories / unknown). */
+  size: number;
+}
+
 export interface GitAdapter {
   // Repository lifecycle
   init(repoPath: string, template?: 'standard' | 'minimal'): Promise<void>;
@@ -174,6 +185,10 @@ export interface GitAdapter {
   /** Read a plain-text file from the repo working tree (UTF-8 decoded).
    *  Used to read run indexes and cloned project.clproj files. */
   readFile(repoPath: string, filePath: string): Promise<string>;
+
+  /** List one directory of the repo working tree. Directories first, then
+   *  files, each alphabetically. Missing dirs yield [] (never throw). */
+  readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]>;
 
   // Utilities
   getRootDir(repoPath: string): Promise<string | null>;
