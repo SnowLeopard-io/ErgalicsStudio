@@ -34,7 +34,6 @@ const CodeEditor = lazy(() =>
 let restoreStarted = false;
 
 export default function WorkbenchPage() {
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
   const t = useT();
   const location = useLocation();
@@ -121,7 +120,8 @@ export default function WorkbenchPage() {
               <CodeEditor />
             ) : (
               <>
-                {sidebarOpen && <Sidebar />}
+                {/* Sidebar 自己处理收起态（渲染为贴边小按钮），始终挂载。 */}
+                <Sidebar />
                 <CentralArea />
                 <RightPanel />
               </>

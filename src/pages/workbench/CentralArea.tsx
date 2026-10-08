@@ -236,14 +236,24 @@ export function CentralArea() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    // 面板拖拽 / 窗口缩放会改变宿主尺寸：2D 画布的 CSS 尺寸跟着变，但
+    // 位图仍是旧尺寸——若不重绘，旧位图会被拉伸变形（横向压扁/拉宽）。
+    // 触发活动插件重绘即可：插件每次绘制都以 `canvas.width = clientWidth`
+    // 重新分配位图并从数据重画（rAF 合并同帧的多次 RO 回调）。
+    let raf = 0;
     const obs = new ResizeObserver(() => {
       if (canvasRef.current) {
         canvasRef.current.style.width = '100%';
         canvasRef.current.style.height = '100%';
       }
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => rerenderActivePlugin());
     });
     obs.observe(canvasRef.current);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const handleDrop = async (e: React.DragEvent) => {

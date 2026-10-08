@@ -7,11 +7,12 @@ import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, ChevronRightIcon, ChevronLeftIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { useAppStore } from '@/stores/appStore';
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
@@ -64,6 +65,8 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
   const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -117,8 +120,26 @@ export function Sidebar() {
     persistCollapsedGroups(next);
   };
 
+  // 收起态：侧栏本体不渲染，只在其原位置（中央区左侧）露一个窄的
+  // 展开按钮，点击恢复展开。
+  if (!sidebarOpen) {
+    return (
+      <button
+        type="button"
+        className="panel-edge-btn panel-edge-left"
+        aria-label={t('ux.panel.expand_sidebar')}
+        title={t('ux.panel.expand_sidebar')}
+        onClick={toggleSidebar}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+    );
+  }
+
   return (
-    <aside className="sidebar" style={{ width: resize.width }}>
+    // 手柄挂在包裹层而非侧栏内部：侧栏 overflow 会裁剪超出边界的部分，
+    // 感应区必须整体落在侧栏右缘外才完整可命中。
+    <div className="panel-wrap" style={{ width: resize.width }}>
       <div
         className="panel-resize-handle panel-resize-right"
         role="separator"
@@ -129,6 +150,16 @@ export function Sidebar() {
         onPointerMove={resize.onPointerMove}
         onPointerUp={resize.onPointerUp}
       />
+      <button
+        type="button"
+        className="panel-collapse-btn panel-collapse-right"
+        aria-label={t('ux.panel.collapse_sidebar')}
+        title={t('ux.panel.collapse_sidebar')}
+        onClick={toggleSidebar}
+      >
+        <ChevronLeftIcon size={12} />
+      </button>
+      <aside className="sidebar">
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.project')}</h3>
         {recent.length > 0 ? (
@@ -217,6 +248,7 @@ export function Sidebar() {
       />
 
       <PluginDialog open={pluginOpen} onClose={() => { setPluginOpen(false); setPluginFocusId(undefined); }} focusId={pluginFocusId} />
-    </aside>
+      </aside>
+    </div>
   );
 }

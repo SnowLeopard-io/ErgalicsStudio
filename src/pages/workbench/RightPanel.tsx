@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 
 export function RightPanel() {
   const t = useT();
@@ -16,7 +17,8 @@ export function RightPanel() {
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
-  const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520);
+  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
+  const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
   useEffect(() => {
@@ -53,10 +55,26 @@ export function RightPanel() {
     emit(`plugin:${activeId}:params`, { [key]: value });
   };
 
-  if (!rightPanelOpen) return null;
+  // 收起态：面板本体不渲染，只在其原位置（中央区右侧）露一个窄的
+  // 展开按钮，点击恢复展开。
+  if (!rightPanelOpen) {
+    return (
+      <button
+        type="button"
+        className="panel-edge-btn panel-edge-right"
+        aria-label={t('ux.panel.expand_right')}
+        title={t('ux.panel.expand_right')}
+        onClick={toggleRightPanel}
+      >
+        <ChevronLeftIcon size={12} />
+      </button>
+    );
+  }
 
+  // 手柄挂在包裹层而非面板内部：面板 overflow 会裁剪超出边界的部分，
+  // 感应区必须整体落在面板左缘外才完整可命中。
   return (
-    <aside className="right-panel" style={{ width: resize.width }}>
+    <div className="panel-wrap" style={{ width: resize.width }}>
       <div
         className="panel-resize-handle panel-resize-left"
         role="separator"
@@ -67,6 +85,16 @@ export function RightPanel() {
         onPointerMove={resize.onPointerMove}
         onPointerUp={resize.onPointerUp}
       />
+      <button
+        type="button"
+        className="panel-collapse-btn panel-collapse-left"
+        aria-label={t('ux.panel.collapse_right')}
+        title={t('ux.panel.collapse_right')}
+        onClick={toggleRightPanel}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+      <aside className="right-panel">
       <h3 className="panel-title">{t('workbench.right.params')}</h3>
       {activeId && activePlugin ? (
         <>
@@ -94,6 +122,7 @@ export function RightPanel() {
           description={t('workbench.empty.subtitle')}
         />
       )}
-    </aside>
+      </aside>
+    </div>
   );
 }

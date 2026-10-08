@@ -11,7 +11,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
+import { MenuIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -29,11 +29,7 @@ export function TopBar() {
   const saveAs = useProjectStore((s) => s.saveAs);
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
-  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
@@ -81,18 +77,21 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Zone 1 — navigation: ☰ (project/plugin sidebar in Standard, mode
-          panel elsewhere), brand, current project name. */}
-      <button
-        type="button"
-        className={`icon-btn${((mode === 'standard' && sidebarOpen) || (mode !== 'standard' && modePanelOpen)) ? ' is-active' : ''}`}
-        aria-label={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        aria-pressed={mode === 'standard' ? sidebarOpen : modePanelOpen}
-        title={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        onClick={mode === 'standard' ? toggleSidebar : toggleModePanel}
-      >
-        <MenuIcon size={17} />
-      </button>
+      {/* Zone 1 — navigation: ☰ (mode panel toggle in non-standard modes;
+          in Standard the sidebar owns its edge collapse button instead),
+          brand, current project name. */}
+      {mode !== 'standard' && (
+        <button
+          type="button"
+          className={`icon-btn${modePanelOpen ? ' is-active' : ''}`}
+          aria-label={t('workbench.menu.toggle_panel')}
+          aria-pressed={modePanelOpen}
+          title={t('workbench.menu.toggle_panel')}
+          onClick={toggleModePanel}
+        >
+          <MenuIcon size={17} />
+        </button>
+      )}
 
       <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
         <span className="brand-name">Ergalics Studio</span>
@@ -251,18 +250,6 @@ export function TopBar() {
           >
             <SparklesIcon size={15} />
           </button>
-          {mode === 'standard' && (
-            <button
-              type="button"
-              className={`cluster-btn icon-only${rightPanelOpen ? ' is-active' : ''}`}
-              title={t('workbench.menu.toggle_right')}
-              aria-label={t('workbench.menu.toggle_right')}
-              aria-pressed={rightPanelOpen}
-              onClick={toggleRightPanel}
-            >
-              <PanelIcon size={15} />
-            </button>
-          )}
           <button
             type="button"
             className="cluster-btn icon-only topbar-hide-narrow"
@@ -304,9 +291,6 @@ export function TopBar() {
             { key: 'palette', label: t('ux.palette.open'), onClick: () => useCommandPaletteStore.getState().toggle() },
             { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
-            ...(mode === 'standard'
-              ? [{ key: 'right', label: t('workbench.menu.toggle_right'), onClick: toggleRightPanel }]
-              : []),
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
             { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },

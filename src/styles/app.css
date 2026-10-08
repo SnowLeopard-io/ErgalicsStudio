@@ -365,7 +365,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-2);
+  /* 左侧留白略大：品牌/项目名不再顶住屏幕左缘。 */
+  padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
 }
@@ -426,9 +427,8 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   overflow-y: auto;
-  /* The resize handle hangs 2px past the right edge (absolute) and would
-     otherwise surface a meaningless horizontal scrollbar whenever the
-     sidebar scrolls vertically. Every text row already ellipsizes. */
+  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂在
+     .panel-wrap 包裹层上，不受此裁剪影响）。 */
   overflow-x: hidden;
 }
 
@@ -6596,18 +6596,22 @@ button.start-card:hover {
   top: 0;
   bottom: 0;
   width: 5px;
-  z-index: 20;
+  /* 高于收起按钮（z-21）：按钮贴边后会盖住感应条的 5px，提层级保证
+     整条边缘全高可拖拽。 */
+  z-index: 22;
   cursor: col-resize;
   touch-action: none;
   transition: background var(--transition-fast);
 }
 
 .panel-resize-right {
-  right: -2px;
+  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中。 */
+  right: -5px;
 }
 
 .panel-resize-left {
-  left: -2px;
+  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中。 */
+  left: -5px;
 }
 
 .panel-resize-handle:hover,
@@ -6615,15 +6619,99 @@ button.start-card:hover {
   background: var(--color-accent-soft);
 }
 
-/* 侧栏/右栏本身需要相对定位才能容纳手柄。 */
-.sidebar {
+/* 面板包裹层：手柄的定位容器。面板本身 overflow 会裁剪超出边界的
+   手柄，因此手柄必须挂在包裹层上，位于面板外侧。 */
+.panel-wrap {
   position: relative;
   flex-shrink: 0;
+  display: flex;
+  min-height: 0;
 }
 
-.right-panel {
-  position: relative;
+.panel-wrap > .sidebar,
+.panel-wrap > .right-panel {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  position: static;
+}
+
+/* ---- 栏目边缘收起/展开小按钮 ---- */
+/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条。 */
+.panel-collapse-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 21;
+  width: 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.panel-collapse-right {
+  /* 紧贴侧栏边框外侧（压住 5px 感应条，感应条层级更高不受影响）。 */
+  right: -16px;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+.panel-collapse-left {
+  left: -16px;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+
+.panel-collapse-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+/* 收起态：栏目原位置只剩一个贴边窄按钮。 */
+.panel-edge-btn {
   flex-shrink: 0;
+  align-self: center;
+  width: 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.panel-edge-left {
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+.panel-edge-right {
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+
+.panel-edge-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
 }
 
 /* ---- 状态栏：可点击性能弹层 ---- */

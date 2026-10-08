@@ -54,15 +54,6 @@ export const MenuIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Right-rail layout glyph: a frame with a vertical split near the right
- *  edge, used to toggle the workbench params panel. */
-export const PanelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <path d="M15 4v16" />
-  </Svg>
-);
-
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
@@ -72,6 +63,12 @@ export const ChevronDownIcon = (p: IconProps) => (
 export const ChevronRightIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m9 6 6 6-6 6" />
+  </Svg>
+);
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 6-6 6 6 6" />
   </Svg>
 );
 
