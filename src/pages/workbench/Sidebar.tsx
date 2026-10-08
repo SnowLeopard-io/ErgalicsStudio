@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
-import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { CloseIcon, ChevronRightIcon, ChevronLeftIcon } from '@/components/icons';
+import { ChevronRightIcon, ChevronLeftIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
+import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
@@ -47,10 +46,6 @@ function persistCollapsedGroups(collapsed: Partial<Record<string, boolean>>): vo
 export function Sidebar() {
   const t = useT();
   const location = useLocation();
-  const project = useProjectStore((s) => s.project);
-  const recent = useProjectStore((s) => s.recent);
-  const openProject = useProjectStore((s) => s.openProject);
-  const remove = useProjectStore((s) => s.remove);
 
   const registry = usePluginStore((s) => s.registry);
   const activeId = usePluginStore((s) => s.activeId);
@@ -59,13 +54,12 @@ export function Sidebar() {
 
   const [pluginOpen, setPluginOpen] = useState(false);
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
-  /** Pending destructive action: project awaiting delete confirmation. */
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   /** Collapsed discipline groups (all expanded by default; persists). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
   const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const sidebarView = useAppStore((s) => s.sidebarView);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
 
   useEffect(() => {
@@ -160,33 +154,13 @@ export function Sidebar() {
         <ChevronLeftIcon size={12} />
       </button>
       <aside className="sidebar">
-      <nav className="sidebar-group">
-        <h3 className="sidebar-heading">{t('workbench.sidebar.project')}</h3>
-        {recent.length > 0 ? (
-          <ul className="recent-list">
-            {recent.map((p) => (
-              <li key={p.id} className={`recent-item ${project?.id === p.id ? 'active' : ''}`}>
-                <button type="button" className="recent-name" onClick={() => void openProject(p.id)}>
-                  {p.name || DEFAULT_PROJECT_NAME}
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn recent-delete"
-                  title={t('common.delete')}
-                  onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
-                >
-                  <CloseIcon size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState className="sidebar-plugin-empty" title={t('workbench.sidebar.no_recent')} />
-        )}
-      </nav>
+      {/* 视图内容：活动栏（ActivityBar）决定显示哪一个。项目切换下拉
+          位于顶部栏的项目名处。 */}
+      {sidebarView === 'files' && <FileExplorer />}
 
-      <GitPanel />
+      {sidebarView === 'git' && <GitPanel />}
 
+      {sidebarView === 'plugins' && (
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.plugins')}</h3>
         <button type="button" className="btn btn-sm btn-block" onClick={() => setPluginOpen(true)}>
@@ -233,19 +207,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Deleting a project is irreversible — confirm before removing. */}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('common.delete')}
-        message={t('project.remove_confirm')}
-        name={deleteTarget?.name}
-        confirmLabel={t('common.delete')}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-        }}
-        onClose={() => setDeleteTarget(null)}
-      />
+      )}
 
       <PluginDialog open={pluginOpen} onClose={() => { setPluginOpen(false); setPluginFocusId(undefined); }} focusId={pluginFocusId} />
       </aside>

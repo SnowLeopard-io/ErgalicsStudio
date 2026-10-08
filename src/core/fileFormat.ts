@@ -102,6 +102,9 @@ export function isSupportedDataFileName(name: string): boolean {
   return DATA_FILE_EXTENSIONS.has(name.slice(dot).toLowerCase());
 }
 
+/** Accept-list for file pickers (mirrors {@link DATA_FILE_EXTENSIONS}). */
+export const DATA_FILE_ACCEPT = Array.from(DATA_FILE_EXTENSIONS).join(',');
+
 /** Detect a file's format by magic number (and WASM where available). */
 export async function detectFormatByMagic(file: File): Promise<DetectedFormat[]> {
   const results: DetectedFormat[] = [];

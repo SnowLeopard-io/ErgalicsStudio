@@ -222,6 +222,17 @@ export const VariableIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Git branch glyph: two commits on a branch merging into a trunk. */
+export const GitBranchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="5" r="2.2" />
+    <circle cx="6" cy="19" r="2.2" />
+    <circle cx="18" cy="8" r="2.2" />
+    <path d="M6 7.2v9.6" />
+    <path d="M18 10.2c0 3-2.5 4.3-5.5 4.6-2 .2-4 .8-4.8 2" />
+  </Svg>
+);
+
 // ---- research tool glyphs -------------------------------------------------
 
 export type ToolIconKind =

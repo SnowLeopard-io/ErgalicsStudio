@@ -25,6 +25,8 @@ export function TopBar() {
   const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
+  const recent = useProjectStore((s) => s.recent);
+  const openProject = useProjectStore((s) => s.openProject);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
   const openFromFile = useProjectStore((s) => s.openFromFile);
@@ -97,10 +99,31 @@ export function TopBar() {
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      <button type="button" className="project-name" title={t('project.rename')} onClick={openDialog('rename')}>
-        {project?.name || DEFAULT_PROJECT_NAME}
-        {dirty && <span className="project-dirty">•</span>}
-      </button>
+      {/* 项目切换下拉：触发器即项目名，展开最近项目列表（当前项高亮）。
+          重命名等管理操作保留在右侧"项目"菜单中。 */}
+      <Dropdown
+        ariaLabel={t('workbench.sidebar.project')}
+        triggerClassName="project-name"
+        align="left"
+        trigger={
+          <span title={project?.name || DEFAULT_PROJECT_NAME}>
+            {project?.name || DEFAULT_PROJECT_NAME}
+            {dirty && <span className="project-dirty">•</span>}
+            <span className="more-caret">▾</span>
+          </span>
+        }
+        items={[
+          { key: 'recent-header', label: t('workbench.project.recent'), header: true },
+          ...(recent.length > 0
+            ? recent.map((p) => ({
+                key: p.id,
+                label: p.name || DEFAULT_PROJECT_NAME,
+                active: p.id === project?.id,
+                onClick: () => void openProject(p.id),
+              }))
+            : [{ key: 'no-recent', label: t('workbench.sidebar.no_recent'), disabled: true }]),
+        ]}
+      />
 
       <div className="topbar-actions">
         {/* Zone 2 — work modes (filled + underline double indication). */}

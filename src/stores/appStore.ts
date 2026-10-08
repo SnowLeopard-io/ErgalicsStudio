@@ -64,6 +64,9 @@ const DEFAULT_PERF: PerfMetrics = {
   warnings: { fps: false, memory: false, compute: false },
 };
 
+/** Which view the standard-mode sidebar shows (driven by the activity bar). */
+export type SidebarView = 'files' | 'plugins' | 'git';
+
 interface AppStore {
   status: PluginHostStatus;
   banners: Banner[];
@@ -80,6 +83,8 @@ interface AppStore {
   modePanelOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
+  /** Current sidebar view (activity bar selection in Standard mode). */
+  sidebarView: SidebarView;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -103,6 +108,7 @@ interface AppStore {
   toggleRightPanel: () => void;
   toggleModePanel: () => void;
   setMode: (mode: WorkbenchMode) => void;
+  setSidebarView: (view: SidebarView) => void;
 }
 
 let bannerId = 0;
@@ -116,7 +122,14 @@ const MEMORY_WARN_MB = 0.8 * 512;
 /** Panel visibility persists across reloads so a deliberately closed sidebar
  *  (or code/flow panel) stays closed next launch. */
 const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
-const PANEL_DEFAULTS = { sidebarOpen: true, rightPanelOpen: true, modePanelOpen: true } as const;
+const PANEL_DEFAULTS = {
+  sidebarOpen: true,
+  rightPanelOpen: true,
+  modePanelOpen: true,
+  sidebarView: 'plugins' as SidebarView,
+};
+
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git'];
 
 function loadPanelPrefs(): typeof PANEL_DEFAULTS {
   try {
@@ -127,13 +140,21 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
       rightPanelOpen: parsed.rightPanelOpen ?? PANEL_DEFAULTS.rightPanelOpen,
       modePanelOpen: parsed.modePanelOpen ?? PANEL_DEFAULTS.modePanelOpen,
+      sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
+        ? (parsed.sidebarView as SidebarView)
+        : PANEL_DEFAULTS.sidebarView,
     };
   } catch {
     return { ...PANEL_DEFAULTS };
   }
 }
 
-const persistPanelPrefs = (s: { sidebarOpen: boolean; rightPanelOpen: boolean; modePanelOpen: boolean }) => {
+const persistPanelPrefs = (s: {
+  sidebarOpen: boolean;
+  rightPanelOpen: boolean;
+  modePanelOpen: boolean;
+  sidebarView: SidebarView;
+}) => {
   try {
     localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
   } catch {
@@ -151,6 +172,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
   modePanelOpen: panelPrefs.modePanelOpen,
+  sidebarView: panelPrefs.sidebarView,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -255,6 +277,22 @@ export const useAppStore = create<AppStore>((set, get) => {
         .then((m) => m.usePluginStore.getState().deactivate())
         .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
     }
+  },
+
+  /** Activity-bar click: switch the sidebar view and open the sidebar.
+   *  Clicking the already-active view while open collapses the sidebar
+   *  (VS Code behaviour) — a second click re-opens it. */
+  setSidebarView: (view) => {
+    const s = get();
+    if (view === s.sidebarView && s.sidebarOpen) {
+      s.toggleSidebar();
+      return;
+    }
+    set((st) => {
+      const next = { ...st, sidebarView: view, sidebarOpen: true };
+      persistPanelPrefs(next);
+      return next;
+    });
   },
   };
 });
