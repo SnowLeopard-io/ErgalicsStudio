@@ -637,6 +637,11 @@ export const enUS: LocaleDictionary = {
   'supplement.include_lock': 'Attach repro.lock (data/code/params/seed fingerprints)',
   'supplement.hint': 'Run records and the lineage graph are generated from the project history automatically.',
   'supplement.build': 'Package & download',
+  // ---- labs artifact save-to-workspace ----
+  'labs.save_ws': 'Save to workspace',
+  'labs.saved_ws': 'Saved to workspace: {path}',
+  'labs.save_failed': 'Failed to save to workspace',
+  'labs.no_project': 'No project open — cannot save to the workspace',
   'supplement.building': 'Packaging…',
   'supplement.done': 'Supplement downloaded',
   'supplement.failed': 'Packaging failed: {reason}',

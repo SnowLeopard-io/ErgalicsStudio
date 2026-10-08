@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { useProjectStore } from '@/stores/projectStore';
+import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { useEditorStore } from '@/stores/editorStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseCodeToIR } from '@/editor/code/parse';
@@ -189,7 +190,9 @@ export default function CleaningWizardPage() {
         inputsHash: hashString(fileName + source.rows.length),
         outputFileIds: fileId ? [fileId] : [],
       });
-      setNote(t('clean.output_saved', { name }));
+      // 同步一份到项目工作区 data/（重名自动加序号），文件资源管理器立即可见。
+      const wsPath = await saveTextArtifact(project, 'data', name, csv);
+      setNote(t('labs.saved_ws', { path: wsPath }));
     } catch (err) {
       setError(isCleaningError(err) ? t(`clean.error.${err.code}`) : String(err));
     }

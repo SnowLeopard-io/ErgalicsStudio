@@ -641,6 +641,11 @@ export const zhCN: LocaleDictionary = {
   'supplement.include_lock': '附带 repro.lock（数据/代码/参数/种子指纹）',
   'supplement.hint': '运行记录与血缘自动从项目历史生成，无需填写。',
   'supplement.build': '打包并下载',
+  // ---- labs 工件保存到工作区 ----
+  'labs.save_ws': '保存到工作区',
+  'labs.saved_ws': '已保存到工作区：{path}',
+  'labs.save_failed': '保存到工作区失败',
+  'labs.no_project': '未打开项目，无法保存到工作区',
   'supplement.building': '打包中…',
   'supplement.done': '补充材料已下载',
   'supplement.failed': '打包失败：{reason}',

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAppStore } from '@/stores/appStore';
+import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
@@ -33,6 +35,7 @@ function safeName(s: string): string {
 export default function AnalysisPage() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
+  const notify = useAppStore((s) => s.notify);
 
   const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
 
@@ -129,6 +132,48 @@ export default function AnalysisPage() {
   };
   const onExportPdf = () => {
     if (preview) void exportPDF(preview.markup, `${safeName(baseName())}.pdf`);
+  };
+
+  /** Save the chart SVG into the project workspace (figures/). */
+  const onSaveToWorkspace = () => {
+    if (!preview) return;
+    const project = useProjectStore.getState().project;
+    if (!project) {
+      setParseError(t('labs.no_project'));
+      return;
+    }
+    void saveTextArtifact(
+      project,
+      'figures',
+      `${safeName(baseName())}.svg`,
+      preview.markup,
+    )
+      .then((path) => notify('success', t('labs.saved_ws', { path })))
+      .catch((err) =>
+        setParseError(err instanceof Error ? err.message : String(err)),
+      );
+  };
+
+  /** Save the statistical test result into the workspace (runs/) as a JSON
+   *  snapshot — one file per run, matching the repo's runs/ convention. */
+  const onSaveTestResult = () => {
+    const p = useProjectStore.getState().project;
+    if (!p) {
+      notify('error', t('labs.no_project'));
+      return;
+    }
+    const snapshot = {
+      kind: 'stats-test',
+      savedAt: new Date().toISOString(),
+      source: file,
+      test: testKind,
+      columns: testB ? [testA, testB] : [testA],
+      result: testResult,
+    };
+    const name = `${safeName(baseName())}-${testKind}.json`;
+    void saveTextArtifact(p, 'runs', name, JSON.stringify(snapshot, null, 2))
+      .then((path) => notify('success', t('labs.saved_ws', { path })))
+      .catch(() => notify('error', t('labs.save_failed')));
   };
 
   const showSummary = () => {
@@ -302,6 +347,9 @@ export default function AnalysisPage() {
                   <button type="button" className="btn" onClick={onExportPdf}>
                     {t('analysis.export_pdf')}
                   </button>
+                  <button type="button" className="btn btn-primary" onClick={onSaveToWorkspace}>
+                    {t('labs.save_ws')}
+                  </button>
                 </div>
               </div>
             )}
@@ -367,7 +415,14 @@ export default function AnalysisPage() {
               </button>
             </div>
             {testResult && (
-              <pre className="analysis-output">{`${t('analysis.result')}: ${testResult}`}</pre>
+              <>
+                <pre className="analysis-output">{`${t('analysis.result')}: ${testResult}`}</pre>
+                <div className="analysis-actions">
+                  <button type="button" className="btn btn-primary" onClick={onSaveTestResult}>
+                    {t('labs.save_ws')}
+                  </button>
+                </div>
+              </>
             )}
             <NarrativePanel input={narrativeInput} />
           </>
