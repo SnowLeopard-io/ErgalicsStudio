@@ -6758,17 +6758,6 @@ button.start-card:hover {
   border-color: var(--color-accent);
 }
 
-/* 内嵌科研套件打开时：收起按钮平时隐入套件画面（套件视觉上填满中央区，
-   不再露出侧栏边的实心小块），悬停/聚焦时浮现，收起功能始终可用。 */
-body:has(.central-tool-view) .panel-collapse-btn {
-  opacity: 0;
-}
-
-body:has(.central-tool-view) .panel-collapse-btn:hover,
-body:has(.central-tool-view) .panel-collapse-btn:focus-visible {
-  opacity: 1;
-}
-
 /* 收起态：栏目原位置只剩一个贴边窄按钮。 */
 .panel-edge-btn {
   flex-shrink: 0;
@@ -7393,9 +7382,8 @@ body:has(.central-tool-view) .panel-collapse-btn:focus-visible {
 /* Opaque overlay over the plugin canvas — same contract as the file preview:
    the canvas stays mounted underneath, closing never re-initializes scenes.
    z-index 20 stays BELOW the panel collapse buttons (21) and resize handles
-   (22) so panels stay collapsible while a suite is open; the buttons hover-
-   reveal instead (see .panel-collapse-btn) so the suite still reads as
-   edge-to-edge filled. */
+   (22) so panels stay collapsible/resizable while a suite is open; the small
+   edge buttons may overlap the suite — accepted trade-off. */
 .central-tool-view {
   position: absolute;
   inset: 0;
