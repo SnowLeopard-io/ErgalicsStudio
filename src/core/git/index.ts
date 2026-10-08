@@ -5,6 +5,8 @@
 import { GitAdapter } from './types';
 import { IsomorphicGitAdapter } from './isomorphic-adapter';
 
+export type { RepoEntry } from './types';
+
 let nodeAdapter: GitAdapter | null = null;
 
 export function getGitAdapter(): GitAdapter {

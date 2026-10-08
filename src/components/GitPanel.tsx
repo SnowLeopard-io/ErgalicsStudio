@@ -11,7 +11,7 @@ import { getGitCorsProxy, setGitCorsProxy } from '@/core/git/isomorphic-adapter'
  * recent-commit log. Remote failures surface through the shared notify
  * channel; deeper flows (diff viewer, conflict wizard) land with Phase 4.
  */
-export function GitPanel() {
+export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const gitRepo = useProjectStore((s) => s.gitRepo);
@@ -25,12 +25,26 @@ export function GitPanel() {
   const [cloneStatus, setCloneStatus] = useState('');
   const [proxy, setProxy] = useState(getGitCorsProxy());
   const [busy, setBusy] = useState(false);
+  // The panel ships COLLAPSED: most users never configure a CORS proxy, so
+  // spending sidebar space (and a status scan) on Git by default is noise.
+  // The choice persists per browser. The dedicated git activity view forces
+  // it open (`alwaysOpen`) — a collapsed panel there would just look broken.
+  const [storedOpen, setStoredOpen] = useState(
+    () => localStorage.getItem('ergalics.gitPanelOpen') === '1',
+  );
+  const open = alwaysOpen ? true : storedOpen;
 
   useEffect(() => {
-    if (!project) return;
+    if (!project || !open) return;
     void useProjectStore.getState().refreshGitStatus();
     void useProjectStore.getState().loadGitLog();
-  }, [project?.id]);
+  }, [project?.id, open]);
+
+  const toggle = (next: boolean) => {
+    if (alwaysOpen) return;
+    setStoredOpen(next);
+    localStorage.setItem('ergalics.gitPanelOpen', next ? '1' : '0');
+  };
 
   if (!project) return null;
 
@@ -143,8 +157,26 @@ export function GitPanel() {
       : '';
 
   return (
-    <nav className="sidebar-group git-panel">
-      <h3 className="sidebar-heading">{t('git.panel_title')}</h3>
+    <details className="sidebar-group git-panel" open={open} onToggle={(e) => toggle((e.target as HTMLDetailsElement).open)}>
+      <summary
+        className="git-panel-summary"
+        title={t('git.panel_title')}
+        onClick={(e) => {
+          // 常开模式下 summary 的原生折叠行为被禁用。
+          if (alwaysOpen) e.preventDefault();
+        }}
+      >
+        <span className="git-panel-caret">▸</span>
+        <span>{t('git.panel_title')}</span>
+        {repo && (
+          <span className="git-panel-badge" title={repo.currentBranch}>
+            ⎇ {repo.currentBranch}
+            {pending > 0 && <b className="git-pending-dot">{pending}</b>}
+          </span>
+        )}
+      </summary>
+      {open && (
+        <>
       <div className="git-clone-row">
         <input
           className="git-clone-input"
@@ -294,8 +326,10 @@ export function GitPanel() {
             </ul>
           )}
           {gitLoading && <span className="spinner" />}
+          </>
+        )}
         </>
       )}
-    </nav>
+    </details>
   );
 }

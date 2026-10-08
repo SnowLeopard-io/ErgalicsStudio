@@ -19,7 +19,7 @@ import { isSupportedDataFileName } from './fileFormat';
 // datasets (geo/point-cloud/flux JSON — hundreds of KB each) out of the
 // first-screen bundle and fetches them on demand when actually opened.
 // `Object.keys` still enumerates names synchronously for pickers.
-const bundledFiles = import.meta.glob('../../examples/data/*', {
+const bundledFiles = import.meta.glob('../../examples/data/**/*', {
   query: '?raw',
   import: 'default',
 }) as Record<string, () => Promise<string>>;

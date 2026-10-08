@@ -3,12 +3,13 @@
 //
 // All 14 grid-registered tools (the general analysis surface keeps its own
 // workbench button) grouped into the five mutually-exclusive discipline
-// groups. A filter box flattens the groups while searching. Cards record
-// recency (shared with the top-bar launcher) and route to /studio/<id>.
+// groups. A filter box flattens the groups while searching. Cards route into
+// the workbench with the suite embedded in the central canvas (shared recency
+// with the top-bar launcher).
 // ==========================================================================
 
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { ToolIcon, ArrowRightIcon, SearchIcon, CloseIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
@@ -16,13 +17,15 @@ import {
   GRID_GROUPS,
   GRID_TOOLS,
   getTool,
+  openToolEmbedded,
   type ResearchGroupId,
 } from '@/pages/research/toolRegistry';
-import { getRecentTools, recordTool } from '@/core/recentTools';
+import { getRecentTools } from '@/core/recentTools';
 
 export function ToolGrid() {
   const t = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();
@@ -46,10 +49,9 @@ export function ToolGrid() {
   }, [q]);
 
   const open = (id: string) => {
-    const toolDef = getTool(id);
-    if (!toolDef) return;
-    recordTool(id);
-    navigate(toolDef.path);
+    if (!getTool(id)) return;
+    // Enter the workbench with the suite embedded in the central canvas.
+    openToolEmbedded(navigate, id, pathname);
   };
 
   return (

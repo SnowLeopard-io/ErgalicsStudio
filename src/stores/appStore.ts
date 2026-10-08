@@ -64,6 +64,38 @@ const DEFAULT_PERF: PerfMetrics = {
   warnings: { fps: false, memory: false, compute: false },
 };
 
+/** Which view the standard-mode sidebar shows (driven by the activity bar). */
+export type SidebarView = 'files' | 'plugins' | 'git';
+
+/** Kind of the central file preview — decides which view CentralArea renders. */
+export type FilePreviewKind =
+  | 'text'
+  | 'markdown'
+  | 'image'
+  | 'pdf'
+  | 'video'
+  | 'audio'
+  | 'unknown';
+
+/** A file opened for preview in the central canvas area. */
+export interface FilePreviewState {
+  /** Display name (file name with extension). */
+  name: string;
+  /** Full path within the project tree (shown as tooltip). */
+  path: string;
+  /** Preview kind — decides which view CentralArea renders. */
+  kind: FilePreviewKind;
+  /** Detected MIME type for the file. */
+  mimeType: string;
+  /** Text-like content (kind=text/markdown). */
+  content?: string;
+  /** Binary blob URL (kind=image/pdf/video/audio; created by the opener,
+   *  revoked by the closer). */
+  blobUrl?: string;
+  /** File size in bytes. */
+  size: number;
+}
+
 interface AppStore {
   status: PluginHostStatus;
   banners: Banner[];
@@ -80,6 +112,20 @@ interface AppStore {
   modePanelOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
+  /** Current sidebar view (activity bar selection in Standard mode). */
+  sidebarView: SidebarView;
+  /** File opened for read-only preview in the canvas area (or null). */
+  filePreview: FilePreviewState | null;
+  /**
+   * Research suite embedded in the Standard-mode central canvas (tool
+   * registry id, or null). Mirrors the file-preview overlay pattern: the
+   * canvas stays mounted underneath, so closing never re-initializes scenes.
+   */
+  embeddedTool: string | null;
+  /** Monotonic bump whenever the working tree changes from outside the
+   *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
+   *  refresh its listings. */
+  fileOpsVersion: number;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -103,6 +149,11 @@ interface AppStore {
   toggleRightPanel: () => void;
   toggleModePanel: () => void;
   setMode: (mode: WorkbenchMode) => void;
+  setSidebarView: (view: SidebarView) => void;
+  setFilePreview: (preview: FilePreviewState | null) => void;
+  /** Embed (or close, with null) a research suite in the central canvas. */
+  setEmbeddedTool: (id: string | null) => void;
+  bumpFileOps: () => void;
 }
 
 let bannerId = 0;
@@ -116,7 +167,14 @@ const MEMORY_WARN_MB = 0.8 * 512;
 /** Panel visibility persists across reloads so a deliberately closed sidebar
  *  (or code/flow panel) stays closed next launch. */
 const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
-const PANEL_DEFAULTS = { sidebarOpen: true, rightPanelOpen: true, modePanelOpen: true } as const;
+const PANEL_DEFAULTS = {
+  sidebarOpen: true,
+  rightPanelOpen: true,
+  modePanelOpen: true,
+  sidebarView: 'plugins' as SidebarView,
+};
+
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git'];
 
 function loadPanelPrefs(): typeof PANEL_DEFAULTS {
   try {
@@ -127,13 +185,21 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
       rightPanelOpen: parsed.rightPanelOpen ?? PANEL_DEFAULTS.rightPanelOpen,
       modePanelOpen: parsed.modePanelOpen ?? PANEL_DEFAULTS.modePanelOpen,
+      sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
+        ? (parsed.sidebarView as SidebarView)
+        : PANEL_DEFAULTS.sidebarView,
     };
   } catch {
     return { ...PANEL_DEFAULTS };
   }
 }
 
-const persistPanelPrefs = (s: { sidebarOpen: boolean; rightPanelOpen: boolean; modePanelOpen: boolean }) => {
+const persistPanelPrefs = (s: {
+  sidebarOpen: boolean;
+  rightPanelOpen: boolean;
+  modePanelOpen: boolean;
+  sidebarView: SidebarView;
+}) => {
   try {
     localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
   } catch {
@@ -151,6 +217,10 @@ export const useAppStore = create<AppStore>((set, get) => {
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
   modePanelOpen: panelPrefs.modePanelOpen,
+  sidebarView: panelPrefs.sidebarView,
+  filePreview: null,
+  embeddedTool: null,
+  fileOpsVersion: 0,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -256,5 +326,56 @@ export const useAppStore = create<AppStore>((set, get) => {
         .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
     }
   },
+
+  /** Activity-bar click: switch the sidebar view and open the sidebar.
+   *  Clicking the already-active view while open collapses the sidebar
+   *  (VS Code behaviour) — a second click re-opens it. */
+  setSidebarView: (view) => {
+    const s = get();
+    if (view === s.sidebarView && s.sidebarOpen) {
+      s.toggleSidebar();
+      return;
+    }
+    set((st) => {
+      const next = { ...st, sidebarView: view, sidebarOpen: true };
+      persistPanelPrefs(next);
+      return next;
+    });
+  },
+
+  /** Open (or close) the read-only file preview in the canvas area. Revokes
+   *  the previous preview's blob URL (created by the opener) so memory is
+   *  not leaked when switching between binary previews. Both central-canvas
+   *  overlays (file preview / embedded suite) are mutually exclusive. */
+  setFilePreview: (preview) => {
+    const prev = get().filePreview;
+    if (prev?.blobUrl && preview?.blobUrl !== prev.blobUrl) {
+      try {
+        URL.revokeObjectURL(prev.blobUrl);
+      } catch {
+        /* already revoked / not a usable URL */
+      }
+    }
+    set((s) => ({ filePreview: preview, embeddedTool: preview ? null : s.embeddedTool }));
+  },
+
+  /** Embed (or close) a research suite in the central canvas. Opening one
+   *  takes over the canvas surface: any file preview is dismissed and the
+   *  active plugin is deactivated — it would otherwise keep rendering into
+   *  the hidden canvas and burning GPU/CPU (same as a mode switch). */
+  setEmbeddedTool: (id) => {
+    set((s) => ({ embeddedTool: id, filePreview: id ? null : s.filePreview }));
+    if (id) {
+      // Lazy import keeps appStore free of a pluginStore cycle.
+      void import('./pluginStore')
+        .then((m) => {
+          const ps = m.usePluginStore.getState();
+          if (ps.activeId) return ps.deactivate();
+        })
+        .catch((err) => logger.error('appStore', 'deactivate on tool embed failed', err));
+    }
+  },
+
+  bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
   };
 });

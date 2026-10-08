@@ -28,6 +28,7 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  RepoEntry,
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
@@ -609,6 +610,133 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async readFile(repoPath: string, filePath: string): Promise<string> {
     const data = await this.getFS().promises.readFile(`${repoPath}/${filePath}`);
     return typeof data === 'string' ? data : new TextDecoder().decode(data);
+  }
+
+  async writeFileBinary(repoPath: string, filePath: string, data: Uint8Array): Promise<void> {
+    const fs = this.getFS();
+    const fullPath = `${repoPath}/${filePath}`;
+    await mkdirp(fs, fullPath.substring(0, fullPath.lastIndexOf('/')));
+    await fs.promises.writeFile(fullPath, data);
+  }
+
+  async readFileBinary(repoPath: string, filePath: string): Promise<Uint8Array> {
+    const data = await this.getFS().promises.readFile(`${repoPath}/${filePath}`);
+    if (typeof data === 'string') return new TextEncoder().encode(data);
+    return data instanceof Uint8Array ? data : new Uint8Array(data as unknown as ArrayBuffer);
+  }
+
+  /** Recursively unlink every file under `dir` then remove the empty dir
+   *  (LightningFS `rmdir` only removes empty directories). */
+  private async removeTree(fs: LightningFS, dir: string): Promise<void> {
+    let names: string[];
+    try {
+      names = (await fs.promises.readdir(dir)) as string[];
+    } catch {
+      return; // Already gone — nothing to do.
+    }
+    for (const name of names) {
+      const child = `${dir}/${name}`;
+      const st = (await fs.promises.stat(child)) as { isDirectory(): boolean };
+      if (st.isDirectory()) {
+        await this.removeTree(fs, child);
+      } else {
+        await fs.promises.unlink(child);
+      }
+    }
+    await fs.promises.rmdir(dir).catch(() => {});
+  }
+
+  /** Recursively copy a directory tree (used to move dirs on fs without a
+   *  rename primitive — LightningFS has no copyFile either). */
+  private async copyTree(fs: LightningFS, fromDir: string, toDir: string): Promise<void> {
+    await mkdirp(fs, toDir);
+    const names = (await fs.promises.readdir(fromDir)) as string[];
+    for (const name of names) {
+      const fromChild = `${fromDir}/${name}`;
+      const toChild = `${toDir}/${name}`;
+      const st = (await fs.promises.stat(fromChild)) as { isDirectory(): boolean };
+      if (st.isDirectory()) {
+        await this.copyTree(fs, fromChild, toChild);
+      } else {
+        const data = (await fs.promises.readFile(fromChild)) as Uint8Array | string;
+        await fs.promises.writeFile(toChild, data);
+      }
+    }
+  }
+
+  private async isDirectory(repoPath: string, filePath: string): Promise<boolean> {
+    try {
+      const st = (await this.getFS().promises.stat(`${repoPath}/${filePath}`)) as {
+        isDirectory(): boolean;
+      };
+      return st.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  async deleteEntry(repoPath: string, targetPath: string, isDir: boolean): Promise<void> {
+    const fs = this.getFS();
+    const full = `${repoPath}/${targetPath}`;
+    try {
+      if (isDir) {
+        await this.removeTree(fs, full);
+      } else {
+        await fs.promises.unlink(full);
+      }
+    } catch (err) {
+      const e = err as GitError;
+      e.code = GIT_ERROR_CODES.NOT_FOUND;
+      throw e;
+    }
+  }
+
+  /** Move/rename via read-binary → write-new-path → delete-old (works for
+   *  files and, via copyTree/removeTree, whole directory trees). */
+  async renameEntry(repoPath: string, from: string, to: string): Promise<void> {
+    const fs = this.getFS();
+    const fromFull = `${repoPath}/${from}`;
+    const toFull = `${repoPath}/${to}`;
+    await mkdirp(fs, toFull.substring(0, toFull.lastIndexOf('/')));
+    if (await this.isDirectory(repoPath, from)) {
+      await this.copyTree(fs, fromFull, toFull);
+      await this.removeTree(fs, fromFull);
+    } else {
+      const data = (await fs.promises.readFile(fromFull)) as Uint8Array | string;
+      await fs.promises.writeFile(toFull, data);
+      await fs.promises.unlink(fromFull);
+    }
+  }
+
+  /** LightningFS readdir yields bare names — stat each child for the
+   *  dir/file split. N+1 stats are fine: explorer listings are small and
+   *  lazy per directory. */
+  async readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]> {
+    const fs = this.getFS();
+    const full = dirPath ? `${repoPath}/${dirPath}` : repoPath;
+    let names: string[];
+    try {
+      names = (await fs.promises.readdir(full)) as string[];
+    } catch {
+      return [];
+    }
+    const entries = await Promise.all(
+      names.map(async (name) => {
+        const path = dirPath ? `${dirPath}/${name}` : name;
+        try {
+          const st = (await fs.promises.stat(`${full}/${name}`)) as {
+            isDirectory(): boolean;
+            size?: number;
+          };
+          return { name, path, isDir: st.isDirectory(), size: st.size ?? 0 } satisfies RepoEntry;
+        } catch {
+          return { name, path, isDir: false, size: 0 } satisfies RepoEntry;
+        }
+      }),
+    );
+    return entries.sort((a, b) =>
+      a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name),
+    );
   }
 
   async getHook(repoPath: string, type: HookType): Promise<string | null> {

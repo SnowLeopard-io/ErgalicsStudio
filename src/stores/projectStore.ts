@@ -250,7 +250,7 @@ function scheduleDirtyFlush() {
   }, DIRTY_FLUSH_DELAY_MS);
 }
 
-function getProjectRepoPath(project: Project): string {
+export function getProjectRepoPath(project: Project): string {
   // LightningFS resolves paths against its own "/" root: a RELATIVE repo path
   // makes isomorphic-git's internal dirname('x') → '.', which CacheFS cannot
   // look up ("ENOENT: ." — every git op died silently until now). Always

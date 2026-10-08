@@ -30,6 +30,7 @@ import {
   PullOptions,
   DiffOptions,
   HookType,
+  RepoEntry,
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
@@ -362,6 +363,76 @@ export class NodeGitAdapter implements GitAdapter {
     const fs = await import('fs/promises');
     const path = await import('path');
     return fs.readFile(path.join(repoPath, filePath), 'utf-8');
+  }
+
+  async writeFileBinary(repoPath: string, filePath: string, data: Uint8Array): Promise<void> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const fullPath = path.join(repoPath, filePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, data);
+  }
+
+  async readFileBinary(repoPath: string, filePath: string): Promise<Uint8Array> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const buf = await fs.readFile(path.join(repoPath, filePath));
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+
+  async deleteEntry(repoPath: string, targetPath: string, isDir: boolean): Promise<void> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    // fs.rm handles files and directories (node ≥14.14); recursive cleans a
+    // whole directory tree, so `isDir` only selects safety of forcing.
+    await fs.rm(path.join(repoPath, targetPath), {
+      recursive: isDir,
+      force: false,
+    });
+  }
+
+  async renameEntry(repoPath: string, from: string, to: string): Promise<void> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const toFull = path.join(repoPath, to);
+    await fs.mkdir(path.dirname(toFull), { recursive: true });
+    // Native atomic rename (moves directories too, and stays on the same
+    // volume by construction since both live under repoPath).
+    await fs.rename(path.join(repoPath, from), toFull);
+  }
+
+  async readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const full = path.join(repoPath, dirPath ?? '');
+    let dirents: import('fs').Dirent[];
+    try {
+      dirents = await fs.readdir(full, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const entries = await Promise.all(
+      dirents.map(async (d) => {
+        const isDir = d.isDirectory();
+        let size = 0;
+        if (!isDir) {
+          try {
+            size = (await fs.stat(path.join(full, d.name))).size;
+          } catch {
+            // Raced with a deletion — size 0 is fine for a listing.
+          }
+        }
+        return {
+          name: d.name,
+          path: dirPath ? `${dirPath}/${d.name}` : d.name,
+          isDir,
+          size,
+        } satisfies RepoEntry;
+      }),
+    );
+    return entries.sort((a, b) =>
+      a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name),
+    );
   }
 
   async getHook(repoPath: string, type: HookType): Promise<string | null> {

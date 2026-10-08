@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useAppStore } from '@/stores/appStore';
+import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { CloseIcon, ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
+import { mdToHtml } from '@/core/notebook/notebook';
+import { downloadBlob } from '@/core/download';
+import { getGitAdapter } from '@/core/git';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
 // still cached in `scene3dRef` and exposed synchronously via `getThree`, while
@@ -26,6 +31,255 @@ import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 
+function fmtSize(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+const MD_VIEWS = ['edit', 'preview', 'split'] as const;
+type MdView = (typeof MD_VIEWS)[number];
+
+/**
+ * File preview overlay (VS Code editor-area style). Renders by kind:
+ * text → monospace `<pre>`; markdown → editable preview/split with save-back
+ * to the working tree; image/pdf/video/audio → binary blob URL embed;
+ * unknown → info placeholder + download. The canvas stays mounted underneath.
+ */
+function PreviewOverlay({
+  preview,
+  onClose,
+}: {
+  preview: FilePreviewState;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const project = useProjectStore((s) => s.project);
+  const notify = useAppStore((s) => s.notify);
+  const bumpFileOps = useAppStore((s) => s.bumpFileOps);
+
+  const [view, setView] = useState<MdView>('preview');
+  const [mdText, setMdText] = useState(preview.content ?? '');
+
+  // Re-arm the draft + view whenever a different file is opened.
+  useEffect(() => {
+    setMdText(preview.content ?? '');
+    setView('preview');
+  }, [preview.path, preview.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Revoke the binary blob URL when the overlay unmounts (the store also
+  // revokes on close, so this guards the mode-switch / new-file path).
+  useEffect(() => {
+    return () => {
+      if (preview.blobUrl) {
+        try {
+          URL.revokeObjectURL(preview.blobUrl);
+        } catch {
+          /* already revoked */
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveMarkdown = async () => {
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    try {
+      await adapter.writeFile(repoPath, preview.path, mdText);
+      notify('success', t('workbench.preview.saved'));
+      bumpFileOps(); // let the explorer refresh its listings
+    } catch {
+      notify('error', t('workbench.preview.save_failed'));
+    }
+  };
+
+  const downloadFile = async () => {
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    try {
+      const blob = preview.blobUrl
+        ? await (await fetch(preview.blobUrl)).blob()
+        : new Blob([(await adapter.readFileBinary(repoPath, preview.path)) as BlobPart], {
+            type: preview.mimeType,
+          });
+      downloadBlob(preview.name, blob, preview.mimeType);
+    } catch {
+      notify('error', t('workbench.preview.download_failed'));
+    }
+  };
+
+  let body: JSX.Element;
+  switch (preview.kind) {
+    case 'text':
+      body = (
+        <>
+          <pre className="central-file-preview-content">{preview.content}</pre>
+          {(preview.content?.length ?? 0) >= 200_000 && (
+            <p className="central-file-preview-note">{t('workbench.preview.truncated')}</p>
+          )}
+        </>
+      );
+      break;
+    case 'markdown':
+      body = (
+        <div className="central-md">
+          <div className="central-md-toolbar">
+            <div className="central-md-modes" role="group" aria-label={t('workbench.preview.mode_label')}>
+              {MD_VIEWS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`explorer-pill${view === m ? ' active' : ''}`}
+                  onClick={() => setView(m)}
+                >
+                  {t(`workbench.preview.mode_${m}`)}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn btn-sm central-md-save" onClick={() => void saveMarkdown()}>
+              {t('workbench.preview.save')}
+            </button>
+          </div>
+          <div className={`central-md-body mode-${view}`}>
+            {(view === 'edit' || view === 'split') && (
+              <textarea
+                className="central-md-edit"
+                value={mdText}
+                spellCheck={false}
+                onChange={(e) => setMdText(e.target.value)}
+              />
+            )}
+            {(view === 'preview' || view === 'split') && (
+              <div
+                className="central-md-preview"
+                dangerouslySetInnerHTML={{ __html: mdToHtml(mdText) }}
+              />
+            )}
+          </div>
+        </div>
+      );
+      break;
+    case 'image':
+      body = (
+        <div className="central-file-media">
+          <img src={preview.blobUrl} alt={preview.name} />
+        </div>
+      );
+      break;
+    case 'pdf':
+      body = (
+        <div className="central-file-media">
+          <iframe src={preview.blobUrl} title={preview.name} />
+        </div>
+      );
+      break;
+    case 'video':
+      body = (
+        <div className="central-file-media">
+          <video src={preview.blobUrl} controls />
+        </div>
+      );
+      break;
+    case 'audio':
+      body = (
+        <div className="central-file-media">
+          <audio src={preview.blobUrl} controls />
+        </div>
+      );
+      break;
+    default:
+      body = (
+        <div className="central-file-unknown">
+          <div className="central-file-unknown-icon">?</div>
+          <p className="central-file-unknown-title">{t('workbench.preview.unsupported')}</p>
+          <p className="central-file-unknown-desc">
+            {preview.mimeType}
+            {preview.size > 0 ? ` · ${fmtSize(preview.size)}` : ''}
+          </p>
+          <button type="button" className="btn" onClick={() => void downloadFile()}>
+            {t('workbench.preview.download')}
+          </button>
+        </div>
+      );
+  }
+
+  return (
+    <div className="central-file-preview">
+      <header className="central-file-preview-tab">
+        <span className="central-file-preview-name" title={preview.path}>
+          {preview.name}
+        </span>
+        {preview.kind !== 'markdown' && (
+          <span className="central-file-preview-readonly">{t('workbench.preview.readonly')}</span>
+        )}
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('common.close')}
+          title={t('common.close')}
+          onClick={onClose}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </header>
+      {body}
+    </div>
+  );
+}
+
+/**
+ * Research suite embedded in the canvas area (opaque overlay, canvas stays
+ * mounted underneath — same contract as PreviewOverlay). The tool page ships
+ * its own ToolShell, which drops its header/status bar in embedded mode; the
+ * tab header here carries the close affordance.
+ */
+function EmbeddedToolView({
+  toolId,
+  onClose,
+}: {
+  toolId: string;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const toolDef = getTool(toolId);
+  if (!toolDef) return null;
+  const Page = toolDef.component;
+  return (
+    <div className="central-tool-view">
+      <header className="central-file-preview-tab">
+        <span className="tool-title-icon" aria-hidden="true">
+          <ToolIcon kind={toolDef.icon} size={15} />
+        </span>
+        <span className="central-file-preview-name">{t(toolDef.titleKey)}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('suite.close')}
+          title={t('suite.close')}
+          onClick={onClose}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </header>
+      <div className="central-tool-view-body">
+        <Suspense
+          fallback={
+            <div className="central-tool-loading">
+              <span className="spinner" />
+            </div>
+          }
+        >
+          <Page />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
 export function CentralArea() {
   const t = useT();
   const activePlugin = usePluginStore(
@@ -37,6 +291,15 @@ export function CentralArea() {
   // a background compute must never cover the plugin the user switched to.
   // `activeId` is selected further below (viewport-reset hook).
   const computingId = usePluginStore((s) => s.computingId);
+  // Explorer-driven read-only file preview: rendered as an opaque overlay over
+  // the canvas (VS Code editor-area style). The plugin surface stays mounted
+  // underneath, so closing the preview never re-initializes a scene.
+  const filePreview = useAppStore((s) => s.filePreview);
+  const setFilePreview = useAppStore((s) => s.setFilePreview);
+  // Research suite embedded in the canvas (opened from the launcher / command
+  // palette / welcome grid). Rendered as an opaque overlay like file previews.
+  const embeddedToolId = useAppStore((s) => s.embeddedTool);
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -236,14 +499,24 @@ export function CentralArea() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    // 面板拖拽 / 窗口缩放会改变宿主尺寸：2D 画布的 CSS 尺寸跟着变，但
+    // 位图仍是旧尺寸——若不重绘，旧位图会被拉伸变形（横向压扁/拉宽）。
+    // 触发活动插件重绘即可：插件每次绘制都以 `canvas.width = clientWidth`
+    // 重新分配位图并从数据重画（rAF 合并同帧的多次 RO 回调）。
+    let raf = 0;
     const obs = new ResizeObserver(() => {
       if (canvasRef.current) {
         canvasRef.current.style.width = '100%';
         canvasRef.current.style.height = '100%';
       }
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => rerenderActivePlugin());
     });
     obs.observe(canvasRef.current);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -331,6 +604,23 @@ export function CentralArea() {
           </button>
         )}
       </div>
+      {/* 文件预览浮层（来自文件资源管理器）：类似 VS Code 编辑区。
+          盖在画布上方但画布保持挂载，关闭预览不触发场景重建。 */}
+      {filePreview && (
+        <PreviewOverlay
+          key={filePreview.path}
+          preview={filePreview}
+          onClose={() => setFilePreview(null)}
+        />
+      )}
+      {/* 内嵌科研套件浮层：与文件预览同一覆盖模式，画布保持挂载。 */}
+      {embeddedToolId && (
+        <EmbeddedToolView
+          key={embeddedToolId}
+          toolId={embeddedToolId}
+          onClose={() => setEmbeddedTool(null)}
+        />
+      )}
       {!activePlugin && (
         <div className="central-empty">
           {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}

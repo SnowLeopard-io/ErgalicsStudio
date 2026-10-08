@@ -54,15 +54,6 @@ export const MenuIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Right-rail layout glyph: a frame with a vertical split near the right
- *  edge, used to toggle the workbench params panel. */
-export const PanelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <path d="M15 4v16" />
-  </Svg>
-);
-
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
@@ -72,6 +63,12 @@ export const ChevronDownIcon = (p: IconProps) => (
 export const ChevronRightIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m9 6 6 6-6 6" />
+  </Svg>
+);
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 6-6 6 6 6" />
   </Svg>
 );
 
@@ -137,6 +134,31 @@ export const SettingsIcon = (p: IconProps) => (
 export const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
+/** New-file glyph (document with a plus) — explorer toolbar / context menu. */
+export const FilePlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** New-folder glyph (folder with a plus) — explorer toolbar / context menu. */
+export const FolderPlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2z" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** Clip/glyph for copy & cut — explorer clipboard start/stop control. */
+export const ClipboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
   </Svg>
 );
 
@@ -225,6 +247,25 @@ export const VariableIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Git branch glyph: two commits on a branch merging into a trunk. */
+export const GitBranchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="5" r="2.2" />
+    <circle cx="6" cy="19" r="2.2" />
+    <circle cx="18" cy="8" r="2.2" />
+    <path d="M6 7.2v9.6" />
+    <path d="M18 10.2c0 3-2.5 4.3-5.5 4.6-2 .2-4 .8-4.8 2" />
+  </Svg>
+);
+
+/** Refresh / reload glyph (circular arrow). */
+export const RefreshIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12a7 7 0 1 1-2-4.9" />
+    <path d="M19 3v4h-4" />
+  </Svg>
+);
+
 // ---- research tool glyphs -------------------------------------------------
 
 export type ToolIconKind =
@@ -246,7 +287,8 @@ export type ToolIconKind =
   | 'model-inference'
   | 'course'
   | 'cleaning'
-  | 'gallery';
+  | 'gallery'
+  | 'files';
 
 export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) {
   switch (kind) {
@@ -407,6 +449,13 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
           <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
           <circle cx="9" cy="9.5" r="1.4" />
           <path d="m4.5 17 5-5.5 4 4 3-2.5 3.5 4" />
+        </Svg>
+      );
+    case 'files': // open folder with a document
+      return (
+        <Svg {...rest}>
+          <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V18A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18Z" />
+          <path d="M9.5 12h5M9.5 15h3.5" />
         </Svg>
       );
   }
