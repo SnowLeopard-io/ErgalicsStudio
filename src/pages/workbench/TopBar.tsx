@@ -11,6 +11,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
+import { openToolEmbedded } from '@/pages/research/toolRegistry';
 import { MenuIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
@@ -52,15 +53,19 @@ export function TopBar() {
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
-  // Welcome-page entry states: legacy openResearchDialog routes to a tool
-  // page; openDataDialog opens the bundled-samples dialog directly.
+  // Welcome-page entry states: openResearchDialog / openTool embed the tool
+  // in the central canvas; openDataDialog opens the bundled-samples dialog.
   useEffect(() => {
     const state = location.state as
-      | { openResearchDialog?: string; openDataDialog?: boolean }
+      | { openResearchDialog?: string; openDataDialog?: boolean; openTool?: string }
       | null;
     let consumed = false;
     if (state?.openResearchDialog) {
-      navigate(`/studio/${state.openResearchDialog}`);
+      openToolEmbedded(navigate, state.openResearchDialog, location.pathname);
+      consumed = true;
+    }
+    if (state?.openTool) {
+      openToolEmbedded(navigate, state.openTool, location.pathname);
       consumed = true;
     }
     if (state?.openDataDialog) {
@@ -68,7 +73,7 @@ export function TopBar() {
       consumed = true;
     }
     if (consumed) window.history.replaceState({}, '');
-  }, [location.state, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -216,7 +221,11 @@ export function TopBar() {
         {/* Zone 3c — research tools: general analysis stays a direct button,
             all other tools live behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={() => navigate('/studio/analysis')}>
+          <button
+            type="button"
+            className="cluster-btn"
+            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
+          >
             {t('workbench.analyze')}
           </button>
           <ResearchLauncher />

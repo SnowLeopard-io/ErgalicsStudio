@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
 import { downloadBlob } from '@/core/download';
@@ -230,6 +231,55 @@ function PreviewOverlay({
   );
 }
 
+/**
+ * Research suite embedded in the canvas area (opaque overlay, canvas stays
+ * mounted underneath — same contract as PreviewOverlay). The tool page ships
+ * its own ToolShell, which drops its header/status bar in embedded mode; the
+ * tab header here carries the close affordance.
+ */
+function EmbeddedToolView({
+  toolId,
+  onClose,
+}: {
+  toolId: string;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const toolDef = getTool(toolId);
+  if (!toolDef) return null;
+  const Page = toolDef.component;
+  return (
+    <div className="central-tool-view">
+      <header className="central-file-preview-tab">
+        <span className="tool-title-icon" aria-hidden="true">
+          <ToolIcon kind={toolDef.icon} size={15} />
+        </span>
+        <span className="central-file-preview-name">{t(toolDef.titleKey)}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('suite.close')}
+          title={t('suite.close')}
+          onClick={onClose}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </header>
+      <div className="central-tool-view-body">
+        <Suspense
+          fallback={
+            <div className="central-tool-loading">
+              <span className="spinner" />
+            </div>
+          }
+        >
+          <Page />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
 export function CentralArea() {
   const t = useT();
   const activePlugin = usePluginStore(
@@ -246,6 +296,10 @@ export function CentralArea() {
   // underneath, so closing the preview never re-initializes a scene.
   const filePreview = useAppStore((s) => s.filePreview);
   const setFilePreview = useAppStore((s) => s.setFilePreview);
+  // Research suite embedded in the canvas (opened from the launcher / command
+  // palette / welcome grid). Rendered as an opaque overlay like file previews.
+  const embeddedToolId = useAppStore((s) => s.embeddedTool);
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -557,6 +611,14 @@ export function CentralArea() {
           key={filePreview.path}
           preview={filePreview}
           onClose={() => setFilePreview(null)}
+        />
+      )}
+      {/* 内嵌科研套件浮层：与文件预览同一覆盖模式，画布保持挂载。 */}
+      {embeddedToolId && (
+        <EmbeddedToolView
+          key={embeddedToolId}
+          toolId={embeddedToolId}
+          onClose={() => setEmbeddedTool(null)}
         />
       )}
       {!activePlugin && (

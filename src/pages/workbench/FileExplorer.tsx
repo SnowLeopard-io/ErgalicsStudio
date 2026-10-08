@@ -766,6 +766,19 @@ export function FileExplorer() {
         dragRef.current = null;
         setDropTarget(null);
       }}
+      // 点击树区域以外的空白（容器、提示文字、区块边缘）→ 取消当前选中；
+      // 行/按钮/右键菜单/内联输入框内的按下不受影响。
+      onMouseDown={(e) => {
+        const el = e.target as HTMLElement;
+        if (
+          !el.closest('.explorer-row') &&
+          !el.closest('.explorer-context-menu') &&
+          !el.closest('.explorer-inline') &&
+          !el.closest('button')
+        ) {
+          setSelected(null);
+        }
+      }}
     >
       {!project && <EmptyState title={t('workbench.explorer.no_project')} />}
 

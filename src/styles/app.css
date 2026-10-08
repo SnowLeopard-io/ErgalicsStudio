@@ -1228,6 +1228,60 @@
   justify-content: center;
 }
 
+/* ---- right-panel suite introduction (embedded research suite) ---- */
+
+.suite-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.suite-intro-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.suite-intro-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+}
+
+.suite-intro-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.suite-intro-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.suite-intro-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+.suite-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 /* ---- param panel ---- */
 
 .param-panel {
@@ -4613,6 +4667,14 @@
   overflow-y: auto;
 }
 
+/* Embedded variant: the suite is rendered inside the workbench CentralArea
+   (overlay over the canvas), which already owns the top bar and status bar —
+   fill the host instead of the viewport. */
+.tool-shell.embedded {
+  height: 100%;
+  background: var(--color-bg-primary);
+}
+
 .tool-content {
   display: flex;
   flex-direction: column;
@@ -6590,6 +6652,7 @@ button.start-card:hover {
   height: 7px;
   border-radius: 999px;
   margin-left: 6px;
+  margin-right: 10px;
   flex: 0 0 auto;
   transition:
     background var(--transition-fast),
@@ -6693,6 +6756,17 @@ button.start-card:hover {
   background: var(--color-accent-soft);
   color: var(--color-accent-text);
   border-color: var(--color-accent);
+}
+
+/* 内嵌科研套件打开时：收起按钮平时隐入套件画面（套件视觉上填满中央区，
+   不再露出侧栏边的实心小块），悬停/聚焦时浮现，收起功能始终可用。 */
+body:has(.central-tool-view) .panel-collapse-btn {
+  opacity: 0;
+}
+
+body:has(.central-tool-view) .panel-collapse-btn:hover,
+body:has(.central-tool-view) .panel-collapse-btn:focus-visible {
+  opacity: 1;
 }
 
 /* 收起态：栏目原位置只剩一个贴边窄按钮。 */
@@ -7088,6 +7162,9 @@ button.start-card:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   min-width: 0;
 }
 
@@ -7144,9 +7221,10 @@ button.start-card:hover {
   color: var(--color-text-primary);
 }
 
+/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看出"正在预览"）。 */
 .explorer-row.active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .explorer-dir {
@@ -7199,11 +7277,13 @@ button.start-card:hover {
   user-select: none;
 }
 
+/* 选中描边用 inset 阴影：outline 画在行框外 1px，会被滚动容器
+   （.file-explorer overflow-x 裁剪）切掉左右边，视觉上"缺框"。 */
 .explorer-row.selected,
 .explorer-row.selected:hover {
   background: var(--color-accent-soft);
   color: var(--color-text-primary);
-  outline: 1px solid var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .explorer-row.drop-target,
@@ -7306,6 +7386,45 @@ button.start-card:hover {
   /* 覆盖 .central 的圆角/边框内侧即可，不额外加边框。 */
   border-radius: inherit;
   overflow: hidden;
+}
+
+/* ---- Embedded research suite (central canvas overlay) --------------------- */
+
+/* Opaque overlay over the plugin canvas — same contract as the file preview:
+   the canvas stays mounted underneath, closing never re-initializes scenes.
+   z-index 20 stays BELOW the panel collapse buttons (21) and resize handles
+   (22) so panels stay collapsible while a suite is open; the buttons hover-
+   reveal instead (see .panel-collapse-btn) so the suite still reads as
+   edge-to-edge filled. */
+.central-tool-view {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.central-tool-view-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.central-tool-view-body .tool-shell.embedded {
+  flex: 1;
+  min-height: 0;
+}
+
+.central-tool-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 顶部标签条：文件名 + 只读标记 + 关闭。 */

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
@@ -6,10 +7,45 @@ import { FileInfoPanel } from './FileInfoPanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
 import { EmptyState } from '@/components/EmptyState';
+import { ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
+
+/** Introduction card for the suite currently embedded in the central canvas:
+ *  identity (icon / name / group) plus its registry description, with
+ *  actions to open the standalone page or close the embed. */
+function SuiteIntro({ toolId }: { toolId: string }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
+  const toolDef = getTool(toolId);
+  if (!toolDef) return null;
+  return (
+    <div className="suite-intro">
+      <div className="suite-intro-head">
+        <span className="suite-intro-icon" aria-hidden="true">
+          <ToolIcon kind={toolDef.icon} size={18} />
+        </span>
+        <div className="suite-intro-heading">
+          <div className="suite-intro-name">{t(toolDef.titleKey)}</div>
+          <span className="tag">{t(`tool.group.${toolDef.group}`)}</span>
+        </div>
+      </div>
+      <p className="suite-intro-desc">{t(toolDef.descKey)}</p>
+      <div className="suite-intro-actions">
+        <button type="button" className="btn btn-sm" onClick={() => navigate(toolDef.path)}>
+          {t('suite.open_standalone')}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => setEmbeddedTool(null)}>
+          {t('suite.close')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function RightPanel() {
   const t = useT();
@@ -21,6 +57,9 @@ export function RightPanel() {
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
   const filePreview: FilePreviewState | null = useAppStore((s) => s.filePreview);
+  // Research suite embedded in the central canvas — the right panel switches
+  // to the suite introduction while one is open.
+  const embeddedToolId = useAppStore((s) => s.embeddedTool);
   const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
@@ -98,7 +137,12 @@ export function RightPanel() {
         <ChevronRightIcon size={12} />
       </button>
       <aside className="right-panel">
-      {filePreview ? (
+      {embeddedToolId ? (
+        <>
+          <h3 className="panel-title">{t('workbench.right.suite')}</h3>
+          <SuiteIntro toolId={embeddedToolId} />
+        </>
+      ) : filePreview ? (
         <>
           <h3 className="panel-title">{t('workbench.right.fileinfo')}</h3>
           <FileInfoPanel preview={filePreview} />

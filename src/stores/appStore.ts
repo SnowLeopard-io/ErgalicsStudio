@@ -116,6 +116,12 @@ interface AppStore {
   sidebarView: SidebarView;
   /** File opened for read-only preview in the canvas area (or null). */
   filePreview: FilePreviewState | null;
+  /**
+   * Research suite embedded in the Standard-mode central canvas (tool
+   * registry id, or null). Mirrors the file-preview overlay pattern: the
+   * canvas stays mounted underneath, so closing never re-initializes scenes.
+   */
+  embeddedTool: string | null;
   /** Monotonic bump whenever the working tree changes from outside the
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
@@ -145,6 +151,8 @@ interface AppStore {
   setMode: (mode: WorkbenchMode) => void;
   setSidebarView: (view: SidebarView) => void;
   setFilePreview: (preview: FilePreviewState | null) => void;
+  /** Embed (or close, with null) a research suite in the central canvas. */
+  setEmbeddedTool: (id: string | null) => void;
   bumpFileOps: () => void;
 }
 
@@ -211,6 +219,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   modePanelOpen: panelPrefs.modePanelOpen,
   sidebarView: panelPrefs.sidebarView,
   filePreview: null,
+  embeddedTool: null,
   fileOpsVersion: 0,
   mode: 'standard',
 
@@ -336,7 +345,8 @@ export const useAppStore = create<AppStore>((set, get) => {
 
   /** Open (or close) the read-only file preview in the canvas area. Revokes
    *  the previous preview's blob URL (created by the opener) so memory is
-   *  not leaked when switching between binary previews. */
+   *  not leaked when switching between binary previews. Both central-canvas
+   *  overlays (file preview / embedded suite) are mutually exclusive. */
   setFilePreview: (preview) => {
     const prev = get().filePreview;
     if (prev?.blobUrl && preview?.blobUrl !== prev.blobUrl) {
@@ -346,7 +356,24 @@ export const useAppStore = create<AppStore>((set, get) => {
         /* already revoked / not a usable URL */
       }
     }
-    set({ filePreview: preview });
+    set((s) => ({ filePreview: preview, embeddedTool: preview ? null : s.embeddedTool }));
+  },
+
+  /** Embed (or close) a research suite in the central canvas. Opening one
+   *  takes over the canvas surface: any file preview is dismissed and the
+   *  active plugin is deactivated — it would otherwise keep rendering into
+   *  the hidden canvas and burning GPU/CPU (same as a mode switch). */
+  setEmbeddedTool: (id) => {
+    set((s) => ({ embeddedTool: id, filePreview: id ? null : s.filePreview }));
+    if (id) {
+      // Lazy import keeps appStore free of a pluginStore cycle.
+      void import('./pluginStore')
+        .then((m) => {
+          const ps = m.usePluginStore.getState();
+          if (ps.activeId) return ps.deactivate();
+        })
+        .catch((err) => logger.error('appStore', 'deactivate on tool embed failed', err));
+    }
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),

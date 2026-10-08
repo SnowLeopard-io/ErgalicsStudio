@@ -9,6 +9,8 @@
 // ==========================================================================
 
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import type { NavigateFunction } from 'react-router-dom';
+import { useAppStore } from '@/stores/appStore';
 import type { ToolIconKind } from '@/components/icons';
 
 export type ResearchGroupId = 'measure' | 'model' | 'data' | 'signal' | 'deliver';
@@ -134,3 +136,21 @@ export const GRID_TOOLS = RESEARCH_TOOLS.filter((x) => x.inGrid);
 export const TOOLS_BY_LEGACY_PATH = new Map(
   RESEARCH_TOOLS.map((x) => [x.legacyPath, x] as const),
 );
+
+/**
+ * Open a research suite embedded in the Standard-mode central canvas instead
+ * of navigating to its standalone /studio/<id> page. From outside the
+ * workbench (welcome page, command palette) this first routes to /workbench;
+ * the embedded state lives in appStore, so CentralArea picks it up on mount.
+ */
+export function openToolEmbedded(
+  navigate: NavigateFunction,
+  id: string,
+  pathname: string,
+): void {
+  if (!getTool(id)) return;
+  const app = useAppStore.getState();
+  app.setMode('standard');
+  app.setEmbeddedTool(id);
+  if (pathname !== '/workbench') navigate('/workbench');
+}
