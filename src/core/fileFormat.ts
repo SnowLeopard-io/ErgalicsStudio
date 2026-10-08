@@ -42,6 +42,23 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.jpeg': 'jpeg',
   '.webp': 'webp',
   '.gif': 'gif',
+  // ---- Textual scientific formats (kept in step with plugin manifests) ----
+  '.tsv': 'tsv',
+  '.tab': 'tsv',
+  '.cif': 'cif',
+  '.poscar': 'poscar',
+  '.vasp': 'poscar',
+  '.fasta': 'fasta',
+  '.fa': 'fasta',
+  '.fas': 'fasta',
+  '.fna': 'fasta',
+  '.faa': 'fasta',
+  '.ffn': 'fasta',
+  '.frn': 'fasta',
+  '.vcf': 'vcf',
+  '.gpx': 'gpx',
+  '.asc': 'asc',
+  '.kml': 'kml',
 };
 
 // ---- Project data-file allowlist -----------------------------------------
@@ -51,7 +68,32 @@ const EXTENSION_FORMATS: Record<string, string> = {
 // scientific formats go through the drop pipeline (useFileRouting), which
 // decodes them into CSVs before they reach the project.
 
-const DATA_FILE_EXTENSIONS = new Set(['.csv', '.tsv', '.dat', '.xyz', '.json', '.txt', '.md', '.mtx', '.geojson']);
+const DATA_FILE_EXTENSIONS = new Set([
+  '.csv',
+  '.tsv',
+  '.tab',
+  '.dat',
+  '.xyz',
+  '.json',
+  '.txt',
+  '.md',
+  '.mtx',
+  '.geojson',
+  '.cif',
+  '.poscar',
+  '.vasp',
+  '.fasta',
+  '.fa',
+  '.fas',
+  '.fna',
+  '.faa',
+  '.ffn',
+  '.frn',
+  '.vcf',
+  '.gpx',
+  '.asc',
+  '.kml',
+]);
 
 /** Is this file name a supported (text) project data file? */
 export function isSupportedDataFileName(name: string): boolean {
