@@ -61,6 +61,7 @@ export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const setFilePreview = useAppStore((s) => s.setFilePreview);
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -191,7 +192,10 @@ export function Sidebar() {
                         className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
                         data-plugin-id={entry.id}
                         title={`${entry.name} ${entry.version}`}
-                        onClick={() => void activate(entry.id)}
+                        onClick={() => {
+                          void activate(entry.id);
+                          setFilePreview(null);
+                        }}
                       >
                         <span className="plugin-icon">{entry.icon ?? '◈'}</span>
                         <span className="plugin-item-name">{entry.name}</span>

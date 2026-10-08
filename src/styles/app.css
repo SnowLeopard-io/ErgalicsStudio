@@ -2012,13 +2012,78 @@
 }
 
 .settings-content-inner {
-  max-width: 780px;
+  max-width: 1000px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-5) var(--space-8);
+  padding: var(--space-6) var(--space-6) var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* ---- 设置页 · 主题市场卡片网格 ----------------------------------------
+   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高。 */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-secondary);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.theme-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.theme-card.is-applied {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.theme-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.theme-card-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.theme-card-desc {
+  font-size: var(--font-size-xs);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.theme-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.theme-card-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 .settings-title {
@@ -6514,11 +6579,18 @@ button.start-card:hover {
 
 /* ---- 模式同步指示点 ---- */
 
+.topbar-cluster > :last-child.mode-sync-dot {
+  /* 集群的 last-child 端盖圆角规则会把右两角压平成 calc(radius-sm-1px)，
+     让圆点右半看起来被"切掉"；这里恢复四角全圆。 */
+  border-radius: 999px;
+}
+
 .mode-sync-dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
   margin-left: 6px;
+  flex: 0 0 auto;
   transition:
     background var(--transition-fast),
     box-shadow var(--transition-fast);
@@ -7097,6 +7169,129 @@ button.start-card:hover {
   color: var(--color-text-tertiary);
 }
 
+/* ---- 文件资源管理器 · 常规文件管理（A 需求） ---- */
+
+.explorer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.explorer-actions .icon-btn.has-clipboard svg {
+  color: var(--color-accent-text);
+}
+
+.explorer-clip-hint {
+  margin: 0;
+  padding: 2px var(--space-2);
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--color-accent-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-row {
+  cursor: default;
+  position: relative;
+  user-select: none;
+}
+
+.explorer-row.selected,
+.explorer-row.selected:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+  outline: 1px solid var(--color-accent);
+}
+
+.explorer-row.drop-target,
+.explorer-list.drop-target {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+  border-radius: 6px;
+}
+
+.explorer-inline {
+  list-style: none;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.explorer-inline-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  font-size: var(--font-size-xs);
+}
+
+/* 右键上下文菜单 */
+.explorer-context-menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+.explorer-context-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-context-item:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.explorer-context-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.explorer-context-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--color-border);
+}
+
+/* 工具行/分段小按钮（MD 视图切换等） */
+.explorer-pill {
+  padding: 3px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.explorer-pill:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.explorer-pill.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
 /* 原始数据预览：项目树文件的只读预览。 */
 
 /* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
@@ -7166,4 +7361,208 @@ button.start-card:hover {
   border-top: 1px solid var(--color-border);
   font-size: 10px;
   color: var(--color-text-tertiary);
+}
+
+/* ---- 画布文件预览 · 各类视图（B 需求） ---- */
+
+/* Markdown：工具栏 + 编辑/预览/分栏 */
+.central-md {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central-md-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.central-md-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.central-md-save {
+  margin-left: auto;
+}
+
+.central-md-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.central-md-body.mode-edit .central-md-edit,
+.central-md-body.mode-preview .central-md-preview {
+  width: 100%;
+}
+
+.central-md-edit,
+.central-md-preview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.central-md-edit {
+  border: none;
+  resize: none;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  tab-size: 4;
+}
+
+.central-md-preview {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-primary);
+}
+
+.central-md-preview h1,
+.central-md-preview h2,
+.central-md-preview h3,
+.central-md-preview h4 {
+  margin: 0.6em 0 0.3em;
+  color: var(--color-text-primary);
+}
+
+.central-md-preview pre {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: var(--space-2);
+  overflow: auto;
+}
+
+.central-md-preview code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* 图片 / PDF / 视频 / 音频 */
+.central-file-media {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  overflow: auto;
+  background: radial-gradient(circle, rgba(128, 128, 128, 0.12) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.central-file-media img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.central-file-media iframe,
+.central-file-media video,
+.central-file-media audio {
+  max-width: 100%;
+  max-height: 100%;
+  border: none;
+}
+
+.central-file-media video,
+.central-file-media audio {
+  width: 100%;
+}
+
+/* 未知格式占位 */
+.central-file-unknown {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.central-file-unknown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.central-file-unknown-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.central-file-unknown-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  word-break: break-all;
+}
+
+/* ---- 文件信息栏（预览时右栏，C 需求） ---- */
+
+.fileinfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fileinfo-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+}
+
+.fileinfo-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.fileinfo-label {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.fileinfo-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.fileinfo-guide {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
 }

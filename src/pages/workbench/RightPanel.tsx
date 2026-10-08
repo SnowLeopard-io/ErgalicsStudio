@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
+import { FileInfoPanel } from './FileInfoPanel';
+import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { emit, on, type BusSubscription } from '@/core/events';
@@ -18,6 +20,7 @@ export function RightPanel() {
   );
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
+  const filePreview: FilePreviewState | null = useAppStore((s) => s.filePreview);
   const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
@@ -95,32 +98,41 @@ export function RightPanel() {
         <ChevronRightIcon size={12} />
       </button>
       <aside className="right-panel">
-      <h3 className="panel-title">{t('workbench.right.params')}</h3>
-      {activeId && activePlugin ? (
+      {filePreview ? (
         <>
-          {params.length === 0 && (
-            <EmptyState
-              className="right-panel-empty"
-              title={t('workbench.right.no_params')}
-            />
-          )}
-          <ParamPanel
-            params={params}
-            api={buildPluginApi(activeId)}
-            onChange={onChange}
-          />
-          <div className="right-panel-plugin">
-            <span className="tag tag-success">
-              {activePlugin.manifest.nameI18n?.[locale] ?? activePlugin.manifest.name}
-            </span>
-          </div>
+          <h3 className="panel-title">{t('workbench.right.fileinfo')}</h3>
+          <FileInfoPanel preview={filePreview} />
         </>
       ) : (
-        <EmptyState
-          className="right-panel-empty"
-          title={t('workbench.right.no_plugin')}
-          description={t('workbench.empty.subtitle')}
-        />
+        <>
+          <h3 className="panel-title">{t('workbench.right.params')}</h3>
+          {activeId && activePlugin ? (
+            <>
+              {params.length === 0 && (
+                <EmptyState
+                  className="right-panel-empty"
+                  title={t('workbench.right.no_params')}
+                />
+              )}
+              <ParamPanel
+                params={params}
+                api={buildPluginApi(activeId)}
+                onChange={onChange}
+              />
+              <div className="right-panel-plugin">
+                <span className="tag tag-success">
+                  {activePlugin.manifest.nameI18n?.[locale] ?? activePlugin.manifest.name}
+                </span>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              className="right-panel-empty"
+              title={t('workbench.right.no_plugin')}
+              description={t('workbench.empty.subtitle')}
+            />
+          )}
+        </>
       )}
       </aside>
     </div>

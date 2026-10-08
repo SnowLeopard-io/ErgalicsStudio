@@ -107,8 +107,8 @@ export function TopBar() {
         triggerClassName="project-name"
         align="left"
         trigger={
-          <span title={project?.name || DEFAULT_PROJECT_NAME}>
-            {project?.name || DEFAULT_PROJECT_NAME}
+          <span title={project ? project.name : t('project.new')}>
+            {project ? project.name : t('project.new')}
             {dirty && <span className="project-dirty">•</span>}
             <span className="more-caret">▾</span>
           </span>

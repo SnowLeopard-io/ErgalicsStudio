@@ -67,13 +67,33 @@ const DEFAULT_PERF: PerfMetrics = {
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
 export type SidebarView = 'files' | 'plugins' | 'git';
 
-/** A file opened for read-only preview in the central canvas area. */
+/** Kind of the central file preview — decides which view CentralArea renders. */
+export type FilePreviewKind =
+  | 'text'
+  | 'markdown'
+  | 'image'
+  | 'pdf'
+  | 'video'
+  | 'audio'
+  | 'unknown';
+
+/** A file opened for preview in the central canvas area. */
 export interface FilePreviewState {
   /** Display name (file name with extension). */
   name: string;
   /** Full path within the project tree (shown as tooltip). */
   path: string;
-  content: string;
+  /** Preview kind — decides which view CentralArea renders. */
+  kind: FilePreviewKind;
+  /** Detected MIME type for the file. */
+  mimeType: string;
+  /** Text-like content (kind=text/markdown). */
+  content?: string;
+  /** Binary blob URL (kind=image/pdf/video/audio; created by the opener,
+   *  revoked by the closer). */
+  blobUrl?: string;
+  /** File size in bytes. */
+  size: number;
 }
 
 interface AppStore {
@@ -96,6 +116,10 @@ interface AppStore {
   sidebarView: SidebarView;
   /** File opened for read-only preview in the canvas area (or null). */
   filePreview: FilePreviewState | null;
+  /** Monotonic bump whenever the working tree changes from outside the
+   *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
+   *  refresh its listings. */
+  fileOpsVersion: number;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -121,6 +145,7 @@ interface AppStore {
   setMode: (mode: WorkbenchMode) => void;
   setSidebarView: (view: SidebarView) => void;
   setFilePreview: (preview: FilePreviewState | null) => void;
+  bumpFileOps: () => void;
 }
 
 let bannerId = 0;
@@ -186,6 +211,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   modePanelOpen: panelPrefs.modePanelOpen,
   sidebarView: panelPrefs.sidebarView,
   filePreview: null,
+  fileOpsVersion: 0,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -308,7 +334,21 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  /** Open (or close) the read-only file preview in the canvas area. */
-  setFilePreview: (preview) => set({ filePreview: preview }),
+  /** Open (or close) the read-only file preview in the canvas area. Revokes
+   *  the previous preview's blob URL (created by the opener) so memory is
+   *  not leaked when switching between binary previews. */
+  setFilePreview: (preview) => {
+    const prev = get().filePreview;
+    if (prev?.blobUrl && preview?.blobUrl !== prev.blobUrl) {
+      try {
+        URL.revokeObjectURL(prev.blobUrl);
+      } catch {
+        /* already revoked / not a usable URL */
+      }
+    }
+    set({ filePreview: preview });
+  },
+
+  bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
   };
 });

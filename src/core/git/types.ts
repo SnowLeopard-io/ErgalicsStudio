@@ -186,6 +186,23 @@ export interface GitAdapter {
    *  Used to read run indexes and cloned project.clproj files. */
   readFile(repoPath: string, filePath: string): Promise<string>;
 
+  /** Write raw bytes into the repo working tree (auto-creates parent
+   *  directories). Used by copy/paste and preview download paths. */
+  writeFileBinary(repoPath: string, filePath: string, data: Uint8Array): Promise<void>;
+
+  /** Read raw bytes from the repo working tree (no charset decoding).
+   *  Used to preview images/PDFs/audio and to copy files across paths. */
+  readFileBinary(repoPath: string, filePath: string): Promise<Uint8Array>;
+
+  /** Delete a file (unlink) or a directory (recursive). No git add/commit —
+   *  the change applies straight to the working tree. */
+  deleteEntry(repoPath: string, targetPath: string, isDir: boolean): Promise<void>;
+
+  /** Move/rename a file or directory inside the working tree. Implemented as
+   *  read-binary → write-new-path → delete-old so it works on filesystems
+   *  without a rename primitive. No git add/commit. */
+  renameEntry(repoPath: string, from: string, to: string): Promise<void>;
+
   /** List one directory of the repo working tree. Directories first, then
    *  files, each alphabetically. Missing dirs yield [] (never throw). */
   readDir(repoPath: string, dirPath: string): Promise<RepoEntry[]>;

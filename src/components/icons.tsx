@@ -137,6 +137,31 @@ export const PlusIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** New-file glyph (document with a plus) — explorer toolbar / context menu. */
+export const FilePlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** New-folder glyph (folder with a plus) — explorer toolbar / context menu. */
+export const FolderPlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2z" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** Clip/glyph for copy & cut — explorer clipboard start/stop control. */
+export const ClipboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+  </Svg>
+);
+
 export const FolderOpenIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v2" />
