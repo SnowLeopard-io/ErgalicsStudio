@@ -6948,11 +6948,26 @@ button.start-card:hover {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  background: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
+}
+
+/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）。 */
+.activity-bar-views {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: var(--space-2) 0;
-  background: var(--color-bg-elevated);
-  border-right: 1px solid var(--color-border);
+}
+
+.activity-bar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .activity-item {
@@ -7075,72 +7090,79 @@ button.start-card:hover {
   white-space: nowrap;
 }
 
-.explorer-count {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: var(--color-text-tertiary);
-}
-
-.explorer-meta {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: var(--color-text-tertiary);
-}
-
-.explorer-empty {
+.explorer-hint {
   margin: 0;
   padding: var(--space-1) 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
 
-/* 原始数据预览：只读，浅色描边块 + 等宽字体，独立滚动。 */
-.explorer-preview {
+/* 原始数据预览：项目树文件的只读预览。 */
+
+/* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
+
+.central-file-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
   display: flex;
   flex-direction: column;
-  max-height: 300px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-primary);
+  /* 覆盖 .central 的圆角/边框内侧即可，不额外加边框。 */
+  border-radius: inherit;
   overflow: hidden;
 }
 
-.explorer-preview-header {
+/* 顶部标签条：文件名 + 只读标记 + 关闭。 */
+.central-file-preview-tab {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-1);
-  padding: 4px 6px 4px 8px;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  height: 36px;
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
 }
 
-.explorer-preview-name {
+.central-file-preview-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-primary);
 }
 
-.explorer-preview-content {
+.central-file-preview-readonly {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.central-file-preview-content {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--color-text-secondary);
   white-space: pre;
   tab-size: 4;
 }
 
-.explorer-preview-note {
+.central-file-preview-note {
   margin: 0;
-  padding: 4px 8px;
+  flex-shrink: 0;
+  padding: 4px var(--space-3);
   border-top: 1px solid var(--color-border);
   font-size: 10px;
   color: var(--color-text-tertiary);

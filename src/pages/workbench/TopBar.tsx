@@ -11,7 +11,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
+import { MenuIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -95,14 +95,15 @@ export function TopBar() {
         </button>
       )}
 
-      <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+      <a className="brand" href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      {/* 项目切换下拉：触发器即项目名，展开最近项目列表（当前项高亮）。
-          重命名等管理操作保留在右侧"项目"菜单中。 */}
+      {/* 项目下拉：触发器即项目名。上半区切换最近项目，下半区是全部
+          项目管理操作（新建/打开/重命名/另存为/删除/导出日志）——原来
+          单独的"项目"菜单与之功能重叠，已并入此处。 */}
       <Dropdown
-        ariaLabel={t('workbench.sidebar.project')}
+        ariaLabel={t('workbench.menu.project')}
         triggerClassName="project-name"
         align="left"
         trigger={
@@ -122,6 +123,36 @@ export function TopBar() {
                 onClick: () => void openProject(p.id),
               }))
             : [{ key: 'no-recent', label: t('workbench.sidebar.no_recent'), disabled: true }]),
+          { key: 'sep-projects', label: '' },
+          { key: 'actions-header', label: t('workbench.menu.project'), header: true },
+          { key: 'new', label: t('project.new'), onClick: openDialog('new') },
+          { key: 'open', label: t('project.open'), onClick: () => fileInputRef.current?.click() },
+          { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
+          { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
+          {
+            key: 'delete',
+            label: t('project.delete'),
+            disabled: !project,
+            onClick: openDialog('project_delete'),
+          },
+          {
+            key: 'export_log',
+            label: t('workbench.export_log'),
+            onClick: () => {
+              void usePluginStore
+                .getState()
+                .exportDiagnostics()
+                .then((json) => {
+                  downloadBlob(
+                    `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+                    json,
+                    'application/json',
+                  );
+                  notify('success', t('workbench.export_log_done'));
+                })
+                .catch(() => notify('error', t('workbench.export_log')));
+            },
+          },
         ]}
       />
 
@@ -169,53 +200,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3b — project file operations: menu (rename merged in) + save/share. */}
+        {/* Zone 3b — project file operations: 保存/分享直达（管理操作已并入
+            左侧项目名下拉，避免功能重叠）。 */}
         <div className="topbar-cluster">
-          <Dropdown
-            ariaLabel={t('workbench.menu.project')}
-            triggerClassName="cluster-btn"
-            align="left"
-            trigger={
-              <span>
-                {t('workbench.menu.project')}
-                <span className="more-caret">▾</span>
-              </span>
-            }
-            items={[
-              { key: 'new', label: t('project.new'), onClick: openDialog('new') },
-              {
-                key: 'open',
-                label: t('project.open'),
-                onClick: () => fileInputRef.current?.click(),
-              },
-              { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
-              { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
-              {
-                key: 'delete',
-                label: t('project.delete'),
-                disabled: !project,
-                onClick: openDialog('project_delete'),
-              },
-              {
-                key: 'export_log',
-                label: t('workbench.export_log'),
-                onClick: () => {
-                  void usePluginStore
-                    .getState()
-                    .exportDiagnostics()
-                    .then((json) => {
-                      downloadBlob(
-                        `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
-                        json,
-                        'application/json',
-                      );
-                      notify('success', t('workbench.export_log_done'));
-                    })
-                    .catch(() => notify('error', t('workbench.export_log')));
-                },
-              },
-            ]}
-          />
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
           </button>
@@ -272,15 +259,6 @@ export function TopBar() {
             onClick={toggleAi}
           >
             <SparklesIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('workbench.tools.settings')}
-            aria-label={t('workbench.tools.settings')}
-            onClick={() => navigate('/settings')}
-          >
-            <SettingsIcon size={15} />
           </button>
           <button
             type="button"

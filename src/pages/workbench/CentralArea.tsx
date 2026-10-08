@@ -3,6 +3,7 @@ import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
+import { CloseIcon } from '@/components/icons';
 import { logger } from '@/core/logger';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
@@ -37,6 +38,11 @@ export function CentralArea() {
   // a background compute must never cover the plugin the user switched to.
   // `activeId` is selected further below (viewport-reset hook).
   const computingId = usePluginStore((s) => s.computingId);
+  // Explorer-driven read-only file preview: rendered as an opaque overlay over
+  // the canvas (VS Code editor-area style). The plugin surface stays mounted
+  // underneath, so closing the preview never re-initializes a scene.
+  const filePreview = useAppStore((s) => s.filePreview);
+  const setFilePreview = useAppStore((s) => s.setFilePreview);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -341,6 +347,31 @@ export function CentralArea() {
           </button>
         )}
       </div>
+      {/* 文件预览浮层（来自文件资源管理器）：类似 VS Code 编辑区，只读。
+          盖在画布上方但画布保持挂载，关闭预览不触发场景重建。 */}
+      {filePreview && (
+        <div className="central-file-preview">
+          <header className="central-file-preview-tab">
+            <span className="central-file-preview-name" title={filePreview.path}>
+              {filePreview.name}
+            </span>
+            <span className="central-file-preview-readonly">{t('workbench.preview.readonly')}</span>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t('common.close')}
+              title={t('common.close')}
+              onClick={() => setFilePreview(null)}
+            >
+              <CloseIcon size={14} />
+            </button>
+          </header>
+          <pre className="central-file-preview-content">{filePreview.content}</pre>
+          {filePreview.content.length >= 200_000 && (
+            <p className="central-file-preview-note">{t('workbench.preview.truncated')}</p>
+          )}
+        </div>
+      )}
       {!activePlugin && (
         <div className="central-empty">
           {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}

@@ -233,6 +233,14 @@ export const GitBranchIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Refresh / reload glyph (circular arrow). */
+export const RefreshIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12a7 7 0 1 1-2-4.9" />
+    <path d="M19 3v4h-4" />
+  </Svg>
+);
+
 // ---- research tool glyphs -------------------------------------------------
 
 export type ToolIconKind =

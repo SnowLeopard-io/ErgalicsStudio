@@ -93,21 +93,6 @@ export interface GroupedDataFiles {
   examples: string[];
 }
 
-/** Glob key prefix stripped by {@link listBundledFilePaths}. */
-const BUNDLED_PREFIX = '../../examples/data/';
-
-/**
- * Bundled example files as workspace-relative paths (e.g. `geo/points.xyz`),
- * sorted. The file explorer uses these to present the example datasets as a
- * real directory tree instead of a flat name list.
- */
-export function listBundledFilePaths(): string[] {
-  return Object.keys(bundledFiles)
-    .filter((key) => key.startsWith(BUNDLED_PREFIX))
-    .map((key) => key.slice(BUNDLED_PREFIX.length))
-    .sort();
-}
-
 // ---- Picker extension presets ----------------------------------------------
 //
 // Lab pages declare which file kinds make sense for their analysis, so the

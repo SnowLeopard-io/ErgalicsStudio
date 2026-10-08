@@ -158,7 +158,7 @@ export function Sidebar() {
           位于顶部栏的项目名处。 */}
       {sidebarView === 'files' && <FileExplorer />}
 
-      {sidebarView === 'git' && <GitPanel />}
+      {sidebarView === 'git' && <GitPanel alwaysOpen />}
 
       {sidebarView === 'plugins' && (
       <nav className="sidebar-group">

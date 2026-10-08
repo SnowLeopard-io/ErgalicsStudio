@@ -67,6 +67,15 @@ const DEFAULT_PERF: PerfMetrics = {
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
 export type SidebarView = 'files' | 'plugins' | 'git';
 
+/** A file opened for read-only preview in the central canvas area. */
+export interface FilePreviewState {
+  /** Display name (file name with extension). */
+  name: string;
+  /** Full path within the project tree (shown as tooltip). */
+  path: string;
+  content: string;
+}
+
 interface AppStore {
   status: PluginHostStatus;
   banners: Banner[];
@@ -85,6 +94,8 @@ interface AppStore {
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
   sidebarView: SidebarView;
+  /** File opened for read-only preview in the canvas area (or null). */
+  filePreview: FilePreviewState | null;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -109,6 +120,7 @@ interface AppStore {
   toggleModePanel: () => void;
   setMode: (mode: WorkbenchMode) => void;
   setSidebarView: (view: SidebarView) => void;
+  setFilePreview: (preview: FilePreviewState | null) => void;
 }
 
 let bannerId = 0;
@@ -173,6 +185,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   rightPanelOpen: panelPrefs.rightPanelOpen,
   modePanelOpen: panelPrefs.modePanelOpen,
   sidebarView: panelPrefs.sidebarView,
+  filePreview: null,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -294,5 +307,8 @@ export const useAppStore = create<AppStore>((set, get) => {
       return next;
     });
   },
+
+  /** Open (or close) the read-only file preview in the canvas area. */
+  setFilePreview: (preview) => set({ filePreview: preview }),
   };
 });
