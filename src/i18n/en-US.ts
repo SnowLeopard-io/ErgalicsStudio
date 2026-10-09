@@ -127,6 +127,16 @@ export const enUS: LocaleDictionary = {
   'workbench.preview.mode_edit': 'Edit',
   'workbench.preview.mode_preview': 'Preview',
   'workbench.preview.mode_split': 'Split',
+  // ---- unified canvas export (replaces per-plugin snapshot buttons) ----
+  'workbench.export.menu': 'Export',
+  'workbench.export.download_png': 'Download PNG',
+  'workbench.export.save_workspace': 'Save to workspace figures/',
+  'workbench.export.download_png_transparent': 'Download PNG (transparent)',
+  'workbench.export.save_workspace_transparent': 'Save to workspace (transparent)',
+  'workbench.export.saved': 'Saved to {path}',
+  'workbench.export.failed': 'Export failed',
+  'workbench.export.no_canvas': 'Nothing to export yet',
+  'workbench.export.no_project': 'No project open — cannot write to the workspace',
   // ---- canvas editor tabs (code / block / flow files) ----
   'workbench.editor.save': 'Save',
   'workbench.editor.saved': 'Saved to workspace',
@@ -325,7 +335,8 @@ export const enUS: LocaleDictionary = {
   'research.science_outputs': 'Scientific outputs',
 
   'git.panel_title': 'Git',
-  'git.no_repo': 'Git repo unavailable for this project.',
+  'git.no_repo': 'Version control is not enabled for this project (file management does not require Git).',
+  'git.init_repo': 'Enable version control (git init)',
   'git.branch': 'Current branch',
   'git.refresh': 'Refresh status',
   'git.clean': 'Working tree clean',
@@ -664,15 +675,16 @@ export const enUS: LocaleDictionary = {
 
   // ---- supplement packaging ----
   'supplement.title': 'Supplementary Materials',
-  'supplement.intro': 'Package the project into a paper-ready supplementary zip: manifest.json (run records + data lineage + metadata) plus optional data files and code.',
+  'supplement.intro': 'Package the file explorer’s project workspace into a paper-ready supplementary zip: manifest.json (run records + data lineage + metadata) plus the real project tree (data/, code/, figures/, …).',
   'supplement.author': 'Author',
   'supplement.license': 'License',
   'supplement.description': 'Description',
   'supplement.description_placeholder': 'Brief notes about the data and code (optional)',
-  'supplement.include_data': 'Include data files ({count})',
-  'supplement.include_code': 'Include code sessions',
+  'supplement.include_data': 'Include data/ files ({count})',
+  'supplement.include_code': 'Include code/ files',
+  'supplement.include_workspace': 'Include the rest of the workspace (figures/, manuscript/, runs/, project.clproj, …)',
   'supplement.include_lock': 'Attach repro.lock (data/code/params/seed fingerprints)',
-  'supplement.hint': 'Run records and the lineage graph are generated from the project history automatically.',
+  'supplement.hint': 'The archive mirrors what the file explorer shows; run records and the lineage graph are generated from the project history automatically.',
   'supplement.build': 'Package & download',
   // ---- labs artifact save-to-workspace ----
   'labs.save_ws': 'Save to workspace',

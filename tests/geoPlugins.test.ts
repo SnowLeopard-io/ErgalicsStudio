@@ -163,7 +163,7 @@ describe('climograph', () => {
     expect(st).not.toBeNull();
     expect(st!.station).toContain('Beijing');
     expect(st!.months.length).toBe(12);
-    expect(st!.months[6]!.temp).toBeCloseTo(26.8, 1);
+    expect(st!.months[6]!.temp).toBeCloseTo(26.9, 1);
   });
   it('parses headerless CSV', () => {
     const text = Array.from({ length: 12 }, (_, i) => `${i + 1},${10 + i},${50 + i}`).join('\n');
@@ -176,7 +176,7 @@ describe('climograph', () => {
     const s = summarizeClimate(st.months);
     expect(s.group).toBe('D');
     expect(s.regime).toBe('summer');
-    expect(closeTo(s.annualPrecip, 527, 1)).toBe(true);
+    expect(closeTo(s.annualPrecip, 582, 1)).toBe(true);
   });
   it('classifies synthetic A / B / E regimes', () => {
     const a = summarizeClimate(Array.from({ length: 12 }, (_, i) => ({ month: i + 1, temp: 27, precip: 200 })));

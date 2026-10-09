@@ -136,16 +136,17 @@ export class DagExecutor {
   }
 
   private createNodeContext(node: CompiledNode): DagExecutionContext {
-    const self = this;
+    // The returned closures are arrow functions, so `this` is captured
+    // lexically from this class method — no aliasing needed.
     const { gpu, storage, onProgress } = this.env;
     return {
       nodeId: node.id,
       getInput: (portId) => {
         const upstream = node.inputs[portId];
-        return upstream ? self.cache.get(upstream) : undefined;
+        return upstream ? this.cache.get(upstream) : undefined;
       },
       getParam: (name) => node.params[name],
-      markDirty: () => self.invalidate(node.id),
+      markDirty: () => this.invalidate(node.id),
       gpu,
       storage,
       onProgress: (progress) => onProgress?.(progress),

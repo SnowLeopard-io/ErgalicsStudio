@@ -63,6 +63,7 @@ export default function CleaningWizardPage() {
 
   const fileGroups = useMemo(
     () => listDataFilesGrouped(DATA_EXTS_SERIES),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidation trigger
     [project?.data.files],
   );
   const [fileName, setFileName] = useState('');

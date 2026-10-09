@@ -33,6 +33,7 @@ import { getGitAdapter } from '@/core/git';
 import { commitWorkingTree, generateCommitMessage } from '@/core/git/autoCommit';
 import type { AutoCommitType } from '@/core/git/autoCommit';
 import type { GitStatus, GitCommit, GitBranch, DiffResult } from '@/core/git/types';
+import { getVfs, seedStandardSkeleton } from '@/core/vfs';
 import type { RunRecord } from '@/core/experiment/record';
 
 // Re-exported for existing consumers (GitPanel).
@@ -273,7 +274,7 @@ async function initGitForProject(project: Project, template: 'standard' | 'minim
   if (!isRepo) {
     await adapter.init(repoPath, template);
   }
-  await syncProjectToRepo(project);
+  await syncProjectSnapshot(project);
   await refreshGitStatusForProject(project);
 }
 
@@ -305,19 +306,16 @@ async function refreshGitStatusForProject(project: Project): Promise<void> {
  *  `@/core/git/autoCommit` (pure, unit-testable); re-exported above. */
 
 /**
- * Mirror the current project snapshot into the repo working tree
- * (`project.clproj`) so the Git panel sees real, reviewable changes and
- * commits capture the full project state. Best-effort: failures never
- * block the normal IndexedDB save path.
+ * Mirror the current project snapshot into the workspace tree
+ * (`project.clproj`) so the file explorer / supplement packager see the
+ * durable project file. Git-independent: this is a plain workspace write.
+ * Best-effort: failures never block the normal IndexedDB save path.
  */
-async function syncProjectToRepo(project: Project): Promise<void> {
+async function syncProjectSnapshot(project: Project): Promise<void> {
   try {
-    const adapter = getGitAdapter();
-    const repoPath = getProjectRepoPath(project);
-    if (!(await adapter.isRepo(repoPath))) return;
-    await adapter.writeFile(repoPath, 'project.clproj', serializeProject(project));
+    await getVfs().writeFile(getProjectRepoPath(project), 'project.clproj', serializeProject(project));
   } catch (err) {
-    logger.warn('project', 'git working-tree sync failed', err);
+    logger.warn('project', 'workspace snapshot sync failed', err);
   }
 }
 
@@ -360,8 +358,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     syncProjectFiles(project);
     ensureAutosave();
     await get().loadRecent();
-    // Initialize Git repo for new project
-    void get().initGitRepo('standard');
+    // Seed the §3.1 workspace skeleton (git-free): the file explorer and the
+    // supplement packager work on the plain tree; version control is opt-in
+    // via the Git panel.
+    void seedStandardSkeleton(getVfs(), getProjectRepoPath(project))
+      .then(() => {
+        void syncProjectSnapshot(project);
+        if (seq === openSeq) useAppStore.getState().bumpFileOps();
+      })
+      .catch((err) => logger.warn('project', 'workspace skeleton seed failed', err));
     return project;
   },
 
@@ -416,15 +421,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await saveProject(project);
     if (seq !== openSeq) return project;
 
-    // Mirror every file into the working tree, then activate the project
-    // IMMEDIATELY — the user sees the imported tree right away. Git is not
-    // required for browsing/editing, so repo initialization is deferred and
-    // fire-and-forget: a git failure must never lose the import.
+    // Mirror every file into the workspace tree, then activate the project
+    // IMMEDIATELY — the user sees the imported tree right away. The tree is
+    // the file explorer's data source and needs no git at all.
     let failed = 0;
     for (const { path, file } of entries) {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
-        await getGitAdapter().writeFileBinary(getProjectRepoPath(project), path, bytes);
+        await getVfs().writeFileBinary(getProjectRepoPath(project), path, bytes);
       } catch (err) {
         failed += 1;
         logger.warn('project', `folder import: failed to write ${path}`, err);
@@ -434,18 +438,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     useAppStore.getState().setMode('standard');
     applyOpenedProject(project);
+    void syncProjectSnapshot(project);
     useAppStore.getState().bumpFileOps();
     if (failed > 0) {
       useAppStore.getState().notify('error', t('project.import_partial', { count: String(failed) }));
     }
-    // Deferred, non-fatal git init ('minimal': no skeleton seeding — the tree
-    // mirrors the picked folder). bumpFileOps afterwards so the explorer
-    // re-probes the repo and the Git panel comes alive once ready.
-    void initGitForProject(project, 'minimal')
-      .then(() => {
-        if (seq === openSeq) useAppStore.getState().bumpFileOps();
-      })
-      .catch((err) => logger.warn('project', 'deferred git init failed (import)', err));
     return project;
   },
 
@@ -479,11 +476,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // Let plugins persist their own state alongside the project now that
       // the project itself is durably stored.
       usePluginStore.getState().notifyProjectLifecycle('save');
-      // Mirror the snapshot into the Git working tree (fire-and-forget) so
-      // the Git panel shows reviewable changes right after any save. A
-      // manual save (Ctrl+S, opts.gitCommit) additionally commits §3.4-style;
-      // autosave/debounced flush never commit.
-      void syncProjectToRepo(touched).then(() => {
+      // Mirror the snapshot into the workspace tree (fire-and-forget) so the
+      // file explorer / supplement packager see project.clproj right after
+      // any save. A manual save (Ctrl+S, opts.gitCommit) additionally commits
+      // §3.4-style when the user has opted into version control; autosave /
+      // debounced flush never commit.
+      void syncProjectSnapshot(touched).then(() => {
         if (opts?.gitCommit) {
           void get().autoCommit('save', touched.name || touched.id);
         }
@@ -702,7 +700,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       if (!(await adapter.isRepo(repoPath))) return;
       // Capture the live project state before diffing so the commit carries
       // the change that triggered it, not just the last durable snapshot.
-      await syncProjectToRepo(project);
+      await syncProjectSnapshot(project);
       const hash = await commitWorkingTree(adapter, repoPath, generateCommitMessage(type, details), () =>
         refreshGitStatusForProject(project),
       );
@@ -718,15 +716,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { project } = get();
     if (!project) return;
     try {
-      const adapter = getGitAdapter();
-      const repoPath = getProjectRepoPath(project);
-      if (!(await adapter.isRepo(repoPath))) return;
       // §3.1: every run becomes runs/run-<id>.json plus an index entry
-      // (runId → {label, source, createdAt, hash}).
-      await adapter.writeFile(repoPath, `runs/${run.id}.json`, JSON.stringify(run, null, 2));
+      // (runId → {label, source, createdAt, hash}). Git-independent: the run
+      // record is a workspace artifact the explorer/packager must always see.
+      const vfs = getVfs();
+      const rootPath = getProjectRepoPath(project);
+      await vfs.writeFile(rootPath, `runs/${run.id}.json`, JSON.stringify(run, null, 2));
       let index: Record<string, unknown> = {};
       try {
-        index = JSON.parse(await adapter.readFile(repoPath, 'runs/index.json')) as Record<string, unknown>;
+        index = JSON.parse(await vfs.readFile(rootPath, 'runs/index.json')) as Record<string, unknown>;
       } catch {
         // First run — start a fresh index.
       }
@@ -736,17 +734,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         createdAt: run.createdAt,
         hash: run.inputsHash ?? null,
       };
-      await adapter.writeFile(repoPath, 'runs/index.json', JSON.stringify(index, null, 2));
-      await syncProjectToRepo(project);
-      const hash = await commitWorkingTree(
-        adapter,
-        repoPath,
-        generateCommitMessage('run', `${run.label ?? run.source} (source=${run.source})`),
-        () => refreshGitStatusForProject(project),
-      );
-      if (hash) void get().loadGitLog();
+      await vfs.writeFile(rootPath, 'runs/index.json', JSON.stringify(index, null, 2));
+      useAppStore.getState().bumpFileOps();
+      // Commit only when the user opted into version control (autoCommit
+      // no-ops without a repo).
+      await get().autoCommit('run', `${run.label ?? run.source} (source=${run.source})`);
     } catch (err) {
-      logger.warn('project', 'run auto-commit failed', err);
+      logger.warn('project', 'run artifact persist failed', err);
     }
   },
 
@@ -765,7 +759,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
     // Capture the live project state, not whatever the last save left.
-    await syncProjectToRepo(project);
+    await syncProjectSnapshot(project);
     const hash = await adapter.commit(repoPath, message);
     await refreshGitStatusForProject(project);
     await get().loadGitLog();

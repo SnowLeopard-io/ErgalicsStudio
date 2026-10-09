@@ -2,14 +2,14 @@
 // Ergalics Studio — save lab artifacts into the project workspace
 //
 // 科研模块（labs）产出的图表 / 清洗数据 / 统计结果等工件的统一入库入口：
-// 写入项目 Git 仓库工作树的标准骨架目录（figures/ data/ runs/，
+// 写入项目工作区（git-free Vfs）的标准骨架目录（figures/ data/ runs/，
 // SKEL §3.1），重名自动追加序号，成功后 bumpFileOps 让侧栏文件
-// 资源管理器刷新。只写工作树，不做 git add/commit。
+// 资源管理器刷新。不涉及 git。
 // ==========================================================================
 
-import { getGitAdapter } from './git';
 import { getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
+import { getVfs } from './vfs';
 import type { Project } from '@/types/project';
 
 /** Skeleton dirs of the project template; '' = repo root (e.g. repro.lock). */
@@ -26,14 +26,14 @@ const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 /** Pick `name`, or `name (2)`, `(3)`, … when the target already exists. */
 async function uniqueName(
-  repoPath: string,
+  rootPath: string,
   dir: string,
   name: string,
 ): Promise<string> {
-  const adapter = getGitAdapter();
+  const vfs = getVfs();
   let names: Set<string>;
   try {
-    const entries = await adapter.readDir(repoPath, dir);
+    const entries = await vfs.readDir(rootPath, dir);
     names = new Set(entries.map((e) => e.name));
   } catch {
     names = new Set();
@@ -52,12 +52,12 @@ async function saveArtifact(
   project: Project,
   dir: ArtifactDir,
   filename: string,
-  write: (repoPath: string, path: string) => Promise<void>,
+  write: (rootPath: string, path: string) => Promise<void>,
 ): Promise<string> {
-  const repoPath = getProjectRepoPath(project);
-  const finalName = await uniqueName(repoPath, dir, filename);
+  const rootPath = getProjectRepoPath(project);
+  const finalName = await uniqueName(rootPath, dir, filename);
   const path = joinPath(dir, finalName);
-  await write(repoPath, path);
+  await write(rootPath, path);
   useAppStore.getState().bumpFileOps(); // refresh the sidebar explorer
   return path;
 }
@@ -69,8 +69,8 @@ export function saveTextArtifact(
   filename: string,
   content: string,
 ): Promise<string> {
-  return saveArtifact(project, dir, filename, (repoPath, path) =>
-    getGitAdapter().writeFile(repoPath, path, content),
+  return saveArtifact(project, dir, filename, (rootPath, path) =>
+    getVfs().writeFile(rootPath, path, content),
   );
 }
 
@@ -81,7 +81,7 @@ export function saveBinaryArtifact(
   filename: string,
   data: Uint8Array,
 ): Promise<string> {
-  return saveArtifact(project, dir, filename, (repoPath, path) =>
-    getGitAdapter().writeFileBinary(repoPath, path, data),
+  return saveArtifact(project, dir, filename, (rootPath, path) =>
+    getVfs().writeFileBinary(rootPath, path, data),
   );
 }

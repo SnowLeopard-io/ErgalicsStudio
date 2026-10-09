@@ -23,7 +23,10 @@ import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
 import { enhanceMarkdownDom } from '@/core/markdown/enhance';
 import { downloadBlob } from '@/core/download';
-import { getGitAdapter } from '@/core/git';
+import { getVfs } from '@/core/vfs';
+import { dataUrlToBlob } from '@/core/plugin-tools/enhance';
+import { saveBinaryArtifact } from '@/core/workspace-artifacts';
+import { DownloadIcon } from '@/components/icons';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
 // still cached in `scene3dRef` and exposed synchronously via `getThree`, while
@@ -119,10 +122,10 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   const saveMarkdown = async () => {
     if (!project) return;
-    const adapter = getGitAdapter();
-    const repoPath = getProjectRepoPath(project);
+    const vfs = getVfs();
+    const rootPath = getProjectRepoPath(project);
     try {
-      await adapter.writeFile(repoPath, preview.path, mdText);
+      await vfs.writeFile(rootPath, preview.path, mdText);
       notify('success', t('workbench.preview.saved'));
       bumpFileOps(); // let the explorer refresh its listings
     } catch {
@@ -132,12 +135,12 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   const downloadFile = async () => {
     if (!project) return;
-    const adapter = getGitAdapter();
-    const repoPath = getProjectRepoPath(project);
+    const vfs = getVfs();
+    const rootPath = getProjectRepoPath(project);
     try {
       const blob = preview.blobUrl
         ? await (await fetch(preview.blobUrl)).blob()
-        : new Blob([(await adapter.readFileBinary(repoPath, preview.path)) as BlobPart], {
+        : new Blob([(await vfs.readFileBinary(rootPath, preview.path)) as BlobPart], {
             type: preview.mimeType,
           });
       downloadBlob(preview.name, blob, preview.mimeType);
@@ -289,6 +292,165 @@ function EmbeddedToolView({ toolId }: { toolId: string }) {
           <Page />
         </Suspense>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Unified plugin-canvas export control (single consolidation point for the
+ * former per-plugin "Snapshot PNG" buttons): captures the foreground canvas
+ * (2-D bitmap or 3-D scene snapshot) and either downloads it or writes it
+ * into the project workspace `figures/` dir. 3-D viewports additionally get
+ * transparent-background variants.
+ */
+function PluginExportMenu({
+  canvasRef,
+  scene3dRef,
+}: {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  scene3dRef: React.RefObject<Scene3DHandle | null>;
+}) {
+  const t = useT();
+  const notify = useAppStore((s) => s.notify);
+  const project = useProjectStore((s) => s.project);
+  const activePluginName = usePluginStore(
+    (s) => s.registry.find((e) => e.id === s.activeId)?.plugin?.manifest.name ?? null,
+  );
+  const [open, setOpen] = useState(false);
+  // Probed when the menu opens: transparent variants exist only for a 3-D
+  // viewport (`Scene3DHandle.snapshot({ transparent })` drops background +
+  // reference furniture; the 2-D bitmap always carries its painted backdrop).
+  const [is3d, setIs3d] = useState(false);
+
+  // Close on outside click / Escape (same contract as the explorer menu).
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  /** `<plugin-name>-20260101-120000` — collision-free, filesystem-safe. */
+  const baseName = (): string => {
+    const safe = (activePluginName ?? 'canvas').replace(/[^\w.-]+/g, '_').slice(0, 40);
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${safe}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  };
+
+  /** Current frame as a PNG data URL: 3-D snapshot handle first, else the 2-D
+   *  bitmap. `transparent` only affects the 3-D path. */
+  const snapshotDataUrl = (transparent: boolean): string | null => {
+    const three = scene3dRef.current;
+    if (three?.isVisible()) {
+      try {
+        return three.snapshot(transparent ? { transparent: true } : undefined);
+      } catch {
+        return null;
+      }
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    try {
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  };
+
+  const grabPng = (transparent: boolean): Blob | null => {
+    const url = snapshotDataUrl(transparent);
+    return url ? dataUrlToBlob(url) : null;
+  };
+
+  const doDownload = (transparent: boolean) => {
+    const blob = grabPng(transparent);
+    if (!blob) {
+      notify('warning', t('workbench.export.no_canvas'));
+      return;
+    }
+    downloadBlob(`${baseName()}.png`, blob, 'image/png');
+  };
+
+  const doSaveWorkspace = async (transparent: boolean) => {
+    if (!project) {
+      notify('warning', t('workbench.export.no_project'));
+      return;
+    }
+    try {
+      const blob = grabPng(transparent);
+      if (!blob) {
+        notify('warning', t('workbench.export.no_canvas'));
+        return;
+      }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const path = await saveBinaryArtifact(project, 'figures', `${baseName()}.png`, bytes);
+      notify('success', t('workbench.export.saved', { path }));
+    } catch (err) {
+      logger.error('workbench', 'plugin canvas export failed', err);
+      notify('error', t('workbench.export.failed'));
+    }
+  };
+
+  const runAndClose = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+
+  const menuBtn = (label: string, onClick: () => void, key: string) => (
+    <button key={key} type="button" role="menuitem" className="central-export-item" onClick={onClick}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="central-export" onMouseDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="central-export-btn"
+        title={t('workbench.export.menu')}
+        aria-label={t('workbench.export.menu')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => {
+          if (!open) setIs3d(!!scene3dRef.current?.isVisible());
+          setOpen((o) => !o);
+        }}
+      >
+        <DownloadIcon size={13} />
+        <span>{t('workbench.export.menu')}</span>
+      </button>
+      {open && (
+        <div className="central-export-menu" role="menu">
+          {menuBtn(t('workbench.export.download_png'), runAndClose(() => doDownload(false)), 'dl')}
+          {menuBtn(
+            t('workbench.export.save_workspace'),
+            runAndClose(() => void doSaveWorkspace(false)),
+            'ws',
+          )}
+          {is3d && (
+            <>
+              {menuBtn(
+                t('workbench.export.download_png_transparent'),
+                runAndClose(() => doDownload(true)),
+                'dlt',
+              )}
+              {menuBtn(
+                t('workbench.export.save_workspace_transparent'),
+                runAndClose(() => void doSaveWorkspace(true)),
+                'wst',
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -629,6 +791,11 @@ export function CentralArea() {
           >
             {Math.round(vp2d.scale * 100)}%
           </button>
+        )}
+        {/* Unified export control: only on the foreground plugin canvas —
+            file/suite tabs cover it with an opaque overlay anyway. */}
+        {activeTab === null && activePlugin && (
+          <PluginExportMenu canvasRef={canvasRef} scene3dRef={scene3dRef} />
         )}
       </div>
       {/* 画布标签体系（VS Code 编辑区风格）：插件画布本身是第一个"标签"，

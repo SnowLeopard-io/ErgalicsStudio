@@ -131,6 +131,16 @@ export const zhCN: LocaleDictionary = {
   'workbench.preview.mode_edit': '编辑',
   'workbench.preview.mode_preview': '预览',
   'workbench.preview.mode_split': '分栏',
+  // ---- 画布统一导出（替代各插件各自的快照按钮） ----
+  'workbench.export.menu': '导出',
+  'workbench.export.download_png': '下载 PNG',
+  'workbench.export.save_workspace': '保存到工作区 figures/',
+  'workbench.export.download_png_transparent': '下载 PNG（透明背景）',
+  'workbench.export.save_workspace_transparent': '保存到工作区（透明背景）',
+  'workbench.export.saved': '已保存到 {path}',
+  'workbench.export.failed': '导出失败',
+  'workbench.export.no_canvas': '暂无可导出的画面',
+  'workbench.export.no_project': '未打开项目，无法写入工作区',
   // ---- 画布编辑器标签（代码 / 积木 / 流程文件） ----
   'workbench.editor.save': '保存',
   'workbench.editor.saved': '已保存到工作区',
@@ -328,7 +338,8 @@ export const zhCN: LocaleDictionary = {
   'research.science_outputs': '科学输出',
 
   'git.panel_title': 'Git',
-  'git.no_repo': '当前项目没有可用的 Git 仓库。',
+  'git.no_repo': '当前项目未启用版本控制（文件管理不依赖 Git）。',
+  'git.init_repo': '启用版本控制（Git 初始化）',
   'git.branch': '当前分支',
   'git.refresh': '刷新状态',
   'git.clean': '工作区无变更',
@@ -667,15 +678,16 @@ export const zhCN: LocaleDictionary = {
 
   // ---- supplement packaging ----
   'supplement.title': '补充材料打包',
-  'supplement.intro': '将项目打包为可随论文提交的补充材料 zip：包含 manifest.json（运行记录 + 数据血缘 + 元数据），可选数据文件与代码。',
+  'supplement.intro': '将文件资源管理器中的项目工作区打包为可随论文提交的补充材料 zip：manifest.json（运行记录 + 数据血缘 + 元数据）+ 真实项目文件树（data/、code/、figures/ 等）。',
   'supplement.author': '作者',
   'supplement.license': '许可',
   'supplement.description': '描述',
   'supplement.description_placeholder': '数据与代码的简要说明（可选）',
-  'supplement.include_data': '包含数据文件（{count} 个）',
-  'supplement.include_code': '包含代码会话',
+  'supplement.include_data': '包含 data/ 数据文件（{count} 个）',
+  'supplement.include_code': '包含 code/ 代码文件',
+  'supplement.include_workspace': '包含其余工作区内容（figures/、manuscript/、runs/、project.clproj 等）',
   'supplement.include_lock': '附带 repro.lock（数据/代码/参数/种子指纹）',
-  'supplement.hint': '运行记录与血缘自动从项目历史生成，无需填写。',
+  'supplement.hint': '打包内容与文件资源管理器所见一致；运行记录与血缘自动从项目历史生成，无需填写。',
   'supplement.build': '打包并下载',
   // ---- labs 工件保存到工作区 ----
   'labs.save_ws': '保存到工作区',

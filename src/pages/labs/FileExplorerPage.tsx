@@ -2,19 +2,19 @@
 // Ergalics Studio — File Explorer (research tool §files)
 //
 // Researchers could not answer "where do my runs/figures/scripts actually
-// live?" — the Git-backed repo (runs/, figures/, code/, …) was invisible.
-// This page browses the virtual repo working tree directly through the
-// GitAdapter.readDir primitive: lazy per-directory listings on the left,
-// a text preview + download on the right, and a static directory guide
-// that documents the standard project skeleton (§3.1).
+// live?" — the workspace tree (runs/, figures/, code/, …) was invisible.
+// This page browses the project workspace directly through the git-free Vfs
+// (lazy per-directory listings on the left), a text preview + download on
+// the right, and a static directory guide that documents the standard
+// project skeleton (§3.1).
 // ==========================================================================
 
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { getProjectRepoPath } from '@/stores/projectStore';
-import { getGitAdapter } from '@/core/git';
-import type { RepoEntry } from '@/core/git';
+import { getVfs } from '@/core/vfs';
+import type { VfsEntry } from '@/core/vfs';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -56,43 +56,32 @@ export default function FileExplorerPage() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
 
-  /** Per-directory listings, keyed by repo-relative dir ('' = root). */
-  const [tree, setTree] = useState<Record<string, RepoEntry[]>>({});
+  /** Per-directory listings, keyed by workspace-relative dir ('' = root). */
+  const [tree, setTree] = useState<Record<string, VfsEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [selected, setSelected] = useState<RepoEntry | null>(null);
+  const [selected, setSelected] = useState<VfsEntry | null>(null);
   const [content, setContent] = useState<string | null>(null);
-  const [hasRepo, setHasRepo] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const loadDir = useCallback(
     async (dir: string) => {
       if (!project) return;
-      const adapter = getGitAdapter();
-      const repoPath = getProjectRepoPath(project);
-      const entries = await adapter.readDir(repoPath, dir);
+      const vfs = getVfs();
+      const rootPath = getProjectRepoPath(project);
+      const entries = await vfs.readDir(rootPath, dir);
       setTree((prev) => ({ ...prev, [dir]: entries }));
     },
     [project],
   );
 
-  // Fresh project → clean slate + root listing + repo probe.
+  // Fresh project → clean slate + root listing.
   useEffect(() => {
     setTree({});
     setExpanded(new Set());
     setSelected(null);
     setContent(null);
     if (!project) return;
-    let cancelled = false;
-    void (async () => {
-      const adapter = getGitAdapter();
-      const repoOk = await adapter.isRepo(getProjectRepoPath(project));
-      if (cancelled) return;
-      setHasRepo(repoOk);
-      if (repoOk) await loadDir('');
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void loadDir('');
   }, [project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDir = (dir: string) => {
@@ -108,7 +97,7 @@ export default function FileExplorerPage() {
     });
   };
 
-  const selectEntry = async (entry: RepoEntry) => {
+  const selectEntry = async (entry: VfsEntry) => {
     if (entry.isDir) {
       toggleDir(entry.path);
       return;
@@ -117,8 +106,8 @@ export default function FileExplorerPage() {
     setContent(null);
     if (!project) return;
     if (!isTextFile(entry.name)) return;
-    const adapter = getGitAdapter();
-    const text = await adapter.readFile(getProjectRepoPath(project), entry.path);
+    const vfs = getVfs();
+    const text = await vfs.readFile(getProjectRepoPath(project), entry.path);
     setContent(text);
   };
 
@@ -144,7 +133,7 @@ export default function FileExplorerPage() {
     ? GUIDE.find((g) => g.match(selected.path))
     : undefined;
 
-  const renderEntries = (entries: RepoEntry[], depth: number) => (
+  const renderEntries = (entries: VfsEntry[], depth: number) => (
     <>
       {entries.map((e) => (
         <div key={e.path}>
@@ -170,10 +159,7 @@ export default function FileExplorerPage() {
 
   return (
     <ToolShell toolId="files">
-      {!hasRepo ? (
-        <p className="explorer-empty">{t('explorer.no_repo')}</p>
-      ) : (
-        <>
+      <>
           <div className="explorer-toolbar">
             <button type="button" className="btn btn-sm" disabled={loading} onClick={() => void refresh()}>
               ⟳ {t('explorer.refresh')}
@@ -221,8 +207,7 @@ export default function FileExplorerPage() {
               ))}
             </ul>
           </section>
-        </>
-      )}
+      </>
     </ToolShell>
   );
 }

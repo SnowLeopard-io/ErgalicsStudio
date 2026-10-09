@@ -94,6 +94,9 @@ export default function UncertaintyPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
+  // project?.data.files is an intentional invalidation trigger for the
+  // registry-backed file list (listDataFilesGrouped reads store state directly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
   const gpuAvailable = useMemo(() => hasGpuEngine(), []);
 

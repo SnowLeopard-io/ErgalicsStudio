@@ -164,6 +164,10 @@ function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unkn
   // selector: `?? []` inside the selector returns a fresh array every call,
   // which zustand v5 treats as a state change → infinite re-render.
   const projectFiles = useProjectStore((s) => s.project?.data.files) ?? [];
+  // projectFiles is an intentional memo invalidation trigger: the registry-backed
+  // list must recompute whenever project files change even though the array is
+  // not referenced inside the callback.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const groups = useMemo(() => listDataFilesGrouped(), [projectFiles]);
   return (
     <select

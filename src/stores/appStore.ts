@@ -525,22 +525,22 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  /** Write the buffered payload to the working tree. Uses lazy imports (the
-   *  git adapter's repo path helper lives in projectStore, which imports this
-   *  store — a static import would close a cycle). Resolves to false on
-   *  failure (a notification is emitted; callers just skip their close). */
+  /** Write the buffered payload to the workspace tree. Uses lazy imports (the
+   *  workspace root helper lives in projectStore, which imports this store —
+   *  a static import would close a cycle). Resolves to false on failure
+   *  (a notification is emitted; callers just skip their close). */
   saveEditorFile: async (path) => {
     const key = editorTabKey(path);
     const cur = useAppStore.getState().editorFiles[key];
     if (!cur) return false;
     try {
-      const [{ useProjectStore, getProjectRepoPath }, { getGitAdapter }] = await Promise.all([
+      const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
         import('./projectStore'),
-        import('@/core/git'),
+        import('@/core/vfs'),
       ]);
       const project = useProjectStore.getState().project;
       if (!project) throw new Error('no project open');
-      await getGitAdapter().writeFile(getProjectRepoPath(project), cur.path, cur.payload);
+      await getVfs().writeFile(getProjectRepoPath(project), cur.path, cur.payload);
       set((s) => {
         const f = s.editorFiles[key];
         if (!f) return s;

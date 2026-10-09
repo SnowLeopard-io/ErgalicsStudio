@@ -276,7 +276,9 @@ export default function FigureStudioPage() {
       templateId: active.templateId,
       caption: active.caption,
     });
-  }, [active, active?.panels, active?.templateId, active?.caption]);
+  // Sheet mutations are immutable (figureStore.mutateSheet spreads a new sheet
+  // object), so `active`'s identity covers panels/templateId/caption changes.
+  }, [active]);
 
   // Per-panel plot geometry (figure coordinates) feeding the interactive
   // crosshair readout. Mirrors composeFigure's row-major panel order so
