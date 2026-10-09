@@ -7413,6 +7413,14 @@ button.start-card:hover {
   flex-direction: column;
   border-radius: inherit;
   overflow: hidden;
+  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明，
+     否则 2D 插件的拖动/平移会被这层空壳拦住。交互子元素再单独开启。 */
+  pointer-events: none;
+}
+
+.central-overlay-stack > .central-tool-tabs,
+.central-overlay-stack > .central-tab-pane {
+  pointer-events: auto;
 }
 
 /* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
