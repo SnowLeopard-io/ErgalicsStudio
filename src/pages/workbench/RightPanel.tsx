@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
-import { useAppStore } from '@/stores/appStore';
+import { useAppStore, toolTabKey } from '@/stores/appStore';
 import { FileInfoPanel } from './FileInfoPanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
@@ -15,12 +15,13 @@ import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 
 /** Introduction card for the suite currently embedded in the central canvas:
- *  identity (icon / name / group) plus its registry description, with
- *  actions to open the standalone page or close the embed. */
+ *  identity (icon / name / group), full registry description, data
+ *  requirements and embedded-mode notes, with actions to open the standalone
+ *  page or close the embed. */
 function SuiteIntro({ toolId }: { toolId: string }) {
   const t = useT();
   const navigate = useNavigate();
-  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
+  const closeTab = useAppStore((s) => s.closeTab);
   const toolDef = getTool(toolId);
   if (!toolDef) return null;
   return (
@@ -35,11 +36,25 @@ function SuiteIntro({ toolId }: { toolId: string }) {
         </div>
       </div>
       <p className="suite-intro-desc">{t(toolDef.descKey)}</p>
+      <dl className="suite-intro-facts">
+        <div className="suite-intro-fact">
+          <dt>{t('suite.info.data_req')}</dt>
+          <dd>
+            {toolDef.requireProject
+              ? t('suite.info.needs_project')
+              : t('suite.info.no_project_needed')}
+          </dd>
+        </div>
+        <div className="suite-intro-fact">
+          <dt>{t('suite.info.mode')}</dt>
+          <dd>{t('suite.info.embedded_hint')}</dd>
+        </div>
+      </dl>
       <div className="suite-intro-actions">
         <button type="button" className="btn btn-sm" onClick={() => navigate(toolDef.path)}>
           {t('suite.open_standalone')}
         </button>
-        <button type="button" className="btn btn-sm" onClick={() => setEmbeddedTool(null)}>
+        <button type="button" className="btn btn-sm" onClick={() => closeTab(toolTabKey(toolId))}>
           {t('suite.close')}
         </button>
       </div>
@@ -56,10 +71,15 @@ export function RightPanel() {
   );
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
-  const filePreview: FilePreviewState | null = useAppStore((s) => s.filePreview);
+  // Active canvas tab drives what this panel shows: a file tab → file info,
+  // a suite tab → suite intro, no tab → plugin parameters.
+  const activeTabKey = useAppStore((s) => s.activeTab);
+  const filePreview: FilePreviewState | null = useAppStore((s) =>
+    activeTabKey?.startsWith('file:') ? (s.filePreviews[activeTabKey] ?? null) : null,
+  );
   // Research suite embedded in the central canvas — the right panel switches
-  // to the suite introduction while one is open.
-  const embeddedToolId = useAppStore((s) => s.embeddedTool);
+  // to the suite introduction while one is active.
+  const embeddedToolId = activeTabKey?.startsWith('tool:') ? activeTabKey.slice(5) : null;
   const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 

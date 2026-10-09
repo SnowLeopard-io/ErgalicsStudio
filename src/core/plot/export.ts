@@ -16,7 +16,17 @@ export function downloadText(
   mime: string,
 ): void {
   if (typeof document === 'undefined') return;
-  const blob = new Blob([content], { type: mime });
+  downloadBytes(new TextEncoder().encode(content), filename, mime);
+}
+
+/** Trigger a browser download of raw bytes. */
+export function downloadBytes(
+  data: Uint8Array,
+  filename: string,
+  mime: string,
+): void {
+  if (typeof document === 'undefined') return;
+  const blob = new Blob([data as BlobPart], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -90,6 +100,48 @@ export function exportPNG(svg: string, filename = 'plot.png', scale = 600 / 96):
   img.src = url;
 }
 
+/**
+ * Rasterize an SVG string to PNG **bytes** (no download). Same rendering
+ * pipeline as `exportPNG`; resolves once the bitmap is encoded.
+ */
+export function rasterizePNG(svg: string, scale = 600 / 96): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      reject(new Error('rasterizePNG is only available in a browser environment'));
+      return;
+    }
+    const { width, height } = computeRasterSize(svg, scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      reject(new Error('canvas 2d context unavailable'));
+      return;
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('PNG encoding failed'));
+          return;
+        }
+        void blob.arrayBuffer().then((buf) => resolve(new Uint8Array(buf)));
+      }, 'image/png');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG rasterization failed'));
+    };
+    img.src = url;
+  });
+}
+
 interface Svg2PdfModule {
   svg2pdf: (
     element: SVGElement,
@@ -105,20 +157,20 @@ interface JsPdfModule {
   }) => {
     save: (name: string) => void;
     addImage?: unknown;
+    output?: (type: string) => unknown;
   };
 }
 
 /**
- * Render an SVG string into a vector PDF and download it.
- * Lazily imports `jspdf` + `svg2pdf.js`; throws if unavailable.
+ * Render an SVG string into a vector PDF and return the **bytes** (no
+ * download). Lazily imports `jspdf` + `svg2pdf.js`; throws if unavailable.
  */
-export async function exportPDF(
+export async function buildPDF(
   svg: string,
-  filename = 'plot.pdf',
   widthMm = 180,
-): Promise<void> {
+): Promise<Uint8Array> {
   if (typeof document === 'undefined') {
-    throw new Error('exportPDF is only available in a browser environment');
+    throw new Error('buildPDF is only available in a browser environment');
   }
   // `as any` on the specifier keeps tsc from demanding type declarations for
   // these optional, browser-only deps (they are loaded lazily at runtime).
@@ -140,8 +192,23 @@ export async function exportPDF(
       y: 15,
       width: widthMm,
     });
-    pdf.save(filename);
+    const raw = pdf.output?.('arraybuffer');
+    if (!(raw instanceof ArrayBuffer)) throw new Error('jsPDF arraybuffer output unavailable');
+    return new Uint8Array(raw);
   } finally {
     svgEl.remove();
   }
+}
+
+/**
+ * Render an SVG string into a vector PDF and download it.
+ * Thin wrapper over `buildPDF`.
+ */
+export async function exportPDF(
+  svg: string,
+  filename = 'plot.pdf',
+  widthMm = 180,
+): Promise<void> {
+  const bytes = await buildPDF(svg, widthMm);
+  downloadBytes(bytes, filename, 'application/pdf');
 }

@@ -413,6 +413,9 @@
   flex: 1;
   display: flex;
   min-height: 0;
+  /* 为收起态贴边的浮层按钮 (.panel-edge-*) 提供定位上下文，使其不占横向
+     布局槽位，从而让中央画布填满整行。 */
+  position: relative;
 }
 
 /* ---- sidebar ---- */
@@ -1273,6 +1276,31 @@
   margin: 0;
   font-size: var(--font-size-sm);
   line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+/* 套件信息表：数据要求 / 运行方式等事实性条目。 */
+.suite-intro-facts {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suite-intro-fact dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-tertiary);
+  margin-bottom: 2px;
+}
+
+.suite-intro-fact dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
   color: var(--color-text-secondary);
 }
 
@@ -6768,6 +6796,8 @@ button.start-card:hover {
   align-items: center;
   justify-content: center;
   padding: 0;
+  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住。 */
+  z-index: 45;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
@@ -6786,6 +6816,14 @@ button.start-card:hover {
 .panel-edge-right {
   border-right: none;
   border-radius: 8px 0 0 8px;
+}
+
+/* 收起态：右栏展开按钮改为浮层，不占 flex 槽位，中央画布即可填满整行宽。 */
+.panel-edge-right.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 0;
 }
 
 .panel-edge-btn:hover {
@@ -7364,6 +7402,116 @@ button.start-card:hover {
 /* 原始数据预览：项目树文件的只读预览。 */
 
 /* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
+
+/* 覆盖层堆栈：套件标签条 + 预览/套件浮层共用一个定位容器，标签条
+   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间。 */
+.central-overlay-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
+   display:none —— 切换标签不卸载内容，状态得以保留。 */
+.central-tab-pane {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central-tab-pane.tab-hidden {
+  display: none;
+}
+
+/* 窗格内的浮层从"绝对铺满"改为"常规流占满剩余高度"。 */
+.central-tab-pane > .central-file-preview,
+.central-tab-pane > .central-tool-view {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+}
+
+/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）。 */
+.central-tool-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.central-tool-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 0 8px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.central-tool-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.central-tool-tab.active {
+  color: var(--color-accent-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.central-tool-tab-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.central-tool-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.central-tool-tab-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.central-tool-tab-close:hover {
+  background: var(--color-bg-tertiary, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+}
 
 .central-file-preview {
   position: absolute;

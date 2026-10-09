@@ -19,7 +19,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import {
   useFigureStore,
 } from '@/stores/figureStore';
-import { composeFigure, JOURNAL_TEMPLATES, panelCellSize } from '@/core/figure/compose';
+import { composeFigure, JOURNAL_TEMPLATES, panelCellSize, saveFigureToWorkspace } from '@/core/figure/compose';
 import { plotGeometry } from '@/core/plot/geometry';
 import { FigureReadout, type FigurePanelGeom } from '@/components/FigureReadout';
 import type { FigureExportFormat } from '@/core/figure/compose';
@@ -357,6 +357,33 @@ export default function FigureStudioPage() {
     }
   };
 
+  /** Save the active sheet into the workspace `figures/` dir (no download). */
+  const saveSheetToWorkspace = async (format: FigureExportFormat) => {
+    const project = useProjectStore.getState().project;
+    if (!active || !project) {
+      notify('error', t('labs.no_project'));
+      return;
+    }
+    try {
+      const path = await saveFigureToWorkspace(
+        project,
+        { templateId: active.templateId, caption: active.caption, panels: active.panels },
+        format,
+        active.name || 'figure',
+      );
+      notify('success', t('labs.saved_ws', { path }));
+    } catch (err) {
+      notify('error', t('figure.export_failed', { reason: String(err) }));
+    }
+  };
+
+  /** Save in every submission format (SVG + PDF + 600-dpi PNG). */
+  const saveSheetAllFormats = async () => {
+    for (const format of ['svg', 'pdf', 'png600'] as FigureExportFormat[]) {
+      await saveSheetToWorkspace(format);
+    }
+  };
+
   const handleExport = async (format: FigureExportFormat) => {
     if (!active) return;
     // FR-03: a failing checklist never blocks export, but asks for a second
@@ -580,6 +607,15 @@ export default function FigureStudioPage() {
                   {exportLabel(format)}
                 </button>
               ))}
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                disabled={active.panels.length === 0 || !project}
+                title={project ? t('labs.save_ws') : t('labs.no_project')}
+                onClick={() => void saveSheetAllFormats()}
+              >
+                {t('figure.save_ws')}
+              </button>
             </div>
           </section>
         </div>

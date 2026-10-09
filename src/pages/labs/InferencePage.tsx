@@ -12,6 +12,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useT, useLocale } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
+import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { getGpuBackend } from '@/core/gpu';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -192,7 +193,9 @@ export default function InferencePage() {
         outputFileIds: fileId ? [fileId] : [],
         durationMs: result.latencyMs,
       });
-      setSavedNote(t('infer.saved', { name }));
+      // 同步一份到项目工作区 data/（重名自动加序号），文件资源管理器立即可见。
+      const wsPath = await saveTextArtifact(project, 'data', name, csv);
+      setSavedNote(t('labs.saved_ws', { path: wsPath }));
     } catch (err) {
       setSavedNote(err instanceof Error ? err.message : String(err));
     }

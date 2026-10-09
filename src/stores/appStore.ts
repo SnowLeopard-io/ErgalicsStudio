@@ -96,6 +96,15 @@ export interface FilePreviewState {
   size: number;
 }
 
+/** One tab in the canvas tab strip: a file preview or an embedded research
+ *  suite. `key` is the stable identity used for activation and closing. */
+export type CanvasTab = { kind: 'file'; key: string; path: string } | { kind: 'tool'; key: string; id: string };
+
+/** Tab key for a file preview tab. */
+export const fileTabKey = (path: string): string => `file:${path}`;
+/** Tab key for an embedded suite tab. */
+export const toolTabKey = (id: string): string => `tool:${id}`;
+
 interface AppStore {
   status: PluginHostStatus;
   banners: Banner[];
@@ -114,14 +123,17 @@ interface AppStore {
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
   sidebarView: SidebarView;
-  /** File opened for read-only preview in the canvas area (or null). */
-  filePreview: FilePreviewState | null;
   /**
-   * Research suite embedded in the Standard-mode central canvas (tool
-   * registry id, or null). Mirrors the file-preview overlay pattern: the
-   * canvas stays mounted underneath, so closing never re-initializes scenes.
+   * Canvas tab strip (VS Code editor-area style): files opened from the
+   * explorer and research suites embedded from the launcher share one tab
+   * list. Every open tab stays mounted — switching tabs only toggles
+   * visibility, so scroll position / edit buffer / tool state survive.
    */
-  embeddedTool: string | null;
+  canvasTabs: CanvasTab[];
+  /** Active tab key (fileTabKey / toolTabKey), or null when none is open. */
+  activeTab: string | null;
+  /** Per-path preview state for every open file tab (content / blobUrl…). */
+  filePreviews: Record<string, FilePreviewState>;
   /** Monotonic bump whenever the working tree changes from outside the
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
@@ -150,7 +162,15 @@ interface AppStore {
   toggleModePanel: () => void;
   setMode: (mode: WorkbenchMode) => void;
   setSidebarView: (view: SidebarView) => void;
-  setFilePreview: (preview: FilePreviewState | null) => void;
+  /** Open (or refresh) a file preview tab in the central canvas. */
+  openFilePreview: (preview: FilePreviewState) => void;
+  /** Activate a tab by key (no-op if the tab is not open). */
+  activateTab: (key: string) => void;
+  /** Close one tab (file or suite); activates the nearest remaining tab. */
+  closeTab: (key: string) => void;
+  /** Update a file tab's path/name after an explorer rename, preserving
+   *  content so the open preview survives the rename. */
+  renameFileTab: (oldPath: string, name: string, newPath: string) => void;
   /** Embed (or close, with null) a research suite in the central canvas. */
   setEmbeddedTool: (id: string | null) => void;
   bumpFileOps: () => void;
@@ -218,8 +238,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   rightPanelOpen: panelPrefs.rightPanelOpen,
   modePanelOpen: panelPrefs.modePanelOpen,
   sidebarView: panelPrefs.sidebarView,
-  filePreview: null,
-  embeddedTool: null,
+  canvasTabs: [],
+  activeTab: null,
+  filePreviews: {},
   fileOpsVersion: 0,
   mode: 'standard',
 
@@ -343,29 +364,38 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  /** Open (or close) the read-only file preview in the canvas area. Revokes
-   *  the previous preview's blob URL (created by the opener) so memory is
-   *  not leaked when switching between binary previews. Both central-canvas
-   *  overlays (file preview / embedded suite) are mutually exclusive. */
-  setFilePreview: (preview) => {
-    const prev = get().filePreview;
-    if (prev?.blobUrl && preview?.blobUrl !== prev.blobUrl) {
-      try {
-        URL.revokeObjectURL(prev.blobUrl);
-      } catch {
-        /* already revoked / not a usable URL */
+  /** Open (or refresh) a file preview tab in the canvas area. Re-opening the
+   *  same path replaces its state (revoking a replaced binary blob URL so
+   *  memory is not leaked) and activates its tab; other tabs stay open and
+   *  mounted — switching tabs never discards their state. */
+  openFilePreview: (preview) => {
+    const key = fileTabKey(preview.path);
+    set((s) => {
+      const old = s.filePreviews[key];
+      if (old?.blobUrl && preview.blobUrl !== old.blobUrl) {
+        try {
+          URL.revokeObjectURL(old.blobUrl);
+        } catch {
+          /* already revoked / not a usable URL */
+        }
       }
-    }
-    set((s) => ({ filePreview: preview, embeddedTool: preview ? null : s.embeddedTool }));
+      return {
+        filePreviews: { ...s.filePreviews, [key]: preview },
+        canvasTabs: s.canvasTabs.some((tab) => tab.key === key)
+          ? s.canvasTabs
+          : [...s.canvasTabs, { kind: 'file' as const, key, path: preview.path }],
+        activeTab: key,
+      };
+    });
   },
 
-  /** Embed (or close) a research suite in the central canvas. Opening one
-   *  takes over the canvas surface: any file preview is dismissed and the
-   *  active plugin is deactivated — it would otherwise keep rendering into
-   *  the hidden canvas and burning GPU/CPU (same as a mode switch). */
-  setEmbeddedTool: (id) => {
-    set((s) => ({ embeddedTool: id, filePreview: id ? null : s.filePreview }));
-    if (id) {
+  /** Activate a tab by key. Activating a suite tab deactivates the active
+   *  plugin (it would otherwise keep rendering into the hidden canvas and
+   *  burning GPU/CPU — same as a mode switch). */
+  activateTab: (key) => {
+    if (!get().canvasTabs.some((tab) => tab.key === key)) return;
+    set({ activeTab: key });
+    if (key.startsWith('tool:')) {
       // Lazy import keeps appStore free of a pluginStore cycle.
       void import('./pluginStore')
         .then((m) => {
@@ -374,6 +404,80 @@ export const useAppStore = create<AppStore>((set, get) => {
         })
         .catch((err) => logger.error('appStore', 'deactivate on tool embed failed', err));
     }
+  },
+
+  /** Close one tab (file preview or embedded suite); the nearest remaining
+   *  tab becomes active. A closed file tab's blob URL is revoked. */
+  closeTab: (key) => {
+    set((s) => {
+      const closed = s.canvasTabs.find((tab) => tab.key === key);
+      if (!closed) return s;
+      const next = s.canvasTabs.filter((tab) => tab.key !== key);
+      const filePreviews = { ...s.filePreviews };
+      if (closed.kind === 'file') {
+        const blobUrl = filePreviews[key]?.blobUrl;
+        delete filePreviews[key];
+        if (blobUrl) {
+          try {
+            URL.revokeObjectURL(blobUrl);
+          } catch {
+            /* already revoked */
+          }
+        }
+      }
+      return {
+        canvasTabs: next,
+        filePreviews,
+        activeTab:
+          s.activeTab === key
+            ? next.length
+              ? (next[Math.max(0, s.canvasTabs.findIndex((tab) => tab.key === key) - 1)]?.key ??
+                null)
+              : null
+            : s.activeTab,
+      };
+    });
+  },
+
+  /** Update a file tab's path/name after an explorer rename, preserving its
+   *  open state and content. */
+  renameFileTab: (oldPath, name, newPath) => {
+    const oldKey = fileTabKey(oldPath);
+    const newKey = fileTabKey(newPath);
+    set((s) => {
+      const prev = s.filePreviews[oldKey];
+      if (!prev) return s;
+      const filePreviews = { ...s.filePreviews };
+      filePreviews[newKey] = { ...prev, name, path: newPath };
+      delete filePreviews[oldKey];
+      return {
+        filePreviews,
+        canvasTabs: s.canvasTabs.map((tab) =>
+          tab.key === oldKey ? { kind: 'file' as const, key: newKey, path: newPath } : tab,
+        ),
+        activeTab: s.activeTab === oldKey ? newKey : s.activeTab,
+      };
+    });
+  },
+
+  /** Embed (or close) a research suite in the central canvas. Opening one
+   *  adds/activates its tool tab (the tab strip switches between suites and
+   *  open files); `null` closes the active tab if it is a suite. Opening a
+   *  suite also deactivates the active plugin. */
+  setEmbeddedTool: (id) => {
+    if (id === null) {
+      const s = get();
+      if (s.activeTab?.startsWith('tool:')) s.closeTab(s.activeTab);
+      return;
+    }
+    const key = toolTabKey(id);
+    const s = get();
+    if (!s.canvasTabs.some((tab) => tab.key === key)) {
+      set((st) => ({
+        canvasTabs: [...st.canvasTabs, { kind: 'tool' as const, key, id }],
+      }));
+    }
+    s.activateTab(key);
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),

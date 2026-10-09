@@ -12,6 +12,15 @@ import { getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import type { Project } from '@/types/project';
 
+/** Skeleton dirs of the project template; '' = repo root (e.g. repro.lock). */
+export type ArtifactDir =
+  | 'figures'
+  | 'data'
+  | 'runs'
+  | 'manuscript'
+  | 'code'
+  | '';
+
 /** Join a skeleton dir + filename into a repo-relative path. */
 const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
@@ -41,11 +50,10 @@ async function uniqueName(
 
 async function saveArtifact(
   project: Project,
-  dir: string,
+  dir: ArtifactDir,
   filename: string,
   write: (repoPath: string, path: string) => Promise<void>,
 ): Promise<string> {
-  const adapter = getGitAdapter();
   const repoPath = getProjectRepoPath(project);
   const finalName = await uniqueName(repoPath, dir, filename);
   const path = joinPath(dir, finalName);
@@ -57,7 +65,7 @@ async function saveArtifact(
 /** Save UTF-8 text (SVG chart, CSV, JSON snapshot, …) into a skeleton dir. */
 export function saveTextArtifact(
   project: Project,
-  dir: 'figures' | 'data' | 'runs' | 'manuscript' | 'code',
+  dir: ArtifactDir,
   filename: string,
   content: string,
 ): Promise<string> {
@@ -69,7 +77,7 @@ export function saveTextArtifact(
 /** Save binary data (PNG snapshot, PDF, …) into a skeleton dir. */
 export function saveBinaryArtifact(
   project: Project,
-  dir: 'figures' | 'data' | 'runs' | 'manuscript' | 'code',
+  dir: ArtifactDir,
   filename: string,
   data: Uint8Array,
 ): Promise<string> {

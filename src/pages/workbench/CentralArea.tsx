@@ -47,13 +47,7 @@ type MdView = (typeof MD_VIEWS)[number];
  * to the working tree; image/pdf/video/audio → binary blob URL embed;
  * unknown → info placeholder + download. The canvas stays mounted underneath.
  */
-function PreviewOverlay({
-  preview,
-  onClose,
-}: {
-  preview: FilePreviewState;
-  onClose: () => void;
-}) {
+function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const notify = useAppStore((s) => s.notify);
@@ -207,27 +201,10 @@ function PreviewOverlay({
       );
   }
 
+  // 画布标签条已提供文件名、只读标识与关闭按钮，这里只渲染预览本体，
+  // 避免标签行下方再出现一条重复的头部标签（与内嵌套件同一约定）。
   return (
-    <div className="central-file-preview">
-      <header className="central-file-preview-tab">
-        <span className="central-file-preview-name" title={preview.path}>
-          {preview.name}
-        </span>
-        {preview.kind !== 'markdown' && (
-          <span className="central-file-preview-readonly">{t('workbench.preview.readonly')}</span>
-        )}
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label={t('common.close')}
-          title={t('common.close')}
-          onClick={onClose}
-        >
-          <CloseIcon size={14} />
-        </button>
-      </header>
-      {body}
-    </div>
+    <div className="central-file-preview">{body}</div>
   );
 }
 
@@ -235,36 +212,15 @@ function PreviewOverlay({
  * Research suite embedded in the canvas area (opaque overlay, canvas stays
  * mounted underneath — same contract as PreviewOverlay). The tool page ships
  * its own ToolShell, which drops its header/status bar in embedded mode; the
- * tab header here carries the close affordance.
+ * canvas tab strip (see CentralArea) carries the title and close affordance,
+ * so no per-suite header is rendered here.
  */
-function EmbeddedToolView({
-  toolId,
-  onClose,
-}: {
-  toolId: string;
-  onClose: () => void;
-}) {
-  const t = useT();
+function EmbeddedToolView({ toolId }: { toolId: string }) {
   const toolDef = getTool(toolId);
   if (!toolDef) return null;
   const Page = toolDef.component;
   return (
     <div className="central-tool-view">
-      <header className="central-file-preview-tab">
-        <span className="tool-title-icon" aria-hidden="true">
-          <ToolIcon kind={toolDef.icon} size={15} />
-        </span>
-        <span className="central-file-preview-name">{t(toolDef.titleKey)}</span>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label={t('suite.close')}
-          title={t('suite.close')}
-          onClick={onClose}
-        >
-          <CloseIcon size={14} />
-        </button>
-      </header>
       <div className="central-tool-view-body">
         <Suspense
           fallback={
@@ -291,15 +247,15 @@ export function CentralArea() {
   // a background compute must never cover the plugin the user switched to.
   // `activeId` is selected further below (viewport-reset hook).
   const computingId = usePluginStore((s) => s.computingId);
-  // Explorer-driven read-only file preview: rendered as an opaque overlay over
-  // the canvas (VS Code editor-area style). The plugin surface stays mounted
-  // underneath, so closing the preview never re-initializes a scene.
-  const filePreview = useAppStore((s) => s.filePreview);
-  const setFilePreview = useAppStore((s) => s.setFilePreview);
-  // Research suite embedded in the canvas (opened from the launcher / command
-  // palette / welcome grid). Rendered as an opaque overlay like file previews.
-  const embeddedToolId = useAppStore((s) => s.embeddedTool);
-  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
+  // Canvas tab strip (VS Code editor-area style): file previews opened from
+  // the explorer and embedded research suites share one tab list. Every open
+  // tab stays mounted — switching tabs only toggles visibility, so edit
+  // buffers, scroll positions and tool state survive the switch.
+  const canvasTabs = useAppStore((s) => s.canvasTabs);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const filePreviews = useAppStore((s) => s.filePreviews);
+  const activateTab = useAppStore((s) => s.activateTab);
+  const closeTab = useAppStore((s) => s.closeTab);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -604,22 +560,73 @@ export function CentralArea() {
           </button>
         )}
       </div>
-      {/* 文件预览浮层（来自文件资源管理器）：类似 VS Code 编辑区。
-          盖在画布上方但画布保持挂载，关闭预览不触发场景重建。 */}
-      {filePreview && (
-        <PreviewOverlay
-          key={filePreview.path}
-          preview={filePreview}
-          onClose={() => setFilePreview(null)}
-        />
-      )}
-      {/* 内嵌科研套件浮层：与文件预览同一覆盖模式，画布保持挂载。 */}
-      {embeddedToolId && (
-        <EmbeddedToolView
-          key={embeddedToolId}
-          toolId={embeddedToolId}
-          onClose={() => setEmbeddedTool(null)}
-        />
+      {/* 画布标签体系（VS Code 编辑区风格）：文件预览与内嵌套件共用一条
+          标签栏。所有已打开的标签保持挂载，切换仅改可见性——编辑缓冲、
+          滚动位置与套件状态在切换过程中全部保留。 */}
+      {canvasTabs.length > 0 && (
+        <div className="central-overlay-stack">
+          <div className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
+            {canvasTabs.map((tab) => {
+              const active = tab.key === activeTab;
+              const label =
+                tab.kind === 'tool'
+                  ? (() => {
+                      const def = getTool(tab.id);
+                      return def ? t(def.titleKey) : tab.id;
+                    })()
+                  : (filePreviews[tab.key]?.name ?? tab.path);
+              return (
+                <div
+                  key={tab.key}
+                  role="tab"
+                  aria-selected={active}
+                  className={`central-tool-tab${active ? ' active' : ''}${
+                    tab.kind === 'file' ? ' file-tab' : ''
+                  }`}
+                  title={label}
+                  onClick={() => activateTab(tab.key)}
+                >
+                  {tab.kind === 'tool' &&
+                    (() => {
+                      const def = getTool(tab.id);
+                      return def ? (
+                        <span className="central-tool-tab-icon" aria-hidden="true">
+                          <ToolIcon kind={def.icon} size={12} />
+                        </span>
+                      ) : null;
+                    })()}
+                  <span className="central-tool-tab-name">{label}</span>
+                  <button
+                    type="button"
+                    className="central-tool-tab-close"
+                    aria-label={t('suite.close')}
+                    title={t('suite.close')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.key);
+                    }}
+                  >
+                    <CloseIcon size={10} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {/* 所有标签的窗格保持挂载（display 切换），关闭标签才会卸载并
+              回收其 blob URL——这是"切换保留状态"的关键。 */}
+          {canvasTabs.map((tab) => (
+            <div
+              key={tab.key}
+              className={`central-tab-pane${tab.key === activeTab ? '' : ' tab-hidden'}`}
+            >
+              {(() => {
+                if (tab.kind === 'tool') return <EmbeddedToolView toolId={tab.id} />;
+                const preview = filePreviews[tab.key];
+                return preview ? <PreviewOverlay preview={preview} /> : null;
+              })()}
+            </div>
+          ))}
+        </div>
       )}
       {!activePlugin && (
         <div className="central-empty">

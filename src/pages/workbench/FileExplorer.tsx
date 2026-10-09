@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { useAppStore, type FilePreviewKind } from '@/stores/appStore';
+import { useAppStore, fileTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { getGitAdapter } from '@/core/git';
 import type { RepoEntry } from '@/core/git';
@@ -183,8 +183,10 @@ export function FileExplorer() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const notify = useAppStore((s) => s.notify);
-  const setFilePreview = useAppStore((s) => s.setFilePreview);
-  const filePreview = useAppStore((s) => s.filePreview);
+  const openFilePreview = useAppStore((s) => s.openFilePreview);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const closeTab = useAppStore((s) => s.closeTab);
+  const renameFileTab = useAppStore((s) => s.renameFileTab);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
@@ -297,7 +299,7 @@ export function FileExplorer() {
       if (kind === 'text' || kind === 'markdown') {
         const raw = await adapter.readFile(repoPath, entry.path);
         const capped = raw.length > PREVIEW_CAP_CHARS ? raw.slice(0, PREVIEW_CAP_CHARS) : raw;
-        setFilePreview({
+        openFilePreview({
           name: entry.name,
           path: entry.path,
           kind,
@@ -310,7 +312,7 @@ export function FileExplorer() {
       if (kind === 'image' || kind === 'pdf' || kind === 'video' || kind === 'audio') {
         const bytes = await adapter.readFileBinary(repoPath, entry.path);
         const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
-        setFilePreview({
+        openFilePreview({
           name: entry.name,
           path: entry.path,
           kind,
@@ -321,7 +323,7 @@ export function FileExplorer() {
         return;
       }
       // unknown (ppt/pptx/doc/zip/…): info placeholder, download allowed.
-      setFilePreview({
+      openFilePreview({
         name: entry.name,
         path: entry.path,
         kind,
@@ -433,7 +435,7 @@ export function FileExplorer() {
     const repoPath = getProjectRepoPath(project);
     try {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
-      if (filePreview?.path === entry.path) setFilePreview(null);
+      closeTab(fileTabKey(entry.path));
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
       notify('success', t('workbench.explorer.deleted_hint'));
@@ -463,9 +465,7 @@ export function FileExplorer() {
     const repoPath = getProjectRepoPath(project);
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
-      if (filePreview?.path === entry.path) {
-        setFilePreview({ ...filePreview, name, path: target });
-      }
+      renameFileTab(entry.path, name, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {
@@ -708,7 +708,7 @@ export function FileExplorer() {
               </li>
             );
           }
-          const active = filePreview?.path === e.path;
+          const active = activeTab === fileTabKey(e.path);
           const isPlaceholder = PLACEHOLDER_NAMES.has(e.name);
           if (isPlaceholder) return null;
           return (
