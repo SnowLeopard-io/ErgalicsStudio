@@ -122,6 +122,8 @@ export const zhCN: LocaleDictionary = {
   'workbench.preview.save_failed': '保存失败',
   'workbench.preview.save': '保存',
   'workbench.preview.download': '下载文件',
+  'workbench.preview.loading': '正在读取文件…',
+  'workbench.preview.pdf_blocked': '当前环境无法内嵌显示 PDF，可下载后查看。',
   'workbench.preview.download_failed': '下载失败',
   'workbench.preview.unsupported': '该格式暂不支持内嵌预览（浏览器限制）',
   'workbench.preview.mode_label': 'Markdown 视图',

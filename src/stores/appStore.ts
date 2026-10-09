@@ -102,6 +102,17 @@ export type CanvasTab = { kind: 'file'; key: string; path: string } | { kind: 't
 
 /** Tab key for a file preview tab. */
 export const fileTabKey = (path: string): string => `file:${path}`;
+
+/** Stop the active plugin, if any. Lazy import keeps appStore free of a
+ *  pluginStore cycle. Fire-and-forget: callers never need the result. */
+function deactivatePluginLazy(): void {
+  void import('./pluginStore')
+    .then((m) => {
+      const ps = m.usePluginStore.getState();
+      if (ps.activeId) return ps.deactivate();
+    })
+    .catch((err) => logger.error('appStore', 'plugin deactivate failed', err));
+}
 /** Tab key for an embedded suite tab. */
 export const toolTabKey = (id: string): string => `tool:${id}`;
 
@@ -387,6 +398,9 @@ export const useAppStore = create<AppStore>((set, get) => {
         activeTab: key,
       };
     });
+    // The file preview overlays the plugin canvas — an active plugin would
+    // keep painting underneath (and visually hide the preview) otherwise.
+    deactivatePluginLazy();
   },
 
   /** Activate a tab by key. Activating a suite tab deactivates the active
@@ -395,15 +409,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   activateTab: (key) => {
     if (!get().canvasTabs.some((tab) => tab.key === key)) return;
     set({ activeTab: key });
-    if (key.startsWith('tool:')) {
-      // Lazy import keeps appStore free of a pluginStore cycle.
-      void import('./pluginStore')
-        .then((m) => {
-          const ps = m.usePluginStore.getState();
-          if (ps.activeId) return ps.deactivate();
-        })
-        .catch((err) => logger.error('appStore', 'deactivate on tool embed failed', err));
-    }
+    // Tool embeds AND file previews both replace the plugin canvas — the
+    // active plugin must stop painting (GPU/CPU + visibility) either way.
+    deactivatePluginLazy();
   },
 
   /** Close one tab (file preview or embedded suite); the nearest remaining

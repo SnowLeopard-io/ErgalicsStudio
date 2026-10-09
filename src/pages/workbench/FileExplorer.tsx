@@ -310,6 +310,16 @@ export function FileExplorer() {
         return;
       }
       if (kind === 'image' || kind === 'pdf' || kind === 'video' || kind === 'audio') {
+        // Two-phase open: show the tab (with a loading placeholder) right
+        // away — LightningFS binary reads can take noticeable time — then
+        // fill the blob URL when the bytes arrive.
+        openFilePreview({
+          name: entry.name,
+          path: entry.path,
+          kind,
+          mimeType: mime,
+          size: entry.size,
+        });
         const bytes = await adapter.readFileBinary(repoPath, entry.path);
         const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
         openFilePreview({

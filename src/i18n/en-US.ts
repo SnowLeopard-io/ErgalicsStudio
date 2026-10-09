@@ -118,6 +118,8 @@ export const enUS: LocaleDictionary = {
   'workbench.preview.save_failed': 'Failed to save',
   'workbench.preview.save': 'Save',
   'workbench.preview.download': 'Download file',
+  'workbench.preview.loading': 'Reading file…',
+  'workbench.preview.pdf_blocked': 'PDF cannot be displayed inline in this environment — download it to view.',
   'workbench.preview.download_failed': 'Download failed',
   'workbench.preview.unsupported': 'This format cannot be previewed inline (browser limitation)',
   'workbench.preview.mode_label': 'Markdown view',

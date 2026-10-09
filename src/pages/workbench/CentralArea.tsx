@@ -47,6 +47,20 @@ type MdView = (typeof MD_VIEWS)[number];
  * to the working tree; image/pdf/video/audio → binary blob URL embed;
  * unknown → info placeholder + download. The canvas stays mounted underneath.
  */
+
+/** Binary content placeholder shown between "tab opened" and "bytes ready". */
+function PreviewLoading() {
+  return (
+    <div className="central-file-loading" role="status">
+      <span className="central-file-loading-spinner" aria-hidden="true" />
+      <p>{useT()('workbench.preview.loading')}</p>
+    </div>
+  );
+}
+
+/**
+ * unknown → info placeholder + download. The canvas stays mounted underneath.
+ */
 function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
@@ -160,28 +174,44 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
     case 'image':
       body = (
         <div className="central-file-media">
-          <img src={preview.blobUrl} alt={preview.name} />
+          {preview.blobUrl ? (
+            <img src={preview.blobUrl} alt={preview.name} />
+          ) : (
+            <PreviewLoading />
+          )}
         </div>
       );
       break;
     case 'pdf':
       body = (
         <div className="central-file-media">
-          <iframe src={preview.blobUrl} title={preview.name} />
+          {preview.blobUrl ? (
+            // object 带内建回退：环境阻止内嵌 PDF 查看器时显示下载提示。
+            <object data={preview.blobUrl} type="application/pdf" title={preview.name}>
+              <div className="central-file-unknown">
+                <p className="central-file-unknown-title">{t('workbench.preview.pdf_blocked')}</p>
+                <button type="button" className="btn" onClick={() => void downloadFile()}>
+                  {t('workbench.preview.download')}
+                </button>
+              </div>
+            </object>
+          ) : (
+            <PreviewLoading />
+          )}
         </div>
       );
       break;
     case 'video':
       body = (
         <div className="central-file-media">
-          <video src={preview.blobUrl} controls />
+          {preview.blobUrl ? <video src={preview.blobUrl} controls /> : <PreviewLoading />}
         </div>
       );
       break;
     case 'audio':
       body = (
         <div className="central-file-media">
-          <audio src={preview.blobUrl} controls />
+          {preview.blobUrl ? <audio src={preview.blobUrl} controls /> : <PreviewLoading />}
         </div>
       );
       break;

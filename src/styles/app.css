@@ -7704,6 +7704,33 @@ button.start-card:hover {
 }
 
 /* 图片 / PDF / 视频 / 音频 */
+/* 二进制文件读取中的占位（tab 已开、字节未到）。 */
+.central-file-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-dim);
+}
+
+.central-file-loading-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  animation: central-file-loading-spin 0.8s linear infinite;
+}
+
+@keyframes central-file-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .central-file-media {
   flex: 1;
   min-height: 0;
@@ -7729,6 +7756,13 @@ button.start-card:hover {
   max-width: 100%;
   max-height: 100%;
   border: none;
+}
+
+/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）。 */
+.central-file-media object {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
 }
 
 .central-file-media video,
