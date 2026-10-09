@@ -51,6 +51,7 @@ export default function WelcomePage() {
   const createProject = useProjectStore((s) => s.createProject);
   const openProject = useProjectStore((s) => s.openProject);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const importFolder = useProjectStore((s) => s.importFolder);
   const removeProject = useProjectStore((s) => s.remove);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [hardware, setHardware] = useState<HardwareState>({
@@ -62,6 +63,7 @@ export default function WelcomePage() {
   const [busy, setBusy] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -230,6 +232,16 @@ export default function WelcomePage() {
       });
   };
 
+  const handleOpenFolder = (files: File[]) => {
+    setBusy(true);
+    void importFolder(files)
+      .then(() => navigate('/workbench'))
+      .catch(() => {
+        notify('error', t('project.open_failed'));
+        setBusy(false);
+      });
+  };
+
   const envStates: Array<'pending' | 'ok' | 'fail'> = [
     hardware.webgpu,
     hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending',
@@ -270,6 +282,14 @@ export default function WelcomePage() {
               disabled={busy}
             >
               <FolderOpenIcon size={14} /> {t('project.open')}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => folderInputRef.current?.click()}
+              disabled={busy}
+            >
+              <FolderOpenIcon size={14} /> {t('project.open_folder')}
             </button>
           </div>
         </div>
@@ -409,6 +429,25 @@ export default function WelcomePage() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleOpenFile(file);
+          e.target.value = '';
+        }}
+      />
+
+      {/* webkitdirectory 需在 ref 回调里命令式设置（React JSX 不可靠）。 */}
+      <input
+        ref={(el) => {
+          folderInputRef.current = el;
+          if (el) {
+            el.setAttribute('webkitdirectory', '');
+            el.setAttribute('directory', '');
+          }
+        }}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          if (files.length > 0) handleOpenFolder(files);
           e.target.value = '';
         }}
       />

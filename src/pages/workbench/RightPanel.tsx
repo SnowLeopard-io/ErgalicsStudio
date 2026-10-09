@@ -7,6 +7,7 @@ import { FileInfoPanel } from './FileInfoPanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
 import { EmptyState } from '@/components/EmptyState';
+import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
 import { getTool } from '@/pages/research/toolRegistry';
 import { emit, on, type BusSubscription } from '@/core/events';
@@ -58,6 +59,68 @@ function SuiteIntro({ toolId }: { toolId: string }) {
           {t('suite.close')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Gitee mirror (kept identical to the Settings → About card). */
+const GITEE_REPO_URL = 'https://gitee.com/cnt-code/ergalics-studio';
+const CHANGELOG_URL = `${CITATION_META.repoUrl}/blob/main/CHANGELOG.md`;
+
+/** Welcome / info panel shown instead of plugin parameters when no plugin is
+ *  active: quick-start intro, current version with release highlights and
+ *  repository cards (GitHub + Gitee). Content is factual — highlights mirror
+ *  the top entries of CHANGELOG.md, and the version/release links resolve to
+ *  the running build. */
+function RightPanelWelcome() {
+  const t = useT();
+  const version = currentAppVersion();
+  return (
+    <div className="rp-welcome">
+      <p className="rp-welcome-intro">{t('workbench.right.welcome_intro')}</p>
+
+      <div className="rp-welcome-block">
+        <div className="rp-welcome-heading">{t('workbench.right.whats_new')}</div>
+        <div className="rp-welcome-version-row">
+          <span className="tag tag-success">v{version}</span>
+          <a
+            className="rp-welcome-link"
+            href={citationUrl(version)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t('workbench.right.release_notes')}
+          </a>
+        </div>
+        <ul className="rp-welcome-list">
+          {([1, 2, 3] as const).map((i) => (
+            <li key={i}>{t(`workbench.right.whats_new_${i}`)}</li>
+          ))}
+        </ul>
+        <a className="rp-welcome-link" href={CHANGELOG_URL} target="_blank" rel="noreferrer">
+          {t('workbench.right.full_changelog')} →
+        </a>
+      </div>
+
+      <div className="rp-welcome-block">
+        <div className="rp-welcome-heading">{t('workbench.right.repo_title')}</div>
+        <p className="rp-welcome-hint">{t('workbench.right.repo_hint')}</p>
+        <div className="rp-welcome-repo-btns">
+          <a
+            className="btn btn-sm"
+            href={CITATION_META.repoUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+          <a className="btn btn-sm" href={GITEE_REPO_URL} target="_blank" rel="noreferrer">
+            Gitee
+          </a>
+        </div>
+      </div>
+
+      <p className="rp-welcome-hint">{t('workbench.right.welcome_tip')}</p>
     </div>
   );
 }
@@ -190,11 +253,7 @@ export function RightPanel() {
               </div>
             </>
           ) : (
-            <EmptyState
-              className="right-panel-empty"
-              title={t('workbench.right.no_plugin')}
-              description={t('workbench.empty.subtitle')}
-            />
+            <RightPanelWelcome />
           )}
         </>
       )}

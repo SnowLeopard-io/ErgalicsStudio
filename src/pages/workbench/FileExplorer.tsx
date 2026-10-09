@@ -192,7 +192,6 @@ export function FileExplorer() {
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
   const [tree, setTree] = useState<Record<string, RepoEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [hasRepo, setHasRepo] = useState(true);
   const [loading, setLoading] = useState(false);
 
   /** Currently selected row (single-click select; Enter/double-click opens). */
@@ -237,28 +236,16 @@ export function FileExplorer() {
     [loadDir],
   );
 
-  // Fresh project → clean slate + root listing + repo probe.
+  // Fresh project → clean slate + root listing. The tree is git-independent:
+  // readDir works on a plain directory, and repo state is the Git panel's
+  // concern (folder imports defer git init on purpose).
   useEffect(() => {
     setTree({});
     setExpanded(new Set());
     setSelected(null);
     setClipboard(null);
     if (!project) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const adapter = getGitAdapter();
-        const repoOk = await adapter.isRepo(getProjectRepoPath(project));
-        if (cancelled) return;
-        setHasRepo(repoOk);
-        if (repoOk) await loadDir('');
-      } catch {
-        if (!cancelled) setHasRepo(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void loadDir('').catch(() => undefined);
   }, [project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // External working-tree changes (e.g. an MD preview save) refresh listings.
@@ -792,9 +779,7 @@ export function FileExplorer() {
     >
       {!project && <EmptyState title={t('workbench.explorer.no_project')} />}
 
-      {project && !hasRepo && <EmptyState title={t('explorer.no_repo')} />}
-
-      {project && hasRepo && (
+      {project && (
         <section className="explorer-section">
           <header className="explorer-section-header">
             <h4 className="explorer-heading" title={getProjectRepoPath(project)}>

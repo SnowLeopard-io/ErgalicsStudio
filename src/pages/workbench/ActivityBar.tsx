@@ -7,7 +7,6 @@
 // 底部固定全局设置入口（原顶部栏的设置图标移到这里）。
 // ==========================================================================
 
-import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
 import { FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon } from '@/components/icons';
@@ -20,10 +19,10 @@ interface ActivityItem {
 
 export function ActivityBar() {
   const t = useT();
-  const navigate = useNavigate();
   const sidebarView = useAppStore((s) => s.sidebarView);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarView = useAppStore((s) => s.setSidebarView);
+  const openSettingsTab = useAppStore((s) => s.openSettingsTab);
 
   const items: ActivityItem[] = [
     { view: 'files', label: t('workbench.activity.files'), Icon: FolderOpenIcon },
@@ -59,7 +58,7 @@ export function ActivityBar() {
           className="activity-item"
           aria-label={t('workbench.tools.settings')}
           title={t('workbench.tools.settings')}
-          onClick={() => navigate('/settings')}
+          onClick={() => openSettingsTab()}
         >
           <SettingsIcon size={20} />
         </button>

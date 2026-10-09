@@ -98,10 +98,16 @@ export interface FilePreviewState {
 
 /** One tab in the canvas tab strip: a file preview or an embedded research
  *  suite. `key` is the stable identity used for activation and closing. */
-export type CanvasTab = { kind: 'file'; key: string; path: string } | { kind: 'tool'; key: string; id: string };
+export type CanvasTab =
+  | { kind: 'file'; key: string; path: string }
+  | { kind: 'tool'; key: string; id: string }
+  | { kind: 'settings'; key: string };
 
 /** Tab key for a file preview tab. */
 export const fileTabKey = (path: string): string => `file:${path}`;
+
+/** Stable tab key for the embedded settings page. */
+export const settingsTabKey = 'settings:app';
 
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The
@@ -194,6 +200,9 @@ interface AppStore {
   renameFileTab: (oldPath: string, name: string, newPath: string) => void;
   /** Embed (or close, with null) a research suite in the central canvas. */
   setEmbeddedTool: (id: string | null) => void;
+  /** Open (or focus) the settings page as an embedded canvas tab instead of
+   *  a standalone route — same contract as file/suite tabs. */
+  openSettingsTab: () => void;
   bumpFileOps: () => void;
 }
 
@@ -514,6 +523,19 @@ export const useAppStore = create<AppStore>((set, get) => {
       }));
     }
     s.activateTab(key);
+  },
+
+  /** Open (or focus) the settings page as an embedded canvas tab. Opening it
+   *  deactivates the active plugin — the tab covers the canvas exactly like a
+   *  file/suite tab, and closing it (closeTab) restores the plugin view. */
+  openSettingsTab: () => {
+    const s = get();
+    if (!s.canvasTabs.some((tab) => tab.key === settingsTabKey)) {
+      set((st) => ({
+        canvasTabs: [...st.canvasTabs, { kind: 'settings' as const, key: settingsTabKey }],
+      }));
+    }
+    s.activateTab(settingsTabKey);
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),

@@ -1,9 +1,11 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
-import { CloseIcon, ToolIcon } from '@/components/icons';
+import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
+// Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
+const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
@@ -632,7 +634,9 @@ export function CentralArea() {
                       const def = getTool(tab.id);
                       return def ? t(def.titleKey) : tab.id;
                     })()
-                  : (filePreviews[tab.key]?.name ?? tab.path);
+                  : tab.kind === 'settings'
+                    ? t('settings.title')
+                    : (filePreviews[tab.key]?.name ?? tab.path);
               return (
                 <div
                   key={tab.key}
@@ -653,6 +657,11 @@ export function CentralArea() {
                         </span>
                       ) : null;
                     })()}
+                  {tab.kind === 'settings' && (
+                    <span className="central-tool-tab-icon" aria-hidden="true">
+                      <SettingsIcon size={12} />
+                    </span>
+                  )}
                   <span className="central-tool-tab-name">{label}</span>
                   <button
                     type="button"
@@ -679,6 +688,12 @@ export function CentralArea() {
             >
               {(() => {
                 if (tab.kind === 'tool') return <EmbeddedToolView toolId={tab.id} />;
+                if (tab.kind === 'settings')
+                  return (
+                    <Suspense fallback={null}>
+                      <LazySettingsPage embedded />
+                    </Suspense>
+                  );
                 const preview = filePreviews[tab.key];
                 return preview ? <PreviewOverlay preview={preview} /> : null;
               })()}

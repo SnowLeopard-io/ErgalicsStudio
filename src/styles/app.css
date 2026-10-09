@@ -1310,6 +1310,83 @@
   gap: var(--space-2);
 }
 
+/* ---- 右侧栏 · 无插件欢迎面板 -------------------------------------------
+   替代原先孤零零的"请先激活一个插件"占位：快速引导 + 版本更新要点 +
+   仓库卡片。视觉沿用 suite-intro 的克制风格（细分隔线 + 弱化文案）。 */
+.rp-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rp-welcome-intro {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-welcome-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.rp-welcome-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rp-welcome-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.rp-welcome-link:hover {
+  text-decoration: underline;
+}
+
+.rp-welcome-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  line-height: 1.6;
+}
+
+.rp-welcome-repo-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.rp-welcome-repo-btns .btn {
+  flex: 1;
+  text-decoration: none;
+  justify-content: center;
+}
+
 /* ---- param panel ---- */
 
 .param-panel {
@@ -2002,6 +2079,17 @@
   background:
     radial-gradient(1000px 480px at 50% -10%, var(--color-accent-soft), transparent 70%),
     var(--color-bg-primary);
+}
+
+/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签条
+   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度。 */
+.settings-embedded {
+  height: 100%;
+  min-height: 0;
+}
+
+.settings-embedded .settings-layout {
+  min-height: 0;
 }
 
 .settings-topbar-left {
@@ -7460,6 +7548,13 @@ button.start-card:hover {
   background: var(--color-bg-elevated);
   overflow-x: auto;
   scrollbar-width: none;
+}
+
+/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
+   下方开始（34px 行高 + 1px 分隔线）——VS Code 编辑区同款布局，标签条
+   独占一行，画布/窗格占满其余空间，互不重叠。 */
+.central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
+  inset: 35px 0 0 0;
 }
 
 .central-tool-tab {

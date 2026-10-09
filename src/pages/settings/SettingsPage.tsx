@@ -90,7 +90,7 @@ const TEAM: TeamMember[] = [
   },
 ];
 
-export default function SettingsPage() {
+export default function SettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const t = useT();
   const navigate = useNavigate();
   const {
@@ -205,20 +205,24 @@ export default function SettingsPage() {
   const activeCat = CATEGORIES.find((c) => c.id === active) ?? CATEGORIES[0];
 
   return (
-    <div className="settings">
-      <header className="settings-topbar">
-        <div className="settings-topbar-left">
-          <button type="button" className="btn settings-back" onClick={() => navigate('/workbench')}>
-            <span className="settings-back-arrow" aria-hidden="true">←</span>
-            {t('settings.back_home')}
-          </button>
-          <span className="settings-topbar-title">{t('settings.title')}</span>
-        </div>
-        <div className="topbar-actions">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
-        </div>
-      </header>
+    <div className={`settings${embedded ? ' settings-embedded' : ''}`}>
+      {/* Embedded mode (canvas tab): no page chrome — the workbench tab strip
+          already identifies the view and hosts its own close button. */}
+      {!embedded && (
+        <header className="settings-topbar">
+          <div className="settings-topbar-left">
+            <button type="button" className="btn settings-back" onClick={() => navigate('/workbench')}>
+              <span className="settings-back-arrow" aria-hidden="true">←</span>
+              {t('settings.back_home')}
+            </button>
+            <span className="settings-topbar-title">{t('settings.title')}</span>
+          </div>
+          <div className="topbar-actions">
+            <LanguageSwitcher />
+            <ThemeSwitcher />
+          </div>
+        </header>
+      )}
 
       <div className="settings-layout">
         <nav className="settings-sidebar">

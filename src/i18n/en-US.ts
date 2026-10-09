@@ -168,6 +168,17 @@ export const enUS: LocaleDictionary = {
   'workbench.example_data.loaded': 'Example data loaded',
   'workbench.example_data.load_failed': 'Failed to load example data',
   'workbench.right.no_plugin': 'Please activate a plugin first',
+  'workbench.right.welcome_intro':
+    'No plugin is active yet. Load one from the plugin list on the left, or use the "Load Plugin" button in the canvas.',
+  'workbench.right.whats_new': "What's new",
+  'workbench.right.whats_new_1': 'New sparse matrix-vector multiplication (SpMV) WGSL kernel',
+  'workbench.right.whats_new_2': '59 built-in plugins: 49 scientific + 10 for fun',
+  'workbench.right.whats_new_3': 'R code mode now runs the bundled full webR runtime by default',
+  'workbench.right.release_notes': 'Release notes',
+  'workbench.right.full_changelog': 'Full changelog',
+  'workbench.right.repo_title': 'Open-source repositories',
+  'workbench.right.repo_hint': 'Mirrored on GitHub and Gitee — stars and issues are welcome',
+  'workbench.right.welcome_tip': 'Tip: Ctrl+S saves the project; drag files onto the canvas to open them',
   'workbench.right.no_params': 'This plugin exposes no parameter controls',
   'workbench.right.params': 'Parameters',
   'workbench.right.fileinfo': 'File Info',
@@ -216,6 +227,7 @@ export const enUS: LocaleDictionary = {
 
   'project.new': 'New Project',
   'project.open': 'Open Project',
+  'project.open_folder': 'Open project folder…',
   'project.save': 'Save',
   'project.save_as': 'Save As',
   'project.delete': 'Delete project',
@@ -228,6 +240,7 @@ export const enUS: LocaleDictionary = {
   'project.save_failed': 'Failed to save',
   'project.data_file_replaced': 'Duplicate filename "{name}" — replaced with the new upload',
   'project.open_failed': 'Could not open project file',
+  'project.import_partial': '{count} file(s) failed to import — the rest were imported (see console)',
   'project.parse_failed': 'Invalid project file format',
 
   'plugin.title': 'Load Plugin',

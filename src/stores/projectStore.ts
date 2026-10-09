@@ -69,6 +69,11 @@ interface ProjectStore {
   createProject: (name: string) => Promise<Project>;
   openProject: (id: string) => Promise<void>;
   loadProjectFromText: (raw: string) => Promise<Project>;
+  /** Import a folder picked by the user (webkitdirectory input) as a project:
+   *  a folder containing `project.clproj` imports as a native project with
+   *  its runtime state, any other folder becomes a fresh project named after
+   *  the folder. All files are mirrored into the git working tree. */
+  importFolder: (files: File[]) => Promise<Project>;
   /** Persist the project. `opts.gitCommit` (manual Ctrl+S) additionally
    *  auto-commits §3.4-style (`save: <name>`); plain save() (autosave,
    *  debounced flush) only mirrors the snapshot into the working tree. */
@@ -366,6 +371,79 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   loadProjectFromText: (raw) => importProjectText(raw, ++openSeq),
+
+  /** Import a user-picked folder as a project (see interface doc). */
+  importFolder: async (files) => {
+    const seq = ++openSeq;
+    const relOf = (f: File) =>
+      (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name || '';
+    // Project name = picked folder's name (first path segment).
+    let rootName = '';
+    for (const f of files) {
+      const parts = relOf(f).split('/');
+      const root = parts[0];
+      if (root && parts.length > 1) {
+        rootName = root;
+        break;
+      }
+    }
+    // Flatten to project-relative paths; skip .git internals and the project
+    // JSON itself (imported separately below).
+    const entries: Array<{ path: string; file: File }> = [];
+    let clproj: File | null = null;
+    for (const f of files) {
+      const parts = relOf(f).split('/');
+      if (parts.some((p) => p === '.git')) continue;
+      const inner = rootName && parts[0] === rootName ? parts.slice(1).join('/') : parts.join('/');
+      if (!inner) continue;
+      if (parts.length <= 2 && parts[parts.length - 1] === 'project.clproj') {
+        clproj = f;
+        continue;
+      }
+      entries.push({ path: inner, file: f });
+    }
+
+    // A folder carrying project.clproj is a native project: its JSON carries
+    // the runtime state (block graph, editor sessions…). Any other folder
+    // simply becomes a fresh project named after the folder.
+    const project = clproj
+      ? deserializeProject(await clproj.text())
+      : createEmptyProject(rootName || 'Imported project');
+    await saveProject(project);
+    if (seq !== openSeq) return project;
+
+    // Mirror every file into the working tree, then activate the project
+    // IMMEDIATELY — the user sees the imported tree right away. Git is not
+    // required for browsing/editing, so repo initialization is deferred and
+    // fire-and-forget: a git failure must never lose the import.
+    let failed = 0;
+    for (const { path, file } of entries) {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        await getGitAdapter().writeFileBinary(getProjectRepoPath(project), path, bytes);
+      } catch (err) {
+        failed += 1;
+        logger.warn('project', `folder import: failed to write ${path}`, err);
+      }
+    }
+    if (seq !== openSeq) return project;
+
+    useAppStore.getState().setMode('standard');
+    applyOpenedProject(project);
+    useAppStore.getState().bumpFileOps();
+    if (failed > 0) {
+      useAppStore.getState().notify('error', t('project.import_partial', { count: String(failed) }));
+    }
+    // Deferred, non-fatal git init ('minimal': no skeleton seeding — the tree
+    // mirrors the picked folder). bumpFileOps afterwards so the explorer
+    // re-probes the repo and the Git panel comes alive once ready.
+    void initGitForProject(project, 'minimal')
+      .then(() => {
+        if (seq === openSeq) useAppStore.getState().bumpFileOps();
+      })
+      .catch((err) => logger.warn('project', 'deferred git init failed (import)', err));
+    return project;
+  },
 
   save: async (opts) => {
     const { project, status } = get();
