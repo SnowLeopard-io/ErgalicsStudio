@@ -102,6 +102,7 @@ export const enUS: LocaleDictionary = {
   'workbench.explorer.delete_title': 'Confirm delete',
   'workbench.explorer.delete_confirm': 'Delete',
   'workbench.explorer.clip_hint': 'Clipboard',
+  'workbench.explorer.export_supplement': 'Download project as zip (supplement)',
   // Context menu
   'workbench.explorer.context.open': 'Open',
   'workbench.explorer.context.rename': 'Rename (F2)',

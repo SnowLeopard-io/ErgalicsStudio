@@ -106,6 +106,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.explorer.delete_title': '删除确认',
   'workbench.explorer.delete_confirm': '确定删除',
   'workbench.explorer.clip_hint': '剪贴板',
+  'workbench.explorer.export_supplement': '打包下载项目（补充材料 zip）',
   // 右键菜单
   'workbench.explorer.context.open': '打开',
   'workbench.explorer.context.rename': '重命名 (F2)',

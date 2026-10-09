@@ -25,6 +25,7 @@ import {
   FilePlusIcon,
   FolderPlusIcon,
   ClipboardIcon,
+  DownloadIcon,
 } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -188,6 +189,7 @@ export function FileExplorer() {
   const closeTab = useAppStore((s) => s.closeTab);
   const renameFileTab = useAppStore((s) => s.renameFileTab);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
   const [tree, setTree] = useState<Record<string, RepoEntry[]>>({});
@@ -812,6 +814,15 @@ export function FileExplorer() {
                 onClick={() => void paste(pasteTargetDir())}
               >
                 <ClipboardIcon size={14} />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('workbench.explorer.export_supplement')}
+                aria-label={t('workbench.explorer.export_supplement')}
+                onClick={() => setEmbeddedTool('supplement')}
+              >
+                <DownloadIcon size={14} />
               </button>
               <button
                 type="button"

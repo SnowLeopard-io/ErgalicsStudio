@@ -162,6 +162,15 @@ export const ClipboardIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Download glyph (arrow into tray) — explorer supplement-pack export. */
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4v11" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M4 19h16" />
+  </Svg>
+);
+
 export const FolderOpenIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v2" />
