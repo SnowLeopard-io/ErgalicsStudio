@@ -19,6 +19,11 @@ import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { getGitAdapter } from '@/core/git';
 import type { RepoEntry } from '@/core/git';
 import {
+  editorKindForFile,
+  parseFlowPayload,
+  parseBlockPayload,
+} from '@/components/editor/fileEditors/shared';
+import {
   ChevronDownIcon,
   ChevronRightIcon,
   RefreshIcon,
@@ -185,6 +190,7 @@ export function FileExplorer() {
   const project = useProjectStore((s) => s.project);
   const notify = useAppStore((s) => s.notify);
   const openFilePreview = useAppStore((s) => s.openFilePreview);
+  const openFileEditor = useAppStore((s) => s.openFileEditor);
   const activeTab = useAppStore((s) => s.activeTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const renameFileTab = useAppStore((s) => s.renameFileTab);
@@ -284,6 +290,33 @@ export function FileExplorer() {
     try {
       const adapter = getGitAdapter();
       const repoPath = getProjectRepoPath(project);
+      // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
+      // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
+      // payload that fails its format check degrades to a read-only view.
+      const editorKind = editorKindForFile(entry.name);
+      if (editorKind) {
+        const raw = await adapter.readFile(repoPath, entry.path);
+        if (editorKind === 'flow') {
+          openFileEditor({
+            path: entry.path,
+            name: entry.name,
+            editor: 'flow',
+            payload: raw,
+            broken: parseFlowPayload(raw) === null,
+          });
+        } else if (editorKind === 'block') {
+          openFileEditor({
+            path: entry.path,
+            name: entry.name,
+            editor: 'block',
+            payload: raw,
+            broken: parseBlockPayload(raw) === null,
+          });
+        } else {
+          openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
+        }
+        return;
+      }
       const { kind, mime } = classifyFile(entry.name);
       if (kind === 'text' || kind === 'markdown') {
         const raw = await adapter.readFile(repoPath, entry.path);

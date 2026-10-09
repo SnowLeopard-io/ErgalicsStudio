@@ -221,6 +221,9 @@ function restoreEditor(state: {
 function applyOpenedProject(project: Project): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
+  // Canvas tabs (previews + editor buffers) hold paths of the previous
+  // project's repo — a fresh project must not show or edit them.
+  useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
   syncProjectFiles(project);
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
@@ -350,6 +353,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
     useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+    useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
     set({ project, dirty: false, status: 'ready', statusText: null });
@@ -549,6 +553,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // canvas/editor never keep showing the deleted project's content.
       useBlockStore.getState().clear();
       useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+      useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
       void usePluginStore.getState().deactivate();
     }
   },

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { logger } from '@/core/logger';
+import { t } from '@/i18n';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
@@ -96,15 +97,41 @@ export interface FilePreviewState {
   size: number;
 }
 
-/** One tab in the canvas tab strip: a file preview or an embedded research
- *  suite. `key` is the stable identity used for activation and closing. */
+/** Which editor a file opens with inside an editor tab (design doc P1).
+ *  `code` → Monaco (py/js/r), `block` → Blockly (ergalics-block JSON),
+ *  `flow` → DAG canvas (ergalics-flow JSON). */
+export type FileEditorKind = 'code' | 'block' | 'flow';
+
+/** Live buffer state for one open editor tab. The store owns the payload so
+ *  "save & close" (from the tab strip) can write without reaching into the
+ *  editor component; editors push their debounced buffer via
+ *  `updateEditorFile`. */
+export interface EditorFileState {
+  name: string;
+  path: string;
+  editor: FileEditorKind;
+  /** Code text (code editor) or serialized JSON payload (block/flow). */
+  payload: string;
+  dirty: boolean;
+  /** True when the content failed to parse as its editor format — the tab
+   *  degrades to a read-only source view with a warning banner. */
+  broken?: boolean;
+}
+
+/** One tab in the canvas tab strip: a file preview, an editable file, an
+ *  embedded research suite or the settings page. `key` is the stable identity
+ *  used for activation and closing. */
 export type CanvasTab =
   | { kind: 'file'; key: string; path: string }
+  | { kind: 'editor'; key: string; path: string; editor: FileEditorKind }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
 /** Tab key for a file preview tab. */
 export const fileTabKey = (path: string): string => `file:${path}`;
+
+/** Tab key for a file editor tab. */
+export const editorTabKey = (path: string): string => `editor:${path}`;
 
 /** Stable tab key for the embedded settings page. */
 export const settingsTabKey = 'settings:app';
@@ -155,6 +182,8 @@ interface AppStore {
   activeTab: string | null;
   /** Per-path preview state for every open file tab (content / blobUrl…). */
   filePreviews: Record<string, FilePreviewState>;
+  /** Live buffer state for every open editor tab, keyed by editorTabKey. */
+  editorFiles: Record<string, EditorFileState>;
   /** Monotonic bump whenever the working tree changes from outside the
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
@@ -185,6 +214,15 @@ interface AppStore {
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
   openFilePreview: (preview: FilePreviewState) => void;
+  /** Open (or focus) an editable file tab (design doc P1). Replaces a plain
+   *  preview tab for the same path — one representation per file. */
+  openFileEditor: (state: { path: string; name: string; editor: FileEditorKind; payload: string; broken?: boolean }) => void;
+  /** Push the editor's live buffer into the store and mark the tab dirty. */
+  updateEditorFile: (path: string, payload: string) => void;
+  /** Persist the editor buffer to the working tree (git adapter), clear the
+   *  dirty flag and bump fileOps so the explorer refreshes. Resolves to
+   *  false on failure (notification emitted). */
+  saveEditorFile: (path: string) => Promise<boolean>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -271,6 +309,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   canvasTabs: [],
   activeTab: null,
   filePreviews: {},
+  editorFiles: {},
   lastActivePluginId: null,
   fileOpsVersion: 0,
   mode: 'standard',
@@ -423,6 +462,100 @@ export const useAppStore = create<AppStore>((set, get) => {
     deactivatePluginLazy();
   },
 
+  /** Open (or focus) an editable file tab. A plain preview tab for the same
+   *  path is replaced (one representation per file); an already-open editor
+   *  tab for the path keeps its live buffer and is merely re-activated. */
+  openFileEditor: (state) => {
+    const key = editorTabKey(state.path);
+    const fileKey = fileTabKey(state.path);
+    set((s) => {
+      const existing = s.editorFiles[key];
+      const canvasTabs = s.canvasTabs.filter((tab) => {
+        // Drop the preview tab shadowing this path (the editor takes over).
+        if (tab.key === fileKey) return false;
+        return true;
+      });
+      const nextTabs = canvasTabs.some((tab) => tab.key === key)
+        ? canvasTabs.map((tab) =>
+            tab.key === key && tab.kind === 'editor' ? { ...tab, editor: state.editor } : tab,
+          )
+        : [...canvasTabs, { kind: 'editor' as const, key, path: state.path, editor: state.editor }];
+      return {
+        canvasTabs: nextTabs,
+        filePreviews: Object.fromEntries(
+          Object.entries(s.filePreviews).filter(([k]) => k !== fileKey),
+        ),
+        editorFiles: existing
+          ? existing.dirty
+            ? // A dirty buffer always wins — never clobber unsaved edits.
+              s.editorFiles
+            : // Clean buffer: re-read from disk (picks up external changes and
+              // clears a stale `broken` flag once the file parses again).
+              {
+                ...s.editorFiles,
+                [key]: state.broken
+                  ? { ...existing, name: state.name, editor: state.editor, payload: state.payload, dirty: false, broken: true }
+                  : { name: state.name, path: state.path, editor: state.editor, payload: state.payload, dirty: false },
+              }
+          : {
+              ...s.editorFiles,
+              [key]: {
+                name: state.name,
+                path: state.path,
+                editor: state.editor,
+                payload: state.payload,
+                dirty: false,
+                ...(state.broken ? { broken: true } : {}),
+              },
+            },
+        activeTab: key,
+      };
+    });
+    deactivatePluginLazy();
+  },
+
+  /** Push the editor's live buffer into the store + mark dirty. No-op when
+   *  the tab was closed while the debounce was pending. */
+  updateEditorFile: (path, payload) => {
+    const key = editorTabKey(path);
+    set((s) => {
+      const cur = s.editorFiles[key];
+      if (!cur) return s;
+      return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload, dirty: true } } };
+    });
+  },
+
+  /** Write the buffered payload to the working tree. Uses lazy imports (the
+   *  git adapter's repo path helper lives in projectStore, which imports this
+   *  store — a static import would close a cycle). Resolves to false on
+   *  failure (a notification is emitted; callers just skip their close). */
+  saveEditorFile: async (path) => {
+    const key = editorTabKey(path);
+    const cur = useAppStore.getState().editorFiles[key];
+    if (!cur) return false;
+    try {
+      const [{ useProjectStore, getProjectRepoPath }, { getGitAdapter }] = await Promise.all([
+        import('./projectStore'),
+        import('@/core/git'),
+      ]);
+      const project = useProjectStore.getState().project;
+      if (!project) throw new Error('no project open');
+      await getGitAdapter().writeFile(getProjectRepoPath(project), cur.path, cur.payload);
+      set((s) => {
+        const f = s.editorFiles[key];
+        if (!f) return s;
+        return { editorFiles: { ...s.editorFiles, [key]: { ...f, dirty: false } } };
+      });
+      useAppStore.getState().bumpFileOps();
+      useAppStore.getState().notify('success', t('workbench.editor.saved'));
+      return true;
+    } catch (err) {
+      logger.error('appStore', 'editor file save failed', err);
+      useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
+      return false;
+    }
+  },
+
   /** Activate a tab by key. Activating a suite tab deactivates the active
    *  plugin (it would otherwise keep rendering into the hidden canvas and
    *  burning GPU/CPU — same as a mode switch). */
@@ -451,14 +584,16 @@ export const useAppStore = create<AppStore>((set, get) => {
       .catch((err) => logger.error('appStore', 'plugin reactivate failed', err));
   },
 
-  /** Close one tab (file preview or embedded suite); the nearest remaining
-   *  tab becomes active. A closed file tab's blob URL is revoked. */
+  /** Close one tab (file preview, editor or embedded suite); the nearest
+   *  remaining tab becomes active. A closed file tab's blob URL is revoked
+   *  and a closed editor tab's buffer is dropped. */
   closeTab: (key) => {
     set((s) => {
       const closed = s.canvasTabs.find((tab) => tab.key === key);
       if (!closed) return s;
       const next = s.canvasTabs.filter((tab) => tab.key !== key);
       const filePreviews = { ...s.filePreviews };
+      const editorFiles = { ...s.editorFiles };
       if (closed.kind === 'file') {
         const blobUrl = filePreviews[key]?.blobUrl;
         delete filePreviews[key];
@@ -470,9 +605,13 @@ export const useAppStore = create<AppStore>((set, get) => {
           }
         }
       }
+      if (closed.kind === 'editor') {
+        delete editorFiles[key];
+      }
       return {
         canvasTabs: next,
         filePreviews,
+        editorFiles,
         activeTab:
           s.activeTab === key
             ? next.length
@@ -485,22 +624,39 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   /** Update a file tab's path/name after an explorer rename, preserving its
-   *  open state and content. */
+   *  open state and content. Covers both preview tabs and editor tabs (the
+   *  buffer migrates so dirty state survives the rename). */
   renameFileTab: (oldPath, name, newPath) => {
     const oldKey = fileTabKey(oldPath);
     const newKey = fileTabKey(newPath);
+    const oldEditorKey = editorTabKey(oldPath);
+    const newEditorKey = editorTabKey(newPath);
     set((s) => {
       const prev = s.filePreviews[oldKey];
-      if (!prev) return s;
+      const editor = s.editorFiles[oldEditorKey];
+      if (!prev && !editor) return s;
       const filePreviews = { ...s.filePreviews };
-      filePreviews[newKey] = { ...prev, name, path: newPath };
-      delete filePreviews[oldKey];
+      const editorFiles = { ...s.editorFiles };
+      if (prev) {
+        filePreviews[newKey] = { ...prev, name, path: newPath };
+        delete filePreviews[oldKey];
+      }
+      if (editor) {
+        editorFiles[newEditorKey] = { ...editor, name, path: newPath };
+        delete editorFiles[oldEditorKey];
+      }
       return {
         filePreviews,
-        canvasTabs: s.canvasTabs.map((tab) =>
-          tab.key === oldKey ? { kind: 'file' as const, key: newKey, path: newPath } : tab,
-        ),
-        activeTab: s.activeTab === oldKey ? newKey : s.activeTab,
+        editorFiles,
+        canvasTabs: s.canvasTabs.map((tab) => {
+          if (tab.key === oldKey && tab.kind === 'file')
+            return { kind: 'file' as const, key: newKey, path: newPath };
+          if (tab.key === oldEditorKey && tab.kind === 'editor')
+            return { kind: 'editor' as const, key: newEditorKey, path: newPath, editor: tab.editor };
+          return tab;
+        }),
+        activeTab:
+          s.activeTab === oldKey ? newKey : s.activeTab === oldEditorKey ? newEditorKey : s.activeTab,
       };
     });
   },

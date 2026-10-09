@@ -7616,6 +7616,90 @@ button.start-card:hover {
   color: var(--color-text-primary);
 }
 
+/* ---- File editor tabs (Monaco code / Blockly block / flow DAG) ------------ */
+
+/* Dirty dot: shown both on the tab strip and inside the save chip. */
+.central-editor-dirty-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.central-file-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.central-file-editor-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.central-file-editor-monaco,
+.central-file-editor-blockly {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Flow file editor: hosts the block-workbench three-pane layout below the
+   toolbar row. */
+.central-file-editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.central-file-editor-body .block-workbench {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Read-only degrade for files whose JSON failed the editor-format check. */
+.central-editor-broken-banner {
+  flex-shrink: 0;
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-warning-border, var(--color-border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-warning-bg, var(--color-bg-secondary));
+  color: var(--color-warning-text, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+}
+
+.central-editor-broken-head {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.central-editor-broken-source {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-secondary);
+}
+
 .central-file-preview {
   position: absolute;
   inset: 0;
@@ -7804,6 +7888,97 @@ button.start-card:hover {
 .central-md-preview code {
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+/* ---- Markdown v2 shared styles (marked renderer): tables, task lists,
+       mermaid diagrams, KaTeX math — applied to both the file preview and
+       notebook markdown cells. ---- */
+
+.central-md-preview table,
+.nb-md table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+.central-md-preview th,
+.central-md-preview td,
+.nb-md th,
+.nb-md td {
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.central-md-preview th,
+.nb-md th {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.central-md-preview blockquote,
+.nb-md blockquote {
+  margin: 0.6em 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* GFM task lists: hide the raw checkbox disabled state, keep spacing tight. */
+.central-md-preview li.task-list-item,
+.nb-md li.task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.central-md-preview hr,
+.nb-md hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+/* Mermaid diagram placeholder / rendered svg. */
+.md-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 0.8em 0;
+  padding: var(--space-2);
+  overflow-x: auto;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.md-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-mermaid-error {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-dim);
+  justify-content: flex-start;
+}
+
+/* KaTeX math: allow wide equations to scroll instead of clipping. */
+.md-tex {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.md-tex .katex-display {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
 }
 
 /* 图片 / PDF / 视频 / 音频 */

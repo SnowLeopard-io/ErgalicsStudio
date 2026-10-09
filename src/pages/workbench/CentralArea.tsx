@@ -6,9 +6,22 @@ import { useAppStore, type FilePreviewState } from '@/stores/appStore';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
+// File editor tabs (design doc P2-P4): Monaco code / Blockly block / flow DAG.
+// Each lazy so the editors (and their heavy runtimes) load on first use.
+const LazyCodeFileEditor = lazy(() =>
+  import('@/components/editor/fileEditors/CodeFileEditor').then((m) => ({ default: m.CodeFileEditor })),
+);
+const LazyBlockFileEditor = lazy(() =>
+  import('@/components/editor/fileEditors/BlockFileEditor').then((m) => ({ default: m.BlockFileEditor })),
+);
+const LazyFlowFileEditor = lazy(() =>
+  import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
+);
+import { Modal } from '@/components/Modal';
 import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
+import { enhanceMarkdownDom } from '@/core/markdown/enhance';
 import { downloadBlob } from '@/core/download';
 import { getGitAdapter } from '@/core/git';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
@@ -71,12 +84,23 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   const [view, setView] = useState<MdView>('preview');
   const [mdText, setMdText] = useState(preview.content ?? '');
+  // Markdown preview host — upgraded in place after each render (mermaid
+  // diagrams, KaTeX math) via the async enhancer.
+  const mdPreviewRef = useRef<HTMLDivElement>(null);
 
   // Re-arm the draft + view whenever a different file is opened.
   useEffect(() => {
     setMdText(preview.content ?? '');
     setView('preview');
   }, [preview.path, preview.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Enhance the rendered markdown (mermaid → SVG, TeX → KaTeX) whenever the
+  // preview text or the visible pane changes.
+  useEffect(() => {
+    if (view !== 'preview' && view !== 'split') return;
+    const el = mdPreviewRef.current;
+    if (el) void enhanceMarkdownDom(el);
+  }, [mdText, view]);
 
   // Revoke the binary blob URL when the overlay unmounts (the store also
   // revokes on close, so this guards the mode-switch / new-file path).
@@ -165,6 +189,7 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
             )}
             {(view === 'preview' || view === 'split') && (
               <div
+                ref={mdPreviewRef}
                 className="central-md-preview"
                 dangerouslySetInnerHTML={{ __html: mdToHtml(mdText) }}
               />
@@ -286,8 +311,13 @@ export function CentralArea() {
   const canvasTabs = useAppStore((s) => s.canvasTabs);
   const activeTab = useAppStore((s) => s.activeTab);
   const filePreviews = useAppStore((s) => s.filePreviews);
+  const editorFiles = useAppStore((s) => s.editorFiles);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
+  const saveEditorFile = useAppStore((s) => s.saveEditorFile);
+  // Editor tab with unsaved edits pending a close confirmation (design doc
+  // P5): key of the tab, null when no confirmation is active.
+  const [confirmCloseKey, setConfirmCloseKey] = useState<string | null>(null);
   const showPluginCanvas = useAppStore((s) => s.showPluginCanvas);
   // 插件画布标签：只要当前激活了插件、或本次会话曾激活过（切到文件/
   // 套件标签时插件会被自动停用以省资源），标签就常驻标签条，点击可
@@ -636,7 +666,12 @@ export function CentralArea() {
                     })()
                   : tab.kind === 'settings'
                     ? t('settings.title')
-                    : (filePreviews[tab.key]?.name ?? tab.path);
+                    : tab.kind === 'editor'
+                      ? (editorFiles[tab.key]?.name ?? tab.path)
+                      : (filePreviews[tab.key]?.name ?? tab.path);
+              // Editor tabs surface unsaved edits with a dirty dot, and their
+              // close button routes through the save/discard confirmation.
+              const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
               return (
                 <div
                   key={tab.key}
@@ -644,7 +679,7 @@ export function CentralArea() {
                   aria-selected={active}
                   className={`central-tool-tab${active ? ' active' : ''}${
                     tab.kind === 'file' ? ' file-tab' : ''
-                  }`}
+                  }${tab.kind === 'editor' ? ' editor-tab' : ''}`}
                   title={label}
                   onClick={() => activateTab(tab.key)}
                 >
@@ -662,6 +697,7 @@ export function CentralArea() {
                       <SettingsIcon size={12} />
                     </span>
                   )}
+                  {dirty && <span className="central-editor-dirty-dot" aria-hidden="true" />}
                   <span className="central-tool-tab-name">{label}</span>
                   <button
                     type="button"
@@ -670,6 +706,10 @@ export function CentralArea() {
                     title={t('suite.close')}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (dirty) {
+                        setConfirmCloseKey(tab.key);
+                        return;
+                      }
                       closeTab(tab.key);
                     }}
                   >
@@ -694,6 +734,19 @@ export function CentralArea() {
                       <LazySettingsPage embedded />
                     </Suspense>
                   );
+                if (tab.kind === 'editor') {
+                  const Cmp =
+                    tab.editor === 'code'
+                      ? LazyCodeFileEditor
+                      : tab.editor === 'block'
+                        ? LazyBlockFileEditor
+                        : LazyFlowFileEditor;
+                  return (
+                    <Suspense fallback={<PreviewLoading />}>
+                      <Cmp path={tab.path} />
+                    </Suspense>
+                  );
+                }
                 const preview = filePreviews[tab.key];
                 return preview ? <PreviewOverlay preview={preview} /> : null;
               })()}
@@ -760,6 +813,50 @@ export function CentralArea() {
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
       <DataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
+
+      {/* Dirty editor close confirmation (design doc P5): save & close,
+          discard, or cancel. Stays open if the save fails so nothing is lost. */}
+      <Modal
+        open={confirmCloseKey !== null}
+        title={t('workbench.editor.dirty_title')}
+        onClose={() => setConfirmCloseKey(null)}
+        width={420}
+        footer={
+          <>
+            <button type="button" className="btn" onClick={() => setConfirmCloseKey(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                if (confirmCloseKey) closeTab(confirmCloseKey);
+                setConfirmCloseKey(null);
+              }}
+            >
+              {t('workbench.editor.discard')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (!confirmCloseKey) return;
+                const path = confirmCloseKey.slice('editor:'.length);
+                void saveEditorFile(path).then((ok) => {
+                  // Only close on a successful write — a failed save keeps
+                  // the tab (and its buffer) intact.
+                  if (ok) closeTab(confirmCloseKey);
+                  setConfirmCloseKey(null);
+                });
+              }}
+            >
+              {t('workbench.editor.save_and_close')}
+            </button>
+          </>
+        }
+      >
+        <p className="modal-message">{t('workbench.editor.dirty_message')}</p>
+      </Modal>
       </div>
       {/* Science readout sits BELOW the viewfinder, in normal flow — the
           plugin host itself is position:absolute (out of flow), so keeping
