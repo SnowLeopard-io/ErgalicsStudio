@@ -62,12 +62,9 @@ export function Sidebar() {
   const sidebarView = useAppStore((s) => s.sidebarView);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
 
-  /** Activating a plugin hands the canvas back to it: close every open
-   *  canvas tab (file previews + embedded suites) covering the viewport. */
-  const closeAllCanvasTabs = () => {
-    const s = useAppStore.getState();
-    for (const tab of s.canvasTabs) s.closeTab(tab.key);
-  };
+  /** Activating a plugin hands the canvas back to it: switch to the plugin
+   *  tab. Open file/suite tabs stay in the strip and can be switched back. */
+  const showPluginCanvas = () => useAppStore.getState().showPluginCanvas();
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -200,7 +197,7 @@ export function Sidebar() {
                         title={`${entry.name} ${entry.version}`}
                         onClick={() => {
                           void activate(entry.id);
-                          closeAllCanvasTabs();
+                          showPluginCanvas();
                         }}
                       >
                         <span className="plugin-icon">{entry.icon ?? '◈'}</span>

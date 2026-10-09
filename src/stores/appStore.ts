@@ -104,12 +104,16 @@ export type CanvasTab = { kind: 'file'; key: string; path: string } | { kind: 't
 export const fileTabKey = (path: string): string => `file:${path}`;
 
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
- *  pluginStore cycle. Fire-and-forget: callers never need the result. */
+ *  pluginStore cycle. Fire-and-forget: callers never need the result. The
+ *  plugin id is remembered (`lastActivePluginId`) so the canvas plugin tab
+ *  can bring it back when the user switches to it. */
 function deactivatePluginLazy(): void {
   void import('./pluginStore')
     .then((m) => {
       const ps = m.usePluginStore.getState();
-      if (ps.activeId) return ps.deactivate();
+      if (!ps.activeId) return;
+      useAppStore.setState({ lastActivePluginId: ps.activeId });
+      return ps.deactivate();
     })
     .catch((err) => logger.error('appStore', 'plugin deactivate failed', err));
 }
@@ -177,6 +181,12 @@ interface AppStore {
   openFilePreview: (preview: FilePreviewState) => void;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
+  /** Show the plugin canvas: clears the active tab without closing any tab —
+   *  open file/suite tabs stay in the strip and can be switched back to. */
+  showPluginCanvas: () => void;
+  /** Last plugin id auto-deactivated when a canvas tab covered the canvas —
+   *  used by `showPluginCanvas` to restore it. */
+  lastActivePluginId: string | null;
   /** Close one tab (file or suite); activates the nearest remaining tab. */
   closeTab: (key: string) => void;
   /** Update a file tab's path/name after an explorer rename, preserving
@@ -252,6 +262,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   canvasTabs: [],
   activeTab: null,
   filePreviews: {},
+  lastActivePluginId: null,
   fileOpsVersion: 0,
   mode: 'standard',
 
@@ -412,6 +423,23 @@ export const useAppStore = create<AppStore>((set, get) => {
     // Tool embeds AND file previews both replace the plugin canvas — the
     // active plugin must stop painting (GPU/CPU + visibility) either way.
     deactivatePluginLazy();
+  },
+
+  /** Show the plugin canvas: clear the active tab without closing tabs —
+   *  open file/suite tabs stay in the strip and can be switched back to. If
+   *  the plugin was auto-deactivated while a tab covered it, the last active
+   *  plugin is re-activated so the tab actually shows it again. */
+  showPluginCanvas: () => {
+    set({ activeTab: null });
+    void import('./pluginStore')
+      .then((m) => {
+        const ps = m.usePluginStore.getState();
+        if (ps.activeId) return;
+        const id = get().lastActivePluginId;
+        if (!id || !ps.registry.some((e) => e.id === id)) return;
+        return ps.activate(id);
+      })
+      .catch((err) => logger.error('appStore', 'plugin reactivate failed', err));
   },
 
   /** Close one tab (file preview or embedded suite); the nearest remaining

@@ -286,6 +286,15 @@ export function CentralArea() {
   const filePreviews = useAppStore((s) => s.filePreviews);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
+  const showPluginCanvas = useAppStore((s) => s.showPluginCanvas);
+  // 插件画布标签：只要当前激活了插件、或本次会话曾激活过（切到文件/
+  // 套件标签时插件会被自动停用以省资源），标签就常驻标签条，点击可
+  // 恢复插件视图。真正卸载（uninstall）后 registry 中已无条目，标签消失。
+  const lastActivePluginId = useAppStore((s) => s.lastActivePluginId);
+  const pluginTabId = usePluginStore((s) => s.activeId) ?? lastActivePluginId;
+  const pluginTabEntry = usePluginStore((s) =>
+    pluginTabId ? (s.registry.find((e) => e.id === pluginTabId) ?? null) : null,
+  );
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -590,12 +599,31 @@ export function CentralArea() {
           </button>
         )}
       </div>
-      {/* 画布标签体系（VS Code 编辑区风格）：文件预览与内嵌套件共用一条
-          标签栏。所有已打开的标签保持挂载，切换仅改可见性——编辑缓冲、
-          滚动位置与套件状态在切换过程中全部保留。 */}
-      {canvasTabs.length > 0 && (
+      {/* 画布标签体系（VS Code 编辑区风格）：插件画布本身是第一个"标签"，
+          文件预览与内嵌套件跟在后面。所有已打开的标签保持挂载，切换仅改
+          可见性——编辑缓冲、滚动位置与套件状态在切换过程中全部保留。
+          activeTab 为 null 即插件画布处于前台。 */}
+      {(canvasTabs.length > 0 || pluginTabEntry) && (
         <div className="central-overlay-stack">
           <div className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
+            {/* 插件画布标签：点击回到插件视图（不关闭其他标签）。插件被
+                自动停用时标签仍然显示——点击会重新激活它。 */}
+            {pluginTabEntry && (
+              <div
+                role="tab"
+                aria-selected={activeTab === null && pluginTabEntry.id === activeId}
+                className={`central-tool-tab plugin-tab${
+                  activeTab === null && pluginTabEntry.id === activeId ? ' active' : ''
+                }`}
+                title={pluginTabEntry.name}
+                onClick={() => showPluginCanvas()}
+              >
+                <span className="central-tool-tab-icon" aria-hidden="true">
+                  {pluginTabEntry.icon ?? '◈'}
+                </span>
+                <span className="central-tool-tab-name">{pluginTabEntry.name}</span>
+              </div>
+            )}
             {canvasTabs.map((tab) => {
               const active = tab.key === activeTab;
               const label =
