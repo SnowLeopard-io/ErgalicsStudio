@@ -353,7 +353,7 @@ export class MatsXrdPlugin implements Plugin {
 
     // Range
     const tts = this.data.map((p) => p.twoTheta);
-    let tMin = Math.min(this.state.min2Theta, Math.min(...tts));
+    const tMin = Math.min(this.state.min2Theta, Math.min(...tts));
     let tMax = Math.max(this.state.max2Theta, Math.max(...tts));
     if (tMax <= tMin) tMax = tMin + 10;
     const Is = this.data.map((p) => p.intensity);
