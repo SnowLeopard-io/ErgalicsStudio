@@ -70,7 +70,10 @@ vec3 diskEmission(vec3 pos, vec3 tang, float r) {
   float pat = mix(0.75, 0.55 + 0.9 * rings, uTurb);
   // Radial envelope: soft inner/outer edges.
   float env = smoothstep(uDiskIn, uDiskIn * 1.06, r) * (1.0 - smoothstep(uDiskOut * 0.72, uDiskOut, r));
-  float e = uBright * g * g * g * g * pow(max(tob, 1.0) / 6500.0, 4.0) * pat * env;
+  // I_obs = g⁴·I_em with I_em ∝ T_em⁴. Using the observed temperature
+  // T_obs = g·T_em already carries the g⁴ factor, so no extra g⁴ here —
+  // an additional explicit g⁴ would double-count beaming to g⁸.
+  float e = uBright * pow(max(tob, 1.0) / 6500.0, 4.0) * pat * env;
   return blackbody(tob) * e;
 }
 
