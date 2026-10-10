@@ -96,7 +96,7 @@ high/critical advisories fail CI unless explicitly allow-listed in
 `security.yml` (`AUDIT_ALLOWLIST`) with a reason; moderate findings are
 tracked here.
 
-State as of **2026-10-01** (app workspace runs `vite@6.4.3`, which is
+State as of **2026-10-10** (app workspace runs `vite@6.4.3`, which is
 patched; every remaining finding is rooted in the docs workspace):
 
 | Package | Severity | Advisory(s) | Status | Reason / plan |
@@ -123,6 +123,27 @@ Cleared in the 2026-10-01 upgrade window:
 - `dompurify` — GHSA-p98j-92pf-mc4p (DOM XSS via `IN_PLACE` node-removing
   `afterSanitize` hook) — fixed by upgrading dompurify 3.4.14 → 3.4.16.
   Transitive via `jspdf`'s optional dependencies.
+
+Cleared in the 2026-10-10 upgrade window:
+
+- `vue` + `@vue/server-renderer` — GHSA-g2v6-rqmx-r4w6 (XSS via a missing CR
+  in the attribute-name blacklist) — fixed by refreshing the lockfile so vue
+  3.5.41 → 3.5.43. Transitive via the docs workspace's `vitepress@1.6.4`
+  (`vue: ^3.5.13`); the patched release already satisfies that floor, so no
+  manifest change was needed — the committed lockfile had simply gone stale.
+- `source-map-js` — GHSA-68fv-2mgg-jv7q (event-loop DoS via indexed source-map
+  section offsets) — fixed by refreshing source-map-js 1.2.1 → 1.2.2.
+  Transitive via `@vue/compiler-core`, `@vue/compiler-sfc`, `css-tree` and
+  `postcss` (`^1.2.1`); same stale-lockfile root cause.
+
+Dependency-resolution fix shipped alongside the above (peer conflict, not an
+advisory): `blockly@13.2.1` declares the required peer
+`jsdom >=27.4.0 <30.0.0`, so the `jsdom: ^30.1.2` devDependency introduced in
+the TRAE batch broke `npm ci` with ERESOLVE and failed the `verify` /
+`e2e-smoke` / `audit` / `sbom` jobs before any step ran. jsdom is pinned back
+to `^29.1.1` (the latest release blockly accepts; the test suite runs in the
+`node` environment and never imports jsdom, so the downgrade has no runtime
+impact). This also keeps undici at the patched 7.30.0 noted above.
 
 ## Security hardening on the roadmap
 
