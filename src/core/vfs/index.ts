@@ -8,7 +8,9 @@ import { MemoryVfs } from './memory';
 
 export type { Vfs, VfsEntry } from './types';
 export { MemoryVfs } from './memory';
+export { LightningVfs } from './lightning';
 export { seedStandardSkeleton } from './skeleton';
+export { safeVfsRelPath, safeVfsDirPath, isValidVfsEntryName, VfsPathError } from './path';
 
 let injected: Vfs | null = null;
 let memorySingleton: Vfs | null = null;

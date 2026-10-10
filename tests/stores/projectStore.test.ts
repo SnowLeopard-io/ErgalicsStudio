@@ -6,6 +6,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { useAppStore } from '@/stores/appStore';
+import { MemoryVfs, setVfs, resetVfs } from '@/core/vfs';
 
 const plugins = vi.hoisted(() => ({
   activeId: null as string | null,
@@ -314,5 +315,54 @@ describe('project opening and file imports', () => {
     expect(files).toHaveLength(1);
     expect(files[0]!.content).toBe('x\n2');
     expect(listProjectFiles()).toEqual(['data.csv']);
+  });
+});
+
+describe('folder import path traversal guard (issue #23)', () => {
+  it('never writes files outside the project root', async () => {
+    const written: Array<{ root: string; path: string }> = [];
+    class RecordingVfs extends MemoryVfs {
+      override async writeFile(root: string, path: string, content: string): Promise<void> {
+        written.push({ root, path });
+        return super.writeFile(root, path, content);
+      }
+
+      override async writeFileBinary(root: string, path: string, data: Uint8Array): Promise<void> {
+        written.push({ root, path });
+        return super.writeFileBinary(root, path, data);
+      }
+    }
+    setVfs(new RecordingVfs());
+    try {
+      const mkFile = (rel: string): File =>
+        ({
+          name: rel.split('/').pop(),
+          webkitRelativePath: rel,
+          arrayBuffer: async () => new TextEncoder().encode('x').buffer,
+        }) as unknown as File;
+      const files = [
+        mkFile('proj/ok.txt'),
+        mkFile('proj/sub/ok2.txt'),
+        mkFile('proj/../../evil.txt'),
+        mkFile('proj/a/../../../other.txt'),
+        mkFile('proj/.GIT/config'),
+      ];
+      const project = await useProjectStore.getState().importFolder(files);
+      const repoRoot = `/ergalics-projects/${project.id}`;
+      // every single write landed inside the imported project's own root
+      for (const w of written) {
+        expect(w.root).toBe(repoRoot);
+        expect(w.path.includes('..')).toBe(false);
+      }
+      const paths = written.map((w) => w.path);
+      expect(paths).toContain('ok.txt');
+      expect(paths).toContain('sub/ok2.txt');
+      expect(paths).toContain('project.clproj');
+      expect(paths).not.toContain('evil.txt');
+      expect(paths).not.toContain('other.txt');
+      expect(paths.some((p) => p.toLowerCase().includes('.git'))).toBe(false);
+    } finally {
+      resetVfs();
+    }
   });
 });

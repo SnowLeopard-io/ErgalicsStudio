@@ -10,17 +10,25 @@
 // before storing it.
 //
 // Sanitization strategy (documented + test-guarded in tests/gallery.test.ts):
-//   1. Data tables — every `<table>…</table>` whose body contains a `<tbody>`
-//      with more than MAX_TABLE_ROWS (5) data rows is replaced by a visible
-//      "rows removed for privacy" notice. Small tables (the snapshot's own
-//      fingerprint / dependency / locked-run summaries) survive untouched.
-//   2. JSON data islands — `<script type="application/json">` blocks whose
-//      payload is a JSON *array of objects* (raw record rows) are dropped;
-//      the repro lock object islands stay (fingerprints only, no raw data).
+//   DEFAULT-PRIVATE: everything that looks like structured data is removed
+//   unless it is explicitly allowed through. Concretely (issue #26):
+//   1. Data tables — every `<table>…</table>` is inspected row by row. A
+//      table survives only when it carries no raw-looking rows and is either
+//      small (≤ MAX_TABLE_ROWS) or one of the snapshot's own summary tables
+//      (header markers). A summary marker alone NEVER bypasses the row
+//      checks — a 50-row dump with a `seed` column is still stripped.
+//      Raw-looking now covers non-numeric PII too (emails, phone numbers).
+//   2. JSON data islands — only the snapshot's own `repro-lock-json` /
+//      `repro-runs-json` islands survive (fingerprints and metric summaries,
+//      no raw records). Any other island — object-wrapped arrays, short
+//      records, custom payloads — is dropped.
 //   3. Inline data URIs — `data:` URIs carrying CSV/TSV/JSON/text payloads
 //      (e.g. `<a href="data:text/csv,…">` download links) are neutralized.
-//   4. Defense in depth — any line that looks like a raw CSV/TSV data row
-//      (≥4 tab/comma-separated numeric fields) outside markup is stripped.
+//   4. Defense in depth — any line whose text content looks like a raw
+//      CSV/TSV data row (≥4 tab/comma-separated fields, numeric or PII)
+//      is replaced by a privacy notice, including rows embedded in markup
+//      such as `<pre>` blocks or SVG `<text>` (only lines owned by the
+//      structural passes — table cells and JSON islands — are exempt).
 //   Structure, figures (SVG), statistical summaries (metrics like
 //      `p=0.031`), headings and repro-lock information are all preserved.
 // ==========================================================================
@@ -76,8 +84,8 @@ const PRIVACY_NOTICE =
 /**
  * Header signatures of the snapshot's own summary tables (core/repro/snapshot
  * renders: data fingerprints, dependency versions, locked-run metrics).
- * A `<table>` whose headers match is statistical/lock metadata, not raw data,
- * so it survives untouched even when it has many rows.
+ * A `<table>` whose headers match may survive even when it has many rows —
+ * but ONLY when no row looks like raw data (see stripDataTables).
  */
 const SUMMARY_HEADER_MARKERS = [
   'fingerprint',
@@ -96,58 +104,70 @@ function isSummaryTable(table: string): boolean {
   return headers.some((h) => SUMMARY_HEADER_MARKERS.some((k) => h.includes(k)));
 }
 
-/** Heuristic raw-row detector over tab/comma-separated fields. */
-function looksNumericRow(text: string): boolean {
-  const cells = text.split(/[\t,]/).map((c) => c.trim()).filter(Boolean);
-  if (cells.length < 4) return false;
+const EMAIL_RE = /[^\s<>"']+@[^\s<>"']+\.[^\s<>"']+/;
+/** Phone-ish: a run of ≥6 digits, optionally with +/spaces/dashes. */
+const PHONE_RE = /^\+?\d[\d\s-]{5,}$/;
+
+/** Numeric fields of a tab/comma-separated row (the original heuristic). */
+function isNumericRow(cells: string[]): boolean {
   const numeric = cells.filter((c) => /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(c));
   return numeric.length >= Math.ceil(cells.length * 0.75);
 }
 
+/** Heuristic raw-record detector: ≥4 fields that are numeric or carry PII
+ *  (emails / phone numbers — non-numeric raw data was invisible before,
+ *  issue #26 bypass 2). */
+function looksLikeRawRecordRow(text: string): boolean {
+  const cells = text.split(/[\t,]/).map((c) => c.trim()).filter(Boolean);
+  if (cells.length < 4) return false;
+  if (isNumericRow(cells)) return true;
+  return cells.some((c) => EMAIL_RE.test(c) || PHONE_RE.test(c));
+}
+
 /** Turn one `<tr>` into a tab-separated text line, then apply the heuristic. */
 function rowLooksRaw(tr: string): boolean {
-  return looksNumericRow(tr.replace(/<[^>]*>/g, '\t'));
+  return looksLikeRawRecordRow(tr.replace(/<[^>]*>/g, '\t'));
 }
 
 /** Drop `<table>` blocks that carry raw data rows. */
 function stripDataTables(html: string): string {
   return html.replace(/<table(?=[\s>])[\s\S]*?<\/table>/gi, (table) => {
-    if (isSummaryTable(table)) return table;
     const body = /<tbody(?=[\s>])[^>]*>([\s\S]*?)<\/tbody>/i.exec(table);
     const scope = body?.[1] ?? table;
     const rows = [...scope.matchAll(/<tr(?=[\s>])[\s\S]*?<\/tr>/gi)].map((m) => m[0]);
     const rawRows = rows.filter(rowLooksRaw).length;
-    // ≥2 raw-looking rows, or a big multi-row dump past the summary allowance.
-    if (rawRows >= 2 || (rows.length > MAX_TABLE_ROWS && rawRows >= 1)) {
-      return PRIVACY_NOTICE;
-    }
-    return table;
+    // Default-private (issue #26): keep only tables with (almost) no raw rows
+    // that are either small or one of the snapshot's own summaries. The
+    // summary marker no longer bypasses the row checks.
+    const smallClean = rows.length <= MAX_TABLE_ROWS && rawRows <= 1;
+    const summaryClean = isSummaryTable(table) && rawRows === 0;
+    return smallClean || summaryClean ? table : PRIVACY_NOTICE;
   });
 }
 
-/** Drop JSON island scripts that hold an array of records (raw rows). */
+/** Islands of the snapshot itself — fingerprints and run summaries only. */
+const KEPT_ISLAND_IDS = new Set(['repro-lock-json', 'repro-runs-json']);
+
+/**
+ * Keep ONLY the snapshot's own JSON islands (whitelisted by id) and drop
+ * every other application/json island — object-wrapped record arrays,
+ * two-key records and custom payloads were all invisible before (issue #26
+ * bypass 3). Unparseable islands are dropped too: the structural whitelist
+ * replaces the old "looks-like-a-data-dump" guessing game.
+ */
 function stripDataIslands(html: string): string {
   return html.replace(
     /<script([^>]*\btype\s*=\s*["']application\/json["'][^>]*)>([\s\S]*?)<\/script>/gi,
-    (full, _attrs: string, body: string) => {
-      // Only flat scalar records (a raw data dump) are private. The snapshot's
-      // own islands — the repro lock object and the locked-runs summaries —
-      // carry nested params/metrics objects (statistical results) and stay.
+    (full, attrs: string) => {
+      const id = /\bid\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] ?? '';
+      if (!KEPT_ISLAND_IDS.has(id)) return '';
+      // The kept islands must still parse — a corrupted lock island is
+      // worthless to the reader and might hide arbitrary payloads.
       try {
-        const parsed: unknown = JSON.parse(body.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>'));
-        if (!Array.isArray(parsed) || parsed.length === 0) return full;
-        const flatRecords = parsed.every(
-          (row) =>
-            row !== null &&
-            typeof row === 'object' &&
-            !Array.isArray(row) &&
-            Object.keys(row).length >= 3 &&
-            Object.values(row).every((v) => v === null || typeof v !== 'object'),
-        );
-        return flatRecords ? '' : full;
-      } catch {
-        /* unparseable island — leave it to the line-level pass below */
+        JSON.parse(full.replace(/^<script[^>]*>/i, '').replace(/<\/script>\s*$/i, ''));
         return full;
+      } catch {
+        return '';
       }
     },
   );
@@ -161,16 +181,25 @@ function stripDataUris(html: string): string {
   );
 }
 
-/** Heuristic raw-row detector: ≥4 numeric-ish fields on one line. */
+/** Line-level raw-record detector. Markup lines are checked by their TEXT
+ *  content so rows embedded in `<pre>`/SVG `<text>` are caught too — except
+ *  lines owned by the structural passes (table cells, kept JSON islands,
+ *  stylesheets), whose text would be misread. */
 function looksLikeDataRow(line: string): boolean {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('<')) return false;
-  return looksNumericRow(trimmed);
+  if (!trimmed) return false;
+  if (trimmed.startsWith('<')) {
+    if (/<(?:tr|td|th|script|style)\b/i.test(trimmed)) return false;
+    return looksLikeRawRecordRow(trimmed.replace(/<[^>]*>/g, '\t'));
+  }
+  return looksLikeRawRecordRow(trimmed);
 }
 
 /**
  * Remove raw private data from a snapshot HTML destined for the public
  * gallery. Pure: the input string is never mutated; returns a new string.
+ * Raw lines are REPLACED by the privacy notice (not silently deleted) so the
+ * document visibly shows where data was removed.
  */
 export function sanitizeForGallery(html: string): string {
   let out = stripDataTables(html);
@@ -178,7 +207,7 @@ export function sanitizeForGallery(html: string): string {
   out = stripDataUris(out);
   out = out
     .split('\n')
-    .filter((line) => !looksLikeDataRow(line))
+    .map((line) => (looksLikeDataRow(line) ? PRIVACY_NOTICE : line))
     .join('\n');
   return out;
 }

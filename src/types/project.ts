@@ -1,3 +1,5 @@
+import { sanitizeSvg } from '../core/sanitize/sanitizeSvg';
+
 export interface FileEntry {
   id: string;
   name: string;
@@ -117,6 +119,21 @@ export function touchProject(project: Project): Project {
   return { ...project, updatedAt: Date.now() };
 }
 
+/**
+ * Sanitize stored report figure SVGs at load time (issue #25): a `.clproj`
+ * is an untrusted file and `sections[].svg` is embedded verbatim into the
+ * exported report HTML, so the stored state must already be inert.
+ */
+function sanitizeReportSpec(spec: import('../core/report/builder').ReportSpec): import('../core/report/builder').ReportSpec {
+  if (!spec || !Array.isArray(spec.sections)) return spec;
+  const sections = spec.sections.map((section) =>
+    section.type === 'figure' && typeof section.svg === 'string'
+      ? { ...section, svg: sanitizeSvg(section.svg) }
+      : section,
+  );
+  return { ...spec, sections };
+}
+
 export function cloneProject(project: Project): Project {
   return structuredClone(project) as Project;
 }
@@ -160,7 +177,7 @@ export function normalizeProject(parsed: Project): Project {
       sweeps: Array.isArray(state.sweeps) ? state.sweeps : [],
       sweepResults:
         state.sweepResults && typeof state.sweepResults === 'object' ? state.sweepResults : {},
-      reports: Array.isArray(state.reports) ? state.reports : [],
+      reports: Array.isArray(state.reports) ? state.reports.map(sanitizeReportSpec) : [],
       profiles: Array.isArray(state.profiles) ? state.profiles : [],
     },
     metadata: {

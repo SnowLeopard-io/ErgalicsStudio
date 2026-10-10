@@ -9,6 +9,7 @@
 
 import LightningFS from '@isomorphic-git/lightning-fs';
 import type { Vfs, VfsEntry } from './types';
+import { safeVfsDirPath, safeVfsRelPath } from './path';
 
 // Lazy singleton: constructing LightningFS requires `indexedDB`, which does
 // not exist in Node (unit tests) — so instantiate on first use, not at import.
@@ -44,26 +45,30 @@ export class LightningVfs implements Vfs {
   }
 
   async readFile(root: string, filePath: string): Promise<string> {
-    const data = await this.getFS().promises.readFile(`${root}/${filePath}`);
+    const rel = safeVfsRelPath(filePath);
+    const data = await this.getFS().promises.readFile(`${root}/${rel}`);
     return typeof data === 'string' ? data : new TextDecoder().decode(data);
   }
 
   async readFileBinary(root: string, filePath: string): Promise<Uint8Array> {
-    const data = await this.getFS().promises.readFile(`${root}/${filePath}`);
+    const rel = safeVfsRelPath(filePath);
+    const data = await this.getFS().promises.readFile(`${root}/${rel}`);
     if (typeof data === 'string') return new TextEncoder().encode(data);
     return data instanceof Uint8Array ? data : new Uint8Array(data as unknown as ArrayBuffer);
   }
 
   async writeFile(root: string, filePath: string, content: string): Promise<void> {
+    const rel = safeVfsRelPath(filePath);
     const fs = this.getFS();
-    const fullPath = `${root}/${filePath}`;
+    const fullPath = `${root}/${rel}`;
     await mkdirp(fs, fullPath.substring(0, fullPath.lastIndexOf('/')));
     await fs.promises.writeFile(fullPath, content);
   }
 
   async writeFileBinary(root: string, filePath: string, data: Uint8Array): Promise<void> {
+    const rel = safeVfsRelPath(filePath);
     const fs = this.getFS();
-    const fullPath = `${root}/${filePath}`;
+    const fullPath = `${root}/${rel}`;
     await mkdirp(fs, fullPath.substring(0, fullPath.lastIndexOf('/')));
     await fs.promises.writeFile(fullPath, data);
   }
@@ -108,7 +113,8 @@ export class LightningVfs implements Vfs {
 
   private async isDirectory(root: string, targetPath: string): Promise<boolean> {
     try {
-      const st = (await this.getFS().promises.stat(`${root}/${targetPath}`)) as {
+      const rel = safeVfsRelPath(targetPath);
+      const st = (await this.getFS().promises.stat(`${root}/${rel}`)) as {
         isDirectory(): boolean;
       };
       return st.isDirectory();
@@ -119,7 +125,7 @@ export class LightningVfs implements Vfs {
 
   async deleteEntry(root: string, targetPath: string, isDir: boolean): Promise<void> {
     const fs = this.getFS();
-    const full = `${root}/${targetPath}`;
+    const full = `${root}/${safeVfsRelPath(targetPath)}`;
     if (isDir) {
       await this.removeTree(fs, full);
     } else {
@@ -129,8 +135,8 @@ export class LightningVfs implements Vfs {
 
   async renameEntry(root: string, from: string, to: string): Promise<void> {
     const fs = this.getFS();
-    const fromFull = `${root}/${from}`;
-    const toFull = `${root}/${to}`;
+    const fromFull = `${root}/${safeVfsRelPath(from, 'rename source')}`;
+    const toFull = `${root}/${safeVfsRelPath(to, 'rename target')}`;
     await mkdirp(fs, toFull.substring(0, toFull.lastIndexOf('/')));
     if (await this.isDirectory(root, from)) {
       await this.copyTree(fs, fromFull, toFull);
@@ -147,7 +153,8 @@ export class LightningVfs implements Vfs {
    *  lazy per directory. */
   async readDir(root: string, dirPath: string): Promise<VfsEntry[]> {
     const fs = this.getFS();
-    const full = dirPath ? `${root}/${dirPath}` : root;
+    const rel = safeVfsDirPath(dirPath);
+    const full = rel ? `${root}/${rel}` : root;
     let names: string[];
     try {
       names = (await fs.promises.readdir(full)) as string[];
@@ -156,7 +163,7 @@ export class LightningVfs implements Vfs {
     }
     const entries = await Promise.all(
       names.map(async (name) => {
-        const path = dirPath ? `${dirPath}/${name}` : name;
+        const path = rel ? `${rel}/${name}` : name;
         try {
           const st = (await fs.promises.stat(`${full}/${name}`)) as {
             isDirectory(): boolean;
@@ -175,7 +182,8 @@ export class LightningVfs implements Vfs {
 
   async exists(root: string, targetPath: string): Promise<boolean> {
     try {
-      await this.getFS().promises.stat(`${root}/${targetPath}`);
+      const rel = safeVfsRelPath(targetPath);
+      await this.getFS().promises.stat(`${root}/${rel}`);
       return true;
     } catch {
       return false;
