@@ -36,21 +36,73 @@ export function effectiveCounts(sites: readonly CellSite[]): Record<string, numb
 }
 
 /**
- * Reduce a (possibly fractional) count map to the smallest integer ratio by
- * scaling to a common thousandth and dividing out the GCD — robust to half /
- * quarter occupancies while staying exact for integer stoichiometries.
+ * Reduce a (possibly fractional) count map to the smallest integer ratio.
+ * Instead of scaling by a fixed thousandth (which fails for occupancies whose
+ * denominator exceeds 1000, e.g. 1/3, 2/3, 1/16), each count is normalised to
+ * the smallest count and approximated by a continued-fraction rational with a
+ * bounded denominator; the denominators are then combined via LCM and the
+ * result divided by the GCD. Exact for integer stoichiometries and robust to
+ * common fractional occupancies.
  */
 export function reduceCounts(counts: Record<string, number>): Array<[string, number]> {
   const entries = Object.entries(counts).filter(([, n]) => n > 1e-6);
   if (entries.length === 0) return [];
-  const scale = 1000;
-  const scaled = entries.map(([s, n]) => [s, Math.max(1, Math.round(n * scale))] as [string, number]);
+  // Normalise to the smallest count: ratios of the form A : B = 1 : r.
+  const min = Math.min(...entries.map(([, n]) => n));
+  const ratios = entries.map(([s, n]) => [s, n / min] as [string, number]);
+  // Approximate each ratio by a rational p/q with q ≤ MAX_DENOM.
+  const fracs = ratios.map(([s, r]) => [s, rationalApprox(r)] as [string, [number, number]]);
+  // Common denominator = LCM of all denominators.
+  let denom = 1;
+  for (const [, [, q]] of fracs) denom = lcm(denom, q);
+  const scaled = fracs.map(([s, [p, q]]) => [s, Math.round((p * denom) / q)] as [string, number]);
   let g = scaled[0]![1];
   for (const [, n] of scaled) g = gcd(g, n);
   if (g === 0) g = 1;
   const reduced = scaled.map(([s, n]) => [s, n / g] as [string, number]);
   reduced.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   return reduced;
+}
+
+/** Largest denominator allowed when approximating an occupancy ratio. */
+const MAX_DENOM = 100;
+
+/**
+ * Approximate a positive float by a rational p/q (q ≤ MAX_DENOM) using the
+ * Stern-Brocot / continued-fraction walk. Returns [p, q] in lowest terms.
+ */
+function rationalApprox(x: number): [number, number] {
+  if (!Number.isFinite(x) || x <= 0) return [1, 1];
+  // Exact integers short-circuit.
+  const rounded = Math.round(x);
+  if (Math.abs(x - rounded) < 1e-9) return [rounded, 1];
+  let loN = 0;
+  let loD = 1;
+  let hiN = 1;
+  let hiD = 0;
+  for (;;) {
+    const mN = loN + hiN;
+    const mD = loD + hiD;
+    if (mD > MAX_DENOM) break;
+    const mid = mN / mD;
+    if (mid < x) {
+      loN = mN;
+      loD = mD;
+    } else if (mid > x) {
+      hiN = mN;
+      hiD = mD;
+    } else {
+      return [mN, mD];
+    }
+  }
+  // Return whichever bound is closer.
+  const lo = loN / loD;
+  const hi = hiD > 0 ? hiN / hiD : Infinity;
+  return Math.abs(lo - x) <= Math.abs(hi - x) ? [loN, loD] : [hiN, hiD];
+}
+
+function lcm(a: number, b: number): number {
+  return (a / gcd(a, b)) * b;
 }
 
 /** Reduced empirical formula string like "NaCl", "SiO2". */
