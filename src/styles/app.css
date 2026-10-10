@@ -8393,3 +8393,65 @@ button.start-card:hover {
   line-height: 1.5;
   color: var(--color-text-secondary);
 }
+
+/* ==========================================================================
+   Boot gate — recovery UI (failure / timeout path of the boot sequence).
+   The normal-path splash lives inline in index.html; only the React-rendered
+   fallback is styled here. Mirrors the splash's restrained instrument look.
+   ========================================================================== */
+.boot-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+.boot-fallback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+  max-width: 420px;
+}
+.boot-fallback-brand {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-brand span {
+  color: var(--color-accent);
+}
+.boot-fallback-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+.boot-fallback-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.boot-fallback-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}

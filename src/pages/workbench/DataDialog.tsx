@@ -165,7 +165,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const renderExampleCard = (ex: BuiltinExample) => (
     <div key={ex.id} className="plugin-card" data-example-id={ex.id}>
       <div className="plugin-card-main">
-        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : '▦'}</span>
+        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : ex.group === 'materials' ? '⬢' : '▦'}</span>
         <div className="plugin-card-info">
           <div className="plugin-card-title">{exampleName(ex, locale)}</div>
           <div className="plugin-card-meta">{exampleDescription(ex, locale)}</div>

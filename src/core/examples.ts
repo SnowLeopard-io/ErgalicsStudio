@@ -54,6 +54,14 @@ import reactionC2h5ohC2h4 from '../../examples/data/reaction-c2h5oh-c2h4.json?ra
 import reactionCh4Cl2 from '../../examples/data/reaction-ch4-cl2.json?raw';
 import reactionC6h6H2 from '../../examples/data/reaction-c6h6-h2.json?raw';
 import reactionC7h8Kmno4 from '../../examples/data/reaction-c7h8-kmno4.json?raw';
+import matsXrdSilicon from '../../examples/data/mats-xrd-silicon.xy?raw';
+import matsXrdNacl from '../../examples/data/mats-xrd-nacl.xy?raw';
+import matsXrdCopper from '../../examples/data/mats-xrd-copper.xy?raw';
+import matsMechSteel from '../../examples/data/mats-mech-mild-steel.csv?raw';
+import matsMechAluminum from '../../examples/data/mats-mech-aluminum.csv?raw';
+import matsMechCopper from '../../examples/data/mats-mech-copper.csv?raw';
+import matsThermalDsc from '../../examples/data/mats-thermal-dsc-polystyrene.csv?raw';
+import matsThermalTga from '../../examples/data/mats-thermal-tga-caco3.csv?raw';
 
 import geoClimateBeijing from '../../examples/data/geo-climate-beijing.csv?raw';
 import geoClimateSingapore from '../../examples/data/geo-climate-singapore.csv?raw';
@@ -1495,6 +1503,162 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
 
+  // ---- Materials science · XRD pattern analysis (mats-xrd) -------------------
+  {
+    id: 'mats-xrd-silicon',
+    filename: 'mats-xrd-silicon.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdSilicon,
+    nameI18n: {
+      'zh-CN': '材料 · 硅粉末衍射谱（NIST SRM 640）',
+      'en-US': 'Materials · Silicon powder pattern (NIST SRM 640)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '硅标样粉末衍射谱（Cu Kα1，Fd-3m，a≈5.431 Å）：六条主要衍射峰（111/220/311/400/331/422），用于突出度峰检出、d 间距换算与立方晶格常数精修验证。载入后插件自动检出 6 个峰并精修 a。',
+      'en-US':
+        'Silicon standard powder pattern (Cu Kα1, Fd-3m, a≈5.431 Å): six major reflections (111/220/311/400/331/422) for prominence-based peak detection, Bragg d-spacing and cubic lattice refinement. Load it — the plugin auto-detects 6 peaks and refines a.',
+    },
+  },
+  {
+    id: 'mats-xrd-nacl',
+    filename: 'mats-xrd-nacl.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdNacl,
+    nameI18n: {
+      'zh-CN': '材料 · 氯化钠粉末衍射谱（ICDD 05-0628）',
+      'en-US': 'Materials · Halite powder pattern (ICDD 05-0628)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '岩盐 NaCl 粉末衍射谱（Fm-3m，a≈5.640 Å）：八条衍射峰（111/200/220/311/222/400/420/422），面心立方消光规律下首峰对应 s=3。载入后可验证 F-心立方精修并与参考物相匹配。',
+      'en-US':
+        'Halite NaCl powder pattern (Fm-3m, a≈5.640 Å): eight reflections (111/200/220/311/222/400/420/422); under F-centring absences the first peak maps to s=3. Load it to exercise F-centred refinement and phase matching.',
+    },
+  },
+  {
+    id: 'mats-xrd-copper',
+    filename: 'mats-xrd-copper.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdCopper,
+    nameI18n: {
+      'zh-CN': '材料 · 铜粉末衍射谱（ICDD 04-0836）',
+      'en-US': 'Materials · Copper powder pattern (ICDD 04-0836)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '纯铜粉末衍射谱（Fm-3m，a≈3.615 Å）：四条衍射峰（111/200/220/311），高角度 2θ 范围内峰位稀疏，适合验证小晶胞参数精修与 2θ-峰匹配。',
+      'en-US':
+        'Pure copper powder pattern (Fm-3m, a≈3.615 Å): four reflections (111/200/220/311) at high 2θ, exercising small-cell refinement and 2θ peak matching.',
+    },
+  },
+  // ---- Materials science · stress-strain analysis (mats-mech) ---------------
+  {
+    id: 'mats-mech-mild-steel',
+    filename: 'mats-mech-mild-steel.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechSteel,
+    nameI18n: {
+      'zh-CN': '材料 · 低碳钢应力-应变曲线（ASTM A36）',
+      'en-US': 'Materials · Mild steel stress-strain (ASTM A36)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '低碳钢拉伸曲线（E≈210 GPa、σ₀.₂≈280 MPa、UTS≈430 MPa、断后伸长率≈28%、n≈0.18）：弹性段回归、0.2% 偏置屈服、Hollomon 应变硬化拟合与韧性积分一键输出。载入后插件自动计算全部力学指标。',
+      'en-US':
+        'Mild-steel tensile curve (E≈210 GPa, σ₀.₂≈280 MPa, UTS≈430 MPa, ε_f≈28%, n≈0.18): elastic-region regression, 0.2% offset yield, Hollomon hardening fit and toughness integration all auto-computed. Load it for the full tensile index set.',
+    },
+  },
+  {
+    id: 'mats-mech-aluminum',
+    filename: 'mats-mech-aluminum.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechAluminum,
+    nameI18n: {
+      'zh-CN': '材料 · 铝合金 6061-O 应力-应变曲线',
+      'en-US': 'Materials · Aluminum 6061-O stress-strain',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '退火铝合金 6061-O 拉伸曲线（E≈70 GPa、σ₀.₂≈95 MPa、UTS≈180 MPa、n≈0.22）：低模量高延展金属典型曲线，可对比低碳钢的硬化行为差异。',
+      'en-US':
+        'Annealed Al 6061-O tensile curve (E≈70 GPa, σ₀.₂≈95 MPa, UTS≈180 MPa, n≈0.22): a low-modulus, high-ductility metal — compare its hardening against mild steel.',
+    },
+  },
+  {
+    id: 'mats-mech-copper',
+    filename: 'mats-mech-copper.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechCopper,
+    nameI18n: {
+      'zh-CN': '材料 · 退火铜应力-应变曲线',
+      'en-US': 'Materials · Annealed copper stress-strain',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '退火纯铜拉伸曲线（E≈110 GPa、σ₀.₂≈70 MPa、UTS≈220 MPa、断后伸长率≈45%、n≈0.40）：高应变硬化指数的典型高延展金属，Hollomon 双对数线性段清晰。',
+      'en-US':
+        'Annealed copper tensile curve (E≈110 GPa, σ₀.₂≈70 MPa, UTS≈220 MPa, ε_f≈45%, n≈0.40): a high-ductility metal with a high strain-hardening exponent and a clear Hollomon log-log linear region.',
+    },
+  },
+  // ---- Materials science · thermal analysis (mats-thermal) -----------------
+  {
+    id: 'mats-thermal-dsc-polystyrene',
+    filename: 'mats-thermal-dsc-polystyrene.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-thermal',
+    group: 'materials',
+    content: matsThermalDsc,
+    nameI18n: {
+      'zh-CN': '材料 · 聚苯乙烯 DSC 曲线（玻璃化转变 + 熔融）',
+      'en-US': 'Materials · Polystyrene DSC (Tg + melting)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '聚苯乙烯 DSC 升温曲线：约 100°C 玻璃化转变（热流阶跃下降）与约 250°C 熔融吸热峰。载入后插件自动检出转变、给出外推起始温度、峰值温度与基线校正积分。',
+      'en-US':
+        'Polystyrene DSC heating curve: a glass transition (heat-flow step) near 100°C and a melting endotherm near 250°C. Load it to auto-detect transitions with extrapolated onset, peak temperature and baseline-corrected integral.',
+    },
+  },
+  {
+    id: 'mats-thermal-tga-caco3',
+    filename: 'mats-thermal-tga-caco3.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-thermal',
+    group: 'materials',
+    content: matsThermalTga,
+    nameI18n: {
+      'zh-CN': '材料 · 碳酸钙 TGA 曲线（热分解失重）',
+      'en-US': 'Materials · Calcium carbonate TGA (decomposition)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '碳酸钙 CaCO₃ 热重曲线：约 85°C 水分脱附（≈2%）与约 710°C 脱碳分解 CaCO₃→CaO+CO₂（理论失重 44%）。载入后切换到 TGA 模式，插件自动分解失重台阶、输出起始温度、DTG 峰值与残重。',
+      'en-US':
+        'Calcium carbonate TGA curve: moisture desorption near 85°C (≈2%) and decarbonation CaCO₃→CaO+CO₂ near 710°C (theoretical 44% loss). Switch to TGA mode — the plugin steps off mass-loss segments with onset, DTG peak and residual mass.',
+    },
+  },
+
   // ---- Reaction mechanism 3D examples (chem-reaction) -------------------
   {
     id: 'chem-rxn-cuo-h2',
@@ -1924,6 +2088,115 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '8 m/s 风速的充分成长海况：Pierson–Moskowitz 峰值 λ_p≈56 m、H_s≈1.4 m，26 列 Gerstner 波列按精确深水色散 ω²=g·k 叠加；波峰翻卷处按雅可比行列式生成白沫。',
       'en-US':
         'A fully developed sea for U=8 m/s: Pierson–Moskowitz peak λ_p≈56 m, H_s≈1.4 m; 26 Gerstner trains summed on the exact deep-water dispersion ω²=g·k with Jacobian-based foam at folding crests.',
+    },
+  },
+  {
+    id: 'fx-cloud-noon-cumulus',
+    filename: 'fx-cloud-noon-cumulus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-noon-cumulus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 正午积云（北京，夏至）',
+      'en-US': 'FX · Volumetric clouds — noon cumulus (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至北京地方时正午（UTC 4.25 h）的积云场景：太阳高度约 73°，云底 650 m、厚 800 m，西南风 6 m/s 平流；自然日光照明下云体受 Beer–Lambert 消光与 HG 散射，科学输出栏给出太阳高度/方位与光学深度 τ。',
+      'en-US':
+        'Noon cumulus at the summer solstice in Beijing (UTC 4.25 h, solar altitude ≈73°): cloud base 650 m, 800 m thick, advected by a 6 m/s south-wester; natural daylight with Beer–Lambert extinction and HG scattering.',
+    },
+  },
+  {
+    id: 'fx-cloud-sunset-stratus',
+    filename: 'fx-cloud-sunset-stratus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-sunset-stratus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 黄昏层云（北京，夏至）',
+      'en-US': 'FX · Volumetric clouds — sunset stratus (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至北京日落前的层云场景（UTC 10.8 h，太阳低角度）：78% 云量、云底 500 m，暖色低角度阳光产生银边与霞光；西风 9 m/s 平流。可开启自动昼夜观察黄昏入夜的全过程。',
+      'en-US':
+        'Low-sun stratus before sunset at the summer solstice in Beijing (UTC 10.8 h): 78% coverage, base 500 m, warm grazing sunlight with silver linings; 9 m/s westerly advection.',
+    },
+  },
+  {
+    id: 'fx-cloud-starry-night',
+    filename: 'fx-cloud-starry-night.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-starry-night.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 星夜孤峰云海（莫纳克亚）',
+      'en-US': 'FX · Volumetric clouds — starry night (Mauna Kea)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至夜莫纳克亚天文台（北纬 19.8°）上空的散云：夜空因子为深空蓝底色 + 斗转星移的恒星周日运动（GMST 驱动），月光按月相照亮云顶；云底 1100 m、西北风 12 m/s。',
+      'en-US':
+        'Broken cumulus above Mauna Kea (lat 19.8°N) on a solstice night: deep-space blue sky with sidereally rotating stars (GMST-driven) and moonlight scaled by lunar phase; cloud base 1100 m, 12 m/s north-wester.',
+    },
+  },
+  // ---- Astronomy presets -----------------------------------------------------
+  {
+    id: 'astro-sim-deep-field',
+    filename: 'astro-sim-deep-field.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-sim-deep-field.json'),
+    nameI18n: {
+      'zh-CN': '天文 · V 波段深场仿真（512²，140 星，Moffat β=2.5）',
+      'en-US': 'Astro · V-band deep field (512², 140 stars)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '300 s 曝光的仿真深场：140 颗幂律流量分布恒星经 Moffat 星象（β=2.5，FWHM 3.2 px）成像，含天光 180 e⁻、暗流 0.02 e⁻/s、读出噪声 5 e⁻、渐晕平场与 18 个宇宙线事例；加载后自动完成校准、6σ 宇宙线剔除、恒星检测与孔径测光，科学输出栏给出流量回收比例。',
+      'en-US':
+        'Simulated 300 s deep exposure: 140 power-law stars imaged through a Moffat PSF (β=2.5, FWHM 3.2 px) with 180 e⁻ sky, dark current, 5 e⁻ read noise, vignetting and 18 cosmic rays; the full pipeline (calibration, CR clipping, detection, aperture photometry) runs on load.',
+    },
+  },
+  {
+    id: 'astro-benchmark-photometry',
+    filename: 'astro-benchmark-photometry.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-benchmark-photometry.json'),
+    nameI18n: {
+      'zh-CN': '天文 · 测光基准（注入流量回收 ≤5% 容差）',
+      'en-US': 'Astro · Photometric benchmark (≤5% flux-recovery)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '端到端测光基准帧：45 颗已知注入流量的恒星（400–90000 e⁻）、2.8 px FWHM、6σ 检测阈值与 2.2×FWHM 孔径；科学输出栏的「Flux recovery」对比最亮注入源与孔径测光回收值，超过 ±5% 会转为警告色。',
+      'en-US':
+        'End-to-end photometric benchmark: 45 stars with known injected fluxes (400–90000 e⁻), 2.8 px FWHM, 6σ detection and a 2.2×FWHM aperture; the science strip reports flux recovery of the brightest injected star, warning beyond ±5%.',
+    },
+  },
+  {
+    id: 'astro-sim-noisy-short',
+    filename: 'astro-sim-noisy-short.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-sim-noisy-short.json'),
+    nameI18n: {
+      'zh-CN': '天文 · 高噪声短曝光（SNR 压力测试，256²）',
+      'en-US': 'Astro · Noisy short exposure (SNR stress test)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '10 s 高噪声帧：天光 900 e⁻、读出噪声 9 e⁻、增益 2.4 e⁻/ADU、FWHM 4.5 px、25 个宇宙线；用于检验 CCD 方程信噪比与低信噪比极限下的检测表现，科学输出栏给出背景 σ 与最亮源 SNR。',
+      'en-US':
+        'A noisy 10 s frame: 900 e⁻ sky, 9 e⁻ read noise, gain 2.4 e⁻/ADU, FWHM 4.5 px and 25 cosmic rays; stresses CCD-equation SNR and low-SNR detection. The science strip reports background σ and peak-source SNR.',
     },
   },
 ];

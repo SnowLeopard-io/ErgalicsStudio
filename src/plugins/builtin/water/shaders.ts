@@ -21,6 +21,7 @@ import {
   Scene,
   ShaderMaterial,
   type Texture,
+  Vector4,
   WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
@@ -322,9 +323,9 @@ export interface SolverMaterial extends ShaderMaterial {
     uA2: { value: number };
     uDamping: { value: number };
     uAbsorb: { value: number };
-    uDrops: { value: Array<{ x: number; y: number; z: number; w: number }> };
+    uDrops: { value: Vector4[] };
     uDropCount: { value: number };
-    uSources: { value: Array<{ x: number; y: number; z: number; w: number }> };
+    uSources: { value: Vector4[] };
     uSourceCount: { value: number };
     uStep: { value: number };
   };
@@ -333,8 +334,8 @@ export interface SolverMaterial extends ShaderMaterial {
 export interface WaterSim {
   /** Advance one FDTD step; pass drops only on the first substep of a frame. */
   step(drops: Array<{ x: number; y: number; radius: number; amp: number }>): void;
-  /** Height texture of the current state. */
-  texture(): WebGLRenderTarget;
+  /** Height texture of the current state (bind as a sampler2D uniform value). */
+  texture(): Texture;
   /** Reset both buffers to zero. */
   reset(): void;
   resize(n: number): void;
@@ -366,8 +367,13 @@ export function createWaterSim(renderer: WebGLRenderer, n: number): WaterSim {
     depthBuffer: false,
     stencilBuffer: false,
   } as const;
+  // Three rotating buffers: the leapfrog stencil samples BOTH h(t) (rtA) and
+  // h(t−1) (rtB), so the new field must go into a third target — writing into
+  // a bound sampler would be a WebGL feedback loop (black screen after any
+  // non-zero wave content appears).
   let rtA = new WebGLRenderTarget(size, size, rtOpts);
   let rtB = new WebGLRenderTarget(size, size, rtOpts);
+  let rtC = new WebGLRenderTarget(size, size, rtOpts);
   const quadScene = new Scene();
   const quadCam = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const solverMat = new ShaderMaterial({
@@ -380,9 +386,13 @@ export function createWaterSim(renderer: WebGLRenderer, n: number): WaterSim {
       uA2: { value: 0.25 },
       uDamping: { value: 0.9985 },
       uAbsorb: { value: 1 },
-      uDrops: { value: [] },
+      // Fixed-length GLSL arrays: three.js' PureArrayUniform flattening indexes
+      // the DECLARED size and calls Vector4.prototype.toArray on each element,
+      // so the JS arrays must carry exactly 8 / 2 real Vector4 instances.
+      // Unused slots are zeros; uDropCount / uSourceCount gate real usage.
+      uDrops: { value: Array.from({ length: 8 }, () => new Vector4()) },
       uDropCount: { value: 0 },
-      uSources: { value: [] },
+      uSources: { value: [new Vector4(), new Vector4()] },
       uSourceCount: { value: 0 },
       uStep: { value: 0 },
     },
@@ -403,29 +413,40 @@ export function createWaterSim(renderer: WebGLRenderer, n: number): WaterSim {
   };
   clearTo(rtA);
   clearTo(rtB);
+  clearTo(rtC);
 
   const api: WaterSim = {
     step(drops) {
-      // prev = rtB (older), curr = rtA → write rtB, then swap so rtB is newest.
+      // Sample h(t) from rtA and h(t−1) from rtB; write h(t+1) into the unused
+      // rtC, then rotate (A,B,C) → the write target becomes the newest field.
       solverMat.uniforms.uPrev.value = rtB.texture;
       solverMat.uniforms.uCurr.value = rtA.texture;
       solverMat.uniforms.uDropCount.value = drops.length;
-      solverMat.uniforms.uDrops.value = drops.map((d) => ({ x: d.x, y: d.y, z: d.radius, w: d.amp }));
+      // Pad back to the declared uDrops[8] size (three.js flatten requirement).
+      const dropArr = solverMat.uniforms.uDrops.value;
+      for (let i = 0; i < 8; i++) {
+        const d = drops[i];
+        const v = dropArr[i] ?? (dropArr[i] = new Vector4());
+        if (d) v.set(d.x, d.y, d.radius, d.amp);
+        else v.set(0, 0, 0, 0);
+      }
       solverMat.uniforms.uStep.value = steps;
-      renderer.setRenderTarget(rtB);
+      renderer.setRenderTarget(rtC);
       renderer.render(quadScene, quadCam);
       renderer.setRenderTarget(null);
-      const t = rtA;
-      rtA = rtB;
-      rtB = t;
+      const old = rtB;
+      rtB = rtA;
+      rtA = rtC;
+      rtC = old;
       steps++;
     },
     texture() {
-      return rtA;
+      return rtA.texture;
     },
     reset() {
       clearTo(rtA);
       clearTo(rtB);
+      clearTo(rtC);
       steps = 0;
     },
     resize(nNew) {
@@ -433,15 +454,19 @@ export function createWaterSim(renderer: WebGLRenderer, n: number): WaterSim {
       size = nNew;
       rtA.dispose();
       rtB.dispose();
+      rtC.dispose();
       rtA = new WebGLRenderTarget(size, size, rtOpts);
       rtB = new WebGLRenderTarget(size, size, rtOpts);
+      rtC = new WebGLRenderTarget(size, size, rtOpts);
       solverMat.uniforms.uTexel.value = { x: 1 / size, y: 1 / size };
       clearTo(rtA);
       clearTo(rtB);
+      clearTo(rtC);
     },
     dispose() {
       rtA.dispose();
       rtB.dispose();
+      rtC.dispose();
       quad.geometry.dispose();
       solverMat.dispose();
     },
@@ -458,10 +483,16 @@ export function createWaterSim(renderer: WebGLRenderer, n: number): WaterSim {
       solverMat.uniforms.uAbsorb.value = on ? 1 : 0;
     },
     setSources(srcs) {
-      solverMat.uniforms.uSourceCount.value = Math.min(srcs.length, 2);
-      solverMat.uniforms.uSources.value = srcs
-        .slice(0, 2)
-        .map((s) => ({ x: s.x, y: s.y, z: s.omega, w: s.amp }));
+      const list = srcs.slice(0, 2);
+      solverMat.uniforms.uSourceCount.value = list.length;
+      // Pad back to the declared uSources[2] size (three.js flatten requirement).
+      const arr = solverMat.uniforms.uSources.value;
+      for (let i = 0; i < 2; i++) {
+        const s = list[i];
+        const v = arr[i] ?? (arr[i] = new Vector4());
+        if (s) v.set(s.x, s.y, s.omega, s.amp);
+        else v.set(0, 0, 0, 0);
+      }
     },
   };
   return api;

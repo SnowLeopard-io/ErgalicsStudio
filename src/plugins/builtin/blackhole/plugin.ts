@@ -34,6 +34,8 @@ interface State {
   turb: number;
   quality: 'low' | 'medium' | 'high' | 'ultra';
   running: boolean;
+  /** Slow automatic camera orbit around the hole (cinematic auto-motion). */
+  autoOrbit: boolean;
 }
 
 const DEFAULTS: State = {
@@ -48,6 +50,7 @@ const DEFAULTS: State = {
   turb: 0.55,
   quality: 'high',
   running: true,
+  autoOrbit: true,
 };
 
 const STEPS_BY_QUALITY: Record<State['quality'], number> = { low: 110, medium: 180, high: 280, ultra: 420 };
@@ -257,6 +260,15 @@ export class BlackholePlugin implements Plugin {
         offLabel: zh ? '暂停' : 'Pause',
         onLabel: zh ? '旋转中' : 'Running',
       },
+      {
+        key: 'autoOrbit',
+        label: 'Auto camera orbit',
+        labelI18n: { 'zh-CN': '自动环绕镜头', 'en-US': 'Auto camera orbit' },
+        type: 'toggle',
+        value: this.state.autoOrbit,
+        offLabel: zh ? '固定' : 'Fixed',
+        onLabel: zh ? '环绕中' : 'Orbiting',
+      },
       actionButton('resetView', 'Reset view', '复位视角'),
       actionButton('resetParams', 'Reset parameters', '恢复默认参数'),
     ];
@@ -278,6 +290,7 @@ export class BlackholePlugin implements Plugin {
     if (typeof params.beaming === 'boolean') { s.beaming = params.beaming; changed = true; }
     if (typeof params.redshift === 'boolean') { s.redshift = params.redshift; changed = true; }
     if (typeof params.running === 'boolean') { s.running = params.running; changed = true; }
+    if (typeof params.autoOrbit === 'boolean') { s.autoOrbit = params.autoOrbit; changed = true; }
     if (actionFired(params, 'resetView')) { this.fitCamera(16); return; }
     if (actionFired(params, 'resetParams')) {
       this.state = { ...DEFAULTS };
@@ -365,10 +378,22 @@ export class BlackholePlugin implements Plugin {
     const dt = this.lastT ? Math.min((t - this.lastT) / 1000, 0.1) : 0;
     this.lastT = t;
     if (this.state.running) this.simTime += dt;
+    if (this.state.autoOrbit && dt > 0) {
+      // Slow cinematic orbit: rotate the camera about the hole (Y axis), keeping
+      // radius and elevation so user zoom/pan deltas stay intact.
+      const cam = three.camera;
+      const rad = Math.hypot(cam.position.x, cam.position.z);
+      if (rad > 1e-4) {
+        const ang = Math.atan2(cam.position.z, cam.position.x) + 0.05 * dt;
+        cam.position.x = rad * Math.cos(ang);
+        cam.position.z = rad * Math.sin(ang);
+      }
+    }
     mat.uniforms.uTime.value = this.simTime;
+    three.controls.update?.();
+    three.camera.updateMatrixWorld(); // ray tracer needs this frame's camera matrices
     mat.uniforms.uCamWorld.value.copy(three.camera.matrixWorld);
     mat.uniforms.uProjInv.value.copy(three.camera.projectionMatrixInverse);
-    three.controls.update?.();
     three.render();
     this.rafId = requestAnimationFrame(this.tick);
   };

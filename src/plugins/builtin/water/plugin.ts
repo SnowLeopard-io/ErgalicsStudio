@@ -29,7 +29,7 @@ import {
   Vector2,
   Vector3,
   Vector4,
-  type WebGLRenderTarget,
+  type Texture,
 } from 'three';
 import { waterManifest } from './manifest';
 import * as phys from './physics';
@@ -46,7 +46,7 @@ import {
 // uniforms index signature would otherwise make every access possibly-undefined).
 interface SurfaceMaterial extends ShaderMaterial {
   uniforms: {
-    uHeight: { value: WebGLRenderTarget };
+    uHeight: { value: Texture };
     uTexel: { value: Vector2 };
     uMode: { value: number };
     uHScale: { value: number };
@@ -62,7 +62,7 @@ interface SurfaceMaterial extends ShaderMaterial {
 
 interface FloorMaterial extends ShaderMaterial {
   uniforms: {
-    uHeight: { value: WebGLRenderTarget };
+    uHeight: { value: Texture };
     uTexel: { value: Vector2 };
     uDepth: { value: number };
     uCaustics: { value: number };
@@ -493,7 +493,7 @@ export class WaterPlugin implements Plugin {
       vertexShader: SURFACE_VERTEX,
       fragmentShader: SURFACE_FRAGMENT,
       uniforms: {
-        uHeight: { value: this.sim.texture() as WebGLRenderTarget },
+        uHeight: { value: this.sim.texture() },
         uTexel: { value: new Vector2(1 / this.state.gridN, 1 / this.state.gridN) },
         uMode: { value: this.state.mode === 'ocean' ? 1 : 0 },
         uHScale: { value: this.state.hScale },
@@ -510,7 +510,7 @@ export class WaterPlugin implements Plugin {
       vertexShader: FLOOR_VERTEX,
       fragmentShader: FLOOR_FRAGMENT,
       uniforms: {
-        uHeight: { value: this.sim.texture() as WebGLRenderTarget },
+        uHeight: { value: this.sim.texture() },
         uTexel: { value: new Vector2(1 / this.state.gridN, 1 / this.state.gridN) },
         uDepth: { value: this.state.depth },
         uCaustics: { value: 1 },
