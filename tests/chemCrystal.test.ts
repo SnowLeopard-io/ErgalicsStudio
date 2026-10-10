@@ -291,6 +291,13 @@ describe('effective counts & reduced formula (有效原子与化学式)', () => 
     expect(formatFormula([['C', 1], ['O', 2]])).toBe('CO2');
     expect(reduceCounts({ a: 2, b: 4 }).sort((x, y) => x[0].localeCompare(y[0]))).toEqual([['a', 1], ['b', 2]]);
   });
+
+  it('reduceCounts reduces common fractional occupancies (1/3, 2/3, 1/16)', () => {
+    expect(reduceCounts({ A: 0.3333, B: 1 }).sort((x, y) => x[0].localeCompare(y[0]))).toEqual([['A', 1], ['B', 3]]);
+    expect(reduceCounts({ A: 0.6667, B: 1 }).sort((x, y) => x[0].localeCompare(y[0]))).toEqual([['A', 2], ['B', 3]]);
+    expect(reduceCounts({ A: 0.0625, B: 1 }).sort((x, y) => x[0].localeCompare(y[0]))).toEqual([['A', 1], ['B', 16]]);
+    expect(reduceCounts({ A: 1 / 3, B: 1 }).sort((x, y) => x[0].localeCompare(y[0]))).toEqual([['A', 1], ['B', 3]]);
+  });
 });
 
 describe('structural format dispatch (parseStructure)', () => {
