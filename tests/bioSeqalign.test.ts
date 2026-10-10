@@ -94,6 +94,22 @@ describe('bio-seqalign kernel', () => {
   it('dot-oriented sanity: untranslated empty handling does not crash', () => {
     expect(alignGlobal('', 'A', nuc, { open: -5, extend: -1 }).score).toBe(0);
   });
+
+  it('positive (similar) uses the substitution matrix, decoupled from identity', () => {
+    // BLOSUM62: W↔Y = +2 (> 0) is similar but not identical. Aligning a
+    // W↔Y-only pair must report positive > identity (identity 0, positive 1).
+    const r = alignGlobal('W', 'Y', blosum, { open: -11, extend: -1 });
+    expect(r.alignedA).toBe('W');
+    expect(r.alignedB).toBe('Y');
+    expect(r.identity).toBe(0);
+    expect(r.positive).toBe(1);
+  });
+
+  it('positive counts identical residues too (score > 0 always for a match)', () => {
+    const r = alignGlobal('AAAAA', 'AAAAA', blosum, { open: -11, extend: -1 });
+    expect(r.positive).toBe(1);
+    expect(r.positive).toBe(r.identity);
+  });
 });
 
 describe('bio-seqalign parsers', () => {
