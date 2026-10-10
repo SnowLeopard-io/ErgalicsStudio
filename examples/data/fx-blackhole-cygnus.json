@@ -1,0 +1,13 @@
+{
+  "name": "Cygnus X-1 (stellar-mass, 21 M☉)",
+  "massSolar": 21,
+  "distancePc": 2220,
+  "diskOuterRs": 18,
+  "tPeakK": 42000,
+  "brightness": 1.2,
+  "beaming": true,
+  "redshift": true,
+  "starDensity": 1.2,
+  "turbulence": 0.45,
+  "cameraDistanceRs": 18
+}

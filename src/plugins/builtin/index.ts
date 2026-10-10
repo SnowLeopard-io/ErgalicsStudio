@@ -62,6 +62,8 @@ import { emEigensolverManifest } from './em-eigensolver/manifest';
 import { fluidCfdCouplerManifest } from './fluid-cfd-coupler/manifest';
 import { chemCrystalManifest } from './chem-crystal/manifest';
 import { chemReactionManifest } from './chem-reaction/manifest';
+import { blackholeManifest } from './blackhole/manifest';
+import { waterManifest as waterFxManifest } from './water/manifest';
 import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
 import { bioSeqalignManifest } from './bio-seqalign/manifest';
@@ -289,6 +291,21 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: chemReactionManifest,
     load: async () => {
       const mod = await import('./chem-reaction');
+      return mod.default();
+    },
+  },
+  // ---- Special FX (GPU ray tracing / fluid; own sidebar discipline) ---------
+  {
+    manifest: blackholeManifest,
+    load: async () => {
+      const mod = await import('./blackhole');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waterFxManifest,
+    load: async () => {
+      const mod = await import('./water');
       return mod.default();
     },
   },

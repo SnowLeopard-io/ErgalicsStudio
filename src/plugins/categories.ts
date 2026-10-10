@@ -9,7 +9,7 @@
 // show up.
 // ==========================================================================
 
-export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'chem' | 'bio' | 'geo' | 'env' | 'data' | 'fun';
+export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'fx' | 'chem' | 'bio' | 'geo' | 'env' | 'data' | 'fun';
 
 export interface DisciplineInfo {
   id: PluginDiscipline;
@@ -21,6 +21,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
+  { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
@@ -67,6 +68,10 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
   'example.fluid-cfd-coupler': 'physics',
+
+  // Visual FX (GPU ray tracing / fluid rendering)
+  'fx.blackhole': 'fx',
+  'fx.water': 'fx',
 
   // Chemistry
   'example.chem-crystal': 'chem',

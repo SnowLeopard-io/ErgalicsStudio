@@ -1816,6 +1816,116 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
       'en-US': '200 compact 28x28 digits (10 classes); CNN intro sample.',
     },
   },
+  // ---- Visual FX presets -----------------------------------------------------
+  {
+    id: 'fx-blackhole-m87',
+    filename: 'fx-blackhole-m87.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-m87.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 M87*（EHT 目标，6.5×10⁹ M☉）',
+      'en-US': 'FX · Black hole M87* (EHT target)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '事件视界望远镜成像目标 M87*：6.5×10⁹ M☉、距离约 16.8 Mpc。加载后逐像素积分史瓦西零测地线，观察阴影、光子环与多普勒集束吸积盘；科学输出栏给出可与 EHT 对比的阴影角直径。',
+      'en-US':
+        'The EHT imaging target M87*: 6.5×10⁹ M☉ at ≈16.8 Mpc. Loads per-pixel Schwarzschild geodesic tracing with shadow, photon ring and Doppler-beamed disk; the science strip shows the shadow angle comparable to EHT.',
+    },
+  },
+  {
+    id: 'fx-blackhole-sgra',
+    filename: 'fx-blackhole-sgra.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-sgra.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 Sgr A*（银河系中心，4.3×10⁶ M☉）',
+      'en-US': 'FX · Black hole Sgr A* (Milky Way centre)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '银河系中心黑洞人马座 A*：4.3×10⁶ M☉、约 8.15 kpc。预报阴影角直径约 50 μas 量级，与 EHT 2022 年观测同量级；星空密度调高以模拟银心方向。',
+      'en-US':
+        'Sgr A*: 4.3×10⁶ M☉ at ≈8.15 kpc. The predicted shadow diameter is tens of μas, same order as the 2022 EHT measurement; star density raised for the galactic-centre sky.',
+    },
+  },
+  {
+    id: 'fx-blackhole-cygnus',
+    filename: 'fx-blackhole-cygnus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-cygnus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 Cygnus X-1（恒星级，21 M☉）',
+      'en-US': 'FX · Black hole Cygnus X-1 (stellar-mass)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '著名恒星级黑洞天鹅座 X-1：21 M☉、约 2.2 kpc。盘温度升至 4×10⁴ K（X 射线双星薄盘量级，呈蓝白色）；科学输出栏的阴影角直径缩小到纳角秒级，直观展示质量-尺度关系。',
+      'en-US':
+        'The famous stellar-mass black hole Cygnus X-1: 21 M☉ at ≈2.2 kpc. Disk raised to 4×10⁴ K (X-ray-binary thin-disk scale, blue-white); the shadow angle drops to nano-arcseconds — a direct feel for the mass–size scaling.',
+    },
+  },
+  {
+    id: 'fx-water-interference',
+    filename: 'fx-water-interference.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-interference.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 双源水波干涉（λ=8 格点，d=16 格点）',
+      'en-US': 'FX · Two-source water-wave interference',
+    },
+    descriptionI18n:
+    {
+      'zh-CN':
+        'GPU 求解波动方程的连续双点源干涉：λ=8、d=16 格点，节线满足 sinθ=(n+½)λ/d，第一条节线约 14.5°。科学输出栏给出波长与节线角；水面稳定后可清晰看到相消/相长条纹。',
+      'en-US':
+        'Continuous two-point-source interference on the GPU wave-equation solver: λ=8, d=16 cells; nodal lines follow sinθ=(n+½)λ/d with the first at ≈14.5°. The science strip lists wavelength and nodal angle.',
+    },
+  },
+  {
+    id: 'fx-water-rain',
+    filename: 'fx-water-rain.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-rain.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雨落池面（FDTD 波动方程）',
+      'en-US': 'FX · Rain over the pool (FDTD wave equation)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '随机雨滴持续激发波动方程 FDTD 求解器（256² 网格、浅水波速 √(g·h)）：吸收边界无反射回波，池底焦散随波面曲率实时变化。也可直接点击水面自行滴落。',
+      'en-US':
+        'Random rain continuously excites the FDTD wave-equation solver (256² grid, shallow-water speed √(g·h)) with sponge absorbing boundaries and curvature-driven floor caustics. Click the surface to add your own drops.',
+    },
+  },
+  {
+    id: 'fx-water-seastate4',
+    filename: 'fx-water-seastate4.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-seastate4.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 4 级海况（U=8 m/s，Gerstner 频谱）',
+      'en-US': 'FX · Sea state 4 (U = 8 m/s Gerstner spectrum)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '8 m/s 风速的充分成长海况：Pierson–Moskowitz 峰值 λ_p≈56 m、H_s≈1.4 m，26 列 Gerstner 波列按精确深水色散 ω²=g·k 叠加；波峰翻卷处按雅可比行列式生成白沫。',
+      'en-US':
+        'A fully developed sea for U=8 m/s: Pierson–Moskowitz peak λ_p≈56 m, H_s≈1.4 m; 26 Gerstner trains summed on the exact deep-water dispersion ω²=g·k with Jacobian-based foam at folding crests.',
+    },
+  },
 ];
 
 /** Localized label for an example. */
