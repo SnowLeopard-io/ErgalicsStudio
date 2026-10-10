@@ -5,12 +5,13 @@
 // world meters: FBM coverage advected by a wind vector, Worley detail
 // erosion, Beer–Lambert extinction with dual-lobe Henyey–Greenstein phase and
 // a short "light march" toward the sun/moon for self-shadowing. The sky
-// gradient, sunset glow, deep-blue night and the sidereally-rotating star
-// field (斗转星移) are driven by sun/moon direction uniforms computed in TS
-// from real ephemeris formulas (`@/core/raytrace/astro`).
+// gradient, sunset glow and deep-blue night are driven by sun/moon direction
+// uniforms computed in TS from real ephemeris formulas
+// (`@/core/raytrace/astro`). Stars are intentionally not rendered: the
+// procedural star grid dominated the fragment cost on integrated GPUs.
 //
-// All reusable GLSL (camera ray, noise, blackbody, stars, scatter, tonemap)
-// comes from the shared ray-tracing core.
+// All reusable GLSL (camera ray, noise, blackbody, scatter, tonemap) comes
+// from the shared ray-tracing core.
 // ==========================================================================
 
 import {
@@ -19,7 +20,6 @@ import {
   RT_INTERSECT,
   RT_NOISE,
   RT_SCATTER,
-  RT_STARS,
   RT_TONEMAP,
 } from '@/core/raytrace';
 
@@ -47,7 +47,6 @@ ${RT_CAMERA_RAY}
 ${RT_NOISE}
 ${RT_INTERSECT}
 ${RT_SCATTER}
-${RT_STARS}
 ${RT_TONEMAP}
 
 // ---- cloud density field ------------------------------------------------------
@@ -69,8 +68,8 @@ float cloudDensity(vec3 p) {
 // Short fixed-length march toward the light; returns transmittance 0..1.
 float lightMarch(vec3 p, vec3 ld) {
   float tau = 0.0;
-  float stepL = (uCloudTop - uCloudBase) * 0.14;
-  for (int i = 0; i < 5; i++) {
+  float stepL = (uCloudTop - uCloudBase) * 0.22;
+  for (int i = 0; i < 3; i++) {
     p += ld * stepL;
     tau += cloudDensity(p) * stepL * 0.006; // σ ≈ 0.006 /m × density
   }
@@ -122,11 +121,11 @@ void main() {
     return;
   }
 
-  // Sky + stars behind the clouds.
+  // Sky behind the clouds (stars dropped: the procedural star grid dominates
+  // the fragment cost on integrated GPUs).
   float night = uNight;
   vec3 sky = skyColor(rd);
-  vec3 stars = starField(rd) * (0.35 + 0.65 * uStars);
-  col = sky + stars * night * 1.6;
+  col = sky;
 
   // ---- cloud-slab raymarch -------------------------------------------------------
   vec2 slab = raySlab(ro, rd, uCloudBase, uCloudTop);
@@ -167,20 +166,18 @@ void main() {
 }
 `;
 
-import { Color, Matrix3, Matrix4, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
+import { Color, Matrix4, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
 
 export interface CloudMaterial extends ShaderMaterial {
   uniforms: {
     uCamWorld: { value: Matrix4 };
     uProjInv: { value: Matrix4 };
-    uCelestial: { value: Matrix3 };
     uTime: { value: number };
     uSunDir: { value: import('three').Vector3 };
     uMoonDir: { value: import('three').Vector3 };
     uSunColor: { value: import('three').Color };
     uMoonColor: { value: import('three').Color };
     uNight: { value: number };
-    uStars: { value: number };
     uCoverage: { value: number };
     uDensity: { value: number };
     uWind: { value: import('three').Vector2 };
@@ -199,14 +196,12 @@ export function createCloudQuad(): { mesh: Mesh; material: CloudMaterial } {
     uniforms: {
       uCamWorld: { value: new Matrix4() },
       uProjInv: { value: new Matrix4() },
-      uCelestial: { value: new Matrix3() },
       uTime: { value: 0 },
       uSunDir: { value: new Vector3(0, 1, 0) },
       uMoonDir: { value: new Vector3(0, -1, 0) },
       uSunColor: { value: new Color(1, 0.95, 0.85) },
       uMoonColor: { value: new Color(0.65, 0.7, 0.85) },
       uNight: { value: 0 },
-      uStars: { value: 1 },
       uCoverage: { value: 0.55 },
       uDensity: { value: 1 },
       uWind: { value: new Vector2(3, 1.5) },

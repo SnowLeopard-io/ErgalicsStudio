@@ -15,7 +15,6 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import {
-  celestialRotationMatrix,
   gmst,
   julianDay,
   moonPhaseIllumination,
@@ -42,7 +41,6 @@ interface State {
   hourUTC: number; // 0..24
   latitude: number; // deg north
   longitude: number; // deg east
-  stars: number; // 0..2
   quality: 'low' | 'medium' | 'high' | 'ultra';
   running: boolean; // animate wind advection
   autoDay: boolean; // advance the diurnal cycle automatically
@@ -59,7 +57,6 @@ const DEFAULTS: State = {
   hourUTC: 14,
   latitude: 39.9, // Beijing
   longitude: 116.4,
-  stars: 1,
   quality: 'medium',
   running: true,
   autoDay: true,
@@ -85,7 +82,6 @@ interface PresetPayload {
   hourUTC?: number;
   latitude?: number;
   longitude?: number;
-  starDensity?: number;
   autoDay?: boolean;
   autoOrbit?: boolean;
 }
@@ -179,7 +175,6 @@ export class CloudPlugin implements Plugin {
     if (typeof p.hourUTC === 'number') s.hourUTC = ((p.hourUTC % 24) + 24) % 24;
     if (typeof p.latitude === 'number') s.latitude = clamp(p.latitude, -85, 85);
     if (typeof p.longitude === 'number') s.longitude = clamp(p.longitude, -180, 180);
-    if (typeof p.starDensity === 'number') s.stars = clamp(p.starDensity, 0, 2);
     if (typeof p.autoDay === 'boolean') s.autoDay = p.autoDay;
     if (typeof p.autoOrbit === 'boolean') s.autoOrbit = p.autoOrbit;
     this.syncUniforms();
@@ -282,16 +277,6 @@ export class CloudPlugin implements Plugin {
         value: this.state.longitude,
       },
       {
-        key: 'stars',
-        label: 'Star density',
-        labelI18n: { 'zh-CN': '星空密度', 'en-US': 'Star density' },
-        type: 'range',
-        min: 0,
-        max: 2,
-        step: 0.05,
-        value: this.state.stars,
-      },
-      {
         key: 'quality',
         label: 'March quality (steps)',
         labelI18n: { 'zh-CN': '步进质量（步数）', 'en-US': 'March quality (steps)' },
@@ -348,7 +333,7 @@ export class CloudPlugin implements Plugin {
       return false;
     };
     if (num('coverage') || num('density') || num('windSpeed') || num('windDirDeg') || num('cloudBase') ||
-        num('cloudThickness') || num('hourUTC') || num('latitude') || num('longitude') || num('stars')) changed = true;
+        num('cloudThickness') || num('hourUTC') || num('latitude') || num('longitude')) changed = true;
     if (params.quality === 'low' || params.quality === 'medium' || params.quality === 'high' || params.quality === 'ultra') {
       if (params.quality !== s.quality) { s.quality = params.quality; changed = true; }
     }
@@ -388,7 +373,6 @@ export class CloudPlugin implements Plugin {
     m.uniforms.uDensity.value = s.density;
     m.uniforms.uCloudBase.value = s.cloudBase;
     m.uniforms.uCloudTop.value = s.cloudBase + s.cloudThickness;
-    m.uniforms.uStars.value = s.stars;
     m.uniforms.uSteps.value = STEPS_BY_QUALITY[s.quality];
     // Meteorological wind direction: degrees FROM north; the advection vector
     // points where the wind blows (from + 180°). World: north = −z, east = +x.
@@ -404,7 +388,6 @@ export class CloudPlugin implements Plugin {
     const s = this.state;
     const date = new Date(EPOCH_UTC + s.hourUTC * 3600000);
     const jd = julianDay(date);
-    const lat = (s.latitude * Math.PI) / 180;
     const lon = s.longitude;
     const sun = sunPosition(date, s.latitude, lon);
     const moon = moonPosition(date, s.latitude, lon);
@@ -423,9 +406,6 @@ export class CloudPlugin implements Plugin {
     const illum = moonPhaseIllumination(jd);
     const moonUp = clamp01(my * 4 + 0.15);
     m.uniforms.uMoonColor.value.setRGB(0.62, 0.68, 0.85).multiplyScalar(0.25 + 0.75 * illum * moonUp);
-    // Sidereal rotation (斗转星移): rotate the celestial sphere by GMST.
-    const lst = gmst(jd) + (lon * Math.PI) / 180;
-    m.uniforms.uCelestial.value.fromArray(celestialRotationMatrix(lst, lat));
   }
 
   // ---- scene wiring -------------------------------------------------------------
@@ -436,8 +416,13 @@ export class CloudPlugin implements Plugin {
     if (!three) return;
     if (this.savedPixelRatio === null) this.savedPixelRatio = three.renderer.getPixelRatio();
     const base = Math.min(window.devicePixelRatio || 1, 2);
-    const target = base * SCALE_BY_QUALITY[this.state.quality] * this.dynScale;
+    const target = Math.min(1, base * SCALE_BY_QUALITY[this.state.quality] * this.dynScale);
     three.renderer.setPixelRatio(Math.max(target, 0.25));
+    // setPixelRatio alone is inert — three.js only consumes it inside setSize,
+    // so the drawing buffer must be re-asserted here (updateStyle=false keeps
+    // the host's 100 % CSS sizing untouched).
+    const el = three.renderer.domElement;
+    three.renderer.setSize(el.clientWidth || 640, el.clientHeight || 480, false);
   }
 
   /** True while any animation (wind / day cycle / orbit) keeps frames coming. */
