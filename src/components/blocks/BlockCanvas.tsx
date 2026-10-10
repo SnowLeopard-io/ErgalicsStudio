@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { useBlockStore } from '@/stores/blockStore';
+import { useGraphStore } from './graphStore';
 import { blockRegistry } from '@/blocks/registry';
 import type { BlockInstance, BlockMeta } from '@/types/block';
 import {
@@ -63,11 +63,14 @@ function portScreenPos(
 }
 
 function BlockCanvasImpl() {
-  const instances = useBlockStore((s) => s.instances);
-  const connections = useBlockStore((s) => s.connections);
-  const viewport = useBlockStore((s) => s.viewport);
-  const selectedIds = useBlockStore((s) => s.selectedIds);
-  const nodeStatus = useBlockStore((s) => s.nodeStatus);
+  // Store resolved from the nearest GraphStoreProvider (file-editor tabs inject
+  // a per-tab store; flow mode falls through to the global blockStore).
+  const store = useGraphStore();
+  const instances = store((s) => s.instances);
+  const connections = store((s) => s.connections);
+  const viewport = store((s) => s.viewport);
+  const selectedIds = store((s) => s.selectedIds);
+  const nodeStatus = store((s) => s.nodeStatus);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState>(null);
@@ -89,13 +92,13 @@ function BlockCanvasImpl() {
     if (!el) return;
     const report = () => {
       const rect = el.getBoundingClientRect();
-      useBlockStore.getState().setCanvasSize({ width: rect.width, height: rect.height });
+      store.getState().setCanvasSize({ width: rect.width, height: rect.height });
     };
     report();
     const ro = new ResizeObserver(report);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [store]);
 
   // Zoom on wheel. Attached as a native NON-passive listener: React's onWheel
   // is passive, so preventDefault (suppressing page scroll while zooming)
@@ -111,11 +114,11 @@ function BlockCanvasImpl() {
       const local = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       // Read the live viewport from the store: wheel events can arrive
       // faster than React re-renders, and a stale closure zoomed wrong.
-      const vp = useBlockStore.getState().viewport;
+      const vp = store.getState().viewport;
       const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
       const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * factor));
       const world = screenToWorld(local, vp);
-      useBlockStore.getState().setViewport({
+      store.getState().setViewport({
         zoom: nextZoom,
         x: local.x - world.x * nextZoom,
         y: local.y - world.y * nextZoom,
@@ -123,7 +126,7 @@ function BlockCanvasImpl() {
     };
     el.addEventListener('wheel', onNativeWheel, { passive: false });
     return () => el.removeEventListener('wheel', onNativeWheel);
-  }, []);
+  }, [store]);
 
   const clientToLocal = (clientX: number, clientY: number): Point => {
     const rect = containerRef.current!.getBoundingClientRect();
@@ -133,33 +136,33 @@ function BlockCanvasImpl() {
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
     const local = clientToLocal(e.clientX, e.clientY);
-    const store = useBlockStore.getState();
+    const st = store.getState();
     // Empty space → begin pan.
     drag.current = {
       kind: 'pan',
       startScreen: local,
-      startViewport: store.viewport,
+      startViewport: st.viewport,
     };
-    store.setSelected([]);
+    st.setSelected([]);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
+  }, [store]);
 
   const onNodePointerDown = useCallback((e: React.PointerEvent, id: string) => {
     e.stopPropagation();
     if (e.button !== 0) return;
     const local = clientToLocal(e.clientX, e.clientY);
-    const store = useBlockStore.getState();
-    const inst = store.instances.find((i) => i.id === id);
+    const st = store.getState();
+    const inst = st.instances.find((i) => i.id === id);
     if (!inst) return;
-    const world = screenToWorld(local, store.viewport);
+    const world = screenToWorld(local, st.viewport);
     drag.current = {
       kind: 'node',
       id,
       offset: { x: world.x - inst.position.x, y: world.y - inst.position.y },
     };
-    store.setSelected([id]);
+    st.setSelected([id]);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
+  }, [store]);
 
   const onPortPointerDown = useCallback(
     (e: React.PointerEvent, id: string, portId: string, side: 'in' | 'out') => {
@@ -177,14 +180,18 @@ function BlockCanvasImpl() {
 
   // Node ✕ button — removeInstance cascades its connections + outputs.
   const onNodeDelete = useCallback((id: string) => {
-    useBlockStore.getState().removeInstance(id);
-  }, []);
+    store.getState().removeInstance(id);
+  }, [store]);
 
   // Delete/Backspace removes the selected blocks. Ignored while typing in
-  // the param editor or any other editable surface.
+  // the param editor or any other editable surface. Also ignored when this
+  // canvas is hidden (display:none inside an inactive tab pane) — several
+  // file-editor canvases stay mounted at once and must not all react.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const container = containerRef.current;
+      if (!container || container.offsetParent === null) return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -192,35 +199,35 @@ function BlockCanvasImpl() {
       ) {
         return;
       }
-      const store = useBlockStore.getState();
-      if (store.selectedIds.length === 0) return;
+      const st = store.getState();
+      if (st.selectedIds.length === 0) return;
       e.preventDefault();
-      for (const id of store.selectedIds) store.removeInstance(id);
+      for (const id of st.selectedIds) st.removeInstance(id);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [store]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
     const local = clientToLocal(e.clientX, e.clientY);
-    const store = useBlockStore.getState();
+    const st = store.getState();
 
     if (d.kind === 'pan') {
-      store.setViewport({
-        ...store.viewport,
+      st.setViewport({
+        ...st.viewport,
         x: d.startViewport.x + (local.x - d.startScreen.x),
         y: d.startViewport.y + (local.y - d.startScreen.y),
       });
     } else if (d.kind === 'node') {
-      const world = screenToWorld(local, store.viewport);
-      store.moveInstance(d.id, { x: world.x - d.offset.x, y: world.y - d.offset.y });
+      const world = screenToWorld(local, st.viewport);
+      st.moveInstance(d.id, { x: world.x - d.offset.x, y: world.y - d.offset.y });
     } else if (d.kind === 'connect') {
       drag.current = { ...d, cursor: local };
       setPending({ fromNode: d.fromNode, fromPort: d.fromPort, cursor: local });
     }
-  }, []);
+  }, [store]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const d = drag.current;
@@ -229,19 +236,19 @@ function BlockCanvasImpl() {
     if (d?.kind !== 'connect') return;
 
     const local = clientToLocal(e.clientX, e.clientY);
-    const store = useBlockStore.getState();
+    const st = store.getState();
     // Find an input port under the cursor (screen space).
-    for (const inst of store.instances) {
+    for (const inst of st.instances) {
       if (inst.id === d.fromNode) continue;
       const meta = blockRegistry.get(inst.blockId);
       if (!meta) continue;
       const paramRows = paramRowsOf(inst);
-      const nodeScreen = worldToScreen(inst.position, store.viewport);
+      const nodeScreen = worldToScreen(inst.position, st.viewport);
       for (let i = 0; i < meta.inputs.length; i += 1) {
         const offset = portOffset(i, 'in', paramRows);
         const center = { x: nodeScreen.x + offset.x, y: nodeScreen.y + offset.y };
         if (hitTestPoint(local, center, PORT_RADIUS * 2)) {
-          store.connect(
+          st.connect(
             { nodeId: d.fromNode, portId: d.fromPort },
             { nodeId: inst.id, portId: meta.inputs[i]!.id },
           );
@@ -249,7 +256,7 @@ function BlockCanvasImpl() {
         }
       }
     }
-  }, []);
+  }, [store]);
 
   // Precompute the instance map once per render — the previous code did an
   // O(instances) find per connection per frame while dragging.

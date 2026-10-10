@@ -1,10 +1,11 @@
 // ==========================================================================
 // Ergalics Studio — sidebar file explorer (Standard mode, activity bar)
 //
-// 与科研套件的 FileExplorerPage 同源：浏览项目 Git 仓库（虚拟工作区，
-// getGitAdapter + getProjectRepoPath）的真实工作树，标准骨架为
-// project.clproj + runs/ + figures/ + data/ + code/ + manuscript/ +
-// .ergalics/ + .git/ + .gitignore/.gitattributes（§3.1）。
+// 与科研套件的 FileExplorerPage 同源：浏览项目工作区（getVfs +
+// getProjectRepoPath）的真实文件树，标准骨架为 project.clproj + runs/ +
+// figures/ + data/ + code/ + manuscript/ + .ergalics/ + .gitignore/
+// .gitattributes（§3.1）。与 git 完全解耦：资源管理器只依赖 Vfs 层，
+// 版本控制是 Git 面板的可选功能。
 //
 // 常规文件管理：新建文件/文件夹、重命名、删除、复制/剪切/粘贴、
 // 拖拽移动，以及 F2/Delete/Ctrl+C/X/V 等快捷键（A 需求）。全部写操作
@@ -14,10 +15,15 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { useAppStore, type FilePreviewKind } from '@/stores/appStore';
+import { useAppStore, fileTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { getGitAdapter } from '@/core/git';
-import type { RepoEntry } from '@/core/git';
+import { getVfs, type Vfs } from '@/core/vfs';
+import type { VfsEntry } from '@/core/vfs';
+import {
+  editorKindForFile,
+  parseFlowPayload,
+  parseBlockPayload,
+} from '@/components/editor/fileEditors/shared';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -25,6 +31,7 @@ import {
   FilePlusIcon,
   FolderPlusIcon,
   ClipboardIcon,
+  DownloadIcon,
 } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -137,7 +144,7 @@ interface MenuState {
 /** Repo file/items held in the explorer's own clipboard. */
 interface ClipState {
   mode: 'copy' | 'cut';
-  items: RepoEntry[];
+  items: VfsEntry[];
 }
 
 /** Inline name-input row used for new file/folder and rename (module-scope so
@@ -183,18 +190,21 @@ export function FileExplorer() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const notify = useAppStore((s) => s.notify);
-  const setFilePreview = useAppStore((s) => s.setFilePreview);
-  const filePreview = useAppStore((s) => s.filePreview);
+  const openFilePreview = useAppStore((s) => s.openFilePreview);
+  const openFileEditor = useAppStore((s) => s.openFileEditor);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const closeTab = useAppStore((s) => s.closeTab);
+  const renameFileTab = useAppStore((s) => s.renameFileTab);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
-  const [tree, setTree] = useState<Record<string, RepoEntry[]>>({});
+  const [tree, setTree] = useState<Record<string, VfsEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [hasRepo, setHasRepo] = useState(true);
   const [loading, setLoading] = useState(false);
 
   /** Currently selected row (single-click select; Enter/double-click opens). */
-  const [selected, setSelected] = useState<RepoEntry | null>(null);
+  const [selected, setSelected] = useState<VfsEntry | null>(null);
   /** Explorer-local clipboard (copy/cut). */
   const [clipboard, setClipboard] = useState<ClipState | null>(null);
   /** Right-click context menu. */
@@ -202,22 +212,22 @@ export function FileExplorer() {
   /** Inline create-input row: shown under this dir ('' = root). */
   const [inlineCreate, setInlineCreate] = useState<{ parentDir: string; type: 'file' | 'dir' } | null>(null);
   /** Row replaced by an inline rename input. */
-  const [renaming, setRenaming] = useState<RepoEntry | null>(null);
+  const [renaming, setRenaming] = useState<VfsEntry | null>(null);
   /** Directory currently highlighted as a drop target. */
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   /** Entry awaiting delete confirmation (directories only). */
-  const [deleteTarget, setDeleteTarget] = useState<RepoEntry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<VfsEntry | null>(null);
 
   /** Repo root url ('' = root). */
   const rootDir = '';
   /** Drag source, tracked via ref so it survives the drop event. */
-  const dragRef = useRef<RepoEntry | null>(null);
+  const dragRef = useRef<VfsEntry | null>(null);
 
   const loadDir = useCallback(
     async (dir: string) => {
       if (!project) return;
       try {
-        const adapter = getGitAdapter();
+        const adapter = getVfs();
         const entries = await adapter.readDir(getProjectRepoPath(project), dir);
         setTree((prev) => ({ ...prev, [dir]: entries }));
       } catch {
@@ -235,28 +245,16 @@ export function FileExplorer() {
     [loadDir],
   );
 
-  // Fresh project → clean slate + root listing + repo probe.
+  // Fresh project → clean slate + root listing. The tree is git-independent:
+  // readDir works on a plain directory, and repo state is the Git panel's
+  // concern (folder imports defer git init on purpose).
   useEffect(() => {
     setTree({});
     setExpanded(new Set());
     setSelected(null);
     setClipboard(null);
     if (!project) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const adapter = getGitAdapter();
-        const repoOk = await adapter.isRepo(getProjectRepoPath(project));
-        if (cancelled) return;
-        setHasRepo(repoOk);
-        if (repoOk) await loadDir('');
-      } catch {
-        if (!cancelled) setHasRepo(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void loadDir('').catch(() => undefined);
   }, [project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // External working-tree changes (e.g. an MD preview save) refresh listings.
@@ -288,16 +286,43 @@ export function FileExplorer() {
     }
   };
 
-  const openPreview = async (entry: RepoEntry) => {
+  const openPreview = async (entry: VfsEntry) => {
     if (!project || entry.isDir) return;
     try {
-      const adapter = getGitAdapter();
+      const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
+      // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
+      // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
+      // payload that fails its format check degrades to a read-only view.
+      const editorKind = editorKindForFile(entry.name);
+      if (editorKind) {
+        const raw = await adapter.readFile(repoPath, entry.path);
+        if (editorKind === 'flow') {
+          openFileEditor({
+            path: entry.path,
+            name: entry.name,
+            editor: 'flow',
+            payload: raw,
+            broken: parseFlowPayload(raw) === null,
+          });
+        } else if (editorKind === 'block') {
+          openFileEditor({
+            path: entry.path,
+            name: entry.name,
+            editor: 'block',
+            payload: raw,
+            broken: parseBlockPayload(raw) === null,
+          });
+        } else {
+          openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
+        }
+        return;
+      }
       const { kind, mime } = classifyFile(entry.name);
       if (kind === 'text' || kind === 'markdown') {
         const raw = await adapter.readFile(repoPath, entry.path);
         const capped = raw.length > PREVIEW_CAP_CHARS ? raw.slice(0, PREVIEW_CAP_CHARS) : raw;
-        setFilePreview({
+        openFilePreview({
           name: entry.name,
           path: entry.path,
           kind,
@@ -308,9 +333,19 @@ export function FileExplorer() {
         return;
       }
       if (kind === 'image' || kind === 'pdf' || kind === 'video' || kind === 'audio') {
+        // Two-phase open: show the tab (with a loading placeholder) right
+        // away — LightningFS binary reads can take noticeable time — then
+        // fill the blob URL when the bytes arrive.
+        openFilePreview({
+          name: entry.name,
+          path: entry.path,
+          kind,
+          mimeType: mime,
+          size: entry.size,
+        });
         const bytes = await adapter.readFileBinary(repoPath, entry.path);
         const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
-        setFilePreview({
+        openFilePreview({
           name: entry.name,
           path: entry.path,
           kind,
@@ -321,7 +356,7 @@ export function FileExplorer() {
         return;
       }
       // unknown (ppt/pptx/doc/zip/…): info placeholder, download allowed.
-      setFilePreview({
+      openFilePreview({
         name: entry.name,
         path: entry.path,
         kind,
@@ -338,7 +373,7 @@ export function FileExplorer() {
     return row ? t(row.key) : undefined;
   };
 
-  const entryAt = (dir: string, name: string): RepoEntry | undefined =>
+  const entryAt = (dir: string, name: string): VfsEntry | undefined =>
     (tree[dir] ?? []).find((e) => e.name === name);
 
   const existsName = (dir: string, name: string): boolean => !!entryAt(dir, name);
@@ -356,7 +391,7 @@ export function FileExplorer() {
   };
 
   const copyItem = useCallback(
-    async (adapter: ReturnType<typeof getGitAdapter>, repoPath: string, from: string, to: string, isDir: boolean) => {
+    async (adapter: Vfs, repoPath: string, from: string, to: string, isDir: boolean) => {
       if (!isDir) {
         const data = await adapter.readFileBinary(repoPath, from);
         await adapter.writeFileBinary(repoPath, to, data);
@@ -379,7 +414,7 @@ export function FileExplorer() {
   /** Paste the clipboard into `targetDir`. copy → write copies; cut → move. */
   const paste = async (targetDir: string) => {
     if (!project || !clipboard || clipboard.items.length === 0) return;
-    const adapter = getGitAdapter();
+    const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
       let failed = false;
@@ -410,7 +445,7 @@ export function FileExplorer() {
     }
   };
 
-  const setClip = (entry: RepoEntry, mode: 'copy' | 'cut') => {
+  const setClip = (entry: VfsEntry, mode: 'copy' | 'cut') => {
     if (entry.isDir) void loadDir(entry.path); // ensure sub-list exists for conflict checks
     setClipboard({ mode, items: [entry] });
     notify('info', t(mode === 'copy' ? 'workbench.explorer.copied_hint' : 'workbench.explorer.cut_hint'));
@@ -418,7 +453,7 @@ export function FileExplorer() {
     setSelected(entry);
   };
 
-  const requestDelete = (entry: RepoEntry) => {
+  const requestDelete = (entry: VfsEntry) => {
     setMenu(null);
     if (entry.isDir) {
       setDeleteTarget(entry);
@@ -427,13 +462,13 @@ export function FileExplorer() {
     }
   };
 
-  const doDelete = async (entry: RepoEntry) => {
+  const doDelete = async (entry: VfsEntry) => {
     if (!project) return;
-    const adapter = getGitAdapter();
+    const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
-      if (filePreview?.path === entry.path) setFilePreview(null);
+      closeTab(fileTabKey(entry.path));
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
       notify('success', t('workbench.explorer.deleted_hint'));
@@ -442,14 +477,14 @@ export function FileExplorer() {
     }
   };
 
-  const beginRename = (entry: RepoEntry) => {
+  const beginRename = (entry: VfsEntry) => {
     setMenu(null);
     setSelected(entry);
     setRenaming(entry);
     setInlineCreate(null);
   };
 
-  const commitRename = async (entry: RepoEntry, rawName: string) => {
+  const commitRename = async (entry: VfsEntry, rawName: string) => {
     const name = rawName.trim();
     setRenaming(null);
     if (!project || !name || name === entry.name) return;
@@ -459,13 +494,11 @@ export function FileExplorer() {
       notify('error', t('workbench.explorer.name_conflict', { name }));
       return;
     }
-    const adapter = getGitAdapter();
+    const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
-      if (filePreview?.path === entry.path) {
-        setFilePreview({ ...filePreview, name, path: target });
-      }
+      renameFileTab(entry.path, name, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {
@@ -499,7 +532,7 @@ export function FileExplorer() {
       return;
     }
     const path = joinPath(parentDir, name);
-    const adapter = getGitAdapter();
+    const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
       if (type === 'dir') {
@@ -518,7 +551,7 @@ export function FileExplorer() {
 
   // ---- drag & drop (move) --------------------------------------------------
 
-  const canDropInto = (src: RepoEntry | null, targetDir: string) =>
+  const canDropInto = (src: VfsEntry | null, targetDir: string) =>
     !!src && !isSameOrUnder(src.path, targetDir);
 
   const onDropTarget = (targetDir: string) => async (e: React.DragEvent) => {
@@ -528,7 +561,7 @@ export function FileExplorer() {
     const src = dragRef.current;
     if (!project || !canDropInto(src, targetDir)) return;
     if (src) {
-      const adapter = getGitAdapter();
+      const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
       const target = joinPath(targetDir, basename(src.path));
       if (existsName(targetDir, basename(src.path))) {
@@ -594,7 +627,7 @@ export function FileExplorer() {
     }
   };
 
-  const openMenu = (e: React.MouseEvent, entry: RepoEntry) => {
+  const openMenu = (e: React.MouseEvent, entry: VfsEntry) => {
     e.preventDefault();
     e.stopPropagation();
     setSelected(entry);
@@ -621,7 +654,7 @@ export function FileExplorer() {
   // ---- inline input elements ----------------------------------------------
 
   const renderEntries = (
-    entries: RepoEntry[],
+    entries: VfsEntry[],
     depth: number,
     dir: string,
   ): ReactNode => {
@@ -708,7 +741,7 @@ export function FileExplorer() {
               </li>
             );
           }
-          const active = filePreview?.path === e.path;
+          const active = activeTab === fileTabKey(e.path);
           const isPlaceholder = PLACEHOLDER_NAMES.has(e.name);
           if (isPlaceholder) return null;
           return (
@@ -782,9 +815,7 @@ export function FileExplorer() {
     >
       {!project && <EmptyState title={t('workbench.explorer.no_project')} />}
 
-      {project && !hasRepo && <EmptyState title={t('explorer.no_repo')} />}
-
-      {project && hasRepo && (
+      {project && (
         <section className="explorer-section">
           <header className="explorer-section-header">
             <h4 className="explorer-heading" title={getProjectRepoPath(project)}>
@@ -817,6 +848,15 @@ export function FileExplorer() {
                 onClick={() => void paste(pasteTargetDir())}
               >
                 <ClipboardIcon size={14} />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('workbench.explorer.export_supplement')}
+                aria-label={t('workbench.explorer.export_supplement')}
+                onClick={() => setEmbeddedTool('supplement')}
+              >
+                <DownloadIcon size={14} />
               </button>
               <button
                 type="button"

@@ -12,7 +12,11 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { haversineKm } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
@@ -246,13 +250,11 @@ export class GpxTrackPlugin implements Plugin {
       void this.sendToFigure();
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-gpx');
-    }
+
   }
 
   getParams(): ParamDefinition[] {
-    return [actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'), actionButton('exportPng', 'Snapshot PNG', '快照 PNG')];
+    return [actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio')];
   }
 
   getSupportedFormats() {

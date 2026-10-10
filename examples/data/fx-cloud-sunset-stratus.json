@@ -1,0 +1,14 @@
+{
+  "name": "Sunset stratus (Beijing, UTC+8)",
+  "coverage": 0.78,
+  "density": 1.15,
+  "windSpeed": 9,
+  "windDirDeg": 270,
+  "cloudBaseM": 500,
+  "cloudThicknessM": 600,
+  "hourUTC": 10.8,
+  "latitude": 39.9,
+  "longitude": 116.4,
+  "autoDay": false,
+  "autoOrbit": true
+}

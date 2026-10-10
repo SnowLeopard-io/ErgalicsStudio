@@ -1,0 +1,20 @@
+{
+  "name": "Noisy short exposure (SNR stress test)",
+  "mode": "simulate",
+  "frameSize": 256,
+  "nStars": 30,
+  "fwhmPx": 4.5,
+  "skyElectrons": 900,
+  "exposureS": 10,
+  "darkRateEps": 0.08,
+  "readNoiseE": 9,
+  "gainEPerAdu": 2.4,
+  "biasAdu": 700,
+  "vignetting": 0.3,
+  "cosmicRaysPerFrame": 25,
+  "seed": 424242,
+  "thresholdSigma": 4.5,
+  "apertureFwhmScale": 2,
+  "zeropoint": 25,
+  "autoRun": true
+}

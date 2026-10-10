@@ -179,6 +179,9 @@ describe('WorkerPool with workers', () => {
       constructor(url: string | URL, opts?: WorkerOptions) {
         if (++attempts > 1) throw new Error('replacement blocked');
         super(url, opts);
+        // Capturing the constructed instance is required to drive the
+        // injected worker failure from the test body.
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         live = this;
       }
       override postMessage(): void { /* wait for the injected failure */ }

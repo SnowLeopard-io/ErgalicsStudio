@@ -1,8 +1,9 @@
 // FR-21 theme market — settings-page panel.
 //
 // Self-contained section: official themes (instant preview/apply), the
-// marketplace catalog (install/uninstall/apply), custom .cstheme import and
-// the chart-palette linkage note. All validation lives in core/theme-pack;
+// marketplace catalog (embedded in the app — preview/apply directly, no
+// install/uninstall round-trip), custom .cstheme import and the
+// chart-palette linkage note. All validation lives in core/theme-pack;
 // this component only presents and wires user intent to it.
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -90,18 +91,6 @@ export function ThemeMarketPanel() {
     }
   };
 
-  const doInstallMarket = (entryId: string) => {
-    const entry = findMarketEntry(entryId);
-    if (!entry) return;
-    try {
-      installTheme(entry.theme);
-      refreshInstalled();
-      notify('success', t('theme.install_done', { name: entry.name[locale === 'en-US' ? 'en' : 'zh'] }));
-    } catch (err) {
-      notify('error', err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const doUninstall = (theme: CsTheme) => {
     if (uninstallTheme(theme.id)) {
       if (getAppliedThemeId() === theme.id) clearAppliedTheme();
@@ -140,7 +129,11 @@ export function ThemeMarketPanel() {
     return meta ? pickLocal(meta.name) : theme.name;
   };
 
-  const installedIds = new Set(installed.map((i) => i.id));
+  // De-duplication: catalog entries with officialId duplicate the official
+  // cards above, and market themes are embedded (always available) — so the
+  // installed list is reserved for imported .cstheme packages only.
+  const marketCards = MARKET_THEMES.filter((e) => !e.officialId);
+  const customImports = installed.filter((t) => !findMarketEntry(t.id));
 
   return (
     <section className="card settings-section">
@@ -209,14 +202,13 @@ export function ThemeMarketPanel() {
 
       <h3 className="settings-section-title">{t('theme.market_title')}</h3>
       <div className="theme-grid">
-        {MARKET_THEMES.map((entry) => {
-          const isInstalled = installedIds.has(entry.id) || Boolean(entry.officialId);
+        {marketCards.map((entry) => {
           const applied = !previewTheme && getAppliedThemeId() === entry.id;
           return (
             <div key={entry.id} className={`theme-card${applied ? ' is-applied' : ''}`}>
               <div className="theme-card-head">
                 <span className="theme-card-name">{pickLocal(entry.name)}</span>
-                {isInstalled && <span className="tag">{t('theme.installed_badge')}</span>}
+                {applied && <span className="tag">{t('theme.applied_badge')}</span>}
               </div>
               <p className="theme-card-desc">{pickLocal(entry.desc)}</p>
               <div className="theme-card-meta">
@@ -224,39 +216,16 @@ export function ThemeMarketPanel() {
                 <span>
                   {t('theme.version')} {entry.version}
                 </span>
-                <span>⬇ {entry.downloads}</span>
                 {entry.theme.chartPalette && <PaletteSwatch colors={entry.theme.chartPalette} />}
               </div>
               <div className="theme-card-actions">
-                {!isInstalled && (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => doInstallMarket(entry.id)}
-                  >
-                    {t('theme.install')}
-                  </button>
-                )}
-                {isInstalled && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => doApply(entry.theme)}
-                    >
-                      {t('theme.apply')}
-                    </button>
-                    {!entry.officialId && (
-                      <button
-                        type="button"
-                        className="btn btn-danger"
-                        onClick={() => setUninstallTarget(entry.theme)}
-                      >
-                        {t('theme.uninstall')}
-                      </button>
-                    )}
-                  </>
-                )}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => doApply(entry.theme)}
+                >
+                  {t('theme.apply')}
+                </button>
                 <a className="btn" href={websiteThemeLink(entry.id)} target="_blank" rel="noreferrer">
                   {t('theme.view_on_website')}
                 </a>
@@ -266,11 +235,11 @@ export function ThemeMarketPanel() {
         })}
       </div>
 
-      {installed.length > 0 && (
+      {customImports.length > 0 && (
         <>
           <h3 className="settings-section-title">{t('theme.installed_title')}</h3>
           <div className="theme-grid">
-            {installed.map((theme) => {
+            {customImports.map((theme) => {
               const applied = appliedId === theme.id;
               return (
                 <div key={theme.id} className={`theme-card${applied ? ' is-applied' : ''}`}>
@@ -302,7 +271,7 @@ export function ThemeMarketPanel() {
           </div>
         </>
       )}
-      {installed.length === 0 && <div className="empty-hint">{t('theme.empty_installed')}</div>}
+      {customImports.length === 0 && <div className="empty-hint">{t('theme.empty_installed')}</div>}
 
       <div className="settings-row">
         <label className="settings-label">{t('theme.import')}</label>

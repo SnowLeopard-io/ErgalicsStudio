@@ -11,7 +11,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { truchetManifest } from './truchetManifest';
 import { truchetManifest } from './truchetManifest';
@@ -59,13 +58,11 @@ function mulberry32(seed: number) {
 
 export class TruchetPlugin implements Plugin {
   readonly manifest = truchetManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private state: State = { density: 1, color: '#5eead4', seed: 42, lineWidth: 2, variant: 'curve' };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.ctx = null;
@@ -84,10 +81,7 @@ export class TruchetPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'truchet');
-      return;
-    }
+
     if (typeof params.density === 'number') {
       this.state.density = Math.max(0.25, Math.min(2, params.density));
     }
@@ -156,7 +150,6 @@ export class TruchetPlugin implements Plugin {
         variant: 'primary',
         action: 'regenerate',
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useT } from '@/i18n';
-import { useBlockStore } from '@/stores/blockStore';
+import { useGraphStore } from './graphStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { blockRegistry } from '@/blocks/registry';
 import { blockName, blockParamLabel } from '@/blocks/l10n';
@@ -164,6 +164,10 @@ function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unkn
   // selector: `?? []` inside the selector returns a fresh array every call,
   // which zustand v5 treats as a state change → infinite re-render.
   const projectFiles = useProjectStore((s) => s.project?.data.files) ?? [];
+  // projectFiles is an intentional memo invalidation trigger: the registry-backed
+  // list must recompute whenever project files change even though the array is
+  // not referenced inside the callback.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const groups = useMemo(() => listDataFilesGrouped(), [projectFiles]);
   return (
     <select
@@ -193,9 +197,10 @@ function FilePickInput({ value, onChange }: { value: unknown; onChange: (v: unkn
 export function ParamEditor() {
   const t = useT();
   const { locale } = useLocale();
-  const instances = useBlockStore((s) => s.instances);
-  const selectedIds = useBlockStore((s) => s.selectedIds);
-  const updateParams = useBlockStore((s) => s.updateParams);
+  const store = useGraphStore();
+  const instances = store((s) => s.instances);
+  const selectedIds = store((s) => s.selectedIds);
+  const updateParams = store((s) => s.updateParams);
 
   const selected = instances.find((i) => selectedIds.includes(i.id));
   if (!selected) {

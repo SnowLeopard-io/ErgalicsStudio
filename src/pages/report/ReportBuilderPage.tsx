@@ -17,6 +17,7 @@ import { useResearchStore } from '@/stores/researchStore';
 import { buildReportHtml } from '@/core/report/builder';
 import type { ReportSection, ReportSpec, ReportTheme, ReportLang } from '@/core/report/builder';
 import { downloadBlob } from '@/core/download';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { useTabularDataGroups } from '../research/researchUi';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
@@ -424,6 +425,12 @@ export default function ReportBuilderPage() {
               <button type="button" className="btn btn-primary" disabled={exporting} onClick={() => void handleExport()}>
                 {t('report.export')}
               </button>
+              <SaveArtifactButton
+                dir="manuscript"
+                filename={`${(spec?.name || 'report').replace(/[^\w.-]+/g, '_')}.html`}
+                content={html}
+                className="btn"
+              />
             </div>
           </aside>
 

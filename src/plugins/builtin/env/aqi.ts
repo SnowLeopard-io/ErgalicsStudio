@@ -27,7 +27,14 @@ import {
   numCell,
 } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
-import { actionButton, actionFired, drawEmptyCanvas, drawEmptyMessage, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  drawEmptyMessage,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import {
@@ -348,7 +355,6 @@ export class AqiPlugin implements Plugin {
         value,
         hint: zh ? '非负浓度；全部为 0 时不启用手动样例' : 'Non-negative; all zeros disable the manual sample',
       })),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportStats', 'Export stats CSV', '导出统计 CSV'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
@@ -356,10 +362,7 @@ export class AqiPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-aqi');
-      return;
-    }
+
     if (actionFired(params, 'exportStats')) {
       this.exportStatsCsv();
       return;

@@ -24,7 +24,12 @@ import {
 } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32, currentSeed } from '@/core/repro/random';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import {
@@ -137,7 +142,6 @@ export function carbonMonteCarlo(
   }
   return { years: keyYears, at, consBias: { mean: biasSum / draws, max: biasMax }, draws };
 }
-
 
 // ---- Custom scenario parsing (exported for tests) ---------------------------
 
@@ -345,7 +349,6 @@ export class CarbonPlugin implements Plugin {
         type: 'button',
         action: 'reset',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportScenario', 'Export scenario CSV (+MC)', '导出情景 CSV（含 MC）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
@@ -353,10 +356,7 @@ export class CarbonPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-carbon');
-      return;
-    }
+
     if (actionFired(params, 'exportScenario')) {
       this.exportScenarioCsv();
       return;

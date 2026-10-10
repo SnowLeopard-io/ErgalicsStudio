@@ -823,16 +823,31 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     builtinsPromise = (async () => {
       try {
         const { BUILTIN_PLUGINS } = await import('@/plugins/builtin');
-        for (const info of BUILTIN_PLUGINS) {
-          // Fun/utility plugins declare `autoload: false` — they are listed in
-          // the built-in / marketplace panel but only loaded when the user
-          // picks them, so they don't bloat the startup registry.
-          if (info.autoload === false) continue;
+        const autoloadable = BUILTIN_PLUGINS.filter((info) => info.autoload !== false);
+        // Phase 1 — warm every plugin module in parallel. A naive loop that
+        // awaits `info.load()` per plugin serializes the network round-trips
+        // (dozens of chunks × RTT — visibly "plugins loading one by one" on
+        // slow links). Calling the module factories here is safe: they just
+        // build the plain plugin objects; lifecycle
+        // hooks with side effects (`init`) only run in `get().load` below.
+        const warmed = await Promise.all(
+          autoloadable.map((info) =>
+            info.load().then(
+              (plugin) => plugin,
+              (err) => {
+                logger.warn('plugin', 'failed to load builtin', { id: info.manifest.id }, err);
+                return null;
+              },
+            ),
+          ),
+        );
+        // Phase 2 — register in declared order (list order is UI order).
+        for (const plugin of warmed) {
+          if (!plugin) continue; // module failed to load — skip, stay degraded
           try {
-            const plugin = await info.load();
             await get().load(plugin);
           } catch (err) {
-            logger.warn('plugin', 'failed to load builtin', { id: info.manifest.id }, err);
+            logger.warn('plugin', 'failed to register builtin', { id: plugin.manifest.id }, err);
           }
         }
         // Mark ready only once the registry is actually populated.

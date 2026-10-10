@@ -21,6 +21,7 @@ import {
 } from '@/core/uncertainty/gpu-engine';
 import { mcmcEngine, type McmcEngineResult } from '@/core/uncertainty/gpu-mcmc';
 import { ToolShell } from '@/components/ToolShell';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 
 type StatKind = GpuStat;
 type DistKind = 'normal' | 'uniform' | 'lognormal' | 'triangular';
@@ -93,6 +94,9 @@ export default function UncertaintyPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
+  // project?.data.files is an intentional invalidation trigger for the
+  // registry-backed file list (listDataFilesGrouped reads store state directly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
   const gpuAvailable = useMemo(() => hasGpuEngine(), []);
 
@@ -498,7 +502,23 @@ export default function UncertaintyPage() {
                 {t('uncertainty.progress', { done: bsProgress.done, total: bsProgress.total })}
               </p>
             )}
-            {bsResult && <pre className="analysis-output">{bsResult}</pre>}
+            {bsResult && (
+              <>
+                <pre className="analysis-output">{bsResult}</pre>
+                <div className="analysis-actions">
+                  <SaveArtifactButton
+                    dir="runs"
+                    filename={`${file.replace(/\.[^.]+$/, '') || 'data'}-bootstrap.json`}
+                    content={JSON.stringify(
+                      { kind: 'bootstrap', savedAt: new Date().toISOString(), source: file, stat: bsStat, result: bsResult },
+                      null,
+                      2,
+                    )}
+                    className="btn btn-sm"
+                  />
+                </div>
+              </>
+            )}
             {bsChart && (
               <div className="analysis-preview">
                 <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: bsChart.payload.markup }} />
@@ -506,6 +526,12 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(bsChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${file.replace(/\.[^.]+$/, '') || 'data'}-bootstrap.svg`}
+                    content={bsChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
               </div>
             )}
@@ -572,7 +598,33 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(mcChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${dist}-sample.svg`}
+                    content={mcChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
+              </div>
+            )}
+            {mcResult && (
+              <div className="analysis-actions">
+                <SaveArtifactButton
+                  dir="runs"
+                  filename={`monte-carlo-${dist}.json`}
+                  content={JSON.stringify(
+                    {
+                      kind: 'monte-carlo',
+                      savedAt: new Date().toISOString(),
+                      dist,
+                      params: { p1, p2, p3, n: mcN, seed: mcSeed },
+                      result: mcResult,
+                    },
+                    null,
+                    2,
+                  )}
+                  className="btn btn-sm"
+                />
               </div>
             )}
 
@@ -632,6 +684,28 @@ export default function UncertaintyPage() {
                 {mcmcRunning && !mcmcResult ? t('uncertainty.running') : mcmcResult}
               </pre>
             )}
+            {mcmcEngineResult && (
+              <div className="analysis-actions">
+                <SaveArtifactButton
+                  dir="runs"
+                  filename={`${mcmcCol.replace(/[^\w.-]+/g, '-') || 'chain'}-mcmc.json`}
+                  content={JSON.stringify(
+                    {
+                      kind: 'mcmc',
+                      savedAt: new Date().toISOString(),
+                      source: file,
+                      column: mcmcCol,
+                      params: { iters: mcmcIters, burn: mcmcBurn, seed: mcmcSeed, engine },
+                      diagnostics: mcmcEngineResult.diagnostics,
+                      result: mcmcResult,
+                    },
+                    null,
+                    2,
+                  )}
+                  className="btn btn-sm"
+                />
+              </div>
+            )}
 
             {mcmcEngineResult && (
               <div className={`mcmc-diag${mcmcEngineResult.diagnostics.converged ? '' : ' mcmc-diag-bad'}`}>
@@ -670,6 +744,12 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(mcmcChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${mcmcCol.replace(/[^\w.-]+/g, '-') || 'chain'}-mcmc.svg`}
+                    content={mcmcChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
               </div>
             )}

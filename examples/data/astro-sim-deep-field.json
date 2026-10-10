@@ -1,0 +1,20 @@
+{
+  "name": "V-band deep field simulation",
+  "mode": "simulate",
+  "frameSize": 512,
+  "nStars": 140,
+  "fwhmPx": 3.2,
+  "skyElectrons": 180,
+  "exposureS": 300,
+  "darkRateEps": 0.02,
+  "readNoiseE": 5,
+  "gainEPerAdu": 1.5,
+  "biasAdu": 512,
+  "vignetting": 0.22,
+  "cosmicRaysPerFrame": 18,
+  "seed": 20260321,
+  "thresholdSigma": 5,
+  "apertureFwhmScale": 2,
+  "zeropoint": 25,
+  "autoRun": true
+}

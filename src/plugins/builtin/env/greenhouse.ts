@@ -21,7 +21,11 @@ import {
   CO2_REFERENCE,
   greenhouseModel,
 } from './envCore';
-import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { greenhouseManifest } from './greenhouseManifest';
 
@@ -113,16 +117,12 @@ export class GreenhousePlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-greenhouse');
-      return;
-    }
+
     if (actionFired(params, 'reloadPlugin')) {
       notify(this.api, 'info', 'Resetting plugin…', '正在重置插件…');
       void this.api.reload?.();

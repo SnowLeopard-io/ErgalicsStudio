@@ -3,6 +3,8 @@ import { useT, useLocale } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { getGpuBackend, subscribeGpu, type GpuBackend } from '@/core/gpu';
+import { formatCpuLabel } from '@/core/cpu-info';
+import { useCpuInfo } from '@/hooks/useCpuInfo';
 
 function formatBytesMiB(mb: number): string {
   if (mb <= 0) return '—';
@@ -31,6 +33,11 @@ export function PerfOverlay() {
 
   // Reflect late GPU init (device request resolves after the dialog opens).
   useEffect(() => subscribeGpu(() => setGpu(getGpuBackend())), []);
+
+  // CPU fallback has no adapter to name — show the probed CPU descriptor
+  // (architecture + logical cores) on the Device row instead of a dash.
+  const cpuInfo = useCpuInfo();
+  const cpuLabel = cpuInfo ? formatCpuLabel(cpuInfo) : '';
 
   const {
     fps,
@@ -62,7 +69,11 @@ export function PerfOverlay() {
     : gpu.fallback
       ? 'CPU'
       : '—';
-  const gpuName = gpu.available && gpu.name ? gpu.name : '—';
+  const gpuName = gpu.available
+    ? gpu.name || '—'
+    : gpu.fallback
+      ? cpuLabel || 'CPU'
+      : '—';
 
   return (
     <div className="perf-overlay" aria-label={t('workbench.perf.title')}>

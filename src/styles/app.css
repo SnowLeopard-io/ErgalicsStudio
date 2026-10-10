@@ -101,7 +101,8 @@
   font-weight: 500;
   /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
   white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster .cluster-btn:hover,
@@ -109,6 +110,13 @@
 .topbar-cluster .menu-wrap > .btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+/* Quiet press: the button compresses a touch so clicks feel acknowledged. */
+.topbar-cluster .cluster-btn:active:not(:disabled),
+.topbar-cluster .icon-btn:active:not(:disabled),
+.topbar-cluster .menu-wrap > .btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .topbar-cluster .cluster-btn:disabled {
@@ -413,6 +421,9 @@
   flex: 1;
   display: flex;
   min-height: 0;
+  /* 为收起态贴边的浮层按钮 (.panel-edge-*) 提供定位上下文，使其不占横向
+     布局槽位，从而让中央画布填满整行。 */
+  position: relative;
 }
 
 /* ---- sidebar ---- */
@@ -968,6 +979,65 @@
   filter: brightness(1.15);
 }
 
+/* Unified plugin-canvas export control (download / save to workspace). */
+.central-export {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 6;
+}
+
+.central-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-accent);
+  box-shadow: var(--shadow-1);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.central-export-btn:hover {
+  filter: brightness(1.15);
+}
+
+.central-export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+.central-export-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.central-export-item:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
 .central-drop-hint {
   position: absolute;
   inset: 14px;
@@ -1276,10 +1346,112 @@
   color: var(--color-text-secondary);
 }
 
+/* 套件信息表：数据要求 / 运行方式等事实性条目。 */
+.suite-intro-facts {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suite-intro-fact dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-tertiary);
+  margin-bottom: 2px;
+}
+
+.suite-intro-fact dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 .suite-intro-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* ---- 右侧栏 · 无插件欢迎面板 -------------------------------------------
+   替代原先孤零零的"请先激活一个插件"占位：快速引导 + 版本更新要点 +
+   仓库卡片。视觉沿用 suite-intro 的克制风格（细分隔线 + 弱化文案）。 */
+.rp-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rp-welcome-intro {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-welcome-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.rp-welcome-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rp-welcome-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.rp-welcome-link:hover {
+  text-decoration: underline;
+}
+
+.rp-welcome-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  line-height: 1.6;
+}
+
+.rp-welcome-repo-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.rp-welcome-repo-btns .btn {
+  flex: 1;
+  text-decoration: none;
+  justify-content: center;
 }
 
 /* ---- param panel ---- */
@@ -1586,11 +1758,16 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-tab:hover {
   color: var(--color-text-primary);
+}
+
+.plugin-tab:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .plugin-tab.active {
@@ -1682,11 +1859,17 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-cat:hover {
   border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.plugin-cat:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .plugin-cat.active {
@@ -1974,6 +2157,17 @@
   background:
     radial-gradient(1000px 480px at 50% -10%, var(--color-accent-soft), transparent 70%),
     var(--color-bg-primary);
+}
+
+/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签条
+   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度。 */
+.settings-embedded {
+  height: 100%;
+  min-height: 0;
+}
+
+.settings-embedded .settings-layout {
+  min-height: 0;
 }
 
 .settings-topbar-left {
@@ -2742,6 +2936,105 @@
 
 .tour-tip-hero .tour-tip-body {
   font-size: var(--font-size-md);
+}
+
+/* Menu step (track chooser): the hero card widens further to fit a 2x2
+   grid — one clickable card per competition track. */
+.tour-tip-hero:has(.tour-menu-grid) {
+  width: min(860px, calc(100vw - 48px));
+}
+
+/* Audience chooser: two stacked full-width identity cards. */
+.tour-menu-grid.is-audience {
+  grid-template-columns: 1fr;
+}
+
+/* Intro (track briefing) step: multi-line copy, wider hero card. */
+.tour-tip-hero:has(.tour-intro-body) {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.tour-intro-body {
+  white-space: pre-line;
+  text-align: left;
+}
+
+/* Track progress dots (view/click/done steps). */
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: var(--space-2);
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.tour-dot.is-active {
+  background: var(--color-accent);
+}
+
+.tour-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .tour-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tour-menu-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.tour-menu-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  transform: translateY(-1px);
+}
+
+.tour-menu-badge {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tour-menu-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.45;
+}
+
+.tour-menu-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
@@ -4675,6 +4968,24 @@
   background: var(--color-bg-primary);
 }
 
+/* Slim action bar that preserves a suite's headerExtra (sheet switcher,
+   caption generator, submission check, add-cell …) when the full tool
+   topbar is dropped in embedded mode. */
+.tool-embedded-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 40px;
+  padding: var(--space-1) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.tool-embedded-bar .tool-topbar-extra {
+  margin-left: 0;
+}
+
 .tool-content {
   display: flex;
   flex-direction: column;
@@ -4952,12 +5263,17 @@
   white-space: nowrap;
   cursor: pointer;
   position: relative;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster.mode-switch .mode-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.topbar-cluster.mode-switch .mode-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 /* Double indication: filled chip + underline. */
@@ -4975,6 +5291,8 @@
   height: 2px;
   border-radius: 1px;
   background: var(--color-accent);
+  transform-origin: left center;
+  animation: underline-in 0.2s var(--ease-out) backwards;
 }
 
 .topbar-cluster .cluster-btn.icon-only {
@@ -5525,6 +5843,12 @@ button.start-card:hover {
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
   color: var(--color-accent);
+  transition: transform var(--transition-base);
+}
+
+/* The icon eases forward as the card lifts — a small "signal coming online". */
+.tool-card:hover .tool-card-icon {
+  transform: scale(1.08);
 }
 
 .tool-card-text {
@@ -6708,12 +7032,36 @@ button.start-card:hover {
   min-height: 0;
 }
 
+/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称的
+   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻结
+   内容宽度——内容像推拉门一样被裁剪，而不是被挤压回绕；pointer-events
+   吞掉指针，防止动画中途误点内部控件。 */
+.panel-wrap-closing {
+  overflow: hidden;
+  pointer-events: none;
+  animation: panel-collapse 0.2s var(--ease-out) forwards;
+}
+
+@keyframes panel-collapse {
+  to {
+    width: 0;
+    opacity: 0;
+  }
+}
+
 .panel-wrap > .sidebar,
 .panel-wrap > .right-panel {
   flex: 1;
   width: auto;
   min-width: 0;
   position: static;
+}
+
+/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度。 */
+.panel-wrap-closing > .sidebar,
+.panel-wrap-closing > .right-panel {
+  flex: 0 0 auto;
+  width: var(--panel-closing-width, var(--sidebar-width));
 }
 
 /* ---- 栏目边缘收起/展开小按钮 ---- */
@@ -6768,6 +7116,8 @@ button.start-card:hover {
   align-items: center;
   justify-content: center;
   padding: 0;
+  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住。 */
+  z-index: 45;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
@@ -6783,9 +7133,27 @@ button.start-card:hover {
   border-radius: 0 8px 8px 0;
 }
 
+/* 收起态：左栏展开按钮与右侧对称地改为浮层，不占 flex 槽位，中央画布
+   即可贴住活动栏填满整行宽（按钮靠 z-index 浮在画布之上）。锚在活动栏
+   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下。 */
+.panel-edge-left.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: var(--activitybar-width);
+}
+
 .panel-edge-right {
   border-right: none;
   border-radius: 8px 0 0 8px;
+}
+
+/* 收起态：右栏展开按钮改为浮层，不占 flex 槽位，中央画布即可填满整行宽。 */
+.panel-edge-right.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 0;
 }
 
 .panel-edge-btn:hover {
@@ -6812,13 +7180,18 @@ button.start-card:hover {
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .statusbar-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
   box-shadow: 0 0 8px var(--glow-hover);
+}
+
+.statusbar-btn:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .statusbar-btn.is-warn {
@@ -7079,7 +7452,7 @@ button.start-card:hover {
 /* ---- 活动栏（标准模式，侧栏最左侧） ---- */
 
 .activity-bar {
-  width: 42px;
+  width: var(--activitybar-width);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -7121,12 +7494,17 @@ button.start-card:hover {
   cursor: pointer;
   transition:
     color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .activity-item:hover {
   color: var(--color-text-primary);
   background: var(--color-accent-soft);
+}
+
+.activity-item:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .activity-item.is-active {
@@ -7365,6 +7743,215 @@ button.start-card:hover {
 
 /* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
 
+/* 覆盖层堆栈：套件标签条 + 预览/套件浮层共用一个定位容器，标签条
+   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间。 */
+.central-overlay-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-radius: inherit;
+  overflow: hidden;
+  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明，
+     否则 2D 插件的拖动/平移会被这层空壳拦住。交互子元素再单独开启。 */
+  pointer-events: none;
+}
+
+.central-overlay-stack > .central-tool-tabs,
+.central-overlay-stack > .central-tab-pane {
+  pointer-events: auto;
+}
+
+/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
+   display:none —— 切换标签不卸载内容，状态得以保留。 */
+.central-tab-pane {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central-tab-pane.tab-hidden {
+  display: none;
+}
+
+/* 窗格内的浮层从"绝对铺满"改为"常规流占满剩余高度"。 */
+.central-tab-pane > .central-file-preview,
+.central-tab-pane > .central-tool-view {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+}
+
+/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）。 */
+.central-tool-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
+   下方开始（34px 行高 + 1px 分隔线）——VS Code 编辑区同款布局，标签条
+   独占一行，画布/窗格占满其余空间，互不重叠。 */
+.central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
+  inset: 35px 0 0 0;
+}
+
+.central-tool-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 0 8px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.central-tool-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.central-tool-tab.active {
+  color: var(--color-accent-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.central-tool-tab-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.central-tool-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.central-tool-tab-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.central-tool-tab-close:hover {
+  background: var(--color-bg-tertiary, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+}
+
+/* ---- File editor tabs (Monaco code / Blockly block / flow DAG) ------------ */
+
+/* Dirty dot: shown both on the tab strip and inside the save chip. */
+.central-editor-dirty-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.central-file-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.central-file-editor-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.central-file-editor-monaco,
+.central-file-editor-blockly {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Flow file editor: hosts the block-workbench three-pane layout below the
+   toolbar row. */
+.central-file-editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.central-file-editor-body .block-workbench {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Read-only degrade for files whose JSON failed the editor-format check. */
+.central-editor-broken-banner {
+  flex-shrink: 0;
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-warning-border, var(--color-border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-warning-bg, var(--color-bg-secondary));
+  color: var(--color-warning-text, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+}
+
+.central-editor-broken-head {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.central-editor-broken-source {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-secondary);
+}
+
 .central-file-preview {
   position: absolute;
   inset: 0;
@@ -7555,7 +8142,133 @@ button.start-card:hover {
   font-size: 11px;
 }
 
+/* Embedded images scale to the pane instead of overflowing at native size. */
+.central-md-preview img,
+.nb-md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* ---- Markdown v2 shared styles (marked renderer): tables, task lists,
+       mermaid diagrams, KaTeX math — applied to both the file preview and
+       notebook markdown cells. ---- */
+
+.central-md-preview table,
+.nb-md table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+.central-md-preview th,
+.central-md-preview td,
+.nb-md th,
+.nb-md td {
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.central-md-preview th,
+.nb-md th {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.central-md-preview blockquote,
+.nb-md blockquote {
+  margin: 0.6em 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* GFM task lists: hide the raw checkbox disabled state, keep spacing tight. */
+.central-md-preview li.task-list-item,
+.nb-md li.task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.central-md-preview hr,
+.nb-md hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+/* Mermaid diagram placeholder / rendered svg. */
+.md-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 0.8em 0;
+  padding: var(--space-2);
+  overflow-x: auto;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.md-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-mermaid-error {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-dim);
+  justify-content: flex-start;
+}
+
+/* KaTeX math: allow wide equations to scroll instead of clipping. */
+.md-tex {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.md-tex .katex-display {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
 /* 图片 / PDF / 视频 / 音频 */
+/* 二进制文件读取中的占位（tab 已开、字节未到）。 */
+.central-file-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-dim);
+}
+
+.central-file-loading-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  animation: central-file-loading-spin 0.8s linear infinite;
+}
+
+@keyframes central-file-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .central-file-media {
   flex: 1;
   min-height: 0;
@@ -7581,6 +8294,13 @@ button.start-card:hover {
   max-width: 100%;
   max-height: 100%;
   border: none;
+}
+
+/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）。 */
+.central-file-media object {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
 }
 
 .central-file-media video,
@@ -7671,5 +8391,67 @@ button.start-card:hover {
   margin: 0;
   font-size: var(--font-size-xs);
   line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Boot gate — recovery UI (failure / timeout path of the boot sequence).
+   The normal-path splash lives inline in index.html; only the React-rendered
+   fallback is styled here. Mirrors the splash's restrained instrument look.
+   ========================================================================== */
+.boot-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+.boot-fallback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+  max-width: 420px;
+}
+.boot-fallback-brand {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-brand span {
+  color: var(--color-accent);
+}
+.boot-fallback-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+.boot-fallback-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.boot-fallback-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }

@@ -9,7 +9,19 @@
 // show up.
 // ==========================================================================
 
-export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'chem' | 'bio' | 'geo' | 'env' | 'data' | 'fun';
+export type PluginDiscipline =
+  | 'charts'
+  | 'stats'
+  | 'physics'
+  | 'astro'
+  | 'fx'
+  | 'chem'
+  | 'bio'
+  | 'geo'
+  | 'env'
+  | 'materials'
+  | 'data'
+  | 'fun';
 
 export interface DisciplineInfo {
   id: PluginDiscipline;
@@ -21,10 +33,13 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
+  { id: 'astro', nameI18n: { 'zh-CN': '天文', 'en-US': 'Astronomy' } },
+  { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'env', nameI18n: { 'zh-CN': '环境', 'en-US': 'Environmental' } },
+  { id: 'materials', nameI18n: { 'zh-CN': '材料学', 'en-US': 'Materials' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
 ];
@@ -68,6 +83,14 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.em-eigensolver': 'physics',
   'example.fluid-cfd-coupler': 'physics',
 
+  // Astronomy (research CCD pipeline)
+  'astro.pipeline': 'astro',
+
+  // Visual FX (GPU ray tracing / fluid rendering)
+  'fx.blackhole': 'fx',
+  'fx.water': 'fx',
+  'fx.cloud': 'fx',
+
   // Chemistry
   'example.chem-crystal': 'chem',
   'example.chem-reaction': 'chem',
@@ -92,6 +115,11 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.env-biodiversity': 'env',
   'example.env-plume': 'env',
   'example.env-earth3d': 'env',
+
+  // Materials science
+  'example.mats-xrd': 'materials',
+  'example.mats-mech': 'materials',
+  'example.mats-thermal': 'materials',
 
   // Biology
   'example.protein': 'bio',

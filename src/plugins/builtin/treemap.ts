@@ -12,7 +12,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { treemapManifest } from './treemapManifest';
 import { treemapManifest } from './treemapManifest';
@@ -61,28 +60,9 @@ export class TreemapPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'treemap');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
-  }
-
-  private exportCsv() {
-    // Flatten the parsed hierarchy. The synthetic root is not exported;
-    // its direct children get an empty parent cell.
-    const rows: Array<[string, string, number]> = [];
-    if (this.root) {
-      const walk = (node: TNode, parentName: string) => {
-        for (const child of node.children) {
-          rows.push([child.name, parentName, child.size]);
-          walk(child, child.name);
-        }
-      };
-      walk(this.root, '');
-    }
-    exportRowsCsv(this.api, 'treemap', ['name', 'parent', 'size'], rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -94,8 +74,6 @@ export class TreemapPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -178,15 +156,6 @@ export class TreemapPlugin implements Plugin {
         : 'No treemap data — drop a .csv (label,size) file';
     g.fillText(msg, w / 2, h / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse CSV into a hierarchy; flat `label,size` becomes a single root layer. */

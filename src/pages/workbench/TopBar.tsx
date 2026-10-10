@@ -31,7 +31,9 @@ export function TopBar() {
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const importFolder = useProjectStore((s) => s.importFolder);
   const notify = useAppStore((s) => s.notify);
+  const resetToWelcome = useAppStore((s) => s.resetToWelcome);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
@@ -50,6 +52,7 @@ export function TopBar() {
   const openDialog = (key: TopBarDialogKey) => () => setDialog(key);
   const closeDialog = () => setDialog(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
@@ -100,7 +103,17 @@ export function TopBar() {
         </button>
       )}
 
-      <a className="brand" href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
+      {/* Brand = home: back to the boot state — empty canvas with the
+          welcome screen (plugin deactivated, all canvas tabs closed). */}
+      <a
+        className="brand"
+        href="#/workbench"
+        onClick={(e) => {
+          e.preventDefault();
+          resetToWelcome();
+          navigate('/workbench');
+        }}
+      >
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
@@ -132,6 +145,11 @@ export function TopBar() {
           { key: 'actions-header', label: t('workbench.menu.project'), header: true },
           { key: 'new', label: t('project.new'), onClick: openDialog('new') },
           { key: 'open', label: t('project.open'), onClick: () => fileInputRef.current?.click() },
+          {
+            key: 'open_folder',
+            label: t('project.open_folder'),
+            onClick: () => folderInputRef.current?.click(),
+          },
           { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
           { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           {
@@ -315,6 +333,30 @@ export function TopBar() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleOpenFile(file);
+            e.target.value = '';
+          }}
+        />
+
+        {/* 文件夹项目导入：webkitdirectory 选择整个文件夹，交给
+            projectStore.importFolder（含 project.clproj 时按原生项目导入）。
+            React JSX 不会把 webkitdirectory 可靠地写到 DOM 上，必须在 ref
+            回调里用 setAttribute 显式设置。 */}
+        <input
+          ref={(el) => {
+            folderInputRef.current = el;
+            if (el) {
+              el.setAttribute('webkitdirectory', '');
+              el.setAttribute('directory', '');
+            }
+          }}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : [];
+            if (files.length > 0) {
+              void importFolder(files).catch(() => notify('error', t('project.open_failed')));
+            }
             e.target.value = '';
           }}
         />

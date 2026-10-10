@@ -25,7 +25,11 @@
 // ==========================================================================
 
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import type {
   ContainerCapabilities,
   ParamDefinition,
@@ -366,10 +370,6 @@ export class StructurePlugin implements Plugin {
     // the running state — they neither re-arm nor pause the experiment.
     const fired = (key: string) => params[key] === true || act(key) === key;
 
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'structure');
-      return;
-    }
     if (fired('exportCsv')) {
       this.exportMembersCsv();
       return;
@@ -528,7 +528,6 @@ export class StructurePlugin implements Plugin {
           ? '清空后加的重物，结构恢复为初始 / 加载时的构型，并暂停'
           : 'Clears the weights added at runtime and restores the initial (or loaded) configuration, paused',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Members CSV', '导出构件 CSV'),
     ];
   }

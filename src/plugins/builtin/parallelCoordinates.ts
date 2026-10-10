@@ -11,7 +11,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { parallelCoordinatesManifest } from './parallelCoordinatesManifest';
 import { parallelCoordinatesManifest } from './parallelCoordinatesManifest';
@@ -54,19 +53,10 @@ export class ParallelCoordinatesPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'parallel-coordinates');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (typeof params.opacity === 'number') this.state.opacity = params.opacity;
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
-  }
-
-  private exportCsv() {
-    // One row per input record, one column per numeric axis; the optional
-    // categorical color column is not an axis and is omitted.
-    exportRowsCsv(this.api, 'parallel-coordinates', this.columns, this.rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -88,8 +78,6 @@ export class ParallelCoordinatesPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -241,15 +229,6 @@ export class ParallelCoordinatesPlugin implements Plugin {
         : 'No parallel data — drop a multi-column .csv';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Distinct categorical palette. */

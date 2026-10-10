@@ -122,4 +122,23 @@ export const THEMES: ThemePackage[] = [
     },
     chartPalette: ['#4ade80', '#60a5fa', '#f87171', '#facc15', '#c084fc'],
   },
+  {
+    id: 'colorblind-safe',
+    name: { zh: '色盲友好', en: 'CVD-Safe' },
+    desc: {
+      zh: '基于 Okabe–Ito 色盲安全色板：蓝、橙、绿、黄在各类色觉障碍下保持稳定区分，状态色避开红绿混淆，界面为中性石墨底色。',
+      en: 'Built on the Okabe–Ito colorblind-safe palette: blue, orange, green and yellow stay distinguishable under protanopia, deuteranopia and tritanopia; status colors avoid the red/green trap on a neutral graphite UI.',
+    },
+    author: 'Ergalics Official', version: '1.0.0', base: 'light', density: 'comfortable',
+    downloads: 658, tags: ['a11y', 'colorblind-safe', 'high-contrast'],
+    vars: {
+      '--color-bg-primary': '#f7f8fa',
+      '--color-bg-elevated': '#ffffff',
+      '--color-text-primary': '#10151b',
+      '--color-accent': '#0072B2',
+      '--color-accent-hover': '#005A8E',
+      '--color-canvas': '#fbfcfd',
+    },
+    chartPalette: ['#0072B2', '#D55E00', '#009E73', '#E69F00', '#CC79A7', '#56B4E9'],
+  },
 ];

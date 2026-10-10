@@ -21,7 +21,11 @@ import type {
 import { heightFieldToMesh } from '@/core/mesh3d';
 import { scalarRampColors } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 export { surface3DManifest } from './surface3DManifest';
 import { surface3DManifest } from './surface3DManifest';
@@ -198,14 +202,7 @@ export class Surface3DPlugin implements Plugin {
       this.fitCamera();
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'surface3d');
-      return;
-    }
-    if (actionFired(params, 'exportObjPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'surface3d');
-      return;
-    }
+
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
       return;
@@ -223,8 +220,6 @@ export class Surface3DPlugin implements Plugin {
         value: this.state.wireframe,
       },
       actionButton('fitView', 'Auto-fit View', '自动适配视角'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Mesh CSV', '导出网格 CSV'),
     ];
   }

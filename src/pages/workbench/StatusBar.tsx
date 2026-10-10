@@ -6,6 +6,8 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { getGpuBackend } from '@/core/gpu';
 import { subscribeGpuActivity } from '@/core/compute';
+import { formatCpuLabel } from '@/core/cpu-info';
+import { useCpuInfo } from '@/hooks/useCpuInfo';
 
 export function StatusBar() {
   const t = useT();
@@ -17,6 +19,12 @@ export function StatusBar() {
 
   const gpu = getGpuBackend();
   const activePlugin = registry.find((e) => e.id === activeId);
+
+  // CPU fallback has no GPU adapter to name, so probe the CPU itself
+  // (architecture + logical cores) once and show a real descriptor instead
+  // of the backend's default "Unknown".
+  const cpuInfo = useCpuInfo();
+  const cpuLabel = cpuInfo ? formatCpuLabel(cpuInfo) : '';
 
   // Transient "GPU is computing right now" pulse. Driven by real device
   // dispatches (subscribeGpuActivity), not by the reportGpuTime metric which
@@ -128,7 +136,9 @@ export function StatusBar() {
               aria-expanded={perfOpen}
               onClick={() => setPerfOpen((v) => !v)}
             >
-              {gpu.name} · {gpu.available ? 'WebGPU' : 'CPU'}
+              {gpu.available
+                ? `${gpu.name} · WebGPU`
+                : `CPU${cpuLabel ? ` · ${cpuLabel}` : ''}`}
               {gpuActive && perf.gpuMs > 0 ? ` · ${perf.gpuMs.toFixed(1)} ms` : ''}
             </button>
             <button

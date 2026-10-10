@@ -51,6 +51,7 @@ export default function WelcomePage() {
   const createProject = useProjectStore((s) => s.createProject);
   const openProject = useProjectStore((s) => s.openProject);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const importFolder = useProjectStore((s) => s.importFolder);
   const removeProject = useProjectStore((s) => s.remove);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [hardware, setHardware] = useState<HardwareState>({
@@ -62,6 +63,7 @@ export default function WelcomePage() {
   const [busy, setBusy] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -92,16 +94,12 @@ export default function WelcomePage() {
         next.delete('theme');
         return next;
       }, { replace: true });
-      void Promise.all([
-        import('@/core/theme-pack/registry'),
-        import('@/core/theme-pack/market'),
-      ]).then(([{ findThemeById, installTheme, applyAndRemember }, { findMarketEntry }]) => {
-        // Website cards carry market-catalog ids ('journal-serif', …) that
-        // never match the registry until explicitly installed — resolve via
-        // the market catalog first so a fresh browser still gets the theme
-        // applied, and report unknown ids instead of failing silently (EG4-80).
-        const entry = findMarketEntry(themeId);
-        const theme = entry ? installTheme(entry.theme) : findThemeById(themeId);
+      void import('@/core/theme-pack/registry').then(({ findThemeById, applyAndRemember }) => {
+        // Website cards carry market-catalog ids ('journal-serif', …). Market
+        // themes ship embedded in the app, so findThemeById resolves them
+        // directly — no install round-trip — and unknown ids are reported
+        // instead of failing silently (EG4-80).
+        const theme = findThemeById(themeId);
         if (theme) {
           applyAndRemember(theme);
           notify('success', t('theme.applied_deep_link', { name: theme.name }));
@@ -230,6 +228,16 @@ export default function WelcomePage() {
       });
   };
 
+  const handleOpenFolder = (files: File[]) => {
+    setBusy(true);
+    void importFolder(files)
+      .then(() => navigate('/workbench'))
+      .catch(() => {
+        notify('error', t('project.open_failed'));
+        setBusy(false);
+      });
+  };
+
   const envStates: Array<'pending' | 'ok' | 'fail'> = [
     hardware.webgpu,
     hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending',
@@ -270,6 +278,14 @@ export default function WelcomePage() {
               disabled={busy}
             >
               <FolderOpenIcon size={14} /> {t('project.open')}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => folderInputRef.current?.click()}
+              disabled={busy}
+            >
+              <FolderOpenIcon size={14} /> {t('project.open_folder')}
             </button>
           </div>
         </div>
@@ -409,6 +425,25 @@ export default function WelcomePage() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleOpenFile(file);
+          e.target.value = '';
+        }}
+      />
+
+      {/* webkitdirectory 需在 ref 回调里命令式设置（React JSX 不可靠）。 */}
+      <input
+        ref={(el) => {
+          folderInputRef.current = el;
+          if (el) {
+            el.setAttribute('webkitdirectory', '');
+            el.setAttribute('directory', '');
+          }
+        }}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          if (files.length > 0) handleOpenFolder(files);
           e.target.value = '';
         }}
       />

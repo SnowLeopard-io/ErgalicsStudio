@@ -36,6 +36,7 @@
   --font-family: var(--font-sans);
   --topbar-height: 52px;
   --statusbar-height: 30px;
+  --activitybar-width: 42px;
   --sidebar-width: 248px;
   --right-panel-width: 284px;
   --transition-fast: 120ms ease;

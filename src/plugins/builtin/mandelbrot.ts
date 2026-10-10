@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { mandelbrotManifest } from './mandelbrotManifest';
 import { mandelbrotManifest } from './mandelbrotManifest';
@@ -78,7 +78,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 export class MandelbrotPlugin implements Plugin {
   readonly manifest = mandelbrotManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private state: State = {
     mode: 'mandelbrot',
@@ -89,9 +89,7 @@ export class MandelbrotPlugin implements Plugin {
     juliaY: 0.156,
   };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.ctx = null;
@@ -109,10 +107,7 @@ export class MandelbrotPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'mandelbrot');
-      return;
-    }
+
     // Zoom state exists (the `zoom` range above), so offer a reset.
     if (buttonPressed(params, 'resetView')) {
       this.state.zoom = 1;
@@ -217,7 +212,6 @@ export class MandelbrotPlugin implements Plugin {
         step: 0.01,
         value: this.state.juliaY,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('resetView', 'Reset Zoom', '重置缩放'),
     ];
   }

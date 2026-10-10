@@ -25,4 +25,4 @@ export {
   dataTableToBar,
   type ChartOptions,
 } from './charts';
-export { exportSVG, exportPDF, exportPNG, computeRasterSize, downloadText } from './export';
+export { exportSVG, exportPDF, exportPNG, computeRasterSize, downloadText, downloadBytes, rasterizePNG, buildPDF } from './export';

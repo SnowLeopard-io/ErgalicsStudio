@@ -14,7 +14,13 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '
 import { diversityIndex, numCell, type DiversityIndex } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32, currentSeed } from '@/core/repro/random';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
@@ -314,17 +320,13 @@ export class BiodiversityPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
       actionButton('exportStats', 'Export stats CSV (Chao1/CI/rarefaction)', '导出统计 CSV（Chao1/CI/稀疏化）'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-biodiversity');
-      return;
-    }
+
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
       return;

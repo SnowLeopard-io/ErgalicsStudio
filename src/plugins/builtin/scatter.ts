@@ -11,7 +11,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pearson, spearman, ols, bi, pm, fmtP, isZh } from './chartStats';
 
@@ -77,8 +77,7 @@ export class ScatterPlugin implements Plugin {
       this.state.showTrendline = params.showTrendline;
       this.draw();
     }
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
   }
 
   getParams(): ParamDefinition[] {
@@ -102,8 +101,6 @@ export class ScatterPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showTrendline,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -203,23 +200,6 @@ export class ScatterPlugin implements Plugin {
   /** Parse delimited numeric columns: x y [c]. */
   private parse(text: string): Row[] {
     return parseScatter(text);
-  }
-
-  private exportPng() {
-    if (!this.state.hasData || this.rows.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'scatter');
-  }
-
-  private exportCsv() {
-    const hasColor = this.rows.some((r) => r.c !== undefined);
-    const header = hasColor ? ['x', 'y', 'color'] : ['x', 'y'];
-    const rows = this.rows.map((r) =>
-      hasColor ? [r.x, r.y, r.c ?? ''] : [r.x, r.y],
-    );
-    exportRowsCsv(this.api, 'scatter', header, rows);
   }
 
   private draw() {

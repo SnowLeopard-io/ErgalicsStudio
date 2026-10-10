@@ -22,12 +22,11 @@ class FakeFileHandle {
     close(): Promise<void>;
   }> {
     const chunks: Uint8Array[] = [];
-    const self = this;
     return {
-      async write(d: Uint8Array) {
+      write: async (d: Uint8Array) => {
         chunks.push(d);
       },
-      async close() {
+      close: async () => {
         const total = chunks.reduce((s, c) => s + c.byteLength, 0);
         const out = new Uint8Array(total);
         let off = 0;
@@ -35,17 +34,14 @@ class FakeFileHandle {
           out.set(c, off);
           off += c.byteLength;
         }
-        self.data = out;
+        this.data = out;
       },
     };
   }
 
   async getFile(): Promise<{ arrayBuffer(): Promise<ArrayBuffer> }> {
-    const self = this;
     return {
-      async arrayBuffer() {
-        return self.data.slice().buffer as ArrayBuffer;
-      },
+      arrayBuffer: async () => this.data.slice().buffer as ArrayBuffer,
     };
   }
 }

@@ -10,6 +10,100 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Ergalics Studio - 浏览器端专业科学计算工作站" />
     <title>Ergalics Studio</title>
+    <style>
+      /* Static boot screen: renders from the first HTML parse, before any JS
+         is downloaded. Users on slow links (GitHub Pages from CN) see a themed
+         splash instead of a blank page they might interact with prematurely.
+         Theme variables are duplicated here on purpose — global.css loads with
+         the JS bundle, and this layer must be correct before it arrives. */
+      #boot {
+        --boot-bg: #f6f8fa;
+        --boot-text: #0f172a;
+        --boot-dim: #626f84;
+        --boot-track: #dce4ec;
+        --boot-accent: #14b8a6;
+      }
+      :root[data-theme='dark'] #boot {
+        --boot-bg: #0d1117;
+        --boot-text: #e6edf3;
+        --boot-dim: #778ba3;
+        --boot-track: #22303f;
+        --boot-accent: #2dd4bf;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--boot-bg);
+        color: var(--boot-text);
+        font-family: 'Inter', 'SF Pro Text', -apple-system, 'Segoe UI',
+          'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        opacity: 1;
+        transition: opacity 450ms ease;
+      }
+      #boot.boot-done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot .boot-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        text-align: center;
+      }
+      #boot .boot-brand {
+        font-size: 25px;
+        font-weight: 700;
+        letter-spacing: 0.34em;
+        text-indent: 0.34em; /* recenter: compensate trailing tracking */
+      }
+      #boot .boot-brand span {
+        color: var(--boot-accent);
+      }
+      #boot .boot-bar-track {
+        width: 168px;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--boot-track);
+        overflow: hidden;
+      }
+      #boot .boot-bar {
+        width: 8%;
+        height: 100%;
+        border-radius: 1px;
+        background: var(--boot-accent);
+        transition: width 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+      }
+      /* Indeterminate sweep until React takes over and drives real progress. */
+      #boot.boot-indeterminate .boot-bar {
+        width: 34%;
+        animation: boot-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+      }
+      @keyframes boot-sweep {
+        0% { transform: translateX(-110%); }
+        100% { transform: translateX(400%); }
+      }
+      #boot .boot-status {
+        font-size: 12px;
+        color: var(--boot-dim);
+        min-height: 1.2em;
+      }
+      #boot .boot-hint {
+        font-size: 11px;
+        color: var(--boot-dim);
+        opacity: 0.72;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot.boot-indeterminate .boot-bar {
+          animation: none;
+          transform: translateX(120%);
+        }
+      }
+    </style>
     <script>
       // Pre-hydration: apply saved theme/language to avoid flash of wrong theme
       (function () {
@@ -33,6 +127,17 @@
     </script>
   </head>
   <body>
+    <!-- Static boot layer: visible from first parse (no JS required). React's
+         BootGate takes these DOM nodes over once the bundle is running and
+         removes the layer when the environment is ready. -->
+    <div id="boot" class="boot-indeterminate" role="status" aria-live="polite">
+      <div class="boot-inner">
+        <div class="boot-brand">ERGALICS <span>STUDIO</span></div>
+        <div class="boot-bar-track"><div class="boot-bar" id="boot-bar"></div></div>
+        <div class="boot-status" id="boot-status">正在准备科学计算环境 · Preparing the environment</div>
+        <div class="boot-hint">首次加载需要下载计算资源，请稍候 · First load downloads compute assets</div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

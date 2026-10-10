@@ -10,7 +10,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { lifeManifest } from './lifeManifest';
 import { lifeManifest } from './lifeManifest';
@@ -55,7 +54,7 @@ interface State {
 
 export class LifePlugin implements Plugin {
   readonly manifest = lifeManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private grid: Uint8Array = new Uint8Array(0);
@@ -69,9 +68,7 @@ export class LifePlugin implements Plugin {
     rows: 0,
   };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.stopTimer();
@@ -96,10 +93,7 @@ export class LifePlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'life');
-      return;
-    }
+
     // Pattern select: clear the grid and sow the chosen pattern. A running
     // play interval is deliberately left untouched.
     if (isPattern(params.pattern)) {
@@ -166,7 +160,6 @@ export class LifePlugin implements Plugin {
         value: this.state.pattern,
       },
       { key: 'reseed', label: 'Randomize', labelI18n: { 'zh-CN': '重新播种', 'en-US': 'Randomize' }, type: 'button', variant: 'primary', action: 'reseed' },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

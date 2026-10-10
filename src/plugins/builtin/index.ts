@@ -62,6 +62,13 @@ import { emEigensolverManifest } from './em-eigensolver/manifest';
 import { fluidCfdCouplerManifest } from './fluid-cfd-coupler/manifest';
 import { chemCrystalManifest } from './chem-crystal/manifest';
 import { chemReactionManifest } from './chem-reaction/manifest';
+import { matsXrdManifest } from './mats-xrd/manifest';
+import { matsMechManifest } from './mats-mech/manifest';
+import { matsThermalManifest } from './mats-thermal/manifest';
+import { blackholeManifest } from './blackhole/manifest';
+import { waterManifest as waterFxManifest } from './water/manifest';
+import { cloudManifest } from './cloud/manifest';
+import { astroManifest } from './astro/manifest';
 import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
 import { bioSeqalignManifest } from './bio-seqalign/manifest';
@@ -289,6 +296,58 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: chemReactionManifest,
     load: async () => {
       const mod = await import('./chem-reaction');
+      return mod.default();
+    },
+  },
+  // ---- Materials science suite (research-grade kernels) ---------------------
+  {
+    manifest: matsXrdManifest,
+    load: async () => {
+      const mod = await import('./mats-xrd');
+      return mod.default();
+    },
+  },
+  {
+    manifest: matsMechManifest,
+    load: async () => {
+      const mod = await import('./mats-mech');
+      return mod.default();
+    },
+  },
+  {
+    manifest: matsThermalManifest,
+    load: async () => {
+      const mod = await import('./mats-thermal');
+      return mod.default();
+    },
+  },
+  // ---- Special FX (GPU ray tracing / fluid; own sidebar discipline) ---------
+  {
+    manifest: blackholeManifest,
+    load: async () => {
+      const mod = await import('./blackhole');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waterFxManifest,
+    load: async () => {
+      const mod = await import('./water');
+      return mod.default();
+    },
+  },
+  {
+    manifest: cloudManifest,
+    load: async () => {
+      const mod = await import('./cloud');
+      return mod.default();
+    },
+  },
+  // ---- Astronomy (research-grade CCD pipeline) ------------------------------
+  {
+    manifest: astroManifest,
+    load: async () => {
+      const mod = await import('./astro');
       return mod.default();
     },
   },
