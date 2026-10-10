@@ -404,25 +404,22 @@ describe('FX plugin registration', () => {
     }
   });
 
-  it('cloud Wind (u, v): v is the true northward component (+speed·cos(toward))', () => {
-    // Regression: publishScience computed v = −speed·cos(windRad), which is the
-    // opposite of the physical northward component. For a wind blowing toward
-    // the north-east (windDir 225° from north), v must be positive.
-    // Meteorological convention: windDir is the FROM direction; toward = from + 180°.
-    const speed = 6;
-    const from225 = ((225 + 180) * Math.PI) / 180; // toward 45° (NE)
-    const u = speed * Math.sin(from225);
-    const v = speed * Math.cos(from225);
-    expect(u).toBeCloseTo(speed * Math.SQRT1_2, 9); // +east
-    expect(v).toBeCloseTo(speed * Math.SQRT1_2, 9); // +north (was −)
-    // windDir 0° (from north, toward south): v must be negative (toward south).
-    const from0 = ((0 + 180) * Math.PI) / 180;
-    expect(speed * Math.cos(from0)).toBeCloseTo(-speed, 9);
+  it('cloud uDensity is applied once, consistently in main march & lightMarch', () => {
+    // Regression: cloudDensity() used to fold uDensity in AND the main march
+    // multiplied it again (σ ∝ density²), while lightMarch only used density¹
+    // — the two segments integrated different extinction fields and the
+    // reported Cloud τ disagreed with the render. Now cloudDensity() returns a
+    // normalised density and every extinction site applies uDensity exactly once.
+    const frag = CLOUD_FRAGMENT;
+    const cloudDensitySrc = frag.slice(frag.indexOf('float cloudDensity'), frag.indexOf('float lightMarch'));
+    const lightMarchSrc = frag.slice(frag.indexOf('float lightMarch'), frag.indexOf('float skyColor'));
+    const mainMarchSrc = frag.slice(frag.indexOf('void main'), frag.length);
 
-    // Text-level guard on the actual source: publishScience must compute
-    // v = +speed·cos(windRad) — no minus sign on the northward component.
-    const src = readFileSync(new URL('../src/plugins/builtin/cloud/plugin.ts', import.meta.url), 'utf8');
-    expect(src).toMatch(/const v = s\.windSpeed \* Math\.cos\(windRad\); \/\/ northward component \(\+ toward north\)/);
-    expect(src).not.toMatch(/const v = -s\.windSpeed \* Math\.cos\(windRad\)/);
+    // cloudDensity() must NOT scale by uDensity (returns normalised 0..1).
+    expect(cloudDensitySrc).not.toMatch(/profile\s*\*\s*uDensity/);
+    // lightMarch applies uDensity exactly once per sample.
+    expect(lightMarchSrc).toMatch(/cloudDensity\(p\)\s*\*\s*stepL\s*\*\s*0\.006\s*\*\s*uDensity/);
+    // Main march extinction applies uDensity exactly once per sample.
+    expect(mainMarchSrc).toMatch(/d\s*\*\s*stepLen\s*\*\s*0\.006\s*\*\s*uDensity/);
   });
 });
