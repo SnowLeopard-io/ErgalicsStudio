@@ -10,7 +10,13 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioEnzymeManifest } from './manifest';
 import {
@@ -193,7 +199,6 @@ export class BioEnzymePlugin implements Plugin {
       actionButton('fit', 'Fit Vmax & Km', '拟合 Vmax 与 Km', 'primary'),
       actionButton('fitRun', 'Demo · fit', '演示 · 拟合含噪数据'),
       actionButton('benchmark', 'Run MM benchmark', '运行 MM 基准验证'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export data CSV', '导出数据 CSV'),
       actionButton('exportResiduals', 'Export residual CSV', '导出残差 CSV'),
     ];
@@ -248,10 +253,7 @@ export class BioEnzymePlugin implements Plugin {
     if (actionFired(params, 'fit')) this.fitNow(false, 'primary');
     if (actionFired(params, 'fitRun')) this.fitNow(true, 'demo');
     if (actionFired(params, 'benchmark')) this.runBenchmark();
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bio-enzyme');
-      return;
-    }
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (actionFired(params, 'exportResiduals')) this.exportResiduals();
   }

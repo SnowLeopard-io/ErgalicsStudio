@@ -12,7 +12,11 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import {
   meanOf, sdOf, skewnessOf, excessKurtosisOf, sturgesK, freedmanDiaconisW, silvermanBw, bi,
@@ -94,7 +98,7 @@ export class HistogramPlugin implements Plugin {
         statsChanged = true;
       }
     }
-    if (actionFired(params, 'exportPng')) this.exportPng();
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
     if (statsChanged) this.publishStats();
@@ -152,7 +156,6 @@ export class HistogramPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showKde,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
@@ -483,14 +486,6 @@ export class HistogramPlugin implements Plugin {
       counts[idx]! += 1;
     }
     return { min, binW: span / bins, counts, rule };
-  }
-
-  private exportPng() {
-    if (this.state.values.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'histogram');
   }
 
   private exportCsv() {

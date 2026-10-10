@@ -176,6 +176,7 @@ function Control({
       return (
         <button
           type="button"
+          data-param-key={def.key}
           className={`btn ${def.variant === 'danger' ? 'btn-danger' : def.variant === 'primary' ? 'btn-primary' : ''}`}
           onClick={() => emit({ action: def.action ?? def.key })}
         >

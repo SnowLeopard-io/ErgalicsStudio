@@ -101,7 +101,8 @@
   font-weight: 500;
   /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
   white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster .cluster-btn:hover,
@@ -109,6 +110,13 @@
 .topbar-cluster .menu-wrap > .btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+/* Quiet press: the button compresses a touch so clicks feel acknowledged. */
+.topbar-cluster .cluster-btn:active:not(:disabled),
+.topbar-cluster .icon-btn:active:not(:disabled),
+.topbar-cluster .menu-wrap > .btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .topbar-cluster .cluster-btn:disabled {
@@ -1750,11 +1758,16 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-tab:hover {
   color: var(--color-text-primary);
+}
+
+.plugin-tab:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .plugin-tab.active {
@@ -1846,11 +1859,17 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-cat:hover {
   border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.plugin-cat:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .plugin-cat.active {
@@ -2917,6 +2936,105 @@
 
 .tour-tip-hero .tour-tip-body {
   font-size: var(--font-size-md);
+}
+
+/* Menu step (track chooser): the hero card widens further to fit a 2x2
+   grid — one clickable card per competition track. */
+.tour-tip-hero:has(.tour-menu-grid) {
+  width: min(860px, calc(100vw - 48px));
+}
+
+/* Audience chooser: two stacked full-width identity cards. */
+.tour-menu-grid.is-audience {
+  grid-template-columns: 1fr;
+}
+
+/* Intro (track briefing) step: multi-line copy, wider hero card. */
+.tour-tip-hero:has(.tour-intro-body) {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.tour-intro-body {
+  white-space: pre-line;
+  text-align: left;
+}
+
+/* Track progress dots (view/click/done steps). */
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: var(--space-2);
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.tour-dot.is-active {
+  background: var(--color-accent);
+}
+
+.tour-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .tour-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tour-menu-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.tour-menu-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  transform: translateY(-1px);
+}
+
+.tour-menu-badge {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tour-menu-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.45;
+}
+
+.tour-menu-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
@@ -5127,12 +5245,17 @@
   white-space: nowrap;
   cursor: pointer;
   position: relative;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster.mode-switch .mode-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.topbar-cluster.mode-switch .mode-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 /* Double indication: filled chip + underline. */
@@ -5150,6 +5273,8 @@
   height: 2px;
   border-radius: 1px;
   background: var(--color-accent);
+  transform-origin: left center;
+  animation: underline-in 0.2s var(--ease-out) backwards;
 }
 
 .topbar-cluster .cluster-btn.icon-only {
@@ -5700,6 +5825,12 @@ button.start-card:hover {
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
   color: var(--color-accent);
+  transition: transform var(--transition-base);
+}
+
+/* The icon eases forward as the card lifts — a small "signal coming online". */
+.tool-card:hover .tool-card-icon {
+  transform: scale(1.08);
 }
 
 .tool-card-text {
@@ -6883,12 +7014,36 @@ button.start-card:hover {
   min-height: 0;
 }
 
+/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称的
+   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻结
+   内容宽度——内容像推拉门一样被裁剪，而不是被挤压回绕；pointer-events
+   吞掉指针，防止动画中途误点内部控件。 */
+.panel-wrap-closing {
+  overflow: hidden;
+  pointer-events: none;
+  animation: panel-collapse 0.2s var(--ease-out) forwards;
+}
+
+@keyframes panel-collapse {
+  to {
+    width: 0;
+    opacity: 0;
+  }
+}
+
 .panel-wrap > .sidebar,
 .panel-wrap > .right-panel {
   flex: 1;
   width: auto;
   min-width: 0;
   position: static;
+}
+
+/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度。 */
+.panel-wrap-closing > .sidebar,
+.panel-wrap-closing > .right-panel {
+  flex: 0 0 auto;
+  width: var(--panel-closing-width, var(--sidebar-width));
 }
 
 /* ---- 栏目边缘收起/展开小按钮 ---- */
@@ -6960,6 +7115,16 @@ button.start-card:hover {
   border-radius: 0 8px 8px 0;
 }
 
+/* 收起态：左栏展开按钮与右侧对称地改为浮层，不占 flex 槽位，中央画布
+   即可贴住活动栏填满整行宽（按钮靠 z-index 浮在画布之上）。锚在活动栏
+   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下。 */
+.panel-edge-left.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: var(--activitybar-width);
+}
+
 .panel-edge-right {
   border-right: none;
   border-radius: 8px 0 0 8px;
@@ -6997,13 +7162,18 @@ button.start-card:hover {
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .statusbar-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
   box-shadow: 0 0 8px var(--glow-hover);
+}
+
+.statusbar-btn:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .statusbar-btn.is-warn {
@@ -7264,7 +7434,7 @@ button.start-card:hover {
 /* ---- 活动栏（标准模式，侧栏最左侧） ---- */
 
 .activity-bar {
-  width: 42px;
+  width: var(--activitybar-width);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -7306,12 +7476,17 @@ button.start-card:hover {
   cursor: pointer;
   transition:
     color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .activity-item:hover {
   color: var(--color-text-primary);
   background: var(--color-accent-soft);
+}
+
+.activity-item:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .activity-item.is-active {
@@ -7947,6 +8122,14 @@ button.start-card:hover {
 .central-md-preview code {
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+/* Embedded images scale to the pane instead of overflowing at native size. */
+.central-md-preview img,
+.nb-md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
 }
 
 /* ---- Markdown v2 shared styles (marked renderer): tables, task lists,

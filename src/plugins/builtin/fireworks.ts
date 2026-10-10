@@ -11,7 +11,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { fireworksManifest } from './fireworksManifest';
 import { fireworksManifest } from './fireworksManifest';
@@ -51,7 +51,7 @@ const MAX_PARTICLES = 6_000;
 
 export class FireworksPlugin implements Plugin {
   readonly manifest = fireworksManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private particles: Particle[] = [];
   private raf: number | null = null;
@@ -59,9 +59,7 @@ export class FireworksPlugin implements Plugin {
   private autoTimer = 0;
   private state: State = { auto: true, colors: 'candy', gravity: 0.05 };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.stopLoop();
@@ -84,10 +82,7 @@ export class FireworksPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'fireworks');
-      return;
-    }
+
     // Clear every live particle and wipe the canvas immediately.
     if (buttonPressed(params, 'clear')) {
       this.clear();
@@ -149,7 +144,6 @@ export class FireworksPlugin implements Plugin {
         action: 'fire',
       },
       actionButton('clear', 'Clear', '清屏', 'danger'),
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

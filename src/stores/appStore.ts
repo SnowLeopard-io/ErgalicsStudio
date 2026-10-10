@@ -228,6 +228,11 @@ interface AppStore {
   /** Show the plugin canvas: clears the active tab without closing any tab —
    *  open file/suite tabs stay in the strip and can be switched back to. */
   showPluginCanvas: () => void;
+  /** Brand-click "home": reset the central area to the boot state — every
+   *  open tab closes (file blob URLs revoked, editor buffers dropped) and
+   *  the plugin canvas deactivates (not remembered for restore), so the
+   *  empty-canvas welcome screen shows again. */
+  resetToWelcome: () => void;
   /** Last plugin id auto-deactivated when a canvas tab covered the canvas —
    *  used by `showPluginCanvas` to restore it. */
   lastActivePluginId: string | null;
@@ -582,6 +587,33 @@ export const useAppStore = create<AppStore>((set, get) => {
         return ps.activate(id);
       })
       .catch((err) => logger.error('appStore', 'plugin reactivate failed', err));
+  },
+
+  /** Brand-click home: close every open tab (revoking file blob URLs and
+   *  dropping editor buffers) and deactivate the plugin without remembering
+   *  it — the central area returns to the empty-canvas welcome state. */
+  resetToWelcome: () => {
+    set((s) => {
+      const filePreviews = { ...s.filePreviews };
+      for (const key of Object.keys(filePreviews)) {
+        const blobUrl = filePreviews[key]?.blobUrl;
+        if (blobUrl) {
+          try {
+            URL.revokeObjectURL(blobUrl);
+          } catch {
+            /* already revoked */
+          }
+        }
+      }
+      return { canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} };
+    });
+    void import('./pluginStore')
+      .then((m) => {
+        const ps = m.usePluginStore.getState();
+        if (ps.activeId) void ps.deactivate();
+        useAppStore.setState({ lastActivePluginId: null });
+      })
+      .catch((err) => logger.error('appStore', 'plugin deactivate failed', err));
   },
 
   /** Close one tab (file preview, editor or embedded suite); the nearest

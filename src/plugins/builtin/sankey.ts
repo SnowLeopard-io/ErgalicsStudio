@@ -11,7 +11,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { sankeyManifest } from './sankeyManifest';
 import { sankeyManifest } from './sankeyManifest';
@@ -72,23 +71,11 @@ export class SankeyPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'sankey-diagram');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (typeof params.nodeWidth === 'number') this.state.nodeWidth = params.nodeWidth;
     if (typeof params.gap === 'number') this.state.gap = params.gap;
     this.layout();
     this.draw();
-  }
-
-  private exportCsv() {
-    exportRowsCsv(
-      this.api,
-      'sankey-diagram',
-      ['source', 'target', 'value'],
-      this.flows.map((f) => [f.source, f.target, f.value]),
-    );
   }
 
   getParams(): ParamDefinition[] {
@@ -113,8 +100,6 @@ export class SankeyPlugin implements Plugin {
         step: 1,
         value: this.state.gap,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -301,15 +286,6 @@ export class SankeyPlugin implements Plugin {
         : 'No flow data — drop a .csv (source,target,value)';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse edge-list CSV or JSON for Sankey. */

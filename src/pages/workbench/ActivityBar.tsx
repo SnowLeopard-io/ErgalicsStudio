@@ -40,6 +40,7 @@ export function ActivityBar() {
               key={view}
               type="button"
               className={`activity-item${active ? ' is-active' : ''}`}
+              data-activity={view}
               aria-label={label}
               aria-pressed={active}
               title={label}

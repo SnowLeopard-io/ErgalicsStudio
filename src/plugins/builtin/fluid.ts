@@ -25,7 +25,11 @@ import type {
 } from '@/types/plugin';
 import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import {
   FLUID_DIRECTIONS,
   FLUID_FIELD_USAGE,
@@ -231,10 +235,7 @@ export class FluidPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'fluid');
-      return;
-    }
+
     if (fired('exportCsv')) {
       this.exportCsv();
       return;
@@ -361,7 +362,6 @@ export class FluidPlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Field CSV', '导出流场 CSV'),
     ];
   }

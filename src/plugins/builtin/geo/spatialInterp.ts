@@ -20,7 +20,11 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { marchingSquares, haversineKm } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
@@ -799,10 +803,7 @@ export class SpatialInterpPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-interp');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -890,7 +891,6 @@ export class SpatialInterpPlugin implements Plugin {
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('exportLoocvCsv', 'Export LOOCV CSV', '导出 LOOCV CSV'),
       actionButton('runBenchmark', 'Run synthetic-field benchmark', '运行合成随机场基准'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

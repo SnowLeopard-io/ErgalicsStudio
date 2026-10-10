@@ -84,7 +84,7 @@ export function ToolGrid() {
 
       {q
         ? (
-          <div className="tool-grid">
+          <div className="tool-grid stagger">
             {filtered.map((toolDef) => (
               <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
             ))}
@@ -95,7 +95,7 @@ export function ToolGrid() {
             {recentTools.length > 0 && (
               <div className="tool-grid-group">
                 <h3 className="tool-grid-label">{t('launcher.recent_group')}</h3>
-                <div className="tool-grid">
+                <div className="tool-grid stagger">
                   {recentTools.map((toolDef) => (
                     <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
                   ))}
@@ -108,7 +108,7 @@ export function ToolGrid() {
               return (
                 <div key={group} className="tool-grid-group">
                   <h3 className="tool-grid-label">{t(`tool.group.${group}`)}</h3>
-                  <div className="tool-grid">
+                  <div className="tool-grid stagger">
                     {groupTools.map((toolDef) => (
                       <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
                     ))}

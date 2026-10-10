@@ -12,7 +12,11 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { haversineKm, sphericalAreaKm2 } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited, stripHeaderIfNonNumeric } from '@/core/plugin-tools/table';
@@ -256,10 +260,7 @@ export class GeoMeasurePlugin implements Plugin {
       this.draw();
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-measure');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -315,7 +316,6 @@ export class GeoMeasurePlugin implements Plugin {
         value: this.state.showSde,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

@@ -24,7 +24,11 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { marchingSquares } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
@@ -780,11 +784,7 @@ export class TerrainPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      if (this.state.mode === '3d') exportSnapshotPng(this.api, this.three?.snapshot(), 'geo-terrain-3d');
-      else exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-terrain');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -847,7 +847,6 @@ export class TerrainPlugin implements Plugin {
         value: this.state.showContours,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

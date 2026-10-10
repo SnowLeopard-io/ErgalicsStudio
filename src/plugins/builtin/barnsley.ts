@@ -11,7 +11,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { barnsleyManifest } from './barnsleyManifest';
 import { barnsleyManifest } from './barnsleyManifest';
@@ -57,13 +57,11 @@ function mulberry32(seed: number) {
 
 export class BarnsleyPlugin implements Plugin {
   readonly manifest = barnsleyManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private state: State = { ...DEFAULT_STATE };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.ctx = null;
@@ -82,10 +80,7 @@ export class BarnsleyPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'barnsley');
-      return;
-    }
+
     // Reset: clear the canvas and restore the default parameters / initial
     // point (the IFS transforms themselves are fixed constants).
     if (buttonPressed(params, 'reset')) {
@@ -138,7 +133,6 @@ export class BarnsleyPlugin implements Plugin {
         action: 'regenerate',
       },
       actionButton('reset', 'Reset', '重置'),
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

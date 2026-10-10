@@ -313,6 +313,51 @@
   transition: box-shadow var(--transition-fast);
 }
 
+/* ---- list cascade (stagger) ----
+   Mark a container `.stagger` and its direct children get a short fade-up
+   entrance, each offset a few ms so lists settle like a console powering on.
+   Delays are capped so long lists never feel slow; children that already
+   carry an entrance (e.g. .plugin-card) are overridden by the later rule
+   above, keeping one consistent entrance across lists. */
+
+.stagger > * {
+  animation: fade-up 0.36s var(--ease-spring) backwards;
+}
+
+.stagger > :nth-child(1) { animation-delay: 0.02s; }
+.stagger > :nth-child(2) { animation-delay: 0.05s; }
+.stagger > :nth-child(3) { animation-delay: 0.08s; }
+.stagger > :nth-child(4) { animation-delay: 0.11s; }
+.stagger > :nth-child(5) { animation-delay: 0.14s; }
+.stagger > :nth-child(6) { animation-delay: 0.17s; }
+.stagger > :nth-child(7) { animation-delay: 0.2s; }
+.stagger > :nth-child(8) { animation-delay: 0.23s; }
+.stagger > :nth-child(9) { animation-delay: 0.26s; }
+.stagger > :nth-child(n + 10) { animation-delay: 0.29s; }
+
+/* Dropdown menus: each row lands a beat after the shell (menu-in runs
+   120ms; the last row settles by ~300ms, inside Dropdown's 360ms re-fit). */
+.menu > .menu-item:nth-child(1) { animation-delay: 0.02s; }
+.menu > .menu-item:nth-child(2) { animation-delay: 0.045s; }
+.menu > .menu-item:nth-child(3) { animation-delay: 0.07s; }
+.menu > .menu-item:nth-child(4) { animation-delay: 0.095s; }
+.menu > .menu-item:nth-child(5) { animation-delay: 0.12s; }
+.menu > .menu-item:nth-child(6) { animation-delay: 0.14s; }
+.menu > .menu-item:nth-child(n + 7) { animation-delay: 0.14s; }
+
+/* ---- mode-switch underline ----
+   The active mode button's underline grows from its leading edge instead of
+   popping in, so switching flow/block/code reads as a slide, not a flash. */
+
+@keyframes underline-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /* ---- reduced motion: neutralise everything ---- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -326,6 +371,7 @@
   .card,
   .plugin-card,
   .menu-item,
+  .stagger > *,
   .sidebar,
   .right-panel,
   .status-dot,

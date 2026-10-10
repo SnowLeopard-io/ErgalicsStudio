@@ -94,16 +94,12 @@ export default function WelcomePage() {
         next.delete('theme');
         return next;
       }, { replace: true });
-      void Promise.all([
-        import('@/core/theme-pack/registry'),
-        import('@/core/theme-pack/market'),
-      ]).then(([{ findThemeById, installTheme, applyAndRemember }, { findMarketEntry }]) => {
-        // Website cards carry market-catalog ids ('journal-serif', …) that
-        // never match the registry until explicitly installed — resolve via
-        // the market catalog first so a fresh browser still gets the theme
-        // applied, and report unknown ids instead of failing silently (EG4-80).
-        const entry = findMarketEntry(themeId);
-        const theme = entry ? installTheme(entry.theme) : findThemeById(themeId);
+      void import('@/core/theme-pack/registry').then(({ findThemeById, applyAndRemember }) => {
+        // Website cards carry market-catalog ids ('journal-serif', …). Market
+        // themes ship embedded in the app, so findThemeById resolves them
+        // directly — no install round-trip — and unknown ids are reported
+        // instead of failing silently (EG4-80).
+        const theme = findThemeById(themeId);
         if (theme) {
           applyAndRemember(theme);
           notify('success', t('theme.applied_deep_link', { name: theme.name }));

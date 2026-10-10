@@ -17,7 +17,10 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  notify,
+} from '@/core/plugin-tools/enhance';
 
 export { electromagManifest } from './electromagManifest';
 import { electromagManifest } from './electromagManifest';
@@ -288,11 +291,7 @@ export class ElectromagPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      // Snapshot only — never starts or stops the simulation.
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'electromag');
-      return;
-    }
+
     if (fired('resetCharges')) {
       // Distinct from the danger "clear": restore the loaded / arranged
       // initial charge layout instead of emptying the bench.
@@ -413,7 +412,6 @@ export class ElectromagPlugin implements Plugin {
         action: 'clear',
       },
       actionButton('resetCharges', 'Reset Charges', '重置电荷'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

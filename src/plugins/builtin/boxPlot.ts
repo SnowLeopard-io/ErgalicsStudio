@@ -11,7 +11,11 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { kruskalWallis, bi, fmtP } from './chartStats';
 
@@ -72,7 +76,7 @@ export class BoxPlotPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showOutliers === 'boolean') this.state.showOutliers = params.showOutliers;
     if (typeof params.showMean === 'boolean') this.state.showMean = params.showMean;
-    if (actionFired(params, 'exportPng')) this.exportPng();
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
@@ -93,7 +97,6 @@ export class BoxPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showMean,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
@@ -341,14 +344,6 @@ export class BoxPlotPlugin implements Plugin {
         ? '未加载箱线图数据 — 拖入 .csv 文件'
         : 'No box data — drop a .csv file';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
-  }
-
-  private exportPng() {
-    if (!this.state.hasData || this.boxes.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'box-plot');
   }
 
   private exportCsv() {

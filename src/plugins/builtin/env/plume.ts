@@ -19,7 +19,11 @@ import {
   type StabilityClass,
 } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
-import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
@@ -238,7 +242,6 @@ export class PlumePlugin implements Plugin {
         type: 'button',
         action: 'reset',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
@@ -266,10 +269,7 @@ export class PlumePlugin implements Plugin {
       void this.loadData(params.receptors);
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-plume');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;

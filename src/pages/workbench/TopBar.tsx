@@ -33,6 +33,7 @@ export function TopBar() {
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const importFolder = useProjectStore((s) => s.importFolder);
   const notify = useAppStore((s) => s.notify);
+  const resetToWelcome = useAppStore((s) => s.resetToWelcome);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
@@ -102,7 +103,17 @@ export function TopBar() {
         </button>
       )}
 
-      <a className="brand" href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
+      {/* Brand = home: back to the boot state — empty canvas with the
+          welcome screen (plugin deactivated, all canvas tabs closed). */}
+      <a
+        className="brand"
+        href="#/workbench"
+        onClick={(e) => {
+          e.preventDefault();
+          resetToWelcome();
+          navigate('/workbench');
+        }}
+      >
         <span className="brand-name">Ergalics Studio</span>
       </a>
 

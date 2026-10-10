@@ -240,6 +240,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                   key={cat.id}
                   type="button"
                   className={`example-cat${activeCat === cat.id ? ' is-active' : ''}`}
+                  data-example-cat={cat.id}
                   onClick={() => setActiveCat(cat.id)}
                 >
                   <span className="example-cat-name">
@@ -249,7 +250,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                 </button>
               ))}
             </div>
-            <div className="plugin-list-pane example-list-pane">
+            <div className="plugin-list-pane example-list-pane stagger">
               {(catMap[activeCat] ?? []).map(renderExampleCard)}
               {(catMap[activeCat] ?? []).length === 0 && (
                 <div className="empty-hint">{t('workbench.plugin.none')}</div>
@@ -257,7 +258,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
             </div>
           </div>
         ) : tab === 'pipeline' ? (
-          <div className="plugin-list-pane">
+          <div className="plugin-list-pane stagger">
             {SAMPLE_PIPELINES.map((sample) => (
               <div key={sample.id} className="plugin-card">
                 <div className="plugin-card-main">

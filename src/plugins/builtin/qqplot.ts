@@ -12,7 +12,11 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 export { qqplotManifest } from './qqplotManifest';
 import { qqplotManifest } from './qqplotManifest';
@@ -55,7 +59,7 @@ export class QQPlotPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     if (typeof params.showRef === 'boolean') this.state.showRef = params.showRef;
-    if (actionFired(params, 'exportPng')) this.exportPng();
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
   }
@@ -69,7 +73,6 @@ export class QQPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showRef,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
@@ -225,14 +228,6 @@ export class QQPlotPlugin implements Plugin {
         ? '未加载 QQ 图数据 — 拖入单列数值文件'
         : 'No QQ data — drop a single-column numeric file';
     g.fillText(msg, w / 2, h / 2);
-  }
-
-  private exportPng() {
-    if (!this.state.hasData || this.quantiles.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'qq-plot');
   }
 
   private exportCsv() {

@@ -18,7 +18,10 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+} from '@/core/plugin-tools/enhance';
 import { REACTIONS, findReaction, type ReactionDef } from './catalog';
 import { pushAllFigures } from './figures';
 import {
@@ -260,8 +263,6 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('run', 'Run', '运行', 'primary'),
       actionButton('fitView', 'Fit view', '复位视角'),
       actionButton('reset', 'Reset', '复位'),
-      actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     );
@@ -349,8 +350,7 @@ export class ChemReactionPlugin implements Plugin {
       return;
     }
     if (actionFired(params, 'fitView')) this.fitView();
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportObjPng')) this.exportObjPng();
+
     if (actionFired(params, 'reset')) this.resetScene();
     if (actionFired(params, 'reloadPlugin')) this.reloadPlugin();
     if (actionFired(params, 'sendToFigure')) this.sendToFigure();
@@ -586,16 +586,6 @@ export class ChemReactionPlugin implements Plugin {
       /* ignore */
     }
     this.three.render();
-  }
-
-  private exportPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-reaction');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
-  }
-
-  private exportObjPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot({ transparent: true }), 'chem-reaction');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
   }
 
   /** Push analysis figures (ΔG(T), Arrhenius, van't Hoff, α–pH, Ksp, atom map)

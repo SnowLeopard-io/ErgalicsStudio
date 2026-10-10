@@ -1,22 +1,22 @@
 // Regression + feature tests for the simulation-viewer builtins' export /
 // reset enhancements:
-//   - every targeted plugin exposes one-click Snapshot PNG (2-D canvas or
-//     Three.js snapshot) and/or data CSV buttons with zh/en labels;
-//   - export buttons fire in BOTH emission shapes (host action object
+//   - targeted plugins expose one-click data CSV buttons with zh/en labels;
+//   - CSV export fires in BOTH emission shapes (host action object
 //     `{ key: { action: key } }` and the plain test/worker call `{ key: true }`)
-//     and never touch the plugin's running state;
-//   - CSV/PNG export is refused (with a notification) before data exists;
+//     and never touches the plugin's running state;
+//   - CSV export is refused (with a notification) before data exists;
 //   - electromag / optics offer reset buttons restoring the loaded scene.
 //
-// ai-training cannot run tf.js in node, so its history is injected directly
-// and imageViewer never loads (node has no image decode): only the button and
-// the export plumbing are exercised there.
+// Plugin-level PNG snapshot export was removed from every plugin: the
+// canvas-level unified export menu handles PNG now, so no plugin declares
+// an exportPng button.
+//
+// ai-training cannot run tf.js in node, so its history is injected directly.
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { NBodyPlugin } from '@/plugins/builtin/nbody';
 import { FluidPlugin } from '@/plugins/builtin/fluid';
 import { WavePlugin } from '@/plugins/builtin/wave';
 import { DoublePendulumPlugin } from '@/plugins/builtin/doublePendulum';
-import { GeoMapPlugin } from '@/plugins/builtin/geo/geoMap';
 import { AITrainingPlugin } from '@/plugins/builtin/ai-training/plugin';
 import { ElectromagPlugin } from '@/plugins/builtin/electromag';
 import { OpticsPlugin } from '@/plugins/builtin/optics';
@@ -25,7 +25,6 @@ import { PointCloudPlugin } from '@/plugins/builtin/pointCloud';
 import { PointCloud3DPlugin } from '@/plugins/builtin/pointCloud3D';
 import { ParticlePlugin } from '@/plugins/builtin/particles';
 import { ProteinPlugin } from '@/plugins/builtin/protein';
-import { ImageViewerPlugin } from '@/plugins/builtin/imageViewer';
 import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -35,8 +34,6 @@ beforeAll(() => {
   (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = () => 1;
   (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => undefined;
 });
-
-const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
 
 // ---- harness ---------------------------------------------------------------
 
@@ -98,27 +95,6 @@ function assertActionButton(plugin: Plugin, key: string): void {
   expect(def!.labelI18n?.['zh-CN']).toBeTruthy();
 }
 
-function fakeCanvas(): HTMLCanvasElement {
-  return {
-    clientWidth: 400,
-    clientHeight: 300,
-    width: 0,
-    height: 0,
-    getContext: () => null,
-    toDataURL: vi.fn(() => PNG_DATA_URL),
-  } as unknown as HTMLCanvasElement;
-}
-
-function inject2d(plugin: Plugin): HTMLCanvasElement {
-  const canvas = fakeCanvas();
-  (plugin as unknown as { ctx: unknown }).ctx = { canvas2d: canvas };
-  return canvas;
-}
-
-function injectThree(plugin: Plugin) {
-  (plugin as unknown as { three: unknown }).three = { snapshot: () => PNG_DATA_URL };
-}
-
 async function expectCsvExported(spy: MockFn): Promise<string> {
   expect(spy).toHaveBeenCalledTimes(1);
   const [name, blob, mime] = spy.mock.calls[0] as [string, Blob, string];
@@ -126,14 +102,6 @@ async function expectCsvExported(spy: MockFn): Promise<string> {
   expect(blob).toBeInstanceOf(Blob);
   expect(mime).toContain('csv');
   return blob.text();
-}
-
-function expectPngExported(spy: MockFn): void {
-  expect(spy).toHaveBeenCalledTimes(1);
-  const [name, blob, mime] = spy.mock.calls[0] as [string, Blob, string];
-  expect(name).toMatch(/\.png$/);
-  expect(blob).toBeInstanceOf(Blob);
-  expect(mime).toContain('png');
 }
 
 // ---- sample files ----------------------------------------------------------
@@ -253,27 +221,6 @@ function opticsFile(): File {
   );
 }
 
-function geoFile(): File {
-  return new File(
-    [
-      JSON.stringify({
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { value: 42 },
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
-            },
-          },
-        ],
-      }),
-    ],
-    'map.geojson',
-  );
-}
-
 function aiCsvFile(): File {
   return new File(['a,b,y\n1,2,0\n2,3,1\n3,4,0\n4,5,1\n5,6,1\n'], 'linear.csv');
 }
@@ -281,9 +228,9 @@ function aiCsvFile(): File {
 // ---- n-body ---------------------------------------------------------------
 
 describe('nbody export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(NBodyPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -306,22 +253,13 @@ describe('nbody export buttons', () => {
     expect(h.exportFile).toHaveBeenCalledTimes(1);
   });
 
-  it('snapshots the Three.js view as PNG', async () => {
-    const h = await fresh(NBodyPlugin);
-    injectThree(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
-
   it('does not stop a running simulation on export', async () => {
     const h = await fresh(NBodyPlugin);
     await h.plugin.loadData(nbodyFile());
     const state = h.plugin as unknown as { state: { running: boolean } };
     h.plugin.updateParams({ start: true });
     expect(state.state.running).toBe(true);
-    injectThree(h.plugin);
     h.plugin.updateParams({ exportCsv: true });
-    h.plugin.updateParams({ exportPng: true });
     expect(state.state.running).toBe(true);
     h.plugin.updateParams({ start: false });
     expect(state.state.running).toBe(false);
@@ -331,9 +269,9 @@ describe('nbody export buttons', () => {
 // ---- fluid ----------------------------------------------------------------
 
 describe('fluid export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(FluidPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -353,22 +291,13 @@ describe('fluid export buttons', () => {
     expect(text.split(/\r?\n/).length).toBeGreaterThan(2);
   });
 
-  it('snapshots the canvas in the host action-object emission shape', async () => {
-    const h = await fresh(FluidPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: { action: 'exportPng' } });
-    expectPngExported(h.exportFile);
-  });
-
   it('does not stop a running simulation on export', async () => {
     const h = await fresh(FluidPlugin);
     await h.plugin.loadData(fluidFile());
     const state = h.plugin as unknown as { state: { running: boolean } };
     h.plugin.updateParams({ start: true });
     expect(state.state.running).toBe(true);
-    inject2d(h.plugin);
     h.plugin.updateParams({ exportCsv: true });
-    h.plugin.updateParams({ exportPng: true });
     expect(state.state.running).toBe(true);
     h.plugin.updateParams({ start: false });
   });
@@ -377,9 +306,9 @@ describe('fluid export buttons', () => {
 // ---- wave -----------------------------------------------------------------
 
 describe('wave export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(WavePlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -394,21 +323,14 @@ describe('wave export buttons', () => {
     const text = await expectCsvExported(h.exportFile);
     expect(text).toContain('x,y,u');
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(WavePlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- double pendulum ------------------------------------------------------
 
 describe('double pendulum export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(DoublePendulumPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -425,39 +347,11 @@ describe('double pendulum export buttons', () => {
     // Header + the single seeded trace row [0, th1, th2].
     expect(text.split(/\r?\n/)).toHaveLength(2);
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(DoublePendulumPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- geo map --------------------------------------------------------------
-
-describe('geomap export button', () => {
-  it('exposes only the localized snapshot button', async () => {
-    const h = await fresh(GeoMapPlugin);
-    assertActionButton(h.plugin, 'exportPng');
-    expect(buttonDefs(h.plugin).some((d) => d.key === 'exportCsv')).toBe(false);
-  });
-
-  it('warns instead of exporting an empty canvas', async () => {
-    const h = await fresh(GeoMapPlugin);
-    h.plugin.updateParams({ exportPng: true });
-    expect(h.exportFile).not.toHaveBeenCalled();
-    expect(h.notify).toHaveBeenCalledWith('warning', expect.any(String));
-  });
-
-  it('snapshots the canvas after loading GeoJSON', async () => {
-    const h = await fresh(GeoMapPlugin);
-    await h.plugin.loadData(geoFile());
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
-});
+// geoMap no longer declares any export button: PNG moved to the canvas-level
+// unified export menu and it never had a CSV export.
 
 // ---- ai training ----------------------------------------------------------
 
@@ -499,11 +393,11 @@ describe('ai-training metrics export button', () => {
 // ---- electromag -----------------------------------------------------------
 
 describe('electromag reset + export buttons', () => {
-  it('exposes localized reset-charges and snapshot buttons', async () => {
+  it('exposes the localized reset-charges button (no CSV, no plugin-level PNG)', async () => {
     const h = await fresh(ElectromagPlugin);
     assertActionButton(h.plugin, 'resetCharges');
-    assertActionButton(h.plugin, 'exportPng');
     expect(buttonDefs(h.plugin).some((d) => d.key === 'exportCsv')).toBe(false);
+    expect(buttonDefs(h.plugin).some((d) => d.key === 'exportPng')).toBe(false);
   });
 
   it('warns when reset is pressed with no loaded scene', async () => {
@@ -521,22 +415,15 @@ describe('electromag reset + export buttons', () => {
     h.plugin.updateParams({ resetCharges: { action: 'resetCharges' } });
     expect(internal.charges.map((c) => ({ x: c.x, y: c.y }))).toEqual(original);
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(ElectromagPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- optics ---------------------------------------------------------------
 
 describe('optics reset + export buttons', () => {
-  it('exposes localized reset-elements and snapshot buttons', async () => {
+  it('exposes the localized reset-elements button (no plugin-level PNG export)', async () => {
     const h = await fresh(OpticsPlugin);
     assertActionButton(h.plugin, 'resetElements');
-    assertActionButton(h.plugin, 'exportPng');
+    expect(buttonDefs(h.plugin).some((d) => d.key === 'exportPng')).toBe(false);
   });
 
   it('warns when reset is pressed with no loaded layout', async () => {
@@ -569,21 +456,14 @@ describe('optics reset + export buttons', () => {
     expect(internal.state.focal).toBe(snapshot.focal);
     expect(internal.state.lensType).toBe(snapshot.lensType);
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(OpticsPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- structure ------------------------------------------------------------
 
 describe('structure export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(StructurePlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -602,21 +482,14 @@ describe('structure export buttons', () => {
     expect(text).toContain('1,0,1,');
     expect(text).toContain('2,1,2,');
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(StructurePlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- point cloud 2-D ------------------------------------------------------
 
 describe('point cloud 2-D export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(PointCloudPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -634,21 +507,14 @@ describe('point cloud 2-D export buttons', () => {
     expect(text).toContain('1,1');
     expect(text.split(/\r?\n/)).toHaveLength(4);
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(PointCloudPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- point cloud 3-D ------------------------------------------------------
 
 describe('point cloud 3-D export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(PointCloud3DPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -665,21 +531,14 @@ describe('point cloud 3-D export buttons', () => {
     expect(text).toContain('0,0,1');
     expect(text).toContain('2,2,3');
   });
-
-  it('snapshots the Three.js view in the host action-object shape', async () => {
-    const h = await fresh(PointCloud3DPlugin);
-    injectThree(h.plugin);
-    h.plugin.updateParams({ exportPng: { action: 'exportPng' } });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- particles ------------------------------------------------------------
 
 describe('particles export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(ParticlePlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -698,21 +557,14 @@ describe('particles export buttons', () => {
     expect(text).toContain('0,0,0.5,0.5');
     expect(text.split(/\r?\n/)).toHaveLength(4);
   });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(ParticlePlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
 });
 
 // ---- protein --------------------------------------------------------------
 
 describe('protein export buttons', () => {
-  it('exposes localized snapshot/CSV buttons', async () => {
+  it('exposes the localized CSV button (no plugin-level PNG export)', async () => {
     const { plugin } = await fresh(ProteinPlugin);
-    assertActionButton(plugin, 'exportPng');
+    expect(buttonDefs(plugin).some((d) => d.key === 'exportPng')).toBe(false);
     assertActionButton(plugin, 'exportCsv');
   });
 
@@ -737,37 +589,5 @@ describe('protein export buttons', () => {
     // p0 has degree 5 → the single degree-z hub; leaves are not hubs.
     expect(text).toContain('p0,p0,5,0,hub,');
     expect(text).toContain('\r\np1,p1,1,0,,');
-  });
-
-  it('snapshots the canvas as PNG', async () => {
-    const h = await fresh(ProteinPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: true });
-    expectPngExported(h.exportFile);
-  });
-});
-
-// ---- image viewer ---------------------------------------------------------
-
-describe('image viewer snapshot button', () => {
-  it('exposes the localized snapshot button (no reset for view options)', async () => {
-    const h = await fresh(ImageViewerPlugin);
-    assertActionButton(h.plugin, 'exportPng');
-    expect(buttonDefs(h.plugin).some((d) => d.key === 'exportCsv')).toBe(false);
-    expect(buttonDefs(h.plugin).some((d) => d.key === 'reset')).toBe(false);
-  });
-
-  it('warns instead of exporting before an image is shown', async () => {
-    const h = await fresh(ImageViewerPlugin);
-    h.plugin.updateParams({ exportPng: true });
-    expect(h.exportFile).not.toHaveBeenCalled();
-    expect(h.notify).toHaveBeenCalledWith('warning', expect.any(String));
-  });
-
-  it('snapshots the canvas and accepts the host action-object shape', async () => {
-    const h = await fresh(ImageViewerPlugin);
-    inject2d(h.plugin);
-    h.plugin.updateParams({ exportPng: { action: 'exportPng' } });
-    expectPngExported(h.exportFile);
   });
 });

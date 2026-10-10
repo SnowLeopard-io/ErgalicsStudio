@@ -1,13 +1,15 @@
 // ==========================================================================
 // Tests for the chart-plugin enhancements (chartsB set):
-//   - every plugin exposes Export PNG / Export CSV button params
-//   - CSV export mirrors the plugin's underlying parsed data
-//   - PNG export snapshots the host canvas
-//   - buttons no-op (with a warning) before any data is loaded
+//   - export architecture: plugin-level PNG snapshot export was REMOVED from
+//     every plugin — the canvas-level unified export menu (CentralArea) owns
+//     PNG now. Among chart plugins, CSV export survives only on the
+//     computed-stat violin plot; the passthrough charts (bar, bubble,
+//     network, parallel coordinates, polar, sankey, treemap) declare no
+//     export buttons at all.
 //   - bar chart gains a Sort select; violin gains Show Points jitter
 //
-// Node environment: no real canvas — a proxy 2-D context and a fake canvas
-// with toDataURL() stand in, exactly like pluginBugfixes.test.ts.
+// Node environment: no real canvas — a recording canvas whose 2-D context
+// logs every arc() call stands in, exactly like pluginBugfixes.test.ts.
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
@@ -28,8 +30,8 @@ import type {
 
 const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
 
-// The network plugin schedules rAF frames; node has none. Draw paths call
-// getComputedStyle(canvas), which node lacks as well.
+// Canvas-drawing plugins call getComputedStyle(canvas) on the drawn element,
+// which node lacks; some plugins also schedule rAF frames.
 beforeAll(() => {
   (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = () => 1;
   (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => undefined;
@@ -65,30 +67,7 @@ function fakeApi() {
   return { api, exportFile, notify };
 }
 
-/** Canvas 2-D context that absorbs every call/assignment (no real canvas). */
-function fakeContext(): CanvasRenderingContext2D {
-  const store: Record<string, unknown> = {};
-  return new Proxy(store, {
-    get: (t, prop) => (prop in t ? t[prop as string] : () => {}),
-    set: (t, prop, value) => {
-      t[prop as string] = value;
-      return true;
-    },
-  }) as unknown as CanvasRenderingContext2D;
-}
-
-function fakeCanvas(): HTMLCanvasElement {
-  return {
-    clientWidth: 400,
-    clientHeight: 300,
-    width: 0,
-    height: 0,
-    toDataURL: () => PNG_DATA_URL,
-    getContext: () => fakeContext(),
-  } as unknown as HTMLCanvasElement;
-}
-
-/** Like fakeCanvas, but every arc() call is recorded for point-draw checks. */
+/** Canvas whose 2-D context records every arc() call for point-draw checks. */
 function recordingCanvas() {
   const arcs: unknown[][] = [];
   const store: Record<string, unknown> = {
@@ -135,107 +114,52 @@ async function startWith(plugin: Plugin, api: PluginApi, file: File, canvas?: HT
   await plugin.loadData?.(file);
 }
 
-interface CaseDef {
+// ---- cases ------------------------------------------------------------------
+//
+// violin is a computed-stat plugin and keeps its exportCsv button; every
+// other chart here is a passthrough renderer with no plugin-level export
+// buttons — the CentralArea canvas menu owns exports for these.
+
+interface PassthroughCaseDef {
   id: string;
   make: () => Plugin;
-  sample: () => File;
 }
 
-const cases: CaseDef[] = [
-  {
-    id: 'violin',
-    make: () => new ViolinPlotPlugin(),
-    sample: () => new File(['A,1\nA,2\nA,3\nA,4\nB,10\nB,20\n'], 'violin.csv'),
-  },
-  {
-    id: 'parallel',
-    make: () => new ParallelCoordinatesPlugin(),
-    sample: () => new File(['a,b,c\n1,2,3\n4,5,6\n'], 'parallel.csv'),
-  },
-  {
-    id: 'sankey',
-    make: () => new SankeyPlugin(),
-    sample: () =>
-      new File(
-        [
-          JSON.stringify({
-            nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
-            links: [
-              { source: 'a', target: 'b', value: 3 },
-              { source: 'b', target: 'c', value: 5 },
-            ],
-          }),
-        ],
-        'sankey.json',
-      ),
-  },
-  {
-    id: 'treemap',
-    make: () => new TreemapPlugin(),
-    sample: () => new File(['alpha,10\nbeta,20\ngamma,30\n'], 'treemap.csv'),
-  },
-  {
-    id: 'network',
-    make: () => new NetworkGraphPlugin(),
-    sample: () =>
-      new File(
-        [
-          JSON.stringify({
-            nodes: [{ id: 'a' }, { id: 'b' }],
-            links: [{ source: 'a', target: 'b', weight: 2 }],
-          }),
-        ],
-        'network.json',
-      ),
-  },
-  {
-    id: 'bar',
-    make: () => new BarChartPlugin(),
-    sample: () => new File(['x,3\ny,1\nz,2\n'], 'bar.csv'),
-  },
-  {
-    id: 'bubble',
-    make: () => new BubbleChartPlugin(),
-    sample: () => new File(['1,2,3,0.5\n4,5,6,0.8\n'], 'bubble.csv'),
-  },
-  {
-    id: 'polar',
-    make: () => new PolarPlotPlugin(),
-    sample: () => new File(['name,d1,d2,d3\ns1,1,2,3\ns2,4,5,6\n'], 'polar.csv'),
-  },
+const PASSTHROUGH_CASES: PassthroughCaseDef[] = [
+  { id: 'bar', make: () => new BarChartPlugin() },
+  { id: 'bubble', make: () => new BubbleChartPlugin() },
+  { id: 'network', make: () => new NetworkGraphPlugin() },
+  { id: 'parallel', make: () => new ParallelCoordinatesPlugin() },
+  { id: 'polar', make: () => new PolarPlotPlugin() },
+  { id: 'sankey', make: () => new SankeyPlugin() },
+  { id: 'treemap', make: () => new TreemapPlugin() },
 ];
 
-// ---- a) both export buttons are declared ----------------------------------
+const BAR_SAMPLE = () => new File(['x,3\ny,1\nz,2\n'], 'bar.csv');
+const VIOLIN_SAMPLE = () => new File(['A,1\nA,2\nA,3\nA,4\nB,10\nB,20\n'], 'violin.csv');
 
-describe('chart plugins declare export buttons', () => {
-  for (const c of cases) {
-    it(`${c.id}: getParams contains exportPng + exportCsv with zh/en labels`, async () => {
-      const plugin = c.make();
-      await plugin.init(fakeApi().api);
-      const defs = await Promise.resolve(plugin.getParams());
-      for (const key of ['exportPng', 'exportCsv']) {
-        const def = buttonDef(defs, key);
-        expect(def.type).toBe('button');
-        if (def.type !== 'button') throw new Error(`${key} is not a button`);
-        expect(def.action).toBe(key);
-        expect(def.labelI18n?.['en-US']).toBeTruthy();
-        expect(def.labelI18n?.['zh-CN']).toBeTruthy();
-      }
-      // PNG first, CSV second is the declared convention.
-      expect(defs.map((d) => d.key).indexOf('exportPng')).toBeLessThan(
-        defs.map((d) => d.key).indexOf('exportCsv'),
-      );
-    });
-  }
-});
+// ---- a) the computed-stat plugin keeps a CSV export button ------------------
 
-// ---- b) CSV export after loadData -----------------------------------------
+describe('violin CSV export (computed-stat plugin)', () => {
+  it('declares exactly an exportCsv button and no PNG export', async () => {
+    const { api } = fakeApi();
+    const plugin = new ViolinPlotPlugin();
+    await plugin.init(api);
+    const defs = await Promise.resolve(plugin.getParams());
+    const csv = buttonDef(defs, 'exportCsv');
+    expect(csv.type).toBe('button');
+    if (csv.type !== 'button') throw new Error('exportCsv is not a button');
+    expect(csv.action).toBe('exportCsv');
+    expect(csv.labelI18n?.['en-US']).toBeTruthy();
+    expect(csv.labelI18n?.['zh-CN']).toBeTruthy();
+    // PNG snapshot export moved to the canvas-level menu in CentralArea.
+    expect(defs.filter((d) => d.key.startsWith('export')).map((d) => d.key)).toEqual(['exportCsv']);
+  });
 
-describe('chart plugins export CSV from loaded data', () => {
-  it('violin: name,min,q1,median,q3,max,n per group', async () => {
+  it('exports name,min,q1,median,q3,max,n per group after loadData', async () => {
     const { api, exportFile } = fakeApi();
     const plugin = new ViolinPlotPlugin();
-    await startWith(plugin, api, cases[0]!.sample!());
+    await startWith(plugin, api, VIOLIN_SAMPLE());
     plugin.updateParams!({ exportCsv: true });
     expect(exportFile).toHaveBeenCalledTimes(1);
     expect(exportFile.mock.calls[0]![0]).toMatch(/\.csv$/);
@@ -246,186 +170,39 @@ describe('chart plugins export CSV from loaded data', () => {
     expect(lines).toContain('B,10,10,20,20,20,2');
   });
 
-  it('parallel: one row per record, axis names as header', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new ParallelCoordinatesPlugin();
-    await startWith(plugin, api, cases[1]!.sample!());
+  it('refuses CSV export (no exportFile call) before data is loaded', async () => {
+    const { api, exportFile, notify } = fakeApi();
+    const plugin = new ViolinPlotPlugin();
+    await plugin.init(api);
     plugin.updateParams!({ exportCsv: true });
-    expect(exportFile.mock.calls[0]![0]).toMatch(/\.csv$/);
-    const text = await csvText(exportFile);
-    expect(text).toBe('a,b,c\r\n1,2,3\r\n4,5,6');
-  });
-
-  it('sankey: source,target,value from links', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new SankeyPlugin();
-    await startWith(plugin, api, cases[2]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('source,target,value');
-    expect(lines).toContain('a,b,3');
-    expect(lines).toContain('b,c,5');
-  });
-
-  it('treemap: name,parent,size traversal without the synthetic root', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new TreemapPlugin();
-    await startWith(plugin, api, cases[3]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('name,parent,size');
-    expect(lines).toContain('alpha,,10');
-    expect(lines).toContain('beta,,20');
-    expect(lines).toContain('gamma,,30');
-    expect(lines.some((l) => l.startsWith('root'))).toBe(false);
-  });
-
-  it('treemap: hierarchical rows carry the parent name', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new TreemapPlugin();
-    await startWith(plugin, api, new File(['child,parent,5\nparent,,10\n'], 'tree.csv'));
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines).toContain('parent,,10');
-    expect(lines).toContain('child,parent,5');
-    expect(lines.some((l) => l.startsWith('root'))).toBe(false);
-  });
-
-  it('network: weighted edges get a weight column', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new NetworkGraphPlugin();
-    await startWith(plugin, api, cases[4]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('source,target,weight');
-    expect(lines).toContain('a,b,2');
-  });
-
-  it('network: unweighted edges export only source,target', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new NetworkGraphPlugin();
-    await startWith(plugin, api, new File(['a,b\nb,c\n'], 'edges.csv'));
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('source,target');
-    expect(lines).toContain('a,b');
-    expect(lines.some((l) => l.split(',').length > 2)).toBe(false);
-  });
-
-  it('bar: category,value in import order, then sorted order', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new BarChartPlugin();
-    await startWith(plugin, api, cases[5]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    expect(await csvText(exportFile, 0)).toBe('category,value\r\nx,3\r\ny,1\r\nz,2');
-
-    plugin.updateParams!({ order: 'asc' });
-    plugin.updateParams!({ exportCsv: true });
-    expect(await csvText(exportFile, 1)).toBe('category,value\r\ny,1\r\nz,2\r\nx,3');
-
-    plugin.updateParams!({ order: 'desc' });
-    plugin.updateParams!({ exportCsv: true });
-    expect(await csvText(exportFile, 2)).toBe('category,value\r\nx,3\r\nz,2\r\ny,1');
-  });
-
-  it('bubble: x,y,size plus a numeric color column', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new BubbleChartPlugin();
-    await startWith(plugin, api, cases[6]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('x,y,size,color');
-    expect(lines).toContain('1,2,3,0.5');
-    expect(lines).toContain('4,5,6,0.8');
-  });
-
-  it('bubble: a non-numeric 4th column is exported as group', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new BubbleChartPlugin();
-    await startWith(plugin, api, new File(['1,2,3,red\n4,5,6,blue\n'], 'groups.csv'));
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('x,y,size,group');
-    expect(lines).toContain('1,2,3,red');
-    expect(lines).toContain('4,5,6,blue');
-  });
-
-  it('polar: flattened angle,radius pairs for every series vertex', async () => {
-    const { api, exportFile } = fakeApi();
-    const plugin = new PolarPlotPlugin();
-    await startWith(plugin, api, cases[7]!.sample!());
-    plugin.updateParams!({ exportCsv: true });
-    const text = await csvText(exportFile);
-    const lines = text.split('\r\n');
-    expect(lines[0]).toBe('angle,radius');
-    // 2 series x 3 axes = 6 pairs; the first axis starts at -PI/2.
-    expect(lines).toHaveLength(7);
-    expect(lines[1]).toBe(`${-Math.PI / 2},1`);
+    expect(exportFile).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith('warning', expect.any(String));
   });
 
   it('host-style button payload { exportCsv: { action } } also works', async () => {
     const { api, exportFile } = fakeApi();
-    const plugin = new BarChartPlugin();
-    await startWith(plugin, api, cases[5]!.sample!());
+    const plugin = new ViolinPlotPlugin();
+    await startWith(plugin, api, VIOLIN_SAMPLE());
     plugin.updateParams!({ exportCsv: { action: 'exportCsv' } });
     expect(exportFile).toHaveBeenCalledTimes(1);
     expect(exportFile.mock.calls[0]![0]).toMatch(/\.csv$/);
   });
 });
 
-// ---- PNG export after loadData --------------------------------------------
+// ---- b) passthrough charts declare no export buttons ------------------------
 
-describe('chart plugins export PNG from the live canvas', () => {
-  for (const c of cases) {
-    it(`${c.id}: snapshots canvas2d as <name>.png`, async () => {
-      const { api, exportFile } = fakeApi();
-      const plugin = c.make();
-      await startWith(plugin, api, c.sample(), fakeCanvas());
-      plugin.updateParams!({ exportPng: true });
-      expect(exportFile).toHaveBeenCalledTimes(1);
-      const [name, blob, mime] = exportFile.mock.calls[0]!;
-      expect(name).toMatch(/\.png$/);
-      expect(mime).toBe('image/png');
-      expect(blob).toBeInstanceOf(Blob);
-      await plugin.destroy?.();
-    });
-  }
-
-  it('refuses with a warning when there is no canvas yet', async () => {
-    for (const c of cases) {
-      const { api, exportFile, notify } = fakeApi();
-      const plugin = c.make();
-      await startWith(plugin, api, c.sample()); // no activate() -> no canvas
-      plugin.updateParams!({ exportPng: true });
-      expect(exportFile).not.toHaveBeenCalled();
-      expect(notify).toHaveBeenCalledWith('warning', expect.any(String));
-      await plugin.destroy?.();
-    }
+describe.each(PASSTHROUGH_CASES)('$id export buttons', (c) => {
+  it('declares no export buttons at all and ignores export payloads', async () => {
+    const { api, exportFile } = fakeApi();
+    const plugin = c.make();
+    await plugin.init(api);
+    const defs = await Promise.resolve(plugin.getParams());
+    expect(defs.filter((d) => d.key.startsWith('export'))).toEqual([]);
+    // A stray payload for a removed button must be a silent no-op.
+    expect(() => plugin.updateParams!({ exportCsv: true })).not.toThrow();
+    expect(() => plugin.updateParams!({ exportPng: true })).not.toThrow();
+    expect(exportFile).not.toHaveBeenCalled();
   });
-});
-
-// ---- no data: exports must not fire ---------------------------------------
-
-describe('chart plugins do not export before data is loaded', () => {
-  for (const c of cases) {
-    it(`${c.id}: exportCsv/exportPng produce no file`, () => {
-      const { api, exportFile, notify } = fakeApi();
-      const plugin = c.make();
-      // init() alone — no loadData, no activate.
-      void plugin.init(api);
-      plugin.updateParams!({ exportCsv: true });
-      plugin.updateParams!({ exportPng: true });
-      expect(exportFile).not.toHaveBeenCalled();
-      expect(notify).toHaveBeenCalled();
-    });
-  }
 });
 
 // ---- bar chart Sort select -------------------------------------------------
@@ -434,7 +211,7 @@ describe('bar chart sort select', () => {
   it('defaults to none and updates state + param value on change', async () => {
     const { api } = fakeApi();
     const plugin = new BarChartPlugin();
-    await startWith(plugin, api, cases[5]!.sample!());
+    await startWith(plugin, api, BAR_SAMPLE());
 
     const initial = buttonOrSelect(plugin.getParams(), 'order');
     expect(initial.type).toBe('select');
@@ -480,7 +257,7 @@ describe('violin show points', () => {
 
     const rec1 = recordingCanvas();
     const plugin = new ViolinPlotPlugin();
-    await startWith(plugin, api, cases[0]!.sample!(), rec1.canvas);
+    await startWith(plugin, api, VIOLIN_SAMPLE(), rec1.canvas);
 
     // Toggling on draws points (arc is only used by the point layer here).
     plugin.updateParams!({ showPoints: true });

@@ -56,6 +56,61 @@ function fmtSize(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+const IMG_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  avif: 'image/avif',
+};
+
+/** True when a markdown image src must not be touched (external / inline). */
+function isExternalImgSrc(src: string): boolean {
+  return /^(https?:|data:|blob:|mailto:)/i.test(src) || src.startsWith('#');
+}
+
+function imgExt(path: string): string {
+  const m = /\.(\w+)$/.exec(path);
+  return m ? (m[1]?.toLowerCase() ?? '') : '';
+}
+
+/** Join a base dir with a relative segment path, resolving `.` / `..`. */
+function joinRelPath(base: string, rel: string): string {
+  const parts = base ? base.split('/') : [];
+  for (const seg of rel.split('/')) {
+    if (seg === '..') parts.pop();
+    else if (seg !== '.' && seg !== '') parts.push(seg);
+  }
+  return parts.join('/');
+}
+
+/**
+ * Candidate project paths for a markdown image src: resolved against the md
+ * file's directory first, then the project root (the common case — artifacts
+ * saved into `figures/` at the repo root are referenced root-relatively).
+ */
+function mdImageCandidates(src: string, mdPath: string): string[] {
+  const raw = src.trim();
+  if (!raw || isExternalImgSrc(raw)) return [];
+  const dir = mdPath.includes('/') ? mdPath.slice(0, mdPath.lastIndexOf('/')) : '';
+  const rel = raw.startsWith('/') ? raw.slice(1) : raw.replace(/^\.\//, '');
+  const candidates: string[] = [];
+  const fromDir = raw.startsWith('/') ? '' : joinRelPath(dir, rel);
+  if (fromDir && fromDir !== rel) candidates.push(fromDir);
+  if (rel) candidates.push(rel);
+  // Browsers percent-encode hrefs; also try the decoded form for non-ASCII names.
+  try {
+    const decoded = decodeURIComponent(rel);
+    if (decoded !== rel && !candidates.includes(decoded)) candidates.push(decoded);
+  } catch {
+    /* malformed percent-encoding — literal form already covered */
+  }
+  return candidates;
+}
+
 const MD_VIEWS = ['edit', 'preview', 'split'] as const;
 type MdView = (typeof MD_VIEWS)[number];
 
@@ -90,6 +145,11 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // Markdown preview host — upgraded in place after each render (mermaid
   // diagrams, KaTeX math) via the async enhancer.
   const mdPreviewRef = useRef<HTMLDivElement>(null);
+  const mdEditRef = useRef<HTMLTextAreaElement>(null);
+  const mdImgInputRef = useRef<HTMLInputElement>(null);
+  // Blob URLs created for project-relative markdown images (resolved VFS path
+  // → URL). Cached so React re-renders don't re-read bytes; revoked on unmount.
+  const mdImgUrlsRef = useRef(new Map<string, string>());
 
   // Re-arm the draft + view whenever a different file is opened.
   useEffect(() => {
@@ -104,6 +164,66 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
     const el = mdPreviewRef.current;
     if (el) void enhanceMarkdownDom(el);
   }, [mdText, view]);
+
+  // Resolve project-relative markdown images to blob URLs read from the VFS:
+  // `<img src="figures/x.png">` would otherwise hit the app origin and 404.
+  // Runs after the enhancer effect, so DOMPurify-stripped-free relative srcs
+  // are rewritten in place; the cache keeps keystroke re-renders cheap.
+  useEffect(() => {
+    if ((view !== 'preview' && view !== 'split') || !project) return;
+    const host = mdPreviewRef.current;
+    if (!host) return;
+    const rootPath = getProjectRepoPath(project);
+    const cache = mdImgUrlsRef.current;
+    let cancelled = false;
+    const apply = async () => {
+      const imgs = Array.from(host.querySelectorAll('img[src]'));
+      for (const img of imgs) {
+        const raw = img.getAttribute('src') ?? '';
+        const candidates = mdImageCandidates(raw, preview.path);
+        if (!candidates.length) continue;
+        let url = '';
+        for (const path of candidates) {
+          const hit = cache.get(path);
+          if (hit) {
+            url = hit;
+            break;
+          }
+          try {
+            const bytes = await getVfs().readFileBinary(rootPath, path);
+            if (cancelled) return;
+            const blob = new Blob([bytes as BlobPart], {
+              type: IMG_MIME[imgExt(path)] ?? 'application/octet-stream',
+            });
+            url = URL.createObjectURL(blob);
+            cache.set(path, url);
+            break;
+          } catch {
+            /* try the next candidate path */
+          }
+        }
+        if (!cancelled && url && img.getAttribute('src') !== url) img.setAttribute('src', url);
+      }
+    };
+    void apply();
+    return () => {
+      cancelled = true;
+    };
+  }, [mdText, view, project, preview.path]);
+
+  // Revoke the markdown image blob URLs when the overlay unmounts.
+  useEffect(() => {
+    return () => {
+      for (const url of mdImgUrlsRef.current.values()) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          /* already revoked */
+        }
+      }
+      mdImgUrlsRef.current.clear();
+    };
+  }, []);
 
   // Revoke the binary blob URL when the overlay unmounts (the store also
   // revokes on close, so this guards the mode-switch / new-file path).
@@ -149,6 +269,37 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
     }
   };
 
+  /** Insert a picked image into the md draft: bytes go into the project
+   *  workspace `figures/` dir, the editor gets a root-relative `![](…)` at
+   *  the cursor. Switches to split view first so the result is visible. */
+  const insertImageFile = async (file: File) => {
+    if (!project) {
+      notify('warning', t('workbench.export.no_project'));
+      return;
+    }
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const path = await saveBinaryArtifact(project, 'figures', file.name, bytes);
+      if (view === 'preview') setView('split');
+      const snippet = `![](${path})`;
+      const ta = mdEditRef.current;
+      const start = ta && view !== 'preview' ? (ta.selectionStart ?? mdText.length) : mdText.length;
+      const end = ta && view !== 'preview' ? (ta.selectionEnd ?? start) : start;
+      const next = mdText.slice(0, start) + snippet + mdText.slice(end);
+      setMdText(next);
+      requestAnimationFrame(() => {
+        if (!ta) return;
+        ta.focus();
+        const pos = start + snippet.length;
+        ta.setSelectionRange(pos, pos);
+      });
+      notify('success', t('workbench.export.saved', { path }));
+    } catch (err) {
+      logger.error('workbench', 'md image insert failed', err);
+      notify('error', t('workbench.preview.image_failed'));
+    }
+  };
+
   let body: JSX.Element;
   switch (preview.kind) {
     case 'text':
@@ -177,13 +328,32 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              className="btn btn-sm central-md-save"
+              onClick={() => mdImgInputRef.current?.click()}
+            >
+              {t('workbench.preview.insert_image')}
+            </button>
             <button type="button" className="btn btn-sm central-md-save" onClick={() => void saveMarkdown()}>
               {t('workbench.preview.save')}
             </button>
           </div>
+          <input
+            ref={mdImgInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void insertImageFile(f);
+            }}
+          />
           <div className={`central-md-body mode-${view}`}>
             {(view === 'edit' || view === 'split') && (
               <textarea
+                ref={mdEditRef}
                 className="central-md-edit"
                 value={mdText}
                 spellCheck={false}

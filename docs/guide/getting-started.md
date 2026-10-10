@@ -21,7 +21,7 @@ shows the results before you enter the workbench.
 ## Build
 
 ```bash
-npm run build          # wasm → typecheck → vite build
+npm run build          # wasm → typecheck → vite build → copy docs
 npm run build:web      # frontend only
 npm run build:wasm     # rebuild the Rust core into src/native
 ```

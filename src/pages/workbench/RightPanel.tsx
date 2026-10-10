@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
@@ -146,6 +146,31 @@ export function RightPanel() {
   const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
+  /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
+   *  与侧栏收起保持一致的过渡。 */
+  const [closing, setClosing] = useState(false);
+
+  // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  useEffect(() => {
+    if (rightPanelOpen) setClosing(false);
+  }, [rightPanelOpen]);
+
+  const handleCollapse = () => {
+    if (closing) return;
+    setClosing(true);
+    // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
+    window.setTimeout(() => {
+      if (useAppStore.getState().rightPanelOpen) toggleRightPanel();
+    }, 300);
+  };
+
+  const onCollapseAnimEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    // 子元素的入场动画也会冒泡 animationend，必须限定目标和动画名。
+    if (closing && e.target === e.currentTarget && e.animationName === 'panel-collapse') {
+      if (useAppStore.getState().rightPanelOpen) toggleRightPanel();
+    }
+  };
+
   useEffect(() => {
     if (!activeId) {
       setParams([]);
@@ -199,7 +224,17 @@ export function RightPanel() {
   // 手柄挂在包裹层而非面板内部：面板 overflow 会裁剪超出边界的部分，
   // 感应区必须整体落在面板左缘外才完整可命中。
   return (
-    <div className="panel-wrap" style={{ width: resize.width }}>
+    <div
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : ''}`}
+      style={
+        {
+          width: resize.width,
+          // 收拢动画期间冻结内容宽度（内容被裁剪而非挤压回绕）。
+          '--panel-closing-width': `${resize.width}px`,
+        } as CSSProperties
+      }
+      onAnimationEnd={onCollapseAnimEnd}
+    >
       <div
         className="panel-resize-handle panel-resize-left"
         role="separator"
@@ -215,7 +250,7 @@ export function RightPanel() {
         className="panel-collapse-btn panel-collapse-left"
         aria-label={t('ux.panel.collapse_right')}
         title={t('ux.panel.collapse_right')}
-        onClick={toggleRightPanel}
+        onClick={handleCollapse}
       >
         <ChevronRightIcon size={12} />
       </button>
