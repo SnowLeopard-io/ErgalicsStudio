@@ -18,6 +18,8 @@ const LazyFlowFileEditor = lazy(() =>
   import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
 );
 import { Modal } from '@/components/Modal';
+import { ToolShell } from '@/components/ToolShell';
+import { EmptyProject } from '@/components/EmptyState';
 import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
@@ -447,7 +449,22 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
  */
 function EmbeddedToolView({ toolId }: { toolId: string }) {
   const toolDef = getTool(toolId);
+  // Project gate (mirrors the /studio route): project-bound tools must not
+  // render their body without a project — several suites produce a blank
+  // pane in that case instead of a usable empty state.
+  const project = useProjectStore((s) => s.project);
   if (!toolDef) return null;
+  if (toolDef.requireProject && !project) {
+    return (
+      <div className="central-tool-view">
+        <div className="central-tool-view-body">
+          <ToolShell toolId={toolId}>
+            <EmptyProject />
+          </ToolShell>
+        </div>
+      </div>
+    );
+  }
   const Page = toolDef.component;
   return (
     <div className="central-tool-view">
