@@ -25,6 +25,7 @@ import {
   buildSpectrum,
   gerstnerDisplacement,
   gerstnerSteepness,
+  type OceanWave,
 } from '@/plugins/builtin/water/physics';
 import { blackholeManifest } from '@/plugins/builtin/blackhole/manifest';
 import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/blackhole/shader';
@@ -335,6 +336,27 @@ describe('water physics — Gerstner ocean spectrum', () => {
       const waves = buildSpectrum(12, 26, 7, choppy);
       for (const w of waves) expect(gerstnerSteepness(w)).toBeLessThanOrEqual(1 + 1e-9);
     }
+  });
+
+  it('choppy sharpening responds continuously (regression: q was clamped to 1)', () => {
+    // Regression: q = min(choppy/(k·A·√count), 1) made q·k·A = choppy/√count
+    // independent of k,A and clamped q to 1 for any choppy > 0. Now q should
+    // track choppy (≤ its target) and the max steepness must rise with it.
+    const wind = 12;
+    const seed = 7;
+    const count = 26;
+    const low = buildSpectrum(wind, count, seed, 0.2);
+    const high = buildSpectrum(wind, count, seed, 0.8);
+    const maxSteep = (ws: OceanWave[]) => Math.max(...ws.map(gerstnerSteepness));
+    const steepLow = maxSteep(low);
+    const steepHigh = maxSteep(high);
+    // Every q must be ≤ the choppy target (not clamped to 1 for choppy < 1).
+    for (const w of low) expect(w.q).toBeLessThanOrEqual(0.2 + 1e-9);
+    for (const w of high) expect(w.q).toBeLessThanOrEqual(0.8 + 1e-9);
+    // Increasing choppy must visibly increase the steepness (was identical).
+    expect(steepHigh).toBeGreaterThan(steepLow);
+    // Self-intersection bound still holds.
+    expect(steepHigh).toBeLessThanOrEqual(1 + 1e-9);
   });
 
   it('Gerstner displacement: q=0 → pure vertical bobbing, crest phase shifts x by −qA', () => {
