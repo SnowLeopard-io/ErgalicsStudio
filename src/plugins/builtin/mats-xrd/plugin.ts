@@ -17,7 +17,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { matsXrdManifest } from './manifest';
+import { xrdFigurePanels } from './figure';
 import {
   ANODES,
   type LatticeRefinement,
@@ -130,6 +132,7 @@ export class MatsXrdPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export peaks CSV', '导出峰表 CSV'),
       actionButton('exportSpectrum', 'Export spectrum CSV', '导出全谱 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -154,6 +157,7 @@ export class MatsXrdPlugin implements Plugin {
     }
     if (actionFired(params, 'exportCsv')) this.exportPeaksCsv();
     if (actionFired(params, 'exportSpectrum')) this.exportSpectrumCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -294,6 +298,26 @@ export class MatsXrdPlugin implements Plugin {
       'xrd-spectrum',
       ['2theta_deg', 'intensity'],
       this.data.map((p) => [p.twoTheta.toFixed(4), p.intensity.toFixed(2)]),
+    );
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.data || this.data.length < 5) {
+      notify(this.api, 'warning', 'No pattern yet — load a dataset first.', '暂无谱图 — 请先加载数据。');
+      return;
+    }
+    const wl = ANODES[this.state.anode].wavelength;
+    const lat = this.lattice;
+    const top = this.matches.find((m) => m.matches >= 1);
+    const caption: Bilingual = {
+      zh: `XRD 分析：${this.peaks.length} 个峰，λ=${wl} Å${lat ? `，立方精修 a=${lat.a.toFixed(4)} Å (${lat.centring}-心)` : ''}${top ? `，最匹配 ${top.phase.nameZh}` : ''}。`,
+      en: `XRD analysis: ${this.peaks.length} peaks, λ=${wl} Å${lat ? `, cubic refine a=${lat.a.toFixed(4)} Å (${lat.centring}-centred)` : ''}${top ? `, best match ${top.phase.name}` : ''}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'XRD 衍射分析', en: 'XRD Pattern Analysis' },
+      caption,
+      xrdFigurePanels({ data: this.data, peaks: this.peaks, lattice: this.lattice, matches: this.matches }),
     );
   }
 

@@ -477,6 +477,11 @@ export class AstroPipelinePlugin implements Plugin {
     if (!canvas) return;
     const g = canvas.getContext('2d');
     if (!g) return;
+    // Reallocation per draw is the host convention: the hooked width/height
+    // setters enlarge the bitmap by the display dpr and reset the transform.
+    // Without it the default 300×150 buffer gets CSS-stretched (giant text).
+    canvas.width = canvas.clientWidth || 800;
+    canvas.height = canvas.clientHeight || 560;
     const source =
       this.state.display === 'raw' ? (this.state.mode === 'file' ? this.fits?.pixels : this.sim?.raw) : this.calibrated;
     const w = this.frameW();

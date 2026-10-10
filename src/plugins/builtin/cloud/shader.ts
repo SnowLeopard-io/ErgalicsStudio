@@ -133,7 +133,7 @@ void main() {
   float t0 = max(slab.x, 0.0);
   float t1 = min(slab.y, 42000.0); // cap the far distance
   float trans = 1.0;
-  if (t1 > t0) {
+  if (t1 > t0 && uCoverage > 0.012) { // clear sky: skip the march entirely
     float stepLen = (t1 - t0) / float(uSteps);
     float cosSun = dot(rd, uSunDir);
     float cosMoon = dot(rd, uMoonDir);

@@ -16,7 +16,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { matsMechManifest } from './manifest';
+import { mechFigurePanels } from './figure';
 import { analyseTensile, linreg, parseStressStrain, type SSPoint, type TensileResult } from './kernel';
 
 export { matsMechManifest } from './manifest';
@@ -79,6 +81,7 @@ export class MatsMechPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export curve CSV', '导出曲线 CSV'),
       actionButton('exportReport', 'Export report CSV', '导出报告 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -95,6 +98,7 @@ export class MatsMechPlugin implements Plugin {
     if (redraw) this.draw();
     if (actionFired(params, 'exportCsv')) this.exportCurveCsv();
     if (actionFired(params, 'exportReport')) this.exportReportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -172,6 +176,25 @@ export class MatsMechPlugin implements Plugin {
       ['toughness_MJ_m3', r.toughness.toFixed(4)],
     ];
     exportRowsCsv(this.api, 'tensile-report', ['property', 'value'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.data || !this.result) {
+      notify(this.api, 'warning', 'No curve yet — load a dataset first.', '暂无曲线 — 请先加载数据。');
+      return;
+    }
+    const r = this.result;
+    const n = Number.isFinite(r.hollomonN) ? r.hollomonN.toFixed(3) : '—';
+    const caption: Bilingual = {
+      zh: `拉伸分析：E=${r.youngsModulus.toFixed(1)} GPa，σ₀.₂=${r.yieldStrength02.toFixed(1)} MPa，UTS=${r.ultimateTensile.toFixed(1)} MPa，伸长率 ${r.elongation.toFixed(1)}%，Hollomon n=${n}。`,
+      en: `Tensile analysis: E=${r.youngsModulus.toFixed(1)} GPa, σ₀.₂=${r.yieldStrength02.toFixed(1)} MPa, UTS=${r.ultimateTensile.toFixed(1)} MPa, elongation ${r.elongation.toFixed(1)}%, Hollomon n=${n}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '应力-应变分析', en: 'Stress–Strain Analysis' },
+      caption,
+      mechFigurePanels({ data: this.data, result: r }),
+    );
   }
 
   // ---- rendering -----------------------------------------------------------

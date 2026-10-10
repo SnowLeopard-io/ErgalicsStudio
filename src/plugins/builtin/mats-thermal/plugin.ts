@@ -16,7 +16,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { matsThermalManifest } from './manifest';
+import { thermalFigurePanels } from './figure';
 import {
   analyseThermal,
   derivative,
@@ -99,6 +101,7 @@ export class MatsThermalPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export curve CSV', '导出曲线 CSV'),
       actionButton('exportReport', 'Export report CSV', '导出报告 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -122,6 +125,7 @@ export class MatsThermalPlugin implements Plugin {
     if (redraw) this.draw();
     if (actionFired(params, 'exportCsv')) this.exportCurveCsv();
     if (actionFired(params, 'exportReport')) this.exportReportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -244,6 +248,34 @@ export class MatsThermalPlugin implements Plugin {
     }
     const rows = this.analysis.peaks.map((p, i) => [i + 1, p.onsetTemp.toFixed(3), p.peakTemp.toFixed(3), p.endTemp.toFixed(3), p.integral.toFixed(4)]);
     exportRowsCsv(this.api, 'thermal-report', ['transition', 'onset_C', 'peak_C', 'end_C', 'integral'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.data || this.data.length < 5 || !this.analysis) {
+      notify(this.api, 'warning', 'No curve yet — load a dataset first.', '暂无曲线 — 请先加载数据。');
+      return;
+    }
+    const a = this.analysis;
+    const mode = this.state.mode;
+    const peaks = a.peaks.length;
+    const total = mode === 'dsc' ? a.totalEnthalpy : a.totalMassLoss;
+    const residual = a.residualMass;
+    const totalStr = total !== undefined ? total.toFixed(2) : '—';
+    const caption: Bilingual = mode === 'dsc'
+      ? {
+          zh: `DSC 分析：${peaks} 个转变，总焓变 ${totalStr} mW·°C。`,
+          en: `DSC analysis: ${peaks} transitions, total ΔH ${totalStr} mW·°C.`,
+        }
+      : {
+          zh: `TGA 分析：${peaks} 个失重台阶，总失重 ${totalStr}%${residual !== undefined ? `，残重 ${residual.toFixed(1)}%` : ''}。`,
+          en: `TGA analysis: ${peaks} mass-loss steps, total loss ${totalStr}%${residual !== undefined ? `, residual ${residual.toFixed(1)}%` : ''}.`,
+        };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: mode === 'dsc' ? 'DSC 热分析' : 'TGA 热分析', en: mode === 'dsc' ? 'DSC Analysis' : 'TGA Analysis' },
+      caption,
+      thermalFigurePanels({ data: this.data, baseline: this.baseline, analysis: a, mode }),
+    );
   }
 
   // ---- rendering -----------------------------------------------------------

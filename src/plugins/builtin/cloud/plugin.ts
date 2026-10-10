@@ -60,13 +60,17 @@ const DEFAULTS: State = {
   latitude: 39.9, // Beijing
   longitude: 116.4,
   stars: 1,
-  quality: 'high',
+  quality: 'medium',
   running: true,
   autoDay: true,
   autoOrbit: true,
 };
 
-const STEPS_BY_QUALITY: Record<State['quality'], number> = { low: 56, medium: 84, high: 128, ultra: 192 };
+// March steps per quality tier. Raymarching is expensive: on integrated GPUs
+// the whole frame budget is a few ms, so tiers pair fewer steps with a lower
+// internal resolution (SCALE_BY_QUALITY) that is restored on upscale.
+const STEPS_BY_QUALITY: Record<State['quality'], number> = { low: 40, medium: 64, high: 96, ultra: 144 };
+const SCALE_BY_QUALITY: Record<State['quality'], number> = { low: 0.4, medium: 0.55, high: 0.75, ultra: 1 };
 
 /** Day-cycle speed for autoDay: one simulated hour per 8 real seconds. */
 const HOURS_PER_SECOND = 1 / 8;
@@ -98,6 +102,12 @@ export class CloudPlugin implements Plugin {
   private simTime = 0;
   private state: State = { ...DEFAULTS };
   private zh = false;
+  // Adaptive resolution: the raymarcher is GPU-bound, so the plugin renders at
+  // a reduced pixel ratio and shrinks it further while the measured FPS sags.
+  // The host renderer's original ratio is restored on deactivate/destroy.
+  private savedPixelRatio: number | null = null;
+  private dynScale = 1;
+  private fpsEma = 0;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -287,10 +297,10 @@ export class CloudPlugin implements Plugin {
         labelI18n: { 'zh-CN': '步进质量（步数）', 'en-US': 'March quality (steps)' },
         type: 'select',
         options: [
-          { value: 'low', label: zh ? '低 · 56 步' : 'Low · 56' },
-          { value: 'medium', label: zh ? '中 · 84 步' : 'Medium · 84' },
-          { value: 'high', label: zh ? '高 · 128 步' : 'High · 128' },
-          { value: 'ultra', label: zh ? '极高 · 192 步' : 'Ultra · 192' },
+          { value: 'low', label: zh ? '低 · 40 步' : 'Low · 40' },
+          { value: 'medium', label: zh ? '中 · 64 步' : 'Medium · 64' },
+          { value: 'high', label: zh ? '高 · 96 步' : 'High · 96' },
+          { value: 'ultra', label: zh ? '极高 · 144 步' : 'Ultra · 144' },
         ],
         value: this.state.quality,
       },
@@ -357,6 +367,7 @@ export class CloudPlugin implements Plugin {
     if (changed) {
       this.syncUniforms();
       this.publishScience();
+      if (!this.isAnimating()) this.three?.render(); // idle: show the change immediately
     }
   }
 
@@ -371,6 +382,7 @@ export class CloudPlugin implements Plugin {
   private syncUniforms() {
     const m = this.material;
     if (!m) return;
+    this.applyResolution();
     const s = this.state;
     m.uniforms.uCoverage.value = s.coverage;
     m.uniforms.uDensity.value = s.density;
@@ -418,6 +430,27 @@ export class CloudPlugin implements Plugin {
 
   // ---- scene wiring -------------------------------------------------------------
 
+  /** Applies the quality-tier × adaptive resolution to the host renderer. */
+  private applyResolution() {
+    const three = this.three;
+    if (!three) return;
+    if (this.savedPixelRatio === null) this.savedPixelRatio = three.renderer.getPixelRatio();
+    const base = Math.min(window.devicePixelRatio || 1, 2);
+    const target = base * SCALE_BY_QUALITY[this.state.quality] * this.dynScale;
+    three.renderer.setPixelRatio(Math.max(target, 0.25));
+  }
+
+  /** True while any animation (wind / day cycle / orbit) keeps frames coming. */
+  private isAnimating(): boolean {
+    const s = this.state;
+    return s.running || s.autoDay || s.autoOrbit;
+  }
+
+  private onControlsChange = () => {
+    // Camera interaction restarts the loop when the idle gate stopped it.
+    this.startTick();
+  };
+
   private buildScene() {
     const three = this.three;
     if (!three) {
@@ -429,6 +462,7 @@ export class CloudPlugin implements Plugin {
       this.mesh = mesh;
       this.material = material;
       three.scene.add(mesh);
+      three.controls.addEventListener('change', this.onControlsChange);
       this.fitCamera();
     }
     this.syncUniforms();
@@ -470,9 +504,26 @@ export class CloudPlugin implements Plugin {
     const three = this.three;
     const mat = this.material;
     if (!three || !this.mesh || !mat) return;
-    const dt = this.lastT ? Math.min((t - this.lastT) / 1000, 0.1) : 0;
+    const rawDt = this.lastT ? (t - this.lastT) / 1000 : 0;
+    const dt = Math.min(rawDt, 0.1);
     this.lastT = t;
     const s = this.state;
+    // Adaptive resolution: track FPS (EMA) and shrink/grow the internal render
+    // resolution within the quality tier so weak GPUs stay interactive. The
+    // measurement is skipped for suspicious gaps (tab switches, first frame).
+    if (rawDt > 0 && rawDt < 0.5) {
+      const fps = 1 / rawDt;
+      this.fpsEma = this.fpsEma ? this.fpsEma * 0.9 + fps * 0.1 : fps;
+      if (this.fpsEma < 24 && this.dynScale > 0.35) {
+        this.dynScale = Math.max(0.35, this.dynScale * 0.85);
+        this.applyResolution();
+        this.fpsEma = 0; // re-measure at the new scale
+      } else if (this.fpsEma > 55 && this.dynScale < 1) {
+        this.dynScale = Math.min(1, this.dynScale * 1.12);
+        this.applyResolution();
+        this.fpsEma = 0;
+      }
+    }
     if (s.running) this.simTime += dt;
     if (s.autoDay && dt > 0) {
       s.hourUTC = (s.hourUTC + dt * HOURS_PER_SECOND) % 24;
@@ -493,11 +544,20 @@ export class CloudPlugin implements Plugin {
     mat.uniforms.uCamWorld.value.copy(three.camera.matrixWorld);
     mat.uniforms.uProjInv.value.copy(three.camera.projectionMatrixInverse);
     three.render();
-    this.rafId = requestAnimationFrame(this.tick);
+    // Idle gate: with every animation off, stop the loop — the controls
+    // 'change' listener restarts it on the next camera interaction.
+    if (this.isAnimating()) this.rafId = requestAnimationFrame(this.tick);
   };
 
   private clear3d() {
     const three = this.three;
+    if (three) {
+      three.controls.removeEventListener('change', this.onControlsChange);
+      if (this.savedPixelRatio !== null) {
+        three.renderer.setPixelRatio(this.savedPixelRatio); // hand back a clean renderer
+        this.savedPixelRatio = null;
+      }
+    }
     if (three && this.mesh) {
       three.scene.remove(this.mesh);
     }
@@ -546,8 +606,9 @@ export class CloudPlugin implements Plugin {
     if (!canvas) return;
     const g = canvas.getContext('2d');
     if (!g) return;
-    canvas.width = Math.min(canvas.width || 480, 480);
-    canvas.height = canvas.height || 300;
+    // Host convention: reallocate per draw (dpr hook lives in the setters).
+    canvas.width = canvas.clientWidth || 800;
+    canvas.height = canvas.clientHeight || 500;
     g.fillStyle = '#0a1018';
     g.fillRect(0, 0, canvas.width, canvas.height);
     g.fillStyle = 'rgba(150, 165, 185, 0.85)';
