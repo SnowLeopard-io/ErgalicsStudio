@@ -402,4 +402,23 @@ describe('FX plugin registration', () => {
       expect(typeof ex.loadContent).toBe('function');
     }
   });
+
+  it('cloud uDensity is applied once, consistently in main march & lightMarch', () => {
+    // Regression: cloudDensity() used to fold uDensity in AND the main march
+    // multiplied it again (σ ∝ density²), while lightMarch only used density¹
+    // — the two segments integrated different extinction fields and the
+    // reported Cloud τ disagreed with the render. Now cloudDensity() returns a
+    // normalised density and every extinction site applies uDensity exactly once.
+    const frag = CLOUD_FRAGMENT;
+    const cloudDensitySrc = frag.slice(frag.indexOf('float cloudDensity'), frag.indexOf('float lightMarch'));
+    const lightMarchSrc = frag.slice(frag.indexOf('float lightMarch'), frag.indexOf('float skyColor'));
+    const mainMarchSrc = frag.slice(frag.indexOf('void main'), frag.length);
+
+    // cloudDensity() must NOT scale by uDensity (returns normalised 0..1).
+    expect(cloudDensitySrc).not.toMatch(/profile\s*\*\s*uDensity/);
+    // lightMarch applies uDensity exactly once per sample.
+    expect(lightMarchSrc).toMatch(/cloudDensity\(p\)\s*\*\s*stepL\s*\*\s*0\.006\s*\*\s*uDensity/);
+    // Main march extinction applies uDensity exactly once per sample.
+    expect(mainMarchSrc).toMatch(/d\s*\*\s*stepLen\s*\*\s*0\.006\s*\*\s*uDensity/);
+  });
 });
