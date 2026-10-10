@@ -573,7 +573,7 @@ export class CloudPlugin implements Plugin {
       { key: 'sun_az', label: 'Solar azimuth', value: toDeg(sun.az).toFixed(2), unit: '°', severity: 'info', hint: this.zh ? '太阳方位角（北起东向）。' : 'Solar azimuth (from north, eastward).' },
       { key: 'moon_alt', label: 'Lunar altitude', value: toDeg(moon.alt).toFixed(2), unit: '°', severity: 'info', hint: this.zh ? '月球地平高度（主项历表，±0.3°）。' : 'Lunar altitude (main-terms ephemeris, ±0.3°).' },
       { key: 'moon_illum', label: 'Moon illumination', value: (moonPhaseIllumination(jd) * 100).toFixed(1), unit: '%', severity: 'info', hint: this.zh ? '月球被照亮比例（相位角余弦）。' : 'Illuminated lunar disk fraction.' },
-      { key: 'lst', label: 'LST', value: lstH.toFixed(3), unit: 'h', severity: 'info', hint: this.zh ? '当地恒星时（GMST + 经度），驱动斗转星移。' : 'Local sidereal time (GMST + longitude) — drives star rotation.' },
+      { key: 'lst', label: 'LST', value: lstH.toFixed(3), unit: 'h', severity: 'info', hint: this.zh ? '当地恒星时（GMST + 经度）。' : 'Local sidereal time (GMST + longitude).' },
       { key: 'tau', label: 'Cloud τ', value: tau.toFixed(2), unit: '', severity: 'info', hint: this.zh ? '云层代表性垂直光学深度 σ·Δz。' : 'Representative vertical optical depth σ·Δz.' },
       { key: 'wind_uv', label: 'Wind (u, v)', value: `${u.toFixed(1)}, ${v.toFixed(1)}`, unit: 'm/s', severity: 'info', hint: this.zh ? '风矢量东向/北向分量（气象风向 +180° 为吹向）。' : 'Eastward/northward wind components (from-direction +180°).' },
       { key: 'g_hg', label: 'g (HG)', value: '0.60', unit: '', severity: 'info', hint: this.zh ? 'Henyey–Greenstein 相函数不对称因子（水云典型值）。' : 'Henyey–Greenstein asymmetry factor (typical water cloud).' },

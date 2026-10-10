@@ -2134,14 +2134,14 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     pluginId: 'fx.cloud',
     loadContent: () => exampleContent('fx-cloud-starry-night.json'),
     nameI18n: {
-      'zh-CN': '特效 · 体积云 星夜孤峰云海（莫纳克亚）',
-      'en-US': 'FX · Volumetric clouds — starry night (Mauna Kea)',
+      'zh-CN': '特效 · 体积云 月夜孤峰云海（莫纳克亚）',
+      'en-US': 'FX · Volumetric clouds — moonlit night (Mauna Kea)',
     },
     descriptionI18n: {
       'zh-CN':
-        '夏至夜莫纳克亚天文台（北纬 19.8°）上空的散云：夜空因子为深空蓝底色 + 斗转星移的恒星周日运动（GMST 驱动），月光按月相照亮云顶；云底 1100 m、西北风 12 m/s。',
+        '夏至夜莫纳克亚天文台（北纬 19.8°）上空的散云：深空蓝夜空底色，月光按月相照亮云顶；云底 1100 m、西北风 12 m/s。',
       'en-US':
-        'Broken cumulus above Mauna Kea (lat 19.8°N) on a solstice night: deep-space blue sky with sidereally rotating stars (GMST-driven) and moonlight scaled by lunar phase; cloud base 1100 m, 12 m/s north-wester.',
+        'Broken cumulus above Mauna Kea (lat 19.8°N) on a solstice night: deep-space blue sky with moonlight scaled by lunar phase; cloud base 1100 m, 12 m/s north-wester.',
     },
   },
   // ---- Astronomy presets -----------------------------------------------------
