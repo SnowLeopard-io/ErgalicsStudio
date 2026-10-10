@@ -78,6 +78,34 @@ describe('parseCspkg', () => {
     ).rejects.toThrow('sandbox mode');
   });
 
+  it('rejects unknown research tiers', async () => {
+    await expect(
+      parseCspkg(makeCspkg({ research: { tier: 'gold-plated' as 'research' } })),
+    ).rejects.toThrow('research tier');
+  });
+
+  it('requires benchmarks for research tier (and reproducible research)', async () => {
+    // research tier without benchmarks is a malformed claim.
+    await expect(
+      parseCspkg(makeCspkg({ research: { tier: 'research' } })),
+    ).rejects.toThrow('must declare non-empty benchmarks');
+    // research + reproducible still needs benchmarks to back the claim.
+    await expect(
+      parseCspkg(makeCspkg({ research: { tier: 'research', reproducible: true } })),
+    ).rejects.toThrow('must declare non-empty benchmarks');
+  });
+
+  it('accepts a research tier with benchmarks and a quasi-research without', async () => {
+    const ok = await parseCspkg(
+      makeCspkg({
+        research: { tier: 'research', reproducible: true, benchmarks: ['synthetic recovery < 5 %'] },
+      }),
+    );
+    expect(ok.manifest.research?.tier).toBe('research');
+    const quasi = await parseCspkg(makeCspkg({ research: { tier: 'quasi-research', reproducible: true } }));
+    expect(quasi.manifest.research?.tier).toBe('quasi-research');
+  });
+
   it('normalizes backslash zip keys (Windows tooling) so the entry resolves', async () => {
     const files: Record<string, Uint8Array> = {
       'manifest.json': strToU8(JSON.stringify(VALID_MANIFEST)),
