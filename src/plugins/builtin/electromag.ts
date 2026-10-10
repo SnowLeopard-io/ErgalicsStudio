@@ -547,9 +547,8 @@ export class ElectromagPlugin implements Plugin {
         fx[i]! += fmag * dx;
         fy[i]! += fmag * dy;
       }
-      // Lorentz force: F = q * v × B, with B along z (out of screen).
-      fx[i]! += a.q * a.vy * this.state.B;
-      fy[i]! += -a.q * a.vx * this.state.B;
+      // Lorentz force F = q·v×B is integrated separately with a Boris pusher
+      // (below) — explicit Euler on a pure rotation grows |v| every step.
       // Air damping.
       fx[i]! -= this.state.damping * a.vx;
       fy[i]! -= this.state.damping * a.vy;
@@ -558,8 +557,21 @@ export class ElectromagPlugin implements Plugin {
       if (i === this.dragIndex) continue; // held charge does not integrate
       const c = this.charges[i]!;
       const m = Math.max(0.3, Math.abs(c.q));
-      c.vx += (fx[i]! / m) * dt;
-      c.vy += (fy[i]! / m) * dt;
+      // Non-magnetic forces (Coulomb + air damping) via symplectic Euler.
+      let vx = c.vx + (fx[i]! / m) * dt;
+      let vy = c.vy + (fy[i]! / m) * dt;
+      // Magnetic (Lorentz) part via the Boris pusher, which is exactly the
+      // rotation v⁺ = v⁻ + (v⁻×t) + (v⁻×t)×t with t = q·B·dt/(2m) and keeps
+      // |v| constant — explicit Euler instead inflated |v| by √(1+(ω·dt)²)
+      // per step, so a charge in a uniform B field spiralled outward.
+      const t = (c.q * this.state.B * dt) / (2 * m);
+      const s = (2 * t) / (1 + t * t);
+      const vpx = vx + vy * t;
+      const vpy = vy - vx * t;
+      vx = vx + vpy * s;
+      vy = vy - vpx * s;
+      c.vx = vx;
+      c.vy = vy;
       // Cap speed: a close encounter with the (large) Coulomb constant can
       // otherwise fling two charges at a velocity the explicit integrator
       // cannot resolve, producing an energy blow-up.
