@@ -201,6 +201,21 @@ function rightBaseVal(I: number[], idx: number, n: number): number {
 /** Allowed s = h²+k²+l² values for a cubic lattice (≤ 27). 7, 15, 23 are absent. */
 export const CUBIC_S_VALUES = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27];
 
+/**
+ * Constraint strength of each centring hypothesis. When two hypotheses fit
+ * equally well (tied relDev), the more constrained one wins: a pattern that
+ * P explains only because P allows every s is far more likely to be genuinely
+ * I- or F-centred (systematic absences carry information).
+ */
+const CENTRING_ORDER: Record<CubicCentring, number> = { P: 0, I: 1, F: 2 };
+
+/** Smallest s allowed by each centring — the "primitive" reflection of its
+ * first peak (P: (100) s=1, I: (110) s=2, F: (111) s=3). */
+const MIN_S: Record<CubicCentring, number> = { P: 1, I: 2, F: 3 };
+
+/** Relative-deviation tolerance (absolute) below which fits are treated as tied. */
+const RELDEV_TIE_EPS = 1e-9;
+
 /** Centring rule: which s values survive systematic absences. */
 export type CubicCentring = 'P' | 'I' | 'F';
 
@@ -250,6 +265,7 @@ export function refineCubicLattice(peaks: XrdPeak[]): LatticeRefinement | null {
   // (try the first few s values as the reference s) and pick the assignment
   // that gives the best overall fit.
   let best: LatticeRefinement | null = null;
+  let bestPenalty = 0;
   const d0 = finite[0]!.d;
   const Q0 = 1 / (d0 * d0);
   for (const sRef of [1, 2, 3, 4]) {
@@ -299,8 +315,23 @@ export function refineCubicLattice(peaks: XrdPeak[]): LatticeRefinement | null {
         sumRel += Math.abs(dPred - p.d) / p.d;
       }
       const relDev = sumRel / finite.length;
-      if (!best || relDev < best.relDev) {
-        best = { a, centring, indexed, relDev };
+      const candidate = { a, centring, indexed, relDev };
+      // Prefer a strictly better fit; on a tie prefer the smaller "primitive
+      // penalty" sRef − MIN_S[centring] (first peak indexed to a more
+      // fundamental reflection) and then the more constrained centring. This
+      // resolves the s→4s / a→2a degeneracy (a pure P pattern can always be
+      // re-read as F with a doubled a) and the P-always-wins bias (P allows
+      // every s, so it ties every constrained fit).
+      const penalty = sRef - MIN_S[centring];
+      const better =
+        !best ||
+        relDev < best.relDev - RELDEV_TIE_EPS ||
+        (Math.abs(relDev - best.relDev) <= RELDEV_TIE_EPS &&
+          (penalty < bestPenalty ||
+            (penalty === bestPenalty && CENTRING_ORDER[centring] > CENTRING_ORDER[best.centring])));
+      if (better) {
+        best = candidate;
+        bestPenalty = penalty;
       }
     }
   }
