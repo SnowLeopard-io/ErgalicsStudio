@@ -30,10 +30,11 @@ import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
 import { t } from '@/i18n';
 import { getGitAdapter } from '@/core/git';
+import { assertValidGitRef } from '@/core/git/refname';
 import { commitWorkingTree, generateCommitMessage } from '@/core/git/autoCommit';
 import type { AutoCommitType } from '@/core/git/autoCommit';
 import type { GitStatus, GitCommit, GitBranch, DiffResult } from '@/core/git/types';
-import { getVfs, seedStandardSkeleton } from '@/core/vfs';
+import { getVfs, seedStandardSkeleton, safeVfsRelPath } from '@/core/vfs';
 import type { RunRecord } from '@/core/experiment/record';
 
 // Re-exported for existing consumers (GitPanel).
@@ -397,19 +398,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }
     }
     // Flatten to project-relative paths; skip .git internals and the project
-    // JSON itself (imported separately below).
+    // JSON itself (imported separately below). Every relative path is run
+    // through the VFS path guard: a caller-supplied File whose
+    // webkitRelativePath carries `..` must never escape the project root.
     const entries: Array<{ path: string; file: File }> = [];
     let clproj: File | null = null;
     for (const f of files) {
       const parts = relOf(f).split('/');
-      if (parts.some((p) => p === '.git')) continue;
+      if (parts.some((p) => p.toLowerCase() === '.git')) continue;
       const inner = rootName && parts[0] === rootName ? parts.slice(1).join('/') : parts.join('/');
       if (!inner) continue;
+      let rel: string;
+      try {
+        rel = safeVfsRelPath(inner, 'imported file path');
+      } catch {
+        logger.warn('project', `folder import: refused unsafe path ${JSON.stringify(inner)}`);
+        continue;
+      }
       if (parts.length <= 2 && parts[parts.length - 1] === 'project.clproj') {
         clproj = f;
         continue;
       }
-      entries.push({ path: inner, file: f });
+      entries.push({ path: rel, file: f });
     }
 
     // A folder carrying project.clproj is a native project: its JSON carries
@@ -767,6 +777,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitCheckout: async (ref: string, create = false) => {
+    assertValidGitRef(ref, 'branch/ref');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
@@ -776,6 +787,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitCreateBranch: async (name: string, startPoint?: string) => {
+    assertValidGitRef(name, 'branch');
+    if (startPoint !== undefined) assertValidGitRef(startPoint, 'start point');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
@@ -785,6 +798,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitMerge: async (branch: string) => {
+    assertValidGitRef(branch, 'branch');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
@@ -797,6 +811,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitPush: async (remote: string, branch: string, setUpstream = false) => {
+    assertValidGitRef(branch, 'branch');
+    assertValidGitRef(remote, 'remote');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
@@ -806,6 +822,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitPull: async (remote: string, branch: string) => {
+    assertValidGitRef(branch, 'branch');
+    assertValidGitRef(remote, 'remote');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
@@ -833,6 +851,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitClone: async (url, targetPath, branch, onProgress) => {
+    if (branch !== undefined) assertValidGitRef(branch, 'branch');
     const adapter = getGitAdapter();
     // Clone into a fresh per-project repo path (US-04: one click, then the
     // cloned project opens directly in the workbench).

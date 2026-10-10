@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/i18n';
 import { useAppStore, fileTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { getVfs, type Vfs } from '@/core/vfs';
+import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
 import {
   editorKindForFile,
@@ -488,6 +488,10 @@ export function FileExplorer() {
     const name = rawName.trim();
     setRenaming(null);
     if (!project || !name || name === entry.name) return;
+    if (!isValidVfsEntryName(name)) {
+      notify('error', t('workbench.explorer.name_invalid', { name }));
+      return;
+    }
     const parent = dirname(entry.path);
     const target = joinPath(parent, name);
     if (existsName(parent, name)) {
@@ -527,6 +531,10 @@ export function FileExplorer() {
         : t('workbench.explorer.default_file'));
     setInlineCreate(null);
     if (!project) return;
+    if (!isValidVfsEntryName(name)) {
+      notify('error', t('workbench.explorer.name_invalid', { name }));
+      return;
+    }
     if (existsName(parentDir, name)) {
       notify('error', t('workbench.explorer.name_conflict', { name }));
       return;
