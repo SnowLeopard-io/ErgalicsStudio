@@ -367,7 +367,7 @@ export class BioEnzymePlugin implements Plugin {
         key: 'km-ci',
         label: 'Km 95% CI',
         value: ci ? `${fmtMetric(km)} [${fmtMetric(ci.km[0])}, ${fmtMetric(ci.km[1])}]` : '—',
-        unit: 'mol/L',
+        unit: 'mmol/L',
         severity: 'info',
         hint: provenance,
       },

@@ -19,7 +19,7 @@ export const bioEnzymeManifest: PluginManifest = {
   category: 'scientific',
   research: {
     tier: 'quasi-research',
-    units: { concentration: 'mol/L', rate: 'µmol/min' },
+    units: { concentration: 'mmol/L', rate: 'µmol/min' },
     benchmarks: ['michaelis-menten-benchmark'],
     reproducible: true,
     notes:
