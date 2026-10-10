@@ -174,8 +174,10 @@ export function buildSpectrum(windMs: number, count: number, seed: number, chopp
     const amplitude = ((raw[i] ?? 0) / sum) * target;
     const spread = (rnd() * 2 - 1) * (Math.PI / 3);
     const dir = windDirRad + spread;
-    // q per wave, clamped so the crest never self-intersects (q·k·A ≤ 1).
-    const q = Math.min(choppy / Math.max(k * amplitude * Math.sqrt(count), 1e-6), 1);
+    // q per wave: choppy ∈ [0,1] is the target sharpening, clamped by the
+    // per-wave self-intersection limit q·k·A ≤ 1. (No √count factor — that
+    // made q·k·A independent of k,A and clamped q to 1 for any choppy > 0.)
+    const q = Math.min(choppy, 1 / Math.max(k * amplitude, 1e-6));
     waves.push({
       k,
       omega: Math.sqrt(g * k),
