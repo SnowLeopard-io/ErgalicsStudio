@@ -59,7 +59,10 @@ float cloudDensity(vec3 p) {
   // Coverage gate: shift the fbm threshold so uCoverage spans clear → overcast.
   float cov = smoothstep(1.05 - uCoverage * 1.1, 1.35 - uCoverage * 0.7, base);
   float detail = worley3(q * 0.0016);
-  float d = cov * profile * uDensity;
+  // Normalised density (0..1): the uDensity extinction multiplier is applied
+  // uniformly at the extinction sites (main march & lightMarch) so both
+  // integrate the same density field — never scale it here.
+  float d = cov * profile;
   d *= 0.55 + 0.45 * smoothstep(1.0, 0.2, detail); // Worley erosion
   return clamp(d, 0.0, 1.0);
 }
@@ -71,7 +74,7 @@ float lightMarch(vec3 p, vec3 ld) {
   float stepL = (uCloudTop - uCloudBase) * 0.22;
   for (int i = 0; i < 3; i++) {
     p += ld * stepL;
-    tau += cloudDensity(p) * stepL * 0.006; // σ ≈ 0.006 /m × density
+    tau += cloudDensity(p) * stepL * 0.006 * uDensity; // σ ≈ 0.006 /m × density
   }
   return exp(-tau);
 }
@@ -152,7 +155,7 @@ void main() {
         float shadow = lightMarch(p, normalize(uSunDir + vec3(0.0, 0.08, 0.0)));
         float pw = powderEffect(d);
         vec3 lit = sunLight * (shadow * phase * (0.6 + 0.4 * pw));
-        vec3 contrib = (lit + ambient) * d * stepLen * 0.006 * 12.0;
+        vec3 contrib = (lit + ambient) * d * stepLen * 0.006 * 12.0 * uDensity;
         col += trans * contrib;
         float ext = d * stepLen * 0.006 * uDensity;
         trans *= exp(-max(ext, 0.0));
