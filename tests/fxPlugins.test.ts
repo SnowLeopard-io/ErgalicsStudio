@@ -1,5 +1,4 @@
 // FX plugin tests — black-hole GR core & water-wave physics, plus registry wiring.
-import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   PHOTON_SPHERE_RS,
@@ -30,6 +29,7 @@ import {
 } from '@/plugins/builtin/water/physics';
 import { blackholeManifest } from '@/plugins/builtin/blackhole/manifest';
 import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/blackhole/shader';
+import { CLOUD_FRAGMENT } from '@/plugins/builtin/cloud/shader';
 import { waterManifest } from '@/plugins/builtin/water/manifest';
 import { BUILTIN_PLUGINS } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
