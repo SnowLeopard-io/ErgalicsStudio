@@ -21,7 +21,7 @@ import type {
 import { heightFieldToMesh } from '@/core/mesh3d';
 import { scalarRampColors } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
+import { actionButton, actionFired, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
 
 export { surface3DManifest } from './surface3DManifest';
 import { surface3DManifest } from './surface3DManifest';

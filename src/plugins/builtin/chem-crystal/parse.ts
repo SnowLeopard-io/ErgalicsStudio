@@ -6,10 +6,10 @@
 // accepted but carry a unit box synthesized for display.
 // ==========================================================================
 
-import type { CrystalCell, CellParams } from '@/chem/structure';
-import { parseCif, type CifCrystal } from '@/chem/parse/cif';
-import { parsePoscar, type PoscarParseResult } from '@/chem/parse/poscar';
-import { parseXyz, type XyzFrame } from '@/chem/parse/xyz';
+import type { CrystalCell, CellParams } from '@/core/chem/structure';
+import { parseCif, type CifCrystal } from '@/core/chem/parse/cif';
+import { parsePoscar, type PoscarParseResult } from '@/core/chem/parse/poscar';
+import { parseXyz, type XyzFrame } from '@/core/chem/parse/xyz';
 
 export type StructuralFormat = 'cif' | 'poscar' | 'xyz';
 

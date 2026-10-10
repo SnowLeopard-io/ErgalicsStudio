@@ -15,6 +15,10 @@ export const aboutZh: LocaleDictionary = {
   'about.team_dev_role': '核心开发者',
   'about.team_dev_intro':
     '负责科研工具矩阵与数据、可视化、推理等核心模块的开发与打磨，保障功能与代码质量。',
+  'about.team_dev2_role': '开发者',
+  'about.team_dev2_intro': '参与 Ergalics Studio 的功能开发。',
+  'about.team_dev3_role': '开发者',
+  'about.team_dev3_intro': '参与 Ergalics Studio 的功能开发。',
 };
 
 export const aboutEn: LocaleDictionary = {
@@ -29,4 +33,8 @@ export const aboutEn: LocaleDictionary = {
   'about.team_dev_role': 'Core developer',
   'about.team_dev_intro':
     'builds and refines the research-tool matrix and the data, visualization and inference modules, keeping features and code quality high.',
+  'about.team_dev2_role': 'Developer',
+  'about.team_dev2_intro': 'Contributes to Ergalics Studio feature development.',
+  'about.team_dev3_role': 'Developer',
+  'about.team_dev3_intro': 'Contributes to Ergalics Studio feature development.',
 };

@@ -15,9 +15,9 @@
 // (thermo) and element mass/radius, passed straight to the integrator.
 // ==========================================================================
 
-import type { Molecule } from '@/chem/structure';
-import { atomicMass, covalentRadius } from '@/chem/elements';
-import { bondEnergy } from '@/chem/thermo';
+import type { Molecule } from '@/core/chem/structure';
+import { atomicMass, covalentRadius } from '@/core/chem/elements';
+import { bondEnergy } from '@/core/chem/thermo';
 import type { ReactionDef, ReactionSpecies } from '../catalog';
 import type { PhysAtom, PhysBond, PhysicsPayload } from './types';
 

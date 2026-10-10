@@ -134,6 +134,23 @@ function tagFor(index: number): string {
 }
 
 /**
+ * Cell size + gap for a template. Single source for both composeFigure and
+ * the interactive figure readout (which needs the same numbers to map pointer
+ * positions onto panel plot areas).
+ */
+export function panelCellSize(templateId: string): { cellW: number; cellH: number; gap: number } {
+  const tpl = templateById(templateId);
+  // Double-column templates split the template width across cells, so a
+  // 2-column figure spans exactly one full double-column width.
+  const isDouble = tpl.id.endsWith('double');
+  return {
+    cellW: isDouble ? Math.round((tpl.columnWidthMm / 2) * (96 / 25.4)) : tpl.panelWidth,
+    cellH: tpl.panelHeight,
+    gap: tpl.gap,
+  };
+}
+
+/**
  * Compose panels onto a template grid. Each panel is rendered at the template
  * cell size (its own spec width/height is overridden for layout only) and
  * embedded as a nested `<svg>` viewport; tags auto-assign a, b, c, … in
@@ -146,14 +163,7 @@ export function composeFigure(fs: FigureSpec): ComposedFigure {
   const rows = Math.max(fs.rows ?? 0, ...panels.map((p) => p.row + 1), 1);
   const cols = Math.max(fs.cols ?? 0, ...panels.map((p) => p.col + 1), 1);
 
-  // Double-column templates split the template width across cells, so a
-  // 2-column figure spans exactly one full double-column width.
-  const isDouble = tpl.id.endsWith('double');
-  const cellW = isDouble
-    ? Math.round((tpl.columnWidthMm / 2) * (96 / 25.4))
-    : tpl.panelWidth;
-  const cellH = tpl.panelHeight;
-  const gap = tpl.gap;
+  const { cellW, cellH, gap } = panelCellSize(fs.templateId);
 
   const width = cols * cellW + (cols - 1) * gap;
   const captionLines = fs.caption ? fs.caption.split('\n') : [];

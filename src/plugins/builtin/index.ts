@@ -16,7 +16,7 @@ import { contourManifest } from './contourManifest';
 import { nbodyManifest } from './nbodyManifest';
 import { fluidManifest } from './fluidManifest';
 import { waveManifest } from './waveManifest';
-import { pendulumManifest } from './pendulumManifest';
+import { pendulumManifest } from './doublePendulumManifest';
 import { geoMapManifest } from './geo/geoMapManifest';
 import { solarManifest } from './geo/solarManifest';
 import { climographManifest } from './geo/climographManifest';
@@ -42,7 +42,7 @@ import { pointCloudManifest } from './pointCloudManifest';
 import { pointCloud3DManifest } from './pointCloud3DManifest';
 import { surface3DManifest } from './surface3DManifest';
 import { voxel3DManifest } from './voxel3DManifest';
-import { particleManifest } from './particleManifest';
+import { particleManifest } from './particlesManifest';
 import { proteinManifest } from './proteinManifest';
 import { imageViewerManifest } from './imageViewerManifest';
 import { mandelbrotManifest } from './mandelbrotManifest';
@@ -66,6 +66,13 @@ import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
 import { bioSeqalignManifest } from './bio-seqalign/manifest';
 import { bioPopgenManifest } from './bio-popgen/manifest';
+import { aqiManifest } from './env/aqiManifest';
+import { waterManifest } from './env/waterManifest';
+import { greenhouseManifest } from './env/greenhouseManifest';
+import { carbonManifest } from './env/carbonManifest';
+import { biodiversityManifest } from './env/biodiversityManifest';
+import { plumeManifest } from './env/plumeManifest';
+import { earth3dManifest } from './env/earth3dManifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -311,6 +318,56 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: bioPopgenManifest,
     load: async () => {
       const mod = await import('./bio-popgen');
+      return mod.default();
+    },
+  },
+  // ---- Environmental science suite (data-driven; samples via 示例 dialog) ---
+  {
+    manifest: aqiManifest,
+    load: async () => {
+      const mod = await import('./env/aqi');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waterManifest,
+    load: async () => {
+      const mod = await import('./env/water');
+      return mod.default();
+    },
+  },
+  {
+    manifest: greenhouseManifest,
+    load: async () => {
+      const mod = await import('./env/greenhouse');
+      return mod.default();
+    },
+  },
+  {
+    manifest: carbonManifest,
+    load: async () => {
+      const mod = await import('./env/carbon');
+      return mod.default();
+    },
+  },
+  {
+    manifest: biodiversityManifest,
+    load: async () => {
+      const mod = await import('./env/biodiversity');
+      return mod.default();
+    },
+  },
+  {
+    manifest: plumeManifest,
+    load: async () => {
+      const mod = await import('./env/plume');
+      return mod.default();
+    },
+  },
+  {
+    manifest: earth3dManifest,
+    load: async () => {
+      const mod = await import('./env/earth3d');
       return mod.default();
     },
   },

@@ -26,7 +26,10 @@ import type {
   Scene3DHandle,
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
-import { actionButton, exportRowsCsv, exportSnapshotPng } from './shared/enhance';
+import { emit } from '@/core/events';
+import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { mulberry32 } from '@/core/repro/random';
 import {
   advanceNBodyCPU,
   nbodyBufferBytes,
@@ -64,6 +67,8 @@ interface State {
   softening: number;
   dt: number;
   steps: number;
+  seed: number;
+  simTime: number;
   running: boolean;
   hasData: boolean;
 }
@@ -79,6 +84,8 @@ export class NBodyPlugin implements Plugin {
     softening: 0.03,
     dt: 0.004,
     steps: 120,
+    seed: 42,
+    simTime: 0,
     running: false,
     hasData: false,
   };
@@ -94,6 +101,13 @@ export class NBodyPlugin implements Plugin {
   private posBufAttr: THREE.BufferAttribute | null = null;
   private colBufAttr: THREE.BufferAttribute | null = null;
   private rafId = 0;
+  /** Total energy at the baseline state (t = 0 of the current run). */
+  private e0: number | null = null;
+  /** Last science-output publish time (throttle: ≥ 0.5 s between writes). */
+  private lastPub = 0;
+  /** Set by the host cancel handler while a one-shot compute is in flight;
+   *  the step loops check it between steps and bail out cleanly. */
+  private computeCancel = false;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -104,6 +118,7 @@ export class NBodyPlugin implements Plugin {
     this.clearMesh();
     this.three = null;
     this.ctx = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -152,10 +167,27 @@ export class NBodyPlugin implements Plugin {
       // Only resample a real dataset; never fabricate one.
       if (this.state.hasData) this.resampleLoaded();
     }
-    if (typeof params.G === 'number') this.state.G = params.G;
-    if (typeof params.softening === 'number') this.state.softening = params.softening;
+    if (typeof params.G === 'number') {
+      if (params.G !== this.state.G) this.e0 = null; // baseline energy no longer comparable
+      this.state.G = params.G;
+    }
+    if (typeof params.softening === 'number') {
+      if (params.softening !== this.state.softening) this.e0 = null;
+      this.state.softening = params.softening;
+    }
     if (typeof params.dt === 'number') this.state.dt = params.dt;
     if (typeof params.steps === 'number') this.state.steps = Math.max(1, Math.floor(params.steps));
+    if (typeof params.seed === 'number' && Number.isFinite(params.seed)) {
+      this.state.seed = Math.max(0, Math.min(0xffffffff, Math.floor(params.seed))) >>> 0;
+    }
+    if (this.buttonFired(params, 'genICs')) {
+      this.generateSeededICs();
+      return;
+    }
+    if (this.buttonFired(params, 'runKepler')) {
+      void this.runKeplerBenchmark();
+      return;
+    }
     if (typeof params.start === 'boolean') {
       if (params.start) this.start();
       else this.stop();
@@ -195,10 +227,11 @@ export class NBodyPlugin implements Plugin {
         step: NBODY_COUNT_STEP,
         value: this.state.count,
       },
-      { key: 'G', label: 'Gravity G', labelI18n: { 'zh-CN': '引力常数 G', 'en-US': 'Gravity G' }, type: 'range', min: 0.005, max: 0.5, step: 0.005, value: this.state.G },
-      { key: 'softening', label: 'Softening', labelI18n: { 'zh-CN': '软化因子', 'en-US': 'Softening' }, type: 'range', min: 0.005, max: 0.3, step: 0.005, value: this.state.softening },
-      { key: 'dt', label: 'Timestep', labelI18n: { 'zh-CN': '时间步长', 'en-US': 'Timestep' }, type: 'range', min: 0.0005, max: 0.02, step: 0.0005, value: this.state.dt },
+      { key: 'G', label: 'Gravity G', labelI18n: { 'zh-CN': '引力常数 G', 'en-US': 'Gravity G' }, type: 'range', min: 0.005, max: 0.5, step: 0.005, value: this.state.G, hint: this.zh() ? '模拟单位 L³/(M·T²)，范围 0.005–0.5' : 'simulation units L³/(M·T²), range 0.005–0.5' },
+      { key: 'softening', label: 'Softening', labelI18n: { 'zh-CN': '软化因子', 'en-US': 'Softening' }, type: 'range', min: 0.005, max: 0.3, step: 0.005, value: this.state.softening, hint: this.zh() ? '模拟单位 L，范围 0.005–0.3（Plummer 软化，避免近距奇点）' : 'simulation units L, range 0.005–0.3 (Plummer softening against close-encounter singularities)' },
+      { key: 'dt', label: 'Timestep', labelI18n: { 'zh-CN': '时间步长', 'en-US': 'Timestep' }, type: 'range', min: 0.0005, max: 0.02, step: 0.0005, value: this.state.dt, hint: this.zh() ? '模拟单位 T，范围 0.0005–0.02（辛欧拉积分器）' : 'simulation units T, range 0.0005–0.02 (symplectic Euler integrator)' },
       { key: 'steps', label: 'Compute steps', labelI18n: { 'zh-CN': '计算步数', 'en-US': 'Compute steps' }, type: 'range', min: 10, max: 400, step: 10, value: this.state.steps },
+      { key: 'seed', label: 'RNG seed', labelI18n: { 'zh-CN': '随机种子', 'en-US': 'RNG seed' }, type: 'number', min: 0, max: 4294967295, step: 1, value: this.state.seed, hint: this.zh() ? 'mulberry32 种子：相同种子生成完全相同的随机初始条件' : 'mulberry32 seed: the same seed regenerates identical random ICs' },
       {
         key: 'start',
         label: 'Run',
@@ -213,12 +246,18 @@ export class NBodyPlugin implements Plugin {
         type: 'button',
         variant: 'primary',
         action: 'gpu-compute',
-        labelI18n: { 'zh-CN': '⚡ GPU 全配对计算', 'en-US': '⚡ GPU all-pairs' },
+        labelI18n: { 'zh-CN': 'GPU 全配对计算', 'en-US': 'GPU all-pairs' },
       },
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Bodies CSV', '导出天体 CSV'),
+      actionButton('genICs', 'Seeded Random ICs', '随机初始条件（种子）'),
+      actionButton('runKepler', 'Two-Body Kepler Benchmark', '二体开普勒基准（benchmark）', 'primary'),
     ];
+  }
+
+  private zh(): boolean {
+    return this.api.locale.startsWith('zh');
   }
 
   getSupportedFormats() {
@@ -241,6 +280,8 @@ export class NBodyPlugin implements Plugin {
     // resampling (body objects are mutated in place by the integrators).
     this.raw = bodies.map((b) => ({ ...b }));
     this.state.hasData = true;
+    this.state.simTime = 0;
+    this.e0 = null; // recaptured lazily on the next publish (pre-integration state)
     // Never keep more bodies on screen than the slider can report: a loader
     // handing us more than MAX_BODIES would otherwise leave `state.count` and
     // the drawn set disagreeing (the same "slider cannot be filled" defect the
@@ -256,6 +297,7 @@ export class NBodyPlugin implements Plugin {
     }
     this.fitCamera();
     this.draw();
+    this.publish(true);
   }
 
   /**
@@ -265,51 +307,107 @@ export class NBodyPlugin implements Plugin {
    * measured time to the perf panel.
    */
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
-    if (this.bodies.length === 0) {
-      return { ok: false, error: this.api.locale === 'zh-CN' ? '未加载数据 — 请先拖入 .json 文件或打开「示例数据」' : 'no data — load a .json file or sample data first' };
-    }
-    const steps = this.state.steps;
-    const { dt, G, softening } = this.state;
-    const t0 = performance.now();
-    const gpu = this.api.gpu;
-    const n = this.bodies.length;
-
-    if (gpu?.available) {
-      this.api.setStatus('computing');
-      const ok = await this.gpuIntegrate(gpu, steps, onProgress);
-      this.api.setStatus('ready');
-      if (ok) {
-        const ms = performance.now() - t0;
-        this.api.reportGpuTime(ms);
-        this.updateGeometry();
-        this.draw();
-        return { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+    this.computeCancel = false;
+    // Host cancellation (status-bar 取消 / stop): flip the flag so the step
+    // loops below can bail out between steps; always unsubscribe on settle.
+    const offCancel = this.api.onCancel?.(() => {
+      this.computeCancel = true;
+    });
+    try {
+      if (this.bodies.length === 0) {
+        return { ok: false, error: this.api.locale === 'zh-CN' ? '未加载数据 — 请先拖入 .json 文件或打开「示例数据」' : 'no data — load a .json file or sample data first' };
       }
-    }
+      const steps = this.state.steps;
+      const { dt, G, softening } = this.state;
+      const t0 = performance.now();
+      const gpu = this.api.gpu;
+      const n = this.bodies.length;
 
-    // CPU fallback — mirror of the WGSL kernel.
-    const cap = Math.min(n, CPU_NBODY_CAP);
-    if (cap < n) {
-      this.api.notify(
-        'info',
-        this.api.locale === 'zh-CN'
-          ? `CPU 模式仅模拟前 ${cap} / ${n} 个天体（GPU 模式使用全部）`
-          : `CPU mode simulates the first ${cap} / ${n} bodies (GPU uses all)`,
-      );
+      if (gpu?.available) {
+        this.api.setStatus('computing');
+        const ok = await this.gpuIntegrate(gpu, steps, onProgress, () => this.computeCancel);
+        this.api.setStatus('ready');
+        if (this.computeCancel) {
+          // Cancelled mid-dispatch: report and stop — never fall through to
+          // the CPU fallback (a plain `ok === false` there means kernel failure).
+          this.api.notify('info', this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled');
+          return { ok: false, error: 'cancelled' };
+        }
+        if (ok) {
+          const ms = performance.now() - t0;
+          const engine = gpu.backend;
+          this.api.reportGpuTime(ms);
+          this.state.simTime += dt * steps;
+          this.updateGeometry();
+          this.publish(true);
+          const result: ComputeResult = { ok: true, output: n, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(n) } };
+          // Background completion (the user switched plugins mid-run): the
+          // instance keeps the result (singleton state), but never draw into
+          // the shared canvas the now-active plugin owns — surface a
+          // non-intrusive jump-back toast instead.
+          if (this.api.isActive?.() === false) {
+            const zh = this.api.locale === 'zh-CN';
+            this.api.notify(
+              'success',
+              zh
+                ? `计算完成（后台，${engine}）— ${ms.toFixed(1)} ms`
+                : `Compute finished (background, ${engine}) — ${ms.toFixed(1)} ms`,
+              { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+            );
+            return result;
+          }
+          this.draw();
+          return result;
+        }
+      }
+
+      // CPU fallback — mirror of the WGSL kernel.
+      const cap = Math.min(n, CPU_NBODY_CAP);
+      if (cap < n) {
+        this.api.notify(
+          'info',
+          this.api.locale === 'zh-CN'
+            ? `CPU 模式仅模拟前 ${cap} / ${n} 个天体（GPU 模式使用全部）`
+            : `CPU mode simulates the first ${cap} / ${n} bodies (GPU uses all)`,
+        );
+      }
+      const work = this.bodies.slice(0, cap);
+      for (let s = 0; s < steps; s += 1) {
+        if (this.computeCancel) {
+          this.api.setStatus('ready');
+          this.api.notify('info', this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled');
+          return { ok: false, error: 'cancelled' };
+        }
+        advanceNBodyCPU(work, dt, G, softening);
+        onProgress?.({ done: s + 1, total: steps });
+      }
+      for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
+      this.state.simTime += dt * steps;
+      this.updateGeometry();
+      this.publish(true);
+      const ms = performance.now() - t0;
+      this.api.reportGpuTime(ms);
+      // Report the work actually done — the CPU path only simulated `cap` bodies,
+      // so `bytes` must not claim the full-N buffer allocation.
+      const result: ComputeResult = { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
+      // Background completion: same contract as the GPU path — keep the
+      // result on the instance, notify with a jump-back, never draw.
+      if (this.api.isActive?.() === false) {
+        const zh = this.api.locale === 'zh-CN';
+        this.api.notify(
+          'success',
+          zh
+            ? `计算完成（后台，cpu）— ${ms.toFixed(1)} ms`
+            : `Compute finished (background, cpu) — ${ms.toFixed(1)} ms`,
+          { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+        );
+        return result;
+      }
+      this.draw();
+      return result;
+    } finally {
+      offCancel?.();
     }
-    const work = this.bodies.slice(0, cap);
-    for (let s = 0; s < steps; s += 1) {
-      advanceNBodyCPU(work, dt, G, softening);
-      onProgress?.({ done: s + 1, total: steps });
-    }
-    for (let i = 0; i < cap; i += 1) this.bodies[i] = work[i] as NBodyBody;
-    this.updateGeometry();
-    this.draw();
-    const ms = performance.now() - t0;
-    this.api.reportGpuTime(ms);
-    // Report the work actually done — the CPU path only simulated `cap` bodies,
-    // so `bytes` must not claim the full-N buffer allocation.
-    return { ok: true, output: cap, metrics: { gpuMs: ms, bytes: nbodyBufferBytes(cap) } };
   }
 
   /** Trigger the accelerated compute path from the params button. */
@@ -327,12 +425,21 @@ export class NBodyPlugin implements Plugin {
       this.api.notify('info', `${p.done}/${p.total}`);
     });
     if (result.ok) {
+      // A background completion already surfaced its own jump-back toast in
+      // compute() — don't double-notify.
+      if (this.api.isActive?.() === false) return;
       const engine = this.api.gpu?.available ? this.api.gpu?.backend : 'cpu';
       this.api.notify(
         'success',
         this.api.locale === 'zh-CN'
           ? `计算完成（${engine}）— ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`
           : `Compute done (${engine}) — ${result.metrics?.gpuMs?.toFixed(1) ?? '?'} ms`,
+      );
+    } else if (result.error === 'cancelled') {
+      // Cancelled by the user — informational, not an error.
+      this.api.notify(
+        'info',
+        this.api.locale === 'zh-CN' ? '计算已取消' : 'Compute cancelled',
       );
     } else {
       this.api.notify('error', result.error ?? 'compute failed');
@@ -349,30 +456,34 @@ export class NBodyPlugin implements Plugin {
     exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'nbody');
   }
 
-  /** Export the currently drawn bodies (position, velocity, mass) as CSV.
-   *  The set is already capped at MAX_BODIES, but a stride keeps the file
-   *  bounded if it ever grows past the row limit. */
+  /** Export the currently drawn bodies (position, velocity, mass) as a full
+   *  system snapshot with the current simulation time column. The set is
+   *  already capped at MAX_BODIES (< 50k rows), so every body is exported. */
   private exportCsv() {
     const bodies = this.bodies;
     const MAX_ROWS = 50000;
     const stride = Math.max(1, Math.ceil(bodies.length / MAX_ROWS));
+    const t = this.state.simTime;
     const rows: number[][] = [];
     for (let i = 0; i < bodies.length; i += stride) {
       const b = bodies[i] as NBodyBody;
-      rows.push([b.x, b.y, b.z, b.vx, b.vy, b.vz, b.mass]);
+      rows.push([t, b.x, b.y, b.z, b.vx, b.vy, b.vz, b.mass]);
     }
-    exportRowsCsv(this.api, 'nbody-bodies', ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mass'], rows);
+    exportRowsCsv(this.api, 'nbody-bodies', ['t', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'mass'], rows);
   }
 
   /**
    * Real WGSL all-pairs path with ping-pong buffers so the N step dispatches
    * stay on the device (no per-step read-back). Returns false on any failure
-   * so `compute()` can transparently fall back to CPU.
+   * so `compute()` can transparently fall back to CPU — except when the
+   * `isCancelled` predicate fires, which `compute()` detects via its own
+   * cancel flag and reports as a cancellation instead of a fallback.
    */
   private async gpuIntegrate(
     gpu: GpuComputeApi,
     steps: number,
     onProgress?: (p: ComputeProgress) => void,
+    isCancelled?: () => boolean,
   ): Promise<boolean> {
     const n = this.bodies.length;
     let bufA: ComputeBufferHandle | null = null;
@@ -414,6 +525,9 @@ export class NBodyPlugin implements Plugin {
 
       let lastOut: ComputeBufferHandle = bufB;
       for (let s = 0; s < steps; s += 1) {
+        // Bail before the next dispatch when the host cancelled: the finally
+        // block destroys the buffers and no result is read back.
+        if (isCancelled?.()) return false;
         const inBuf = s % 2 === 0 ? bufA : bufB;
         const outBuf = s % 2 === 0 ? bufB : bufA;
         if (!gpu.run(kernel, [inBuf, outBuf, paramsBuf], workgroups, 1, 1)) return false;
@@ -572,10 +686,265 @@ export class NBodyPlugin implements Plugin {
     // initial position — a ring of motionless points that looked like a
     // rendering bug. The set is capped once, when the run starts, instead.
     advanceNBodyCPU(this.bodies, this.state.dt, this.state.G, this.state.softening);
+    this.state.simTime += this.state.dt;
     this.updateGeometry();
     this.draw();
+    // Conservation diagnostics to the science strip, throttled to ≥ 0.5 s so
+    // the animation loop never floods the store.
+    this.publish();
     this.rafId = requestAnimationFrame(this.tick);
   };
+
+  // ---- Scientific outputs -------------------------------------------------
+
+  /**
+   * Total energy E = Σ ½mv² − Σ_{i<j} G m_i m_j / r, with the same Plummer
+   * softening as the integrator so the diagnostic tracks the actual equations
+   * of motion. For large N the pair sum is evaluated on a fixed strided
+   * subsample (scaled by stride²) — an unbiased estimator that keeps the
+   * per-publish cost bounded; the subsample is disclosed in the metric hint.
+   */
+  private totalEnergy(bs: NBodyBody[], G: number, softening: number): number {
+    let ke = 0;
+    for (const b of bs) ke += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz);
+    const eps2 = softening * softening;
+    const n = bs.length;
+    let pe = 0;
+    if (n <= 800) {
+      for (let i = 0; i < n; i += 1) {
+        const a = bs[i]!;
+        for (let j = i + 1; j < n; j += 1) {
+          const b = bs[j]!;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dz = b.z - a.z;
+          const r = Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+          pe -= (G * a.mass * b.mass) / r;
+        }
+      }
+    } else {
+      const stride = Math.ceil(n / 800);
+      for (let i = 0; i < n; i += stride) {
+        const a = bs[i]!;
+        for (let j = i + stride; j < n; j += stride) {
+          const b = bs[j]!;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dz = b.z - a.z;
+          const r = Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+          pe -= (G * a.mass * b.mass) / r;
+        }
+      }
+      pe *= stride * stride;
+    }
+    return ke + pe;
+  }
+
+  /** Publish conservation / state diagnostics (throttled; empty set clears). */
+  private publish(force = false) {
+    const now = performance.now();
+    if (!force && now - this.lastPub < 500) return;
+    this.lastPub = now;
+    if (!this.state.hasData || this.bodies.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const zh = this.zh();
+    if (this.e0 === null) this.e0 = this.totalEnergy(this.bodies, this.state.G, this.state.softening);
+    const E = this.totalEnergy(this.bodies, this.state.G, this.state.softening);
+    const denom = Math.max(Math.abs(this.e0), 1e-30);
+    const drift = Math.abs(E - this.e0) / denom;
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'energy-drift',
+        label: '|ΔE/E₀|',
+        value: fmtMetric(drift),
+        severity: drift < 1e-3 ? 'ok' : drift < 1e-2 ? 'warn' : 'error',
+        hint: zh
+          ? '总能量 E=Σ½mv²−ΣGmm/r 相对基线的漂移；<1e-3 良好，<1e-2 警告。N>800 时势能按固定跨步子采样估计（×stride²）'
+          : 'Drift of total energy E=Σ½mv²−ΣGmm/r against its baseline; <1e-3 ok, <1e-2 warn. For N>800 the pair sum is a fixed-stride subsample (×stride²)',
+      },
+      {
+        key: 'energy',
+        label: 'E',
+        value: fmtMetric(E),
+        severity: 'info',
+        hint: zh ? '当前总能量（模拟单位 M·L²/T²）' : 'Current total energy (simulation units M·L²/T²)',
+      },
+      {
+        key: 'n-bodies',
+        label: 'N',
+        value: String(this.bodies.length),
+        severity: 'info',
+      },
+      {
+        key: 'sim-time',
+        label: 't',
+        value: fmtMetric(this.state.simTime),
+        severity: 'info',
+        hint: zh ? '累积模拟时间（模拟单位 T）' : 'Accumulated simulation time (simulation units T)',
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /**
+   * Seeded random initial conditions (mulberry32): a rotationally-supported
+   * disc of `count` bodies. Explicitly user-requested generation — never
+   * fabricated as a silent default — and fully reproducible from the seed.
+   */
+  private generateSeededICs() {
+    if (this.state.running) this.stop();
+    const rng = mulberry32(this.state.seed);
+    const n = Math.max(NBODY_COUNT_STEP, Math.min(this.countMax, this.state.count));
+    const R = 2;
+    const bodies: NBodyBody[] = [];
+    let totalMass = 0;
+    for (let i = 0; i < n; i += 1) {
+      const m = 0.5 + rng() * 1.5;
+      totalMass += m;
+      const r = 0.3 + rng() * (R - 0.3);
+      const th = rng() * Math.PI * 2;
+      bodies.push({
+        x: r * Math.cos(th),
+        y: r * Math.sin(th),
+        z: (rng() - 0.5) * 0.3 * (1 - r / R),
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        mass: m,
+      });
+    }
+    // Near-circular tangential speeds for the mass enclosed in r (uniform disc
+    // approximation), with 5% scatter — a stable rotating disc, not a cold collapse.
+    for (const b of bodies) {
+      const r = Math.max(0.1, Math.hypot(b.x, b.y));
+      const mEnc = totalMass * Math.min(1, (r * r) / (R * R));
+      const v = Math.sqrt((this.state.G * mEnc) / r);
+      const th = Math.atan2(b.y, b.x);
+      const jitter = 1 + (rng() - 0.5) * 0.1;
+      b.vx = -v * Math.sin(th) * jitter;
+      b.vy = v * Math.cos(th) * jitter;
+      b.vz = (rng() - 0.5) * 0.04 * v;
+    }
+    this.bodies = bodies;
+    this.raw = bodies.map((b) => ({ ...b }));
+    this.state.count = Math.max(NBODY_COUNT_STEP, Math.min(this.countMax, n));
+    this.state.hasData = true;
+    this.state.simTime = 0;
+    this.e0 = null;
+    this.rebuildMesh();
+    this.fitCamera();
+    this.draw();
+    this.publish(true);
+    this.api.notify(
+      'success',
+      this.zh()
+        ? `已生成 ${n} 个天体的随机初始条件（mulberry32 种子 ${this.state.seed}）`
+        : `Generated ${n} seeded random ICs (mulberry32 seed ${this.state.seed})`,
+    );
+  }
+
+  /**
+   * Two-body Kepler benchmark [benchmark]: circular-orbit initial conditions
+   * for an equal-mass pair, integrated in isolation. The measured orbital
+   * period (first 2π crossing of the unwrapped relative angle) is compared
+   * against Kepler's third law T = 2π·√(a³/GM).
+   */
+  private runKeplerBenchmark() {
+    if (this.state.running) this.stop();
+    const G = this.state.G;
+    const m1 = 1;
+    const m2 = 1;
+    const M = m1 + m2;
+    const a = 1; // separation = semi-major axis (circular)
+    const vRel = Math.sqrt((G * M) / a);
+    const bodies: NBodyBody[] = [
+      { x: (-a * m2) / M, y: 0, z: 0, vx: 0, vy: (-vRel * m2) / M, vz: 0, mass: m1 },
+      { x: (a * m1) / M, y: 0, z: 0, vx: 0, vy: (vRel * m1) / M, vz: 0, mass: m2 },
+    ];
+    this.bodies = bodies;
+    this.raw = bodies.map((b) => ({ ...b }));
+    this.state.hasData = true;
+    this.rebuildMesh();
+    this.fitCamera();
+    this.draw();
+
+    const T = 2 * Math.PI * Math.sqrt((a * a * a) / (G * M));
+    const dt = Math.min(this.state.dt, T / 4000);
+    const softening = 0; // circular orbit keeps r = a — no softening needed
+    const maxSteps = Math.min(200000, Math.ceil((1.3 * T) / dt));
+    const e0 = this.totalEnergy(bodies, G, softening);
+    const TWO_PI = Math.PI * 2;
+    let prev = Math.atan2(bodies[1]!.y - bodies[0]!.y, bodies[1]!.x - bodies[0]!.x);
+    let unwrapped = prev;
+    let tPeriod = Number.NaN;
+    let maxDrift = 0;
+    for (let s = 1; s <= maxSteps; s += 1) {
+      advanceNBodyCPU(bodies, dt, G, softening);
+      const rx = bodies[1]!.x - bodies[0]!.x;
+      const ry = bodies[1]!.y - bodies[0]!.y;
+      const th = Math.atan2(ry, rx);
+      let d = th - prev;
+      if (d > Math.PI) d -= TWO_PI;
+      if (d < -Math.PI) d += TWO_PI;
+      const a0 = unwrapped;
+      unwrapped = a0 + d;
+      prev = th;
+      if (a0 < TWO_PI && unwrapped >= TWO_PI) {
+        const frac = (TWO_PI - a0) / Math.max(1e-30, d);
+        tPeriod = (s - 1 + frac) * dt;
+        break;
+      }
+      if (s % 50 === 0) {
+        const E = this.totalEnergy(bodies, G, softening);
+        maxDrift = Math.max(maxDrift, Math.abs(E - e0) / Math.max(Math.abs(e0), 1e-30));
+      }
+    }
+    const err = Number.isFinite(tPeriod) ? Math.abs(tPeriod - T) / T : Number.NaN;
+    const zh = this.zh();
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'bench-T-sim',
+        label: 'T_sim [bench]',
+        value: fmtMetric(tPeriod),
+        severity: 'info',
+        hint: zh
+          ? '二体开普勒基准：相对角首次转过 2π 的模拟时刻（圆轨道，a=1，等质量）'
+          : 'Two-body Kepler benchmark [benchmark]: simulated time for the relative angle to first sweep 2π (circular orbit, a=1, equal masses)',
+      },
+      {
+        key: 'bench-T-kepler',
+        label: 'T_Kepler',
+        value: fmtMetric(T),
+        severity: 'info',
+        hint: zh ? '开普勒第三定律 T=2π√(a³/GM) 的解析值' : 'Analytic Kepler third law T=2π√(a³/GM)',
+      },
+      {
+        key: 'bench-period-err',
+        label: '|ΔT/T|',
+        value: fmtMetric(err),
+        severity: err < 5e-3 ? 'ok' : err < 2e-2 ? 'warn' : 'error',
+        hint: zh ? '测量周期与开普勒解析周期的相对误差（辛欧拉频率误差 O((ω·dt)²)）' : 'Relative period error vs the Kepler analytic value (symplectic-Euler frequency error O((ω·dt)²))',
+      },
+      {
+        key: 'bench-energy-drift',
+        label: '|ΔE/E₀| [bench]',
+        value: fmtMetric(maxDrift),
+        severity: maxDrift < 1e-3 ? 'ok' : maxDrift < 1e-2 ? 'warn' : 'error',
+        hint: zh ? '基准积分全程的最大能量漂移' : 'Maximum energy drift over the benchmark integration',
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
+    this.state.simTime = Number.isFinite(tPeriod) ? tPeriod : 0;
+    this.e0 = e0;
+    this.api.notify(
+      'success',
+      zh
+        ? `二体开普勒基准完成：|ΔT/T| = ${fmtMetric(err)}（T_sim=${fmtMetric(tPeriod)}, T_Kepler=${fmtMetric(T)}）`
+        : `Two-body Kepler benchmark done: |ΔT/T| = ${fmtMetric(err)} (T_sim=${fmtMetric(tPeriod)}, T_Kepler=${fmtMetric(T)})`,
+    );
+  }
 
   // ---- 3-D rendering ----
 

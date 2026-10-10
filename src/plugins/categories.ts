@@ -9,7 +9,7 @@
 // show up.
 // ==========================================================================
 
-export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'chem' | 'bio' | 'geo' | 'data' | 'fun';
+export type PluginDiscipline = 'charts' | 'stats' | 'physics' | 'chem' | 'bio' | 'geo' | 'env' | 'data' | 'fun';
 
 export interface DisciplineInfo {
   id: PluginDiscipline;
@@ -24,6 +24,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
+  { id: 'env', nameI18n: { 'zh-CN': '环境', 'en-US': 'Environmental' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
 ];
@@ -82,6 +83,15 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-terrain': 'geo',
   'example.geo-gpx': 'geo',
   'example.geo-globe': 'geo',
+
+  // Environmental science
+  'example.env-aqi': 'env',
+  'example.env-water': 'env',
+  'example.env-greenhouse': 'env',
+  'example.env-carbon': 'env',
+  'example.env-biodiversity': 'env',
+  'example.env-plume': 'env',
+  'example.env-earth3d': 'env',
 
   // Biology
   'example.protein': 'bio',

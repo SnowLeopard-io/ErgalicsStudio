@@ -12,18 +12,26 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import {
+  meanOf, sdOf, skewnessOf, excessKurtosisOf, sturgesK, freedmanDiaconisW, silvermanBw, bi,
+} from './chartStats';
 
 export { histogramManifest } from './histogramManifest';
 import { histogramManifest } from './histogramManifest';
 
+type BinRule = 'manual' | 'sturges' | 'fd';
+
 interface State {
   values: number[];
   bins: number;
+  binRule: BinRule;
   palette: string;
   log: boolean;
   density: boolean;
   cumulative: boolean;
+  showKde: boolean;
 }
 
 const PALETTES: Record<string, string> = {
@@ -37,7 +45,7 @@ export class HistogramPlugin implements Plugin {
   readonly manifest = histogramManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { values: [], bins: 30, palette: 'teal', log: false, density: false, cumulative: false };
+  private state: State = { values: [], bins: 30, binRule: 'manual', palette: 'teal', log: false, density: false, cumulative: false, showKde: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -45,6 +53,7 @@ export class HistogramPlugin implements Plugin {
 
   async destroy() {
     this.ctx = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -61,16 +70,34 @@ export class HistogramPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
+    let statsChanged = false;
     if (typeof params.bins === 'number') {
-      this.state.bins = Math.max(5, Math.min(100, Math.round(params.bins)));
+      const bins = Math.max(5, Math.min(100, Math.round(params.bins)));
+      if (bins !== this.state.bins) {
+        this.state.bins = bins;
+        statsChanged = true;
+      }
+    }
+    if (params.binRule === 'manual' || params.binRule === 'sturges' || params.binRule === 'fd') {
+      if (params.binRule !== this.state.binRule) {
+        this.state.binRule = params.binRule;
+        statsChanged = true;
+      }
     }
     if (typeof params.palette === 'string') this.state.palette = params.palette;
     if (typeof params.log === 'boolean') this.state.log = params.log;
     if (typeof params.density === 'boolean') this.state.density = params.density;
     if (typeof params.cumulative === 'boolean') this.state.cumulative = params.cumulative;
+    if (typeof params.showKde === 'boolean') {
+      if (params.showKde !== this.state.showKde) {
+        this.state.showKde = params.showKde;
+        statsChanged = true;
+      }
+    }
     if (actionFired(params, 'exportPng')) this.exportPng();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     this.draw();
+    if (statsChanged) this.publishStats();
   }
 
   getParams(): ParamDefinition[] {
@@ -88,6 +115,18 @@ export class HistogramPlugin implements Plugin {
           { value: 'violet', label: 'Violet', labelI18n: { 'zh-CN': '紫', 'en-US': 'Violet' } },
         ],
       },
+      {
+        key: 'binRule',
+        label: 'Bin Rule',
+        labelI18n: { 'zh-CN': '分箱规则', 'en-US': 'Bin Rule' },
+        type: 'select',
+        value: this.state.binRule,
+        options: [
+          { value: 'manual', label: 'Manual (slider)', labelI18n: { 'zh-CN': '手动（滑块）', 'en-US': 'Manual (slider)' } },
+          { value: 'sturges', label: 'Sturges', labelI18n: { 'zh-CN': 'Sturges', 'en-US': 'Sturges' } },
+          { value: 'fd', label: 'Freedman–Diaconis', labelI18n: { 'zh-CN': 'Freedman–Diaconis', 'en-US': 'Freedman–Diaconis' } },
+        ],
+      },
       { key: 'log', label: 'Log scale', type: 'checkbox', value: this.state.log },
       {
         key: 'density',
@@ -102,6 +141,16 @@ export class HistogramPlugin implements Plugin {
         labelI18n: { 'zh-CN': '累积分布', 'en-US': 'Cumulative' },
         type: 'checkbox',
         value: this.state.cumulative,
+      },
+      {
+        key: 'showKde',
+        label: 'KDE Overlay',
+        labelI18n: { 'zh-CN': 'KDE 叠加', 'en-US': 'KDE Overlay' },
+        hint: this.api?.locale.startsWith('zh')
+          ? '高斯核密度估计，Silverman 带宽'
+          : 'Gaussian KDE with Silverman bandwidth',
+        type: 'checkbox',
+        value: this.state.showKde,
       },
       actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
@@ -125,6 +174,99 @@ export class HistogramPlugin implements Plugin {
     this.state.values = values;
     this.api.reportDataScale(values.length);
     this.draw();
+    this.publishStats();
+  }
+
+  /**
+   * Publish the distribution summary: n / mean / sd / skewness / excess
+   * kurtosis, the actually used bin count + rule, and the Sturges and
+   * Freedman–Diaconis candidates side by side; plus the Silverman KDE
+   * bandwidth when the overlay is on.
+   */
+  private publishStats() {
+    const values = this.state.values;
+    if (values.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const metrics: ScienceMetric[] = [];
+    const n = values.length;
+    metrics.push({ key: 'n', label: 'n', value: String(n), severity: 'info' });
+    metrics.push({
+      key: 'mean',
+      label: 'μ',
+      value: fmtMetric(meanOf(values)),
+      severity: 'info',
+      hint: bi(this.api, 'Sample mean.', '样本均值。'),
+    });
+    metrics.push({
+      key: 'sd',
+      label: 's',
+      value: fmtMetric(sdOf(values)),
+      severity: 'info',
+      hint: bi(this.api, 'Sample standard deviation (n−1).', '样本标准差（n−1）。'),
+    });
+    const skew = skewnessOf(values);
+    if (Number.isFinite(skew)) {
+      metrics.push({
+        key: 'skew',
+        label: 'g1',
+        value: fmtMetric(skew),
+        severity: 'info',
+        hint: bi(this.api, 'Fisher–Pearson standardized skewness (normal ≡ 0).', 'Fisher–Pearson 标准化偏度（正态为 0）。'),
+      });
+    }
+    const kurt = excessKurtosisOf(values);
+    if (Number.isFinite(kurt)) {
+      metrics.push({
+        key: 'kurt',
+        label: 'g2',
+        value: fmtMetric(kurt),
+        severity: 'info',
+        hint: bi(this.api, 'Excess kurtosis (normal ≡ 0).', '超额峰度（正态为 0）。'),
+      });
+    }
+    const kSturges = sturgesK(n);
+    metrics.push({
+      key: 'kSturges',
+      label: 'k(S)',
+      value: String(kSturges),
+      severity: 'info',
+      hint: bi(this.api, "Sturges' rule bin count 1+⌈log2(n)⌉.", 'Sturges 规则分箱数 1+⌈log₂(n)⌉。'),
+    });
+    const wFd = freedmanDiaconisW([...values].sort((a, b) => a - b));
+    if (wFd !== null) {
+      metrics.push({
+        key: 'wFD',
+        label: 'w(FD)',
+        value: fmtMetric(wFd),
+        severity: 'info',
+        hint: bi(this.api, 'Freedman–Diaconis bin width 2·IQR/n^(1/3).', 'Freedman–Diaconis 箱宽 2·IQR/n^(1/3)。'),
+      });
+    }
+    const built = this.buildBins();
+    if (built) {
+      metrics.push({
+        key: 'bins',
+        label: 'bins',
+        value: `${built.counts.length}·${built.rule}`,
+        severity: 'info',
+        hint: bi(this.api, 'Bin count actually drawn and the rule that chose it.', '实际绘制的分箱数及所选规则。'),
+      });
+    }
+    if (this.state.showKde) {
+      const h = silvermanBw(values);
+      if (h > 0) {
+        metrics.push({
+          key: 'hKde',
+          label: 'h(KDE)',
+          value: fmtMetric(h),
+          severity: 'info',
+          hint: bi(this.api, 'Silverman bandwidth 0.9·min(s, IQR/1.34)·n^(−1/5).', 'Silverman 带宽 0.9·min(s, IQR/1.34)·n^(−1/5)。'),
+        });
+      }
+    }
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   async compute(_input: unknown, onProgress?: (p: ComputeProgress) => void): Promise<ComputeResult> {
@@ -192,6 +334,7 @@ export class HistogramPlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
 
     if (this.state.values.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       g.fillStyle = 'rgba(150, 165, 185, 0.85)';
       g.font = `12px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
       g.textAlign = 'center';
@@ -206,7 +349,7 @@ export class HistogramPlugin implements Plugin {
     const values = this.state.values;
     const built = this.buildBins();
     if (!built) return;
-    const { binW, counts } = built;
+    const { min: binMin, binW, counts } = built;
     const bins = counts.length;
     const total = values.length;
     let maxCount = 1;
@@ -249,6 +392,37 @@ export class HistogramPlugin implements Plugin {
       g.fillRect(x + 1, canvas.height - padB - h, Math.max(1, barW - 2), h);
     }
 
+    // Optional Gaussian KDE overlay (Silverman bandwidth). Skipped on the
+    // log axis, where a density curve would be meaningless.
+    if (this.state.showKde && !this.state.log) {
+      const h = silvermanBw(values);
+      if (h > 0) {
+        const spanAll = binW * bins;
+        const steps = 120;
+        g.strokeStyle = '#a78bfa';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        for (let s = 0; s <= steps; s += 1) {
+          const x = binMin + (spanAll * s) / steps;
+          let d = 0;
+          for (const v of values) {
+            const u = (x - v) / h;
+            d += Math.exp(-0.5 * u * u);
+          }
+          d /= total * h;
+          const frac = this.state.density
+            ? d / maxDensity
+            : (d * total * binW) / maxCount;
+          const xPix = padL + ((x - binMin) / spanAll) * plotW;
+          const yPix = canvas.height - padB - Math.max(0, frac) * plotH;
+          if (s === 0) g.moveTo(xPix, yPix);
+          else g.lineTo(xPix, yPix);
+        }
+        g.stroke();
+        g.lineWidth = 1;
+      }
+    }
+
     // Cumulative-frequency polyline (fraction of samples <= bin end).
     if (this.state.cumulative) {
       g.strokeStyle = '#fbbf24';
@@ -274,7 +448,7 @@ export class HistogramPlugin implements Plugin {
   }
 
   /** Bin the loaded values; null when there is no data. */
-  private buildBins(): { min: number; binW: number; counts: number[] } | null {
+  private buildBins(): { min: number; binW: number; counts: number[]; rule: BinRule } | null {
     const values = this.state.values;
     if (values.length === 0) return null;
     let min = Infinity;
@@ -284,14 +458,31 @@ export class HistogramPlugin implements Plugin {
       if (v > max) max = v;
     }
     const span = max - min || 1;
-    const bins = Math.max(2, Math.round(this.state.bins));
+    let bins = Math.max(2, Math.round(this.state.bins));
+    let rule: BinRule = 'manual';
+    if (this.state.binRule === 'sturges') {
+      bins = sturgesK(values.length);
+      rule = 'sturges';
+    } else if (this.state.binRule === 'fd') {
+      const sorted = [...values].sort((a, b) => a - b);
+      const w = freedmanDiaconisW(sorted);
+      if (w !== null) {
+        // Clamp so a pathological IQR cannot request a absurd bin count.
+        bins = Math.max(2, Math.min(200, Math.ceil(span / w)));
+        rule = 'fd';
+      } else {
+        // Zero-IQR data has no FD width — fall back to Sturges honestly.
+        bins = sturgesK(values.length);
+        rule = 'sturges';
+      }
+    }
     const counts = new Array<number>(bins).fill(0);
     for (const v of values) {
       let idx = Math.floor(((v - min) / span) * bins);
       if (idx === bins) idx = bins - 1;
       counts[idx]! += 1;
     }
-    return { min, binW: span / bins, counts };
+    return { min, binW: span / bins, counts, rule };
   }
 
   private exportPng() {

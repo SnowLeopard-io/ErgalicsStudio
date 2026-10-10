@@ -22,8 +22,9 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
+import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import {
   WAVE_DRIVE_USAGE,
   WAVE_FIELD_USAGE,
@@ -285,6 +286,21 @@ export class WavePlugin implements Plugin {
       if (gpuOk) {
         const gpuMs = performance.now() - t0;
         this.api.reportGpuTime(gpuMs);
+        // Background completion (the user switched plugins mid-run): the
+        // instance keeps the advanced field (singleton state), but never
+        // draw into the shared canvas the now-active plugin owns — surface
+        // a non-intrusive jump-back toast instead.
+        if (this.api.isActive?.() === false) {
+          const zh = this.api.locale === 'zh-CN';
+          this.api.notify(
+            'success',
+            zh
+              ? `波场计算已完成（后台，${gpu.backend}）— ${gpuMs.toFixed(1)} ms`
+              : `Compute finished (background, ${gpu.backend}) — ${gpuMs.toFixed(1)} ms`,
+            { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
+          return { ok: true, output: W * H, metrics: { gpuMs, bytes: waveFieldBytes(W * H) } };
+        }
         this.draw();
         return { ok: true, output: W * H, metrics: { gpuMs, bytes: waveFieldBytes(W * H) } };
       }
@@ -296,9 +312,22 @@ export class WavePlugin implements Plugin {
       waveStepCPU(this.u, this.v, this.unew, this.vnew, this.drive, W, H, k, this.state.damping, this.time);
       await onProgress?.({ done: s + 1, total: steps });
     }
-    this.draw();
     const cpuMs = performance.now() - t0;
     this.api.reportGpuTime(cpuMs);
+    // Background completion: same contract as the GPU path — keep the
+    // field on the instance, notify with a jump-back, never draw.
+    if (this.api.isActive?.() === false) {
+      const zh = this.api.locale === 'zh-CN';
+      this.api.notify(
+        'success',
+        zh
+          ? `波场计算已完成（后台，cpu）— ${cpuMs.toFixed(1)} ms`
+          : `Compute finished (background, cpu) — ${cpuMs.toFixed(1)} ms`,
+        { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+      );
+      return { ok: true, output: W * H, metrics: { gpuMs: cpuMs, bytes: waveFieldBytes(W * H) } };
+    }
+    this.draw();
     return { ok: true, output: W * H, metrics: { gpuMs: cpuMs, bytes: waveFieldBytes(W * H) } };
   }
 

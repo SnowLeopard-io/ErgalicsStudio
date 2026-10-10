@@ -129,6 +129,26 @@ export function ToastStack() {
           onClick={() => dismiss(n.id)}
         >
           {n.message}
+          {n.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={(e) => {
+                // The action must not ALSO dismiss through the container's
+                // onClick; run it, then dismiss explicitly.
+                e.stopPropagation();
+                const action = n.action;
+                if (!action) return;
+                try {
+                  action.run();
+                } finally {
+                  dismiss(n.id);
+                }
+              }}
+            >
+              {n.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

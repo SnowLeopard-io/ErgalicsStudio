@@ -9,6 +9,7 @@
 // ==========================================================================
 
 import { mulberry32 } from '@/core/repro/random';
+import { toCsv } from '@/core/plugin-tools/enhance';
 
 /** Standard-normal sample via Box–Muller on top of a seeded uniform RNG. */
 export function gauss(rng: () => number): number {
@@ -23,13 +24,6 @@ export function gauss(rng: () => number): number {
 export function round(x: number, d = 4): number {
   const p = 10 ** d;
   return Math.round(x * p) / p;
-}
-
-/** Build a CSV document (headers + rows) from scalar cell values. */
-export function toCsv(headers: string[], rows: Array<Array<string | number>>): string {
-  const lines = [headers.join(',')];
-  for (const r of rows) lines.push(r.map((c) => String(c)).join(','));
-  return lines.join('\n') + '\n';
 }
 
 // ---- per-template generators ----------------------------------------------

@@ -78,6 +78,22 @@ function saveNow(): void {
   void useProjectStore.getState().save();
 }
 
+// §3.4: `figure: <sheet title>` auto-commit. Panels update on every drag/
+// tweak, so the commit is debounced (1.5s trailing) — bursts collapse into
+// one commit, and commitWorkingTree skips no-op trees anyway.
+const FIGURE_COMMIT_DEBOUNCE_MS = 1_500;
+let figureCommitTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingFigureTitle = '';
+
+function scheduleFigureAutoCommit(title: string): void {
+  pendingFigureTitle = title;
+  if (figureCommitTimer) clearTimeout(figureCommitTimer);
+  figureCommitTimer = setTimeout(() => {
+    figureCommitTimer = null;
+    void useProjectStore.getState().autoCommit('figure', pendingFigureTitle);
+  }, FIGURE_COMMIT_DEBOUNCE_MS);
+}
+
 /** Apply `fn` to one sheet and persist; `fn` returning null declines the mutation. */
 function mutateSheet(
   sheetId: string,
@@ -92,6 +108,7 @@ function mutateSheet(
   const next = sheets.slice();
   next[idx] = { ...updated, updatedAt: Date.now() };
   writeSheets(next);
+  scheduleFigureAutoCommit(updated.name || 'figure');
 }
 
 export const useFigureStore = create<FigureStore>((set) => ({
@@ -118,6 +135,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
     };
     writeSheets([...(project.state.figureSheets ?? []), sheet]);
     set({ activeSheetId: id });
+    scheduleFigureAutoCommit(sheet.name);
     return id;
   },
 

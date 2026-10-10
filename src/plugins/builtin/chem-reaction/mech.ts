@@ -8,8 +8,8 @@
 // is recomputed from the species structures.
 // ==========================================================================
 
-import { analyseReaction, electronsTransferred, type ReactionCentre } from '@/chem/engine/reaction';
-import { formationEnthalpy, reactionEntropy, gibbsEnergy, equilibriumConstant, T0 } from '@/chem/thermo';
+import { analyseReaction, electronsTransferred, type ReactionCentre } from '@/core/chem/engine/reaction';
+import { formationEnthalpy, reactionEntropy, gibbsEnergy, equilibriumConstant, T0 } from '@/core/chem/thermo';
 import type { ReactionDef, ReactionSpecies } from './catalog';
 
 export interface RenderedBond {

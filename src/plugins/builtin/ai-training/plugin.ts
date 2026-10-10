@@ -31,7 +31,7 @@ import { MODEL_SPECS, makeOptimizer } from './models';
 import { trainModel } from './trainer';
 import * as viz from './render';
 import { loadTf } from './tf';
-import { actionButton, exportRowsCsv } from '../shared/enhance';
+import { actionButton, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { aiTrainingManifest } from './manifest';
 import { aiTrainingManifest } from './manifest';

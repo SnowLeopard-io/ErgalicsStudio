@@ -32,11 +32,14 @@ void import('@/core/plugin-signing')
   .then(({ loadTrustedKeysFromStorage }) => loadTrustedKeysFromStorage())
   .catch(() => undefined);
 
-// Keyboard shortcut: Ctrl+S saves the current project (spec §4.2).
+// Keyboard shortcut: Ctrl+S saves the current project (spec §4.2) and
+// auto-commits §3.4-style (`save: <project name>`); autosave never commits.
 const onKeyDown = (event: KeyboardEvent) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
-    void import('@/stores/projectStore').then(({ useProjectStore }) => useProjectStore.getState().save());
+    void import('@/stores/projectStore').then(({ useProjectStore }) =>
+      useProjectStore.getState().save({ gitCommit: true }),
+    );
   }
 };
 window.addEventListener('keydown', onKeyDown);

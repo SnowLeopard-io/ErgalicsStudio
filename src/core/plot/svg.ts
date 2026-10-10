@@ -12,8 +12,8 @@ import type { FieldData, PlotSpec, PlotSeries } from './types';
 const FONT = "'Helvetica Neue', Arial, sans-serif";
 const FONT_AXIS = "'Helvetica Neue', Arial, sans-serif";
 const FONT_TITLE = "'Helvetica Neue', Arial, sans-serif";
-const MARGIN = { top: 36, right: 20, bottom: 48, LEFT_FLOOR: 60 };
-const TICK_LEN = 6;
+export const MARGIN = { top: 36, right: 20, bottom: 48, LEFT_FLOOR: 60 };
+export const TICK_LEN = 6;
 
 /**
  * Conservative width estimate for a 13px Arial tick label, measured without
@@ -21,14 +21,14 @@ const TICK_LEN = 6;
  * size the left margin; overestimating is safe, underestimating would let
  * wide exponential ticks ("2.0e-09") collide with the rotated y-axis title.
  */
-function estTickWidth(text: string): number {
+export function estTickWidth(text: string): number {
   let w = 0;
   for (const ch of text) w += ch === '.' || ch === '-' || ch === ':' || ch === ' ' ? 5 : ch === '1' ? 6 : 8;
   return w;
 }
 const COL_W = 150; // legend column width budget
 /** Reserve space right of the plot area for a field colorbar. */
-const COLORBAR_SPACE = 52;
+export const COLORBAR_SPACE = 52;
 const COLORBAR_W = 12;
 const COLORBAR_STEPS = 32;
 
@@ -278,7 +278,7 @@ function surfaceFrame(
 }
 
 /** Symmetric diverging domain for a field: [-m, m] when it straddles zero. */
-function fieldDomain(field: FieldData): [number, number] {
+export function fieldDomain(field: FieldData): [number, number] {
   if (field.domain) return field.domain;
   let min = Infinity;
   let max = -Infinity;
@@ -308,7 +308,7 @@ function escapeAttr(s: string): string {
   return escapeText(s).replace(/"/g, '&quot;');
 }
 
-function autoDomain(series: PlotSeries[], axis: 'x' | 'y'): [number, number] | undefined {
+export function autoDomain(series: PlotSeries[], axis: 'x' | 'y'): [number, number] | undefined {
   const vals: number[] = [];
   for (const s of series) {
     if (s.kind === 'bar' || s.kind === 'histogram') {
@@ -365,7 +365,7 @@ function breakTitleWord(word: string, maxW: number): string[] {
   return out;
 }
 /** Word-wrap a title into centered lines, each ≤ maxW (no ellipsis, no clip). */
-function wrapTitle(text: string, maxW: number): string[] {
+export function wrapTitle(text: string, maxW: number): string[] {
   const lines: string[] = [];
   let cur = '';
   let curW = 0;

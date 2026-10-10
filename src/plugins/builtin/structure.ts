@@ -25,7 +25,7 @@
 // ==========================================================================
 
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import type {
   ContainerCapabilities,
   ParamDefinition,

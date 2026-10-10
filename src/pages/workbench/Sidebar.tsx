@@ -1,26 +1,51 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
-import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CloseIcon } from '@/components/icons';
+import { GitPanel } from '@/components/GitPanel';
+import { ChevronRightIcon, ChevronLeftIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
+import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
+import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { useAppStore } from '@/stores/appStore';
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
 
+/** Collapsed discipline groups persist per-machine so the sidebar layout
+ *  survives reloads (mirrors the panel-prefs persistence in appStore). */
+const GROUPS_PREFS_KEY = 'ergalics:sidebar-groups';
+
+function loadCollapsedGroups(): Partial<Record<string, boolean>> {
+  try {
+    const raw = localStorage.getItem(GROUPS_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Partial<Record<string, boolean>> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function persistCollapsedGroups(collapsed: Partial<Record<string, boolean>>): void {
+  try {
+    localStorage.setItem(GROUPS_PREFS_KEY, JSON.stringify(collapsed));
+  } catch {
+    /* private mode — no persistence */
+  }
+}
+
 export function Sidebar() {
   const t = useT();
   const location = useLocation();
-  const project = useProjectStore((s) => s.project);
-  const recent = useProjectStore((s) => s.recent);
-  const openProject = useProjectStore((s) => s.openProject);
-  const remove = useProjectStore((s) => s.remove);
 
   const registry = usePluginStore((s) => s.registry);
   const activeId = usePluginStore((s) => s.activeId);
@@ -29,10 +54,14 @@ export function Sidebar() {
 
   const [pluginOpen, setPluginOpen] = useState(false);
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
-  /** Pending destructive action: project awaiting delete confirmation. */
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  /** Collapsed discipline groups (in-memory; all expanded by default). */
-  const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>({});
+  /** Collapsed discipline groups (all expanded by default; persists). */
+  const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
+
+  const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const sidebarView = useAppStore((s) => s.sidebarView);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const setFilePreview = useAppStore((s) => s.setFilePreview);
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -81,36 +110,58 @@ export function Sidebar() {
   }, [groups, registry, t]);
 
   const toggleGroup = (id: string) => {
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+    const next = { ...collapsed, [id]: !collapsed[id] };
+    setCollapsed(next);
+    persistCollapsedGroups(next);
   };
 
-  return (
-    <aside className="sidebar">
-      <nav className="sidebar-group">
-        <h3 className="sidebar-heading">{t('workbench.sidebar.project')}</h3>
-        {recent.length > 0 ? (
-          <ul className="recent-list">
-            {recent.map((p) => (
-              <li key={p.id} className={`recent-item ${project?.id === p.id ? 'active' : ''}`}>
-                <button type="button" className="recent-name" onClick={() => void openProject(p.id)}>
-                  {p.name || DEFAULT_PROJECT_NAME}
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn recent-delete"
-                  title={t('common.delete')}
-                  onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
-                >
-                  <CloseIcon size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState className="sidebar-plugin-empty" title={t('workbench.sidebar.no_recent')} />
-        )}
-      </nav>
+  // 收起态：侧栏本体不渲染，只在其原位置（中央区左侧）露一个窄的
+  // 展开按钮，点击恢复展开。
+  if (!sidebarOpen) {
+    return (
+      <button
+        type="button"
+        className="panel-edge-btn panel-edge-left"
+        aria-label={t('ux.panel.expand_sidebar')}
+        title={t('ux.panel.expand_sidebar')}
+        onClick={toggleSidebar}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+    );
+  }
 
+  return (
+    // 手柄挂在包裹层而非侧栏内部：侧栏 overflow 会裁剪超出边界的部分，
+    // 感应区必须整体落在侧栏右缘外才完整可命中。
+    <div className="panel-wrap" style={{ width: resize.width }}>
+      <div
+        className="panel-resize-handle panel-resize-right"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('ux.resize.sidebar')}
+        title={t('ux.resize.sidebar')}
+        onPointerDown={resize.onPointerDown}
+        onPointerMove={resize.onPointerMove}
+        onPointerUp={resize.onPointerUp}
+      />
+      <button
+        type="button"
+        className="panel-collapse-btn panel-collapse-right"
+        aria-label={t('ux.panel.collapse_sidebar')}
+        title={t('ux.panel.collapse_sidebar')}
+        onClick={toggleSidebar}
+      >
+        <ChevronLeftIcon size={12} />
+      </button>
+      <aside className="sidebar">
+      {/* 视图内容：活动栏（ActivityBar）决定显示哪一个。项目切换下拉
+          位于顶部栏的项目名处。 */}
+      {sidebarView === 'files' && <FileExplorer />}
+
+      {sidebarView === 'git' && <GitPanel alwaysOpen />}
+
+      {sidebarView === 'plugins' && (
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.plugins')}</h3>
         <button type="button" className="btn btn-sm btn-block" onClick={() => setPluginOpen(true)}>
@@ -141,7 +192,10 @@ export function Sidebar() {
                         className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
                         data-plugin-id={entry.id}
                         title={`${entry.name} ${entry.version}`}
-                        onClick={() => void activate(entry.id)}
+                        onClick={() => {
+                          void activate(entry.id);
+                          setFilePreview(null);
+                        }}
                       >
                         <span className="plugin-icon">{entry.icon ?? '◈'}</span>
                         <span className="plugin-item-name">{entry.name}</span>
@@ -157,21 +211,10 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Deleting a project is irreversible — confirm before removing. */}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('common.delete')}
-        message={t('project.remove_confirm')}
-        name={deleteTarget?.name}
-        confirmLabel={t('common.delete')}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-        }}
-        onClose={() => setDeleteTarget(null)}
-      />
+      )}
 
       <PluginDialog open={pluginOpen} onClose={() => { setPluginOpen(false); setPluginFocusId(undefined); }} focusId={pluginFocusId} />
-    </aside>
+      </aside>
+    </div>
   );
 }

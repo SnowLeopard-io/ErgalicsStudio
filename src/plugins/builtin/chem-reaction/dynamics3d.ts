@@ -10,7 +10,7 @@
 // ==========================================================================
 
 import * as THREE from 'three';
-import { cpkColor, covalentRadius } from '@/chem/elements';
+import { cpkColor, covalentRadius } from '@/core/chem/elements';
 import type { PhysicsPayload, SimulationResult } from './reactmd/types';
 
 export interface StaticSceneGroup {

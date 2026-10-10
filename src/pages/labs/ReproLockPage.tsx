@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -194,7 +195,9 @@ export default function ReproLockPage() {
             </label>
           </div>
           <div className="repro-run-list">
-            {successful.length === 0 && <div className="empty-hint">{t('reprolock.no_runs')}</div>}
+            {successful.length === 0 && (
+              <EmptyState className="empty-state-inline" title={t('reprolock.no_runs')} />
+            )}
             {successful.map((r) => (
               <label key={r.id} className="research-check repro-run-row">
                 <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} />

@@ -13,7 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { pointCloudManifest } from './pointCloudManifest';
 import { pointCloudManifest } from './pointCloudManifest';

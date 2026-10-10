@@ -40,30 +40,6 @@ export function sphericalAreaKm2(ring: Array<[number, number]>): number {
   return (Math.abs(total) * EARTH_RADIUS_KM * EARTH_RADIUS_KM) / 2;
 }
 
-/**
- * Relaxed delimited-text reader: splits into rows on newlines, cells on
- * commas (semicolon/tab also accepted), skips blank lines and `#` comments.
- * Returns trimmed string cells; the caller converts types.
- */
-export function parseDelimited(text: string): string[][] {
-  const rows: string[][] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#') || line.startsWith('//')) continue;
-    const cells = line.split(/[,;\t]+/).map((c) => c.trim());
-    rows.push(cells);
-  }
-  return rows;
-}
-
-/** Drop a leading header row when its first cell is not a finite number. */
-export function stripHeaderIfNonNumeric(rows: string[][]): string[][] {
-  if (rows.length === 0) return rows;
-  const first = rows[0]!;
-  const looksNumeric = first.some((c) => c !== '' && Number.isFinite(Number(c)));
-  return looksNumeric ? rows : rows.slice(1);
-}
-
 export interface ContourSeg {
   x1: number;
   y1: number;
@@ -143,17 +119,4 @@ export function marchingSquares(field: Float64Array, cols: number, rows: number,
     }
   }
   return segs;
-}
-
-/** Canvas-friendly empty-state message (shared look across geo plugins). */
-export function drawEmptyMessage(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, msg: string): void {
-  g.fillStyle = 'rgba(150, 165, 185, 0.85)';
-  g.font = "12px 'Microsoft YaHei', Consolas, monospace";
-  g.textAlign = 'center';
-  g.fillText(msg, canvas.width / 2, canvas.height / 2);
-}
-
-/** Locale helper used by every geo plugin. */
-export function isZh(locale: string): boolean {
-  return locale === 'zh-CN';
 }

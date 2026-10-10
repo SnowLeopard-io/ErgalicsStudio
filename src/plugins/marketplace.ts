@@ -91,6 +91,41 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['physics', 'mechanics', 'truss', 'collapse', 'interactive'],
     popularity: 80,
   },
+  'example.env-aqi': {
+    category: 'scientific',
+    tags: ['environment', 'air-quality', 'aqi', 'hj-633'],
+    popularity: 73,
+  },
+  'example.env-water': {
+    category: 'scientific',
+    tags: ['environment', 'water-quality', 'gb-3838', 'wqi'],
+    popularity: 71,
+  },
+  'example.env-greenhouse': {
+    category: 'scientific',
+    tags: ['environment', 'climate', 'greenhouse', 'co2', 'radiative-forcing'],
+    popularity: 74,
+  },
+  'example.env-carbon': {
+    category: 'scientific',
+    tags: ['environment', 'carbon-cycle', 'boxes', 'climate'],
+    popularity: 68,
+  },
+  'example.env-biodiversity': {
+    category: 'scientific',
+    tags: ['environment', 'ecology', 'biodiversity', 'shannon', 'simpson'],
+    popularity: 66,
+  },
+  'example.env-plume': {
+    category: 'scientific',
+    tags: ['environment', 'gaussian-plume', 'air-pollution', 'dispersion'],
+    popularity: 67,
+  },
+  'example.env-earth3d': {
+    category: 'scientific',
+    tags: ['environment', '3d', 'globe', 'co2', 'climate'],
+    popularity: 70,
+  },
 };
 
 // Community submissions — signed demo packages exercising the FR-05 pipeline.
