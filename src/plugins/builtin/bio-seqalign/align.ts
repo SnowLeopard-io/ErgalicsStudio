@@ -6,7 +6,13 @@
 // (Needleman-Wunsch) / local (Smith-Waterman) alignment with an affine gap
 // model. Everything is pure and exact integer/fraction scoring so unit tests
 // can assert canonical results (e.g. the classic NW traceback below).
+//
+// Research-grade layer (docs/technical/11 §2.4 / §3 L2): permutation-based
+// alignment-score significance (composition-preserving shuffles through the
+// deterministic mulberry32 PRNG from the core repro module).
 // ==========================================================================
+
+import { mulberry32 } from '@/core/repro/random';
 
 export const DNA = new Set('ACGTNRYSWKMBDHV');
 export const AA = new Set('ACDEFGHIKLMNPQRSTVWY');
@@ -364,6 +370,69 @@ function make2(rows: number, cols: number, fill: number): number[][] {
 export function revcomp(seq: string): string {
   const map: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N', a: 't', t: 'a', g: 'c', c: 'g', n: 'n' };
   return [...seq].reverse().map((c) => map[c] ?? 'N').join('');
+}
+
+// ---- permutation significance (docs/technical/11 §2.4 / §3 L2) --------------
+
+/** Composition-preserving Fisher-Yates shuffle (mulberry32-seeded). */
+export function shuffleSequence(seq: string, rand: () => number): string {
+  const arr = [...seq];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    const t = arr[i]!;
+    arr[i] = arr[j]!;
+    arr[j] = t;
+  }
+  return arr.join('');
+}
+
+export interface ShuffleStats {
+  observed: number;
+  nullMean: number;
+  nullSd: number;
+  /** (observed − nullMean) / nullSd. */
+  z: number;
+  /** Add-one empirical p: P(null ≥ observed) estimated from the shuffles. */
+  pEmpirical: number;
+  permutations: number;
+}
+
+/**
+ * Alignment-score significance against a null distribution built from
+ * `permutations` shuffles of sequence B (composition preserved). Scores are
+ * recomputed with the same matrix / gap model and mode as the observed
+ * alignment; the seed is deterministic (mulberry32) so the p-value is
+ * exactly reproducible for a given pair and parametrisation.
+ */
+export function shuffleSignificance(
+  a: string,
+  b: string,
+  matrix: SubMatrix,
+  gap: GapModel,
+  permutations: number,
+  seed: number,
+  local: boolean,
+): ShuffleStats | null {
+  if (!a.length || !b.length || permutations < 1) return null;
+  const rand = mulberry32(seed);
+  const scores: number[] = [];
+  for (let k = 0; k < permutations; k += 1) {
+    const bs = shuffleSequence(b, rand);
+    scores.push(local ? alignLocal(a, bs, matrix, gap).score : alignGlobal(a, bs, matrix, gap).score);
+  }
+  const mean = scores.reduce((x, y) => x + y, 0) / permutations;
+  const varr = scores.reduce((x, y) => x + (y - mean) ** 2, 0) / Math.max(1, permutations - 1);
+  const sd = Math.sqrt(varr);
+  const observed = local ? alignLocal(a, b, matrix, gap).score : alignGlobal(a, b, matrix, gap).score;
+  const ge = scores.filter((s) => s >= observed).length;
+  return {
+    observed,
+    nullMean: mean,
+    nullSd: sd,
+    z: sd > 1e-12 ? (observed - mean) / sd : 0,
+    pEmpirical: (ge + 1) / (permutations + 1),
+    permutations,
+  };
 }
 
 /** A named sequence record. */

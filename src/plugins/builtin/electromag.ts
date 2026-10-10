@@ -17,7 +17,7 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 
 export { electromagManifest } from './electromagManifest';
 import { electromagManifest } from './electromagManifest';
@@ -91,13 +91,7 @@ export class ElectromagPlugin implements Plugin {
 
   async destroy() {
     this.stop();
-    if (this.canvas && this.bound) {
-      this.canvas.removeEventListener('pointerdown', this.onDown);
-      this.canvas.removeEventListener('pointermove', this.onMove);
-      this.canvas.removeEventListener('pointerup', this.onUp);
-      this.canvas.removeEventListener('pointerleave', this.onUp);
-      this.bound = false;
-    }
+    this.unbind();
     this.canvas = null;
     this.ctx = null;
   }
@@ -115,6 +109,13 @@ export class ElectromagPlugin implements Plugin {
 
   async deactivate() {
     this.stop();
+    // Drop the shared-canvas pointer listeners on switch-away (mirror of
+    // optics). `this.canvas` is cached from the shared host element, so
+    // listeners left bound would keep firing for a background plugin —
+    // mutating charges and redrawing into whichever plugin the user switched
+    // to. The host canvas gate cannot see this path (the handlers never touch
+    // `canvas2d` to draw, they hold the element directly).
+    this.unbind();
   }
 
   async render(container: ContainerCapabilities) {
@@ -164,6 +165,16 @@ export class ElectromagPlugin implements Plugin {
     canvas.addEventListener('pointerup', this.onUp);
     canvas.addEventListener('pointerleave', this.onUp);
     this.bound = true;
+  }
+
+  private unbind() {
+    const canvas = this.canvas;
+    if (!canvas || !this.bound) return;
+    canvas.removeEventListener('pointerdown', this.onDown);
+    canvas.removeEventListener('pointermove', this.onMove);
+    canvas.removeEventListener('pointerup', this.onUp);
+    canvas.removeEventListener('pointerleave', this.onUp);
+    this.bound = false;
   }
 
   private toLocal(e: PointerEvent): { x: number; y: number } {

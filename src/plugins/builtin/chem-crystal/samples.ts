@@ -8,8 +8,8 @@
 // + renderer unit tests.
 // ==========================================================================
 
-import type { CrystalCell } from '@/chem/structure';
-import { parseCif } from '@/chem/parse/cif';
+import type { CrystalCell } from '@/core/chem/structure';
+import { parseCif } from '@/core/chem/parse/cif';
 
 import naclCif from '../../../../examples/data/chem-nacl.cif?raw';
 import quartzCif from '../../../../examples/data/chem-quartz.cif?raw';

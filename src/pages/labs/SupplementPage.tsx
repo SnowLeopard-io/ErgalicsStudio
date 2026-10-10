@@ -51,6 +51,10 @@ export default function SupplementPage() {
       });
       const safeName = project.name.replace(/[^\w.-]+/g, '_') || 'project';
       downloadBlob(`${safeName}-supplement.zip`, zip, 'application/zip');
+      // §3.4: supplement export auto-commits `release: supplement v<date>`.
+      void useProjectStore
+        .getState()
+        .autoCommit('release', `supplement v${new Date().toISOString().slice(0, 10)}`);
       notify('success', t('supplement.done'));
       navigate('/workbench');
     } catch (err) {

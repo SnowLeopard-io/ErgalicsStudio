@@ -40,6 +40,25 @@ describe('detectByExtension', () => {
     expect(detectByExtension('dense.npy')?.format).toBe('npy');
     expect(detectByExtension('map.geojson')?.format).toBe('geojson');
   });
+
+  it('detects textual research formats (crystal / sequence / variant / geo)', () => {
+    // Regression: plugin manifests declare these formats but detection was
+    // missing them, so dragging them in showed the "unsupported format"
+    // banner (e.g. .cif crystal cells). Detection must recognize them so the
+    // owning plugin (chem-crystal, bio-seqalign, bio-popgen, gpx, terrain)
+    // can receive the file.
+    expect(detectByExtension('quartz.CIF')?.format).toBe('cif');
+    expect(detectByExtension('cell.poscar')?.format).toBe('poscar');
+    expect(detectByExtension('cell.VASP')?.format).toBe('poscar');
+    expect(detectByExtension('rRNA.fasta')?.format).toBe('fasta');
+    expect(detectByExtension('gene.fa')?.format).toBe('fasta');
+    expect(detectByExtension('protein.faa')?.format).toBe('fasta');
+    expect(detectByExtension('samples.tsv')?.format).toBe('tsv');
+    expect(detectByExtension('variants.vcf')?.format).toBe('vcf');
+    expect(detectByExtension('track.gpx')?.format).toBe('gpx');
+    expect(detectByExtension('dem.asc')?.format).toBe('asc');
+    expect(detectByExtension('site.kml')?.format).toBe('kml');
+  });
 });
 
 describe('detectFormatByMagic', () => {

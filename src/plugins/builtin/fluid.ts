@@ -23,8 +23,9 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
+import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import {
   FLUID_DIRECTIONS,
   FLUID_FIELD_USAGE,
@@ -458,6 +459,25 @@ export class FluidPlugin implements Plugin {
       if (gpuOk) {
         const gpuMs = performance.now() - t0;
         this.api.reportGpuTime(gpuMs);
+        // Background completion (the user switched plugins mid-run): the
+        // instance keeps the advanced field (singleton state), but never
+        // draw into the shared canvas the now-active plugin owns — surface
+        // a non-intrusive jump-back toast instead.
+        if (this.api.isActive?.() === false) {
+          const zh = this.api.locale === 'zh-CN';
+          this.api.notify(
+            'success',
+            zh
+              ? `流场计算已完成（后台，${gpu.backend}）— ${gpuMs.toFixed(1)} ms`
+              : `Compute finished (background, ${gpu.backend}) — ${gpuMs.toFixed(1)} ms`,
+            { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
+          return {
+            ok: true,
+            output: this.cols * this.rows,
+            metrics: { gpuMs, bytes: fluidFieldBytes(this.cols * this.rows) },
+          };
+        }
         this.draw();
         return {
           ok: true,
@@ -472,9 +492,22 @@ export class FluidPlugin implements Plugin {
       this.stepsSinceSeed += 1;
       await onProgress?.({ done: s + 1, total: steps });
     }
-    this.draw();
     const cpuMs = performance.now() - t0;
     this.api.reportGpuTime(cpuMs);
+    // Background completion: same contract as the GPU path — keep the
+    // field on the instance, notify with a jump-back, never draw.
+    if (this.api.isActive?.() === false) {
+      const zh = this.api.locale === 'zh-CN';
+      this.api.notify(
+        'success',
+        zh
+          ? `流场计算已完成（后台，cpu）— ${cpuMs.toFixed(1)} ms`
+          : `Compute finished (background, cpu) — ${cpuMs.toFixed(1)} ms`,
+        { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+      );
+      return { ok: true, output: this.cols * this.rows, metrics: { gpuMs: cpuMs, bytes: fluidFieldBytes(this.cols * this.rows) } };
+    }
+    this.draw();
     return { ok: true, output: this.cols * this.rows, metrics: { gpuMs: cpuMs, bytes: fluidFieldBytes(this.cols * this.rows) } };
   }
 

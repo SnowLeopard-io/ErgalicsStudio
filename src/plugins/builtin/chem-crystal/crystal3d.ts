@@ -8,9 +8,9 @@
 // ==========================================================================
 
 import * as THREE from 'three';
-import type { CrystalCell } from '@/chem/structure';
-import { latticeMatrix, fractionalToCartesian, inferBonds } from '@/chem/structure';
-import { cpkColor, covalentRadius } from '@/chem/elements';
+import type { CrystalCell } from '@/core/chem/structure';
+import { latticeMatrix, fractionalToCartesian, inferBonds } from '@/core/chem/structure';
+import { cpkColor, covalentRadius } from '@/core/chem/elements';
 
 export type Representation = 'ball-stick' | 'spacefill';
 

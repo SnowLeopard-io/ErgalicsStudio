@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { FileEntry, Project } from '@/types/project';
 import {
   createEmptyProject,
+  DEFAULT_PROJECT_NAME,
   deserializeProject,
   serializeProject,
   touchProject,
@@ -28,6 +29,14 @@ import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
 import { t } from '@/i18n';
+import { getGitAdapter } from '@/core/git';
+import { commitWorkingTree, generateCommitMessage } from '@/core/git/autoCommit';
+import type { AutoCommitType } from '@/core/git/autoCommit';
+import type { GitStatus, GitCommit, GitBranch, DiffResult } from '@/core/git/types';
+import type { RunRecord } from '@/core/experiment/record';
+
+// Re-exported for existing consumers (GitPanel).
+export { generateCommitMessage };
 
 export type ProjectStatus =
   | 'ready'
@@ -37,6 +46,14 @@ export type ProjectStatus =
   | 'loading'
   | 'error';
 
+export interface GitRepoInfo {
+  isRepo: boolean;
+  status: GitStatus | null;
+  branches: GitBranch[];
+  currentBranch: string;
+  remotes: string[];
+}
+
 interface ProjectStore {
   project: Project | null;
   recent: Project[];
@@ -44,10 +61,18 @@ interface ProjectStore {
   status: ProjectStatus;
   statusText: string | null;
 
+  // Git integration
+  gitRepo: GitRepoInfo | null;
+  gitCommits: GitCommit[];
+  gitLoading: boolean;
+
   createProject: (name: string) => Promise<Project>;
   openProject: (id: string) => Promise<void>;
   loadProjectFromText: (raw: string) => Promise<Project>;
-  save: () => Promise<void>;
+  /** Persist the project. `opts.gitCommit` (manual Ctrl+S) additionally
+   *  auto-commits §3.4-style (`save: <name>`); plain save() (autosave,
+   *  debounced flush) only mirrors the snapshot into the working tree. */
+  save: (opts?: { gitCommit?: boolean }) => Promise<void>;
   saveAs: (fileName?: string) => Promise<void>;
   openFromFile: (file: File) => Promise<Project>;
   rename: (name: string) => void;
@@ -66,6 +91,37 @@ interface ProjectStore {
   addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
+
+  // Git operations
+  initGitRepo: (template?: 'standard' | 'minimal') => Promise<void>;
+  refreshGitStatus: () => Promise<void>;
+  /** §3.4 auto-commit for store-level triggers (figure saved, supplement
+   *  exported, …): mirrors the project into the working tree, then commits
+   *  only when something actually changed. Never throws. */
+  autoCommit: (type: AutoCommitType, details: string) => Promise<void>;
+  /** §3.4 auto-commit on run completion: mirrors the run record into
+   *  `runs/run-<id>.json` + `runs/index.json` (§3.1) and commits it. */
+  autoCommitRun: (run: RunRecord) => Promise<void>;
+  gitAdd: (files: string[]) => Promise<void>;
+  gitCommit: (message: string) => Promise<string>;
+  gitCheckout: (ref: string, create?: boolean) => Promise<void>;
+  gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
+  gitMerge: (branch: string) => Promise<void>;
+  gitPush: (remote: string, branch: string, setUpstream?: boolean) => Promise<void>;
+  gitPull: (remote: string, branch: string) => Promise<void>;
+  gitFetch: (remote: string) => Promise<void>;
+  gitAddRemote: (name: string, url: string) => Promise<void>;
+  /** Clone a remote repo and open it as the active project (US-04:
+   *  "File → Open from Git URL"). `targetPath` defaults to a fresh
+   *  per-project repo path. */
+  gitClone: (
+    url: string,
+    targetPath?: string,
+    branch?: string,
+    onProgress?: (phase: string, loaded: number, total: number) => void,
+  ) => Promise<Project>;
+  loadGitLog: (limit?: number) => Promise<void>;
+  getGitDiff: (filePath?: string, staged?: boolean) => Promise<DiffResult[] | undefined>;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -194,6 +250,69 @@ function scheduleDirtyFlush() {
   }, DIRTY_FLUSH_DELAY_MS);
 }
 
+export function getProjectRepoPath(project: Project): string {
+  // LightningFS resolves paths against its own "/" root: a RELATIVE repo path
+  // makes isomorphic-git's internal dirname('x') → '.', which CacheFS cannot
+  // look up ("ENOENT: ." — every git op died silently until now). Always
+  // hand the adapter an absolute path.
+  return `/ergalics-projects/${project.id}`;
+}
+
+async function initGitForProject(project: Project, template: 'standard' | 'minimal' = 'standard'): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const isRepo = await adapter.isRepo(repoPath);
+  if (!isRepo) {
+    await adapter.init(repoPath, template);
+  }
+  await syncProjectToRepo(project);
+  await refreshGitStatusForProject(project);
+}
+
+async function refreshGitStatusForProject(project: Project): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const isRepo = await adapter.isRepo(repoPath);
+  if (!isRepo) {
+    useProjectStore.setState({ gitRepo: { isRepo: false, status: null, branches: [], currentBranch: '', remotes: [] } });
+    return;
+  }
+  const [status, branches, remotes] = await Promise.all([
+    adapter.status(repoPath),
+    adapter.branches(repoPath),
+    adapter.remotes(repoPath),
+  ]);
+  useProjectStore.setState({
+    gitRepo: {
+      isRepo: true,
+      status,
+      branches,
+      currentBranch: status.currentBranch,
+      remotes: remotes.map(r => r.name),
+    },
+  });
+}
+
+/** Build a Conventional-Commit subject (§3.4). Implementation lives in
+ *  `@/core/git/autoCommit` (pure, unit-testable); re-exported above. */
+
+/**
+ * Mirror the current project snapshot into the repo working tree
+ * (`project.clproj`) so the Git panel sees real, reviewable changes and
+ * commits capture the full project state. Best-effort: failures never
+ * block the normal IndexedDB save path.
+ */
+async function syncProjectToRepo(project: Project): Promise<void> {
+  try {
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    if (!(await adapter.isRepo(repoPath))) return;
+    await adapter.writeFile(repoPath, 'project.clproj', serializeProject(project));
+  } catch (err) {
+    logger.warn('project', 'git working-tree sync failed', err);
+  }
+}
+
 /** Best-effort immediate save when the page is about to go away. IndexedDB
  *  commits usually survive pagehide; together with the debounced flush this
  *  closes the refresh window that lost recent edits. */
@@ -212,6 +331,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   dirty: false,
   status: 'ready',
   statusText: null,
+  gitRepo: null,
+  gitCommits: [],
+  gitLoading: false,
 
   createProject: async (name) => {
     const seq = ++openSeq;
@@ -229,6 +351,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     syncProjectFiles(project);
     ensureAutosave();
     await get().loadRecent();
+    // Initialize Git repo for new project
+    void get().initGitRepo('standard');
     return project;
   },
 
@@ -243,7 +367,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   loadProjectFromText: (raw) => importProjectText(raw, ++openSeq),
 
-  save: async () => {
+  save: async (opts) => {
     const { project, status } = get();
     if (!project || status === 'saving') return;
     const session = projectSession;
@@ -273,6 +397,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // Let plugins persist their own state alongside the project now that
       // the project itself is durably stored.
       usePluginStore.getState().notifyProjectLifecycle('save');
+      // Mirror the snapshot into the Git working tree (fire-and-forget) so
+      // the Git panel shows reviewable changes right after any save. A
+      // manual save (Ctrl+S, opts.gitCommit) additionally commits §3.4-style;
+      // autosave/debounced flush never commit.
+      void syncProjectToRepo(touched).then(() => {
+        if (opts?.gitCommit) {
+          void get().autoCommit('save', touched.name || touched.id);
+        }
+      });
     } catch (err) {
       logger.error('project', 'save failed', err);
       if (isCurrentSession(session, project.id)) set({ status: 'error' });
@@ -462,6 +595,216 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // reach, so the bytes would stay parked in storage forever.
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
+  },
+
+  // Git operations
+  initGitRepo: async (template = 'standard') => {
+    const { project } = get();
+    if (!project) return;
+    await initGitForProject(project, template);
+  },
+
+  refreshGitStatus: async () => {
+    const { project } = get();
+    if (!project) return;
+    await refreshGitStatusForProject(project);
+  },
+
+  autoCommit: async (type, details) => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      if (!(await adapter.isRepo(repoPath))) return;
+      // Capture the live project state before diffing so the commit carries
+      // the change that triggered it, not just the last durable snapshot.
+      await syncProjectToRepo(project);
+      const hash = await commitWorkingTree(adapter, repoPath, generateCommitMessage(type, details), () =>
+        refreshGitStatusForProject(project),
+      );
+      if (hash) void get().loadGitLog();
+    } catch (err) {
+      // §3.4 is best-effort: an auto-commit failure must never break the
+      // feature that triggered it (the run/figure/export already succeeded).
+      logger.warn('project', `auto-commit (${type}) failed`, err);
+    }
+  },
+
+  autoCommitRun: async (run) => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      if (!(await adapter.isRepo(repoPath))) return;
+      // §3.1: every run becomes runs/run-<id>.json plus an index entry
+      // (runId → {label, source, createdAt, hash}).
+      await adapter.writeFile(repoPath, `runs/${run.id}.json`, JSON.stringify(run, null, 2));
+      let index: Record<string, unknown> = {};
+      try {
+        index = JSON.parse(await adapter.readFile(repoPath, 'runs/index.json')) as Record<string, unknown>;
+      } catch {
+        // First run — start a fresh index.
+      }
+      index[run.id] = {
+        label: run.label,
+        source: run.source,
+        createdAt: run.createdAt,
+        hash: run.inputsHash ?? null,
+      };
+      await adapter.writeFile(repoPath, 'runs/index.json', JSON.stringify(index, null, 2));
+      await syncProjectToRepo(project);
+      const hash = await commitWorkingTree(
+        adapter,
+        repoPath,
+        generateCommitMessage('run', `${run.label ?? run.source} (source=${run.source})`),
+        () => refreshGitStatusForProject(project),
+      );
+      if (hash) void get().loadGitLog();
+    } catch (err) {
+      logger.warn('project', 'run auto-commit failed', err);
+    }
+  },
+
+  gitAdd: async (files: string[]) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.add(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCommit: async (message: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    // Capture the live project state, not whatever the last save left.
+    await syncProjectToRepo(project);
+    const hash = await adapter.commit(repoPath, message);
+    await refreshGitStatusForProject(project);
+    await get().loadGitLog();
+    return hash;
+  },
+
+  gitCheckout: async (ref: string, create = false) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.checkout(repoPath, ref, create);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCreateBranch: async (name: string, startPoint?: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.branch(repoPath, name, startPoint);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitMerge: async (branch: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const result = await adapter.merge(repoPath, branch);
+    if (!result.success && result.conflicts && result.conflicts.length > 0) {
+      throw new Error(`Merge conflicts in: ${result.conflicts.join(', ')}`);
+    }
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPush: async (remote: string, branch: string, setUpstream = false) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.push(repoPath, { remote, branch, setUpstream });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPull: async (remote: string, branch: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.pull(repoPath, { remote, branch });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitFetch: async (remote: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.fetch(repoPath, remote);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitAddRemote: async (name: string, url: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.addRemote(repoPath, name, url);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitClone: async (url, targetPath, branch, onProgress) => {
+    const adapter = getGitAdapter();
+    // Clone into a fresh per-project repo path (US-04: one click, then the
+    // cloned project opens directly in the workbench).
+    const seed = createEmptyProject('Cloned Project');
+    const repoPath = targetPath || getProjectRepoPath(seed);
+    await adapter.clone(url, repoPath, { branch, onProgress });
+
+    // A git-backed project must carry a project.clproj at its root (§3.1).
+    const raw = await adapter.readFile(repoPath, 'project.clproj');
+    const project = deserializeProject(raw);
+    // Detach from the source project's identity: this installation owns its
+    // own IndexedDB record and repo path.
+    project.id = seed.id;
+    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = 'Cloned Project';
+
+    const seq = ++openSeq;
+    await saveProject(project);
+    if (seq !== openSeq) return project;
+    applyOpenedProject(project);
+    await refreshGitStatusForProject(project);
+    return project;
+  },
+
+  loadGitLog: async (limit = 50) => {
+    const { project } = get();
+    if (!project) {
+      set({ gitCommits: [] });
+      return;
+    }
+    set({ gitLoading: true });
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      const commits = await adapter.log(repoPath, { limit });
+      set({ gitCommits: commits, gitLoading: false });
+    } catch {
+      set({ gitCommits: [], gitLoading: false });
+    }
+  },
+
+  getGitDiff: async (filePath?: string, staged = false) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const diffs = await adapter.diff(repoPath, { filePath, staged });
+    // Store diffs in state if needed
+    // For now, just return them
+    return diffs;
   },
 }));
 

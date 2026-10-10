@@ -45,8 +45,18 @@ const GITHUB_REPO = 'https://github.com/SnowLeopard-io/ErgalicsStudio';
 const GITEE_REPO = 'https://gitee.com/cnt-code/ergalics-studio';
 
 /** Development team roster shown in the About card. GitHub/Gitee mirror the
- *  same person; role & intro copy come from the i18n catalogs `about.*`. */
-const TEAM = [
+ *  same person; role & intro copy come from the i18n catalogs `about.*`.
+ *  `github` is optional — some members only maintain a Gitee presence. */
+interface TeamMember {
+  name: string;
+  giteeName: string;
+  github?: string;
+  gitee: string;
+  roleKey: 'about.team_lead_role' | 'about.team_dev_role' | 'about.team_dev2_role' | 'about.team_dev3_role';
+  introKey: 'about.team_lead_intro' | 'about.team_dev_intro' | 'about.team_dev2_intro' | 'about.team_dev3_intro';
+}
+
+const TEAM: TeamMember[] = [
   {
     name: 'SnowLeopard-io',
     giteeName: 'cnt-code',
@@ -63,7 +73,22 @@ const TEAM = [
     roleKey: 'about.team_dev_role',
     introKey: 'about.team_dev_intro',
   },
-] as const;
+  {
+    name: 'HM-Suiji',
+    giteeName: 'HM_suiji',
+    github: 'https://github.com/HM-Suiji',
+    gitee: 'https://gitee.com/HM_suiji',
+    roleKey: 'about.team_dev2_role',
+    introKey: 'about.team_dev2_intro',
+  },
+  {
+    name: 'zhangborui_2026',
+    giteeName: 'zhangborui_2026',
+    gitee: 'https://gitee.com/zhangborui_2026',
+    roleKey: 'about.team_dev3_role',
+    introKey: 'about.team_dev3_intro',
+  },
+];
 
 export default function SettingsPage() {
   const t = useT();
@@ -183,7 +208,7 @@ export default function SettingsPage() {
     <div className="settings">
       <header className="settings-topbar">
         <div className="settings-topbar-left">
-          <button type="button" className="btn settings-back" onClick={() => navigate('/')}>
+          <button type="button" className="btn settings-back" onClick={() => navigate('/workbench')}>
             <span className="settings-back-arrow" aria-hidden="true">←</span>
             {t('settings.back_home')}
           </button>
@@ -498,9 +523,11 @@ export default function SettingsPage() {
                         <span className="about-member-handle">{member.name}</span>
                       </div>
                       <div className="about-member-links">
-                        <a href={member.github} target="_blank" rel="noreferrer">
-                          GitHub · {member.name}
-                        </a>
+                        {member.github && (
+                          <a href={member.github} target="_blank" rel="noreferrer">
+                            GitHub · {member.name}
+                          </a>
+                        )}
                         <a href={member.gitee} target="_blank" rel="noreferrer">
                           Gitee · {member.giteeName}
                         </a>

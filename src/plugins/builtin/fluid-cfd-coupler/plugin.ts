@@ -27,7 +27,7 @@ import type {
 } from '@/types/plugin';
 import type { Group as ThreeGroup } from 'three';
 import { emit } from '@/core/events';
-import { actionButton, actionFired, notify } from '../shared/enhance';
+import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { FluidCfdClient } from './fluid-client';
 import { buildDiagReportHtml } from './diag-report';
 import { drawPanels } from './render';
@@ -102,7 +102,11 @@ export class FluidCfdCouplerPlugin implements Plugin {
     this.client.onLog = (text) => {
       this.logs.push(text);
       if (this.logs.length > 8) this.logs.splice(0, this.logs.length - 8);
-      this.draw();
+      // Defense in depth: the host canvas gate already blanks `canvas2d` for
+      // background plugins, so a gated draw is a no-op — this guard keeps the
+      // redraw work itself off the path when the user switched plugins
+      // mid-compute (same idiom as the progress callback in runCoupling).
+      if (this.api.isActive?.() !== false) this.draw();
     };
   }
 
@@ -316,13 +320,16 @@ export class FluidCfdCouplerPlugin implements Plugin {
           this.result = null;
           this.clearFieldGroup();
           this.fieldKey = '';
+          // Only notify when a real computed field was actually dropped —
+          // preset changes arriving via project-state restore (no result
+          // yet) would otherwise toast on every workspace entry.
+          notify(
+            this.api,
+            'info',
+            `Preset switched to ${params.preset} — press "Run Coupling" to compute its 3-D field.`,
+            '算例已切换——请点击「运行耦合」重新计算该算例的 3D 场。',
+          );
         }
-        notify(
-          this.api,
-          'info',
-          `Preset switched to ${params.preset} — press "Run Coupling" to compute its 3-D field.`,
-          '算例已切换——请点击「运行耦合」重新计算该算例的 3D 场。',
-        );
       }
     }
     if (params.view === 'coupling' || params.view === 'verify' || params.view === '3d') {
@@ -480,16 +487,29 @@ export class FluidCfdCouplerPlugin implements Plugin {
       const payload = this.buildPayload();
       const result = await this.client.runCoupling(payload, (info) => {
         onProgress?.({ done: info.done, total: info.total });
-        this.draw();
+        // Mid-run redraws must not paint the shared canvas once the user
+        // has switched away; the jump-back render() re-renders instead.
+        if (this.api.isActive?.() !== false) this.draw();
       });
       if (this.disposed) return result;
       this.result = result;
       this.stopPlay();
       this.frameIndex = 0;
+      // Background completion (the user switched plugins mid-run): the
+      // result stays on the instance (a later render() re-draws it), but
+      // never draw into the shared canvas the now-active plugin owns —
+      // surface a non-intrusive jump-back toast instead.
+      const background = this.api.isActive?.() === false;
       if (result.ok) {
         this.api.setStatus('ready');
         if (result.nonfinite) {
           notify(this.api, 'warning', 'Result contains non-finite values — the coupling likely diverged.', '结果包含非有限值（NaN/Inf）——耦合可能已发散，请检查参数。');
+        } else if (background && !keepVerify) {
+          this.api.notify(
+            'success',
+            this.api.locale === 'zh-CN' ? '流固耦合计算已完成（后台）。' : 'Coupling compute finished (background).',
+            { label: this.api.locale === 'zh-CN' ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
         } else if (!keepVerify) {
           notify(this.api, 'success', `Coupling done: ${result.metrics.n_windows} windows.`, `耦合完成：${result.metrics.n_windows} 个交换窗口。`);
         }
@@ -498,6 +518,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
         notify(this.api, 'error', result.error || 'Coupling failed.', '耦合失败。');
       }
       this.refreshParams();
+      if (background) return result;
       this.draw();
       return result;
     } catch (err) {
@@ -539,8 +560,17 @@ export class FluidCfdCouplerPlugin implements Plugin {
       if (this.disposed) return verify;
       this.verify = verify;
       this.api.setStatus('ready');
+      // Background completion: same contract as runCoupling — keep the
+      // result on the instance, notify with a jump-back, never draw.
+      const background = this.api.isActive?.() === false;
       if (verify.nonfinite) {
         notify(this.api, 'warning', 'Verification contains non-finite values — one case likely diverged.', '验证结果包含非有限值（NaN/Inf）——某个算例可能已发散。');
+      } else if (background && !keepResult) {
+        this.api.notify(
+          'success',
+          this.api.locale === 'zh-CN' ? '验证计算已完成（后台）。' : 'Verification compute finished (background).',
+          { label: this.api.locale === 'zh-CN' ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+        );
       } else if (!keepResult) {
         notify(
           this.api,
@@ -550,6 +580,7 @@ export class FluidCfdCouplerPlugin implements Plugin {
         );
       }
       this.refreshParams();
+      if (background) return verify;
       this.draw();
       return verify;
     } catch (err) {
@@ -582,6 +613,17 @@ export class FluidCfdCouplerPlugin implements Plugin {
       this.state.view = 'verify';
       const m = this.result?.metrics;
       this.api.setStatus('ready');
+      // Background completion: merge the all-done toast with a jump-back and
+      // leave the shared canvas alone (the sub-runs already skipped theirs).
+      if (this.api.isActive?.() === false) {
+        this.api.notify(
+          'success',
+          this.api.locale === 'zh-CN' ? '验证 + 耦合已全部完成（后台）。' : 'Verify + Coupling finished (background).',
+          { label: this.api.locale === 'zh-CN' ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+        );
+        this.refreshParams();
+        return;
+      }
       notify(
         this.api,
         'success',

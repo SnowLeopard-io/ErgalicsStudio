@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
+import { ActivityBar } from './ActivityBar';
 import { CentralArea } from './CentralArea';
 import { RightPanel } from './RightPanel';
 import { StatusBar } from './StatusBar';
@@ -34,7 +35,6 @@ const CodeEditor = lazy(() =>
 let restoreStarted = false;
 
 export default function WorkbenchPage() {
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
   const t = useT();
   const location = useLocation();
@@ -121,7 +121,10 @@ export default function WorkbenchPage() {
               <CodeEditor />
             ) : (
               <>
-                {sidebarOpen && <Sidebar />}
+                {/* 活动栏常驻（即使侧栏收起也可见，供重新打开视图）。 */}
+                <ActivityBar />
+                {/* Sidebar 自己处理收起态（渲染为贴边小按钮），始终挂载。 */}
+                <Sidebar />
                 <CentralArea />
                 <RightPanel />
               </>

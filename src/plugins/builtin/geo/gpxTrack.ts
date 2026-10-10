@@ -12,11 +12,12 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
+import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
-import { isZh, haversineKm } from './geoCore';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { haversineKm } from './geoCore';
+import { isZh } from '@/core/plugin-tools/locale';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { gpxTrackManifest } from './gpxTrackManifest';
 
 export { gpxTrackManifest } from './gpxTrackManifest';
@@ -131,7 +132,7 @@ const GRADIENT_BINS = 40;
  * (%) aggregated into equal-distance bins so GPS jitter doesn't invent
  * cliffs. Returns [] when the track carries no elevation.
  */
-export function gpxFigurePanels(points: TrackPoint[]): GeoFigurePanel[] {
+export function gpxFigurePanels(points: TrackPoint[]): FigurePanelSpec[] {
   const cum: number[] = [0];
   for (let i = 1; i < points.length; i += 1) {
     cum.push(cum[i - 1]! + haversineKm(points[i - 1]!.lat, points[i - 1]!.lon, points[i]!.lat, points[i]!.lon));
@@ -146,13 +147,13 @@ export function gpxFigurePanels(points: TrackPoint[]): GeoFigurePanel[] {
     const ele = points[i]!.ele;
     if (ele !== undefined && Number.isFinite(ele)) elevPts.push({ x: cum[i]!, y: ele });
   }
-  const panels: GeoFigurePanel[] = [
+  const panels: FigurePanelSpec[] = [
     {
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Elevation profile',
         xLabel: 'distance [km]',
         yLabel: 'elevation [m]',
@@ -189,8 +190,8 @@ export function gpxFigurePanels(points: TrackPoint[]): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Gradient [%]',
       xLabel: 'distance [km]',
       yLabel: 'grade [%]',

@@ -10,19 +10,24 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioEnzymeManifest } from './manifest';
 import {
   DEFAULT_RATE_PARAMS,
   DEFAULT_S_SUBSTRATES,
   apparentParams,
+  bootstrapParams,
+  dataSeed,
   derivedKinetics,
   fitMichaelisMenten,
   initialRate,
   lineweaverBurkX,
   lineweaverBurkY,
+  literatureKmConsistency,
   parseRateData,
   reportFit,
+  runMichaelisMentenBenchmark,
   synthesizeRates,
   type FitPoint,
   type InhibitionMode,
@@ -76,6 +81,7 @@ export class BioEnzymePlugin implements Plugin {
   }
 
   async destroy() {
+    clearScienceOutputs(this.manifest.id);
     this.ctx = null;
   }
 
@@ -186,8 +192,10 @@ export class BioEnzymePlugin implements Plugin {
       },
       actionButton('fit', 'Fit Vmax & Km', '拟合 Vmax 与 Km', 'primary'),
       actionButton('fitRun', 'Demo · fit', '演示 · 拟合含噪数据'),
+      actionButton('benchmark', 'Run MM benchmark', '运行 MM 基准验证'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export data CSV', '导出数据 CSV'),
+      actionButton('exportResiduals', 'Export residual CSV', '导出残差 CSV'),
     ];
   }
 
@@ -239,11 +247,13 @@ export class BioEnzymePlugin implements Plugin {
     }
     if (actionFired(params, 'fit')) this.fitNow(false, 'primary');
     if (actionFired(params, 'fitRun')) this.fitNow(true, 'demo');
+    if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bio-enzyme');
       return;
     }
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'exportResiduals')) this.exportResiduals();
   }
 
   getSupportedFormats() {
@@ -271,6 +281,8 @@ export class BioEnzymePlugin implements Plugin {
       this.state.km = fit.km;
     }
     this.fitReport = { data: pts, vmax: fit?.vmax ?? 0, km: fit?.km ?? 0 };
+    if (fit) this.publishFit(pts, fit.vmax, fit.km, 'user');
+    else clearScienceOutputs(this.manifest.id);
     notify(
       this.api,
       'success',
@@ -297,6 +309,7 @@ export class BioEnzymePlugin implements Plugin {
     this.state.vmax = fit.vmax;
     this.state.km = fit.km;
     this.fitReport = { data, vmax: fit.vmax, km: fit.km };
+    this.publishFit(data, fit.vmax, fit.km, synthetic ? 'demo' : 'user');
     const { r2, rmse } = reportFit(data, fit.vmax, fit.km);
     notify(
       this.api,
@@ -309,6 +322,136 @@ export class BioEnzymePlugin implements Plugin {
   }
 
   private fitReport: { data: FitPoint[]; vmax: number; km: number } | null = null;
+
+  /**
+   * Publish the fit's scientific outputs: R², RMSE, residual-bootstrap 95% CIs
+   * for Vmax/Km and the literature Km consistency screen. Demo (synthetic,
+   * seeded) data is published with an explicit provenance hint, never presented
+   * as user measurements.
+   */
+  private publishFit(data: FitPoint[], vmax: number, km: number, source: 'user' | 'demo') {
+    const { r2, rmse } = reportFit(data, vmax, km);
+    const ci = bootstrapParams(data, dataSeed(data));
+    const lit = literatureKmConsistency(km);
+    const provenance =
+      source === 'demo'
+        ? this.zh
+          ? '数据来源：内置演示合成数据（固定种子）'
+          : 'source: built-in synthetic demo data (fixed seed)'
+        : this.zh
+          ? '数据来源：用户数据集'
+          : 'source: user dataset';
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'r2',
+        label: 'R²',
+        value: fmtMetric(r2),
+        severity: r2 >= 0.95 ? 'ok' : r2 >= 0.8 ? 'info' : 'warn',
+        hint: provenance,
+      },
+      { key: 'rmse', label: 'RMSE', value: fmtMetric(rmse), unit: 'µmol/min', severity: 'info', hint: provenance },
+      {
+        key: 'vmax-ci',
+        label: 'Vmax 95% CI',
+        value: ci ? `${fmtMetric(vmax)} [${fmtMetric(ci.vmax[0])}, ${fmtMetric(ci.vmax[1])}]` : '—',
+        unit: 'µmol/min',
+        severity: 'info',
+        hint:
+          (this.zh ? '残差 bootstrap ' : 'residual bootstrap ') +
+          (ci ? `n=${ci.replicates}, ` : '') +
+          (this.zh ? '百分位法' : 'percentile method'),
+      },
+      {
+        key: 'km-ci',
+        label: 'Km 95% CI',
+        value: ci ? `${fmtMetric(km)} [${fmtMetric(ci.km[0])}, ${fmtMetric(ci.km[1])}]` : '—',
+        unit: 'mol/L',
+        severity: 'info',
+        hint: provenance,
+      },
+      {
+        key: 'km-lit',
+        label: 'Km lit',
+        value: lit.within
+          ? this.zh
+            ? `∈ ${lit.within.enzymeZh}`
+            : `in ${lit.within.enzyme}`
+          : lit.near
+            ? this.zh
+              ? `≈ ${lit.near.enzymeZh}`
+              : `near ${lit.near.enzyme}`
+            : this.zh
+              ? '超出文献表'
+              : 'outside table',
+        severity: lit.within ? 'ok' : 'warn',
+        hint: this.zh
+          ? '估算 Km 与常见酶文献数量级范围（mmol/L）对比'
+          : 'fitted Km vs typical literature Km ranges (mmol/L) for common enzymes',
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
+  }
+
+  /** Embedded L4 validation benchmark: known MM truth → seeded data → refit. */
+  private runBenchmark() {
+    const bench = runMichaelisMentenBenchmark();
+    if (!bench) {
+      notify(this.api, 'warning', 'Benchmark failed to fit.', '基准场景拟合失败。');
+      return;
+    }
+    const okV = bench.relErrVmax < 0.1;
+    const okK = bench.relErrKm < 0.1;
+    const metrics: ScienceMetric[] = [
+      {
+        key: 'bench-vmax-err',
+        label: 'Vmax recover err',
+        value: fmtMetric(bench.relErrVmax * 100),
+        unit: '%',
+        severity: okV ? 'ok' : 'warn',
+        hint: this.zh
+          ? `基准场景：真值 Vmax=${bench.trueVmax}（合成数据，固定种子），非用户数据`
+          : `benchmark: truth Vmax=${bench.trueVmax} (synthetic seeded data, not user data)`,
+      },
+      {
+        key: 'bench-km-err',
+        label: 'Km recover err',
+        value: fmtMetric(bench.relErrKm * 100),
+        unit: '%',
+        severity: okK ? 'ok' : 'warn',
+        hint: this.zh
+          ? `基准场景：真值 Km=${bench.trueKm}（合成数据，固定种子），非用户数据`
+          : `benchmark: truth Km=${bench.trueKm} (synthetic seeded data, not user data)`,
+      },
+      {
+        key: 'bench-r2',
+        label: 'R² (bench)',
+        value: fmtMetric(bench.r2),
+        severity: 'info',
+        hint: this.zh ? `基准拟合 RMSE=${fmtMetric(bench.rmse)}` : `benchmark fit RMSE=${fmtMetric(bench.rmse)}`,
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
+    notify(
+      this.api,
+      'success',
+      `Benchmark: Vmax err ${(bench.relErrVmax * 100).toFixed(2)}%, Km err ${(bench.relErrKm * 100).toFixed(2)}%`,
+      `基准验证：Vmax 误差 ${(bench.relErrVmax * 100).toFixed(2)}%，Km 误差 ${(bench.relErrKm * 100).toFixed(2)}%`,
+    );
+  }
+
+  /** Residual table of the current fit (observed, predicted, residual). */
+  private exportResiduals() {
+    const fit = this.fitReport;
+    if (!fit) {
+      notify(this.api, 'warning', 'Run a fit first.', '请先运行一次拟合。');
+      return;
+    }
+    const rows: Array<Array<number | string>> = fit.data.map((d) => {
+      const pred = (fit.vmax * d.s) / (fit.km + d.s);
+      return [d.s, Number(d.v.toFixed(6)), Number(pred.toFixed(6)), Number((d.v - pred).toFixed(6))];
+    });
+    exportRowsCsv(this.api, 'enzyme-fit-residuals', ['substrate', 'v0_observed', 'v0_predicted', 'residual'], rows);
+  }
 
   private exportCsv() {
     const p = this.params();
@@ -332,6 +475,7 @@ export class BioEnzymePlugin implements Plugin {
     const g = canvas.getContext('2d');
     if (!g) return;
     if (!this.hasData) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: 'No initial-rate data',
         titleZh: '尚未加载初速度数据',

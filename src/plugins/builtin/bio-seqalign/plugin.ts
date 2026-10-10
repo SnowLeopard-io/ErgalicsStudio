@@ -10,7 +10,9 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '../shared/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { hashString } from '@/core/repro/random';
 import { bioSeqalignManifest } from './manifest';
 import {
   alignGlobal,
@@ -22,9 +24,11 @@ import {
   parseFasta,
   parseSequenceJson,
   parseSequenceTable,
+  shuffleSignificance,
   type AlignResult,
   type MatrixName,
   type SeqEntry,
+  type ShuffleStats,
 } from './align';
 
 export { bioSeqalignManifest } from './manifest';
@@ -59,6 +63,7 @@ export class BioSeqalignPlugin implements Plugin {
     view: 'alignment',
   };
   private result: AlignResult | null = null;
+  private sig: ShuffleStats | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -71,6 +76,7 @@ export class BioSeqalignPlugin implements Plugin {
   }
 
   async destroy() {
+    clearScienceOutputs(this.manifest.id);
     this.ctx = null;
   }
 
@@ -167,6 +173,7 @@ export class BioSeqalignPlugin implements Plugin {
         value: this.state.window,
       },
       actionButton('exportCsv', 'Export alignment CSV', '导出比对 CSV'),
+      actionButton('exportStats', 'Export stats CSV', '导出统计 CSV'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
@@ -203,6 +210,10 @@ export class BioSeqalignPlugin implements Plugin {
     if (actionFired(params, 'align')) changed = true;
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
+      return;
+    }
+    if (actionFired(params, 'exportStats')) {
+      this.exportStatsCsv();
       return;
     }
     if (actionFired(params, 'exportPng')) {
@@ -314,6 +325,51 @@ export class BioSeqalignPlugin implements Plugin {
     const b = this.state.seqB.toUpperCase().replace(/\s/g, '');
     this.hasData = a.length > 0 && b.length > 0;
     this.result = this.state.mode === 'local' ? alignLocal(a, b, matrix, gap) : alignGlobal(a, b, matrix, gap);
+    // Permutation significance: ≥100 mulberry32-seeded composition-preserving
+    // shuffles of sequence B; scale the count down for long pairs so param
+    // edits stay responsive. Seed derives from the inputs → reproducible.
+    if (this.hasData) {
+      const work = a.length * b.length;
+      const perms = work > 25000 ? 100 : 200;
+      const seed = parseInt(hashString(`${a}|${b}|${this.state.mode}|${this.state.matrix}|${gap.open}|${gap.extend}`), 16) >>> 0;
+      this.sig = shuffleSignificance(a, b, matrix, gap, perms, seed, this.state.mode === 'local');
+    } else {
+      this.sig = null;
+    }
+    this.publish();
+  }
+
+  /** Publish the alignment's scientific outputs (cleared when no data). */
+  private publish() {
+    const r = this.result;
+    if (!this.hasData || !r) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const gapPct = r.length > 0 ? (r.gaps / r.length) * 100 : 0;
+    const zh = this.zh;
+    const metrics: ScienceMetric[] = [
+      { key: 'score', label: 'score', value: fmtMetric(r.score), severity: 'info', hint: zh ? `${this.state.mode === 'local' ? 'Smith-Waterman 局部' : 'Needleman-Wunsch 全局'}比对 · ${this.state.matrix}` : `${this.state.mode === 'local' ? 'Smith-Waterman local' : 'Needleman-Wunsch global'} · ${this.state.matrix}` },
+      { key: 'identity', label: 'identity', value: fmtMetric(r.identity * 100), unit: '%', severity: 'info', hint: zh ? '比对列中相同残基占比（不含空位列）' : 'identical residues over aligned non-gap columns' },
+      { key: 'gap', label: 'gap', value: fmtMetric(gapPct), unit: '%', severity: 'info', hint: zh ? '空位占比对长度比例' : 'gap columns / aligned length' },
+      {
+        key: 'z',
+        label: 'z',
+        value: this.sig ? fmtMetric(this.sig.z) : '—',
+        severity: 'info',
+        hint: zh
+          ? `观测得分相对 ${this.sig?.permutations ?? 0} 次保组成置换零分布的标准化偏差（μ=${this.sig ? fmtMetric(this.sig.nullMean) : '—'}, σ=${this.sig ? fmtMetric(this.sig.nullSd) : '—'}）`
+          : `observed score vs ${this.sig?.permutations ?? 0}-shuffle composition-preserving null (μ=${this.sig ? fmtMetric(this.sig.nullMean) : '—'}, σ=${this.sig ? fmtMetric(this.sig.nullSd) : '—'})`,
+      },
+      {
+        key: 'p',
+        label: 'p (emp)',
+        value: this.sig ? fmtMetric(this.sig.pEmpirical) : '—',
+        severity: this.sig && this.sig.pEmpirical < 0.05 ? 'ok' : 'warn',
+        hint: zh ? '加一经验 p 值：P(置换得分 ≥ 观测)' : 'add-one empirical p: P(shuffled score ≥ observed)',
+      },
+    ];
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   private exportCsv() {
@@ -326,6 +382,35 @@ export class BioSeqalignPlugin implements Plugin {
     exportRowsCsv(this.api, 'seq-alignment', ['pos', 'alignedA', 'alignedB'], rows);
   }
 
+  /** Summary statistics of the current alignment (incl. traceback path length). */
+  private exportStatsCsv() {
+    const r = this.result;
+    if (!r) {
+      notify(this.api, 'warning', 'Nothing to export yet.', '暂无可导出的比对结果。');
+      return;
+    }
+    const gapPct = r.length > 0 ? (r.gaps / r.length) * 100 : 0;
+    const rows: Array<Array<string | number>> = [
+      ['mode', r.mode],
+      ['matrix', this.state.matrix],
+      ['score', r.score],
+      ['identity_pct', Number((r.identity * 100).toFixed(4))],
+      ['positive_pct', Number((r.positive * 100).toFixed(4))],
+      ['gap_pct', Number(gapPct.toFixed(4))],
+      ['gap_columns', r.gaps],
+      ['aligned_length', r.length],
+      ['traceback_path_length', r.length],
+      ['seqA_length', baseStats(this.state.seqA.toUpperCase()).length],
+      ['seqB_length', baseStats(this.state.seqB.toUpperCase()).length],
+      ['permutations', this.sig?.permutations ?? 0],
+      ['null_mean', this.sig ? Number(this.sig.nullMean.toFixed(4)) : ''],
+      ['null_sd', this.sig ? Number(this.sig.nullSd.toFixed(4)) : ''],
+      ['z_score', this.sig ? Number(this.sig.z.toFixed(4)) : ''],
+      ['p_empirical', this.sig ? Number(this.sig.pEmpirical.toFixed(6)) : ''],
+    ];
+    exportRowsCsv(this.api, 'seq-alignment-stats', ['metric', 'value'], rows);
+  }
+
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
@@ -336,6 +421,7 @@ export class BioSeqalignPlugin implements Plugin {
     const g = canvas.getContext('2d');
     if (!g) return;
     if (!this.hasData) {
+      clearScienceOutputs(this.manifest.id);
       drawEmptyCanvas(this.api, canvas, {
         title: 'No sequences loaded',
         titleZh: '尚未加载序列',

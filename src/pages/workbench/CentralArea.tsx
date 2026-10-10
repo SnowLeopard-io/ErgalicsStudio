@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useAppStore } from '@/stores/appStore';
+import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { CloseIcon, ToolIcon } from '@/components/icons';
+import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
+import { mdToHtml } from '@/core/notebook/notebook';
+import { downloadBlob } from '@/core/download';
+import { getGitAdapter } from '@/core/git';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
 // still cached in `scene3dRef` and exposed synchronously via `getThree`, while
@@ -16,13 +21,264 @@ import {
   resetViewport2d,
   wrapCanvas2d,
   clearCanvas2dInViewport,
+  type Viewport2D,
 } from '@/core/viewport2d';
 import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
+
+function fmtSize(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+const MD_VIEWS = ['edit', 'preview', 'split'] as const;
+type MdView = (typeof MD_VIEWS)[number];
+
+/**
+ * File preview overlay (VS Code editor-area style). Renders by kind:
+ * text → monospace `<pre>`; markdown → editable preview/split with save-back
+ * to the working tree; image/pdf/video/audio → binary blob URL embed;
+ * unknown → info placeholder + download. The canvas stays mounted underneath.
+ */
+function PreviewOverlay({
+  preview,
+  onClose,
+}: {
+  preview: FilePreviewState;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const project = useProjectStore((s) => s.project);
+  const notify = useAppStore((s) => s.notify);
+  const bumpFileOps = useAppStore((s) => s.bumpFileOps);
+
+  const [view, setView] = useState<MdView>('preview');
+  const [mdText, setMdText] = useState(preview.content ?? '');
+
+  // Re-arm the draft + view whenever a different file is opened.
+  useEffect(() => {
+    setMdText(preview.content ?? '');
+    setView('preview');
+  }, [preview.path, preview.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Revoke the binary blob URL when the overlay unmounts (the store also
+  // revokes on close, so this guards the mode-switch / new-file path).
+  useEffect(() => {
+    return () => {
+      if (preview.blobUrl) {
+        try {
+          URL.revokeObjectURL(preview.blobUrl);
+        } catch {
+          /* already revoked */
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveMarkdown = async () => {
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    try {
+      await adapter.writeFile(repoPath, preview.path, mdText);
+      notify('success', t('workbench.preview.saved'));
+      bumpFileOps(); // let the explorer refresh its listings
+    } catch {
+      notify('error', t('workbench.preview.save_failed'));
+    }
+  };
+
+  const downloadFile = async () => {
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    try {
+      const blob = preview.blobUrl
+        ? await (await fetch(preview.blobUrl)).blob()
+        : new Blob([(await adapter.readFileBinary(repoPath, preview.path)) as BlobPart], {
+            type: preview.mimeType,
+          });
+      downloadBlob(preview.name, blob, preview.mimeType);
+    } catch {
+      notify('error', t('workbench.preview.download_failed'));
+    }
+  };
+
+  let body: JSX.Element;
+  switch (preview.kind) {
+    case 'text':
+      body = (
+        <>
+          <pre className="central-file-preview-content">{preview.content}</pre>
+          {(preview.content?.length ?? 0) >= 200_000 && (
+            <p className="central-file-preview-note">{t('workbench.preview.truncated')}</p>
+          )}
+        </>
+      );
+      break;
+    case 'markdown':
+      body = (
+        <div className="central-md">
+          <div className="central-md-toolbar">
+            <div className="central-md-modes" role="group" aria-label={t('workbench.preview.mode_label')}>
+              {MD_VIEWS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`explorer-pill${view === m ? ' active' : ''}`}
+                  onClick={() => setView(m)}
+                >
+                  {t(`workbench.preview.mode_${m}`)}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn btn-sm central-md-save" onClick={() => void saveMarkdown()}>
+              {t('workbench.preview.save')}
+            </button>
+          </div>
+          <div className={`central-md-body mode-${view}`}>
+            {(view === 'edit' || view === 'split') && (
+              <textarea
+                className="central-md-edit"
+                value={mdText}
+                spellCheck={false}
+                onChange={(e) => setMdText(e.target.value)}
+              />
+            )}
+            {(view === 'preview' || view === 'split') && (
+              <div
+                className="central-md-preview"
+                dangerouslySetInnerHTML={{ __html: mdToHtml(mdText) }}
+              />
+            )}
+          </div>
+        </div>
+      );
+      break;
+    case 'image':
+      body = (
+        <div className="central-file-media">
+          <img src={preview.blobUrl} alt={preview.name} />
+        </div>
+      );
+      break;
+    case 'pdf':
+      body = (
+        <div className="central-file-media">
+          <iframe src={preview.blobUrl} title={preview.name} />
+        </div>
+      );
+      break;
+    case 'video':
+      body = (
+        <div className="central-file-media">
+          <video src={preview.blobUrl} controls />
+        </div>
+      );
+      break;
+    case 'audio':
+      body = (
+        <div className="central-file-media">
+          <audio src={preview.blobUrl} controls />
+        </div>
+      );
+      break;
+    default:
+      body = (
+        <div className="central-file-unknown">
+          <div className="central-file-unknown-icon">?</div>
+          <p className="central-file-unknown-title">{t('workbench.preview.unsupported')}</p>
+          <p className="central-file-unknown-desc">
+            {preview.mimeType}
+            {preview.size > 0 ? ` · ${fmtSize(preview.size)}` : ''}
+          </p>
+          <button type="button" className="btn" onClick={() => void downloadFile()}>
+            {t('workbench.preview.download')}
+          </button>
+        </div>
+      );
+  }
+
+  return (
+    <div className="central-file-preview">
+      <header className="central-file-preview-tab">
+        <span className="central-file-preview-name" title={preview.path}>
+          {preview.name}
+        </span>
+        {preview.kind !== 'markdown' && (
+          <span className="central-file-preview-readonly">{t('workbench.preview.readonly')}</span>
+        )}
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('common.close')}
+          title={t('common.close')}
+          onClick={onClose}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </header>
+      {body}
+    </div>
+  );
+}
+
+/**
+ * Research suite embedded in the canvas area (opaque overlay, canvas stays
+ * mounted underneath — same contract as PreviewOverlay). The tool page ships
+ * its own ToolShell, which drops its header/status bar in embedded mode; the
+ * tab header here carries the close affordance.
+ */
+function EmbeddedToolView({
+  toolId,
+  onClose,
+}: {
+  toolId: string;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const toolDef = getTool(toolId);
+  if (!toolDef) return null;
+  const Page = toolDef.component;
+  return (
+    <div className="central-tool-view">
+      <header className="central-file-preview-tab">
+        <span className="tool-title-icon" aria-hidden="true">
+          <ToolIcon kind={toolDef.icon} size={15} />
+        </span>
+        <span className="central-file-preview-name">{t(toolDef.titleKey)}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('suite.close')}
+          title={t('suite.close')}
+          onClick={onClose}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </header>
+      <div className="central-tool-view-body">
+        <Suspense
+          fallback={
+            <div className="central-tool-loading">
+              <span className="spinner" />
+            </div>
+          }
+        >
+          <Page />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
 
 export function CentralArea() {
   const t = useT();
@@ -30,6 +286,20 @@ export function CentralArea() {
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
   const status = useAppStore((s) => s.status);
+  // Plugin that started the in-flight computation (null = host-driven, e.g.
+  // a project load). The overlay only masks the owning plugin's own viewport:
+  // a background compute must never cover the plugin the user switched to.
+  // `activeId` is selected further below (viewport-reset hook).
+  const computingId = usePluginStore((s) => s.computingId);
+  // Explorer-driven read-only file preview: rendered as an opaque overlay over
+  // the canvas (VS Code editor-area style). The plugin surface stays mounted
+  // underneath, so closing the preview never re-initializes a scene.
+  const filePreview = useAppStore((s) => s.filePreview);
+  const setFilePreview = useAppStore((s) => s.setFilePreview);
+  // Research suite embedded in the canvas (opened from the launcher / command
+  // palette / welcome grid). Rendered as an opaque overlay like file previews.
+  const embeddedToolId = useAppStore((s) => s.embeddedTool);
+  const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,11 +309,11 @@ export function CentralArea() {
   const [dragOver, setDragOver] = useState(false);
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
-  // Mirror of the viewport scale for rendering: the viewport store lives
-  // outside React, so this state exists purely to surface a visible zoom
-  // badge (invisible viewport state already caused two "render is broken"
-  // reports — pan drift and accidental wheel shrink).
-  const [zoom2d, setZoom2d] = useState(1);
+  // Mirror of the viewport for rendering: the viewport store lives outside
+  // React, so this state exists purely to surface a visible zoom badge /
+  // reset affordance (invisible viewport state already caused two "render is
+  // broken" reports — pan drift and accidental wheel shrink).
+  const [vp2d, setVp2d] = useState<Viewport2D>({ x: 0, y: 0, scale: 1 });
 
   // File ingestion (drop → sniff → scientific import / plugin routing) lives
   // in its own hook so this component stays focused on the viewport.
@@ -69,12 +339,25 @@ export function CentralArea() {
   const pan2dAllowed = (target: EventTarget | null) =>
     !scene3dRef.current?.isVisible() && target === domRef.current;
 
+  // Clamp the drag so the frame can never be shifted fully out of view. At
+  // scale 1 most plugins paint exactly the canvas area, and an unbounded pan
+  // used to reveal a fully empty bitmap that read as "the render broke".
+  // Reaching content a plugin draws beyond its frame needs slack, so the cap
+  // is 2× the host size — enough for off-frame data, never empty-screenable.
+  const clampPan = (x: number, y: number): { x: number; y: number } => {
+    const host = wrapperRef.current;
+    if (!host) return { x, y };
+    const r = host.getBoundingClientRect();
+    const maxX = r.width * 2;
+    const maxY = r.height * 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
-    // Panning at scale 1 just shifts the frame into a confusing floating
-    // position (the classic "my render is broken" report) — only allow it
-    // once the user has actually zoomed. Double-click still resets.
-    if (getViewport2d().scale === 1) return;
     const v = getViewport2d();
     drag2d.current = {
       startX: e.clientX,
@@ -90,13 +373,14 @@ export function CentralArea() {
     const drag = drag2d.current;
     if (drag) {
       const v = getViewport2d();
-      setViewport2d({
-        x: drag.baseX + (e.clientX - drag.startX),
-        y: drag.baseY + (e.clientY - drag.startY),
-        scale: v.scale,
-      });
+      const p = clampPan(
+        drag.baseX + (e.clientX - drag.startX),
+        drag.baseY + (e.clientY - drag.startY),
+      );
+      setViewport2d({ x: p.x, y: p.y, scale: v.scale });
+      setVp2d({ x: p.x, y: p.y, scale: v.scale });
       rerenderActivePlugin();
-    } else if (pan2dAllowed(e.target) && getViewport2d().scale !== 1) {
+    } else if (pan2dAllowed(e.target)) {
       e.currentTarget.style.cursor = 'grab';
     } else {
       e.currentTarget.style.cursor = '';
@@ -117,7 +401,7 @@ export function CentralArea() {
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
     resetViewport2d();
-    setZoom2d(1);
+    setVp2d({ x: 0, y: 0, scale: 1 });
     rerenderActivePlugin();
   };
 
@@ -128,11 +412,10 @@ export function CentralArea() {
     const onWheel = (e: WheelEvent) => {
       if (scene3dRef.current?.isVisible()) return;
       if (e.target !== domRef.current) return;
-      // Plain wheel must not zoom: rolling the wheel while hovering the canvas
-      // silently shrank the whole view toward the top-left corner. Zoom needs
-      // ctrl/cmd — trackpad pinch already arrives as ctrl+wheel. Double-click
-      // (or the badge) still resets.
-      if (!e.ctrlKey && !e.metaKey) return;
+      // Plain wheel zooms around the cursor — the universal canvas gesture.
+      // Ctrl/cmd+wheel (trackpad pinch arrives as ctrl+wheel) also works.
+      // An accidental zoom is never "stuck": the badge offers one-click reset
+      // and double-click resets too.
       e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -144,12 +427,13 @@ export function CentralArea() {
       const next = Math.min(12, Math.max(0.1, v.scale * factor));
       const k = next / v.scale;
       // Keep the point under the cursor stationary while zooming.
-      setViewport2d({
+      const nextVp = {
         x: px - (px - v.x) * k,
         y: py - (py - v.y) * k,
         scale: next,
-      });
-      setZoom2d(next);
+      };
+      setViewport2d(nextVp);
+      setVp2d(nextVp);
       rerenderActivePlugin();
     };
     host.addEventListener('wheel', onWheel, { passive: false });
@@ -161,7 +445,7 @@ export function CentralArea() {
   const activeId = usePluginStore((s) => s.activeId);
   useEffect(() => {
     resetViewport2d();
-    setZoom2d(1);
+    setVp2d({ x: 0, y: 0, scale: 1 });
     rerenderActivePlugin();
   }, [activeId]);
 
@@ -215,14 +499,24 @@ export function CentralArea() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    // 面板拖拽 / 窗口缩放会改变宿主尺寸：2D 画布的 CSS 尺寸跟着变，但
+    // 位图仍是旧尺寸——若不重绘，旧位图会被拉伸变形（横向压扁/拉宽）。
+    // 触发活动插件重绘即可：插件每次绘制都以 `canvas.width = clientWidth`
+    // 重新分配位图并从数据重画（rAF 合并同帧的多次 RO 回调）。
+    let raf = 0;
     const obs = new ResizeObserver(() => {
       if (canvasRef.current) {
         canvasRef.current.style.width = '100%';
         canvasRef.current.style.height = '100%';
       }
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => rerenderActivePlugin());
     });
     obs.observe(canvasRef.current);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -258,8 +552,9 @@ export function CentralArea() {
   };
 
   return (
-    <div
-      className="central"
+    <div className="central-wrap">
+      <div
+        className="central"
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current += 1;
@@ -287,27 +582,45 @@ export function CentralArea() {
       >
         <div ref={domRef} className="central-dom-host" />
         <canvas ref={canvasRef} className="central-canvas" />
-        {(status === 'computing' || status === 'loading') && activePlugin && (
+        {(status === 'computing' || status === 'loading') && activePlugin && (computingId === null || computingId === activeId) && (
           <div className="central-progress">
             <span className="spinner" />
             <span>{t(`status.${status}`)}</span>
           </div>
         )}
-        {Math.round(zoom2d * 100) !== 100 && (
+        {(vp2d.x !== 0 || vp2d.y !== 0 || vp2d.scale !== 1) && (
           <button
             type="button"
             className="central-zoom-badge"
-            title="Ctrl+wheel · 100%"
+            title={t('ux.view.reset')}
+            aria-label={t('ux.view.reset')}
             onClick={() => {
               resetViewport2d();
-              setZoom2d(1);
+              setVp2d({ x: 0, y: 0, scale: 1 });
               rerenderActivePlugin();
             }}
           >
-            {Math.round(zoom2d * 100)}%
+            {Math.round(vp2d.scale * 100)}%
           </button>
         )}
       </div>
+      {/* 文件预览浮层（来自文件资源管理器）：类似 VS Code 编辑区。
+          盖在画布上方但画布保持挂载，关闭预览不触发场景重建。 */}
+      {filePreview && (
+        <PreviewOverlay
+          key={filePreview.path}
+          preview={filePreview}
+          onClose={() => setFilePreview(null)}
+        />
+      )}
+      {/* 内嵌科研套件浮层：与文件预览同一覆盖模式，画布保持挂载。 */}
+      {embeddedToolId && (
+        <EmbeddedToolView
+          key={embeddedToolId}
+          toolId={embeddedToolId}
+          onClose={() => setEmbeddedTool(null)}
+        />
+      )}
       {!activePlugin && (
         <div className="central-empty">
           {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
@@ -342,7 +655,16 @@ export function CentralArea() {
         </div>
       )}
 
-      {dragOver && <div className="central-drop-hint">{t('workbench.drag_hint')}</div>}
+      {dragOver && (
+        <div className="central-drop-hint">
+          <svg className="central-drop-hint-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 16V4" />
+            <path d="M7 9l5-5 5 5" />
+            <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+          </svg>
+          <span>{t('workbench.drag_hint')}</span>
+        </div>
+      )}
 
       <FileRouterDialog
         open={chooser.open}
@@ -358,6 +680,12 @@ export function CentralArea() {
 
       <PluginDialog open={pluginDialogOpen} onClose={() => setPluginDialogOpen(false)} />
       <DataDialog open={exampleDialogOpen} onClose={() => setExampleDialogOpen(false)} />
+      </div>
+      {/* Science readout sits BELOW the viewfinder, in normal flow — the
+          plugin host itself is position:absolute (out of flow), so keeping
+          the strip inside `.central` made it the only flex child and it
+          floated over the canvas (vertically centered, full-bleed). */}
+      <ScienceOutputStrip />
     </div>
   );
 }

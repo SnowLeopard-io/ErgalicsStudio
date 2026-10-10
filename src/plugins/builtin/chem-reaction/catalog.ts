@@ -9,8 +9,8 @@
 // mechanism itself is still recomputed by the engine on demand.
 // ==========================================================================
 
-import type { Molecule } from '@/chem/structure';
-import type { EngSpecies } from '@/chem/engine/reaction';
+import type { Molecule } from '@/core/chem/structure';
+import type { EngSpecies } from '@/core/chem/engine/reaction';
 import { H2, O2, CH4, CO2, H2O, HCl, CuO, Cu, CaCO3, CaO, Zn, ZnCl2, NaOH, NaCl, AgNO3, AgCl, NaNO3, Na, Cl2, Br2, C2H4, C2H4Br2, C2H5OH, CH3COOH, CH3COOC2H5, C2H4O, CH3Cl, C6H6, C6H12, C7H8, KMnO4, C6H5COOK, MnO2, KOH } from './mols';
 
 export interface ReactionSpecies extends EngSpecies {

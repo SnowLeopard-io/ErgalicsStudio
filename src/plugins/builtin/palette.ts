@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportRowsCsv, notify } from './shared/enhance';
+import { actionButton, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { paletteManifest } from './paletteManifest';
 import { paletteManifest } from './paletteManifest';

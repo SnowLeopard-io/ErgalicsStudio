@@ -5,6 +5,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
+import { CommandPalette } from '@/components/CommandPalette';
+import { ShortcutsDialog } from '@/components/ShortcutsDialog';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
@@ -66,6 +68,8 @@ function AppShell() {
       <ToastStack />
       <TemplateTourOverlay />
       <CrossSiteSwitcher />
+      <CommandPalette />
+      <ShortcutsDialog />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
             the `.route-stage` fade/settle entrance. `loc` is passed through

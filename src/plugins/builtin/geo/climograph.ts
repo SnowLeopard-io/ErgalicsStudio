@@ -12,10 +12,11 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
-import { isZh, parseDelimited } from './geoCore';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited } from '@/core/plugin-tools/table';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import type { CategoricalTicks } from '@/core/plot';
 import { climographManifest } from './climographManifest';
 
@@ -129,7 +130,7 @@ export function summarizeClimate(months: ClimateMonth[]): ClimateSummary {
 const MONTH_TICKS: CategoricalTicks[] = Array.from({ length: 12 }, (_, i) => ({ pos: i + 1, label: String(i + 1) }));
 
 /** Figure sheet for one station: temperature line + precipitation bars. */
-export function climographFigurePanels(station: ClimateStation): GeoFigurePanel[] {
+export function climographFigurePanels(station: ClimateStation): FigurePanelSpec[] {
   const months = station.months;
   const tempPts = months.map((m) => ({ x: m.month, y: m.temp }));
   const bars = months.map((m) => ({ x0: m.month - 0.4, x1: m.month + 0.4, y: m.precip }));
@@ -139,8 +140,8 @@ export function climographFigurePanels(station: ClimateStation): GeoFigurePanel[
       ...panelPlace(0),
       tag: panelTag(0),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Temperature — ${station.station || 'station'}`,
         xLabel: 'month',
         yLabel: '°C',
@@ -155,8 +156,8 @@ export function climographFigurePanels(station: ClimateStation): GeoFigurePanel[
       ...panelPlace(1),
       tag: panelTag(1),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Precipitation — ${station.station || 'station'}`,
         xLabel: 'month',
         yLabel: 'mm',

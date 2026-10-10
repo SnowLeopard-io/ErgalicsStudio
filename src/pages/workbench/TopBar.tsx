@@ -11,8 +11,12 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
+import { openToolEmbedded } from '@/pages/research/toolRegistry';
+import { MenuIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
+import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
+import { useShortcutsStore } from '@/stores/shortcutsStore';
+import { useModeSync } from '@/hooks/useModeSync';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 
 const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
@@ -22,15 +26,13 @@ export function TopBar() {
   const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
+  const recent = useProjectStore((s) => s.recent);
+  const openProject = useProjectStore((s) => s.openProject);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
   const openFromFile = useProjectStore((s) => s.openFromFile);
   const notify = useAppStore((s) => s.notify);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
-  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
@@ -39,6 +41,7 @@ export function TopBar() {
   const startTour = useTourStore((s) => s.start);
   const aiOpen = useAiPanelStore((s) => s.open);
   const toggleAi = useAiPanelStore((s) => s.toggle);
+  const syncState = useModeSync();
 
   // Single dialog key: only one TopBar dialog can be open at a time, so the
   // previous eleven booleans collapse into this one piece of state (rendered
@@ -50,15 +53,19 @@ export function TopBar() {
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
-  // Welcome-page entry states: legacy openResearchDialog routes to a tool
-  // page; openDataDialog opens the bundled-samples dialog directly.
+  // Welcome-page entry states: openResearchDialog / openTool embed the tool
+  // in the central canvas; openDataDialog opens the bundled-samples dialog.
   useEffect(() => {
     const state = location.state as
-      | { openResearchDialog?: string; openDataDialog?: boolean }
+      | { openResearchDialog?: string; openDataDialog?: boolean; openTool?: string }
       | null;
     let consumed = false;
     if (state?.openResearchDialog) {
-      navigate(`/studio/${state.openResearchDialog}`);
+      openToolEmbedded(navigate, state.openResearchDialog, location.pathname);
+      consumed = true;
+    }
+    if (state?.openTool) {
+      openToolEmbedded(navigate, state.openTool, location.pathname);
       consumed = true;
     }
     if (state?.openDataDialog) {
@@ -66,7 +73,7 @@ export function TopBar() {
       consumed = true;
     }
     if (consumed) window.history.replaceState({}, '');
-  }, [location.state, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -77,27 +84,82 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Zone 1 — navigation: ☰ (project/plugin sidebar in Standard, mode
-          panel elsewhere), brand, current project name. */}
-      <button
-        type="button"
-        className={`icon-btn${((mode === 'standard' && sidebarOpen) || (mode !== 'standard' && modePanelOpen)) ? ' is-active' : ''}`}
-        aria-label={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        aria-pressed={mode === 'standard' ? sidebarOpen : modePanelOpen}
-        title={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        onClick={mode === 'standard' ? toggleSidebar : toggleModePanel}
-      >
-        <MenuIcon size={17} />
-      </button>
+      {/* Zone 1 — navigation: ☰ (mode panel toggle in non-standard modes;
+          in Standard the sidebar owns its edge collapse button instead),
+          brand, current project name. */}
+      {mode !== 'standard' && (
+        <button
+          type="button"
+          className={`icon-btn${modePanelOpen ? ' is-active' : ''}`}
+          aria-label={t('workbench.menu.toggle_panel')}
+          aria-pressed={modePanelOpen}
+          title={t('workbench.menu.toggle_panel')}
+          onClick={toggleModePanel}
+        >
+          <MenuIcon size={17} />
+        </button>
+      )}
 
-      <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+      <a className="brand" href="#/workbench" onClick={(e) => { e.preventDefault(); navigate('/workbench'); }}>
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      <button type="button" className="project-name" title={t('project.rename')} onClick={openDialog('rename')}>
-        {project?.name || DEFAULT_PROJECT_NAME}
-        {dirty && <span className="project-dirty">•</span>}
-      </button>
+      {/* 项目下拉：触发器即项目名。上半区切换最近项目，下半区是全部
+          项目管理操作（新建/打开/重命名/另存为/删除/导出日志）——原来
+          单独的"项目"菜单与之功能重叠，已并入此处。 */}
+      <Dropdown
+        ariaLabel={t('workbench.menu.project')}
+        triggerClassName="project-name"
+        align="left"
+        trigger={
+          <span title={project ? project.name : t('project.new')}>
+            {project ? project.name : t('project.new')}
+            {dirty && <span className="project-dirty">•</span>}
+            <span className="more-caret">▾</span>
+          </span>
+        }
+        items={[
+          { key: 'recent-header', label: t('workbench.project.recent'), header: true },
+          ...(recent.length > 0
+            ? recent.map((p) => ({
+                key: p.id,
+                label: p.name || DEFAULT_PROJECT_NAME,
+                active: p.id === project?.id,
+                onClick: () => void openProject(p.id),
+              }))
+            : [{ key: 'no-recent', label: t('workbench.sidebar.no_recent'), disabled: true }]),
+          { key: 'sep-projects', label: '' },
+          { key: 'actions-header', label: t('workbench.menu.project'), header: true },
+          { key: 'new', label: t('project.new'), onClick: openDialog('new') },
+          { key: 'open', label: t('project.open'), onClick: () => fileInputRef.current?.click() },
+          { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
+          { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
+          {
+            key: 'delete',
+            label: t('project.delete'),
+            disabled: !project,
+            onClick: openDialog('project_delete'),
+          },
+          {
+            key: 'export_log',
+            label: t('workbench.export_log'),
+            onClick: () => {
+              void usePluginStore
+                .getState()
+                .exportDiagnostics()
+                .then((json) => {
+                  downloadBlob(
+                    `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+                    json,
+                    'application/json',
+                  );
+                  notify('success', t('workbench.export_log_done'));
+                })
+                .catch(() => notify('error', t('workbench.export_log')));
+            },
+          },
+        ]}
+      />
 
       <div className="topbar-actions">
         {/* Zone 2 — work modes (filled + underline double indication). */}
@@ -113,6 +175,14 @@ export function TopBar() {
               {t(`workbench.mode.${key}`)}
             </button>
           ))}
+          {syncState !== 'idle' && (
+            <span
+              className={`mode-sync-dot is-${syncState}`}
+              data-sync={syncState}
+              title={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
+              aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
+            />
+          )}
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />
@@ -135,53 +205,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3b — project file operations: menu (rename merged in) + save/share. */}
+        {/* Zone 3b — project file operations: 保存/分享直达（管理操作已并入
+            左侧项目名下拉，避免功能重叠）。 */}
         <div className="topbar-cluster">
-          <Dropdown
-            ariaLabel={t('workbench.menu.project')}
-            triggerClassName="cluster-btn"
-            align="left"
-            trigger={
-              <span>
-                {t('workbench.menu.project')}
-                <span className="more-caret">▾</span>
-              </span>
-            }
-            items={[
-              { key: 'new', label: t('project.new'), onClick: openDialog('new') },
-              {
-                key: 'open',
-                label: t('project.open'),
-                onClick: () => fileInputRef.current?.click(),
-              },
-              { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
-              { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
-              {
-                key: 'delete',
-                label: t('project.delete'),
-                disabled: !project,
-                onClick: openDialog('project_delete'),
-              },
-              {
-                key: 'export_log',
-                label: t('workbench.export_log'),
-                onClick: () => {
-                  void usePluginStore
-                    .getState()
-                    .exportDiagnostics()
-                    .then((json) => {
-                      downloadBlob(
-                        `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
-                        json,
-                        'application/json',
-                      );
-                      notify('success', t('workbench.export_log_done'));
-                    })
-                    .catch(() => notify('error', t('workbench.export_log')));
-                },
-              },
-            ]}
-          />
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
           </button>
@@ -195,7 +221,11 @@ export function TopBar() {
         {/* Zone 3c — research tools: general analysis stays a direct button,
             all other tools live behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={() => navigate('/studio/analysis')}>
+          <button
+            type="button"
+            className="cluster-btn"
+            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
+          >
             {t('workbench.analyze')}
           </button>
           <ResearchLauncher />
@@ -208,6 +238,28 @@ export function TopBar() {
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
+            className="cluster-btn icon-only topbar-hide-narrow"
+            title={t('ux.palette.open')}
+            aria-label={t('ux.palette.open')}
+            onClick={() => useCommandPaletteStore.getState().toggle()}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M7 9l3 3-3 3" />
+              <path d="M13 15h4" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="cluster-btn icon-only topbar-hide-narrow"
+            title={t('ux.shortcuts.title')}
+            aria-label={t('ux.shortcuts.title')}
+            onClick={() => useShortcutsStore.getState().toggle()}
+          >
+            <KeyboardIcon size={15} />
+          </button>
+          <button
+            type="button"
             className={`cluster-btn icon-only${aiOpen ? ' is-active' : ''}`}
             title={t('ai.toggle')}
             aria-label={t('ai.toggle')}
@@ -216,27 +268,6 @@ export function TopBar() {
             onClick={toggleAi}
           >
             <SparklesIcon size={15} />
-          </button>
-          {mode === 'standard' && (
-            <button
-              type="button"
-              className={`cluster-btn icon-only${rightPanelOpen ? ' is-active' : ''}`}
-              title={t('workbench.menu.toggle_right')}
-              aria-label={t('workbench.menu.toggle_right')}
-              aria-pressed={rightPanelOpen}
-              onClick={toggleRightPanel}
-            >
-              <PanelIcon size={15} />
-            </button>
-          )}
-          <button
-            type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('workbench.tools.settings')}
-            aria-label={t('workbench.tools.settings')}
-            onClick={() => navigate('/settings')}
-          >
-            <SettingsIcon size={15} />
           </button>
           <button
             type="button"
@@ -267,10 +298,9 @@ export function TopBar() {
           align="right"
           trigger={<MoreIcon size={16} />}
           items={[
+            { key: 'palette', label: t('ux.palette.open'), onClick: () => useCommandPaletteStore.getState().toggle() },
+            { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
-            ...(mode === 'standard'
-              ? [{ key: 'right', label: t('workbench.menu.toggle_right'), onClick: toggleRightPanel }]
-              : []),
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
             { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },

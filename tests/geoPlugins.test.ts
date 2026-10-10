@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest';
 import {
   haversineKm,
   sphericalAreaKm2,
-  parseDelimited,
   marchingSquares,
 } from '@/plugins/builtin/geo/geoCore';
+import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   solarDeclination,
   noonElevation,
@@ -63,9 +63,9 @@ import {
   terrainFigurePanels,
 } from '@/plugins/builtin/geo/terrain';
 import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '@/plugins/builtin/geo/gpxTrack';
-import { downsampleGrid, buildTerrainMesh } from '@/plugins/builtin/geo/terrain3d';
+import { downsampleGrid, buildTerrainMesh } from '@/core/geo/terrainMesh';
 import type { AscGrid } from '@/plugins/builtin/geo/terrain';
-import { lonLatToVec3, angularDistance } from '@/plugins/builtin/geo/globe';
+import { lonLatToVec3, angularDistance } from '@/core/geo/spherical';
 
 import fellsGpx from '../examples/data/geo-fells-loop.gpx?raw';
 import stationsCsv from '../examples/data/geo-interp-stations.csv?raw';

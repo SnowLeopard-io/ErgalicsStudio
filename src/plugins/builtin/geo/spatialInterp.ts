@@ -10,17 +10,26 @@
 //            spherical vs exponential by SSE). The augmented matrix is
 //            inverted ONCE; per-node work is then a single O(N²) mat-vec.
 //
-// Kriging is capped at 120 stations to stay interactive (O(N²) per node);
+// Kriging is capped at 400 stations to stay interactive (O(N²) per node);
 // larger datasets fall back to IDW with a notice. Distances are great-circle
 // kilometres so high-latitude longitude stretching is handled correctly.
+// Scientific outputs (LOOCV R²/RMSE, Moran's I + p, kriging σ) are published
+// through the science-output bus, and an embedded synthetic-field benchmark
+// (seeded mulberry32 field with a KNOWN variogram) quantifies variogram
+// parameter recovery — always labelled as a benchmark, never as user data.
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
+import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
-import { isZh, parseDelimited, stripHeaderIfNonNumeric, marchingSquares, haversineKm } from './geoCore';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { marchingSquares, haversineKm } from './geoCore';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited, stripHeaderIfNonNumeric } from '@/core/plugin-tools/table';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric } from '@/core/research/scienceOutput';
+import type { ScienceMetric } from '@/core/research/scienceOutput';
+import { mulberry32 } from '@/core/repro/random';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { spatialInterpManifest } from './spatialInterpManifest';
 
 export { spatialInterpManifest } from './spatialInterpManifest';
@@ -224,9 +233,9 @@ export function solveLinear(A: number[][], b: number[]): number[] | null {
   return m.map((row, i) => row[n]! / row[i]!);
 }
 
-const KRIGING_MAX_STATIONS = 120;
+const KRIGING_MAX_STATIONS = 400;
 /** Leave-one-out rebuilds the kriging system per station — cap it lower. */
-const LOOCV_KRIGING_MAX_STATIONS = 60;
+const LOOCV_KRIGING_MAX_STATIONS = 200;
 
 /** The augmented ordinary-kriging matrix [Γ 1; 1ᵀ 0] for a station set. */
 function buildKrigingSystem(points: InterpPoint[], vario: Variogram): number[][] {
@@ -246,11 +255,19 @@ function buildKrigingSystem(points: InterpPoint[], vario: Variogram): number[][]
   return A;
 }
 
+/** Ordinary-kriging estimate plus prediction standard error σ = √(wᵀγ₀ + μ). */
+export interface KrigingEstimate {
+  est: number;
+  /** Kriging standard deviation (√ of the kriging variance wᵀγ₀ + μ). */
+  sigma: number;
+}
+
 /**
- * Ordinary-kriging estimate at a single location (system rebuilt per call —
- * the LOOCV and validation path; gridding uses the amortised krigingGrid).
+ * Ordinary-kriging estimate + kriging variance at a single location (system
+ * rebuilt per call — the LOOCV and validation path). σ² = Σ wᵢ·γ(i,0) + μ
+ * with μ the Lagrange multiplier of the unbiasedness constraint.
  */
-export function krigingAt(points: InterpPoint[], lon: number, lat: number, vario: Variogram): number | null {
+export function krigingAtFull(points: InterpPoint[], lon: number, lat: number, vario: Variogram): KrigingEstimate | null {
   const n = points.length;
   const inv = invertMatrix(buildKrigingSystem(points, vario));
   if (!inv) return null;
@@ -258,31 +275,56 @@ export function krigingAt(points: InterpPoint[], lon: number, lat: number, vario
   for (let i = 0; i < n; i += 1) b[i] = variogramGamma(vario, haversineKm(lat, lon, points[i]!.lat, points[i]!.lon));
   b[n] = 1;
   let est = 0;
+  const w = new Array<number>(n);
   for (let i = 0; i < n; i += 1) {
-    let w = 0;
-    for (let j = 0; j <= n; j += 1) w += inv[i]![j]! * b[j]!;
-    est += w * points[i]!.value;
+    let wi = 0;
+    for (let j = 0; j <= n; j += 1) wi += inv[i]![j]! * b[j]!;
+    w[i] = wi;
+    est += wi * points[i]!.value;
   }
-  return est;
+  let mu = 0;
+  for (let j = 0; j <= n; j += 1) mu += inv[n]![j]! * b[j]!;
+  let var2 = 0;
+  for (let i = 0; i < n; i += 1) var2 += w[i]! * b[i]!;
+  var2 += mu;
+  return { est, sigma: var2 > 0 ? Math.sqrt(var2) : 0 };
+}
+
+/**
+ * Ordinary-kriging estimate at a single location (system rebuilt per call —
+ * the LOOCV and validation path; gridding uses the amortised krigingGrid).
+ */
+export function krigingAt(points: InterpPoint[], lon: number, lat: number, vario: Variogram): number | null {
+  const full = krigingAtFull(points, lon, lat, vario);
+  return full ? full.est : null;
+}
+
+/** Gridded ordinary kriging with the prediction σ field. */
+export interface KrigingGridFull {
+  field: Float64Array;
+  sigma: Float64Array;
 }
 
 /**
  * Ordinary-kriging gridding. The augmented (N+1) system is inverted once
- * (Gauss-Jordan); each node then costs one O(N²) mat-vec. Returns null when
- * the system is singular (coincident stations).
+ * (Gauss-Jordan); each node then costs one O(N²) mat-vec, and the kriging
+ * variance σ² = Σ wᵢ·γ(i,0) + μ is evaluated on the same weights. Returns
+ * null when the system is singular (coincident stations).
  */
-export function krigingGrid(
+export function krigingGridFull(
   points: InterpPoint[],
   cols: number,
   rows: number,
   bounds: Bounds,
   vario: Variogram,
-): Float64Array | null {
+): KrigingGridFull | null {
   const n = points.length;
   const inv = invertMatrix(buildKrigingSystem(points, vario));
   if (!inv) return null;
 
   const field = new Float64Array(cols * rows);
+  const sigma = new Float64Array(cols * rows);
+  const w = new Array<number>(n).fill(0);
   const b = new Array<number>(n + 1).fill(0);
   for (let r = 0; r < rows; r += 1) {
     const lat = bounds.maxLat - ((bounds.maxLat - bounds.minLat) * r) / (rows - 1);
@@ -295,14 +337,37 @@ export function krigingGrid(
       // w = inv · b
       let est = 0;
       for (let i = 0; i < n; i += 1) {
-        let w = 0;
-        for (let j = 0; j <= n; j += 1) w += inv[i]![j]! * b[j]!;
-        est += w * points[i]!.value;
+        let wi = 0;
+        for (let j = 0; j <= n; j += 1) wi += inv[i]![j]! * b[j]!;
+        w[i] = wi;
+        est += wi * points[i]!.value;
       }
+      let mu = 0;
+      for (let j = 0; j <= n; j += 1) mu += inv[n]![j]! * b[j]!;
+      let var2 = 0;
+      for (let i = 0; i < n; i += 1) var2 += w[i]! * b[i]!;
       field[r * cols + c] = est;
+      sigma[r * cols + c] = var2 > 0 ? Math.sqrt(var2) : 0;
     }
   }
-  return field;
+  return { field, sigma };
+}
+
+/**
+ * Ordinary-kriging gridding (estimate only — see `krigingGridFull` for the
+ * paired σ field). The augmented (N+1) system is inverted once
+ * (Gauss-Jordan); each node then costs one O(N²) mat-vec. Returns null when
+ * the system is singular (coincident stations).
+ */
+export function krigingGrid(
+  points: InterpPoint[],
+  cols: number,
+  rows: number,
+  bounds: Bounds,
+  vario: Variogram,
+): Float64Array | null {
+  const full = krigingGridFull(points, cols, rows, bounds, vario);
+  return full ? full.field : null;
 }
 
 function invertMatrix(A: number[][]): number[][] | null {
@@ -343,6 +408,8 @@ export interface LoocvRow {
   lat: number;
   observed: number;
   predicted: number;
+  /** Kriging prediction σ for this station (null for IDW). */
+  sigma: number | null;
 }
 
 export interface LoocvResult {
@@ -351,6 +418,8 @@ export interface LoocvResult {
   rmse: number;
   /** Mean absolute cross-validation error. */
   mae: number;
+  /** R² = 1 − SS_res / SS_tot of predicted vs observed. */
+  r2: number;
   rows: LoocvRow[];
 }
 
@@ -365,6 +434,9 @@ export function loocvValidate(points: InterpPoint[], method: 'idw' | 'kriging', 
   const n = points.length;
   if (n < 4) return null;
   if (method === 'kriging' && n > LOOCV_KRIGING_MAX_STATIONS) return null;
+  const mean = points.reduce((a, p) => a + p.value, 0) / n;
+  let sTot = 0;
+  for (const p of points) sTot += (p.value - mean) ** 2;
   const rows: LoocvRow[] = [];
   let se = 0;
   let ae = 0;
@@ -372,18 +444,42 @@ export function loocvValidate(points: InterpPoint[], method: 'idw' | 'kriging', 
     const p = points[i]!;
     const rest = points.filter((_, j) => j !== i);
     let pred: number | null;
+    let sigma: number | null = null;
     if (method === 'idw') {
       pred = idwAt(rest, p.lon, p.lat, power);
     } else {
-      pred = krigingAt(rest, p.lon, p.lat, fitVariogram(rest));
+      const full = krigingAtFull(rest, p.lon, p.lat, fitVariogram(rest));
+      pred = full ? full.est : null;
+      sigma = full ? full.sigma : null;
     }
     if (pred === null || !Number.isFinite(pred)) return null;
     const err = pred - p.value;
     se += err * err;
     ae += Math.abs(err);
-    rows.push({ lon: p.lon, lat: p.lat, observed: p.value, predicted: pred });
+    rows.push({ lon: p.lon, lat: p.lat, observed: p.value, predicted: pred, sigma });
   }
-  return { n, rmse: Math.sqrt(se / n), mae: ae / n, rows };
+  const r2 = sTot > 0 ? 1 - se / sTot : 0;
+  return { n, rmse: Math.sqrt(se / n), mae: ae / n, r2, rows };
+}
+
+/** LOOCV summary table as CSV: observed, predicted, error, standardized error. */
+export function loocvCsv(result: LoocvResult): string {
+  const head = 'lon,lat,observed,predicted,error,standardized_error';
+  const lines = result.rows.map((r) => {
+    const err = r.predicted - r.observed;
+    const std = r.sigma !== null && r.sigma > 0 ? (err / r.sigma).toFixed(4) : '';
+    return `${r.lon},${r.lat},${r.observed},${r.predicted},${err.toFixed(4)},${std}`;
+  });
+  return [head, ...lines].join('\n');
+}
+
+/** Two-tailed p-value of a standard-normal z (Abramowitz–Stegun erf 7.1.26). */
+export function normalTwoTailP(z: number): number {
+  if (!Number.isFinite(z)) return Number.NaN;
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989422804014327 * Math.exp((-z * z) / 2);
+  const pU = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return Math.max(0, Math.min(1, 2 * pU));
 }
 
 export interface MoransIResult {
@@ -432,6 +528,103 @@ export function moransI(points: InterpPoint[]): MoransIResult | null {
   return { i: I, expected, z, n };
 }
 
+// ---- Synthetic-field benchmark (L4, exported for tests) --------------------
+//
+// A KNOWN variogram generates a Gaussian random field on seeded stations
+// (mulberry32, Box–Muller); the plugin's auto-fit is then scored on how well
+// it recovers the generating nugget / sill / range. This is a self-test of
+// the variogram engine — its numbers describe the benchmark, never user data.
+
+export const SYNTHETIC_BENCH_SEED = 20240611;
+
+export interface SyntheticFieldBenchmark {
+  tag: 'synthetic-field-benchmark';
+  seed: number;
+  stations: number;
+  trueModel: VariogramModel;
+  trueNugget: number;
+  trueSill: number;
+  trueRangeKm: number;
+  recModel: VariogramModel;
+  recNugget: number;
+  recSill: number;
+  recRangeKm: number;
+  nuggetErrPct: number;
+  sillErrPct: number;
+  rangeErrPct: number;
+}
+
+/** Cholesky factor L (A = L·Lᵀ) of a symmetric positive-definite matrix. */
+function choleskyLower(A: number[][]): number[][] | null {
+  const n = A.length;
+  const L: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  for (let j = 0; j < n; j += 1) {
+    let d = A[j]![j]!;
+    for (let k = 0; k < j; k += 1) d -= L[j]![k]! ** 2;
+    if (d <= 0) return null;
+    L[j]![j] = Math.sqrt(d);
+    for (let i = j + 1; i < n; i += 1) {
+      let s = A[i]![j]!;
+      for (let k = 0; k < j; k += 1) s -= L[i]![k]! * L[j]![k]!;
+      L[i]![j] = s / L[j]![j]!;
+    }
+  }
+  return L;
+}
+
+/**
+ * Generate a Gaussian random field with a KNOWN spherical variogram on
+ * seeded random stations, refit, and report parameter-recovery errors.
+ * Deterministic for a given seed (`SYNTHETIC_BENCH_SEED`).
+ */
+export function runSyntheticFieldBenchmark(seed: number = SYNTHETIC_BENCH_SEED): SyntheticFieldBenchmark | null {
+  const truth: Variogram = { model: 'spherical', nugget: 2.4, sill: 12, range: 380, sse: 0 };
+  const N = 90;
+  const rng = mulberry32(seed);
+  const pts: InterpPoint[] = [];
+  for (let i = 0; i < N; i += 1) {
+    pts.push({ lon: 100 + 40 * rng(), lat: 20 + 28 * rng(), value: 0 });
+  }
+  // Covariance C_ij = sill − γ(h_ij) (C_ii = sill); small jitter keeps the
+  // Cholesky well-conditioned without measurably changing the field.
+  const C: number[][] = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+  for (let i = 0; i < N; i += 1) {
+    for (let j = i; j < N; j += 1) {
+      const c = i === j ? truth.sill + 1e-8 * truth.sill : truth.sill - variogramGamma(truth, haversineKm(pts[i]!.lat, pts[i]!.lon, pts[j]!.lat, pts[j]!.lon));
+      C[i]![j] = c;
+      C[j]![i] = c;
+    }
+  }
+  const L = choleskyLower(C);
+  if (!L) return null;
+  // z = L·ξ with ξ ~ N(0,1) (Box–Muller from the seeded stream).
+  const z = new Array<number>(N).fill(0);
+  for (let i = 0; i < N; i += 1) {
+    const u1 = Math.max(rng(), 1e-12);
+    const u2 = rng();
+    const g = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    for (let j = 0; j <= i; j += 1) z[i]! += L[i]![j]! * g;
+  }
+  for (let i = 0; i < N; i += 1) pts[i]!.value = z[i]!;
+  const fit = fitVariogram(pts);
+  return {
+    tag: 'synthetic-field-benchmark',
+    seed,
+    stations: N,
+    trueModel: truth.model,
+    trueNugget: truth.nugget,
+    trueSill: truth.sill,
+    trueRangeKm: truth.range,
+    recModel: fit.model,
+    recNugget: fit.nugget,
+    recSill: fit.sill,
+    recRangeKm: fit.range,
+    nuggetErrPct: (Math.abs(fit.nugget - truth.nugget) / truth.sill) * 100,
+    sillErrPct: (Math.abs(fit.sill - truth.sill) / truth.sill) * 100,
+    rangeErrPct: (Math.abs(fit.range - truth.range) / truth.range) * 100,
+  };
+}
+
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
 const FIG_COLS = 60;
@@ -446,8 +639,8 @@ export function interpFigurePanels(
   points: InterpPoint[],
   method: 'idw' | 'kriging',
   power: number,
-): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   const bounds = boundsOf(points);
 
   // (a) interpolated surface at figure resolution.
@@ -473,8 +666,8 @@ export function interpFigurePanels(
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `Interpolated surface — ${methodLabel}`,
       xLabel: 'lon',
       yLabel: 'lat',
@@ -504,8 +697,8 @@ export function interpFigurePanels(
       ...panelPlace(panels.length),
       tag: panelTag(panels.length),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `Variogram — ${vario.model}, range ${vario.range.toFixed(0)} km`,
         xLabel: 'h [km]',
         yLabel: 'γ(h)',
@@ -535,8 +728,8 @@ export function interpFigurePanels(
       ...panelPlace(panels.length),
       tag: panelTag(panels.length),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: `LOOCV — RMSE ${loocv.rmse.toFixed(2)}, MAE ${loocv.mae.toFixed(2)}`,
         xLabel: 'observed',
         yLabel: 'predicted',
@@ -567,13 +760,17 @@ interface State {
   power: number;
   showStations: boolean;
   showContours: boolean;
+  /** Kriging prediction-σ field for the current grid (kriging only). */
+  sigmaField: Float64Array | null;
+  /** Result of the embedded synthetic-field benchmark (benchmark-tagged). */
+  bench: SyntheticFieldBenchmark | null;
 }
 
 export class SpatialInterpPlugin implements Plugin {
   readonly manifest = spatialInterpManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private state: State = { points: [], title: '', method: 'idw', power: 2, showStations: true, showContours: true };
+  private state: State = { points: [], title: '', method: 'idw', power: 2, showStations: true, showContours: true, sigmaField: null, bench: null };
   // Validation memo (LOOCV + Moran's I) keyed by points identity + params.
   private validCache: { pts: InterpPoint[]; key: string; loocv: LoocvResult | null; moran: MoransIResult | null } | null = null;
 
@@ -584,7 +781,10 @@ export class SpatialInterpPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.state.points = [];
+    this.state.sigmaField = null;
+    this.state.bench = null;
     this.validCache = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -605,6 +805,29 @@ export class SpatialInterpPlugin implements Plugin {
     }
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
+      return;
+    }
+    if (actionFired(params, 'exportLoocvCsv')) {
+      const { loocv } = this.validation();
+      if (!loocv) {
+        notify(this.api, 'warning', 'LOOCV unavailable for this dataset', '当前数据无法执行留一交叉验证');
+        return;
+      }
+      this.api.exportFile('geo-interp-loocv.csv', loocvCsv(loocv), 'text/csv');
+      return;
+    }
+    if (actionFired(params, 'runBenchmark')) {
+      const bench = runSyntheticFieldBenchmark();
+      this.state.bench = bench;
+      if (bench) {
+        notify(
+          this.api,
+          'success',
+          `Benchmark (synthetic field, seed ${bench.seed}): ${bench.recModel} model, range err ${bench.rangeErrPct.toFixed(1)}%`,
+          `基准（合成随机场，种子 ${bench.seed}）：${bench.recModel === 'spherical' ? '球状' : '指数'}模型，变程误差 ${bench.rangeErrPct.toFixed(1)}%`,
+        );
+      }
+      this.publish();
       return;
     }
     let redraw = false;
@@ -665,6 +888,8 @@ export class SpatialInterpPlugin implements Plugin {
         value: this.state.showContours,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
+      actionButton('exportLoocvCsv', 'Export LOOCV CSV', '导出 LOOCV CSV'),
+      actionButton('runBenchmark', 'Run synthetic-field benchmark', '运行合成随机场基准'),
       actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
@@ -706,6 +931,7 @@ export class SpatialInterpPlugin implements Plugin {
   private setPoints(points: InterpPoint[], title: string) {
     this.state.points = points;
     this.state.title = title;
+    this.state.sigmaField = null;
     this.api.reportDataScale(points.length);
     notify(
       this.api,
@@ -734,11 +960,10 @@ export class SpatialInterpPlugin implements Plugin {
     return { loocv, moran };
   }
 
-  // ---- drawing -------------------------------------------------------------
-
   private computeField(bounds: Bounds): Float64Array | null {
     const pts = this.state.points;
     if (this.state.method === 'idw') {
+      this.state.sigmaField = null;
       return idwGrid(pts, GRID_COLS, GRID_ROWS, bounds, this.state.power);
     }
     if (pts.length > KRIGING_MAX_STATIONS) {
@@ -748,15 +973,122 @@ export class SpatialInterpPlugin implements Plugin {
         `Kriging capped at ${KRIGING_MAX_STATIONS} stations — showing IDW instead`,
         `克里金限制 ${KRIGING_MAX_STATIONS} 个站点以内 — 已改用 IDW`,
       );
+      this.state.sigmaField = null;
       return idwGrid(pts, GRID_COLS, GRID_ROWS, bounds, this.state.power);
     }
     const vario = fitVariogram(pts);
-    const field = krigingGrid(pts, GRID_COLS, GRID_ROWS, bounds, vario);
-    if (!field) {
+    const full = krigingGridFull(pts, GRID_COLS, GRID_ROWS, bounds, vario);
+    if (!full) {
       notify(this.api, 'warning', 'Kriging system singular — showing IDW', '克里金方程组奇异 — 已改用 IDW');
+      this.state.sigmaField = null;
       return idwGrid(pts, GRID_COLS, GRID_ROWS, bounds, this.state.power);
     }
-    return field;
+    this.state.sigmaField = full.sigma;
+    return full.field;
+  }
+
+  /**
+   * Publish the run's scientific conclusions to the science-output strip:
+   * LOOCV R²/RMSE, global Moran's I with its randomisation p-value, the
+   * median kriging σ, and (when run) the tagged synthetic-field benchmark.
+   */
+  private publish() {
+    const zh = isZh(this.api.locale);
+    const pts = this.state.points;
+    if (pts.length < 3) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const { loocv, moran } = this.validation();
+    const metrics: ScienceMetric[] = [];
+    metrics.push({
+      key: 'stations',
+      label: 'n',
+      value: String(pts.length),
+      severity: 'info',
+      hint: zh ? '参与插值的站点数' : 'stations used in the interpolation',
+    });
+    if (loocv) {
+      metrics.push({
+        key: 'loocv-r2',
+        label: 'R²',
+        value: fmtMetric(loocv.r2),
+        severity: loocv.r2 >= 0.8 ? 'ok' : loocv.r2 < 0.5 ? 'warn' : 'info',
+        hint: zh ? '留一交叉验证 R² = 1 − SS_res/SS_tot（观测 vs 预测）' : 'LOOCV R² = 1 − SS_res/SS_tot (observed vs predicted)',
+      });
+      metrics.push({
+        key: 'loocv-rmse',
+        label: 'RMSE',
+        value: fmtMetric(loocv.rmse),
+        hint: zh ? '留一交叉验证均方根误差（输入单位）' : 'LOOCV root-mean-square error (input units)',
+      });
+    }
+    if (moran) {
+      const p = normalTwoTailP(moran.z);
+      metrics.push({
+        key: 'moran-i',
+        label: "Moran's I",
+        value: fmtMetric(moran.i),
+        severity: 'info',
+        hint: zh ? `全局 Moran's I（反距离权），z = ${moran.z.toFixed(2)}；正值聚集，负值分散` : `global Moran's I (inverse-distance weights), z = ${moran.z.toFixed(2)}; positive = clustered`,
+      });
+      metrics.push({
+        key: 'moran-p',
+        label: 'p',
+        value: fmtMetric(p),
+        severity: p < 0.05 ? 'ok' : 'info',
+        hint: zh ? "Moran's I 随机化零假设下的双侧 p 值（正态近似）" : "two-tailed randomisation p for Moran's I (normal approximation)",
+      });
+    }
+    const sig = this.state.sigmaField;
+    if (sig && sig.length > 0) {
+      const finite: number[] = [];
+      for (const v of sig) if (Number.isFinite(v) && v >= 0) finite.push(v);
+      if (finite.length > 0) {
+        finite.sort((a, b) => a - b);
+        const mid = finite.length >> 1;
+        const med = finite.length % 2 ? finite[mid]! : (finite[mid - 1]! + finite[mid]!) / 2;
+        metrics.push({
+          key: 'sigma-median',
+          label: 'σ median',
+          value: fmtMetric(med),
+          severity: 'info',
+          hint: zh ? '克里金预测标准差 σ = √(wᵀγ₀+μ)，网格节点中位数（克里金模式）' : 'ordinary-kriging σ = √(wᵀγ₀+μ), median over grid nodes (kriging mode)',
+        });
+      }
+    }
+    const bench = this.state.bench;
+    if (bench) {
+      metrics.push({
+        key: 'bench-model',
+        label: 'bench model',
+        value: `${bench.recModel} (${bench.trueModel})`,
+        severity: bench.recModel === bench.trueModel ? 'ok' : 'warn',
+        hint: zh ? `基准（合成随机场，种子 ${bench.seed}）：恢复/真实变差函数模型` : `benchmark (synthetic field, seed ${bench.seed}): recovered/true variogram model`,
+      });
+      metrics.push({
+        key: 'bench-nugget-err',
+        label: 'bench C₀ err',
+        value: `${fmtMetric(bench.nuggetErrPct)}%`,
+        severity: bench.nuggetErrPct < 20 ? 'ok' : 'warn',
+        hint: zh ? `基准块金误差 |C₀′−C₀|/sill（真实 C₀ = ${bench.trueNugget}）` : `benchmark nugget error |C₀′−C₀|/sill (true C₀ = ${bench.trueNugget})`,
+      });
+      metrics.push({
+        key: 'bench-sill-err',
+        label: 'bench sill err',
+        value: `${fmtMetric(bench.sillErrPct)}%`,
+        severity: bench.sillErrPct < 20 ? 'ok' : 'warn',
+        hint: zh ? `基准基台值恢复误差（真实 sill = ${bench.trueSill}）` : `benchmark sill recovery error (true sill = ${bench.trueSill})`,
+      });
+      metrics.push({
+        key: 'bench-range-err',
+        label: 'bench range err',
+        value: `${fmtMetric(bench.rangeErrPct)}%`,
+        severity: bench.rangeErrPct < 25 ? 'ok' : 'warn',
+        hint: zh ? `基准变程恢复误差（真实 ${bench.trueRangeKm} km，${bench.stations} 站）` : `benchmark range recovery error (true ${bench.trueRangeKm} km, ${bench.stations} stations)`,
+      });
+    }
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   private draw() {
@@ -771,6 +1103,7 @@ export class SpatialInterpPlugin implements Plugin {
     const zh = isZh(this.api.locale);
     const pts = this.state.points;
     if (pts.length < 3) {
+      clearScienceOutputs(this.manifest.id);
       g.fillStyle = 'rgba(150, 165, 185, 0.85)';
       g.font = "12px 'Microsoft YaHei', Consolas, monospace";
       g.textAlign = 'center';
@@ -781,6 +1114,7 @@ export class SpatialInterpPlugin implements Plugin {
     const bounds = boundsOf(pts);
     const field = this.computeField(bounds);
     if (!field) return;
+    this.publish();
 
     // Value range over both field and stations (they agree at stations).
     let vmin = Infinity;

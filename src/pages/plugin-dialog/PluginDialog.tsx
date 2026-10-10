@@ -342,6 +342,11 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
                     <div className="plugin-card-info">
                       <div className="plugin-card-title">
                         {item.manifest.nameI18n?.[locale] ?? item.manifest.name}
+                        {item.manifest.research && (
+                          <span className={`plugin-badge tier-${item.manifest.research.tier}`}>
+                            {t(`research.tier.${item.manifest.research.tier}`)}
+                          </span>
+                        )}
                         <span className={`plugin-badge cat-${item.category}`}>
                           {t(`plugin.category.${item.category}`)}
                         </span>
@@ -456,6 +461,28 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
           <div className="plugin-detail">
             <div className="plugin-detail-title">{selected.nameI18n?.[locale] ?? selected.name}</div>
             <p className="plugin-detail-desc">{selected.descriptionI18n?.[locale] ?? selected.description}</p>
+            {selected.research && (
+              <div className="plugin-detail-research">
+                <span className={`plugin-badge tier-${selected.research.tier}`}>
+                  {t(`research.tier.${selected.research.tier}`)}
+                </span>
+                {(selected.research.notesI18n?.[locale] ?? selected.research.notes) && (
+                  <p className="plugin-detail-research-notes">
+                    {selected.research.notesI18n?.[locale] ?? selected.research.notes}
+                  </p>
+                )}
+                {selected.research.units && Object.keys(selected.research.units).length > 0 && (
+                  <div className="plugin-detail-research-units">
+                    {Object.entries(selected.research.units).map(([q, u]) => (
+                      <span key={q} className="tag tag-muted">{q}: {u}</span>
+                    ))}
+                  </div>
+                )}
+                {selected.research.reproducible && (
+                  <div className="plugin-card-meta">{t('research.reproducible')}</div>
+                )}
+              </div>
+            )}
             <div className="plugin-detail-meta">
               <div>{t('plugin.version')}: {selected.version}</div>
               <div>{t('plugin.author')}: {selected.author}</div>

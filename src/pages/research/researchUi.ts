@@ -138,19 +138,6 @@ export function sendSpecToFigure(sheetName: string, spec: PlotSpec, caption?: st
   return true;
 }
 
-/** Minimal CSV quoting (RFC 4180): quote when a value contains , " or newline. */
-export function csvCell(v: unknown): string {
-  const s = v === null || v === undefined ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-/** Assemble CSV text from a header row and string-coercible rows. */
-export function toCsv(columns: string[], rows: Array<Array<unknown>>): string {
-  const head = columns.map(csvCell).join(',');
-  const body = rows.map((r) => r.map(csvCell).join(',')).join('\n');
-  return body ? `${head}\n${body}` : head;
-}
-
 export function fmt(v: number, digits = 6): string {
   if (!Number.isFinite(v)) return '—';
   // toPrecision requires digits in [1, 100]; digits <= 0 means "round to integer"

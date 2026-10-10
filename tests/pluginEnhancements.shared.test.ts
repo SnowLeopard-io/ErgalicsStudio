@@ -13,7 +13,7 @@ import {
   exportCanvasPng,
   exportRowsCsv,
   exportSnapshotPng,
-} from '@/plugins/builtin/shared/enhance';
+} from '@/core/plugin-tools/enhance';
 import type { ButtonParam, PluginApi } from '@/types/plugin';
 
 function fakeApi(locale = 'en-US') {

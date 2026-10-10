@@ -70,6 +70,10 @@ import bioEpidemicInfluenzaCsv from '../../examples/data/bio-epidemic-influenza.
 import bioSeqalignHemoglobinFasta from '../../examples/data/bio-seqalign-hemoglobin.fasta?raw';
 import bioPopgenHweCsv from '../../examples/data/bio-popgen-hwe.csv?raw';
 import bioPopgenExampleVcf from '../../examples/data/bio-popgen-example.vcf?raw';
+import envAqiWeekCsv from '../../examples/data/env-aqi-week.csv?raw';
+import envWaterRiverCsv from '../../examples/data/env-water-river.csv?raw';
+import envBiodiversitySitesCsv from '../../examples/data/env-biodiversity-sites.csv?raw';
+import envCarbonPoolsCsv from '../../examples/data/env-carbon-pools.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -153,6 +157,96 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '600 阶厄密腔体矩阵：3 组不同参数的 10×10 谐振腔各重复两次；受 10×10 网格谱内部简并影响，实测特征值重数分布为 2 / 4 / 20（均为偶数重）。加载后点击「运行求解」以稠密直解模式计算，查看谱、残差与收敛轨迹。',
       'en-US':
         'A 600-order Hermitian cavity matrix: three 10×10 cavity blocks repeated twice; measured eigenvalue multiplicities are 2 / 4 / 20 (the 10×10 grid spectrum itself is degenerate). Load it and press Solve for an instant dense-path run with spectrum, residuals and convergence.',
+    },
+  },
+  {
+    id: 'em-sample-cavity-small',
+    filename: 'em-sample-cavity-small.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-eigensolver',
+    loadContent: () => exampleContent('em-sample-cavity-small.json'),
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 谐振腔 30×30（小规模冒烟）',
+      'en-US': 'EM Resonance · Cavity 30×30 (Smoke Test)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '900 阶 2D 谐振腔（30×30 五点差分），谱分布在 [0.5, 8.5]。推荐求极值谱（k=6），秒级收敛，适合低内存环境与小规模冒烟测试。加载后点击「运行求解」。',
+      'en-US':
+        'A 900-unknown 2D cavity (30×30 five-point stencil), spectrum in [0.5, 8.5]. Recommended for extreme eigenvalues (k=6), converging in seconds — the low-memory smoke-test scale. Load it and press Solve.',
+    },
+  },
+  {
+    id: 'em-sample-cluster-zero',
+    filename: 'em-sample-cluster-zero.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-eigensolver',
+    loadContent: () => exampleContent('em-sample-cluster-zero.json'),
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 零附近密集谱（近奇异位移）',
+      'en-US': 'EM Resonance · Dense Spectrum near Zero',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '720 阶矩阵（6 条窄带 × 120），数百个特征值挤在零的 ±0.2 邻域；位移 σ=0 落在簇内（近奇异位移 + 谱内共振提取），自动路由到 Jacobi-Davidson。加载后点击「运行求解」。',
+      'en-US':
+        'A 720-order matrix (6 narrow bands of 120) with hundreds of eigenvalues crowding ±0.2 around zero; shift σ=0 sits inside the cluster (near-singular shift + interior extraction), auto-routing to Jacobi-Davidson. Load it and press Solve.',
+    },
+  },
+  {
+    id: 'em-sample-degenerate-pair',
+    filename: 'em-sample-degenerate-pair.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-eigensolver',
+    loadContent: () => exampleContent('em-sample-degenerate-pair.json'),
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 重特征值样例',
+      'en-US': 'EM Resonance · Degenerate Pair',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '300 阶矩阵（两条完全相同带 + 一条独立带），第一条带的每个特征值恰好二重简并；推荐 σ=−1，验证块 LOBPCG 对重特征值的解算。加载后点击「运行求解」。',
+      'en-US':
+        'A 300-order matrix (two identical bands plus an independent one) where every eigenvalue of the first band is exactly doubly degenerate; recommended σ=−1 exercises block LOBPCG on repeated eigenvalues. Load it and press Solve.',
+    },
+  },
+  {
+    id: 'em-sample-cavity-complex',
+    filename: 'em-sample-cavity-complex.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-eigensolver',
+    loadContent: () => exampleContent('em-sample-cavity-complex.json'),
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 复厄密谐振腔 24×24',
+      'en-US': 'EM Resonance · Complex Hermitian Cavity 24×24',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '576 阶复厄密矩阵（带磁偏置相位耦合），谱分布在 ~[1, 9]；推荐 σ=1.2，验证复厄密路径（实部/虚部统一处理）。加载后点击「运行求解」。',
+      'en-US':
+        'A 576-order complex Hermitian matrix (magnetic-bias-like phase on the coupling), spectrum in ~[1, 9]; recommended σ=1.2 exercises the complex-Hermitian path. Load it and press Solve.',
+    },
+  },
+  {
+    id: 'em-sample-cavity-large',
+    filename: 'em-sample-cavity-large.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.em-eigensolver',
+    loadContent: () => exampleContent('em-sample-cavity-large.json'),
+    nameI18n: {
+      'zh-CN': '电磁谐振 · 谐振腔 320×320（约十万阶）',
+      'en-US': 'EM Resonance · Cavity 320×320 (~1e5)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '102400 阶 2D 谐振腔（320×320 五点差分），内存受限的大规模能力验证。推荐求极值谱（k=6），约 25 s 收敛；在插件中可调低 basisDim 控制内存。加载后点击「运行求解」。',
+      'en-US':
+        'A 102400-order 2D cavity (320×320 five-point stencil) for the memory-bound large-scale capability check. Recommended for extreme eigenvalues (k=6), converging in ~25 s; lower basisDim to cap memory. Load it and press Solve.',
     },
   },
   {
@@ -531,6 +625,78 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '一段示例 VCF（两个位点的双等位基因 GT 调用）。从 VCF 的 FORMAT/GT 字段统计 0/0、0/1 与 1/1 基因型，获得 AA/Aa/aa 计数后执行哈代-温伯格检验。',
       'en-US':
         'An example VCF (biallelic GT calls at two records). Counts 0/0, 0/1 and 1/1 genotypes from the FORMAT/GT field to obtain AA/Aa/aa counts and then runs the Hardy-Weinberg test.',
+    },
+  },
+  {
+    id: 'env-aqi-week',
+    filename: 'env-aqi-week.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-aqi',
+    content: envAqiWeekCsv,
+    nameI18n: {
+      'zh-CN': '环境 · 某城一周空气质量监测（AQI）',
+      'en-US': 'Environmental · One-week Air Quality Records (AQI)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '7 天六参数监测数据（SO₂/NO₂/PM2.5/PM10/CO/O₃，CO 为 mg/m³，其余 μg/m³）：day3 为 PM2.5 主导的中度污染日，day4 为 O₃ 主导日。加载后自动计算中国标准（HJ 633-2012）AQI，可切换美标（2024 US EPA）对照。',
+      'en-US':
+        'Seven days of six-pollutant records (SO₂/NO₂/PM2.5/PM10/CO/O₃; CO in mg/m³, rest μg/m³): day3 is a PM2.5-driven polluted day, day4 is O₃-driven. Loading computes CN (HJ 633-2012) AQI; switch to the 2024 US EPA standard for comparison.',
+    },
+  },
+  {
+    id: 'env-water-river',
+    filename: 'env-water-river.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-water',
+    content: envWaterRiverCsv,
+    nameI18n: {
+      'zh-CN': '环境 · 河流四个断面水质监测',
+      'en-US': 'Environmental · River Water-quality at Four Sections',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '同一条河流 4 个断面的 pH/溶解氧/高锰酸盐指数/BOD₅/氨氮/总磷：R1 清洁、R2 Ⅲ 类、R3 受排污影响劣化为 Ⅴ 类、R4 湖心对照。加载后按 GB 3838-2002 单因子法逐项定类并计算 WQI，可用雷达图对照 Ⅲ 类限值。',
+      'en-US':
+        'pH/DO/COD/BOD₅/NH₃-N/TP at four sections of one river: R1 clean, R2 Class Ⅲ, R3 degraded to Class Ⅴ below the outfall, R4 lake-center reference. Loading classifies each indicator per GB 3838-2002 (single-factor), computes WQI, and can radar-plot against Class Ⅲ limits.',
+    },
+  },
+  {
+    id: 'env-biodiversity-sites',
+    filename: 'env-biodiversity-sites.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-biodiversity',
+    content: envBiodiversitySitesCsv,
+    nameI18n: {
+      'zh-CN': '环境 · 三样点底栖动物丰度矩阵',
+      'en-US': 'Environmental · Benthos Abundance at Three Sites',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 个类群 × 3 样点的计数矩阵：site_1 为清洁林间溪流（种类多且均匀），site_2 农田排水渠，site_3 城镇池塘（摇蚊高度占优）。加载后计算 Shannon H′/Simpson/Pielou 均匀度与优势度，展示典型的多样性梯度。',
+      'en-US':
+        'A 12-taxa × 3-site count matrix: site_1 a clean forest stream (rich and even), site_2 a farm ditch, site_3 an urban pond dominated by chironomids. Loading computes Shannon H′/Simpson/Pielou evenness and dominance — a textbook diversity gradient.',
+    },
+  },
+  {
+    id: 'env-carbon-pools',
+    filename: 'env-carbon-pools.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-carbon',
+    content: envCarbonPoolsCsv,
+    nameI18n: {
+      'zh-CN': '环境 · 自定义碳库与人为扰动通量',
+      'en-US': 'Environmental · Custom Carbon Pools & Forcing Fluxes',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '四库初始库存（大气 590 / 植被 550 / 土壤 2000 / 海洋 38000 GtC）与人为净通量：大气 +9 GtC/yr（化石+工业排放），植被 −1.5 GtC/yr（毁林）。在插件的「自定义 CSV」情景中选择此文件运行，查看扰动下的库演化与守恒残差。',
+      'en-US':
+        'Four-pool initial stocks (atmosphere 590 / vegetation 550 / soil 2000 / ocean 38000 GtC) with human net fluxes: +9 GtC/yr into the atmosphere (fossil+industry), −1.5 GtC/yr from vegetation (deforestation). Pick it as the plugin\'s custom-CSV scenario to run the perturbed evolution and check conservation residuals.',
     },
   },
   {

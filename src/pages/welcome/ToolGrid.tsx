@@ -3,12 +3,13 @@
 //
 // All 14 grid-registered tools (the general analysis surface keeps its own
 // workbench button) grouped into the five mutually-exclusive discipline
-// groups. A filter box flattens the groups while searching. Cards record
-// recency (shared with the top-bar launcher) and route to /studio/<id>.
+// groups. A filter box flattens the groups while searching. Cards route into
+// the workbench with the suite embedded in the central canvas (shared recency
+// with the top-bar launcher).
 // ==========================================================================
 
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { ToolIcon, ArrowRightIcon, SearchIcon, CloseIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
@@ -16,13 +17,15 @@ import {
   GRID_GROUPS,
   GRID_TOOLS,
   getTool,
+  openToolEmbedded,
   type ResearchGroupId,
 } from '@/pages/research/toolRegistry';
-import { recordTool } from '@/core/recentTools';
+import { getRecentTools } from '@/core/recentTools';
 
 export function ToolGrid() {
   const t = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();
@@ -35,11 +38,20 @@ export function ToolGrid() {
     });
   }, [q, t]);
 
+  // Recently launched tools float to the top while browsing (hidden while
+  // searching — the search results already rank by match). Re-reads on every
+  // remount, so returning from a tool lands on an up-to-date list.
+  const recentTools = useMemo(() => {
+    if (q) return [];
+    return getRecentTools()
+      .map((id) => getTool(id))
+      .filter((x): x is NonNullable<typeof x> => x !== undefined && x.inGrid);
+  }, [q]);
+
   const open = (id: string) => {
-    const toolDef = getTool(id);
-    if (!toolDef) return;
-    recordTool(id);
-    navigate(toolDef.path);
+    if (!getTool(id)) return;
+    // Enter the workbench with the suite embedded in the central canvas.
+    openToolEmbedded(navigate, id, pathname);
   };
 
   return (
@@ -78,20 +90,34 @@ export function ToolGrid() {
             ))}
           </div>
         )
-        : GRID_GROUPS.map((group) => {
-            const groupTools = filtered.filter((x) => x.group === (group as ResearchGroupId));
-            if (groupTools.length === 0) return null;
-            return (
-              <div key={group} className="tool-grid-group">
-                <h3 className="tool-grid-label">{t(`tool.group.${group}`)}</h3>
+        : (
+          <>
+            {recentTools.length > 0 && (
+              <div className="tool-grid-group">
+                <h3 className="tool-grid-label">{t('launcher.recent_group')}</h3>
                 <div className="tool-grid">
-                  {groupTools.map((toolDef) => (
+                  {recentTools.map((toolDef) => (
                     <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
                   ))}
                 </div>
               </div>
-            );
-          })}
+            )}
+            {GRID_GROUPS.map((group) => {
+              const groupTools = filtered.filter((x) => x.group === (group as ResearchGroupId));
+              if (groupTools.length === 0) return null;
+              return (
+                <div key={group} className="tool-grid-group">
+                  <h3 className="tool-grid-label">{t(`tool.group.${group}`)}</h3>
+                  <div className="tool-grid">
+                    {groupTools.map((toolDef) => (
+                      <ToolCard key={toolDef.id} id={toolDef.id} onOpen={open} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
     </section>
   );
 }

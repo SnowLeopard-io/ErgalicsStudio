@@ -9,13 +9,20 @@
 // user generate and insert a draft, but the Run action falls back to
 // insert-only. Esc or the panel's close button dismisses it; there is no
 // full-screen dim so the canvas stays interactive.
+//
+// When closed the panel stays mounted (hidden with `.is-closed`) so the
+// conversation survives collapsing; a compact floating ball (`.ai-fab`) is
+// shown instead, so the assistant never occupies canvas space until asked.
 // ==========================================================================
 
 import { useEffect } from 'react';
+import { useT } from '@/i18n';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { AiAssistantPanel } from './AiAssistantPanel';
+import { SparklesIcon } from './icons';
 
 export function AiAssistantOverlay() {
+  const t = useT();
   const open = useAiPanelStore((s) => s.open);
   const runHandler = useAiPanelStore((s) => s.runHandler);
   const setOpen = useAiPanelStore((s) => s.setOpen);
@@ -30,11 +37,22 @@ export function AiAssistantOverlay() {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, setOpen]);
 
-  if (!open) return null;
-
   return (
-    <div className="ai-overlay">
-      <AiAssistantPanel runCode={runHandler ?? undefined} onClose={() => setOpen(false)} />
-    </div>
+    <>
+      <div className={`ai-overlay${open ? '' : ' is-closed'}`} aria-hidden={!open}>
+        <AiAssistantPanel runCode={runHandler ?? undefined} onClose={() => setOpen(false)} />
+      </div>
+      {!open && (
+        <button
+          type="button"
+          className="ai-fab"
+          title={t('ux.ai.open')}
+          aria-label={t('ux.ai.open')}
+          onClick={() => setOpen(true)}
+        >
+          <SparklesIcon size={18} />
+        </button>
+      )}
+    </>
   );
 }

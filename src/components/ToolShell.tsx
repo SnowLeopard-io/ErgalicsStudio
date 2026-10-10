@@ -12,7 +12,7 @@
 // ==========================================================================
 
 import { useEffect, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -34,6 +34,7 @@ interface ToolShellProps {
 export function ToolShell({ toolId, title, headerExtra, children }: ToolShellProps) {
   const t = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const toolDef = getTool(toolId);
   const resolvedTitle = title ?? (toolDef ? t(toolDef.titleKey) : toolId);
 
@@ -41,6 +42,20 @@ export function ToolShell({ toolId, title, headerExtra, children }: ToolShellPro
   useEffect(() => {
     recordTool(toolId);
   }, [toolId]);
+
+  // Embedded mode (suite rendered inside the workbench CentralArea): the
+  // workbench already owns the top bar and status bar, so only the tool body
+  // is rendered here. Detection is route-based — standalone pages always live
+  // under /studio/*.
+  if (!location.pathname.startsWith('/studio')) {
+    return (
+      <div className="tool-shell embedded">
+        <main className="tool-body">
+          <div className="tool-content">{children}</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="tool-shell">

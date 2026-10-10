@@ -98,6 +98,9 @@
   --color-canvas: #0a0e13;
   --color-scrollbar: #27313d;
   --color-glow: rgba(45, 212, 191, 0.22);
+  /* Restrained hover glow — state indicators keep --color-glow, hover
+     interactions use this quieter layer (see glow layering note). */
+  --glow-hover: rgba(45, 212, 191, 0.10);
 }
 
 /* ---- light theme — cool laboratory ---- */
@@ -149,6 +152,7 @@
   --color-canvas: #fbfcfe;
   --color-scrollbar: #c3ccd6;
   --color-glow: rgba(14, 147, 132, 0.18);
+  --glow-hover: rgba(14, 147, 132, 0.08);
 }
 
 /* ==========================================================================
@@ -285,7 +289,9 @@ button {
 .btn-primary:hover:not(:disabled) {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
-  box-shadow: 0 2px 14px var(--color-glow);
+  /* Quieter hover glow: keeps the accent readable on dense surfaces without
+     every hover lighting up like a status indicator. */
+  box-shadow: 0 2px 12px var(--glow-hover);
 }
 
 /* Toggle "on" state (e.g. a running simulation) */
@@ -728,6 +734,34 @@ button {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Call-to-action button on a toast (e.g. a background compute offering to
+   jump back to the plugin that finished). Solid accent fill — this is the one
+   primary action on the toast and must read at a glance (the dark-theme
+   accent is bright and the light-theme accent is dark, so in both themes the
+   page background colour is the correct contrasting ink). */
+.toast-action {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+}
+
+.toast-action:hover {
+  filter: brightness(1.12);
+}
+
+.toast-action:active {
+  filter: brightness(0.95);
 }
 
 .toast-info {

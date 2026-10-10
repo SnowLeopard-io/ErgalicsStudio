@@ -12,10 +12,12 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '../shared/enhance';
-import { isZh, parseDelimited, stripHeaderIfNonNumeric, haversineKm, sphericalAreaKm2 } from './geoCore';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import { haversineKm, sphericalAreaKm2 } from './geoCore';
+import { isZh } from '@/core/plugin-tools/locale';
+import { parseDelimited, stripHeaderIfNonNumeric } from '@/core/plugin-tools/table';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { geoMeasureManifest } from './geoMeasureManifest';
 
 export { geoMeasureManifest } from './geoMeasureManifest';
@@ -130,8 +132,8 @@ export function standardDeviationalEllipse(points: Waypoint[]): SdeResult | null
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
 /** Figure sheet: per-segment length bars + cumulative distance profile. */
-export function measureFigurePanels(points: Waypoint[]): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+export function measureFigurePanels(points: Waypoint[]): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   const segKm: number[] = [];
   for (let i = 1; i < points.length; i += 1) {
     segKm.push(haversineKm(points[i - 1]!.lat, points[i - 1]!.lon, points[i]!.lat, points[i]!.lon));
@@ -141,8 +143,8 @@ export function measureFigurePanels(points: Waypoint[]): GeoFigurePanel[] {
       ...panelPlace(panels.length),
       tag: panelTag(panels.length),
       spec: {
-        width: GEO_PANEL_WIDTH,
-        height: GEO_PANEL_HEIGHT,
+        width: FIGURE_PANEL_WIDTH,
+        height: FIGURE_PANEL_HEIGHT,
         title: 'Segment length per leg',
         xLabel: 'segment #',
         yLabel: 'km',
@@ -165,8 +167,8 @@ export function measureFigurePanels(points: Waypoint[]): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Cumulative distance along the chain',
       xLabel: 'vertex #',
       yLabel: 'km',
@@ -224,7 +226,13 @@ export class GeoMeasurePlugin implements Plugin {
     this.ctx = context.container;
   }
 
-  async deactivate() {}
+  async deactivate() {
+    // Drop the shared-canvas click listener on switch-away (mirror of
+    // destroy()): the canvas is the host's shared element, so a listener left
+    // bound would keep appending waypoints and redrawing for a background
+    // plugin on every click into whichever plugin the user switched to.
+    this.detachListeners();
+  }
 
   render(container: ContainerCapabilities) {
     this.ctx = container;

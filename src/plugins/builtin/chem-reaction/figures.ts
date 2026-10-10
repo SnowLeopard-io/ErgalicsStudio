@@ -17,7 +17,7 @@
 
 import { useFigureStore } from '@/stores/figureStore';
 import type { PlotSeries, PlotSpec } from '@/core/plot';
-import { bondEnergy, gibbsEnergy, equilibriumConstant, R } from '@/chem/thermo';
+import { bondEnergy, gibbsEnergy, equilibriumConstant, R } from '@/core/chem/thermo';
 import { buildMechanism, type Mechanism } from './mech';
 import { equationOf, renderFormula } from './plugin';
 import { getLocale } from '@/i18n';

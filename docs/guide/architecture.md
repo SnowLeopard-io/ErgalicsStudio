@@ -125,6 +125,24 @@ the exact API surface and the calling conventions.
 - The plugin contract (`src/types/plugin.ts`) is the only shared vocabulary
   between the host and third-party code.
 
+**Engine reuse inside `core` (current state).** Six files under `src/core/`
+depend on the Flow/Block engines that live outside it, so the diagram above
+(`core` → engines) is the declared intent, not the current edge set:
+
+| `src/core/` file      | depends on              |
+| --------------------- | ----------------------- |
+| `plot/charts.ts`      | `@/blocks/ops`          |
+| `pyodide/runtime.ts`  | `@/blocks`              |
+| `bench/memory-bench.ts` | `@/blocks`            |
+| `bench/import-bench.ts` | `@/blocks`            |
+| `r/runtime-factory.ts`  | `@/editor`             |
+| `r/builtin-ir-runtime.ts` | `@/editor`           |
+
+`src/blocks/` and `src/editor/` are therefore engine dependencies of `core`,
+not peer layers. The planned rectification moves them into `src/core/` as
+sub-domains; until then the table above is the source of truth. See
+`docs/architecture-rectification.md` for the migration list.
+
 ## Research module layering
 
 The research features (experiment tracking, uncertainty, units, lineage,

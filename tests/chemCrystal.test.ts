@@ -10,7 +10,7 @@ import {
 } from '@/plugins/builtin/chem-crystal/cellInfo';
 import { CRYSTAL_SAMPLES, findSample } from '@/plugins/builtin/chem-crystal/samples';
 import { buildCrystalGroup } from '@/plugins/builtin/chem-crystal/crystal3d';
-import { minImageDistance, inferBonds } from '@/chem/structure';
+import { minImageDistance, inferBonds } from '@/core/chem/structure';
 import {
   detectFormat,
   parseStructure,
