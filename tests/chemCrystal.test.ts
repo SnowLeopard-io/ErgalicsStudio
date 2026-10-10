@@ -342,7 +342,9 @@ describe('ChemCrystalPlugin', () => {
     expect(keys).toContain('showCell');
     expect(keys).toContain('clipToCell');
     expect(keys).toContain('reset');
-    expect(keys).toContain('exportPng');
+    // Data CSV export stays; plugin-level PNG export moved to the canvas menu.
+    expect(keys).toContain('exportCsv');
+    expect(keys).not.toContain('exportPng');
   });
 
   it('switches built-in samples and ignores unknown ids', async () => {

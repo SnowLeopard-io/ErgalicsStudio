@@ -240,7 +240,7 @@
 <!-- P4 -->
 <div class="page">
 <h2 class="sec">2. 前置条件</h2>
-<ul><li>Docker（含 Compose 插件，Docker Desktop / 对应 Linux 包均可，<code>docker --version</code> 与 <code>docker compose version</code> 均可用）。</li><li>网络可访问 Docker Hub（拉取 <code>node:20-alpine</code> / <code>python:3.11-slim</code>）与 npm registry（首次构建安装前端依赖）。</li><li>建议可用内存 ≥ 4 GB（浏览器端 Pyodide 运行 3D N–S 求解）；网格 10³ 通常仅需 ~1 GB。</li><li>磁盘余量 ≥ 2 GB（构建缓存）。</li></ul>
+<table><thead><tr><th>前置条件</th><th>要求</th></tr></thead><tbody><tr><td>Docker</td><td>含 Compose 插件，Docker Desktop / 对应 Linux 包均可，<code>docker --version</code> 与 <code>docker compose version</code> 均可用</td></tr><tr><td>网络</td><td>可访问 Docker Hub（拉取 <code>node:20-alpine</code> / <code>python:3.11-slim</code>）与 npm registry（首次构建安装前端依赖）</td></tr><tr><td>内存</td><td>建议可用 ≥ 4 GB（浏览器端 Pyodide 运行 3D N–S 求解）；网格 10³ 通常仅需 ~1 GB</td></tr><tr><td>磁盘</td><td>余量 ≥ 2 GB（构建缓存）</td></tr></tbody></table>
 <hr>
 <h2 class="sec">3. 快速开始</h2>
 <h3><span class="hn">3.1</span>一键启动可运行原型</h3>

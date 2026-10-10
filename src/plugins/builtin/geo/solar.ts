@@ -13,7 +13,10 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
 import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
@@ -236,10 +239,7 @@ export class SolarPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-solar');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -310,7 +310,6 @@ export class SolarPlugin implements Plugin {
         value: this.state.day,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

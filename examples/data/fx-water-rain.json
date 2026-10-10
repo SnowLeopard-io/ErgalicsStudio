@@ -1,0 +1,13 @@
+{
+  "name": "Rain over the pool",
+  "mode": "ripples",
+  "gridN": 256,
+  "cfl": 0.55,
+  "damping": 0.9985,
+  "absorb": true,
+  "depth": 0.8,
+  "hScale": 5,
+  "rain": true,
+  "rainRate": 8,
+  "sources": false
+}

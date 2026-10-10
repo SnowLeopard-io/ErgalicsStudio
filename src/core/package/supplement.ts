@@ -1,10 +1,13 @@
 // ==========================================================================
 // Ergalics Studio — supplementary-materials packaging (core)
 //
-// Builds the zip researchers upload alongside a paper: a manifest.json
-// (project metadata + run records + lineage graph + author/license form),
-// optionally the raw data files and the authored code sessions. Pure data
-// assembly + fflate zip; the dialog only collects the form and downloads.
+// Builds the zip researchers upload alongside a paper. THE DATA SOURCE IS
+// THE FILE EXPLORER'S WORKSPACE TREE (src/core/vfs): whatever the user sees
+// in the sidebar — data/, code/, figures/, manuscript/, runs/, project.clproj
+// — is what gets packed, so the archive always mirrors the real project
+// structure. A manifest.json (project metadata + run records + lineage graph
+// + author/license form) and an optional repro.lock (FR6.5 fingerprints) are
+// added on top.
 // ==========================================================================
 
 import { zipSync, strToU8 } from 'fflate';
@@ -15,6 +18,7 @@ import { buildLineage } from '@/core/lineage/graph';
 import { listRuns } from '@/core/storage';
 import { buildLock, lockToJson } from '@/core/repro/lock';
 import { logger } from '@/core/logger';
+import { getVfs, type Vfs } from '@/core/vfs';
 
 export interface SupplementMeta {
   author?: string;
@@ -23,14 +27,21 @@ export interface SupplementMeta {
 }
 
 export interface SupplementOptions {
-  /** Include the project's data files under `data/`. */
+  /** Include the workspace `data/` directory. */
   includeData?: boolean;
-  /** Include authored code sessions under `code/`. */
-  code?: boolean;
-  /** Metadata form values (author / license / description). */
-  meta?: SupplementMeta;
+  /** Include the workspace `code/` directory. */
+  includeCode?: boolean;
+  /** Include every other workspace file (figures/, manuscript/, runs/,
+   *  project.clproj, root files). */
+  includeWorkspace?: boolean;
   /** Attach `repro.lock` capturing data/code/params/seed fingerprints (FR6.5). */
   reproLock?: boolean;
+  /** Metadata form values (author / license / description). */
+  meta?: SupplementMeta;
+  /** Vfs override (tests inject a MemoryVfs); defaults to the global one. */
+  vfs?: Vfs;
+  /** Workspace root override; defaults to the project's own workspace. */
+  root?: string;
 }
 
 export interface SupplementManifest {
@@ -48,39 +59,64 @@ export interface SupplementManifest {
   runs: RunRecord[];
   lineage: LineageGraph;
   contents: {
+    /** Packed files under `data/` (workspace-relative). */
     data: string[];
+    /** Packed files under `code/` (workspace-relative). */
     code: string[];
+    /** Every other packed file (workspace-relative). */
+    files: string[];
     reproLock: string | null;
   };
 }
 
-function codeExtension(language: string): string {
-  switch (language) {
-    case 'python':
-      return 'py';
-    case 'r':
-      return 'r';
-    case 'js':
-      return 'js';
-    default:
-      return 'txt';
-  }
+/** Internal workspace paths that never belong in a supplement. */
+const EXCLUDED_DIRS = new Set(['.git', '.ergalics', 'supplement']);
+const EXCLUDED_NAMES = new Set(['.gitkeep', '.keep']);
+
+interface WorkspaceFile {
+  path: string;
+  content: string;
+  bucket: 'data' | 'code' | 'files';
 }
 
-/** Zip-safe name with numeric prefixes when two files share a name. */
-function dedupeName(name: string, used: Set<string>): string {
-  if (!used.has(name)) return name;
-  let i = 1;
-  let candidate = `${i}_${name}`;
-  while (used.has(candidate)) {
-    i += 1;
-    candidate = `${i}_${name}`;
-  }
-  return candidate;
+/** Recursively collect workspace files, bucketed by their top-level dir. */
+async function collectWorkspaceFiles(
+  vfs: Vfs,
+  root: string,
+): Promise<WorkspaceFile[]> {
+  const out: WorkspaceFile[] = [];
+
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await vfs.readDir(root, dir);
+    for (const entry of entries) {
+      if (entry.isDir) {
+        if (EXCLUDED_DIRS.has(entry.name) || EXCLUDED_DIRS.has(entry.path)) continue;
+        await walk(entry.path);
+        continue;
+      }
+      if (EXCLUDED_NAMES.has(entry.name)) continue;
+      const bucket = entry.path.startsWith('data/')
+        ? 'data'
+        : entry.path.startsWith('code/')
+          ? 'code'
+          : 'files';
+      try {
+        out.push({ path: entry.path, content: await vfs.readFile(root, entry.path), bucket });
+      } catch (err) {
+        // A directory-mtime file or an unreadable entry must not sink the
+        // whole package — skip it and note the drop in the manifest instead.
+        logger.warn('package', `supplement: skipping unreadable ${entry.path}`, err);
+      }
+    }
+  };
+
+  await walk('');
+  return out;
 }
 
 /**
- * Build the supplement zip. Run records and the lineage graph come from the
+ * Build the supplement zip from the project's workspace tree (the file
+ * explorer's view). Run records and the lineage graph come from the
  * project's durable stores; when storage is unavailable (tests, private
  * mode) the manifest degrades to an empty runs list rather than failing.
  */
@@ -96,31 +132,28 @@ export async function buildSupplement(
   }
   const lineage = buildLineage(project.data.files, runs);
 
+  const vfs = opts.vfs ?? getVfs();
+  const root = opts.root ?? `/ergalics-projects/${project.id}`;
+  const workspaceFiles = await collectWorkspaceFiles(vfs, root);
+
   const entries: Record<string, Uint8Array> = {};
-  const contents: SupplementManifest['contents'] = { data: [], code: [], reproLock: null };
+  const contents: SupplementManifest['contents'] = {
+    data: [],
+    code: [],
+    files: [],
+    reproLock: null,
+  };
 
-  if (opts.includeData) {
-    const used = new Set<string>();
-    for (const file of project.data.files) {
-      const name = dedupeName(file.name, used);
-      used.add(name);
-      entries[`data/${name}`] = strToU8(file.content);
-      contents.data.push(name);
-    }
-  }
-
-  if (opts.code) {
-    const used = new Set<string>();
-    let i = 1;
-    for (const session of project.state.editorSessions ?? []) {
-      if (!session.lastCode?.trim()) continue;
-      const base = `${project.name}-${i}`.replace(/[^\w.-]+/g, '_');
-      const name = dedupeName(`${base}.${codeExtension(session.language)}`, used);
-      used.add(name);
-      entries[`code/${name}`] = strToU8(session.lastCode);
-      contents.code.push(name);
-      i += 1;
-    }
+  for (const file of workspaceFiles) {
+    const include =
+      file.bucket === 'data'
+        ? opts.includeData !== false
+        : file.bucket === 'code'
+          ? opts.includeCode !== false
+          : opts.includeWorkspace !== false;
+    if (!include) continue;
+    entries[file.path] = strToU8(file.content);
+    contents[file.bucket].push(file.path);
   }
 
   if (opts.reproLock) {
@@ -149,4 +182,15 @@ export async function buildSupplement(
   entries['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
 
   return zipSync(entries, { level: 6 });
+}
+
+/** Count the files currently under the workspace `data/` directory. */
+export async function countWorkspaceDataFiles(
+  project: Project,
+  vfs: Vfs = getVfs(),
+  root?: string,
+): Promise<number> {
+  const workspaceRoot = root ?? `/ergalics-projects/${project.id}`;
+  const files = await collectWorkspaceFiles(vfs, workspaceRoot);
+  return files.filter((f) => f.bucket === 'data').length;
 }

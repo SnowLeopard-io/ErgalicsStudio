@@ -12,7 +12,11 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 export { violinPlotManifest } from './violinPlotManifest';
 import { violinPlotManifest } from './violinPlotManifest';
@@ -57,9 +61,7 @@ export class ViolinPlotPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'violin-plot');
-    }
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (typeof params.bandwidth === 'number') this.state.bandwidth = params.bandwidth;
     if (typeof params.showBox === 'boolean') this.state.showBox = params.showBox;
@@ -102,7 +104,6 @@ export class ViolinPlotPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showPoints,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
@@ -297,15 +298,6 @@ function variance(arr: number[]): number {
   if (arr.length === 0) return 0;
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
   return arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Deterministic pseudo-random in [0, 1) from an integer seed (sin hash). */

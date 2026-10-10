@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT, getLocale } from '@/i18n';
 import { Modal } from '@/components/Modal';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { useExperimentStore } from '@/stores/experimentStore';
@@ -443,6 +444,12 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
           >
             {t('share.export_chart_pdf')}
           </button>
+          <SaveArtifactButton
+            dir="figures"
+            filename={`${project?.name ?? 'ergalics'}-chart.svg`.replace(/[^\w.-]+/g, '-')}
+            content={currentPlot?.markup ?? null}
+            className="btn"
+          />
         </div>
         {!currentPlot && <p className="share-hint">{t('share.no_chart')}</p>}
       </div>

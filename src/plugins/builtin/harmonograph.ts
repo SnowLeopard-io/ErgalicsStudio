@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { harmonographManifest } from './harmonographManifest';
 import { harmonographManifest } from './harmonographManifest';
@@ -39,7 +39,7 @@ interface State {
 
 export class HarmonographPlugin implements Plugin {
   readonly manifest = harmonographManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private state: State = {
@@ -54,9 +54,7 @@ export class HarmonographPlugin implements Plugin {
     phase: 0,
   };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.stopLoop();
@@ -78,10 +76,7 @@ export class HarmonographPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'harmonograph');
-      return;
-    }
+
     if (buttonPressed(params, 'randomize')) {
       this.randomize();
       if (!this.state.animate) this.draw();
@@ -120,7 +115,6 @@ export class HarmonographPlugin implements Plugin {
       ], value: this.state.color },
       { key: 'animate', label: 'Morph', labelI18n: { 'zh-CN': '渐变', 'en-US': 'Morph' }, type: 'toggle', offLabel: 'Morph', onLabel: 'Morphing', offLabelI18n: { 'zh-CN': '渐变', 'en-US': 'Morph' }, onLabelI18n: { 'zh-CN': '渐变中', 'en-US': 'Morphing' }, value: this.state.animate },
       actionButton('randomize', 'Randomize', '随机参数'),
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

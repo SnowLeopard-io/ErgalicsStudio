@@ -15,7 +15,7 @@ export interface SettingsState {
 
 export const DEFAULT_SETTINGS: SettingsState = {
   locale: 'zh-CN',
-  theme: 'system',
+  theme: 'dark',
   autoSaveInterval: 60_000,
   gpuBackend: 'auto',
   memoryLimit: 'auto',

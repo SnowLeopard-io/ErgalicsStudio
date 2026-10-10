@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { lissajousManifest } from './lissajousManifest';
 import { lissajousManifest } from './lissajousManifest';
@@ -33,7 +33,7 @@ interface State {
 
 export class LissajousPlugin implements Plugin {
   readonly manifest = lissajousManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private state: State = {
@@ -45,9 +45,7 @@ export class LissajousPlugin implements Plugin {
     animate: true,
   };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.stopLoop();
@@ -69,10 +67,7 @@ export class LissajousPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'lissajous');
-      return;
-    }
+
     // Restore the default frequencies / phase. The animation loop (if one
     // is running) keeps spinning — only the curve parameters reset.
     if (buttonPressed(params, 'reset')) {
@@ -111,7 +106,6 @@ export class LissajousPlugin implements Plugin {
       ], value: this.state.color },
       { key: 'animate', label: 'Animate', labelI18n: { 'zh-CN': '动画', 'en-US': 'Animate' }, type: 'toggle', offLabel: 'Animate', onLabel: 'Animating', offLabelI18n: { 'zh-CN': '动画', 'en-US': 'Animate' }, onLabelI18n: { 'zh-CN': '动画中', 'en-US': 'Animating' }, value: this.state.animate },
       actionButton('reset', 'Reset', '重置'),
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

@@ -27,7 +27,10 @@ import type {
 } from '@/types/plugin';
 import { logger } from '@/core/logger';
 import { emit } from '@/core/events';
-import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32 } from '@/core/repro/random';
 import {
@@ -195,14 +198,7 @@ export class NBodyPlugin implements Plugin {
     if ((params as { compute?: { action?: string } })?.compute?.action === 'gpu-compute') void this.runCompute();
     // Export buttons accept both the host's `{ key: { action } }` emission and
     // a plain `{ key: true }` call. They never touch the running state.
-    if (this.buttonFired(params, 'exportPng')) {
-      this.exportPng();
-      return;
-    }
-    if (this.buttonFired(params, 'exportObjPng')) {
-      this.exportObjPng();
-      return;
-    }
+
     if (this.buttonFired(params, 'exportCsv')) {
       this.exportCsv();
     }
@@ -248,8 +244,6 @@ export class NBodyPlugin implements Plugin {
         action: 'gpu-compute',
         labelI18n: { 'zh-CN': 'GPU 全配对计算', 'en-US': 'GPU all-pairs' },
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Bodies CSV', '导出天体 CSV'),
       actionButton('genICs', 'Seeded Random ICs', '随机初始条件（种子）'),
       actionButton('runKepler', 'Two-Body Kepler Benchmark', '二体开普勒基准（benchmark）', 'primary'),
@@ -447,14 +441,8 @@ export class NBodyPlugin implements Plugin {
   }
 
   /** Snapshot the host-managed 3-D scene as a PNG. */
-  private exportPng() {
-    exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'nbody');
-  }
 
   /** Snapshot only the bodies (transparent background, no grid/axes) as PNG. */
-  private exportObjPng() {
-    exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'nbody');
-  }
 
   /** Export the currently drawn bodies (position, velocity, mass) as a full
    *  system snapshot with the current simulation time column. The set is

@@ -10,7 +10,13 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioEpidemicManifest } from './manifest';
 import {
@@ -191,7 +197,6 @@ export class BioEpidemicPlugin implements Plugin {
         value: this.state.showSensitivity,
       },
       actionButton('overlay', 'Overlay R₀ curves', '叠加 R₀ 敏感性曲线', 'primary'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export CSV', '导出数据 CSV'),
     ];
   }
@@ -259,7 +264,7 @@ export class BioEpidemicPlugin implements Plugin {
       this.state.showSensitivity = !this.state.showSensitivity;
       this.draw();
     }
-    if (actionFired(params, 'exportPng')) exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bio-epidemic');
+
     if (actionFired(params, 'exportCsv')) this.exportCsv();
   }
 

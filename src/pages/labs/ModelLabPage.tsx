@@ -31,6 +31,7 @@ import {
 } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { NarrativePanel } from '@/components/NarrativePanel';
 
 type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
@@ -384,6 +385,25 @@ export default function ModelLabPage() {
         {outcome && (
           <>
             <pre className="analysis-output">{outcome.lines.join('\n')}</pre>
+            <div className="sweep-actions">
+              <SaveArtifactButton
+                dir="runs"
+                filename={`${(file || 'model').replace(/\.[^.]+$/, '')}-${outcome.kind}-fit.json`}
+                content={JSON.stringify(
+                  {
+                    kind: 'model-fit',
+                    savedAt: new Date().toISOString(),
+                    source: file,
+                    model: outcome.kind,
+                    summaryLines: outcome.lines,
+                    coefficients: outcome.coefficients,
+                  },
+                  null,
+                  2,
+                )}
+                className="btn btn-sm"
+              />
+            </div>
             <div className="sweep-table-wrap">
               <table className="sweep-table">
                 <thead>

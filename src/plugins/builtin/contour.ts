@@ -11,7 +11,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { contourManifest } from './contourManifest';
 import { contourManifest } from './contourManifest';
@@ -95,16 +94,13 @@ export class ContourPlugin implements Plugin {
       this.state.showGrid = params.showGrid;
       this.draw();
     }
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
   }
 
   getParams(): ParamDefinition[] {
     return [
       { key: 'levels', label: 'Contour Levels', labelI18n: { 'zh-CN': '等值线数量', 'en-US': 'Contour Levels' }, type: 'range', min: 2, max: 30, step: 1, value: this.state.levels },
       { key: 'showGrid', label: 'Grid Lines', labelI18n: { 'zh-CN': '网格线', 'en-US': 'Grid Lines' }, type: 'checkbox', value: this.state.showGrid },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -307,24 +303,6 @@ export class ContourPlugin implements Plugin {
     g.stroke();
   }
 
-  private exportPng() {
-    if (!this.state.hasData || this.grid.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'contour');
-  }
-
-  private exportCsv() {
-    const rows: Array<Array<number>> = [];
-    for (let j = 0; j < this.grid.length; j += 1) {
-      const row = this.grid[j]!;
-      for (let i = 0; i < row.length; i += 1) {
-        rows.push([j, i, row[i]!]);
-      }
-    }
-    exportRowsCsv(this.api, 'contour', ['row', 'col', 'value'], rows);
-  }
 }
 
 /**

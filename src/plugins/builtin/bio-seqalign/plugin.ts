@@ -10,7 +10,13 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { hashString } from '@/core/repro/random';
 import { bioSeqalignManifest } from './manifest';
@@ -174,7 +180,6 @@ export class BioSeqalignPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export alignment CSV', '导出比对 CSV'),
       actionButton('exportStats', 'Export stats CSV', '导出统计 CSV'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 
@@ -216,10 +221,7 @@ export class BioSeqalignPlugin implements Plugin {
       this.exportStatsCsv();
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bio-seqalign');
-      return;
-    }
+
     if (changed) {
       this.run();
       this.draw();

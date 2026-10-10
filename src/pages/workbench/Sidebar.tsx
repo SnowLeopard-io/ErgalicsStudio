@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
@@ -61,7 +61,35 @@ export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-  const setFilePreview = useAppStore((s) => s.setFilePreview);
+
+  /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
+   *  这样收起和展开两个方向都有过渡。 */
+  const [closing, setClosing] = useState(false);
+
+  // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  useEffect(() => {
+    if (sidebarOpen) setClosing(false);
+  }, [sidebarOpen]);
+
+  const handleCollapse = () => {
+    if (closing) return;
+    setClosing(true);
+    // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
+    window.setTimeout(() => {
+      if (useAppStore.getState().sidebarOpen) toggleSidebar();
+    }, 300);
+  };
+
+  const onCollapseAnimEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    // 子元素的入场动画也会冒泡 animationend，必须限定目标和动画名。
+    if (closing && e.target === e.currentTarget && e.animationName === 'panel-collapse') {
+      if (useAppStore.getState().sidebarOpen) toggleSidebar();
+    }
+  };
+
+  /** Activating a plugin hands the canvas back to it: switch to the plugin
+   *  tab. Open file/suite tabs stay in the strip and can be switched back. */
+  const showPluginCanvas = () => useAppStore.getState().showPluginCanvas();
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -134,7 +162,17 @@ export function Sidebar() {
   return (
     // 手柄挂在包裹层而非侧栏内部：侧栏 overflow 会裁剪超出边界的部分，
     // 感应区必须整体落在侧栏右缘外才完整可命中。
-    <div className="panel-wrap" style={{ width: resize.width }}>
+    <div
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : ''}`}
+      style={
+        {
+          width: resize.width,
+          // 收拢动画期间冻结内容宽度（内容被裁剪而非挤压回绕）。
+          '--panel-closing-width': `${resize.width}px`,
+        } as CSSProperties
+      }
+      onAnimationEnd={onCollapseAnimEnd}
+    >
       <div
         className="panel-resize-handle panel-resize-right"
         role="separator"
@@ -150,7 +188,7 @@ export function Sidebar() {
         className="panel-collapse-btn panel-collapse-right"
         aria-label={t('ux.panel.collapse_sidebar')}
         title={t('ux.panel.collapse_sidebar')}
-        onClick={toggleSidebar}
+        onClick={handleCollapse}
       >
         <ChevronLeftIcon size={12} />
       </button>
@@ -194,7 +232,7 @@ export function Sidebar() {
                         title={`${entry.name} ${entry.version}`}
                         onClick={() => {
                           void activate(entry.id);
-                          setFilePreview(null);
+                          showPluginCanvas();
                         }}
                       >
                         <span className="plugin-icon">{entry.icon ?? '◈'}</span>

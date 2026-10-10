@@ -68,31 +68,23 @@ export default function WorkbenchPage() {
     // Register built-in blocks and make example plugins available.
     initBlockSystem();
     void usePluginStore.getState().ensureBuiltinsLoaded();
-    // Restore the most recent project; create a fresh one if none exists
-    // (spec §4.2 "恢复"). Guarded so React StrictMode's double-mount cannot
-    // create the empty project twice (two rows in IndexedDB).
+    // Restore the most recent project if there is one. Never auto-create a
+    // fresh project on cold start: whether to have a project (and which one)
+    // is the user's decision — the empty canvas state offers the choices.
     if (!restoreStarted) {
       restoreStarted = true;
       void (async () => {
         try {
           await useProjectStore.getState().loadRecent();
           const { project, recent } = useProjectStore.getState();
-          if (!project) {
-            if (recent[0]) {
-              await useProjectStore.getState().openProject(recent[0].id);
-            } else {
-              await useProjectStore.getState().createProject('');
-            }
+          if (!project && recent[0]) {
+            await useProjectStore.getState().openProject(recent[0].id);
           }
         } catch (err) {
           // A project left in an old or corrupt shape used to fail silently
           // here: no project, no fallback, no message — just an unhandled
           // rejection and an apparently empty workbench on cold start.
           logger.error('project', 'startup restore failed', err);
-          const store = useProjectStore.getState();
-          if (!store.project) {
-            await store.createProject('').catch(() => undefined);
-          }
           useAppStore.getState().notify('error', t('project.open_failed'));
         }
       })();

@@ -106,8 +106,8 @@ api.log('info', 'loaded 4096 bodies', { file: file.name, ms: 12.4 });
 ```
 
 Every line is recorded under the `plugin:<id>` scope into a bounded host
-buffer and ships with **导出运行日志** (Top Bar → 更多), together with the
-parameter snapshot and the run history. Use it instead of `console.*`:
+buffer and ships with **导出运行日志** (Top Bar → project dropdown), together
+with the parameter snapshot and the run history. Use it instead of `console.*`:
 console output is lost on reload and never reaches a bug report.
 
 | level   | when to use                                              |
@@ -190,17 +190,13 @@ const result = await data.read();            // readback copy (read() handles it
 Reproducibility is a first-class concern, so the host records what happened
 without any plugin code:
 
-- **Run history** — every host-driven data import is recorded with the plugin
-  id, plugin version, file name, byte count, duration and outcome via
-  `pluginStore.beginRun()` / `finishRun()`.
-- **Parameter snapshot** — `exportParameterSnapshot()` freezes each loaded
-  plugin's *live* parameters next to its version, so a result can be
-  attributed to the exact configuration that produced it.
-- **Log buffer** — the host logger keeps a bounded ring (500 records by
-  default, tunable with `configureLogger({ bufferSize })`) of every
-  `logger` / `api.log` line.
+| Record | Details |
+| --- | --- |
+| **Run history** | Every host-driven data import is recorded with the plugin id, plugin version, file name, byte count, duration and outcome via `pluginStore.beginRun()` / `finishRun()`. |
+| **Parameter snapshot** | `exportParameterSnapshot()` freezes each loaded plugin's *live* parameters next to its version, so a result can be attributed to the exact configuration that produced it. |
+| **Log buffer** | The host logger keeps a bounded ring (500 records by default, tunable with `configureLogger({ bufferSize })`) of every `logger` / `api.log` line. |
 
-**导出运行日志** (Top Bar → 更多) bundles all three into one JSON file:
+**导出运行日志** (Top Bar → project dropdown) bundles all three into one JSON file:
 
 ```jsonc
 {
@@ -219,23 +215,16 @@ without any plugin code:
 
 Built-in plugins share framework-level helpers through `src/core/` only:
 
-- **Shared tooling** — button factories, notifications, PNG/CSV export and
-  the empty-state canvas live in `@/core/plugin-tools/` (`enhance.ts`,
-  `table.ts`, `locale.ts`). Data-driven parsing helpers (`parseDelimited`,
-  `stripHeaderIfNonNumeric`) are in `@/core/plugin-tools/table.ts`.
-- **No plugin-to-plugin imports** — a built-in must never import another
-  built-in's module. Shared logic that several plugins need belongs in
-  `src/core/` first; if it is plugin-specific enough to stay in
-  `src/plugins/`, put it in a shared file inside the plugin's own suite
-  directory and have the suite's plugins import it there.
-- **Manifest naming** — each plugin's manifest file is named after the
-  plugin entry file (`scatter.ts` → `scatterManifest.ts`), and the entry
-  imports it once without re-exporting it.
+| Convention | Rule |
+| --- | --- |
+| **Shared tooling** | Button factories, notifications, PNG/CSV export and the empty-state canvas live in `@/core/plugin-tools/` (`enhance.ts`, `table.ts`, `locale.ts`). Data-driven parsing helpers (`parseDelimited`, `stripHeaderIfNonNumeric`) are in `@/core/plugin-tools/table.ts`. |
+| **No plugin-to-plugin imports** | A built-in must never import another built-in's module. Shared logic that several plugins need belongs in `src/core/` first; if it is plugin-specific enough to stay in `src/plugins/`, put it in a shared file inside the plugin's own suite directory and have the suite's plugins import it there. |
+| **Manifest naming** | Each plugin's manifest file is named after the plugin entry file (`scatter.ts` → `scatterManifest.ts`), and the entry imports it once without re-exporting it. |
 
 ## Built-in example plugins
 
-Forty-nine scientific/core plugins (plus a further ten `fun.*` toys
-declaring `autoload: false` — 59 built-ins in total) ship in
+Fifty-six scientific/core plugins (plus a further ten `fun.*` toys
+declaring `autoload: false` — 66 built-ins in total) ship in
 `src/plugins/builtin/` and cover the full plugin contract surface — 2D
 canvas, host Three.js scene, `loadData`, `compute`, and the `api.gpu`
 accelerated path:
@@ -276,6 +265,28 @@ accelerated path:
 | `example.structure` | `.json` (truss members) | pin-jointed truss: axial-force coloring, utilization readouts & overload collapse |
 | `example.em-eigensolver` | `.npz`, `.npy`, `.mtx` | sparse Hermitian eigenvalue solver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert), 2-D spectrum report & 3-D mode fields, Pyodide worker |
 | `example.fluid-cfd-coupler` | `.json` (network + 3-D field) | 1D pipeline–3D field bidirectional coupling with multi-rate time-step coordination, coarse–fine subcycling and millisecond valve control |
+| `example.geo-solar` | `.json` (site) | solar elevation & day-length curves |
+| `example.geo-climograph` | `.csv`/`.txt` (month,temp,precip) | climatograph of monthly normals |
+| `example.geo-pop-pyramid` | `.csv` | population pyramid |
+| `example.geo-interp` | `.csv` (points) | spatial interpolation |
+| `example.geo-measure` | `.json` | distance & area measure |
+| `example.geo-tissot` | `.json` (GeoJSON) | projection distortion (Tissot indicatrices) |
+| `example.geo-terrain` | `.asc` | DEM terrain analysis |
+| `example.geo-gpx` | `.gpx` | GPX track analysis |
+| `example.geo-globe` | `.json` (GeoJSON) | interactive 3-D globe |
+| `example.chem-crystal` | `.cif`, `.poscar`/`.vasp` | 3-D crystal unit cell |
+| `example.chem-reaction` | `.json` (reaction scene) | 3-D reaction mechanism viewer |
+| `example.bio-enzyme` | `.csv`/`.tsv`/`.json` (substrate,v₀) | enzyme kinetics (Michaelis–Menten) |
+| `example.bio-epidemic` | `.json`/`.csv`/`.tsv` | epidemic modeling from daily case counts |
+| `example.bio-seqalign` | `.fasta`/`.fa`/`.txt` | sequence alignment |
+| `example.bio-popgen` | `.csv`/`.tsv`/`.json` (genotype counts) | population genetics |
+| `example.env-aqi` | `.csv`/`.txt` (pollutant rows) | air quality index |
+| `example.env-water` | `.csv`/`.txt` (site rows) | water quality |
+| `example.env-greenhouse` | — | greenhouse effect |
+| `example.env-carbon` | `.csv`/`.txt` (pools + fluxes) | carbon cycle |
+| `example.env-biodiversity` | `.csv`/`.txt` (abundance matrix) | biodiversity indices |
+| `example.env-plume` | — | pollutant dispersion |
+| `example.env-earth3d` | — | 3-D global environment |
 
 Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
 Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on

@@ -1,0 +1,14 @@
+{
+  "name": "Noon cumulus (Beijing, UTC+8)",
+  "coverage": 0.55,
+  "density": 1.0,
+  "windSpeed": 6,
+  "windDirDeg": 225,
+  "cloudBaseM": 650,
+  "cloudThicknessM": 800,
+  "hourUTC": 4.25,
+  "latitude": 39.9,
+  "longitude": 116.4,
+  "autoDay": false,
+  "autoOrbit": true
+}
