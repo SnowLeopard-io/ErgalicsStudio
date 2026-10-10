@@ -346,6 +346,7 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
             type="file"
             accept="image/*"
             hidden
+            aria-label={t('workbench.preview.insert_image')}
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
