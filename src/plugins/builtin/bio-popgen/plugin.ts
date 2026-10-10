@@ -11,7 +11,13 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { bioPopgenManifest } from './manifest';
 import { DEFAULT_WF, hweTest, parseGenotypeCounts, parseVcfGenotypes, wilsonCI, wrightFisher, type WfResult } from './popgen';
@@ -208,7 +214,6 @@ export class BioPopgenPlugin implements Plugin {
         actionButton('exportGenotypes', 'Export genotype CSV', '导出基因型 CSV'),
       );
     }
-    defs.push(actionButton('exportPng', 'Snapshot PNG', '快照 PNG'));
     return defs;
   }
 
@@ -274,10 +279,7 @@ export class BioPopgenPlugin implements Plugin {
       this.exportGenotypesCsv();
       return;
     }
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bio-popgen');
-      return;
-    }
+
     if (recompute) {
       this.recompute();
       this.draw();

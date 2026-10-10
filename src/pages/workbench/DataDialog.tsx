@@ -78,6 +78,9 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
       if (current.activeId !== ex.pluginId) {
         await current.activate(ex.pluginId);
       }
+      // 示例数据激活了插件，画布应切换到插件视图：切到插件标签（已打开
+      // 的文件/套件标签保留，可随时切回），避免停留在上次的预览区域。
+      useAppStore.getState().showPluginCanvas();
       const plugin = usePluginStore
         .getState()
         .registry.find((e) => e.id === ex.pluginId)?.plugin;
@@ -162,7 +165,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const renderExampleCard = (ex: BuiltinExample) => (
     <div key={ex.id} className="plugin-card" data-example-id={ex.id}>
       <div className="plugin-card-main">
-        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : '▦'}</span>
+        <span className="plugin-icon">{ex.group === 'lab' ? '✦' : ex.group === 'chem' ? '⚗' : ex.group === 'materials' ? '⬢' : '▦'}</span>
         <div className="plugin-card-info">
           <div className="plugin-card-title">{exampleName(ex, locale)}</div>
           <div className="plugin-card-meta">{exampleDescription(ex, locale)}</div>
@@ -237,6 +240,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                   key={cat.id}
                   type="button"
                   className={`example-cat${activeCat === cat.id ? ' is-active' : ''}`}
+                  data-example-cat={cat.id}
                   onClick={() => setActiveCat(cat.id)}
                 >
                   <span className="example-cat-name">
@@ -246,7 +250,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
                 </button>
               ))}
             </div>
-            <div className="plugin-list-pane example-list-pane">
+            <div className="plugin-list-pane example-list-pane stagger">
               {(catMap[activeCat] ?? []).map(renderExampleCard)}
               {(catMap[activeCat] ?? []).length === 0 && (
                 <div className="empty-hint">{t('workbench.plugin.none')}</div>
@@ -254,7 +258,7 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
             </div>
           </div>
         ) : tab === 'pipeline' ? (
-          <div className="plugin-list-pane">
+          <div className="plugin-list-pane stagger">
             {SAMPLE_PIPELINES.map((sample) => (
               <div key={sample.id} className="plugin-card">
                 <div className="plugin-card-main">

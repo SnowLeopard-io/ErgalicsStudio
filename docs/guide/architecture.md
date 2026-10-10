@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TB
     subgraph UI["React UI (src/pages · src/components)"]
-        A1["Welcome · Workbench<br/>(TopBar/Sidebar/Central/Right/Status)"]
+        A1["Welcome · Workbench<br/>(TopBar/ActivityBar/Sidebar/CentralArea tabs/RightPanel/Status)"]
         A2["Settings · Share ·<br/>Plugin dialogs · Example-data dialogs"]
         A3["Flow mode canvas<br/>Palette · Canvas · Node · Param editor<br/>Toolbar · Result preview"]
         A4["Block mode<br/>Blockly workspace · Toolbar<br/>Preview / Variables / Console cards"]
@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph State["State & Core Services"]
         B1["Zustand stores<br/>app / project / plugin / settings / block / editor"]
-        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>stats · io · plot · repro"]
+        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>stats · io · plot · repro<br/>vfs (workspace files) · git"]
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
@@ -32,7 +32,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (49 core + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (56 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -96,18 +96,16 @@ Cross-cutting UI communication uses a small typed event bus
 
 The central viewport owns three surfaces:
 
-1. **`central-canvas`** — the shared 2D canvas every 2D plugin draws into.
-2. **`central-dom-host`** — a DOM container for plugins that need elements
-   (also where the sandboxed canvas surfaces are mounted).
-3. **Three.js scene** — created lazily by `scene3d.ts` **only** when a
-   plugin declares `renderToScene`. The plugin store decides visibility
-   centrally on every activation:
+| Surface | Role |
+| --- | --- |
+| `central-canvas` | The shared 2D canvas every 2D plugin draws into. |
+| `central-dom-host` | A DOM container for plugins that need elements (also where the sandboxed canvas surfaces are mounted). |
+| Three.js scene | Created lazily by `scene3d.ts` **only** when a plugin declares `renderToScene`. |
 
-   - plugin declares 3D → show the scene, clear any stale 2D frame;
-   - anything else → hide the scene immediately.
-
-   This guarantees a 3D coordinate system can never appear over a 2D
-   viewport (and vice versa).
+The plugin store decides visibility centrally on every activation: a plugin
+that declares 3D shows the scene and clears any stale 2D frame; anything
+else hides the scene immediately. This guarantees a 3D coordinate system can
+never appear over a 2D viewport (and vice versa).
 
 ## Native core
 
@@ -119,11 +117,11 @@ the exact API surface and the calling conventions.
 
 ## Dependency rules
 
-- `pages → stores → core` — lower layers never import higher ones.
-- `core` must stay DOM-light: pure services (i18n, fileFormat, storage
-  adapters) are unit-testable in a node environment.
-- The plugin contract (`src/types/plugin.ts`) is the only shared vocabulary
-  between the host and third-party code.
+| Rule | Meaning |
+| --- | --- |
+| `pages → stores → core` | Lower layers never import higher ones. |
+| `core` stays DOM-light | Pure services (i18n, fileFormat, storage adapters) are unit-testable in a node environment. |
+| Plugin contract | `src/types/plugin.ts` is the only shared vocabulary between the host and third-party code. |
 
 **Engine reuse inside `core` (current state).** Six files under `src/core/`
 depend on the Flow/Block engines that live outside it, so the diagram above
@@ -140,8 +138,7 @@ depend on the Flow/Block engines that live outside it, so the diagram above
 
 `src/blocks/` and `src/editor/` are therefore engine dependencies of `core`,
 not peer layers. The planned rectification moves them into `src/core/` as
-sub-domains; until then the table above is the source of truth. See
-`docs/architecture-rectification.md` for the migration list.
+sub-domains; until then the table above is the source of truth.
 
 ## Research module layering
 
@@ -149,17 +146,11 @@ The research features (experiment tracking, uncertainty, units, lineage,
 chunked I/O, figure studio, supplementary bundles, notebook) all follow one
 three-layer convention — they grow **into** the existing structure:
 
-1. **Data/logic layer — `src/core/<feature>/`**: pure TypeScript, no React,
-   no store imports. May only depend on sibling core modules (`repro`,
-   `plot`, `io`, `gpu`) and `fflate`/`apache-arrow` style leaf libraries.
-   Every module ships unit tests under `tests/` mirroring the path.
-2. **Business layer — `src/stores/<feature>Store.ts`**: orchestration only —
-   calls core, persists through `projectStore` / `storage.ts`, subscribes to
-   host event channels. No UI logic, no direct DOM.
-3. **Presentation layer — `src/pages/` and `src/components/`**: consumes
-   stores exclusively; styling via the `global.css` design tokens (no
-   hard-coded colors/spacing); every user-facing string goes through i18n
-   (`zh-CN` + `en-US` in the same change).
+| Layer | Location | Rules |
+| --- | --- | --- |
+| Data/logic layer | `src/core/<feature>/` | Pure TypeScript, no React, no store imports. May only depend on sibling core modules (`repro`, `plot`, `io`, `gpu`) and `fflate`/`apache-arrow` style leaf libraries. Every module ships unit tests under `tests/` mirroring the path. |
+| Business layer | `src/stores/<feature>Store.ts` | Orchestration only — calls core, persists through `projectStore` / `storage.ts`, subscribes to host event channels. No UI logic, no direct DOM. |
+| Presentation layer | `src/pages/` and `src/components/` | Consumes stores exclusively; styling via the `global.css` design tokens (no hard-coded colors/spacing); every user-facing string goes through i18n (`zh-CN` + `en-US` in the same change). |
 
 **Cross-module communication** prefers the typed host channels at the bottom
 of `src/core/events.ts` (`run:completed`, `data:ingested`, `lineage:changed`,
@@ -199,8 +190,13 @@ lives on `ProjectState` and travels inside the `.clproj`.
         project.state (portable, inside .clproj)
         ├── figureSheets ◄────── figureStore (write-through + dirty)
         ├── notebook      ◄────── notebookStore (write-through + dirty)
-        └── blockGraph / editorSessions ◄── apply*() at save time
+        └── editorSessions ◄───── apply*() at save time
 ```
+
+Flow graphs and Block programs additionally persist as `.flow.json` /
+`.block.json` **workspace files** (`src/core/vfs/`) that the file explorer's
+per-file editors open; the legacy `blockGraph` project state is still read
+for compatibility.
 
 Every arrow into the bus is a store emitting after a state transition; every
 arrow out is a long-lived subscription registered in the store's `init*`

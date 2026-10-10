@@ -18,7 +18,11 @@
 
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { tissotCircle } from './tissot';
 import { angularDistance, lonLatToVec3 } from '@/core/geo/spherical';
 import { globeManifest } from './globeManifest';
@@ -235,10 +239,7 @@ export class GlobePlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot(), 'geo-globe');
-      return;
-    }
+
     if (actionFired(params, 'fitView')) {
       if (this.three) fitGlobeCamera(this.three.camera, this.three.controls);
       this.three?.render();
@@ -313,7 +314,6 @@ export class GlobePlugin implements Plugin {
         value: this.state.spin,
       },
       actionButton('fitView', 'Fit view', '重置视角'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

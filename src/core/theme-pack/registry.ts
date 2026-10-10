@@ -13,6 +13,7 @@
 
 import { parseCsTheme, type CsTheme } from './schema';
 import { applyTheme, removeTheme } from './apply';
+import { findMarketEntry } from './market';
 
 export const INSTALLED_THEMES_KEY = 'ergalics:themes:installed';
 
@@ -54,6 +55,26 @@ export const JOURNAL_THEME: CsTheme = {
       '--color-accent-active': '#10304c',
       '--color-accent-soft': 'rgba(31, 78, 121, 0.12)',
       '--color-accent-text': '#1a4d78',
+      // Derived/status tokens: without these the stock graphite-teal values
+      // (glow, canvas, scrollbar, cat badges, overlay) leak through and clash
+      // with the warm paper palette.
+      '--color-bg-overlay': 'rgba(30, 27, 22, 0.45)',
+      '--cat-scientific': '#1f5f8a',
+      '--cat-scientific-soft': 'rgba(31, 95, 138, 0.12)',
+      '--cat-fun': '#a34d5c',
+      '--cat-fun-soft': 'rgba(163, 77, 92, 0.12)',
+      '--cat-utility': '#6d5fa0',
+      '--cat-utility-soft': 'rgba(109, 95, 160, 0.12)',
+      '--color-success': '#2e6b46',
+      '--color-success-soft': 'rgba(46, 107, 70, 0.12)',
+      '--color-warning': '#9a6b10',
+      '--color-warning-soft': 'rgba(154, 107, 16, 0.14)',
+      '--color-error': '#a83a32',
+      '--color-error-soft': 'rgba(168, 58, 50, 0.12)',
+      '--color-canvas': '#fbfaf7',
+      '--color-scrollbar': '#d8d1c2',
+      '--color-glow': 'rgba(31, 78, 121, 0.20)',
+      '--glow-hover': 'rgba(31, 78, 121, 0.08)',
     },
     dark: {
       '--color-bg-primary': '#12100d',
@@ -75,6 +96,23 @@ export const JOURNAL_THEME: CsTheme = {
       '--color-accent-active': '#5f8fc0',
       '--color-accent-soft': 'rgba(123, 167, 204, 0.16)',
       '--color-accent-text': '#9dc0dd',
+      '--color-bg-overlay': 'rgba(8, 6, 3, 0.66)',
+      '--cat-scientific': '#7fb2d8',
+      '--cat-scientific-soft': 'rgba(127, 178, 216, 0.16)',
+      '--cat-fun': '#d9919b',
+      '--cat-fun-soft': 'rgba(217, 145, 155, 0.16)',
+      '--cat-utility': '#ab9ce0',
+      '--cat-utility-soft': 'rgba(171, 156, 224, 0.16)',
+      '--color-success': '#7cbf95',
+      '--color-success-soft': 'rgba(124, 191, 149, 0.14)',
+      '--color-warning': '#d9ae50',
+      '--color-warning-soft': 'rgba(217, 174, 80, 0.16)',
+      '--color-error': '#dd8a80',
+      '--color-error-soft': 'rgba(221, 138, 128, 0.16)',
+      '--color-canvas': '#0e0c09',
+      '--color-scrollbar': '#2f2a23',
+      '--color-glow': 'rgba(123, 167, 204, 0.20)',
+      '--glow-hover': 'rgba(123, 167, 204, 0.10)',
     },
   },
 };
@@ -112,6 +150,23 @@ export const EDU_THEME: CsTheme = {
       '--color-accent-active': '#0a4cb8',
       '--color-accent-soft': 'rgba(11, 87, 208, 0.16)',
       '--color-accent-text': '#0b57d0',
+      '--color-bg-overlay': 'rgba(0, 0, 0, 0.5)',
+      '--cat-scientific': '#0b57d0',
+      '--cat-scientific-soft': 'rgba(11, 87, 208, 0.14)',
+      '--cat-fun': '#c2185b',
+      '--cat-fun-soft': 'rgba(194, 24, 91, 0.14)',
+      '--cat-utility': '#6d28d9',
+      '--cat-utility-soft': 'rgba(109, 40, 217, 0.14)',
+      '--color-success': '#137333',
+      '--color-success-soft': 'rgba(19, 115, 51, 0.14)',
+      '--color-warning': '#b45309',
+      '--color-warning-soft': 'rgba(180, 83, 9, 0.16)',
+      '--color-error': '#c5221f',
+      '--color-error-soft': 'rgba(197, 34, 31, 0.14)',
+      '--color-canvas': '#ffffff',
+      '--color-scrollbar': '#c4c4c4',
+      '--color-glow': 'rgba(11, 87, 208, 0.20)',
+      '--glow-hover': 'rgba(11, 87, 208, 0.08)',
     },
     dark: {
       '--color-bg-primary': '#000000',
@@ -133,6 +188,23 @@ export const EDU_THEME: CsTheme = {
       '--color-accent-active': '#6f9fe8',
       '--color-accent-soft': 'rgba(138, 180, 248, 0.18)',
       '--color-accent-text': '#b3cdfb',
+      '--color-bg-overlay': 'rgba(0, 0, 0, 0.7)',
+      '--cat-scientific': '#8ab4f8',
+      '--cat-scientific-soft': 'rgba(138, 180, 248, 0.18)',
+      '--cat-fun': '#f28cb1',
+      '--cat-fun-soft': 'rgba(242, 140, 177, 0.18)',
+      '--cat-utility': '#c3a6ff',
+      '--cat-utility-soft': 'rgba(195, 166, 255, 0.18)',
+      '--color-success': '#5bb974',
+      '--color-success-soft': 'rgba(91, 185, 116, 0.16)',
+      '--color-warning': '#fdd663',
+      '--color-warning-soft': 'rgba(253, 214, 99, 0.18)',
+      '--color-error': '#f28b82',
+      '--color-error-soft': 'rgba(242, 139, 130, 0.18)',
+      '--color-canvas': '#000000',
+      '--color-scrollbar': '#333333',
+      '--color-glow': 'rgba(138, 180, 248, 0.22)',
+      '--glow-hover': 'rgba(138, 180, 248, 0.10)',
     },
   },
 };
@@ -216,9 +288,15 @@ export function listInstalledThemes(): CsTheme[] {
   return readStore().themes;
 }
 
-/** Official + installed, for lookups by id. */
+/** Official + market (embedded, no install needed) + installed, for lookups
+ *  by id. Market themes ship compiled-in like official ones, so they resolve
+ *  here without ever passing through the installed store. */
 export function findThemeById(id: string): CsTheme | undefined {
-  return getOfficialTheme(id) ?? readStore().themes.find((t) => t.id === id);
+  return (
+    getOfficialTheme(id) ??
+    findMarketEntry(id)?.theme ??
+    readStore().themes.find((t) => t.id === id)
+  );
 }
 
 /** Install (or update-in-place) a theme. Official ids cannot shadow the

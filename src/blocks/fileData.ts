@@ -122,6 +122,9 @@ function parseDelimitedColumns(
     const tokens = splitTokens(line);
     // Separator-only lines (`,,` / blank runs) carry no data.
     if (tokens.length === 0 || tokens.every((t) => t === '')) continue;
+    // `#` comment lines are the shared convention across the bundled sample
+    // data (provenance notes, column dictionaries) — never data, never header.
+    if (tokens[0]!.startsWith('#')) continue;
 
     // The first data-bearing line is a header when it contains any non-numeric
     // token (NaN / Infinity / overflowing literals are numeric cells — see

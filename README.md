@@ -72,11 +72,11 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, 66 built-in plugins (56 scientific + 10 fun), sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), 66 built-in plugins (56 scientific + 10 fun), sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute, in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored |
-| Research          | 19 standalone research pages, research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Research          | 20 standalone research pages (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace) deep-linked into the workbench |
 
@@ -86,35 +86,24 @@ What ships today:
 
 **Rendering & workbench**
 
-- Four-region layout: sidebar (projects / plugins), central viewport,
-  parameter panel, status bar with GPU/perf indicators.
-- Project lifecycle: create / open / save / autosave / share (`.clproj` in
-  IndexedDB).
-- File routing: drag & drop, detected by magic number + extension and
-  routed to a matching plugin (picker if multiple match; replace
-  confirmation on name collision).
-- A shared 2D canvas container (point clouds, time series, histograms,
-  heatmaps, contour, scatter, bar, radar, network, bubble, violin, sankey,
-  box, parallel coordinates, error bands, treemaps, QQ plots, …) plus a
-  host-managed Three.js 3D scene (created lazily for `renderToScene`
-  plugins, hidden when a 2D plugin is active, fully cleared between plugins).
+| Capability | Details |
+| --- | --- |
+| Workbench shell | Top bar (project switcher, mode switcher, research launcher), activity bar, multi-view sidebar (Files / Git / Plugins — resizable and collapsible), tabbed central viewport, right parameter panel, status bar with GPU/perf indicators. |
+| File explorer & tabs | Project file tree with file operations and an info panel; the central area hosts tabs for the plugin canvas, file previews (text / markdown / image / PDF / audio / video), file editors, embedded research tools and settings pages. |
+| File editors | `.py` / `.js` / `.r` open in a Monaco editor, `*.flow.json` in the Flow DAG editor, `*.block.json` in the Blockly editor — each with a dirty state and save-back-to-workspace; an **open-in-mode** bridge pushes any buffer into the corresponding full workbench mode. |
+| Project lifecycle | Create / open / save / autosave / share (`.clproj` in IndexedDB). |
+| File routing | Drag & drop, detected by magic number + extension and routed to a matching plugin (picker if multiple match; replace confirmation on name collision). |
+| Central export menu | Download the active plugin canvas as PNG (default ≈600 dpi, transparent option) or save it into the project's `figures/` workspace directory; per-plugin CSV export buttons stay in the parameter panels. |
+| 2D & 3D viewports | Shared 2D canvas container (point clouds, time series, histograms, heatmaps, contour, scatter, bar, radar, network, bubble, violin, sankey, box, parallel coordinates, error bands, treemaps, QQ plots, …) plus a host-managed Three.js 3D scene (created lazily for `renderToScene` plugins, hidden when a 2D plugin is active, fully cleared between plugins). |
 
 **Plugin system**
 
-- **66 built-in plugins** (56 scientific + 10 fun) over the full API surface;
-  two-tier loading (core auto-loads, fun loads on demand), grouped into nine
-  disciplines (charts / statistics / physics / chemistry / biology /
-  geography / environmental / data & AI / fun).
-- Marketplace catalog `src/plugins/marketplace.ts` (curated tags, popularity,
-  category filters).
-- `.cspkg` package loading + manifest validation + **Worker-first isolation**
-  (§sandbox): third-party entries run via a postMessage RPC bridge and
-  transferred `OffscreenCanvas`; fallback is a restricted `new Function`
-  scope (not a security sandbox). Both are gated by Ed25519 signature
-  verification (FR-05, see `SECURITY.md`).
-- Locale-aware parameter panels; one-click PNG / CSV export on every plugin,
-  analysis overlays (trendlines, density/cumulative histograms, mean markers,
-  jitter, bar ordering), and a **Send to Figure Studio** action.
+| Capability | Details |
+| --- | --- |
+| **66 built-in plugins** | (56 scientific + 10 fun) over the full API surface; two-tier loading (core auto-loads, fun loads on demand), grouped into nine disciplines (charts / statistics / physics / chemistry / biology / geography / environmental / data & AI / fun). |
+| Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
+| `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
+| Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action. |
 
 **Research-grade plugins**
 
@@ -130,14 +119,11 @@ What ships today:
 
 **Version control**
 
-- Git-backed projects: `src/core/git/` exposes one `GitAdapter` with a browser
-  implementation (isomorphic-git + LightningFS over IndexedDB) and a Node
-  implementation (lazily-loaded simple-git), covering init / status / log /
-  diff / add / commit / checkout / branch / merge / remotes / hooks.
-- `projectStore` mirrors the saved snapshot into the repo working tree as
-  `project.clproj` and drives a sidebar **Git panel** (branch + ahead/behind,
-  stage-all + Conventional-Commit, recent log, branch / clone / pull / push /
-  fetch through a configurable CORS proxy, auto-commit on runs & figures).
+| Capability | Details |
+| --- | --- |
+| Git-backed projects | `src/core/git/` exposes one `GitAdapter` with a browser implementation (isomorphic-git + LightningFS over IndexedDB) and a Node implementation (lazily-loaded simple-git, falling back to isomorphic-git), covering init / status / log / diff / add / commit / checkout / branch / merge / remotes / hooks plus file-level write / delete / rename / listing and repo config. |
+| Workspace VFS | Files live behind a small `Vfs` abstraction (`src/core/vfs/`): LightningFS over IndexedDB in the browser, an in-memory implementation in Node/tests; the Git working tree and the file explorer share it. |
+| Project ↔ repo sync | `projectStore` mirrors the saved snapshot into the repo working tree as `project.clproj` and drives a sidebar **Git panel** (branch + ahead/behind, one-field commit box that stages every pending change with Conventional-Commit messages, recent log, branch / clone / pull / push / fetch through a configurable CORS proxy, auto-commit on runs & figures). |
 
 **Infrastructure**
 
@@ -150,15 +136,13 @@ What ships today:
 
 **Scientific & research cores (pure-TS core + Zustand store + standalone page)**
 
-- Statistics kernel `src/core/stats/` (descriptive stats, special functions,
-  hypothesis tests, effect sizes, multiple-comparison corrections, power).
-- Scientific binary I/O `src/core/io/` (single dispatcher for HDF5 / NetCDF /
-  FITS / Parquet / Zarr).
-- Publication-grade plotting engine `src/core/plot/` (SVG + PDF).
-- Reproducibility kernel `src/core/repro/` (seeded RNG, stable hashing, run
-  manifest, DAG→Python) and `repro.lock`.
-- Data-quality engine `src/core/data-quality/` and typed unit system
-  `src/core/units/`.
+| Core | Location | Scope |
+| --- | --- | --- |
+| Statistics kernel | `src/core/stats/` | Descriptive stats, special functions, hypothesis tests, effect sizes, multiple-comparison corrections, power. |
+| Scientific binary I/O | `src/core/io/` | Single dispatcher for HDF5 / NetCDF / FITS / Parquet / Zarr. |
+| Publication-grade plotting engine | `src/core/plot/` | SVG + PDF. |
+| Reproducibility kernel | `src/core/repro/` | Seeded RNG, stable hashing, run manifest, DAG→Python; plus `repro.lock`. |
+| Data-quality engine & unit system | `src/core/data-quality/` · `src/core/units/` | Pandera-style data-quality engine; typed unit system. |
 
 ---
 
@@ -173,7 +157,7 @@ What ships today:
 | Native   | Rust → wasm32-unknown-unknown, wasm-bindgen 0.2              |
 | GPU      | WebGPU / WGSL via web-sys                                    |
 | SQL      | DuckDB-WASM (lazy) + Apache Arrow                            |
-| VCS      | isomorphic-git 1 + LightningFS (browser) · simple-git (Node)  |
+| VCS      | isomorphic-git 1 + LightningFS (browser) · simple-git (Node, isomorphic fallback) |
 | Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
@@ -206,14 +190,14 @@ Production builds output to `dist/`.
 ```mermaid
 flowchart TB
     subgraph UI["React UI (src/pages · src/components/blocks)"]
-        A1["Welcome · Workbench<br/>(top/side/center/right/status)"]
+        A1["Welcome · Workbench<br/>(top/activity/side/center/right/status)"]
         A2["Settings · Share ·<br/>plugin dialog · sample data dialog"]
         A3["Flow canvas<br/>palette · canvas · nodes · param editor<br/>toolbar · result preview"]
     end
 
     subgraph State["State & core services"]
         B1["Zustand stores<br/>app / project / plugin / settings / block"]
-        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>git · research/scienceOutput"]
+        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>vfs (workspace files) · git<br/>research/scienceOutput"]
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
@@ -264,16 +248,19 @@ flowchart TB
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal,
 │   │                         #   sweep, profiler, sql, report, inference, logger,
-│   │                         #   git (version control), research (science output)
+│   │                         #   vfs (workspace file system), git (version control),
+│   │                         #   research (science output), workspace artifacts
 │   ├── blocks/               #   block system (Flow mode): types · registry · compiler ·
 │   │                         #     executor · ops · catalog · sample · l10n · render
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
-│   ├── components/           #   flow canvas / block & code canvas / workbench shell
-│   ├── pages/                #   welcome, workbench, settings, share, plugin view, figures,
-│   │                         #     notebook, labs (runs · analysis · uncertainty · model-lab ·
-│   │                         #     profiler · reprolock · lineage · supplement), signal,
-│   │                         #     sweeps, sql, report
+│   ├── components/           #   flow canvas / block & code canvas / workbench shell /
+│   │                         #     editor/fileEditors (per-file Code·Flow·Block editors)
+│   ├── pages/                #   welcome, workbench (file explorer · tabbed central area),
+│   │                         #     settings, share, plugin view, figures, notebook,
+│   │                         #     labs (runs · analysis · uncertainty · model-lab ·
+│   │                         #     profiler · reprolock · lineage · supplement · files),
+│   │                         #     signal, sweeps, sql, report
 │   ├── plugins/builtin/      #   56 scientific + 10 fun/utility plugins (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
@@ -302,7 +289,9 @@ output (`RenderedView` via plugin renderers / `DataTable` read-only table /
 `Scalar` inline). The compiler is pure functions (port/type validation +
 cycle detection + Kahn topological sort); the executor has incremental
 caching with dirty propagation, so editing one block re-runs only it and its
-downstream. Graphs persist to the project's `blockGraph`. See
+downstream. Graphs save as `*.flow.json` workspace files (`{version, kind:
+'ergalics-flow', graph}`) editable in the file explorer's Flow editor; the
+legacy project `blockGraph` state is still read. See
 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md).
 
 ![Flow mode — a sample pipeline (Normalize → Histogram / Scatter / Summary)](docs/assets/screenshots/platform/mode-flow.png)
@@ -337,36 +326,42 @@ prevents node loss). Ships 9 sample programs. See
 ## Research Modules
 
 The top-bar **Research** menu — plus the **Analysis** page and the welcome
-grid — open 19 standalone research pages sharing one unified lab shell. Each
-module follows the same layering: a pure-TS core (no React) under
-`src/core/`, a Zustand store persisted to the project or IndexedDB, and a
-page on top, all unit-tested:
+grid — open 20 standalone research pages sharing one unified lab shell; each
+can also open **embedded as a tab of the Standard-mode central canvas**.
+Canonical routes live under `/studio/<id>` (legacy `/#/<id>` hash routes are
+kept as redirects). Each module follows the same layering: a pure-TS core
+(no React) under `src/core/`, a Zustand store persisted to the project or
+IndexedDB, and a page on top, all unit-tested:
 
-| Page              | Route             | What it does                                                            |
-| ----------------- | ----------------- | ----------------------------------------------------------------------- |
-| Analysis          | `/#/analysis`     | Quick charts (line/scatter/hist/bar) + descriptive stats + t / Mann–Whitney |
-| Runs              | `/#/runs`         | Auto-recorded run history (source, params, metrics, timings), A/B compare |
-| Uncertainty       | `/#/uncertainty`  | Bootstrap CI, Monte Carlo propagation, MCMC — CPU or WGSL GPU engine, R-hat / ESS |
-| Model Lab         | `/#/model-lab`    | OLS / logistic / ridge / polynomial regression + coefficient table & 2×2 residual diagnostics |
-| Inference Forge   | `/#/inference`    | HMC / NUTS Bayesian inference + WAIC / LOO / PPC + trace & density plots |
-| Model Inference   | `/#/model-inference` | Run ONNX models in-browser with WebGPU |
-| Profiler          | `/#/profiler`     | Streaming column profiling, correlation matrix, quality score + issue list, fingerprint cache |
-| Signal Lab        | `/#/signal`       | FFT / Welch PSD, window functions, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition |
-| Sweeps            | `/#/sweeps`       | Grid / list / Latin-hypercube parameter experiments + response surfaces |
-| SQL Workbench     | `/#/sql`          | DuckDB-WASM queries on project files (join / aggregate / window), results wired into lineage |
-| Cleaning          | `/#/cleaning`     | Step-by-step wizard: type casts, missing-value policy, outlier flags, dedupe, rename |
-| Report            | `/#/report`       | Narrative + charts + tables + interactive filters → one self-contained HTML |
-| Repro Lock        | `/#/reprolock`    | `repro.lock` export / import + five drift checks & one-click reproduce |
-| Lineage           | `/#/lineage`      | File→run DAG rebuilt from runs + imports (SVG canvas) |
-| Figure Studio     | `/#/figures`      | Multi-panel publication-grade figures on IEEE / Elsevier templates, SVG / PDF / PNG-600dpi |
-| Notebook          | `/#/notebook`     | Markdown + Python cells persisted in the project, run on a dedicated Pyodide |
-| Supplement        | `/#/supplement`   | Paper companion ZIP (`manifest.json` + runs + lineage + optional data/code) |
-| Course            | `/#/course`       | Assign homework, collect and offline-grade student lab submissions |
-| Gallery           | `/#/gallery`      | Browse and reopen community-shared reproducible works |
+| Page              | Route                 | What it does                                                            |
+| ----------------- | --------------------- | ----------------------------------------------------------------------- |
+| Analysis          | `/studio/analysis`    | Quick charts (line/scatter/hist/bar) + descriptive stats + t / Mann–Whitney |
+| Runs              | `/studio/runs`        | Auto-recorded run history (source, params, metrics, timings), A/B compare |
+| Uncertainty       | `/studio/uncertainty` | Bootstrap CI, Monte Carlo propagation, MCMC — CPU or WGSL GPU engine, R-hat / ESS |
+| Model Lab         | `/studio/model-lab`   | OLS / logistic / ridge / polynomial regression + coefficient table & 2×2 residual diagnostics |
+| Inference Forge   | `/studio/inference`   | HMC / NUTS Bayesian inference + WAIC / LOO / PPC + trace & density plots |
+| Model Inference   | `/studio/model-inference` | Run ONNX models in-browser with WebGPU |
+| Profiler          | `/studio/profiler`    | Streaming column profiling, correlation matrix, quality score + issue list, fingerprint cache |
+| Signal Lab        | `/studio/signal`      | FFT / Welch PSD, window functions, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition |
+| Sweeps            | `/studio/sweeps`      | Grid / list / Latin-hypercube parameter experiments + response surfaces |
+| SQL Workbench     | `/studio/sql`         | DuckDB-WASM queries on project files (join / aggregate / window), results wired into lineage |
+| Cleaning          | `/studio/cleaning`    | Step-by-step wizard: type casts, missing-value policy, outlier flags, dedupe, rename |
+| Files             | `/studio/files`       | Workspace file browser over the VFS: lazy per-directory tree, text preview, download — "what did this run actually write to disk?" |
+| Report            | `/studio/report`      | Narrative + charts + tables + interactive filters → one self-contained HTML |
+| Repro Lock        | `/studio/reprolock`   | `repro.lock` export / import + five drift checks & one-click reproduce |
+| Lineage           | `/studio/lineage`     | File→run DAG rebuilt from runs + imports (SVG canvas) |
+| Figure Studio     | `/studio/figures`     | Multi-panel publication-grade figures on IEEE / Elsevier templates, SVG / PDF / PNG-600dpi |
+| Notebook          | `/studio/notebook`    | Markdown + Python cells persisted in the project, run on a dedicated Pyodide |
+| Supplement        | `/studio/supplement`  | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`) |
+| Course            | `/studio/course`      | Assign homework, collect and offline-grade student lab submissions |
+| Gallery           | `/studio/gallery`     | Browse and reopen community-shared reproducible works |
 
 Companion kernels round out the toolset: the **unit system** (dimension-safe
 `Quantity` + `units.convert` / `units.check`) and **chunked ingestion**
-(windowed streaming reads of large delimited files). On top of Figure Studio
+(windowed streaming reads of large delimited files). Research pages that
+produce text results (analysis summaries, captions, model tables, …) carry a
+**Save to workspace** action that writes them into the project VFS. On top
+of Figure Studio
 sits a **journal submission check** (IEEE / Elsevier, pre-flighted by
 *image / annotation / text / metadata*), a **caption drafter** (bilingual), and a
 **3D field plot** panel type. Runs from every mode feed one shared history
@@ -409,29 +404,28 @@ interface with two implementations chosen at runtime.
 | Environment     | Implementation                                                       |
 | --------------- | -------------------------------------------------------------------- |
 | Browser         | `isomorphic-git` + `LightningFS` (IndexedDB-backed working tree)      |
-| Node / desktop  | `simple-git` (lazily imported; drives the system `git` binary)        |
+| Node / desktop  | `simple-git` (lazily imported; drives the system `git` binary), falling back to isomorphic-git when unavailable |
 
 The adapter covers the repository lifecycle (`init` / `clone` / `isRepo`),
 reads (`status` / `log` / `diff` / `branches` / `remotes`), writes (`add` /
 `commit` / `checkout` / `branch` / `merge`), remotes (`push` / `pull` /
-`fetch`), hooks (`installHooks` / `getHook` / `removeHook`) and a `writeFile`
-helper. `projectStore` mirrors every save into the working tree as
+`fetch`), hooks (`installHooks` / `getHook` / `removeHook`), repo `config`,
+and file-level helpers (`writeFile` / delete / rename / directory listing).
+`projectStore` mirrors every save into the working tree as
 `project.clproj`, so the sidebar **Git panel** always shows real, reviewable
 changes; commits use Conventional-Commit messages (`save:` / `run:` /
 `figure:` / `manuscript:` …) generated by `generateCommitMessage`.
 
-The Git panel ships branch + ahead/behind counters, one-click stage-all +
-commit, recent log, branch creation (refuses to discard uncommitted changes
-on switch), clone-from-URL and remote sync (`pull` / `push` / `fetch` through
-a user-configurable CORS proxy — the public isomorphic-git proxy does not
-cover every host such as Gitee). Auto-commit fires on run completion, figure
-save, manual save and supplement export; `init` preinstalls Ergalics hooks
-(`pre-commit` verifies `repro.lock`, `pre-push` runs unit tests) and the
-standard template includes a GitHub Actions workflow (`.github/workflows/
-ergalics.yml`). Still on the roadmap: the file-level diff viewer and the
-conflict wizard.
-Design notes and acceptance criteria:
-[`docs/requirements/01-git-backed-project-version-control.md`](docs/requirements/01-git-backed-project-version-control.md).
+The Git panel ships branch + ahead/behind counters, a one-field commit box
+that stages every pending change, recent log, branch creation (refuses to
+discard uncommitted changes on switch), clone-from-URL and remote sync
+(`pull` / `push` / `fetch` through a user-configurable CORS proxy — the
+public isomorphic-git proxy does not cover every host such as Gitee).
+Auto-commit fires on run completion, figure save, manual save and supplement
+export; `init` preinstalls Ergalics hooks (`pre-commit` verifies
+`repro.lock`, `pre-push` runs unit tests) and the standard template includes
+a GitHub Actions workflow (`.github/workflows/ergalics.yml`). Still on the
+roadmap: the file-level diff viewer and the conflict wizard.
 
 ---
 
@@ -443,36 +437,15 @@ Design notes and acceptance criteria:
 disciplines in the sidebar — charts / statistics / physics / chemistry /
 biology / geography / environmental / data & AI):
 
-- 2-D & 3-D visualisation: Point Cloud, Point Cloud 3D, 3D Surface, 3D Voxel
-  Field, Time Series, Histogram, Heatmap, Image Viewer, Contour, Scatter,
-  Bar / Polar / Radar, Network Graph, Bubble, Violin, Sankey, Box, Parallel
-  Coordinates, Error Band, Treemap, QQ Plot, plus Particles (real WGSL
-  compute).
-- GPU simulation engines: N-Body Gravity (WGSL all-pairs), LBM Fluid (D2Q9
-  lattice-Boltzmann, collide + stream, Kármán vortex street), Wave Equation
-  (WGSL leapfrog; Gaussian pulse / two-source interference / double-slit),
-  Double Pendulum (RK4 + chaotic ghost pendulum).
-- Interactive physics labs: Electromagnetism, Optics Lab, Structure — all
-  directly manipulable on canvas.
-- Bio & chemical: Crystal 3D unit cell, Reaction MD 3D, Enzyme Kinetics
-  (Michaelis–Menten LM fit), Epidemic Modeling (SIR/SEIR), Sequence
-  Alignment (NW/SW), Population Genetics (HW test + Wright–Fisher drift),
-  AI Trainer (in-browser TF.js training of 4 model types, incl. MNIST CNN).
-- Geography suite (`geo/`; all with one-click Send to Figure Studio):
-  GeoJSON Map, Solar Elevation & Day Length (FAO-56), Climatograph
-  (Köppen), Population Pyramid, Spatial Interpolation (IDW / ordinary
-  kriging + LOOCV + Moran's I), Distance & Area (standard-deviational
-  ellipse), Projection Distortion (Tissot), DEM Terrain Analysis
-  (priority-flood → D8 → flow accumulation watershed triple), GPX Tracks,
-  and an Interactive 3D Globe.
-- Environmental science suite (`env/`; data-driven, samples via the examples
-  dialog): Air Quality (AQI per HJ 633-2012, US EPA breakpoints as a
-  comparison), Water Quality (GB 3838-2002 classes Ⅰ–Ⅴ + weighted WQI),
-  Greenhouse Effect (0-D radiative balance), Carbon Cycle (four-pool box
-  model), Biodiversity Indices (Shannon / Gini-Simpson / Pielou + Chao1 &
-  rarefaction), Pollutant Dispersion (Gaussian plume, Pasquill–Gifford),
-  and a 3-D Global Environment globe (teaching-approximate CO₂ / albedo /
-  current layers).
+| Group | Plugins |
+| --- | --- |
+| 2-D & 3-D visualisation | Point Cloud, Point Cloud 3D, 3D Surface, 3D Voxel Field, Time Series, Histogram, Heatmap, Image Viewer, Contour, Scatter, Bar / Polar / Radar, Network Graph, Bubble, Violin, Sankey, Box, Parallel Coordinates, Error Band, Treemap, QQ Plot, plus Particles (real WGSL compute) |
+| GPU simulation engines | N-Body Gravity (WGSL all-pairs), LBM Fluid (D2Q9 lattice-Boltzmann, collide + stream, Kármán vortex street), Wave Equation (WGSL leapfrog; Gaussian pulse / two-source interference / double-slit), Double Pendulum (RK4 + chaotic ghost pendulum) |
+| Interactive physics labs | Electromagnetism, Optics Lab, Structure — all directly manipulable on canvas |
+| Bio & chemical | Crystal 3D unit cell, Reaction MD 3D, Enzyme Kinetics (Michaelis–Menten LM fit), Epidemic Modeling (SIR/SEIR), Sequence Alignment (NW/SW), Population Genetics (HW test + Wright–Fisher drift), AI Trainer (in-browser TF.js training of 4 model types, incl. MNIST CNN) |
+| Geography suite (`geo/`) | All with one-click Send to Figure Studio: GeoJSON Map, Solar Elevation & Day Length (FAO-56), Climatograph (Köppen), Population Pyramid, Spatial Interpolation (IDW / ordinary kriging + LOOCV + Moran's I), Distance & Area (standard-deviational ellipse), Projection Distortion (Tissot), DEM Terrain Analysis (priority-flood → D8 → flow accumulation watershed triple), GPX Tracks, and an Interactive 3D Globe |
+| Environmental science suite (`env/`) | Data-driven, samples via the examples dialog: Air Quality (AQI per HJ 633-2012, US EPA breakpoints as a comparison), Water Quality (GB 3838-2002 classes Ⅰ–Ⅴ + weighted WQI), Greenhouse Effect (0-D radiative balance), Carbon Cycle (four-pool box model), Biodiversity Indices (Shannon / Gini-Simpson / Pielou + Chao1 & rarefaction), Pollutant Dispersion (Gaussian plume, Pasquill–Gifford), and a 3-D Global Environment globe (teaching-approximate CO₂ / albedo / current layers) |
+
 - **Two competition-grade scientific solvers** (Pyodide Worker, see
   `docs/technical/09|10`):
   - **EM Eigensolver** — sparse Hermitian eigensolver: thick-restart
@@ -639,13 +612,14 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**2322 tests across 130 files** (2320 pass; 2 skipped without a GPU), covering:
+**2338 tests across 131 files** (2 skipped without a GPU), covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
-bio suites, GPU compute, the Git adapter & project sync, the research-grade
-science-output bus, the block system, three-mode IR sync (Block ↔ Flow ↔ Code
-round-trips), the research modules (uncertainty / units / runs / lineage /
-figures / packaging / notebook / model / profiler / signal / sweeps / SQL /
-report / repro-lock / inference), the reliability core, and the platform.
+bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
+the research-grade science-output bus, the block system, three-mode IR sync
+(Block ↔ Flow ↔ Code round-trips), the research modules (uncertainty / units /
+runs / lineage / figures / packaging / notebook / model / profiler / signal /
+sweeps / SQL / report / repro-lock / inference), the reliability core, and
+the platform.
 
 E2E suite (Playwright-core, headless Edge):
 
@@ -688,17 +662,18 @@ navigation regressions fail CI instead of silently producing a dead link.
 Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
+- [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts, 20th research page (Files)
 - [x] 66 built-in plugins, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
-- [x] One-click PNG/CSV export + analysis overlays on every plugin; marketplace catalog
+- [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + real compute kernels (Particles / N-Body / LBM / wave equation …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
 - [x] Environmental science suite (AQI / water quality / carbon / biodiversity / plume / greenhouse / 3-D globe)
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
-- [x] Flow mode (compiler + incremental executor + 40+ blocks), Block mode (Blockly 13 + shared IR), Code mode (Python / R / JavaScript, multi-language translation)
+- [x] Flow mode (compiler + incremental executor + 42 blocks), Block mode (Blockly 13 + shared IR), Code mode (Python / R / JavaScript, multi-language translation)
 - [x] Seamless three-mode round-trip via the shared IR hub (`mergeFlowIR` + signature guard)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
-- [x] 19 standalone research pages (Runs / Uncertainty GPU engine / Model Lab / Profiler / Signal Lab / Sweep Studio / SQL Workbench / Report / Repro Lock / Inference Forge / Figure Studio / Notebook / Lineage / Course / Gallery, …)
+- [x] 20 standalone research pages (Runs / Uncertainty GPU engine / Model Lab / Profiler / Signal Lab / Sweep Studio / SQL Workbench / Report / Repro Lock / Inference Forge / Figure Studio / Notebook / Lineage / Course / Files / Gallery, …), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
 - [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)

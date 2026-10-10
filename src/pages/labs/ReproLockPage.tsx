@@ -30,6 +30,7 @@ import {
   type LockVersions,
 } from '@/core/repro/lock';
 import { downloadBlob } from '@/core/download';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -217,6 +218,12 @@ export default function ReproLockPage() {
           <button type="button" className="btn" disabled={!lock} onClick={handleDownload}>
             {lock && lock.lockVersion >= 2 ? t('repro2.export_v2') : t('reprolock.download')}
           </button>
+          <SaveArtifactButton
+            dir=""
+            filename="repro.lock"
+            content={lock ? lockToJson(lock) : null}
+            className="btn"
+          />
           <label className="btn repro-import">
             {t('reprolock.import')}
             <input

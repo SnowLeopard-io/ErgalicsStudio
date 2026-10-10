@@ -265,7 +265,7 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
         </div>
 
         {tab === 'builtin' && (
-          <div className="plugin-list-pane">
+          <div className="plugin-list-pane stagger">
             {builtins.length === 0 && <div className="empty-hint">{t('plugin.no_plugins')}</div>}
             {builtins.map((p) => (
               <div
@@ -306,7 +306,7 @@ export function PluginDialog({ open, onClose, focusId }: PluginDialogProps) {
         )}
 
         {tab === 'market' && (
-          <div className="plugin-market-pane">
+          <div className="plugin-market-pane stagger">
             <div className="plugin-cat-filter">
               <button
                 type="button"

@@ -13,7 +13,10 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 export { pointCloudManifest } from './pointCloudManifest';
 import { pointCloudManifest } from './pointCloudManifest';
@@ -63,10 +66,7 @@ export class PointCloudPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'pointcloud');
-      return;
-    }
+
     if (fired('exportCsv')) {
       // Points carry x/y only (the 2-D viewer has no z or scalar column).
       const rows = this.state.points.map((p) => [p.x, p.y]);
@@ -86,7 +86,6 @@ export class PointCloudPlugin implements Plugin {
       { key: 'size', label: 'Size', type: 'range', min: 1, max: 20, step: 1, value: this.state.size },
       { key: 'color', label: 'Color', type: 'text', value: this.state.color },
       { key: 'reset', label: 'Reset View', type: 'button', action: 'reset' },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Points CSV', '导出点云 CSV'),
     ];
   }

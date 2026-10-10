@@ -27,7 +27,13 @@ import {
   wqiRating,
 } from './envCore';
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
-import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  drawEmptyCanvas,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT, type Bilingual, type FigurePanelSpec } from '@/core/figure/sheet';
@@ -240,17 +246,13 @@ export class WaterPlugin implements Plugin {
       },
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
       actionButton('exportSub', 'Export sub-index CSV', '导出子指数 CSV'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'env-water');
-      return;
-    }
+
     if (actionFired(params, 'exportCsv')) {
       this.exportCsv();
       return;

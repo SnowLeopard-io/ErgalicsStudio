@@ -126,6 +126,26 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['environment', '3d', 'globe', 'co2', 'climate'],
     popularity: 70,
   },
+  'fx.blackhole': {
+    category: 'scientific',
+    tags: ['ray-tracing', 'relativity', 'gr', 'gpu', 'shader', 'black-hole'],
+    popularity: 96,
+  },
+  'fx.water': {
+    category: 'scientific',
+    tags: ['fluid', 'waves', 'fdtd', 'gerstner', 'gpu', 'ocean'],
+    popularity: 93,
+  },
+  'fx.cloud': {
+    category: 'scientific',
+    tags: ['volumetric', 'clouds', 'raymarching', 'sky', 'ephemeris', 'gpu'],
+    popularity: 94,
+  },
+  'astro.pipeline': {
+    category: 'scientific',
+    tags: ['astronomy', 'fits', 'ccd', 'photometry', 'calibration', 'pipeline'],
+    popularity: 92,
+  },
 };
 
 // Community submissions — signed demo packages exercising the FR-05 pipeline.

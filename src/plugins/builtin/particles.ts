@@ -20,7 +20,10 @@ import type {
 } from '@/types/plugin';
 import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import {
   advanceParticleCPU,
   packParticleParams,
@@ -88,10 +91,7 @@ export class ParticlePlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'particles');
-      return;
-    }
+
     if (fired('exportCsv')) {
       this.exportCsv();
       return;
@@ -139,7 +139,6 @@ export class ParticlePlugin implements Plugin {
         action: 'gpu-compute',
         labelI18n: { 'zh-CN': 'GPU 加速计算', 'en-US': 'GPU compute' },
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Particles CSV', '导出粒子 CSV'),
     ];
   }

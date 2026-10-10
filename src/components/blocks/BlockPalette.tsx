@@ -6,7 +6,7 @@
 // ==========================================================================
 
 import { useLocale, useT } from '@/i18n';
-import { useBlockStore } from '@/stores/blockStore';
+import { useGraphStore } from './graphStore';
 import { BLOCK_CATEGORIES, blockRegistry } from '@/blocks/registry';
 import { blockDescription, blockName } from '@/blocks/l10n';
 import { screenToWorld } from './geometry';
@@ -27,9 +27,10 @@ const CATEGORY_LABEL_KEYS: Record<BlockCategory, string> = {
 export function BlockPalette() {
   const t = useT();
   const { locale } = useLocale();
-  const addInstance = useBlockStore((s) => s.addInstance);
-  const viewport = useBlockStore((s) => s.viewport);
-  const canvasSize = useBlockStore((s) => s.canvasSize);
+  const store = useGraphStore();
+  const addInstance = store((s) => s.addInstance);
+  const viewport = store((s) => s.viewport);
+  const canvasSize = store((s) => s.canvasSize);
 
   const drop = (blockId: string) => {
     // Drop at the centre of the visible canvas (in world coordinates), so

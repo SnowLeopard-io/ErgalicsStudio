@@ -16,6 +16,8 @@ interface TourState {
   step: number;
   start: () => void;
   next: () => void;
+  /** Jump to an arbitrary step — the track menu routes each judge group. */
+  goto: (step: number) => void;
   /** Stop the tour and remember the user has seen (or skipped) it. */
   finish: () => void;
 }
@@ -25,6 +27,7 @@ export const useTourStore = create<TourState>((set) => ({
   step: 0,
   start: () => set({ active: true, step: 0 }),
   next: () => set((s) => ({ step: s.step + 1 })),
+  goto: (step) => set({ step }),
   finish: () => {
     set({ active: false, step: 0 });
     try {

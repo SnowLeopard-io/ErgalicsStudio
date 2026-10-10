@@ -1,0 +1,17 @@
+{
+  "name": "Two-source interference (λ = 8 cells, d = 16 cells)",
+  "mode": "ripples",
+  "gridN": 256,
+  "cfl": 0.5,
+  "damping": 1.0,
+  "absorb": true,
+  "depth": 0.8,
+  "hScale": 4,
+  "rain": false,
+  "sources": true,
+  "srcLambda": 8,
+  "srcSep": 16,
+  "initialDrops": [
+    { "xUv": 0.5, "yUv": 0.5, "radiusUv": 0.02, "amp": 0.3 }
+  ]
+}

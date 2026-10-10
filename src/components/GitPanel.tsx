@@ -34,11 +34,12 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   );
   const open = alwaysOpen ? true : storedOpen;
 
+  const projectId = project?.id;
   useEffect(() => {
-    if (!project || !open) return;
+    if (!projectId || !open) return;
     void useProjectStore.getState().refreshGitStatus();
     void useProjectStore.getState().loadGitLog();
-  }, [project?.id, open]);
+  }, [projectId, open]);
 
   const toggle = (next: boolean) => {
     if (alwaysOpen) return;
@@ -216,7 +217,27 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
         />
       </div>
       {!repo ? (
-        <p className="git-panel-hint">{t('git.no_repo')}</p>
+        <div className="git-panel-no-repo">
+          <p className="git-panel-hint">{t('git.no_repo')}</p>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await useProjectStore.getState().initGitRepo('standard');
+                await useProjectStore.getState().loadGitLog();
+              } catch (err) {
+                reportError(err);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t('git.init_repo')}
+          </button>
+        </div>
       ) : (
         <>
           <div className="git-panel-status">

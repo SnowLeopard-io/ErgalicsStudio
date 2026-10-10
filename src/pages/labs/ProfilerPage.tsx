@@ -22,6 +22,7 @@ import { fingerprint } from '@/core/chunked/reader';
 import { resolveDataFile } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
 import { downloadBlob } from '@/core/download';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { useTabularDataGroups, sendSpecToFigure, fmt } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -272,6 +273,12 @@ export default function ProfilerPage() {
               <span>{t('profile.columns')}: <strong>{p.columns.length}</strong></span>
               <span>{t('profile.duplicates')}: <strong>{(p.duplicates.duplicateRate * 100).toFixed(1)}%</strong></span>
               <button type="button" className="btn btn-sm" onClick={exportMd}>{t('profile.export_md')}</button>
+              <SaveArtifactButton
+                dir="runs"
+                filename={`${file.replace(/\.[^.]+$/, '')}.profile.md`}
+                content={state ? profileMarkdown(file, state.profile) : null}
+                className="btn btn-sm"
+              />
               <button type="button" className="btn btn-sm" onClick={sendHistograms}>{t('profile.to_figure')}</button>
             </div>
 

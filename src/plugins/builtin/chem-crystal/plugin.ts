@@ -19,7 +19,12 @@ import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
 import type { CrystalCell } from '@/core/chem/structure';
 import { cellVolume } from '@/core/chem/structure';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { CRYSTAL_SAMPLES, findSample } from './samples';
 import { parseStructure, type StructuralFormat } from './parse';
@@ -192,8 +197,6 @@ export class ChemCrystalPlugin implements Plugin {
         value: this.state.clipToCell,
       },
       actionButton('reset', 'Fit view', '复位视角'),
-      actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export atom CSV', '导出原子坐标 CSV'),
     ];
   }
@@ -233,8 +236,7 @@ export class ChemCrystalPlugin implements Plugin {
       }
     }
     if (actionFired(params, 'reset')) this.resetView();
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportObjPng')) this.exportObjPng();
+
     if (actionFired(params, 'exportCsv')) {
       this.exportAtomsCsv();
       return;
@@ -251,16 +253,6 @@ export class ChemCrystalPlugin implements Plugin {
     const cell = this.currentCell();
     if (three && cell) fitCrystalCamera(three.camera, three.controls, cell);
     three?.render();
-  }
-
-  private exportPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-crystal');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-crystal');
-  }
-
-  private exportObjPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot({ transparent: true }), 'chem-crystal');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-crystal');
   }
 
   /** Fractional coordinates of every site as CSV. */

@@ -2,16 +2,17 @@
 // Ergalics Studio — supplementary-materials packaging page
 //
 // Collects the metadata form (author / license / description) plus the
-// inclusion toggles (data files, code sessions), builds the zip via the
-// core packager and hands it to the shared downloader.
+// inclusion toggles over the file explorer's workspace tree (data/, code/,
+// everything else), builds the zip via the core packager and hands it to
+// the shared downloader.
 // ==========================================================================
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
-import { buildSupplement } from '@/core/package/supplement';
+import { buildSupplement, countWorkspaceDataFiles } from '@/core/package/supplement';
 import { downloadBlob } from '@/core/download';
 import { logger } from '@/core/logger';
 import { ToolShell } from '@/components/ToolShell';
@@ -23,17 +24,39 @@ export default function SupplementPage() {
   const notify = useAppStore((s) => s.notify);
   const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
+  const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
 
   const [author, setAuthor] = useState('');
   const [license, setLicense] = useState('');
   const [description, setDescription] = useState('');
   const [includeData, setIncludeData] = useState(true);
   const [includeCode, setIncludeCode] = useState(true);
+  const [includeWorkspace, setIncludeWorkspace] = useState(true);
   const [includeLock, setIncludeLock] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Data-file count reflects the workspace tree (what the packager walks),
+  // not the legacy in-project upload registry.
+  const [dataCount, setDataCount] = useState(0);
 
   const hasProject = !!project;
-  const fileCount = project?.data.files.length ?? 0;
+
+  useEffect(() => {
+    if (!project) {
+      setDataCount(0);
+      return;
+    }
+    let cancelled = false;
+    void countWorkspaceDataFiles(project)
+      .then((n) => {
+        if (!cancelled) setDataCount(n);
+      })
+      .catch(() => {
+        if (!cancelled) setDataCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project, fileOpsVersion]);
 
   const handleBuild = async () => {
     if (!project || busy) return;
@@ -41,7 +64,8 @@ export default function SupplementPage() {
     try {
       const zip = await buildSupplement(project, {
         includeData,
-        code: includeCode,
+        includeCode,
+        includeWorkspace,
         reproLock: includeLock,
         meta: {
           author: author.trim() || undefined,
@@ -51,10 +75,6 @@ export default function SupplementPage() {
       });
       const safeName = project.name.replace(/[^\w.-]+/g, '_') || 'project';
       downloadBlob(`${safeName}-supplement.zip`, zip, 'application/zip');
-      // §3.4: supplement export auto-commits `release: supplement v<date>`.
-      void useProjectStore
-        .getState()
-        .autoCommit('release', `supplement v${new Date().toISOString().slice(0, 10)}`);
       notify('success', t('supplement.done'));
       navigate('/workbench');
     } catch (err) {
@@ -122,7 +142,7 @@ export default function SupplementPage() {
             checked={includeData}
             onChange={(e) => setIncludeData(e.target.checked)}
           />
-          {t('supplement.include_data', { count: fileCount })}
+          {t('supplement.include_data', { count: dataCount })}
         </label>
 
         <label className="supplement-check">
@@ -132,6 +152,15 @@ export default function SupplementPage() {
             onChange={(e) => setIncludeCode(e.target.checked)}
           />
           {t('supplement.include_code')}
+        </label>
+
+        <label className="supplement-check">
+          <input
+            type="checkbox"
+            checked={includeWorkspace}
+            onChange={(e) => setIncludeWorkspace(e.target.checked)}
+          />
+          {t('supplement.include_workspace')}
         </label>
 
         <label className="supplement-check">

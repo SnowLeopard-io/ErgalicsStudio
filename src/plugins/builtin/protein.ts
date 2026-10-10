@@ -24,7 +24,11 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import { analyzeNetwork } from './proteinAnalytics';
 import type { NetworkMetrics, WEdge } from './proteinAnalytics';
 
@@ -121,10 +125,7 @@ export class ProteinPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'protein');
-      return;
-    }
+
     if (fired('exportCsv')) {
       this.exportNodesCsv();
       return;
@@ -238,7 +239,6 @@ export class ProteinPlugin implements Plugin {
         onLabelI18n: { 'zh-CN': '显示 hub 圈标', 'en-US': 'Show hub rings' },
       },
       actionButton('runAnalytics', 'Recompute modules', '重算社区 (Louvain)', 'primary'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Nodes CSV', '导出节点 CSV'),
     ];
   }

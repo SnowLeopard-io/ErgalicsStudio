@@ -13,7 +13,7 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+
 import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
 import { olsTrend, mannKendall, lag1Autocorr, bi, pm, fmtP } from './chartStats';
 
@@ -92,8 +92,7 @@ export class TimeSeriesPlugin implements Plugin {
     if (typeof params.rollWindow === 'number') {
       this.state.rollWindow = Math.max(0, Math.min(40, Math.round(params.rollWindow)));
     }
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     this.draw();
   }
 
@@ -137,8 +136,6 @@ export class TimeSeriesPlugin implements Plugin {
         step: 1,
         value: this.state.rollWindow,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -440,27 +437,6 @@ export class TimeSeriesPlugin implements Plugin {
   private visibleSeries(): SeriesCol[] {
     if (this.state.selected === 'all') return this.state.cols;
     return this.state.cols.filter((c) => c.name === this.state.selected);
-  }
-
-  private exportPng() {
-    if (this.state.cols.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'time-series');
-  }
-
-  private exportCsv() {
-    // Export the parsed raw columns (not the normalized view).
-    const cols = this.state.cols;
-    const header = cols.map((c) => c.name);
-    let n = 0;
-    for (const c of cols) n = Math.max(n, c.values.length);
-    const rows: Array<Array<number | ''>> = [];
-    for (let i = 0; i < n; i += 1) {
-      rows.push(cols.map((c) => c.values[i] ?? ''));
-    }
-    exportRowsCsv(this.api, 'time-series', header, rows);
   }
 
   private drawHint(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {

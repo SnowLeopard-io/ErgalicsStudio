@@ -19,7 +19,10 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  notify,
+} from '@/core/plugin-tools/enhance';
 
 export { opticsManifest } from './opticsManifest';
 import { opticsManifest } from './opticsManifest';
@@ -247,10 +250,7 @@ export class OpticsPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'optics');
-      return;
-    }
+
     if (fired('resetElements')) {
       this.resetElements();
       return;
@@ -347,7 +347,6 @@ export class OpticsPlugin implements Plugin {
         value: this.state.divergence,
       },
       actionButton('resetElements', 'Reset Elements', '重置元件'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 
