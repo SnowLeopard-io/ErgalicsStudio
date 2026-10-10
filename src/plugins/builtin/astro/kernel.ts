@@ -39,7 +39,7 @@ export function gaussian(rng: () => number): number {
 /** Poisson sample: Knuth for small λ, normal approximation for large λ. */
 export function poisson(rng: () => number, lambda: number): number {
   if (lambda > 30) return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * gaussian(rng)));
-  let l = Math.exp(-lambda);
+  const l = Math.exp(-lambda);
   let k = 0;
   let p = 1;
   do {
