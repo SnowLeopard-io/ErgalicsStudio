@@ -13,6 +13,7 @@
 
 import type { Project } from '@/types/project';
 import type { RunRecord } from '@/core/experiment/record';
+import { sanitizeSvg } from '@/core/sanitize/sanitizeSvg';
 import type { ReproLock } from './lock';
 
 export const SNAPSHOT_SCHEMA = 'ergalics.repro-snapshot';
@@ -67,14 +68,6 @@ function escapeHtml(s: unknown): string {
 /** JSON safe for <script> transport: `<`/`>` unicode-escaped (no breakout). */
 function safeJson(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-}
-
-/** Strip executable content from externally produced SVG before embedding. */
-function sanitizeSvg(svg: string): string {
-  return svg
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
 }
 
 // --------------------------------------------------------------------------
@@ -308,6 +301,9 @@ export function buildReproSnapshot(input: SnapshotInput): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Defense in depth (issue #25): the document is fully self-contained —
+     inline styles/scripts only, no external loads of any kind. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:">
 <title>${escapeHtml(labels.heading)} · ${escapeHtml(summary.name)}</title>
 <style>${snapshotCss()}</style>
 </head>
