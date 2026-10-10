@@ -389,16 +389,16 @@ export interface KmConsistency {
 }
 
 /**
- * Compare a fitted Km (assumed mol/L, per manifest units) against the
- * literature table: `within` → ok, `near` (same order of magnitude) → warn.
+ * Compare a fitted Km (in mmol/L, matching the manifest concentration unit
+ * and the plugin's default/slider magnitudes) against the literature table:
+ * `within` → ok, `near` (same order of magnitude) → warn.
  */
 export function literatureKmConsistency(km: number): KmConsistency {
   if (!Number.isFinite(km) || km <= 0) return { within: null, near: null };
-  const mM = km * 1000;
-  const within = LITERATURE_KM.find((r) => mM >= r.kmMin && mM <= r.kmMax) ?? null;
+  const within = LITERATURE_KM.find((r) => km >= r.kmMin && km <= r.kmMax) ?? null;
   const near =
     within ??
-    LITERATURE_KM.find((r) => mM >= r.kmMin / 10 && mM <= r.kmMax * 10) ??
+    LITERATURE_KM.find((r) => km >= r.kmMin / 10 && km <= r.kmMax * 10) ??
     null;
   return { within, near };
 }
