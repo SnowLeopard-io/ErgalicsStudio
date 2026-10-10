@@ -1,4 +1,5 @@
 // FX plugin tests — black-hole GR core & water-wave physics, plus registry wiring.
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   PHOTON_SPHERE_RS,
@@ -401,5 +402,27 @@ describe('FX plugin registration', () => {
       expect(ex.filename).toBe(`${id}.json`);
       expect(typeof ex.loadContent).toBe('function');
     }
+  });
+
+  it('cloud Wind (u, v): v is the true northward component (+speed·cos(toward))', () => {
+    // Regression: publishScience computed v = −speed·cos(windRad), which is the
+    // opposite of the physical northward component. For a wind blowing toward
+    // the north-east (windDir 225° from north), v must be positive.
+    // Meteorological convention: windDir is the FROM direction; toward = from + 180°.
+    const speed = 6;
+    const from225 = ((225 + 180) * Math.PI) / 180; // toward 45° (NE)
+    const u = speed * Math.sin(from225);
+    const v = speed * Math.cos(from225);
+    expect(u).toBeCloseTo(speed * Math.SQRT1_2, 9); // +east
+    expect(v).toBeCloseTo(speed * Math.SQRT1_2, 9); // +north (was −)
+    // windDir 0° (from north, toward south): v must be negative (toward south).
+    const from0 = ((0 + 180) * Math.PI) / 180;
+    expect(speed * Math.cos(from0)).toBeCloseTo(-speed, 9);
+
+    // Text-level guard on the actual source: publishScience must compute
+    // v = +speed·cos(windRad) — no minus sign on the northward component.
+    const src = readFileSync(new URL('../src/plugins/builtin/cloud/plugin.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/const v = s\.windSpeed \* Math\.cos\(windRad\); \/\/ northward component \(\+ toward north\)/);
+    expect(src).not.toMatch(/const v = -s\.windSpeed \* Math\.cos\(windRad\)/);
   });
 });
