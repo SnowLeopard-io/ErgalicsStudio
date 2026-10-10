@@ -27,7 +27,7 @@ import {
   gerstnerSteepness,
 } from '@/plugins/builtin/water/physics';
 import { blackholeManifest } from '@/plugins/builtin/blackhole/manifest';
-import { CLOUD_FRAGMENT } from '@/plugins/builtin/cloud/shader';
+import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/blackhole/shader';
 import { waterManifest } from '@/plugins/builtin/water/manifest';
 import { BUILTIN_PLUGINS } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
@@ -104,6 +104,26 @@ describe('black-hole physics — constants & analytic relations', () => {
     // angular size shrinks with distance
     const nearer = shadowAngularDiameterRad(6.5e9, 8.4e6 * 3.0857e16) * RAD_TO_UAS;
     expect(nearer).toBeGreaterThan(m87);
+  });
+
+  it('disk emission intensity follows I_obs = g⁴·I_em (no double-counted beaming)', () => {
+    // Combined intensity: I_obs = g⁴·I_em with I_em ∝ T_em⁴. The shader uses
+    // T_obs = g·T_em, so the T_obs⁴ term already carries g⁴ — an extra explicit
+    // g⁴ would make I ∝ g⁸ (regression: diskEmission double-counted beaming).
+    const g = Math.sqrt(2);
+    // Correct relation: I(g)/I(1) = g⁴.
+    expect(intensityShift(g) / intensityShift(1)).toBeCloseTo(4, 9);
+    // The buggy g⁸ relation would square this.
+    expect(Math.pow(g, 4)).toBeCloseTo(4, 9);
+    expect(Math.pow(g, 8)).toBeCloseTo(16, 9);
+
+    // Text-level guard on the actual shader: the emission factor must use the
+    // observed temperature T_obs = g·T_em to the 4th power, with NO extra
+    // explicit g⁴ multiplier in front of it.
+    const frag = BLACKHOLE_FRAGMENT;
+    const disk = frag.slice(frag.indexOf('diskEmission'), frag.indexOf('void main'));
+    expect(disk).toContain('pow(max(tob, 1.0) / 6500.0, 4.0)');
+    expect(disk).not.toMatch(/g\s*\*\s*g\s*\*\s*g\s*\*\s*g/);
   });
 });
 
