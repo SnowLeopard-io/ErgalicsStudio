@@ -234,9 +234,9 @@ export class MatsMechPlugin implements Plugin {
 
     const strains = this.data.map((p) => p.strain);
     const stresses = this.data.map((p) => p.stress);
-    let eMin = 0;
+    const eMin = 0;
     let eMax = Math.max(...strains) * 1.05;
-    let sMin = 0;
+    const sMin = 0;
     let sMax = Math.max(...stresses) * 1.1;
     if (eMax <= 0) eMax = 1;
     if (sMax <= 0) sMax = 1;

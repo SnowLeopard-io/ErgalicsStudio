@@ -54,7 +54,7 @@ export function parseXrd(text: string): XrdPoint[] {
   const lines = text.split(/\r\n|\r|\n/);
   const pts: XrdPoint[] = [];
   let sawHeader = false;
-  for (let raw of lines) {
+  for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
     // Skip comment / metadata lines.

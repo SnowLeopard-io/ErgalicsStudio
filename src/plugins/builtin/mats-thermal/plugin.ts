@@ -309,7 +309,7 @@ export class MatsThermalPlugin implements Plugin {
 
     const temps = this.data.map((p) => p.temperature);
     const sigs = this.data.map((p) => p.signal);
-    let tMin = Math.min(...temps);
+    const tMin = Math.min(...temps);
     let tMax = Math.max(...temps);
     let sMin = Math.min(...sigs);
     let sMax = Math.max(...sigs);

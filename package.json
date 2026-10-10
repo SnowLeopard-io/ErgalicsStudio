@@ -76,6 +76,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
     "playwright-core": "^1.62.1",
