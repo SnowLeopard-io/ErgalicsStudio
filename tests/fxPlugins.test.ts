@@ -1,4 +1,5 @@
 // FX plugin tests — black-hole GR core & water-wave physics, plus registry wiring.
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   PHOTON_SPHERE_RS,
