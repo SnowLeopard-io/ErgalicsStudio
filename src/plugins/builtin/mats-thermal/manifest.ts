@@ -32,7 +32,7 @@ export const matsThermalManifest: PluginManifest = {
   sandbox: 'trusted',
   research: {
     tier: 'quasi-research',
-    units: { temperature: '°C', heatFlow: 'mW', enthalpy: 'J/g', mass: '%', rate: '°C/min' },
+    units: { temperature: '°C', heatFlow: 'mW', enthalpy: 'mW·°C', mass: '%', rate: '°C/min' },
     reproducible: true,
     notes:
       'Standard thermal-analysis extraction (onset by tangent intersection, enthalpy by trapezoidal baseline integration); assumes linear heating and a polynomial baseline — not a full kinetics fit.',

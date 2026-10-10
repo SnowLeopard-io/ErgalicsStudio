@@ -4,8 +4,8 @@
 // Parses a temperature / signal curve, performs baseline-corrected peak
 // detection, and extracts the standard thermal-analysis indices:
 //  - DSC: extrapolated onset temperature (tangent intersection), peak
-//    temperature, and the transition enthalpy ΔH (J/g) by trapezoidal
-//    integration of the baseline-subtracted heat flow;
+//    temperature, and the baseline-corrected area under the heat-flow curve
+//    (mW·°C; not normalised to J/g — no heating rate / sample mass input);
 //  - TGA: mass-loss steps with onset / peak (DTG) temperatures, mass lost,
 //    and residual mass.
 //
@@ -24,7 +24,9 @@ export interface ThermalPeak {
   peakTemp: number; // extremum temperature, °C
   peakSignal: number; // baseline-subtracted signal at peak
   endTemp: number; // temperature where the peak returns to baseline, °C
-  /** DSC: integrated transition enthalpy (J/g). TGA: mass lost (%). */
+  /** DSC: baseline-corrected area under the heat-flow curve (mW·°C), NOT
+   * normalised to J/g (no heating-rate / sample-mass input available).
+   * TGA: mass lost (%). */
   integral: number;
 }
 
@@ -217,6 +219,8 @@ export function analyseThermal(pts: ThermalPoint[], mode: ThermalMode): ThermalA
     result.totalEnthalpy = peaks.reduce((a, p) => a + p.integral, 0);
   } else {
     result.totalMassLoss = peaks.reduce((a, p) => a + p.integral, 0);
+    // Residual mass = final signal value, in the same units as the input
+    // signal (mass % for a TGA curve; see manifest units.mass).
     result.residualMass = pts[pts.length - 1]!.signal;
   }
   return result;
@@ -272,16 +276,16 @@ function extractPeak(
   // Integral.
   let integral = 0;
   if (mode === 'dsc') {
-    // ΔH = ∫ (signal - baseline) dT  (proxy for J/g; needs heating rate &
-    // sample mass for absolute J/g, here reported in the curve's units × °C).
+    // Baseline-corrected area under the heat-flow curve: ∫(signal − baseline) dT.
+    // Reported in the curve's units × °C (mW·°C for a mW signal). Converting to
+    // absolute J/g would require the heating rate β and sample mass m
+    // (ΔH = area / (β·m)), which this kernel does not receive.
     for (let i = start + 1; i < end; i += 1) {
       const dx = pts[i]!.temperature - pts[i - 1]!.temperature;
       const y0 = pts[i - 1]!.signal - baseline[i - 1]!;
       const y1 = pts[i]!.signal - baseline[i]!;
       integral += (dx * (y0 + y1)) / 2;
     }
-    // Convert proxy area (signal·°C) to J/g-equivalent if signal is mW and
-    // heating rate β (°C/min): ΔH = area / (β · m). We expose area·rate-normalised.
   } else {
     // TGA: mass lost = baseline(before) - signal(after).
     const m0 = baseline[start]!;
