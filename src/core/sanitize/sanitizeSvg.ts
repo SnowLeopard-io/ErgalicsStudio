@@ -283,6 +283,9 @@ export function sanitizeSvg(svg: string): string {
     }
     const [attrRaw, selfClose] = splitSelfClose(m[4] ?? '');
     if (DROP_WITH_CONTENT.has(name)) {
+      // Self-closing raw element (e.g. <image href="data:..."/>): drop the
+      // tag itself and keep scanning — there is no content to skip.
+      if (selfClose) continue;
       // Drop the whole raw-text element: skip to its real closing tag.
       const close = new RegExp(`</${name}\\s*>`, 'i').exec(svg.slice(i));
       if (close) {
