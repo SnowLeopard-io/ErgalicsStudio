@@ -265,14 +265,14 @@ function runAlign(a: string, b: string, matrix: SubMatrix, gap: GapModel, local:
         identity: 0, positive: 0, length: 0, gaps: 0, mode: 'local',
       };
     }
-    const r = traceback(a, b, bi, bj, M, Ix, Iy, pM, pIx, pIy, true);
+    const r = traceback(a, b, bi, bj, M, Ix, Iy, pM, pIx, pIy, matrix, true);
     r.score = best;
     return r;
   }
 
   const fin = Math.max(M[n]![m]!, Ix[n]![m]!, Iy[n]![m]!);
   const cur = fin === M[n]![m]! ? 1 : fin === Iy[n]![m]! ? 3 : 2;
-  const res = traceback(a, b, n, m, M, Ix, Iy, pM, pIx, pIy, false);
+  const res = traceback(a, b, n, m, M, Ix, Iy, pM, pIx, pIy, matrix, false);
   res.score = cur === 1 ? M[n]![m]! : cur === 2 ? Ix[n]![m]! : Iy[n]![m]!;
   return res;
 }
@@ -288,6 +288,7 @@ function traceback(
   pM: number[][],
   pIx: number[][],
   pIy: number[][],
+  matrix: SubMatrix,
   local: boolean,
 ): AlignResult {
   const resA: string[] = [];
@@ -329,10 +330,10 @@ function traceback(
   }
   const alignedA = resA.join('');
   const alignedB = resB.join('');
-  return summarize(alignedA, alignedB, local);
+  return summarize(alignedA, alignedB, matrix, local);
 }
 
-function summarize(alignedA: string, alignedB: string, local: boolean): AlignResult {
+function summarize(alignedA: string, alignedB: string, matrix: SubMatrix, local: boolean): AlignResult {
   let identical = 0;
   let positive = 0;
   let pos = 0;
@@ -346,7 +347,10 @@ function summarize(alignedA: string, alignedB: string, local: boolean): AlignRes
     }
     pos += 1;
     if (aa.toUpperCase() === bb.toUpperCase()) identical += 1;
-    if (aa === bb) positive += 1;
+    // Similar = positive substitution score (e.g. BLOSUM62 W↔Y = +2), which
+    // is decoupled from identity: a positive-scoring but non-identical pair
+    // counts as similar, not identical.
+    if (matrix.build(aa, bb) > 0) positive += 1;
   }
   return {
     score: 0, // recompute by caller when needed

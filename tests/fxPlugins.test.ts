@@ -25,8 +25,11 @@ import {
   buildSpectrum,
   gerstnerDisplacement,
   gerstnerSteepness,
+  type OceanWave,
 } from '@/plugins/builtin/water/physics';
 import { blackholeManifest } from '@/plugins/builtin/blackhole/manifest';
+import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/blackhole/shader';
+import { CLOUD_FRAGMENT } from '@/plugins/builtin/cloud/shader';
 import { waterManifest } from '@/plugins/builtin/water/manifest';
 import { BUILTIN_PLUGINS } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
@@ -103,6 +106,26 @@ describe('black-hole physics — constants & analytic relations', () => {
     // angular size shrinks with distance
     const nearer = shadowAngularDiameterRad(6.5e9, 8.4e6 * 3.0857e16) * RAD_TO_UAS;
     expect(nearer).toBeGreaterThan(m87);
+  });
+
+  it('disk emission intensity follows I_obs = g⁴·I_em (no double-counted beaming)', () => {
+    // Combined intensity: I_obs = g⁴·I_em with I_em ∝ T_em⁴. The shader uses
+    // T_obs = g·T_em, so the T_obs⁴ term already carries g⁴ — an extra explicit
+    // g⁴ would make I ∝ g⁸ (regression: diskEmission double-counted beaming).
+    const g = Math.sqrt(2);
+    // Correct relation: I(g)/I(1) = g⁴.
+    expect(intensityShift(g) / intensityShift(1)).toBeCloseTo(4, 9);
+    // The buggy g⁸ relation would square this.
+    expect(Math.pow(g, 4)).toBeCloseTo(4, 9);
+    expect(Math.pow(g, 8)).toBeCloseTo(16, 9);
+
+    // Text-level guard on the actual shader: the emission factor must use the
+    // observed temperature T_obs = g·T_em to the 4th power, with NO extra
+    // explicit g⁴ multiplier in front of it.
+    const frag = BLACKHOLE_FRAGMENT;
+    const disk = frag.slice(frag.indexOf('diskEmission'), frag.indexOf('void main'));
+    expect(disk).toContain('pow(max(tob, 1.0) / 6500.0, 4.0)');
+    expect(disk).not.toMatch(/g\s*\*\s*g\s*\*\s*g\s*\*\s*g/);
   });
 });
 
@@ -316,6 +339,27 @@ describe('water physics — Gerstner ocean spectrum', () => {
     }
   });
 
+  it('choppy sharpening responds continuously (regression: q was clamped to 1)', () => {
+    // Regression: q = min(choppy/(k·A·√count), 1) made q·k·A = choppy/√count
+    // independent of k,A and clamped q to 1 for any choppy > 0. Now q should
+    // track choppy (≤ its target) and the max steepness must rise with it.
+    const wind = 12;
+    const seed = 7;
+    const count = 26;
+    const low = buildSpectrum(wind, count, seed, 0.2);
+    const high = buildSpectrum(wind, count, seed, 0.8);
+    const maxSteep = (ws: OceanWave[]) => Math.max(...ws.map(gerstnerSteepness));
+    const steepLow = maxSteep(low);
+    const steepHigh = maxSteep(high);
+    // Every q must be ≤ the choppy target (not clamped to 1 for choppy < 1).
+    for (const w of low) expect(w.q).toBeLessThanOrEqual(0.2 + 1e-9);
+    for (const w of high) expect(w.q).toBeLessThanOrEqual(0.8 + 1e-9);
+    // Increasing choppy must visibly increase the steepness (was identical).
+    expect(steepHigh).toBeGreaterThan(steepLow);
+    // Self-intersection bound still holds.
+    expect(steepHigh).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
   it('Gerstner displacement: q=0 → pure vertical bobbing, crest phase shifts x by −qA', () => {
     const wave = {
       k: 0.5,
@@ -380,5 +424,24 @@ describe('FX plugin registration', () => {
       expect(ex.filename).toBe(`${id}.json`);
       expect(typeof ex.loadContent).toBe('function');
     }
+  });
+
+  it('cloud uDensity is applied once, consistently in main march & lightMarch', () => {
+    // Regression: cloudDensity() used to fold uDensity in AND the main march
+    // multiplied it again (σ ∝ density²), while lightMarch only used density¹
+    // — the two segments integrated different extinction fields and the
+    // reported Cloud τ disagreed with the render. Now cloudDensity() returns a
+    // normalised density and every extinction site applies uDensity exactly once.
+    const frag = CLOUD_FRAGMENT;
+    const cloudDensitySrc = frag.slice(frag.indexOf('float cloudDensity'), frag.indexOf('float lightMarch'));
+    const lightMarchSrc = frag.slice(frag.indexOf('float lightMarch'), frag.indexOf('float skyColor'));
+    const mainMarchSrc = frag.slice(frag.indexOf('void main'), frag.length);
+
+    // cloudDensity() must NOT scale by uDensity (returns normalised 0..1).
+    expect(cloudDensitySrc).not.toMatch(/profile\s*\*\s*uDensity/);
+    // lightMarch applies uDensity exactly once per sample.
+    expect(lightMarchSrc).toMatch(/cloudDensity\(p\)\s*\*\s*stepL\s*\*\s*0\.006\s*\*\s*uDensity/);
+    // Main march extinction applies uDensity exactly once per sample.
+    expect(mainMarchSrc).toMatch(/d\s*\*\s*stepLen\s*\*\s*0\.006\s*\*\s*uDensity/);
   });
 });

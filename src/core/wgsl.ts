@@ -264,7 +264,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let distSq = dx * dx + dy * dy + dz * dz + params.softening * params.softening;
     let invDist = inverseSqrt(distSq);
     let invDist3 = invDist * invDist * invDist;
-    let f = params.G * m * bodiesIn[jb + 6u] * invDist3;
+    // Acceleration from body j on body i: G·mⱼ/r³·dr (independent of mᵢ).
+    let f = params.G * bodiesIn[jb + 6u] * invDist3;
     ax = ax + f * dx;
     ay = ay + f * dy;
     az = az + f * dz;
@@ -377,6 +378,10 @@ export function advanceNBodyCPU(
   // (which visited every pair twice) at half the work — the headroom that
   // lets the interactive loop integrate the whole drawn set instead of a
   // prefix of it.
+  // Acceleration, not force: aᵢ = G·mⱼ/r³·dr (independent of mᵢ), and by
+  // Newton's third law aⱼ = −G·mᵢ/r³·dr. Using force here (G·mᵢ·mⱼ/r³) and
+  // feeding it straight into the velocity update silently divided out mᵢ only
+  // for equal masses — unequal-mass systems (real ephemerides) were wrong.
   const eps2 = softening * softening;
   for (let i = 0; i < n; i += 1) {
     const bi = bodies[i] as NBodyBody;
@@ -388,16 +393,14 @@ export function advanceNBodyCPU(
       const distSq = dx * dx + dy * dy + dz * dz + eps2;
       const invDist = 1 / Math.sqrt(distSq);
       const invDist3 = invDist * invDist * invDist;
-      const f = (G * bi.mass * bj.mass) * invDist3;
-      const fx = f * dx;
-      const fy = f * dy;
-      const fz = f * dz;
-      ax[i] = (ax[i] ?? 0) + fx;
-      ay[i] = (ay[i] ?? 0) + fy;
-      az[i] = (az[i] ?? 0) + fz;
-      ax[j] = (ax[j] ?? 0) - fx;
-      ay[j] = (ay[j] ?? 0) - fy;
-      az[j] = (az[j] ?? 0) - fz;
+      const ai = (G * bj.mass) * invDist3;
+      const aj = (G * bi.mass) * invDist3;
+      ax[i] = (ax[i] ?? 0) + ai * dx;
+      ay[i] = (ay[i] ?? 0) + ai * dy;
+      az[i] = (az[i] ?? 0) + ai * dz;
+      ax[j] = (ax[j] ?? 0) - aj * dx;
+      ay[j] = (ay[j] ?? 0) - aj * dy;
+      az[j] = (az[j] ?? 0) - aj * dz;
     }
   }
   for (let i = 0; i < n; i += 1) {

@@ -32,6 +32,7 @@ import {
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
+import { assertValidGitRef } from './refname';
 
 // Lazy singleton: constructing LightningFS requires `indexedDB`, which does
 // not exist in Node (unit tests) — so instantiate on first use, not at import.
@@ -229,6 +230,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async clone(url: string, targetPath: string, opts?: CloneOptions): Promise<void> {
+    if (opts?.branch) assertValidGitRef(opts.branch, 'branch');
     const controller = new AbortController();
     this.controllers.set(`${targetPath}:clone`, controller);
     const fs = this.getFS();
@@ -484,6 +486,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
    * are allowed, matching git's tolerance when they are not overwritten.
    */
   async checkout(repoPath: string, ref: string, create = false): Promise<void> {
+    assertValidGitRef(ref, 'branch/ref');
     const fs = this.getFS();
     if (!create) {
       // Unborn HEAD resolves to undefined — nothing to lose yet.
@@ -510,11 +513,14 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async branch(repoPath: string, name: string, startPoint?: string): Promise<void> {
+    assertValidGitRef(name, 'branch');
+    if (startPoint !== undefined) assertValidGitRef(startPoint, 'start point');
     const fs = this.getFS();
     await Git.branch({ fs, dir: repoPath, ref: name, object: startPoint });
   }
 
   async deleteBranch(repoPath: string, name: string): Promise<void> {
+    assertValidGitRef(name, 'branch');
     const fs = this.getFS();
     await Git.deleteBranch({ fs, dir: repoPath, ref: name });
   }
@@ -525,6 +531,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
    * surfaces as a generic conflict result.
    */
   async merge(repoPath: string, branch: string): Promise<MergeResult> {
+    assertValidGitRef(branch, 'branch');
     const fs = this.getFS();
     try {
       const result = await Git.merge({ fs, dir: repoPath, theirs: branch });
@@ -535,6 +542,8 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async push(repoPath: string, opts: PushOptions): Promise<void> {
+    assertValidGitRef(opts.branch, 'branch');
+    assertValidGitRef(opts.remote, 'remote');
     const controller = new AbortController();
     this.controllers.set(`${repoPath}:push`, controller);
     const fs = this.getFS();
@@ -552,6 +561,8 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async pull(repoPath: string, opts: PullOptions): Promise<void> {
+    assertValidGitRef(opts.branch, 'branch');
+    assertValidGitRef(opts.remote, 'remote');
     const fs = this.getFS();
     // Note: isomorphic-git v1 has no `--rebase`; pulls are merge-based.
     await Git.pull({
@@ -579,6 +590,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
   }
 
   async addRemote(repoPath: string, name: string, url: string): Promise<void> {
+    assertValidGitRef(name, 'remote');
     const fs = this.getFS();
     await Git.addRemote({ fs, dir: repoPath, remote: name, url });
   }

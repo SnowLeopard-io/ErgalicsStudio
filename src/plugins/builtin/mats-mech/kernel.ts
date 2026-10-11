@@ -56,9 +56,17 @@ export function parseStressStrain(text: string): SSPoint[] {
   const lines = trimmed.split(/\r\n|\r|\n/);
   const pts: SSPoint[] = [];
   let sawHeader = false;
+  let unitHint: 'pct' | 'frac' | null = null;
   for (const raw of lines) {
     const line = raw.trim();
-    if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+    if (!line) continue;
+    // Parse a unit declaration from comment/header lines, e.g.
+    // `# strain (mm/mm), stress (MPa)` or `strain (%), stress (MPa)`.
+    if (line.startsWith('#') || line.startsWith(';')) {
+      const hint = detectStrainUnit(line);
+      if (hint) unitHint = hint;
+      continue;
+    }
     const toks = line.includes(',') ? line.split(',') : line.split(/\s+|;|\t/);
     const c = toks.map((t) => t.trim()).filter(Boolean);
     if (c.length < 2) continue;
@@ -70,7 +78,7 @@ export function parseStressStrain(text: string): SSPoint[] {
       sawHeader = true; // header row
     }
   }
-  return normalize(pts);
+  return normalize(pts, unitHint);
 }
 
 function parseJson(text: string): SSPoint[] {
@@ -90,14 +98,63 @@ function parseJson(text: string): SSPoint[] {
   }
 }
 
-/** If strains span ≥ 1, assume they are in %; convert to fraction. */
-function normalize(pts: SSPoint[]): SSPoint[] {
+/**
+ * Detect an explicit strain-unit declaration in a comment/header line, e.g.
+ * `# strain (mm/mm), stress (MPa)` or `strain (%), stress (MPa)`.
+ * Returns 'pct' for %, 'frac' for mm/mm, or null when the line is silent.
+ */
+function detectStrainUnit(line: string): 'pct' | 'frac' | null {
+  const lower = line.toLowerCase();
+  // A % sign near a strain token ⇒ percent.
+  if (/%/.test(lower) && /strain|ε|epsilon|e\b/.test(lower)) return 'pct';
+  if (/mm\/mm|m\/m|fraction|fractional/.test(lower) && /strain|ε|epsilon|e\b/.test(lower)) return 'frac';
+  return null;
+}
+
+/**
+ * Normalise strains to fractions (mm/mm). Resolution order:
+ *  1. explicit unit declaration from the file header (most reliable);
+ *  2. physical plausibility: if interpreting the data as mm/mm gives an
+ *     elastic modulus outside the plausible metals range, retry as %.
+ */
+function normalize(pts: SSPoint[], unitHint?: 'pct' | 'frac' | null): SSPoint[] {
   if (pts.length < 3) return [];
   const maxS = Math.max(...pts.map((p) => p.strain));
-  const factor = maxS >= 1.5 ? 0.01 : 1;
+  const minS = Math.min(...pts.map((p) => p.strain));
+  const span = maxS - minS;
+  let factor = 1;
+  if (unitHint === 'pct') {
+    factor = 0.01;
+  } else if (unitHint === 'frac') {
+    factor = 1;
+  } else if (span >= 1.5) {
+    // Legacy heuristic: values ≥ 1.5 are almost certainly percent.
+    factor = 0.01;
+  } else if (span > 0 && span < 1.5) {
+    // Ambiguous: decide by physical plausibility of the elastic modulus.
+    // A real metal interpreted as mm/mm has E ≳ 10 GPa; if the steepest
+    // slope implies far less, the strains are almost certainly percent
+    // (e.g. brittle cast iron at 0.8% would read E ≈ 1.7 GPa as mm/mm).
+    const E_frac = elasticModulusGPa(pts);
+    if (Number.isFinite(E_frac) && E_frac < 10) factor = 0.01;
+  }
   const out = pts.map((p) => ({ strain: p.strain * factor, stress: p.stress }));
   out.sort((a, b) => a.strain - b.strain);
   return out;
+}
+
+/** Quick elastic-modulus estimate (GPa) from the steepest local slope — used only for unit disambiguation. */
+function elasticModulusGPa(pts: SSPoint[]): number {
+  const n = pts.length;
+  if (n < 5) return NaN;
+  const win = Math.max(4, Math.min(10, Math.floor(n * 0.02)));
+  let best = -Infinity;
+  for (let i = 0; i + win <= n; i += 1) {
+    const seg = pts.slice(i, i + win);
+    const { slope } = linreg(seg.map((p) => ({ x: p.strain, y: p.stress })));
+    if (slope > best && Number.isFinite(slope)) best = slope;
+  }
+  return best / 1000; // MPa → GPa
 }
 
 // ---- elastic region & Young's modulus --------------------------------------

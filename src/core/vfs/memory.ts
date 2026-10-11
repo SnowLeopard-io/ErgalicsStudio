@@ -7,6 +7,7 @@
 // ==========================================================================
 
 import type { Vfs, VfsEntry } from './types';
+import { safeVfsDirPath } from './path';
 
 export class MemoryVfs implements Vfs {
   private files = new Map<string, Uint8Array>();
@@ -128,14 +129,22 @@ export class MemoryVfs implements Vfs {
   }
 
   async exists(root: string, targetPath: string): Promise<boolean> {
-    const key = this.key(root, targetPath);
+    let key: string;
+    try {
+      key = this.key(root, targetPath);
+    } catch {
+      return false; // invalid path — treat like a missing file (LightningVfs parity)
+    }
     return this.files.has(key) || this.dirs.has(key);
   }
 
   /** Normalize a (root, relPath) pair to the flat map key. Both segments are
-   *  split-and-rejoined so root='/' and empty relPaths never double-slash. */
+   *  split-and-rejoined so root='/' and empty relPaths never double-slash.
+   *  Guarded by the shared Vfs path guard, so '..'/absolute/NUL paths throw
+   *  exactly like LightningVfs (one semantics across adapters). */
   private key(root: string, relPath: string): string {
-    const segs = [...root.split('/'), ...relPath.split('/')].filter(Boolean);
+    const rel = safeVfsDirPath(relPath);
+    const segs = [...root.split('/'), ...rel.split('/')].filter(Boolean);
     return `/${segs.join('/')}`;
   }
 }

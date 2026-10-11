@@ -34,6 +34,7 @@ import {
   GIT_ERROR_CODES,
 } from './types';
 import { STANDARD_HOOKS, STANDARD_TEMPLATE_FILES } from './templates';
+import { assertValidGitRef } from './refname';
 
 function loadSimpleGit(): (opts?: Partial<SimpleGitOptions>) => SimpleGit {
   // Node/Electron only; never called in the browser bundle.
@@ -85,6 +86,7 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   async clone(url: string, targetPath: string, opts?: CloneOptions): Promise<void> {
+    if (opts?.branch) assertValidGitRef(opts.branch, 'branch');
     const git = loadSimpleGit()({ baseDir: targetPath });
     await git.clone(url, targetPath, {
       '--depth': opts?.depth,
@@ -262,6 +264,7 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   async checkout(repoPath: string, ref: string, create = false): Promise<void> {
+    assertValidGitRef(ref, 'branch/ref');
     const git = this.getGit(repoPath);
     if (!create) {
       // Refuse to silently discard uncommitted work (mirrors the isomorphic
@@ -287,16 +290,20 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   async branch(repoPath: string, name: string, startPoint?: string): Promise<void> {
+    assertValidGitRef(name, 'branch');
+    if (startPoint !== undefined) assertValidGitRef(startPoint, 'start point');
     const git = this.getGit(repoPath);
     await git.branch(name, startPoint);
   }
 
   async deleteBranch(repoPath: string, name: string, force = false): Promise<void> {
+    assertValidGitRef(name, 'branch');
     const git = this.getGit(repoPath);
     await git.deleteLocalBranch(name, force);
   }
 
   async merge(repoPath: string, branch: string): Promise<MergeResult> {
+    assertValidGitRef(branch, 'branch');
     const git = this.getGit(repoPath);
     try {
       const result = await git.merge(branch);
@@ -310,6 +317,8 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   async push(repoPath: string, opts: PushOptions): Promise<void> {
+    assertValidGitRef(opts.branch, 'branch');
+    assertValidGitRef(opts.remote, 'remote');
     const git = this.getGit(repoPath);
     await git.push(opts.remote, opts.branch, {
       '--force': opts.force,
@@ -318,6 +327,8 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   async pull(repoPath: string, opts: PullOptions): Promise<void> {
+    assertValidGitRef(opts.branch, 'branch');
+    assertValidGitRef(opts.remote, 'remote');
     const git = this.getGit(repoPath);
     await git.pull(opts.remote, opts.branch, { '--rebase': opts.rebase });
   }
@@ -483,6 +494,7 @@ export class NodeGitAdapter implements GitAdapter {
   private async getAheadBehind(repoPath: string, branch: string): Promise<{ ahead: number; behind: number }> {
     const git = this.getGit(repoPath);
     if (!branch) return { ahead: 0, behind: 0 };
+    assertValidGitRef(branch, 'branch');
     try {
       await git.revparse([`${branch}@{upstream}`]);
       const raw = await git.raw([
@@ -500,6 +512,7 @@ export class NodeGitAdapter implements GitAdapter {
   }
 
   private async getBranchCommit(repoPath: string, branch: string): Promise<GitCommit | undefined> {
+    assertValidGitRef(branch, 'branch');
     const git = this.getGit(repoPath);
     try {
       const log = await git.log(['-n', '1', '--format=%H|%s|%an|%ae|%at|%P', branch]);

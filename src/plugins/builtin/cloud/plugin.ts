@@ -563,11 +563,14 @@ export class CloudPlugin implements Plugin {
     const lstRad = gmst(jd) + (s.longitude * Math.PI) / 180;
     const lstH = ((lstRad * 12) / Math.PI + 24) % 24;
     const toDeg = (r: number) => (r * 180) / Math.PI;
+    // Effective extinction σ = 0.006 × density (1/m), matching the shader's
+    // main march & lightMarch (both use d·0.006·uDensity). Representative
+    // vertical optical depth τ = σ × thickness × 0.55 (mid-slab coverage).
     const sigma = 0.006 * s.density; // extinction coefficient (1/m) used by the shader
     const tau = sigma * s.cloudThickness * 0.55; // representative mid-slab optical depth
     const windRad = ((s.windDirDeg + 180) * Math.PI) / 180; // toward-direction
     const u = s.windSpeed * Math.sin(windRad); // eastward component
-    const v = -s.windSpeed * Math.cos(windRad); // northward component
+    const v = s.windSpeed * Math.cos(windRad); // northward component (+ toward north)
     const metrics: ScienceMetric[] = [
       { key: 'sun_alt', label: 'Solar altitude', value: toDeg(sun.alt).toFixed(2), unit: '°', severity: 'info', hint: this.zh ? '太阳地平高度（Meeus 低精度历表，±1′）。' : 'Solar altitude (Meeus low-precision, ±1′).' },
       { key: 'sun_az', label: 'Solar azimuth', value: toDeg(sun.az).toFixed(2), unit: '°', severity: 'info', hint: this.zh ? '太阳方位角（北起东向）。' : 'Solar azimuth (from north, eastward).' },
