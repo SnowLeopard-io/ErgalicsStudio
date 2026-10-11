@@ -152,4 +152,25 @@ describe('sanitizeSvg — legitimate markup survives', () => {
     const out = sanitizeSvg('<svg><g class="series"><line x1="0" y1="0" x2="1" y2="1"/></g></svg>');
     expect(out).toBe('<svg><g class="series"><line x1="0" y1="0" x2="1" y2="1"/></g></svg>');
   });
+
+  it('keeps content after a self-closing <image/> (issue #55)', () => {
+    const input =
+      '<svg><rect width="10" height="10"/>' +
+      '<image href="data:image/png;base64,AAAA"/>' +
+      '<circle cx="5" cy="5" r="2"/></svg>';
+    const out = sanitizeSvg(input);
+    // The self-closing <image> is dropped, but everything after it survives.
+    expect(out).toContain('<rect width="10" height="10"/>');
+    expect(out).toContain('<circle cx="5" cy="5" r="2"/>');
+    expect(out.endsWith('</svg>')).toBe(true);
+  });
+
+  it('drops a non-self-closing <image> together with its content (issue #55)', () => {
+    const input =
+      '<svg><image href="x">payload</image><rect width="10" height="10"/></svg>';
+    const out = sanitizeSvg(input);
+    expect(out).not.toContain('payload');
+    expect(out).toContain('<rect width="10" height="10"/>');
+    expect(out.endsWith('</svg>')).toBe(true);
+  });
 });

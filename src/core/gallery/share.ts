@@ -105,8 +105,22 @@ function isSummaryTable(table: string): boolean {
 }
 
 const EMAIL_RE = /[^\s<>"']+@[^\s<>"']+\.[^\s<>"']+/;
-/** Phone-ish: a run of ≥6 digits, optionally with +/spaces/dashes. */
-const PHONE_RE = /^\+?\d[\d\s-]{5,}$/;
+/**
+ * Phone-ish cell detector. A bare run of digits is NOT a phone: the snapshot's
+ * locked-runs `seed` column holds a 32-bit unsigned integer (≤10 digits, no
+ * separators) and would otherwise be misread as PII, nuking the whole summary
+ * table (issue #56). A phone is either international (`+…`), digit-grouped
+ * (spaces/dashes/parens), or a bare run of ≥11 digits (a 32-bit seed is at
+ * most 10 digits, so 11+ cannot be a seed).
+ */
+function looksLikePhone(s: string): boolean {
+  if (/^\+\d[\d\s()-]{5,}$/.test(s)) return true; // international
+  if (/^\d[\d\s()-]{5,}$/.test(s)) {
+    if (/[()\s-]/.test(s)) return true; // grouped local number
+    if (/^\d{11,}$/.test(s)) return true; // bare 11+ digit run
+  }
+  return false;
+}
 
 /** Numeric fields of a tab/comma-separated row (the original heuristic). */
 function isNumericRow(cells: string[]): boolean {
@@ -121,7 +135,7 @@ function looksLikeRawRecordRow(text: string): boolean {
   const cells = text.split(/[\t,]/).map((c) => c.trim()).filter(Boolean);
   if (cells.length < 4) return false;
   if (isNumericRow(cells)) return true;
-  return cells.some((c) => EMAIL_RE.test(c) || PHONE_RE.test(c));
+  return cells.some((c) => EMAIL_RE.test(c) || looksLikePhone(c));
 }
 
 /** Turn one `<tr>` into a tab-separated text line, then apply the heuristic. */
