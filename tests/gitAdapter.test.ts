@@ -384,3 +384,33 @@ describe('checkout dirty-tree guard (§3.3)', () => {
     expect(await adapter.readFile(repo, '.gitignore')).toContain('.ergalics/');
   });
 });
+
+// ---- ⑥ ref-name validation (issues #57/#58) ---------------------------------
+// IsomorphicGitAdapter feeds ref/remote names straight into isomorphic-git;
+// a name starting with '-' would be parsed as an option. Every entry point
+// must reject those BEFORE any git call (the memory fs would otherwise be
+// touched, and push/pull would attempt real network I/O).
+
+describe('IsomorphicGitAdapter — ref names validated before any git call', () => {
+  it.each([
+    ['checkout', (a: IsomorphicGitAdapter) => a.checkout('/repo', '-c core.pager=cat')],
+    ['branch', (a: IsomorphicGitAdapter) => a.branch('/repo', '--upload-pack=evil')],
+    ['deleteBranch', (a: IsomorphicGitAdapter) => a.deleteBranch('/repo', '-x')],
+    ['merge', (a: IsomorphicGitAdapter) => a.merge('/repo', '-c core.pager=cat')],
+    ['push', (a: IsomorphicGitAdapter) => a.push('/repo', { remote: 'origin', branch: '-x' })],
+    ['pull', (a: IsomorphicGitAdapter) => a.pull('/repo', { remote: '-x', branch: 'main' })],
+    ['addRemote', (a: IsomorphicGitAdapter) => a.addRemote('/repo', '-x', 'https://example.invalid/x.git')],
+  ])('%s rejects option-shaped refs before touching git', async (_name, op) => {
+    const { adapter } = makeAdapter();
+    await expect(op(adapter)).rejects.toThrow(/invalid/);
+  });
+
+  it('accepts ordinary remote names (addRemote writes config)', async () => {
+    const { adapter } = makeAdapter();
+    const repo = nextRepo();
+    await adapter.init(repo, 'minimal');
+    await expect(
+      adapter.addRemote(repo, 'origin', 'https://example.invalid/ergalics/repo.git'),
+    ).resolves.toBeUndefined();
+  });
+});
