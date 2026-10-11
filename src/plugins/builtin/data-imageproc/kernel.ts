@@ -219,7 +219,13 @@ export interface ConvOptions {
 }
 
 /** Direct 2-D convolution / correlation with the given edge mode. */
-export function convolve2d(img: GrayImage, kernel: Float32Array | number[], kw: number, kh: number, opts?: ConvOptions): GrayImage {
+export function convolve2d(
+  img: GrayImage,
+  kernel: Float32Array | Float64Array | number[],
+  kw: number,
+  kh: number,
+  opts?: ConvOptions,
+): GrayImage {
   const edge = opts?.edge ?? 'clamp';
   const flip = opts?.flip ?? false;
   const out = new Float32Array(img.width * img.height);
@@ -260,8 +266,8 @@ export function convolve2d(img: GrayImage, kernel: Float32Array | number[], kw: 
  */
 export function convolveSeparable(
   img: GrayImage,
-  rowKernel: Float32Array | number[],
-  colKernel: Float32Array | number[],
+  rowKernel: Float32Array | Float64Array | number[],
+  colKernel: Float32Array | Float64Array | number[],
   opts?: ConvOptions,
 ): GrayImage {
   const edge = opts?.edge ?? 'clamp';
@@ -314,7 +320,7 @@ export function gaussianKernel1d(sigma: number): Float64Array {
     k[i] = Math.exp(-0.5 * d * d);
     sum += k[i]!;
   }
-  for (let i = 0; i < size; i += 1) k[i] /= sum;
+  for (let i = 0; i < size; i += 1) k[i] = k[i]! / sum;
   return k;
 }
 
@@ -362,7 +368,12 @@ export function sobelMagnitude(img: GrayImage): GrayImage {
  * is returned. The convolution-theorem benchmark compares this against the
  * direct spatial convolution.
  */
-export function fftConvolve2d(img: GrayImage, kernel: Float32Array | number[], kw: number, kh: number): GrayImage {
+export function fftConvolve2d(
+  img: GrayImage,
+  kernel: Float32Array | Float64Array | number[],
+  kw: number,
+  kh: number,
+): GrayImage {
   const W = nextPow2(img.width + kw - 1);
   const H = nextPow2(img.height + kh - 1);
   const are = new Float64Array(W * H);
@@ -400,7 +411,7 @@ export function histogram(img: GrayImage): Float64Array {
   const hist = new Float64Array(256);
   for (let i = 0; i < img.data.length; i += 1) {
     const v = Math.min(255, Math.max(0, Math.round(img.data[i]!)));
-    hist[v] += 1;
+    hist[v] = hist[v]! + 1;
   }
   return hist;
 }
@@ -437,7 +448,8 @@ export function histogramVariance(img: GrayImage, bins = 16): number {
   const hist = new Float64Array(bins);
   for (let i = 0; i < img.data.length; i += 1) {
     const v = Math.min(255, Math.max(0, Math.round(img.data[i]!)));
-    hist[Math.min(bins - 1, Math.floor((v / 256) * bins))] += 1;
+    const idx = Math.min(bins - 1, Math.floor((v / 256) * bins));
+    hist[idx] = hist[idx]! + 1;
   }
   const n = img.data.length;
   const mean = 1 / bins;

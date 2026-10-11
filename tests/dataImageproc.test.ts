@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest';
 import {
   IMAGEPROC_BENCHMARK,
   convolve2d,
-  convolveSeparable,
   fft2d,
   fftConvolve2d,
   gaussianBlur,
