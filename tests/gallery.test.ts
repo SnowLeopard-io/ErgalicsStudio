@@ -274,6 +274,27 @@ ${rawRows(50, (i) => `<td>Person${i}</td><td>p${i}@lab.example</td><td>City${i}<
     expect(out).not.toContain('13.1,0.51,6.97,22.0');
     expect(out).toContain('p=0.031, r2=0.98');
   });
+
+  it('a 32-bit seed column is NOT a phone — summary table survives (issue #56)', () => {
+    const html = `<table><thead><tr><th>Run</th><th>Source</th><th>Seed</th><th>Created</th><th>Metrics</th></tr></thead><tbody>
+<tr><td><code>abc12345</code> run A</td><td>import</td><td>123456</td><td>2026-01-01T00:00:00.000Z</td><td>p=0.031</td></tr>
+<tr><td><code>def67890</code> run B</td><td>import</td><td>4294967295</td><td>2026-01-02T00:00:00.000Z</td><td>p=0.002</td></tr>
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('<table>');
+    expect(out).toContain('123456');
+    expect(out).not.toContain('data rows removed for privacy');
+  });
+
+  it('real phone numbers are still stripped (issue #56)', () => {
+    const html = `<table><thead><tr><th>name</th><th>phone</th><th>city</th><th>zip</th></tr></thead><tbody>
+<tr><td>Alice</td><td>+86 138-0000-1000</td><td>Shanghai</td><td>200000</td></tr>
+<tr><td>Bob</td><td>010-1234-5678</td><td>Beijing</td><td>100000</td></tr>
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('data rows removed for privacy');
+    expect(out).not.toContain('138-0000-1000');
+  });
 });
 
 // ---------------------------------------------------------------------------
