@@ -842,6 +842,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   gitAddRemote: async (name: string, url: string) => {
+    assertValidGitRef(name, 'remote');
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
