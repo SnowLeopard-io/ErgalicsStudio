@@ -17,6 +17,9 @@ import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry'
 /** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
 const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
 
+/** Research-suite groups (in launcher order) for the sidebar research view. */
+const RESEARCH_GROUP_IDS = ['measure', 'model', 'data', 'signal', 'deliver'] as const;
+
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
 
@@ -204,6 +207,41 @@ export function Sidebar() {
       {sidebarView === 'files' && <FileExplorer />}
 
       {sidebarView === 'git' && <GitPanel alwaysOpen />}
+
+      {sidebarView === 'research' && (
+      <nav className="sidebar-group">
+        {RESEARCH_GROUP_IDS.map((group) => {
+          const tools = RESEARCH_TOOLS.filter((tool) => tool.group === group);
+          if (tools.length === 0) return null;
+          return (
+            <section key={group} className="plugin-group">
+              <h3 className="sidebar-heading">{t(`tool.group.${group}`)}</h3>
+              <ul className="plugin-list">
+                {tools.map((tool) => {
+                  const active = activeTab === `tool:${tool.id}`;
+                  return (
+                    <li key={tool.id}>
+                      <button
+                        type="button"
+                        className={`plugin-item util-item${active ? ' active' : ''}`}
+                        title={t(tool.descKey)}
+                        onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
+                      >
+                        <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                        <span className="util-item-text">
+                          <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                          <span className="util-item-desc">{t(tool.descKey)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </nav>
+      )}
 
       {sidebarView === 'tools' && (
       <nav className="sidebar-group">

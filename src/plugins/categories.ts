@@ -12,7 +12,9 @@
 export type PluginDiscipline =
   | 'charts'
   | 'stats'
+  | 'math'
   | 'physics'
+  | 'engineering'
   | 'astro'
   | 'fx'
   | 'chem'
@@ -20,6 +22,8 @@ export type PluginDiscipline =
   | 'geo'
   | 'env'
   | 'materials'
+  | 'econ'
+  | 'psych'
   | 'data'
   | 'fun';
 
@@ -32,7 +36,9 @@ export interface DisciplineInfo {
 export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
+  { id: 'math', nameI18n: { 'zh-CN': '数学方法', 'en-US': 'Mathematics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
+  { id: 'engineering', nameI18n: { 'zh-CN': '工程仿真', 'en-US': 'Engineering' } },
   { id: 'astro', nameI18n: { 'zh-CN': '天文', 'en-US': 'Astronomy' } },
   { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
@@ -40,6 +46,8 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'env', nameI18n: { 'zh-CN': '环境', 'en-US': 'Environmental' } },
   { id: 'materials', nameI18n: { 'zh-CN': '材料学', 'en-US': 'Materials' } },
+  { id: 'econ', nameI18n: { 'zh-CN': '经济与金融', 'en-US': 'Economics' } },
+  { id: 'psych', nameI18n: { 'zh-CN': '心理与行为', 'en-US': 'Psychology' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
 ];

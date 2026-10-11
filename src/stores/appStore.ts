@@ -66,7 +66,7 @@ const DEFAULT_PERF: PerfMetrics = {
 };
 
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
-export type SidebarView = 'files' | 'plugins' | 'git' | 'tools';
+export type SidebarView = 'files' | 'plugins' | 'git' | 'tools' | 'research';
 
 /** Kind of the central file preview — decides which view CentralArea renders. */
 export type FilePreviewKind =
@@ -267,7 +267,7 @@ const PANEL_DEFAULTS = {
   sidebarView: 'plugins' as SidebarView,
 };
 
-const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools'];
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
 
 function loadPanelPrefs(): typeof PANEL_DEFAULTS {
   try {

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
@@ -668,7 +668,67 @@ export function CentralArea() {
   // Editor tab with unsaved edits pending a close confirmation (design doc
   // P5): key of the tab, null when no confirmation is active.
   const [confirmCloseKey, setConfirmCloseKey] = useState<string | null>(null);
+  // Tab strip panning: the scrollbar stays hidden, so the strip pans via
+  // wheel (vertical delta → horizontal) and mouse drag; a small movement
+  // threshold keeps tab clicks working while dragging pans the row. The
+  // active tab also auto-scrolls into view when tabs switch or open.
+  const tabStripRef = useRef<HTMLDivElement | null>(null);
+  const setTabStripEl = useCallback((el: HTMLDivElement | null) => {
+    tabStripRef.current = el;
+    if (!el) return;
+    let dragging = false;
+    let moved = false;
+    let suppressClick = false;
+    let startX = 0;
+    let startScroll = 0;
+    el.addEventListener('wheel', (e) => {
+      const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!dx || el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollLeft += dx;
+    }, { passive: false });
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      moved = false;
+      startX = e.clientX;
+      startScroll = el.scrollLeft;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 4) {
+        moved = true;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('is-dragging');
+      }
+      if (moved) el.scrollLeft = startScroll - dx;
+    });
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('is-dragging');
+      // A drag ending over a tab must not also activate it.
+      suppressClick = moved;
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('click', (e) => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+  }, []);
   const showPluginCanvas = useAppStore((s) => s.showPluginCanvas);
+  // Keep the active tab visible: switching tabs (or opening one beyond the
+  // visible edge of the pannable strip) nudges the strip so it stays in view.
+  useEffect(() => {
+    const el = tabStripRef.current;
+    if (!el || !activeTab) return;
+    el.querySelector<HTMLElement>('.central-tool-tab.active')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, canvasTabs.length]);
   // 插件画布标签：只要当前激活了插件、或本次会话曾激活过（切到文件/
   // 套件标签时插件会被自动停用以省资源），标签就常驻标签条，点击可
   // 恢复插件视图。真正卸载（uninstall）后 registry 中已无条目，标签消失。
@@ -992,7 +1052,7 @@ export function CentralArea() {
           activeTab 为 null 即插件画布处于前台。 */}
       {(canvasTabs.length > 0 || pluginTabEntry) && (
         <div className="central-overlay-stack">
-          <div className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
+          <div ref={setTabStripEl} className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
             {/* 插件画布标签：点击回到插件视图（不关闭其他标签）。插件被
                 自动停用时标签仍然显示——点击会重新激活它。 */}
             {pluginTabEntry && (

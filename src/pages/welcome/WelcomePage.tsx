@@ -18,6 +18,7 @@ import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templa
 import { siteUrl, docsUrl } from '@/core/site-links';
 import {
   PlusIcon,
+  FileIcon,
   FolderOpenIcon,
   ClockIcon,
   BookIcon,
@@ -277,7 +278,7 @@ export default function WelcomePage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
             >
-              <FolderOpenIcon size={14} /> {t('project.open')}
+              <FileIcon size={14} /> {t('project.open')}
             </button>
             <button
               type="button"

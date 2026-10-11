@@ -171,6 +171,15 @@ export const DownloadIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Plain document glyph (file without a plus) — distinguishes single-file
+    project open from folder import on the welcome CTA row. */
+export const FileIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
+    <path d="M14 3v5h5" />
+  </Svg>
+);
+
 export const FolderOpenIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v2" />

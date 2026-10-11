@@ -545,6 +545,17 @@ button {
   cursor: not-allowed;
 }
 
+/* Destructive menu action (danger: true) — red text with a red hover
+   surface; keeps the token pair from --color-error(-soft). */
+.menu-item.menu-item-danger {
+  color: var(--color-error);
+}
+
+.menu-item.menu-item-danger:hover:not(:disabled) {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
 .menu-separator {
   height: 1px;
   background: var(--color-border);

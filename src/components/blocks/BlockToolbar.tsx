@@ -7,6 +7,7 @@
 
 import { useT } from '@/i18n';
 import { useBlockStore } from '@/stores/blockStore';
+import { translateBlockError } from '@/blocks/errorL10n';
 
 export function BlockToolbar() {
   const t = useT();
@@ -42,13 +43,13 @@ export function BlockToolbar() {
             <div key={`c${i}`} className="block-diagnostic">
               {t('blocks.compile_error', {
                 nodeId: d.nodeId ? `（${d.nodeId}）` : '',
-                message: d.message,
+                message: translateBlockError(d.message, t),
               })}
             </div>
           ))}
           {runErrors.map(([nodeId, msg]) => (
             <div key={nodeId} className="block-diagnostic">
-              {t('blocks.run_error', { nodeId, message: msg })}
+              {t('blocks.run_error', { nodeId, message: translateBlockError(msg, t) })}
             </div>
           ))}
         </div>

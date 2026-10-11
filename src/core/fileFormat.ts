@@ -59,6 +59,8 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.gpx': 'gpx',
   '.asc': 'asc',
   '.kml': 'kml',
+  '.xy': 'xy',
+  '.xye': 'xye',
 };
 
 // ---- Project data-file allowlist -----------------------------------------
@@ -93,6 +95,8 @@ const DATA_FILE_EXTENSIONS = new Set([
   '.gpx',
   '.asc',
   '.kml',
+  '.xy',
+  '.xye',
 ]);
 
 /** Is this file name a supported (text) project data file? */
