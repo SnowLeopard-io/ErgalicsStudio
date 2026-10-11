@@ -141,6 +141,16 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['volumetric', 'clouds', 'raymarching', 'sky', 'ephemeris', 'gpu'],
     popularity: 94,
   },
+  'fx.sky': {
+    category: 'scientific',
+    tags: ['atmosphere', 'rayleigh', 'mie', 'twilight', 'sun', 'moon', 'gpu'],
+    popularity: 95,
+  },
+  'fx.stars': {
+    category: 'scientific',
+    tags: ['stars', 'milky-way', 'bortle', 'light-pollution', 'meteors', 'sidereal', 'gpu'],
+    popularity: 95,
+  },
   'astro.pipeline': {
     category: 'scientific',
     tags: ['astronomy', 'fits', 'ccd', 'photometry', 'calibration', 'pipeline'],

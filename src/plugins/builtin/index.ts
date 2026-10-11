@@ -68,6 +68,8 @@ import { matsThermalManifest } from './mats-thermal/manifest';
 import { blackholeManifest } from './blackhole/manifest';
 import { waterManifest as waterFxManifest } from './water/manifest';
 import { cloudManifest } from './cloud/manifest';
+import { skyManifest } from './sky/manifest';
+import { starsManifest } from './stars/manifest';
 import { astroManifest } from './astro/manifest';
 import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
@@ -340,6 +342,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: cloudManifest,
     load: async () => {
       const mod = await import('./cloud');
+      return mod.default();
+    },
+  },
+  {
+    manifest: skyManifest,
+    load: async () => {
+      const mod = await import('./sky');
+      return mod.default();
+    },
+  },
+  {
+    manifest: starsManifest,
+    load: async () => {
+      const mod = await import('./stars');
       return mod.default();
     },
   },

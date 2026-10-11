@@ -4,3 +4,4 @@
 
 export * from './glsl';
 export * from './astro';
+export * from './sky-base';

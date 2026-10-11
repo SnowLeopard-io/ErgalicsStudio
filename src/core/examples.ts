@@ -2199,6 +2199,116 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'A noisy 10 s frame: 900 e⁻ sky, 9 e⁻ read noise, gain 2.4 e⁻/ADU, FWHM 4.5 px and 25 cosmic rays; stresses CCD-equation SNR and low-SNR detection. The science strip reports background σ and peak-source SNR.',
     },
   },
+  // ---- Daylight sky presets ---------------------------------------------------
+  {
+    id: 'fx-sky-noon-clear',
+    filename: 'fx-sky-noon-clear.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-noon-clear.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 正午晴空（北京）',
+      'en-US': 'FX · Daylight sky — clear noon (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '北京正午（太阳高度约 70°）：低浑浊度（2.5）下的 Rayleigh 蓝天，太阳盘面临边昏暗；科学输出栏给出 Kasten–Young 气团 ≈ 1.45 与「白昼」晨昏蒙影分类。',
+      'en-US':
+        'Beijing noon (sun ~70° high): Rayleigh blue sky at low turbidity (2.5) with a limb-darkened sun disk; the science strip reports Kasten–Young air mass ≈ 1.45 and the "day" twilight band.',
+    },
+  },
+  {
+    id: 'fx-sky-sunset-golden',
+    filename: 'fx-sky-sunset-golden.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-sunset-golden.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 金色日落（北京）',
+      'en-US': 'FX · Daylight sky — golden sunset (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '日落前的低太阳高度：视线穿过更厚的大气，Rayleigh 散射把直射阳光染成橙红，高浑浊度（5.5）加强地平线霾与 Mie 红霞；地影方向的对比色带由物理积分自然产生。',
+      'en-US':
+        'Low sun before sunset: longer light paths redden the direct beam via Rayleigh scattering while high turbidity (5.5) strengthens horizon haze and the Mie glow; the anti-solar belt emerges from the physics, not a gradient trick.',
+    },
+  },
+  {
+    id: 'fx-sky-moonlit-dusk',
+    filename: 'fx-sky-moonlit-dusk.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-moonlit-dusk.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 暮光入夜（昼夜循环）',
+      'en-US': 'FX · Daylight sky — dusk into night (day cycle)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '开启昼夜循环从天文暮光滑向深夜：太阳沉入 −18° 以下时大气积分进入地影，天光熄灭、月光明亮份额上升；科学输出栏实时显示晨昏蒙影分类切换（民用 → 航海 → 天文 → 夜）。',
+      'en-US':
+        'Day cycle sliding from astronomical dusk into deep night: as the sun sinks past −18° the integrator enters the earth shadow, skylight dies and the moon takes over; the science strip tracks the twilight band transitions.',
+    },
+  },
+  // ---- Night-sky presets ------------------------------------------------------
+  {
+    id: 'fx-stars-mauna-kea',
+    filename: 'fx-stars-mauna-kea.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-mauna-kea.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 原始暗夜（莫纳克亚，Bortle 1）',
+      'en-US': 'FX · Starfield — pristine dark sky (Mauna Kea, Bortle 1)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '莫纳克亚（北纬 19.8°）的 Bortle 1 原始暗夜：真实银极（RA 192.86°, Dec +27.13°）锚定的银河带、低视宁度微闪烁与偶发流星；恒星时流开启，约 3 分钟转过全天。极限星等 7.8，肉眼可见星约 24000 颗。',
+      'en-US':
+        'Bortle-1 pristine sky over Mauna Kea (lat 19.8°N): a Milky-Way band anchored on the true galactic pole (RA 192.86°, Dec +27.13°), faint scintillation and occasional meteors. Sidereal time-lapse rotates the whole sky in ~3 min. Limiting mag 7.8, ~24000 naked-eye stars.',
+    },
+  },
+  {
+    id: 'fx-stars-urban-sky',
+    filename: 'fx-stars-urban-sky.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-urban-sky.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 城市夜空（北京，Bortle 8）',
+      'en-US': 'FX · Starfield — inner-city sky (Beijing, Bortle 8)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Bortle 8 市中心夜空：地平线方向暖色光污染穹顶，银河几乎不可见，仅剩亮星（极限星等约 5.0，可见星约 1300 颗）；与莫纳克亚示例对比即可理解光污染对星空的压制。',
+      'en-US':
+        'Bortle-8 inner-city sky: a warm light-pollution dome hugging the horizon, the Milky Way nearly erased, only bright stars survive (limiting mag ~5.0, ~1300 visible). Compare with the Mauna Kea example to see what light pollution does.',
+    },
+  },
+  {
+    id: 'fx-stars-meteor-shower',
+    filename: 'fx-stars-meteor-shower.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-meteor-shower.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 流星雨（拉帕尔马，14 颗/分钟）',
+      'en-US': 'FX · Starfield — meteor shower (La Palma, 14/min)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '拉帕尔马（北纬 28.8°）的流星雨场景：泊松过程调度（指数间隔，均值 4.3 s），每颗流星沿随机大圆划过 9–16° 并带运动头部光晕；开启恒星时流可同时看到天球旋转与流星。',
+      'en-US':
+        'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
+    },
+  },
 ];
 
 /** Localized label for an example. */

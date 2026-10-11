@@ -1104,6 +1104,22 @@
   color: var(--color-text-primary);
 }
 
+/* Deep-link cluster: carry the plugin's staged data file into an embedded
+   research suite. Pushed to the far end of the strip so metrics read first. */
+.science-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.science-strip-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
 .science-metric-unit {
   font-weight: 400;
   color: var(--color-text-tertiary);
@@ -6643,10 +6659,14 @@ button.start-card:hover {
 }
 
 /* Tool pages scroll in the shell — clear the dialog-era inner height cap so
-   a lab never renders a nested scrollbar inside the page scroll. */
+   a lab never renders a nested scrollbar inside the page scroll. The rules
+   below also zero the rows' modal-era bottom margins, so give the flex
+   container itself a column gap or buttons / result blocks stack with no
+   vertical breathing room (pressed against the row above or below). */
 .tool-content .analysis-body {
   max-height: none;
   overflow: visible;
+  gap: var(--space-3);
 }
 
 /* Section headers: a quiet accent tick + clear separation, calmer than the
@@ -8454,4 +8474,376 @@ button.start-card:hover {
   gap: var(--space-3);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Utility toolkit pages (unit-convert / calc / format-convert / sigfig /
+   molar-mass / quick-stats) — shared instrument-panel styling.
+   ========================================================================== */
+
+/* Utility pages follow the research-suite layout: plain full-width sections
+   inside .tool-content (no card boxes, no narrow centered column). */
+.util-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.util-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.util-card-title {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.util-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.util-between {
+  justify-content: space-between;
+}
+
+.util-flex1 {
+  flex: 1;
+}
+
+.util-grow {
+  flex: 1;
+  min-width: 120px;
+}
+
+.util-mono {
+  font-family: var(--font-mono);
+}
+
+.util-dim {
+  opacity: 0.45;
+}
+
+.util-readout {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  color: var(--color-accent-text);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.util-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.util-error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+}
+
+.util-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.util-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.util-table th {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border-strong);
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.util-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+/* Deg/rad + sf/dec segmented toggle */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.seg-btn {
+  padding: 4px 12px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.seg-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.seg-btn-on,
+.seg-btn-on:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+/* Clickable symbol/function chips (calc, molar-mass samples) */
+.util-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.util-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.util-chip:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+/* ---- unit converter ---- */
+
+.uc-io {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.uc-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.uc-swap {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.uc-target {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.uc-sym {
+  width: 90px;
+  color: var(--color-text-secondary);
+}
+
+.uc-val {
+  color: var(--color-text-primary);
+}
+
+/* ---- formula calculator ---- */
+
+.calc-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.calc-history-row {
+  cursor: pointer;
+}
+
+.calc-history-row:hover td {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.calc-history-val {
+  color: var(--color-accent-text);
+  text-align: right;
+}
+
+.calc-const-sym {
+  color: var(--color-accent-text);
+}
+
+.calc-const-unit {
+  color: var(--color-text-tertiary);
+  text-align: right;
+}
+
+/* ---- format converter ---- */
+
+.fc-drop {
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.fc-drop:hover,
+.fc-drop:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-text-secondary);
+}
+
+.fc-drop-drag {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.fc-input {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.fc-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ---- significant figures ---- */
+
+.sf-n-input {
+  width: 76px;
+}
+
+.sf-out {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+/* ---- quick stats ---- */
+
+.qs-input {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.qs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.qs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.qs-stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.qs-stat-value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.qs-histogram {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.qs-histogram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---- Sidebar tools view (activity bar → toolkit) ---- */
+
+.util-item {
+  align-items: flex-start;
+}
+
+.util-item .plugin-icon {
+  margin-top: 2px;
+}
+
+.util-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.util-item-desc {
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-text-tertiary);
 }

@@ -90,6 +90,8 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'fx.blackhole': 'fx',
   'fx.water': 'fx',
   'fx.cloud': 'fx',
+  'fx.sky': 'fx',
+  'fx.stars': 'fx',
 
   // Chemistry
   'example.chem-crystal': 'chem',

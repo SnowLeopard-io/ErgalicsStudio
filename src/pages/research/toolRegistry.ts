@@ -13,7 +13,15 @@ import type { NavigateFunction } from 'react-router-dom';
 import { useAppStore } from '@/stores/appStore';
 import type { ToolIconKind } from '@/components/icons';
 
-export type ResearchGroupId = 'measure' | 'model' | 'data' | 'signal' | 'deliver';
+export type ResearchGroupId =
+  | 'measure'
+  | 'model'
+  | 'data'
+  | 'signal'
+  | 'deliver'
+  /** Lightweight no-project utilities (converters, calculators). Rendered as
+   *  the last group in the launchers, visually separate from research suites. */
+  | 'utils';
 
 export interface ResearchTool {
   /** Stable id, also the /studio/<id> slug. */
@@ -120,9 +128,30 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('gallery', () => import('@/pages/gallery/GalleryPage'), {
     icon: 'gallery', titleKey: 'tool.gallery.title', group: 'deliver',
   }),
+  // ---- utility toolkit (no project required) ------------------------------
+  tool('unit-convert', () => import('@/pages/utils/UnitConvertPage'), {
+    icon: 'units', titleKey: 'tool.unit-convert.title', group: 'utils',
+  }),
+  tool('calc', () => import('@/pages/utils/CalcPage'), {
+    icon: 'calc', titleKey: 'tool.calc.title', group: 'utils',
+  }),
+  tool('format-convert', () => import('@/pages/utils/FormatConvertPage'), {
+    icon: 'convert', titleKey: 'tool.format-convert.title', group: 'utils',
+  }),
+  tool('sigfig', () => import('@/pages/utils/SigFigPage'), {
+    icon: 'sigfig', titleKey: 'tool.sigfig.title', group: 'utils',
+  }),
+  tool('molar-mass', () => import('@/pages/utils/MolarMassPage'), {
+    icon: 'molar', titleKey: 'tool.molar-mass.title', group: 'utils',
+  }),
+  tool('quick-stats', () => import('@/pages/utils/QuickStatsPage'), {
+    icon: 'quickstats', titleKey: 'tool.quick-stats.title', group: 'utils',
+  }),
 ];
 
-export const GRID_GROUPS: ResearchGroupId[] = ['measure', 'model', 'data', 'signal', 'deliver'];
+export const GRID_GROUPS: ResearchGroupId[] = [
+  'measure', 'model', 'data', 'signal', 'deliver', 'utils',
+];
 
 const BY_ID = new Map(RESEARCH_TOOLS.map((x) => [x.id, x]));
 

@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState, type CSSProperties, type AnimationEvent } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { ChevronRightIcon, ChevronLeftIcon } from '@/components/icons';
+import { ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useAppStore } from '@/stores/appStore';
+import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+
+/** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
+const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
@@ -46,6 +50,7 @@ function persistCollapsedGroups(collapsed: Partial<Record<string, boolean>>): vo
 export function Sidebar() {
   const t = useT();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const registry = usePluginStore((s) => s.registry);
   const activeId = usePluginStore((s) => s.activeId);
@@ -60,6 +65,7 @@ export function Sidebar() {
   const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
+  const activeTab = useAppStore((s) => s.activeTab);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
 
   /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
@@ -198,6 +204,33 @@ export function Sidebar() {
       {sidebarView === 'files' && <FileExplorer />}
 
       {sidebarView === 'git' && <GitPanel alwaysOpen />}
+
+      {sidebarView === 'tools' && (
+      <nav className="sidebar-group">
+        <h3 className="sidebar-heading">{t('tool.group.utils')}</h3>
+        <ul className="plugin-list">
+          {UTIL_TOOLS.map((tool) => {
+            const active = activeTab === `tool:${tool.id}`;
+            return (
+              <li key={tool.id}>
+                <button
+                  type="button"
+                  className={`plugin-item util-item${active ? ' active' : ''}`}
+                  title={t(tool.descKey)}
+                  onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
+                >
+                  <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                  <span className="util-item-text">
+                    <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                    <span className="util-item-desc">{t(tool.descKey)}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+      )}
 
       {sidebarView === 'plugins' && (
       <nav className="sidebar-group">
