@@ -82,6 +82,38 @@ import { carbonManifest } from './env/carbonManifest';
 import { biodiversityManifest } from './env/biodiversityManifest';
 import { plumeManifest } from './env/plumeManifest';
 import { earth3dManifest } from './env/earth3dManifest';
+import { chemTitrationManifest } from './chem-titration/manifest';
+import { chemReactionOrderManifest } from './chem-reaction-order/manifest';
+import { chemTuringManifest } from './chem-turing/manifest';
+import { schrodingerManifest } from './physics-schrodinger/manifest';
+import { isingManifest } from './physics-ising/manifest';
+import { heatEngineManifest } from './physics-heatengine/manifest';
+import { physicsDiffusionManifest } from './physics-diffusion/manifest';
+import { physicsDiffractionManifest } from './physics-diffraction/manifest';
+import { physicsTrajectoryManifest } from './physics-trajectory/manifest';
+import { engCircuitManifest } from './eng-circuit/manifest';
+import { engTrussManifest } from './eng-truss/manifest';
+import { engControlManifest } from './eng-control/manifest';
+import { bioPkManifest } from './bio-pk/manifest';
+import { bioMendelManifest } from './bio-mendel/manifest';
+import { bioNeuronManifest } from './bio-neuron/manifest';
+import { envPredatorPreyManifest } from './env-predator-prey/manifest';
+import { carbonDatingManifest } from './geo-carbondating/manifest';
+import { soilWaterManifest } from './geo-soilwater/manifest';
+import { hydrologyManifest } from './geo-hydrology/manifest';
+import { mathFourierManifest } from './math-fourier/manifest';
+import { mathDomaincolorManifest } from './math-domaincolor/manifest';
+import { mathOdefieldManifest } from './math-odefield/manifest';
+import { statsCltManifest } from './stats-clt/manifest';
+import { statsMarkovManifest } from './stats-markov/manifest';
+import { statsZipfManifest } from './stats-zipf/manifest';
+import { blackscholesManifest } from './econ-blackscholes/manifest';
+import { evogameManifest } from './econ-evogame/manifest';
+import { sdtManifest } from './psych-sdt/manifest';
+import { rtManifest } from './psych-rt/manifest';
+import { astroTransitManifest } from './astro-transit/manifest';
+import { astroHrdiagramManifest } from './astro-hrdiagram/manifest';
+import { dataImageprocManifest } from './data-imageproc/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -443,6 +475,239 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: earth3dManifest,
     load: async () => {
       const mod = await import('./env/earth3d');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: chemistry (research-grade kernels) -------------------
+  {
+    manifest: chemTitrationManifest,
+    load: async () => {
+      const mod = await import('./chem-titration');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemReactionOrderManifest,
+    load: async () => {
+      const mod = await import('./chem-reaction-order');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemTuringManifest,
+    load: async () => {
+      const mod = await import('./chem-turing');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: physics (research-grade kernels) ---------------------
+  {
+    manifest: schrodingerManifest,
+    load: async () => {
+      const mod = await import('./physics-schrodinger');
+      return mod.default();
+    },
+  },
+  {
+    manifest: isingManifest,
+    load: async () => {
+      const mod = await import('./physics-ising');
+      return mod.default();
+    },
+  },
+  {
+    manifest: heatEngineManifest,
+    load: async () => {
+      const mod = await import('./physics-heatengine');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsDiffusionManifest,
+    load: async () => {
+      const mod = await import('./physics-diffusion');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsDiffractionManifest,
+    load: async () => {
+      const mod = await import('./physics-diffraction');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsTrajectoryManifest,
+    load: async () => {
+      const mod = await import('./physics-trajectory');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: engineering (research-grade kernels) ------------------
+  {
+    manifest: engCircuitManifest,
+    load: async () => {
+      const mod = await import('./eng-circuit');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engTrussManifest,
+    load: async () => {
+      const mod = await import('./eng-truss');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engControlManifest,
+    load: async () => {
+      const mod = await import('./eng-control');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: biology & environment (research-grade kernels) --------
+  {
+    manifest: bioPkManifest,
+    load: async () => {
+      const mod = await import('./bio-pk');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioMendelManifest,
+    load: async () => {
+      const mod = await import('./bio-mendel');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioNeuronManifest,
+    load: async () => {
+      const mod = await import('./bio-neuron');
+      return mod.default();
+    },
+  },
+  {
+    manifest: envPredatorPreyManifest,
+    load: async () => {
+      const mod = await import('./env-predator-prey');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: earth science (research-grade kernels) ----------------
+  {
+    manifest: carbonDatingManifest,
+    load: async () => {
+      const mod = await import('./geo-carbondating');
+      return mod.default();
+    },
+  },
+  {
+    manifest: soilWaterManifest,
+    load: async () => {
+      const mod = await import('./geo-soilwater');
+      return mod.default();
+    },
+  },
+  {
+    manifest: hydrologyManifest,
+    load: async () => {
+      const mod = await import('./geo-hydrology');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: mathematics (research-grade kernels) ------------------
+  {
+    manifest: mathFourierManifest,
+    load: async () => {
+      const mod = await import('./math-fourier');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathDomaincolorManifest,
+    load: async () => {
+      const mod = await import('./math-domaincolor');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathOdefieldManifest,
+    load: async () => {
+      const mod = await import('./math-odefield');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: statistics (research-grade kernels) -------------------
+  {
+    manifest: statsCltManifest,
+    load: async () => {
+      const mod = await import('./stats-clt');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMarkovManifest,
+    load: async () => {
+      const mod = await import('./stats-markov');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsZipfManifest,
+    load: async () => {
+      const mod = await import('./stats-zipf');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: economics & psychology (research-grade kernels) -------
+  {
+    manifest: blackscholesManifest,
+    load: async () => {
+      const mod = await import('./econ-blackscholes');
+      return mod.default();
+    },
+  },
+  {
+    manifest: evogameManifest,
+    load: async () => {
+      const mod = await import('./econ-evogame');
+      return mod.default();
+    },
+  },
+  {
+    manifest: sdtManifest,
+    load: async () => {
+      const mod = await import('./psych-sdt');
+      return mod.default();
+    },
+  },
+  {
+    manifest: rtManifest,
+    load: async () => {
+      const mod = await import('./psych-rt');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: astronomy & data (research-grade kernels) -------------
+  {
+    manifest: astroTransitManifest,
+    load: async () => {
+      const mod = await import('./astro-transit');
+      return mod.default();
+    },
+  },
+  {
+    manifest: astroHrdiagramManifest,
+    load: async () => {
+      const mod = await import('./astro-hrdiagram');
+      return mod.default();
+    },
+  },
+  {
+    manifest: dataImageprocManifest,
+    load: async () => {
+      const mod = await import('./data-imageproc');
       return mod.default();
     },
   },

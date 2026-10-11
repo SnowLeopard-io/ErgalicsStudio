@@ -90,9 +90,17 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
   'example.fluid-cfd-coupler': 'physics',
+  'example.physics-schrodinger': 'physics',
+  'example.physics-ising': 'physics',
+  'example.physics-heatengine': 'physics',
+  'example.physics-diffusion': 'physics',
+  'example.physics-diffraction': 'physics',
+  'example.physics-trajectory': 'physics',
 
-  // Astronomy (research CCD pipeline)
+  // Astronomy (research CCD pipeline + research-grade kernels)
   'astro.pipeline': 'astro',
+  'example.astro-transit': 'astro',
+  'example.astro-hrdiagram': 'astro',
 
   // Visual FX (GPU ray tracing / fluid rendering)
   'fx.blackhole': 'fx',
@@ -104,6 +112,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   // Chemistry
   'example.chem-crystal': 'chem',
   'example.chem-reaction': 'chem',
+  'example.chem-titration': 'chem',
+  'example.chem-reaction-order': 'chem',
+  'example.chem-turing': 'chem',
 
   // Geography
   'example.geomap': 'geo',
@@ -116,6 +127,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-terrain': 'geo',
   'example.geo-gpx': 'geo',
   'example.geo-globe': 'geo',
+  'example.geo-carbondating': 'geo',
+  'example.geo-soilwater': 'geo',
+  'example.geo-hydrology': 'geo',
 
   // Environmental science
   'example.env-aqi': 'env',
@@ -125,11 +139,17 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.env-biodiversity': 'env',
   'example.env-plume': 'env',
   'example.env-earth3d': 'env',
+  'example.env-predator-prey': 'env',
 
   // Materials science
   'example.mats-xrd': 'materials',
   'example.mats-mech': 'materials',
   'example.mats-thermal': 'materials',
+
+  // Engineering
+  'example.eng-circuit': 'engineering',
+  'example.eng-truss': 'engineering',
+  'example.eng-control': 'engineering',
 
   // Biology
   'example.protein': 'bio',
@@ -137,9 +157,29 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.bio-epidemic': 'bio',
   'example.bio-seqalign': 'bio',
   'example.bio-popgen': 'bio',
+  'example.bio-pk': 'bio',
+  'example.bio-mendel': 'bio',
+  'example.bio-neuron': 'bio',
 
   // Data & AI
   'example.ai-training': 'data',
+  'example.data-imageproc': 'data',
+
+  // Mathematics (research-grade kernels)
+  'example.math-fourier': 'math',
+  'example.math-domaincolor': 'math',
+  'example.math-odefield': 'math',
+
+  // Statistics (research-grade kernels)
+  'example.stats-clt': 'stats',
+  'example.stats-markov': 'stats',
+  'example.stats-zipf': 'stats',
+
+  // Economics & psychology (research-grade kernels)
+  'example.econ-blackscholes': 'econ',
+  'example.econ-evogame': 'econ',
+  'example.psych-sdt': 'psych',
+  'example.psych-rt': 'psych',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

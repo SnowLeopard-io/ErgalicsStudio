@@ -315,13 +315,14 @@ describe('env suite registration', () => {
   it('every env plugin belongs to the env discipline', () => {
     for (const id of ENV_IDS) expect(disciplineOf(id)).toBe('env');
   });
-  it('four env samples are registered for the 示例 dialog', () => {
+  it('five env samples are registered for the 示例 dialog', () => {
     const envExamples = BUILTIN_EXAMPLES.filter((e) => e.pluginId.startsWith('example.env-'));
     expect(envExamples.map((e) => e.id).sort()).toEqual(
       [
         'env-aqi-week',
         'env-biodiversity-sites',
         'env-carbon-pools',
+        'env-hudson-bay-lynx-hare',
         'env-water-river',
       ].sort(),
     );

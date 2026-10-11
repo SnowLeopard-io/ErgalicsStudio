@@ -82,6 +82,19 @@ import envAqiWeekCsv from '../../examples/data/env-aqi-week.csv?raw';
 import envWaterRiverCsv from '../../examples/data/env-water-river.csv?raw';
 import envBiodiversitySitesCsv from '../../examples/data/env-biodiversity-sites.csv?raw';
 import envCarbonPoolsCsv from '../../examples/data/env-carbon-pools.csv?raw';
+import chemN2o5Csv from '../../examples/data/chem-n2o5-decomp.csv?raw';
+import physProjectileCsv from '../../examples/data/phys-projectile-45deg.csv?raw';
+import engLadderNetlistJson from '../../examples/data/eng-ladder-netlist.json?raw';
+import engTrussBridgeJson from '../../examples/data/eng-truss-bridge.json?raw';
+import mendelF2Csv from '../../examples/data/mendel-f2-seven-traits.csv?raw';
+import hudsonBayCsv from '../../examples/data/hudson-bay-lynx-hare.csv?raw';
+import geoIntcal20ExcerptCsv from '../../examples/data/intcal20-excerpt.csv?raw';
+import geoVgSandRetentionCsv from '../../examples/data/vg-sand-retention.csv?raw';
+import geoStormHyetographCsv from '../../examples/data/usgs-storm-hyetograph.csv?raw';
+import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
+import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
+import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
+import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
 import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
@@ -2307,6 +2320,254 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '拉帕尔马（北纬 28.8°）的流星雨场景：泊松过程调度（指数间隔，均值 4.3 s），每颗流星沿随机大圆划过 9–16° 并带运动头部光晕；开启恒星时流可同时看到天球旋转与流星。',
       'en-US':
         'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
+    },
+  },
+  // ---- Research suite samples (numeric kernels with real/synthetic data) ----
+  {
+    id: 'chem-n2o5-decomp',
+    filename: 'chem-n2o5-decomp.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.chem-reaction-order',
+    group: 'chem',
+    content: chemN2o5Csv,
+    nameI18n: {
+      'zh-CN': '反应级数 · N₂O₅ 分解动力学',
+      'en-US': 'Reaction Order · N₂O₅ Decomposition Kinetics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '五氧化二氮分解 c–t 数据（41 点，约 1600 s），按文献速率常数 k≈3.46e-3 s⁻¹（~315 °C）合成，含 1% 高斯噪声。加载后积分法 R² 判优应判为一级，半衰期法交叉验证一致。',
+      'en-US':
+        'c–t data for N2O5 decomposition (41 points over ~1600 s), synthesised from the literature rate constant k ≈ 3.46e-3 s⁻¹ (~315 °C) with 1% Gaussian noise. R² screening should decide first order, cross-checked by the half-life method.',
+    },
+  },
+  {
+    id: 'phys-projectile-45deg',
+    filename: 'phys-projectile-45deg.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.physics-trajectory',
+    group: 'physics',
+    content: physProjectileCsv,
+    nameI18n: {
+      'zh-CN': '物理 · 抛体轨迹（45°，含 0.5% 噪声）',
+      'en-US': 'Physics · Projectile trajectory (45°, 0.5 % noise)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '合成抛体采样轨迹：v0 = 20 m/s、θ = 45°、g = 9.81 m/s²、50 点、乘性高斯噪声 0.5%（种子 20251011）。加载后线性化最小二乘拟合可回收 v0 与 θ（相对误差 <1%），并给出 KE/PE 能量分解。',
+      'en-US':
+        'Synthetic projectile samples: v0 = 20 m/s, θ = 45°, g = 9.81 m/s², 50 points, 0.5 % multiplicative Gaussian noise (seed 20251011). The linearized least-squares fit recovers v0 and θ within 1 % relative error, with KE/PE energy decomposition.',
+    },
+  },
+  {
+    id: 'eng-ladder-netlist',
+    filename: 'eng-ladder-netlist.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-circuit',
+    group: 'engineering',
+    content: engLadderNetlistJson,
+    nameI18n: {
+      'zh-CN': '工程 · T 型梯形电阻网络',
+      'en-US': 'Engineering · T-type Ladder Resistor Network',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 V 电压源带 R1=1kΩ、R2=R3=2kΩ 的 T 型梯形网络，解析解 v_mid = v_out = 8 V。点击「解算电路」用改进节点法求解，并查看各节点电压与 Tellegen 功率平衡自检。',
+      'en-US':
+        'A 12 V source driving a T-ladder with R1 = 1 kΩ, R2 = R3 = 2 kΩ; the analytic solution is v_mid = v_out = 8 V. Press "Solve circuit" for the MNA node voltages with a Tellegen power-balance self-check.',
+    },
+  },
+  {
+    id: 'eng-truss-bridge',
+    filename: 'eng-truss-bridge.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-truss',
+    group: 'engineering',
+    content: engTrussBridgeJson,
+    nameI18n: {
+      'zh-CN': '工程 · 5 节点简支桁架桥',
+      'en-US': 'Engineering · 5-node Simply-supported Truss Bridge',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'E=200 GPa、A=3000 mm² 的 7 杆简支桁架桥，跨中下弦节点承受 50 kN 竖向载荷；两端竖向反力各 25 kN，顶弦受压、底弦受拉。点击「解算桁架」查看位移、轴力着色与可调放大系数的变形叠加。',
+      'en-US':
+        'A 7-member simply-supported truss bridge (E = 200 GPa, A = 3000 mm²) with a 50 kN vertical load on the mid bottom-chord node; end reactions are 25 kN each, top chord in compression and bottom chord in tension. Press "Solve truss" for displacements, axial-force coloring and a deformed-shape overlay with an adjustable scale.',
+    },
+  },
+  {
+    id: 'bio-mendel-f2-seven-traits',
+    filename: 'mendel-f2-seven-traits.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-mendel',
+    group: 'bio',
+    content: mendelF2Csv,
+    nameI18n: {
+      'zh-CN': '孟德尔 F₂ · 七性状二项分离检验',
+      'en-US': "Mendel's F₂ · Seven-Trait Segregation Test",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '孟德尔（1866）豌豆 F₂ 代分离计数：七个性状的 3:1 显性分离与二粒杂交种子 9:3:3:1，共 18 组。加载后逐性状做卡方拟合优度检验，并给出 df=10 的合并检验 χ² 与 p 值。',
+      'en-US':
+        "Mendel's (1866) F₂ counts: seven monohybrid 3:1 traits plus the dihybrid seed 9:3:3:1 experiment, 18 groups in total. Load it for per-trait χ² goodness-of-fit tests and the pooled df=10 χ² with its p-value.",
+    },
+  },
+  {
+    id: 'env-hudson-bay-lynx-hare',
+    filename: 'hudson-bay-lynx-hare.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-predator-prey',
+    group: 'env',
+    content: hudsonBayCsv,
+    nameI18n: {
+      'zh-CN': '哈德逊湾 · 猞猁-野兔毛皮回报序列',
+      'en-US': 'Hudson Bay · Lynx–Hare Fur Returns',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '哈德逊湾公司 1849–1890 年猞猁与野兔配对年毛皮回报（Elton & Nicholson 1942 数字化），42 行。加载后自动做 Lotka-Volterra 线性化回归拟合 α/β/γ/δ 并叠加相图轨道，呈现著名的约 10 年捕食-被捕食周期。',
+      'en-US':
+        'Paired annual lynx and hare fur returns of the Hudson Bay Company, 1849-1890 (digitized by Elton & Nicholson 1942), 42 rows. Loading runs the linearized Lotka-Volterra regression for α/β/γ/δ, overlays the fitted orbit and reveals the famous ~10-year predator-prey cycle.',
+    },
+  },
+  {
+    id: 'geo-carbondating-intcal20',
+    filename: 'intcal20-excerpt.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-carbondating',
+    group: 'geo',
+    content: geoIntcal20ExcerptCsv,
+    nameI18n: {
+      'zh-CN': '碳定年 · IntCal20 校准曲线节选（0–14000 cal BP）',
+      'en-US': 'Radiocarbon · IntCal20 Calibration Excerpt (0-14000 cal BP)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'IntCal20（Reimer et al. 2020）大气 ¹⁴C 校准曲线官方节选：0–14000 cal BP、每 50 年一行共 281 行（cal_bp, c14_age, sigma）。载入后自动完成似然剖面校准，给出最佳日历年与 1σ/2σ 区间。',
+      'en-US':
+        'Official IntCal20 (Reimer et al. 2020) atmospheric 14C calibration excerpt: 0-14000 cal BP on the 50-year grid, 281 rows (cal_bp, c14_age, sigma). Loading runs the likelihood-profile calibration for the best calendar age with 1σ/2σ ranges.',
+    },
+  },
+  {
+    id: 'geo-soilwater-sand',
+    filename: 'vg-sand-retention.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-soilwater',
+    group: 'geo',
+    content: geoVgSandRetentionCsv,
+    nameI18n: {
+      'zh-CN': '土壤水 · 砂土持水曲线合成数据（19 点）',
+      'en-US': 'Soil Water · Synthetic Sand Retention Dataset (19 points)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '吸力 1–15000 cm 的 19 个 θ(h) 点：以 van Genuchten (1980) 表 1 砂土参数（θr=0.045、θs=0.430、α=0.145 cm⁻¹、n=2.68）加 1% 乘性高斯噪声按种子复现生成（文件头注明）。载入即触发 LM 拟合并回收参数。',
+      'en-US':
+        '19 theta(h) points from 1-15000 cm: generated reproducibly from the van Genuchten (1980) Table 1 sand parameters (θr=0.045, θs=0.430, α=0.145 cm⁻¹, n=2.68) with 1% multiplicative Gaussian noise (seed documented in the header). Loading triggers the LM fit and parameter recovery.',
+    },
+  },
+  {
+    id: 'geo-hydrology-design-storm',
+    filename: 'usgs-storm-hyetograph.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-hydrology',
+    group: 'geo',
+    content: geoStormHyetographCsv,
+    nameI18n: {
+      'zh-CN': '水文 · 6 小时 90 mm 设计暴雨雨型',
+      'en-US': 'Hydrology · 6-hour 90 mm Design-Storm Hyetograph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '6 小时 90 mm 逐时增量合成设计暴雨（NWS 型雨峰位于 40% 时长处；USGS 实测站网在本环境不可达，按合成雨型提供并在文件头注明，非实测）。载入即运行 SCS-CN + 单位线汇流并核对体积守恒。',
+      'en-US':
+        'Synthetic 6-hour, 90 mm hourly design storm (NWS-style peak at 40% of duration; USGS gauges were unreachable from this environment, so a documented synthetic hyetograph is provided instead of observed data). Loading runs the SCS-CN + unit-hydrograph routing and checks volume conservation.',
+    },
+  },
+  {
+    id: 'markov-pagerank-web',
+    filename: 'markov-pagerank-web.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-markov',
+    group: 'stats',
+    content: markovPagerankWebCsv,
+    nameI18n: {
+      'zh-CN': '马尔可夫链 · 五页网页链接图',
+      'en-US': 'Markov Chain · Five-Page Web Graph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '5 个网页的行随机链接矩阵（Page & Brin 1998 的教学最小图）。加载后幂法自动求稳态（L1 残差 < 1e-12），并在状态转移图上叠加平稳分布柱状与随机轨迹。',
+      'en-US':
+        'A row-stochastic link matrix over five web pages (a minimal Page & Brin 1998 teaching graph). Load it and the power iteration recovers the stationary law to L1 < 1e-12, drawn on the transition graph with bars and a simulated trajectory.',
+    },
+  },
+  {
+    id: 'gutenberg-emma-ch1',
+    filename: 'gutenberg-emma-ch1.txt',
+    format: 'txt',
+    mimeType: 'text/plain',
+    pluginId: 'example.stats-zipf',
+    group: 'stats',
+    content: gutenbergEmmaCh1Txt,
+    nameI18n: {
+      'zh-CN': 'Zipf 定律 · 《爱玛》卷一第 1–6 章',
+      'en-US': "Zipf's Law · Emma Vol. I, Ch. 1–6",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Jane Austen《Emma》(1816) 第一卷第 1–6 章英文全文（约 1.4 万词，公版，校验于 Project Gutenberg eBook #158；# 行为注释）。加载后做词频排序与 log-log 拟合，实测 s ≈ 1.06、R² ≈ 0.97，与理想 Zipf 指数 s = 1 对照。',
+      'en-US':
+        "The full English text of Jane Austen's Emma (1816), Volume I chapters 1–6 (~14k words, public domain, checked against Project Gutenberg eBook #158; '#' lines are comments). Load it to rank word frequencies and fit log-log: measured s ≈ 1.06 with R² ≈ 0.97 against the ideal Zipf exponent s = 1.",
+    },
+  },
+  {
+    id: 'transit-lightcurve-hd209458',
+    filename: 'astro-transit-lightcurve.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-transit',
+    group: 'astro',
+    content: transitLightcurveCsv,
+    nameI18n: {
+      'zh-CN': '凌星光变 · HD 209458 b（合成教学数据）',
+      'en-US': 'Transit Light Curve · HD 209458 b (synthetic)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '按 NASA Exoplanet Archive 发表的 HD 209458 b 参数（P=3.52474859 d、深度=1.500%、T14=3.072 h）合成的 1000 点光变曲线（σ=1.2 mmag，10 个周期，固定种子）。加载后点击「检测周期并拟合」：简化 BLS 盲测周期，LM 精化梯形模型并输出 1σ 误差与相位折叠图。',
+      'en-US':
+        'A 1000-point light curve synthesized at the published HD 209458 b parameters (P = 3.52474859 d, depth = 1.500%, T14 = 3.072 h) from the NASA Exoplanet Archive (σ = 1.2 mmag, 10 periods, fixed seed). Load it and press "Detect & Fit": simplified-BLS blind detection, LM trapezoid refinement with 1σ errors and the phase-folded view.',
+    },
+  },
+  {
+    id: 'yale-bsc-bright',
+    filename: 'yale-bsc-bright.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-hrdiagram',
+    group: 'astro',
+    content: yaleBscBrightCsv,
+    nameI18n: {
+      'zh-CN': '亮星星表 · Yale BSC 亮于 3.0 等（含 Hipparcos 视差）',
+      'en-US': 'Bright Star Catalogue · Yale BSC V < 3.0 (with Hipparcos parallaxes)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Yale 亮星星表第 5 版（公有领域）中 V < 3.01 且 B−V ≤ 1.61 的 163 颗星，视差取自 Hipparcos（VizieR I/239，2026-10-11 检索）。加载后绘制赫罗图：视差换算距离模数得绝对星等，横轴 B−V，叠加 MK 主序参考带、太阳标记与主序拟合。',
+      'en-US':
+        '163 stars with V < 3.01 and B−V ≤ 1.61 from the Yale Bright Star Catalogue, 5th ed. (public domain), with Hipparcos parallaxes (VizieR I/239, retrieved 2026-10-11). Load it to draw the H–R diagram: absolute magnitudes via distance modulus, B−V colour axis, with the MK main-sequence band, the Sun marker and a screened main-sequence fit.',
     },
   },
 ];
