@@ -554,17 +554,23 @@ export class PhysicsTrajectoryPlugin implements Plugin {
         ? `轨迹运动学 · ${srcTag} · ${this.traj.t.length} 点 · m=${fmtMetric(this.m)} kg · g=${fmtMetric(this.g)} m/s²`
         : `Trajectory kinematics · ${srcTag} · ${this.traj.t.length} pts · m=${fmtMetric(this.m)} kg · g=${fmtMetric(this.g)} m/s²`,
       canvas.width / 2,
-      18,
+      16,
     );
     g.font = font;
 
-    const topY = 30;
-    const bodyH = canvas.height - topY - 40;
-    const rowH = Math.max(90, Math.round(bodyH * 0.55));
+    // Vertical layout budget: the suptitle band (0..~20) must clear the panel
+    // titles drawn at topY-6, and each row gap must fit the elements the
+    // panels draw below their boxes — x-ticks at +13, the axis name at +26,
+    // and the next row's title at gap-6 (>= +32 clears both).
+    const topY = 40;
+    const rowGap = 38;
+    const bottomPad = 34;
+    const bodyH = canvas.height - topY - bottomPad;
+    const rowH = Math.max(90, Math.round(bodyH * 0.52));
     const leftW = Math.max(160, Math.round((canvas.width - 40) * 0.5));
     this.drawTrajPanel(g, { x: 44, y: topY, w: leftW, h: rowH }, font);
     this.drawVaPanel(g, { x: leftW + 60, y: topY, w: canvas.width - leftW - 68, h: rowH }, font);
-    this.drawEnergyPanel(g, { x: 44, y: topY + rowH + 14, w: canvas.width - 52, h: Math.max(70, canvas.height - topY - rowH - 46) }, font);
+    this.drawEnergyPanel(g, { x: 44, y: topY + rowH + rowGap, w: canvas.width - 52, h: Math.max(70, bodyH - rowH - rowGap) }, font);
   }
 
   private drawTrajPanel(g: CanvasRenderingContext2D, box: Box, font: string) {
@@ -609,9 +615,13 @@ export class PhysicsTrajectoryPlugin implements Plugin {
     const zh = this.zh;
     const traj = this.traj!;
     const d = this.deriv!;
-    const subH = Math.floor((box.h - 12) / 2);
+    // Sub-panel gap must fit the elements drawn below vBox: its bottom y-tick
+    // (+4), x-ticks (+13) and the aBox title (gap-6, needs >= +19 to clear
+    // the ticks). The shared 't' axis name is only drawn under aBox — under
+    // vBox it would land inside aBox's plot area.
+    const subH = Math.floor((box.h - 38) / 2);
     const vBox: Box = { ...box, h: subH };
-    const aBox: Box = { ...box, y: box.y + subH + 12, h: subH };
+    const aBox: Box = { ...box, y: box.y + subH + 38, h: subH };
 
     const vCurves: Curve[] = [{ xs: traj.t, ys: d.vx, color: 'rgba(110,180,255,0.95)' }];
     if (d.vy) vCurves.push({ xs: traj.t, ys: d.vy, color: 'rgba(255,170,80,0.95)' });
@@ -625,7 +635,6 @@ export class PhysicsTrajectoryPlugin implements Plugin {
 
     g.textAlign = 'left';
     g.fillStyle = 'rgba(180,195,214,0.9)';
-    g.fillText('t', vBox.x + vBox.w - 8, vBox.y + vBox.h + 26);
     g.fillText('t', aBox.x + aBox.w - 8, aBox.y + aBox.h + 26);
     g.fillStyle = 'rgba(235,240,247,0.75)';
     g.fillText(zh ? '速度分量 v(t)' : 'Velocity components v(t)', vBox.x - 16, vBox.y - 6);

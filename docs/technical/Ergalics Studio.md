@@ -120,6 +120,40 @@ flowchart LR
 
 科研级插件在清单中声明 research 元数据：研究就绪度四级徽章（research / quasi-research / demonstration / educational，插件详情页以四色徽章呈现）、物理单位、基准 id、reproducible 标记与适用范围说明；插件产出的关键指标经统一科学输出总线（`src/core/research/scienceOutput.ts`）汇入画布顶部的 ScienceOutputStrip 条带，同一套读数口径贯穿全部科研级插件。全部 32 个科研级插件与 8 个地理插件均支持"发送到 Figure Studio"一键生成多面板科研图组（含中英图注与公式标注），两个竞赛级求解器插件同样支持。
 
+以下精选 8 张各学科插件的代表性渲染截图：
+
+![黑洞：3D 光线追踪](../assets/screenshots/plugins/fx-blackhole.png)
+
+*黑洞：引力透镜弯折背景光线，吸积盘光环环绕中心阴影。*
+
+![三维曲面：3D 网格曲面](../assets/screenshots/plugins/surface-3d.png)
+
+*三维曲面：网格曲面按高度设色，可旋转缩放查看。*
+
+![复变函数域着色：色相编码辐角](../assets/screenshots/plugins/math-domaincolor.png)
+
+*复变函数域着色：色相编码辐角，明暗编码模长。*
+
+![图灵斑图：Gray–Scott 反应扩散](../assets/screenshots/plugins/chem-turing.png)
+
+*图灵斑图：Gray–Scott 反应扩散生成的斑点与条纹。*
+
+![伊辛模型：自旋构型与热容峰](../assets/screenshots/plugins/physics-ising.png)
+
+*伊辛模型：自旋构型图与热容随温度的变化峰。*
+
+![衍射实验室：单缝衍射条纹](../assets/screenshots/plugins/physics-diffraction.png)
+
+*单缝衍射：明暗相间的衍射条纹随参数变化。*
+
+![捕食者-猎物：Lotka–Volterra 相轨线](../assets/screenshots/plugins/env-predator-prey.png)
+
+*捕食者-猎物：Lotka–Volterra 相轨线呈闭合环。*
+
+![星空：夜天星场渲染](../assets/screenshots/plugins/fx-stars.png)
+
+*星空渲染：夜天上星点密布，亮度与大小各异。*
+
 #### 1.2.2 流程模式区块体系
 
 38 个内置区块分八类，构成流程模式的"词汇表"：
@@ -480,6 +514,26 @@ flowchart LR
 | example.point-cloud-3d | 3D 点云 | Point Cloud 3D | 基于宿主 Three.js 场景的交互式 3D 点云渲染，支持高度着色与自适应视野 |
 | example.image | 图像查看器 | Image Viewer | 加载并查看图片文件（PNG/JPEG/WebP/GIF） |
 
+![散点图：三簇点云](../assets/screenshots/plugins/scatter.png)
+
+*散点图：三簇点云，第三列数值映射为颜色。*
+
+![时间序列绘图：趋势折线](../assets/screenshots/plugins/timeseries.png)
+
+*时间序列绘图：趋势叠加噪声的折线。*
+
+![桑基图：流量带](../assets/screenshots/plugins/sankey.png)
+
+*桑基图：按比例缩放的彩色流量带。*
+
+![气泡图：气泡编码](../assets/screenshots/plugins/bubble.png)
+
+*气泡图：位置与大小编码三维数值。*
+
+![3D 表面图：网格曲面](../assets/screenshots/plugins/surface-3d.png)
+
+*3D 表面图：高度场网格曲面。*
+
 #### 3.2.2 数学统计（stats，8 个）
 
 | 插件ID | 中文名 | 英文名 | 说明 |
@@ -493,6 +547,14 @@ flowchart LR
 | example.stats-markov | 马尔可夫链与稳态分析 | Markov Chains & Stationary Analysis | 幂法求稳态分布（L1 残差 < 1e-12）、遍历性与周期检查、吸收链分析、轨迹模拟与阻尼 0.85 的 PageRank 模式 |
 | example.stats-zipf | Zipf 定律词频分析 | Zipf's Law Word Frequencies | 真实语料的 Zipf 定律分析：分词、词频排序与 log(rank)–log(freq) 最小二乘拟合（s±σ、R²、逐秩残差），与理想指数 s=1 对照，内置《爱玛》公版语料 |
 
+![马尔可夫链：转移图与轨迹](../assets/screenshots/plugins/stats-markov.png)
+
+*马尔可夫链分析：转移图与轨迹模拟。*
+
+![Zipf 定律：双对数拟合](../assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf 定律：双对数词频拟合。*
+
 #### 3.2.3 数学方法（math，3 个）
 
 | 插件ID | 中文名 | 英文名 | 说明 |
@@ -500,6 +562,18 @@ flowchart LR
 | example.math-fourier | 傅里叶级数逼近实验室 | Fourier Series Lab | 间断点分段 Simpson 求积计算傅里叶系数，对比普通部分和与 Fejér 平均；Gibbs 过冲比例对照经典常数 2·Si(π)/π ≈ 1.17898 |
 | example.math-domaincolor | 复变函数域着色 | Domain Coloring | f(z) 逐像素域着色（色相编码辐角、对数模长等值线带），内置递归下降复数表达式解析器，按辐角原理统计绕数 |
 | example.math-odefield | ODE 向量场与流线 | ODE Vector Field & Streamlines | 二维自治系统相平面实验台：RK4 双向流线积分、牛顿法定位平衡点并按雅可比特征值分类 |
+
+![傅里叶级数：方波部分和](../assets/screenshots/plugins/math-fourier.png)
+
+*傅里叶级数：方波部分和逼近。*
+
+![复变函数域着色](../assets/screenshots/plugins/math-domaincolor.png)
+
+*复变函数域着色：f(z) 逐像素成像。*
+
+![ODE 向量场与流线](../assets/screenshots/plugins/math-odefield.png)
+
+*ODE 向量场与流线积分。*
 
 #### 3.2.4 物理模拟（physics，15 个）
 
@@ -533,6 +607,22 @@ flowchart LR
 
 *结构力学插件：铰接桁架实时承重，杆件按轴力着色，超载时依次断裂直至整体垮塌，直观展示材料极限与失效传播。*
 
+![二维伊辛模型：自旋构型与热容峰](../assets/screenshots/plugins/physics-ising.png)
+
+*二维伊辛模型：自旋构型与热容峰。*
+
+![扩散方程：数值与解析解对比](../assets/screenshots/plugins/physics-diffusion.png)
+
+*扩散方程：数值解与解析解对比。*
+
+![衍射实验室：单缝衍射条纹](../assets/screenshots/plugins/physics-diffraction.png)
+
+*衍射实验室：单缝衍射条纹。*
+
+![轨迹运动学：抛体拟合与能量分解](../assets/screenshots/plugins/physics-trajectory.png)
+
+*轨迹运动学：抛体拟合与能量分解。*
+
 #### 3.2.5 化学（chem，5 个）
 
 | 插件ID | 中文名 | 英文名 | 说明 |
@@ -550,6 +640,18 @@ flowchart LR
 ![反应 · 自由反应动力学 3D](../assets/screenshots/plugins/chem-reaction/md3d.png)
 
 *自由反应动力学 3D：内置 NumPy / Langevin 引擎在设定温度与催化剂条件下积分真实轨迹——酯化反应（乙醇 + 乙酸）中键越过 Arrhenius 势垒断裂、自由基重组而成键，原子运动来自真实物理而非脚本动画。*
+
+![酸碱滴定曲线：pH 突跃](../assets/screenshots/plugins/chem-titration.png)
+
+*酸碱滴定曲线：pH 突跃。*
+
+![反应级数判定：积分法拟合](../assets/screenshots/plugins/chem-reaction-order.png)
+
+*反应级数判定：积分法线性化拟合。*
+
+![Gray–Scott 图灵斑图](../assets/screenshots/plugins/chem-turing.png)
+
+*Gray–Scott 反应扩散图灵斑图。*
 
 #### 3.2.6 生物学（bio，8 个）
 
@@ -583,6 +685,34 @@ flowchart LR
 ![群体遗传学：Wright-Fisher 遗传漂变（N=50，40 次重复）](../assets/screenshots/plugins/bio-popgen/drift.png)
 
 *群体遗传学遗传漂变：可复现的 Wright-Fisher 模拟，40 条轨迹展示等位基因频率的随机游走，记录固定 / 丢失次数与平均固定代数，支持可选隐性 / 加性 / 显性选择。*
+
+![酶动力学：v–[S] 抑制拟合](../assets/screenshots/plugins/bio-enzyme/inhibition.png)
+
+*酶动力学：v–[S] 抑制拟合。*
+
+![孟德尔 F₂ χ² 检验](../assets/screenshots/plugins/bio-mendel.png)
+
+*孟德尔 F₂ 分离比 χ² 检验。*
+
+![Hodgkin–Huxley 神经元：动作电位与门控变量](../assets/screenshots/plugins/bio-neuron.png)
+
+*Hodgkin–Huxley 神经元：动作电位与门控变量。*
+
+![Wright–Fisher 遗传漂变：40 条轨迹](../assets/screenshots/plugins/bio-popgen/drift-replicates.png)
+
+*Wright–Fisher 遗传漂变：40 条重复轨迹。*
+
+![Needleman-Wunsch 全局比对](../assets/screenshots/plugins/bio-seqalign/nw-global.png)
+
+*Needleman–Wunsch 全局序列比对。*
+
+![SEIR 传染病模型：分室曲线](../assets/screenshots/plugins/bio-epidemic/seir.png)
+
+*SEIR 传染病模型：分室时间曲线。*
+
+![蛋白质相互作用：残基网络](../assets/screenshots/plugins/protein-network.png)
+
+*蛋白质相互作用：残基相互作用网络图。*
 
 #### 3.2.7 地理（geo，13 个）
 
@@ -638,6 +768,22 @@ flowchart LR
 
 *距离与面积量算：画布点选加点后逐段给出大圆距离与累计里程，对 ≥3 点还可计算标准差椭圆（SDE a / b 半轴与方位角）与围合面积——图中为长江沿岸 6 城测距与标准差椭圆。*
 
+![太阳高度与昼夜长短](../assets/screenshots/plugins/geo-solar.png)
+
+*太阳高度与昼夜长短：全年昼长曲线。*
+
+![距离与面积量算](../assets/screenshots/plugins/geo-measure.png)
+
+*距离与面积量算：测距与测面。*
+
+![投影变形：Mollweide 投影 Tissot 圆](../assets/screenshots/plugins/tissot-mollweide.png)
+
+*投影变形：摩尔威德投影的 Tissot 圆。*
+
+![气候直方图：开罗](../assets/screenshots/plugins/climatograph-cairo.png)
+
+*气候直方图：开罗月度气温与降水。*
+
 #### 3.2.8 环境（env，8 个）
 
 | 插件ID | 中文名 | 英文名 | 说明 |
@@ -650,6 +796,18 @@ flowchart LR
 | example.env-plume | 污染物扩散模拟（高斯烟羽） | Pollutant Dispersion | 按 Pasquill–Gifford 扩散参数与地面反射项计算连续点源下风向地面浓度场，以热力云图呈现羽流形态 |
 | example.env-earth3d | 3D 全球环境 | 3-D Global Environment | 三维地球环境要素示意：全球 CO₂ 浓度色带（含季节呼吸循环）、地表反照率图层与主要洋流方向箭头，月份滑块浏览季节变化 |
 | example.env-predator-prey | 捕食者-猎物（Lotka–Volterra） | Predator–Prey (Lotka–Volterra) | RK4 积分、相图与时间序列，以守恒量漂移校验数值精度，对数空间线性回归估计 α/β/γ/δ |
+
+![温室效应模拟：0D 能量平衡](../assets/screenshots/plugins/env-greenhouse.png)
+
+*温室效应模拟：零维能量平衡 ΔT。*
+
+![碳循环推演：箱式模型](../assets/screenshots/plugins/env-carbon.png)
+
+*碳循环推演：四碳库箱式模型。*
+
+![捕食者-猎物：相轨线](../assets/screenshots/plugins/env-predator-prey.png)
+
+*捕食者-猎物：Lotka–Volterra 相轨线。*
 
 #### 3.2.9 天文（astro，3 个）
 
@@ -706,6 +864,18 @@ flowchart LR
 | fx.cloud | 体积云 · 天空渲染器 | Volumetric Clouds · Sky Renderer | 光线步进的体积云层：风场平流、Beer–Lambert 消光 + Henyey–Greenstein 散射、自遮蔽光程积分；日月位置由真实天文历表公式（Meeus）驱动 |
 | fx.sky | 日光天空 · 大气散射 | Daylight Sky · Atmosphere | 解析式单次散射大气（Nishita 型）：Rayleigh + Mie 散射与浑浊度、物理晨昏蒙影、带临边昏暗的太阳盘面与按月相明暗的月亮 |
 | fx.stars | 星空 · 夜天渲染器 | Starfield · Night Sky | 程序化星点 + 真实银道面银河带 + 恒星周日运动（GMST）：Bortle 光污染模型、月光冲淡、视宁度闪烁与泊松流星 |
+
+![黑洞 · 3D 光线追踪](../assets/screenshots/plugins/fx-blackhole.png)
+
+*黑洞 · 3D 光线追踪渲染。*
+
+![水波 · 3D 流体：三维水面](../assets/screenshots/plugins/fx-water.png)
+
+*水波 · 3D 流体：三维水面波动。*
+
+![星空 · 夜天渲染器：银河星空](../assets/screenshots/plugins/fx-stars.png)
+
+*星空 · 夜天渲染器：银河星空渲染。*
 
 #### 3.2.16 趣味工具（fun，10 个，autoload: false 手动加载）
 

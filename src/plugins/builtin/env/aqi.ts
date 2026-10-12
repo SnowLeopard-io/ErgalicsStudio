@@ -637,12 +637,16 @@ export class AqiPlugin implements Plugin {
     g.font = 'bold 30px Consolas, monospace';
     g.fillText(peak.res.aqi!.toFixed(0), 16, 58);
     const badgeX = 16 + g.measureText(peak.res.aqi!.toFixed(0)).width + 26;
-    g.fillStyle = band!.color;
-    g.fillRect(badgeX, 36, 76, 24);
-    g.fillStyle = '#0a0e13';
+    const badgeLabel = zh ? band!.zh : band!.en;
+    // Measure with the badge font — long labels like "Unhealthy for Sensitive
+    // Groups" overflow a fixed-width box on both sides.
     g.font = "bold 12px 'Microsoft YaHei', Consolas, monospace";
+    const badgeW = Math.max(76, Math.ceil(g.measureText(badgeLabel).width) + 16);
+    g.fillStyle = band!.color;
+    g.fillRect(badgeX, 36, badgeW, 24);
+    g.fillStyle = '#0a0e13';
     g.textAlign = 'center';
-    g.fillText(zh ? band!.zh : band!.en, badgeX + 38, 52);
+    g.fillText(badgeLabel, badgeX + badgeW / 2, 52);
     g.textAlign = 'left';
 
     // Health advice (wraps to two lines).
@@ -711,7 +715,7 @@ export class AqiPlugin implements Plugin {
       const y = listTop + 8 + i * rowH;
       if (y > canvas.height - 8) return;
       g.fillStyle = 'rgba(170, 182, 200, 0.95)';
-      g.fillText(POLLUTANT_LABELS[k].zh, 16, y + 10);
+      g.fillText(zh ? POLLUTANT_LABELS[k].zh : POLLUTANT_LABELS[k].en, 16, y + 10);
       const bx = 78;
       const bwid = Math.min(220, canvas.width * 0.28);
       g.fillStyle = 'rgba(255,255,255,0.08)';
@@ -723,8 +727,8 @@ export class AqiPlugin implements Plugin {
     });
 
     // Footnotes: out-of-range / dropped pollutants.
-    const oor = valid.flatMap((r) => r.res.outOfRange.map((k) => `${r.s.label}:${POLLUTANT_LABELS[k].zh}`));
-    const dropped = valid.flatMap((r) => r.res.dropped.map((k) => `${r.s.label}:${POLLUTANT_LABELS[k].zh}`));
+    const oor = valid.flatMap((r) => r.res.outOfRange.map((k) => `${r.s.label}:${zh ? POLLUTANT_LABELS[k].zh : POLLUTANT_LABELS[k].en}`));
+    const dropped = valid.flatMap((r) => r.res.dropped.map((k) => `${r.s.label}:${zh ? POLLUTANT_LABELS[k].zh : POLLUTANT_LABELS[k].en}`));
     if (oor.length > 0 || dropped.length > 0) {
       g.fillStyle = 'rgba(230, 180, 90, 0.95)';
       g.textAlign = 'right';

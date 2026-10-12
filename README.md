@@ -652,6 +652,8 @@ together with physical units, benchmark ids and scope notes — and publish
 viewport (fit quality, residuals, confidence intervals, convergence /
 conservation diagnostics), so a plot is never left without its numbers.
 
+### Plugin Showcase
+
 Two competition-grade scientific solvers run their kernels inside a Pyodide
 Worker (independent topic docs: `docs/technical/09`, `docs/technical/10`;
 standalone repos: gitee.com/cnt-code/em-eigensolver,
@@ -739,6 +741,177 @@ equation via nonlinear LM regression, reporting K_m and V_max with confidence.*
 
 *The chemistry-crystal plugin renders a crystal unit cell in true 3D, rotatable
 about any axis with electron-density isosurfaces overlaid.*
+
+**Discipline gallery** (charts / statistics / math methods / physics /
+chemistry / biology / geography / environmental science / effects rendering):
+
+**Charts**
+
+![Sankey Diagram — multi-stage flow ribbons](docs/assets/screenshots/plugins/sankey.png)
+
+*Sankey Diagram: multi-stage energy/flow ribbons across hierarchy levels.*
+
+![3D Surface — a rotatable mesh surface](docs/assets/screenshots/plugins/surface-3d.png)
+
+*3D Surface: a rotatable mesh surface over a height field z = f(x, y).*
+
+![Scatter Plot — three colored clusters with a legend](docs/assets/screenshots/plugins/scatter.png)
+
+*Scatter Plot: three colored point clusters distinguished by a legend.*
+
+![Time Series — a trend line over noisy samples](docs/assets/screenshots/plugins/timeseries.png)
+
+*Time Series: a fitted trend line laid over noisy sampled readings.*
+
+![Bubble Chart — size and color encoding](docs/assets/screenshots/plugins/bubble.png)
+
+*Bubble Chart: two extra variables mapped onto bubble size and color.*
+
+**Statistics**
+
+![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
+
+*Markov Chains & Stationary Analysis: the state-transition graph with a
+sample trajectory through it.*
+
+![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
+
+**Math Methods**
+
+![Domain Coloring — hue/shade field of a complex function](docs/assets/screenshots/plugins/math-domaincolor.png)
+
+*Domain Coloring: the per-pixel hue/shade field of a complex f(z).*
+
+![Fourier Series Lab — partial sums of a square wave](docs/assets/screenshots/plugins/math-fourier.png)
+
+*Fourier Series Lab: partial-sum approximation of a square wave with the
+coefficients.*
+
+![ODE Vector Field — arrows and streamlines](docs/assets/screenshots/plugins/math-odefield.png)
+
+*ODE Vector Field & Streamlines: vector arrows with integrated streamlines.*
+
+**Physics**
+
+![2-D Ising Model — spin configuration and heat-capacity peak](docs/assets/screenshots/plugins/physics-ising.png)
+
+*2-D Ising Model: a Metropolis spin configuration with the heat-capacity
+peak near the critical point.*
+
+![Diffusion Equation Lab — numerical vs analytic](docs/assets/screenshots/plugins/physics-diffusion.png)
+
+*Diffusion Equation Lab: the numerical solution against the analytic one.*
+
+![Diffraction Lab — single-slit fringes](docs/assets/screenshots/plugins/physics-diffraction.png)
+
+*Diffraction Lab: the single-slit intensity profile and fringe pattern.*
+
+![Trajectory Kinematics Lab — projectile fit and energy breakdown](docs/assets/screenshots/plugins/physics-trajectory.png)
+
+*Trajectory Kinematics Lab: a least-squares projectile fit with the KE/PE
+breakdown.*
+
+**Chemistry**
+
+![Gray–Scott Turing Patterns — spots and stripes](docs/assets/screenshots/plugins/chem-turing.png)
+
+*Gray–Scott Turing Patterns: reaction–diffusion spots and stripes on a
+periodic domain.*
+
+![Titration Curve Lab — pH jump and equivalence point](docs/assets/screenshots/plugins/chem-titration.png)
+
+*Titration Curve Lab: the pH jump around the equivalence point.*
+
+![Reaction Order & Arrhenius — three integrated-method linear fits](docs/assets/screenshots/plugins/chem-reaction-order.png)
+
+*Reaction Order & Arrhenius: zero/first/second integrated-method linear
+fits side by side.*
+
+**Biology**
+
+![Mendel F2 χ² Tests — segregation-ratio goodness of fit](docs/assets/screenshots/plugins/bio-mendel.png)
+
+*Mendel F2 χ² Tests: χ² goodness-of-fit for F₂ segregation ratios.*
+
+![Hodgkin–Huxley Neuron — action potential and gating variables](docs/assets/screenshots/plugins/bio-neuron.png)
+
+*Hodgkin–Huxley Neuron: the action potential alongside the m / n / h
+gating variables.*
+
+![Enzyme Kinetics — v–[S] curves with inhibition fits](docs/assets/screenshots/plugins/bio-enzyme/inhibition.png)
+
+*The bio-enzyme plugin fits v–[S] curves per inhibition mode, reporting
+Vmax and Km with confidence intervals.*
+
+![Population Genetics — Wright–Fisher drift trajectories](docs/assets/screenshots/plugins/bio-popgen/drift-replicates.png)
+
+*Population Genetics: 40 seeded Wright–Fisher allele-frequency trajectories
+(N = 50).*
+
+![Sequence Alignment — Needleman–Wunsch global alignment](docs/assets/screenshots/plugins/bio-seqalign/nw-global.png)
+
+*Sequence Alignment: a BLOSUM62-scored Needleman–Wunsch global alignment
+(46.4 % identity).*
+
+![Epidemic Modeling — SEIR compartment curves](docs/assets/screenshots/plugins/bio-epidemic/seir.png)
+
+*Epidemic Modeling: SEIR compartment curves (N = 10⁵, R₀ = 2.8).*
+
+![Protein Interactions — interaction network](docs/assets/screenshots/plugins/protein-network.png)
+
+*Protein Interactions: residue interaction network graph.*
+
+**Geography**
+
+![Projection Distortion (Tissot) — Tissot circles on Mollweide](docs/assets/screenshots/plugins/tissot-mollweide.png)
+
+*Projection Distortion (Tissot): Tissot indicatrices on the Mollweide
+equal-area projection.*
+
+![Solar Elevation & Day Length — annual variation](docs/assets/screenshots/plugins/geo-solar.png)
+
+*Solar Elevation & Day Length: annual noon-elevation and day-length curves.*
+
+![Distance & Area Measure — distances and areas on the map](docs/assets/screenshots/plugins/geo-measure.png)
+
+*Distance & Area Measure: great-circle distances between cities and an
+enclosed area.*
+
+![Climatograph — Cairo's monthly rain bars and temperature line](docs/assets/screenshots/plugins/climatograph-cairo.png)
+
+*Climatograph: Cairo's monthly precipitation bars with the temperature line.*
+
+**Environmental Science**
+
+![Predator–Prey — Lotka–Volterra phase orbit and oscillations](docs/assets/screenshots/plugins/env-predator-prey.png)
+
+*Predator–Prey (Lotka–Volterra): the phase orbit with the population
+oscillations.*
+
+![Greenhouse Effect — 0-D energy balance and ΔT](docs/assets/screenshots/plugins/env-greenhouse.png)
+
+*Greenhouse Effect: the 0-D radiative balance and the resulting ΔT.*
+
+![Carbon Cycle — a box model over a century](docs/assets/screenshots/plugins/env-carbon.png)
+
+*Carbon Cycle: the four-pool box model evolving over a century.*
+
+**Effects Rendering**
+
+![Black Hole — ray-traced lensing and accretion disk](docs/assets/screenshots/plugins/fx-blackhole.png)
+
+*Black Hole · 3D Ray Tracer: per-pixel geodesic lensing with a Doppler-beamed
+accretion disk.*
+
+![Starfield — a Milky Way scene](docs/assets/screenshots/plugins/fx-stars.png)
+
+*Starfield · Night Sky: a procedural galactic-plane Milky Way scene.*
+
+![Water — an animated 3-D wave mesh](docs/assets/screenshots/plugins/fx-water.png)
+
+*Water · 3D Fluid Waves: an animated wave mesh in the host 3-D scene.*
 
 When WebGPU is missing, every built-in plugin runs the same math on the CPU —
 full compute paths under [GPU Compute & Native Core](#gpu-compute--native-core).

@@ -534,6 +534,8 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 插件还可声明**科研元数据**（`manifest.research`）——科研就绪分级（研究级 / 准研究级 / 演示级 / 教学演示），在市场与详情面板以语义色徽章呈现，并附带物理量单位、验证基准 id 与适用范围说明；同时可向视口下方的共享**科学输出栏**发布结构化结论（拟合质量、残差、置信区间、收敛 / 守恒诊断），让每张图都不缺数值依据。
 
+### 插件图览
+
 两个赛题级科学求解器的内核运行在 Pyodide Worker 内（独立专题文档 `docs/technical/09`、`docs/technical/10`；独立仓库：gitee.com/cnt-code/em-eigensolver、gitee.com/cnt-code/fluid-cfd-coupler）：
 
 ![EM Eigensolver — 二维求解报告](docs/assets/screenshots/plugins/em-eigensolver/solve-report.png)
@@ -597,6 +599,162 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 ![晶胞 3D 预览 — 物相结构带电压面](docs/assets/screenshots/plugins/chem-crystal/cell3d.png)
 
 *化学晶体插件把晶胞渲染为真三维结构，可沿任一轴旋转并叠加电子密度等值面。*
+
+**分学科图览**（图表 / 统计 / 数学方法 / 物理 / 化学 / 生物 / 地理 / 环境学 / 特效渲染）：
+
+**图表可视化**
+
+![桑基图 — 跨层级流量彩带](docs/assets/screenshots/plugins/sankey.png)
+
+*桑基图：跨层级的能量 / 流量彩带。*
+
+![3D 表面图 — 可旋转网格曲面](docs/assets/screenshots/plugins/surface-3d.png)
+
+*3D 表面图：高度场 z = f(x, y) 的可旋转网格曲面。*
+
+![散点图 — 三簇着色点云与图例](docs/assets/screenshots/plugins/scatter.png)
+
+*散点图：三簇着色点云，由图例区分。*
+
+![时间序列绘图 — 趋势线叠加含噪采样](docs/assets/screenshots/plugins/timeseries.png)
+
+*时间序列绘图：拟合趋势线叠加含噪采样点。*
+
+![气泡图 — 大小与颜色双通道编码](docs/assets/screenshots/plugins/bubble.png)
+
+*气泡图：两个附加变量分别映射气泡大小与颜色。*
+
+**数学统计**
+
+![马尔可夫链与稳态分析 — 状态转移图与样本轨迹](docs/assets/screenshots/plugins/stats-markov.png)
+
+*马尔可夫链与稳态分析：状态转移图与一条穿越样本轨迹。*
+
+![Zipf 定律词频分析 — 双对数词频直线拟合](docs/assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf 定律词频分析：log rank–log freq 双对数直线拟合。*
+
+**数学方法**
+
+![复变函数域着色 — 辐角与模长彩色场](docs/assets/screenshots/plugins/math-domaincolor.png)
+
+*复变函数域着色：复函数 f(z) 的逐像素辐角 / 模长彩色场。*
+
+![傅里叶级数逼近实验室 — 方波的部分和逼近](docs/assets/screenshots/plugins/math-fourier.png)
+
+*傅里叶级数逼近实验室：方波的部分和逼近与傅里叶系数。*
+
+![ODE 向量场与流线 — 箭头场与流线](docs/assets/screenshots/plugins/math-odefield.png)
+
+*ODE 向量场与流线：向量箭头场与积分流线。*
+
+**物理模拟**
+
+![二维伊辛模型 — 自旋构型与热容峰](docs/assets/screenshots/plugins/physics-ising.png)
+
+*二维伊辛模型：Metropolis 自旋格点构型与临界点附近的热容峰。*
+
+![热传导 / 扩散方程实验室 — 数值解与解析解对比](docs/assets/screenshots/plugins/physics-diffusion.png)
+
+*热传导 / 扩散方程实验室：数值解与解析解对比。*
+
+![衍射实验室 — 单缝衍射条纹](docs/assets/screenshots/plugins/physics-diffraction.png)
+
+*衍射实验室：单缝强度分布与条纹图样。*
+
+![轨迹运动学与能量分解实验室 — 抛体拟合与能量分解](docs/assets/screenshots/plugins/physics-trajectory.png)
+
+*轨迹运动学与能量分解实验室：最小二乘抛体拟合与动能 / 势能分解。*
+
+**化学**
+
+![Gray-Scott 反应扩散图灵斑图 — 斑点与条纹](docs/assets/screenshots/plugins/chem-turing.png)
+
+*Gray-Scott 反应扩散图灵斑图：周期域上的斑点与条纹图样。*
+
+![酸碱滴定曲线实验室 — pH 突跃与等当点](docs/assets/screenshots/plugins/chem-titration.png)
+
+*酸碱滴定曲线实验室：等当点附近的 pH 突跃。*
+
+![反应级数判定与 Arrhenius 分析 — 积分法三联线性拟合](docs/assets/screenshots/plugins/chem-reaction-order.png)
+
+*反应级数判定与 Arrhenius 分析：零 / 一 / 二级积分法线性拟合并列。*
+
+**生物学**
+
+![孟德尔 F2 分离比 χ² 检验 — 分离比拟合优度](docs/assets/screenshots/plugins/bio-mendel.png)
+
+*孟德尔 F2 分离比 χ² 检验：F₂ 分离比的 χ² 拟合优度检验。*
+
+![Hodgkin–Huxley 神经元 — 动作电位与门控变量](docs/assets/screenshots/plugins/bio-neuron.png)
+
+*Hodgkin–Huxley 神经元：动作电位与 m / n / h 门控变量。*
+
+![酶动力学 — v–[S] 曲线与抑制情形拟合](docs/assets/screenshots/plugins/bio-enzyme/inhibition.png)
+
+*酶动力学：各抑制类型下的 v–[S] 曲线拟合，输出 Vmax / Km 置信区间。*
+
+![群体遗传学 — Wright–Fisher 漂变轨迹](docs/assets/screenshots/plugins/bio-popgen/drift-replicates.png)
+
+*群体遗传学：40 条种子化 Wright–Fisher 等位基因频率轨迹（N = 50）。*
+
+![序列比对与分析 — Needleman–Wunsch 全局比对](docs/assets/screenshots/plugins/bio-seqalign/nw-global.png)
+
+*序列比对与分析：BLOSUM62 打分的 Needleman–Wunsch 全局比对（identity 46.4%）。*
+
+![传染病分室模型 — SEIR 流行曲线](docs/assets/screenshots/plugins/bio-epidemic/seir.png)
+
+*传染病分室模型：SEIR 仓室流行曲线（N = 10⁵，R₀ = 2.8）。*
+
+![蛋白质相互作用 — 残基相互作用网络](docs/assets/screenshots/plugins/protein-network.png)
+
+*蛋白质相互作用：残基相互作用网络图。*
+
+**地理**
+
+![投影变形（Tissot 圆）— 摩尔威德投影上的变形圆](docs/assets/screenshots/plugins/tissot-mollweide.png)
+
+*投影变形（Tissot 圆）：摩尔威德等积投影上的 Tissot 变形圆。*
+
+![太阳高度与昼夜长短 — 年变化曲线](docs/assets/screenshots/plugins/geo-solar.png)
+
+*太阳高度与昼夜长短：正午太阳高度与昼长的年变化。*
+
+![距离与面积量算 — 城市间距离与面积](docs/assets/screenshots/plugins/geo-measure.png)
+
+*距离与面积量算：城市间大圆距离与封闭区域面积。*
+
+![气候直方图 — 开罗逐月降水柱与气温折线](docs/assets/screenshots/plugins/climatograph-cairo.png)
+
+*气候直方图：开罗逐月降水柱与气温折线。*
+
+**环境学**
+
+![捕食者-猎物（Lotka–Volterra）— 相轨线与振荡](docs/assets/screenshots/plugins/env-predator-prey.png)
+
+*捕食者-猎物（Lotka–Volterra）：相轨线与种群振荡。*
+
+![温室效应模拟 — 零维能量平衡与 ΔT](docs/assets/screenshots/plugins/env-greenhouse.png)
+
+*温室效应模拟：零维辐射收支平衡与温升 ΔT。*
+
+![碳循环推演 — 箱式模型百年演化](docs/assets/screenshots/plugins/env-carbon.png)
+
+*碳循环推演：四碳库箱式模型的百年演化。*
+
+**特效渲染**
+
+![黑洞 · 3D 光线追踪 — 引力透镜与吸积盘](docs/assets/screenshots/plugins/fx-blackhole.png)
+
+*黑洞 · 3D 光线追踪：逐像素测地线引力透镜与多普勒集束吸积盘。*
+
+![星空 · 夜天渲染器 — 银河星场](docs/assets/screenshots/plugins/fx-stars.png)
+
+*星空 · 夜天渲染器：程序化银河星场。*
+
+![水波 · 3D 流体 — 波动网格涟漪](docs/assets/screenshots/plugins/fx-water.png)
+
+*水波 · 3D 流体：三维场景中的动态波动网格涟漪。*
 
 当 WebGPU 缺失时，每个内置插件都在 CPU 上运行相同数学——完整计算路径见 [GPU 计算与原生核心](#gpu-计算与原生核心)。
 
