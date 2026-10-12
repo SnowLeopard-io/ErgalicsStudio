@@ -87,7 +87,6 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.pendulum': 'physics',
   'example.electromag': 'physics',
   'example.optics': 'physics',
-  'example.structure': 'physics',
   'example.em-eigensolver': 'physics',
   'example.fluid-cfd-coupler': 'physics',
   'example.physics-schrodinger': 'physics',
@@ -147,6 +146,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.mats-thermal': 'materials',
 
   // Engineering
+  'example.structure': 'engineering',
   'example.eng-circuit': 'engineering',
   'example.eng-truss': 'engineering',
   'example.eng-control': 'engineering',

@@ -653,13 +653,29 @@ export class HydrologyPlugin implements Plugin {
     g.font = `11px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     const coeff = ev.totalPrecipMm > 0 ? ev.totalExcessMm / ev.totalPrecipMm : 0;
     const l1 = `CN=${ev.cn}  S=${ev.sMm.toFixed(2)} mm  Ia=${ev.iaMm.toFixed(2)} mm  P=${ev.totalPrecipMm.toFixed(2)} mm  Q=${ev.totalExcessMm.toFixed(3)} mm  Q/P=${(coeff * 100).toFixed(1)}%`;
-    g.fillStyle = 'rgba(170,182,200,0.95)';
-    g.fillText(l1, 54, canvas.height - 28);
     const l2 = zh
       ? `体积：径流 ${ev.volumeRunoffM3.toFixed(1)} m³ = 有效雨 ${ev.volumeExcessM3.toFixed(1)} m³（残差 ${ev.massRelResidual.toExponential(1)}）｜单位线 ${ev.uh.type === 'triangular' ? '三角形' : '曲表'}，重归一化 ×${ev.uh.renormFactor.toFixed(5)}`
       : `volume: runoff ${ev.volumeRunoffM3.toFixed(1)} m3 = excess ${ev.volumeExcessM3.toFixed(1)} m3 (residual ${ev.massRelResidual.toExponential(1)}) | UH ${ev.uh.type}, renorm x${ev.uh.renormFactor.toFixed(5)}`;
+    // Center the caption block under the plot area (same horizontal mid-line
+    // as the two chart panels); a line wider than the canvas falls back to a
+    // left-anchored draw so it can never stick out on either side.
+    const cx = canvas.width / 2;
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(170,182,200,0.95)';
+    if (g.measureText(l1).width <= canvas.width - 8) {
+      g.fillText(l1, cx, canvas.height - 28);
+    } else {
+      g.textAlign = 'left';
+      g.fillText(l1, 4, canvas.height - 28);
+      g.textAlign = 'center';
+    }
     g.fillStyle = 'rgba(200,210,225,0.95)';
-    g.fillText(l2, 54, canvas.height - 12);
+    if (g.measureText(l2).width <= canvas.width - 8) {
+      g.fillText(l2, cx, canvas.height - 12);
+    } else {
+      g.textAlign = 'left';
+      g.fillText(l2, 4, canvas.height - 12);
+    }
   }
 }
 
