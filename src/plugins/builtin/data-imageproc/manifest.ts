@@ -17,18 +17,26 @@ export const dataImageprocManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.data-imageproc',
   category: 'scientific',
+  formats: [
+    { extension: '.png', mimeTypes: ['image/png'], description: 'raster image, converted to BT.601 grayscale (alpha composited over white)' },
+    { extension: '.jpg', mimeTypes: ['image/jpeg'], description: 'raster image, converted to BT.601 grayscale' },
+    { extension: '.jpeg', mimeTypes: ['image/jpeg'], description: 'raster image, converted to BT.601 grayscale' },
+    { extension: '.webp', mimeTypes: ['image/webp'], description: 'raster image, converted to BT.601 grayscale' },
+    { extension: '.bmp', mimeTypes: ['image/bmp'], description: 'raster image, converted to BT.601 grayscale' },
+    { extension: '.gif', mimeTypes: ['image/gif'], description: 'first frame, converted to BT.601 grayscale' },
+  ],
   research: {
     tier: 'quasi-research',
     units: { pixel: '8bit', psnr: 'dB', time: 'ms' },
     benchmarks: ['imageproc-numerics-benchmark'],
     reproducible: true,
     notes:
-      'Embedded benchmark: (1) 2-D FFT vs naive O(N⁴) DFT on a seeded 32×32 real matrix, max complex error < 1e-9; (2) convolution theorem, spatial convolution vs spectral product < 1e-6; (3) histogram-equalisation flattening, 16-bin grey-range frequency variance strictly decreases; (4) PSNR ⇔ MSE identity PSNR = 10·log10(MAX²/MSE), error 0. FFT inputs are padded to power-of-two sizes by edge (replicate) extension so borders do not add artificial high frequencies. The built-in subject image is program-generated (gradient + disc + stripes + seeded gaussian noise), so every result is reproducible.',
+      'Embedded benchmark: (1) 2-D FFT vs naive O(N⁴) DFT on a seeded 32×32 real matrix, max complex error < 1e-9; (2) convolution theorem, spatial convolution vs spectral product < 1e-6; (3) histogram-equalisation flattening, 16-bin grey-range frequency variance strictly decreases; (4) PSNR ⇔ MSE identity PSNR = 10·log10(MAX²/MSE), error 0. FFT inputs are padded to power-of-two sizes by edge (replicate) extension so borders do not add artificial high frequencies. The built-in subject image is program-generated (gradient + disc + stripes + seeded gaussian noise); imported images are converted to BT.601 grayscale (alpha composited over white) and box-average downscaled when the longer side exceeds 512 px, so every result is reproducible.',
     notesI18n: {
       'zh-CN':
-        '内嵌基准（统一相对误差口径）：① 种子化 32×32 实矩阵上二维 FFT 与朴素 O(N⁴) DFT 逐复数最大差 < 1e-9；② 卷积定理：空间卷积与频域乘积逆变换最大差 < 1e-6；③ 直方图均衡使 16 级灰度区间的频率方差严格下降；④ PSNR 与 MSE 的解析恒等式 PSNR=10·log10(MAX²/MSE) 误差为 0。FFT 输入按边缘复制延拓补齐到 2 的幂，避免边界引入伪高频。内置测试图由程序生成（渐变+圆盘+条纹+固定种子高斯噪声），全部结果可复现。',
+        '内嵌基准（统一相对误差口径）：① 种子化 32×32 实矩阵上二维 FFT 与朴素 O(N⁴) DFT 逐复数最大差 < 1e-9；② 卷积定理：空间卷积与频域乘积逆变换最大差 < 1e-6；③ 直方图均衡使 16 级灰度区间的频率方差严格下降；④ PSNR 与 MSE 的解析恒等式 PSNR=10·log10(MAX²/MSE) 误差为 0。FFT 输入按边缘复制延拓补齐到 2 的幂，避免边界引入伪高频。内置测试图由程序生成（渐变+圆盘+条纹+固定种子高斯噪声）；导入的外部图像按 BT.601 加权转灰度（透明像素按白底合成），长边超过 512 px 时按盒式均值降采样，处理结果确定性可复现。',
       'en-US':
-        'Embedded benchmark (unified relative-error convention): (1) 2-D FFT vs naive O(N⁴) DFT on a seeded 32×32 real matrix, max complex error < 1e-9; (2) convolution theorem, spatial convolution vs spectral product < 1e-6; (3) histogram equalisation strictly decreases the 16-bin grey-range frequency variance; (4) PSNR ⇔ MSE identity PSNR = 10·log10(MAX²/MSE) with zero error. FFT inputs are padded to power-of-two sizes by edge (replicate) extension. The built-in subject is program-generated (gradient + disc + stripes + seeded gaussian noise); every result is reproducible.',
+        'Embedded benchmark (unified relative-error convention): (1) 2-D FFT vs naive O(N⁴) DFT on a seeded 32×32 real matrix, max complex error < 1e-9; (2) convolution theorem, spatial convolution vs spectral product < 1e-6; (3) histogram equalisation strictly decreases the 16-bin grey-range frequency variance; (4) PSNR ⇔ MSE identity PSNR = 10·log10(MAX²/MSE) with zero error. FFT inputs are padded to power-of-two sizes by edge (replicate) extension. The built-in subject is program-generated (gradient + disc + stripes + seeded gaussian noise); imported images are converted to BT.601 grayscale (alpha composited over white) and box-average downscaled when the longer side exceeds 512 px, so processing is deterministic and reproducible.',
     },
   },
 };

@@ -95,7 +95,7 @@ import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?ra
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
 import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
-import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
+import { IMAGEPROC_SUBJECT_PNG_BASE64, TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
 // examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
@@ -500,6 +500,22 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '128×128 测试图案（渐变 + 圆环 + 网格），图像查看示例。',
       'en-US': '128x128 test pattern (gradient + ring + grid); image viewer demo.',
+    },
+  },
+  {
+    id: 'imageproc-subject',
+    filename: 'imageproc-subject.png',
+    format: 'png',
+    mimeType: 'image/png',
+    pluginId: 'example.data-imageproc',
+    contentBase64: IMAGEPROC_SUBJECT_PNG_BASE64,
+    nameI18n: {
+      'zh-CN': '图像处理测试图（种子 20261011）',
+      'en-US': 'Image-Processing Test Subject (seed 20261011)',
+    },
+    descriptionI18n: {
+      'zh-CN': '256×256 固定种子生成图（渐变 + 圆盘 + 条纹 + 高斯噪声），图像处理插件的基准被摄对象。',
+      'en-US': '256x256 seeded synthetic subject (gradient + disc + stripes + gaussian noise); reference subject for the image-processing plugin.',
     },
   },
   {

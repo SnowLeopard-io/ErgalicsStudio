@@ -14,9 +14,9 @@ export function FileRouterDialog({ open, file, pluginIds, onClose, onPick }: Fil
   const t = useT();
 
   return (
-    <Modal open={open} onClose={onClose} title={t('error.file_unsupported')} width={480}>
-      <p>{file?.name} — {t('error.file_unsupported')}</p>
-      <p className="empty-hint">{t('plugin.loaded_list')}</p>
+    <Modal open={open} onClose={onClose} title={t('io.choose_plugin_title')} width={480}>
+      <p>{file?.name}</p>
+      <p className="empty-hint">{t('io.choose_plugin_hint')}</p>
       <div className="file-router-options">
         {pluginIds.map((id) => (
           <button key={id} type="button" className="btn btn-block" onClick={() => onPick(id)}>

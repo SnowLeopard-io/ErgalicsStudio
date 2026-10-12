@@ -213,7 +213,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.right.welcome_intro': '尚未激活插件。可从左侧插件列表加载，或点击画布中的「加载插件」。',
   'workbench.right.whats_new': '最新更新',
   'workbench.right.whats_new_1': '新增稀疏矩阵-向量乘（SpMV）WGSL 计算内核',
-  'workbench.right.whats_new_2': '内置插件达 59 个：49 个科学插件 + 10 个趣味插件',
+  'workbench.right.whats_new_2': '内置插件达 107 个：97 个科学插件 + 10 个趣味插件',
   'workbench.right.whats_new_3': 'R 代码模式默认运行内置 webR 完整运行时',
   'workbench.right.release_notes': '本版本说明',
   'workbench.right.full_changelog': '完整更新日志',
@@ -517,6 +517,8 @@ export const zhCN: LocaleDictionary = {
   'io.no_numeric_variables': '文件中没有可预览为表格的数值变量',
   'io.import_scientific_ok': '已导入 {count} 个科学数据变量（共 {total} 个）',
   'io.parse_failed': '科学数据解析失败，请确认文件格式是否正确',
+  'io.choose_plugin_title': '选择要打开此文件的插件',
+  'io.choose_plugin_hint': '以下已加载插件均支持此格式，请选择一个',
 
   'perf.warning.fps': '低帧率',
   'perf.warning.memory': '显存不足',

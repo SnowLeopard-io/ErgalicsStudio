@@ -13,6 +13,7 @@ import {
   gaussianBlur,
   gaussianKernel1d,
   gaussianKernel2d,
+  grayFromRgba,
   histogramEqualize,
   histogramVariance,
   imageMse,
@@ -205,5 +206,65 @@ describe('embedded numerics benchmark', () => {
     expect(b.eqVarAfter).toBeLessThan(b.eqVarBefore);
     expect(b.psnrIdentityErr).toBe(0);
     expect(b.passed).toBe(true);
+  });
+});
+
+describe('grayFromRgba (external image import)', () => {
+  it('applies ITU-R BT.601 luma weights (0.299/0.587/0.114)', () => {
+    // One pure-red, one pure-green, one pure-blue, one white pixel (opaque).
+    const rgba = new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+    const img = grayFromRgba(rgba, 2, 2);
+    expect(img.width).toBe(2);
+    expect(img.height).toBe(2);
+    // Values are stored in a Float32Array, so compare to ~1e-3.
+    expect(img.data[0]).toBeCloseTo(0.299 * 255, 3);
+    expect(img.data[1]).toBeCloseTo(0.587 * 255, 3);
+    expect(img.data[2]).toBeCloseTo(0.114 * 255, 3);
+    expect(img.data[3]).toBeCloseTo(255, 3);
+  });
+
+  it('composites transparent pixels over white', () => {
+    // Fully transparent black → white; alpha 128/255 black → 255·(1−128/255) = 127.
+    const rgba = new Uint8ClampedArray([0, 0, 0, 0, 0, 0, 0, 128]);
+    const img = grayFromRgba(rgba, 2, 1);
+    expect(img.data[0]).toBeCloseTo(255, 3);
+    expect(img.data[1]).toBeCloseTo(127, 3);
+  });
+
+  it('keeps dimensions when the long side is within maxSide', () => {
+    const n = 8 * 4;
+    const rgba = new Uint8ClampedArray(n * 4);
+    for (let i = 0; i < n; i += 1) {
+      rgba[i * 4] = 128;
+      rgba[i * 4 + 1] = 128;
+      rgba[i * 4 + 2] = 128;
+      rgba[i * 4 + 3] = 255;
+    }
+    const img = grayFromRgba(rgba, 8, 4, 512);
+    expect(img.width).toBe(8);
+    expect(img.height).toBe(4);
+    expect(img.data[0]).toBeCloseTo(128, 6);
+  });
+
+  it('box-average downscales a uniform image without intensity drift', () => {
+    const w = 16;
+    const h = 8;
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i += 1) {
+      rgba[i * 4] = 100;
+      rgba[i * 4 + 1] = 150;
+      rgba[i * 4 + 2] = 200;
+      rgba[i * 4 + 3] = 255;
+    }
+    const img = grayFromRgba(rgba, w, h, 4);
+    // Long side 16 → 4, so height scales to 2.
+    expect(img.width).toBe(4);
+    expect(img.height).toBe(2);
+    const luma = 0.299 * 100 + 0.587 * 150 + 0.114 * 200;
+    for (let i = 0; i < img.data.length; i += 1) expect(img.data[i]).toBeCloseTo(luma, 6);
+  });
+
+  it('rejects buffers smaller than width*height*4', () => {
+    expect(() => grayFromRgba(new Uint8ClampedArray(4), 2, 2)).toThrow(/too small/);
   });
 });

@@ -1,10 +1,11 @@
 // ==========================================================================
 // data-imageproc — image-processing laboratory
 //
-// Left/right canvas comparison of the built-in program-generated test image
-// (gradient + disc + stripes + seeded gaussian noise) against its processed
+// Left/right canvas comparison of a grayscale subject against its processed
 // counterpart: Gaussian blur / unsharp sharpen / Sobel edges / histogram
-// equalisation / log-magnitude FFT spectrum. Publishes PSNR, spectral energy
+// equalisation / log-magnitude FFT spectrum. The subject starts empty — load
+// a PNG/JPEG/WEBP/BMP/GIF file or the bundled seeded test-subject example
+// from the sample-data bar; then the plugin publishes PSNR, spectral energy
 // concentration and processing time to the science-output bus, and exposes
 // the embedded numerics benchmark (FFT vs DFT, convolution theorem,
 // equalisation flattening, PSNR⇔MSE identity) as a one-click action.
@@ -18,10 +19,10 @@ import { dataImageprocManifest } from './manifest';
 import { imageprocFigurePanels } from './figure';
 import {
   gaussianBlur,
+  grayFromRgba,
   histogramEqualize,
   imageMse,
   imagePsnr,
-  makeTestImage,
   runImageProcBenchmark,
   sharpen,
   sobelMagnitude,
@@ -34,6 +35,9 @@ export { dataImageprocManifest } from './manifest';
 
 type FilterKind = 'blur' | 'sharpen' | 'edge' | 'equalize' | 'spectrum';
 
+/** Accepted external image extensions (mirrors manifest.formats). */
+const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'];
+
 const FILTERS: Array<{ value: FilterKind; labelEn: string; labelZh: string }> = [
   { value: 'blur', labelEn: 'Gaussian blur', labelZh: '高斯模糊' },
   { value: 'sharpen', labelEn: 'Unsharp sharpen', labelZh: '锐化（unsharp）' },
@@ -45,7 +49,6 @@ const FILTERS: Array<{ value: FilterKind; labelEn: string; labelZh: string }> = 
 interface State {
   filter: FilterKind;
   strength: number;
-  seed: number;
 }
 
 export class DataImageprocPlugin implements Plugin {
@@ -53,8 +56,9 @@ export class DataImageprocPlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
-  private state: State = { filter: 'blur', strength: 2, seed: 20261011 };
-  private baseImage: GrayImage = makeTestImage(256, 256, 20261011);
+  private state: State = { filter: 'blur', strength: 2 };
+  /** Current grayscale subject; null until a file/example is loaded. */
+  private baseImage: GrayImage | null = null;
   private lastMetrics: { psnr: number | null; energy: number; elapsedMs: number } | null = null;
 
   async init(api: PluginApi) {
@@ -111,7 +115,6 @@ export class DataImageprocPlugin implements Plugin {
             : 'blur σ / sharpen gain; unused by edge & equalise views',
       },
       actionButton('benchmark', 'Run numerics benchmark', '运行数值基准验证', 'primary'),
-      actionButton('regenerate', 'New test image', '重新生成测试图'),
       actionButton('exportPng', 'Export view PNG', '导出画面 PNG'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
@@ -135,7 +138,6 @@ export class DataImageprocPlugin implements Plugin {
       }
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
-    if (actionFired(params, 'regenerate')) this.regenerate();
     if (actionFired(params, 'exportPng')) exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'imageproc-view');
     if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
@@ -145,29 +147,45 @@ export class DataImageprocPlugin implements Plugin {
   }
 
   async loadData(file: File) {
-    // No upload formats declared: the plugin always works on the built-in
-    // program-generated subject so every metric stays reproducible.
-    void file;
-    notify(
-      this.api,
-      'info',
-      'This plugin processes the built-in generated test image; use "New test image" for a fresh seeded subject.',
-      '本插件处理内置程序生成的测试图；用「重新生成测试图」可获得新的固定种子图像。',
-    );
-  }
-
-  /** Rebuild the deterministic subject from a fresh seed. */
-  private regenerate() {
-    this.state.seed = (this.state.seed * 1664525 + 1013904223) >>> 0;
-    this.baseImage = makeTestImage(256, 256, this.state.seed);
-    this.lastMetrics = null;
-    clearScienceOutputs(this.manifest.id);
-    notify(
-      this.api,
-      'success',
-      `Test image regenerated (seed=${this.state.seed}).`,
-      `测试图已重新生成（种子=${this.state.seed}）。`,
-    );
+    const low = file.name.toLowerCase();
+    const isImage = IMAGE_EXTS.some((e) => low.endsWith(e));
+    if (!isImage) {
+      notify(
+        this.api,
+        'warning',
+        'Image-processing plugin accepts PNG / JPEG / WEBP / BMP / GIF files.',
+        '图像处理插件接受 PNG / JPEG / WEBP / BMP / GIF 文件。',
+      );
+      return;
+    }
+    try {
+      // Decode the raster via the browser, then hand the RGBA buffer to the
+      // pure kernel converter (BT.601 luma, white-composited alpha, box-average
+      // downscale for oversized inputs). draw() republishes the metrics.
+      const bitmap = await createImageBitmap(file);
+      const decoder = document.createElement('canvas');
+      decoder.width = bitmap.width;
+      decoder.height = bitmap.height;
+      const g2d = decoder.getContext('2d', { willReadFrequently: true });
+      if (!g2d) throw new Error('2D canvas context is unavailable');
+      g2d.drawImage(bitmap, 0, 0);
+      const rgba = g2d.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      const srcW = bitmap.width;
+      const srcH = bitmap.height;
+      bitmap.close();
+      this.baseImage = grayFromRgba(rgba, srcW, srcH);
+      this.lastMetrics = null;
+      const downscaled = this.baseImage.width !== srcW || this.baseImage.height !== srcH;
+      notify(
+        this.api,
+        'success',
+        `Loaded ${file.name}: ${srcW}×${srcH} px${downscaled ? ` → ${this.baseImage.width}×${this.baseImage.height} px (downscaled for processing)` : ''}.`,
+        `已载入 ${file.name}：${srcW}×${srcH} px${downscaled ? `（已降采样至 ${this.baseImage.width}×${this.baseImage.height} 处理）` : ''}。`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      notify(this.api, 'error', `Cannot load image: ${msg}`, `无法载入图像：${msg}`);
+    }
     this.draw();
   }
 
@@ -188,11 +206,13 @@ export class DataImageprocPlugin implements Plugin {
 
   /** Compute + publish the science outputs for the current view. */
   private publishMetrics(processed: GrayImage) {
+    const base = this.baseImage;
+    if (!base) return;
     const isSpectrum = this.state.filter === 'spectrum';
     const t0 = performance.now();
     const energy = spectralEnergyConcentration(processed);
     const elapsedMs = performance.now() - t0 + this.lastProcessMs;
-    const psnr = isSpectrum ? null : imagePsnr(this.baseImage, processed);
+    const psnr = isSpectrum ? null : imagePsnr(base, processed);
     this.lastMetrics = { psnr, energy, elapsedMs };
     const metrics: ScienceMetric[] = [];
     if (psnr != null && Number.isFinite(psnr)) {
@@ -210,7 +230,7 @@ export class DataImageprocPlugin implements Plugin {
       metrics.push({
         key: 'mse',
         label: 'MSE',
-        value: fmtMetric(imageMse(this.baseImage, processed)),
+        value: fmtMetric(imageMse(base, processed)),
         unit: '8bit²',
         severity: 'info',
       });
@@ -305,7 +325,16 @@ export class DataImageprocPlugin implements Plugin {
 
   /** Stream the processed-image histogram + tone metrics into Figure Studio. */
   private async sendToFigure(): Promise<void> {
-    // Recompute from the same seeded subject — pure kernel calls, no caching.
+    if (!this.baseImage) {
+      notify(
+        this.api,
+        'info',
+        'Load an image first (file upload or the bundled example).',
+        '请先载入图像（上传文件或使用内置示例）。',
+      );
+      return;
+    }
+    // Recompute from the loaded subject — pure kernel calls, no caching.
     const processed = this.applyFilter(this.baseImage, this.state.filter, this.state.strength);
     const psnr = this.state.filter === 'spectrum' ? null : imagePsnr(this.baseImage, processed);
     const energy = spectralEnergyConcentration(processed);
@@ -344,6 +373,17 @@ export class DataImageprocPlugin implements Plugin {
         titleZh: '图像处理',
         hint: 'Canvas too small.',
         hintZh: '画布过小。',
+      });
+      return;
+    }
+
+    // Empty state: no subject loaded yet — prompt for upload / example.
+    if (!this.baseImage) {
+      drawEmptyCanvas(this.api, canvas, {
+        title: 'Image Processing',
+        titleZh: '图像处理',
+        hint: 'Load an image: upload a PNG / JPEG / WEBP / BMP / GIF, or open the bundled "Image Processing Test Subject" from the sample-data bar.',
+        hintZh: '载入图像：上传 PNG / JPEG / WEBP / BMP / GIF，或在示例数据栏打开内置「图像处理测试图」。',
       });
       return;
     }

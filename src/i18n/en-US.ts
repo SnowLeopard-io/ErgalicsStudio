@@ -210,7 +210,7 @@ export const enUS: LocaleDictionary = {
     'No plugin is active yet. Load one from the plugin list on the left, or use the "Load Plugin" button in the canvas.',
   'workbench.right.whats_new': "What's new",
   'workbench.right.whats_new_1': 'New sparse matrix-vector multiplication (SpMV) WGSL kernel',
-  'workbench.right.whats_new_2': '59 built-in plugins: 49 scientific + 10 for fun',
+  'workbench.right.whats_new_2': '107 built-in plugins: 97 scientific + 10 for fun',
   'workbench.right.whats_new_3': 'R code mode now runs the bundled full webR runtime by default',
   'workbench.right.release_notes': 'Release notes',
   'workbench.right.full_changelog': 'Full changelog',
@@ -514,6 +514,8 @@ export const enUS: LocaleDictionary = {
   'io.no_numeric_variables': 'The file contains no numeric variables that can be previewed as a table',
   'io.import_scientific_ok': 'Imported {count} of {total} scientific variables',
   'io.parse_failed': 'Failed to parse the scientific data — please check the file format',
+  'io.choose_plugin_title': 'Choose a plugin to open this file',
+  'io.choose_plugin_hint': 'All of the loaded plugins below support this format — pick one',
 
   'perf.warning.fps': 'Low FPS',
   'perf.warning.memory': 'Low memory',

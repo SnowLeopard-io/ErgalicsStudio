@@ -57,6 +57,56 @@ export function makeTestImage(width = 256, height = 256, seed = 20261011): GrayI
   return { width, height, data };
 }
 
+/**
+ * Convert RGBA pixel data (as returned by CanvasRenderingContext2D.getImageData)
+ * into 8-bit grayscale for the processing pipeline. Luma uses the ITU-R BT.601
+ * weights (0.299 R + 0.587 G + 0.114 B); alpha is composited over white so
+ * transparent regions behave like paper. When the larger side exceeds
+ * `maxSide`, the image is reduced by deterministic box averaging (each target
+ * pixel is the exact mean of its source-pixel footprint), so processing cost
+ * stays bounded and the result is reproducible.
+ */
+export function grayFromRgba(
+  rgba: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+  maxSide = 512,
+): GrayImage {
+  if (rgba.length < width * height * 4) {
+    throw new Error(`rgba buffer too small: expected >= ${width * height * 4}, got ${rgba.length}`);
+  }
+  if (width < 1 || height < 1 || !Number.isInteger(width) || !Number.isInteger(height)) {
+    throw new Error('image dimensions must be positive integers');
+  }
+  const lum = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i += 1) {
+    const r = rgba[i * 4]!;
+    const g = rgba[i * 4 + 1]!;
+    const b = rgba[i * 4 + 2]!;
+    const a = rgba[i * 4 + 3]! / 255;
+    lum[i] = (0.299 * r + 0.587 * g + 0.114 * b) * a + 255 * (1 - a);
+  }
+  const longSide = Math.max(width, height);
+  if (longSide <= maxSide) return { width, height, data: lum };
+  const w = Math.max(1, Math.round((width * maxSide) / longSide));
+  const h = Math.max(1, Math.round((height * maxSide) / longSide));
+  const data = new Float32Array(w * h);
+  for (let ty = 0; ty < h; ty += 1) {
+    const y0 = Math.floor((ty * height) / h);
+    const y1 = Math.max(y0 + 1, Math.floor(((ty + 1) * height) / h));
+    for (let tx = 0; tx < w; tx += 1) {
+      const x0 = Math.floor((tx * width) / w);
+      const x1 = Math.max(x0 + 1, Math.floor(((tx + 1) * width) / w));
+      let sum = 0;
+      for (let y = y0; y < y1; y += 1) {
+        for (let x = x0; x < x1; x += 1) sum += lum[y * width + x]!;
+      }
+      data[ty * w + tx] = sum / ((y1 - y0) * (x1 - x0));
+    }
+  }
+  return { width: w, height: h, data };
+}
+
 // ---- 1-D / 2-D FFT -------------------------------------------------------------
 
 /** Smallest power of two ≥ n. */
