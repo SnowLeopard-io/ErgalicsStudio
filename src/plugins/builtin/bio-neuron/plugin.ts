@@ -486,7 +486,7 @@ export class BioNeuronPlugin implements Plugin {
 
     // legend
     g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
-    let lx = x1 - 170;
+    const lx = x1 - 170;
     let ly = yB0 + 12;
     g.fillStyle = 'rgba(240, 170, 110, 0.95)';
     g.fillRect(lx, ly, 10, 3);

@@ -215,15 +215,16 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   // Revoke the markdown image blob URLs when the overlay unmounts.
   useEffect(() => {
+    const cache = mdImgUrlsRef.current;
     return () => {
-      for (const url of mdImgUrlsRef.current.values()) {
+      for (const url of cache.values()) {
         try {
           URL.revokeObjectURL(url);
         } catch {
           /* already revoked */
         }
       }
-      mdImgUrlsRef.current.clear();
+      cache.clear();
     };
   }, []);
 

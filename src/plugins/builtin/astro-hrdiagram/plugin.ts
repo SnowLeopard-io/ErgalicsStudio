@@ -428,14 +428,14 @@ export class AstroHrdiagramPlugin implements Plugin {
       .map((s) => ({ s, bv: s.bv, mag: this.magnitudeOf(s) }))
       .filter((p) => Number.isFinite(p.mag));
     const allBv = pts.map((p) => p.bv);
-    let bvMin = Math.min(-0.35, ...(allBv.length ? allBv : [0]));
-    let bvMax = Math.max(1.7, ...(allBv.length ? allBv : [1]));
+    const bvMin = Math.min(-0.35, ...(allBv.length ? allBv : [0]));
+    const bvMax = Math.max(1.7, ...(allBv.length ? allBv : [1]));
     // Absolute mode must also frame the main-sequence reference and the Sun.
     const magsForFrame = pts.map((p) => p.mag);
     if (this.state.showMs || this.state.mode === 'absolute') {
       magsForFrame.push(mainSequenceMagnitude(bvMin) - 1, mainSequenceMagnitude(bvMax) + 1);
     }
-    let magLo = Math.min(this.state.magMin, ...(magsForFrame.length ? magsForFrame : [0]));
+    const magLo = Math.min(this.state.magMin, ...(magsForFrame.length ? magsForFrame : [0]));
     let magHi = Math.max(this.state.magMax, ...(magsForFrame.length ? magsForFrame : [10]));
     if (!(magHi > magLo)) magHi = magLo + 1;
 

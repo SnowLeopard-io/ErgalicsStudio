@@ -541,7 +541,7 @@ export class AstroTransitPlugin implements Plugin {
     const data = this.data!;
     const ts = data.map((d) => d.t);
     const fs = data.map((d) => d.f);
-    let tMin = Math.min(...ts);
+    const tMin = Math.min(...ts);
     let tMax = Math.max(...ts);
     if (!(tMax > tMin)) tMax = tMin + 1;
     let fMin = Math.min(...fs);

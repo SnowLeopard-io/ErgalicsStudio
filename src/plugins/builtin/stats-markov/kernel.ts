@@ -311,7 +311,7 @@ export function absorbingAnalysis(P: number[][]): AbsorbingResult | null {
   const absorbing: number[] = [];
   for (let i = 0; i < n; i += 1) {
     const row = P[i]!;
-    let self = row[i] ?? 0;
+    const self = row[i] ?? 0;
     let others = 0;
     for (let j = 0; j < n; j += 1) {
       if (j !== i) others += row[j] ?? 0;

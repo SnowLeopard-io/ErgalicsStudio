@@ -14,7 +14,7 @@
 /** Log Gamma (Lanczos, double precision). */
 export function gammaln(x: number): number {
   const cof = [
-    76.18009172947146, -86.50532032941677, 24.01409824083091,
+    76.18009172947146, -86.50532032941678, 24.01409824083091,
     -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5,
   ];
   let y = x;
@@ -24,7 +24,7 @@ export function gammaln(x: number): number {
     ser += cof[j]! / y;
   }
   const tmp = x + 5.5 - (x + 0.5) * Math.log(x + 5.5);
-  return -tmp + Math.log((2.5066282746310005 * ser) / x);
+  return -tmp + Math.log((2.5066282746310007 * ser) / x);
 }
 
 /** Continued fraction for the regularized incomplete beta (Numerical Recipes). */

@@ -17,7 +17,7 @@ import {
 
 describe('math-fourier kernel — analytic constants', () => {
   it('Si(π) ≈ 1.851937 and the Gibbs constant 2·Si(π)/π ≈ 1.17898', () => {
-    expect(Math.abs(SI_PI - 1.8519370519824662)).toBeLessThan(1e-9);
+    expect(Math.abs(SI_PI - 1.8519370519824663)).toBeLessThan(1e-9);
     expect(Math.abs(GIBBS_RATIO - 1.1789797444721672)).toBeLessThan(1e-9);
   });
 
