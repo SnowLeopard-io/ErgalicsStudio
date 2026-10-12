@@ -17,6 +17,7 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { blackscholesManifest } from './manifest';
 import { blackscholesFigurePanels } from './figure';
@@ -50,7 +51,11 @@ export class BlackscholesPlugin implements Plugin {
   readonly manifest = blackscholesManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
-  private zh = false;
+  // Live locale lookup — a cached flag goes stale when the user switches
+  // language after activation, leaving canvas captions in the old language.
+  private get zh() {
+    return this.api ? isZh(this.api.locale) : false;
+  }
   private state: State = {
     S: DEFAULT_BS_PARAMS.S,
     K: DEFAULT_BS_PARAMS.K,
@@ -64,7 +69,12 @@ export class BlackscholesPlugin implements Plugin {
 
   async init(api: PluginApi) {
     this.api = api;
-    this.zh = api.locale === 'zh-CN';
+    // Redraw immediately when the user switches language (captions live on
+    // the canvas, which React's re-render cannot touch).
+    api.onLocaleChange(() => {
+      this.publishOutputs();
+      this.draw();
+    });
   }
 
   async destroy() {

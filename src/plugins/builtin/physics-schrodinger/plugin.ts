@@ -200,7 +200,7 @@ export class SchrodingerPlugin implements Plugin {
         min: 100,
         max: 600,
         step: 50,
-        value: s.gridN,
+        value: Math.min(600, Math.max(100, s.gridN)),
         hint: zh ? '有限差分内部节点数' : 'interior finite-difference nodes',
       },
       {
@@ -262,7 +262,8 @@ export class SchrodingerPlugin implements Plugin {
       if (typeof v === 'number' && Number.isFinite(v)) cb(v);
     };
     num('gridN', (n) => {
-      const g = Math.round(Math.min(600, Math.max(100, n / 50) * 50));
+      // Round to the step (50), then clamp to [100, 600].
+      const g = Math.min(600, Math.max(100, Math.round(n / 50) * 50));
       if (g === s.gridN) return;
       s.gridN = g;
       potentialChanged = true;

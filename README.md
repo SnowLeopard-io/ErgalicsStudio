@@ -767,6 +767,38 @@ chemistry / biology / geography / environmental science / effects rendering):
 
 *Bubble Chart: two extra variables mapped onto bubble size and color.*
 
+![Heatmap — a Viridis heatmap of a petal pattern](docs/assets/screenshots/plugins/heatmap.png)
+
+*Heatmap: a Viridis-shaded heatmap forming a petal pattern.*
+
+![3D Voxel Field — cyan spheres](docs/assets/screenshots/plugins/voxel-3d.png)
+
+*3D Voxel Field: cyan spheres in the voxel view.*
+
+![Bar Chart — monthly bars with value labels](docs/assets/screenshots/plugins/bar_chart.png)
+
+*Bar Chart: monthly bars annotated with values.*
+
+![Polar Plot — a five-axis radar chart](docs/assets/screenshots/plugins/polar.png)
+
+*Polar Plot: a five-axis radar chart.*
+
+![Network Graph — force-directed layout](docs/assets/screenshots/plugins/network.png)
+
+*Network Graph: a force-directed network layout.*
+
+![Parallel Coordinates — the iris dataset](docs/assets/screenshots/plugins/parallel.png)
+
+*Parallel Coordinates: the iris dataset, one polyline per row.*
+
+![Treemap — nested rectangles by value share](docs/assets/screenshots/plugins/treemap.png)
+
+*Treemap: nested rectangles sized by value share.*
+
+![Point Cloud — a 2-D point cloud](docs/assets/screenshots/plugins/point-cloud.png)
+
+*Point Cloud: a 2-D .xyz point cloud.*
+
 **Statistics**
 
 ![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
@@ -777,6 +809,30 @@ sample trajectory through it.*
 ![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
 
 *Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
+
+![Histogram — a bimodal distribution](docs/assets/screenshots/plugins/histogram.png)
+
+*Histogram: a bimodal distribution.*
+
+![Violin Plot — violins with a box overlay](docs/assets/screenshots/plugins/violin.png)
+
+*Violin Plot: kernel-density violins with a box overlay.*
+
+![Box Plot — quartile boxes with outliers](docs/assets/screenshots/plugins/boxplot.png)
+
+*Box Plot: quartile boxes with outliers flagged.*
+
+![Error Band — a mean line with a shaded error band](docs/assets/screenshots/plugins/errorband.png)
+
+*Error Band: a mean line with a shaded error band.*
+
+![QQ Plot — quantiles departing from the reference line](docs/assets/screenshots/plugins/qqplot.png)
+
+*QQ Plot: sample quantiles departing from the reference line.*
+
+![Central Limit Theorem Bench — sample means with the analytic normal](docs/assets/screenshots/plugins/stats-clt.png)
+
+*Central Limit Theorem Bench: sample means overlaid on the analytic normal.*
 
 **Math Methods**
 
@@ -812,6 +868,19 @@ peak near the critical point.*
 
 *Trajectory Kinematics Lab: a least-squares projectile fit with the KE/PE
 breakdown.*
+
+![Particles — a GPU particle simulation](docs/assets/screenshots/plugins/particles.png)
+
+*Particles: an interactive particle simulation on a WGSL compute kernel.*
+
+![1-D Schrödinger Solver — infinite-well stationary wavefunctions](docs/assets/screenshots/plugins/physics-schrodinger.png)
+
+*1-D Schrödinger Solver: stationary wavefunctions of the infinite square
+well.*
+
+![Heat Engine Cycles — the Otto p-V loop](docs/assets/screenshots/plugins/physics-heatengine.png)
+
+*Heat Engine Cycles: the Otto p-V cycle with its efficiency.*
 
 **Chemistry**
 
@@ -859,6 +928,12 @@ Vmax and Km with confidence intervals.*
 
 *Epidemic Modeling: SEIR compartment curves (N = 10⁵, R₀ = 2.8).*
 
+![Pharmacokinetics — a two-compartment curve with the therapeutic window](docs/assets/screenshots/plugins/bio-pk.png)
+
+*Pharmacokinetics: a two-compartment concentration–time curve with the
+therapeutic-window overlay.*
+
+**Geography**
 ![Protein Interactions — interaction network](docs/assets/screenshots/plugins/protein-network.png)
 
 *Protein Interactions: residue interaction network graph.*
@@ -883,6 +958,19 @@ enclosed area.*
 
 *Climatograph: Cairo's monthly precipitation bars with the temperature line.*
 
+![Radiocarbon Dating Lab — the calibration curve with probability distributions](docs/assets/screenshots/plugins/geo-carbondating.png)
+
+*Radiocarbon Dating Lab: the calibration curve with probability
+distributions.*
+
+![Soil Water Retention Fit — a van Genuchten fit](docs/assets/screenshots/plugins/geo-soilwater.png)
+
+*Soil Water Retention Fit: a van Genuchten retention-curve fit.*
+
+![SCS Runoff Event — the rainfall–runoff hydrograph](docs/assets/screenshots/plugins/geo-hydrology.png)
+
+*SCS Runoff Event: the rainfall–runoff hydrograph.*
+
 **Environmental Science**
 
 ![Predator–Prey — Lotka–Volterra phase orbit and oscillations](docs/assets/screenshots/plugins/env-predator-prey.png)
@@ -898,6 +986,92 @@ oscillations.*
 
 *Carbon Cycle: the four-pool box model evolving over a century.*
 
+![Air Quality (AQI) — daily AQI bars](docs/assets/screenshots/plugins/env-aqi.png)
+
+*Air Quality (AQI): daily AQI bars peaking at 116.*
+
+![Water Quality — radar charts with WQI ratings](docs/assets/screenshots/plugins/env-water.png)
+
+*Water Quality: radar charts with WQI ratings for four stations.*
+
+![Biodiversity Indices — abundance stacks and diversity indices](docs/assets/screenshots/plugins/env-biodiversity.png)
+
+*Biodiversity Indices: species-abundance stacks and diversity indices for
+three sites.*
+
+![Pollutant Dispersion — Gaussian-plume ground-level concentration](docs/assets/screenshots/plugins/env-plume.png)
+
+*Pollutant Dispersion: Gaussian-plume ground-level concentrations.*
+
+![3-D Global Environment — a 3-D Earth with the albedo layer](docs/assets/screenshots/plugins/env-earth3d.png)
+
+*3-D Global Environment: a 3-D Earth with the albedo layer.*
+
+**Astronomy**
+
+![Astronomy CCD Pipeline — a simulated star field with detection circles](docs/assets/screenshots/plugins/astro-pipeline.png)
+
+*Astronomy CCD Pipeline: a CCD-simulated star field with source-detection
+circles.*
+
+![Exoplanet Transit Fitting — trapezoid model and phase folding](docs/assets/screenshots/plugins/astro-transit.png)
+
+*Exoplanet Transit Fitting: a trapezoid model fitted to the phase-folded
+light curve.*
+
+![Hertzsprung–Russell Diagram — stellar scatter with the main-sequence reference](docs/assets/screenshots/plugins/astro-hrdiagram.png)
+
+*Hertzsprung–Russell Diagram: stellar scatter with the main-sequence
+reference overlay.*
+
+**Materials Science**
+
+![XRD Pattern Analysis — silicon peaks with d-spacing annotations](docs/assets/screenshots/plugins/mats-xrd.png)
+
+*XRD Pattern Analysis: a silicon diffraction pattern with d-spacing
+annotations.*
+
+![Thermal Analysis (DSC/TGA) — weight-loss steps](docs/assets/screenshots/plugins/mats-thermal.png)
+
+*Thermal Analysis (DSC/TGA): weight-loss step curves.*
+
+**Engineering Simulation**
+
+![Plane Truss FEA — axial-force coloring with deformed shape overlay](docs/assets/screenshots/plugins/eng-truss.png)
+
+*Plane Truss FEA: axial-force coloring with the deformed shape overlay.*
+
+![DC Circuit Node Analysis — node voltages on the circuit topology](docs/assets/screenshots/plugins/eng-circuit.png)
+
+*DC Circuit Node Analysis: node voltages over the circuit topology.*
+
+![Control Systems Lab — step response and Bode sweeps](docs/assets/screenshots/plugins/eng-control.png)
+
+*Control Systems Lab: a step response with Bode sweeps.*
+
+**Economics & Finance**
+
+![Black-Scholes Option Lab — price curves and Monte Carlo convergence](docs/assets/screenshots/plugins/econ-blackscholes.png)
+
+*Black-Scholes Option Lab: analytic price curves and Monte Carlo
+convergence.*
+
+![Spatial Prisoner's Dilemma — strategy grid and cooperation rate](docs/assets/screenshots/plugins/econ-evogame.png)
+
+*Spatial Prisoner's Dilemma: the strategy grid with the cooperation rate.*
+
+**Psychology & Behavior**
+
+![Reaction Time Lab — RT series with histogram and box plot](docs/assets/screenshots/plugins/psych-rt.png)
+
+*Reaction Time Lab: an RT series with histogram and box plot.*
+
+**Data & Intelligence**
+
+![Image Processing — before/after sharpening](docs/assets/screenshots/plugins/data-imageproc.png)
+
+*Image Processing: before/after sharpening.*
+
 **Effects Rendering**
 
 ![Black Hole — ray-traced lensing and accretion disk](docs/assets/screenshots/plugins/fx-blackhole.png)
@@ -912,6 +1086,24 @@ accretion disk.*
 ![Water — an animated 3-D wave mesh](docs/assets/screenshots/plugins/fx-water.png)
 
 *Water · 3D Fluid Waves: an animated wave mesh in the host 3-D scene.*
+
+**Fun & utility**
+
+![Palette Explorer — a 12-swatch gradient](docs/assets/screenshots/plugins/fun-palette.png)
+
+*Palette Explorer: a 12-swatch gradient.*
+
+![Koch Snowflake — 6 iterations](docs/assets/screenshots/plugins/fun-koch.png)
+
+*Koch Snowflake: 6 iterations.*
+
+![Barnsley Fern — 300k points](docs/assets/screenshots/plugins/fun-barnsley.png)
+
+*Barnsley Fern: 300k points.*
+
+![Harmonograph — intertwined damped-pendulum curves](docs/assets/screenshots/plugins/fun-harmonograph.png)
+
+*Harmonograph: intertwined damped-pendulum curves.*
 
 When WebGPU is missing, every built-in plugin runs the same math on the CPU —
 full compute paths under [GPU Compute & Native Core](#gpu-compute--native-core).

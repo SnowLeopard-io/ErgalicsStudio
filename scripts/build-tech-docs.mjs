@@ -1174,6 +1174,7 @@ const DOC_ORDER = [
   '09-电磁谐振特征值求解器',
   '10-流体双向耦合求解器',
   '10-流体双向耦合求解器-容器化部署手册',
+  '11-应用场景库',
   'Ergalics Studio',
 ];
 
@@ -1186,6 +1187,7 @@ const FOOT_OVERRIDES = {
   '09-电磁谐振特征值求解器': '独立专题文档 · Standalone Note',
   '10-流体双向耦合求解器': '独立专题文档 · Standalone Note',
   '10-流体双向耦合求解器-容器化部署手册': '独立专题文档 · Standalone Note',
+  '11-应用场景库': '独立专题文档 · Standalone Note',
 };
 
 // Hand-written cover abstracts, for documents whose opening paragraph is too

@@ -624,6 +624,38 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *气泡图：两个附加变量分别映射气泡大小与颜色。*
 
+![热力图 — Viridis 配色的花瓣图案](docs/assets/screenshots/plugins/heatmap.png)
+
+*热力图：Viridis 配色的花瓣图案。*
+
+![3D 体素渲染 — 青色球体](docs/assets/screenshots/plugins/voxel-3d.png)
+
+*3D 体素渲染：青色球体体素视图。*
+
+![柱状图 — 带数值标签的月度柱状图](docs/assets/screenshots/plugins/bar_chart.png)
+
+*柱状图：带数值标签的月度柱状图。*
+
+![雷达图 — 五维雷达图](docs/assets/screenshots/plugins/polar.png)
+
+*雷达图：五维雷达图。*
+
+![网络图 — 力导向布局](docs/assets/screenshots/plugins/network.png)
+
+*网络图：力导向布局网络图。*
+
+![平行坐标图 — 鸢尾花数据集](docs/assets/screenshots/plugins/parallel.png)
+
+*平行坐标图：鸢尾花数据集，每行一条折线。*
+
+![矩形树图 — 面积正比取值的嵌套矩形](docs/assets/screenshots/plugins/treemap.png)
+
+*矩形树图：面积正比取值的嵌套矩形。*
+
+![点云查看器 — 二维点云](docs/assets/screenshots/plugins/point-cloud.png)
+
+*点云查看器：二维 .xyz 点云。*
+
 **数学统计**
 
 ![马尔可夫链与稳态分析 — 状态转移图与样本轨迹](docs/assets/screenshots/plugins/stats-markov.png)
@@ -633,6 +665,30 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 ![Zipf 定律词频分析 — 双对数词频直线拟合](docs/assets/screenshots/plugins/stats-zipf.png)
 
 *Zipf 定律词频分析：log rank–log freq 双对数直线拟合。*
+
+![直方图 — 双峰分布](docs/assets/screenshots/plugins/histogram.png)
+
+*直方图：双峰分布。*
+
+![小提琴图 — 核密度小提琴叠加箱线](docs/assets/screenshots/plugins/violin.png)
+
+*小提琴图：核密度小提琴叠加箱线。*
+
+![箱线图 — 四分位箱与离群点](docs/assets/screenshots/plugins/boxplot.png)
+
+*箱线图：四分位箱与离群点。*
+
+![误差带图 — 均值折线叠加误差带](docs/assets/screenshots/plugins/errorband.png)
+
+*误差带图：均值折线叠加误差带。*
+
+![QQ 图 — 样本分位数偏离参考线](docs/assets/screenshots/plugins/qqplot.png)
+
+*QQ 图：样本分位数偏离参考线。*
+
+![中心极限定理演示台 — 样本均值叠加解析正态](docs/assets/screenshots/plugins/stats-clt.png)
+
+*中心极限定理演示台：样本均值叠加解析正态曲线。*
 
 **数学方法**
 
@@ -665,6 +721,18 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 ![轨迹运动学与能量分解实验室 — 抛体拟合与能量分解](docs/assets/screenshots/plugins/physics-trajectory.png)
 
 *轨迹运动学与能量分解实验室：最小二乘抛体拟合与动能 / 势能分解。*
+
+![粒子模拟 — GPU 粒子模拟](docs/assets/screenshots/plugins/particles.png)
+
+*粒子模拟：WGSL 计算内核上的交互式粒子模拟。*
+
+![一维量子力学求解器 — 无限深方势阱定态波函数](docs/assets/screenshots/plugins/physics-schrodinger.png)
+
+*一维量子力学求解器：无限深方势阱的定态波函数。*
+
+![热机循环 p-V 分析台 — 奥托循环与效率](docs/assets/screenshots/plugins/physics-heatengine.png)
+
+*热机循环 p-V 分析台：奥托循环 p-V 图与效率。*
 
 **化学**
 
@@ -706,6 +774,11 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *传染病分室模型：SEIR 仓室流行曲线（N = 10⁵，R₀ = 2.8）。*
 
+![药代动力学室分析 — 二室药时曲线与治疗窗](docs/assets/screenshots/plugins/bio-pk.png)
+
+*药代动力学室分析：二室药时曲线与治疗窗叠加。*
+
+**地理**
 ![蛋白质相互作用 — 残基相互作用网络](docs/assets/screenshots/plugins/protein-network.png)
 
 *蛋白质相互作用：残基相互作用网络图。*
@@ -728,6 +801,18 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *气候直方图：开罗逐月降水柱与气温折线。*
 
+![放射性碳定年实验室 — 校准曲线与概率分布](docs/assets/screenshots/plugins/geo-carbondating.png)
+
+*放射性碳定年实验室：校准曲线与概率分布。*
+
+![土壤水分特征曲线拟合 — van Genuchten 持水拟合](docs/assets/screenshots/plugins/geo-soilwater.png)
+
+*土壤水分特征曲线拟合：van Genuchten 持水曲线拟合。*
+
+![SCS 降雨径流模型 — 降雨-径流水文图](docs/assets/screenshots/plugins/geo-hydrology.png)
+
+*SCS 降雨径流模型：降雨-径流水文图。*
+
 **环境学**
 
 ![捕食者-猎物（Lotka–Volterra）— 相轨线与振荡](docs/assets/screenshots/plugins/env-predator-prey.png)
@@ -742,6 +827,86 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *碳循环推演：四碳库箱式模型的百年演化。*
 
+![空气质量评价（AQI）— 分日 AQI 柱状图](docs/assets/screenshots/plugins/env-aqi.png)
+
+*空气质量评价（AQI）：分日 AQI 柱状图，峰值 116。*
+
+![水质评价 — 雷达图与 WQI 评级](docs/assets/screenshots/plugins/env-water.png)
+
+*水质评价：四站点雷达图与 WQI 评级。*
+
+![生物多样性指数 — 丰度堆叠与多样性指数](docs/assets/screenshots/plugins/env-biodiversity.png)
+
+*生物多样性指数：三样点物种丰度堆叠与多样性指数。*
+
+![污染物扩散模拟 — 高斯烟羽地面浓度](docs/assets/screenshots/plugins/env-plume.png)
+
+*污染物扩散模拟：高斯烟羽地面浓度。*
+
+![3D 全球环境 — 三维地球反照率图层](docs/assets/screenshots/plugins/env-earth3d.png)
+
+*3D 全球环境：三维地球反照率图层。*
+
+**天文**
+
+![天文 CCD 管线 — 模拟星场与源检测圈](docs/assets/screenshots/plugins/astro-pipeline.png)
+
+*天文 CCD 管线：CCD 模拟星场与源检测圈。*
+
+![凌星系外行星光变拟合 — 梯形模型与相位折叠](docs/assets/screenshots/plugins/astro-transit.png)
+
+*凌星系外行星光变拟合：梯形模型拟合相位折叠光变曲线。*
+
+![赫罗图 — 恒星散点与主序参考线](docs/assets/screenshots/plugins/astro-hrdiagram.png)
+
+*赫罗图：恒星散点与主序参考线。*
+
+**材料学**
+
+![XRD 衍射图谱分析 — 硅衍射峰谱与 d 值标注](docs/assets/screenshots/plugins/mats-xrd.png)
+
+*XRD 衍射图谱分析：硅衍射峰谱与 d 值标注。*
+
+![热分析（DSC/TGA）— 失重台阶曲线](docs/assets/screenshots/plugins/mats-thermal.png)
+
+*热分析（DSC/TGA）：失重台阶曲线。*
+
+**工程仿真**
+
+![平面桁架有限元分析 — 轴力着色与变形叠加](docs/assets/screenshots/plugins/eng-truss.png)
+
+*平面桁架有限元分析：轴力着色与变形形状叠加。*
+
+![直流电路节点分析 — 电路拓扑上的节点电压](docs/assets/screenshots/plugins/eng-circuit.png)
+
+*直流电路节点分析：电路拓扑上的节点电压。*
+
+![控制系统实验室 — 阶跃响应与 Bode 图](docs/assets/screenshots/plugins/eng-control.png)
+
+*控制系统实验室：阶跃响应与 Bode 图。*
+
+**经济与金融**
+
+![Black-Scholes 期权定价实验室 — 价格曲线与蒙特卡洛收敛](docs/assets/screenshots/plugins/econ-blackscholes.png)
+
+*Black-Scholes 期权定价实验室：解析价格曲线与蒙特卡洛收敛。*
+
+![空间囚徒困境演化博弈 — 策略网格与合作率](docs/assets/screenshots/plugins/econ-evogame.png)
+
+*空间囚徒困境演化博弈：策略网格与合作率。*
+
+**心理与行为**
+
+![简单反应时实验室 — 反应时序列与直方图、箱线图](docs/assets/screenshots/plugins/psych-rt.png)
+
+*简单反应时实验室：反应时序列与直方图、箱线图。*
+
+**数据与智能**
+
+![图像处理 — 锐化前后对比](docs/assets/screenshots/plugins/data-imageproc.png)
+
+*图像处理：锐化前后对比。*
+
 **特效渲染**
 
 ![黑洞 · 3D 光线追踪 — 引力透镜与吸积盘](docs/assets/screenshots/plugins/fx-blackhole.png)
@@ -755,6 +920,24 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 ![水波 · 3D 流体 — 波动网格涟漪](docs/assets/screenshots/plugins/fx-water.png)
 
 *水波 · 3D 流体：三维场景中的动态波动网格涟漪。*
+
+**趣味工具**
+
+![配色探索器 — 12 色阶渐变色卡](docs/assets/screenshots/plugins/fun-palette.png)
+
+*配色探索器：12 色阶渐变色卡。*
+
+![科赫雪花 — 迭代 6 层](docs/assets/screenshots/plugins/fun-koch.png)
+
+*科赫雪花：迭代 6 层。*
+
+![巴恩斯利蕨 — 30 万点](docs/assets/screenshots/plugins/fun-barnsley.png)
+
+*巴恩斯利蕨：30 万点。*
+
+![谐振记录仪 — 缠绕的衰减摆线](docs/assets/screenshots/plugins/fun-harmonograph.png)
+
+*谐振记录仪：缠绕的衰减摆线。*
 
 当 WebGPU 缺失时，每个内置插件都在 CPU 上运行相同数学——完整计算路径见 [GPU 计算与原生核心](#gpu-计算与原生核心)。
 

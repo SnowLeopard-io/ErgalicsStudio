@@ -320,10 +320,13 @@ export function FileExplorer() {
       }
       const { kind, mime } = classifyFile(entry.name);
       if (kind === 'text' || kind === 'markdown') {
-        const raw = await adapter.readFile(repoPath, entry.path);
-        // Do not resurrect the tab if it was closed while the read was pending.
+        // A first open has no tab yet (openFilePreview creates it below), so
+        // only a tab that existed BEFORE the read can be "closed mid-read";
+        // do not resurrect that one.
         const textKey = fileTabKey(entry.path);
-        if (!useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey)) return;
+        const existedBefore = useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey);
+        const raw = await adapter.readFile(repoPath, entry.path);
+        if (existedBefore && !useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey)) return;
         const capped = raw.length > PREVIEW_CAP_CHARS ? raw.slice(0, PREVIEW_CAP_CHARS) : raw;
         openFilePreview({
           name: entry.name,
