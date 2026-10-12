@@ -18,7 +18,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { astroHrdiagramManifest } from './manifest';
+import { hrFigurePanels } from './figure';
 import {
   HR_BENCHMARK,
   SUN_ANCHOR,
@@ -154,6 +156,7 @@ export class AstroHrdiagramPlugin implements Plugin {
       },
       actionButton('benchmark', 'Run HR benchmark', '运行 HR 基准验证', 'primary'),
       actionButton('exportCsv', 'Export table CSV', '导出星表 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -188,6 +191,7 @@ export class AstroHrdiagramPlugin implements Plugin {
     if (redraw) this.draw();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -337,6 +341,43 @@ export class AstroHrdiagramPlugin implements Plugin {
       return [s.name, s.bv, s.v, s.parallax ?? '', Number.isFinite(mv) ? Number(mv.toFixed(4)) : ''];
     });
     exportRowsCsv(this.api, 'hrd-catalogue', ['name', 'bv', 'v', 'parallax_arcsec', 'MV'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.stars || this.stars.length === 0) {
+      notify(this.api, 'warning', 'No catalogue loaded yet.', '尚未载入星表。');
+      return;
+    }
+    const visible = this.visibleStars();
+    if (visible.length === 0) {
+      notify(this.api, 'warning', 'No stars pass the current magnitude/parallax filters.', '当前星等/视差筛选条件下没有可绘制的恒星。');
+      return;
+    }
+    const nPlx = visible.filter((s) => s.parallax !== null && s.parallax > 0).length;
+    let zhCap: string;
+    let enCap: string;
+    const fit = this.state.mode === 'absolute' ? fitDataMainSequence(visible) : null;
+    if (fit) {
+      const ref = mainSequenceSlope(fit.bvMin, fit.bvMax);
+      zhCap = `赫罗图：共 ${this.stars.length} 颗星，绘制 ${visible.length} 颗（含视差 ${nPlx}）；主序数据斜率 ${fit.slope.toFixed(2)} mag/mag（n=${fit.n}）vs 同色域参考 ${ref.slope.toFixed(2)}。`;
+      enCap = `HR diagram: ${this.stars.length} stars, ${visible.length} plotted (${nPlx} with parallax); data main-sequence slope ${fit.slope.toFixed(2)} mag/mag (n=${fit.n}) vs reference ${ref.slope.toFixed(2)} over the same colour span.`;
+    } else {
+      const kindZh = this.state.mode === 'absolute' ? '赫罗图' : '颜色-星等图';
+      const kindEn = this.state.mode === 'absolute' ? 'HR diagram' : 'Colour–magnitude diagram';
+      zhCap = `${kindZh}：共 ${this.stars.length} 颗星，绘制 ${visible.length} 颗（含视差 ${nPlx}）。`;
+      enCap = `${kindEn}: ${this.stars.length} stars, ${visible.length} plotted (${nPlx} with parallax).`;
+    }
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '赫罗图', en: 'Hertzsprung–Russell Diagram' },
+      { zh: zhCap, en: enCap } satisfies Bilingual,
+      hrFigurePanels({
+        stars: visible,
+        mode: this.state.mode,
+        showMs: this.state.showMs,
+        showSun: this.state.showSun,
+      }),
+    );
   }
 
   /** Stars passing the current filters (parallax cut applies in absolute mode). */

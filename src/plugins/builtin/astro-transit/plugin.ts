@@ -17,7 +17,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { astroTransitManifest } from './manifest';
+import { transitFigurePanels } from './figure';
 import {
   TRANSIT_BENCHMARK,
   binFolded,
@@ -163,6 +165,7 @@ export class AstroTransitPlugin implements Plugin {
       actionButton('benchmark', 'Run transit benchmark', '运行凌星基准验证'),
       actionButton('exportCsv', 'Export light curve CSV', '导出光变 CSV'),
       actionButton('exportResiduals', 'Export residual CSV', '导出残差 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -204,6 +207,7 @@ export class AstroTransitPlugin implements Plugin {
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (actionFired(params, 'exportResiduals')) this.exportResiduals();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -466,6 +470,34 @@ export class AstroTransitPlugin implements Plugin {
       return [Number(d.t.toFixed(6)), Number(d.f.toFixed(6)), Number(model.toFixed(6)), Number((d.f - model).toFixed(6))];
     });
     exportRowsCsv(this.api, 'transit-fit-residuals', ['time', 'flux_observed', 'flux_model', 'residual'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.data) {
+      notify(this.api, 'warning', 'No light curve yet — load a dataset or run the demo first.', '暂无光变数据——请先载入数据或运行演示。');
+      return;
+    }
+    const fit = this.fit;
+    const det = this.detection;
+    let zhCap: string;
+    let enCap: string;
+    if (fit) {
+      const rr = Math.sqrt(Math.max(fit.params.delta, 0));
+      zhCap = `凌星拟合：P=${fit.params.P.toFixed(4)}±${fit.sigma.P.toFixed(4)} d，δ=${fit.params.delta.toFixed(5)}±${fit.sigma.delta.toFixed(5)}，Rp/Rs=${rr.toFixed(4)}，R²=${fit.r2.toFixed(4)}。`;
+      enCap = `Transit fit: P=${fit.params.P.toFixed(4)}±${fit.sigma.P.toFixed(4)} d, δ=${fit.params.delta.toFixed(5)}±${fit.sigma.delta.toFixed(5)}, Rp/Rs=${rr.toFixed(4)}, R²=${fit.r2.toFixed(4)}.`;
+    } else if (det) {
+      zhCap = `凌星检测（仅箱型）：P=${det.period.toFixed(4)} d，δ=${det.depth.toFixed(5)}，显著度 ${det.score.toFixed(1)}σ。`;
+      enCap = `Transit detection (box only): P=${det.period.toFixed(4)} d, δ=${det.depth.toFixed(5)}, score ${det.score.toFixed(1)}σ.`;
+    } else {
+      zhCap = `原始光变曲线（${this.data.length} 个数据点）——尚未检测到显著周期。`;
+      enCap = `Raw light curve (${this.data.length} points) — no significant period detected yet.`;
+    }
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '凌星光变分析', en: 'Transit Light-Curve Analysis' },
+      { zh: zhCap, en: enCap } satisfies Bilingual,
+      transitFigurePanels({ data: this.data, detection: det, fit }),
+    );
   }
 
   // ---- drawing ---------------------------------------------------------------

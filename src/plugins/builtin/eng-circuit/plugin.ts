@@ -19,7 +19,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { engCircuitManifest } from './manifest';
+import { circuitFigurePanels } from './figure';
 import {
   CircuitError,
   type MnaResult,
@@ -112,6 +114,7 @@ export class EngCircuitPlugin implements Plugin {
       },
       actionButton('solve', 'Solve circuit', '解算电路', 'primary'),
       actionButton('exportCsv', 'Export node CSV', '导出节点 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -121,6 +124,7 @@ export class EngCircuitPlugin implements Plugin {
     }
     if (actionFired(params, 'solve')) this.solve(true);
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -232,6 +236,25 @@ export class EngCircuitPlugin implements Plugin {
     exportRowsCsv(this.api, 'circuit-node-voltages', ['kind', 'name', 'value', 'unit'], rows);
   }
 
+  private async sendToFigure(): Promise<void> {
+    if (!this.result) {
+      notify(this.api, 'warning', 'No solve yet — press "Solve circuit" first.', '尚未解算 — 请先点击「解算电路」。');
+      return;
+    }
+    const r = this.result;
+    const top = r.nodeVoltages.reduce((a, b) => (Math.abs(b.voltage) > Math.abs(a.voltage) ? b : a));
+    const caption: Bilingual = {
+      zh: `直流电路 MNA 解算：最高节点电压 V(${top.node})=${fmtMetric(top.voltage)} V，电阻总耗散 ${fmtMetric(r.totalDissipatedPower)} W，Tellegen 平衡残差 ${fmtMetric(r.powerBalance)} W。`,
+      en: `DC circuit MNA solve: highest node voltage V(${top.node})=${fmtMetric(top.voltage)} V, total resistor dissipation ${fmtMetric(r.totalDissipatedPower)} W, Tellegen balance residual ${fmtMetric(r.powerBalance)} W.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '直流电路节点分析', en: 'DC Circuit Node Analysis' },
+      caption,
+      circuitFigurePanels(r),
+    );
+  }
+
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
@@ -310,12 +333,23 @@ export class EngCircuitPlugin implements Plugin {
       const p = positions[i]!;
       const isGnd = name.toLowerCase() === 'gnd' || name === '0';
       const v = voltageOfNode(name);
-      // Outward direction for the label.
+      // Anchor the label by the node's position in the layout so the text
+      // never runs over the marker: side nodes anchor outward horizontally,
+      // top/bottom nodes get a vertical offset.
       const dx = p.x - cx;
       const dy = p.y - cy;
-      const norm = Math.hypot(dx, dy) || 1;
-      const lx = p.x + (dx / norm) * 30;
-      const ly = p.y + (dy / norm) * 30;
+      let lx = p.x;
+      let ly = p.y;
+      let align: CanvasTextAlign = 'center';
+      if (Math.abs(dx) > Math.abs(dy)) {
+        align = dx > 0 ? 'left' : 'right';
+        lx = p.x + (dx > 0 ? 12 : -12);
+        ly = p.y + 4;
+      } else {
+        align = 'center';
+        lx = p.x;
+        ly = dy > 0 ? p.y + 24 : p.y - 18;
+      }
 
       g.beginPath();
       g.arc(p.x, p.y, isGnd ? 5 : 7, 0, Math.PI * 2);
@@ -332,7 +366,7 @@ export class EngCircuitPlugin implements Plugin {
         g.stroke();
       }
       g.fillStyle = isGnd ? 'rgba(170,182,200,0.95)' : 'rgba(230,238,248,0.95)';
-      g.textAlign = 'center';
+      g.textAlign = align;
       g.fillText(isGnd ? `${name} = 0 V` : `${name} = ${fmtMetric(v)} V`, lx, ly);
     });
 

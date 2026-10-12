@@ -17,7 +17,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { bioPkManifest } from './manifest';
+import { pkFigurePanels } from './figure';
 import {
   DEFAULT_PK_PARAMS,
   computePkMetrics,
@@ -246,6 +248,7 @@ export class BioPkPlugin implements Plugin {
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export profile CSV', '导出药时曲线 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -305,6 +308,7 @@ export class BioPkPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -411,6 +415,25 @@ export class BioPkPlugin implements Plugin {
       Number(s.gut[i]!.toFixed(6)),
     ]);
     exportRowsCsv(this.api, 'bio-pk-profile', ['time_h', 'C_mg_per_L', 'A2_peripheral_mg', 'A_gi_mg'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const m = computePkMetricsSafe(this.params(), this.state.tMax, this.state.tMax / 1200);
+    if (!Number.isFinite(m.cmax) || m.cmax <= 0) {
+      notify(this.api, 'warning', 'No simulation yet — adjust parameters first.', '尚无仿真结果——请先设置参数。');
+      return;
+    }
+    const tHalf = Number.isFinite(m.halfLife) ? m.halfLife.toFixed(2) : '—';
+    const caption: Bilingual = {
+      zh: `药代动力学：Cmax=${m.cmax.toFixed(2)} mg/L（Tmax=${m.tmax.toFixed(2)} h），t½=${tHalf} h，AUC=${m.aucAnalytic.toFixed(2)} mg·h/L（数值相对误差 ${(m.aucRelErr * 100).toFixed(3)}%）。`,
+      en: `Pharmacokinetics: Cmax=${m.cmax.toFixed(2)} mg/L (Tmax=${m.tmax.toFixed(2)} h), t½=${tHalf} h, AUC=${m.aucAnalytic.toFixed(2)} mg·h/L (numeric rel. err ${(m.aucRelErr * 100).toFixed(3)}%).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '药代动力学房室模型', en: 'Pharmacokinetic Compartment Model' },
+      caption,
+      pkFigurePanels({ params: this.params(), tMax: this.state.tMax, logScale: this.state.logScale }),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------

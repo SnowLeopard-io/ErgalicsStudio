@@ -20,7 +20,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { hydrologyManifest } from './manifest';
+import { hydrologyFigurePanels } from './figure';
 import {
   DESIGN_STORM_90MM_6H,
   parseHyetograph,
@@ -169,6 +171,7 @@ export class HydrologyPlugin implements Plugin {
       actionButton('demo', 'Demo · 90 mm / 6 h design storm', '演示 · 90 mm / 6 h 设计暴雨'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export event CSV', '导出过程 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -219,6 +222,7 @@ export class HydrologyPlugin implements Plugin {
     if (actionFired(params, 'demo')) this.runDemo();
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -410,6 +414,30 @@ export class HydrologyPlugin implements Plugin {
       'scs-runoff-event',
       ['time_h', 'precip_mm', 'excess_mm', 'cum_precip_mm', 'cum_excess_mm', 'runoff_m3s'],
       rows,
+    );
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const ev = this.event;
+    if (!ev) {
+      notify(
+        this.api,
+        'warning',
+        'No event result yet — load rainfall or run the demo storm first.',
+        '尚无径流计算结果——请先载入雨量或运行演示暴雨。',
+      );
+      return;
+    }
+    const coeff = ev.totalPrecipMm > 0 ? (ev.totalExcessMm / ev.totalPrecipMm) * 100 : 0;
+    const caption: Bilingual = {
+      zh: `SCS 径流计算（CN=${ev.cn}，A=${this.state.areaKm2} km²）：P=${ev.totalPrecipMm.toFixed(1)} mm → Q=${ev.totalExcessMm.toFixed(2)} mm（径流系数 ${coeff.toFixed(1)}%），峰值 ${ev.peakFlowM3s.toFixed(2)} m³/s @ ${ev.timeToPeakHours.toFixed(1)} h。`,
+      en: `SCS runoff event (CN=${ev.cn}, A=${this.state.areaKm2} km²): P=${ev.totalPrecipMm.toFixed(1)} mm → Q=${ev.totalExcessMm.toFixed(2)} mm (runoff coefficient ${coeff.toFixed(1)}%), peak ${ev.peakFlowM3s.toFixed(2)} m³/s @ ${ev.timeToPeakHours.toFixed(1)} h.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'SCS 降雨-径流过程', en: 'SCS Rainfall–Runoff Event' },
+      caption,
+      hydrologyFigurePanels({ event: ev }),
     );
   }
 

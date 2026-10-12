@@ -21,7 +21,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { carbonDatingManifest } from './manifest';
+import { carbonFigurePanels } from './figure';
 import {
   MEAN_LIFE_14C,
   benchmarkCurveAnchor,
@@ -193,6 +195,7 @@ export class CarbonDatingPlugin implements Plugin {
       actionButton('demo', 'Demo · anchor measurement', '演示 · 锚点测量'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export profile CSV', '导出概率剖面 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -244,6 +247,7 @@ export class CarbonDatingPlugin implements Plugin {
     if (actionFired(params, 'demo')) this.runDemo();
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -468,6 +472,37 @@ export class CarbonDatingPlugin implements Plugin {
       'radiocarbon-calibration-profile',
       ['cal_bp', 'f14c_curve', 'chi2', 'rel_prob', 'in_1sigma', 'in_2sigma'],
       rows,
+    );
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const meas = this.measurement();
+    if (!(meas.f14c > 0) || !Number.isFinite(meas.f14c)) {
+      notify(this.api, 'warning', 'No valid measurement to plot.', '暂无可绘图的有效测量值。');
+      return;
+    }
+    const uncal = this.lastUncal ?? uncalibratedAge(meas.f14c, meas.sigma);
+    const res = this.result;
+    const calTxt = res
+      ? this.zh
+        ? `校准最佳点 ${res.bestFitCalBP.toFixed(0)} cal BP（χ²min=${res.chi2Min.toFixed(2)}），1σ 区间 ${res.interval1
+            .map((r) => `${r.from.toFixed(0)}–${r.to.toFixed(0)}`)
+            .join('; ') || '—'} cal BP`
+        : `calibrated best fit ${res.bestFitCalBP.toFixed(0)} cal BP (χ²min=${res.chi2Min.toFixed(2)}), 1σ range ${res.interval1
+            .map((r) => `${r.from.toFixed(0)}–${r.to.toFixed(0)}`)
+            .join('; ') || '—'} cal BP`
+      : this.zh
+        ? '未做大气校准（仅 Libby 年龄）'
+        : 'not atmospherically calibrated (Libby age only)';
+    const caption: Bilingual = {
+      zh: `放射性碳定年：F14C=${meas.f14c.toFixed(4)} ± ${meas.sigma.toFixed(4)}，Libby 常规年龄 ${uncal.age.toFixed(0)} ± ${uncal.sigma.toFixed(0)} yr BP；${calTxt}。`,
+      en: `Radiocarbon dating: F14C=${meas.f14c.toFixed(4)} ± ${meas.sigma.toFixed(4)}, Libby conventional age ${uncal.age.toFixed(0)} ± ${uncal.sigma.toFixed(0)} yr BP; ${calTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '放射性碳定年分析', en: 'Radiocarbon Dating Analysis' },
+      caption,
+      carbonFigurePanels({ measurement: meas, curve: this.curve, result: this.result }),
     );
   }
 

@@ -17,7 +17,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { statsMarkovManifest } from './manifest';
+import { markovFigurePanels } from './figure';
 import {
   PRESETS,
   absorbingAnalysis,
@@ -159,6 +161,7 @@ export class StatsMarkovPlugin implements Plugin {
       actionButton('simulate', 'Simulate trajectory', '模拟轨迹', 'primary'),
       actionButton('benchmark', 'Run Markov benchmarks', '运行马尔可夫基准验证'),
       actionButton('exportCsv', 'Export chain CSV', '导出链数据 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -205,6 +208,7 @@ export class StatsMarkovPlugin implements Plugin {
     if (actionFired(params, 'simulate')) this.simulate();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -449,6 +453,42 @@ export class StatsMarkovPlugin implements Plugin {
       });
     }
     exportRowsCsv(this.api, 'stats-markov-chain', ['kind', 'from', 'to', 'value'], rows);
+  }
+
+  /** Stream stationary law / convergence / trajectory panels into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    let a = this.state.analysis;
+    if (!a) {
+      this.recompute(false); // recover once, same as the simulate action
+      a = this.state.analysis;
+    }
+    if (!a) {
+      notify(this.api, 'warning', this.state.error ?? 'Fix the matrix first.', this.state.error ?? '请先修正转移矩阵。');
+      return;
+    }
+    const piShort = a.steady.pi.slice(0, 4).map((v) => v.toFixed(4)).join(', ');
+    const ellipsis = a.n > 4 ? ', …' : '';
+    const absorbTxt = a.absorbing
+      ? this.zh
+        ? `；吸收态 ${a.absorbing.absorbing.length} 个`
+        : `; ${a.absorbing.absorbing.length} absorbing state(s)`
+      : '';
+    const caption: Bilingual = {
+      zh: `马尔可夫链（n=${a.n}）：稳态 π=[${piShort}${ellipsis}]，幂法迭代 ${a.steady.iterations} 次（L1 残差 ${a.steady.residual.toExponential(2)}）${absorbTxt}。`,
+      en: `Markov chain (n=${a.n}): stationary π=[${piShort}${ellipsis}], power iteration ${a.steady.iterations} steps (L1 residual ${a.steady.residual.toExponential(2)})${absorbTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '马尔可夫链稳态分析', en: 'Markov Stationary Analysis' },
+      caption,
+      markovFigurePanels({
+        P: a.P,
+        labels: a.labels,
+        pi: a.steady.pi,
+        iterations: a.steady.iterations,
+        trajectory: this.state.trajectory,
+      }),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------

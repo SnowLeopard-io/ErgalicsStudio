@@ -18,7 +18,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { statsCltManifest } from './manifest';
+import { cltFigurePanels } from './figure';
 import {
   BIMODAL_SIGMA,
   PARETO_XM,
@@ -156,6 +158,7 @@ export class StatsCltPlugin implements Plugin {
       actionButton('run', 'Run sampling', '运行采样', 'primary'),
       actionButton('benchmark', 'Run CLT benchmark', '运行 CLT 基准验证'),
       actionButton('exportCsv', 'Export histogram CSV', '导出直方图 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -203,6 +206,7 @@ export class StatsCltPlugin implements Plugin {
     if (actionFired(params, 'run')) this.runNow(true);
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -358,6 +362,27 @@ export class StatsCltPlugin implements Plugin {
       return [Number(c.toFixed(6)), res.hist.counts[i] ?? 0, Number(expected.toFixed(4))];
     });
     exportRowsCsv(this.api, 'stats-clt-histogram', ['bin_center', 'count', 'expected_normal'], rows);
+  }
+
+  /** Stream the sample-mean histograms into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    if (!this.result) this.runNow(false); // seeded & deterministic, like the first draw
+    const res = this.result;
+    if (!res) {
+      notify(this.api, 'warning', 'Run the sampling first.', '请先运行一次采样。');
+      return;
+    }
+    const varTheory = res.theory.variance / res.n;
+    const caption: Bilingual = {
+      zh: `中心极限定理（n=${res.n}，m=${res.m}，种子 ${res.seed}）：实测均值 ${fmtMetric(res.stats.mean)} vs 理论 ${fmtMetric(res.theory.mean)}；实测方差 ${fmtMetric(res.stats.variance)} vs σ²/n=${fmtMetric(varTheory)}；Jarque–Bera=${fmtMetric(res.jarqueBera)}。`,
+      en: `CLT (n=${res.n}, m=${res.m}, seed ${res.seed}): measured mean ${fmtMetric(res.stats.mean)} vs theory ${fmtMetric(res.theory.mean)}; measured variance ${fmtMetric(res.stats.variance)} vs sigma^2/n=${fmtMetric(varTheory)}; Jarque-Bera=${fmtMetric(res.jarqueBera)}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '样本均值分布（CLT）', en: 'Sample-Mean Distribution (CLT)' },
+      caption,
+      cltFigurePanels(res),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------

@@ -20,7 +20,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { soilWaterManifest } from './manifest';
+import { soilWaterFigurePanels } from './figure';
 import {
   VG_SAND_1980,
   benchmarkCapacityDerivative,
@@ -168,6 +170,7 @@ export class SoilWaterPlugin implements Plugin {
       actionButton('demo', 'Demo · seeded sand data', '演示 · 种子砂土数据'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export fit CSV', '导出拟合 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -212,6 +215,7 @@ export class SoilWaterPlugin implements Plugin {
     if (actionFired(params, 'demo')) this.runDemo();
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -378,6 +382,31 @@ export class SoilWaterPlugin implements Plugin {
       'vg-retention-fit',
       ['h_cm', 'theta_obs', 'theta_fit', 'residual', 'se_effective', 'capacity_1_over_cm', 'pore_radius_cm'],
       rows,
+    );
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.data || this.data.length === 0) {
+      notify(this.api, 'warning', 'No retention data yet — load a dataset first.', '暂无持水数据——请先加载数据。');
+      return;
+    }
+    const fit = this.fit;
+    const paramTxt = fit
+      ? this.zh
+        ? `θr=${fit.params.thr.toFixed(4)}，θs=${fit.params.ths.toFixed(4)}，α=${fit.params.alpha.toFixed(4)} 1/cm，n=${fit.params.n.toFixed(3)}，RMSE=${fit.rmse.toFixed(5)} cm³/cm³`
+        : `θr=${fit.params.thr.toFixed(4)}, θs=${fit.params.ths.toFixed(4)}, α=${fit.params.alpha.toFixed(4)} 1/cm, n=${fit.params.n.toFixed(3)}, RMSE=${fit.rmse.toFixed(5)} cm³/cm³`
+      : this.zh
+        ? '尚未拟合——仅显示观测点'
+        : 'not fitted yet — observed points only';
+    const caption: Bilingual = {
+      zh: `van Genuchten 持水曲线拟合（半对数）：${paramTxt}。`,
+      en: `van Genuchten retention fit (semi-log): ${paramTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '土壤持水曲线分析', en: 'Soil Water Retention Analysis' },
+      caption,
+      soilWaterFigurePanels({ data: this.data, fit: this.fit }),
     );
   }
 

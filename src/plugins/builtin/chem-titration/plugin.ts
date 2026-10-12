@@ -13,7 +13,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { chemTitrationManifest } from './manifest';
+import { titrationFigurePanels } from './figure';
 import {
   ACID_PRESETS,
   equivalencePhAnalytic,
@@ -195,6 +197,7 @@ export class ChemTitrationPlugin implements Plugin {
       actionButton('recompute', 'Recompute curve', '重新计算曲线', 'primary'),
       actionButton('benchmark', 'Run analytic benchmarks', '运行解析基准对拍'),
       actionButton('exportCsv', 'Export curve CSV', '导出曲线 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -248,6 +251,7 @@ export class ChemTitrationPlugin implements Plugin {
     if (actionFired(params, 'recompute')) changed = true;
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (changed) this.draw();
   }
 
@@ -383,6 +387,27 @@ export class ChemTitrationPlugin implements Plugin {
       Number(p.ph.toFixed(6)),
     ]);
     exportRowsCsv(this.api, 'titration-curve', ['V_base_mL', 'pH'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.curve || this.curve.length === 0) {
+      notify(this.api, 'warning', 'No titration curve yet — recompute first.', '暂无滴定曲线 — 请先重新计算。');
+      return;
+    }
+    const spec = this.acidSpec();
+    const vEq = equivalenceVolume(spec);
+    const pHeq = phAt(spec, vEq, this.tolerance());
+    const analytic = equivalencePhAnalytic(spec);
+    const caption: Bilingual = {
+      zh: `酸碱滴定（${spec.kind === 'strong' ? '强酸' : '弱酸'}）：等当点 V=${vEq.toFixed(2)} mL、pH=${pHeq.toFixed(2)}，解析对照 pH=${analytic.toFixed(2)}。`,
+      en: `Acid–base titration (${spec.kind === 'strong' ? 'strong' : 'weak'} acid): equivalence point V=${vEq.toFixed(2)} mL at pH=${pHeq.toFixed(2)} (analytic ${analytic.toFixed(2)}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '酸碱滴定曲线分析', en: 'Acid–Base Titration Analysis' },
+      caption,
+      titrationFigurePanels({ curve: this.curve, vEq, pHeq }),
+    );
   }
 
   // ---- drawing ---------------------------------------------------------------

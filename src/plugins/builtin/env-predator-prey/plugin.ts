@@ -18,7 +18,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { envPredatorPreyManifest } from './manifest';
+import { lvFigurePanels } from './figure';
 import {
   DEFAULT_LV_PARAMS,
   fitLv,
@@ -179,6 +181,7 @@ export class EnvPredatorPreyPlugin implements Plugin {
       actionButton('applyFit', 'Apply fitted α/β/γ/δ to sliders', '将拟合参数应用到滑块'),
       actionButton('clearData', 'Clear loaded data overlay', '清除数据叠加'),
       actionButton('exportCsv', 'Export model orbit CSV', '导出模型轨道 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -216,6 +219,7 @@ export class EnvPredatorPreyPlugin implements Plugin {
       this.draw();
     }
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -349,6 +353,23 @@ export class EnvPredatorPreyPlugin implements Plugin {
       Number(lvConserved(s.x[i]!, s.y[i]!, p).toFixed(6)),
     ]);
     exportRowsCsv(this.api, 'env-predator-prey-orbit', ['time', 'prey_x', 'predator_y', 'conserved_V'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const p = this.params();
+    const model = simulateLv(p, this.state.tMax, MODEL_STEPS);
+    const eq = lvEquilibrium(p);
+    const tPer = measurePeriod(model.times, model.x);
+    const caption: Bilingual = {
+      zh: `Lotka–Volterra 捕食者-猎物：共存平衡点 (${eq.xStar.toFixed(2)}, ${eq.yStar.toFixed(2)})（γ/δ, α/β），模型周期 ${tPer ? tPer.toFixed(2) : '—'}，ω₀=√(αγ)=${linearOmega(p).toFixed(4)}。`,
+      en: `Lotka–Volterra predator–prey: coexistence equilibrium (${eq.xStar.toFixed(2)}, ${eq.yStar.toFixed(2)}) = (γ/δ, α/β), model period ${tPer ? tPer.toFixed(2) : '—'}, ω₀=√(αγ)=${linearOmega(p).toFixed(4)}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'Lotka–Volterra 捕食者-猎物模型', en: 'Lotka–Volterra Predator–Prey Model' },
+      caption,
+      lvFigurePanels({ series: model, params: p, data: this.state.data }),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------------

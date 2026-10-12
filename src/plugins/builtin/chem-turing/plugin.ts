@@ -14,7 +14,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { chemTuringManifest } from './manifest';
+import { turingFigurePanels } from './figure';
 import {
   createState,
   fieldStats,
@@ -280,6 +282,7 @@ export class ChemTuringPlugin implements Plugin {
       actionButton('reset', 'Reset & reseed', '重置并重新播种'),
       actionButton('benchmark', 'Run numerics benchmarks', '运行数值基准验证'),
       actionButton('exportPng', 'Export PNG', '导出 PNG'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       ...GRAY_SCOTT_PRESETS.map((p) =>
         actionButton(`preset_${p.key}`, `${zh ? p.zh : p.en} (f=${p.f}, k=${p.k})`, `${p.zh}（f=${p.f}, k=${p.k}）`),
       ),
@@ -376,6 +379,7 @@ export class ChemTuringPlugin implements Plugin {
     if (actionFired(params, 'exportPng')) {
       exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'gray-scott-turing');
     }
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (changed) this.draw();
   }
 
@@ -503,6 +507,24 @@ export class ChemTuringPlugin implements Plugin {
   }
 
   // ---- drawing -----------------------------------------------------------------
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.gs) {
+      notify(this.api, 'warning', 'No pattern state yet — run the reactor first.', '暂无图样状态 — 请先运行反应器。');
+      return;
+    }
+    const stats = fieldStats(this.gs, 'v', 0.15, 6);
+    const caption: Bilingual = {
+      zh: `Gray–Scott 图灵图样（f=${this.state.f}，k=${this.state.k}）：演化 ${this.gs.steps} 步，平均 v=${stats.mean.toFixed(4)}，斑点覆盖率 v>0.15 为 ${(stats.coverage * 100).toFixed(2)}%。`,
+      en: `Gray–Scott Turing pattern (f=${this.state.f}, k=${this.state.k}): ${this.gs.steps} steps, mean v=${stats.mean.toFixed(4)}, spot coverage (v>0.15) ${(stats.coverage * 100).toFixed(2)}%.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'Gray–Scott 图灵图样', en: 'Gray–Scott Turing Pattern' },
+      caption,
+      turingFigurePanels({ state: this.gs }),
+    );
+  }
 
   private draw() {
     const canvas = this.ctx?.canvas2d;

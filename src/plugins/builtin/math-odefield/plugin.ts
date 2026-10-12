@@ -12,6 +12,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { odefieldFigurePanels } from './figure';
 import { mathOdefieldManifest } from './manifest';
 import {
   classifyEquilibrium,
@@ -198,6 +200,7 @@ export class MathOdefieldPlugin implements Plugin {
         value: this.state.span,
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -250,6 +253,7 @@ export class MathOdefieldPlugin implements Plugin {
       this.draw();
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- actions ---------------------------------------------------------------
@@ -275,6 +279,41 @@ export class MathOdefieldPlugin implements Plugin {
       failed.length === 0
         ? `全部 ${bench.length} 项 ODE 向量场基准通过。`
         : `${failed.length}/${bench.length} 项基准未通过：${failed.map((b) => b.id).join('、')}`,
+    );
+  }
+
+  /** Build the phase-portrait + time-series panels and push them into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const cfx = compileReal2(this.state.fx);
+    const cfy = compileReal2(this.state.fy);
+    if (!cfx.ok || !cfy.ok) {
+      notify(this.api, 'warning', 'Cannot parse the expressions — fix f or g first.', '表达式无法解析——请先修正 f 或 g。');
+      return;
+    }
+    const f: VectorField = (x, y) => [cfx.fn(x, y), cfy.fn(x, y)];
+    const eqs = this.findEquilibria(f, this.state.span, this.state.span);
+    const first = eqs[0];
+    const eqZh = first
+      ? `${eqs.length} 个（距原点最近：(${fmtMetric(first.x)}, ${fmtMetric(first.y)})，${KIND_I18N[first.cls.kind].zh}）`
+      : '0 个（视野内未找到）';
+    const eqEn = first
+      ? `${eqs.length} (nearest origin: (${fmtMetric(first.x)}, ${fmtMetric(first.y)}), ${KIND_I18N[first.cls.kind].en})`
+      : '0 (none found in view)';
+    const caption: Bilingual = {
+      zh: `ODE 向量场相平面（x′=${this.state.fx}，y′=${this.state.fy}；RK4 h=${this.state.h}，每方向 ${this.state.steps} 步）：平衡点 ${eqZh}。`,
+      en: `ODE phase portrait (x′=${this.state.fx}, y′=${this.state.fy}; RK4 h=${this.state.h}, ${this.state.steps} steps/direction): equilibria ${eqEn}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'ODE 向量场相平面', en: 'ODE Phase Portrait' },
+      caption,
+      odefieldFigurePanels({
+        f,
+        h: this.state.h,
+        steps: this.state.steps,
+        span: this.state.span,
+        equilibria: eqs.map((e) => ({ x: e.x, y: e.y, kind: e.cls.kind, stability: e.cls.stability })),
+      }),
     );
   }
 

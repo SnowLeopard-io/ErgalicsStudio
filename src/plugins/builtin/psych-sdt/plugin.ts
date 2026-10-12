@@ -13,6 +13,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { sdtFigurePanels } from './figure';
 import { sdtManifest } from './manifest';
 import {
   aucAnalytic,
@@ -112,6 +114,7 @@ export class SdtPlugin implements Plugin {
       actionButton('benchmark', 'Run benchmark', '运行基准验证'),
       actionButton('exportRoc', 'Export ROC curve', '导出 ROC 曲线'),
       actionButton('clearData', 'Clear uploaded data', '清除已上传数据'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -134,6 +137,7 @@ export class SdtPlugin implements Plugin {
       this.confusion = null;
       notify(this.api, 'info', 'Uploaded data cleared — slider rates back in control.', '已清除上传数据——恢复使用滑块比率。');
     }
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     this.draw();
   }
 
@@ -274,6 +278,25 @@ export class SdtPlugin implements Plugin {
       Number(p.hr.toFixed(6)),
     ]);
     exportRowsCsv(this.api, 'sdt-roc-curve', ['far', 'hit_rate'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const m = sdtMeasures(this.state.hitRate, this.state.faRate);
+    const auc = aucAnalytic(m.dprime, this.state.sigmaRatio);
+    const caption: Bilingual = {
+      zh: `信号检测论分析：d′=${m.dprime.toFixed(3)}，β=${m.beta.toFixed(3)}，c=${m.criterion.toFixed(3)}，AUC=${auc.toFixed(4)}（H=${this.state.hitRate.toFixed(3)}，F=${this.state.faRate.toFixed(3)}，s=${this.state.sigmaRatio.toFixed(2)}）。`,
+      en: `Signal detection analysis: d′=${m.dprime.toFixed(3)}, β=${m.beta.toFixed(3)}, c=${m.criterion.toFixed(3)}, AUC=${auc.toFixed(4)} (H=${this.state.hitRate.toFixed(3)}, F=${this.state.faRate.toFixed(3)}, s=${this.state.sigmaRatio.toFixed(2)}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '信号检测论 ROC 分析', en: 'Signal Detection ROC Analysis' },
+      caption,
+      sdtFigurePanels({
+        hitRate: this.state.hitRate,
+        faRate: this.state.faRate,
+        sigmaRatio: this.state.sigmaRatio,
+      }),
+    );
   }
 
   // ---- canvas interaction -----------------------------------------------------------

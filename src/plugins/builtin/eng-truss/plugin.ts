@@ -19,7 +19,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { engTrussManifest } from './manifest';
+import { trussFigurePanels } from './figure';
 import {
   type TrussModel,
   type TrussResult,
@@ -123,6 +125,7 @@ export class EngTrussPlugin implements Plugin {
       actionButton('solve', 'Solve truss', '解算桁架', 'primary'),
       actionButton('exportNodes', 'Export node CSV', '导出节点 CSV'),
       actionButton('exportMembers', 'Export member CSV', '导出单元 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -145,6 +148,7 @@ export class EngTrussPlugin implements Plugin {
     }
     if (actionFired(params, 'exportNodes')) this.exportNodes();
     if (actionFired(params, 'exportMembers')) this.exportMembers();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (redraw) {
       // Parameter edits only affect the display until the next explicit solve.
       if (this.model && this.result) this.computeScale();
@@ -301,6 +305,24 @@ export class EngTrussPlugin implements Plugin {
     exportRowsCsv(this.api, 'truss-members', ['element', 'a', 'b', 'length_m', 'axial_N', 'stress_MPa'], rows);
   }
 
+  private async sendToFigure(): Promise<void> {
+    if (!this.model || !this.result) {
+      notify(this.api, 'warning', 'No solve yet — press "Solve truss" first.', '尚未解算 — 请先点击「解算桁架」。');
+      return;
+    }
+    const r = this.result;
+    const caption: Bilingual = {
+      zh: `平面桁架 FEM 分析（${this.model.elements.length} 个单元）：最大位移 ${fmtMetric(r.maxDisplacement * 1e3)} mm，最大拉应力 ${fmtMetric(r.maxTensionStress / 1e6)} MPa，最大压应力 ${fmtMetric(r.maxCompressionStress / 1e6)} MPa。`,
+      en: `Plane truss FEM analysis (${this.model.elements.length} members): max displacement ${fmtMetric(r.maxDisplacement * 1e3)} mm, max tensile stress ${fmtMetric(r.maxTensionStress / 1e6)} MPa, max compressive stress ${fmtMetric(r.maxCompressionStress / 1e6)} MPa.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '平面桁架有限元分析', en: 'Plane Truss FEM Analysis' },
+      caption,
+      trussFigurePanels(r),
+    );
+  }
+
   // ---- drawing -------------------------------------------------------------
 
   private draw() {
@@ -333,7 +355,8 @@ export class EngTrussPlugin implements Plugin {
     const h = canvas.height;
     const scale = this.usedScale;
 
-    // World bounds over undeformed + deformed nodes (with margin for labels).
+    // World bounds over the *undeformed* nodes only; the deformed overlay is
+    // drawn as a screen-space offset so magnification never rescales the view.
     let minX = Infinity;
     let maxX = -Infinity;
     let minY = Infinity;
@@ -345,10 +368,6 @@ export class EngTrussPlugin implements Plugin {
       maxY = Math.max(maxY, y);
     };
     for (const n of model.nodes) push(n.x, n.y);
-    model.nodes.forEach((n, i) => {
-      const u = result.displacements[i]!;
-      push(n.x + u.x * scale, n.y + u.y * scale);
-    });
     const pad = 56;
     const spanX = Math.max(maxX - minX, 1e-9);
     const spanY = Math.max(maxY - minY, 1e-9);
@@ -363,7 +382,9 @@ export class EngTrussPlugin implements Plugin {
     g.font = `13px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.fillText(zh ? '平面桁架 FEM · 轴力着色 + 变形叠加' : 'Plane truss FEM · axial-force colours + deformed overlay', w / 2, 20);
 
-    // Deformed shape first (under the undeformed members).
+    // Deformed shape first (under the undeformed members). The displacement
+    // is applied in *screen* pixels (world offset × k, y flipped) so the
+    // magnified shape stays anchored to the original geometry.
     if (scale > 0) {
       g.strokeStyle = 'rgba(120,220,190,0.55)';
       g.lineWidth = 1;
@@ -374,8 +395,8 @@ export class EngTrussPlugin implements Plugin {
         const ua = result.displacements[el.a]!;
         const ub = result.displacements[el.b]!;
         g.beginPath();
-        g.moveTo(px(a.x + ua.x * scale), py(a.y + ua.y * scale));
-        g.lineTo(px(b.x + ub.x * scale), py(b.y + ub.y * scale));
+        g.moveTo(px(a.x) + ua.x * scale * k, py(a.y) - ua.y * scale * k);
+        g.lineTo(px(b.x) + ub.x * scale * k, py(b.y) - ub.y * scale * k);
         g.stroke();
       }
       g.setLineDash([]);

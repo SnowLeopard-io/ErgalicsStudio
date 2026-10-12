@@ -14,7 +14,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { chemReactionOrderManifest } from './manifest';
+import { reactionOrderFigurePanels } from './figure';
 import {
   analyzeOrder,
   arrheniusFit,
@@ -122,6 +124,7 @@ export class ChemReactionOrderPlugin implements Plugin {
       actionButton('demo', 'Demo · seeded first-order data', '演示 · 固定种子一级数据'),
       actionButton('benchmark', 'Run embedded benchmarks', '运行内嵌基准验证'),
       actionButton('exportCsv', 'Export data CSV', '导出数据 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -146,6 +149,7 @@ export class ChemReactionOrderPlugin implements Plugin {
     if (actionFired(params, 'demo')) this.loadDemo();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (changed) this.draw();
   }
 
@@ -356,6 +360,40 @@ export class ChemReactionOrderPlugin implements Plugin {
     } else {
       notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
     }
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (this.mode === 'kinetics' && this.kinetics) {
+      const rep = this.kinetics;
+      const a = rep.analysis;
+      const name = ORDER_TRANSFORMS.find((t) => t.order === a.best)!;
+      const caption: Bilingual = {
+        zh: `反应级数判定：${name.zh}反应，k=${a.k.toPrecision(4)} ± ${a.kSe.toExponential(2)} ${rateConstantUnit(a.best, rep.timeUnit)}，R²=${a.r2.toFixed(5)}。`,
+        en: `Reaction-order determination: ${name.en} reaction, k=${a.k.toPrecision(4)} ± ${a.kSe.toExponential(2)} ${rateConstantUnit(a.best, rep.timeUnit)}, R²=${a.r2.toFixed(5)}.`,
+      };
+      await pushPanelsToFigure(
+        this.api,
+        { zh: '反应级数判定', en: 'Reaction-Order Analysis' },
+        caption,
+        reactionOrderFigurePanels({ mode: 'kinetics', kinetics: rep, arrhenius: null }),
+      );
+      return;
+    }
+    if (this.mode === 'arrhenius' && this.arrhenius) {
+      const f = this.arrhenius.fit;
+      const caption: Bilingual = {
+        zh: `Arrhenius 分析：Ea=${f.ea.toFixed(2)} ± ${f.eaSe.toFixed(3)} kJ/mol，A=${f.a.toExponential(3)}，R²=${f.r2.toFixed(5)}。`,
+        en: `Arrhenius analysis: Ea=${f.ea.toFixed(2)} ± ${f.eaSe.toFixed(3)} kJ/mol, A=${f.a.toExponential(3)}, R²=${f.r2.toFixed(5)}.`,
+      };
+      await pushPanelsToFigure(
+        this.api,
+        { zh: 'Arrhenius 分析', en: 'Arrhenius Analysis' },
+        caption,
+        reactionOrderFigurePanels({ mode: 'arrhenius', kinetics: null, arrhenius: this.arrhenius }),
+      );
+      return;
+    }
+    notify(this.api, 'warning', 'No kinetics / Arrhenius data yet — load a dataset or run the demo first.', '暂无动力学 / Arrhenius 数据 — 请先载入数据或运行演示。');
   }
 
   // ---- drawing ---------------------------------------------------------------

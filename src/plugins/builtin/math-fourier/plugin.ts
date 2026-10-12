@@ -17,6 +17,8 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { fourierFigurePanels } from './figure';
 import { mathFourierManifest } from './manifest';
 import {
   analyticCoeff,
@@ -136,6 +138,7 @@ export class MathFourierPlugin implements Plugin {
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
       actionButton('exportCsv', 'Export coefficients CSV', '导出系数 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -169,6 +172,7 @@ export class MathFourierPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- actions ---------------------------------------------------------------
@@ -224,6 +228,27 @@ export class MathFourierPlugin implements Plugin {
       'fourier-coefficients',
       ['n', 'a_n', 'b_n', 'a_n_analytic', 'b_n_analytic', 'rel_err_a', 'rel_err_b'],
       rows,
+    );
+  }
+
+  /** Build the approximation + spectrum panels and push them into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const c = this.coeffs();
+    const wave = WAVEFORMS[this.state.wave];
+    const l2 = relativeL2Error(wave, c, this.state.mode);
+    const resid = parsevalResidual(wave, c);
+    const ratio = gibbsOvershootRatio(c, wave);
+    const modeTxt = this.state.mode === 'fejer' ? (this.zh ? 'Fejér 平均' : 'Fejér mean') : this.zh ? '普通部分和' : 'plain sum';
+    const gibbsTxt = ratio === null ? '—' : ratio.toFixed(4);
+    const caption: Bilingual = {
+      zh: `傅里叶级数逼近（${wave.labelZh}，${modeTxt}，N=${c.N}，L=${c.L.toFixed(2)}）：L2 相对误差 ${(l2 * 100).toFixed(2)}%，Parseval 残差 ${(resid * 100).toFixed(3)}%，Gibbs 过冲比例 ${gibbsTxt}。`,
+      en: `Fourier series approximation (${wave.labelEn}, ${modeTxt}, N=${c.N}, L=${c.L.toFixed(2)}): L2 rel err ${(l2 * 100).toFixed(2)}%, Parseval residual ${(resid * 100).toFixed(3)}%, Gibbs ratio ${gibbsTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '傅里叶级数逼近', en: 'Fourier Series Approximation' },
+      caption,
+      fourierFigurePanels({ coeffs: c, wave, mode: this.state.mode }),
     );
   }
 

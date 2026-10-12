@@ -13,7 +13,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { mathDomaincolorManifest } from './manifest';
+import { domaincolorFigurePanels } from './figure';
 import { compileComplex, runDomaincolorBenchmarks, shadePixel, windingCount, windingNumber, cx } from './kernel';
 
 export { mathDomaincolorManifest } from './manifest';
@@ -141,6 +143,7 @@ export class MathDomaincolorPlugin implements Plugin {
       actionButton('zoomOut', 'Zoom out ×1.5', '缩小 ×1.5'),
       actionButton('resetView', 'Reset view', '重置视野'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -191,6 +194,7 @@ export class MathDomaincolorPlugin implements Plugin {
       this.draw();
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- actions ---------------------------------------------------------------
@@ -221,6 +225,37 @@ export class MathDomaincolorPlugin implements Plugin {
       failed.length === 0
         ? `全部 ${bench.length} 项域着色基准通过。`
         : `${failed.length}/${bench.length} 项基准未通过：${failed.map((b) => b.id).join('、')}`,
+    );
+  }
+
+  /** Stream the current view's Re / log₂|f| heatmaps into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const compiled = compileComplex(this.state.expr);
+    if (!compiled.ok) {
+      notify(this.api, 'warning', 'Cannot parse the expression — fix it before sending.', '表达式无法解析——请先修正再发送。');
+      return;
+    }
+    // The exported heatmaps use a 4:3 grid, so keep the caption's winding
+    // metric consistent with the on-canvas inscribed loop (0.35 × min span).
+    const spanX = (this.state.spanY * 4) / 3;
+    const radius = 0.35 * Math.min(spanX, this.state.spanY);
+    const wCnt = windingCount(compiled.fn, cx(this.state.centerRe, this.state.centerIm), radius);
+    const centerTxt = `${fmtMetric(this.state.centerRe)} ${this.state.centerIm < 0 ? '−' : '+'} ${fmtMetric(Math.abs(this.state.centerIm))}i`;
+    const wTxt = Number.isFinite(wCnt) ? `${wCnt}` : '—';
+    const caption: Bilingual = {
+      zh: `域着色 f(z)=${this.state.expr}：视野中心 ${centerTxt}，高度 ${fmtMetric(this.state.spanY)}；内切圆绕数（零点−极点）${wTxt}。`,
+      en: `Domain coloring of f(z)=${this.state.expr}: view center ${centerTxt}, height ${fmtMetric(this.state.spanY)}; winding on the inscribed loop (zeros−poles) ${wTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '复函数域着色', en: 'Complex Domain Coloring' },
+      caption,
+      domaincolorFigurePanels({
+        expr: this.state.expr,
+        centerRe: this.state.centerRe,
+        centerIm: this.state.centerIm,
+        spanY: this.state.spanY,
+      }),
     );
   }
 

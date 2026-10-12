@@ -14,6 +14,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { trajectoryFigurePanels } from './figure';
 import { physicsTrajectoryManifest } from './manifest';
 import {
   benchmarkDerivativeAccuracy,
@@ -293,6 +295,7 @@ export class PhysicsTrajectoryPlugin implements Plugin {
       actionButton('demo', 'Load synthetic demo', '载入合成示例'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('export', 'Export series CSV', '导出序列 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -330,6 +333,7 @@ export class PhysicsTrajectoryPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'export')) this.exportSeries();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- compute ----------------------------------------------------------------
@@ -489,6 +493,27 @@ export class PhysicsTrajectoryPlugin implements Plugin {
       'trajectory-series',
       ['t', 'x', 'y', 'vx', 'vy', 'ax', 'ay', 'KE', 'PE', 'E_total'],
       rows,
+    );
+  }
+
+  /** Build the trajectory + energy panels and push them into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    if (!this.traj || !this.deriv || !this.energy || !this.fit) {
+      notify(this.api, 'warning', 'No trajectory yet — load the demo or a file first.', '暂无轨迹数据——请先载入合成示例或轨迹文件。');
+      return;
+    }
+    const driftTxt = this.energy.total ? `${(relativeDrift(this.energy.total) * 100).toFixed(3)}%` : '—';
+    const v0Txt = this.fit.v0 !== null ? `${fmtMetric(this.fit.v0)} m/s` : '—';
+    const thTxt = this.fit.thetaDeg !== null ? `${fmtMetric(this.fit.thetaDeg)}°` : '—';
+    const caption: Bilingual = {
+      zh: `轨迹运动学（${this.traj.t.length} 点，m=${fmtMetric(this.m)} kg，g=${fmtMetric(this.g)} m/s²）：拟合 v₀=${v0Txt}，θ=${thTxt}，机械能漂移 ${driftTxt}。`,
+      en: `Trajectory kinematics (${this.traj.t.length} pts, m=${fmtMetric(this.m)} kg, g=${fmtMetric(this.g)} m/s²): fitted v0=${v0Txt}, θ=${thTxt}, mechanical-energy drift ${driftTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '轨迹运动学分析', en: 'Trajectory Kinematics' },
+      caption,
+      trajectoryFigurePanels({ traj: this.traj, fit: this.fit, energy: this.energy, g: this.g }),
     );
   }
 

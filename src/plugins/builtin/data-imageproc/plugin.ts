@@ -13,7 +13,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, drawEmptyCanvas, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { dataImageprocManifest } from './manifest';
+import { imageprocFigurePanels } from './figure';
 import {
   gaussianBlur,
   histogramEqualize,
@@ -111,6 +113,7 @@ export class DataImageprocPlugin implements Plugin {
       actionButton('benchmark', 'Run numerics benchmark', '运行数值基准验证', 'primary'),
       actionButton('regenerate', 'New test image', '重新生成测试图'),
       actionButton('exportPng', 'Export view PNG', '导出画面 PNG'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -134,6 +137,7 @@ export class DataImageprocPlugin implements Plugin {
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'regenerate')) this.regenerate();
     if (actionFired(params, 'exportPng')) exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'imageproc-view');
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -296,6 +300,28 @@ export class DataImageprocPlugin implements Plugin {
       bench.passed
         ? `数值基准全部通过（${bench.elapsedMs} ms，FFT<1e-9、卷积定理<1e-6、PSNR 恒等式误差 0）。`
         : '数值基准未通过——详见科研输出面板。',
+    );
+  }
+
+  /** Stream the processed-image histogram + tone metrics into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    // Recompute from the same seeded subject — pure kernel calls, no caching.
+    const processed = this.applyFilter(this.baseImage, this.state.filter, this.state.strength);
+    const psnr = this.state.filter === 'spectrum' ? null : imagePsnr(this.baseImage, processed);
+    const energy = spectralEnergyConcentration(processed);
+    const fLabel = FILTERS.find((f) => f.value === this.state.filter);
+    const filterName = this.zh ? (fLabel?.labelZh ?? '') : (fLabel?.labelEn ?? '');
+    const psnrTxt =
+      psnr != null && Number.isFinite(psnr) ? `PSNR=${psnr.toFixed(2)} dB` : this.zh ? 'PSNR=—（频谱视图无意义）' : 'PSNR=— (undefined for the spectrum view)';
+    const caption: Bilingual = {
+      zh: `图像处理（${filterName}，强度 ${this.state.strength.toFixed(1)}）：${psnrTxt}，中心 r/4 频谱能量占比 ${(energy * 100).toFixed(1)}%。`,
+      en: `Image processing (${filterName}, strength ${this.state.strength.toFixed(1)}): ${psnrTxt}, spectral energy inside r/4 ${(energy * 100).toFixed(1)}%.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '图像处理分析', en: 'Image Processing Analysis' },
+      caption,
+      imageprocFigurePanels({ base: this.baseImage, processed }),
     );
   }
 

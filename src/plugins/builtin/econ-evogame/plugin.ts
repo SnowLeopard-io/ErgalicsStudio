@@ -12,7 +12,9 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { mulberry32 } from '@/core/repro/random';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { evogameManifest } from './manifest';
+import { evogameFigurePanels } from './figure';
 import {
   averageScore,
   classifyRegime,
@@ -162,6 +164,7 @@ export class EvogamePlugin implements Plugin {
       actionButton('reset', 'Reset', '重置'),
       actionButton('benchmark', 'Run benchmark', '运行基准验证'),
       actionButton('exportCsv', 'Export f_C series', '导出 f_C 序列'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -217,6 +220,7 @@ export class EvogamePlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     this.draw();
   }
 
@@ -361,6 +365,22 @@ export class EvogamePlugin implements Plugin {
   private exportCsv() {
     const rows: Array<Array<number | string>> = this.fc.map((v, i) => [i, Number(v.toFixed(6)), Number((this.scores[i] ?? 0).toFixed(6))]);
     exportRowsCsv(this.api, 'evogame-fc-series', ['generation', 'f_cooperators', 'mean_score'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const fC = this.fc[this.fc.length - 1] ?? 0;
+    const score = this.scores[this.scores.length - 1] ?? 0;
+    const regime = classifyRegime(fC);
+    const caption: Bilingual = {
+      zh: `空间囚徒困境演化（b=${this.params.b.toFixed(2)}，${this.params.w}×${this.params.h}，${this.params.updateMode === 'sync' ? '同步' : '异步'}更新）：世代 ${this.generation}，f_C=${fC.toFixed(4)}，平均得分=${score.toFixed(4)}，${regime.zh}。`,
+      en: `Spatial prisoner's dilemma evolution (b=${this.params.b.toFixed(2)}, ${this.params.w}×${this.params.h}, ${this.params.updateMode} update): generation ${this.generation}, f_C=${fC.toFixed(4)}, mean score=${score.toFixed(4)}, ${regime.en}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '空间囚徒困境演化', en: "Spatial Prisoner's Dilemma Evolution" },
+      caption,
+      evogameFigurePanels({ grid: this.grid, fc: this.fc, scores: this.scores }),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------------

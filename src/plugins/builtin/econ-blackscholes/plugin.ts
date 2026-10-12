@@ -17,7 +17,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { blackscholesManifest } from './manifest';
+import { blackscholesFigurePanels } from './figure';
 import {
   bsGreeks,
   bsPrices,
@@ -181,6 +183,7 @@ export class BlackscholesPlugin implements Plugin {
       actionButton('benchmark', 'Run benchmark', '运行基准验证'),
       actionButton('exportCurve', 'Export price curve', '导出价格曲线'),
       actionButton('exportMc', 'Export MC trace', '导出 MC 轨迹'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -231,6 +234,7 @@ export class BlackscholesPlugin implements Plugin {
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCurve')) this.exportCurve();
     if (actionFired(params, 'exportMc')) this.exportMc();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (changed) this.draw();
   }
 
@@ -361,6 +365,25 @@ export class BlackscholesPlugin implements Plugin {
     exportRowsCsv(this.api, 'bs-mc-trace', ['paths', 'call_cum_mean', 'put_cum_mean'], rows);
   }
 
+  private async sendToFigure(): Promise<void> {
+    const p = this.params();
+    const analytic = bsPrices(p);
+    const curve = spotCurve(p, Math.max(0.5, p.K * 0.5), p.K * 1.5, 121);
+    const mc = mcPrices(p, this.state.paths, this.state.seed);
+    const seUnits = mc.result.call.se > 0 ? (mc.result.call.mean - analytic.call) / mc.result.call.se : 0;
+    const gap = `${seUnits >= 0 ? '+' : ''}${seUnits.toFixed(2)}·SE`;
+    const caption: Bilingual = {
+      zh: `BSM 期权定价（S=${p.S}，K=${p.K}，σ=${p.sigma.toFixed(2)}，T=${p.T.toFixed(2)} 年）：解析 C=${analytic.call.toFixed(4)}，MC call=${mc.result.call.mean.toFixed(4)}（${this.state.paths} 路径，偏差 ${gap}）。`,
+      en: `BSM option pricing (S=${p.S}, K=${p.K}, σ=${p.sigma.toFixed(2)}, T=${p.T.toFixed(2)} y): analytic C=${analytic.call.toFixed(4)}, MC call=${mc.result.call.mean.toFixed(4)} (${this.state.paths} paths, gap ${gap}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'Black-Scholes 期权定价', en: 'Black-Scholes Option Pricing' },
+      caption,
+      blackscholesFigurePanels({ params: p, curve, analytic, mc }),
+    );
+  }
+
   // ---- drawing --------------------------------------------------------------
 
   private draw() {
@@ -427,6 +450,11 @@ export class BlackscholesPlugin implements Plugin {
       g.fillText(s.toFixed(0), px(s), y1 + 13);
     }
 
+    // Clip the curves to the plot rect so steep segments cannot escape it.
+    g.save();
+    g.beginPath();
+    g.rect(x0, y0, plotW, plotH);
+    g.clip();
     const line = (key: 'call' | 'put', color: string) => {
       g.strokeStyle = color;
       g.lineWidth = 2;
@@ -439,6 +467,7 @@ export class BlackscholesPlugin implements Plugin {
     };
     line('put', 'rgba(250,180,110,0.95)');
     line('call', 'rgba(110,190,255,0.95)');
+    g.restore();
 
     // current spot marker
     const sx = px(p.S);
@@ -508,6 +537,12 @@ export class BlackscholesPlugin implements Plugin {
     g.strokeStyle = 'rgba(255,255,255,0.12)';
     g.strokeRect(x0, y0, plotW, plotH);
 
+    // Clip band + trace to the plot rect: early MC spikes must stay inside.
+    g.save();
+    g.beginPath();
+    g.rect(x0, y0, plotW, plotH);
+    g.clip();
+
     // ±1.96·SE band around the analytic reference
     const bandTop = py(analytic + 1.959963984540054 * se);
     const bandBot = py(analytic - 1.959963984540054 * se);
@@ -530,6 +565,7 @@ export class BlackscholesPlugin implements Plugin {
       else g.lineTo(px(t.n), py(t.callMean));
     });
     g.stroke();
+    g.restore();
 
     g.font = '10px Consolas, monospace';
     g.textAlign = 'right';

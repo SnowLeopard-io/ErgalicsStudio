@@ -19,6 +19,8 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { diffractionFigurePanels } from './figure';
 import { physicsDiffractionManifest } from './manifest';
 import {
   AIRY_RING_FACTOR,
@@ -208,6 +210,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportProfile', 'Export profile CSV', '导出剖面 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -251,6 +254,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'exportProfile')) this.exportProfile();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- compute ----------------------------------------------------------------
@@ -467,6 +471,31 @@ export class PhysicsDiffractionPlugin implements Plugin {
     }
     const label = p.aperture === 'circle' ? 'r' : 'x';
     exportRowsCsv(this.api, `diffraction-${p.aperture}-profile`, [label, 'I_fresnel_kirchhoff', 'I_fraunhofer_ref'], rows);
+  }
+
+  /** Build the two diffraction panels and push them into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    if (!this.profile) {
+      notify(this.api, 'warning', 'No profile yet — adjust the aperture first.', '暂无强度剖面——请先调整孔径参数。');
+      return;
+    }
+    const p = this.params();
+    const apName = APERTURES.find((it) => it.value === p.aperture);
+    const ap = apName ? (this.zh ? apName.zh : apName.en) : p.aperture;
+    const energy = p.aperture === 'circle' ? screenEnergyCircle(p, 1201) : screenEnergySlit(p, 1201);
+    const frac = energy / apertureEnergy(p);
+    let peak = 0;
+    for (let k = 0; k < this.profile.ys.length; k++) peak = Math.max(peak, this.profile.ys[k]!);
+    const caption: Bilingual = {
+      zh: `菲涅尔-基尔霍夫衍射（${ap}）：菲涅尔数 F=${fmtMetric(fresnelNumber(p))}，屏内能量占比 ${(frac * 100).toFixed(1)}%，峰值强度 ${fmtMetric(peak)}。`,
+      en: `Fresnel–Kirchhoff diffraction (${ap}): Fresnel number F=${fmtMetric(fresnelNumber(p))}, screen energy fraction ${(frac * 100).toFixed(1)}%, peak intensity ${fmtMetric(peak)}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '衍射强度分布', en: 'Diffraction Intensity Pattern' },
+      caption,
+      diffractionFigurePanels({ params: p, profile: this.profile, overlay: this.state.overlay }),
+    );
   }
 
   // ---- drawing ------------------------------------------------------------------

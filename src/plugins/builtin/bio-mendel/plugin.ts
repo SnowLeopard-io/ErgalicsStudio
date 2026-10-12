@@ -15,7 +15,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { bioMendelManifest } from './manifest';
+import { mendelFigurePanels } from './figure';
 import {
   MENDEL_F2_TRAITS,
   groupTraits,
@@ -83,6 +85,7 @@ export class BioMendelPlugin implements Plugin {
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export per-trait χ² summary', '导出逐性状 χ² 汇总'),
       actionButton('restoreDemo', 'Restore Mendel 1866 reference data', '恢复孟德尔 1866 参考数据'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -96,6 +99,7 @@ export class BioMendelPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     if (actionFired(params, 'restoreDemo')) {
       this.state.rows = MENDEL_F2_TRAITS;
       this.draw();
@@ -254,6 +258,33 @@ export class BioMendelPlugin implements Plugin {
       t.result.p >= this.state.alpha ? 'consistent' : 'deviates',
     ]);
     exportRowsCsv(this.api, 'bio-mendel-chi2-summary', header, rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const tests = groupTraits(this.state.rows);
+    if (tests.length === 0) {
+      notify(this.api, 'warning', 'No data yet — load a CSV or restore the reference data.', '暂无数据——请加载 CSV 或恢复参考数据。');
+      return;
+    }
+    const pooled = mergedChiSquare(tests);
+    const verdict =
+      pooled.p >= this.state.alpha
+        ? this.zh
+          ? '与期望分离比一致'
+          : 'consistent with the segregation ratios'
+        : this.zh
+          ? '显著偏离期望分离比'
+          : 'deviates significantly from the ratios';
+    const caption: Bilingual = {
+      zh: `孟德尔 F2 分离比 χ² 检验：${tests.length} 个性状组合并 χ²=${pooled.chi2.toFixed(3)}，df=${pooled.df}，p=${pooled.p.toFixed(4)}（α=${this.state.alpha}）→ ${verdict}。`,
+      en: `Mendel F2 segregation χ² tests: pooled χ²=${pooled.chi2.toFixed(3)} over ${tests.length} trait groups, df=${pooled.df}, p=${pooled.p.toFixed(4)} (α=${this.state.alpha}) → ${verdict}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '孟德尔分离比 χ² 检验', en: 'Mendel Segregation χ² Tests' },
+      caption,
+      mendelFigurePanels({ rows: this.state.rows }),
+    );
   }
 
   // ---- drawing ---------------------------------------------------------------

@@ -16,7 +16,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { bioNeuronManifest } from './manifest';
+import { neuronFigurePanels } from './figure';
 import {
   DEFAULT_HH_PARAMS,
   DEFAULT_STIM,
@@ -197,6 +199,7 @@ export class BioNeuronPlugin implements Plugin {
       actionButton('reset', 'Reset', '重置'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export trace CSV', '导出波形 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -238,6 +241,7 @@ export class BioNeuronPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -318,6 +322,27 @@ export class BioNeuronPlugin implements Plugin {
       Number(s.i[i]!.toFixed(4)),
     ]);
     exportRowsCsv(this.api, 'bio-neuron-hh-trace', ['time_ms', 'V_mV', 'm', 'h', 'n', 'I_uA_per_cm2'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const s = this.series ?? this.recompute();
+    let peak = -Infinity;
+    for (const v of s.v) peak = Math.max(peak, v);
+    const spikes = countSpikes(s.v);
+    if (!Number.isFinite(peak)) {
+      notify(this.api, 'warning', 'No simulation yet — press Run first.', '尚无仿真结果——请先运行。');
+      return;
+    }
+    const caption: Bilingual = {
+      zh: `Hodgkin–Huxley 1952：V 峰值=${peak.toFixed(1)} mV，0 mV 上穿峰电位 ${spikes} 个，T=${this.state.tempC.toFixed(1)} °C（Q10=3），持续电流 I=${this.state.hold} µA/cm²。`,
+      en: `Hodgkin–Huxley 1952: V peak=${peak.toFixed(1)} mV, ${spikes} spikes (0 mV crossings), T=${this.state.tempC.toFixed(1)} °C (Q10=3), sustained I=${this.state.hold} µA/cm².`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: 'Hodgkin–Huxley 动作电位', en: 'Hodgkin–Huxley Action Potential' },
+      caption,
+      neuronFigurePanels({ series: s, params: { ...DEFAULT_HH_PARAMS, tempC: this.state.tempC } }),
+    );
   }
 
   // ---- drawing ------------------------------------------------------------------

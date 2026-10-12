@@ -15,6 +15,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { rtFigurePanels } from './figure';
 import { rtManifest } from './manifest';
 import {
   cohensD,
@@ -167,6 +169,7 @@ export class RtPlugin implements Plugin {
       actionButton('clearData', 'Clear data', '清除数据'),
       actionButton('benchmark', 'Run benchmark', '运行基准验证'),
       actionButton('exportCsv', 'Export trials CSV', '导出试次 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -202,6 +205,7 @@ export class RtPlugin implements Plugin {
     if (actionFired(params, 'clearData')) this.clearData();
     if (actionFired(params, 'benchmark')) this.runBenchmarkAction();
     if (actionFired(params, 'exportCsv')) this.exportTrials();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
     this.draw();
   }
 
@@ -513,6 +517,41 @@ export class RtPlugin implements Plugin {
       'psych-rt-trials',
       ['condition', 'rt_ms'],
       this.sequence.map((p) => [p.cond, Number(p.rt.toFixed(1))]),
+    );
+  }
+
+  private async sendToFigure(): Promise<void> {
+    // Rebuild the outlier-screened per-condition lists from session state.
+    const groups: Array<{ name: string; kept: number[] }> = [];
+    for (const [name, rts] of this.trials) {
+      const screen = filterOutliers(rts, this.outlierMin, this.outlierMax);
+      if (screen.kept.length > 0) groups.push({ name, kept: screen.kept });
+    }
+    if (groups.length === 0) {
+      notify(this.api, 'warning', 'No RT data yet — run the experiment or load a file first.', '暂无 RT 数据——请先运行实验或载入数据文件。');
+      return;
+    }
+    const s0 = summarize(groups[0]!.kept);
+    let head: string;
+    if (s0) {
+      head = `${groups[0]!.name}: mean ${s0.mean.toFixed(1)} ± ${s0.ciHalf.toFixed(1)} ms (n=${s0.n})`;
+    } else {
+      head = `${groups.length} condition group(s)`;
+    }
+    let tail = '';
+    if (groups.length >= 2) {
+      const w = welchTest(groups[0]!.kept, groups[1]!.kept);
+      if (w) tail = `; Welch t=${w.t.toFixed(2)}, p=${w.p < 1e-4 ? w.p.toExponential(1) : w.p.toFixed(4)}`;
+    }
+    const caption: Bilingual = {
+      zh: `反应时分析（离群窗口 ${this.outlierMin}–${this.outlierMax} ms）：${head}${tail}。`,
+      en: `Reaction-time analysis (outlier window ${this.outlierMin}–${this.outlierMax} ms): ${head}${tail}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '反应时分析', en: 'Reaction-Time Analysis' },
+      caption,
+      rtFigurePanels({ groups }),
     );
   }
 

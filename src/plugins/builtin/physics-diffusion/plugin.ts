@@ -18,7 +18,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { physicsDiffusionManifest } from './manifest';
+import { diffusionFigurePanels } from './figure';
 import {
   advance,
   analytic1d,
@@ -223,6 +225,7 @@ export class PhysicsDiffusionPlugin implements Plugin {
       actionButton('reset', 'Reset field', '重置场'),
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportProfile', 'Export profile CSV', '导出剖面 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -308,6 +311,7 @@ export class PhysicsDiffusionPlugin implements Plugin {
     }
     if (actionFired(params, 'benchmark')) this.runBenchmarks();
     if (actionFired(params, 'exportProfile')) this.exportProfile();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- simulation control ---------------------------------------------------
@@ -501,6 +505,28 @@ export class PhysicsDiffusionPlugin implements Plugin {
       }
       exportRowsCsv(this.api, 'diffusion-field-2d', ['x', 'y', 'u'], rows);
     }
+  }
+
+  private async sendToFigure(): Promise<void> {
+    const f = this.field;
+    if (!f) {
+      notify(this.api, 'warning', 'No field yet — reset or run the simulation first.', '暂无场数据——请先重置或运行模拟。');
+      return;
+    }
+    const p = this.params();
+    const rel = maxRelativeError(f, p);
+    const relTxt = rel === null ? '—' : `${(rel * 100).toFixed(3)}%`;
+    const scheme = effectiveScheme(p) === 'cn' ? 'Crank–Nicolson' : 'FTCS';
+    const caption: Bilingual = {
+      zh: `扩散方程 ∂u/∂t = D∇²u（D=${p.d}，${scheme}）：t=${f.t.toFixed(4)} s，D·Δt/Δx²=${courantNumber(p).toFixed(3)}，对解析解最大相对误差 ${relTxt}。`,
+      en: `Diffusion ∂u/∂t = D∇²u (D=${p.d}, ${scheme}): t=${f.t.toFixed(4)} s, D·Δt/Δx²=${courantNumber(p).toFixed(3)}, max relative error vs analytic ${relTxt}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '扩散方程数值解', en: 'Diffusion-Equation Solution' },
+      caption,
+      diffusionFigurePanels({ params: p, field: f }),
+    );
   }
 
   // ---- drawing ---------------------------------------------------------------

@@ -27,7 +27,9 @@ import {
   type ScienceMetric,
   type ScienceSeverity,
 } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { engControlManifest } from './manifest';
+import { controlFigurePanels } from './figure';
 import {
   type BodePoint,
   type ControlParams,
@@ -282,6 +284,7 @@ export class EngControlPlugin implements Plugin {
       actionButton('simulate', 'Simulate', '仿真', 'primary'),
       actionButton('exportStep', 'Export step CSV', '导出阶跃 CSV'),
       actionButton('exportBode', 'Export Bode CSV', '导出 Bode CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -320,6 +323,7 @@ export class EngControlPlugin implements Plugin {
     if (actionFired(params, 'simulate')) this.runSimulation();
     if (actionFired(params, 'exportStep')) this.exportStepCsv();
     if (actionFired(params, 'exportBode')) this.exportBodeCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -553,6 +557,30 @@ export class EngControlPlugin implements Plugin {
       Number.isFinite(pt.phaseDeg) ? Number(pt.phaseDeg.toPrecision(8)) : '—',
     ]);
     exportRowsCsv(this.api, 'control-bode', ['w_rad_s', 'mag_db', 'phase_deg'], rows);
+  }
+
+  private async sendToFigure(): Promise<void> {
+    if (!this.params) this.recompute();
+    const p = this.params;
+    const sim = this.sim;
+    const bode = this.bode;
+    if (!p || !sim || !bode) {
+      notify(this.api, 'warning', 'No simulation yet — press "Simulate" first.', '尚未仿真 — 请先点击「仿真」。');
+      return;
+    }
+    const m = sim.metrics;
+    const ts = Number.isFinite(m.settlingTime) ? fmtMetric(m.settlingTime) : '∞';
+    const wb = Number.isFinite(this.bandwidth) ? fmtMetric(this.bandwidth) : '∞';
+    const caption: Bilingual = {
+      zh: `控制系统阶跃/Bode 分析：超调 σ=${fmtMetric(m.overshootPct)}%，调节时间 ts=${ts} s，闭环带宽 ω_b=${wb} rad/s。`,
+      en: `Control step/Bode analysis: overshoot σ=${fmtMetric(m.overshootPct)}%, settling time ts=${ts} s, closed-loop bandwidth ω_b=${wb} rad/s.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '控制系统时频域分析', en: 'Control System Step / Bode Analysis' },
+      caption,
+      controlFigurePanels(p, sim, bode, this.bandwidth),
+    );
   }
 
   // ---- drawing -------------------------------------------------------------

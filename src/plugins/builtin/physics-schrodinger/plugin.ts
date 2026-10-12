@@ -14,7 +14,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { schrodingerManifest } from './manifest';
+import { schrodingerFigurePanels } from './figure';
 import {
   analyticLevels,
   buildGrid,
@@ -234,6 +236,7 @@ export class SchrodingerPlugin implements Plugin {
       actionButton('resetPacket', 'Reset wave packet', '重置波包'),
       actionButton('exportLevels', 'Export levels CSV', '导出能级 CSV'),
       actionButton('exportPsi', 'Export ψ(x) CSV', '导出 ψ(x) CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -362,6 +365,7 @@ export class SchrodingerPlugin implements Plugin {
     }
     if (actionFired(params, 'exportLevels')) this.exportLevels();
     if (actionFired(params, 'exportPsi')) this.exportPsi();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- scientific outputs ---------------------------------------------------
@@ -482,6 +486,49 @@ export class SchrodingerPlugin implements Plugin {
     } else {
       notify(this.api, 'warning', 'Nothing to export yet.', '暂无可导出的波函数。');
     }
+  }
+
+  // ---- figure studio push ---------------------------------------------------
+
+  private async sendToFigure(): Promise<void> {
+    this.ensureSolved();
+    const sol = this.statSol;
+    if (!sol) {
+      notify(this.api, 'warning', 'No eigenstate solution yet — solve the levels first.', '暂无本征态解 — 请先求解能级。');
+      return;
+    }
+    const ref = analyticLevels(this.state.kind, this.potentialParams(), PUBLISHED_LEVELS);
+    const parts: string[] = [];
+    for (let i = 0; i < PUBLISHED_LEVELS; i++) {
+      const e = sol.energies[i];
+      if (e === undefined) break;
+      const r = ref[i];
+      parts.push(`E${i + 1}=${e.toFixed(3)}${typeof r === 'number' ? ` (err ${(relErr(e, r) * 100).toFixed(3)}%)` : ''}`);
+    }
+    const kindLabel = KINDS.find((k) => k.value === this.state.kind);
+    let packet: { t: number; x: Float64Array; density: number[] } | undefined;
+    if (this.state.mode === 'time' && this.psiRe && this.psiIm && this.dynGrid) {
+      const re = this.psiRe;
+      const im = this.psiIm;
+      packet = { t: this.simTime, x: this.dynGrid.x, density: Array.from(re, (v, k) => v * v + im[k]! * im[k]!) };
+    }
+    const caption: Bilingual = {
+      zh: `一维薛定谔方程（${kindLabel?.zh ?? ''}）：${parts.join('，')} a.u.${packet ? `；波包快照 t=${this.simTime.toFixed(3)}` : ''}。`,
+      en: `1-D Schrödinger equation (${kindLabel?.en ?? ''}): ${parts.join(', ')} a.u.${packet ? `; packet snapshot t=${this.simTime.toFixed(3)}` : ''}.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '一维薛定谔求解器', en: '1-D Schrödinger Solver' },
+      caption,
+      schrodingerFigurePanels({
+        sol,
+        level: this.state.level,
+        showDensity: this.state.showDensity,
+        kind: this.state.kind,
+        params: this.potentialParams(),
+        packet,
+      }),
+    );
   }
 
   // ---- animation ------------------------------------------------------------

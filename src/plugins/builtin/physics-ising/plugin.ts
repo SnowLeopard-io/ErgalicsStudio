@@ -15,6 +15,8 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { isingFigurePanels } from './figure';
 import { isingManifest } from './manifest';
 import {
   ONSAGER_TC,
@@ -198,6 +200,7 @@ export class IsingPlugin implements Plugin {
       actionButton('scan', 'Run T sweep', '温度扫描', 'primary'),
       actionButton('stop', 'Stop sweep', '停止扫描'),
       actionButton('export', 'Export CSV', '导出 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -287,6 +290,7 @@ export class IsingPlugin implements Plugin {
       }
     }
     if (actionFired(params, 'export')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- simulations ----------------------------------------------------------
@@ -530,6 +534,26 @@ export class IsingPlugin implements Plugin {
         Number(r.absM.toPrecision(6)),
         Number(r.energyPerSpin.toPrecision(6)),
       ]],
+    );
+  }
+
+  /** Build the temperature-sweep panels and push them into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    if (this.scan.length < 2) {
+      notify(this.api, 'warning', 'No sweep data yet — run the T sweep first.', '暂无扫温数据——请先运行温度扫描。');
+      return;
+    }
+    const ref = ONSAGER_TC * this.state.J;
+    const tcTxt = this.tc ? `${this.tc.tc.toFixed(3)} ± ${this.tc.tcErr.toFixed(3)}` : '—';
+    const caption: Bilingual = {
+      zh: `二维伊辛模型扫温（L=${this.state.L}，J=${this.state.J}，H=${this.state.H}，${this.scan.length} 点）：Tc = ${tcTxt} J/k_B（Onsager ${ref.toFixed(3)}）。`,
+      en: `2-D Ising temperature sweep (L=${this.state.L}, J=${this.state.J}, H=${this.state.H}, ${this.scan.length} pts): Tc = ${tcTxt} J/k_B (Onsager ${ref.toFixed(3)}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '伊辛模型扫温分析', en: 'Ising Temperature Sweep' },
+      caption,
+      isingFigurePanels({ scan: this.scan, J: this.state.J, H: this.state.H }),
     );
   }
 

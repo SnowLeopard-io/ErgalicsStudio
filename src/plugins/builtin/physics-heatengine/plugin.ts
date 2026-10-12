@@ -15,7 +15,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { heatEngineManifest } from './manifest';
+import { heatEngineFigurePanels } from './figure';
 import { computeCycle, sampleSegment, type EngineCycle, type EngineInput, type EngineResult, type SegmentKind } from './kernel';
 
 export { heatEngineManifest } from './manifest';
@@ -111,6 +113,7 @@ export class HeatEnginePlugin implements Plugin {
       { key: 'regenerative', label: 'Perfect regenerator', labelI18n: { 'zh-CN': '完全回热（斯特林）', 'en-US': 'Perfect regenerator (Stirling)' }, type: 'checkbox', value: s.regenerative },
       { key: 'Vmin', label: 'Vmin (m³)', labelI18n: { 'zh-CN': '最小容积 Vmin（m³）', 'en-US': 'Vmin (m³)' }, type: 'number', min: 0.0001, max: 0.01, step: 0.0001, value: s.Vmin },
       actionButton('export', 'Export CSV', '导出 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -136,6 +139,7 @@ export class HeatEnginePlugin implements Plugin {
     this.recompute();
     this.draw();
     if (actionFired(params, 'export')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   // ---- scientific outputs ---------------------------------------------------
@@ -233,6 +237,27 @@ export class HeatEnginePlugin implements Plugin {
       Number(p.p.toPrecision(6)),
     ]);
     exportRowsCsv(this.api, `heatengine-${r.cycle}-states`, ['state', 'V_m3', 'T_K', 'p_Pa'], stateRows);
+  }
+
+  // ---- figure studio push ---------------------------------------------------
+
+  private async sendToFigure(): Promise<void> {
+    const r = this.result;
+    if (!r) {
+      notify(this.api, 'warning', 'No valid cycle — fix the parameters first.', '当前参数无法构成有效循环 — 请先修正参数。');
+      return;
+    }
+    const cyc = CYCLES.find((c) => c.value === r.cycle);
+    const caption: Bilingual = {
+      zh: `${cyc?.zh ?? r.cycle}：η=${(r.eta * 100).toFixed(2)}%（解析 ${(r.etaAnalytic * 100).toFixed(2)}%），W=${fmtMetric(r.W)} J，Qin=${fmtMetric(r.Qin)} J。`,
+      en: `${cyc?.en ?? r.cycle} cycle: η=${(r.eta * 100).toFixed(2)}% (analytic ${(r.etaAnalytic * 100).toFixed(2)}%), W=${fmtMetric(r.W)} J, Qin=${fmtMetric(r.Qin)} J.`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '热机循环分析', en: 'Heat-Engine Cycle Analysis' },
+      caption,
+      heatEngineFigurePanels({ input: this.input, result: r }),
+    );
   }
 
   // ---- drawing --------------------------------------------------------------

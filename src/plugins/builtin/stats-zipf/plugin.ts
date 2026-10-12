@@ -18,7 +18,9 @@ import {
   notify,
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { statsZipfManifest } from './manifest';
+import { zipfFigurePanels } from './figure';
 import {
   analyzeZipf,
   fitZipf,
@@ -141,6 +143,7 @@ export class StatsZipfPlugin implements Plugin {
       actionButton('demo', 'Demo · synthetic Zipf(s=1)', '演示 · 合成 Zipf(s=1)'),
       actionButton('benchmark', 'Run Zipf benchmark', '运行 Zipf 基准验证'),
       actionButton('exportCsv', 'Export ranked frequencies', '导出词频排名 CSV'),
+      actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
     ];
   }
 
@@ -176,6 +179,7 @@ export class StatsZipfPlugin implements Plugin {
     if (actionFired(params, 'demo')) this.loadDemo();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
   }
 
   getSupportedFormats() {
@@ -391,6 +395,26 @@ export class StatsZipfPlugin implements Plugin {
       'stats-zipf-frequencies',
       ['rank', 'word', 'count', 'log_rank', 'log_count', 'fit_residual'],
       rows,
+    );
+  }
+
+  /** Stream the rank–frequency log-log panels into Figure Studio. */
+  private async sendToFigure(): Promise<void> {
+    const a = this.state.analysis;
+    if (!a || !a.fit) {
+      notify(this.api, 'warning', 'Load or generate a corpus first.', '请先载入或生成语料。');
+      return;
+    }
+    const fit = a.fit;
+    const caption: Bilingual = {
+      zh: `Zipf 律拟合：f = a·r^-s，a=${fmtMetric(fit.a)}，s=${fit.s.toFixed(4)}±${fit.sigma.toFixed(4)}，R²=${fit.r2.toFixed(4)}；词元 ${a.tokens}，词表 ${a.vocab}（拟合窗口 r=${fit.rankStart}–${fit.rankEnd}）。`,
+      en: `Zipf fit f = a*r^-s: a=${fmtMetric(fit.a)}, s=${fit.s.toFixed(4)}±${fit.sigma.toFixed(4)}, R^2=${fit.r2.toFixed(4)}; ${a.tokens} tokens, vocabulary ${a.vocab} (fit window r=${fit.rankStart}-${fit.rankEnd}).`,
+    };
+    await pushPanelsToFigure(
+      this.api,
+      { zh: '词频 Zipf 分析', en: 'Zipf Frequency Analysis' },
+      caption,
+      zipfFigurePanels(a),
     );
   }
 
