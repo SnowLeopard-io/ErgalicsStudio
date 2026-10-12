@@ -1,8 +1,8 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { useT } from '@/i18n';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -152,6 +152,40 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // Blob URLs created for project-relative markdown images (resolved VFS path
   // → URL). Cached so React re-renders don't re-read bytes; revoked on unmount.
   const mdImgUrlsRef = useRef(new Map<string, string>());
+
+  // Plugins whose declared formats accept this file's extension. The preview
+  // footer offers "open with <plugin>" so a recognized file (e.g. a .cif unit
+  // cell) can be handed straight to its plugin from the preview overlay.
+  const { locale } = useLocale();
+  const registry = usePluginStore((s) => s.registry);
+  const { loadIntoPlugin } = useFileRouting();
+  const pluginMatches = useMemo(() => {
+    const dot = preview.name.lastIndexOf('.');
+    if (dot <= 0) return [];
+    const ext = preview.name.slice(dot).toLowerCase();
+    return registry.filter((e) => e.formats.some((f) => f.extension.toLowerCase() === ext));
+  }, [preview.name, registry]);
+
+  /** Read the previewed file from the workspace and route it into the chosen
+   *  plugin via the same ingestion pipeline the drop handler uses. */
+  const openWithPlugin = async (pluginId: string) => {
+    if (!project) return;
+    const rootPath = getProjectRepoPath(project);
+    try {
+      const blob = preview.blobUrl
+        ? await (await fetch(preview.blobUrl)).blob()
+        : new Blob([(await getVfs().readFileBinary(rootPath, preview.path)) as BlobPart], {
+            type: preview.mimeType,
+          });
+      await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
+      // Hand the canvas back to the plugin: the preview overlay would otherwise
+      // keep covering the (now active) plugin view.
+      useAppStore.getState().closeTab(fileTabKey(preview.path));
+    } catch (err) {
+      logger.warn('workbench', 'open-with-plugin read failed', err);
+      notify('error', t('workbench.preview.open_failed'));
+    }
+  };
 
   // Re-arm the draft + view whenever a different file is opened.
   useEffect(() => {
@@ -438,7 +472,24 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // 画布标签条已提供文件名、只读标识与关闭按钮，这里只渲染预览本体，
   // 避免标签行下方再出现一条重复的头部标签（与内嵌套件同一约定）。
   return (
-    <div className="central-file-preview">{body}</div>
+    <div className="central-file-preview">
+      {body}
+      {pluginMatches.length > 0 && (
+        <div className="central-file-openwith">
+          <span className="central-file-openwith-label">{t('workbench.preview.open_with')}</span>
+          {pluginMatches.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void openWithPlugin(e.id)}
+            >
+              {e.nameI18n?.[locale] ?? e.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

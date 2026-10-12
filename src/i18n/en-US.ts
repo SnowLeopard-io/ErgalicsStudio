@@ -134,6 +134,8 @@ export const enUS: LocaleDictionary = {
   'workbench.preview.pdf_blocked': 'PDF cannot be displayed inline in this environment — download it to view.',
   'workbench.preview.download_failed': 'Download failed',
   'workbench.preview.unsupported': 'This format cannot be previewed inline (browser limitation)',
+  'workbench.preview.open_with': 'Open with plugin:',
+  'workbench.preview.open_failed': 'Could not read file contents — plugin open failed',
   'workbench.preview.mode_label': 'Markdown view',
   'workbench.preview.mode_edit': 'Edit',
   'workbench.preview.mode_preview': 'Preview',

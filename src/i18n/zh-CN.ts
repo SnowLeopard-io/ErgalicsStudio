@@ -138,6 +138,8 @@ export const zhCN: LocaleDictionary = {
   'workbench.preview.pdf_blocked': '当前环境无法内嵌显示 PDF，可下载后查看。',
   'workbench.preview.download_failed': '下载失败',
   'workbench.preview.unsupported': '该格式暂不支持内嵌预览（浏览器限制）',
+  'workbench.preview.open_with': '用插件打开：',
+  'workbench.preview.open_failed': '无法读取文件内容，插件打开失败',
   'workbench.preview.mode_label': 'Markdown 视图',
   'workbench.preview.mode_edit': '编辑',
   'workbench.preview.mode_preview': '预览',
