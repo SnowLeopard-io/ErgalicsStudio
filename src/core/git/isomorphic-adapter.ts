@@ -236,17 +236,24 @@ export class IsomorphicGitAdapter implements GitAdapter {
     const fs = this.getFS();
     await mkdirp(fs, targetPath);
 
-    await Git.clone({
-      fs,
-      http,
-      dir: targetPath,
-      url,
-      corsProxy: proxyFor(opts),
-      ref: opts?.branch || 'main',
-      singleBranch: opts?.singleBranch ?? true,
-      depth: opts?.depth,
-      onProgress: toProgressHandler(opts?.onProgress),
-    });
+    try {
+      await Git.clone({
+        fs,
+        http,
+        dir: targetPath,
+        url,
+        corsProxy: proxyFor(opts),
+        ref: opts?.branch || 'main',
+        singleBranch: opts?.singleBranch ?? true,
+        depth: opts?.depth,
+        onProgress: toProgressHandler(opts?.onProgress),
+        // NOTE: isomorphic-git 1.43 clone() accepts no AbortSignal (push does),
+        // so abort(repoPath, 'clone') cannot cancel a running clone — the
+        // controller is registered for API symmetry only.
+      });
+    } finally {
+      this.controllers.delete(`${targetPath}:clone`);
+    }
   }
 
   async isRepo(repoPath: string): Promise<boolean> {
@@ -411,16 +418,22 @@ export class IsomorphicGitAdapter implements GitAdapter {
         newLine++;
         continue;
       }
-      sinceChange = 0;
-      if (!hunk || sinceChange === 0) {
+      // A change separated from the previous one by more than CONTEXT context
+      // lines starts a new hunk. The test must run BEFORE the reset below —
+      // resetting first made `sinceChange === 0` always true, which forced a
+      // new hunk for every single changed line.
+      if (!hunk || sinceChange > CONTEXT) {
         hunk = { oldStart: oldLine, oldLines: 0, newStart: newLine, newLines: 0, lines: [] };
         hunks.push(hunk);
       }
+      sinceChange = 0;
       if (op.type === 'add') {
         hunk.lines.push({ type: 'add', content: op.content, newLineNumber: newLine++ });
+        hunk.newLines += 1;
         additions++;
       } else {
         hunk.lines.push({ type: 'del', content: op.content, oldLineNumber: oldLine++ });
+        hunk.oldLines += 1;
         deletions++;
       }
     }
@@ -504,6 +517,26 @@ export class IsomorphicGitAdapter implements GitAdapter {
           err.gitCommand = 'checkout';
           throw err;
         }
+        // Untracked files survive a checkout in real git — unless the target
+        // branch contains a file at the same path, in which case git refuses
+        // instead of silently destroying them. Mirror that guard here: the
+        // force checkout below would otherwise overwrite them.
+        if (st.untracked.length > 0) {
+          const targetFiles = new Set(
+            await Git.listFiles({ fs, dir: repoPath, ref }).catch(() => [] as string[]),
+          );
+          const collisions = st.untracked.filter((f) => targetFiles.has(f));
+          if (collisions.length > 0) {
+            const err = new Error(
+              `Cannot checkout '${ref}': untracked files would be overwritten. ` +
+                'Add or commit them first:\n' +
+                collisions.map((f) => `  ${f}`).join('\n'),
+            ) as GitError;
+            err.code = GIT_ERROR_CODES.DIRTY;
+            err.gitCommand = 'checkout';
+            throw err;
+          }
+        }
       }
     }
     if (create) {
@@ -547,17 +580,21 @@ export class IsomorphicGitAdapter implements GitAdapter {
     const controller = new AbortController();
     this.controllers.set(`${repoPath}:push`, controller);
     const fs = this.getFS();
-    await Git.push({
-      fs,
-      http,
-      dir: repoPath,
-      remote: opts.remote,
-      ref: opts.branch,
-      force: opts.force,
-      corsProxy: proxyFor(opts),
-      onProgress: toProgressHandler(opts.onProgress),
-      signal: controller.signal,
-    });
+    try {
+      await Git.push({
+        fs,
+        http,
+        dir: repoPath,
+        remote: opts.remote,
+        ref: opts.branch,
+        force: opts.force,
+        corsProxy: proxyFor(opts),
+        onProgress: toProgressHandler(opts.onProgress),
+        signal: controller.signal,
+      });
+    } finally {
+      this.controllers.delete(`${repoPath}:push`);
+    }
   }
 
   async pull(repoPath: string, opts: PullOptions): Promise<void> {

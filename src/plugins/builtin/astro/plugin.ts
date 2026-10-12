@@ -339,7 +339,8 @@ export class AstroPipelinePlugin implements Plugin {
     a.href = url;
     a.download = `${(this.fileName || 'frame').replace(/[^\w.-]+/g, '_')}_proc.fits`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Defer revoking: a synchronous revoke can cancel the pending download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
     notify(this.api, 'success', 'Calibrated FITS exported.', '已导出校准后的 FITS 文件。');
   }
 

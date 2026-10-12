@@ -321,6 +321,9 @@ export function FileExplorer() {
       const { kind, mime } = classifyFile(entry.name);
       if (kind === 'text' || kind === 'markdown') {
         const raw = await adapter.readFile(repoPath, entry.path);
+        // Do not resurrect the tab if it was closed while the read was pending.
+        const textKey = fileTabKey(entry.path);
+        if (!useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey)) return;
         const capped = raw.length > PREVIEW_CAP_CHARS ? raw.slice(0, PREVIEW_CAP_CHARS) : raw;
         openFilePreview({
           name: entry.name,
@@ -344,6 +347,10 @@ export function FileExplorer() {
           size: entry.size,
         });
         const bytes = await adapter.readFileBinary(repoPath, entry.path);
+        // The read outlives the click: if the user closed the placeholder tab
+        // while the bytes were in flight, do not resurrect it.
+        const key = fileTabKey(entry.path);
+        if (!useAppStore.getState().canvasTabs.some((tab) => tab.key === key)) return;
         const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
         openFilePreview({
           name: entry.name,

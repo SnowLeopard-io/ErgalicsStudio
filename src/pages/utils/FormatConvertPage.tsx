@@ -271,7 +271,8 @@ export default function FormatConvertPage() {
     a.href = url;
     a.download = `converted.${EXT[outFmt]}`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Defer revoking: a synchronous revoke can cancel the pending download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const copy = async () => {

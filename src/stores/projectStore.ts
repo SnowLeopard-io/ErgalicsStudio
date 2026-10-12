@@ -141,6 +141,10 @@ let autosaveTimer: ReturnType<typeof setInterval> | null = null;
  */
 let openSeq = 0;
 
+// Last-writer-wins token for git-log loads: a slow response from an earlier
+// load (or a previous project) must not overwrite a newer one's results.
+let gitLogSeq = 0;
+
 // An active session changes only when a project is installed or removed.
 // Unlike an id, it also distinguishes closing and reopening the same project.
 let projectSession = 0;
@@ -282,7 +286,12 @@ async function initGitForProject(project: Project, template: 'standard' | 'minim
 async function refreshGitStatusForProject(project: Project): Promise<void> {
   const repoPath = getProjectRepoPath(project);
   const adapter = getGitAdapter();
+  const session = getProjectSession();
   const isRepo = await adapter.isRepo(repoPath);
+  // The reads below outlive the call: if the user switched projects while
+  // they were in flight, a slow response must not clobber the new project's
+  // git panel with the old one's state.
+  if (getProjectSession() !== session) return;
   if (!isRepo) {
     useProjectStore.setState({ gitRepo: { isRepo: false, status: null, branches: [], currentBranch: '', remotes: [] } });
     return;
@@ -292,6 +301,7 @@ async function refreshGitStatusForProject(project: Project): Promise<void> {
     adapter.branches(repoPath),
     adapter.remotes(repoPath),
   ]);
+  if (getProjectSession() !== session) return;
   useProjectStore.setState({
     gitRepo: {
       isRepo: true,
@@ -877,9 +887,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   loadGitLog: async (limit = 50) => {
+    const seq = ++gitLogSeq;
     const { project } = get();
     if (!project) {
-      set({ gitCommits: [] });
+      set({ gitCommits: [], gitLoading: false });
       return;
     }
     set({ gitLoading: true });
@@ -887,8 +898,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const adapter = getGitAdapter();
       const repoPath = getProjectRepoPath(project);
       const commits = await adapter.log(repoPath, { limit });
+      // A newer load (this or another project) supersedes this response.
+      if (seq !== gitLogSeq) return;
       set({ gitCommits: commits, gitLoading: false });
     } catch {
+      if (seq !== gitLogSeq) return;
       set({ gitCommits: [], gitLoading: false });
     }
   },
