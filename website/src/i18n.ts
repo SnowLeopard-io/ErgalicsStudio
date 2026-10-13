@@ -14,24 +14,28 @@ const D: Dict = {
     en: 'Technical documentation and project materials: the full technical summary and ten technical chapters in PDF / HTML / Markdown — read online or download.',
   },
   'nav.docs': { zh: '文档', en: 'Docs' },
-  'nav.enter': { zh: '进入工作站', en: 'Enter Studio' },
+  'nav.enter': { zh: '进入工作台', en: 'Enter the Workbench' },
   'footer.tagline': {
     zh: '浏览器端多模式科研计算工作站 · 零安装 · 本地隐私优先 · 开源免费',
     en: 'A browser-based multi-mode scientific computing workstation · zero install · privacy-first · open source',
   },
   'footer.links': { zh: '链接', en: 'Links' },
   'footer.license': { zh: 'MIT 许可', en: 'MIT License' },
-  'hero.badge': { zh: '开源免费 · WebGPU 原生加速', en: 'Open source · Native WebGPU acceleration' },
-  'hero.title': {
-    zh: '打开浏览器，开始一次可复现的科研分析',
-    en: 'Open a browser. Run a reproducible scientific analysis.',
+  'hero.badge': { zh: 'v2.0.0 正式发布 · 2026-10-13', en: 'v2.0.0 · Released 2026-10-13' },
+  'hero.title.a': {
+    zh: 'Ergalics Studio',
+    en: 'Ergalics Studio',
+  },
+  'hero.title.b': {
+    zh: '让科学计算，回归触手可及',
+    en: 'scientific computing, back within reach',
   },
   'hero.desc': {
-    zh: 'Ergalics Studio 把统计、建模、信号处理、可视化与可复现性装进一个网页：标准、流程、积木、代码四种模式共享同一份 IR，代码模式支持 Python / R / JavaScript，从导入数据到投稿材料一条链路完成。',
-    en: 'Ergalics Studio packs statistics, modeling, signal processing, visualization and reproducibility into one web page: four modes (standard, flow, blocks, code) share a single IR, the code mode speaks Python / R / JavaScript, taking you from raw data to submission-ready materials in one chain.',
+    zh: '为需要可复现分析的学生与研究者而做：26 个科研工具、14 个 WGSL 内核与 Python / R 运行时全部在本地页面内运行——数据不上传，也无需安装。',
+    en: 'Built for students and researchers who need reproducible analysis: 26 research tools, 14 WGSL kernels and the Python / R runtimes all run locally in the page — no uploads, no installs.',
   },
-  'hero.cta': { zh: '立即进入工作站', en: 'Launch the workstation' },
-  'hero.cta2': { zh: '浏览作品画廊', en: 'Browse the gallery' },
+  'hero.cta': { zh: '进入工作台', en: 'Enter the Workbench' },
+  'hero.cta2': { zh: '浏览示例画廊', en: 'Browse the examples' },
   'features.title': { zh: '为真实科研链路而设计', en: 'Designed for the real research chain' },
   'f1.t': { zh: '四种模式 · 一份 IR', en: 'Four modes · one IR' },
   'f1.d': {
@@ -94,6 +98,137 @@ const D: Dict = {
   'plugins.version': { zh: '版本', en: 'Version' },
   'plugins.empty': { zh: '没有匹配的插件', en: 'No plugins match' },
   'common.by': { zh: '作者 {name}', en: 'by {name}' },
+  // ---- home v2: stats strip ------------------------------------------------
+  'stats.tools': { zh: '科研工具', en: 'Research tools' },
+  'stats.modes': { zh: '工作模式', en: 'Work modes' },
+  'stats.blocks': { zh: '流程区块', en: 'Flow blocks' },
+  'stats.tests': { zh: '单元测试', en: 'Unit tests' },
+  // ---- home v2: work modes -------------------------------------------------
+  'modes.title': { zh: '四种工作模式', en: 'Four ways to work' },
+  'modes.desc': {
+    zh: '同一个外壳、同一份数据，按任务切换交互方式，随时可以来回。',
+    en: 'One shell, one dataset — switch the interaction style per task and back again at any time.',
+  },
+  'modes.standard.tab': { zh: '标准', en: 'Standard' },
+  'modes.standard.desc': {
+    zh: '把数据文件拖进画布即出图表，调参数即时重绘。适合先看一眼手里的数据。',
+    en: 'Drag a data file onto the canvas and a chart appears; tweak a parameter and it redraws on the spot. For a first look at your data.',
+  },
+  'modes.flow.tab': { zh: '流程', en: 'Flow' },
+  'modes.flow.desc': {
+    zh: '从 38 个区块里搭一条数据管线：数据源、变换、过滤、数学、统计、单位、绘图，每个节点都能逐步预览。',
+    en: 'Assemble a pipeline from 38 blocks — sources, transforms, filters, math, statistics, units, plotting — and preview at every node.',
+  },
+  'modes.blocks.tab': { zh: '积木', en: 'Blocks' },
+  'modes.blocks.desc': {
+    zh: '像拼积木一样搭出程序，同一逻辑可切换成真实的 Python / R 脚本，为课堂上从图形化过渡到写代码而设计。',
+    en: 'Snap blocks together into a program, then flip the same logic into real Python / R code — built for the classroom move from visual programming to scripts.',
+  },
+  'modes.code.tab': { zh: '代码', en: 'Code' },
+  'modes.code.desc': {
+    zh: '在 Python 或 R 里调用 studio API：studio.load() 读数据、studio.plot() 出图，解释器就跑在页面里。',
+    en: 'Call the studio API from Python or R: studio.load() for data, studio.plot() for figures — the interpreter runs in the page.',
+  },
+  // ---- home v2: research toolbelt ------------------------------------------
+  'toolbelt.title': { zh: '26 个科研工具，六个分组', en: '26 research tools, six groups' },
+  'toolbelt.desc': {
+    zh: '全部内建、随开随用，可嵌入画布，也可作为独立页面打开。',
+    en: 'All built in and ready to open — embed them in the canvas or launch them standalone.',
+  },
+  'toolbelt.g.measure': { zh: '测量', en: 'Measure' },
+  'toolbelt.g.model': { zh: '建模', en: 'Model' },
+  'toolbelt.g.data': { zh: '数据', en: 'Data' },
+  'toolbelt.g.signal': { zh: '信号', en: 'Signal' },
+  'toolbelt.g.deliver': { zh: '交付', en: 'Deliver' },
+  'toolbelt.g.utils': { zh: '常用', en: 'Utilities' },
+  'toolbelt.tool.uncertainty': { zh: '不确定性套件', en: 'Uncertainty suite' },
+  'toolbelt.tool.profiler': { zh: '数据画像', en: 'Data Profiler' },
+  'toolbelt.tool.model-lab': { zh: '模型工作台', en: 'Model Lab' },
+  'toolbelt.tool.inference': { zh: '贝叶斯推断', en: 'Inference Forge' },
+  'toolbelt.tool.model-inference': { zh: '模型推理', en: 'Model Inference' },
+  'toolbelt.tool.sweeps': { zh: '参数扫描', en: 'Parameter Sweeps' },
+  'toolbelt.tool.sql': { zh: 'SQL 数据工作台', en: 'SQL Data Workbench' },
+  'toolbelt.tool.lineage': { zh: '数据血缘', en: 'Data Lineage' },
+  'toolbelt.tool.figures': { zh: '图表工作台', en: 'Figure Studio' },
+  'toolbelt.tool.analysis': { zh: '数据分析', en: 'Data Analysis' },
+  'toolbelt.tool.cleaning': { zh: '数据清洗向导', en: 'Data Cleaning Wizard' },
+  'toolbelt.tool.files': { zh: '文件资源管理器', en: 'File Explorer' },
+  'toolbelt.tool.signal': { zh: '信号实验室', en: 'Signal Lab' },
+  'toolbelt.tool.notebook': { zh: 'Notebook', en: 'Notebook' },
+  'toolbelt.tool.runs': { zh: '实验记录', en: 'Run History' },
+  'toolbelt.tool.report': { zh: '报告生成器', en: 'Report Builder' },
+  'toolbelt.tool.reprolock': { zh: '可复现锁', en: 'Reproducibility Lock' },
+  'toolbelt.tool.supplement': { zh: '补充材料打包', en: 'Supplementary Materials' },
+  'toolbelt.tool.course': { zh: '课程模式', en: 'Course Mode' },
+  'toolbelt.tool.gallery': { zh: '作品画廊', en: 'Gallery' },
+  'toolbelt.tool.unit-convert': { zh: '单位换算', en: 'Unit Converter' },
+  'toolbelt.tool.calc': { zh: '公式计算器', en: 'Formula Calculator' },
+  'toolbelt.tool.format-convert': { zh: '格式转换器', en: 'Format Converter' },
+  'toolbelt.tool.sigfig': { zh: '有效数字修约', en: 'Significant Figures' },
+  'toolbelt.tool.molar-mass': { zh: '摩尔质量计算', en: 'Molar Mass' },
+  'toolbelt.tool.quick-stats': { zh: '统计速算', en: 'Quick Stats' },
+  'toolbelt.more': { zh: '查看全部 26 个工具', en: 'View all 26 tools' },
+  // ---- home v2: kernels & runtimes -----------------------------------------
+  'kernel.title': { zh: '内核与运行时', en: 'Kernels & runtimes' },
+  'kernel.desc': {
+    zh: '计算不出浏览器：GPU 内核负责加速，CPU 对照实现负责校验，脚本运行时随应用自托管。',
+    en: 'Compute stays in the browser: GPU kernels for speed, CPU counterparts for verification, script runtimes self-hosted with the app.',
+  },
+  'kernel.wgsl.t': { zh: 'WGSL 计算内核', en: 'WGSL compute kernels' },
+  'kernel.wgsl.d': {
+    zh: '重采样、随机模拟与渲染内核跑在 WebGPU 上逐帧调度；每个内核都配一条数学一致的 CPU 对照实现，可校验、可回退。',
+    en: 'Resampling, simulation and rendering kernels run on WebGPU, scheduled per frame; each kernel ships a mathematically consistent CPU counterpart for verification and fallback.',
+  },
+  'kernel.rt.t': { zh: '脚本运行时', en: 'Script runtimes' },
+  'kernel.rt.py': { zh: 'NumPy / SciPy 生态直接可用', en: 'The NumPy / SciPy ecosystem as-is' },
+  'kernel.rt.r': { zh: '基础 R 统计与图形', en: 'Base R statistics and graphics' },
+  'kernel.rt.sql': { zh: '就地查询 Parquet / CSV', en: 'Query Parquet / CSV in place' },
+  'kernel.fmt.t': { zh: '统一导入', en: 'One import path' },
+  'kernel.fmt.d': {
+    zh: '七种格式走同一条导入链路，每次导入都写入数据血缘。',
+    en: 'Seven formats through one import path, every import recorded in lineage.',
+  },
+  // ---- home v2: reproducibility --------------------------------------------
+  'repro.title': { zh: '可复现，是默认行为', en: 'Reproducible by default' },
+  'repro.desc': {
+    zh: '从一次分析到可以发表，路径固定为三步。',
+    en: 'From one analysis to something publishable, the path is the same three steps.',
+  },
+  'repro.s1.t': { zh: '分析', en: 'Analyze' },
+  'repro.s1.d': {
+    zh: '在任一模式下完成分析；参数、随机种子与数据指纹自动记入实验记录。',
+    en: 'Do the analysis in any mode; parameters, seeds and data fingerprints land in the run history automatically.',
+  },
+  'repro.s2.t': { zh: '锁定', en: 'Lock' },
+  'repro.s2.d': {
+    zh: 'repro.lock 把环境、参数与代码冻结成一份记录，交给谁都跑得出同一结果。',
+    en: 'repro.lock freezes environment, parameters and code into one record that re-runs to the same result.',
+  },
+  'repro.s3.t': { zh: '归档', en: 'Archive' },
+  'repro.s3.d': {
+    zh: '.clproj 单文件导出，数据不被私有格式包装；随附引用元数据，可交 Zenodo 归档铸 DOI。',
+    en: 'Export as a single .clproj — data never wrapped in a proprietary format — with citation metadata ready for Zenodo archival and a DOI.',
+  },
+  'repro.gate': {
+    zh: '供应链同样有门禁：插件经 .cspkg 签名校验安装，发布物附带 SBOM 与 CITATION.cff。',
+    en: 'The supply chain is gated too: plugins install only through signed .cspkg checks, and releases ship with an SBOM and CITATION.cff.',
+  },
+  // ---- home v2: closing ------------------------------------------------------
+  'closing.title': {
+    zh: '一个装好 26 个工具、14 个内核和 Python / R 的浏览器标签页，等你拖入第一个数据文件。',
+    en: 'One browser tab with 26 tools, 14 kernels, Python and R — waiting for your first data file.',
+  },
+  'closing.note': {
+    zh: 'MIT 开源 · 零安装 · 数据本地处理 · OPFS / IndexedDB 本地持久化',
+    en: 'MIT licensed · zero install · local data · persisted in OPFS / IndexedDB',
+  },
+  // ---- footer v2 --------------------------------------------------------------
+  'footer.citation': { zh: '引用 CITATION.cff', en: 'Citation (CITATION.cff)' },
+  'footer.sbom': { zh: 'SBOM 工作流', en: 'SBOM workflow' },
+  'footer.doi': {
+    zh: '发版经 Zenodo 归档铸 DOI · 插件 .cspkg 签名门禁',
+    en: 'Releases archived on Zenodo with a DOI · signed .cspkg plugin gate',
+  },
 };
 
 const STORAGE_KEY = 'ergalics-website:lang';
