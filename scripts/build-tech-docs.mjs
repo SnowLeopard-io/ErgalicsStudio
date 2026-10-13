@@ -39,7 +39,7 @@ const PRODUCT_SLOGAN = '让科学计算 回归触手可及';
 const PRODUCT_DOCS = {
   'Ergalics-Studio': {
     dir: PRODUCT_DIR,
-    foot: '版本 1.9.0 · MIT License · SnowLeopard-io',
+    foot: '版本 2.0.0 · MIT License · SnowLeopard-io',
     brand: 'ERGALICS STUDIO',
   },
 };

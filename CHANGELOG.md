@@ -8,7 +8,7 @@ All notable changes to Ergalics Studio are documented here. The format follows [
 
 `1.0.0` corresponds to the **SDK v1 contract freeze** (commit `c7b7327`, 2026-09-12). Everything before it belongs to the v0 experimental period, consistent with the "experimental v0 → SDK v1" phase division in the plugin SDK migration guide.
 
-## [Unreleased] / 未发布
+## [v2.0.0] - 2026-10-13 正式发布 / Official release
 
 - 工作台模块化外壳：左侧活动栏在文件 / Git / 插件三个视图间切换（侧栏可调宽、可收起），中央标签区让插件画布、文件预览、按文件分派的编辑器与内嵌科研工具以标签页共存
 
