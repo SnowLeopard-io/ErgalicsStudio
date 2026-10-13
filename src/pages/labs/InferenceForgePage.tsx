@@ -36,6 +36,7 @@ import {
 } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 
 const PALETTE = ['#0072B2', '#D55E00', '#009E73', '#CC79A7'];
 const MAX_CHART_PARAMS = 4;
@@ -448,6 +449,36 @@ export default function InferenceForgePage() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="sweep-actions">
+              <SaveArtifactButton
+                dir="runs"
+                filename={`${outcome.ctx.file.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '-') || 'forge'}-${outcome.ctx.kind}-posterior.json`}
+                content={JSON.stringify(
+                  {
+                    kind: 'inference-forge',
+                    savedAt: new Date().toISOString(),
+                    template: kind,
+                    algorithm,
+                    params: outcome.params,
+                    summary: outcome.result.summary,
+                    diagnostics: outcome.result.diagnostics,
+                    chains: outcome.chains.map((c) => ({
+                      acceptRate: c.acceptRate,
+                      stepSize: c.stepSize,
+                      divergences: c.divergences,
+                    })),
+                    timing: outcome.result.timing,
+                    waic: outcome.waic,
+                    loo: outcome.loo,
+                    ppc: outcome.ppc,
+                  },
+                  null,
+                  2,
+                )}
+                className="btn btn-sm"
+              />
             </div>
 
             <pre className="analysis-output">

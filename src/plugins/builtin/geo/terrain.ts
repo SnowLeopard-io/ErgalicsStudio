@@ -1,4 +1,4 @@
-// ==========================================================================
+﻿// ==========================================================================
 // Example plugin: DEM Terrain Analysis
 //
 // Reads an ESRI ASCII Grid (.asc) digital elevation model and draws it as
@@ -14,34 +14,38 @@
 // The watershed mode runs the classic hydrological pipeline: priority-flood
 // depression filling (Barnes et al. 2014, epsilon gradient), D8 flow
 // directions (steepest strict descent) and flow accumulation in Kahn
-// topological order.
+// topological order. Watershed statistics (basin area, drainage density) are
+// extracted from the outlet of the highest-accumulation sink.
+//
+// Scientific outputs: Horn vs Zevenbergen–Thorne slope error band, watershed
+// statistics, and the assumed CRS/unit note. An embedded analytic benchmark
+// (z = 0.05·(u²+v²) paraboloid DEM) scores slope/flow-direction recovery —
+// always labelled as a benchmark, never as user data.
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportSnapshotPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { heatmapColor } from '@/core/wgsl';
 import { marchingSquares } from './geoCore';
 import { isZh } from '@/core/plugin-tools/locale';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { setScienceOutputs, clearScienceOutputs, fmtMetric } from '@/core/research/scienceOutput';
+import type { ScienceMetric } from '@/core/research/scienceOutput';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { terrainManifest } from './terrainManifest';
 import { buildTerrainGroup, fitTerrainCamera } from './terrain3d';
 import type { Group } from 'three';
+import type { AscGrid } from '@/core/geo/terrainMesh';
+
+export type { AscGrid };
 
 export { terrainManifest } from './terrainManifest';
 
 // ---- Parsing & terrain math (exported for tests) ---------------------------
-
-export interface AscGrid {
-  ncols: number;
-  nrows: number;
-  xllcorner: number;
-  yllcorner: number;
-  cellsize: number;
-  nodata: number;
-  /** Row-major elevations (metres); NoData replaced by NaN. */
-  values: Float64Array;
-}
 
 const HEADER_KEYS = /^(ncols|nrows|xllcorner|yllcorner|cellsize|nodata_value)$/i;
 
@@ -327,14 +331,287 @@ export function flowAccumulation(filled: Float64Array, dir: Int32Array): Float64
   return acc;
 }
 
+/**
+ * Zevenbergen–Thorne slope (degrees) — 4-neighbour central differences:
+ * dz/dx = (f − d)/(2·cellsize), dz/dy = (h − b)/(2·cellsize). Curvature-
+ * sensitive (fits a plane through the nine cells), so it diverges from Horn
+ * on convex/convex tops and in pits; the disagreement band is published.
+ */
+export function zevenbergenThorneSlope(values: Float64Array, ncols: number, nrows: number, cellsize: number): Float64Array {
+  const slope = new Float64Array(ncols * nrows).fill(NaN);
+  const at = (x: number, y: number): number => values[y * ncols + x]!;
+  for (let y = 1; y + 1 < nrows; y += 1) {
+    for (let x = 1; x + 1 < ncols; x += 1) {
+      const d = at(x - 1, y);
+      const f = at(x + 1, y);
+      const b = at(x, y - 1);
+      const h = at(x, y + 1);
+      if (!Number.isFinite(d) || !Number.isFinite(f) || !Number.isFinite(b) || !Number.isFinite(h)) continue;
+      const dzdx = (f - d) / (2 * cellsize);
+      const dzdy = (h - b) / (2 * cellsize);
+      slope[y * ncols + x] = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI;
+    }
+  }
+  return slope;
+}
+
+/** Agreement band of two slope algorithms (Horn vs Zevenbergen–Thorne). */
+export interface SlopeErrorBand {
+  n: number;
+  /** Median |slope_Horn − slope_ZT| in degrees. */
+  medianDeg: number;
+  /** Maximum |slope_Horn − slope_ZT| in degrees. */
+  maxDeg: number;
+}
+
+/**
+ * Slope error band between two algorithms: the median and maximum absolute
+ * disagreement over cells where both are defined. A proxy for the
+ * algorithm-induced uncertainty of terrain derivatives.
+ */
+export function slopeErrorBand(horn: Float64Array, zt: Float64Array): SlopeErrorBand | null {
+  const diffs: number[] = [];
+  for (let i = 0; i < horn.length && i < zt.length; i += 1) {
+    const a = horn[i]!;
+    const b = zt[i]!;
+    if (Number.isFinite(a) && Number.isFinite(b)) diffs.push(Math.abs(a - b));
+  }
+  if (diffs.length === 0) return null;
+  diffs.sort((x, y) => x - y);
+  const mid = diffs.length >> 1;
+  const median = diffs.length % 2 ? diffs[mid]! : (diffs[mid - 1]! + diffs[mid]!) / 2;
+  return { n: diffs.length, medianDeg: median, maxDeg: diffs[diffs.length - 1]! };
+}
+
+// ---- Watershed statistics (exported for tests) -------------------------------
+
+/** Watershed summary extracted from the D8/accumulation pipeline. */
+export interface WatershedStats {
+  outletIdx: number;
+  outletCol: number;
+  outletRow: number;
+  /** Flow accumulation at the outlet (= contributing cells). */
+  outletAcc: number;
+  /** Cells draining to the outlet. */
+  basinCells: number;
+  basinAreaKm2: number;
+  streamCells: number;
+  streamLengthKm: number;
+  /** Drainage density = stream length / basin area (km⁻¹). */
+  drainageDensityKm1: number;
+  /** Stream-definition threshold used (cells). */
+  streamThreshold: number;
+}
+
+/**
+ * Watershed statistics for the largest drainage: the outlet is the
+ * highest-accumulation sink (D8_NODIR), the basin is its full upstream
+ * area, and streams are basin cells with accumulation ≥ max(10, 1 % of the
+ * basin) — each contributing one cell-length of channel.
+ */
+export function watershedStats(
+  filled: Float64Array,
+  dir: Int32Array,
+  acc: Float64Array,
+  ncols: number,
+  nrows: number,
+  cellsize: number,
+): WatershedStats | null {
+  const n = ncols * nrows;
+  let outlet = -1;
+  let best = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (dir[i] === D8_NODIR && Number.isFinite(filled[i]!) && acc[i]! > best) {
+      best = acc[i]!;
+      outlet = i;
+    }
+  }
+  if (outlet < 0) return null;
+
+  // Reverse D8 adjacency, then upstream BFS from the outlet.
+  const upstream: number[][] = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i += 1) {
+    const d = dir[i]!;
+    if (d >= 0 && d < n) upstream[d]!.push(i);
+  }
+  const inBasin = new Uint8Array(n);
+  const stack: number[] = [outlet];
+  inBasin[outlet] = 1;
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    for (const up of upstream[cur]!) {
+      if (!inBasin[up]) {
+        inBasin[up] = 1;
+        stack.push(up);
+      }
+    }
+  }
+  let basinCells = 0;
+  for (let i = 0; i < n; i += 1) if (inBasin[i]) basinCells += 1;
+  const streamThreshold = Math.max(10, 0.01 * basinCells);
+  let streamCells = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (inBasin[i] && acc[i]! >= streamThreshold) streamCells += 1;
+  }
+  const basinAreaKm2 = (basinCells * cellsize * cellsize) / 1e6;
+  const streamLengthKm = (streamCells * cellsize) / 1000;
+  return {
+    outletIdx: outlet,
+    outletCol: outlet % ncols,
+    outletRow: Math.floor(outlet / ncols),
+    outletAcc: acc[outlet]!,
+    basinCells,
+    basinAreaKm2,
+    streamCells,
+    streamLengthKm,
+    drainageDensityKm1: basinAreaKm2 > 0 ? streamLengthKm / basinAreaKm2 : 0,
+    streamThreshold,
+  };
+}
+
+/** Watershed + slope-band summary table as CSV (metric,value,unit rows). */
+export function watershedStatsCsv(stats: WatershedStats | null, band: SlopeErrorBand | null, grid: AscGrid): string {
+  const rows: string[] = ['# Terrain analysis summary', 'metric,value,unit'];
+  const add = (metric: string, value: string, unit: string) => rows.push(`${metric},${value},${unit}`);
+  add('grid_ncols', String(grid.ncols), 'cells');
+  add('grid_nrows', String(grid.nrows), 'cells');
+  add('cellsize', String(grid.cellsize), 'm');
+  add('assumed_crs', 'EPSG:4326 (lon/lat, cellsize interpreted as metres)', '');
+  if (band) {
+    add('slope_diff_median_horn_zt', band.medianDeg.toFixed(4), 'deg');
+    add('slope_diff_max_horn_zt', band.maxDeg.toFixed(4), 'deg');
+  }
+  if (stats) {
+    add('outlet_col', String(stats.outletCol), 'cell');
+    add('outlet_row', String(stats.outletRow), 'cell');
+    add('outlet_accumulation', String(Math.round(stats.outletAcc)), 'cells');
+    add('basin_cells', String(stats.basinCells), 'cells');
+    add('basin_area', stats.basinAreaKm2.toFixed(4), 'km2');
+    add('stream_cells', String(stats.streamCells), 'cells');
+    add('stream_length', stats.streamLengthKm.toFixed(4), 'km');
+    add('drainage_density', stats.drainageDensityKm1.toFixed(6), '1/km');
+    add('stream_threshold', String(Math.round(stats.streamThreshold)), 'cells');
+  }
+  return rows.join('\n');
+}
+
+// ---- Analytic-surface benchmark (L4, exported for tests) ---------------------
+//
+// A paraboloid DEM with an ANALYTIC slope/gradient (z = 0.05·(u²+v²), 1 m
+// cells) is piped through the same Horn + D8 code; the recovered slope and
+// flow directions are scored against the closed form. Benchmark-tagged.
+
+export const ANALYTIC_BENCH_TAG = 'analytic-surface-benchmark';
+
+export interface AnalyticSurfaceBenchmark {
+  tag: typeof ANALYTIC_BENCH_TAG;
+  surface: string;
+  cells: number;
+  /** Median |slope_rec − slope_analytic| in degrees. */
+  slopeMedianErrDeg: number;
+  slopeMaxErrDeg: number;
+  /** Median relative slope error (%) over cells steeper than 5°. */
+  slopeMedianErrPct: number;
+  /** % of cells whose D8 direction equals the analytic steepest descent. */
+  flowAgreementPct: number;
+}
+
+/**
+ * Build the z = 0.05·(u²+v²) paraboloid DEM (61×61, cellsize 1 m, centred).
+ * ∇z = (0.1u, 0.1v), so the analytic slope is atan(0.1·r) degrees.
+ */
+export function analyticParaboloidDem(n = 61): Float64Array {
+  const values = new Float64Array(n * n);
+  const c = (n - 1) / 2;
+  for (let y = 0; y < n; y += 1) {
+    for (let x = 0; x < n; x += 1) {
+      const u = x - c;
+      const v = y - c;
+      values[y * n + x] = 0.05 * (u * u + v * v);
+    }
+  }
+  return values;
+}
+
+export function runAnalyticSurfaceBenchmark(): AnalyticSurfaceBenchmark | null {
+  const n = 61;
+  const cs = 1;
+  const values = analyticParaboloidDem(n);
+  const c = (n - 1) / 2;
+
+  // Slope recovery against atan(0.1·r).
+  const { slope } = hornSlopeAspect(values, n, n, cs);
+  const errsDeg: number[] = [];
+  const errsPct: number[] = [];
+  for (let y = 1; y + 1 < n; y += 1) {
+    for (let x = 1; x + 1 < n; x += 1) {
+      const rec = slope[y * n + x]!;
+      if (!Number.isFinite(rec)) continue;
+      const r = Math.hypot(x - c, y - c);
+      const analytic = (Math.atan(0.1 * r) * 180) / Math.PI;
+      const err = Math.abs(rec - analytic);
+      errsDeg.push(err);
+      if (analytic > 5) errsPct.push((err / analytic) * 100);
+    }
+  }
+  if (errsDeg.length === 0) return null;
+  errsDeg.sort((a, b) => a - b);
+  const mid = errsDeg.length >> 1;
+  const medianDeg = errsDeg.length % 2 ? errsDeg[mid]! : (errsDeg[mid - 1]! + errsDeg[mid]!) / 2;
+  errsPct.sort((a, b) => a - b);
+  const midP = errsPct.length >> 1;
+  const medianPct = errsPct.length % 2 ? errsPct[midP]! : (errsPct[midP - 1]! + errsPct[midP]!) / 2;
+
+  // Flow-direction recovery against the analytic steepest-descent neighbour.
+  const filled = fillDepressions(values, n, n);
+  const dir = d8FlowDirections(filled, n, n, cs);
+  let eligible = 0;
+  let matches = 0;
+  for (let y = 0; y < n; y += 1) {
+    for (let x = 0; x < n; x += 1) {
+      const gx = 0.1 * (x - c);
+      const gy = 0.1 * (y - c);
+      if (gx === 0 && gy === 0) continue; // the outlet — no unique direction
+      let bestSlope = 0;
+      let bestDx = 0;
+      let bestDy = 0;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const descent = -(gx * dx + gy * dy) / Math.hypot(dx, dy);
+          if (descent > bestSlope) {
+            bestSlope = descent;
+            bestDx = dx;
+            bestDy = dy;
+          }
+        }
+      }
+      const d = dir[y * n + x]!;
+      eligible += 1;
+      const ddx = (d % n) - x;
+      const ddy = Math.floor(d / n) - y;
+      if (d >= 0 && ddx === bestDx && ddy === bestDy) matches += 1;
+    }
+  }
+  return {
+    tag: ANALYTIC_BENCH_TAG,
+    surface: 'z = 0.05·(u² + v²), cellsize 1 m',
+    cells: n * n,
+    slopeMedianErrDeg: medianDeg,
+    slopeMaxErrDeg: errsDeg[errsDeg.length - 1]!,
+    slopeMedianErrPct: medianPct,
+    flowAgreementPct: eligible > 0 ? (matches / eligible) * 100 : 0,
+  };
+}
+
 // ---- Figure Studio panels (exported for tests) ------------------------------
 
 /**
  * Research sheet for one DEM: (a) elevation field, (b) Horn slope,
  * (c) D8 flow accumulation on a log₁₀ scale after priority-flood filling.
  */
-export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+export function terrainFigurePanels(grid: AscGrid): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   const { ncols, nrows, values, cellsize } = grid;
 
   // (a) elevation, NoData mapped to the field minimum.
@@ -353,8 +630,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Elevation [m]',
       xLabel: 'col',
       yLabel: 'row',
@@ -385,8 +662,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Slope (Horn 3×3) [°]',
       xLabel: 'col',
       yLabel: 'row',
@@ -419,8 +696,8 @@ export function terrainFigurePanels(grid: AscGrid): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: 'Flow accumulation (D8, log₁₀)',
       xLabel: 'col',
       yLabel: 'row',
@@ -482,6 +759,7 @@ export class TerrainPlugin implements Plugin {
     this.state.grid = null;
     this.accFor = null;
     this.accCache = null;
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -506,11 +784,7 @@ export class TerrainPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      if (this.state.mode === '3d') exportSnapshotPng(this.api, this.three?.snapshot(), 'geo-terrain-3d');
-      else exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-terrain');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -573,7 +847,6 @@ export class TerrainPlugin implements Plugin {
         value: this.state.showContours,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 
@@ -595,7 +868,97 @@ export class TerrainPlugin implements Plugin {
       `Loaded ${grid.ncols}×${grid.nrows} grid, cell ${grid.cellsize}`,
       `已加载 ${grid.ncols}×${grid.nrows} 网格，像元 ${grid.cellsize}`,
     );
+    this.publishScience();
     this.draw();
+  }
+
+  /**
+   * Publish the terrain scientific outputs: Horn vs Zevenbergen–Thorne slope
+   * error band, watershed summary, and the embedded analytic-surface
+   * benchmark (explicitly tagged, never presented as user data).
+   */
+  private publishScience() {
+    const grid = this.state.grid;
+    if (!grid) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const metrics: ScienceMetric[] = [];
+
+    // (a) Slope algorithm uncertainty: Horn vs Zevenbergen–Thorne.
+    const { slope } = hornSlopeAspect(grid.values, grid.ncols, grid.nrows, grid.cellsize);
+    const zt = zevenbergenThorneSlope(grid.values, grid.ncols, grid.nrows, grid.cellsize);
+    const band = slopeErrorBand(slope, zt);
+    if (band) {
+      metrics.push({
+        key: 'slope_diff_median',
+        label: '|Δslope| med',
+        value: fmtMetric(band.medianDeg),
+        unit: '°',
+        severity: 'info',
+        hint: isZh(this.api.locale)
+          ? 'Horn 与 Zevenbergen–Thorne 坡度差的中位数——坡度导数的算法不确定度代理。'
+          : 'Median Horn vs Zevenbergen–Thorne slope disagreement — a proxy for algorithm-induced uncertainty.',
+      });
+      metrics.push({
+        key: 'slope_diff_max',
+        label: '|Δslope| max',
+        value: fmtMetric(band.maxDeg),
+        unit: '°',
+        severity: 'info',
+      });
+    }
+
+    // (b) Watershed summary from the D8/accumulation pipeline.
+    const filled = fillDepressions(grid.values, grid.ncols, grid.nrows);
+    const dir = d8FlowDirections(filled, grid.ncols, grid.nrows, grid.cellsize);
+    const acc = flowAccumulation(filled, dir);
+    const stats = watershedStats(filled, dir, acc, grid.ncols, grid.nrows, grid.cellsize);
+    if (stats) {
+      metrics.push({
+        key: 'basin_area',
+        label: 'basin area',
+        value: fmtMetric(stats.basinAreaKm2),
+        unit: 'km²',
+        severity: 'info',
+        hint: isZh(this.api.locale)
+          ? '最大流域（最高累积汇出口的上游集水区）面积。'
+          : 'Drainage area of the largest basin (upstream of the highest-accumulation outlet).',
+      });
+      metrics.push({
+        key: 'drainage_density',
+        label: 'drainage density',
+        value: fmtMetric(stats.drainageDensityKm1),
+        unit: '1/km',
+        severity: 'info',
+        hint: isZh(this.api.locale) ? '河网密度 = 河道长度 / 流域面积。' : 'Stream length per unit basin area.',
+      });
+    }
+
+    // (c) Embedded analytic benchmark (paraboloid DEM with closed-form slope).
+    const bench = runAnalyticSurfaceBenchmark();
+    if (bench) {
+      metrics.push({
+        key: 'bench_slope_err',
+        label: 'bench |Δslope|',
+        value: fmtMetric(bench.slopeMedianErrDeg),
+        unit: '°',
+        severity: bench.slopeMedianErrDeg < 0.5 ? 'ok' : 'warn',
+        hint: isZh(this.api.locale)
+          ? `【基准】解析抛物面 DEM 恢复坡度的中位误差（${ANALYTIC_BENCH_TAG}）。`
+          : `[benchmark] Median slope-recovery error on the analytic paraboloid DEM (${ANALYTIC_BENCH_TAG}).`,
+      });
+      metrics.push({
+        key: 'bench_flow_agree',
+        label: 'bench flow agree',
+        value: `${bench.flowAgreementPct.toFixed(1)}%`,
+        severity: bench.flowAgreementPct > 90 ? 'ok' : 'warn',
+        hint: isZh(this.api.locale)
+          ? '【基准】D8 方向与解析最陡下降方向一致的网格占比。'
+          : '[benchmark] Share of cells whose D8 direction matches the analytic steepest descent.',
+      });
+    }
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   // ---- drawing -------------------------------------------------------------

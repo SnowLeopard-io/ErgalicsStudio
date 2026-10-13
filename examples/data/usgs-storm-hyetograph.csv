@@ -1,0 +1,16 @@
+# Synthetic design-storm hyetograph (NOT observed USGS data).
+# The USGS waterservices API was unreachable from the build environment
+# (connection/TLS failures on multiple endpoints), so per the fallback rule
+# this file provides an NWS-style synthetic design storm instead:
+#   - 6-hour storm, 90.00 mm total, hourly increments;
+#   - peak block at 40% of the storm duration (t = 2.4 h);
+#   - increments 6.25 / 18.75 / 27.50 / 20.83 / 12.50 / 4.17 mm.
+# The first column is the incremental time step start in hours (dt = 1 h).
+# Intended for the SCS-CN + unit hydrograph pipeline (geo-hydrology).
+time_h,rain_mm
+0,6.25
+1,18.75
+2,27.5
+3,20.83
+4,12.5
+5,4.17

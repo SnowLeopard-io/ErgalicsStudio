@@ -13,10 +13,13 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { solarManifest } from './solarManifest';
 
 export { solarManifest } from './solarManifest';
@@ -146,14 +149,14 @@ function annualCurvePoints(pick: (decl: number) => number): Array<{ x: number; y
  * Figure sheet for one latitude: annual day length, annual noon elevation
  * and annual daily radiation (extraterrestrial R_a + clear-sky R_so lines).
  */
-export function solarFigurePanels(lat: number): GeoFigurePanel[] {
-  const panels: GeoFigurePanel[] = [];
+export function solarFigurePanels(lat: number): FigurePanelSpec[] {
+  const panels: FigurePanelSpec[] = [];
   panels.push({
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `Annual day length — lat ${lat}°`,
       xLabel: 'day of year',
       yLabel: 'hours',
@@ -166,8 +169,8 @@ export function solarFigurePanels(lat: number): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `Annual noon solar elevation — lat ${lat}°`,
       xLabel: 'day of year',
       yLabel: '°',
@@ -180,8 +183,8 @@ export function solarFigurePanels(lat: number): GeoFigurePanel[] {
     ...panelPlace(panels.length),
     tag: panelTag(panels.length),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `Daily radiation — lat ${lat}°`,
       xLabel: 'day of year',
       yLabel: 'MJ·m⁻²·day⁻¹',
@@ -236,10 +239,7 @@ export class SolarPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-solar');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
       return;
@@ -310,7 +310,6 @@ export class SolarPlugin implements Plugin {
         value: this.state.day,
       },
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

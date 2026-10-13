@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { BootGate } from '@/components/BootGate';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
@@ -95,7 +96,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <HashRouter>
-        <AppShell />
+        {/* Reveals the app only after the boot checklist (static resources +
+            first-screen chunks + compute probes) completes — see core/boot.ts. */}
+        <BootGate>
+          <AppShell />
+        </BootGate>
       </HashRouter>
     </ErrorBoundary>
   );

@@ -1,0 +1,11 @@
+{
+  "name": "Clear noon sky (Beijing, UTC+8)",
+  "hourUTC": 4.25,
+  "latitude": 39.9,
+  "longitude": 116.4,
+  "turbidity": 2.5,
+  "sunIntensity": 20,
+  "exposure": 1.2,
+  "autoDay": false,
+  "autoOrbit": false
+}

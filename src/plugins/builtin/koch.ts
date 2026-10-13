@@ -11,17 +11,12 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { kochManifest } from './kochManifest';
 import { kochManifest } from './kochManifest';
 
 /** Host button presses arrive as `{ [action]: true }`; accept the legacy
  *  `{ action }` payload shape too. */
-function buttonPressed(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
-}
 
 function canvasBackground(canvas: HTMLCanvasElement): string {
   if (typeof getComputedStyle === 'function') return getComputedStyle(canvas).backgroundColor || '#0a0e13';
@@ -35,13 +30,11 @@ interface State {
 
 export class KochPlugin implements Plugin {
   readonly manifest = kochManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private state: State = { iterations: 3, color: '#a5f3fc' };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.ctx = null;
@@ -62,10 +55,7 @@ export class KochPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     // No rotation/transform state exists on this plugin, so only the PNG
     // snapshot action is offered (no reset button).
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'koch');
-      return;
-    }
+
     if (typeof params.iterations === 'number') {
       this.state.iterations = Math.max(0, Math.min(6, Math.round(params.iterations)));
     }
@@ -98,7 +88,6 @@ export class KochPlugin implements Plugin {
         ],
         value: this.state.color,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

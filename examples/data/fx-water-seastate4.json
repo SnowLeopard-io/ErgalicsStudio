@@ -1,0 +1,9 @@
+{
+  "name": "Sea state 4 · moderate breeze (U = 8 m/s)",
+  "mode": "ocean",
+  "windMs": 8,
+  "choppy": 1.0,
+  "foam": 0.35,
+  "sunAzimuth": 2.3,
+  "seed": 42
+}

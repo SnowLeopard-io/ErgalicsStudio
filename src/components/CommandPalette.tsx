@@ -8,9 +8,9 @@
 // ==========================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
-import { RESEARCH_TOOLS } from '@/pages/research/toolRegistry';
+import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -59,6 +59,7 @@ const GROUP_ORDER: CommandGroup[] = ['tools', 'modes', 'actions', 'panel', 'nav'
 export function CommandPalette() {
   const t = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const open = useCommandPaletteStore((s) => s.open);
   const setOpen = useCommandPaletteStore((s) => s.setOpen);
   const [query, setQuery] = useState('');
@@ -110,7 +111,9 @@ export function CommandPalette() {
         group: 'tools',
         label: t(tool.titleKey),
         keywords: tool.id,
-        run: () => navigate(tool.path),
+        // Suites embed into the workbench central canvas; from other pages
+        // the helper first routes to /workbench.
+        run: () => openToolEmbedded(navigate, tool.id, pathname),
       });
     }
     for (const mode of MODES) {
@@ -187,7 +190,7 @@ export function CommandPalette() {
       },
     );
     return list;
-  }, [t, navigate]);
+  }, [t, navigate, pathname]);
 
   const results = useMemo(() => {
     const scored = commands

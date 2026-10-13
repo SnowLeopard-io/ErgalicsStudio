@@ -1,0 +1,13 @@
+{
+  "name": "M87* (EHT target)",
+  "massSolar": 6500000000,
+  "distancePc": 16800000,
+  "diskOuterRs": 16,
+  "tPeakK": 6500,
+  "brightness": 1.0,
+  "beaming": true,
+  "redshift": true,
+  "starDensity": 1.0,
+  "turbulence": 0.55,
+  "cameraDistanceRs": 16
+}

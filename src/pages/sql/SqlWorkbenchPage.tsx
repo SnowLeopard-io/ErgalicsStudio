@@ -46,6 +46,9 @@ export default function SqlWorkbenchPage() {
   const addDataFile = useProjectStore((s) => s.addDataFile);
   const recordRun = useExperimentStore((s) => s.recordRun);
 
+  // project?.data.files is an intentional invalidation trigger for the
+  // registry-backed file list (listDataFilesGrouped reads store state directly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const groups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
   const allFileNames = useMemo(
     () => [...groups.project, ...groups.examples],

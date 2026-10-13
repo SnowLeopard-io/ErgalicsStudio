@@ -54,6 +54,14 @@ import reactionC2h5ohC2h4 from '../../examples/data/reaction-c2h5oh-c2h4.json?ra
 import reactionCh4Cl2 from '../../examples/data/reaction-ch4-cl2.json?raw';
 import reactionC6h6H2 from '../../examples/data/reaction-c6h6-h2.json?raw';
 import reactionC7h8Kmno4 from '../../examples/data/reaction-c7h8-kmno4.json?raw';
+import matsXrdSilicon from '../../examples/data/mats-xrd-silicon.xy?raw';
+import matsXrdNacl from '../../examples/data/mats-xrd-nacl.xy?raw';
+import matsXrdCopper from '../../examples/data/mats-xrd-copper.xy?raw';
+import matsMechSteel from '../../examples/data/mats-mech-mild-steel.csv?raw';
+import matsMechAluminum from '../../examples/data/mats-mech-aluminum.csv?raw';
+import matsMechCopper from '../../examples/data/mats-mech-copper.csv?raw';
+import matsThermalDsc from '../../examples/data/mats-thermal-dsc-polystyrene.csv?raw';
+import matsThermalTga from '../../examples/data/mats-thermal-tga-caco3.csv?raw';
 
 import geoClimateBeijing from '../../examples/data/geo-climate-beijing.csv?raw';
 import geoClimateSingapore from '../../examples/data/geo-climate-singapore.csv?raw';
@@ -74,9 +82,20 @@ import envAqiWeekCsv from '../../examples/data/env-aqi-week.csv?raw';
 import envWaterRiverCsv from '../../examples/data/env-water-river.csv?raw';
 import envBiodiversitySitesCsv from '../../examples/data/env-biodiversity-sites.csv?raw';
 import envCarbonPoolsCsv from '../../examples/data/env-carbon-pools.csv?raw';
-import envPlume3dFieldCsv from '../../examples/data/env-plume3d-field.csv?raw';
-import envLake3dProfileCsv from '../../examples/data/env-lake3d-profile.csv?raw';
-import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
+import chemN2o5Csv from '../../examples/data/chem-n2o5-decomp.csv?raw';
+import physProjectileCsv from '../../examples/data/phys-projectile-45deg.csv?raw';
+import engLadderNetlistJson from '../../examples/data/eng-ladder-netlist.json?raw';
+import engTrussBridgeJson from '../../examples/data/eng-truss-bridge.json?raw';
+import mendelF2Csv from '../../examples/data/mendel-f2-seven-traits.csv?raw';
+import hudsonBayCsv from '../../examples/data/hudson-bay-lynx-hare.csv?raw';
+import geoIntcal20ExcerptCsv from '../../examples/data/intcal20-excerpt.csv?raw';
+import geoVgSandRetentionCsv from '../../examples/data/vg-sand-retention.csv?raw';
+import geoStormHyetographCsv from '../../examples/data/usgs-storm-hyetograph.csv?raw';
+import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
+import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
+import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
+import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
+import { IMAGEPROC_SUBJECT_PNG_BASE64, TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
 // examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
@@ -484,6 +503,22 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
+    id: 'imageproc-subject',
+    filename: 'imageproc-subject.png',
+    format: 'png',
+    mimeType: 'image/png',
+    pluginId: 'example.data-imageproc',
+    contentBase64: IMAGEPROC_SUBJECT_PNG_BASE64,
+    nameI18n: {
+      'zh-CN': '图像处理测试图（种子 20261011）',
+      'en-US': 'Image-Processing Test Subject (seed 20261011)',
+    },
+    descriptionI18n: {
+      'zh-CN': '256×256 固定种子生成图（渐变 + 圆盘 + 条纹 + 高斯噪声），图像处理插件的基准被摄对象。',
+      'en-US': '256x256 seeded synthetic subject (gradient + disc + stripes + gaussian noise); reference subject for the image-processing plugin.',
+    },
+  },
+  {
     id: 'nbody-galaxy',
     filename: 'nbody.json',
     format: 'json',
@@ -699,42 +734,6 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '四库初始库存（大气 590 / 植被 550 / 土壤 2000 / 海洋 38000 GtC）与人为净通量：大气 +9 GtC/yr（化石+工业排放），植被 −1.5 GtC/yr（毁林）。在插件的「自定义 CSV」情景中选择此文件运行，查看扰动下的库演化与守恒残差。',
       'en-US':
         'Four-pool initial stocks (atmosphere 590 / vegetation 550 / soil 2000 / ocean 38000 GtC) with human net fluxes: +9 GtC/yr into the atmosphere (fossil+industry), −1.5 GtC/yr from vegetation (deforestation). Pick it as the plugin\'s custom-CSV scenario to run the perturbed evolution and check conservation residuals.',
-    },
-  },
-  {
-    id: 'env-plume3d-field',
-    filename: 'env-plume3d-field.csv',
-    format: 'csv',
-    mimeType: 'text/csv',
-    pluginId: 'example.env-plume3d',
-    content: envPlume3dFieldCsv,
-    nameI18n: {
-      'zh-CN': '环境 · 烟羽三维浓度场实测点（x,y,z,c）',
-      'en-US': 'Environmental · 3-D Plume Concentration Points (x,y,z,c)',
-    },
-    descriptionI18n: {
-      'zh-CN':
-        '地面源下风向的浓度采样点（x,y,z,conc，28 行）：沿中心线与横风向/垂直方向布点，峰值位于 x≈50 m。加载后归一化到 24³ 体素网格渲染三维浓度云，可切换横切面观察扩散结构。',
-      'en-US':
-        'Downwind concentration samples (x,y,z,conc; 28 rows) from a ground source, laid out along the centerline and crosswind/vertical profiles with the peak near x≈50 m. Loading normalises them onto a 24³ voxel grid and renders the 3-D cloud with a cross-section view.',
-    },
-  },
-  {
-    id: 'env-lake3d-profile',
-    filename: 'env-lake3d-profile.csv',
-    format: 'csv',
-    mimeType: 'text/csv',
-    pluginId: 'example.env-lake3d',
-    content: envLake3dProfileCsv,
-    nameI18n: {
-      'zh-CN': '环境 · 夏季湖泊垂向剖面（温度/溶解氧）',
-      'en-US': 'Environmental · Summer Lake Vertical Profile (T/DO)',
-    },
-    descriptionI18n: {
-      'zh-CN':
-        '夏季分层期实测垂向剖面（12 个深度）：表层 26.5 ℃，8–14 m 温跃层陡降，底层 9.1 ℃；溶解氧随深度耗竭至近零，底层缺氧。加载后按深度渲染分层水体与 T/DO 垂向曲线，可对照模拟剖面。',
-      'en-US':
-        'A measured summer-stratified profile (12 depths): 26.5 ℃ at the surface, a steep thermocline across 8–14 m, 9.1 ℃ at the bottom; dissolved oxygen is depleted to near zero below the thermocline. Loading renders the stratified water column and T/DO curves against depth.',
     },
   },
   {
@@ -1533,6 +1532,162 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
 
+  // ---- Materials science · XRD pattern analysis (mats-xrd) -------------------
+  {
+    id: 'mats-xrd-silicon',
+    filename: 'mats-xrd-silicon.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdSilicon,
+    nameI18n: {
+      'zh-CN': '材料 · 硅粉末衍射谱（NIST SRM 640）',
+      'en-US': 'Materials · Silicon powder pattern (NIST SRM 640)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '硅标样粉末衍射谱（Cu Kα1，Fd-3m，a≈5.431 Å）：六条主要衍射峰（111/220/311/400/331/422），用于突出度峰检出、d 间距换算与立方晶格常数精修验证。载入后插件自动检出 6 个峰并精修 a。',
+      'en-US':
+        'Silicon standard powder pattern (Cu Kα1, Fd-3m, a≈5.431 Å): six major reflections (111/220/311/400/331/422) for prominence-based peak detection, Bragg d-spacing and cubic lattice refinement. Load it — the plugin auto-detects 6 peaks and refines a.',
+    },
+  },
+  {
+    id: 'mats-xrd-nacl',
+    filename: 'mats-xrd-nacl.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdNacl,
+    nameI18n: {
+      'zh-CN': '材料 · 氯化钠粉末衍射谱（ICDD 05-0628）',
+      'en-US': 'Materials · Halite powder pattern (ICDD 05-0628)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '岩盐 NaCl 粉末衍射谱（Fm-3m，a≈5.640 Å）：八条衍射峰（111/200/220/311/222/400/420/422），面心立方消光规律下首峰对应 s=3。载入后可验证 F-心立方精修并与参考物相匹配。',
+      'en-US':
+        'Halite NaCl powder pattern (Fm-3m, a≈5.640 Å): eight reflections (111/200/220/311/222/400/420/422); under F-centring absences the first peak maps to s=3. Load it to exercise F-centred refinement and phase matching.',
+    },
+  },
+  {
+    id: 'mats-xrd-copper',
+    filename: 'mats-xrd-copper.xy',
+    format: 'xy',
+    mimeType: 'text/plain',
+    pluginId: 'example.mats-xrd',
+    group: 'materials',
+    content: matsXrdCopper,
+    nameI18n: {
+      'zh-CN': '材料 · 铜粉末衍射谱（ICDD 04-0836）',
+      'en-US': 'Materials · Copper powder pattern (ICDD 04-0836)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '纯铜粉末衍射谱（Fm-3m，a≈3.615 Å）：四条衍射峰（111/200/220/311），高角度 2θ 范围内峰位稀疏，适合验证小晶胞参数精修与 2θ-峰匹配。',
+      'en-US':
+        'Pure copper powder pattern (Fm-3m, a≈3.615 Å): four reflections (111/200/220/311) at high 2θ, exercising small-cell refinement and 2θ peak matching.',
+    },
+  },
+  // ---- Materials science · stress-strain analysis (mats-mech) ---------------
+  {
+    id: 'mats-mech-mild-steel',
+    filename: 'mats-mech-mild-steel.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechSteel,
+    nameI18n: {
+      'zh-CN': '材料 · 低碳钢应力-应变曲线（ASTM A36）',
+      'en-US': 'Materials · Mild steel stress-strain (ASTM A36)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '低碳钢拉伸曲线（E≈210 GPa、σ₀.₂≈280 MPa、UTS≈430 MPa、断后伸长率≈28%、n≈0.18）：弹性段回归、0.2% 偏置屈服、Hollomon 应变硬化拟合与韧性积分一键输出。载入后插件自动计算全部力学指标。',
+      'en-US':
+        'Mild-steel tensile curve (E≈210 GPa, σ₀.₂≈280 MPa, UTS≈430 MPa, ε_f≈28%, n≈0.18): elastic-region regression, 0.2% offset yield, Hollomon hardening fit and toughness integration all auto-computed. Load it for the full tensile index set.',
+    },
+  },
+  {
+    id: 'mats-mech-aluminum',
+    filename: 'mats-mech-aluminum.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechAluminum,
+    nameI18n: {
+      'zh-CN': '材料 · 铝合金 6061-O 应力-应变曲线',
+      'en-US': 'Materials · Aluminum 6061-O stress-strain',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '退火铝合金 6061-O 拉伸曲线（E≈70 GPa、σ₀.₂≈95 MPa、UTS≈180 MPa、n≈0.22）：低模量高延展金属典型曲线，可对比低碳钢的硬化行为差异。',
+      'en-US':
+        'Annealed Al 6061-O tensile curve (E≈70 GPa, σ₀.₂≈95 MPa, UTS≈180 MPa, n≈0.22): a low-modulus, high-ductility metal — compare its hardening against mild steel.',
+    },
+  },
+  {
+    id: 'mats-mech-copper',
+    filename: 'mats-mech-copper.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-mech',
+    group: 'materials',
+    content: matsMechCopper,
+    nameI18n: {
+      'zh-CN': '材料 · 退火铜应力-应变曲线',
+      'en-US': 'Materials · Annealed copper stress-strain',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '退火纯铜拉伸曲线（E≈110 GPa、σ₀.₂≈70 MPa、UTS≈220 MPa、断后伸长率≈45%、n≈0.40）：高应变硬化指数的典型高延展金属，Hollomon 双对数线性段清晰。',
+      'en-US':
+        'Annealed copper tensile curve (E≈110 GPa, σ₀.₂≈70 MPa, UTS≈220 MPa, ε_f≈45%, n≈0.40): a high-ductility metal with a high strain-hardening exponent and a clear Hollomon log-log linear region.',
+    },
+  },
+  // ---- Materials science · thermal analysis (mats-thermal) -----------------
+  {
+    id: 'mats-thermal-dsc-polystyrene',
+    filename: 'mats-thermal-dsc-polystyrene.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-thermal',
+    group: 'materials',
+    content: matsThermalDsc,
+    nameI18n: {
+      'zh-CN': '材料 · 聚苯乙烯 DSC 曲线（玻璃化转变 + 熔融）',
+      'en-US': 'Materials · Polystyrene DSC (Tg + melting)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '聚苯乙烯 DSC 升温曲线：约 100°C 玻璃化转变（热流阶跃下降）与约 250°C 熔融吸热峰。载入后插件自动检出转变、给出外推起始温度、峰值温度与基线校正积分。',
+      'en-US':
+        'Polystyrene DSC heating curve: a glass transition (heat-flow step) near 100°C and a melting endotherm near 250°C. Load it to auto-detect transitions with extrapolated onset, peak temperature and baseline-corrected integral.',
+    },
+  },
+  {
+    id: 'mats-thermal-tga-caco3',
+    filename: 'mats-thermal-tga-caco3.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.mats-thermal',
+    group: 'materials',
+    content: matsThermalTga,
+    nameI18n: {
+      'zh-CN': '材料 · 碳酸钙 TGA 曲线（热分解失重）',
+      'en-US': 'Materials · Calcium carbonate TGA (decomposition)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '碳酸钙 CaCO₃ 热重曲线：约 85°C 水分脱附（≈2%）与约 710°C 脱碳分解 CaCO₃→CaO+CO₂（理论失重 44%）。载入后切换到 TGA 模式，插件自动分解失重台阶、输出起始温度、DTG 峰值与残重。',
+      'en-US':
+        'Calcium carbonate TGA curve: moisture desorption near 85°C (≈2%) and decarbonation CaCO₃→CaO+CO₂ near 710°C (theoretical 44% loss). Switch to TGA mode — the plugin steps off mass-loss segments with onset, DTG peak and residual mass.',
+    },
+  },
+
   // ---- Reaction mechanism 3D examples (chem-reaction) -------------------
   {
     id: 'chem-rxn-cuo-h2',
@@ -1852,6 +2007,583 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '200 张 28×28 手写数字（十类）精简集，卷积网络入门。',
       'en-US': '200 compact 28x28 digits (10 classes); CNN intro sample.',
+    },
+  },
+  // ---- Visual FX presets -----------------------------------------------------
+  {
+    id: 'fx-blackhole-m87',
+    filename: 'fx-blackhole-m87.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-m87.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 M87*（EHT 目标，6.5×10⁹ M☉）',
+      'en-US': 'FX · Black hole M87* (EHT target)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '事件视界望远镜成像目标 M87*：6.5×10⁹ M☉、距离约 16.8 Mpc。加载后逐像素积分史瓦西零测地线，观察阴影、光子环与多普勒集束吸积盘；科学输出栏给出可与 EHT 对比的阴影角直径。',
+      'en-US':
+        'The EHT imaging target M87*: 6.5×10⁹ M☉ at ≈16.8 Mpc. Loads per-pixel Schwarzschild geodesic tracing with shadow, photon ring and Doppler-beamed disk; the science strip shows the shadow angle comparable to EHT.',
+    },
+  },
+  {
+    id: 'fx-blackhole-sgra',
+    filename: 'fx-blackhole-sgra.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-sgra.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 Sgr A*（银河系中心，4.3×10⁶ M☉）',
+      'en-US': 'FX · Black hole Sgr A* (Milky Way centre)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '银河系中心黑洞人马座 A*：4.3×10⁶ M☉、约 8.15 kpc。预报阴影角直径约 50 μas 量级，与 EHT 2022 年观测同量级；星空密度调高以模拟银心方向。',
+      'en-US':
+        'Sgr A*: 4.3×10⁶ M☉ at ≈8.15 kpc. The predicted shadow diameter is tens of μas, same order as the 2022 EHT measurement; star density raised for the galactic-centre sky.',
+    },
+  },
+  {
+    id: 'fx-blackhole-cygnus',
+    filename: 'fx-blackhole-cygnus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.blackhole',
+    loadContent: () => exampleContent('fx-blackhole-cygnus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 黑洞 Cygnus X-1（恒星级，21 M☉）',
+      'en-US': 'FX · Black hole Cygnus X-1 (stellar-mass)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '著名恒星级黑洞天鹅座 X-1：21 M☉、约 2.2 kpc。盘温度升至 4×10⁴ K（X 射线双星薄盘量级，呈蓝白色）；科学输出栏的阴影角直径缩小到纳角秒级，直观展示质量-尺度关系。',
+      'en-US':
+        'The famous stellar-mass black hole Cygnus X-1: 21 M☉ at ≈2.2 kpc. Disk raised to 4×10⁴ K (X-ray-binary thin-disk scale, blue-white); the shadow angle drops to nano-arcseconds — a direct feel for the mass–size scaling.',
+    },
+  },
+  {
+    id: 'fx-water-interference',
+    filename: 'fx-water-interference.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-interference.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 双源水波干涉（λ=8 格点，d=16 格点）',
+      'en-US': 'FX · Two-source water-wave interference',
+    },
+    descriptionI18n:
+    {
+      'zh-CN':
+        'GPU 求解波动方程的连续双点源干涉：λ=8、d=16 格点，节线满足 sinθ=(n+½)λ/d，第一条节线约 14.5°。科学输出栏给出波长与节线角；水面稳定后可清晰看到相消/相长条纹。',
+      'en-US':
+        'Continuous two-point-source interference on the GPU wave-equation solver: λ=8, d=16 cells; nodal lines follow sinθ=(n+½)λ/d with the first at ≈14.5°. The science strip lists wavelength and nodal angle.',
+    },
+  },
+  {
+    id: 'fx-water-rain',
+    filename: 'fx-water-rain.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-rain.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雨落池面（FDTD 波动方程）',
+      'en-US': 'FX · Rain over the pool (FDTD wave equation)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '随机雨滴持续激发波动方程 FDTD 求解器（256² 网格、浅水波速 √(g·h)）：吸收边界无反射回波，池底焦散随波面曲率实时变化。也可直接点击水面自行滴落。',
+      'en-US':
+        'Random rain continuously excites the FDTD wave-equation solver (256² grid, shallow-water speed √(g·h)) with sponge absorbing boundaries and curvature-driven floor caustics. Click the surface to add your own drops.',
+    },
+  },
+  {
+    id: 'fx-water-seastate4',
+    filename: 'fx-water-seastate4.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.water',
+    loadContent: () => exampleContent('fx-water-seastate4.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 4 级海况（U=8 m/s，Gerstner 频谱）',
+      'en-US': 'FX · Sea state 4 (U = 8 m/s Gerstner spectrum)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '8 m/s 风速的充分成长海况：Pierson–Moskowitz 峰值 λ_p≈56 m、H_s≈1.4 m，26 列 Gerstner 波列按精确深水色散 ω²=g·k 叠加；波峰翻卷处按雅可比行列式生成白沫。',
+      'en-US':
+        'A fully developed sea for U=8 m/s: Pierson–Moskowitz peak λ_p≈56 m, H_s≈1.4 m; 26 Gerstner trains summed on the exact deep-water dispersion ω²=g·k with Jacobian-based foam at folding crests.',
+    },
+  },
+  {
+    id: 'fx-cloud-noon-cumulus',
+    filename: 'fx-cloud-noon-cumulus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-noon-cumulus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 正午积云（北京，夏至）',
+      'en-US': 'FX · Volumetric clouds — noon cumulus (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至北京地方时正午（UTC 4.25 h）的积云场景：太阳高度约 73°，云底 650 m、厚 800 m，西南风 6 m/s 平流；自然日光照明下云体受 Beer–Lambert 消光与 HG 散射，科学输出栏给出太阳高度/方位与光学深度 τ。',
+      'en-US':
+        'Noon cumulus at the summer solstice in Beijing (UTC 4.25 h, solar altitude ≈73°): cloud base 650 m, 800 m thick, advected by a 6 m/s south-wester; natural daylight with Beer–Lambert extinction and HG scattering.',
+    },
+  },
+  {
+    id: 'fx-cloud-sunset-stratus',
+    filename: 'fx-cloud-sunset-stratus.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-sunset-stratus.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 黄昏层云（北京，夏至）',
+      'en-US': 'FX · Volumetric clouds — sunset stratus (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至北京日落前的层云场景（UTC 10.8 h，太阳低角度）：78% 云量、云底 500 m，暖色低角度阳光产生银边与霞光；西风 9 m/s 平流。可开启自动昼夜观察黄昏入夜的全过程。',
+      'en-US':
+        'Low-sun stratus before sunset at the summer solstice in Beijing (UTC 10.8 h): 78% coverage, base 500 m, warm grazing sunlight with silver linings; 9 m/s westerly advection.',
+    },
+  },
+  {
+    id: 'fx-cloud-starry-night',
+    filename: 'fx-cloud-starry-night.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.cloud',
+    loadContent: () => exampleContent('fx-cloud-starry-night.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 体积云 月夜孤峰云海（莫纳克亚）',
+      'en-US': 'FX · Volumetric clouds — moonlit night (Mauna Kea)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '夏至夜莫纳克亚天文台（北纬 19.8°）上空的散云：深空蓝夜空底色，月光按月相照亮云顶；云底 1100 m、西北风 12 m/s。',
+      'en-US':
+        'Broken cumulus above Mauna Kea (lat 19.8°N) on a solstice night: deep-space blue sky with moonlight scaled by lunar phase; cloud base 1100 m, 12 m/s north-wester.',
+    },
+  },
+  // ---- Astronomy presets -----------------------------------------------------
+  {
+    id: 'astro-sim-deep-field',
+    filename: 'astro-sim-deep-field.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-sim-deep-field.json'),
+    nameI18n: {
+      'zh-CN': '天文 · V 波段深场仿真（512²，140 星，Moffat β=2.5）',
+      'en-US': 'Astro · V-band deep field (512², 140 stars)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '300 s 曝光的仿真深场：140 颗幂律流量分布恒星经 Moffat 星象（β=2.5，FWHM 3.2 px）成像，含天光 180 e⁻、暗流 0.02 e⁻/s、读出噪声 5 e⁻、渐晕平场与 18 个宇宙线事例；加载后自动完成校准、6σ 宇宙线剔除、恒星检测与孔径测光，科学输出栏给出流量回收比例。',
+      'en-US':
+        'Simulated 300 s deep exposure: 140 power-law stars imaged through a Moffat PSF (β=2.5, FWHM 3.2 px) with 180 e⁻ sky, dark current, 5 e⁻ read noise, vignetting and 18 cosmic rays; the full pipeline (calibration, CR clipping, detection, aperture photometry) runs on load.',
+    },
+  },
+  {
+    id: 'astro-benchmark-photometry',
+    filename: 'astro-benchmark-photometry.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-benchmark-photometry.json'),
+    nameI18n: {
+      'zh-CN': '天文 · 测光基准（注入流量回收 ≤5% 容差）',
+      'en-US': 'Astro · Photometric benchmark (≤5% flux-recovery)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '端到端测光基准帧：45 颗已知注入流量的恒星（400–90000 e⁻）、2.8 px FWHM、6σ 检测阈值与 2.2×FWHM 孔径；科学输出栏的「Flux recovery」对比最亮注入源与孔径测光回收值，超过 ±5% 会转为警告色。',
+      'en-US':
+        'End-to-end photometric benchmark: 45 stars with known injected fluxes (400–90000 e⁻), 2.8 px FWHM, 6σ detection and a 2.2×FWHM aperture; the science strip reports flux recovery of the brightest injected star, warning beyond ±5%.',
+    },
+  },
+  {
+    id: 'astro-sim-noisy-short',
+    filename: 'astro-sim-noisy-short.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'astro.pipeline',
+    loadContent: () => exampleContent('astro-sim-noisy-short.json'),
+    nameI18n: {
+      'zh-CN': '天文 · 高噪声短曝光（SNR 压力测试，256²）',
+      'en-US': 'Astro · Noisy short exposure (SNR stress test)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '10 s 高噪声帧：天光 900 e⁻、读出噪声 9 e⁻、增益 2.4 e⁻/ADU、FWHM 4.5 px、25 个宇宙线；用于检验 CCD 方程信噪比与低信噪比极限下的检测表现，科学输出栏给出背景 σ 与最亮源 SNR。',
+      'en-US':
+        'A noisy 10 s frame: 900 e⁻ sky, 9 e⁻ read noise, gain 2.4 e⁻/ADU, FWHM 4.5 px and 25 cosmic rays; stresses CCD-equation SNR and low-SNR detection. The science strip reports background σ and peak-source SNR.',
+    },
+  },
+  // ---- Daylight sky presets ---------------------------------------------------
+  {
+    id: 'fx-sky-noon-clear',
+    filename: 'fx-sky-noon-clear.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-noon-clear.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 正午晴空（北京）',
+      'en-US': 'FX · Daylight sky — clear noon (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '北京正午（太阳高度约 70°）：低浑浊度（2.5）下的 Rayleigh 蓝天，太阳盘面临边昏暗；科学输出栏给出 Kasten–Young 气团 ≈ 1.45 与「白昼」晨昏蒙影分类。',
+      'en-US':
+        'Beijing noon (sun ~70° high): Rayleigh blue sky at low turbidity (2.5) with a limb-darkened sun disk; the science strip reports Kasten–Young air mass ≈ 1.45 and the "day" twilight band.',
+    },
+  },
+  {
+    id: 'fx-sky-sunset-golden',
+    filename: 'fx-sky-sunset-golden.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-sunset-golden.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 金色日落（北京）',
+      'en-US': 'FX · Daylight sky — golden sunset (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '日落前的低太阳高度：视线穿过更厚的大气，Rayleigh 散射把直射阳光染成橙红，高浑浊度（5.5）加强地平线霾与 Mie 红霞；地影方向的对比色带由物理积分自然产生。',
+      'en-US':
+        'Low sun before sunset: longer light paths redden the direct beam via Rayleigh scattering while high turbidity (5.5) strengthens horizon haze and the Mie glow; the anti-solar belt emerges from the physics, not a gradient trick.',
+    },
+  },
+  {
+    id: 'fx-sky-moonlit-dusk',
+    filename: 'fx-sky-moonlit-dusk.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-moonlit-dusk.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 暮光入夜（昼夜循环）',
+      'en-US': 'FX · Daylight sky — dusk into night (day cycle)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '开启昼夜循环从天文暮光滑向深夜：太阳沉入 −18° 以下时大气积分进入地影，天光熄灭、月光明亮份额上升；科学输出栏实时显示晨昏蒙影分类切换（民用 → 航海 → 天文 → 夜）。',
+      'en-US':
+        'Day cycle sliding from astronomical dusk into deep night: as the sun sinks past −18° the integrator enters the earth shadow, skylight dies and the moon takes over; the science strip tracks the twilight band transitions.',
+    },
+  },
+  // ---- Night-sky presets ------------------------------------------------------
+  {
+    id: 'fx-stars-mauna-kea',
+    filename: 'fx-stars-mauna-kea.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-mauna-kea.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 原始暗夜（莫纳克亚，Bortle 1）',
+      'en-US': 'FX · Starfield — pristine dark sky (Mauna Kea, Bortle 1)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '莫纳克亚（北纬 19.8°）的 Bortle 1 原始暗夜：真实银极（RA 192.86°, Dec +27.13°）锚定的银河带、低视宁度微闪烁与偶发流星；恒星时流开启，约 3 分钟转过全天。极限星等 7.8，肉眼可见星约 24000 颗。',
+      'en-US':
+        'Bortle-1 pristine sky over Mauna Kea (lat 19.8°N): a Milky-Way band anchored on the true galactic pole (RA 192.86°, Dec +27.13°), faint scintillation and occasional meteors. Sidereal time-lapse rotates the whole sky in ~3 min. Limiting mag 7.8, ~24000 naked-eye stars.',
+    },
+  },
+  {
+    id: 'fx-stars-urban-sky',
+    filename: 'fx-stars-urban-sky.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-urban-sky.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 城市夜空（北京，Bortle 8）',
+      'en-US': 'FX · Starfield — inner-city sky (Beijing, Bortle 8)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Bortle 8 市中心夜空：地平线方向暖色光污染穹顶，银河几乎不可见，仅剩亮星（极限星等约 5.0，可见星约 1300 颗）；与莫纳克亚示例对比即可理解光污染对星空的压制。',
+      'en-US':
+        'Bortle-8 inner-city sky: a warm light-pollution dome hugging the horizon, the Milky Way nearly erased, only bright stars survive (limiting mag ~5.0, ~1300 visible). Compare with the Mauna Kea example to see what light pollution does.',
+    },
+  },
+  {
+    id: 'fx-stars-meteor-shower',
+    filename: 'fx-stars-meteor-shower.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-meteor-shower.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 流星雨（拉帕尔马，14 颗/分钟）',
+      'en-US': 'FX · Starfield — meteor shower (La Palma, 14/min)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '拉帕尔马（北纬 28.8°）的流星雨场景：泊松过程调度（指数间隔，均值 4.3 s），每颗流星沿随机大圆划过 9–16° 并带运动头部光晕；开启恒星时流可同时看到天球旋转与流星。',
+      'en-US':
+        'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
+    },
+  },
+  // ---- Research suite samples (numeric kernels with real/synthetic data) ----
+  {
+    id: 'chem-n2o5-decomp',
+    filename: 'chem-n2o5-decomp.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.chem-reaction-order',
+    group: 'chem',
+    content: chemN2o5Csv,
+    nameI18n: {
+      'zh-CN': '反应级数 · N₂O₅ 分解动力学',
+      'en-US': 'Reaction Order · N₂O₅ Decomposition Kinetics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '五氧化二氮分解 c–t 数据（41 点，约 1600 s），按文献速率常数 k≈3.46e-3 s⁻¹（~315 °C）合成，含 1% 高斯噪声。加载后积分法 R² 判优应判为一级，半衰期法交叉验证一致。',
+      'en-US':
+        'c–t data for N2O5 decomposition (41 points over ~1600 s), synthesised from the literature rate constant k ≈ 3.46e-3 s⁻¹ (~315 °C) with 1% Gaussian noise. R² screening should decide first order, cross-checked by the half-life method.',
+    },
+  },
+  {
+    id: 'phys-projectile-45deg',
+    filename: 'phys-projectile-45deg.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.physics-trajectory',
+    group: 'physics',
+    content: physProjectileCsv,
+    nameI18n: {
+      'zh-CN': '物理 · 抛体轨迹（45°，含 0.5% 噪声）',
+      'en-US': 'Physics · Projectile trajectory (45°, 0.5 % noise)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '合成抛体采样轨迹：v0 = 20 m/s、θ = 45°、g = 9.81 m/s²、50 点、乘性高斯噪声 0.5%（种子 20251011）。加载后线性化最小二乘拟合可回收 v0 与 θ（相对误差 <1%），并给出 KE/PE 能量分解。',
+      'en-US':
+        'Synthetic projectile samples: v0 = 20 m/s, θ = 45°, g = 9.81 m/s², 50 points, 0.5 % multiplicative Gaussian noise (seed 20251011). The linearized least-squares fit recovers v0 and θ within 1 % relative error, with KE/PE energy decomposition.',
+    },
+  },
+  {
+    id: 'eng-ladder-netlist',
+    filename: 'eng-ladder-netlist.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-circuit',
+    group: 'engineering',
+    content: engLadderNetlistJson,
+    nameI18n: {
+      'zh-CN': '工程 · T 型梯形电阻网络',
+      'en-US': 'Engineering · T-type Ladder Resistor Network',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 V 电压源带 R1=1kΩ、R2=R3=2kΩ 的 T 型梯形网络，解析解 v_mid = v_out = 8 V。点击「解算电路」用改进节点法求解，并查看各节点电压与 Tellegen 功率平衡自检。',
+      'en-US':
+        'A 12 V source driving a T-ladder with R1 = 1 kΩ, R2 = R3 = 2 kΩ; the analytic solution is v_mid = v_out = 8 V. Press "Solve circuit" for the MNA node voltages with a Tellegen power-balance self-check.',
+    },
+  },
+  {
+    id: 'eng-truss-bridge',
+    filename: 'eng-truss-bridge.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-truss',
+    group: 'engineering',
+    content: engTrussBridgeJson,
+    nameI18n: {
+      'zh-CN': '工程 · 5 节点简支桁架桥',
+      'en-US': 'Engineering · 5-node Simply-supported Truss Bridge',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'E=200 GPa、A=3000 mm² 的 7 杆简支桁架桥，跨中下弦节点承受 50 kN 竖向载荷；两端竖向反力各 25 kN，顶弦受压、底弦受拉。点击「解算桁架」查看位移、轴力着色与可调放大系数的变形叠加。',
+      'en-US':
+        'A 7-member simply-supported truss bridge (E = 200 GPa, A = 3000 mm²) with a 50 kN vertical load on the mid bottom-chord node; end reactions are 25 kN each, top chord in compression and bottom chord in tension. Press "Solve truss" for displacements, axial-force coloring and a deformed-shape overlay with an adjustable scale.',
+    },
+  },
+  {
+    id: 'bio-mendel-f2-seven-traits',
+    filename: 'mendel-f2-seven-traits.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-mendel',
+    group: 'bio',
+    content: mendelF2Csv,
+    nameI18n: {
+      'zh-CN': '孟德尔 F₂ · 七性状二项分离检验',
+      'en-US': "Mendel's F₂ · Seven-Trait Segregation Test",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '孟德尔（1866）豌豆 F₂ 代分离计数：七个性状的 3:1 显性分离与二粒杂交种子 9:3:3:1，共 18 组。加载后逐性状做卡方拟合优度检验，并给出 df=10 的合并检验 χ² 与 p 值。',
+      'en-US':
+        "Mendel's (1866) F₂ counts: seven monohybrid 3:1 traits plus the dihybrid seed 9:3:3:1 experiment, 18 groups in total. Load it for per-trait χ² goodness-of-fit tests and the pooled df=10 χ² with its p-value.",
+    },
+  },
+  {
+    id: 'env-hudson-bay-lynx-hare',
+    filename: 'hudson-bay-lynx-hare.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-predator-prey',
+    group: 'env',
+    content: hudsonBayCsv,
+    nameI18n: {
+      'zh-CN': '哈德逊湾 · 猞猁-野兔毛皮回报序列',
+      'en-US': 'Hudson Bay · Lynx–Hare Fur Returns',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '哈德逊湾公司 1849–1890 年猞猁与野兔配对年毛皮回报（Elton & Nicholson 1942 数字化），42 行。加载后自动做 Lotka-Volterra 线性化回归拟合 α/β/γ/δ 并叠加相图轨道，呈现著名的约 10 年捕食-被捕食周期。',
+      'en-US':
+        'Paired annual lynx and hare fur returns of the Hudson Bay Company, 1849-1890 (digitized by Elton & Nicholson 1942), 42 rows. Loading runs the linearized Lotka-Volterra regression for α/β/γ/δ, overlays the fitted orbit and reveals the famous ~10-year predator-prey cycle.',
+    },
+  },
+  {
+    id: 'geo-carbondating-intcal20',
+    filename: 'intcal20-excerpt.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-carbondating',
+    group: 'geo',
+    content: geoIntcal20ExcerptCsv,
+    nameI18n: {
+      'zh-CN': '碳定年 · IntCal20 校准曲线节选（0–14000 cal BP）',
+      'en-US': 'Radiocarbon · IntCal20 Calibration Excerpt (0-14000 cal BP)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'IntCal20（Reimer et al. 2020）大气 ¹⁴C 校准曲线官方节选：0–14000 cal BP、每 50 年一行共 281 行（cal_bp, c14_age, sigma）。载入后自动完成似然剖面校准，给出最佳日历年与 1σ/2σ 区间。',
+      'en-US':
+        'Official IntCal20 (Reimer et al. 2020) atmospheric 14C calibration excerpt: 0-14000 cal BP on the 50-year grid, 281 rows (cal_bp, c14_age, sigma). Loading runs the likelihood-profile calibration for the best calendar age with 1σ/2σ ranges.',
+    },
+  },
+  {
+    id: 'geo-soilwater-sand',
+    filename: 'vg-sand-retention.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-soilwater',
+    group: 'geo',
+    content: geoVgSandRetentionCsv,
+    nameI18n: {
+      'zh-CN': '土壤水 · 砂土持水曲线合成数据（19 点）',
+      'en-US': 'Soil Water · Synthetic Sand Retention Dataset (19 points)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '吸力 1–15000 cm 的 19 个 θ(h) 点：以 van Genuchten (1980) 表 1 砂土参数（θr=0.045、θs=0.430、α=0.145 cm⁻¹、n=2.68）加 1% 乘性高斯噪声按种子复现生成（文件头注明）。载入即触发 LM 拟合并回收参数。',
+      'en-US':
+        '19 theta(h) points from 1-15000 cm: generated reproducibly from the van Genuchten (1980) Table 1 sand parameters (θr=0.045, θs=0.430, α=0.145 cm⁻¹, n=2.68) with 1% multiplicative Gaussian noise (seed documented in the header). Loading triggers the LM fit and parameter recovery.',
+    },
+  },
+  {
+    id: 'geo-hydrology-design-storm',
+    filename: 'usgs-storm-hyetograph.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-hydrology',
+    group: 'geo',
+    content: geoStormHyetographCsv,
+    nameI18n: {
+      'zh-CN': '水文 · 6 小时 90 mm 设计暴雨雨型',
+      'en-US': 'Hydrology · 6-hour 90 mm Design-Storm Hyetograph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '6 小时 90 mm 逐时增量合成设计暴雨（NWS 型雨峰位于 40% 时长处；USGS 实测站网在本环境不可达，按合成雨型提供并在文件头注明，非实测）。载入即运行 SCS-CN + 单位线汇流并核对体积守恒。',
+      'en-US':
+        'Synthetic 6-hour, 90 mm hourly design storm (NWS-style peak at 40% of duration; USGS gauges were unreachable from this environment, so a documented synthetic hyetograph is provided instead of observed data). Loading runs the SCS-CN + unit-hydrograph routing and checks volume conservation.',
+    },
+  },
+  {
+    id: 'markov-pagerank-web',
+    filename: 'markov-pagerank-web.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-markov',
+    group: 'stats',
+    content: markovPagerankWebCsv,
+    nameI18n: {
+      'zh-CN': '马尔可夫链 · 五页网页链接图',
+      'en-US': 'Markov Chain · Five-Page Web Graph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '5 个网页的行随机链接矩阵（Page & Brin 1998 的教学最小图）。加载后幂法自动求稳态（L1 残差 < 1e-12），并在状态转移图上叠加平稳分布柱状与随机轨迹。',
+      'en-US':
+        'A row-stochastic link matrix over five web pages (a minimal Page & Brin 1998 teaching graph). Load it and the power iteration recovers the stationary law to L1 < 1e-12, drawn on the transition graph with bars and a simulated trajectory.',
+    },
+  },
+  {
+    id: 'gutenberg-emma-ch1',
+    filename: 'gutenberg-emma-ch1.txt',
+    format: 'txt',
+    mimeType: 'text/plain',
+    pluginId: 'example.stats-zipf',
+    group: 'stats',
+    content: gutenbergEmmaCh1Txt,
+    nameI18n: {
+      'zh-CN': 'Zipf 定律 · 《爱玛》卷一第 1–6 章',
+      'en-US': "Zipf's Law · Emma Vol. I, Ch. 1–6",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Jane Austen《Emma》(1816) 第一卷第 1–6 章英文全文（约 1.4 万词，公版，校验于 Project Gutenberg eBook #158；# 行为注释）。加载后做词频排序与 log-log 拟合，实测 s ≈ 1.06、R² ≈ 0.97，与理想 Zipf 指数 s = 1 对照。',
+      'en-US':
+        "The full English text of Jane Austen's Emma (1816), Volume I chapters 1–6 (~14k words, public domain, checked against Project Gutenberg eBook #158; '#' lines are comments). Load it to rank word frequencies and fit log-log: measured s ≈ 1.06 with R² ≈ 0.97 against the ideal Zipf exponent s = 1.",
+    },
+  },
+  {
+    id: 'transit-lightcurve-hd209458',
+    filename: 'astro-transit-lightcurve.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-transit',
+    group: 'astro',
+    content: transitLightcurveCsv,
+    nameI18n: {
+      'zh-CN': '凌星光变 · HD 209458 b（合成教学数据）',
+      'en-US': 'Transit Light Curve · HD 209458 b (synthetic)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '按 NASA Exoplanet Archive 发表的 HD 209458 b 参数（P=3.52474859 d、深度=1.500%、T14=3.072 h）合成的 1000 点光变曲线（σ=1.2 mmag，10 个周期，固定种子）。加载后点击「检测周期并拟合」：简化 BLS 盲测周期，LM 精化梯形模型并输出 1σ 误差与相位折叠图。',
+      'en-US':
+        'A 1000-point light curve synthesized at the published HD 209458 b parameters (P = 3.52474859 d, depth = 1.500%, T14 = 3.072 h) from the NASA Exoplanet Archive (σ = 1.2 mmag, 10 periods, fixed seed). Load it and press "Detect & Fit": simplified-BLS blind detection, LM trapezoid refinement with 1σ errors and the phase-folded view.',
+    },
+  },
+  {
+    id: 'yale-bsc-bright',
+    filename: 'yale-bsc-bright.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-hrdiagram',
+    group: 'astro',
+    content: yaleBscBrightCsv,
+    nameI18n: {
+      'zh-CN': '亮星星表 · Yale BSC 亮于 3.0 等（含 Hipparcos 视差）',
+      'en-US': 'Bright Star Catalogue · Yale BSC V < 3.0 (with Hipparcos parallaxes)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Yale 亮星星表第 5 版（公有领域）中 V < 3.01 且 B−V ≤ 1.61 的 163 颗星，视差取自 Hipparcos（VizieR I/239，2026-10-11 检索）。加载后绘制赫罗图：视差换算距离模数得绝对星等，横轴 B−V，叠加 MK 主序参考带、太阳标记与主序拟合。',
+      'en-US':
+        '163 stars with V < 3.01 and B−V ≤ 1.61 from the Yale Bright Star Catalogue, 5th ed. (public domain), with Hipparcos parallaxes (VizieR I/239, retrieved 2026-10-11). Load it to draw the H–R diagram: absolute magnitudes via distance modulus, B−V colour axis, with the MK main-sequence band, the Sun marker and a screened main-sequence fit.',
     },
   },
 ];

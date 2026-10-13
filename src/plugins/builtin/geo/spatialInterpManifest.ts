@@ -21,6 +21,17 @@ export const spatialInterpManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.geo-interp',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    benchmarks: ['synthetic-field-benchmark'],
+    units: { length: 'km' },
+    reproducible: true,
+    notes: 'Kriging costs O(N²) per grid node and LOOCV rebuilds the system per station; interpolated values inherit the input units.',
+    notesI18n: {
+      'zh-CN': '克里金每个网格节点 O(N²)，LOOCV 逐站重建方程组；插值数值继承输入单位。',
+      'en-US': 'Kriging costs O(N²) per grid node and LOOCV rebuilds the system per station; interpolated values inherit the input units.',
+    },
+  },
   formats: [
     {
       extension: '.csv',

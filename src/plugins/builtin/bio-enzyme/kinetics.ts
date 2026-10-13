@@ -6,7 +6,15 @@
 // compact Levenberg-Marquardt nonlinear least-squares solver to back-fit
 // Vmax / Km from real (noisy) initial-rate data. All functions are pure so
 // the kernel unit-tests without a canvas or DOM.
+//
+// Research-grade layer (docs/technical/11 §2.4 / §3 L2+L4): residual-bootstrap
+// parameter confidence intervals, a literature Km reference table, and an
+// embedded Michaelis-Menten validation benchmark (known truth → seeded
+// synthetic data → refit → recovery error). All randomness goes through the
+// deterministic mulberry32 PRNG from the core repro module.
 // ==========================================================================
+
+import { hashString, mulberry32 } from '@/core/repro/random';
 
 export type InhibitionMode = 'none' | 'competitive' | 'noncompetitive' | 'uncompetitive';
 
@@ -293,3 +301,152 @@ export const DEFAULT_RATE_PARAMS: RateParams = {
   ki: 10,
   mode: 'none',
 };
+
+// ---- research-grade diagnostics (docs/technical/11 §2.4 / §3 L2+L4) --------
+
+/** Percentile 95% confidence intervals for the fitted parameters. */
+export interface ParamCI {
+  vmax: [number, number];
+  km: [number, number];
+  /** Bootstrap replicates that produced a usable fit. */
+  replicates: number;
+}
+
+/**
+ * Residual bootstrap for (Vmax, Km): refit the model on replicates built by
+ * resampling the *centred* residuals of the original fit around the fitted
+ * curve, then take percentile 2.5 / 97.5 limits. The seed is deterministic
+ * (mulberry32) so the intervals are exactly reproducible for a dataset.
+ */
+export function bootstrapParams(data: FitPoint[], seed: number, replicates = 200): ParamCI | null {
+  const base = fitMichaelisMenten(data);
+  if (!base || data.length < 4) return null;
+  const residuals = data.map((d) => d.v - (base.vmax * d.s) / (base.km + d.s));
+  const mean = residuals.reduce((a, r) => a + r, 0) / residuals.length;
+  const centred = residuals.map((r) => r - mean);
+  const rand = mulberry32(seed);
+  const vmaxs: number[] = [];
+  const kms: number[] = [];
+  for (let b = 0; b < replicates; b += 1) {
+    const boot: FitPoint[] = data.map((d) => {
+      const eps = centred[Math.floor(rand() * centred.length)] ?? 0;
+      const pred = (base.vmax * d.s) / (base.km + d.s);
+      return { s: d.s, v: Math.max(0, pred + eps) };
+    });
+    const fit = fitMichaelisMenten(boot);
+    if (fit) {
+      vmaxs.push(fit.vmax);
+      kms.push(fit.km);
+    }
+  }
+  if (vmaxs.length < Math.max(20, replicates * 0.5)) return null;
+  const q = (arr: number[], p: number): number => {
+    const s = [...arr].sort((a, b) => a - b);
+    const idx = Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))));
+    return s[idx]!;
+  };
+  return {
+    vmax: [q(vmaxs, 0.025), q(vmaxs, 0.975)],
+    km: [q(kms, 0.025), q(kms, 0.975)],
+    replicates: vmaxs.length,
+  };
+}
+
+/** Deterministic bootstrap seed for a dataset (stable across sessions). */
+export function dataSeed(data: FitPoint[]): number {
+  return parseInt(hashString(data.map((d) => `${d.s},${d.v}`).join(';')), 16) >>> 0;
+}
+
+/** Typical literature Km range for one common enzyme (textbook magnitudes). */
+export interface LiteratureKm {
+  enzyme: string;
+  enzymeZh: string;
+  /** Range in mmol/L. */
+  kmMin: number;
+  kmMax: number;
+}
+
+/**
+ * Literature Km reference table (mmol/L) for common enzyme/substrate pairs —
+ * order-of-magnitude textbook values, for sanity-checking a fitted Km against
+ * published ranges.
+ */
+export const LITERATURE_KM: LiteratureKm[] = [
+  { enzyme: 'Hexokinase (glucose)', enzymeZh: '己糖激酶（葡萄糖）', kmMin: 0.01, kmMax: 0.5 },
+  { enzyme: 'Amylase (starch)', enzymeZh: '淀粉酶（淀粉）', kmMin: 0.3, kmMax: 5 },
+  { enzyme: 'Chymotrypsin (N-AcGly-OEt)', enzymeZh: '胰凝乳蛋白酶', kmMin: 0.5, kmMax: 10 },
+  { enzyme: 'Carbonic anhydrase (CO2)', enzymeZh: '碳酸酐酶（CO₂）', kmMin: 2, kmMax: 30 },
+  { enzyme: 'Sucrase (sucrose)', enzymeZh: '蔗糖酶（蔗糖）', kmMin: 10, kmMax: 60 },
+  { enzyme: 'Urease (urea)', enzymeZh: '脲酶（尿素）', kmMin: 10, kmMax: 100 },
+  { enzyme: 'Catalase (H2O2)', enzymeZh: '过氧化氢酶（H₂O₂）', kmMin: 500, kmMax: 2000 },
+];
+
+export interface KmConsistency {
+  /** Range that contains the estimate (null when none does). */
+  within: LiteratureKm | null;
+  /** Closest range within one order of magnitude (null when further out). */
+  near: LiteratureKm | null;
+}
+
+/**
+ * Compare a fitted Km (in mmol/L, matching the manifest concentration unit
+ * and the plugin's default/slider magnitudes) against the literature table:
+ * `within` → ok, `near` (same order of magnitude) → warn.
+ */
+export function literatureKmConsistency(km: number): KmConsistency {
+  if (!Number.isFinite(km) || km <= 0) return { within: null, near: null };
+  const within = LITERATURE_KM.find((r) => km >= r.kmMin && km <= r.kmMax) ?? null;
+  const near =
+    within ??
+    LITERATURE_KM.find((r) => km >= r.kmMin / 10 && km <= r.kmMax * 10) ??
+    null;
+  return { within, near };
+}
+
+/** Embedded L4 validation benchmark: known MM truth, seeded synthetic data. */
+export const MM_BENCHMARK = {
+  id: 'michaelis-menten-benchmark',
+  trueVmax: 120,
+  trueKm: 8,
+  noise: 0.08,
+  seed: 20260922,
+} as const;
+
+export interface BenchmarkResult {
+  trueVmax: number;
+  trueKm: number;
+  fitVmax: number;
+  fitKm: number;
+  relErrVmax: number;
+  relErrKm: number;
+  r2: number;
+  rmse: number;
+}
+
+/**
+ * Run the embedded Michaelis-Menten validation benchmark: synthesise initial
+ * rates from *known* parameters (clearly a benchmark scenario, never passed
+ * off as user data), refit with the LM solver, and return the recovery error.
+ */
+export function runMichaelisMentenBenchmark(): BenchmarkResult | null {
+  const b = MM_BENCHMARK;
+  const data = synthesizeRates(
+    { ...DEFAULT_RATE_PARAMS, vmax: b.trueVmax, km: b.trueKm, inhibitor: 0, mode: 'none' },
+    DEFAULT_S_SUBSTRATES,
+    b.noise,
+    b.seed,
+  );
+  const fit = fitMichaelisMenten(data);
+  if (!fit) return null;
+  const { r2, rmse } = reportFit(data, fit.vmax, fit.km);
+  return {
+    trueVmax: b.trueVmax,
+    trueKm: b.trueKm,
+    fitVmax: fit.vmax,
+    fitKm: fit.km,
+    relErrVmax: Math.abs(fit.vmax - b.trueVmax) / b.trueVmax,
+    relErrKm: Math.abs(fit.km - b.trueKm) / b.trueKm,
+    r2,
+    rmse,
+  };
+}

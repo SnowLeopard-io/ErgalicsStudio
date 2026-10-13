@@ -41,7 +41,9 @@ export function EmptyProject({ compact }: { compact?: boolean }) {
   const notify = useAppStore((s) => s.notify);
   const createProject = useProjectStore((s) => s.createProject);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const importFolder = useProjectStore((s) => s.importFolder);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <EmptyState
@@ -67,6 +69,13 @@ export function EmptyProject({ compact }: { compact?: boolean }) {
           >
             <FolderOpenIcon size={14} /> {t('project.open')}
           </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => folderInputRef.current?.click()}
+          >
+            <FolderOpenIcon size={14} /> {t('project.open_folder')}
+          </button>
           <button type="button" className="btn btn-sm" onClick={() => navigate('/')}>
             {t('empty.project.back')}
           </button>
@@ -79,6 +88,26 @@ export function EmptyProject({ compact }: { compact?: boolean }) {
               const file = e.target.files?.[0];
               if (file) {
                 void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
+              }
+              e.target.value = '';
+            }}
+          />
+          {/* webkitdirectory 需在 ref 回调里命令式设置（React JSX 不可靠）。 */}
+          <input
+            ref={(el) => {
+              folderInputRef.current = el;
+              if (el) {
+                el.setAttribute('webkitdirectory', '');
+                el.setAttribute('directory', '');
+              }
+            }}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const files = e.target.files ? Array.from(e.target.files) : [];
+              if (files.length > 0) {
+                void importFolder(files).catch(() => notify('error', t('project.open_failed')));
               }
               e.target.value = '';
             }}

@@ -36,6 +36,7 @@
   --font-family: var(--font-sans);
   --topbar-height: 52px;
   --statusbar-height: 30px;
+  --activitybar-width: 42px;
   --sidebar-width: 248px;
   --right-panel-width: 284px;
   --transition-fast: 120ms ease;
@@ -544,6 +545,17 @@ button {
   cursor: not-allowed;
 }
 
+/* Destructive menu action (danger: true) — red text with a red hover
+   surface; keeps the token pair from --color-error(-soft). */
+.menu-item.menu-item-danger {
+  color: var(--color-error);
+}
+
+.menu-item.menu-item-danger:hover:not(:disabled) {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
 .menu-separator {
   height: 1px;
   background: var(--color-border);
@@ -734,6 +746,34 @@ button {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Call-to-action button on a toast (e.g. a background compute offering to
+   jump back to the plugin that finished). Solid accent fill — this is the one
+   primary action on the toast and must read at a glance (the dark-theme
+   accent is bright and the light-theme accent is dark, so in both themes the
+   page background colour is the correct contrasting ink). */
+.toast-action {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+}
+
+.toast-action:hover {
+  filter: brightness(1.12);
+}
+
+.toast-action:active {
+  filter: brightness(0.95);
 }
 
 .toast-info {

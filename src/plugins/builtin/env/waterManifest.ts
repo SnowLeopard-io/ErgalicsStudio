@@ -21,6 +21,16 @@ export const waterManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.env-water',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { concentration: 'mg/L', wqi: 'index' },
+    reproducible: true,
+    notes: 'GB 3838-2002 single-factor classification is standard-based; the weighted-arithmetic WQI is a teaching-scale comparison index, and its ±10% weight-sensitivity interval is reported alongside.',
+    notesI18n: {
+      'zh-CN': '单因子分类依据 GB 3838-2002 标准；加权算术 WQI 为教学尺度比较指数，同时发布权重 ±10% 扰动的敏感性区间。',
+      'en-US': 'Single-factor classification follows GB 3838-2002; the weighted-arithmetic WQI is a teaching-scale comparison index, with its ±10% weight-sensitivity interval reported.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'site,ph,do,cod,bod,nh3_n,tp rows' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'site,ph,do,cod,bod,nh3_n,tp rows' },

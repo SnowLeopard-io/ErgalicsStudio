@@ -1,8 +1,9 @@
 // FR-21 theme market — settings-page panel.
 //
 // Self-contained section: official themes (instant preview/apply), the
-// marketplace catalog (install/uninstall/apply), custom .cstheme import and
-// the chart-palette linkage note. All validation lives in core/theme-pack;
+// marketplace catalog (embedded in the app — preview/apply directly, no
+// install/uninstall round-trip), custom .cstheme import and the
+// chart-palette linkage note. All validation lives in core/theme-pack;
 // this component only presents and wires user intent to it.
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -67,7 +68,7 @@ export function ThemeMarketPanel() {
   const doApply = (theme: CsTheme) => {
     setPreviewTheme(null);
     applyAndRemember(theme);
-    notify('success', t('theme.apply_done', { name: theme.name }));
+    notify('success', t('theme.apply_done', { name: displayName(theme) }));
   };
 
   const doRemove = () => {
@@ -90,23 +91,11 @@ export function ThemeMarketPanel() {
     }
   };
 
-  const doInstallMarket = (entryId: string) => {
-    const entry = findMarketEntry(entryId);
-    if (!entry) return;
-    try {
-      installTheme(entry.theme);
-      refreshInstalled();
-      notify('success', t('theme.install_done', { name: entry.name[locale === 'en-US' ? 'en' : 'zh'] }));
-    } catch (err) {
-      notify('error', err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const doUninstall = (theme: CsTheme) => {
     if (uninstallTheme(theme.id)) {
       if (getAppliedThemeId() === theme.id) clearAppliedTheme();
       refreshInstalled();
-      notify('success', t('theme.uninstall_done', { name: theme.name }));
+      notify('success', t('theme.uninstall_done', { name: displayName(theme) }));
     }
     setUninstallTarget(null);
   };
@@ -127,7 +116,24 @@ export function ThemeMarketPanel() {
 
   const pickLocal = (pair: { zh: string; en: string }) => (locale === 'en-US' ? pair.en : pair.zh);
 
-  const installedIds = new Set(installed.map((i) => i.id));
+  /**
+   * CsTheme.name 是安装时固化的单语言字符串（官方/市场主题为英文），直接
+   * 裸显会造成中英混排。市场目录自带双语 name/desc——按 id 或 officialId
+   * 反查即可拿到；导入的自定义主题没有市场条目，退回原始 name。
+   */
+  const marketMetaOf = (themeId: string) =>
+    MARKET_THEMES.find((e) => e.id === themeId || e.officialId === themeId);
+
+  const displayName = (theme: CsTheme): string => {
+    const meta = marketMetaOf(theme.id);
+    return meta ? pickLocal(meta.name) : theme.name;
+  };
+
+  // De-duplication: catalog entries with officialId duplicate the official
+  // cards above, and market themes are embedded (always available) — so the
+  // installed list is reserved for imported .cstheme packages only.
+  const marketCards = MARKET_THEMES.filter((e) => !e.officialId);
+  const customImports = installed.filter((t) => !findMarketEntry(t.id));
 
   return (
     <section className="card settings-section">
@@ -138,9 +144,9 @@ export function ThemeMarketPanel() {
         <div className="settings-value">
           {active ? (
             <>
-              {active.name}
+              {displayName(active)}
               {previewTheme && (
-                <span className="sql-preview-note"> · {t('theme.previewing', { name: previewTheme.name })}</span>
+                <span className="sql-preview-note"> · {t('theme.previewing', { name: displayName(previewTheme) })}</span>
               )}
               {!previewTheme && <PaletteSwatch colors={active.chartPalette ?? []} />}
             </>
@@ -159,104 +165,113 @@ export function ThemeMarketPanel() {
       <p className="settings-label">{t('theme.chart_note')}</p>
 
       <h3 className="settings-section-title">{t('theme.official_title')}</h3>
-      {OFFICIAL_THEMES.map((theme) => (
-        <div key={theme.id} className="settings-row">
-          <label className="settings-label">
-            {theme.name}
-            <div className="sql-preview-note">
-              {t('theme.version')}: {theme.version}
-              {theme.density ? ` · ${t('theme.density')}: ${t(`theme.density_${theme.density}`)}` : ''}
-              {theme.chartPalette && theme.chartPalette.length > 0 ? ' · ' : ''}
-              {theme.chartPalette && <PaletteSwatch colors={theme.chartPalette} />}
+      <div className="theme-grid">
+        {OFFICIAL_THEMES.map((theme) => {
+          const meta = marketMetaOf(theme.id);
+          const applied = appliedId === theme.id;
+          return (
+            <div key={theme.id} className={`theme-card${applied ? ' is-applied' : ''}`}>
+              <div className="theme-card-head">
+                <span className="theme-card-name">{displayName(theme)}</span>
+                {applied && <span className="tag">{t('theme.applied_badge')}</span>}
+              </div>
+              {meta && <p className="theme-card-desc">{pickLocal(meta.desc)}</p>}
+              <div className="theme-card-meta">
+                <span>
+                  {t('theme.version')} {theme.version}
+                </span>
+                {theme.density && (
+                  <span>
+                    {t('theme.density')}: {t(`theme.density_${theme.density}`)}
+                  </span>
+                )}
+                {theme.chartPalette && <PaletteSwatch colors={theme.chartPalette} />}
+              </div>
+              <div className="theme-card-actions">
+                <button type="button" className="btn" onClick={() => doPreview(theme)}>
+                  {previewTheme?.id === theme.id ? t('theme.preview_stop') : t('theme.preview')}
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => doApply(theme)}>
+                  {t('theme.apply')}
+                </button>
+              </div>
             </div>
-          </label>
-          <div className="settings-value">
-            {appliedId === theme.id && <span className="tag">{t('theme.applied_badge')}</span>}
-            <button type="button" className="btn" onClick={() => doPreview(theme)}>
-              {previewTheme?.id === theme.id ? t('theme.preview_stop') : t('theme.preview')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ marginLeft: 8 }}
-              onClick={() => doApply(theme)}
-            >
-              {t('theme.apply')}
-            </button>
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
 
       <h3 className="settings-section-title">{t('theme.market_title')}</h3>
-      {MARKET_THEMES.map((entry) => {
-        const isInstalled = installedIds.has(entry.id) || Boolean(entry.officialId);
-        return (
-          <div key={entry.id} className="settings-row">
-            <label className="settings-label">
-              {pickLocal(entry.name)}
-              <div className="sql-preview-note">
-                {pickLocal(entry.desc)}
-                <br />
-                {entry.author} · {t('theme.version')} {entry.version} · ⬇ {entry.downloads}
+      <div className="theme-grid">
+        {marketCards.map((entry) => {
+          const applied = !previewTheme && getAppliedThemeId() === entry.id;
+          return (
+            <div key={entry.id} className={`theme-card${applied ? ' is-applied' : ''}`}>
+              <div className="theme-card-head">
+                <span className="theme-card-name">{pickLocal(entry.name)}</span>
+                {applied && <span className="tag">{t('theme.applied_badge')}</span>}
+              </div>
+              <p className="theme-card-desc">{pickLocal(entry.desc)}</p>
+              <div className="theme-card-meta">
+                <span>{entry.author}</span>
+                <span>
+                  {t('theme.version')} {entry.version}
+                </span>
                 {entry.theme.chartPalette && <PaletteSwatch colors={entry.theme.chartPalette} />}
               </div>
-            </label>
-            <div className="settings-value">
-              {isInstalled && <span className="tag">{t('theme.installed_badge')}</span>}
-              <a
-                className="btn"
-                href={websiteThemeLink(entry.id)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t('theme.view_on_website')}
-              </a>
-              {!isInstalled && (
+              <div className="theme-card-actions">
                 <button
                   type="button"
                   className="btn btn-primary"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => doInstallMarket(entry.id)}
+                  onClick={() => doApply(entry.theme)}
                 >
-                  {t('theme.install')}
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {installed.length > 0 && (
-        <>
-          <h3 className="settings-section-title">{t('theme.import_title')}</h3>
-          {installed.map((theme) => (
-            <div key={theme.id} className="settings-row">
-              <label className="settings-label">
-                {theme.name}
-                <div className="sql-preview-note">
-                  {t('theme.version')}: {theme.version}
-                  {theme.chartPalette && <PaletteSwatch colors={theme.chartPalette} />}
-                </div>
-              </label>
-              <div className="settings-value">
-                {appliedId === theme.id && <span className="tag">{t('theme.applied_badge')}</span>}
-                <button type="button" className="btn" onClick={() => doApply(theme)}>
                   {t('theme.apply')}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => setUninstallTarget(theme)}
-                >
-                  {t('theme.uninstall')}
-                </button>
+                <a className="btn" href={websiteThemeLink(entry.id)} target="_blank" rel="noreferrer">
+                  {t('theme.view_on_website')}
+                </a>
               </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {customImports.length > 0 && (
+        <>
+          <h3 className="settings-section-title">{t('theme.installed_title')}</h3>
+          <div className="theme-grid">
+            {customImports.map((theme) => {
+              const applied = appliedId === theme.id;
+              return (
+                <div key={theme.id} className={`theme-card${applied ? ' is-applied' : ''}`}>
+                  <div className="theme-card-head">
+                    <span className="theme-card-name">{displayName(theme)}</span>
+                    {applied && <span className="tag">{t('theme.applied_badge')}</span>}
+                  </div>
+                  <div className="theme-card-meta">
+                    <span>
+                      {t('theme.version')} {theme.version}
+                    </span>
+                    {theme.chartPalette && <PaletteSwatch colors={theme.chartPalette} />}
+                  </div>
+                  <div className="theme-card-actions">
+                    <button type="button" className="btn btn-primary" onClick={() => doApply(theme)}>
+                      {t('theme.apply')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={() => setUninstallTarget(theme)}
+                    >
+                      {t('theme.uninstall')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
-      {installed.length === 0 && <div className="empty-hint">{t('theme.empty_installed')}</div>}
+      {customImports.length === 0 && <div className="empty-hint">{t('theme.empty_installed')}</div>}
 
       <div className="settings-row">
         <label className="settings-label">{t('theme.import')}</label>
@@ -301,7 +316,10 @@ export function ThemeMarketPanel() {
       >
         <p>
           {uninstallTarget &&
-            t('theme.uninstall_confirm_body', { name: uninstallTarget.name, version: uninstallTarget.version })}
+            t('theme.uninstall_confirm_body', {
+              name: displayName(uninstallTarget),
+              version: uninstallTarget.version,
+            })}
         </p>
       </Modal>
     </section>

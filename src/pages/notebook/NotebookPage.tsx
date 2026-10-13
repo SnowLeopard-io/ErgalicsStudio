@@ -6,7 +6,7 @@
 // run on a dedicated Pyodide runtime that is terminated on unmount.
 // ==========================================================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolShell } from '@/components/ToolShell';
@@ -14,6 +14,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useNotebookStore } from '@/stores/notebookStore';
 import { mdToHtml } from '@/core/notebook/notebook';
+import { enhanceMarkdownDom } from '@/core/markdown/enhance';
 import type { NotebookCell, NotebookCellOutput } from '@/core/notebook/notebook';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CloseIcon } from '@/components/icons';
@@ -71,6 +72,15 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
 
   const [editing, setEditing] = useState(index === 0 && cell.source === '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Markdown preview host — upgraded in place after each render (mermaid
+  // diagrams, KaTeX math) via the async enhancer.
+  const mdPreviewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editing || cell.type !== 'md') return;
+    const el = mdPreviewRef.current;
+    if (el) void enhanceMarkdownDom(el);
+  }, [editing, cell.type, cell.source]);
 
   const running = runningCellId === cell.id;
 
@@ -157,9 +167,10 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
           </>
         ) : (
           <div
+            ref={mdPreviewRef}
             className="nb-md"
             onClick={() => setEditing(true)}
-            // mdToHtml escapes all raw HTML before applying its own markup.
+            // mdToHtml sanitizes through DOMPurify; raw HTML never executes.
             dangerouslySetInnerHTML={{
               __html: cell.source.trim() ? mdToHtml(cell.source) : `<p>${t('notebook.empty_md')}</p>`,
             }}

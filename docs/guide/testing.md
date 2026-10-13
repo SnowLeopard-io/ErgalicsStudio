@@ -11,11 +11,12 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. One hundred twenty-three test files, 2233 tests:
+Environment: `node`. One hundred thirty-one test files, 2338 tests:
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
 | `fileFormat`           | magic-number + extension detection, format matching        |
+| `gitAdapter`, `opfs-helpers` | Git adapter contract (browser/Node), workspace VFS behaviors |
 | `cspkg`                | zip parsing, manifest validation, entry execution (trusted)|
 | `sandbox`              | RPC encode/decode, legacy fallback, **full worker round trip** via a fake Worker |
 | `i18n`                 | locale switching, fallbacks, new sandbox keys              |
@@ -36,13 +37,11 @@ Environment: `node`. One hundred twenty-three test files, 2233 tests:
 
 Notable techniques:
 
-- **Module-level caches** (e.g. the WASM loader) are reset per test with
-  `vi.resetModules()` + `vi.doMock` + a fresh dynamic `import`.
-- **Worker RPC** is tested end-to-end with a `FakeWorker` that drives the
-  real `createPluginWorkerRuntime` — no browser required.
-- **Strict-mode `new Function`** cannot combine a `"use strict"` directive
-  with default parameter values — the legacy sandbox uses plain parameters
-  and passes `undefined` explicitly.
+| Technique | Detail |
+| --- | --- |
+| **Module-level caches** | (e.g. the WASM loader) are reset per test with `vi.resetModules()` + `vi.doMock` + a fresh dynamic `import`. |
+| **Worker RPC** | Tested end-to-end with a `FakeWorker` that drives the real `createPluginWorkerRuntime` — no browser required. |
+| **Strict-mode `new Function`** | Cannot combine a `"use strict"` directive with default parameter values — the legacy sandbox uses plain parameters and passes `undefined` explicitly. |
 
 ## E2E suites (Playwright-core)
 
@@ -66,6 +65,10 @@ and asserts real pixels + zero console errors:
 | `verify-code-mode`  | 4175 | Monaco + Pyodide: run a Python program, console, variable panel, plot canvas |
 | `verify-ai-samples` | 4173 | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
 | `verify-ai-training`| 4173 | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
+| `verify-research`| 4176 | research suite: runs / uncertainty / profiler / figures / supplement / notebook / lineage |
+
+`verify-lang-modes` (R/JS on the IR engine and mode round-trips) and
+`npm run verify:site` (merged-deploy path integrity) run separately.
 
 > If Edge is not at the default path, update the `EDGE` constant in each
 > script. New plugin/feature work should ship with an E2E check — screenshots

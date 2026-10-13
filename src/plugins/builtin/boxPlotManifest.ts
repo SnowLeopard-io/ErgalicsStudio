@@ -19,6 +19,15 @@ export const boxPlotManifest: PluginManifest = {
   },
   license: 'MIT',
   entry: 'example.boxplot',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes: 'Publishes per-group n/median/IQR/Tukey outlier counts and the Kruskal-Wallis H test across groups.',
+    notesI18n: {
+      'en-US': 'Publishes per-group n/median/IQR/Tukey outlier counts and the Kruskal-Wallis H test across groups.',
+      'zh-CN': '发布各组 n/中位数/IQR/Tukey 离群计数，并在组间进行 Kruskal-Wallis H 检验。',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV (group,value)' },
     { extension: '.dat', mimeTypes: ['application/octet-stream'], description: 'Raw data' },

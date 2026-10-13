@@ -9,9 +9,19 @@
 // ==========================================================================
 
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import type { NavigateFunction } from 'react-router-dom';
+import { useAppStore } from '@/stores/appStore';
 import type { ToolIconKind } from '@/components/icons';
 
-export type ResearchGroupId = 'measure' | 'model' | 'data' | 'signal' | 'deliver';
+export type ResearchGroupId =
+  | 'measure'
+  | 'model'
+  | 'data'
+  | 'signal'
+  | 'deliver'
+  /** Lightweight no-project utilities (converters, calculators). Rendered as
+   *  the last group in the launchers, visually separate from research suites. */
+  | 'utils';
 
 export interface ResearchTool {
   /** Stable id, also the /studio/<id> slug. */
@@ -112,12 +122,36 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('cleaning', () => import('@/pages/labs/CleaningWizardPage'), {
     icon: 'cleaning', titleKey: 'tool.cleaning.title', group: 'data', requireProject: true,
   }),
+  tool('files', () => import('@/pages/labs/FileExplorerPage'), {
+    icon: 'files', titleKey: 'tool.files.title', group: 'data', requireProject: true,
+  }),
   tool('gallery', () => import('@/pages/gallery/GalleryPage'), {
     icon: 'gallery', titleKey: 'tool.gallery.title', group: 'deliver',
   }),
+  // ---- utility toolkit (no project required) ------------------------------
+  tool('unit-convert', () => import('@/pages/utils/UnitConvertPage'), {
+    icon: 'units', titleKey: 'tool.unit-convert.title', group: 'utils',
+  }),
+  tool('calc', () => import('@/pages/utils/CalcPage'), {
+    icon: 'calc', titleKey: 'tool.calc.title', group: 'utils',
+  }),
+  tool('format-convert', () => import('@/pages/utils/FormatConvertPage'), {
+    icon: 'convert', titleKey: 'tool.format-convert.title', group: 'utils',
+  }),
+  tool('sigfig', () => import('@/pages/utils/SigFigPage'), {
+    icon: 'sigfig', titleKey: 'tool.sigfig.title', group: 'utils',
+  }),
+  tool('molar-mass', () => import('@/pages/utils/MolarMassPage'), {
+    icon: 'molar', titleKey: 'tool.molar-mass.title', group: 'utils',
+  }),
+  tool('quick-stats', () => import('@/pages/utils/QuickStatsPage'), {
+    icon: 'quickstats', titleKey: 'tool.quick-stats.title', group: 'utils',
+  }),
 ];
 
-export const GRID_GROUPS: ResearchGroupId[] = ['measure', 'model', 'data', 'signal', 'deliver'];
+export const GRID_GROUPS: ResearchGroupId[] = [
+  'measure', 'model', 'data', 'signal', 'deliver', 'utils',
+];
 
 const BY_ID = new Map(RESEARCH_TOOLS.map((x) => [x.id, x]));
 
@@ -131,3 +165,21 @@ export const GRID_TOOLS = RESEARCH_TOOLS.filter((x) => x.inGrid);
 export const TOOLS_BY_LEGACY_PATH = new Map(
   RESEARCH_TOOLS.map((x) => [x.legacyPath, x] as const),
 );
+
+/**
+ * Open a research suite embedded in the Standard-mode central canvas instead
+ * of navigating to its standalone /studio/<id> page. From outside the
+ * workbench (welcome page, command palette) this first routes to /workbench;
+ * the embedded state lives in appStore, so CentralArea picks it up on mount.
+ */
+export function openToolEmbedded(
+  navigate: NavigateFunction,
+  id: string,
+  pathname: string,
+): void {
+  if (!getTool(id)) return;
+  const app = useAppStore.getState();
+  app.setMode('standard');
+  app.setEmbeddedTool(id);
+  if (pathname !== '/workbench') navigate('/workbench');
+}

@@ -14,6 +14,8 @@ export interface MenuItemDef {
   badge?: ReactNode;
   /** Non-interactive group heading (filters out with its neighbours). */
   header?: boolean;
+  /** Destructive action styling (red text / red hover surface). */
+  danger?: boolean;
   /** Text matched by the filter box (label is often a ReactNode). */
   searchText?: string;
   onClick?: () => void;
@@ -275,6 +277,7 @@ export function Dropdown({
                   'menu-item',
                   rich ? 'menu-item-rich' : '',
                   item.active ? 'active' : '',
+                  item.danger ? 'menu-item-danger' : '',
                   filterable && kbdIndex === activeIndex ? 'menu-item-kbd' : '',
                 ].join(' ').trim()}
                 disabled={item.disabled}

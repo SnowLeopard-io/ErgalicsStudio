@@ -19,6 +19,15 @@ export const scatterManifest: PluginManifest = {
   },
   license: 'MIT',
   entry: 'example.scatter',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes: 'Publishes Pearson/Spearman correlation and OLS slope CI next to the plot.',
+    notesI18n: {
+      'en-US': 'Publishes Pearson/Spearman correlation and OLS slope CI next to the plot.',
+      'zh-CN': '绘图之外同步发布 Pearson/Spearman 相关与 OLS 斜率置信区间。',
+    },
+  },
   formats: [
     { extension: '.dat', mimeTypes: ['application/octet-stream'], description: 'Scatter data' },
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'Scatter data' },

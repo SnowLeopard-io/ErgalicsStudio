@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
+import { ActivityBar } from './ActivityBar';
 import { CentralArea } from './CentralArea';
 import { RightPanel } from './RightPanel';
 import { StatusBar } from './StatusBar';
@@ -34,7 +35,6 @@ const CodeEditor = lazy(() =>
 let restoreStarted = false;
 
 export default function WorkbenchPage() {
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const mode = useAppStore((s) => s.mode);
   const t = useT();
   const location = useLocation();
@@ -68,31 +68,23 @@ export default function WorkbenchPage() {
     // Register built-in blocks and make example plugins available.
     initBlockSystem();
     void usePluginStore.getState().ensureBuiltinsLoaded();
-    // Restore the most recent project; create a fresh one if none exists
-    // (spec §4.2 "恢复"). Guarded so React StrictMode's double-mount cannot
-    // create the empty project twice (two rows in IndexedDB).
+    // Restore the most recent project if there is one. Never auto-create a
+    // fresh project on cold start: whether to have a project (and which one)
+    // is the user's decision — the empty canvas state offers the choices.
     if (!restoreStarted) {
       restoreStarted = true;
       void (async () => {
         try {
           await useProjectStore.getState().loadRecent();
           const { project, recent } = useProjectStore.getState();
-          if (!project) {
-            if (recent[0]) {
-              await useProjectStore.getState().openProject(recent[0].id);
-            } else {
-              await useProjectStore.getState().createProject('');
-            }
+          if (!project && recent[0]) {
+            await useProjectStore.getState().openProject(recent[0].id);
           }
         } catch (err) {
           // A project left in an old or corrupt shape used to fail silently
           // here: no project, no fallback, no message — just an unhandled
           // rejection and an apparently empty workbench on cold start.
           logger.error('project', 'startup restore failed', err);
-          const store = useProjectStore.getState();
-          if (!store.project) {
-            await store.createProject('').catch(() => undefined);
-          }
           useAppStore.getState().notify('error', t('project.open_failed'));
         }
       })();
@@ -121,7 +113,10 @@ export default function WorkbenchPage() {
               <CodeEditor />
             ) : (
               <>
-                {sidebarOpen && <Sidebar />}
+                {/* 活动栏常驻（即使侧栏收起也可见，供重新打开视图）。 */}
+                <ActivityBar />
+                {/* Sidebar 自己处理收起态（渲染为贴边小按钮），始终挂载。 */}
+                <Sidebar />
                 <CentralArea />
                 <RightPanel />
               </>

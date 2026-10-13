@@ -1,10 +1,14 @@
 // ==========================================================================
 // Tests for the chart-plugin enhancements (batch A):
-//   - Export PNG / Export CSV button params on every chart builtin
-//   - CSV export of the plugin's underlying data (and no-op when empty)
-//   - PNG export through an injected fake canvas (node, no DOM rendering)
+//   - Export architecture: plugin-level PNG snapshot export was REMOVED from
+//     every plugin — a canvas-level unified export menu (CentralArea) owns
+//     PNG now. Among chart plugins, CSV export survives only on the
+//     computed-stat plugins (histogram, box plot, QQ plot); the passthrough
+//     charts (scatter, time series, heatmap, contour, error band) declare no
+//     export buttons at all.
+//   - CSV export of the plugin's computed data (and no-op when empty)
 //   - New analytical toggles: scatter trend line, time-series rolling mean,
-//     histogram cumulative/density, box-plot mean marker, heatmap labels
+//     histogram cumulative/density, box-plot mean marker
 // ==========================================================================
 
 import { describe, it, expect, vi } from 'vitest';
@@ -17,8 +21,6 @@ import { ContourPlugin } from '@/plugins/builtin/contour';
 import { ErrorBandPlugin } from '@/plugins/builtin/errorband';
 import { QQPlotPlugin } from '@/plugins/builtin/qqplot';
 import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-
-const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
 
 function fakeApi() {
   const exportFile = vi.fn();
@@ -49,21 +51,6 @@ function fakeApi() {
   return { api, exportFile, notify };
 }
 
-/** Minimal canvas stub — only toDataURL is exercised by PNG export. */
-function fakeCanvas() {
-  // `getContext` exists on the real element; plugins call it while redrawing
-  // after a param update. Returning undefined makes draw() bail out cleanly.
-  return {
-    toDataURL: () => PNG_DATA_URL,
-    getContext: () => undefined,
-  } as unknown as HTMLCanvasElement;
-}
-
-function injectCanvas(plugin: Plugin) {
-  const p = plugin as unknown as { ctx: unknown };
-  p.ctx = { canvas2d: fakeCanvas() };
-}
-
 function buttonDefs(defs: ParamDefinition[]) {
   return defs.filter((d): d is Extract<ParamDefinition, { type: 'button' }> => d.type === 'button');
 }
@@ -79,34 +66,28 @@ async function make<T extends Plugin>(
   return { plugin, exportFile, notify };
 }
 
-interface CaseDef {
+const CSV = (name: string, text: string) => new File([text], name);
+
+// ---- export buttons ---------------------------------------------------------
+//
+// PNG snapshot export is owned by the canvas-level menu in CentralArea, so no
+// plugin declares an exportPng button any more. Only the computed-stat chart
+// plugins keep a plugin-level exportCsv button.
+
+interface ComputedCaseDef {
   name: string;
   base: string;
   header: string;
-   
   Ctor: new () => any;
   file: File;
 }
 
-const CSV = (name: string, text: string) => new File([text], name);
-const JSON_FILE = (name: string, value: unknown) =>
-  new File([JSON.stringify(value)], name);
+interface PassthroughCaseDef {
+  name: string;
+  Ctor: new () => any;
+}
 
-const CASES: CaseDef[] = [
-  {
-    name: 'scatter',
-    base: 'scatter',
-    header: 'x,y',
-    Ctor: ScatterPlugin,
-    file: CSV('points.dat', '0 1\n1 2\n2 3\n3 5\n4 4\n'),
-  },
-  {
-    name: 'timeSeries',
-    base: 'time-series',
-    header: 'a,b',
-    Ctor: TimeSeriesPlugin,
-    file: CSV('series.csv', 'a,b\n1,2\n2,3\n3,4\n4,5\n'),
-  },
+const COMPUTED_CASES: ComputedCaseDef[] = [
   {
     name: 'histogram',
     base: 'histogram',
@@ -122,33 +103,6 @@ const CASES: CaseDef[] = [
     file: CSV('groups.csv', 'A,1\nA,2\nA,3\nB,10\nB,11\nB,12\n'),
   },
   {
-    name: 'heatmap',
-    base: 'heatmap',
-    header: 'row,col,value',
-    Ctor: HeatmapPlugin,
-    file: JSON_FILE('grid.json', [
-      [1, 2],
-      [3, 4],
-    ]),
-  },
-  {
-    name: 'contour',
-    base: 'contour',
-    header: 'row,col,value',
-    Ctor: ContourPlugin,
-    file: JSON_FILE('field.json', [
-      [0, 1],
-      [1, 0],
-    ]),
-  },
-  {
-    name: 'errorband',
-    base: 'error-band',
-    header: 'x,y,lower,upper',
-    Ctor: ErrorBandPlugin,
-    file: CSV('band.csv', 'x,y,err\n0,1,0.5\n1,2,0.4\n2,3,0.3\n'),
-  },
-  {
     name: 'qqplot',
     base: 'qq-plot',
     header: 'theoretical,sample',
@@ -157,20 +111,26 @@ const CASES: CaseDef[] = [
   },
 ];
 
-describe.each(CASES)('$name export buttons', (c) => {
-  it('exposes exportPng / exportCsv button params with bilingual labels', async () => {
+const PASSTHROUGH_CASES: PassthroughCaseDef[] = [
+  { name: 'scatter', Ctor: ScatterPlugin },
+  { name: 'timeSeries', Ctor: TimeSeriesPlugin },
+  { name: 'heatmap', Ctor: HeatmapPlugin },
+  { name: 'contour', Ctor: ContourPlugin },
+  { name: 'errorband', Ctor: ErrorBandPlugin },
+];
+
+describe.each(COMPUTED_CASES)('$name CSV export', (c) => {
+  it('declares exactly an exportCsv button and no PNG export', async () => {
     const { plugin } = await make(c.Ctor, null);
-    const buttons = buttonDefs(plugin.getParams());
-    const png = buttons.find((b) => b.key === 'exportPng');
-    const csv = buttons.find((b) => b.key === 'exportCsv');
-    expect(png).toBeDefined();
+    const defs = plugin.getParams();
+    const csv = buttonDefs(defs).find((b) => b.key === 'exportCsv');
     expect(csv).toBeDefined();
-    expect(png!.action).toBe('exportPng');
     expect(csv!.action).toBe('exportCsv');
-    expect(png!.labelI18n?.['zh-CN']).toBeTruthy();
-    expect(png!.labelI18n?.['en-US']).toBeTruthy();
     expect(csv!.labelI18n?.['zh-CN']).toBeTruthy();
     expect(csv!.labelI18n?.['en-US']).toBeTruthy();
+    // PNG snapshot export moved to the canvas-level menu in CentralArea.
+    expect(defs.some((d: ParamDefinition) => d.key === 'exportPng')).toBe(false);
+    expect(defs.filter((d: ParamDefinition) => d.key.startsWith('export')).map((d: ParamDefinition) => d.key)).toEqual(['exportCsv']);
   });
 
   it('exports CSV with a .csv file name after data is loaded', async () => {
@@ -202,24 +162,18 @@ describe.each(CASES)('$name export buttons', (c) => {
     expect(exportFile).toHaveBeenCalledTimes(1);
     expect(String(exportFile.mock.calls[0]![0]).endsWith('.csv')).toBe(true);
   });
+});
 
-  it('exports PNG through the injected canvas after data is loaded', async () => {
-    const { plugin, exportFile } = await make(c.Ctor, c.file);
-    injectCanvas(plugin);
-    plugin.updateParams({ exportPng: true });
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    const [fileName, blob, mime] = exportFile.mock.calls[0]!;
-    expect(String(fileName).endsWith('.png')).toBe(true);
-    expect(String(fileName).startsWith(c.base)).toBe(true);
-    expect(blob).toBeInstanceOf(Blob);
-    expect(mime).toBe('image/png');
-  });
-
-  it('warns instead of exporting PNG when data exists but no canvas is attached', async () => {
-    const { plugin, exportFile, notify } = await make(c.Ctor, c.file);
-    plugin.updateParams({ exportPng: true });
+describe.each(PASSTHROUGH_CASES)('$name export buttons', (c) => {
+  it('declares no export buttons at all and ignores export payloads', async () => {
+    const { plugin, exportFile } = await make(c.Ctor, null);
+    const exportKeys = plugin.getParams().filter((d: ParamDefinition) => d.key.startsWith('export'));
+    expect(exportKeys).toEqual([]);
+    // The unified canvas export menu (CentralArea) owns PNG/CSV for these
+    // charts; a stray payload for a removed button must be a silent no-op.
+    expect(() => plugin.updateParams({ exportCsv: true })).not.toThrow();
+    expect(() => plugin.updateParams({ exportPng: true })).not.toThrow();
     expect(exportFile).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledWith('warning', expect.any(String));
   });
 });
 
@@ -249,17 +203,6 @@ describe('scatter trend line', () => {
 
     plugin.updateParams({ showTrendline: false });
     expect(checkbox().value).toBe(false);
-  });
-
-  it('adds the optional color column only when a 3rd column exists', async () => {
-    const { plugin, exportFile } = await make(
-      ScatterPlugin,
-      CSV('points.dat', '0 1 0.5\n1 2 0.6\n2 3 0.7\n'),
-    );
-    plugin.updateParams({ exportCsv: true });
-    const blob = exportFile.mock.calls[0]![1] as Blob;
-    const text = await blob.text();
-    expect(text.replace(/^\uFEFF/, '').split('\r\n')[0]).toBe('x,y,color');
   });
 });
 
@@ -346,27 +289,5 @@ describe('box plot show mean', () => {
     const lines = text.replace(/^\uFEFF/, '').split('\r\n');
     expect(lines).toHaveLength(3); // header + 2 groups
     expect(lines[1]!.split(',').map((f) => f.trim())[0]).toBe('A');
-  });
-});
-
-// ---- heatmap: label columns -------------------------------------------------
-
-describe('heatmap labelled CSV export', () => {
-  it('appends row/col label columns when the JSON carries labels', async () => {
-    const file = JSON_FILE('labelled.json', {
-      data: [
-        [1, 2],
-        [3, 4],
-      ],
-      rowLabels: ['r0', 'r1'],
-      colLabels: ['c0', 'c1'],
-    });
-    const { plugin, exportFile } = await make(HeatmapPlugin, file);
-    plugin.updateParams({ exportCsv: true });
-    const text = await (exportFile.mock.calls[0]![1] as Blob).text();
-    const lines = text.replace(/^\uFEFF/, '').split('\r\n');
-    expect(lines[0]).toBe('row,col,rowLabel,colLabel,value');
-    expect(lines[1]).toBe('0,0,r0,c0,1');
-    expect(lines).toHaveLength(5); // header + 4 cells
   });
 });

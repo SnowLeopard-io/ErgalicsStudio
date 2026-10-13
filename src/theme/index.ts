@@ -16,7 +16,9 @@ function detectInitialPreference(): ThemePreference {
   } catch {
     /* ignore */
   }
-  return 'system';
+  // Default to the instrument-console dark look; 'system' stays opt-in via
+  // the switcher. Saved user choices always win.
+  return 'dark';
 }
 
 function systemDark(): boolean {

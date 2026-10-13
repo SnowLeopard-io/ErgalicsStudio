@@ -26,15 +26,11 @@ import { parseAqiCsv, aqiFigurePanels } from '@/plugins/builtin/env/aqi';
 import { parseWaterCsv, waterFigurePanels } from '@/plugins/builtin/env/water';
 import { parseCarbonCsv, carbonFigurePanels } from '@/plugins/builtin/env/carbon';
 import { parseAbundanceCsv, biodiversityFigurePanels } from '@/plugins/builtin/env/biodiversity';
-import { parseConcCsv, computePlumeField } from '@/plugins/builtin/env/plume3d';
-import { parseProfileCsv, resampleProfile } from '@/plugins/builtin/env/lake3d';
 
 import aqiWeekCsv from '../examples/data/env-aqi-week.csv?raw';
 import waterRiverCsv from '../examples/data/env-water-river.csv?raw';
 import biodiversitySitesCsv from '../examples/data/env-biodiversity-sites.csv?raw';
 import carbonPoolsCsv from '../examples/data/env-carbon-pools.csv?raw';
-import plume3dFieldCsv from '../examples/data/env-plume3d-field.csv?raw';
-import lake3dProfileCsv from '../examples/data/env-lake3d-profile.csv?raw';
 import { BUILTIN_PLUGINS } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import { BUILTIN_EXAMPLES } from '@/core/examples';
@@ -48,10 +44,7 @@ const ENV_IDS = [
   'example.env-carbon',
   'example.env-biodiversity',
   'example.env-plume',
-  'example.env-plume3d',
-  'example.env-lake3d',
   'example.env-earth3d',
-  'example.env-groundwater3d',
 ];
 
 // ---- AQI --------------------------------------------------------------------
@@ -310,49 +303,26 @@ describe('env sample data end-to-end', () => {
     for (const p of Object.values(run[50]!.pools)) expect(Number.isFinite(p)).toBe(true);
     expect(carbonFigurePanels(run).length).toBeGreaterThan(0);
   });
-  it('plume3d field CSV normalises onto a 24³ grid without NaN', () => {
-    const field = parseConcCsv(plume3dFieldCsv);
-    expect(field).not.toBeNull();
-    expect(field!.nx).toBe(24);
-    expect(field!.cMax).toBeGreaterThan(0);
-    for (const v of field!.c) expect(Number.isFinite(v)).toBe(true);
-    const sim = computePlumeField(1e6, 3, 'D', 40, 24);
-    expect(sim.cMax).toBeGreaterThan(0);
-    expect(Number.isFinite(sim.cMax)).toBe(true);
-  });
-  it('lake profile CSV: 12 depths sorted, resamples to 25 display points', () => {
-    const prof = parseProfileCsv(lake3dProfileCsv);
-    expect(prof).not.toBeNull();
-    expect(prof!.points.length).toBe(12);
-    expect(closeTo(prof!.points[0]!.temp, 26.5, 1e-9)).toBe(true);
-    for (let i = 1; i < prof!.points.length; i += 1) {
-      expect(prof!.points[i]!.depth).toBeGreaterThan(prof!.points[i - 1]!.depth);
-    }
-    const display = resampleProfile(prof!.points, 30);
-    expect(display.length).toBe(25);
-    expect(closeTo(display[24]!.depth, 30, 1e-9)).toBe(true);
-  });
 });
 
 // ---- Registration -------------------------------------------------------------
 
 describe('env suite registration', () => {
-  it('all 10 environmental plugins are registered', () => {
+  it('all 7 environmental plugins are registered', () => {
     const ids = BUILTIN_PLUGINS.map((p) => p.manifest.id);
     for (const id of ENV_IDS) expect(ids).toContain(id);
   });
   it('every env plugin belongs to the env discipline', () => {
     for (const id of ENV_IDS) expect(disciplineOf(id)).toBe('env');
   });
-  it('six env samples are registered for the 示例 dialog', () => {
+  it('five env samples are registered for the 示例 dialog', () => {
     const envExamples = BUILTIN_EXAMPLES.filter((e) => e.pluginId.startsWith('example.env-'));
     expect(envExamples.map((e) => e.id).sort()).toEqual(
       [
         'env-aqi-week',
         'env-biodiversity-sites',
         'env-carbon-pools',
-        'env-lake3d-profile',
-        'env-plume3d-field',
+        'env-hudson-bay-lynx-hare',
         'env-water-river',
       ].sort(),
     );

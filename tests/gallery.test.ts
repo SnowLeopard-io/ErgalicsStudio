@@ -221,6 +221,83 @@ describe('sanitizeForGallery', () => {
 });
 
 // ---------------------------------------------------------------------------
+// sanitizeForGallery — issue #26 bypass regressions
+// ---------------------------------------------------------------------------
+
+describe('sanitizeForGallery — issue #26 bypass regressions', () => {
+  const rawRows = (n: number, render: (i: number) => string): string =>
+    Array.from({ length: n }, (_, i) => `<tr>${render(i)}</tr>`).join('\n');
+
+  it('a summary marker in one header no longer keeps a raw dump (bypass 1)', () => {
+    const html = `<table><thead><tr><th>sample</th><th>seed</th><th>ph</th><th>conc</th></tr></thead><tbody>
+${rawRows(50, (i) => `<td>${i + 1}</td><td>${21 + i * 0.1}</td><td>7.0${i % 10}</td><td>0.${50 + i}</td>`)}
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('data rows removed for privacy');
+    expect(out).not.toContain('<td>21.1</td>');
+    expect(out).not.toContain('7.09');
+  });
+
+  it('non-numeric raw rows (names / emails / cities / phones) are stripped (bypass 2)', () => {
+    const html = `<table><thead><tr><th>name</th><th>email</th><th>city</th><th>phone</th></tr></thead><tbody>
+${rawRows(50, (i) => `<td>Person${i}</td><td>p${i}@lab.example</td><td>City${i}</td><td>1380000${String(1000 + i)}</td>`)}
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('data rows removed for privacy');
+    expect(out).not.toContain('Person49');
+    expect(out).not.toContain('p49@lab.example');
+  });
+
+  it('object-wrapped islands and short-record arrays are dropped, lock island stays (bypass 3)', () => {
+    const html = `<p>x</p>
+<script type="application/json" id="wrapped">{"data":[{"name":"Alice","email":"a@x.com"},{"name":"Bob","email":"b@x.com"}]}</script>
+<script type="application/json" id="short">[{"name":"Alice","email":"a@x.com"}]</script>
+<script type="application/json" id="repro-lock-json">{"schema":"ergalics.repro-lock","lockVersion":2,"runs":[]}</script>`;
+    const out = sanitizeForGallery(html);
+    expect(out).not.toContain('Alice');
+    expect(out).not.toContain('a@x.com');
+    expect(out).toContain('repro-lock-json');
+    expect(out).toContain('"lockVersion":2');
+  });
+
+  it('unparseable islands are dropped too', () => {
+    const html = `<script type="application/json" id="broken">{not json}</script>`;
+    expect(sanitizeForGallery(html)).not.toContain('broken');
+  });
+
+  it('raw rows embedded in <pre> or SVG <text> markup lines are caught (bypass 4)', () => {
+    const html = `<pre>12.5,0.44,7.02,21.3</pre>
+<svg viewBox="0 0 10 10"><text x="0" y="1">13.1,0.51,6.97,22.0</text></svg>
+<p>stats stay: p=0.031, r2=0.98</p>`;
+    const out = sanitizeForGallery(html);
+    expect(out).not.toContain('12.5,0.44,7.02,21.3');
+    expect(out).not.toContain('13.1,0.51,6.97,22.0');
+    expect(out).toContain('p=0.031, r2=0.98');
+  });
+
+  it('a 32-bit seed column is NOT a phone — summary table survives (issue #56)', () => {
+    const html = `<table><thead><tr><th>Run</th><th>Source</th><th>Seed</th><th>Created</th><th>Metrics</th></tr></thead><tbody>
+<tr><td><code>abc12345</code> run A</td><td>import</td><td>123456</td><td>2026-01-01T00:00:00.000Z</td><td>p=0.031</td></tr>
+<tr><td><code>def67890</code> run B</td><td>import</td><td>4294967295</td><td>2026-01-02T00:00:00.000Z</td><td>p=0.002</td></tr>
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('<table>');
+    expect(out).toContain('123456');
+    expect(out).not.toContain('data rows removed for privacy');
+  });
+
+  it('real phone numbers are still stripped (issue #56)', () => {
+    const html = `<table><thead><tr><th>name</th><th>phone</th><th>city</th><th>zip</th></tr></thead><tbody>
+<tr><td>Alice</td><td>+86 138-0000-1000</td><td>Shanghai</td><td>200000</td></tr>
+<tr><td>Bob</td><td>010-1234-5678</td><td>Beijing</td><td>100000</td></tr>
+</tbody></table>`;
+    const out = sanitizeForGallery(html);
+    expect(out).toContain('data rows removed for privacy');
+    expect(out).not.toContain('138-0000-1000');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // buildGalleryShare
 // ---------------------------------------------------------------------------
 

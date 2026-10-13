@@ -1,9 +1,12 @@
 // ==========================================================================
 // Ergalics Studio — notebook tests (core)
 //
-// Cell model helpers, the mdToHtml renderer (escaping + supported syntax)
-// and the project persistence round-trip.
+// Cell model helpers, the mdToHtml renderer (marked + DOMPurify: GFM syntax,
+// sanitized raw HTML, mermaid/math placeholders) and the project persistence
+// round-trip.
 // ==========================================================================
+
+// @vitest-environment jsdom
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -35,10 +38,11 @@ describe('notebook cell model', () => {
 });
 
 describe('mdToHtml — safety', () => {
-  it('escapes raw HTML in markdown', () => {
+  it('sanitizes raw HTML in markdown (no executable markup survives)', () => {
     const html = mdToHtml('<img src=x onerror=alert(1)>');
-    expect(html).toContain('&lt;img');
-    expect(html).not.toContain('<img');
+    // DOMPurify keeps the inert img but strips the event handler entirely.
+    expect(html).not.toContain('onerror');
+    expect(html).not.toContain('<script');
   });
 
   it('escapes HTML inside fenced code blocks', () => {
@@ -50,13 +54,13 @@ describe('mdToHtml — safety', () => {
   it('neutralizes active-scheme markdown links (shared-notebook XSS)', () => {
     const evil = mdToHtml('[click](javascript:alert(1))');
     expect(evil).not.toContain('href="javascript:');
-    expect(evil).not.toContain('<a ');
+    expect(evil).not.toContain('href=');
     expect(evil).toContain('click');
 
     // Obfuscated casing and other active schemes are blocked too.
-    expect(mdToHtml('[x](JaVaScRiPt:alert(1))')).not.toContain('<a ');
-    expect(mdToHtml('[x](data:text/html,<script>)')).not.toContain('<a ');
-    expect(mdToHtml('[x](vbscript:msgbox)')).not.toContain('<a ');
+    expect(mdToHtml('[x](JaVaScRiPt:alert(1))')).not.toContain('href=');
+    expect(mdToHtml('[x](data:text/html,<script>)')).not.toContain('href=');
+    expect(mdToHtml('[x](vbscript:msgbox)')).not.toContain('href=');
   });
 
   it('still allows http/https/mailto and relative links', () => {
@@ -65,6 +69,8 @@ describe('mdToHtml — safety', () => {
     expect(mdToHtml('[m](mailto:a@b.example)')).toContain('href="mailto:a@b.example"');
     expect(mdToHtml('[r](/files/a.csv)')).toContain('href="/files/a.csv"');
     expect(mdToHtml('[r](#section)')).toContain('href="#section"');
+    // Every surviving link gets a rel (opener-leak protection).
+    expect(mdToHtml('[s](https://x.example)')).toContain('rel="noopener noreferrer"');
   });
 });
 
@@ -75,20 +81,43 @@ describe('mdToHtml — supported syntax', () => {
     expect(html).toContain('<strong>bold</strong>');
     expect(html).toContain('<em>em</em>');
     expect(html).toContain('<code>code</code>');
-    expect(html).toContain('<a href="https://x.example" rel="noopener noreferrer">site</a>');
+    expect(html).toContain('href="https://x.example"');
   });
 
   it('renders fenced code, lists and blockquotes', () => {
     const html = mdToHtml('```python\nx = 1\n```\n\n- one\n- two\n\n> quoted');
-    expect(html).toContain('<pre><code>x = 1</code></pre>');
-    expect(html).toContain('<ul><li>one</li><li>two</li></ul>');
-    expect(html).toContain('<blockquote>quoted</blockquote>');
+    expect(html).toContain('<pre><code class="language-python">x = 1</code></pre>');
+    expect(html).toContain('<li>one</li>');
+    expect(html).toContain('<li>two</li>');
+    expect(html).toContain('<blockquote>');
+    expect(html).toContain('<p>quoted</p>');
   });
 
   it('auto-closes an unclosed fence and keeps plain paragraphs', () => {
     const html = mdToHtml('plain text\n```\nnever closed');
     expect(html).toContain('<p>plain text</p>');
-    expect(html).toContain('<pre><code>never closed</code></pre>');
+    expect(html).toContain('<pre><code>never closed');
+  });
+
+  it('renders GFM tables and task lists', () => {
+    const html = mdToHtml('| a | b |\n| --- | --- |\n| 1 | 2 |\n\n- [x] done\n- [ ] todo');
+    expect(html).toContain('<table>');
+    expect(html).toContain('<th');
+    expect(html).toContain('<input');
+    expect(html).toContain('checked');
+  });
+
+  it('emits mermaid + math placeholders (upgraded by enhanceMarkdownDom)', () => {
+    const html = mdToHtml(
+      '```mermaid\ngraph TD; A-->B;\n```\n\nInline $E=mc^2$ and $$\\int_0^1 x\\,dx$$',
+    );
+    expect(html).toContain('class="md-mermaid"');
+    expect(html).toContain('data-mermaid="' + encodeURIComponent('graph TD; A-->B;') + '"');
+    expect(html).toContain('class="md-tex"');
+    expect(html).toContain('data-tex="' + encodeURIComponent('E=mc^2') + '"');
+    expect(html).toContain('data-display="1"');
+    // The raw TeX must not leak as unencoded markup.
+    expect(html).not.toContain('E=mc^2');
   });
 });
 

@@ -4,8 +4,13 @@
 // A notebook is a flat list of markdown/code cells persisted in
 // `project.state.notebook`. Execution semantics live in notebookStore (the
 // Pyodide runtime is stateful and page-scoped); this module holds the cell
-// model, output model and a small, safe markdown renderer.
+// model, output model and the shared markdown renderer (marked + DOMPurify,
+// with mermaid diagrams / TeX math emitted as placeholder nodes that
+// `enhanceMarkdownDom` upgrades asynchronously).
 // ==========================================================================
+
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 export type NotebookCellType = 'md' | 'code';
 
@@ -61,98 +66,72 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/**
- * Markdown cells render with dangerouslySetInnerHTML and notebooks can be
- * shared inside project files, so a link target must not carry an active
- * scheme (javascript:, data:, vbscript:…). Only http/https/mailto and
- * relative/anchor links pass; anything else renders as plain label text.
- */
-function isSafeUrl(url: string): boolean {
-  if (url.startsWith('#') || url.startsWith('/')) return true;
-  const m = /^([a-z][a-z0-9+.-]*):/i.exec(url);
-  if (!m) return true; // relative URL without a scheme
-  return ['http', 'https', 'mailto'].includes(m[1]!.toLowerCase());
+/** A mermaid diagram placeholder (upgraded asynchronously by enhanceMarkdownDom). */
+function mermaidPlaceholder(code: string): string {
+  return `\n<div class="md-mermaid" data-mermaid="${encodeURIComponent(code.trim())}"></div>\n`;
 }
 
-function inlineMarkdown(s: string): string {
-  return escapeHtml(s)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) =>
-      isSafeUrl(url)
-        ? `<a href="${url}" rel="noopener noreferrer">${label}</a>`
-        : label,
-    );
+/** A TeX math placeholder (`display` = block-level math). */
+function texPlaceholder(tex: string, display: boolean): string {
+  return `<span class="md-tex" data-tex="${encodeURIComponent(tex.trim())}"${
+    display ? ' data-display="1"' : ''
+  }></span>`;
 }
 
 /**
- * Lightweight, dependency-free markdown → HTML for notebook markdown cells.
- * HTML in the source is always escaped first; supports fenced code blocks,
- * headings, unordered lists, blockquotes, inline code/bold/italic and links.
+ * Replace rich content (mermaid diagrams, TeX math, code) with raw HTML that
+ * marked passes through untouched, so it can never be mangled by the markdown
+ * parser and math payloads survive URI-encoded in data attributes.
  */
+function extractRichTokens(src: string): string {
+  // 1) Fenced code blocks — mermaid becomes a diagram placeholder, every other
+  //    language re-emits as an escaped <pre><code> (bypassing marked, which is
+  //    fine: the content is already HTML-escaped here).
+  src = src.replace(
+    /```([\w+#-]*)[^\S\n]*\n?([\s\S]*?)```/g,
+    (_m, lang: string, code: string) => {
+      if (lang.toLowerCase() === 'mermaid') return mermaidPlaceholder(code);
+      const cls = lang ? ` class="language-${lang.toLowerCase()}"` : '';
+      return `\n<pre><code${cls}>${escapeHtml(code.replace(/\n$/, ''))}</code></pre>\n`;
+    },
+  );
+  // 2) Inline code spans — escaped now so math extraction can't touch them.
+  src = src.replace(/`([^`\n]+)`/g, (_m, code: string) => `<code>${escapeHtml(code)}</code>`);
+  // 3) Display math: $$…$$ and \[…\]
+  src = src.replace(/\$\$([\s\S]+?)\$\$/g, (_m, tex: string) => ` ${texPlaceholder(tex, true)} `);
+  src = src.replace(/\\\[([\s\S]+?)\\\]/g, (_m, tex: string) => ` ${texPlaceholder(tex, true)} `);
+  // 4) Inline math: \(…\) and $…$ (single-line; the opening $ must not be
+  //    followed by whitespace and the closing $ must not sit inside a word,
+  //    which keeps currency amounts like "$5 and $10" out of TeX).
+  src = src.replace(/\\\(([\s\S]+?)\\\)/g, (_m, tex: string) => texPlaceholder(tex, false));
+  src = src.replace(/(^|[^\w$\\])\$([^$\n]+?)\$(?![\w$])/g, (_m, pre: string, tex: string) => {
+    if (/^\s|\s$/.test(tex)) return _m;
+    return `${pre}${texPlaceholder(tex, false)}`;
+  });
+  return src;
+}
+
+/**
+ * Shared markdown → HTML renderer. Offline-friendly: marked (GFM tables,
+ * task lists, strikethrough…) + DOMPurify sanitization run synchronously;
+ * mermaid diagrams and TeX math are emitted as placeholder nodes that
+ * `enhanceMarkdownDom()` upgrades in place (async render, lazy-loaded libs).
+ * Raw HTML in the source is sanitized by DOMPurify (executable markup never
+ * survives). Needs a DOM — only call from browser/jsdom contexts.
+ */
+let relHookInstalled = false;
+
 export function mdToHtml(md: string): string {
-  const lines = md.split('\n');
-  const out: string[] = [];
-  let inCode = false;
-  let codeLang = '';
-  let codeBuf: string[] = [];
-  let listBuf: string[] = [];
-
-  const flushList = () => {
-    if (listBuf.length === 0) return;
-    out.push(`<ul>${listBuf.map((li) => `<li>${inlineMarkdown(li)}</li>`).join('')}</ul>`);
-    listBuf = [];
-  };
-
-  for (const raw of lines) {
-    const fence = /^\s*```(\w*)\s*$/.exec(raw);
-    if (fence) {
-      if (inCode) {
-        out.push(`<pre><code>${escapeHtml(codeBuf.join('\n'))}</code></pre>`);
-        inCode = false;
-        codeBuf = [];
-        codeLang = '';
-      } else {
-        flushList();
-        inCode = true;
-        codeLang = fence[1] ?? '';
-      }
-      continue;
-    }
-    if (inCode) {
-      codeBuf.push(raw);
-      continue;
-    }
-
-    const heading = /^(#{1,4})\s+(.*)$/.exec(raw);
-    if (heading) {
-      flushList();
-      const level = heading[1]!.length;
-      out.push(`<h${level}>${inlineMarkdown(heading[2]!)}</h${level}>`);
-      continue;
-    }
-
-    const bullet = /^\s*[-*]\s+(.*)$/.exec(raw);
-    if (bullet) {
-      listBuf.push(bullet[1]!);
-      continue;
-    }
-    flushList();
-
-    const quote = /^\s*>\s?(.*)$/.exec(raw);
-    if (quote) {
-      out.push(`<blockquote>${inlineMarkdown(quote[1]!)}</blockquote>`);
-      continue;
-    }
-
-    if (raw.trim() === '') {
-      continue;
-    }
-    out.push(`<p>${inlineMarkdown(raw)}</p>`);
+  // One-time hook: every surviving <a> gets a rel so target=_blank-style
+  // navigation never leaks the opener. Installed lazily so importing this
+  // module in a DOM-less environment (plain node) stays harmless.
+  if (!relHookInstalled && typeof document !== 'undefined') {
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+      if (node.tagName === 'A') node.setAttribute('rel', 'noopener noreferrer');
+    });
+    relHookInstalled = true;
   }
-  if (inCode) out.push(`<pre><code>${escapeHtml(codeBuf.join('\n'))}</code></pre>`);
-  flushList();
-  void codeLang;
-  return out.join('\n');
+  const preprocessed = extractRichTokens(md);
+  const parsed = marked.parse(preprocessed, { gfm: true, breaks: false }) as string;
+  return DOMPurify.sanitize(parsed, { ADD_ATTR: ['data-mermaid', 'data-tex', 'data-display'] });
 }

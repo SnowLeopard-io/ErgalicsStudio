@@ -101,7 +101,8 @@
   font-weight: 500;
   /* Two-line topbar labels ("普/通") read broken — keep each on one line. */
   white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster .cluster-btn:hover,
@@ -109,6 +110,13 @@
 .topbar-cluster .menu-wrap > .btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+/* Quiet press: the button compresses a touch so clicks feel acknowledged. */
+.topbar-cluster .cluster-btn:active:not(:disabled),
+.topbar-cluster .icon-btn:active:not(:disabled),
+.topbar-cluster .menu-wrap > .btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .topbar-cluster .cluster-btn:disabled {
@@ -163,7 +171,7 @@
   border-radius: 999px;
   background: var(--color-accent);
   color: var(--color-text-inverse);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
 }
@@ -365,7 +373,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-2);
+  /* 左侧留白略大：品牌/项目名不再顶住屏幕左缘。 */
+  padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
 }
@@ -412,6 +421,9 @@
   flex: 1;
   display: flex;
   min-height: 0;
+  /* 为收起态贴边的浮层按钮 (.panel-edge-*) 提供定位上下文，使其不占横向
+     布局槽位，从而让中央画布填满整行。 */
+  position: relative;
 }
 
 /* ---- sidebar ---- */
@@ -425,10 +437,8 @@
   padding: var(--space-3);
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  overflow-y: auto;
-  /* The resize handle hangs 2px past the right edge (absolute) and would
-     otherwise surface a meaningless horizontal scrollbar whenever the
-     sidebar scrolls vertically. Every text row already ellipsizes. */
+  overflow-y: auto;  /* 横向内容一律省略号收尾，不出横向滚动条（拖拽手柄挂在
+     .panel-wrap 包裹层上，不受此裁剪影响）。 */
   overflow-x: hidden;
 }
 
@@ -447,64 +457,189 @@
   letter-spacing: 0.16em;
 }
 
+/* Git panel ships collapsed behind a <details> summary row. */
+.git-panel > summary.git-panel-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.git-panel > summary.git-panel-summary::-webkit-details-marker {
+  display: none;
+}
+.git-panel-caret {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 11px;
+}
+.git-panel[open] > summary.git-panel-summary .git-panel-caret {
+  transform: rotate(90deg);
+}
+.git-panel-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-size-xs);
+}
+.git-pending-dot {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* ---- File explorer (/studio/files) ------------------------------------- */
+.explorer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+.explorer-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 34%) 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+.explorer-tree {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2);
+  max-height: 60vh;
+  overflow: auto;
+}
+.explorer-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+.explorer-node:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.explorer-node.is-active {
+  background: var(--color-accent-soft, rgba(45, 212, 191, 0.14));
+  color: var(--color-text-primary);
+}
+.explorer-twisty {
+  width: 12px;
+  flex: none;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.explorer-twisty.is-open {
+  transform: rotate(90deg);
+}
+.explorer-twisty.is-leaf {
+  visibility: hidden;
+}
+.explorer-name.is-dir {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.explorer-size {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+.explorer-empty {
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+.explorer-view {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3);
+  min-height: 200px;
+}
+.explorer-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.explorer-crumb code {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+.explorer-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+.explorer-pre {
+  margin: 0;
+  max-height: 48vh;
+  overflow: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.explorer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+.explorer-guide {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+.explorer-guide-list {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.explorer-guide-list li::before {
+  content: '▸ ';
+  color: var(--color-text-tertiary);
+}
+
 .sidebar-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-.recent-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.recent-item {
-  display: flex;
-  align-items: center;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
-}
-
-.recent-item.active {
-  background: var(--color-accent-soft);
-}
-
-.recent-item.active .recent-name {
-  color: var(--color-accent-text);
-}
-
-.recent-name {
-  flex: 1;
-  padding: 6px 8px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recent-name:hover {
-  color: var(--color-text-primary);
-}
-
-.recent-delete {
-  width: 22px;
-  height: 22px;
-  font-size: var(--font-size-xs);
-  opacity: 0;
-  color: var(--color-text-tertiary);
-}
-
-.recent-item:hover .recent-delete {
-  opacity: 1;
 }
 
 .plugin-list {
@@ -545,7 +680,7 @@
 
 .plugin-group-chevron {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   transition: transform var(--transition-fast);
 }
 
@@ -559,7 +694,7 @@
 }
 
 .plugin-group-count {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-tertiary);
   background: var(--color-bg-hover);
   border-radius: 999px;
@@ -624,10 +759,22 @@
 
 /* ---- central area: the scope ---- */
 
-.central {
+/* Column wrapper: viewfinder canvas on top, science readout strip below in
+   normal flow (the strip must NOT live inside .central — the plugin host is
+   position:absolute there, which made the strip float over the canvas). */
+.central-wrap {
   position: relative;
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   background: var(--color-canvas);
   display: flex;
 }
@@ -769,7 +916,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-secondary);
 }
 
@@ -832,6 +979,65 @@
   filter: brightness(1.15);
 }
 
+/* Unified plugin-canvas export control (download / save to workspace). */
+.central-export {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 6;
+}
+
+.central-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-accent);
+  box-shadow: var(--shadow-1);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.central-export-btn:hover {
+  filter: brightness(1.15);
+}
+
+.central-export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+.central-export-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.central-export-item:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
 .central-drop-hint {
   position: absolute;
   inset: 14px;
@@ -850,6 +1056,218 @@
   pointer-events: none;
   backdrop-filter: blur(1px);
   animation: drop-hint-pulse 1.4s ease-in-out infinite;
+}
+
+/* Unified scientific-output strip: structured numerical conclusions
+   (R², residuals, CIs, conservation diagnostics) published by the active
+   plugin, rendered as an instrument readout under the viewport. */
+.science-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.science-strip-title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-accent-text);
+  flex-shrink: 0;
+}
+
+.science-strip-items {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.science-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.science-metric-label {
+  color: var(--color-text-tertiary);
+}
+
+.science-metric-value {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Deep-link cluster: carry the plugin's staged data file into an embedded
+   research suite. Pushed to the far end of the strip so metrics read first. */
+.science-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.science-strip-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.science-metric-unit {
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.science-metric.sev-ok .science-metric-value { color: var(--color-success, #2e9e5b); }
+.science-metric.sev-warn .science-metric-value { color: var(--color-warning, #c28a1f); }
+.science-metric.sev-error .science-metric-value { color: var(--color-danger, #c0392b); }
+
+/* Sidebar Git panel (requirements/01 Phase 3, minimal scope). */
+.git-panel-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.git-panel-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.git-branch {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-ahead-behind {
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.git-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.git-branch-row,
+.git-clone-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Clone progress line + the CORS-proxy field sit tight under the clone row. */
+.git-clone-progress {
+  margin: 2px 0 0;
+  font-size: 11px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-proxy-row {
+  margin-top: 4px;
+}
+
+.git-proxy-row .git-clone-input {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.git-branch-input,
+.git-clone-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.git-panel-changes {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.git-clean {
+  color: var(--color-text-tertiary);
+}
+
+.git-changes-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-sm);
+  text-decoration: underline dotted;
+}
+
+.git-changes-btn:hover {
+  text-decoration-style: solid;
+}
+
+.git-commit-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.git-commit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.git-log {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.git-log-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.git-log-hash {
+  font-family: var(--font-mono);
+  color: var(--color-accent-text);
+  flex-shrink: 0;
+}
+
+.git-log-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
 }
 
 /* Restrained instrument-console pulse: the dashed frame breathes, the icon
@@ -893,6 +1311,162 @@
 .right-panel-plugin {
   margin-top: var(--space-4);
   display: flex;
+  justify-content: center;
+}
+
+/* ---- right-panel suite introduction (embedded research suite) ---- */
+
+.suite-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.suite-intro-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.suite-intro-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+}
+
+.suite-intro-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.suite-intro-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.suite-intro-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+/* 套件信息表：数据要求 / 运行方式等事实性条目。 */
+.suite-intro-facts {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suite-intro-fact dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-tertiary);
+  margin-bottom: 2px;
+}
+
+.suite-intro-fact dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.suite-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ---- 右侧栏 · 无插件欢迎面板 -------------------------------------------
+   替代原先孤零零的"请先激活一个插件"占位：快速引导 + 版本更新要点 +
+   仓库卡片。视觉沿用 suite-intro 的克制风格（细分隔线 + 弱化文案）。 */
+.rp-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rp-welcome-intro {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.rp-welcome-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.rp-welcome-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rp-welcome-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.rp-welcome-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.rp-welcome-link:hover {
+  text-decoration: underline;
+}
+
+.rp-welcome-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  line-height: 1.6;
+}
+
+.rp-welcome-repo-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.rp-welcome-repo-btns .btn {
+  flex: 1;
+  text-decoration: none;
   justify-content: center;
 }
 
@@ -1200,11 +1774,16 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-tab:hover {
   color: var(--color-text-primary);
+}
+
+.plugin-tab:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .plugin-tab.active {
@@ -1296,11 +1875,17 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .plugin-cat:hover {
   border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.plugin-cat:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .plugin-cat.active {
@@ -1321,9 +1906,55 @@
   margin-left: 6px;
   padding: 1px 7px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   vertical-align: middle;
+}
+
+/* Research-readiness tier badges (docs/technical/11-插件科研化整改方案.md). */
+.tier-research {
+  background: var(--color-accent-soft, rgba(46, 158, 91, 0.15));
+  color: var(--color-accent-text);
+}
+
+.tier-quasi-research {
+  background: rgba(46, 134, 193, 0.14);
+  color: #2e86c1;
+}
+
+.tier-demonstration {
+  background: rgba(194, 138, 31, 0.14);
+  color: #c28a1f;
+}
+
+.tier-educational {
+  background: var(--color-border, rgba(128, 128, 128, 0.15));
+  color: var(--color-text-tertiary);
+}
+
+.plugin-detail-research {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.plugin-detail-research .plugin-badge {
+  margin-left: 0;
+}
+
+.plugin-detail-research-notes {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.plugin-detail-research-units {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .cat-scientific {
@@ -1544,6 +2175,17 @@
     var(--color-bg-primary);
 }
 
+/* 设置页嵌入画布标签：独立页是 100vh + 自带顶栏；嵌入模式由画布标签条
+   承载标题与关闭按钮（TSX 不渲染顶栏），根容器改为填满标签窗格高度。 */
+.settings-embedded {
+  height: 100%;
+  min-height: 0;
+}
+
+.settings-embedded .settings-layout {
+  min-height: 0;
+}
+
 .settings-topbar-left {
   display: flex;
   align-items: center;
@@ -1634,13 +2276,78 @@
 }
 
 .settings-content-inner {
-  max-width: 780px;
+  max-width: 1000px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-5) var(--space-8);
+  padding: var(--space-6) var(--space-6) var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* ---- 设置页 · 主题市场卡片网格 ----------------------------------------
+   行式布局在大屏上留白过多；主题条目改为自适应两列卡片，信息密度更高。 */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-secondary);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.theme-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.theme-card.is-applied {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.theme-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.theme-card-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.theme-card-desc {
+  font-size: var(--font-size-xs);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.theme-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.theme-card-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 .settings-title {
@@ -2245,6 +2952,105 @@
 
 .tour-tip-hero .tour-tip-body {
   font-size: var(--font-size-md);
+}
+
+/* Menu step (track chooser): the hero card widens further to fit a 2x2
+   grid — one clickable card per competition track. */
+.tour-tip-hero:has(.tour-menu-grid) {
+  width: min(860px, calc(100vw - 48px));
+}
+
+/* Audience chooser: two stacked full-width identity cards. */
+.tour-menu-grid.is-audience {
+  grid-template-columns: 1fr;
+}
+
+/* Intro (track briefing) step: multi-line copy, wider hero card. */
+.tour-tip-hero:has(.tour-intro-body) {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.tour-intro-body {
+  white-space: pre-line;
+  text-align: left;
+}
+
+/* Track progress dots (view/click/done steps). */
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: var(--space-2);
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.tour-dot.is-active {
+  background: var(--color-accent);
+}
+
+.tour-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .tour-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tour-menu-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.tour-menu-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  transform: translateY(-1px);
+}
+
+.tour-menu-badge {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tour-menu-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.45;
+}
+
+.tour-menu-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
@@ -4170,6 +4976,32 @@
   overflow-y: auto;
 }
 
+/* Embedded variant: the suite is rendered inside the workbench CentralArea
+   (overlay over the canvas), which already owns the top bar and status bar —
+   fill the host instead of the viewport. */
+.tool-shell.embedded {
+  height: 100%;
+  background: var(--color-bg-primary);
+}
+
+/* Slim action bar that preserves a suite's headerExtra (sheet switcher,
+   caption generator, submission check, add-cell …) when the full tool
+   topbar is dropped in embedded mode. */
+.tool-embedded-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 40px;
+  padding: var(--space-1) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.tool-embedded-bar .tool-topbar-extra {
+  margin-left: 0;
+}
+
 .tool-content {
   display: flex;
   flex-direction: column;
@@ -4350,7 +5182,7 @@
 
 .menu-group-label {
   padding: 6px 10px 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -4413,7 +5245,7 @@
   display: inline-block;
   padding: 1px 7px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   background: var(--color-accent-soft);
   color: var(--color-accent-text);
@@ -4447,12 +5279,17 @@
   white-space: nowrap;
   cursor: pointer;
   position: relative;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topbar-cluster.mode-switch .mode-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.topbar-cluster.mode-switch .mode-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 /* Double indication: filled chip + underline. */
@@ -4470,6 +5307,8 @@
   height: 2px;
   border-radius: 1px;
   background: var(--color-accent);
+  transform-origin: left center;
+  animation: underline-in 0.2s var(--ease-out) backwards;
 }
 
 .topbar-cluster .cluster-btn.icon-only {
@@ -4965,7 +5804,7 @@ button.start-card:hover {
 
 .tool-grid-label {
   margin: 0 0 var(--space-2);
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -5020,6 +5859,12 @@ button.start-card:hover {
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
   color: var(--color-accent);
+  transition: transform var(--transition-base);
+}
+
+/* The icon eases forward as the card lifts — a small "signal coming online". */
+.tool-card:hover .tool-card-icon {
+  transform: scale(1.08);
 }
 
 .tool-card-text {
@@ -5204,7 +6049,7 @@ button.start-card:hover {
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   cursor: default;
 }
 
@@ -5814,10 +6659,14 @@ button.start-card:hover {
 }
 
 /* Tool pages scroll in the shell — clear the dialog-era inner height cap so
-   a lab never renders a nested scrollbar inside the page scroll. */
+   a lab never renders a nested scrollbar inside the page scroll. The rules
+   below also zero the rows' modal-era bottom margins, so give the flex
+   container itself a column gap or buttons / result blocks stack with no
+   vertical breathing room (pressed against the row above or below). */
 .tool-content .analysis-body {
   max-height: none;
   overflow: visible;
+  gap: var(--space-3);
 }
 
 /* Section headers: a quiet accent tick + clear separation, calmer than the
@@ -6136,11 +6985,19 @@ button.start-card:hover {
 
 /* ---- 模式同步指示点 ---- */
 
+.topbar-cluster > :last-child.mode-sync-dot {
+  /* 集群的 last-child 端盖圆角规则会把右两角压平成 calc(radius-sm-1px)，
+     让圆点右半看起来被"切掉"；这里恢复四角全圆。 */
+  border-radius: 999px;
+}
+
 .mode-sync-dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
   margin-left: 6px;
+  margin-right: 10px;
+  flex: 0 0 auto;
   transition:
     background var(--transition-fast),
     box-shadow var(--transition-fast);
@@ -6163,18 +7020,22 @@ button.start-card:hover {
   top: 0;
   bottom: 0;
   width: 5px;
-  z-index: 20;
+  /* 高于收起按钮（z-21）：按钮贴边后会盖住感应条的 5px，提层级保证
+     整条边缘全高可拖拽。 */
+  z-index: 22;
   cursor: col-resize;
   touch-action: none;
   transition: background var(--transition-fast);
 }
 
 .panel-resize-right {
-  right: -2px;
+  /* 整体挂在侧栏右缘外侧（叠在中央区最左侧 5px 上），完整可命中。 */
+  right: -5px;
 }
 
 .panel-resize-left {
-  left: -2px;
+  /* 整体挂在右栏左缘外侧（叠在中央区最右侧 5px 上），完整可命中。 */
+  left: -5px;
 }
 
 .panel-resize-handle:hover,
@@ -6182,15 +7043,143 @@ button.start-card:hover {
   background: var(--color-accent-soft);
 }
 
-/* 侧栏/右栏本身需要相对定位才能容纳手柄。 */
-.sidebar {
+/* 面板包裹层：手柄的定位容器。面板本身 overflow 会裁剪超出边界的
+   手柄，因此手柄必须挂在包裹层上，位于面板外侧。 */
+.panel-wrap {
   position: relative;
   flex-shrink: 0;
+  display: flex;
+  min-height: 0;
 }
 
-.right-panel {
-  position: relative;
+/* 收起退场：宽度收拢 + 淡出（展开侧有 slide-in 入场，收起侧补上对称的
+   退场）。宽度收缩时面板朝自身锚定侧收拢，左右两栏通用。动画期间冻结
+   内容宽度——内容像推拉门一样被裁剪，而不是被挤压回绕；pointer-events
+   吞掉指针，防止动画中途误点内部控件。 */
+.panel-wrap-closing {
+  overflow: hidden;
+  pointer-events: none;
+  animation: panel-collapse 0.2s var(--ease-out) forwards;
+}
+
+@keyframes panel-collapse {
+  to {
+    width: 0;
+    opacity: 0;
+  }
+}
+
+.panel-wrap > .sidebar,
+.panel-wrap > .right-panel {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  position: static;
+}
+
+/* 放在 width:auto 规则之后以赢得同优先级级联：收拢时内容保持自身宽度。 */
+.panel-wrap-closing > .sidebar,
+.panel-wrap-closing > .right-panel {
+  flex: 0 0 auto;
+  width: var(--panel-closing-width, var(--sidebar-width));
+}
+
+/* ---- 栏目边缘收起/展开小按钮 ---- */
+/* 展开态：贴在栏目外缘（拖拽手柄外侧），窄长竖条。 */
+.panel-collapse-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 21;
+  width: 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.panel-collapse-right {
+  /* 紧贴侧栏边框外侧（压住 5px 感应条，感应条层级更高不受影响）。 */
+  right: -16px;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+.panel-collapse-left {
+  left: -16px;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+
+.panel-collapse-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+/* 收起态：栏目原位置只剩一个贴边窄按钮。 */
+.panel-edge-btn {
   flex-shrink: 0;
+  align-self: center;
+  width: 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  /* 浮层按钮需位于顶层，否则科研套件等内容打开时会把它盖住。 */
+  z-index: 45;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.panel-edge-left {
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+/* 收起态：左栏展开按钮与右侧对称地改为浮层，不占 flex 槽位，中央画布
+   即可贴住活动栏填满整行宽（按钮靠 z-index 浮在画布之上）。锚在活动栏
+   右缘——行容器最左是活动栏，left:0 会把它压到活动栏底下。 */
+.panel-edge-left.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: var(--activitybar-width);
+}
+
+.panel-edge-right {
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+
+/* 收起态：右栏展开按钮改为浮层，不占 flex 槽位，中央画布即可填满整行宽。 */
+.panel-edge-right.panel-edge-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 0;
+}
+
+.panel-edge-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
 }
 
 /* ---- 状态栏：可点击性能弹层 ---- */
@@ -6211,13 +7200,18 @@ button.start-card:hover {
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .statusbar-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
   box-shadow: 0 0 8px var(--glow-hover);
+}
+
+.statusbar-btn:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .statusbar-btn.is-warn {
@@ -6277,7 +7271,7 @@ button.start-card:hover {
 
 .statusbar-popover-unit {
   color: var(--color-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .statusbar-popover-warn {
@@ -6286,7 +7280,7 @@ button.start-card:hover {
   border-radius: 999px;
   background: var(--color-warning-soft);
   color: var(--color-warning);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .statusbar-popover-footer {
@@ -6472,5 +7466,1401 @@ button.start-card:hover {
 .empty-state-inline .empty-state-title {
   font-size: var(--font-size-xs);
   font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 活动栏（标准模式，侧栏最左侧） ---- */
+
+.activity-bar {
+  width: var(--activitybar-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
+}
+
+/* 视图入口靠上；底部留给全局设置（margin-top:auto 下推）。 */
+.activity-bar-views {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) 0;
+}
+
+.activity-bar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.activity-item {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.activity-item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-accent-soft);
+}
+
+.activity-item:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.activity-item.is-active {
+  color: var(--color-accent-text);
+}
+
+/* 激活态左侧指示条（贴活动栏左缘，不与图标抢空间）。 */
+.activity-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-accent);
+}
+
+/* ---- 文件资源管理器（活动栏 · 文件视图） ---- */
+
+.file-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.explorer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.explorer-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.explorer-heading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.explorer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.explorer-row:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+/* 预览中的文件行：弱高亮（与选中态区分——取消选中后仍能看出"正在预览"）。 */
+.explorer-row.active {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.explorer-dir {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.explorer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-hint {
+  margin: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 文件资源管理器 · 常规文件管理（A 需求） ---- */
+
+.explorer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.explorer-actions .icon-btn.has-clipboard svg {
+  color: var(--color-accent-text);
+}
+
+.explorer-clip-hint {
+  margin: 0;
+  padding: 2px var(--space-2);
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--color-accent-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-row {
+  cursor: default;
+  position: relative;
+  user-select: none;
+}
+
+/* 选中描边用 inset 阴影：outline 画在行框外 1px，会被滚动容器
+   （.file-explorer overflow-x 裁剪）切掉左右边，视觉上"缺框"。 */
+.explorer-row.selected,
+.explorer-row.selected:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.explorer-row.drop-target,
+.explorer-list.drop-target {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+  border-radius: 6px;
+}
+
+.explorer-inline {
+  list-style: none;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.explorer-inline-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  font-size: var(--font-size-xs);
+}
+
+/* 右键上下文菜单 */
+.explorer-context-menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+.explorer-context-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-context-item:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.explorer-context-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.explorer-context-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--color-border);
+}
+
+/* 工具行/分段小按钮（MD 视图切换等） */
+.explorer-pill {
+  padding: 3px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.explorer-pill:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.explorer-pill.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+/* 原始数据预览：项目树文件的只读预览。 */
+
+/* ---- 画布区文件预览（VS Code 编辑区风格，覆盖在画布上方） ---- */
+
+/* 覆盖层堆栈：套件标签条 + 预览/套件浮层共用一个定位容器，标签条
+   作为常规流子元素排在浮层之上，浮层在其下方填满剩余空间。 */
+.central-overlay-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-radius: inherit;
+  overflow: hidden;
+  /* 覆盖层只要插件激活就会渲染（插件标签常驻），必须对鼠标事件透明，
+     否则 2D 插件的拖动/平移会被这层空壳拦住。交互子元素再单独开启。 */
+  pointer-events: none;
+}
+
+.central-overlay-stack > .central-tool-tabs,
+.central-overlay-stack > .central-tab-pane {
+  pointer-events: auto;
+}
+
+/* 标签窗格：每个打开的标签对应一个常驻挂载的窗格，非活动窗格仅
+   display:none —— 切换标签不卸载内容，状态得以保留。 */
+.central-tab-pane {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central-tab-pane.tab-hidden {
+  display: none;
+}
+
+/* 窗格内的浮层从"绝对铺满"改为"常规流占满剩余高度"。 */
+.central-tab-pane > .central-file-preview,
+.central-tab-pane > .central-tool-view {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+}
+
+/* 套件标签条：多个内嵌套件互相切换（浏览器标签页式）。 */
+.central-tool-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
+   下方开始（34px 行高 + 1px 分隔线）——VS Code 编辑区同款布局，标签条
+   独占一行，画布/窗格占满其余空间，互不重叠。 */
+.central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
+  inset: 35px 0 0 0;
+}
+
+.central-tool-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 0 8px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.central-tool-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.central-tool-tab.active {
+  color: var(--color-accent-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.central-tool-tab-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.central-tool-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.central-tool-tab-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.central-tool-tab-close:hover {
+  background: var(--color-bg-tertiary, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+}
+
+/* ---- File editor tabs (Monaco code / Blockly block / flow DAG) ------------ */
+
+/* Dirty dot: shown both on the tab strip and inside the save chip. */
+.central-editor-dirty-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.central-file-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.central-file-editor-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.central-file-editor-monaco,
+.central-file-editor-blockly {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Flow file editor: hosts the block-workbench three-pane layout below the
+   toolbar row. */
+.central-file-editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.central-file-editor-body .block-workbench {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Read-only degrade for files whose JSON failed the editor-format check. */
+.central-editor-broken-banner {
+  flex-shrink: 0;
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-warning-border, var(--color-border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-warning-bg, var(--color-bg-secondary));
+  color: var(--color-warning-text, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+}
+
+.central-editor-broken-head {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.central-editor-broken-source {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-secondary);
+}
+
+.central-file-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  /* 覆盖 .central 的圆角/边框内侧即可，不额外加边框。 */
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* ---- Embedded research suite (central canvas overlay) --------------------- */
+
+/* Opaque overlay over the plugin canvas — same contract as the file preview:
+   the canvas stays mounted underneath, closing never re-initializes scenes.
+   z-index 20 stays BELOW the panel collapse buttons (21) and resize handles
+   (22) so panels stay collapsible/resizable while a suite is open; the small
+   edge buttons may overlap the suite — accepted trade-off. */
+.central-tool-view {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.central-tool-view-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.central-tool-view-body .tool-shell.embedded {
+  flex: 1;
+  min-height: 0;
+}
+
+.central-tool-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 顶部标签条：文件名 + 只读标记 + 关闭。 */
+.central-file-preview-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  height: 36px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.central-file-preview-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.central-file-preview-readonly {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.central-file-preview-content {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  white-space: pre;
+  tab-size: 4;
+}
+
+.central-file-preview-note {
+  margin: 0;
+  flex-shrink: 0;
+  padding: 4px var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 画布文件预览 · 各类视图（B 需求） ---- */
+
+/* Markdown：工具栏 + 编辑/预览/分栏 */
+.central-md {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.central-md-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.central-md-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.central-md-save {
+  margin-left: auto;
+}
+
+.central-md-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.central-md-body.mode-edit .central-md-edit,
+.central-md-body.mode-preview .central-md-preview {
+  width: 100%;
+}
+
+.central-md-edit,
+.central-md-preview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.central-md-edit {
+  border: none;
+  resize: none;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  tab-size: 4;
+}
+
+.central-md-preview {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-primary);
+}
+
+.central-md-preview h1,
+.central-md-preview h2,
+.central-md-preview h3,
+.central-md-preview h4 {
+  margin: 0.6em 0 0.3em;
+  color: var(--color-text-primary);
+}
+
+.central-md-preview pre {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: var(--space-2);
+  overflow: auto;
+}
+
+.central-md-preview code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Embedded images scale to the pane instead of overflowing at native size. */
+.central-md-preview img,
+.nb-md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* ---- Markdown v2 shared styles (marked renderer): tables, task lists,
+       mermaid diagrams, KaTeX math — applied to both the file preview and
+       notebook markdown cells. ---- */
+
+.central-md-preview table,
+.nb-md table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+.central-md-preview th,
+.central-md-preview td,
+.nb-md th,
+.nb-md td {
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.central-md-preview th,
+.nb-md th {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.central-md-preview blockquote,
+.nb-md blockquote {
+  margin: 0.6em 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* GFM task lists: hide the raw checkbox disabled state, keep spacing tight. */
+.central-md-preview li.task-list-item,
+.nb-md li.task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.central-md-preview hr,
+.nb-md hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+/* Mermaid diagram placeholder / rendered svg. */
+.md-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 0.8em 0;
+  padding: var(--space-2);
+  overflow-x: auto;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.md-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-mermaid-error {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-dim);
+  justify-content: flex-start;
+}
+
+/* KaTeX math: allow wide equations to scroll instead of clipping. */
+.md-tex {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.md-tex .katex-display {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+/* 图片 / PDF / 视频 / 音频 */
+/* 二进制文件读取中的占位（tab 已开、字节未到）。 */
+.central-file-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-dim);
+}
+
+.central-file-loading-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  animation: central-file-loading-spin 0.8s linear infinite;
+}
+
+@keyframes central-file-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.central-file-media {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  overflow: auto;
+  background: radial-gradient(circle, rgba(128, 128, 128, 0.12) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.central-file-media img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.central-file-media iframe,
+.central-file-media video,
+.central-file-media audio {
+  max-width: 100%;
+  max-height: 100%;
+  border: none;
+}
+
+/* PDF 内嵌（object 承载浏览器查看器，需明确的宽高）。 */
+.central-file-media object {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+}
+
+.central-file-media video,
+.central-file-media audio {
+  width: 100%;
+}
+
+/* 未知格式占位 */
+.central-file-unknown {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.central-file-unknown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.central-file-unknown-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.central-file-unknown-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  word-break: break-all;
+}
+
+/* ---- Preview footer: hand a recognized file to its plugin ------------------ */
+
+.central-file-openwith {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border-primary);
+  background: var(--color-bg-secondary);
+}
+
+.central-file-openwith-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 文件信息栏（预览时右栏，C 需求） ---- */
+
+.fileinfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fileinfo-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+}
+
+.fileinfo-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.fileinfo-label {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.fileinfo-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.fileinfo-guide {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Boot gate — recovery UI (failure / timeout path of the boot sequence).
+   The normal-path splash lives inline in index.html; only the React-rendered
+   fallback is styled here. Mirrors the splash's restrained instrument look.
+   ========================================================================== */
+.boot-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+.boot-fallback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+  max-width: 420px;
+}
+.boot-fallback-brand {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-brand span {
+  color: var(--color-accent);
+}
+.boot-fallback-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+.boot-fallback-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+.boot-fallback-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.boot-fallback-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Utility toolkit pages (unit-convert / calc / format-convert / sigfig /
+   molar-mass / quick-stats) — shared instrument-panel styling.
+   ========================================================================== */
+
+/* Utility pages follow the research-suite layout: plain full-width sections
+   inside .tool-content (no card boxes, no narrow centered column). */
+.util-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.util-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.util-card-title {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.util-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.util-between {
+  justify-content: space-between;
+}
+
+.util-flex1 {
+  flex: 1;
+}
+
+.util-grow {
+  flex: 1;
+  min-width: 120px;
+}
+
+.util-mono {
+  font-family: var(--font-mono);
+}
+
+.util-dim {
+  opacity: 0.45;
+}
+
+.util-readout {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  color: var(--color-accent-text);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.util-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.util-error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+}
+
+.util-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.util-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.util-table th {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border-strong);
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.util-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+/* Deg/rad + sf/dec segmented toggle */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.seg-btn {
+  padding: 4px 12px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.seg-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.seg-btn-on,
+.seg-btn-on:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+/* Clickable symbol/function chips (calc, molar-mass samples) */
+.util-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.util-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.util-chip:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+/* ---- unit converter ---- */
+
+.uc-io {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.uc-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.uc-swap {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.uc-target {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.uc-sym {
+  width: 90px;
+  color: var(--color-text-secondary);
+}
+
+.uc-val {
+  color: var(--color-text-primary);
+}
+
+/* ---- formula calculator ---- */
+
+.calc-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.calc-history-row {
+  cursor: pointer;
+}
+
+.calc-history-row:hover td {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.calc-history-val {
+  color: var(--color-accent-text);
+  text-align: right;
+}
+
+.calc-const-sym {
+  color: var(--color-accent-text);
+}
+
+.calc-const-unit {
+  color: var(--color-text-tertiary);
+  text-align: right;
+}
+
+/* ---- format converter ---- */
+
+.fc-drop {
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.fc-drop:hover,
+.fc-drop:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-text-secondary);
+}
+
+.fc-drop-drag {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.fc-input {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.fc-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ---- significant figures ---- */
+
+.sf-n-input {
+  width: 76px;
+}
+
+.sf-out {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+/* ---- quick stats ---- */
+
+.qs-input {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.qs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.qs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+.qs-stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.qs-stat-value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.qs-histogram {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.qs-histogram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---- Sidebar tools view (activity bar → toolkit) ---- */
+
+.util-item {
+  align-items: flex-start;
+}
+
+.util-item .plugin-icon {
+  margin-top: 2px;
+}
+
+.util-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.util-item-desc {
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
   color: var(--color-text-tertiary);
 }

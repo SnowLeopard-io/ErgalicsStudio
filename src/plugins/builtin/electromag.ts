@@ -17,7 +17,10 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
-import { actionButton, exportCanvasPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  notify,
+} from '@/core/plugin-tools/enhance';
 
 export { electromagManifest } from './electromagManifest';
 import { electromagManifest } from './electromagManifest';
@@ -91,13 +94,7 @@ export class ElectromagPlugin implements Plugin {
 
   async destroy() {
     this.stop();
-    if (this.canvas && this.bound) {
-      this.canvas.removeEventListener('pointerdown', this.onDown);
-      this.canvas.removeEventListener('pointermove', this.onMove);
-      this.canvas.removeEventListener('pointerup', this.onUp);
-      this.canvas.removeEventListener('pointerleave', this.onUp);
-      this.bound = false;
-    }
+    this.unbind();
     this.canvas = null;
     this.ctx = null;
   }
@@ -115,6 +112,13 @@ export class ElectromagPlugin implements Plugin {
 
   async deactivate() {
     this.stop();
+    // Drop the shared-canvas pointer listeners on switch-away (mirror of
+    // optics). `this.canvas` is cached from the shared host element, so
+    // listeners left bound would keep firing for a background plugin —
+    // mutating charges and redrawing into whichever plugin the user switched
+    // to. The host canvas gate cannot see this path (the handlers never touch
+    // `canvas2d` to draw, they hold the element directly).
+    this.unbind();
   }
 
   async render(container: ContainerCapabilities) {
@@ -164,6 +168,16 @@ export class ElectromagPlugin implements Plugin {
     canvas.addEventListener('pointerup', this.onUp);
     canvas.addEventListener('pointerleave', this.onUp);
     this.bound = true;
+  }
+
+  private unbind() {
+    const canvas = this.canvas;
+    if (!canvas || !this.bound) return;
+    canvas.removeEventListener('pointerdown', this.onDown);
+    canvas.removeEventListener('pointermove', this.onMove);
+    canvas.removeEventListener('pointerup', this.onUp);
+    canvas.removeEventListener('pointerleave', this.onUp);
+    this.bound = false;
   }
 
   private toLocal(e: PointerEvent): { x: number; y: number } {
@@ -277,11 +291,7 @@ export class ElectromagPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      // Snapshot only — never starts or stops the simulation.
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'electromag');
-      return;
-    }
+
     if (fired('resetCharges')) {
       // Distinct from the danger "clear": restore the loaded / arranged
       // initial charge layout instead of emptying the bench.
@@ -402,7 +412,6 @@ export class ElectromagPlugin implements Plugin {
         action: 'clear',
       },
       actionButton('resetCharges', 'Reset Charges', '重置电荷'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 
@@ -538,9 +547,8 @@ export class ElectromagPlugin implements Plugin {
         fx[i]! += fmag * dx;
         fy[i]! += fmag * dy;
       }
-      // Lorentz force: F = q * v × B, with B along z (out of screen).
-      fx[i]! += a.q * a.vy * this.state.B;
-      fy[i]! += -a.q * a.vx * this.state.B;
+      // Lorentz force F = q·v×B is integrated separately with a Boris pusher
+      // (below) — explicit Euler on a pure rotation grows |v| every step.
       // Air damping.
       fx[i]! -= this.state.damping * a.vx;
       fy[i]! -= this.state.damping * a.vy;
@@ -549,8 +557,21 @@ export class ElectromagPlugin implements Plugin {
       if (i === this.dragIndex) continue; // held charge does not integrate
       const c = this.charges[i]!;
       const m = Math.max(0.3, Math.abs(c.q));
-      c.vx += (fx[i]! / m) * dt;
-      c.vy += (fy[i]! / m) * dt;
+      // Non-magnetic forces (Coulomb + air damping) via symplectic Euler.
+      let vx = c.vx + (fx[i]! / m) * dt;
+      let vy = c.vy + (fy[i]! / m) * dt;
+      // Magnetic (Lorentz) part via the Boris pusher, which is exactly the
+      // rotation v⁺ = v⁻ + (v⁻×t) + (v⁻×t)×t with t = q·B·dt/(2m) and keeps
+      // |v| constant — explicit Euler instead inflated |v| by √(1+(ω·dt)²)
+      // per step, so a charge in a uniform B field spiralled outward.
+      const t = (c.q * this.state.B * dt) / (2 * m);
+      const s = (2 * t) / (1 + t * t);
+      const vpx = vx + vy * t;
+      const vpy = vy - vx * t;
+      vx = vx + vpy * s;
+      vy = vy - vpx * s;
+      c.vx = vx;
+      c.vy = vy;
       // Cap speed: a close encounter with the (large) Coulomb constant can
       // otherwise fling two charges at a velocity the explicit integrator
       // cannot resolve, producing an energy blow-up.

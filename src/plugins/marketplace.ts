@@ -121,25 +121,40 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['environment', 'gaussian-plume', 'air-pollution', 'dispersion'],
     popularity: 67,
   },
-  'example.env-plume3d': {
-    category: 'scientific',
-    tags: ['environment', '3d', 'plume', 'voxels', 'dispersion'],
-    popularity: 69,
-  },
-  'example.env-lake3d': {
-    category: 'scientific',
-    tags: ['environment', '3d', 'lake', 'stratification', 'limnology'],
-    popularity: 65,
-  },
   'example.env-earth3d': {
     category: 'scientific',
     tags: ['environment', '3d', 'globe', 'co2', 'climate'],
     popularity: 70,
   },
-  'example.env-groundwater3d': {
+  'fx.blackhole': {
     category: 'scientific',
-    tags: ['environment', '3d', 'groundwater', 'darcy', 'contaminant-transport'],
-    popularity: 63,
+    tags: ['ray-tracing', 'relativity', 'gr', 'gpu', 'shader', 'black-hole'],
+    popularity: 96,
+  },
+  'fx.water': {
+    category: 'scientific',
+    tags: ['fluid', 'waves', 'fdtd', 'gerstner', 'gpu', 'ocean'],
+    popularity: 93,
+  },
+  'fx.cloud': {
+    category: 'scientific',
+    tags: ['volumetric', 'clouds', 'raymarching', 'sky', 'ephemeris', 'gpu'],
+    popularity: 94,
+  },
+  'fx.sky': {
+    category: 'scientific',
+    tags: ['atmosphere', 'rayleigh', 'mie', 'twilight', 'sun', 'moon', 'gpu'],
+    popularity: 95,
+  },
+  'fx.stars': {
+    category: 'scientific',
+    tags: ['stars', 'milky-way', 'bortle', 'light-pollution', 'meteors', 'sidereal', 'gpu'],
+    popularity: 95,
+  },
+  'astro.pipeline': {
+    category: 'scientific',
+    tags: ['astronomy', 'fits', 'ccd', 'photometry', 'calibration', 'pipeline'],
+    popularity: 92,
   },
 };
 

@@ -24,7 +24,10 @@ import {
   preparePointCloud,
 } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
-import { actionButton, exportRowsCsv, exportSnapshotPng } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 export { pointCloud3DManifest } from './pointCloud3DManifest';
 import { pointCloud3DManifest } from './pointCloud3DManifest';
@@ -119,14 +122,7 @@ export class PointCloud3DPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'pointcloud3d');
-      return;
-    }
-    if (fired('exportObjPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'pointcloud3d');
-      return;
-    }
+
     if (fired('exportCsv')) {
       this.exportCsv();
       return;
@@ -157,8 +153,6 @@ export class PointCloud3DPlugin implements Plugin {
         ],
         value: this.state.colorMode,
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('exportCsv', 'Export Points CSV', '导出点云 CSV'),
     ];
   }

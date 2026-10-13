@@ -12,7 +12,6 @@ import type {
   ComputeProgress,
   ComputeResult,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 
 export { heatmapManifest } from './heatmapManifest';
 import { heatmapManifest } from './heatmapManifest';
@@ -75,9 +74,6 @@ export class HeatmapPlugin implements Plugin {
   private state: State = { grid: [], palette: 'viridis', gridlines: false };
   /** Cached offscreen canvas used to upscale the low-res heatmap. */
   private scaledCanvas: HTMLCanvasElement | null = null;
-  /** Optional axis labels supplied alongside the grid (`{ data, rowLabels, colLabels }`). */
-  private rowLabels: string[] | null = null;
-  private colLabels: string[] | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -87,8 +83,6 @@ export class HeatmapPlugin implements Plugin {
     this.ctx = null;
     // Release the cached offscreen upscale surface so it can be collected.
     this.scaledCanvas = null;
-    this.rowLabels = null;
-    this.colLabels = null;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -107,8 +101,7 @@ export class HeatmapPlugin implements Plugin {
   updateParams(params: Record<string, unknown>) {
     if (typeof params.palette === 'string') this.state.palette = params.palette;
     if (typeof params.gridlines === 'boolean') this.state.gridlines = params.gridlines;
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     this.draw();
   }
 
@@ -127,8 +120,6 @@ export class HeatmapPlugin implements Plugin {
         ],
       },
       { key: 'gridlines', label: 'Gridlines', type: 'checkbox', value: this.state.gridlines },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -147,11 +138,9 @@ export class HeatmapPlugin implements Plugin {
     }
     // Accept either a bare 2-D array or `{ data/grid/values, rowLabels, colLabels }`.
     let gridInput: unknown = parsed;
-    let labelSource: Record<string, unknown> | null = null;
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const obj = parsed as Record<string, unknown>;
       gridInput = obj.data ?? obj.grid ?? obj.values ?? obj.matrix;
-      labelSource = obj;
     }
     if (!Array.isArray(gridInput) || gridInput.length === 0 || !Array.isArray(gridInput[0])) {
       this.api.notify(
@@ -166,8 +155,6 @@ export class HeatmapPlugin implements Plugin {
       return;
     }
     this.state.grid = grid;
-    this.rowLabels = toStringLabels(labelSource?.rowLabels ?? labelSource?.rowNames);
-    this.colLabels = toStringLabels(labelSource?.colLabels ?? labelSource?.colNames);
     this.api.reportDataScale(grid.length * grid[0]!.length);
     this.draw();
   }
@@ -285,44 +272,6 @@ export class HeatmapPlugin implements Plugin {
     }
   }
 
-  private exportPng() {
-    if (this.state.grid.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'heatmap');
-  }
-
-  private exportCsv() {
-    const grid = this.state.grid;
-    const rl = this.rowLabels;
-    const cl = this.colLabels;
-    const header: Array<string | number> = ['row', 'col'];
-    if (rl) header.push('rowLabel');
-    if (cl) header.push('colLabel');
-    header.push('value');
-    const rows: Array<Array<number | string>> = [];
-    for (let j = 0; j < grid.length; j += 1) {
-      const row = grid[j]!;
-      for (let i = 0; i < row.length; i += 1) {
-        const v = row[i];
-        // NaN cells are ragged-row padding, not real data.
-        if (!Number.isFinite(v)) continue;
-        const out: Array<number | string> = [j, i];
-        if (rl) out.push(rl[j] ?? '');
-        if (cl) out.push(cl[i] ?? '');
-        out.push(v as number);
-        rows.push(out);
-      }
-    }
-    exportRowsCsv(this.api, 'heatmap', header, rows);
-  }
-}
-
-/** Coerce a JSON label array into strings; null when absent/empty. */
-function toStringLabels(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  return value.map((v) => String(v));
 }
 
 /**

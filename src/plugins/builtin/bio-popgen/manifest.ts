@@ -17,6 +17,18 @@ export const bioPopgenManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-popgen',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes:
+      'Classical HW chi-square (with Haldane continuity correction), Wilson score CIs and a seeded Wright-Fisher simulation; deterministic given the seed, single-locus biallelic models only.',
+    notesI18n: {
+      'zh-CN':
+        '经典 HW 卡方检验（含 Haldane 连续性校正）、Wilson score 置信区间与固定种子的 Wright-Fisher 模拟；给定种子完全可复现，仅支持单位点双等位基因模型。',
+      'en-US':
+        'Classical HW chi-square (with Haldane continuity correction), Wilson score CIs and a seeded Wright-Fisher simulation; deterministic given the seed, single-locus biallelic models only.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'genotype AA,Aa,aa counts' },
     { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'tab-separated AA,Aa,aa counts' },

@@ -1,0 +1,20 @@
+{
+  "name": "Photometric benchmark (flux recovery)",
+  "mode": "simulate",
+  "frameSize": 384,
+  "nStars": 45,
+  "fwhmPx": 2.8,
+  "skyElectrons": 120,
+  "exposureS": 120,
+  "darkRateEps": 0.01,
+  "readNoiseE": 4,
+  "gainEPerAdu": 1.2,
+  "biasAdu": 400,
+  "vignetting": 0.18,
+  "cosmicRaysPerFrame": 8,
+  "seed": 777001,
+  "thresholdSigma": 6,
+  "apertureFwhmScale": 2.2,
+  "zeropoint": 25,
+  "autoRun": true
+}

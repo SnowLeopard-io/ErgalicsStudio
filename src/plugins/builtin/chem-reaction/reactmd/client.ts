@@ -68,6 +68,9 @@ export class ReactMDClient {
         });
         worker.addEventListener('error', (ev) => {
           const err = new Error(ev.message || 'engine worker crashed');
+          // An errored worker is dead either way — release it so the next
+          // boot respawns cleanly instead of leaking the old instance.
+          worker.terminate();
           this.worker = null;
           this.readyPromise = null;
           if (settled) this.failPending(err);

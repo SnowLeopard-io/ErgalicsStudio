@@ -136,6 +136,9 @@ export default function GalleryPage() {
   /** Bumped after every store mutation so the local list re-reads. */
   const [refresh, setRefresh] = useState(0);
 
+  // `refresh` is an intentional re-read trigger: listSharedEntries() snapshots
+  // store state directly, so the memo must re-run after every store mutation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const sharedItems = useMemo(() => listSharedEntries().map((e) => e.item), [refresh]);
   const sourceItems = tab === 'curated' ? listCuratedGallery() : sharedItems;
   const items = useMemo(

@@ -19,6 +19,7 @@ import { createPluginCache, disposePluginCache } from '@/core/pluginCache';
 import { downloadBlob } from '@/core/download';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
+import { clearScienceOutputs } from '@/core/research/scienceOutput';
 
 export interface BeginRunInput {
   pluginId: string;
@@ -30,6 +31,20 @@ export interface BeginRunInput {
 interface PluginStore {
   registry: PluginRegistryEntry[];
   activeId: string | null;
+  /**
+   * Plugin id that started the in-flight computation (recorded by the api's
+   * `setStatus('computing')` wrapper). Lets the UI scope the compute overlay
+   * to that plugin's context, and lets a background completion release the
+   * busy state it owns.
+   */
+  computingId: string | null;
+  /**
+   * True while the owning plugin actually registered an `api.onCancel`
+   * handler (snapshot taken when `computingId` is set). The status bar shows
+   * its cancel button only then — an unconditional button would promise a
+   * cancellation most one-shot computes cannot honour.
+   */
+  canCancelActive: boolean;
   loadingIds: string[];
   initialized: boolean;
   /** Append-only experiment trace (imports, compute runs, custom steps). */
@@ -56,6 +71,14 @@ interface PluginStore {
   /** Close a run record as succeeded or failed. */
   finishRun: (id: string, ok: boolean, error?: string) => void;
   /**
+   * Cancel the active task: invoke the active plugin's registered cancel
+   * handlers (each guarded — a broken plugin must not crash the host),
+   * broadcast `host:cancel-task` (block-run mode still relies on it) and reset
+   * a stuck 'computing'/'loading' status so the host never stays busy when a
+   * plugin ignores the cancellation.
+   */
+  cancelActiveTask: () => void;
+  /**
    * Snapshot every loaded plugin's live parameters next to its version, so a
    * result can be attributed to the exact configuration that produced it.
    */
@@ -71,6 +94,9 @@ interface PluginStore {
 const paramSubscriptions = new Map<string, BusSubscription[]>();
 /** Per-plugin locale subscriptions so they can be released on unload. */
 const localeSubscriptions = new Map<string, Array<() => void>>();
+/** Per-plugin cancel handlers registered through `api.onCancel`, invoked when
+ *  the user cancels the active task from the status bar. */
+const cancelHandlers = new Map<string, Set<() => void>>();
 /** Sandboxed plugins receive locale pushes over the worker bridge. */
 const sandboxLocaleUpdaters = new Map<string, (locale: string) => void>();
 /**
@@ -84,6 +110,14 @@ let lifecycleChain: Promise<void> = Promise.resolve();
 let activationGen = 0;
 /** Invalidates restoration on a new project or explicit deactivation. */
 let restoreGen = 0;
+/**
+ * Plugins currently mid-activation: from just before their render context is
+ * built until `activeId` is published (activate() is deliberately awaited
+ * *before* the store publishes `activeId`, so without this window the first
+ * activate()/render() draws would be gated away and the panel would come up
+ * blank). The canvas gate in `createContext` treats these ids as active.
+ */
+const activatingIds = new Set<string>();
 
 function enqueueLifecycle(task: () => Promise<void> | void): Promise<void> {
   lifecycleChain = lifecycleChain.then(task, task);
@@ -121,6 +155,15 @@ subscribeLocale(() => {
       description: e.descriptionI18n?.[locale] ?? e.description,
     })),
   });
+});
+
+// Plugins ask the host to (re-)activate them over the bus — e.g. a background
+// compute finished and its "view results" toast action was clicked. Going
+// through the bus avoids a plugin→store import cycle in the plugin files.
+on<{ id: string }>('plugin:activate-request', ({ id }) => {
+  const entry = usePluginStore.getState().registry.find((e) => e.id === id);
+  if (!entry) return;
+  void usePluginStore.getState().activate(id);
 });
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
@@ -210,10 +253,23 @@ function buildPluginApi(pluginId: string): PluginApi {
       return unsub;
     },
     setStatus: (status) => {
-      // A plugin that is mid-compute while another one is active (the worker
-      // serializes deactivate behind compute) must not overwrite the visible
-      // plugin's status indicator.
-      if (usePluginStore.getState().activeId === pluginId) {
+      const store = usePluginStore.getState();
+      // Attribute the busy state to the plugin that started it, so the UI can
+      // scope the compute overlay to that plugin's context (a background
+      // plugin's compute must never mask the plugin the user switched to).
+      const owns = store.computingId === pluginId;
+      if (status === 'computing') {
+        // Snapshot cancel capability at compute start: plugins register their
+        // onCancel handlers in init, so by this point the set is final.
+        usePluginStore.setState({ computingId: pluginId, canCancelActive: (cancelHandlers.get(pluginId)?.size ?? 0) > 0 });
+      } else if ((status === 'ready' || status === 'error') && owns) {
+        usePluginStore.setState({ computingId: null, canCancelActive: false });
+      }
+      // Forward to the global indicator when this plugin is visible — or when
+      // it owns the in-flight computation (a background plugin may still need
+      // to release the busy state it created), but never let it overwrite the
+      // *visible* plugin's status transitions.
+      if (store.activeId === pluginId || owns) {
         useAppStore.getState().setStatus(status);
       }
     },
@@ -226,7 +282,25 @@ function buildPluginApi(pluginId: string): PluginApi {
     get gpu() {
       return getGpuCompute() ?? undefined;
     },
-    notify: (kind, message) => useAppStore.getState().notify(kind, message),
+    notify: (kind, message, action) => useAppStore.getState().notify(kind, message, action),
+    // Register a cancel handler for this plugin. Handlers live in a module-level
+    // map keyed by plugin id (api objects are rebuilt per context, but handlers
+    // must survive); the returned fn unsubscribes.
+    onCancel: (handler) => {
+      const handlers = cancelHandlers.get(pluginId) ?? new Set<() => void>();
+      handlers.add(handler);
+      cancelHandlers.set(pluginId, handlers);
+      return () => {
+        const current = cancelHandlers.get(pluginId);
+        if (!current) return;
+        current.delete(handler);
+        if (current.size === 0) cancelHandlers.delete(pluginId);
+      };
+    },
+    // True while this plugin is the active one. Long computations check this
+    // before drawing into the shared canvas on completion — a background
+    // completion must notify instead of painting over the active plugin.
+    isActive: () => usePluginStore.getState().activeId === pluginId,
     // Structured logging: the scope carries the plugin id so an exported
     // trace can be filtered per plugin without parsing message text.
     log: (level, message, details) => {
@@ -309,7 +383,20 @@ function createContext(pluginId: string): PluginRenderContext {
   if (hostContainers) {
     return {
       container: {
-        canvas2d: hostContainers.canvas2d,
+        // Host-side invariant, enforced ONCE here at the boundary: a plugin
+        // that is not the active one must be physically unable to paint into
+        // the shared canvas. `canvas2d` is therefore a live getter, not a
+        // captured element — for a background plugin it resolves to undefined,
+        // which turns every draw call into a no-op via the plugins' existing
+        // `if (!canvas) return` idiom. Per-call-site `isActive` guards inside
+        // plugins remain only as defense in depth (they skip pointless work,
+        // they are no longer load-bearing for correctness).
+        get canvas2d() {
+          const state = usePluginStore.getState();
+          return state.activeId === pluginId || activatingIds.has(pluginId)
+            ? hostContainers!.canvas2d
+            : undefined;
+        },
         dom: hostContainers.dom,
         three,
         reportDataScale: (n) => hostContainers!.reportDataScale(n),
@@ -351,6 +438,15 @@ async function deactivateCurrentPlugin(): Promise<void> {
   // Only clear the active plugin's own subscriptions.
   for (const sub of paramSubscriptions.get(activeId) ?? []) sub.unsubscribe();
   paramSubscriptions.delete(activeId);
+  // If the deactivated plugin owned the in-flight computation, release the
+  // global busy state: its background completion can no longer reset the
+  // host status (api.setStatus only forwards for the visible/owning plugin),
+  // so the host would otherwise stay stuck on "computing" forever.
+  if (usePluginStore.getState().computingId === activeId) {
+    const app = useAppStore.getState();
+    if (app.status === 'computing' || app.status === 'loading') app.setStatus('ready');
+    usePluginStore.setState({ computingId: null, canCancelActive: false });
+  }
   // Hide the 3D surface whenever no 3D plugin is active, so its
   // coordinate system never lingers over the 2D viewport.
   hostContainers?.setThreeVisible?.(false);
@@ -364,6 +460,8 @@ async function deactivateCurrentPlugin(): Promise<void> {
 export const usePluginStore = create<PluginStore>((set, get) => ({
   registry: [],
   activeId: null,
+  computingId: null,
+  canCancelActive: false,
   loadingIds: [],
   initialized: false,
   runHistory: [],
@@ -447,6 +545,15 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       paramSubscriptions.delete(id);
       for (const unsub of localeSubscriptions.get(id) ?? []) unsub();
       localeSubscriptions.delete(id);
+      // Release the plugin's cancel handlers and, if it owned the in-flight
+      // computation, the busy attribution — an unloaded plugin can never
+      // complete its compute, so the host must not stay stuck on "computing".
+      cancelHandlers.delete(id);
+      if (usePluginStore.getState().computingId === id) {
+        const app = useAppStore.getState();
+        if (app.status === 'computing' || app.status === 'loading') app.setStatus('ready');
+        usePluginStore.setState({ computingId: null, canCancelActive: false });
+      }
       set((s) => ({
         registry: s.registry.filter((e) => e.id !== id),
         activeId: s.activeId === id ? null : s.activeId,
@@ -484,6 +591,20 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (usePluginStore.getState().activeId === id) return;
       await deactivateCurrentPlugin();
       if (gen !== activationGen) return;
+      // Mid-activation window: open the canvas gate for this plugin across
+      // createContext → activate() → render() → param restore, because
+      // `activeId` is published only at the very end of runActivation. The
+      // window must always close (finally) — a leaked id would let a
+      // background plugin paint into the shared canvas forever.
+      activatingIds.add(id);
+      try {
+        await runActivation();
+      } finally {
+        activatingIds.delete(id);
+      }
+    };
+
+    const runActivation = async () => {
       // Once plugin.activate() has resolved, the plugin owns live resources
       // (RAF loops, canvas listeners, 3-D surfaces). If this attempt is
       // superseded *after* that point, the queued newer transition cannot
@@ -551,6 +672,12 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
+        // A parameter change invalidates previously published conclusions:
+        // clear them *before* updateParams so a fresh publish made inside the
+        // call survives. Env-style plugins re-publish during draw(); for
+        // compute-style plugins the stale metrics honestly disappear until the
+        // next computation (scienceOutput contract: stale results never linger).
+        clearScienceOutputs(id);
         void Promise.resolve()
           .then(() => plugin.updateParams?.(params))
           .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
@@ -696,16 +823,31 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     builtinsPromise = (async () => {
       try {
         const { BUILTIN_PLUGINS } = await import('@/plugins/builtin');
-        for (const info of BUILTIN_PLUGINS) {
-          // Fun/utility plugins declare `autoload: false` — they are listed in
-          // the built-in / marketplace panel but only loaded when the user
-          // picks them, so they don't bloat the startup registry.
-          if (info.autoload === false) continue;
+        const autoloadable = BUILTIN_PLUGINS.filter((info) => info.autoload !== false);
+        // Phase 1 — warm every plugin module in parallel. A naive loop that
+        // awaits `info.load()` per plugin serializes the network round-trips
+        // (dozens of chunks × RTT — visibly "plugins loading one by one" on
+        // slow links). Calling the module factories here is safe: they just
+        // build the plain plugin objects; lifecycle
+        // hooks with side effects (`init`) only run in `get().load` below.
+        const warmed = await Promise.all(
+          autoloadable.map((info) =>
+            info.load().then(
+              (plugin) => plugin,
+              (err) => {
+                logger.warn('plugin', 'failed to load builtin', { id: info.manifest.id }, err);
+                return null;
+              },
+            ),
+          ),
+        );
+        // Phase 2 — register in declared order (list order is UI order).
+        for (const plugin of warmed) {
+          if (!plugin) continue; // module failed to load — skip, stay degraded
           try {
-            const plugin = await info.load();
             await get().load(plugin);
           } catch (err) {
-            logger.warn('plugin', 'failed to load builtin', { id: info.manifest.id }, err);
+            logger.warn('plugin', 'failed to register builtin', { id: plugin.manifest.id }, err);
           }
         }
         // Mark ready only once the registry is actually populated.
@@ -755,6 +897,30 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
         };
       }),
     }));
+  },
+
+  cancelActiveTask: () => {
+    const { activeId } = get();
+    if (activeId) {
+      for (const handler of cancelHandlers.get(activeId) ?? []) {
+        // One misbehaving plugin must not abort the fan-out to the others.
+        try {
+          handler();
+        } catch (err) {
+          logger.warn('plugin', 'cancel handler failed', { id: activeId }, err);
+        }
+      }
+    }
+    // Block-run mode still listens for the broadcast.
+    emit('host:cancel-task', {});
+    // A plugin that ignores cancellation must not leave the host stuck on
+    // "computing"/"loading" — reset it (same semantics as the api's
+    // setStatus, which syncs useAppStore) and release the compute attribution.
+    const status = useAppStore.getState().status;
+    if (status === 'computing' || status === 'loading') {
+      useAppStore.getState().setStatus('ready');
+      usePluginStore.setState({ computingId: null, canCancelActive: false });
+    }
   },
 
   exportParameterSnapshot: async () => {

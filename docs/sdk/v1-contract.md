@@ -17,9 +17,11 @@
 
 以下类型与成员构成 **SDK v1 的稳定面**。标注含义：
 
-- **稳定**：v1 内签名与语义冻结，宿主保证不破坏。
-- **可选**：字段/方法可缺省，宿主以 `?.` 探测后调用；新增可选成员属于「扩展」，不算破坏。
-- **宿主侧**：插件只读消费（由宿主构造），其形状同样冻结。
+| 标注 | 含义 |
+| --- | --- |
+| 稳定 | v1 内签名与语义冻结，宿主保证不破坏 |
+| 可选 | 字段/方法可缺省，宿主以 `?.` 探测后调用；新增可选成员属于「扩展」，不算破坏 |
+| 宿主侧 | 插件只读消费（由宿主构造），其形状同样冻结 |
 
 ### 1.1 插件清单 `PluginManifest`
 
@@ -278,12 +280,14 @@ node scripts/sign-cspkg.mjs --verify my-plugin.cspkg [--trust my-key.json]
 
 **安全约束**（与 cspkg 同一防御风格）：
 
-- `__proto__` / `constructor` / `prototype` 危险键拒绝；
-- 自定义属性名必须匹配 `--kebab-case`；
-- 颜色类键（含 `color` 或 `--cat-` 前缀）只接受 hex / rgb() / rgba() / hsl() / hsla() 字面量；
-- 尺寸类键（`--font-size-*`、`--space-*`、`--radius-*`、`*-width`、`*-height`）只接受 px/rem/em/% 长度；
-- 字体栈白名单清洗：仅字母数字空格 `.-_`，未加引号的家族名必须是通用关键字（`serif`、`sans-serif` 等）；
-- 其余值走保守字符集，且全局禁止子串：`url(`、`expression(`、`javascript:`、`data:`、`eval(`；字符串不得含 `< > { } ; \` \` 等可开新声明/标记的字符。
+| 规则 | 约束 |
+| --- | --- |
+| 危险原型键 | `__proto__` / `constructor` / `prototype` 拒绝 |
+| 自定义属性名 | 必须匹配 `--kebab-case` |
+| 颜色类键 | 含 `color` 或 `--cat-` 前缀的键只接受 hex / rgb() / rgba() / hsl() / hsla() 字面量 |
+| 尺寸类键 | `--font-size-*`、`--space-*`、`--radius-*`、`*-width`、`*-height` 只接受 px/rem/em/% 长度 |
+| 字体栈 | 白名单清洗：仅字母数字空格 `.-_`，未加引号的家族名必须是通用关键字（`serif`、`sans-serif` 等） |
+| 其余值 | 走保守字符集，且全局禁止子串：`url(`、`expression(`、`javascript:`、`data:`、`eval(`；字符串不得含 `< > { } ; \` \` 等可开新声明/标记的字符 |
 
 **限额**：整包 JSON ≤ 64 KiB；每层 ≤ 64 个 token；`chartPalette` 1–12 色；name ≤ 80、description ≤ 500、author ≤ 100 字符；`id` 同插件 id 规则；`version` / `minAppVersion` 必须 `major.minor.patch`。
 

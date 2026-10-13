@@ -1,8 +1,9 @@
 // Ergalics Studio — guided tour overlay (新手引导)
 //
 // A spotlight tour in two phases:
-//   1. "view" steps introduce every region of the workbench (top bar, sidebar,
-//      canvas, parameter panel, status bar) — advanced with a Next button.
+//   1. "view" steps introduce every region of the workbench (top bar, activity
+//      bar, sidebar, canvas tab strip, parameter panel, status bar, global
+//      tools / AI assistant) — advanced with a Next button.
 //   2. "click" steps make the user physically run the first sample: open the
 //      examples dialog, load the structure sample (auto-scrolled into view),
 //      press Run. A capture-phase document listener advances when the click
@@ -11,11 +12,17 @@
 // The overlay layer is pointer-events:none; only the tooltip card captures
 // clicks, so the real UI under the spotlight stays fully interactive.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useT } from '@/i18n';
 import { useTourStore } from '@/stores/tourStore';
+import { useAppStore } from '@/stores/appStore';
 
-type StepMode = 'welcome' | 'view' | 'click';
+type StepMode = 'menu' | 'intro' | 'welcome' | 'view' | 'click';
+
+/** The competition tracks one judge-track card routes to. `atom` shares the
+ *  full product tour with `ai` (the project itself competes in both), so it
+ *  has no steps of its own. */
+type TrackId = 'ai' | 'em' | 'fluid' | 'atom';
 
 interface TourStepDef {
   mode: StepMode;
@@ -23,51 +30,119 @@ interface TourStepDef {
   selector?: string;
   titleKey: string;
   bodyKey: string;
+  /** Which judge track this step belongs to (menus have none). */
+  track?: TrackId;
+  /** Terminal step of its track — advancing here ends the tour. */
+  last?: boolean;
+  /**
+   * Precondition already satisfied — the step auto-advances instead of
+   * demanding a click that would toggle state away (e.g. clicking the
+   * already-active activity-bar view collapses the sidebar).
+   */
+  skipWhen?: () => boolean;
+  /** Menu variant: audience chooser (step 0) or the judge track chooser. */
+  menu?: 'audience' | 'tracks';
+  /** Where the "back" button of an intro/done step returns to. */
+  backTo?: number;
 }
 
-// Phase 1 walks through every block of the interface; phase 2 runs the
-// structure sample end-to-end. Selectors are stable data-* hooks added to
-// the host UI (data-tour / data-example-id / data-param-key).
+// Step 0 is the audience chooser (judge vs regular user); step 1 is the
+// judge track chooser. Each card jumps into that route's own step sequence
+// via `goto`; every route ends on a `last` step, so advancing past it ends
+// the tour instead of leaking into the next route's steps.
+//   ai / atom — shared full product tour (project itself in both competitions,
+//               identical to what a regular user gets)
+//   em        — 商飞赛题: open the EM eigensolver plugin, press Run (one solve)
+//   fluid     — 商飞赛题: open the fluid coupler plugin, press Run All
 const STEPS: TourStepDef[] = [
-  { mode: 'welcome', titleKey: 'tour.welcome_title', bodyKey: 'tour.welcome_body' },
+  {
+    mode: 'menu',
+    menu: 'audience',
+    titleKey: 'tour.hello_title',
+    bodyKey: 'tour.hello_hint',
+  },
+  {
+    mode: 'menu',
+    menu: 'tracks',
+    titleKey: 'tour.menu_title',
+    bodyKey: 'tour.menu_hint',
+  },
+  // ---- Shared route · 项目本体（AI 工具赛道 / 开放原子赛道 / 普通用户） ----
+  {
+    mode: 'intro',
+    track: 'ai',
+    backTo: 1,
+    titleKey: 'tour.intro_ai_title',
+    bodyKey: 'tour.intro_ai_body',
+  },
   {
     mode: 'view',
+    track: 'ai',
     selector: '.topbar',
     titleKey: 'tour.topbar_title',
     bodyKey: 'tour.topbar_body',
   },
   {
     mode: 'view',
+    track: 'ai',
+    selector: '.activity-bar',
+    titleKey: 'tour.activity_title',
+    bodyKey: 'tour.activity_body',
+  },
+  {
+    mode: 'view',
+    track: 'ai',
     selector: '.sidebar',
     titleKey: 'tour.sidebar_title',
     bodyKey: 'tour.sidebar_body',
   },
   {
     mode: 'view',
+    track: 'ai',
     selector: '.central-plugin-host',
     titleKey: 'tour.canvas_title',
     bodyKey: 'tour.canvas_body',
   },
   {
     mode: 'view',
+    track: 'ai',
     selector: '.right-panel',
     titleKey: 'tour.params_title',
     bodyKey: 'tour.params_body',
   },
   {
     mode: 'view',
+    track: 'ai',
     selector: '.statusbar',
     titleKey: 'tour.status_title',
     bodyKey: 'tour.status_body',
   },
   {
+    mode: 'view',
+    track: 'ai',
+    selector: '[data-tour="ai-assistant"]',
+    titleKey: 'tour.tools_title',
+    bodyKey: 'tour.tools_body',
+  },
+  {
     mode: 'click',
+    track: 'ai',
     selector: '[data-tour="examples"]',
     titleKey: 'tour.examples_title',
     bodyKey: 'tour.examples_body',
   },
   {
     mode: 'click',
+    track: 'ai',
+    // The library opens on its first category — the truss sample lives under
+    // Physics, so switching categories is a required intermediate click.
+    selector: '[data-example-cat="physics"]',
+    titleKey: 'tour.cat_title',
+    bodyKey: 'tour.cat_body',
+  },
+  {
+    mode: 'click',
+    track: 'ai',
     // The structure card sits low in the dialog list — the scroll effect
     // below keeps bringing it into view until it is clearly visible.
     selector: '[data-example-id="structure-truss-bridge"] .plugin-card-actions .btn',
@@ -76,11 +151,105 @@ const STEPS: TourStepDef[] = [
   },
   {
     mode: 'click',
+    track: 'ai',
     selector: '[data-param-key="run"]',
     titleKey: 'tour.run_title',
     bodyKey: 'tour.run_body',
   },
-  { mode: 'welcome', titleKey: 'tour.done_title', bodyKey: 'tour.done_body' },
+  {
+    mode: 'welcome',
+    track: 'ai',
+    last: true,
+    backTo: 0,
+    titleKey: 'tour.done_title',
+    bodyKey: 'tour.done_body',
+  },
+  // ---- Track em · 商飞赛题「面向电磁谐振与微波器件仿真的高效、稳定求解方案」 ----
+  {
+    mode: 'intro',
+    track: 'em',
+    backTo: 1,
+    titleKey: 'tour.intro_em_title',
+    bodyKey: 'tour.intro_em_body',
+  },
+  {
+    mode: 'click',
+    track: 'em',
+    // One merged step: switch the sidebar to the plugin list, then find the
+    // solver in the Competition Solvers group. If the sidebar is already on
+    // the plugin view it auto-advances — clicking the active view would
+    // collapse the sidebar instead.
+    selector: '[data-activity="plugins"]',
+    skipWhen: () =>
+      useAppStore.getState().sidebarView === 'plugins' &&
+      !!useAppStore.getState().sidebarOpen,
+    titleKey: 'tour.nav_plugins_title',
+    bodyKey: 'tour.nav_plugins_body',
+  },
+  {
+    mode: 'click',
+    track: 'em',
+    selector: '[data-plugin-id="example.em-eigensolver"]',
+    titleKey: 'tour.em_open_title',
+    bodyKey: 'tour.em_open_body',
+  },
+  {
+    mode: 'click',
+    track: 'em',
+    selector: '[data-param-key="run"]',
+    titleKey: 'tour.em_run_title',
+    bodyKey: 'tour.em_run_body',
+  },
+  {
+    mode: 'welcome',
+    track: 'em',
+    last: true,
+    backTo: 1,
+    titleKey: 'tour.done_title',
+    bodyKey: 'tour.done_body',
+  },
+  // ---- Track fluid · 商飞赛题「一三维耦合求解时间步长协调和边界耦合」 ----
+  {
+    mode: 'intro',
+    track: 'fluid',
+    backTo: 1,
+    titleKey: 'tour.intro_fluid_title',
+    bodyKey: 'tour.intro_fluid_body',
+  },
+  {
+    mode: 'click',
+    track: 'fluid',
+    // Same merged step as the EM route.
+    selector: '[data-activity="plugins"]',
+    skipWhen: () =>
+      useAppStore.getState().sidebarView === 'plugins' &&
+      !!useAppStore.getState().sidebarOpen,
+    titleKey: 'tour.nav_plugins_title',
+    bodyKey: 'tour.nav_plugins_body',
+  },
+  {
+    mode: 'click',
+    track: 'fluid',
+    selector: '[data-plugin-id="example.fluid-cfd-coupler"]',
+    titleKey: 'tour.fluid_open_title',
+    bodyKey: 'tour.fluid_open_body',
+  },
+  {
+    mode: 'click',
+    track: 'fluid',
+    // "Run All (Verify + Coupling)" — the one-click full demo of this plugin.
+    selector: '[data-param-key="runAll"]',
+    titleKey: 'tour.fluid_run_title',
+    bodyKey: 'tour.fluid_run_body',
+  },
+  {
+    mode: 'welcome',
+    track: 'fluid',
+    last: true,
+    backTo: 1,
+    titleKey: 'tour.done_title',
+    bodyKey: 'tour.done_body',
+  },
 ];
 
 const TIP_WIDTH = 320;
@@ -99,6 +268,7 @@ export function TourGuide() {
   const active = useTourStore((s) => s.active);
   const step = useTourStore((s) => s.step);
   const next = useTourStore((s) => s.next);
+  const goto = useTourStore((s) => s.goto);
   const finish = useTourStore((s) => s.finish);
   const [rect, setRect] = useState<Rect | null>(null);
 
@@ -106,8 +276,19 @@ export function TourGuide() {
   // stepIndex is clamped to the last step, so the lookup always lands; the
   // fallback just satisfies noUncheckedIndexedAccess.
   const def = STEPS[stepIndex] ?? STEPS[STEPS.length - 1]!;
-  const isLast = step === STEPS.length - 1;
+  // Progress is counted *within the current track* — the four tracks are
+  // separate step sequences laid out flat in STEPS.
+  const trackStart = STEPS.findIndex((s) => s.track === def.track);
+  const trackLen = STEPS.filter((s) => s.track === def.track).length;
+  const isLast = !!def.last;
   const finished = step >= STEPS.length;
+
+  /** Advance: past a track's terminal step the tour ends — never leak into
+   *  the next track's steps in the flat array. */
+  const advance = useCallback(
+    () => (isLast ? finish() : next()),
+    [isLast, finish, next],
+  );
 
   // Walked past the final step (e.g. clicked the last highlighted element
   // right as the tour ended) — treat as completion.
@@ -189,11 +370,12 @@ export function TourGuide() {
     if (!active || finished || def.mode !== 'click' || !def.selector) return;
     const onDocClick = (e: MouseEvent) => {
       const el = document.querySelector(def.selector!);
-      if (el && e.composedPath().includes(el)) next();
+      if (el && e.composedPath().includes(el)) advance();
     };
     document.addEventListener('click', onDocClick, true);
     return () => document.removeEventListener('click', onDocClick, true);
-  }, [active, finished, def, next]);
+    // `advance` follows def/isLast; re-subscribing on step change is intended.
+  }, [active, finished, def, advance]);
 
   // Escape exits the tour.
   useEffect(() => {
@@ -204,6 +386,20 @@ export function TourGuide() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active, finish]);
+
+  // Steps whose precondition is already satisfied auto-advance after a short
+  // beat — demanding the click anyway would toggle state away (clicking the
+  // already-active activity-bar view collapses the sidebar). Re-evaluated
+  // whenever the sidebar state changes so the condition is checked live.
+  const sidebarView = useAppStore((s) => s.sidebarView);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  useEffect(() => {
+    if (!active || finished || !def.skipWhen) return;
+    if (def.skipWhen()) {
+      const timer = window.setTimeout(() => next(), 400);
+      return () => window.clearTimeout(timer);
+    }
+  }, [active, finished, def, next, sidebarView, sidebarOpen]);
 
   if (!active || finished) return null;
 
@@ -223,7 +419,28 @@ export function TourGuide() {
     tipStyle = { top, left, width: TIP_WIDTH };
   }
 
-  const hero = !rect; // welcome / done steps (or target not yet mounted)
+  const hero = !rect; // menu / intro / done steps (or target not yet mounted)
+
+  // Menu card definitions: audience chooser and judge track chooser. Route
+  // targets are resolved from STEPS so indices never drift out of sync.
+  const aiStart = STEPS.findIndex((s) => s.track === 'ai');
+  const emStart = STEPS.findIndex((s) => s.track === 'em');
+  const fluidStart = STEPS.findIndex((s) => s.track === 'fluid');
+  const audienceCards = [
+    { key: 'judge', titleKey: 'tour.hello_judge_title', descKey: 'tour.hello_judge_desc', target: 1 },
+    { key: 'user', titleKey: 'tour.hello_user_title', descKey: 'tour.hello_user_desc', target: aiStart },
+  ] as const;
+  const trackCards = [
+    { key: 'ai', badgeKey: 'tour.menu_ai_badge', titleKey: 'tour.menu_ai_title', descKey: 'tour.menu_ai_desc', target: aiStart },
+    { key: 'em', badgeKey: 'tour.menu_em_badge', titleKey: 'tour.menu_em_title', descKey: 'tour.menu_em_desc', target: emStart },
+    { key: 'fluid', badgeKey: 'tour.menu_fluid_badge', titleKey: 'tour.menu_fluid_title', descKey: 'tour.menu_fluid_desc', target: fluidStart },
+    // The OpenAtom track shares the project's full product tour.
+    { key: 'atom', badgeKey: 'tour.menu_atom_badge', titleKey: 'tour.menu_atom_title', descKey: 'tour.menu_atom_desc', target: aiStart },
+  ] as const;
+  const menuCards = def.menu === 'audience' ? audienceCards : trackCards;
+
+  // Progress dots for the current track (view/click/done steps only).
+  const trackStep = def.track ? stepIndex - trackStart : -1;
 
   return (
     <div className="tour-layer" role="dialog" aria-label={t('workbench.tour.title')}>
@@ -245,19 +462,75 @@ export function TourGuide() {
       >
         <div className="tour-tip-head">
           <span className="tour-tip-title">{t(def.titleKey)}</span>
-          <span className="tour-tip-count">
-            {stepIndex + 1} / {STEPS.length}
-          </span>
+          {def.track && !hero && (
+            <span className="tour-tip-count">
+              {stepIndex - trackStart + 1} / {trackLen}
+            </span>
+          )}
         </div>
-        <p className="tour-tip-body">{t(def.bodyKey)}</p>
+        {def.mode === 'menu' ? (
+          // Chooser page: one big clickable card per audience / judge track.
+          <>
+            <p className="tour-tip-body">{t(def.bodyKey)}</p>
+            <div className={`tour-menu-grid${def.menu === 'audience' ? ' is-audience' : ''}`}>
+              {menuCards.map((card) => (
+                <button
+                  key={card.key}
+                  type="button"
+                  className="tour-menu-card"
+                  onClick={() => goto(card.target)}
+                >
+                  {'badgeKey' in card && (
+                    <span className="tour-menu-badge">{t(card.badgeKey)}</span>
+                  )}
+                  <span className="tour-menu-name">{t(card.titleKey)}</span>
+                  <span className="tour-menu-desc">{t(card.descKey)}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : def.mode === 'intro' ? (
+          // Track briefing: background, technical highlights and the demo
+          // route — newlines render as separate lines (pre-line).
+          <p className="tour-tip-body tour-intro-body">{t(def.bodyKey)}</p>
+        ) : (
+          <p className="tour-tip-body">{t(def.bodyKey)}</p>
+        )}
         {def.mode === 'click' && !isLast && (
           <div className="tour-tip-hint">{t('tour.click_hint')}</div>
         )}
+        {def.track && !hero && trackLen > 1 && (
+          <div className="tour-dots" aria-hidden="true">
+            {Array.from({ length: trackLen }, (_, i) => (
+              <span key={i} className={`tour-dot${i === trackStep ? ' is-active' : ''}`} />
+            ))}
+          </div>
+        )}
         <div className="tour-tip-actions">
-          {isLast ? (
-            <button type="button" className="btn btn-sm btn-primary" onClick={finish}>
-              {t('tour.finish')}
+          {def.mode === 'menu' ? (
+            <button type="button" className="btn btn-sm" onClick={finish}>
+              {t('tour.skip')}
             </button>
+          ) : def.mode === 'intro' ? (
+            <>
+              <button type="button" className="btn btn-sm btn-primary" onClick={next}>
+                {t('tour.begin')}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={finish}>
+                {t('tour.skip')}
+              </button>
+            </>
+          ) : isLast ? (
+            <>
+              {def.backTo !== undefined && (
+                <button type="button" className="btn btn-sm" onClick={() => goto(def.backTo!)}>
+                  {t('tour.back')}
+                </button>
+              )}
+              <button type="button" className="btn btn-sm btn-primary" onClick={finish}>
+                {t('tour.finish')}
+              </button>
+            </>
           ) : def.mode === 'click' ? (
             <button type="button" className="btn btn-sm" onClick={finish}>
               {t('tour.skip')}
@@ -265,7 +538,7 @@ export function TourGuide() {
           ) : (
             <>
               <button type="button" className="btn btn-sm btn-primary" onClick={next}>
-                {def.mode === 'welcome' ? t('tour.start') : t('tour.next')}
+                {t('tour.next')}
               </button>
               <button type="button" className="btn btn-sm" onClick={finish}>
                 {t('tour.skip')}

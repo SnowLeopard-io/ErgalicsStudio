@@ -10,7 +10,7 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import { actionButton } from '@/core/plugin-tools/enhance';
 
 export { spirographManifest } from './spirographManifest';
 import { spirographManifest } from './spirographManifest';
@@ -45,7 +45,7 @@ function gcd(a: number, b: number): number {
 
 export class SpirographPlugin implements Plugin {
   readonly manifest = spirographManifest;
-  private api!: PluginApi;
+  
   private ctx: ContainerCapabilities | null = null;
   private raf = 0;
   private angle = 0;
@@ -59,9 +59,7 @@ export class SpirographPlugin implements Plugin {
     animate: false,
   };
 
-  async init(api: PluginApi) {
-    this.api = api;
-  }
+  async init(_api: PluginApi) {}
 
   async destroy() {
     this.stopLoop();
@@ -83,10 +81,7 @@ export class SpirographPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (buttonPressed(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d, 'spirograph');
-      return;
-    }
+
     if (buttonPressed(params, 'randomize')) {
       this.randomize();
       if (!this.state.animate) this.draw(0);
@@ -138,7 +133,6 @@ export class SpirographPlugin implements Plugin {
       ], value: this.state.color },
       { key: 'animate', label: 'Spin', labelI18n: { 'zh-CN': '旋转', 'en-US': 'Spin' }, type: 'toggle', offLabel: 'Spin', onLabel: 'Spinning', offLabelI18n: { 'zh-CN': '旋转', 'en-US': 'Spin' }, onLabelI18n: { 'zh-CN': '旋转中', 'en-US': 'Spinning' }, value: this.state.animate },
       actionButton('randomize', 'Randomize', '随机参数'),
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
     ];
   }
 

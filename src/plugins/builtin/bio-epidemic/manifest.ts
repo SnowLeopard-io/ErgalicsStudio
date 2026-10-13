@@ -17,6 +17,19 @@ export const bioEpidemicManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-epidemic',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { time: 'd', population: 'persons' },
+    reproducible: true,
+    notes:
+      'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data.',
+    notesI18n: {
+      'zh-CN':
+        '确定性分室模型模拟器，含守恒与终局关系诊断；早期增长 R_t 采用 SIR 对数斜率近似，输出为模型推导量而非对疫情数据的统计拟合。',
+      'en-US':
+        'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data.',
+    },
+  },
   formats: [
     { extension: '.json', mimeTypes: ['application/json'], description: 'model config JSON' },
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'daily new / cumulative case counts (day, cases)' },

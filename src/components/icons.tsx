@@ -54,15 +54,6 @@ export const MenuIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Right-rail layout glyph: a frame with a vertical split near the right
- *  edge, used to toggle the workbench params panel. */
-export const PanelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <path d="M15 4v16" />
-  </Svg>
-);
-
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
@@ -72,6 +63,12 @@ export const ChevronDownIcon = (p: IconProps) => (
 export const ChevronRightIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m9 6 6 6-6 6" />
+  </Svg>
+);
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 6-6 6 6 6" />
   </Svg>
 );
 
@@ -137,6 +134,49 @@ export const SettingsIcon = (p: IconProps) => (
 export const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
+/** New-file glyph (document with a plus) — explorer toolbar / context menu. */
+export const FilePlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** New-folder glyph (folder with a plus) — explorer toolbar / context menu. */
+export const FolderPlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2z" />
+    <path d="M12 11v6M9 14h6" />
+  </Svg>
+);
+
+/** Clip/glyph for copy & cut — explorer clipboard start/stop control. */
+export const ClipboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+  </Svg>
+);
+
+/** Download glyph (arrow into tray) — explorer supplement-pack export. */
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4v11" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M4 19h16" />
+  </Svg>
+);
+
+/** Plain document glyph (file without a plus) — distinguishes single-file
+    project open from folder import on the welcome CTA row. */
+export const FileIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
+    <path d="M14 3v5h5" />
   </Svg>
 );
 
@@ -225,6 +265,35 @@ export const VariableIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Git branch glyph: two commits on a branch merging into a trunk. */
+export const GitBranchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="5" r="2.2" />
+    <circle cx="6" cy="19" r="2.2" />
+    <circle cx="18" cy="8" r="2.2" />
+    <path d="M6 7.2v9.6" />
+    <path d="M18 10.2c0 3-2.5 4.3-5.5 4.6-2 .2-4 .8-4.8 2" />
+  </Svg>
+);
+
+/** Refresh / reload glyph (circular arrow). */
+export const RefreshIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12a7 7 0 1 1-2-4.9" />
+    <path d="M19 3v4h-4" />
+  </Svg>
+);
+
+/** Horizontal swap arrows (convert between two sides). */
+export const SwapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8h13" />
+    <path d="m14 4.8 3 3.2-3 3.2" />
+    <path d="M20 16H7" />
+    <path d="m10 12.8-3 3.2 3 3.2" />
+  </Svg>
+);
+
 // ---- research tool glyphs -------------------------------------------------
 
 export type ToolIconKind =
@@ -246,7 +315,14 @@ export type ToolIconKind =
   | 'model-inference'
   | 'course'
   | 'cleaning'
-  | 'gallery';
+  | 'gallery'
+  | 'files'
+  | 'units'
+  | 'calc'
+  | 'convert'
+  | 'sigfig'
+  | 'molar'
+  | 'quickstats';
 
 export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) {
   switch (kind) {
@@ -407,6 +483,60 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
           <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
           <circle cx="9" cy="9.5" r="1.4" />
           <path d="m4.5 17 5-5.5 4 4 3-2.5 3.5 4" />
+        </Svg>
+      );
+    case 'files': // open folder with a document
+      return (
+        <Svg {...rest}>
+          <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V18A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18Z" />
+          <path d="M9.5 12h5M9.5 15h3.5" />
+        </Svg>
+      );
+    case 'units': // ruler with tick marks
+      return (
+        <Svg {...rest}>
+          <rect x="2.5" y="8.5" width="19" height="7" rx="1.5" transform="rotate(-8 12 12)" />
+          <path d="M6 11.2v3M10 10.6v2M14 10v3M18 9.4v2" />
+        </Svg>
+      );
+    case 'calc': // calculator keypad
+      return (
+        <Svg {...rest}>
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M8.5 7h7" />
+          <path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01" />
+        </Svg>
+      );
+    case 'convert': // two documents with swap arrows
+      return (
+        <Svg {...rest}>
+          <path d="M14 3h4.5L21 5.5V10" />
+          <path d="M18.5 3v2.5H21" />
+          <path d="M10 21H5.5L3 18.5V14" />
+          <path d="M5.5 21v-2.5H3" />
+          <path d="M9 7h5M16 17h-5" />
+          <path d="m12 4.8 2 2.2-2 2.2M12 19.2 10 17l2-2.2" />
+        </Svg>
+      );
+    case 'sigfig': // approx sign (rounding)
+      return (
+        <Svg {...rest}>
+          <path d="M4 9.5c2.5-2.4 4.5 2.4 8 0s5.5-2.4 8 0" />
+          <path d="M4 15.5c2.5-2.4 4.5 2.4 8 0s5.5-2.4 8 0" />
+        </Svg>
+      );
+    case 'molar': // benzene ring with center atom
+      return (
+        <Svg {...rest}>
+          <path d="m12 3 7.8 4.5v9L12 21l-7.8-4.5v-9z" />
+          <circle cx="12" cy="12" r="2.4" />
+        </Svg>
+      );
+    case 'quickstats': // sigma over bars
+      return (
+        <Svg {...rest}>
+          <path d="M16.5 4H8.5l4 5-4 5h8" />
+          <path d="M4 20v-3M9 20v-5M14 20v-2M19 20v-6" />
         </Svg>
       );
   }

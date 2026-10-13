@@ -18,7 +18,6 @@ import type {
   PluginApi,
 } from '@/types/plugin';
 import { heatmapColor } from '@/core/wgsl';
-import { actionButton, exportCanvasPng } from '@/core/plugin-tools/enhance';
 
 export { geoMapManifest } from './geoMapManifest';
 import { geoMapManifest } from './geoMapManifest';
@@ -248,18 +247,6 @@ export class GeoMapPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    // The snapshot button accepts the host's `{ key: { action } }` emission
-    // and a plain `{ key: true }` call; it never changes the view state.
-    const fired = (key: string): boolean => {
-      const v = params[key];
-      return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
-    };
-    if (fired('exportPng')) {
-      // Every draw auto-fits the data bbox and the plugin owns no pan/zoom
-      // state, so there is nothing a "reset view" button could restore.
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geomap');
-      return;
-    }
     let redraw = false;
     if (
       params.projection === 'albers' ||
@@ -334,7 +321,6 @@ export class GeoMapPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showGraticule,
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 
