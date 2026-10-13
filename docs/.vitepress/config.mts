@@ -32,6 +32,13 @@ export default defineConfig({
       // overwritten, so leftovers are harmless.
       emptyOutDir: false,
     },
+    ssr: {
+      // VitePress 2's SSR bundle externalizes `vue/server-renderer` as a
+      // resolved directory path, which Node's ESM loader rejects
+      // (ERR_UNSUPPORTED_DIR_IMPORT). Bundling the whole SSR graph keeps the
+      // generated entry self-contained and sidesteps the resolution rule.
+      noExternal: true,
+    },
   },
   head: [
     ['meta', { name: 'theme-color', content: '#0e9384' }],
