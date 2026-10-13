@@ -69,10 +69,10 @@
   .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
   .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
   .mode-chip {
-    flex: 1 1 34mm; min-width: 34mm;
+    flex: 1 1 auto; min-width: 34mm; /* basis follows the title; extra space is shared */
     border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
   }
-  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; white-space: nowrap; }
   .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
   .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
   /* Closing page — the cover's counterpart, reached after the last chapter.
@@ -129,6 +129,13 @@
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
+  /* Product volume: figures span the full column width, centered. */
+  .doc-product figure img { width: 100%; margin: 0 auto; }
+  /* Two screenshot+caption units (~51% each at full width) must share one page:
+     shaving vertical whitespace by ~2% per unit flips instance pages from
+     ~51% singles to ~95% pairs. */
+  .doc-product figure { margin: 3mm 0; }
+  .doc-product figcaption { margin-top: 2mm; }
   /* Product volume: comparison tables span the full text width and keep their
      first (label) column on one line; the technical series is unaffected. */
   .doc-product table { width: 100%; }
@@ -141,10 +148,23 @@
   }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
+  /* Tighter paragraph rhythm in the product volume: several screenshot pages
+     miss two-up packing by only a few mm. */
+  .doc-product p { margin: 2.4mm 0; }
+  /* Sentence-split paragraph fragments: the packer may break a page inside a
+     paragraph, the way a book flows text. Only the first fragment keeps the
+     paragraph's top margin and only the last keeps the bottom one, so a
+     paragraph that continues across a page break reads as one block. */
+  p.pfrag { margin: 0; }
+  p.pfrag-first { margin-top: 3mm; }
+  p.pfrag-last { margin-bottom: 3mm; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
   ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
+  /* Product volume: key terms (bold lead-ins and inline keywords) pick up the
+     accent so the eye can scan a page's structure without reading every line. */
+  .doc-product p strong, .doc-product li strong { color: var(--accent-deep); }
   a { color: var(--accent); text-decoration: none; }
   hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
   /* Explicit page break: never laid out, only consumed by the paginator. */
@@ -196,7 +216,7 @@
     <h1>Ergalics Studio</h1>
     <div class="sub">让科学计算 回归触手可及</div>
     <div class="cover-rule"></div>
-    <div class="cover-abstract">Ergalics Studio 是一个完全运行在浏览器中的科学计算工作站：数据导入、可视化、统计检验、数值仿真与报告生成在同一页面内完成；项目与数据保存在本机，源码与测试以 MIT 协议公开。</div>
+    <div class="cover-abstract">Ergalics Studio 是一个完全运行在浏览器中的科学计算工作站，在同一工作区内完成数据导入、可视化、统计检验、数值仿真与报告生成的完整分析流程。项目与数据保存在本机存储，分析全程不依赖服务器；源代码与测试体系以 MIT 协议公开。</div>
     <div class="cover-res">
       <div class="qr-item">
         <div class="qr-box"><svg width="37mm" height="37mm" version="1.1" viewBox="0 0 37 37" xmlns="http://www.w3.org/2000/svg"><path d="M2,2H3V3H2zM3,2H4V3H3zM4,2H5V3H4zM5,2H6V3H5zM6,2H7V3H6zM7,2H8V3H7zM8,2H9V3H8zM10,2H11V3H10zM13,2H14V3H13zM14,2H15V3H14zM15,2H16V3H15zM19,2H20V3H19zM20,2H21V3H20zM21,2H22V3H21zM22,2H23V3H22zM23,2H24V3H23zM25,2H26V3H25zM28,2H29V3H28zM29,2H30V3H29zM30,2H31V3H30zM31,2H32V3H31zM32,2H33V3H32zM33,2H34V3H33zM34,2H35V3H34zM2,3H3V4H2zM8,3H9V4H8zM10,3H11V4H10zM12,3H13V4H12zM13,3H14V4H13zM15,3H16V4H15zM20,3H21V4H20zM24,3H25V4H24zM25,3H26V4H25zM28,3H29V4H28zM34,3H35V4H34zM2,4H3V5H2zM4,4H5V5H4zM5,4H6V5H5zM6,4H7V5H6zM8,4H9V5H8zM11,4H12V5H11zM12,4H13V5H12zM14,4H15V5H14zM17,4H18V5H17zM18,4H19V5H18zM19,4H20V5H19zM21,4H22V5H21zM24,4H25V5H24zM26,4H27V5H26zM28,4H29V5H28zM30,4H31V5H30zM31,4H32V5H31zM32,4H33V5H32zM34,4H35V5H34zM2,5H3V6H2zM4,5H5V6H4zM5,5H6V6H5zM6,5H7V6H6zM8,5H9V6H8zM10,5H11V6H10zM11,5H12V6H11zM12,5H13V6H12zM13,5H14V6H13zM16,5H17V6H16zM17,5H18V6H17zM18,5H19V6H18zM21,5H22V6H21zM22,5H23V6H22zM24,5H25V6H24zM25,5H26V6H25zM26,5H27V6H26zM28,5H29V6H28zM30,5H31V6H30zM31,5H32V6H31zM32,5H33V6H32zM34,5H35V6H34zM2,6H3V7H2zM4,6H5V7H4zM5,6H6V7H5zM6,6H7V7H6zM8,6H9V7H8zM11,6H12V7H11zM13,6H14V7H13zM14,6H15V7H14zM15,6H16V7H15zM16,6H17V7H16zM22,6H23V7H22zM26,6H27V7H26zM28,6H29V7H28zM30,6H31V7H30zM31,6H32V7H31zM32,6H33V7H32zM34,6H35V7H34zM2,7H3V8H2zM8,7H9V8H8zM12,7H13V8H12zM14,7H15V8H14zM16,7H17V8H16zM19,7H20V8H19zM20,7H21V8H20zM21,7H22V8H21zM22,7H23V8H22zM26,7H27V8H26zM28,7H29V8H28zM34,7H35V8H34zM2,8H3V9H2zM3,8H4V9H3zM4,8H5V9H4zM5,8H6V9H5zM6,8H7V9H6zM7,8H8V9H7zM8,8H9V9H8zM10,8H11V9H10zM12,8H13V9H12zM14,8H15V9H14zM16,8H17V9H16zM18,8H19V9H18zM20,8H21V9H20zM22,8H23V9H22zM24,8H25V9H24zM26,8H27V9H26zM28,8H29V9H28zM29,8H30V9H29zM30,8H31V9H30zM31,8H32V9H31zM32,8H33V9H32zM33,8H34V9H33zM34,8H35V9H34zM10,9H11V10H10zM12,9H13V10H12zM16,9H17V10H16zM19,9H20V10H19zM20,9H21V10H20zM22,9H23V10H22zM24,9H25V10H24zM25,9H26V10H25zM26,9H27V10H26zM2,10H3V11H2zM4,10H5V11H4zM5,10H6V11H5zM7,10H8V11H7zM8,10H9V11H8zM9,10H10V11H9zM14,10H15V11H14zM16,10H17V11H16zM18,10H19V11H18zM19,10H20V11H19zM21,10H22V11H21zM23,10H24V11H23zM28,10H29V11H28zM31,10H32V11H31zM33,10H34V11H33zM34,10H35V11H34zM9,11H10V12H9zM10,11H11V12H10zM11,11H12V12H11zM12,11H13V12H12zM13,11H14V12H13zM18,11H19V12H18zM20,11H21V12H20zM21,11H22V12H21zM22,11H23V12H22zM25,11H26V12H25zM28,11H29V12H28zM29,11H30V12H29zM31,11H32V12H31zM32,11H33V12H32zM4,12H5V13H4zM5,12H6V13H5zM7,12H8V13H7zM8,12H9V13H8zM10,12H11V13H10zM11,12H12V13H11zM14,12H15V13H14zM16,12H17V13H16zM18,12H19V13H18zM19,12H20V13H19zM25,12H26V13H25zM26,12H27V13H26zM29,12H30V13H29zM30,12H31V13H30zM31,12H32V13H31zM33,12H34V13H33zM34,12H35V13H34zM3,13H4V14H3zM5,13H6V14H5zM9,13H10V14H9zM15,13H16V14H15zM16,13H17V14H16zM20,13H21V14H20zM21,13H22V14H21zM22,13H23V14H22zM25,13H26V14H25zM26,13H27V14H26zM29,13H30V14H29zM31,13H32V14H31zM34,13H35V14H34zM2,14H3V15H2zM4,14H5V15H4zM6,14H7V15H6zM8,14H9V15H8zM9,14H10V15H9zM11,14H12V15H11zM12,14H13V15H12zM13,14H14V15H13zM17,14H18V15H17zM20,14H21V15H20zM21,14H22V15H21zM24,14H25V15H24zM27,14H28V15H27zM29,14H30V15H29zM30,14H31V15H30zM31,14H32V15H31zM33,14H34V15H33zM34,14H35V15H34zM4,15H5V16H4zM5,15H6V16H5zM9,15H10V16H9zM12,15H13V16H12zM13,15H14V16H13zM15,15H16V16H15zM18,15H19V16H18zM20,15H21V16H20zM23,15H24V16H23zM26,15H27V16H26zM29,15H30V16H29zM33,15H34V16H33zM4,16H5V17H4zM5,16H6V17H5zM7,16H8V17H7zM8,16H9V17H8zM10,16H11V17H10zM12,16H13V17H12zM13,16H14V17H13zM14,16H15V17H14zM16,16H17V17H16zM17,16H18V17H17zM18,16H19V17H18zM19,16H20V17H19zM20,16H21V17H20zM23,16H24V17H23zM28,16H29V17H28zM30,16H31V17H30zM31,16H32V17H31zM2,17H3V18H2zM3,17H4V18H3zM4,17H5V18H4zM5,17H6V18H5zM7,17H8V18H7zM9,17H10V18H9zM12,17H13V18H12zM18,17H19V18H18zM20,17H21V18H20zM21,17H22V18H21zM22,17H23V18H22zM23,17H24V18H23zM24,17H25V18H24zM27,17H28V18H27zM28,17H29V18H28zM30,17H31V18H30zM31,17H32V18H31zM32,17H33V18H32zM2,18H3V19H2zM3,18H4V19H3zM4,18H5V19H4zM5,18H6V19H5zM8,18H9V19H8zM10,18H11V19H10zM11,18H12V19H11zM14,18H15V19H14zM15,18H16V19H15zM16,18H17V19H16zM17,18H18V19H17zM18,18H19V19H18zM20,18H21V19H20zM21,18H22V19H21zM22,18H23V19H22zM23,18H24V19H23zM24,18H25V19H24zM25,18H26V19H25zM26,18H27V19H26zM27,18H28V19H27zM28,18H29V19H28zM30,18H31V19H30zM32,18H33V19H32zM2,19H3V20H2zM4,19H5V20H4zM6,19H7V20H6zM7,19H8V20H7zM11,19H12V20H11zM16,19H17V20H16zM17,19H18V20H17zM19,19H20V20H19zM23,19H24V20H23zM25,19H26V20H25zM26,19H27V20H26zM28,19H29V20H28zM30,19H31V20H30zM31,19H32V20H31zM33,19H34V20H33zM34,19H35V20H34zM2,20H3V21H2zM4,20H5V21H4zM5,20H6V21H5zM6,20H7V21H6zM8,20H9V21H8zM10,20H11V21H10zM11,20H12V21H11zM14,20H15V21H14zM17,20H18V21H17zM19,20H20V21H19zM24,20H25V21H24zM29,20H30V21H29zM30,20H31V21H30zM32,20H33V21H32zM5,21H6V22H5zM6,21H7V22H6zM7,21H8V22H7zM9,21H10V22H9zM11,21H12V22H11zM12,21H13V22H12zM14,21H15V22H14zM15,21H16V22H15zM24,21H25V22H24zM26,21H27V22H26zM27,21H28V22H27zM30,21H31V22H30zM33,21H34V22H33zM3,22H4V23H3zM8,22H9V23H8zM13,22H14V23H13zM15,22H16V23H15zM17,22H18V23H17zM20,22H21V23H20zM21,22H22V23H21zM22,22H23V23H22zM23,22H24V23H23zM24,22H25V23H24zM25,22H26V23H25zM26,22H27V23H26zM31,22H32V23H31zM32,22H33V23H32zM34,22H35V23H34zM2,23H3V24H2zM3,23H4V24H3zM4,23H5V24H4zM11,23H12V24H11zM12,23H13V24H12zM14,23H15V24H14zM15,23H16V24H15zM16,23H17V24H16zM17,23H18V24H17zM20,23H21V24H20zM23,23H24V24H23zM25,23H26V24H25zM27,23H28V24H27zM28,23H29V24H28zM32,23H33V24H32zM34,23H35V24H34zM4,24H5V25H4zM6,24H7V25H6zM7,24H8V25H7zM8,24H9V25H8zM9,24H10V25H9zM13,24H14V25H13zM14,24H15V25H14zM16,24H17V25H16zM18,24H19V25H18zM20,24H21V25H20zM25,24H26V25H25zM26,24H27V25H26zM28,24H29V25H28zM29,24H30V25H29zM31,24H32V25H31zM32,24H33V25H32zM33,24H34V25H33zM34,24H35V25H34zM3,25H4V26H3zM4,25H5V26H4zM7,25H8V26H7zM11,25H12V26H11zM12,25H13V26H12zM13,25H14V26H13zM15,25H16V26H15zM18,25H19V26H18zM20,25H21V26H20zM21,25H22V26H21zM24,25H25V26H24zM25,25H26V26H25zM28,25H29V26H28zM30,25H31V26H30zM31,25H32V26H31zM33,25H34V26H33zM2,26H3V27H2zM4,26H5V27H4zM5,26H6V27H5zM6,26H7V27H6zM8,26H9V27H8zM9,26H10V27H9zM10,26H11V27H10zM11,26H12V27H11zM12,26H13V27H12zM14,26H15V27H14zM16,26H17V27H16zM17,26H18V27H17zM19,26H20V27H19zM24,26H25V27H24zM26,26H27V27H26zM27,26H28V27H27zM28,26H29V27H28zM29,26H30V27H29zM30,26H31V27H30zM10,27H11V28H10zM11,27H12V28H11zM17,27H18V28H17zM18,27H19V28H18zM19,27H20V28H19zM21,27H22V28H21zM23,27H24V28H23zM25,27H26V28H25zM26,27H27V28H26zM30,27H31V28H30zM31,27H32V28H31zM2,28H3V29H2zM3,28H4V29H3zM4,28H5V29H4zM5,28H6V29H5zM6,28H7V29H6zM7,28H8V29H7zM8,28H9V29H8zM10,28H11V29H10zM12,28H13V29H12zM14,28H15V29H14zM15,28H16V29H15zM18,28H19V29H18zM21,28H22V29H21zM23,28H24V29H23zM25,28H26V29H25zM26,28H27V29H26zM28,28H29V29H28zM30,28H31V29H30zM2,29H3V30H2zM8,29H9V30H8zM10,29H11V30H10zM13,29H14V30H13zM14,29H15V30H14zM17,29H18V30H17zM18,29H19V30H18zM21,29H22V30H21zM23,29H24V30H23zM24,29H25V30H24zM25,29H26V30H25zM26,29H27V30H26zM30,29H31V30H30zM31,29H32V30H31zM32,29H33V30H32zM33,29H34V30H33zM2,30H3V31H2zM4,30H5V31H4zM5,30H6V31H5zM6,30H7V31H6zM8,30H9V31H8zM11,30H12V31H11zM13,30H14V31H13zM15,30H16V31H15zM16,30H17V31H16zM19,30H20V31H19zM22,30H23V31H22zM25,30H26V31H25zM26,30H27V31H26zM27,30H28V31H27zM28,30H29V31H28zM29,30H30V31H29zM30,30H31V31H30zM32,30H33V31H32zM2,31H3V32H2zM4,31H5V32H4zM5,31H6V32H5zM6,31H7V32H6zM8,31H9V32H8zM10,31H11V32H10zM11,31H12V32H11zM13,31H14V32H13zM14,31H15V32H14zM16,31H17V32H16zM19,31H20V32H19zM20,31H21V32H20zM21,31H22V32H21zM22,31H23V32H22zM24,31H25V32H24zM26,31H27V32H26zM29,31H30V32H29zM31,31H32V32H31zM34,31H35V32H34zM2,32H3V33H2zM4,32H5V33H4zM5,32H6V33H5zM6,32H7V33H6zM8,32H9V33H8zM10,32H11V33H10zM13,32H14V33H13zM14,32H15V33H14zM15,32H16V33H15zM16,32H17V33H16zM20,32H21V33H20zM21,32H22V33H21zM23,32H24V33H23zM25,32H26V33H25zM28,32H29V33H28zM29,32H30V33H29zM31,32H32V33H31zM2,33H3V34H2zM8,33H9V34H8zM11,33H12V34H11zM12,33H13V34H12zM13,33H14V34H13zM14,33H15V34H14zM17,33H18V34H17zM18,33H19V34H18zM19,33H20V34H19zM20,33H21V34H20zM21,33H22V34H21zM24,33H25V34H24zM28,33H29V34H28zM29,33H30V34H29zM30,33H31V34H30zM34,33H35V34H34zM2,34H3V35H2zM3,34H4V35H3zM4,34H5V35H4zM5,34H6V35H5zM6,34H7V35H6zM7,34H8V35H7zM8,34H9V35H8zM10,34H11V35H10zM11,34H12V35H11zM17,34H18V35H17zM19,34H20V35H19zM20,34H21V35H20zM22,34H23V35H22zM23,34H24V35H23zM25,34H26V35H25zM28,34H29V35H28zM30,34H31V35H30zM32,34H33V35H32z" id="qr-path" fill="#000000" fill-opacity="1" fill-rule="nonzero" stroke="none" /></svg></div>
@@ -226,16 +246,16 @@
   <h1>目 录</h1>
 <div class="toc-item l1"><span>一、概述与定位</span><span class="dots"></span><span class="tp">03</span></div>
 <div class="toc-item l1"><span>二、典型运行实例</span><span class="dots"></span><span class="tp">05</span></div>
-<div class="toc-item l1"><span>三、产品构成与工作模式</span><span class="dots"></span><span class="tp">09</span></div>
-<div class="toc-item l1"><span>四、端到端分析流程</span><span class="dots"></span><span class="tp">15</span></div>
-<div class="toc-item l1"><span>五、关键技术实现</span><span class="dots"></span><span class="tp">22</span></div>
-<div class="toc-item l1"><span>六、内置能力全景</span><span class="dots"></span><span class="tp">24</span></div>
-<div class="toc-item l1"><span>七、治理与路线图</span><span class="dots"></span><span class="tp">30</span></div>
-<div class="toc-item l1"><span>八、获取与运行</span><span class="dots"></span><span class="tp">31</span></div>
-<div class="toc-item l1"><span>九、附录</span><span class="dots"></span><span class="tp">32</span></div>
-<div class="toc-item l2"><span>附录 A　插件速查</span><span class="dots"></span><span class="tp">32</span></div>
-<div class="toc-item l2"><span>附录 B　科研工具速查</span><span class="dots"></span><span class="tp">32</span></div>
-<div class="toc-item l2"><span>附录 C　文档索引</span><span class="dots"></span><span class="tp">32</span></div>
+<div class="toc-item l1"><span>三、产品构成与工作模式</span><span class="dots"></span><span class="tp">10</span></div>
+<div class="toc-item l1"><span>四、端到端分析流程</span><span class="dots"></span><span class="tp">16</span></div>
+<div class="toc-item l1"><span>五、关键技术实现</span><span class="dots"></span><span class="tp">26</span></div>
+<div class="toc-item l1"><span>六、内置能力全景</span><span class="dots"></span><span class="tp">28</span></div>
+<div class="toc-item l1"><span>七、治理与路线图</span><span class="dots"></span><span class="tp">34</span></div>
+<div class="toc-item l1"><span>八、获取与运行</span><span class="dots"></span><span class="tp">36</span></div>
+<div class="toc-item l1"><span>九、附录</span><span class="dots"></span><span class="tp">37</span></div>
+<div class="toc-item l2"><span>附录 A　插件速查</span><span class="dots"></span><span class="tp">37</span></div>
+<div class="toc-item l2"><span>附录 B　科研工具速查</span><span class="dots"></span><span class="tp">37</span></div>
+<div class="toc-item l2"><span>附录 C　数据格式速查</span><span class="dots"></span><span class="tp">37</span></div>
 
 </div>
 
@@ -249,172 +269,249 @@
 <table><thead><tr><th>维度</th><th>桌面科学软件（典型形态）</th><th>云端计算平台（典型形态）</th><th>Ergalics Studio</th></tr></thead><tbody><tr><td>启动方式</td><td>安装并配置环境</td><td>打开网页，需注册</td><td>打开网页即用，无需注册</td></tr><tr><td>数据位置</td><td>本机</td><td>上传至服务方</td><td>始终在本机，可导出 <code>.clproj</code> 流转</td></tr><tr><td>离线可用</td><td>可用</td><td>通常不可用</td><td>全功能离线可用</td></tr><tr><td>计算内核</td><td>完整</td><td>由平台限定</td><td>14 个 WGSL 内核 + CPython / webR / DuckDB，均配一致回退</td></tr><tr><td>结果复现</td><td>取决于个人工作流</td><td>取决于平台快照</td><td>repro.lock 五类指纹，漂移可判定</td></tr><tr><td>扩展方式</td><td>插件 / 脚本，门槛不一</td><td>平台限定</td><td><code>.cspkg</code> 与内置插件同契约、同沙箱</td></tr></tbody></table>
 <p>表中&quot;典型形态&quot;列描述各类方案的常见特征，非针对特定产品。</p>
 <p>产品由四部分构成。其一是四模式工作台，从拖入数据查看结果，到流程管线、积木编程与真实脚本，共享同一份中间表示；其二是 107 个内置插件，覆盖 16 个学科的可视化、仿真与数据分析；其三是 26 个科研工具，承接画像、清洗、推断、组图、报告与复现各环节；其四是浏览器内运行时，包括 CPython（Pyodide）、webR、DuckDB-WASM 与 14 个 WGSL 计算内核。项目同时是一个 Git 仓库，版本历史与分析过程留在本机。</p>
+<p>下表汇总本书引用的核心数字，各项均可在公开仓库中核查：</p>
 </div>
 
 <!-- P4 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p>下表汇总本书引用的核心数字，各项均可在公开仓库中核查：</p>
 <table><thead><tr><th>维度</th><th>现状</th></tr></thead><tbody><tr><td>内置插件</td><td>107 个，覆盖 16 个学科（97 个随启动自动加载，10 个按需加载）</td></tr><tr><td>科研工具</td><td>26 个，分六组，均可嵌入工作台画布</td></tr><tr><td>流程区块</td><td>38 个，覆盖数据源、变换、过滤、数学、统计、单位、可视化与绘图</td></tr><tr><td>计算内核</td><td>14 个 WGSL 计算内核，各配数学一致的 CPU 实现</td></tr><tr><td>脚本运行时</td><td>CPython（Pyodide）、webR 0.6.0、DuckDB-WASM，随应用自托管</td></tr><tr><td>数据格式</td><td>CSV / JSON / HDF5 / NetCDF / FITS / Zarr / Parquet 等统一导入</td></tr><tr><td>质量保障</td><td>2815 个单元测试（173 个文件）、14 套端到端测试、5 条 CI 工作流</td></tr><tr><td>开源治理</td><td>MIT 协议；发版经 Zenodo 归档并铸造 DOI；SBOM 与引用元数据齐备</td></tr></tbody></table>
-<p>本书的阅读路径对应评审的关注顺序：第二至四章回答&quot;它能做什么、用起来是什么样&quot;，第五至六章回答&quot;它是怎么实现的、能力边界在哪&quot;，第七至八章回答&quot;它是否可信、能否长期存在&quot;。每一章的事实陈述都附有可核查的出处——测试文件、CI 工作流或源码位置，深入核对所需的技术文档系列在第九章附录 C 给出索引。</p>
+<p>上述数字背后是三条已经成立的技术前提。</p>
+<p><strong>其一</strong>，浏览器图形与计算接口成熟：WebGPU 在主流浏览器默认启用，WebAssembly 以接近原生的速度运行 CPython 与 R 解释器，这使&quot;在网页里做严肃计算&quot;从权宜方案变为工程可行。</p>
+<p><strong>其二</strong>，本地存储能力足够：Origin Private File System 与 IndexedDB 提供 GB 级持久化，数据集、运行记录与 Git 历史都存放在其中，关闭浏览器后依然保留。</p>
+<p><strong>其三</strong>，开放格式保证可迁移：项目可随时导出为单个 <code>.clproj</code> 文件在设备间流转，数据文件本身不被包装进私有格式。</p>
+<p>不同使用者在其中找到各自的入口：第一次接触数据的人从标准模式拖入文件开始看图；需要整理多步流程的分析者用流程模式搭管线并逐步预览；教编程的课堂从积木模式进入，再平滑过渡到真实脚本；熟悉 Python 或 R 的研究者直接在代码模式里调用 <code>studio</code> 接口操作项目数据。四种入口共享同一份数据与运行记录，起点不同，终点一致。</p>
 </div>
 
 <!-- P5 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
 <h2 class="sec"><span class="num">二</span>典型运行实例</h2>
-<p>以下实例分别对应五类典型计算：GPU 渲染、蒙特卡洛模拟、偏微分方程数值解、复分析可视化与参数化研究。画面均来自当前构建的内置插件与科研工具，加载示例数据或调整参数后即可重现；本节只描述各实例的计算内容，完整清单见第三章与第六章。</p>
-<p>黑洞光线追踪：特效插件对视场内每条光线做 Schwarzschild 时空的测地线积分，光线在引力场中弯曲后采样吸积盘辐射；吸积盘的亮度与色移计入相对论性多普勒集束和引力红移，观察者倾角、盘半径与分辨率以滑块调节，渲染由 WebGPU 逐帧完成。</p>
+<p class="pfrag pfrag-first">以下实例分别对应六类典型计算：GPU 渲染、蒙特卡洛模拟、偏微分方程数值解、复分析可视化、格子玻尔兹曼流体与参数化研究。</p>
+<p class="pfrag pfrag-last">画面均来自当前构建的内置插件与科研工具，加载示例数据或调整参数后即可重现；本节只描述各实例的计算内容，完整清单见第三章与第六章。</p>
+<p><strong>黑洞光线追踪</strong>：特效插件对视场内每条光线做 Schwarzschild 时空的测地线积分，光线在引力场中弯曲后采样吸积盘辐射；吸积盘的亮度与色移计入相对论性多普勒集束和引力红移，观察者倾角、盘半径与分辨率以滑块调节，渲染由 WebGPU 逐帧完成。</p>
 <figure><img src="../assets/screenshots/plugins/fx-blackhole.png" alt="黑洞 · 3D 光线追踪：Schwarzschild 测地线与吸积盘"><figcaption>黑洞 · 3D 光线追踪：逐像素测地线积分渲染的引力透镜与吸积盘。</figcaption></figure>
+<p>实例的数值口径可以与理论直接对照：伊辛插件在周期方格子上运行 Metropolis 与 Wolff 单团簇算法，观测磁化率、比热与 Binder 累积量，χ(T) 峰位拟合给出 Onsager 临界温度；黑洞渲染对每条光线做 RK4 测地线积分，多普勒集束吸积盘、引力红移与引力透镜星空随观察者参数实时更新。峰位与理论值一旦出现系统偏离，即可作为模型或参数问题的线索回查。</p>
 </div>
 
 <!-- P6 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<p>统计物理：二维伊辛插件在周期边界格点上运行 Metropolis 与 Wolff 团簇翻转两种蒙特卡洛算法；温度滑块扫过临界区域时，可以观察自发磁化的形成与消失。插件同时输出比热、磁化率与关联长度曲线，用于定位相变温度并检查有限尺寸效应，每次运行使用可复现的随机种子。</p>
+<p class="pfrag pfrag-first"><strong>统计物理</strong>：二维伊辛插件在周期边界格点上运行 Metropolis 与 Wolff 团簇翻转两种蒙特卡洛算法；温度滑块扫过临界区域时，可以观察自发磁化的形成与消失。</p>
+<p class="pfrag pfrag-last">插件同时输出比热、磁化率与关联长度曲线，用于定位相变温度并检查有限尺寸效应，每次运行使用可复现的随机种子。</p>
 <figure><img src="../assets/screenshots/plugins/physics-ising.png" alt="二维伊辛模型：蒙特卡洛构型与磁化率"><figcaption>二维伊辛模型：Metropolis / Wolff 蒙特卡洛的磁化构型与磁化率诊断。</figcaption></figure>
-<p>偏微分方程数值解：Gray-Scott 反应扩散插件以显式 FTCS 格式求解两种物质浓度的反应扩散方程，二维浓度场随时间演化出斑点、条纹与迷宫等图样；进料率与消去率两个参数决定图样类型，内置预设按 Pearson (1993) 的分类命名，也可从预设出发微调观察图样之间的转换过程。</p>
-<figure><img src="../assets/screenshots/plugins/chem-turing.png" alt="Gray-Scott 反应扩散：图灵斑图"><figcaption>Gray-Scott 反应扩散：FTCS 数值解形成的图灵斑图，按 Pearson 分类标注。</figcaption></figure>
 </div>
 
 <!-- P7 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<p>复分析可视化：域着色插件对复函数 f(z) 逐像素计算幅角与模，分别映射为色相与亮度；内置表达式解析器，支持缩放与平移，零点与极点的位置在色彩变化中直接可读，是复变函数教学与函数探索的直观工具。</p>
+<p class="pfrag pfrag-first"><strong>偏微分方程数值解</strong>：Gray-Scott 反应扩散插件以显式 FTCS 格式求解两种物质浓度的反应扩散方程，二维浓度场随时间演化出斑点、条纹与迷宫等图样；进料率与消去率两个参数决定图样类型，内置预设按 Pearson (1993) 的分类命名，也可从预设出发微调观察图样之间的转换过程。</p>
+<p class="pfrag pfrag-last">演化在 N×N 周期网格上进行，内置质量守恒数值基准用于核对求解器。</p>
+<figure><img src="../assets/screenshots/plugins/chem-turing.png" alt="Gray-Scott 反应扩散：图灵斑图"><figcaption>Gray-Scott 反应扩散：FTCS 数值解形成的图灵斑图，按 Pearson 分类标注。</figcaption></figure>
+<p><strong>复分析可视化</strong>：域着色插件对复函数 f(z) 逐像素计算幅角与模，分别映射为色相与亮度；内置表达式解析器，支持缩放与平移，等值线带按对数模长绘制，绕数按辐角原理统计，零点与极点的位置在色彩变化中直接可读，是复变函数教学与函数探索的直观工具。</p>
 <figure><img src="../assets/screenshots/plugins/math-domaincolor.png" alt="复变函数域着色：幅角与模长的色彩映射"><figcaption>复变函数域着色：色相编码幅角、亮度编码模长，零点与极点清晰可辨。</figcaption></figure>
-<p>参数化研究：参数扫描工具对指定参数网格逐一运行模型并汇总输出指标，结果以热力图与曲线呈现，用于观察模型行为对参数的敏感性、定位稳定区间，也为后续的不确定性分析圈定输入范围。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/parameter-sweeps.png" alt="参数扫描：参数网格与指标热力图"><figcaption>参数扫描：参数网格上的指标热力图与响应曲线。</figcaption></figure>
 </div>
 
 <!-- P8 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p>五个实例共享同一组运行条件：全部计算发生在浏览器标签页内，不依赖任何服务器；参数与随机种子可复现，同一组输入必然得到同一组输出；关键指标经统一的科学输出总线汇入画布顶部的读数条，与图、表一起进入后续的报告与复现记录。实例之间也可以组合——例如参数扫描圈定的输入范围，可以直接交给不确定性套件做 Bootstrap 传播与 MCMC 推断。</p>
+<p><strong>流体模拟</strong>：格子 Boltzmann 插件以 D2Q9 格子模拟二维通道流，圆柱绕流的涡街随时间步推进逐步显现；计算由 GPU 内核逐步执行，并在设备不支持时降级到 CPU 完成。</p>
+<figure><img src="../assets/screenshots/plugins/lbm-fluid.png" alt="格子 Boltzmann 流体：D2Q9 通道流与涡街"><figcaption>流体模拟：D2Q9 格子 Boltzmann 通道流，GPU 逐步计算并支持 CPU 降级。</figcaption></figure>
 </div>
 
 <!-- P9 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<h2 class="sec"><span class="num">三</span>产品构成与工作模式</h2>
-<p>产品的核心是一条完整链路：数据进入、探索、建模推断、出版级组图、报告交付、全程可复现。每一段由对应的科研工具承接，且整条链在浏览器内闭合。</p>
-<div class="svgbox"><svg id="mmd-1-fevzel" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1128px;" viewBox="4 4 1128 119" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#mmd-1-fevzel{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mmd-1-fevzel .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mmd-1-fevzel .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mmd-1-fevzel .error-icon{fill:#fefce8;}#mmd-1-fevzel .error-text{fill:#010317;stroke:#010317;}#mmd-1-fevzel .edge-thickness-normal{stroke-width:1px;}#mmd-1-fevzel .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-fevzel .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-fevzel .edge-thickness-invisible{stroke-width:0;fill:none;}#mmd-1-fevzel .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-fevzel .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-fevzel .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-fevzel .marker.cross{stroke:#0e7490;}#mmd-1-fevzel svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-fevzel p{margin:0;}#mmd-1-fevzel .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-fevzel .cluster-label text{fill:#010317;}#mmd-1-fevzel .cluster-label span{color:#010317;}#mmd-1-fevzel .cluster-label span p{background-color:transparent;}#mmd-1-fevzel .label text,#mmd-1-fevzel span{fill:#155e75;color:#155e75;}#mmd-1-fevzel .node rect,#mmd-1-fevzel .node circle,#mmd-1-fevzel .node ellipse,#mmd-1-fevzel .node polygon,#mmd-1-fevzel .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-fevzel .rough-node .label text,#mmd-1-fevzel .node .label text,#mmd-1-fevzel .image-shape .label,#mmd-1-fevzel .icon-shape .label{text-anchor:middle;}#mmd-1-fevzel .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-fevzel .rough-node .label,#mmd-1-fevzel .node .label,#mmd-1-fevzel .image-shape .label,#mmd-1-fevzel .icon-shape .label{text-align:center;}#mmd-1-fevzel .node.clickable{cursor:pointer;}#mmd-1-fevzel .root .anchor path{fill:#0e7490!important;stroke-width:0;stroke:#0e7490;}#mmd-1-fevzel .arrowheadPath{fill:#0b0b0b;}#mmd-1-fevzel .edgePaths .path{stroke:#0e7490;stroke-width:1px;}#mmd-1-fevzel .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-fevzel .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-fevzel .edgeLabel p{background-color:#f0fdf4;}#mmd-1-fevzel .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-fevzel .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-fevzel .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-fevzel .cluster text{fill:#010317;}#mmd-1-fevzel .cluster span{color:#010317;}#mmd-1-fevzel .node .collapsed-indicator{fill:#cbd5e1;stroke:none;opacity:0.6;}#mmd-1-fevzel .node .collapsed-separator{stroke:#cbd5e1;stroke-width:0.75px;}#mmd-1-fevzel div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-fevzel .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-fevzel rect.text{fill:none;stroke-width:0;}#mmd-1-fevzel .icon-shape,#mmd-1-fevzel .image-shape{background-color:#f0fdf4;text-align:center;}#mmd-1-fevzel .icon-shape p,#mmd-1-fevzel .image-shape p{background-color:#f0fdf4;padding:2px;}#mmd-1-fevzel .icon-shape .label rect,#mmd-1-fevzel .image-shape .label rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-fevzel .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#mmd-1-fevzel .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#mmd-1-fevzel .node .neo-node{stroke:#22d3ee;}#mmd-1-fevzel [data-look="neo"].node rect,#mmd-1-fevzel [data-look="neo"].cluster rect,#mmd-1-fevzel [data-look="neo"].node polygon{stroke:url(#mmd-1-fevzel-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fevzel [data-look="neo"].swimlane.cluster rect{filter:none;}#mmd-1-fevzel [data-look="neo"].node path{stroke:url(#mmd-1-fevzel-gradient);stroke-width:1px;}#mmd-1-fevzel [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fevzel [data-look="neo"].node .neo-line path{stroke:#22d3ee;filter:none;}#mmd-1-fevzel [data-look="neo"].node circle{stroke:url(#mmd-1-fevzel-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fevzel [data-look="neo"].node circle .state-start{fill:#000000;}#mmd-1-fevzel [data-look="neo"].icon-shape .icon{fill:url(#mmd-1-fevzel-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fevzel [data-look="neo"].icon-shape .icon-neo path{stroke:url(#mmd-1-fevzel-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fevzel :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="mmd-1-fevzel_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="mmd-1-fevzel_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fevzel_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fevzel_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fevzel_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fevzel_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="mmd-1-fevzel_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,69.875L200,69.875" id="mmd-1-fevzel-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5Ijo2OS44NzV9LHsieCI6MjA0LCJ5Ijo2OS44NzV9XQ==" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path><path d="M356,65.95833333333333L368.9289321881345,65.95833333333333Q376,65.95833333333333 376,58.88726552146785L376,40.821067811865476Q376,33.75 383.0710678118655,33.75L392,33.75" id="mmd-1-fevzel-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 58.88006591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5Ijo2NS45NTgzMzMzMzMzMzMzM30seyJ4IjozNzYsInkiOjY1Ljk1ODMzMzMzMzMzMzMzfSx7IngiOjM3NiwieSI6MzMuNzV9LHsieCI6Mzk2LCJ5IjozMy43NX1d" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path><path d="M548,33.75L584,33.75" id="mmd-1-fevzel-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5IjozMy43NX0seyJ4Ijo1ODgsInkiOjMzLjc1fV0=" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path><path d="M740,33.75L776,33.75" id="mmd-1-fevzel-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NzQwLCJ5IjozMy43NX0seyJ4Ijo3ODAsInkiOjMzLjc1fV0=" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path><path d="M932,33.75L944.9289321881345,33.75Q952,33.75 952,40.821067811865476L952,58.88726552146785Q952,65.95833333333333 959.0710678118655,65.95833333333333L968,65.95833333333333" id="mmd-1-fevzel-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 58.880069732666016 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6OTMyLCJ5IjozMy43NX0seyJ4Ijo5NTIsInkiOjMzLjc1fSx7IngiOjk1MiwieSI6NjUuOTU4MzMzMzMzMzMzMzN9LHsieCI6OTcyLCJ5Ijo2NS45NTgzMzMzMzMzMzMzM31d" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path><path d="M972,73.79166666666666L959.0710678118655,73.79166666666666Q952,73.79166666666666 952,80.86273447853213L952,98.92893218813452Q952,106 944.9289321881345,106L856,106L472,106L383.0710678118655,106Q376,106 376,98.92893218813452L376,80.86273447853213Q376,73.79166666666666 368.9289321881345,73.79166666666666L360,73.79166666666666" id="mmd-1-fevzel-L_F_B_0" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_B_0" data-points="W3sieCI6OTcyLCJ5Ijo3My43OTE2NjY2NjY2NjY2Nn0seyJ4Ijo5NTIsInkiOjczLjc5MTY2NjY2NjY2NjY2fSx7IngiOjk1MiwieSI6MTA2fSx7IngiOjg1NiwieSI6MTA2fSx7IngiOjQ3MiwieSI6MTA2fSx7IngiOjM3NiwieSI6MTA2fSx7IngiOjM3NiwieSI6NzMuNzkxNjY2NjY2NjY2NjZ9LHsieCI6MzU2LCJ5Ijo3My43OTE2NjY2NjY2NjY2Nn1d" data-look="neo" marker-end="url(#mmd-1-fevzel_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(664, 105.25)"><g class="label" data-id="L_F_B_0" transform="translate(-26, -9.75)"><foreignObject width="52" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>一键重跑</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="mmd-1-fevzel-flowchart-A-0" data-look="neo" transform="translate(88, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>数据导入</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fevzel-flowchart-B-1" data-look="neo" transform="translate(280, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>画像与清洗</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fevzel-flowchart-C-3" data-look="neo" transform="translate(472, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>建模与推断</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fevzel-flowchart-D-5" data-look="neo" transform="translate(664, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Figure Studio 组图</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fevzel-flowchart-E-7" data-look="neo" transform="translate(856, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>报告生成</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fevzel-flowchart-F-9" data-look="neo" transform="translate(1048, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>repro.lock 可复现</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="mmd-1-fevzel-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="mmd-1-fevzel-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="mmd-1-fevzel-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#22d3ee" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(138.4615384615, 36.4705882353%, 86.6666666667%)" stop-opacity="1"></stop></linearGradient></svg><div class="svgcap">图 1</div></div>
-<p><em>从数据到交付的链路：各段由独立科研工具承接，全程留在浏览器内。</em></p>
-<p>工作台提供四种模式，对应不同的使用深度。三种脚本模式共享同一份中间表示（IR），积木、流程与代码之间可以往返互转，Python、R、JavaScript 三种语言亦可互译。</p>
-<table><thead><tr><th>模式</th><th>面向</th><th>工作方式</th></tr></thead><tbody><tr><td>标准 Standard</td><td>快速观察</td><td>数据集拖入插件即出图</td></tr><tr><td>流程 Flow</td><td>管线搭建</td><td>38 个内置区块组成数据流图，拓扑执行、逐节点检查</td></tr><tr><td>积木 Block</td><td>学习者与命令式偏好</td><td>类 Scratch 积木编辑器，可脚本化</td></tr><tr><td>代码 Code</td><td>真实脚本</td><td>Monaco 编辑器，Python 走 CPython（Pyodide），R 可升级到完整 webR 运行时</td></tr></tbody></table>
-<p>四种模式之间可以随时切换，项目数据与运行记录在切换后保持不变；一个分析的不同阶段可以在不同模式中完成——例如在流程模式整理数据、在代码模式微调脚本、再回到标准模式查看结果。图 1 的链路自左向右依次为：数据经导入或采集进入项目，画像与清洗建立分析基础，建模与推断给出结论，Figure Studio 与报告生成器完成出版交付，repro.lock 记录全程指纹并支持一键重跑。</p>
+<p class="pfrag pfrag-first"><strong>参数化研究</strong>：参数扫描工具对指定参数网格逐一运行模型并汇总输出指标，结果以热力图与曲线呈现，用于观察模型行为对参数的敏感性、定位稳定区间，也为后续的不确定性分析圈定输入范围。</p>
+<p class="pfrag pfrag-last">扫描计划被展开为确定性设计点：全网格与列表轴取完整笛卡尔积，拉丁超立方轴按维度分层抽样，混合两种抽样的方案被显式拒绝——此时样本量没有无歧义的定义；执行完成后可查看响应面。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/parameter-sweeps.png" alt="参数扫描：参数网格与指标热力图"><figcaption>参数扫描：参数网格上的指标热力图与响应曲线。</figcaption></figure>
+<p>六个实例共享同一组运行条件：全部计算发生在浏览器标签页内，不依赖任何服务器；参数与随机种子可复现，同一组输入必然得到同一组输出；关键指标经统一的科学输出总线汇入画布顶部的读数条，与图、表一起进入后续的报告与复现记录。</p>
+<p class="pfrag pfrag-first">驱动这六个实例不需要编写代码：滑杆、下拉与文件控件即可完成全部操作。</p>
+<p class="pfrag pfrag-last">需要更细的控制时，切换到代码模式，同一份数据与参数在脚本中继续可用——六种实例的计算路径都同时暴露给插件面板与脚本接口。</p>
 </div>
 
 <!-- P10 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<p>标准模式是默认入口。欢迎页完成 WebGPU、OPFS 与各运行时的自检，启动网格列出全部科研工具与示例项目；数据文件拖入任意插件即出图，是&quot;有数据、想先看看&quot;时的最快路径。</p>
-<figure><img src="../assets/screenshots/platform/mode-standard-welcome.png" alt="标准模式：欢迎页与启动网格"><figcaption>标准模式：欢迎页完成环境自检，启动网格通向全部科研工具。</figcaption></figure>
-<p>插件的参数面板由宿主依据插件清单自动生成本地化表单，覆盖范围滑杆、下拉、数字、复选框、文本、文件、按钮与开关八类控件；调整参数即时重新渲染，无需编写任何代码。画布顶部的 ScienceOutputStrip 条带实时显示当前插件的关键读数——收敛判据、残差、统计量——同一套读数口径贯穿全部科研级插件。</p>
+<h2 class="sec"><span class="num">三</span>产品构成与工作模式</h2>
+<p>产品的核心是一条完整链路：数据进入、探索、建模推断、出版级组图、报告交付、全程可复现。每一段由对应的科研工具承接，且整条链在浏览器内闭合。</p>
+<div class="svgbox"><svg id="mmd-1-fpt7dp" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1128px;" viewBox="4 4 1128 119" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#mmd-1-fpt7dp{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;fill:#155e75;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mmd-1-fpt7dp .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mmd-1-fpt7dp .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mmd-1-fpt7dp .error-icon{fill:#fefce8;}#mmd-1-fpt7dp .error-text{fill:#010317;stroke:#010317;}#mmd-1-fpt7dp .edge-thickness-normal{stroke-width:1px;}#mmd-1-fpt7dp .edge-thickness-thick{stroke-width:3.5px;}#mmd-1-fpt7dp .edge-pattern-solid{stroke-dasharray:0;}#mmd-1-fpt7dp .edge-thickness-invisible{stroke-width:0;fill:none;}#mmd-1-fpt7dp .edge-pattern-dashed{stroke-dasharray:3;}#mmd-1-fpt7dp .edge-pattern-dotted{stroke-dasharray:2;}#mmd-1-fpt7dp .marker{fill:#0e7490;stroke:#0e7490;}#mmd-1-fpt7dp .marker.cross{stroke:#0e7490;}#mmd-1-fpt7dp svg{font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;}#mmd-1-fpt7dp p{margin:0;}#mmd-1-fpt7dp .label{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#155e75;}#mmd-1-fpt7dp .cluster-label text{fill:#010317;}#mmd-1-fpt7dp .cluster-label span{color:#010317;}#mmd-1-fpt7dp .cluster-label span p{background-color:transparent;}#mmd-1-fpt7dp .label text,#mmd-1-fpt7dp span{fill:#155e75;color:#155e75;}#mmd-1-fpt7dp .node rect,#mmd-1-fpt7dp .node circle,#mmd-1-fpt7dp .node ellipse,#mmd-1-fpt7dp .node polygon,#mmd-1-fpt7dp .node path{fill:#ecfeff;stroke:#22d3ee;stroke-width:1px;}#mmd-1-fpt7dp .rough-node .label text,#mmd-1-fpt7dp .node .label text,#mmd-1-fpt7dp .image-shape .label,#mmd-1-fpt7dp .icon-shape .label{text-anchor:middle;}#mmd-1-fpt7dp .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mmd-1-fpt7dp .rough-node .label,#mmd-1-fpt7dp .node .label,#mmd-1-fpt7dp .image-shape .label,#mmd-1-fpt7dp .icon-shape .label{text-align:center;}#mmd-1-fpt7dp .node.clickable{cursor:pointer;}#mmd-1-fpt7dp .root .anchor path{fill:#0e7490!important;stroke-width:0;stroke:#0e7490;}#mmd-1-fpt7dp .arrowheadPath{fill:#0b0b0b;}#mmd-1-fpt7dp .edgePaths .path{stroke:#0e7490;stroke-width:1px;}#mmd-1-fpt7dp .flowchart-link{stroke:#0e7490;fill:none;}#mmd-1-fpt7dp .edgeLabel{background-color:#f0fdf4;text-align:center;}#mmd-1-fpt7dp .edgeLabel p{background-color:#f0fdf4;}#mmd-1-fpt7dp .edgeLabel rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-fpt7dp .labelBkg{background-color:rgba(240, 253, 244, 0.5);}#mmd-1-fpt7dp .cluster rect{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;}#mmd-1-fpt7dp .cluster text{fill:#010317;}#mmd-1-fpt7dp .cluster span{color:#010317;}#mmd-1-fpt7dp .node .collapsed-indicator{fill:#cbd5e1;stroke:none;opacity:0.6;}#mmd-1-fpt7dp .node .collapsed-separator{stroke:#cbd5e1;stroke-width:0.75px;}#mmd-1-fpt7dp div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:12px;background:#fefce8;border:1px solid hsl(54.5454545455, 51.6666666667%, 85.2941176471%);border-radius:2px;pointer-events:none;z-index:100;}#mmd-1-fpt7dp .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#155e75;}#mmd-1-fpt7dp rect.text{fill:none;stroke-width:0;}#mmd-1-fpt7dp .icon-shape,#mmd-1-fpt7dp .image-shape{background-color:#f0fdf4;text-align:center;}#mmd-1-fpt7dp .icon-shape p,#mmd-1-fpt7dp .image-shape p{background-color:#f0fdf4;padding:2px;}#mmd-1-fpt7dp .icon-shape .label rect,#mmd-1-fpt7dp .image-shape .label rect{opacity:0.5;background-color:#f0fdf4;fill:#f0fdf4;}#mmd-1-fpt7dp .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#mmd-1-fpt7dp .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#mmd-1-fpt7dp .node .neo-node{stroke:#22d3ee;}#mmd-1-fpt7dp [data-look="neo"].node rect,#mmd-1-fpt7dp [data-look="neo"].cluster rect,#mmd-1-fpt7dp [data-look="neo"].node polygon{stroke:url(#mmd-1-fpt7dp-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fpt7dp [data-look="neo"].swimlane.cluster rect{filter:none;}#mmd-1-fpt7dp [data-look="neo"].node path{stroke:url(#mmd-1-fpt7dp-gradient);stroke-width:1px;}#mmd-1-fpt7dp [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fpt7dp [data-look="neo"].node .neo-line path{stroke:#22d3ee;filter:none;}#mmd-1-fpt7dp [data-look="neo"].node circle{stroke:url(#mmd-1-fpt7dp-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fpt7dp [data-look="neo"].node circle .state-start{fill:#000000;}#mmd-1-fpt7dp [data-look="neo"].icon-shape .icon{fill:url(#mmd-1-fpt7dp-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fpt7dp [data-look="neo"].icon-shape .icon-neo path{stroke:url(#mmd-1-fpt7dp-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#mmd-1-fpt7dp :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="mmd-1-fpt7dp_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="mmd-1-fpt7dp_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fpt7dp_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fpt7dp_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fpt7dp_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mmd-1-fpt7dp_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="mmd-1-fpt7dp_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,69.875L200,69.875" id="mmd-1-fpt7dp-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5Ijo2OS44NzV9LHsieCI6MjA0LCJ5Ijo2OS44NzV9XQ==" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path><path d="M356,65.95833333333333L368.9289321881345,65.95833333333333Q376,65.95833333333333 376,58.88726552146785L376,40.821067811865476Q376,33.75 383.0710678118655,33.75L392,33.75" id="mmd-1-fpt7dp-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 58.88006591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5Ijo2NS45NTgzMzMzMzMzMzMzM30seyJ4IjozNzYsInkiOjY1Ljk1ODMzMzMzMzMzMzMzfSx7IngiOjM3NiwieSI6MzMuNzV9LHsieCI6Mzk2LCJ5IjozMy43NX1d" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path><path d="M548,33.75L584,33.75" id="mmd-1-fpt7dp-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5IjozMy43NX0seyJ4Ijo1ODgsInkiOjMzLjc1fV0=" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path><path d="M740,33.75L776,33.75" id="mmd-1-fpt7dp-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NzQwLCJ5IjozMy43NX0seyJ4Ijo3ODAsInkiOjMzLjc1fV0=" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path><path d="M932,33.75L944.9289321881345,33.75Q952,33.75 952,40.821067811865476L952,58.88726552146785Q952,65.95833333333333 959.0710678118655,65.95833333333333L968,65.95833333333333" id="mmd-1-fpt7dp-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 58.880069732666016 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6OTMyLCJ5IjozMy43NX0seyJ4Ijo5NTIsInkiOjMzLjc1fSx7IngiOjk1MiwieSI6NjUuOTU4MzMzMzMzMzMzMzN9LHsieCI6OTcyLCJ5Ijo2NS45NTgzMzMzMzMzMzMzM31d" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path><path d="M972,73.79166666666666L959.0710678118655,73.79166666666666Q952,73.79166666666666 952,80.86273447853213L952,98.92893218813452Q952,106 944.9289321881345,106L856,106L472,106L383.0710678118655,106Q376,106 376,98.92893218813452L376,80.86273447853213Q376,73.79166666666666 368.9289321881345,73.79166666666666L360,73.79166666666666" id="mmd-1-fpt7dp-L_F_B_0" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_B_0" data-points="W3sieCI6OTcyLCJ5Ijo3My43OTE2NjY2NjY2NjY2Nn0seyJ4Ijo5NTIsInkiOjczLjc5MTY2NjY2NjY2NjY2fSx7IngiOjk1MiwieSI6MTA2fSx7IngiOjg1NiwieSI6MTA2fSx7IngiOjQ3MiwieSI6MTA2fSx7IngiOjM3NiwieSI6MTA2fSx7IngiOjM3NiwieSI6NzMuNzkxNjY2NjY2NjY2NjZ9LHsieCI6MzU2LCJ5Ijo3My43OTE2NjY2NjY2NjY2Nn1d" data-look="neo" marker-end="url(#mmd-1-fpt7dp_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(664, 105.25)"><g class="label" data-id="L_F_B_0" transform="translate(-26, -9.75)"><foreignObject width="52" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>一键重跑</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="mmd-1-fpt7dp-flowchart-A-0" data-look="neo" transform="translate(88, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>数据导入</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fpt7dp-flowchart-B-1" data-look="neo" transform="translate(280, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>画像与清洗</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fpt7dp-flowchart-C-3" data-look="neo" transform="translate(472, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>建模与推断</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fpt7dp-flowchart-D-5" data-look="neo" transform="translate(664, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Figure Studio 组图</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fpt7dp-flowchart-E-7" data-look="neo" transform="translate(856, 33.75)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>报告生成</p></span></div></foreignObject></g></g><g class="node default" id="mmd-1-fpt7dp-flowchart-F-9" data-look="neo" transform="translate(1048, 69.875)"><rect class="basic label-container" style="" x="-76" y="-21.75" width="152" height="43.5"></rect><g class="label" style="" transform="translate(-60, -9.75)"><rect></rect><foreignObject width="120" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>repro.lock 可复现</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="mmd-1-fpt7dp-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="mmd-1-fpt7dp-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="mmd-1-fpt7dp-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#22d3ee" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(138.4615384615, 36.4705882353%, 86.6666666667%)" stop-opacity="1"></stop></linearGradient></svg><div class="svgcap">图 1</div></div>
+<p><em>从数据到交付的链路：各段由独立科研工具承接，全程留在浏览器内。</em></p>
+<p>工作台提供四种模式，对应不同的使用深度。三种脚本模式共享同一份中间表示（IR），积木、流程与代码之间可以往返互转，Python、R、JavaScript 三种语言亦可互译。</p>
+<table><thead><tr><th>模式</th><th>面向</th><th>工作方式</th></tr></thead><tbody><tr><td>标准 Standard</td><td>快速观察</td><td>数据集拖入插件即出图</td></tr><tr><td>流程 Flow</td><td>管线搭建</td><td>38 个内置区块组成数据流图，拓扑执行、逐节点检查</td></tr><tr><td>积木 Block</td><td>学习者与命令式偏好</td><td>类 Scratch 积木编辑器，可脚本化</td></tr><tr><td>代码 Code</td><td>真实脚本</td><td>Monaco 编辑器，Python 走 CPython（Pyodide），R 可升级到完整 webR 运行时</td></tr></tbody></table>
+<p class="pfrag pfrag-first">四种模式之间可以随时切换，项目数据与运行记录在切换后保持不变；一个分析的不同阶段可以在不同模式中完成——例如在流程模式整理数据、在代码模式微调脚本、再回到标准模式查看结果。</p>
+<p class="pfrag pfrag-last">图 1 的链路自左向右依次为：数据经导入或采集进入项目，画像与清洗建立分析基础，建模与推断给出结论，Figure Studio 与报告生成器完成出版交付，repro.lock 记录全程指纹并支持一键重跑。</p>
 </div>
 
 <!-- P11 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<p>流程模式面向多步管线：区块按连线构成有向无环图，执行器按拓扑顺序增量运行，只有受参数变化影响的下游节点才会重算；每个节点可以单独查看输出与诊断信息。</p>
-<figure><img src="../assets/screenshots/platform/mode-flow.png" alt="流程模式：数据流管线画布"><figcaption>流程模式：区块连线成管线，按拓扑顺序增量执行。</figcaption></figure>
-<p>38 个内置区块分八类——数据源、变换、过滤、数学、统计、单位、可视化与绘图，覆盖从&quot;读入 CSV&quot;到&quot;分组聚合再画图&quot;的常见链路。每个区块的中间结果可以展开为表格或图形预览，出错时从报错节点直接定位上游；整张管线图可保存为项目的一部分，下次打开继续编辑。</p>
+<p class="pfrag pfrag-first"><strong>标准模式</strong>是默认入口。欢迎页完成 WebGPU、OPFS 与各运行时的自检，自检结果同时决定计算档位——WebGPU 可用时各计算内核走 GPU 加速，不可用时插件以数学一致的 CPU 实现完成同样的计算；启动网格列出全部科研工具与示例项目。</p>
+<p class="pfrag pfrag-last">数据文件拖入任意插件即出图，是&quot;有数据、想先看看&quot;时的最快路径。</p>
+<figure><img src="../assets/screenshots/platform/mode-standard-welcome.png" alt="标准模式：欢迎页与启动网格"><figcaption>标准模式：欢迎页完成环境自检，启动网格通向全部科研工具。</figcaption></figure>
+<p class="pfrag pfrag-first">插件的参数面板由宿主依据插件清单自动生成本地化表单，覆盖范围滑杆、下拉、数字、复选框、文本、文件、按钮与开关八类控件；调整参数即时重新渲染，无需编写任何代码。</p>
+<p class="pfrag pfrag-last">画布顶部的 ScienceOutputStrip 条带实时显示当前插件的关键读数——收敛判据、残差、统计量——同一套读数口径贯穿全部科研级插件。</p>
+<p>导出分两层：画布级由统一的&quot;导出&quot;菜单承担，把当前插件的 2D 画布或 3D 场景下载为 PNG（3D 场景额外提供透明背景选项），或保存为工作区 <code>figures/</code> 目录下的文件；数据级由各插件在参数面板以按钮动作自声明，把所属表格数据导出为 RFC-4180 CSV。</p>
+<p>插件画布对数据保持诚实：仿真类插件初始为空，仅在加载数据后运行，空数据启动会收到明确提示而非静默空跑；每个核心插件附带一键可载的示例数据集，加载后即可重现文档中的画面。</p>
 </div>
 
 <!-- P12 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p>积木模式用 Blockly 提供命令式编程入口，积木类型覆盖循环、分支、变量、事件与绘图；积木程序与流程、代码共享同一份中间表示，可以在三种形态之间往返转换，同一逻辑不会被锁定在某一种表达里。</p>
-<figure><img src="../assets/screenshots/platform/mode-block.png" alt="积木模式：Blockly 积木编辑器"><figcaption>积木模式：积木程序与流程、代码共享同一中间表示。</figcaption></figure>
-<p>积木程序可以随时&quot;升级&quot;为可读的 JavaScript 或 Python 代码继续编辑，反向亦可把脚本&quot;降级&quot;回积木——转换语义由三态往返互转的单元测试固化。对教学场景，这意味着同一道练习可以先拼积木、再看代码、最后改成流程管线，三个阶段共享同一份数据与运行记录。</p>
+<p><strong>流程模式</strong>面向多步管线：区块按连线构成有向无环图，执行器按拓扑顺序增量运行——执行器带节点级增量缓存与脏值传播失效，修改单个区块的参数，只有它及其下游会重新执行；运行支持取消与并发去重，重复触发运行不会产生并行执行，取消会真正终止进行中的计算节点。每个节点可以单独查看输出与诊断信息。</p>
+<figure><img src="../assets/screenshots/platform/mode-flow.png" alt="流程模式：数据流管线画布"><figcaption>流程模式：区块连线成管线，按拓扑顺序增量执行。</figcaption></figure>
+<p class="pfrag pfrag-first">38 个内置区块分八类——数据源、变换、过滤、数学、统计、单位、可视化与绘图，覆盖从&quot;读入 CSV&quot;到&quot;分组聚合再画图&quot;的常见链路。</p>
+<p class="pfrag pfrag-last">每个区块的中间结果可以展开为表格或图形预览，出错时从报错节点直接定位上游；整张管线图可保存为项目的一部分，下次打开继续编辑。</p>
 </div>
 
 <!-- P13 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<p>代码模式使用 Monaco 编辑器，支持 Python / R / JavaScript 三种语言：Python 运行于真实 CPython，R 在 webR 分发包存在时为完整运行时；切换语言时整份缓冲区经预览窗互译确认后应用，往返转换由单元测试固化。</p>
-<figure><img src="../assets/screenshots/platform/mode-code.png" alt="代码模式：Monaco 编辑器与语言互译"><figcaption>代码模式：语言切换经预览窗确认，三语言往返互译由单元测试固化。</figcaption></figure>
-<p>Python 环境中的 <code>studio</code> 模块把项目数据直接暴露给脚本：DataFrame 可以读写项目文件，计算结果存回后自动进入实验台账与数据血缘；R 与 JavaScript 通过共享 IR 引擎访问同一份数据。三种语言看到的是同一个项目，区别只在表达方式。</p>
-<p>每个项目同时是一个 Git 仓库（浏览器端 isomorphic-git），侧栏提供分支切换、变更审阅与规范提交；整个项目可导出为 <code>.clproj</code> 文件离线流转。数据存于 IndexedDB / OPFS，无账号，无云端副本。</p>
+<p><strong>积木模式</strong>用 Blockly 提供命令式编程入口，积木类型覆盖循环、分支、变量、事件与绘图；积木程序与流程、代码共享同一份中间表示，可以在三种形态之间往返转换，同一逻辑不会被锁定在某一种表达里。编辑器以懒加载分包交付，不影响标准与流程模式的首屏加载。</p>
+<figure><img src="../assets/screenshots/platform/mode-block.png" alt="积木模式：Blockly 积木编辑器"><figcaption>积木模式：积木程序与流程、代码共享同一中间表示。</figcaption></figure>
+<p class="pfrag pfrag-first">积木程序可以随时&quot;升级&quot;为可读的 JavaScript 或 Python 代码继续编辑，反向亦可把脚本&quot;降级&quot;回积木——转换语义由三态往返互转的单元测试固化。</p>
+<p class="pfrag pfrag-last">对教学场景，这意味着同一道练习可以先拼积木、再看代码、最后改成流程管线，三个阶段共享同一份数据与运行记录。</p>
 </div>
 
 <!-- P14 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<p>分析的过程同样被完整记录。每次运行写入实验台账：记录参数、输入文件与输出指标，历史运行可按参数筛选，任意两次运行可做 A/B 对比。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/runs-ledger.png" alt="实验台账：运行历史与 A/B 对比"><figcaption>实验台账：运行历史按参数对比，勾选两次运行即可查看差异。</figcaption></figure>
-<p>文件、运行与数据依赖随后被重建为血缘图：一张结论可以回溯到产生它的数据文件与参数组合，数据在清洗与变换之间的每一次流动都有据可查。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/data-lineage.png" alt="数据血缘：文件与运行构成的 DAG"><figcaption>数据血缘：文件、运行与依赖自动重建为分层 DAG。</figcaption></figure>
+<p><strong>代码模式</strong>使用 Monaco 编辑器，支持 Python / R / JavaScript 三种语言：Python 运行于真实 CPython，R 在 webR 分发包存在时为完整运行时；切换语言时整份缓冲区经预览窗互译确认后应用，往返转换由单元测试固化。</p>
+<figure><img src="../assets/screenshots/platform/mode-code.png" alt="代码模式：Monaco 编辑器与语言互译"><figcaption>代码模式：语言切换经预览窗确认，三语言往返互译由单元测试固化。</figcaption></figure>
+<p class="pfrag pfrag-first">Python 环境中的 <code>studio</code> 模块把项目数据直接暴露给脚本：DataFrame 可以读写项目文件，计算结果存回后自动进入实验台账与数据血缘；R 与 JavaScript 通过共享 IR 引擎访问同一份数据。</p>
+<p class="pfrag"><code>studio.plot</code> 经渲染桥接落到与流程模式可视化区块完全相同的插件渲染器。</p>
+<p class="pfrag pfrag-last">停止运行会终止并重启 Worker，失控循环不会卡死页面；<code>Ctrl+Enter</code> 一键运行当前缓冲区。三种语言看到的是同一个项目，区别只在表达方式。</p>
+<p>每个项目同时是一个 <strong>Git 仓库</strong>（浏览器端 isomorphic-git），侧栏提供分支切换、变更审阅与规范提交；整个项目可导出为 <code>.clproj</code> 文件离线流转。数据存于 IndexedDB / OPFS，无账号，无云端副本。</p>
 </div>
 
 <!-- P15 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<h2 class="sec"><span class="num">四</span>端到端分析流程</h2>
-<p>以下各步对应内置科研工具，依次完成一次典型分析。每一步的输出都保存在项目内，作为后续步骤的输入；每一步也会写入运行记录，成为实验台账与数据血缘的节点。</p>
-<p>拖入 CSV 后，<strong>数据画像</strong>（Profiler）给出列类型、缺失分布、相关矩阵与质量分，问题清单指出异常值与高缺失列；画像结果可以导出为 CSV，供报告与后续步骤引用。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/data-profiler.png" alt="数据画像：列剖析与质量分"><figcaption>数据画像：相关矩阵、质量分与问题清单。</figcaption></figure>
+<p>分析的过程同样被完整记录：<strong>实验台账</strong>记下每次运行的参数、输入文件、输出指标与耗时，历史运行可按参数筛选，任意两次运行可做 A/B 对比。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/runs-ledger.png" alt="实验台账：运行历史与 A/B 对比"><figcaption>实验台账：运行历史按参数对比，勾选两次运行即可查看差异。</figcaption></figure>
+<p><strong>数据血缘</strong>随后把文件、运行与数据依赖重建为一张分层图：一张结论可以回溯到产生它的数据文件与参数组合，数据在清洗与变换之间的每一次流动都有据可查。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/data-lineage.png" alt="数据血缘：文件与运行构成的 DAG"><figcaption>数据血缘：文件、运行与依赖自动重建为分层 DAG。</figcaption></figure>
 </div>
 
 <!-- P16 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p><strong>清洗向导</strong>执行去重、类型修正、缺失填充与离群处理：每条规则执行前后给出行数与受影响列的摘要，每一步可回退；清洗后的数据以新文件写回项目，原始文件保持只读。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/data-cleaning.png" alt="数据清洗向导：逐步规则化清洗"><figcaption>清洗向导：每一步规则可回退，操作序列进入数据血缘。</figcaption></figure>
+<h2 class="sec"><span class="num">四</span>端到端分析流程</h2>
+<p>以下各步对应内置科研工具，依次完成一次典型分析。每一步的输出都保存在项目内，作为后续步骤的输入；每一步也会写入运行记录，成为实验台账与数据血缘的节点。</p>
+<p class="pfrag pfrag-first">拖入 CSV 后，<strong>数据画像</strong>（Profiler）给出列类型、缺失分布、相关矩阵与质量分，问题清单指出异常值与高缺失列；画像结果可以导出为 CSV，供报告与后续步骤引用。</p>
+<p class="pfrag pfrag-last">计算是流式单遍的：数值列以 Welford 递推求精确均值与方差，蓄水池采样取分位数，修正 z 分数标记离群；文本列以 HyperLogLog 估计基数；表级给出 Pearson / Spearman 相关与重复率，最终综合成 0–100 的确定性质量分。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/data-profiler.png" alt="数据画像：列剖析与质量分"><figcaption>数据画像：相关矩阵、质量分与问题清单。</figcaption></figure>
+<p>画像全程只读——原始数据文件在整条链路的任何步骤中都不会被修改，所有派生结果都以新文件形式写入项目。</p>
 </div>
 
 <!-- P17 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<p><strong>模型工作台</strong>拟合 OLS / logistic / ridge / 多项式回归，系数表与 2×2 残差诊断同步给出；需要参数化不确定性时进入 Inference Forge 做 NUTS 推断。拟合结果（系数、协方差与诊断图）作为运行记录保存，可与后续模型在实验台账中对比。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/model-lab.png" alt="模型工作台：回归拟合与残差诊断"><figcaption>模型工作台：系数表、残差诊断与拟合质量读数。</figcaption></figure>
+<p><strong>清洗向导</strong>执行去重、类型修正、缺失填充与离群处理：每条规则执行前后给出行数与受影响列的摘要，每一步可回退；清洗后的数据以新文件写回项目，原始文件保持只读。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/data-cleaning.png" alt="数据清洗向导：逐步规则化清洗"><figcaption>清洗向导：每一步规则可回退，操作序列进入数据血缘。</figcaption></figure>
+<p class="pfrag pfrag-first">清洗规则按应用顺序保存为运行记录，同一份数据被哪些规则处理过、处理前后差异如何，都可以逐步回查。</p>
+<p class="pfrag pfrag-last">步骤模型是五类可序列化操作：类型转换、缺失值策略（删除 / 均值 / 中位数 / 零 / 前向填充）、离群标注（IQR / z 分数）、去重与列重命名；每一步永不改写输入表，因此可以逐步前进、回退、跳转或撤销单步。</p>
 </div>
 
 <!-- P18 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<p>时序数据由<strong>信号实验室</strong>处理：FFT 与 Welch 功率谱定位主频，窗函数、Savitzky–Golay 平滑、ACF/PACF 与季节分解齐备；检测到的主频与滤波参数写入运行记录，滤波输出存为项目内的新文件，中间结果可追溯。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/signallab-psd.png" alt="信号实验室：Welch 功率谱与滤波"><figcaption>信号实验室：Welch PSD、窗函数与滤波链，结果可存回项目。</figcaption></figure>
+<p>需要用 SQL 直接检视数据时，<strong>SQL 数据工作台</strong>把项目数据文件注册进 DuckDB-WASM 虚拟文件系统并暴露为表，可直接对项目内文件运行查询；查询引擎懒加载，支持超时与中止，一次失控的查询不会拖垮整个页面。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/sql-workbench.png" alt="SQL 数据工作台：对项目数据文件运行 DuckDB 查询"><figcaption>SQL 数据工作台：项目文件直接暴露为 DuckDB 表，查询支持超时与中止。</figcaption></figure>
 </div>
 
 <!-- P19 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<p><strong>Figure Studio</strong> 在 IEEE / Elsevier 期刊模板上编排多面板图组：32 个科研级插件支持&quot;发送到 Figure Studio&quot;一键成组，双语图注与公式标注自动起草，SVG / PDF / PNG-600dpi 导出；投稿前检查会列出分辨率、字体嵌入与尺寸超限项。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/figurestudio-em.png" alt="Figure Studio：期刊模板多面板组图"><figcaption>Figure Studio：IEEE 模板上的多面板电磁学图组。</figcaption></figure>
+<p class="pfrag pfrag-first"><strong>模型工作台</strong>拟合 OLS / logistic / ridge / 多项式回归：OLS 经 Householder QR 求解，逻辑回归用 IRLS，岭回归以 K 折交叉验证选正则参数；系数表含估计值、标准误、p 值与置信区间，2×2 残差诊断（残差-拟合、QQ、尺度-位置、残差-杠杆）同步给出。</p>
+<p class="pfrag pfrag-last">需要参数化不确定性时进入 Inference Forge 做 NUTS 推断；拟合结果作为运行记录保存，多个模型可在实验台账中横向对比。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/model-lab.png" alt="模型工作台：回归拟合与残差诊断"><figcaption>模型工作台：系数表、残差诊断与拟合质量读数。</figcaption></figure>
 </div>
 
 <!-- P20 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p><strong>报告生成器</strong>把叙事文本、图、表与交互筛选器组装为单个自包含 HTML：报告内容与项目数据关联，分析重跑后图表随之更新；导出文件不依赖任何外部服务，打开即可分发。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/report-builder.png" alt="报告生成器：叙事与图表组装"><figcaption>报告生成器：叙事、图表与筛选器组装为自包含 HTML。</figcaption></figure>
+<p>参数化不确定性由<strong>不确定性套件与 Inference Forge</strong> 承接：Bootstrap 置信区间、蒙特卡洛传播与 MCMC 三条路径给出 R-hat、有效样本量 ESS、HDI 与 MCSE 等收敛诊断；NUTS 采样器带 Dual Averaging 步长自适应，无须手工设定步数，另有 WAIC 与 PSIS-LOO 模型比较、后验预测检验与逐链诊断。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/inferenceforge-posterior.png" alt="贝叶斯推断：浏览器内的 NUTS 采样与后验诊断"><figcaption>Inference Forge：NUTS 采样与 R-hat / ESS 后验诊断，WAIC / PSIS-LOO 模型比较。</figcaption></figure>
+<p>分布拟合与常用假设检验由<strong>快速分析工具</strong>与统计区块承接，回归之外的单变量推断不必离开工作台。</p>
 </div>
 
 <!-- P21 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<p><strong>repro.lock</strong> 记录数据指纹、参数哈希、随机种子、代码快照与环境快照五类指纹；漂移检查随时可做，载入旧项目时若当前环境与指纹不符，会在运行前给出漂移提示，历史分析可判定是否可复现并重跑。</p>
-<figure><img src="../assets/screenshots/platform/laboratory/reproducibility-lock.png" alt="复现锁：五类指纹与漂移检查"><figcaption>复现锁：五类指纹记录与漂移状态检查。</figcaption></figure>
-<p>链路各步发生在同一浏览器标签页内：运行历史记入实验台账，文件、运行与数据依赖自动构成血缘图（DAG）。离线时全部功能照常工作。</p>
+<p>时序数据由<strong>信号实验室</strong>处理：基 2 FFT 与幅值谱（与 GPU 端 FFT 内核数学一致）、Hann / Hamming / Blackman 窉函数、Welch 功率谱定位主频，Savitzky–Golay 平滑、ACF/PACF 与经典加性分解（趋势 + 季节 + 残差）齐备；检测到的主频与滤波参数写入运行记录，滤波后的列作为派生文件存回项目并自动进入血缘图。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/signallab-psd.png" alt="信号实验室：Welch 功率谱与滤波"><figcaption>信号实验室：Welch PSD、窗函数与滤波链，结果可存回项目。</figcaption></figure>
 </div>
 
 <!-- P22 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<h2 class="sec"><span class="num">五</span>关键技术实现</h2>
-<p><strong>四模式同源，三语言互译。</strong> 积木、流程与代码三种范式共享同一份中间表示：同一程序的三种写法可以互相转换而不改变语义，Python、R、JavaScript 之间的整段代码互译经预览窗确认后应用。三语言往返互译由专门单元测试固化（<code>tests/editor/roundtrip-all-langs.test.ts</code>），语言切换链路由端到端测试覆盖。同一条管线因此可以用不同难度梯度讲解，不同背景的协作者也可以在各自熟悉的范式下工作于同一项目。</p>
-<p><strong>浏览器内的运行时。</strong> Python 运行于 Pyodide Worker 中的 CPython，可导入 <code>studio</code> 模块操作项目数据；R 配有 vendored webR 0.6.0 运行时（缺失时回退共享 IR 引擎）；DuckDB-WASM 提供 SQL 查询。全部运行时随应用自托管，离线可用。</p>
-<p><strong>GPU 计算与回退。</strong> 14 个可复用 WGSL 计算内核（全对 N-Body、D2Q9 格子 Boltzmann、波动方程 leapfrog、FFT、K-means、SpMV 等）在 WebGPU 上执行；每个内核配数学一致的 CPU 实现，单元测试对两条路径做数值一致性校验（无头 SwiftShader 实测通过限约 2e-6）。数据规模低于阈值或 WebGPU 不可用时自动回退 CPU，引擎选择记入运行记录。</p>
-<figure><img src="../assets/screenshots/plugins/nbody-3d.png" alt="引力 N 体模拟：GPU 全对内核"><figcaption>引力 N 体模拟：三维直接求和引力，GPU 全对内核加速、CPU 一致回退。</figcaption></figure>
+<p>分析过程本身也可以被记录：<strong>Notebook</strong> 把 Markdown 与 Python 单元混排为可复现的实验记录，单元执行走代码模式同一个 Pyodide 运行时，notebook 与脚本看到的是同一个 <code>studio</code> 接口；单元列表随项目保存，下次打开可逐单元重放。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/notebook.png" alt="Notebook：Markdown 与 Python 单元混排的实验记录"><figcaption>Notebook：Markdown 与 Python 单元混排，执行与代码模式共享同一运行时。</figcaption></figure>
+<p><strong>Figure Studio</strong> 在 IEEE / Elsevier 期刊模板上编排多面板图组：32 个科研级插件支持&quot;发送到 Figure Studio&quot;一键成组，双语图注与公式标注自动起草，SVG / PDF / PNG-600dpi 导出；投稿前检查会列出分辨率、字体嵌入与尺寸超限项。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/figurestudio-em.png" alt="Figure Studio：期刊模板多面板组图"><figcaption>Figure Studio：IEEE 模板上的多面板电磁学图组。</figcaption></figure>
 </div>
 
 <!-- P23 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<p><strong>安全边界。</strong> 插件在 Worker 沙箱中运行（isolated 模式经 OffscreenCanvas RPC 通信）；第三方 <code>.cspkg</code> 包经清单校验与 Ed25519 签名门禁加载。旧环境的 <code>new Function</code> 回退路径在界面上明确标注，不作为安全边界使用。</p>
+<p class="pfrag pfrag-first"><strong>报告生成器</strong>把叙事文本、图、表与交互筛选器组装为单个自包含 HTML：内联 CSS、内联 SVG、内联 JSON 数据与零依赖控制器，分析重跑后图表随之更新。</p>
+<p class="pfrag pfrag-last">全部用户字符串先转义、内嵌 JSON 做 unicode 转义以杜绝脚本逃逸，报告可以安全地直接投递；导出文件不依赖任何外部服务，打开即可分发。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/report-builder.png" alt="报告生成器：叙事与图表组装"><figcaption>报告生成器：叙事、图表与筛选器组装为自包含 HTML。</figcaption></figure>
 </div>
 
 <!-- P24 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
+<p><strong>repro.lock</strong> 记录数据指纹、参数哈希、随机种子、代码快照与环境快照五类指纹；漂移检查随时可做，载入旧项目时若当前环境与指纹不符，会在运行前给出漂移提示，历史分析可判定是否可复现并重跑。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/reproducibility-lock.png" alt="复现锁：五类指纹与漂移检查"><figcaption>复现锁：五类指纹记录与漂移状态检查。</figcaption></figure>
+<p class="pfrag pfrag-first">五类指纹分别对应数据、参数、随机性、代码与环境：检查结果按类分别标注，哪一类发生变化、变化是否影响结论，由使用者逐项判断。</p>
+<p class="pfrag pfrag-last">环境快照（版本、平台与内核可用性）一并纳入锁文件，使&quot;漂移发生在数据还是环境&quot;有明确答案。</p>
+<p>各环节的输入与产物构成一条闭合的工件链：</p>
+<table><thead><tr><th>环节</th><th>工具</th><th>产物</th><th>去向</th></tr></thead><tbody><tr><td>画像</td><td>数据画像</td><td>列剖析、质量分、问题清单（可导出 CSV）</td><td>报告引用，清洗依据</td></tr><tr><td>清洗</td><td>清洗向导</td><td>清洗后的新文件与规则运行记录</td><td>数据血缘节点</td></tr><tr><td>建模</td><td>模型工作台 / Inference Forge</td><td>系数表、诊断图、运行记录</td><td>实验台账横向对比</td></tr><tr><td>信号</td><td>信号实验室</td><td>滤波后的派生文件与频谱参数</td><td>血缘图与运行记录</td></tr><tr><td>组图</td><td>Figure Studio</td><td>期刊模板多面板图组</td><td>论文附件包</td></tr><tr><td>交付</td><td>报告生成器</td><td>自包含 HTML</td><td>直接分发</td></tr></tbody></table>
+</div>
+
+<!-- P25 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
+<table><thead><tr><th>环节</th><th>工具</th><th>产物</th><th>去向</th></tr></thead><tbody><tr><td>复现</td><td>repro.lock</td><td>五类指纹与漂移检查</td><td>一键重跑</td></tr><tr><td>归档</td><td>论文附件包</td><td>manifest 与数据代码 ZIP</td><td>随论文上传</td></tr></tbody></table>
+<p>链路各步发生在同一浏览器标签页内：运行历史记入实验台账，文件、运行与数据依赖自动构成血缘图（DAG）。离线时全部功能照常工作。</p>
+<p>交付链的最后一环是<strong>论文附件包</strong>：把项目元数据、运行记录、血缘图、选定的数据与代码会话、可选的 repro.lock 打成一个 ZIP，作为随论文上传的补充材料，审稿人或读者下载后即可核对与重跑。</p>
+<figure><img src="../assets/screenshots/platform/laboratory/supplementary-materials.png" alt="论文附件包：manifest 与材料打包"><figcaption>论文附件包：manifest、运行记录、血缘与数据代码打包为投稿 ZIP。</figcaption></figure>
+</div>
+
+<!-- P26 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
+<h2 class="sec"><span class="num">五</span>关键技术实现</h2>
+<p class="pfrag pfrag-first"><strong>四模式同源，三语言互译。</strong> 积木、流程与代码三种范式共享同一份中间表示：同一程序的三种写法可以互相转换而不改变语义，Python、R、JavaScript 之间的整段代码互译经预览窗确认后应用。</p>
+<p class="pfrag">三语言往返互译由专门单元测试固化（<code>tests/editor/roundtrip-all-langs.test.ts</code>），语言切换链路由端到端测试覆盖。</p>
+<p class="pfrag pfrag-last">同一条管线因此可以用不同难度梯度讲解，不同背景的协作者也可以在各自熟悉的范式下工作于同一项目。</p>
+<p><strong>浏览器内的运行时。</strong> Python 运行于 Pyodide Worker 中的 CPython，可导入 <code>studio</code> 模块操作项目数据；R 配有 vendored webR 0.6.0 运行时（缺失时回退共享 IR 引擎）；DuckDB-WASM 提供 SQL 查询。全部运行时随应用自托管，离线可用。</p>
+<p class="pfrag pfrag-first"><strong>GPU 计算与回退。</strong> 14 个可复用 WGSL 计算内核（全对 N-Body、D2Q9 格子 Boltzmann、波动方程 leapfrog、FFT、K-means、SpMV 等）在 WebGPU 上执行；每个内核配数学一致的 CPU 实现，单元测试对两条路径做数值一致性校验（无头 SwiftShader 实测通过限约 2e-6），涉及随机数的内核在两条路径使用同一随机数序列。</p>
+<p class="pfrag pfrag-last">数据规模低于阈值或 WebGPU 不可用时自动回退 CPU，引擎选择记入运行记录。</p>
+<figure><img src="../assets/screenshots/plugins/nbody-3d.png" alt="引力 N 体模拟：GPU 全对内核"><figcaption>引力 N 体模拟：三维直接求和引力，GPU 全对内核加速、CPU 一致回退。</figcaption></figure>
+<p class="pfrag pfrag-first"><strong>安全边界。</strong> 插件在 Worker 沙箱中运行（isolated 模式经 OffscreenCanvas RPC 通信）；第三方 <code>.cspkg</code> 包经清单校验与 Ed25519 签名门禁加载。</p>
+</div>
+
+<!-- P27 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
+<p class="pfrag pfrag-last">旧环境的 <code>new Function</code> 回退路径在界面上明确标注，不作为安全边界使用。</p>
+<p><strong>隐私边界。</strong> 应用无账号体系、无自建服务器：数据与分析记录仅存于本机 IndexedDB / OPFS；网络访问只发生在两类显式操作——用户主动配置的 Git 远程同步（经 CORS 代理）与用户主动触发的在线更新检查。除此之外不产生外发流量。</p>
+<p><strong>故障隔离。</strong> 单个插件的运行时错误由错误边界捕获，崩溃不影响宿主与其他插件，画布给出可重试的提示；运行器层面另有超时与重试机制兜底。</p>
+<p><strong>本地存储分层。</strong> 数据文件本体由 Origin Private File System 分块存储以承载大文件，项目元数据与运行记录留在 IndexedDB，历史数据由迁移逻辑平滑升级；虚拟文件系统把两层存储统一暴露给插件、脚本与 Git，版本对象与工作区文件位于同一存储栈。数据的物理位置、访问路径与版本管理因此收敛在一条路径上。</p>
+<p class="pfrag pfrag-first"><strong>运行时自托管。</strong> Python、R 与 SQL 三个运行时连同静态资源一起随应用分发，不依赖公网 CDN；首次加载后全部进入本地缓存，此后离线可用。</p>
+<p class="pfrag pfrag-last">运行时版本随仓库锁定，repro.lock 的环境快照直接引用这些版本，跨设备重跑前先核对版本再执行。</p>
+<p class="pfrag pfrag-first"><strong>插件契约。</strong> 每个插件由清单文件声明参数控件、示例数据与研究就绪度徽章，宿主据此自动生成本地化参数表单；插件产出的关键读数经科学输出总线进入读数条，每次运行写入实验台账。</p>
+<p class="pfrag pfrag-last">内置插件与第三方 <code>.cspkg</code> 包走同一契约与加载路径，宿主不为内置插件保留特权通道。</p>
+<p class="pfrag pfrag-first"><strong>测试与回归体系。</strong> 2815 个单元测试分布在 173 个文件中，14 套端到端测试串联关键用户路径，类型检查与全部单测在 CI 中随每次提交运行；GPU 内核与 CPU 实现的一致性、三语言往返互译、报告转义与签名门禁等行为各有专项测试固化，性能基线由独立的 bench 工作流看守。</p>
+<p class="pfrag pfrag-last">引用元数据漂移、依赖漏洞等合规问题以 CI 失败的方式强制回归，不依赖人工记忆。</p>
+<p class="pfrag pfrag-first"><strong>性能预算与线程模型。</strong> 构建产物受 CI 中的性能预算约束，包体积与关键路径的回归在合并前即被暴露；文件解析与计算任务位于 Worker 线程，主线程保持界面交互响应，渲染走 WebGPU 管线或 Canvas 回退。</p>
+<p class="pfrag pfrag-last">线程边界同时是安全边界——沙箱插件与宿主运行在不同的 Worker 中。</p>
+</div>
+
+<!-- P28 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
 <h2 class="sec"><span class="num">六</span>内置能力全景</h2>
@@ -427,12 +524,12 @@
 <p><strong>生物学（8）</strong>：蛋白质交互网络 Protein Interactions · 酶动力学 Enzyme Kinetics · 传染病分室模型 Epidemic Modeling · 序列比对与分析 Sequence Alignment · 群体遗传学 Population Genetics · 药代动力学室分析 Pharmacokinetics · 孟德尔 F2 分离比 χ² 检验 Mendel Tests · Hodgkin–Huxley 神经元</p>
 <p><strong>地理（13）</strong>：GeoJSON 地图 · 太阳高度与昼夜长短 Solar · 气候直方图 Climatograph · 人口金字塔 Population Pyramid · 空间插值（IDW / 克里金）· 距离与面积量算 · 投影变形（Tissot 圆）· DEM 地形分析 · GPX 轨迹分析 · 交互地球仪（3D）Globe · 放射性碳定年实验室 Radiocarbon · 土壤水分特征曲线拟合 · SCS 降雨径流模型</p>
 <p><strong>环境学（8）</strong>：空气质量评价（AQI）· 水质评价（地表水分类）· 温室效应模拟 Greenhouse · 碳循环推演 Carbon Cycle · 生物多样性指数 Biodiversity · 污染物扩散模拟（高斯烟羽）· 3D 全球环境 · 捕食者-猎物（Lotka–Volterra）</p>
+<p><strong>天文（3）</strong>：天文 CCD 管线 CCD Pipeline · 凌星系外行星光变拟合 Transit Fitting · 赫罗图 HR Diagram</p>
 </div>
 
-<!-- P25 -->
+<!-- P29 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<p><strong>天文（3）</strong>：天文 CCD 管线 CCD Pipeline · 凌星系外行星光变拟合 Transit Fitting · 赫罗图 HR Diagram</p>
 <p><strong>材料学（3）</strong>：XRD 衍射图谱分析 · 应力-应变分析 Stress-Strain · 热分析（DSC/TGA）</p>
 <p><strong>工程仿真（4）</strong>：结构力学 Structural Mechanics · 直流电路节点分析 DC Circuit · 平面桁架有限元分析 Truss FEA · 控制系统实验室 Control Systems</p>
 <p><strong>经济与金融（2）</strong>：Black-Scholes 期权定价实验室 · 空间囚徒困境演化博弈 Prisoner's Dilemma</p>
@@ -440,71 +537,111 @@
 <p><strong>数据与智能（2）</strong>：AI 训练 AI Trainer（TF.js 浏览器内训练）· 图像处理 Image Processing（FFT / 卷积 / 边缘）</p>
 <p><strong>特效渲染（5）</strong>：黑洞 · 3D 光线追踪 · 水波 · 3D 流体 · 体积云 · 天空渲染器 · 日光天空 · 大气散射 · 星空 · 夜天渲染器</p>
 <p><strong>趣味工具（10，按需加载）</strong>：分形浏览器 Mandelbrot / Julia · 万花尺 Spirograph · 利萨茹曲线 Lissajous · 生命游戏 Game of Life · 谐振记录仪 Harmonograph · 配色探索器 Palette · 科赫雪花 Koch · 巴恩斯利蕨 Barnsley Fern · 烟花 Fireworks · 特鲁谢瓷砖 Truchet Tiles</p>
-<p>以下六张图来自六个不同学科的插件，均为示例数据加载后的运行画面。</p>
-</div>
-
-<!-- P26 -->
-<div class="page doc-product">
-<img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<p>材料学：XRD 插件对衍射谱做峰位检测，把 2θ 角换算为 Bragg d 值，并以最小二乘精修晶格参数。</p>
-<figure><img src="../assets/screenshots/plugins/mats-xrd.png" alt="XRD 衍射图谱分析：峰位检测与晶格精修"><figcaption>XRD 图谱分析：峰位检测、Bragg d 值换算与晶格参数精修。</figcaption></figure>
-<p>地理：放射性碳定年插件把 Libby 传统碳十四年龄映射到 IntCal20 校准曲线，输出年龄的似然剖面与可信区间。</p>
-<figure><img src="../assets/screenshots/plugins/geo-carbondating.png" alt="放射性碳定年：IntCal20 曲线校准"><figcaption>放射性碳定年实验室：Libby 传统年龄按 IntCal20 校准的似然剖面。</figcaption></figure>
-</div>
-
-<!-- P27 -->
-<div class="page doc-product">
-<img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<p>生物学：分室模型插件以 RK4 积分 SIR / SEIR 方程组，报告 R₀、感染峰值时间与群体免疫阈值。</p>
-<figure><img src="../assets/screenshots/plugins/bio-epidemic/seir.png" alt="传染病分室模型：SEIR 曲线与 R₀"><figcaption>传染病分室模型：SIR / SEIR 的 RK4 积分与群体免疫阈值。</figcaption></figure>
-<p>环境学：高斯烟羽插件按 Pasquill–Gifford 稳定度等级计算连续点源的地面浓度场，风速、源强与排放高度可调。</p>
-<figure><img src="../assets/screenshots/plugins/env-plume.png" alt="高斯烟羽：地面浓度场"><figcaption>污染物扩散模拟：Pasquill–Gifford 参数下的高斯烟羽地面浓度。</figcaption></figure>
-</div>
-
-<!-- P28 -->
-<div class="page doc-product">
-<img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
-<p>物理：薛定谔插件用有限差分法求解一维定态薛定谔方程，内置无限深势阱、谐振子、有限深势阱与双势阱四类势场，能级与波函数同步呈现。</p>
-<figure><img src="../assets/screenshots/plugins/physics-schrodinger.png" alt="一维量子力学求解器：束缚态能级"><figcaption>一维量子力学求解器：有限差分特征值，覆盖四类典型势阱。</figcaption></figure>
-<p>经济与金融：期权插件给出 Black-Scholes 解析价格与希腊字母，并以固定种子的几何布朗运动蒙特卡洛交叉验证，看涨-看跌平价残差一并报告。</p>
-<figure><img src="../assets/screenshots/plugins/econ-blackscholes.png" alt="Black-Scholes 期权定价：解析与蒙特卡洛对照"><figcaption>Black-Scholes 期权定价实验室：解析价格与种子化蒙特卡洛交叉验证。</figcaption></figure>
-</div>
-
-<!-- P29 -->
-<div class="page doc-product">
-<img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
-<p>仿真类插件初始为空，仅在加载数据后运行，&quot;重置&quot;只重放已加载数据；138 个示例数据集（<code>examples/data/</code>）经&quot;示例数据&quot;对话框一键载入。科研级插件在清单中声明研究就绪度徽章、物理单位与验证基准，关键指标经科学输出总线汇入画布顶部的读数条。</p>
-<p>26 个科研工具按六组组织，均可嵌入工作台画布：测量与不确定性（Bootstrap / 蒙特卡洛传播 / MCMC）、建模与推断（回归工作台、NUTS 贝叶斯、ONNX 推理、参数扫描）、数据与图谱（DuckDB SQL、数据血缘、Figure Studio、清洗向导、快速分析、文件管理）、信号与记录（信号实验室、Notebook、实验台账）、报告与复现（报告生成、复现锁、论文附件包、可复现作品图库）、工具箱（单位换算、计算器、格式转换、有效数字、摩尔质量、快速统计）。数据格式覆盖 CSV / JSON / GeoJSON / GPX / HDF5 / NetCDF / FITS / Zarr / Parquet / CIF / POSCAR / DEM 等，由统一调度器分发。</p>
+<p class="pfrag pfrag-first">仿真类插件初始为空，仅在加载数据后运行，&quot;重置&quot;只重放已加载数据；138 个示例数据集（<code>examples/data/</code>）经&quot;示例数据&quot;对话框一键载入。</p>
+<p class="pfrag pfrag-last">科研级插件在清单中声明研究就绪度徽章、物理单位与验证基准，关键指标经科学输出总线汇入画布顶部的读数条。</p>
+<p class="pfrag pfrag-first">26 个科研工具按六组组织，均可嵌入工作台画布：测量与不确定性（Bootstrap / 蒙特卡洛传播 / MCMC）、建模与推断（回归工作台、NUTS 贝叶斯、ONNX 推理、参数扫描）、数据与图谱（DuckDB SQL、数据血缘、Figure Studio、清洗向导、快速分析、文件管理）、信号与记录（信号实验室、Notebook、实验台账）、报告与复现（报告生成、复现锁、论文附件包、可复现作品图库）、工具箱（单位换算、计算器、格式转换、有效数字、摩尔质量、快速统计）。</p>
+<p class="pfrag pfrag-last">数据格式覆盖 CSV / JSON / GeoJSON / GPX / HDF5 / NetCDF / FITS / Zarr / Parquet / CIF / POSCAR / DEM 等，由统一调度器分发。</p>
+<p class="pfrag pfrag-first">插件与工具共用同一套数据通路：任何插件产出的读数经科学输出总线进入读数条，任何工具的运行写入实验台账，文件读写走同一个虚拟文件系统并纳入 Git 版本管理。</p>
+<p class="pfrag pfrag-last">差异只在界面形态，不在数据归属——插件画布里的结果与脚本、报告、复现锁看到的是同一份项目。</p>
+<p>以下八张图来自八个不同学科的插件，均为示例数据加载后的运行画面。</p>
 </div>
 
 <!-- P30 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
-<h2 class="sec"><span class="num">七</span>治理与路线图</h2>
-<p>项目以 MIT 协议发布，源码、173 个测试文件与 5 条 CI 工作流公开可查；发版经 Zenodo 归档并铸造 DOI，软件引用由 <code>CITATION.cff</code> 维护并在 CI 中校验；SECURITY、CONDUCT、CHANGELOG 与双语 README 齐备。第三方插件与内置插件走相同的契约与加载路径，扩展能力不依赖修改宿主。</p>
-<p>可持续性来自几项设计：每个计算内核都有数学一致的 CPU 实现，无 WebGPU 的设备保持完整功能；数据以开放格式自由进出，项目可导出离线流转；repro.lock 的五类指纹保证历史分析在长时间后仍可判定漂移并重跑。</p>
-<p>路线图如下。已交付的能力由代码与测试覆盖；未完成的事项如实列出，架构位置已经预留。</p>
-<table><thead><tr><th>阶段</th><th>事项</th><th>现状锚点</th></tr></thead><tbody><tr><td>近期（硬化）</td><td>Git 面板差异审阅（diff 查看器）与冲突向导</td><td>分支、提交、克隆、远程同步已交付</td></tr><tr><td>近期（硬化）</td><td>每内核 GPU 性能遥测</td><td>14 个内核与 GPU/CPU 一致性测试已交付</td></tr><tr><td>近期（硬化）</td><td>错误处理与降级覆盖面扩展</td><td>错误边界与重试已就位，标记为 Partial</td></tr><tr><td>近期（硬化）</td><td>市场注册表与应用内安装 / 更新流</td><td>.cspkg Ed25519 签名门禁已上线</td></tr><tr><td>中期（生态）</td><td>第三方包自助提交—审核—安装管线</td><td>签名与沙箱基建就绪，缺自助通道</td></tr><tr><td>中期（生态）</td><td>gpu.* 区块族接入积木与流程模式</td><td>Worker 端运行器与内核派发接口已预留</td></tr><tr><td>中期（生态）</td><td>更多学科插件经同一契约扩充</td><td>107 个内置插件即契约的现有样本</td></tr><tr><td>远期（方向）</td><td>原生核心（Rust 源码）编译为 WASM 并入运行时</td><td>现为源码交付，运行时由 WebGPU / CPU 承担</td></tr><tr><td>远期（方向）</td><td>面向教学机构的离线批量部署形态</td><td>单机离线能力已完整</td></tr><tr><td>远期（方向）</td><td>更多期刊模板与导出格式</td><td>IEEE / Elsevier 模板与投稿检查已交付</td></tr></tbody></table>
-<p>已知边界：沙箱 Worker 与宿主共享源站存储，恶意包的最终防线是签名门禁；WebGPU 不可用时进入 CPU 回退模式，功能不缺失、性能有差异。边界与缓解措施在安全文档中明文可查。</p>
+<p><strong>材料学</strong>：XRD 插件对衍射谱做峰位检测，把 2θ 角换算为 Bragg d 值，并以最小二乘精修晶格参数。</p>
+<figure><img src="../assets/screenshots/plugins/mats-xrd.png" alt="XRD 衍射图谱分析：峰位检测与晶格精修"><figcaption>XRD 图谱分析：峰位检测、Bragg d 值换算与晶格参数精修。</figcaption></figure>
+<p><strong>地理</strong>：放射性碳定年插件把 Libby 传统碳十四年龄映射到 IntCal20 校准曲线，输出年龄的似然剖面与可信区间。</p>
+<figure><img src="../assets/screenshots/plugins/geo-carbondating.png" alt="放射性碳定年：IntCal20 曲线校准"><figcaption>放射性碳定年实验室：Libby 传统年龄按 IntCal20 校准的似然剖面。</figcaption></figure>
 </div>
 
 <!-- P31 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
-<h2 class="sec"><span class="num">八</span>获取与运行</h2>
-<ul><li><strong>在线使用</strong>：GitHub Pages 在线版打开即用（见仓库 README 徽章），无需安装与注册。</li><li><strong>本地开发</strong>：<code>npm install</code> 后 <code>npm run dev</code> 启动；<code>npm run build:web</code> 纯 Web 构建；<code>npm run verify</code> 执行严格类型检查与全部单元测试；<code>npm run test:e2e</code> 串联端到端套件。</li><li><strong>示例素材</strong>：138 个示例数据集与 11 个示例工程内置可载，9 个示例程序覆盖三种语言。</li><li><strong>参与贡献</strong>：Issue 与 Pull Request 欢迎，第三方插件契约文档见仓库。</li><li><strong>引用</strong>：<code>CITATION.cff</code> 提供标准引用格式，正式发版经 Zenodo 铸造 DOI。</li></ul>
+<p><strong>生物学</strong>：分室模型插件以 RK4 积分 SIR / SEIR 方程组，报告 R₀、感染峰值时间与群体免疫阈值。</p>
+<figure><img src="../assets/screenshots/plugins/bio-epidemic/seir.png" alt="传染病分室模型：SEIR 曲线与 R₀"><figcaption>传染病分室模型：SIR / SEIR 的 RK4 积分与群体免疫阈值。</figcaption></figure>
+<p><strong>环境学</strong>：高斯烟羽插件按 Pasquill–Gifford 稳定度等级计算连续点源的地面浓度场，风速、源强与排放高度可调。</p>
+<figure><img src="../assets/screenshots/plugins/env-plume.png" alt="高斯烟羽：地面浓度场"><figcaption>污染物扩散模拟：Pasquill–Gifford 参数下的高斯烟羽地面浓度。</figcaption></figure>
 </div>
 
 <!-- P32 -->
 <div class="page doc-product">
 <img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
+<p><strong>物理</strong>：薛定谔插件用有限差分法求解一维定态薛定谔方程，内置无限深势阱、谐振子、有限深势阱与双势阱四类势场，能级与波函数同步呈现。</p>
+<figure><img src="../assets/screenshots/plugins/physics-schrodinger.png" alt="一维量子力学求解器：束缚态能级"><figcaption>一维量子力学求解器：有限差分特征值，覆盖四类典型势阱。</figcaption></figure>
+<p><strong>经济与金融</strong>：期权插件给出 Black-Scholes 解析价格与希腊字母，并以固定种子的几何布朗运动蒙特卡洛交叉验证，看涨-看跌平价残差一并报告。</p>
+<figure><img src="../assets/screenshots/plugins/econ-blackscholes.png" alt="Black-Scholes 期权定价：解析与蒙特卡洛对照"><figcaption>Black-Scholes 期权定价实验室：解析价格与种子化蒙特卡洛交叉验证。</figcaption></figure>
+</div>
+
+<!-- P33 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
+<p><strong>天文学</strong>：赫罗图插件以色-星等散点（B−V 对 V）呈现恒星样本，叠加经验主序参考线与太阳锚点，可对主序段做线性拟合。</p>
+<figure><img src="../assets/screenshots/plugins/astro-hrdiagram.png" alt="赫罗图：色-星等散点与主序参考线"><figcaption>赫罗图：B−V 色-星等散点叠加主序参考线与太阳锚点。</figcaption></figure>
+<p><strong>化学</strong>：酸碱滴定曲线实验室求解全离子平衡方程组，逐体积以 Newton–Raphson 计算 pH，等当点、缓冲区与指示剂变色区间直接标注在曲线上。</p>
+<figure><img src="../assets/screenshots/plugins/chem-titration.png" alt="酸碱滴定曲线：pH 突跃与等当点"><figcaption>酸碱滴定曲线：全离子平衡逐体积求解，标注等当点与变色区间。</figcaption></figure>
+</div>
+
+<!-- P34 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
+<h2 class="sec"><span class="num">七</span>治理与路线图</h2>
+<p class="pfrag pfrag-first">项目以 MIT 协议发布，源码、173 个测试文件与 5 条 CI 工作流公开可查；发版经 Zenodo 归档并铸造 DOI，软件引用由 <code>CITATION.cff</code> 维护并在 CI 中校验；SECURITY、CONDUCT、CHANGELOG 与双语 README 齐备。</p>
+<p class="pfrag pfrag-last">第三方插件与内置插件走相同的契约与加载路径，扩展能力不依赖修改宿主。</p>
+<p>可持续性来自几项设计：每个计算内核都有数学一致的 CPU 实现，无 WebGPU 的设备保持完整功能；数据以开放格式自由进出，项目可导出离线流转；repro.lock 的五类指纹保证历史分析在长时间后仍可判定漂移并重跑。</p>
+<p class="pfrag pfrag-first">路线图的长期方向指向一件事：让&quot;可复现的分析&quot;成为科学工作的默认交付物——像网页一样易于分发，像引用一样易于核对。</p>
+<p class="pfrag pfrag-last">已交付的能力由代码与测试覆盖；未完成的事项如实列出，架构位置已经预留。</p>
+<table><thead><tr><th>阶段</th><th>事项</th><th>现状锚点</th></tr></thead><tbody><tr><td>近期（硬化）</td><td>Git 面板差异审阅（diff 查看器）与冲突向导</td><td>分支、提交、克隆、远程同步已交付</td></tr><tr><td>近期（硬化）</td><td>每内核 GPU 性能遥测</td><td>14 个内核与 GPU/CPU 一致性测试已交付</td></tr><tr><td>近期（硬化）</td><td>错误处理与降级覆盖面扩展</td><td>错误边界与重试已就位，标记为 Partial</td></tr><tr><td>近期（硬化）</td><td>市场注册表与应用内安装 / 更新流</td><td>.cspkg Ed25519 签名门禁已上线</td></tr><tr><td>中期（生态）</td><td>第三方包自助提交—审核—安装管线</td><td>签名与沙箱基建就绪，缺自助通道</td></tr><tr><td>中期（生态）</td><td>gpu.* 区块族接入积木与流程模式</td><td>Worker 端运行器与内核派发接口已预留</td></tr><tr><td>中期（生态）</td><td>更多学科插件经同一契约扩充</td><td>107 个内置插件即契约的现有样本</td></tr><tr><td>远期（方向）</td><td>headless 运行形态：repro.lock 项目在 CI 中重跑并再生成报告</td><td>测试体系已在浏览器外运行同一代码路径</td></tr><tr><td>远期（方向）</td><td>实时协作与项目分享（本地优先架构上的同步层）</td><td>项目为标准 Git 仓库，天然具备交换格式</td></tr><tr><td>远期（方向）</td><td>更多语言运行时经共享 IR 接入</td><td>Python / R / JavaScript 互译机制即扩展模板</td></tr></tbody></table>
+</div>
+
+<!-- P35 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-wave.jpg" alt="">
+<table><thead><tr><th>阶段</th><th>事项</th><th>现状锚点</th></tr></thead><tbody><tr><td>远期（方向）</td><td>原生核心（Rust 源码）编译为 WASM 并入运行时</td><td>现为源码交付，运行时由 WebGPU / CPU 承担</td></tr><tr><td>远期（方向）</td><td>面向教学机构的离线批量部署形态</td><td>单机离线能力已完整</td></tr><tr><td>远期（方向）</td><td>更多期刊模板与导出格式</td><td>IEEE / Elsevier 模板与投稿检查已交付</td></tr></tbody></table>
+<p>已知边界：沙箱 Worker 与宿主共享源站存储，恶意包的最终防线是签名门禁；WebGPU 不可用时进入 CPU 回退模式，功能不缺失、性能有差异。边界与缓解措施在安全文档中明文可查。</p>
+<p class="pfrag pfrag-first">缓解是分层的：沙箱隔离运行时行为，签名门禁决定什么能进入沙箱，错误边界限制已进入沙箱的代码崩溃时的影响半径；三层各自有测试覆盖，任何一层失效都不直接暴露宿主数据。</p>
+<p class="pfrag pfrag-last">CPU 回退路径与 GPU 路径由同一套单元测试约束数值一致性，回退时的引擎选择写入运行记录，使性能差异可以事后归因。</p>
+<p class="pfrag pfrag-first">治理的日常执行由 CI 承担：5 条工作流覆盖 2815 个单元测试、14 套端到端测试、构建与文档生成。</p>
+<p class="pfrag">两类测试把关键语义钉死在流水线上——GPU/CPU 一致性测试将 14 个 WGSL 内核与其 CPU 实现绑定在同一数值容差下，三态互译测试将积木、流程与代码绑定在同一中间表示上。</p>
+<p class="pfrag pfrag-last">破坏一致性或互译语义的提交会在流水线上直接失败，回归不依赖人工发现。</p>
+<p class="pfrag pfrag-first">供应链与合规同样进入流水线：依赖清单以 CycloneDX 1.5 格式生成 SBOM，security 工作流每周重扫，高危与严重漏洞阻断合并，豁免项须写明理由并登记后续处理；引用元数据由脚本与 <code>package.json</code> 比对，漂移即 CI 失败。</p>
+<p class="pfrag pfrag-last">发版流水线把同一份构建产物归档到 Zenodo 并铸造 DOI，软件引用长期可解析。</p>
+</div>
+
+<!-- P36 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-pipeline.jpg" alt="">
+<h2 class="sec"><span class="num">八</span>获取与运行</h2>
+<ul><li><strong>在线使用</strong>：GitHub Pages 在线版打开即用（见仓库 README 徽章），无需安装与注册。</li><li><strong>本地开发</strong>：<code>npm install</code> 后 <code>npm run dev</code> 启动；<code>npm run build:web</code> 纯 Web 构建；<code>npm run verify</code> 执行严格类型检查与全部单元测试；<code>npm run test:e2e</code> 串联端到端套件。</li><li><strong>示例素材</strong>：138 个示例数据集与 11 个示例工程内置可载，9 个示例程序覆盖三种语言。</li><li><strong>参与贡献</strong>：Issue 与 Pull Request 欢迎，第三方插件契约文档见仓库。</li><li><strong>引用</strong>：<code>CITATION.cff</code> 提供标准引用格式，正式发版经 Zenodo 铸造 DOI。</li></ul>
+<p class="pfrag pfrag-first">浏览器要求：支持 WebGPU 的浏览器（Chrome / Edge 113 及以上等）获得完整 GPU 管线；其余现代浏览器自动走 CPU 路径，功能一致、性能有差异。</p>
+<p class="pfrag pfrag-last">首次完整加载后，各运行时与数据文件均已本地缓存，之后可在离线状态下使用全部功能。</p>
+<p>三类部署形态基于同一份纯静态构建产物，按场景选择：</p>
+<table><thead><tr><th>形态</th><th>适用场景</th><th>说明</th></tr></thead><tbody><tr><td>GitHub Pages 在线版</td><td>快速使用与评审</td><td>deploy 工作流构建部署，并做站点完整性校验</td></tr><tr><td>本地开发</td><td>二次开发与插件编写</td><td><code>npm install</code> 后 <code>npm run dev</code> 启动热更新</td></tr><tr><td>自托管静态部署</td><td>教学机房与内网</td><td>构建产物为纯静态文件，HashRouter 兼容任意静态服务器</td></tr></tbody></table>
+<p class="pfrag pfrag-first">数据随时可以带走：项目导出为 <code>.clproj</code> 单文件，数据文件保持原始格式，Git 历史随项目一同迁移。</p>
+<p class="pfrag pfrag-last">卸载或清空浏览器数据即彻底删除全部本地副本，不存在需要申请导出的云端残留。</p>
+<p>第一次使用不需要自己的数据：11 个示例工程覆盖不同学科的完整分析场景，138 个示例数据集经&quot;示例数据&quot;对话框一键载入任意插件；从示例进入、再替换为自己的文件，是多数新用户的实际路径。</p>
+</div>
+
+<!-- P37 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-blocks.jpg" alt="">
 <h2 class="sec"><span class="num">九</span>附录</h2>
 <h3>附录 A　插件速查</h3>
-<p>107 个内置插件的完整清单见第六章；各插件的参数、数据格式与计算方法详见技术文档系列第 03 篇《插件系统》。插件 ID 与学科映射的权威来源为 <code>src/plugins/categories.ts</code>。</p>
+<p>107 个内置插件的完整清单见第六章，插件 ID 与学科映射的权威来源为 <code>src/plugins/categories.ts</code>。</p>
 <h3>附录 B　科研工具速查</h3>
+<p>26 个工具由同一注册表驱动，均可从科研启动器与欢迎页工具网格进入；带项目上下文的工具嵌入工作台画布，工具箱六项随开随用。</p>
 <table><thead><tr><th>组</th><th>工具</th></tr></thead><tbody><tr><td>测量与不确定性</td><td>不确定度（Bootstrap / 蒙特卡洛 / MCMC）、数据画像</td></tr><tr><td>建模与推断</td><td>模型工作台、Inference Forge（NUTS）、ONNX 模型推理、参数扫描</td></tr><tr><td>数据与图谱</td><td>SQL 数据工作台、数据血缘、Figure Studio、快速分析、清洗向导、文件资源管理器</td></tr><tr><td>信号与记录</td><td>信号实验室、Notebook、实验记录</td></tr><tr><td>报告与复现</td><td>报告生成器、复现锁、论文附件包、作品图库</td></tr><tr><td>工具箱</td><td>单位换算、计算器、格式转换、有效数字、摩尔质量、快速统计</td></tr></tbody></table>
-<h3>附录 C　文档索引</h3>
-<p>技术文档系列（<code>docs/technical/</code>）：01 产品介绍 · 02 系统架构 · 03 插件系统 · 04 四大工作模式 · 05 科研工具集 · 06 GPU 计算与原生核心 · 07 科学计算子系统 · 08 测试与质量保障 · 09 电磁谐振特征值求解器（独立专题）· 10 流体双向耦合求解器（独立专题）与容器化部署手册 · 11 应用场景库（81 条场景）· 完整技术总结合集。开发指南（<code>docs/guide/</code>）：路线图与状态。项目主页、在线工作台与文档站的入口见封面二维码。</p>
+<h3>附录 C　数据格式速查</h3>
+<p>统一导入调度器在读取时检测文件类型并分发到对应解析器，原始文件全程只读：</p>
+<table><thead><tr><th>格式</th><th>典型内容</th></tr></thead><tbody><tr><td>CSV / TSV</td><td>表格数据，导入时自动识别列类型</td></tr><tr><td>JSON / GeoJSON</td><td>结构化记录与地理要素</td></tr><tr><td>HDF5 / NetCDF / Zarr</td><td>多维科学数组与气候、遥感数据集</td></tr><tr><td>FITS</td><td>天文图像与光谱</td></tr></tbody></table>
+</div>
+
+<!-- P38 -->
+<div class="page doc-product">
+<img class="page-mascot" src="../assets/brand/mascot-laptop.jpg" alt="">
+<table><thead><tr><th>格式</th><th>典型内容</th></tr></thead><tbody><tr><td>Parquet</td><td>列式存储的大表</td></tr><tr><td>CIF / POSCAR</td><td>晶体结构与材料计算输入</td></tr><tr><td>GPX / DEM</td><td>轨迹与高程地形</td></tr></tbody></table>
+<p>导出与派生产物同样使用开放格式，不引入私有封装：</p>
+<table><thead><tr><th>产物</th><th>来源</th><th>格式</th></tr></thead><tbody><tr><td>出版级图组</td><td>Figure Studio</td><td>SVG / PDF / PNG（600 dpi）</td></tr><tr><td>自包含报告</td><td>报告生成器</td><td>单文件 HTML</td></tr><tr><td>画像结果</td><td>数据画像</td><td>CSV</td></tr><tr><td>交互项目</td><td>工作台</td><td><code>.clproj</code> 单文件</td></tr><tr><td>管线与积木程序</td><td>流程 / 积木模式</td><td><code>.flow.json</code> / <code>.block.json</code></td></tr></tbody></table>
 </div>
 
 <div class="page cover back">

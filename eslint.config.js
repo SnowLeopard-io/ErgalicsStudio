@@ -27,8 +27,6 @@ export default tseslint.config(
       'scripts/', // 一次性 mjs 脚本，不做 lint
       '**/*.min.*',
       'tmp/', // 临时实验产物（py/json/cjs 抓取物），非源码
-      // WIP by a parallel session — remove from ignores once it stabilizes
-      'src/plugins/builtin/fluid-cfd-coupler/**',
     ],
   },
   js.configs.recommended,

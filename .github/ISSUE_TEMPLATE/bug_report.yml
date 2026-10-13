@@ -1,11 +1,13 @@
 name: Bug report
-description: Report a bug in Ergalics Studio
+description: 报告 Ergalics Studio 的缺陷 / Report a bug in Ergalics Studio
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
+        感谢反馈。请尽量填写完整——清晰的复现步骤是尽快修复的最短路径。安全问题请改用 **Security → Report a vulnerability**（安全 → 报告漏洞），不要提交公开 issue。
+
         Thanks for reporting. Fill in as much as you can — a clear repro is the
         fastest path to a fix. For security issues, use **Security →
         Report a vulnerability** instead of a public issue.
@@ -13,16 +15,18 @@ body:
   - type: input
     id: summary
     attributes:
-      label: Summary
-      description: One or two sentences describing the problem.
+      label: 概要 / Summary
+      description: 用一两句话描述问题。 / One or two sentences describing the problem.
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
+      label: 复现步骤 / Steps to reproduce
       description: |
+        按编号列出步骤，说明使用的是哪个模式（Standard / Flow / Block / Code）、哪个插件，以及哪个文件或示例。
+
         Numbered steps, including which mode (Standard / Flow / Block / Code),
         which plugin, and which file or sample you used.
       placeholder: |
@@ -36,24 +40,24 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
+      label: 预期行为 / Expected behavior
+      description: 你原本期望发生什么？ / What did you expect to happen?
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior
-      description: What actually happened? Include error text, console messages, or wrong output.
+      label: 实际行为 / Actual behavior
+      description: 实际发生了什么？请附上错误文本、控制台消息或错误的输出。 / What actually happened? Include error text, console messages, or wrong output.
     validations:
       required: true
 
   - type: textarea
     id: environment
     attributes:
-      label: Environment
-      description: Browser and version, OS, and — if relevant — GPU / whether WebGPU is available (see the status bar).
+      label: 环境 / Environment
+      description: 浏览器及版本、操作系统，以及——如相关——GPU / WebGPU 是否可用（见状态栏）。 / Browser and version, OS, and — if relevant — GPU / whether WebGPU is available (see the status bar).
       placeholder: |
         - Browser: Chrome 128 / Edge 128 / Firefox …
         - OS: Windows 11 / macOS …
@@ -64,19 +68,19 @@ body:
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots or recordings
-      description: Attach screenshots grouped under the affected mode / plugin.
+      label: 截图或录屏 / Screenshots or recordings
+      description: 请附上截图，并按受影响的模式 / 插件分组。 / Attach screenshots grouped under the affected mode / plugin.
     validations:
       required: false
 
   - type: dropdown
     id: severity
     attributes:
-      label: Severity
+      label: 严重程度 / Severity
       options:
-        - Blocker (app unusable)
-        - High (feature broken, workaround exists)
-        - Medium (cosmetic / edge case)
-        - Low (minor)
+        - Blocker（应用不可用） / Blocker (app unusable)
+        - High（功能损坏，但有临时解决办法） / High (feature broken, workaround exists)
+        - Medium（外观问题 / 边缘情况） / Medium (cosmetic / edge case)
+        - Low（轻微） / Low (minor)
     validations:
       required: false

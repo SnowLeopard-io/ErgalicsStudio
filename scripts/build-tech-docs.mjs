@@ -399,10 +399,10 @@ const CSS = `
   .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
   .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
   .mode-chip {
-    flex: 1 1 34mm; min-width: 34mm;
+    flex: 1 1 auto; min-width: 34mm; /* basis follows the title; extra space is shared */
     border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
   }
-  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; white-space: nowrap; }
   .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
   .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
   /* Closing page — the cover's counterpart, reached after the last chapter.
@@ -459,6 +459,13 @@ const CSS = `
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
+  /* Product volume: figures span the full column width, centered. */
+  .doc-product figure img { width: 100%; margin: 0 auto; }
+  /* Two screenshot+caption units (~51% each at full width) must share one page:
+     shaving vertical whitespace by ~2% per unit flips instance pages from
+     ~51% singles to ~95% pairs. */
+  .doc-product figure { margin: 3mm 0; }
+  .doc-product figcaption { margin-top: 2mm; }
   /* Product volume: comparison tables span the full text width and keep their
      first (label) column on one line; the technical series is unaffected. */
   .doc-product table { width: 100%; }
@@ -471,10 +478,23 @@ const CSS = `
   }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
+  /* Tighter paragraph rhythm in the product volume: several screenshot pages
+     miss two-up packing by only a few mm. */
+  .doc-product p { margin: 2.4mm 0; }
+  /* Sentence-split paragraph fragments: the packer may break a page inside a
+     paragraph, the way a book flows text. Only the first fragment keeps the
+     paragraph's top margin and only the last keeps the bottom one, so a
+     paragraph that continues across a page break reads as one block. */
+  p.pfrag { margin: 0; }
+  p.pfrag-first { margin-top: 3mm; }
+  p.pfrag-last { margin-bottom: 3mm; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
   ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
+  /* Product volume: key terms (bold lead-ins and inline keywords) pick up the
+     accent so the eye can scan a page's structure without reading every line. */
+  .doc-product p strong, .doc-product li strong { color: var(--accent-deep); }
   a { color: var(--accent); text-decoration: none; }
   hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
   /* Explicit page break: never laid out, only consumed by the paginator. */
@@ -781,6 +801,113 @@ function fragmentTable(block, info, limit, firstCapacity) {
  */
 const INTRO_KINDS = new Set(['p', 'list', 'callout']);
 
+/**
+ * Split `p` blocks into sentence-level fragments so the packer can break a
+ * page inside a paragraph — the same way a book flows text — instead of
+ * pushing the whole paragraph to the next page and stranding a void above a
+ * figure. Inline tags are tracked while scanning, so a cut never lands inside
+ * an open <strong>/<code>/…; fragments shorter than PFRAG_MIN visible chars
+ * merge back upstream so a break never isolates a few characters.
+ *
+ * Fragment classes redistribute the paragraph's 3mm margins (which
+ * measureBlocks includes in each height), keeping measurements honest. Plain
+ * blocks pass through untouched, so the whole transform is inert for text
+ * that already packs tightly.
+ */
+const PFRAG_MIN = 34;
+
+function splitParagraphBlocks(blocks) {
+  const out = [];
+  let paraSeq = 0;
+  for (const b of blocks) {
+    if (b.kind !== 'p' || !/^<p>[\s\S]*<\/p>$/.test(b.html)) {
+      out.push(b);
+      continue;
+    }
+    const inner = b.html.slice(3, -4);
+    // Cut candidates: right after sentence-final CJK punctuation, never
+    // inside a tag and never while an inline tag is still open.
+    const cuts = [];
+    let depth = 0;
+    for (let i = 0; i < inner.length; i++) {
+      const c = inner[i];
+      if (c === '<') {
+        const end = inner.indexOf('>', i);
+        if (end < 0) break;
+        const tag = inner.slice(i + 1, end);
+        if (tag.startsWith('/')) depth--;
+        else if (!/\/>$/.test(tag) && /^(strong|em|a|code|span)\b/.test(tag)) depth++;
+        i = end;
+        continue;
+      }
+      if (depth === 0 && '。？！'.includes(c) && i + 1 < inner.length) cuts.push(i + 1);
+    }
+    const visible = (s) => s.replace(/<[^>]+>/g, '').length;
+    const merged = [];
+    let from = 0;
+    for (const cut of cuts) {
+      if (visible(inner.slice(from, cut)) >= PFRAG_MIN) {
+        merged.push(cut);
+        from = cut;
+      }
+    }
+    // A trailing fragment below the minimum would read as a stranded stub.
+    if (merged.length && visible(inner.slice(merged[merged.length - 1])) < PFRAG_MIN) merged.pop();
+    if (!merged.length) {
+      out.push(b);
+      continue;
+    }
+    const parts = [];
+    let prev = 0;
+    for (const cut of merged) {
+      parts.push(inner.slice(prev, cut));
+      prev = cut;
+    }
+    parts.push(inner.slice(prev));
+    const pid = ++paraSeq; // fragments of one paragraph share this id
+    parts.forEach((part, i) => {
+      const cls = ['pfrag', i === 0 ? 'pfrag-first' : '', i === parts.length - 1 ? 'pfrag-last' : '']
+        .filter(Boolean)
+        .join(' ');
+      out.push({ kind: 'p', pid, text: part.replace(/<[^>]+>/g, ''), html: `<p class="${cls}">${part}</p>` });
+    });
+  }
+  return out;
+}
+
+/**
+ * Even out a chapter whose final page is notably emptier than the rest: a
+ * greedy pack fills the first pages to the brim and dumps the remainder on
+ * the last one, which reads as "content ran out". Re-packing against the
+ * mean per-page budget spreads the tail text upward. Only applied when the
+ * page count does not grow — a figure that no longer fits keeps the original
+ * packing, and a tail already at least half full is left alone.
+ */
+function rebalanceTail(packed, blocks, measured) {
+  if (packed.length < 2) return packed;
+  const limit = measured.contentHeight;
+  const heightOf = new Map(blocks.map((b, i) => [b, measured.items[i]?.height ?? 0]));
+  const sum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+  const fill = (pg) => sum(pg) / limit;
+  const minFill = (pages) => Math.min(...pages.map(fill));
+  if (fill(packed[packed.length - 1]) >= 0.62 && minFill(packed) >= 0.6) return packed;
+  const total = packed.reduce((a, pg) => a + sum(pg), 0);
+  const baseCount = packed.length;
+  const baseMin = minFill(packed);
+  // Escalating budgets: the exact even split usually strands figure+intro
+  // pairs and *grows* the page count, so each failed step relaxes the budget
+  // slightly until a repack fits within the original count and lifts the
+  // emptiest page above the greedy result.
+  let best = packed;
+  for (let k = 0; k <= 6; k++) {
+    const target = Math.min(limit, (total / packed.length) * (1.02 + k * 0.03));
+    const cand = packPages(blocks, { ...measured, contentHeight: target });
+    if (cand.length !== baseCount) continue;
+    if (minFill(cand) > Math.max(baseMin, minFill(best)) + 0.02) best = cand;
+  }
+  return best;
+}
+
 function packPages(blocks, measured) {
   const limit = measured.contentHeight;
   const pages = [];
@@ -799,6 +926,9 @@ function packPages(blocks, measured) {
     used = 0;
   };
 
+  const heightOf = new Map(blocks.map((b, k) => [b, measured.items[k]?.height ?? 0]));
+  const pageSum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const info = measured.items[i];
@@ -810,6 +940,33 @@ function packPages(blocks, measured) {
     if (block.kind === 'pagebreak') {
       pushPage(true);
       continue;
+    }
+
+    // A paragraph fragment that overflows reunites on the next page when its
+    // paragraph leads straight into a figure: a screenshot must never be read
+    // with only the tail of its introduction. Earlier fragments already on
+    // this page travel down so the paragraph reads as one piece, figure
+    // included. Paragraphs not followed by a figure flow page to page like
+    // normal book text.
+    if (
+      block.kind === 'p' &&
+      block.pid != null &&
+      used + height > limit &&
+      current.length &&
+      blocks[i + 1]?.kind === 'figure'
+    ) {
+      const carried = [];
+      while (current.length && current[current.length - 1].pid === block.pid) {
+        carried.unshift(current.pop());
+      }
+      if (carried.length && current.length) {
+        pushPage();
+        current.push(...carried);
+        used = pageSum(current);
+      } else {
+        // The paragraph owns the whole page; leave fragments in place.
+        current.push(...carried);
+      }
     }
 
     if (block.kind === 'table' && used + height > limit) {
@@ -844,9 +1001,11 @@ function packPages(blocks, measured) {
 
     // A screenshot must not be torn from the sentence that introduces it. When
     // a figure does not fit in the space left, the block above it travels to
-    // the next page as well, so the two are always read together. Only text
-    // counts as an introduction: a run of consecutive screenshots (a gallery)
-    // must pack normally, or every one of them lands on a page of its own.
+    // the next page as well, so the two are always read together. If the
+    // introduction is a split paragraph, the *whole* paragraph moves — not
+    // just its last fragment. Only text counts as an introduction: a run of
+    // consecutive screenshots (a gallery) must pack normally, or every one of
+    // them lands on a page of its own.
     if (
       block.kind === 'figure' &&
       used + height > limit &&
@@ -855,10 +1014,16 @@ function packPages(blocks, measured) {
       current[current.length - 1] === blocks[i - 1] &&
       INTRO_KINDS.has(blocks[i - 1].kind)
     ) {
-      const carried = current.pop();
+      const pid = blocks[i - 1].pid;
+      const carried = [current.pop()];
+      if (pid != null) {
+        while (current.length > 1 && current[current.length - 1].pid === pid) {
+          carried.unshift(current.pop());
+        }
+      }
       pushPage();
-      current.push(carried);
-      used = measured.items[i - 1].height;
+      current.push(...carried);
+      used = carried.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
     }
 
     if (used + height > limit && current.length) pushPage();
@@ -871,8 +1036,7 @@ function packPages(blocks, measured) {
   // A screenshot that opens a page has lost the sentence introducing it, which
   // is what makes the demo images read as detached from their text. Pull the
   // preceding block down so the figure travels with its explanation.
-  const heightOf = new Map(blocks.map((b, i) => [b, measured.items[i]?.height ?? 0]));
-  const sum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+  const sum = pageSum;
   for (let p = 1; p < pages.length; p++) {
     // An explicit `<!-- pagebreak -->` outranks page filling.
     if (forcedAfter[p - 1]) continue;
@@ -882,8 +1046,24 @@ function packPages(blocks, measured) {
     if (prev.length < 2) continue;
     const candidate = prev[prev.length - 1];
     if (!INTRO_KINDS.has(candidate.kind)) continue;
-    if (sum(pages[p]) + (heightOf.get(candidate) || 0) > limit) continue;
-    pages[p].unshift(prev.pop());
+    // A split introduction moves as a whole paragraph, never as a lone tail
+    // fragment that would read detached from its own beginning.
+    const pid = candidate.pid;
+    const carry = [candidate];
+    let avail = limit - sum(pages[p]) - (heightOf.get(candidate) || 0);
+    if (pid != null) {
+      for (let k = prev.length - 2; k >= 1; k--) {
+        const b = prev[k];
+        if (b.pid !== pid) break;
+        const h = heightOf.get(b) || 0;
+        if (h > avail) break;
+        avail -= h;
+        carry.unshift(b);
+      }
+    }
+    if (carry.length === prev.length) continue; // keep one block above
+    prev.splice(prev.length - carry.length, carry.length);
+    pages[p].unshift(...carry);
   }
 
   // Pull a trailing heading down to the next page (avoid orphaned headings).
@@ -1365,11 +1545,76 @@ async function buildDoc(browser, page, base, opts = {}) {
 
   // Measurement must run against a clean, stylesheet-only page: the print
   // pass navigates away, so the caller resets the measure page between docs.
-  const measured = await measureBlocks(page, bodyBlocks, base);
-  // The caller shrinks the usable height when a previous pass reported an
-  // overflow, so measurement noise can never ship a clipped page.
-  if (opts.shrink) measured.contentHeight -= opts.shrink;
-  const pages = packPages(bodyBlocks, measured);
+  let pages;
+  if (meta.brand) {
+    // Product volume: chapters are force-broken, so a chapter whose content
+    // spills a few lines onto a final page strands a large void there. Repack
+    // each chapter independently across slightly smaller figure widths and
+    // keep the packing with the fewest pages (ties go to the packing whose
+    // last page is fuller, then to the larger figures).
+    const chapters = [];
+    for (const b of bodyBlocks) {
+      if (b.kind === 'pagebreak') continue;
+      if (b.kind === 'h2' || chapters.length === 0) chapters.push([]);
+      chapters[chapters.length - 1].push(b);
+    }
+    const setWidth = (html, pct) => html.replace('<img ', `<img style="width:${pct}%" `);
+    // Sentence-level fragments let pages break inside a paragraph instead of
+    // stranding the void above an unsplittable figure.
+    const splitChapters = chapters.map(splitParagraphBlocks);
+    pages = [];
+    for (const ch of splitChapters) {
+      const hasFig = ch.some((b) => b.kind === 'figure');
+      const cands = [];
+      for (const scale of [1]) {
+        const scaled =
+          scale === 1
+            ? ch
+            : ch.map((b) =>
+                b.kind === 'figure' ? { ...b, html: setWidth(b.html, Math.round(82 * scale)) } : b,
+              );
+        const m = await measureBlocks(page, scaled, base);
+        if (opts.shrink) m.contentHeight -= opts.shrink;
+        const packed = packPages(scaled, m);
+        const indexOf = new Map(scaled.map((b, i) => [b, i]));
+        const lastSum = packed[packed.length - 1].reduce(
+          (a, b) => a + (m.items[indexOf.get(b)]?.height || 0),
+          0,
+        );
+        cands.push({
+          scale,
+          scaled,
+          m,
+          packed,
+          pageCount: packed.length,
+          tailFill: lastSum / m.contentHeight,
+        });
+      }
+      const minPages = Math.min(...cands.map((c) => c.pageCount));
+      // Fewest pages wins; among equals take the largest figures whose last
+      // page is at least half full, falling back to the fullest tail.
+      const best =
+        cands
+          .slice()
+          .reverse()
+          .find((c) => c.pageCount === minPages && c.tailFill >= 0.5) ||
+        cands
+          .slice()
+          .reverse()
+          .find((c) => c.pageCount === minPages) ||
+        cands[0];
+      pages.push(...rebalanceTail(best.packed, best.scaled, best.m));
+      if (best.scale !== 1) {
+        console.log(`  ~ ${base}: chapter scaled to ${Math.round(82 * best.scale)}% figure width`);
+      }
+    }
+  } else {
+    const measured = await measureBlocks(page, bodyBlocks, base);
+    // The caller shrinks the usable height when a previous pass reported an
+    // overflow, so measurement noise can never ship a clipped page.
+    if (opts.shrink) measured.contentHeight -= opts.shrink;
+    pages = packPages(bodyBlocks, measured);
+  }
 
   const pageOf = new Map();
   pages.forEach((p, pi) => {
