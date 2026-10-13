@@ -105,8 +105,6 @@ flowchart LR
 
 标准模式是默认入口。欢迎页完成 WebGPU、OPFS 与各运行时的自检，启动网格列出全部科研工具与示例项目；数据文件拖入任意插件即出图，是"有数据、想先看看"时的最快路径。
 
-![吉祥物：打招呼的小雪豹](../assets/brand/mascot-wave.jpg)
-
 ![标准模式：欢迎页与启动网格](../assets/screenshots/platform/mode-standard-welcome.png)
 
 *标准模式：欢迎页完成环境自检，启动网格通向全部科研工具。*
@@ -114,8 +112,6 @@ flowchart LR
 插件的参数面板由宿主依据插件清单自动生成本地化表单，覆盖范围滑杆、下拉、数字、复选框、文本、文件、按钮与开关八类控件；调整参数即时重新渲染，无需编写任何代码。画布顶部的 ScienceOutputStrip 条带实时显示当前插件的关键读数——收敛判据、残差、统计量——同一套读数口径贯穿全部科研级插件。
 
 流程模式面向多步管线：区块按连线构成有向无环图，执行器按拓扑顺序增量运行，只有受参数变化影响的下游节点才会重算；每个节点可以单独查看输出与诊断信息。
-
-![吉祥物：连接管线的小雪豹](../assets/brand/mascot-pipeline.jpg)
 
 ![流程模式：数据流管线画布](../assets/screenshots/platform/mode-flow.png)
 
@@ -125,8 +121,6 @@ flowchart LR
 
 积木模式用 Blockly 提供命令式编程入口，积木类型覆盖循环、分支、变量、事件与绘图；积木程序与流程、代码共享同一份中间表示，可以在三种形态之间往返转换，同一逻辑不会被锁定在某一种表达里。
 
-![吉祥物：搭积木的小雪豹](../assets/brand/mascot-blocks.jpg)
-
 ![积木模式：Blockly 积木编辑器](../assets/screenshots/platform/mode-block.png)
 
 *积木模式：积木程序与流程、代码共享同一中间表示。*
@@ -134,8 +128,6 @@ flowchart LR
 积木程序可以随时"升级"为可读的 JavaScript 或 Python 代码继续编辑，反向亦可把脚本"降级"回积木——转换语义由三态往返互转的单元测试固化。对教学场景，这意味着同一道练习可以先拼积木、再看代码、最后改成流程管线，三个阶段共享同一份数据与运行记录。
 
 代码模式使用 Monaco 编辑器，支持 Python / R / JavaScript 三种语言：Python 运行于真实 CPython，R 在 webR 分发包存在时为完整运行时；切换语言时整份缓冲区经预览窗互译确认后应用，往返转换由单元测试固化。
-
-![吉祥物：写代码的小雪豹](../assets/brand/mascot-laptop.jpg)
 
 ![代码模式：Monaco 编辑器与语言互译](../assets/screenshots/platform/mode-code.png)
 

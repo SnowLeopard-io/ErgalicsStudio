@@ -463,10 +463,12 @@ const CSS = `
      first (label) column on one line; the technical series is unaffected. */
   .doc-product table { width: 100%; }
   .doc-product th:first-child, .doc-product td:first-child { white-space: nowrap; }
-  /* Decorative mascot stickers: small, centered, frameless — screenshots keep
-     their full-width treatment. */
-  .doc-product figure.mascot { margin: 3mm 0 0; }
-  .doc-product figure.mascot img { width: auto; height: 44mm; border: none; box-shadow: none; border-radius: 0; }
+  /* Product volume: a small mascot floats beside the page number on every
+     content page; the four mascots rotate from page to page. */
+  .doc-product .page-mascot {
+    position: absolute; right: 9mm; bottom: 6mm; height: 13mm; width: auto;
+    border: none; box-shadow: none; border-radius: 0; opacity: 0.95;
+  }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
@@ -1092,10 +1094,13 @@ function tocEntriesFrom(blocks) {
   return estimated > TOC_BUDGET_PX ? out.filter((e) => e.level === 2) : out;
 }
 
-function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '' }) {
+function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '', deco = null }) {
   const cls = docClass ? ` ${docClass}` : '';
   const body = pages
-    .map((p, i) => `<!-- P${i + 3} -->\n<div class="page${cls}">\n${p.map((b) => b.html).join('\n')}\n</div>`)
+    .map(
+      (p, i) =>
+        `<!-- P${i + 3} -->\n<div class="page${cls}">\n${deco ? deco(i) : ''}\n${p.map((b) => b.html).join('\n')}\n</div>`,
+    )
     .join('\n\n');
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1144,6 +1149,9 @@ async function verifyLayout(page, htmlPath) {
       let maxBottom = -Infinity;
       let culprit = null;
       for (const el of pg.children) {
+        // Absolutely positioned decorations (page-corner mascots) live outside
+        // the content flow and cannot overflow the column.
+        if (getComputedStyle(el).position === 'absolute') continue;
         const b =
           el.getBoundingClientRect().bottom + parseFloat(getComputedStyle(el).marginBottom || '0');
         if (b > maxBottom) {
@@ -1327,16 +1335,6 @@ async function buildDoc(browser, page, base, opts = {}) {
     });
     bodyBlocks = withBreaks;
   }
-  // Decorative mascot stickers: small centered frameless images. They are
-  // packed as plain flow blocks (kind 'sticker') so the figure/intro
-  // keep-together rule never drags paragraphs around for a sticker.
-  if (meta.brand) {
-    bodyBlocks = bodyBlocks.map((b) =>
-      b.kind === 'figure' && b.html.includes('/brand/mascot')
-        ? { ...b, kind: 'sticker', html: b.html.replace('<figure>', '<figure class="mascot">') }
-        : b,
-    );
-  }
 
   // Cover QR codes: one committed SVG per online home, inlined so the HTML
   // (and the PDF printed from it) stays self-contained and crisp at print
@@ -1413,6 +1411,14 @@ async function buildDoc(browser, page, base, opts = {}) {
     pages,
     back: backHtml,
     docClass: meta.brand ? 'doc-product' : '',
+    // A small mascot floats beside the page number on every content page;
+    // the four mascots rotate with the page index.
+    deco: meta.brand
+      ? (i) =>
+          `<img class="page-mascot" src="../assets/brand/${
+            ['mascot-wave', 'mascot-pipeline', 'mascot-blocks', 'mascot-laptop'][i % 4]
+          }.jpg" alt="">`
+      : null,
   });
 
   return { html, pages: pages.length + 3 };
