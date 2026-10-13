@@ -31,6 +31,21 @@ import { chromium } from 'playwright-core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
+// The product overview is a standalone volume, not part of the technical
+// series: it reads from its own directory and carries its own cover brand,
+// slogan and footnote instead of the series defaults.
+const PRODUCT_DIR = path.join(ROOT, 'docs', 'product');
+const PRODUCT_SLOGAN = '让科学计算 回归触手可及';
+const PRODUCT_DOCS = {
+  'Ergalics-Studio': {
+    dir: PRODUCT_DIR,
+    foot: '版本 1.9.0 · MIT License · SnowLeopard-io',
+    brand: 'ERGALICS STUDIO',
+  },
+};
+function docDir(base) {
+  return PRODUCT_DOCS[base]?.dir || DOCS_DIR;
+}
 const MERMAID_JS = path.join(ROOT, 'tmp', 'mdlib', 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
 
 const argv = process.argv.slice(2);
@@ -444,6 +459,14 @@ const CSS = `
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
+  /* Product volume: comparison tables span the full text width and keep their
+     first (label) column on one line; the technical series is unaffected. */
+  .doc-product table { width: 100%; }
+  .doc-product th:first-child, .doc-product td:first-child { white-space: nowrap; }
+  /* Decorative mascot stickers: small, centered, frameless — screenshots keep
+     their full-width treatment. */
+  .doc-product figure.mascot { margin: 3mm 0 0; }
+  .doc-product figure.mascot img { width: auto; height: 44mm; border: none; box-shadow: none; border-radius: 0; }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
@@ -602,6 +625,10 @@ async function measureBlocks(page, blocks, base) {
   // the browser navigates away — a fixed name turns one killed run into EBUSY
   // for every later one.
   const probePath = path.join(DOCS_DIR, `.measure-${process.pid}-${++probeSeq}.html`);
+  // The probe carries the same page-level doc class as the final HTML, so
+  // class-scoped rules (e.g. the small .mascot stickers) measure at their
+  // real rendered size instead of their intrinsic one.
+  const probeCls = PRODUCT_DOCS[base] ? ' doc-product' : '';
   writeFileSync(
     probePath,
     `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
@@ -609,7 +636,7 @@ async function measureBlocks(page, blocks, base) {
   #measure { height: auto !important; overflow: visible !important; page-break-after: auto !important; }
   #measure::after { content: none !important; }
 </style></head><body>
-<div class="page" id="measure">
+<div class="page${probeCls}" id="measure">
 ${blocks.map((b) => b.html).join('\n')}
 </div>
 </body></html>`,
@@ -935,7 +962,7 @@ const COVER_LINKS = [
   },
 ];
 
-function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
+function buildCover({ title, subtitle, abstract, chips, foot, links = [], brand = 'ERGALICS STUDIO · 技术文档' }) {
   const chipHtml = chips
     .map((c) => `<div class="mode-chip"><div class="t">${esc(c)}</div></div>`)
     .join('');
@@ -958,7 +985,7 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
     : '';
   return `<div class="page cover">
   <div class="cover-panel">
-    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <div class="cover-brand">${esc(brand)}</div>
     <h1>${esc(title).replace(/·/, '<br>')}</h1>
     <div class="sub">${esc(subtitle)}</div>
     <div class="cover-rule"></div>
@@ -981,23 +1008,27 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
  * It is built outside the paginator (fixed back matter, like the cover), so it
  * can never steal height from a content page or shift a TOC number.
  */
-function buildBack({ foot, links = [] }) {
+function buildBack({ foot, links = [], brand = 'ERGALICS STUDIO · 宗旨', tagline = TAGLINE }) {
   const homes = links
     .map(
       (l) =>
         `<div><span class="h">${esc(l.k)}</span><a href="${esc(l.href)}">${esc(l.v)}</a></div>`,
     )
     .join('\n      ');
-  // Split the tagline at its comma so the clause break is a typographic
-  // decision instead of whatever the line happens to wrap at.
-  const [lead, rest] = TAGLINE.split('，');
+  // Split the tagline at its comma (or, for comma-free slogans, at the space)
+  // so the clause break is a typographic decision instead of whatever the line
+  // happens to wrap at.
+  const parts = tagline.includes('，') ? tagline.split('，') : tagline.split(' ');
+  const [lead, rest] = [parts[0], parts.slice(1).join(' ')];
+  // Only re-attach the comma when the slogan actually had one.
+  const sep = tagline.includes('，') ? '，' : '';
   return `<div class="page cover back">
   <div class="cover-panel back">
-    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-brand">${esc(brand)}</div>
     <div class="back-main">
       <div class="back-rule"></div>
       <div class="back-tag">
-        <div class="l1">${esc(lead)}，</div>
+        <div class="l1">${esc(lead)}${sep}</div>
         <div class="l2">${esc(rest)}</div>
       </div>
       <div class="back-body">
@@ -1061,9 +1092,10 @@ function tocEntriesFrom(blocks) {
   return estimated > TOC_BUDGET_PX ? out.filter((e) => e.level === 2) : out;
 }
 
-function assembleHtml({ cover, tocHtml, pages, back = '' }) {
+function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '' }) {
+  const cls = docClass ? ` ${docClass}` : '';
   const body = pages
-    .map((p, i) => `<!-- P${i + 3} -->\n<div class="page">\n${p.map((b) => b.html).join('\n')}\n</div>`)
+    .map((p, i) => `<!-- P${i + 3} -->\n<div class="page${cls}">\n${p.map((b) => b.html).join('\n')}\n</div>`)
     .join('\n\n');
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1076,7 +1108,7 @@ function assembleHtml({ cover, tocHtml, pages, back = '' }) {
 
 ${cover.html}
 
-<div class="page toc">
+<div class="page toc${cls}">
   <h1>目 录</h1>
 ${tocHtml}
 ${cover.tocNote ? `<div class="callout" style="margin-top:14mm">${cover.tocNote}</div>` : ''}
@@ -1176,6 +1208,7 @@ const DOC_ORDER = [
   '10-流体双向耦合求解器-容器化部署手册',
   '11-应用场景库',
   'Ergalics Studio',
+  'Ergalics-Studio',
 ];
 
 const TOTAL_NUM = 8;
@@ -1204,6 +1237,19 @@ const ABSTRACT_OVERRIDES = {
 };
 
 function metaFor(base) {
+  if (PRODUCT_DOCS[base]) {
+    return {
+      order: 99,
+      foot: PRODUCT_DOCS[base].foot,
+      brand: PRODUCT_DOCS[base].brand,
+      tagline: PRODUCT_SLOGAN,
+      qrOnCover: true,
+      chapterPerPage: true,
+      // The lead paragraph is cover matter: it becomes the cover synopsis and
+      // is suppressed in the body so chapter one opens the document.
+      promoteLead: true,
+    };
+  }
   if (FOOT_OVERRIDES[base]) {
     return {
       order: 9,
@@ -1251,7 +1297,7 @@ async function buildDoc(browser, page, base, opts = {}) {
   await page.goto('about:blank');
   await page.addStyleTag({ content: CSS });
 
-  const mdPath = path.join(DOCS_DIR, `${base}.md`);
+  const mdPath = path.join(docDir(base), `${base}.md`);
   const md = readFileSync(mdPath, 'utf8');
   const meta = metaFor(base);
   const { title, blocks } = parseMarkdown(md);
@@ -1268,6 +1314,28 @@ async function buildDoc(browser, page, base, opts = {}) {
     const head = firstH2 < 0 ? blocks : blocks.slice(0, firstH2);
     const rest = firstH2 < 0 ? [] : blocks.slice(firstH2);
     bodyBlocks = [...head.filter((b) => b.kind !== 'p' && b.kind !== 'callout'), ...rest];
+  }
+  // Chapter-per-page layout: every H2 (except the first body block) opens on a
+  // fresh page via the same forced-break marker an author can write by hand.
+  if (meta.chapterPerPage) {
+    const withBreaks = [];
+    bodyBlocks.forEach((b, i) => {
+      if (b.kind === 'h2' && i > 0 && withBreaks[withBreaks.length - 1]?.kind !== 'pagebreak') {
+        withBreaks.push({ kind: 'pagebreak', text: '', html: '<div class="pb"></div>' });
+      }
+      withBreaks.push(b);
+    });
+    bodyBlocks = withBreaks;
+  }
+  // Decorative mascot stickers: small centered frameless images. They are
+  // packed as plain flow blocks (kind 'sticker') so the figure/intro
+  // keep-together rule never drags paragraphs around for a sticker.
+  if (meta.brand) {
+    bodyBlocks = bodyBlocks.map((b) =>
+      b.kind === 'figure' && b.html.includes('/brand/mascot')
+        ? { ...b, kind: 'sticker', html: b.html.replace('<figure>', '<figure class="mascot">') }
+        : b,
+    );
   }
 
   // Cover QR codes: one committed SVG per online home, inlined so the HTML
@@ -1287,7 +1355,7 @@ async function buildDoc(browser, page, base, opts = {}) {
   await renderMermaid(page, bodyBlocks);
 
   const h2s = blocks.filter((b) => b.kind === 'h2');
-  const subtitle = TAGLINE;
+  const subtitle = meta.tagline || TAGLINE;
 
   const firstP = blocks.find((b) => b.kind === 'p');
   // The cover carries the document's own lead paragraph only, bounded so it
@@ -1331,18 +1399,20 @@ async function buildDoc(browser, page, base, opts = {}) {
     chips: h2s.map(chipLabel),
     foot: meta.foot,
     links: coverLinks,
+    brand: meta.brand,
   });
 
   // Fixed back matter: the mission statement plus the online homes as plain
   // links. The QR codes stay on the cover so the two ends of the volume do not
   // repeat the same block.
-  const backHtml = buildBack({ foot: meta.foot, links: COVER_LINKS });
+  const backHtml = buildBack({ foot: meta.foot, links: COVER_LINKS, brand: 'ERGALICS STUDIO · 宗旨', tagline: meta.tagline || TAGLINE });
 
   const html = assembleHtml({
     cover: { html: coverHtml, title, tocNote },
     tocHtml,
     pages,
     back: backHtml,
+    docClass: meta.brand ? 'doc-product' : '',
   });
 
   return { html, pages: pages.length + 3 };
@@ -1385,14 +1455,15 @@ async function main() {
 
   const results = [];
   for (const base of list) {
-    const mdPath = path.join(DOCS_DIR, `${base}.md`);
+    const srcDir = docDir(base);
+    const mdPath = path.join(srcDir, `${base}.md`);
     if (!existsSync(mdPath)) {
-      console.log(`skip (missing): ${base}.md`);
+      console.log(`skip (missing): ${mdPath}`);
       continue;
     }
     // A pristine, stylesheet-only page per document: the print pass
     // navigates elsewhere, so the measuring context must be rebuilt.
-    const htmlPath = path.join(DOCS_DIR, `${base}.html`);
+    const htmlPath = path.join(srcDir, `${base}.html`);
 
     // Build → verify → if any page's content crosses the bottom padding,
     // shrink the usable height by the worst deficit and rebuild. Four attempts
@@ -1435,7 +1506,7 @@ async function main() {
       await printPage.goto(pathToFileURL(htmlPath).href, { waitUntil: 'load' });
       await printPage.evaluate(() => (document.fonts ? document.fonts.ready : null));
       await printPage.pdf({
-        path: path.join(DOCS_DIR, `${base}.pdf`),
+        path: path.join(srcDir, `${base}.pdf`),
         printBackground: true,
         preferCSSPageSize: true,
       });

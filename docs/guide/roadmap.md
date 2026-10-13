@@ -17,7 +17,7 @@ state, not aspirational designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 42 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 38 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
 | Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 40 built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | Done      |
@@ -32,7 +32,7 @@ state, not aspirational designs.
 | Unit system | typed `Quantity` with SI parsing, dimensional algebra + `units.convert`/`units.check` blocks + QuantityInput (`src/core/units/`) | Done      |
 | Data lineage  | file→run DAG rebuilt from run records + ingestion, layered layout (`src/core/lineage/`), LineageCanvas dialog | Done      |
 | Chunked ingestion | async row-window reader for large delimited files, preview + fingerprint (`src/core/chunked/`) | Done      |
-| Research toolset | 20 standalone pages under `/studio/<id>` (analysis, runs, uncertainty, model-lab, inference, model-inference, sweeps, sql, cleaning, files, lineage, figures, signal, notebook, report, reprolock, supplement, course, gallery), also embeddable as workbench tabs (`src/pages/research/toolRegistry.ts`) | Done      |
+| Research toolset | 26 standalone tools under `/studio/<id>`, grouped in six categories (measurement & uncertainty, model & inference, data & graphs, signal & records, deliver & reproduce, utilities; the analysis page is excluded from the welcome grid), also embeddable as workbench tabs (`src/pages/research/toolRegistry.ts`) | Done      |
 | Figure Studio | multi-panel publication figures on journal templates (IEEE/Elsevier), SVG/PDF/PNG-600dpi export, `/studio/figures` route (`src/core/figure/`) | Done      |
 | Supplement packaging | paper-ready zip with manifest.json (runs + lineage + contents: data/code/files + optional repro.lock) (`src/core/package/supplement.ts`) | Done      |
 | Notebook      | mixed markdown/code cells in the project, dedicated Pyodide runtime, runs feed the experiment history — `/studio/notebook` route (`src/core/notebook/`) | Done      |
@@ -50,7 +50,7 @@ state, not aspirational designs.
 
 | Milestone | Status | Delivered / remaining |
 | --- | --- | --- |
-| **M1 — Solidify the foundations** | current | Complete the plugin lifecycle, sandbox, and test coverage; land the docs site. |
+| **M1 — Solidify the foundations** | complete | Plugin lifecycle, sandbox and signing gate, test suites and the docs site are all landed. |
 | **M2 — Real GPU compute** | complete | The native core exposes `GpuBuffer` + `ComputeKernel::run`, the plugin API ships an `api.gpu` compute surface, and reusable WGSL templates live in `src/core/wgsl.ts`. GPU acceleration now spans Particles (single-buffer integration), N-Body Gravity (3-D all-pairs with ping-pong buffers), the D2Q9 LBM fluid (collide + stream), the wave-equation leapfrog, the histogram / heatmap / point-cloud kernels, the matmul / FFT / k-means / binning compute kernels, and the sparse matrix–vector multiply (SpMV) kernel — each with a matching CPU fallback. `npm run test:e2e` drives the real WebGPU path in headless Edge (SwiftShader): a numeric harness compares the GPU result against the CPU integrator (passing within ~2e-6), and an app integration step clicks through the Particles plugin and asserts a `wasm`-engine GPU toast. Remaining follow-up: GPU perf telemetry per kernel. |
 | **M3 — Code mode** | complete | Python (Pyodide) is complete — Monaco editor, CPython Worker runtime with importable `studio` module, REPL + variable snapshots, worker interrupt, and 9 sample programs under `examples/code/`. R is complete too — a full webR runtime is vendored in `public/webr/` (auto-copied by `scripts/copy-webr.mjs` and verified by `verify-r-runtime.mjs`), falling back to the IR engine when the bundle is absent. The three-mode conversion (Block ↔ Flow ↔ Code round-trip through the shared IR) is done and pinned by a `sync-threeway` unit test. |
 | **M4 — Marketplace** | signing gate Done · registry/install Next | Package registry, versioning, and in-app install/update flows. The `.cspkg` package-signing gate (ed25519, FR-05) already shipped with the security work — see `SECURITY.md`. |
