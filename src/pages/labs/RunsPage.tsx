@@ -9,6 +9,7 @@ import {
 } from '@/core/repro/lock';
 import type { RunRecord } from '@/core/experiment/record';
 import { downloadBlob } from '@/core/download';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CloseIcon } from '@/components/icons';
 import { ToolShell } from '@/components/ToolShell';
@@ -148,6 +149,12 @@ export default function RunsPage() {
           >
             {t('repro2.export_diff')}
           </button>
+          <SaveArtifactButton
+            dir="runs"
+            filename={`run-diff-${diff?.runA.id ?? ''}-vs-${diff?.runB.id ?? ''}.json`}
+            content={diff ? runDiffToJson(diff) : null}
+            className="btn"
+          />
           <button
             type="button"
             className="btn"

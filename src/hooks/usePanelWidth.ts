@@ -17,6 +17,8 @@ export function usePanelWidth(
   defaultValue: number,
   min: number,
   max: number,
+  /** Which edge the handle sits on: 'left' (right panel) or 'right' (sidebar). */
+  edge: 'left' | 'right' = 'right',
 ): PanelWidthBind {
   const [width, setWidth] = useState<number>(() => {
     try {
@@ -55,8 +57,11 @@ export function usePanelWidth(
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
-    setWidth(clamp(drag.startW + (e.clientX - drag.startX), min, max));
-  }, [min, max]);
+    // A handle on a panel's left edge widens the panel when dragged left,
+    // so the raw dx must be negated (right-edge handles widen on +dx).
+    const dx = edge === 'left' ? drag.startX - e.clientX : e.clientX - drag.startX;
+    setWidth(clamp(drag.startW + dx, min, max));
+  }, [edge, min, max]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;

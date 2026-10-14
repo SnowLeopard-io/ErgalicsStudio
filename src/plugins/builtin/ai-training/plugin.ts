@@ -645,7 +645,8 @@ export class AITrainingPlugin implements Plugin {
     a.href = url;
     a.download = `${this.kind}-weights.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Defer revoking: a synchronous revoke can cancel the pending download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
     this.api.notify('success', ZH(this.api, 'Weights exported', '权重已导出'));
   }
 

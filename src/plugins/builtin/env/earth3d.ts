@@ -12,9 +12,13 @@
 import * as THREE from 'three';
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { envRampColor3, surfaceAlbedo, surfaceCo2 } from './envCore';
-import { actionButton, actionFired, exportSnapshotPng, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
-import { angularDistance, lonLatToVec3 } from '../geo/globe';
+import { angularDistance, lonLatToVec3 } from '@/core/geo/spherical';
 import { earth3dManifest } from './earth3dManifest';
 import WORLD_LAND_RAW from '../../../../examples/data/geo-world-110m-land.json?raw';
 
@@ -152,21 +156,12 @@ export class Earth3DPlugin implements Plugin {
       { key: 'showLegend', label: 'Show colour legend', labelI18n: { 'zh-CN': '显示色标', 'en-US': 'Show colour legend' }, type: 'checkbox', value: this.state.showLegend },
       { key: 'reset', label: 'Reset to defaults', labelI18n: { 'zh-CN': '回到初始参数', 'en-US': 'Reset to defaults' }, type: 'button', action: 'reset' },
       actionButton('fitView', 'Fit view', '重置视角'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
-      actionButton('exportPngTransparent', 'Snapshot PNG (transparent)', '快照 PNG（透明）'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     ];
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportSnapshotPng(this.api, this.three?.snapshot() ?? null, 'env-earth3d');
-      return;
-    }
-    if (actionFired(params, 'exportPngTransparent')) {
-      exportSnapshotPng(this.api, this.three?.snapshot({ transparent: true }) ?? null, 'env-earth3d');
-      return;
-    }
+
     if (actionFired(params, 'fitView')) {
       this.fitCamera();
       return;

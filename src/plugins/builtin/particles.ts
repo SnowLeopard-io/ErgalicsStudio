@@ -18,8 +18,12 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
+import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 import {
   advanceParticleCPU,
   packParticleParams,
@@ -87,10 +91,7 @@ export class ParticlePlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'particles');
-      return;
-    }
+
     if (fired('exportCsv')) {
       this.exportCsv();
       return;
@@ -138,7 +139,6 @@ export class ParticlePlugin implements Plugin {
         action: 'gpu-compute',
         labelI18n: { 'zh-CN': 'GPU 加速计算', 'en-US': 'GPU compute' },
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Particles CSV', '导出粒子 CSV'),
     ];
   }
@@ -198,6 +198,25 @@ export class ParticlePlugin implements Plugin {
       if (gpuOk) {
         const gpuMs = performance.now() - t0;
         this.api.reportGpuTime(gpuMs);
+        // Background completion (the user switched plugins mid-run): the
+        // instance keeps the integrated state (singleton state), but never
+        // draw into the shared canvas the now-active plugin owns — surface
+        // a non-intrusive jump-back toast instead.
+        if (this.api.isActive?.() === false) {
+          const zh = this.api.locale === 'zh-CN';
+          this.api.notify(
+            'success',
+            zh
+              ? `粒子积分已完成（后台，${gpu.backend}）— ${gpuMs.toFixed(1)} ms`
+              : `Particle integration finished (background, ${gpu.backend}) — ${gpuMs.toFixed(1)} ms`,
+            { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
+          return {
+            ok: true,
+            output: this.particles.length,
+            metrics: { gpuMs, bytes: particleBufferBytes(this.particles.length) },
+          };
+        }
         return {
           ok: true,
           output: this.particles.length,
@@ -212,9 +231,26 @@ export class ParticlePlugin implements Plugin {
       for (const p of this.particles) advanceParticleCPU(p, dt, this.state.speed);
       onProgress?.({ done: s + 1, total: steps });
     }
-    this.draw();
     const cpuMs = performance.now() - t0;
     this.api.reportGpuTime(cpuMs);
+    // Background completion: same contract as the GPU path — keep the
+    // state on the instance, notify with a jump-back, never draw.
+    if (this.api.isActive?.() === false) {
+      const zh = this.api.locale === 'zh-CN';
+      this.api.notify(
+        'success',
+        zh
+          ? `粒子积分已完成（后台，cpu）— ${cpuMs.toFixed(1)} ms`
+          : `Particle integration finished (background, cpu) — ${cpuMs.toFixed(1)} ms`,
+        { label: zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+      );
+      return {
+        ok: true,
+        output: this.particles.length,
+        metrics: { gpuMs: cpuMs, bytes: particleBufferBytes(this.particles.length) },
+      };
+    }
+    this.draw();
     return {
       ok: true,
       output: this.particles.length,
@@ -237,6 +273,9 @@ export class ParticlePlugin implements Plugin {
       this.api.notify('info', `${p.done}/${p.total}`);
     });
     if (result.ok) {
+      // A background completion already surfaced its own jump-back toast in
+      // compute() — don't double-notify.
+      if (this.api.isActive?.() === false) return;
       const engine = this.api.gpu?.available ? this.api.gpu?.backend : 'cpu';
       this.api.notify(
         'success',
@@ -298,7 +337,9 @@ export class ParticlePlugin implements Plugin {
       const result = await data.read();
       unpackParticles(new Float32Array(result), this.particles);
       this.api.reportDataScale(this.particles.length);
-      this.draw();
+      // Mid-run background: leave the shared canvas to the now-active
+      // plugin — compute() surfaces the jump-back toast on completion.
+      if (this.api.isActive?.() !== false) this.draw();
       return true;
     } catch (err) {
       logger.warn('particles', 'GPU compute failed, falling back to CPU', err);

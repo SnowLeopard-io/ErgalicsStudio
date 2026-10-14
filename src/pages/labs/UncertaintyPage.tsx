@@ -13,6 +13,7 @@ import type { PlotSpec } from '@/core/plot';
 import type { SvgPlotPayload } from '@/core/plot/types';
 import { sendSpecToFigure } from '../research/researchUi';
 import { propagateError, type DistSpec } from '@/core/uncertainty/montecarlo';
+import { takeLabHandoff } from '@/core/labHandoff';
 import {
   bootstrapEngine,
   hasGpuEngine,
@@ -21,6 +22,7 @@ import {
 } from '@/core/uncertainty/gpu-engine';
 import { mcmcEngine, type McmcEngineResult } from '@/core/uncertainty/gpu-mcmc';
 import { ToolShell } from '@/components/ToolShell';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 
 type StatKind = GpuStat;
 type DistKind = 'normal' | 'uniform' | 'lognormal' | 'triangular';
@@ -93,12 +95,17 @@ export default function UncertaintyPage() {
   const notify = useAppStore((s) => s.notify);
   const project = useProjectStore((s) => s.project);
   const recordRun = useExperimentStore((s) => s.recordRun);
+  // project?.data.files is an intentional invalidation trigger for the
+  // registry-backed file list (listDataFilesGrouped reads store state directly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
   const gpuAvailable = useMemo(() => hasGpuEngine(), []);
 
   const [file, setFile] = useState('');
   const [table, setTable] = useState<DataTable | null>(null);
   const [parseError, setParseError] = useState('');
+  /** Dataset staged by the quick-stats utility (no project file behind it). */
+  const [fromHandoff, setFromHandoff] = useState(false);
 
   // ---- bootstrap state ----
   const [bsCol, setBsCol] = useState('');
@@ -111,6 +118,10 @@ export default function UncertaintyPage() {
   const [bsChart, setBsChart] = useState<SampleChart | null>(null);
   const [bsProgress, setBsProgress] = useState<{ done: number; total: number } | null>(null);
   const bsAbort = useRef<AbortController | null>(null);
+  /** Generation counter: lets a superseded bootstrap run discard its results. */
+  const bsRunGen = useRef(0);
+  /** Generation counter: lets a superseded async file load discard its result. */
+  const loadGen = useRef(0);
 
   // ---- monte-carlo state ----
   const [dist, setDist] = useState<DistKind>('normal');
@@ -160,11 +171,17 @@ export default function UncertaintyPage() {
   const loadFile = async (name: string) => {
     setFile(name);
     setParseError('');
+    setFromHandoff(false);
     if (!name) {
+      loadGen.current += 1;
       setTable(null);
       return;
     }
+    // Only the newest selection may apply its parse — a slow resolve of an
+    // earlier pick must not overwrite the table of the file now selected.
+    const gen = ++loadGen.current;
     const text = await resolveDataFile(name);
+    if (gen !== loadGen.current) return;
     if (text === undefined) {
       setTable(null);
       setParseError(t('analysis.no_data'));
@@ -194,10 +211,38 @@ export default function UncertaintyPage() {
     return Number.isFinite(n) ? Math.floor(n) : null;
   };
 
+  // One-shot handoff from the quick-stats utility: parse the staged CSV into
+  // the same table state a picked file would produce (no project file needed).
+  useEffect(() => {
+    const staged = takeLabHandoff();
+    if (!staged) return;
+    // Ignore payloads addressed to another suite (e.g. staged for a page the
+    // user navigated away from before it could mount).
+    if (staged.target && staged.target !== 'uncertainty') return;
+    try {
+      const tbl = parseDataText(staged.csv, staged.name);
+      const nums = tbl.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+      if (nums.length === 0) return;
+      setFromHandoff(true);
+      setTable(tbl);
+      setBsCol(nums[0] ?? '');
+      setBsColX(nums[1] ?? nums[0] ?? '');
+      setMcmcCol(nums[0] ?? '');
+    } catch {
+      /* stale or malformed handoff — fall back to the empty picker */
+    }
+  }, []);
+
   const paired = bsStat === 'correlation' || bsStat === 'ols-slope';
 
   const runBootstrap = async () => {
     if (!table || !bsCol) return;
+    // A new click supersedes any in-flight run: abort it and mark this
+    // generation current so the stale run's completion path discards itself
+    // (its finally would otherwise clear the live run's cancel handle and its
+    // result could overwrite the fresh one).
+    bsAbort.current?.abort();
+    const gen = ++bsRunGen.current;
     try {
       const x = Array.from(asFloat64(table, bsCol));
       const sample = paired
@@ -215,6 +260,7 @@ export default function UncertaintyPage() {
         signal: controller.signal,
         onProgress: (done, total) => setBsProgress({ done, total }),
       });
+      if (gen !== bsRunGen.current) return;
       setBsResult(
         [
           `${t('uncertainty.estimate')} = ${fmt(r.estimate)}`,
@@ -240,6 +286,8 @@ export default function UncertaintyPage() {
         });
       }
     } catch (err) {
+      // A superseded run's cancellation must not clobber the live run's state.
+      if (gen !== bsRunGen.current) return;
       if ((err as Error)?.name === 'AbortError') {
         setBsResult(t('uncertainty.cancelled'));
       } else {
@@ -247,8 +295,10 @@ export default function UncertaintyPage() {
       }
       setBsChart(null);
     } finally {
-      setBsProgress(null);
-      bsAbort.current = null;
+      if (gen === bsRunGen.current) {
+        setBsProgress(null);
+        bsAbort.current = null;
+      }
     }
   };
 
@@ -425,6 +475,7 @@ export default function UncertaintyPage() {
             {t('uncertainty.record_run')}
           </label>
         </div>
+        {fromHandoff && table && <p className="analysis-note">{t('uncertainty.handoff_note')}</p>}
         {parseError && <p className="analysis-error">{parseError}</p>}
 
         {table && (
@@ -498,7 +549,23 @@ export default function UncertaintyPage() {
                 {t('uncertainty.progress', { done: bsProgress.done, total: bsProgress.total })}
               </p>
             )}
-            {bsResult && <pre className="analysis-output">{bsResult}</pre>}
+            {bsResult && (
+              <>
+                <pre className="analysis-output">{bsResult}</pre>
+                <div className="analysis-actions">
+                  <SaveArtifactButton
+                    dir="runs"
+                    filename={`${file.replace(/\.[^.]+$/, '') || 'data'}-bootstrap.json`}
+                    content={JSON.stringify(
+                      { kind: 'bootstrap', savedAt: new Date().toISOString(), source: file, stat: bsStat, result: bsResult },
+                      null,
+                      2,
+                    )}
+                    className="btn btn-sm"
+                  />
+                </div>
+              </>
+            )}
             {bsChart && (
               <div className="analysis-preview">
                 <div className="analysis-svg" dangerouslySetInnerHTML={{ __html: bsChart.payload.markup }} />
@@ -506,6 +573,12 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(bsChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${file.replace(/\.[^.]+$/, '') || 'data'}-bootstrap.svg`}
+                    content={bsChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
               </div>
             )}
@@ -572,7 +645,33 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(mcChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${dist}-sample.svg`}
+                    content={mcChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
+              </div>
+            )}
+            {mcResult && (
+              <div className="analysis-actions">
+                <SaveArtifactButton
+                  dir="runs"
+                  filename={`monte-carlo-${dist}.json`}
+                  content={JSON.stringify(
+                    {
+                      kind: 'monte-carlo',
+                      savedAt: new Date().toISOString(),
+                      dist,
+                      params: { p1, p2, p3, n: mcN, seed: mcSeed },
+                      result: mcResult,
+                    },
+                    null,
+                    2,
+                  )}
+                  className="btn btn-sm"
+                />
               </div>
             )}
 
@@ -632,6 +731,28 @@ export default function UncertaintyPage() {
                 {mcmcRunning && !mcmcResult ? t('uncertainty.running') : mcmcResult}
               </pre>
             )}
+            {mcmcEngineResult && (
+              <div className="analysis-actions">
+                <SaveArtifactButton
+                  dir="runs"
+                  filename={`${mcmcCol.replace(/[^\w.-]+/g, '-') || 'chain'}-mcmc.json`}
+                  content={JSON.stringify(
+                    {
+                      kind: 'mcmc',
+                      savedAt: new Date().toISOString(),
+                      source: file,
+                      column: mcmcCol,
+                      params: { iters: mcmcIters, burn: mcmcBurn, seed: mcmcSeed, engine },
+                      diagnostics: mcmcEngineResult.diagnostics,
+                      result: mcmcResult,
+                    },
+                    null,
+                    2,
+                  )}
+                  className="btn btn-sm"
+                />
+              </div>
+            )}
 
             {mcmcEngineResult && (
               <div className={`mcmc-diag${mcmcEngineResult.diagnostics.converged ? '' : ' mcmc-diag-bad'}`}>
@@ -670,6 +791,12 @@ export default function UncertaintyPage() {
                   <button type="button" className="btn btn-sm" onClick={() => sendChart(mcmcChart)}>
                     {t('figure.send_to')}
                   </button>
+                  <SaveArtifactButton
+                    dir="figures"
+                    filename={`${mcmcCol.replace(/[^\w.-]+/g, '-') || 'chain'}-mcmc.svg`}
+                    content={mcmcChart.payload.markup}
+                    className="btn btn-sm"
+                  />
                 </div>
               </div>
             )}

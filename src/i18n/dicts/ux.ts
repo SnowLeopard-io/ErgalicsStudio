@@ -35,6 +35,11 @@ export const uxZh: LocaleDictionary = {
   // ---- 面板拖拽 ----
   'ux.resize.sidebar': '拖拽调整侧栏宽度',
   'ux.resize.right': '拖拽调整参数栏宽度',
+  // ---- 面板边缘收起/展开 ----
+  'ux.panel.collapse_sidebar': '收起侧栏',
+  'ux.panel.expand_sidebar': '展开侧栏',
+  'ux.panel.collapse_right': '收起参数栏',
+  'ux.panel.expand_right': '展开参数栏',
   // ---- AI 助手悬浮球 ----
   'ux.ai.open': '打开 AI 助手',
   // ---- 快捷键帮助 ----
@@ -94,6 +99,11 @@ export const uxEn: LocaleDictionary = {
   // ---- panel resize ----
   'ux.resize.sidebar': 'Drag to resize sidebar',
   'ux.resize.right': 'Drag to resize parameter panel',
+  // ---- panel edge collapse/expand ----
+  'ux.panel.collapse_sidebar': 'Collapse sidebar',
+  'ux.panel.expand_sidebar': 'Expand sidebar',
+  'ux.panel.collapse_right': 'Collapse parameters panel',
+  'ux.panel.expand_right': 'Expand parameters panel',
   // ---- AI assistant floating ball ----
   'ux.ai.open': 'Open AI assistant',
   // ---- keyboard shortcuts help ----

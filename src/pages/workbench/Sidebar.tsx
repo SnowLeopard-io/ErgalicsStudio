@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
-import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CloseIcon } from '@/components/icons';
+import { GitPanel } from '@/components/GitPanel';
+import { ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
+import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { useAppStore } from '@/stores/appStore';
+import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+
+/** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
+const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
+
+/** Research-suite groups (in launcher order) for the sidebar research view. */
+const RESEARCH_GROUP_IDS = ['measure', 'model', 'data', 'signal', 'deliver'] as const;
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
@@ -45,10 +53,7 @@ function persistCollapsedGroups(collapsed: Partial<Record<string, boolean>>): vo
 export function Sidebar() {
   const t = useT();
   const location = useLocation();
-  const project = useProjectStore((s) => s.project);
-  const recent = useProjectStore((s) => s.recent);
-  const openProject = useProjectStore((s) => s.openProject);
-  const remove = useProjectStore((s) => s.remove);
+  const navigate = useNavigate();
 
   const registry = usePluginStore((s) => s.registry);
   const activeId = usePluginStore((s) => s.activeId);
@@ -57,12 +62,43 @@ export function Sidebar() {
 
   const [pluginOpen, setPluginOpen] = useState(false);
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
-  /** Pending destructive action: project awaiting delete confirmation. */
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   /** Collapsed discipline groups (all expanded by default; persists). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
   const resize = usePanelWidth('ergalics:sidebar-width', 248, 180, 480);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const sidebarView = useAppStore((s) => s.sidebarView);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+
+  /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
+   *  这样收起和展开两个方向都有过渡。 */
+  const [closing, setClosing] = useState(false);
+
+  // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  useEffect(() => {
+    if (sidebarOpen) setClosing(false);
+  }, [sidebarOpen]);
+
+  const handleCollapse = () => {
+    if (closing) return;
+    setClosing(true);
+    // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
+    window.setTimeout(() => {
+      if (useAppStore.getState().sidebarOpen) toggleSidebar();
+    }, 300);
+  };
+
+  const onCollapseAnimEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    // 子元素的入场动画也会冒泡 animationend，必须限定目标和动画名。
+    if (closing && e.target === e.currentTarget && e.animationName === 'panel-collapse') {
+      if (useAppStore.getState().sidebarOpen) toggleSidebar();
+    }
+  };
+
+  /** Activating a plugin hands the canvas back to it: switch to the plugin
+   *  tab. Open file/suite tabs stay in the strip and can be switched back. */
+  const showPluginCanvas = () => useAppStore.getState().showPluginCanvas();
 
   useEffect(() => {
     void useProjectStore.getState().loadRecent();
@@ -116,8 +152,36 @@ export function Sidebar() {
     persistCollapsedGroups(next);
   };
 
+  // 收起态：侧栏本体不渲染，只在其原位置（中央区左侧）露一个窄的
+  // 展开按钮，点击恢复展开。
+  if (!sidebarOpen) {
+    return (
+      <button
+        type="button"
+        className="panel-edge-btn panel-edge-left"
+        aria-label={t('ux.panel.expand_sidebar')}
+        title={t('ux.panel.expand_sidebar')}
+        onClick={toggleSidebar}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+    );
+  }
+
   return (
-    <aside className="sidebar" style={{ width: resize.width }}>
+    // 手柄挂在包裹层而非侧栏内部：侧栏 overflow 会裁剪超出边界的部分，
+    // 感应区必须整体落在侧栏右缘外才完整可命中。
+    <div
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : ''}`}
+      style={
+        {
+          width: resize.width,
+          // 收拢动画期间冻结内容宽度（内容被裁剪而非挤压回绕）。
+          '--panel-closing-width': `${resize.width}px`,
+        } as CSSProperties
+      }
+      onAnimationEnd={onCollapseAnimEnd}
+    >
       <div
         className="panel-resize-handle panel-resize-right"
         role="separator"
@@ -128,31 +192,85 @@ export function Sidebar() {
         onPointerMove={resize.onPointerMove}
         onPointerUp={resize.onPointerUp}
       />
+      <button
+        type="button"
+        className="panel-collapse-btn panel-collapse-right"
+        aria-label={t('ux.panel.collapse_sidebar')}
+        title={t('ux.panel.collapse_sidebar')}
+        onClick={handleCollapse}
+      >
+        <ChevronLeftIcon size={12} />
+      </button>
+      <aside className="sidebar">
+      {/* 视图内容：活动栏（ActivityBar）决定显示哪一个。项目切换下拉
+          位于顶部栏的项目名处。 */}
+      {sidebarView === 'files' && <FileExplorer />}
+
+      {sidebarView === 'git' && <GitPanel alwaysOpen />}
+
+      {sidebarView === 'research' && (
       <nav className="sidebar-group">
-        <h3 className="sidebar-heading">{t('workbench.sidebar.project')}</h3>
-        {recent.length > 0 ? (
-          <ul className="recent-list">
-            {recent.map((p) => (
-              <li key={p.id} className={`recent-item ${project?.id === p.id ? 'active' : ''}`}>
-                <button type="button" className="recent-name" onClick={() => void openProject(p.id)}>
-                  {p.name || DEFAULT_PROJECT_NAME}
-                </button>
+        {RESEARCH_GROUP_IDS.map((group) => {
+          const tools = RESEARCH_TOOLS.filter((tool) => tool.group === group);
+          if (tools.length === 0) return null;
+          return (
+            <section key={group} className="plugin-group">
+              <h3 className="sidebar-heading">{t(`tool.group.${group}`)}</h3>
+              <ul className="plugin-list">
+                {tools.map((tool) => {
+                  const active = activeTab === `tool:${tool.id}`;
+                  return (
+                    <li key={tool.id}>
+                      <button
+                        type="button"
+                        className={`plugin-item util-item${active ? ' active' : ''}`}
+                        title={t(tool.descKey)}
+                        onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
+                      >
+                        <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                        <span className="util-item-text">
+                          <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                          <span className="util-item-desc">{t(tool.descKey)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </nav>
+      )}
+
+      {sidebarView === 'tools' && (
+      <nav className="sidebar-group">
+        <h3 className="sidebar-heading">{t('tool.group.utils')}</h3>
+        <ul className="plugin-list">
+          {UTIL_TOOLS.map((tool) => {
+            const active = activeTab === `tool:${tool.id}`;
+            return (
+              <li key={tool.id}>
                 <button
                   type="button"
-                  className="icon-btn recent-delete"
-                  title={t('common.delete')}
-                  onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
+                  className={`plugin-item util-item${active ? ' active' : ''}`}
+                  title={t(tool.descKey)}
+                  onClick={() => openToolEmbedded(navigate, tool.id, location.pathname)}
                 >
-                  <CloseIcon size={13} />
+                  <span className="plugin-icon"><ToolIcon kind={tool.icon} size={15} /></span>
+                  <span className="util-item-text">
+                    <span className="plugin-item-name">{t(tool.titleKey)}</span>
+                    <span className="util-item-desc">{t(tool.descKey)}</span>
+                  </span>
                 </button>
               </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState className="sidebar-plugin-empty" title={t('workbench.sidebar.no_recent')} />
-        )}
+            );
+          })}
+        </ul>
       </nav>
+      )}
 
+      {sidebarView === 'plugins' && (
       <nav className="sidebar-group">
         <h3 className="sidebar-heading">{t('workbench.sidebar.plugins')}</h3>
         <button type="button" className="btn btn-sm btn-block" onClick={() => setPluginOpen(true)}>
@@ -183,7 +301,10 @@ export function Sidebar() {
                         className={`plugin-item ${activeId === entry.id ? 'active' : ''}`}
                         data-plugin-id={entry.id}
                         title={`${entry.name} ${entry.version}`}
-                        onClick={() => void activate(entry.id)}
+                        onClick={() => {
+                          void activate(entry.id);
+                          showPluginCanvas();
+                        }}
                       >
                         <span className="plugin-icon">{entry.icon ?? '◈'}</span>
                         <span className="plugin-item-name">{entry.name}</span>
@@ -199,21 +320,10 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Deleting a project is irreversible — confirm before removing. */}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('common.delete')}
-        message={t('project.remove_confirm')}
-        name={deleteTarget?.name}
-        confirmLabel={t('common.delete')}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-        }}
-        onClose={() => setDeleteTarget(null)}
-      />
+      )}
 
       <PluginDialog open={pluginOpen} onClose={() => { setPluginOpen(false); setPluginFocusId(undefined); }} focusId={pluginFocusId} />
-    </aside>
+      </aside>
+    </div>
   );
 }

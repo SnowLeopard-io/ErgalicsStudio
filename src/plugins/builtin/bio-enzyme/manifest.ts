@@ -17,6 +17,20 @@ export const bioEnzymeManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.bio-enzyme',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { concentration: 'mmol/L', rate: 'µmol/min' },
+    benchmarks: ['michaelis-menten-benchmark'],
+    reproducible: true,
+    notes:
+      'Flagship quasi-research plugin: LM fit with residual-bootstrap CIs and an embedded MM recovery benchmark; literature Km check is a coarse order-of-magnitude sanity screen.',
+    notesI18n: {
+      'zh-CN':
+        '旗舰级准研究插件：LM 拟合 + 残差 bootstrap 置信区间 + 内嵌 MM 基准对拍；文献 Km 对比仅为数量级合理性筛查。',
+      'en-US':
+        'Flagship quasi-research plugin: LM fit with residual-bootstrap CIs and an embedded MM recovery benchmark; literature Km check is a coarse order-of-magnitude sanity screen.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'substrate,v_{0} initial-rate data' },
     { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'tab-separated substrate / v₀ columns' },

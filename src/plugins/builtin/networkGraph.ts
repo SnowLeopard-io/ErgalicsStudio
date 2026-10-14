@@ -12,7 +12,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { networkGraphManifest } from './networkGraphManifest';
 import { networkGraphManifest } from './networkGraphManifest';
@@ -48,7 +47,6 @@ export class NetworkGraphPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private nodes: GNode[] = [];
   private edges: GEdge[] = [];
-  private hasWeight = false;
   private state: State = { linkDistance: 60, showLabels: true, charge: 200, hasData: false };
   private raf = 0;
 
@@ -61,7 +59,6 @@ export class NetworkGraphPlugin implements Plugin {
     this.ctx = null;
     this.nodes = [];
     this.edges = [];
-    this.hasWeight = false;
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -79,24 +76,11 @@ export class NetworkGraphPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'network-graph');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (typeof params.linkDistance === 'number') this.state.linkDistance = params.linkDistance;
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     if (typeof params.charge === 'number') this.state.charge = params.charge;
     this.draw();
-  }
-
-  private exportCsv() {
-    const header = this.hasWeight
-      ? ['source', 'target', 'weight']
-      : ['source', 'target'];
-    const rows = this.edges.map((e) =>
-      this.hasWeight ? [e.source, e.target, e.weight] : [e.source, e.target],
-    );
-    exportRowsCsv(this.api, 'network-graph', header, rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -128,8 +112,6 @@ export class NetworkGraphPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -139,7 +121,7 @@ export class NetworkGraphPlugin implements Plugin {
 
   async loadData(file: File) {
     const text = await file.text();
-    const { nodes, edges, hasWeight } = parseNetwork(text);
+    const { nodes, edges } = parseNetwork(text);
     if (nodes.length < 2) {
       this.api.notify(
         'warning',
@@ -151,7 +133,6 @@ export class NetworkGraphPlugin implements Plugin {
     }
     this.nodes = nodes;
     this.edges = edges;
-    this.hasWeight = hasWeight;
     this.state.hasData = true;
     this.api.reportDataScale(nodes.length);
     this.initPositions();
@@ -313,15 +294,6 @@ export class NetworkGraphPlugin implements Plugin {
         : 'No network data — drop a .csv edge list or JSON graph';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse edge-list CSV or JSON graph. */

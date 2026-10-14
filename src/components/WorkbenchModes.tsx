@@ -75,7 +75,7 @@ export function WorkbenchModeCards({ onMode }: WorkbenchModeCardsProps) {
     navigate('/workbench', { state: { setMode: key } });
   };
   return (
-    <div className="wb-modes-grid">
+    <div className="wb-modes-grid stagger">
       {WORKBENCH_MODES.map((key) => (
         <button key={key} type="button" className="wb-mode-card" onClick={() => open(key)}>
           <span className="wb-mode-icon">

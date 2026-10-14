@@ -110,14 +110,16 @@ async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
     const device = await adapter.requestDevice();
 
     if (myEpoch !== epoch) {
-      // A reset happened while we were initializing. Discard this device
-      // without touching `current` (which the reset already downgraded).
+      // A reset happened while we were initializing. Discard this device and
+      // return the current post-reset snapshot as-is: `current` and its
+      // listeners may already belong to a newer init and must survive this
+      // stale init's teardown.
       try {
         (device as unknown as { destroy(): void }).destroy();
       } catch {
         /* device already lost */
       }
-      return fallback();
+      return current;
     }
 
     const onUncapturedError = ((event: Event) => {
@@ -165,6 +167,9 @@ async function doInitGpu(mode: GpuBackendMode = 'auto'): Promise<GpuBackend> {
     };
   } catch (err) {
     logger.warn('gpu', 'adapter/device request failed, falling back', err);
+    // A reset during the failed request supersedes this init: don't clobber
+    // the state a newer init may already have applied.
+    if (myEpoch !== epoch) return current;
     return fallback();
   }
   emit();

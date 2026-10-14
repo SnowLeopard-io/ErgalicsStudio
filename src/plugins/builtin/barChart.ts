@@ -12,7 +12,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { barChartManifest } from './barChartManifest';
 import { barChartManifest } from './barChartManifest';
@@ -67,10 +66,7 @@ export class BarChartPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bar-chart');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (params.orientation === 'vertical' || params.orientation === 'horizontal') {
       this.state.orientation = params.orientation;
     }
@@ -80,15 +76,6 @@ export class BarChartPlugin implements Plugin {
     }
     if (typeof params.showLabels === 'boolean') this.state.showLabels = params.showLabels;
     this.draw();
-  }
-
-  private exportCsv() {
-    exportRowsCsv(
-      this.api,
-      'bar-chart',
-      ['category', 'value'],
-      this.orderedBars().map((b) => [b.label, b.value]),
-    );
   }
 
   /** Bars in the currently selected display order (import order kept for 'none'). */
@@ -144,8 +131,6 @@ export class BarChartPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showLabels,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -291,15 +276,6 @@ export class BarChartPlugin implements Plugin {
         : 'No bar data — drop a .csv file (label,value)';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse `label,value` or `label value` per line. */

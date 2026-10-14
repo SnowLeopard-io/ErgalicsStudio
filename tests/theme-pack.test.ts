@@ -387,7 +387,9 @@ describe('market catalog', () => {
   it('aligns with the website catalog ids', () => {
     const websiteIds = [
       'journal-serif', 'deep-space', 'classroom-high-contrast',
-      'lab-amber', 'clinical-mint', 'midnight-plot',
+      'lab-amber', 'clinical-mint', 'midnight-plot', 'colorblind-safe',
+      'blueprint', 'field-notes', 'chalkboard', 'e-ink', 'abyssal',
+      'warm-terminal',
     ];
     expect(MARKET_THEMES.map((e) => e.id)).toEqual(websiteIds);
   });

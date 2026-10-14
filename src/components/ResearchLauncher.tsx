@@ -8,24 +8,32 @@
 // ==========================================================================
 
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { Dropdown, type MenuItemDef } from './Dropdown';
 import { ToolIcon, FlaskIcon, ChevronDownIcon } from './icons';
-import { GRID_GROUPS, GRID_TOOLS, getTool, type ResearchGroupId } from '@/pages/research/toolRegistry';
-import { getRecentTools, recordTool } from '@/core/recentTools';
+import {
+  GRID_GROUPS,
+  GRID_TOOLS,
+  getTool,
+  openToolEmbedded,
+  type ResearchGroupId,
+} from '@/pages/research/toolRegistry';
+import { getRecentTools } from '@/core/recentTools';
 
 export function ResearchLauncher() {
   const t = useT();
   const { locale } = useLocale();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const items = useMemo<MenuItemDef[]>(() => {
+    // Suites open embedded in the workbench central canvas (right panel shows
+    // the suite introduction); the standalone /studio page stays available
+    // from the right-panel "open standalone" action and via deep links.
     const open = (id: string) => {
-      const toolDef = getTool(id);
-      if (!toolDef) return;
-      recordTool(id);
-      navigate(toolDef.path);
+      if (!getTool(id)) return;
+      openToolEmbedded(navigate, id, location.pathname);
     };
 
     const richItem = (id: string, badge?: string, keyPrefix = ''): MenuItemDef => {
@@ -59,7 +67,7 @@ export function ResearchLauncher() {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, navigate, locale]);
+  }, [t, navigate, locale, location.pathname]);
 
   return (
     <Dropdown

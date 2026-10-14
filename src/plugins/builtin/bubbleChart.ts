@@ -11,7 +11,6 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
 
 export { bubbleChartManifest } from './bubbleChartManifest';
 import { bubbleChartManifest } from './bubbleChartManifest';
@@ -65,29 +64,11 @@ export class BubbleChartPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'bubble-chart');
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
     if (typeof params.maxSize === 'number') this.state.maxSize = params.maxSize;
     if (typeof params.opacity === 'number') this.state.opacity = params.opacity;
     if (params.colorBy === 'auto' || params.colorBy === 'solid') this.state.colorBy = params.colorBy;
     this.draw();
-  }
-
-  private exportCsv() {
-    const hasColor = this.bubbles.some((b) => b.c !== undefined);
-    const hasGroup = this.bubbles.some((b) => b.group !== undefined);
-    const header: string[] = ['x', 'y', 'size'];
-    if (hasColor) header.push('color');
-    if (hasGroup) header.push('group');
-    const rows: Array<Array<string | number>> = this.bubbles.map((b) => {
-      const row: Array<string | number> = [b.x, b.y, b.size];
-      if (hasColor) row.push(b.c ?? '');
-      if (hasGroup) row.push(b.group ?? '');
-      return row;
-    });
-    exportRowsCsv(this.api, 'bubble-chart', header, rows);
   }
 
   getParams(): ParamDefinition[] {
@@ -123,8 +104,6 @@ export class BubbleChartPlugin implements Plugin {
           { value: 'solid', label: 'Solid', labelI18n: { 'zh-CN': '单色', 'en-US': 'Solid' } },
         ],
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -251,15 +230,6 @@ export class BubbleChartPlugin implements Plugin {
         : 'No bubble data — drop a .csv (x y size [color])';
     g.fillText(msg, canvas.width / 2, canvas.height / 2);
   }
-}
-
-/**
- * Buttons arrive as `updateParams({ [action]: true })`; the host ParamPanel
- * historically emits `{ [key]: { action } }` instead, so accept both shapes.
- */
-function actionFired(params: Record<string, unknown>, key: string): boolean {
-  const v = params[key];
-  return v === true || (typeof v === 'object' && v !== null && (v as { action?: unknown }).action === key);
 }
 
 /** Parse `x y size [color|group]` per line; a non-numeric 4th token is a group. */

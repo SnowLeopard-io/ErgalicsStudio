@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAppStore } from '@/stores/appStore';
+import { saveTextArtifact } from '@/core/workspace-artifacts';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
@@ -20,6 +22,8 @@ import { pearson, studentTCdf, cohensD, mean, std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
 import type { DataTable } from '@/types/datatable';
 import type { SvgPlotPayload } from '@/core/plot/types';
+import type { PlotSpec } from '@/core/plot';
+import { sendSpecToFigure } from '../research/researchUi';
 import { ToolShell } from '@/components/ToolShell';
 import { NarrativePanel } from '@/components/NarrativePanel';
 
@@ -33,7 +37,11 @@ function safeName(s: string): string {
 export default function AnalysisPage() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
+  const notify = useAppStore((s) => s.notify);
 
+  // project?.data.files is an intentional invalidation trigger for the
+  // registry-backed file list (listDataFilesGrouped reads store state directly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fileGroups = useMemo(() => listDataFilesGrouped(DATA_EXTS_SERIES), [project?.data.files]);
 
   const [file, setFile] = useState('');
@@ -46,6 +54,8 @@ export default function AnalysisPage() {
   const [col, setCol] = useState('');
   const [chartTitle, setChartTitle] = useState('');
   const [preview, setPreview] = useState<SvgPlotPayload | null>(null);
+  /** Live spec behind `preview`, kept for the Figure Studio handoff. */
+  const [previewSpec, setPreviewSpec] = useState<PlotSpec | null>(null);
 
   const [descCol, setDescCol] = useState('');
   const [descText, setDescText] = useState('');
@@ -56,6 +66,8 @@ export default function AnalysisPage() {
   const [mu0, setMu0] = useState('0');
   const [testResult, setTestResult] = useState('');
   const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
+  /** Generation counter: lets a superseded async file load discard its result. */
+  const loadGen = useRef(0);
 
   const numericCols = useMemo(
     () => (table ? table.columns.filter((c) => isNumericType(c.type)).map((c) => c.name) : []),
@@ -65,12 +77,18 @@ export default function AnalysisPage() {
   const loadFile = async (name: string) => {
     setFile(name);
     setPreview(null);
+    setPreviewSpec(null);
     setParseError('');
     if (!name) {
+      loadGen.current += 1;
       setTable(null);
       return;
     }
+    // Only the newest selection may apply its parse — a slow resolve of an
+    // earlier pick must not overwrite the table of the file now selected.
+    const gen = ++loadGen.current;
     const text = await resolveDataFile(name);
+    if (gen !== loadGen.current) return;
     if (text === undefined) {
       setTable(null);
       setParseError(t('analysis.no_data'));
@@ -113,10 +131,20 @@ export default function AnalysisPage() {
       const markup = renderSVG(spec);
       const payload: SvgPlotPayload = { svg: true, markup, title: chartTitle || undefined };
       setPreview(payload);
+      setPreviewSpec(spec);
       useAnalysisStore.getState().setCurrentPlot(payload);
     } catch (err) {
       setParseError(err instanceof Error ? err.message : String(err));
     }
+  };
+
+  const sendToFigure = () => {
+    if (!previewSpec) return;
+    const ok = sendSpecToFigure(t('analysis.title'), previewSpec, chartTitle || undefined);
+    notify(
+      ok ? 'success' : 'error',
+      ok ? t('figure.sent') : t('figure.send_failed'),
+    );
   };
 
   const baseName = () => {
@@ -129,6 +157,48 @@ export default function AnalysisPage() {
   };
   const onExportPdf = () => {
     if (preview) void exportPDF(preview.markup, `${safeName(baseName())}.pdf`);
+  };
+
+  /** Save the chart SVG into the project workspace (figures/). */
+  const onSaveToWorkspace = () => {
+    if (!preview) return;
+    const project = useProjectStore.getState().project;
+    if (!project) {
+      setParseError(t('labs.no_project'));
+      return;
+    }
+    void saveTextArtifact(
+      project,
+      'figures',
+      `${safeName(baseName())}.svg`,
+      preview.markup,
+    )
+      .then((path) => notify('success', t('labs.saved_ws', { path })))
+      .catch((err) =>
+        setParseError(err instanceof Error ? err.message : String(err)),
+      );
+  };
+
+  /** Save the statistical test result into the workspace (runs/) as a JSON
+   *  snapshot — one file per run, matching the repo's runs/ convention. */
+  const onSaveTestResult = () => {
+    const p = useProjectStore.getState().project;
+    if (!p) {
+      notify('error', t('labs.no_project'));
+      return;
+    }
+    const snapshot = {
+      kind: 'stats-test',
+      savedAt: new Date().toISOString(),
+      source: file,
+      test: testKind,
+      columns: testB ? [testA, testB] : [testA],
+      result: testResult,
+    };
+    const name = `${safeName(baseName())}-${testKind}.json`;
+    void saveTextArtifact(p, 'runs', name, JSON.stringify(snapshot, null, 2))
+      .then((path) => notify('success', t('labs.saved_ws', { path })))
+      .catch(() => notify('error', t('labs.save_failed')));
   };
 
   const showSummary = () => {
@@ -302,6 +372,12 @@ export default function AnalysisPage() {
                   <button type="button" className="btn" onClick={onExportPdf}>
                     {t('analysis.export_pdf')}
                   </button>
+                  <button type="button" className="btn" onClick={sendToFigure}>
+                    {t('figure.send_to')}
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={onSaveToWorkspace}>
+                    {t('labs.save_ws')}
+                  </button>
                 </div>
               </div>
             )}
@@ -367,7 +443,14 @@ export default function AnalysisPage() {
               </button>
             </div>
             {testResult && (
-              <pre className="analysis-output">{`${t('analysis.result')}: ${testResult}`}</pre>
+              <>
+                <pre className="analysis-output">{`${t('analysis.result')}: ${testResult}`}</pre>
+                <div className="analysis-actions">
+                  <button type="button" className="btn btn-primary" onClick={onSaveTestResult}>
+                    {t('labs.save_ws')}
+                  </button>
+                </div>
+              </>
             )}
             <NarrativePanel input={narrativeInput} />
           </>

@@ -100,6 +100,22 @@ function validateManifest(manifest: PluginManifest): void {
   if (manifest.sandbox !== undefined && manifest.sandbox !== 'isolated' && manifest.sandbox !== 'trusted') {
     throw new Error(`cspkg: unknown sandbox mode "${String(manifest.sandbox)}"`);
   }
+  // Research metadata consistency (docs/technical/11-插件科研化整改方案.md):
+  // the UI renders a research-readiness badge from these fields, so a
+  // malformed declaration must be rejected rather than shown as-is.
+  const research = manifest.research;
+  if (research !== undefined) {
+    const TIERS = ['research', 'quasi-research', 'demonstration', 'educational'] as const;
+    if (!TIERS.includes(research.tier as (typeof TIERS)[number])) {
+      throw new Error(`cspkg: unknown research tier "${String(research.tier)}"`);
+    }
+    // `research` tier requires embedded benchmark scenarios (see types/plugin.ts).
+    // This also covers `reproducible: true` claims: a research-tier plugin
+    // without benchmarks is rejected regardless of the reproducibility flag.
+    if (research.tier === 'research' && (!Array.isArray(research.benchmarks) || research.benchmarks.length === 0)) {
+      throw new Error(`cspkg: research tier "${manifest.id}" must declare non-empty benchmarks`);
+    }
+  }
 }
 
 /** Rebuild the unzipped file map with normalized, validated keys. Zip entries

@@ -31,6 +31,44 @@ export interface PluginSignature {
   pub?: string;
 }
 
+// ---- Research-grade metadata (docs/technical/11-插件科研化整改方案.md) ----
+
+/**
+ * Research-readiness tier of a plugin, rendered as a badge in the plugin
+ * market/detail UI:
+ * - `research`       — literature algorithm + reference-solution cross-check +
+ *                      real residual certification + bench/tests (e.g. the two
+ *                      Python solvers).
+ * - `quasi-research` — real data input and a correct kernel; may still lack
+ *                      some scientific outputs / diagnostics / repro hooks.
+ * - `demonstration`  — can load data, but the output is primarily visual
+ *                      without numerical conclusions.
+ * - `educational`    — parameter-slider driven, built-in/approximate data or
+ *                      zero-dimensional models. Teaching demo only.
+ */
+export type ResearchTier = 'research' | 'quasi-research' | 'demonstration' | 'educational';
+
+/**
+ * Declared research metadata. Absent = unrated (e.g. third-party packages);
+ * the UI simply shows no badge in that case.
+ */
+export interface PluginResearchMeta {
+  tier: ResearchTier;
+  /**
+   * Physical units of the plugin's key quantities, e.g.
+   * `{ length: 'm', time: 's', temperature: 'K' }`. Omit for dimensionless
+   * statistical charts.
+   */
+  units?: Record<string, string>;
+  /** Ids of embedded validation / benchmark scenarios runnable in-plugin. */
+  benchmarks?: string[];
+  /** Results are deterministic given the same seed and inputs. */
+  reproducible?: boolean;
+  /** Known scope / limitation note shown alongside the tier badge. */
+  notes?: string;
+  notesI18n?: Record<string, string>;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -39,6 +77,8 @@ export interface PluginManifest {
   description: string;
   license?: string;
   icon?: string;
+  /** Research-readiness declaration (tier badge + units + benchmarks). */
+  research?: PluginResearchMeta;
   /** Package signature (FR-05). Absent = unsigned. */
   signature?: PluginSignature;
   /**
@@ -420,7 +460,19 @@ export interface PluginApi {
   /** Report data scale for the perf panel. */
   reportDataScale(n: number): void;
   /** Show a toast notification to the user. */
-  notify(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
+  notify(kind: 'info' | 'success' | 'warning' | 'error', message: string, action?: { label: string; run: () => void }): void;
+
+  /** Subscribe to host cancellation (status-bar 取消 / stop). Returns an unsubscribe fn.
+   * Host invokes handlers when the user cancels the active task; long computations
+   * should check their cancel flag between steps and bail out cleanly. */
+  onCancel?(handler: () => void): () => void;
+
+  /**
+   * True when this plugin is the currently active one. Completion callbacks of
+   * long-running computations must check this before touching the shared
+   * canvas — a background plugin must never draw over the active plugin.
+   */
+  isActive?(): boolean;
 
   /**
    * Emit a structured log line under the `plugin:<id>` scope.

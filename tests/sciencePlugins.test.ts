@@ -115,6 +115,51 @@ describe('advanceNBodyCPU', () => {
     expect(bodies[0]!.vx).toBeLessThan(0);
     expect(bodies[1]!.vx).toBeGreaterThan(0);
   });
+
+  it('matches Kepler period for unequal masses (regression: missing /mᵢ)', () => {
+    // Regression: the integrator used force G·mᵢ·mⱼ/r³ (not acceleration
+    // G·mⱼ/r³) and fed it straight into the velocity update, so unequal-mass
+    // systems ran ~√(mᵢ) too fast. The equal-mass Kepler benchmark masked this.
+    // With m1=1, m2=10 the measured period must match Kepler's third law
+    // T = 2π·√(a³/G·M) to within a few percent.
+    const G = 1;
+    const m1 = 1;
+    const m2 = 10;
+    const M = m1 + m2;
+    const a = 1; // circular orbit, separation = semi-major axis
+    const vRel = Math.sqrt((G * M) / a);
+    const bodies: NBodyBody[] = [
+      { x: (-a * m2) / M, y: 0, z: 0, vx: 0, vy: (-vRel * m2) / M, vz: 0, mass: m1 },
+      { x: (a * m1) / M, y: 0, z: 0, vx: 0, vy: (vRel * m1) / M, vz: 0, mass: m2 },
+    ];
+    const T = 2 * Math.PI * Math.sqrt((a * a * a) / (G * M));
+    const dt = T / 4000;
+    const maxSteps = Math.ceil((1.3 * T) / dt);
+    const TWO_PI = Math.PI * 2;
+    let prev = Math.atan2(bodies[1]!.y - bodies[0]!.y, bodies[1]!.x - bodies[0]!.x);
+    let unwrapped = prev;
+    let tPeriod = Number.NaN;
+    for (let s = 1; s <= maxSteps; s += 1) {
+      advanceNBodyCPU(bodies, dt, G, 0);
+      const rx = bodies[1]!.x - bodies[0]!.x;
+      const ry = bodies[1]!.y - bodies[0]!.y;
+      const th = Math.atan2(ry, rx);
+      let d = th - prev;
+      if (d > Math.PI) d -= TWO_PI;
+      if (d < -Math.PI) d += TWO_PI;
+      unwrapped += d;
+      prev = th;
+      if (unwrapped >= TWO_PI) {
+        const frac = (TWO_PI - (unwrapped - d)) / Math.max(1e-30, d);
+        tPeriod = (s - 1 + frac) * dt;
+        break;
+      }
+    }
+    const err = Math.abs(tPeriod - T) / T;
+    // Symplectic-Euler frequency error is O((ω·dt)²) ≈ 2.5e-7 here, so a
+    // 5% bound cleanly separates the fixed integrator from the old ~57% error.
+    expect(err).toBeLessThan(0.05);
+  });
 });
 
 // ---- N-Body plugin compute fallback --------------------------------------

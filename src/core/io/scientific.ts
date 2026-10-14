@@ -53,11 +53,19 @@ export async function loadScientificData(file: File): Promise<RawVariable[]> {
     case 'netcdf':
       variables = await loadNetcdf(buf);
       break;
-    case 'zarr':
+    case 'zarr': {
       // A dropped File can't represent a Zarr directory; build a blob URL so the
       // reader can fetch individual chunk files. Real remote stores pass a URL.
-      variables = await loadZarr(URL.createObjectURL(file));
+      // The reader materializes every array before returning, so the URL can be
+      // revoked as soon as loading finishes (success or failure).
+      const baseUrl = URL.createObjectURL(file);
+      try {
+        variables = await loadZarr(baseUrl);
+      } finally {
+        URL.revokeObjectURL(baseUrl);
+      }
       break;
+    }
   }
   for (const v of variables) if (v.source === undefined) v.source = file.name;
   return variables;

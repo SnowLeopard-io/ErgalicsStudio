@@ -14,11 +14,15 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, exportCanvasPng, actionFired, notify } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+  notify,
+} from '@/core/plugin-tools/enhance';
 import { isZh } from '@/core/plugin-tools/locale';
 import { parseDelimited } from '@/core/plugin-tools/table';
-import { pushPanelsToFigure, panelTag, panelPlace, GEO_PANEL_WIDTH, GEO_PANEL_HEIGHT } from './geoFigure';
-import type { GeoFigurePanel, Bilingual } from './geoFigure';
+import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
+import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import type { CategoricalTicks } from '@/core/plot';
 import { popPyramidManifest } from './popPyramidManifest';
 
@@ -151,18 +155,18 @@ export function summarizePyramid(rows: PyramidRow[]): PyramidSummary {
  * (two panels). Bars span each parsed age band; the open-ended "95+" band
  * is drawn 5 years wide so the axis stays finite.
  */
-export function pyramidFigurePanels(data: PyramidData): GeoFigurePanel[] {
+export function pyramidFigurePanels(data: PyramidData): FigurePanelSpec[] {
   const ageTicks: CategoricalTicks[] = data.rows.map((r) => ({
     pos: (r.ageLo + Math.min(r.ageHi, r.ageLo + 5)) / 2,
     label: r.label,
   }));
-  const panels: GeoFigurePanel[] = [];
-  const make = (sex: 'male' | 'female', ordinal: number): GeoFigurePanel => ({
+  const panels: FigurePanelSpec[] = [];
+  const make = (sex: 'male' | 'female', ordinal: number): FigurePanelSpec => ({
     ...panelPlace(ordinal),
     tag: panelTag(ordinal),
     spec: {
-      width: GEO_PANEL_WIDTH,
-      height: GEO_PANEL_HEIGHT,
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
       title: `${sex === 'male' ? 'Male' : 'Female'} population by age — ${data.title || 'pyramid'}`,
       xLabel: 'age group',
       yLabel: sex === 'male' ? 'males' : 'females',
@@ -217,10 +221,7 @@ export class PopPyramidPlugin implements Plugin {
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (actionFired(params, 'exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'geo-pop-pyramid');
-      return;
-    }
+
     if (actionFired(params, 'sendToFigure')) {
       void this.sendToFigure();
     }
@@ -249,7 +250,6 @@ export class PopPyramidPlugin implements Plugin {
   getParams(): ParamDefinition[] {
     return [
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
     ];
   }
 

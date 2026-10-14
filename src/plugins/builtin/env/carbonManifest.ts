@@ -21,6 +21,16 @@ export const carbonManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.env-carbon',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { carbon: 'GtC', flux: 'GtC/yr', time: 'yr' },
+    reproducible: true,
+    notes: 'Linear donor-controlled box model calibrated to a pre-industrial steady state — not an Earth-system model. Monte-Carlo 95% intervals (seeded mulberry32) reflect ±10% uniform perturbations of the six rate constants and the emission only; the mass-balance deviation doubles as a zero-clamping diagnostic.',
+    notesI18n: {
+      'zh-CN': '线性 donor-controlled 箱模型，速率常数校准至前工业稳态——不是地球系统模式。Monte-Carlo 95% 区间（种子化 mulberry32）仅反映 6 个速率常数与排放的 ±10% 均匀扰动；质量守恒偏差兼作截零诊断。',
+      'en-US': 'Linear donor-controlled box model calibrated to a pre-industrial steady state — not an Earth-system model. Monte-Carlo 95% intervals (seeded mulberry32) reflect ±10% uniform perturbations of the six rate constants and the emission only; the mass-balance deviation doubles as a zero-clamping diagnostic.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'pool,initial_gtc,flux_in,flux_out' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'pool,initial_gtc,flux_in,flux_out' },

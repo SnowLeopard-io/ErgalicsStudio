@@ -11,7 +11,8 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
-import { MenuIcon, PanelIcon, SettingsIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
+import { openToolEmbedded } from '@/pages/research/toolRegistry';
+import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -25,15 +26,15 @@ export function TopBar() {
   const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
+  const recent = useProjectStore((s) => s.recent);
+  const openProject = useProjectStore((s) => s.openProject);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
   const openFromFile = useProjectStore((s) => s.openFromFile);
+  const importFolder = useProjectStore((s) => s.importFolder);
   const notify = useAppStore((s) => s.notify);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const resetToWelcome = useAppStore((s) => s.resetToWelcome);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
-  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
@@ -51,18 +52,23 @@ export function TopBar() {
   const openDialog = (key: TopBarDialogKey) => () => setDialog(key);
   const closeDialog = () => setDialog(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileCount = project?.data.files.length ?? 0;
 
   const location = useLocation();
-  // Welcome-page entry states: legacy openResearchDialog routes to a tool
-  // page; openDataDialog opens the bundled-samples dialog directly.
+  // Welcome-page entry states: openResearchDialog / openTool embed the tool
+  // in the central canvas; openDataDialog opens the bundled-samples dialog.
   useEffect(() => {
     const state = location.state as
-      | { openResearchDialog?: string; openDataDialog?: boolean }
+      | { openResearchDialog?: string; openDataDialog?: boolean; openTool?: string }
       | null;
     let consumed = false;
     if (state?.openResearchDialog) {
-      navigate(`/studio/${state.openResearchDialog}`);
+      openToolEmbedded(navigate, state.openResearchDialog, location.pathname);
+      consumed = true;
+    }
+    if (state?.openTool) {
+      openToolEmbedded(navigate, state.openTool, location.pathname);
       consumed = true;
     }
     if (state?.openDataDialog) {
@@ -70,7 +76,7 @@ export function TopBar() {
       consumed = true;
     }
     if (consumed) window.history.replaceState({}, '');
-  }, [location.state, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleOpenFile = (file: File) => {
     void openFromFile(file).catch(() => notify('error', t('project.open_failed')));
@@ -81,27 +87,100 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Zone 1 — navigation: ☰ (project/plugin sidebar in Standard, mode
-          panel elsewhere), brand, current project name. */}
-      <button
-        type="button"
-        className={`icon-btn${((mode === 'standard' && sidebarOpen) || (mode !== 'standard' && modePanelOpen)) ? ' is-active' : ''}`}
-        aria-label={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        aria-pressed={mode === 'standard' ? sidebarOpen : modePanelOpen}
-        title={mode === 'standard' ? t('workbench.menu.toggle_sidebar') : t('workbench.menu.toggle_panel')}
-        onClick={mode === 'standard' ? toggleSidebar : toggleModePanel}
-      >
-        <MenuIcon size={17} />
-      </button>
+      {/* Zone 1 — navigation: ☰ (mode panel toggle in non-standard modes;
+          in Standard the sidebar owns its edge collapse button instead),
+          brand, current project name. */}
+      {mode !== 'standard' && (
+        <button
+          type="button"
+          className={`icon-btn${modePanelOpen ? ' is-active' : ''}`}
+          aria-label={t('workbench.menu.toggle_panel')}
+          aria-pressed={modePanelOpen}
+          title={t('workbench.menu.toggle_panel')}
+          onClick={toggleModePanel}
+        >
+          <MenuIcon size={17} />
+        </button>
+      )}
 
-      <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+      {/* Brand = home: back to the boot state — empty canvas with the
+          welcome screen (plugin deactivated, all canvas tabs closed). */}
+      <a
+        className="brand"
+        href="#/workbench"
+        onClick={(e) => {
+          e.preventDefault();
+          resetToWelcome();
+          navigate('/workbench');
+        }}
+      >
         <span className="brand-name">Ergalics Studio</span>
       </a>
 
-      <button type="button" className="project-name" title={t('project.rename')} onClick={openDialog('rename')}>
-        {project?.name || DEFAULT_PROJECT_NAME}
-        {dirty && <span className="project-dirty">•</span>}
-      </button>
+      {/* 项目下拉：触发器即项目名。上半区切换最近项目，下半区是全部
+          项目管理操作（新建/打开/重命名/另存为/删除/导出日志）——原来
+          单独的"项目"菜单与之功能重叠，已并入此处。 */}
+      <Dropdown
+        ariaLabel={t('workbench.menu.project')}
+        triggerClassName="project-name"
+        align="left"
+        trigger={
+          <span title={project ? project.name : t('project.new')}>
+            {project ? project.name : t('project.new')}
+            {dirty && <span className="project-dirty">•</span>}
+            <span className="more-caret">▾</span>
+          </span>
+        }
+        items={[
+          { key: 'recent-header', label: t('workbench.project.recent'), header: true },
+          ...(recent.length > 0
+            ? recent.map((p) => ({
+                key: p.id,
+                label: p.name || DEFAULT_PROJECT_NAME,
+                active: p.id === project?.id,
+                onClick: () => void openProject(p.id),
+              }))
+            : [{ key: 'no-recent', label: t('workbench.sidebar.no_recent'), disabled: true }]),
+          { key: 'sep-projects', label: '' },
+          { key: 'actions-header', label: t('workbench.menu.project'), header: true },
+          { key: 'new', label: t('project.new'), onClick: openDialog('new') },
+          { key: 'open', label: t('project.open'), onClick: () => fileInputRef.current?.click() },
+          {
+            key: 'open_folder',
+            label: t('project.open_folder'),
+            onClick: () => folderInputRef.current?.click(),
+          },
+          { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
+          { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
+          {
+            key: 'export_log',
+            label: t('workbench.export_log'),
+            onClick: () => {
+              void usePluginStore
+                .getState()
+                .exportDiagnostics()
+                .then((json) => {
+                  downloadBlob(
+                    `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+                    json,
+                    'application/json',
+                  );
+                  notify('success', t('workbench.export_log_done'));
+                })
+                .catch(() => notify('error', t('workbench.export_log')));
+            },
+          },
+          { key: 'sep-danger', label: '' },
+          { key: 'danger-header', label: t('workbench.menu.danger'), header: true },
+          {
+            key: 'delete',
+            label: t('project.delete'),
+            disabled: !project,
+            danger: true,
+            onClick: openDialog('project_delete'),
+          },
+        ]}
+      />
 
       <div className="topbar-actions">
         {/* Zone 2 — work modes (filled + underline double indication). */}
@@ -147,53 +226,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3b — project file operations: menu (rename merged in) + save/share. */}
+        {/* Zone 3b — project file operations: 保存/分享直达（管理操作已并入
+            左侧项目名下拉，避免功能重叠）。 */}
         <div className="topbar-cluster">
-          <Dropdown
-            ariaLabel={t('workbench.menu.project')}
-            triggerClassName="cluster-btn"
-            align="left"
-            trigger={
-              <span>
-                {t('workbench.menu.project')}
-                <span className="more-caret">▾</span>
-              </span>
-            }
-            items={[
-              { key: 'new', label: t('project.new'), onClick: openDialog('new') },
-              {
-                key: 'open',
-                label: t('project.open'),
-                onClick: () => fileInputRef.current?.click(),
-              },
-              { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
-              { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
-              {
-                key: 'delete',
-                label: t('project.delete'),
-                disabled: !project,
-                onClick: openDialog('project_delete'),
-              },
-              {
-                key: 'export_log',
-                label: t('workbench.export_log'),
-                onClick: () => {
-                  void usePluginStore
-                    .getState()
-                    .exportDiagnostics()
-                    .then((json) => {
-                      downloadBlob(
-                        `ergalics-run-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
-                        json,
-                        'application/json',
-                      );
-                      notify('success', t('workbench.export_log_done'));
-                    })
-                    .catch(() => notify('error', t('workbench.export_log')));
-                },
-              },
-            ]}
-          />
           <button type="button" className="cluster-btn" onClick={() => void save()}>
             {t('common.save')}
           </button>
@@ -207,7 +242,11 @@ export function TopBar() {
         {/* Zone 3c — research tools: general analysis stays a direct button,
             all other tools live behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button type="button" className="cluster-btn" onClick={() => navigate('/studio/analysis')}>
+          <button
+            type="button"
+            className="cluster-btn"
+            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
+          >
             {t('workbench.analyze')}
           </button>
           <ResearchLauncher />
@@ -215,8 +254,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 4 — global tools. The icon trio collapses into the ⋯ overflow
-            menu on narrow screens (see topbar-resp CSS). */}
+        {/* Zone 4 — global tools. Low-frequency entries (shortcuts, tour) and
+            the perf gauge live in the ⋯ overflow menu; the gauge surfaces here
+            only while a perf warning is active. Palette + AI stay direct. */}
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
@@ -233,15 +273,6 @@ export function TopBar() {
           </button>
           <button
             type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('ux.shortcuts.title')}
-            aria-label={t('ux.shortcuts.title')}
-            onClick={() => useShortcutsStore.getState().toggle()}
-          >
-            <KeyboardIcon size={15} />
-          </button>
-          <button
-            type="button"
             className={`cluster-btn icon-only${aiOpen ? ' is-active' : ''}`}
             title={t('ai.toggle')}
             aria-label={t('ai.toggle')}
@@ -251,46 +282,18 @@ export function TopBar() {
           >
             <SparklesIcon size={15} />
           </button>
-          {mode === 'standard' && (
+          {perfWarn && (
             <button
               type="button"
-              className={`cluster-btn icon-only${rightPanelOpen ? ' is-active' : ''}`}
-              title={t('workbench.menu.toggle_right')}
-              aria-label={t('workbench.menu.toggle_right')}
-              aria-pressed={rightPanelOpen}
-              onClick={toggleRightPanel}
+              className="cluster-btn icon-only perf-entry topbar-hide-narrow perf-warn"
+              title={perfTitle}
+              aria-label={perfTitle}
+              onClick={openDialog('perf')}
             >
-              <PanelIcon size={15} />
+              <GaugeIcon size={15} />
+              <span className="perf-indicator-dot" aria-hidden="true" />
             </button>
           )}
-          <button
-            type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('workbench.tools.settings')}
-            aria-label={t('workbench.tools.settings')}
-            onClick={() => navigate('/settings')}
-          >
-            <SettingsIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('workbench.tour.title')}
-            aria-label={t('workbench.tour.title')}
-            onClick={startTour}
-          >
-            <HelpIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className={`cluster-btn icon-only perf-entry topbar-hide-narrow${perfWarn ? ' perf-warn' : ''}`}
-            title={perfTitle}
-            aria-label={perfTitle}
-            onClick={openDialog('perf')}
-          >
-            <GaugeIcon size={15} />
-            <span className="perf-indicator-dot" aria-hidden="true" />
-          </button>
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
@@ -304,9 +307,6 @@ export function TopBar() {
             { key: 'palette', label: t('ux.palette.open'), onClick: () => useCommandPaletteStore.getState().toggle() },
             { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
-            ...(mode === 'standard'
-              ? [{ key: 'right', label: t('workbench.menu.toggle_right'), onClick: toggleRightPanel }]
-              : []),
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
             { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },
@@ -321,6 +321,30 @@ export function TopBar() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleOpenFile(file);
+            e.target.value = '';
+          }}
+        />
+
+        {/* 文件夹项目导入：webkitdirectory 选择整个文件夹，交给
+            projectStore.importFolder（含 project.clproj 时按原生项目导入）。
+            React JSX 不会把 webkitdirectory 可靠地写到 DOM 上，必须在 ref
+            回调里用 setAttribute 显式设置。 */}
+        <input
+          ref={(el) => {
+            folderInputRef.current = el;
+            if (el) {
+              el.setAttribute('webkitdirectory', '');
+              el.setAttribute('directory', '');
+            }
+          }}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : [];
+            if (files.length > 0) {
+              void importFolder(files).catch(() => notify('error', t('project.open_failed')));
+            }
             e.target.value = '';
           }}
         />

@@ -18,7 +18,10 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, Scene3DHandle } from '@/types/plugin';
 import { emit } from '@/core/events';
 import type { Group as ThreeGroup } from 'three';
-import { actionButton, actionFired, exportSnapshotPng, exportCanvasPng } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  actionFired,
+} from '@/core/plugin-tools/enhance';
 import { REACTIONS, findReaction, type ReactionDef } from './catalog';
 import { pushAllFigures } from './figures';
 import {
@@ -98,6 +101,12 @@ export class ChemReactionPlugin implements Plugin {
   private rafId = 0;
   private frameIdx = 0;
   private zh = false;
+  // A run that completed while another plugin was active: the outcome is
+  // stashed here (never painted onto the shared canvas behind the active
+  // plugin's back) and replayed by the next draw() after the "View results"
+  // jump-back.
+  private pendingDynamics: { payload: PhysicsPayload; result: SimulationResult } | null = null;
+  private pending2d: SimulationResult | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -254,8 +263,6 @@ export class ChemReactionPlugin implements Plugin {
       actionButton('run', 'Run', '运行', 'primary'),
       actionButton('fitView', 'Fit view', '复位视角'),
       actionButton('reset', 'Reset', '复位'),
-      actionButton('exportPng', 'Snapshot PNG', '导出 PNG'),
-      actionButton('exportObjPng', 'Objects PNG (transparent)', '导出物品 PNG（透明）'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
       actionButton('reloadPlugin', 'Reset Plugin', '重置插件'),
     );
@@ -343,8 +350,7 @@ export class ChemReactionPlugin implements Plugin {
       return;
     }
     if (actionFired(params, 'fitView')) this.fitView();
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportObjPng')) this.exportObjPng();
+
     if (actionFired(params, 'reset')) this.resetScene();
     if (actionFired(params, 'reloadPlugin')) this.reloadPlugin();
     if (actionFired(params, 'sendToFigure')) this.sendToFigure();
@@ -434,6 +440,9 @@ export class ChemReactionPlugin implements Plugin {
 
   private run() {
     if (this.computing) return;
+    // A fresh run supersedes any stashed background result.
+    this.pendingDynamics = null;
+    this.pending2d = null;
     if (!this.three) {
       this.run2dClip();
       return;
@@ -466,6 +475,20 @@ export class ChemReactionPlugin implements Plugin {
         if (!result.ok) throw new Error('engine returned ok=false');
         this.computing = false;
         this.api.setStatus('ready');
+        // Background completion (the user switched plugins mid-run): never
+        // build into the shared 3-D scene the now-active plugin owns —
+        // stash the trajectory and surface a non-intrusive jump-back toast
+        // instead; the next draw() after "View results" replays it.
+        if (this.api.isActive?.() === false) {
+          this.pendingDynamics = { payload, result };
+          this.api.notify(
+            'success',
+            this.zh ? '反应分子动力学计算已完成（后台）。' : 'Reaction-MD compute finished (background).',
+            { label: this.zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
+          this.refreshParams();
+          return;
+        }
         this.showDynamics(payload, result);
       })
       .catch((err) => {
@@ -491,6 +514,18 @@ export class ChemReactionPlugin implements Plugin {
       .then((result) => {
         this.computing = false;
         this.api.setStatus('ready');
+        // Background completion: never draw into the shared canvas the
+        // now-active plugin owns — stash the summary and surface a
+        // jump-back toast; the next 2-D draw() shows it.
+        if (this.api.isActive?.() === false) {
+          this.pending2d = result;
+          this.api.notify(
+            'success',
+            this.zh ? '反应计算已完成（后台）。' : 'Reaction compute finished (background).',
+            { label: this.zh ? '查看结果' : 'View results', run: () => emit('plugin:activate-request', { id: this.manifest.id }) },
+          );
+          return;
+        }
         this.draw2dInfo(result);
       })
       .catch(() => {
@@ -551,16 +586,6 @@ export class ChemReactionPlugin implements Plugin {
       /* ignore */
     }
     this.three.render();
-  }
-
-  private exportPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot(), 'chem-reaction');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
-  }
-
-  private exportObjPng() {
-    if (this.three) exportSnapshotPng(this.api, this.three.snapshot({ transparent: true }), 'chem-reaction');
-    else exportCanvasPng(this.api, this.ctx?.canvas2d, 'chem-reaction');
   }
 
   /** Push analysis figures (ΔG(T), Arrhenius, van't Hoff, α–pH, Ksp, atom map)
@@ -646,11 +671,20 @@ export class ChemReactionPlugin implements Plugin {
   // ---- rendering -----------------------------------------------------------
 
   private draw() {
+    // Replay a trajectory that finished while another plugin was active
+    // (the "View results" jump-back lands here via render()).
+    if (this.pendingDynamics) {
+      const pending = this.pendingDynamics;
+      this.pendingDynamics = null;
+      this.pending2d = null;
+      this.showDynamics(pending.payload, pending.result);
+      return;
+    }
     if (this.three) {
       this.rebuildNow();
       return;
     }
-    this.draw2dInfo();
+    this.draw2dInfo(this.pending2d ?? undefined);
   }
 
   private draw2dInfo(result?: SimulationResult) {

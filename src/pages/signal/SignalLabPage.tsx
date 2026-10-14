@@ -7,7 +7,7 @@
 // back as a new project CSV file (derived-from provenance in the file name).
 // ==========================================================================
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { ToolShell } from '@/components/ToolShell';
@@ -38,6 +38,9 @@ import {
 } from '../research/researchUi';
 import { toCsv } from '@/core/plugin-tools/enhance';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { parseDataText } from '@/blocks/fileData';
+import { isNumericType } from '@/blocks/ops';
+import { takeLabHandoff } from '@/core/labHandoff';
 
 type Op = 'spectrum' | 'welch' | 'filter' | 'correlation' | 'decompose';
 type FilterKind = 'sg' | 'ma' | 'diff';
@@ -117,10 +120,33 @@ export default function SignalLabPage() {
   const [period, setPeriod] = useState('0');
   const [error, setError] = useState('');
   const [result, setResult] = useState<ResultOut | null>(null);
+  /** Generation counter: lets a superseded compute discard its results. */
+  const computeGen = useRef(0);
 
   const cols = useFileCols(file);
 
   const numericOptions = cols.numericCols;
+
+  // One-shot data handoff from the science output strip: preselect the staged
+  // file, the last numeric column as the value series and (when present) the
+  // first as the time axis — matching the conventional x,y CSV layout.
+  useEffect(() => {
+    const staged = takeLabHandoff();
+    if (!staged) return;
+    // Ignore payloads addressed to another suite (e.g. staged for a page the
+    // user navigated away from before it could mount).
+    if (staged.target && staged.target !== 'signal') return;
+    try {
+      const tbl = parseDataText(staged.csv, staged.name);
+      const nums = tbl.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+      if (nums.length === 0) return;
+      setFile(staged.name);
+      setValueCol(nums[nums.length - 1]!);
+      if (nums.length > 1) setTimeCol(nums[0]!);
+    } catch {
+      /* stale or malformed handoff — fall back to the empty picker */
+    }
+  }, []);
 
   const compute = async () => {
     setError('');
@@ -129,8 +155,12 @@ export default function SignalLabPage() {
       setError(t('analysis.no_data'));
       return;
     }
+    // A second click supersedes the first compute: only the newest generation
+    // may touch state, or a slow run could overwrite a fresh one's results.
+    const gen = ++computeGen.current;
     try {
       const { table } = await loadTable(file);
+      if (gen !== computeGen.current) return;
       const xRaw = Array.from(
         (table.getColumn(valueCol) as Float64Array | undefined) ?? [],
       ) as number[];
@@ -278,6 +308,8 @@ export default function SignalLabPage() {
         ],
       });
     } catch (err) {
+      // A superseded compute's failure must not clobber the live one's state.
+      if (gen !== computeGen.current) return;
       setError(err instanceof Error ? err.message : String(err));
     }
   };

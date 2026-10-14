@@ -1,0 +1,13 @@
+{
+  "name": "Sgr A* (Milky Way centre)",
+  "massSolar": 4300000,
+  "distancePc": 8150,
+  "diskOuterRs": 14,
+  "tPeakK": 9500,
+  "brightness": 1.1,
+  "beaming": true,
+  "redshift": true,
+  "starDensity": 1.4,
+  "turbulence": 0.7,
+  "cameraDistanceRs": 14
+}

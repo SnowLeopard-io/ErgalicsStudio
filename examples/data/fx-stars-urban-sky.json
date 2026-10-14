@@ -1,0 +1,14 @@
+{
+  "name": "Inner-city sky (Beijing, Bortle 8)",
+  "hourUTC": 17.5,
+  "latitude": 39.9,
+  "longitude": 116.4,
+  "starDensity": 0.7,
+  "bortle": 8,
+  "seeing": 0.6,
+  "mwBrightness": 0.15,
+  "meteorRate": 0,
+  "exposure": 1.1,
+  "autoRotate": false,
+  "autoOrbit": false
+}

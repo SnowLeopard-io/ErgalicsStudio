@@ -123,6 +123,10 @@ export const useExperimentStore = create<ExperimentStore>((set, get) => ({
     if (get().runs.some((r) => r.id === run.id)) return run; // dedup
     set((s) => ({ runs: [run, ...s.runs].slice(0, 200) }));
     emit(RUN_COMPLETED, { run });
+    // §3.4 auto-commit: mirror the finished run into the project repo
+    // (runs/run-<id>.json + index) and commit `run: <label> (source=…)`.
+    // Fire-and-forget + internally guarded: never breaks the run itself.
+    void useProjectStore.getState().autoCommitRun(run);
     return run;
   },
 

@@ -18,8 +18,9 @@ It is the path of least resistance for:
   plot` loop in one screen.
 
 The workbench top bar carries a four-slot cluster
-`Standard | Flow | Blocks | Code`. Today **Blocks is enabled**, **Code is
-reserved** (the IR is in place; Monaco + Pyodide land in a later phase).
+`Standard | Flow | Blocks | Code`. All four modes are live — Code mode runs
+Monaco against a Pyodide (Python) runtime and a vendored webR (R) runtime,
+both editing the same IR.
 
 ## Why a new mode
 
@@ -47,18 +48,11 @@ what a future Code mode will edit. Blockly JSON ⇄ IR lives in
 
 The IR is intentionally small:
 
-- **Statement nodes** — `VarAssign`, `PlotScatter`, `PlotLine`,
-  `PlotHistogram`, `PlotPointCloud`, `If`, `Repeat`, `While`, `ForEach`,
-  `StudioCall` (e.g. `print`), `RawCode` (degraded nodes we can't yet
-  represent).
-- **Expression nodes** — `LoadCSV`, `LoadXYZ`, `Random`, `Range`,
-  `Normalize`, `Sort`, `Select`, `Filter`, `AddColumn`, `Summary`,
-  `Histogram`, `Var`, `Number`, `String`, `Boolean`, `BinaryOp`,
-  `UnaryOp`, `List`, `ListIndex`, `Function`, `Call`.
-- **Helpers** — `makeProgram(body, variables, lang)` is the only constructor;
-  `hashIR(program)` (FNV-1a, synchronous) fingerprints a program for cache
-  invalidation; `validateIR(program)` walks the tree and returns structured
-  `diagnostics` instead of throwing.
+| Node family | Members / notes |
+| --- | --- |
+| **Statement nodes** | `VarAssign`, `PlotScatter`, `PlotLine`, `PlotHistogram`, `PlotPointCloud`, `If`, `Repeat`, `While`, `ForEach`, `StudioCall` (e.g. `print`), `RawCode` (degraded nodes we can't yet represent). |
+| **Expression nodes** | `LoadCSV`, `LoadXYZ`, `Random`, `Range`, `Normalize`, `Sort`, `Select`, `Filter`, `AddColumn`, `Summary`, `Histogram`, `Var`, `Number`, `String`, `Boolean`, `BinaryOp`, `UnaryOp`, `List`, `ListIndex`, `Function`, `Call`. |
+| **Helpers** | `makeProgram(body, variables, lang)` is the only constructor; `hashIR(program)` (FNV-1a, synchronous) fingerprints a program for cache invalidation; `validateIR(program)` walks the tree and returns structured `diagnostics` instead of throwing. |
 
 Why FNV-1a and not SHA-1? Because IR hashing runs on every keystroke in the
 Blockly workspace. WebCrypto's SHA-1 is asynchronous and would force the
@@ -124,6 +118,12 @@ statistic, so a `studio.normalize` is the same `normalize` operator that a
 Flow-mode `transform.normalize` block invokes. There is exactly one truth
 for "what does normalise do", and Block mode does not duplicate it.
 
+`studio.load` resolves files through `src/core/dataFiles.ts`
+(`resolveDataFile`): project-imported files are registered at runtime via
+`setProjectFiles` and take priority, then bundled `examples/data/` are
+fetched lazily. The Flow-mode `source.file` block resolves through the same
+function, so user files work identically on both surfaces.
+
 The visualisations route through `src/blocks/render.ts` (`renderView(view,
 host)`), which constructs a `File` from the column-serialised text and
 hands it to `plugin.loadData`. Plot types map to plugin ids in one place
@@ -135,15 +135,13 @@ hands it to `plugin.loadData`. Plot types map to plugin ids in one place
 
 `src/editor/runtime/interpreter.ts` walks the IR top-to-bottom:
 
-- `VarAssign` writes into a variable table.
-- `PlotScatter` / `PlotLine` / `PlotHistogram` / `PlotPointCloud` build a
-  `RenderedView`, call `studio.plot(...)`, which fans out to the plugin.
-- `If` / `Repeat` / `While` / `ForEach` execute their body in order with a
-  fresh sub-scope.
-- `StudioCall { method: 'print' }` writes to the console panel.
-- `RawCode` (a `studio_raw` Blockly block) is what we degrade to when an
-  IR shape we cannot yet represent appears (e.g. an exotic block in a
-  user's saved program). It runs verbatim through `new Function`.
+| Node kind | Behavior |
+| --- | --- |
+| `VarAssign` | Writes into a variable table. |
+| `PlotScatter` / `PlotLine` / `PlotHistogram` / `PlotPointCloud` | Build a `RenderedView`, call `studio.plot(...)`, which fans out to the plugin. |
+| `If` / `Repeat` / `While` / `ForEach` | Execute their body in order with a fresh sub-scope. |
+| `StudioCall { method: 'print' }` | Writes to the console panel. |
+| `RawCode` (a `studio_raw` Blockly block) | What we degrade to when an IR shape we cannot yet represent appears (e.g. an exotic block in a user's saved program); runs verbatim through `new Function`. |
 
 The interpreter returns an `InterpretResult` with `{ ok, variables, output }`
 and propagates `console` / `error` into the editor store. The
@@ -155,10 +153,12 @@ that store directly — no React state to keep in sync.
 `src/editor/block/convert.ts` does both directions and is exercised in Node
 by `tests/editor/block-ir.test.ts`:
 
-- `blockJSONToIR(b)` — one block → one IR node.
-- `irToBlockJSON(node)` — one IR node → one block.
-- `workspaceJSONToIR(workspace)` — full workspace → `IRProgram`.
-- `irToWorkspaceJSON(program)` — `IRProgram` → full workspace.
+| Function | Conversion |
+| --- | --- |
+| `blockJSONToIR(b)` | One block → one IR node. |
+| `irToBlockJSON(node)` | One IR node → one block. |
+| `workspaceJSONToIR(workspace)` | Full workspace → `IRProgram`. |
+| `irToWorkspaceJSON(program)` | `IRProgram` → full workspace. |
 
 The bidirectional round-trip is the contract: any program the user can build
 in the Blockly canvas can be serialised and rehydrated losslessly. Orphan
@@ -170,12 +170,12 @@ have loose blocks, but the runtime only ever sees what is connected.
 When a node has no Blockly equivalent yet (anything we don't ship in
 `blocks.ts`), it is wrapped in a `studio_raw` block with the IR serialised
 into a multiline text field. Today that catch-all is rarely hit because we
-ship 40+ blocks; it is in place so future additions don't silently break
+ship 40 blocks; it is in place so future additions don't silently break
 old workspaces.
 
 ## Built-in blocks
 
-`src/editor/block/blocks.ts` defines the catalogue (40+ entries). They are
+`src/editor/block/blocks.ts` defines the catalogue (40 entries). They are
 laid out into nine toolbox categories (`src/editor/block/toolbox.ts`), each
 with a colour matching the Scratch convention:
 
@@ -227,18 +227,20 @@ project keeps them around.
 
 Block mode sessions ride on the standard project plumbing:
 
-- `ProjectState.editorSessions: EditorSession[]` — every Block / Code
-  session (with its IR) is part of the project.
-- `ProjectState.activeEditorSession: string | null` — which session the
-  user is currently editing.
-- `ProjectState.workbenchMode: 'standard' | 'flow' | 'block' | 'code'` —
-  which mode the top-bar cluster was last on.
+| Field | Meaning |
+| --- | --- |
+| `ProjectState.editorSessions: EditorSession[]` | Every Block / Code session (with its IR) is part of the project. |
+| `ProjectState.activeEditorSession: string \| null` | Which session the user is currently editing. |
+| `ProjectState.workbenchMode: 'standard' \| 'flow' \| 'block' \| 'code'` | Which mode the top-bar cluster was last on. |
 
 `projectStore.applyEditor()` snapshots `editorStore` into the project
-before save; `restoreEditor()` rehydrates sessions on open. Because Blockly
-13 is lazy-loaded, this happens off the critical path for projects that
-don't use Block mode — the chunk only loads when a Block session is
-restored.
+before save; `restoreEditor()` rehydrates sessions on open. Block programs
+additionally persist as `.block.json` **workspace files**
+(`{ version, kind: 'ergalics-block', ir }`) written through the workspace
+VFS and opened by the file explorer's per-file editors
+(`src/components/editor/fileEditors/`). Because Blockly 13 is lazy-loaded,
+this happens off the critical path for projects that don't use Block mode —
+the chunk only loads when a Block session is restored.
 
 ## Extending: writing a new block
 
@@ -262,25 +264,9 @@ simultaneously. Run `tests/editor/` to confirm everything round-trips.
 
 ## Known limitations
 
-- **Code mode (Python via Pyodide, R via webR, JS via the IR engine)** is
-  fully wired up (Monaco editor, REPL, `studio` module, 9 sample programs;
-  R runs on a vendored webR bundle in `public/webr/` and falls back to the
-  IR engine when absent). **Bidirectional block ↔ code sync** remains on the
-  roadmap.
-- **User-loaded files are not yet project-scoped.** `studio.load('foo.dat')`
-  resolves files from `examples/data/` only — drag-and-drop files do not
-  yet land in `ProjectState.data.files` for block sessions (code mode
-  injects project files via `_FILES` per run).
-- **Block names re-render only on workspace recreation.** Locale switches
-  unmount / remount the Blockly workspace so the new language takes
-  effect immediately; this works but is heavier than a pure string swap
-  (acceptable for a single-user app; revisit if profile-switching becomes
-  hot).
-- **No GPU execution path yet.** The interpreter runs on CPU. The IR
-  shape was designed so a `gpu.*` node family can land without breaking
-  codegen — same `data: IRNode` shape as every transform — but the
-  worker-side runner and the GPU dispatch are not wired.
-- **Unrepresentable nodes degrade to `RawCode`.** If you build a pipeline
-  with a future node shape, it is preserved verbatim and runs as
-  `new Function(...)`. This is the explicit fallback for forward
-  compatibility — not a bug, but worth knowing.
+| Limitation | Details |
+| --- | --- |
+| Bidirectional block ↔ code sync | Remains on the roadmap — the Code mode runtimes themselves (Python via Pyodide, R via webR, JS via the IR engine) are complete. |
+| Block names re-render only on workspace recreation | Locale switches unmount / remount the Blockly workspace so the new language takes effect immediately; this works but is heavier than a pure string swap (acceptable for a single-user app; revisit if profile-switching becomes hot). |
+| No GPU execution path yet | The interpreter runs on CPU. The IR shape was designed so a `gpu.*` node family can land without breaking codegen — same `data: IRNode` shape as every transform — but the worker-side runner and the GPU dispatch are not wired. |
+| Unrepresentable nodes degrade to `RawCode` | If you build a pipeline with a future node shape, it is preserved verbatim and runs as `new Function(...)`. This is the explicit fallback for forward compatibility — not a bug, but worth knowing. |

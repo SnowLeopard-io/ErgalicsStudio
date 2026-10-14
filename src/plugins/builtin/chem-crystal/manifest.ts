@@ -28,6 +28,19 @@ export const chemCrystalManifest: PluginManifest = {
   entry: 'example.chem-crystal',
   category: 'scientific',
   sandbox: 'trusted',
+  research: {
+    tier: 'quasi-research',
+    units: { length: 'Å', volume: 'Å³', density: 'g/cm³' },
+    reproducible: true,
+    notes:
+      'Deterministic cell observables (volume, occupancy-weighted density, Z) with literature lattice-parameter comparison for common compounds; not a structure-solution or refinement tool.',
+    notesI18n: {
+      'zh-CN':
+        '确定性晶胞可观测量（体积、占位加权密度、Z），并可对常见化合物做文献晶胞参数对比；非结构解析或精修工具。',
+      'en-US':
+        'Deterministic cell observables (volume, occupancy-weighted density, Z) with literature lattice-parameter comparison for common compounds; not a structure-solution or refinement tool.',
+    },
+  },
   formats: [
     { extension: '.cif', mimeTypes: ['chemical/x-cif', 'text/plain'], description: 'Crystallographic Information File' },
     { extension: '.poscar', mimeTypes: ['text/plain'], description: 'VASP POSCAR' },

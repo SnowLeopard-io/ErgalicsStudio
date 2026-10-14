@@ -11,7 +11,9 @@ import type {
   PluginApi,
   ContainerCapabilities,
 } from '@/types/plugin';
-import { actionButton, actionFired, exportCanvasPng, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+
+import { setScienceOutputs, clearScienceOutputs, fmtMetric, type ScienceMetric } from '@/core/research/scienceOutput';
+import { pearson, spearman, ols, bi, pm, fmtP, isZh } from './chartStats';
 
 import { scatterManifest } from './scatterManifest';
 
@@ -46,6 +48,7 @@ export class ScatterPlugin implements Plugin {
   async destroy() {
     this.ctx = null;
     this.rows = [];
+    clearScienceOutputs(this.manifest.id);
   }
 
   async activate(context: { container: ContainerCapabilities }) {
@@ -74,8 +77,7 @@ export class ScatterPlugin implements Plugin {
       this.state.showTrendline = params.showTrendline;
       this.draw();
     }
-    if (actionFired(params, 'exportPng')) this.exportPng();
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
+
   }
 
   getParams(): ParamDefinition[] {
@@ -99,8 +101,6 @@ export class ScatterPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.showTrendline,
       },
-      actionButton('exportPng', 'Export PNG', '导出 PNG'),
-      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
@@ -138,28 +138,68 @@ export class ScatterPlugin implements Plugin {
     }
     this.api.reportDataScale(rows.length);
     this.draw();
+    this.publishStats();
+  }
+
+  /**
+   * Publish the bivariate summary (Pearson r + two-sided p, Spearman ρ,
+   * OLS slope ± 95% CI, n) to the science strip. Suppressed below n = 3,
+   * where no published statistic is defined.
+   */
+  private publishStats() {
+    if (this.rows.length < 3) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
+    const xs = this.rows.map((r) => r.x);
+    const ys = this.rows.map((r) => r.y);
+    const metrics: ScienceMetric[] = [];
+    const zh = isZh(this.api);
+    const pr = pearson(xs, ys);
+    if (pr) {
+      metrics.push({
+        key: 'r',
+        label: 'r',
+        value: fmtMetric(pr.r),
+        severity: 'info',
+        hint: bi(this.api, 'Pearson correlation of (x, y).', 'x 与 y 的 Pearson 相关系数。'),
+      });
+      metrics.push({
+        key: 'p_r',
+        label: 'p(r)',
+        value: fmtP(pr.p),
+        severity: 'info',
+        hint: bi(this.api, 'Two-sided p for r ≠ 0 (t approximation, df = n−2).', 'r ≠ 0 的双侧 p 值（t 分布近似，df = n−2）。'),
+      });
+    }
+    const sp = spearman(xs, ys);
+    if (sp) {
+      metrics.push({
+        key: 'rho',
+        label: 'ρ',
+        value: fmtMetric(sp.r),
+        severity: 'info',
+        hint: bi(this.api, 'Spearman rank correlation (monotonic association).', 'Spearman 秩相关系数（单调关联）。'),
+      });
+    }
+    const fit = ols(xs, ys);
+    if (fit) {
+      const half = (fit.ci95[1]! - fit.ci95[0]!) / 2;
+      metrics.push({
+        key: 'slope',
+        label: 'slope',
+        value: pm(fit.slope, half),
+        severity: 'info',
+        hint: zh ? 'OLS 斜率 ± 95% 置信区间半宽（t 分布，df = n−2）。' : 'OLS slope ± half of the 95% CI (t, df = n−2).',
+      });
+    }
+    metrics.push({ key: 'n', label: 'n', value: String(this.rows.length), severity: 'info' });
+    setScienceOutputs(this.manifest.id, metrics);
   }
 
   /** Parse delimited numeric columns: x y [c]. */
   private parse(text: string): Row[] {
     return parseScatter(text);
-  }
-
-  private exportPng() {
-    if (!this.state.hasData || this.rows.length === 0) {
-      notify(this.api, 'warning', 'No data to export yet.', '暂无可导出的数据。');
-      return;
-    }
-    exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'scatter');
-  }
-
-  private exportCsv() {
-    const hasColor = this.rows.some((r) => r.c !== undefined);
-    const header = hasColor ? ['x', 'y', 'color'] : ['x', 'y'];
-    const rows = this.rows.map((r) =>
-      hasColor ? [r.x, r.y, r.c ?? ''] : [r.x, r.y],
-    );
-    exportRowsCsv(this.api, 'scatter', header, rows);
   }
 
   private draw() {
@@ -173,6 +213,7 @@ export class ScatterPlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!this.state.hasData || this.rows.length === 0) {
+      clearScienceOutputs(this.manifest.id);
       this.drawEmpty(g, canvas);
       return;
     }

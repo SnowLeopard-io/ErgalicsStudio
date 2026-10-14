@@ -21,6 +21,16 @@ export const aqiManifest: PluginManifest = {
   license: 'MIT',
   entry: 'example.env-aqi',
   category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    units: { concentration: 'µg/m³', co: 'mg/m³', aqi: 'index' },
+    reproducible: true,
+    notes: 'Statistics and trend tests run on the loaded sheet; the MK S statistic is reported without a significance claim and the trend assumes regular sampling.',
+    notesI18n: {
+      'zh-CN': '统计与趋势检验基于载入的监测表；MK 统计量未做显著性判定，趋势解释假设样本等间隔。',
+      'en-US': 'Statistics and trend tests run on the loaded sheet; MK S is reported without a significance claim and the trend assumes regular sampling.',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'so2,no2,pm25,pm10,co,o3 rows' },
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'so2,no2,pm25,pm10,co,o3 rows' },

@@ -1,0 +1,14 @@
+{
+  "name": "Pristine dark sky (Mauna Kea, Bortle 1)",
+  "hourUTC": 17.5,
+  "latitude": 19.8,
+  "longitude": -155.5,
+  "starDensity": 1.2,
+  "bortle": 1,
+  "seeing": 0.25,
+  "mwBrightness": 1.2,
+  "meteorRate": 1.5,
+  "exposure": 1.3,
+  "autoRotate": true,
+  "autoOrbit": false
+}

@@ -166,6 +166,10 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
+    // setSize 会清空 WebGL 绘图缓冲。ResizeObserver 回调在本帧 rAF 渲染
+    // 之后、绘制上屏之前执行：若不在此处立即补渲一帧，被清空的缓冲会以
+    // 空白画面上屏一帧——拖拽面板边缘改尺寸时表现为持续闪动。
+    renderFrame();
   };
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(container);

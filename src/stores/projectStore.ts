@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { FileEntry, Project } from '@/types/project';
 import {
   createEmptyProject,
+  DEFAULT_PROJECT_NAME,
   deserializeProject,
   serializeProject,
   touchProject,
@@ -28,6 +29,16 @@ import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
 import { t } from '@/i18n';
+import { getGitAdapter } from '@/core/git';
+import { assertValidGitRef } from '@/core/git/refname';
+import { commitWorkingTree, generateCommitMessage } from '@/core/git/autoCommit';
+import type { AutoCommitType } from '@/core/git/autoCommit';
+import type { GitStatus, GitCommit, GitBranch, DiffResult } from '@/core/git/types';
+import { getVfs, seedStandardSkeleton, safeVfsRelPath } from '@/core/vfs';
+import type { RunRecord } from '@/core/experiment/record';
+
+// Re-exported for existing consumers (GitPanel).
+export { generateCommitMessage };
 
 export type ProjectStatus =
   | 'ready'
@@ -37,6 +48,14 @@ export type ProjectStatus =
   | 'loading'
   | 'error';
 
+export interface GitRepoInfo {
+  isRepo: boolean;
+  status: GitStatus | null;
+  branches: GitBranch[];
+  currentBranch: string;
+  remotes: string[];
+}
+
 interface ProjectStore {
   project: Project | null;
   recent: Project[];
@@ -44,10 +63,23 @@ interface ProjectStore {
   status: ProjectStatus;
   statusText: string | null;
 
+  // Git integration
+  gitRepo: GitRepoInfo | null;
+  gitCommits: GitCommit[];
+  gitLoading: boolean;
+
   createProject: (name: string) => Promise<Project>;
   openProject: (id: string) => Promise<void>;
   loadProjectFromText: (raw: string) => Promise<Project>;
-  save: () => Promise<void>;
+  /** Import a folder picked by the user (webkitdirectory input) as a project:
+   *  a folder containing `project.clproj` imports as a native project with
+   *  its runtime state, any other folder becomes a fresh project named after
+   *  the folder. All files are mirrored into the git working tree. */
+  importFolder: (files: File[]) => Promise<Project>;
+  /** Persist the project. `opts.gitCommit` (manual Ctrl+S) additionally
+   *  auto-commits §3.4-style (`save: <name>`); plain save() (autosave,
+   *  debounced flush) only mirrors the snapshot into the working tree. */
+  save: (opts?: { gitCommit?: boolean }) => Promise<void>;
   saveAs: (fileName?: string) => Promise<void>;
   openFromFile: (file: File) => Promise<Project>;
   rename: (name: string) => void;
@@ -66,6 +98,37 @@ interface ProjectStore {
   addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
+
+  // Git operations
+  initGitRepo: (template?: 'standard' | 'minimal') => Promise<void>;
+  refreshGitStatus: () => Promise<void>;
+  /** §3.4 auto-commit for store-level triggers (figure saved, supplement
+   *  exported, …): mirrors the project into the working tree, then commits
+   *  only when something actually changed. Never throws. */
+  autoCommit: (type: AutoCommitType, details: string) => Promise<void>;
+  /** §3.4 auto-commit on run completion: mirrors the run record into
+   *  `runs/run-<id>.json` + `runs/index.json` (§3.1) and commits it. */
+  autoCommitRun: (run: RunRecord) => Promise<void>;
+  gitAdd: (files: string[]) => Promise<void>;
+  gitCommit: (message: string) => Promise<string>;
+  gitCheckout: (ref: string, create?: boolean) => Promise<void>;
+  gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
+  gitMerge: (branch: string) => Promise<void>;
+  gitPush: (remote: string, branch: string, setUpstream?: boolean) => Promise<void>;
+  gitPull: (remote: string, branch: string) => Promise<void>;
+  gitFetch: (remote: string) => Promise<void>;
+  gitAddRemote: (name: string, url: string) => Promise<void>;
+  /** Clone a remote repo and open it as the active project (US-04:
+   *  "File → Open from Git URL"). `targetPath` defaults to a fresh
+   *  per-project repo path. */
+  gitClone: (
+    url: string,
+    targetPath?: string,
+    branch?: string,
+    onProgress?: (phase: string, loaded: number, total: number) => void,
+  ) => Promise<Project>;
+  loadGitLog: (limit?: number) => Promise<void>;
+  getGitDiff: (filePath?: string, staged?: boolean) => Promise<DiffResult[] | undefined>;
 }
 
 let autosaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -77,6 +140,10 @@ let autosaveTimer: ReturnType<typeof setInterval> | null = null;
  * ended up on. Every new open/create/import bumps this token.
  */
 let openSeq = 0;
+
+// Last-writer-wins token for git-log loads: a slow response from an earlier
+// load (or a previous project) must not overwrite a newer one's results.
+let gitLogSeq = 0;
 
 // An active session changes only when a project is installed or removed.
 // Unlike an id, it also distinguishes closing and reopening the same project.
@@ -160,6 +227,9 @@ function restoreEditor(state: {
 function applyOpenedProject(project: Project): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
+  // Canvas tabs (previews + editor buffers) hold paths of the previous
+  // project's repo — a fresh project must not show or edit them.
+  useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
   syncProjectFiles(project);
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
@@ -194,6 +264,72 @@ function scheduleDirtyFlush() {
   }, DIRTY_FLUSH_DELAY_MS);
 }
 
+export function getProjectRepoPath(project: Project): string {
+  // LightningFS resolves paths against its own "/" root: a RELATIVE repo path
+  // makes isomorphic-git's internal dirname('x') → '.', which CacheFS cannot
+  // look up ("ENOENT: ." — every git op died silently until now). Always
+  // hand the adapter an absolute path.
+  return `/ergalics-projects/${project.id}`;
+}
+
+async function initGitForProject(project: Project, template: 'standard' | 'minimal' = 'standard'): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const isRepo = await adapter.isRepo(repoPath);
+  if (!isRepo) {
+    await adapter.init(repoPath, template);
+  }
+  await syncProjectSnapshot(project);
+  await refreshGitStatusForProject(project);
+}
+
+async function refreshGitStatusForProject(project: Project): Promise<void> {
+  const repoPath = getProjectRepoPath(project);
+  const adapter = getGitAdapter();
+  const session = getProjectSession();
+  const isRepo = await adapter.isRepo(repoPath);
+  // The reads below outlive the call: if the user switched projects while
+  // they were in flight, a slow response must not clobber the new project's
+  // git panel with the old one's state.
+  if (getProjectSession() !== session) return;
+  if (!isRepo) {
+    useProjectStore.setState({ gitRepo: { isRepo: false, status: null, branches: [], currentBranch: '', remotes: [] } });
+    return;
+  }
+  const [status, branches, remotes] = await Promise.all([
+    adapter.status(repoPath),
+    adapter.branches(repoPath),
+    adapter.remotes(repoPath),
+  ]);
+  if (getProjectSession() !== session) return;
+  useProjectStore.setState({
+    gitRepo: {
+      isRepo: true,
+      status,
+      branches,
+      currentBranch: status.currentBranch,
+      remotes: remotes.map(r => r.name),
+    },
+  });
+}
+
+/** Build a Conventional-Commit subject (§3.4). Implementation lives in
+ *  `@/core/git/autoCommit` (pure, unit-testable); re-exported above. */
+
+/**
+ * Mirror the current project snapshot into the workspace tree
+ * (`project.clproj`) so the file explorer / supplement packager see the
+ * durable project file. Git-independent: this is a plain workspace write.
+ * Best-effort: failures never block the normal IndexedDB save path.
+ */
+async function syncProjectSnapshot(project: Project): Promise<void> {
+  try {
+    await getVfs().writeFile(getProjectRepoPath(project), 'project.clproj', serializeProject(project));
+  } catch (err) {
+    logger.warn('project', 'workspace snapshot sync failed', err);
+  }
+}
+
 /** Best-effort immediate save when the page is about to go away. IndexedDB
  *  commits usually survive pagehide; together with the debounced flush this
  *  closes the refresh window that lost recent edits. */
@@ -212,6 +348,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   dirty: false,
   status: 'ready',
   statusText: null,
+  gitRepo: null,
+  gitCommits: [],
+  gitLoading: false,
 
   createProject: async (name) => {
     const seq = ++openSeq;
@@ -223,12 +362,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
     useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+    useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
     set({ project, dirty: false, status: 'ready', statusText: null });
     syncProjectFiles(project);
     ensureAutosave();
     await get().loadRecent();
+    // Seed the §3.1 workspace skeleton (git-free): the file explorer and the
+    // supplement packager work on the plain tree; version control is opt-in
+    // via the Git panel.
+    void seedStandardSkeleton(getVfs(), getProjectRepoPath(project))
+      .then(() => {
+        void syncProjectSnapshot(project);
+        if (seq === openSeq) useAppStore.getState().bumpFileOps();
+      })
+      .catch((err) => logger.warn('project', 'workspace skeleton seed failed', err));
     return project;
   },
 
@@ -243,7 +392,81 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   loadProjectFromText: (raw) => importProjectText(raw, ++openSeq),
 
-  save: async () => {
+  /** Import a user-picked folder as a project (see interface doc). */
+  importFolder: async (files) => {
+    const seq = ++openSeq;
+    const relOf = (f: File) =>
+      (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name || '';
+    // Project name = picked folder's name (first path segment).
+    let rootName = '';
+    for (const f of files) {
+      const parts = relOf(f).split('/');
+      const root = parts[0];
+      if (root && parts.length > 1) {
+        rootName = root;
+        break;
+      }
+    }
+    // Flatten to project-relative paths; skip .git internals and the project
+    // JSON itself (imported separately below). Every relative path is run
+    // through the VFS path guard: a caller-supplied File whose
+    // webkitRelativePath carries `..` must never escape the project root.
+    const entries: Array<{ path: string; file: File }> = [];
+    let clproj: File | null = null;
+    for (const f of files) {
+      const parts = relOf(f).split('/');
+      if (parts.some((p) => p.toLowerCase() === '.git')) continue;
+      const inner = rootName && parts[0] === rootName ? parts.slice(1).join('/') : parts.join('/');
+      if (!inner) continue;
+      let rel: string;
+      try {
+        rel = safeVfsRelPath(inner, 'imported file path');
+      } catch {
+        logger.warn('project', `folder import: refused unsafe path ${JSON.stringify(inner)}`);
+        continue;
+      }
+      if (parts.length <= 2 && parts[parts.length - 1] === 'project.clproj') {
+        clproj = f;
+        continue;
+      }
+      entries.push({ path: rel, file: f });
+    }
+
+    // A folder carrying project.clproj is a native project: its JSON carries
+    // the runtime state (block graph, editor sessions…). Any other folder
+    // simply becomes a fresh project named after the folder.
+    const project = clproj
+      ? deserializeProject(await clproj.text())
+      : createEmptyProject(rootName || 'Imported project');
+    await saveProject(project);
+    if (seq !== openSeq) return project;
+
+    // Mirror every file into the workspace tree, then activate the project
+    // IMMEDIATELY — the user sees the imported tree right away. The tree is
+    // the file explorer's data source and needs no git at all.
+    let failed = 0;
+    for (const { path, file } of entries) {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        await getVfs().writeFileBinary(getProjectRepoPath(project), path, bytes);
+      } catch (err) {
+        failed += 1;
+        logger.warn('project', `folder import: failed to write ${path}`, err);
+      }
+    }
+    if (seq !== openSeq) return project;
+
+    useAppStore.getState().setMode('standard');
+    applyOpenedProject(project);
+    void syncProjectSnapshot(project);
+    useAppStore.getState().bumpFileOps();
+    if (failed > 0) {
+      useAppStore.getState().notify('error', t('project.import_partial', { count: String(failed) }));
+    }
+    return project;
+  },
+
+  save: async (opts) => {
     const { project, status } = get();
     if (!project || status === 'saving') return;
     const session = projectSession;
@@ -273,6 +496,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // Let plugins persist their own state alongside the project now that
       // the project itself is durably stored.
       usePluginStore.getState().notifyProjectLifecycle('save');
+      // Mirror the snapshot into the workspace tree (fire-and-forget) so the
+      // file explorer / supplement packager see project.clproj right after
+      // any save. A manual save (Ctrl+S, opts.gitCommit) additionally commits
+      // §3.4-style when the user has opted into version control; autosave /
+      // debounced flush never commit.
+      void syncProjectSnapshot(touched).then(() => {
+        if (opts?.gitCommit) {
+          void get().autoCommit('save', touched.name || touched.id);
+        }
+      });
     } catch (err) {
       logger.error('project', 'save failed', err);
       if (isCurrentSession(session, project.id)) set({ status: 'error' });
@@ -338,6 +571,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // canvas/editor never keep showing the deleted project's content.
       useBlockStore.getState().clear();
       useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
+      useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
       void usePluginStore.getState().deactivate();
     }
   },
@@ -462,6 +696,226 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // reach, so the bytes would stay parked in storage forever.
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
+  },
+
+  // Git operations
+  initGitRepo: async (template = 'standard') => {
+    const { project } = get();
+    if (!project) return;
+    await initGitForProject(project, template);
+  },
+
+  refreshGitStatus: async () => {
+    const { project } = get();
+    if (!project) return;
+    await refreshGitStatusForProject(project);
+  },
+
+  autoCommit: async (type, details) => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      if (!(await adapter.isRepo(repoPath))) return;
+      // Capture the live project state before diffing so the commit carries
+      // the change that triggered it, not just the last durable snapshot.
+      await syncProjectSnapshot(project);
+      const hash = await commitWorkingTree(adapter, repoPath, generateCommitMessage(type, details), () =>
+        refreshGitStatusForProject(project),
+      );
+      if (hash) void get().loadGitLog();
+    } catch (err) {
+      // §3.4 is best-effort: an auto-commit failure must never break the
+      // feature that triggered it (the run/figure/export already succeeded).
+      logger.warn('project', `auto-commit (${type}) failed`, err);
+    }
+  },
+
+  autoCommitRun: async (run) => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      // §3.1: every run becomes runs/run-<id>.json plus an index entry
+      // (runId → {label, source, createdAt, hash}). Git-independent: the run
+      // record is a workspace artifact the explorer/packager must always see.
+      const vfs = getVfs();
+      const rootPath = getProjectRepoPath(project);
+      await vfs.writeFile(rootPath, `runs/${run.id}.json`, JSON.stringify(run, null, 2));
+      let index: Record<string, unknown> = {};
+      try {
+        index = JSON.parse(await vfs.readFile(rootPath, 'runs/index.json')) as Record<string, unknown>;
+      } catch {
+        // First run — start a fresh index.
+      }
+      index[run.id] = {
+        label: run.label,
+        source: run.source,
+        createdAt: run.createdAt,
+        hash: run.inputsHash ?? null,
+      };
+      await vfs.writeFile(rootPath, 'runs/index.json', JSON.stringify(index, null, 2));
+      useAppStore.getState().bumpFileOps();
+      // Commit only when the user opted into version control (autoCommit
+      // no-ops without a repo).
+      await get().autoCommit('run', `${run.label ?? run.source} (source=${run.source})`);
+    } catch (err) {
+      logger.warn('project', 'run artifact persist failed', err);
+    }
+  },
+
+  gitAdd: async (files: string[]) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.add(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCommit: async (message: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    // Capture the live project state, not whatever the last save left.
+    await syncProjectSnapshot(project);
+    const hash = await adapter.commit(repoPath, message);
+    await refreshGitStatusForProject(project);
+    await get().loadGitLog();
+    return hash;
+  },
+
+  gitCheckout: async (ref: string, create = false) => {
+    assertValidGitRef(ref, 'branch/ref');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.checkout(repoPath, ref, create);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitCreateBranch: async (name: string, startPoint?: string) => {
+    assertValidGitRef(name, 'branch');
+    if (startPoint !== undefined) assertValidGitRef(startPoint, 'start point');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.branch(repoPath, name, startPoint);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitMerge: async (branch: string) => {
+    assertValidGitRef(branch, 'branch');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const result = await adapter.merge(repoPath, branch);
+    if (!result.success && result.conflicts && result.conflicts.length > 0) {
+      throw new Error(`Merge conflicts in: ${result.conflicts.join(', ')}`);
+    }
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPush: async (remote: string, branch: string, setUpstream = false) => {
+    assertValidGitRef(branch, 'branch');
+    assertValidGitRef(remote, 'remote');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.push(repoPath, { remote, branch, setUpstream });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitPull: async (remote: string, branch: string) => {
+    assertValidGitRef(branch, 'branch');
+    assertValidGitRef(remote, 'remote');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.pull(repoPath, { remote, branch });
+    await refreshGitStatusForProject(project);
+  },
+
+  gitFetch: async (remote: string) => {
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.fetch(repoPath, remote);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitAddRemote: async (name: string, url: string) => {
+    assertValidGitRef(name, 'remote');
+    const { project } = get();
+    if (!project) throw new Error('No project open');
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.addRemote(repoPath, name, url);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitClone: async (url, targetPath, branch, onProgress) => {
+    if (branch !== undefined) assertValidGitRef(branch, 'branch');
+    const adapter = getGitAdapter();
+    // Clone into a fresh per-project repo path (US-04: one click, then the
+    // cloned project opens directly in the workbench).
+    const seed = createEmptyProject('Cloned Project');
+    const repoPath = targetPath || getProjectRepoPath(seed);
+    await adapter.clone(url, repoPath, { branch, onProgress });
+
+    // A git-backed project must carry a project.clproj at its root (§3.1).
+    const raw = await adapter.readFile(repoPath, 'project.clproj');
+    const project = deserializeProject(raw);
+    // Detach from the source project's identity: this installation owns its
+    // own IndexedDB record and repo path.
+    project.id = seed.id;
+    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = 'Cloned Project';
+
+    const seq = ++openSeq;
+    await saveProject(project);
+    if (seq !== openSeq) return project;
+    applyOpenedProject(project);
+    await refreshGitStatusForProject(project);
+    return project;
+  },
+
+  loadGitLog: async (limit = 50) => {
+    const seq = ++gitLogSeq;
+    const { project } = get();
+    if (!project) {
+      set({ gitCommits: [], gitLoading: false });
+      return;
+    }
+    set({ gitLoading: true });
+    try {
+      const adapter = getGitAdapter();
+      const repoPath = getProjectRepoPath(project);
+      const commits = await adapter.log(repoPath, { limit });
+      // A newer load (this or another project) supersedes this response.
+      if (seq !== gitLogSeq) return;
+      set({ gitCommits: commits, gitLoading: false });
+    } catch {
+      if (seq !== gitLogSeq) return;
+      set({ gitCommits: [], gitLoading: false });
+    }
+  },
+
+  getGitDiff: async (filePath?: string, staged = false) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    const diffs = await adapter.diff(repoPath, { filePath, staged });
+    // Store diffs in state if needed
+    // For now, just return them
+    return diffs;
   },
 }));
 

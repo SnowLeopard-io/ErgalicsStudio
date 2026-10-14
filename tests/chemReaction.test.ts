@@ -173,7 +173,9 @@ describe('chem-reaction plugin', () => {
     const plugin = new ChemReactionPlugin();
     await plugin.init(fakeApi());
     const keys = plugin.getParams().map((d) => d.key);
-    expect(keys).toEqual(expect.arrayContaining(['reaction', 'temperature', 'catalyst', 'run', 'fitView', 'reset', 'reloadPlugin', 'exportPng', 'sendToFigure']));
+    // Plugin-level PNG export was removed; PNG is handled by the canvas menu.
+    expect(keys).toEqual(expect.arrayContaining(['reaction', 'temperature', 'catalyst', 'run', 'fitView', 'reset', 'reloadPlugin', 'sendToFigure']));
+    expect(keys).not.toContain('exportPng');
   });
 
   it('switches reaction and renders without a three handle safely', async () => {

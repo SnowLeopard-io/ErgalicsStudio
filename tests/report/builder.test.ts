@@ -2,6 +2,8 @@
 // F8 Report Builder — spec → self-contained HTML, escaping, filters
 // ==========================================================================
 
+// @vitest-environment jsdom
+
 import { describe, it, expect } from 'vitest';
 import {
   buildReport,
@@ -41,7 +43,10 @@ describe('F8 buildReport basics', () => {
   it('returns UTF-8 HTML bytes with the title and project name', async () => {
     const project = makeProject();
     const bytes = await buildReport(project, spec({ sections: [{ type: 'heading', text: 'Intro' }] }));
-    expect(bytes).toBeInstanceOf(Uint8Array);
+    // ArrayBuffer.isView instead of toBeInstanceOf: in the jsdom environment
+    // TextEncoder's output comes from the node realm, whose Uint8Array is a
+    // different constructor than the jsdom global this file runs with.
+    expect(ArrayBuffer.isView(bytes)).toBe(true);
     const html = new TextDecoder().decode(bytes);
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).toContain('<title>Q3 Results</title>');
@@ -63,10 +68,11 @@ describe('F8 buildReport basics', () => {
     const html = await buildReportHtml(makeProject(), spec({
       sections: [{ type: 'markdown', text: payload }],
     }));
-    expect(html).not.toContain('<img src=x onerror');
+    // DOMPurify sanitizes instead of blanket-escaping: the event handler and
+    // the script element are removed, so nothing executable remains.
+    expect(html).not.toContain('onerror');
     expect(html).not.toContain('<script>alert(2)');
-    expect(html).toContain('&lt;img');
-    expect(html).toContain('onerror=&quot;alert(1)&quot;');
+    expect(html).toContain('<img src=');
   });
 });
 

@@ -309,12 +309,42 @@
 /* ---- result preview ---- */
 
 .block-preview {
+  position: relative;
   height: 220px;
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
+}
+
+/* Vertical resize grip along the panel's top edge (drag to resize the
+   preview; double-click resets). Sits inside the panel so it never blocks
+   node dragging on the canvas above. */
+.block-preview-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  z-index: 6;
+  cursor: row-resize;
+}
+
+.block-preview-resize::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.block-preview-resize:hover::after,
+.block-preview-resize:active::after {
+  background: var(--color-accent);
 }
 
 .block-preview-title {
@@ -330,6 +360,9 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  /* Clip oversized plugin output (fixed-size SVG figures, plugin DOM) so it
+     can never bleed out of the preview panel over the status bar. */
+  overflow: hidden;
 }
 
 .block-preview-dom {
@@ -343,6 +376,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  /* The backing store is baked at draw time; while the panel is being
+     resized, letterbox the stale frame instead of stretching it (including
+     the on-plot caption) until the debounced re-render kicks in. */
+  object-fit: contain;
 }
 
 .block-preview-empty {
@@ -353,6 +390,59 @@
   justify-content: center;
   color: var(--color-text-tertiary);
   font-size: var(--font-size-sm);
+}
+
+/* SVG plot payloads (white-background figures) — scale to fit the preview
+   panel instead of rendering at their intrinsic size. The export actions
+   float top-right so they never consume panel height. */
+.block-preview-svg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+}
+
+.block-preview-svg-canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.block-preview-svg-canvas svg {
+  /* Fill the box and let viewBox (+ default xMidYMid meet) do the uniform
+     scaling — width/height:auto with percentage max-* resolves unreliably
+     on inline SVG in flex layouts and stretched captions when resizing. */
+  width: 100%;
+  height: 100%;
+}
+
+.block-preview-svg-actions {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.block-preview-svg-actions button {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.block-preview-svg-actions button:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
 }
 
 .block-preview-chips {
@@ -670,7 +760,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 10px;
+  font-size: 11px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 5px;
 }
@@ -942,7 +1032,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1017,7 +1107,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   border-radius: 999px;
   background: var(--color-accent-soft);
@@ -1192,7 +1282,7 @@
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1247,7 +1337,7 @@
   padding: 5px 12px;
   border-radius: 999px;
   background: var(--color-bg-tertiary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .be-status-pill.is-loading .be-status-dot {
@@ -1515,7 +1605,7 @@
 
 .flow-legend-title {
   margin-bottom: 6px;
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1581,7 +1671,7 @@
 
 .ai-mode-pill {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 2px 8px;
@@ -1619,7 +1709,7 @@
 .ai-policy-note {
   margin: 0;
   color: var(--color-text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -1718,7 +1808,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-secondary);
 }
 
@@ -1797,7 +1887,7 @@
 }
 
 .ai-draft-label {
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1833,7 +1923,7 @@
 }
 
 .ai-advice-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;

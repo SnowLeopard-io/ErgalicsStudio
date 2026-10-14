@@ -42,23 +42,15 @@ COPY_SRC` (writable from JS and copyable out) rather than `MAP_READ` —
 
 These quirks cost real time when working on the crate — write them down:
 
-- The GPU APIs require the unstable feature gate:
-  `--cfg=web_sys_unstable_apis` (already set in `native/.cargo/config.toml`).
-- web-sys 0.3 methods are **receiver-style free functions**:
-  `GpuDevice::create_compute_pipeline(&device, &desc)`.
-- Dictionary types use static setters:
-  `GpuBindGroupLayoutEntry::set_buffer(&entry, &layout)`.
-- Descriptor constructors take slices, not JS arrays:
-  `GpuBindGroupLayoutDescriptor::new(&entries)`.
-- wasm-bindgen parameters cannot be `Option<&T>`; use owned values
-  (`bind_group: GpuBindGroup`).
-- **`Vec<T>` of wasm-bindgen classes is destructive**: passing `Vec<GpuBuffer>`
-  into a method transfers ownership and `__destroy_into_raw()`s each JS
-  wrapper, so a second call with the same buffers throws "array contains a
-  value of the wrong type". Methods that run repeatedly must take references or
-  `&js_sys::Array` and cast elements with `dyn_ref` (e.g. `run`/`bind_group`
-  take an array of raw `GPUBuffer`s).
-- `GpuProgrammableStage::entry_point` is deprecated — use `set_entry_point`.
+| Quirk | Convention |
+| --- | --- |
+| Unstable feature gate | The GPU APIs require `--cfg=web_sys_unstable_apis` (already set in `native/.cargo/config.toml`). |
+| Receiver-style free functions | web-sys 0.3 methods: `GpuDevice::create_compute_pipeline(&device, &desc)`. |
+| Dictionary types use static setters | `GpuBindGroupLayoutEntry::set_buffer(&entry, &layout)`. |
+| Descriptor constructors take slices, not JS arrays | `GpuBindGroupLayoutDescriptor::new(&entries)`. |
+| No `Option<&T>` parameters | wasm-bindgen parameters cannot be `Option<&T>`; use owned values (`bind_group: GpuBindGroup`). |
+| **`Vec<T>` of wasm-bindgen classes is destructive** | Passing `Vec<GpuBuffer>` into a method transfers ownership and `__destroy_into_raw()`s each JS wrapper, so a second call with the same buffers throws "array contains a value of the wrong type". Methods that run repeatedly must take references or `&js_sys::Array` and cast elements with `dyn_ref` (e.g. `run`/`bind_group` take an array of raw `GPUBuffer`s). |
+| Deprecated entry point | `GpuProgrammableStage::entry_point` is deprecated — use `set_entry_point`. |
 
 ## Rebuilding
 
@@ -89,11 +81,11 @@ through the **Rust/WASM core** (`GpuBuffer` + `ComputeKernel`) when the
 module is loaded, otherwise through the **raw WebGPU API** (dev mode). Both
 paths expose the same primitives:
 
-- `createBuffer(size, usage, label)` → upload via `write(data, offset)`,
-  read back via `read()`;
-- `compileKernel({ wgsl, workgroupSize, bindings, ... })` → WGSL kernel
-  handle with `compilationInfo()` diagnostics;
-- `run(kernel, buffers, x, y, z)` → bind group + dispatch + submit.
+| Primitive | Behavior |
+| --- | --- |
+| `createBuffer(size, usage, label)` | Upload via `write(data, offset)`, read back via `read()`. |
+| `compileKernel({ wgsl, workgroupSize, bindings, ... })` | WGSL kernel handle with `compilationInfo()` diagnostics. |
+| `run(kernel, buffers, x, y, z)` | Bind group + dispatch + submit. |
 
 Plugins reach it as `api.gpu` and must check `available` — when WebGPU is
 absent, `api.gpu` is `undefined` and plugins fall back to CPU. Reusable WGSL

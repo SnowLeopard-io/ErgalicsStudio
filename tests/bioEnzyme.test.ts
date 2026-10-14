@@ -3,6 +3,7 @@ import {
   apparentParams,
   fitMichaelisMenten,
   initialRate,
+  literatureKmConsistency,
   parseRateData,
   reportFit,
   synthesizeRates,
@@ -111,5 +112,46 @@ substrate,v0
     expect(parseRateData('0,5\n-1,3\n2,4')).toEqual([{ s: 2, v: 4 }]);
     expect(parseRateData('')).toEqual([]);
     expect(parseRateData('   ')).toEqual([]);
+  });
+});
+
+describe('bio-enzyme literature Km consistency', () => {
+  // Km values are in mmol/L (matching the manifest concentration unit and the
+  // plugin's default/slider magnitudes). See LITERATURE_KM table in kinetics.ts.
+
+  it('treats the default Km = 8 (mmol/L) as within the Chymotrypsin range', () => {
+    // Chymotrypsin range is 0.5–10 mmol/L; 8 mmol/L must be a direct hit,
+    // not a spurious "≈ Catalase" from a mol/L → mmol/L ×1000 mistake.
+    const r = literatureKmConsistency(8);
+    expect(r.within?.enzyme).toBe('Chymotrypsin (N-AcGly-OEt)');
+    expect(r.near?.enzyme).toBe('Chymotrypsin (N-AcGly-OEt)');
+  });
+
+  it('hits `within` for a value inside a literature range', () => {
+    // Carbonic anhydrase (CO2): 2–30 mmol/L
+    const r = literatureKmConsistency(20);
+    expect(r.within?.enzyme).toBe('Carbonic anhydrase (CO2)');
+    expect(r.near?.enzyme).toBe('Carbonic anhydrase (CO2)');
+  });
+
+  it('hits `near` (same order of magnitude) when just outside a range', () => {
+    // 250 mmol/L is outside every range but within 10× of Carbonic anhydrase
+    // (2–30 → 0.2–300). `within` must be null, `near` must be set.
+    const r = literatureKmConsistency(250);
+    expect(r.within).toBeNull();
+    expect(r.near?.enzyme).toBe('Carbonic anhydrase (CO2)');
+  });
+
+  it('returns null for values outside the table (beyond one order of magnitude)', () => {
+    // 50000 mmol/L is beyond any 10× band; 0.0001 mmol/L is far below.
+    expect(literatureKmConsistency(50000)).toEqual({ within: null, near: null });
+    expect(literatureKmConsistency(0.0001)).toEqual({ within: null, near: null });
+  });
+
+  it('returns null for non-positive / non-finite Km', () => {
+    expect(literatureKmConsistency(0)).toEqual({ within: null, near: null });
+    expect(literatureKmConsistency(-5)).toEqual({ within: null, near: null });
+    expect(literatureKmConsistency(Number.NaN)).toEqual({ within: null, near: null });
+    expect(literatureKmConsistency(Number.POSITIVE_INFINITY)).toEqual({ within: null, near: null });
   });
 });

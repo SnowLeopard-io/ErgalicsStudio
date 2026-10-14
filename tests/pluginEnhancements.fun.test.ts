@@ -1,10 +1,13 @@
 // ==========================================================================
 // Functional tests for the builtin "fun" plugin enhancements:
-//   - per-plugin Export PNG buttons (snapshot of the canvas 2D surface)
 //   - randomize / reset / clear action buttons
 //   - palette CSV / CSS export
 //   - Game of Life pattern select (random / glider / blinker / beacon)
 //   - Truchet tile-type select (random / diagonal / curve)
+//
+// Plugin-level PNG snapshot export was removed from every plugin: the
+// canvas-level unified export menu handles PNG now, so no plugin declares
+// an exportPng button.
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
@@ -18,7 +21,7 @@ import { KochPlugin } from '@/plugins/builtin/koch';
 import { BarnsleyPlugin } from '@/plugins/builtin/barnsley';
 import { FireworksPlugin } from '@/plugins/builtin/fireworks';
 import { TruchetPlugin } from '@/plugins/builtin/truchet';
-import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import type { ContainerCapabilities, ParamDefinition, PluginApi } from '@/types/plugin';
 
 // Animation loops schedule frames; node has no rAF / DOM.
 beforeAll(() => {
@@ -60,8 +63,8 @@ function fakeApi() {
   return { api, exportFile, notify };
 }
 
-/** Fake 160x120 canvas: width/height start at 0, the 2D context is a full
- *  no-op proxy, and toDataURL returns a valid (tiny) PNG data URL. */
+/** Fake 160x120 canvas: width/height start at 0 and the 2D context is a
+ *  full no-op proxy. */
 function fakeCanvas() {
   const ctx2d = new Proxy({}, { get: () => () => {}, set: () => true });
   return {
@@ -70,7 +73,6 @@ function fakeCanvas() {
     width: 0,
     height: 0,
     getContext: () => ctx2d,
-    toDataURL: () => 'data:image/png;base64,iVBORw0KGgo=',
   } as unknown as HTMLCanvasElement;
 }
 
@@ -88,41 +90,20 @@ function paramOf(defs: ParamDefinition[], key: string): ParamDefinition {
   return def;
 }
 
-/** Activate the plugin on a fake canvas, force one redraw, then click the
- *  Export PNG button and return the recorded exportFile calls. */
-async function pngExportRoundTrip(
-  plugin: Plugin,
-  forceRedraw: (p: Plugin, container: ContainerCapabilities) => void,
-) {
-  const { api, exportFile } = fakeApi();
-  await plugin.init(api);
-  const canvas = fakeCanvas();
-  const container = containerOf(canvas);
-  await plugin.activate?.({ container, api });
-  forceRedraw(plugin, container);
-  plugin.updateParams?.({ exportPng: true });
-  return exportFile;
-}
-
 // ---- mandelbrot -----------------------------------------------------------
 
 describe('mandelbrot enhancement', () => {
-  it('exposes exportPng and resetZoom buttons with bilingual labels', async () => {
+  it('exposes the resetView button with bilingual labels (no plugin-level PNG export)', async () => {
     const plugin = new MandelbrotPlugin();
     await plugin.init(fakeApi().api);
-    const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    const defs = plugin.getParams();
+    const keys = paramKeys(defs);
+    // PNG export moved to the canvas-level unified export menu.
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('resetView')).toBe(true);
-    const exportBtn = paramOf(plugin.getParams(), 'exportPng');
-    expect(exportBtn.type).toBe('button');
-    expect(exportBtn.labelI18n).toMatchObject({ 'zh-CN': '导出 PNG', 'en-US': 'Export PNG' });
-  });
-
-  it('redraws then exports a PNG file', async () => {
-    const plugin = new MandelbrotPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(exportFile.mock.calls[0]![0]).toMatch(/\.png$/);
+    const resetBtn = paramOf(defs, 'resetView');
+    expect(resetBtn.type).toBe('button');
+    expect(resetBtn.labelI18n).toMatchObject({ 'zh-CN': '重置缩放', 'en-US': 'Reset Zoom' });
   });
 
   it('resetView restores zoom to 1', async () => {
@@ -140,19 +121,12 @@ describe('mandelbrot enhancement', () => {
 // ---- spirograph -----------------------------------------------------------
 
 describe('spirograph enhancement', () => {
-  it('exposes exportPng and randomize buttons', async () => {
+  it('exposes the randomize button', async () => {
     const plugin = new SpirographPlugin();
     await plugin.init(fakeApi().api);
     const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('randomize')).toBe(true);
-  });
-
-  it('exports a PNG after a redraw', async () => {
-    const plugin = new SpirographPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
   });
 
   it('randomizes the tunable curve parameters and redraws', async () => {
@@ -174,20 +148,12 @@ describe('spirograph enhancement', () => {
 // ---- lissajous ------------------------------------------------------------
 
 describe('lissajous enhancement', () => {
-  it('exposes exportPng and reset buttons', async () => {
+  it('exposes the reset button', async () => {
     const plugin = new LissajousPlugin();
     await plugin.init(fakeApi().api);
     const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('reset')).toBe(true);
-  });
-
-  it('exports a PNG after a redraw', async () => {
-    const plugin = new LissajousPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
-    await plugin.deactivate?.();
   });
 
   it('reset restores the default frequencies and phase', async () => {
@@ -209,15 +175,15 @@ describe('lissajous enhancement', () => {
 
 // ---- life -----------------------------------------------------------------
 
-describe('life pattern select and png export', () => {
-  it('exposes the pattern select, reseed and exportPng', async () => {
+describe('life pattern select', () => {
+  it('exposes the pattern select and reseed button', async () => {
     const plugin = new LifePlugin();
     await plugin.init(fakeApi().api);
     const defs = plugin.getParams();
     const keys = paramKeys(defs);
     expect(keys.has('pattern')).toBe(true);
     expect(keys.has('reseed')).toBe(true);
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     const pattern = paramOf(defs, 'pattern');
     expect(pattern.type).toBe('select');
     if (pattern.type !== 'select') throw new Error('pattern must be select');
@@ -258,40 +224,17 @@ describe('life pattern select and png export', () => {
       await plugin.deactivate?.();
     }
   });
-
-  it('exports a PNG after a step', async () => {
-    const plugin = new LifePlugin();
-    const { api, exportFile } = fakeApi();
-    await plugin.init(api);
-    const container = containerOf(fakeCanvas());
-    await plugin.activate({ container });
-    try {
-      plugin.render?.(container);
-      plugin.updateParams?.({ exportPng: true });
-      expect(exportFile).toHaveBeenCalledTimes(1);
-      expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
-    } finally {
-      await plugin.deactivate?.();
-    }
-  });
 });
 
 // ---- harmonograph ---------------------------------------------------------
 
 describe('harmonograph enhancement', () => {
-  it('exposes exportPng and randomize buttons', async () => {
+  it('exposes the randomize button', async () => {
     const plugin = new HarmonographPlugin();
     await plugin.init(fakeApi().api);
     const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('randomize')).toBe(true);
-  });
-
-  it('exports a PNG after a redraw', async () => {
-    const plugin = new HarmonographPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
   });
 
   it('randomizes frequencies, damping and color', async () => {
@@ -355,41 +298,27 @@ describe('palette CSV / CSS export', () => {
 // ---- koch -----------------------------------------------------------------
 
 describe('koch enhancement', () => {
-  it('exposes exportPng, keeps the depth range and adds no reset button', async () => {
+  it('keeps the depth range and adds no reset or PNG-export button', async () => {
     const plugin = new KochPlugin();
     await plugin.init(fakeApi().api);
     const defs = plugin.getParams();
     const keys = paramKeys(defs);
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('reset')).toBe(false);
     expect(paramOf(defs, 'iterations').type).toBe('range');
-  });
-
-  it('exports a PNG after a redraw', async () => {
-    const plugin = new KochPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
   });
 });
 
 // ---- barnsley -------------------------------------------------------------
 
 describe('barnsley enhancement', () => {
-  it('exposes exportPng and reset buttons alongside regenerate', async () => {
+  it('exposes reset and regenerate buttons', async () => {
     const plugin = new BarnsleyPlugin();
     await plugin.init(fakeApi().api);
     const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('reset')).toBe(true);
     expect(keys.has('regenerate')).toBe(true);
-  });
-
-  it('exports a PNG after a redraw', async () => {
-    const plugin = new BarnsleyPlugin();
-    const exportFile = await pngExportRoundTrip(plugin, (p, c) => p.render?.(c));
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
   });
 
   it('reset restores the default parameters and redraws', async () => {
@@ -408,18 +337,18 @@ describe('barnsley enhancement', () => {
 // ---- fireworks ------------------------------------------------------------
 
 describe('fireworks enhancement', () => {
-  it('exposes exportPng and clear buttons while keeping fire', async () => {
+  it('exposes clear and fire buttons', async () => {
     const plugin = new FireworksPlugin();
     await plugin.init(fakeApi().api);
     const keys = paramKeys(plugin.getParams());
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('clear')).toBe(true);
     expect(keys.has('fire')).toBe(true);
   });
 
-  it('fires a burst, steps, exports a PNG, then clears all particles', async () => {
+  it('fires a burst, steps, then clears all particles', async () => {
     const plugin = new FireworksPlugin();
-    const { api, exportFile } = fakeApi();
+    const { api } = fakeApi();
     await plugin.init(api);
     const container = containerOf(fakeCanvas());
     await plugin.activate({ container });
@@ -430,10 +359,6 @@ describe('fireworks enhancement', () => {
       expect(inner.particles.length).toBeGreaterThan(0);
       inner.step(16.7);
       inner.draw();
-
-      plugin.updateParams?.({ exportPng: true });
-      expect(exportFile).toHaveBeenCalledTimes(1);
-      expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
 
       plugin.updateParams?.({ clear: true });
       expect(inner.particles).toHaveLength(0);
@@ -446,12 +371,12 @@ describe('fireworks enhancement', () => {
 // ---- truchet --------------------------------------------------------------
 
 describe('truchet enhancement', () => {
-  it('exposes exportPng, the variant select and keeps reseed', async () => {
+  it('exposes the variant select and keeps regenerate', async () => {
     const plugin = new TruchetPlugin();
     await plugin.init(fakeApi().api);
     const defs = plugin.getParams();
     const keys = paramKeys(defs);
-    expect(keys.has('exportPng')).toBe(true);
+    expect(keys.has('exportPng')).toBe(false);
     expect(keys.has('variant')).toBe(true);
     expect(keys.has('regenerate')).toBe(true);
     const variant = paramOf(defs, 'variant');
@@ -462,9 +387,9 @@ describe('truchet enhancement', () => {
     expect(diagonal.labelI18n).toMatchObject({ 'zh-CN': '对角线', 'en-US': 'Diagonal' });
   });
 
-  it('renders every variant and exports a PNG', async () => {
+  it('renders every variant', async () => {
     const plugin = new TruchetPlugin();
-    const { api, exportFile } = fakeApi();
+    const { api } = fakeApi();
     await plugin.init(api);
     const container = containerOf(fakeCanvas());
     await plugin.activate({ container });
@@ -474,8 +399,5 @@ describe('truchet enhancement', () => {
     plugin.updateParams?.({ variant: 'random' });
     plugin.updateParams?.({ variant: 'curve' });
     plugin.updateParams?.({ regenerate: true });
-    plugin.updateParams?.({ exportPng: true });
-    expect(exportFile).toHaveBeenCalledTimes(1);
-    expect(String(exportFile.mock.calls[0]![0])).toMatch(/\.png$/);
   });
 });

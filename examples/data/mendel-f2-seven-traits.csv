@@ -1,0 +1,23 @@
+# Mendel (1866) "Versuche über Pflanzen-Hybriden" — F2 segregation counts (public domain).
+# Seven monohybrid traits (expected 3:1 dominance) plus the dihybrid seed experiment
+# (expected 9:3:3:1). Counts transcribed from the original 1866 paper, Experiment tables.
+# Columns: trait,category,observed,expectedRatio
+trait,category,observed,expectedRatio
+seed-form,round,5474,3
+seed-form,wrinkled,1850,1
+seed-colour,yellow,6022,3
+seed-colour,green,2001,1
+seed-coat,violet-red,705,3
+seed-coat,white,224,1
+pod-form,inflated,882,3
+pod-form,constricted,299,1
+pod-colour,green,428,3
+pod-colour,yellow,152,1
+flower-position,axial,651,3
+flower-position,terminal,207,1
+stem-length,long,787,3
+stem-length,short,277,1
+dihybrid-seed,round-yellow,315,9
+dihybrid-seed,round-green,108,3
+dihybrid-seed,wrinkled-yellow,101,3
+dihybrid-seed,wrinkled-green,32,1

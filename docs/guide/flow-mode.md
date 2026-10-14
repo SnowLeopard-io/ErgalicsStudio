@@ -15,7 +15,8 @@ place, in the same shape it would have if you had wired that block by hand.
 | `Standard`  | Load a file → see a viz      | You have a dataset and want to look at it.                     |
 | `Flow`      | Compose a DAG → run it → see every node's output | You want to *transform* data step by step, mixing sources, math, stats, and viz. |
 
-Switch with the `Standard | Flow` cluster in the top bar.
+Switch with the four-mode cluster (`Standard | Flow | Blocks | Code`) in
+the top bar.
 
 ## Architecture
 
@@ -30,7 +31,7 @@ blocks/
   executor       DagExecutor: run(), incremental cache, dirty propagation
   context        MemoryStorage + RuntimeEnvironment
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        40+ built-in block types (data_source → … → plot · visualize)
+  catalog        42 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -124,12 +125,11 @@ keeps two properties intact:
 The result preview panel sits below the canvas and has three modes, picked
 automatically from the selected (or last) node's output:
 
-- `RenderedView` → the host's 2D canvas renders it through the existing
-  plugin (scatter, histogram, …).
-- `DataTable` → a read-only table with a sticky header and a
-  "showing first N of M" footer, so `stats.summary` and `stats.histogram`
-  bin counts become visible too — not only the `viz.*` ones.
-- `Scalar` → the value, inline.
+| Output type | Preview |
+| --- | --- |
+| `RenderedView` | The host's 2D canvas renders it through the existing plugin (scatter, histogram, …). A `plot.*` block instead emits a vector `RenderedView` (`viewType: 'svg-plot'`): the preview renders the standalone SVG inline — publication-grade, exportable as SVG/PDF, no plugin canvas involved. |
+| `DataTable` | A read-only table with a sticky header and a "showing first N of M" footer, so `stats.summary` and `stats.histogram` bin counts become visible too — not only the `viz.*` ones. |
+| `Scalar` | The value, inline. |
 
 When a pipeline has more than one output, a chip strip at the top of the
 preview switches between nodes; selecting a node on the canvas mirrors the
@@ -137,14 +137,18 @@ selection.
 
 ## Built-in blocks
 
+The catalog (`src/blocks/catalog/`) registers **42 built-in blocks across
+eight categories**:
+
 | Category     | Blocks                                                                                |
 | ------------ | ------------------------------------------------------------------------------------- |
-| data_source  | Example Data · Random Data · Grid Data                                                |
-| transform    | Select Columns · Rename Column · Add Column · Normalize · Sort                       |
+| data_source  | Example Data · Random Data · Grid Data · File                                          |
+| transform    | Select Columns · Rename Column · Add Column · Normalize · Sort                        |
 | filter       | Range Filter · Value Filter · Top-K                                                   |
 | math         | Add · Subtract · Multiply · Divide · Square Root · Absolute Value                     |
-| statistics   | Summary · Histogram                                                                   |
-| visualize    | Scatter Plot · Line Chart · Histogram · 2D Point Cloud                               |
+| statistics   | Summary · Histogram · one-/two-/paired-sample t-tests · one-way ANOVA · Mann–Whitney U · chi-square · correlation · Cohen's d · multiple-comparison correction · bootstrap CI · Monte-Carlo · MCMC |
+| units        | Unit Convert · Unit Check                                                              |
+| visualize    | `viz.*` Scatter · Line · Histogram · 2-D Point Cloud (plugin bridge) · `plot.*` Line · Scatter · Histogram · Bar (vector SVG) |
 
 Control-flow blocks (`if_else`, `switch`, `repeat`, `parallel`) are
 **deliberately deferred**. The `region` seam on `BlockInstance` is in place
@@ -208,10 +212,13 @@ executor if one was missing. No "already registered" surprises.
 
 ## Persistence
 
-The whole graph — instances, connections, viewport — is serialized into
-`ProjectState.blockGraph` and round-trips through the same autosave / share
-/ export path that backs every `.clproj`. Open a Flow-mode project on any
-machine, get the same canvas.
+Flow graphs persist as **workspace files**: a `.flow.json` document
+(`{ version, kind: 'ergalics-flow', graph }`) written through the workspace
+VFS (`src/core/vfs/`) and opened by the file explorer's Flow editor
+(`src/components/editor/fileEditors/`). The legacy
+`ProjectState.blockGraph` project state is still read for compatibility, so
+older `.clproj` projects keep round-tripping through the same autosave /
+share / export path.
 
 ## Localization
 
@@ -227,16 +234,13 @@ title.
 
 ## Known limitations
 
-- **No control-flow blocks yet** — see "Built-in blocks" above. The seam
-  exists; the work is tracked but not scheduled.
-- **GPU execution in blocks**: every executor returns a `Promise<DataValue>`
-  but current built-in blocks run on CPU. The contract is ready for `gpu.*`
-  / WGSL-backed executors; routing them through the existing Rust core is
-  the next chunk of work.
-- **Layout**: blocks are placed by hand. Auto-layout (the obvious next
-  feature) is intentionally not implemented — keep the API stable first.
+| Limitation | Details |
+| --- | --- |
+| No control-flow blocks yet | See "Built-in blocks" above. The seam exists; the work is tracked but not scheduled. |
+| GPU execution in blocks | Every executor returns a `Promise<DataValue>` but current built-in blocks run on CPU. The contract is ready for `gpu.*` / WGSL-backed executors; routing them through the existing Rust core is the next chunk of work. |
+| Layout | Blocks are placed by hand. Auto-layout (the obvious next feature) is intentionally not implemented — keep the API stable first. |
 
 > Looking for a more imperative feel? Block mode is a sibling workbench
 > mode that shares the `DataValue` contract and the plugin bridge — see
-> [Block Mode](block-mode.md) for the architecture, the 40+ built-in
+> [Block Mode](block-mode.md) for the architecture, the 40 built-in
 > blocks, and the 5 sample programs.

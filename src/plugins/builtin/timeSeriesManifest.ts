@@ -19,6 +19,15 @@ export const timeSeriesManifest: PluginManifest = {
   },
   license: 'MIT',
   entry: 'example.timeseries',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes: 'Publishes OLS trend ±SE, Mann-Kendall S/p and lag-1 autocorrelation for the visible series.',
+    notesI18n: {
+      'en-US': 'Publishes OLS trend ±SE, Mann-Kendall S/p and lag-1 autocorrelation for the visible series.',
+      'zh-CN': '为可见序列发布 OLS 趋势 ±SE、Mann-Kendall S/p 与滞后 1 阶自相关。',
+    },
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'Time series CSV' },
   ],

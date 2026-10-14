@@ -8,8 +8,10 @@
 // PlotSpec itself is NOT modified — composition only re-sizes panels.
 // ==========================================================================
 
-import { renderSVG, exportSVG, exportPDF, exportPNG } from '@/core/plot';
+import { renderSVG, exportSVG, exportPDF, exportPNG, rasterizePNG, buildPDF } from '@/core/plot';
 import type { PlotSpec } from '@/core/plot';
+import { saveTextArtifact, saveBinaryArtifact } from '@/core/workspace-artifacts';
+import type { Project } from '@/types/project';
 
 /** One panel of a composed figure, placed on a row/col grid. */
 export interface FigurePanel {
@@ -249,4 +251,31 @@ export async function exportFigure(
     return;
   }
   exportPNG(composed.markup, `${filename}.png`, 600 / 96);
+}
+
+/**
+ * Save a composed figure into the project workspace `figures/` dir (no
+ * download). Same composition/rasterization pipeline as `exportFigure`;
+ * resolves to the repo-relative path written. Duplicates get " (2)"… names.
+ */
+export async function saveFigureToWorkspace(
+  project: Project,
+  fs: FigureSpec,
+  format: FigureExportFormat,
+  filename = 'figure',
+): Promise<string> {
+  const composed = composeFigure(fs);
+  const tpl = templateById(fs.templateId);
+  const safe = filename.replace(/[^\w.-]+/g, '-');
+  if (format === 'svg') {
+    return saveTextArtifact(project, 'figures', `${safe}.svg`, composed.markup);
+  }
+  if (format === 'pdf') {
+    const cols = Math.max(...fs.panels.map((p) => p.col + 1), 1);
+    const widthMm = tpl.columnWidthMm * (cols > 1 && !tpl.id.endsWith('double') ? cols : 1);
+    const bytes = await buildPDF(composed.markup, Math.min(widthMm, 277));
+    return saveBinaryArtifact(project, 'figures', `${safe}.pdf`, bytes);
+  }
+  const bytes = await rasterizePNG(composed.markup, 600 / 96);
+  return saveBinaryArtifact(project, 'figures', `${safe}.png`, bytes);
 }

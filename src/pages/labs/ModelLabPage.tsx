@@ -8,7 +8,7 @@
 // Fits can be recorded in experiment history (source 'model').
 // ==========================================================================
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -30,7 +30,11 @@ import {
   fmt,
 } from '../research/researchUi';
 import { DATA_EXTS_SERIES } from '@/core/dataFiles';
+import { parseDataText } from '@/blocks/fileData';
+import { isNumericType } from '@/blocks/ops';
+import { takeLabHandoff } from '@/core/labHandoff';
 import { ToolShell } from '@/components/ToolShell';
+import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { NarrativePanel } from '@/components/NarrativePanel';
 
 type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
@@ -132,8 +136,31 @@ export default function ModelLabPage() {
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState<FitOutcome | null>(null);
   const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
+  /** Generation counter: lets a superseded fit discard its results. */
+  const fitGen = useRef(0);
 
   const cols = useFileCols(file).numericCols;
+
+  // One-shot data handoff from the science output strip: preselect the staged
+  // file, the last numeric column as the target and the first remaining one
+  // as the initial predictor (conventional x,y CSV layout).
+  useEffect(() => {
+    const staged = takeLabHandoff();
+    if (!staged) return;
+    // Ignore payloads addressed to another suite (e.g. staged for a page the
+    // user navigated away from before it could mount).
+    if (staged.target && staged.target !== 'model-lab') return;
+    try {
+      const tbl = parseDataText(staged.csv, staged.name);
+      const nums = tbl.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+      if (nums.length === 0) return;
+      setFile(staged.name);
+      setTarget(nums[nums.length - 1]!);
+      if (nums.length > 1) setPredictors([nums[0]!]);
+    } catch {
+      /* stale or malformed handoff — fall back to the empty picker */
+    }
+  }, []);
 
   const selectFile = (name: string) => {
     setFile(name);
@@ -169,8 +196,12 @@ export default function ModelLabPage() {
       setError(t('model.need_two'));
       return;
     }
+    // A second click supersedes the first fit: only the newest generation may
+    // touch state, or a slow fit could overwrite a fresh one's results.
+    const gen = ++fitGen.current;
     try {
       const { table } = await loadTable(file);
+      if (gen !== fitGen.current) return;
       const fullY = Array.from((table.getColumn(target) as Float64Array | undefined) ?? []) as number[];
       const fullXs = predictors.map((c) =>
         Array.from((table.getColumn(c) as Float64Array | undefined) ?? []) as number[],
@@ -288,6 +319,8 @@ export default function ModelLabPage() {
         sampled,
       });
     } catch (err) {
+      // A superseded fit's failure must not clobber the live one's state.
+      if (gen !== fitGen.current) return;
       setError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -384,6 +417,25 @@ export default function ModelLabPage() {
         {outcome && (
           <>
             <pre className="analysis-output">{outcome.lines.join('\n')}</pre>
+            <div className="sweep-actions">
+              <SaveArtifactButton
+                dir="runs"
+                filename={`${(file || 'model').replace(/\.[^.]+$/, '')}-${outcome.kind}-fit.json`}
+                content={JSON.stringify(
+                  {
+                    kind: 'model-fit',
+                    savedAt: new Date().toISOString(),
+                    source: file,
+                    model: outcome.kind,
+                    summaryLines: outcome.lines,
+                    coefficients: outcome.coefficients,
+                  },
+                  null,
+                  2,
+                )}
+                className="btn btn-sm"
+              />
+            </div>
             <div className="sweep-table-wrap">
               <table className="sweep-table">
                 <thead>

@@ -16,7 +16,10 @@ import type {
   Plugin,
   PluginApi,
 } from '@/types/plugin';
-import { actionButton, exportCanvasPng, exportRowsCsv } from '@/core/plugin-tools/enhance';
+import {
+  actionButton,
+  exportRowsCsv,
+} from '@/core/plugin-tools/enhance';
 
 import { pendulumManifest } from './doublePendulumManifest';
 
@@ -201,10 +204,7 @@ export class DoublePendulumPlugin implements Plugin {
       const v = params[key];
       return v === true || (typeof v === 'object' && v !== null && (v as { action?: string }).action === key);
     };
-    if (fired('exportPng')) {
-      exportCanvasPng(this.api, this.ctx?.canvas2d ?? null, 'double-pendulum');
-      return;
-    }
+
     if (fired('exportCsv')) {
       exportRowsCsv(this.api, 'double-pendulum-trace', ['t', 'th1', 'th2'], this.trace);
       return;
@@ -275,7 +275,6 @@ export class DoublePendulumPlugin implements Plugin {
         variant: 'default',
         action: 'reset',
       },
-      actionButton('exportPng', 'Snapshot PNG', '快照 PNG'),
       actionButton('exportCsv', 'Export Trace CSV', '导出轨迹 CSV'),
     ];
   }

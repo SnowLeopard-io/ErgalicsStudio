@@ -1,3 +1,4 @@
+# Illustrative demo data (not measured): synthetic process-telemetry curve, for time-series / trend demo.
 time,temp,pressure,flow
 0,19.34,101.06,14.50
 5,20.19,101.73,14.47
