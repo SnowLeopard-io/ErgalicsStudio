@@ -51,7 +51,7 @@ quickly as we can.
 
 ## 报告漏洞（Reporting a vulnerability）
 
-**请不要为安全漏洞创建公开 issue。**请改用 GitHub 的私密漏洞报告：
+**请不要为安全漏洞创建公开 issue**。请改用 GitHub 的私密漏洞报告：
 
 **Please do not open a public issue for a security vulnerability.** Use
 GitHub's private vulnerability reporting instead:
@@ -319,8 +319,7 @@ hardening work: content security policy headers, worker resource limits
 
 ## 无赏金计划（No bounty program）
 
-本项目目前不提供漏洞赏金或其他经济回报。但在征得你同意的前提下，我们会在安全
-通告中致谢研究人员。
+本项目目前不提供漏洞赏金或其他经济回报。但在征得你同意的前提下，我们会在安全通告中致谢研究人员。
 
 This project does not currently offer a bug bounty or other financial reward.
 We do, with your permission, credit researchers in the security advisory.

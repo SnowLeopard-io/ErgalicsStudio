@@ -151,6 +151,26 @@ function parseMarkdown(md) {
       while (i < lines.length && !/^```\s*$/.test(lines[i])) body.push(lines[i++]);
       i++; // closing fence
       const code = body.join('\n');
+      if (lang === 'gallery') {
+        // Thumbnail grid: one "src|caption" line per cell.
+        const items = body
+          .map((l) => {
+            const at = l.indexOf('|');
+            return at < 0 ? null : { src: l.slice(0, at).trim(), cap: l.slice(at + 1).trim() };
+          })
+          .filter(Boolean);
+        blocks.push({
+          kind: 'gallery',
+          text: items.map((it) => it.cap).join('、'),
+          html: `<div class="gallery">${items
+            .map(
+              (it) =>
+                `<figure><img src="${it.src}" alt="${esc(it.cap)}"><figcaption>${inline(it.cap)}</figcaption></figure>`,
+            )
+            .join('')}</div>`,
+        });
+        continue;
+      }
       if (lang === 'mermaid') {
         blocks.push({ kind: 'mermaid', text: code, html: null, mermaid: code });
       } else if (lang === 'card') {
@@ -210,7 +230,7 @@ function parseMarkdown(md) {
       blocks.push({
         kind: 'table',
         text: header.join(' | '),
-        html: `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`,
+        html: `<table${header.length === 4 ? ' class="c4"' : ''}><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`,
       });
       continue;
     }
@@ -493,6 +513,11 @@ const CSS = `
      first (label) column on one line; the technical series is unaffected. */
   .doc-product table { width: 100%; }
   .doc-product th:first-child, .doc-product td:first-child { white-space: nowrap; }
+  /* Nudge auto layout to give the inner columns more room (the first column
+     is nowrap, the last tends to win width from its long code spans). Only
+     four-column tables: on three-column ones the third column IS the last. */
+  .doc-product table.c4 th:nth-child(2), .doc-product table.c4 td:nth-child(2),
+  .doc-product table.c4 th:nth-child(3), .doc-product table.c4 td:nth-child(3) { width: 27%; }
   /* Product volume: a small mascot floats beside the page number on every
      content page; the four mascots rotate from page to page. */
   .doc-product .page-mascot {
@@ -504,6 +529,11 @@ const CSS = `
   /* Tighter paragraph rhythm in the product volume: several screenshot pages
      miss two-up packing by only a few mm. */
   .doc-product p { margin: 2.4mm 0; }
+  /* Chinese typography: body paragraphs open with a two-character indent.
+     Caption lines (a paragraph that is only an <em>) and continuation
+     fragments of a sentence-split paragraph stay flush left. */
+  .doc-product p { text-indent: 2em; }
+  .doc-product p:has(> em:only-child), .doc-product p.pfrag:not(.pfrag-first) { text-indent: 0; }
   /* Sentence-split paragraph fragments: the packer may break a page inside a
      paragraph, the way a book flows text. Only the first fragment keeps the
      paragraph's top margin and only the last keeps the bottom one, so a
@@ -569,6 +599,10 @@ const CSS = `
   .rcard dl > div + div { border-top: 0.2mm solid #e4ecf2; }
   .rcard dt { flex: 0 0 16mm; font-size: 8.8pt; font-weight: 600; color: #4a5b6d; line-height: 1.6; }
   .rcard dd { margin: 0; font-size: 8.8pt; line-height: 1.6; color: #35485c; text-align: justify; }
+  .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5mm; margin: 3mm 0 0; break-inside: avoid; }
+  .gallery figure { margin: 0; }
+  .gallery img { width: 100%; height: 36mm; object-fit: cover; border-radius: 1.2mm; border: 0.2mm solid #d8e4ea; display: block; }
+  .gallery figcaption { font-size: 7.8pt; color: var(--muted); text-align: center; margin: 1mm 0 0; }
 `;
 
 // --------------------------------------------------------------------------
@@ -1107,13 +1141,31 @@ function packPages(blocks, measured) {
   // than being refused here, otherwise a nearly full next page freezes the
   // orphan in place.
   for (let p = 0; p < pages.length - 1; p++) {
+    if (forcedAfter[p]) continue;
     for (;;) {
-      const last = pages[p][pages[p].length - 1];
-      if (!last || !/^<h[234]/.test(last.html)) break;
-      // Never drain a page to nothing: an empty page becomes a blank sheet.
-      if (pages[p].length <= 1) break;
-      pages[p].pop();
-      pages[p + 1].unshift(last);
+      const pg = pages[p];
+      const last = pg[pg.length - 1];
+      if (!last) break;
+      if (/^<h[234]/.test(last.html)) {
+        // Never drain a page to nothing: an empty page becomes a blank sheet.
+        if (pg.length <= 1) break;
+        pg.pop();
+        pages[p + 1].unshift(last);
+        continue;
+      }
+      // A section heading followed by exactly one paragraph at the foot — its
+      // figure having moved to the next page — reads as a stranded section
+      // start. Reunite the pair with the rest of the section below.
+      if (last.kind !== 'p') break;
+      let start = pg.length - 1;
+      if (last.pid != null) {
+        while (start > 0 && pg[start].kind === 'p' && pg[start].pid === last.pid) start--;
+      } else if (start > 0 && /^<h[234]/.test(pg[start - 1].html)) {
+        start -= 1;
+      } else break;
+      if (start <= 0 || !/^<h[234]/.test(pg[start].html)) break;
+      const moved = pg.splice(start, pg.length - start);
+      pages[p + 1].unshift(...moved);
     }
   }
   if (process.env.DEBUG_TECH_DOCS) {
@@ -1307,12 +1359,22 @@ function tocEntriesFrom(blocks) {
   return estimated > TOC_BUDGET_PX ? out.filter((e) => e.level === 2) : out;
 }
 
-function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '', deco = null }) {
+function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '', deco = null, tocPageCount = 1 }) {
   const cls = docClass ? ` ${docClass}` : '';
+  const tocPagesHtml = (Array.isArray(tocHtml) ? tocHtml : [tocHtml])
+    .map(
+      (chunk, ti) =>
+        `<div class="page toc${cls}">\n${ti === 0 ? '<h1>目 录</h1>\n' : ''}${chunk}${
+          ti === (Array.isArray(tocHtml) ? tocHtml.length : 1) - 1 && cover.tocNote
+            ? `\n<div class="callout" style="margin-top:14mm">${cover.tocNote}</div>`
+            : ''
+        }\n</div>`,
+    )
+    .join('\n\n');
   const body = pages
     .map(
       (p, i) =>
-        `<!-- P${i + 3} -->\n<div class="page${cls}">\n${deco ? deco(i) : ''}\n${p.map((b) => b.html).join('\n')}\n</div>`,
+        `<!-- P${i + 2 + tocPageCount} -->\n<div class="page${cls}">\n${deco ? deco(i) : ''}\n${p.map((b) => b.html).join('\n')}\n</div>`,
     )
     .join('\n\n');
   return `<!DOCTYPE html>
@@ -1326,11 +1388,7 @@ function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '', deco = 
 
 ${cover.html}
 
-<div class="page toc${cls}">
-  <h1>目 录</h1>
-${tocHtml}
-${cover.tocNote ? `<div class="callout" style="margin-top:14mm">${cover.tocNote}</div>` : ''}
-</div>
+${tocPagesHtml}
 
 ${body}
 
@@ -1652,16 +1710,47 @@ async function buildDoc(browser, page, base, opts = {}) {
   }
 
   const pageOf = new Map();
+  // The product volume expands every h3 into the TOC, which can outgrow one
+  // page; chunk entries into TOC pages first (the first page also hosts the
+  // 目录 h1) so the content-page offset used in page numbers can be derived.
+  const entryH = (e) => (e.level === 2 ? 42 : 31);
+  let tocEntries = tocEntriesFrom(bodyBlocks);
+  if (meta.brand) {
+    tocEntries = [];
+    for (const b of bodyBlocks) {
+      if (b.kind === 'h2') tocEntries.push({ level: 2, text: b.text, block: b });
+      else if (b.kind === 'h3') tocEntries.push({ level: 3, text: b.text, block: b });
+    }
+  }
+  const tocChunks = [];
+  {
+    let cur = [];
+    let curH = 0;
+    let first = true; // the first TOC page shares its budget with the 目录 h1
+    for (const e of tocEntries) {
+      const h = entryH(e);
+      if (curH + h > (first ? 780 : 880) && cur.length) {
+        tocChunks.push(cur);
+        cur = [];
+        curH = 0;
+        first = false;
+      }
+      cur.push(e);
+      curH += h;
+    }
+    if (cur.length) tocChunks.push(cur);
+  }
+  const nToc = tocChunks.length;
   pages.forEach((p, pi) => {
     for (const packed of p) {
       if ((packed.kind === 'h2' || packed.kind === 'h3') && !pageOf.has(packed)) {
-        pageOf.set(packed, pi + 3);
+        pageOf.set(packed, pi + 2 + nToc);
       }
     }
   });
 
-  const tocHtml = buildToc(
-    tocEntriesFrom(bodyBlocks).map((e) => ({ ...e, page: pageOf.get(e.block) ?? 3 })),
+  const tocHtml = tocChunks.map((chunk) =>
+    buildToc(chunk.map((e) => ({ ...e, page: pageOf.get(e.block) ?? 2 + nToc }))),
   );
 
   const coverHtml = buildCover({
@@ -1688,6 +1777,7 @@ async function buildDoc(browser, page, base, opts = {}) {
   const html = assembleHtml({
     cover: { html: coverHtml, title, tocNote },
     tocHtml,
+    tocPageCount: nToc,
     pages,
     back: backHtml,
     docClass: meta.brand ? 'doc-product' : '',

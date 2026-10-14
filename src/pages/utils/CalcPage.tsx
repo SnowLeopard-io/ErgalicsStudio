@@ -82,13 +82,30 @@ export const CONSTANTS: SciConstant[] = [
 
 type AngleMode = 'deg' | 'rad';
 
+// ULP (spacing to the adjacent double) of a finite non-zero value.
+const ulp = (x: number): number => {
+  if (!Number.isFinite(x) || x === 0) return 0;
+  return Math.pow(2, Math.floor(Math.log2(Math.abs(x))) - 52);
+};
+
+// Trig of constants like pi carries the argument's own representation error
+// into the result (sin(pi) -> 1.2246e-16). When the result is below the
+// argument's ULP the input noise dominates and the value is indistinguishable
+// from exact zero, so snap it. Genuinely small results (sin(1e-16) ~= 1e-16,
+// far above ulp(1e-16) ~= 1e-32) are preserved.
+const cleanTrig = (x: number, v: number): number => (Math.abs(v) < ulp(x) ? 0 : v);
+
 function makeFnMap(mode: AngleMode): Record<string, (...args: number[]) => number> {
   const toRad = (v: number) => (mode === 'deg' ? (v * Math.PI) / 180 : v);
   const fromRad = (v: number) => (mode === 'deg' ? (v * 180) / Math.PI : v);
+  const trig = (f: (x: number) => number) => (v: number) => {
+    const x = toRad(v);
+    return cleanTrig(x, f(x));
+  };
   return {
-    sin: (v) => Math.sin(toRad(v)),
-    cos: (v) => Math.cos(toRad(v)),
-    tan: (v) => Math.tan(toRad(v)),
+    sin: trig(Math.sin),
+    cos: trig(Math.cos),
+    tan: trig(Math.tan),
     asin: (v) => fromRad(Math.asin(v)),
     acos: (v) => fromRad(Math.acos(v)),
     atan: (v) => fromRad(Math.atan(v)),
