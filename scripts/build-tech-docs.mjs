@@ -153,6 +153,29 @@ function parseMarkdown(md) {
       const code = body.join('\n');
       if (lang === 'mermaid') {
         blocks.push({ kind: 'mermaid', text: code, html: null, mermaid: code });
+      } else if (lang === 'card') {
+        // Research-scene card: first line is the title, remaining lines are
+        // "label｜body" rows rendered as a definition list. Used by the product
+        // volume to explain what each research tool is for and why it exists.
+        const rows = code
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const title = rows[0] ?? '';
+        const items = rows
+          .slice(1)
+          .map((r) => {
+            const sep = r.indexOf('｜');
+            return sep > 0
+              ? `<div><dt>${esc(r.slice(0, sep))}</dt><dd>${inline(r.slice(sep + 1))}</dd></div>`
+              : `<div><dd>${inline(r)}</dd></div>`;
+          })
+          .join('');
+        blocks.push({
+          kind: 'card',
+          text: title,
+          html: `<div class="rcard"><div class="rcard-t">${esc(title)}</div><dl>${items}</dl></div>`,
+        });
       } else {
         blocks.push({
           kind: 'code',
@@ -536,6 +559,16 @@ const CSS = `
     background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
     padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
   }
+  .rcard {
+    margin: 2.5mm 0 0; padding: 2.8mm 4mm 3mm; background: #f2f7f9;
+    border: 0.35mm solid #cfdfe6; border-radius: 1.8mm; break-inside: avoid;
+  }
+  .rcard-t { font-size: 9.5pt; font-weight: 700; color: var(--accent-deep); margin: 0 0 1.2mm; letter-spacing: 0.02em; }
+  .rcard dl { margin: 0; }
+  .rcard dl > div { display: flex; gap: 3mm; padding: 1mm 0; }
+  .rcard dl > div + div { border-top: 0.2mm solid #e4ecf2; }
+  .rcard dt { flex: 0 0 16mm; font-size: 8.8pt; font-weight: 600; color: #4a5b6d; line-height: 1.6; }
+  .rcard dd { margin: 0; font-size: 8.8pt; line-height: 1.6; color: #35485c; text-align: justify; }
 `;
 
 // --------------------------------------------------------------------------
@@ -1554,14 +1587,16 @@ async function buildDoc(browser, page, base, opts = {}) {
     // last page is fuller, then to the larger figures).
     const chapters = [];
     for (const b of bodyBlocks) {
-      if (b.kind === 'pagebreak') continue;
+      if (b.kind === 'pagebreak') {
+        // Explicit break: close the current group so the next block starts a
+        // fresh page even mid-chapter (e.g. a summary table after a unit).
+        if (chapters.length && chapters[chapters.length - 1].length) chapters.push([]);
+        continue;
+      }
       if (b.kind === 'h2' || chapters.length === 0) chapters.push([]);
       chapters[chapters.length - 1].push(b);
     }
-    const setWidth = (html, pct) => html.replace('<img ', `<img style="width:${pct}%" `);
-    // Sentence-level fragments let pages break inside a paragraph instead of
-    // stranding the void above an unsplittable figure.
-    const splitChapters = chapters.map(splitParagraphBlocks);
+    const splitChapters = chapters.filter((c) => c.length).map(splitParagraphBlocks);
     pages = [];
     for (const ch of splitChapters) {
       const hasFig = ch.some((b) => b.kind === 'figure');

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useT } from '../i18n-react';
 import { studioUrl } from '../studio-link';
 import { GALLERY } from '../data/gallery';
 import { CoverArt } from '../components/CoverArt';
+import { BlackHole } from '../components/BlackHole';
+import { Nebula } from '../components/Nebula';
 import { pickLocal } from '../i18n';
 import modeStandardShot from '../../../docs/assets/screenshots/platform/mode-standard-welcome.png';
 import modeFlowShot from '../../../docs/assets/screenshots/platform/mode-flow.png';
@@ -127,8 +129,6 @@ function ModeArt({ mode }: { mode: ModeId }) {
   }
 }
 
-const varI = (i: number) => ({ '--i': i }) as CSSProperties;
-
 export function Home() {
   const t = useT();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -163,8 +163,8 @@ export function Home() {
   function onTabKey(e: KeyboardEvent<HTMLButtonElement>, id: ModeId) {
     const idx = MODES.indexOf(id);
     let next: number | null = null;
-    if (e.key === 'ArrowRight') next = (idx + 1) % MODES.length;
-    else if (e.key === 'ArrowLeft') next = (idx + MODES.length - 1) % MODES.length;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % MODES.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx + MODES.length - 1) % MODES.length;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = MODES.length - 1;
     if (next === null) return;
@@ -178,6 +178,10 @@ export function Home() {
     <div className="home" ref={rootRef}>
       {/* 1 — hero: claim + evidence strip + live console */}
       <section className="hero" aria-labelledby="hero-title">
+        {/* live WebGPU black hole, full-bleed behind the hero content */}
+        <div className="hero-bg" aria-hidden="true">
+          <BlackHole className="bh-bg" />
+        </div>
         <div className="hero-inner">
           <span className="hero-badge reveal">{t('hero.badge')}</span>
           <h1 className="hero-title reveal" id="hero-title">
@@ -197,24 +201,7 @@ export function Home() {
             <div className="hs"><dt className="hs-label">{t('stats.tests')}</dt><dd className="hs-num">2815</dd></div>
           </dl>
         </div>
-        <div className="hero-art reveal" aria-hidden="true">
-          <div className="console">
-            <div className="console-bar"><i /><i /><i /></div>
-            <div className="console-body">
-              <div className="console-lines">
-                <span className="cl" style={varI(0)}><span className="cl-cl">studio</span><span className="cl-fn">.load</span>(<span className="cl-str">&quot;measurements.h5&quot;</span>)</span>
-                <span className="cl" style={varI(1)}><span className="cl-cl">studio</span><span className="cl-fn">.ttest</span>(a, b)&nbsp;&nbsp;<span className="cl-cm"># t(28)=2.31, p=.028</span></span>
-                <span className="cl" style={varI(2)}><span className="cl-cl">studio</span><span className="cl-fn">.plot</span>(<span className="cl-str">&quot;scatter&quot;</span>, x, y)</span>
-                <span className="cl" style={varI(3)}><span className="cl-cl">studio</span><span className="cl-fn">.repro</span>.<span className="cl-fn">lock</span>()&nbsp;<span className="cl-cm"># ✓ locked</span></span>
-              </div>
-              <svg viewBox="0 0 200 80" className="console-plot">
-                <path className="draw" d="M5 60 C 40 55, 55 20, 90 30 S 150 60, 195 15" fill="none" stroke="var(--color-accent)" strokeWidth="2" />
-                <path className="draw2" d="M5 68 C 45 62, 60 40, 95 44 S 155 66, 195 30" fill="none" stroke="var(--cat-fun)" strokeWidth="1.4" opacity="0.7" />
-                <circle cx="90" cy="30" r="3" fill="var(--color-accent)" />
-              </svg>
-            </div>
-          </div>
-        </div>
+        <span className="hero-art-badge">{t('hero.artBadge')}</span>
       </section>
 
       {/* 2 — four work modes (keyboard-accessible tabs) */}
@@ -223,8 +210,8 @@ export function Home() {
           <h2 className="section-title" id="modes-title">{t('modes.title')}</h2>
           <p className="section-desc">{t('modes.desc')}</p>
         </div>
-        <div className="tabs reveal">
-          <div className="tablist" role="tablist" aria-label={t('modes.title')}>
+        <div className="tabs modes-split reveal">
+          <div className="mode-rail" role="tablist" aria-orientation="vertical" aria-label={t('modes.title')}>
             {MODES.map((m) => (
               <button
                 key={m}
@@ -244,23 +231,30 @@ export function Home() {
               </button>
             ))}
           </div>
-          {MODES.map((m) => (
-            <div
-              key={m}
-              role="tabpanel"
-              id={`panel-${m}`}
-              aria-labelledby={`tab-${m}`}
-              hidden={mode !== m}
-              className="mode-panel"
-            >
-              <div className="mode-art" aria-hidden="true">
-                {mode === m && (
-                  <img src={MODE_SHOTS[m]} alt="" loading="lazy" decoding="async" />
-                )}
+          <div className="mode-stage">
+            {MODES.map((m) => (
+              <div
+                key={m}
+                role="tabpanel"
+                id={`panel-${m}`}
+                aria-labelledby={`tab-${m}`}
+                hidden={mode !== m}
+                className="mode-panel"
+              >
+                <div className="mode-art" aria-hidden="true">
+                  {mode === m && (
+                    <img src={MODE_SHOTS[m]} alt="" loading="lazy" decoding="async" />
+                  )}
+                </div>
+                <p className="mode-desc">{t(`modes.${m}.desc`)}</p>
+                <ul className="mode-points">
+                  {([1, 2, 3, 4] as const).map((i) => (
+                    <li key={i}>{t(`modes.${m}.p${i}`)}</li>
+                  ))}
+                </ul>
               </div>
-              <p className="mode-desc">{t(`modes.${m}.desc`)}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
@@ -366,6 +360,10 @@ export function Home() {
 
       {/* 7 — closing CTA */}
       <section className="closing" aria-labelledby="closing-title">
+        {/* live Milky-Way nebula background, ported from the fx.stars plugin */}
+        <div className="closing-bg" aria-hidden="true">
+          <Nebula className="bh-bg" />
+        </div>
         <div className="closing-inner reveal">
           <p className="closing-note">{t('closing.note')}</p>
           <h2 className="closing-title" id="closing-title">{t('closing.title')}</h2>
