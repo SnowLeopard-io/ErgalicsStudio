@@ -533,7 +533,10 @@ const CSS = `
      Caption lines (a paragraph that is only an <em>) and continuation
      fragments of a sentence-split paragraph stay flush left. */
   .doc-product p { text-indent: 2em; }
-  .doc-product p:has(> em:only-child), .doc-product p.pfrag:not(.pfrag-first) { text-indent: 0; }
+  /* Mermaid htmlLabels emit <p> inside the SVG foreignObject — indenting those
+     shifts node and edge labels right and clips them out of their boxes. */
+  .doc-product p:has(> em:only-child), .doc-product p.pfrag:not(.pfrag-first),
+  .doc-product .svgbox p { text-indent: 0; }
   /* Sentence-split paragraph fragments: the packer may break a page inside a
      paragraph, the way a book flows text. Only the first fragment keeps the
      paragraph's top margin and only the last keeps the bottom one, so a
@@ -583,6 +586,11 @@ const CSS = `
      bottom. 190mm leaves room for a heading and a line of prose. Landscape
      diagrams never reach this cap, so nothing else changes. */
   .svgbox svg { max-width: 100%; max-height: 190mm; height: auto; display: block; margin: 0 auto; }
+  /* Mermaid caps the diagram at its intrinsic width (inline max-width), which
+     leaves wide empty margins on narrow-diagram pages. Stretch to the full box
+     width instead; !important outranks the inline style. The height cap keeps
+     the chapter-4 flowchart on the same page as its intro paragraphs. */
+  .doc-product .svgbox svg { max-width: 100% !important; width: 100%; max-height: 172mm; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
   .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
