@@ -5,9 +5,9 @@ Ergalics Studio 是一个完全运行在浏览器中的科学计算工作站，�
 ## 一、概述与定位
 
 科学计算的实际工作常被三类成本拖慢：
-- **环境成本。** 桌面软件需要安装、配置与许可，在公共机房或借用的电脑上往往无法快速重建自己的工作环境。
-- **数据成本。** 云端平台免安装，但数据要上传到服务方，涉及未发表数据或受限样本时这一步直接不可行。
-- **交付成本。** 分析做完只是开始，图要排成期刊格式、结论要写进报告，数月后需要重跑时，当初的参数与数据版本未必还在。
+- **环境成本：** 桌面软件需要安装、配置与许可，在公共机房或借用的电脑上往往无法快速重建自己的工作环境。
+- **数据成本：** 云端平台免安装，但数据要上传到服务方，涉及未发表数据或受限样本时这一步直接不可行。
+- **交付成本：** 分析做完只是开始，图要排成期刊格式、结论要写进报告，数月后需要重跑时，当初的参数与数据版本未必还在。
 
 Ergalics Studio 把分析全程放进一个网页标签页，对上述三类成本的回答构成三个基本事实：运行环境只是一个网页标签页，`npm run dev` 或 GitHub Pages 皆可启动；数据全程留在浏览器本地存储（IndexedDB / OPFS），无账号、无上传；每一次分析自动记录参数、种子、代码与数据指纹，复现状态可以被显式检查。
 
@@ -28,8 +28,6 @@ Ergalics Studio 把分析全程放进一个网页标签页，对上述三类成�
 3. **26 个科研工具**，承接画像、清洗、推断、组图、报告与复现各环节；
 4. **浏览器内运行时**，包括 CPython（Pyodide）、webR、DuckDB-WASM 与 14 个 WGSL 计算内核。
 
-项目同时是一个 Git 仓库，版本历史与分析过程留在本机。
-
 下表汇总本书引用的核心数字，各项均可在公开仓库中核查：
 
 | 维度 | 现状 |
@@ -44,11 +42,17 @@ Ergalics Studio 把分析全程放进一个网页标签页，对上述三类成�
 | 开源治理 | MIT 协议；发版经 Zenodo 归档并铸造 DOI；SBOM 与引用元数据齐备 |
 
 上述数字背后是三条已经成立的技术前提。
-1. **浏览器图形与计算接口成熟。** WebGPU 在主流浏览器默认启用，WebAssembly 以接近原生的速度运行 CPython 与 R 解释器，这使"在网页里做严肃计算"从权宜方案变为工程可行。
-2. **本地存储能力足够。** Origin Private File System 与 IndexedDB 提供 GB 级持久化，数据集、运行记录与 Git 历史都存放在其中，关闭浏览器后依然保留。
-3. **开放格式保证可迁移。** 项目可随时导出为单个 `.clproj` 文件在设备间流转，数据文件本身不被包装进私有格式。
+1. **浏览器图形与计算接口成熟：** WebGPU 在主流浏览器默认启用，WebAssembly 以接近原生的速度运行 CPython 与 R 解释器，这使"在网页里做严肃计算"从权宜方案变为工程可行。
+2. **本地存储能力足够：** Origin Private File System 与 IndexedDB 提供 GB 级持久化，数据集、运行记录与 Git 历史都存放在其中，关闭浏览器后依然保留。
+3. **开放格式保证可迁移：** 项目可随时导出为单个 `.clproj` 文件在设备间流转，数据文件本身不被包装进私有格式。
 
-不同使用者在其中找到各自的入口：第一次接触数据的人从标准模式拖入文件开始看图；需要整理多步流程的分析者用流程模式搭管线并逐步预览；教编程的课堂从积木模式进入，再平滑过渡到真实脚本；熟悉 Python 或 R 的研究者直接在代码模式里调用 `studio` 接口操作项目数据。四种入口共享同一份数据与运行记录，起点不同，终点一致。
+不同使用者在其中找到各自的入口：
+1. **标准模式**，第一次接触数据的人拖入文件开始看图；
+2. **流程模式**，需要整理多步流程的分析者搭管线并逐步预览；
+3. **积木模式**，教编程的课堂由此进入，再平滑过渡到真实脚本；
+4. **代码模式**，熟悉 Python 或 R 的研究者直接调用 `studio` 接口操作项目数据。
+
+四种入口共享同一份数据与运行记录，起点不同，终点一致。
 
 ## 二、典型运行实例
 
@@ -217,9 +221,9 @@ flowchart LR
 
 插件的参数面板由宿主依据插件清单自动生成本地化表单，覆盖范围滑杆、下拉、数字、复选框、文本、文件、按钮与开关八类控件；调整参数即时重新渲染，无需编写任何代码。画布顶部的 ScienceOutputStrip 条带实时显示当前插件的关键读数——收敛判据、残差、统计量——同一套读数口径贯穿全部科研级插件。
 
-导出分两层：画布级由统一的"导出"菜单承担，把当前插件的 2D 画布或 3D 场景下载为 PNG（3D 场景额外提供透明背景选项），或保存为工作区 `figures/` 目录下的文件；数据级由各插件在参数面板以按钮动作自声明，把所属表格数据导出为 RFC-4180 CSV。
+**导出分两层：** 画布级由统一的"导出"菜单承担，把当前插件的 2D 画布或 3D 场景下载为 PNG（3D 场景额外提供透明背景选项），或保存为工作区 `figures/` 目录下的文件；数据级由各插件在参数面板以按钮动作自声明，把所属表格数据导出为 RFC-4180 CSV。
 
-插件画布对数据保持诚实：仿真类插件初始为空，仅在加载数据后运行，空数据启动会收到明确提示而非静默空跑；每个核心插件附带一键可载的示例数据集，加载后即可重现文档中的画面。
+**插件画布对数据保持诚实：** 仿真类插件初始为空，仅在加载数据后运行，空数据启动会收到明确提示而非静默空跑；每个核心插件附带一键可载的示例数据集，加载后即可重现文档中的画面。
 
 ### 流程模式
 
@@ -523,24 +527,6 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 为何必要｜手工收集附件容易混入版本不一致的文件；自动打包保证附件与项目当前状态完全一致。
 ```
 
-<!-- pagebreak -->
-
-各环节的输入与产物构成一条闭合的工件链：
-
-| 环节 | 工具 | 产物 | 去向 |
-| --- | --- | --- | --- |
-| 画像 | 数据画像 | 列剖析、质量分、问题清单（可导出 CSV） | 报告引用，清洗依据 |
-| 清洗 | 清洗向导 | 清洗后的新文件与规则运行记录 | 数据血缘节点 |
-| 建模 | 模型工作台 | 系数表、诊断图、运行记录 | 实验台账横向对比 |
-| 推断 | Inference Forge | 后验分布、收敛诊断与模型比较 | 实验台账横向对比 |
-| 信号 | 信号实验室 | 滤波后的派生文件与频谱参数 | 血缘图与运行记录 |
-| 组图 | Figure Studio | 期刊模板多面板图组 | 论文附件包 |
-| 交付 | 报告生成器 | 自包含 HTML | 直接分发 |
-| 复现 | repro.lock | 五类指纹与漂移检查 | 一键重跑 |
-| 归档 | 论文附件包 | manifest 与数据代码 ZIP | 随论文上传 |
-
-链路各步发生在同一浏览器标签页内，离线时全部功能照常工作。流程图中的两条虚线是贯穿主链的记录线：每一次运行写入实验台账，每一次文件读写进入数据血缘。
-
 ### 实验台账
 
 每一次运行都被实验台账完整记录：参数、输入文件、输出指标与耗时，历史运行可按参数筛选，任意两次运行可做 A/B 对比。
@@ -575,33 +561,51 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 为何必要｜多步处理链中"这个数字从哪来"很难靠记忆回答；血缘图把答案变成可查询的结构化记录。
 ```
 
+<!-- pagebreak -->
+
+各环节的输入与产物构成一条闭合的工件链：
+
+| 环节 | 工具 | 产物 | 去向 |
+| --- | --- | --- | --- |
+| 画像 | 数据画像 | 列剖析、质量分、问题清单（可导出 CSV） | 报告引用，清洗依据 |
+| 清洗 | 清洗向导 | 清洗后的新文件与规则运行记录 | 数据血缘节点 |
+| 建模 | 模型工作台 | 系数表、诊断图、运行记录 | 实验台账横向对比 |
+| 推断 | Inference Forge | 后验分布、收敛诊断与模型比较 | 实验台账横向对比 |
+| 信号 | 信号实验室 | 滤波后的派生文件与频谱参数 | 血缘图与运行记录 |
+| 组图 | Figure Studio | 期刊模板多面板图组 | 论文附件包 |
+| 交付 | 报告生成器 | 自包含 HTML | 直接分发 |
+| 复现 | repro.lock | 五类指纹与漂移检查 | 一键重跑 |
+| 归档 | 论文附件包 | manifest 与数据代码 ZIP | 随论文上传 |
+
+链路各步发生在同一浏览器标签页内，离线时全部功能照常工作。流程图中的两条虚线是贯穿主链的记录线：每一次运行写入实验台账，每一次文件读写进入数据血缘。
+
 ## 五、关键技术实现
 
-**四模式同源，三语言互译。** 积木、流程与代码三种范式共享同一份中间表示：同一程序的三种写法可以互相转换而不改变语义，Python、R、JavaScript 之间的整段代码互译经预览窗确认后应用。三语言往返互译由专门单元测试固化（`tests/editor/roundtrip-all-langs.test.ts`），语言切换链路由端到端测试覆盖。同一条管线因此可以用不同难度梯度讲解，不同背景的协作者也可以在各自熟悉的范式下工作于同一项目。
+**四模式同源，三语言互译：** 积木、流程与代码三种范式共享同一份中间表示：同一程序的三种写法可以互相转换而不改变语义，Python、R、JavaScript 之间的整段代码互译经预览窗确认后应用。三语言往返互译由专门单元测试固化（`tests/editor/roundtrip-all-langs.test.ts`），语言切换链路由端到端测试覆盖。同一条管线因此可以用不同难度梯度讲解，不同背景的协作者也可以在各自熟悉的范式下工作于同一项目。
 
-**浏览器内的运行时。** Python 运行于 Pyodide Worker 中的 CPython，可导入 `studio` 模块操作项目数据；R 配有 vendored webR 0.6.0 运行时（缺失时回退共享 IR 引擎）；DuckDB-WASM 提供 SQL 查询。全部运行时随应用自托管，离线可用。
+**浏览器内的运行时：** Python 运行于 Pyodide Worker 中的 CPython，可导入 `studio` 模块操作项目数据；R 配有 vendored webR 0.6.0 运行时（缺失时回退共享 IR 引擎）；DuckDB-WASM 提供 SQL 查询。全部运行时随应用自托管，离线可用。
 
-**GPU 计算与回退。** 14 个可复用 WGSL 计算内核（全对 N-Body、D2Q9 格子 Boltzmann、波动方程 leapfrog、FFT、K-means、SpMV 等）在 WebGPU 上执行；每个内核配数学一致的 CPU 实现，单元测试对两条路径做数值一致性校验（无头 SwiftShader 实测通过限约 2e-6），涉及随机数的内核在两条路径使用同一随机数序列。数据规模低于阈值或 WebGPU 不可用时自动回退 CPU，引擎选择记入运行记录。
+**GPU 计算与回退：** 14 个可复用 WGSL 计算内核（全对 N-Body、D2Q9 格子 Boltzmann、波动方程 leapfrog、FFT、K-means、SpMV 等）在 WebGPU 上执行；每个内核配数学一致的 CPU 实现，单元测试对两条路径做数值一致性校验（无头 SwiftShader 实测通过限约 2e-6），涉及随机数的内核在两条路径使用同一随机数序列。数据规模低于阈值或 WebGPU 不可用时自动回退 CPU，引擎选择记入运行记录。
 
 ![引力 N 体模拟：GPU 全对内核](../assets/screenshots/plugins/nbody-3d.png)
 
 *引力 N 体模拟：三维直接求和引力，GPU 全对内核加速、CPU 一致回退。*
 
-**安全边界。** 插件在 Worker 沙箱中运行（isolated 模式经 OffscreenCanvas RPC 通信）；第三方 `.cspkg` 包经清单校验与 Ed25519 签名门禁加载。旧环境的 `new Function` 回退路径在界面上明确标注，不作为安全边界使用。
+**安全边界：** 插件在 Worker 沙箱中运行（isolated 模式经 OffscreenCanvas RPC 通信）；第三方 `.cspkg` 包经清单校验与 Ed25519 签名门禁加载。旧环境的 `new Function` 回退路径在界面上明确标注，不作为安全边界使用。
 
-**隐私边界。** 应用无账号体系、无自建服务器：数据与分析记录仅存于本机 IndexedDB / OPFS；网络访问只发生在两类显式操作——用户主动配置的 Git 远程同步（经 CORS 代理）与用户主动触发的在线更新检查。除此之外不产生外发流量。
+**隐私边界：** 应用无账号体系、无自建服务器：数据与分析记录仅存于本机 IndexedDB / OPFS；网络访问只发生在两类显式操作——用户主动配置的 Git 远程同步（经 CORS 代理）与用户主动触发的在线更新检查。除此之外不产生外发流量。
 
-**故障隔离。** 单个插件的运行时错误由错误边界捕获，崩溃不影响宿主与其他插件，画布给出可重试的提示；运行器层面另有超时与重试机制兜底。
+**故障隔离：** 单个插件的运行时错误由错误边界捕获，崩溃不影响宿主与其他插件，画布给出可重试的提示；运行器层面另有超时与重试机制兜底。
 
-**本地存储分层。** 数据文件本体由 Origin Private File System 分块存储以承载大文件，项目元数据与运行记录留在 IndexedDB，历史数据由迁移逻辑平滑升级；虚拟文件系统把两层存储统一暴露给插件、脚本与 Git，版本对象与工作区文件位于同一存储栈。数据的物理位置、访问路径与版本管理因此收敛在一条路径上。
+**本地存储分层：** 数据文件本体由 Origin Private File System 分块存储以承载大文件，项目元数据与运行记录留在 IndexedDB，历史数据由迁移逻辑平滑升级；虚拟文件系统把两层存储统一暴露给插件、脚本与 Git，版本对象与工作区文件位于同一存储栈。数据的物理位置、访问路径与版本管理因此收敛在一条路径上。
 
-**运行时自托管。** Python、R 与 SQL 三个运行时连同静态资源一起随应用分发，不依赖公网 CDN；首次加载后全部进入本地缓存，此后离线可用。运行时版本随仓库锁定，repro.lock 的环境快照直接引用这些版本，跨设备重跑前先核对版本再执行。
+**运行时自托管：** Python、R 与 SQL 三个运行时连同静态资源一起随应用分发，不依赖公网 CDN；首次加载后全部进入本地缓存，此后离线可用。运行时版本随仓库锁定，repro.lock 的环境快照直接引用这些版本，跨设备重跑前先核对版本再执行。
 
-**插件契约。** 每个插件由清单文件声明参数控件、示例数据与研究就绪度徽章，宿主据此自动生成本地化参数表单；插件产出的关键读数经科学输出总线进入读数条，每次运行写入实验台账。内置插件与第三方 `.cspkg` 包走同一契约与加载路径，宿主不为内置插件保留特权通道。
+**插件契约：** 每个插件由清单文件声明参数控件、示例数据与研究就绪度徽章，宿主据此自动生成本地化参数表单；插件产出的关键读数经科学输出总线进入读数条，每次运行写入实验台账。内置插件与第三方 `.cspkg` 包走同一契约与加载路径，宿主不为内置插件保留特权通道。
 
-**测试与回归体系。** 2815 个单元测试分布在 173 个文件中，14 套端到端测试串联关键用户路径，类型检查与全部单测在 CI 中随每次提交运行；GPU 内核与 CPU 实现的一致性、三语言往返互译、报告转义与签名门禁等行为各有专项测试固化，性能基线由独立的 bench 工作流看守。引用元数据漂移、依赖漏洞等合规问题以 CI 失败的方式强制回归，不依赖人工记忆。
+**测试与回归体系：** 2815 个单元测试分布在 173 个文件中，14 套端到端测试串联关键用户路径，类型检查与全部单测在 CI 中随每次提交运行；GPU 内核与 CPU 实现的一致性、三语言往返互译、报告转义与签名门禁等行为各有专项测试固化，性能基线由独立的 bench 工作流看守。引用元数据漂移、依赖漏洞等合规问题以 CI 失败的方式强制回归，不依赖人工记忆。
 
-**性能预算与线程模型。** 构建产物受 CI 中的性能预算约束，包体积与关键路径的回归在合并前即被暴露；文件解析与计算任务位于 Worker 线程，主线程保持界面交互响应，渲染走 WebGPU 管线或 Canvas 回退。线程边界同时是安全边界——沙箱插件与宿主运行在不同的 Worker 中。
+**性能预算与线程模型：** 构建产物受 CI 中的性能预算约束，包体积与关键路径的回归在合并前即被暴露；文件解析与计算任务位于 Worker 线程，主线程保持界面交互响应，渲染走 WebGPU 管线或 Canvas 回退。线程边界同时是安全边界——沙箱插件与宿主运行在不同的 Worker 中。
 
 ## 六、内置能力全景
 
@@ -609,22 +613,22 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 
 | 学科组（数量） | 插件 |
 | --- | --- |
-| 图表可视化（16） | 散点图 Scatter Plot · 时间序列绘图 Time Series · 热力图 Heatmap · 等值线图 Contour · 3D 表面图 Surface · 3D 体素渲染 Voxel Field · 柱状图 Bar Chart · 气泡图 Bubble Chart · 雷达图 Polar Plot · 网络图 Network Graph · 桑基图 Sankey · 矩形树图 Treemap · 平行坐标图 Parallel Coordinates · 点云查看器 Point Cloud · 3D 点云 Point Cloud 3D · 图像查看器 Image Viewer |
-| 数学统计（8） | 直方图 Histogram · 箱线图 Box Plot · 小提琴图 Violin Plot · QQ 图 · 误差带图 Error Band · 中心极限定理演示台 CLT Bench · 马尔可夫链与稳态分析 Markov Chains · Zipf 定律词频分析 Zipf's Law |
-| 数学方法（3） | 傅里叶级数逼近实验室 Fourier Series Lab · 复变函数域着色 Domain Coloring · ODE 向量场与流线 Streamlines |
-| 物理模拟（15） | 粒子模拟 Particles · 引力 N 体模拟 N-Body · 流体模拟（LBM）· 波动方程 Wave Equation · 双摆（混沌）Double Pendulum · 电磁场 Electromagnetism · 光学实验 Optics Lab · 一维量子力学求解器 Schrödinger Solver · 二维伊辛模型 Ising Model · 热机循环 p-V 分析台 Heat Engine · 热传导 / 扩散方程实验室 Diffusion · 衍射实验室 Diffraction Lab · 轨迹运动学与能量分解 Trajectory Lab · 电磁谐振特征值求解器 EM Eigensolver · 1D-3D 双向耦合求解器 Coupled Solver |
-| 化学（5） | 晶胞 · 3D 预览 Crystal · 反应 · 自由反应动力学 3D Reaction MD · 酸碱滴定曲线实验室 Titration Lab · 反应级数判定与 Arrhenius 分析 · Gray-Scott 反应扩散图灵斑图 Turing Patterns |
-| 生物学（8） | 蛋白质交互网络 Protein Interactions · 酶动力学 Enzyme Kinetics · 传染病分室模型 Epidemic Modeling · 序列比对与分析 Sequence Alignment · 群体遗传学 Population Genetics · 药代动力学室分析 Pharmacokinetics · 孟德尔 F2 分离比 χ² 检验 Mendel Tests · Hodgkin–Huxley 神经元 |
-| 地理（13） | GeoJSON 地图 · 太阳高度与昼夜长短 Solar · 气候直方图 Climatograph · 人口金字塔 Population Pyramid · 空间插值（IDW / 克里金）· 距离与面积量算 · 投影变形（Tissot 圆）· DEM 地形分析 · GPX 轨迹分析 · 交互地球仪（3D）Globe · 放射性碳定年实验室 Radiocarbon · 土壤水分特征曲线拟合 · SCS 降雨径流模型 |
-| 环境学（8） | 空气质量评价（AQI）· 水质评价（地表水分类）· 温室效应模拟 Greenhouse · 碳循环推演 Carbon Cycle · 生物多样性指数 Biodiversity · 污染物扩散模拟（高斯烟羽）· 3D 全球环境 · 捕食者-猎物（Lotka–Volterra） |
-| 天文（3） | 天文 CCD 管线 CCD Pipeline · 凌星系外行星光变拟合 Transit Fitting · 赫罗图 HR Diagram |
-| 材料学（3） | XRD 衍射图谱分析 · 应力-应变分析 Stress-Strain · 热分析（DSC/TGA） |
-| 工程仿真（4） | 结构力学 Structural Mechanics · 直流电路节点分析 DC Circuit · 平面桁架有限元分析 Truss FEA · 控制系统实验室 Control Systems |
-| 经济与金融（2） | Black-Scholes 期权定价实验室 · 空间囚徒困境演化博弈 Prisoner's Dilemma |
-| 心理与行为（2） | 信号检测论 ROC / d′ 分析 · 简单反应时实验室 Reaction Time |
-| 数据与智能（2） | AI 训练 AI Trainer（TF.js 浏览器内训练）· 图像处理 Image Processing（FFT / 卷积 / 边缘） |
-| 特效渲染（5） | 黑洞 · 3D 光线追踪 · 水波 · 3D 流体 · 体积云 · 天空渲染器 · 日光天空 · 大气散射 · 星空 · 夜天渲染器 |
-| 趣味工具（10，按需加载） | 分形浏览器 Mandelbrot / Julia · 万花尺 Spirograph · 利萨茹曲线 Lissajous · 生命游戏 Game of Life · 谐振记录仪 Harmonograph · 配色探索器 Palette · 科赫雪花 Koch · 巴恩斯利蕨 Barnsley Fern · 烟花 Fireworks · 特鲁谢瓷砖 Truchet Tiles |
+| 图表可视化（16） | 散点图 Scatter Plot、时间序列绘图 Time Series、热力图 Heatmap、等值线图 Contour、3D 表面图 Surface、3D 体素渲染 Voxel Field、柱状图 Bar Chart、气泡图 Bubble Chart、雷达图 Polar Plot、网络图 Network Graph、桑基图 Sankey、矩形树图 Treemap、平行坐标图 Parallel Coordinates、点云查看器 Point Cloud、3D 点云 Point Cloud 3D、图像查看器 Image Viewer |
+| 数学统计（8） | 直方图 Histogram、箱线图 Box Plot、小提琴图 Violin Plot、QQ 图、误差带图 Error Band、中心极限定理演示台 CLT Bench、马尔可夫链与稳态分析 Markov Chains、Zipf 定律词频分析 Zipf's Law |
+| 数学方法（3） | 傅里叶级数逼近实验室 Fourier Series Lab、复变函数域着色 Domain Coloring、ODE 向量场与流线 Streamlines |
+| 物理模拟（15） | 粒子模拟 Particles、引力 N 体模拟 N-Body、流体模拟（LBM）、波动方程 Wave Equation、双摆（混沌）Double Pendulum、电磁场 Electromagnetism、光学实验 Optics Lab、一维量子力学求解器 Schrödinger Solver、二维伊辛模型 Ising Model、热机循环 p-V 分析台 Heat Engine、热传导 / 扩散方程实验室 Diffusion、衍射实验室 Diffraction Lab、轨迹运动学与能量分解 Trajectory Lab、电磁谐振特征值求解器 EM Eigensolver、1D-3D 双向耦合求解器 Coupled Solver |
+| 化学（5） | 晶胞 · 3D 预览 Crystal、反应 · 自由反应动力学 3D Reaction MD、酸碱滴定曲线实验室 Titration Lab、反应级数判定与 Arrhenius 分析、Gray-Scott 反应扩散图灵斑图 Turing Patterns |
+| 生物学（8） | 蛋白质交互网络 Protein Interactions、酶动力学 Enzyme Kinetics、传染病分室模型 Epidemic Modeling、序列比对与分析 Sequence Alignment、群体遗传学 Population Genetics、药代动力学室分析 Pharmacokinetics、孟德尔 F2 分离比 χ² 检验 Mendel Tests、Hodgkin–Huxley 神经元 |
+| 地理（13） | GeoJSON 地图、太阳高度与昼夜长短 Solar、气候直方图 Climatograph、人口金字塔 Population Pyramid、空间插值（IDW / 克里金）、距离与面积量算、投影变形（Tissot 圆）、DEM 地形分析、GPX 轨迹分析、交互地球仪（3D）Globe、放射性碳定年实验室 Radiocarbon、土壤水分特征曲线拟合、SCS 降雨径流模型 |
+| 环境学（8） | 空气质量评价（AQI）、水质评价（地表水分类）、温室效应模拟 Greenhouse、碳循环推演 Carbon Cycle、生物多样性指数 Biodiversity、污染物扩散模拟（高斯烟羽）、3D 全球环境、捕食者-猎物（Lotka–Volterra） |
+| 天文（3） | 天文 CCD 管线 CCD Pipeline、凌星系外行星光变拟合 Transit Fitting、赫罗图 HR Diagram |
+| 材料学（3） | XRD 衍射图谱分析、应力-应变分析 Stress-Strain、热分析（DSC/TGA） |
+| 工程仿真（4） | 结构力学 Structural Mechanics、直流电路节点分析 DC Circuit、平面桁架有限元分析 Truss FEA、控制系统实验室 Control Systems |
+| 经济与金融（2） | Black-Scholes 期权定价实验室、空间囚徒困境演化博弈 Prisoner's Dilemma |
+| 心理与行为（2） | 信号检测论 ROC / d′ 分析、简单反应时实验室 Reaction Time |
+| 数据与智能（2） | AI 训练 AI Trainer（TF.js 浏览器内训练）、图像处理 Image Processing（FFT / 卷积 / 边缘） |
+| 特效渲染（5） | 黑洞 · 3D 光线追踪、水波 · 3D 流体、体积云 · 天空渲染器、日光天空 · 大气散射、星空 · 夜天渲染器 |
+| 趣味工具（10，按需加载） | 分形浏览器 Mandelbrot / Julia、万花尺 Spirograph、利萨茹曲线 Lissajous、生命游戏 Game of Life、谐振记录仪 Harmonograph、配色探索器 Palette、科赫雪花 Koch、巴恩斯利蕨 Barnsley Fern、烟花 Fireworks、特鲁谢瓷砖 Truchet Tiles |
 
 仿真类插件初始为空，仅在加载数据后运行，"重置"只重放已加载数据；138 个示例数据集（`examples/data/`）经"示例数据"对话框一键载入。科研级插件在清单中声明研究就绪度徽章、物理单位与验证基准，关键指标经科学输出总线汇入画布顶部的读数条。
 
@@ -686,9 +690,9 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 
 项目以 MIT 协议发布，源码、173 个测试文件与 5 条 CI 工作流公开可查；发版经 Zenodo 归档并铸造 DOI，软件引用由 `CITATION.cff` 维护并在 CI 中校验；SECURITY、CONDUCT、CHANGELOG 与双语 README 齐备。第三方插件与内置插件走相同的契约与加载路径，扩展能力不依赖修改宿主。
 
-可持续性来自几项设计：每个计算内核都有数学一致的 CPU 实现，无 WebGPU 的设备保持完整功能；数据以开放格式自由进出，项目可导出离线流转；repro.lock 的五类指纹保证历史分析在长时间后仍可判定漂移并重跑。
+**可持续性来自几项设计：** 每个计算内核都有数学一致的 CPU 实现，无 WebGPU 的设备保持完整功能；数据以开放格式自由进出，项目可导出离线流转；repro.lock 的五类指纹保证历史分析在长时间后仍可判定漂移并重跑。
 
-路线图的长期方向指向一件事：让"可复现的分析"成为科学工作的默认交付物——像网页一样易于分发，像引用一样易于核对。已交付的能力由代码与测试覆盖；未完成的事项如实列出，架构位置已经预留。
+**路线图指向一个明确的目标态：** **分析成为可引用的一等科学产物**——每一次分析自带复现指纹与 DOI，他人重现或质疑一条结论时，不需要向作者索取任何东西。近期事项加固既有能力，中期事项打开第三方生态，远期事项把这个目标态推进科学工作流的每个环节。已交付的能力由代码与测试覆盖；未完成的事项如实列出，架构位置已经预留。
 
 | 阶段 | 事项 | 现状锚点 |
 | --- | --- | --- |
@@ -698,21 +702,21 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 | 近期（硬化） | 市场注册表与应用内安装 / 更新流 | .cspkg Ed25519 签名门禁已上线 |
 | 中期（生态） | 第三方包自助提交—审核—安装管线 | 签名与沙箱基建就绪，缺自助通道 |
 | 中期（生态） | gpu.* 区块族接入积木与流程模式 | Worker 端运行器与内核派发接口已预留 |
-| 中期（生态） | 更多学科插件经同一契约扩充 | 107 个内置插件即契约的现有样本 |
-| 远期（方向） | headless 运行形态：repro.lock 项目在 CI 中重跑并再生成报告 | 测试体系已在浏览器外运行同一代码路径 |
-| 远期（方向） | 实时协作与项目分享（本地优先架构上的同步层） | 项目为标准 Git 仓库，天然具备交换格式 |
-| 远期（方向） | 更多语言运行时经共享 IR 接入 | Python / R / JavaScript 互译机制即扩展模板 |
-| 远期（方向） | 原生核心（Rust 源码）编译为 WASM 并入运行时 | 现为源码交付，运行时由 WebGPU / CPU 承担 |
-| 远期（方向） | 面向教学机构的离线批量部署形态 | 单机离线能力已完整 |
-| 远期（方向） | 更多期刊模板与导出格式 | IEEE / Elsevier 模板与投稿检查已交付 |
+| 中期（生态） | 插件验证基准集开放为公共科学基准 | 验证基准已随插件清单声明，可在画布复跑 |
+| 远期（愿景） | **分析即产物**：headless 形态让 repro.lock 项目在 CI 中重跑，报告与图组自动再生 | 测试体系已在浏览器外运行同一代码路径 |
+| 远期（愿景） | **分析可引用**：单次分析归档为 DOI 引用对象，论文结论与其生成分析之间可以互相引用 | 发版流水线已归档 Zenodo DOI 并由 CITATION.cff 维护引用 |
+| 远期（愿景） | 实时协作与项目分享（本地优先架构上的同步层） | 项目为标准 Git 仓库，天然具备交换格式 |
+| 远期（愿景） | **学科纵深**：更多学科在同一契约下获得从数据导入到论文投稿的完整工作流 | 107 个内置插件横跨 16 个学科组，即契约的现有样本 |
+| 远期（愿景） | **真实场景接入**：面向高校与实验室的离线批量部署，真实教学的接入正在推进 | 单机离线能力已完整 |
+| 远期（愿景） | **投稿规范全覆盖**：更多期刊模板与导出格式 | IEEE / Elsevier 模板与投稿检查已交付 |
 
-已知边界：沙箱 Worker 与宿主共享源站存储，恶意包的最终防线是签名门禁；WebGPU 不可用时进入 CPU 回退模式，功能不缺失、性能有差异。边界与缓解措施在安全文档中明文可查。
+**已知边界：** 沙箱 Worker 与宿主共享源站存储，恶意包的最终防线是签名门禁；WebGPU 不可用时进入 CPU 回退模式，功能不缺失、性能有差异。边界与缓解措施在安全文档中明文可查。
 
-缓解是分层的：沙箱隔离运行时行为，签名门禁决定什么能进入沙箱，错误边界限制已进入沙箱的代码崩溃时的影响半径；三层各自有测试覆盖，任何一层失效都不直接暴露宿主数据。CPU 回退路径与 GPU 路径由同一套单元测试约束数值一致性，回退时的引擎选择写入运行记录，使性能差异可以事后归因。
+**缓解是分层的：** 沙箱隔离运行时行为，签名门禁决定什么能进入沙箱，错误边界限制已进入沙箱的代码崩溃时的影响半径；三层各自有测试覆盖，任何一层失效都不直接暴露宿主数据。CPU 回退路径与 GPU 路径由同一套单元测试约束数值一致性，回退时的引擎选择写入运行记录，使性能差异可以事后归因。
 
-治理的日常执行由 CI 承担：5 条工作流覆盖 2815 个单元测试、14 套端到端测试、构建与文档生成。两类测试把关键语义钉死在流水线上——GPU/CPU 一致性测试将 14 个 WGSL 内核与其 CPU 实现绑定在同一数值容差下，三态互译测试将积木、流程与代码绑定在同一中间表示上。破坏一致性或互译语义的提交会在流水线上直接失败，回归不依赖人工发现。
+**治理的日常执行由 CI 承担：** 5 条工作流覆盖 2815 个单元测试、14 套端到端测试、构建与文档生成。两类测试把关键语义钉死在流水线上——GPU/CPU 一致性测试将 14 个 WGSL 内核与其 CPU 实现绑定在同一数值容差下，三态互译测试将积木、流程与代码绑定在同一中间表示上。破坏一致性或互译语义的提交会在流水线上直接失败，回归不依赖人工发现。
 
-供应链与合规同样进入流水线：依赖清单以 CycloneDX 1.5 格式生成 SBOM，security 工作流每周重扫，高危与严重漏洞阻断合并，豁免项须写明理由并登记后续处理；引用元数据由脚本与 `package.json` 比对，漂移即 CI 失败。发版流水线把同一份构建产物归档到 Zenodo 并铸造 DOI，软件引用长期可解析。
+**供应链与合规同样进入流水线：** 依赖清单以 CycloneDX 1.5 格式生成 SBOM，security 工作流每周重扫，高危与严重漏洞阻断合并，豁免项须写明理由并登记后续处理；引用元数据由脚本与 `package.json` 比对，漂移即 CI 失败。
 
 ## 八、获取与运行
 
@@ -722,7 +726,7 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 - **参与贡献**：Issue 与 Pull Request 欢迎，第三方插件契约文档见仓库。
 - **引用**：`CITATION.cff` 提供标准引用格式，正式发版经 Zenodo 铸造 DOI。
 
-浏览器要求：支持 WebGPU 的浏览器（Chrome / Edge 113 及以上等）获得完整 GPU 管线；其余现代浏览器自动走 CPU 路径，功能一致、性能有差异。首次完整加载后，各运行时与数据文件均已本地缓存，之后可在离线状态下使用全部功能。
+**浏览器要求：** 支持 WebGPU 的浏览器（Chrome / Edge 113 及以上等）获得完整 GPU 管线；其余现代浏览器自动走 CPU 路径，功能一致、性能有差异。首次完整加载后，各运行时与数据文件均已本地缓存，之后可在离线状态下使用全部功能。
 
 三类部署形态基于同一份纯静态构建产物，按场景选择：
 
@@ -732,15 +736,34 @@ repro.lock 记录数据指纹、参数哈希、随机种子、代码快照与环
 | 本地开发 | 二次开发与插件编写 | `npm install` 后 `npm run dev` 启动热更新 |
 | 自托管静态部署 | 教学机房与内网 | 构建产物为纯静态文件，HashRouter 兼容任意静态服务器 |
 
-数据随时可以带走：项目导出为 `.clproj` 单文件，数据文件保持原始格式，Git 历史随项目一同迁移。卸载或清空浏览器数据即彻底删除全部本地副本，不存在需要申请导出的云端残留。
+**数据随时可以带走：** 项目导出为 `.clproj` 单文件，数据文件保持原始格式，Git 历史随项目一同迁移。卸载或清空浏览器数据即彻底删除全部本地副本，不存在需要申请导出的云端残留。
 
-第一次使用不需要自己的数据：11 个示例工程覆盖不同学科的完整分析场景，138 个示例数据集经"示例数据"对话框一键载入任意插件；从示例进入、再替换为自己的文件，是多数新用户的实际路径。
+**第一次使用不需要自己的数据：** 11 个示例工程覆盖不同学科的完整分析场景，138 个示例数据集经"示例数据"对话框一键载入任意插件；从示例进入、再替换为自己的文件，是多数新用户的实际路径。
 
 ## 九、附录
 
 ### 附录 A　插件速查
 
-107 个内置插件的完整清单见第六章，插件 ID 与学科映射的权威来源为 `src/plugins/categories.ts`。
+下表列出全部 107 个内置插件的 ID 与学科归属，中英文名称见第六章；映射的权威来源为 `src/plugins/categories.ts`，未映射的第三方插件 ID 默认归入图表可视化组。
+
+| 学科组 | 插件 ID |
+| --- | --- |
+| 图表可视化（16） | `example.scatter`、`example.timeseries`、`example.heatmap`、`example.contour`、`example.surface-3d`、`example.voxel-3d`、`example.bar_chart`、`example.bubble`、`example.polar`、`example.network`、`example.sankey`、`example.treemap`、`example.parallel`、`example.point-cloud`、`example.point-cloud-3d`、`example.image` |
+| 数学统计（8） | `example.histogram`、`example.boxplot`、`example.violin`、`example.qqplot`、`example.errorband`、`example.stats-clt`、`example.stats-markov`、`example.stats-zipf` |
+| 数学方法（3） | `example.math-fourier`、`example.math-domaincolor`、`example.math-odefield` |
+| 物理模拟（15） | `example.particles`、`example.nbody`、`example.fluid`、`example.wave`、`example.pendulum`、`example.electromag`、`example.optics`、`example.em-eigensolver`、`example.fluid-cfd-coupler`、`example.physics-schrodinger`、`example.physics-ising`、`example.physics-heatengine`、`example.physics-diffusion`、`example.physics-diffraction`、`example.physics-trajectory` |
+| 化学（5） | `example.chem-crystal`、`example.chem-reaction`、`example.chem-titration`、`example.chem-reaction-order`、`example.chem-turing` |
+| 生物学（8） | `example.protein`、`example.bio-enzyme`、`example.bio-epidemic`、`example.bio-seqalign`、`example.bio-popgen`、`example.bio-pk`、`example.bio-mendel`、`example.bio-neuron` |
+| 地理（13） | `example.geomap`、`example.geo-solar`、`example.geo-climograph`、`example.geo-pop-pyramid`、`example.geo-interp`、`example.geo-measure`、`example.geo-tissot`、`example.geo-terrain`、`example.geo-gpx`、`example.geo-globe`、`example.geo-carbondating`、`example.geo-soilwater`、`example.geo-hydrology` |
+| 环境（8） | `example.env-aqi`、`example.env-water`、`example.env-greenhouse`、`example.env-carbon`、`example.env-biodiversity`、`example.env-plume`、`example.env-earth3d`、`example.env-predator-prey` |
+| 天文（3） | `astro.pipeline`、`example.astro-transit`、`example.astro-hrdiagram` |
+| 材料学（3） | `example.mats-xrd`、`example.mats-mech`、`example.mats-thermal` |
+| 工程仿真（4） | `example.structure`、`example.eng-circuit`、`example.eng-truss`、`example.eng-control` |
+| 经济与金融（2） | `example.econ-blackscholes`、`example.econ-evogame` |
+| 心理与行为（2） | `example.psych-sdt`、`example.psych-rt` |
+| 数据与智能（2） | `example.ai-training`、`example.data-imageproc` |
+| 特效渲染（5） | `fx.blackhole`、`fx.water`、`fx.cloud`、`fx.sky`、`fx.stars` |
+| 趣味工具（10，按需加载） | `fun.mandelbrot`、`fun.spirograph`、`fun.lissajous`、`fun.life`、`fun.harmonograph`、`fun.palette`、`fun.koch`、`fun.barnsley`、`fun.fireworks`、`fun.truchet` |
 
 ### 附录 B　科研工具速查
 

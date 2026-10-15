@@ -944,7 +944,7 @@ function splitParagraphBlocks(blocks) {
       const cls = ['pfrag', i === 0 ? 'pfrag-first' : '', i === parts.length - 1 ? 'pfrag-last' : '']
         .filter(Boolean)
         .join(' ');
-      out.push({ kind: 'p', pid, text: part.replace(/<[^>]+>/g, ''), html: `<p class="${cls}">${part}</p>` });
+      out.push({ kind: 'p', pid, fi: i, fc: parts.length, text: part.replace(/<[^>]+>/g, ''), ih: part, html: `<p class="${cls}">${part}</p>` });
     });
   }
   return out;
@@ -1175,6 +1175,32 @@ function packPages(blocks, measured) {
       const moved = pg.splice(start, pg.length - start);
       pages[p + 1].unshift(...moved);
     }
+  }
+  // Coalesce sentence-split fragments that landed on the same page back into
+  // one paragraph: a flush-left continuation line reads as broken wrapping
+  // under the two-character indent. Only fragments that actually straddle a
+  // page break stay split. Merged blocks are strictly shorter than the fragment
+  // run they replace (margins 2.4/2.4 vs 3/3), so measured heights stay valid.
+  for (const pg of pages) {
+    const out = [];
+    for (let i = 0; i < pg.length; i++) {
+      const b = pg[i];
+      if (b.kind !== 'p' || b.pid == null) { out.push(b); continue; }
+      let j = i;
+      while (j + 1 < pg.length && pg[j + 1].kind === 'p' && pg[j + 1].pid === b.pid) j++;
+      if (j === i) { out.push(b); continue; }
+      const run = pg.slice(i, j + 1);
+      const initial = run[0].fi === 0;
+      const final = run[run.length - 1].fi === run[run.length - 1].fc - 1;
+      // Join the fragments' inner HTML (not the tag-stripped text) so inline
+      // formatting such as <strong> lead-ins survives the merge.
+      const html = run.map((r) => r.ih ?? r.text).join('');
+      const cls = initial ? '' : final ? 'pfrag pfrag-last' : 'pfrag';
+      out.push({ kind: 'p', pid: b.pid, text: run.map((r) => r.text).join(''), html: `<p${cls ? ` class="${cls}"` : ''}>${html}</p>` });
+      i = j;
+    }
+    pg.length = 0;
+    pg.push(...out);
   }
   if (process.env.DEBUG_TECH_DOCS) {
     pages.forEach((pg, i) => {
