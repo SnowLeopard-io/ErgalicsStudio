@@ -72,6 +72,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.parallel': 'charts',
   'example.point-cloud': 'charts',
   'example.point-cloud-3d': 'charts',
+  'example.model3d': 'charts',
   'example.image': 'charts',
 
   // Statistics & math
