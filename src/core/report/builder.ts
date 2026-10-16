@@ -409,8 +409,8 @@ function renderFilter(
       min = 0;
       max = 0;
     }
-    control = `<label>${labels.min} <input type="number" data-bound="min" step="any" value="${escapeHtml(min)}"></label>`
-      + `<label>${labels.max} <input type="number" data-bound="max" step="any" value="${escapeHtml(max)}"></label>`;
+    control = `<label>${labels.min} <input type="text" inputmode="decimal" data-bound="min" value="${escapeHtml(min)}"></label>`
+      + `<label>${labels.max} <input type="text" inputmode="decimal" data-bound="max" value="${escapeHtml(max)}"></label>`;
   } else {
     const values = new Set<string>();
     for (const t of targetTables) {

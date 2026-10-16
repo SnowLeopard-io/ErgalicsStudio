@@ -42,6 +42,7 @@ import { pointCloudManifest } from './pointCloudManifest';
 import { pointCloud3DManifest } from './pointCloud3DManifest';
 import { surface3DManifest } from './surface3DManifest';
 import { voxel3DManifest } from './voxel3DManifest';
+import { modelViewerManifest } from './modelViewerManifest';
 import { particleManifest } from './particlesManifest';
 import { proteinManifest } from './proteinManifest';
 import { imageViewerManifest } from './imageViewerManifest';
@@ -808,6 +809,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: voxel3DManifest,
     load: async () => {
       const mod = await import('./voxel3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: modelViewerManifest,
+    load: async () => {
+      const mod = await import('./modelViewer');
       return mod.default();
     },
   },

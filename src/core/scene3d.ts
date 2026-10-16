@@ -9,6 +9,9 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 import type { Scene3DHandle } from '@/types/plugin';
 
 /** Matches the app's dark canvas background (see styles). */
@@ -45,12 +48,24 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(width, height);
+  // Filmic response for PBR materials (model viewer / crystal / surface
+  // highlights) — linear output clips bright speculars to flat white.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
   // Required for material-level clippingPlanes (used by the crystal plugin's
-  // "clip to cell" view); harmless for every other plugin.
+  // "clip to cell" view and the model viewer's cross-section); harmless
+  // for every other plugin.
   renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SCENE_BACKGROUND);
+  // Neutral indoor IBL so MeshStandard/Physical materials get believable
+  // reflections without each plugin hand-placing lights. Damped so it lifts
+  // shading rather than overpowering the existing analytic lights.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.45;
+  pmrem.dispose();
 
   const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
   camera.position.set(10, 8, 12);
@@ -219,6 +234,29 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
         if (opts?.transparent) {
           renderer.setClearColor(SCENE_BACKGROUND, 1);
         }
+      }
+    },
+    exportModel: async (format) => {
+      // Hide the reference furniture so exported models contain only the
+      // plugin's own content (mirrors snapshot({ transparent })).
+      const gridVisible = grid.visible;
+      const axesVisible = axes.visible;
+      grid.visible = false;
+      axes.visible = false;
+      try {
+        if (format === 'stl') {
+          // Binary STL: compact and universally readable (CAD / slicers).
+          const data = new STLExporter().parse(scene, { binary: true }) as DataView;
+          return data.buffer.slice(
+            data.byteOffset,
+            data.byteOffset + data.byteLength,
+          ) as ArrayBuffer;
+        }
+        const glb = await new GLTFExporter().parseAsync(scene, { binary: true });
+        return glb as ArrayBuffer;
+      } finally {
+        grid.visible = gridVisible;
+        axes.visible = axesVisible;
       }
     },
     dispose: () => {

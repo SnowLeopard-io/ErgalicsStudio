@@ -257,6 +257,12 @@ export interface Scene3DHandle {
    * plugin's own objects are captured on a transparent canvas.
    */
   snapshot(opts?: { transparent?: boolean }): string;
+  /**
+   * Export the plugin content (everything except the host's reference
+   * furniture) as a 3D model. `glb` keeps materials, `stl` is binary
+   * triangle soup for printing/CAD. Resolves with the encoded bytes.
+   */
+  exportModel(format: 'glb' | 'stl'): Promise<ArrayBuffer>;
 }
 
 export interface ContainerCapabilities {

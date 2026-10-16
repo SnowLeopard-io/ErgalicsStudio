@@ -720,8 +720,8 @@ export default function FigureStudioPage() {
               </label>
               <input
                 id="panel-row"
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 className="input"
                 placeholder="0"
                 value={draft.row}
@@ -734,8 +734,8 @@ export default function FigureStudioPage() {
               </label>
               <input
                 id="panel-col"
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 className="input"
                 placeholder="0"
                 value={draft.col}

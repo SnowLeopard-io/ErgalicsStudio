@@ -11,6 +11,7 @@
 
 import { useMemo } from 'react';
 import { Modal } from '@/components/Modal';
+import { NumField } from '@/components/NumField';
 import { useT } from '@/i18n';
 import {
   runSubmissionCheck,
@@ -118,15 +119,11 @@ export function SubmissionCheckModal({
             <label className="figures-label" htmlFor="submit-export-dpi">
               {t('submit.dpi')}
             </label>
-            <input
+            <NumField
               id="submit-export-dpi"
-              type="number"
-              min={1}
-              className="input"
               value={settings.rasterDpi}
-              onChange={(e) =>
-                onSettingsChange({ rasterDpi: Math.max(1, Number(e.target.value) || 0) })
-              }
+              ariaLabel={t('submit.dpi')}
+              onChange={(n) => onSettingsChange({ rasterDpi: Math.max(1, n) })}
             />
           </div>
           <div className="figures-field">
