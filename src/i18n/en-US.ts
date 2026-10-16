@@ -556,6 +556,17 @@ export const enUS: LocaleDictionary = {
   'editor.switch.blanked': 'Code cleared — write from scratch, or restore your previous code.',
   'editor.switch.undo': 'Undo discard',
 
+  'mode.convert.title': 'Confirm mode conversion',
+  'mode.convert.sub': '{from} → {to}',
+  'mode.convert.nodes': '{n} node(s) will be shown on the {mode} canvas.',
+  'mode.convert.hidden': '{n} statement(s) cannot be represented on this mode\'s canvas:',
+  'mode.convert.hidden.note': 'They are preserved as raw code in the program — nothing is lost — but are not shown on the canvas.',
+  'mode.convert.code': 'Converted program:',
+  'mode.convert.empty': '(empty program)',
+  'mode.convert.note': 'Conversions go through the unified IR hub; review the preview before applying.',
+  'mode.convert.cancel': 'Cancel',
+  'mode.convert.apply': 'Apply conversion',
+
   'workbench.example.title': 'Samples',
   'workbench.example.datasets': 'Datasets',
   'workbench.example.group_labs': 'Interactive physics & optics labs',

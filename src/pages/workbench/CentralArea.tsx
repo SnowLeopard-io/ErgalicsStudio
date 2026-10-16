@@ -3,6 +3,7 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -1246,7 +1247,7 @@ export function CentralArea() {
             </button>
           </div>
           <div className="central-empty-modes">
-            <WorkbenchModeCards onMode={(m) => useAppStore.getState().setMode(m)} />
+            <WorkbenchModeCards onMode={(m) => useModeConvert.getState().requestMode(m)} />
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">
