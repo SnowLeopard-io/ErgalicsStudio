@@ -6,6 +6,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useAppStore } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -37,7 +38,7 @@ export function TopBar() {
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
-  const setMode = useAppStore((s) => s.setMode);
+  const requestMode = useModeConvert((s) => s.requestMode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
@@ -191,7 +192,7 @@ export function TopBar() {
               type="button"
               className={`mode-btn${mode === key ? ' is-on' : ''}`}
               aria-pressed={mode === key}
-              onClick={() => setMode(key)}
+              onClick={() => requestMode(key)}
             >
               {t(`workbench.mode.${key}`)}
             </button>

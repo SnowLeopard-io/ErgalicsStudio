@@ -43,6 +43,23 @@ const PRODUCT_DOCS = {
     brand: 'ERGALICS STUDIO',
   },
 };
+// Solver submission volumes are standalone deliverables: they carry their own
+// repo address instead of the studio brand — no studio QR codes, no studio
+// mission. Author attribution stays.
+const SOLVER_DOCS = {
+  '09-电磁谐振特征值求解器': {
+    repo: 'https://gitee.com/cnt-code/em-eigensolver',
+    tagline: 'em-eigensolver',
+  },
+  '10-流体双向耦合求解器': {
+    repo: 'https://gitee.com/cnt-code/fluid-cfd-coupler',
+    tagline: 'fluid-cfd-coupler',
+  },
+  '10-流体双向耦合求解器-容器化部署手册': {
+    repo: 'https://gitee.com/cnt-code/fluid-cfd-coupler',
+    tagline: 'fluid-cfd-coupler',
+  },
+};
 function docDir(base) {
   return PRODUCT_DOCS[base]?.dir || DOCS_DIR;
 }
@@ -55,6 +72,10 @@ const ONLY = (() => {
   const i = argv.indexOf('--only');
   return i >= 0 ? argv[i + 1] : null;
 })();
+// --solver: build the standalone solver submission volumes. Same file bases as
+// the studio's own technical docs, but with solver-repo branding on the cover
+// and back matter instead of the studio identity.
+const SOLVER_MODE = argv.includes('--solver');
 
 // --------------------------------------------------------------------------
 // 1. Markdown subset parser → flat block list
@@ -1150,6 +1171,12 @@ function packPages(blocks, measured) {
   // orphan in place.
   for (let p = 0; p < pages.length - 1; p++) {
     if (forcedAfter[p]) continue;
+    // A pull must never overflow the target page: the shrink-and-repack pass
+    // is capped, so a pull onto a nearly full page used to ship as clipped
+    // content. If the moved blocks would not fit, leave the heading at the
+    // foot of the page — an orphaned heading is the lesser evil.
+    const fitsBelow = (moved) =>
+      moved.reduce((a, b) => a + (heightOf.get(b) || 0), 0) + sum(pages[p + 1]) <= limit;
     for (;;) {
       const pg = pages[p];
       const last = pg[pg.length - 1];
@@ -1157,6 +1184,7 @@ function packPages(blocks, measured) {
       if (/^<h[234]/.test(last.html)) {
         // Never drain a page to nothing: an empty page becomes a blank sheet.
         if (pg.length <= 1) break;
+        if (!fitsBelow([last])) break;
         pg.pop();
         pages[p + 1].unshift(last);
         continue;
@@ -1173,6 +1201,10 @@ function packPages(blocks, measured) {
       } else break;
       if (start <= 0 || !/^<h[234]/.test(pg[start].html)) break;
       const moved = pg.splice(start, pg.length - start);
+      if (!fitsBelow(moved)) {
+        pg.push(...moved);
+        break;
+      }
       pages[p + 1].unshift(...moved);
     }
   }
@@ -1309,7 +1341,7 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [], brand 
  * It is built outside the paginator (fixed back matter, like the cover), so it
  * can never steal height from a content page or shift a TOC number.
  */
-function buildBack({ foot, links = [], brand = 'ERGALICS STUDIO · 宗旨', tagline = TAGLINE }) {
+function buildBack({ foot, links = [], brand = 'ERGALICS STUDIO · 宗旨', tagline = TAGLINE, mission = MISSION }) {
   const homes = links
     .map(
       (l) =>
@@ -1333,7 +1365,7 @@ function buildBack({ foot, links = [], brand = 'ERGALICS STUDIO · 宗旨', tagl
         <div class="l2">${esc(rest)}</div>
       </div>
       <div class="back-body">
-        ${MISSION.map((t) => `<p>${esc(t)}</p>`).join('\n        ')}
+        ${mission.map((t) => `<p>${esc(t)}</p>`).join('\n        ')}
       </div>
       <div class="back-sig">
         <span class="who">作者</span>
@@ -1550,6 +1582,19 @@ const ABSTRACT_OVERRIDES = {
 };
 
 function metaFor(base) {
+  if (SOLVER_MODE && SOLVER_DOCS[base]) {
+    const repo = SOLVER_DOCS[base].repo.replace('https://', '');
+    return {
+      order: 99,
+      foot: `SnowLeopard-io · ${repo}`,
+      coverBrand: '求解器技术文档',
+      // No studio QR codes: the solver repo address itself is the contact.
+      qrOnCover: false,
+      repo,
+      // Neutral subtitle — the studio series slogan would be off-brand here.
+      tagline: '独立求解器交付文档 · 结果可本地复现',
+    };
+  }
   if (PRODUCT_DOCS[base]) {
     return {
       order: 99,
@@ -1627,6 +1672,10 @@ async function buildDoc(browser, page, base, opts = {}) {
     const head = firstH2 < 0 ? blocks : blocks.slice(0, firstH2);
     const rest = firstH2 < 0 ? [] : blocks.slice(firstH2);
     bodyBlocks = [...head.filter((b) => b.kind !== 'p' && b.kind !== 'callout'), ...rest];
+  } else if (noteBlock) {
+    // The note callout was promoted to the TOC page; drop the original so it
+    // does not appear a second time in the body.
+    bodyBlocks = bodyBlocks.filter((b) => b !== noteBlock);
   }
   // Chapter-per-page layout: every H2 (except the first body block) opens on a
   // fresh page via the same forced-break marker an author can write by hand.
@@ -1800,13 +1849,23 @@ async function buildDoc(browser, page, base, opts = {}) {
     chips: h2s.map(chipLabel),
     foot: meta.foot,
     links: coverLinks,
-    brand: meta.brand,
+    brand: meta.brand || meta.coverBrand,
   });
 
   // Fixed back matter: the mission statement plus the online homes as plain
   // links. The QR codes stay on the cover so the two ends of the volume do not
-  // repeat the same block.
-  const backHtml = buildBack({ foot: meta.foot, links: COVER_LINKS, brand: 'ERGALICS STUDIO · 宗旨', tagline: meta.tagline || TAGLINE });
+  // repeat the same block. Solver volumes swap the studio identity for their
+  // own repo address and a factual one-line note.
+  const solverMeta = SOLVER_MODE ? metaFor(base) : null;
+  const backHtml = solverMeta?.repo
+    ? buildBack({
+        foot: meta.foot,
+        links: [{ k: 'Gitee', v: solverMeta.repo, href: `https://${solverMeta.repo}` }],
+        brand: '求解器技术文档',
+        tagline: `${title} 独立求解器交付文档`,
+        mission: ['求解内核、验证基准与复现命令均在同一仓库内，可按下方地址获取并复现全部结果。'],
+      })
+    : buildBack({ foot: meta.foot, links: COVER_LINKS, brand: 'ERGALICS STUDIO · 宗旨', tagline: meta.tagline || TAGLINE });
 
   const html = assembleHtml({
     cover: { html: coverHtml, title, tocNote },

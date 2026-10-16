@@ -559,6 +559,17 @@ export const zhCN: LocaleDictionary = {
   'editor.switch.blanked': '代码已清空——可自行编写，或恢复切换前的代码。',
   'editor.switch.undo': '撤销清空',
 
+  'mode.convert.title': '模式转换确认',
+  'mode.convert.sub': '{from} → {to}',
+  'mode.convert.nodes': '「{mode}」画布将呈现 {n} 个节点。',
+  'mode.convert.hidden': '{n} 条语句无法在该模式的画布中表示：',
+  'mode.convert.hidden.note': '它们会以原样代码保留在程序中，不会丢失，但不在画布上显示。',
+  'mode.convert.code': '转换后的程序：',
+  'mode.convert.empty': '（空程序）',
+  'mode.convert.note': '转换经由统一 IR 中枢完成；请核对预览后再应用。',
+  'mode.convert.cancel': '取消',
+  'mode.convert.apply': '应用转换',
+
   'workbench.example.title': '示例',
   'workbench.example.datasets': '数据集',
   'workbench.example.group_labs': '交互式物理 / 光学实验室',
