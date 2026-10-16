@@ -503,9 +503,8 @@ function AddStepForm({ columns, onAdd }: { columns: string[]; onAdd: (s: Cleanin
             <input
               className="input"
               style={{ maxWidth: 100 }}
-              type="number"
-              min={0}
-              step="0.1"
+              type="text"
+              inputMode="decimal"
               value={threshold}
               placeholder={t('clean.outlier.threshold')}
               onChange={(e) => setThreshold(e.target.value)}

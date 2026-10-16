@@ -18,7 +18,7 @@ import type {
   PluginApi,
   Scene3DHandle,
 } from '@/types/plugin';
-import { voxelIsosurface, voxelSolidCells, type VoxelField } from '@/core/mesh3d';
+import { voxelIsosurface, voxelSolidCells, marchingTets, sampleFieldTrilinear, type VoxelField } from '@/core/mesh3d';
 import { rampColor, scalarRampColors } from '@/core/pointcloud-gpu';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
 import {
@@ -108,6 +108,8 @@ interface State {
   /** Normalized threshold in [0, 1] mapped onto the field range. */
   levelT: number;
   opacity: number;
+  /** Smooth interpolated isosurface (marching tets) instead of blocky faces. */
+  smooth: boolean;
   hasData: boolean;
 }
 
@@ -119,7 +121,7 @@ export class Voxel3DPlugin implements Plugin {
   private field: VoxelField | null = null;
   private range: { min: number; max: number } = { min: 0, max: 1 };
   private object: THREE.Mesh | THREE.InstancedMesh | null = null;
-  private state: State = { mode: 'isosurface', levelT: 0.5, opacity: 0.45, hasData: false };
+  private state: State = { mode: 'isosurface', levelT: 0.5, opacity: 0.45, smooth: true, hasData: false };
 
   async init(api: PluginApi) {
     this.api = api;
@@ -181,6 +183,10 @@ export class Voxel3DPlugin implements Plugin {
       this.state.opacity = Math.min(1, Math.max(0.05, params.opacity));
       this.rebuildMesh();
     }
+    if (typeof params.smooth === 'boolean' && params.smooth !== this.state.smooth) {
+      this.state.smooth = params.smooth;
+      this.rebuildMesh();
+    }
     if (actionFired(params, 'fitView')) {
       this.fitCamera();
       return;
@@ -223,6 +229,13 @@ export class Voxel3DPlugin implements Plugin {
         step: 0.05,
         value: this.state.opacity,
       },
+      {
+        key: 'smooth',
+        label: 'Smooth isosurface',
+        labelI18n: { 'zh-CN': '平滑等值面', 'en-US': 'Smooth isosurface' },
+        type: 'checkbox',
+        value: this.state.smooth,
+      },
       actionButton('fitView', 'Auto-fit View', '自动适配视角'),
       actionButton('exportCsv', 'Export Field CSV', '导出标量场 CSV'),
     ];
@@ -248,7 +261,10 @@ export class Voxel3DPlugin implements Plugin {
     this.state.hasData = true;
     this.api.reportDataScale(field.nx * field.ny * field.nz);
     this.rebuildMesh();
-    const tris = this.object instanceof THREE.Mesh ? (this.object.geometry.index?.count ?? 0) / 3 : 0;
+    const geometry = this.object instanceof THREE.Mesh ? this.object.geometry : null;
+    const tris = geometry
+      ? (geometry.index ? geometry.index.count : (geometry.attributes.position?.count ?? 0)) / 3
+      : 0;
     this.api.notify(
       'success',
       this.translate('viz3d.voxel.loaded', { nx: field.nx, ny: field.ny, nz: field.nz, tris }),
@@ -302,16 +318,33 @@ export class Voxel3DPlugin implements Plugin {
     this.three.render();
   }
 
-  /** Blocky isosurface as one indexed Mesh (single draw call). */
+  /** Isosurface mesh: smooth marching tets or the blocky face extraction. */
   private buildIsosurface(field: VoxelField) {
     if (!this.three) return;
-    const mesh = voxelIsosurface(field, this.level());
-    if (mesh.indices.length === 0) return;
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(scalarRampColors(mesh.values, this.range.min, this.range.max), 3));
-    geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
-    geometry.computeVertexNormals();
+    if (this.state.smooth) {
+      const surface = marchingTets(field, this.level());
+      if (surface.positions.length === 0) return;
+      const values = new Float32Array(surface.positions.length / 3);
+      for (let i = 0; i < values.length; i += 1) {
+        values[i] = sampleFieldTrilinear(
+          field,
+          surface.positions[i * 3]!,
+          surface.positions[i * 3 + 1]!,
+          surface.positions[i * 3 + 2]!,
+        );
+      }
+      geometry.setAttribute('position', new THREE.BufferAttribute(surface.positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(scalarRampColors(values, this.range.min, this.range.max), 3));
+      geometry.computeVertexNormals();
+    } else {
+      const mesh = voxelIsosurface(field, this.level());
+      if (mesh.indices.length === 0) return;
+      geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(scalarRampColors(mesh.values, this.range.min, this.range.max), 3));
+      geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+      geometry.computeVertexNormals();
+    }
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true,
       metalness: 0.05,

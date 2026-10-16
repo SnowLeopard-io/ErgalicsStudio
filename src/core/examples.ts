@@ -161,6 +161,13 @@ export interface BuiltinExample {
   descriptionI18n: Record<Locale, string>;
 }
 
+/**
+ * Tiny binary GLB sample (UV sphere, 20×12 segments, ~6.5 KB). Inline base64
+ * because `exampleContent` lazy-loads text only; binary samples ship eagerly.
+ */
+const MODEL3D_SPHERE_GLB_BASE64 =
+  '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QiySo+pGd7/ug4Q+ScyjPepGd78mD3w++ccbPupGd78SalY+EmpWPupGd7/5xxs+Jg98PupGd79JzKM97oOEPupGd79CLBIkJg98PupGd79JzKO9EmpWPupGd7/5xxu++ccbPupGd78Sala+ScyjPepGd78mD3y+Y0JbJOpGd7/ug4S+ScyjvepGd78mD3y++ccbvupGd78Sala+EmpWvupGd7/5xxu+Jg98vupGd79JzKO97oOEvupGd79CLJKkMjENpQAAgL8AAAAAH0gGpQAAgL/rhS4kJ3TkpAAAgL85+6UkOfulpAAAgL8ndOQk64UupAAAgL8fSAYldL4bigAAgL8yMQ0l64UuJAAAgL8fSAYlOfulJAAAgL8ndOQkJ3TkJAAAgL85+6UkH0gGJQAAgL/rhS4kMjENJQAAgL90vpsKH0gGJQAAgL/rhS6kJ3TkJAAAgL85+6WkOfulJAAAgL8ndOSk64UuJAAAgL8fSAalrp3pCgAAgL8yMQ2l64UupAAAgL8fSAalOfulpAAAgL8ndOSkJ3TkpAAAgL85+6WkH0gGpQAAgL/rhS6kMjENpQAAgL90vhuLAAAWABUAAQAXABYAAgAYABcAAwAZABgABAAaABkABQAbABoABgAcABsABwAdABwACAAeAB0ACQAfAB4ACgAgAB8ACwAhACAADAAiACEADQAjACIADgAkACMADwAlACQAEAAmACUAEQAnACYAEgAoACcAEwApACgAFQAWACsAFQArACoAFgAXACwAFgAsACsAFwAYAC0AFwAtACwAGAAZAC4AGAAuAC0AGQAaAC8AGQAvAC4AGgAbADAAGgAwAC8AGwAcADEAGwAxADAAHAAdADIAHAAyADEAHQAeADMAHQAzADIAHgAfADQAHgA0ADMAHwAgADUAHwA1ADQAIAAhADYAIAA2ADUAIQAiADcAIQA3ADYAIgAjADgAIgA4ADcAIwAkADkAIwA5ADgAJAAlADoAJAA6ADkAJQAmADsAJQA7ADoAJgAnADwAJgA8ADsAJwAoAD0AJwA9ADwAKAApAD4AKAA+AD0AKgArAEAAKgBAAD8AKwAsAEEAKwBBAEAALAAtAEIALABCAEEALQAuAEMALQBDAEIALgAvAEQALgBEAEMALwAwAEUALwBFAEQAMAAxAEYAMABGAEUAMQAyAEcAMQBHAEYAMgAzAEgAMgBIAEcAMwA0AEkAMwBJAEgANAA1AEoANABKAEkANQA2AEsANQBLAEoANgA3AEwANgBMAEsANwA4AE0ANwBNAEwAOAA5AE4AOABOAE0AOQA6AE8AOQBPAE4AOgA7AFAAOgBQAE8AOwA8AFEAOwBRAFAAPAA9AFIAPABSAFEAPQA+AFMAPQBTAFIAPwBAAFUAPwBVAFQAQABBAFYAQABWAFUAQQBCAFcAQQBXAFYAQgBDAFgAQgBYAFcAQwBEAFkAQwBZAFgARABFAFoARABaAFkARQBGAFsARQBbAFoARgBHAFwARgBcAFsARwBIAF0ARwBdAFwASABJAF4ASABeAF0ASQBKAF8ASQBfAF4ASgBLAGAASgBgAF8ASwBMAGEASwBhAGAATABNAGIATABiAGEATQBOAGMATQBjAGIATgBPAGQATgBkAGMATwBQAGUATwBlAGQAUABRAGYAUABmAGUAUQBSAGcAUQBnAGYAUgBTAGgAUgBoAGcAVABVAGoAVABqAGkAVQBWAGsAVQBrAGoAVgBXAGwAVgBsAGsAVwBYAG0AVwBtAGwAWABZAG4AWABuAG0AWQBaAG8AWQBvAG4AWgBbAHAAWgBwAG8AWwBcAHEAWwBxAHAAXABdAHIAXAByAHEAXQBeAHMAXQBzAHIAXgBfAHQAXgB0AHMAXwBgAHUAXwB1AHQAYABhAHYAYAB2AHUAYQBiAHcAYQB3AHYAYgBjAHgAYgB4AHcAYwBkAHkAYwB5AHgAZABlAHoAZAB6AHkAZQBmAHsAZQB7AHoAZgBnAHwAZgB8AHsAZwBoAH0AZwB9AHwAaQBqAH8AaQB/AH4AagBrAIAAagCAAH8AawBsAIEAawCBAIAAbABtAIIAbACCAIEAbQBuAIMAbQCDAIIAbgBvAIQAbgCEAIMAbwBwAIUAbwCFAIQAcABxAIYAcACGAIUAcQByAIcAcQCHAIYAcgBzAIgAcgCIAIcAcwB0AIkAcwCJAIgAdAB1AIoAdACKAIkAdQB2AIsAdQCLAIoAdgB3AIwAdgCMAIsAdwB4AI0AdwCNAIwAeAB5AI4AeACOAI0AeQB6AI8AeQCPAI4AegB7AJAAegCQAI8AewB8AJEAewCRAJAAfAB9AJIAfACSAJEAfgB/AJQAfgCUAJMAfwCAAJUAfwCVAJQAgACBAJYAgACWAJUAgQCCAJcAgQCXAJYAggCDAJgAggCYAJcAgwCEAJkAgwCZAJgAhACFAJoAhACaAJkAhQCGAJsAhQCbAJoAhgCHAJwAhgCcAJsAhwCIAJ0AhwCdAJwAiACJAJ4AiACeAJ0AiQCKAJ8AiQCfAJ4AigCLAKAAigCgAJ8AiwCMAKEAiwChAKAAjACNAKIAjACiAKEAjQCOAKMAjQCjAKIAjgCPAKQAjgCkAKMAjwCQAKUAjwClAKQAkACRAKYAkACmAKUAkQCSAKcAkQCnAKYAkwCUAKkAkwCpAKgAlACVAKoAlACqAKkAlQCWAKsAlQCrAKoAlgCXAKwAlgCsAKsAlwCYAK0AlwCtAKwAmACZAK4AmACuAK0AmQCaAK8AmQCvAK4AmgCbALAAmgCwAK8AmwCcALEAmwCxALAAnACdALIAnACyALEAnQCeALMAnQCzALIAngCfALQAngC0ALMAnwCgALUAnwC1ALQAoAChALYAoAC2ALUAoQCiALcAoQC3ALYAogCjALgAogC4ALcAowCkALkAowC5ALgApAClALoApAC6ALkApQCmALsApQC7ALoApgCnALwApgC8ALsAqACpAL4AqAC+AL0AqQCqAL8AqQC/AL4AqgCrAMAAqgDAAL8AqwCsAMEAqwDBAMAArACtAMIArADCAMEArQCuAMMArQDDAMIArgCvAMQArgDEAMMArwCwAMUArwDFAMQAsACxAMYAsADGAMUAsQCyAMcAsQDHAMYAsgCzAMgAsgDIAMcAswC0AMkAswDJAMgAtAC1AMoAtADKAMkAtQC2AMsAtQDLAMoAtgC3AMwAtgDMAMsAtwC4AM0AtwDNAMwAuAC5AM4AuADOAM0AuQC6AM8AuQDPAM4AugC7ANAAugDQAM8AuwC8ANEAuwDRANAAvQC+ANMAvQDTANIAvgC/ANQAvgDUANMAvwDAANUAvwDVANQAwADBANYAwADWANUAwQDCANcAwQDXANYAwgDDANgAwgDYANcAwwDEANkAwwDZANgAxADFANoAxADaANkAxQDGANsAxQDbANoAxgDHANwAxgDcANsAxwDIAN0AxwDdANwAyADJAN4AyADeAN0AyQDKAN8AyQDfAN4AygDLAOAAygDgAN8AywDMAOEAywDhAOAAzADNAOIAzADiAOEAzQDOAOMAzQDjAOIAzgDPAOQAzgDkAOMAzwDQAOUAzwDlAOQA0ADRAOYA0ADmAOUA0gDTAOgA0gDoAOcA0wDUAOkA0wDpAOgA1ADVAOoA1ADqAOkA1QDWAOsA1QDrAOoA1gDXAOwA1gDsAOsA1wDYAO0A1wDtAOwA2ADZAO4A2ADuAO0A2QDaAO8A2QDvAO4A2gDbAPAA2gDwAO8A2wDcAPEA2wDxAPAA3ADdAPIA3ADyAPEA3QDeAPMA3QDzAPIA3gDfAPQA3gD0APMA3wDgAPUA3wD1APQA4ADhAPYA4AD2APUA4QDiAPcA4QD3APYA4gDjAPgA4gD4APcA4wDkAPkA4wD5APgA5ADlAPoA5AD6APkA5QDmAPsA5QD7APoA5wDoAP0A6ADpAP4A6QDqAP8A6gDrAAAB6wDsAAEB7ADtAAIB7QDuAAMB7gDvAAQB7wDwAAUB8ADxAAYB8QDyAAcB8gDzAAgB8wD0AAkB9AD1AAoB9QD2AAsB9gD3AAwB9wD4AA0B+AD5AA4B+QD6AA8B+gD7ABAB';
+
 export const BUILTIN_EXAMPLES: BuiltinExample[] = [
   {
     id: 'em-cavity-degenerate',
@@ -2584,6 +2591,96 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'Yale 亮星星表第 5 版（公有领域）中 V < 3.01 且 B−V ≤ 1.61 的 163 颗星，视差取自 Hipparcos（VizieR I/239，2026-10-11 检索）。加载后绘制赫罗图：视差换算距离模数得绝对星等，横轴 B−V，叠加 MK 主序参考带、太阳标记与主序拟合。',
       'en-US':
         '163 stars with V < 3.01 and B−V ≤ 1.61 from the Yale Bright Star Catalogue, 5th ed. (public domain), with Hipparcos parallaxes (VizieR I/239, retrieved 2026-10-11). Load it to draw the H–R diagram: absolute magnitudes via distance modulus, B−V colour axis, with the MK main-sequence band, the Sun marker and a screened main-sequence fit.',
+    },
+  },
+  {
+    id: 'model3d-torus-knot',
+    filename: 'model3d-torus-knot.stl',
+    format: 'stl',
+    mimeType: 'model/stl',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus-knot.stl'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面纽结（STL，1536 面）',
+      'en-US': '3D Model · Torus Knot (STL, 1536 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '(p,q)=(2,3) 环面纽结的 ASCII STL 网格，96 段 × 8 环共 1536 个三角面。适合演示观察模式切换、剖面（clipping plane）与两点测距； STL 为三角面片格式，无拓扑边信息。',
+      'en-US':
+        'An ASCII STL mesh of the (p,q)=(2,3) torus knot — 96 segments × 8 ring, 1536 triangles. Good for exercising view modes, the clipping plane and two-point measurement; STL carries triangle soup only, with no topology.',
+    },
+  },
+  {
+    id: 'model3d-icosphere',
+    filename: 'model3d-icosphere.obj',
+    format: 'obj',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-icosphere.obj'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 二十面球（OBJ，320 面）',
+      'en-US': '3D Model · Icosphere (OBJ, 320 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '二十面体细分 2 次得到的球面三角网格（42 顶点 / 80 顶点细分至 320 面），Wavefront OBJ 纯文本格式。体积小，适合快速验证加载、线框模式与视角预设。',
+      'en-US':
+        'A spherical triangle mesh from subdividing an icosahedron twice (320 faces), in plain-text Wavefront OBJ. Small enough for quick load, wireframe-mode and view-preset checks.',
+    },
+  },
+  {
+    id: 'model3d-torus',
+    filename: 'model3d-torus.ply',
+    format: 'ply',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus.ply'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面（PLY，1024 面）',
+      'en-US': '3D Model · Torus (PLY, 1024 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '标准圆环面的 ASCII PLY 网格（R=1.5, r=0.6，32×16 分段共 1024 个三角面），带 genus-1 拓扑手柄，可用来观察剖面切过孔洞时的截面形状。',
+      'en-US':
+        'An ASCII PLY mesh of the standard torus (R = 1.5, r = 0.6; 32 × 16 segments, 1024 triangles). Its genus-1 handle makes it a good subject for studying clipping cross-sections through the hole.',
+    },
+  },
+  {
+    id: 'model3d-rocket',
+    filename: 'model3d-rocket.gltf',
+    format: 'gltf',
+    mimeType: 'model/gltf+json',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-rocket.gltf'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 低多边形火箭（glTF，双材质多网格）',
+      'en-US': '3D Model · Low-poly Rocket (glTF, two materials)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'glTF 2.0 JSON 示例（缓冲内嵌 base64）：箭体圆柱 + 锥形整流罩与 3 片尾翼，两个 PBR 材质分属两个 primitive。适合验证多材质、PBR 底色与网格级统计输出。',
+      'en-US':
+        'A glTF 2.0 JSON sample (base64-embedded buffer): a cylindrical hull plus cone nose and three fins, spread over two primitives with two PBR materials. Useful for checking multi-material handling, base colours and per-mesh statistics.',
+    },
+  },
+  {
+    id: 'model3d-sphere',
+    filename: 'model3d-sphere.glb',
+    format: 'glb',
+    mimeType: 'model/gltf-binary',
+    pluginId: 'example.model3d',
+    contentBase64: MODEL3D_SPHERE_GLB_BASE64,
+    nameI18n: {
+      'zh-CN': '3D 模型 · UV 球（GLB 二进制）',
+      'en-US': '3D Model · UV Sphere (binary GLB)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '20×12 分段 UV 球的二进制 GLB 容器（约 6.5 KB，JSON + BIN 双 chunk）。体积最小的 glb 样例，用于验证二进制 glTF 加载路径。',
+      'en-US':
+        'A 20×12-segment UV sphere packed as a binary GLB container (about 6.5 KB, JSON + BIN chunks). The smallest glb sample, for verifying the binary glTF load path.',
     },
   },
 ];

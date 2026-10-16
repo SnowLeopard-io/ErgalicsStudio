@@ -95,8 +95,8 @@ export function PlanEditor({
         <label className="figures-label">{t('sweep.repeats')}
           <input
             className="input research-num"
-            type="number"
-            min={1}
+            type="text"
+            inputMode="numeric"
             value={draft.repeats}
             {...invalidProps('repeats')}
             onChange={(e) => patch({ repeats: e.target.value })}
