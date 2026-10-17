@@ -17,6 +17,7 @@ import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
+import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
 import { TourGuide } from '@/components/TourGuide';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
@@ -129,6 +130,7 @@ export default function WorkbenchPage() {
       </ErrorBoundary>
       <TourGuide />
       <AiAssistantOverlay />
+      <ModeConvertDialog />
     </div>
   );
 }

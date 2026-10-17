@@ -69,10 +69,10 @@
   .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
   .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
   .mode-chip {
-    flex: 1 1 34mm; min-width: 34mm;
+    flex: 1 1 auto; min-width: 34mm; /* basis follows the title; extra space is shared */
     border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
   }
-  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; white-space: nowrap; }
   .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
   .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
   /* Closing page — the cover's counterpart, reached after the last chapter.
@@ -129,12 +129,55 @@
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
+  /* Product volume: figures span the full column width, centered. */
+  .doc-product figure img { width: 100%; margin: 0 auto; }
+  /* Two screenshot+caption units (~51% each at full width) must share one page:
+     shaving vertical whitespace by ~2% per unit flips instance pages from
+     ~51% singles to ~95% pairs. */
+  .doc-product figure { margin: 3mm 0; }
+  .doc-product figcaption { margin-top: 2mm; }
+  /* Product volume: comparison tables span the full text width and keep their
+     first (label) column on one line; the technical series is unaffected. */
+  .doc-product table { width: 100%; }
+  .doc-product th:first-child, .doc-product td:first-child { white-space: nowrap; }
+  /* Nudge auto layout to give the inner columns more room (the first column
+     is nowrap, the last tends to win width from its long code spans). Only
+     four-column tables: on three-column ones the third column IS the last. */
+  .doc-product table.c4 th:nth-child(2), .doc-product table.c4 td:nth-child(2),
+  .doc-product table.c4 th:nth-child(3), .doc-product table.c4 td:nth-child(3) { width: 27%; }
+  /* Product volume: a small mascot floats beside the page number on every
+     content page; the four mascots rotate from page to page. */
+  .doc-product .page-mascot {
+    position: absolute; right: 9mm; bottom: 6mm; height: 13mm; width: auto;
+    border: none; box-shadow: none; border-radius: 0; opacity: 0.95;
+  }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
+  /* Tighter paragraph rhythm in the product volume: several screenshot pages
+     miss two-up packing by only a few mm. */
+  .doc-product p { margin: 2.4mm 0; }
+  /* Chinese typography: body paragraphs open with a two-character indent.
+     Caption lines (a paragraph that is only an <em>) and continuation
+     fragments of a sentence-split paragraph stay flush left. */
+  .doc-product p { text-indent: 2em; }
+  /* Mermaid htmlLabels emit <p> inside the SVG foreignObject — indenting those
+     shifts node and edge labels right and clips them out of their boxes. */
+  .doc-product p:has(> em:only-child), .doc-product p.pfrag:not(.pfrag-first),
+  .doc-product .svgbox p { text-indent: 0; }
+  /* Sentence-split paragraph fragments: the packer may break a page inside a
+     paragraph, the way a book flows text. Only the first fragment keeps the
+     paragraph's top margin and only the last keeps the bottom one, so a
+     paragraph that continues across a page break reads as one block. */
+  p.pfrag { margin: 0; }
+  p.pfrag-first { margin-top: 3mm; }
+  p.pfrag-last { margin-bottom: 3mm; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
   ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
+  /* Product volume: key terms (bold lead-ins and inline keywords) pick up the
+     accent so the eye can scan a page's structure without reading every line. */
+  .doc-product p strong, .doc-product li strong { color: var(--accent-deep); }
   a { color: var(--accent); text-decoration: none; }
   hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
   /* Explicit page break: never laid out, only consumed by the paginator. */
@@ -170,12 +213,31 @@
      bottom. 190mm leaves room for a heading and a line of prose. Landscape
      diagrams never reach this cap, so nothing else changes. */
   .svgbox svg { max-width: 100%; max-height: 190mm; height: auto; display: block; margin: 0 auto; }
+  /* Mermaid caps the diagram at its intrinsic width (inline max-width), which
+     leaves wide empty margins on narrow-diagram pages. Stretch to the full box
+     width instead; !important outranks the inline style. The height cap keeps
+     the chapter-4 flowchart on the same page as its intro paragraphs. */
+  .doc-product .svgbox svg { max-width: 100% !important; width: 100%; max-height: 172mm; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
   .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
     background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
     padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
   }
+  .rcard {
+    margin: 2.5mm 0 0; padding: 2.8mm 4mm 3mm; background: #f2f7f9;
+    border: 0.35mm solid #cfdfe6; border-radius: 1.8mm; break-inside: avoid;
+  }
+  .rcard-t { font-size: 9.5pt; font-weight: 700; color: var(--accent-deep); margin: 0 0 1.2mm; letter-spacing: 0.02em; }
+  .rcard dl { margin: 0; }
+  .rcard dl > div { display: flex; gap: 3mm; padding: 1mm 0; }
+  .rcard dl > div + div { border-top: 0.2mm solid #e4ecf2; }
+  .rcard dt { flex: 0 0 16mm; font-size: 8.8pt; font-weight: 600; color: #4a5b6d; line-height: 1.6; }
+  .rcard dd { margin: 0; font-size: 8.8pt; line-height: 1.6; color: #35485c; text-align: justify; }
+  .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5mm; margin: 3mm 0 0; break-inside: avoid; }
+  .gallery figure { margin: 0; }
+  .gallery img { width: 100%; height: 36mm; object-fit: cover; border-radius: 1.2mm; border: 0.2mm solid #d8e4ea; display: block; }
+  .gallery figcaption { font-size: 7.8pt; color: var(--muted); text-align: center; margin: 1mm 0 0; }
 </style>
 </head>
 <body>
@@ -213,9 +275,9 @@
 </div>
 
 <div class="page toc">
-  <h1>目 录</h1>
+<h1>目 录</h1>
 <div class="toc-item l1"><span>1. 交付物清单</span><span class="dots"></span><span class="tp">03</span></div>
-<div class="toc-item l1"><span>2. 前置条件</span><span class="dots"></span><span class="tp">04</span></div>
+<div class="toc-item l1"><span>2. 前置条件</span><span class="dots"></span><span class="tp">03</span></div>
 <div class="toc-item l1"><span>3. 快速开始</span><span class="dots"></span><span class="tp">04</span></div>
 <div class="toc-item l2"><span>3.1 一键启动可运行原型</span><span class="dots"></span><span class="tp">04</span></div>
 <div class="toc-item l2"><span>3.2 容器内复现验证算例（CLI）</span><span class="dots"></span><span class="tp">05</span></div>
@@ -228,37 +290,39 @@
 
 <!-- P3 -->
 <div class="page">
-<div class="callout">配套交付物：<code>流体双向耦合求解器</code> 插件的<strong>容器化部署包</strong>。 本手册说明如何在任意装有 Docker 的机器上用一条命令跑起<strong>可运行原型</strong>，并在容器内复现全套验证算例。 涉及赛题交付要求（4b）&quot;以容器化部署包形式提供可执行程序&quot;。</div>
+
 <hr>
 <h2 class="sec">1. 交付物清单</h2>
 <p>容器化部署包位于项目根目录，共 5 个文件：</p>
 <table><thead><tr><th>文件</th><th>作用</th></tr></thead><tbody><tr><td><code>Dockerfile</code></td><td>可运行原型镜像：Vite dev server 托管完整工作台</td></tr><tr><td><code>docker/cfd.Dockerfile</code></td><td>CLI 复现镜像：同一求解内核（纯 NumPy）+ 验证套件</td></tr><tr><td><code>docker-compose.yml</code></td><td>一键编排 <code>studio</code>（浏览器演示）与 <code>cfd-verify</code>（CLI 复现）</td></tr><tr><td><code>.dockerignore</code></td><td>构建上下文排除项（node_modules / 构建产物 / Rust 工具链）</td></tr><tr><td>本手册</td><td>部署、运行、复现与故障排查说明</td></tr></tbody></table>
 <div class="callout">与在线体验的关系：本项目同时提供 GitHub Pages 在线体验 （<code>https://snowleopard-io.github.io/ErgalicsStudio/</code>）。容器化部署用于需要<strong>本地、离线、可审计</strong>运行原型的场景，两者共用同一份代码与结果。</div>
 <hr>
+<h2 class="sec">2. 前置条件</h2>
+<table><thead><tr><th>前置条件</th><th>要求</th></tr></thead><tbody><tr><td>Docker</td><td>含 Compose 插件，Docker Desktop / 对应 Linux 包均可，<code>docker --version</code> 与 <code>docker compose version</code> 均可用</td></tr><tr><td>网络</td><td>可访问 Docker Hub（拉取 <code>node:20-alpine</code> / <code>python:3.11-slim</code>）与 npm registry（首次构建安装前端依赖）</td></tr><tr><td>内存</td><td>建议可用 ≥ 4 GB（浏览器端 Pyodide 运行 3D N–S 求解）；网格 10³ 通常仅需 ~1 GB</td></tr><tr><td>磁盘</td><td>余量 ≥ 2 GB（构建缓存）</td></tr></tbody></table>
 </div>
 
 <!-- P4 -->
 <div class="page">
-<h2 class="sec">2. 前置条件</h2>
-<table><thead><tr><th>前置条件</th><th>要求</th></tr></thead><tbody><tr><td>Docker</td><td>含 Compose 插件，Docker Desktop / 对应 Linux 包均可，<code>docker --version</code> 与 <code>docker compose version</code> 均可用</td></tr><tr><td>网络</td><td>可访问 Docker Hub（拉取 <code>node:20-alpine</code> / <code>python:3.11-slim</code>）与 npm registry（首次构建安装前端依赖）</td></tr><tr><td>内存</td><td>建议可用 ≥ 4 GB（浏览器端 Pyodide 运行 3D N–S 求解）；网格 10³ 通常仅需 ~1 GB</td></tr><tr><td>磁盘</td><td>余量 ≥ 2 GB（构建缓存）</td></tr></tbody></table>
+
 <hr>
 <h2 class="sec">3. 快速开始</h2>
 <h3><span class="hn">3.1</span>一键启动可运行原型</h3>
 <pre><code># 在项目根目录执行
 docker compose up -d --build studio</code></pre>
 <p>首次构建会安装前端依赖，需 2–8 分钟；之后启动为秒级。</p>
-<p>浏览器访问 <strong><code>http://localhost:5173</code></strong>，进入左侧插件栏 <code>最新上架 → 流体双向耦合求解器</code>：</p>
-<ol><li>选择算例（Case A 壅塞 / Case B 毫秒阀控 / Case C 能量通道 / Case D 亚声速 / 自定义）；</li><li>点 <strong>Run Coupling</strong> 运行 1D 管网 ↔ 3D N–S 双向耦合；</li><li>查看 1D 流量 / 阀门开度 / 背压时间序列，以及 <strong>3D 场动态回放</strong>（温度 / 速度幅值双通道、时间轴拖动播放）。</li></ol>
+<p>浏览器访问 <strong><code>http://localhost:5173</code></strong>，进入左侧插件栏 <code>物理模拟 → 1D-3D 双向耦合求解器</code>：</p>
+<ol><li>选择算例（Case A 定常壅塞 / Case B 毫秒级阀门控制 / Case C 能量通道 / Case D 亚临界流动 / 自定义）；</li><li>点 <strong>Run Coupling</strong> 运行 1D 管网 ↔ 3D N–S 双向耦合；</li><li>查看 1D 流量 / 阀门开度 / 背压时间序列，以及 <strong>3D 场动态回放</strong>（温度 / 速度幅值双通道、播放/暂停逐帧回放）。</li></ol>
 <div class="callout">CFD 求解器为纯 Python + Pyodide，<strong>完全在浏览器端执行</strong>，无需任何后端 Python。 原型容器只负责托管工作台前端，因此 <code>studio</code> 镜像无需 Rust/WASM 工具链，构建快、体积可控。</div>
 </div>
 
 <!-- P5 -->
 <div class="page">
+
 <h3><span class="hn">3.2</span>容器内复现验证算例（CLI）</h3>
-<pre><code># 完整验证套件（Case A/B/C/D + 亚声速扫描 + 权衡 + 最小周期 + 归因，共 26 项断言）
+<pre><code># 单元测试套件（26 项断言，run_tests.py）
 docker compose run --rm cfd-verify
 
-# 指定数值求解入口（输出 JSON 到 stdout）
+# 完整验证套件（Case A/B/C/D + 亚声速扫描 + 权衡 + 最小周期 + 归因；输出 JSON 到 stdout）
 docker compose run --rm cfd-verify python -m fluid_cfd.driver verify
 
 # 生成精度-效率基准 JSON（显式写回 /fluid；容器为一次性执行，如需保留可挂载卷或 docker cp）
@@ -266,7 +330,7 @@ docker compose run --rm cfd-verify python benchmarks/bench_coupling.py /fluid/fl
 
 # 单算例耦合（自定义 payload，见 config.example.json；CLI 子命令为 solve，后接 JSON 字符串）
 docker compose run --rm cfd-verify python -m fluid_cfd.driver solve '{&quot;case&quot;: &quot;a&quot;}'</code></pre>
-<p>以上与浏览器插件共用<strong>同一份 <code>fluid_cfd</code> 源码</strong>，结果逐字节一致。</p>
+<p>以上与浏览器插件共用<strong>同一份 <code>fluid_cfd</code> 源码</strong>，确定性科学字段一致（延迟等墙钟量属机器相关量，跨环境按软容差比对）；镜像内 numpy 版本随构建时间浮动，如需严格对齐可在 <code>requirements.txt</code> 中锁定版本。</p>
 <h3><span class="hn">3.3</span>可选：生产静态模式（预构建 + nginx）</h3>
 <p><code>studio</code> 默认以 dev server 运行，够演示且构建快。若需要更贴近&quot;生产部署&quot;的静态形态， 可用本地工具链预构建后交给任意静态服务器（本仓库用于 GitHub Pages 的构建命令）：</p>
 <pre><code># 需要 Rust + wasm32-unknown-unknown 目标 + wasm-bindgen-cli 0.2.127
@@ -278,6 +342,7 @@ npm ci &amp;&amp; npm run build          # → dist/
 
 <!-- P6 -->
 <div class="page">
+
 <h2 class="sec">4. 常用运维</h2>
 <table><thead><tr><th>需求</th><th>命令</th></tr></thead><tbody><tr><td>查看服务状态</td><td><code>docker compose ps</code></td></tr><tr><td>日志（前端 dev server）</td><td><code>docker compose logs -f studio</code></td></tr><tr><td>停止并移除</td><td><code>docker compose down</code></td></tr><tr><td>重启原型</td><td><code>docker compose restart studio</code></td></tr><tr><td>改端口（如 8080）</td><td>编辑 <code>docker-compose.yml</code> 中 <code>ports: [&quot;5173:5173&quot;]</code> → <code>[&quot;8080:5173&quot;]</code>，再 <code>docker compose up -d</code></td></tr></tbody></table>
 <hr>
@@ -290,7 +355,8 @@ npm ci &amp;&amp; npm run build          # → dist/
 
 <!-- P7 -->
 <div class="page">
-<table><thead><tr><th>现象</th><th>处理</th></tr></thead><tbody><tr><td><code>cfd-verify</code> 网络拉取 numpy 慢</td><td>首次构建需下载 numpy wheel；后续有层缓存</td></tr><tr><td>3D 演示卡顿</td><td>网格默认 10³；在插件「矩阵维度」选用更小网格减小 Pyodide 运算量</td></tr><tr><td>构建需 Rust</td><td>仅 §3.3 生产静态模式需要；§3.1 默认容器不需要</td></tr></tbody></table>
+
+<table><thead><tr><th>现象</th><th>处理</th></tr></thead><tbody><tr><td><code>cfd-verify</code> 网络拉取 numpy 慢</td><td>首次构建需下载 numpy wheel；后续有层缓存</td></tr><tr><td>3D 演示卡顿</td><td>网格由算例预设固定（Case A/B/D 为 10³、Case C 为 8³），插件不提供网格旋钮；可在自定义算例缩短仿真时长减小 Pyodide 运算量</td></tr><tr><td>构建需 Rust</td><td>仅 §3.3 生产静态模式需要；§3.1 默认容器不需要</td></tr></tbody></table>
 </div>
 
 <div class="page cover back">

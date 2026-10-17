@@ -163,7 +163,7 @@ export function waterFigurePanels(sheet: WaterSheet): FigurePanelSpec[] {
         yLabel: 'ratio',
         xDomain: [-0.2, radarAxes.length - 0.8],
         yDomain: [0, Math.max(1.5, ...relPts.map((p) => p.y))],
-        xTicksOverride: radarAxes.map((ind, i) => ({ pos: i, label: ind })),
+        xTicksOverride: radarAxes.map((ind, i) => ({ pos: i, label: WATER_LABELS[ind]?.en ?? ind })),
         ticks: 5,
         grid: true,
         series: [{ name: 'measured/limit', kind: 'line', color: '#64A0F0', points: relPts }],
@@ -501,7 +501,7 @@ export class WaterPlugin implements Plugin {
       g.stroke();
       g.fillStyle = 'rgba(170, 182, 200, 0.95)';
       g.textAlign = 'center';
-      g.fillText(WATER_LABELS[axes[i]!].zh, cx + (R + 18) * Math.cos(a), cy + (R + 18) * Math.sin(a) + 4);
+      g.fillText(zh ? WATER_LABELS[axes[i]!].zh : WATER_LABELS[axes[i]!].en, cx + (R + 18) * Math.cos(a), cy + (R + 18) * Math.sin(a) + 4);
     }
     // Normalized polygon: ratio of measured to class-Ⅲ limit (DO inverted so
     // farther out is always worse; capped at 2 for readability).
@@ -562,23 +562,23 @@ export class WaterPlugin implements Plugin {
     // ---- Exceeded indicators for the focus site ----------------------------
     ty += 28;
     g.fillStyle = 'rgba(230, 238, 248, 0.95)';
-    const exc = focus.exceeded.map((ind) => WATER_LABELS[ind].zh);
+    const exc = focus.exceeded.map((ind) => (zh ? WATER_LABELS[ind].zh : WATER_LABELS[ind].en));
     g.fillText(
       exc.length > 0
         ? zh
           ? `超标指标：${exc.join('、')}`
-          : `Exceeded: ${focus.exceeded.join(', ')}`
+          : `Exceeded: ${exc.join(', ')}`
         : zh
           ? `${focus.name}：所有纳入指标均在评价范围内`
           : `${focus.name}: all evaluated indicators within range`,
       tx,
       Math.min(ty, canvas.height - 40),
     );
-    const missed = focus.missing.map((ind) => WATER_LABELS[ind].zh);
+    const missed = focus.missing.map((ind) => (zh ? WATER_LABELS[ind].zh : WATER_LABELS[ind].en));
     if (missed.length > 0) {
       g.fillStyle = 'rgba(230, 180, 90, 0.95)';
       g.fillText(
-        zh ? `未纳入评价：${missed.join('、')}` : `Not evaluated: ${focus.missing.join(', ')}`,
+        zh ? `未纳入评价：${missed.join('、')}` : `Not evaluated: ${missed.join(', ')}`,
         tx,
         Math.min(ty + 16, canvas.height - 24),
       );

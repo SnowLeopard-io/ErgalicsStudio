@@ -1,0 +1,25 @@
+# Synthetic soil water retention data for van Genuchten fitting (NOT measured).
+# Generated with the plugin deterministic generator: exact van Genuchten (1980)
+# sand curve (Table 1: thr=0.045, ths=0.430, alpha=0.145 1/cm, n=2.68) plus 1%
+# multiplicative gaussian noise (mulberry32 seed 20260922 + Box-Muller),
+# theta_synth = theta*(1 + 0.01*z). Suction h in cm, theta in cm3/cm3.
+h_cm,theta
+1,0.426335
+5,0.352377
+10,0.213350
+20,0.106746
+50,0.058512
+100,0.048880
+150,0.047211
+200,0.046891
+330,0.046213
+500,0.044448
+800,0.045338
+1200,0.045064
+2000,0.044687
+3000,0.044582
+5000,0.045051
+7000,0.045227
+10000,0.044695
+12000,0.045360
+15000,0.044889

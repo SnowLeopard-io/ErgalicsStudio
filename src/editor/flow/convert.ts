@@ -400,8 +400,9 @@ export function flowToIR(graph: BlockGraph | BlockGraphState): IRProgram {
 // 流程編輯合併：保留流程 DAG 無法表達的 IR 陳述
 // ==========================================================================
 
-/** 判斷一條 body 陳述是否能由流程 DAG 表示（含 VarAssign 包裝）。 */
-function isFlowStatement(node: IRNode): boolean {
+/** 判斷一條 body 陳述是否能由流程 DAG 表示（含 VarAssign 包裝）。
+ *  導出供模式轉換預覽使用：切換進流程模式前統計無法上畫布的陳述。 */
+export function isFlowStatement(node: IRNode): boolean {
   return flowBlockIdFor(node) !== undefined;
 }
 

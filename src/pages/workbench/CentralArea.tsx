@@ -1,8 +1,9 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { useT } from '@/i18n';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -153,6 +154,40 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // → URL). Cached so React re-renders don't re-read bytes; revoked on unmount.
   const mdImgUrlsRef = useRef(new Map<string, string>());
 
+  // Plugins whose declared formats accept this file's extension. The preview
+  // footer offers "open with <plugin>" so a recognized file (e.g. a .cif unit
+  // cell) can be handed straight to its plugin from the preview overlay.
+  const { locale } = useLocale();
+  const registry = usePluginStore((s) => s.registry);
+  const { loadIntoPlugin } = useFileRouting();
+  const pluginMatches = useMemo(() => {
+    const dot = preview.name.lastIndexOf('.');
+    if (dot <= 0) return [];
+    const ext = preview.name.slice(dot).toLowerCase();
+    return registry.filter((e) => e.formats.some((f) => f.extension.toLowerCase() === ext));
+  }, [preview.name, registry]);
+
+  /** Read the previewed file from the workspace and route it into the chosen
+   *  plugin via the same ingestion pipeline the drop handler uses. */
+  const openWithPlugin = async (pluginId: string) => {
+    if (!project) return;
+    const rootPath = getProjectRepoPath(project);
+    try {
+      const blob = preview.blobUrl
+        ? await (await fetch(preview.blobUrl)).blob()
+        : new Blob([(await getVfs().readFileBinary(rootPath, preview.path)) as BlobPart], {
+            type: preview.mimeType,
+          });
+      await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
+      // Hand the canvas back to the plugin: the preview overlay would otherwise
+      // keep covering the (now active) plugin view.
+      useAppStore.getState().closeTab(fileTabKey(preview.path));
+    } catch (err) {
+      logger.warn('workbench', 'open-with-plugin read failed', err);
+      notify('error', t('workbench.preview.open_failed'));
+    }
+  };
+
   // Re-arm the draft + view whenever a different file is opened.
   useEffect(() => {
     setMdText(preview.content ?? '');
@@ -215,15 +250,16 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   // Revoke the markdown image blob URLs when the overlay unmounts.
   useEffect(() => {
+    const cache = mdImgUrlsRef.current;
     return () => {
-      for (const url of mdImgUrlsRef.current.values()) {
+      for (const url of cache.values()) {
         try {
           URL.revokeObjectURL(url);
         } catch {
           /* already revoked */
         }
       }
-      mdImgUrlsRef.current.clear();
+      cache.clear();
     };
   }, []);
 
@@ -437,7 +473,24 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // 画布标签条已提供文件名、只读标识与关闭按钮，这里只渲染预览本体，
   // 避免标签行下方再出现一条重复的头部标签（与内嵌套件同一约定）。
   return (
-    <div className="central-file-preview">{body}</div>
+    <div className="central-file-preview">
+      {body}
+      {pluginMatches.length > 0 && (
+        <div className="central-file-openwith">
+          <span className="central-file-openwith-label">{t('workbench.preview.open_with')}</span>
+          {pluginMatches.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void openWithPlugin(e.id)}
+            >
+              {e.nameI18n?.[locale] ?? e.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -587,6 +640,33 @@ function PluginExportMenu({
     }
   };
 
+  /** Encode the active 3-D scene as a downloadable model file. */
+  const exportModel = async (format: 'glb' | 'stl', toWorkspace: boolean) => {
+    const three = scene3dRef.current;
+    if (!three?.isVisible()) {
+      notify('warning', t('workbench.export.no_canvas'));
+      return;
+    }
+    try {
+      const bytes = new Uint8Array(await three.exportModel(format));
+      const name = `${baseName()}.${format}`;
+      if (toWorkspace) {
+        if (!project) {
+          notify('warning', t('workbench.export.no_project'));
+          return;
+        }
+        const path = await saveBinaryArtifact(project, 'data', name, bytes);
+        notify('success', t('workbench.export.saved', { path }));
+      } else {
+        const mime = format === 'glb' ? 'model/gltf-binary' : 'model/stl';
+        downloadBlob(name, new Blob([bytes], { type: mime }), mime);
+      }
+    } catch (err) {
+      logger.error('workbench', `3D model export (${format}) failed`, err);
+      notify('error', t('workbench.export.failed'));
+    }
+  };
+
   const runAndClose = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -635,6 +715,21 @@ function PluginExportMenu({
                 runAndClose(() => void doSaveWorkspace(true)),
                 'wst',
               )}
+              {menuBtn(
+                t('workbench.export.download_glb'),
+                runAndClose(() => void exportModel('glb', false)),
+                'glb',
+              )}
+              {menuBtn(
+                t('workbench.export.download_stl'),
+                runAndClose(() => void exportModel('stl', false)),
+                'stl',
+              )}
+              {menuBtn(
+                t('workbench.export.save_model'),
+                runAndClose(() => void exportModel('glb', true)),
+                'gws',
+              )}
             </>
           )}
         </div>
@@ -668,7 +763,67 @@ export function CentralArea() {
   // Editor tab with unsaved edits pending a close confirmation (design doc
   // P5): key of the tab, null when no confirmation is active.
   const [confirmCloseKey, setConfirmCloseKey] = useState<string | null>(null);
+  // Tab strip panning: the scrollbar stays hidden, so the strip pans via
+  // wheel (vertical delta → horizontal) and mouse drag; a small movement
+  // threshold keeps tab clicks working while dragging pans the row. The
+  // active tab also auto-scrolls into view when tabs switch or open.
+  const tabStripRef = useRef<HTMLDivElement | null>(null);
+  const setTabStripEl = useCallback((el: HTMLDivElement | null) => {
+    tabStripRef.current = el;
+    if (!el) return;
+    let dragging = false;
+    let moved = false;
+    let suppressClick = false;
+    let startX = 0;
+    let startScroll = 0;
+    el.addEventListener('wheel', (e) => {
+      const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!dx || el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollLeft += dx;
+    }, { passive: false });
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      moved = false;
+      startX = e.clientX;
+      startScroll = el.scrollLeft;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 4) {
+        moved = true;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('is-dragging');
+      }
+      if (moved) el.scrollLeft = startScroll - dx;
+    });
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('is-dragging');
+      // A drag ending over a tab must not also activate it.
+      suppressClick = moved;
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('click', (e) => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+  }, []);
   const showPluginCanvas = useAppStore((s) => s.showPluginCanvas);
+  // Keep the active tab visible: switching tabs (or opening one beyond the
+  // visible edge of the pannable strip) nudges the strip so it stays in view.
+  useEffect(() => {
+    const el = tabStripRef.current;
+    if (!el || !activeTab) return;
+    el.querySelector<HTMLElement>('.central-tool-tab.active')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, canvasTabs.length]);
   // 插件画布标签：只要当前激活了插件、或本次会话曾激活过（切到文件/
   // 套件标签时插件会被自动停用以省资源），标签就常驻标签条，点击可
   // 恢复插件视图。真正卸载（uninstall）后 registry 中已无条目，标签消失。
@@ -992,7 +1147,7 @@ export function CentralArea() {
           activeTab 为 null 即插件画布处于前台。 */}
       {(canvasTabs.length > 0 || pluginTabEntry) && (
         <div className="central-overlay-stack">
-          <div className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
+          <div ref={setTabStripEl} className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
             {/* 插件画布标签：点击回到插件视图（不关闭其他标签）。插件被
                 自动停用时标签仍然显示——点击会重新激活它。 */}
             {pluginTabEntry && (
@@ -1134,7 +1289,7 @@ export function CentralArea() {
             </button>
           </div>
           <div className="central-empty-modes">
-            <WorkbenchModeCards onMode={(m) => useAppStore.getState().setMode(m)} />
+            <WorkbenchModeCards onMode={(m) => useModeConvert.getState().requestMode(m)} />
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">

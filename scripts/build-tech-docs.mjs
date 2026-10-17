@@ -31,6 +31,38 @@ import { chromium } from 'playwright-core';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
+// The product overview is a standalone volume, not part of the technical
+// series: it reads from its own directory and carries its own cover brand,
+// slogan and footnote instead of the series defaults.
+const PRODUCT_DIR = path.join(ROOT, 'docs', 'product');
+const PRODUCT_SLOGAN = '让科学计算 回归触手可及';
+const PRODUCT_DOCS = {
+  'Ergalics-Studio': {
+    dir: PRODUCT_DIR,
+    foot: '版本 2.0.0 · MIT License · SnowLeopard-io',
+    brand: 'ERGALICS STUDIO',
+  },
+};
+// Solver submission volumes are standalone deliverables: they carry their own
+// repo address instead of the studio brand — no studio QR codes, no studio
+// mission. Author attribution stays.
+const SOLVER_DOCS = {
+  '09-电磁谐振特征值求解器': {
+    repo: 'https://gitee.com/cnt-code/em-eigensolver',
+    tagline: 'em-eigensolver',
+  },
+  '10-流体双向耦合求解器': {
+    repo: 'https://gitee.com/cnt-code/fluid-cfd-coupler',
+    tagline: 'fluid-cfd-coupler',
+  },
+  '10-流体双向耦合求解器-容器化部署手册': {
+    repo: 'https://gitee.com/cnt-code/fluid-cfd-coupler',
+    tagline: 'fluid-cfd-coupler',
+  },
+};
+function docDir(base) {
+  return PRODUCT_DOCS[base]?.dir || DOCS_DIR;
+}
 const MERMAID_JS = path.join(ROOT, 'tmp', 'mdlib', 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
 
 const argv = process.argv.slice(2);
@@ -40,6 +72,10 @@ const ONLY = (() => {
   const i = argv.indexOf('--only');
   return i >= 0 ? argv[i + 1] : null;
 })();
+// --solver: build the standalone solver submission volumes. Same file bases as
+// the studio's own technical docs, but with solver-repo branding on the cover
+// and back matter instead of the studio identity.
+const SOLVER_MODE = argv.includes('--solver');
 
 // --------------------------------------------------------------------------
 // 1. Markdown subset parser → flat block list
@@ -136,8 +172,51 @@ function parseMarkdown(md) {
       while (i < lines.length && !/^```\s*$/.test(lines[i])) body.push(lines[i++]);
       i++; // closing fence
       const code = body.join('\n');
+      if (lang === 'gallery') {
+        // Thumbnail grid: one "src|caption" line per cell.
+        const items = body
+          .map((l) => {
+            const at = l.indexOf('|');
+            return at < 0 ? null : { src: l.slice(0, at).trim(), cap: l.slice(at + 1).trim() };
+          })
+          .filter(Boolean);
+        blocks.push({
+          kind: 'gallery',
+          text: items.map((it) => it.cap).join('、'),
+          html: `<div class="gallery">${items
+            .map(
+              (it) =>
+                `<figure><img src="${it.src}" alt="${esc(it.cap)}"><figcaption>${inline(it.cap)}</figcaption></figure>`,
+            )
+            .join('')}</div>`,
+        });
+        continue;
+      }
       if (lang === 'mermaid') {
         blocks.push({ kind: 'mermaid', text: code, html: null, mermaid: code });
+      } else if (lang === 'card') {
+        // Research-scene card: first line is the title, remaining lines are
+        // "label｜body" rows rendered as a definition list. Used by the product
+        // volume to explain what each research tool is for and why it exists.
+        const rows = code
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const title = rows[0] ?? '';
+        const items = rows
+          .slice(1)
+          .map((r) => {
+            const sep = r.indexOf('｜');
+            return sep > 0
+              ? `<div><dt>${esc(r.slice(0, sep))}</dt><dd>${inline(r.slice(sep + 1))}</dd></div>`
+              : `<div><dd>${inline(r)}</dd></div>`;
+          })
+          .join('');
+        blocks.push({
+          kind: 'card',
+          text: title,
+          html: `<div class="rcard"><div class="rcard-t">${esc(title)}</div><dl>${items}</dl></div>`,
+        });
       } else {
         blocks.push({
           kind: 'code',
@@ -172,7 +251,7 @@ function parseMarkdown(md) {
       blocks.push({
         kind: 'table',
         text: header.join(' | '),
-        html: `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`,
+        html: `<table${header.length === 4 ? ' class="c4"' : ''}><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`,
       });
       continue;
     }
@@ -384,10 +463,10 @@ const CSS = `
   .cover-modes .cap { font-size: 9.5pt; letter-spacing: 3px; color: #67e8f9; margin-bottom: 3mm; }
   .mode-chips { display: flex; flex-wrap: wrap; gap: 3mm; }
   .mode-chip {
-    flex: 1 1 34mm; min-width: 34mm;
+    flex: 1 1 auto; min-width: 34mm; /* basis follows the title; extra space is shared */
     border: 1px solid rgba(103, 232, 249, .45); border-radius: 8px; padding: 3.2mm 3mm; text-align: center;
   }
-  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; }
+  .mode-chip .t { font-size: 10.5pt; font-weight: bold; color: #ffffff; line-height: 1.4; white-space: nowrap; }
   .mode-chip .d { font-size: 8pt; color: #a5f3fc; margin-top: 1.4mm; line-height: 1.5; }
   .cover-foot { margin-top: 6mm; font-size: 9.5pt; color: #67e8f9; letter-spacing: 2px; }
   /* Closing page — the cover's counterpart, reached after the last chapter.
@@ -444,12 +523,55 @@ const CSS = `
   }
   h3 { font-size: 12.5pt; color: var(--accent-deep); margin: 7mm 0 3mm; }
   h3 .hn { color: var(--accent); margin-right: 6px; }
+  /* Product volume: figures span the full column width, centered. */
+  .doc-product figure img { width: 100%; margin: 0 auto; }
+  /* Two screenshot+caption units (~51% each at full width) must share one page:
+     shaving vertical whitespace by ~2% per unit flips instance pages from
+     ~51% singles to ~95% pairs. */
+  .doc-product figure { margin: 3mm 0; }
+  .doc-product figcaption { margin-top: 2mm; }
+  /* Product volume: comparison tables span the full text width and keep their
+     first (label) column on one line; the technical series is unaffected. */
+  .doc-product table { width: 100%; }
+  .doc-product th:first-child, .doc-product td:first-child { white-space: nowrap; }
+  /* Nudge auto layout to give the inner columns more room (the first column
+     is nowrap, the last tends to win width from its long code spans). Only
+     four-column tables: on three-column ones the third column IS the last. */
+  .doc-product table.c4 th:nth-child(2), .doc-product table.c4 td:nth-child(2),
+  .doc-product table.c4 th:nth-child(3), .doc-product table.c4 td:nth-child(3) { width: 27%; }
+  /* Product volume: a small mascot floats beside the page number on every
+     content page; the four mascots rotate from page to page. */
+  .doc-product .page-mascot {
+    position: absolute; right: 9mm; bottom: 6mm; height: 13mm; width: auto;
+    border: none; box-shadow: none; border-radius: 0; opacity: 0.95;
+  }
   h4 { font-size: 11pt; color: var(--ink); margin: 5mm 0 2mm; }
   p { margin: 3mm 0; text-align: justify; }
+  /* Tighter paragraph rhythm in the product volume: several screenshot pages
+     miss two-up packing by only a few mm. */
+  .doc-product p { margin: 2.4mm 0; }
+  /* Chinese typography: body paragraphs open with a two-character indent.
+     Caption lines (a paragraph that is only an <em>) and continuation
+     fragments of a sentence-split paragraph stay flush left. */
+  .doc-product p { text-indent: 2em; }
+  /* Mermaid htmlLabels emit <p> inside the SVG foreignObject — indenting those
+     shifts node and edge labels right and clips them out of their boxes. */
+  .doc-product p:has(> em:only-child), .doc-product p.pfrag:not(.pfrag-first),
+  .doc-product .svgbox p { text-indent: 0; }
+  /* Sentence-split paragraph fragments: the packer may break a page inside a
+     paragraph, the way a book flows text. Only the first fragment keeps the
+     paragraph's top margin and only the last keeps the bottom one, so a
+     paragraph that continues across a page break reads as one block. */
+  p.pfrag { margin: 0; }
+  p.pfrag-first { margin-top: 3mm; }
+  p.pfrag-last { margin-bottom: 3mm; }
   ul, ol { margin: 2mm 0 4mm; padding-left: 7mm; }
   ul ul, ul ol, ol ul, ol ol { margin: 1mm 0 1mm; }
   li { margin: 2mm 0; }
   strong { color: var(--ink); }
+  /* Product volume: key terms (bold lead-ins and inline keywords) pick up the
+     accent so the eye can scan a page's structure without reading every line. */
+  .doc-product p strong, .doc-product li strong { color: var(--accent-deep); }
   a { color: var(--accent); text-decoration: none; }
   hr { border: none; border-top: 1px solid var(--line); margin: 6mm 0; }
   /* Explicit page break: never laid out, only consumed by the paginator. */
@@ -485,12 +607,31 @@ const CSS = `
      bottom. 190mm leaves room for a heading and a line of prose. Landscape
      diagrams never reach this cap, so nothing else changes. */
   .svgbox svg { max-width: 100%; max-height: 190mm; height: auto; display: block; margin: 0 auto; }
+  /* Mermaid caps the diagram at its intrinsic width (inline max-width), which
+     leaves wide empty margins on narrow-diagram pages. Stretch to the full box
+     width instead; !important outranks the inline style. The height cap keeps
+     the chapter-4 flowchart on the same page as its intro paragraphs. */
+  .doc-product .svgbox svg { max-width: 100% !important; width: 100%; max-height: 172mm; }
   .svgcap { font-size: 8.8pt; color: var(--muted); text-align: center; margin: 1mm 0 3mm; }
   .svgbox .svgcap { margin: 2.5mm 0 0; }
   .callout {
     background: var(--gold-soft); border: 1px solid #fde68a; border-radius: 10px;
     padding: 4mm 5mm; margin: 4mm 0; color: #78350f; font-size: 10pt;
   }
+  .rcard {
+    margin: 2.5mm 0 0; padding: 2.8mm 4mm 3mm; background: #f2f7f9;
+    border: 0.35mm solid #cfdfe6; border-radius: 1.8mm; break-inside: avoid;
+  }
+  .rcard-t { font-size: 9.5pt; font-weight: 700; color: var(--accent-deep); margin: 0 0 1.2mm; letter-spacing: 0.02em; }
+  .rcard dl { margin: 0; }
+  .rcard dl > div { display: flex; gap: 3mm; padding: 1mm 0; }
+  .rcard dl > div + div { border-top: 0.2mm solid #e4ecf2; }
+  .rcard dt { flex: 0 0 16mm; font-size: 8.8pt; font-weight: 600; color: #4a5b6d; line-height: 1.6; }
+  .rcard dd { margin: 0; font-size: 8.8pt; line-height: 1.6; color: #35485c; text-align: justify; }
+  .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5mm; margin: 3mm 0 0; break-inside: avoid; }
+  .gallery figure { margin: 0; }
+  .gallery img { width: 100%; height: 36mm; object-fit: cover; border-radius: 1.2mm; border: 0.2mm solid #d8e4ea; display: block; }
+  .gallery figcaption { font-size: 7.8pt; color: var(--muted); text-align: center; margin: 1mm 0 0; }
 `;
 
 // --------------------------------------------------------------------------
@@ -602,6 +743,10 @@ async function measureBlocks(page, blocks, base) {
   // the browser navigates away — a fixed name turns one killed run into EBUSY
   // for every later one.
   const probePath = path.join(DOCS_DIR, `.measure-${process.pid}-${++probeSeq}.html`);
+  // The probe carries the same page-level doc class as the final HTML, so
+  // class-scoped rules (e.g. the small .mascot stickers) measure at their
+  // real rendered size instead of their intrinsic one.
+  const probeCls = PRODUCT_DOCS[base] ? ' doc-product' : '';
   writeFileSync(
     probePath,
     `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
@@ -609,7 +754,7 @@ async function measureBlocks(page, blocks, base) {
   #measure { height: auto !important; overflow: visible !important; page-break-after: auto !important; }
   #measure::after { content: none !important; }
 </style></head><body>
-<div class="page" id="measure">
+<div class="page${probeCls}" id="measure">
 ${blocks.map((b) => b.html).join('\n')}
 </div>
 </body></html>`,
@@ -752,6 +897,113 @@ function fragmentTable(block, info, limit, firstCapacity) {
  */
 const INTRO_KINDS = new Set(['p', 'list', 'callout']);
 
+/**
+ * Split `p` blocks into sentence-level fragments so the packer can break a
+ * page inside a paragraph — the same way a book flows text — instead of
+ * pushing the whole paragraph to the next page and stranding a void above a
+ * figure. Inline tags are tracked while scanning, so a cut never lands inside
+ * an open <strong>/<code>/…; fragments shorter than PFRAG_MIN visible chars
+ * merge back upstream so a break never isolates a few characters.
+ *
+ * Fragment classes redistribute the paragraph's 3mm margins (which
+ * measureBlocks includes in each height), keeping measurements honest. Plain
+ * blocks pass through untouched, so the whole transform is inert for text
+ * that already packs tightly.
+ */
+const PFRAG_MIN = 34;
+
+function splitParagraphBlocks(blocks) {
+  const out = [];
+  let paraSeq = 0;
+  for (const b of blocks) {
+    if (b.kind !== 'p' || !/^<p>[\s\S]*<\/p>$/.test(b.html)) {
+      out.push(b);
+      continue;
+    }
+    const inner = b.html.slice(3, -4);
+    // Cut candidates: right after sentence-final CJK punctuation, never
+    // inside a tag and never while an inline tag is still open.
+    const cuts = [];
+    let depth = 0;
+    for (let i = 0; i < inner.length; i++) {
+      const c = inner[i];
+      if (c === '<') {
+        const end = inner.indexOf('>', i);
+        if (end < 0) break;
+        const tag = inner.slice(i + 1, end);
+        if (tag.startsWith('/')) depth--;
+        else if (!/\/>$/.test(tag) && /^(strong|em|a|code|span)\b/.test(tag)) depth++;
+        i = end;
+        continue;
+      }
+      if (depth === 0 && '。？！'.includes(c) && i + 1 < inner.length) cuts.push(i + 1);
+    }
+    const visible = (s) => s.replace(/<[^>]+>/g, '').length;
+    const merged = [];
+    let from = 0;
+    for (const cut of cuts) {
+      if (visible(inner.slice(from, cut)) >= PFRAG_MIN) {
+        merged.push(cut);
+        from = cut;
+      }
+    }
+    // A trailing fragment below the minimum would read as a stranded stub.
+    if (merged.length && visible(inner.slice(merged[merged.length - 1])) < PFRAG_MIN) merged.pop();
+    if (!merged.length) {
+      out.push(b);
+      continue;
+    }
+    const parts = [];
+    let prev = 0;
+    for (const cut of merged) {
+      parts.push(inner.slice(prev, cut));
+      prev = cut;
+    }
+    parts.push(inner.slice(prev));
+    const pid = ++paraSeq; // fragments of one paragraph share this id
+    parts.forEach((part, i) => {
+      const cls = ['pfrag', i === 0 ? 'pfrag-first' : '', i === parts.length - 1 ? 'pfrag-last' : '']
+        .filter(Boolean)
+        .join(' ');
+      out.push({ kind: 'p', pid, fi: i, fc: parts.length, text: part.replace(/<[^>]+>/g, ''), ih: part, html: `<p class="${cls}">${part}</p>` });
+    });
+  }
+  return out;
+}
+
+/**
+ * Even out a chapter whose final page is notably emptier than the rest: a
+ * greedy pack fills the first pages to the brim and dumps the remainder on
+ * the last one, which reads as "content ran out". Re-packing against the
+ * mean per-page budget spreads the tail text upward. Only applied when the
+ * page count does not grow — a figure that no longer fits keeps the original
+ * packing, and a tail already at least half full is left alone.
+ */
+function rebalanceTail(packed, blocks, measured) {
+  if (packed.length < 2) return packed;
+  const limit = measured.contentHeight;
+  const heightOf = new Map(blocks.map((b, i) => [b, measured.items[i]?.height ?? 0]));
+  const sum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+  const fill = (pg) => sum(pg) / limit;
+  const minFill = (pages) => Math.min(...pages.map(fill));
+  if (fill(packed[packed.length - 1]) >= 0.62 && minFill(packed) >= 0.6) return packed;
+  const total = packed.reduce((a, pg) => a + sum(pg), 0);
+  const baseCount = packed.length;
+  const baseMin = minFill(packed);
+  // Escalating budgets: the exact even split usually strands figure+intro
+  // pairs and *grows* the page count, so each failed step relaxes the budget
+  // slightly until a repack fits within the original count and lifts the
+  // emptiest page above the greedy result.
+  let best = packed;
+  for (let k = 0; k <= 6; k++) {
+    const target = Math.min(limit, (total / packed.length) * (1.02 + k * 0.03));
+    const cand = packPages(blocks, { ...measured, contentHeight: target });
+    if (cand.length !== baseCount) continue;
+    if (minFill(cand) > Math.max(baseMin, minFill(best)) + 0.02) best = cand;
+  }
+  return best;
+}
+
 function packPages(blocks, measured) {
   const limit = measured.contentHeight;
   const pages = [];
@@ -770,6 +1022,9 @@ function packPages(blocks, measured) {
     used = 0;
   };
 
+  const heightOf = new Map(blocks.map((b, k) => [b, measured.items[k]?.height ?? 0]));
+  const pageSum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const info = measured.items[i];
@@ -781,6 +1036,33 @@ function packPages(blocks, measured) {
     if (block.kind === 'pagebreak') {
       pushPage(true);
       continue;
+    }
+
+    // A paragraph fragment that overflows reunites on the next page when its
+    // paragraph leads straight into a figure: a screenshot must never be read
+    // with only the tail of its introduction. Earlier fragments already on
+    // this page travel down so the paragraph reads as one piece, figure
+    // included. Paragraphs not followed by a figure flow page to page like
+    // normal book text.
+    if (
+      block.kind === 'p' &&
+      block.pid != null &&
+      used + height > limit &&
+      current.length &&
+      blocks[i + 1]?.kind === 'figure'
+    ) {
+      const carried = [];
+      while (current.length && current[current.length - 1].pid === block.pid) {
+        carried.unshift(current.pop());
+      }
+      if (carried.length && current.length) {
+        pushPage();
+        current.push(...carried);
+        used = pageSum(current);
+      } else {
+        // The paragraph owns the whole page; leave fragments in place.
+        current.push(...carried);
+      }
     }
 
     if (block.kind === 'table' && used + height > limit) {
@@ -815,9 +1097,11 @@ function packPages(blocks, measured) {
 
     // A screenshot must not be torn from the sentence that introduces it. When
     // a figure does not fit in the space left, the block above it travels to
-    // the next page as well, so the two are always read together. Only text
-    // counts as an introduction: a run of consecutive screenshots (a gallery)
-    // must pack normally, or every one of them lands on a page of its own.
+    // the next page as well, so the two are always read together. If the
+    // introduction is a split paragraph, the *whole* paragraph moves — not
+    // just its last fragment. Only text counts as an introduction: a run of
+    // consecutive screenshots (a gallery) must pack normally, or every one of
+    // them lands on a page of its own.
     if (
       block.kind === 'figure' &&
       used + height > limit &&
@@ -826,10 +1110,16 @@ function packPages(blocks, measured) {
       current[current.length - 1] === blocks[i - 1] &&
       INTRO_KINDS.has(blocks[i - 1].kind)
     ) {
-      const carried = current.pop();
+      const pid = blocks[i - 1].pid;
+      const carried = [current.pop()];
+      if (pid != null) {
+        while (current.length > 1 && current[current.length - 1].pid === pid) {
+          carried.unshift(current.pop());
+        }
+      }
       pushPage();
-      current.push(carried);
-      used = measured.items[i - 1].height;
+      current.push(...carried);
+      used = carried.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
     }
 
     if (used + height > limit && current.length) pushPage();
@@ -842,8 +1132,7 @@ function packPages(blocks, measured) {
   // A screenshot that opens a page has lost the sentence introducing it, which
   // is what makes the demo images read as detached from their text. Pull the
   // preceding block down so the figure travels with its explanation.
-  const heightOf = new Map(blocks.map((b, i) => [b, measured.items[i]?.height ?? 0]));
-  const sum = (pg) => pg.reduce((a, b) => a + (heightOf.get(b) || 0), 0);
+  const sum = pageSum;
   for (let p = 1; p < pages.length; p++) {
     // An explicit `<!-- pagebreak -->` outranks page filling.
     if (forcedAfter[p - 1]) continue;
@@ -853,8 +1142,24 @@ function packPages(blocks, measured) {
     if (prev.length < 2) continue;
     const candidate = prev[prev.length - 1];
     if (!INTRO_KINDS.has(candidate.kind)) continue;
-    if (sum(pages[p]) + (heightOf.get(candidate) || 0) > limit) continue;
-    pages[p].unshift(prev.pop());
+    // A split introduction moves as a whole paragraph, never as a lone tail
+    // fragment that would read detached from its own beginning.
+    const pid = candidate.pid;
+    const carry = [candidate];
+    let avail = limit - sum(pages[p]) - (heightOf.get(candidate) || 0);
+    if (pid != null) {
+      for (let k = prev.length - 2; k >= 1; k--) {
+        const b = prev[k];
+        if (b.pid !== pid) break;
+        const h = heightOf.get(b) || 0;
+        if (h > avail) break;
+        avail -= h;
+        carry.unshift(b);
+      }
+    }
+    if (carry.length === prev.length) continue; // keep one block above
+    prev.splice(prev.length - carry.length, carry.length);
+    pages[p].unshift(...carry);
   }
 
   // Pull a trailing heading down to the next page (avoid orphaned headings).
@@ -865,14 +1170,69 @@ function packPages(blocks, measured) {
   // than being refused here, otherwise a nearly full next page freezes the
   // orphan in place.
   for (let p = 0; p < pages.length - 1; p++) {
+    if (forcedAfter[p]) continue;
+    // A pull must never overflow the target page: the shrink-and-repack pass
+    // is capped, so a pull onto a nearly full page used to ship as clipped
+    // content. If the moved blocks would not fit, leave the heading at the
+    // foot of the page — an orphaned heading is the lesser evil.
+    const fitsBelow = (moved) =>
+      moved.reduce((a, b) => a + (heightOf.get(b) || 0), 0) + sum(pages[p + 1]) <= limit;
     for (;;) {
-      const last = pages[p][pages[p].length - 1];
-      if (!last || !/^<h[234]/.test(last.html)) break;
-      // Never drain a page to nothing: an empty page becomes a blank sheet.
-      if (pages[p].length <= 1) break;
-      pages[p].pop();
-      pages[p + 1].unshift(last);
+      const pg = pages[p];
+      const last = pg[pg.length - 1];
+      if (!last) break;
+      if (/^<h[234]/.test(last.html)) {
+        // Never drain a page to nothing: an empty page becomes a blank sheet.
+        if (pg.length <= 1) break;
+        if (!fitsBelow([last])) break;
+        pg.pop();
+        pages[p + 1].unshift(last);
+        continue;
+      }
+      // A section heading followed by exactly one paragraph at the foot — its
+      // figure having moved to the next page — reads as a stranded section
+      // start. Reunite the pair with the rest of the section below.
+      if (last.kind !== 'p') break;
+      let start = pg.length - 1;
+      if (last.pid != null) {
+        while (start > 0 && pg[start].kind === 'p' && pg[start].pid === last.pid) start--;
+      } else if (start > 0 && /^<h[234]/.test(pg[start - 1].html)) {
+        start -= 1;
+      } else break;
+      if (start <= 0 || !/^<h[234]/.test(pg[start].html)) break;
+      const moved = pg.splice(start, pg.length - start);
+      if (!fitsBelow(moved)) {
+        pg.push(...moved);
+        break;
+      }
+      pages[p + 1].unshift(...moved);
     }
+  }
+  // Coalesce sentence-split fragments that landed on the same page back into
+  // one paragraph: a flush-left continuation line reads as broken wrapping
+  // under the two-character indent. Only fragments that actually straddle a
+  // page break stay split. Merged blocks are strictly shorter than the fragment
+  // run they replace (margins 2.4/2.4 vs 3/3), so measured heights stay valid.
+  for (const pg of pages) {
+    const out = [];
+    for (let i = 0; i < pg.length; i++) {
+      const b = pg[i];
+      if (b.kind !== 'p' || b.pid == null) { out.push(b); continue; }
+      let j = i;
+      while (j + 1 < pg.length && pg[j + 1].kind === 'p' && pg[j + 1].pid === b.pid) j++;
+      if (j === i) { out.push(b); continue; }
+      const run = pg.slice(i, j + 1);
+      const initial = run[0].fi === 0;
+      const final = run[run.length - 1].fi === run[run.length - 1].fc - 1;
+      // Join the fragments' inner HTML (not the tag-stripped text) so inline
+      // formatting such as <strong> lead-ins survives the merge.
+      const html = run.map((r) => r.ih ?? r.text).join('');
+      const cls = initial ? '' : final ? 'pfrag pfrag-last' : 'pfrag';
+      out.push({ kind: 'p', pid: b.pid, text: run.map((r) => r.text).join(''), html: `<p${cls ? ` class="${cls}"` : ''}>${html}</p>` });
+      i = j;
+    }
+    pg.length = 0;
+    pg.push(...out);
   }
   if (process.env.DEBUG_TECH_DOCS) {
     pages.forEach((pg, i) => {
@@ -935,7 +1295,7 @@ const COVER_LINKS = [
   },
 ];
 
-function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
+function buildCover({ title, subtitle, abstract, chips, foot, links = [], brand = 'ERGALICS STUDIO · 技术文档' }) {
   const chipHtml = chips
     .map((c) => `<div class="mode-chip"><div class="t">${esc(c)}</div></div>`)
     .join('');
@@ -958,7 +1318,7 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
     : '';
   return `<div class="page cover">
   <div class="cover-panel">
-    <div class="cover-brand">ERGALICS STUDIO · 技术文档</div>
+    <div class="cover-brand">${esc(brand)}</div>
     <h1>${esc(title).replace(/·/, '<br>')}</h1>
     <div class="sub">${esc(subtitle)}</div>
     <div class="cover-rule"></div>
@@ -981,27 +1341,31 @@ function buildCover({ title, subtitle, abstract, chips, foot, links = [] }) {
  * It is built outside the paginator (fixed back matter, like the cover), so it
  * can never steal height from a content page or shift a TOC number.
  */
-function buildBack({ foot, links = [] }) {
+function buildBack({ foot, links = [], brand = 'ERGALICS STUDIO · 宗旨', tagline = TAGLINE, mission = MISSION }) {
   const homes = links
     .map(
       (l) =>
         `<div><span class="h">${esc(l.k)}</span><a href="${esc(l.href)}">${esc(l.v)}</a></div>`,
     )
     .join('\n      ');
-  // Split the tagline at its comma so the clause break is a typographic
-  // decision instead of whatever the line happens to wrap at.
-  const [lead, rest] = TAGLINE.split('，');
+  // Split the tagline at its comma (or, for comma-free slogans, at the space)
+  // so the clause break is a typographic decision instead of whatever the line
+  // happens to wrap at.
+  const parts = tagline.includes('，') ? tagline.split('，') : tagline.split(' ');
+  const [lead, rest] = [parts[0], parts.slice(1).join(' ')];
+  // Only re-attach the comma when the slogan actually had one.
+  const sep = tagline.includes('，') ? '，' : '';
   return `<div class="page cover back">
   <div class="cover-panel back">
-    <div class="back-brand">ERGALICS STUDIO · 宗旨</div>
+    <div class="back-brand">${esc(brand)}</div>
     <div class="back-main">
       <div class="back-rule"></div>
       <div class="back-tag">
-        <div class="l1">${esc(lead)}，</div>
+        <div class="l1">${esc(lead)}${sep}</div>
         <div class="l2">${esc(rest)}</div>
       </div>
       <div class="back-body">
-        ${MISSION.map((t) => `<p>${esc(t)}</p>`).join('\n        ')}
+        ${mission.map((t) => `<p>${esc(t)}</p>`).join('\n        ')}
       </div>
       <div class="back-sig">
         <span class="who">作者</span>
@@ -1061,9 +1425,23 @@ function tocEntriesFrom(blocks) {
   return estimated > TOC_BUDGET_PX ? out.filter((e) => e.level === 2) : out;
 }
 
-function assembleHtml({ cover, tocHtml, pages, back = '' }) {
+function assembleHtml({ cover, tocHtml, pages, back = '', docClass = '', deco = null, tocPageCount = 1 }) {
+  const cls = docClass ? ` ${docClass}` : '';
+  const tocPagesHtml = (Array.isArray(tocHtml) ? tocHtml : [tocHtml])
+    .map(
+      (chunk, ti) =>
+        `<div class="page toc${cls}">\n${ti === 0 ? '<h1>目 录</h1>\n' : ''}${chunk}${
+          ti === (Array.isArray(tocHtml) ? tocHtml.length : 1) - 1 && cover.tocNote
+            ? `\n<div class="callout" style="margin-top:14mm">${cover.tocNote}</div>`
+            : ''
+        }\n</div>`,
+    )
+    .join('\n\n');
   const body = pages
-    .map((p, i) => `<!-- P${i + 3} -->\n<div class="page">\n${p.map((b) => b.html).join('\n')}\n</div>`)
+    .map(
+      (p, i) =>
+        `<!-- P${i + 2 + tocPageCount} -->\n<div class="page${cls}">\n${deco ? deco(i) : ''}\n${p.map((b) => b.html).join('\n')}\n</div>`,
+    )
     .join('\n\n');
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1076,11 +1454,7 @@ function assembleHtml({ cover, tocHtml, pages, back = '' }) {
 
 ${cover.html}
 
-<div class="page toc">
-  <h1>目 录</h1>
-${tocHtml}
-${cover.tocNote ? `<div class="callout" style="margin-top:14mm">${cover.tocNote}</div>` : ''}
-</div>
+${tocPagesHtml}
 
 ${body}
 
@@ -1112,6 +1486,9 @@ async function verifyLayout(page, htmlPath) {
       let maxBottom = -Infinity;
       let culprit = null;
       for (const el of pg.children) {
+        // Absolutely positioned decorations (page-corner mascots) live outside
+        // the content flow and cannot overflow the column.
+        if (getComputedStyle(el).position === 'absolute') continue;
         const b =
           el.getBoundingClientRect().bottom + parseFloat(getComputedStyle(el).marginBottom || '0');
         if (b > maxBottom) {
@@ -1174,7 +1551,9 @@ const DOC_ORDER = [
   '09-电磁谐振特征值求解器',
   '10-流体双向耦合求解器',
   '10-流体双向耦合求解器-容器化部署手册',
+  '11-应用场景库',
   'Ergalics Studio',
+  'Ergalics-Studio',
 ];
 
 const TOTAL_NUM = 8;
@@ -1186,6 +1565,7 @@ const FOOT_OVERRIDES = {
   '09-电磁谐振特征值求解器': '独立专题文档 · Standalone Note',
   '10-流体双向耦合求解器': '独立专题文档 · Standalone Note',
   '10-流体双向耦合求解器-容器化部署手册': '独立专题文档 · Standalone Note',
+  '11-应用场景库': '独立专题文档 · Standalone Note',
 };
 
 // Hand-written cover abstracts, for documents whose opening paragraph is too
@@ -1202,6 +1582,32 @@ const ABSTRACT_OVERRIDES = {
 };
 
 function metaFor(base) {
+  if (SOLVER_MODE && SOLVER_DOCS[base]) {
+    const repo = SOLVER_DOCS[base].repo.replace('https://', '');
+    return {
+      order: 99,
+      foot: `SnowLeopard-io · ${repo}`,
+      coverBrand: '求解器技术文档',
+      // No studio QR codes: the solver repo address itself is the contact.
+      qrOnCover: false,
+      repo,
+      // Neutral subtitle — the studio series slogan would be off-brand here.
+      tagline: '独立求解器交付文档 · 结果可本地复现',
+    };
+  }
+  if (PRODUCT_DOCS[base]) {
+    return {
+      order: 99,
+      foot: PRODUCT_DOCS[base].foot,
+      brand: PRODUCT_DOCS[base].brand,
+      tagline: PRODUCT_SLOGAN,
+      qrOnCover: true,
+      chapterPerPage: true,
+      // The lead paragraph is cover matter: it becomes the cover synopsis and
+      // is suppressed in the body so chapter one opens the document.
+      promoteLead: true,
+    };
+  }
   if (FOOT_OVERRIDES[base]) {
     return {
       order: 9,
@@ -1249,7 +1655,7 @@ async function buildDoc(browser, page, base, opts = {}) {
   await page.goto('about:blank');
   await page.addStyleTag({ content: CSS });
 
-  const mdPath = path.join(DOCS_DIR, `${base}.md`);
+  const mdPath = path.join(docDir(base), `${base}.md`);
   const md = readFileSync(mdPath, 'utf8');
   const meta = metaFor(base);
   const { title, blocks } = parseMarkdown(md);
@@ -1266,6 +1672,22 @@ async function buildDoc(browser, page, base, opts = {}) {
     const head = firstH2 < 0 ? blocks : blocks.slice(0, firstH2);
     const rest = firstH2 < 0 ? [] : blocks.slice(firstH2);
     bodyBlocks = [...head.filter((b) => b.kind !== 'p' && b.kind !== 'callout'), ...rest];
+  } else if (noteBlock) {
+    // The note callout was promoted to the TOC page; drop the original so it
+    // does not appear a second time in the body.
+    bodyBlocks = bodyBlocks.filter((b) => b !== noteBlock);
+  }
+  // Chapter-per-page layout: every H2 (except the first body block) opens on a
+  // fresh page via the same forced-break marker an author can write by hand.
+  if (meta.chapterPerPage) {
+    const withBreaks = [];
+    bodyBlocks.forEach((b, i) => {
+      if (b.kind === 'h2' && i > 0 && withBreaks[withBreaks.length - 1]?.kind !== 'pagebreak') {
+        withBreaks.push({ kind: 'pagebreak', text: '', html: '<div class="pb"></div>' });
+      }
+      withBreaks.push(b);
+    });
+    bodyBlocks = withBreaks;
   }
 
   // Cover QR codes: one committed SVG per online home, inlined so the HTML
@@ -1285,7 +1707,7 @@ async function buildDoc(browser, page, base, opts = {}) {
   await renderMermaid(page, bodyBlocks);
 
   const h2s = blocks.filter((b) => b.kind === 'h2');
-  const subtitle = TAGLINE;
+  const subtitle = meta.tagline || TAGLINE;
 
   const firstP = blocks.find((b) => b.kind === 'p');
   // The cover carries the document's own lead paragraph only, bounded so it
@@ -1297,23 +1719,121 @@ async function buildDoc(browser, page, base, opts = {}) {
 
   // Measurement must run against a clean, stylesheet-only page: the print
   // pass navigates away, so the caller resets the measure page between docs.
-  const measured = await measureBlocks(page, bodyBlocks, base);
-  // The caller shrinks the usable height when a previous pass reported an
-  // overflow, so measurement noise can never ship a clipped page.
-  if (opts.shrink) measured.contentHeight -= opts.shrink;
-  const pages = packPages(bodyBlocks, measured);
+  let pages;
+  if (meta.brand) {
+    // Product volume: chapters are force-broken, so a chapter whose content
+    // spills a few lines onto a final page strands a large void there. Repack
+    // each chapter independently across slightly smaller figure widths and
+    // keep the packing with the fewest pages (ties go to the packing whose
+    // last page is fuller, then to the larger figures).
+    const chapters = [];
+    for (const b of bodyBlocks) {
+      if (b.kind === 'pagebreak') {
+        // Explicit break: close the current group so the next block starts a
+        // fresh page even mid-chapter (e.g. a summary table after a unit).
+        if (chapters.length && chapters[chapters.length - 1].length) chapters.push([]);
+        continue;
+      }
+      if (b.kind === 'h2' || chapters.length === 0) chapters.push([]);
+      chapters[chapters.length - 1].push(b);
+    }
+    const splitChapters = chapters.filter((c) => c.length).map(splitParagraphBlocks);
+    pages = [];
+    for (const ch of splitChapters) {
+      const hasFig = ch.some((b) => b.kind === 'figure');
+      const cands = [];
+      for (const scale of [1]) {
+        const scaled =
+          scale === 1
+            ? ch
+            : ch.map((b) =>
+                b.kind === 'figure' ? { ...b, html: setWidth(b.html, Math.round(82 * scale)) } : b,
+              );
+        const m = await measureBlocks(page, scaled, base);
+        if (opts.shrink) m.contentHeight -= opts.shrink;
+        const packed = packPages(scaled, m);
+        const indexOf = new Map(scaled.map((b, i) => [b, i]));
+        const lastSum = packed[packed.length - 1].reduce(
+          (a, b) => a + (m.items[indexOf.get(b)]?.height || 0),
+          0,
+        );
+        cands.push({
+          scale,
+          scaled,
+          m,
+          packed,
+          pageCount: packed.length,
+          tailFill: lastSum / m.contentHeight,
+        });
+      }
+      const minPages = Math.min(...cands.map((c) => c.pageCount));
+      // Fewest pages wins; among equals take the largest figures whose last
+      // page is at least half full, falling back to the fullest tail.
+      const best =
+        cands
+          .slice()
+          .reverse()
+          .find((c) => c.pageCount === minPages && c.tailFill >= 0.5) ||
+        cands
+          .slice()
+          .reverse()
+          .find((c) => c.pageCount === minPages) ||
+        cands[0];
+      pages.push(...rebalanceTail(best.packed, best.scaled, best.m));
+      if (best.scale !== 1) {
+        console.log(`  ~ ${base}: chapter scaled to ${Math.round(82 * best.scale)}% figure width`);
+      }
+    }
+  } else {
+    const measured = await measureBlocks(page, bodyBlocks, base);
+    // The caller shrinks the usable height when a previous pass reported an
+    // overflow, so measurement noise can never ship a clipped page.
+    if (opts.shrink) measured.contentHeight -= opts.shrink;
+    pages = packPages(bodyBlocks, measured);
+  }
 
   const pageOf = new Map();
+  // The product volume expands every h3 into the TOC, which can outgrow one
+  // page; chunk entries into TOC pages first (the first page also hosts the
+  // 目录 h1) so the content-page offset used in page numbers can be derived.
+  const entryH = (e) => (e.level === 2 ? 42 : 31);
+  let tocEntries = tocEntriesFrom(bodyBlocks);
+  if (meta.brand) {
+    tocEntries = [];
+    for (const b of bodyBlocks) {
+      if (b.kind === 'h2') tocEntries.push({ level: 2, text: b.text, block: b });
+      else if (b.kind === 'h3') tocEntries.push({ level: 3, text: b.text, block: b });
+    }
+  }
+  const tocChunks = [];
+  {
+    let cur = [];
+    let curH = 0;
+    let first = true; // the first TOC page shares its budget with the 目录 h1
+    for (const e of tocEntries) {
+      const h = entryH(e);
+      if (curH + h > (first ? 780 : 880) && cur.length) {
+        tocChunks.push(cur);
+        cur = [];
+        curH = 0;
+        first = false;
+      }
+      cur.push(e);
+      curH += h;
+    }
+    if (cur.length) tocChunks.push(cur);
+  }
+  const nToc = tocChunks.length;
   pages.forEach((p, pi) => {
     for (const packed of p) {
       if ((packed.kind === 'h2' || packed.kind === 'h3') && !pageOf.has(packed)) {
-        pageOf.set(packed, pi + 3);
+        pageOf.set(packed, pi + 2 + nToc);
       }
     }
   });
 
-  const tocHtml = buildToc(
-    tocEntriesFrom(bodyBlocks).map((e) => ({ ...e, page: pageOf.get(e.block) ?? 3 })),
+  const tocHtml = tocChunks.map((chunk) =>
+    buildToc(chunk.map((e) => ({ ...e, page: pageOf.get(e.block) ?? 2 + nToc }))),
   );
 
   const coverHtml = buildCover({
@@ -1329,18 +1849,39 @@ async function buildDoc(browser, page, base, opts = {}) {
     chips: h2s.map(chipLabel),
     foot: meta.foot,
     links: coverLinks,
+    brand: meta.brand || meta.coverBrand,
   });
 
   // Fixed back matter: the mission statement plus the online homes as plain
   // links. The QR codes stay on the cover so the two ends of the volume do not
-  // repeat the same block.
-  const backHtml = buildBack({ foot: meta.foot, links: COVER_LINKS });
+  // repeat the same block. Solver volumes swap the studio identity for their
+  // own repo address and a factual one-line note.
+  const solverMeta = SOLVER_MODE ? metaFor(base) : null;
+  const backHtml = solverMeta?.repo
+    ? buildBack({
+        foot: meta.foot,
+        links: [{ k: 'Gitee', v: solverMeta.repo, href: `https://${solverMeta.repo}` }],
+        brand: '求解器技术文档',
+        tagline: `${title} 独立求解器交付文档`,
+        mission: ['求解内核、验证基准与复现命令均在同一仓库内，可按下方地址获取并复现全部结果。'],
+      })
+    : buildBack({ foot: meta.foot, links: COVER_LINKS, brand: 'ERGALICS STUDIO · 宗旨', tagline: meta.tagline || TAGLINE });
 
   const html = assembleHtml({
     cover: { html: coverHtml, title, tocNote },
     tocHtml,
+    tocPageCount: nToc,
     pages,
     back: backHtml,
+    docClass: meta.brand ? 'doc-product' : '',
+    // A small mascot floats beside the page number on every content page;
+    // the four mascots rotate with the page index.
+    deco: meta.brand
+      ? (i) =>
+          `<img class="page-mascot" src="../assets/brand/${
+            ['mascot-wave', 'mascot-pipeline', 'mascot-blocks', 'mascot-laptop'][i % 4]
+          }.jpg" alt="">`
+      : null,
   });
 
   return { html, pages: pages.length + 3 };
@@ -1383,14 +1924,15 @@ async function main() {
 
   const results = [];
   for (const base of list) {
-    const mdPath = path.join(DOCS_DIR, `${base}.md`);
+    const srcDir = docDir(base);
+    const mdPath = path.join(srcDir, `${base}.md`);
     if (!existsSync(mdPath)) {
-      console.log(`skip (missing): ${base}.md`);
+      console.log(`skip (missing): ${mdPath}`);
       continue;
     }
     // A pristine, stylesheet-only page per document: the print pass
     // navigates elsewhere, so the measuring context must be rebuilt.
-    const htmlPath = path.join(DOCS_DIR, `${base}.html`);
+    const htmlPath = path.join(srcDir, `${base}.html`);
 
     // Build → verify → if any page's content crosses the bottom padding,
     // shrink the usable height by the worst deficit and rebuild. Four attempts
@@ -1433,7 +1975,7 @@ async function main() {
       await printPage.goto(pathToFileURL(htmlPath).href, { waitUntil: 'load' });
       await printPage.evaluate(() => (document.fonts ? document.fonts.ready : null));
       await printPage.pdf({
-        path: path.join(DOCS_DIR, `${base}.pdf`),
+        path: path.join(srcDir, `${base}.pdf`),
         printBackground: true,
         preferCSSPageSize: true,
       });

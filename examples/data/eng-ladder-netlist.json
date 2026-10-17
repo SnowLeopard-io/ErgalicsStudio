@@ -1,0 +1,9 @@
+{
+  "nodes": ["gnd", "vcc", "mid", "out"],
+  "elements": [
+    { "type": "V", "from": "vcc", "to": "gnd", "value": 12, "name": "Vs" },
+    { "type": "R", "from": "vcc", "to": "mid", "value": 1000, "name": "R1" },
+    { "type": "R", "from": "mid", "to": "gnd", "value": 2000, "name": "R2" },
+    { "type": "R", "from": "mid", "to": "out", "value": 2000, "name": "R3" }
+  ]
+}

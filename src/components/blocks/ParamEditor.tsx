@@ -85,7 +85,8 @@ function NumberInput({ value, onChange }: { value: number; onChange: (v: number)
 
   return (
     <input
-      type="number"
+      type="text"
+      inputMode="decimal"
       className="input"
       value={draft}
       onChange={(e) => handleChange(e.target.value)}

@@ -1,0 +1,11 @@
+{
+  "name": "Astronomical dusk (Beijing, UTC+8)",
+  "hourUTC": 13.3,
+  "latitude": 39.9,
+  "longitude": 116.4,
+  "turbidity": 1.6,
+  "sunIntensity": 20,
+  "exposure": 1.8,
+  "autoDay": true,
+  "autoOrbit": false
+}

@@ -9,7 +9,7 @@
 
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon, ToolboxIcon } from '@/components/icons';
 
 interface ActivityItem {
   view: SidebarView;
@@ -28,6 +28,8 @@ export function ActivityBar() {
     { view: 'files', label: t('workbench.activity.files'), Icon: FolderOpenIcon },
     { view: 'plugins', label: t('workbench.activity.plugins'), Icon: LayersIcon },
     { view: 'git', label: t('workbench.activity.git'), Icon: GitBranchIcon },
+    { view: 'research', label: t('workbench.activity.research'), Icon: FlaskIcon },
+    { view: 'tools', label: t('workbench.activity.tools'), Icon: ToolboxIcon },
   ];
 
   return (

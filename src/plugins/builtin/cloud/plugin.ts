@@ -530,8 +530,12 @@ export class CloudPlugin implements Plugin {
     mat.uniforms.uProjInv.value.copy(three.camera.projectionMatrixInverse);
     three.render();
     // Idle gate: with every animation off, stop the loop — the controls
-    // 'change' listener restarts it on the next camera interaction.
-    if (this.isAnimating()) this.rafId = requestAnimationFrame(this.tick);
+    // 'change' listener restarts it on the next camera interaction. The
+    // !this.rafId guard is load-bearing: controls.update() above fires
+    // 'change' mid-tick while rafId is 0, which scheduled an extra callback
+    // chain; combined with the schedule below the chain count doubled per
+    // frame and froze the page (the "renders one frame, then dies" bug).
+    if (this.isAnimating() && !this.rafId) this.rafId = requestAnimationFrame(this.tick);
   };
 
   private clear3d() {

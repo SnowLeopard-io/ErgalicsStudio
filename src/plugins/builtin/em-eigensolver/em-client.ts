@@ -75,6 +75,9 @@ export class EmSolverClient {
         });
         worker.addEventListener('error', (ev) => {
           const err = new Error(ev.message || 'worker crashed');
+          // An errored worker is dead either way — release it so the next
+          // boot respawns cleanly instead of leaking the old instance.
+          worker.terminate();
           if (settled) {
             // A crash after boot used to leave this.worker/readyPromise
             // pointing at the dead worker: the next request posted into it

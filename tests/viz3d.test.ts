@@ -10,6 +10,8 @@ import {
   heightFieldToMesh,
   voxelIsosurface,
   voxelSolidCells,
+  marchingTets,
+  sampleFieldTrilinear,
   type VoxelField,
 } from '@/core/mesh3d';
 import {
@@ -290,6 +292,91 @@ describe('voxelIsosurface', () => {
       expect(x).toBe(1);
       expect(z).toBe(1);
     }
+  });
+});
+
+// ---- smooth isosurface (marching tets) ---------------------------------------
+
+describe('marchingTets', () => {
+  /** Radial field: value = radius (iso at r=2.5 gives a sphere of radius 2.5). */
+  const sphereField = (n: number): VoxelField => {
+    const c = (n - 1) / 2;
+    return field(n, n, n, (x, y, z) =>
+      Math.sqrt((x - c) ** 2 + (y - c) ** 2 + (z - c) ** 2),
+    );
+  };
+
+  it('interpolates a sphere: every vertex sits within half a cell of the iso radius', () => {
+    const f = sphereField(10);
+    const { positions, vertexValues } = marchingTets(f, 2.5);
+    expect(positions.length).toBeGreaterThan(0);
+    const c = 4.5;
+    for (let v = 0; v < positions.length / 3; v += 1) {
+      const x = positions[v * 3]!;
+      const y = positions[v * 3 + 1]!;
+      const z = positions[v * 3 + 2]!;
+      const r = Math.sqrt((x - c) ** 2 + (y - c) ** 2 + (z - c) ** 2);
+      // Marching tets places vertices on tet edges: linear interpolation
+      // against the exact radial field puts them within one cell diagonal.
+      expect(Math.abs(r - 2.5)).toBeLessThan(Math.SQRT2 / 2 + 1e-6);
+      // Every vertex value equals the requested iso level.
+      expect(vertexValues[v]).toBeCloseTo(2.5, 6);
+    }
+  });
+
+  it('orients every triangle against the field gradient (normals point outward)', () => {
+    const f = sphereField(10);
+    const { positions } = marchingTets(f, 2.5);
+    const c = 4.5;
+    for (let t = 0; t < positions.length / 9; t += 1) {
+      const ax = positions[t * 9]!, ay = positions[t * 9 + 1]!, az = positions[t * 9 + 2]!;
+      const bx = positions[t * 9 + 3]!, by = positions[t * 9 + 4]!, bz = positions[t * 9 + 5]!;
+      const cx = positions[t * 9 + 6]!, cy = positions[t * 9 + 7]!, cz = positions[t * 9 + 8]!;
+      const ux = bx - ax, uy = by - ay, uz = bz - az;
+      const vx = cx - ax, vy = cy - ay, vz = cz - az;
+      const nx = uy * vz - uz * vy;
+      const ny = uz * vx - ux * vz;
+      const nz = ux * vy - uy * vx;
+      // Outward = away from the solid (value ≥ level) region. With the radial
+      // field value = r, the solid is the outer shell, so the free surface
+      // normal points toward the field center.
+      const mx = c - (ax + bx + cx) / 3;
+      const my = c - (ay + by + cy) / 3;
+      const mz = c - (az + bz + cz) / 3;
+      expect(nx * mx + ny * my + nz * mz).toBeGreaterThan(0);
+    }
+  });
+
+  it('emits nothing when the level is outside the field range', () => {
+    const f = sphereField(6);
+    expect(marchingTets(f, 100).positions).toHaveLength(0);
+    expect(marchingTets(f, -1).positions).toHaveLength(0);
+  });
+
+  it('is watertight on a closed sphere surface (after position merging)', () => {
+    const f = sphereField(9);
+    const { positions } = marchingTets(f, 2.5);
+    // Build a pseudo index (every 3 consecutive vertices = 1 triangle) and
+    // merge identical positions so shared edges count once.
+    const indices = new Uint32Array(positions.length / 3);
+    for (let i = 0; i < indices.length; i += 1) indices[i] = i;
+    const merged = mergeByPosition(positions, indices);
+    expect(isWatertight(merged)).toBe(true);
+  });
+});
+
+describe('sampleFieldTrilinear', () => {
+  it('reproduces lattice values exactly and interpolates halfway points', () => {
+    const f = field(3, 3, 3, (x, y, z) => x * 100 + y * 10 + z);
+    expect(sampleFieldTrilinear(f, 1, 2, 0)).toBe(120);
+    expect(sampleFieldTrilinear(f, 0.5, 0, 0)).toBeCloseTo(50, 6);
+    // Cell center = mean of the 8 surrounding lattice values.
+    expect(sampleFieldTrilinear(f, 1.5, 1.5, 1.5)).toBeCloseTo(166.5, 6);
+  });
+
+  it('clamps out-of-range coordinates to the border value', () => {
+    const f = field(2, 2, 2, () => 7);
+    expect(sampleFieldTrilinear(f, -5, 0.5, 99)).toBe(7);
   });
 });
 
@@ -695,9 +782,31 @@ describe('Voxel3DPlugin', () => {
     const { scene } = injectThree(plugin);
     await plugin.loadData(new File(['[[[2,2],[2,2]],[[2,2],[2,0]]]'], 'f.json'));
     expect(reportDataScale).toHaveBeenCalledWith(8);
-    expect(notify).toHaveBeenCalledWith('success', expect.stringContaining('8'));
+    expect(notify).toHaveBeenCalledWith('success', expect.stringContaining('isosurface'));
     expect(scene.added).toHaveLength(1);
-    const mesh = scene.added[0] as { geometry: { index: { count: number } | null } };
+    const mesh = scene.added[0] as {
+      geometry: { index: { count: number } | null; attributes: { position: { count: number } } };
+    };
+    // Smooth marching-tets surface (non-indexed): 7 solid nodes of a 2×2×2
+    // lattice with one corner cut off — the exact triangle count follows from
+    // the tet decomposition; just require a real closed-ish surface.
+    const tris = mesh.geometry.index
+      ? mesh.geometry.index.count / 3
+      : mesh.geometry.attributes.position.count / 3;
+    expect(tris).toBeGreaterThan(0);
+    await plugin.destroy();
+  });
+
+  it('falls back to the blocky isosurface when smooth mode is off', async () => {
+    const api = fakeApi();
+    const plugin = new Voxel3DPlugin();
+    await plugin.init(api);
+    const { scene } = injectThree(plugin);
+    await plugin.loadData(new File(['[[[2,2],[2,2]],[[2,2],[2,0]]]'], 'f.json'));
+    plugin.updateParams({ smooth: false });
+    const mesh = scene.added[scene.added.length - 1] as {
+      geometry: { index: { count: number } | null };
+    };
     // 7 solid cells of a 2×2×2 block → 24 exterior faces → 48 triangles
     expect(mesh.geometry.index!.count).toBe(48 * 3);
     await plugin.destroy();

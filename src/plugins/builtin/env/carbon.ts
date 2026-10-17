@@ -662,7 +662,9 @@ export class CarbonPlugin implements Plugin {
       g.fillStyle = 'rgba(200, 210, 225, 0.95)';
       const delta = last[k] - first[k];
       g.fillText(
-        `${CARBON_POOL_LABELS[k].zh}: ${last[k].toFixed(0)} GtC（${delta >= 0 ? '+' : ''}${delta.toFixed(0)}）`,
+        zh
+          ? `${CARBON_POOL_LABELS[k].zh}: ${last[k].toFixed(0)} GtC（${delta >= 0 ? '+' : ''}${delta.toFixed(0)}）`
+          : `${CARBON_POOL_LABELS[k].en}: ${last[k].toFixed(0)} GtC (${delta >= 0 ? '+' : ''}${delta.toFixed(0)})`,
         x1 - 174,
         ly + 1,
       );

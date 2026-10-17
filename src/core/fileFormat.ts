@@ -18,6 +18,8 @@ const KNOWN_MAGIC: { bytes: number[]; format: string }[] = [
   { bytes: [0xff, 0xd8, 0xff], format: 'jpeg' },
   { bytes: [0x47, 0x49, 0x46, 0x38], format: 'gif' },
   { bytes: [0x7f, 0x45, 0x4c, 0x46], format: 'elf' },
+  // Binary glTF container ('glTF' little-endian u32 magic).
+  { bytes: [0x67, 0x6c, 0x54, 0x46], format: 'glb' },
 ];
 
 const EXTENSION_FORMATS: Record<string, string> = {
@@ -32,6 +34,7 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.gltf': 'gltf',
   '.stl': 'stl',
   '.obj': 'obj',
+  '.ply': 'ply',
   '.dat': 'dat',
   '.mtx': 'mtx',
   '.npz': 'npz',
@@ -59,6 +62,8 @@ const EXTENSION_FORMATS: Record<string, string> = {
   '.gpx': 'gpx',
   '.asc': 'asc',
   '.kml': 'kml',
+  '.xy': 'xy',
+  '.xye': 'xye',
 };
 
 // ---- Project data-file allowlist -----------------------------------------
@@ -93,6 +98,8 @@ const DATA_FILE_EXTENSIONS = new Set([
   '.gpx',
   '.asc',
   '.kml',
+  '.xy',
+  '.xye',
 ]);
 
 /** Is this file name a supported (text) project data file? */

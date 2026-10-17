@@ -1,35 +1,39 @@
 name: Feature request
-description: Suggest a feature or improvement for Ergalics Studio
+description: 为 Ergalics Studio 提出功能或改进建议 / Suggest a feature or improvement for Ergalics Studio
 title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
+        提交请求前，请先查看现有 open issues 与 `docs/guide/prd.md` 中的任务列表——这个想法可能已在规划中。
+
         Before opening a request, check the open issues and the task list in
         `docs/guide/prd.md` — the idea may already be planned.
 
   - type: input
     id: summary
     attributes:
-      label: Summary
-      description: One sentence describing the requested capability.
+      label: 概要 / Summary
+      description: 用一句话描述所请求的能力。 / One sentence describing the requested capability.
     validations:
       required: true
 
   - type: textarea
     id: motivation
     attributes:
-      label: Motivation
-      description: What problem does this solve? Who is the target user?
+      label: 动机 / Motivation
+      description: 它解决了什么问题？目标用户是谁？ / What problem does this solve? Who is the target user?
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed solution
+      label: 建议方案 / Proposed solution
       description: |
+        它应该如何工作？涉及哪个模式（Standard / Flow / Block / Code）、哪个插件或 block 类别，以及如何契合现有架构？
+
         How should it work? Which mode does it touch (Standard / Flow /
         Block / Code), which plugin or block category, and how does it fit the
         existing architecture?
@@ -39,15 +43,15 @@ body:
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
-      description: What else did you consider, and why is this the better option?
+      label: 已考虑的替代方案 / Alternatives considered
+      description: 你还考虑过哪些方案？为什么这个选项更好？ / What else did you consider, and why is this the better option?
     validations:
       required: false
 
   - type: textarea
     id: scope
     attributes:
-      label: Impact
-      description: New files, files likely to change, or performance / bundle-size impact.
+      label: 影响范围 / Impact
+      description: 新增文件、可能变更的文件，或对性能 / 包体积的影响。 / New files, files likely to change, or performance / bundle-size impact.
     validations:
       required: false

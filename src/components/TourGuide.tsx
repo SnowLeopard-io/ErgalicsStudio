@@ -12,7 +12,7 @@
 // The overlay layer is pointer-events:none; only the tooltip card captures
 // clicks, so the real UI under the spotlight stays fully interactive.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useT } from '@/i18n';
 import { useTourStore } from '@/stores/tourStore';
 import { useAppStore } from '@/stores/appStore';
@@ -285,7 +285,10 @@ export function TourGuide() {
 
   /** Advance: past a track's terminal step the tour ends — never leak into
    *  the next track's steps in the flat array. */
-  const advance = () => (isLast ? finish() : next());
+  const advance = useCallback(
+    () => (isLast ? finish() : next()),
+    [isLast, finish, next],
+  );
 
   // Walked past the final step (e.g. clicked the last highlighted element
   // right as the tour ended) — treat as completion.

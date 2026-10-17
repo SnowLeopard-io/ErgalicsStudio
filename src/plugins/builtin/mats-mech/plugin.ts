@@ -312,19 +312,45 @@ export class MatsMechPlugin implements Plugin {
           g.lineTo(sx(e1), sy(intercept + slope * e1));
           g.stroke();
           g.setLineDash([]);
-          // 0.2% offset line (parallel, shifted by +0.002)
+          // 0.2% offset line (parallel, shifted by +0.002). Its far end can
+          // exceed the y-domain when the elastic fit ends at low strain, so
+          // clip the segment to the plot's vertical band before drawing.
           if (this.state.showOffset) {
             const off0 = e0 + 0.002;
             const off1 = Math.min(e1 + 0.002, eMax);
-            g.strokeStyle = 'rgba(255, 209, 102, 0.8)';
-            g.beginPath();
-            g.moveTo(sx(off0), sy(intercept + slope * off0));
-            g.lineTo(sx(off1), sy(intercept + slope * off1));
-            g.stroke();
-            g.fillStyle = 'rgba(255, 209, 102, 0.9)';
-            g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
-            g.textAlign = 'left';
-            g.fillText('σ₀.₂', sx(off1) + 4, sy(intercept + slope * off1) - 4);
+            const ax = sx(off0);
+            const ay = sy(intercept + slope * off0);
+            const bx = sx(off1);
+            const by = sy(intercept + slope * off1);
+            const clipTop = padT;
+            const clipBot = padT + plotH;
+            const dy = by - ay;
+            let t0 = 0;
+            let t1 = 1;
+            if (dy !== 0) {
+              const ta = (clipTop - ay) / dy;
+              const tb = (clipBot - ay) / dy;
+              t0 = Math.max(t0, Math.min(ta, tb));
+              t1 = Math.min(t1, Math.max(ta, tb));
+            } else if (ay < clipTop || ay > clipBot) {
+              t0 = 1;
+            }
+            if (t0 < t1) {
+              const px0 = ax + (bx - ax) * t0;
+              const py0 = ay + dy * t0;
+              const px1 = ax + (bx - ax) * t1;
+              const py1 = ay + dy * t1;
+              g.strokeStyle = 'rgba(255, 209, 102, 0.8)';
+              g.beginPath();
+              g.moveTo(px0, py0);
+              g.lineTo(px1, py1);
+              g.stroke();
+              g.fillStyle = 'rgba(255, 209, 102, 0.9)';
+              g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+              g.textAlign = 'left';
+              const [lx, ly] = py0 <= py1 ? [px1, py1] : [px0, py0];
+              g.fillText('σ₀.₂', lx + 4, Math.max(clipTop + 10, ly - 4));
+            }
           }
         }
       }

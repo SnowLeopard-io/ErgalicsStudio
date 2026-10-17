@@ -82,7 +82,20 @@ import envAqiWeekCsv from '../../examples/data/env-aqi-week.csv?raw';
 import envWaterRiverCsv from '../../examples/data/env-water-river.csv?raw';
 import envBiodiversitySitesCsv from '../../examples/data/env-biodiversity-sites.csv?raw';
 import envCarbonPoolsCsv from '../../examples/data/env-carbon-pools.csv?raw';
-import { TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
+import chemN2o5Csv from '../../examples/data/chem-n2o5-decomp.csv?raw';
+import physProjectileCsv from '../../examples/data/phys-projectile-45deg.csv?raw';
+import engLadderNetlistJson from '../../examples/data/eng-ladder-netlist.json?raw';
+import engTrussBridgeJson from '../../examples/data/eng-truss-bridge.json?raw';
+import mendelF2Csv from '../../examples/data/mendel-f2-seven-traits.csv?raw';
+import hudsonBayCsv from '../../examples/data/hudson-bay-lynx-hare.csv?raw';
+import geoIntcal20ExcerptCsv from '../../examples/data/intcal20-excerpt.csv?raw';
+import geoVgSandRetentionCsv from '../../examples/data/vg-sand-retention.csv?raw';
+import geoStormHyetographCsv from '../../examples/data/usgs-storm-hyetograph.csv?raw';
+import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
+import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
+import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
+import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
+import { IMAGEPROC_SUBJECT_PNG_BASE64, TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
 // examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
@@ -147,6 +160,13 @@ export interface BuiltinExample {
   nameI18n: Record<Locale, string>;
   descriptionI18n: Record<Locale, string>;
 }
+
+/**
+ * Tiny binary GLB sample (UV sphere, 20×12 segments, ~6.5 KB). Inline base64
+ * because `exampleContent` lazy-loads text only; binary samples ship eagerly.
+ */
+const MODEL3D_SPHERE_GLB_BASE64 =
+  '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QiySo+pGd7/ug4Q+ScyjPepGd78mD3w++ccbPupGd78SalY+EmpWPupGd7/5xxs+Jg98PupGd79JzKM97oOEPupGd79CLBIkJg98PupGd79JzKO9EmpWPupGd7/5xxu++ccbPupGd78Sala+ScyjPepGd78mD3y+Y0JbJOpGd7/ug4S+ScyjvepGd78mD3y++ccbvupGd78Sala+EmpWvupGd7/5xxu+Jg98vupGd79JzKO97oOEvupGd79CLJKkMjENpQAAgL8AAAAAH0gGpQAAgL/rhS4kJ3TkpAAAgL85+6UkOfulpAAAgL8ndOQk64UupAAAgL8fSAYldL4bigAAgL8yMQ0l64UuJAAAgL8fSAYlOfulJAAAgL8ndOQkJ3TkJAAAgL85+6UkH0gGJQAAgL/rhS4kMjENJQAAgL90vpsKH0gGJQAAgL/rhS6kJ3TkJAAAgL85+6WkOfulJAAAgL8ndOSk64UuJAAAgL8fSAalrp3pCgAAgL8yMQ2l64UupAAAgL8fSAalOfulpAAAgL8ndOSkJ3TkpAAAgL85+6WkH0gGpQAAgL/rhS6kMjENpQAAgL90vhuLAAAWABUAAQAXABYAAgAYABcAAwAZABgABAAaABkABQAbABoABgAcABsABwAdABwACAAeAB0ACQAfAB4ACgAgAB8ACwAhACAADAAiACEADQAjACIADgAkACMADwAlACQAEAAmACUAEQAnACYAEgAoACcAEwApACgAFQAWACsAFQArACoAFgAXACwAFgAsACsAFwAYAC0AFwAtACwAGAAZAC4AGAAuAC0AGQAaAC8AGQAvAC4AGgAbADAAGgAwAC8AGwAcADEAGwAxADAAHAAdADIAHAAyADEAHQAeADMAHQAzADIAHgAfADQAHgA0ADMAHwAgADUAHwA1ADQAIAAhADYAIAA2ADUAIQAiADcAIQA3ADYAIgAjADgAIgA4ADcAIwAkADkAIwA5ADgAJAAlADoAJAA6ADkAJQAmADsAJQA7ADoAJgAnADwAJgA8ADsAJwAoAD0AJwA9ADwAKAApAD4AKAA+AD0AKgArAEAAKgBAAD8AKwAsAEEAKwBBAEAALAAtAEIALABCAEEALQAuAEMALQBDAEIALgAvAEQALgBEAEMALwAwAEUALwBFAEQAMAAxAEYAMABGAEUAMQAyAEcAMQBHAEYAMgAzAEgAMgBIAEcAMwA0AEkAMwBJAEgANAA1AEoANABKAEkANQA2AEsANQBLAEoANgA3AEwANgBMAEsANwA4AE0ANwBNAEwAOAA5AE4AOABOAE0AOQA6AE8AOQBPAE4AOgA7AFAAOgBQAE8AOwA8AFEAOwBRAFAAPAA9AFIAPABSAFEAPQA+AFMAPQBTAFIAPwBAAFUAPwBVAFQAQABBAFYAQABWAFUAQQBCAFcAQQBXAFYAQgBDAFgAQgBYAFcAQwBEAFkAQwBZAFgARABFAFoARABaAFkARQBGAFsARQBbAFoARgBHAFwARgBcAFsARwBIAF0ARwBdAFwASABJAF4ASABeAF0ASQBKAF8ASQBfAF4ASgBLAGAASgBgAF8ASwBMAGEASwBhAGAATABNAGIATABiAGEATQBOAGMATQBjAGIATgBPAGQATgBkAGMATwBQAGUATwBlAGQAUABRAGYAUABmAGUAUQBSAGcAUQBnAGYAUgBTAGgAUgBoAGcAVABVAGoAVABqAGkAVQBWAGsAVQBrAGoAVgBXAGwAVgBsAGsAVwBYAG0AVwBtAGwAWABZAG4AWABuAG0AWQBaAG8AWQBvAG4AWgBbAHAAWgBwAG8AWwBcAHEAWwBxAHAAXABdAHIAXAByAHEAXQBeAHMAXQBzAHIAXgBfAHQAXgB0AHMAXwBgAHUAXwB1AHQAYABhAHYAYAB2AHUAYQBiAHcAYQB3AHYAYgBjAHgAYgB4AHcAYwBkAHkAYwB5AHgAZABlAHoAZAB6AHkAZQBmAHsAZQB7AHoAZgBnAHwAZgB8AHsAZwBoAH0AZwB9AHwAaQBqAH8AaQB/AH4AagBrAIAAagCAAH8AawBsAIEAawCBAIAAbABtAIIAbACCAIEAbQBuAIMAbQCDAIIAbgBvAIQAbgCEAIMAbwBwAIUAbwCFAIQAcABxAIYAcACGAIUAcQByAIcAcQCHAIYAcgBzAIgAcgCIAIcAcwB0AIkAcwCJAIgAdAB1AIoAdACKAIkAdQB2AIsAdQCLAIoAdgB3AIwAdgCMAIsAdwB4AI0AdwCNAIwAeAB5AI4AeACOAI0AeQB6AI8AeQCPAI4AegB7AJAAegCQAI8AewB8AJEAewCRAJAAfAB9AJIAfACSAJEAfgB/AJQAfgCUAJMAfwCAAJUAfwCVAJQAgACBAJYAgACWAJUAgQCCAJcAgQCXAJYAggCDAJgAggCYAJcAgwCEAJkAgwCZAJgAhACFAJoAhACaAJkAhQCGAJsAhQCbAJoAhgCHAJwAhgCcAJsAhwCIAJ0AhwCdAJwAiACJAJ4AiACeAJ0AiQCKAJ8AiQCfAJ4AigCLAKAAigCgAJ8AiwCMAKEAiwChAKAAjACNAKIAjACiAKEAjQCOAKMAjQCjAKIAjgCPAKQAjgCkAKMAjwCQAKUAjwClAKQAkACRAKYAkACmAKUAkQCSAKcAkQCnAKYAkwCUAKkAkwCpAKgAlACVAKoAlACqAKkAlQCWAKsAlQCrAKoAlgCXAKwAlgCsAKsAlwCYAK0AlwCtAKwAmACZAK4AmACuAK0AmQCaAK8AmQCvAK4AmgCbALAAmgCwAK8AmwCcALEAmwCxALAAnACdALIAnACyALEAnQCeALMAnQCzALIAngCfALQAngC0ALMAnwCgALUAnwC1ALQAoAChALYAoAC2ALUAoQCiALcAoQC3ALYAogCjALgAogC4ALcAowCkALkAowC5ALgApAClALoApAC6ALkApQCmALsApQC7ALoApgCnALwApgC8ALsAqACpAL4AqAC+AL0AqQCqAL8AqQC/AL4AqgCrAMAAqgDAAL8AqwCsAMEAqwDBAMAArACtAMIArADCAMEArQCuAMMArQDDAMIArgCvAMQArgDEAMMArwCwAMUArwDFAMQAsACxAMYAsADGAMUAsQCyAMcAsQDHAMYAsgCzAMgAsgDIAMcAswC0AMkAswDJAMgAtAC1AMoAtADKAMkAtQC2AMsAtQDLAMoAtgC3AMwAtgDMAMsAtwC4AM0AtwDNAMwAuAC5AM4AuADOAM0AuQC6AM8AuQDPAM4AugC7ANAAugDQAM8AuwC8ANEAuwDRANAAvQC+ANMAvQDTANIAvgC/ANQAvgDUANMAvwDAANUAvwDVANQAwADBANYAwADWANUAwQDCANcAwQDXANYAwgDDANgAwgDYANcAwwDEANkAwwDZANgAxADFANoAxADaANkAxQDGANsAxQDbANoAxgDHANwAxgDcANsAxwDIAN0AxwDdANwAyADJAN4AyADeAN0AyQDKAN8AyQDfAN4AygDLAOAAygDgAN8AywDMAOEAywDhAOAAzADNAOIAzADiAOEAzQDOAOMAzQDjAOIAzgDPAOQAzgDkAOMAzwDQAOUAzwDlAOQA0ADRAOYA0ADmAOUA0gDTAOgA0gDoAOcA0wDUAOkA0wDpAOgA1ADVAOoA1ADqAOkA1QDWAOsA1QDrAOoA1gDXAOwA1gDsAOsA1wDYAO0A1wDtAOwA2ADZAO4A2ADuAO0A2QDaAO8A2QDvAO4A2gDbAPAA2gDwAO8A2wDcAPEA2wDxAPAA3ADdAPIA3ADyAPEA3QDeAPMA3QDzAPIA3gDfAPQA3gD0APMA3wDgAPUA3wD1APQA4ADhAPYA4AD2APUA4QDiAPcA4QD3APYA4gDjAPgA4gD4APcA4wDkAPkA4wD5APgA5ADlAPoA5AD6APkA5QDmAPsA5QD7APoA5wDoAP0A6ADpAP4A6QDqAP8A6gDrAAAB6wDsAAEB7ADtAAIB7QDuAAMB7gDvAAQB7wDwAAUB8ADxAAYB8QDyAAcB8gDzAAgB8wD0AAkB9AD1AAoB9QD2AAsB9gD3AAwB9wD4AA0B+AD5AA4B+QD6AA8B+gD7ABAB';
 
 export const BUILTIN_EXAMPLES: BuiltinExample[] = [
   {
@@ -487,6 +507,22 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '128×128 测试图案（渐变 + 圆环 + 网格），图像查看示例。',
       'en-US': '128x128 test pattern (gradient + ring + grid); image viewer demo.',
+    },
+  },
+  {
+    id: 'imageproc-subject',
+    filename: 'imageproc-subject.png',
+    format: 'png',
+    mimeType: 'image/png',
+    pluginId: 'example.data-imageproc',
+    contentBase64: IMAGEPROC_SUBJECT_PNG_BASE64,
+    nameI18n: {
+      'zh-CN': '图像处理测试图（种子 20261011）',
+      'en-US': 'Image-Processing Test Subject (seed 20261011)',
+    },
+    descriptionI18n: {
+      'zh-CN': '256×256 固定种子生成图（渐变 + 圆盘 + 条纹 + 高斯噪声），图像处理插件的基准被摄对象。',
+      'en-US': '256x256 seeded synthetic subject (gradient + disc + stripes + gaussian noise); reference subject for the image-processing plugin.',
     },
   },
   {
@@ -2197,6 +2233,454 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '10 s 高噪声帧：天光 900 e⁻、读出噪声 9 e⁻、增益 2.4 e⁻/ADU、FWHM 4.5 px、25 个宇宙线；用于检验 CCD 方程信噪比与低信噪比极限下的检测表现，科学输出栏给出背景 σ 与最亮源 SNR。',
       'en-US':
         'A noisy 10 s frame: 900 e⁻ sky, 9 e⁻ read noise, gain 2.4 e⁻/ADU, FWHM 4.5 px and 25 cosmic rays; stresses CCD-equation SNR and low-SNR detection. The science strip reports background σ and peak-source SNR.',
+    },
+  },
+  // ---- Daylight sky presets ---------------------------------------------------
+  {
+    id: 'fx-sky-noon-clear',
+    filename: 'fx-sky-noon-clear.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-noon-clear.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 正午晴空（北京）',
+      'en-US': 'FX · Daylight sky — clear noon (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '北京正午（太阳高度约 70°）：低浑浊度（2.5）下的 Rayleigh 蓝天，太阳盘面临边昏暗；科学输出栏给出 Kasten–Young 气团 ≈ 1.45 与「白昼」晨昏蒙影分类。',
+      'en-US':
+        'Beijing noon (sun ~70° high): Rayleigh blue sky at low turbidity (2.5) with a limb-darkened sun disk; the science strip reports Kasten–Young air mass ≈ 1.45 and the "day" twilight band.',
+    },
+  },
+  {
+    id: 'fx-sky-sunset-golden',
+    filename: 'fx-sky-sunset-golden.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-sunset-golden.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 金色日落（北京）',
+      'en-US': 'FX · Daylight sky — golden sunset (Beijing)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '日落前的低太阳高度：视线穿过更厚的大气，Rayleigh 散射把直射阳光染成橙红，高浑浊度（5.5）加强地平线霾与 Mie 红霞；地影方向的对比色带由物理积分自然产生。',
+      'en-US':
+        'Low sun before sunset: longer light paths redden the direct beam via Rayleigh scattering while high turbidity (5.5) strengthens horizon haze and the Mie glow; the anti-solar belt emerges from the physics, not a gradient trick.',
+    },
+  },
+  {
+    id: 'fx-sky-moonlit-dusk',
+    filename: 'fx-sky-moonlit-dusk.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.sky',
+    loadContent: () => exampleContent('fx-sky-moonlit-dusk.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 日光天空 暮光入夜（昼夜循环）',
+      'en-US': 'FX · Daylight sky — dusk into night (day cycle)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '开启昼夜循环从天文暮光滑向深夜：太阳沉入 −18° 以下时大气积分进入地影，天光熄灭、月光明亮份额上升；科学输出栏实时显示晨昏蒙影分类切换（民用 → 航海 → 天文 → 夜）。',
+      'en-US':
+        'Day cycle sliding from astronomical dusk into deep night: as the sun sinks past −18° the integrator enters the earth shadow, skylight dies and the moon takes over; the science strip tracks the twilight band transitions.',
+    },
+  },
+  // ---- Night-sky presets ------------------------------------------------------
+  {
+    id: 'fx-stars-mauna-kea',
+    filename: 'fx-stars-mauna-kea.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-mauna-kea.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 原始暗夜（莫纳克亚，Bortle 1）',
+      'en-US': 'FX · Starfield — pristine dark sky (Mauna Kea, Bortle 1)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '莫纳克亚（北纬 19.8°）的 Bortle 1 原始暗夜：真实银极（RA 192.86°, Dec +27.13°）锚定的银河带、低视宁度微闪烁与偶发流星；恒星时流开启，约 3 分钟转过全天。极限星等 7.8，肉眼可见星约 24000 颗。',
+      'en-US':
+        'Bortle-1 pristine sky over Mauna Kea (lat 19.8°N): a Milky-Way band anchored on the true galactic pole (RA 192.86°, Dec +27.13°), faint scintillation and occasional meteors. Sidereal time-lapse rotates the whole sky in ~3 min. Limiting mag 7.8, ~24000 naked-eye stars.',
+    },
+  },
+  {
+    id: 'fx-stars-urban-sky',
+    filename: 'fx-stars-urban-sky.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-urban-sky.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 城市夜空（北京，Bortle 8）',
+      'en-US': 'FX · Starfield — inner-city sky (Beijing, Bortle 8)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Bortle 8 市中心夜空：地平线方向暖色光污染穹顶，银河几乎不可见，仅剩亮星（极限星等约 5.0，可见星约 1300 颗）；与莫纳克亚示例对比即可理解光污染对星空的压制。',
+      'en-US':
+        'Bortle-8 inner-city sky: a warm light-pollution dome hugging the horizon, the Milky Way nearly erased, only bright stars survive (limiting mag ~5.0, ~1300 visible). Compare with the Mauna Kea example to see what light pollution does.',
+    },
+  },
+  {
+    id: 'fx-stars-meteor-shower',
+    filename: 'fx-stars-meteor-shower.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.stars',
+    loadContent: () => exampleContent('fx-stars-meteor-shower.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 星空 流星雨（拉帕尔马，14 颗/分钟）',
+      'en-US': 'FX · Starfield — meteor shower (La Palma, 14/min)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '拉帕尔马（北纬 28.8°）的流星雨场景：泊松过程调度（指数间隔，均值 4.3 s），每颗流星沿随机大圆划过 9–16° 并带运动头部光晕；开启恒星时流可同时看到天球旋转与流星。',
+      'en-US':
+        'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
+    },
+  },
+  // ---- Research suite samples (numeric kernels with real/synthetic data) ----
+  {
+    id: 'chem-n2o5-decomp',
+    filename: 'chem-n2o5-decomp.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.chem-reaction-order',
+    group: 'chem',
+    content: chemN2o5Csv,
+    nameI18n: {
+      'zh-CN': '反应级数 · N₂O₅ 分解动力学',
+      'en-US': 'Reaction Order · N₂O₅ Decomposition Kinetics',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '五氧化二氮分解 c–t 数据（41 点，约 1600 s），按文献速率常数 k≈3.46e-3 s⁻¹（~315 °C）合成，含 1% 高斯噪声。加载后积分法 R² 判优应判为一级，半衰期法交叉验证一致。',
+      'en-US':
+        'c–t data for N2O5 decomposition (41 points over ~1600 s), synthesised from the literature rate constant k ≈ 3.46e-3 s⁻¹ (~315 °C) with 1% Gaussian noise. R² screening should decide first order, cross-checked by the half-life method.',
+    },
+  },
+  {
+    id: 'phys-projectile-45deg',
+    filename: 'phys-projectile-45deg.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.physics-trajectory',
+    group: 'physics',
+    content: physProjectileCsv,
+    nameI18n: {
+      'zh-CN': '物理 · 抛体轨迹（45°，含 0.5% 噪声）',
+      'en-US': 'Physics · Projectile trajectory (45°, 0.5 % noise)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '合成抛体采样轨迹：v0 = 20 m/s、θ = 45°、g = 9.81 m/s²、50 点、乘性高斯噪声 0.5%（种子 20251011）。加载后线性化最小二乘拟合可回收 v0 与 θ（相对误差 <1%），并给出 KE/PE 能量分解。',
+      'en-US':
+        'Synthetic projectile samples: v0 = 20 m/s, θ = 45°, g = 9.81 m/s², 50 points, 0.5 % multiplicative Gaussian noise (seed 20251011). The linearized least-squares fit recovers v0 and θ within 1 % relative error, with KE/PE energy decomposition.',
+    },
+  },
+  {
+    id: 'eng-ladder-netlist',
+    filename: 'eng-ladder-netlist.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-circuit',
+    group: 'engineering',
+    content: engLadderNetlistJson,
+    nameI18n: {
+      'zh-CN': '工程 · T 型梯形电阻网络',
+      'en-US': 'Engineering · T-type Ladder Resistor Network',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 V 电压源带 R1=1kΩ、R2=R3=2kΩ 的 T 型梯形网络，解析解 v_mid = v_out = 8 V。点击「解算电路」用改进节点法求解，并查看各节点电压与 Tellegen 功率平衡自检。',
+      'en-US':
+        'A 12 V source driving a T-ladder with R1 = 1 kΩ, R2 = R3 = 2 kΩ; the analytic solution is v_mid = v_out = 8 V. Press "Solve circuit" for the MNA node voltages with a Tellegen power-balance self-check.',
+    },
+  },
+  {
+    id: 'eng-truss-bridge',
+    filename: 'eng-truss-bridge.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.eng-truss',
+    group: 'engineering',
+    content: engTrussBridgeJson,
+    nameI18n: {
+      'zh-CN': '工程 · 5 节点简支桁架桥',
+      'en-US': 'Engineering · 5-node Simply-supported Truss Bridge',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'E=200 GPa、A=3000 mm² 的 7 杆简支桁架桥，跨中下弦节点承受 50 kN 竖向载荷；两端竖向反力各 25 kN，顶弦受压、底弦受拉。点击「解算桁架」查看位移、轴力着色与可调放大系数的变形叠加。',
+      'en-US':
+        'A 7-member simply-supported truss bridge (E = 200 GPa, A = 3000 mm²) with a 50 kN vertical load on the mid bottom-chord node; end reactions are 25 kN each, top chord in compression and bottom chord in tension. Press "Solve truss" for displacements, axial-force coloring and a deformed-shape overlay with an adjustable scale.',
+    },
+  },
+  {
+    id: 'bio-mendel-f2-seven-traits',
+    filename: 'mendel-f2-seven-traits.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-mendel',
+    group: 'bio',
+    content: mendelF2Csv,
+    nameI18n: {
+      'zh-CN': '孟德尔 F₂ · 七性状二项分离检验',
+      'en-US': "Mendel's F₂ · Seven-Trait Segregation Test",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '孟德尔（1866）豌豆 F₂ 代分离计数：七个性状的 3:1 显性分离与二粒杂交种子 9:3:3:1，共 18 组。加载后逐性状做卡方拟合优度检验，并给出 df=10 的合并检验 χ² 与 p 值。',
+      'en-US':
+        "Mendel's (1866) F₂ counts: seven monohybrid 3:1 traits plus the dihybrid seed 9:3:3:1 experiment, 18 groups in total. Load it for per-trait χ² goodness-of-fit tests and the pooled df=10 χ² with its p-value.",
+    },
+  },
+  {
+    id: 'env-hudson-bay-lynx-hare',
+    filename: 'hudson-bay-lynx-hare.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.env-predator-prey',
+    group: 'env',
+    content: hudsonBayCsv,
+    nameI18n: {
+      'zh-CN': '哈德逊湾 · 猞猁-野兔毛皮回报序列',
+      'en-US': 'Hudson Bay · Lynx–Hare Fur Returns',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '哈德逊湾公司 1849–1890 年猞猁与野兔配对年毛皮回报（Elton & Nicholson 1942 数字化），42 行。加载后自动做 Lotka-Volterra 线性化回归拟合 α/β/γ/δ 并叠加相图轨道，呈现著名的约 10 年捕食-被捕食周期。',
+      'en-US':
+        'Paired annual lynx and hare fur returns of the Hudson Bay Company, 1849-1890 (digitized by Elton & Nicholson 1942), 42 rows. Loading runs the linearized Lotka-Volterra regression for α/β/γ/δ, overlays the fitted orbit and reveals the famous ~10-year predator-prey cycle.',
+    },
+  },
+  {
+    id: 'geo-carbondating-intcal20',
+    filename: 'intcal20-excerpt.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-carbondating',
+    group: 'geo',
+    content: geoIntcal20ExcerptCsv,
+    nameI18n: {
+      'zh-CN': '碳定年 · IntCal20 校准曲线节选（0–14000 cal BP）',
+      'en-US': 'Radiocarbon · IntCal20 Calibration Excerpt (0-14000 cal BP)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'IntCal20（Reimer et al. 2020）大气 ¹⁴C 校准曲线官方节选：0–14000 cal BP、每 50 年一行共 281 行（cal_bp, c14_age, sigma）。载入后自动完成似然剖面校准，给出最佳日历年与 1σ/2σ 区间。',
+      'en-US':
+        'Official IntCal20 (Reimer et al. 2020) atmospheric 14C calibration excerpt: 0-14000 cal BP on the 50-year grid, 281 rows (cal_bp, c14_age, sigma). Loading runs the likelihood-profile calibration for the best calendar age with 1σ/2σ ranges.',
+    },
+  },
+  {
+    id: 'geo-soilwater-sand',
+    filename: 'vg-sand-retention.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-soilwater',
+    group: 'geo',
+    content: geoVgSandRetentionCsv,
+    nameI18n: {
+      'zh-CN': '土壤水 · 砂土持水曲线合成数据（19 点）',
+      'en-US': 'Soil Water · Synthetic Sand Retention Dataset (19 points)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '吸力 1–15000 cm 的 19 个 θ(h) 点：以 van Genuchten (1980) 表 1 砂土参数（θr=0.045、θs=0.430、α=0.145 cm⁻¹、n=2.68）加 1% 乘性高斯噪声按种子复现生成（文件头注明）。载入即触发 LM 拟合并回收参数。',
+      'en-US':
+        '19 theta(h) points from 1-15000 cm: generated reproducibly from the van Genuchten (1980) Table 1 sand parameters (θr=0.045, θs=0.430, α=0.145 cm⁻¹, n=2.68) with 1% multiplicative Gaussian noise (seed documented in the header). Loading triggers the LM fit and parameter recovery.',
+    },
+  },
+  {
+    id: 'geo-hydrology-design-storm',
+    filename: 'usgs-storm-hyetograph.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-hydrology',
+    group: 'geo',
+    content: geoStormHyetographCsv,
+    nameI18n: {
+      'zh-CN': '水文 · 6 小时 90 mm 设计暴雨雨型',
+      'en-US': 'Hydrology · 6-hour 90 mm Design-Storm Hyetograph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '6 小时 90 mm 逐时增量合成设计暴雨（NWS 型雨峰位于 40% 时长处；USGS 实测站网在本环境不可达，按合成雨型提供并在文件头注明，非实测）。载入即运行 SCS-CN + 单位线汇流并核对体积守恒。',
+      'en-US':
+        'Synthetic 6-hour, 90 mm hourly design storm (NWS-style peak at 40% of duration; USGS gauges were unreachable from this environment, so a documented synthetic hyetograph is provided instead of observed data). Loading runs the SCS-CN + unit-hydrograph routing and checks volume conservation.',
+    },
+  },
+  {
+    id: 'markov-pagerank-web',
+    filename: 'markov-pagerank-web.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-markov',
+    group: 'stats',
+    content: markovPagerankWebCsv,
+    nameI18n: {
+      'zh-CN': '马尔可夫链 · 五页网页链接图',
+      'en-US': 'Markov Chain · Five-Page Web Graph',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '5 个网页的行随机链接矩阵（Page & Brin 1998 的教学最小图）。加载后幂法自动求稳态（L1 残差 < 1e-12），并在状态转移图上叠加平稳分布柱状与随机轨迹。',
+      'en-US':
+        'A row-stochastic link matrix over five web pages (a minimal Page & Brin 1998 teaching graph). Load it and the power iteration recovers the stationary law to L1 < 1e-12, drawn on the transition graph with bars and a simulated trajectory.',
+    },
+  },
+  {
+    id: 'gutenberg-emma-ch1',
+    filename: 'gutenberg-emma-ch1.txt',
+    format: 'txt',
+    mimeType: 'text/plain',
+    pluginId: 'example.stats-zipf',
+    group: 'stats',
+    content: gutenbergEmmaCh1Txt,
+    nameI18n: {
+      'zh-CN': 'Zipf 定律 · 《爱玛》卷一第 1–6 章',
+      'en-US': "Zipf's Law · Emma Vol. I, Ch. 1–6",
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Jane Austen《Emma》(1816) 第一卷第 1–6 章英文全文（约 1.4 万词，公版，校验于 Project Gutenberg eBook #158；# 行为注释）。加载后做词频排序与 log-log 拟合，实测 s ≈ 1.06、R² ≈ 0.97，与理想 Zipf 指数 s = 1 对照。',
+      'en-US':
+        "The full English text of Jane Austen's Emma (1816), Volume I chapters 1–6 (~14k words, public domain, checked against Project Gutenberg eBook #158; '#' lines are comments). Load it to rank word frequencies and fit log-log: measured s ≈ 1.06 with R² ≈ 0.97 against the ideal Zipf exponent s = 1.",
+    },
+  },
+  {
+    id: 'transit-lightcurve-hd209458',
+    filename: 'astro-transit-lightcurve.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-transit',
+    group: 'astro',
+    content: transitLightcurveCsv,
+    nameI18n: {
+      'zh-CN': '凌星光变 · HD 209458 b（合成教学数据）',
+      'en-US': 'Transit Light Curve · HD 209458 b (synthetic)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '按 NASA Exoplanet Archive 发表的 HD 209458 b 参数（P=3.52474859 d、深度=1.500%、T14=3.072 h）合成的 1000 点光变曲线（σ=1.2 mmag，10 个周期，固定种子）。加载后点击「检测周期并拟合」：简化 BLS 盲测周期，LM 精化梯形模型并输出 1σ 误差与相位折叠图。',
+      'en-US':
+        'A 1000-point light curve synthesized at the published HD 209458 b parameters (P = 3.52474859 d, depth = 1.500%, T14 = 3.072 h) from the NASA Exoplanet Archive (σ = 1.2 mmag, 10 periods, fixed seed). Load it and press "Detect & Fit": simplified-BLS blind detection, LM trapezoid refinement with 1σ errors and the phase-folded view.',
+    },
+  },
+  {
+    id: 'yale-bsc-bright',
+    filename: 'yale-bsc-bright.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.astro-hrdiagram',
+    group: 'astro',
+    content: yaleBscBrightCsv,
+    nameI18n: {
+      'zh-CN': '亮星星表 · Yale BSC 亮于 3.0 等（含 Hipparcos 视差）',
+      'en-US': 'Bright Star Catalogue · Yale BSC V < 3.0 (with Hipparcos parallaxes)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'Yale 亮星星表第 5 版（公有领域）中 V < 3.01 且 B−V ≤ 1.61 的 163 颗星，视差取自 Hipparcos（VizieR I/239，2026-10-11 检索）。加载后绘制赫罗图：视差换算距离模数得绝对星等，横轴 B−V，叠加 MK 主序参考带、太阳标记与主序拟合。',
+      'en-US':
+        '163 stars with V < 3.01 and B−V ≤ 1.61 from the Yale Bright Star Catalogue, 5th ed. (public domain), with Hipparcos parallaxes (VizieR I/239, retrieved 2026-10-11). Load it to draw the H–R diagram: absolute magnitudes via distance modulus, B−V colour axis, with the MK main-sequence band, the Sun marker and a screened main-sequence fit.',
+    },
+  },
+  {
+    id: 'model3d-torus-knot',
+    filename: 'model3d-torus-knot.stl',
+    format: 'stl',
+    mimeType: 'model/stl',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus-knot.stl'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面纽结（STL，1536 面）',
+      'en-US': '3D Model · Torus Knot (STL, 1536 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '(p,q)=(2,3) 环面纽结的 ASCII STL 网格，96 段 × 8 环共 1536 个三角面。适合演示观察模式切换、剖面（clipping plane）与两点测距； STL 为三角面片格式，无拓扑边信息。',
+      'en-US':
+        'An ASCII STL mesh of the (p,q)=(2,3) torus knot — 96 segments × 8 ring, 1536 triangles. Good for exercising view modes, the clipping plane and two-point measurement; STL carries triangle soup only, with no topology.',
+    },
+  },
+  {
+    id: 'model3d-icosphere',
+    filename: 'model3d-icosphere.obj',
+    format: 'obj',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-icosphere.obj'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 二十面球（OBJ，320 面）',
+      'en-US': '3D Model · Icosphere (OBJ, 320 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '二十面体细分 2 次得到的球面三角网格（42 顶点 / 80 顶点细分至 320 面），Wavefront OBJ 纯文本格式。体积小，适合快速验证加载、线框模式与视角预设。',
+      'en-US':
+        'A spherical triangle mesh from subdividing an icosahedron twice (320 faces), in plain-text Wavefront OBJ. Small enough for quick load, wireframe-mode and view-preset checks.',
+    },
+  },
+  {
+    id: 'model3d-torus',
+    filename: 'model3d-torus.ply',
+    format: 'ply',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus.ply'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面（PLY，1024 面）',
+      'en-US': '3D Model · Torus (PLY, 1024 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '标准圆环面的 ASCII PLY 网格（R=1.5, r=0.6，32×16 分段共 1024 个三角面），带 genus-1 拓扑手柄，可用来观察剖面切过孔洞时的截面形状。',
+      'en-US':
+        'An ASCII PLY mesh of the standard torus (R = 1.5, r = 0.6; 32 × 16 segments, 1024 triangles). Its genus-1 handle makes it a good subject for studying clipping cross-sections through the hole.',
+    },
+  },
+  {
+    id: 'model3d-rocket',
+    filename: 'model3d-rocket.gltf',
+    format: 'gltf',
+    mimeType: 'model/gltf+json',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-rocket.gltf'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 低多边形火箭（glTF，双材质多网格）',
+      'en-US': '3D Model · Low-poly Rocket (glTF, two materials)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'glTF 2.0 JSON 示例（缓冲内嵌 base64）：箭体圆柱 + 锥形整流罩与 3 片尾翼，两个 PBR 材质分属两个 primitive。适合验证多材质、PBR 底色与网格级统计输出。',
+      'en-US':
+        'A glTF 2.0 JSON sample (base64-embedded buffer): a cylindrical hull plus cone nose and three fins, spread over two primitives with two PBR materials. Useful for checking multi-material handling, base colours and per-mesh statistics.',
+    },
+  },
+  {
+    id: 'model3d-sphere',
+    filename: 'model3d-sphere.glb',
+    format: 'glb',
+    mimeType: 'model/gltf-binary',
+    pluginId: 'example.model3d',
+    contentBase64: MODEL3D_SPHERE_GLB_BASE64,
+    nameI18n: {
+      'zh-CN': '3D 模型 · UV 球（GLB 二进制）',
+      'en-US': '3D Model · UV Sphere (binary GLB)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '20×12 分段 UV 球的二进制 GLB 容器（约 6.5 KB，JSON + BIN 双 chunk）。体积最小的 glb 样例，用于验证二进制 glTF 加载路径。',
+      'en-US':
+        'A 20×12-segment UV sphere packed as a binary GLB container (about 6.5 KB, JSON + BIN chunks). The smallest glb sample, for verifying the binary glTF load path.',
     },
   },
 ];

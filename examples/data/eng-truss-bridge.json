@@ -1,0 +1,27 @@
+{
+  "E": 2.0e11,
+  "A": 3.0e-3,
+  "nodes": [
+    { "x": 0, "y": 0 },
+    { "x": 4, "y": 0 },
+    { "x": 8, "y": 0 },
+    { "x": 2, "y": 3 },
+    { "x": 6, "y": 3 }
+  ],
+  "elements": [
+    { "a": 0, "b": 1, "name": "bottom-L" },
+    { "a": 1, "b": 2, "name": "bottom-R" },
+    { "a": 3, "b": 4, "name": "top" },
+    { "a": 0, "b": 3, "name": "endpost-L" },
+    { "a": 3, "b": 1, "name": "diag-L" },
+    { "a": 1, "b": 4, "name": "diag-R" },
+    { "a": 4, "b": 2, "name": "endpost-R" }
+  ],
+  "constraints": [
+    { "node": 0, "dx": true, "dy": true },
+    { "node": 2, "dy": true }
+  ],
+  "loads": [
+    { "node": 1, "fx": 0, "fy": -50000 }
+  ]
+}

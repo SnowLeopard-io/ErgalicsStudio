@@ -6,13 +6,14 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useAppStore } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { MenuIcon, HelpIcon, GaugeIcon, MoreIcon, SparklesIcon, KeyboardIcon } from '@/components/icons';
+import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -37,7 +38,7 @@ export function TopBar() {
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
   const mode = useAppStore((s) => s.mode);
-  const setMode = useAppStore((s) => s.setMode);
+  const requestMode = useModeConvert((s) => s.requestMode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
@@ -153,12 +154,6 @@ export function TopBar() {
           { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
           { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           {
-            key: 'delete',
-            label: t('project.delete'),
-            disabled: !project,
-            onClick: openDialog('project_delete'),
-          },
-          {
             key: 'export_log',
             label: t('workbench.export_log'),
             onClick: () => {
@@ -176,6 +171,15 @@ export function TopBar() {
                 .catch(() => notify('error', t('workbench.export_log')));
             },
           },
+          { key: 'sep-danger', label: '' },
+          { key: 'danger-header', label: t('workbench.menu.danger'), header: true },
+          {
+            key: 'delete',
+            label: t('project.delete'),
+            disabled: !project,
+            danger: true,
+            onClick: openDialog('project_delete'),
+          },
         ]}
       />
 
@@ -188,7 +192,7 @@ export function TopBar() {
               type="button"
               className={`mode-btn${mode === key ? ' is-on' : ''}`}
               aria-pressed={mode === key}
-              onClick={() => setMode(key)}
+              onClick={() => requestMode(key)}
             >
               {t(`workbench.mode.${key}`)}
             </button>
@@ -251,8 +255,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 4 — global tools. The icon trio collapses into the ⋯ overflow
-            menu on narrow screens (see topbar-resp CSS). */}
+        {/* Zone 4 — global tools. Low-frequency entries (shortcuts, tour) and
+            the perf gauge live in the ⋯ overflow menu; the gauge surfaces here
+            only while a perf warning is active. Palette + AI stay direct. */}
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
@@ -269,15 +274,6 @@ export function TopBar() {
           </button>
           <button
             type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('ux.shortcuts.title')}
-            aria-label={t('ux.shortcuts.title')}
-            onClick={() => useShortcutsStore.getState().toggle()}
-          >
-            <KeyboardIcon size={15} />
-          </button>
-          <button
-            type="button"
             className={`cluster-btn icon-only${aiOpen ? ' is-active' : ''}`}
             title={t('ai.toggle')}
             aria-label={t('ai.toggle')}
@@ -287,25 +283,18 @@ export function TopBar() {
           >
             <SparklesIcon size={15} />
           </button>
-          <button
-            type="button"
-            className="cluster-btn icon-only topbar-hide-narrow"
-            title={t('workbench.tour.title')}
-            aria-label={t('workbench.tour.title')}
-            onClick={startTour}
-          >
-            <HelpIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className={`cluster-btn icon-only perf-entry topbar-hide-narrow${perfWarn ? ' perf-warn' : ''}`}
-            title={perfTitle}
-            aria-label={perfTitle}
-            onClick={openDialog('perf')}
-          >
-            <GaugeIcon size={15} />
-            <span className="perf-indicator-dot" aria-hidden="true" />
-          </button>
+          {perfWarn && (
+            <button
+              type="button"
+              className="cluster-btn icon-only perf-entry topbar-hide-narrow perf-warn"
+              title={perfTitle}
+              aria-label={perfTitle}
+              onClick={openDialog('perf')}
+            >
+              <GaugeIcon size={15} />
+              <span className="perf-indicator-dot" aria-hidden="true" />
+            </button>
+          )}
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>

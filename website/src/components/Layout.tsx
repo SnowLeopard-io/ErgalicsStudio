@@ -91,9 +91,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="site-main">{children}</main>
       <footer className="site-footer">
         <div className="footer-inner">
-          <div>
+          <div className="footer-brandcol">
             <div className="brand-name footer-brand">Ergalics Studio</div>
             <p className="footer-tagline">{t('footer.tagline')}</p>
+            <div className="footer-badges" aria-label="Release metadata">
+              <span className="fbadge">v2.0.0</span>
+              <span className="fbadge">MIT</span>
+              <span className="fbadge">WebGPU</span>
+            </div>
           </div>
           <div className="footer-links">
             <div className="footer-heading">{t('footer.links')}</div>
@@ -101,10 +106,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <a href={docsUrl('/guide/introduction')} target="_blank" rel="noreferrer">{t('nav.docs')}</a>
             <a href="https://github.com/SnowLeopard-io/ErgalicsStudio" target="_blank" rel="noreferrer">GitHub</a>
             <a href="https://gitee.com/cnt-code/ergalics-studio" target="_blank" rel="noreferrer">Gitee</a>
+            <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/blob/main/CITATION.cff" target="_blank" rel="noreferrer">{t('footer.citation')}</a>
+            <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/blob/main/.github/workflows/security.yml" target="_blank" rel="noreferrer">{t('footer.sbom')}</a>
           </div>
         </div>
         <div className="footer-bottom">
           <span>© 2026 SnowLeopard-io · {t('footer.license')}</span>
+          <span className="footer-doi">{t('footer.doi')}</span>
         </div>
       </footer>
     </div>
