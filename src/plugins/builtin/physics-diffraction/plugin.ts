@@ -11,7 +11,7 @@
 // validations; the profile exports to CSV.
 // ==========================================================================
 
-import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, RangeParam } from '@/types/plugin';
 import {
   actionButton,
   actionFired,
@@ -64,6 +64,16 @@ interface State {
   screenHalf: number;
   overlay: boolean;
 }
+
+/** Static range-slider definitions (current value injected per aperture). */
+const ALL_RANGES: Record<'a' | 'd' | 'nSlits' | 'radius' | 'L' | 'screenHalf', RangeParam> = {
+  a: { key: 'a', label: 'Slit width a', labelI18n: { 'zh-CN': '缝宽 a', 'en-US': 'Slit width a' }, type: 'range', min: 2, max: 30, step: 0.5, value: 8 },
+  d: { key: 'd', label: 'Slit separation d', labelI18n: { 'zh-CN': '缝间距 d', 'en-US': 'Slit separation d' }, type: 'range', min: 10, max: 80, step: 1, value: 40 },
+  nSlits: { key: 'nSlits', label: 'Number of slits N', labelI18n: { 'zh-CN': '缝数 N', 'en-US': 'Number of slits N' }, type: 'range', min: 2, max: 8, step: 1, value: 4 },
+  radius: { key: 'radius', label: 'Hole radius R', labelI18n: { 'zh-CN': '圆孔半径 R', 'en-US': 'Hole radius R' }, type: 'range', min: 1, max: 20, step: 0.5, value: 5 },
+  L: { key: 'L', label: 'Distance L', labelI18n: { 'zh-CN': '传播距离 L', 'en-US': 'Distance L' }, type: 'range', min: 100, max: 2000000, step: 100, value: 2e5 },
+  screenHalf: { key: 'screenHalf', label: 'Screen half-width', labelI18n: { 'zh-CN': '屏幕半宽', 'en-US': 'Screen half-width' }, type: 'range', min: 1000, max: 400000, step: 1000, value: 4e4 },
+};
 
 export class PhysicsDiffractionPlugin implements Plugin {
   readonly manifest = physicsDiffractionManifest;
@@ -132,6 +142,25 @@ export class PhysicsDiffractionPlugin implements Plugin {
         label: this.zh ? it.zh : it.en,
         labelI18n: { 'zh-CN': it.zh, 'en-US': it.en },
       }));
+    // Only expose the sliders the active aperture actually consumes — a slider
+    // that feeds unused state reads as "no response" when dragged.
+    const ap = this.state.aperture;
+    const ranges: RangeParam[] = [];
+    const pushRange = (key: 'a' | 'd' | 'nSlits' | 'radius' | 'L' | 'screenHalf') => ranges.push(ALL_RANGES[key]);
+    if (ap === 'slit') {
+      pushRange('a');
+    } else if (ap === 'double') {
+      pushRange('a');
+      pushRange('d');
+    } else if (ap === 'grating') {
+      pushRange('a');
+      pushRange('d');
+      pushRange('nSlits');
+    } else {
+      pushRange('radius');
+    }
+    pushRange('L');
+    pushRange('screenHalf');
     return [
       {
         key: 'aperture',
@@ -141,66 +170,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
         options: opt(APERTURES),
         value: this.state.aperture,
       },
-      {
-        key: 'a',
-        label: 'Slit width a',
-        labelI18n: { 'zh-CN': '缝宽 a', 'en-US': 'Slit width a' },
-        type: 'range',
-        min: 2,
-        max: 30,
-        step: 0.5,
-        value: this.state.a,
-      },
-      {
-        key: 'd',
-        label: 'Slit separation d',
-        labelI18n: { 'zh-CN': '缝间距 d', 'en-US': 'Slit separation d' },
-        type: 'range',
-        min: 10,
-        max: 80,
-        step: 1,
-        value: this.state.d,
-      },
-      {
-        key: 'nSlits',
-        label: 'Number of slits N',
-        labelI18n: { 'zh-CN': '缝数 N', 'en-US': 'Number of slits N' },
-        type: 'range',
-        min: 2,
-        max: 8,
-        step: 1,
-        value: this.state.nSlits,
-      },
-      {
-        key: 'radius',
-        label: 'Hole radius R',
-        labelI18n: { 'zh-CN': '圆孔半径 R', 'en-US': 'Hole radius R' },
-        type: 'range',
-        min: 1,
-        max: 20,
-        step: 0.5,
-        value: this.state.radius,
-      },
-      {
-        key: 'L',
-        label: 'Distance L',
-        labelI18n: { 'zh-CN': '传播距离 L', 'en-US': 'Distance L' },
-        type: 'range',
-        min: 100,
-        max: 2000000,
-        step: 100,
-        value: this.state.L,
-      },
-      {
-        key: 'screenHalf',
-        label: 'Screen half-width',
-        labelI18n: { 'zh-CN': '屏幕半宽', 'en-US': 'Screen half-width' },
-        type: 'range',
-        min: 1000,
-        max: 400000,
-        step: 1000,
-        value: this.state.screenHalf,
-      },
+      ...ranges.map((def) => ({ ...def, value: this.state[def.key as keyof State] as number })),
       {
         key: 'overlay',
         label: 'Overlay Fraunhofer reference',
@@ -549,6 +519,18 @@ export class PhysicsDiffractionPlugin implements Plugin {
     const px = (x: number) => x0 + (plotW * (x + p.screenHalf)) / (2 * p.screenHalf);
     const py = (v: number) => y1 - (plotH * v) / vMax;
 
+    // Display points spanning the full [-screenHalf, +screenHalf] axis. The
+    // circle profile is radial I(r), r ∈ [0, screenHalf] — mirror it so the
+    // curve covers the same axis as the 2-D map below.
+    const isCircle = p.aperture === 'circle';
+    const pts: Array<{ x: number; y: number }> = [];
+    if (isCircle) {
+      for (let i = prof.xs.length - 1; i >= 0; i--) pts.push({ x: -prof.xs[i]!, y: prof.ys[i]! });
+      for (let i = 0; i < prof.xs.length; i++) pts.push({ x: prof.xs[i]!, y: prof.ys[i]! });
+    } else {
+      for (let i = 0; i < prof.xs.length; i++) pts.push({ x: prof.xs[i]!, y: prof.ys[i]! });
+    }
+
     g.strokeStyle = 'rgba(255,255,255,0.12)';
     g.strokeRect(x0, y0, plotW, plotH);
     g.font = font;
@@ -578,9 +560,9 @@ export class PhysicsDiffractionPlugin implements Plugin {
       g.lineWidth = 1.2;
       g.setLineDash([5, 4]);
       g.beginPath();
-      for (let i = 0; i < prof.xs.length; i++) {
-        const ref = refAt(prof.xs[i]!) ?? 0;
-        const sx = px(prof.xs[i]!);
+      for (let i = 0; i < pts.length; i++) {
+        const ref = refAt(pts[i]!.x) ?? 0;
+        const sx = px(pts[i]!.x);
         const sy = py(ref);
         if (i === 0) g.moveTo(sx, sy);
         else g.lineTo(sx, sy);
@@ -591,16 +573,16 @@ export class PhysicsDiffractionPlugin implements Plugin {
 
     // numeric profile (filled + line)
     g.beginPath();
-    g.moveTo(px(prof.xs[0]!), py(0));
-    for (let i = 0; i < prof.xs.length; i++) g.lineTo(px(prof.xs[i]!), py(prof.ys[i]!));
-    g.lineTo(px(prof.xs[prof.xs.length - 1]!), py(0));
+    g.moveTo(px(pts[0]!.x), py(0));
+    for (let i = 0; i < pts.length; i++) g.lineTo(px(pts[i]!.x), py(pts[i]!.y));
+    g.lineTo(px(pts[pts.length - 1]!.x), py(0));
     g.closePath();
     g.fillStyle = 'rgba(90,160,250,0.20)';
     g.fill();
     g.beginPath();
-    for (let i = 0; i < prof.xs.length; i++) {
-      const sx = px(prof.xs[i]!);
-      const sy = py(prof.ys[i]!);
+    for (let i = 0; i < pts.length; i++) {
+      const sx = px(pts[i]!.x);
+      const sy = py(pts[i]!.y);
       if (i === 0) g.moveTo(sx, sy);
       else g.lineTo(sx, sy);
     }
@@ -615,8 +597,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
       g.fillText(fmtMetric((vMax * k) / 4), x0 - 6, py((vMax * k) / 4) + 4);
     }
     g.textAlign = 'center';
-    const isCircle = p.aperture === 'circle';
-    const lo = isCircle ? 0 : -p.screenHalf;
+    const lo = -p.screenHalf;
     const hi = p.screenHalf;
     for (let k = 0; k <= 4; k++) {
       const v = lo + ((hi - lo) * k) / 4;
@@ -624,7 +605,7 @@ export class PhysicsDiffractionPlugin implements Plugin {
     }
     g.textAlign = 'left';
     g.fillStyle = 'rgba(180,195,214,0.9)';
-    g.fillText(isCircle ? 'r' : 'x', x1 - 8, y1 + 28);
+    g.fillText('x', x1 - 8, y1 + 28);
     g.textAlign = 'right';
     g.fillText('I', x0 - 8, y0 + 2);
     if (this.state.overlay && refAt(0) !== null) {
@@ -652,7 +633,10 @@ export class PhysicsDiffractionPlugin implements Plugin {
     const lut = new Float64Array(prof.ys.length);
     for (let i = 0; i < prof.ys.length; i++) lut[i] = prof.ys[i]! / vMax;
     const lookup = (coord: number): number => {
-      const frac = (coord / p.screenHalf) * (prof.xs.length - 1);
+      // Map a screen coordinate to a profile array index. Slit-family profiles
+      // span [-screenHalf, +screenHalf]; the circle profile spans [0, +screenHalf].
+      const norm = isCircle ? coord / p.screenHalf : (coord + p.screenHalf) / (2 * p.screenHalf);
+      const frac = norm * (prof.xs.length - 1);
       const i = Math.min(prof.xs.length - 2, Math.max(0, Math.floor(frac)));
       const f = Math.min(1, Math.max(0, frac - i));
       return lut[i]! * (1 - f) + lut[i + 1]! * f;

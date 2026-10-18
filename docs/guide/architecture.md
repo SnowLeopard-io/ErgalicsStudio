@@ -32,7 +32,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (56 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (98 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -78,7 +78,8 @@ workbench UI:
 
 ## State management
 
-Five Zustand stores hold all application state:
+Application state lives in Zustand stores (`src/stores/`). The core
+workbench state is held by five of them:
 
 | Store          | Responsibility                                                        |
 | -------------- | --------------------------------------------------------------------- |
@@ -87,6 +88,12 @@ Five Zustand stores hold all application state:
 | `pluginStore`  | registry, load/activate lifecycle, file dispatch, host containers     |
 | `settingsStore`| GPU mode, autosave interval, and other preferences                    |
 | `editorStore`  | Block / Code mode sessions (IR, code, variables, console)              |
+
+Beyond these, the research modules own business-layer stores
+(`experimentStore`, `figureStore`, `lineageStore`, `notebookStore`,
+`chunkStore`, `researchStore`, `analysisStore`, `blockStore`), and the UI
+surface has its own stores (AI assistant panel, command palette, shortcuts,
+guided tours).
 
 Cross-cutting UI communication uses a small typed event bus
 (`src/core/events.ts`) — e.g. `plugin:<id>:params`, `host:params:changed`,
