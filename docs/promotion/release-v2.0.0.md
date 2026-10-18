@@ -13,9 +13,9 @@ Ergalics Studio 是一个运行在浏览器里的开源科学计算工作站：�
 - **积木模式**：类 Scratch 的科研积木编辑器，适合编程入门教学
 - 左侧活动栏（文件 / Git / 插件）+ 中央标签区 + 每文件类型编辑器；命令面板（Ctrl+K）与全局快捷键
 
-### 108 个内置插件 · 16 个学科分组
+### 111 个内置插件 · 16 个学科分组
 - 覆盖图表 / 统计 / 数学 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料 / 工程 / 经济 / 心理 / 数据 / 特效渲染 / 趣味工具
-- 二级加载机制：98 个科研插件自动加载 + 10 个按需加载，首屏不臃肿
+- 二级加载机制：101 个科研插件自动加载 + 10 个按需加载，首屏不臃肿
 - 全部插件接入统一科研元数据系统：就绪分级、物理量单位、可复现标记、结构化科研输出条（ScienceOutputStrip）
 - 一键「发送到 Figure Studio」组装多面板出版级图组
 
@@ -38,7 +38,7 @@ Ergalics Studio 是一个运行在浏览器里的开源科学计算工作站：�
 
 ### 工程质量
 - TypeScript strict、沙箱化插件 RPC 协议、`.cspkg` 插件包签名门禁
-- 173 个测试文件、2820 个单元测试用例，Playwright E2E（headless Edge），`pre-push` 钩子自动跑测试
+- 175 个测试文件、2868 个单元测试用例，Playwright E2E（headless Edge），`pre-push` 钩子自动跑测试
 - `npm audit` 零发现（2026-10-13 安全升级窗口，详见 SECURITY.md）
 - 社区文档完整双语：CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / PR 与 Issue 模板
 
