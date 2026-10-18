@@ -111,6 +111,7 @@ const GERSTNER_GLSL = /* glsl */ `
 uniform vec4 uWavesA[26]; // k, omega, amplitude, q
 uniform vec4 uWavesB[26]; // dirX, dirZ, phase, unused
 uniform int uWaveCount;
+uniform float uWaveScale; // visual exaggeration of the physical amplitudes
 
 // Sums the Gerstner trains; also returns the two tangent vectors so the
 // fragment stage gets an analytic normal, and the folding Jacobian.
@@ -125,7 +126,7 @@ void oceanDisplace(vec2 xm, float t, out vec3 disp, out vec3 dx, out vec3 dz, ou
     if (i >= uWaveCount) break;
     float k = uWavesA[i].x;
     float omega = uWavesA[i].y;
-    float amp = uWavesA[i].z;
+    float amp = uWavesA[i].z * uWaveScale;
     float q = uWavesA[i].w;
     vec2 dirv = uWavesB[i].xy;
     float phase = uWavesB[i].z;

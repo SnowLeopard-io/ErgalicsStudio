@@ -54,6 +54,7 @@ interface SurfaceMaterial extends ShaderMaterial {
     uCamPos: { value: Vector3 };
     uSunDir: { value: Vector3 };
     uFoam: { value: number };
+    uWaveScale: { value: number };
     uWavesA: { value: Vector4[] };
     uWavesB: { value: Vector4[] };
     uWaveCount: { value: number };
@@ -87,6 +88,7 @@ interface State {
   foam: number;
   sunAzimuth: number; // rad
   seed: number;
+  waveScale: number; // visual exaggeration of the physical Gerstner amplitudes
 }
 
 const POOL = 16; // pool size, metres
@@ -110,6 +112,7 @@ const DEFAULTS: State = {
   foam: 0.35,
   sunAzimuth: 2.3,
   seed: 42,
+  waveScale: 12,
 };
 
 interface PresetPayload {
@@ -130,6 +133,7 @@ interface PresetPayload {
   foam?: number;
   sunAzimuth?: number;
   seed?: number;
+  waveScale?: number;
   initialDrops?: Array<{ xUv: number; yUv: number; radiusUv: number; amp: number }>;
 }
 
@@ -237,6 +241,7 @@ export class WaterPlugin implements Plugin {
     if (typeof p.foam === 'number') s.foam = p.foam;
     if (typeof p.sunAzimuth === 'number') s.sunAzimuth = p.sunAzimuth;
     if (typeof p.seed === 'number') s.seed = p.seed;
+    if (typeof p.waveScale === 'number') s.waveScale = Math.min(Math.max(p.waveScale, 1), 40);
     this.syncScene(true);
     this.rebuildOceanSpectrum();
     if (s.mode === 'ripples') {
@@ -395,6 +400,16 @@ export class WaterPlugin implements Plugin {
           value: s.foam,
         },
         {
+          key: 'waveScale',
+          label: 'Wave height exaggeration',
+          labelI18n: { 'zh-CN': '浪高夸张', 'en-US': 'Wave height exaggeration' },
+          type: 'range',
+          min: 1,
+          max: 40,
+          step: 1,
+          value: s.waveScale,
+        },
+        {
           key: 'sunAzimuth',
           label: 'Sun azimuth (rad)',
           labelI18n: { 'zh-CN': '太阳方位角 (rad)', 'en-US': 'Sun azimuth (rad)' },
@@ -448,6 +463,7 @@ export class WaterPlugin implements Plugin {
     if (typeof params.foam === 'number') s.foam = params.foam;
     if (typeof params.sunAzimuth === 'number') s.sunAzimuth = params.sunAzimuth;
     if (typeof params.seed === 'number' && params.seed !== s.seed) { s.seed = params.seed; structural = true; }
+    if (typeof params.waveScale === 'number') s.waveScale = Math.min(Math.max(params.waveScale, 1), 40);
 
     if (actionFired(params, 'clearWater')) { this.sim?.reset(); return; }
     if (actionFired(params, 'drop')) { this.addDrop(0.5, 0.5, 2.5 / s.gridN, 0.35); return; }
@@ -501,6 +517,7 @@ export class WaterPlugin implements Plugin {
         uCamPos: { value: new Vector3() },
         uSunDir: { value: new Vector3() },
         uFoam: { value: this.state.foam },
+        uWaveScale: { value: this.state.waveScale },
         uWavesA: { value: Array.from({ length: WAVE_COUNT }, () => new Vector4()) },
         uWavesB: { value: Array.from({ length: WAVE_COUNT }, () => new Vector4()) },
         uWaveCount: { value: 0 },
@@ -564,6 +581,7 @@ export class WaterPlugin implements Plugin {
     this.surfaceMat.uniforms.uMode.value = ripples ? 0 : 1;
     this.surfaceMat.uniforms.uHScale.value = s.hScale;
     this.surfaceMat.uniforms.uFoam.value = s.foam;
+    this.surfaceMat.uniforms.uWaveScale.value = s.waveScale;
     this.surfaceMat.uniforms.uTexel.value.set(1 / s.gridN, 1 / s.gridN);
     if (this.sim) this.surfaceMat.uniforms.uHeight.value = this.sim.texture();
     this.floorMat.uniforms.uDepth.value = s.depth;
