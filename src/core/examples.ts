@@ -987,6 +987,20 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
+    id: 'fluid3d-wing',
+    filename: 'fluid3d-wing.obj',
+    format: 'obj',
+    mimeType: 'model/obj',
+    pluginId: 'example.fluid3d',
+    group: 'physics',
+    loadContent: () => exampleContent('fluid3d-wing.obj'),
+    nameI18n: { 'zh-CN': '三维流体 · NACA 4412 机翼模型', 'en-US': '3D Fluid · NACA 4412 Wing Model' },
+    descriptionI18n: {
+      'zh-CN': 'NACA 4412 有限翼模型（锥度 0.7、展长 1.2、弦长 1.0 的封闭曲面 OBJ）：加载后自动体素化并进入 D3Q19 流场，查看绕流切片、涡量与示踪粒子。',
+      'en-US': 'A closed NACA 4412 finite-wing model (taper 0.7, span 1.2, chord 1.0, OBJ): loads, voxelises into the D3Q19 field, and shows the flow slice, vorticity and tracers.',
+    },
+  },
+  {
     id: 'choropleth-regions',
     filename: 'choropleth-sample.geojson',
     format: 'geojson',
@@ -2343,6 +2357,116 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '拉帕尔马（北纬 28.8°）的流星雨场景：泊松过程调度（指数间隔，均值 4.3 s），每颗流星沿随机大圆划过 9–16° 并带运动头部光晕；开启恒星时流可同时看到天球旋转与流星。',
       'en-US':
         'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
+    },
+  },
+  // ---- Open-sea swell presets -------------------------------------------------
+  {
+    id: 'fx-ocean-dawn-pacific',
+    filename: 'fx-ocean-dawn-pacific.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-dawn-pacific.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 太平洋破晓（加州外海）',
+      'en-US': 'FX · Ocean swell — Pacific dawn (off California)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '加州外海（北纬 36°、西经 122°）的破晓海面：太阳高度 0.11°、方位 119.4°，刚刚跃出地平线；长波涌浪沿 300° 方向朝观察者推进，10 m 风速 11 m/s 对应蒲福 6 级、有效波高 2.98 m、峰周期 8.6 s。低太阳高度把直射光染成金红，海雾与远处平滑成镜面的海面共同形成辽阔的地平线。',
+      'en-US':
+        'Pacific dawn off California (36°N, 122°W): the sun sits 0.11° high at azimuth 119.4°, just clearing the horizon; long swell runs along 300° towards the viewer and an 11 m/s U10 gives Beaufort 6, Hs = 2.98 m and Tp = 8.6 s. The low sun reddens the direct beam while haze and a mirror-flat far sea open up a wide horizon.',
+    },
+  },
+  {
+    id: 'fx-ocean-golden-atlantic',
+    filename: 'fx-ocean-golden-atlantic.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-golden-atlantic.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 金色日落（大西洋，大风）',
+      'en-US': 'FX · Ocean swell — golden sunset (Atlantic, fresh wind)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '大西洋（北纬 38°、西经 30°）的日落大风浪：太阳高度 0.53°、方位 240.2°；10 m 风速 16 m/s（蒲福 7 级）对应有效波高 6.30 m、峰周期 12.5 s。强太阳 glitter 在斜阳下铺出整条金色光路；Hs/Lp 恒为充分发展海况的 0.026。',
+      'en-US':
+        'Atlantic sunset swell (38°N, 30°W): the sun stands 0.53° high at azimuth 240.2°; a 16 m/s U10 (Beaufort 7) gives Hs = 6.30 m and Tp = 12.5 s, laying a full golden glitter path that ends on the horizon. Hs/Lp stays at the fully-developed-sea constant 0.026.',
+    },
+  },
+  {
+    id: 'fx-ocean-blue-hour',
+    filename: 'fx-ocean-blue-hour.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-blue-hour.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 破晓前蓝调（赤道太平洋）',
+      'en-US': 'FX · Ocean swell — blue hour before dawn (equatorial Pacific)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '赤道太平洋（北纬 2°）破晓前的蓝调时刻：太阳位于 −9.2°（航海晨昏蒙影）、方位 114.1°，直射光已完全消失，只剩冷蓝残光与海雾长曝（曝光 2.0）；微风 6 m/s（蒲福 4 级）下海面近乎镜面，有效波高 0.89 m、峰周期 4.7 s。',
+      'en-US':
+        'Blue hour before dawn over the equatorial Pacific (2°N): the sun sits at −9.2° altitude, azimuth 114.1°, so the direct beam is gone and only cold residual light plus long-exposed haze remain (exposure 2.0); a light 6 m/s breeze (Beaufort 4) leaves the sea almost mirror-like with Hs = 0.89 m and Tp = 4.7 s.',
+    },
+  },
+  // ---- Misty-peak presets ------------------------------------------------------
+  {
+    id: 'fx-misty-morning-sea',
+    filename: 'fx-misty-morning-sea.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-morning-sea.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 晨雾云海（湘西群山）',
+      'en-US': 'FX · Misty peaks — morning cloud sea (western Hunan)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '湘西群山（北纬 29.5°、东经 110.4°）清晨：太阳高度 16.0°、方位 108.3°，斜照谷地；高斯云雾带中心 200 m，谷地聚成云海，只有高出雾层的山脊露出林冠；远层山峦按 Koschmieder 能见度 90.6 km 逐级淡入天光。',
+      'en-US':
+        'Early morning in the ridges of western Hunan (29.5°N, 110.4°E): the sun stands 16.0° high at azimuth 108.3°, raking the valleys; a Gaussian mist band centred at 200 m pools into a cloud sea so only ridge tops clear the inversion, and far ranges fade into the sky through the 90.6 km Koschmieder visibility.',
+    },
+  },
+  {
+    id: 'fx-misty-dusk-ridges',
+    filename: 'fx-misty-dusk-ridges.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-dusk-ridges.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 暮色叠嶂（黄山）',
+      'en-US': 'FX · Misty peaks — dusk over layered ranges (Huangshan)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '黄山（北纬 30.1°、东经 118.2°）暮色：太阳高度 1.40°、方位 243.5°，直射光被染成暖橙；6 层剪影山脉由近及远被大气透视（能见度 70.3 km）逐级推向地平线色，薄雾与暖光形成「叠嶂」层次。',
+      'en-US':
+        'Dusk over Huangshan (30.1°N, 118.2°E): the sun stands 1.40° high at azimuth 243.5°, warming the direct beam to amber; the 6 silhouette ranges are pushed towards the horizon colour by aerial perspective (visibility 70.3 km) while thin mist and warm light build the layered-ridge depth.',
+    },
+  },
+  {
+    id: 'fx-misty-ink-rain',
+    filename: 'fx-misty-ink-rain.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-ink-rain.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 阴雨墨韵（江南丘陵）',
+      'en-US': 'FX · Misty peaks — ink-wash rain (Jiangnan hills)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '江南丘陵（北纬 28.6°、东经 118.9°）阴雨午后：太阳高度 32.5°、方位 259.1°；高湿低云（大气透视 0.72、云雾浓度 1.1）把中远山压成水墨般的灰青剪影，能见度降至 45.0 km，只剩近处低丘的绿意清晰。',
+      'en-US':
+        'A rainy Jiangnan afternoon (28.6°N, 118.9°E): the sun stands 32.5° high at azimuth 259.1°; heavy atmospheric perspective (0.72) and dense mist (1.1) compress the mid and far hills into ink-wash grey-green silhouettes while visibility drops to 45.0 km, so only the nearest low hills keep their colour.',
     },
   },
   // ---- Research suite samples (numeric kernels with real/synthetic data) ----

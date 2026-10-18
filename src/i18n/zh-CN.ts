@@ -218,7 +218,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.right.welcome_intro': '尚未激活插件。可从左侧插件列表加载，或点击画布中的「加载插件」。',
   'workbench.right.whats_new': '最新更新',
   'workbench.right.whats_new_1': '新增稀疏矩阵-向量乘（SpMV）WGSL 计算内核',
-  'workbench.right.whats_new_2': '内置插件达 107 个：97 个科学插件 + 10 个趣味插件',
+  'workbench.right.whats_new_2': '内置插件达 111 个：101 个科学插件 + 10 个趣味插件',
   'workbench.right.whats_new_3': 'R 代码模式默认运行内置 webR 完整运行时',
   'workbench.right.release_notes': '本版本说明',
   'workbench.right.full_changelog': '完整更新日志',

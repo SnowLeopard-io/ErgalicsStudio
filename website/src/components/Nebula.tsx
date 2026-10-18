@@ -219,9 +219,17 @@ export function Nebula({ className }: { className?: string }) {
         });
 
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-        // full device pixels (capped at 2x); the shader is cheap (no ray
-        // integration), so start sharp — adaptive loop still guards slow GPUs
-        const maxScale = Math.min(window.devicePixelRatio || 1, 2);
+        // FPS governor: the sidereal drift is 0.008 rad/s and meteors appear
+        // every 13 s, so consecutive 60 fps frames are near-identical —
+        // submit on a 15 fps budget instead and keep u.time continuous
+        // (visually identical for slow motion, ~75% less GPU). The
+        // adaptive-resolution EMA is rebased on the budget interval: vsync
+        // quantization adds up to one display period on top of the budget,
+        // so only sustained overruns beyond that mean the GPU cannot keep up
+        // and resolution must shrink.
+        const FPS = 15;
+        const interval = 1 / FPS;
+        const maxScale = Math.min(window.devicePixelRatio || 1, 1.5);
         let scale = maxScale;
         let lastT = 0;
         let ema = 0;
@@ -230,15 +238,20 @@ export function Nebula({ className }: { className?: string }) {
         const frame = (now: number) => {
           raf = 0;
           if (cancelled || !device) return;
+          const t = now / 1000;
+          if (lastT && t - lastT < interval) {
+            // budget not spent yet — reschedule without a GPU submit
+            if (!reduced && visible) raf = requestAnimationFrame(frame);
+            return;
+          }
           canvas.width = Math.max(2, Math.round(canvas.clientWidth * scale));
           canvas.height = Math.max(2, Math.round(canvas.clientHeight * scale));
-          const t = now / 1000;
-          const dt = lastT ? Math.min(t - lastT, 0.1) : 0.016;
+          const dt = lastT ? Math.min(t - lastT, 0.1) : interval;
           lastT = t;
-          // adaptive internal resolution (mirrors the workbench SkyLoop heuristic)
+          // adaptive internal resolution (budget-relative thresholds)
           ema = ema ? ema * 0.9 + dt * 0.1 : dt;
-          if (ema > 1 / 24 && scale > 0.24) { scale = Math.max(0.24, scale * 0.85); ema = 0; }
-          else if (ema < 1 / 55 && scale < maxScale) { scale = Math.min(maxScale, scale * 1.12); ema = 0; }
+          if (ema > interval + 0.032 && scale > 0.24) { scale = Math.max(0.24, scale * 0.85); ema = 0; }
+          else if (ema < interval + 0.012 && scale < maxScale) { scale = Math.min(maxScale, scale * 1.12); ema = 0; }
 
           device.queue.writeBuffer(ubo, 0, new Float32Array([
             t, canvas.clientWidth / Math.max(canvas.clientHeight, 1), canvas.width, canvas.height,

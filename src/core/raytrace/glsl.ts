@@ -2,10 +2,11 @@
 // Shared ray-tracing GLSL chunks.
 //
 // Reusable GLSL building blocks consumed by every fullscreen-quad ray tracer
-// plugin (black-hole, volumetric clouds, ...). Each export is a plain GLSL
-// string the consumer concatenates into its own fragment shader. Keep chunks
-// dependency-ordered: RT_NOISE → (RT_BLACKBODY | RT_STARS | RT_SCATTER),
-// RT_CAMERA standalone, RT_INTERSECT standalone, RT_TONEMAP standalone.
+// plugin (black-hole, volumetric clouds, sky, ocean, ...). Each export is a
+// plain GLSL string the consumer concatenates into its own fragment shader.
+// Keep chunks dependency-ordered: RT_NOISE → (RT_BLACKBODY | RT_STARS |
+// RT_SCATTER), RT_CAMERA standalone, RT_INTERSECT standalone, RT_SKY_SIMPLE
+// standalone, RT_TONEMAP standalone.
 // ==========================================================================
 
 /** Fullscreen quad vertex shader — writes NDC directly, forwards vNdc. */
@@ -81,19 +82,17 @@ float vnoise3(vec3 p) {
     mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
     f.z);
 }
-// Worley (cellular) noise — returns F1 distance; used for cloud detail erosion.
-float worley3(vec3 p) {
-  vec3 i = floor(p);
-  vec3 f = fract(p);
-  float d = 1e4;
-  for (int x = -1; x <= 1; x++)
-  for (int y = -1; y <= 1; y++)
-  for (int z = -1; z <= 1; z++) {
-    vec3 c = vec3(float(x), float(y), float(z));
-    vec3 rp = hash33(i + c);
-    d = min(d, length(c + rp - f));
+// 3-octave value-noise fbm over a 3-D domain (marched volumes), normalised to
+// 0..1 so a coverage threshold tuned once holds for every consumer.
+float fbm3(vec3 p) {
+  float s = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 3; i++) {
+    s += a * vnoise3(p);
+    p = p * 2.02 + vec3(11.3, 7.7, 19.1);
+    a *= 0.5;
   }
-  return d;
+  return s * 1.142857; // 1 / (0.5 + 0.25 + 0.125) — normalise the octave sum
 }
 `;
 
@@ -210,5 +209,70 @@ vec2 raySlab(vec3 ro, vec3 rd, float y0, float y1) {
 export const RT_TONEMAP = /* glsl */ `
 vec3 tonemap(vec3 x) {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+`;
+
+/**
+ * Analytic "one-bounce" sky shared by the landscape renderers (ocean, misty
+ * peaks). Declares its own uniforms — consumers must NOT redeclare them:
+ *   uSunDir / uSunColor / uSunIntensity / uAtmoHaze
+ * The sun/moon direction and tint come from the host (real ephemeris); the
+ * gradient, Mie forward glow, limb-darkened disk and dusk/horizon haze are
+ * evaluated here so every scene keeps one consistent sky.
+ */
+export const RT_SKY_SIMPLE = /* glsl */ `
+uniform vec3 uSunDir;        // world-space, normalized
+uniform vec3 uSunColor;      // elevation-corrected beam tint from the host
+uniform float uSunIntensity; // beam radiance multiplier
+uniform float uAtmoHaze;     // 0..1 horizon veil loading (also tints the fog)
+
+/** Sky radiance along a world-space view direction. */
+vec3 skyRadiance(vec3 d) {
+  float y = clamp(d.y, -0.2, 1.0);
+  float sunUp = uSunDir.y;
+  float day = smoothstep(-0.10, 0.20, sunUp);
+  float dusk = exp(-pow((sunUp - 0.03) / 0.16, 2.0));
+
+  // Horizontal bearing relative to the sun's azimuth: 0 behind, 1 towards it.
+  // The warm sunrise/sunset band has to hug the sun instead of wrapping the
+  // whole horizon — mixing orange into the blue zenith at every bearing is what
+  // turns a dawn sky into a muddy purple wash.
+  vec2 hd = normalize(vec2(d.x, d.z) + vec2(1e-5));
+  vec2 hs = normalize(vec2(uSunDir.x, uSunDir.z) + vec2(1e-5));
+  float towardSun = pow(clamp(dot(hd, hs) * 0.5 + 0.5, 0.0, 1.0), 2.0);
+
+  // Rayleigh-ish gradient: deep blue overhead, pale at the horizon.
+  vec3 zen = mix(vec3(0.010, 0.018, 0.046), vec3(0.105, 0.270, 0.620), day);
+  zen = mix(zen, vec3(0.022, 0.050, 0.130), 0.55 * dusk);
+  vec3 hor = mix(vec3(0.030, 0.042, 0.082), vec3(0.590, 0.680, 0.820), day);
+  hor = mix(hor, vec3(0.180, 0.220, 0.330), 0.60 * dusk);
+  float wy = 1.0 - clamp(y, 0.0, 1.0);
+  vec3 col = mix(zen, hor, pow(wy, 4.0));
+  // A thin ember band sits on the horizon, and only on the sun's side.
+  col = mix(col, vec3(0.930, 0.590, 0.290), pow(wy, 9.0) * (0.28 + 0.72 * towardSun) * 0.92 * dusk);
+
+  // Mie forward-scattering glow hugging the sun (strongest near the horizon).
+  float mu = max(dot(d, uSunDir), 0.0);
+  col += uSunColor * pow(mu, 6.0) * (0.45 + 0.55 * (1.0 - clamp(y, 0.0, 1.0)))
+       * uSunIntensity * 0.035 * (0.45 + 0.55 * day + 0.60 * dusk);
+
+  // Limb-darkened solar disk (angular radius ~0.267°).
+  float ang = acos(clamp(dot(d, uSunDir), -1.0, 1.0));
+  float disk = 1.0 - smoothstep(0.0044, 0.0050, ang);
+  float limb = sqrt(max(0.0, 1.0 - pow(ang / 0.0050, 2.0)));
+  col += uSunColor * disk * (0.45 + 0.55 * limb) * uSunIntensity;
+
+  // Horizon veil: warm grey toward the sun at dusk, cool grey elsewhere.
+  float haze = exp(-max(y, 0.0) * 9.0) * uAtmoHaze;
+  vec3 hazeCol = mix(vec3(0.58, 0.66, 0.76), vec3(0.94, 0.70, 0.44), 0.55 * dusk * towardSun);
+  col = mix(col, hazeCol * (0.55 + 0.45 * day + 0.50 * dusk), clamp(haze, 0.0, 1.0) * 0.80);
+  return col;
+}
+
+/** Sky just above the horizon toward d — the aerial-perspective target. */
+vec3 horizonColor(vec3 d) {
+  vec3 h = vec3(d.x, 0.0, d.z);
+  if (dot(h, h) < 1e-8) h = vec3(0.0, 0.0, -1.0);
+  return skyRadiance(normalize(h + vec3(0.0, 0.040, 0.0)));
 }
 `;

@@ -215,7 +215,7 @@ export const enUS: LocaleDictionary = {
     'No plugin is active yet. Load one from the plugin list on the left, or use the "Load Plugin" button in the canvas.',
   'workbench.right.whats_new': "What's new",
   'workbench.right.whats_new_1': 'New sparse matrix-vector multiplication (SpMV) WGSL kernel',
-  'workbench.right.whats_new_2': '107 built-in plugins: 97 scientific + 10 for fun',
+  'workbench.right.whats_new_2': '111 built-in plugins: 101 scientific + 10 for fun',
   'workbench.right.whats_new_3': 'R code mode now runs the bundled full webR runtime by default',
   'workbench.right.release_notes': 'Release notes',
   'workbench.right.full_changelog': 'Full changelog',

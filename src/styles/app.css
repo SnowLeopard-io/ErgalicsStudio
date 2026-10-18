@@ -7186,6 +7186,7 @@ button.start-card:hover {
 
 .statusbar-center {
   position: relative;
+  min-width: 0;
 }
 
 .statusbar-btn {
@@ -7197,6 +7198,7 @@ button.start-card:hover {
   font: inherit;
   font-family: var(--font-mono);
   cursor: pointer;
+  white-space: nowrap;
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
@@ -7297,19 +7299,27 @@ button.start-card:hover {
 
 /* ---- 状态栏：长任务进度 + 取消 ---- */
 
+/* The strip shares the center cluster with the GPU/FPS chips, so it may shrink
+   on narrow windows instead of pushing them out of the bar. */
 .statusbar-progress {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .statusbar-progress-label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
+  /* Never let the share of the center cluster squeeze this CJK run into a
+     one-character column: the track is the only part allowed to shrink. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .statusbar-progress-track {
-  width: 120px;
+  flex: 0 1 120px;
+  min-width: 40px;
   height: 4px;
   border-radius: 999px;
   background: var(--color-bg-tertiary);

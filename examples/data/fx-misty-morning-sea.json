@@ -1,0 +1,14 @@
+{
+  "name": "Morning cloud sea (western Hunan)",
+  "hourUTC": 23.05,
+  "latitude": 29.5,
+  "longitude": 110.4,
+  "ridgeScale": 1,
+  "ridgeHeight": 900,
+  "mistDensity": 0.6,
+  "mistHeight": 200,
+  "haze": 0.3,
+  "exposure": 1.15,
+  "autoDay": false,
+  "autoOrbit": false
+}

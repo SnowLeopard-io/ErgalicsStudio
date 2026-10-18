@@ -14,33 +14,24 @@ import { emit } from '@/core/events';
 import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import {
+  airmassKastenYoung,
   gmst,
   julianDay,
   moonPhaseIllumination,
   moonPosition,
   SkyLoop,
   sunPosition,
+  twilightClass,
+  type TwilightClass,
 } from '@/core/raytrace';
 import { createSkyQuadMesh, type SkyMaterial } from './shader';
 import { skyManifest } from './manifest';
 
-/** Kasten & Young (1989) optical air mass; null at/below the horizon. */
-export function airmassKastenYoung(altDeg: number): number | null {
-  if (altDeg <= 0) return null;
-  const z = 90 - Math.min(altDeg, 90);
-  return 1 / (Math.cos((z * Math.PI) / 180) + 0.50572 * Math.pow(96.07995 - z, -1.6364));
-}
-
-export type TwilightClass = 'day' | 'civil' | 'nautical' | 'astronomical' | 'night';
-
-/** Twilight bands by solar altitude (standard definitions). */
-export function twilightClass(altDeg: number): TwilightClass {
-  if (altDeg > 0) return 'day';
-  if (altDeg > -6) return 'civil';
-  if (altDeg > -12) return 'nautical';
-  if (altDeg > -18) return 'astronomical';
-  return 'night';
-}
+// These helpers now live in the shared core so the sky, ocean and misty-peak
+// renderers all agree on air mass and twilight banding; re-exported here to
+// keep the plugin's published surface unchanged.
+export { airmassKastenYoung, twilightClass };
+export type { TwilightClass };
 
 interface State {
   hourUTC: number;
