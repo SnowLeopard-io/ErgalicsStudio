@@ -389,7 +389,9 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
           placeholder={t('ai.placeholder')}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void submit();
+            // Ignore Enter while an IME composition is in flight (candidate
+            // confirmation must not submit the uncommitted pinyin text).
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit();
           }}
           disabled={busy}
         />

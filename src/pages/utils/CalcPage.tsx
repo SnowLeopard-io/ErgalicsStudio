@@ -307,7 +307,7 @@ export default function CalcPage() {
               placeholder={t('calc.empty')}
               spellCheck={false}
               onChange={(e) => setExpr(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') evaluate(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) evaluate(); }}
               aria-label={t('calc.result')}
             />
             <button type="button" className="btn btn-primary" onClick={() => evaluate()}>

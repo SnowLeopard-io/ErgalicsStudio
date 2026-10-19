@@ -18,7 +18,10 @@ import { renderView, type ViewRenderHost } from '@/blocks/render';
 function toDataValue(snapshot: VariableSnapshot): DataValue | null {
   if (snapshot.kind === 'scalar') return { kind: 'scalar', value: snapshot.value };
   const columns = snapshot.columns.map((col) => {
-    const allNumbers = col.data.every((v) => typeof v === 'number' && Number.isFinite(v));
+    // Numeric column detection must not require finiteness: a single NaN/Inf
+    // would downgrade a million-value float column to strings. f64 carries
+    // non-finite values natively, so only the static type matters here.
+    const allNumbers = col.data.every((v) => typeof v === 'number');
     return {
       name: col.name,
       type: allNumbers ? ('f64' as const) : ('string' as const),

@@ -463,6 +463,7 @@ export const zhCN: LocaleDictionary = {
   'share.export_screenshot': '导出画布截图 (PNG)',
   'share.copy': '复制',
   'share.copied': '已复制',
+  'share.copy_failed': '复制失败 — 浏览器阻止了剪贴板访问',
   'share.link_placeholder': '生成的链接将显示在这里',
   'share.no_screenshot': '当前无可截图内容',
   'share.share_section': '分享',

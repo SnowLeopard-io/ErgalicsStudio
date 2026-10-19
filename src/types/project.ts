@@ -138,8 +138,21 @@ export function cloneProject(project: Project): Project {
   return structuredClone(project) as Project;
 }
 
+/**
+ * JSON cannot represent NaN/±Infinity (they would serialize to `null`, silently
+ * shifting parameters across a save/load round trip — while `cloneProject`'s
+ * structuredClone keeps them). Encode non-finite numbers as tagged strings and
+ * decode them back on load, so the serialized form is lossless.
+ */
+const NONFINITE_TAG = '__erg_nonfinite__';
+
 export function serializeProject(project: Project): string {
-  return JSON.stringify(project, null, 2);
+  return JSON.stringify(project, (_key, value) => {
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return `${NONFINITE_TAG}${value}`;
+    }
+    return value;
+  }, 2);
 }
 
 /**
@@ -189,7 +202,12 @@ export function normalizeProject(parsed: Project): Project {
 }
 
 export function deserializeProject(raw: string): Project {
-  const parsed = JSON.parse(raw) as Project | null;
+  const parsed = JSON.parse(raw, (_key, value) => {
+    if (typeof value === 'string' && value.startsWith(NONFINITE_TAG)) {
+      return Number(value.slice(NONFINITE_TAG.length));
+    }
+    return value;
+  }) as Project | null;
   if (!parsed || typeof parsed !== 'object' || !parsed.id || !parsed.name || !parsed.state) {
     throw new Error('Invalid project format');
   }

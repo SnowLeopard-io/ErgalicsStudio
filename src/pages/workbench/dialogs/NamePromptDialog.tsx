@@ -52,7 +52,7 @@ export function NamePromptDialog({ open, title, message, initial, onClose, onCon
         className="input"
         defaultValue={initial}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit();
         }}
       />
     </Modal>

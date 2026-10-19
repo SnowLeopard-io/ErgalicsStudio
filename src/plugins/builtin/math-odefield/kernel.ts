@@ -357,12 +357,15 @@ export function classifyEquilibrium(a: number, b: number, c: number, d: number):
   const trace = a + d;
   const det = a * d - b * c;
   const disc = (trace / 2) * (trace / 2) - det;
+  // det and disc are quadratic in the entry scale, so their thresholds must
+  // scale quadratically; trace is linear and keeps the linear threshold.
   const scale = Math.max(1, Math.abs(trace), Math.sqrt(Math.abs(det)));
   const eps = 1e-9 * scale;
-  if (Math.abs(det) < eps * scale) return { kind: 'degenerate', stability: 'none', trace, det };
+  const epsQ = eps * scale;
+  if (Math.abs(det) < epsQ) return { kind: 'degenerate', stability: 'none', trace, det };
   if (det < 0) return { kind: 'saddle', stability: 'none', trace, det };
-  if (disc > eps * scale) return { kind: 'node', stability: trace > 0 ? 'source' : 'sink', trace, det };
-  if (disc < -eps * scale) {
+  if (disc > epsQ) return { kind: 'node', stability: trace > 0 ? 'source' : 'sink', trace, det };
+  if (disc < -epsQ) {
     if (Math.abs(trace) < eps) return { kind: 'center', stability: 'none', trace, det };
     return { kind: 'spiral', stability: trace > 0 ? 'source' : 'sink', trace, det };
   }

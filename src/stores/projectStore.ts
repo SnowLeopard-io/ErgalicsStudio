@@ -562,6 +562,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await deleteFileChunks(id).catch(() => undefined);
     await deleteCoursePartition(id).catch(() => undefined);
     await new OpfsChunkStore().removeProject(id).catch(() => undefined);
+    // The LightningFS workspace tree (git object store, runs, figures) lives
+    // outside IndexedDB project records — remove it too, or the deleted
+    // project keeps occupying quota with no UI path to reclaim it.
+    await getVfs()
+      .deleteRoot(`/ergalics-projects/${id}`)
+      .catch(() => undefined);
     await get().loadRecent();
     if (get().project?.id === id) {
       projectSession += 1;
@@ -793,6 +799,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
     await adapter.checkout(repoPath, ref, create);
+    if (!create) {
+      // A real branch switch rewrote the working tree. The in-memory project
+      // still reflects the previous branch; leaving it live would make the
+      // next autosave/commit overwrite the checked-out state. Reload from the
+      // working tree and re-apply (keeps the project id — same installation).
+      try {
+        const raw = await adapter.readFile(repoPath, 'project.clproj');
+        const checkedOut = deserializeProject(raw);
+        checkedOut.id = project.id;
+        applyOpenedProject(checkedOut);
+      } catch (err) {
+        // Repo without a serialized snapshot (e.g. bare code checkout): at
+        // minimum stop the stale in-memory state from being written back.
+        logger.warn('project', 'checkout: no project.clproj in working tree', err);
+        useProjectStore.setState({ dirty: false });
+      }
+    }
     await refreshGitStatusForProject(project);
   },
 
@@ -814,8 +837,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
     const result = await adapter.merge(repoPath, branch);
-    if (!result.success && result.conflicts && result.conflicts.length > 0) {
-      throw new Error(`Merge conflicts in: ${result.conflicts.join(', ')}`);
+    if (!result.success) {
+      const detail = result.message ? `: ${result.message}` : '';
+      if (result.conflicts && result.conflicts.length > 0) {
+        throw new Error(`Merge conflicts in: ${result.conflicts.join(', ')}${detail}`);
+      }
+      throw new Error(`Merge failed${detail}`);
     }
     await refreshGitStatusForProject(project);
   },

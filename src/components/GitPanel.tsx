@@ -186,7 +186,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
           placeholder={t('git.clone_placeholder')}
           onChange={(e) => setCloneUrl(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void clone();
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void clone();
           }}
         />
         <button
@@ -209,7 +209,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
           title={t('git.cors_hint')}
           onChange={(e) => setProxy(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') applyProxy();
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
           }}
           onBlur={() => {
             if (proxy.trim() !== getGitCorsProxy()) applyProxy();
@@ -294,7 +294,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               placeholder={t('git.new_branch_placeholder')}
               onChange={(e) => setNewBranch(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void createBranch();
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void createBranch();
               }}
             />
             <button
@@ -324,7 +324,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               placeholder={t('git.commit_placeholder')}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void commit();
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void commit();
               }}
             />
             <button

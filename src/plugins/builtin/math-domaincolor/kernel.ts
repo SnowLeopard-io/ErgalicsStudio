@@ -104,7 +104,12 @@ export function cPow(a: Complex, b: Complex): Complex {
   if (b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 512) {
     const n = b.re;
     if (n === 0) return C_ONE;
-    if (n < 0) return cPow(cDiv(C_ONE, a), cx(-n, 0));
+    if (n < 0) {
+      // 0^(−n) = +∞ on the positive real axis; going through cDiv would
+      // produce a NaN instead of the mathematically correct limit.
+      if (a.re === 0 && a.im === 0) return { re: Infinity, im: 0 };
+      return cPow(cDiv(C_ONE, a), cx(-n, 0));
+    }
     let result = C_ONE;
     let base = a;
     let k = n;

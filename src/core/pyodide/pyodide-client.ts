@@ -67,6 +67,9 @@ export class PyodideClient {
   private ready: Promise<void> | null = null;
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
+  /** Boot watchdog of the current worker; cleared on interrupt/dispose so a
+   * stale timer cannot fire into a freshly spawned worker's session. */
+  private bootTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: PyodideClientOptions = {}) {
     this.indexURL = options.indexURL ?? PYODIDE_INDEX_URL;
@@ -84,7 +87,10 @@ export class PyodideClient {
     const ready = new Promise<void>((resolve, reject) => {
       let booted = false;
       const clearTimer = () => {
-        if (timer !== undefined) clearTimeout(timer);
+        if (this.bootTimer !== null) {
+          clearTimeout(this.bootTimer);
+          this.bootTimer = null;
+        }
       };
 
       const onMessage = (ev: MessageEvent<WorkerEvent>) => {
@@ -123,11 +129,13 @@ export class PyodideClient {
         }
         worker.terminate();
         // Outstanding runs must fail now — otherwise their callers await a
-        // reply from a worker that no longer exists.
-        this.rejectAllPending(err);
+        // reply from a worker that no longer exists. Guard by identity: a
+        // stale fatal (late boot timer, old worker's error event) must never
+        // reject requests that belong to a freshly spawned worker.
+        if (this.worker === null || this.worker === worker) this.rejectAllPending(err);
       };
 
-      const timer: ReturnType<typeof setTimeout> = setTimeout(
+      this.bootTimer = setTimeout(
         () =>
           onFatal(
             new Error(
@@ -258,6 +266,10 @@ export class PyodideClient {
 
   /** Hard-stop the current run by terminating + discarding the worker. */
   interrupt(): void {
+    if (this.bootTimer !== null) {
+      clearTimeout(this.bootTimer);
+      this.bootTimer = null;
+    }
     const worker = this.worker;
     this.worker = null;
     this.ready = null;

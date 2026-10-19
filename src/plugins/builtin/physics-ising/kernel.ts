@@ -298,7 +298,9 @@ export function runIsingPoint(p: IsingParams): IsingResult {
   const meanAbsM = sumAbsM / ms;
   const meanM2 = sumM2 / ms;
   const meanM4 = sumM4 / ms;
-  const beta = 1 / p.T;
+  // χ and C scale with β = 1/T; at T = 0 they are thermodynamically undefined
+  // (exactEnumerate guards this path too) — clamp to avoid Infinity.
+  const beta = p.T > 0 ? 1 / p.T : Number.MAX_VALUE;
   const varE = Math.max(0, meanE2 - meanE * meanE);
   const varM = Math.max(0, meanM2 - meanAbsM * meanAbsM);
   const binder = meanM2 > 1e-14 ? 1 - meanM4 / (3 * meanM2 * meanM2) : 1;

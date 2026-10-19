@@ -101,6 +101,8 @@ export interface MergeResult {
   success: boolean;
   conflicts?: string[];
   commitHash?: string;
+  /** Failure reason when success is false (isomorphic-git aborts on conflict). */
+  message?: string;
 }
 
 export interface PushOptions {

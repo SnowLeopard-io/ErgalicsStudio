@@ -1492,6 +1492,14 @@
 .param-group > .field.field-inline {
   width: 6.5em;
 }
+/* Non-inline grouped fields (full controls such as range rows) span the whole
+   row: as flex items they otherwise shrink to their content width and leave
+   dead space on the right. */
+.param-group > .field:not(.field-inline) {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-bottom: 0;
+}
 /* Numeric inline fields stretch to fill the row (no dead space on the right);
    :has() keeps the compact fixed-width text slots (chem reactants) untouched. */
 .param-group > .field.field-inline:has(input[type='number']) {
