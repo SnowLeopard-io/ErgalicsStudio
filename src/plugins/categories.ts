@@ -72,6 +72,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.parallel': 'charts',
   'example.point-cloud': 'charts',
   'example.point-cloud-3d': 'charts',
+  'example.model3d': 'charts',
   'example.image': 'charts',
 
   // Statistics & math
@@ -85,6 +86,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.particles': 'physics',
   'example.nbody': 'physics',
   'example.fluid': 'physics',
+  'example.fluid3d': 'physics',
   'example.wave': 'physics',
   'example.pendulum': 'physics',
   'example.electromag': 'physics',
@@ -109,6 +111,8 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'fx.cloud': 'fx',
   'fx.sky': 'fx',
   'fx.stars': 'fx',
+  'fx.ocean': 'fx',
+  'fx.misty': 'fx',
 
   // Chemistry
   'example.chem-crystal': 'chem',

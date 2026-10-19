@@ -3,6 +3,7 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -639,6 +640,33 @@ function PluginExportMenu({
     }
   };
 
+  /** Encode the active 3-D scene as a downloadable model file. */
+  const exportModel = async (format: 'glb' | 'stl', toWorkspace: boolean) => {
+    const three = scene3dRef.current;
+    if (!three?.isVisible()) {
+      notify('warning', t('workbench.export.no_canvas'));
+      return;
+    }
+    try {
+      const bytes = new Uint8Array(await three.exportModel(format));
+      const name = `${baseName()}.${format}`;
+      if (toWorkspace) {
+        if (!project) {
+          notify('warning', t('workbench.export.no_project'));
+          return;
+        }
+        const path = await saveBinaryArtifact(project, 'data', name, bytes);
+        notify('success', t('workbench.export.saved', { path }));
+      } else {
+        const mime = format === 'glb' ? 'model/gltf-binary' : 'model/stl';
+        downloadBlob(name, new Blob([bytes], { type: mime }), mime);
+      }
+    } catch (err) {
+      logger.error('workbench', `3D model export (${format}) failed`, err);
+      notify('error', t('workbench.export.failed'));
+    }
+  };
+
   const runAndClose = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -686,6 +714,21 @@ function PluginExportMenu({
                 t('workbench.export.save_workspace_transparent'),
                 runAndClose(() => void doSaveWorkspace(true)),
                 'wst',
+              )}
+              {menuBtn(
+                t('workbench.export.download_glb'),
+                runAndClose(() => void exportModel('glb', false)),
+                'glb',
+              )}
+              {menuBtn(
+                t('workbench.export.download_stl'),
+                runAndClose(() => void exportModel('stl', false)),
+                'stl',
+              )}
+              {menuBtn(
+                t('workbench.export.save_model'),
+                runAndClose(() => void exportModel('glb', true)),
+                'gws',
               )}
             </>
           )}
@@ -1246,7 +1289,7 @@ export function CentralArea() {
             </button>
           </div>
           <div className="central-empty-modes">
-            <WorkbenchModeCards onMode={(m) => useAppStore.getState().setMode(m)} />
+            <WorkbenchModeCards onMode={(m) => useModeConvert.getState().requestMode(m)} />
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">

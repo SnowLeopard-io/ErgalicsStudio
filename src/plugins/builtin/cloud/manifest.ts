@@ -35,12 +35,12 @@ export const cloudManifest: PluginManifest = {
     units: { length: 'm', speed: 'm/s', angle: '°' },
     reproducible: true,
     notes:
-      'Single-scattering volumetric rendering (Beer–Lambert extinction, dual-lobe Henyey–Greenstein phase, powder term) with a 3-tap light march on an FBM/Worley density field advected by a uniform wind vector. Sun/moon directions from low-precision Meeus ephemeris (~1 arcmin Sun, ~0.3° Moon). Not a weather model — cloud fields are procedural.',
+      'Single-scattering volumetric rendering (Beer–Lambert extinction, dual-lobe Henyey–Greenstein phase, powder term) with a two-tap light march on a 3-D value-noise fBm density field advected by a uniform wind vector (advection time-lapsed ×20 for legibility). Sun/moon directions from low-precision Meeus ephemeris (~1 arcmin Sun, ~0.3° Moon). Not a weather model — cloud fields are procedural.',
     notesI18n: {
       'zh-CN':
-        '单次散射体积渲染（Beer–Lambert 消光、双瓣 Henyey–Greenstein 相函数、powder 项）+ 3 步光程自遮蔽，密度场为 FBM/Worley 程序噪声并随风矢量平流。日/月方位由低精度 Meeus 历表公式给出（太阳约 ±1′，月球约 ±0.3°）。属程序化云场，非气象模式。',
+        '单次散射体积渲染（Beer–Lambert 消光、双瓣 Henyey–Greenstein 相函数、powder 项）+ 2 步光程自遮蔽，密度场为三维值噪声 fBm 程序噪声并随风矢量平流（平流按 20 倍时间加速以便观察）。日/月方位由低精度 Meeus 历表公式给出（太阳约 ±1′，月球约 ±0.3°）。属程序化云场，非气象模式。',
       'en-US':
-        'Single-scattering volumetric rendering (Beer–Lambert, dual-lobe HG phase, powder) with a 3-tap light march over an FBM/Worley density field advected by a uniform wind. Sun/moon directions from low-precision Meeus ephemeris (~1 arcmin Sun, ~0.3° Moon). Procedural clouds, not a weather model.',
+        'Single-scattering volumetric rendering (Beer–Lambert, dual-lobe HG phase, powder) with a two-tap light march over a 3-D value-noise fBm density field advected by a uniform wind (advection time-lapsed ×20 for legibility). Sun/moon directions from low-precision Meeus ephemeris (~1 arcmin Sun, ~0.3° Moon). Procedural clouds, not a weather model.',
     },
   },
   formats: [{ extension: '.json', mimeTypes: ['application/json'], description: 'Scene preset (sky, clouds, wind)' }],

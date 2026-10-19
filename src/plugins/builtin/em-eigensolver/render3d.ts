@@ -239,14 +239,6 @@ export function buildFieldAnnotations(field: EmModeField, heightScale = 0.35): T
   return group;
 }
 
-/** Dispose every geometry/material/texture in an object tree. */
-export function disposeObjectTree(root: THREE.Object3D): void {
-  root.traverse((obj) => {
-    const o = obj as THREE.Mesh & { material: THREE.Material & { map?: THREE.Texture } };
-    o.geometry?.dispose();
-    if (o.material) {
-      o.material.map?.dispose();
-      o.material.dispose();
-    }
-  });
-}
+// Dispose every geometry/material/texture in an object tree — shared core
+// implementation (handles material arrays and texture maps).
+export { disposeObjectTree } from '@/core/three-utils';

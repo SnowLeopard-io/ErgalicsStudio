@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
+import { NumField } from '@/components/NumField';
 
 /** Decomposed decimal literal: value = ±(digits as an integer) × 10^exp.
  *  digits never has leading zeros; for integer mantissas (no '.') trailing
@@ -195,14 +196,12 @@ export default function SigFigPage() {
               </button>
             </div>
             <label className="field-label" htmlFor="sf-n">{mode === 'sf' ? t('sf.digits') : t('sf.decimals')}</label>
-            <input
+            <NumField
               id="sf-n"
               className="input util-mono sf-n-input"
-              type="number"
-              min={0}
-              max={12}
               value={n}
-              onChange={(e) => setN(Number(e.target.value) || 0)}
+              ariaLabel={mode === 'sf' ? t('sf.digits') : t('sf.decimals')}
+              onChange={(v) => setN(v)}
             />
           </div>
 

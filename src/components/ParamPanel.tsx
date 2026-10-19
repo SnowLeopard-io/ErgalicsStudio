@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { NumField } from '@/components/NumField';
 import type {
   ParamDefinition,
   PluginApi,
@@ -114,15 +115,10 @@ function Control({
       );
     case 'number':
       return (
-        <input
-          className="input"
-          type="number"
-          aria-label={label(def)}
-          min={def.min}
-          max={def.max}
-          step={def.step}
+        <NumField
           value={def.value}
-          onChange={(e) => emit(Number(e.target.value))}
+          ariaLabel={label(def)}
+          onChange={(n) => emit(n)}
         />
       );
     case 'checkbox':

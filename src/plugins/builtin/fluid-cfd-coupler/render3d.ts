@@ -96,18 +96,10 @@ export function buildFieldRender(
   return group;
 }
 
-/** Dispose every geometry/material in an object tree (GPU hygiene). */
-export function disposeObjectTree(root: THREE.Object3D): void {
-  root.traverse((obj) => {
-    const o = obj as THREE.Mesh & { material: THREE.Material | THREE.Material[] };
-    o.geometry?.dispose();
-    const m = (o as { material?: unknown }).material;
-    if (Array.isArray(m)) (m as THREE.Material[]).forEach((x) => x.dispose());
-    else if (m && typeof m === 'object' && 'dispose' in (m as THREE.Material)) {
-      (m as THREE.Material).dispose();
-    }
-  });
-}
+// Dispose every geometry/material/texture in an object tree (GPU hygiene) —
+// shared core implementation (handles material arrays and texture maps).
+import { disposeObjectTree } from '@/core/three-utils';
+export { disposeObjectTree };
 
 /**
  * A single `InstancedMesh` whose per-instance matrices/colors are updated in

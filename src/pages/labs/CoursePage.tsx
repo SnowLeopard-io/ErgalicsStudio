@@ -572,7 +572,7 @@ export default function CoursePage() {
                   <section className="course-section">
                     <h4 className="share-section-title">{t('course.review')}</h4>
                     <div className="analysis-row">
-                      <input className="input" style={{ maxWidth: 120 }} type="number" min={0} max={100} value={gradeText} placeholder={t('course.grade')} onChange={(e) => setGradeText(e.target.value)} />
+                      <input className="input" style={{ maxWidth: 120 }} type="text" inputMode="decimal" value={gradeText} placeholder={t('course.grade')} onChange={(e) => setGradeText(e.target.value)} />
                       <button type="button" className="btn btn-primary" onClick={() => void saveReview()}>{t('course.save_review')}</button>
                       <button type="button" className="btn" onClick={() => setReviewTarget(null)}>{t('course.cancel')}</button>
                     </div>

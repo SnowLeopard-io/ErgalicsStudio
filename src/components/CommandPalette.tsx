@@ -13,6 +13,7 @@ import { useT } from '@/i18n';
 import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useAppStore } from '@/stores/appStore';
+import { useModeConvert } from '@/stores/useModeConvert';
 import { useProjectStore } from '@/stores/projectStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
@@ -123,7 +124,7 @@ export function CommandPalette() {
         label: t(`workbench.mode.${mode}`),
         keywords: mode,
         hint: 'Mode',
-        run: () => useAppStore.getState().setMode(mode),
+        run: () => useModeConvert.getState().requestMode(mode),
       });
     }
     list.push(

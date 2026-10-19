@@ -1,0 +1,17 @@
+{
+  "name": "Pacific dawn off California",
+  "hourUTC": 12.95,
+  "latitude": 36.0,
+  "longitude": -122.0,
+  "windSpeed": 11,
+  "windDirDeg": 300,
+  "waveScale": 1,
+  "choppiness": 0.6,
+  "waveDetail": 0.4,
+  "glitter": 1,
+  "haze": 0.25,
+  "exposure": 1.1,
+  "waveMotion": true,
+  "autoDay": false,
+  "autoOrbit": false
+}

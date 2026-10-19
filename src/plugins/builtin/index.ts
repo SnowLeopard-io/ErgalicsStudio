@@ -15,6 +15,7 @@ import { heatmapManifest } from './heatmapManifest';
 import { contourManifest } from './contourManifest';
 import { nbodyManifest } from './nbodyManifest';
 import { fluidManifest } from './fluidManifest';
+import { fluid3dManifest } from './fluid3d/manifest';
 import { waveManifest } from './waveManifest';
 import { pendulumManifest } from './doublePendulumManifest';
 import { geoMapManifest } from './geo/geoMapManifest';
@@ -42,6 +43,7 @@ import { pointCloudManifest } from './pointCloudManifest';
 import { pointCloud3DManifest } from './pointCloud3DManifest';
 import { surface3DManifest } from './surface3DManifest';
 import { voxel3DManifest } from './voxel3DManifest';
+import { modelViewerManifest } from './modelViewerManifest';
 import { particleManifest } from './particlesManifest';
 import { proteinManifest } from './proteinManifest';
 import { imageViewerManifest } from './imageViewerManifest';
@@ -70,6 +72,8 @@ import { waterManifest as waterFxManifest } from './water/manifest';
 import { cloudManifest } from './cloud/manifest';
 import { skyManifest } from './sky/manifest';
 import { starsManifest } from './stars/manifest';
+import { oceanManifest } from './ocean/manifest';
+import { mistyManifest } from './misty/manifest';
 import { astroManifest } from './astro/manifest';
 import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
@@ -183,6 +187,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: fluidManifest,
     load: async () => {
       const mod = await import('./fluid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluid3dManifest,
+    load: async () => {
+      const mod = await import('./fluid3d');
       return mod.default();
     },
   },
@@ -388,6 +399,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: starsManifest,
     load: async () => {
       const mod = await import('./stars');
+      return mod.default();
+    },
+  },
+  {
+    manifest: oceanManifest,
+    load: async () => {
+      const mod = await import('./ocean');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mistyManifest,
+    load: async () => {
+      const mod = await import('./misty');
       return mod.default();
     },
   },
@@ -808,6 +833,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: voxel3DManifest,
     load: async () => {
       const mod = await import('./voxel3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: modelViewerManifest,
+    load: async () => {
+      const mod = await import('./modelViewer');
       return mod.default();
     },
   },

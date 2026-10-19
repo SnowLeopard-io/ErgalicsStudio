@@ -1,0 +1,14 @@
+{
+  "name": "Dusk over layered ranges (Huangshan)",
+  "hourUTC": 11.0,
+  "latitude": 30.1,
+  "longitude": 118.2,
+  "ridgeScale": 1.1,
+  "ridgeHeight": 1050,
+  "mistDensity": 0.45,
+  "mistHeight": 260,
+  "haze": 0.42,
+  "exposure": 1.05,
+  "autoDay": false,
+  "autoOrbit": false
+}

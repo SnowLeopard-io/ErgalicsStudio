@@ -161,6 +161,13 @@ export interface BuiltinExample {
   descriptionI18n: Record<Locale, string>;
 }
 
+/**
+ * Tiny binary GLB sample (UV sphere, 20×12 segments, ~6.5 KB). Inline base64
+ * because `exampleContent` lazy-loads text only; binary samples ship eagerly.
+ */
+const MODEL3D_SPHERE_GLB_BASE64 =
+  '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QiySo+pGd7/ug4Q+ScyjPepGd78mD3w++ccbPupGd78SalY+EmpWPupGd7/5xxs+Jg98PupGd79JzKM97oOEPupGd79CLBIkJg98PupGd79JzKO9EmpWPupGd7/5xxu++ccbPupGd78Sala+ScyjPepGd78mD3y+Y0JbJOpGd7/ug4S+ScyjvepGd78mD3y++ccbvupGd78Sala+EmpWvupGd7/5xxu+Jg98vupGd79JzKO97oOEvupGd79CLJKkMjENpQAAgL8AAAAAH0gGpQAAgL/rhS4kJ3TkpAAAgL85+6UkOfulpAAAgL8ndOQk64UupAAAgL8fSAYldL4bigAAgL8yMQ0l64UuJAAAgL8fSAYlOfulJAAAgL8ndOQkJ3TkJAAAgL85+6UkH0gGJQAAgL/rhS4kMjENJQAAgL90vpsKH0gGJQAAgL/rhS6kJ3TkJAAAgL85+6WkOfulJAAAgL8ndOSk64UuJAAAgL8fSAalrp3pCgAAgL8yMQ2l64UupAAAgL8fSAalOfulpAAAgL8ndOSkJ3TkpAAAgL85+6WkH0gGpQAAgL/rhS6kMjENpQAAgL90vhuLAAAWABUAAQAXABYAAgAYABcAAwAZABgABAAaABkABQAbABoABgAcABsABwAdABwACAAeAB0ACQAfAB4ACgAgAB8ACwAhACAADAAiACEADQAjACIADgAkACMADwAlACQAEAAmACUAEQAnACYAEgAoACcAEwApACgAFQAWACsAFQArACoAFgAXACwAFgAsACsAFwAYAC0AFwAtACwAGAAZAC4AGAAuAC0AGQAaAC8AGQAvAC4AGgAbADAAGgAwAC8AGwAcADEAGwAxADAAHAAdADIAHAAyADEAHQAeADMAHQAzADIAHgAfADQAHgA0ADMAHwAgADUAHwA1ADQAIAAhADYAIAA2ADUAIQAiADcAIQA3ADYAIgAjADgAIgA4ADcAIwAkADkAIwA5ADgAJAAlADoAJAA6ADkAJQAmADsAJQA7ADoAJgAnADwAJgA8ADsAJwAoAD0AJwA9ADwAKAApAD4AKAA+AD0AKgArAEAAKgBAAD8AKwAsAEEAKwBBAEAALAAtAEIALABCAEEALQAuAEMALQBDAEIALgAvAEQALgBEAEMALwAwAEUALwBFAEQAMAAxAEYAMABGAEUAMQAyAEcAMQBHAEYAMgAzAEgAMgBIAEcAMwA0AEkAMwBJAEgANAA1AEoANABKAEkANQA2AEsANQBLAEoANgA3AEwANgBMAEsANwA4AE0ANwBNAEwAOAA5AE4AOABOAE0AOQA6AE8AOQBPAE4AOgA7AFAAOgBQAE8AOwA8AFEAOwBRAFAAPAA9AFIAPABSAFEAPQA+AFMAPQBTAFIAPwBAAFUAPwBVAFQAQABBAFYAQABWAFUAQQBCAFcAQQBXAFYAQgBDAFgAQgBYAFcAQwBEAFkAQwBZAFgARABFAFoARABaAFkARQBGAFsARQBbAFoARgBHAFwARgBcAFsARwBIAF0ARwBdAFwASABJAF4ASABeAF0ASQBKAF8ASQBfAF4ASgBLAGAASgBgAF8ASwBMAGEASwBhAGAATABNAGIATABiAGEATQBOAGMATQBjAGIATgBPAGQATgBkAGMATwBQAGUATwBlAGQAUABRAGYAUABmAGUAUQBSAGcAUQBnAGYAUgBTAGgAUgBoAGcAVABVAGoAVABqAGkAVQBWAGsAVQBrAGoAVgBXAGwAVgBsAGsAVwBYAG0AVwBtAGwAWABZAG4AWABuAG0AWQBaAG8AWQBvAG4AWgBbAHAAWgBwAG8AWwBcAHEAWwBxAHAAXABdAHIAXAByAHEAXQBeAHMAXQBzAHIAXgBfAHQAXgB0AHMAXwBgAHUAXwB1AHQAYABhAHYAYAB2AHUAYQBiAHcAYQB3AHYAYgBjAHgAYgB4AHcAYwBkAHkAYwB5AHgAZABlAHoAZAB6AHkAZQBmAHsAZQB7AHoAZgBnAHwAZgB8AHsAZwBoAH0AZwB9AHwAaQBqAH8AaQB/AH4AagBrAIAAagCAAH8AawBsAIEAawCBAIAAbABtAIIAbACCAIEAbQBuAIMAbQCDAIIAbgBvAIQAbgCEAIMAbwBwAIUAbwCFAIQAcABxAIYAcACGAIUAcQByAIcAcQCHAIYAcgBzAIgAcgCIAIcAcwB0AIkAcwCJAIgAdAB1AIoAdACKAIkAdQB2AIsAdQCLAIoAdgB3AIwAdgCMAIsAdwB4AI0AdwCNAIwAeAB5AI4AeACOAI0AeQB6AI8AeQCPAI4AegB7AJAAegCQAI8AewB8AJEAewCRAJAAfAB9AJIAfACSAJEAfgB/AJQAfgCUAJMAfwCAAJUAfwCVAJQAgACBAJYAgACWAJUAgQCCAJcAgQCXAJYAggCDAJgAggCYAJcAgwCEAJkAgwCZAJgAhACFAJoAhACaAJkAhQCGAJsAhQCbAJoAhgCHAJwAhgCcAJsAhwCIAJ0AhwCdAJwAiACJAJ4AiACeAJ0AiQCKAJ8AiQCfAJ4AigCLAKAAigCgAJ8AiwCMAKEAiwChAKAAjACNAKIAjACiAKEAjQCOAKMAjQCjAKIAjgCPAKQAjgCkAKMAjwCQAKUAjwClAKQAkACRAKYAkACmAKUAkQCSAKcAkQCnAKYAkwCUAKkAkwCpAKgAlACVAKoAlACqAKkAlQCWAKsAlQCrAKoAlgCXAKwAlgCsAKsAlwCYAK0AlwCtAKwAmACZAK4AmACuAK0AmQCaAK8AmQCvAK4AmgCbALAAmgCwAK8AmwCcALEAmwCxALAAnACdALIAnACyALEAnQCeALMAnQCzALIAngCfALQAngC0ALMAnwCgALUAnwC1ALQAoAChALYAoAC2ALUAoQCiALcAoQC3ALYAogCjALgAogC4ALcAowCkALkAowC5ALgApAClALoApAC6ALkApQCmALsApQC7ALoApgCnALwApgC8ALsAqACpAL4AqAC+AL0AqQCqAL8AqQC/AL4AqgCrAMAAqgDAAL8AqwCsAMEAqwDBAMAArACtAMIArADCAMEArQCuAMMArQDDAMIArgCvAMQArgDEAMMArwCwAMUArwDFAMQAsACxAMYAsADGAMUAsQCyAMcAsQDHAMYAsgCzAMgAsgDIAMcAswC0AMkAswDJAMgAtAC1AMoAtADKAMkAtQC2AMsAtQDLAMoAtgC3AMwAtgDMAMsAtwC4AM0AtwDNAMwAuAC5AM4AuADOAM0AuQC6AM8AuQDPAM4AugC7ANAAugDQAM8AuwC8ANEAuwDRANAAvQC+ANMAvQDTANIAvgC/ANQAvgDUANMAvwDAANUAvwDVANQAwADBANYAwADWANUAwQDCANcAwQDXANYAwgDDANgAwgDYANcAwwDEANkAwwDZANgAxADFANoAxADaANkAxQDGANsAxQDbANoAxgDHANwAxgDcANsAxwDIAN0AxwDdANwAyADJAN4AyADeAN0AyQDKAN8AyQDfAN4AygDLAOAAygDgAN8AywDMAOEAywDhAOAAzADNAOIAzADiAOEAzQDOAOMAzQDjAOIAzgDPAOQAzgDkAOMAzwDQAOUAzwDlAOQA0ADRAOYA0ADmAOUA0gDTAOgA0gDoAOcA0wDUAOkA0wDpAOgA1ADVAOoA1ADqAOkA1QDWAOsA1QDrAOoA1gDXAOwA1gDsAOsA1wDYAO0A1wDtAOwA2ADZAO4A2ADuAO0A2QDaAO8A2QDvAO4A2gDbAPAA2gDwAO8A2wDcAPEA2wDxAPAA3ADdAPIA3ADyAPEA3QDeAPMA3QDzAPIA3gDfAPQA3gD0APMA3wDgAPUA3wD1APQA4ADhAPYA4AD2APUA4QDiAPcA4QD3APYA4gDjAPgA4gD4APcA4wDkAPkA4wD5APgA5ADlAPoA5AD6APkA5QDmAPsA5QD7APoA5wDoAP0A6ADpAP4A6QDqAP8A6gDrAAAB6wDsAAEB7ADtAAIB7QDuAAMB7gDvAAQB7wDwAAUB8ADxAAYB8QDyAAcB8gDzAAgB8wD0AAkB9AD1AAoB9QD2AAsB9gD3AAwB9wD4AA0B+AD5AA4B+QD6AA8B+gD7ABAB';
+
 export const BUILTIN_EXAMPLES: BuiltinExample[] = [
   {
     id: 'em-cavity-degenerate',
@@ -977,6 +984,20 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     descriptionI18n: {
       'zh-CN': '384×224 二值障碍掩膜（1 = 固壁）：NACA 2412 翼型、10° 迎角，驱动流体模拟展示翼型绕流与尾涡。',
       'en-US': '384x224 binary obstacle mask (1 = solid): NACA 2412 airfoil at 10 deg angle of attack; airfoil flow + wake vortex demo.',
+    },
+  },
+  {
+    id: 'fluid3d-wing',
+    filename: 'fluid3d-wing.obj',
+    format: 'obj',
+    mimeType: 'model/obj',
+    pluginId: 'example.fluid3d',
+    group: 'physics',
+    loadContent: () => exampleContent('fluid3d-wing.obj'),
+    nameI18n: { 'zh-CN': '三维流体 · NACA 4412 机翼模型', 'en-US': '3D Fluid · NACA 4412 Wing Model' },
+    descriptionI18n: {
+      'zh-CN': 'NACA 4412 有限翼模型（锥度 0.7、展长 1.2、弦长 1.0 的封闭曲面 OBJ）：加载后自动体素化并进入 D3Q19 流场，查看绕流切片、涡量与示踪粒子。',
+      'en-US': 'A closed NACA 4412 finite-wing model (taper 0.7, span 1.2, chord 1.0, OBJ): loads, voxelises into the D3Q19 field, and shows the flow slice, vorticity and tracers.',
     },
   },
   {
@@ -2338,6 +2359,116 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'Meteor shower over La Palma (lat 28.8°N): a Poisson scheduler (exponential gaps, mean 4.3 s), each meteor streaking 9–16° along a random great circle with a moving head glow. Sidereal time-lapse on — sky rotation and meteors together.',
     },
   },
+  // ---- Open-sea swell presets -------------------------------------------------
+  {
+    id: 'fx-ocean-dawn-pacific',
+    filename: 'fx-ocean-dawn-pacific.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-dawn-pacific.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 太平洋破晓（加州外海）',
+      'en-US': 'FX · Ocean swell — Pacific dawn (off California)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '加州外海（北纬 36°、西经 122°）的破晓海面：太阳高度 0.11°、方位 119.4°，刚刚跃出地平线；长波涌浪沿 300° 方向朝观察者推进，10 m 风速 11 m/s 对应蒲福 6 级、有效波高 2.98 m、峰周期 8.6 s。低太阳高度把直射光染成金红，海雾与远处平滑成镜面的海面共同形成辽阔的地平线。',
+      'en-US':
+        'Pacific dawn off California (36°N, 122°W): the sun sits 0.11° high at azimuth 119.4°, just clearing the horizon; long swell runs along 300° towards the viewer and an 11 m/s U10 gives Beaufort 6, Hs = 2.98 m and Tp = 8.6 s. The low sun reddens the direct beam while haze and a mirror-flat far sea open up a wide horizon.',
+    },
+  },
+  {
+    id: 'fx-ocean-golden-atlantic',
+    filename: 'fx-ocean-golden-atlantic.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-golden-atlantic.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 金色日落（大西洋，大风）',
+      'en-US': 'FX · Ocean swell — golden sunset (Atlantic, fresh wind)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '大西洋（北纬 38°、西经 30°）的日落大风浪：太阳高度 0.53°、方位 240.2°；10 m 风速 16 m/s（蒲福 7 级）对应有效波高 6.30 m、峰周期 12.5 s。强太阳 glitter 在斜阳下铺出整条金色光路；Hs/Lp 恒为充分发展海况的 0.026。',
+      'en-US':
+        'Atlantic sunset swell (38°N, 30°W): the sun stands 0.53° high at azimuth 240.2°; a 16 m/s U10 (Beaufort 7) gives Hs = 6.30 m and Tp = 12.5 s, laying a full golden glitter path that ends on the horizon. Hs/Lp stays at the fully-developed-sea constant 0.026.',
+    },
+  },
+  {
+    id: 'fx-ocean-blue-hour',
+    filename: 'fx-ocean-blue-hour.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.ocean',
+    loadContent: () => exampleContent('fx-ocean-blue-hour.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 波浪海面 破晓前蓝调（赤道太平洋）',
+      'en-US': 'FX · Ocean swell — blue hour before dawn (equatorial Pacific)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '赤道太平洋（北纬 2°）破晓前的蓝调时刻：太阳位于 −9.2°（航海晨昏蒙影）、方位 114.1°，直射光已完全消失，只剩冷蓝残光与海雾长曝（曝光 2.0）；微风 6 m/s（蒲福 4 级）下海面近乎镜面，有效波高 0.89 m、峰周期 4.7 s。',
+      'en-US':
+        'Blue hour before dawn over the equatorial Pacific (2°N): the sun sits at −9.2° altitude, azimuth 114.1°, so the direct beam is gone and only cold residual light plus long-exposed haze remain (exposure 2.0); a light 6 m/s breeze (Beaufort 4) leaves the sea almost mirror-like with Hs = 0.89 m and Tp = 4.7 s.',
+    },
+  },
+  // ---- Misty-peak presets ------------------------------------------------------
+  {
+    id: 'fx-misty-morning-sea',
+    filename: 'fx-misty-morning-sea.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-morning-sea.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 晨雾云海（湘西群山）',
+      'en-US': 'FX · Misty peaks — morning cloud sea (western Hunan)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '湘西群山（北纬 29.5°、东经 110.4°）清晨：太阳高度 16.0°、方位 108.3°，斜照谷地；高斯云雾带中心 200 m，谷地聚成云海，只有高出雾层的山脊露出林冠；远层山峦按 Koschmieder 能见度 90.6 km 逐级淡入天光。',
+      'en-US':
+        'Early morning in the ridges of western Hunan (29.5°N, 110.4°E): the sun stands 16.0° high at azimuth 108.3°, raking the valleys; a Gaussian mist band centred at 200 m pools into a cloud sea so only ridge tops clear the inversion, and far ranges fade into the sky through the 90.6 km Koschmieder visibility.',
+    },
+  },
+  {
+    id: 'fx-misty-dusk-ridges',
+    filename: 'fx-misty-dusk-ridges.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-dusk-ridges.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 暮色叠嶂（黄山）',
+      'en-US': 'FX · Misty peaks — dusk over layered ranges (Huangshan)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '黄山（北纬 30.1°、东经 118.2°）暮色：太阳高度 1.40°、方位 243.5°，直射光被染成暖橙；6 层剪影山脉由近及远被大气透视（能见度 70.3 km）逐级推向地平线色，薄雾与暖光形成「叠嶂」层次。',
+      'en-US':
+        'Dusk over Huangshan (30.1°N, 118.2°E): the sun stands 1.40° high at azimuth 243.5°, warming the direct beam to amber; the 6 silhouette ranges are pushed towards the horizon colour by aerial perspective (visibility 70.3 km) while thin mist and warm light build the layered-ridge depth.',
+    },
+  },
+  {
+    id: 'fx-misty-ink-rain',
+    filename: 'fx-misty-ink-rain.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'fx.misty',
+    loadContent: () => exampleContent('fx-misty-ink-rain.json'),
+    nameI18n: {
+      'zh-CN': '特效 · 雾锁青山 阴雨墨韵（江南丘陵）',
+      'en-US': 'FX · Misty peaks — ink-wash rain (Jiangnan hills)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '江南丘陵（北纬 28.6°、东经 118.9°）阴雨午后：太阳高度 32.5°、方位 259.1°；高湿低云（大气透视 0.72、云雾浓度 1.1）把中远山压成水墨般的灰青剪影，能见度降至 45.0 km，只剩近处低丘的绿意清晰。',
+      'en-US':
+        'A rainy Jiangnan afternoon (28.6°N, 118.9°E): the sun stands 32.5° high at azimuth 259.1°; heavy atmospheric perspective (0.72) and dense mist (1.1) compress the mid and far hills into ink-wash grey-green silhouettes while visibility drops to 45.0 km, so only the nearest low hills keep their colour.',
+    },
+  },
   // ---- Research suite samples (numeric kernels with real/synthetic data) ----
   {
     id: 'chem-n2o5-decomp',
@@ -2584,6 +2715,96 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'Yale 亮星星表第 5 版（公有领域）中 V < 3.01 且 B−V ≤ 1.61 的 163 颗星，视差取自 Hipparcos（VizieR I/239，2026-10-11 检索）。加载后绘制赫罗图：视差换算距离模数得绝对星等，横轴 B−V，叠加 MK 主序参考带、太阳标记与主序拟合。',
       'en-US':
         '163 stars with V < 3.01 and B−V ≤ 1.61 from the Yale Bright Star Catalogue, 5th ed. (public domain), with Hipparcos parallaxes (VizieR I/239, retrieved 2026-10-11). Load it to draw the H–R diagram: absolute magnitudes via distance modulus, B−V colour axis, with the MK main-sequence band, the Sun marker and a screened main-sequence fit.',
+    },
+  },
+  {
+    id: 'model3d-torus-knot',
+    filename: 'model3d-torus-knot.stl',
+    format: 'stl',
+    mimeType: 'model/stl',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus-knot.stl'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面纽结（STL，1536 面）',
+      'en-US': '3D Model · Torus Knot (STL, 1536 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '(p,q)=(2,3) 环面纽结的 ASCII STL 网格，96 段 × 8 环共 1536 个三角面。适合演示观察模式切换、剖面（clipping plane）与两点测距； STL 为三角面片格式，无拓扑边信息。',
+      'en-US':
+        'An ASCII STL mesh of the (p,q)=(2,3) torus knot — 96 segments × 8 ring, 1536 triangles. Good for exercising view modes, the clipping plane and two-point measurement; STL carries triangle soup only, with no topology.',
+    },
+  },
+  {
+    id: 'model3d-icosphere',
+    filename: 'model3d-icosphere.obj',
+    format: 'obj',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-icosphere.obj'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 二十面球（OBJ，320 面）',
+      'en-US': '3D Model · Icosphere (OBJ, 320 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '二十面体细分 2 次得到的球面三角网格（42 顶点 / 80 顶点细分至 320 面），Wavefront OBJ 纯文本格式。体积小，适合快速验证加载、线框模式与视角预设。',
+      'en-US':
+        'A spherical triangle mesh from subdividing an icosahedron twice (320 faces), in plain-text Wavefront OBJ. Small enough for quick load, wireframe-mode and view-preset checks.',
+    },
+  },
+  {
+    id: 'model3d-torus',
+    filename: 'model3d-torus.ply',
+    format: 'ply',
+    mimeType: 'text/plain',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-torus.ply'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 环面（PLY，1024 面）',
+      'en-US': '3D Model · Torus (PLY, 1024 faces)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '标准圆环面的 ASCII PLY 网格（R=1.5, r=0.6，32×16 分段共 1024 个三角面），带 genus-1 拓扑手柄，可用来观察剖面切过孔洞时的截面形状。',
+      'en-US':
+        'An ASCII PLY mesh of the standard torus (R = 1.5, r = 0.6; 32 × 16 segments, 1024 triangles). Its genus-1 handle makes it a good subject for studying clipping cross-sections through the hole.',
+    },
+  },
+  {
+    id: 'model3d-rocket',
+    filename: 'model3d-rocket.gltf',
+    format: 'gltf',
+    mimeType: 'model/gltf+json',
+    pluginId: 'example.model3d',
+    loadContent: () => exampleContent('model3d-rocket.gltf'),
+    nameI18n: {
+      'zh-CN': '3D 模型 · 低多边形火箭（glTF，双材质多网格）',
+      'en-US': '3D Model · Low-poly Rocket (glTF, two materials)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'glTF 2.0 JSON 示例（缓冲内嵌 base64）：箭体圆柱 + 锥形整流罩与 3 片尾翼，两个 PBR 材质分属两个 primitive。适合验证多材质、PBR 底色与网格级统计输出。',
+      'en-US':
+        'A glTF 2.0 JSON sample (base64-embedded buffer): a cylindrical hull plus cone nose and three fins, spread over two primitives with two PBR materials. Useful for checking multi-material handling, base colours and per-mesh statistics.',
+    },
+  },
+  {
+    id: 'model3d-sphere',
+    filename: 'model3d-sphere.glb',
+    format: 'glb',
+    mimeType: 'model/gltf-binary',
+    pluginId: 'example.model3d',
+    contentBase64: MODEL3D_SPHERE_GLB_BASE64,
+    nameI18n: {
+      'zh-CN': '3D 模型 · UV 球（GLB 二进制）',
+      'en-US': '3D Model · UV Sphere (binary GLB)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '20×12 分段 UV 球的二进制 GLB 容器（约 6.5 KB，JSON + BIN 双 chunk）。体积最小的 glb 样例，用于验证二进制 glTF 加载路径。',
+      'en-US':
+        'A 20×12-segment UV sphere packed as a binary GLB container (about 6.5 KB, JSON + BIN chunks). The smallest glb sample, for verifying the binary glTF load path.',
     },
   },
 ];

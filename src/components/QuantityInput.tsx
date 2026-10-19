@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { parseUnitExpr } from '@/core/units/quantity';
+import { NumField } from '@/components/NumField';
 
 export interface QuantityInputProps {
   /** Numeric value in the given unit. */
@@ -46,21 +47,13 @@ export function QuantityInput({
 
   return (
     <span className={`qty-input${unitError ? ' qty-input-invalid' : ''}`}>
-      <input
+      <NumField
         className="input qty-input-value"
-        type="number"
-        step="any"
-        inputMode="decimal"
-        value={Number.isFinite(value) ? value : ''}
+        value={value}
         placeholder={valuePlaceholder}
         disabled={disabled}
-        aria-label={t('units.value')}
-        onChange={(e) => {
-          const text = e.target.value;
-          if (text === '') return;
-          const n = Number(text);
-          if (Number.isFinite(n)) onChange(n, unit);
-        }}
+        ariaLabel={t('units.value')}
+        onChange={(n) => onChange(n, unit)}
       />
       <input
         className="input qty-input-unit"
