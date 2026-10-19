@@ -55,7 +55,14 @@ from .units import GAMMA_AIR, R_AIR
 
 
 def case_a_config() -> dict:
-    """Steady choked case: fully open nozzle, low sub-atmospheric back BC."""
+    """Steady choked case: fully open nozzle, low sub-atmospheric back BC.
+
+    Case A's archived bench, analytic reference and attribution narrative all
+    assume an isothermal rigid tank (exponential decay, see
+    ``_exact_constant_t_blowdown``), so the tank model is pinned explicitly to
+    ``adiabatic_blowdown=False``. The corrected adiabatic branch
+    (T = T0*(m/m0)^(gamma-1)) remains available for other scenarios.
+    """
     return {
         "net": NetworkConfig(
             volume=0.05,
@@ -64,6 +71,7 @@ def case_a_config() -> dict:
             throat_area=8.0e-5,
             discharge_coeff=0.98,
             valve_events=None,
+            adiabatic_blowdown=False,
         ),
         "dom": DomainConfig(nx=10, ny=10, nz=10, length=0.12,
                             diffusivity=1.0e-4, advection=0.04),
