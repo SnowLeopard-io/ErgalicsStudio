@@ -49,6 +49,10 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Stop the event here so window/document-level Escape handlers on
+        // lower layers (AI assistant overlay, shortcuts popover) do not close
+        // at the same time as the modal.
+        e.stopPropagation();
         onCloseRef.current();
         return;
       }

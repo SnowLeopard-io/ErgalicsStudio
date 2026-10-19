@@ -318,7 +318,7 @@ export default function CoursePage() {
                 placeholder={t('course.identity_placeholder')}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitIdentity();
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitIdentity();
                 }}
                 autoFocus
               />

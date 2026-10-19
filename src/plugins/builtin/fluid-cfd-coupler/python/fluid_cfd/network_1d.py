@@ -26,7 +26,6 @@ from dataclasses import asdict, dataclass
 import numpy as np
 
 from .units import (
-    CHOKED_RATIO,
     CV_AIR,
     GAMMA_AIR,
     PHASE_GAS,
@@ -164,10 +163,13 @@ def isentropic_nozzle(
     r = max(p_down / max(p0, _EPS), 1e-12)
     if r >= 1.0:
         return 0.0, t0
-    if r <= CHOKED_RATIO:
+    # Critical pressure ratio (2/(gamma+1))^(gamma/(gamma-1)) depends on gamma;
+    # hardcoding the air value would misclassify choked flow for other gases.
+    choked = (2.0 / (gamma + 1.0)) ** (gamma / (gamma - 1.0))
+    if r <= choked:
         choke = gamma * (2.0 / (gamma + 1.0)) ** ((gamma + 1.0) / (gamma - 1.0))
         md = area * p0 / np.sqrt(t0) * np.sqrt(choke / r_specific)
-        t_dis = t0 * CHOKED_RATIO ** ((gamma - 1.0) / gamma)
+        t_dis = t0 * choked ** ((gamma - 1.0) / gamma)
         return float(md), float(t_dis)
     g = gamma
     term = r ** (2.0 / g) - r ** ((g + 1.0) / g)
@@ -194,13 +196,14 @@ def step_network(nx: NetworkConfig, st: NetworkState, dt: float,
         t_dis = st.t0
 
     if nx.adiabatic_blowdown and st.mass > _EPS and md > 0:
-        # Blowdown lowers the reservoir temperature: the specific internal
-        # energy of the remaining gas is unchanged by extraction in the
-        # adiabatic limit, so T = const for an ideal gas leaving a rigid tank
-        # when no heat is added.  The mass balance above already captures the
-        # depletion; temperature is held unless heat transfer is modelled.
-        # (Common approximation for a fast blowdown; kept explicit for clarity.)
-        pass
+        # Rigid-tank adiabatic blowdown energy balance: d(m c_v T)/dt =
+        # -mdot * c_p * T (the escaping gas carries enthalpy c_p T, which
+        # exceeds the internal energy c_v T it releases), giving the standard
+        # polytropic relation T = T0 * (m/m0)^(gamma-1).  The mass balance
+        # above supplies the m(t) depletion; re-close the tank temperature
+        # against the initial charge so p0(t) follows m^gamma, not m.
+        m0 = max(nx.p0_init * nx.volume / (r_sp * nx.t0_init), _EPS)
+        st.t0 = max(nx.t0_init * (st.mass / m0) ** (g - 1.0), _EPS)
     # Re-close the ideal-gas law so p0 and t0 and mass stay consistent.
     st.p0 = st.mass * r_sp * st.t0 / nx.volume
     st.t += dt

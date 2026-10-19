@@ -16,7 +16,7 @@
 // input — no external dependency).
 //
 // Dynamics: Crank-Nicolson (unitary, unconditionally stable). Each step
-// solves (I - i dt/2 H) psi^{n+1} = (I + i dt/2 H) psi^n with a complex
+// solves (I + i dt/2 H) psi^{n+1} = (I - i dt/2 H) psi^n with a complex
 // Thomas sweep. For a free packet the analytic width is
 //   sigma(t) = sqrt(sigma0^2 + t^2 / sigma0^2),  <x>(t) = x0 + 2 k0 t.
 // ==========================================================================

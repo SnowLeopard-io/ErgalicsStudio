@@ -43,6 +43,9 @@ export interface Vfs {
   /** Delete a file (unlink) or a directory (recursive). */
   deleteEntry(root: string, targetPath: string, isDir: boolean): Promise<void>;
 
+  /** Remove the entire workspace tree rooted at `root` (project deletion). */
+  deleteRoot(root: string): Promise<void>;
+
   /** Move/rename a file or directory tree. */
   renameEntry(root: string, from: string, to: string): Promise<void>;
 

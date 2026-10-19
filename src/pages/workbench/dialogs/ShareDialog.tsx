@@ -68,6 +68,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const [gallerySummary, setGallerySummary] = useState('');
   const [galleryAuthor, setGalleryAuthor] = useState('');
   const linkRef = useRef<HTMLInputElement>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open && project) {
@@ -75,6 +76,11 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
       setSize(formatBytes(bytes));
     }
   }, [open, project]);
+
+  // Never let the "copied" reset timer fire after unmount.
+  useEffect(() => () => {
+    if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+  }, []);
 
   const toggle = (key: keyof ShareOptions) =>
     setOptions((o) => ({ ...o, [key]: !o[key] }));
@@ -214,9 +220,15 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
 
   const copyLink = async () => {
     if (!link) return;
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      copyTimer.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard writes fail on insecure contexts or denied permission —
+      // surface it instead of an unhandled rejection.
+      useAppStore.getState().notify('error', t('share.copy_failed'));
+    }
   };
 
   return (

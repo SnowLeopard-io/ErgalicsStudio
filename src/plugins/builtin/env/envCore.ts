@@ -867,9 +867,12 @@ export function groundwaterStep(
 ): { clamped: boolean } {
   const { nx, ny, nz, c } = grid;
   const D = opts.dispL * Math.abs(opts.velocity); // dispersivity × velocity
-  const dtAdv = opts.dx / Math.max(Math.abs(opts.velocity), 1e-6);
-  const dtDisp = (opts.dx * opts.dx) / (2 * D + 1e-9);
-  const stableDt = Math.min(dtAdv, dtDisp);
+  // Joint monotonicity bound for donor-cell upwind + central-difference
+  // dispersion: the diagonal update coefficient is 1 − f − 2r, so positivity
+  // requires f + 2r ≤ 1, i.e. dt ≤ 1/(v/dx + 2D/dx²). Clamping f ≤ 1 and
+  // r ≤ ½ separately is NOT sufficient (f = 0.9, r = 0.5 gives −0.9 and
+  // produces oscillations).
+  const stableDt = 1 / (Math.abs(opts.velocity) / opts.dx + (2 * D) / (opts.dx * opts.dx) + 1e-9);
   const clamped = opts.dt > stableDt * 1.001;
   const dt = Math.min(opts.dt, stableDt);
 

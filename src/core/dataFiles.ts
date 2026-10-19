@@ -33,7 +33,16 @@ function loadBundledFile(path: string): Promise<string | undefined> {
   if (!hit) return Promise.resolve(undefined);
   const cached = bundledLoaders.get(base);
   if (cached) return cached;
-  const p = hit[1]().then((text) => text as string).catch(() => undefined);
+  // A transient load failure must not be cached: caching `undefined` would
+  // make the example unavailable for the whole session. Only successful
+  // loads are memoized.
+  const p = hit[1]().then(
+    (text) => {
+      bundledLoaders.set(base, Promise.resolve(text as string));
+      return text as string;
+    },
+    () => undefined,
+  );
   bundledLoaders.set(base, p);
   return p;
 }

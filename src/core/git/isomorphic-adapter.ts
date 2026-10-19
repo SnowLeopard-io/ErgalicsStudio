@@ -243,7 +243,9 @@ export class IsomorphicGitAdapter implements GitAdapter {
         dir: targetPath,
         url,
         corsProxy: proxyFor(opts),
-        ref: opts?.branch || 'main',
+        // Follow the remote's HEAD when no branch is given — hardcoding
+        // 'main' breaks remotes whose default branch is master/trunk.
+        ...(opts?.branch ? { ref: opts.branch } : {}),
         singleBranch: opts?.singleBranch ?? true,
         depth: opts?.depth,
         onProgress: toProgressHandler(opts?.onProgress),
@@ -467,14 +469,16 @@ export class IsomorphicGitAdapter implements GitAdapter {
   async add(repoPath: string, files: string[]): Promise<void> {
     const fs = this.getFS();
     for (const file of files) {
-      // The file list comes from a status snapshot taken earlier; anything
-      // deleted (or already committed) since then would abort the whole add
-      // with a raw ENOENT from isomorphic-git. Skip vanished entries and
-      // directories — commit picks up whatever still exists.
+      // The file list comes from a status snapshot taken earlier. Entries
+      // deleted on disk must be staged as removals (Git.remove) — otherwise
+      // the deletion can never be committed and every autoCommit produces an
+      // empty duplicate commit. Directories are skipped; commit picks up
+      // whatever still exists.
       try {
         const st = await fs.promises.stat(`${repoPath}/${file}`);
         if (st.isDirectory()) continue;
       } catch {
+        await Git.remove({ fs, dir: repoPath, filepath: file });
         continue;
       }
       await Git.add({ fs, dir: repoPath, filepath: file });
@@ -569,8 +573,12 @@ export class IsomorphicGitAdapter implements GitAdapter {
     try {
       const result = await Git.merge({ fs, dir: repoPath, theirs: branch });
       return { success: true, commitHash: result.oid };
-    } catch {
-      return { success: false, conflicts: [] };
+    } catch (e) {
+      // isomorphic-git aborts on conflict with a generic error; surface the
+      // reason so callers can distinguish a real conflict from a hard failure.
+      const message = e instanceof Error ? e.message : String(e);
+      const conflicts = /conflict|merge/i.test(message) ? [branch] : [];
+      return { success: false, conflicts, message };
     }
   }
 

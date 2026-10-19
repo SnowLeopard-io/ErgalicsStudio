@@ -460,6 +460,7 @@ export const enUS: LocaleDictionary = {
   'share.export_screenshot': 'Export Canvas Screenshot (PNG)',
   'share.copy': 'Copy',
   'share.copied': 'Copied',
+  'share.copy_failed': 'Copy failed — the browser blocked clipboard access',
   'share.link_placeholder': 'Generated link will appear here',
   'share.no_screenshot': 'Nothing to capture',
   'share.share_section': 'Share',
