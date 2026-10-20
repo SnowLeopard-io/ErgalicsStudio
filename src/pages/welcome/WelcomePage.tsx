@@ -11,18 +11,14 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { WorkbenchModeCards } from '@/components/WorkbenchModes';
 import { TemplatePanel } from './TemplatePanel';
-import { ToolGrid } from './ToolGrid';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
 import { siteUrl, docsUrl } from '@/core/site-links';
 import {
   PlusIcon,
   FileIcon,
   FolderOpenIcon,
-  ClockIcon,
   BookIcon,
-  LayersIcon,
   CloseIcon,
 } from '@/components/icons';
 
@@ -34,6 +30,9 @@ interface HardwareState {
   wasm: 'pending' | 'loaded' | 'failed';
   storage: 'pending' | 'ok' | 'fail';
 }
+
+// Locale-aware compact timestamp for the recent-project rows.
+const formatTime = (ms: number) => new Date(ms).toLocaleString();
 
 // `#/?` search-param deep links are one-shot per page load (the params are
 // cleared the first time they are consumed). In dev, React StrictMode
@@ -192,10 +191,6 @@ export default function WelcomePage() {
     };
   }, [gpuBackend, addBanner]);
 
-  // GPU/WASM/storage probes already run on mount; entering must not block on
-  // them (GPU adapter creation can stall in software-rendered environments).
-  const enterWorkbench = () => navigate('/workbench');
-
   const startNew = async () => {
     if (busy) return;
     setBusy(true);
@@ -245,13 +240,13 @@ export default function WelcomePage() {
     hardware.storage,
   ];
   const envHasFail = envStates.includes('fail');
-  const envAllOk = envStates.every((s) => s === 'ok');
 
   return (
     <div className="welcome">
       <header className="welcome-topbar">
         <Link className="brand" to="/">
           <span className="brand-name">Ergalics Studio</span>
+          <span className="brand-version">v{APP_VERSION}</span>
         </Link>
         <div className="topbar-actions">
           <LanguageSwitcher />
@@ -260,17 +255,17 @@ export default function WelcomePage() {
       </header>
 
       <main className="welcome-main">
-        <div className="welcome-hero">
-          <div className="welcome-eyebrow">ERGALICS · {t('welcome.eyebrow')}</div>
+        <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
           <p className="welcome-subtitle">{t('welcome.subtitle')}</p>
-          <p className="welcome-version">
-            {t('welcome.version')} {APP_VERSION}
-          </p>
-          <div className="welcome-signal" aria-hidden="true" />
           <div className="welcome-cta-row">
-            <button type="button" className="btn btn-primary welcome-enter" onClick={enterWorkbench}>
-              {t('welcome.enter')}
+            <button
+              type="button"
+              className="btn btn-primary welcome-cta-primary"
+              onClick={() => void startNew()}
+              disabled={busy}
+            >
+              <PlusIcon size={15} /> {t('welcome.start.blank')}
             </button>
             <button
               type="button"
@@ -283,139 +278,109 @@ export default function WelcomePage() {
             <button
               type="button"
               className="btn"
+              onClick={() => navigate('/workbench', { state: { openDataDialog: true } })}
+              disabled={busy}
+            >
+              <BookIcon size={14} /> {t('welcome.start.samples')}
+            </button>
+          </div>
+          {/* Secondary, low-weight entries kept out of the primary CTA row. */}
+          <div className="welcome-quiet-row">
+            <button
+              type="button"
+              className="welcome-quiet-link"
               onClick={() => folderInputRef.current?.click()}
               disabled={busy}
             >
-              <FolderOpenIcon size={14} /> {t('project.open_folder')}
+              <FolderOpenIcon size={13} /> {t('project.open_folder')}
+            </button>
+            <span className="welcome-quiet-sep" aria-hidden="true">·</span>
+            <button
+              type="button"
+              className="welcome-quiet-link"
+              onClick={() => setTemplateOpen(true)}
+              disabled={busy}
+            >
+              {t('welcome.browse_examples')}
             </button>
           </div>
-        </div>
+        </section>
 
-        {/* Start actions: blank project / continue recent / sample datasets. */}
-        <div className="welcome-start">
-          <button type="button" className="start-card card" onClick={() => void startNew()} disabled={busy}>
-            <span className="start-card-icon"><PlusIcon size={18} /></span>
-            <span className="start-card-body">
-              <span className="start-card-title">{t('welcome.start.blank')}</span>
-              <span className="start-card-desc">{t('welcome.start.blank_desc')}</span>
-            </span>
-          </button>
-
-          <div className="start-card card" aria-disabled={recent.length === 0}>
-            <span className="start-card-icon"><ClockIcon size={18} /></span>
-            <span className="start-card-body">
-              <span className="start-card-title">{t('welcome.start.recent')}</span>
-              {recent.length > 0 ? (
-                <span className="start-recent-list">
-                  {recent.slice(0, 3).map((p) => (
-                    <span key={p.id} className="start-recent-item">
-                      <button
-                        type="button"
-                        className="start-recent-open"
-                        onClick={() => void continueProject(p.id)}
-                        disabled={busy}
-                      >
-                        {p.name || DEFAULT_PROJECT_NAME}
-                      </button>
-                      <button
-                        type="button"
-                        className="start-recent-delete"
-                        title={t('common.delete')}
-                        disabled={busy}
-                        onClick={() => setDeleteTarget({ id: p.id, name: p.name || DEFAULT_PROJECT_NAME })}
-                      >
-                        <CloseIcon size={11} />
-                      </button>
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                <span className="start-card-desc">{t('welcome.start.recent_empty')}</span>
-              )}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="start-card card"
-            onClick={() => navigate('/workbench', { state: { openDataDialog: true } })}
-          >
-            <span className="start-card-icon"><BookIcon size={18} /></span>
-            <span className="start-card-body">
-              <span className="start-card-title">{t('welcome.start.samples')}</span>
-              <span className="start-card-desc">{t('welcome.start.samples_desc')}</span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="start-card card"
-            onClick={() => setTemplateOpen(true)}
-            disabled={busy}
-          >
-            <span className="start-card-icon"><LayersIcon size={18} /></span>
-            <span className="start-card-body">
-              <span className="start-card-title">{t('tpl.entry')}</span>
-              <span className="start-card-desc">{t('tpl.entry_desc')}</span>
-            </span>
-          </button>
-        </div>
-
-        <div className="welcome-panels">
-          <section className="welcome-modes card" aria-label={t('modes.title')}>
-            <h2 className="welcome-section-title">{t('modes.title')}</h2>
-            <WorkbenchModeCards />
+        {/* Recent projects: compact rows, rendered only when non-empty. */}
+        {recent.length > 0 && (
+          <section className="welcome-recent" aria-label={t('welcome.start.recent')}>
+            <h2 className="welcome-section-title">{t('welcome.start.recent')}</h2>
+            <ul className="welcome-recent-list">
+              {recent.slice(0, 5).map((p) => {
+                const name = p.name || DEFAULT_PROJECT_NAME;
+                return (
+                  <li key={p.id} className="welcome-recent-row">
+                    <button
+                      type="button"
+                      className="welcome-recent-open"
+                      onClick={() => void continueProject(p.id)}
+                      disabled={busy}
+                    >
+                      {name}
+                    </button>
+                    <span className="welcome-recent-time">{formatTime(p.updatedAt)}</span>
+                    <button
+                      type="button"
+                      className="welcome-recent-delete"
+                      title={t('common.delete')}
+                      aria-label={`${t('common.delete')} ${name}`}
+                      disabled={busy}
+                      onClick={() => setDeleteTarget({ id: p.id, name })}
+                    >
+                      <CloseIcon size={11} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
+        )}
 
-          <section className={`welcome-hardware card${envHasFail ? ' has-fail' : ''}`} aria-label={t('welcome.hardware.title')}>
-            <div className="env-strip">
-              <span className="env-dots" aria-hidden="true">
-                {envStates.map((s, i) => (
-                  <span key={i} className={`status-dot ${s === 'ok' ? 'status-dot-ok' : s === 'fail' ? 'status-dot-err' : 'status-dot-warn'}`} />
-                ))}
-              </span>
-              <span className="env-summary">
-                {envAllOk ? t('welcome.env.ok') : envHasFail ? t('welcome.env.issues') : t('welcome.env.checking')}
-              </span>
-            </div>
-            <div className="env-rows">
-              <HardwareRow
-                label={t('welcome.hardware.webgpu')}
-                state={hardware.webgpu}
-                detail={
-                  hardware.webgpu === 'ok'
-                    ? t('welcome.hardware.webgpu_available')
-                    : t('welcome.hardware.webgpu_unavailable')
-                }
-              />
-              <HardwareRow
-                label={t('welcome.hardware.gpu')}
-                state="ok"
-                detail={hardware.gpuName || t('common.unknown')}
-              />
-              <HardwareRow
-                label={t('welcome.hardware.wasm')}
-                state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
-                detail={
-                  hardware.wasm === 'loaded'
-                    ? t('welcome.hardware.wasm_loaded')
-                    : t('welcome.hardware.wasm_failed')
-                }
-              />
-              <HardwareRow
-                label={t('welcome.hardware.storage')}
-                state={hardware.storage}
-                detail={
-                  hardware.storage === 'ok'
-                    ? t('welcome.hardware.storage_available')
-                    : t('welcome.hardware.storage_unavailable')
-                }
-              />
-            </div>
-          </section>
-        </div>
+        {/* Mode selection lives in the workbench topbar switcher / empty
+            state; the welcome page keeps a single entry action instead. */}
 
-        <ToolGrid />
+        {/* Environment status: one permanent, non-collapsible strip with the
+            four checks side by side (dot + label + state colour). */}
+        <section className={`welcome-envbar${envHasFail ? ' has-fail' : ''}`} aria-label={t('welcome.hardware.title')}>
+          <EnvItem
+            label={t('welcome.hardware.webgpu')}
+            state={hardware.webgpu}
+            detail={
+              hardware.webgpu === 'ok'
+                ? t('welcome.hardware.webgpu_available')
+                : t('welcome.hardware.webgpu_unavailable')
+            }
+          />
+          <EnvItem
+            label={t('welcome.hardware.gpu')}
+            state="ok"
+            detail={hardware.gpuName || t('common.unknown')}
+            showDetail
+          />
+          <EnvItem
+            label={t('welcome.hardware.wasm')}
+            state={hardware.wasm === 'loaded' ? 'ok' : hardware.wasm === 'failed' ? 'fail' : 'pending'}
+            detail={
+              hardware.wasm === 'loaded'
+                ? t('welcome.hardware.wasm_loaded')
+                : t('welcome.hardware.wasm_failed')
+            }
+          />
+          <EnvItem
+            label={t('welcome.hardware.storage')}
+            state={hardware.storage}
+            detail={
+              hardware.storage === 'ok'
+                ? t('welcome.hardware.storage_available')
+                : t('welcome.hardware.storage_unavailable')
+            }
+          />
+        </section>
       </main>
 
       <input
@@ -430,7 +395,8 @@ export default function WelcomePage() {
         }}
       />
 
-      {/* webkitdirectory 需在 ref 回调里命令式设置（React JSX 不可靠）。 */}
+      {/* webkitdirectory must be set imperatively in the ref callback
+          (unreliable through React JSX attributes). */}
       <input
         ref={(el) => {
           folderInputRef.current = el;
@@ -458,6 +424,9 @@ export default function WelcomePage() {
           rel="noreferrer"
         >
           {t('welcome.footer.github')}
+        </a>
+        <a href="https://gitee.com/cnt-code/ergalics-studio" target="_blank" rel="noreferrer">
+          {t('welcome.footer.gitee')}
         </a>
         <a href={siteUrl()} target="_blank" rel="noreferrer">
           {t('welcome.footer.website')}
@@ -489,14 +458,28 @@ export default function WelcomePage() {
   );
 }
 
-function HardwareRow({ label, state, detail }: { label: string; state: 'pending' | 'ok' | 'fail'; detail: string }) {
+/** One check in the environment strip: dot + label (+ GPU name detail). The
+ *  full state text stays available to screen readers and as a hover tooltip
+ *  so the state never relies on colour alone. */
+function EnvItem({
+  label,
+  state,
+  detail,
+  showDetail = false,
+}: {
+  label: string;
+  state: 'pending' | 'ok' | 'fail';
+  detail: string;
+  showDetail?: boolean;
+}) {
   const dot =
     state === 'ok' ? 'status-dot-ok' : state === 'fail' ? 'status-dot-err' : 'status-dot-warn';
   return (
-    <div className="hardware-row">
-      <span className={`status-dot ${dot}`} />
-      <span className="hardware-label">{label}</span>
-      <span className="hardware-detail">{detail}</span>
-    </div>
+    <span className="env-item" title={detail}>
+      <span className={`status-dot ${dot}`} aria-hidden="true" />
+      <span className="env-item-label">{label}</span>
+      {showDetail && <span className="env-item-detail">{detail}</span>}
+      <span className="welcome-vh">{`${label}: ${detail}`}</span>
+    </span>
   );
 }

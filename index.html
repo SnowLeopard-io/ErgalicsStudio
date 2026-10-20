@@ -109,10 +109,13 @@
       (function () {
         try {
           var theme = localStorage.getItem('ergalics:theme');
-          var resolved = 'light';
+          // First visit defaults to the instrument-console dark look — must
+          // match src/theme/index.ts detectInitialPreference() or the app
+          // paints light and then snaps to dark after hydration.
+          var resolved = 'dark';
           if (theme === 'dark' || theme === 'light') {
             resolved = theme;
-          } else if (!theme || theme === 'system') {
+          } else if (theme === 'system') {
             resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
               ? 'dark'
               : 'light';

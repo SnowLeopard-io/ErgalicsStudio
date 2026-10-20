@@ -34,8 +34,9 @@ export interface ResearchTool {
   titleKey: string;
   descKey: string;
   group: ResearchGroupId;
-  /** Shown in the welcome launch grid + top-bar launcher. The general
-   *  "analyze" surface stays reachable via its own top-bar button. */
+  /** Shown in the top-bar launcher (the welcome-page launch grid was
+   *  removed). The general "analyze" surface stays reachable via its own
+   *  top-bar button. */
   inGrid: boolean;
   /** Project-bound tools show EmptyProject until a project is active. */
   requireProject: boolean;

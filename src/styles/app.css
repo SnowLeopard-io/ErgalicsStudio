@@ -6,9 +6,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(1100px 520px at 50% -10%, var(--color-accent-soft), transparent 70%),
-    var(--color-bg-primary);
+  background: var(--color-bg-primary);
 }
 
 .welcome-topbar,
@@ -42,6 +40,18 @@
   font-family: var(--font-mono);
   font-weight: 600;
   letter-spacing: 0.06em;
+}
+
+/* Dynamic package.json version, shown next to the brand on the welcome page. */
+.brand-version {
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-tertiary);
 }
 
 .topbar-actions {
@@ -188,8 +198,8 @@
   /* `safe` keeps content reachable when it overflows (plain center clips the
      hero under the fixed topbar and makes the overflow unscrollable). */
   justify-content: safe center;
-  gap: var(--space-6);
-  padding: var(--space-5);
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-5);
   overflow-y: auto;
 }
 
@@ -198,82 +208,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
-}
-
-.welcome-eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.24em;
-  color: var(--color-accent-text);
+  gap: var(--space-2);
 }
 
 .welcome-title {
-  font-size: var(--font-size-hero);
+  font-size: clamp(26px, 3vw, 34px);
   margin: 0;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .welcome-subtitle {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.welcome-version {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-  margin: 0;
-  font-family: var(--font-mono);
-}
-
-.welcome-signal {
-  width: min(480px, 80vw);
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
-  opacity: 0.7;
-  position: relative;
-  overflow: hidden;
-  margin-top: var(--space-3);
-}
-
-.welcome-signal::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  /* Theme-aware sweep highlight: a fixed white sheen was invisible on the
-     light theme's pale hero background. */
-  background: linear-gradient(90deg, transparent, var(--color-accent-soft), transparent);
-  transform: translateX(-100%);
-  animation: signal-sweep 2.6s ease-in-out infinite;
-}
-
-@keyframes signal-sweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.welcome-enter {
-  margin-top: var(--space-3);
-  padding: 11px 32px;
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  min-width: 200px;
-}
-
-.welcome-hardware {
-  min-width: 400px;
-  padding: var(--space-4) var(--space-5);
-  overflow: hidden;
+  margin: 0 0 var(--space-2);
 }
 
 .welcome-section-title {
@@ -295,33 +244,6 @@
   border-radius: 1px;
   background: var(--color-accent);
   transform: rotate(45deg);
-}
-
-.hardware-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  border-bottom: 1px dashed var(--color-border);
-  font-family: var(--font-mono);
-}
-
-.hardware-row:last-child {
-  border-bottom: none;
-}
-
-.hardware-label {
-  width: 88px;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-}
-
-.hardware-detail {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .welcome-footer {
@@ -3279,9 +3201,6 @@
   .right-panel {
     width: 240px;
   }
-  .welcome-title {
-    font-size: 32px;
-  }
 }
 
 @media (max-width: 720px) {
@@ -3315,10 +3234,6 @@
   }
   .workbench-body {
     position: relative;
-  }
-  .welcome-hardware {
-    min-width: 0;
-    width: 100%;
   }
 }
 
@@ -4785,25 +4700,163 @@
   outline: 1px solid var(--color-accent);
 }
 
-/* ---- Workbench mode quick-start cards (welcome page + workbench empty state) */
+/* ---- Workbench mode quick-start cards (workbench empty state) ------------ */
 
-/* Welcome page: quick-start modes and hardware status side by side. */
-.welcome-panels {
+/* ---- Welcome page: recent projects / mode pills / environment strip ------ */
+
+/* Compact recent-project rows (name + time + open; no thumbnail cards). */
+.welcome-recent {
+  width: min(560px, 92vw);
+}
+
+.welcome-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: var(--space-4);
-  width: min(1240px, 96vw);
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
 }
 
-.welcome-modes {
-  flex: 1 1 620px;
+.welcome-recent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  transition: background var(--transition-fast);
+}
+
+.welcome-recent-row + .welcome-recent-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.welcome-recent-row:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.welcome-recent-open {
+  flex: 1;
   min-width: 0;
-  padding: var(--space-4) var(--space-5);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
 }
 
-.welcome-panels .welcome-hardware {
-  flex: 0 1 400px;
+.welcome-recent-open:hover {
+  color: var(--color-accent);
+}
+
+.welcome-recent-open:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.welcome-recent-time {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.welcome-recent-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.welcome-recent-delete:hover {
+  color: var(--color-error);
+  background: var(--color-bg-hover);
+}
+
+/* Mode selection as a single-line segmented control (replaces the four
+   large mode cards on the welcome page; the shared mode cards remain in use
+   by the workbench empty state). */
+.welcome-modes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* One-line environment status strip: the four checks side by side, each a
+   dot + label (+ GPU name). Permanent — never collapsible. */
+.welcome-envbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  width: min(720px, 92vw);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  transition: border-color var(--transition-fast);
+}
+
+.welcome-envbar.has-fail {
+  border-color: var(--color-warning);
+}
+
+.env-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.env-item .status-dot {
+  flex-shrink: 0;
+}
+
+.env-item-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.env-item-detail {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* Screen-reader-only state text for env items (state never relies on
+   colour alone). */
+.welcome-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .central-empty-modes {
@@ -4889,21 +4942,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-@media (max-width: 900px) {
-  .welcome-panels {
-    flex-direction: column;
-    width: min(720px, 96vw);
-  }
-  /* In the stacked layout the 620px flex-basis on these cards resolves
-     against the block axis (height), inflating each card far beyond its
-     content. Let height track content and stretch width instead. */
-  .welcome-panels .welcome-modes,
-  .welcome-panels .welcome-hardware {
-    flex: none;
-    width: 100%;
-  }
 }
 
 /* ==========================================================================
@@ -5375,7 +5413,7 @@
   color: var(--color-text-primary);
 }
 
-/* ---- Welcome: start action cards ----------------------------------------- */
+/* ---- Welcome: CTA row + quiet secondary links ----------------------------- */
 
 .welcome-cta-row {
   display: flex;
@@ -5386,8 +5424,10 @@
   flex-wrap: wrap;
 }
 
-.welcome-cta-row .welcome-enter {
-  margin-top: 0;
+/* The primary action carries the most visual weight on the page. */
+.welcome-cta-row .btn-primary {
+  padding: 10px 28px;
+  font-weight: 600;
 }
 
 .welcome-cta-row .btn {
@@ -5396,127 +5436,41 @@
   gap: 6px;
 }
 
-.welcome-start {
-  display: grid;
-  /* auto-fit keeps the 4 start cards (blank / recent / samples / templates)
-     balanced on wide screens and wraps cleanly on narrow ones. */
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-4);
-  width: min(1240px, 96vw);
-}
-
-.start-card {
+/* Low-weight secondary entries (open folder / browse examples) under the
+   CTA row — clickable but visually quiet. */
+.welcome-quiet-row {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  transition: border-color var(--transition-fast), transform var(--transition-fast),
-    box-shadow var(--transition-fast), background var(--transition-fast);
-}
-
-button.start-card:hover {
-  border-color: var(--color-accent);
-  background: var(--color-bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
-}
-
-.start-card[aria-disabled='true'] {
-  opacity: 0.6;
-}
-
-.start-card-icon {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-.start-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.start-card-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.start-card-desc {
+  gap: var(--space-3);
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-  line-height: 1.5;
 }
 
-.start-recent-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.start-recent-item {
+.welcome-quiet-link {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 5px 3px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  max-width: 240px;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
-}
-
-.start-recent-item:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent-text);
-}
-
-.start-recent-open {
+  gap: 5px;
   padding: 0;
   border: none;
   background: none;
-  color: inherit;
   font: inherit;
-  cursor: pointer;
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.start-recent-delete {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
+  transition: color var(--transition-fast);
 }
 
-.start-recent-delete:hover {
-  color: #e5484d;
-  background: rgba(229, 72, 77, 0.15);
+.welcome-quiet-link:hover {
+  color: var(--color-accent);
+}
+
+.welcome-quiet-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.welcome-quiet-sep {
+  color: var(--color-border-strong);
 }
 
 /* ---- FR-01: subject template browser + guided tour ----------------------- */
@@ -5738,181 +5692,6 @@ button.start-card:hover {
   margin-left: auto;
 }
 
-/* ---- Welcome: collapsed environment strip -------------------------------- */
-
-.welcome-hardware.has-fail {
-  border-color: var(--color-warning);
-}
-
-.env-strip {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: 2px 0;
-  color: var(--color-text-secondary);
-}
-
-.env-dots {
-  display: inline-flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.env-summary {
-  flex: 1;
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.env-rows {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-/* ---- Welcome: research tool launch grid ---------------------------------- */
-
-.welcome-tools {
-  width: min(1240px, 96vw);
-  padding: var(--space-4) var(--space-5);
-}
-
-.welcome-tools-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
-
-.welcome-tools-head .welcome-section-title {
-  margin: 0;
-}
-
-.welcome-tools-filter {
-  width: 240px;
-  max-width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-secondary);
-  margin-bottom: 0;
-  padding: 2px 10px;
-}
-
-.tool-grid-group + .tool-grid-group {
-  margin-top: var(--space-4);
-}
-
-.tool-grid-label {
-  margin: 0 0 var(--space-2);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--color-text-tertiary);
-}
-
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: var(--space-2);
-}
-
-.tool-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--transition-fast), transform var(--transition-fast),
-    box-shadow var(--transition-fast), background var(--transition-fast);
-}
-
-.tool-card:hover {
-  border-color: var(--color-accent);
-  background: var(--color-bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
-}
-
-.tool-card:active {
-  transform: translateY(0);
-}
-
-.tool-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.tool-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  transition: transform var(--transition-base);
-}
-
-/* The icon eases forward as the card lifts — a small "signal coming online". */
-.tool-card:hover .tool-card-icon {
-  transform: scale(1.08);
-}
-
-.tool-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.tool-card-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-card-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.tool-card > svg {
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-}
-
-.tool-grid-empty {
-  margin: var(--space-4) 0;
-  text-align: center;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
 /* ---- Responsive: topbar overflow, tool chrome, welcome stacking ---------- */
 
 @media (max-width: 1180px) {
@@ -5924,16 +5703,6 @@ button.start-card:hover {
   }
   .project-name {
     max-width: 150px;
-  }
-}
-
-@media (max-width: 900px) {
-  .welcome-start {
-    grid-template-columns: 1fr;
-    width: min(720px, 96vw);
-  }
-  .tool-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 
@@ -5951,11 +5720,12 @@ button.start-card:hover {
   .tool-content {
     padding: var(--space-3);
   }
-  .tool-grid {
-    grid-template-columns: 1fr;
-  }
-  .welcome-tools-filter {
+  .welcome-recent,
+  .welcome-envbar {
     width: 100%;
+  }
+  .welcome-envbar {
+    border-radius: var(--radius-md);
   }
 }
 
@@ -7077,6 +6847,29 @@ button.start-card:hover {
   }
 }
 
+/* 展开入场：收拢的镜像。wrap 挂载时从 0 宽度展开到内联目标宽度（keyframe
+   只写 from，to 取计算样式），内容同样冻结自身宽度被裁剪展开，与收拢的
+   “推拉门”观感对称。仅 Sidebar 使用；页面首挂载也会播放一次，作为侧栏
+   入场。 */
+.panel-wrap-opening {
+  overflow: hidden;
+  animation: panel-expand 0.22s var(--ease-out);
+}
+
+@keyframes panel-expand {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+}
+
+/* 展开期间与收拢共用同一冻结规则：内容保持自身宽度，只被裁剪不回绕。 */
+.panel-wrap-opening > .sidebar,
+.panel-wrap-opening > .right-panel {
+  flex: 0 0 auto;
+  width: var(--panel-closing-width, var(--sidebar-width));
+}
+
 .panel-wrap > .sidebar,
 .panel-wrap > .right-panel {
   flex: 1;
@@ -8042,6 +7835,15 @@ button.start-card:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Opaque mask: the old canvas stays mounted underneath the tool tab panes,
+     so a transparent fallback would let stale content bleed through while
+     the lazy chunk loads. */
+  background: var(--color-bg-primary);
+}
+
+/* Same rationale for the file-preview loading placeholder. */
+.central-file-loading {
+  background: var(--color-bg-primary);
 }
 
 /* 顶部标签条：文件名 + 只读标记 + 关闭。 */
