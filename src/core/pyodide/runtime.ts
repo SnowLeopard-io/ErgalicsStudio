@@ -10,6 +10,8 @@
 
 import { PyodideClient, type PyodideClientOptions } from './pyodide-client';
 import type { VariableSnapshot } from './protocol';
+import { IS_DESKTOP } from '../platform';
+import { DesktopPythonClient } from '../platform/desktop-python-client';
 import { createDataTable, type DataValue } from '@/types/datatable';
 import type { VizPayload } from '@/blocks/catalog/visualize';
 import { renderView, type ViewRenderHost } from '@/blocks/render';
@@ -52,22 +54,10 @@ export interface CodeRuntimeHost extends PyodideClientOptions {
 export function createCodeRuntime(host: CodeRuntimeHost) {
   const store = host; // host carries the store plumbing + pyodide callbacks
 
-  const runtime = new PyodideClient({
-    indexURL: store.indexURL,
-    loadPackages: store.loadPackages,
-    onStdout: store.onStdout,
-    onStderr: store.onStderr,
-    onNotify: store.onNotify,
-    onPlot: (payload: VizPayload) => {
-      const view = {
-        kind: 'rendered-view' as const,
-        id: payload.pluginId,
-        viewType: payload.pluginId,
-        data: payload,
-      };
-      void renderView(view, { activate: store.activatePlugin });
-    },
-  });
+  // Desktop edition: prefer the real CPython channel when the Electron bridge
+  // is present. Falls back to Pyodide transparently on the web (IS_DESKTOP is
+  // a compile-time-stable runtime constant — same code ships to both).
+  const runtime = createPlatformRuntime(store);
 
   /** Run a program, converting the snapshot into panel DataValue. */
   async function runPython(
@@ -95,3 +85,41 @@ export function createCodeRuntime(host: CodeRuntimeHost) {
 }
 
 export type CodeRuntime = ReturnType<typeof createCodeRuntime>;
+
+/**
+ * Runtime factory shared by both editions: real CPython over IPC inside the
+ * desktop shell, the Pyodide worker everywhere else. Both implementations
+ * satisfy the narrow {runPython, repl, interrupt, dispose} contract consumed
+ * by createCodeRuntime.
+ */
+function createPlatformRuntime(
+  store: CodeRuntimeHost,
+): PyodideClient | DesktopPythonClient {
+  const onPlot = (payload: VizPayload) => {
+    const view = {
+      kind: 'rendered-view' as const,
+      id: payload.pluginId,
+      viewType: payload.pluginId,
+      data: payload,
+    };
+    void renderView(view, { activate: store.activatePlugin });
+  };
+
+  if (IS_DESKTOP) {
+    return new DesktopPythonClient({
+      loadPackages: store.loadPackages,
+      onStdout: store.onStdout,
+      onStderr: store.onStderr,
+      onNotify: store.onNotify,
+    });
+  }
+
+  return new PyodideClient({
+    indexURL: store.indexURL,
+    loadPackages: store.loadPackages,
+    onStdout: store.onStdout,
+    onStderr: store.onStderr,
+    onNotify: store.onNotify,
+    onPlot,
+  });
+}

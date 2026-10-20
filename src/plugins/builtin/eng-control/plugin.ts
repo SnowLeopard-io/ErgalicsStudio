@@ -91,12 +91,12 @@ function fmtTick(v: number): string {
 }
 
 /** Axes frame with in-frame title, x label (below right) and rotated y label. */
-function drawFrame(g: CanvasRenderingContext2D, r: Rect, title: string, xLabel: string, yLabel: string, showX: boolean): void {
+function drawFrame(g: CanvasRenderingContext2D, r: Rect, title: string, xLabel: string, yLabel: string, showX: boolean, zh: boolean): void {
   g.strokeStyle = 'rgba(120,140,165,0.55)';
   g.lineWidth = 1;
   g.strokeRect(r.x, r.y, r.w, r.h);
   g.fillStyle = 'rgba(230,238,248,0.95)';
-  g.font = '11px Consolas, monospace';
+  g.font = `11px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
   g.textAlign = 'left';
   g.textBaseline = 'alphabetic';
   g.fillText(title, r.x + 6, r.y + 14);
@@ -685,7 +685,7 @@ export class EngControlPlugin implements Plugin {
     const mapX = (t: number): number => r.x + ((t - 0) / p.tEnd) * r.w;
     const mapY = (v: number): number => r.y + r.h - ((v - yLo) / (yHi - yLo)) * r.h;
 
-    drawFrame(g, r, zh ? '阶跃响应（RK4）' : 'Step response (RK4)', 't (s)', 'y', showXLabels);
+    drawFrame(g, r, zh ? '阶跃响应（RK4）' : 'Step response (RK4)', 't (s)', 'y', showXLabels, zh);
 
     // Gridlines.
     g.strokeStyle = 'rgba(255,255,255,0.06)';
@@ -788,7 +788,7 @@ export class EngControlPlugin implements Plugin {
     if (!compact) {
       let ly = r.y + 16;
       const lx = r.x + r.w - 96;
-      g.font = '10px Consolas, monospace';
+      g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
       g.textAlign = 'left';
       g.strokeStyle = 'rgba(90,190,255,0.95)';
       g.lineWidth = 2;
@@ -859,7 +859,7 @@ export class EngControlPlugin implements Plugin {
     const mapY = (v: number): number => r.y + r.h - ((v - vLo) / (vHi - vLo)) * r.h;
 
     const title = which === 'mag' ? (zh ? 'Bode 幅值 |T|' : 'Bode magnitude |T|') : zh ? 'Bode 相位 ∠T' : 'Bode phase ∠T';
-    drawFrame(g, r, title, 'ω (rad/s, log)', which === 'mag' ? '|T| (dB)' : '∠T (°)', showXLabels);
+    drawFrame(g, r, title, 'ω (rad/s, log)', which === 'mag' ? '|T| (dB)' : '∠T (°)', showXLabels, zh);
 
     // Decade gridlines.
     g.lineWidth = 1;

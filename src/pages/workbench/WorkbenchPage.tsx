@@ -21,6 +21,9 @@ import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
 import { TourGuide } from '@/components/TourGuide';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
+// Styles for the desktop-only terminal drawer (shell is styled before the
+// lazy panel chunk below resolves).
+import '@/components/terminal/terminal.css';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
 // Standard/Flow first paint is unaffected (editor architecture §1.1).
@@ -31,6 +34,15 @@ const CodeEditor = lazy(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 
+// Desktop-only embedded terminal (D2.5): lazy so the web edition never
+// fetches or executes any xterm code. Only mounted while the drawer is open;
+// unmounting kills the PTY sessions and disposes the xterm instances.
+// Terminal drawer temporarily decommissioned: re-enable by restoring the
+// lazy import below plus the drawer mount at the bottom of this component.
+// const TerminalPanel = lazy(() =>
+//   import('@/components/terminal/TerminalPanel').then((m) => ({ default: m.TerminalPanel })),
+// );
+
 /** Process-wide guard: the project restore must run once per page load even
  *  under React StrictMode (which mounts/unmounts/remounts in dev). */
 let restoreStarted = false;
@@ -39,6 +51,10 @@ export default function WorkbenchPage() {
   const mode = useAppStore((s) => s.mode);
   const t = useT();
   const location = useLocation();
+
+  // Bottom terminal drawer (desktop only — the activity-bar toggle that flips
+  // this is hidden on the web edition, so this never turns true there).
+  // const [terminalOpen, setTerminalOpen] = useState(false);
 
   // Welcome-page mode cards arrive with { state: { setMode } } — apply once
   // and consume the state so a refresh keeps whatever mode the user chose.
@@ -125,6 +141,18 @@ export default function WorkbenchPage() {
           </Suspense>
         </ErrorBoundary>
       </div>
+      {/* Desktop terminal drawer (D2.5) is temporarily decommissioned:
+          re-enable by restoring the terminalOpen state, the lazy
+          TerminalPanel import and this drawer mount. */}
+      {/* {terminalOpen && (
+        <div className="terminal-drawer">
+          <Suspense
+            fallback={<div className="terminal-drawer-loading"><span className="spinner" /></div>}
+          >
+            <TerminalPanel />
+          </Suspense>
+        </div>
+      )} */}
       <ErrorBoundary>
         <StatusBar />
       </ErrorBoundary>

@@ -17,6 +17,9 @@ interface ActivityItem {
   Icon: typeof FolderOpenIcon;
 }
 
+// Terminal drawer toggle props were removed while the desktop terminal is
+// temporarily decommissioned; restore ActivityBarProps when re-enabling.
+
 export function ActivityBar() {
   const t = useT();
   const sidebarView = useAppStore((s) => s.sidebarView);

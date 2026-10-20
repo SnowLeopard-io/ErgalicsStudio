@@ -25,6 +25,7 @@
 
 import { initGpu } from './gpu';
 import { wasmStatus } from './wasm';
+import { initDesktopPlatform } from './platform/bootstrap';
 
 export type BootStep = 'modules' | 'engine' | 'plugins';
 export type BootOutcome = 'ready' | 'failed' | 'timeout';
@@ -58,6 +59,11 @@ export async function runBoot(opts: BootOptions = {}): Promise<BootOutcome> {
   }, timeoutMs);
 
   try {
+    // --- 0. platform adapters ---------------------------------------------
+    // Inside Electron this swaps in the IPC-backed git adapter (simple-git)
+    // and marks the real-Python channel as preferred. No-op on the web.
+    initDesktopPlatform();
+
     // --- 1. core modules -------------------------------------------------
     onStep?.('modules');
     await waitForWindowLoad();

@@ -112,7 +112,9 @@ export function StatusBar() {
 
   return (
     <footer className="statusbar">
-      <div className={`statusbar-left${projectStatus === 'error' ? ' statusbar-error' : ''}`}>{leftText}</div>
+      <div className={`statusbar-left${projectStatus === 'error' ? ' statusbar-error' : ''}`}>
+        {leftText}
+      </div>
       {/* The progress strip runs *alongside* the perf chips, never instead of
           them: a long computation is exactly when the backend and frame rate
           have to stay readable (the previous exclusive branch blanked both). */}

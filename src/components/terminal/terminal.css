@@ -1,0 +1,149 @@
+/* ==========================================================================
+   Ergalics Studio — embedded terminal drawer (desktop edition, D2.5)
+   Imported statically by the workbench so the drawer shell is styled before
+   the lazy panel chunk resolves. Colors reuse the global palette variables.
+   ========================================================================== */
+
+/* Bottom drawer slot between the workbench body and the status bar. */
+.terminal-drawer {
+  height: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+.terminal-drawer-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- panel layout: tab strip on top, session bodies below ---- */
+
+.terminal-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-tabbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 32px;
+  padding: 0 var(--space-2);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  overflow-x: auto;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 200px;
+  flex-shrink: 0;
+  padding-left: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.terminal-tab.is-active {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+}
+
+.terminal-tab.is-exited .terminal-tab-btn {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.terminal-tab-btn {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.terminal-tab.is-active .terminal-tab-btn {
+  color: var(--color-text-primary);
+}
+
+.terminal-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-tab-close,
+.terminal-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.terminal-tab-close:hover,
+.terminal-tab-add:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* Push the "new session" button to the far end of the tab strip. */
+.terminal-tab-add {
+  margin-left: auto;
+}
+
+.terminal-tab-body {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.terminal-tab-body.is-active {
+  display: flex;
+}
+
+.terminal-session {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+/* Let the terminal surface fill the residual space below the last row. */
+.terminal-session .xterm {
+  height: 100%;
+}
+
+.terminal-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
