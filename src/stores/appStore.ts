@@ -429,7 +429,10 @@ export const useAppStore = create<AppStore>((set, get) => {
   setSidebarView: (view) => {
     const s = get();
     if (view === s.sidebarView && s.sidebarOpen) {
-      s.toggleSidebar();
+      // Don't flip sidebarOpen here: the Sidebar component listens for this
+      // event and plays its panel-collapse exit animation before toggling,
+      // so collapsing via the activity bar animates like the edge button.
+      window.dispatchEvent(new CustomEvent('ergalics:collapse-sidebar'));
       return;
     }
     set((st) => {

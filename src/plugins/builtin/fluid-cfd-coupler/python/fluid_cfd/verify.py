@@ -87,6 +87,10 @@ def case_b_config() -> dict:
     t=0; otherwise ``valve_opening`` would return the first event's opening
     (20%) before 40ms and the "open" sampling band would actually measure a
     throttled flow, flipping the throttle ratio negative.
+
+    The tank model is pinned to ``adiabatic_blowdown=False``: the archived
+    bench was generated with the default branch when it was still inert
+    (isothermal behaviour), so the pin reproduces the archived numbers.
     """
     events = [(0.000, 1.00, 0.0),  # fully open at t=0
               (0.040, 0.20, 0.0),  # rapid close at 40ms  (step)
@@ -99,6 +103,7 @@ def case_b_config() -> dict:
             throat_area=1.0e-4,
             discharge_coeff=0.96,
             valve_events=list(events),
+            adiabatic_blowdown=False,
         ),
         "dom": DomainConfig(nx=10, ny=10, nz=10, length=0.12,
                             diffusivity=1.5e-4, advection=0.05),
@@ -114,6 +119,9 @@ def case_c_config() -> dict:
     The reverse-coupling branch engages ~40× more strongly than Case A
     (back-pressure excursion tens of Pa vs ~0.5 Pa, non-zero interface error),
     demonstrating the same kernels across a different field/boundary regime.
+    The tank model is pinned to ``adiabatic_blowdown=False``: the archived
+    bench was generated with the default branch when it was still inert
+    (isothermal behaviour), so the pin reproduces the archived numbers.
     """
     return {
         "net": NetworkConfig(
@@ -123,6 +131,7 @@ def case_c_config() -> dict:
             throat_area=3.0e-4,
             discharge_coeff=0.97,
             valve_events=None,
+            adiabatic_blowdown=False,
         ),
         "dom": DomainConfig(nx=8, ny=8, nz=8, length=0.08,
                             diffusivity=5.0e-3, advection=0.01,
@@ -142,6 +151,9 @@ def case_d_config() -> dict:
     flow is insensitive to it), so the reverse-coupling branch is exercised in
     the regime the competition cares about.  The outlet flow is compared to the
     literature isentropic subsonic relation ``analytic.nozzle_subsonic_flow``.
+    The tank model is pinned to ``adiabatic_blowdown=False``: the archived
+    bench was generated with the default branch when it was still inert
+    (isothermal behaviour), so the pin reproduces the archived numbers.
     """
     return {
         "net": NetworkConfig(
@@ -151,6 +163,7 @@ def case_d_config() -> dict:
             throat_area=6.0e-5,
             discharge_coeff=0.98,
             valve_events=None,
+            adiabatic_blowdown=False,
         ),
         "dom": DomainConfig(nx=10, ny=10, nz=10, length=0.12,
                             diffusivity=1.0e-4, advection=0.04, initial=1.0e5),
@@ -495,8 +508,11 @@ def min_feasible_exchange_period(latency_budget_ms: float = 1.0,
     candidates_ms = [0.25, 0.5, 1.0, 2.0, 4.0]
     rows = []
     for p in candidates_ms:
+        # isothermal pin: archived bench numbers (trade_off / min_exchange)
+        # were produced by the then-inert default branch, i.e. isothermal.
         net_cfg = NetworkConfig(volume=0.05, p0_init=5e5, t0_init=320,
-                                throat_area=8e-5, discharge_coeff=0.98)
+                                throat_area=8e-5, discharge_coeff=0.98,
+                                adiabatic_blowdown=False)
         dom_cfg = DomainConfig(nx=8, ny=8, nz=8, length=0.10)
         cpl_cfg = CouplerConfig(dt1d=dt1d, dt3d=dt3d, t_end=t_end,
                                 exchange_period=float(p) * 1e-3)
@@ -603,6 +619,7 @@ def sensitivity_case_a() -> dict:
             throat_area=net_cfg.throat_area, discharge_coeff=cd,
             valve_events=net_cfg.valve_events, gamma=net_cfg.gamma,
             r_specific=net_cfg.r_specific,
+            adiabatic_blowdown=net_cfg.adiabatic_blowdown,
         )
         p_s = _blowdown_1d_uncoupled(n2, tf, 1e5)
         p_a = _analytical_blowdown(n2, tf)
@@ -659,8 +676,11 @@ def trade_off() -> list[dict]:
     periods = np.array([0.5, 1.0, 2.0, 3.5, 5.0]) * 1e-3
     lats, errs = [], []
     for p in periods:
+        # isothermal pin: archived bench numbers (trade_off / min_exchange)
+        # were produced by the then-inert default branch, i.e. isothermal.
         net_cfg = NetworkConfig(volume=0.05, p0_init=5e5, t0_init=320,
-                                throat_area=8e-5, discharge_coeff=0.98)
+                                throat_area=8e-5, discharge_coeff=0.98,
+                                adiabatic_blowdown=False)
         dom_cfg = DomainConfig(nx=8, ny=8, nz=8, length=0.10)
         cpl_cfg = CouplerConfig(dt1d=1e-3, dt3d=1.5e-4, t_end=0.08,
                                 exchange_period=float(p))

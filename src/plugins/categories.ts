@@ -156,6 +156,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.eng-circuit': 'engineering',
   'example.eng-truss': 'engineering',
   'example.eng-control': 'engineering',
+  'example.fem-lab': 'engineering',
 
   // Biology
   'example.protein': 'bio',

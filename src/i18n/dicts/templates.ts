@@ -6,8 +6,6 @@
 import type { LocaleDictionary } from '../types';
 
 export const templatesZh: LocaleDictionary = {
-  'tpl.entry': '从模板开始',
-  'tpl.entry_desc': '按学科挑选真实研究场景，一键载入数据与引导',
   'tpl.browse_title': '学科模板库',
   'tpl.browse_desc': '每个模板自带示例数据与逐步引导，从真实研究问题出发完成第一次分析',
   'tpl.filter.all': '全部学科',
@@ -39,8 +37,6 @@ export const templatesZh: LocaleDictionary = {
 };
 
 export const templatesEn: LocaleDictionary = {
-  'tpl.entry': 'Start from a template',
-  'tpl.entry_desc': 'Pick a real research scenario by subject — data and guidance load in one click',
   'tpl.browse_title': 'Subject Template Library',
   'tpl.browse_desc': 'Every template ships with example data and a step-by-step tour: finish your first analysis starting from a real research question',
   'tpl.filter.all': 'All subjects',
