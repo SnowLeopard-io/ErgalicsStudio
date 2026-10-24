@@ -85,6 +85,7 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "argparse": "2.0.1"
+    "argparse": "2.0.1",
+    "undici": "7.30.1"
   }
 }
