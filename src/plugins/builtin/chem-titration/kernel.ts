@@ -158,6 +158,9 @@ export function equivalenceVolume(a: AcidSpec): number {
 
 /** Full pH(V) titration curve from v = 0 to vMax. */
 export function titrationCurve(a: AcidSpec, opts: CurveOptions = {}): TitrationPoint[] {
+  if (!(a.baseConc > 0)) {
+    throw new Error('Base concentration must be positive (no equivalence volume exists otherwise)');
+  }
   const steps = Math.max(2, Math.floor(opts.steps ?? 400));
   const vEq = equivalenceVolume(a);
   const vMax = opts.vMax ?? 2 * vEq;

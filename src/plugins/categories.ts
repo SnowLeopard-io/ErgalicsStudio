@@ -86,6 +86,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.particles': 'physics',
   'example.nbody': 'physics',
   'example.fluid': 'physics',
+  'example.fluid3d': 'physics',
   'example.wave': 'physics',
   'example.pendulum': 'physics',
   'example.electromag': 'physics',
@@ -110,6 +111,8 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'fx.cloud': 'fx',
   'fx.sky': 'fx',
   'fx.stars': 'fx',
+  'fx.ocean': 'fx',
+  'fx.misty': 'fx',
 
   // Chemistry
   'example.chem-crystal': 'chem',
@@ -153,6 +156,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.eng-circuit': 'engineering',
   'example.eng-truss': 'engineering',
   'example.eng-control': 'engineering',
+  'example.fem-lab': 'engineering',
 
   // Biology
   'example.protein': 'bio',

@@ -400,7 +400,9 @@ export class GeoMapPlugin implements Plugin {
     let maxY = -Infinity;
     const proj = (lon: number, lat: number): [number, number] => {
       if (useAlbers) return albersProject(lon, lat);
-      return useMercator ? [lon, GeoMapPlugin.projY(lat)] : [lon, lat];
+      // Both axes in radians: longitude π/180 scaling matches the Mercator
+      // y = ln(tan(π/4 + φ/2)) unit, otherwise latitude is squashed ~57×.
+      return useMercator ? [(lon * Math.PI) / 180, GeoMapPlugin.projY(lat)] : [lon, lat];
     };
     for (const f of this.features) {
       for (const ring of f.polygons) {

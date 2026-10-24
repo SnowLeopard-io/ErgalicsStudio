@@ -88,6 +88,22 @@ const TEAM: TeamMember[] = [
     roleKey: 'about.team_dev3_role',
     introKey: 'about.team_dev3_intro',
   },
+  {
+    name: 'zspro',
+    giteeName: 'yspro',
+    github: 'https://github.com/zspro',
+    gitee: 'https://gitee.com/yspro',
+    roleKey: 'about.team_dev3_role',
+    introKey: 'about.team_dev3_intro',
+  },
+  {
+    name: 'skyfireitdiy',
+    giteeName: 'skyfireitdiy',
+    github: 'https://github.com/skyfireitdiy',
+    gitee: 'https://gitee.com/skyfireitdiy',
+    roleKey: 'about.team_dev3_role',
+    introKey: 'about.team_dev3_intro',
+  },
 ];
 
 export default function SettingsPage({ embedded = false }: { embedded?: boolean } = {}) {

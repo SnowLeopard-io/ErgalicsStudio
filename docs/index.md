@@ -40,13 +40,13 @@ features:
     details: "A Rust core compiles WGSL kernels with real bind-group layouts, dispatches workgroups, and reports shader diagnostics."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 4-3.5 3.5L9 7z"/><path d="M10 8.5V5"/><path d="M5.5 21 10 15.5l2-3.4 2 3.4L18.5 21z"/></svg>' }
     title: Testable by design
-    details: "2338 unit tests (Vitest) across 131 files plus Playwright E2E suites, all wired into npm scripts and CI."
+    details: "2868 unit tests (Vitest) across 175 files plus Playwright E2E suites, all wired into npm scripts and CI."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.8 3.8 9S14.5 18.4 12 21M12 3c-2.5 2.6-3.8 5.8-3.8 9S9.5 18.4 12 21"/></svg>' }
     title: i18n & theming
     details: "Chinese/English localization with reactive switching (and Blockly BKY_* keys for Block mode), and dark/light themes driven by CSS variables."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 15l3-3 2 2 4-5"/><path d="M12 3v18"/></svg>' }
     title: Research toolset
-    details: "20 standalone research tools (测量、建模、数据、信号、交付), embeddable as workbench tabs; Figure Studio publication plots, reproducibility lockfiles, and a teacher/student course mode."
+    details: "26 standalone research tools (测量、建模、数据、信号、交付、实用工具), embeddable as workbench tabs; Figure Studio publication plots, reproducibility lockfiles, and a teacher/student course mode."
   - icon: { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' }
     title: Scientific solvers
     details: "A sparse Hermitian eigensolver (Lanczos / LOBPCG / Jacobi-Davidson) and a 1D–3D bidirectional fluid-network coupler — both GPU/WASM-backed with Pyodide worker runtimes."

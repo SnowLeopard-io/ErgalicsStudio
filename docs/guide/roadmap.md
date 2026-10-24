@@ -17,7 +17,7 @@ state, not aspirational designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 38 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 42 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
 | Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 40 built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | Done      |

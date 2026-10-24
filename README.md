@@ -72,7 +72,7 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **108 built-in plugins (98 scientific auto-load + 10 fun manual) across 16 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 143 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
@@ -101,7 +101,7 @@ What ships today:
 
 | Capability | Details |
 | --- | --- |
-| **108 built-in plugins** | (98 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **16 disciplines** in the sidebar (charts / stats / math / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
+| **111 built-in plugins** | (101 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **16 disciplines** in the sidebar (charts / stats / math / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -203,14 +203,14 @@ flowchart TB
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
-        D1["Catalog (38 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
+        D1["Catalog (42 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["Compiler<br/>pure functions · validate ports/types<br/>topo sort · diagnostics"]
         D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free)"]
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (98 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (101 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -252,7 +252,7 @@ flowchart TB
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
 │   ├── blocks/               #   block system (Flow mode): types · registry · compiler ·
-│   │                         #     executor · ops · catalog (38 blocks) · sample · l10n · render
+│   │                         #     executor · ops · catalog (42 blocks) · sample · l10n · render
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   flow canvas / block & code canvas / workbench shell /
@@ -261,7 +261,7 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils)
-│   ├── plugins/builtin/      #   108 plugins: 98 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   111 plugins: 101 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -282,7 +282,7 @@ for "I already know the plugin; I just need to point it at a file".
 
 ![Standard mode — drop a file, see a visualisation](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**Flow mode** — compose a visual dataflow **pipeline** from **38 built-in
+**Flow mode** — compose a visual dataflow **pipeline** from **42 built-in
 blocks** (data_source / transform / filter / math / statistics / units /
 visualize / plot) and run it. Left palette, central canvas (nodes + edges),
 right per-node parameter editor, bottom live result preview that adapts to
@@ -303,7 +303,7 @@ only entry point. Block JSON round-trips with a **shared IR**
 blocks, so `studio.plot(...)` lands on the same scatter plugin; IR → JS /
 Python codegen is live-visible. Blockly 13 provides the canvas and is
 **lazily loaded** (~828 KB on-demand chunk); i18n plugs into Blockly's
-`BKY_*` keys. Ships 38 blocks and 5 sample programs. See
+`BKY_*` keys. Ships 42 blocks and 5 sample programs. See
 [`docs/guide/block-mode.md`](docs/guide/block-mode.md).
 
 ![Block mode — a "Run" hat block kicks off a program that loads telemetry, normalizes, and plots](docs/assets/screenshots/platform/mode-block.png)
@@ -446,7 +446,7 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**98 scientific plugins** auto-load at startup, grouped into **16
+**101 scientific plugins** auto-load at startup, grouped into **16
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
@@ -615,7 +615,7 @@ examples dialog:
 | AI Trainer | AI 训练 | TF.js regression / classification training with live loss curves and visualizations. |
 | Image Processing | 图像处理 | 2-D FFT, convolution, Gaussian blur, Sobel edges and histogram equalisation. |
 
-**Effects Rendering (5)**
+**Effects Rendering (7)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -624,6 +624,8 @@ examples dialog:
 | Volumetric Clouds · Sky Renderer | 体积云 · 天空渲染器 | Raymarched clouds with Beer–Lambert extinction and Henyey–Greenstein scattering. |
 | Daylight Sky · Atmosphere | 日光天空 · 大气散射 | Nishita-style analytic atmosphere: Rayleigh + Mie, twilight, limb-darkened sun. |
 | Starfield · Night Sky | 星空 · 夜天渲染器 | Procedural stars, a galactic-plane Milky Way, sidereal rotation and a Bortle light-pollution model. |
+| Ocean Swell · Sunrise & Sunset | 波浪海面 · 日升日落 | Gerstner wave trains from a discretised Pierson–Moskowitz spectrum, two-lobe sun path, Schlick-Fresnel water body and marine haze. |
+| Misty Peaks · Layered Ridges | 雾锁青山 · 叠嶂云海 | Near-to-far ridged-noise ridge silhouettes, sun-lit, dissolved by aerial perspective and a Koschmieder-visibility mist band. |
 
 **Fun & utility (10, all `autoload: false`, loaded on demand from the
 built-in panel or marketplace)**
@@ -1177,7 +1179,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**2813 tests across 173 files** (2 skipped without a GPU), covering:
+**2868 tests across 175 files** (2 skipped without a GPU), covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync
@@ -1233,7 +1235,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
-- [x] 108 built-in plugins (98 scientific auto-load + 10 fun manual) across 16 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
@@ -1241,7 +1243,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Send-to-Figure-Studio linkage across all research-grade plugin suites (physics / chem / bio / env / geo / math / stats / econ / psych / astro / data / engineering + both solvers)
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
-- [x] Flow mode (compiler + incremental executor + 38 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
+- [x] Flow mode (compiler + incremental executor + 42 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
 - [x] 26 standalone research tools in 6 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas

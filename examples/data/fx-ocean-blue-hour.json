@@ -1,0 +1,17 @@
+{
+  "name": "Blue hour before dawn (equatorial Pacific)",
+  "hourUTC": 15.3,
+  "latitude": 2.0,
+  "longitude": -150.0,
+  "windSpeed": 6,
+  "windDirDeg": 285,
+  "waveScale": 1,
+  "choppiness": 0.45,
+  "waveDetail": 0.3,
+  "glitter": 0.6,
+  "haze": 0.4,
+  "exposure": 2,
+  "waveMotion": true,
+  "autoDay": false,
+  "autoOrbit": false
+}

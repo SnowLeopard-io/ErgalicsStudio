@@ -459,8 +459,10 @@ export default function InferenceForgePage() {
                   {
                     kind: 'inference-forge',
                     savedAt: new Date().toISOString(),
-                    template: kind,
-                    algorithm,
+                    // Freeze the artifact header to the run's own context —
+                    // the live form state may already have been changed.
+                    template: outcome.ctx.kind,
+                    algorithm: outcome.ctx.algorithm,
                     params: outcome.params,
                     summary: outcome.result.summary,
                     diagnostics: outcome.result.diagnostics,

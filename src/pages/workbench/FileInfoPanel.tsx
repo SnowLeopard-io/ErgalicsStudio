@@ -64,7 +64,9 @@ export function FileInfoPanel({ preview }: { preview: FilePreviewState }) {
   const stats = useMemo(() => {
     const text = preview.content ?? '';
     if (preview.kind === 'text') {
-      const lines = preview.content === undefined ? 0 : text.split('\n').length - 1;
+      // Count text lines, not newline characters: a single line without a
+      // trailing newline must report 1, and a trailing newline is not a line.
+      const lines = preview.content === undefined ? 0 : text.replace(/\n$/, '').split('\n').length;
       return { lines, chars: text.length };
     }
     if (preview.kind === 'markdown') {

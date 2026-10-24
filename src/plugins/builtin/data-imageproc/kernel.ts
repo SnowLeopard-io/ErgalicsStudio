@@ -577,6 +577,10 @@ export function fftSpectrumImage(img: GrayImage): GrayImage {
 export function spectralEnergyConcentration(img: GrayImage): number {
   const { re, im, width, height } = padToPow2(img);
   fft2d(re, im, width, height, false);
+  // Shift DC to the centre first: the raw DFT parks low frequencies in the
+  // corners, so a centre window without fftShift would measure the high
+  // frequency band instead (same convention as fftSpectrumImage above).
+  fftShift(re, im, width, height);
   const hw = width >> 2;
   const hh = height >> 2;
   let inner = 0;

@@ -15,6 +15,7 @@ import { heatmapManifest } from './heatmapManifest';
 import { contourManifest } from './contourManifest';
 import { nbodyManifest } from './nbodyManifest';
 import { fluidManifest } from './fluidManifest';
+import { fluid3dManifest } from './fluid3d/manifest';
 import { waveManifest } from './waveManifest';
 import { pendulumManifest } from './doublePendulumManifest';
 import { geoMapManifest } from './geo/geoMapManifest';
@@ -71,6 +72,8 @@ import { waterManifest as waterFxManifest } from './water/manifest';
 import { cloudManifest } from './cloud/manifest';
 import { skyManifest } from './sky/manifest';
 import { starsManifest } from './stars/manifest';
+import { oceanManifest } from './ocean/manifest';
+import { mistyManifest } from './misty/manifest';
 import { astroManifest } from './astro/manifest';
 import { bioEnzymeManifest } from './bio-enzyme/manifest';
 import { bioEpidemicManifest } from './bio-epidemic/manifest';
@@ -95,6 +98,7 @@ import { physicsTrajectoryManifest } from './physics-trajectory/manifest';
 import { engCircuitManifest } from './eng-circuit/manifest';
 import { engTrussManifest } from './eng-truss/manifest';
 import { engControlManifest } from './eng-control/manifest';
+import { femLabManifest } from '../fem-lab/manifest';
 import { bioPkManifest } from './bio-pk/manifest';
 import { bioMendelManifest } from './bio-mendel/manifest';
 import { bioNeuronManifest } from './bio-neuron/manifest';
@@ -184,6 +188,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: fluidManifest,
     load: async () => {
       const mod = await import('./fluid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluid3dManifest,
+    load: async () => {
+      const mod = await import('./fluid3d');
       return mod.default();
     },
   },
@@ -392,6 +403,20 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  {
+    manifest: oceanManifest,
+    load: async () => {
+      const mod = await import('./ocean');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mistyManifest,
+    load: async () => {
+      const mod = await import('./misty');
+      return mod.default();
+    },
+  },
   // ---- Astronomy (research-grade CCD pipeline) ------------------------------
   {
     manifest: astroManifest,
@@ -563,6 +588,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: engControlManifest,
     load: async () => {
       const mod = await import('./eng-control');
+      return mod.default();
+    },
+  },
+  {
+    manifest: femLabManifest,
+    load: async () => {
+      const mod = await import('../fem-lab');
       return mod.default();
     },
   },

@@ -223,11 +223,13 @@ Built-in plugins share framework-level helpers through `src/core/` only:
 
 ## Built-in example plugins
 
-Fifty-six scientific/core plugins (plus a further ten `fun.*` toys
-declaring `autoload: false` — 66 built-ins in total) ship in
+One hundred one scientific/core plugins (plus a further ten `fun.*` toys
+declaring `autoload: false` — 111 built-ins in total) ship in
 `src/plugins/builtin/` and cover the full plugin contract surface — 2D
 canvas, host Three.js scene, `loadData`, `compute`, and the `api.gpu`
-accelerated path:
+accelerated path. The table below is a representative cross-section; the
+complete registry is `BUILTIN_PLUGINS` in `src/plugins/builtin/index.ts`
+(and the sidebar discipline mapping in `src/plugins/categories.ts`):
 
 | Plugin id           | Data                 | Capability                                        |
 | ------------------- | -------------------- | ------------------------------------------------- |
@@ -287,6 +289,8 @@ accelerated path:
 | `example.env-biodiversity` | `.csv`/`.txt` (abundance matrix) | biodiversity indices |
 | `example.env-plume` | — | pollutant dispersion |
 | `example.env-earth3d` | — | 3-D global environment |
+| `fx.ocean` | `.json` (sea-state preset) | Gerstner wave trains from a discretised Pierson–Moskowitz spectrum, Fresnel water body & marine haze |
+| `fx.misty` | `.json` (scene preset) | layered misty-peaks renderer — ridged-noise ridge stack, sun-lit, aerial perspective & Koschmieder-visibility haze |
 
 Ten additional **fun / utility** plugins (`fun.*`, e.g. Mandelbrot, Game of
 Life, Koch Snowflake, Fireworks) declare `autoload: false` and are loaded on

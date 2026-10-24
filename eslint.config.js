@@ -27,6 +27,10 @@ export default tseslint.config(
       'scripts/', // 一次性 mjs 脚本，不做 lint
       '**/*.min.*',
       'tmp/', // 临时实验产物（py/json/cjs 抓取物），非源码
+      'desktop/app-dist/', // Desktop 打包产物（vite build 复制物）
+      'desktop/dist-electron/', // Electron main bundle（esbuild 产物）
+      'desktop/release/', // electron-builder 输出
+      'desktop/resources/python/', // 便携 CPython（按需下载）
     ],
   },
   js.configs.recommended,

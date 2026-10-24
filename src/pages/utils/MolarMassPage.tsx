@@ -205,7 +205,7 @@ export default function MolarMassPage() {
               placeholder={t('mm.placeholder')}
               spellCheck={false}
               onChange={(e) => setFormula(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') setAttempt(formula); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) setAttempt(formula); }}
             />
             <button type="button" className="btn btn-primary" onClick={() => setAttempt(formula)}>
               =

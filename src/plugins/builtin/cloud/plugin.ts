@@ -65,12 +65,26 @@ const DEFAULTS: State = {
 
 // March steps per quality tier. Raymarching is expensive: on integrated GPUs
 // the whole frame budget is a few ms, so tiers pair fewer steps with a lower
-// internal resolution (SCALE_BY_QUALITY) that is restored on upscale.
-const STEPS_BY_QUALITY: Record<State['quality'], number> = { low: 40, medium: 64, high: 96, ultra: 144 };
-const SCALE_BY_QUALITY: Record<State['quality'], number> = { low: 0.4, medium: 0.55, high: 0.75, ultra: 1 };
+// internal resolution (SCALE_BY_QUALITY) that is restored on upscale. The
+// shader grows the step with distance, so a lower count reaches less far into
+// the haze-faded deck rather than blurring the near field.
+const STEPS_BY_QUALITY: Record<State['quality'], number> = { low: 32, medium: 48, high: 72, ultra: 112 };
+// Internal render-resolution scale per tier. Kept high on purpose: the cloud
+// renderer is fill-bound, so a low ratio is the cheapest lever — but it is also
+// the one the eye reads immediately as a soft, upscaled image. Cutting march
+// steps costs far-field definition, which matters much less than sharpness.
+const SCALE_BY_QUALITY: Record<State['quality'], number> = { low: 0.6, medium: 0.8, high: 0.92, ultra: 1 };
 
 /** Day-cycle speed for autoDay: one simulated hour per 8 real seconds. */
 const HOURS_PER_SECOND = 1 / 8;
+
+/**
+ * Wind time-lapse for the advection. At 1:1 a 6 m/s wind needs 2.5 minutes to
+ * cross one 900 m noise cell — the deck looks frozen whatever the slider says.
+ * The lapse keeps the drift legible while the displacement stays linear in the
+ * wind speed, so the slider reads as "how fast the clouds run".
+ */
+const WIND_TIME_LAPSE = 20;
 
 interface PresetPayload {
   coverage?: number;
@@ -95,11 +109,16 @@ export class CloudPlugin implements Plugin {
   private material: CloudMaterial | null = null;
   private rafId = 0;
   private lastT = 0;
-  private simTime = 0;
+  // Accumulated wind advection displacement (m, world x/z). Integrated per frame
+  // so editing the wind speed or direction changes the drift from that moment on.
+  private windOffsetX = 0;
+  private windOffsetZ = 0;
   private state: State = { ...DEFAULTS };
   private zh = false;
   // Adaptive resolution: the raymarcher is GPU-bound, so the plugin renders at
-  // a reduced pixel ratio and shrinks it further while the measured FPS sags.
+  // a reduced pixel ratio within the tier and trims it further while the
+  // measured FPS sags. The floor (0.5 × the tier) keeps every tier usable on
+  // integrated GPUs — the tier itself already sets how sharp the default is.
   // The host renderer's original ratio is restored on deactivate/destroy.
   private savedPixelRatio: number | null = null;
   private dynScale = 1;
@@ -282,10 +301,10 @@ export class CloudPlugin implements Plugin {
         labelI18n: { 'zh-CN': '步进质量（步数）', 'en-US': 'March quality (steps)' },
         type: 'select',
         options: [
-          { value: 'low', label: zh ? '低 · 40 步' : 'Low · 40' },
-          { value: 'medium', label: zh ? '中 · 64 步' : 'Medium · 64' },
-          { value: 'high', label: zh ? '高 · 96 步' : 'High · 96' },
-          { value: 'ultra', label: zh ? '极高 · 144 步' : 'Ultra · 144' },
+          { value: 'low', label: zh ? '低 · 32 步' : 'Low · 32' },
+          { value: 'medium', label: zh ? '中 · 48 步' : 'Medium · 48' },
+          { value: 'high', label: zh ? '高 · 72 步' : 'High · 72' },
+          { value: 'ultra', label: zh ? '极高 · 112 步' : 'Ultra · 112' },
         ],
         value: this.state.quality,
       },
@@ -343,6 +362,8 @@ export class CloudPlugin implements Plugin {
     if (actionFired(params, 'resetView')) { this.fitCamera(); return; }
     if (actionFired(params, 'resetParams')) {
       this.state = { ...DEFAULTS };
+      this.windOffsetX = 0;
+      this.windOffsetZ = 0;
       this.syncUniforms();
       this.publishScience();
       this.fitCamera();
@@ -374,11 +395,18 @@ export class CloudPlugin implements Plugin {
     m.uniforms.uCloudBase.value = s.cloudBase;
     m.uniforms.uCloudTop.value = s.cloudBase + s.cloudThickness;
     m.uniforms.uSteps.value = STEPS_BY_QUALITY[s.quality];
-    // Meteorological wind direction: degrees FROM north; the advection vector
-    // points where the wind blows (from + 180°). World: north = −z, east = +x.
-    const toward = ((s.windDirDeg + 180) % 360) * (Math.PI / 180);
-    m.uniforms.uWind.value.set(Math.sin(toward) * s.windSpeed, -Math.cos(toward) * s.windSpeed);
+    m.uniforms.uWindOffset.value.set(this.windOffsetX, this.windOffsetZ);
     this.applyEphemeris();
+  }
+
+  /**
+   * Wind velocity in world x/z (m/s). Meteorological direction is given FROM
+   * north; the advection vector points where the wind blows (from + 180°).
+   * World convention: north = −z, east = +x.
+   */
+  private windVelocity(): [number, number] {
+    const toward = ((this.state.windDirDeg + 180) % 360) * (Math.PI / 180);
+    return [Math.sin(toward) * this.state.windSpeed, -Math.cos(toward) * this.state.windSpeed];
   }
 
   /** Computes sun/moon positions + sidereal rotation for the current state. */
@@ -493,23 +521,28 @@ export class CloudPlugin implements Plugin {
     const dt = Math.min(rawDt, 0.1);
     this.lastT = t;
     const s = this.state;
-    // Adaptive resolution: track FPS (EMA) and shrink/grow the internal render
-    // resolution within the quality tier so weak GPUs stay interactive. The
-    // measurement is skipped for suspicious gaps (tab switches, first frame).
+    // Adaptive resolution: track FPS (EMA) and trim/grow the internal render
+    // resolution within the tier so weak GPUs stay interactive. The measurement
+    // is skipped for suspicious gaps (tab switches, first frame).
     if (rawDt > 0 && rawDt < 0.5) {
       const fps = 1 / rawDt;
       this.fpsEma = this.fpsEma ? this.fpsEma * 0.9 + fps * 0.1 : fps;
-      if (this.fpsEma < 24 && this.dynScale > 0.35) {
-        this.dynScale = Math.max(0.35, this.dynScale * 0.85);
+      if (this.fpsEma < 24 && this.dynScale > 0.5) {
+        this.dynScale = Math.max(0.5, this.dynScale * 0.9);
         this.applyResolution();
         this.fpsEma = 0; // re-measure at the new scale
       } else if (this.fpsEma > 55 && this.dynScale < 1) {
-        this.dynScale = Math.min(1, this.dynScale * 1.12);
+        this.dynScale = Math.min(1, this.dynScale * 1.05);
         this.applyResolution();
         this.fpsEma = 0;
       }
     }
-    if (s.running) this.simTime += dt;
+    if (s.running) {
+      const [u, v] = this.windVelocity();
+      this.windOffsetX += u * WIND_TIME_LAPSE * dt;
+      this.windOffsetZ += v * WIND_TIME_LAPSE * dt;
+      mat.uniforms.uWindOffset.value.set(this.windOffsetX, this.windOffsetZ);
+    }
     if (s.autoDay && dt > 0) {
       s.hourUTC = (s.hourUTC + dt * HOURS_PER_SECOND) % 24;
       this.applyEphemeris();
@@ -523,7 +556,6 @@ export class CloudPlugin implements Plugin {
         cam.position.z = rad * Math.sin(ang);
       }
     }
-    mat.uniforms.uTime.value = this.simTime;
     three.controls.update?.();
     three.camera.updateMatrixWorld();
     mat.uniforms.uCamWorld.value.copy(three.camera.matrixWorld);
@@ -568,10 +600,13 @@ export class CloudPlugin implements Plugin {
     const lstH = ((lstRad * 12) / Math.PI + 24) % 24;
     const toDeg = (r: number) => (r * 180) / Math.PI;
     // Effective extinction σ = 0.006 × density (1/m), matching the shader's
-    // main march & lightMarch (both use d·0.006·uDensity). Representative
-    // vertical optical depth τ = σ × thickness × 0.55 (mid-slab coverage).
+    // main march & lightMarch (both use d·0.006·uDensity). The mean density at
+    // mid height follows the rendered field's fbm3 statistics (0.95 ×
+    // coverage^1.9), so τ tracks the coverage slider instead of assuming a
+    // fixed mid-slab value.
     const sigma = 0.006 * s.density; // extinction coefficient (1/m) used by the shader
-    const tau = sigma * s.cloudThickness * 0.55; // representative mid-slab optical depth
+    const midSlab = 0.95 * Math.pow(s.coverage, 1.9); // mean density at mid height
+    const tau = sigma * s.cloudThickness * midSlab; // representative column optical depth
     const windRad = ((s.windDirDeg + 180) * Math.PI) / 180; // toward-direction
     const u = s.windSpeed * Math.sin(windRad); // eastward component
     const v = s.windSpeed * Math.cos(windRad); // northward component (+ toward north)
@@ -581,7 +616,7 @@ export class CloudPlugin implements Plugin {
       { key: 'moon_alt', label: 'Lunar altitude', value: toDeg(moon.alt).toFixed(2), unit: '°', severity: 'info', hint: this.zh ? '月球地平高度（主项历表，±0.3°）。' : 'Lunar altitude (main-terms ephemeris, ±0.3°).' },
       { key: 'moon_illum', label: 'Moon illumination', value: (moonPhaseIllumination(jd) * 100).toFixed(1), unit: '%', severity: 'info', hint: this.zh ? '月球被照亮比例（相位角余弦）。' : 'Illuminated lunar disk fraction.' },
       { key: 'lst', label: 'LST', value: lstH.toFixed(3), unit: 'h', severity: 'info', hint: this.zh ? '当地恒星时（GMST + 经度）。' : 'Local sidereal time (GMST + longitude).' },
-      { key: 'tau', label: 'Cloud τ', value: tau.toFixed(2), unit: '', severity: 'info', hint: this.zh ? '云层代表性垂直光学深度 σ·Δz。' : 'Representative vertical optical depth σ·Δz.' },
+      { key: 'tau', label: 'Cloud τ', value: tau.toFixed(2), unit: '', severity: 'info', hint: this.zh ? '云层代表性垂直光学深度 σ·Δz·云量平均密度。' : 'Representative vertical optical depth σ·Δz·mean coverage density.' },
       { key: 'wind_uv', label: 'Wind (u, v)', value: `${u.toFixed(1)}, ${v.toFixed(1)}`, unit: 'm/s', severity: 'info', hint: this.zh ? '风矢量东向/北向分量（气象风向 +180° 为吹向）。' : 'Eastward/northward wind components (from-direction +180°).' },
       { key: 'g_hg', label: 'g (HG)', value: '0.60', unit: '', severity: 'info', hint: this.zh ? 'Henyey–Greenstein 相函数不对称因子（水云典型值）。' : 'Henyey–Greenstein asymmetry factor (typical water cloud).' },
     ];

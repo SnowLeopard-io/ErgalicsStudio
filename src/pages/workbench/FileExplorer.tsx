@@ -176,7 +176,7 @@ function InlineInput({
         onFocus={(e) => autoSelect && e.currentTarget.select()}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onCommit(value);
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) onCommit(value);
           else if (e.key === 'Escape') onCancel();
           e.stopPropagation();
         }}
@@ -215,7 +215,7 @@ export function FileExplorer() {
   const [renaming, setRenaming] = useState<VfsEntry | null>(null);
   /** Directory currently highlighted as a drop target. */
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  /** Entry awaiting delete confirmation (directories only). */
+  /** Entry awaiting delete confirmation (files and directories). */
   const [deleteTarget, setDeleteTarget] = useState<VfsEntry | null>(null);
 
   /** Repo root url ('' = root). */
@@ -447,7 +447,7 @@ export function FileExplorer() {
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
         }
       }
-      if (clipboard.mode === 'cut') setClipboard(null);
+      if (clipboard.mode === 'cut' && !failed) setClipboard(null);
       void refreshDirs([targetDir, ...clipboard.items.map((i) => dirname(i.path))]);
       if (!failed) notify('success', t('workbench.explorer.pasted_hint'));
     } catch {
@@ -465,11 +465,9 @@ export function FileExplorer() {
 
   const requestDelete = (entry: VfsEntry) => {
     setMenu(null);
-    if (entry.isDir) {
-      setDeleteTarget(entry);
-    } else {
-      void doDelete(entry);
-    }
+    // Files are destructive to delete permanently too — route every delete
+    // (context menu, button, keyboard) through the confirm dialog.
+    setDeleteTarget(entry);
   };
 
   const doDelete = async (entry: VfsEntry) => {
@@ -582,6 +580,10 @@ export function FileExplorer() {
       const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
       const target = joinPath(targetDir, basename(src.path));
+      // The target directory may never have been expanded, in which case the
+      // conflict table is empty and the guard below would silently pass —
+      // load it first so an existing same-name entry is actually detected.
+      if (!tree[targetDir]) await loadDir(targetDir);
       if (existsName(targetDir, basename(src.path))) {
         notify('error', t('workbench.explorer.name_conflict', { name: basename(src.path) }));
         return;

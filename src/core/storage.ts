@@ -429,15 +429,19 @@ export async function listRuns(projectId: string, limit = 50): Promise<RunRecord
     const runs: RunRecord[] = [];
     request.onsuccess = () => {
       const cursor = request.result;
-      if (cursor) {
-        const run = cursor.value as RunRecord;
-        if (run.projectId === projectId && runs.length < limit) {
-          runs.push(run);
-        }
-        cursor.continue();
-      } else {
+      if (!cursor) {
         resolve(runs);
+        return;
       }
+      const run = cursor.value as RunRecord;
+      if (run.projectId === projectId) runs.push(run);
+      // Once the limit is reached there is no reason to keep paging the
+      // whole index — stop the cursor instead of scanning to the end.
+      if (runs.length >= limit) {
+        resolve(runs);
+        return;
+      }
+      cursor.continue();
     };
     request.onerror = () => reject(request.error);
     transaction.onabort = () =>

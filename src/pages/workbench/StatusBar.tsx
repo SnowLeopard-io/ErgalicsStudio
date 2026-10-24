@@ -113,8 +113,11 @@ export function StatusBar() {
   return (
     <footer className="statusbar">
       <div className={`statusbar-left${projectStatus === 'error' ? ' statusbar-error' : ''}`}>{leftText}</div>
+      {/* The progress strip runs *alongside* the perf chips, never instead of
+          them: a long computation is exactly when the backend and frame rate
+          have to stay readable (the previous exclusive branch blanked both). */}
       <div className="statusbar-center">
-        {busy ? (
+        {busy && (
           <div className="statusbar-progress" role="status" aria-label={busyLabel}>
             <span className="statusbar-progress-label">{busyLabel}</span>
             <span className="statusbar-progress-track">
@@ -126,39 +129,36 @@ export function StatusBar() {
               </button>
             ) : null}
           </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              className={`gpu-chip statusbar-btn${gpuActive ? ' gpu-active' : ''}`}
-              title={t('ux.perf.title')}
-              aria-label={t('ux.perf.title')}
-              aria-expanded={perfOpen}
-              onClick={() => setPerfOpen((v) => !v)}
-            >
-              {gpu.available
-                ? `${gpu.name} · WebGPU`
-                : `CPU${cpuLabel ? ` · ${cpuLabel}` : ''}`}
-              {gpuActive && perf.gpuMs > 0 ? ` · ${perf.gpuMs.toFixed(1)} ms` : ''}
-            </button>
-            <button
-              type="button"
-              className={`statusbar-btn statusbar-fps${lowFps ? ' is-warn' : ''}`}
-              title={t('ux.perf.title')}
-              aria-label={t('ux.perf.title')}
-              aria-expanded={perfOpen}
-              onClick={() => setPerfOpen((v) => !v)}
-            >
-              {perf.fps} FPS
-            </button>
-          </>
         )}
+        <button
+          type="button"
+          className={`gpu-chip statusbar-btn${gpuActive ? ' gpu-active' : ''}`}
+          title={t('ux.perf.title')}
+          aria-label={t('ux.perf.title')}
+          aria-expanded={perfOpen}
+          onClick={() => setPerfOpen((v) => !v)}
+        >
+          {gpu.available
+            ? `${gpu.name} · WebGPU`
+            : `CPU${cpuLabel ? ` · ${cpuLabel}` : ''}`}
+          {gpuActive && perf.gpuMs > 0 ? ` · ${perf.gpuMs.toFixed(1)} ms` : ''}
+        </button>
+        <button
+          type="button"
+          className={`statusbar-btn statusbar-fps${lowFps ? ' is-warn' : ''}`}
+          title={t('ux.perf.title')}
+          aria-label={t('ux.perf.title')}
+          aria-expanded={perfOpen}
+          onClick={() => setPerfOpen((v) => !v)}
+        >
+          {perf.fps} FPS
+        </button>
       </div>
       <div className="statusbar-right">
         {activePlugin ? <span>{activePlugin.name}</span> : <span>{t('workbench.right.no_plugin')}</span>}
       </div>
 
-      {perfOpen && !busy && (
+      {perfOpen && (
         <div className="statusbar-popover" ref={popoverRef} role="dialog" aria-label={t('ux.perf.title')}>
           <div className="statusbar-popover-title">{t('ux.perf.title')}</div>
           <dl className="statusbar-popover-grid">

@@ -73,6 +73,16 @@ export class MemoryVfs implements Vfs {
     }
   }
 
+  async deleteRoot(root: string): Promise<void> {
+    const prefix = `${this.key(root, '')}/`;
+    for (const path of [...this.files.keys()]) {
+      if (path.startsWith(prefix)) this.files.delete(path);
+    }
+    for (const path of [...this.dirs]) {
+      if (path.startsWith(prefix)) this.dirs.delete(path);
+    }
+  }
+
   async renameEntry(root: string, from: string, to: string): Promise<void> {
     const fromKey = this.key(root, from);
     const toKey = this.key(root, to);

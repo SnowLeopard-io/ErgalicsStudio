@@ -92,6 +92,9 @@ interface PluginStore {
 /** Per-plugin param subscriptions so unloading one plugin cannot break the
  *  currently-active plugin's handler (see unload/deactivate). */
 const paramSubscriptions = new Map<string, BusSubscription[]>();
+
+/** Cap on the in-memory run history so long sessions cannot grow it forever. */
+const RUN_HISTORY_CAP = 500;
 /** Per-plugin locale subscriptions so they can be released on unload. */
 const localeSubscriptions = new Map<string, Array<() => void>>();
 /** Per-plugin cancel handlers registered through `api.onCancel`, invoked when
@@ -879,7 +882,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       startedAt: Date.now(),
       detail: input.detail,
     };
-    set((s) => ({ runHistory: [...s.runHistory, record] }));
+    set((s) => ({
+      // Bounded history: a long session must not grow the array unboundedly.
+      runHistory: [...s.runHistory.slice(-(RUN_HISTORY_CAP - 1)), record],
+    }));
     return record.id;
   },
 

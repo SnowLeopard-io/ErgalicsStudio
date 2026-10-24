@@ -133,6 +133,13 @@ export class LightningVfs implements Vfs {
     }
   }
 
+  /** Remove the whole per-project workspace (including the .git object
+   *  store) — project deletion must not leave the tree orphaned in the
+   *  shared IndexedDB-backed filesystem. */
+  async deleteRoot(root: string): Promise<void> {
+    await this.removeTree(this.getFS(), root);
+  }
+
   async renameEntry(root: string, from: string, to: string): Promise<void> {
     const fs = this.getFS();
     const fromFull = `${root}/${safeVfsRelPath(from, 'rename source')}`;

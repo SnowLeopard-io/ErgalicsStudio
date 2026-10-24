@@ -588,7 +588,7 @@ export function CodeEditor() {
   };
 
   const handleReplKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') void runRepl();
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) void runRepl();
   };
 
   /** Install a CRAN package into the full R runtime (memory/time bounded). */
@@ -827,7 +827,7 @@ export function CodeEditor() {
                   value={rPkgInput}
                   onChange={(e) => setRPkgInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') void installRPackage();
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) void installRPackage();
                   }}
                   placeholder={t('r.install.placeholder')}
                   spellCheck={false}

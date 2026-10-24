@@ -1,0 +1,14 @@
+{
+  "name": "Ink-wash rain over the Jiangnan hills",
+  "hourUTC": 8.4,
+  "latitude": 28.6,
+  "longitude": 118.9,
+  "ridgeScale": 1.25,
+  "ridgeHeight": 800,
+  "mistDensity": 1.1,
+  "mistHeight": 300,
+  "haze": 0.72,
+  "exposure": 0.95,
+  "autoDay": false,
+  "autoOrbit": false
+}

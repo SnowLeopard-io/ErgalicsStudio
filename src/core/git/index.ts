@@ -8,11 +8,15 @@ import { IsomorphicGitAdapter } from './isomorphic-adapter';
 export type { RepoEntry } from './types';
 
 let nodeAdapter: GitAdapter | null = null;
+/** Browser singleton: abort controllers live per adapter instance, so a fresh
+ * instance per call would make push/clone aborts permanently ineffective. */
+let browserAdapter: IsomorphicGitAdapter | null = null;
 
 export function getGitAdapter(): GitAdapter {
   if (typeof window !== 'undefined') {
     // Browser environment
-    return new IsomorphicGitAdapter();
+    if (!browserAdapter) browserAdapter = new IsomorphicGitAdapter();
+    return browserAdapter;
   }
 
   // Node/Electron environment - lazy load
@@ -34,4 +38,5 @@ export function setGitAdapter(adapter: GitAdapter): void {
 
 export function resetGitAdapter(): void {
   nodeAdapter = null;
+  browserAdapter = null;
 }

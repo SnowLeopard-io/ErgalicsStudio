@@ -107,14 +107,19 @@ export function simulateFrame(p: SimParams): SimFrame {
   const bias = new Float64Array(w * h);
   const dark = new Float64Array(w * h);
   const flat = new Float64Array(w * h);
-  const alpha2 = (p.fwhm / 2) ** 2; // Moffat α² from FWHM
+  // Moffat FWHM = 2α·√(2^(1/β) − 1)  ⇒  α = FWHM / (2·√(2^(1/β) − 1)).
+  // Dividing by 2 alone would make the actual PSF ~0.565× the nominal FWHM.
+  const alpha = p.fwhm / (2 * Math.sqrt(2 ** (1 / p.beta) - 1));
+  const alpha2 = alpha * alpha;
 
   // Masters (single-frame masters keep the demo honest: they carry noise too).
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       bias[i] = p.biasAdu + gaussian(rng) * (p.readNoiseE / p.gainEPerAdu);
-      dark[i] = (poisson(rng, p.darkE) / p.gainEPerAdu) + p.biasAdu * 0.02;
+      // Dark master carries dark current only — `calibrate` subtracts the
+      // bias frame separately, so a bias pedestal here would be removed twice.
+      dark[i] = poisson(rng, p.darkE) / p.gainEPerAdu;
       const nx = (x - w / 2 + 0.5) / (w / 2);
       const ny = (y - h / 2 + 0.5) / (h / 2);
       const r2 = nx * nx + ny * ny;
