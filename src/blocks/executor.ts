@@ -1,0 +1,155 @@
+// ==========================================================================
+// Ergalics Studio — DAG executor (block system)
+//
+// Runs a compiled region with incremental recompute: outputs are cached per
+// node, and `invalidate` marks a node plus its transitive downstream dirty.
+// Only dirty nodes re-run. Node-scoped contexts are built here.
+// ==========================================================================
+
+import type { DataValue } from '@/types/datatable';
+import type { CompiledNode, CompiledRegion, DagExecutionContext } from '@/types/dag';
+import type { RuntimeEnvironment } from './context';
+
+/** Thrown when an in-flight run is cancelled through its `AbortSignal`. */
+export class ExecutorAbortedError extends Error {
+  constructor() {
+    super('execution cancelled');
+    this.name = 'ExecutorAbortedError';
+  }
+}
+
+export class DagExecutor {
+  private readonly cache = new Map<string, DataValue>();
+  private readonly dirty = new Set<string>();
+  private readonly region: CompiledRegion;
+  private readonly env: RuntimeEnvironment;
+  private readonly nodeById = new Map<string, CompiledNode>();
+  /** The in-flight pass, so a second `run()` cannot race it. */
+  private inFlight: Promise<ReadonlyMap<string, DataValue>> | null = null;
+  /** Set by `cancel()`; checked before every node so a long graph stops promptly. */
+  private aborted = false;
+
+  constructor(region: CompiledRegion, env: RuntimeEnvironment) {
+    this.region = region;
+    this.env = env;
+    for (const node of region.nodes) {
+      this.nodeById.set(node.id, node);
+    }
+    // Everything starts dirty so the first run computes the whole graph.
+    for (const id of region.executionOrder) {
+      this.dirty.add(id);
+    }
+  }
+
+  /**
+   * Request cancellation of the in-flight pass. The running node finishes, but
+   * no further node starts. Without this, "Stop" only discarded the results —
+   * a long chain (N-body, large imports) kept burning CPU to completion.
+   */
+  cancel(): void {
+    this.aborted = true;
+  }
+
+  /** Run all dirty nodes in topological order. Returns the full cache. */
+  async run(): Promise<ReadonlyMap<string, DataValue>> {
+    // A second concurrent `run()` joins the in-flight pass instead of racing it
+    // for the shared cache/dirty state.
+    if (this.inFlight) return this.inFlight;
+    const pass = this.runPass();
+    this.inFlight = pass;
+    try {
+      return await pass;
+    } finally {
+      this.inFlight = null;
+    }
+  }
+
+  private async runPass(): Promise<ReadonlyMap<string, DataValue>> {
+    for (const id of this.region.executionOrder) {
+      if (this.aborted) throw new ExecutorAbortedError();
+      if (!this.dirty.has(id)) continue;
+      const node = this.nodeById.get(id);
+      if (!node) continue;
+      // Remove the node from the dirty set *before* executing it. Otherwise a
+      // `markDirty()` call from inside the executor is swallowed by
+      // `invalidate()`'s "already dirty → skip" check and the invalidation
+      // (node + downstream) is silently lost. Removing first lets it re-add
+      // the node, leaving it dirty for the next run().
+      this.dirty.delete(id);
+      this.env.onNodeStatus?.(id, 'computing');
+      try {
+        await this.runNode(node);
+        this.env.onNodeStatus?.(id, 'done');
+      } catch (err) {
+        // Re-mark the node dirty so a later run() retries it instead of
+        // silently dropping the failed computation from future passes.
+        this.invalidate(id);
+        this.env.onNodeStatus?.(id, 'error');
+        throw err;
+      }
+    }
+    return this.cache;
+  }
+
+  /** Mark a node and all its transitive downstream as dirty. */
+  invalidate(nodeId: string): void {
+    const stack: string[] = [nodeId];
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      // Unlike the previous "skip if already dirty" guard, downstream must
+      // always be propagated: during run(), the executing node has already
+      // been removed from the dirty set, so skipping would drop the
+      // invalidation entirely (the markDirty() no-op bug).
+      this.dirty.add(id);
+      const node = this.nodeById.get(id);
+      if (!node) continue;
+      for (const downstream of Object.values(node.outputs)) {
+        for (const d of downstream) stack.push(d);
+      }
+    }
+  }
+
+  getOutput(nodeId: string): DataValue | undefined {
+    return this.cache.get(nodeId);
+  }
+
+  getCache(): ReadonlyMap<string, DataValue> {
+    return this.cache;
+  }
+
+  isDirty(nodeId: string): boolean {
+    return this.dirty.has(nodeId);
+  }
+
+  private async runNode(node: CompiledNode): Promise<void> {
+    if (!node.execute) {
+      throw new Error(`node "${node.id}" (block "${node.blockId}") has no executor`);
+    }
+    const result = await node.execute(this.createNodeContext(node));
+    if (result !== undefined) {
+      this.cache.set(node.id, result);
+    } else {
+      // Evict so a stale value from an earlier run is never served for a node
+      // that has since stopped producing output.
+      this.cache.delete(node.id);
+    }
+  }
+
+  private createNodeContext(node: CompiledNode): DagExecutionContext {
+    // The returned closures are arrow functions, so `this` is captured
+    // lexically from this class method — no aliasing needed.
+    const { gpu, storage, onProgress } = this.env;
+    return {
+      nodeId: node.id,
+      getInput: (portId) => {
+        const upstream = node.inputs[portId];
+        return upstream ? this.cache.get(upstream) : undefined;
+      },
+      getParam: (name) => node.params[name],
+      markDirty: () => this.invalidate(node.id),
+      gpu,
+      storage,
+      onProgress: (progress) => onProgress?.(progress),
+    };
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "source": { "x": 0.08, "y": 0.5 },
+  "lensType": "none",
+  "focal": 120,
+  "prism": true,
+  "prismX": 0.45,
+  "prismY": 0.5,
+  "screen": true,
+  "screenX": 0.92
+}

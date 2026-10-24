@@ -1,0 +1,40 @@
+import type { PluginManifest } from '@/types/plugin';
+
+export const bioSeqalignManifest: PluginManifest = {
+  id: 'example.bio-seqalign',
+  name: 'Sequence Alignment',
+  nameI18n: { 'zh-CN': '序列比对与分析', 'en-US': 'Sequence Alignment' },
+  version: '1.0.0',
+  author: 'Ergalics',
+  description:
+    'BLOSUM62 / DNA nucleotide pairwise alignment (global Needleman-Wunsch or local Smith-Waterman, affine gaps) plus composition, GC / GC1-3 and sliding-window GC profiling.',
+  descriptionI18n: {
+    'zh-CN':
+      'BLOSUM62 / 核酸打分矩阵的双序列比对（全局 Needleman-Wunsch 或局部 Smith-Waterman，仿射空位罚分），以及碱基组成、GC / GC1-3 密码子 GC 和滑动窗口 GC 分析，支持 FASTA 数据。',
+    'en-US':
+      'BLOSUM62 / nucleotide pairwise alignment (global Needleman-Wunsch or local Smith-Waterman with affine gaps), plus base-composition, GC / codon GC1-3, sliding-window GC profiling and FASTA support.',
+  },
+  license: 'MIT',
+  entry: 'example.bio-seqalign',
+  category: 'scientific',
+  research: {
+    tier: 'quasi-research',
+    reproducible: true,
+    notes:
+      'Pairwise alignment only (no MSA / database search); the empirical p-value comes from composition-preserving shuffles of sequence B and reflects score rarity, not homology probability.',
+    notesI18n: {
+      'zh-CN':
+        '仅支持双序列比对（无多序列比对 / 数据库搜索）；经验 p 值来自对序列 B 的保组成置换，反映得分的稀有程度而非同源概率。',
+      'en-US':
+        'Pairwise alignment only (no MSA / database search); the empirical p-value comes from composition-preserving shuffles of sequence B and reflects score rarity, not homology probability.',
+    },
+  },
+  formats: [
+    { extension: '.fasta', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA nucleotide/protein sequences' },
+    { extension: '.fa', mimeTypes: ['text/fasta', 'text/plain'], description: 'FASTA (short extension)' },
+    { extension: '.txt', mimeTypes: ['text/plain'], description: 'bare / FASTA text sequences' },
+    { extension: '.json', mimeTypes: ['application/json'], description: 'single/two/multi sequences in JSON' },
+    { extension: '.csv', mimeTypes: ['text/csv'], description: 'two-column sequence table' },
+    { extension: '.tsv', mimeTypes: ['text/tab-separated-values'], description: 'two-column tab-separated sequences' },
+  ],
+};

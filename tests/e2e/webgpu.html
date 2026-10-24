@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>WebGPU harness</title>
+  </head>
+  <body>
+    <!--
+      WebGPU runtime harness (driven by scripts/verify-webgpu.mjs).
+
+      Served through the vite dev server so it can import the *real*
+      production modules:
+        - /src/native/ergalics_core.js  → the compiled Rust/WASM core
+        - /src/core/wgsl.ts             → the exact WGSL kernel + CPU integrator
+
+      It acquires a real WebGPU device, runs the particle integration kernel
+      through the native core (buffers → kernel → dispatch → mapAsync readback),
+      and compares the GPU result against the CPU-equivalent integrator.
+      Results are written to window.__webgpuTest for the runner to read.
+    -->
+    <script type="module">
+      const DT = 1 / 60;
+      const SPEED = 1.0;
+      const STEPS = 60;
+      const WORKGROUP = 64;
+
+      const report = (status, data = {}) => {
+        window.__webgpuTest = { status, ...data };
+      };
+      report('running');
+      let lastStep = 'idle';
+
+      const toBytes = (fv) =>
+        new Uint8Array(fv.buffer, fv.byteOffset, fv.byteLength);
+
+      const runOnce = async (core, wgsl, device, particles, tolerance = 5e-3) => {
+        const count = particles.length;
+        lastStep = 'cpu reference';
+        const expected = (() => {
+          const cpu = particles.map((p) => ({ ...p }));
+          for (let s = 0; s < STEPS; s += 1) {
+            for (const p of cpu) wgsl.advanceParticleCPU(p, DT, SPEED);
+          }
+          return wgsl.packParticles(cpu);
+        })();
+
+        const t0 = performance.now();
+        device.pushErrorScope('validation');
+        lastStep = 'create data buffer';
+        const dataBuf = new core.GpuBuffer(
+          device,
+          'verify.data',
+          wgsl.particleBufferBytes(count),
+          wgsl.PARTICLES_BUFFER_USAGE,
+        );
+        lastStep = 'create params buffer';
+        const paramsBuf = new core.GpuBuffer(
+          device,
+          'verify.params',
+          16,
+          wgsl.PARTICLES_UNIFORM_USAGE,
+        );
+        lastStep = 'write data buffer';
+        dataBuf.write(device.queue, toBytes(wgsl.packParticles(particles)), 0);
+        lastStep = 'write params buffer';
+        paramsBuf.write(device.queue, toBytes(wgsl.packParticleParams(DT, SPEED, count)), 0);
+
+        lastStep = 'compile kernel';
+        const kernel = core.ComputeKernel.compile(
+          device,
+          new core.KernelDescriptor(
+            'verify.integrate',
+            wgsl.particleKernelWGSL(),
+            'main',
+            new Uint32Array([WORKGROUP, 1, 1]),
+            [new core.BindingDescriptor(0, 'storage'), new core.BindingDescriptor(1, 'uniform')],
+          ),
+        );
+
+                const workgroups = Math.max(1, Math.ceil(count / WORKGROUP));
+        lastStep = 'dispatch loop';
+        try {
+          for (let s = 0; s < STEPS; s += 1) {
+            kernel.run(device.queue, [dataBuf.buffer, paramsBuf.buffer], workgroups, 1, 1);
+          }
+        } catch (e) {
+          throw new Error(String(e));
+        }
+        lastStep = 'validation scope';
+        const scopeError = await device.popErrorScope();
+        const diag = await kernel.compilation_info();
+
+        lastStep = 'readback';
+        let bytes;
+        try {
+          bytes = await dataBuf.read();
+        } catch (e) {
+          const err = new Error(String(e) + (scopeError ? ' | scope: ' + String(scopeError.message || scopeError) : ''));
+          err.diag = diag;
+          throw err;
+        }
+        lastStep = 'compare';
+        const actual = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+        const gpuMs = performance.now() - t0;
+
+        let maxAbs = 0;
+        let mismatches = 0;
+        for (let i = 0; i < expected.length; i += 1) {
+          const d = Math.abs(actual[i] - expected[i]);
+          if (d > maxAbs) maxAbs = d;
+          if (d > tolerance) mismatches += 1;
+        }
+        return {
+          count,
+          gpuMs,
+          maxAbsDiff: maxAbs,
+          tolerance,
+          mismatches,
+          lengthOk: actual.length === expected.length,
+          scopeError: scopeError ? String(scopeError.message || scopeError) : null,
+          diagnostics: diag,
+        };
+      };
+
+      try {
+        const coreMod = await import('/src/native/ergalics_core.js');
+        await coreMod.default();
+        const core = coreMod;
+        const wgsl = await import('/src/core/wgsl.ts');
+
+        if (!navigator.gpu) {
+          report('error', { error: 'navigator.gpu is unavailable (WebGPU not exposed)' });
+        } else {
+          const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' });
+          if (!adapter) {
+            report('error', { error: 'requestAdapter returned null' });
+          } else {
+            const device = await adapter.requestDevice();
+            const info = {
+              vendor: adapter.info?.vendor ?? '',
+              architecture: adapter.info?.architecture ?? '',
+              fallback: adapter.isFallbackAdapter ?? null,
+            };
+
+            const COUNT = 4096;
+            const strict = [];
+            for (let i = 0; i < COUNT; i += 1) {
+              const t = i / COUNT;
+              strict.push({
+                x: Math.sin(t * 12.9898) * 0.8,
+                y: Math.cos(t * 78.233) * 0.8,
+                vx: Math.sin(i * 0.377) * 0.004,
+                vy: Math.cos(i * 0.611) * 0.004,
+              });
+            }
+            const boundary = [];
+            for (let i = 0; i < 512; i += 1) {
+              const t = i / 512;
+              boundary.push({
+                x: 0.9 + Math.sin(t * 9.0) * 0.08,
+                y: -0.9 + Math.cos(t * 11.0) * 0.08,
+                vx: Math.sin(i * 0.5) * 0.05,
+                vy: Math.cos(i * 0.37) * 0.05,
+              });
+            }
+
+            const strictRes = await runOnce(core, wgsl, device, strict, 5e-3);
+            const boundaryRes = await runOnce(core, wgsl, device, boundary, 0.02);
+
+            report('done', {
+              adapter: info,
+              strict: strictRes,
+              boundary: boundaryRes,
+              pass:
+                strictRes.lengthOk &&
+                strictRes.mismatches === 0 &&
+                boundaryRes.lengthOk &&
+                boundaryRes.mismatches === 0,
+            });
+          }
+        }
+      } catch (e) {
+        report('error', {
+          error: String(e),
+          stack: e && e.stack ? String(e.stack) : undefined,
+          lastStep,
+          diagnostics: e && e.diag ? e.diag : undefined,
+        });
+      }
+    </script>
+  </body>
+</html>

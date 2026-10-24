@@ -1,0 +1,108 @@
+// Shared data-file parsing tests (flow + block/code modes).
+import { describe, it, expect } from 'vitest';
+import { parseDataText, loadJSON } from '@/blocks/fileData';
+
+describe('parseDataText', () => {
+  it('parses CSV with a header into named f64 columns', () => {
+    const t = parseDataText('time,temp\n0,19.3\n5,20.1\n10,20.8', 'telemetry.csv');
+    expect(t.length).toBe(3);
+    expect(t.columnNames()).toEqual(['time', 'temp']);
+    expect(t.columns[0]!.type).toBe('f64');
+  });
+
+  it('parses headerless numeric data with x/y/z/w defaults', () => {
+    const t = parseDataText('1 2 3 4\n5 6 7 8', 'data.dat');
+    expect(t.columnNames()).toEqual(['x', 'y', 'z', 'w']);
+    expect(t.length).toBe(2);
+  });
+
+  it('parses XYZ into x/y/z columns', () => {
+    const t = parseDataText('0 0 0\n1 2 3', 'cloud.xyz');
+    expect(t.columnNames()).toEqual(['x', 'y', 'z']);
+  });
+
+  it('drops over-long ragged rows but keeps text tokens as missing numeric', () => {
+    const t = parseDataText('1 2\nfoo bar\n3 4 5\n6 7', 'mixed.dat');
+    // '3 4 5' is over-long (3 cells vs width 2) and dropped; 'foo bar' is a
+    // short row whose text cells are demoted to NaN in the numeric columns.
+    expect(t.length).toBe(3);
+    expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(Array.from(t.getColumn('y') as Float64Array)).toEqual([2, NaN, 7]);
+  });
+
+  it('loads categorical + numeric CSV into mixed string/f64 columns', () => {
+    const t = parseDataText(
+      'sample,group,activity_U_per_mL\nC1,control,12.4\nT1,treatment,10.1\nC2,control,13.0',
+      'enzyme-activity.csv',
+    );
+    expect(t.columnNames()).toEqual(['sample', 'group', 'activity_U_per_mL']);
+    expect(t.columns.find((c) => c.name === 'sample')!.type).toBe('string');
+    expect(t.columns.find((c) => c.name === 'group')!.type).toBe('string');
+    expect(t.columns.find((c) => c.name === 'activity_U_per_mL')!.type).toBe('f64');
+    expect(t.length).toBe(3);
+    expect(Array.from(t.getColumn('activity_U_per_mL') as Float64Array)).toEqual([
+      12.4, 10.1, 13.0,
+    ]);
+  });
+
+  it('throws no numeric data when the file has only categorical columns', () => {
+    expect(() => parseDataText('id\nA\nB\n', 'labels.csv')).toThrow(/no numeric data/);
+  });
+
+  it('throws when there is no numeric data', () => {
+    expect(() => parseDataText('hello world', 'junk.csv')).toThrow(/no numeric data/);
+  });
+});
+
+describe('loadJSON', () => {
+  it('parses an array of row records', () => {
+    const t = loadJSON('[{"x":1,"y":2},{"x":3,"y":4}]');
+    expect(t.length).toBe(2);
+    expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(t.columns[0]!.type).toBe('f64');
+  });
+
+  it('parses a columnar object', () => {
+    const t = loadJSON('{"columns":[{"name":"a","data":[1,2,3]},{"name":"b","data":[4,5,6]}]}');
+    expect(t.length).toBe(3);
+    expect(t.columnNames()).toEqual(['a', 'b']);
+  });
+
+  it('keeps non-numeric row-record fields as string columns', () => {
+    const t = loadJSON('[{"name":"alpha","v":1},{"name":"beta","v":2}]');
+    expect(t.columnNames()).toEqual(['name', 'v']);
+    expect(t.columns.find((c) => c.name === 'name')!.type).toBe('string');
+  });
+
+  it('unwraps a dataset envelope with a single record-array field', () => {
+    // The bundled dataset.json shape: metadata + observations records.
+    const t = loadJSON(
+      '{"title":"t","unit":"u","observations":[{"time":0,"temp":20.1},{"time":5,"temp":20.8}],"quality":{"missing":0}}',
+    );
+    expect(t.length).toBe(2);
+    expect(t.columnNames()).toEqual(['time', 'temp']);
+    expect(t.columns[0]!.type).toBe('f64');
+  });
+
+  it('unwraps a single entity list from a simulation config (charges)', () => {
+    const t = loadJSON(
+      '{"B":0,"damping":0.04,"charges":[{"x":0.3,"q":2},{"x":0.7,"q":-2}]}',
+    );
+    expect(t.length).toBe(2);
+    expect(t.columnNames()).toEqual(['x', 'q']);
+  });
+
+  it('rejects an object with two record arrays (ambiguous envelope)', () => {
+    expect(() =>
+      loadJSON('{"nodes":[{"id":1}],"members":[{"a":1}]}'),
+    ).toThrow(/unsupported JSON dataset shape/);
+  });
+
+  it('rejects a 2D numeric matrix', () => {
+    expect(() => loadJSON('[[1,2],[3,4]]')).toThrow(/unsupported JSON dataset shape/);
+  });
+
+  it('throws on malformed JSON', () => {
+    expect(() => loadJSON('not json')).toThrow(/invalid JSON/);
+  });
+});

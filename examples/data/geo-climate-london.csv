@@ -1,0 +1,17 @@
+# station: London (Greenwich Observatory, 51.5N, 0.0E)
+# source: Met Office Location-specific long-term averages, 1991-2020
+#   (temperature = monthly mean °C, computed as (max+min)/2; precipitation = monthly total mm)
+# columns: month(1-12), temp_c(°C), precip_mm
+month,temp_c,precip_mm
+1,5.9,43.9
+2,6.2,39.9
+3,8.4,36.5
+4,10.7,38.6
+5,13.8,44.0
+6,16.7,49.3
+7,18.8,36.3
+8,18.7,53.0
+9,15.9,52.4
+10,12.4,58.3
+11,8.8,59.9
+12,6.3,50.7

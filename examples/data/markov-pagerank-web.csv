@@ -1,0 +1,13 @@
+# PageRank teaching example — 5-page web link graph, row-stochastic transition matrix
+# Each row is a page; each column a destination; entries are click-probabilities (rows sum to 1).
+# labels: A,B,C,D,E
+# Page ordering: A -> B,C ; B -> C ; C -> A ; D -> A,C ; E -> A,D
+# This is a small teaching web graph constructed for Ergalics Studio (not a real crawl).
+# PageRank background: L. Page, S. Brin, "The Anatomy of a Large-Scale Hypertextual Web Search
+# Engine", Computer Networks and ISDN Systems 30 (1998) 107-117; damping factor 0.85.
+# Load this file in the Markov Chains plugin, or switch to the PageRank preset.
+0,0.5,0.5,0,0
+0,0,1,0,0
+1,0,0,0,0
+0.5,0,0.5,0,0
+0.5,0,0,0.5,0

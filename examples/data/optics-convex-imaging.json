@@ -1,0 +1,9 @@
+{
+  "source": { "x": 0.1, "y": 0.5 },
+  "lensType": "convex",
+  "lensX": 0.5,
+  "focal": 120,
+  "prism": false,
+  "screen": true,
+  "screenX": 0.9
+}

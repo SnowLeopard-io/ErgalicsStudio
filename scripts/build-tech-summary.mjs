@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+// ==========================================================================
+// Ergalics Studio — compendium assembler
+//
+// Builds docs/technical/"Ergalics Studio.md" out of the eight numbered
+// chapter documents, plus a hand-written usage guide and a generated
+// document index. The compendium is therefore a *derived* artefact: it can
+// never drift from the chapters it summarises, which is how the previous
+// hand-maintained version ended up quoting 40 plugins and 417 tests long
+// after both numbers had changed.
+//
+// Usage: node scripts/build-tech-summary.mjs
+// ==========================================================================
+
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
+
+const read = (name) => readFileSync(path.join(DOCS_DIR, `${name}.md`), 'utf8');
+
+/** Split a chapter document into its `## ` sections, dropping the H1 preamble. */
+function sections(md) {
+  const lines = md.replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  let current = null;
+  for (const line of lines) {
+    const h2 = /^##\s+(.*)$/.exec(line);
+    if (h2) {
+      if (current) out.push(current);
+      current = { title: h2[1].trim(), body: [] };
+      continue;
+    }
+    if (!current) continue; // H1 / intro prose is dropped
+    current.body.push(line);
+  }
+  if (current) out.push(current);
+  // drop trailing blank lines
+  for (const s of out) {
+    while (s.body.length && !s.body[s.body.length - 1].trim()) s.body.pop();
+  }
+  return out;
+}
+
+/** "一、总体分层" → "总体分层" */
+function stripCjkNumeral(title) {
+  return title.replace(/^[一二三四五六七八九十]+\s*[、.]\s*/, '');
+}
+
+const CN = '一二三四五六七八九十';
+
+/** 1 → 一 … 10 → 十, 11 → 十一 (the compendium has eleven chapters). */
+function cnNum(n) {
+  if (n <= 10) return CN[n - 1];
+  if (n < 20) return '十' + CN[n - 11];
+  return String(n);
+}
+
+/**
+ * Re-level one source section into `### <ch>.<k> <title>`, rewriting its own
+ * `### a.b` sub-headings to `#### <ch>.<k>.<b>` so the compendium numbering
+ * stays internally consistent.
+ */
+function emitSection(ch, k, section) {
+  const out = [`### ${ch}.${k} ${stripCjkNumeral(section.title)}`, ''];
+  for (const line of section.body) {
+    const h3 = /^###\s+(\d+(?:\.\d+)*)\s+(.*)$/.exec(line);
+    if (h3) {
+      const tail = h3[1].split('.').slice(-1)[0];
+      out.push(`#### ${ch}.${k}.${tail} ${h3[2]}`);
+      continue;
+    }
+    const h3plain = /^###\s+(.*)$/.exec(line);
+    if (h3plain) {
+      out.push(`#### ${h3plain[1]}`);
+      continue;
+    }
+    const h4 = /^####\s+(.*)$/.exec(line);
+    if (h4) {
+      out.push(`##### ${h4[1]}`);
+      continue;
+    }
+    out.push(line);
+  }
+  out.push('');
+  return out;
+}
+
+function emitChapter(ch, title, sourceName, pick) {
+  const src = sections(read(sourceName));
+  const picked = pick ? src.filter((s, i) => pick(s, i + 1)) : src;
+  const lines = [`## 第${cnNum(ch)}章 ${title}`, ''];
+  picked.forEach((s, i) => lines.push(...emitSection(ch, i + 1, s)));
+  return lines;
+}
+
+// ---- usage guide (unique to the compendium) -------------------------------
+
+const USAGE = `## 第九章 使用指南
+
+### 9.1 技术栈与环境要求
+
+Ergalics Studio 是纯前端的单页应用，唯一的强依赖是一个现代浏览器；唯一可选的本地工具链是 Rust（只用于把原生核心编译成 WebAssembly，缺失时前端优雅降级）。
+
+| 层级 | 选型 |
+| --- | --- |
+| 界面 | React 18、react-router-dom 7、Zustand 5 |
+| 语言 | TypeScript 5.7（strict 模式） |
+| 构建 | Vite 6 + Vitest |
+| 可视化 | 原生 Canvas/WebGL、Three.js、WGSL 计算着色器 |
+| 编辑器 | Monaco Editor、Blockly 13 |
+| 运行时 | Pyodide（CPython）、DuckDB-WASM、TensorFlow.js |
+| 科研 I/O | h5wasm、netcdfjs、fitsjs、zarrita、parquet-wasm（配 apache-arrow） |
+| 打包与压缩 | fflate、lz-string |
+| 原生核心 | Rust（wasm32-unknown-unknown）+ wasm-bindgen 0.2 |
+| 端到端测试 | playwright-core 驱动无头 Edge |
+| 协议 | MIT |
+
+浏览器侧要求 WebGPU / WebAssembly / Web Worker / IndexedDB。WebGPU 与 WASM 均为可选：缺失时应用在欢迎页如实自检报告，并把计算回退到 CPU 实现。
+
+### 9.2 安装、运行与构建
+
+\`\`\`bash
+npm install          # 安装依赖
+npm run dev          # 启动开发服务器
+npm run build        # 完整构建：WASM 核心 → 类型检查 → 打包 → 文档站
+npm run build:web    # 只构建前端（跳过 Rust 步骤）
+npm run preview      # 预览生产构建
+\`\`\`
+
+质量检查：
+
+\`\`\`bash
+npm test             # Vitest 单元测试
+npm run verify       # 类型检查（tsc --noEmit）+ 单元测试
+npm run test:e2e     # Playwright 端到端套件（需本机浏览器）
+npm run bench        # 性能基准并对基线
+\`\`\`
+
+\`npm run build\` 自带门禁：WASM 编译、类型检查、打包、文档站拷贝任一步失败即中止。类型检查同时充当 lint——代码库不引入额外的 lint 规则集，而是把约束交给 TypeScript 严格模式。
+
+### 9.3 数据格式支持
+
+| 类别 | 格式 | 说明 |
+| --- | --- | --- |
+| 表格与文本 | CSV、TSV、DAT、TXT、MD | 分隔文本与表格数据，项目数据文件可直接导入 |
+| XY 谱线文本 | XY、XYE | 两列（2θ–强度，XYE 含误差列）x–y 文本数据，\`#\` 行为注释，XRD 衍射图谱分析等插件直接载入 |
+| 网格与点数据 | JSON、XYZ | 数值网格、标量场与点云（JSON 矩阵 / XYZ 列） |
+| 矩阵与数组 | MTX、NPY、NPZ | Matrix Market 稀疏矩阵与 NumPy 数组（电磁谐振特征值求解等） |
+| 化学结构 | CIF、POSCAR、VASP | 晶胞结构：原子、周期性化学键与密度估算 |
+| 地理与轨迹 | GeoJSON、GPX、ASC | 矢量地图、GPS 轨迹、ESRI ASCII Grid 高程 |
+| 生物序列与遗传 | FASTA、FA、VCF | 序列比对与分析、群体遗传变异数据 |
+| 图像 | PNG、JPEG、WEBP、GIF | 图像查看器加载位图 |
+| 科研二进制 | HDF5（.h5/.hdf5/.hdf、MAT v7.3、h5ad）、NetCDF（.nc）、FITS（.fits/.fit）、Zarr（.zarr）、Parquet（.parquet） | 纯 TypeScript 调度器按魔数分派到各加载器，解码后以 CSV 落入项目 |
+| 项目 | .clproj | 工程自有格式，lz-string 压缩 |
+| 插件包 | .cspkg | fflate 打包，加载时校验清单与可选签名 |
+| 主题包 | .cstheme | 纯声明式数据，绝不携带可执行内容 |
+
+大文件先经分块读取与内容指纹，再交由 Worker 池并行解析。
+
+### 9.4 示例资源一览
+
+| 位置 | 内容 |
+| --- | --- |
+| examples/data | 每个内置插件附带的可加载示例数据集 |
+| examples/projects | 11 个真实 .clproj 流程管线（信号分析、分箱统计、双管线对比等） |
+| examples/code | 9 个 Python 示例程序（EDA 管线、蒙特卡洛估圆、信号平滑等） |
+| src/editor/block/samples.ts | 5 个积木示例程序（星系散点、遥测折线、随机直方图等） |
+| src/core/templates | 学科模板目录，附确定性数据集与 3–6 步引导 |
+
+### 9.5 参与贡献
+
+贡献流程要求：改动前先阅读仓库根目录的 ARCHITECTURE.md 与 REQUIREMENTS.md；新增插件或功能需附带端到端检查；提交前保持 \`npm run verify\` 绿色。已修复的缺陷应沉淀为回归用例，而不是只改代码。
+
+### 9.6 许可证
+
+MIT。软件引用与归档元数据由 \`CITATION.cff\` 维护（由脚本从 package.json 生成并在 CI 中校验），打标签发版时会自动归档到 Zenodo 并铸造 DOI。
+`;
+
+const APPENDIX = `## 附录 文档索引
+
+| 文档 | 内容 |
+| --- | --- |
+| 01-产品介绍 | 面向评审的总述：项目概览、技术创新、功能全景、场景落地、开源治理与长期发展 |
+| 02-系统架构 | 分层架构、路由与页面组织、启动时序、状态管理、渲染管线、目录结构与依赖规则 |
+| 03-插件系统 | 插件契约、107 个内置插件明细（含 32 个科研级插件套件）、市场目录与两级加载、cspkg 沙箱与 Ed25519 签名、文件路由 |
+| 04-四大工作模式 | 标准、流程、积木、代码四种模式的设计与三模式互转（共享 IR） |
+| 05-科研工具集 | 26 个科研工具的统一注册表、六个分组与逐项职责、入口导航与工具间流转 |
+| 06-GPU计算与原生核心 | 原生核心源码交付与运行时 WebGPU/CPU 回退口径、WebGPU 计算管线、14 个可复用 WGSL 内核 |
+| 07-科学计算子系统 | 统计内核、科研二进制 I/O、出版级绘图与组图、可复现性、不确定度、建模与推断等 43 个子系统 |
+| 08-测试与质量保障 | 单元测试、端到端测试、性能基准与体积预算、五条 CI 工作流与工程脚本 |
+| 电磁谐振特征值求解器（独立专题） | 稀疏厄密特征值求解：Lanczos / LOBPCG / Jacobi-Davidson 内核、MINRES 位移反演、真实残差认证、3D 模式场、Pyodide Worker 运行时 |
+| 流体双向耦合求解器（独立专题） | 1D 管网-3D 场双向耦合：多速率时间步协调、粗-细子循环、正反向边界耦合、毫秒级阀门控制、守恒性与精度-效率权衡 |
+| 流体双向耦合求解器-容器化部署手册（独立专题） | Docker 一键编排与 CLI 复现：容器内复现 26 项验证断言与基准，生产静态模式与故障排查 |
+| 应用场景库（独立专题） | 81 条细粒度应用场景（硬核→基础）：每条对应真实插件或科研工具并附实截图，与 03 / 05 篇对照检索 |
+| Ergalics Studio（本文） | 完整技术总结：由本目录各分篇与独立专题汇编而成，含目录导航、正文与本文档索引 |
+| docs/guide（VitePress 站点） | 面向使用者的在线文档：导言、架构、各模式指南、测试、路线图、插件等 |
+
+本文与上述文档随仓库代码一同演进：代码、配置或测试发生变化时，请一并核对与更新对应章节中的数字与描述。
+`;
+
+// ---- assemble -------------------------------------------------------------
+
+const intro = `# Ergalics Studio
+
+Ergalics Studio 是一款完全运行在浏览器中的科学计算工作站：无需安装，打开即用，数据保存在本机。四种工作模式共享同一份数据，从看图、搭流程到写代码连贯不换工具，并可交付可复现的研究成果。
+
+> 本文是 Ergalics Studio 的完整技术总结，覆盖系统架构、插件体系、四种工作模式、科研工具集、GPU 计算引擎与测试质量保障，另附使用指南与文档索引。数字基线为 107 个内置插件、38 个流程区块、26 个科研工具、43 个领域子系统、173 个测试文件 / 2815 个单元测试（2813 通过 + 2 跳过）、14 套端到端套件（1 冒烟 + 13 verify）、5 条 CI 工作流。
+`;
+
+const lines = [intro];
+
+// §一 项目概览 + §三 功能全景（§二 技术创新并入「技术创新」章，§四场景落地由《应用场景库》承担）
+const pick01 = (s, i) => i === 1 || i === 3;
+const pick01Innovation = (s, i) => i === 2; // §二 技术创新
+
+lines.push(...emitChapter(1, '项目概览', '01-产品介绍', pick01));
+lines.push(...emitChapter(2, '系统架构', '02-系统架构'));
+lines.push(...emitChapter(3, '插件系统', '03-插件系统'));
+lines.push(...emitChapter(4, '四大工作模式', '04-四大工作模式'));
+lines.push(...emitChapter(5, '科研工具集', '05-科研工具集'));
+lines.push(...emitChapter(6, 'GPU 计算与原生核心', '06-GPU计算与原生核心'));
+lines.push(...emitChapter(7, '科学计算子系统', '07-科学计算子系统'));
+lines.push(...emitChapter(8, '测试与质量保障', '08-测试与质量保障'));
+lines.push(USAGE);
+lines.push(...emitChapter(9, '技术创新', '01-产品介绍', pick01Innovation));
+lines.push(...emitChapter(10, '应用场景库', '11-应用场景库'));
+lines.push(APPENDIX);
+
+const out = lines
+  .join('\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .replace(/\s*$/, '\n');
+
+writeFileSync(path.join(DOCS_DIR, 'Ergalics Studio.md'), out, 'utf8');
+console.log(
+  `assembled: Ergalics Studio.md (${out.split('\n').length} lines, ${out.length} chars)`,
+);

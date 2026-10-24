@@ -1,0 +1,16 @@
+{
+  "method": "auto",
+  "k": 6,
+  "sigma": null,
+  "which": "LM",
+  "tol": 1e-8,
+  "max_cycles": 60,
+  "max_iter": 400,
+  "basis_dim": 48,
+  "seed": 0,
+  "adaptive_shift": true,
+  "dense_threshold": 800,
+  "minres_rtol": 1e-6,
+  "minres_maxiter": 250,
+  "verbose": false
+}

@@ -1,0 +1,18 @@
+# biochemist's kinetic assay: S / (mM) and v0 / (mM s^-1)
+# measured at [E]0 = 1.2 nM over 1 min; Michaelis-Menten with small gaussian noise
+substrate,v0
+0.25,1.02
+0.5,1.95
+0.75,2.71
+1,3.32
+1.5,4.47
+2,5.28
+3,6.12
+4,6.74
+6,7.35
+8,7.72
+10,7.99
+15,8.24
+20,8.46
+30,8.57
+50,8.75

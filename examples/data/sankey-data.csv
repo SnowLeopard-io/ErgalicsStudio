@@ -1,0 +1,21 @@
+﻿# Source, Target, Value
+Energy,Electricity,45.0
+Energy,Heating,30.0
+Energy,Transport,15.0
+Energy,Losses,10.0
+Electricity,Industry,20.0
+Electricity,Residential,15.0
+Electricity,Commercial,7.0
+Electricity,Losses,3.0
+Heating,Residential,18.0
+Heating,Commercial,8.0
+Heating,Industry,4.0
+Transport,Road,10.0
+Transport,Air,3.0
+Transport,Rail,2.0
+Industry,Products,12.0
+Industry,Waste,8.0
+Residential,Comfort,25.0
+Residential,Waste,8.0
+Commercial,Services,10.0
+Commercial,Waste,5.0

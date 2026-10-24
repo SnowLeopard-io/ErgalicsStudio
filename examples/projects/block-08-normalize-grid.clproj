@@ -1,0 +1,52 @@
+{
+  "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+  "name": "归一化网格散点",
+  "createdAt": 1786722030000,
+  "updatedAt": 1786722030000,
+  "data": { "files": [], "processed": null },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.generate_grid",
+          "position": { "x": 40, "y": 100 },
+          "params": { "size": 30 }
+        },
+        {
+          "id": "n2",
+          "blockId": "transform.normalize",
+          "position": { "x": 260, "y": 40 },
+          "params": { "column": "x", "mode": "minmax" }
+        },
+        {
+          "id": "n3",
+          "blockId": "transform.normalize",
+          "position": { "x": 260, "y": 160 },
+          "params": { "column": "y", "mode": "minmax" }
+        },
+        {
+          "id": "n4",
+          "blockId": "viz.point_cloud_2d",
+          "position": { "x": 520, "y": 100 },
+          "params": { "xColumn": "x_minmax", "yColumn": "y_minmax" }
+        }
+      ],
+      "connections": [
+        { "id": "c1", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n2", "portId": "data" } },
+        { "id": "c2", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n3", "portId": "data" } },
+        { "id": "c3", "from": { "nodeId": "n3", "portId": "out" }, "to": { "nodeId": "n4", "portId": "data" } }
+      ],
+      "viewport": { "x": 10, "y": 10, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "30×30 网格 → x/y 双列归一化 → 2D 点云可视化。",
+    "tags": ["blocks", "sample", "pipeline", "normalize", "point_cloud"]
+  }
+}

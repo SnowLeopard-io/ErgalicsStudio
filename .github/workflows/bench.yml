@@ -1,0 +1,100 @@
+name: Benchmarks
+
+# FR-23: run the performance benchmark suite on every push to main and on
+# releases; compare against the per-environment baseline (bench/baseline.json
+# for dev machines, bench/baseline.<platform>-<arch>.json on CI — dev desktop
+# numbers are meaningless on shared runners) and publish the results + the
+# self-contained HTML report as artifacts / release attachments.
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    # contents: write lets the "Commit environment baseline" step push the
+    # first-run baseline file back to the repo (see below).
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run benchmarks + compare against baseline (FR-23)
+        run: npm run bench:ci
+
+      # First run in a new environment (e.g. linux-x64) has no committed
+      # baseline: bench-compare.mjs records one and exits 0. Commit it once so
+      # subsequent runs on the same hardware actually gate against it. When
+      # GitHub rotates the runner CPU, bench-compare.mjs re-records the baseline
+      # (without failing) but we deliberately do NOT commit those re-recordings
+      # here — a rotating runner pool would otherwise cause a commit every run.
+      - name: Commit environment baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          FILE="bench/baseline.$(node -e 'process.stdout.write(process.platform + "-" + process.arch)').json"
+          if git rev-parse --verify --quiet HEAD:"$FILE" >/dev/null; then
+            echo "Baseline $FILE already tracked — skipping auto-commit (re-recorded baselines stay out of git to avoid churn)."
+          else
+            git checkout -B "$GITHUB_REF_NAME"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$FILE"
+            git commit -m "ci(bench): record baseline for $(node -e 'process.stdout.write(process.platform + "-" + process.arch)')"
+            git push
+          fi
+
+      - name: Record environment in job summary
+        run: |
+          node - <<'EOF'
+          const r = require('./bench-results.json');
+          const fs = require('fs');
+          const rows = r.suites.flatMap((s) => s.metrics.map((m) => `| ${m.id} | ${m.value} ${m.unit} | ${m.workload} |`));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, [
+            '## FR-23 benchmark results',
+            '',
+            `- Node: ${r.environment.node}`,
+            `- Platform: ${r.environment.platform}/${r.environment.arch}`,
+            `- CPU: ${r.environment.cpu}`,
+            `- Date: ${r.environment.date}`,
+            '',
+            '| metric | value | workload |',
+            '| --- | --- | --- |',
+            ...rows,
+            '',
+          ].join('\n'));
+          EOF
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: |
+            bench-results.json
+            bench-report.html
+
+      - name: Attach report to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bench-results.json
+            bench-report.html

@@ -1,0 +1,964 @@
+// Built-in example plugins registry (spec §3.3.1).
+// These are bundled at build time and listed in the "内置示例" tab.
+//
+// Ordering: default-loaded plugins are listed by importance — fundamental
+// data analysis first, then the physics/geo simulation flagships, then the
+// remaining charts and 3-D viewers. Fun/utility plugins (autoload: false)
+// come last since the user picks them explicitly.
+
+import type { Plugin, PluginManifest } from '@/types/plugin';
+import { scatterManifest } from './scatterManifest';
+import { timeSeriesManifest } from './timeSeriesManifest';
+import { histogramManifest } from './histogramManifest';
+import { boxPlotManifest } from './boxPlotManifest';
+import { heatmapManifest } from './heatmapManifest';
+import { contourManifest } from './contourManifest';
+import { nbodyManifest } from './nbodyManifest';
+import { fluidManifest } from './fluidManifest';
+import { fluid3dManifest } from './fluid3d/manifest';
+import { waveManifest } from './waveManifest';
+import { pendulumManifest } from './doublePendulumManifest';
+import { geoMapManifest } from './geo/geoMapManifest';
+import { solarManifest } from './geo/solarManifest';
+import { climographManifest } from './geo/climographManifest';
+import { popPyramidManifest } from './geo/popPyramidManifest';
+import { spatialInterpManifest } from './geo/spatialInterpManifest';
+import { geoMeasureManifest } from './geo/geoMeasureManifest';
+import { tissotManifest } from './geo/tissotManifest';
+import { terrainManifest } from './geo/terrainManifest';
+import { gpxTrackManifest } from './geo/gpxTrackManifest';
+import { globeManifest } from './geo/globeManifest';
+import { aiTrainingManifest } from './ai-training/manifest';
+import { errorbandManifest } from './errorbandManifest';
+import { qqplotManifest } from './qqplotManifest';
+import { violinPlotManifest } from './violinPlotManifest';
+import { parallelCoordinatesManifest } from './parallelCoordinatesManifest';
+import { sankeyManifest } from './sankeyManifest';
+import { treemapManifest } from './treemapManifest';
+import { networkGraphManifest } from './networkGraphManifest';
+import { barChartManifest } from './barChartManifest';
+import { bubbleChartManifest } from './bubbleChartManifest';
+import { polarPlotManifest } from './polarPlotManifest';
+import { pointCloudManifest } from './pointCloudManifest';
+import { pointCloud3DManifest } from './pointCloud3DManifest';
+import { surface3DManifest } from './surface3DManifest';
+import { voxel3DManifest } from './voxel3DManifest';
+import { modelViewerManifest } from './modelViewerManifest';
+import { particleManifest } from './particlesManifest';
+import { proteinManifest } from './proteinManifest';
+import { imageViewerManifest } from './imageViewerManifest';
+import { mandelbrotManifest } from './mandelbrotManifest';
+import { spirographManifest } from './spirographManifest';
+import { lissajousManifest } from './lissajousManifest';
+import { lifeManifest } from './lifeManifest';
+import { harmonographManifest } from './harmonographManifest';
+import { paletteManifest } from './paletteManifest';
+import { kochManifest } from './kochManifest';
+import { barnsleyManifest } from './barnsleyManifest';
+import { fireworksManifest } from './fireworksManifest';
+import { truchetManifest } from './truchetManifest';
+import { electromagManifest } from './electromagManifest';
+import { opticsManifest } from './opticsManifest';
+import { structureManifest } from './structureManifest';
+import { emEigensolverManifest } from './em-eigensolver/manifest';
+import { fluidCfdCouplerManifest } from './fluid-cfd-coupler/manifest';
+import { chemCrystalManifest } from './chem-crystal/manifest';
+import { chemReactionManifest } from './chem-reaction/manifest';
+import { matsXrdManifest } from './mats-xrd/manifest';
+import { matsMechManifest } from './mats-mech/manifest';
+import { matsThermalManifest } from './mats-thermal/manifest';
+import { blackholeManifest } from './blackhole/manifest';
+import { waterManifest as waterFxManifest } from './water/manifest';
+import { cloudManifest } from './cloud/manifest';
+import { skyManifest } from './sky/manifest';
+import { starsManifest } from './stars/manifest';
+import { oceanManifest } from './ocean/manifest';
+import { mistyManifest } from './misty/manifest';
+import { astroManifest } from './astro/manifest';
+import { bioEnzymeManifest } from './bio-enzyme/manifest';
+import { bioEpidemicManifest } from './bio-epidemic/manifest';
+import { bioSeqalignManifest } from './bio-seqalign/manifest';
+import { bioPopgenManifest } from './bio-popgen/manifest';
+import { aqiManifest } from './env/aqiManifest';
+import { waterManifest } from './env/waterManifest';
+import { greenhouseManifest } from './env/greenhouseManifest';
+import { carbonManifest } from './env/carbonManifest';
+import { biodiversityManifest } from './env/biodiversityManifest';
+import { plumeManifest } from './env/plumeManifest';
+import { earth3dManifest } from './env/earth3dManifest';
+import { chemTitrationManifest } from './chem-titration/manifest';
+import { chemReactionOrderManifest } from './chem-reaction-order/manifest';
+import { chemTuringManifest } from './chem-turing/manifest';
+import { schrodingerManifest } from './physics-schrodinger/manifest';
+import { isingManifest } from './physics-ising/manifest';
+import { heatEngineManifest } from './physics-heatengine/manifest';
+import { physicsDiffusionManifest } from './physics-diffusion/manifest';
+import { physicsDiffractionManifest } from './physics-diffraction/manifest';
+import { physicsTrajectoryManifest } from './physics-trajectory/manifest';
+import { engCircuitManifest } from './eng-circuit/manifest';
+import { engTrussManifest } from './eng-truss/manifest';
+import { engControlManifest } from './eng-control/manifest';
+import { femLabManifest } from '../fem-lab/manifest';
+import { bioPkManifest } from './bio-pk/manifest';
+import { bioMendelManifest } from './bio-mendel/manifest';
+import { bioNeuronManifest } from './bio-neuron/manifest';
+import { envPredatorPreyManifest } from './env-predator-prey/manifest';
+import { carbonDatingManifest } from './geo-carbondating/manifest';
+import { soilWaterManifest } from './geo-soilwater/manifest';
+import { hydrologyManifest } from './geo-hydrology/manifest';
+import { mathFourierManifest } from './math-fourier/manifest';
+import { mathDomaincolorManifest } from './math-domaincolor/manifest';
+import { mathOdefieldManifest } from './math-odefield/manifest';
+import { statsCltManifest } from './stats-clt/manifest';
+import { statsMarkovManifest } from './stats-markov/manifest';
+import { statsZipfManifest } from './stats-zipf/manifest';
+import { blackscholesManifest } from './econ-blackscholes/manifest';
+import { evogameManifest } from './econ-evogame/manifest';
+import { sdtManifest } from './psych-sdt/manifest';
+import { rtManifest } from './psych-rt/manifest';
+import { astroTransitManifest } from './astro-transit/manifest';
+import { astroHrdiagramManifest } from './astro-hrdiagram/manifest';
+import { dataImageprocManifest } from './data-imageproc/manifest';
+
+export interface BuiltinPluginInfo {
+  manifest: PluginManifest;
+  load: () => Promise<Plugin>;
+  /**
+   * Whether the plugin is loaded automatically on startup. Fun/utility
+   * plugins default to manual loading (the user picks them from the
+   * built-in / marketplace panel) so they don't bloat the initial registry.
+   * Defaults to `true` when omitted.
+   */
+  autoload?: boolean;
+}
+
+export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
+  // ---- Core data analysis ------------------------------------------------
+  {
+    manifest: scatterManifest,
+    load: async () => {
+      const mod = await import('./scatter');
+      return mod.default();
+    },
+  },
+  {
+    manifest: timeSeriesManifest,
+    load: async () => {
+      const mod = await import('./timeSeries');
+      return mod.default();
+    },
+  },
+  {
+    manifest: histogramManifest,
+    load: async () => {
+      const mod = await import('./histogram');
+      return mod.default();
+    },
+  },
+  {
+    manifest: boxPlotManifest,
+    load: async () => {
+      const mod = await import('./boxPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: heatmapManifest,
+    load: async () => {
+      const mod = await import('./heatmap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: contourManifest,
+    load: async () => {
+      const mod = await import('./contour');
+      return mod.default();
+    },
+  },
+  // ---- Simulation flagships (physics / geography) -------------------------
+  {
+    manifest: nbodyManifest,
+    load: async () => {
+      const mod = await import('./nbody');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluidManifest,
+    load: async () => {
+      const mod = await import('./fluid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluid3dManifest,
+    load: async () => {
+      const mod = await import('./fluid3d');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waveManifest,
+    load: async () => {
+      const mod = await import('./wave');
+      return mod.default();
+    },
+  },
+  {
+    manifest: pendulumManifest,
+    load: async () => {
+      const mod = await import('./doublePendulum');
+      return mod.default();
+    },
+  },
+  {
+    manifest: geoMapManifest,
+    load: async () => {
+      const mod = await import('./geo/geoMap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: solarManifest,
+    load: async () => {
+      const mod = await import('./geo/solar');
+      return mod.default();
+    },
+  },
+  {
+    manifest: climographManifest,
+    load: async () => {
+      const mod = await import('./geo/climograph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: popPyramidManifest,
+    load: async () => {
+      const mod = await import('./geo/popPyramid');
+      return mod.default();
+    },
+  },
+  {
+    manifest: spatialInterpManifest,
+    load: async () => {
+      const mod = await import('./geo/spatialInterp');
+      return mod.default();
+    },
+  },
+  {
+    manifest: geoMeasureManifest,
+    load: async () => {
+      const mod = await import('./geo/geoMeasure');
+      return mod.default();
+    },
+  },
+  {
+    manifest: tissotManifest,
+    load: async () => {
+      const mod = await import('./geo/tissot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: terrainManifest,
+    load: async () => {
+      const mod = await import('./geo/terrain');
+      return mod.default();
+    },
+  },
+  {
+    manifest: gpxTrackManifest,
+    load: async () => {
+      const mod = await import('./geo/gpxTrack');
+      return mod.default();
+    },
+  },
+  {
+    manifest: globeManifest,
+    load: async () => {
+      const mod = await import('./geo/globe');
+      return mod.default();
+    },
+  },
+  {
+    manifest: aiTrainingManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./ai-training');
+      return mod.default();
+    },
+  },
+  // ---- Interactive physics / optics labs (default-loaded) ------------------
+  // Hands-on 2-D labs: draggable objects and on-canvas interaction. These are
+  // product flagship demos, so they ship as default plugins — loaded on
+  // startup alongside the other simulation flagships and always listed in the
+  // built-in / market panels. Each one has matching entries in
+  // examples/data/ surfaced by the top-bar "示例" dialog.
+  {
+    manifest: electromagManifest,
+    load: async () => {
+      const mod = await import('./electromag');
+      return mod.default();
+    },
+  },
+  {
+    manifest: opticsManifest,
+    load: async () => {
+      const mod = await import('./optics');
+      return mod.default();
+    },
+  },
+  {
+    manifest: structureManifest,
+    load: async () => {
+      const mod = await import('./structure');
+      return mod.default();
+    },
+  },
+  {
+    manifest: emEigensolverManifest,
+    load: async () => {
+      const mod = await import('./em-eigensolver');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fluidCfdCouplerManifest,
+    load: async () => {
+      const mod = await import('./fluid-cfd-coupler');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemCrystalManifest,
+    load: async () => {
+      const mod = await import('./chem-crystal');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemReactionManifest,
+    load: async () => {
+      const mod = await import('./chem-reaction');
+      return mod.default();
+    },
+  },
+  // ---- Materials science suite (research-grade kernels) ---------------------
+  {
+    manifest: matsXrdManifest,
+    load: async () => {
+      const mod = await import('./mats-xrd');
+      return mod.default();
+    },
+  },
+  {
+    manifest: matsMechManifest,
+    load: async () => {
+      const mod = await import('./mats-mech');
+      return mod.default();
+    },
+  },
+  {
+    manifest: matsThermalManifest,
+    load: async () => {
+      const mod = await import('./mats-thermal');
+      return mod.default();
+    },
+  },
+  // ---- Special FX (GPU ray tracing / fluid; own sidebar discipline) ---------
+  {
+    manifest: blackholeManifest,
+    load: async () => {
+      const mod = await import('./blackhole');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waterFxManifest,
+    load: async () => {
+      const mod = await import('./water');
+      return mod.default();
+    },
+  },
+  {
+    manifest: cloudManifest,
+    load: async () => {
+      const mod = await import('./cloud');
+      return mod.default();
+    },
+  },
+  {
+    manifest: skyManifest,
+    load: async () => {
+      const mod = await import('./sky');
+      return mod.default();
+    },
+  },
+  {
+    manifest: starsManifest,
+    load: async () => {
+      const mod = await import('./stars');
+      return mod.default();
+    },
+  },
+  {
+    manifest: oceanManifest,
+    load: async () => {
+      const mod = await import('./ocean');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mistyManifest,
+    load: async () => {
+      const mod = await import('./misty');
+      return mod.default();
+    },
+  },
+  // ---- Astronomy (research-grade CCD pipeline) ------------------------------
+  {
+    manifest: astroManifest,
+    load: async () => {
+      const mod = await import('./astro');
+      return mod.default();
+    },
+  },
+  // ---- Biology suite (research-grade kernels) ------------------------------
+  {
+    manifest: bioEnzymeManifest,
+    load: async () => {
+      const mod = await import('./bio-enzyme');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioEpidemicManifest,
+    load: async () => {
+      const mod = await import('./bio-epidemic');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioSeqalignManifest,
+    load: async () => {
+      const mod = await import('./bio-seqalign');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioPopgenManifest,
+    load: async () => {
+      const mod = await import('./bio-popgen');
+      return mod.default();
+    },
+  },
+  // ---- Environmental science suite (data-driven; samples via 示例 dialog) ---
+  {
+    manifest: aqiManifest,
+    load: async () => {
+      const mod = await import('./env/aqi');
+      return mod.default();
+    },
+  },
+  {
+    manifest: waterManifest,
+    load: async () => {
+      const mod = await import('./env/water');
+      return mod.default();
+    },
+  },
+  {
+    manifest: greenhouseManifest,
+    load: async () => {
+      const mod = await import('./env/greenhouse');
+      return mod.default();
+    },
+  },
+  {
+    manifest: carbonManifest,
+    load: async () => {
+      const mod = await import('./env/carbon');
+      return mod.default();
+    },
+  },
+  {
+    manifest: biodiversityManifest,
+    load: async () => {
+      const mod = await import('./env/biodiversity');
+      return mod.default();
+    },
+  },
+  {
+    manifest: plumeManifest,
+    load: async () => {
+      const mod = await import('./env/plume');
+      return mod.default();
+    },
+  },
+  {
+    manifest: earth3dManifest,
+    load: async () => {
+      const mod = await import('./env/earth3d');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: chemistry (research-grade kernels) -------------------
+  {
+    manifest: chemTitrationManifest,
+    load: async () => {
+      const mod = await import('./chem-titration');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemReactionOrderManifest,
+    load: async () => {
+      const mod = await import('./chem-reaction-order');
+      return mod.default();
+    },
+  },
+  {
+    manifest: chemTuringManifest,
+    load: async () => {
+      const mod = await import('./chem-turing');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: physics (research-grade kernels) ---------------------
+  {
+    manifest: schrodingerManifest,
+    load: async () => {
+      const mod = await import('./physics-schrodinger');
+      return mod.default();
+    },
+  },
+  {
+    manifest: isingManifest,
+    load: async () => {
+      const mod = await import('./physics-ising');
+      return mod.default();
+    },
+  },
+  {
+    manifest: heatEngineManifest,
+    load: async () => {
+      const mod = await import('./physics-heatengine');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsDiffusionManifest,
+    load: async () => {
+      const mod = await import('./physics-diffusion');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsDiffractionManifest,
+    load: async () => {
+      const mod = await import('./physics-diffraction');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsTrajectoryManifest,
+    load: async () => {
+      const mod = await import('./physics-trajectory');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: engineering (research-grade kernels) ------------------
+  {
+    manifest: engCircuitManifest,
+    load: async () => {
+      const mod = await import('./eng-circuit');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engTrussManifest,
+    load: async () => {
+      const mod = await import('./eng-truss');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engControlManifest,
+    load: async () => {
+      const mod = await import('./eng-control');
+      return mod.default();
+    },
+  },
+  {
+    manifest: femLabManifest,
+    load: async () => {
+      const mod = await import('../fem-lab');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: biology & environment (research-grade kernels) --------
+  {
+    manifest: bioPkManifest,
+    load: async () => {
+      const mod = await import('./bio-pk');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioMendelManifest,
+    load: async () => {
+      const mod = await import('./bio-mendel');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bioNeuronManifest,
+    load: async () => {
+      const mod = await import('./bio-neuron');
+      return mod.default();
+    },
+  },
+  {
+    manifest: envPredatorPreyManifest,
+    load: async () => {
+      const mod = await import('./env-predator-prey');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: earth science (research-grade kernels) ----------------
+  {
+    manifest: carbonDatingManifest,
+    load: async () => {
+      const mod = await import('./geo-carbondating');
+      return mod.default();
+    },
+  },
+  {
+    manifest: soilWaterManifest,
+    load: async () => {
+      const mod = await import('./geo-soilwater');
+      return mod.default();
+    },
+  },
+  {
+    manifest: hydrologyManifest,
+    load: async () => {
+      const mod = await import('./geo-hydrology');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: mathematics (research-grade kernels) ------------------
+  {
+    manifest: mathFourierManifest,
+    load: async () => {
+      const mod = await import('./math-fourier');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathDomaincolorManifest,
+    load: async () => {
+      const mod = await import('./math-domaincolor');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathOdefieldManifest,
+    load: async () => {
+      const mod = await import('./math-odefield');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: statistics (research-grade kernels) -------------------
+  {
+    manifest: statsCltManifest,
+    load: async () => {
+      const mod = await import('./stats-clt');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMarkovManifest,
+    load: async () => {
+      const mod = await import('./stats-markov');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsZipfManifest,
+    load: async () => {
+      const mod = await import('./stats-zipf');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: economics & psychology (research-grade kernels) -------
+  {
+    manifest: blackscholesManifest,
+    load: async () => {
+      const mod = await import('./econ-blackscholes');
+      return mod.default();
+    },
+  },
+  {
+    manifest: evogameManifest,
+    load: async () => {
+      const mod = await import('./econ-evogame');
+      return mod.default();
+    },
+  },
+  {
+    manifest: sdtManifest,
+    load: async () => {
+      const mod = await import('./psych-sdt');
+      return mod.default();
+    },
+  },
+  {
+    manifest: rtManifest,
+    load: async () => {
+      const mod = await import('./psych-rt');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: astronomy & data (research-grade kernels) -------------
+  {
+    manifest: astroTransitManifest,
+    load: async () => {
+      const mod = await import('./astro-transit');
+      return mod.default();
+    },
+  },
+  {
+    manifest: astroHrdiagramManifest,
+    load: async () => {
+      const mod = await import('./astro-hrdiagram');
+      return mod.default();
+    },
+  },
+  {
+    manifest: dataImageprocManifest,
+    load: async () => {
+      const mod = await import('./data-imageproc');
+      return mod.default();
+    },
+  },
+  // ---- Statistical charts --------------------------------------------------
+  {
+    manifest: errorbandManifest,
+    load: async () => {
+      const mod = await import('./errorband');
+      return mod.default();
+    },
+  },
+  {
+    manifest: qqplotManifest,
+    load: async () => {
+      const mod = await import('./qqplot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: violinPlotManifest,
+    load: async () => {
+      const mod = await import('./violinPlot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: parallelCoordinatesManifest,
+    load: async () => {
+      const mod = await import('./parallelCoordinates');
+      return mod.default();
+    },
+  },
+  {
+    manifest: sankeyManifest,
+    load: async () => {
+      const mod = await import('./sankey');
+      return mod.default();
+    },
+  },
+  {
+    manifest: treemapManifest,
+    load: async () => {
+      const mod = await import('./treemap');
+      return mod.default();
+    },
+  },
+  {
+    manifest: networkGraphManifest,
+    load: async () => {
+      const mod = await import('./networkGraph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: barChartManifest,
+    load: async () => {
+      const mod = await import('./barChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: bubbleChartManifest,
+    load: async () => {
+      const mod = await import('./bubbleChart');
+      return mod.default();
+    },
+  },
+  {
+    manifest: polarPlotManifest,
+    load: async () => {
+      const mod = await import('./polarPlot');
+      return mod.default();
+    },
+  },
+  // ---- 3-D & misc viewers ---------------------------------------------------
+  {
+    manifest: pointCloudManifest,
+    load: async () => {
+      const mod = await import('./pointCloud');
+      return mod.default();
+    },
+  },
+  {
+    manifest: pointCloud3DManifest,
+    load: async () => {
+      const mod = await import('./pointCloud3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: surface3DManifest,
+    load: async () => {
+      const mod = await import('./surface3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: voxel3DManifest,
+    load: async () => {
+      const mod = await import('./voxel3D');
+      return mod.default();
+    },
+  },
+  {
+    manifest: modelViewerManifest,
+    load: async () => {
+      const mod = await import('./modelViewer');
+      return mod.default();
+    },
+  },
+  {
+    manifest: particleManifest,
+    load: async () => {
+      const mod = await import('./particles');
+      return mod.default();
+    },
+  },
+  {
+    manifest: proteinManifest,
+    load: async () => {
+      const mod = await import('./protein');
+      return mod.default();
+    },
+  },
+  {
+    manifest: imageViewerManifest,
+    load: async () => {
+      const mod = await import('./imageViewer');
+      return mod.default();
+    },
+  },
+  // ---- Fun & utility (manual load) -------------------------------------------
+  {
+    manifest: mandelbrotManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./mandelbrot');
+      return mod.default();
+    },
+  },
+  {
+    manifest: spirographManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./spirograph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: lissajousManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./lissajous');
+      return mod.default();
+    },
+  },
+  {
+    manifest: lifeManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./life');
+      return mod.default();
+    },
+  },
+  {
+    manifest: harmonographManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./harmonograph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: paletteManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./palette');
+      return mod.default();
+    },
+  },
+  {
+    manifest: kochManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./koch');
+      return mod.default();
+    },
+  },
+  {
+    manifest: barnsleyManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./barnsley');
+      return mod.default();
+    },
+  },
+  {
+    manifest: fireworksManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./fireworks');
+      return mod.default();
+    },
+  },
+  {
+    manifest: truchetManifest,
+    autoload: false,
+    load: async () => {
+      const mod = await import('./truchet');
+      return mod.default();
+    },
+  },
+];
+
+export function findBuiltin(id: string): BuiltinPluginInfo | undefined {
+  return BUILTIN_PLUGINS.find((p) => p.manifest.id === id);
+}
+
+export function getBuiltinManifests(): PluginManifest[] {
+  return BUILTIN_PLUGINS.map((p) => p.manifest);
+}

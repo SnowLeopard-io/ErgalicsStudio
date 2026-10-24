@@ -1,0 +1,14 @@
+{
+  "name": "Meteor shower (La Palma, Bortle 2)",
+  "hourUTC": 22.0,
+  "latitude": 28.76,
+  "longitude": -17.89,
+  "starDensity": 1.3,
+  "bortle": 2,
+  "seeing": 0.3,
+  "mwBrightness": 1.0,
+  "meteorRate": 14,
+  "exposure": 1.25,
+  "autoRotate": true,
+  "autoOrbit": false
+}

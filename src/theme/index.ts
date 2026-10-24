@@ -1,0 +1,115 @@
+import { useSyncExternalStore } from 'react';
+
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+const STORAGE_KEY = 'ergalics:theme';
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+let preference: ThemePreference = detectInitialPreference();
+
+function detectInitialPreference(): ThemePreference {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+  } catch {
+    /* ignore */
+  }
+  // Default to the instrument-console dark look; 'system' stays opt-in via
+  // the switcher. Saved user choices always win.
+  return 'dark';
+}
+
+function systemDark(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+}
+
+function apply() {
+  const resolved = preference === 'system' ? (systemDark() ? 'dark' : 'light') : preference;
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.theme = resolved;
+  }
+}
+
+function emit() {
+  listeners.forEach((l) => l());
+}
+
+export function getThemePreference(): ThemePreference {
+  return preference;
+}
+
+export function getResolvedTheme(): 'light' | 'dark' {
+  return preference === 'system' ? (systemDark() ? 'dark' : 'light') : preference;
+}
+
+/** Briefly enable a global background/color/border transition so a theme or
+ *  system-scheme flip eases rather than snaps. The class is removed again a
+ *  beat later so the transition is only active around the swap — keeping it
+ *  permanent would add per-frame work and make every hover feel like it lags
+ *  behind the pointer. */
+function beginThemeTransition(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  const root = document.documentElement;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  root.classList.add('theme-transition');
+  window.setTimeout(() => root.classList.remove('theme-transition'), 320);
+}
+
+export function setThemePreference(next: ThemePreference) {
+  preference = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    /* ignore */
+  }
+  beginThemeTransition();
+  apply();
+  emit();
+}
+
+function subscribe(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// Keep theme in sync with system changes when in "system" mode. This is set
+// up lazily (not at module top level) so importing this module in a test or
+// non-browser context can't crash on `window.matchMedia` being unavailable.
+function watchSystemTheme(): void {
+  if (typeof window === 'undefined') return;
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const onSystemChange = () => {
+    if (preference === 'system') {
+      beginThemeTransition();
+      apply();
+      emit();
+    }
+  };
+  if (mediaQuery?.addEventListener) {
+    mediaQuery.addEventListener('change', onSystemChange);
+  } else if (mediaQuery?.addListener) {
+    mediaQuery.addListener(onSystemChange);
+  }
+}
+watchSystemTheme();
+
+export function useTheme(): {
+  preference: ThemePreference;
+  resolved: 'light' | 'dark';
+  setPreference: (p: ThemePreference) => void;
+} {
+  useSyncExternalStore(subscribe, getThemePreference, getThemePreference);
+  return {
+    preference,
+    resolved: getResolvedTheme(),
+    setPreference: setThemePreference,
+  };
+}
+
+// Apply immediately on module load (no-op when document is unavailable).
+apply();

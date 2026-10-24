@@ -1,0 +1,160 @@
+name: Security (FR-18)
+
+# Engineering-scorecard, SBOM and dependency-audit gate. Blocking rule:
+# npm audit findings at high/critical fail the job and block the merge.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly re-score even without code changes (03:00 Mondays, UTC).
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scorecards:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # publish_results: false — the repo may run on branches without the
+      # scorecards default-branch config; results land in the job log + SARIF
+      # artifact instead of the public badge.
+      # v2.4.4+: the container image moved from gcr.io/openssf/scorecard-action
+      # to ghcr.io/ossf/scorecard-action. Anonymous pulls from gcr.io are now
+      # denied ("This API method requires billing to be enabled"), which broke
+      # the v2.4.0 action on every run.
+      - name: OSSF Scorecards analysis
+        uses: ossf/scorecard-action@v2.4.4
+        with:
+          repo: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          # results_file / results_format are required inputs; without them the
+          # action aborts with "validating options: results path is empty".
+          # sarif output feeds the "Upload scorecards SARIF" step below.
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: false
+
+      - name: Upload scorecards SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecards-results
+          path: results.sarif
+          retention-days: 30
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # CycloneDX 1.5 generated from package-lock.json v3 by a dependency-free
+      # Node script (@cyclonedx/cyclonedx-npm is not allowed: no new deps).
+      - name: Generate SBOM
+        run: node scripts/gen-sbom.mjs sbom/cyclonedx.sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/cyclonedx.sbom.json
+          retention-days: 90
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Blocking gate: high/critical advisories fail this step and block merge.
+      #
+      # Temporary exemption mechanism (documented, review-required): if a
+      # high/critical advisory is genuinely unfixable (no patched release,
+      # transitive-only, false positive), add its GHSA id to AUDIT_ALLOWLIST
+      # below with a comment stating WHY and a follow-up issue link. The step
+      # downgrades only those ids to warnings; everything else still blocks.
+      # The full ledger (including below-threshold moderates) lives in
+      # SECURITY.md "Dependency vulnerability ledger".
+      #
+      # State 2026-10-13: zero findings — the 2026-10-10 allowlist entry
+      # (vite/esbuild chain on the docs workspace) was cleared by upgrading
+      # the docs workspace to vitepress 2.0.0-alpha.6, whose vite ^6.3.5
+      # range dedupes with the patched root vite@6.4.4. The allowlist
+      # mechanism is kept, empty, for future exemptions.
+      - name: npm audit (high/critical blocking)
+        run: |
+          AUDIT_ALLOWLIST=""
+          set +e
+          npm audit --audit-level=high --json > audit.json
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            node - "$AUDIT_ALLOWLIST" <<'EOF'
+          const fs = require('node:fs');
+          const allow = new Set((process.argv[2] || '').split(/\s+/).filter(Boolean));
+          const data = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+          const vulns = data.vulnerabilities ?? {};
+          const blocking = [];
+          const walk = (name, node) => {
+            for (const v of node.via ?? []) {
+              if (typeof v === 'object' && (v.severity === 'high' || v.severity === 'critical')) {
+                const id = v.url?.match(/GHSA-[a-z0-9-]+/i)?.[0] ?? `${name}:${v.title}`;
+                if (!allow.has(id)) blocking.push(`${name}: ${id} (${v.severity})`);
+              }
+            }
+            for (const [dep, child] of Object.entries(node.effects ?? {})) walk(dep, child);
+          };
+          for (const [name, node] of Object.entries(vulns)) walk(name, node);
+          if (blocking.length) {
+            console.error('Blocking advisories (exempt via AUDIT_ALLOWLIST with justification):');
+            for (const b of blocking) console.error('  - ' + b);
+            process.exit(1);
+          }
+          console.log('All high/critical findings are allow-listed; downgraded to warnings.');
+          EOF
+            exit $?
+          fi
+          echo "npm audit: no high/critical findings."
+
+      - name: Write audit report
+        if: always()
+        run: |
+          mkdir -p audit-report
+          cp audit.json audit-report/npm-audit.json 2>/dev/null || echo '{"error":"audit.json missing"}' > audit-report/npm-audit.json
+          npm audit --audit-level=high > audit-report/npm-audit.txt 2>&1 || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: audit-report/
+          retention-days: 90

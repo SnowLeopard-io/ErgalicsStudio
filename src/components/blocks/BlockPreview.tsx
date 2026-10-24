@@ -1,0 +1,266 @@
+// ==========================================================================
+// Ergalics Studio — block result preview (block system)
+//
+// Renders the result of the selected (or last) executed node. The block
+// executor stays pure; this component bridges the output to the right
+// surface depending on its type:
+//   - RenderedView → live plugin render (scatter/histogram/...)
+//   - DataTable    → read-only table (summary/histogram bins/...)
+//   - Scalar       → inline value
+// A chip switcher lets the user pick which node's output to inspect.
+// ==========================================================================
+
+import { useEffect, useRef, useState } from 'react';
+import { useLocale, useT } from '@/i18n';
+import { setHostContainers, usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
+import { useBlockStore } from '@/stores/blockStore';
+import { useAppStore } from '@/stores/appStore';
+import { renderView } from '@/blocks/render';
+import type { ViewRenderHost } from '@/blocks/render';
+import { isDataTable, isRenderedView, isScalar } from '@/types/datatable';
+import { exportPDF, exportSVG, type SvgPlotPayload } from '@/core/plot';
+import { blockRegistry } from '@/blocks/registry';
+import { blockName } from '@/blocks/l10n';
+import { DataTablePreview } from './DataTablePreview';
+
+const PREVIEW_HEIGHT_KEY = 'ergalics:block-preview-height';
+const PREVIEW_DEFAULT_H = 220;
+const PREVIEW_MIN_H = 120;
+/** The panel may never take more than 70% of the viewport height. */
+const PREVIEW_MAX_RATIO = 0.7;
+
+function clampHeight(px: number): number {
+  const max = Math.round(window.innerHeight * PREVIEW_MAX_RATIO);
+  return Math.min(Math.max(px, PREVIEW_MIN_H), max);
+}
+
+function initialPreviewHeight(): number {
+  try {
+    const raw = localStorage.getItem(PREVIEW_HEIGHT_KEY);
+    const n = raw ? Number(raw) : NaN;
+    if (Number.isFinite(n) && n > 0) return clampHeight(n);
+  } catch {
+    // Storage unavailable (private mode / tests) — fall through to default.
+  }
+  return PREVIEW_DEFAULT_H;
+}
+
+export function BlockPreview() {
+  const t = useT();
+  const { locale } = useLocale();
+  const domRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(initialPreviewHeight);
+  const nodeOutputs = useBlockStore((s) => s.nodeOutputs);
+  const selectedIds = useBlockStore((s) => s.selectedIds);
+  const instances = useBlockStore((s) => s.instances);
+  const [pickedNode, setPickedNode] = useState<string | null>(null);
+  // Once the user explicitly picks a node via the chip switcher, canvas
+  // selection must stop yanking the preview away from their choice.
+  const manualPick = useRef(false);
+
+  // Register a render container for the preview area (2D plugins only).
+  useEffect(() => {
+    if (!domRef.current || !canvasRef.current) return;
+    setHostContainers({
+      dom: domRef.current,
+      canvas2d: canvasRef.current,
+      reportDataScale: (n) => useAppStore.getState().setDataScale(n),
+      clearCanvas2d: () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const g = canvas.getContext('2d');
+        if (g) g.clearRect(0, 0, canvas.width, canvas.height);
+      },
+    });
+    // If a plugin is still active (e.g. the preview remounted after a mode
+    // toggle), redraw it into the fresh containers — otherwise its cached
+    // container points at a detached canvas and re-rendering silently no-ops.
+    rerenderActivePlugin();
+    return () => setHostContainers(null);
+  }, []);
+
+  // Canvas outputs bake their pixels (and the on-plot caption) at draw time,
+  // so a panel resize must trigger a re-render or the frame stretches.
+  // Debounced so a drag produces one crisp redraw after it settles; SVG and
+  // table outputs scale losslessly and simply ignore these events.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof ResizeObserver === 'undefined') return;
+    let timer = 0;
+    const ro = new ResizeObserver(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => rerenderActivePlugin(), 120);
+    });
+    ro.observe(canvas);
+    return () => {
+      window.clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, []);
+
+  const outputIds = Object.keys(nodeOutputs);
+
+  // Follow canvas selection when it points at an output node.
+  useEffect(() => {
+    if (manualPick.current) return;
+    const selected = selectedIds.find((id) => id in nodeOutputs);
+    if (selected) setPickedNode(selected);
+  }, [selectedIds, nodeOutputs]);
+
+  const targetId =
+    (pickedNode && nodeOutputs[pickedNode] ? pickedNode : null) ??
+    outputIds.find((id) => isRenderedView(nodeOutputs[id])) ??
+    outputIds[outputIds.length - 1];
+  const target = targetId ? nodeOutputs[targetId] : undefined;
+  // SVG plots carry their own markup and render inline (no plugin); everything
+  // else that is a RenderedView goes through the plugin bridge.
+  const svgPayload: SvgPlotPayload | undefined =
+    target && isRenderedView(target)
+      ? ((target.data as SvgPlotPayload | undefined)?.svg === true
+          ? (target.data as SvgPlotPayload)
+          : undefined)
+      : undefined;
+  const isSvgPlot = svgPayload !== undefined;
+  const isView = target !== undefined && isRenderedView(target) && !isSvgPlot;
+
+  // Inject the SVG plot markup into the host div (browser only).
+  useEffect(() => {
+    if (!isSvgPlot || !svgHostRef.current || !svgPayload) return;
+    svgHostRef.current.innerHTML = svgPayload.markup;
+  }, [isSvgPlot, svgPayload]);
+
+  // Render non-SVG RenderedView outputs through the plugin bridge. Verified:
+  // renderView() only activates the plugin and pushes data through the global
+  // plugin store — it never draws into this component's DOM, so an unmount
+  // mid-flight cannot write into detached containers.
+  useEffect(() => {
+    if (!target || !isRenderedView(target) || isSvgPlot) return;
+    const host: ViewRenderHost = {
+      activate: async (pluginId) => {
+        const store = usePluginStore.getState();
+        if (store.activeId !== pluginId) {
+          await store.activate(pluginId);
+        }
+        // When the plugin is already active, do NOT re-render it here:
+        // renderView() immediately loads the new payload, and the preview's
+        // mount effect already rebound the containers after a remount.
+        // Rerendering with the *old* data first produced a stale frame.
+        return store.getActive();
+      },
+    };
+    void renderView(target, host);
+  }, [target, isSvgPlot]);
+
+  function nodeName(id: string): string {
+    const inst = instances.find((i) => i.id === id);
+    const meta = inst ? blockRegistry.get(inst.blockId) : undefined;
+    return meta ? blockName(meta, locale) : id;
+  }
+
+  // Drag the top edge to resize the panel vertically; double-click resets.
+  // Height persists to localStorage so the layout survives reloads.
+  function onResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = height;
+    const move = (ev: MouseEvent) => {
+      setHeight(clampHeight(startH + (startY - ev.clientY)));
+    };
+    const finish = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', finish);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try {
+        localStorage.setItem(PREVIEW_HEIGHT_KEY, String(clampHeight(startH + (startY - ev.clientY))));
+      } catch {
+        // Ignore persistence failures — the session keeps the dragged size.
+      }
+    };
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', finish);
+  }
+
+  function onResizeReset() {
+    setHeight(PREVIEW_DEFAULT_H);
+    try {
+      localStorage.setItem(PREVIEW_HEIGHT_KEY, String(PREVIEW_DEFAULT_H));
+    } catch {
+      // Ignore persistence failures.
+    }
+  }
+
+  return (
+    <div className="block-preview" style={{ height }}>
+      <div
+        className="block-preview-resize"
+        title={t('blocks.preview.resize_hint')}
+        onMouseDown={onResizeStart}
+        onDoubleClick={onResizeReset}
+      />
+      <div className="block-preview-title">
+        {t('blocks.preview.title')}
+        {outputIds.length > 0 ? t('blocks.preview.count', { count: outputIds.length }) : ''}
+      </div>
+      {outputIds.length > 1 && (
+        <div className="block-preview-chips">
+          {outputIds.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`block-preview-chip${id === targetId ? ' is-active' : ''}`}
+              onClick={() => {
+                manualPick.current = true;
+                setPickedNode(id);
+              }}
+            >
+              {nodeName(id)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="block-preview-host">
+        {isSvgPlot && svgPayload && (
+          <div className="block-preview-svg">
+            <div ref={svgHostRef} className="block-preview-svg-canvas" />
+            <div className="block-preview-svg-actions">
+              <button type="button" onClick={() => exportSVG(svgPayload.markup, 'plot.svg')}>
+                {t('blocks.preview.export_svg')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  exportPDF(svgPayload.markup, 'plot.pdf').catch((e) => console.error(e));
+                }}
+              >
+                {t('blocks.preview.export_pdf')}
+              </button>
+            </div>
+          </div>
+        )}
+        <div
+          ref={domRef}
+          className="block-preview-dom"
+          style={{ display: isView ? undefined : 'none' }}
+        />
+        <canvas
+          ref={canvasRef}
+          className="block-preview-canvas"
+          style={{ display: isView ? undefined : 'none' }}
+        />
+        {!isView && target && isDataTable(target) && <DataTablePreview table={target} />}
+        {!isView && target && isScalar(target) && (
+          <div className="block-preview-scalar">
+            <span className="block-preview-scalar-label">{t('blocks.preview.scalar')}</span>
+            <span className="block-preview-scalar-value">{String(target.value)}</span>
+          </div>
+        )}
+        {!target && <div className="block-preview-empty">{t('blocks.preview.empty')}</div>}
+      </div>
+    </div>
+  );
+}

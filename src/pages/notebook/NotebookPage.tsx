@@ -1,0 +1,237 @@
+// ==========================================================================
+// Ergalics Studio — Notebook (/notebook)
+//
+// Mixed markdown/code cells persisted in project.state.notebook. Markdown
+// renders through the core mdToHtml (escaped, dependency-free); code cells
+// run on a dedicated Pyodide runtime that is terminated on unmount.
+// ==========================================================================
+
+import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/i18n';
+import { EmptyState } from '@/components/EmptyState';
+import { ToolShell } from '@/components/ToolShell';
+import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useNotebookStore } from '@/stores/notebookStore';
+import { mdToHtml } from '@/core/notebook/notebook';
+import { enhanceMarkdownDom } from '@/core/markdown/enhance';
+import type { NotebookCell, NotebookCellOutput } from '@/core/notebook/notebook';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CloseIcon } from '@/components/icons';
+
+function CellOutputs({ outputs }: { outputs: NotebookCellOutput[] }) {
+  if (outputs.length === 0) return null;
+  return (
+    <div className="nb-cell-outputs">
+      {outputs.map((out, i) => {
+        if (out.kind === 'stdout') {
+          return (
+            <pre key={i} className="nb-out nb-out-stdout">
+              {out.text}
+            </pre>
+          );
+        }
+        if (out.kind === 'stderr') {
+          return (
+            <pre key={i} className="nb-out nb-out-stderr">
+              {out.text}
+            </pre>
+          );
+        }
+        if (out.kind === 'error') {
+          return (
+            <pre key={i} className="nb-out nb-out-error">
+              {out.text}
+            </pre>
+          );
+        }
+        return (
+          <div key={i} className="nb-out-vars">
+            {out.entries.map((e) => (
+              <span key={e.name} className="nb-var" title={e.preview}>
+                <b>{e.name}</b> = {e.preview}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
+  const t = useT();
+  const notify = useAppStore((s) => s.notify);
+  const updateCell = useNotebookStore((s) => s.updateCell);
+  const removeCell = useNotebookStore((s) => s.removeCell);
+  const moveCell = useNotebookStore((s) => s.moveCell);
+  const addCell = useNotebookStore((s) => s.addCell);
+  const runCell = useNotebookStore((s) => s.runCell);
+  const runningCellId = useNotebookStore((s) => s.runningCellId);
+  const hasProject = useProjectStore((s) => !!s.project);
+
+  const [editing, setEditing] = useState(index === 0 && cell.source === '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Markdown preview host — upgraded in place after each render (mermaid
+  // diagrams, KaTeX math) via the async enhancer.
+  const mdPreviewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editing || cell.type !== 'md') return;
+    const el = mdPreviewRef.current;
+    if (el) void enhanceMarkdownDom(el);
+  }, [editing, cell.type, cell.source]);
+
+  const running = runningCellId === cell.id;
+
+  const handleRun = () => {
+    if (!hasProject) {
+      notify('warning', t('notebook.need_project'));
+      return;
+    }
+    void runCell(cell.id);
+  };
+
+  return (
+    <section className={`nb-cell nb-cell-${cell.type}${running ? ' nb-cell-running' : ''}`}>
+      <div className="nb-cell-toolbar">
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => updateCell(cell.id, { type: cell.type === 'md' ? 'code' : 'md' })}
+          title={t('notebook.toggle_type')}
+        >
+          {cell.type === 'md' ? 'MD' : 'PY'}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => moveCell(cell.id, -1)} title={t('notebook.move_up')}>
+          ↑
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => moveCell(cell.id, 1)} title={t('notebook.move_down')}>
+          ↓
+        </button>
+        {cell.type === 'code' && (
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            disabled={running}
+            onClick={handleRun}
+          >
+            {running ? t('notebook.running') : t('notebook.run')}
+          </button>
+        )}
+        <span className="nb-cell-meta">
+          {cell.durationMs !== undefined && (
+            <span className={cell.ok ? 'nb-ok' : 'nb-fail'}>
+              {cell.ok ? '✓' : '✗'} {cell.durationMs} ms
+            </span>
+          )}
+        </span>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => addCell('md', cell.id)}
+          title={t('notebook.add_md_below')}
+        >
+          +MD
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => addCell('code', cell.id)}
+          title={t('notebook.add_code_below')}
+        >
+          +PY
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-danger"
+          onClick={() => setConfirmDelete(true)}
+          title={t('common.delete')}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </div>
+
+      {cell.type === 'md' ? (
+        editing ? (
+          <>
+            <textarea
+              className="input nb-source"
+              rows={4}
+              value={cell.source}
+              onChange={(e) => updateCell(cell.id, { source: e.target.value })}
+            />
+            <button type="button" className="btn btn-sm" onClick={() => setEditing(false)}>
+              {t('notebook.preview')}
+            </button>
+          </>
+        ) : (
+          <div
+            ref={mdPreviewRef}
+            className="nb-md"
+            onClick={() => setEditing(true)}
+            // mdToHtml sanitizes through DOMPurify; raw HTML never executes.
+            dangerouslySetInnerHTML={{
+              __html: cell.source.trim() ? mdToHtml(cell.source) : `<p>${t('notebook.empty_md')}</p>`,
+            }}
+          />
+        )
+      ) : (
+        <>
+          <textarea
+            className="input nb-source nb-source-code"
+            rows={Math.max(3, cell.source.split('\n').length)}
+            spellCheck={false}
+            value={cell.source}
+            onChange={(e) => updateCell(cell.id, { source: e.target.value })}
+          />
+          <CellOutputs outputs={cell.outputs} />
+        </>
+      )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={t('notebook.delete_cell')}
+        message={t('notebook.delete_cell_confirm')}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => removeCell(cell.id)}
+        onClose={() => setConfirmDelete(false)}
+      />
+    </section>
+  );
+}
+
+export default function NotebookPage() {
+  const t = useT();
+  const project = useProjectStore((s) => s.project);
+  const addCell = useNotebookStore((s) => s.addCell);
+  const disposeRuntime = useNotebookStore((s) => s.disposeRuntime);
+
+  const cells = project?.state.notebook?.cells ?? [];
+
+  useEffect(() => disposeRuntime, [disposeRuntime]);
+
+  return (
+    <ToolShell
+      toolId="notebook"
+      headerExtra={
+        <>
+          <button type="button" className="btn btn-sm" onClick={() => addCell('md')}>
+            + MD
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => addCell('code')}>
+            + PY
+          </button>
+        </>
+      }
+    >
+      {project && cells.length === 0 && <EmptyState title={t('notebook.empty')} />}
+
+      <div className="nb-cells">
+        {cells.map((cell, i) => (
+          <CellItem key={cell.id} cell={cell} index={i} />
+        ))}
+      </div>
+    </ToolShell>
+  );
+}

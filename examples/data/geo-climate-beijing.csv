@@ -1,0 +1,17 @@
+# station: Beijing (39.9N, 116.4E)
+# source: China Meteorological Administration, 1991-2020 climate normals
+#   (temperature = monthly mean in °C; precipitation = monthly total in mm)
+# columns: month(1-12), temp_c(°C), precip_mm
+month,temp_c,precip_mm
+1,-3.3,2.3
+2,0.1,5.3
+3,6.7,8.1
+4,14.3,22.1
+5,20.4,36.4
+6,24.9,80.8
+7,26.9,183.9
+8,25.8,138.6
+9,20.8,59.5
+10,13.2,29.3
+11,4.5,13.8
+12,-1.6,1.9

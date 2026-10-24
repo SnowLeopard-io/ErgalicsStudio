@@ -1,0 +1,59 @@
+{
+  "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "name": "分箱统计流水线",
+  "createdAt": 1786722030000,
+  "updatedAt": 1786722030000,
+  "data": { "files": [], "processed": null },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.generate_random",
+          "position": { "x": 40, "y": 80 },
+          "params": { "count": 2000, "seed": 42 }
+        },
+        {
+          "id": "n2",
+          "blockId": "stats.histogram",
+          "position": { "x": 280, "y": 40 },
+          "params": { "column": "x", "bins": 50 }
+        },
+        {
+          "id": "n3",
+          "blockId": "stats.summary",
+          "position": { "x": 280, "y": 160 },
+          "params": {}
+        },
+        {
+          "id": "n4",
+          "blockId": "viz.line",
+          "position": { "x": 520, "y": 40 },
+          "params": { "xColumn": "center", "yColumn": "count" }
+        },
+        {
+          "id": "n5",
+          "blockId": "viz.scatter",
+          "position": { "x": 520, "y": 160 },
+          "params": { "xColumn": "center", "yColumn": "count", "colorColumn": "" }
+        }
+      ],
+      "connections": [
+        { "id": "c1", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n2", "portId": "data" } },
+        { "id": "c2", "from": { "nodeId": "n1", "portId": "out" }, "to": { "nodeId": "n3", "portId": "data" } },
+        { "id": "c3", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n4", "portId": "data" } },
+        { "id": "c4", "from": { "nodeId": "n2", "portId": "out" }, "to": { "nodeId": "n5", "portId": "data" } }
+      ],
+      "viewport": { "x": 10, "y": 10, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "2000 个随机数 → 50 箱直方图统计 → 折线图 + 散点图双视图。",
+    "tags": ["blocks", "sample", "pipeline", "statistics", "histogram"]
+  }
+}

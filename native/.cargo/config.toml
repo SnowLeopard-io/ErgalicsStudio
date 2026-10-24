@@ -1,0 +1,6 @@
+# Enable web-sys unstable APIs (WebGPU bindings) when compiling for wasm.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg=web_sys_unstable_apis"]
+
+[build]
+target-dir = "target"

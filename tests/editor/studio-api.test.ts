@@ -1,0 +1,243 @@
+// Studio API tests — the JS implementation backed by @/blocks/ops.
+import { describe, it, expect, vi } from 'vitest';
+import { createStudioApi } from '@/editor/runtime/studio-api';
+import type { StudioApiHost } from '@/editor/runtime/studio-api';
+import { createDataTable, type DataTable, type RenderedView } from '@/types/datatable';
+
+function makeHost(overrides?: Partial<StudioApiHost>): StudioApiHost & {
+  rendered: RenderedView[];
+} {
+  const rendered: RenderedView[] = [];
+  const host: StudioApiHost & { rendered: RenderedView[] } = {
+    loadText: vi.fn(async () => ''),
+    renderView: vi.fn(async (view: RenderedView) => {
+      rendered.push(view);
+    }),
+    notify: vi.fn(),
+    print: vi.fn(),
+    ...overrides,
+    rendered,
+  };
+  return host;
+}
+
+function table(columns: { name: string; data: number[] }[]): DataTable {
+  return createDataTable(
+    't',
+    columns.map((c) => ({ name: c.name, type: 'f64' as const, data: Float64Array.from(c.data) })),
+    { provenance: 'test' },
+  );
+}
+
+describe('studio data parsing', () => {
+  it('parses CSV with a header row', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.loadCSV('time,temp\n0,19.34\n5,20.19\n10,20.80');
+    expect(t.columnNames()).toEqual(['time', 'temp']);
+    expect(t.length).toBe(3);
+    expect(t.getColumn('temp')).toEqual(Float64Array.from([19.34, 20.19, 20.8]));
+  });
+
+  it('parses CSV without a header using positional x/y names', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.loadCSV('1,2\n3,4');
+    expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(t.length).toBe(2);
+  });
+
+  it('parses XYZ naming x/y/z', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.loadXYZ('0 0 0\n1 2 3');
+    expect(t.columnNames()).toEqual(['x', 'y', 'z']);
+    expect(t.getColumn('z')).toEqual(Float64Array.from([0, 3]));
+  });
+
+  it('load() dispatches on file extension', async () => {
+    const host = makeHost({
+      loadText: vi.fn(async (path: string) => (path.endsWith('.csv') ? 'a,b\n1,2' : '5 6')),
+    });
+    const api = createStudioApi(host);
+    const csv = await api.load('data.csv');
+    expect(csv.columnNames()).toEqual(['a', 'b']);
+    const dat = await api.load('data.dat');
+    expect(dat.columnNames()).toEqual(['x', 'y']);
+  });
+
+  it('throws on empty input', () => {
+    const api = createStudioApi(makeHost());
+    expect(() => api.loadCSV('')).toThrow(/no numeric data/);
+  });
+});
+
+describe('studio transforms / statistics', () => {
+  it('normalize minmax appends a <col>_minmax column', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const out = api.normalize(t, 'x', 'minmax');
+    expect(out.columnNames()).toEqual(['x', 'x_minmax']);
+    expect([...(out.getColumn('x_minmax') as Float64Array)]).toEqual([0, 0.5, 1]);
+  });
+
+  it('normalize zscore centers and scales', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const out = api.normalize(t, 'x', 'zscore');
+    const vals = out.getColumn('x_zscore') as Float64Array;
+    expect(vals[0]).toBeCloseTo(-1.2247, 3);
+    expect(vals[1]).toBeCloseTo(0, 6);
+    expect(vals[2]).toBeCloseTo(1.2247, 3);
+  });
+
+  it('summary returns a stat×<col> table', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    const s = api.summary(t, 'x');
+    expect(s.columnNames()).toEqual(['stat', 'x']);
+    expect(s.getColumn('stat')).toEqual(['mean', 'std', 'min', 'max', 'median']);
+    const nums = s.getColumn('x') as Float64Array;
+    expect(nums[0]).toBe(2); // mean
+    expect(nums[2]).toBe(1); // min
+    expect(nums[3]).toBe(3); // max
+    expect(nums[4]).toBe(2); // median
+  });
+
+  it('histogram returns center/count table', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }]);
+    const h = api.histogram(t, 'x', 5);
+    expect(h.columnNames()).toEqual(['center', 'count']);
+    expect([...(h.getColumn('count') as Float64Array)]).toEqual([2, 2, 2, 2, 2]);
+    const centers = h.getColumn('center') as Float64Array;
+    expect(centers[0]).toBeCloseTo(0.9, 6);
+    expect(centers[4]).toBeCloseTo(8.1, 6);
+  });
+
+  it('sort asc/desc reorders rows', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [3, 1, 2] }]);
+    expect([...(api.sort(t, 'x', 'asc').getColumn('x') as Float64Array)]).toEqual([1, 2, 3]);
+    expect([...(api.sort(t, 'x', 'desc').getColumn('x') as Float64Array)]).toEqual([3, 2, 1]);
+  });
+
+  it('filter keeps rows matching the column predicate', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([
+      { name: 'x', data: [1, 2, 3, 4] },
+      { name: 'y', data: [5, 6, 7, 8] },
+    ]);
+    expect(api.filter(t, 'x', '>', 2).length).toBe(2);
+    expect(api.filter(t, 'x', '==', 1).length).toBe(1);
+  });
+
+  it('select/addColumn mirror ops', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([
+      { name: 'x', data: [1, 2, 3, 4] },
+      { name: 'y', data: [5, 6, 7, 8] },
+    ]);
+    expect(api.select(t, ['x']).columnNames()).toEqual(['x']);
+    const added = api.addColumn(t, 'z', [9, 10, 11, 12]);
+    expect(added.columnNames()).toEqual(['x', 'y', 'z']);
+    expect([...(added.getColumn('z') as Float64Array)]).toEqual([9, 10, 11, 12]);
+  });
+
+  it('range builds an arithmetic sequence table', () => {
+    const api = createStudioApi(makeHost());
+    const r = api.range(0, 10, 2);
+    expect([...(r.getColumn('value') as Float64Array)]).toEqual([0, 2, 4, 6, 8]);
+  });
+});
+
+describe('studio.random', () => {
+  it('is deterministic for a given seed', () => {
+    const api = createStudioApi(makeHost());
+    const a = api.random(8, 42).getColumn('x') as Float64Array;
+    const b = api.random(8, 42).getColumn('x') as Float64Array;
+    expect([...a]).toEqual([...b]);
+  });
+
+  it('respects the requested count', () => {
+    const api = createStudioApi(makeHost());
+    expect(api.random(12).length).toBe(12);
+  });
+});
+
+describe('studio.plot', () => {
+  it('produces a RenderedView routed to the right plugin', async () => {
+    const host = makeHost();
+    const api = createStudioApi(host);
+    const t = table([
+      { name: 'x', data: [1, 2] },
+      { name: 'y', data: [4, 5] },
+    ]);
+    await api.plot('scatter', t, { x: 'x', y: 'y' });
+    expect(host.rendered).toHaveLength(1);
+    const payload = host.rendered[0]!.data as { pluginId: string; text: string };
+    expect(payload.pluginId).toBe('example.scatter');
+    expect(payload.text).toBe('1 4\n2 5');
+  });
+
+  it('histogram routes to the histogram plugin with newline delimiters', async () => {
+    const host = makeHost();
+    const api = createStudioApi(host);
+    const t = table([{ name: 'x', data: [1, 2, 3] }]);
+    await api.plot('histogram', t, { column: 'x' });
+    const payload = host.rendered[0]!.data as { pluginId: string; text: string };
+    expect(payload.pluginId).toBe('example.histogram');
+    expect(payload.text).toBe('1\n2\n3');
+  });
+});
+
+describe('studio flow-kit parity methods', () => {
+  it('exampleData() mirrors source.example_data (t + sine/noise columns)', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.exampleData(100, 1);
+    expect(t.columnNames()).toEqual(['t', 'x']);
+    expect(t.length).toBe(100);
+    // Deterministic for a fixed seed.
+    expect(api.exampleData(100, 1).getColumn('x')).toEqual(t.getColumn('x'));
+  });
+
+  it('grid() mirrors source.generate_grid (size×size coordinates)', () => {
+    const api = createStudioApi(makeHost());
+    const t = api.grid(3);
+    expect(t.columnNames()).toEqual(['x', 'y']);
+    expect(t.length).toBe(9);
+    expect(Array.from(t.getColumn('x') as Float64Array)).toEqual([0, 0, 0, 1, 1, 1, 2, 2, 2]);
+    expect(Array.from(t.getColumn('y') as Float64Array)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2]);
+  });
+
+  it('filterRange() keeps the inclusive numeric window', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [-1, 0, 0.5, 1, 2] }]);
+    const out = api.filterRange(t, 'x', 0, 1);
+    expect(Array.from(out.getColumn('x') as Float64Array)).toEqual([0, 0.5, 1]);
+  });
+
+  it('topK() sorts by column and keeps K rows', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [3, 1, 2, 5, 4] }]);
+    expect(Array.from(api.topK(t, 'x', 2).getColumn('x') as Float64Array)).toEqual([5, 4]);
+    expect(Array.from(api.topK(t, 'x', 2, 'smallest').getColumn('x') as Float64Array)).toEqual([1, 2]);
+  });
+
+  it('renameColumn() renames in place', () => {
+    const api = createStudioApi(makeHost());
+    const t = table([{ name: 'x', data: [1, 2] }]);
+    expect(api.renameColumn(t, 'x', 'z').columnNames()).toEqual(['z']);
+  });
+});
+
+describe('studio host interaction', () => {
+  it('notify/print forward to the host and params round-trip', () => {
+    const host = makeHost();
+    const params = new Map<string, unknown>();
+    const api = createStudioApi(host, params);
+    api.notify('warning', 'careful');
+    api.print('hello', 42);
+    expect(host.notify).toHaveBeenCalledWith('warning', 'careful');
+    expect(host.print).toHaveBeenCalledWith('hello 42');
+    api.setParam('key', { a: 1 });
+    expect(api.getParam('key')).toEqual({ a: 1 });
+  });
+});

@@ -1,0 +1,44 @@
+{
+  "benchmark": "EM-02 block sparse matvec (lobpcg._mat_cols) vs column-wise calls",
+  "backend": "scipy 1.15.3 (CPython)",
+  "workers": 8,
+  "cpu": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+  "date": "2026-09-25 08:40:00",
+  "block_cols": 10,
+  "method": "one native A @ X (block) vs 10 single-column A @ x_j calls",
+  "note": "block path shares one CSR index traversal across the block; both paths produce bit-identical output on the scipy backend. grid-200x200 measured twice (machine-load spread), reported as a range.",
+  "matvec": [
+    {
+      "case": "grid-100x100",
+      "n": 10000,
+      "nnz": 49600,
+      "block_ms": 0.175,
+      "column_ms": 0.422,
+      "speedup": 2.42
+    },
+    {
+      "case": "grid-200x200",
+      "n": 40000,
+      "nnz": 199200,
+      "block_ms": 1.31,
+      "column_ms": 1.61,
+      "speedup": 1.23
+    },
+    {
+      "case": "grid-200x200-r2",
+      "n": 40000,
+      "nnz": 199200,
+      "block_ms": 1.41,
+      "column_ms": 2.02,
+      "speedup": 1.44
+    },
+    {
+      "case": "grid-320x320",
+      "n": 102400,
+      "nnz": 510720,
+      "block_ms": 3.08,
+      "column_ms": 11.70,
+      "speedup": 3.8
+    }
+  ]
+}

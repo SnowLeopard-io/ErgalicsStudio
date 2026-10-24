@@ -1,0 +1,56 @@
+{
+  "id": "0f1e2d3c-4b5a-4c3d-8e7f-6a5b4c3d2e1f",
+  "name": "范围过滤",
+  "createdAt": 1786635631561,
+  "updatedAt": 1786639231561,
+  "data": {
+    "files": [],
+    "processed": null
+  },
+  "state": {
+    "activePlugin": null,
+    "parameters": {},
+    "camera": null,
+    "scene": null,
+    "blockGraph": {
+      "instances": [
+        {
+          "id": "n1",
+          "blockId": "source.example_data",
+          "position": { "x": 60, "y": 100 },
+          "params": { "count": 300, "seed": 1 }
+        },
+        {
+          "id": "n2",
+          "blockId": "filter.range",
+          "position": { "x": 320, "y": 60 },
+          "params": { "column": "x", "min": -0.5, "max": 0.5 }
+        },
+        {
+          "id": "n3",
+          "blockId": "viz.scatter",
+          "position": { "x": 580, "y": 60 },
+          "params": { "xColumn": "t", "yColumn": "x", "colorColumn": "" }
+        }
+      ],
+      "connections": [
+        {
+          "id": "c1",
+          "from": { "nodeId": "n1", "portId": "out" },
+          "to": { "nodeId": "n2", "portId": "data" }
+        },
+        {
+          "id": "c2",
+          "from": { "nodeId": "n2", "portId": "out" },
+          "to": { "nodeId": "n3", "portId": "data" }
+        }
+      ],
+      "viewport": { "x": 40, "y": 40, "zoom": 1 }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "正弦信号 → 按数值区间过滤 → 散点图（清洗后可视化）。",
+    "tags": ["blocks", "sample", "pipeline"]
+  }
+}

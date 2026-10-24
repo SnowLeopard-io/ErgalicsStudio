@@ -1,0 +1,81 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --locked --version 0.2.127
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build WASM core
+        run: npm run build:wasm
+
+      - name: Build workstation (app/)
+        run: npm run build:web
+        # The workstation is served under /<repo>/app/, and the VitePress
+        # docs are embedded at dist/docs/ → /<repo>/app/docs/.
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/app/docs/
+
+      - name: Build official website (root)
+        run: npm run build:website
+
+      - name: Merge deploy artifact
+        run: npm run deploy:merge
+
+      - name: Verify merged-site integrity (8 canonical paths)
+        run: node scripts/verify-site.mjs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

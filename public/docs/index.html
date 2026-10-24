@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ergalics Studio — Documentation</title>
+    <style>
+      body { font-family: -apple-system, "Segoe UI", "Helvetica Neue", sans-serif; line-height: 1.7; color: #e2e8f0; background: #0b1117; margin: 0; padding: 40px 16px; }
+      main { max-width: 680px; margin: 0 auto; background: #111a23; border: 1px solid #1e293b; border-radius: 12px; padding: 32px 40px; }
+      h1 { font-size: 22px; margin-top: 0; color: #2dd4bf; }
+      code { background: #1e293b; padding: 1px 6px; border-radius: 4px; font-size: 90%; }
+      a { color: #22d3ee; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      .hint { margin-top: 24px; padding: 14px 16px; border: 1px dashed #334155; border-radius: 8px; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>◈ Ergalics Studio — Documentation</h1>
+      <p class="muted">This placeholder is served during development. The full documentation
+        site is built into <code>dist/docs/</code> for production previews.</p>
+
+      <h2>Docs site</h2>
+      <p>The documentation is a standalone <a href="https://vitepress.dev">VitePress</a>
+        workspace in <code>docs/</code>:</p>
+      <ul>
+        <li><code>cd docs && npm install && npm run dev</code> — local docs site</li>
+        <li><code>npm run build:docs</code> — build and copy into <code>dist/docs/</code></li>
+      </ul>
+
+      <div class="hint">
+        In production builds this page is replaced by the generated
+        documentation site (guide, plugin development, architecture,
+        native core &amp; WebGPU, testing, roadmap).
+      </div>
+
+      <p class="muted"><a href="../">← Back to the app</a></p>
+    </main>
+  </body>
+</html>

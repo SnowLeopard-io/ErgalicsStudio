@@ -1,0 +1,17 @@
+{
+  "name": "Golden sunset on the Atlantic (fresh wind)",
+  "hourUTC": 21.3,
+  "latitude": 38.0,
+  "longitude": -30.0,
+  "windSpeed": 16,
+  "windDirDeg": 300,
+  "waveScale": 1,
+  "choppiness": 0.75,
+  "waveDetail": 0.5,
+  "glitter": 2,
+  "haze": 0.35,
+  "exposure": 1.15,
+  "waveMotion": true,
+  "autoDay": false,
+  "autoOrbit": false
+}

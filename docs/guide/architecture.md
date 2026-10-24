@@ -1,0 +1,210 @@
+# Architecture
+
+## Layers
+
+```mermaid
+flowchart TB
+    subgraph UI["React UI (src/pages · src/components)"]
+        A1["Welcome · Workbench<br/>(TopBar/ActivityBar/Sidebar/CentralArea tabs/RightPanel/Status)"]
+        A2["Settings · Share ·<br/>Plugin dialogs · Example-data dialogs"]
+        A3["Flow mode canvas<br/>Palette · Canvas · Node · Param editor<br/>Toolbar · Result preview"]
+        A4["Block mode<br/>Blockly workspace · Toolbar<br/>Preview / Variables / Console cards"]
+    end
+
+    subgraph State["State & Core Services"]
+        B1["Zustand stores<br/>app / project / plugin / settings / block / editor"]
+        B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>stats · io · plot · repro<br/>vfs (workspace files) · git"]
+    end
+
+    subgraph Blocks["Block system (Flow mode, src/blocks)"]
+        D1["Catalog<br/>data_source · transform · filter<br/>math · statistics · plot · visualize"]
+        D2["Compiler<br/>pure · validates ports/types<br/>topological sort · diagnostics"]
+        D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
+        D4["Render bridge<br/>viz.* RenderedView → plugin.loadData"]
+    end
+
+    subgraph Editor["Block mode (src/editor)"]
+        E1["IR<br/>shared node union · validate · hash<br/>(also powers Code mode)"]
+        E2["Blockly engine + block definitions<br/>workspace JSON ⇄ IR convert"]
+        E3["Interpreter<br/>walks IR · calls studio.*"]
+        E4["Codegen<br/>IR → JS · IR → Python"]
+        E5["StudioApi<br/>load / transform / stats / plot / print<br/>(reuses src/blocks/ops)"]
+    end
+
+    subgraph Runtime["Runtime Layer"]
+        C1["Plugin runtime<br/>builtin/* (101 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
+    end
+
+    UI --> B1
+    UI --> B2
+    B1 <--> B2
+    B1 --> C1
+    B2 --> C1
+    B2 --> C2
+    A3 --> B1
+    B1 --> D2
+    B1 --> D3
+    D1 --> D2
+    D3 --> D4
+    D4 --> C1
+    A4 --> E2
+    E2 --> E1
+    E1 --> E3
+    E1 --> E4
+    E3 --> E5
+    E5 --> D4
+```
+
+> **One plugin bridge, two callers.** `D4` (Flow's `RenderedView` →
+> `plugin.loadData`) and `E5 → D4` (Block mode's `studio.plot` →
+> `RenderedView`) collapse onto the same code path. Adding a
+> visualisation in Flow mode lights up a `studio.plot(...)` variant in
+> Block mode for free. See [Block Mode](block-mode.md) for the editor
+> layer in detail, and [Flow Mode](flow-mode.md) for the block system.
+
+## Scientific computing subsystems
+
+Four pure-TypeScript, DOM-light, node-testable subsystems live under
+`src/core/` and are consumed by the block system, the Studio API, and the
+workbench UI:
+
+| Subsystem         | Path               | Surface                                                            |
+| ----------------- | ------------------ | ------------------------------------------------------------------ |
+| Statistics kernel | `src/core/stats/`  | descriptive stats, special functions, hypothesis tests, effect sizes, multiple-comparison corrections, power analysis |
+| Scientific I/O    | `src/core/io/`     | one dispatcher (`loadScientificData`) routing to HDF5 / NetCDF / FITS / Zarr / Parquet loaders, returning `RawVariable[]` |
+| Plot engine       | `src/core/plot/`   | pure-TS SVG rendering with linear/log/temporal scales, plus SVG/PDF export |
+| Reproducibility   | `src/core/repro/`  | seeded RNG (mulberry32), stable hashing, run manifests, DAG-to-Python export |
+
+## State management
+
+Application state lives in Zustand stores (`src/stores/`). The core
+workbench state is held by five of them:
+
+| Store          | Responsibility                                                        |
+| -------------- | --------------------------------------------------------------------- |
+| `appStore`     | host status, banners, notifications, perf metrics, panel toggles      |
+| `projectStore` | current project, recent list, save/autosave, share, param persistence |
+| `pluginStore`  | registry, load/activate lifecycle, file dispatch, host containers     |
+| `settingsStore`| GPU mode, autosave interval, and other preferences                    |
+| `editorStore`  | Block / Code mode sessions (IR, code, variables, console)              |
+
+Beyond these, the research modules own business-layer stores
+(`experimentStore`, `figureStore`, `lineageStore`, `notebookStore`,
+`chunkStore`, `researchStore`, `analysisStore`, `blockStore`), and the UI
+surface has its own stores (AI assistant panel, command palette, shortcuts,
+guided tours).
+
+Cross-cutting UI communication uses a small typed event bus
+(`src/core/events.ts`) — e.g. `plugin:<id>:params`, `host:params:changed`,
+`host:file:choose-plugin`.
+
+## Rendering pipeline
+
+The central viewport owns three surfaces:
+
+| Surface | Role |
+| --- | --- |
+| `central-canvas` | The shared 2D canvas every 2D plugin draws into. |
+| `central-dom-host` | A DOM container for plugins that need elements (also where the sandboxed canvas surfaces are mounted). |
+| Three.js scene | Created lazily by `scene3d.ts` **only** when a plugin declares `renderToScene`. |
+
+The plugin store decides visibility centrally on every activation: a plugin
+that declares 3D shows the scene and clears any stale 2D frame; anything
+else hides the scene immediately. This guarantees a 3D coordinate system can
+never appear over a 2D viewport (and vice versa).
+
+## Native core
+
+`native/ergalics-core` (Rust) compiles to `wasm32-unknown-unknown` and is
+bound with wasm-bindgen into `src/native/`. It requires the unstable web-sys
+WebGPU bindings, enabled via `rustflags = ["--cfg=web_sys_unstable_apis"]`
+in `native/.cargo/config.toml`. See [Native Core & WebGPU](native-core) for
+the exact API surface and the calling conventions.
+
+## Dependency rules
+
+| Rule | Meaning |
+| --- | --- |
+| `pages → stores → core` | Lower layers never import higher ones. |
+| `core` stays DOM-light | Pure services (i18n, fileFormat, storage adapters) are unit-testable in a node environment. |
+| Plugin contract | `src/types/plugin.ts` is the only shared vocabulary between the host and third-party code. |
+
+**Engine reuse inside `core` (current state).** Six files under `src/core/`
+depend on the Flow/Block engines that live outside it, so the diagram above
+(`core` → engines) is the declared intent, not the current edge set:
+
+| `src/core/` file      | depends on              |
+| --------------------- | ----------------------- |
+| `plot/charts.ts`      | `@/blocks/ops`          |
+| `pyodide/runtime.ts`  | `@/blocks`              |
+| `bench/memory-bench.ts` | `@/blocks`            |
+| `bench/import-bench.ts` | `@/blocks`            |
+| `r/runtime-factory.ts`  | `@/editor`             |
+| `r/builtin-ir-runtime.ts` | `@/editor`           |
+
+`src/blocks/` and `src/editor/` are therefore engine dependencies of `core`,
+not peer layers. The planned rectification moves them into `src/core/` as
+sub-domains; until then the table above is the source of truth.
+
+## Research module layering
+
+The research features (experiment tracking, uncertainty, units, lineage,
+chunked I/O, figure studio, supplementary bundles, notebook) all follow one
+three-layer convention — they grow **into** the existing structure:
+
+| Layer | Location | Rules |
+| --- | --- | --- |
+| Data/logic layer | `src/core/<feature>/` | Pure TypeScript, no React, no store imports. May only depend on sibling core modules (`repro`, `plot`, `io`, `gpu`) and `fflate`/`apache-arrow` style leaf libraries. Every module ships unit tests under `tests/` mirroring the path. |
+| Business layer | `src/stores/<feature>Store.ts` | Orchestration only — calls core, persists through `projectStore` / `storage.ts`, subscribes to host event channels. No UI logic, no direct DOM. |
+| Presentation layer | `src/pages/` and `src/components/` | Consumes stores exclusively; styling via the `global.css` design tokens (no hard-coded colors/spacing); every user-facing string goes through i18n (`zh-CN` + `en-US` in the same change). |
+
+**Cross-module communication** prefers the typed host channels at the bottom
+of `src/core/events.ts` (`run:completed`, `data:ingested`, `lineage:changed`,
+`figure:exported`, `notebook:executed`) over store→store calls; direct calls
+are reserved for genuine parent/child relationships (e.g. `projectStore`
+coordinating reset on project open).
+
+**Persistence split**: bulky, per-project-but-not-portable data (run records)
+lives in dedicated IndexedDB stores (`storage.ts`) and is cascade-deleted
+with the project; portable document state (notebook cells, figure sheets)
+lives on `ProjectState` and travels inside the `.clproj`.
+
+**Research data flow** (who writes which state, who hears which event):
+
+```text
+                         ┌────────────────────────────────────────────┐
+                         │                event bus                   │
+                         │  run:completed / data:ingested /           │
+                         │  lineage:changed / figure:exported /       │
+                         │  notebook:executed                         │
+                         └──────▲───────────────▲─────────────▲───────┘
+                                │               │             │
+  Flow/Block/Code/Notebook ─────┘               │             └───── figureStore
+  execution points                              │
+  (recordRun / chunkStore)                      │
+        │                                       │
+        ▼                                       │
+  IndexedDB `runs` store ──► experimentStore ───┘
+        │                       ▲
+        │ listRuns()            │ writes through
+        ▼                       │
+  lineageStore ──► LineageCanvas│
+        ▲                       │
+        │                       │
+  chunkStore ───► data:ingested │
+                                │
+        project.state (portable, inside .clproj)
+        ├── figureSheets ◄────── figureStore (write-through + dirty)
+        ├── notebook      ◄────── notebookStore (write-through + dirty)
+        └── editorSessions ◄───── apply*() at save time
+```
+
+Flow graphs and Block programs additionally persist as `.flow.json` /
+`.block.json` **workspace files** (`src/core/vfs/`) that the file explorer's
+per-file editors open; the legacy `blockGraph` project state is still read
+for compatibility.
+
+Every arrow into the bus is a store emitting after a state transition; every
+arrow out is a long-lived subscription registered in the store's `init*`
+function (called once from `App.tsx`).

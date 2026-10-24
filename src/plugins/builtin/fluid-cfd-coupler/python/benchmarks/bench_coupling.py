@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Benchmark / repro runner for the fluid-cfd-coupler plugin.
+
+Writes an FluidCfdBench JSON artifact with the full verification suite
+(Case A + Case B + precision-vs-efficiency trade-off) so the in-browser
+plugin and the CLI produce the same numbers.
+
+Usage:
+    python bench_coupling.py [output.json]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+# allow running from the package folder
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from fluid_cfd import __version__, verify  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out", nargs="?", default=None,
+                    help="output JSON path (default: project-root bench/)")
+    args = ap.parse_args()
+
+    t0 = time.perf_counter()
+    data = verify.run_all()
+    elapsed = time.perf_counter() - t0
+
+    out = {
+        "plugin": "fluid-cfd-coupler",
+        "plugin_version": __version__,
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "wall_clock_s": round(elapsed, 3),
+        "suite": data,
+    }
+
+    dest = args.out
+    if not dest:
+        # default to the project-root bench folder: walk up from the package
+        # folder to the first ancestor that owns a top-level bench/ dir
+        # (location-independent, works both embedded in the workbench and as
+        # a standalone plugin repo checkout)
+        start = Path(__file__).resolve().parent.parent
+        root = start
+        for cand in [start, *start.parents]:
+            if (cand / "bench").is_dir():
+                root = cand
+                break
+        bench_dir = root / "bench"
+        bench_dir.mkdir(exist_ok=True)
+        dest = str(bench_dir / "fluid-cfd-results.json")
+    with open(dest, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, indent=2, ensure_ascii=False)
+    print(f"wrote {dest}")
+    print(f"wall clock: {elapsed:.3f}s")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

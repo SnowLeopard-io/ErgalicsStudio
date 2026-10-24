@@ -1,0 +1,14 @@
+{
+  "name": "Moonlit night with cumulus (Mauna Kea)",
+  "coverage": 0.35,
+  "density": 0.9,
+  "windSpeed": 12,
+  "windDirDeg": 315,
+  "cloudBaseM": 1100,
+  "cloudThicknessM": 700,
+  "hourUTC": 17.5,
+  "latitude": 19.8,
+  "longitude": -155.5,
+  "autoDay": false,
+  "autoOrbit": true
+}

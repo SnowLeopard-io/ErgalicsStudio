@@ -1,0 +1,418 @@
+/* ==========================================================================
+   Ergalics Studio — Motion layer
+   A small, cohesive animation library layered on top of the design tokens in
+   global.css. Everything here is intentionally subtle: the product is an
+   "instrument console", so motion should feel precise and responsive, not
+   playful. All entrances run once on mount; all loops are slow and quiet.
+   Reduced motion is respected (see the block at the bottom).
+   ========================================================================== */
+
+/* ---- keyframes ---- */
+
+/* Entrance: a gentle scale-up, used for popovers / cards that appear. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Entrance: rise into place. The default page/section entrance. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Entrance: drop in from above (banners, top bars). */
+@keyframes fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Entrance: slide in from the right (toasts, right panel). */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Entrance: slide in from the left (sidebar). */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Entrance: pure scale, no travel. */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Card / panel mount: tiny lift + settle. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Menu items cascade in just behind the menu shell. */
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Route change: the whole page fades + settles. No `forwards` so the element
+   returns to `transform: none` after — a lingering transform would become the
+   containing block for the route's fixed-position modals/menu. */
+@keyframes route-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A quiet shimmer sweep for loading / placeholder surfaces. */
+@keyframes shimmer {
+  0% {
+    background-position: -180% 0;
+  }
+  100% {
+    background-position: 180% 0;
+  }
+}
+
+/* Status dots: a slow expanding ring. Uses `currentColor` so each dot pulses
+   in its own semantic colour (success / warning / error). */
+@keyframes status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Icon press: a quick pop, used when an icon button fires an action. */
+@keyframes icon-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Exit: toast slides out to the right. `forwards` keeps it hidden until the
+   component unmounts it after the animation ends. */
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0.96);
+  }
+}
+
+/* Exit: banner collapses upward. */
+@keyframes banner-out {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* ---- utility classes (opt-in) ---- */
+
+.anim-fade-up {
+  animation: fade-up 0.42s var(--ease-spring) backwards;
+}
+
+.anim-fade-down {
+  animation: fade-down 0.42s var(--ease-spring) backwards;
+}
+
+.anim-pop {
+  animation: pop-in 0.3s var(--ease-spring) backwards;
+}
+
+.anim-scale-in {
+  animation: scale-in 0.3s var(--ease-spring) backwards;
+}
+
+.anim-slide-in-right {
+  animation: slide-in-right 0.36s var(--ease-spring) backwards;
+}
+
+.anim-slide-in-left {
+  animation: slide-in-left 0.36s var(--ease-spring) backwards;
+}
+
+/* ---- route stage ---- */
+.route-stage {
+  animation: route-stage-in 0.32s var(--ease-out) backwards;
+}
+
+/* ---- entrance for structural surfaces ---- */
+
+.card {
+  animation: card-in 0.34s var(--ease-spring) backwards;
+}
+
+.plugin-card {
+  animation: card-in 0.3s var(--ease-spring) backwards;
+}
+
+.menu-item {
+  animation: menu-item-in 0.16s ease backwards;
+}
+
+/* Sidebar entrance is handled by .panel-wrap-opening (width expand) — no
+   separate inner slide-in, which used to read as a double animation. */
+
+.right-panel {
+  animation: slide-in-right 0.34s var(--ease-out) backwards;
+}
+
+/* Sidebar view swap: the view body mounts fresh on each activity-bar switch,
+   so a short fade+slide softens the otherwise instant content change. */
+.sidebar > .file-explorer,
+.sidebar > .sidebar-group {
+  animation: view-fade-in 0.18s var(--ease-out) backwards;
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+/* Active indicator bar grows in instead of popping (pseudo-element mounts
+   with the .is-active class, so the animation runs on each activation). */
+.activity-item.is-active::before {
+  animation: activity-indicator-in 0.2s var(--ease-out) backwards;
+}
+
+@keyframes activity-indicator-in {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* Canvas page entrance: research tool suites (standalone /studio pages and
+   embedded CentralArea overlays) and the settings page fade+rise in instead
+   of appearing abruptly. Runs once per mount — internal re-renders are not
+   affected. */
+.tool-shell,
+.settings {
+  animation: page-enter 0.26s var(--ease-out) backwards;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* ---- status dots pulse ---- */
+
+.status-dot,
+.perf-dot {
+  animation: status-pulse 2.4s ease-out infinite;
+}
+
+.status-dot-ok,
+.perf-dot {
+  color: var(--color-success);
+}
+
+.status-dot-warn {
+  color: var(--color-warning);
+}
+
+.status-dot-err {
+  color: var(--color-error);
+}
+
+/* ---- welcome hero cascade (distilled page: title → subtitle → CTA) ------- */
+
+.welcome-title {
+  animation: fade-up 0.5s var(--ease-spring) backwards;
+  animation-delay: 0.04s;
+}
+
+.welcome-subtitle {
+  animation: fade-up 0.5s var(--ease-spring) backwards;
+  animation-delay: 0.1s;
+}
+
+.welcome-cta-row {
+  animation: fade-up 0.5s var(--ease-spring) backwards;
+  animation-delay: 0.16s;
+}
+
+/* ---- toast / banner exit states (driven from Feedback.tsx) ---- */
+
+.toast.leaving {
+  animation: toast-out 0.22s ease forwards;
+  pointer-events: none;
+}
+
+.banner.leaving {
+  animation: banner-out 0.22s ease forwards;
+  pointer-events: none;
+}
+
+/* ---- refined micro-interactions ----
+   Small, quiet state transitions on interactive surfaces. Kept to the touches
+   that today snap instantly; reduced motion neutralises them in the block
+   below (via global.css which collapses all transition-durations). */
+
+.menu-item {
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tag {
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+:focus-visible {
+  transition: box-shadow var(--transition-fast);
+}
+
+/* ---- list cascade (stagger) ----
+   Mark a container `.stagger` and its direct children get a short fade-up
+   entrance, each offset a few ms so lists settle like a console powering on.
+   Delays are capped so long lists never feel slow; children that already
+   carry an entrance (e.g. .plugin-card) are overridden by the later rule
+   above, keeping one consistent entrance across lists. */
+
+.stagger > * {
+  animation: fade-up 0.36s var(--ease-spring) backwards;
+}
+
+.stagger > :nth-child(1) { animation-delay: 0.02s; }
+.stagger > :nth-child(2) { animation-delay: 0.05s; }
+.stagger > :nth-child(3) { animation-delay: 0.08s; }
+.stagger > :nth-child(4) { animation-delay: 0.11s; }
+.stagger > :nth-child(5) { animation-delay: 0.14s; }
+.stagger > :nth-child(6) { animation-delay: 0.17s; }
+.stagger > :nth-child(7) { animation-delay: 0.2s; }
+.stagger > :nth-child(8) { animation-delay: 0.23s; }
+.stagger > :nth-child(9) { animation-delay: 0.26s; }
+.stagger > :nth-child(n + 10) { animation-delay: 0.29s; }
+
+/* Dropdown menus: each row lands a beat after the shell (menu-in runs
+   120ms; the last row settles by ~300ms, inside Dropdown's 360ms re-fit). */
+.menu > .menu-item:nth-child(1) { animation-delay: 0.02s; }
+.menu > .menu-item:nth-child(2) { animation-delay: 0.045s; }
+.menu > .menu-item:nth-child(3) { animation-delay: 0.07s; }
+.menu > .menu-item:nth-child(4) { animation-delay: 0.095s; }
+.menu > .menu-item:nth-child(5) { animation-delay: 0.12s; }
+.menu > .menu-item:nth-child(6) { animation-delay: 0.14s; }
+.menu > .menu-item:nth-child(n + 7) { animation-delay: 0.14s; }
+
+/* ---- mode-switch underline ----
+   The active mode button's underline grows from its leading edge instead of
+   popping in, so switching flow/block/code reads as a slide, not a flash. */
+
+@keyframes underline-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ---- reduced motion: neutralise everything ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up,
+  .anim-fade-down,
+  .anim-pop,
+  .anim-scale-in,
+  .anim-slide-in-right,
+  .anim-slide-in-left,
+  .route-stage,
+  .card,
+  .plugin-card,
+  .menu-item,
+  .stagger > *,
+  .sidebar,
+  .right-panel,
+  .status-dot,
+  .perf-dot,
+  .welcome-title,
+  .welcome-subtitle,
+  .welcome-cta-row,
+  .central-drop-hint,
+  .panel-wrap-opening,
+  .panel-wrap-closing,
+  .sidebar > .file-explorer,
+  .sidebar > .sidebar-group,
+  .activity-item.is-active::before,
+  .tool-shell,
+  .settings {
+    animation: none !important;
+  }
+
+  .toast.leaving,
+  .banner.leaving {
+    animation: none !important;
+    opacity: 0;
+  }
+}

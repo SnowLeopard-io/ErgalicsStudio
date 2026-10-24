@@ -1,0 +1,307 @@
+// ==========================================================================
+// Sandboxed plugin runtime — executes inside a Web Worker (spec §6.2).
+//
+// This module runs in a completely separate global scope from the host
+// page. It evaluates the .cspkg entry, holds the plugin instance, and
+// exposes every host interaction through the postMessage RPC bridge
+// defined in `sandbox.ts`. Nothing here touches the host's DOM or globals.
+//
+// `createPluginWorkerRuntime` is exported for unit testing: the tests drive
+// the exact same message handler with a fake Worker instead of a real one.
+// ==========================================================================
+
+import { decodeArgs } from './sandbox';
+import type { Locale } from '@/i18n/types';
+import type {
+  ComputeProgress,
+  Plugin,
+  PluginApi,
+  PluginCacheApi,
+  PluginLogLevel,
+  PluginManifest,
+  SupportedFormat,
+} from '@/types/plugin';
+
+interface RpcRequest {
+  id: number;
+  method: string;
+  args: unknown[];
+}
+
+interface ApiReply {
+  event: 'api-reply';
+  callId: number;
+  ok: boolean;
+  result?: unknown;
+  error?: string;
+}
+
+/** The host-facing bridge of a running plugin worker. */
+export interface PluginWorkerRuntime {
+  /** Handle a message received from the host. */
+  handleMessage(msg: unknown): Promise<void>;
+}
+
+/**
+ * Create the worker-side runtime. `postToHost` delivers messages back to
+ * the host (postMessage in a real worker; a test harness in unit tests).
+ */
+export function createPluginWorkerRuntime(
+  postToHost: (message: unknown) => void,
+): PluginWorkerRuntime {
+  const pendingApi = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  let apiCallId = 1;
+  let plugin: Plugin | null = null;
+  let api: PluginApi | null = null;
+  let dispatchChain: Promise<void> = Promise.resolve();
+
+  // Locale state + translation tables are shipped over the bridge so a
+  // sandboxed plugin's api.locale / api.t behave exactly like the host's
+  // (the RPC bridge cannot serve a *synchronous* `t`, so we translate
+  // locally instead of forwarding).
+  let currentLocale: Locale = 'zh-CN';
+  let dictionaries: Record<string, Record<string, string>> = {};
+  const localeListeners = new Set<(locale: string) => void>();
+
+  const translate = (key: string, params?: Record<string, string | number>): string => {
+    const dict = dictionaries[currentLocale];
+    let text = dict?.[key] ?? dictionaries['zh-CN']?.[key] ?? key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replaceAll(`{${k}}`, String(v));
+      }
+    }
+    return text;
+  };
+
+  const postReply = (id: number, ok: boolean, payload: unknown) => {
+    postToHost({
+      id,
+      ok,
+      result: ok ? payload : undefined,
+      error: ok ? undefined : String(payload),
+    });
+  };
+
+  const callApi = <T = unknown>(method: string, args: unknown[] = []): Promise<T> => {
+    const callId = apiCallId++;
+    return new Promise<T>((resolve, reject) => {
+      pendingApi.set(callId, { resolve: (v) => resolve(v as T), reject });
+      postToHost({ event: 'api', callId, method, args });
+    });
+  };
+
+  /** Proxy over the host PluginApi; every call is forwarded over the bridge. */
+  const createApiProxy = (): PluginApi => ({
+    get locale() {
+      return currentLocale;
+    },
+    t: (key, params) => translate(key, params),
+    onLocaleChange: (listener) => {
+      localeListeners.add(listener);
+      return () => localeListeners.delete(listener);
+    },
+    setStatus: (status) => callApi('setStatus', [status]),
+    reportGpuTime: (ms) => callApi('reportGpuTime', [ms]),
+    reportDataScale: (n) => callApi('reportDataScale', [n]),
+    notify: (kind, message) => callApi('notify', [kind, message]),
+    // Logging is fire-and-forget: a log line must never await a host reply,
+    // and it must never throw into plugin code (best-effort observability).
+    log: (level: PluginLogLevel, message: string, details?: unknown) => {
+      try {
+        postToHost({ event: 'log', level, message, details });
+      } catch {
+        /* logging must never break the caller */
+      }
+    },
+    exportFile: (fileName, data, mimeType) => callApi('exportFile', [fileName, data, mimeType]),
+    // Nested surface flattened onto the bridge; the host resolves dotted
+    // names back onto the real `api.cache` object (see sandbox.resolveApiMember).
+    cache: {
+      get: (key) => callApi('cache.get', [key]),
+      set: (key, value, ttlMs) => callApi('cache.set', [key, value, ttlMs]),
+      delete: (key) => callApi<boolean>('cache.delete', [key]),
+      clear: () => callApi('cache.clear'),
+      keys: () => callApi<string[]>('cache.keys'),
+    } satisfies PluginCacheApi,
+    openFile: () => callApi<File | null>('openFile'),
+    readText: (file) => callApi<string>('readText', [file]) as unknown as Promise<string>,
+    readBinary: (file) =>
+      callApi<ArrayBuffer>('readBinary', [file]) as unknown as Promise<ArrayBuffer>,
+    getParam: (key) => callApi('getParam', [key]),
+    setParam: (key, value) => callApi('setParam', [key, value]),
+  });
+
+  async function dispatch(method: string, args: unknown[]): Promise<unknown> {
+    if (!plugin) throw new Error('plugin not booted');
+
+    switch (method) {
+      case 'init':
+        await plugin.init(api as unknown as PluginApi);
+        return undefined;
+      case 'destroy':
+        await plugin.destroy?.();
+        // Drop every piece of runtime state with the plugin: a re-boot in the
+        // same worker must not inherit stale listeners or unresolved calls.
+        localeListeners.clear();
+        for (const [, p] of pendingApi) {
+          p.reject(new Error('plugin destroyed'));
+        }
+        pendingApi.clear();
+        plugin = null;
+        return undefined;
+      case 'activate': {
+        const container = args[0] as Record<string, unknown>;
+        await plugin.activate?.({
+          container: {
+            canvas2d: container.canvas2d as unknown as HTMLCanvasElement | undefined,
+            dom: undefined,
+            three: undefined,
+            reportDataScale: container.reportDataScale as (n: number) => void,
+          },
+          api: api as unknown as PluginApi,
+        });
+        return undefined;
+      }
+      case 'render': {
+        const container = args[0] as Record<string, unknown>;
+        await plugin.render?.({
+          canvas2d: container.canvas2d as unknown as HTMLCanvasElement | undefined,
+          dom: undefined,
+          three: undefined,
+          reportDataScale: container.reportDataScale as (n: number) => void,
+        });
+        return undefined;
+      }
+      case 'deactivate':
+        await plugin.deactivate?.();
+        return undefined;
+      case 'updateParams':
+        await plugin.updateParams?.(args[0] as Record<string, unknown>);
+        return undefined;
+      case 'getParams':
+        return plugin.getParams();
+      case 'loadData':
+        await plugin.loadData?.(args[0] as File);
+        return undefined;
+      case 'getSupportedFormats':
+        return plugin.getSupportedFormats?.() ?? ([] as SupportedFormat[]);
+      case 'onProjectSave':
+        await plugin.onProjectSave?.();
+        return undefined;
+      case 'onProjectLoad':
+        await plugin.onProjectLoad?.();
+        return undefined;
+      case 'compute': {
+        const [input, onProgress] = args as [unknown, ((p: ComputeProgress) => void) | undefined];
+        const result = await plugin.compute?.(input, onProgress);
+        return result ?? { ok: false, error: 'plugin has no compute()' };
+      }
+      default:
+        throw new Error(`unknown method: ${method}`);
+    }
+  }
+
+  return {
+    async handleMessage(msg: unknown) {
+      if ((msg as { event?: string }).event === 'set-locale') {
+        const next = (msg as { locale?: string }).locale;
+        if (next && next in dictionaries) {
+          currentLocale = next as Locale;
+          for (const listener of [...localeListeners]) {
+            try {
+              listener(currentLocale);
+            } catch {
+              /* listener errors must not break the bridge */
+            }
+          }
+        }
+        return;
+      }
+
+      if ((msg as ApiReply).event === 'api-reply') {
+        const reply = msg as ApiReply;
+        const p = pendingApi.get(reply.callId);
+        if (p) {
+          pendingApi.delete(reply.callId);
+          if (reply.ok) p.resolve(reply.result);
+          else p.reject(new Error(reply.error ?? 'api call failed'));
+        }
+        return;
+      }
+
+      const req = msg as RpcRequest;
+      if (typeof req?.id !== 'number' || !req.method) return;
+
+      // Serialize dispatch: a plugin's methods share mutable state and are not
+      // reentrant. Without a chain, concurrent calls (e.g. compute + loadData)
+      // interleave on `plugin` and produce corrupted output.
+      const run = async () => {
+        if (req.method === 'boot') {
+          const [entrySource, manifest, locale, dict] = req.args as [
+            string,
+            PluginManifest,
+            string,
+            Record<string, Record<string, string>>,
+          ];
+          try {
+            if (locale && locale in (dict ?? {})) currentLocale = locale as Locale;
+            if (dict) dictionaries = dict;
+            api = createApiProxy();
+             
+            const factory = new Function('api', `"use strict";\n${entrySource}`) as (
+              api: PluginApi,
+            ) => Plugin;
+            const instance = factory(api);
+            if (!instance || typeof instance !== 'object') {
+              throw new Error('entry did not return a plugin object');
+            }
+            if (!instance.manifest || typeof instance.manifest !== 'object') {
+              // Without this the failure surfaced as "Cannot set properties of
+              // undefined", which tells an author nothing about the real cause.
+              throw new Error('entry did not expose a plugin manifest');
+            }
+            // Keep the package manifest authoritative for the id so a plugin
+            // cannot impersonate another one's persisted parameters.
+            try {
+              instance.manifest.id = manifest.id;
+            } catch (err) {
+              throw new Error(`manifest is not writable: ${String(err)}`);
+            }
+            plugin = instance;
+            postReply(req.id, true, 'ready');
+          } catch (err) {
+            postReply(req.id, false, `boot failed: ${String(err)}`);
+          }
+          return;
+        }
+
+        try {
+          const sendFn = (event: string, callId: number, fnArgs: unknown[]) => {
+            postToHost({ event, callId, args: fnArgs });
+          };
+          const result = await dispatch(req.method, decodeArgs(req.args ?? [], sendFn));
+          postReply(req.id, true, result);
+        } catch (err) {
+          postReply(req.id, false, err instanceof Error ? err.message : String(err));
+        }
+      };
+
+      dispatchChain = dispatchChain.then(run, run);
+      await dispatchChain;
+    },
+  };
+}
+
+// Real worker bootstrap. Guarded so the module can be imported in test
+// environments without a worker global (`self` undefined).
+if (typeof self !== 'undefined') {
+  const workerSelf = self as unknown as {
+    postMessage(message: unknown): void;
+    onmessage: ((ev: MessageEvent) => void) | null;
+  };
+  const runtime = createPluginWorkerRuntime((message) => workerSelf.postMessage(message));
+  workerSelf.onmessage = (ev: MessageEvent) => {
+    void runtime.handleMessage(ev.data);
+  };
+}

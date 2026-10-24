@@ -1,0 +1,150 @@
+// ==========================================================================
+// Research-modules E2E: launcher → run history → lineage → figure studio →
+// supplement packaging → notebook.
+// ==========================================================================
+//
+// Mirrors the other verify-* scripts (playwright-core + shared harness).
+// Each stage is recorded; a stage failure is logged and the script moves on,
+// so one flaky step does not hide the state of the remaining stages.
+//
+// Tools are standalone pages under #/studio/<id>; legacy hash routes redirect.
+//
+//   node scripts/verify-research.mjs
+//
+import { chromium } from 'playwright-core';
+import { startPreview, launchOptions, shot, sleep, createReporter } from './_harness.mjs';
+
+const server = await startPreview(4173);
+const report = createReporter();
+const errors = [];
+
+let browser;
+try {
+  browser = await chromium.launch({
+    ...launchOptions(),
+    args: ['--no-sandbox', '--enable-unsafe-swiftshader'],
+  });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  page.on('console', (m) => m.type() === 'error' && errors.push(`[console] ${m.text()}`));
+  page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+
+  await page.goto(`${server.url}/#/`, { waitUntil: 'networkidle' });
+  await sleep(800);
+  await page.locator('.welcome-enter').click().catch(() => {});
+  await sleep(1500);
+  report.step('workbench reached', await page.evaluate(() => !!document.querySelector('.topbar')));
+
+  const openLauncher = async () => {
+    await page.getByRole('button', { name: /科研|Research/ }).first().click();
+    await page.locator('.launcher-menu').waitFor({ timeout: 3000 });
+    await sleep(200);
+  };
+
+  // Match a menu item by its TITLE node only: descriptions can repeat title
+  // words of another tool (e.g. notebook's desc contains "实验记录").
+  const menuItemByTitle = (re) =>
+    page.locator('[role="menuitem"]', { has: page.locator('.menu-item-label', { hasText: re }) }).first();
+
+  // ---- stage 1: launcher → run history page --------------------------------
+  try {
+    await openLauncher();
+    await menuItemByTitle(/实验记录|Run History/).click();
+    await page.waitForFunction(() => location.hash.includes('/studio/runs'), null, { timeout: 5000 });
+    await sleep(500);
+    const shell = await page.locator('.tool-shell').count();
+    report.step('run history page opens (/studio/runs)', shell > 0 && page.url().includes('/studio/runs'));
+    await page.screenshot({ path: shot('research-01-runs.png') });
+  } catch (err) {
+    errors.push(`[runs] ${err.message}`);
+  }
+
+  // ---- stage 2: launcher → lineage page ------------------------------------
+  try {
+    await page.goto(`${server.url}/#/workbench`, { waitUntil: 'domcontentloaded' });
+    await sleep(800);
+    await openLauncher();
+    await menuItemByTitle(/数据血缘|Data Lineage/).click();
+    await page.waitForFunction(() => location.hash.includes('/studio/lineage'), null, { timeout: 5000 });
+    await sleep(800);
+    const lineage = await page.evaluate(() =>
+      !!document.querySelector('.lineage-svg') || !!document.querySelector('.lineage-empty'),
+    );
+    report.step('lineage page renders (/studio/lineage)', lineage);
+    await page.screenshot({ path: shot('research-02-lineage.png') });
+  } catch (err) {
+    errors.push(`[lineage] ${err.message}`);
+  }
+
+  // ---- stage 3: figure studio ----------------------------------------------
+  try {
+    await page.goto(`${server.url}/#/studio/figures`, { waitUntil: 'domcontentloaded' });
+    await sleep(1200);
+    await page.getByRole('button', { name: /新建图表|New figure/i }).first().click();
+    await sleep(400);
+    await page.getByRole('button', { name: /添加面板|Add panel/i }).first().click();
+    await sleep(300);
+    await page.locator('#panel-data').fill('0,1\n1,3\n2,2\n3,5');
+    await page.getByRole('button', { name: /确定|OK/i }).click();
+    await sleep(500);
+    const panels = await page.locator('.figures-panel-item').count();
+    report.step('figure panel added', panels);
+    const svg = await page.evaluate(() => !!document.querySelector('.figures-preview-svg svg'));
+    report.step('composed svg preview', svg);
+    // Export SVG → expect a download event.
+    const downloadPromise = page.waitForEvent('download', { timeout: 8000 });
+    await page.getByRole('button', { name: 'SVG', exact: true }).click();
+    // The minimal fixture has incomplete submission metadata. Confirm the
+    // warning before expecting the export to reach the download handler.
+    await page.getByRole('dialog').getByRole('button', { name: /继续导出|Export anyway/i }).click();
+    const download = await downloadPromise;
+    report.step('svg download', download.suggestedFilename());
+    await page.screenshot({ path: shot('research-03-figures.png') });
+  } catch (err) {
+    errors.push(`[figures] ${err.message}`);
+  }
+
+  // ---- stage 4: supplement packaging ---------------------------------------
+  try {
+    await page.goto(`${server.url}/#/studio/supplement`, { waitUntil: 'domcontentloaded' });
+    // Consecutive native hash navigations may share the same history key.
+    // Wait for the rendered route, not just the address bar, to catch up.
+    await page.locator('.supplement-form').waitFor({ timeout: 5000 });
+    const formOpen = await page.evaluate(() => !!document.querySelector('.supplement-form'));
+    report.step('supplement page opens (/studio/supplement)', formOpen);
+    await page.locator('#supplement-author').fill('E2E Bot');
+    const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
+    await page.getByRole('button', { name: /打包并下载|Package & download/i }).click();
+    const download = await downloadPromise;
+    report.step('supplement zip download', download.suggestedFilename());
+  } catch (err) {
+    errors.push(`[supplement] ${err.message}`);
+  }
+
+  // ---- stage 5: notebook -----------------------------------------------------
+  try {
+    await page.goto(`${server.url}/#/studio/notebook`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: '+ PY', exact: true }).first().waitFor({ timeout: 5000 });
+    await page.getByRole('button', { name: '+ PY', exact: true }).first().click();
+    await sleep(300);
+    await page.locator('.nb-source-code').fill("print('hello notebook')");
+    await page.getByRole('button', { name: /运行|Run/i }).first().click();
+    // Pyodide boots from vendored assets on first run — generous budget.
+    await page
+      .locator('.nb-out-stdout')
+      .filter({ hasText: 'hello notebook' })
+      .waitFor({ timeout: 120_000 });
+    report.step('notebook cell output', 'hello notebook');
+    await page.screenshot({ path: shot('research-04-notebook.png') });
+  } catch (err) {
+    errors.push(`[notebook] ${err.message}`);
+  }
+
+  const failed = report.finish(errors);
+  process.exitCode = failed > 0 ? 1 : 0;
+} catch (err) {
+  console.error('VERIFY FAILED:', err);
+  process.exitCode = 1;
+} finally {
+  if (browser) await browser.close().catch(() => {});
+  server.stop();
+}
