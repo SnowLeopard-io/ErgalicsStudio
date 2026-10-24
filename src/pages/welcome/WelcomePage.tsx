@@ -261,7 +261,7 @@ export default function WelcomePage() {
           <div className="welcome-cta-row">
             <button
               type="button"
-              className="btn btn-primary welcome-cta-primary"
+              className="btn btn-primary welcome-cta-primary welcome-enter"
               onClick={() => void startNew()}
               disabled={busy}
             >
