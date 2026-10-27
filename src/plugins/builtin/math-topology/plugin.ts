@@ -314,6 +314,10 @@ export class MathTopologyPlugin implements Plugin {
         step: 0.01,
         value: this.state.deform,
         hint: zh ? '同时驱动环路收缩与同胚形变' : 'drives both the loop retraction and the morph',
+        visibleWhen: [
+          { key: 'loop', notIn: ['none'] },
+          { key: 'morph', notIn: ['none'] },
+        ],
       },
       {
         key: 'animate',
@@ -322,6 +326,10 @@ export class MathTopologyPlugin implements Plugin {
         type: 'checkbox',
         value: this.state.animate,
         hint: zh ? 'rAF 驱动 t 在 0 ↔ 1 之间往返' : 'rAF ping-pong of t between 0 and 1',
+        visibleWhen: [
+          { key: 'loop', notIn: ['none'] },
+          { key: 'morph', notIn: ['none'] },
+        ],
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),

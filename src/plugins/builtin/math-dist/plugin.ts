@@ -250,7 +250,8 @@ export class MathDistPlugin implements Plugin {
         max: 8000,
         step: 100,
         value: this.state.sampleSize,
-        hint: this.zh ? '模拟采样规模（数据集模式下不使用）' : 'Monte-Carlo sample size (unused in dataset mode)',
+        hint: this.zh ? '模拟采样规模' : 'Monte-Carlo sample size',
+        visibleWhen: { key: 'dataset', in: ['none'] },
       },
       {
         key: 'seed',
@@ -262,6 +263,7 @@ export class MathDistPlugin implements Plugin {
         step: 1,
         value: this.state.seed,
         hint: this.zh ? '固定种子使采样与直方图完全可复现' : 'A fixed seed makes sampling and the histogram reproducible',
+        visibleWhen: { key: 'dataset', in: ['none'] },
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),

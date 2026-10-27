@@ -162,6 +162,7 @@ export class PhysicsDiffusionPlugin implements Plugin {
         options: opt(SCHEMES),
         value: this.state.scheme,
         hint: this.zh ? '2-D 仅支持 FTCS（CN 回退为 FTCS）' : '2-D supports FTCS only (CN falls back to FTCS)',
+        visibleWhen: { key: 'dim', in: ['1d'] },
       },
       {
         key: 'd',

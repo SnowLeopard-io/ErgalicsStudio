@@ -111,8 +111,9 @@ export class DataImageprocPlugin implements Plugin {
         value: this.state.strength,
         hint:
           this.zh
-            ? '模糊 σ / 锐化增益；边缘与均衡视图不使用'
-            : 'blur σ / sharpen gain; unused by edge & equalise views',
+            ? '模糊 σ / 锐化增益'
+            : 'blur σ / sharpen gain',
+        visibleWhen: { key: 'filter', in: ['blur', 'sharpen'] },
       },
       actionButton('benchmark', 'Run numerics benchmark', '运行数值基准验证', 'primary'),
       actionButton('exportPng', 'Export view PNG', '导出画面 PNG'),

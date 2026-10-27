@@ -405,6 +405,7 @@ export class MathLinalgPlugin implements Plugin {
       hint: this.zh
         ? '矩阵 A = [[a₁₁, a₁₂], [a₂₁, a₂₂]]；修改任一元素即切换为自定义样本'
         : 'matrix A = [[a₁₁, a₁₂], [a₂₁, a₂₂]]; editing any entry switches to the custom sample',
+      visibleWhen: { key: 'mode', notIn: ['subspace'] },
     });
     return [
       {
@@ -422,6 +423,7 @@ export class MathLinalgPlugin implements Plugin {
         type: 'select',
         options: sampleOptions,
         value: this.state.sample,
+        visibleWhen: { key: 'mode', notIn: ['subspace'] },
       },
       entry('m11', 'a₁₁ (row 1, col 1)', 'a₁₁（第 1 行 第 1 列）'),
       entry('m12', 'a₁₂ (row 1, col 2)', 'a₁₂（第 1 行 第 2 列）'),
@@ -437,6 +439,7 @@ export class MathLinalgPlugin implements Plugin {
         hint: this.zh
           ? '逗号分隔 2 或 3 个分量；3 分量按等轴测 3D 绘制'
           : '2 or 3 comma-separated components; 3 components draw isometrically',
+        visibleWhen: { key: 'mode', in: ['subspace'] },
       },
       {
         key: 'vec2',
@@ -446,6 +449,7 @@ export class MathLinalgPlugin implements Plugin {
         value: this.state.vec2,
         placeholder: '0,1',
         hint: this.zh ? '留空则由 u₁ 张成一条直线而非平面' : 'leave empty to span a line instead of a plane',
+        visibleWhen: { key: 'mode', in: ['subspace'] },
       },
       {
         key: 'query',
@@ -457,6 +461,7 @@ export class MathLinalgPlugin implements Plugin {
         hint: this.zh
           ? '被投影到 span(u₁, u₂) 上的向量；分量数须与 u₁ 一致'
           : 'vector projected onto span(u₁, u₂); component count must match u₁',
+        visibleWhen: { key: 'mode', in: ['subspace'] },
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),

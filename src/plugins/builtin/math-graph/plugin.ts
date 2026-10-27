@@ -254,6 +254,10 @@ export class MathGraphPlugin implements Plugin {
         type: 'select',
         options: nodeOptions,
         value: this.state.source,
+        visibleWhen: {
+          key: 'algo',
+          in: ['dijkstra', 'bellman-ford', 'floyd-warshall', 'prim', 'ford-fulkerson', 'edmonds-karp'],
+        },
       },
       {
         key: 'target',
@@ -263,6 +267,7 @@ export class MathGraphPlugin implements Plugin {
         options: nodeOptions,
         value: this.state.target,
         hint: zh ? '用于最大流算法' : 'Used by the maximum-flow algorithms',
+        visibleWhen: { key: 'algo', in: ['ford-fulkerson', 'edmonds-karp'] },
       },
       {
         key: 'step',

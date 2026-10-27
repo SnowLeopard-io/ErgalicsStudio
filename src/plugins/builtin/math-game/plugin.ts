@@ -197,6 +197,7 @@ export class MathGamePlugin implements Plugin {
         type: 'select',
         options: sampleOptions,
         value: this.state.sample,
+        visibleWhen: { key: 'mode', in: ['matrix', 'replicator'] },
       },
       {
         key: 'size',
@@ -208,6 +209,7 @@ export class MathGamePlugin implements Plugin {
         step: 1,
         value: this.state.size,
         hint: this.zh ? 'n×n 双人收益矩阵（2–4）；修改时自动补齐/裁剪收益文本' : 'n×n two-player payoff matrix (2–4); the payoff text is padded/cropped on change',
+        visibleWhen: { key: 'mode', in: ['matrix', 'replicator'] },
       },
       {
         key: 'payoffs',
@@ -219,6 +221,7 @@ export class MathGamePlugin implements Plugin {
         hint: this.zh
           ? 'P1 矩阵 | P2 矩阵，行以 ; 分隔、单元格以 , 分隔，例如 3,0;5,1|3,5;0,1'
           : 'P1 table | P2 table, rows split by ";", cells by ",", e.g. 3,0;5,1|3,5;0,1',
+        visibleWhen: { key: 'mode', in: ['matrix', 'replicator'] },
       },
       {
         key: 'x0',
@@ -229,6 +232,7 @@ export class MathGamePlugin implements Plugin {
         max: 0.98,
         step: 0.01,
         value: this.state.x0,
+        visibleWhen: { key: 'mode', in: ['replicator'] },
       },
       {
         key: 'y0',
@@ -239,6 +243,7 @@ export class MathGamePlugin implements Plugin {
         max: 0.98,
         step: 0.01,
         value: this.state.y0,
+        visibleWhen: { key: 'mode', in: ['replicator'] },
       },
       {
         key: 'h',
@@ -249,6 +254,7 @@ export class MathGamePlugin implements Plugin {
         max: 0.05,
         step: 0.002,
         value: this.state.h,
+        visibleWhen: { key: 'mode', in: ['replicator'] },
       },
       {
         key: 'steps',
@@ -259,6 +265,7 @@ export class MathGamePlugin implements Plugin {
         max: 4000,
         step: 100,
         value: this.state.steps,
+        visibleWhen: { key: 'mode', in: ['replicator'] },
       },
       {
         key: 'tree',
@@ -267,6 +274,7 @@ export class MathGamePlugin implements Plugin {
         type: 'select',
         options: treeOptions,
         value: this.state.tree,
+        visibleWhen: { key: 'mode', in: ['tree'] },
       },
       {
         key: 'auctionFormat',
@@ -275,6 +283,7 @@ export class MathGamePlugin implements Plugin {
         type: 'select',
         options: auctionOptions,
         value: this.state.auctionFormat,
+        visibleWhen: { key: 'mode', in: ['auction'] },
       },
       {
         key: 'bidders',
@@ -285,6 +294,7 @@ export class MathGamePlugin implements Plugin {
         max: 8,
         step: 1,
         value: this.state.bidders,
+        visibleWhen: { key: 'mode', in: ['auction'] },
       },
       {
         key: 'auctions',
@@ -295,6 +305,7 @@ export class MathGamePlugin implements Plugin {
         max: 1000,
         step: 50,
         value: this.state.auctions,
+        visibleWhen: { key: 'mode', in: ['auction'] },
       },
       {
         key: 'seed',
@@ -306,6 +317,7 @@ export class MathGamePlugin implements Plugin {
         step: 1,
         value: this.state.seed,
         hint: this.zh ? 'mulberry32 带种子随机数，同种子结果完全可复现' : 'seeded mulberry32 — identical samples for identical seeds',
+        visibleWhen: { key: 'mode', in: ['auction'] },
       },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准', 'primary'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),

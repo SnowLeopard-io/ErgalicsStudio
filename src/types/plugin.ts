@@ -149,6 +149,47 @@ export interface BaseParam {
    * numeric input). Only honoured inside a group.
    */
   inline?: boolean;
+  /**
+   * Conditional visibility. Hide this control when the controlling parameter
+   * makes it irrelevant (e.g. a diffusion strength slider in a mode that does
+   * not use it), so the panel only shows controls that actually take effect.
+   */
+  visibleWhen?: ParamVisibilityRule;
+}
+
+export interface ParamVisibility {
+  /** Key of the parameter whose current value controls visibility. */
+  key: string;
+  /** Show only when the controlling value is one of these. */
+  in?: ReadonlyArray<string | number | boolean>;
+  /** Show only when the controlling value is none of these. */
+  notIn?: ReadonlyArray<string | number | boolean>;
+}
+
+/** One visibility rule, or an OR-list of rules. */
+export type ParamVisibilityRule = ParamVisibility | ReadonlyArray<ParamVisibility>;
+
+/** Resolve a param's conditional visibility against the current definitions. */
+export function isParamVisible(
+  def: BaseParam,
+  params: readonly ParamDefinition[],
+): boolean {
+  const cond = def.visibleWhen;
+  if (!cond) return true;
+  const rules = Array.isArray(cond) ? cond : [cond];
+  return rules.some((rule) => matchesVisibility(rule as ParamVisibility, params));
+}
+
+function matchesVisibility(
+  cond: ParamVisibility,
+  params: readonly ParamDefinition[],
+): boolean {
+  const controller = params.find((p) => p.key === cond.key);
+  if (!controller || !('value' in controller)) return true;
+  const value = controller.value as string | number | boolean;
+  if (cond.in && !cond.in.includes(value)) return false;
+  if (cond.notIn && cond.notIn.includes(value)) return false;
+  return true;
 }
 
 export interface RangeParam extends BaseParam {
