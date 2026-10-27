@@ -2647,7 +2647,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-markov',
-    group: 'stats',
+    group: 'math',
     content: markovPagerankWebCsv,
     nameI18n: {
       'zh-CN': '马尔可夫链 · 五页网页链接图',
@@ -2666,7 +2666,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'txt',
     mimeType: 'text/plain',
     pluginId: 'example.stats-zipf',
-    group: 'stats',
+    group: 'math',
     content: gutenbergEmmaCh1Txt,
     nameI18n: {
       'zh-CN': 'Zipf 定律 · 《爱玛》卷一第 1–6 章',

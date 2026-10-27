@@ -1147,18 +1147,51 @@ export function CentralArea() {
           activeTab 为 null 即插件画布处于前台。 */}
       {(canvasTabs.length > 0 || pluginTabEntry) && (
         <div className="central-overlay-stack">
-          <div ref={setTabStripEl} className="central-tool-tabs" role="tablist" aria-label={t('suite.tabs')}>
+          <div
+            ref={setTabStripEl}
+            className="central-tool-tabs"
+            role="tablist"
+            aria-label={t('suite.tabs')}
+            onKeyDown={(e) => {
+              // Roving-tabindex tabs: Arrow keys move focus between tabs, and
+              // Enter/Space activates the focused one. Without this the strip
+              // was mouse-only — a keyboard user could never reach an open
+              // file/suite tab.
+              const tabs = Array.from(
+                e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'),
+              );
+              const i = tabs.indexOf(document.activeElement as HTMLElement);
+              if (i < 0) return;
+              let next = -1;
+              if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+              else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+              else if (e.key === 'Home') next = 0;
+              else if (e.key === 'End') next = tabs.length - 1;
+              if (next >= 0) {
+                e.preventDefault();
+                tabs[next]?.focus();
+                tabs[next]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+              }
+            }}
+          >
             {/* 插件画布标签：点击回到插件视图（不关闭其他标签）。插件被
                 自动停用时标签仍然显示——点击会重新激活它。 */}
             {pluginTabEntry && (
               <div
                 role="tab"
                 aria-selected={activeTab === null && pluginTabEntry.id === activeId}
+                tabIndex={activeTab === null && pluginTabEntry.id === activeId ? 0 : -1}
                 className={`central-tool-tab plugin-tab${
                   activeTab === null && pluginTabEntry.id === activeId ? ' active' : ''
                 }`}
                 title={pluginTabEntry.name}
                 onClick={() => showPluginCanvas()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    showPluginCanvas();
+                  }
+                }}
               >
                 <span className="central-tool-tab-icon" aria-hidden="true">
                   {pluginTabEntry.icon ?? '◈'}
@@ -1187,11 +1220,22 @@ export function CentralArea() {
                   key={tab.key}
                   role="tab"
                   aria-selected={active}
+                  tabIndex={active ? 0 : -1}
                   className={`central-tool-tab${active ? ' active' : ''}${
                     tab.kind === 'file' ? ' file-tab' : ''
                   }${tab.kind === 'editor' ? ' editor-tab' : ''}`}
                   title={label}
                   onClick={() => activateTab(tab.key)}
+                  onKeyDown={(e) => {
+                    // The tablist handler already handles arrows; here we only
+                    // forward Enter/Space so the focused tab can be activated
+                    // without a pointer (Space/Enter do not fire onClick on a
+                    // non-button element).
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      activateTab(tab.key);
+                    }
+                  }}
                 >
                   {tab.kind === 'tool' &&
                     (() => {

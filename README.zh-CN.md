@@ -66,7 +66,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**111 个内置插件（101 个科学插件自动加载 + 10 个趣味工具手动加载），按 16 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**118 个内置插件（108 个科学插件自动加载 + 10 个趣味工具手动加载），按 15 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、143 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
@@ -95,7 +95,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 能力 | 说明 |
 | --- | --- |
-| **111 个内置插件** | （101 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **16 个学科**分组（图表 / 统计 / 数学方法 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 特效渲染 / 趣味工具）。 |
+| **118 个内置插件** | （108 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **15 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 特效渲染 / 趣味工具）。 |
 | 市场目录 | `src/plugins/marketplace.ts`（精选标签 / 流行度 / 分类筛选）。 |
 | `.cspkg` 包加载 | 清单校验 + **Worker 优先隔离**（§沙箱）：第三方入口经 postMessage 桥接与 OffscreenCanvas 渲染，回退为受限制作用域的 `new Function`（非安全边界）；两者均受 Ed25519 签名门禁约束（FR-05，见 `SECURITY.md`）。 |
 | 本地化参数面板 | 插件参数面板内置 CSV 导出按钮、分析叠加层（趋势线、累积/密度直方图、均值标记、抖动点、排序）；全部科研级插件带发送至 Figure Studio 动作。 |
@@ -190,7 +190,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (101 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (108 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["GPU 计算<br/>gpu.ts 适配器/设备<br/>compute.ts PluginApi.gpu<br/>14 个 WGSL 内核 (wgsl.ts)<br/>CPU 回退"]
     end
 
@@ -236,7 +236,7 @@ flowchart TB
 │   │                         #     插件视图，以及科研工具（单一注册表
 │   │                         #     src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils 六组）
-│   ├── plugins/builtin/      #   111 个插件：101 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
+│   ├── plugins/builtin/      #   118 个插件：108 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
 │   ├── plugins/marketplace.ts#   市场目录
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   插件 & 项目 & 编辑器契约
@@ -342,9 +342,9 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 ### 内置插件
 
-**101 个科学插件**启动时自动加载，侧边栏按 **16 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
+**108 个科学插件**启动时自动加载，侧边栏按 **15 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
 
-**图表可视化（17 个）**
+**图表可视化（22 个）**
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
@@ -365,27 +365,28 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Point Cloud | 点云查看器 | 渲染 .xyz 点云，点大小可调。 |
 | Point Cloud 3D | 3D 点云 | 宿主 Three.js 场景中的交互式三维点云，带高程着色与自动取景。 |
 | Image Viewer | 图像查看器 | 查看位图图像（PNG / JPEG / WebP / GIF）。 |
-
-**数学统计（8 个）**
-
-| 插件（英文名） | 中文名 | 定位 |
-| --- | --- | --- |
 | Histogram | 直方图 | 数值数据的分布直方图。 |
 | Box Plot | 箱线图 | 分组数据的箱线图（四分位箱 + 触须 + 离群点）。 |
 | Violin Plot | 小提琴图 | 核密度小提琴图，带宽可调，叠加箱线。 |
 | QQ Plot | QQ 图（正态检验） | 样本分位数对标准正态分位数，偏离对角线即非正态信号。 |
 | Error Band | 误差带图 | 折线图叠加阴影置信/误差带，适合噪声测量。 |
-| Central Limit Theorem Bench | 中心极限定理演示台 | 从均匀 / 指数 / 伯努利 / 双峰 / 截尾帕累托总体抽取样本均值，叠加解析 N(μ, σ²/n)，报告偏度 / 峰度 / Jarque–Bera。 |
-| Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | 幂迭代求平稳分布（L1 残差 < 1e-12）、不可约性与周期检测、吸收链分析。 |
-| Zipf's Law Word Frequencies | Zipf 定律词频分析 | 真实语料的 Zipf 定律拟合（log rank–log freq 最小二乘，s±σ、R²），内置《Emma》公版语料。 |
 
-**数学方法（3 个）**
+**数学与统计（12 个）**
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
+| Linear Algebra Lab | 线性代数实验室 | 2×2 矩阵对单位网格的作用、特征向量几何、SVD 分解链 A = UΣVᵀ、向量组的张成与投影、\|det\| 作为面积缩放因子。 |
+| Probability Distribution Lab | 概率分布实验室 | 10 个分布族（正态、泊松、指数、Beta、Gamma、Student-t、χ²、F、二项、几何）的 PDF/PMF + CDF，种子化蒙特卡洛直方图，样本数据集的闭式 MLE 拟合。 |
+| Numerical Analysis Lab | 数值分析实验室 | 二分 / 牛顿 / 割线求根，梯形 / Simpson / Gauss 求积，前向 / 后向 / 中心差分，Lagrange / Newton / 三次样条插值，并实测收敛阶。 |
+| Graph Theory Visualizer | 图论可视化 | 邻接矩阵 / 边表输入，Dijkstra / Bellman-Ford / Floyd-Warshall，Prim / Kruskal 最小生成树，Ford-Fulkerson / Edmonds-Karp 最大流 + 最小割，贪心着色、二分图匹配、欧拉 / 哈密顿路径，逐步动画。 |
+| Topology Visualizer | 拓扑可视化 | Three.js 渲染 Möbius 带、Klein 瓶、环面与球面嵌入，基本群回路、同伦形变、欧拉示性数与可定向性分类。 |
+| ODE Vector Field & Streamlines | ODE 向量场与流线 | 二维自治系统相平面：RK4 双向流线积分、平衡点定位与雅可比特征值分类。（微分方程 tier 的 ODE 求解器；PDE 覆盖位于物理套件——波动方程负责二维波方程，热传导 / 扩散方程实验室负责一维 / 二维热传导与 Laplace 问题。） |
+| Game Theory Lab | 博弈论实验室 | n×n 收益矩阵、纯 / 混合 Nash 均衡、迭代占优、RK4 复制者动态 + ESS、扩展式博弈树逆向归纳，第一 / 第二价格与英式拍卖模拟及 VCG 指标。 |
 | Fourier Series Lab | 傅里叶级数逼近实验室 | 数值傅里叶系数、部分和与 Fejér 平均对比、Parseval L² 误差与吉布斯过冲。 |
 | Domain Coloring | 复变函数域着色 | 复函数 f(z) 的逐像素域着色，内置表达式解析器，支持缩放平移。 |
-| ODE Vector Field & Streamlines | ODE 向量场与流线 | 二维自治系统相平面：RK4 双向流线积分、平衡点定位与雅可比特征值分类。 |
+| Central Limit Theorem Bench | 中心极限定理演示台 | 从均匀 / 指数 / 伯努利 / 双峰 / 截尾帕累托总体抽取样本均值，叠加解析 N(μ, σ²/n)，报告偏度 / 峰度 / Jarque–Bera。 |
+| Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | 幂迭代求平稳分布（L1 残差 < 1e-12）、不可约性与周期检测、吸收链分析。 |
+| Zipf's Law Word Frequencies | Zipf 定律词频分析 | 真实语料的 Zipf 定律拟合（log rank–log freq 最小二乘，s±σ、R²），内置《Emma》公版语料。 |
 
 **物理模拟（15 个）**
 
@@ -604,7 +605,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *化学晶体插件把晶胞渲染为真三维结构，可沿任一轴旋转并叠加电子密度等值面。*
 
-**分学科图览**（图表 / 统计 / 数学方法 / 物理 / 化学 / 生物 / 地理 / 环境学 / 特效渲染）：
+**分学科图览**（图表 / 数学与统计 / 物理 / 化学 / 生物 / 地理 / 环境学 / 特效渲染）：
 
 **图表可视化**
 
@@ -660,16 +661,6 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *点云查看器：二维 .xyz 点云。*
 
-**数学统计**
-
-![马尔可夫链与稳态分析 — 状态转移图与样本轨迹](docs/assets/screenshots/plugins/stats-markov.png)
-
-*马尔可夫链与稳态分析：状态转移图与一条穿越样本轨迹。*
-
-![Zipf 定律词频分析 — 双对数词频直线拟合](docs/assets/screenshots/plugins/stats-zipf.png)
-
-*Zipf 定律词频分析：log rank–log freq 双对数直线拟合。*
-
 ![直方图 — 双峰分布](docs/assets/screenshots/plugins/histogram.png)
 
 *直方图：双峰分布。*
@@ -690,11 +681,19 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *QQ 图：样本分位数偏离参考线。*
 
+**数学与统计**
+
+![马尔可夫链与稳态分析 — 状态转移图与样本轨迹](docs/assets/screenshots/plugins/stats-markov.png)
+
+*马尔可夫链与稳态分析：状态转移图与一条穿越样本轨迹。*
+
+![Zipf 定律词频分析 — 双对数词频直线拟合](docs/assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf 定律词频分析：log rank–log freq 双对数直线拟合。*
+
 ![中心极限定理演示台 — 样本均值叠加解析正态](docs/assets/screenshots/plugins/stats-clt.png)
 
 *中心极限定理演示台：样本均值叠加解析正态曲线。*
-
-**数学方法**
 
 ![复变函数域着色 — 辐角与模长彩色场](docs/assets/screenshots/plugins/math-domaincolor.png)
 
@@ -1027,7 +1026,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 
 - [x] 工作台布局、项目管理、文件路由；四种模式（标准 / 流程 / 积木 / 代码）
 - [x] 工作台文件资源管理器 + 标签页中央区 + 按文件分派的编辑器（`.py` / `*.flow.json` / `*.block.json`）、中央导出菜单、工作区产物
-- [x] 111 个内置插件（101 科学自动加载 + 10 趣味手动加载）按 16 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
+- [x] 118 个内置插件（108 科学自动加载 + 10 趣味手动加载）按 15 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
 - [x] 插件 CSV 导出按钮 + 分析叠加层；中央画布导出菜单（PNG / 透明 PNG，保存到工作区）；市场目录
 - [x] WebGPU 设备管理 + 14 个可复用 WGSL 内核（Particles / N-Body / LBM / 波动方程 / FFT / k-means…）
 - [x] 地理插件系列（空间插值含 LOOCV + Moran's I、地形分析流域三件套、FAO-56 等），全部支持发送 Figure Studio

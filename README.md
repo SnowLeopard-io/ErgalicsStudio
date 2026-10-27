@@ -72,7 +72,7 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **118 built-in plugins (108 scientific auto-load + 10 fun manual) across 15 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 143 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
@@ -101,7 +101,7 @@ What ships today:
 
 | Capability | Details |
 | --- | --- |
-| **111 built-in plugins** | (101 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **16 disciplines** in the sidebar (charts / stats / math / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
+| **118 built-in plugins** | (108 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **15 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -210,7 +210,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (101 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (108 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -261,7 +261,7 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils)
-│   ├── plugins/builtin/      #   111 plugins: 101 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   118 plugins: 108 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -446,11 +446,11 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**101 scientific plugins** auto-load at startup, grouped into **16
+**108 scientific plugins** auto-load at startup, grouped into **15
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
-**Charts (17)**
+**Charts (22)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -471,27 +471,28 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Point Cloud | 点云查看器 | Render .xyz point clouds with adjustable point size. |
 | Point Cloud 3D | 3D 点云 | Interactive 3-D point clouds in the host Three.js scene with height coloring. |
 | Image Viewer | 图像查看器 | View raster images (PNG / JPEG / WebP / GIF). |
-
-**Statistics (8)**
-
-| Plugin | 中文名 | Focus |
-| --- | --- | --- |
 | Histogram | 直方图 | Distribution histogram for numeric data. |
 | Box Plot | 箱线图 | Box-and-whisker plot (quartile box + whiskers + outliers) for grouped data. |
 | Violin Plot | 小提琴图 | Kernel-density violin plot with adjustable bandwidth and box overlay. |
 | QQ Plot | QQ 图（正态检验） | Sample quantiles vs standard-normal quantiles for normality checks. |
 | Error Band | 误差带图 | Line chart with a shaded confidence/error band. |
-| Central Limit Theorem Bench | 中心极限定理演示台 | Draws sample means from uniform / exponential / Bernoulli / bimodal / truncated-Pareto populations, overlays the analytic N(μ, σ²/n), reports skewness / kurtosis / Jarque–Bera. |
-| Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | Stationary distribution via power iteration, irreducibility & period detection, absorbing-chain analysis. |
-| Zipf's Law Word Frequencies | Zipf 定律词频分析 | Zipf-law fit over real corpora (OLS on log rank–log freq, s ± σ, R²), ships Jane Austen's *Emma* public-domain corpus. |
 
-**Math Methods (3)**
+**Mathematics & Statistics (12)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
+| Linear Algebra Lab | 线性代数实验室 | 2×2 matrix action on the unit grid, eigenvector geometry, SVD chain A = UΣVᵀ, span/projection of vector sets, \|det\| as area scaling. |
+| Probability Distribution Lab | 概率分布实验室 | PDF/PMF + CDF for 10 families (Normal, Poisson, Exponential, Beta, Gamma, Student-t, χ², F, Binomial, Geometric), seeded Monte-Carlo histograms, closed-form MLE fitting of sample datasets. |
+| Numerical Analysis Lab | 数值分析实验室 | Bisection / Newton / secant root finding, trapezoid / Simpson / Gauss quadrature, forward / backward / central differences, Lagrange / Newton / cubic-spline interpolation, measured convergence orders. |
+| Graph Theory Visualizer | 图论可视化 | Adjacency-matrix / edge-list input, Dijkstra / Bellman-Ford / Floyd-Warshall, Prim / Kruskal MST, Ford-Fulkerson / Edmonds-Karp max-flow + min-cut, greedy coloring, bipartite matching, Euler / Hamiltonian trails, step-by-step animation. |
+| Topology Visualizer | 拓扑可视化 | Möbius strip, Klein bottle, torus and sphere embeddings rendered with Three.js, fundamental-group loops, homotopy deformation, Euler characteristic and orientability classification. |
+| ODE Vector Field & Streamlines | ODE 向量场与流线 | Phase plane of 2-D autonomous systems: RK4 bidirectional streamlines, equilibria localization, Jacobian eigenvalue classification. *(Numerical ODE solver for the differential-equation tier; PDE coverage lives in the Physics suite — Wave Equation for the 2-D wave equation and Diffusion Equation Lab for 1-D/2-D heat/Laplace problems.)* |
+| Game Theory Lab | 博弈论实验室 | n×n payoff matrices, pure / mixed Nash equilibria, iterated dominance, RK4 replicator dynamics + ESS, extensive-form game trees with backward induction, first-price / second-price / English auction simulation with VCG metrics. |
 | Fourier Series Lab | 傅里叶级数逼近实验室 | Numerical Fourier coefficients, partial sums vs Fejér means, Parseval L² error, Gibbs overshoot. |
 | Domain Coloring | 复变函数域着色 | Per-pixel domain coloring of complex f(z) with an embedded expression parser and zoom/pan. |
-| ODE Vector Field & Streamlines | ODE 向量场与流线 | Phase plane of 2-D autonomous systems: RK4 bidirectional streamlines, equilibria localization, Jacobian eigenvalue classification. |
+| Central Limit Theorem Bench | 中心极限定理演示台 | Draws sample means from uniform / exponential / Bernoulli / bimodal / truncated-Pareto populations, overlays the analytic N(μ, σ²/n), reports skewness / kurtosis / Jarque–Bera. |
+| Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | Stationary distribution via power iteration, irreducibility & period detection, absorbing-chain analysis. |
+| Zipf's Law Word Frequencies | Zipf 定律词频分析 | Zipf-law fit over real corpora (OLS on log rank–log freq, s ± σ, R²), ships Jane Austen's *Emma* public-domain corpus. |
 
 **Physics (15)**
 
@@ -747,7 +748,7 @@ equation via nonlinear LM regression, reporting K_m and V_max with confidence.*
 *The chemistry-crystal plugin renders a crystal unit cell in true 3D, rotatable
 about any axis with electron-density isosurfaces overlaid.*
 
-**Discipline gallery** (charts / statistics / math methods / physics /
+**Discipline gallery** (charts / mathematics & statistics / physics /
 chemistry / biology / geography / environmental science / effects rendering):
 
 **Charts**
@@ -804,17 +805,6 @@ chemistry / biology / geography / environmental science / effects rendering):
 
 *Point Cloud: a 2-D .xyz point cloud.*
 
-**Statistics**
-
-![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
-
-*Markov Chains & Stationary Analysis: the state-transition graph with a
-sample trajectory through it.*
-
-![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
-
-*Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
-
 ![Histogram — a bimodal distribution](docs/assets/screenshots/plugins/histogram.png)
 
 *Histogram: a bimodal distribution.*
@@ -835,11 +825,20 @@ sample trajectory through it.*
 
 *QQ Plot: sample quantiles departing from the reference line.*
 
+**Mathematics & Statistics**
+
+![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
+
+*Markov Chains & Stationary Analysis: the state-transition graph with a
+sample trajectory through it.*
+
+![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
+
 ![Central Limit Theorem Bench — sample means with the analytic normal](docs/assets/screenshots/plugins/stats-clt.png)
 
 *Central Limit Theorem Bench: sample means overlaid on the analytic normal.*
-
-**Math Methods**
 
 ![Domain Coloring — hue/shade field of a complex function](docs/assets/screenshots/plugins/math-domaincolor.png)
 
@@ -1235,7 +1234,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
-- [x] 111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 118 built-in plugins (108 scientific auto-load + 10 fun manual) across 15 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio

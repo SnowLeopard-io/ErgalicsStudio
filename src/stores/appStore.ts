@@ -523,7 +523,10 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   /** Push the editor's live buffer into the store + mark dirty. No-op when
-   *  the tab was closed while the debounce was pending. */
+   *  the tab was closed while the debounce was pending. Also marks the open
+   *  project dirty so an autosave persists the edited file (previously the
+   *  buffer was only ever written on an explicit save, so a silent refresh
+   *  inside the autosave window discarded in-editor edits). */
   updateEditorFile: (path, payload) => {
     const key = editorTabKey(path);
     set((s) => {
@@ -531,6 +534,14 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (!cur) return s;
       return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload, dirty: true } } };
     });
+    // Lazy import: projectStore imports this store, so a static import would
+    // close a cycle. Marking dirty is best-effort — a failure here must never
+    // block the editor update above.
+    void import('./projectStore')
+      .then(({ useProjectStore }) => {
+        if (useProjectStore.getState().project) useProjectStore.getState().setDirty(true);
+      })
+      .catch(() => undefined);
   },
 
   /** Write the buffered payload to the workspace tree. Uses lazy imports (the
@@ -552,6 +563,13 @@ export const useAppStore = create<AppStore>((set, get) => {
       set((s) => {
         const f = s.editorFiles[key];
         if (!f) return s;
+        // Only clear the dirty flag if the buffer still holds what we wrote.
+        // If the user kept typing while the two awaits above were in flight,
+        // `f.payload !== cur.payload` and clearing dirty would falsely mark
+        // those newer edits as saved. (The project itself is not marked dirty
+        // here — the workspace write above is the durable copy; the editor
+        // buffer is a separate in-memory session.)
+        if (f.payload !== cur.payload) return s;
         return { editorFiles: { ...s.editorFiles, [key]: { ...f, dirty: false } } };
       });
       useAppStore.getState().bumpFileOps();

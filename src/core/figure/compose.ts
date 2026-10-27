@@ -162,8 +162,12 @@ export function composeFigure(fs: FigureSpec): ComposedFigure {
   const tpl = templateById(fs.templateId);
   const panels = [...fs.panels].sort((a, b) => a.row - b.row || a.col - b.col);
 
-  const rows = Math.max(fs.rows ?? 0, ...panels.map((p) => p.row + 1), 1);
-  const cols = Math.max(fs.cols ?? 0, ...panels.map((p) => p.col + 1), 1);
+  // Guard against non-finite / absurd grid extents from untrusted specs so a
+  // hostile `.clproj` cannot produce a multi-gigapixel SVG.
+  const clampExtent = (v: number | undefined): number =>
+    Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v as number), 1), 20) : 1;
+  const rows = clampExtent(Math.max(fs.rows ?? 0, ...panels.map((p) => p.row + 1), 1));
+  const cols = clampExtent(Math.max(fs.cols ?? 0, ...panels.map((p) => p.col + 1), 1));
 
   const { cellW, cellH, gap } = panelCellSize(fs.templateId);
 
@@ -180,10 +184,16 @@ export function composeFigure(fs: FigureSpec): ComposedFigure {
   parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>`);
 
   panels.forEach((panel, i) => {
-    const x = panel.col * (cellW + gap);
-    const y = panel.row * (cellH + gap);
-    const tag = panel.tag ?? tagFor(i);
-    placed.push({ tag, row: panel.row, col: panel.col, x, y });
+    // Row/col may be fractional or absurd from an untrusted spec — clamp to
+    // the grid so x/y stay finite and on-canvas.
+    const row = clampExtent(panel.row + 1) - 1;
+    const col = clampExtent(panel.col + 1) - 1;
+    const x = col * (cellW + gap);
+    const y = row * (cellH + gap);
+    // `panel.tag` is user-authored and flows straight into the SVG markup —
+    // escape it so a tag like `a<b` cannot break out of the <text> element.
+    const tag = escapeXml(panel.tag ?? tagFor(i));
+    placed.push({ tag, row, col, x, y });
 
     const spec: PlotSpec = {
       ...panel.spec,

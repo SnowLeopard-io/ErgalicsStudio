@@ -436,7 +436,7 @@ export const zhCN: LocaleDictionary = {
   'settings.cache_usage': '缓存使用',
   'settings.cache_cleared': '缓存已清理',
   'settings.clear_cache': '清理缓存',
-  'settings.clear_cache_confirm': '确定要清理所有缓存数据吗？此操作不可撤销。',
+  'settings.clear_cache_confirm': '此操作将删除本浏览器中保存的全部项目、运行记录和已安装插件，且无法撤销。请先导出需要保留的数据。',
   'settings.store': '本地存储',
   'settings.pwa': '离线与 PWA',
   'settings.back_home': '返回工作台',

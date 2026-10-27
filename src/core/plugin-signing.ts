@@ -277,6 +277,15 @@ export interface TrustedKey {
   label: string;
   /** Built-in keys cannot be removed by the user. */
   builtin?: boolean;
+  /**
+   * Whether packages signed by this key may opt into host execution
+   * (`sandbox: "trusted"`). Defaults to `true`, but keys whose signing seed
+   * is effectively public (e.g. the website demo publisher, whose seed ships
+   * in the public website bundle) must set `false`: a valid signature from
+   * such a key proves origin, not integrity of intent, and must never relax
+   * sandbox isolation (spec §6.2).
+   */
+  allowTrustedMode?: boolean;
   addedAt?: number;
 }
 
@@ -304,6 +313,10 @@ export const OFFICIAL_TRUSTED_KEYS: readonly TrustedKey[] = Object.freeze([
     publicKey: 'd13f151cb3b44e8a17c9e738c8b49f0ad8db44ac0fe151a2b285196ad67a3b3a',
     label: 'Ergalics Studio Website (demo publisher)',
     builtin: true,
+    // The website demo seed is public, so anyone can produce a validly-signed
+    // package with it. Such packages are confined to the worker sandbox and
+    // can never opt into trusted (host) execution.
+    allowTrustedMode: false,
   },
 ]);
 

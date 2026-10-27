@@ -150,6 +150,34 @@ describe('project save concurrency', () => {
     expect(useProjectStore.getState().dirty).toBe(true);
   });
 
+  it('runs a save requested while another save is still in flight (dirty-flush race)', async () => {
+    await open(createEmptyProject('A'));
+    useProjectStore.getState().setDirty(true);
+    const commit = deferred<void>();
+    const started = deferred<void>();
+    vi.mocked(saveProject).mockImplementationOnce(() => { started.resolve(); return commit.promise; });
+    const first = useProjectStore.getState().save();
+    await started.promise;
+    // An edit lands mid-save and the dirty-flush timer fires, calling save()
+    // while status === 'saving'. Previously this was dropped: the timer was
+    // consumed and never re-armed, so the edit sat unsaved indefinitely.
+    useProjectStore.getState().rename('edited-mid-save');
+    useProjectStore.getState().setDirty(true);
+    const second = useProjectStore.getState().save(); // deferred by the guard
+    commit.resolve();
+    await first;
+    // The finally block must re-run the deferred save so the mid-save edit is
+    // committed without waiting for another user action.
+    await vi.waitFor(() => {
+      expect(vi.mocked(saveProject).mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    await vi.waitFor(() => {
+      expect(useProjectStore.getState().dirty).toBe(false);
+    });
+    expect(vi.mocked(saveProject).mock.lastCall?.[0].name).toBe('edited-mid-save');
+    await second;
+  });
+
   it('does not copy old plugin parameters into a newly opened project', async () => {
     await open(createEmptyProject('A'));
     const params = deferred<Record<string, Record<string, unknown>>>();
