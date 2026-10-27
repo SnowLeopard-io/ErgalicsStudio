@@ -106,6 +106,9 @@ import { envPredatorPreyManifest } from './env-predator-prey/manifest';
 import { carbonDatingManifest } from './geo-carbondating/manifest';
 import { soilWaterManifest } from './geo-soilwater/manifest';
 import { hydrologyManifest } from './geo-hydrology/manifest';
+import { seismicManifest } from './geo-seismic/manifest';
+import { mineralsManifest } from './geo-minerals/manifest';
+import { hydrogeologyManifest } from './geo-hydrogeology/manifest';
 import { mathFourierManifest } from './math-fourier/manifest';
 import { mathDomaincolorManifest } from './math-domaincolor/manifest';
 import { mathOdefieldManifest } from './math-odefield/manifest';
@@ -652,6 +655,28 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: hydrologyManifest,
     load: async () => {
       const mod = await import('./geo-hydrology');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: geoscience (seismic / minerals / groundwater) ----------
+  {
+    manifest: seismicManifest,
+    load: async () => {
+      const mod = await import('./geo-seismic');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mineralsManifest,
+    load: async () => {
+      const mod = await import('./geo-minerals');
+      return mod.default();
+    },
+  },
+  {
+    manifest: hydrogeologyManifest,
+    load: async () => {
+      const mod = await import('./geo-hydrogeology');
       return mod.default();
     },
   },

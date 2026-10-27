@@ -209,7 +209,6 @@ export class MathGraphPlugin implements Plugin {
     const nodeOptions = this.graph
       ? this.graph.labels.map((l) => ({ value: l, label: l, labelI18n: { 'zh-CN': l, 'en-US': l } }))
       : [{ value: '', label: '—', labelI18n: { 'zh-CN': '—', 'en-US': '—' } }];
-    const maxStep = Math.max(0, this.steps.length - 1);
     return [
       {
         key: 'sample',
@@ -274,11 +273,11 @@ export class MathGraphPlugin implements Plugin {
         label: 'Step',
         labelI18n: { 'zh-CN': '步骤', 'en-US': 'Step' },
         type: 'range',
-        min: 0,
-        max: maxStep,
+        min: 1,
+        max: Math.max(1, this.steps.length),
         step: 1,
-        value: Math.min(this.state.step, maxStep),
-        hint: zh ? `当前算法共 ${this.steps.length} 步` : `${this.steps.length} steps for the selected algorithm`,
+        value: Math.min(this.state.step + 1, Math.max(1, this.steps.length)),
+        hint: zh ? `第 1–${this.steps.length} 步（共 ${this.steps.length} 步）` : `step 1–${this.steps.length} of ${this.steps.length}`,
       },
       actionButton('prevStep', 'Previous step', '上一步'),
       actionButton('nextStep', 'Next step', '下一步'),
@@ -338,7 +337,7 @@ export class MathGraphPlugin implements Plugin {
       this.draw();
     }
     num('step', (v) => {
-      const x = Math.round(v);
+      const x = Math.min(Math.max(0, Math.round(v) - 1), Math.max(0, this.steps.length - 1));
       if (x === this.state.step) return false;
       this.state.step = x;
       this.stopPlayback();

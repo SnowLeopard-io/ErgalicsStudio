@@ -18,7 +18,8 @@ describe('math plugin registry smoke', () => {
       const plugin = await info!.load();
       expect(plugin.manifest.id, id).toBe(id);
       expect(typeof plugin.render, id).toBe('function');
-      expect(plugin.getParams().length, id).toBeGreaterThan(0);
+      const params = await plugin.getParams();
+      expect(params.length, id).toBeGreaterThan(0);
     }
   });
 });

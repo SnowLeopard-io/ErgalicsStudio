@@ -66,9 +66,9 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**118 个内置插件（108 个科学插件自动加载 + 10 个趣味工具手动加载），按 15 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**121 个内置插件（111 个科学插件自动加载 + 10 个趣味工具手动加载），按 15 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
-| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、143 个示例数据集 + 11 个示例工程 |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、153 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **26 个独立科研工具，分 6 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
@@ -95,7 +95,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 能力 | 说明 |
 | --- | --- |
-| **118 个内置插件** | （108 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **15 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 特效渲染 / 趣味工具）。 |
+| **121 个内置插件** | （111 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **15 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 特效渲染 / 趣味工具）。 |
 | 市场目录 | `src/plugins/marketplace.ts`（精选标签 / 流行度 / 分类筛选）。 |
 | `.cspkg` 包加载 | 清单校验 + **Worker 优先隔离**（§沙箱）：第三方入口经 postMessage 桥接与 OffscreenCanvas 渲染，回退为受限制作用域的 `new Function`（非安全边界）；两者均受 Ed25519 签名门禁约束（FR-05，见 `SECURITY.md`）。 |
 | 本地化参数面板 | 插件参数面板内置 CSV 导出按钮、分析叠加层（趋势线、累积/密度直方图、均值标记、抖动点、排序）；全部科研级插件带发送至 Figure Studio 动作。 |
@@ -183,14 +183,14 @@ flowchart TB
     end
 
     subgraph Blocks["区块系统 (流程模式, src/blocks)"]
-        D1["目录（42 个区块）<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
+        D1["目录（45 个区块）<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["编译器<br/>纯函数 · 校验端口/类型<br/>拓扑排序 · 诊断"]
         D3["执行器<br/>增量缓存<br/>脏值传播 · run()"]
         D4["渲染桥接<br/>viz.* RenderedView → plugin.loadData<br/>(无副作用的执行器)"]
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (108 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (112 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["GPU 计算<br/>gpu.ts 适配器/设备<br/>compute.ts PluginApi.gpu<br/>14 个 WGSL 内核 (wgsl.ts)<br/>CPU 回退"]
     end
 
@@ -227,7 +227,7 @@ flowchart TB
 │   │                         #   profiler, sql, report, inference, logger, vfs (工作区文件系统),
 │   │                         #   git (版本控制), research (科学输出)
 │   ├── blocks/               #   区块系统 (流程模式): types · registry · compiler ·
-│   │                         #     executor · ops · catalog (42 个区块) · sample · l10n · render
+│   │                         #     executor · ops · catalog (45 个区块) · sample · l10n · render
 │   ├── editor/               #   积木与代码模式: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   流程画布 / 积木与代码画布 / 工作台外壳 /
@@ -236,13 +236,13 @@ flowchart TB
 │   │                         #     插件视图，以及科研工具（单一注册表
 │   │                         #     src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils 六组）
-│   ├── plugins/builtin/      #   118 个插件：108 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
+│   ├── plugins/builtin/      #   121 个插件：111 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
 │   ├── plugins/marketplace.ts#   市场目录
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   插件 & 项目 & 编辑器契约
 │   └── native/               #   生成的 WASM 绑定 (git 未跟踪)
 ├── native/ergalics-core/     # Rust 核心，源码交付 (device, compute, utils)
-├── examples/{data,projects,code}/  # 143 个示例数据、11 个 `.clproj` 工程、9 个 Python 程序
+├── examples/{data,projects,code}/  # 153 个示例数据、11 个 `.clproj` 工程、9 个 Python 程序
 ├── scripts/ · tests/ · docs/ · website/
 ```
 
@@ -254,7 +254,7 @@ flowchart TB
 
 ![标准模式 — 拖入文件，即可看到可视化](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**流程模式**——从 **42 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器带增量缓存与脏值传播，改单个区块只重跑自身及其下游。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
+**流程模式**——从 **45 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器带增量缓存与脏值传播，改单个区块只重跑自身及其下游。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
 
 ![流程模式 — 示例管线（Normalize → Histogram / Scatter / Summary）](docs/assets/screenshots/platform/mode-flow.png)
 
@@ -342,7 +342,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 ### 内置插件
 
-**108 个科学插件**启动时自动加载，侧边栏按 **15 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
+**111 个科学插件**启动时自动加载，侧边栏按 **15 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
 
 **图表可视化（22 个）**
 
@@ -388,13 +388,14 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | 幂迭代求平稳分布（L1 残差 < 1e-12）、不可约性与周期检测、吸收链分析。 |
 | Zipf's Law Word Frequencies | Zipf 定律词频分析 | 真实语料的 Zipf 定律拟合（log rank–log freq 最小二乘，s±σ、R²），内置《Emma》公版语料。 |
 
-**物理模拟（15 个）**
+**物理模拟（16 个）**
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
 | Particles | 粒子模拟 | 基于 WGSL 计算内核的交互式粒子模拟。 |
 | N-Body Gravity | 引力 N 体模拟 | 三维直接求和引力，GPU 全对内核 + CPU 回退。 |
 | LBM Fluid | 流体模拟（LBM） | 二维 D2Q9 格子 Boltzmann 通道绕流。 |
+| 3D Fluid Flow | 三维流体绕流 | D3Q19 格子 Boltzmann 三维绕流：任意 GLB/GLTF/STL/OBJ/PLY 模型进入流场，切片/涡量/示踪粒子可视化并给出阻力/升力。 |
 | Wave Equation | 波动方程 | 二维有限差分波动方程：高斯脉冲、双源干涉、双缝衍射。 |
 | Double Pendulum | 双摆（混沌） | RK4 双摆，偏移 0.001 rad 的幽灵摆指数发散——混沌可视化。 |
 | Electromagnetism | 电磁场 | 可拖动电荷在库仑力与洛伦兹力（独立设置的 B 场）下运动。 |
@@ -431,7 +432,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Mendel F2 χ² Tests | 孟德尔 F2 分离比 χ² 检验 | 3:1 / 9:3:3:1 分离比的 χ² 拟合优度检验，内置 1866 年七对性状数据集。 |
 | Hodgkin–Huxley Neuron | Hodgkin–Huxley 神经元 | 1952 年动作电位模型，使用原始发表常数，RK4 积分。 |
 
-**地理（13 个）**——本系列全部支持一键**发送 Figure Studio**：
+**地理（16 个）**——本系列全部支持一键**发送 Figure Studio**：
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
@@ -448,6 +449,9 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Radiocarbon Dating Lab | 放射性碳定年实验室 | Libby 传统年龄按 IntCal20 曲线做似然剖面校准。 |
 | Soil Water Retention Fit | 土壤水分特征曲线拟合 | van Genuchten (1980) 曲线的带界 LM 拟合，输出协方差标准误。 |
 | SCS Runoff Event | SCS 降雨径流模型 | SCS 曲线数降雨超渗与合成单位线的卷积。 |
+| Seismic Wave Propagation | 地震波传播实验室 | 分层 PREM 类地球模型上的 P/S 射线理论走时、直接波影区、含震相拾取的合成三分量地震图、震源机制沙滩球，以及里氏 / 矩震级 / 麦加利烈度换算。二维 P/S 有限差分波场模拟，带 WGSL 快路径与 CPU 回退。 |
+| Mineral Identification Lab | 矿物鉴定实验室 | 基于内置 24 种矿物参考数据库的物性加权鉴定（硬度、解理、光泽、条痕、比重；可导入 CSV/TSV 替换为自己的矿物库）、莫氏刻划测试、晶胞参数 → 晶系判定、分类路径，以及 30 µm 薄片的米歇尔-列维干涉色模拟。 |
+| Hydrogeology Workbench | 水文地质模拟工作台 | Theis / Cooper–Jacob 承压含水层降深、Darcy 渗流速度、多井叠加与降落漏斗、含阻滞与衰减的 Ogata–Banks 运移、抽水试验拟合，以及潮汐 / 气压水位响应。 |
 
 **环境学（8 个）**——严格数据驱动，示例经"示例数据"对话框加载：
 
@@ -478,7 +482,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Stress-Strain Analysis | 应力-应变分析 | 按 ASTM E8 / GB/T 228 提取拉伸性能，0.2% 偏移屈服。 |
 | Thermal Analysis (DSC/TGA) | 热分析（DSC/TGA） | 基线校正峰检测、外推起始温度与转变焓。 |
 
-**工程仿真（4 个）**
+**工程仿真（5 个）**
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
@@ -486,6 +490,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | DC Circuit Node Analysis | 直流电路节点分析 | 直流电阻电路的改进节点法（MNA），部分主元高斯消元。 |
 | Plane Truss FEA | 平面桁架有限元分析 | 每节点 2 自由度杆单元、刚度组装与约束凝聚。 |
 | Control Systems Lab | 控制系统实验室 | 一/二阶对象 + PID 单位反馈：阶跃响应指标与 Bode 扫频。 |
+| FEM Lab | 有限元实验室 | 参数化二维区域 Delaunay 网格、P1 有限元组装与共轭梯度求解（Poisson / 瞬态热传导 / 平面弹性），附收敛基准与变形叠加。 |
 
 **经济与金融（2 个）**
 
@@ -535,7 +540,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Fireworks | 烟花 | 带重力与拖尾的粒子烟花。 |
 | Truchet Tiles | 特鲁谢瓷砖 | 随机朝向的四分之一圆瓷砖拼出流动图案。 |
 
-模拟类插件严格数据驱动：初始为空、绝不伪造默认场景，**重置**仅重放已加载的数据。每个科学插件都附示例数据集（`examples/data/` 共 143 个文件），经 **示例** 对话框一键加载即可产出真实可视化；模型查看器另附 5 个示例 3D 模型（STL / OBJ / PLY / glTF / GLB）。
+模拟类插件严格数据驱动：初始为空、绝不伪造默认场景，**重置**仅重放已加载的数据。每个科学插件都附示例数据集（`examples/data/` 共 153 个文件），经 **示例** 对话框一键加载即可产出真实可视化；模型查看器另附 5 个示例 3D 模型（STL / OBJ / PLY / glTF / GLB）。
 
 插件还可声明**科研元数据**（`manifest.research`）——科研就绪分级（研究级 / 准研究级 / 演示级 / 教学演示），在市场与详情面板以语义色徽章呈现，并附带物理量单位、验证基准 id 与适用范围说明；同时可向视口下方的共享**科学输出栏**发布结构化结论（拟合质量、残差、置信区间、收敛 / 守恒诊断），让每张图都不缺数值依据。
 
@@ -1026,15 +1031,16 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 
 - [x] 工作台布局、项目管理、文件路由；四种模式（标准 / 流程 / 积木 / 代码）
 - [x] 工作台文件资源管理器 + 标签页中央区 + 按文件分派的编辑器（`.py` / `*.flow.json` / `*.block.json`）、中央导出菜单、工作区产物
-- [x] 118 个内置插件（108 科学自动加载 + 10 趣味手动加载）按 15 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
+- [x] 121 个内置插件（111 科学自动加载 + 10 趣味手动加载）按 15 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
 - [x] 插件 CSV 导出按钮 + 分析叠加层；中央画布导出菜单（PNG / 透明 PNG，保存到工作区）；市场目录
 - [x] WebGPU 设备管理 + 14 个可复用 WGSL 内核（Particles / N-Body / LBM / 波动方程 / FFT / k-means…）
 - [x] 地理插件系列（空间插值含 LOOCV + Moran's I、地形分析流域三件套、FAO-56 等），全部支持发送 Figure Studio
+- [x] 地球科学插件系列（地震波传播 / 矿物鉴定 / 水文地质），带 Ed25519 钉扎清单签名与科研基准
 - [x] 环境学插件系列（空气质量 / 水质 / 碳循环 / 生物多样性 / 高斯烟羽 / 温室效应 / 3D 全球环境）
 - [x] 全部科研级插件套件（物理 / 化学 / 生物 / 环境 / 地理 / 数学 / 统计 / 经济 / 心理 / 天文 / 数据 / 工程 + 两个求解器）接入发送 Figure Studio 联动
 - [x] 科研级插件元数据（四级徽章）+ 统一科学输出栏
 - [x] Git 仓库化项目——适配器、项目 store 同步与 Git 面板（分支 / 提交 / 克隆 / 远程同步 / 自动提交 / 预装钩子 / CI 模板；diff 查看器与冲突向导待做）
-- [x] 流程模式（编译器 + 增量执行器 + 42 个区块）、积木模式（Blockly 13 + 共享 IR，5 个示例）、代码模式（Python / R / JavaScript，预览窗互译）
+- [x] 流程模式（编译器 + 增量执行器 + 45 个区块）、积木模式（Blockly 13 + 共享 IR，5 个示例）、代码模式（Python / R / JavaScript，预览窗互译）
 - [x] 三语言无缝往返（共享 IR 中枢，`mergeFlowIR` + 签名守卫，测试固化）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核
 - [x] 26 个独立科研工具分 6 组（含免项目的 utils 小工具组），支持内嵌到工作台画布

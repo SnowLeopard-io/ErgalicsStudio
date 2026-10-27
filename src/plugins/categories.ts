@@ -131,6 +131,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-carbondating': 'geo',
   'example.geo-soilwater': 'geo',
   'example.geo-hydrology': 'geo',
+  'example.geo-seismic': 'geo',
+  'example.geo-minerals': 'geo',
+  'example.geo-hydrogeology': 'geo',
 
   // Environmental science
   'example.env-aqi': 'env',
