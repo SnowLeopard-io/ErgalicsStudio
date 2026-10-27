@@ -121,7 +121,11 @@ export function ToastStack() {
   if (items.length === 0) return null;
 
   return (
-    <div className="toast-stack">
+    // `role="status"` + `aria-live="polite"` make the toasts audible to screen
+    // readers; without it, async results (save failures, import errors) were
+    // silent for assistive-tech users. `atomic` announces the whole region so a
+    // newly added toast is read out even though the container is not re-created.
+    <div className="toast-stack" role="status" aria-live="polite" aria-atomic="false">
       {items.map((n) => (
         <div
           key={n.id}

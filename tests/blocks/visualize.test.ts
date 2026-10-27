@@ -68,6 +68,32 @@ describe('visualize blocks', () => {
   });
 });
 
+describe('geoscience visualize blocks', () => {
+  it('viz.geo_seismic_model feeds a depth/vP/vS table to the seismic plugin', async () => {
+    const view = await runViz('viz.geo_seismic_model', { depthColumn: 'x', vpColumn: 'y', vsColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-seismic');
+    expect(payload.text.split('\n')[0]).toBe('0 0 0');
+  });
+
+  it('viz.geo_mineral_database preserves text columns as CSV', async () => {
+    const view = await runViz('viz.geo_mineral_database', {});
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-minerals');
+    const lines = payload.text.split('\n');
+    expect(lines[0]).toBe('x,y');
+    expect(lines).toHaveLength(17);
+  });
+
+  it('viz.geo_pumping_test emits a pumping-test header for the hydrogeology plugin', async () => {
+    const view = await runViz('viz.geo_pumping_test', { timeColumn: 'x', drawdownColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-hydrogeology');
+    expect(payload.text.split('\n')[0]).toBe('time_days,drawdown_m');
+    expect(payload.text.split('\n')[1]).toBe('0,0');
+  });
+});
+
 describe('renderView bridge', () => {
   it('activates the target plugin and feeds it a File', async () => {
     const loadData = vi.fn(async (_file: File) => {});

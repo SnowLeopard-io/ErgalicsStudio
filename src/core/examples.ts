@@ -91,6 +91,9 @@ import hudsonBayCsv from '../../examples/data/hudson-bay-lynx-hare.csv?raw';
 import geoIntcal20ExcerptCsv from '../../examples/data/intcal20-excerpt.csv?raw';
 import geoVgSandRetentionCsv from '../../examples/data/vg-sand-retention.csv?raw';
 import geoStormHyetographCsv from '../../examples/data/usgs-storm-hyetograph.csv?raw';
+import geoSeismicVelocityCsv from '../../examples/data/geo-seismic-velocity.csv?raw';
+import geoMineralsCsv from '../../examples/data/geo-minerals.csv?raw';
+import geoHydroPumpingCsv from '../../examples/data/geo-hydro-pumping.csv?raw';
 import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
@@ -2642,12 +2645,69 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     },
   },
   {
+    id: 'geo-seismic-velocity-model',
+    filename: 'geo-seismic-velocity.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-seismic',
+    group: 'geo',
+    content: geoSeismicVelocityCsv,
+    nameI18n: {
+      'zh-CN': '地震波 · 分层速度模型（PREM 类）',
+      'en-US': 'Seismic · Layered Velocity Model (PREM-like)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '地壳、地幔、外核与内核的径向分层 P/S 波速度与密度剖面（depth_km、vp_km_s、vs_km_s、density_g_cm3，文件头注明模型假设）。载入后自动重建走时曲线、影区与合成地震图。',
+      'en-US':
+        'Radial P/S velocity and density profile through crust, mantle, outer core and inner core (depth_km, vp_km_s, vs_km_s, density_g_cm3; model assumptions documented in the header). Loading rebuilds the travel-time curves, shadow zones and synthetic seismograms.',
+    },
+  },
+  {
+    id: 'geo-minerals-reference-database',
+    filename: 'geo-minerals.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-minerals',
+    group: 'geo',
+    content: geoMineralsCsv,
+    nameI18n: {
+      'zh-CN': '矿物鉴定 · 参考矿物数据库（18 种）',
+      'en-US': 'Mineral Identification · Reference Database (18 minerals)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '18 种常见造岩/矿石矿物的化学式、莫氏硬度、比重、晶系、解理、光泽、条痕、颜色与双折射率。载入后即可用于物性打分鉴定、莫氏刻划与薄片干涉色模拟。',
+      'en-US':
+        'Formula, Mohs hardness, specific gravity, crystal system, cleavage, lustre, streak, colour and birefringence for 18 common rock-forming and ore minerals. Loading enables weighted identification, Mohs scratch tests and thin-section interference-colour simulation.',
+    },
+  },
+  {
+    id: 'geo-hydrogeology-pumping-test',
+    filename: 'geo-hydro-pumping.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.geo-hydrogeology',
+    group: 'geo',
+    content: geoHydroPumpingCsv,
+    nameI18n: {
+      'zh-CN': '水文地质 · 合成 Cooper–Jacob 抽水试验',
+      'en-US': 'Hydrogeology · Synthetic Cooper–Jacob Pumping Test',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '由 Q=800 m³/d、r=60 m、T=1200 m²/d、S=2×10⁻⁴ 的 Cooper–Jacob 解生成的 32 个时间-降深点（非实测，文件头注明）。载入后自动做直线拟合，回收 T、S 与 R²。',
+      'en-US':
+        '32 time–drawdown points generated from the Cooper–Jacob solution with Q=800 m³/d, r=60 m, T=1200 m²/d and S=2×10⁻⁴ (synthetic, documented in the header). Loading fits the straight line and recovers T, S and R².',
+    },
+  },
+  {
     id: 'markov-pagerank-web',
     filename: 'markov-pagerank-web.csv',
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-markov',
-    group: 'stats',
+    group: 'math',
     content: markovPagerankWebCsv,
     nameI18n: {
       'zh-CN': '马尔可夫链 · 五页网页链接图',
@@ -2666,7 +2726,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'txt',
     mimeType: 'text/plain',
     pluginId: 'example.stats-zipf',
-    group: 'stats',
+    group: 'math',
     content: gutenbergEmmaCh1Txt,
     nameI18n: {
       'zh-CN': 'Zipf 定律 · 《爱玛》卷一第 1–6 章',

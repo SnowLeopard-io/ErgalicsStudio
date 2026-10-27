@@ -19,6 +19,7 @@ import { renderView } from '@/blocks/render';
 import type { ViewRenderHost } from '@/blocks/render';
 import { isDataTable, isRenderedView, isScalar } from '@/types/datatable';
 import { exportPDF, exportSVG, type SvgPlotPayload } from '@/core/plot';
+import { sanitizeSvg } from '@/core/sanitize/sanitizeSvg';
 import { blockRegistry } from '@/blocks/registry';
 import { blockName } from '@/blocks/l10n';
 import { DataTablePreview } from './DataTablePreview';
@@ -128,7 +129,10 @@ export function BlockPreview() {
   // Inject the SVG plot markup into the host div (browser only).
   useEffect(() => {
     if (!isSvgPlot || !svgHostRef.current || !svgPayload) return;
-    svgHostRef.current.innerHTML = svgPayload.markup;
+    // The markup may originate from a plugin result or an untrusted `.clproj`
+    // payload — sanitize before innerHTML so a hostile <script>/onload payload
+    // cannot execute in the host page.
+    svgHostRef.current.innerHTML = sanitizeSvg(svgPayload.markup);
   }, [isSvgPlot, svgPayload]);
 
   // Render non-SVG RenderedView outputs through the plugin bridge. Verified:

@@ -150,6 +150,10 @@ let gitLogSeq = 0;
 let projectSession = 0;
 let editRevision = 0;
 let saveSeq = 0;
+// Set when save() is called while another save is already in flight and the
+// project has edits that the in-flight snapshot will not include. The running
+// save re-runs once it settles so those edits are not silently dropped.
+let saveRequested = false;
 
 /** Distinguishes switching away and reopening even the same project id. */
 export function getProjectSession(): number {
@@ -468,7 +472,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   save: async (opts) => {
     const { project, status } = get();
-    if (!project || status === 'saving') return;
+    if (!project) return;
+    if (status === 'saving') {
+      // A save is already in flight. Previously this returned immediately,
+      // but the dirty-flush timer that triggered the call had already fired
+      // and was never re-armed — so edits made during the save window sat
+      // unsaved until the next unrelated edit. Flag a follow-up save and
+      // re-arm the debounce so the edits always land.
+      if (get().dirty) {
+        saveRequested = true;
+        scheduleDirtyFlush();
+      }
+      return;
+    }
     const session = projectSession;
     const revision = editRevision;
     const seq = ++saveSeq;
@@ -512,6 +528,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // EG3-111: the status flag alone left the failure invisible (the status
       // bar showed the host status). Surface it in the toast layer as well.
       useAppStore.getState().notify('error', t('project.save_failed'));
+    } finally {
+      // A concurrent save() was deferred while this one was in flight. Re-run
+      // it now that we are no longer 'saving' so the deferred edits land. The
+      // guard re-checks dirty/project because the earlier save may have already
+      // captured them, or the project may have been closed/switched meanwhile.
+      if (saveRequested) {
+        saveRequested = false;
+        if (get().dirty && get().project) void get().save();
+      }
     }
     setTimeout(() => {
       if (seq === saveSeq && isCurrentSession(session, project.id) && get().status === 'saved') {

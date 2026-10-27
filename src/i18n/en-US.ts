@@ -433,7 +433,7 @@ export const enUS: LocaleDictionary = {
   'settings.cache_usage': 'Cache Usage',
   'settings.cache_cleared': 'Cache cleared',
   'settings.clear_cache': 'Clear Cache',
-  'settings.clear_cache_confirm': 'Clear all cached data? This cannot be undone.',
+  'settings.clear_cache_confirm': 'This deletes ALL projects, run history, and installed plugins stored in this browser. It cannot be undone — export anything you want to keep first.',
   'settings.store': 'Local Storage',
   'settings.pwa': 'Offline & PWA',
   'settings.back_home': 'Back to Workspace',

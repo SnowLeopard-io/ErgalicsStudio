@@ -391,8 +391,15 @@ export function wrapTitle(text: string, maxW: number): string[] {
 
 /** Render a PlotSpec to a standalone SVG document string. */
 export function renderSVG(spec: PlotSpec): string {
-  const width = spec.width || 640;
-  const height = spec.height || 420;
+  // `spec` may be deserialized from an untrusted `.clproj`, so the canvas
+  // size is not trusted — clamp to a sane positive range to avoid emitting a
+  // multi-gigabyte SVG or degenerate (zero/negative/NaN) geometry.
+  const clampDim = (v: number | undefined, fallback: number): number => {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return fallback;
+    return Math.min(Math.round(v), 16384);
+  };
+  const width = clampDim(spec.width, 640);
+  const height = clampDim(spec.height, 420);
   // Multi-line title: wrap within the canvas (inset clears the top-left panel
   // tag) and push the plot area down so wrapped lines never collide.
   const TITLE_INSET = 18;
@@ -520,7 +527,13 @@ export function renderSVG(spec: PlotSpec): string {
         const d = pts
           .map((p, i) => `${i === 0 ? 'M' : 'L'}${x.toPixel(p.x).toFixed(1)} ${y.toPixel(p.y).toFixed(1)}`)
           .join(' ');
-        const dash = s.dash && s.dash.length ? ` stroke-dasharray="${s.dash.join(',')}"` : '';
+        // `s.dash` may be deserialized from an untrusted project file — coerce
+        // every entry to a finite, non-negative number so a crafted
+        // `["4\" onload=\"..."]` cannot break out of the attribute.
+        const dashVals = (s.dash ?? [])
+          .filter((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)
+          .map((n) => Math.min(n, 1000));
+        const dash = dashVals.length ? ` stroke-dasharray="${dashVals.join(',')}"` : '';
         parts.push(
           `<path d="${d}" fill="none" stroke="${escapeAttr(s.color)}" stroke-width="1.6"${dash} stroke-linejoin="round" stroke-linecap="round"/>`,
         );

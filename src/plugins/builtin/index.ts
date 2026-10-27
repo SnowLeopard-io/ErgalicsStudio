@@ -106,9 +106,18 @@ import { envPredatorPreyManifest } from './env-predator-prey/manifest';
 import { carbonDatingManifest } from './geo-carbondating/manifest';
 import { soilWaterManifest } from './geo-soilwater/manifest';
 import { hydrologyManifest } from './geo-hydrology/manifest';
+import { seismicManifest } from './geo-seismic/manifest';
+import { mineralsManifest } from './geo-minerals/manifest';
+import { hydrogeologyManifest } from './geo-hydrogeology/manifest';
 import { mathFourierManifest } from './math-fourier/manifest';
 import { mathDomaincolorManifest } from './math-domaincolor/manifest';
 import { mathOdefieldManifest } from './math-odefield/manifest';
+import { mathLinalgManifest } from './math-linalg/manifest';
+import { mathDistManifest } from './math-dist/manifest';
+import { mathNumericsManifest } from './math-numerics/manifest';
+import { mathGraphManifest } from './math-graph/manifest';
+import { mathTopologyManifest } from './math-topology/manifest';
+import { mathGameManifest } from './math-game/manifest';
 import { statsCltManifest } from './stats-clt/manifest';
 import { statsMarkovManifest } from './stats-markov/manifest';
 import { statsZipfManifest } from './stats-zipf/manifest';
@@ -649,6 +658,28 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  // ---- Research suite: geoscience (seismic / minerals / groundwater) ----------
+  {
+    manifest: seismicManifest,
+    load: async () => {
+      const mod = await import('./geo-seismic');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mineralsManifest,
+    load: async () => {
+      const mod = await import('./geo-minerals');
+      return mod.default();
+    },
+  },
+  {
+    manifest: hydrogeologyManifest,
+    load: async () => {
+      const mod = await import('./geo-hydrogeology');
+      return mod.default();
+    },
+  },
   // ---- Research suite: mathematics (research-grade kernels) ------------------
   {
     manifest: mathFourierManifest,
@@ -668,6 +699,48 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: mathOdefieldManifest,
     load: async () => {
       const mod = await import('./math-odefield');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathLinalgManifest,
+    load: async () => {
+      const mod = await import('./math-linalg');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathDistManifest,
+    load: async () => {
+      const mod = await import('./math-dist');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathNumericsManifest,
+    load: async () => {
+      const mod = await import('./math-numerics');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathGraphManifest,
+    load: async () => {
+      const mod = await import('./math-graph');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathTopologyManifest,
+    load: async () => {
+      const mod = await import('./math-topology');
+      return mod.default();
+    },
+  },
+  {
+    manifest: mathGameManifest,
+    load: async () => {
+      const mod = await import('./math-game');
       return mod.default();
     },
   },

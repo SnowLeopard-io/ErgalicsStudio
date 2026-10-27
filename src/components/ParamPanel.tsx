@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { NumField } from '@/components/NumField';
-import type {
-  ParamDefinition,
-  PluginApi,
-  SelectOption,
+import {
+  isParamVisible,
+  type ParamDefinition,
+  type PluginApi,
+  type SelectOption,
 } from '@/types/plugin';
 import { useT } from '@/i18n';
 
@@ -21,8 +22,9 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
   // a wrap container. Rendering keeps the param array's declared order, so each
   // group is laid out at the position of its first member (e.g. the reactant
   // slots right under the mode selector, before the action buttons).
+  const visible = params.filter((def) => isParamVisible(def, params));
   const groups = new Map<string, ParamDefinition[]>();
-  for (const def of params) {
+  for (const def of visible) {
     if (!def.group) continue;
     const arr = groups.get(def.group) ?? [];
     arr.push(def);
@@ -33,7 +35,7 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
     | { kind: 'single'; def: ParamDefinition }
     | { kind: 'group'; group: string; defs: ParamDefinition[] }
   > = [];
-  for (const def of params) {
+  for (const def of visible) {
     if (def.group) {
       if (renderedGroups.has(def.group)) continue;
       renderedGroups.add(def.group);

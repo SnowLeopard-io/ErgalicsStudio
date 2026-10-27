@@ -213,6 +213,13 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
     await clearCache();
     setUsage(await storageUsage());
     setClearOpen(false);
+    // The DB records are gone, but the stores still hold the now-dead project
+    // in memory (and its recent list). Refresh both so the app reflects the
+    // wipe instead of presenting a phantom project that will fail on the next
+    // save.
+    const { useProjectStore } = await import('@/stores/projectStore');
+    useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null, recent: [] });
+    void useProjectStore.getState().loadRecent().catch(() => undefined);
     notify('success', t('settings.cache_cleared'));
   };
 

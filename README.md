@@ -72,9 +72,9 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **121 built-in plugins (111 scientific auto-load + 10 fun manual) across 15 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
-| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 143 sample datasets + 11 sample projects |
+| Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 153 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **26 standalone research tools in 6 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
@@ -101,7 +101,7 @@ What ships today:
 
 | Capability | Details |
 | --- | --- |
-| **111 built-in plugins** | (101 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **16 disciplines** in the sidebar (charts / stats / math / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
+| **121 built-in plugins** | (111 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **15 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -203,14 +203,14 @@ flowchart TB
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
-        D1["Catalog (42 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
+        D1["Catalog (45 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["Compiler<br/>pure functions · validate ports/types<br/>topo sort · diagnostics"]
         D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free)"]
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (101 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (111 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -252,7 +252,7 @@ flowchart TB
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
 │   ├── blocks/               #   block system (Flow mode): types · registry · compiler ·
-│   │                         #     executor · ops · catalog (42 blocks) · sample · l10n · render
+│   │                         #     executor · ops · catalog (45 blocks) · sample · l10n · render
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   flow canvas / block & code canvas / workbench shell /
@@ -261,13 +261,13 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils)
-│   ├── plugins/builtin/      #   111 plugins: 101 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   121 plugins: 111 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
 │   └── native/               #   generated WASM bindings (untracked)
 ├── native/ergalics-core/     # Rust core, source-delivered (device, compute, utils)
-├── examples/{data,projects,code}/  # 143 sample datasets, 11 `.clproj` projects, 9 Python programs
+├── examples/{data,projects,code}/  # 153 sample datasets, 11 `.clproj` projects, 9 Python programs
 ├── scripts/ · tests/ · docs/ · website/
 ```
 
@@ -282,7 +282,7 @@ for "I already know the plugin; I just need to point it at a file".
 
 ![Standard mode — drop a file, see a visualisation](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**Flow mode** — compose a visual dataflow **pipeline** from **42 built-in
+**Flow mode** — compose a visual dataflow **pipeline** from **45 built-in
 blocks** (data_source / transform / filter / math / statistics / units /
 visualize / plot) and run it. Left palette, central canvas (nodes + edges),
 right per-node parameter editor, bottom live result preview that adapts to
@@ -446,11 +446,11 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**101 scientific plugins** auto-load at startup, grouped into **16
+**111 scientific plugins** auto-load at startup, grouped into **15
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
-**Charts (17)**
+**Charts (22)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -471,35 +471,37 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Point Cloud | 点云查看器 | Render .xyz point clouds with adjustable point size. |
 | Point Cloud 3D | 3D 点云 | Interactive 3-D point clouds in the host Three.js scene with height coloring. |
 | Image Viewer | 图像查看器 | View raster images (PNG / JPEG / WebP / GIF). |
-
-**Statistics (8)**
-
-| Plugin | 中文名 | Focus |
-| --- | --- | --- |
 | Histogram | 直方图 | Distribution histogram for numeric data. |
 | Box Plot | 箱线图 | Box-and-whisker plot (quartile box + whiskers + outliers) for grouped data. |
 | Violin Plot | 小提琴图 | Kernel-density violin plot with adjustable bandwidth and box overlay. |
 | QQ Plot | QQ 图（正态检验） | Sample quantiles vs standard-normal quantiles for normality checks. |
 | Error Band | 误差带图 | Line chart with a shaded confidence/error band. |
+
+**Mathematics & Statistics (12)**
+
+| Plugin | 中文名 | Focus |
+| --- | --- | --- |
+| Linear Algebra Lab | 线性代数实验室 | 2×2 matrix action on the unit grid, eigenvector geometry, SVD chain A = UΣVᵀ, span/projection of vector sets, \|det\| as area scaling. |
+| Probability Distribution Lab | 概率分布实验室 | PDF/PMF + CDF for 10 families (Normal, Poisson, Exponential, Beta, Gamma, Student-t, χ², F, Binomial, Geometric), seeded Monte-Carlo histograms, closed-form MLE fitting of sample datasets. |
+| Numerical Analysis Lab | 数值分析实验室 | Bisection / Newton / secant root finding, trapezoid / Simpson / Gauss quadrature, forward / backward / central differences, Lagrange / Newton / cubic-spline interpolation, measured convergence orders. |
+| Graph Theory Visualizer | 图论可视化 | Adjacency-matrix / edge-list input, Dijkstra / Bellman-Ford / Floyd-Warshall, Prim / Kruskal MST, Ford-Fulkerson / Edmonds-Karp max-flow + min-cut, greedy coloring, bipartite matching, Euler / Hamiltonian trails, step-by-step animation. |
+| Topology Visualizer | 拓扑可视化 | Möbius strip, Klein bottle, torus and sphere embeddings rendered with Three.js, fundamental-group loops, homotopy deformation, Euler characteristic and orientability classification. |
+| ODE Vector Field & Streamlines | ODE 向量场与流线 | Phase plane of 2-D autonomous systems: RK4 bidirectional streamlines, equilibria localization, Jacobian eigenvalue classification. *(Numerical ODE solver for the differential-equation tier; PDE coverage lives in the Physics suite — Wave Equation for the 2-D wave equation and Diffusion Equation Lab for 1-D/2-D heat/Laplace problems.)* |
+| Game Theory Lab | 博弈论实验室 | n×n payoff matrices, pure / mixed Nash equilibria, iterated dominance, RK4 replicator dynamics + ESS, extensive-form game trees with backward induction, first-price / second-price / English auction simulation with VCG metrics. |
+| Fourier Series Lab | 傅里叶级数逼近实验室 | Numerical Fourier coefficients, partial sums vs Fejér means, Parseval L² error, Gibbs overshoot. |
+| Domain Coloring | 复变函数域着色 | Per-pixel domain coloring of complex f(z) with an embedded expression parser and zoom/pan. |
 | Central Limit Theorem Bench | 中心极限定理演示台 | Draws sample means from uniform / exponential / Bernoulli / bimodal / truncated-Pareto populations, overlays the analytic N(μ, σ²/n), reports skewness / kurtosis / Jarque–Bera. |
 | Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | Stationary distribution via power iteration, irreducibility & period detection, absorbing-chain analysis. |
 | Zipf's Law Word Frequencies | Zipf 定律词频分析 | Zipf-law fit over real corpora (OLS on log rank–log freq, s ± σ, R²), ships Jane Austen's *Emma* public-domain corpus. |
 
-**Math Methods (3)**
-
-| Plugin | 中文名 | Focus |
-| --- | --- | --- |
-| Fourier Series Lab | 傅里叶级数逼近实验室 | Numerical Fourier coefficients, partial sums vs Fejér means, Parseval L² error, Gibbs overshoot. |
-| Domain Coloring | 复变函数域着色 | Per-pixel domain coloring of complex f(z) with an embedded expression parser and zoom/pan. |
-| ODE Vector Field & Streamlines | ODE 向量场与流线 | Phase plane of 2-D autonomous systems: RK4 bidirectional streamlines, equilibria localization, Jacobian eigenvalue classification. |
-
-**Physics (15)**
+**Physics (16)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
 | Particles | 粒子模拟 | Interactive particle simulation on a WGSL compute kernel. |
 | N-Body Gravity | 引力 N 体模拟 | 3-D direct-summation gravity with a GPU all-pairs kernel + CPU fallback. |
 | LBM Fluid | 流体模拟（LBM） | 2-D D2Q9 lattice-Boltzmann channel flow around an obstacle. |
+| 3D Fluid Flow | 三维流体绕流 | D3Q19 lattice-Boltzmann 3-D flow around any imported GLB/GLTF/STL/OBJ/PLY model, with slice/vorticity/tracer visualisation and drag/lift. |
 | Wave Equation | 波动方程 | 2-D finite-difference wave equation: Gaussian pulse, two-source interference, double-slit diffraction. |
 | Double Pendulum | 双摆（混沌） | RK4 double pendulum with a chaos-diverging ghost pendulum. |
 | Electromagnetism | 电磁场 | Draggable charges under Coulomb + Lorentz forces in an independently set B field. |
@@ -536,7 +538,7 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Mendel F2 χ² Tests | 孟德尔 F2 分离比 χ² 检验 | χ² goodness-of-fit for 3:1 / 9:3:3:1 segregation; ships the 1866 seven-trait dataset. |
 | Hodgkin–Huxley Neuron | Hodgkin–Huxley 神经元 | The 1952 action-potential model with the original published constants, RK4-integrated. |
 
-**Geography (13)** — every plugin in this suite has one-click **Send to
+**Geography (16)** — every plugin in this suite has one-click **Send to
 Figure Studio**:
 
 | Plugin | 中文名 | Focus |
@@ -554,6 +556,9 @@ Figure Studio**:
 | Radiocarbon Dating Lab | 放射性碳定年实验室 | Libby conventional ages calibrated against the IntCal20 curve with likelihood profiles. |
 | Soil Water Retention Fit | 土壤水分特征曲线拟合 | van Genuchten (1980) curve fitting via bounded Levenberg–Marquardt with covariance standard errors. |
 | SCS Runoff Event | SCS 降雨径流模型 | SCS curve-number rainfall excess convolved with a synthetic unit hydrograph. |
+| Seismic Wave Propagation | 地震波传播实验室 | Ray-theory P/S travel times on a layered PREM-like Earth, direct-phase shadow zones, synthetic three-phase seismograms with phase picking, focal-mechanism beachballs, and Richter / moment-magnitude / Mercalli scales. 2-D P/S FDTD wave-field simulator with a WGSL fast path and CPU fallback. |
+| Mineral Identification Lab | 矿物鉴定实验室 | Property-weighted identification over a built-in 24-mineral reference database (CSV/TSV import swaps in your own collection), Mohs scratch tests, unit-cell → crystal-system classification, classification paths and Michel-Lévy interference colours for 30-µm sections. |
+| Hydrogeology Workbench | 水文地质模拟工作台 | Theis / Cooper–Jacob confined-aquifer drawdown, Darcy seepage velocity, multi-well superposition and drawdown cones, Ogata–Banks transport with retardation and decay, pumping-test fitting, and tidal / barometric water-level response. |
 
 **Environmental Science (8)** — strictly data-driven; samples load from the
 examples dialog:
@@ -585,7 +590,7 @@ examples dialog:
 | Stress-Strain Analysis | 应力-应变分析 | Tensile-property extraction per ASTM E8 / GB/T 228 with 0.2 % offset yield. |
 | Thermal Analysis (DSC/TGA) | 热分析（DSC/TGA） | Baseline-corrected peak detection, extrapolated onset temperatures and transition enthalpy. |
 
-**Engineering Simulation (4)**
+**Engineering Simulation (5)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -593,6 +598,7 @@ examples dialog:
 | DC Circuit Node Analysis | 直流电路节点分析 | Modified Nodal Analysis of DC resistive circuits with partial-pivot Gaussian elimination. |
 | Plane Truss FEA | 平面桁架有限元分析 | 2-DOF bar elements, stiffness assembly and constraint condensation. |
 | Control Systems Lab | 控制系统实验室 | First/second-order plants with PID unity feedback: step-response metrics and Bode sweeps. |
+| FEM Lab | 有限元实验室 | Parametric 2-D Delaunay meshing, P1 assembly and conjugate-gradient solves for Poisson, transient heat and plane elasticity, with convergence benchmarks. |
 
 **Economics & Finance (2)**
 
@@ -645,7 +651,7 @@ built-in panel or marketplace)**
 
 Simulation plugins are strictly data-driven: empty on load, never faking a
 default scene; **Reset** only replays loaded data. Every scientific plugin
-ships a sample dataset under `examples/data/` (143 files), one click away in
+ships a sample dataset under `examples/data/` (153 files), one click away in
 the examples dialog; the model viewer additionally ships five sample 3-D
 models (STL / OBJ / PLY / glTF / GLB).
 
@@ -747,7 +753,7 @@ equation via nonlinear LM regression, reporting K_m and V_max with confidence.*
 *The chemistry-crystal plugin renders a crystal unit cell in true 3D, rotatable
 about any axis with electron-density isosurfaces overlaid.*
 
-**Discipline gallery** (charts / statistics / math methods / physics /
+**Discipline gallery** (charts / mathematics & statistics / physics /
 chemistry / biology / geography / environmental science / effects rendering):
 
 **Charts**
@@ -804,17 +810,6 @@ chemistry / biology / geography / environmental science / effects rendering):
 
 *Point Cloud: a 2-D .xyz point cloud.*
 
-**Statistics**
-
-![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
-
-*Markov Chains & Stationary Analysis: the state-transition graph with a
-sample trajectory through it.*
-
-![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
-
-*Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
-
 ![Histogram — a bimodal distribution](docs/assets/screenshots/plugins/histogram.png)
 
 *Histogram: a bimodal distribution.*
@@ -835,11 +830,20 @@ sample trajectory through it.*
 
 *QQ Plot: sample quantiles departing from the reference line.*
 
+**Mathematics & Statistics**
+
+![Markov Chains — transition graph and sample trajectory](docs/assets/screenshots/plugins/stats-markov.png)
+
+*Markov Chains & Stationary Analysis: the state-transition graph with a
+sample trajectory through it.*
+
+![Zipf's Law — a log-log frequency fit](docs/assets/screenshots/plugins/stats-zipf.png)
+
+*Zipf's Law Word Frequencies: a straight-line fit on log rank–log frequency.*
+
 ![Central Limit Theorem Bench — sample means with the analytic normal](docs/assets/screenshots/plugins/stats-clt.png)
 
 *Central Limit Theorem Bench: sample means overlaid on the analytic normal.*
-
-**Math Methods**
 
 ![Domain Coloring — hue/shade field of a complex function](docs/assets/screenshots/plugins/math-domaincolor.png)
 
@@ -1235,7 +1239,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
-- [x] 111 built-in plugins (101 scientific auto-load + 10 fun manual) across 16 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 121 built-in plugins (111 scientific auto-load + 10 fun manual) across 15 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
@@ -1243,7 +1247,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Send-to-Figure-Studio linkage across all research-grade plugin suites (physics / chem / bio / env / geo / math / stats / econ / psych / astro / data / engineering + both solvers)
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
-- [x] Flow mode (compiler + incremental executor + 42 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
+- [x] Flow mode (compiler + incremental executor + 45 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
 - [x] 26 standalone research tools in 6 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas

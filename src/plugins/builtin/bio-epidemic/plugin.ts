@@ -149,6 +149,7 @@ export class BioEpidemicPlugin implements Plugin {
         max: 20,
         step: 1,
         value: this.state.latentDays,
+        visibleWhen: { key: 'model', in: ['SEIR'] },
       },
       {
         key: 'population',

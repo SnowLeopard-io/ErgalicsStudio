@@ -11,7 +11,6 @@
 
 export type PluginDiscipline =
   | 'charts'
-  | 'stats'
   | 'math'
   | 'physics'
   | 'engineering'
@@ -37,8 +36,7 @@ export interface DisciplineInfo {
  * data tooling, and finally rendering / fun utilities. */
 export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
-  { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
-  { id: 'math', nameI18n: { 'zh-CN': '数学方法', 'en-US': 'Mathematics' } },
+  { id: 'math', nameI18n: { 'zh-CN': '数学与统计', 'en-US': 'Mathematics & Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
@@ -74,13 +72,11 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.point-cloud-3d': 'charts',
   'example.model3d': 'charts',
   'example.image': 'charts',
-
-  // Statistics & math
-  'example.histogram': 'stats',
-  'example.boxplot': 'stats',
-  'example.violin': 'stats',
-  'example.qqplot': 'stats',
-  'example.errorband': 'stats',
+  'example.histogram': 'charts',
+  'example.boxplot': 'charts',
+  'example.violin': 'charts',
+  'example.qqplot': 'charts',
+  'example.errorband': 'charts',
 
   // Physics & simulation
   'example.particles': 'physics',
@@ -135,6 +131,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-carbondating': 'geo',
   'example.geo-soilwater': 'geo',
   'example.geo-hydrology': 'geo',
+  'example.geo-seismic': 'geo',
+  'example.geo-minerals': 'geo',
+  'example.geo-hydrogeology': 'geo',
 
   // Environmental science
   'example.env-aqi': 'env',
@@ -172,15 +171,19 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.ai-training': 'data',
   'example.data-imageproc': 'data',
 
-  // Mathematics (research-grade kernels)
+  // Mathematics & statistics (research-grade kernels)
   'example.math-fourier': 'math',
   'example.math-domaincolor': 'math',
   'example.math-odefield': 'math',
-
-  // Statistics (research-grade kernels)
-  'example.stats-clt': 'stats',
-  'example.stats-markov': 'stats',
-  'example.stats-zipf': 'stats',
+  'example.math-linalg': 'math',
+  'example.math-dist': 'math',
+  'example.math-numerics': 'math',
+  'example.math-graph': 'math',
+  'example.math-topology': 'math',
+  'example.math-game': 'math',
+  'example.stats-clt': 'math',
+  'example.stats-markov': 'math',
+  'example.stats-zipf': 'math',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',

@@ -187,6 +187,7 @@ export class BioPkPlugin implements Plugin {
         step: 0.05,
         value: this.state.ka,
         hint: this.zh ? '仅口服途径使用' : 'oral route only',
+        visibleWhen: { key: 'route', in: ['oral'] },
       },
       {
         key: 'k12',
@@ -198,6 +199,7 @@ export class BioPkPlugin implements Plugin {
         step: 0.05,
         value: this.state.k12,
         hint: this.zh ? '仅二室模型使用' : 'two-compartment only',
+        visibleWhen: { key: 'model', in: ['two-compartment'] },
       },
       {
         key: 'k21',
@@ -208,6 +210,7 @@ export class BioPkPlugin implements Plugin {
         max: 2,
         step: 0.05,
         value: this.state.k21,
+        visibleWhen: { key: 'model', in: ['two-compartment'] },
       },
       {
         key: 'tMax',

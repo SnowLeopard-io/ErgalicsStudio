@@ -149,6 +149,7 @@ export class MathOdefieldPlugin implements Plugin {
         value: this.state.fx,
         placeholder: 'e.g. x*(1.1 - 0.4*y)',
         hint: this.zh ? '变量 x、y；常量 pi、e；支持 + − * / ^、隐式乘法与 exp/ln/sin/cos/tan/sinh/cosh/tanh/sqrt/abs/atan' : 'variables x, y; constants pi, e; + − * / ^, implicit multiplication, exp/ln/sin/cos/tan/sinh/cosh/tanh/sqrt/abs/atan',
+        visibleWhen: { key: 'system', in: ['custom'] },
       },
       {
         key: 'fy',
@@ -157,6 +158,7 @@ export class MathOdefieldPlugin implements Plugin {
         type: 'text',
         value: this.state.fy,
         placeholder: 'e.g. y*(0.3*x - 0.9)',
+        visibleWhen: { key: 'system', in: ['custom'] },
       },
       {
         key: 'h',
