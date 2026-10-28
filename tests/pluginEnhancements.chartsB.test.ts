@@ -13,14 +13,14 @@
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { ViolinPlotPlugin } from '@/plugins/builtin/violinPlot';
-import { ParallelCoordinatesPlugin } from '@/plugins/builtin/parallelCoordinates';
-import { SankeyPlugin } from '@/plugins/builtin/sankey';
-import { TreemapPlugin } from '@/plugins/builtin/treemap';
-import { NetworkGraphPlugin } from '@/plugins/builtin/networkGraph';
-import { BarChartPlugin } from '@/plugins/builtin/barChart';
-import { BubbleChartPlugin } from '@/plugins/builtin/bubbleChart';
-import { PolarPlotPlugin } from '@/plugins/builtin/polarPlot';
+import { ViolinPlotPlugin } from '@/plugins/builtin/charts/violinPlot/plugin';
+import { ParallelCoordinatesPlugin } from '@/plugins/builtin/charts/parallelCoordinates/plugin';
+import { SankeyPlugin } from '@/plugins/builtin/charts/sankey/plugin';
+import { TreemapPlugin } from '@/plugins/builtin/charts/treemap/plugin';
+import { NetworkGraphPlugin } from '@/plugins/builtin/charts/networkGraph/plugin';
+import { BarChartPlugin } from '@/plugins/builtin/charts/barChart/plugin';
+import { BubbleChartPlugin } from '@/plugins/builtin/charts/bubbleChart/plugin';
+import { PolarPlotPlugin } from '@/plugins/builtin/charts/polarPlot/plugin';
 import type {
   ContainerCapabilities,
   ParamDefinition,

@@ -12,14 +12,14 @@
 // ==========================================================================
 
 import { describe, it, expect, vi } from 'vitest';
-import { ScatterPlugin } from '@/plugins/builtin/scatter';
-import { TimeSeriesPlugin } from '@/plugins/builtin/timeSeries';
-import { HistogramPlugin } from '@/plugins/builtin/histogram';
-import { BoxPlotPlugin } from '@/plugins/builtin/boxPlot';
-import { HeatmapPlugin } from '@/plugins/builtin/heatmap';
-import { ContourPlugin } from '@/plugins/builtin/contour';
-import { ErrorBandPlugin } from '@/plugins/builtin/errorband';
-import { QQPlotPlugin } from '@/plugins/builtin/qqplot';
+import { ScatterPlugin } from '@/plugins/builtin/charts/scatter/plugin';
+import { TimeSeriesPlugin } from '@/plugins/builtin/charts/timeSeries/plugin';
+import { HistogramPlugin } from '@/plugins/builtin/charts/histogram/plugin';
+import { BoxPlotPlugin } from '@/plugins/builtin/charts/boxPlot/plugin';
+import { HeatmapPlugin } from '@/plugins/builtin/charts/heatmap/plugin';
+import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
+import { ErrorBandPlugin } from '@/plugins/builtin/charts/errorband/plugin';
+import { QQPlotPlugin } from '@/plugins/builtin/charts/qqplot/plugin';
 import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 
 function fakeApi() {

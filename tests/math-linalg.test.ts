@@ -18,7 +18,7 @@ import {
   transpose,
   type ComplexNum,
   type Matrix,
-} from '../src/plugins/builtin/math-linalg/kernel';
+} from '../src/plugins/builtin/math/linalg/kernel';
 
 function orthoDefect(m: Matrix): number {
   const g = matmul(transpose(m), m);

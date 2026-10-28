@@ -222,14 +222,14 @@ function drift(a, b, keyPath, out) {
 // ---------------------------------------------------------------------------
 const PLUGIN_CFD = {
   name: 'fluid-cfd-coupler',
-  pkgDir: path.join(root, 'src/plugins/builtin/fluid-cfd-coupler/python'),
+  pkgDir: path.join(root, 'src/plugins/builtin/physics/cfd-coupler/python'),
   testCmd: ['run_tests.py'],
   gen: (py, dir, out) => runPy(py, ['benchmarks/bench_coupling.py', out], dir),
   refFile: path.join(benchDir, 'fluid-cfd-results.json'),
 };
 const PLUGIN_EM = {
   name: 'em-eigensolver',
-  pkgDir: path.join(root, 'src/plugins/builtin/em-eigensolver/python'),
+  pkgDir: path.join(root, 'src/plugins/builtin/physics/eigensolver/python'),
   testCmd: ['tests/test_all.py'],
   gen: (py, dir, out) => {
     const args = ['benchmarks/validate_correctness.py'];

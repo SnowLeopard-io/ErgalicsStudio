@@ -1,11 +1,11 @@
 // EM Eigensolver plugin — pure-logic tests (no worker/Pyodide involved).
 import { describe, it, expect } from 'vitest';
-import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '@/plugins/builtin/em-eigensolver/plugin';
-import { spectrumDomain, mapToX } from '@/plugins/builtin/em-eigensolver/render';
-import { buildDiagReportHtml, fieldColor as reportFieldColor, svgConvergence, svgModeField, svgResiduals, svgSpectrum } from '@/plugins/builtin/em-eigensolver/diag-report';
-import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '@/plugins/builtin/em-eigensolver/render3d';
+import { emEigensolverManifest, EmEigensolverPlugin, modeFieldPanels, parseSigma } from '@/plugins/builtin/physics/eigensolver/plugin';
+import { spectrumDomain, mapToX } from '@/plugins/builtin/physics/eigensolver/render';
+import { buildDiagReportHtml, fieldColor as reportFieldColor, svgConvergence, svgModeField, svgResiduals, svgSpectrum } from '@/plugins/builtin/physics/eigensolver/diag-report';
+import { fieldColor, fieldExtremes, fieldPeak, srgbToLinear, surfaceBuffers } from '@/plugins/builtin/physics/eigensolver/render3d';
 import { findBuiltin } from '@/plugins/builtin';
-import type { EmModeField, EmResultPayload, EmSolverConfig } from '@/plugins/builtin/em-eigensolver/types';
+import type { EmModeField, EmResultPayload, EmSolverConfig } from '@/plugins/builtin/physics/eigensolver/types';
 import type { ParamDefinition, PluginApi, SelectParam } from '@/types/plugin';
 
 /** Narrow a param definition to the select variant (options/value access). */

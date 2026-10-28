@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refineCubicLattice, type XrdPeak } from '../src/plugins/builtin/mats-xrd/kernel';
+import { refineCubicLattice, type XrdPeak } from '../src/plugins/builtin/materials/xrd/kernel';
 
 /** Build synthetic peaks for a cubic lattice with lattice parameter `a` and allowed s values. */
 function synth(a: number, sVals: number[]): XrdPeak[] {

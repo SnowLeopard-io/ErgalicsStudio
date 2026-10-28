@@ -12,7 +12,7 @@ import {
   solveH,
   titrationCurve,
   type AcidSpec,
-} from '../src/plugins/builtin/chem-titration/kernel';
+} from '../src/plugins/builtin/chem/titration/kernel';
 
 const strong: AcidSpec = { kind: 'strong', conc: 0.1, volume: 25, baseConc: 0.1, ka: Number.POSITIVE_INFINITY };
 const weak: AcidSpec = { kind: 'weak', conc: 0.1, volume: 25, baseConc: 0.1, ka: 1.8e-5 };

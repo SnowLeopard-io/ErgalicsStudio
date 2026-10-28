@@ -11,7 +11,7 @@ import {
   spotCurve,
   stdNormCdf,
   stdNormPdf,
-} from '../src/plugins/builtin/econ-blackscholes/kernel';
+} from '../src/plugins/builtin/econ/blackscholes/kernel';
 
 const ATM = DEFAULT_BS_PARAMS; // S=100, K=100, r=5%, q=0, σ=20%, T=1
 

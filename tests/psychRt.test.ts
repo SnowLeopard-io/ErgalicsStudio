@@ -12,7 +12,7 @@ import {
   tQuantile,
   tTwoTailedP,
   welchTest,
-} from '../src/plugins/builtin/psych-rt/kernel';
+} from '../src/plugins/builtin/psych/rt/kernel';
 
 describe('psych-rt kernel (reaction-time statistics)', () => {
   it('gammaln and betai match known special values', () => {

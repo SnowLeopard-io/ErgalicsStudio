@@ -4,7 +4,7 @@ import {
   computeCycle,
   sampleSegment,
   type EngineInput,
-} from '../src/plugins/builtin/physics-heatengine/kernel';
+} from '../src/plugins/builtin/physics/heatengine/kernel';
 
 const relErr = (a: number, b: number): number => Math.abs(a - b) / Math.abs(b);
 

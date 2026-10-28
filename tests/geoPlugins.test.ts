@@ -5,7 +5,7 @@ import {
   haversineKm,
   sphericalAreaKm2,
   marchingSquares,
-} from '@/plugins/builtin/geo/geoCore';
+} from '@/plugins/builtin/geo/shared/geoCore';
 import { parseDelimited } from '@/core/plugin-tools/table';
 import {
   solarDeclination,
@@ -20,9 +20,9 @@ import {
   equationOfTimeMinutes,
   timezoneFromLongitude,
   solarToClockHours,
-} from '@/plugins/builtin/geo/solar';
-import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '@/plugins/builtin/geo/climograph';
-import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '@/plugins/builtin/geo/popPyramid';
+} from '@/plugins/builtin/geo/solar/plugin';
+import { parseClimateCsv, summarizeClimate, climographFigurePanels } from '@/plugins/builtin/geo/climograph/plugin';
+import { parsePyramidCsv, summarizePyramid, pyramidFigurePanels } from '@/plugins/builtin/geo/popPyramid/plugin';
 import {
   parsePointsCsv,
   boundsOf,
@@ -33,14 +33,14 @@ import {
   loocvValidate,
   moransI,
   interpFigurePanels,
-} from '@/plugins/builtin/geo/spatialInterp';
+} from '@/plugins/builtin/geo/spatialInterp/plugin';
 import {
   parseWaypoints,
   chainLengthKm,
   polygonAreaKm2,
   standardDeviationalEllipse,
   measureFigurePanels,
-} from '@/plugins/builtin/geo/geoMeasure';
+} from '@/plugins/builtin/geo/geoMeasure/plugin';
 import {
   projectMercator,
   projectMollweide,
@@ -51,7 +51,7 @@ import {
   latLonToVec,
   distortionAt,
   tissotFigurePanels,
-} from '@/plugins/builtin/geo/tissot';
+} from '@/plugins/builtin/geo/tissot/plugin';
 import {
   parseAsciiGrid,
   hornSlopeAspect,
@@ -61,10 +61,10 @@ import {
   flowAccumulation,
   D8_NODIR,
   terrainFigurePanels,
-} from '@/plugins/builtin/geo/terrain';
-import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '@/plugins/builtin/geo/gpxTrack';
+} from '@/plugins/builtin/geo/terrain/plugin';
+import { parseGpx, trackDistanceKm, trackAscentDescent, trackStats, gpxFigurePanels } from '@/plugins/builtin/geo/gpxTrack/plugin';
 import { downsampleGrid, buildTerrainMesh } from '@/core/geo/terrainMesh';
-import type { AscGrid } from '@/plugins/builtin/geo/terrain';
+import type { AscGrid } from '@/plugins/builtin/geo/terrain/plugin';
 import { lonLatToVec3, angularDistance } from '@/core/geo/spherical';
 
 import fellsGpx from '../examples/data/geo-fells-loop.gpx?raw';

@@ -37,13 +37,13 @@ import {
   parseHeightGrid,
   sampleSurfaceFunction,
   surfaceFunctionValue,
-} from '@/plugins/builtin/surface3D';
+} from '@/plugins/builtin/charts/surface3D/plugin';
 import {
   Voxel3DPlugin,
   parseVoxelField,
   fieldRange,
-} from '@/plugins/builtin/voxel3D';
-import { PointCloud3DPlugin } from '@/plugins/builtin/pointCloud3D';
+} from '@/plugins/builtin/charts/voxel3D/plugin';
+import { PointCloud3DPlugin } from '@/plugins/builtin/charts/pointCloud3D/plugin';
 import { viz3dZh, viz3dEn } from '@/i18n/dicts/viz3d';
 import type { PluginApi } from '@/types/plugin';
 

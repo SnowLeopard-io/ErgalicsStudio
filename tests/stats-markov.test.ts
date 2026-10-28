@@ -17,7 +17,7 @@ import {
   stepDistribution,
   stochasticize,
   WEB5_MATRIX,
-} from '../src/plugins/builtin/stats-markov/kernel';
+} from '../src/plugins/builtin/math/markov/kernel';
 
 const WEATHER = [
   [0.9, 0.1],

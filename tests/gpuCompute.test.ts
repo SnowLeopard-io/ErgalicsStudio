@@ -124,7 +124,7 @@ describe('particles plugin compute fallback', () => {
   }
 
   it('runs the CPU integrator and reports progress when GPU is absent', async () => {
-    const { ParticlePlugin } = await import('@/plugins/builtin/particles');
+    const { ParticlePlugin } = await import('@/plugins/builtin/physics/particles/plugin');
     const plugin = new ParticlePlugin();
     const api = makeApi();
     await plugin.init(api);

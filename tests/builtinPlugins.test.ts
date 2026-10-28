@@ -1,13 +1,13 @@
 // Built-in plugin logic tests — Contour grid normalization & Scatter parsing
 import { describe, it, expect } from 'vitest';
-import { normalizeGrid } from '@/plugins/builtin/contour';
-import { parseScatter } from '@/plugins/builtin/scatter';
-import { normalizeGridUniform } from '@/plugins/builtin/heatmap';
-import { NBodyPlugin } from '@/plugins/builtin/nbody';
-import { ProteinPlugin } from '@/plugins/builtin/protein';
-import { ParticlePlugin } from '@/plugins/builtin/particles';
-import { ContourPlugin } from '@/plugins/builtin/contour';
-import { ImageViewerPlugin } from '@/plugins/builtin/imageViewer';
+import { normalizeGrid } from '@/plugins/builtin/charts/contour/plugin';
+import { parseScatter } from '@/plugins/builtin/charts/scatter/plugin';
+import { normalizeGridUniform } from '@/plugins/builtin/charts/heatmap/plugin';
+import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
+import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
+import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
+import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
+import { ImageViewerPlugin } from '@/plugins/builtin/charts/imageViewer/plugin';
 import type { NBodyBody } from '@/core/wgsl';
 import type { PluginApi } from '@/types/plugin';
 

@@ -1,0 +1,15 @@
+op,value
+insert,50
+insert,30
+insert,70
+insert,20
+insert,40
+insert,60
+insert,80
+insert,10
+insert,25
+insert,35
+search,40
+delete,30
+insert,65
+search,99

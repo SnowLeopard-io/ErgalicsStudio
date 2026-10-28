@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { acousticsManifest } from '../src/plugins/builtin/acoustics/manifest';
-import { tuningManifest } from '../src/plugins/builtin/tuning/manifest';
-import { synthManifest } from '../src/plugins/builtin/synth/manifest';
-import { colorScienceManifest } from '../src/plugins/builtin/color-science/manifest';
-import { runAcousticBenchmarks } from '../src/plugins/builtin/acoustics/kernel';
-import { runTuningBenchmarks } from '../src/plugins/builtin/tuning/kernel';
-import { runSynthBenchmarks } from '../src/plugins/builtin/synth/kernel';
-import { runColorBenchmarks } from '../src/plugins/builtin/color-science/kernel';
-import { AcousticsPlugin } from '../src/plugins/builtin/acoustics/plugin';
-import { TuningPlugin } from '../src/plugins/builtin/tuning/plugin';
-import { SynthPlugin } from '../src/plugins/builtin/synth/plugin';
-import { ColorSciencePlugin } from '../src/plugins/builtin/color-science/plugin';
+import { acousticsManifest } from '../src/plugins/builtin/artsci/acoustics/manifest';
+import { tuningManifest } from '../src/plugins/builtin/artsci/tuning/manifest';
+import { synthManifest } from '../src/plugins/builtin/artsci/synth/manifest';
+import { colorScienceManifest } from '../src/plugins/builtin/artsci/color-science/manifest';
+import { runAcousticBenchmarks } from '../src/plugins/builtin/artsci/acoustics/kernel';
+import { runTuningBenchmarks } from '../src/plugins/builtin/artsci/tuning/kernel';
+import { runSynthBenchmarks } from '../src/plugins/builtin/artsci/synth/kernel';
+import { runColorBenchmarks } from '../src/plugins/builtin/artsci/color-science/kernel';
+import { AcousticsPlugin } from '../src/plugins/builtin/artsci/acoustics/plugin';
+import { TuningPlugin } from '../src/plugins/builtin/artsci/tuning/plugin';
+import { SynthPlugin } from '../src/plugins/builtin/artsci/synth/plugin';
+import { ColorSciencePlugin } from '../src/plugins/builtin/artsci/color-science/plugin';
 import { isParamVisible, type ParamDefinition } from '../src/types/plugin';
 
 const signed = [

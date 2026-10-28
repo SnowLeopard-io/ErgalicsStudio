@@ -10,7 +10,7 @@ import {
   retardationNm,
   runMineralBenchmarks,
   scratchTest,
-} from '../src/plugins/builtin/geo-minerals/kernel';
+} from '../src/plugins/builtin/geo/minerals/kernel';
 
 describe('geo-minerals · database and identification', () => {
   it('the bundled CSV parses into a valid database', () => {

@@ -97,6 +97,13 @@ import geoHydroPumpingCsv from '../../examples/data/geo-hydro-pumping.csv?raw';
 import tuningJustIntonationCsv from '../../examples/data/tuning-just-intonation.csv?raw';
 import colorPalettesCsv from '../../examples/data/color-palettes.csv?raw';
 import synthPresetsJson from '../../examples/data/synth-presets.json?raw';
+import csSortInputCsv from '../../examples/data/cs-sort-input.csv?raw';
+import csBstOpsCsv from '../../examples/data/cs-bst-ops.csv?raw';
+import csAutomataTxt from '../../examples/data/cs-automata.txt?raw';
+import csCryptoParamsJson from '../../examples/data/cs-crypto-params.json?raw';
+import csNeuralvizXorJson from '../../examples/data/cs-neuralviz-xor.json?raw';
+import csComplexityRunsCsv from '../../examples/data/cs-complexity-runs.csv?raw';
+import csNetprotoScenarioJson from '../../examples/data/cs-netproto-scenario.json?raw';
 import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
@@ -2948,6 +2955,139 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '一段 0.75 秒、8 kHz 单声道 16-bit WAV：440 Hz 基频 + 二次/三次谐波，带淡入淡出。载入后显示波形与频谱，但不会自动播放——需手动点“播放音频”。',
       'en-US':
         'A 0.75 s, 8 kHz mono 16-bit WAV: 440 Hz fundamental plus second and third harmonics, with fade in/out. Loading shows the waveform and spectrum; it never auto-plays — press Play to listen.',
+    },
+  },
+  {
+    id: 'cs-sort-input',
+    filename: 'cs-sort-input.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.algorithms',
+    group: 'cs',
+    content: csSortInputCsv,
+    nameI18n: {
+      'zh-CN': '算法可视化 · 14 个待排序整数',
+      'en-US': 'Algorithm Visualizer · 14 Unsorted Integers',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一列 14 个无序整数。载入后可在冒泡、插入、选择、归并、快速与堆排序之间切换，逐步查看比较/交换计数与高亮帧。',
+      'en-US':
+        'A single column of 14 unsorted integers. Loading switches to the sorting view so bubble, insertion, selection, merge, quick and heap sort can be scrubbed frame by frame with comparison/swap counters.',
+    },
+  },
+  {
+    id: 'cs-bst-ops',
+    filename: 'cs-bst-ops.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.datastructures',
+    group: 'cs',
+    content: csBstOpsCsv,
+    nameI18n: {
+      'zh-CN': '数据结构实验室 · BST/AVL 操作脚本',
+      'en-US': 'Data Structure Lab · BST/AVL Operation Script',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'insert/delete/search 操作序列，含一次不存在的查找。载入后显示操作历史、旋转记录与最终树形；可切换到 AVL 观察重平衡。',
+      'en-US':
+        'An insert/delete/search operation script including one unsuccessful lookup. Loading shows the history, rotations and final tree; switch to AVL to watch rebalancing.',
+    },
+  },
+  {
+    id: 'cs-automata-regex',
+    filename: 'cs-automata.txt',
+    format: 'txt',
+    mimeType: 'text/plain',
+    pluginId: 'example.automata',
+    group: 'cs',
+    content: csAutomataTxt,
+    nameI18n: {
+      'zh-CN': '自动机 · (a|b)*abb 测试集',
+      'en-US': 'Automata · (a|b)*abb Test Set',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '经典正则 (a|b)*abb 与 5 个接受/拒绝测试串。载入后构建 Thompson NFA、子集构造 DFA、最小化，并展示匹配轨迹。',
+      'en-US':
+        'The classic (a|b)*abb regex with five accept/reject test strings. Loading builds the Thompson NFA, DFA and minimal DFA, then shows the match trace.',
+    },
+  },
+  {
+    id: 'cs-crypto-params',
+    filename: 'cs-crypto-params.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.crypto',
+    group: 'cs',
+    content: csCryptoParamsJson,
+    nameI18n: {
+      'zh-CN': '密码学实验室 · RSA/AES 教学参数',
+      'en-US': 'Cryptography Lab · RSA/AES Teaching Parameters',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'RSA 小素数 p=61、q=53、e=17，消息 “A”，以及 FIPS-197 的 AES-128 密钥与明文分组。用于教学，不可用于真实机密。',
+      'en-US':
+        'Small RSA primes p=61, q=53, e=17, message “A”, plus the FIPS-197 AES-128 key and plaintext block. Teaching only — never for real secrets.',
+    },
+  },
+  {
+    id: 'cs-neuralviz-xor',
+    filename: 'cs-neuralviz-xor.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.neuralviz',
+    group: 'cs',
+    content: csNeuralvizXorJson,
+    nameI18n: {
+      'zh-CN': '神经网络 · 2→4→1 XOR 网络',
+      'en-US': 'Neural Network · 2→4→1 XOR Network',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一个手工设置的 2→4→1 tanh 网络与四个 XOR 样本，权重已使隐藏层分离四个象限。载入后查看逐层激活、梯度流与决策边界。',
+      'en-US':
+        'A hand-set 2→4→1 tanh network with the four XOR samples; its weights separate the quadrants. Loading shows layer activations, gradient flow and the decision boundary.',
+    },
+  },
+  {
+    id: 'cs-complexity-runs',
+    filename: 'cs-complexity-runs.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.complexity',
+    group: 'cs',
+    content: csComplexityRunsCsv,
+    nameI18n: {
+      'zh-CN': '复杂度分析 · O(n²) 运行时间测量',
+      'en-US': 'Complexity Analyzer · O(n²) Runtime Measurements',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        'n = 8…512 的 7 个合成运行时间点，近似四倍增长。载入后拟合候选模型，预期 O(n²) 胜出，双对数斜率接近 2。',
+      'en-US':
+        'Seven synthetic runtime points for n = 8…512 with roughly four-fold growth. Loading fits all candidates; O(n²) should win and the log-log slope should approach 2.',
+    },
+  },
+  {
+    id: 'cs-netproto-scenario',
+    filename: 'cs-netproto-scenario.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.netproto',
+    group: 'cs',
+    content: csNetprotoScenarioJson,
+    nameI18n: {
+      'zh-CN': '网络协议 · Reno 丢包场景',
+      'en-US': 'Network Protocol · Reno Loss Scenario',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '20 个 RTT 的 Reno 场景：初始 cwnd=1、ssthresh=16，在第 8/13/18 轮丢包，附 5 个 RTT 样本。载入后显示拥塞窗口与 RTO 估计。',
+      'en-US':
+        'A 20-RTT Reno scenario: initial cwnd=1, ssthresh=16, losses at rounds 8/13/18, plus five RTT samples. Loading shows the congestion window and RTO estimate.',
     },
   },
 ];
