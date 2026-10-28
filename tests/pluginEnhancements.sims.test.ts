@@ -334,10 +334,14 @@ describe('double pendulum export buttons', () => {
     assertActionButton(plugin, 'exportCsv');
   });
 
-  it('exports no trace CSV before loading, then the seeded t=0 row', async () => {
-    const empty = await fresh(DoublePendulumPlugin);
-    empty.plugin.updateParams({ exportCsv: true });
-    expect(empty.exportFile).not.toHaveBeenCalled();
+  it('exports the seeded t=0 row: default IC before loading, loaded IC after', async () => {
+    // Self-contained simulation: the plugin self-seeds a default IC, so an
+    // untouched instance already exports its t = 0 trace row.
+    const fresh0 = await fresh(DoublePendulumPlugin);
+    fresh0.plugin.updateParams({ exportCsv: true });
+    const def = await expectCsvExported(fresh0.exportFile);
+    expect(def).toContain('t,th1,th2');
+    expect(def.split(/\r?\n/)).toHaveLength(2);
 
     const h = await fresh(DoublePendulumPlugin);
     await h.plugin.loadData(pendulumFile());

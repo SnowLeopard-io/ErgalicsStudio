@@ -113,12 +113,21 @@ interface State {
   showTrail: boolean;
   showGhost: boolean;
   running: boolean;
-  /** True once initial conditions have been loaded — the plugin never
-   * fabricates a default state; without data it stays empty. */
+  /** True once initial conditions exist. The plugin self-seeds a default IC
+   * (it is a self-contained simulation — no external data required); loading
+   * a JSON file simply replaces the IC. */
   hasData: boolean;
 }
 
 const GHOST_OFFSET = 1e-3; // radians ≈ 0.057°
+
+/** Self-seeded initial conditions: a strongly chaotic swing, at rest. */
+const DEFAULT_IC: PendulumIC = {
+  th1: (120 * Math.PI) / 180,
+  w1: 0,
+  th2: (-10 * Math.PI) / 180,
+  w2: 0,
+};
 
 export interface PendulumIC {
   th1: number;
@@ -158,11 +167,17 @@ export class DoublePendulumPlugin implements Plugin {
     showTrail: true,
     showGhost: true,
     running: false,
-    hasData: false,
+    hasData: true,
   };
-  private main!: Twin;
-  private ghost!: Twin;
-  private initialIC: PendulumIC | null = null;
+  private main: Twin = {
+    state: [DEFAULT_IC.th1, DEFAULT_IC.w1, DEFAULT_IC.th2, DEFAULT_IC.w2],
+    trail: [],
+  };
+  private ghost: Twin = {
+    state: [DEFAULT_IC.th1 + GHOST_OFFSET, DEFAULT_IC.w1, DEFAULT_IC.th2, DEFAULT_IC.w2],
+    trail: [],
+  };
+  private initialIC: PendulumIC | null = DEFAULT_IC;
   private rafId = 0;
   private lastFrame = 0;
   private acc = 0;
@@ -172,7 +187,7 @@ export class DoublePendulumPlugin implements Plugin {
    * and cleared by reset / reload, so the export always covers the current
    * run from its initial conditions.
    */
-  private trace: number[][] = [];
+  private trace: number[][] = [[0, DEFAULT_IC.th1, DEFAULT_IC.th2]];
   private traceT = 0;
 
   async init(api: PluginApi) {
@@ -233,17 +248,7 @@ export class DoublePendulumPlugin implements Plugin {
     }
     const reset = params.reset as { action?: string } | undefined;
     if (reset?.action === 'reset') {
-      // Reset replays the loaded initial conditions; it never fabricates a
-      // default state when no data has been loaded.
-      if (!this.state.hasData) {
-        this.api.notify(
-          'warning',
-          this.api.locale === 'zh-CN'
-            ? '尚未加载初始条件 — 拖入 JSON 文件或打开「示例数据」'
-            : 'No initial conditions loaded — drop a JSON file or open sample data',
-        );
-        return;
-      }
+      // Reset replays the current initial conditions (default or loaded).
       this.replayLoaded();
       this.draw();
     }
@@ -340,17 +345,6 @@ export class DoublePendulumPlugin implements Plugin {
 
   private start() {
     if (this.state.running) return;
-    if (!this.state.hasData) {
-      // Data-driven: without loaded initial conditions there is nothing to
-      // swing — never fabricate a default state.
-      this.api.notify(
-        'warning',
-        this.api.locale === 'zh-CN'
-          ? '请先加载初始条件 — 拖入 JSON 文件或打开「示例数据」'
-          : 'Load initial conditions first — drop a JSON file or open sample data',
-      );
-      return;
-    }
     this.state.running = true;
     this.api.setStatus('computing');
     this.lastFrame = performance.now();
@@ -406,8 +400,8 @@ export class DoublePendulumPlugin implements Plugin {
     g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillRect(0, 0, canvas.width, canvas.height);
     if (!this.state.hasData || !this.main) {
-      // Empty state: no initial conditions loaded — never render a
-      // fabricated pendulum.
+      // Defensive only: the plugin self-seeds DEFAULT_IC, so this branch is
+      // unreachable in practice.
       g.fillStyle = 'rgba(150, 165, 185, 0.85)';
       g.font = `12px ${this.api.locale === 'zh-CN' ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
       g.textAlign = 'center';
