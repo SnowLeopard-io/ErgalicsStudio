@@ -29,8 +29,8 @@ import {
   solveMixed2x2,
   treeSampleById,
   vcgPayment,
-} from '../src/plugins/builtin/math-game/kernel';
-import { gameFigurePanels } from '../src/plugins/builtin/math-game/figure';
+} from '../src/plugins/builtin/math/game/kernel';
+import { gameFigurePanels } from '../src/plugins/builtin/math/game/figure';
 
 function mustSample(id: string) {
   const g = sampleGameById(id);

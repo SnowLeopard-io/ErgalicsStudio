@@ -4,7 +4,7 @@
 // inflated |v| by √(1+(ω·dt)²) per step — ~8%/orbit — making the charge spiral
 // outward. The Coulomb/damping parts are unchanged (symplectic Euler).
 import { describe, it, expect } from 'vitest';
-import { ElectromagPlugin } from '@/plugins/builtin/electromag';
+import { ElectromagPlugin } from '@/plugins/builtin/physics/electromag/plugin';
 import type { PluginApi } from '@/types/plugin';
 
 function makeApi(): PluginApi {

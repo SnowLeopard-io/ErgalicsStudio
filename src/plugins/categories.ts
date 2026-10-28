@@ -24,6 +24,7 @@ export type PluginDiscipline =
   | 'econ'
   | 'psych'
   | 'artsci'
+  | 'cs'
   | 'data'
   | 'fun';
 
@@ -49,6 +50,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'econ', nameI18n: { 'zh-CN': '经济与金融', 'en-US': 'Economics' } },
   { id: 'psych', nameI18n: { 'zh-CN': '心理与行为', 'en-US': 'Psychology' } },
   { id: 'artsci', nameI18n: { 'zh-CN': '音乐与艺术科学', 'en-US': 'Music & Art Science' } },
+  { id: 'cs', nameI18n: { 'zh-CN': '计算机科学', 'en-US': 'Computer Science' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
@@ -198,6 +200,15 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.tuning': 'artsci',
   'example.synth': 'artsci',
   'example.color-science': 'artsci',
+
+  // Computer science & software engineering
+  'example.algorithms': 'cs',
+  'example.datastructures': 'cs',
+  'example.automata': 'cs',
+  'example.crypto': 'cs',
+  'example.neuralviz': 'cs',
+  'example.complexity': 'cs',
+  'example.netproto': 'cs',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

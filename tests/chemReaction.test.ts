@@ -7,12 +7,12 @@ import {
   electronsTransferred,
   classifyReaction,
 } from '@/core/chem/engine/reaction';
-import { H2O, CH4, CO2, O2, HCl, NaCl } from '@/plugins/builtin/chem-reaction/mols';
-import { REACTIONS, findReaction } from '@/plugins/builtin/chem-reaction/catalog';
-import { buildMechanism } from '@/plugins/builtin/chem-reaction/mech';
-import { ChemReactionPlugin, equationOf, renderFormula } from '@/plugins/builtin/chem-reaction/plugin';
-import { buildPhysicsPayload } from '@/plugins/builtin/chem-reaction/reactmd/payload';
-import { entropyGibbsSpec } from '@/plugins/builtin/chem-reaction/figures';
+import { H2O, CH4, CO2, O2, HCl, NaCl } from '@/plugins/builtin/chem/reaction/mols';
+import { REACTIONS, findReaction } from '@/plugins/builtin/chem/reaction/catalog';
+import { buildMechanism } from '@/plugins/builtin/chem/reaction/mech';
+import { ChemReactionPlugin, equationOf, renderFormula } from '@/plugins/builtin/chem/reaction/plugin';
+import { buildPhysicsPayload } from '@/plugins/builtin/chem/reaction/reactmd/payload';
+import { entropyGibbsSpec } from '@/plugins/builtin/chem/reaction/figures';
 import { renderSVG } from '@/core/plot';
 import { templateById } from '@/core/figure/compose';
 import type { PlotSpec } from '@/core/plot';
@@ -21,8 +21,8 @@ import {
   combustionSide,
   buildFreePayload,
   feedElements,
-} from '@/plugins/builtin/chem-reaction/freelib';
-import { chemReactionManifest } from '@/plugins/builtin/chem-reaction/manifest';
+} from '@/plugins/builtin/chem/reaction/freelib';
+import { chemReactionManifest } from '@/plugins/builtin/chem/reaction/manifest';
 import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import type { PluginApi } from '@/types/plugin';

@@ -19,7 +19,7 @@ import {
   SAMPLE_DATASETS,
   DIST_BENCHMARK_ID,
   type DistId,
-} from '../src/plugins/builtin/math-dist/kernel';
+} from '../src/plugins/builtin/math/dist/kernel';
 
 describe('special functions', () => {
   it('logGamma matches the factorial / known values', () => {

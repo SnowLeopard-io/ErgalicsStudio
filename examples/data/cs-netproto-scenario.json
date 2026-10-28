@@ -1,0 +1,11 @@
+{
+  "protocol": "reno",
+  "clientIsn": 1000,
+  "serverIsn": 5000,
+  "rounds": 20,
+  "initialCwnd": 1,
+  "initialSsthresh": 16,
+  "lossAt": [8, 13, 18],
+  "rttSamples": [0.04, 0.052, 0.047, 0.061, 0.055],
+  "fastRetransmit": true
+}

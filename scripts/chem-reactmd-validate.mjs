@@ -3,8 +3,8 @@
 // table so we can confirm each reaction physically completes only at high T.
 import { writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { REACTIONS } from '../src/plugins/builtin/chem-reaction/catalog';
-import { buildPhysicsPayload } from '../src/plugins/builtin/chem-reaction/reactmd/payload';
+import { REACTIONS } from '../src/plugins/builtin/chem/reaction/catalog';
+import { buildPhysicsPayload } from '../src/plugins/builtin/chem/reaction/reactmd/payload';
 const builds = [];
 for (const def of REACTIONS) {
   const built = buildPhysicsPayload(def);
@@ -13,7 +13,7 @@ for (const def of REACTIONS) {
 const payloadText = JSON.stringify(builds);
 
 const driver = `import json,sys
-sys.path.insert(0,'src/plugins/builtin/chem-reaction/python')
+sys.path.insert(0,'src/plugins/builtin/chem/reaction/python')
 from reactmd.driver import simulate
 runs=json.loads(sys.stdin.read())
 for run in runs:

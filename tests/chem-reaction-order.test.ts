@@ -10,7 +10,7 @@ import {
   synthArrhenius,
   synthKinetics,
   transformY,
-} from '../src/plugins/builtin/chem-reaction-order/kernel';
+} from '../src/plugins/builtin/chem/reaction-order/kernel';
 
 const SEED = 20260922;
 

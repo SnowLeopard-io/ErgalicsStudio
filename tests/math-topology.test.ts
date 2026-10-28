@@ -19,7 +19,7 @@ import {
   verifyGenusChi,
   type SurfaceId,
   type SurfaceShape,
-} from '../src/plugins/builtin/math-topology/kernel';
+} from '../src/plugins/builtin/math/topology/kernel';
 
 const SHAPE: SurfaceShape = { R: 1.2, w: 0.5 };
 const TOL = 1e-12;

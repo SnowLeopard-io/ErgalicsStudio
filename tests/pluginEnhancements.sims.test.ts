@@ -13,18 +13,18 @@
 //
 // ai-training cannot run tf.js in node, so its history is injected directly.
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NBodyPlugin } from '@/plugins/builtin/nbody';
-import { FluidPlugin } from '@/plugins/builtin/fluid';
-import { WavePlugin } from '@/plugins/builtin/wave';
-import { DoublePendulumPlugin } from '@/plugins/builtin/doublePendulum';
-import { AITrainingPlugin } from '@/plugins/builtin/ai-training/plugin';
-import { ElectromagPlugin } from '@/plugins/builtin/electromag';
-import { OpticsPlugin } from '@/plugins/builtin/optics';
-import { StructurePlugin } from '@/plugins/builtin/structure';
-import { PointCloudPlugin } from '@/plugins/builtin/pointCloud';
-import { PointCloud3DPlugin } from '@/plugins/builtin/pointCloud3D';
-import { ParticlePlugin } from '@/plugins/builtin/particles';
-import { ProteinPlugin } from '@/plugins/builtin/protein';
+import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
+import { FluidPlugin } from '@/plugins/builtin/physics/fluid/plugin';
+import { WavePlugin } from '@/plugins/builtin/physics/wave/plugin';
+import { DoublePendulumPlugin } from '@/plugins/builtin/physics/pendulum/plugin';
+import { AITrainingPlugin } from '@/plugins/builtin/data/ai-training/plugin';
+import { ElectromagPlugin } from '@/plugins/builtin/physics/electromag/plugin';
+import { OpticsPlugin } from '@/plugins/builtin/physics/optics/plugin';
+import { StructurePlugin } from '@/plugins/builtin/engineering/structure/plugin';
+import { PointCloudPlugin } from '@/plugins/builtin/charts/pointCloud/plugin';
+import { PointCloud3DPlugin } from '@/plugins/builtin/charts/pointCloud3D/plugin';
+import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
+import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
 import type { ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 
 type MockFn = ReturnType<typeof vi.fn>;

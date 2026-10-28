@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyseTensile, parseStressStrain } from '../src/plugins/builtin/mats-mech/kernel';
+import { analyseTensile, parseStressStrain } from '../src/plugins/builtin/materials/mech/kernel';
 
 /**
  * Build a synthetic tensile curve with a clean elastic region followed by

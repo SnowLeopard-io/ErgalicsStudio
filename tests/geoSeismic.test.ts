@@ -10,7 +10,7 @@ import {
   createWaveSim,
   stepWaveSim,
   waveFieldMax,
-} from '../src/plugins/builtin/geo-seismic/kernel';
+} from '../src/plugins/builtin/geo/seismic/kernel';
 
 describe('geo-seismic · travel times and magnitudes', () => {
   it('P-wave first arrival increases with epicentral distance', () => {

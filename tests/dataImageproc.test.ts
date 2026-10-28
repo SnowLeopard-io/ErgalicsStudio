@@ -24,7 +24,7 @@ import {
   sharpen,
   sobelMagnitude,
   type GrayImage,
-} from '@/plugins/builtin/data-imageproc/kernel';
+} from '@/plugins/builtin/data/imageproc/kernel';
 
 function seededMatrix(n: number, seed: number): Float64Array {
   // Simple deterministic LCG, independent of the implementation under test.

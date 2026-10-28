@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { verifyBundledManifestSignature } from '../src/core/plugin-signing';
-import { seismicManifest } from '../src/plugins/builtin/geo-seismic/manifest';
-import { mineralsManifest } from '../src/plugins/builtin/geo-minerals/manifest';
-import { hydrogeologyManifest } from '../src/plugins/builtin/geo-hydrogeology/manifest';
+import { seismicManifest } from '../src/plugins/builtin/geo/seismic/manifest';
+import { mineralsManifest } from '../src/plugins/builtin/geo/minerals/manifest';
+import { hydrogeologyManifest } from '../src/plugins/builtin/geo/hydrogeology/manifest';
 
 const signed = [
   ['geo-seismic', seismicManifest],

@@ -15,7 +15,7 @@ import {
   tidalResponse,
   wellFunction,
   type Well,
-} from '../src/plugins/builtin/geo-hydrogeology/kernel';
+} from '../src/plugins/builtin/geo/hydrogeology/kernel';
 
 describe('geo-hydrogeology · well hydraulics', () => {
   it('W(1) matches the tabulated exponential integral', () => {

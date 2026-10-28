@@ -11,12 +11,12 @@ import {
   peakPeriod,
   deepWaterWavelength,
   beaufort,
-} from '@/plugins/builtin/ocean/plugin';
-import { WAVE_COUNT, OCEAN_FRAGMENT } from '@/plugins/builtin/ocean/shader';
-import { oceanManifest } from '@/plugins/builtin/ocean/manifest';
-import { layerDistances } from '@/plugins/builtin/misty/plugin';
-import { MISTY_FRAGMENT } from '@/plugins/builtin/misty/shader';
-import { mistyManifest } from '@/plugins/builtin/misty/manifest';
+} from '@/plugins/builtin/fx/ocean/plugin';
+import { WAVE_COUNT, OCEAN_FRAGMENT } from '@/plugins/builtin/fx/ocean/shader';
+import { oceanManifest } from '@/plugins/builtin/fx/ocean/manifest';
+import { layerDistances } from '@/plugins/builtin/fx/misty/plugin';
+import { MISTY_FRAGMENT } from '@/plugins/builtin/fx/misty/shader';
+import { mistyManifest } from '@/plugins/builtin/fx/misty/manifest';
 import {
   airmassKastenYoung,
   twilightClass,

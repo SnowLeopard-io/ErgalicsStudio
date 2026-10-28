@@ -25,7 +25,7 @@ import {
   serializeGraph,
   type Graph,
   type GraphAlgorithm,
-} from '../src/plugins/builtin/math-graph/kernel';
+} from '../src/plugins/builtin/math/graph/kernel';
 
 function mustParse(text: string, format: 'matrix' | 'edges'): Graph {
   const r = parseGraph(text, format);

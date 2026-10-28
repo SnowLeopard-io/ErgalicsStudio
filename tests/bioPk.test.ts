@@ -11,7 +11,7 @@ import {
   twoCompIvAmount,
   twoCompOralAmount,
   type PkParams,
-} from '../src/plugins/builtin/bio-pk/kernel';
+} from '../src/plugins/builtin/bio/pk/kernel';
 
 const BASE: PkParams = {
   model: 'one-compartment',
