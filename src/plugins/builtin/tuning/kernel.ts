@@ -25,7 +25,14 @@ export interface TuningDef {
 const R = (n: number, d: number): number => n / d;
 const ratioFromCents = (c: number): number => 2 ** (c / 1200);
 
-const MEANTONE_CENTS = [0, 76.05, 193.16, 310.26, 386.31, 503.42, 579.47, 696.58, 772.63, 889.74, 1006.84, 1082.89];
+// Quarter-comma meantone is generated from its exact definition: four fifths
+// are narrowed by a quarter syntonic comma, so one fifth is 5^(1/4) = 696.578 ¢.
+// Each chromatic degree is that many fifths away from the tonic, folded into
+// one octave; keeping the derivation avoids rounding in the published cent table.
+const MEANTONE_FIFTH_CENTS = 300 * Math.log2(5);
+const MEANTONE_FIFTH_STEPS = [0, 7, 2, -3, 4, -1, 6, 1, 8, 3, -2, 5];
+const foldOctave = (cents: number): number => cents - 1200 * Math.floor(cents / 1200);
+const MEANTONE_CENTS = MEANTONE_FIFTH_STEPS.map((k) => foldOctave(k * MEANTONE_FIFTH_CENTS));
 const WERCKMEISTER_CENTS = [0, 90.22, 192.18, 294.13, 390.22, 498.04, 588.27, 696.09, 792.18, 888.27, 996.09, 1092.18];
 
 export const TUNINGS: Record<TuningId, TuningDef> = {

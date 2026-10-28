@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { AudioClipPlayer, audioErrorText, type AudioClip } from '@/core/audio';
@@ -69,13 +69,21 @@ const LFO_SHAPES: Array<{ value: LfoShape; en: string; zh: string }> = [
   { value: 'square', en: 'Square', zh: '方波' },
 ];
 
+/** Fresh working preset — only created by an explicit user action. */
+function newPreset(index: number, zh: boolean): SynthPreset {
+  const base = DEFAULT_PRESETS[0]!;
+  return { ...base, name: `${zh ? '新预设' : 'New preset'} ${index}`, adsr: { ...base.adsr } };
+}
+
 export class SynthPlugin implements Plugin {
   readonly manifest = synthManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
   private player = new AudioClipPlayer();
-  private presets: SynthPreset[] = DEFAULT_PRESETS.map((p) => ({ ...p, adsr: { ...p.adsr } }));
+  /** Empty on startup: presets arrive from JSON import or “New preset”. */
+  private presets: SynthPreset[] = [];
+  private draft: SynthPreset = newPreset(0, false);
   private state: State = { presetIndex: 0, view: 'waveform', playing: false };
   private rendered: Float64Array | null = null;
   private renderKey = '';
@@ -117,11 +125,13 @@ export class SynthPlugin implements Plugin {
         label: 'Preset',
         labelI18n: { 'zh-CN': '预设', 'en-US': 'Preset' },
         type: 'select',
-        options: this.presets.map((preset, i) => ({
-          value: String(i),
-          label: `${i + 1}. ${preset.name}`,
-        })),
-        value: String(s.presetIndex),
+        options: this.presets.length
+          ? this.presets.map((preset, i) => ({
+              value: String(i),
+              label: `${i + 1}. ${preset.name}`,
+            }))
+          : [{ value: '-1', label: this.zh ? '（尚未导入预设）' : '(no presets loaded)' }],
+        value: this.presets.length ? String(s.presetIndex) : '-1',
       },
       {
         key: 'view',
@@ -278,6 +288,7 @@ export class SynthPlugin implements Plugin {
         value: p.lfoShape,
         visibleWhen: { key: 'view', in: ['lfo'] },
       },
+      actionButton('newPreset', 'New preset', '新建预设'),
       actionButton('playPreset', 'Render & play', '渲染并播放', 'primary'),
       actionButton('stopSynth', 'Stop audio', '停止播放'),
       actionButton('exportWav', 'Export WAV', '导出 WAV'),
@@ -339,6 +350,7 @@ export class SynthPlugin implements Plugin {
     num('lfoDepth', (v) => (p.lfoDepth = v), 0, 2);
     if (changed) this.draw();
 
+    if (actionFired(params, 'newPreset')) this.addPreset();
     if (actionFired(params, 'playPreset')) void this.play();
     if (actionFired(params, 'stopSynth')) this.stopPlayback(true);
     if (actionFired(params, 'exportWav')) this.exportWav();
@@ -354,8 +366,11 @@ export class SynthPlugin implements Plugin {
 
   async loadData(file: File) {
     const low = file.name.toLowerCase();
-    if (low.endsWith('.json')) {
-      const presets = parsePresetsJson(await file.text());
+    const text = await file.text();
+    // Preset JSON arrives either as a .json file or as a RenderedView payload,
+    // which the block bridge hands over as plain text named data.txt.
+    if (low.endsWith('.json') || /^\s*[[{]/.test(text)) {
+      const presets = parsePresetsJson(text);
       if (presets.length === 0) {
         notify(this.api, 'warning', 'No valid synth presets found in this JSON.', '该 JSON 中没有有效的合成器预设。');
         return;
@@ -373,7 +388,16 @@ export class SynthPlugin implements Plugin {
       return;
     }
     // Numeric CSV: midi,duration_s — retune the current preset.
-    const lines = (await file.text())
+    if (this.presets.length === 0) {
+      notify(
+        this.api,
+        'warning',
+        'No preset loaded yet — import a preset JSON or press “New preset” first.',
+        '尚未载入预设，请先导入预设 JSON 或点「新建预设」。',
+      );
+      return;
+    }
+    const lines = text
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter((l) => l.length > 0 && !l.startsWith('#'));
@@ -403,6 +427,10 @@ export class SynthPlugin implements Plugin {
   // ---- audio actions ---------------------------------------------------------
 
   private async play() {
+    if (this.presets.length === 0) {
+      notify(this.api, 'warning', 'No preset yet — import one or press “New preset”.', '尚无预设，请导入或点「新建预设」。');
+      return;
+    }
     const p = this.preset();
     const rendered = this.renderedSamples();
     if (!this.player.available) {
@@ -437,6 +465,10 @@ export class SynthPlugin implements Plugin {
   }
 
   private exportWav() {
+    if (this.presets.length === 0) {
+      notify(this.api, 'warning', 'No preset yet — import one or press “New preset”.', '尚无预设，请导入或点「新建预设」。');
+      return;
+    }
     const p = this.preset();
     const wav = renderPresetWav(p, 44100);
     this.api.exportFile(`synth-${p.name.replace(/[^\w-]+/g, '_')}.wav`, wav, 'audio/wav');
@@ -451,7 +483,16 @@ export class SynthPlugin implements Plugin {
   // ---- numerics --------------------------------------------------------------
 
   private preset(): SynthPreset {
-    return this.presets[this.state.presetIndex] ?? this.presets[0]!;
+    return this.presets[this.state.presetIndex] ?? this.presets[0] ?? this.draft;
+  }
+
+  /** Explicit user action: add a fresh editable preset to the library. */
+  private addPreset() {
+    this.draft = newPreset(this.presets.length + 1, this.zh);
+    this.presets.push(this.draft);
+    this.state.presetIndex = this.presets.length - 1;
+    this.resetRender();
+    this.draw();
   }
 
   private resetRender() {
@@ -495,6 +536,10 @@ export class SynthPlugin implements Plugin {
   }
 
   private exportCsv() {
+    if (this.presets.length === 0) {
+      notify(this.api, 'warning', 'No preset yet — import one or press “New preset”.', '尚无预设，请导入或点「新建预设」。');
+      return;
+    }
     const p = this.preset();
     const coeffs = biquadCoeffs(p.filter, 44100, p.cutoff, p.q);
     const freqs: number[] = [];
@@ -510,6 +555,10 @@ export class SynthPlugin implements Plugin {
   }
 
   private async sendToFigure() {
+    if (this.presets.length === 0) {
+      notify(this.api, 'warning', 'No preset yet — import one or press “New preset”.', '尚无预设，请导入或点「新建预设」。');
+      return;
+    }
     const p = this.preset();
     const rendered = this.renderedSamples();
     const caption: Bilingual = {
@@ -525,6 +574,10 @@ export class SynthPlugin implements Plugin {
   }
 
   private publish() {
+    if (this.presets.length === 0) {
+      clearScienceOutputs(this.manifest.id);
+      return;
+    }
     const p = this.preset();
     const rendered = this.renderedSamples();
     const f0 = noteFrequency(p.midi);
@@ -587,6 +640,17 @@ export class SynthPlugin implements Plugin {
   private draw() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
+    this.publish();
+    if (this.presets.length === 0) {
+      this.stopPlayback(false);
+      drawEmptyCanvas(this.api, canvas, {
+        titleZh: '尚未载入预设',
+        title: 'No presets loaded',
+        hintZh: '导入预设 JSON（示例数据或「打开文件」），或点「新建预设」开始设计',
+        hint: 'Import a preset JSON (sample-data bar or Open File), or press “New preset” to start designing.',
+      });
+      return;
+    }
     canvas.width = canvas.clientWidth || 820;
     canvas.height = canvas.clientHeight || 460;
     const g = canvas.getContext('2d');
@@ -594,7 +658,6 @@ export class SynthPlugin implements Plugin {
     g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillRect(0, 0, canvas.width, canvas.height);
     const zh = this.zh;
-    this.publish();
     const p = this.preset();
     g.textAlign = 'center';
     g.font = `14px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;

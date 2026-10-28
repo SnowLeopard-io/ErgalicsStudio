@@ -405,8 +405,8 @@ export function runSynthBenchmarks(): SynthBenchmark[] {
 
   const square = waveSample('square', 0.25);
   const saw = waveSample('sawtooth', 0.25);
-  const tri = waveSample('triangle', 0.0);
-  const lfo = lfoValue(0.125, 1, 'sine');
+  const tri = waveSample('triangle', 0.5);
+  const lfo = lfoValue(0.25, 1, 'sine');
 
   const cases = [
     {
@@ -483,16 +483,16 @@ export function runSynthBenchmarks(): SynthBenchmark[] {
     },
     {
       id: 'wave-tri',
-      labelEn: 'Triangle(0) = −1',
-      labelZh: '三角波(0) = −1',
+      labelEn: 'Triangle(0.5) = −1',
+      labelZh: '三角波(0.5) = −1',
       measured: tri,
       expected: -1,
       tol: 1e-12,
     },
     {
       id: 'lfo-quarter',
-      labelEn: 'Sine LFO at 1/8 cycle = 1',
-      labelZh: '正弦 LFO 在 1/8 周期 = 1',
+      labelEn: 'Sine LFO at 1/4 cycle = 1',
+      labelZh: '正弦 LFO 在 1/4 周期 = 1',
       measured: lfo,
       expected: 1,
       tol: 1e-9,

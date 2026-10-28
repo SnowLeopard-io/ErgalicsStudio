@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import {
@@ -88,7 +88,7 @@ export class AcousticsPlugin implements Plugin {
   private zh = false;
   private player = new AudioClipPlayer();
   private clip: AudioClip | null = null;
-  private demo: SampleTable = demoTone();
+  private demo: SampleTable | null = null;
   private specCache: AcousticSpectrum | null = null;
   private state: State = {
     view: 'waveform',
@@ -149,10 +149,10 @@ export class AcousticsPlugin implements Plugin {
         ],
         value: s.view,
       },
-      actionButton('importAudio', 'Import audio (WAV / MP3 …)', '导入音频（WAV / MP3 …）'),
+      actionButton('importAudio', 'Import audio (WAV / MP3 / M4A / OGG / FLAC …)', '导入音频（WAV / MP3 / M4A / OGG / FLAC …）'),
       actionButton('play', 'Play audio', '播放音频', 'primary'),
       actionButton('stopAudio', 'Stop audio', '停止播放'),
-      actionButton('resetDemo', 'Reset to demo tone', '恢复示例音'),
+      actionButton('loadDemo', 'Load built-in demo tone', '加载内置演示音'),
       {
         key: 'volumeGain',
         label: 'Playback volume',
@@ -287,13 +287,7 @@ export class AcousticsPlugin implements Plugin {
     if (actionFired(params, 'importAudio')) void this.importAudio();
     if (actionFired(params, 'play')) void this.playAudio();
     if (actionFired(params, 'stopAudio')) this.stopPlayback(true);
-    if (actionFired(params, 'resetDemo')) {
-      this.clip = null;
-      this.specCache = null;
-      this.stopPlayback(false);
-      this.state.view = 'waveform';
-      this.draw();
-    }
+    if (actionFired(params, 'loadDemo')) this.loadDemoTone();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
     if (actionFired(params, 'sendToFigure')) void this.sendToFigure();
@@ -306,7 +300,8 @@ export class AcousticsPlugin implements Plugin {
   async loadData(file: File) {
     const low = file.name.toLowerCase();
     const isAudio =
-      file.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|flac|oga|opus)$/i.test(low);
+      file.type.startsWith('audio/') ||
+      /\.(wav|wave|mp3|m4a|mp4|aac|ogg|oga|opus|flac|weba|webm)$/i.test(low);
     if (isAudio) {
       try {
         const clip = await decodeAudioClip(this.api, file);
@@ -332,8 +327,8 @@ export class AcousticsPlugin implements Plugin {
       notify(
         this.api,
         'warning',
-        'Unsupported file. Import WAV/MP3 audio, or a CSV with time_s, amplitude.',
-        '不支持的文件。请导入 WAV/MP3 音频，或含 time_s、amplitude 的 CSV。',
+        'Unsupported file. Import WAV / MP3 / M4A / AAC / OGG / Opus / FLAC / WebM audio, or a CSV with time_s, amplitude.',
+        '不支持的文件。请导入 WAV / MP3 / M4A / AAC / OGG / Opus / FLAC / WebM 音频，或含 time_s、amplitude 的 CSV。',
       );
       return;
     }
@@ -367,6 +362,15 @@ export class AcousticsPlugin implements Plugin {
 
   private async playAudio() {
     const clip = this.currentClip();
+    if (!clip) {
+      notify(
+        this.api,
+        'warning',
+        'No audio loaded yet — import audio or load the demo tone first.',
+        '尚未载入音频，请先导入音频或加载内置演示音。',
+      );
+      return;
+    }
     if (!this.player.available) {
       notify(
         this.api,
@@ -395,22 +399,31 @@ export class AcousticsPlugin implements Plugin {
     if (redraw) this.draw();
   }
 
-  private currentClip(): AudioClip {
-    if (this.clip) return this.clip;
-    return {
-      name: this.zh ? '示例音（440 Hz + 谐波）' : 'demo tone (440 Hz + harmonics)',
-      sampleRate: this.demo.sampleRate,
-      channels: 1,
-      duration: this.demo.samples.length / this.demo.sampleRate,
-      samples: this.demo.samples,
-      channelData: [this.demo.samples],
-      codec: 'decoded',
-    };
+  private currentClip(): AudioClip | null {
+    return this.clip;
   }
 
-  private table(): SampleTable {
+  private table(): SampleTable | null {
     const clip = this.currentClip();
-    return { sampleRate: clip.sampleRate, samples: clip.samples };
+    return clip ? { sampleRate: clip.sampleRate, samples: clip.samples } : null;
+  }
+
+  /** Explicit user action: load the built-in demo tone (never on startup). */
+  private loadDemoTone() {
+    const demo = (this.demo ??= demoTone());
+    this.clip = {
+      name: this.zh ? '内置演示音（440 Hz + 谐波）' : 'built-in demo tone (440 Hz + harmonics)',
+      sampleRate: demo.sampleRate,
+      channels: 1,
+      duration: demo.samples.length / demo.sampleRate,
+      samples: demo.samples,
+      channelData: [demo.samples],
+      codec: 'decoded',
+    };
+    this.specCache = null;
+    this.stopPlayback(false);
+    this.state.view = 'waveform';
+    this.draw();
   }
 
   // ---- actions ---------------------------------------------------------------
@@ -442,6 +455,10 @@ export class AcousticsPlugin implements Plugin {
 
   private exportCsv() {
     const table = this.table();
+    if (!table) {
+      notify(this.api, 'warning', 'No audio loaded yet.', '尚未载入音频。');
+      return;
+    }
     const spec = this.getSpectrum(table);
     const rows: Array<Array<number | string>> = [];
     for (let k = 1; k < spec.freqs.length; k += 1) {
@@ -453,12 +470,17 @@ export class AcousticsPlugin implements Plugin {
 
   private async sendToFigure() {
     const table = this.table();
+    const clip = this.currentClip();
+    if (!table || !clip) {
+      notify(this.api, 'warning', 'No audio loaded yet.', '尚未载入音频。');
+      return;
+    }
     const spec = this.getSpectrum(table);
     const f0 = dominantFrequency(table.samples, table.sampleRate);
     const room = this.roomStats();
     const caption: Bilingual = {
-      zh: `声学分析：${this.currentClip().name}（${table.sampleRate} Hz，${(table.samples.length / table.sampleRate).toFixed(2)} 秒），基频 ${f0.toFixed(1)} Hz；房间 ${this.state.lx}×${this.state.ly}×${this.state.lz} m，RT60(Sabine) ${room.rt60.toFixed(2)} s。`,
-      en: `Acoustic analysis: ${this.currentClip().name} (${table.sampleRate} Hz, ${(table.samples.length / table.sampleRate).toFixed(2)} s), fundamental ${f0.toFixed(1)} Hz; room ${this.state.lx}×${this.state.ly}×${this.state.lz} m, Sabine RT60 ${room.rt60.toFixed(2)} s.`,
+      zh: `声学分析：${clip.name}（${table.sampleRate} Hz，${(table.samples.length / table.sampleRate).toFixed(2)} 秒），基频 ${f0.toFixed(1)} Hz；房间 ${this.state.lx}×${this.state.ly}×${this.state.lz} m，RT60(Sabine) ${room.rt60.toFixed(2)} s。`,
+      en: `Acoustic analysis: ${clip.name} (${table.sampleRate} Hz, ${(table.samples.length / table.sampleRate).toFixed(2)} s), fundamental ${f0.toFixed(1)} Hz; room ${this.state.lx}×${this.state.ly}×${this.state.lz} m, Sabine RT60 ${room.rt60.toFixed(2)} s.`,
     };
     await pushPanelsToFigure(
       this.api,
@@ -502,44 +524,50 @@ export class AcousticsPlugin implements Plugin {
 
   private publish() {
     const table = this.table();
-    const f0 = dominantFrequency(table.samples, table.sampleRate);
-    const harmonics = this.harmonics(table);
     const room = this.roomStats();
-    const metrics: ScienceMetric[] = [
-      {
-        key: 'fundamental',
-        label: 'Fundamental f₀',
-        value: fmtMetric(f0),
-        unit: 'Hz',
-        severity: 'info',
-        hint: `${this.zh ? 'FFT 峰值' : 'FFT peak'} · ${this.zh ? '过零估计' : 'zero-crossing'} ${zeroCrossingFrequency(table.samples, table.sampleRate).toFixed(1)} Hz`,
-      },
-      {
-        key: 'level',
-        label: 'RMS level',
-        value: fmtMetric(rmsDbfs(table.samples), 2),
-        unit: 'dBFS',
-        severity: rmsDbfs(table.samples) > -1 ? 'warn' : 'ok',
-        hint: this.zh
-          ? `峰值 ${peakAmplitude(table.samples).toFixed(3)} · 波峰因数 ${crestFactor(table.samples).toFixed(2)}`
-          : `peak ${peakAmplitude(table.samples).toFixed(3)} · crest ${crestFactor(table.samples).toFixed(2)}`,
-      },
-      {
-        key: 'thd',
-        label: 'THD (H2…Hn)',
-        value: fmtMetric(thd(harmonics) * 100, 2),
-        unit: '%',
-        severity: 'info',
-        hint: this.zh ? `前 ${this.state.harmonics} 次谐波` : `first ${this.state.harmonics} harmonics`,
-      },
-      {
-        key: 'duration',
-        label: 'Duration',
-        value: fmtMetric(table.samples.length / table.sampleRate, 2),
-        unit: 's',
-        severity: 'info',
-        hint: `${table.sampleRate} Hz · ${this.currentClip().channels} ch`,
-      },
+    const metrics: ScienceMetric[] = [];
+    if (table) {
+      const clip = this.currentClip()!;
+      const f0 = dominantFrequency(table.samples, table.sampleRate);
+      const harmonics = this.harmonics(table);
+      metrics.push(
+        {
+          key: 'fundamental',
+          label: 'Fundamental f₀',
+          value: fmtMetric(f0),
+          unit: 'Hz',
+          severity: 'info',
+          hint: `${this.zh ? 'FFT 峰值' : 'FFT peak'} · ${this.zh ? '过零估计' : 'zero-crossing'} ${zeroCrossingFrequency(table.samples, table.sampleRate).toFixed(1)} Hz`,
+        },
+        {
+          key: 'level',
+          label: 'RMS level',
+          value: fmtMetric(rmsDbfs(table.samples), 2),
+          unit: 'dBFS',
+          severity: rmsDbfs(table.samples) > -1 ? 'warn' : 'ok',
+          hint: this.zh
+            ? `峰值 ${peakAmplitude(table.samples).toFixed(3)} · 波峰因数 ${crestFactor(table.samples).toFixed(2)}`
+            : `peak ${peakAmplitude(table.samples).toFixed(3)} · crest ${crestFactor(table.samples).toFixed(2)}`,
+        },
+        {
+          key: 'thd',
+          label: 'THD (H2…Hn)',
+          value: fmtMetric(thd(harmonics) * 100, 2),
+          unit: '%',
+          severity: 'info',
+          hint: this.zh ? `前 ${this.state.harmonics} 次谐波` : `first ${this.state.harmonics} harmonics`,
+        },
+        {
+          key: 'duration',
+          label: 'Duration',
+          value: fmtMetric(table.samples.length / table.sampleRate, 2),
+          unit: 's',
+          severity: 'info',
+          hint: `${table.sampleRate} Hz · ${clip.channels} ch`,
+        },
+      );
+    }
+    metrics.push(
       {
         key: 'rt60',
         label: 'RT60 (Sabine)',
@@ -560,7 +588,7 @@ export class AcousticsPlugin implements Plugin {
           ? `临界距离 ${room.critical.toFixed(2)} m · 一阶轴向模态 ${room.axial.toFixed(1)} Hz`
           : `critical distance ${room.critical.toFixed(2)} m · first axial mode ${room.axial.toFixed(1)} Hz`,
       },
-    ];
+    );
     setScienceOutputs(this.manifest.id, metrics);
   }
 
@@ -569,14 +597,24 @@ export class AcousticsPlugin implements Plugin {
   private draw() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
+    const zh = this.zh;
+    this.publish();
+    if (!this.clip && ['waveform', 'spectrum', 'harmonics'].includes(this.state.view)) {
+      this.stopPlayback(false);
+      drawEmptyCanvas(this.api, canvas, {
+        titleZh: '尚未载入音频',
+        title: 'No audio loaded',
+        hintZh: '导入 WAV / MP3 / M4A / AAC / OGG / Opus / FLAC / WebM，或含 time_s, amplitude 的 CSV；也可点「加载内置演示音」',
+        hint: 'Import WAV / MP3 / M4A / AAC / OGG / Opus / FLAC / WebM audio, or a time_s/amplitude CSV — or press “Load built-in demo tone”.',
+      });
+      return;
+    }
     canvas.width = canvas.clientWidth || 820;
     canvas.height = canvas.clientHeight || 460;
     const g = canvas.getContext('2d');
     if (!g) return;
     g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillRect(0, 0, canvas.width, canvas.height);
-    const zh = this.zh;
-    this.publish();
     this.drawHeader(g, canvas, zh);
 
     switch (this.state.view) {
@@ -606,9 +644,13 @@ export class AcousticsPlugin implements Plugin {
     g.font = `11px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.fillStyle = 'rgba(170,182,200,0.92)';
     g.fillText(
-      `${clip.name} · ${clip.sampleRate} Hz · ${clip.channels} ch · ${clip.duration.toFixed(2)} s${
-        this.state.playing ? (zh ? ' · 正在播放' : ' · playing') : ''
-      }`,
+      clip
+        ? `${clip.name} · ${clip.sampleRate} Hz · ${clip.channels} ch · ${clip.duration.toFixed(2)} s${
+            this.state.playing ? (zh ? ' · 正在播放' : ' · playing') : ''
+          }`
+        : zh
+          ? '尚未载入音频 · 拍频与房间声学无需音频'
+          : 'no audio loaded · beats and room acoustics work without audio',
       canvas.width / 2,
       38,
     );
@@ -616,6 +658,7 @@ export class AcousticsPlugin implements Plugin {
 
   private drawWaveform(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, zh: boolean) {
     const table = this.table();
+    if (!table) return;
     const x0 = 56;
     const x1 = canvas.width - 24;
     const y0 = 58;
@@ -686,6 +729,7 @@ export class AcousticsPlugin implements Plugin {
 
   private drawSpectrum(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, zh: boolean) {
     const table = this.table();
+    if (!table) return;
     const spec = this.getSpectrum(table);
     const f0 = dominantFrequency(table.samples, table.sampleRate);
     const x0 = 66;
@@ -771,6 +815,7 @@ export class AcousticsPlugin implements Plugin {
 
   private drawHarmonics(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, zh: boolean) {
     const table = this.table();
+    if (!table) return;
     const f0 = dominantFrequency(table.samples, table.sampleRate);
     const harmonics = this.harmonics(table);
     const x0 = 60;

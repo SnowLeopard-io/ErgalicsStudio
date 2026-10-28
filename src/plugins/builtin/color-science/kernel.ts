@@ -479,7 +479,9 @@ export function runColorBenchmarks(): ColorBenchmark[] {
       zh: '白色 a* ≈ 0',
       measured: Math.abs(white[1]),
       expected: 0,
-      tol: 1e-6,
+      // The sRGB ↔ XYZ matrix and the tabulated D65 white point differ in the
+      // seventh decimal, so a perfectly neutral white lands at a* ≈ 1.7e-5.
+      tol: 5e-5,
     },
     {
       id: 'sRGB-red-Lab',

@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
+import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { colorFigurePanels } from './figure';
@@ -43,20 +43,6 @@ export { colorScienceManifest } from './manifest';
 
 type ViewId = 'chromaticity' | 'spaces' | 'harmony' | 'palette' | 'vision';
 
-const DEFAULT_PALETTE: PaletteEntry[] = ([
-  ['Ink', '#111827'],
-  ['Cobalt', '#2563EB'],
-  ['Cyan', '#06B6D4'],
-  ['Teal', '#10B981'],
-  ['Amber', '#F59E0B'],
-  ['Vermilion', '#EF4444'],
-  ['Magenta', '#D946EF'],
-  ['Paper', '#F8FAFC'],
-] as Array<[string, string]>).map(([name, hex]) => {
-  const rgb = hexToRgb(hex) ?? [0, 0, 0];
-  return { name, rgb, hex: rgbToHex(rgb) };
-});
-
 interface State {
   baseHex: string;
   compareHex: string;
@@ -71,7 +57,8 @@ export class ColorSciencePlugin implements Plugin {
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
-  private palette: PaletteEntry[] = DEFAULT_PALETTE;
+  /** Empty on startup: palettes arrive from a CSV import. */
+  private palette: PaletteEntry[] = [];
   private state: State = {
     baseHex: '#2563EB',
     compareHex: '#F59E0B',
@@ -339,6 +326,15 @@ export class ColorSciencePlugin implements Plugin {
   }
 
   private async sendToFigure() {
+    if (this.palette.length === 0) {
+      notify(
+        this.api,
+        'warning',
+        'No palette loaded yet — import a colour CSV first.',
+        '尚未载入调色板，请先导入色彩 CSV。',
+      );
+      return;
+    }
     const base = this.base();
     const compare = this.compare();
     const de = deltaE2000(rgbToLab(base), rgbToLab(compare));
@@ -424,6 +420,16 @@ export class ColorSciencePlugin implements Plugin {
   private draw() {
     const canvas = this.ctx?.canvas2d;
     if (!canvas) return;
+    this.publish();
+    if (this.state.view === 'palette' && this.palette.length === 0) {
+      drawEmptyCanvas(this.api, canvas, {
+        titleZh: '尚未载入调色板',
+        title: 'No palette loaded',
+        hintZh: '导入 CSV（name, hex 或 name, r, g, b）后可查看调色板、ΔE 与 WCAG 对比度',
+        hint: 'Import a CSV (name, hex — or name, r, g, b) to inspect swatches, ΔE and WCAG contrast.',
+      });
+      return;
+    }
     canvas.width = canvas.clientWidth || 820;
     canvas.height = canvas.clientHeight || 460;
     const g = canvas.getContext('2d');
@@ -432,7 +438,6 @@ export class ColorSciencePlugin implements Plugin {
     g.fillRect(0, 0, canvas.width, canvas.height);
     const zh = this.zh;
     const base = this.base();
-    this.publish();
 
     g.font = `14px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.textAlign = 'center';
