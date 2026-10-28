@@ -18,6 +18,7 @@ import {
 } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { emit } from '@/core/events';
 import { statsMarkovManifest } from './manifest';
 import { markovFigurePanels } from './figure';
 import {
@@ -62,6 +63,9 @@ interface State {
 const DEFAULT_LABELS = (n: number): string[] =>
   Array.from({ length: n }, (_, i) => `S${i + 1}`);
 
+/** Dropdown id for the custom (hand-edited / imported) matrix. */
+const CUSTOM_PRESET_ID = '__custom__';
+
 export class StatsMarkovPlugin implements Plugin {
   readonly manifest = statsMarkovManifest;
   private api!: PluginApi;
@@ -86,6 +90,10 @@ export class StatsMarkovPlugin implements Plugin {
       this.zh = l === 'zh-CN';
       this.draw();
     });
+    // Self-seeded default matrix: analyse it immediately so the plugin opens
+    // with the graph / stationary law visible (it is a self-contained
+    // calculator — no external data required).
+    this.recompute(false);
   }
 
   async destroy() {
@@ -112,18 +120,28 @@ export class StatsMarkovPlugin implements Plugin {
         label: 'Preset',
         labelI18n: { 'zh-CN': '预设矩阵', 'en-US': 'Preset' },
         type: 'select',
-        options: PRESETS.map((p) => ({
-          value: p.id,
-          label: zh ? p.zh : p.en,
-          labelI18n: { 'zh-CN': p.zh, 'en-US': p.en },
-        })),
-        value: this.state.preset,
+        options: [
+          ...PRESETS.map((p) => ({
+            value: p.id,
+            label: zh ? p.zh : p.en,
+            labelI18n: { 'zh-CN': p.zh, 'en-US': p.en },
+          })),
+          {
+            value: CUSTOM_PRESET_ID,
+            label: zh ? '自定义' : 'Custom',
+            labelI18n: { 'zh-CN': '自定义', 'en-US': 'Custom' },
+          },
+        ],
+        value: this.state.preset || CUSTOM_PRESET_ID,
       },
       {
         key: 'matrix',
         label: 'Matrix P (rows = from)',
         labelI18n: { 'zh-CN': '转移矩阵 P（行=出发态）', 'en-US': 'Matrix P (rows = from)' },
         type: 'text',
+        // The free-form matrix editor only makes sense in custom mode; under a
+        // preset it would be dead UI (edits are overwritten by the preset).
+        visibleWhen: { key: 'preset', in: [CUSTOM_PRESET_ID] },
         value: this.state.matrixText,
         placeholder: '0.9,0.1 ; 0.45,0.55',
         hint: zh
@@ -167,18 +185,28 @@ export class StatsMarkovPlugin implements Plugin {
 
   updateParams(params: Record<string, unknown>) {
     let recompute = false;
+    let panelChanged = false;
     if (typeof params.preset === 'string') {
-      const preset = PRESETS.find((p) => p.id === params.preset);
-      if (preset && preset.id !== this.state.preset) {
-        this.state.preset = preset.id;
-        this.state.matrixText = serializeMatrix(preset.rows);
-        this.state.labels = preset.labels ?? DEFAULT_LABELS(preset.rows.length);
-        recompute = true;
+      if (params.preset === CUSTOM_PRESET_ID) {
+        // Switching to custom keeps the current matrix text as the starting
+        // point for hand edits; the editor field becomes visible.
+        if (this.state.preset !== CUSTOM_PRESET_ID) {
+          this.state.preset = CUSTOM_PRESET_ID;
+          panelChanged = true;
+        }
+      } else {
+        const preset = PRESETS.find((p) => p.id === params.preset);
+        if (preset && preset.id !== this.state.preset) {
+          this.state.preset = preset.id;
+          this.state.matrixText = serializeMatrix(preset.rows);
+          this.state.labels = preset.labels ?? DEFAULT_LABELS(preset.rows.length);
+          recompute = true;
+        }
       }
     }
     if (typeof params.matrix === 'string' && params.matrix !== this.state.matrixText) {
       this.state.matrixText = params.matrix;
-      this.state.preset = '';
+      this.state.preset = CUSTOM_PRESET_ID;
       recompute = true;
     }
     if (typeof params.initial === 'string' && params.initial !== this.state.initialText) {
@@ -204,6 +232,8 @@ export class StatsMarkovPlugin implements Plugin {
       this.state.trajectory = null;
       this.recompute(false);
     }
+    // Visibility of the matrix editor depends on the preset mode.
+    if (panelChanged) emit('host:params:changed', { pluginId: this.manifest.id });
 
     if (actionFired(params, 'simulate')) this.simulate();
     if (actionFired(params, 'benchmark')) this.runBenchmark();
@@ -239,8 +269,9 @@ export class StatsMarkovPlugin implements Plugin {
     }
     this.state.matrixText = serializeMatrix(parsed.rows);
     this.state.labels = parsed.labels ?? DEFAULT_LABELS(parsed.rows.length);
-    this.state.preset = '';
+    this.state.preset = CUSTOM_PRESET_ID;
     this.state.trajectory = null;
+    emit('host:params:changed', { pluginId: this.manifest.id });
     this.recompute(true);
   }
 

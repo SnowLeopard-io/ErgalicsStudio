@@ -71,21 +71,27 @@ export const PARETO_UPPER = 20;
 
 export const POPULATION_KINDS: PopulationKind[] = ['uniform', 'exponential', 'bernoulli', 'bimodal', 'pareto'];
 
+/** Valid slider range of each family's shape parameter. */
+export function paramRange(kind: PopulationKind): { min: number; max: number } {
+  switch (kind) {
+    case 'uniform':
+      return { min: 0.1, max: 5 };
+    case 'exponential':
+      return { min: 0.2, max: 5 };
+    case 'bernoulli':
+      return { min: 0.05, max: 0.95 };
+    case 'bimodal':
+      return { min: 0.1, max: 3 };
+    case 'pareto':
+      return { min: 1.1, max: 4 };
+  }
+}
+
 /** Clamp the family parameter into its valid range. */
 export function clampParam(kind: PopulationKind, param: number): number {
   const p = Number.isFinite(param) ? param : 1;
-  switch (kind) {
-    case 'uniform':
-      return Math.min(5, Math.max(0.1, p));
-    case 'exponential':
-      return Math.min(5, Math.max(0.2, p));
-    case 'bernoulli':
-      return Math.min(0.95, Math.max(0.05, p));
-    case 'bimodal':
-      return Math.min(3, Math.max(0.1, p));
-    case 'pareto':
-      return Math.min(4, Math.max(1.1, p));
-  }
+  const { min, max } = paramRange(kind);
+  return Math.min(max, Math.max(min, p));
 }
 
 /** Human-readable name of the family parameter (for the slider label). */

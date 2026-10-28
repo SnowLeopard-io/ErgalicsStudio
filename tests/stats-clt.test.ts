@@ -5,6 +5,7 @@ import {
   histogram,
   jarqueBera,
   normalPdf,
+  paramRange,
   relErr,
   runClt,
   runCltBenchmark,
@@ -14,6 +15,7 @@ import {
   theoryMoments,
   type PopulationSpec,
 } from '../src/plugins/builtin/math/clt/kernel';
+import { StatsCltPlugin } from '../src/plugins/builtin/math/clt/plugin';
 
 describe('stats-clt closed-form population moments', () => {
   it('uniform U[0,w] has mean w/2 and variance w²/12', () => {
@@ -58,6 +60,23 @@ describe('stats-clt closed-form population moments', () => {
     expect(clampParam('uniform', 99)).toBe(5);
     expect(clampParam('bernoulli', 3)).toBe(0.95);
     expect(clampParam('pareto', 1)).toBe(1.1);
+  });
+
+  it('paramRange matches the clamp bounds of every family', () => {
+    (['uniform', 'exponential', 'bernoulli', 'bimodal', 'pareto'] as const).forEach((kind) => {
+      const { min, max } = paramRange(kind);
+      expect(clampParam(kind, min)).toBe(min);
+      expect(clampParam(kind, max)).toBe(max);
+      expect(clampParam(kind, min - 1e6)).toBe(min);
+      expect(clampParam(kind, max + 1e6)).toBe(max);
+    });
+  });
+
+  it('the plugin slider spans exactly the selected family range', () => {
+    const plugin = new StatsCltPlugin();
+    plugin.updateParams({ kind: 'bernoulli' });
+    const slider = plugin.getParams().find((def) => def.key === 'param');
+    expect(slider).toMatchObject({ type: 'range', min: 0.05, max: 0.95, value: 0.95 });
   });
 });
 

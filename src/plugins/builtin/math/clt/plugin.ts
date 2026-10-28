@@ -29,6 +29,7 @@ import {
   clampParam,
   normalPdf,
   paramLabel,
+  paramRange,
   relErr,
   runClt,
   runCltBenchmark,
@@ -96,6 +97,7 @@ export class StatsCltPlugin implements Plugin {
   }
 
   getParams(): ParamDefinition[] {
+    const range = paramRange(this.state.kind);
     return [
       {
         key: 'kind',
@@ -117,8 +119,8 @@ export class StatsCltPlugin implements Plugin {
           'en-US': paramLabel(this.state.kind, false),
         },
         type: 'range',
-        min: 0.05,
-        max: 5,
+        min: range.min,
+        max: range.max,
         step: 0.05,
         value: this.state.param,
         hint: this.zh
