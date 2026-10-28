@@ -23,6 +23,7 @@ export type PluginDiscipline =
   | 'materials'
   | 'econ'
   | 'psych'
+  | 'artsci'
   | 'data'
   | 'fun';
 
@@ -47,6 +48,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'engineering', nameI18n: { 'zh-CN': '工程仿真', 'en-US': 'Engineering' } },
   { id: 'econ', nameI18n: { 'zh-CN': '经济与金融', 'en-US': 'Economics' } },
   { id: 'psych', nameI18n: { 'zh-CN': '心理与行为', 'en-US': 'Psychology' } },
+  { id: 'artsci', nameI18n: { 'zh-CN': '音乐与艺术科学', 'en-US': 'Music & Art Science' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
@@ -190,6 +192,12 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.econ-evogame': 'econ',
   'example.psych-sdt': 'psych',
   'example.psych-rt': 'psych',
+
+  // Music & art science (interdisciplinary)
+  'example.acoustics': 'artsci',
+  'example.tuning': 'artsci',
+  'example.synth': 'artsci',
+  'example.color-science': 'artsci',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

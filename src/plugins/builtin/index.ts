@@ -128,6 +128,10 @@ import { rtManifest } from './psych-rt/manifest';
 import { astroTransitManifest } from './astro-transit/manifest';
 import { astroHrdiagramManifest } from './astro-hrdiagram/manifest';
 import { dataImageprocManifest } from './data-imageproc/manifest';
+import { acousticsManifest } from './acoustics/manifest';
+import { tuningManifest } from './tuning/manifest';
+import { synthManifest } from './synth/manifest';
+import { colorScienceManifest } from './color-science/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -814,6 +818,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: dataImageprocManifest,
     load: async () => {
       const mod = await import('./data-imageproc');
+      return mod.default();
+    },
+  },
+  // ---- Music & art science (interdisciplinary labs) --------------------------
+  {
+    manifest: acousticsManifest,
+    load: async () => {
+      const mod = await import('./acoustics');
+      return mod.default();
+    },
+  },
+  {
+    manifest: tuningManifest,
+    load: async () => {
+      const mod = await import('./tuning');
+      return mod.default();
+    },
+  },
+  {
+    manifest: synthManifest,
+    load: async () => {
+      const mod = await import('./synth');
+      return mod.default();
+    },
+  },
+  {
+    manifest: colorScienceManifest,
+    load: async () => {
+      const mod = await import('./color-science');
       return mod.default();
     },
   },

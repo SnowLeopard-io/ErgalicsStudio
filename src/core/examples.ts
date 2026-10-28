@@ -94,11 +94,18 @@ import geoStormHyetographCsv from '../../examples/data/usgs-storm-hyetograph.csv
 import geoSeismicVelocityCsv from '../../examples/data/geo-seismic-velocity.csv?raw';
 import geoMineralsCsv from '../../examples/data/geo-minerals.csv?raw';
 import geoHydroPumpingCsv from '../../examples/data/geo-hydro-pumping.csv?raw';
+import tuningJustIntonationCsv from '../../examples/data/tuning-just-intonation.csv?raw';
+import colorPalettesCsv from '../../examples/data/color-palettes.csv?raw';
+import synthPresetsJson from '../../examples/data/synth-presets.json?raw';
 import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
 import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
-import { IMAGEPROC_SUBJECT_PNG_BASE64, TEST_PATTERN_PNG_BASE64 } from './exampleAssets';
+import {
+  ACOUSTICS_DEMO_WAV_BASE64,
+  IMAGEPROC_SUBJECT_PNG_BASE64,
+  TEST_PATTERN_PNG_BASE64,
+} from './exampleAssets';
 
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
 // examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
@@ -2865,6 +2872,82 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '20×12 分段 UV 球的二进制 GLB 容器（约 6.5 KB，JSON + BIN 双 chunk）。体积最小的 glb 样例，用于验证二进制 glTF 加载路径。',
       'en-US':
         'A 20×12-segment UV sphere packed as a binary GLB container (about 6.5 KB, JSON + BIN chunks). The smallest glb sample, for verifying the binary glTF load path.',
+    },
+  },
+  {
+    id: 'tuning-just-intonation',
+    filename: 'tuning-just-intonation.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.tuning',
+    group: 'artsci',
+    content: tuningJustIntonationCsv,
+    nameI18n: {
+      'zh-CN': '音律系统 · 五限纯律十二音级表',
+      'en-US': 'Tuning Systems · 5-limit Just Intonation Chromatic Table',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '以 C 为主音的五限纯律十二半音表（degree、name、ratio、cents），含 16/15、9/8、5/4、3/2 等标准比值。载入后切换到数值表视图，可对比 12-TET 的音分偏差与拍频。',
+      'en-US':
+        'The twelve chromatic degrees of 5-limit just intonation on C (degree, name, ratio, cents), including 16/15, 9/8, 5/4 and 3/2. Loading switches to the numeric table so the cent deviations and beat rates can be compared with 12-TET.',
+    },
+  },
+  {
+    id: 'color-science-palette',
+    filename: 'color-palettes.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.color-science',
+    group: 'artsci',
+    content: colorPalettesCsv,
+    nameI18n: {
+      'zh-CN': '色彩科学 · 十二色调色板（含 WCAG 评估）',
+      'en-US': 'Colour Science · Twelve-Colour Palette (with WCAG)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 个常用界面/设计色的 name,hex 表。载入后显示调色板视图：每个色块的 CIELAB、相对基准色的 ΔE2000，以及黑底/白底 WCAG 对比度与等级。',
+      'en-US':
+        'A name,hex table of 12 common UI/design colours. Loading shows the palette view with each swatch’s CIELAB coordinates, CIEDE2000 difference from the base colour, and black/white WCAG contrast with its level.',
+    },
+  },
+  {
+    id: 'synth-teaching-presets',
+    filename: 'synth-presets.json',
+    format: 'json',
+    mimeType: 'application/json',
+    pluginId: 'example.synth',
+    group: 'artsci',
+    content: synthPresetsJson,
+    nameI18n: {
+      'zh-CN': '合成器 · 三个教学预设（正弦 / FM 钟 / 共振锯齿）',
+      'en-US': 'Synthesizer · Three Teaching Presets (sine / FM bell / resonant saw)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '三个 JSON 合成器预设：纯正弦、FM 钟声与共振锯齿扫频，各含振荡器、FM、滤波器、ADSR 与 LFO 参数。载入后追加到预设列表，可渲染播放或导出 16-bit WAV。',
+      'en-US':
+        'Three JSON synth presets — a plain sine, an FM bell and a resonant saw sweep — each specifying oscillator, FM, filter, ADSR and LFO parameters. Loading appends them to the preset list for offline rendering, playback or 16-bit WAV export.',
+    },
+  },
+  {
+    id: 'acoustics-demo-tone',
+    filename: 'acoustics-demo.wav',
+    format: 'wav',
+    mimeType: 'audio/wav',
+    pluginId: 'example.acoustics',
+    group: 'artsci',
+    contentBase64: ACOUSTICS_DEMO_WAV_BASE64,
+    nameI18n: {
+      'zh-CN': '声学 · 0.75 秒 440 Hz 演示音（WAV，8 kHz）',
+      'en-US': 'Acoustics · 0.75 s 440 Hz Demo Tone (WAV, 8 kHz)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '一段 0.75 秒、8 kHz 单声道 16-bit WAV：440 Hz 基频 + 二次/三次谐波，带淡入淡出。载入后显示波形与频谱，但不会自动播放——需手动点“播放音频”。',
+      'en-US':
+        'A 0.75 s, 8 kHz mono 16-bit WAV: 440 Hz fundamental plus second and third harmonics, with fade in/out. Loading shows the waveform and spectrum; it never auto-plays — press Play to listen.',
     },
   },
 ];

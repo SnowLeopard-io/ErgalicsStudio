@@ -223,6 +223,162 @@ export const pumpingTestBlock: BlockDefinition = defineBlock(
   },
 );
 
+export const tuningTableBlock: BlockDefinition = defineBlock(
+  {
+    id: 'viz.tuning_table',
+    category: 'visualize',
+    name: '音律表',
+    nameI18n: { 'en-US': 'Tuning Table' },
+    description: '音级/比值/音分表 → 音律系统计算器',
+    descriptionI18n: { 'en-US': 'Degree/ratio/cent table → Tuning System Calculator' },
+    color: VIZ_COLOR,
+    ...viewInput(),
+    defaultParams: { degreeColumn: 'degree', nameColumn: 'name', ratioColumn: 'ratio', centsColumn: 'cents' },
+    paramLabels: {
+      degreeColumn: { label: '音级列', labelI18n: { 'en-US': 'Degree column' } },
+      nameColumn: { label: '音名列', labelI18n: { 'en-US': 'Name column' } },
+      ratioColumn: { label: '比值列', labelI18n: { 'en-US': 'Ratio column' } },
+      centsColumn: { label: '音分列', labelI18n: { 'en-US': 'Cent column' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const degree = String(ctx.getParam('degreeColumn') ?? '');
+    const name = String(ctx.getParam('nameColumn') ?? '');
+    const ratio = String(ctx.getParam('ratioColumn') ?? '');
+    const cents = String(ctx.getParam('centsColumn') ?? '');
+    requireColumn(input, degree);
+    requireColumn(input, ratio);
+    const columns = [degree, name, ratio, cents].filter((c) => c && input.columnNames().includes(c));
+    return renderedView('tuning-table', 'example.tuning', toCsvTable(input, columns));
+  },
+);
+
+export const colorPaletteBlock: BlockDefinition = defineBlock(
+  {
+    id: 'viz.color_palette',
+    category: 'visualize',
+    name: '调色板',
+    nameI18n: { 'en-US': 'Colour Palette' },
+    description: '名称/HEX 色表（或 RGB）→ 色彩科学实验室',
+    descriptionI18n: { 'en-US': 'Name/HEX table (or RGB) → Colour Science Lab' },
+    color: VIZ_COLOR,
+    ...viewInput(),
+    defaultParams: { nameColumn: 'name', hexColumn: 'hex', rColumn: '', gColumn: '', bColumn: '' },
+    paramLabels: {
+      nameColumn: { label: '名称列', labelI18n: { 'en-US': 'Name column' } },
+      hexColumn: { label: 'HEX 列（可留空）', labelI18n: { 'en-US': 'HEX column (optional)' } },
+      rColumn: { label: 'R 列（无 HEX 时使用）', labelI18n: { 'en-US': 'R column (when no HEX)' } },
+      gColumn: { label: 'G 列', labelI18n: { 'en-US': 'G column' } },
+      bColumn: { label: 'B 列', labelI18n: { 'en-US': 'B column' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const name = String(ctx.getParam('nameColumn') ?? '');
+    const hex = String(ctx.getParam('hexColumn') ?? '');
+    const r = String(ctx.getParam('rColumn') ?? '');
+    const g = String(ctx.getParam('gColumn') ?? '');
+    const b = String(ctx.getParam('bColumn') ?? '');
+    const columns = [name, hex, r, g, b].filter((c) => c && input.columnNames().includes(c));
+    if (columns.length === 0) {
+      throw new Error('No usable colour columns selected (need hex, or r/g/b).');
+    }
+    return renderedView('color-palette', 'example.color-science', toCsvTable(input, columns));
+  },
+);
+
+export const acousticsWaveformBlock: BlockDefinition = defineBlock(
+  {
+    id: 'viz.acoustics_waveform',
+    category: 'visualize',
+    name: '声学波形',
+    nameI18n: { 'en-US': 'Acoustic Waveform' },
+    description: '时间/幅度数值表 → 声学实验室（仅数值，不播放）',
+    descriptionI18n: { 'en-US': 'Time/amplitude table → Acoustics Lab (data only, no playback)' },
+    color: VIZ_COLOR,
+    ...viewInput(),
+    defaultParams: { timeColumn: 'time_s', amplitudeColumn: 'amplitude' },
+    paramLabels: {
+      timeColumn: { label: '时间列（秒）', labelI18n: { 'en-US': 'Time column (s)' } },
+      amplitudeColumn: { label: '幅度列', labelI18n: { 'en-US': 'Amplitude column' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const time = String(ctx.getParam('timeColumn') ?? '');
+    const amplitude = String(ctx.getParam('amplitudeColumn') ?? '');
+    requireColumn(input, time);
+    requireColumn(input, amplitude);
+    const lines = [`${time},${amplitude}`];
+    const t = input.getColumn(time)!;
+    const a = input.getColumn(amplitude)!;
+    for (let i = 0; i < input.length; i += 1) lines.push(`${String(t[i])},${String(a[i])}`);
+    return renderedView('acoustics-waveform', 'example.acoustics', lines.join('\n'));
+  },
+);
+
+export const synthPresetsBlock: BlockDefinition = defineBlock(
+  {
+    id: 'viz.synth_presets',
+    category: 'visualize',
+    name: '合成器预设',
+    nameI18n: { 'en-US': 'Synth Presets' },
+    description: '参数表 → 合成器实验室（JSON 预设，仅数值）',
+    descriptionI18n: { 'en-US': 'Parameter table → Synthesizer Lab (JSON presets, data only)' },
+    color: VIZ_COLOR,
+    ...viewInput(),
+    defaultParams: { midiColumn: 'midi', nameColumn: 'name' },
+    paramLabels: {
+      midiColumn: { label: 'MIDI 音符列', labelI18n: { 'en-US': 'MIDI note column' } },
+      nameColumn: { label: '预设名列', labelI18n: { 'en-US': 'Preset name column' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const midiCol = String(ctx.getParam('midiColumn') ?? '');
+    const nameCol = String(ctx.getParam('nameColumn') ?? '');
+    requireColumn(input, midiCol);
+    const has = (name: string) => Boolean(name) && input.columnNames().includes(name);
+    const text = (row: Record<string, unknown>, key: string): string | undefined =>
+      typeof row[key] === 'string' ? (row[key] as string) : undefined;
+    const num = (row: Record<string, unknown>, key: string): number | undefined => {
+      const v = row[key];
+      return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    };
+    const presets = [];
+    for (let i = 0; i < input.length; i += 1) {
+      const row = input.getRow(i);
+      const midi = num(row, midiCol);
+      if (midi === undefined) continue;
+      const preset: Record<string, unknown> = {
+        name: (has(nameCol) ? text(row, nameCol) : undefined) ?? `preset ${i + 1}`,
+        wave: text(row, 'wave') ?? 'sine',
+        midi: Math.round(midi),
+        detune: num(row, 'detune') ?? 0,
+        fmRatio: num(row, 'fmRatio') ?? 1,
+        fmIndex: num(row, 'fmIndex') ?? 0,
+        filter: text(row, 'filter') ?? 'lowpass',
+        cutoff: num(row, 'cutoff') ?? 3000,
+        q: num(row, 'q') ?? 0.7,
+        adsr: {
+          attack: num(row, 'attack') ?? 0.02,
+          decay: num(row, 'decay') ?? 0.25,
+          sustain: num(row, 'sustain') ?? 0.7,
+          release: num(row, 'release') ?? 0.3,
+        },
+        lfoRate: num(row, 'lfoRate') ?? 5,
+        lfoDepth: num(row, 'lfoDepth') ?? 0,
+        lfoShape: text(row, 'lfoShape') ?? 'sine',
+        duration: num(row, 'duration') ?? 2,
+      };
+      presets.push(preset);
+    }
+    if (presets.length === 0) throw new Error('No rows with a numeric MIDI note found.');
+    return renderedView('synth-presets', 'example.synth', JSON.stringify(presets, null, 2));
+  },
+);
+
 export const visualizeBlocks: BlockDefinition[] = [
   scatterBlock,
   lineBlock,
@@ -231,4 +387,8 @@ export const visualizeBlocks: BlockDefinition[] = [
   seismicModelBlock,
   mineralDatabaseBlock,
   pumpingTestBlock,
+  tuningTableBlock,
+  colorPaletteBlock,
+  acousticsWaveformBlock,
+  synthPresetsBlock,
 ];

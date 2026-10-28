@@ -72,7 +72,7 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **121 built-in plugins (111 scientific auto-load + 10 fun manual) across 15 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **125 built-in plugins (115 scientific auto-load + 10 fun manual) across 16 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 153 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
@@ -101,7 +101,7 @@ What ships today:
 
 | Capability | Details |
 | --- | --- |
-| **121 built-in plugins** | (111 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **15 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / fun). |
+| **125 built-in plugins** | (115 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **16 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / geo / env / astro / materials / engineering / econ / psych / data / fx / music & art science / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -210,7 +210,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (111 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (115 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -261,7 +261,7 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils)
-│   ├── plugins/builtin/      #   121 plugins: 111 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   125 plugins: 115 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -446,7 +446,7 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**111 scientific plugins** auto-load at startup, grouped into **15
+**115 scientific plugins** auto-load at startup, grouped into **16
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
@@ -632,6 +632,15 @@ examples dialog:
 | Starfield · Night Sky | 星空 · 夜天渲染器 | Procedural stars, a galactic-plane Milky Way, sidereal rotation and a Bortle light-pollution model. |
 | Ocean Swell · Sunrise & Sunset | 波浪海面 · 日升日落 | Gerstner wave trains from a discretised Pierson–Moskowitz spectrum, two-lobe sun path, Schlick-Fresnel water body and marine haze. |
 | Misty Peaks · Layered Ridges | 雾锁青山 · 叠嶂云海 | Near-to-far ridged-noise ridge silhouettes, sun-lit, dissolved by aerial perspective and a Koschmieder-visibility mist band. |
+
+**Music & Art Science (4)**
+
+| Plugin | 中文名 | Focus |
+| --- | --- | --- |
+| Acoustics Lab | 声学实验室 | Import external audio (WAV / MP3 / M4A / AAC / OGG / Opus / FLAC / WebM) or a waveform CSV for waveform, FFT spectrum, harmonic/overtone analysis and THD; beat-frequency and coherent-interference demos; rectangular-room eigenmodes with Sabine/Eyring RT60, Schroeder frequency and critical distance. Starts empty — nothing auto-plays. |
+| Tuning System Calculator | 音律系统计算器 | 12-TET note→frequency mapping, just / Pythagorean / meantone / Werckmeister temperament comparison, cent-deviation grid, diatonic mode and interval analysis, custom tuning-table CSV import. |
+| Synthesizer Lab | 合成器实验室 | ADSR editor, RBJ low/high/band/notch filter response, sine / square / saw / triangle / wavetable oscillators, FM synthesis, LFO modulation, offline render to 16-bit WAV and JSON preset import. Starts empty — import presets or press “New preset”. |
+| Color Science Lab | 色彩科学实验室 | CIE 1931 xy and 1976 u′v′ chromaticity with the sRGB gamut, RGB/HSV/HSL/Lab/LCH/XYZ conversion, CIEDE2000 / ΔE76, colour-harmony rules, protanopia / deuteranopia / tritanopia simulation, palette CSV import with WCAG contrast checking. Starts empty — import a palette CSV. |
 
 **Fun & utility (10, all `autoload: false`, loaded on demand from the
 built-in panel or marketplace)**
@@ -1239,7 +1248,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
-- [x] 121 built-in plugins (111 scientific auto-load + 10 fun manual) across 15 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 125 built-in plugins (115 scientific auto-load + 10 fun manual) across 16 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
