@@ -124,6 +124,7 @@ export class TuningPlugin implements Plugin {
           labelI18n: { 'zh-CN': MODES[id].labelZh, 'en-US': MODES[id].labelEn },
         })),
         value: s.mode,
+        visibleWhen: { key: 'view', in: ['mode'] },
       },
       {
         key: 'view',

@@ -12,6 +12,7 @@ import { AcousticsPlugin } from '../src/plugins/builtin/acoustics/plugin';
 import { TuningPlugin } from '../src/plugins/builtin/tuning/plugin';
 import { SynthPlugin } from '../src/plugins/builtin/synth/plugin';
 import { ColorSciencePlugin } from '../src/plugins/builtin/color-science/plugin';
+import { isParamVisible, type ParamDefinition } from '../src/types/plugin';
 
 const signed = [
   ['acoustics', acousticsManifest],
@@ -88,6 +89,50 @@ describe('music & art science · plugins start in an empty state', () => {
   it('colour science has no palette until a CSV loads', () => {
     const plugin = new ColorSciencePlugin() as unknown as ColorInternals;
     expect(plugin.palette).toHaveLength(0);
+  });
+});
+
+describe('music & art science · view-gated controls', () => {
+  const visibleKeys = (defs: ParamDefinition[]) => defs.filter((d) => isParamVisible(d, defs)).map((d) => d.key);
+
+  it('synth hides oscillator/filter controls that cannot affect the ADSR view', () => {
+    const plugin = new SynthPlugin();
+    plugin.updateParams({ view: 'envelope' });
+    const keys = visibleKeys(plugin.getParams());
+    expect(keys).toEqual(expect.arrayContaining(['attack', 'decay', 'sustain', 'release']));
+    for (const key of ['wave', 'midi', 'detune', 'fmIndex', 'fmRatio', 'filter', 'cutoff', 'q', 'lfoRate']) {
+      expect(keys).not.toContain(key);
+    }
+  });
+
+  it('synth keeps filter controls in the filter view and ADSR out of it', () => {
+    const plugin = new SynthPlugin();
+    plugin.updateParams({ view: 'filter' });
+    const keys = visibleKeys(plugin.getParams());
+    expect(keys).toEqual(expect.arrayContaining(['filter', 'cutoff', 'q']));
+    expect(keys).not.toContain('attack');
+    expect(keys).not.toContain('fmRatio');
+  });
+
+  it('tuning shows the mode selector only in the mode view', () => {
+    const plugin = new TuningPlugin();
+    plugin.updateParams({ view: 'deviation' });
+    expect(visibleKeys(plugin.getParams())).not.toContain('mode');
+    plugin.updateParams({ view: 'mode' });
+    expect(visibleKeys(plugin.getParams())).toContain('mode');
+  });
+
+  it('colour science hides the base colour outside colour views', () => {
+    const plugin = new ColorSciencePlugin();
+    plugin.updateParams({ view: 'palette' });
+    expect(visibleKeys(plugin.getParams())).not.toContain('baseHex');
+    plugin.updateParams({ view: 'spaces' });
+    expect(visibleKeys(plugin.getParams())).toContain('baseHex');
+  });
+
+  it('acoustics hides playback volume until a clip is loaded', () => {
+    const plugin = new AcousticsPlugin();
+    expect(visibleKeys(plugin.getParams())).not.toContain('volumeGain');
   });
 });
 

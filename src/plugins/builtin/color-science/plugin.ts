@@ -117,6 +117,7 @@ export class ColorSciencePlugin implements Plugin {
         type: 'text',
         value: s.baseHex,
         placeholder: '#2563EB',
+        visibleWhen: { key: 'view', notIn: ['palette'] },
       },
       {
         key: 'compareHex',

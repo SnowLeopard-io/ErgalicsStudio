@@ -11,6 +11,7 @@ import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '
 import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
+import { emit } from '@/core/events';
 import {
   AudioClipPlayer,
   audioErrorText,
@@ -153,16 +154,22 @@ export class AcousticsPlugin implements Plugin {
       actionButton('play', 'Play audio', '播放音频', 'primary'),
       actionButton('stopAudio', 'Stop audio', '停止播放'),
       actionButton('loadDemo', 'Load built-in demo tone', '加载内置演示音'),
-      {
-        key: 'volumeGain',
-        label: 'Playback volume',
-        labelI18n: { 'zh-CN': '播放音量', 'en-US': 'Playback volume' },
-        type: 'range',
-        min: 0,
-        max: 1,
-        step: 0.05,
-        value: s.volumeGain,
-      },
+      // Playback volume is meaningless with no clip loaded, so it stays hidden
+      // until audio arrives rather than sitting there dead.
+      ...(this.clip
+        ? [
+            {
+              key: 'volumeGain',
+              label: 'Playback volume',
+              labelI18n: { 'zh-CN': '播放音量', 'en-US': 'Playback volume' },
+              type: 'range',
+              min: 0,
+              max: 1,
+              step: 0.05,
+              value: s.volumeGain,
+            } as ParamDefinition,
+          ]
+        : []),
       {
         key: 'harmonics',
         label: 'Harmonics',
@@ -310,6 +317,7 @@ export class AcousticsPlugin implements Plugin {
         this.state.view = 'waveform';
         this.stopPlayback(false);
         this.draw();
+        this.refreshParams();
         notify(
           this.api,
           'success',
@@ -345,6 +353,7 @@ export class AcousticsPlugin implements Plugin {
     this.state.view = 'waveform';
     this.stopPlayback(false);
     this.draw();
+    this.refreshParams();
     notify(
       this.api,
       'success',
@@ -424,6 +433,12 @@ export class AcousticsPlugin implements Plugin {
     this.stopPlayback(false);
     this.state.view = 'waveform';
     this.draw();
+    this.refreshParams();
+  }
+
+  /** Re-read the parameter list after a state change that alters it. */
+  private refreshParams() {
+    emit('host:params:changed', { pluginId: this.manifest.id });
   }
 
   // ---- actions ---------------------------------------------------------------

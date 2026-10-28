@@ -148,6 +148,7 @@ export class SynthPlugin implements Plugin {
         type: 'select',
         options: WAVES.map((w) => ({ value: w.value, label: this.zh ? w.zh : w.en })),
         value: p.wave,
+        visibleWhen: { key: 'view', in: ['waveform'] },
       },
       {
         key: 'midi',
@@ -158,6 +159,7 @@ export class SynthPlugin implements Plugin {
         max: 108,
         step: 1,
         value: p.midi,
+        visibleWhen: { key: 'view', in: ['waveform'] },
       },
       {
         key: 'detune',
@@ -168,6 +170,7 @@ export class SynthPlugin implements Plugin {
         max: 50,
         step: 1,
         value: p.detune,
+        visibleWhen: { key: 'view', in: ['waveform'] },
       },
       {
         key: 'fmIndex',
@@ -178,6 +181,7 @@ export class SynthPlugin implements Plugin {
         max: 8,
         step: 0.05,
         value: p.fmIndex,
+        visibleWhen: { key: 'view', in: ['waveform'] },
       },
       {
         key: 'fmRatio',
@@ -188,6 +192,7 @@ export class SynthPlugin implements Plugin {
         max: 8,
         step: 0.25,
         value: p.fmRatio,
+        visibleWhen: { key: 'view', in: ['waveform'] },
       },
       {
         key: 'filter',
@@ -196,6 +201,7 @@ export class SynthPlugin implements Plugin {
         type: 'select',
         options: FILTERS.map((f) => ({ value: f.value, label: this.zh ? f.zh : f.en })),
         value: p.filter,
+        visibleWhen: { key: 'view', in: ['waveform', 'filter'] },
       },
       {
         key: 'cutoff',
@@ -206,6 +212,7 @@ export class SynthPlugin implements Plugin {
         max: 18000,
         step: 10,
         value: p.cutoff,
+        visibleWhen: { key: 'view', in: ['waveform', 'filter'] },
       },
       {
         key: 'q',
@@ -216,6 +223,7 @@ export class SynthPlugin implements Plugin {
         max: 12,
         step: 0.1,
         value: p.q,
+        visibleWhen: { key: 'view', in: ['waveform', 'filter'] },
       },
       {
         key: 'attack',
@@ -226,6 +234,7 @@ export class SynthPlugin implements Plugin {
         max: 2,
         step: 0.005,
         value: p.adsr.attack,
+        visibleWhen: { key: 'view', in: ['waveform', 'envelope'] },
       },
       {
         key: 'decay',
@@ -236,6 +245,7 @@ export class SynthPlugin implements Plugin {
         max: 2,
         step: 0.005,
         value: p.adsr.decay,
+        visibleWhen: { key: 'view', in: ['waveform', 'envelope'] },
       },
       {
         key: 'sustain',
@@ -246,6 +256,7 @@ export class SynthPlugin implements Plugin {
         max: 1,
         step: 0.01,
         value: p.adsr.sustain,
+        visibleWhen: { key: 'view', in: ['waveform', 'envelope'] },
       },
       {
         key: 'release',
@@ -256,6 +267,7 @@ export class SynthPlugin implements Plugin {
         max: 3,
         step: 0.01,
         value: p.adsr.release,
+        visibleWhen: { key: 'view', in: ['waveform', 'envelope'] },
       },
       {
         key: 'lfoRate',
