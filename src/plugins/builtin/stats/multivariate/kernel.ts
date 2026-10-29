@@ -199,21 +199,28 @@ function silhouetteScore(x: Matrix, labels: number[], k: number): number {
   if (k < 2) return 0;
   const n = x.length;
   let total = 0;
+  let count = 0;
   for (let i = 0; i < n; i += 1) {
     const own = labels[i]!;
+    // Noise (-1, DBSCAN) and out-of-range labels have no cluster to compare
+    // against, so they are excluded from the silhouette instead of being
+    // used as a negative array index.
+    if (own < 0 || own >= k) continue;
     let aSum = 0;
     let aCount = 0;
     const sums = new Array<number>(k).fill(0);
     const counts = new Array<number>(k).fill(0);
     for (let j = 0; j < n; j += 1) {
       if (i === j) continue;
+      const other = labels[j]!;
+      if (other < 0 || other >= k) continue;
       const d = euclidean(x[i]!, x[j]!);
-      if (labels[j] === own) {
+      if (other === own) {
         aSum += d;
         aCount += 1;
       }
-      sums[labels[j]!]! += d;
-      counts[labels[j]!]! += 1;
+      sums[other]! += d;
+      counts[other]! += 1;
     }
     const a = aCount > 0 ? aSum / aCount : 0;
     let b = Infinity;
@@ -224,23 +231,35 @@ function silhouetteScore(x: Matrix, labels: number[], k: number): number {
     if (!Number.isFinite(b)) continue;
     const s = Math.max(a, b) > 0 ? (b - a) / Math.max(a, b) : 0;
     total += s;
+    count += 1;
   }
-  return total / n;
+  return count > 0 ? total / count : 0;
 }
 
 function clusterStats(x: Matrix, labels: number[], k: number): ClusterResult {
-  const centers = zeros(k, x[0]?.length ?? 0);
+  const p = x[0]?.length ?? 0;
+  // `k` can legitimately be zero (DBSCAN with no core points) and DBSCAN
+  // keeps noise as -1, so skip anything outside [0, k) rather than writing
+  // through an undefined centres row.
+  const centers = zeros(k, p);
   const counts = new Array<number>(k).fill(0);
   labels.forEach((lab, i) => {
+    if (lab < 0 || lab >= k) return;
+    const row = x[i];
+    if (!row) return;
     counts[lab]! += 1;
-    for (let j = 0; j < (x[0]?.length ?? 0); j += 1) centers[lab]![j]! += x[i]![j]!;
+    for (let j = 0; j < p; j += 1) centers[lab]![j]! += row[j] ?? 0;
   });
   for (let c = 0; c < k; c += 1) {
-    for (let j = 0; j < (x[0]?.length ?? 0); j += 1) centers[c]![j]! /= Math.max(1, counts[c]!);
+    for (let j = 0; j < p; j += 1) centers[c]![j]! /= Math.max(1, counts[c]!);
   }
   let wss = 0;
   labels.forEach((lab, i) => {
-    wss += (euclidean(x[i]!, centers[lab]!) || 0) ** 2;
+    if (lab < 0 || lab >= k) return;
+    const row = x[i];
+    const center = centers[lab];
+    if (!row || !center) return;
+    wss += euclidean(row, center) ** 2;
   });
   return { labels, k, wss, silhouette: silhouetteScore(x, labels, k), centers };
 }
@@ -335,8 +354,10 @@ export function kmeans(x: Matrix, k = 3, seed = 42): ClusterResult | null {
 export function dbscan(x: Matrix, eps = 1, minPts = 3): ClusterResult {
   const n = x.length;
   const labels = new Array<number>(n).fill(-1);
+  // Exclude self explicitly: using a -1 sentinel distance would still pass
+  // the `<= eps` filter and make every point a core point.
   const neighbours = x.map((row, i) =>
-    x.map((other, j) => (i === j ? -1 : euclidean(row, other))).map((d, j) => ({ d, j })).filter((o) => o.d <= eps).map((o) => o.j),
+    x.flatMap((other, j) => (j !== i && euclidean(row, other) <= eps ? [j] : [])),
   );
   let cluster = 0;
   for (let i = 0; i < n; i += 1) {
@@ -352,7 +373,9 @@ export function dbscan(x: Matrix, eps = 1, minPts = 3): ClusterResult {
     }
     cluster += 1;
   }
-  return clusterStats(x, labels.map((l) => (l < 0 ? cluster : l)), cluster);
+  // Noise stays labelled -1; clusterStats skips it when computing centres
+  // and WSS so the reported `k` is the number of real clusters.
+  return clusterStats(x, labels, cluster);
 }
 
 export interface DiscriminantResult {

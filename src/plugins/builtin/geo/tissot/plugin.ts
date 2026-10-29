@@ -23,9 +23,13 @@ import { isZh } from '@/core/plugin-tools/locale';
 import { pushPanelsToFigure, panelTag, panelPlace, FIGURE_PANEL_WIDTH, FIGURE_PANEL_HEIGHT } from '@/core/figure/sheet';
 import type { FigurePanelSpec, Bilingual } from '@/core/figure/sheet';
 import { tissotManifest } from './manifest';
+// Shared spherical helpers live in the geo suite's common layer (also used by
+// the globe plugin) — re-exported here so existing imports keep working.
+import { latLonToVec, vecToLatLon, tissotCircle } from '../shared/geoCore';
 import WORLD_LAND_RAW from '../../../../../examples/data/geo-world-110m-land.json?raw';
 
 export { tissotManifest } from './manifest';
+export { latLonToVec, vecToLatLon, tissotCircle };
 
 // ---- Projection math (exported for tests) ----------------------------------
 
@@ -149,54 +153,6 @@ export function projectionFn(id: ProjId): ProjFn {
     case 'orthographic':
       return projectOrthographic;
   }
-}
-
-// ---- Tissot indicatrix sampling (exported for tests) -----------------------
-
-type Vec3 = [number, number, number];
-
-export function latLonToVec(lat: number, lon: number): Vec3 {
-  const φ = lat * D2R;
-  const λ = lon * D2R;
-  return [Math.cos(φ) * Math.cos(λ), Math.cos(φ) * Math.sin(λ), Math.sin(φ)];
-}
-
-export function vecToLatLon(v: Vec3): [number, number] {
-  const n = Math.hypot(v[0], v[1], v[2]) || 1;
-  const lat = Math.asin(Math.max(-1, Math.min(1, v[2] / n))) / D2R;
-  const lon = Math.atan2(v[1], v[0]) / D2R;
-  return [lat, lon];
-}
-
-/**
- * Sample `samples` points on the small circle of angular radius `epsDeg`
- * centred at (lat, lon) — the Tissot indicatrix footprint on the sphere.
- * Points are returned as (lon, lat) — the same order every other dataset
- * (GeoJSON rings, graticule) uses, so they all flow through traceLine.
- */
-export function tissotCircle(lat: number, lon: number, epsDeg: number, samples = 24): Array<[number, number]> {
-  const c = latLonToVec(lat, lon);
-  const sinφ = Math.sin(lat * D2R);
-  const cosφ = Math.cos(lat * D2R);
-  const sinλ = Math.sin(lon * D2R);
-  const cosλ = Math.cos(lon * D2R);
-  const east: Vec3 = [-sinλ, cosλ, 0];
-  const north: Vec3 = [-sinφ * cosλ, -sinφ * sinλ, cosφ];
-  const eps = epsDeg * D2R;
-  const out: Array<[number, number]> = [];
-  for (let i = 0; i < samples; i += 1) {
-    const t = (i / samples) * 2 * Math.PI;
-    const w = Math.cos(eps);
-    const r = Math.sin(eps);
-    const p: Vec3 = [
-      w * c[0] + r * (Math.cos(t) * east[0] + Math.sin(t) * north[0]),
-      w * c[1] + r * (Math.cos(t) * east[1] + Math.sin(t) * north[1]),
-      w * c[2] + r * (Math.cos(t) * east[2] + Math.sin(t) * north[2]),
-    ];
-    const ll = vecToLatLon(p);
-    out.push([ll[1], ll[0]]); // (lon, lat)
-  }
-  return out;
 }
 
 // ---- Local distortion metrics (exported for tests) --------------------------

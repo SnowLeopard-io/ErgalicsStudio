@@ -1141,6 +1141,7 @@ export const enUS: LocaleDictionary = {
   'report.new': 'New report',
   'report.save': 'Save report',
   'report.delete': 'Delete report',
+  'report.delete_confirm': 'Delete this report? This cannot be undone.',
   'report.name': 'Report name',
   'report.report_title': 'Report title',
   'report.subtitle': 'Subtitle (optional)',

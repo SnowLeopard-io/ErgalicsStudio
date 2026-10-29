@@ -41,7 +41,11 @@ function loadBundledFile(path: string): Promise<string | undefined> {
       bundledLoaders.set(base, Promise.resolve(text as string));
       return text as string;
     },
-    () => undefined,
+    () => {
+      // Drop the rejected promise so a retry can happen later.
+      bundledLoaders.delete(base);
+      return undefined;
+    },
   );
   bundledLoaders.set(base, p);
   return p;

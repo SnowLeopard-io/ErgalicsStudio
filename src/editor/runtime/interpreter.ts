@@ -353,7 +353,9 @@ function applyBinary(op: BinaryOperator, l: Value, r: Value): Value {
     case '*': return a * b;
     case '/': return a / b;
     case '//': return Math.floor(a / b);
-    case '%': return a % b;
+    // Python modulo: result takes the divisor's sign (-7 % 3 === 2), unlike
+    // the JS remainder operator.
+    case '%': return ((a % b) + b) % b;
     case '**': return a ** b;
     case '==': return a === b;
     case '!=': return a !== b;

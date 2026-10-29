@@ -19,6 +19,7 @@ export type PluginDiscipline =
   | 'fx'
   | 'chem'
   | 'bio'
+  | 'med'
   | 'geo'
   | 'env'
   | 'materials'
@@ -44,6 +45,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
+  { id: 'med', nameI18n: { 'zh-CN': '医学与公共卫生', 'en-US': 'Medicine & Public Health' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'env', nameI18n: { 'zh-CN': '环境', 'en-US': 'Environmental' } },
   { id: 'astro', nameI18n: { 'zh-CN': '天文', 'en-US': 'Astronomy' } },
@@ -172,6 +174,12 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.bio-pk': 'bio',
   'example.bio-mendel': 'bio',
   'example.bio-neuron': 'bio',
+
+  // Medicine & public health (research-grade kernels)
+  'example.med-ecg': 'med',
+  'example.med-imaging': 'med',
+  'example.med-biostat': 'med',
+  'example.med-genomics': 'med',
 
   // Data & AI
   'example.ai-training': 'data',

@@ -543,12 +543,21 @@ manifest `nameI18n` values (zh-CN / en-US):
 | --- | --- | --- |
 | Protein Interactions | 蛋白质交互网络 | PPI network with force-directed layout; reports degree, components, modules. |
 | Enzyme Kinetics | 酶动力学 | Michaelis–Menten kinetics with three inhibition modes and an LM fit recovering Vmax & Km. |
-| Epidemic Modeling | 传染病分室模型 | Deterministic SIR / SEIR RK4 integration reporting R₀, herd-immunity threshold and attack rate. |
+| Epidemic Modeling | 传染病分室模型 | Deterministic SIR / SEIR RK4 integration reporting R₀, herd-immunity threshold and attack rate, plus multi-region metapopulation coupling and Cori-style Rt estimation from incidence series. |
 | Sequence Alignment | 序列比对与分析 | BLOSUM62 / nucleotide Needleman–Wunsch or Smith–Waterman with affine gaps, plus GC / codon statistics. |
 | Population Genetics | 群体遗传学 | Hardy–Weinberg χ² test + seeded, reproducible Wright–Fisher drift with optional selection. |
-| Pharmacokinetics | 药代动力学室分析 | One-/two-compartment PK models with IV bolus / oral absorption and a therapeutic-window overlay. |
+| Pharmacokinetics | 药代动力学室分析 | One-/two-compartment PK models with IV bolus / oral absorption and a therapeutic-window overlay, plus population simulation, DDI interaction scenarios and TDM curve fitting. |
 | Mendel F2 χ² Tests | 孟德尔 F2 分离比 χ² 检验 | χ² goodness-of-fit for 3:1 / 9:3:3:1 segregation; ships the 1866 seven-trait dataset. |
 | Hodgkin–Huxley Neuron | Hodgkin–Huxley 神经元 | The 1952 action-potential model with the original published constants, RK4-integrated. |
+
+**Medicine & Public Health (4)**
+
+| Plugin | 中文名 | Focus |
+| --- | --- | --- |
+| ECG Analyzer | 心电图分析仪 | Pan–Tompkins R-peak detection with P/QRS/T annotation, time-/frequency-domain HRV and rule-based rhythm screening for single-/multi-lead text or WFDB records. |
+| Medical Image Viewer | 医学影像查看器 | Teaching-level DICOM Part-10 viewer: HU conversion, window/level slice browsing, threshold isosurface 3-D reconstruction, processing views and ROI statistics. |
+| Biostatistics Toolkit | 生物统计工具箱 | Five-mode workbench: sample-size/power design, seeded randomization plans, two-arm endpoint analysis, α-spending interim boundaries and PRR adverse-event signal screening. |
+| Genomics Visualizer | 基因组可视化器 | Five-mode viewer: GWAS Manhattan + QQ with genomic inflation, DE volcano plot, LD r² heatmap, preranked GSEA and Circos-style rearrangement maps. |
 
 **Geography (16)** — every plugin in this suite has one-click **Send to
 Figure Studio**:

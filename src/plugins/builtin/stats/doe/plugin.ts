@@ -27,24 +27,6 @@ import { statsDoeManifest } from './manifest';
 import { doeBenchmark, factorEffects, fitDoe, orthogonalityDefect, parseDoeTable, taguchiSN, type DoeFit } from './kernel';
 import { doeFigurePanels } from './figure';
 
-const DEFAULT_DATA = `run,A,B,C,response
-1,-1,-1,-1,7.42
-2,1,-1,-1,11.18
-3,-1,1,-1,8.61
-4,1,1,-1,13.02
-5,-1,-1,1,7.88
-6,1,-1,1,11.55
-7,-1,1,1,9.14
-8,1,1,1,13.41
-9,-1,-1,-1,7.51
-10,1,-1,-1,11.09
-11,-1,1,-1,8.72
-12,1,1,-1,12.91
-13,-1,-1,1,7.79
-14,1,-1,1,11.63
-15,-1,1,1,9.21
-16,1,1,1,13.35`;
-
 interface DoeState {
   order: 1 | 2;
   goal: 'smaller' | 'larger' | 'nominal';
@@ -52,7 +34,15 @@ interface DoeState {
 
 export class StatsDoePlugin extends StatsPluginBase<DoeState, DoeFit> {
   constructor() {
-    super(statsDoeManifest, { order: 2, goal: 'smaller' }, DEFAULT_DATA);
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsDoeManifest, { order: 2, goal: 'smaller' }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入 run + 因子列 + response 列的 CSV / TSV 试验数据。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV experiment dataset with run, factor and response columns.\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {

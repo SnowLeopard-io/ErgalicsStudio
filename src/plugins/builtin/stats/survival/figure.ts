@@ -54,19 +54,19 @@ function forestPanel(view: SurvViewResult): FigurePanelSpec {
       grid: true,
       ticks: 4,
       legend: true,
+      yDomain: [0, terms.length + 0.8],
+      yTicksOverride: terms.map((t, i) => ({ pos: terms.length - i, label: t.name })),
       series: [
         { name: 'HR', kind: 'scatter', color: '#ffd166', points },
-        ...terms.flatMap((t, i) => [
-          {
-            name: '',
-            kind: 'line' as const,
-            color: '#ffd166',
-            points: [
-              { x: t.lo, y: terms.length - i },
-              { x: t.hi, y: terms.length - i },
-            ],
-          },
-        ]),
+        ...terms.map((t, i) => ({
+          name: '',
+          kind: 'line' as const,
+          color: '#ffd166',
+          points: [
+            { x: t.lo, y: terms.length - i },
+            { x: t.hi, y: terms.length - i },
+          ],
+        })),
       ],
     } as PlotSpec,
   };

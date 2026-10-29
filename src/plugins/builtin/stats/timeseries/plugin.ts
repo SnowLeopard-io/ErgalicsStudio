@@ -38,21 +38,6 @@ import {
 } from './kernel';
 import { timeseriesFigurePanels } from './figure';
 
-function defaultData(): string {
-  let seed = 20261029;
-  const rand = (): number => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const rows = ['month,value'];
-  for (let t = 0; t < 84; t += 1) {
-    const noise = (rand() - 0.5) * 1.6;
-    const value = 20 + 0.07 * t + 3.2 * Math.sin((2 * Math.PI * t) / 12) + noise;
-    rows.push(`${t + 1},${value.toFixed(3)}`);
-  }
-  return rows.join('\n');
-}
-
 export interface TsResult {
   series: SeriesData;
   acf: AcfPoint[];
@@ -66,6 +51,7 @@ export interface TsResult {
 }
 
 interface TsState {
+  view: 'forecast' | 'decomposition';
   period: number;
   mode: 'additive' | 'multiplicative';
   horizon: number;
@@ -74,23 +60,51 @@ interface TsState {
 
 export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
   constructor() {
-    super(statsTimeseriesManifest, { period: 12, mode: 'additive', horizon: 12, autoOrder: true }, defaultData());
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsTimeseriesManifest, { view: 'forecast', period: 12, mode: 'additive', horizon: 12, autoOrder: true }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入含时间列 + 数值列的 CSV / TSV 数据（至少 8 个观测）。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset with a time column and a value column (>= 8 observations).\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {
     return [
-      this.rangeParam('period', 'Seasonal period', '季节周期', this.state.period, 2, 24, 1),
-      this.select('mode', 'Decomposition', '分解方式', this.state.mode, [
-        { value: 'additive', en: 'Additive', zh: '加法' },
-        { value: 'multiplicative', en: 'Multiplicative', zh: '乘法' },
+      this.select('view', 'View', '视图', this.state.view, [
+        { value: 'forecast', en: 'Forecast & ACF', zh: '预测与自相关' },
+        { value: 'decomposition', en: 'Seasonal decomposition', zh: '季节分解' },
       ]),
-      this.rangeParam('horizon', 'Forecast horizon', '预测步长', this.state.horizon, 4, 36, 1),
-      this.checkParam('autoOrder', 'AIC order search', 'AIC 自动定阶', this.state.autoOrder),
+      {
+        ...this.rangeParam('period', 'Seasonal period', '季节周期', this.state.period, 2, 24, 1),
+        visibleWhen: { key: 'view', in: ['decomposition'] },
+      },
+      {
+        ...this.select('mode', 'Decomposition', '分解方式', this.state.mode, [
+          { value: 'additive', en: 'Additive', zh: '加法' },
+          { value: 'multiplicative', en: 'Multiplicative', zh: '乘法' },
+        ]),
+        visibleWhen: { key: 'view', in: ['decomposition'] },
+      },
+      {
+        ...this.rangeParam('horizon', 'Forecast horizon', '预测步长', this.state.horizon, 4, 36, 1),
+        visibleWhen: { key: 'view', in: ['forecast'] },
+      },
+      {
+        ...this.checkParam('autoOrder', 'AIC order search', 'AIC 自动定阶', this.state.autoOrder),
+        visibleWhen: { key: 'view', in: ['forecast'] },
+      },
     ];
   }
 
   protected updateState(params: Record<string, unknown>): boolean {
     let dirty = false;
+    if ((params.view === 'forecast' || params.view === 'decomposition') && params.view !== this.state.view) {
+      this.state.view = params.view;
+      dirty = true;
+    }
     if (typeof params.period === 'number' && Number.isFinite(params.period)) {
       const period = Math.min(24, Math.max(2, Math.round(params.period)));
       if (period !== this.state.period) {
@@ -212,7 +226,7 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
   }
 
   protected figurePanels(result: TsResult): FigurePanelSpec[] {
-    return timeseriesFigurePanels(result);
+    return timeseriesFigurePanels(result, this.state.view);
   }
 
   protected figureTitle() {
@@ -238,6 +252,11 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
   }
 
   protected footnote(): string {
+    if (this.state.view === 'decomposition') {
+      return this.zh
+        ? '上图：观测序列（蓝）与趋势项（橙）；下图：季节项，虚线为零基线。'
+        : 'Top: observed series (blue) with the trend component (orange); bottom: seasonal component with a zero baseline.';
+    }
     return this.zh
       ? '蓝色 = 观测值，橙色 = ARIMA 预测均值与 95% 预测带；柱状图 = ACF / PACF，虚线为 ±1.96/√n 近似带。'
       : 'Blue = observations, orange = ARIMA forecast mean with 95% band; bars = ACF / PACF with ±1.96/√n approximate bands.';
@@ -249,6 +268,10 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
       g.font = font(this.zh, 12);
       g.textAlign = 'center';
       g.fillText(this.zh ? '至少需要 8 个观测值。' : 'At least 8 observations are required.', w / 2, h / 2);
+      return;
+    }
+    if (this.state.view === 'decomposition') {
+      this.drawDecomposition(g, w, h, result);
       return;
     }
     const top = plotBox(w, h, 64, 76, 30, Math.round(h * 0.44));
@@ -310,11 +333,13 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
       { label: this.zh ? 'ARIMA 预测' : 'ARIMA forecast', color: CS.amber, dash: true },
     ], this.zh);
 
-    // Correlograms underneath.
+    // Correlograms underneath. Leave room for the upper panel's x-axis title
+    // (drawn at top.y1 + 34) so it no longer collides with the box headings.
     const lag = result.acf.length;
-    const gap = 22;
-    const bottomY = top.y1 + 30;
-    const bottomH = Math.max(90, h - bottomY - 40);
+    const bottomY = Math.min(top.y1 + 50, Math.max(top.y1 + 40, h - 118));
+    // Reserve 58 px below the correlograms: tick labels (y1 + 14) and the axis
+    // title (y1 + 34) must sit above the footnote baseline at h - 12.
+    const bottomH = Math.max(56, h - bottomY - 58);
     const acfBox = { x0: 62, y0: bottomY, x1: Math.round(w * 0.48), y1: bottomY + bottomH, w: 0, h: bottomH };
     const pacfBox = { x0: Math.round(w * 0.56), y0: bottomY, x1: w - 30, y1: bottomY + bottomH, w: 0, h: bottomH };
     acfBox.w = acfBox.x1 - acfBox.x0;
@@ -326,7 +351,9 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
         [0, 0.5, 1].map((f) => ({ value: f, label: String(Math.round(f * (lag - 1))) })),
         [0, 0.5, 1].map((f) => ({ value: f, label: fmt(-1 + 2 * f, 1) })),
         this.zh ? '滞后' : 'lag',
-        label,
+        // The horizontal panel title below already names the panel; a rotated
+        // copy here printed the label twice (once between the two boxes).
+        '',
         this.zh,
       );
       const yAt = (v: number) => box.y0 + box.h * (1 - (v + 1) / 2);
@@ -336,7 +363,11 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
         const y0 = yAt(0);
         const y1 = yAt(p.value);
         g.fillStyle = Math.abs(p.value) > 1.96 / Math.sqrt(n) ? CS.cyan : 'rgba(120,200,255,0.55)';
-        g.fillRect(x - barW / 2, Math.min(y0, y1), barW, Math.abs(y1 - y0));
+        // Clamp the bar inside the frame — the last lag maps exactly onto the
+        // right edge and its half-width used to spill past it.
+        const xL = Math.max(box.x0, x - barW / 2);
+        const xR = Math.min(box.x1, x + barW / 2);
+        g.fillRect(xL, Math.min(y0, y1), Math.max(1, xR - xL), Math.abs(y1 - y0));
       });
       g.strokeStyle = CS.faint;
       g.setLineDash([3, 3]);
@@ -354,9 +385,106 @@ export class StatsTimeseriesPlugin extends StatsPluginBase<TsState, TsResult> {
     };
     drawCorr(acfBox, result.acf, 'ACF');
     drawCorr(pacfBox, result.pacf, 'PACF');
-    void gap;
     void drawCard;
     void drawTable;
+  }
+
+  /** Observed series + fitted trend (top) and seasonal component (bottom). */
+  private drawDecomposition(g: CanvasRenderingContext2D, w: number, h: number, result: TsResult): void {
+    const decomp = result.decomp;
+    if (!decomp) {
+      g.fillStyle = CS.dim;
+      g.font = font(this.zh, 12);
+      g.textAlign = 'center';
+      g.fillText(this.zh ? '当前数据无法分解。' : 'The series could not be decomposed.', w / 2, h / 2);
+      return;
+    }
+    const values = result.series.values;
+    const n = values.length;
+    const top = plotBox(w, h, 64, 76, 30, Math.round(h * 0.5));
+    // The trend array carries NaN at the seasonal-window edges.
+    const trendVals = decomp.trend.filter((v) => Number.isFinite(v));
+    const topLo = Math.min(...values, ...trendVals);
+    const topHi = Math.max(...values, ...trendVals);
+    const pad = Math.max(0.1, (topHi - topLo) * 0.08);
+    const xs = xScale(top, 1, n);
+    const ys = yScale(top, topLo - pad, topHi + pad);
+    drawAxes(
+      g,
+      top,
+      [0, 0.25, 0.5, 0.75, 1].map((f) => ({ value: f, label: String(Math.round(1 + f * (n - 1))) })),
+      [0, 0.5, 1].map((f) => ({ value: f, label: fmt(topLo - pad + f * (topHi - topLo + 2 * pad), 1) })),
+      this.zh ? '时间' : 'time',
+      result.series.valueName,
+      this.zh,
+    );
+    g.strokeStyle = CS.blue;
+    g.lineWidth = 1.4;
+    g.beginPath();
+    values.forEach((v, i) => (i === 0 ? g.moveTo(xs(i + 1), ys(v)) : g.lineTo(xs(i + 1), ys(v))));
+    g.stroke();
+    g.strokeStyle = CS.amber;
+    g.lineWidth = 1.8;
+    g.beginPath();
+    let trendStarted = false;
+    decomp.trend.forEach((v, i) => {
+      if (!Number.isFinite(v)) {
+        trendStarted = false;
+        return;
+      }
+      const px = xs(i + 1);
+      const py = ys(v);
+      if (!trendStarted) {
+        g.moveTo(px, py);
+        trendStarted = true;
+      } else {
+        g.lineTo(px, py);
+      }
+    });
+    g.stroke();
+    g.lineWidth = 1;
+    drawLegend(g, top.x0 + 6, top.y0 + 12, [
+      { label: this.zh ? '观测' : 'observed', color: CS.blue },
+      { label: this.zh ? '趋势' : 'trend', color: CS.amber },
+    ], this.zh);
+
+    const bottom = { x0: 64, y0: top.y1 + 46, x1: w - 30, y1: h - 58, w: 0, h: 0 };
+    bottom.w = bottom.x1 - bottom.x0;
+    bottom.h = Math.max(60, bottom.y1 - bottom.y0);
+    const seasonal = decomp.seasonal;
+    const sLo = Math.min(0, ...seasonal);
+    const sHi = Math.max(0, ...seasonal);
+    const sPad = Math.max(0.05, (sHi - sLo) * 0.12);
+    drawAxes(
+      g,
+      bottom,
+      [0, 0.25, 0.5, 0.75, 1].map((f) => ({ value: f, label: String(Math.round(1 + f * (n - 1))) })),
+      [0, 0.5, 1].map((f) => ({ value: f, label: fmt(sLo - sPad + f * (sHi - sLo + 2 * sPad), 2) })),
+      this.zh ? '时间' : 'time',
+      // Same duplication guard as the correlograms: the horizontal title below
+      // names this panel.
+      '',
+      this.zh,
+    );
+    const sxs = xScale(bottom, 1, n);
+    const sys = yScale(bottom, sLo - sPad, sHi + sPad);
+    g.strokeStyle = CS.faint;
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    g.moveTo(bottom.x0, sys(0));
+    g.lineTo(bottom.x1, sys(0));
+    g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = CS.cyan;
+    g.lineWidth = 1.4;
+    g.beginPath();
+    seasonal.forEach((v, i) => (i === 0 ? g.moveTo(sxs(i + 1), sys(v)) : g.lineTo(sxs(i + 1), sys(v))));
+    g.stroke();
+    g.lineWidth = 1;
+    g.fillStyle = CS.dim;
+    g.font = font(this.zh, 10, '600');
+    g.textAlign = 'left';
+    g.fillText(this.zh ? '季节项' : 'seasonal component', bottom.x0, bottom.y0 - 6);
   }
 }
 

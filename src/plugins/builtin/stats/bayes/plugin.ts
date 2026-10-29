@@ -29,28 +29,6 @@ import {
 } from './kernel';
 import { bayesFigurePanels } from './figure';
 
-function defaultData(): string {
-  let seed = 778899;
-  const rand = (): number => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const normal = (): number => {
-    const u = Math.max(1e-12, rand());
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
-  };
-  const rows = ['group,score'];
-  const sites = [
-    { name: 'site-a', mu: 1.8 },
-    { name: 'site-b', mu: 2.6 },
-    { name: 'site-c', mu: 2.2 },
-  ];
-  for (const site of sites) {
-    for (let i = 0; i < 24; i += 1) rows.push(`${site.name},${(site.mu + 1.1 * normal()).toFixed(4)}`);
-  }
-  return rows.join('\n');
-}
-
 type Sampler = 'mh' | 'gibbs' | 'hmc';
 
 interface BayesState {
@@ -69,7 +47,15 @@ export interface BayesViewResult {
 
 export class StatsBayesPlugin extends StatsPluginBase<BayesState, BayesViewResult> {
   constructor() {
-    super(statsBayesManifest, { sampler: 'mh', iterations: 2000, chains: 4, seed: 20261029 }, defaultData());
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsBayesManifest, { sampler: 'mh', iterations: 2000, chains: 4, seed: 20261029 }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入 group + score（或分组 + 观测）列的 CSV / TSV 数据。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset with group and score columns.\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {

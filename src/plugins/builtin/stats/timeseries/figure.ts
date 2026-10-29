@@ -85,7 +85,78 @@ function acfPanel(result: TsResult): FigurePanelSpec {
   };
 }
 
+function trendPanel(result: TsResult): FigurePanelSpec {
+  const decomp = result.decomp;
+  const observed: PlotSeries = {
+    name: 'observed',
+    kind: 'line',
+    color: '#78c8ff',
+    points: result.series.values.map((v, i) => ({ x: result.series.time[i] ?? i + 1, y: v })),
+  };
+  const trend: PlotSeries = {
+    name: 'trend',
+    kind: 'line',
+    color: '#ffd166',
+    points: (decomp?.trend ?? [])
+      .map((v, i) => ({ x: result.series.time[i] ?? i + 1, y: v }))
+      .filter((p) => Number.isFinite(p.y)),
+  };
+  return {
+    ...panelPlace(0),
+    tag: panelTag(0),
+    spec: {
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
+      title: 'Observed series + trend',
+      xLabel: 'time',
+      yLabel: result.series.valueName,
+      grid: true,
+      ticks: 4,
+      legend: true,
+      series: [observed, trend],
+    } as PlotSpec,
+  };
+}
+
+function seasonalPanel(result: TsResult): FigurePanelSpec {
+  const decomp = result.decomp;
+  const seasonal: PlotSeries = {
+    name: `seasonal (${decomp?.mode ?? 'additive'})`,
+    kind: 'line',
+    color: '#5ee6d0',
+    points: (decomp?.seasonal ?? []).map((v, i) => ({ x: result.series.time[i] ?? i + 1, y: v })),
+  };
+  return {
+    ...panelPlace(1),
+    tag: panelTag(1),
+    spec: {
+      width: FIGURE_PANEL_WIDTH,
+      height: FIGURE_PANEL_HEIGHT,
+      title: `Seasonal component (period ${decomp?.period ?? 0})`,
+      xLabel: 'time',
+      yLabel: 'seasonal',
+      grid: true,
+      ticks: 4,
+      legend: true,
+      series: [
+        seasonal,
+        {
+          name: '',
+          kind: 'line',
+          color: '#9aa7bb',
+          dash: [4, 3],
+          points: [
+            { x: result.series.time[0] ?? 1, y: 0 },
+            { x: result.series.time.at(-1) ?? result.series.values.length, y: 0 },
+          ],
+        },
+      ],
+    } as PlotSpec,
+  };
+}
+
 /** All figure panels for one time-series analysis. */
-export function timeseriesFigurePanels(result: TsResult): FigurePanelSpec[] {
+export function timeseriesFigurePanels(result: TsResult, view: 'forecast' | 'decomposition' = 'forecast'): FigurePanelSpec[] {
+  if (view === 'decomposition' && result.decomp) return [trendPanel(result), seasonalPanel(result)];
   return [seriesPanel(result), acfPanel(result)];
 }

@@ -136,6 +136,15 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
     }, { replace: true });
   };
 
+  // External navigation (deep links clicked while the page is already open)
+  // must move the panel too, not just the URL.
+  useEffect(() => {
+    if (paramCat && CATEGORIES.some((c) => c.id === paramCat) && paramCat !== active) {
+      setActive(paramCat as CategoryId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramCat]);
+
   // FR-17: chunk-storage panel state (all reads degrade to zero on failure).
   const opfsAvailable = isOpfsAvailable();
   const [idbChunkBytes, setIdbChunkBytes] = useState(0);
@@ -185,13 +194,19 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
     stopMigrationRef.current = false;
     setMigrateResult(null);
     setMigrateProgress({ done: 0, total: 0 });
-    const result = await migrateIdbToOpfs({
-      shouldStop: () => stopMigrationRef.current,
-      onProgress: (p) => setMigrateProgress({ done: p.done, total: p.total }),
-    });
-    setMigrateResult(result);
-    setMigrateProgress(null);
-    void refreshChunkUsage();
+    try {
+      const result = await migrateIdbToOpfs({
+        shouldStop: () => stopMigrationRef.current,
+        onProgress: (p) => setMigrateProgress({ done: p.done, total: p.total }),
+      });
+      setMigrateResult(result);
+    } catch (err) {
+      // Never leave the progress UI stuck: surface the failure and reset.
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setMigrateProgress(null);
+      void refreshChunkUsage();
+    }
   };
 
   const copyCitation = async (text: string) => {
@@ -210,17 +225,22 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   }, []);
 
   const doClearCache = async () => {
-    await clearCache();
-    setUsage(await storageUsage());
-    setClearOpen(false);
-    // The DB records are gone, but the stores still hold the now-dead project
-    // in memory (and its recent list). Refresh both so the app reflects the
-    // wipe instead of presenting a phantom project that will fail on the next
-    // save.
-    const { useProjectStore } = await import('@/stores/projectStore');
-    useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null, recent: [] });
-    void useProjectStore.getState().loadRecent().catch(() => undefined);
-    notify('success', t('settings.cache_cleared'));
+    try {
+      await clearCache();
+      setUsage(await storageUsage());
+      // The DB records are gone, but the stores still hold the now-dead project
+      // in memory (and its recent list). Refresh both so the app reflects the
+      // wipe instead of presenting a phantom project that will fail on the next
+      // save.
+      const { useProjectStore } = await import('@/stores/projectStore');
+      useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null, recent: [] });
+      void useProjectStore.getState().loadRecent().catch(() => undefined);
+      notify('success', t('settings.cache_cleared'));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setClearOpen(false);
+    }
   };
 
   const gpu = getGpuBackend();

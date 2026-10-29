@@ -158,6 +158,17 @@ export abstract class StatsPluginBase<S, R> implements Plugin {
 
   protected abstract footnote(): string;
 
+  /**
+   * Data-format hint rendered on the empty-state canvas. Data plugins start
+   * with no text loaded (never a bundled sample), so this is the first thing
+   * a user sees.
+   */
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入 CSV / TSV 数据以开始分析。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset to begin.\nUse the Data mode or load a file into this plugin from the file list.';
+  }
+
   /** Draw the model into an already-cleared canvas. */
   protected abstract drawBody(g: CanvasRenderingContext2D, w: number, h: number, result: R | null): void;
 
@@ -308,9 +319,41 @@ export abstract class StatsPluginBase<S, R> implements Plugin {
       this.dirty = false;
       this.publish();
     }
+    // Empty start state: data plugins must never render a sample dataset, so
+    // show an explicit "no data loaded" panel with an import hint instead.
+    if (!this.text.trim()) {
+      this.drawEmptyState(frame.g, frame.w, frame.h);
+      return;
+    }
     drawHeader(frame.g, frame.w, this.title(), this.subtitle(), this.zh);
     this.drawBody(frame.g, frame.w, frame.h, this.result);
     drawFootnote(frame.g, frame.w, frame.h, this.footnote(), this.zh);
+  }
+
+  private drawEmptyState(g: CanvasRenderingContext2D, w: number, h: number): void {
+    drawHeader(g, w, this.title(), this.zh ? '未加载数据 · 等待导入' : 'No data loaded · awaiting import', this.zh);
+    const lines = this.emptyStateHint().split('\n');
+    const boxW = Math.min(480, Math.max(320, w * 0.6));
+    const boxH = 40 + lines.length * 20 + 14;
+    const bx = Math.round((w - boxW) / 2);
+    const by = Math.round(h / 2 - boxH / 2 + 10);
+    g.save();
+    g.strokeStyle = CS.axis;
+    g.fillStyle = CS.panel;
+    g.beginPath();
+    g.roundRect(bx, by, boxW, boxH, 10);
+    g.fill();
+    g.stroke();
+    g.fillStyle = CS.dim;
+    g.font = font(this.zh, 13, '600');
+    g.textAlign = 'center';
+    g.fillText(this.zh ? '暂无数据' : 'No data loaded', w / 2, by + 28);
+    g.fillStyle = CS.faint;
+    g.font = font(this.zh, 11);
+    lines.forEach((line, i) => {
+      g.fillText(line, w / 2, by + 52 + i * 20);
+    });
+    g.restore();
   }
 
   /** Small coloured status chip used by the plugin canvases. */

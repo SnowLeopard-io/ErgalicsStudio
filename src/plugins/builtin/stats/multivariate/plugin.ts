@@ -35,33 +35,9 @@ import {
 } from './kernel';
 import { multivariateFigurePanels } from './figure';
 
-function defaultData(): string {
-  let seed = 424242;
-  const rand = (): number => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const gauss = (): number => {
-    const u = Math.max(1e-12, rand());
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
-  };
-  const rows = ['id,speed,height,width,mass,species'];
-  const centres = [
-    { c: [3.2, 4.1, 2.2, 3.7], name: 'setosa' },
-    { c: [6.4, 2.3, 4.8, 6.1], name: 'versicolor' },
-    { c: [8.1, 7.4, 6.3, 8.2], name: 'virginica' },
-  ];
-  let id = 1;
-  for (const centre of centres) {
-    for (let i = 0; i < 18; i += 1) {
-      const vals = centre.c.map((m) => (m + 0.55 * gauss()).toFixed(3));
-      rows.push(`${id++},${vals.join(',')},${centre.name}`);
-    }
-  }
-  return rows.join('\n');
-}
+type MvView = 'pca' | 'kmeans' | 'ward' | 'dbscan' | 'lda';
 
-type MvView = 'pca' | 'cluster' | 'lda';
+const MV_VIEWS: MvView[] = ['pca', 'kmeans', 'ward', 'dbscan', 'lda'];
 
 interface MvState {
   view: MvView;
@@ -85,28 +61,57 @@ export interface MvResult {
 
 export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> {
   constructor() {
-    super(statsMultivariateManifest, { view: 'pca', clusters: 3, eps: 1.2, minPts: 3, standardize: true }, defaultData());
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsMultivariateManifest, { view: 'pca', clusters: 3, eps: 1.2, minPts: 3, standardize: true }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入数值列 + 可选 id / group 列的 CSV / TSV 数据（至少 3 行 × 2 个数值变量）。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset with numeric columns plus optional id / group (>= 3 rows × 2 variables).\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {
     return [
       this.select('view', 'View', '视图', this.state.view, [
         { value: 'pca', en: 'PCA biplot', zh: 'PCA 双标图' },
-        { value: 'cluster', en: 'Clustering', zh: '聚类' },
-        { value: 'lda', en: 'Discriminant', zh: '判别分析' },
+        { value: 'kmeans', en: 'k-means clusters', zh: 'k-means 聚类' },
+        { value: 'ward', en: 'Ward clusters', zh: 'Ward 聚类' },
+        { value: 'dbscan', en: 'DBSCAN clusters', zh: 'DBSCAN 聚类' },
+        { value: 'lda', en: 'Discriminant (LDA)', zh: '判别分析（LDA）' },
       ]),
-      this.rangeParam('clusters', 'Clusters k', '聚类数 k', this.state.clusters, 2, 8, 1),
-      this.rangeParam('eps', 'DBSCAN ε', 'DBSCAN 邻域 ε', this.state.eps, 0.2, 5, 0.1),
-      this.rangeParam('minPts', 'DBSCAN minPts', 'DBSCAN 最小点数', this.state.minPts, 2, 12, 1),
-      this.checkParam('standardize', 'Standardise variables', '变量标准化', this.state.standardize),
+      {
+        ...this.rangeParam('clusters', 'Clusters k', '聚类数 k', this.state.clusters, 2, 8, 1),
+        visibleWhen: { key: 'view', in: ['kmeans', 'ward'] },
+      },
+      {
+        ...this.rangeParam('eps', 'DBSCAN ε', 'DBSCAN 邻域 ε', this.state.eps, 0.2, 5, 0.1),
+        visibleWhen: { key: 'view', in: ['dbscan'] },
+      },
+      {
+        ...this.rangeParam('minPts', 'DBSCAN minPts', 'DBSCAN 最小点数', this.state.minPts, 2, 12, 1),
+        visibleWhen: { key: 'view', in: ['dbscan'] },
+      },
+      {
+        ...this.checkParam('standardize', 'Standardise variables', '变量标准化', this.state.standardize),
+        hint: this.zh
+          ? '仅影响 PCA 双标图的坐标与载荷'
+          : 'Affects the PCA biplot coordinates and loadings only',
+      },
     ];
   }
 
   protected updateState(params: Record<string, unknown>): boolean {
     let dirty = false;
-    if ((params.view === 'pca' || params.view === 'cluster' || params.view === 'lda') && params.view !== this.state.view) {
-      this.state.view = params.view;
-      dirty = true;
+    if (typeof params.view === 'string') {
+      // Projects saved before the per-method views used `cluster`; migrate it
+      // to k-means so restoring an old workspace does not blank the canvas.
+      const view = (params.view === 'cluster' ? 'kmeans' : params.view) as MvView;
+      if (MV_VIEWS.includes(view) && view !== this.state.view) {
+        this.state.view = view;
+        dirty = true;
+      }
     }
     if (typeof params.clusters === 'number' && Number.isFinite(params.clusters)) {
       const k = Math.min(8, Math.max(2, Math.round(params.clusters)));
@@ -166,6 +171,7 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
     const pcaRes = result.pca;
     const kmeansRes = result.kmeans;
     const lda = result.lda;
+    const noiseCount = result.dbscanResult ? result.dbscanResult.labels.filter((l) => l < 0).length : 0;
     return [
       {
         key: 'pc1',
@@ -191,7 +197,11 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
         key: 'dbscan',
         label: this.zh ? 'DBSCAN 聚类数' : 'DBSCAN clusters',
         value: result.dbscanResult ? String(result.dbscanResult.k) : '—',
-        hint: result.dbscanResult ? (this.zh ? `ε=${this.state.eps}，minPts=${this.state.minPts}` : `ε=${this.state.eps}, minPts=${this.state.minPts}`) : '—',
+        hint: result.dbscanResult
+          ? (this.zh
+              ? `ε=${this.state.eps}，minPts=${this.state.minPts}，噪声 ${noiseCount} 点`
+              : `ε=${this.state.eps}, minPts=${this.state.minPts}, ${noiseCount} noise points`)
+          : '—',
       },
       {
         key: 'lda-accuracy',
@@ -243,8 +253,17 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
     };
   }
 
+  /** Clustering result currently visualised by the selected view. */
+  private activeClusters(result: MvResult): ClusterResult | null {
+    if (this.state.view === 'kmeans') return result.kmeans;
+    if (this.state.view === 'ward') return result.ward;
+    if (this.state.view === 'dbscan') return result.dbscanResult;
+    return null;
+  }
+
   protected figurePanels(result: MvResult): FigurePanelSpec[] {
-    return multivariateFigurePanels(result, this.state.view);
+    const kind = this.state.view === 'lda' ? 'lda' : this.activeClusters(result) ? 'cluster' : 'pca';
+    return multivariateFigurePanels(result, kind, this.activeClusters(result)?.labels ?? null);
   }
 
   protected figureTitle() {
@@ -262,17 +281,33 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
     return this.zh ? '多元统计分析' : 'Multivariate Analysis';
   }
 
+  private viewLabel(): string {
+    const labels: Record<MvView, [string, string]> = {
+      pca: ['PCA 双标图', 'PCA biplot'],
+      kmeans: ['k-means 聚类', 'k-means clusters'],
+      ward: ['Ward 聚类', 'Ward clusters'],
+      dbscan: ['DBSCAN 聚类', 'DBSCAN clusters'],
+      lda: ['判别分析（LDA）', 'Discriminant (LDA)'],
+    };
+    const pair = labels[this.state.view];
+    return this.zh ? pair[0] : pair[1];
+  }
+
   protected subtitle(): string {
     const data = parseMultivariate(this.text);
-    return this.zh
+    const base = this.zh
       ? `${data.x.length} 个观测 · ${data.variables.length} 个数值变量${data.groupName ? ` · 分组 ${data.groupName}` : ''}`
       : `${data.x.length} observations · ${data.variables.length} numeric variables${data.groupName ? ` · group ${data.groupName}` : ''}`;
+    return `${base} · ${this.viewLabel()}`;
   }
 
   protected footnote(): string {
+    const hint = this.zh
+      ? '左：PC1–PC2 得分双标图（箭头为载荷）；右：解释方差碎石图。'
+      : 'Left: PC1–PC2 score biplot with loading arrows; right: explained-variance scree. ';
     return this.zh
-      ? '左：PC1–PC2 得分双标图（箭头为载荷）；右：解释方差碎石图。聚类视图按 k-means 标签着色。'
-      : 'Left: PC1–PC2 score biplot with loading arrows; right: explained-variance scree. The clustering view colours points by k-means label.';
+      ? `${hint}当前按「${this.viewLabel()}」着色。`
+      : `${hint}Points are coloured by ${this.viewLabel()}.`;
   }
 
   protected drawBody(g: CanvasRenderingContext2D, w: number, h: number, result: MvResult | null): void {
@@ -284,14 +319,18 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
       return;
     }
     const pcaRes = result.pca;
-    const scatter = plotBox(w * 0.68, h, 64, 78, 26, 52);
+    // Stop the biplot just above the summary table and use the freed space:
+    // the old bottom margin (0.54·h) ended the box at 0.46·h, squashing the
+    // scores into a short band with a dead gap above the table.
+    const tableTop = Math.round(h * 0.56);
+    const scatter = plotBox(w * 0.68, h, 64, 78, 26, h - tableTop + 14);
     const scoreX = pcaRes.scores.map((s) => s[0] ?? 0);
     const scoreY = pcaRes.scores.map((s) => s[1] ?? 0);
-    const arrowX = pcaRes.loadings.map((l) => l[0] ?? 0);
-    const arrowY = pcaRes.loadings.map((l) => l[1] ?? 0);
     const maxScore = Math.max(1, ...scoreX.map(Math.abs), ...scoreY.map(Math.abs));
-    const maxArrow = Math.max(0.5, ...arrowX.map(Math.abs), ...arrowY.map(Math.abs));
-    const xs = xScale(scatter, -maxScore, maxScore);
+    // Widen the x domain by the box aspect so both axes carry the same
+    // pixels-per-unit — a square PC space must not render stretched.
+    const aspect = scatter.w / Math.max(1, scatter.h);
+    const xs = xScale(scatter, -maxScore * aspect, maxScore * aspect);
     const ys = yScale(scatter, -maxScore, maxScore);
 
     g.strokeStyle = CS.axis;
@@ -304,13 +343,19 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
     g.lineTo(xs(0), scatter.y1);
     g.stroke();
 
-    const labels = this.state.view === 'cluster' ? result.kmeans?.labels ?? [] : [];
+    const active = this.activeClusters(result);
+    const labels = active?.labels ?? [];
+    const clusterView = active !== null;
     const groupLabels = result.data.groups;
     const palette: string[] = [CS.blue, CS.amber, CS.green, CS.violet, CS.pink, CS.cyan, CS.red];
     const classes = this.state.view === 'lda' && groupLabels ? [...new Set(groupLabels)].sort() : [];
     pcaRes.scores.forEach((_s, i) => {
       let color: string = CS.blue;
-      if (this.state.view === 'cluster') color = palette[(labels[i] ?? 0) % palette.length]!;
+      if (clusterView) {
+        const label = labels[i] ?? 0;
+        // DBSCAN noise (-1) gets a muted colour so it is distinct from cluster 0.
+        color = label < 0 ? CS.faint : palette[label % palette.length]!;
+      }
       if (this.state.view === 'lda' && groupLabels) {
         const idx = classes.indexOf(groupLabels[i]!);
         color = palette[(idx < 0 ? 0 : idx) % palette.length]!;
@@ -321,19 +366,65 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
       g.fill();
     });
 
-    const scaleArrow = (scatter.w / 3.4) / maxArrow;
+    // Loading arrows: uniform radial pixel scale so the longest arrow reaches
+    // R from the origin and every arrow keeps its true direction. Labels sit
+    // just past the tip, are clamped inside the frame and nudged apart so
+    // same-direction variables (e.g. two arrows into one corner) cannot
+    // overlap.
+    const cx = xs(0);
+    const cy = ys(0);
+    const arrowR = Math.min(scatter.w, scatter.h) * 0.42;
+    const maxLen = Math.max(1e-9, ...pcaRes.loadings.map((l) => Math.hypot(l[0] ?? 0, l[1] ?? 0)));
+    interface ArrowLabel {
+      text: string;
+      x: number;
+      y: number;
+      w: number;
+      align: CanvasTextAlign;
+    }
+    const arrowLabels: ArrowLabel[] = [];
+    g.font = font(this.zh, 9);
     pcaRes.loadings.forEach((l, i) => {
-      const ax = xs(0) + (l[0] ?? 0) * scaleArrow * Math.sign(maxScore / maxArrow);
-      const ay = ys(0) - (l[1] ?? 0) * scaleArrow * Math.sign(maxScore / maxArrow);
+      const lx = (l[0] ?? 0) / maxLen;
+      const ly = (l[1] ?? 0) / maxLen;
+      const ax = cx + lx * arrowR;
+      const ay = cy - ly * arrowR;
       g.strokeStyle = 'rgba(250,200,110,0.85)';
       g.beginPath();
-      g.moveTo(xs(0), ys(0));
+      g.moveTo(cx, cy);
       g.lineTo(ax, ay);
       g.stroke();
+      const text = result.data.variables[i] ?? '';
+      const tw = g.measureText(text).width;
+      const align: CanvasTextAlign = lx >= 0 ? 'left' : 'right';
+      let tx = ax + (lx >= 0 ? 4 : -4);
+      let ty = ay - ly * 8 + 3;
+      if (align === 'left') tx = Math.min(tx, scatter.x1 - tw - 2);
+      else tx = Math.max(tx, scatter.x0 + tw + 2);
+      ty = Math.min(Math.max(ty, scatter.y0 + 9), scatter.y1 - 4);
+      arrowLabels.push({ text, x: tx, y: ty, w: tw, align });
+    });
+    // Vertical relaxation so near-coincident tips no longer print on top of
+    // each other.
+    arrowLabels.sort((a, b) => a.y - b.y);
+    for (let pass = 0; pass < 3; pass += 1) {
+      for (let i = 1; i < arrowLabels.length; i += 1) {
+        const prev = arrowLabels[i - 1]!;
+        const cur = arrowLabels[i]!;
+        const xOverlap = Math.abs(cur.x - prev.x) < Math.max(cur.w, prev.w);
+        if (xOverlap && cur.y - prev.y < 11) {
+          const push = (11 - (cur.y - prev.y)) / 2;
+          cur.y += push;
+          prev.y -= push;
+        }
+      }
+    }
+    arrowLabels.forEach((b) => {
+      b.y = Math.min(Math.max(b.y, scatter.y0 + 9), scatter.y1 - 4);
       g.fillStyle = CS.amber;
       g.font = font(this.zh, 9);
-      g.textAlign = 'left';
-      g.fillText(result.data.variables[i] ?? '', ax + 3, ay);
+      g.textAlign = b.align;
+      g.fillText(b.text, b.x, b.y);
     });
     g.fillStyle = CS.dim;
     g.font = font(false, 10);
@@ -369,20 +460,26 @@ export class StatsMultivariatePlugin extends StatsPluginBase<MvState, MvResult> 
     g.fillText(this.zh ? '解释方差' : 'explained variance', scree.x0, scree.y0 - 6);
 
     // Model summary table.
-    const tableTop = Math.round(h * 0.56);
     drawCard(g, 24, tableTop - 14, w - 48, h - tableTop - 26);
     const rows: Array<Array<string | number>> = [
       ['PC1', `${fmt(pcaRes.explained[0]! * 100, 2)}%`, `${fmt(pcaRes.cumulative[0]! * 100, 2)}%`],
       ['PC2', `${fmt(pcaRes.explained[1]! * 100, 2)}%`, `${fmt(pcaRes.cumulative[1]! * 100, 2)}%`],
       ['k-means', `k=${result.kmeans?.k ?? 0}`, `silhouette ${fmt(result.kmeans?.silhouette ?? NaN, 3)}`],
       ['Ward', `k=${result.ward?.k ?? 0}`, `WSS ${fmt(result.ward?.wss ?? NaN, 2)}`],
-      ['DBSCAN', `${result.dbscanResult?.k ?? 0} clusters`, `ε=${this.state.eps}, minPts=${this.state.minPts}`],
+      [
+        'DBSCAN',
+        `${result.dbscanResult?.k ?? 0} ${this.zh ? '簇' : 'clusters'}`,
+        `${this.zh ? '噪声' : 'noise'} ${result.dbscanResult?.labels.filter((l) => l < 0).length ?? 0}`,
+      ],
       ['LDA', result.lda ? `${fmt(result.lda.accuracy * 100, 1)}%` : '—', result.lda ? `λ=${fmt(result.lda.wilks, 4)}` : 'no group column'],
       ['Outliers', String(result.outliers?.flagged.length ?? 0), `χ².975=${fmt(result.outliers?.threshold ?? NaN, 2)}`],
     ];
+    const highlight =
+      this.state.view === 'kmeans' ? 2 : this.state.view === 'ward' ? 3 : this.state.view === 'dbscan' ? 4 : this.state.view === 'lda' ? 5 : 0;
     drawTable(g, w, h, [this.zh ? '模型' : 'model', this.zh ? '统计量' : 'statistic', this.zh ? '诊断' : 'diagnostic'], rows, {
       top: tableTop,
       rowHeight: 16,
+      highlight,
     });
     void drawLegend;
   }

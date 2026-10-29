@@ -31,24 +31,6 @@ import {
 } from './kernel';
 import { nonparametricFigurePanels } from './figure';
 
-const DEFAULT_DATA = `group,value
-control,4.8
-control,5.6
-control,5.1
-control,6.3
-control,4.4
-control,5.9
-control,5.2
-control,6.1
-treated,6.7
-treated,7.4
-treated,6.2
-treated,8.1
-treated,7.8
-treated,6.9
-treated,7.2
-treated,8.4`;
-
 type NpTest = 'mann-whitney' | 'wilcoxon' | 'kruskal' | 'friedman' | 'sign' | 'ks2' | 'ks1' | 'corr';
 
 interface NpState {
@@ -74,7 +56,15 @@ const TEST_LABELS: Array<{ value: NpTest; en: string; zh: string }> = [
 
 export class StatsNonparametricPlugin extends StatsPluginBase<NpState, NpViewResult> {
   constructor() {
-    super(statsNonparametricManifest, { test: 'mann-whitney' }, DEFAULT_DATA);
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsNonparametricManifest, { test: 'mann-whitney' }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入 group + value 列的 CSV / TSV 数据（配对 / 相关检验另有列要求）。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset with group and value columns (paired / correlation tests need extra columns).\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {

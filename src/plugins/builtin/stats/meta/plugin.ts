@@ -24,16 +24,6 @@ import {
 } from './kernel';
 import { metaFigurePanels } from './figure';
 
-const DEFAULT_DATA = `study,effect,se,group
-Adams 2016,0.18,0.09,behavioural
-Baker 2018,0.34,0.12,behavioural
-Chen 2019,0.22,0.08,behavioural
-Diaz 2020,0.41,0.15,behavioural
-Evans 2017,0.29,0.11,pharmacological
-Fischer 2019,0.51,0.17,pharmacological
-Garcia 2021,0.37,0.13,pharmacological
-Hughes 2022,0.44,0.14,pharmacological`;
-
 interface MetaState {
   model: 'fixed' | 'random';
 }
@@ -45,7 +35,15 @@ export interface MetaViewResult {
 
 export class StatsMetaPlugin extends StatsPluginBase<MetaState, MetaViewResult> {
   constructor() {
-    super(statsMetaManifest, { model: 'random' }, DEFAULT_DATA);
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsMetaManifest, { model: 'random' }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入含 study、effect、se 列的 CSV / TSV 数据（至少 2 项研究）。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV dataset with study, effect and se columns (>= 2 studies).\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {
@@ -194,14 +192,24 @@ export class StatsMetaPlugin extends StatsPluginBase<MetaState, MetaViewResult> 
     const { studies } = view.dataset;
     const r = view.result;
     const pooled = this.state.model === 'fixed' ? r.fixed : r.random;
-    const effects = [...studies.map((s) => s.effect), pooled.lo, pooled.hi];
-    const lo = Math.min(...effects) - 0.08 * Math.max(0.2, Math.max(...effects) - Math.min(...effects));
-    const hi = Math.max(...effects) + 0.08 * Math.max(0.2, Math.max(...effects) - Math.min(...effects));
-    const forestH = Math.round(h * 0.62);
-    const box = plotBox(Math.round(w * 0.66), forestH, 150, 74, 26, 46);
+    // The x domain must cover the full 95% CI whiskers (effect ± 1.96·se) as
+    // well as the pooled interval — otherwise wide-CI rows extrapolate past
+    // the frame and cross the value column / funnel plot.
+    const effects = studies.flatMap((s) => [s.effect - 1.96 * s.se, s.effect, s.effect + 1.96 * s.se]).concat([pooled.lo, pooled.hi]);
+    const eLo = Math.min(...effects);
+    const eHi = Math.max(...effects);
+    const pad = 0.08 * Math.max(0.2, eHi - eLo);
+    const lo = eLo - pad;
+    const hi = eHi + pad;
+    // Use the full canvas height; the old 0.72·h layout left a dead band
+    // below the plots while squeezing the forest rows.
+    const box = plotBox(Math.round(w * 0.62), h, 150, 70, 26, 78);
     const xs = xScale(box, lo, hi);
     const rows = studies.length;
-    const rowY = (i: number) => box.y0 + ((i + 0.5) * box.h) / (rows + 2);
+    // Leave a header band above the first study row; previously row 0 sat on
+    // the "study (weight %)" caption and the two texts overlapped.
+    const rowTop = 16;
+    const rowY = (i: number) => box.y0 + rowTop + ((i + 0.5) * (box.h - rowTop - 8)) / (rows + 2);
 
     g.strokeStyle = CS.axis;
     g.strokeRect(box.x0, box.y0, box.w, box.h);
@@ -263,41 +271,80 @@ export class StatsMetaPlugin extends StatsPluginBase<MetaState, MetaViewResult> 
     g.font = font(this.zh, 9.5, '600');
     g.textAlign = 'left';
     g.fillText(`${this.zh ? '合并' : 'pooled'} ${fmt(pooled.estimate, 3)}`, box.x1 + 8, yP + 3);
-    g.save();
-    g.translate(box.x0 - 52, box.y0 + 14);
     g.fillStyle = CS.dim;
     g.font = font(this.zh, 9, '600');
-    g.fillText(this.zh ? '研究（权重%）' : 'study (weight %)', 0, 0);
-    g.restore();
+    g.textAlign = 'right';
+    g.fillText(this.zh ? '研究（权重%）' : 'study (weight %)', box.x0 - 8, box.y0 - 8);
 
-    // Funnel plot on the right.
+    // Funnel plot on the right. It needs its own x scale — reusing the forest
+    // `xs` mapped effects into forest coordinates and pushed every point far
+    // outside the funnel frame.
     const funnel = {
-      x0: Math.round(w * 0.70),
-      y0: 74,
+      x0: Math.round(w * 0.7),
+      y0: 78,
       x1: w - 30,
-      y1: forestH - 26,
+      // Align the funnel bottom with the forest frame so both plots share one
+      // baseline instead of the funnel floating high above dead space.
+      y1: box.y1,
       w: 0,
       h: 0,
     };
     funnel.w = funnel.x1 - funnel.x0;
     funnel.h = funnel.y1 - funnel.y0;
-    drawCard(g, funnel.x0 - 10, funnel.y0 - 14, funnel.w + 16, funnel.h + 24);
+    drawCard(g, funnel.x0 - 10, funnel.y0 - 18, funnel.w + 16, funnel.h + 54);
     const maxSe = Math.max(...studies.map((s) => s.se)) * 1.15;
-    const zero = xs(pooled.estimate);
+    const bound = 1.96 * maxSe;
+    const fLo = Math.min(lo, pooled.estimate - bound);
+    const fHi = Math.max(hi, pooled.estimate + bound);
+    const fxs = xScale(funnel, fLo, fHi);
     g.strokeStyle = CS.axis;
     g.strokeRect(funnel.x0, funnel.y0, funnel.w, funnel.h);
+    // Funnel axes: x = effect size, y = standard error (increasing downwards).
+    g.font = font(false, 9);
+    for (let i = 0; i <= 4; i += 1) {
+      const x = funnel.x0 + (funnel.w * i) / 4;
+      g.strokeStyle = CS.grid;
+      g.beginPath();
+      g.moveTo(x, funnel.y0);
+      g.lineTo(x, funnel.y1);
+      g.stroke();
+      g.fillStyle = CS.faint;
+      g.textAlign = 'center';
+      g.fillText(fmt(fLo + (i / 4) * (fHi - fLo), 2), x, funnel.y1 + 13);
+      const y = funnel.y0 + (funnel.h * i) / 4;
+      g.strokeStyle = CS.axis;
+      g.beginPath();
+      g.moveTo(funnel.x0 - 4, y);
+      g.lineTo(funnel.x0, y);
+      g.stroke();
+      g.textAlign = 'right';
+      g.fillText(fmt((i / 4) * maxSe, 2), funnel.x0 - 6, y + 3);
+    }
+    g.fillStyle = CS.dim;
+    g.font = font(this.zh, 10);
+    g.textAlign = 'center';
+    g.fillText(this.zh ? '效应量' : 'effect size', (funnel.x0 + funnel.x1) / 2, funnel.y1 + 28);
+    g.save();
+    // Sit the rotated title a little further left so it clears the widest
+    // right-aligned tick label ("0.20") instead of touching it.
+    g.translate(funnel.x0 - 46, (funnel.y0 + funnel.y1) / 2);
+    g.rotate(-Math.PI / 2);
+    g.fillText(this.zh ? '标准误' : 'SE', 0, 0);
+    g.restore();
+
     g.strokeStyle = CS.faint;
     g.setLineDash([3, 3]);
-    const halfWidth = 1.96 * maxSe * (box.w / (hi - lo));
     g.beginPath();
-    g.moveTo(zero, funnel.y0);
-    g.lineTo(zero - (halfWidth * funnel.w) / box.w, funnel.y1);
-    g.moveTo(zero, funnel.y0);
-    g.lineTo(zero + (halfWidth * funnel.w) / box.w, funnel.y1);
+    // Apex at the pooled estimate (SE = 0), widening to ±1.96·SEmax at the
+    // bottom of the frame.
+    g.moveTo(fxs(pooled.estimate), funnel.y0);
+    g.lineTo(fxs(pooled.estimate - bound), funnel.y1);
+    g.moveTo(fxs(pooled.estimate), funnel.y0);
+    g.lineTo(fxs(pooled.estimate + bound), funnel.y1);
     g.stroke();
     g.setLineDash([]);
     studies.forEach((s) => {
-      const x = xs(s.effect);
+      const x = fxs(s.effect);
       const y = funnel.y0 + (s.se / maxSe) * funnel.h;
       g.fillStyle = 'rgba(120,200,255,0.8)';
       g.beginPath();
@@ -307,12 +354,9 @@ export class StatsMetaPlugin extends StatsPluginBase<MetaState, MetaViewResult> 
     g.fillStyle = CS.dim;
     g.font = font(this.zh, 9.5, '600');
     g.textAlign = 'left';
-    g.fillText(this.zh ? '漏斗图' : 'funnel plot', funnel.x0, funnel.y0 - 5);
-    g.font = font(this.zh, 9);
-    g.textAlign = 'right';
-    g.fillText(this.zh ? '标准误' : 'SE', funnel.x0 - 4, funnel.y0 + 10);
+    g.fillText(this.zh ? '漏斗图' : 'funnel plot', funnel.x0, funnel.y0 - 9);
 
-    drawLegend(g, 34, forestH + 18, [
+    drawLegend(g, 34, box.y1 + 22, [
       { label: this.zh ? '单项研究' : 'study', color: CS.blue },
       { label: this.zh ? '合并效应' : 'pooled', color: CS.amber },
     ], this.zh);

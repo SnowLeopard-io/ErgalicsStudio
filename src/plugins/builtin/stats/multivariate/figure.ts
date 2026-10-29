@@ -13,7 +13,10 @@ import type { MultiDataset, PcaResult } from './kernel';
 const PALETTE = ['#78c8ff', '#ffd166', '#5ee6d0', '#b48cff', '#ff9ecd', '#ff8b86', '#6ee7ff'];
 
 function biplotPanel(data: MultiDataset, pca: PcaResult, view: 'pca' | 'cluster' | 'lda', clusterLabels: number[] | null): FigurePanelSpec {
-  const groups = view === 'cluster' && clusterLabels ? clusterLabels.map(String) : data.groups;
+  const groups =
+    view === 'cluster' && clusterLabels
+      ? clusterLabels.map((l) => (l < 0 ? 'noise' : `cluster ${l}`))
+      : data.groups;
   const classes = groups ? [...new Set(groups)].sort() : ['all'];
   const scoreSeries: PlotSeries[] = classes.map((cls, idx) => ({
     name: cls,
@@ -84,7 +87,7 @@ export function multivariateFigurePanels(result: {
   data: MultiDataset;
   pca: PcaResult | null;
   kmeans: { labels: number[] } | null;
-}, view: 'pca' | 'cluster' | 'lda' = 'pca'): FigurePanelSpec[] {
+}, view: 'pca' | 'cluster' | 'lda' = 'pca', clusterLabels: number[] | null = result.kmeans?.labels ?? null): FigurePanelSpec[] {
   if (!result.pca) return [];
-  return [biplotPanel(result.data, result.pca, view, result.kmeans?.labels ?? null), screePanel(result.pca)];
+  return [biplotPanel(result.data, result.pca, view, clusterLabels), screePanel(result.pca)];
 }

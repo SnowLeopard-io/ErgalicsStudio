@@ -618,7 +618,6 @@ export function CodeEditor() {
   /** Translate the whole buffer from the IR hub into another dialect. */
   const switchLanguage = (lang: CodeLanguage) => {
     if (lang === language || isRunning || activeSessionId === null) return;
-    if (activeSessionId === null) return;
     const sid = activeSessionId;
     // Flush any pending edit first so the IR reflects the latest keystrokes
     // in the current dialect before translating.

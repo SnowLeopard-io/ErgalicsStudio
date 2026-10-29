@@ -22,12 +22,12 @@ export const bioEpidemicManifest: PluginManifest = {
     units: { time: 'd', population: 'persons' },
     reproducible: true,
     notes:
-      'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data.',
+      'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data. The multi-region mode integrates coupled per-region SEIR with symmetric migration (gravity or manual matrix) and optional age structure; Rt from data uses the Cori et al. (2013) Bayesian sliding window with a Gamma(1,5) prior and a discretized Gamma serial interval.',
     notesI18n: {
       'zh-CN':
-        '确定性分室模型模拟器，含守恒与终局关系诊断；早期增长 R_t 采用 SIR 对数斜率近似，输出为模型推导量而非对疫情数据的统计拟合。',
+        '确定性分室模型模拟器，含守恒与终局关系诊断；早期增长 R_t 采用 SIR 对数斜率近似，输出为模型推导量而非对疫情数据的统计拟合。多区域模式以对称迁移（重力模型或手动矩阵）耦合各区独立 SEIR 方程并支持年龄结构；数据 Rt 估计采用 Cori et al. (2013) 贝叶斯滑窗（Γ(1,5) 先验、Γ 世代间隔按天离散化）。',
       'en-US':
-        'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data.',
+        'Deterministic compartment simulator with conservation / final-size diagnostics; the early-growth R_t uses the SIR log-slope approximation and is model-based, not a statistical fit to incidence data. The multi-region mode couples per-region SEIR systems through symmetric migration (gravity or manual matrix) with optional age structure; Rt from data uses the Cori et al. (2013) Bayesian sliding window (Gamma(1,5) prior, discretized Gamma serial interval).',
     },
   },
   formats: [

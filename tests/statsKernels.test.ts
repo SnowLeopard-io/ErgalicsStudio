@@ -17,6 +17,7 @@ import {
   seasonalDecompose,
 } from '../src/plugins/builtin/stats/timeseries/kernel';
 import {
+  dbscan,
   kmeans,
   mahalanobisOutliers,
   parseMultivariate,
@@ -150,6 +151,37 @@ describe('statistics kernels · multivariate', () => {
 
   it('passes the embedded validation benchmarks', () => {
     expect(runMultivariateBenchmark().every((b) => b.passed)).toBe(true);
+  });
+
+  it('keeps DBSCAN noise as -1 and still reports usable cluster statistics', () => {
+    // Two dense triples plus one far-away point that no eps-ball reaches.
+    const x = [
+      [0, 0], [0.1, 0.1], [0.2, 0],
+      [5, 5], [5.1, 5.1], [5.2, 5],
+      [50, 50],
+    ];
+    const res = dbscan(x, 0.5, 2);
+    expect(res.k).toBe(2);
+    expect(res.labels).toEqual([0, 0, 0, 1, 1, 1, -1]);
+    expect(res.centers).toHaveLength(2);
+    expect(res.wss).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(res.silhouette)).toBe(true);
+  });
+
+  it('survives DBSCAN when no core points exist', () => {
+    // Every point is isolated, so there are zero clusters and all noise.
+    const x = [[0], [10], [20], [30]];
+    const res = dbscan(x, 1, 3);
+    expect(res.k).toBe(0);
+    expect(res.labels).toEqual([-1, -1, -1, -1]);
+    expect(res.centers).toEqual([]);
+    expect(res.wss).toBe(0);
+    expect(res.silhouette).toBe(0);
+
+    const empty = dbscan([], 1, 3);
+    expect(empty.k).toBe(0);
+    expect(empty.labels).toEqual([]);
+    expect(empty.centers).toEqual([]);
   });
 });
 

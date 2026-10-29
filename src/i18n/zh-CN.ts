@@ -1144,6 +1144,7 @@ export const zhCN: LocaleDictionary = {
   'report.new': '新建报告',
   'report.save': '保存报告',
   'report.delete': '删除报告',
+  'report.delete_confirm': '确定删除该报告？该操作不可撤销。',
   'report.name': '报告名称',
   'report.report_title': '报告标题',
   'report.subtitle': '副标题（可选）',

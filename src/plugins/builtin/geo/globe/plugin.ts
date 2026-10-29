@@ -23,7 +23,7 @@ import {
   actionFired,
   notify,
 } from '@/core/plugin-tools/enhance';
-import { tissotCircle } from '../tissot/plugin';
+import { tissotCircle } from '../shared/geoCore';
 import { angularDistance, lonLatToVec3 } from '@/core/geo/spherical';
 import { globeManifest } from './manifest';
 import WORLD_LAND_RAW from '../../../../../examples/data/geo-world-110m-land.json?raw';

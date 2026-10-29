@@ -102,6 +102,10 @@ import { femLabManifest } from './engineering/fem-lab/manifest';
 import { bioPkManifest } from './bio/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
+import { medEcgManifest } from './med/ecg/manifest';
+import { medImagingManifest } from './med/imaging/manifest';
+import { medBiostatManifest } from './med/biostat/manifest';
+import { medGenomicsManifest } from './med/genomics/manifest';
 import { envPredatorPreyManifest } from './env/predator-prey/manifest';
 import { carbonDatingManifest } from './geo/carbondating/manifest';
 import { soilWaterManifest } from './geo/soilwater/manifest';
@@ -651,6 +655,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: envPredatorPreyManifest,
     load: async () => {
       const mod = await import('./env/predator-prey');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: medicine & public health (research-grade kernels) -----
+  {
+    manifest: medEcgManifest,
+    load: async () => {
+      const mod = await import('./med/ecg');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medImagingManifest,
+    load: async () => {
+      const mod = await import('./med/imaging');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medBiostatManifest,
+    load: async () => {
+      const mod = await import('./med/biostat');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medGenomicsManifest,
+    load: async () => {
+      const mod = await import('./med/genomics');
       return mod.default();
     },
   },

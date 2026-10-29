@@ -27,24 +27,6 @@ import {
 } from './kernel';
 import { survivalFigurePanels } from './figure';
 
-const DEFAULT_DATA = `time,event,group,age
-6,1,treatment,58
-9,1,treatment,61
-12,1,treatment,55
-15,1,treatment,63
-18,0,treatment,60
-21,1,treatment,57
-24,1,treatment,66
-30,0,treatment,59
-4,1,control,64
-7,1,control,67
-10,1,control,62
-13,1,control,69
-16,0,control,65
-19,1,control,70
-22,1,control,68
-27,0,control,63`;
-
 interface SurvState {
   conf: number;
   showCox: boolean;
@@ -59,7 +41,15 @@ export interface SurvViewResult {
 
 export class StatsSurvivalPlugin extends StatsPluginBase<SurvState, SurvViewResult> {
   constructor() {
-    super(statsSurvivalManifest, { conf: 0.95, showCox: true }, DEFAULT_DATA);
+    // Data plugins start empty — no bundled sample. The canvas shows an
+    // import hint until a dataset is loaded.
+    super(statsSurvivalManifest, { conf: 0.95, showCox: true }, '');
+  }
+
+  protected emptyStateHint(): string {
+    return this.zh
+      ? '请导入含 time、event、group 列的 CSV / TSV 生存数据。\n可通过「数据」模式或项目文件列表将数据载入到本插件。'
+      : 'Import a CSV / TSV survival dataset with time, event and group columns.\nUse the Data mode or load a file into this plugin from the file list.';
   }
 
   protected stateParams(): ParamDefinition[] {
@@ -215,7 +205,11 @@ export class StatsSurvivalPlugin extends StatsPluginBase<SurvState, SurvViewResu
     }
     const curves = view.curves;
     const maxT = Math.max(...curves.flatMap((c) => c.points.map((p) => p.time)), 1);
-    const box = plotBox(w, Math.round(h * 0.72), 66, 78, 30, Math.round(h * 0.62));
+    // Keep the KM panel in the upper ~60 % of the canvas. The old call passed
+    // `h * 0.72` as the canvas height and `h * 0.62` as the bottom margin, which
+    // collapsed the KM box to its 30 px minimum and left the Cox strip to fill
+    // the rest of the view.
+    const box = plotBox(w, h, 66, 78, 30, Math.round(h * 0.4));
     const xs = xScale(box, 0, maxT * 1.04);
     const ys = yScale(box, 0, 1);
     const palette = [CS.blue, CS.amber, CS.green, CS.violet, CS.pink, CS.cyan];
@@ -303,7 +297,9 @@ export class StatsSurvivalPlugin extends StatsPluginBase<SurvState, SurvViewResu
 
     // Cox hazard-ratio panel on the right / below.
     const cox = view.cox;
-    const panelY = box.y1 + 26;
+    // Clear the KM x-axis title (drawn at box.y1 + 16) with a comfortable gap
+    // before the Cox card and its own heading.
+    const panelY = box.y1 + 50;
     const panelH = Math.max(44, h - panelY - 30);
     if (cox && cox.terms.length > 0) {
       const rows = cox.terms.slice(0, 5);

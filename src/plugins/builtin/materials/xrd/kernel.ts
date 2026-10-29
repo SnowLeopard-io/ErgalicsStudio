@@ -503,27 +503,35 @@ export function matchReferencePhases(
   const iMax = Math.max(...peaks.map((p) => p.intensity));
   for (const phase of REFERENCE_PHASES) {
     let matches = 0;
+    let total = 0;
     let sumSq = 0;
     let sumIntErr = 0;
     for (const ref of phase.reflections) {
       const s = ref.hkl[0] ** 2 + ref.hkl[1] ** 2 + ref.hkl[2] ** 2;
       const d = phase.a / Math.sqrt(s);
-      // Bragg: 2θ = 2·asin(λ/(2d))
-      const t2 = (2 * Math.asin(wavelength / (2 * d)) * 180) / Math.PI;
+      // Bragg: 2θ = 2·asin(λ/(2d)). Reflections with d < λ/2 cannot satisfy
+      // the Bragg condition (sinθ > 1) — they are physically unreachable and
+      // must not count against the match ratio.
+      const sinTheta = wavelength / (2 * d);
+      if (sinTheta > 1) continue;
+      total += 1;
+      const t2 = (2 * Math.asin(sinTheta) * 180) / Math.PI;
       const hit = peaks.find((p) => Math.abs(p.twoTheta - t2) <= tol2Theta);
       if (hit) {
         matches += 1;
         sumSq += (hit.twoTheta - t2) ** 2;
-        const obsRel = (hit.intensity / iMax) * 100;
-        sumIntErr += Math.abs(obsRel - ref.rel);
+        if (iMax > 0) {
+          const obsRel = (hit.intensity / iMax) * 100;
+          sumIntErr += Math.abs(obsRel - ref.rel);
+        }
       }
     }
     out.push({
       phase,
       matches,
-      total: phase.reflections.length,
+      total,
       rmsDev2Theta: matches > 0 ? Math.sqrt(sumSq / matches) : NaN,
-      meanIntErr: matches > 0 ? sumIntErr / matches : NaN,
+      meanIntErr: matches > 0 && iMax > 0 ? sumIntErr / matches : NaN,
     });
   }
   // Rank: matches desc, then rms asc.

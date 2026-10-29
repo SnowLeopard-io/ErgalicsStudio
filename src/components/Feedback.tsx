@@ -117,6 +117,7 @@ export function ToastStack() {
   const notifications = useAppStore((s) => s.notifications);
   const dismiss = useAppStore((s) => s.dismissNotification);
   const items = useAnimatedItems(notifications);
+  const t = useT();
 
   if (items.length === 0) return null;
 
@@ -131,6 +132,12 @@ export function ToastStack() {
           key={n.id}
           className={`toast toast-${n.kind} ${n.leaving ? 'leaving' : ''}`}
           onClick={() => dismiss(n.id)}
+          role="button"
+          tabIndex={0}
+          aria-label={t('common.close')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') dismiss(n.id);
+          }}
         >
           {n.message}
           {n.action && (
