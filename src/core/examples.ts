@@ -122,6 +122,13 @@ import {
   TEST_PATTERN_PNG_BASE64,
 } from './exampleAssets';
 
+// Social science suite samples (demography / political science / sociology).
+import socioPopforecastCsv from '../../examples/data/socio-popforecast-age-structure.csv?raw';
+import socioVotingCsv from '../../examples/data/socio-voting-spatial-electorate.csv?raw';
+import socioSnaCsv from '../../examples/data/socio-sna-two-communities.csv?raw';
+import socioInequalityCsv from '../../examples/data/socio-inequality-household-incomes.csv?raw';
+import socioOpinionCsv from '../../examples/data/socio-opinion-smallworld.csv?raw';
+
 // AI Training samples (linear / nonlinear / logistic / MNIST) live under
 // examples/data/ai/. MNIST alone is ~670 KB, so these are loaded lazily via a
 // build-time glob instead of eager `?raw` imports — they stay out of the main
@@ -607,7 +614,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'json',
     mimeType: 'application/json',
     pluginId: 'example.bio-epidemic',
-    group: 'bio',
+    group: 'med',
     content: bioEpidemicMeaslesJson,
     nameI18n: {
       'zh-CN': '传染病模型 · 麻疹 SEIR 暴发参数',
@@ -626,7 +633,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.bio-epidemic',
-    group: 'bio',
+    group: 'med',
     content: bioEpidemicInfluenzaCsv,
     nameI18n: {
       'zh-CN': '传染病模型 · 流感逐日新增病例',
@@ -702,7 +709,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.bio-epidemic',
-    group: 'bio',
+    group: 'med',
     loadContent: () => exampleContent('med-epi-metapop-regions.csv'),
     nameI18n: {
       'zh-CN': '多区域人口表（5 区域）',
@@ -721,7 +728,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.bio-epidemic',
-    group: 'bio',
+    group: 'med',
     loadContent: () => exampleContent('med-epi-rt-incidence.csv'),
     nameI18n: {
       'zh-CN': 'Rt 发病率序列（120 天）',
@@ -740,7 +747,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.bio-pk',
-    group: 'bio',
+    group: 'med',
     loadContent: () => exampleContent('med-pk-obs-conc.csv'),
     nameI18n: {
       'zh-CN': '药代动力学 · 二室口服血药浓度观测',
@@ -3014,7 +3021,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-doe',
-    group: 'stats',
+    group: 'math',
     content: statsDoeCsv,
     nameI18n: {
       'zh-CN': '试验设计 · 2³ 全因子重复试验',
@@ -3033,7 +3040,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-timeseries',
-    group: 'stats',
+    group: 'math',
     content: statsTimeseriesCsv,
     nameI18n: {
       'zh-CN': '时间序列 · 趋势 + 季节 + AR(1) 噪声',
@@ -3052,7 +3059,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-multivariate',
-    group: 'stats',
+    group: 'math',
     content: statsMultivariateCsv,
     nameI18n: {
       'zh-CN': '多元统计 · 三类四变量观测',
@@ -3071,7 +3078,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-nonparametric',
-    group: 'stats',
+    group: 'math',
     content: statsNonparametricCsv,
     nameI18n: {
       'zh-CN': '非参数检验 · 三剂量组',
@@ -3090,7 +3097,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-survival',
-    group: 'stats',
+    group: 'math',
     content: statsSurvivalCsv,
     nameI18n: {
       'zh-CN': '生存分析 · 两臂指数风险试验',
@@ -3109,7 +3116,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-meta',
-    group: 'stats',
+    group: 'math',
     content: statsMetaCsv,
     nameI18n: {
       'zh-CN': '元分析 · 12 项试验（两个亚组）',
@@ -3128,7 +3135,7 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
     format: 'csv',
     mimeType: 'text/csv',
     pluginId: 'example.stats-bayes',
-    group: 'stats',
+    group: 'math',
     content: statsBayesCsv,
     nameI18n: {
       'zh-CN': '贝叶斯推断 · 三站点分层数据',
@@ -3476,6 +3483,101 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '20 个 RTT 的 Reno 场景：初始 cwnd=1、ssthresh=16，在第 8/13/18 轮丢包，附 5 个 RTT 样本。载入后显示拥塞窗口与 RTO 估计。',
       'en-US':
         'A 20-RTT Reno scenario: initial cwnd=1, ssthresh=16, losses at rounds 8/13/18, plus five RTT samples. Loading shows the congestion window and RTO estimate.',
+    },
+  },
+  {
+    id: 'socio-popforecast-age-structure',
+    filename: 'socio-popforecast-age-structure.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.socio-popforecast',
+    group: 'socio',
+    content: socioPopforecastCsv,
+    nameI18n: {
+      'zh-CN': '人口预测 · 年龄结构（16 组）',
+      'en-US': 'Population Forecast · Age Structure (16 classes)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '16 个 5 岁年龄组（0–79 与 80+）的初始人口数（千人），结构呈收缩型顶部加宽——适合演示老龄化情景下的 Leslie 矩阵投影与抚养比演变。',
+      'en-US':
+        'Initial population (thousands) across 16 five-year age classes (0–79 and 80+), with a constrictive, top-heavy shape — suited to demonstrating Leslie projection and dependency-ratio evolution under aging scenarios.',
+    },
+  },
+  {
+    id: 'socio-voting-spatial-electorate',
+    filename: 'socio-voting-spatial-electorate.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.socio-voting',
+    group: 'socio',
+    content: socioVotingCsv,
+    nameI18n: {
+      'zh-CN': '投票模拟 · 二维议题空间选民分布',
+      'en-US': 'Voting Simulation · Spatial Electorate',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '200 名选民在二维议题空间的高斯簇分布（三候选人 A/B/C，分别占 45%/35%/20%），列为 voter、first_choice_cluster、x、y。加载后按空间距离生成偏好排序，比较各选举规则与孔多塞判据。',
+      'en-US':
+        '200 voters clustered in a 2-D issue space (candidates A/B/C at 45%/35%/20%), with columns voter, first_choice_cluster, x, y. Loading builds distance-based preference rankings to compare electoral rules and the Condorcet criterion.',
+    },
+  },
+  {
+    id: 'socio-sna-two-communities',
+    filename: 'socio-sna-two-communities.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.socio-sna',
+    group: 'socio',
+    content: socioSnaCsv,
+    nameI18n: {
+      'zh-CN': '社会网络 · 双社区桥接图',
+      'en-US': 'Social Network · Two Communities with a Bridge',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '20 个节点、两组各 10 节点的稠密社区，仅由一条桥接边 (4,15) 相连。适合演示 Louvain 社区发现、桥中心性与级联在桥上的跨越行为。',
+      'en-US':
+        '20 nodes in two dense 10-node communities joined by a single bridge edge (4,15). Ideal for demonstrating Louvain community detection, brokerage/bridge centrality and cross-bridge cascade behaviour.',
+    },
+  },
+  {
+    id: 'socio-inequality-household-incomes',
+    filename: 'socio-inequality-household-incomes.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.socio-inequality',
+    group: 'socio',
+    content: socioInequalityCsv,
+    nameI18n: {
+      'zh-CN': '不平等 · 家庭年收入样本（对数正态）',
+      'en-US': 'Inequality · Household Income Sample (log-normal)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '120 个对数正态（μ=ln30，σ=0.85，单位：千元/年）合成的家庭年收入样本，基尼系数约 0.42。加载后绘制洛伦兹曲线并对比累进/比例/累退税制的再分配效应。',
+      'en-US':
+        '120 synthetic household incomes drawn from a log-normal (μ=ln30, σ=0.85, thousand CNY/year), Gini ≈ 0.42. Load it to draw the Lorenz curve and compare progressive/flat/regressive redistribution effects.',
+    },
+  },
+  {
+    id: 'socio-opinion-smallworld',
+    filename: 'socio-opinion-smallworld.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.socio-opinion',
+    group: 'socio',
+    content: socioOpinionCsv,
+    nameI18n: {
+      'zh-CN': '舆论传播 · 小世界网络',
+      'en-US': 'Opinion Diffusion · Small-World Network',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '40 节点环形最近邻（度 4）加约 12% 随机长程边的加权小世界网络。适合演示独立级联/线性阈值传播、影响最大化选种与回音室指数。',
+      'en-US':
+        'A 40-node ring lattice (degree 4) with ~12% random long-range weighted ties. Suited to demonstrating independent-cascade / linear-threshold spreading, influence maximization and the echo-chamber index.',
     },
   },
 ];

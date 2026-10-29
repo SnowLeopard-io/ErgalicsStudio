@@ -11,7 +11,7 @@ import {
   simulateMetapop,
   type MetapopConfig,
   type RegionSpec,
-} from '../src/plugins/builtin/bio/epidemic/epidemic';
+} from '../src/plugins/builtin/med/epidemic/epidemic';
 
 function regions3(): RegionSpec[] {
   return [

@@ -166,6 +166,7 @@ export class SeismicPlugin implements Plugin {
         max: 9,
         step: 0.1,
         value: s.magnitude,
+        visibleWhen: { key: 'mode', in: ['seismogram', 'magnitudes'] },
       },
       {
         key: 'distanceDeg',
@@ -176,6 +177,7 @@ export class SeismicPlugin implements Plugin {
         max: 180,
         step: 1,
         value: s.distanceDeg,
+        visibleWhen: { key: 'mode', in: ['traveltime', 'seismogram'] },
       },
       {
         key: 'depthKm',
@@ -186,6 +188,7 @@ export class SeismicPlugin implements Plugin {
         max: 700,
         step: 1,
         value: s.depthKm,
+        visibleWhen: { key: 'mode', in: ['seismogram'] },
       },
       {
         key: 'strike',
@@ -220,9 +223,22 @@ export class SeismicPlugin implements Plugin {
         value: s.rake,
         visibleWhen: { key: 'mode', in: ['beachball'] },
       },
-      actionButton('play', 'Play / pause wave field', '播放 / 暂停波场'),
-      actionButton('step', 'Advance one frame', '单步推进'),
-      actionButton('resetField', 'Reset wave field', '重置波场'),
+      {
+        ...actionButton(
+          'play',
+          this.state.playing ? 'Pause wave field' : 'Play wave field',
+          this.state.playing ? '暂停波场' : '播放波场',
+        ),
+        visibleWhen: { key: 'mode', in: ['wavefield'] },
+      },
+      {
+        ...actionButton('step', 'Advance one frame', '单步推进'),
+        visibleWhen: { key: 'mode', in: ['wavefield'] },
+      },
+      {
+        ...actionButton('resetField', 'Reset wave field', '重置波场'),
+        visibleWhen: { key: 'mode', in: ['wavefield'] },
+      },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export phase table CSV', '导出震相表 CSV'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio', 'primary'),
@@ -350,6 +366,7 @@ export class SeismicPlugin implements Plugin {
 
   private startLoop(): void {
     if (this.raf !== null || !this.ctx) return;
+    if (this.state.mode !== 'wavefield' || !this.state.playing) return;
     this.ensureSim();
     this.lastFrame = 0;
     const tick = (ts: number) => {
