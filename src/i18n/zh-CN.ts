@@ -582,7 +582,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.example.pipeline_loaded': '已加载「{name}」',
   'workbench.example.files': '项目文件',
   'workbench.example.files_import': '导入数据文件',
-  'workbench.example.files_hint': '支持 .csv / .tsv / .dat / .xyz / .json / .txt / .md / .mtx / .geojson',
+  'workbench.example.files_hint': '支持 .csv / .tsv / .tab / .dat / .xyz / .json / .txt / .md / .mtx / .geojson / .cif / .poscar / .fasta / .vcf / .gpx / .kml / .asc / .xy / .xye',
   'workbench.example.files_empty': '暂无项目数据文件，点击上方按钮导入',
   'workbench.example.files_imported': '已导入 {count} 个文件',
   'workbench.example.files_import_failed': '文件导入失败',

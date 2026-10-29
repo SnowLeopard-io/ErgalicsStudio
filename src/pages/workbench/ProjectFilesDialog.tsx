@@ -17,7 +17,7 @@ import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useChunkStore } from '@/stores/chunkStore';
 import { logger } from '@/core/logger';
-import { isSupportedDataFileName } from '@/core/fileFormat';
+import { DATA_FILE_ACCEPT, isSupportedDataFileName } from '@/core/fileFormat';
 
 interface ProjectFilesDialogProps {
   open: boolean;
@@ -258,7 +258,7 @@ export function ProjectFilesDialog({ open, onClose }: ProjectFilesDialogProps) {
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".csv,.tsv,.dat,.xyz,.json,.txt,.md,.mtx,.geojson,text/csv,text/plain,application/json"
+        accept={`${DATA_FILE_ACCEPT},text/csv,text/tab-separated-values,text/plain,application/json,application/geo+json`}
         style={{ display: 'none' }}
         onChange={(e) => {
           void handleImportFiles(e.target.files);

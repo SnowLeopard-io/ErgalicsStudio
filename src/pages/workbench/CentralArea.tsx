@@ -1037,9 +1037,24 @@ export function CentralArea() {
       },
     });
     // If a plugin is still active (e.g. CentralArea just remounted after a
-    // block-mode toggle), redraw it into the fresh container elements.
+    // block-mode toggle), redraw it into the fresh container elements. The
+    // canvas must carry its final CSS size *before* that first draw — during
+    // mount the element can still be mid-layout, and a draw that samples a
+    // transient clientWidth allocates a mismatched bitmap that shows as a
+    // briefly squashed frame until the next pan/resize redraw.
+    if (canvasRef.current) {
+      canvasRef.current.style.width = '100%';
+      canvasRef.current.style.height = '100%';
+    }
     rerenderActivePlugin();
+    // One more redraw once layout has fully settled (double rAF: style flush
+    // + layout), so the first stable frame always matches the real box.
+    let settle = 0;
+    settle = requestAnimationFrame(() => {
+      settle = requestAnimationFrame(() => rerenderActivePlugin());
+    });
     return () => {
+      cancelAnimationFrame(settle);
       setHostContainers(null);
       scene3dRef.current?.dispose();
       scene3dRef.current = null;

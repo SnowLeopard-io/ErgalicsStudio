@@ -129,6 +129,7 @@ export class CarbonDatingPlugin implements Plugin {
         step: 0.0005,
         value: s.f14c,
         hint: this.zh ? 'F14C = 1 对应 1950 年大气现代碳' : 'F14C = 1 is modern (1950 AD) carbon',
+        visibleWhen: { key: 'inputMode', in: ['f14c'] },
       },
       {
         key: 'sigmaF',
@@ -139,6 +140,7 @@ export class CarbonDatingPlugin implements Plugin {
         max: 0.05,
         step: 0.0005,
         value: s.sigmaF,
+        visibleWhen: { key: 'inputMode', in: ['f14c'] },
       },
       {
         key: 'bp',
@@ -149,7 +151,8 @@ export class CarbonDatingPlugin implements Plugin {
         max: 50000,
         step: 5,
         value: s.bp,
-        hint: this.zh ? '用于「常规 14C 年龄」输入形式' : 'used in the radiocarbon-age input mode',
+        hint: this.zh ? '常规 14C 年龄（BP，以 1950 年为基准）' : 'conventional radiocarbon age (BP, relative to 1950 AD)',
+        visibleWhen: { key: 'inputMode', in: ['bp'] },
       },
       {
         key: 'sigmaBp',
@@ -160,6 +163,7 @@ export class CarbonDatingPlugin implements Plugin {
         max: 500,
         step: 5,
         value: s.sigmaBp,
+        visibleWhen: { key: 'inputMode', in: ['bp'] },
       },
       {
         key: 'source',

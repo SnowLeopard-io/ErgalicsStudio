@@ -159,7 +159,7 @@ function Control({
             type="button"
             className="btn btn-sm"
             onClick={async () => {
-              const f = await api.openFile();
+              const f = await api.openFile(def.accept);
               if (f) {
                 setFile(f.name);
                 emit(f);

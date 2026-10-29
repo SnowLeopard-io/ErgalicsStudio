@@ -12,7 +12,6 @@
 export type PluginDiscipline =
   | 'charts'
   | 'math'
-  | 'stats'
   | 'physics'
   | 'engineering'
   | 'astro'
@@ -25,6 +24,7 @@ export type PluginDiscipline =
   | 'materials'
   | 'econ'
   | 'psych'
+  | 'socio'
   | 'artsci'
   | 'cs'
   | 'data'
@@ -41,7 +41,6 @@ export interface DisciplineInfo {
 export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'math', nameI18n: { 'zh-CN': '数学与统计', 'en-US': 'Mathematics & Statistics' } },
-  { id: 'stats', nameI18n: { 'zh-CN': '统计分析', 'en-US': 'Statistical Analysis' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
@@ -53,6 +52,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'engineering', nameI18n: { 'zh-CN': '工程仿真', 'en-US': 'Engineering' } },
   { id: 'econ', nameI18n: { 'zh-CN': '经济与金融', 'en-US': 'Economics' } },
   { id: 'psych', nameI18n: { 'zh-CN': '心理与行为', 'en-US': 'Psychology' } },
+  { id: 'socio', nameI18n: { 'zh-CN': '社会科学', 'en-US': 'Social Science' } },
   { id: 'artsci', nameI18n: { 'zh-CN': '音乐与艺术科学', 'en-US': 'Music & Art Science' } },
   { id: 'cs', nameI18n: { 'zh-CN': '计算机科学', 'en-US': 'Computer Science' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
@@ -168,14 +168,14 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   // Biology
   'example.protein': 'bio',
   'example.bio-enzyme': 'bio',
-  'example.bio-epidemic': 'bio',
   'example.bio-seqalign': 'bio',
   'example.bio-popgen': 'bio',
-  'example.bio-pk': 'bio',
   'example.bio-mendel': 'bio',
   'example.bio-neuron': 'bio',
 
   // Medicine & public health (research-grade kernels)
+  'example.bio-epidemic': 'med',
+  'example.bio-pk': 'med',
   'example.med-ecg': 'med',
   'example.med-imaging': 'med',
   'example.med-biostat': 'med',
@@ -184,8 +184,15 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   // Data & AI
   'example.ai-training': 'data',
   'example.data-imageproc': 'data',
+  'ai.automl': 'data',
+  'ai.nlp': 'data',
+  'ai.recsys': 'data',
+  'ai.rl': 'data',
+  'ai.xai': 'data',
+  'ai.vectordb': 'data',
 
-  // Mathematics & statistics (research-grade kernels)
+  // Mathematics & statistics (research-grade kernels). The former separate
+  // "statistical analysis" group now lives here too.
   'example.math-fourier': 'math',
   'example.math-domaincolor': 'math',
   'example.math-odefield': 'math',
@@ -198,22 +205,27 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.stats-clt': 'math',
   'example.stats-markov': 'math',
   'example.stats-zipf': 'math',
-
-  // Statistical analysis (research-grade DOE / time series / multivariate /
-  // nonparametric / survival / meta-analysis / Bayesian suites)
-  'example.stats-doe': 'stats',
-  'example.stats-timeseries': 'stats',
-  'example.stats-multivariate': 'stats',
-  'example.stats-nonparametric': 'stats',
-  'example.stats-survival': 'stats',
-  'example.stats-meta': 'stats',
-  'example.stats-bayes': 'stats',
+  'example.stats-doe': 'math',
+  'example.stats-timeseries': 'math',
+  'example.stats-multivariate': 'math',
+  'example.stats-nonparametric': 'math',
+  'example.stats-survival': 'math',
+  'example.stats-meta': 'math',
+  'example.stats-bayes': 'math',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',
   'example.econ-evogame': 'econ',
   'example.psych-sdt': 'psych',
   'example.psych-rt': 'psych',
+
+  // Social science (research-grade kernels: demography / political science /
+  // sociology)
+  'example.socio-popforecast': 'socio',
+  'example.socio-voting': 'socio',
+  'example.socio-sna': 'socio',
+  'example.socio-inequality': 'socio',
+  'example.socio-opinion': 'socio',
 
   // Music & art science (interdisciplinary)
   'example.acoustics': 'artsci',
@@ -229,6 +241,12 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.neuralviz': 'cs',
   'example.complexity': 'cs',
   'example.netproto': 'cs',
+
+  // General-purpose simulation engines
+  'example.sim-montecarlo': 'math',
+  'example.sim-abm': 'physics',
+  'example.sim-sd': 'engineering',
+  'example.sim-des': 'engineering',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

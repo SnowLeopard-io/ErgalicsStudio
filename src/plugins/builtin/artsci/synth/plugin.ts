@@ -488,7 +488,7 @@ export class SynthPlugin implements Plugin {
   }
 
   private async importPreset() {
-    const file = await this.api.openFile();
+    const file = await this.api.openFile('.json,application/json');
     if (file) await this.loadData(file);
   }
 

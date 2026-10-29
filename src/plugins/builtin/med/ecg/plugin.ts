@@ -309,7 +309,7 @@ export class MedEcgPlugin implements Plugin {
       `Header "${head.name}" read (${head.nsig} signal(s) @ ${head.fs} Hz). Select its .dat file.`,
       `已读取头文件「${head.name}」（${head.nsig} 导联 @ ${head.fs} Hz），请选择配套 .dat 文件。`,
     );
-    const dat = await this.api.openFile();
+    const dat = await this.api.openFile('.dat');
     if (!dat) return;
     const buffer = await this.api.readBinary(dat);
     const leads = decodeWfdbDat16(buffer, head.nsig, head.nsamp, head.gains, head.baselines);

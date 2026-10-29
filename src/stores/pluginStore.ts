@@ -315,9 +315,12 @@ function buildPluginApi(pluginId: string): PluginApi {
       downloadBlob(fileName, data, mimeType);
     },
     cache: createPluginCache(pluginId),
-    openFile: async () => {
+    openFile: async (accept?: string) => {
       const input = document.createElement('input');
       input.type = 'file';
+      // Restrict the native picker to the formats the caller can actually
+      // parse — avoids users picking files that fail late as "unreadable".
+      if (accept) input.accept = accept;
       // The picker input is never attached to the document, so it would
       // otherwise stay referenced by the closure (and by the browser's
       // internal picker bookkeeping) until the page is torn down.

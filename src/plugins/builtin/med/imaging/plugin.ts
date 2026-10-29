@@ -575,7 +575,7 @@ export class MedImagingPlugin implements Plugin {
 
   /** Append one more .dcm / .ima file (possibly a multi-slice stack). */
   private async appendSlice() {
-    const file = await this.api.openFile();
+    const file = await this.api.openFile('.dcm,.ima,application/dicom');
     if (!file) return;
     const buf = await this.api.readBinary(file);
     const parsed = parseDicomStack(buf);

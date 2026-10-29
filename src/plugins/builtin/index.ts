@@ -29,6 +29,12 @@ import { terrainManifest } from './geo/terrain/manifest';
 import { gpxTrackManifest } from './geo/gpxTrack/manifest';
 import { globeManifest } from './geo/globe/manifest';
 import { aiTrainingManifest } from './data/ai-training/manifest';
+import { vectordbManifest } from './data/vectordb/manifest';
+import { automlManifest } from './data/automl/manifest';
+import { nlpManifest } from './data/nlp/manifest';
+import { recsysManifest } from './data/recsys/manifest';
+import { rlManifest } from './data/rl/manifest';
+import { xaiManifest } from './data/xai/manifest';
 import { errorbandManifest } from './charts/errorband/manifest';
 import { qqplotManifest } from './charts/qqplot/manifest';
 import { violinPlotManifest } from './charts/violinPlot/manifest';
@@ -76,7 +82,7 @@ import { oceanManifest } from './fx/ocean/manifest';
 import { mistyManifest } from './fx/misty/manifest';
 import { astroManifest } from './astro/pipeline/manifest';
 import { bioEnzymeManifest } from './bio/enzyme/manifest';
-import { bioEpidemicManifest } from './bio/epidemic/manifest';
+import { bioEpidemicManifest } from './med/epidemic/manifest';
 import { bioSeqalignManifest } from './bio/seqalign/manifest';
 import { bioPopgenManifest } from './bio/popgen/manifest';
 import { aqiManifest } from './env/aqi/manifest';
@@ -99,7 +105,7 @@ import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
 import { femLabManifest } from './engineering/fem-lab/manifest';
-import { bioPkManifest } from './bio/pk/manifest';
+import { bioPkManifest } from './med/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
 import { medEcgManifest } from './med/ecg/manifest';
@@ -136,6 +142,11 @@ import { blackscholesManifest } from './econ/blackscholes/manifest';
 import { evogameManifest } from './econ/evogame/manifest';
 import { sdtManifest } from './psych/sdt/manifest';
 import { rtManifest } from './psych/rt/manifest';
+import { popForecastManifest } from './socio/popforecast/manifest';
+import { votingManifest } from './socio/voting/manifest';
+import { snaManifest } from './socio/sna/manifest';
+import { inequalityManifest } from './socio/inequality/manifest';
+import { opinionManifest } from './socio/opinion/manifest';
 import { astroTransitManifest } from './astro/transit/manifest';
 import { astroHrdiagramManifest } from './astro/hrdiagram/manifest';
 import { dataImageprocManifest } from './data/imageproc/manifest';
@@ -150,6 +161,10 @@ import { cryptoManifest } from './cs/crypto/manifest';
 import { neuralVizManifest } from './cs/neuralviz/manifest';
 import { complexityManifest } from './cs/complexity/manifest';
 import { netProtoManifest } from './cs/netproto/manifest';
+import { simMontecarloManifest } from './sim/montecarlo/manifest';
+import { simAbmManifest } from './sim/abm/manifest';
+import { simSdManifest } from './sim/sysdyn/manifest';
+import { simDesManifest } from './sim/des/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -321,6 +336,55 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  {
+    manifest: vectordbManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/vectordb');
+      return mod.default();
+    },
+  },
+  // ---- AI / ML suite (pure-TS kernels, research-grade) ----------------------
+  {
+    manifest: automlManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/automl');
+      return mod.default();
+    },
+  },
+  {
+    manifest: nlpManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/nlp');
+      return mod.default();
+    },
+  },
+  {
+    manifest: recsysManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/recsys');
+      return mod.default();
+    },
+  },
+  {
+    manifest: rlManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/rl');
+      return mod.default();
+    },
+  },
+  {
+    manifest: xaiManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/xai');
+      return mod.default();
+    },
+  },
   // ---- Interactive physics / optics labs (default-loaded) ------------------
   // Hands-on 2-D labs: draggable objects and on-canvas interaction. These are
   // product flagship demos, so they ship as default plugins — loaded on
@@ -467,7 +531,7 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
   {
     manifest: bioEpidemicManifest,
     load: async () => {
-      const mod = await import('./bio/epidemic');
+      const mod = await import('./med/epidemic');
       return mod.default();
     },
   },
@@ -629,11 +693,11 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
-  // ---- Research suite: biology & environment (research-grade kernels) --------
+  // ---- Research suite: medicine & environment (research-grade kernels) -------
   {
     manifest: bioPkManifest,
     load: async () => {
-      const mod = await import('./bio/pk');
+      const mod = await import('./med/pk');
       return mod.default();
     },
   },
@@ -896,6 +960,43 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  // ---- Research suite: social science (demography / political science /
+  // sociology; research-grade kernels) ----------------------------------------
+  {
+    manifest: popForecastManifest,
+    load: async () => {
+      const mod = await import('./socio/popforecast');
+      return mod.default();
+    },
+  },
+  {
+    manifest: votingManifest,
+    load: async () => {
+      const mod = await import('./socio/voting');
+      return mod.default();
+    },
+  },
+  {
+    manifest: snaManifest,
+    load: async () => {
+      const mod = await import('./socio/sna');
+      return mod.default();
+    },
+  },
+  {
+    manifest: inequalityManifest,
+    load: async () => {
+      const mod = await import('./socio/inequality');
+      return mod.default();
+    },
+  },
+  {
+    manifest: opinionManifest,
+    load: async () => {
+      const mod = await import('./socio/opinion');
+      return mod.default();
+    },
+  },
   // ---- Research suite: astronomy & data (research-grade kernels) -------------
   {
     manifest: astroTransitManifest,
@@ -994,6 +1095,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: netProtoManifest,
     load: async () => {
       const mod = await import('./cs/netproto');
+      return mod.default();
+    },
+  },
+  // ---- General-purpose simulation engines ----------------------------------
+  {
+    manifest: simMontecarloManifest,
+    load: async () => {
+      const mod = await import('./sim/montecarlo/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simAbmManifest,
+    load: async () => {
+      const mod = await import('./sim/abm/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simSdManifest,
+    load: async () => {
+      const mod = await import('./sim/sysdyn/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simDesManifest,
+    load: async () => {
+      const mod = await import('./sim/des/plugin');
       return mod.default();
     },
   },

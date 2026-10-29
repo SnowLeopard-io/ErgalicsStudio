@@ -44,7 +44,7 @@ interface DataDialogProps {
 }
 
 // Example categories for the datasets tab's left-hand type selector.
-// Samples follow the plugin discipline taxonomy (charts / stats / physics /
+// Samples follow the plugin discipline taxonomy (charts / math / physics /
 // chem / bio / geo / data / fun) so the dialog's grouping matches the
 // sidebar's plugin groups.
 const EXAMPLE_CATS: { id: string; nameI18n: Record<string, string> }[] = [
