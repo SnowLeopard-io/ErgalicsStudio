@@ -544,12 +544,27 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Complexity Analyzer | 复杂度分析器 | 将实测 n/time 数据拟合到 O(1)、O(log n)、O(n)、O(n log n)、O(n²)、O(n³) 与 O(2ⁿ)，并恢复双对数指数。 |
 | Network Protocol Simulator | 网络协议模拟器 | TCP 握手/挥手、TLS 1.3 1-RTT 报文流与离散 Reno 拥塞窗口轨迹，时间均以 RTT 计。 |
 
-**数据与智能（2 个）**
+**仿真引擎（4 个）**
+
+| 插件（英文名） | 中文名 | 定位 |
+| --- | --- | --- |
+| Monte Carlo Simulation Platform | 蒙特卡洛仿真平台 | 分布库（均匀 / 正态 / 三角 / PERT / beta / 经验分布）、高斯 Copula 相关、简单随机 / 拉丁超立方 / Sobol 抽样，均值-方差-分位数统计与置信区间、滑动均值与 Gelman-Rubin 收敛诊断、龙卷风敏感性分析、散点视图与 CSV 导出。 |
+| Agent-Based Modeling Framework | 基于智能体的建模框架 | 网格与环形连续世界、声明式转移/移动规则引擎、参数网格批量运行、智能体序列聚合，内置四套模板：Schelling 隔离、含草地的捕食者-猎物、Deffuant 舆论动力学与 Nagel-Schreckenberg 交通流。 |
+| System Dynamics Studio | 系统动力学工作台 | 可编辑 JSON 存量-流量模型与速率方程、Euler/RK4 积分、带极性的因果回路图、基于回路主导性启发式的反馈回路检测、参数扫描，以及从逻辑斯蒂增长到 Bass 扩散的五套模板。 |
+| Discrete Event Simulator | 离散事件仿真 | 基于二叉堆事件调度器的排队网络：多服务台、有限容量阻塞与返工路由；利用率、时间加权队列长度、Little 定律校验、M/M/1 与 M/M/c（Erlang-C）解析对照、瓶颈识别与四套模板。 |
+
+**数据与智能（8 个）**
 
 | 插件（英文名） | 中文名 | 定位 |
 | --- | --- | --- |
 | AI Trainer | AI 训练 | TF.js 回归 / 分类训练，实时损失曲线与可视化。 |
 | Image Processing | 图像处理 | 二维 FFT、卷积、高斯模糊、Sobel 边缘与直方图均衡。 |
+| AutoML Pipeline | AutoML 流水线 | 自动化预处理（缺失填补、z-score、独热编码、特征选择），ridge / 逻辑斯蒂 / k-NN / 朴素贝叶斯 / CART 模型族，网格 / 随机 / 贝叶斯式超参搜索，k 折交叉验证（accuracy / F1 / AUC / RMSE / R²），流水线 JSON 导出与可复现的固定种子运行。 |
+| NLP Workbench | 自然语言处理工作台 | 分词（停用词 + 词干化）、平滑 TF-IDF 文档-词矩阵、坍缩 Gibbs 采样 LDA 主题模型、词典 + 朴素贝叶斯情感分析、规则式 NER、tf-idf 向量上的 k-means 聚类（附 PCA 散点与各模式 CSV 导出）。 |
+| Recommender System Simulator | 推荐系统模拟器 | 基于用户 / 基于物品的协同过滤、基于内容的 ridge 回归、ALS 矩阵分解、混合融合，precision@K / recall@K / NDCG@K / MAP / RMSE 评估（留出集切分与冷启动兜底覆盖率）。 |
+| Reinforcement Learning Lab | 强化学习环境 | 可配置 GridWorld（陷阱、滑动、步代价）、CartPole 物理与多臂老虎机；Q-Learning、SARSA、REINFORCE、ε-greedy、UCB1 与 Thompson 采样，奖励曲线、遗憾值、Q 表快照、策略箭头与可中止的回合循环。 |
+| Model Interpreter | 模型解释器 | 置换重要性、部分依赖、LIME 局部代理、带局部精度残差的 KernelSHAP、反事实搜索与公平性指标（人口平等、机会均等、差异影响），基于内置 logistic / ridge 参考模型。 |
+| Vector Database | 向量数据库 | 浏览器内向量库：余弦 / 欧氏 / 点积度量上的精确暴力与简化 HNSW 索引、哈希技巧文本与数值嵌入、PCA 与精确 t-SNE 投影、recall@K 评估与检索延迟基准。 |
 
 **特效渲染（7 个）**
 
