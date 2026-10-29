@@ -83,7 +83,7 @@ export function sortTrace(id: SortId, input: ArrayLike<number>): SortTrace {
       }
       break;
     case 'insertion':
-      sorted.add(0);
+      if (array.length > 0) sorted.add(0);
       for (let i = 1; i < array.length; i += 1) {
         let j = i;
         while (j > 0 && compare(j - 1, j) > 0) {
@@ -112,20 +112,17 @@ export function sortTrace(id: SortId, input: ArrayLike<number>): SortTrace {
       break;
     case 'merge':
       mergeSort(0, array.length - 1);
-      for (let i = 0; i < array.length; i += 1) sorted.add(i);
-      snap(-1, -1, 'done');
       break;
     case 'quick':
       quickSort(0, array.length - 1);
-      for (let i = 0; i < array.length; i += 1) sorted.add(i);
-      snap(-1, -1, 'done');
       break;
     case 'heap':
       heapSort();
-      for (let i = 0; i < array.length; i += 1) sorted.add(i);
-      snap(-1, -1, 'done');
       break;
   }
+
+  for (let i = 0; i < array.length; i += 1) sorted.add(i);
+  snap(-1, -1, 'done');
 
   return { id, input: Array.from(input), frames, comparisons, swaps };
 
@@ -282,11 +279,29 @@ export const EXAMPLE_GRAPH = {
 
 export type GraphId = 'bfs' | 'dfs' | 'dijkstra';
 
+/** One renderable snapshot of a graph traversal. */
+export interface GraphStep {
+  /** Nodes finalised so far, in visit order. */
+  visited: string[];
+  /** Tentative distances as of this step. */
+  distances: Record<string, number>;
+  /** Node being expanded, or null before the first visit. */
+  current: string | null;
+  /** Queue / stack / candidate set at this step. */
+  frontier: string[];
+  /** Edge considered at this step, if any. */
+  edge: { from: string; to: string } | null;
+  relaxations: number;
+  note: string;
+}
+
 export interface GraphTrace {
   id: GraphId;
   order: string[];
   distances: Record<string, number>;
   relaxations: number;
+  /** Step-by-step snapshots for animation; the last one equals the final state. */
+  steps: GraphStep[];
 }
 
 function adjacency(): Map<string, Array<{ to: string; weight: number }>> {
@@ -306,10 +321,31 @@ export function graphTrace(id: GraphId, start = 'A'): GraphTrace {
   for (const n of EXAMPLE_GRAPH.nodes) distances[n] = Infinity;
   distances[start] = 0;
   const order: string[] = [];
+  const steps: GraphStep[] = [];
   let relaxations = 0;
+
+  const snapshot = (
+    note: string,
+    current: string | null,
+    frontier: string[],
+    edge: GraphStep['edge'] = null,
+  ): void => {
+    steps.push({
+      visited: [...order],
+      distances: { ...distances },
+      current,
+      frontier: [...frontier],
+      edge,
+      relaxations,
+      note,
+    });
+  };
 
   if (id === 'dijkstra') {
     const done = new Set<string>();
+    const frontier = (): string[] =>
+      EXAMPLE_GRAPH.nodes.filter((n) => !done.has(n) && Number.isFinite(distances[n]!));
+    snapshot(`start at ${start} (d=0)`, null, frontier());
     while (done.size < EXAMPLE_GRAPH.nodes.length) {
       let best: string | null = null;
       for (const n of EXAMPLE_GRAPH.nodes) {
@@ -319,47 +355,72 @@ export function graphTrace(id: GraphId, start = 'A'): GraphTrace {
       if (best === null || !Number.isFinite(distances[best]!)) break;
       done.add(best);
       order.push(best);
+      snapshot(`select ${best} (d=${distances[best]})`, best, frontier());
       for (const edge of adj.get(best) ?? []) {
         relaxations += 1;
         const candidate = distances[best]! + edge.weight;
-        if (candidate < distances[edge.to]!) distances[edge.to] = candidate;
+        if (candidate < distances[edge.to]!) {
+          distances[edge.to] = candidate;
+          snapshot(
+            `relax ${best}→${edge.to}: ${candidate}`,
+            best,
+            frontier(),
+            { from: best, to: edge.to },
+          );
+        }
       }
     }
-    return { id, order, distances, relaxations };
+    return { id, order, distances, relaxations, steps };
   }
 
   const seen = new Set<string>([start]);
   if (id === 'bfs') {
     const queue = [start];
+    snapshot(`enqueue ${start}`, null, [...queue]);
     while (queue.length > 0) {
       const node = queue.shift()!;
       order.push(node);
+      snapshot(`visit ${node}`, node, [...queue]);
       for (const edge of adj.get(node) ?? []) {
         if (!seen.has(edge.to)) {
           seen.add(edge.to);
           distances[edge.to] = distances[node]! + 1;
           queue.push(edge.to);
+          snapshot(
+            `enqueue ${edge.to} (d=${distances[edge.to]})`,
+            node,
+            [...queue],
+            { from: node, to: edge.to },
+          );
         }
       }
     }
   } else {
     const stack: Array<{ node: string; depth: number }> = [{ node: start, depth: 0 }];
+    snapshot(`push ${start}`, null, stack.map((s) => s.node));
     while (stack.length > 0) {
       const { node, depth } = stack.pop()!;
       if (order.includes(node)) continue;
       order.push(node);
       distances[node] = depth;
+      snapshot(`visit ${node} (depth ${depth})`, node, stack.map((s) => s.node));
       const neighbours = adj.get(node) ?? [];
       for (let i = neighbours.length - 1; i >= 0; i -= 1) {
         const to = neighbours[i]!.to;
         if (!seen.has(to)) {
           seen.add(to);
           stack.push({ node: to, depth: depth + 1 });
+          snapshot(
+            `push ${to}`,
+            node,
+            stack.map((s) => s.node),
+            { from: node, to },
+          );
         }
       }
     }
   }
-  return { id, order, distances, relaxations };
+  return { id, order, distances, relaxations, steps };
 }
 
 export interface AlgorithmBenchmark {

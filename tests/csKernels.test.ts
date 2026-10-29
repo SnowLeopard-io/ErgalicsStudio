@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EXAMPLE_GRAPH,
   graphTrace,
   parseArrayInput,
   runAlgorithmBenchmarks,
@@ -73,6 +74,7 @@ describe('algorithms kernel', () => {
     for (const id of ['bubble', 'insertion', 'selection', 'merge', 'quick', 'heap'] as const) {
       const trace = sortTrace(id, input);
       expect(trace.frames.at(-1)!.array).toEqual([1, 2, 5, 5, 6, 9]);
+      expect(trace.frames.at(-1)!.sorted).toEqual([0, 1, 2, 3, 4, 5]);
     }
     expect(sortTrace('bubble', [6, 5, 4, 3, 2, 1]).comparisons).toBe(15);
   });
@@ -88,6 +90,28 @@ describe('algorithms kernel', () => {
   it('graph traversals and Dijkstra agree on the example graph', () => {
     expect(graphTrace('bfs').order.slice(0, 3).join('')).toBe('ABC');
     expect(graphTrace('dijkstra').distances.F).toBe(13);
+  });
+
+  it('records annotated graph steps for animation', () => {
+    for (const id of ['bfs', 'dfs', 'dijkstra'] as const) {
+      const trace = graphTrace(id);
+      expect(trace.steps.length).toBeGreaterThan(1);
+      expect(trace.steps[0]!.visited).toEqual([]);
+      const last = trace.steps.at(-1)!;
+      expect(last.visited).toEqual(trace.order);
+      expect(last.distances).toEqual(trace.distances);
+      for (const step of trace.steps) {
+        expect(step.visited).toEqual(trace.order.slice(0, step.visited.length));
+      }
+    }
+    const dijkstra = graphTrace('dijkstra');
+    expect(dijkstra.steps.some((s) => s.edge !== null)).toBe(true);
+    for (let i = 1; i < dijkstra.steps.length; i += 1) {
+      for (const node of EXAMPLE_GRAPH.nodes) {
+        expect(dijkstra.steps[i]!.distances[node]!).toBeLessThanOrEqual(dijkstra.steps[i - 1]!.distances[node]!);
+      }
+    }
+    expect(dijkstra.steps.at(-1)!.distances.F).toBe(13);
   });
 
   it('parses numeric CSV with header and comments', () => {

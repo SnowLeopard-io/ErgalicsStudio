@@ -7,6 +7,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import { emit } from '@/core/events';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
@@ -89,7 +90,8 @@ export class AlgorithmsPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     const s = this.state;
-    const trace = this.trace();
+    const frames = this.frameCount();
+    const animationVisible = { key: 'view', in: ['bars', 'graph'] };
     return [
       {
         key: 'view',
@@ -135,11 +137,11 @@ export class AlgorithmsPlugin implements Plugin {
         labelI18n: { 'zh-CN': '帧', 'en-US': 'Frame' },
         type: 'range',
         min: 0,
-        max: Math.max(0, trace.frames.length - 1),
+        max: Math.max(0, frames - 1),
         step: 1,
-        value: clamp(s.frame, 0, Math.max(0, trace.frames.length - 1)),
-        hint: `${s.frame + 1} / ${trace.frames.length}`,
-        visibleWhen: { key: 'view', in: ['bars'] },
+        value: this.currentFrame(),
+        hint: `${this.currentFrame() + 1} / ${frames}`,
+        visibleWhen: animationVisible,
       },
       {
         key: 'target',
@@ -150,9 +152,9 @@ export class AlgorithmsPlugin implements Plugin {
         step: 1,
         visibleWhen: { key: 'view', in: ['compare'] },
       },
-      actionButton('play', 'Play / pause animation', '播放 / 暂停动画', 'primary'),
-      actionButton('step', 'Next frame', '下一帧'),
-      actionButton('reset', 'Reset animation', '重置动画'),
+      { ...actionButton('play', 'Play / pause animation', '播放 / 暂停动画', 'primary'), visibleWhen: animationVisible },
+      { ...actionButton('step', 'Next frame', '下一帧'), visibleWhen: animationVisible },
+      { ...actionButton('reset', 'Reset animation', '重置动画'), visibleWhen: animationVisible },
       actionButton('benchmark', 'Run validation benchmarks', '运行验证基准'),
       actionButton('exportCsv', 'Export trace CSV', '导出轨迹 CSV'),
       actionButton('sendToFigure', 'Send to Figure Studio', '发送到 Figure Studio'),
@@ -163,16 +165,20 @@ export class AlgorithmsPlugin implements Plugin {
     if (typeof params.view === 'string' && ['bars', 'graph', 'compare'].includes(params.view) && params.view !== this.state.view) {
       this.state.view = params.view as ViewId;
       this.stopAnimation();
+      this.state.frame = 0;
       this.draw();
     }
     if (typeof params.algo === 'string' && SORT_IDS.includes(params.algo as SortId) && params.algo !== this.state.algo) {
       this.state.algo = params.algo as SortId;
+      this.stopAnimation();
       this.state.frame = 0;
       this.draw();
     }
     if (params.graph === 'bfs' || params.graph === 'dfs' || params.graph === 'dijkstra') {
       if (params.graph !== this.state.graph) {
         this.state.graph = params.graph;
+        this.stopAnimation();
+        this.state.frame = 0;
         this.draw();
       }
     }
@@ -181,7 +187,7 @@ export class AlgorithmsPlugin implements Plugin {
       this.draw();
     }
     if (typeof params.frame === 'number' && Number.isFinite(params.frame)) {
-      const frame = clamp(Math.round(params.frame), 0, this.trace().frames.length - 1);
+      const frame = clamp(Math.round(params.frame), 0, this.frameCount() - 1);
       if (frame !== this.state.frame) {
         this.state.frame = frame;
         this.draw();
@@ -232,27 +238,43 @@ export class AlgorithmsPlugin implements Plugin {
     return sortTrace(this.state.algo, this.data);
   }
 
+  /** Number of animation steps for the active view (1 when static). */
+  private frameCount(): number {
+    if (this.state.view === 'graph') return Math.max(1, graphTrace(this.state.graph).steps.length);
+    if (this.state.view === 'compare') return 1;
+    return Math.max(1, this.trace().frames.length);
+  }
+
+  private currentFrame(): number {
+    return clamp(this.state.frame, 0, this.frameCount() - 1);
+  }
+
   private toggleAnimation() {
+    if (this.state.view === 'compare') return;
     if (this.timer) {
       this.stopAnimation();
       return;
     }
-    const last = this.trace().frames.length - 1;
+    const last = this.frameCount() - 1;
     if (this.state.frame >= last) this.state.frame = 0;
+    const deadline = last;
+    const interval = this.state.view === 'graph' ? 450 : 100;
     this.timer = setInterval(() => {
-      if (this.state.frame >= this.trace().frames.length - 1) {
+      if (this.state.frame >= deadline) {
         this.stopAnimation();
         return;
       }
       this.state.frame += 1;
       this.draw();
-    }, 100);
+      emit('host:params:changed', { pluginId: this.manifest.id });
+    }, interval);
     this.draw();
   }
 
   private step() {
+    if (this.state.view === 'compare') return;
     this.stopAnimation();
-    const last = this.trace().frames.length - 1;
+    const last = this.frameCount() - 1;
     this.state.frame = this.state.frame >= last ? 0 : this.state.frame + 1;
     this.draw();
   }
@@ -331,15 +353,22 @@ export class AlgorithmsPlugin implements Plugin {
     const zh = this.zh;
     this.publish();
     const trace = this.trace();
-    drawHeader(
-      g,
-      w,
-      zh ? '算法可视化器' : 'Algorithm Visualizer',
-      zh
-        ? `${SORT_META[this.state.algo].zh} · n=${this.data.length} · 第 ${this.state.frame + 1}/${trace.frames.length} 帧`
-        : `${SORT_META[this.state.algo].en} · n=${this.data.length} · frame ${this.state.frame + 1}/${trace.frames.length}`,
-      zh,
-    );
+    const frames = this.frameCount();
+    let subtitle: string;
+    if (this.state.view === 'graph') {
+      subtitle = zh
+        ? `${this.state.graph.toUpperCase()} 图遍历 · 第 ${this.currentFrame() + 1}/${frames} 步`
+        : `${this.state.graph.toUpperCase()} graph traversal · step ${this.currentFrame() + 1}/${frames}`;
+    } else if (this.state.view === 'compare') {
+      subtitle = zh
+        ? `${SORT_META[this.state.algo].zh} · n=${this.data.length} · ${SORT_IDS.length} 种排序对比`
+        : `${SORT_META[this.state.algo].en} · n=${this.data.length} · ${SORT_IDS.length} sorts compared`;
+    } else {
+      subtitle = zh
+        ? `${SORT_META[this.state.algo].zh} · n=${this.data.length} · 第 ${this.currentFrame() + 1}/${frames} 帧`
+        : `${SORT_META[this.state.algo].en} · n=${this.data.length} · frame ${this.currentFrame() + 1}/${frames}`;
+    }
+    drawHeader(g, w, zh ? '算法可视化器' : 'Algorithm Visualizer', subtitle, zh);
 
     if (this.state.view === 'graph') this.drawGraph(g, w, h, zh);
     else if (this.state.view === 'compare') this.drawCompare(g, w, h, zh);
@@ -389,7 +418,7 @@ export class AlgorithmsPlugin implements Plugin {
   }
 
   private drawBars(g: CanvasRenderingContext2D, w: number, h: number, zh: boolean, trace: SortTrace) {
-    const f = trace.frames[clamp(this.state.frame, 0, trace.frames.length - 1)]!;
+    const f = trace.frames[this.currentFrame()]!;
     const box = plotBox(w, h, 60, 70, 28, 64);
     const max = Math.max(1, ...f.array);
     const min = Math.min(0, ...f.array);
@@ -460,7 +489,9 @@ export class AlgorithmsPlugin implements Plugin {
   }
 
   private drawGraph(g: CanvasRenderingContext2D, w: number, h: number, zh: boolean) {
-    const graph = graphTrace(this.state.graph);
+    const trace = graphTrace(this.state.graph);
+    const stepIndex = this.currentFrame();
+    const step = trace.steps[stepIndex] ?? trace.steps.at(-1)!;
     const box = plotBox(w, h, 48, 66, 26, 52);
     const positions = new Map<string, { x: number; y: number }>([
       ['A', { x: 0.12, y: 0.18 }],
@@ -472,53 +503,90 @@ export class AlgorithmsPlugin implements Plugin {
     ]);
     const px = (x: number) => box.x0 + x * box.w;
     const py = (y: number) => box.y0 + y * box.h;
+    const visited = new Set(step.visited);
+    const frontier = new Set(step.frontier);
+    const orderIndex = new Map(step.visited.map((n, i) => [n, i]));
+
     drawCard(g, box.x0, box.y0, box.w, box.h);
     for (const edge of EXAMPLE_GRAPH.edges) {
       const a = positions.get(edge.from)!;
       const b = positions.get(edge.to)!;
-      g.strokeStyle = 'rgba(120,200,255,0.32)';
-      g.lineWidth = 1.4;
+      const active =
+        step.edge !== null &&
+        ((step.edge.from === edge.from && step.edge.to === edge.to) ||
+          (step.edge.from === edge.to && step.edge.to === edge.from));
+      g.strokeStyle = active ? CS.amber : 'rgba(120,200,255,0.28)';
+      g.lineWidth = active ? 2.8 : 1.4;
       g.beginPath();
       g.moveTo(px(a.x), py(a.y));
       g.lineTo(px(b.x), py(b.y));
       g.stroke();
-      g.fillStyle = CS.amber;
+      g.fillStyle = active ? CS.amber : 'rgba(255,209,102,0.75)';
       g.font = font(false, 9);
       g.textAlign = 'center';
       g.fillText(String(edge.weight), (px(a.x) + px(b.x)) / 2, (py(a.y) + py(b.y)) / 2 - 4);
     }
-    const orderIndex = new Map(graph.order.map((n, i) => [n, i]));
+
     for (const node of EXAMPLE_GRAPH.nodes) {
       const p = positions.get(node)!;
-      const visited = orderIndex.has(node);
-      g.fillStyle = visited ? 'rgba(94,230,208,0.92)' : 'rgba(30,40,54,0.95)';
-      g.strokeStyle = visited ? CS.cyan : 'rgba(166,180,201,0.55)';
-      g.lineWidth = 1.5;
+      const isVisited = visited.has(node);
+      const isCurrent = step.current === node;
+      const isFrontier = frontier.has(node) && !isVisited;
+      g.fillStyle = isCurrent
+        ? 'rgba(255,209,102,0.95)'
+        : isVisited
+          ? 'rgba(94,230,208,0.92)'
+          : isFrontier
+            ? 'rgba(120,200,255,0.22)'
+            : 'rgba(30,40,54,0.95)';
+      g.strokeStyle = isCurrent ? CS.amber : isVisited ? CS.cyan : isFrontier ? CS.blue : 'rgba(166,180,201,0.55)';
+      g.lineWidth = isCurrent ? 2.4 : 1.5;
       g.beginPath();
       g.arc(px(p.x), py(p.y), 17, 0, Math.PI * 2);
       g.fill();
       g.stroke();
-      g.fillStyle = visited ? '#081016' : CS.text;
+      if (isCurrent) {
+        g.strokeStyle = 'rgba(255,209,102,0.45)';
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(px(p.x), py(p.y), 21, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.fillStyle = isCurrent ? '#101318' : isVisited ? '#081016' : CS.text;
       g.font = font(false, 12, '700');
       g.textAlign = 'center';
       g.fillText(node, px(p.x), py(p.y) + 4);
-      const d = graph.distances[node];
-      g.fillStyle = visited ? CS.dim : CS.faint;
+      const d = step.distances[node] ?? Infinity;
+      g.fillStyle = isVisited || isFrontier ? CS.dim : CS.faint;
       g.font = font(false, 9);
-      g.fillText(Number.isFinite(d) ? (this.state.graph === 'dijkstra' ? `d=${d}` : `d=${d}`) : '∞', px(p.x), py(p.y) + 31);
-      if (visited) {
+      g.fillText(Number.isFinite(d) ? `d=${d}` : '∞', px(p.x), py(p.y) + 31);
+      if (isVisited) {
         g.fillStyle = CS.amber;
         g.font = font(false, 8.5);
         g.fillText(`#${(orderIndex.get(node) ?? 0) + 1}`, px(p.x), py(p.y) - 23);
       }
     }
+
+    drawLegend(
+      g,
+      box.x0,
+      box.y0 - 10,
+      [
+        { label: zh ? '当前' : 'current', color: CS.amber },
+        { label: zh ? '已访问' : 'visited', color: CS.cyan },
+        { label: zh ? '待访问' : 'frontier', color: CS.blue },
+      ],
+      zh,
+    );
+
+    const frontierText = step.frontier.length > 0 ? step.frontier.join(', ') : zh ? '空' : 'empty';
     drawFootnote(
       g,
       w,
       h,
       zh
-        ? `${this.state.graph.toUpperCase()} 访问顺序：${graph.order.join(' → ')} · 松弛次数 ${graph.relaxations}`
-        : `${this.state.graph.toUpperCase()} visit order: ${graph.order.join(' → ')} · ${graph.relaxations} relaxations`,
+        ? `${this.state.graph.toUpperCase()} 第 ${stepIndex + 1}/${trace.steps.length} 步：${step.note} · 待访问 {${frontierText}} · 松弛 ${step.relaxations} 次`
+        : `${this.state.graph.toUpperCase()} step ${stepIndex + 1}/${trace.steps.length}: ${step.note} · frontier {${frontierText}} · ${step.relaxations} relaxations`,
       zh,
     );
   }
