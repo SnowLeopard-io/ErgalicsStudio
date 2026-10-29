@@ -628,6 +628,106 @@ export const csNetProtoBlock: BlockDefinition = defineBlock(
   },
 );
 
+/** Shared factory for the seven statistics `viz.*` blocks: the whole input
+ * table is serialized as CSV and handed to the target plugin. */
+function statsViewBlock(cfg: {
+  id: string;
+  viewType: string;
+  pluginId: string;
+  name: string;
+  nameEn: string;
+  description: string;
+  descriptionEn: string;
+}): BlockDefinition {
+  return defineBlock(
+    {
+      id: cfg.id,
+      category: 'visualize',
+      name: cfg.name,
+      nameI18n: { 'en-US': cfg.nameEn },
+      description: cfg.description,
+      descriptionI18n: { 'en-US': cfg.descriptionEn },
+      color: VIZ_COLOR,
+      ...viewInput(),
+    },
+    async (ctx) => {
+      const input = ctx.getInput('data') as DataTable;
+      if (!input || input.length === 0) throw new Error('empty input');
+      return renderedView(cfg.viewType, cfg.pluginId, toCsvTable(input));
+    },
+  );
+}
+
+export const statsDoeBlock = statsViewBlock({
+  id: 'viz.stats_doe',
+  viewType: 'stats-doe',
+  pluginId: 'example.stats-doe',
+  name: '试验设计',
+  nameEn: 'Design of Experiments',
+  description: '因子响应表 → DOE 效应与方差分析',
+  descriptionEn: 'Factor/response table → DOE effects & ANOVA',
+});
+
+export const statsTimeseriesBlock = statsViewBlock({
+  id: 'viz.stats_timeseries',
+  viewType: 'stats-timeseries',
+  pluginId: 'example.stats-timeseries',
+  name: '时间序列分析',
+  nameEn: 'Time Series Analysis',
+  description: '时间/数值表 → 分解、ARIMA 与 GARCH',
+  descriptionEn: 'time/value table → decomposition, ARIMA & GARCH',
+});
+
+export const statsMultivariateBlock = statsViewBlock({
+  id: 'viz.stats_multivariate',
+  viewType: 'stats-multivariate',
+  pluginId: 'example.stats-multivariate',
+  name: '多元统计分析',
+  nameEn: 'Multivariate Analysis',
+  description: '观测 × 变量表 → PCA 与聚类',
+  descriptionEn: 'observations × variables → PCA & clustering',
+});
+
+export const statsNonparametricBlock = statsViewBlock({
+  id: 'viz.stats_nonparametric',
+  viewType: 'stats-nonparametric',
+  pluginId: 'example.stats-nonparametric',
+  name: '非参数检验',
+  nameEn: 'Nonparametric Tests',
+  description: '分组表 → 秩和 / 符号 / KS 检验',
+  descriptionEn: 'grouped table → rank / sign / KS tests',
+});
+
+export const statsSurvivalBlock = statsViewBlock({
+  id: 'viz.stats_survival',
+  viewType: 'stats-survival',
+  pluginId: 'example.stats-survival',
+  name: '生存分析',
+  nameEn: 'Survival Analysis',
+  description: 'time/event 表 → KM 曲线与 Cox 模型',
+  descriptionEn: 'time/event table → KM curves & Cox model',
+});
+
+export const statsMetaBlock = statsViewBlock({
+  id: 'viz.stats_meta',
+  viewType: 'stats-meta',
+  pluginId: 'example.stats-meta',
+  name: '元分析',
+  nameEn: 'Meta-Analysis',
+  description: 'study/effect/se 表 → 森林图与漏斗图',
+  descriptionEn: 'study/effect/se table → forest & funnel plots',
+});
+
+export const statsBayesBlock = statsViewBlock({
+  id: 'viz.stats_bayes',
+  viewType: 'stats-bayes',
+  pluginId: 'example.stats-bayes',
+  name: '贝叶斯推断',
+  nameEn: 'Bayesian Inference',
+  description: '数值表 → MCMC 后验与收敛诊断',
+  descriptionEn: 'numeric table → MCMC posterior & convergence',
+});
+
 export const visualizeBlocks: BlockDefinition[] = [
   scatterBlock,
   lineBlock,
@@ -647,4 +747,11 @@ export const visualizeBlocks: BlockDefinition[] = [
   csNeuralVizBlock,
   csComplexityBlock,
   csNetProtoBlock,
+  statsDoeBlock,
+  statsTimeseriesBlock,
+  statsMultivariateBlock,
+  statsNonparametricBlock,
+  statsSurvivalBlock,
+  statsMetaBlock,
+  statsBayesBlock,
 ];

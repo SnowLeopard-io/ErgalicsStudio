@@ -12,6 +12,7 @@
 export type PluginDiscipline =
   | 'charts'
   | 'math'
+  | 'stats'
   | 'physics'
   | 'engineering'
   | 'astro'
@@ -39,6 +40,7 @@ export interface DisciplineInfo {
 export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
   { id: 'math', nameI18n: { 'zh-CN': '数学与统计', 'en-US': 'Mathematics & Statistics' } },
+  { id: 'stats', nameI18n: { 'zh-CN': '统计分析', 'en-US': 'Statistical Analysis' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
@@ -188,6 +190,16 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.stats-clt': 'math',
   'example.stats-markov': 'math',
   'example.stats-zipf': 'math',
+
+  // Statistical analysis (research-grade DOE / time series / multivariate /
+  // nonparametric / survival / meta-analysis / Bayesian suites)
+  'example.stats-doe': 'stats',
+  'example.stats-timeseries': 'stats',
+  'example.stats-multivariate': 'stats',
+  'example.stats-nonparametric': 'stats',
+  'example.stats-survival': 'stats',
+  'example.stats-meta': 'stats',
+  'example.stats-bayes': 'stats',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',

@@ -121,6 +121,13 @@ import { mathGameManifest } from './math/game/manifest';
 import { statsCltManifest } from './math/clt/manifest';
 import { statsMarkovManifest } from './math/markov/manifest';
 import { statsZipfManifest } from './math/zipf/manifest';
+import { statsDoeManifest } from './stats/doe/manifest';
+import { statsTimeseriesManifest } from './stats/timeseries/manifest';
+import { statsMultivariateManifest } from './stats/multivariate/manifest';
+import { statsNonparametricManifest } from './stats/nonparametric/manifest';
+import { statsSurvivalManifest } from './stats/survival/manifest';
+import { statsMetaManifest } from './stats/meta/manifest';
+import { statsBayesManifest } from './stats/bayes/manifest';
 import { blackscholesManifest } from './econ/blackscholes/manifest';
 import { evogameManifest } from './econ/evogame/manifest';
 import { sdtManifest } from './psych/sdt/manifest';
@@ -774,6 +781,56 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: statsZipfManifest,
     load: async () => {
       const mod = await import('./math/zipf');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: dedicated statistical analysis ------------------------
+  {
+    manifest: statsDoeManifest,
+    load: async () => {
+      const mod = await import('./stats/doe');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsTimeseriesManifest,
+    load: async () => {
+      const mod = await import('./stats/timeseries');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMultivariateManifest,
+    load: async () => {
+      const mod = await import('./stats/multivariate');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsNonparametricManifest,
+    load: async () => {
+      const mod = await import('./stats/nonparametric');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsSurvivalManifest,
+    load: async () => {
+      const mod = await import('./stats/survival');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMetaManifest,
+    load: async () => {
+      const mod = await import('./stats/meta');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsBayesManifest,
+    load: async () => {
+      const mod = await import('./stats/bayes');
       return mod.default();
     },
   },

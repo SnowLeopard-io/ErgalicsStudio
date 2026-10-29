@@ -66,9 +66,9 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**132 个内置插件（122 个科学插件自动加载 + 10 个趣味工具手动加载），按 17 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**139 个内置插件（129 个科学插件自动加载 + 10 个趣味工具手动加载），按 18 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
-| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、164 个示例数据集 + 11 个示例工程 |
+| 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、171 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **26 个独立科研工具，分 6 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
@@ -95,7 +95,7 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 能力 | 说明 |
 | --- | --- |
-| **132 个内置插件** | （122 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **17 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 计算机科学 / 特效渲染 / 音乐与艺术科学 / 趣味工具）。 |
+| **139 个内置插件** | （129 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **18 个学科**分组（图表 / 数学与统计 / 统计分析 / 物理 / 化学 / 生物 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 数据与智能 / 计算机科学 / 特效渲染 / 音乐与艺术科学 / 趣味工具）。 |
 | 市场目录 | `src/plugins/marketplace.ts`（精选标签 / 流行度 / 分类筛选）。 |
 | `.cspkg` 包加载 | 清单校验 + **Worker 优先隔离**（§沙箱）：第三方入口经 postMessage 桥接与 OffscreenCanvas 渲染，回退为受限制作用域的 `new Function`（非安全边界）；两者均受 Ed25519 签名门禁约束（FR-05，见 `SECURITY.md`）。 |
 | 本地化参数面板 | 插件参数面板内置 CSV 导出按钮、分析叠加层（趋势线、累积/密度直方图、均值标记、抖动点、排序）；全部科研级插件带发送至 Figure Studio 动作。 |
@@ -236,13 +236,13 @@ flowchart TB
 │   │                         #     插件视图，以及科研工具（单一注册表
 │   │                         #     src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · utils 六组）
-│   ├── plugins/builtin/      #   125 个插件：115 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
+│   ├── plugins/builtin/      #   139 个插件：129 个科学插件自动加载 + 10 个趣味工具 (2D + 3D)
 │   ├── plugins/marketplace.ts#   市场目录
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   插件 & 项目 & 编辑器契约
 │   └── native/               #   生成的 WASM 绑定 (git 未跟踪)
 ├── native/ergalics-core/     # Rust 核心，源码交付 (device, compute, utils)
-├── examples/{data,projects,code}/  # 164 个示例数据、11 个 `.clproj` 工程、9 个 Python 程序
+├── examples/{data,projects,code}/  # 171 个示例数据、11 个 `.clproj` 工程、9 个 Python 程序
 ├── scripts/ · tests/ · docs/ · website/
 ```
 
@@ -342,7 +342,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 ### 内置插件
 
-**122 个科学插件**启动时自动加载，侧边栏按 **17 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
+**129 个科学插件**启动时自动加载，侧边栏按 **18 个学科**分组。每个学科一张表——名称取自各 manifest 的 `nameI18n`（zh-CN / en-US）：
 
 **图表可视化（22 个）**
 
@@ -387,6 +387,18 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Central Limit Theorem Bench | 中心极限定理演示台 | 从均匀 / 指数 / 伯努利 / 双峰 / 截尾帕累托总体抽取样本均值，叠加解析 N(μ, σ²/n)，报告偏度 / 峰度 / Jarque–Bera。 |
 | Markov Chains & Stationary Analysis | 马尔可夫链与稳态分析 | 幂迭代求平稳分布（L1 残差 < 1e-12）、不可约性与周期检测、吸收链分析。 |
 | Zipf's Law Word Frequencies | Zipf 定律词频分析 | 真实语料的 Zipf 定律拟合（log rank–log freq 最小二乘，s±σ、R²），内置《Emma》公版语料。 |
+
+**统计分析（7 个）**
+
+| 插件（英文名） | 中文名 | 定位 |
+| --- | --- | --- |
+| Design of Experiments | 试验设计（DOE） | 全因子 / 部分因子与响应面分析：编码设计矩阵、主效应与二阶交互的最小二乘估计、含偏 η² 的方差分析、正交性诊断与田口信噪比。 |
+| Time Series Analysis | 时间序列分析 | ACF/PACF、加法与乘法季节分解、ADF/KPSS/Phillips–Perron 单位根检验、按 AIC 选择的 ARIMA 与预测带、GARCH(1,1) 波动率以及 Granger 因果 F 检验。 |
+| Multivariate Analysis | 多元统计分析 | PCA 双标图、varimax 因子分析、Ward / k-means / DBSCAN 聚类（含轮廓系数）、LDA / QDA 分类、典型相关分析与马氏距离异常检测。 |
+| Nonparametric Tests | 非参数检验 | Mann–Whitney U、Wilcoxon 符号秩、Kruskal–Wallis、Friedman、精确符号检验、单/双样本 Kolmogorov–Smirnov、Spearman ρ 与 Kendall τ-b，并给出效应量与 p 值。 |
+| Survival Analysis | 生存分析 | Kaplan–Meier 曲线（Greenwood 方差与 log-log 置信带）、k 样本 log-rank 检验，以及 Cox 比例风险模型（Breslow 结处理、Newton–Raphson）并给出风险比与 Harrell C。 |
+| Meta-Analysis | 元分析 | 逆方差固定效应合并、DerSimonian–Laird 随机效应、Cochran Q、I²、τ²、森林图与漏斗图数据、Egger 回归、剪补法与亚组合并。 |
+| Bayesian Inference | 贝叶斯推断 | 随机游走 Metropolis–Hastings、共轭 Gibbs 与哈密顿蒙特卡洛、后验预测检验、Savage–Dickey 贝叶斯因子、分层随机截距以及 R̂ / ESS 收敛诊断。 |
 
 **物理模拟（16 个）**
 
@@ -561,7 +573,7 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 | Fireworks | 烟花 | 带重力与拖尾的粒子烟花。 |
 | Truchet Tiles | 特鲁谢瓷砖 | 随机朝向的四分之一圆瓷砖拼出流动图案。 |
 
-模拟类插件严格数据驱动：初始为空、绝不伪造默认场景，**重置**仅重放已加载的数据。每个科学插件都附示例数据集（`examples/data/` 共 164 个文件），经 **示例** 对话框一键加载即可产出真实可视化；模型查看器另附 5 个示例 3D 模型（STL / OBJ / PLY / glTF / GLB）。
+模拟类插件严格数据驱动：初始为空、绝不伪造默认场景，**重置**仅重放已加载的数据。每个科学插件都附示例数据集（`examples/data/` 共 171 个文件），经 **示例** 对话框一键加载即可产出真实可视化；模型查看器另附 5 个示例 3D 模型（STL / OBJ / PLY / glTF / GLB）。
 
 插件还可声明**科研元数据**（`manifest.research`）——科研就绪分级（研究级 / 准研究级 / 演示级 / 教学演示），在市场与详情面板以语义色徽章呈现，并附带物理量单位、验证基准 id 与适用范围说明；同时可向视口下方的共享**科学输出栏**发布结构化结论（拟合质量、残差、置信区间、收敛 / 守恒诊断），让每张图都不缺数值依据。
 
@@ -1052,7 +1064,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 
 - [x] 工作台布局、项目管理、文件路由；四种模式（标准 / 流程 / 积木 / 代码）
 - [x] 工作台文件资源管理器 + 标签页中央区 + 按文件分派的编辑器（`.py` / `*.flow.json` / `*.block.json`）、中央导出菜单、工作区产物
-- [x] 132 个内置插件（122 科学自动加载 + 10 趣味手动加载）按 17 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
+- [x] 139 个内置插件（129 科学自动加载 + 10 趣味手动加载）按 18 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
 - [x] 插件 CSV 导出按钮 + 分析叠加层；中央画布导出菜单（PNG / 透明 PNG，保存到工作区）；市场目录
 - [x] WebGPU 设备管理 + 14 个可复用 WGSL 内核（Particles / N-Body / LBM / 波动方程 / FFT / k-means…）
 - [x] 地理插件系列（空间插值含 LOOCV + Moran's I、地形分析流域三件套、FAO-56 等），全部支持发送 Figure Studio

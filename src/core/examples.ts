@@ -106,6 +106,13 @@ import csComplexityRunsCsv from '../../examples/data/cs-complexity-runs.csv?raw'
 import csNetprotoScenarioJson from '../../examples/data/cs-netproto-scenario.json?raw';
 import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
+import statsDoeCsv from '../../examples/data/stats-doe.csv?raw';
+import statsTimeseriesCsv from '../../examples/data/stats-timeseries.csv?raw';
+import statsMultivariateCsv from '../../examples/data/stats-multivariate.csv?raw';
+import statsNonparametricCsv from '../../examples/data/stats-nonparametric.csv?raw';
+import statsSurvivalCsv from '../../examples/data/stats-survival.csv?raw';
+import statsMetaCsv from '../../examples/data/stats-meta.csv?raw';
+import statsBayesCsv from '../../examples/data/stats-bayes.csv?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
 import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
 import {
@@ -2751,6 +2758,139 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'Jane Austen《Emma》(1816) 第一卷第 1–6 章英文全文（约 1.4 万词，公版，校验于 Project Gutenberg eBook #158；# 行为注释）。加载后做词频排序与 log-log 拟合，实测 s ≈ 1.06、R² ≈ 0.97，与理想 Zipf 指数 s = 1 对照。',
       'en-US':
         "The full English text of Jane Austen's Emma (1816), Volume I chapters 1–6 (~14k words, public domain, checked against Project Gutenberg eBook #158; '#' lines are comments). Load it to rank word frequencies and fit log-log: measured s ≈ 1.06 with R² ≈ 0.97 against the ideal Zipf exponent s = 1.",
+    },
+  },
+  {
+    id: 'stats-doe-factorial',
+    filename: 'stats-doe.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-doe',
+    group: 'stats',
+    content: statsDoeCsv,
+    nameI18n: {
+      'zh-CN': '试验设计 · 2³ 全因子重复试验',
+      'en-US': 'DOE · Replicated 2³ Full Factorial',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '三个因子（A、B、C，编码 −1/+1）的 2³ 全因子设计，每个处理重复两次（n=16），响应含 A、B、C 主效应、A×B 交互与固定种子噪声。加载后查看 Pareto 标准化效应、ANOVA 表与 R²。',
+      'en-US':
+        'A replicated 2³ full factorial on three coded factors (A, B, C at −1/+1), two runs per treatment (n=16), with main effects, an A×B interaction and fixed-seed noise. Load it to inspect the Pareto of standardised effects, the ANOVA table and R².',
+    },
+  },
+  {
+    id: 'stats-timeseries-seasonal',
+    filename: 'stats-timeseries.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-timeseries',
+    group: 'stats',
+    content: statsTimeseriesCsv,
+    nameI18n: {
+      'zh-CN': '时间序列 · 趋势 + 季节 + AR(1) 噪声',
+      'en-US': 'Time Series · Trend + Seasonality + AR(1) Noise',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '108 个月的合成序列（线性趋势、12 月周期、AR(1) 残差）并附带一个因果驱动副序列。加载后运行 ADF/KPSS、季节分解、ARIMA 预测、GARCH(1,1) 与 Granger 检验。',
+      'en-US':
+        'A 108-month synthetic series (linear trend, 12-month cycle, AR(1) residuals) with an auxiliary causal driver. Load it to run ADF/KPSS, seasonal decomposition, ARIMA forecasting, GARCH(1,1) and the Granger test.',
+    },
+  },
+  {
+    id: 'stats-multivariate-iris',
+    filename: 'stats-multivariate.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-multivariate',
+    group: 'stats',
+    content: statsMultivariateCsv,
+    nameI18n: {
+      'zh-CN': '多元统计 · 三类四变量观测',
+      'en-US': 'Multivariate · Three Classes, Four Variables',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '60 个观测、4 个数值变量与 3 个 species 组（固定种子模拟）。加载后查看 PCA 双标图、碎石图、k-means / Ward / DBSCAN 聚类轮廓系数、LDA 回代准确率与马氏距离异常点。',
+      'en-US':
+        'Sixty observations on four numeric variables across three species groups (fixed-seed simulation). Load it for the PCA biplot, scree plot, k-means / Ward / DBSCAN silhouettes, LDA accuracy and Mahalanobis outliers.',
+    },
+  },
+  {
+    id: 'stats-nonparametric-doses',
+    filename: 'stats-nonparametric.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-nonparametric',
+    group: 'stats',
+    content: statsNonparametricCsv,
+    nameI18n: {
+      'zh-CN': '非参数检验 · 三剂量组',
+      'en-US': 'Nonparametric · Three Dose Groups',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '对照、低剂量与高剂量三组各 12 个观测（固定种子）。切换 Mann–Whitney U、Kruskal–Wallis、KS 与秩相关，查看经验 CDF、组均值、效应量与 p 值。',
+      'en-US':
+        'Three groups (control, low-dose, high-dose; 12 observations each, fixed seed). Switch between Mann–Whitney U, Kruskal–Wallis, KS and rank correlation to inspect ECDFs, group means, effect sizes and p-values.',
+    },
+  },
+  {
+    id: 'stats-survival-two-arm',
+    filename: 'stats-survival.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-survival',
+    group: 'stats',
+    content: statsSurvivalCsv,
+    nameI18n: {
+      'zh-CN': '生存分析 · 两臂指数风险试验',
+      'en-US': 'Survival · Two-Arm Exponential-Hazard Trial',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '对照与治疗两臂各 24 例，指数风险生成生存时间并在 30 个月行政删失，含年龄协变量。加载后查看 KM 曲线与置信带、log-rank 检验、Cox 风险比与 Harrell C。',
+      'en-US':
+        'Two arms of 24 subjects with exponential hazards, administrative censoring at 30 months and an age covariate. Load it for KM curves with confidence bands, the log-rank test, Cox hazard ratios and Harrell’s C.',
+    },
+  },
+  {
+    id: 'stats-meta-twelve-trials',
+    filename: 'stats-meta.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-meta',
+    group: 'stats',
+    content: statsMetaCsv,
+    nameI18n: {
+      'zh-CN': '元分析 · 12 项试验（两个亚组）',
+      'en-US': 'Meta-Analysis · Twelve Trials in Two Subgroups',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 项研究的效应量与标准误，分为行为与药物两个亚组。加载后比较固定效应与 DerSimonian–Laird 随机效应、Cochran Q、I²、τ²、Egger 检验、剪补法与森林/漏斗图。',
+      'en-US':
+        'Twelve studies with effects and standard errors split into behavioural and pharmacological subgroups. Compare fixed-effect and DerSimonian–Laird random-effects pooling, Cochran Q, I², τ², Egger’s test, trim-and-fill and the forest / funnel views.',
+    },
+  },
+  {
+    id: 'stats-bayes-hierarchical',
+    filename: 'stats-bayes.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-bayes',
+    group: 'stats',
+    content: statsBayesCsv,
+    nameI18n: {
+      'zh-CN': '贝叶斯推断 · 三站点分层数据',
+      'en-US': 'Bayesian Inference · Three-Site Hierarchical Data',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '三个站点各 24 个观测（固定种子），站点均值 1.8 / 2.6 / 2.2。加载后比较 MH、Gibbs 与 HMC 采样，查看后验密度、可信区间、Savage–Dickey 贝叶斯因子、R̂/ESS 与分层随机截距。',
+      'en-US':
+        'Three sites with 24 observations each (fixed seed) and site means 1.8 / 2.6 / 2.2. Load it to compare MH, Gibbs and HMC sampling and inspect posterior densities, credible intervals, the Savage–Dickey Bayes factor, R̂/ESS and hierarchical random intercepts.',
     },
   },
   {
