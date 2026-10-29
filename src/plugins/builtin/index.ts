@@ -98,7 +98,7 @@ import { physicsTrajectoryManifest } from './physics/trajectory/manifest';
 import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
-import { femLabManifest } from '../fem-lab/manifest';
+import { femLabManifest } from './engineering/fem-lab/manifest';
 import { bioPkManifest } from './bio/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
@@ -621,7 +621,7 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
   {
     manifest: femLabManifest,
     load: async () => {
-      const mod = await import('../fem-lab');
+      const mod = await import('./engineering/fem-lab');
       return mod.default();
     },
   },
