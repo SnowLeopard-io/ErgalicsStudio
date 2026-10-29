@@ -128,7 +128,9 @@ export function drawAxes(
   g.textAlign = 'center';
   g.fillText(xLabel, (box.x0 + box.x1) / 2, box.y1 + 34);
   g.save();
-  g.translate(15, (box.y0 + box.y1) / 2);
+  // Anchor the rotated y-axis title to this panel, not the canvas: side-by-side
+  // panels (ACF/PACF) would otherwise all stack their titles on the far left.
+  g.translate(Math.max(14, box.x0 - 46), (box.y0 + box.y1) / 2);
   g.rotate(-Math.PI / 2);
   g.fillText(yLabel, 0, 0);
   g.restore();

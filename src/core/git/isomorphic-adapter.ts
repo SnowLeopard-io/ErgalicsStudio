@@ -350,7 +350,8 @@ export class IsomorphicGitAdapter implements GitAdapter {
 
   /**
    * Workspace-vs-HEAD diff. Note: isomorphic-git v1 exposes no index-content
-   * reader, so `opts.staged` diffs are not yet supported (returns []).
+   * reader, so `opts.staged` falls back to a worktree-vs-HEAD diff (staged
+   * content cannot be isolated without an index reader).
    */
   async diff(repoPath: string, opts?: DiffOptions): Promise<DiffResult[]> {
     const fs = this.getFS();
@@ -382,7 +383,10 @@ export class IsomorphicGitAdapter implements GitAdapter {
         const data = await fs.promises.readFile(`${repoPath}/${file}`);
         newText = typeof data === 'string' ? data : new TextDecoder().decode(data);
       } catch {
-        continue; // Deleted from the worktree — nothing to render.
+        // Deleted from the worktree — render as a pure deletion when the file
+        // existed in HEAD; otherwise it never existed, nothing to diff.
+        if (oldText !== '') results.push(this.buildDiff(file, oldText, ''));
+        continue;
       }
       if (oldText === newText) continue;
       results.push(this.buildDiff(file, oldText, newText));

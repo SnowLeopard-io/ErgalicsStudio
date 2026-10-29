@@ -768,7 +768,12 @@ export function CentralArea() {
   // threshold keeps tab clicks working while dragging pans the row. The
   // active tab also auto-scrolls into view when tabs switch or open.
   const tabStripRef = useRef<HTMLDivElement | null>(null);
+  const tabStripCleanupRef = useRef<(() => void) | null>(null);
   const setTabStripEl = useCallback((el: HTMLDivElement | null) => {
+    if (tabStripCleanupRef.current) {
+      tabStripCleanupRef.current();
+      tabStripCleanupRef.current = null;
+    }
     tabStripRef.current = el;
     if (!el) return;
     let dragging = false;
@@ -776,20 +781,22 @@ export function CentralArea() {
     let suppressClick = false;
     let startX = 0;
     let startScroll = 0;
-    el.addEventListener('wheel', (e) => {
+    const onWheel = (e: WheelEvent) => {
       const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (!dx || el.scrollWidth <= el.clientWidth) return;
       e.preventDefault();
       el.scrollLeft += dx;
-    }, { passive: false });
-    el.addEventListener('pointerdown', (e) => {
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
       dragging = true;
       moved = false;
       startX = e.clientX;
       startScroll = el.scrollLeft;
-    });
-    el.addEventListener('pointermove', (e) => {
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    const onPointerMove = (e: PointerEvent) => {
       if (!dragging) return;
       const dx = e.clientX - startX;
       if (!moved && Math.abs(dx) > 4) {
@@ -798,7 +805,8 @@ export function CentralArea() {
         el.classList.add('is-dragging');
       }
       if (moved) el.scrollLeft = startScroll - dx;
-    });
+    };
+    el.addEventListener('pointermove', onPointerMove);
     const endDrag = () => {
       if (!dragging) return;
       dragging = false;
@@ -808,12 +816,21 @@ export function CentralArea() {
     };
     el.addEventListener('pointerup', endDrag);
     el.addEventListener('pointercancel', endDrag);
-    el.addEventListener('click', (e) => {
+    const onClickCapture = (e: MouseEvent) => {
       if (!suppressClick) return;
       suppressClick = false;
       e.stopPropagation();
       e.preventDefault();
-    }, true);
+    };
+    el.addEventListener('click', onClickCapture, true);
+    tabStripCleanupRef.current = () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', endDrag);
+      el.removeEventListener('pointercancel', endDrag);
+      el.removeEventListener('click', onClickCapture, true);
+    };
   }, []);
   const showPluginCanvas = useAppStore((s) => s.showPluginCanvas);
   // Keep the active tab visible: switching tabs (or opening one beyond the

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
@@ -80,9 +80,14 @@ export function Sidebar() {
   const [entered, setEntered] = useState(false);
 
   // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  const collapseFallbackTimer = useRef<number | null>(null);
   useEffect(() => {
     if (sidebarOpen) {
       setClosing(false);
+      if (collapseFallbackTimer.current !== null) {
+        window.clearTimeout(collapseFallbackTimer.current);
+        collapseFallbackTimer.current = null;
+      }
       const t = window.setTimeout(() => setEntered(true), 280);
       return () => window.clearTimeout(t);
     }
@@ -93,7 +98,10 @@ export function Sidebar() {
     if (closing) return;
     setClosing(true);
     // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
-    window.setTimeout(() => {
+    // 保存句柄，避免快速“收起→展开”后旧兜底定时器把侧栏再次收起。
+    if (collapseFallbackTimer.current !== null) window.clearTimeout(collapseFallbackTimer.current);
+    collapseFallbackTimer.current = window.setTimeout(() => {
+      collapseFallbackTimer.current = null;
       if (useAppStore.getState().sidebarOpen) toggleSidebar();
     }, 300);
   };
@@ -111,7 +119,9 @@ export function Sidebar() {
     const onCollapseRequest = () => handleCollapse();
     window.addEventListener('ergalics:collapse-sidebar', onCollapseRequest);
     return () => window.removeEventListener('ergalics:collapse-sidebar', onCollapseRequest);
-  });
+    // handleCollapse reads store state via getState() and setters are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Activating a plugin hands the canvas back to it: switch to the plugin
    *  tab. Open file/suite tabs stay in the strip and can be switched back. */

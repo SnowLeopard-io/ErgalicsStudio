@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Ergalics Studio — block editor styles
    Matches the "instrument console" design tokens from global.css.
    ========================================================================== */
@@ -441,7 +441,7 @@
 }
 
 .block-preview-svg-actions button:hover {
-  color: var(--color-text);
+  color: var(--color-text-primary);
   border-color: var(--color-text-tertiary);
 }
 
@@ -464,7 +464,7 @@
 }
 
 .block-preview-chip:hover {
-  color: var(--color-text);
+  color: var(--color-text-primary);
   border-color: var(--color-text-tertiary);
 }
 
@@ -493,7 +493,7 @@
 .block-preview-scalar-value {
   font-family: var(--font-mono);
   font-size: var(--font-size-lg);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 /* ---- DataTable preview table ---- */
@@ -547,7 +547,7 @@
 }
 
 .dt-preview-table td {
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .dt-preview-note {
@@ -1415,7 +1415,7 @@
 
 .code-editor-repl-go:hover {
   background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  color: var(--color-text-inverse);
 }
 
 /* ==========================================================================
@@ -1514,7 +1514,7 @@
 
 .be-switch-btn-apply {
   background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  color: var(--color-text-inverse);
   border-color: var(--color-accent);
 }
 
@@ -1539,7 +1539,7 @@
 
 .be-switch-undo-btn {
   background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  color: var(--color-text-inverse);
   border: none;
   border-radius: 999px;
   padding: 4px 12px;
@@ -1947,7 +1947,7 @@
    informs without distracting, e.g. "answered via the offline engine". */
 .ai-msg-note {
   font-size: 8px;
-  color: var(--color-fg-muted, var(--color-text-tertiary));
+  color: var(--color-text-tertiary);
   font-style: italic;
   opacity: 0.85;
 }

@@ -573,7 +573,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   rename: (name) => {
     const { project } = get();
     if (!project) return;
-    set({ project: { ...project, name }, dirty: true });
+    set({ project: { ...project, name } });
+    get().setDirty(true);
   },
 
   remove: async (id) => {
@@ -710,7 +711,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const files = existing
       ? current.data.files.map((f) => (f.id === existing.id ? entry : f))
       : [...current.data.files, entry];
-    set({ project: { ...current, data: { ...current.data, files } }, dirty: true });
+    set({ project: { ...current, data: { ...current.data, files } } });
+    get().setDirty(true);
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);
     return entry.id;
@@ -720,7 +722,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { project } = get();
     if (!project) return;
     const files = project.data.files.filter((f) => f.id !== id);
-    set({ project: { ...project, data: { ...project.data, files } }, dirty: true });
+    set({ project: { ...project, data: { ...project.data, files } } });
+    get().setDirty(true);
     setProjectFiles(files);
     // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
     // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
@@ -923,8 +926,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await adapter.clone(url, repoPath, { branch, onProgress });
 
     // A git-backed project must carry a project.clproj at its root (§3.1).
-    const raw = await adapter.readFile(repoPath, 'project.clproj');
-    const project = deserializeProject(raw);
+    // On a malformed clone, clean up the orphan repo (including the .git
+    // object tree) before failing — otherwise every retry parks another
+    // full repo copy in VFS storage.
+    let raw: string;
+    try {
+      raw = await adapter.readFile(repoPath, 'project.clproj');
+    } catch (err) {
+      await getVfs()
+        .deleteRoot(repoPath)
+        .catch(() => undefined);
+      throw err;
+    }
+    let project: Project;
+    try {
+      project = deserializeProject(raw);
+    } catch (err) {
+      await getVfs()
+        .deleteRoot(repoPath)
+        .catch(() => undefined);
+      throw err;
+    }
     // Detach from the source project's identity: this installation owns its
     // own IndexedDB record and repo path.
     project.id = seed.id;

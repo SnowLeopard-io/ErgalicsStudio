@@ -51,7 +51,7 @@ function nextFrame(): Promise<void> {
 export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
-  const notify = useProjectStore.getState().applyPluginParams;
+  const syncPluginParams = useProjectStore.getState().applyPluginParams;
   const notifyApp = useAppStore((s) => s.notify);
   const currentPlot = useAnalysisStore((s) => s.currentPlot);
   const [options, setOptions] = useState<ShareOptions>(DEFAULT_OPTIONS);
@@ -94,7 +94,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     setSnapshotStage('collect');
     await nextFrame();
     // Persist latest plugin params so the lock hashes the current state.
-    await notify();
+    await syncPluginParams();
     const projectNow = useProjectStore.getState().project;
     if (!projectNow) throw new Error(t('gallery.share_no_snapshot'));
     await useExperimentStore.getState().loadRuns();
@@ -181,7 +181,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     // Persist the latest plugin params into the project before serializing,
     // and await it — otherwise the payload can be built from a stale
     // snapshot and share a project missing the current parameters.
-    await notify();
+    await syncPluginParams();
     const projectNow = useProjectStore.getState().project;
     if (!projectNow) return;
     const payload = {

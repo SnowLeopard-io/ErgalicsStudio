@@ -973,9 +973,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
 /**
  * Load a plugin from an instance or a factory.
  *
- * The factory is built with `plugin.manifest.id` when it is an object, so
- * params written during `init` land under the real plugin id instead of a
- * placeholder that no later lookup can find.
+ * Function factories are probed with a placeholder `__init__` id (the real
+ * manifest id is only known after building the plugin). Any params the
+ * factory body wrote during the probe are migrated to the real id so later
+ * `getParam`/`setParam` lookups agree.
  */
 export async function loadPluginFromModule(factory: Plugin | ((api: PluginApi) => Plugin)): Promise<void> {
   if (typeof factory !== 'function') {
@@ -983,6 +984,27 @@ export async function loadPluginFromModule(factory: Plugin | ((api: PluginApi) =
     return;
   }
   const probe = (factory as (api: PluginApi) => Plugin)(buildPluginApi('__init__'));
+  useProjectStore.setState((s) => {
+    if (!s.project) return s;
+    const parameters = s.project.state.parameters;
+    const probeBucket = parameters['__init__'];
+    if (!probeBucket || Object.keys(probeBucket).length === 0) return s;
+    const realId = probe.manifest?.id;
+    if (!realId || realId === '__init__') return s;
+    return {
+      project: {
+        ...s.project,
+        state: {
+          ...s.project.state,
+          parameters: {
+            ...parameters,
+            [realId]: { ...probeBucket, ...parameters[realId] },
+            '__init__': {},
+          },
+        },
+      },
+    };
+  });
   await usePluginStore.getState().load(probe);
 }
 

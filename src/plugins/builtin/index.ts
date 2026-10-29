@@ -98,10 +98,14 @@ import { physicsTrajectoryManifest } from './physics/trajectory/manifest';
 import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
-import { femLabManifest } from '../fem-lab/manifest';
+import { femLabManifest } from './engineering/fem-lab/manifest';
 import { bioPkManifest } from './bio/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
+import { medEcgManifest } from './med/ecg/manifest';
+import { medImagingManifest } from './med/imaging/manifest';
+import { medBiostatManifest } from './med/biostat/manifest';
+import { medGenomicsManifest } from './med/genomics/manifest';
 import { envPredatorPreyManifest } from './env/predator-prey/manifest';
 import { carbonDatingManifest } from './geo/carbondating/manifest';
 import { soilWaterManifest } from './geo/soilwater/manifest';
@@ -121,6 +125,13 @@ import { mathGameManifest } from './math/game/manifest';
 import { statsCltManifest } from './math/clt/manifest';
 import { statsMarkovManifest } from './math/markov/manifest';
 import { statsZipfManifest } from './math/zipf/manifest';
+import { statsDoeManifest } from './stats/doe/manifest';
+import { statsTimeseriesManifest } from './stats/timeseries/manifest';
+import { statsMultivariateManifest } from './stats/multivariate/manifest';
+import { statsNonparametricManifest } from './stats/nonparametric/manifest';
+import { statsSurvivalManifest } from './stats/survival/manifest';
+import { statsMetaManifest } from './stats/meta/manifest';
+import { statsBayesManifest } from './stats/bayes/manifest';
 import { blackscholesManifest } from './econ/blackscholes/manifest';
 import { evogameManifest } from './econ/evogame/manifest';
 import { sdtManifest } from './psych/sdt/manifest';
@@ -614,7 +625,7 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
   {
     manifest: femLabManifest,
     load: async () => {
-      const mod = await import('../fem-lab');
+      const mod = await import('./engineering/fem-lab');
       return mod.default();
     },
   },
@@ -644,6 +655,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: envPredatorPreyManifest,
     load: async () => {
       const mod = await import('./env/predator-prey');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: medicine & public health (research-grade kernels) -----
+  {
+    manifest: medEcgManifest,
+    load: async () => {
+      const mod = await import('./med/ecg');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medImagingManifest,
+    load: async () => {
+      const mod = await import('./med/imaging');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medBiostatManifest,
+    load: async () => {
+      const mod = await import('./med/biostat');
+      return mod.default();
+    },
+  },
+  {
+    manifest: medGenomicsManifest,
+    load: async () => {
+      const mod = await import('./med/genomics');
       return mod.default();
     },
   },
@@ -774,6 +814,56 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: statsZipfManifest,
     load: async () => {
       const mod = await import('./math/zipf');
+      return mod.default();
+    },
+  },
+  // ---- Research suite: dedicated statistical analysis ------------------------
+  {
+    manifest: statsDoeManifest,
+    load: async () => {
+      const mod = await import('./stats/doe');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsTimeseriesManifest,
+    load: async () => {
+      const mod = await import('./stats/timeseries');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMultivariateManifest,
+    load: async () => {
+      const mod = await import('./stats/multivariate');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsNonparametricManifest,
+    load: async () => {
+      const mod = await import('./stats/nonparametric');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsSurvivalManifest,
+    load: async () => {
+      const mod = await import('./stats/survival');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsMetaManifest,
+    load: async () => {
+      const mod = await import('./stats/meta');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsBayesManifest,
+    load: async () => {
+      const mod = await import('./stats/bayes');
       return mod.default();
     },
   },

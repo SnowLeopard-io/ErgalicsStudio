@@ -20,6 +20,7 @@ import {
 import {
   macroRates,
   oneCompIvConc,
+  oneCompInfusionConc,
   oneCompOralConc,
   simulatePk,
   twoCompIvAmount,
@@ -37,18 +38,18 @@ export interface PkFigureInput {
 
 /** Closed-form reference concentration C(t), or null for degenerate parameters. */
 function analyticRef(p: PkParams): ((t: number) => number) | null {
-  if (p.model === 'one-compartment' && p.route === 'iv-bolus') {
-    return (t) => oneCompIvConc(t, p.dose, p.volume, p.ke);
-  }
-  if (p.model === 'one-compartment' && p.route === 'oral') {
-    return (t) => oneCompOralConc(t, p.dose, p.volume, p.ke, p.ka);
+  const f = p.f ?? 1;
+  if (p.model === 'one-compartment') {
+    if (p.route === 'iv-bolus') return (t) => oneCompIvConc(t, p.dose, p.volume, p.ke);
+    if (p.route === 'iv-infusion') return (t) => oneCompInfusionConc(t, p.dose, p.volume, p.ke, p.tInf ?? 0);
+    return (t) => oneCompOralConc(t, p.dose, p.volume, p.ke, p.ka, f);
   }
   const { alpha, beta } = macroRates(p.ke, p.k12, p.k21);
-  if (Math.abs(alpha - beta) < 1e-12) return null;
+  if (p.route === 'iv-infusion' || Math.abs(alpha - beta) < 1e-12) return null;
   if (p.route === 'iv-bolus') {
     return (t) => twoCompIvAmount(t, p.dose, p.ke, p.k12, p.k21) / p.volume;
   }
-  return (t) => twoCompOralAmount(t, p.dose, p.ke, p.k12, p.k21, p.ka) / p.volume;
+  return (t) => twoCompOralAmount(t, p.dose, p.ke, p.k12, p.k21, p.ka, f) / p.volume;
 }
 
 /**

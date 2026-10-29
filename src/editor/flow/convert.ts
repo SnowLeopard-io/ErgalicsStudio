@@ -52,6 +52,27 @@ function flowBlockIdFor(node: IRNode): string | undefined {
   return BLOCK_FOR_KIND[payload.kind];
 }
 
+/**
+ * 判斷陳述能否「無損」由流程 DAG 表示：除了有對應區塊外，參數必須全是
+ * 字面值（非字面值會被 literalValue 折疊成 0）、資料來源必須是具名變數
+ * （行內運算式無法上畫布，mergeFlowIR 回寫時會被 Null 覆蓋）。
+ */
+function representableInFlow(node: IRNode): boolean {
+  const payload: IRNode = node.kind === 'VarAssign' ? node.value : node;
+  if (!flowBlockIdFor(node)) return false;
+  // 參數只能承載字面值。
+  if (payload.kind === 'AddColumn' && !isLiteralNode(payload.values)) return false;
+  if (payload.kind === 'Filter' && !isLiteralNode(payload.value)) return false;
+  // 資料來源必須是 VarRef/VarAssign（具名變數）。
+  const dataOperand = getDataOperand(payload);
+  if (dataOperand) {
+    const upstreamVar =
+      dataOperand.kind === 'VarRef' ? dataOperand.name : dataOperand.kind === 'VarAssign' ? dataOperand.name : null;
+    if (!upstreamVar) return false;
+  }
+  return true;
+}
+
 // ---- 區塊id → IR節點工廠（參數名與 @/blocks/catalog 完全對齊） ----
 function irFromBlock(
   blockId: string,
@@ -226,8 +247,8 @@ export function irToFlow(program: IRProgram): BlockGraphState {
     const payload: IRNode = node.kind === 'VarAssign' ? node.value : node;
 
     const blockId = flowBlockIdFor(node);
-    if (!blockId) {
-      // 無法在 DAG 中呈現——略過（其在程式碼模式中會以 RawCode 保留；
+    if (!blockId || !representableInFlow(node)) {
+      // 無法在 DAG 中無損呈現——略過（其在程式碼模式中會以 RawCode 保留；
       // syncFromFlow 會用 mergeFlowIR 把這些陳述保留回 IR，不致遺失）。
       continue;
     }
@@ -241,14 +262,15 @@ export function irToFlow(program: IRProgram): BlockGraphState {
     const dataOperand = getDataOperand(payload);
     if (dataOperand) {
       const upstreamVar = visitData(dataOperand);
-      if (upstreamVar && nodeForVar.has(upstreamVar)) {
-        const upstreamId = nodeForVar.get(upstreamVar)!;
-        connections.push({
-          id: nextId('conn'),
-          from: { nodeId: upstreamId, portId: 'out' },
-          to: { nodeId: instId, portId: 'data' },
-        });
-      }
+      // 行內資料來源（如 filter(load('a.csv'), …) 的 load(...)）無法在 DAG
+      // 中表示——同樣保留為來源陳述，避免 mergeFlowIR 把來源替換成 Null。
+      if (!upstreamVar || !nodeForVar.has(upstreamVar)) continue;
+      const upstreamId = nodeForVar.get(upstreamVar)!;
+      connections.push({
+        id: nextId('conn'),
+        from: { nodeId: upstreamId, portId: 'out' },
+        to: { nodeId: instId, portId: 'data' },
+      });
     }
 
     instances.push(inst);
@@ -334,6 +356,11 @@ function literalValue(node: IRNode | undefined): unknown {
   return 0;
 }
 
+/** True when the node is a literal the simple-kit blocks can round-trip. */
+function isLiteralNode(node: IRNode | undefined): boolean {
+  return !!node && (node.kind === 'Number' || node.kind === 'String' || node.kind === 'Boolean');
+}
+
 // ==========================================================================
 // Flow → IR
 // ==========================================================================
@@ -403,7 +430,7 @@ export function flowToIR(graph: BlockGraph | BlockGraphState): IRProgram {
 /** 判斷一條 body 陳述是否能由流程 DAG 表示（含 VarAssign 包裝）。
  *  導出供模式轉換預覽使用：切換進流程模式前統計無法上畫布的陳述。 */
 export function isFlowStatement(node: IRNode): boolean {
-  return flowBlockIdFor(node) !== undefined;
+  return representableInFlow(node);
 }
 
 /**

@@ -106,11 +106,19 @@ import csComplexityRunsCsv from '../../examples/data/cs-complexity-runs.csv?raw'
 import csNetprotoScenarioJson from '../../examples/data/cs-netproto-scenario.json?raw';
 import markovPagerankWebCsv from '../../examples/data/markov-pagerank-web.csv?raw';
 import gutenbergEmmaCh1Txt from '../../examples/data/gutenberg-emma-ch1.txt?raw';
+import statsDoeCsv from '../../examples/data/stats-doe.csv?raw';
+import statsTimeseriesCsv from '../../examples/data/stats-timeseries.csv?raw';
+import statsMultivariateCsv from '../../examples/data/stats-multivariate.csv?raw';
+import statsNonparametricCsv from '../../examples/data/stats-nonparametric.csv?raw';
+import statsSurvivalCsv from '../../examples/data/stats-survival.csv?raw';
+import statsMetaCsv from '../../examples/data/stats-meta.csv?raw';
+import statsBayesCsv from '../../examples/data/stats-bayes.csv?raw';
 import transitLightcurveCsv from '../../examples/data/astro-transit-lightcurve.csv?raw';
 import yaleBscBrightCsv from '../../examples/data/yale-bsc-bright.csv?raw';
 import {
   ACOUSTICS_DEMO_WAV_BASE64,
   IMAGEPROC_SUBJECT_PNG_BASE64,
+  MED_PHANTOM_SLICES_DCM_BASE64,
   TEST_PATTERN_PNG_BASE64,
 } from './exampleAssets';
 
@@ -686,6 +694,253 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         '一段示例 VCF（两个位点的双等位基因 GT 调用）。从 VCF 的 FORMAT/GT 字段统计 0/0、0/1 与 1/1 基因型，获得 AA/Aa/aa 计数后执行哈代-温伯格检验。',
       'en-US':
         'An example VCF (biallelic GT calls at two records). Counts 0/0, 0/1 and 1/1 genotypes from the FORMAT/GT field to obtain AA/Aa/aa counts and then runs the Hardy-Weinberg test.',
+    },
+  },
+  {
+    id: 'med-epi-metapop-regions',
+    filename: 'med-epi-metapop-regions.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-epidemic',
+    group: 'bio',
+    loadContent: () => exampleContent('med-epi-metapop-regions.csv'),
+    nameI18n: {
+      'zh-CN': '多区域人口表（5 区域）',
+      'en-US': 'Multi-region population table (5 regions)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '5 个区域的人口规模与初始感染数（North 180 万/60、South 140 万/25、East 90 万/120、West 70 万/10、Capital 240 万/45）。加载后在 metapop 多区域模式中导入，观察区域间迁移驱动的疫情扩散。',
+      'en-US':
+        'Population sizes and initial infections for five regions (North 1.8M/60, South 1.4M/25, East 0.9M/120, West 0.7M/10, Capital 2.4M/45). Load it in the metapop multi-region mode to watch travel-driven epidemic spread.',
+    },
+  },
+  {
+    id: 'med-epi-rt-incidence',
+    filename: 'med-epi-rt-incidence.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-epidemic',
+    group: 'bio',
+    loadContent: () => exampleContent('med-epi-rt-incidence.csv'),
+    nameI18n: {
+      'zh-CN': 'Rt 发病率序列（120 天）',
+      'en-US': 'Rt incidence series (120 days)',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '固定种子泊松更新过程合成的 120 天逐日新增病例（serial interval Gamma 均值 5.2 天、sd 1.7 天）：真实 Rt 阶梯为 1.35 → 0.65 → 回升至 1.5 → 0.75 → 1.0。加载后在 Rt 估计模式用 Cori et al. (2013) 滑窗重建并对照真实轨迹。',
+      'en-US':
+        '120 days of synthetic daily incidence from a fixed-seed Poisson renewal process (serial interval Gamma mean 5.2 d, sd 1.7 d); the true Rt staircase runs 1.35 → 0.65 → up to 1.5 → 0.75 → 1.0. Load it in Rt mode and reconstruct with the Cori et al. (2013) sliding window against the true path.',
+    },
+  },
+  {
+    id: 'bio-pk-obs-conc',
+    filename: 'med-pk-obs-conc.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.bio-pk',
+    group: 'bio',
+    loadContent: () => exampleContent('med-pk-obs-conc.csv'),
+    nameI18n: {
+      'zh-CN': '药代动力学 · 二室口服血药浓度观测',
+      'en-US': 'Pharmacokinetics · Two-Compartment Oral Observations',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '二室口服模型合成血药浓度观测（D=500 mg，V=30 L，ke=0.25 1/h，k12=0.8，k21=0.4，ka=1.5 1/h；5% 对数正态噪声，seed 20260101）。加载后在 TDM 拟合模式反演室间参数。',
+      'en-US':
+        'Synthetic two-compartment oral plasma-concentration observations (D=500 mg, V=30 L, ke=0.25 1/h, k12=0.8, k21=0.4, ka=1.5 1/h; 5% lognormal noise, seed 20260101). Load it in the TDM fitting mode to recover the compartment parameters.',
+    },
+  },
+  {
+    id: 'med-ecg-sinus',
+    filename: 'med-ecg-sinus.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-ecg',
+    group: 'med',
+    loadContent: () => exampleContent('med-ecg-sinus.csv'),
+    nameI18n: {
+      'zh-CN': '心电图 · 正常窦性心律',
+      'en-US': 'ECG · Normal Sinus Rhythm',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '窦性 10 秒 500 Hz 单导联 II 合成记录（约 75 bpm）：规则 RR 间期与清晰的 P/QRS/T 波形。加载后自动检测 R 峰并计算时域/频域 HRV。',
+      'en-US':
+        'A 10-second 500 Hz synthetic single-lead-II sinus record (~75 bpm) with regular RR intervals and clean P/QRS/T waves. Loading detects R-peaks and computes time-/frequency-domain HRV.',
+    },
+  },
+  {
+    id: 'med-ecg-afib',
+    filename: 'med-ecg-afib.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-ecg',
+    group: 'med',
+    loadContent: () => exampleContent('med-ecg-afib.csv'),
+    nameI18n: {
+      'zh-CN': '心电图 · 心房颤动',
+      'en-US': 'ECG · Atrial Fibrillation',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '房颤 10 秒 500 Hz 合成记录：RR 间期不规则、P 波缺失伴 fibrillatory 基线起伏。与窦性记录对照运行，观察节律筛查的判别。',
+      'en-US':
+        'A 10-second synthetic atrial-fibrillation record: irregular RR intervals, absent P waves with fibrillatory baseline undulation. Run it against the sinus record to see the rhythm screening discriminate.',
+    },
+  },
+  {
+    id: 'med-ecg-pvc',
+    filename: 'med-ecg-pvc.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-ecg',
+    group: 'med',
+    loadContent: () => exampleContent('med-ecg-pvc.csv'),
+    nameI18n: {
+      'zh-CN': '心电图 · 室性早搏',
+      'en-US': 'ECG · Premature Ventricular Complexes',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '窦性节律中插入宽 QRS 室性早搏与代偿间期的 10 秒合成记录。加载后查看逐拍 P/QRS/T 标注与 PVC 计数。',
+      'en-US':
+        'A 10-second synthetic record with wide-QRS PVCs and compensatory pauses inserted into sinus rhythm. Loading annotates every beat and counts the PVCs.',
+    },
+  },
+  {
+    id: 'med-biostat-trial',
+    filename: 'med-biostat-trial.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-biostat',
+    group: 'med',
+    loadContent: () => exampleContent('med-biostat-trial.csv'),
+    nameI18n: {
+      'zh-CN': '两臂临床试验数据',
+      'en-US': 'Two-arm trial data',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '120 例两臂随机对照试验表（subject/arm/age 与主要终点、次要终点、事件列）。加载后用两样本检验比较 Treatment 与 Control 的终点与事件率。',
+      'en-US':
+        'A 120-subject two-arm RCT table (subject/arm/age with primary and secondary endpoints plus an event column). Load it and compare Treatment vs Control endpoints and event rates with two-sample tests.',
+    },
+  },
+  {
+    id: 'med-biostat-ae',
+    filename: 'med-biostat-ae.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-biostat',
+    group: 'med',
+    loadContent: () => exampleContent('med-biostat-ae.csv'),
+    nameI18n: {
+      'zh-CN': '不良事件计数表',
+      'en-US': 'AE count table',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '两药 × 8 类不良事件的计数表（treatment/event/cases/n），其中预置 1 个 PRR 信号。加载后计算 PRR 与 χ² 并标记信号事件。',
+      'en-US':
+        'A treatment × event count table for two drugs across eight adverse events (treatment/event/cases/n) with one planted PRR signal. Loading computes PRR and χ² and flags the signal event.',
+    },
+  },
+  {
+    id: 'med-genomics-gwas',
+    filename: 'med-gwas-sim.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-genomics',
+    group: 'med',
+    loadContent: () => exampleContent('med-gwas-sim.csv'),
+    nameI18n: {
+      'zh-CN': 'GWAS 模拟数据',
+      'en-US': 'Simulated GWAS',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '22 条染色体约 2 万位点的模拟 GWAS（chr/pos/p/beta），含植入的关联信号。加载后绘制 Manhattan 图并标注显著位点。',
+      'en-US':
+        'A simulated GWAS over ~20k loci on 22 chromosomes (chr/pos/p/beta) with planted association signals. Loading draws the Manhattan plot and highlights significant loci.',
+    },
+  },
+  {
+    id: 'med-genomics-volcano',
+    filename: 'med-volcano-de.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-genomics',
+    group: 'med',
+    loadContent: () => exampleContent('med-volcano-de.csv'),
+    nameI18n: {
+      'zh-CN': '差异表达火山图数据',
+      'en-US': 'Differential expression table',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '2000 个基因的差异表达表（gene/log2fc/padj）。加载后绘制火山图，按 log2FC 与校正 p 阈值标注上下调基因。',
+      'en-US':
+        'A differential-expression table for 2000 genes (gene/log2fc/padj). Loading draws the volcano plot and labels up/down-regulated genes by log2FC and adjusted-p thresholds.',
+    },
+  },
+  {
+    id: 'med-genomics-ld',
+    filename: 'med-ld-matrix.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-genomics',
+    group: 'med',
+    loadContent: () => exampleContent('med-ld-matrix.csv'),
+    nameI18n: {
+      'zh-CN': 'LD 连锁不平衡矩阵',
+      'en-US': 'LD matrix',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '40×40 位点 r² 对称方阵，含高 LD 单倍型块。加载后绘制 LD 热图并划分单倍型块。',
+      'en-US':
+        'A 40×40 symmetric r² matrix over loci with high-LD haplotype blocks. Loading renders the LD heatmap and delineates the blocks.',
+    },
+  },
+  {
+    id: 'med-genomics-circos',
+    filename: 'med-circos-rearrangements.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.med-genomics',
+    group: 'med',
+    loadContent: () => exampleContent('med-circos-rearrangements.csv'),
+    nameI18n: {
+      'zh-CN': '染色体重排事件',
+      'en-US': 'Chromosomal rearrangements',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '30 条跨/内染色体重排锚点（chrA/posA/chrB/posB/type：易位、重复等）。加载后在 Circos 视图绘制重排弧线。',
+      'en-US':
+        '30 inter/intra-chromosomal rearrangement anchors (chrA/posA/chrB/posB/type: translocations, duplications, …). Loading draws the rearrangement arcs in the Circos view.',
+    },
+  },
+  {
+    id: 'med-imaging-phantom',
+    filename: 'med-phantom-slices.dcm',
+    format: 'dcm',
+    mimeType: 'application/dicom',
+    pluginId: 'example.med-imaging',
+    group: 'med',
+    contentBase64: MED_PHANTOM_SLICES_DCM_BASE64,
+    nameI18n: {
+      'zh-CN': '体模多切片 DICOM 堆栈',
+      'en-US': 'Phantom multi-slice DICOM stack',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '固定种子模拟体模：空气 -1000 / 软组织 40 / 骨壳 850 / 病灶 120 HU，10 层 96×96 含噪声。加载后浏览切片、调窗宽窗位并重建等值面。',
+      'en-US':
+        'A seeded synthetic phantom: air -1000 / soft tissue 40 / bone shell 850 / lesion 120 HU, 10 slices of 96×96 with noise. Load it to browse slices, adjust window/level and rebuild the isosurface.',
     },
   },
   {
@@ -2751,6 +3006,139 @@ export const BUILTIN_EXAMPLES: BuiltinExample[] = [
         'Jane Austen《Emma》(1816) 第一卷第 1–6 章英文全文（约 1.4 万词，公版，校验于 Project Gutenberg eBook #158；# 行为注释）。加载后做词频排序与 log-log 拟合，实测 s ≈ 1.06、R² ≈ 0.97，与理想 Zipf 指数 s = 1 对照。',
       'en-US':
         "The full English text of Jane Austen's Emma (1816), Volume I chapters 1–6 (~14k words, public domain, checked against Project Gutenberg eBook #158; '#' lines are comments). Load it to rank word frequencies and fit log-log: measured s ≈ 1.06 with R² ≈ 0.97 against the ideal Zipf exponent s = 1.",
+    },
+  },
+  {
+    id: 'stats-doe-factorial',
+    filename: 'stats-doe.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-doe',
+    group: 'stats',
+    content: statsDoeCsv,
+    nameI18n: {
+      'zh-CN': '试验设计 · 2³ 全因子重复试验',
+      'en-US': 'DOE · Replicated 2³ Full Factorial',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '三个因子（A、B、C，编码 −1/+1）的 2³ 全因子设计，每个处理重复两次（n=16），响应含 A、B、C 主效应、A×B 交互与固定种子噪声。加载后查看 Pareto 标准化效应、ANOVA 表与 R²。',
+      'en-US':
+        'A replicated 2³ full factorial on three coded factors (A, B, C at −1/+1), two runs per treatment (n=16), with main effects, an A×B interaction and fixed-seed noise. Load it to inspect the Pareto of standardised effects, the ANOVA table and R².',
+    },
+  },
+  {
+    id: 'stats-timeseries-seasonal',
+    filename: 'stats-timeseries.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-timeseries',
+    group: 'stats',
+    content: statsTimeseriesCsv,
+    nameI18n: {
+      'zh-CN': '时间序列 · 趋势 + 季节 + AR(1) 噪声',
+      'en-US': 'Time Series · Trend + Seasonality + AR(1) Noise',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '108 个月的合成序列（线性趋势、12 月周期、AR(1) 残差）并附带一个因果驱动副序列。加载后运行 ADF/KPSS、季节分解、ARIMA 预测、GARCH(1,1) 与 Granger 检验。',
+      'en-US':
+        'A 108-month synthetic series (linear trend, 12-month cycle, AR(1) residuals) with an auxiliary causal driver. Load it to run ADF/KPSS, seasonal decomposition, ARIMA forecasting, GARCH(1,1) and the Granger test.',
+    },
+  },
+  {
+    id: 'stats-multivariate-iris',
+    filename: 'stats-multivariate.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-multivariate',
+    group: 'stats',
+    content: statsMultivariateCsv,
+    nameI18n: {
+      'zh-CN': '多元统计 · 三类四变量观测',
+      'en-US': 'Multivariate · Three Classes, Four Variables',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '60 个观测、4 个数值变量与 3 个 species 组（固定种子模拟）。加载后查看 PCA 双标图、碎石图、k-means / Ward / DBSCAN 聚类轮廓系数、LDA 回代准确率与马氏距离异常点。',
+      'en-US':
+        'Sixty observations on four numeric variables across three species groups (fixed-seed simulation). Load it for the PCA biplot, scree plot, k-means / Ward / DBSCAN silhouettes, LDA accuracy and Mahalanobis outliers.',
+    },
+  },
+  {
+    id: 'stats-nonparametric-doses',
+    filename: 'stats-nonparametric.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-nonparametric',
+    group: 'stats',
+    content: statsNonparametricCsv,
+    nameI18n: {
+      'zh-CN': '非参数检验 · 三剂量组',
+      'en-US': 'Nonparametric · Three Dose Groups',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '对照、低剂量与高剂量三组各 12 个观测（固定种子）。切换 Mann–Whitney U、Kruskal–Wallis、KS 与秩相关，查看经验 CDF、组均值、效应量与 p 值。',
+      'en-US':
+        'Three groups (control, low-dose, high-dose; 12 observations each, fixed seed). Switch between Mann–Whitney U, Kruskal–Wallis, KS and rank correlation to inspect ECDFs, group means, effect sizes and p-values.',
+    },
+  },
+  {
+    id: 'stats-survival-two-arm',
+    filename: 'stats-survival.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-survival',
+    group: 'stats',
+    content: statsSurvivalCsv,
+    nameI18n: {
+      'zh-CN': '生存分析 · 两臂指数风险试验',
+      'en-US': 'Survival · Two-Arm Exponential-Hazard Trial',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '对照与治疗两臂各 24 例，指数风险生成生存时间并在 30 个月行政删失，含年龄协变量。加载后查看 KM 曲线与置信带、log-rank 检验、Cox 风险比与 Harrell C。',
+      'en-US':
+        'Two arms of 24 subjects with exponential hazards, administrative censoring at 30 months and an age covariate. Load it for KM curves with confidence bands, the log-rank test, Cox hazard ratios and Harrell’s C.',
+    },
+  },
+  {
+    id: 'stats-meta-twelve-trials',
+    filename: 'stats-meta.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-meta',
+    group: 'stats',
+    content: statsMetaCsv,
+    nameI18n: {
+      'zh-CN': '元分析 · 12 项试验（两个亚组）',
+      'en-US': 'Meta-Analysis · Twelve Trials in Two Subgroups',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '12 项研究的效应量与标准误，分为行为与药物两个亚组。加载后比较固定效应与 DerSimonian–Laird 随机效应、Cochran Q、I²、τ²、Egger 检验、剪补法与森林/漏斗图。',
+      'en-US':
+        'Twelve studies with effects and standard errors split into behavioural and pharmacological subgroups. Compare fixed-effect and DerSimonian–Laird random-effects pooling, Cochran Q, I², τ², Egger’s test, trim-and-fill and the forest / funnel views.',
+    },
+  },
+  {
+    id: 'stats-bayes-hierarchical',
+    filename: 'stats-bayes.csv',
+    format: 'csv',
+    mimeType: 'text/csv',
+    pluginId: 'example.stats-bayes',
+    group: 'stats',
+    content: statsBayesCsv,
+    nameI18n: {
+      'zh-CN': '贝叶斯推断 · 三站点分层数据',
+      'en-US': 'Bayesian Inference · Three-Site Hierarchical Data',
+    },
+    descriptionI18n: {
+      'zh-CN':
+        '三个站点各 24 个观测（固定种子），站点均值 1.8 / 2.6 / 2.2。加载后比较 MH、Gibbs 与 HMC 采样，查看后验密度、可信区间、Savage–Dickey 贝叶斯因子、R̂/ESS 与分层随机截距。',
+      'en-US':
+        'Three sites with 24 observations each (fixed seed) and site means 1.8 / 2.6 / 2.2. Load it to compare MH, Gibbs and HMC sampling and inspect posterior densities, credible intervals, the Savage–Dickey Bayes factor, R̂/ESS and hierarchical random intercepts.',
     },
   },
   {

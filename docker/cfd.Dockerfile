@@ -13,10 +13,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /fluid
 
-COPY src/plugins/builtin/fluid-cfd-coupler/python/requirements.txt .
+COPY src/plugins/builtin/physics/cfd-coupler/python/requirements.txt .
 RUN pip install --no-cache-dir --progress-bar off -r requirements.txt
 
-COPY src/plugins/builtin/fluid-cfd-coupler/python/ .
+COPY src/plugins/builtin/physics/cfd-coupler/python/ .
 
 # 默认执行完整验证套件；可用 docker compose run cfd-verify <入口> 覆盖
 CMD ["python", "run_tests.py"]

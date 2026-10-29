@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Welcome page
    ========================================================================== */
 
@@ -260,7 +260,7 @@
 
 .welcome-footer a,
 .welcome-footer .welcome-footer-link {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   text-decoration: none;
   background: none;
   border: none;
@@ -420,7 +420,7 @@
   padding: 0 4px;
   border-radius: 8px;
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-bg-primary);
   font-size: 11px;
   line-height: 16px;
   text-align: center;
@@ -442,7 +442,7 @@
 .explorer-tree {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-bg-secondary);
   padding: var(--space-2);
   max-height: 60vh;
   overflow: auto;
@@ -463,7 +463,7 @@
   cursor: pointer;
 }
 .explorer-node:hover {
-  background: var(--color-surface-raised);
+  background: var(--color-bg-elevated);
   color: var(--color-text-primary);
 }
 .explorer-node.is-active {
@@ -499,7 +499,7 @@
 .explorer-view {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-bg-secondary);
   padding: var(--space-3);
   min-height: 200px;
 }
@@ -526,7 +526,7 @@
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  background: var(--color-bg-primary);
   font-size: var(--font-size-xs);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -938,7 +938,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  box-shadow: var(--shadow-2);
 }
 
 .central-export-item {
@@ -957,7 +957,7 @@
 
 .central-export-item:hover {
   background: var(--color-accent-soft);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .central-drop-hint {
@@ -1049,7 +1049,7 @@
 
 .science-metric.sev-ok .science-metric-value { color: var(--color-success, #2e9e5b); }
 .science-metric.sev-warn .science-metric-value { color: var(--color-warning, #c28a1f); }
-.science-metric.sev-error .science-metric-value { color: var(--color-danger, #c0392b); }
+.science-metric.sev-error .science-metric-value { color: var(--color-error); }
 
 /* Sidebar Git panel (requirements/01 Phase 3, minimal scope). */
 .git-panel-hint {
@@ -3028,7 +3028,7 @@
   text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--color-surface-alt, rgba(127, 127, 127, 0.08));
+  background: var(--color-bg-hover);
   border-radius: var(--radius-sm, 6px);
 }
 
@@ -7516,7 +7516,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  box-shadow: var(--shadow-2);
 }
 
 .explorer-context-item {
@@ -8068,7 +8068,7 @@
   white-space: pre-wrap;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-text-dim);
+  color: var(--color-text-tertiary);
   justify-content: flex-start;
 }
 
@@ -8095,7 +8095,7 @@
   gap: var(--space-3);
   width: 100%;
   height: 100%;
-  color: var(--color-text-dim);
+  color: var(--color-text-tertiary);
 }
 
 .central-file-loading-spinner {
@@ -8199,7 +8199,7 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--color-border-primary);
+  border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
 }
 

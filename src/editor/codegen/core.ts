@@ -139,7 +139,16 @@ function fstringExpr(node: Extract<IRNode, { kind: 'FString' }>, c: Ctx): string
     const body = node.parts
       .map((p) => {
         if (p.text !== undefined) {
-          return p.text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+          // Literal braces must be doubled inside an f-string, or they become
+          // interpolation delimiters (parse.ts already unescaped {{ → {).
+          return p.text
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/\{/g, '{{')
+            .replace(/\}/g, '}}')
+            .replace(/\r/g, '\\r')
+            .replace(/\n/g, '\\n')
+            .replace(/\t/g, '\\t');
         }
         return `{${expr(p.expr!, c)}${p.spec ? `:${p.spec}` : ''}}`;
       })
@@ -170,8 +179,14 @@ function fstringExpr(node: Extract<IRNode, { kind: 'FString' }>, c: Ctx): string
       const m = p.spec ? /^\.(\d+)f$/.exec(p.spec) : null;
       const pad = p.spec ? /^([<>^])(\d+)$/.exec(p.spec) : null;
       if (m) out += `\${(${e}).toFixed(${m[1]})}`;
-      else if (pad) out += `\${String(${e}).padStart(${pad[2]}, ' ')}`;
-      else out += `\${${e}}`;
+      else if (pad) {
+        // Python spec semantics: '>' right-align, '<' left-align, '^' center.
+        const w = pad[2]!;
+        const s = `String(${e})`;
+        if (pad[1] === '<') out += `\${${s}.padEnd(${w}, ' ')}`;
+        else if (pad[1] === '^') out += `\${${s}.padStart(Math.floor((${w} + ${s}.length) / 2), ' ').padEnd(${w}, ' ')}`;
+        else out += `\${${s}.padStart(${w}, ' ')}`;
+      } else out += `\${${e}}`;
     }
   }
   return `${out}\``;
