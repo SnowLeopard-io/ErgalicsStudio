@@ -579,7 +579,7 @@ export const enUS: LocaleDictionary = {
   'workbench.example.pipeline_loaded': 'Loaded "{name}"',
   'workbench.example.files': 'Project files',
   'workbench.example.files_import': 'Import data file',
-  'workbench.example.files_hint': 'Supports .csv / .tsv / .dat / .xyz / .json / .txt / .md / .mtx / .geojson',
+  'workbench.example.files_hint': 'Supports .csv / .tsv / .tab / .dat / .xyz / .json / .txt / .md / .mtx / .geojson / .cif / .poscar / .fasta / .vcf / .gpx / .kml / .asc / .xy / .xye',
   'workbench.example.files_empty': 'No project data files yet — import one above',
   'workbench.example.files_imported': 'Imported {count} file(s)',
   'workbench.example.files_import_failed': 'File import failed',

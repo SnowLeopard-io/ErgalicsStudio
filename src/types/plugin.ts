@@ -553,8 +553,11 @@ export interface PluginApi {
    */
   readonly gpu?: GpuComputeApi;
 
-  /** Load a file through the host data loader. */
-  openFile(): Promise<File | null>;
+  /**
+   * Load a file through the host data loader. `accept` optionally restricts
+   * the native picker (same syntax as `<input accept>`), e.g. '.dcm,.ima'.
+   */
+  openFile(accept?: string): Promise<File | null>;
   /** Read a file's text content. */
   readText(file: File): Promise<string>;
   /** Read a file's ArrayBuffer. */

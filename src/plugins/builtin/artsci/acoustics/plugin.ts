@@ -365,7 +365,7 @@ export class AcousticsPlugin implements Plugin {
   // ---- audio actions ---------------------------------------------------------
 
   private async importAudio() {
-    const file = await this.api.openFile();
+    const file = await this.api.openFile('audio/*,.wav,.mp3,.ogg,.m4a,.flac,.aac');
     if (file) await this.loadData(file);
   }
 

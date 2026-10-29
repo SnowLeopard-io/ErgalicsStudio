@@ -194,7 +194,8 @@ export class EngControlPlugin implements Plugin {
         max: 10,
         step: 0.01,
         value: s.tau,
-        hint: this.zh ? '一阶时间常数（系统类型=一阶时生效）' : 'first-order time constant (used when type = first)',
+        hint: this.zh ? '一阶时间常数' : 'first-order time constant',
+        visibleWhen: { key: 'type', in: ['first'] },
       },
       {
         key: 'wn',
@@ -205,7 +206,8 @@ export class EngControlPlugin implements Plugin {
         max: 20,
         step: 0.1,
         value: s.wn,
-        hint: this.zh ? '二阶无阻尼自然频率（系统类型=二阶时生效）' : 'natural frequency (used when type = second)',
+        hint: this.zh ? '二阶无阻尼自然频率' : 'second-order natural frequency',
+        visibleWhen: { key: 'type', in: ['second'] },
       },
       {
         key: 'zeta',
@@ -216,6 +218,7 @@ export class EngControlPlugin implements Plugin {
         max: 2,
         step: 0.01,
         value: s.zeta,
+        visibleWhen: { key: 'type', in: ['second'] },
       },
       {
         key: 'kp',
