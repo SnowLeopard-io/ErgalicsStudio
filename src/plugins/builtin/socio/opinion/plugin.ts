@@ -162,6 +162,7 @@ export class OpinionPlugin implements Plugin {
         max: 1,
         step: 0.05,
         value: this.params.homophily,
+        visibleWhen: { key: 'network', in: ['echo-chamber'] },
         hint: this.zh ? '回音室网络的同质化重连强度；小世界网络使用固定 0.15 重连率' : 'echo-chamber rewiring strength; small-world uses a fixed 0.15 rewire rate',
       },
       {
@@ -173,6 +174,7 @@ export class OpinionPlugin implements Plugin {
         max: 1,
         step: 0.05,
         value: this.params.spreadProb,
+        visibleWhen: { key: 'model', notIn: ['linear-threshold'] },
         hint: this.zh ? '逐边采纳概率（有效概率 = p × 边权）' : 'per-edge adoption probability (effective = p x edge weight)',
       },
       {
@@ -238,7 +240,7 @@ export class OpinionPlugin implements Plugin {
         max: 0.95,
         step: 0.05,
         value: this.params.threshold,
-        visibleWhen: { key: 'model', in: ['linear-threshold'] },
+        visibleWhen: { key: 'thresholdMode', in: ['fixed'] },
         hint: this.zh ? '仅在阈值方式 = 固定值时生效' : 'applies when threshold mode = fixed',
       },
       {

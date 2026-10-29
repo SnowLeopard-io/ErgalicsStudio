@@ -205,6 +205,7 @@ export class InequalityPlugin implements Plugin {
         max: 0.6,
         step: 0.05,
         value: this.params.taxRate,
+        visibleWhen: { key: 'taxRegime', notIn: ['none'] },
         hint: this.zh ? '最高边际税率；级距按中位数划定（0.5m, 2m）' : 'top marginal rate; brackets at 0.5m and 2m of the median',
       },
       {
@@ -216,6 +217,7 @@ export class InequalityPlugin implements Plugin {
         max: 0.9,
         step: 0.05,
         value: this.params.elasticity,
+        visibleWhen: { key: 'view', in: ['mobility'] },
         hint: this.zh ? '子女对数收入对父母的代际弹性 ρ' : 'intergenerational elasticity rho of child log-income',
       },
       {

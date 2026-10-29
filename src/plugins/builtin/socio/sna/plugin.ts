@@ -263,6 +263,7 @@ export class SnaPlugin implements Plugin {
         max: 0.95,
         step: 0.01,
         value: this.params.cascadeParam,
+        visibleWhen: { key: 'cascade', notIn: ['none'] },
         hint: this.zh
           ? '独立级联：每次尝试的传播概率；线性阈值：阈值上界 theta_v ~ U(0, s)'
           : 'independent cascade: per-attempt probability; linear threshold: theta_v ~ U(0, s)',

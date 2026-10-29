@@ -20,6 +20,7 @@ import type {
   ParamDefinition,
   Plugin,
   PluginApi,
+  PluginRenderContext,
 } from '@/types/plugin';
 import { emit } from '@/core/events';
 import { actionButton, actionFired, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
@@ -153,7 +154,7 @@ export class XaiPlugin implements Plugin {
     this.result = null;
   }
 
-  async activate(context: { container: ContainerCapabilities }): Promise<void> {
+  async activate(context: PluginRenderContext): Promise<void> {
     this.ctx = context.container;
   }
 
@@ -348,7 +349,7 @@ export class XaiPlugin implements Plugin {
     this.text = text;
     this.applyParsedDefaults();
     this.dirty = true;
-    this.api.reportDataScale(rows);
+    this.ctx?.reportDataScale(rows);
     // Refresh the param panel so the feature / sensitive dropdowns update.
     emit('host:params:changed', { pluginId: this.manifest.id });
     this.run(false);
@@ -477,7 +478,7 @@ export class XaiPlugin implements Plugin {
       this.result = res;
       this.dirty = false;
       this.publish(res);
-      this.api.reportDataScale(res.rowCount);
+      this.ctx?.reportDataScale(res.rowCount);
       this.draw();
       if (explicit) {
         const metricName =
@@ -553,7 +554,7 @@ export class XaiPlugin implements Plugin {
       const lime = limeExplain(trained.model, instance, 400, rng);
       const totalMs = performance.now() - t0;
       const rowsPerSec = BENCH_ROWS / Math.max(1e-9, totalMs / 1000);
-      this.api.reportDataScale(BENCH_ROWS);
+      this.ctx?.reportDataScale(BENCH_ROWS);
       const zh = this.zh;
       const additivityOk = Math.abs(shap.residual) <= 1e-6 * (Math.abs(shap.fX) + 1);
       setScienceOutputs(this.manifest.id, [
@@ -884,7 +885,7 @@ export class XaiPlugin implements Plugin {
       this.result = res;
       this.dirty = false;
       this.publish(res);
-      this.api.reportDataScale(res.rowCount);
+      this.ctx?.reportDataScale(res.rowCount);
       this.draw();
       onProgress?.({ done: 1, total: 1, label: 'xai-explain' });
       return { ok: true, output: this.summary(res) };
@@ -1090,9 +1091,11 @@ export class XaiPlugin implements Plugin {
     const pad = (hi - lo) * 0.08 || 0.1;
     lo -= pad;
     hi += pad;
+    // t.value is the normalized position (1 = top of the box) mapping to the
+    // actual prediction range [lo, hi].
     const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => ({
       value: t,
-      label: fmtMetric(hi - t * (hi - lo), 3),
+      label: fmtMetric(lo + t * (hi - lo), 3),
     }));
     const gLo = curve.grid[0] ?? 0;
     const gHi = curve.grid[curve.grid.length - 1] ?? 1;
