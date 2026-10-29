@@ -175,7 +175,7 @@ export class FemLabPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     const zh = this.zh;
-    const sel = (key: string, en: string, cn: string, options: Array<{ value: string; label: string }>, value: string, group: string): ParamDefinition => ({
+    const sel = (key: string, en: string, cn: string, options: Array<{ value: string; label: string }>, value: string, group: string, visibleWhen?: ParamDefinition['visibleWhen']): ParamDefinition => ({
       key,
       label: en,
       labelI18n: { 'zh-CN': cn, 'en-US': en },
@@ -183,8 +183,9 @@ export class FemLabPlugin implements Plugin {
       options,
       value,
       group,
+      visibleWhen,
     });
-    const num = (key: string, en: string, cn: string, value: number, step: number, group: string, hintEn?: string, hintZh?: string): ParamDefinition => ({
+    const num = (key: string, en: string, cn: string, value: number, step: number, group: string, hintEn?: string, hintZh?: string, visibleWhen?: ParamDefinition['visibleWhen']): ParamDefinition => ({
       key,
       label: en,
       labelI18n: { 'zh-CN': cn, 'en-US': en },
@@ -193,7 +194,9 @@ export class FemLabPlugin implements Plugin {
       value,
       group,
       hint: hintEn ? (zh ? hintZh ?? hintEn : hintEn) : undefined,
+      visibleWhen,
     });
+    const physicsIn = (...kinds: string[]) => ({ key: 'physics', in: kinds }) as ParamDefinition['visibleWhen'];
     return [
       sel(
         'physics',
@@ -233,11 +236,11 @@ export class FemLabPlugin implements Plugin {
         group: zh ? '网格' : 'Mesh',
         hint: zh ? '越小越精细（Delaunay + 均匀细化）' : 'smaller = finer (Delaunay + uniform refinement)',
       },
-      num('f0', 'Source f₀ (Poisson/heat Q)', '源项 f₀（Poisson/热源 Q）', this.state.f0, 0.1, zh ? 'Poisson' : 'Poisson'),
-      num('g0', 'Dirichlet value', 'Dirichlet 边界值', this.state.g0, 0.1, zh ? 'Poisson' : 'Poisson'),
-      num('u0', 'Initial amplitude', '初始温度幅值', this.state.u0, 0.1, zh ? '热传导' : 'Heat'),
-      num('dt', 'Time step Δt', '时间步长 Δt', this.state.dt, 0.001, zh ? '热传导' : 'Heat'),
-      num('steps', 'Steps', '时间步数', this.state.steps, 10, zh ? '热传导' : 'Heat'),
+      num('f0', 'Source f₀ (Poisson/heat Q)', '源项 f₀（Poisson/热源 Q）', this.state.f0, 0.1, zh ? 'Poisson' : 'Poisson', undefined, undefined, physicsIn('poisson', 'heat')),
+      num('g0', 'Dirichlet value', 'Dirichlet 边界值', this.state.g0, 0.1, zh ? 'Poisson' : 'Poisson', undefined, undefined, physicsIn('poisson')),
+      num('u0', 'Initial amplitude', '初始温度幅值', this.state.u0, 0.1, zh ? '热传导' : 'Heat', undefined, undefined, physicsIn('heat')),
+      num('dt', 'Time step Δt', '时间步长 Δt', this.state.dt, 0.001, zh ? '热传导' : 'Heat', undefined, undefined, physicsIn('heat')),
+      num('steps', 'Steps', '时间步数', this.state.steps, 10, zh ? '热传导' : 'Heat', undefined, undefined, physicsIn('heat')),
       sel(
         'theta',
         'θ scheme',
@@ -248,10 +251,11 @@ export class FemLabPlugin implements Plugin {
         ],
         String(this.state.theta),
         zh ? '热传导' : 'Heat',
+        physicsIn('heat'),
       ),
-      num('E', "Young's modulus E", '弹性模量 E', this.state.E, 1000, zh ? '弹性' : 'Elasticity'),
-      num('nu', 'Poisson ratio ν', '泊松比 ν', this.state.nu, 0.01, zh ? '弹性' : 'Elasticity'),
-      num('sigma0', 'Traction σ₀ (right edge)', '右端拉力 σ₀', this.state.sigma0, 10, zh ? '弹性' : 'Elasticity'),
+      num('E', "Young's modulus E", '弹性模量 E', this.state.E, 1000, zh ? '弹性' : 'Elasticity', undefined, undefined, physicsIn('elasticity')),
+      num('nu', 'Poisson ratio ν', '泊松比 ν', this.state.nu, 0.01, zh ? '弹性' : 'Elasticity', undefined, undefined, physicsIn('elasticity')),
+      num('sigma0', 'Traction σ₀ (right edge)', '右端拉力 σ₀', this.state.sigma0, 10, zh ? '弹性' : 'Elasticity', undefined, undefined, physicsIn('elasticity')),
       sel(
         'planeState',
         'Plane state',
@@ -262,6 +266,7 @@ export class FemLabPlugin implements Plugin {
         ],
         this.state.planeState,
         zh ? '弹性' : 'Elasticity',
+        physicsIn('elasticity'),
       ),
       {
         key: 'deformPercent',
@@ -274,6 +279,7 @@ export class FemLabPlugin implements Plugin {
         value: this.state.deformPercent,
         group: zh ? '弹性' : 'Elasticity',
         hint: zh ? '0 = 不绘制变形叠加；偏移上限为绘图区短边的 25%' : '0 = hide deformed overlay; drift capped at 25 % of the plot short side',
+        visibleWhen: physicsIn('elasticity'),
       },
       actionButton('run', 'Run FEM solve', '运行有限元求解', 'primary'),
       actionButton('benchmark', 'Run analytic benchmarks', '运行解析基准'),
@@ -436,9 +442,20 @@ export class FemLabPlugin implements Plugin {
             pin = n;
           }
         }
+        // Rightmost band carrying the uniform traction σ₀. The Delaunay mesh
+        // is an inscribed polygon: boundary-edge midpoints never reach the
+        // node-based max x, so a node epsilon band would select nothing and
+        // leave the traction load (and hence the displacement field) at zero.
+        // Measure the band on the boundary midpoints themselves instead.
+        let maxMidX = -Infinity;
+        for (const e of mesh.boundaryEdges) {
+          const mx = (mesh.nodes[e.a * 2]! + mesh.nodes[e.b * 2]!) / 2;
+          if (mx > maxMidX) maxMidX = mx;
+        }
+        const band = 0.03 * Math.max(maxX - minX, 1);
         const rightEdges: EdgeElement[] = mesh.boundaryEdges.filter((e) => {
           const mx = (mesh.nodes[e.a * 2]! + mesh.nodes[e.b * 2]!) / 2;
-          return mx > maxX - eps;
+          return mx >= maxMidX - band;
         });
         const result = solveElasticity({
           mesh,

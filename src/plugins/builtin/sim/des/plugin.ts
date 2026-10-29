@@ -279,25 +279,57 @@ export class SimDesPlugin implements Plugin {
 
   // ---- view: process flow ------------------------------------------------------
 
+  // Utilization → low-saturation color ramp: calm blue (idle) → teal → amber (near saturation).
+  private utilColor(u: number): string {
+    const stops: [number, [number, number, number]][] = [
+      [0.0, [93, 115, 148]],
+      [0.6, [77, 138, 124]],
+      [0.85, [148, 138, 92]],
+      [1.0, [176, 122, 74]],
+    ];
+    const x = Math.min(Math.max(u, 0), 1);
+    let a = stops[0]!, b = stops[stops.length - 1]!;
+    for (let i = 0; i + 1 < stops.length; i++) {
+      if (x >= stops[i]![0] && x <= stops[i + 1]![0]) {
+        a = stops[i]!;
+        b = stops[i + 1]!;
+        break;
+      }
+    }
+    const t = (x - a[0]) / Math.max(b[0] - a[0], 1e-9);
+    const c = a[1].map((v, i) => Math.round(v + (b[1][i]! - v) * t));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+
   private drawFlow(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     const r = this.result!;
     const spec = this.spec!;
-    const f = this.frame(g, canvas, this.zh ? '流程图（瓶颈以红框标出）' : 'Process flow (bottleneck outlined)', '', '');
     const bottleneck = findBottleneck(r.stations);
+    const f = this.frame(g, canvas, this.zh ? '排队网络流程图' : 'Queueing network flow', '', '');
+    // Subtitle summarizing what is being simulated.
+    g.fillStyle = '#8fa0b3';
+    g.font = '11px system-ui, sans-serif';
+    g.textAlign = 'center';
+    const tpl = DES_TEMPLATE_LABEL[this.state.template];
+    g.fillText(
+      `${this.zh ? tpl.zh : tpl.en} · ${this.zh ? '到达' : 'arrivals'} ${r.totalArrivals} · ${this.zh ? '完成' : 'completed'} ${r.completed} · ρ* ${fmtNum(bottleneck?.utilization ?? 0)}`,
+      canvas.width / 2,
+      34,
+    );
     const n = spec.stations.length;
-    const boxW = Math.min(150, (f.x1 - f.x0 - 80) / Math.max(n, 1) - 20);
+    const boxW = Math.min(150, (f.x1 - f.x0 - 220) / Math.max(n, 1) - 20);
     const boxH = 64;
-    const yMid = (f.y0 + f.y1) / 2;
+    const yMid = (f.y0 + f.y1) / 2 + 6;
     // Chain layout by station index; rework routes drawn as curved arcs below.
     const positions = spec.stations.map((_, i) => {
-      const spread = (f.x1 - f.x0 - boxW - 40) / Math.max(n - 1, 1);
-      const x = n === 1 ? (f.x0 + f.x1) / 2 : f.x0 + 20 + boxW / 2 + spread * i;
+      const spread = (f.x1 - f.x0 - boxW - 130) / Math.max(n - 1, 1);
+      const x = n === 1 ? (f.x0 + f.x1) / 2 + 20 : f.x0 + 100 + boxW / 2 + spread * i;
       return { x, y: yMid };
     });
-    const arrow = (x1: number, y1: number, x2: number, y2: number, style: string) => {
+    const arrow = (x1: number, y1: number, x2: number, y2: number, style: string, width = 1.4) => {
       g.strokeStyle = style;
       g.fillStyle = style;
-      g.lineWidth = 1.4;
+      g.lineWidth = width;
       g.beginPath();
       g.moveTo(x1, y1);
       g.lineTo(x2, y2);
@@ -310,12 +342,41 @@ export class SimDesPlugin implements Plugin {
       g.closePath();
       g.fill();
     };
+    // Endpoints: source (arrivals) on the left, sink (departures) on the right.
+    const endW = 64;
+    const drawEndpoint = (cx: number, title: string, sub: string, color: string) => {
+      g.fillStyle = 'rgba(120,136,156,0.12)';
+      g.strokeStyle = color;
+      g.lineWidth = 1;
+      const h = 40;
+      g.beginPath();
+      g.roundRect(cx - endW / 2, yMid - h / 2, endW, h, 6);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#c8d4e0';
+      g.textAlign = 'center';
+      g.font = '11px system-ui, sans-serif';
+      g.fillText(title, cx, yMid - 4);
+      g.font = '9px system-ui, sans-serif';
+      g.fillStyle = '#8fa0b3';
+      g.fillText(sub, cx, yMid + 10);
+    };
+    const srcX = f.x0 + 44;
+    const sinkX = f.x1 - 44;
+    drawEndpoint(srcX, this.zh ? '到达源' : 'Source', distLabel(spec.arrival).slice(0, 14), 'rgba(111,174,143,0.7)');
+    drawEndpoint(sinkX, this.zh ? '完成' : 'Done', `${r.completed}`, 'rgba(143,160,179,0.7)');
     g.font = '11px system-ui, sans-serif';
-    // Straight edges along the chain.
+    // Straight edges along the chain (source → stations → sink).
     for (let i = 0; i + 1 < n; i++) {
       const a = positions[i]!;
       const b = positions[i + 1]!;
-      arrow(a.x + boxW / 2, a.y, b.x - boxW / 2, b.y, 'rgba(200,212,224,0.6)');
+      arrow(a.x + boxW / 2, a.y, b.x - boxW / 2, b.y, 'rgba(160,176,196,0.55)');
+    }
+    if (n > 0) {
+      const first = positions[0]!;
+      const last = positions[n - 1]!;
+      arrow(srcX + endW / 2, yMid, first.x - boxW / 2 - 2, yMid, 'rgba(111,174,143,0.7)');
+      arrow(last.x + boxW / 2, yMid, sinkX - endW / 2 - 2, yMid, 'rgba(143,160,179,0.6)');
     }
     // Rework / skip edges as arcs under the chain.
     for (const rt of spec.routing) {
@@ -323,50 +384,66 @@ export class SimDesPlugin implements Plugin {
       const a = positions[rt.from]!;
       const b = positions[rt.to]!;
       const lift = 46 + Math.abs(rt.to - rt.from) * 12;
-      g.strokeStyle = rt.prob >= 1 ? 'rgba(174,143,111,0.7)' : 'rgba(174,143,111,0.55)';
+      g.strokeStyle = 'rgba(148,138,92,0.55)';
       g.lineWidth = 1.2;
       g.beginPath();
       g.moveTo(a.x, a.y + boxH / 2);
       g.quadraticCurveTo((a.x + b.x) / 2, a.y + boxH / 2 + lift, b.x, b.y + boxH / 2);
       g.stroke();
-      g.fillStyle = 'rgba(174,143,111,0.9)';
+      g.fillStyle = 'rgba(168,158,106,0.9)';
       g.textAlign = 'center';
       g.fillText(`${(rt.prob * 100).toFixed(0)}%`, (a.x + b.x) / 2, a.y + boxH / 2 + lift * 0.62);
     }
-    // Station boxes.
+    // Station boxes: fill encodes utilization; text stays light for contrast.
     r.stations.forEach((st, i) => {
       const p = positions[i]!;
       const isBottleneck = bottleneck?.index === i;
-      g.fillStyle = isBottleneck ? 'rgba(174,111,111,0.28)' : PALETTE[i % PALETTE.length]!;
-      g.fillRect(p.x - boxW / 2, p.y - boxH / 2, boxW, boxH);
+      g.fillStyle = this.utilColor(st.utilization);
+      g.beginPath();
+      g.roundRect(p.x - boxW / 2, p.y - boxH / 2, boxW, boxH, 6);
+      g.fill();
       if (isBottleneck) {
-        g.strokeStyle = '#ae6f6f';
+        g.strokeStyle = 'rgba(196,158,94,0.9)';
         g.lineWidth = 2;
-        g.strokeRect(p.x - boxW / 2, p.y - boxH / 2, boxW, boxH);
+        g.stroke();
       }
-      g.fillStyle = '#0a0e13';
+      g.fillStyle = '#eef3f8';
       g.textAlign = 'center';
       g.font = '12px system-ui, sans-serif';
       g.fillText(st.name.slice(0, 14), p.x, p.y - boxH / 2 + 16);
       g.font = '10px system-ui, sans-serif';
+      g.fillStyle = 'rgba(238,243,248,0.75)';
       g.fillText(`c=${st.servers}  ${distLabel(spec.stations[i]!.service).slice(0, 16)}`, p.x, p.y - boxH / 2 + 30);
+      g.fillStyle = '#eef3f8';
       g.fillText(`${this.zh ? '利用率' : 'util'} ${fmtNum(st.utilization)}`, p.x, p.y - boxH / 2 + 44);
+      g.fillStyle = 'rgba(238,243,248,0.75)';
       g.fillText(`${this.zh ? '队长' : 'Lq'} ${fmtNum(st.meanQueueLength)}`, p.x, p.y - boxH / 2 + 57);
+      // Waiting-line glyph: mean queue length rendered as stacked slots to the left.
+      const qDots = Math.min(Math.round(st.meanQueueLength), 6);
+      for (let d = 0; d < qDots; d++) {
+        g.fillStyle = 'rgba(160,176,196,0.6)';
+        g.beginPath();
+        g.arc(p.x - boxW / 2 - 8, p.y + boxH / 2 - 8 - d * 9, 2.6, 0, Math.PI * 2);
+        g.fill();
+      }
     });
-    // Source arrow.
-    if (n > 0) {
-      const first = positions[0]!;
-      arrow(f.x0 + 4, first.y, first.x - boxW / 2 - 2, first.y, 'rgba(111,174,143,0.8)');
-      g.fillStyle = 'rgba(111,174,143,0.9)';
-      g.textAlign = 'left';
-      g.font = '10px system-ui, sans-serif';
-      g.fillText(distLabel(spec.arrival), f.x0 + 6, first.y - 8);
+    // Legend for the utilization ramp + bottleneck marker.
+    const lx = f.x0 + 10;
+    const ly = f.y1 - 12;
+    g.textAlign = 'left';
+    g.font = '10px system-ui, sans-serif';
+    g.fillStyle = '#8fa0b3';
+    g.fillText(this.zh ? '利用率' : 'Utilization', lx, ly);
+    for (let d = 0; d < 32; d++) {
+      g.fillStyle = this.utilColor(d / 31);
+      g.fillRect(lx + 58 + d * 5, ly - 7, 5, 9);
     }
+    g.fillStyle = '#8fa0b3';
+    g.fillText('0', lx + 56, ly + 12);
+    g.fillText('1', lx + 58 + 32 * 5, ly + 12);
     if (bottleneck) {
-      g.fillStyle = '#ae6f6f';
-      g.textAlign = 'left';
-      g.font = '11px system-ui, sans-serif';
-      g.fillText(`${this.zh ? '瓶颈' : 'Bottleneck'}: ${bottleneck.name} (${fmtNum(bottleneck.utilization)})`, f.x0 + 8, f.y1 - 10);
+      g.fillStyle = 'rgba(196,158,94,0.95)';
+      g.fillText(`${this.zh ? '◆ 瓶颈' : '◆ Bottleneck'}: ${bottleneck.name} (ρ=${fmtNum(bottleneck.utilization)})`, lx + 240, ly);
     }
   }
 

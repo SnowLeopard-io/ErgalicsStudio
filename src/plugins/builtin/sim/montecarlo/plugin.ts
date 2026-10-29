@@ -232,6 +232,7 @@ export class SimMontecarloPlugin implements Plugin {
         type: 'number',
         value: s.chains,
         hint: '>= 2 runs independent chains and reports the Gelman-Rubin statistic.',
+        visibleWhen: { key: 'view', in: ['convergence'] },
       },
       {
         key: 'sensitivity',
@@ -239,6 +240,7 @@ export class SimMontecarloPlugin implements Plugin {
         labelI18n: { 'zh-CN': '敏感性分析', 'en-US': 'Sensitivity analysis' },
         type: 'checkbox',
         value: s.sensitivity,
+        visibleWhen: { key: 'view', in: ['tornado'] },
       },
       {
         key: 'view',

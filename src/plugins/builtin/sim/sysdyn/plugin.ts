@@ -158,6 +158,7 @@ export class SimSdPlugin implements Plugin {
         type: 'text',
         value: s.sweepParam,
         hint: 'Parameter name to sweep (optional).',
+        visibleWhen: { key: 'view', in: ['sweep'] },
       },
       {
         key: 'sweepValues',
@@ -166,6 +167,7 @@ export class SimSdPlugin implements Plugin {
         type: 'text',
         value: s.sweepValues,
         placeholder: '0.2, 0.35, 0.5',
+        visibleWhen: { key: 'view', in: ['sweep'] },
       },
       {
         key: 'view',

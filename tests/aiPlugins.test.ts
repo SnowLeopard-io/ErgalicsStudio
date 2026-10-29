@@ -23,7 +23,7 @@ import {
 } from '@/plugins/builtin/data/vectordb/kernel';
 import { RECSYS_SAMPLE_CSV } from '@/plugins/builtin/data/recsys/samples';
 import { runRecsys } from '@/plugins/builtin/data/recsys/kernel';
-import { makeBandit, makeGridWorld, runBanditExperiment, runGridExperiment } from '@/plugins/builtin/data/rl/kernel';
+import { makeGridWorld, runBanditExperiment, runGridExperiment } from '@/plugins/builtin/data/rl/kernel';
 import { XAI_SAMPLE_CSV } from '@/plugins/builtin/data/xai/samples';
 import { kernelShap, mulberry32 as xaiRng, parseXaiData, trainReference } from '@/plugins/builtin/data/xai/kernel';
 
@@ -181,7 +181,7 @@ describe('XAI kernel', () => {
     const inst = data.X[0]!;
     const shap = kernelShap(
       outcome.model,
-      data.means ?? outcome.model.means,
+      outcome.model.means,
       inst,
       64,
       xaiRng(42),
