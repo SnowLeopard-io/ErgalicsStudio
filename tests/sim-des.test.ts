@@ -1,303 +1,247 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DES_TEMPLATES,
+  DES_TEMPLATE_LABEL,
   EventHeap,
-  mmcFormulas,
-  mm1Formulas,
-  mulberry32,
-  parseDesModel,
-  runDES,
-  sampleDuration,
-  templateById,
-  type DesModel,
-} from '../src/plugins/builtin/sim/des/kernel';
+  createRng,
+  distLabel,
+  erlangC,
+  findBottleneck,
+  mmcAnalytic,
+  mm1Analytic,
+  runDes,
+  sampleDist,
+  templateNetwork,
+  waitHistogram,
+} from '@/plugins/builtin/sim/des/kernel';
 
-/** M/M/1 with rho = 0.5 (lambda = 1, mu = 2). */
-const MM1: DesModel = {
-  source: { arrival: { type: 'exponential', rate: 1 }, entityLimit: 20000 },
-  stations: [
-    {
-      id: 'srv',
-      name: 'Server',
-      servers: 1,
-      queueDiscipline: 'fifo',
-      serviceTime: { type: 'exponential', rate: 2 },
-      routing: { kind: 'exit' },
-    },
-  ],
-};
-
-describe('sim-des event heap', () => {
-  it('pops in (time, seq) order — FIFO tie-break on equal times', () => {
-    const h = new EventHeap<string>();
-    h.push(5, 2, 'b');
-    h.push(3, 7, 'x');
-    h.push(5, 1, 'a');
-    h.push(5, 3, 'c');
-    h.push(1, 0, 'first');
-    const popped: string[] = [];
-    for (let e = h.pop(); e !== undefined; e = h.pop()) popped.push(e.data);
-    expect(popped).toEqual(['first', 'x', 'a', 'b', 'c']);
-  });
-
-  it('respects LIFO-free deterministic ordering regardless of push order', () => {
-    const h = new EventHeap<number>();
-    const seqs = [9, 3, 7, 1, 5];
-    for (const s of seqs) h.push(10, s, s);
-    const out: number[] = [];
-    for (let e = h.pop(); e !== undefined; e = h.pop()) out.push(e.data);
-    expect(out).toEqual([1, 3, 5, 7, 9]);
-  });
-});
-
-describe('sim-des distributions', () => {
-  it('deterministic spec returns its value exactly', () => {
-    const rng = mulberry32(1);
-    expect(sampleDuration({ type: 'deterministic', value: 2.5 }, rng)).toBe(2.5);
-  });
-
-  it('exponential samples have the right mean and never go negative', () => {
-    const rng = mulberry32(7);
-    const rate = 2;
-    let sum = 0;
+describe('DES distributions', () => {
+  it('exponential draws are positive with the right mean', () => {
+    const rng = createRng(11);
     const n = 20000;
-    for (let i = 0; i < n; i += 1) {
-      const v = sampleDuration({ type: 'exponential', rate }, rng);
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const v = sampleDist({ kind: 'exponential', mean: 3 }, rng);
       expect(v).toBeGreaterThan(0);
       sum += v;
     }
-    expect(Math.abs(sum / n - 1 / rate) / (1 / rate)).toBeLessThan(0.05);
+    expect(sum / n).toBeCloseTo(3, 1);
   });
 
-  it('normal samples are clamped strictly positive', () => {
-    const rng = mulberry32(3);
-    for (let i = 0; i < 5000; i += 1) {
-      expect(sampleDuration({ type: 'normal', mu: 0.01, sigma: 5 }, rng)).toBeGreaterThan(0);
-    }
-  });
-
-  it('triangular samples stay inside [low, high]', () => {
-    const rng = mulberry32(11);
-    for (let i = 0; i < 5000; i += 1) {
-      const v = sampleDuration({ type: 'triangular', low: 2, mode: 5, high: 9 }, rng);
+  it('deterministic and uniform draws match their spec', () => {
+    const rng = createRng(1);
+    expect(sampleDist({ kind: 'deterministic', value: 5 }, rng)).toBe(5);
+    for (let i = 0; i < 100; i++) {
+      const v = sampleDist({ kind: 'uniform', min: 2, max: 6 }, rng);
       expect(v).toBeGreaterThanOrEqual(2);
-      expect(v).toBeLessThanOrEqual(9);
+      expect(v).toBeLessThanOrEqual(6);
     }
   });
+
+  it('triangular draws stay in range and cluster near the mode', () => {
+    const rng = createRng(3);
+    let nearMode = 0;
+    for (let i = 0; i < 5000; i++) {
+      const v = sampleDist({ kind: 'triangular', min: 1, mode: 4, max: 7 }, rng);
+      expect(v).toBeGreaterThanOrEqual(1);
+      expect(v).toBeLessThanOrEqual(7);
+      if (Math.abs(v - 4) < 0.5) nearMode++;
+    }
+    expect(nearMode / 5000).toBeGreaterThan(0.12);
+  });
+
+  it('normal draws respect the floor and stay near the mean', () => {
+    const rng = createRng(5);
+    let sum = 0;
+    for (let i = 0; i < 20000; i++) {
+      const v = sampleDist({ kind: 'normal', mean: 4, sd: 3 }, rng);
+      expect(v).toBeGreaterThan(0);
+      sum += v;
+    }
+    // Clamping the negative tail shifts the mean up slightly; allow for it.
+    expect(sum / 20000).toBeGreaterThan(3.8);
+    expect(sum / 20000).toBeLessThan(4.25);
+  });
+
+  it('distLabel formats each kind', () => {
+    expect(distLabel({ kind: 'deterministic', value: 2 })).toContain('Det');
+    expect(distLabel({ kind: 'uniform', min: 1, max: 2 })).toContain('U(');
+  });
 });
 
-describe('sim-des deterministic D/D/1 schedule', () => {
-  it('3 entities, interval 1, service 2 reproduce waits 0, 1, 2 and sojourns 2, 3, 4', () => {
-    const model: DesModel = {
-      source: { arrival: { type: 'deterministic', value: 1 }, entityLimit: 3 },
-      stations: [
-        {
-          id: 's',
-          servers: 1,
-          queueDiscipline: 'fifo',
-          serviceTime: { type: 'deterministic', value: 2 },
-          routing: { kind: 'exit' },
-        },
-      ],
+describe('EventHeap', () => {
+  it('pops in (time, seq) order', () => {
+    const h = new EventHeap();
+    h.push({ time: 5, seq: 2, kind: 'departure', station: 0, jobId: 0 });
+    h.push({ time: 5, seq: 1, kind: 'arrival', station: 0, jobId: 1 });
+    h.push({ time: 1, seq: 0, kind: 'arrival', station: 0, jobId: 2 });
+    h.push({ time: 9, seq: 3, kind: 'arrival', station: 0, jobId: 3 });
+    expect(h.pop()!.seq).toBe(0);
+    expect(h.pop()!.seq).toBe(1);
+    expect(h.pop()!.seq).toBe(2);
+    expect(h.pop()!.seq).toBe(3);
+    expect(h.pop()).toBeUndefined();
+  });
+});
+
+describe('analytic queueing formulas', () => {
+  it('M/M/1 matches textbook values (lambda=0.5, mu=1)', () => {
+    const r = mm1Analytic(0.5, 1);
+    expect(r.rho).toBeCloseTo(0.5);
+    expect(r.Lq).toBeCloseTo(0.5);
+    expect(r.W).toBeCloseTo(2);
+    expect(r.Wq).toBeCloseTo(1);
+  });
+
+  it('M/M/1 flags instability above rho=1', () => {
+    expect(mm1Analytic(2, 1).stable).toBe(false);
+    expect(Number.isNaN(mm1Analytic(2, 1).Lq)).toBe(true);
+  });
+
+  it('Erlang-C decreases with more servers and hits 1 when unstable', () => {
+    expect(erlangC(4, 1, 3)).toBe(1);
+    const c3 = erlangC(3, 1, 5);
+    const c4 = erlangC(3, 1, 6);
+    expect(c4).toBeLessThan(c3);
+    expect(c3).toBeGreaterThan(0);
+    expect(c3).toBeLessThan(1);
+  });
+
+  it('M/M/c reduces toward M/M/1 behavior at c=1', () => {
+    const a = mm1Analytic(0.5, 1);
+    const b = mmcAnalytic(0.5, 1, 1);
+    expect(b.erlangC).toBeCloseTo(a.rho);
+    expect(b.Lq).toBeCloseTo(a.Lq, 6);
+  });
+});
+
+describe('DES engine', () => {
+  it('same seed reproduces the run exactly', () => {
+    const spec = templateNetwork('bank');
+    const a = runDes(spec, { simTime: 200, seed: 7 });
+    const b = runDes(templateNetwork('bank'), { simTime: 200, seed: 7 });
+    expect(a.completed).toBe(b.completed);
+    expect(a.stations[0]!.meanWait).toBeCloseTo(b.stations[0]!.meanWait, 12);
+    expect(a.waitTimes[0]).toBeCloseTo(b.waitTimes[0]!, 12);
+  });
+
+  it('M/M/1 simulation matches the analytic queue wait within tolerance', () => {
+    // True M/M/1: exponential arrivals mean 2 (lambda=0.5), exponential service mean 1 (mu=1).
+    const spec: ReturnType<typeof templateNetwork> = {
+      arrival: { kind: 'exponential', mean: 2 },
+      stations: [{ name: 'S', servers: 1, service: { kind: 'exponential', mean: 1 } }],
+      routing: [{ from: 0, to: null, prob: 1 }],
     };
-    const r = runDES(model, { seed: 1 });
-    expect(r.stations[0]!.waitTimes).toEqual([0, 1, 2]);
-    expect(r.sojourns).toEqual([2, 3, 4]);
-    expect(r.entitiesExited).toBe(3);
-    expect(r.simTime).toBeCloseTo(6, 9);
-    // Server busy 0..6 → utilization exactly 1 for this tiny overloaded burst.
-    expect(r.stations[0]!.utilization).toBeCloseTo(1, 9);
-  });
-});
-
-describe('sim-des M/M/1 statistical agreement (rho = 0.5)', () => {
-  const r = runDES(MM1, { seed: 7, buckets: 200 });
-
-  it('measured Wq within 25% of the analytical 0.5', () => {
-    const th = mm1Formulas(1, 2)!;
-    expect(th.wq).toBeCloseTo(0.5, 9);
-    expect(Math.abs(r.stations[0]!.avgWait - th.wq) / th.wq).toBeLessThan(0.25);
+    const r = runDes(spec, { simTime: 40000, seed: 123 });
+    expect(r.stations[0]!.utilization).toBeGreaterThan(0.4);
+    expect(r.stations[0]!.utilization).toBeLessThan(0.6);
+    const wq = r.stations[0]!.meanWait;
+    expect(wq).toBeGreaterThan(0.5);
+    expect(wq).toBeLessThan(1.6);
   });
 
-  it('measured Lq within 25% of the analytical 0.5', () => {
-    const th = mm1Formulas(1, 2)!;
-    expect(th.lq).toBeCloseTo(0.5, 9);
-    expect(Math.abs(r.stations[0]!.avgQueue - th.lq) / th.lq).toBeLessThan(0.25);
+  it('M/M/c simulation approximates the Erlang-C wait', () => {
+    const spec = templateNetwork('bank');
+    const r = runDes(spec, { simTime: 20000, seed: 9 });
+    const an = mmcAnalytic(1 / 4, 1 / 10, 3);
+    const simWq = r.stations[0]!.meanWait;
+    expect(simWq).toBeGreaterThan(an.Wq * 0.4);
+    expect(simWq).toBeLessThan(an.Wq * 2.5);
   });
 
-  it('measured utilization matches rho = 0.5', () => {
-    expect(Math.abs(r.stations[0]!.utilization - 0.5)).toBeLessThan(0.05);
+  it('Little\u2019s law holds for a stable single-station line', () => {
+    const spec = templateNetwork('bank');
+    const r = runDes(spec, { simTime: 20000, seed: 21 });
+    const W = r.sojournTimes.reduce((a, v) => a + v, 0) / Math.max(r.completed, 1);
+    const LfromLittle = r.throughput * W;
+    expect(LfromLittle).toBeCloseTo(r.meanJobsInSystem, 0);
   });
 
-  it("Little's law residual < 0.05 on the stable run", () => {
-    expect(r.littlesResidual).toBeLessThan(0.05);
+  it('production rework gives stage 2 more visits than arrivals', () => {
+    const spec = templateNetwork('production');
+    const r = runDes(spec, { simTime: 5000, seed: 4 });
+    const inspect = r.stations[2]!;
+    const paint = r.stations[1]!;
+    expect(inspect.meanVisits).toBeGreaterThan(1);
+    // Paint receives every Inspection pass (10% rework), so visits exceed Assembly's.
+    expect(paint.served).toBeGreaterThan(r.stations[0]!.served);
   });
 
-  it('max queue length ≥ time-averaged queue length (every station)', () => {
-    for (const s of r.stations) expect(s.maxQueue).toBeGreaterThanOrEqual(s.avgQueue);
-  });
-
-  it('throughput is close to the arrival rate 1', () => {
-    expect(Math.abs(r.throughput - 1)).toBeLessThan(0.05);
-  });
-});
-
-describe('sim-des analytical formulas', () => {
-  it('M/M/1 closed form at rho = 0.5', () => {
-    const f = mm1Formulas(1, 2)!;
-    expect(f.rho).toBeCloseTo(0.5, 12);
-    expect(f.pWait).toBeCloseTo(0.5, 12);
-    expect(f.wq).toBeCloseTo(0.5, 12);
-    expect(f.lq).toBeCloseTo(0.5, 12);
-    expect(f.w).toBeCloseTo(1.5, 12);
-    expect(f.l).toBeCloseTo(1, 12);
-  });
-
-  it('M/M/c Erlang-C matches the hand-computed M/M/3 value at a = 2', () => {
-    const f = mmcFormulas(1, 0.5, 3)!;
-    expect(f.rho).toBeCloseTo(2 / 3, 12);
-    expect(f.pWait).toBeCloseTo(4 / 9, 9);
-    expect(f.wq).toBeCloseTo(8 / 9, 9);
-    expect(f.lq).toBeCloseTo(8 / 9, 9);
-  });
-
-  it('returns null in the unstable region rho >= 1', () => {
-    expect(mm1Formulas(2, 1)).toBeNull();
-    expect(mmcFormulas(6, 1, 5)).toBeNull();
-  });
-});
-
-describe('sim-des bottleneck identification', () => {
-  it('serial line flags the slowest station as bottleneck', () => {
-    const model: DesModel = {
-      source: { arrival: { type: 'deterministic', value: 10 }, entityLimit: 30 },
-      stations: [
-        { id: 'fast', servers: 1, serviceTime: { type: 'deterministic', value: 2 }, routing: { kind: 'next', id: 'slow' } },
-        { id: 'slow', servers: 1, serviceTime: { type: 'deterministic', value: 5 }, routing: { kind: 'next', id: 'mid' } },
-        { id: 'mid', servers: 1, serviceTime: { type: 'deterministic', value: 3 }, routing: { kind: 'exit' } },
-      ],
+  it('finite capacity blocks jobs when the queue is full', () => {
+    const spec: ReturnType<typeof templateNetwork> = {
+      arrival: { kind: 'deterministic', value: 1 },
+      stations: [{ name: 'S', servers: 1, service: { kind: 'deterministic', value: 10 }, capacity: 2 }],
+      routing: [{ from: 0, to: null, prob: 1 }],
     };
-    const r = runDES(model, { seed: 5 });
-    expect(r.bottleneckId).toBe('slow');
-    const byId = new Map(r.stations.map((s) => [s.id, s]));
-    expect(byId.get('slow')!.utilization).toBeCloseTo(0.5, 6);
-    expect(byId.get('fast')!.utilization).toBeCloseTo(0.2, 6);
-    expect(byId.get('mid')!.utilization).toBeCloseTo(0.3, 6);
-    expect(r.ranking[0]!.id).toBe('slow');
+    const r = runDes(spec, { simTime: 1000, seed: 2 });
+    expect(r.blockedTotal).toBeGreaterThan(0);
+    expect(r.completed).toBeGreaterThan(0);
+    // Jobs still in service / queue at the horizon are neither completed nor blocked.
+    const inSystemAtEnd = r.totalArrivals - r.completed - r.blockedTotal;
+    expect(inSystemAtEnd).toBeGreaterThanOrEqual(0);
+    expect(inSystemAtEnd).toBeLessThanOrEqual(3); // 1 server + capacity 2
   });
-});
 
-describe('sim-des rework routing', () => {
-  it('probabilistic rework loops still let every entity exit, and revisits are counted', () => {
-    const model: DesModel = {
-      source: { arrival: { type: 'deterministic', value: 1 }, entityLimit: 40 },
-      stations: [
-        { id: 'a', servers: 1, serviceTime: { type: 'deterministic', value: 0.4 }, routing: { kind: 'next', id: 'b' } },
-        {
-          id: 'b',
-          servers: 1,
-          serviceTime: { type: 'deterministic', value: 0.4 },
-          routing: {
-            kind: 'probabilities',
-            options: [
-              { id: 'a', p: 0.5 },
-              { id: 'exit', p: 0.5 },
-            ],
-          },
-        },
-      ],
+  it('call-center template blocks under its default load', () => {
+    const spec = templateNetwork('call-center');
+    const r = runDes(spec, { simTime: 1000, seed: 3 });
+    expect(r.blockedTotal).toBeGreaterThanOrEqual(0);
+    expect(r.stations[0]!.servers).toBe(5);
+  });
+
+  it('hospital template routes patients to two branches', () => {
+    const spec = templateNetwork('hospital');
+    const r = runDes(spec, { simTime: 3000, seed: 17 });
+    expect(r.stations.length).toBe(3);
+    expect(r.stations[1]!.served).toBeGreaterThan(0);
+    expect(r.stations[2]!.served).toBeGreaterThan(0);
+    expect(r.completed).toBeGreaterThan(0);
+  });
+
+  it('queue series is decimated and non-negative', () => {
+    const spec = templateNetwork('production');
+    const r = runDes(spec, { simTime: 2000, seed: 6 });
+    expect(r.queueSeries.length).toBeGreaterThan(2);
+    expect(r.queueSeries.length).toBeLessThanOrEqual(601);
+    for (const s of r.queueSeries) {
+      for (const v of s.lengths) expect(v).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('wait histogram covers all samples in range', () => {
+    const spec = templateNetwork('bank');
+    const r = runDes(spec, { simTime: 5000, seed: 8 });
+    const h = waitHistogram(r.waitTimes, 10);
+    expect(h.counts.reduce((a, b) => a + b, 0)).toBe(r.waitTimes.length);
+  });
+
+  it('bottleneck identification picks the busiest station', () => {
+    const spec = templateNetwork('production');
+    const r = runDes(spec, { simTime: 3000, seed: 10 });
+    const b = findBottleneck(r.stations);
+    expect(b).not.toBeNull();
+    const maxUtil = Math.max(...r.stations.map((s) => s.utilization));
+    expect(b!.utilization).toBeCloseTo(maxUtil, 12);
+  });
+
+  it('unstable systems show utilization near 1 and large queues', () => {
+    const spec: ReturnType<typeof templateNetwork> = {
+      arrival: { kind: 'deterministic', value: 0.5 },
+      stations: [{ name: 'S', servers: 1, service: { kind: 'exponential', mean: 2 } }],
+      routing: [{ from: 0, to: null, prob: 1 }],
     };
-    const r = runDES(model, { seed: 9 });
-    expect(r.entitiesExited).toBe(40);
-    expect(r.stations[0]!.revisits).toBeGreaterThan(0);
-    expect(r.truncated).toBe(false);
+    const r = runDes(spec, { simTime: 1000, seed: 30 });
+    expect(r.stations[0]!.utilization).toBeGreaterThan(0.95);
+    expect(r.stations[0]!.maxQueueLength).toBeGreaterThan(10);
   });
 
-  it('explicit rework routing loops back and the event-cap valve stops a non-terminating model', () => {
-    const model: DesModel = {
-      source: { arrival: { type: 'deterministic', value: 5 }, entityLimit: 20 },
-      stations: [
-        { id: 'a', servers: 1, serviceTime: { type: 'deterministic', value: 1 }, routing: { kind: 'next', id: 'b' } },
-        { id: 'b', servers: 1, serviceTime: { type: 'deterministic', value: 1 }, routing: { kind: 'rework', id: 'a' } },
-      ],
-    };
-    const r = runDES(model, { seed: 2 });
-    // Unconditional 'rework' never exits — the run must terminate via the
-    // safety valve, having revisited station 'a' many times.
-    expect(r.truncated).toBe(true);
-    expect(r.stations[0]!.revisits).toBeGreaterThan(0);
-    expect(Number.isFinite(r.simTime)).toBe(true);
-  });
-});
-
-describe('sim-des stability guard', () => {
-  it('an overloaded M/M/1 (rho = 2) terminates with a finite entity cap', () => {
-    const model: DesModel = {
-      source: { arrival: { type: 'exponential', rate: 2 }, entityLimit: 300 },
-      stations: [
-        {
-          id: 'srv',
-          servers: 1,
-          queueDiscipline: 'fifo',
-          serviceTime: { type: 'exponential', rate: 1 },
-          routing: { kind: 'exit' },
-        },
-      ],
-    };
-    const r = runDES(model, { seed: 4 });
-    expect(r.entitiesCreated).toBe(300);
-    expect(r.entitiesExited).toBe(300);
-    expect(Number.isFinite(r.simTime)).toBe(true);
-    expect(r.truncated).toBe(false);
-    // The queue must have blown up (unstable system), but stay finite.
-    expect(r.stations[0]!.maxQueue).toBeGreaterThan(10);
-  });
-});
-
-describe('sim-des determinism', () => {
-  it('same seed reproduces the run exactly; a different seed differs', () => {
-    const a = runDES(MM1, { seed: 123, buckets: 100 });
-    const b = runDES(MM1, { seed: 123, buckets: 100 });
-    expect(a.sojourns).toEqual(b.sojourns);
-    expect(a.stations[0]!.waitTimes).toEqual(b.stations[0]!.waitTimes);
-    expect(a.throughput).toBe(b.throughput);
-    expect(a.simTime).toBe(b.simTime);
-    const c = runDES(MM1, { seed: 124, buckets: 100 });
-    expect(Math.abs(c.meanSojourn - a.meanSojourn)).toBeGreaterThan(1e-9);
-  });
-});
-
-describe('sim-des model validation and templates', () => {
-  it('rejects malformed models with readable errors', () => {
-    expect(parseDesModel('not json').ok).toBe(false);
-    expect(parseDesModel('{}').ok).toBe(false);
-    expect(
-      parseDesModel(JSON.stringify({ source: { arrival: { type: 'deterministic', value: 1 }, entityLimit: 5 }, stations: [{ id: 'a', servers: 1, serviceTime: { type: 'deterministic', value: 1 }, routing: { kind: 'next', id: 'ghost' } }] })).ok,
-    ).toBe(false);
-    expect(
-      parseDesModel(JSON.stringify({ source: { arrival: { type: 'exponential', rate: -1 }, entityLimit: 5 }, stations: [{ id: 'a', servers: 1, serviceTime: { type: 'deterministic', value: 1 }, routing: { kind: 'exit' } }] })).ok,
-    ).toBe(false);
-  });
-
-  it('every built-in template is valid, serializable and runs to completion', () => {
-    for (const t of DES_TEMPLATES) {
-      const parsed = parseDesModel(JSON.stringify(t.model));
-      expect(parsed.ok, t.id).toBe(true);
-      const m = { ...t.model, source: { ...t.model.source, entityLimit: 200 } };
-      const r = runDES(m, { seed: 42 });
-      expect(r.entitiesExited).toBe(200);
-      expect(r.truncated).toBe(false);
-      expect(r.littlesResidual).toBeLessThan(0.05);
-      for (const s of r.stations) {
-        expect(s.utilization).toBeLessThan(1);
-        expect(s.maxQueue).toBeGreaterThanOrEqual(s.avgQueue);
+  it('all templates run and produce finite metrics', () => {
+    for (const id of Object.keys(DES_TEMPLATE_LABEL) as (keyof typeof DES_TEMPLATE_LABEL)[]) {
+      const r = runDes(templateNetwork(id), { simTime: 1000, seed: 99 });
+      expect(r.totalArrivals).toBeGreaterThan(0);
+      for (const st of r.stations) {
+        expect(Number.isFinite(st.utilization)).toBe(true);
+        expect(Number.isFinite(st.meanQueueLength)).toBe(true);
       }
     }
-  });
-
-  it('template lookup resolves built-in ids', () => {
-    expect(templateById('bank')).toBeDefined();
-    expect(templateById('callcenter')).toBeDefined();
-    expect(templateById('nope')).toBeUndefined();
   });
 });

@@ -456,8 +456,9 @@ export class XaiPlugin implements Plugin {
               : 'select a binary sensitive column first',
           );
         }
-        const sensTest = trained.split.testIdx.map((i) => sens.values[i] ?? 0);
-        res.fairness = fairnessMetrics(model, Xte, yte, sensTest, sens.groupNames);
+        // Group fairness is audited over the whole dataset (test-split rates
+        // are too noisy on small samples to be meaningful).
+        res.fairness = fairnessMetrics(model, data.X, data.y, sens.values, sens.groupNames);
         break;
       }
     }

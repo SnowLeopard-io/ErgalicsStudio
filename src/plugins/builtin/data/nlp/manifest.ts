@@ -33,4 +33,12 @@ export const nlpManifest: PluginManifest = {
     { extension: '.txt', mimeTypes: ['text/plain'], description: 'Text corpus' },
     { extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV corpus' },
   ],
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:2a25152a65d7f89544cb5c9cd503b456',
+    sig: '72416ae8f7be801ee7e6cfe3138a782555c9b7de880c46d940eeb5ea12e8df11dae3819bc193e611dcf43c519252731dd8ae968d58ba5ad20bab40f335614308',
+    signer: 'Ergalics Studio (AI suite pack)',
+    signedAt: '2026-10-29T00:00:00.000Z',
+    pub: 'f0f5c97eedd922c9bb7dc31a874b82fdfb7e6d58f58fbe2987de9c9f27ecd63e',
+  },
 };

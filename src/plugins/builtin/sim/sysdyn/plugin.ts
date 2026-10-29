@@ -13,7 +13,6 @@ import { simSdManifest } from './manifest';
 import {
   SD_TEMPLATE_LABEL,
   deriveCausalLinks,
-  findLoops,
   loopDominance,
   simulateSD,
   sweepSD,
@@ -348,7 +347,8 @@ export class SimSdPlugin implements Plugin {
 
   /** Plot one or more named series over t with a shared y-range. */
   private plotSeries(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, title: string, seriesList: SDSeries[], which: 'stocks' | 'flows', maxLegend: number) {
-    const names = Object.keys(seriesList[0][which]);
+    const s0 = seriesList[0]!;
+    const names = Object.keys(s0[which]);
     let lo = Infinity;
     let hi = -Infinity;
     for (const s of seriesList) {
@@ -364,8 +364,8 @@ export class SimSdPlugin implements Plugin {
     lo -= pad;
     hi += pad;
     const f = this.frame(g, canvas, title, 't', which === 'stocks' ? (this.zh ? '存量' : 'Stock') : (this.zh ? '流量' : 'Flow'));
-    const t0 = seriesList[0].t[0]!;
-    const t1 = seriesList[0].t[seriesList[0].t.length - 1]!;
+    const t0 = s0.t[0]!;
+    const t1 = s0.t[s0.t.length - 1]!;
     const px = (t: number) => f.x0 + ((t - t0) / (t1 - t0 || 1)) * (f.x1 - f.x0);
     const py = (v: number) => f.y1 - ((v - lo) / (hi - lo || 1)) * (f.y1 - f.y0);
     seriesList.forEach((s, si) => {

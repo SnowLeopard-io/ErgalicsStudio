@@ -184,6 +184,12 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   // Data & AI
   'example.ai-training': 'data',
   'example.data-imageproc': 'data',
+  'ai.automl': 'data',
+  'ai.nlp': 'data',
+  'ai.recsys': 'data',
+  'ai.rl': 'data',
+  'ai.xai': 'data',
+  'ai.vectordb': 'data',
 
   // Mathematics & statistics (research-grade kernels). The former separate
   // "statistical analysis" group now lives here too.
@@ -235,6 +241,12 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.neuralviz': 'cs',
   'example.complexity': 'cs',
   'example.netproto': 'cs',
+
+  // General-purpose simulation engines
+  'example.sim-montecarlo': 'math',
+  'example.sim-abm': 'physics',
+  'example.sim-sd': 'engineering',
+  'example.sim-des': 'engineering',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

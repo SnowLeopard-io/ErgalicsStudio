@@ -362,7 +362,7 @@ export function sampleSobol(n: number, k: number): number[][] {
   const dim = Math.min(k, 16);
   const dirs = sobolDirections(dim);
   const out: number[][] = [];
-  let x = new Uint32Array(dim);
+  const x = new Uint32Array(dim);
   for (let i = 0; i < n; i++) {
     const row: number[] = new Array(k);
     if (i > 0) {

@@ -741,7 +741,7 @@ export function kernelShap(
     const f = model.predict(raw);
     let wgt: number;
     if (k === 0 || k === d) {
-      wgt = 1e4; // anchor the local-accuracy property
+      wgt = 1e8; // anchor the local-accuracy property (effectively hard constraint)
     } else {
       const logW = Math.log(d - 1) - logBinom(d, k) - Math.log(k) - Math.log(d - k);
       wgt = Math.exp(logW);
@@ -1020,8 +1020,8 @@ export function generateAdultLikeSample(rows: number, seed: number): string {
       0.055 * (hours - 41) +
       0.36 * (edu - 11.3) +
       0.00007 * gain +
-      0.6 * sex -
-      0.55 +
+      0.85 * sex -
+      0.9 +
       gaussian(rng) * 0.6;
     const target = logit > 0 ? 1 : 0;
     lines.push(`${age},${hours},${edu},${gain},${sex},${target}`);

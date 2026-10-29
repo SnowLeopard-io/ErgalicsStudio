@@ -1,104 +1,94 @@
 // ==========================================================================
-// sim-des — discrete-event simulation workbench (2-D canvas)
+// sim-des — Discrete-event queueing network studio (2-D canvas).
 //
-// Panel: pick a built-in template, edit the serializable model JSON, set the
-// entity count and PRNG seed, then Run (synchronous — a few thousand entities
-// simulate in milliseconds). Four canvas views: process flow map (stations,
-// queues as proportional squares, routing arrows, bottleneck highlighted in a
-// warm accent), queue-length time series, a per-station performance table and
-// an end-to-end wait-time histogram. Scientific outputs publish throughput,
-// mean sojourn, the bottleneck and the Little's-law residual; same seed ⇒
-// identical results.
+// Views: process flow diagram, queue length over time, performance table with
+// M/M/c analytic reference and bottleneck callout, wait-time histogram.
+// Templates fully determine the network; runs are seeded and reproducible and
+// feed the scienceOutput strip.
 // ==========================================================================
 
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
-import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+import { actionButton, actionFired, drawEmptyCanvas } from '@/core/plugin-tools/enhance';
+import { clearScienceOutputs, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { simDesManifest } from './manifest';
 import {
-  DES_TEMPLATES,
-  hashSeed,
-  parseDesModel,
-  runDES,
-  templateById,
-  templateJson,
-  type DesModel,
-  type DesResult,
+  DES_TEMPLATE_LABEL,
+  distLabel,
+  findBottleneck,
+  mmcAnalytic,
+  runDes,
+  templateNetwork,
+  waitHistogram,
+  type DesRunResult,
+  type DesTemplateId,
+  type DistSpec,
+  type NetworkSpec,
 } from './kernel';
 
 export { simDesManifest } from './manifest';
 
-/** Low-saturation academic palette for per-station curves and boxes. */
 const PALETTE = ['#6f8fae', '#ae8f6f', '#6fae8f', '#ae6f8f', '#8f6fae', '#a0ae6f', '#6fa0ae', '#ae7f6f'];
-/** Warm accent reserved for the bottleneck highlight. */
-const ACCENT = '#c98246';
-const TEXT_MAIN = 'rgba(230,238,248,0.95)';
-const TEXT_DIM = 'rgba(160,175,195,0.9)';
-const GRID = 'rgba(120,140,165,0.16)';
 
-type ViewKind = 'flow' | 'queue' | 'table' | 'histogram';
+type ViewId = 'flow' | 'queue' | 'performance' | 'histogram';
 
-interface DesState {
-  template: string;
-  modelText: string;
-  entities: string;
-  seed: string;
-  priority: boolean;
-  view: ViewKind;
+interface State {
+  template: DesTemplateId;
+  simTime: number;
+  seed: number;
+  /** Multiplier on the arrival rate (scales inter-arrival mean inversely). */
+  arrivalScale: number;
+  /** Multiplier on all service-time means. */
+  serviceScale: number;
+  view: ViewId;
 }
 
-/** Clamp the entity count from its free-text param. */
-function clampEntities(text: string): number {
-  const n = Math.floor(Number(text));
-  if (!Number.isFinite(n)) return 5000;
-  return Math.min(200000, Math.max(1, n));
+function fmtNum(v: number): string {
+  if (!Number.isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a !== 0 && (a < 1e-3 || a >= 1e6)) return v.toExponential(3);
+  return v.toFixed(a < 10 ? 3 : 1);
 }
 
-/** Seed from text: integer strings map directly, anything else is hashed. */
-function parseSeed(text: string): number {
-  const t = text.trim();
-  if (/^-?\d+$/.test(t)) return Number(t) >>> 0;
-  return hashSeed(t.length > 0 ? t : 'ergalics');
-}
-
-/** Round a positive maximum up to a readable 1/2/5×10^k axis bound. */
-function niceCeil(v: number): number {
-  if (!(v > 0)) return 1;
-  const exp = Math.floor(Math.log10(v));
-  const base = Math.pow(10, exp);
-  for (const m of [1, 2, 5, 10]) {
-    if (v <= m * base) return m * base;
+function scaleDist(d: DistSpec, k: number): DistSpec {
+  if (k === 1) return d;
+  switch (d.kind) {
+    case 'exponential':
+      return { ...d, mean: d.mean * k };
+    case 'uniform':
+      return { ...d, min: d.min * k, max: d.max * k };
+    case 'triangular':
+      return { ...d, min: d.min * k, mode: d.mode * k, max: d.max * k };
+    case 'deterministic':
+      return { ...d, value: d.value * k };
+    case 'normal':
+      return { ...d, mean: d.mean * k, sd: d.sd * k };
   }
-  return 10 * base;
 }
 
-export class DesPlugin implements Plugin {
+export class SimDesPlugin implements Plugin {
   readonly manifest = simDesManifest;
   private api!: PluginApi;
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
-  private state: DesState = {
-    template: DES_TEMPLATES[0]!.id,
-    modelText: templateJson(DES_TEMPLATES[0]!.id),
-    entities: '5000',
-    seed: '42',
-    priority: true,
+  private state: State = {
+    template: 'bank',
+    simTime: 480,
+    seed: 42,
+    arrivalScale: 1,
+    serviceScale: 1,
     view: 'flow',
   };
-  private model: DesModel | null = null;
-  private modelError: string | null = null;
-  private result: DesResult | null = null;
+  private result: DesRunResult | null = null;
+  private spec: NetworkSpec | null = null;
+  private error: string | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
     this.zh = api.locale === 'zh-CN';
     api.onLocaleChange((l) => {
       this.zh = l === 'zh-CN';
-      this.publishScience();
       this.draw();
     });
-    // Open with the default template already simulated.
-    this.recompute();
   }
 
   async destroy() {
@@ -108,65 +98,38 @@ export class DesPlugin implements Plugin {
 
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
-    this.draw();
   }
 
   async deactivate() {}
 
   render(container: ContainerCapabilities) {
     this.ctx = container;
-    this.draw();
+    if (!this.result && !this.error) this.run();
+    else this.draw();
   }
 
-  // ---- parameters ----------------------------------------------------------
+  // ---- parameter panel -----------------------------------------------------
 
   getParams(): ParamDefinition[] {
+    const s = this.state;
     return [
+      actionButton('run', 'Simulate', '运行仿真', 'primary'),
       {
         key: 'template',
         label: 'Template',
-        labelI18n: { 'zh-CN': '内置模板', 'en-US': 'Template' },
+        labelI18n: { 'zh-CN': '系统模板', 'en-US': 'Template' },
         type: 'select',
-        options: DES_TEMPLATES.map((t) => ({
-          value: t.id,
-          label: t.name,
-          labelI18n: { 'zh-CN': t.nameZh, 'en-US': t.name },
+        options: (Object.keys(DES_TEMPLATE_LABEL) as DesTemplateId[]).map((t) => ({
+          value: t,
+          label: DES_TEMPLATE_LABEL[t]!.en,
+          labelI18n: { 'zh-CN': DES_TEMPLATE_LABEL[t]!.zh, 'en-US': DES_TEMPLATE_LABEL[t]!.en },
         })),
-        value: this.state.template,
+        value: s.template,
       },
-      {
-        key: 'modelText',
-        label: 'Model JSON',
-        labelI18n: { 'zh-CN': '模型定义（JSON）', 'en-US': 'Model JSON' },
-        type: 'text',
-        value: this.state.modelText,
-        placeholder: '{"source":{...},"stations":[...]}',
-        hint: 'source (arrival, entityLimit) + stations (servers, queueDiscipline, serviceTime, routing: next | exit | probabilities | rework). Entities enter the first station.',
-      },
-      {
-        key: 'entities',
-        label: 'Entities',
-        labelI18n: { 'zh-CN': '实体数量', 'en-US': 'Entities' },
-        type: 'text',
-        value: this.state.entities,
-        hint: 'Total entities the source creates (overrides model JSON). Finite cap guarantees termination.',
-      },
-      {
-        key: 'seed',
-        label: 'Seed',
-        labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Seed' },
-        type: 'text',
-        value: this.state.seed,
-        hint: 'Same seed + model ⇒ identical, reproducible run.',
-      },
-      {
-        key: 'priority',
-        label: 'Priority queues',
-        labelI18n: { 'zh-CN': '优先级排队', 'en-US': 'Priority queues' },
-        type: 'checkbox',
-        value: this.state.priority,
-        hint: 'Honor "priority" disciplines (high-priority entities first). Off = FIFO everywhere.',
-      },
+      { key: 'simTime', label: 'Simulation horizon', labelI18n: { 'zh-CN': '仿真时长', 'en-US': 'Simulation horizon' }, type: 'number', value: s.simTime, hint: 'Model time units.' },
+      { key: 'seed', label: 'Random seed', labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Random seed' }, type: 'number', value: s.seed, hint: 'Same seed reproduces the run exactly.' },
+      { key: 'arrivalScale', label: 'Arrival rate x', labelI18n: { 'zh-CN': '到达率倍率', 'en-US': 'Arrival rate x' }, type: 'number', value: s.arrivalScale, hint: 'Scales the arrival rate (1 = template default).' },
+      { key: 'serviceScale', label: 'Service time x', labelI18n: { 'zh-CN': '服务时间倍率', 'en-US': 'Service time x' }, type: 'number', value: s.serviceScale, hint: 'Scales all service-time means (1 = template default).' },
       {
         key: 'view',
         label: 'View',
@@ -174,190 +137,86 @@ export class DesPlugin implements Plugin {
         type: 'select',
         options: [
           { value: 'flow', label: 'Process flow', labelI18n: { 'zh-CN': '流程图', 'en-US': 'Process flow' } },
-          { value: 'queue', label: 'Queue length', labelI18n: { 'zh-CN': '队列长度时序', 'en-US': 'Queue length' } },
-          { value: 'table', label: 'Performance table', labelI18n: { 'zh-CN': '性能指标表', 'en-US': 'Performance table' } },
-          { value: 'histogram', label: 'Wait distribution', labelI18n: { 'zh-CN': '等待时间分布', 'en-US': 'Wait distribution' } },
+          { value: 'queue', label: 'Queue length over time', labelI18n: { 'zh-CN': '队列长度随时间变化', 'en-US': 'Queue length over time' } },
+          { value: 'performance', label: 'Performance table', labelI18n: { 'zh-CN': '性能指标表', 'en-US': 'Performance table' } },
+          { value: 'histogram', label: 'Wait-time histogram', labelI18n: { 'zh-CN': '等待时间直方图', 'en-US': 'Wait-time histogram' } },
         ],
-        value: this.state.view,
+        value: s.view,
       },
-      actionButton('run', 'Run simulation', '运行仿真', 'primary'),
-      actionButton('exportCsv', 'Export CSV', '导出指标 CSV'),
+      actionButton('exportCsv', 'Export CSV', '导出 CSV'),
     ];
   }
 
   updateParams(params: Record<string, unknown>) {
-    if (typeof params.template === 'string' && templateById(params.template) && params.template !== this.state.template) {
-      this.state.template = params.template;
-      this.state.modelText = templateJson(params.template);
-      this.recompute();
-    }
-    if (typeof params.modelText === 'string' && params.modelText !== this.state.modelText) {
-      this.state.modelText = params.modelText;
-      // Keep the select aligned when the JSON matches a built-in template.
-      const match = DES_TEMPLATES.find((t) => JSON.stringify(t.model) === JSON.stringify(safeParse(params.modelText)));
-      if (match) this.state.template = match.id;
-      this.recompute();
-    }
-    if (typeof params.entities === 'string' && params.entities !== this.state.entities) {
-      this.state.entities = params.entities;
-      this.recompute();
-    }
-    if (typeof params.seed === 'string' && params.seed !== this.state.seed) {
-      this.state.seed = params.seed;
-      this.recompute();
-    }
-    if (typeof params.priority === 'boolean' && params.priority !== this.state.priority) {
-      this.state.priority = params.priority;
-      this.recompute();
-    }
-    if (
-      typeof params.view === 'string' &&
-      (params.view === 'flow' || params.view === 'queue' || params.view === 'table' || params.view === 'histogram') &&
-      params.view !== this.state.view
-    ) {
-      this.state.view = params.view;
-      this.draw();
-    }
+    const s = this.state;
     if (actionFired(params, 'run')) {
-      this.recompute();
-      if (this.result) {
-        const r = this.result;
-        notify(
-          this.api,
-          'success',
-          `Simulated ${r.entitiesExited}/${r.entitiesCreated} entities in ${r.simTime.toFixed(1)} tu; bottleneck "${this.bottleneckLabel()}".`,
-          `已仿真 ${r.entitiesExited}/${r.entitiesCreated} 个实体，耗时 ${r.simTime.toFixed(1)} tu；瓶颈工站「${this.bottleneckLabel()}」。`,
-        );
-      }
-    }
-    if (actionFired(params, 'exportCsv')) this.exportCsv();
-  }
-
-  // ---- computation ---------------------------------------------------------
-
-  /** Clone the parsed model, apply the priority toggle and entity override. */
-  private effectiveModel(): DesModel | null {
-    const parsed = parseDesModel(this.state.modelText);
-    if (!parsed.ok) {
-      this.modelError = parsed.error;
-      return null;
-    }
-    const model = JSON.parse(JSON.stringify(parsed.model)) as DesModel;
-    model.source.entityLimit = clampEntities(this.state.entities);
-    if (!this.state.priority) {
-      for (const s of model.stations) {
-        if (s.queueDiscipline === 'priority') s.queueDiscipline = 'fifo';
-      }
-    }
-    this.modelError = null;
-    return model;
-  }
-
-  private recompute(): void {
-    const model = this.effectiveModel();
-    if (!model) {
-      this.model = null;
-      this.result = null;
-      this.publishScience();
-      this.draw();
+      this.run();
       return;
     }
-    this.model = model;
-    this.result = runDES(model, { seed: parseSeed(this.state.seed), buckets: 200 });
-    this.publishScience();
+    if (actionFired(params, 'exportCsv')) {
+      this.exportCsv();
+      return;
+    }
+    if (typeof params.template === 'string' && DES_TEMPLATE_LABEL[params.template as DesTemplateId]) s.template = params.template as DesTemplateId;
+    if (typeof params.simTime === 'number') s.simTime = Math.min(Math.max(params.simTime, 1), 100000);
+    if (typeof params.seed === 'number') s.seed = Math.floor(params.seed);
+    if (typeof params.arrivalScale === 'number') s.arrivalScale = Math.min(Math.max(params.arrivalScale, 0.05), 10);
+    if (typeof params.serviceScale === 'number') s.serviceScale = Math.min(Math.max(params.serviceScale, 0.05), 10);
+    if (typeof params.view === 'string') s.view = params.view as ViewId;
+    this.run();
+  }
+
+  // ---- computation -----------------------------------------------------------
+
+  private run() {
+    this.error = null;
+    try {
+      const s = this.state;
+      const spec = templateNetwork(s.template);
+      // Arrival scale k multiplies the rate, i.e. divides the inter-arrival mean.
+      spec.arrival = scaleDist(spec.arrival, 1 / Math.max(s.arrivalScale, 1e-9));
+      spec.stations = spec.stations.map((st) => ({ ...st, service: scaleDist(st.service, s.serviceScale) }));
+      this.spec = spec;
+      this.result = runDes(spec, { simTime: s.simTime, seed: s.seed });
+      this.setOutputs();
+    } catch (e) {
+      this.result = null;
+      this.spec = null;
+      this.error = e instanceof Error ? e.message : String(e);
+      clearScienceOutputs(this.manifest.id);
+    }
     this.draw();
   }
 
-  private bottleneckLabel(): string {
+  private setOutputs() {
     const r = this.result;
-    if (!r) return '—';
-    const st = r.stations.find((s) => s.id === r.bottleneckId);
-    const name = st ? (this.zh && st.nameZh ? st.nameZh : st.name) : r.bottleneckId;
-    return `${name} ${(r.bottleneckUtilization * 100).toFixed(1)}%`;
-  }
-
-  private publishScience(): void {
-    const r = this.result;
-    if (!r) {
-      clearScienceOutputs(this.manifest.id);
-      return;
-    }
-    const zh = this.zh;
+    const spec = this.spec;
+    if (!r || !spec) return;
+    const meanService = spec.stations.reduce((a, st) => a + meanOf(st.service), 0) / spec.stations.length;
     const metrics: ScienceMetric[] = [
-      {
-        key: 'throughput',
-        label: zh ? '吞吐率' : 'Throughput',
-        value: fmtMetric(r.throughput),
-        unit: zh ? '实体/tu' : 'entities/tu',
-        hint: zh ? '单位时间离开系统的实体数（出口吞吐 = λ 实测）' : 'Entities leaving the system per time unit (measured λ)',
-      },
-      {
-        key: 'sojourn',
-        label: zh ? '平均逗留时间' : 'Mean sojourn',
-        value: fmtMetric(r.meanSojourn),
-        unit: 'tu',
-        hint: zh ? '端到端在系统平均时间 W（含全部排队与服务）' : 'End-to-end time in system W (all queues + services)',
-      },
-      {
-        key: 'bottleneck',
-        label: zh ? '瓶颈工站' : 'Bottleneck',
-        value: this.bottleneckLabel(),
-        severity: 'warn',
-        hint: zh ? '按时间平均利用率排序，最高者即瓶颈' : 'Highest time-averaged utilization station',
-      },
-      {
-        key: 'littles',
-        label: zh ? 'Little 定律残差' : "Little's law residual",
-        value: fmtMetric(r.littlesResidual),
-        severity: r.littlesResidual < 0.05 ? 'ok' : 'warn',
-        hint: zh ? '|L − λW|/L：实测 L、λ、W 的相容性检验（<0.05 为佳）' : '|L − λW|/L: consistency of measured L, λ, W (<0.05 is good)',
-      },
+      { key: 'arrivals', label: this.zh ? '到达总数' : 'Total arrivals', value: fmtNum(r.totalArrivals) },
+      { key: 'completed', label: this.zh ? '完成作业' : 'Completed jobs', value: fmtNum(r.completed) },
+      { key: 'throughput', label: this.zh ? '吞吐量' : 'Throughput', value: `${fmtNum(r.throughput)} / t` },
+      { key: 'meanSojourn', label: this.zh ? '平均逗留时间' : 'Mean sojourn', value: fmtNum(r.sojournTimes.reduce((a, v) => a + v, 0) / Math.max(r.completed, 1)) },
+      { key: 'littleL', label: this.zh ? '系统内平均作业数 L' : 'Mean jobs in system L', value: fmtNum(r.meanJobsInSystem) },
+      { key: 'blocked', label: this.zh ? '阻塞/丢失' : 'Blocked / lost', value: fmtNum(r.blockedTotal) },
+      { key: 'meanService', label: this.zh ? '平均服务时间' : 'Mean service time', value: fmtNum(meanService) },
     ];
     setScienceOutputs(this.manifest.id, metrics);
   }
 
-  private exportCsv(): void {
+  private exportCsv() {
     const r = this.result;
-    if (!r) {
-      notify(this.api, 'warning', 'Run a simulation first.', '请先运行一次仿真。');
-      return;
-    }
-    const header = [
-      'station',
-      'servers',
-      'utilization',
-      'avg_queue',
-      'max_queue',
-      'avg_wait',
-      'max_wait',
-      'avg_service',
-      'arrivals',
-      'departures',
-      'revisits',
-      'little_residual',
-    ];
-    const rows = r.stations.map((s) => [
-      s.id,
-      s.servers,
-      s.utilization.toFixed(4),
-      s.avgQueue.toFixed(4),
-      String(s.maxQueue),
-      s.avgWait.toFixed(4),
-      s.maxWait.toFixed(4),
-      s.avgService.toFixed(4),
-      String(s.arrivals),
-      String(s.departures),
-      String(s.revisits),
-      s.littleResidual.toFixed(4),
-    ]);
-    exportRowsCsv(this.api, 'des-station-metrics', header, rows);
+    if (!r) return;
+    const header = ['station', 'servers', 'utilization', 'meanQueueLength', 'maxQueueLength', 'meanWait', 'served', 'blocked', 'meanVisits'];
+    const rows = r.stations.map((st) => [st.name, String(st.servers), fmtNum(st.utilization), fmtNum(st.meanQueueLength), String(st.maxQueueLength), fmtNum(st.meanWait), String(st.served), String(st.blocked), fmtNum(st.meanVisits)]);
+    rows.push(['TOTAL', '', '', '', '', '', String(r.completed), String(r.blockedTotal), '']);
+    void import('@/core/plugin-tools/enhance').then(({ exportRowsCsv }) => {
+      exportRowsCsv(this.api, 'des-station-metrics', header, rows);
+    });
   }
 
-  // ---- drawing -------------------------------------------------------------
-
-  private font(size: number): string {
-    return `${size}px ${this.zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
-  }
+  // ---- drawing ---------------------------------------------------------------
 
   private draw() {
     const canvas = this.ctx?.canvas2d;
@@ -369,471 +228,322 @@ export class DesPlugin implements Plugin {
     const bg = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillStyle = bg;
     g.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (this.modelError) {
-      drawEmptyCanvas(this.api, canvas, {
-        title: 'Model JSON invalid',
-        titleZh: '模型 JSON 无效',
-        hint: this.modelError,
-        hintZh: this.modelError,
-      });
+    if (this.error) {
+      drawEmptyCanvas(this.api, canvas, { title: 'Simulation error', titleZh: '仿真错误', hint: this.error, hintZh: this.error });
       return;
     }
-    if (!this.result || !this.model) {
-      drawEmptyCanvas(this.api, canvas, {
-        title: 'No simulation yet',
-        titleZh: '尚未运行仿真',
-        hint: 'Pick a template (or edit the model JSON) and press Run.',
-        hintZh: '选择模板（或编辑模型 JSON）后点击「运行仿真」。',
-      });
+    if (!this.result) {
+      drawEmptyCanvas(this.api, canvas, { title: 'Discrete Event Simulator', titleZh: '离散事件仿真', hint: 'Press "Simulate" to run the queueing network', hintZh: '点击"运行仿真"执行排队网络' });
       return;
     }
-    if (this.state.view === 'flow') this.drawFlow(g, canvas);
-    else if (this.state.view === 'queue') this.drawSeries(g, canvas);
-    else if (this.state.view === 'table') this.drawTable(g, canvas);
-    else this.drawHistogram(g, canvas);
-  }
-
-  /** View title in the canvas corner. */
-  private viewTitle(g: CanvasRenderingContext2D, en: string, zh: string): void {
-    g.textAlign = 'left';
-    g.fillStyle = TEXT_DIM;
-    g.font = this.font(12);
-    g.fillText(this.zh ? zh : en, 16, 22);
-  }
-
-  private roundedRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-    const rad = Math.min(r, w / 2, h / 2);
-    g.beginPath();
-    g.moveTo(x + rad, y);
-    g.arcTo(x + w, y, x + w, y + h, rad);
-    g.arcTo(x + w, y + h, x, y + h, rad);
-    g.arcTo(x, y + h, x, y, rad);
-    g.arcTo(x, y, x + w, y, rad);
-    g.closePath();
-  }
-
-  /** Straight arrow with head and optional mid-label. */
-  private arrow(
-    g: CanvasRenderingContext2D,
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number,
-    color: string,
-    dashed = false,
-    label?: string,
-  ): void {
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const len = Math.hypot(dx, dy);
-    if (len < 6) return;
-    const ux = dx / len;
-    const uy = dy / len;
-    const ex = x1 - ux * 9;
-    const ey = y1 - uy * 9;
-    g.strokeStyle = color;
-    g.fillStyle = color;
-    g.lineWidth = 1.4;
-    g.setLineDash(dashed ? [5, 4] : []);
-    g.beginPath();
-    g.moveTo(x0, y0);
-    g.lineTo(ex, ey);
-    g.stroke();
-    g.setLineDash([]);
-    g.beginPath();
-    g.moveTo(x1, y1);
-    g.lineTo(ex - uy * 4.5, ey + ux * 4.5);
-    g.lineTo(ex + uy * 4.5, ey - ux * 4.5);
-    g.closePath();
-    g.fill();
-    if (label) {
-      const mx = (x0 + x1) / 2;
-      const my = (y0 + y1) / 2;
-      g.font = this.font(10);
-      const w = g.measureText(label).width;
-      g.fillStyle = 'rgba(10,14,19,0.85)';
-      g.fillRect(mx - w / 2 - 3, my - 8, w + 6, 14);
-      g.fillStyle = TEXT_DIM;
-      g.textAlign = 'center';
-      g.fillText(label, mx, my + 3);
-      g.textAlign = 'left';
+    switch (this.state.view) {
+      case 'queue': this.drawQueue(g, canvas); break;
+      case 'performance': this.drawPerformance(g, canvas); break;
+      case 'histogram': this.drawHistogram(g, canvas); break;
+      default: this.drawFlow(g, canvas);
     }
   }
 
-  /** Station boxes + routing arrows + proportional queue squares. */
-  private drawFlow(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
-    const r = this.result!;
-    const model = this.model!;
-    const n = model.stations.length;
-    const W = canvas.width;
-    const H = canvas.height;
-    const cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(n))));
-    const rows = Math.ceil(n / cols);
-    const left = 118;
-    const cellW = Math.max(bwMin(W, cols), 140);
-    const bw = Math.min(176, cellW - 40);
-    const cellH = Math.max(96, (H - 70) / rows);
-    const bh = Math.min(58, cellH - 38);
-    const bx = (i: number): number => left + (i % cols) * cellW + (cellW - bw) / 2;
-    const by = (i: number): number => 46 + Math.floor(i / cols) * cellH + (cellH - bh) / 2 - 6;
-    const idIndex = new Map<string, number>();
-    model.stations.forEach((s, i) => idIndex.set(s.id, i));
-
-    this.viewTitle(g, `Process flow — ${this.templateName()}`, `流程图 — ${this.templateName(true)}`);
-
-    const hasExit = (i: number): boolean => {
-      const rt = model.stations[i]!.routing;
-      if (rt.kind === 'exit') return true;
-      if (rt.kind === 'probabilities') return rt.options.some((o) => o.id === 'exit');
-      return false;
-    };
-
-    // Arrows first; boxes painted afterwards cover the line ends.
-    const sourceY = by(0) + bh / 2;
-    this.arrow(g, 100, sourceY, bx(0) + 1, sourceY, TEXT_DIM, false, undefined);
-    for (let i = 0; i < n; i += 1) {
-      const rt = model.stations[i]!.routing;
-      const x0 = bx(i) + bw / 2;
-      const y0 = by(i) + bh / 2;
-      const targets: Array<{ id: string; p?: number; dashed: boolean }> = [];
-      if (rt.kind === 'next') targets.push({ id: rt.id, dashed: false });
-      else if (rt.kind === 'rework') targets.push({ id: rt.id, dashed: true });
-      else if (rt.kind === 'probabilities') {
-        for (const o of rt.options) {
-          if (o.id !== 'exit') targets.push({ id: o.id, p: o.p, dashed: false });
-        }
-      }
-      for (const tg of targets) {
-        const j = idIndex.get(tg.id);
-        if (j === undefined) continue;
-        const label =
-          tg.p === undefined ? (tg.dashed ? (this.zh ? '返工' : 'rework') : undefined) : `${Math.round(tg.p * 100)}%`;
-        this.arrow(g, x0, y0, bx(j) + bw / 2, by(j) + bh / 2, tg.dashed ? ACCENT : TEXT_DIM, tg.dashed, label);
-      }
-      if (hasExit(i)) {
-        const ex = bx(i) + bw + 30;
-        this.arrow(g, bx(i) + bw, y0, ex, y0, TEXT_DIM);
-        g.fillStyle = TEXT_DIM;
-        g.beginPath();
-        g.arc(ex + 5, y0, 3, 0, Math.PI * 2);
-        g.fill();
-        g.font = this.font(10);
-        g.textAlign = 'center';
-        g.fillStyle = TEXT_DIM;
-        g.fillText(this.zh ? '出口' : 'exit', ex + 5, y0 + 16);
-        g.textAlign = 'left';
-      }
-    }
-
-    // Source box.
-    g.fillStyle = 'rgba(111,143,174,0.14)';
-    g.strokeStyle = PALETTE[0]!;
-    g.lineWidth = 1.2;
-    this.roundedRect(g, 20, sourceY - 18, 80, 36, 6);
-    g.fill();
-    g.stroke();
-    g.fillStyle = TEXT_MAIN;
-    g.font = this.font(11);
+  private frame(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement, title: string, xLabel: string, yLabel: string) {
+    const padL = Math.max(56, g.measureText(yLabel).width + 24);
+    const x0 = padL;
+    const x1 = canvas.width - 20;
+    const y0 = 40;
+    const y1 = canvas.height - 46;
+    g.fillStyle = '#c8d4e0';
+    g.font = '15px system-ui, sans-serif';
     g.textAlign = 'center';
-    g.fillText(this.zh ? '源' : 'Source', 60, sourceY - 2);
-    g.fillStyle = TEXT_DIM;
-    g.font = this.font(9);
-    g.fillText(model.source.entityLimit > 0 ? `N=${model.source.entityLimit}` : '', 60, sourceY + 11);
-    g.textAlign = 'left';
+    g.fillText(title, canvas.width / 2, 20);
+    g.font = '11px system-ui, sans-serif';
+    g.fillText(xLabel, (x0 + x1) / 2, canvas.height - 14);
+    g.save();
+    g.translate(14, (y0 + y1) / 2);
+    g.rotate(-Math.PI / 2);
+    g.fillText(yLabel, 0, 0);
+    g.restore();
+    g.strokeStyle = 'rgba(200,212,224,0.25)';
+    g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    return { x0, x1, y0, y1 };
+  }
 
-    // Station boxes.
-    for (let i = 0; i < n; i += 1) {
-      const s = model.stations[i]!;
-      const st = r.stations[i]!;
-      const isBn = s.id === r.bottleneckId;
-      const x = bx(i);
-      const y = by(i);
-      g.fillStyle = 'rgba(111,143,174,0.16)';
-      g.strokeStyle = isBn ? ACCENT : PALETTE[i % PALETTE.length]!;
-      g.lineWidth = isBn ? 2 : 1.2;
-      this.roundedRect(g, x, y, bw, bh, 6);
+  private ticks(lo: number, hi: number, count: number): number[] {
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return [lo];
+    const rawStep = (hi - lo) / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const norm = rawStep / mag;
+    const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+    const out: number[] = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(v);
+    return out;
+  }
+
+  // ---- view: process flow ------------------------------------------------------
+
+  private drawFlow(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const r = this.result!;
+    const spec = this.spec!;
+    const f = this.frame(g, canvas, this.zh ? '流程图（瓶颈以红框标出）' : 'Process flow (bottleneck outlined)', '', '');
+    const bottleneck = findBottleneck(r.stations);
+    const n = spec.stations.length;
+    const boxW = Math.min(150, (f.x1 - f.x0 - 80) / Math.max(n, 1) - 20);
+    const boxH = 64;
+    const yMid = (f.y0 + f.y1) / 2;
+    // Chain layout by station index; rework routes drawn as curved arcs below.
+    const positions = spec.stations.map((_, i) => {
+      const spread = (f.x1 - f.x0 - boxW - 40) / Math.max(n - 1, 1);
+      const x = n === 1 ? (f.x0 + f.x1) / 2 : f.x0 + 20 + boxW / 2 + spread * i;
+      return { x, y: yMid };
+    });
+    const arrow = (x1: number, y1: number, x2: number, y2: number, style: string) => {
+      g.strokeStyle = style;
+      g.fillStyle = style;
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(x1, y1);
+      g.lineTo(x2, y2);
+      g.stroke();
+      const ang = Math.atan2(y2 - y1, x2 - x1);
+      g.beginPath();
+      g.moveTo(x2, y2);
+      g.lineTo(x2 - 7 * Math.cos(ang - 0.4), y2 - 7 * Math.sin(ang - 0.4));
+      g.lineTo(x2 - 7 * Math.cos(ang + 0.4), y2 - 7 * Math.sin(ang + 0.4));
+      g.closePath();
       g.fill();
+    };
+    g.font = '11px system-ui, sans-serif';
+    // Straight edges along the chain.
+    for (let i = 0; i + 1 < n; i++) {
+      const a = positions[i]!;
+      const b = positions[i + 1]!;
+      arrow(a.x + boxW / 2, a.y, b.x - boxW / 2, b.y, 'rgba(200,212,224,0.6)');
+    }
+    // Rework / skip edges as arcs under the chain.
+    for (const rt of spec.routing) {
+      if (rt.to === null || rt.to === rt.from + 1) continue;
+      const a = positions[rt.from]!;
+      const b = positions[rt.to]!;
+      const lift = 46 + Math.abs(rt.to - rt.from) * 12;
+      g.strokeStyle = rt.prob >= 1 ? 'rgba(174,143,111,0.7)' : 'rgba(174,143,111,0.55)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(a.x, a.y + boxH / 2);
+      g.quadraticCurveTo((a.x + b.x) / 2, a.y + boxH / 2 + lift, b.x, b.y + boxH / 2);
       g.stroke();
+      g.fillStyle = 'rgba(174,143,111,0.9)';
       g.textAlign = 'center';
-      g.fillStyle = TEXT_MAIN;
-      g.font = this.font(12);
-      const name = this.zh && s.nameZh ? s.nameZh : (s.name ?? s.id);
-      g.fillText(truncate(g, name, bw - 12), x + bw / 2, y + 18);
-      g.fillStyle = isBn ? ACCENT : TEXT_DIM;
-      g.font = this.font(10);
-      g.fillText(`c=${st.servers}  util ${(st.utilization * 100).toFixed(1)}%`, x + bw / 2, y + 35);
-      g.fillText(`Wq ${st.avgWait.toFixed(2)} tu`, x + bw / 2, y + 49);
-      if (isBn) {
-        g.fillStyle = ACCENT;
-        g.font = this.font(10);
-        g.fillText(this.zh ? '瓶颈' : 'bottleneck', x + bw / 2, y - 6);
+      g.fillText(`${(rt.prob * 100).toFixed(0)}%`, (a.x + b.x) / 2, a.y + boxH / 2 + lift * 0.62);
+    }
+    // Station boxes.
+    r.stations.forEach((st, i) => {
+      const p = positions[i]!;
+      const isBottleneck = bottleneck?.index === i;
+      g.fillStyle = isBottleneck ? 'rgba(174,111,111,0.28)' : PALETTE[i % PALETTE.length]!;
+      g.fillRect(p.x - boxW / 2, p.y - boxH / 2, boxW, boxH);
+      if (isBottleneck) {
+        g.strokeStyle = '#ae6f6f';
+        g.lineWidth = 2;
+        g.strokeRect(p.x - boxW / 2, p.y - boxH / 2, boxW, boxH);
       }
-      // Queue squares proportional to the time-averaged queue length.
-      const k = Math.min(24, Math.round(st.avgQueue));
-      const qx = x;
-      const qy = y + bh + 10;
-      g.fillStyle = PALETTE[i % PALETTE.length]!;
-      for (let q = 0; q < k; q += 1) {
-        g.globalAlpha = 0.75;
-        g.fillRect(qx + q * 9, qy, 7, 7);
-        g.globalAlpha = 1;
-      }
-      g.fillStyle = TEXT_DIM;
-      g.font = this.font(10);
+      g.fillStyle = '#0a0e13';
+      g.textAlign = 'center';
+      g.font = '12px system-ui, sans-serif';
+      g.fillText(st.name.slice(0, 14), p.x, p.y - boxH / 2 + 16);
+      g.font = '10px system-ui, sans-serif';
+      g.fillText(`c=${st.servers}  ${distLabel(spec.stations[i]!.service).slice(0, 16)}`, p.x, p.y - boxH / 2 + 30);
+      g.fillText(`${this.zh ? '利用率' : 'util'} ${fmtNum(st.utilization)}`, p.x, p.y - boxH / 2 + 44);
+      g.fillText(`${this.zh ? '队长' : 'Lq'} ${fmtNum(st.meanQueueLength)}`, p.x, p.y - boxH / 2 + 57);
+    });
+    // Source arrow.
+    if (n > 0) {
+      const first = positions[0]!;
+      arrow(f.x0 + 4, first.y, first.x - boxW / 2 - 2, first.y, 'rgba(111,174,143,0.8)');
+      g.fillStyle = 'rgba(111,174,143,0.9)';
       g.textAlign = 'left';
-      g.fillText(`q=${st.avgQueue.toFixed(2)}`, qx + k * 9 + (k > 0 ? 6 : 0), qy + 7);
+      g.font = '10px system-ui, sans-serif';
+      g.fillText(distLabel(spec.arrival), f.x0 + 6, first.y - 8);
     }
-    g.textAlign = 'left';
-  }
-
-  private templateName(zh = false): string {
-    const t = templateById(this.state.template);
-    if (!t) return this.zh ? '自定义' : 'custom';
-    return zh ? t.nameZh : t.name;
-  }
-
-  /** Per-station queue-length lines over time buckets. */
-  private drawSeries(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
-    const r = this.result!;
-    const model = this.model!;
-    const s = r.series;
-    const x0 = 56;
-    const y0 = 44;
-    const x1 = canvas.width - 18;
-    const y1 = canvas.height - 34;
-    let yMax = 0.5;
-    for (const row of s.queueLen) {
-      for (const v of row) if (v > yMax) yMax = v;
-    }
-    yMax = niceCeil(yMax);
-    const px = (b: number): number => x0 + ((x1 - x0) * (b + 0.5)) / s.count;
-    const py = (v: number): number => y1 - ((y1 - y0) * v) / yMax;
-
-    this.viewTitle(g, 'Queue length over time (time-averaged)', '队列长度时序（时间加权）');
-
-    g.strokeStyle = GRID;
-    g.lineWidth = 1;
-    g.fillStyle = TEXT_DIM;
-    g.font = this.font(10);
-    g.textAlign = 'right';
-    for (let k = 0; k <= 4; k += 1) {
-      const v = (yMax * k) / 4;
-      const y = py(v);
-      g.beginPath();
-      g.moveTo(x0, y);
-      g.lineTo(x1, y);
-      g.stroke();
-      g.fillText(formatCount(v), x0 - 6, y + 3);
-    }
-    g.textAlign = 'center';
-    for (let k = 0; k <= 5; k += 1) {
-      const b = Math.round((k * (s.count - 1)) / 5);
-      g.fillText(formatTime((b + 1) * s.width), px(b), y1 + 16);
-    }
-    g.textAlign = 'left';
-    g.fillText(this.zh ? '时间 (tu)' : 'time (tu)', x1 - 58, y1 + 30);
-
-    for (let i = 0; i < s.queueLen.length; i += 1) {
-      const row = s.queueLen[i]!;
-      g.strokeStyle = model.stations[i]!.id === r.bottleneckId ? ACCENT : PALETTE[i % PALETTE.length]!;
-      g.lineWidth = 1.5;
-      g.beginPath();
-      for (let b = 0; b < row.length; b += 1) {
-        const x = px(b);
-        const y = py(row[b]!);
-        if (b === 0) g.moveTo(x, y);
-        else g.lineTo(x, y);
-      }
-      g.stroke();
-    }
-
-    // Legend.
-    g.font = this.font(10);
-    let ly = y0 - 8;
-    for (let i = 0; i < s.queueLen.length; i += 1) {
-      const st = r.stations[i]!;
-      const name = this.zh && st.nameZh ? st.nameZh : st.name;
-      const isBn = st.id === r.bottleneckId;
-      g.fillStyle = isBn ? ACCENT : PALETTE[i % PALETTE.length]!;
-      g.fillRect(x1 - 118, ly - 8, 8, 8);
-      g.fillStyle = TEXT_DIM;
+    if (bottleneck) {
+      g.fillStyle = '#ae6f6f';
       g.textAlign = 'left';
-      g.fillText(truncate(g, name, 104), x1 - 106, ly);
-      ly += 14;
+      g.font = '11px system-ui, sans-serif';
+      g.fillText(`${this.zh ? '瓶颈' : 'Bottleneck'}: ${bottleneck.name} (${fmtNum(bottleneck.utilization)})`, f.x0 + 8, f.y1 - 10);
     }
   }
 
-  /** Aligned per-station performance table rendered as text columns. */
-  private drawTable(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
-    const r = this.result!;
-    const W = canvas.width;
-    const H = canvas.height;
-    this.viewTitle(g, 'Performance table', '性能指标表');
-    const cols: Array<{ label: string; labelZh: string; x: number; align: 'left' | 'right' }> = [
-      { label: 'Station', labelZh: '工站', x: 0.04, align: 'left' },
-      { label: 'c', labelZh: 'c', x: 0.3, align: 'right' },
-      { label: 'Util %', labelZh: '利用率%', x: 0.42, align: 'right' },
-      { label: 'q avg', labelZh: '平均队长', x: 0.53, align: 'right' },
-      { label: 'q max', labelZh: '最大队长', x: 0.64, align: 'right' },
-      { label: 'Wait', labelZh: '平均等待', x: 0.77, align: 'right' },
-      { label: 'Svc', labelZh: '平均服务', x: 0.9, align: 'right' },
-    ];
-    const rowH = Math.min(24, Math.max(16, (H - 130) / Math.max(1, r.stations.length)));
-    const top = 58;
-    g.font = this.font(11);
-    for (const c of cols) {
-      const x = c.x * W;
-      g.fillStyle = TEXT_DIM;
-      g.textAlign = c.align;
-      g.fillText(this.zh ? c.labelZh : c.label, x, top);
-    }
-    g.strokeStyle = GRID;
-    g.beginPath();
-    g.moveTo(0.03 * W, top + 6);
-    g.lineTo(0.97 * W, top + 6);
-    g.stroke();
-    for (let i = 0; i < r.stations.length; i += 1) {
-      const st = r.stations[i]!;
-      const y = top + 24 + i * rowH;
-      const isBn = st.id === r.bottleneckId;
-      const name = this.zh && st.nameZh ? st.nameZh : st.name;
-      g.fillStyle = isBn ? ACCENT : TEXT_MAIN;
-      g.font = this.font(11);
-      g.textAlign = 'left';
-      g.fillText(`${isBn ? '▲ ' : ''}${truncate(g, name, 0.26 * W)}`, 0.04 * W, y);
-      g.textAlign = 'right';
-      g.fillStyle = TEXT_DIM;
-      g.fillText(String(st.servers), 0.3 * W, y);
-      g.fillText((st.utilization * 100).toFixed(1), 0.42 * W, y);
-      g.fillText(st.avgQueue.toFixed(2), 0.53 * W, y);
-      g.fillText(String(st.maxQueue), 0.64 * W, y);
-      g.fillText(st.avgWait.toFixed(2), 0.77 * W, y);
-      g.fillText(st.avgService.toFixed(2), 0.9 * W, y);
-    }
-    // Run summary.
-    const sy = Math.min(H - 46, top + 30 + r.stations.length * rowH + 16);
-    g.textAlign = 'left';
-    g.fillStyle = TEXT_DIM;
-    g.font = this.font(11);
-    const line1 = `T=${r.simTime.toFixed(1)}tu  exited ${r.entitiesExited}/${r.entitiesCreated}  X=${r.throughput.toFixed(3)}/tu  W=${r.meanSojourn.toFixed(2)}tu  L=${r.meanInSystem.toFixed(2)}`;
-    const line2 = this.zh
-      ? `瓶颈 ${this.bottleneckLabel()}  |L−λW|/L=${r.littlesResidual.toFixed(4)}`
-      : `Bottleneck ${this.bottleneckLabel()}  |L−λW|/L=${r.littlesResidual.toFixed(4)}`;
-    g.fillText(line1, 0.04 * W, sy);
-    g.fillText(line2, 0.04 * W, sy + 18);
-  }
+  // ---- view: queue length over time ---------------------------------------------
 
-  /** Histogram of per-entity end-to-end queue wait. */
-  private drawHistogram(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+  private drawQueue(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
     const r = this.result!;
-    const waits = r.queueWaits;
-    if (waits.length === 0) {
-      drawEmptyCanvas(this.api, canvas, {
-        title: 'No exited entities',
-        titleZh: '没有离开系统的实体',
-        hint: 'Increase the entity count or lower the load.',
-        hintZh: '增大实体数量或降低负载。',
-      });
+    const series = r.queueSeries;
+    if (series.length < 2) {
+      drawEmptyCanvas(this.api, canvas, { title: 'Queue length', titleZh: '队列长度', hint: 'Not enough events recorded', hintZh: '记录的事件不足' });
       return;
     }
-    const bins = 30;
-    let max = 0;
-    for (const w of waits) if (w > max) max = w;
-    max = max > 0 ? max : 1;
-    const counts = new Array<number>(bins).fill(0);
-    for (const w of waits) {
-      const b = Math.min(bins - 1, Math.floor((w / max) * bins));
-      counts[b]! += 1;
-    }
-    let cMax = 1;
-    for (const c of counts) if (c > cMax) cMax = c;
-    const x0 = 56;
-    const y0 = 44;
-    const x1 = canvas.width - 18;
-    const y1 = canvas.height - 34;
-    const px = (v: number): number => x0 + ((x1 - x0) * v) / max;
-    const py = (c: number): number => y1 - ((y1 - y0) * c) / cMax;
-
-    this.viewTitle(g, 'End-to-end queue wait distribution', '端到端排队等待分布');
-
-    g.strokeStyle = GRID;
-    g.lineWidth = 1;
-    g.fillStyle = TEXT_DIM;
-    g.font = this.font(10);
-    g.textAlign = 'right';
-    for (let k = 0; k <= 4; k += 1) {
-      const c = (cMax * k) / 4;
-      const y = py(c);
+    const nSt = series[0]!.lengths.length;
+    let hi = 1;
+    for (const s of series) for (const v of s.lengths) if (v > hi) hi = v;
+    hi = Math.ceil(hi);
+    const f = this.frame(g, canvas, this.zh ? '各工位队列长度（事件采样）' : 'Queue length per station (event-sampled)', 't', this.zh ? '队列长度' : 'Jobs waiting');
+    const t0 = series[0]!.t;
+    const t1 = series[series.length - 1]!.t;
+    const px = (t: number) => f.x0 + ((t - t0) / (t1 - t0 || 1)) * (f.x1 - f.x0);
+    const py = (v: number) => f.y1 - (v / hi) * (f.y1 - f.y0);
+    for (let s = 0; s < nSt; s++) {
+      g.strokeStyle = PALETTE[s % PALETTE.length]!;
+      g.lineWidth = 1.4;
       g.beginPath();
-      g.moveTo(x0, y);
-      g.lineTo(x1, y);
+      let started = false;
+      for (const point of series) {
+        const v = point.lengths[s] ?? 0;
+        const x = px(point.t);
+        const y = py(v);
+        if (!started) {
+          g.moveTo(x, y);
+          started = true;
+        } else g.lineTo(x, y);
+      }
       g.stroke();
-      g.fillText(formatCount(c), x0 - 6, y + 3);
     }
-    const bw = (x1 - x0) / bins;
-    g.fillStyle = 'rgba(111,143,174,0.55)';
-    g.strokeStyle = PALETTE[0]!;
-    for (let b = 0; b < bins; b += 1) {
-      const x = x0 + b * bw;
-      const y = py(counts[b]!);
-      g.fillRect(x, y, Math.max(1, bw - 1), y1 - y);
-      g.strokeRect(x, y, Math.max(1, bw - 1), y1 - y);
+    g.font = '11px system-ui, sans-serif';
+    for (let s = 0; s < nSt; s++) {
+      g.fillStyle = PALETTE[s % PALETTE.length]!;
+      g.textAlign = 'left';
+      g.fillText(r.stations[s]!.name.slice(0, 14), f.x0 + 8 + s * 110, f.y0 + 14);
     }
-    g.textAlign = 'center';
-    for (let k = 0; k <= 5; k += 1) {
-      const v = (max * k) / 5;
-      g.fillText(v.toFixed(max < 10 ? 1 : 0), px(v), y1 + 16);
+    g.fillStyle = '#8fa0b3';
+    g.font = '10px system-ui, sans-serif';
+    for (const t of this.ticks(t0, t1, 6)) {
+      g.textAlign = 'center';
+      g.fillText(fmtNum(t), px(t), f.y1 + 14);
     }
+    for (const v of this.ticks(0, hi, 4)) {
+      g.textAlign = 'right';
+      g.fillText(fmtNum(v), f.x0 - 6, py(v) + 3);
+    }
+  }
+
+  // ---- view: performance table ----------------------------------------------------
+
+  private drawPerformance(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const r = this.result!;
+    const spec = this.spec!;
+    const f = this.frame(g, canvas, this.zh ? '性能指标表' : 'Performance table', '', '');
+    const cols = [
+      this.zh ? '工位' : 'Station',
+      'c',
+      this.zh ? '利用率' : 'Util',
+      this.zh ? '平均队长' : 'Lq',
+      this.zh ? '最大队长' : 'Lq max',
+      this.zh ? '平均等待' : 'Wq',
+      this.zh ? '服务数' : 'Served',
+      this.zh ? '阻塞' : 'Blocked',
+    ];
+    const colX = [f.x0 + 10, f.x0 + 140, f.x0 + 170, f.x0 + 240, f.x0 + 320, f.x0 + 400, f.x0 + 470, f.x0 + 540];
+    const rowH = 22;
+    let y = f.y0 + 18;
+    g.font = '11px system-ui, sans-serif';
+    g.fillStyle = '#8fa0b3';
     g.textAlign = 'left';
-    g.fillText(this.zh ? '等待 (tu)' : 'wait (tu)', x1 - 56, y1 + 30);
-    // Mean marker.
-    const m = r.meanQueueWait;
-    g.strokeStyle = ACCENT;
-    g.setLineDash([5, 4]);
-    g.beginPath();
-    g.moveTo(px(m), y0);
-    g.lineTo(px(m), y1);
-    g.stroke();
-    g.setLineDash([]);
-    g.fillStyle = ACCENT;
-    g.fillText(`${this.zh ? '均值' : 'mean'} ${m.toFixed(2)}`, px(m) + 5, y0 + 10);
+    cols.forEach((c, i) => g.fillText(c, colX[Math.min(i, colX.length - 1)]!, y));
+    y += rowH;
+    g.textAlign = 'left';
+    const bottleneck = findBottleneck(r.stations);
+    r.stations.forEach((st, i) => {
+      const vals = [st.name, String(st.servers), fmtNum(st.utilization), fmtNum(st.meanQueueLength), String(st.maxQueueLength), fmtNum(st.meanWait), String(st.served), String(st.blocked)];
+      g.fillStyle = bottleneck?.index === i ? '#c98f8f' : '#c8d4e0';
+      vals.forEach((v, ci) => g.fillText(v, colX[Math.min(ci, colX.length - 1)]!, y));
+      y += rowH;
+    });
+    y += 8;
+    g.fillStyle = '#8fa0b3';
+    const rows: [string, string][] = [
+      [this.zh ? '到达总数' : 'Total arrivals', String(r.totalArrivals)],
+      [this.zh ? '完成作业' : 'Completed', String(r.completed)],
+      [this.zh ? '吞吐量（作业/单位时间）' : 'Throughput (jobs / time unit)', fmtNum(r.throughput)],
+      [this.zh ? '系统内平均作业数 L' : 'Mean jobs in system L', fmtNum(r.meanJobsInSystem)],
+      [this.zh ? '平均逗留时间 W' : 'Mean sojourn W', fmtNum(r.completed > 0 ? r.sojournTimes.reduce((a, v) => a + v, 0) / r.completed : NaN)],
+      [this.zh ? '平均等待 Wq（全体作业）' : 'Mean wait Wq (all jobs)', fmtNum(r.waitTimes.length > 0 ? r.waitTimes.reduce((a, v) => a + v, 0) / r.waitTimes.length : NaN)],
+      [this.zh ? '阻塞/丢失总数' : 'Blocked / lost', String(r.blockedTotal)],
+      [`${this.zh ? 'Little 定律核验' : 'Little\u2019s law check'}: L = λW → ${fmtNum(r.throughput * (r.completed > 0 ? r.sojournTimes.reduce((a, v) => a + v, 0) / r.completed : 0))}`, `vs L = ${fmtNum(r.meanJobsInSystem)}`],
+    ];
+    for (const [k, v] of rows) {
+      g.fillText(k, f.x0 + 10, y);
+      g.fillStyle = '#c8d4e0';
+      g.fillText(v, f.x0 + 320, y);
+      g.fillStyle = '#8fa0b3';
+      y += rowH;
+    }
+    // Analytic M/M/c reference for single-station networks.
+    if (spec.stations.length === 1) {
+      const st = spec.stations[0]!;
+      const meanIat = meanOf(spec.arrival);
+      const meanSvc = meanOf(st.service);
+      const lambda = 1 / meanIat;
+      const mu = 1 / meanSvc;
+      const an = mmcAnalytic(lambda, mu, st.servers);
+      y += 6;
+      g.fillStyle = '#6fae8f';
+      g.fillText(`${this.zh ? 'M/M/c 解析参照' : 'M/M/c analytic reference'} (${st.name}, λ=${fmtNum(lambda)}, μ=${fmtNum(mu)}, c=${st.servers})`, f.x0 + 10, y);
+      y += rowH;
+      g.fillStyle = '#8fa0b3';
+      g.fillText(`${this.zh ? '解析' : 'Analytic'}: ρ=${fmtNum(an.rho)}, ErlangC=${fmtNum(an.erlangC)}, Wq=${fmtNum(an.Wq)}, Lq=${fmtNum(an.Lq)}${an.stable ? '' : ` — ${this.zh ? '不稳定 (ρ ≥ 1)' : 'unstable (rho >= 1)'}`}`, f.x0 + 10, y);
+    }
+  }
+
+  // ---- view: wait-time histogram ----------------------------------------------------
+
+  private drawHistogram(g: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const r = this.result!;
+    if (r.waitTimes.length < 2) {
+      drawEmptyCanvas(this.api, canvas, { title: 'Wait-time histogram', titleZh: '等待时间直方图', hint: 'No completed jobs recorded', hintZh: '没有已完成的作业' });
+      return;
+    }
+    const bins = 24;
+    const h = waitHistogram(r.waitTimes, bins);
+    const maxCount = Math.max(...h.counts, 1);
+    const f = this.frame(g, canvas, this.zh ? '排队等待时间分布（已完成作业）' : 'Queue wait distribution (completed jobs)', this.zh ? '总等待时间' : 'Total wait', this.zh ? '频数' : 'Count');
+    const bw = (f.x1 - f.x0) / bins;
+    h.counts.forEach((c, i) => {
+      const bh = (c / maxCount) * (f.y1 - f.y0);
+      g.fillStyle = PALETTE[0]!;
+      g.fillRect(f.x0 + i * bw + 1, f.y1 - bh, bw - 2, bh);
+    });
+    g.fillStyle = '#8fa0b3';
+    g.font = '10px system-ui, sans-serif';
+    for (const v of this.ticks(0, h.binWidth * bins, 6)) {
+      const x = f.x0 + (v / (h.binWidth * bins)) * (f.x1 - f.x0);
+      g.textAlign = 'center';
+      g.fillText(fmtNum(v), x, f.y1 + 14);
+    }
+    for (const v of this.ticks(0, maxCount, 4)) {
+      const y = f.y1 - (v / maxCount) * (f.y1 - f.y0);
+      g.textAlign = 'right';
+      g.fillText(fmtNum(v), f.x0 - 6, y + 3);
+    }
+    const mean = r.waitTimes.reduce((a, v) => a + v, 0) / r.waitTimes.length;
+    g.fillStyle = '#c8d4e0';
+    g.font = '11px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.fillText(`n=${r.waitTimes.length}  mean=${fmtNum(mean)}  max=${fmtNum(Math.max(...r.waitTimes))}`, f.x0 + 8, f.y0 + 14);
   }
 }
 
-function bwMin(W: number, cols: number): number {
-  return (W - 158) / cols;
-}
-
-function truncate(g: CanvasRenderingContext2D, text: string, maxW: number): string {
-  if (maxW <= 0 || g.measureText(text).width <= maxW) return text;
-  let t = text;
-  while (t.length > 1 && g.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
-  return `${t}…`;
-}
-
-function formatCount(v: number): string {
-  const a = Math.abs(v);
-  if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `${(v / 1e3).toFixed(1)}k`;
-  return a >= 10 || Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1);
-}
-
-function formatTime(v: number): string {
-  if (v >= 1000) return v.toFixed(0);
-  if (v >= 100) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(1);
-  return v.toFixed(2);
-}
-
-function safeParse(text: unknown): unknown {
-  try {
-    return JSON.parse(typeof text === 'string' ? text : '');
-  } catch {
-    return null;
+/** Arithmetic mean of a distribution spec's support (for analytic rates). */
+function meanOf(d: DistSpec): number {
+  switch (d.kind) {
+    case 'exponential':
+      return d.mean;
+    case 'uniform':
+      return (d.min + d.max) / 2;
+    case 'triangular':
+      return (d.min + d.mode + d.max) / 3;
+    case 'deterministic':
+      return d.value;
+    case 'normal':
+      return d.mean;
   }
 }
 
-export default function createDesPlugin(): Plugin {
-  return new DesPlugin();
+export default function createSimDesPlugin(): Plugin {
+  return new SimDesPlugin();
 }

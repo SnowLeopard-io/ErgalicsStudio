@@ -29,4 +29,12 @@ export const rlManifest: PluginManifest = {
     reproducible: true,
     benchmarks: ['qlearn-gridworld', 'bandit-regret'],
   },
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:2a25152a65d7f89544cb5c9cd503b456',
+    sig: '0c15c12af30fe8db64fdebe08379d7159920ef70a2696d3fdbba01c129bb881cc1507ba2dc8eac677c0715dc66dcd57a996d59dfc746780f36ab5e70e0ef510a',
+    signer: 'Ergalics Studio (AI suite pack)',
+    signedAt: '2026-10-29T00:00:00.000Z',
+    pub: 'f0f5c97eedd922c9bb7dc31a874b82fdfb7e6d58f58fbe2987de9c9f27ecd63e',
+  },
 };

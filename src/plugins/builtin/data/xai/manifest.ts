@@ -30,4 +30,12 @@ export const xaiManifest: PluginManifest = {
     benchmarks: ['lime-recovery', 'shap-additivity'],
   },
   formats: [{ extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV' }],
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:2a25152a65d7f89544cb5c9cd503b456',
+    sig: 'fbb81e61cdc62d37ad9b464989450d829adf664278014fd71e73ccb1da4bb56112cd0a9aa60209c1f64be9a334bc85cdee1c8b0d390b35e97ba69c13fe0e9e04',
+    signer: 'Ergalics Studio (AI suite pack)',
+    signedAt: '2026-10-29T00:00:00.000Z',
+    pub: 'f0f5c97eedd922c9bb7dc31a874b82fdfb7e6d58f58fbe2987de9c9f27ecd63e',
+  },
 };

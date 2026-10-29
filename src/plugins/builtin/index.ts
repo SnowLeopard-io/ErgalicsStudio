@@ -29,6 +29,12 @@ import { terrainManifest } from './geo/terrain/manifest';
 import { gpxTrackManifest } from './geo/gpxTrack/manifest';
 import { globeManifest } from './geo/globe/manifest';
 import { aiTrainingManifest } from './data/ai-training/manifest';
+import { vectordbManifest } from './data/vectordb/manifest';
+import { automlManifest } from './data/automl/manifest';
+import { nlpManifest } from './data/nlp/manifest';
+import { recsysManifest } from './data/recsys/manifest';
+import { rlManifest } from './data/rl/manifest';
+import { xaiManifest } from './data/xai/manifest';
 import { errorbandManifest } from './charts/errorband/manifest';
 import { qqplotManifest } from './charts/qqplot/manifest';
 import { violinPlotManifest } from './charts/violinPlot/manifest';
@@ -155,6 +161,10 @@ import { cryptoManifest } from './cs/crypto/manifest';
 import { neuralVizManifest } from './cs/neuralviz/manifest';
 import { complexityManifest } from './cs/complexity/manifest';
 import { netProtoManifest } from './cs/netproto/manifest';
+import { simMontecarloManifest } from './sim/montecarlo/manifest';
+import { simAbmManifest } from './sim/abm/manifest';
+import { simSdManifest } from './sim/sysdyn/manifest';
+import { simDesManifest } from './sim/des/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -323,6 +333,55 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     autoload: true,
     load: async () => {
       const mod = await import('./data/ai-training');
+      return mod.default();
+    },
+  },
+  {
+    manifest: vectordbManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/vectordb');
+      return mod.default();
+    },
+  },
+  // ---- AI / ML suite (pure-TS kernels, research-grade) ----------------------
+  {
+    manifest: automlManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/automl');
+      return mod.default();
+    },
+  },
+  {
+    manifest: nlpManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/nlp');
+      return mod.default();
+    },
+  },
+  {
+    manifest: recsysManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/recsys');
+      return mod.default();
+    },
+  },
+  {
+    manifest: rlManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/rl');
+      return mod.default();
+    },
+  },
+  {
+    manifest: xaiManifest,
+    autoload: true,
+    load: async () => {
+      const mod = await import('./data/xai');
       return mod.default();
     },
   },
@@ -1036,6 +1095,35 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: netProtoManifest,
     load: async () => {
       const mod = await import('./cs/netproto');
+      return mod.default();
+    },
+  },
+  // ---- General-purpose simulation engines ----------------------------------
+  {
+    manifest: simMontecarloManifest,
+    load: async () => {
+      const mod = await import('./sim/montecarlo/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simAbmManifest,
+    load: async () => {
+      const mod = await import('./sim/abm/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simSdManifest,
+    load: async () => {
+      const mod = await import('./sim/sysdyn/plugin');
+      return mod.default();
+    },
+  },
+  {
+    manifest: simDesManifest,
+    load: async () => {
+      const mod = await import('./sim/des/plugin');
       return mod.default();
     },
   },

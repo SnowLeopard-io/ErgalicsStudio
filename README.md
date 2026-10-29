@@ -652,12 +652,27 @@ examples dialog:
 | Complexity Analyzer | 复杂度分析器 | Fits measured n/time runs against O(1), O(log n), O(n), O(n log n), O(n²), O(n³) and O(2ⁿ), with log-log exponent recovery. |
 | Network Protocol Simulator | 网络协议模拟器 | TCP handshake/teardown, the TLS 1.3 1-RTT flight and a discrete Reno congestion-window trace, all timed in RTTs. |
 
-**Data & Intelligence (2)**
+**Simulation Engines (4)**
+
+| Plugin | 中文名 | Focus |
+| --- | --- | --- |
+| Monte Carlo Simulation Platform | 蒙特卡洛仿真平台 | Distribution library (uniform / normal / triangular / PERT / beta / empirical), Gaussian-copula correlation, simple random / Latin hypercube / Sobol sampling, mean-variance-quantile statistics with CIs, running-mean and Gelman-Rubin convergence diagnostics, tornado sensitivity, scatter views and CSV export. |
+| Agent-Based Modeling Framework | 基于智能体的建模框架 | Grid and continuous toroidal worlds with a declarative transition/move rule engine, batch runs over parameter grids, agent series aggregation and four templates: Schelling segregation, predator-prey with grass, Deffuant opinion dynamics and Nagel-Schreckenberg traffic. |
+| System Dynamics Studio | 系统动力学工作台 | Editable JSON stock-and-flow models with rate equations, Euler/RK4 integration, causal-loop diagrams with polarity, feedback-loop detection with a loop-dominance heuristic, parameter sweeps and five templates from logistic growth to Bass diffusion. |
+| Discrete Event Simulator | 离散事件仿真 | Binary-heap event scheduler over queueing networks with multi-server stations, finite-capacity blocking and rework routing; utilization, time-weighted queue length, Little's-law checks, M/M/1 and M/M/c (Erlang-C) analytic references, bottleneck identification and four templates. |
+
+**Data & Intelligence (8)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
 | AI Trainer | AI 训练 | TF.js regression / classification training with live loss curves and visualizations. |
 | Image Processing | 图像处理 | 2-D FFT, convolution, Gaussian blur, Sobel edges and histogram equalisation. |
+| AutoML Pipeline | AutoML 流水线 | Automated preprocessing (imputation, z-score, one-hot, feature selection), ridge / logistic / k-NN / naive Bayes / CART model families, grid / random / Bayesian-style hyperparameter search, k-fold cross-validation with accuracy / F1 / AUC / RMSE / R², pipeline JSON export and reproducible seeded runs. |
+| NLP Workbench | 自然语言处理工作台 | Tokenization with stopwords and stemming, smoothed TF-IDF document-term matrix, collapsed-Gibbs LDA topic modeling, lexicon + naive-Bayes sentiment analysis, rule-based NER, k-means clustering over tf-idf vectors with PCA scatter and per-mode CSV export. |
+| Recommender System Simulator | 推荐系统模拟器 | User-based and item-based collaborative filtering, content-based ridge regression, ALS matrix factorization, hybrid blending, precision@K / recall@K / NDCG@K / MAP / RMSE evaluation with holdout splits and cold-start fallback coverage. |
+| Reinforcement Learning Lab | 强化学习环境 | Configurable GridWorld (traps, slip, step cost), CartPole physics and multi-armed bandits; Q-Learning, SARSA, REINFORCE, epsilon-greedy, UCB1 and Thompson sampling with reward curves, regret, Q-table snapshots, policy arrows and stoppable episode loops. |
+| Model Interpreter | 模型解释器 | Permutation importance, partial dependence, LIME local surrogates, KernelSHAP with local-accuracy residuals, counterfactual search and fairness metrics (demographic parity, equalized odds, disparate impact) over a built-in logistic / ridge reference model. |
+| Vector Database | 向量数据库 | In-browser vector store with exact brute-force and simplified HNSW indexes over cosine / Euclidean / dot-product metrics, hashing-trick text and numeric embeddings, PCA and exact t-SNE projections, recall@K evaluation and search-latency benchmarks. |
 
 **Effects Rendering (7)**
 

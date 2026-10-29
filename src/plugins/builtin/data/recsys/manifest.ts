@@ -30,4 +30,12 @@ export const recsysManifest: PluginManifest = {
     benchmarks: ['ndcg-sanity', 'als-convergence'],
   },
   formats: [{ extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV' }],
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:2a25152a65d7f89544cb5c9cd503b456',
+    sig: '0840b1b83179da99d34c20bf7acfd611699f4c102cef5b3e4b6b185824f5d1aee28bc05b2c99e22d5600804561cccdf93bffb40f28c5bc6cb4f8c555bb1cba02',
+    signer: 'Ergalics Studio (AI suite pack)',
+    signedAt: '2026-10-29T00:00:00.000Z',
+    pub: 'f0f5c97eedd922c9bb7dc31a874b82fdfb7e6d58f58fbe2987de9c9f27ecd63e',
+  },
 };

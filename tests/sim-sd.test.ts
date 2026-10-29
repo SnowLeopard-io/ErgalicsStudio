@@ -178,9 +178,10 @@ describe('causal loops and dominance', () => {
   });
 
   it('deriveCausalLinks yields polarity-signed edges', () => {
-    const m = templateModel('logistic');
+    const m = templateModel('lotka-volterra');
     const links = deriveCausalLinks(m);
     expect(links.some((l) => l.polarity === -1)).toBe(true);
+    expect(links.some((l) => l.polarity === 1)).toBe(true);
   });
 
   it('loop dominance returns finite gains per window', () => {

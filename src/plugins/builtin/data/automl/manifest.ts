@@ -29,4 +29,12 @@ export const automlManifest: PluginManifest = {
     benchmarks: ['cv-accuracy', 'pipeline-export'],
   },
   formats: [{ extension: '.csv', mimeTypes: ['text/csv', 'text/plain'], description: 'CSV' }],
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:2a25152a65d7f89544cb5c9cd503b456',
+    sig: 'e819e943ba5a47a7ae96c964a5fc6bb87dcae5bfbd446554d8d72a57665447a030393061e75c2743c7d6c2be796a49fd300ef14bb29334cdb5aa23928b64c106',
+    signer: 'Ergalics Studio (AI suite pack)',
+    signedAt: '2026-10-29T00:00:00.000Z',
+    pub: 'f0f5c97eedd922c9bb7dc31a874b82fdfb7e6d58f58fbe2987de9c9f27ecd63e',
+  },
 };

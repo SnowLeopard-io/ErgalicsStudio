@@ -358,7 +358,7 @@ export function stepOpinion(world: ABMWorld, confidence: number, mu: number, int
   const pairs = Math.floor(n / 2);
   for (let t = 0; t < pairs; t++) {
     const i = Math.floor(rng.next() * n);
-    let j = Math.floor(rng.next() * n);
+    const j = Math.floor(rng.next() * n);
     if (i === j) continue;
     const a = next.agents[i]!;
     const b = next.agents[j]!;
