@@ -96,6 +96,7 @@ What ships today:
 | Central export menu | Download the active plugin canvas as PNG (default ≈600 dpi, transparent option) or save it into the project's `figures/` workspace directory; 3-D plugins additionally export the whole scene as **GLB / STL** (download, or save into the `data/` workspace); per-plugin CSV export buttons stay in the parameter panels. |
 | 2D & 3D viewports | Shared 2D canvas container (point clouds, time series, histograms, heatmaps, contour, scatter, bar, radar, network, bubble, violin, sankey, box, parallel coordinates, error bands, treemaps, QQ plots, …) plus a host-managed Three.js 3D scene (created lazily for `renderToScene` plugins, hidden when a 2D plugin is active, fully cleared between plugins; ACES filmic tone mapping with IBL environment lighting). |
 | 3-D model viewer | GLB / GLTF / STL / OBJ / PLY import with Draco & meshopt decoding; shaded / wireframe / normal / X-ray view modes, clipping plane, glTF animation playback, two-point distance measurement and view presets; any 3-D scene exports as GLB / STL from the central export menu. |
+| Command palette & tours | Global command palette (**Ctrl/Cmd+K**) to jump to tools, plugins and files and run actions; keyboard-shortcuts help dialog; guided first-run tours for the workbench and project templates. |
 
 **Plugin system**
 
@@ -177,7 +178,7 @@ npm install         # install dependencies
 npm run dev         # dev run (welcome page hardware self-check: WebGPU/WASM/IndexedDB)
 
 npm run build       # wasm → typecheck → vite build → docs
-npm run build:web   # frontend only (generates the WASM stub, no Rust needed)
+npm run build:web   # frontend only (generates the WASM stub and the bundled docs copy, no Rust needed)
 npm run build:wasm  # compile the Rust core (needs the Rust toolchain)
 
 cd docs && npm install && npm run dev   # docs site
@@ -198,7 +199,7 @@ flowchart TB
     end
 
     subgraph State["State & core services"]
-        B1["Zustand stores<br/>app / project / plugin / settings / block"]
+        B1["Zustand stores<br/>app / project / plugin / settings / block<br/>figure / notebook / lineage / command palette / …"]
         B2["Core services<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>vfs (workspace files) · git<br/>research/scienceOutput"]
     end
 
@@ -244,15 +245,15 @@ flowchart TB
 ```
 .
 ├── src/                      # frontend
-│   ├── core/                 #   47 subdirectories + 39 root modules: storage, events, i18n,
+│   ├── core/                 #   47 subdirectories + 39 root modules: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal, sweep,
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
-│   ├── blocks/               #   block system (Flow mode): types · registry · compiler ·
-│   │                         #     executor · ops · catalog (57 blocks) · sample · l10n · render
+│   ├── blocks/               #   block system (Flow mode): registry · compiler · executor ·
+│   │                         #     ops · catalog (57 blocks) · sample · l10n · render · context · fileData
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   flow canvas / block & code canvas / workbench shell /
@@ -268,7 +269,7 @@ flowchart TB
 │   └── native/               #   generated WASM bindings (untracked)
 ├── native/ergalics-core/     # Rust core, source-delivered (device, compute, utils)
 ├── examples/{data,projects,code}/  # 189 sample datasets, 11 `.clproj` projects, 9 Python programs
-├── scripts/ · tests/ · docs/ · website/
+├── scripts/ · tests/ · docs/ · website/ · bench/ · templates/ (plugin-starter)
 ```
 
 ---
@@ -318,8 +319,8 @@ Switching language opens a **floating preview dialog** — a Monaco editor
 showing the editable reference translation — and applies the new buffer only
 after an explicit **Apply**, with **Discard & clear** and **Cancel** options,
 a `forceBlank` guard that protects a just-cleared buffer, and one-click undo.
-All three modes round-trip seamlessly through one IR (`flow/block/convert.ts`
-+ `code/parse.ts` + `mergeFlowIR` merge-write-back + a signature guard that
+All three modes round-trip seamlessly through one IR (`src/editor/flow/convert.ts`
++ `src/editor/block/convert.ts` + `code/parse.ts` + `mergeFlowIR` merge-write-back + a signature guard that
 prevents node loss) — a round trip fixed by
 `tests/editor/roundtrip-all-langs.test.ts`. Ships 9 sample programs. See
 [`docs/guide/block-mode.md`](docs/guide/block-mode.md).
@@ -985,6 +986,10 @@ gating variables.*
 *The bio-enzyme plugin fits v–[S] curves per inhibition mode, reporting
 Vmax and Km with confidence intervals.*
 
+![Protein Interactions — interaction network](docs/assets/screenshots/plugins/protein-network.png)
+
+*Protein Interactions: residue interaction network graph.*
+
 ![Population Genetics — Wright–Fisher drift trajectories](docs/assets/screenshots/plugins/bio-popgen/drift-replicates.png)
 
 *Population Genetics: 40 seeded Wright–Fisher allele-frequency trajectories
@@ -1005,11 +1010,6 @@ Vmax and Km with confidence intervals.*
 
 *Pharmacokinetics: a two-compartment concentration–time curve with the
 therapeutic-window overlay.*
-
-**Geography**
-![Protein Interactions — interaction network](docs/assets/screenshots/plugins/protein-network.png)
-
-*Protein Interactions: residue interaction network graph.*
 
 **Geography**
 
@@ -1272,7 +1272,9 @@ path) and `npm run verify:site` (merged-deploy path integrity across the
 three surfaces) — 14 E2E scripts in total.
 
 CI runs as five GitHub Actions workflows: `ci`, `bench`, `deploy`, `release`
-and `security`.
+and `security`. Performance benchmarks live in `bench/` — `npm run bench`
+runs, compares and reports them (`bench:ci` for CI baselines, `bench:update`
+to refresh the baseline files).
 
 ---
 
@@ -1308,6 +1310,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
 - [x] Environmental science suite (AQI / water quality / carbon / biodiversity / plume / greenhouse / 3-D globe)
+- [x] Earth-science suite (seismic waves / mineral ID / hydrogeology) with Ed25519 pinned-manifest signing and research benchmarks
 - [x] Send-to-Figure-Studio linkage across all research-grade plugin suites (physics / chem / bio / env / geo / math / stats / econ / psych / astro / data / engineering + both solvers)
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
