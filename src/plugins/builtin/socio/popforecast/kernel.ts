@@ -202,7 +202,7 @@ export interface EigenPair {
  */
 export function dominantEigen(L: number[][], iterations = 600): EigenPair {
   const k = L.length;
-  let v = new Array<number>(k).fill(1 / Math.sqrt(k));
+  const v = new Array<number>(k).fill(1 / Math.sqrt(k));
   for (let it = 0; it < iterations; it += 1) {
     const w = matVec(L, v);
     const norm = Math.sqrt(w.reduce((acc, x) => acc + x * x, 0));

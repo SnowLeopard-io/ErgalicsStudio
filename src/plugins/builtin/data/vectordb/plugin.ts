@@ -445,13 +445,13 @@ export class VectorDbPlugin implements Plugin {
     }
     if (this.mode === 'text') {
       const docs = parseDocumentsJson(this.text);
-      const vectors = docs.map((d) => embedText(d.text));
+      const vectors = docs.map((d) => embedText(d.text, EMBED_DIM, this.state.metric));
       const qText = this.state.queryText.trim();
       if (qText) {
         return {
           vectors,
           snippets: docs.map((d) => d.text),
-          query: embedText(qText),
+          query: embedText(qText, EMBED_DIM, this.state.metric),
           queryLabel: `"${qText.slice(0, 40)}"`,
           queryId: null,
         };
@@ -466,7 +466,7 @@ export class VectorDbPlugin implements Plugin {
       };
     }
     const rows = parseNumericCsv(this.text);
-    const vectors = embedRows(rows);
+    const vectors = embedRows(rows, this.state.metric);
     const qi = Math.min(rows.length - 1, Math.max(0, Math.round(this.state.queryRow)));
     return {
       vectors,
@@ -702,7 +702,7 @@ export class VectorDbPlugin implements Plugin {
             query = obj.query as number[];
             queryLabel = 'input query';
           } else if (typeof obj.query === 'string' && obj.query.trim()) {
-            query = embedText(obj.query);
+            query = embedText(obj.query, EMBED_DIM, this.state.metric);
             queryLabel = `"${obj.query.slice(0, 40)}"`;
           }
           this.injected = { vectors, query, queryLabel };

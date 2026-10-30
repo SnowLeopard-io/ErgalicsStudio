@@ -423,26 +423,27 @@ async function runGridTabular(
     if (!tracker.checkStop()) break;
     let state = spec.start;
     let total = 0;
-    // SARSA is on-policy: the next action is sampled before the update.
+    // Both algorithms act ε-greedily; SARSA keeps the next action for the
+    // on-policy bootstrapped target, Q-learning resamples it after the update.
     let action = epsGreedy(q[state]!, epsilon, rng);
     for (let step = 0; step < config.maxSteps; step += 1) {
-      const next = gridStep(spec, state, action, rng);
+      const taken = action;
+      const next = gridStep(spec, state, taken, rng);
       tracker.bumpSteps();
       total += next.reward;
       let target = next.reward;
-      if (!next.done) {
-        if (algorithm === 'sarsa') {
-          const nextAction = epsGreedy(q[next.state]!, epsilon, rng);
-          target += gamma * q[next.state]![nextAction]!;
-          action = nextAction;
-        } else {
-          target += gamma * Math.max(...q[next.state]!);
-        }
+      let nextAction = -1;
+      if (!next.done && algorithm === 'sarsa') {
+        nextAction = epsGreedy(q[next.state]!, epsilon, rng);
+        target += gamma * q[next.state]![nextAction]!;
+      } else if (!next.done) {
+        target += gamma * Math.max(...q[next.state]!);
       }
       const row = q[state]!;
-      row[action] = row[action]! + alpha * (target - row[action]!);
-      state = next.done ? spec.start : next.state;
+      row[taken] = row[taken]! + alpha * (target - row[taken]!);
       if (next.done) break;
+      state = next.state;
+      action = algorithm === 'sarsa' ? nextAction : epsGreedy(q[state]!, epsilon, rng);
     }
     tracker.pushReward(total);
     await tracker.finishEpisode(ep + 1, config.episodes);
@@ -490,6 +491,10 @@ async function runGridReinforce(
   // Linear softmax policy: preference(a, s) = w[a]·onehot(s) + bias.
   const weights = createTable(GRID_ACTIONS, n + 1);
   const tracker = new RunTracker(opts);
+  // Monte-Carlo state-value estimates for the reported value map: average
+  // discounted return-to-go over every visit (a logit is not a value).
+  const valueSum = new Float64Array(n);
+  const valueCount = new Int32Array(n);
   const gamma = clampNum(config.gamma, 0, 0.9999);
   // One-hot features give large raw gradient magnitudes; rescale so the
   // shared alpha slider stays usable across Q-Learning and REINFORCE.
@@ -548,6 +553,8 @@ async function runGridReinforce(
       G = gamma * G + rewardsSeq[t]!;
       if (!Number.isFinite(G)) break;
       const s = states[t]!;
+      valueSum[s] = valueSum[s]! + G;
+      valueCount[s] = valueCount[s]! + 1;
       const a = actions[t]!;
       const probs = softmax(s);
       for (let a2 = 0; a2 < GRID_ACTIONS; a2 += 1) {
@@ -561,13 +568,14 @@ async function runGridReinforce(
     await tracker.finishEpisode(ep + 1, config.episodes);
   }
 
-  // Derive the greedy policy / values from the learned action preferences.
+  // Derive the greedy policy from the learned preferences; report V(s) as the
+  // empirical mean Monte-Carlo return observed from each state.
   const policy: number[] = new Array(n).fill(-1);
   const values: number[] = new Array(n).fill(0);
   for (let s = 0; s < n; s += 1) {
     if (isGridTerminal(spec, s)) continue;
     policy[s] = argmaxRow(weights.map((row) => row[s]!));
-    values[s] = Math.max(...weights.map((row) => row[s]!));
+    values[s] = valueCount[s]! > 0 ? valueSum[s]! / valueCount[s]! : 0;
   }
   const rewards = tracker.rewardHistory;
   const { meanRewardLast50, bestEpisode } = summarize(rewards);
@@ -696,9 +704,9 @@ async function runBandit(
       return argmaxRow(q);
     }
     if (agent === 'ucb1') {
-      // Pull every arm once, then act optimistically under uncertainty (c = 2).
+      // Pull every arm once, then use the UCB1 index √(2 ln t / n).
       for (let a = 0; a < k; a += 1) if (counts[a] === 0) return a;
-      const c = 2;
+      const c = Math.SQRT2;
       let best = 0;
       let bestScore = -Infinity;
       for (let a = 0; a < k; a += 1) {

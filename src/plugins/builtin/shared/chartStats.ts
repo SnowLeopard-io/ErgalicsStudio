@@ -55,7 +55,8 @@ export function quantileSorted(sorted: readonly number[], p: number): number {
   const lo = Math.floor(idx);
   const hi = Math.ceil(idx);
   if (lo === hi) return sorted[lo]!;
-  return (sorted[lo]! + sorted[hi]!) / 2;
+  const frac = idx - lo;
+  return sorted[lo]! + frac * (sorted[hi]! - sorted[lo]!);
 }
 
 /** Fisher–Pearson standardized sample skewness (G1). NaN when undefined. */

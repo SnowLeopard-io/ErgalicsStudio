@@ -21,7 +21,7 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi, PluginRenderContext } from '@/types/plugin';
 import { actionButton, actionFired, drawEmptyCanvas, drawEmptyMessage, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
-import { normalCdf, normalInv } from '@/core/stats/special';
+import { normalCdf, normalInv, studentTInv } from '@/core/stats/special';
 import { medBiostatManifest } from './manifest';
 import {
   aeSignalTable,
@@ -996,13 +996,17 @@ export class MedBiostatPlugin implements Plugin {
         );
       } else if (a.welch) {
         const w = a.welch;
+        // Per-arm 95% CIs; w.ciLo/ciHi describe the mean difference, not arms.
+        const tc = studentTInv(0.975, w.df);
+        const half1 = w.n1 > 0 ? (tc * w.sd1) / Math.sqrt(w.n1) : 0;
+        const half2 = w.n2 > 0 ? (tc * w.sd2) / Math.sqrt(w.n2) : 0;
         exportRowsCsv(
           this.api,
           'med-biostat-endpoint',
           ['arm', 'n', 'mean', 'sd', 'ci_lo', 'ci_hi'],
           [
-            [a.labels[0], w.n1, w.mean1, w.sd1, w.ciLo, w.ciHi],
-            [a.labels[1], w.n2, w.mean2, w.sd2, w.ciLo, w.ciHi],
+            [a.labels[0], w.n1, w.mean1, w.sd1, w.mean1 - half1, w.mean1 + half1],
+            [a.labels[1], w.n2, w.mean2, w.sd2, w.mean2 - half2, w.mean2 + half2],
           ],
         );
       }

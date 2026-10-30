@@ -637,11 +637,12 @@ export function maxLdBlock(d: LdData, threshold = 0.5): LdBlock | null {
     }
   }
   if (best) return best;
-  // fallback: strongest single pair
+  // Fallback: strongest single pair, reported as a 2-locus interval.
   const s = ldSummary(d);
+  const i = Math.min(s.maxI, s.maxJ);
   return {
-    start: Math.min(s.maxI, s.maxJ),
-    end: Math.max(s.maxI, s.maxJ) + 1,
+    start: i,
+    end: i + 2,
     size: 2,
     minR2: s.maxR2,
   };
@@ -778,7 +779,7 @@ export interface GseaResult {
   esIndex: number;
   runningEs: Float64Array;
   hits: number[];
-  /** (1 + #{|null ES| ≥ |ES|}) / (k + 1) — permutation nominal p. */
+  /** (1 + #{null ES ≥ ES}) / (k + 1) for ES > 0 (same-direction tail). */
   nominalP: number;
   nes: number;
   /** FDR-style q from the pooled null NES of this run. */
@@ -809,30 +810,50 @@ export function runGsea(
   const mask = hitMaskOf(ranked, setList);
 
   const rng = mulberry32(seed);
-  const shuffled = Float64Array.from(ranked.score);
+  // Permute gene-set membership (fixed set size, random positions) while the
+  // ranked statistic stays fixed. Shuffling the scores instead leaves the
+  // running sum invariant for contiguous hits and collapses the null.
+  const permMask = Uint8Array.from(mask);
   const nullEs = new Float64Array(perms);
   for (let k = 0; k < perms; k += 1) {
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    for (let i = permMask.length - 1; i > 0; i -= 1) {
       const j = Math.floor(rng() * (i + 1));
-      const t = shuffled[i]!;
-      shuffled[i] = shuffled[j]!;
-      shuffled[j] = t;
+      const t = permMask[i]!;
+      permMask[i] = permMask[j]!;
+      permMask[j] = t;
     }
-    nullEs[k] = computeEs(shuffled, mask, weight, false).es;
+    nullEs[k] = computeEs(ranked.score, permMask, weight, false).es;
   }
 
-  let sumAbs = 0;
-  for (let k = 0; k < perms; k += 1) sumAbs += Math.abs(nullEs[k]!);
-  const meanAbs = sumAbs / perms;
-  const nes = meanAbs > 0 ? core.es / meanAbs : 0;
+  // NES normalizes by the mean null ES of the same sign; nominal p and q use
+  // the same-direction tail (Subramanian et al. 2005).
+  let sumPos = 0;
+  let nPos = 0;
+  let sumNeg = 0;
+  let nNeg = 0;
+  for (let k = 0; k < perms; k += 1) {
+    const v = nullEs[k]!;
+    if (v >= 0) {
+      sumPos += v;
+      nPos += 1;
+    } else {
+      sumNeg += -v;
+      nNeg += 1;
+    }
+  }
+  const meanPos = nPos > 0 ? sumPos / nPos : 0;
+  const meanNegAbs = nNeg > 0 ? sumNeg / nNeg : 0;
+  const norm = core.es >= 0 ? meanPos : meanNegAbs;
+  const nes = norm > 0 ? core.es / norm : 0;
   const nullNes = new Float64Array(perms);
   let pCount = 0;
   let qCount = 0;
   for (let k = 0; k < perms; k += 1) {
-    const nn = meanAbs > 0 ? nullEs[k]! / meanAbs : 0;
+    const v = nullEs[k]!;
+    const nn = v >= 0 ? (meanPos > 0 ? v / meanPos : 0) : meanNegAbs > 0 ? v / meanNegAbs : 0;
     nullNes[k] = nn;
-    if (Math.abs(nullEs[k]!) >= Math.abs(core.es)) pCount += 1;
-    if (Math.abs(nn) >= Math.abs(nes)) qCount += 1;
+    if (core.es >= 0 ? v >= core.es : v <= core.es) pCount += 1;
+    if (core.es >= 0 ? nn >= nes : nn <= nes) qCount += 1;
   }
   return {
     n: ranked.n,

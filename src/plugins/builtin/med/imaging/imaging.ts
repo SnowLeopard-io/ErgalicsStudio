@@ -475,7 +475,7 @@ export function roiStats(
   }
   if (vals.length === 0) return null;
   const s = statsOf(vals);
-  return { ...s, x: x0, y: y0, w: x1 - x0, h: y1 - x0 };
+  return { ...s, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
 // ---- volume shaping ----------------------------------------------------------

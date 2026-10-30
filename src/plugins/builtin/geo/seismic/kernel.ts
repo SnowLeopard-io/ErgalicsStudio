@@ -26,6 +26,37 @@ export interface VelocityLayer {
 }
 
 /**
+ * Radial velocity nodes used by the ray integrator (IASP91/PREM-like).
+ * Velocities are linearly interpolated with depth; using nodes rather than
+ * constant layer averages preserves the transition-zone gradients that control
+ * the first-arrival P/S branches. Density is not needed for travel times.
+ */
+export const EARTH_RADIAL_NODES: readonly Array<{ depthKm: number; vp: number; vs: number }> = [
+  { depthKm: 0, vp: 5.8, vs: 3.36 },
+  { depthKm: 20, vp: 6.5, vs: 3.7 },
+  { depthKm: 35, vp: 8.04, vs: 4.47 },
+  { depthKm: 80, vp: 8.05, vs: 4.5 },
+  { depthKm: 120, vp: 8.05, vs: 4.5 },
+  { depthKm: 220, vp: 8.56, vs: 4.64 },
+  { depthKm: 300, vp: 8.9, vs: 4.77 },
+  { depthKm: 410, vp: 9.13, vs: 4.93 },
+  { depthKm: 500, vp: 9.36, vs: 5.08 },
+  { depthKm: 660, vp: 10.27, vs: 5.57 },
+  { depthKm: 800, vp: 11.0, vs: 5.95 },
+  { depthKm: 1000, vp: 11.5, vs: 6.2 },
+  { depthKm: 1500, vp: 12.4, vs: 6.6 },
+  { depthKm: 2000, vp: 13.0, vs: 6.9 },
+  { depthKm: 2500, vp: 13.5, vs: 7.2 },
+  { depthKm: 2890, vp: 13.72, vs: 7.27 },
+  // Outer core: vS = 0 removes direct S beyond the core shadow.
+  { depthKm: 2890.001, vp: 8.06, vs: 0 },
+  { depthKm: 5150, vp: 10.36, vs: 0 },
+  // Inner core.
+  { depthKm: 5150.001, vp: 11.03, vs: 3.5 },
+  { depthKm: 6371, vp: 11.26, vs: 3.67 },
+];
+
+/**
  * Simplified PREM-like layered model. Velocities are representative averages
  * inside each layer (km/s), density in g/cm³. The outer core has vS = 0,
  * which is what removes direct S arrivals beyond the core shadow.
@@ -73,8 +104,14 @@ export function radialModel(): RadialSample[] {
   const out: RadialSample[] = [];
   for (let r = EARTH_RADIUS_KM; r >= 1; r -= 1) {
     const depth = EARTH_RADIUS_KM - r;
-    const layer = layerAtDepth(depth);
-    out.push({ r, vp: layer.vp, vs: layer.vs });
+    const nodes = EARTH_RADIAL_NODES;
+    let i = 0;
+    while (i + 1 < nodes.length && nodes[i + 1]!.depthKm <= depth) i += 1;
+    const a = nodes[i]!;
+    const b = nodes[Math.min(i + 1, nodes.length - 1)]!;
+    const span = b.depthKm - a.depthKm;
+    const f = span > 1e-9 ? Math.max(0, Math.min(1, (depth - a.depthKm) / span)) : 0;
+    out.push({ r, vp: a.vp + (b.vp - a.vp) * f, vs: a.vs + (b.vs - a.vs) * f });
   }
   radialCache = out;
   return out;
@@ -96,10 +133,12 @@ export function setCustomVelocityModel(rows: Array<{ depthKm: number; vp: number
     out.push({ r, vp: a.vp + (b.vp - a.vp) * f, vs: a.vs + (b.vs - a.vs) * f });
   }
   radialCache = out;
+  curveCache = {};
 }
 
 export function resetVelocityModel(): void {
   radialCache = null;
+  curveCache = {};
 }
 
 export interface RayBranch {
@@ -207,21 +246,24 @@ export function travelTimeAtDelta(deltaDeg: number, phase: SeismicPhase): number
   const curve = cachedTravelTimeCurve(phase);
   if (curve.length === 0) return Number.NaN;
   if (inShadowZone(deltaDeg, phase)) return Number.NaN;
+  let best = Number.POSITIVE_INFINITY;
   if (deltaDeg <= curve[0]!.deltaDeg) {
     // Extrapolate the shallow branch back to zero distance.
     const first = curve[0]!;
-    return first.timeSec * (Math.max(0, deltaDeg) / Math.max(first.deltaDeg, 1e-6));
+    best = Math.min(best, first.timeSec * (Math.max(0, deltaDeg) / Math.max(first.deltaDeg, 1e-6)));
   }
+  // Branches can overlap after a triplication; the first arrival is the
+  // smallest interpolated time, not simply the first matching segment.
   for (let i = 0; i + 1 < curve.length; i += 1) {
     const a = curve[i]!;
     const b = curve[i + 1]!;
     if (deltaDeg >= a.deltaDeg && deltaDeg <= b.deltaDeg) {
       const gap = b.deltaDeg - a.deltaDeg;
       const f = gap > 1e-9 ? (deltaDeg - a.deltaDeg) / gap : 0;
-      return a.timeSec + (b.timeSec - a.timeSec) * f;
+      best = Math.min(best, a.timeSec + (b.timeSec - a.timeSec) * f);
     }
   }
-  return Number.NaN;
+  return Number.isFinite(best) ? best : Number.NaN;
 }
 
 export interface ShadowZone {
@@ -409,8 +451,9 @@ export function peakGroundAcceleration(mw: number, distanceKm: number): number {
 
 /** Modified Mercalli intensity (I–XII) from PGA using a Worden-style fit. */
 export function mercalliFromPga(pgaG: number): number {
-  const pga = Math.max(pgaG, 1e-5);
-  const mmi = 3.66 * Math.log10(pga * 100) - 1.66;
+  // The relation expects PGA in cm/s²: 1 g = 980.665 cm/s².
+  const pga = Math.max(pgaG, 1e-8) * 980.665;
+  const mmi = 3.66 * Math.log10(pga) - 1.66;
   return Math.max(1, Math.min(12, mmi));
 }
 
@@ -509,17 +552,96 @@ export function beachballGrid(strikeDeg: number, dipDeg: number, rakeDeg: number
 
 /**
  * Nodal-plane strikes/dips from the same tensor (two orthogonal planes).
- * Returned for the annotating legend; the drawing itself uses the polarity
- * grid so it stays correct even for oblique mechanisms.
+ * Derived from the P/T eigenvectors: the two nodal-plane normals are
+ * (T ± P)/√2, i.e. the planes bisect the principal axes (Aki & Richards).
  */
 export function nodalPlanes(strikeDeg: number, dipDeg: number, rakeDeg: number): Array<{ strike: number; dip: number }> {
-  const s = ((strikeDeg % 360) + 360) % 360;
-  const d = dipDeg;
-  const auxStrike = (s + 90 + Math.atan2(Math.sin((rakeDeg * Math.PI) / 180), Math.cos((rakeDeg * Math.PI) / 180)) * (180 / Math.PI)) % 360;
-  return [
-    { strike: s, dip: d },
-    { strike: (auxStrike + 360) % 360, dip: Math.max(5, Math.min(90, 90 - d * 0.15)) },
+  const m = momentTensor(strikeDeg, dipDeg, rakeDeg);
+  const A = [
+    [m[0], m[3], m[4]],
+    [m[3], m[1], m[5]],
+    [m[4], m[5], m[2]],
   ];
+  const eig = jacobiSym3(A);
+  // Columns of V are eigenvectors; order by eigenvalue: max = T, min = P.
+  const order = [0, 1, 2].sort((a, b) => eig.values[b]! - eig.values[a]!);
+  const vec = (col: number): [number, number, number] => [
+    eig.vectors[0]![col]!,
+    eig.vectors[1]![col]!,
+    eig.vectors[2]![col]!,
+  ];
+  const T = vec(order[0]!);
+  const P = vec(order[2]!);
+  const planeFromNormal = (n: [number, number, number]): { strike: number; dip: number } => {
+    // n = (east, north, up). Strike is 90° clockwise from the horizontal
+    // normal; dip = acos(|vertical component|).
+    const s = ((Math.atan2(-n[1], n[0]) * 180) / Math.PI + 360) % 360;
+    const dip = (Math.acos(Math.min(1, Math.abs(n[2]))) * 180) / Math.PI;
+    return { strike: s, dip: Math.max(0, Math.min(90, dip)) };
+  };
+  const n1: [number, number, number] = [
+    (T[0] + P[0]) / Math.SQRT2,
+    (T[1] + P[1]) / Math.SQRT2,
+    (T[2] + P[2]) / Math.SQRT2,
+  ];
+  const n2: [number, number, number] = [
+    (T[0] - P[0]) / Math.SQRT2,
+    (T[1] - P[1]) / Math.SQRT2,
+    (T[2] - P[2]) / Math.SQRT2,
+  ];
+  const planes = [planeFromNormal(n1), planeFromNormal(n2)];
+  // Keep the user-supplied plane first for a stable legend.
+  const target = { strike: ((strikeDeg % 360) + 360) % 360, dip: dipDeg };
+  const dist = (p: { strike: number; dip: number }): number => {
+    const ds = Math.min(Math.abs(p.strike - target.strike), 360 - Math.abs(p.strike - target.strike));
+    return ds + Math.abs(p.dip - target.dip);
+  };
+  planes.sort((a, b) => dist(a) - dist(b));
+  return planes;
+}
+
+/** Jacobi eigen-decomposition of a symmetric 3×3 matrix. */
+function jacobiSym3(input: number[][]): { values: number[]; vectors: number[][] } {
+  const a = input.map((row) => row.slice());
+  const v = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ];
+  for (let sweep = 0; sweep < 32; sweep += 1) {
+    let off = 0;
+    for (let p = 0; p < 2; p += 1) for (let q = p + 1; q < 3; q += 1) off += a[p]![q]! * a[p]![q]!;
+    if (off < 1e-24) break;
+    for (let p = 0; p < 2; p += 1) {
+      for (let q = p + 1; q < 3; q += 1) {
+        const apq = a[p]![q]!;
+        if (Math.abs(apq) < 1e-18) continue;
+        const theta = (a[q]![q]! - a[p]![p]!) / (2 * apq);
+        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const c = 1 / Math.sqrt(t * t + 1);
+        const s = t * c;
+        for (let k = 0; k < 3; k += 1) {
+          const akp = a[k]![p]!;
+          const akq = a[k]![q]!;
+          a[k]![p] = c * akp - s * akq;
+          a[k]![q] = s * akp + c * akq;
+        }
+        for (let k = 0; k < 3; k += 1) {
+          const apk = a[p]![k]!;
+          const aqk = a[q]![k]!;
+          a[p]![k] = c * apk - s * aqk;
+          a[q]![k] = s * apk + c * aqk;
+        }
+        for (let k = 0; k < 3; k += 1) {
+          const vkp = v[k]![p]!;
+          const vkq = v[k]![q]!;
+          v[k]![p] = c * vkp - s * vkq;
+          v[k]![q] = s * vkp + c * vkq;
+        }
+      }
+    }
+  }
+  return { values: [a[0]![0]!, a[1]![1]!, a[2]![2]!], vectors: v };
 }
 
 // --------------------------------------------------------------------------

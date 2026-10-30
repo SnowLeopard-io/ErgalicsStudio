@@ -327,8 +327,16 @@ export interface Encoded {
  * One-hot encode categoricals, drop constant columns (variance threshold),
  * rank the survivors by |Pearson correlation with the target| and keep the
  * top MAX_FEATURES, then z-score standardize the kept columns.
+ *
+ * When `trainIdx` is supplied, feature ranking and the standardisation
+ * statistics are computed from those rows only and then applied to every row.
+ * Cross-validation passes the fold's training indices here so selection and
+ * scaling cannot see the held-out labels (feature-selection leakage).
  */
-export function encodeAndSelect(p: Prepared): Encoded {
+export function encodeAndSelect(p: Prepared, trainIdx?: number[]): Encoded {
+  const useIdx = trainIdx && trainIdx.length > 1 ? trainIdx : null;
+  const pick = (values: number[]): number[] =>
+    useIdx ? useIdx.map((i) => values[i] ?? 0) : values;
   const cols: EncodedColumn[] = [];
   const onehot: Record<string, string[]> = {};
   for (const f of p.numeric) {
@@ -348,19 +356,19 @@ export function encodeAndSelect(p: Prepared): Encoded {
   }
 
   // Variance threshold: constant columns carry no information.
-  const kept = cols.filter((c) => varianceOf(c.values) >= VAR_MIN);
+  const kept = cols.filter((c) => varianceOf(pick(c.values)) >= VAR_MIN);
 
   // Correlation-with-target ranking (deterministic tie-break by name).
   const scored = kept
-    .map((c) => ({ col: c, corr: Math.abs(pearson(c.values, p.y)) }))
+    .map((c) => ({ col: c, corr: Math.abs(pearson(pick(c.values), pick(p.y))) }))
     .sort((a, b) => b.corr - a.corr || a.col.name.localeCompare(b.col.name));
   const selected = scored.slice(0, MAX_FEATURES).map((s) => s.col);
 
-  // z-score standardization in place.
+  // z-score standardization using training statistics only.
   for (const c of selected) {
-    const m = meanOf(c.values);
-    const sd = stdOf(c.values);
-    c.mean = c.mean ?? m;
+    const m = meanOf(pick(c.values));
+    const sd = stdOf(pick(c.values));
+    c.mean = m;
     c.std = sd < 1e-9 ? 1 : sd;
     c.values = c.values.map((v) => (v - m) / c.std!);
   }
@@ -1008,11 +1016,12 @@ interface CandidateScore {
   aux: number | null;
 }
 
-/** K-fold CV of one (family, params) candidate. */
+/** K-fold CV of one (family, params) candidate. Each fold is encoded and
+ *  standardized on its own training rows (see `encodeAndSelect`). */
 function evaluateCandidate(
   family: ModelFamily,
   params: Record<string, number>,
-  X: number[][],
+  foldEncs: Encoded[],
   y: number[],
   task: Task,
   nClasses: number,
@@ -1024,6 +1033,7 @@ function evaluateCandidate(
   const auxes: number[] = [];
   for (let fi = 0; fi < splits.length; fi += 1) {
     const split = splits[fi]!;
+    const X = foldEncs[fi]!.matrix;
     const Xtr = gatherRows(X, split.trainIdx);
     const ytr = gatherVals(y, split.trainIdx);
     const Xte = gatherRows(X, split.testIdx);
@@ -1170,6 +1180,8 @@ export function runAutoML(text: string, opts: AutoMLOptions): AutoMLResult {
   const rng = mulberry32(Math.max(1, Math.round(opts.seed)) >>> 0);
   const folds = Math.min(Math.max(2, Math.round(opts.folds)), 10, Math.max(2, Math.floor(n / 2)));
   const splits = kFolds(n, folds, rng);
+  // Fold-local encoding: selection + standardization use training rows only.
+  const foldEncs = splits.map((s) => encodeAndSelect(prepared, s.trainIdx));
 
   const applicable = familiesFor(task);
   const requested = opts.selection;
@@ -1203,7 +1215,7 @@ export function runAutoML(text: string, opts: AutoMLOptions): AutoMLResult {
         truncated = true;
         break;
       }
-      const score = evaluateCandidate(fam, cfg, enc.matrix, enc.y, task, nClasses, splits, knnCache);
+      const score = evaluateCandidate(fam, cfg, foldEncs, enc.y, task, nClasses, splits, knnCache);
       const cur = bestPerFamily.get(fam);
       const better =
         cur === undefined ||

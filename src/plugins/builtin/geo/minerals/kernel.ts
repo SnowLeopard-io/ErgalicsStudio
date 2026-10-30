@@ -118,13 +118,13 @@ export const MINERALS: readonly Mineral[] = [
   {
     id: 'calcite', name: 'Calcite', nameZh: '方解石', formula: 'CaCO₃', class: 'carbonate', group: 'carbonate', groupZh: '碳酸盐',
     hardness: 3, cleavage: 'perfect rhombohedral', cleavageZh: '菱面体完全解理', luster: 'vitreous', streak: 'white', streakZh: '白色',
-    sg: 2.71, crystalSystem: 'hexagonal', birefringence: 0.172, relief: 'low', color: 'colourless / white', colorZh: '无色 / 白',
+    sg: 2.71, crystalSystem: 'hexagonal', birefringence: 0.172, relief: 'high', color: 'colourless / white', colorZh: '无色 / 白',
     opticalSign: '-', notes: 'Extreme birefringence produces high-order white interference; fizzes in acid.', notesZh: '极高双折射率导致高级白干涉色；遇酸起泡。',
   },
   {
     id: 'dolomite', name: 'Dolomite', nameZh: '白云石', formula: 'CaMg(CO₃)₂', class: 'carbonate', group: 'carbonate', groupZh: '碳酸盐',
     hardness: 3.5, cleavage: 'perfect rhombohedral', cleavageZh: '菱面体完全解理', luster: 'vitreous', streak: 'white', streakZh: '白色',
-    sg: 2.86, crystalSystem: 'hexagonal', birefringence: 0.179, relief: 'low', color: 'white / grey / pink', colorZh: '白 / 灰 / 粉',
+    sg: 2.86, crystalSystem: 'hexagonal', birefringence: 0.179, relief: 'high', color: 'white / grey / pink', colorZh: '白 / 灰 / 粉',
     opticalSign: '-', notes: 'Similar to calcite but with curved crystal faces and weaker acid reaction.', notesZh: '与方解石相似，但晶面弯曲，酸反应较弱。',
   },
   {
@@ -142,7 +142,7 @@ export const MINERALS: readonly Mineral[] = [
   {
     id: 'fluorite', name: 'Fluorite', nameZh: '萤石', formula: 'CaF₂', class: 'halide', group: 'halide', groupZh: '卤化物',
     hardness: 4, cleavage: 'perfect octahedral', cleavageZh: '八面体完全解理', luster: 'vitreous', streak: 'white', streakZh: '白色',
-    sg: 3.18, crystalSystem: 'cubic', birefringence: 0, relief: 'low', color: 'purple / green / blue', colorZh: '紫 / 绿 / 蓝',
+    sg: 3.18, crystalSystem: 'cubic', birefringence: 0, relief: 'high', color: 'purple / green / blue', colorZh: '紫 / 绿 / 蓝',
     opticalSign: 'none', notes: 'Isotropic; strong fluorescence under UV (the name source).', notesZh: '均质体；紫外光下强荧光（名称来源）。',
   },
   {
@@ -369,11 +369,24 @@ export function crystalSystemFromCell(cell: UnitCell): CrystalSystem {
   const ang = (x: number, target: number, tol = 0.8) => Math.abs(x - target) <= tol;
   const { a, b, c, alpha, beta, gamma } = cell;
   const allAngles90 = ang(alpha, 90) && ang(beta, 90) && ang(gamma, 90);
-  if (allAngles90 && eq(a, b) && eq(b, c)) return 'cubic';
+  if (allAngles90) {
+    if (eq(a, b) && eq(b, c)) return 'cubic';
+    // Two equal axes: tetragonal is the conventional assignment. (Strictly,
+    // orthorhombic requires all three axes distinct, so a two-equal-axis cell
+    // cannot be orthorhombic.)
+    if (eq(a, b) || eq(b, c) || eq(a, c)) return 'tetragonal';
+    return 'orthorhombic';
+  }
+  // Hexagonal setting: a = b, γ = 120°, α = β = 90°.
   if (ang(alpha, 90) && ang(beta, 90) && ang(gamma, 120) && eq(a, b)) return 'hexagonal';
-  if (allAngles90 && eq(a, b) && !eq(b, c)) return 'tetragonal';
-  if (allAngles90 && !eq(a, b) && !eq(b, c) && !eq(a, c)) return 'orthorhombic';
-  if (ang(alpha, 90) && ang(gamma, 90) && !ang(beta, 90)) return 'monoclinic';
+  // Rhombohedral/trigonal cell folded into hexagonal (no separate trigonal type):
+  // a = b = c with α = β = γ ≠ 90°.
+  if (eq(a, b) && eq(b, c) && ang(alpha, beta) && ang(beta, gamma) && !ang(alpha, 90)) {
+    return 'hexagonal';
+  }
+  const n90 = [ang(alpha, 90), ang(beta, 90), ang(gamma, 90)].filter(Boolean).length;
+  // Monoclinic: exactly one oblique angle, in any of the three settings.
+  if (n90 === 2) return 'monoclinic';
   return 'triclinic';
 }
 

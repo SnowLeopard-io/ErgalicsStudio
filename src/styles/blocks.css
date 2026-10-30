@@ -695,11 +695,9 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  /* Floating pill — sits over the dot grid */
+  /* Solid floating bar — no glassmorphism, instrument panel instead. */
   margin: 12px 12px 0 12px;
-  background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow:
@@ -710,10 +708,11 @@
 }
 
 :root[data-theme='dark'] .block-editor-toolbar {
-  background: rgba(15, 20, 27, 0.72);
+  background: rgba(18, 24, 32, 0.92);
 }
 
-/* Run / Stop — primary pill with gradient + glow */
+/* Run / Stop — solid instrument key: flat accent, single shadow, no
+   gradient and no glow. */
 .be-run-btn {
   display: inline-flex;
   align-items: center;
@@ -722,25 +721,19 @@
   padding: 0 14px;
   border: none;
   border-radius: 9px;
-  background: linear-gradient(135deg, #14b8a6 0%, #0e9384 60%, #0a7e72 100%);
+  background: var(--color-accent);
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow:
-    0 1px 2px rgba(20, 184, 166, 0.18),
-    0 4px 12px -2px rgba(20, 184, 166, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   transition: transform 120ms ease, box-shadow 200ms ease, filter 200ms ease;
 }
 
 .be-run-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 2px 4px rgba(20, 184, 166, 0.22),
-    0 8px 18px -2px rgba(20, 184, 166, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--color-accent-hover);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 .be-run-btn:active:not(:disabled) {
@@ -793,9 +786,9 @@
 }
 
 .be-status-pill.is-running {
-  background: rgba(45, 212, 191, 0.12);
-  color: #5eead4;
-  border-color: rgba(45, 212, 191, 0.4);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
 }
 
 .be-status-pill.is-error {
@@ -1015,10 +1008,7 @@
   position: relative;
   border-radius: 12px;
   border: 1px solid var(--color-border);
-  background:
-    radial-gradient(circle at 30% 30%, rgba(45, 212, 191, 0.10), transparent 55%),
-    radial-gradient(circle at 70% 70%, rgba(99, 102, 241, 0.08), transparent 55%),
-    var(--color-bg-secondary);
+  background: var(--color-bg-secondary);
   overflow: hidden;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06),
@@ -1042,7 +1032,6 @@
   padding: 3px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-bg-primary) 70%, transparent);
-  backdrop-filter: blur(6px);
 }
 
 .block-editor-preview-label::before {
@@ -1051,7 +1040,6 @@
   height: 5px;
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 6px var(--color-accent);
 }
 
 .block-editor-preview-dom {
@@ -1215,8 +1203,8 @@
 }
 
 .editor-var-icon.is-scalar {
-  background: rgba(45, 212, 191, 0.14);
-  color: #5eead4;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
 }
 
 .editor-var-icon.is-table {

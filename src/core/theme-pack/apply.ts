@@ -42,7 +42,7 @@ const BASE_FONT_SIZES: Readonly<Record<string, number>> = {
   '--font-size-sm': 12,
   '--font-size-base': 13.5,
   '--font-size-md': 15,
-  '--font-size-lg': 19,
+  '--font-size-lg': 21,
   '--font-size-xl': 26,
   '--font-size-hero': 44,
 };

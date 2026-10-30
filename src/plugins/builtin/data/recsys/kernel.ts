@@ -160,7 +160,25 @@ export function parseRatingsCsv(text: string): RatingsDataset {
     ratings.push({ u, i, r });
   }
 
-  if (ratings.length === 0) throw new Error('No parsable "user,item,rating" rows found');
+  // Duplicate (user,item) rows are merged (mean rating) so the same pair can
+  // never land in both the training and the held-out split.
+  const merged = new Map<string, { u: number; i: number; sum: number; n: number }>();
+  for (const row of ratings) {
+    const key = `${row.u},${row.i}`;
+    const cur = merged.get(key);
+    if (cur) {
+      cur.sum += row.r;
+      cur.n += 1;
+    } else {
+      merged.set(key, { u: row.u, i: row.i, sum: row.r, n: 1 });
+    }
+  }
+  const uniqueRatings: Rating[] = [...merged.values()].map((m) => ({
+    u: m.u,
+    i: m.i,
+    r: m.sum / m.n,
+  }));
+  if (uniqueRatings.length === 0) throw new Error('No parsable "user,item,rating" rows found');
   const itemFeatures = featSum.map((sums, i) => {
     const cntRow = featCnt[i]!;
     return sums.map((s, f) => (cntRow[f]! > 0 ? s / cntRow[f]! : 0));
@@ -172,7 +190,7 @@ export function parseRatingsCsv(text: string): RatingsDataset {
     itemLabel,
     featureNames,
     itemFeatures,
-    ratings,
+    ratings: uniqueRatings,
   };
 }
 
@@ -765,14 +783,16 @@ function buildPredictor(
  * NDCG@K of a ranked list of binary relevance flags. Exported so the
  * plugin's benchmark can sanity-check the metric implementation itself.
  */
-export function computeNdcg(hitFlags: boolean[], k: number): number {
+export function computeNdcg(hitFlags: boolean[], k: number, totalRelevant?: number): number {
   const kk = Math.max(1, Math.floor(k));
   let dcg = 0;
   for (let pos = 0; pos < Math.min(kk, hitFlags.length); pos += 1) {
     if (hitFlags[pos]) dcg += 1 / Math.log2(pos + 2);
   }
-  let rel = 0;
-  for (const h of hitFlags) if (h) rel += 1;
+  // IDCG@K is Σ_{i=1}^{min(K, |R_u|)} 1/log2(i+1), where |R_u| is the size of
+  // the full held-out relevant set — not the number of hits found. Building the
+  // ideal list from hits would shrink the denominator whenever recall is poor.
+  const rel = totalRelevant ?? hitFlags.reduce((n, h) => n + (h ? 1 : 0), 0);
   let ideal = 0;
   for (let pos = 0; pos < Math.min(kk, rel); pos += 1) ideal += 1 / Math.log2(pos + 2);
   return ideal > 0 ? dcg / ideal : 0;
@@ -865,7 +885,7 @@ function evaluate(
     }
     precisionSum += hits / kk;
     recallSum += hits / relevant.size;
-    ndcgSum += computeNdcg(flags, kk);
+    ndcgSum += computeNdcg(flags, kk, relevant.size);
     mapSum += ap / Math.min(kk, relevant.size);
   }
 
