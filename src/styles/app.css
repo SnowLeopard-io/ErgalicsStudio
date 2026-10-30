@@ -749,6 +749,12 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* The 2D pan drag starts here (empty canvas area). Without this the
+     browser's native scroll/gesture recognizer holds pointermove and then
+     fires pointercancel on touch devices, making the drag stutter — the 3D
+     path is unaffected because OrbitControls sets touch-action: none on its
+     own canvas. */
+  touch-action: none;
 }
 
 .central-canvas {
@@ -7635,6 +7641,11 @@
   background: var(--color-bg-elevated);
   overflow-x: auto;
   scrollbar-width: none;
+  /* The strip is both a native horizontal scroller and a JS pointermove drag
+     driver. On touch the two fight over the same gesture and the drag stutters;
+     pan-x lets the native scroller claim the gesture (pointercancel ends the
+     JS drag) while mouse dragging still works. */
+  touch-action: pan-x;
 }
 
 /* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
