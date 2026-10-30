@@ -249,22 +249,37 @@ export function analyseTensile(curve: SSPoint[]): TensileResult | null {
   const fractureStress = fracture.stress;
   const fractureStrain = fracture.strain;
 
-  // 0.2 % offset yield: elastic line shifted by +0.002 strain; find the
-  // intersection with the curve (first crossing after the elastic region).
-  const yieldLineStrain = (i: number) => curve[i]!.strain + 0.002;
-  const yieldLineStress = (i: number) => E_b + E_MPa * yieldLineStrain(i);
+  // 0.2 % offset yield: offset line parallel to the elastic line, shifted
+  // right by 0.002 strain (stress = E_b + E·(ε − 0.002)); the yield point is
+  // where the curve first falls below this line after the elastic region.
+  const offsetLineStress = (strain: number) => E_b + E_MPa * (strain - 0.002);
   let yieldIdx = -1;
   for (let i = eEnd; i < curve.length; i += 1) {
-    // Curve stress vs offset-line stress at same index.
-    const lineStress = yieldLineStress(i);
-    if (curve[i]!.stress >= lineStress) {
+    if (curve[i]!.stress <= offsetLineStress(curve[i]!.strain)) {
       yieldIdx = i;
       break;
     }
   }
-  // Fallback: if the offset never crosses (rare), use the proportional limit.
-  if (yieldIdx < 0) yieldIdx = eEnd;
-  const yieldStrength = curve[yieldIdx]!.stress;
+  let yieldStrength: number;
+  if (yieldIdx > 0) {
+    // Linear interpolation between the last point above the offset line and
+    // the first point below it.
+    const prev = curve[yieldIdx - 1]!;
+    const cur = curve[yieldIdx]!;
+    const dPrev = prev.stress - offsetLineStress(prev.strain);
+    const dCur = cur.stress - offsetLineStress(cur.strain);
+    const span = dPrev - dCur;
+    if (Math.abs(span) > 1e-12 && yieldIdx - 1 >= eStart) {
+      const t = Math.min(1, Math.max(0, dPrev / span));
+      yieldStrength = prev.stress + t * (cur.stress - prev.stress);
+    } else {
+      yieldStrength = cur.stress;
+    }
+  } else {
+    // Fallback: if the curve never falls below the offset line (rare),
+    // use the proportional limit.
+    yieldStrength = curve[eEnd]!.stress;
+  }
 
   // Hollomon: σ = K·ε_p^n on uniform-plastic region [yield, UTS].
   // ε_p = ε_total − σ/E (engineering plastic strain via elastic removal).
