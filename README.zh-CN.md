@@ -83,13 +83,14 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 能力 | 说明 |
 | --- | --- |
 | 工作台外壳 | 顶栏（项目切换 / 模式切换 / 科研启动器）、活动栏、多视图侧栏（文件 / Git / 插件，可调宽可收起）、标签页式中央视口、右侧参数面板、带 GPU/性能指示器的状态栏。 |
-| 文件资源管理器与标签页 | 项目文件树 + 文件信息面板；中央区以标签页承载插件画布、文件预览（文本 / Markdown / 图片 / PDF / 音频 / 视频）、文件编辑器、内嵌科研工具与设置页。 |
+| 文件资源管理器与标签页 | 项目文件树（含文件操作）+ 文件信息面板；中央区以标签页承载插件画布、文件预览（文本 / Markdown / 图片 / PDF / 音频 / 视频）、文件编辑器、内嵌科研工具与设置页。 |
 | 文件编辑器 | `.py` / `.js` / `.r` 用 Monaco 编辑器打开，`*.flow.json` 用流程 DAG 编辑器打开，`*.block.json` 用 Blockly 编辑器打开，均带脏状态与写回工作区的保存；**在模式中打开**桥接可把任意缓冲推入对应完整工作台模式。 |
 | 项目生命周期 | 创建 / 打开 / 保存 / 自动保存 / 分享（`.clproj` 存于 IndexedDB）。 |
 | 文件路由 | 按魔数 + 扩展名把拖入文件路由到匹配插件，多匹配时弹出选择，同名文件替换时先确认；分隔文本解析跳过 `#` 注释行，格式白名单含 `.xy` / `.xye`。 |
 | 中央导出菜单 | 把当前插件画布下载为 PNG（默认约 600 dpi，可选透明底）或保存进项目 `figures/` 工作区目录；3D 插件还可将整个场景导出为 **GLB / STL**（下载，或保存进 `data/` 工作区）；各插件的 CSV 导出按钮保留在参数面板中。 |
 | 2D 与 3D 视口 | 2D canvas 容器（点云 / 时间序列 / 直方图 / 热力图 / 等值线 / 散点 / 柱状 / 雷达 / 网络 / 气泡 / 小提琴 / 桑基 / 箱线 / 平行坐标 / 误差带 / 矩形树 / QQ 图等）+ 宿主管理的 Three.js 3D 场景（按需懒创建、插件间干净清理；ACES 电影级色调映射 + IBL 环境光照）。 |
 | 3D 模型查看器 | GLB / GLTF / STL / OBJ / PLY 导入（Draco 与 meshopt 解码）；着色 / 线框 / 法线 / X-ray 观察模式、剖面、glTF 动画回放、两点测距与视角预设；任意 3D 场景可经中央导出菜单导出为 GLB / STL。 |
+| 命令面板与引导教程 | 全局命令面板（**Ctrl/Cmd+K**）可跳转工具、插件与文件并执行动作；快捷键帮助对话框；工作台与项目模板的首次使用引导教程。 |
 
 **插件系统**
 
@@ -178,7 +179,7 @@ flowchart TB
     end
 
     subgraph State["状态与核心服务"]
-        B1["Zustand stores<br/>app / project / plugin / settings / block"]
+        B1["Zustand stores<br/>app / project / plugin / settings / block<br/>figure / notebook / lineage / 命令面板 / …"]
         B2["核心服务<br/>storage (IndexedDB) · events (bus)<br/>i18n · theming · perf<br/>fileFormat · wasm · gpu<br/>scene3d · sandbox<br/>vfs (工作区文件) · git<br/>research/scienceOutput"]
     end
 
@@ -190,7 +191,7 @@ flowchart TB
     end
 
     subgraph Runtime["运行时层"]
-        C1["插件运行时<br/>builtin/* (112 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
+        C1["插件运行时<br/>builtin/* (148 科学 + 10 趣味)<br/>市场目录<br/>cspkg 加载器 (沙箱)<br/>注册表与生命周期"]
         C2["GPU 计算<br/>gpu.ts 适配器/设备<br/>compute.ts PluginApi.gpu<br/>14 个 WGSL 内核 (wgsl.ts)<br/>CPU 回退"]
     end
 
@@ -219,15 +220,15 @@ flowchart TB
 ```
 .
 ├── src/                      # 前端
-│   ├── core/                 #   47 个子目录 + 39 个根级模块: storage, events, i18n,
+│   ├── core/                 #   47 个子目录 + 39 个根级模块: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
 │   │                         #   chunked, figure, notebook, package, model, signal, sweep,
 │   │                         #   profiler, sql, report, inference, logger, vfs (工作区文件系统),
 │   │                         #   git (版本控制), research (科学输出)
-│   ├── blocks/               #   区块系统 (流程模式): types · registry · compiler ·
-│   │                         #     executor · ops · catalog (57 个区块) · sample · l10n · render
+│   ├── blocks/               #   区块系统 (流程模式): registry · compiler · executor ·
+│   │                         #     ops · catalog (57 个区块) · sample · l10n · render · context · fileData
 │   ├── editor/               #   积木与代码模式: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   流程画布 / 积木与代码画布 / 工作台外壳 /
@@ -243,7 +244,7 @@ flowchart TB
 │   └── native/               #   生成的 WASM 绑定 (git 未跟踪)
 ├── native/ergalics-core/     # Rust 核心，源码交付 (device, compute, utils)
 ├── examples/{data,projects,code}/  # 189 个示例数据、11 个 `.clproj` 工程、9 个 Python 程序
-├── scripts/ · tests/ · docs/ · website/
+├── scripts/ · tests/ · docs/ · website/ · bench/ · templates/ (plugin-starter)
 ```
 
 ---
@@ -262,7 +263,7 @@ flowchart TB
 
 ![积木模式 — "运行"帽子区块启动程序，加载遥测、归一化并绘图](docs/assets/screenshots/platform/mode-block.png)
 
-**代码模式**——真正脚本的 Monaco 编辑器，分段的 **Python / R / JS** 切换器 + 引擎徽章。**Python** 经 Pyodide Web Worker 运行完整 CPython（`studio` 作为可导入模块注入，REPL 单条求值，停止即重启 worker）。**R / JavaScript** 解析为共享 IR，在积木模式同一解释器上执行；R 优先升级到内置完整 webR 运行时，缺失时回退 IR 引擎。切换语言时打开**悬浮预览窗**——Monaco 编辑器展示可编辑的参考翻译——仅在显式**应用**后才替换缓冲，另提供**放弃并清空**与**取消**选项，配 `forceBlank` 守卫保护刚清空的缓冲，并支持一键撤销。三模式经同一份 IR 无缝互转（`flow/block/convert.ts` + `code/parse.ts` + `mergeFlowIR` 合并写回 + 图签名守卫防丢节点），该往返由 `tests/editor/roundtrip-all-langs.test.ts` 固化。含 9 个示例程序，详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。
+**代码模式**——真正脚本的 Monaco 编辑器，分段的 **Python / R / JS** 切换器 + 引擎徽章。**Python** 经 Pyodide Web Worker 运行完整 CPython（`studio` 作为可导入模块注入，REPL 单条求值，停止即重启 worker）。**R / JavaScript** 解析为共享 IR，在积木模式同一解释器上执行；R 优先升级到内置完整 webR 运行时，缺失时回退 IR 引擎。切换语言时打开**悬浮预览窗**——Monaco 编辑器展示可编辑的参考翻译——仅在显式**应用**后才替换缓冲，另提供**放弃并清空**与**取消**选项，配 `forceBlank` 守卫保护刚清空的缓冲，并支持一键撤销。三模式经同一份 IR 无缝互转（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `code/parse.ts` + `mergeFlowIR` 合并写回 + 图签名守卫防丢节点），该往返由 `tests/editor/roundtrip-all-langs.test.ts` 固化。含 9 个示例程序，详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。
 
 ![代码模式 — 支持 Python/R/JavaScript 的 Monaco 编辑器（Python 经 Pyodide）](docs/assets/screenshots/platform/mode-code.png)
 
@@ -840,6 +841,10 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 
 *序列比对与分析：BLOSUM62 打分的 Needleman–Wunsch 全局比对（identity 46.4%）。*
 
+![蛋白质相互作用 — 残基相互作用网络](docs/assets/screenshots/plugins/protein-network.png)
+
+*蛋白质相互作用：残基相互作用网络图。*
+
 **医学与公共卫生**
 
 ![传染病分室模型 — SEIR 流行曲线](docs/assets/screenshots/plugins/bio-epidemic/seir.png)
@@ -849,11 +854,6 @@ Git 面板已交付：分支 + 领先/落后计数、一键提交框（暂存全
 ![药代动力学室分析 — 二室药时曲线与治疗窗](docs/assets/screenshots/plugins/bio-pk.png)
 
 *药代动力学室分析：二室药时曲线与治疗窗叠加。*
-
-**地理**
-![蛋白质相互作用 — 残基相互作用网络](docs/assets/screenshots/plugins/protein-network.png)
-
-*蛋白质相互作用：残基相互作用网络图。*
 
 **地理**
 
@@ -1068,7 +1068,7 @@ npm run test:e2e
 
 `scripts/e2e-run.mjs` 按序运行 11 个脚本（可用 `--parallel <n>` 并行）：`smoke-test`、`verify-ui`、`verify-fixes`、`verify-3d`、`verify-plugins`、`verify-webgpu`、`verify-block-mode`、`verify-code-mode`、`verify-ai-samples`、`verify-ai-training`、`verify-research`。另有 3 个单独运行：`verify-lang-modes`（R/JS 在 IR 引擎上运行与跨模式切换）、`verify-r-runtime`（内置 webR 完整 R 路径）与 `npm run verify:site`（合并部署三界面路径完整性）——共 14 个 E2E 脚本。
 
-CI 由 5 条 GitHub Actions 工作流组成：`ci`、`bench`、`deploy`、`release` 与 `security`。
+CI 由 5 条 GitHub Actions 工作流组成：`ci`、`bench`、`deploy`、`release` 与 `security`。性能基准位于顶层 `bench/` 目录——`npm run bench` 运行、比对并输出报告（`bench:ci` 供 CI 基线使用，`bench:update` 刷新基线文件）。
 
 ---
 
