@@ -53,7 +53,12 @@ interface TeamMember {
   github?: string;
   gitee: string;
   roleKey: 'about.team_lead_role' | 'about.team_dev_role' | 'about.team_dev2_role' | 'about.team_dev3_role';
-  introKey: 'about.team_lead_intro' | 'about.team_dev_intro' | 'about.team_dev2_intro' | 'about.team_dev3_intro';
+  introKey:
+    | 'about.team_lead_intro'
+    | 'about.team_dev_intro'
+    | 'about.team_dev2_intro'
+    | 'about.team_dev3_intro'
+    | 'about.team_zspro_intro';
 }
 
 const TEAM: TeamMember[] = [
@@ -94,7 +99,7 @@ const TEAM: TeamMember[] = [
     github: 'https://github.com/zspro',
     gitee: 'https://gitee.com/yspro',
     roleKey: 'about.team_dev3_role',
-    introKey: 'about.team_dev3_intro',
+    introKey: 'about.team_zspro_intro',
   },
   {
     name: 'skyfireitdiy',
