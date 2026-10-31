@@ -19,12 +19,15 @@ export async function assertPythonRuntimeAssets(indexURL: string): Promise<void>
   }
   let response: Response;
   try {
-    response = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
+    // GET rather than HEAD: the service worker's runtime tier only caches
+    // GET responses (Cache.put rejects anything else), and a HEAD would slip
+    // through to the network and report a false failure when offline. The
+    // body is cancelled right away — only the status matters here.
+    response = await fetch(url, { method: 'GET', cache: 'force-cache' });
+    void response.body?.cancel();
   } catch {
     throw new Error(t('python.runtime.unavailable'));
   }
-  // 405/501: the host serves the file but does not implement HEAD — not a
-  // missing runtime. Anything else non-2xx means the bundle is absent.
-  if (response.ok || response.status === 405 || response.status === 501) return;
+  if (response.ok) return;
   throw new Error(t('python.runtime.unavailable'));
 }
