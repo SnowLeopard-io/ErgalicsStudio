@@ -39,6 +39,7 @@ import {
 import { vectordbManifest } from './manifest';
 import { VECTORDB_SAMPLE_JSON, VECTORDB_SAMPLE_NUMERIC_CSV } from './samples';
 import {
+  EMBED_DIM,
   INDEX_LABELS,
   METRIC_LABELS,
   embedRows,

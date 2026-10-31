@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# math 分布插件（概率分布）源码目录：.gitignore 里的 dist/ 会误伤它，这里收回
+!src/plugins/builtin/math/dist/
 target/
 pkg/
 .native/
