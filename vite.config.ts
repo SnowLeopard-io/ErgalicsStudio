@@ -2,12 +2,21 @@ import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ensurePyodideAssets } from './scripts/copy-pyodide.mjs';
 import { ensureBlocklyMedia } from './scripts/vendor-blockly-media.mjs';
 import { ensureWebRAssets } from './scripts/copy-webr.mjs';
 import { injectSwPrecache } from './scripts/gen-sw-precache.mjs';
+
+// package.json is the single source of truth for the app version. Reading it
+// here (instead of only trusting npm_* env vars) keeps `npx vite` and any
+// non-npm invocation from stamping a stale fallback version into the build.
+const pkgVersion = (
+  JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8')) as {
+    version: string;
+  }
+).version;
 
 // Vendor Pyodide (core + numpy wheel) into public/pyodide so the code-mode
 // Python runtime loads same-origin instead of from cdn.jsdelivr.net. Runs in
@@ -69,7 +78,7 @@ export default defineConfig({
   // Build-injected app version (comes from package.json via npm_* env);
   // consumed by the welcome page instead of a hard-coded constant.
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'),
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? pkgVersion),
     // FR-10: Zenodo DOI minted by the release workflow's archive job. Empty
     // string until a tagged release is archived; the citation card then shows
     // a "pending release archive" placeholder instead of a fake DOI.
