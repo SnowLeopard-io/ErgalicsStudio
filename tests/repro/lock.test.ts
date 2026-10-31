@@ -15,6 +15,7 @@ import {
   type ReproLock,
 } from '@/core/repro/lock';
 import { createRunRecord, type RunRecord } from '@/core/experiment/record';
+import { currentAppVersion } from '@/core/citation';
 import { createEmptyProject, type Project } from '@/types/project';
 
 function makeProject(): Project {
@@ -53,7 +54,7 @@ describe('F6 buildLock', () => {
     expect(lock.runs[0]!.paramsHash).toMatch(/^[0-9a-f]{8}$/);
     expect(lock.runs[0]!.seed).toBe(42);
     expect(lock.runs[0]!.tolerance).toBe(TOLERANCE_CPU);
-    expect(lock.versions.studio).toBe('0.1.0');
+    expect(lock.versions.studio).toBe(currentAppVersion());
   });
 
   it('excludes failed runs and honours the runIds subset', () => {

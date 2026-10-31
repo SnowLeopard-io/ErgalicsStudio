@@ -4,6 +4,7 @@ import { useT } from '@/i18n';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { currentAppVersion } from '@/core/citation';
 import { initGpu } from '@/core/gpu';
 import { wasmStatus } from '@/core/wasm';
 import { storageAvailable } from '@/core/storage';
@@ -22,7 +23,7 @@ import {
   CloseIcon,
 } from '@/components/icons';
 
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
+const APP_VERSION = currentAppVersion();
 
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
