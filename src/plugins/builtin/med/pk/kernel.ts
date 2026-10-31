@@ -215,11 +215,12 @@ export function simulatePk(p: PkParams, tMax: number, dt: number): PkSeries {
 
 // ---- summary metrics ---------------------------------------------------------
 
-/** Slowest exponential rate governing the terminal phase (β for two-compartment). */
+/** Slowest exponential rate governing the terminal phase (β for two-compartment,
+ *  or `ka` when oral absorption is the rate-limiting flip-flop step). */
 export function terminalSlope(p: PkParams): number {
   if (p.model === 'two-compartment') {
     const { beta } = macroRates(p.ke, p.k12, p.k21);
-    return beta;
+    return p.route === 'oral' ? Math.min(beta, p.ka) : beta;
   }
   return p.route === 'oral' ? Math.min(p.ke, p.ka) : p.ke;
 }

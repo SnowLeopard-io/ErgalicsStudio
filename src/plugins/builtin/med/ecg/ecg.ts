@@ -266,7 +266,7 @@ export function parseHeaHeader(text: string): WfdbHeader | null {
         break;
       }
       const next = tok[i + 1];
-      if (next !== undefined && /^\d/.test(next)) {
+      if (next !== undefined && /^[+-]?\d/.test(next)) {
         // Traditional `gain baseline` column pair.
         gain = Number.parseFloat(raw);
         baseline = Number.parseFloat(next);

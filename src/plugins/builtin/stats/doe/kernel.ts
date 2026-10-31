@@ -224,7 +224,8 @@ export function fitDoe(dataset: DoeDataset, order: 1 | 2 = 2): DoeFit | null {
       ms,
       f,
       p: 1 - fCdf(f, df, full.df),
-      eta2: sst > 0 ? ss / sst : 0,
+      // Partial η² for this term: ss / (ss + residual SSE of the full model).
+      eta2: ss + full.sse > 0 ? ss / (ss + full.sse) : 0,
     });
   }
   // Block effect (when present) is reported as a separate pooled term.

@@ -185,7 +185,10 @@ export function welch(
   const psd = new Float64Array(half);
   const freqs = new Float64Array(half);
   for (let k = 0; k < half; k += 1) {
-    psd[k] = acc[k]! / segments;
+    // One-sided PSD: fold the negative-frequency power into the interior bins.
+    // DC and (for even nfft) Nyquist are counted once.
+    const factor = k === 0 || (nfft % 2 === 0 && k === half - 1) ? 1 : 2;
+    psd[k] = (factor * acc[k]!) / segments;
     freqs[k] = (k * sampleRate) / nfft;
   }
   return { freqs, psd, nfft, segments };

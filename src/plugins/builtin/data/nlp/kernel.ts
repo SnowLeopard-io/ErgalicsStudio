@@ -89,7 +89,7 @@ export function stem(word: string): string {
 // Surface tokens: lowercased word tokens, nothing removed (used by sentiment,
 // where negation words such as "not" must survive).
 
-const TOKEN_RE = /[\p{L}\p{N}][\p{L}\p{N}'’\-]*/gu;
+const TOKEN_RE = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
 const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
 
 interface ScriptSegment {
@@ -509,7 +509,8 @@ export function runLda(
       nt[old] = (nt[old] ?? 0) - 1;
       let sum = 0;
       for (let kk = 0; kk < K; kk += 1) {
-        const p = (nwt[kk * V + w]! + beta) * (ndt[d * K + kk]! + alpha);
+        const p =
+          ((nwt[kk * V + w]! + beta) * (ndt[d * K + kk]! + alpha)) / (nt[kk]! + beta * V);
         prob[kk] = p;
         sum += p;
       }
@@ -920,7 +921,7 @@ const SKIP_WORDS = new Set([
   'before', 'during', 'not', 'no', 'there', 'then', 'than', 'so', 'how', 'why',
 ]);
 
-const SURFACE_TOKEN_RE = /[\p{L}\p{N}][\p{L}\p{N}'’\-]*/gu;
+const SURFACE_TOKEN_RE = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
 
 function classifyRun(tokens: string[]): EntityType {
   const last = (tokens[tokens.length - 1] ?? '').toLowerCase();

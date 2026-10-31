@@ -83,33 +83,41 @@ function fnv1a(s: string): number {
 
 /**
  * Hashing-trick bag-of-words embedding of a short text: unigrams are hashed
- * into `dim` buckets (counts), then the vector is L2-normalized, so cosine
- * distance reduces to `1 - dot`.
+ * into `dim` buckets (counts). The vector is L2-normalized only for cosine
+ * search, where normalization is part of the metric; Euclidean and inner
+ * product search keep the raw counts (magnitude carries information).
  */
-export function embedText(text: string, dim = EMBED_DIM): number[] {
+export function embedText(text: string, dim = EMBED_DIM, metric: Metric = 'cosine'): number[] {
   const counts = new Array<number>(dim).fill(0);
   const tokens = text.toLowerCase().split(/[^a-z0-9']+/).filter((t) => t.length > 1);
   for (const tok of tokens) counts[fnv1a(tok) % dim]! += 1;
-  return l2normalize(counts);
+  return metric === 'cosine' ? l2normalize(counts) : counts;
 }
 
-/** Embed numeric feature rows: each row L2-normalized. */
-export function embedRows(rows: number[][]): number[][] {
-  return rows.map((r) => l2normalize(r.slice()));
+/** Embed numeric feature rows; normalize only for the cosine metric. */
+export function embedRows(rows: number[][], metric: Metric = 'cosine'): number[][] {
+  return rows.map((r) => (metric === 'cosine' ? l2normalize(r.slice()) : r.slice()));
 }
 
 /**
- * Distance function per metric. Cosine assumes unit-norm inputs (all
- * embeddings here are L2-normalized), where it equals `1 - dot`. Inner
- * product is reported as a "distance" via negation so smaller is always
- * better, keeping top-k semantics uniform across metrics.
+ * Distance function per metric. Cosine is scale-invariant and divides by the
+ * norms, so it is correct for both normalized and raw vectors. Inner product
+ * is reported as a "distance" via negation so smaller is always better,
+ * keeping top-k semantics uniform across metrics.
  */
 export function makeDistance(metric: Metric): (a: number[], b: number[]) => number {
   if (metric === 'cosine') {
     return (a, b) => {
-      let d = 0;
-      for (let i = 0; i < a.length; i += 1) d += a[i]! * b[i]!;
-      return 1 - d;
+      let dot = 0;
+      let na = 0;
+      let nb = 0;
+      for (let i = 0; i < a.length; i += 1) {
+        dot += a[i]! * b[i]!;
+        na += a[i]! * a[i]!;
+        nb += b[i]! * b[i]!;
+      }
+      const denom = Math.sqrt(na * nb);
+      return denom < 1e-12 ? 1 : 1 - dot / denom;
     };
   }
   if (metric === 'dot') {
@@ -497,7 +505,7 @@ interface MatVec {
 /** Power iteration for the leading eigenvector; seeded start, fixed sign. */
 function powerIterate(op: MatVec, rng: Rng, iters = 150): number[] {
   let v = Array.from({ length: op.d }, () => gaussian(rng));
-  let norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
   if (norm < 1e-12) {
     v = new Array<number>(op.d).fill(0);
     if (op.d > 0) v[0] = 1;
@@ -506,7 +514,7 @@ function powerIterate(op: MatVec, rng: Rng, iters = 150): number[] {
   v = v.map((x) => x / norm);
   for (let it = 0; it < iters; it += 1) {
     const w = op.apply(v);
-    let wn = Math.sqrt(w.reduce((s, x) => s + x * x, 0));
+    const wn = Math.sqrt(w.reduce((s, x) => s + x * x, 0));
     if (wn < 1e-12) break; // deflated to zero: keep current v
     w.forEach((x, i) => (w[i] = x / wn));
     let delta = 0;

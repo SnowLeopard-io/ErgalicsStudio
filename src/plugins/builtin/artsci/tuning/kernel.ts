@@ -86,8 +86,8 @@ export const TUNINGS: Record<TuningId, TuningDef> = {
       R(16, 9),
       R(243, 128),
     ],
-    noteEn: 'Stacked pure 3/2 fifths; wolf fifth (729/512 diminished sixth) between G♯ and E♭.',
-    noteZh: '连续叠置纯 3/2 五度；G♯ 与 E♭ 之间留下 729/512 的“狼五度”。',
+    noteEn: 'Stacked pure 3/2 fifths; the wolf fifth (1024/729, ≈678.5¢, a diminished sixth) lies between G♯ and E♭.',
+    noteZh: '连续叠置纯 3/2 五度；G♯ 与 E♭ 之间留下 1024/729（约 678.5 音分，减六度）的“狼五度”。',
   },
   meantone: {
     id: 'meantone',

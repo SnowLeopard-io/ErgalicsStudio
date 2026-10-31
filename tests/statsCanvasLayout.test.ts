@@ -212,7 +212,7 @@ describe('timeseries correlograms clamp bars and print panel titles once', () =>
     const bars = calls
       .filter((c) => c.op === 'fillRect')
       .map((c) => c.args as number[])
-      .filter(([x, y, w, h]) => (y as number) > H * 0.5 && (h as number) > 0 && (w as number) < 40);
+      .filter(([, y, w, h]) => (y as number) > H * 0.5 && (h as number) > 0 && (w as number) < 40);
     expect(bars.length).toBeGreaterThan(0);
     for (const [x, , w] of bars) {
       expect(x!).toBeGreaterThanOrEqual(61);
@@ -240,7 +240,8 @@ describe('range sliders recompute their models', () => {
     plugin.updateParams({ horizon: 30 });
     const result = (plugin as unknown as { result: { forecast: unknown[] } }).result!;
     expect(result.forecast).toHaveLength(30);
-    expect(plugin.getParams().find((p) => p.key === 'horizon')?.value).toBe(30);
+    const horizon = plugin.getParams().find((p) => p.key === 'horizon');
+    expect(horizon && 'value' in horizon ? horizon.value : undefined).toBe(30);
   });
 
   it('timeseries period changes the decomposition', async () => {
@@ -263,6 +264,7 @@ describe('range sliders recompute their models', () => {
     expect(mid.labels.length).toBe(before.length);
     expect(mid.labels.join(',')).not.toBe(before.join(','));
     plugin.updateParams({ minPts: 8 });
-    expect(plugin.getParams().find((p) => p.key === 'minPts')?.value).toBe(8);
+    const minPts = plugin.getParams().find((p) => p.key === 'minPts');
+    expect(minPts && 'value' in minPts ? minPts.value : undefined).toBe(8);
   });
 });

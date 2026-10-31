@@ -369,8 +369,15 @@ export function binaryTwoGroup(events1: number, n1: number, events2: number, n2:
   const se = Math.sqrt((rate1 * (1 - rate1)) / n1 + (rate2 * (1 - rate2)) / n2);
   const z = se > 0 ? (rate1 - rate2) / se : 0;
   const { chi2, p } = chi2_2x2(events1, b, events2, d);
-  const odds1 = events1 / Math.max(b, 1);
-  const odds2 = events2 / Math.max(d, 1);
+  // Zero cells: OR/RR are infinite/zero rather than fabricated by max(...,1).
+  const hasZero = b === 0 || d === 0;
+  const or = !hasZero
+    ? (events1 * d) / (b * events2)
+    : b === 0 && d === 0
+      ? Number.NaN
+      : b === 0
+        ? Number.POSITIVE_INFINITY
+        : 0;
   return {
     n1,
     n2,
@@ -384,8 +391,8 @@ export function binaryTwoGroup(events1: number, n1: number, events2: number, n2:
     chi2,
     p,
     fisherP: fisherExact2x2(events1, b, events2, d),
-    rr: rate2 > 0 ? rate1 / rate2 : NaN,
-    or: odds2 > 0 ? odds1 / odds2 : NaN,
+    rr: rate2 > 0 ? rate1 / rate2 : rate1 > 0 ? Number.POSITIVE_INFINITY : Number.NaN,
+    or,
   };
 }
 
@@ -784,7 +791,7 @@ export function aeSignalTable(rows: AeRow[]): AeSignalRow[] {
     const prrC = otherTotals > 0 ? c / otherTotals : 0;
     const prr = prrC > 0 ? prrT / prrC : prrT > 0 ? Infinity : 0;
     const { chi2, p } = chi2_2x2(a, b, c, d);
-    out.push({ ...r, rate, prr, chi2, p, signal: prr >= 2 && chi2 >= 4 });
+    out.push({ ...r, rate, prr, chi2, p, signal: r.cases >= 3 && prr >= 2 && chi2 >= 4 });
   }
   return out;
 }

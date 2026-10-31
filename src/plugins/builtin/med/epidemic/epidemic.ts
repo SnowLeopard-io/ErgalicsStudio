@@ -170,6 +170,9 @@ export function reportEpidemic(cfg: ModelConfig, traj: Trajectory): EpidemicRepo
   }
   const lastRec = traj.recovered[traj.recovered.length - 1]!;
   const lastSus = traj.susceptible[traj.susceptible.length - 1]!;
+  // Cumulative attack rate = fraction ever infected = 1 − S(t)/N. Using only
+  // the recovered compartment omits cases still in E/I at the final time.
+  const everInfected = Math.max(0, Math.min(1, 1 - lastSus / N));
   const herd = cfg.r0 > 1 ? 1 - 1 / cfg.r0 : 0;
   return {
     peakInfectious: peakInf,
@@ -177,10 +180,10 @@ export function reportEpidemic(cfg: ModelConfig, traj: Trajectory): EpidemicRepo
     peakFraction: peakInf / N,
     finalRecoveredFraction: lastRec / N,
     finalSusceptibleFraction: lastSus / N,
-    totalCasesFraction: lastRec / N,
+    totalCasesFraction: everInfected,
     r0: cfg.r0,
     herdImmunityFraction: herd,
-    attackRateFraction: lastRec / N,
+    attackRateFraction: everInfected,
   };
 }
 
@@ -219,7 +222,7 @@ export function conservationDrift(traj: Trajectory, pop: number): number {
 export interface EarlyGrowth {
   /** Fitted exponential growth rate r = d(ln I)/dt (per day). */
   growthRate: number;
-  /** R_t ≈ 1 + r·D_infectious (SIR early-growth approximation). */
+  /** R_t from the early-growth relation (SEIR includes the latent delay). */
   rt: number;
   /** Number of log-slope points used. */
   points: number;
@@ -256,7 +259,12 @@ export function earlyGrowthRt(cfg: ModelConfig, traj: Trajectory): EarlyGrowth |
   }
   const denom = n * sxx - sx * sx;
   const r = Math.abs(denom) < 1e-30 ? 0 : (n * sxy - sx * sy) / denom;
-  return { growthRate: r, rt: 1 + r * cfg.infectiousDays, points: n };
+  // SIR: R = 1 + r/γ. SEIR adds the latent delay: R = (1 + r/γ)(1 + r/σ).
+  const rt =
+    cfg.model === 'SEIR'
+      ? (1 + r * cfg.infectiousDays) * (1 + r * cfg.latentDays)
+      : 1 + r * cfg.infectiousDays;
+  return { growthRate: r, rt, points: n };
 }
 
 export interface FinalSizeCheck {
@@ -277,7 +285,9 @@ export function finalSizeCheck(cfg: ModelConfig, traj: Trajectory): FinalSizeChe
   const N = Math.max(1, cfg.population);
   const sInf = traj.susceptible[traj.susceptible.length - 1]! / N;
   if (sInf <= 0 || sInf >= 1) return null;
-  const lhs = -Math.log(sInf);
+  const s0 = Math.max(1e-12, traj.susceptible[0]! / N);
+  // Final-size relation: −ln(s∞/s0) = R₀(1 − s∞).
+  const lhs = -Math.log(sInf / s0);
   const rhs = cfg.r0 * (1 - sInf);
   return { lhs, rhs, relErr: Math.abs(lhs - rhs) / Math.abs(lhs) };
 }
@@ -1001,8 +1011,8 @@ export function metapopConservationDrift(res: MetapopResult): number {
 /** Natural log of the Gamma function (Lanczos, g=7). */
 export function logGamma(x: number): number {
   const cof = [
-    76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155,
-    0.1208650973866179e-2, -0.5395239384953e-5,
+    76.180091729471, -86.5053203294168, 24.0140982408309, -1.23173957245016,
+    0.120865097386618e-2, -0.5395239384953e-5,
   ];
   let y = x;
   let ser = 1.000000000190015;
@@ -1011,7 +1021,7 @@ export function logGamma(x: number): number {
     ser += cof[j]! / y;
   }
   const tmp = x + 5.5 - (x + 0.5) * Math.log(x + 5.5);
-  return -tmp + Math.log(2.5066282746310005 * ser / x);
+  return -tmp + Math.log(2.506628274631001 * ser / x);
 }
 
 /** Regularized lower incomplete gamma P(a, x) (NR gser/gcf). */

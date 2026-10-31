@@ -546,10 +546,17 @@ function weightedRidge(
 ): number[] | null {
   const p = Z[0]?.length ?? 0;
   if (p === 0) return null;
+  // Scale weights by their maximum before measuring the trace. Uniform
+  // rescaling does not change the weighted least-squares solution, but it
+  // prevents the huge anchor weights (1e8) from inflating the relative ridge
+  // term to the same order as the informative Shapley-kernel weights.
+  let wMax = 0;
+  for (const wi of w) if (Number.isFinite(wi) && wi > wMax) wMax = wi;
+  if (!(wMax > 0)) wMax = 1;
   const A: number[][] = Array.from({ length: p }, () => new Array<number>(p).fill(0));
   const b = new Array<number>(p).fill(0);
   for (let i = 0; i < Z.length; i += 1) {
-    const wi = w[i] ?? 0;
+    const wi = (w[i] ?? 0) / wMax;
     if (!(wi > 0)) continue;
     const z = Z[i]!;
     for (let a = 0; a < p; a += 1) {
@@ -622,7 +629,7 @@ export function limeExplain(
       const dd = (z[j] ?? 0) - (zInst[j] ?? 0);
       dist += dd * dd;
     }
-    const wgt = Math.sqrt(Math.exp(-dist / (kernelWidth * kernelWidth)));
+    const wgt = Math.exp(-dist / (kernelWidth * kernelWidth));
     Z1.push([1, ...z]);
     preds.push(model.predict(raw));
     ws.push(wgt);

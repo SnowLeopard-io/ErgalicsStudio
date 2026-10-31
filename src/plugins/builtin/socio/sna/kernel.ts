@@ -836,7 +836,7 @@ export function makeLinearThreshold(g: Graph, seeds: number[], thresholdScale: n
   const adopted = new Uint8Array(g.n);
   const adoptedStep = new Int32Array(g.n).fill(-1);
   const series: number[] = [];
-  let activeWeight = new Float64Array(g.n);
+  const activeWeight = new Float64Array(g.n);
   let frontier: number[] = [];
   for (const s of seeds) {
     if (s >= 0 && s < g.n && !adopted[s]) {
