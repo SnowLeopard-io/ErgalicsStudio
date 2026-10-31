@@ -3,10 +3,12 @@
 //
 // Cells live in `project.state.notebook` (write-through, like figureStore).
 // Execution uses a dedicated `createCodeRuntime` instance — lazily created on
-// the first cell run and terminated from the page's unmount effect, so the
-// heavy Pyodide worker never outlives the Notebook surface. Finished cell
-// runs are recorded in the experiment store (source 'notebook') and announced
-// as `notebook:executed` on the host bus.
+// the first cell run and kept alive after the Notebook surface unmounts, so
+// coming back to the notebook never re-downloads/re-initialises Pyodide. It
+// is still terminated when the project session changes, because interpreter
+// globals must not leak across projects. Finished cell runs are recorded in
+// the experiment store (source 'notebook') and announced as
+// `notebook:executed` on the host bus.
 // ==========================================================================
 
 import { create } from 'zustand';
@@ -28,11 +30,11 @@ interface NotebookStore {
   moveCell: (id: string, dir: -1 | 1) => void;
   /** Execute a code cell; resolves when the cell has been updated. */
   runCell: (id: string) => Promise<void>;
-  /** Terminate the Pyodide worker (page unmount). Safe to call twice. */
+  /** Terminate the Pyodide worker (project switch). Safe to call twice. */
   disposeRuntime: () => void;
 }
 
-/** Lazily-created runtime; a fresh interpreter per Notebook mount. */
+/** Lazily-created runtime; one interpreter per project session. */
 let runtime: CodeRuntime | null = null;
 let runtimeGen = 0;
 let runSeq = 0;

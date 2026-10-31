@@ -15,6 +15,14 @@ import type {
   FluidWorkerEvent,
   FluidWorkerRequest,
 } from './types';
+import { assertPythonRuntimeAssets } from '@/core/pyodide/preflight';
+import {
+  pythonRuntimeBegin,
+  pythonRuntimeCancel,
+  pythonRuntimeFail,
+  pythonRuntimeReady,
+  registerPythonRuntimeRetry,
+} from '@/core/pyodide/runtime-status';
 
 interface PendingJob {
   resolve: (value: unknown) => void;
@@ -28,6 +36,7 @@ export class FluidCfdClient {
   private worker: Worker | null = null;
   private readyPromise: Promise<Worker> | null = null;
   private bootSettle: ((err: Error | null) => void) | null = null;
+  private unregisterRetry: (() => void) | null = null;
   private nextId = 1;
   private pending = new Map<number, PendingJob>();
   private tail: Promise<unknown> = Promise.resolve();
@@ -36,8 +45,18 @@ export class FluidCfdClient {
   onLog: ((text: string) => void) | null = null;
 
   private ensureWorker(): Promise<Worker> {
+    if (!this.unregisterRetry) {
+      this.unregisterRetry = registerPythonRuntimeRetry(() => {
+        this.abort();
+        void this.ensureWorker().catch(() => undefined);
+      });
+    }
     if (!this.readyPromise) {
-      this.readyPromise = new Promise<Worker>((resolve, reject) => {
+      const indexURL = new URL('pyodide/', document.baseURI).href;
+      const token = pythonRuntimeBegin('solver');
+      const boot = assertPythonRuntimeAssets(indexURL).then(
+        () =>
+          new Promise<Worker>((resolve, reject) => {
         const worker = new Worker(new URL('./fluid-worker.ts', import.meta.url), { type: 'module' });
         let settled = false;
         const settle = (err: Error | null) => {
@@ -88,9 +107,23 @@ export class FluidCfdClient {
         this.worker = worker;
         worker.postMessage({
           type: 'init',
-          indexURL: new URL('pyodide/', document.baseURI).href,
+          indexURL,
         } satisfies FluidWorkerRequest);
-      });
+          }),
+      );
+      this.readyPromise = boot.then(
+        (worker) => {
+          pythonRuntimeReady(token);
+          return worker;
+        },
+        (err: unknown) => {
+          const e = err instanceof Error ? err : new Error(String(err));
+          if (e.message === 'compute aborted') pythonRuntimeCancel(token);
+          else pythonRuntimeFail(token, e);
+          this.readyPromise = null;
+          throw e;
+        },
+      );
     }
     return this.readyPromise;
   }
@@ -163,6 +196,8 @@ export class FluidCfdClient {
 
   /** Terminate the worker and reject everything in flight. */
   dispose(): void {
+    this.unregisterRetry?.();
+    this.unregisterRetry = null;
     this.abort();
   }
 }

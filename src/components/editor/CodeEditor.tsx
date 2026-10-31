@@ -25,11 +25,16 @@ import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
+import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
-import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
+import type { CodeRuntime } from '@/core/pyodide/runtime';
+import {
+  getPythonRuntime,
+  subscribePythonOutput,
+  warmPythonRuntime,
+} from '@/core/pyodide/code-runtime';
 import { createRRuntime } from '@/core/r/runtime-factory';
 import type { RLanguageRuntime, REngine } from '@/core/r/types';
 import { hashString } from '@/core/repro/random';
@@ -194,33 +199,22 @@ export function CodeEditor() {
   // ---- Pyodide runtime lifecycle (Python engine) -----------------------
 
   useEffect(() => {
-    const runtime = createCodeRuntime({
-      // Serve Pyodide same-origin from public/pyodide (vendored by the
-      // copy-pyodide build step) instead of cdn.jsdelivr.net — far more
-      // reliable from mainland China and cached by the app's own origin.
-      indexURL: new URL('pyodide/', document.baseURI).href,
-      activatePlugin: async (pluginId) => {
-        const store = usePluginStore.getState();
-        if (store.activeId !== pluginId) {
-          await store.activate(pluginId);
-        } else {
-          rerenderActivePlugin();
-        }
-        return store.getActive();
-      },
-      onStdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
-      onStderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
-      onNotify: (kind, message) => useAppStore.getState().notify(kind, message),
+    // The interpreter is session-wide (core/pyodide/code-runtime) and is NOT
+    // disposed here: switching modes or projects reuses the already-booted
+    // worker instead of paying the Pyodide download/init cost again.
+    let alive = true;
+    runtimeRef.current = getPythonRuntime();
+    const unsubscribe = subscribePythonOutput({
+      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
+      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
     });
-    runtimeRef.current = runtime;
-    void runtime.runPython('import studio', {}, {}).then(
-      () => setRuntimeReady(true),
-      () => setRuntimeReady(false),
-    );
+    void warmPythonRuntime().then((ok) => {
+      if (alive) setRuntimeReady(ok);
+    });
     return () => {
-      runtime.dispose();
+      alive = false;
+      unsubscribe();
       runtimeRef.current = null;
-      setRuntimeReady(false);
     };
   }, []);
 

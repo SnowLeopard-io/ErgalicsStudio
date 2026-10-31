@@ -205,11 +205,9 @@ export default function NotebookPage() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const addCell = useNotebookStore((s) => s.addCell);
-  const disposeRuntime = useNotebookStore((s) => s.disposeRuntime);
 
   const cells = project?.state.notebook?.cells ?? [];
 
-  useEffect(() => disposeRuntime, [disposeRuntime]);
 
   return (
     <ToolShell

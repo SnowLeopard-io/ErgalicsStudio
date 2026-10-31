@@ -18,7 +18,7 @@ import {
 type Phase = 'booting' | 'ready' | 'stuck';
 
 /** Per-step progress values for the splash bar (percent). */
-const STEP_PROGRESS: Record<BootStep, number> = { modules: 40, engine: 62, plugins: 88 };
+const STEP_PROGRESS: Record<BootStep, number> = { modules: 45, engine: 80 };
 
 function updateSplash(step: BootStep, label: string): void {
   const bar = document.getElementById('boot-bar');
@@ -54,6 +54,8 @@ export function BootGate({ children }: { children: React.ReactNode }) {
     }).then((result) => {
       if (!alive) return;
       if (result === 'ready') {
+        const bar = document.getElementById('boot-bar');
+        if (bar) bar.style.width = '100%';
         // Render children underneath the splash first, then fade it away so
         // the reveal never shows a blank frame.
         setPhase('ready');

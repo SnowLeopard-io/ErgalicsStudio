@@ -8699,3 +8699,47 @@
   line-height: 1.4;
   color: var(--color-text-tertiary);
 }
+
+/* ---- Python runtime notice (loading / failed) ---- */
+
+.python-runtime-notice {
+  position: fixed;
+  left: var(--space-4);
+  bottom: calc(var(--statusbar-height) + 12px);
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-size-sm);
+}
+
+.python-runtime-notice.is-error {
+  border-color: var(--color-error);
+}
+
+.python-runtime-notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.python-runtime-notice-text strong {
+  font-weight: 600;
+}
+
+.python-runtime-notice-text span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

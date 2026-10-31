@@ -528,9 +528,14 @@ export class ChemReactionPlugin implements Plugin {
         }
         this.draw2dInfo(result);
       })
-      .catch(() => {
+      .catch((err) => {
         this.computing = false;
         this.api.setStatus('error');
+        // A boot failure (runtime missing/unreachable) must be visible —
+        // silently redrawing the empty 2-D info made it look like the run
+        // simply did nothing.
+        this.api.notify('error', this.zh ? `引擎计算失败：${errMsg(err)}` : `Engine failed: ${errMsg(err)}`);
+        this.api.log('error', `[chem-reaction] run2d: ${errMsg(err)}`);
         this.draw2dInfo();
       });
   }

@@ -13,7 +13,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
+import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -255,9 +255,10 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 4 — global tools. Low-frequency entries (shortcuts, tour) and
-            the perf gauge live in the ⋯ overflow menu; the gauge surfaces here
-            only while a perf warning is active. Palette + AI stay direct. */}
+        {/* Zone 4 — global tools. Low-frequency entries (shortcuts) and the
+            perf gauge live in the ⋯ overflow menu; the gauge surfaces here
+            only while a perf warning is active. Palette + AI + the guided
+            tour stay direct — the tour must be discoverable at the top right. */}
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
@@ -295,6 +296,16 @@ export function TopBar() {
               <span className="perf-indicator-dot" aria-hidden="true" />
             </button>
           )}
+          <button
+            type="button"
+            className="cluster-btn icon-only"
+            title={t('workbench.tour.title')}
+            aria-label={t('workbench.tour.title')}
+            data-tour="tour"
+            onClick={startTour}
+          >
+            <HelpIcon size={15} />
+          </button>
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
@@ -309,7 +320,6 @@ export function TopBar() {
             { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
-            { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },
           ]}
         />

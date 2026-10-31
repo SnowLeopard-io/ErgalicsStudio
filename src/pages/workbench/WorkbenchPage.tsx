@@ -19,6 +19,8 @@ import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
 import { TourGuide } from '@/components/TourGuide';
+import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
+import { warmPythonRuntime } from '@/core/pyodide/code-runtime';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
 
@@ -95,6 +97,17 @@ export default function WorkbenchPage() {
     // page load (restoreStarted guard), so re-running here cannot happen.
   }, [t]);
 
+  // One-time Python runtime warm-up once the workspace is idle. The
+  // interpreter is session-wide (core/pyodide/code-runtime), so this is the
+  // only load the user pays for in this session; later code/notebook/solver
+  // runs reuse the booted interpreter (or the now-cached /pyodide/ assets).
+  useEffect(() => {
+    // Delayed on purpose: the first seconds belong to the workspace chunks
+    // and the plugin registry, not to a 30 MB interpreter download.
+    const timer = window.setTimeout(() => void warmPythonRuntime({ silent: true }), 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <div className="workbench">
       {/* TopBar and StatusBar get their own boundaries: previously a crash in
@@ -128,6 +141,7 @@ export default function WorkbenchPage() {
       <ErrorBoundary>
         <StatusBar />
       </ErrorBoundary>
+      <PythonRuntimeNotice />
       <TourGuide />
       <AiAssistantOverlay />
       <ModeConvertDialog />
