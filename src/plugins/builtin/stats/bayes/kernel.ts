@@ -88,8 +88,10 @@ function logPosteriorNormal(y: number[], mu: number, sigma: number, prior: Norma
   if (!(sigma > 0)) return -Infinity;
   let ll = 0;
   for (const v of y) ll += -0.5 * Math.log(2 * Math.PI) - Math.log(sigma) - ((v - mu) ** 2) / (2 * sigma * sigma);
-  const priorMu = -0.5 * ((mu - prior.mu0) ** 2) / (1 / Math.sqrt(prior.kappa));
-  const priorSigma = (prior.alpha + 1) * Math.log(sigma) + prior.beta / (sigma * sigma);
+  // Normal prior μ ~ N(μ0, 1/κ), and σ² ~ IG(α, β) transformed to σ:
+  // p(σ) ∝ σ^{-(2α+1)} exp(−β/σ²).
+  const priorMu = -0.5 * prior.kappa * (mu - prior.mu0) ** 2;
+  const priorSigma = (2 * prior.alpha + 1) * Math.log(sigma) + prior.beta / (sigma * sigma);
   return ll + priorMu - priorSigma;
 }
 

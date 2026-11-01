@@ -129,7 +129,7 @@ export function kaplanMeier(time: number[], event: boolean[], label = 'all', con
       greenwood += d / (nRisk * (nRisk - d || 1));
       totalEvents += d;
     }
-    if (d === 0) censored += c;
+    censored += c;
     const se = s * Math.sqrt(greenwood);
     let lo = 0;
     let hi = 1;
