@@ -346,7 +346,7 @@ export interface BlasiusSolution {
   fpp0: number;
   /** 99% thickness coordinate η99 (analytic ≈ 5.0 → δ/x = 5/√Rex). */
   eta99: number;
-  /** Displacement thickness coefficient δ*/√(νx/U) (analytic 1.7208). */
+  /** Displacement thickness coefficient δ* / √(νx/U) (analytic 1.7208). */
   deltaStar: number;
   /** Momentum thickness coefficient θ/√(νx/U) (analytic 0.6641). */
   theta: number;
@@ -404,7 +404,7 @@ let blasiusCache: BlasiusSolution | null = null;
  * the result is cached module-level (the ODE has no parameters).
  *
  * Benchmarks (Schlichting): f''(0) = 0.3320573, η99 ≈ 5.0,
- * δ* = 1.7208·√(νx/U), θ = 0.6641·√(νx/U), H = δ*/θ = 2.591.
+ * δ* = 1.7208·√(νx/U), θ = 0.6641·√(νx/U), H = δ* / θ = 2.591.
  */
 export function solveBlasius(): BlasiusSolution {
   if (blasiusCache) return blasiusCache;
@@ -503,11 +503,11 @@ export function pohlhausenProfile(lambda: number, eta: number): number {
 }
 
 export interface PohlhausenShape {
-  /** δ*/δ from composite Simpson integration of ∫(1 − u/U)dη. */
+  /** δ* / δ from composite Simpson integration of ∫(1 − u/U)dη. */
   deltaStarOverDelta: number;
   /** θ/δ from ∫(u/U)(1 − u/U)dη. */
   thetaOverDelta: number;
-  /** Shape factor H = δ*/θ. */
+  /** Shape factor H = δ* / θ. */
   H: number;
   /** Normalised wall shear u'(0) = 2 + λ/6 (≤ 0 ⇒ separated). */
   wallShear: number;

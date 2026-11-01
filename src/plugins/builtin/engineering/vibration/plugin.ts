@@ -1628,58 +1628,32 @@ export class EngVibrationPlugin implements Plugin {
       });
     }
 
-    if (this.isoRes) {
-      const r = this.isoRes;
-      const oneOver2z = 1 / (2 * this.state.zetaIso);
-      metrics.push({
-        key: 'tmax',
-        label: zh ? '传递率峰值 T_max' : 'Transmissibility peak T_max',
-        value: fmtMetric(r.peak.tMax),
-        severity: errOk(r.peak.tMax, oneOver2z, this.state.zetaIso <= 0.1 ? 0.01 : 0.1) ? 'ok' : 'info',
-        hint: zh
-          ? `1/(2ζ) = ${fmtMetric(oneOver2z)}（小阻尼近似，精确峰含 O(ζ²) 修正）`
-          : `1/(2*zeta) = ${fmtMetric(oneOver2z)} (small-damping approximation; the exact peak carries an O(zeta^2) correction)`,
-      });
-      pushRel('rel-err-tmax', 'T_max−1/(2ζ) 相对误差', 'T_max vs 1/(2*zeta) rel err', r.peak.tMax, oneOver2z);
-      metrics.push({
-        key: 'rpeak',
-        label: zh ? '峰值频率比 r_peak' : 'Peak ratio r_peak',
-        value: fmtMetric(r.peak.rPeak),
-        severity: 'info',
-        hint: 'r_peak = sqrt((sqrt(1+16ζ²+32ζ⁴)−1)/(8ζ²))',
-      });
-      metrics.push({
-        key: 'iso-eff',
-        label: zh ? '隔振效率 (r0)' : 'Isolation efficiency (r0)',
-        value: fmtMetric((1 - r.t0) * 100, 3),
-        unit: '%',
-        severity: r.t0 < 1 ? 'ok' : 'warn',
-        hint:
-          r.t0 < 1
-            ? `T(r0) = ${fmtMetric(r.t0)} < 1 (${zh ? '隔离区' : 'isolation region'})`
-            : `T(r0) = ${fmtMetric(r.t0)} >= 1 (${zh ? '放大区，需 r0 > √2' : 'amplification region — need r0 > sqrt(2)'})`,
-      });
-      metrics.push({
-        key: 'sqrt2-check',
-        label: zh ? '√2 分界校核 |T(√2)−1|' : 'sqrt(2) boundary check |T(sqrt2)-1|',
-        value: fmtMetric(r.sqrt2Check, 3),
-        severity: r.sqrt2Check < 1e-12 ? 'ok' : 'warn',
-        hint: zh ? 'T(√2) = 1 对一切 ζ 精确成立（代数恒等式）' : 'T(sqrt(2)) = 1 exactly for every zeta (algebraic identity)',
-      });
-    }
-
     if (this.unbRes) {
       const r = this.unbRes;
       metrics.push({
         key: 'unb-peak',
         label: zh ? '不平衡峰值 mX/(me·e)' : 'Unbalance peak mX/(me*e)',
-        value: fmtMetric(r.peakNum),
-        severity: errOk(r.peakNum, r.peakExact, 1e-4) ? 'ok' : 'warn',
+        value: fmtMetric(r.peakClosed.ampPeak),
+        severity: errOk(r.peakNum, r.peakClosed.ampPeak, 1e-3) ? 'ok' : 'warn',
         hint: zh
-          ? `精确峰值 1/(2ζ) = ${fmtMetric(r.peakExact)}，位于 r = 1`
-          : `exact peak 1/(2*zeta) = ${fmtMetric(r.peakExact)} at r = 1`,
+          ? `精确峰值 1/(2ζ√(1−ζ²)) = ${fmtMetric(r.peakClosed.ampPeak)}，位于 r_peak = 1/√(1−2ζ²) = ${fmtMetric(r.peakClosed.rPeak)}`
+          : `exact peak 1/(2*zeta*sqrt(1-zeta^2)) = ${fmtMetric(r.peakClosed.ampPeak)} at r_peak = 1/sqrt(1-2*zeta^2) = ${fmtMetric(r.peakClosed.rPeak)}`,
       });
-      pushRel('rel-err-unb-peak', '峰值相对误差', 'peak rel err', r.peakNum, r.peakExact);
+      pushRel('rel-err-unb-peak', '峰值相对误差（扫描 vs 闭式）', 'peak rel err (scan vs closed form)', r.peakNum, r.peakClosed.ampPeak);
+      metrics.push({
+        key: 'unb-rpeak',
+        label: zh ? '峰值频率比 r_peak（扫描）' : 'Peak ratio r_peak (scan)',
+        value: fmtMetric(r.peakR),
+        severity: errOk(r.peakR, r.peakClosed.rPeak, 1e-3) ? 'ok' : 'warn',
+        hint: `${zh ? '闭式' : 'closed form'} ${fmtMetric(r.peakClosed.rPeak)}`,
+      });
+      metrics.push({
+        key: 'unb-amp-at-1',
+        label: zh ? 'r = 1 处幅值 mX/(me·e)' : 'Amplitude at r = 1, mX/(me*e)',
+        value: fmtMetric(r.ampAt1, 6),
+        severity: errOk(r.ampAt1, 1 / (2 * this.state.zetaU), 1e-9) ? 'ok' : 'warn',
+        hint: zh ? '恒等于 1/(2ζ)（代数恒等式）' : 'exactly 1/(2*zeta) for every zeta (algebraic identity)',
+      });
       metrics.push({
         key: 'unb-phase',
         label: zh ? '共振相位 (r=1)' : 'Resonance phase (r=1)',
@@ -1743,21 +1717,6 @@ export class EngVibrationPlugin implements Plugin {
       exportRowsCsv(this.api, 'vib-frf', ['w_rad_s', 'mag_db', 'phase_lag_deg'], rows);
       return;
     }
-    if (s.mode === 'isolation' && this.isoRes) {
-      const r = this.isoRes;
-      const rows: Array<Array<number | string>> = r.r.map((ri, i) => [
-        Number(ri.toPrecision(8)),
-        ...r.zetaList.map((_, c) => Number(r.curves[c]![i]!.toPrecision(8))),
-        Number(transmissibility(s.zetaIso, ri).toPrecision(8)),
-      ]);
-      exportRowsCsv(
-        this.api,
-        'vib-transmissibility',
-        ['r', ...r.zetaList.map((z) => `T_z${z}`), `T_z${s.zetaIso}_hilite`],
-        rows,
-      );
-      return;
-    }
     if (s.mode === 'unbalance' && this.unbRes) {
       const r = this.unbRes;
       const rows: Array<Array<number | string>> = r.r.map((ri, i) => [
@@ -1769,6 +1728,21 @@ export class EngVibrationPlugin implements Plugin {
       return;
     }
     notify(this.api, 'warning', 'Run a simulation first.', '请先运行仿真。');
+  }
+
+  /** Dedicated export of the transmissibility curve (FRF mode). */
+  private exportIsoCsv() {
+    if (this.state.mode === 'frf' && this.frfRes) {
+      const iso = this.frfRes.iso;
+      const rows: Array<Array<number | string>> = iso.r.map((ri, i) => [
+        Number(ri.toPrecision(8)),
+        Number(iso.T[i]!.toPrecision(8)),
+        Number(transmissibility(this.state.zetaIso, Math.SQRT2).toPrecision(8)),
+      ]);
+      exportRowsCsv(this.api, 'vib-transmissibility', ['r', 'T', 'T_sqrt2_ref'], rows);
+      return;
+    }
+    notify(this.api, 'warning', 'Transmissibility lives in the FRF mode.', '传递率在「频响与传递率」模式下输出。');
   }
 
   // ---- drawing ---------------------------------------------------------------
