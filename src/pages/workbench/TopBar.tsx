@@ -240,16 +240,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3c — research tools: general analysis stays a direct button,
-            all other tools live behind the searchable/recency launcher. */}
+        {/* Zone 3c — research tools: every suite (including analysis) lives
+            behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button
-            type="button"
-            className="cluster-btn"
-            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
-          >
-            {t('workbench.analyze')}
-          </button>
           <ResearchLauncher />
         </div>
 
