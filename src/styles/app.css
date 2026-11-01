@@ -3425,6 +3425,206 @@
   stroke-width: 1.6;
 }
 
+/* Impact-analysis highlights: upstream sources in blue, downstream affected
+   outputs in orange (Okabe-Ito hues, matching the synth histograms). */
+.lineage-node-upstream rect {
+  stroke: #0072b8;
+  stroke-width: 2;
+  fill: color-mix(in srgb, #0072b8 14%, var(--color-bg-tertiary));
+}
+
+.lineage-node-downstream rect {
+  stroke: #d55e00;
+  stroke-width: 2;
+  fill: color-mix(in srgb, #d55e00 14%, var(--color-bg-tertiary));
+}
+
+.lineage-node-selected rect {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-text-primary) 45%, transparent));
+}
+
+.lineage-impact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.lineage-impact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.lineage-impact-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.lineage-impact-depth {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.lineage-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+}
+
+.lineage-version-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* ---- Data engineering research tools (ETL / schema / synth) --------------- */
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.etl-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.etl-steps-panel,
+.etl-preview-panel {
+  min-width: 0;
+}
+
+.etl-step-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  background: var(--color-bg-secondary);
+}
+
+.etl-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.etl-step-kind {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.etl-step-stat {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.etl-step-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.etl-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.etl-field-label,
+.synth-field-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.etl-tablewrap,
+.schema-tablewrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.etl-null {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.schema-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.schema-drift-error td {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+.synth-params {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.synth-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.synth-hist-tabs {
+  flex-wrap: wrap;
+}
+
+.synth-hist-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+}
+
+.synth-hist-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.synth-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.synth-swatch-orig {
+  background: rgba(0, 114, 178, 0.55);
+}
+
+.synth-swatch-synth {
+  background: rgba(213, 94, 0, 0.55);
+}
+
+.synth-histogram {
+  display: block;
+  width: 100%;
+}
+
 /* ---- Research modules — chunked preview panel (design tokens only) ------- */
 
 .chunk-panel {
@@ -5059,14 +5259,26 @@
   flex-direction: column;
   gap: var(--space-4);
   min-height: 100%;
-  max-width: 1400px;
+  max-width: none;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-5);
+  /* Every research suite uses the full width of its pane, with a 15px gutter
+     on each side instead of the old centred 1400px reading column. */
+  padding: var(--space-4) 15px;
 }
 
-/* Notebook reads narrower than the other tools. */
-.tool-content:has(.nb-cells) {
-  max-width: 980px;
+/* Notebook and every other suite share the same full-width gutter policy. */
+
+/* The publishing suites are workspace surfaces: use the full available width
+   instead of the centred reading column, so the editor/preview split has no
+   dead space on either side. A 15px gutter keeps content off the pane edges
+   (inherited from the base `.tool-content` rule above). The content box is
+   also a size container so the split can collapse when the *pane* — not the
+   viewport — gets narrow (e.g. inside a resized workbench panel). */
+.tool-content:has(.publish-page) {
+  max-width: none;
+  padding-left: 15px;
+  padding-right: 15px;
+  container-type: inline-size;
 }
 
 /* Center the project gate / unknown-tool empty state in the viewport. */
@@ -5724,7 +5936,7 @@
     margin-left: 0;
   }
   .tool-content {
-    padding: var(--space-3);
+    padding: var(--space-3) 15px;
   }
   .welcome-recent,
   .welcome-envbar {
@@ -8759,6 +8971,13 @@
   align-items: stretch;
 }
 
+/* Suites without a library rail (preprint) render only the main column; it
+   must span the full grid instead of being squeezed into the 288px rail and
+   leaving an empty canvas beside it. */
+.publish-page > .publish-main:only-child {
+  grid-column: 1 / -1;
+}
+
 .publish-side {
   display: flex;
   flex-direction: column;
@@ -8939,7 +9158,16 @@
 .publish-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* Inside the narrow side rail, buttons must wrap their labels instead of
+   spilling over the divider into the main column. */
+.publish-side .btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
 }
 
 .publish-between {
@@ -8978,6 +9206,35 @@
   gap: var(--space-3);
   flex: 1 1 auto;
   min-height: 520px;
+}
+
+/* On narrow viewports the editor and preview stack instead of squeezing the
+   source into an unreadable column. */
+@media (max-width: 1100px) {
+  .publish-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Pane-width responsive layout: the workbench can host a suite in a narrow
+   panel even on a wide screen, so react to the container, not the viewport.
+   The library rail moves above the main column instead of clipping it. */
+@container (max-width: 760px) {
+  .publish-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .publish-side {
+    padding-right: 0;
+    padding-bottom: var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .publish-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .publish-pane {

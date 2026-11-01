@@ -95,6 +95,15 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('lineage', () => import('@/pages/labs/LineagePage'), {
     icon: 'lineage', titleKey: 'lineage.title', group: 'data',
   }),
+  tool('etl', () => import('@/pages/labs/EtlPage'), {
+    icon: 'cleaning', titleKey: 'tool.etl.title', group: 'data',
+  }),
+  tool('schema', () => import('@/pages/labs/SchemaPage'), {
+    icon: 'profiler', titleKey: 'tool.schema.title', group: 'data',
+  }),
+  tool('synth', () => import('@/pages/labs/SynthPage'), {
+    icon: 'uncertainty', titleKey: 'tool.synth.title', group: 'data',
+  }),
   tool('figures', () => import('@/pages/figures/FigureStudioPage'), {
     icon: 'figures', titleKey: 'figure.title', group: 'data', requireProject: true,
   }),

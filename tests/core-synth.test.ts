@@ -1,15 +1,14 @@
 // ==========================================================================
-// Synthetic Data Generator (data.synth) — kernel tests.
+// Synthetic data kernel (src/core/dataeng/synth) — unit tests.
 //
 // Covers: seeded RNG determinism, normal-quantile round trip, PSD repair +
 // Cholesky, Gaussian-copula correlation preservation, univariate KS distance,
 // Laplace ε-DP noise bounds, k-anonymity (binning + suppression), quality
-// metrics sanity and CSV round-trip, plus the manifest's research metadata.
+// metrics sanity and CSV round-trip.
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '@/core/repro/random';
-import { synthManifest } from '@/plugins/builtin/dataeng/synth/manifest';
 import {
   applyKAnonymity,
   cholesky,
@@ -29,7 +28,7 @@ import {
   qualityMetrics,
   toCsv,
   type SynthTable,
-} from '@/plugins/builtin/dataeng/synth/kernel';
+} from '@/core/dataeng/synth';
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -437,25 +436,5 @@ describe('CSV serialization', () => {
     expect(res.skipped).toHaveLength(1);
     expect(res.skipped[0]?.column).toBe('id');
     expect(res.skipped[0]?.reason).toMatch(/identifier/i);
-  });
-});
-
-// ---- manifest ------------------------------------------------------------------------
-
-describe('manifest research metadata', () => {
-  it('declares the pure-TS deterministic kernel and quality benchmark', () => {
-    expect(synthManifest.id).toBe('data.synth');
-    expect(synthManifest.name).toBe('Synthetic Data Generator');
-    expect(synthManifest.nameI18n?.['zh-CN']).toBe('合成数据生成器');
-    expect(synthManifest.category).toBe('scientific');
-    expect(synthManifest.sandbox).toBe('trusted');
-    expect(synthManifest.research?.tier).toBe('quasi-research');
-    expect(synthManifest.research?.reproducible).toBe(true);
-    expect(synthManifest.research?.benchmarks).toContain('quality-metrics');
-    expect(synthManifest.research?.notes).toMatch(/Pure-TS deterministic kernel/i);
-    expect(synthManifest.research?.notes).toMatch(/no Python runtime required/i);
-    expect(synthManifest.formats?.[0]?.extension).toBe('.csv');
-    expect(synthManifest.descriptionI18n?.['zh-CN']).toBeTruthy();
-    expect(synthManifest.descriptionI18n?.['en-US']).toBeTruthy();
   });
 });

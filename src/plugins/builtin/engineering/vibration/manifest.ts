@@ -1,62 +1,68 @@
 // ==========================================================================
 // eng-vibration — structural vibration analysis laboratory — manifest
 //
-// SDOF/MDOF vibration laboratory. Free decay (fixed-step RK4 vs the exact
-// closed form), analytic harmonic amplitude/phase response with half-power
-// identification of zeta and wn, generalized Jacobi eigenanalysis of spring
-// chains and simply supported beams (mass-normalized modes, Rayleigh damping,
-// modal-superposition harmonic response), base-isolation transmissibility and
-// rotating-unbalance orbits. Validation documented in tests/eng-vibration.test.ts.
+// SDOF/MDOF vibration laboratory in four modes. SDOF: free decay (fixed-step
+// RK4 vs the exact closed form, phase plane) and harmonic forced response with
+// half-power identification of zeta and wn. MDOF: N-DOF spring chain from
+// editable m/k/c lists (plus a lumped simply supported beam), generalized
+// Jacobi eigenanalysis with mass-normalized modes and modal/Rayleigh damping.
+// FRF & transmissibility: Bode-style receptance sweep with a damping-ratio
+// family overlay, base-isolation T(r) with the sqrt(2) boundary and isolation
+// band shading. Rotating unbalance: normalized amplitude/phase and shaft
+// orbit. Validation documented in tests/eng-vibration.test.ts.
 // ==========================================================================
 
 import type { PluginManifest } from '@/types/plugin';
 
 export const engVibrationManifest: PluginManifest = {
-  id: 'example.eng-vib',
-  name: 'Vibration Analysis Lab',
-  nameI18n: { 'zh-CN': '振动分析实验室', 'en-US': 'Vibration Analysis Lab' },
+  id: 'example.eng-vibration',
+  name: 'Vibration Analysis',
+  nameI18n: { 'zh-CN': '振动分析', 'en-US': 'Vibration Analysis' },
   version: '1.0.0',
   author: 'Ergalics',
   description:
-    'SDOF/MDOF vibration laboratory: RK4 free-decay vs the exact closed form, analytic amplitude/phase response with half-power identification of zeta and wn, generalized Jacobi eigenanalysis of spring chains and simply supported beams (mass-normalized modes, Rayleigh damping, modal-superposition FRF), base-isolation transmissibility (T(sqrt2) = 1 boundary, T_max ~ 1/(2*zeta)) and rotating-unbalance orbits (exact 1/(2*zeta) peak, exact 90 deg resonance phase).',
+    'SDOF/MDOF vibration laboratory: RK4 free decay (log-decrement delta, phase plane) vs the exact closed form, harmonic receptance with half-power identification of zeta and wn, generalized Jacobi eigenanalysis of N-DOF chains from editable m/k/c lists (mass-normalized modes, modal damping from the c list or Rayleigh), Bode-style FRF with a damping-ratio family sweep, base-isolation transmissibility (T(sqrt2) = 1 boundary, shaded T < 1 isolation band) and rotating unbalance (peak at wn/sqrt(1-2*zeta^2), exact 90 deg resonance phase, shaft orbit).',
   descriptionI18n: {
     'zh-CN':
-      '单/多自由度振动实验室：RK4 自由衰减与精确闭式解对照，解析幅频/相频与半功率法识别 ζ、ωn；广义 Jacobi 特征值求解弹簧链与简支梁的固有频率与振型（质量归一），Rayleigh 阻尼与模态叠加频响；隔振传递率（T(√2)=1 分界、峰值 ≈ 1/(2ζ)）与旋转不平衡轴心轨迹（峰值精确 1/(2ζ)、共振相位精确 90°）。',
+      '单/多自由度振动实验室：RK4 自由衰减（对数衰减率 δ、相平面）对比精确闭式解，谐波导纳与半功率法识别 ζ、ωn；由可编辑 m/k/c 列表构建 N 自由度弹簧链的广义 Jacobi 特征值求解（质量归一振型，c 列表模态阻尼或 Rayleigh 阻尼）；Bode 式频响叠加阻尼比曲线族，基础隔振传递率（T(√2)=1 分界、T<1 隔振区着色）；旋转不平衡（峰值位于 ωn/√(1−2ζ²)、共振相位精确 90°、轴心轨迹）。',
     'en-US':
-      'SDOF/MDOF vibration laboratory: RK4 free-decay vs the exact closed form, analytic amplitude/phase response with half-power identification of zeta and wn, generalized Jacobi eigenanalysis of spring chains and simply supported beams (mass-normalized modes, Rayleigh damping, modal-superposition FRF), base-isolation transmissibility (T(sqrt2) = 1 boundary, T_max ~ 1/(2*zeta)) and rotating-unbalance orbits (exact 1/(2*zeta) peak, exact 90 deg resonance phase).',
+      'SDOF/MDOF vibration laboratory: RK4 free decay (log-decrement delta, phase plane) vs the exact closed form, harmonic receptance with half-power identification of zeta and wn, generalized Jacobi eigenanalysis of N-DOF chains from editable m/k/c lists (mass-normalized modes, modal damping from the c list or Rayleigh), Bode-style FRF with a damping-ratio family sweep, base-isolation transmissibility (T(sqrt2) = 1 boundary, shaded T < 1 isolation band) and rotating unbalance (peak at wn/sqrt(1-2*zeta^2), exact 90 deg resonance phase, shaft orbit).',
   },
   license: 'MIT',
-  entry: 'example.eng-vib',
+  entry: 'example.eng-vibration',
   category: 'scientific',
   sandbox: 'trusted',
   formats: [
     {
       extension: '.csv',
       mimeTypes: ['text/csv'],
-      description: 'Parameter table (columns m,k[,c]) or frequency-sweep data (w/frequency + amp/magnitude[, phase])',
+      description:
+        'Parameter table (columns m,k[,c]), frequency sweep (w/frequency + amp/magnitude[, phase]) or free-decay time history (columns t,x)',
     },
   ],
   research: {
     tier: 'research',
     units: { time: 's', frequency: 'rad/s', mass: 'kg', stiffness: 'N/m', damping: 'N*s/m', displacement: 'm' },
     benchmarks: [
+      'eng-vib-sdof-log-decrement',
+      'eng-vib-sdof-damped-frequency',
       'eng-vib-sdof-rk4-vs-exact',
-      'eng-vib-sdof-half-power',
       'eng-vib-chain-eigen',
-      'eng-vib-beam-eigen',
-      'eng-vib-transmissibility-peak',
+      'eng-vib-frf-resonance-peak',
+      'eng-vib-half-power-identification',
       'eng-vib-isolation-sqrt2-boundary',
-      'eng-vib-unbalance-resonance',
+      'eng-vib-transmissibility-peak',
+      'eng-vib-unbalance-resonance-peak',
       'eng-vib-determinism',
     ],
     reproducible: true,
     notes:
-      'Pure numeric core with self-implemented cyclic Jacobi eigensolver, RK4 integration and complex arithmetic (no external numerics dependency). Benchmarks (unified yardstick |computed - analytic|/|analytic| unless stated): RK4 free decay (dt = tEnd/4800) vs the exact underdamped closed form, max relative deviation < 1e-3 (observed ~1e-8); half-power (-3 dB) identification of zeta and wn from the analytic receptance sweep, zeta error < 1% (the method itself carries an O(zeta^2) bias: ~0.5% at zeta = 0.05, ~0.08% at zeta = 0.02) and wn error < 0.1%; 3-DOF fixed-fixed chain eigenfrequencies vs 2*sqrt(k/m)*sin(n*pi/8) < 1e-9 with mass-normalized sin modes; 60-node lumped simply supported beam vs the exact discrete spectrum 4*sin^2(n*pi/(2(N+1)))*sqrt(EI/rhoA)/h^2 < 1e-9 and vs continuous beam theory (n*pi/L)^2*sqrt(EI/rhoA) < 0.5% for modes 1-3 (discretization bias 0.20% at mode 3); transmissibility peak vs 1/(2*zeta) < 1% at zeta = 0.05 (exact closed-form peak used as reference) and T(sqrt2) = 1 EXACTLY for every zeta (algebraic identity); unbalance normalized amplitude peaks at exactly 1/(2*zeta) on r = 1 with exactly 90 deg phase lag (algebraic identities).',
+      'Pure numeric core with self-implemented cyclic Jacobi eigensolver, RK4 integration and complex arithmetic (no external numerics dependency). Benchmarks (unified yardstick |computed - analytic|/|analytic| unless stated): SDOF under-damped log decrement recovered from successive RK4 peaks vs delta = 2*pi*zeta/sqrt(1-zeta^2) (< 0.5%) and damped frequency from the peak spacing vs wd = wn*sqrt(1-zeta^2) (< 1e-3); RK4 trace vs the exact underdamped closed form, max relative deviation < 1e-5 (observed ~1e-8 at 4800 steps); chain eigenfrequencies from the generalized Jacobi solve vs the exact fixed-fixed uniform spectrum 2*sqrt(k/m)*sin(r*pi/(2*(n+1))) < 1e-9 — for the 2-DOF chain f = sqrt(k/m)*{1, sqrt(3)}/(2*pi), and the uniform 3-DOF chain carries the reference pair f = sqrt(k/m)*{sqrt(2-sqrt2), sqrt(2+sqrt2)}/(2*pi) (modes 1 and 3); receptance resonance peak from the sweep argmax vs wn*sqrt(1-2*zeta^2) (< 1e-3) with half-power recovery of zeta (< 2%, the estimator carries an O(zeta^2) bias) and wn (< 0.5%); T(sqrt2) = 1 EXACTLY for every zeta (algebraic identity) with T < 1 across the shaded isolation band r > sqrt(2); transmissibility peak vs the exact closed form r_peak = sqrt(sqrt(1+8*zeta^2)-1)/(2*zeta) (< 1e-6) and T_max vs 1/(2*zeta) (< 1% at zeta = 0.05); rotating-unbalance peak from a dense scan vs r_peak = 1/sqrt(1-2*zeta^2) and A_peak = 1/(2*zeta*sqrt(1-zeta^2)) (< 1e-3) with exactly 90 deg phase lag at r = 1.',
     notesI18n: {
       'zh-CN':
-        '纯数值核：自实现循环 Jacobi 特征值求解、RK4 积分与复数运算，不依赖外部数值库。基准（统一相对误差口径 |计算−解析|/|解析|，另注明者除外）：RK4 自由衰减（dt = tEnd/4800）对比欠阻尼精确闭式解，最大相对偏差 < 1e-3（实测约 1e-8）；解析频响扫频的半功率（−3 dB）识别 ζ 与 ωn，ζ 误差 < 1%（方法自身带 O(ζ²) 偏差：ζ=0.05 时约 0.5%、ζ=0.02 时约 0.08%），ωn 误差 < 0.1%；3 自由度固支链特征频率对照 2√(k/m)·sin(nπ/8) < 1e-9，振型为质量归一 sin 型；60 节点集中刚度简支梁对照精确离散谱 4·sin²(nπ/(2(N+1)))·√(EI/ρA)/h² < 1e-9，对照连续梁理论 (nπ/L)²√(EI/ρA) 前 3 阶 < 0.5%（第 3 阶离散偏差 0.20%）；隔振传递率峰值对照 1/(2ζ) < 1%（ζ=0.05，以精确闭式峰为基准），且 T(√2) = 1 对一切 ζ 精确成立（代数恒等式）；不平衡归一化幅值峰恰为 1/(2ζ)（r=1）、相位恰为 90°（代数恒等式）。',
+        '纯数值核：自实现循环 Jacobi 特征值求解、RK4 积分与复数运算，不依赖外部数值库。基准（统一相对误差口径 |计算−解析|/|解析|，另注明者除外）：SDOF 欠阻尼对数衰减率由 RK4 相邻正峰恢复，对照 δ = 2πζ/√(1−ζ²)（< 0.5%），阻尼频率由峰间距恢复，对照 ωd = ωn√(1−ζ²)（< 1e-3）；RK4 轨迹对比欠阻尼精确闭式解，最大相对偏差 < 1e-5（4800 步实测约 1e-8）；广义 Jacobi 求解的链特征频率对照两端固支均匀链精确谱 2√(k/m)·sin(rπ/(2(n+1)))（< 1e-9）——2 自由度链 f = √(k/m)·{1, √3}/(2π)，均匀 3 自由度链含参考对 f = √(k/m)·{√(2−√2), √(2+√2)}/(2π)（第 1、3 阶）；导纳共振峰由扫频 argmax 对照 ωn√(1−2ζ²)（< 1e-3），半功率法恢复 ζ（< 2%，估计器自带 O(ζ²) 偏差）与 ωn（< 0.5%）；T(√2) = 1 对一切 ζ 精确成立（代数恒等式），着色隔振区 r > √2 内 T < 1；传递率峰对照精确闭式 r_peak = √(√(1+8ζ²)−1)/(2ζ)（< 1e-6），T_max 对照 1/(2ζ)（ζ=0.05 时 < 1%）；不平衡峰值稠密扫描对照 r_peak = 1/√(1−2ζ²) 与 A_peak = 1/(2ζ√(1−ζ²))（< 1e-3），r = 1 处相位滞后精确 90°。',
       'en-US':
-        'Pure numeric core with self-implemented cyclic Jacobi eigensolver, RK4 integration and complex arithmetic (no external numerics dependency). Benchmarks (unified yardstick |computed - analytic|/|analytic| unless stated): RK4 free decay (dt = tEnd/4800) vs the exact underdamped closed form, max relative deviation < 1e-3 (observed ~1e-8); half-power (-3 dB) identification of zeta and wn from the analytic receptance sweep, zeta error < 1% (the method itself carries an O(zeta^2) bias: ~0.5% at zeta = 0.05, ~0.08% at zeta = 0.02) and wn error < 0.1%; 3-DOF fixed-fixed chain eigenfrequencies vs 2*sqrt(k/m)*sin(n*pi/8) < 1e-9 with mass-normalized sin modes; 60-node lumped simply supported beam vs the exact discrete spectrum < 1e-9 and vs continuous beam theory < 0.5% for modes 1-3 (discretization bias 0.20% at mode 3); transmissibility peak vs 1/(2*zeta) < 1% at zeta = 0.05 and T(sqrt2) = 1 EXACTLY for every zeta; unbalance normalized amplitude peaks at exactly 1/(2*zeta) on r = 1 with exactly 90 deg phase lag.',
+        'Pure numeric core with self-implemented cyclic Jacobi eigensolver, RK4 integration and complex arithmetic (no external numerics dependency). Benchmarks (unified yardstick |computed - analytic|/|analytic| unless stated): SDOF under-damped log decrement recovered from successive RK4 peaks vs delta = 2*pi*zeta/sqrt(1-zeta^2) (< 0.5%) and damped frequency from the peak spacing vs wd = wn*sqrt(1-zeta^2) (< 1e-3); RK4 trace vs the exact underdamped closed form, max relative deviation < 1e-5 (observed ~1e-8 at 4800 steps); chain eigenfrequencies from the generalized Jacobi solve vs the exact fixed-fixed uniform spectrum 2*sqrt(k/m)*sin(r*pi/(2*(n+1))) < 1e-9 — for the 2-DOF chain f = sqrt(k/m)*{1, sqrt(3)}/(2*pi), and the uniform 3-DOF chain carries the reference pair f = sqrt(k/m)*{sqrt(2-sqrt2), sqrt(2+sqrt2)}/(2*pi) (modes 1 and 3); receptance resonance peak from the sweep argmax vs wn*sqrt(1-2*zeta^2) (< 1e-3) with half-power recovery of zeta (< 2%) and wn (< 0.5%); T(sqrt2) = 1 EXACTLY for every zeta (algebraic identity) with T < 1 across the isolation band r > sqrt(2); transmissibility peak vs the exact closed form r_peak = sqrt(sqrt(1+8*zeta^2)-1)/(2*zeta) (< 1e-6) and T_max vs 1/(2*zeta) (< 1% at zeta = 0.05); rotating-unbalance peak from a dense scan vs r_peak = 1/sqrt(1-2*zeta^2) and A_peak = 1/(2*zeta*sqrt(1-zeta^2)) (< 1e-3) with exactly 90 deg phase lag at r = 1.',
     },
   },
 };

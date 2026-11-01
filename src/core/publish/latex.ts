@@ -263,6 +263,39 @@ export function equationSnippet(tex: string, label?: string): string {
   return blockToLatex({ type: 'equation', tex, label });
 }
 
+/**
+ * Insert a snippet at a textarea caret, clamping to the document body.
+ *
+ * Toolbar insertions frequently fire while the caret is at the end of the
+ * file — i.e. after `\end{document}`, where LaTeX ignores everything. In that
+ * case the snippet is placed immediately before the document end instead, and
+ * the returned caret points after the inserted text so the editor can restore
+ * focus/selection.
+ */
+export function insertLatexSnippet(
+  source: string,
+  snippet: string,
+  start: number,
+  end: number = start,
+): { source: string; caret: number } {
+  // The first structural marker at which body content should stop: the
+  // bibliography (so figures/equations still appear in the body) and the
+  // document end (where LaTeX ignores anything after it).
+  const limit = ['\\bibliography{', '\\printbibliography', '\\begin{thebibliography}', '\\end{document}']
+    .map((marker) => source.indexOf(marker))
+    .filter((index) => index >= 0)
+    .reduce((min, index) => Math.min(min, index), Number.POSITIVE_INFINITY);
+  const clampedStart = Math.max(0, Math.min(start, source.length));
+  const clampedEnd = Math.max(clampedStart, Math.min(end, source.length));
+  const outsideBody = Number.isFinite(limit) && (clampedStart >= limit || clampedStart === 0);
+  const insertAt = outsideBody ? limit : clampedStart;
+  const replaceEnd = outsideBody ? limit : clampedEnd;
+  return {
+    source: `${source.slice(0, insertAt)}${snippet}${source.slice(replaceEnd)}`,
+    caret: insertAt + snippet.length,
+  };
+}
+
 // --------------------------------------------------------------------------
 // Preview
 // --------------------------------------------------------------------------
@@ -270,8 +303,48 @@ export function equationSnippet(tex: string, label?: string): string {
 export interface LatexPreviewOptions {
   style?: CitationStyle;
   entries?: BibEntry[];
+  /** Journal template used for preview typography (font, columns, headings). */
+  templateId?: LatexTemplateId;
   /** Resolve a figure file name to inline SVG/HTML (Figure Studio bridge). */
   resolveFigure?: (file: string) => string | null;
+}
+
+/**
+ * Rewrite a document's preamble to match a journal template while keeping the
+ * author's body untouched: swap `\documentclass`, add the template's required
+ * packages and synchronise `\bibliographystyle`. Without this, switching the
+ * template picker changed only a label and the source stayed identical.
+ */
+export function applyLatexTemplate(source: string, templateId: LatexTemplateId): string {
+  const template = getLatexTemplate(templateId);
+  const docClass = `\\documentclass${template.classOptions.length ? `[${template.classOptions.join(',')}]` : ''}{${template.documentClass}}`;
+  let out = source.trim() ? source : starterLatex(templateId);
+
+  if (/\\documentclass(?:\[[^\]]*\])?\{[^}]*\}/.test(out)) {
+    out = out.replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]*\}/, docClass);
+  } else {
+    out = `${docClass}\n${out}`;
+  }
+
+  const missing = template.packages.filter((pkg) => {
+    const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return !new RegExp(`\\\\usepackage(?:\\[[^\\]]*\\])?\\{[^}]*\\b${escaped}\\b[^}]*\\}`).test(out);
+  });
+  if (missing.length > 0) {
+    const lines = missing.map((pkg) => `\\usepackage{${pkg}}`).join('\n');
+    out = out.replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]*\}/, (line) => `${line}\n${lines}`);
+  }
+
+  const styleLine = `\\bibliographystyle{${template.bibliographyStyle}}`;
+  if (/\\bibliographystyle\{[^}]*\}/.test(out)) {
+    out = out.replace(/\\bibliographystyle\{[^}]*\}/, styleLine);
+  } else if (/\\bibliography\{/.test(out)) {
+    out = out.replace(/\\bibliography\{/, `${styleLine}\n\\bibliography{`);
+  } else if (/\\end\{document\}/.test(out)) {
+    out = out.replace(/\\end\{document\}/, `${styleLine}\n\\bibliography{references}\n\\end{document}`);
+  }
+
+  return out;
 }
 
 function escapeHtml(s: string): string {
@@ -566,6 +639,13 @@ export function latexPreviewBody(src: string, options: LatexPreviewOptions = {})
       continue;
     }
 
+    // Structural bibliography directives are not body text: without this they
+    // leak into the preview verbatim (e.g. `\bibliographystyle{IEEEtran}`).
+    if (/^\s*\\(bibliographystyle|addbibresource|nocite|appendix|bibliography)\b/.test(line)) {
+      flush();
+      continue;
+    }
+
     if (/^\s*\\(newpage|clearpage|tableofcontents|maketitle)\b/.test(line)) {
       flush();
       continue;
@@ -585,6 +665,8 @@ export function latexPreviewBody(src: string, options: LatexPreviewOptions = {})
 export function latexPreviewHtml(src: string, options: LatexPreviewOptions = {}): string {
   const fragment = latexPreviewBody(src, options);
   const titleMatch = extractCommand(src, 'title') ?? 'Manuscript';
+  const template = getLatexTemplate(options.templateId);
+  const paperClass = `lp-paper lp-tpl-${template.id}${template.columns === 2 ? ' lp-two-col' : ''}`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -593,7 +675,7 @@ export function latexPreviewHtml(src: string, options: LatexPreviewOptions = {})
 <title>${escapeHtml(titleMatch)}</title>
 <style>${latexPreviewCss()}</style>
 </head>
-<body class="lp-root"><article class="lp-paper">${fragment}</article></body>
+<body class="lp-root"><article class="${paperClass}">${fragment}</article></body>
 </html>`;
 }
 
@@ -602,7 +684,18 @@ export function latexPreviewCss(): string {
   return `:root{--lp-fg:#1a1c1e;--lp-muted:#5f6368;--lp-border:#dfe1e5;--lp-bg:#fff;--lp-accent:#1a56c4}
 *{box-sizing:border-box}
 body.lp-root{margin:0;background:#eef0f3;color:var(--lp-fg);font:16px/1.65 "Times New Roman",Georgia,serif}
-.lp-paper{max-width:820px;margin:24px auto;background:var(--lp-bg);padding:56px 64px;box-shadow:0 2px 18px rgba(0,0,0,.12);min-height:100vh}
+.lp-paper{width:100%;max-width:none;margin:0;background:var(--lp-bg);padding:clamp(22px,4.5vw,52px) clamp(18px,5vw,56px);min-height:100vh}
+/* Journal-template typography: the preview follows the template picker. */
+.lp-tpl-acm{font-family:"Helvetica Neue",Arial,sans-serif}
+.lp-tpl-acm .lp-heading{font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700}
+.lp-tpl-nature,.lp-tpl-science{font-size:15px}
+.lp-tpl-nature .lp-head h1,.lp-tpl-science .lp-head h1{font-size:30px;letter-spacing:-.01em}
+.lp-tpl-apa,.lp-tpl-chicago{font-size:17px;line-height:1.9}
+.lp-tpl-apa .lp-head{text-align:left;border-bottom:none}
+.lp-two-col{column-count:2;column-gap:26px}
+.lp-two-col .lp-head,.lp-two-col .lp-abstract{column-span:all}
+.lp-two-col .lp-figure,.lp-two-col .lp-equation,.lp-two-col .lp-table,.lp-two-col li{break-inside:avoid}
+.lp-two-col p{text-align:justify;hyphens:auto}
 .lp-head{text-align:center;border-bottom:1px solid var(--lp-border);padding-bottom:18px;margin-bottom:26px}
 .lp-head h1{font-size:27px;margin:0 0 10px;line-height:1.25}
 .lp-authors{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;color:var(--lp-muted);font-size:14px}

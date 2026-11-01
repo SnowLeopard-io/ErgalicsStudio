@@ -1,28 +1,34 @@
 // ==========================================================================
 // eng-vibration — structural vibration analysis laboratory
 //
-// Live workbench with five modes:
-//   sdof        free decay (RK4 vs the exact closed form) + analytic
-//               amplitude/phase response with half-power identification
-//   mdof        spring chain / simply supported beam eigenanalysis (generalized
-//               Jacobi), mode shapes + drive-point FRF via modal superposition
-//   frf         frequency-response sweep in dB + phase (SDOF receptance, MDOF
-//               first-mode drive point, or an imported w/mag sweep)
-//   isolation   transmissibility T(r) family curves, sqrt(2) boundary, peak
-//               and isolation efficiency at the operating ratio r0
-//   unbalance   rotating-unbalance amplitude mX/(me*e) and phase (exact
-//               1/(2*zeta) peak, exact 90 deg resonance lag) + shaft orbit
+// Live workbench with four modes:
+//   sdof        mass-spring-damper: free damped decay (RK4 vs the exact closed
+//               form) drawn as a displacement history + phase plane, analytic
+//               receptance amplitude with half-power identification
+//   mdof        spring chain (editable m/k/c lists) / simply supported beam
+//               eigenanalysis (generalized Jacobi), mode shapes + drive-point
+//               FRF via modal superposition
+//   frf         Bode-style FRF sweep (SDOF receptance with a zeta-family
+//               overlay, MDOF drive point, or an imported sweep) + base
+//               excitation transmissibility T(w) with the isolation band
+//               shading above r = sqrt(2) and the isolation efficiency
+//   unbalance   rotating-unbalance amplitude mX/(me*e) (closed-form peak at
+//               r_peak = 1/sqrt(1-2*zeta^2), exact 90 deg lag at r = 1) +
+//               shaft orbit
 //
 // Parameter edits recompute and redraw immediately; "Simulate" publishes the
-// scientific outputs (fn, zeta, Q, transmissibility peak, isolation efficiency,
-// resonance amplitudes ...) with analytic cross-references. compute() accepts
-// CSV/JSON for the Block/Flow runtimes: a parameter table with columns
-// m,k[,c] (one row = SDOF, several rows = MDOF chain) or a frequency sweep
-// (w/frequency + amp/magnitude[, phase]) for half-power identification.
+// scientific outputs (fn, zeta, fd, Q, modal frequencies, transmissibility
+// peak, isolation efficiency, unbalance peak ...) with analytic
+// cross-references. compute() runs headless for the Block/Flow runtimes and
+// accepts CSV/JSON/DataTable input with columns m,k[,c] (one row = SDOF,
+// several rows = MDOF chain), w/frequency + amp/magnitude[, phase] (frequency
+// sweep) or t + x (free-decay history for log-decrement identification),
+// returning a DataTable plus published science metrics.
 // No emoji, academic muted palette, bilingual UI strings.
 // ==========================================================================
 
 import type { ComputeResult, ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
+import { createDataTable, isDataTable } from '@/types/datatable';
 import { emit } from '@/core/events';
 import {
   actionButton,
@@ -47,31 +53,38 @@ import {
   type MdofModes,
   type SdofDerived,
   type SdofParams,
+  type TransPeak,
+  type UnbalancePeakCF,
   VibrationError,
   beamContinuousOmega,
   beamDiscreteOmega,
   buildBeam,
   buildChain,
   chainAnalyticOmega,
+  decayIdentify,
+  generalizedEigenDiagM,
   halfPowerIdentify,
   logspace,
   mdofDriveFrf,
+  modalZetaDiagC,
   rayleighAlphaBeta,
   rayleighModalZeta,
   sdofDerived,
   sdofFreeDecayRk4,
   sdofFrf,
+  sdofReceptance,
   transmissibility,
   transmissibilityPeak,
   transmissibilitySweep,
   unbalanceOrbit,
+  unbalancePeak,
   unbalancePoint,
   unbalanceSweep,
 } from './kernel';
 
 export { engVibrationManifest };
 
-type VibMode = 'sdof' | 'mdof' | 'frf' | 'isolation' | 'unbalance';
+type VibMode = 'sdof' | 'mdof' | 'frf' | 'unbalance';
 
 interface State {
   mode: VibMode;
@@ -85,18 +98,22 @@ interface State {
   F0: number;
   // MDOF
   system: 'chain' | 'beam';
-  chainN: number;
-  chainM: number;
-  chainK: number;
+  /** Comma-separated per-DOF masses (kg) for the chain. */
+  massesText: string;
+  /** Comma-separated spring stiffnesses, n or n+1 entries (N/m) for the chain. */
+  springsText: string;
+  /** Comma-separated per-DOF dashpots (N*s/m); empty = Rayleigh damping. */
+  dampingsText: string;
   beamEI: number;
   beamRhoA: number;
   beamL: number;
   beamN: number;
   zetaM: number;
-  // FRF
+  // FRF (+ base-excitation transmissibility)
   frfSource: 'sdof' | 'mdof';
-  // isolation
+  /** Highlighted damping ratio for the transmissibility curve. */
   zetaIso: number;
+  /** Operating frequency ratio r0 for the isolation-efficiency readout. */
   r0: number;
   // unbalance
   zetaU: number;
@@ -120,6 +137,8 @@ interface MdofResults {
   model: MdofModel;
   modes: MdofModes;
   zetas: number[];
+  /** How the modal damping was built ("per-DOF dashpots" / "Rayleigh ..."). */
+  dampingLabel: string;
   /** Number of displayed modes (<= 3). */
   nShow: number;
   driveDof: number;
@@ -129,6 +148,27 @@ interface MdofResults {
   /** Continuous beam theory spectrum (beam only). */
   refCont: number[] | null;
   label: string;
+}
+
+/** Receptance family (dB curves) for the damping-ratio sweep overlay. */
+interface SdofFamily {
+  w: number[];
+  curves: number[][];
+  zetas: number[];
+}
+
+/** Base-excitation transmissibility block with the zeta family. */
+interface FrfIso {
+  r: number[];
+  T: number[];
+  familyZetas: number[];
+  familyR: number[];
+  familyCurves: number[][];
+  peak: TransPeak;
+  /** Transmissibility at the operating ratio r0. */
+  t0: number;
+  /** |T(sqrt(2)) - 1| — zero for every zeta (algebraic identity). */
+  sqrt2Check: number;
 }
 
 interface FrfResults {
@@ -141,27 +181,21 @@ interface FrfResults {
   /** True values for cross-reference when the sweep comes from the built-in SDOF/MDOF. */
   trueWn: number | null;
   trueZeta: number | null;
-}
-
-interface IsoResults {
-  r: number[];
-  zetaList: number[];
-  curves: number[][];
-  hi: { r: number[]; T: number[] };
-  peak: { rPeak: number; tMax: number };
-  /** Transmissibility at the operating ratio r0. */
-  t0: number;
-  /** |T(sqrt(2)) - 1| — zero for every zeta (algebraic identity). */
-  sqrt2Check: number;
+  /** Damping-ratio sweep overlay (SDOF receptance source only). */
+  family: SdofFamily | null;
+  /** Transmissibility / isolation block. */
+  iso: FrfIso;
 }
 
 interface UnbResults {
   r: number[];
   ampNorm: number[];
   phaseLagDeg: number[];
-  /** Exact peak 1/(2*zeta). */
-  peakExact: number;
-  /** Numeric peak from a dense scan of r in [0.5, 1.5]. */
+  /** Closed-form peak: rPeak = 1/sqrt(1-2*zeta^2), ampPeak = 1/(2*zeta*sqrt(1-zeta^2)). */
+  peakClosed: UnbalancePeakCF;
+  /** Exact amplitude at r = 1 (algebraically 1/(2*zeta)). */
+  ampAt1: number;
+  /** Numeric peak from a dense log-r scan (validates the closed form). */
   peakNum: number;
   peakR: number;
   phaseAt1: number;
@@ -211,7 +245,8 @@ const FAMILY_COLORS = [
   'rgba(170,180,196,0.45)',
 ];
 
-const ISO_ZETAS = [0.02, 0.05, 0.1, 0.2, 0.4];
+/** Damping-ratio grid for the FRF receptance family and the T(r) family. */
+const ISO_ZETAS = [0.02, 0.05, 0.1, 0.2, 0.5, 1];
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
@@ -270,6 +305,18 @@ function drawFrame(
 
 // ---- CSV / JSON table parsing (Block/Flow entry) -----------------------------
 
+/** Parse a comma/semicolon/whitespace separated numeric list ("1, 2, 3"). */
+function parseNumberList(text: string, what: string): number[] {
+  const parts = text
+    .split(/[,;\s]+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (parts.length === 0) return [];
+  const vals = parts.map((p) => Number(p));
+  if (vals.some((v) => !Number.isFinite(v))) throw new VibrationError(`${what} must be comma-separated numbers`);
+  return vals;
+}
+
 interface ParsedTable {
   header: string[];
   rows: number[][];
@@ -297,6 +344,21 @@ function parseCsvTable(text: string): ParsedTable {
 }
 
 function parseTableInput(input: unknown): ParsedTable {
+  // Native DataTable from the block system (columnar, typed columns).
+  if (isDataTable(input)) {
+    const names = input.columnNames();
+    if (input.length === 0) throw new VibrationError('DataTable has no rows');
+    const rows: number[][] = [];
+    for (let i = 0; i < input.length; i += 1) {
+      const rec = input.getRow(i);
+      const row = names.map((nm) => Number(rec[nm]));
+      if (row.some((v) => !Number.isFinite(v))) {
+        throw new VibrationError(`non-numeric DataTable cell in row ${i + 1}`);
+      }
+      rows.push(row);
+    }
+    return { header: names.map((nm) => nm.toLowerCase()), rows };
+  }
   if (typeof input === 'string') {
     const t = input.trim();
     if (t.startsWith('{') || t.startsWith('[')) return parseTableInput(JSON.parse(t) as unknown);
@@ -364,7 +426,7 @@ function parseTableInput(input: unknown): ParsedTable {
     }
   }
   throw new VibrationError(
-    'unsupported input: expected CSV/JSON with columns m,k[,c] (SDOF row / MDOF chain) or w+amp/mag[, phase] (frequency sweep)',
+    'unsupported input: expected CSV/JSON/DataTable with columns m,k[,c] (SDOF row / MDOF chain), w+amp/mag[, phase] (frequency sweep) or t+x (free-decay history)',
   );
 }
 
@@ -385,9 +447,9 @@ export class EngVibrationPlugin implements Plugin {
     tEnd: 12,
     F0: 10,
     system: 'chain',
-    chainN: 3,
-    chainM: 1,
-    chainK: 100,
+    massesText: '1, 1, 1',
+    springsText: '100, 100, 100, 100',
+    dampingsText: '',
     beamEI: 10000,
     beamRhoA: 200,
     beamL: 6,
@@ -405,7 +467,6 @@ export class EngVibrationPlugin implements Plugin {
   private sdofRes: SdofResults | null = null;
   private mdofRes: MdofResults | null = null;
   private frfRes: FrfResults | null = null;
-  private isoRes: IsoResults | null = null;
   private unbRes: UnbResults | null = null;
   private errorMsg: string | null = null;
 
@@ -458,13 +519,8 @@ export class EngVibrationPlugin implements Plugin {
           },
           {
             value: 'frf',
-            label: 'FRF sweep',
-            labelI18n: { 'zh-CN': '频响扫频', 'en-US': 'FRF sweep' },
-          },
-          {
-            value: 'isolation',
-            label: 'Isolation T(r)',
-            labelI18n: { 'zh-CN': '隔振传递率', 'en-US': 'Isolation T(r)' },
+            label: 'FRF & transmissibility',
+            labelI18n: { 'zh-CN': '频响与传递率', 'en-US': 'FRF & transmissibility' },
           },
           {
             value: 'unbalance',
@@ -575,37 +631,34 @@ export class EngVibrationPlugin implements Plugin {
         visibleWhen: inMode('mdof'),
       },
       {
-        key: 'chainN',
-        label: 'N (DOFs)',
-        labelI18n: { 'zh-CN': '自由度数 N', 'en-US': 'DOFs N' },
-        type: 'range',
-        min: 2,
-        max: 12,
-        step: 1,
-        value: s.chainN,
-        hint: this.zh ? '链参数仅当「系统 = 弹簧链」时生效' : 'chain knobs apply when System = chain',
+        key: 'massesText',
+        label: 'm list (kg)',
+        labelI18n: { 'zh-CN': '质量列表 m (kg)', 'en-US': 'Mass list m (kg)' },
+        type: 'text',
+        value: s.massesText,
+        hint: this.zh ? '逗号分隔的每自由度质量，如 1, 1, 1' : 'comma-separated per-DOF masses, e.g. 1, 1, 1',
         visibleWhen: inMode('mdof'),
       },
       {
-        key: 'chainM',
-        label: 'm (kg)',
-        labelI18n: { 'zh-CN': '质量 m (kg)', 'en-US': 'Mass m (kg)' },
-        type: 'range',
-        min: 0.05,
-        max: 10,
-        step: 0.05,
-        value: s.chainM,
+        key: 'springsText',
+        label: 'k list (N/m)',
+        labelI18n: { 'zh-CN': '刚度列表 k (N/m)', 'en-US': 'Stiffness list k (N/m)' },
+        type: 'text',
+        value: s.springsText,
+        hint: this.zh
+          ? '两端固支链需 n 或 n+1 个值；均匀链自动叠加解析谱'
+          : 'n or n+1 entries for the fixed-fixed chain; uniform chains overlay the analytic spectrum',
         visibleWhen: inMode('mdof'),
       },
       {
-        key: 'chainK',
-        label: 'k (N/m)',
-        labelI18n: { 'zh-CN': '刚度 k (N/m)', 'en-US': 'Stiffness k (N/m)' },
-        type: 'range',
-        min: 1,
-        max: 10000,
-        step: 1,
-        value: s.chainK,
+        key: 'dampingsText',
+        label: 'c list (N·s/m)',
+        labelI18n: { 'zh-CN': '阻尼列表 c (N·s/m)', 'en-US': 'Damping list c (N·s/m)' },
+        type: 'text',
+        value: s.dampingsText,
+        hint: this.zh
+          ? 'n 个每自由度阻尼；留空则用 Rayleigh 阻尼（ζ 锚定 ω1/ω3）'
+          : 'n per-DOF dashpots; leave empty for Rayleigh damping (zeta pinned at w1/w3)',
         visibleWhen: inMode('mdof'),
       },
       {
@@ -689,14 +742,15 @@ export class EngVibrationPlugin implements Plugin {
       },
       {
         key: 'zetaIso',
-        label: 'ζ (highlight)',
-        labelI18n: { 'zh-CN': '阻尼比 ζ（高亮）', 'en-US': 'Damping ratio zeta (highlight)' },
+        label: 'ζ (T curve)',
+        labelI18n: { 'zh-CN': '阻尼比 ζ（传递率曲线）', 'en-US': 'Damping ratio zeta (T curve)' },
         type: 'range',
         min: 0.01,
         max: 0.5,
         step: 0.005,
         value: s.zetaIso,
-        visibleWhen: inMode('isolation'),
+        hint: this.zh ? '传递率 T(r) 高亮曲线的阻尼比' : 'damping ratio of the highlighted transmissibility curve',
+        visibleWhen: inMode('frf'),
       },
       {
         key: 'r0',
@@ -707,8 +761,8 @@ export class EngVibrationPlugin implements Plugin {
         max: 10,
         step: 0.05,
         value: s.r0,
-        hint: this.zh ? '效率 = (1−T(r0))·100%' : 'efficiency = (1-T(r0))*100%',
-        visibleWhen: inMode('isolation'),
+        hint: this.zh ? '隔振效率 = (1−T(r0))·100%；r0 > √2 才有 T < 1' : 'isolation efficiency = (1-T(r0))*100%; T < 1 only above r0 = sqrt(2)',
+        visibleWhen: inMode('frf'),
       },
       {
         key: 'zetaU',
@@ -745,6 +799,10 @@ export class EngVibrationPlugin implements Plugin {
       },
       actionButton('simulate', 'Simulate', '仿真', 'primary'),
       actionButton('exportCsv', 'Export CSV', '导出 CSV'),
+      {
+        ...actionButton('exportIso', 'Export T(r) CSV', '导出传递率 CSV'),
+        visibleWhen: inMode('frf'),
+      },
     ];
   }
 
@@ -757,7 +815,6 @@ export class EngVibrationPlugin implements Plugin {
       if (this.state[key] !== c) {
         (this.state as unknown as Record<string, number>)[key] = c;
         changed = true;
-        if (key === 'chainN' || key === 'chainM' || key === 'chainK') this.importedChain = null;
       }
     };
     num('m', 0.05, 100);
@@ -767,9 +824,6 @@ export class EngVibrationPlugin implements Plugin {
     num('v0', -1, 1);
     num('tEnd', 1, 60);
     num('F0', 0.1, 1000);
-    num('chainN', 2, 12);
-    num('chainM', 0.05, 10);
-    num('chainK', 1, 10000);
     num('beamEI', 100, 200000);
     num('beamRhoA', 1, 2000);
     num('beamL', 1, 20);
@@ -781,6 +835,20 @@ export class EngVibrationPlugin implements Plugin {
     num('rOp', 0.1, 5);
     num('kappa', 0.5, 2);
 
+    // Chain composition lists: any edit invalidates an imported chain table.
+    const txt = (key: 'massesText' | 'springsText' | 'dampingsText'): void => {
+      const v = params[key];
+      if (typeof v !== 'string') return;
+      if (this.state[key] !== v) {
+        this.state[key] = v;
+        this.importedChain = null;
+        changed = true;
+      }
+    };
+    txt('massesText');
+    txt('springsText');
+    txt('dampingsText');
+
     const sel = <K extends keyof State>(key: K, allowed: readonly State[K][]): void => {
       const v = params[key];
       if (typeof v !== 'string') return;
@@ -790,7 +858,7 @@ export class EngVibrationPlugin implements Plugin {
         changed = true;
       }
     };
-    sel('mode', ['sdof', 'mdof', 'frf', 'isolation', 'unbalance'] as const);
+    sel('mode', ['sdof', 'mdof', 'frf', 'unbalance'] as const);
     sel('system', ['chain', 'beam'] as const);
     sel('frfSource', ['sdof', 'mdof'] as const);
 
@@ -800,6 +868,7 @@ export class EngVibrationPlugin implements Plugin {
     }
     if (actionFired(params, 'simulate')) this.runSimulation();
     if (actionFired(params, 'exportCsv')) this.exportCsv();
+    if (actionFired(params, 'exportIso')) this.exportIsoCsv();
   }
 
   getSupportedFormats() {
@@ -816,12 +885,15 @@ export class EngVibrationPlugin implements Plugin {
       const kIdx = idx(['k', 'stiffness']);
       const wIdx = idx(['w', 'omega', 'freq', 'frequency', 'f_hz', 'f']);
       const aIdx = idx(['amp', 'amplitude', 'mag', 'magnitude', 'mag_db', 'magdb', 'abs']);
+      const tIdx = idx(['t', 'time', 't_s', 'time_s']);
+      const xIdx = idx(['x', 'disp', 'displacement', 'x_m']);
       if (mIdx >= 0 && kIdx >= 0) return this.computeFromParamTable(rows, mIdx, kIdx, idx(['c', 'damping']));
       if (wIdx >= 0 && aIdx >= 0) {
         return this.computeFromSweep(header, rows, wIdx, aIdx, idx(['phase', 'phase_deg', 'phase_lag', 'lag']));
       }
+      if (tIdx >= 0 && xIdx >= 0) return this.computeFromTimeSeries(rows, tIdx, xIdx);
       throw new VibrationError(
-        'input must have columns m,k[,c] (SDOF row / MDOF chain) or w/frequency + amp/magnitude[, phase] (frequency sweep)',
+        'input must have columns m,k[,c] (SDOF row / MDOF chain), w/frequency + amp/magnitude[, phase] (sweep) or t + x (free decay)',
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -908,6 +980,70 @@ export class EngVibrationPlugin implements Plugin {
     };
   }
 
+  /**
+   * Columns t,x (sampled displacement history): headless log-decrement
+   * identification. Returns a DataTable carrying t, x and the fitted
+   * exponential envelope a1*exp(-zeta*wn*t); the identified delta/zeta/wd/wn
+   * go to the science-output panel.
+   */
+  private computeFromTimeSeries(rows: number[][], tIdx: number, xIdx: number): ComputeResult {
+    const pairs = rows.map((r) => ({ t: r[tIdx]!, x: r[xIdx]! }));
+    if (pairs.some((p) => !(p.t >= 0))) throw new VibrationError('time samples must be >= 0 s');
+    pairs.sort((p, q) => p.t - q.t); // deterministic ordering
+    const t = pairs.map((p) => p.t);
+    const x = pairs.map((p) => p.x);
+    const id = decayIdentify(t, x);
+    if (!id.ok) {
+      throw new VibrationError('could not identify a damped decay (needs >= 3 successive positive peaks)');
+    }
+    const env = t.map((ti) => id.a1 * Math.exp(-id.zeta * id.wn * ti));
+    const table = createDataTable(
+      'vib-decay-identified',
+      [
+        { name: 't', type: 'f64', data: Float64Array.from(t), unit: 's' },
+        { name: 'x', type: 'f64', data: Float64Array.from(x), unit: 'm' },
+        { name: 'envelope', type: 'f64', data: Float64Array.from(env), unit: 'm' },
+      ],
+      { tags: ['vibration', 'free-decay'], provenance: 'eng-vibration log-decrement identification' },
+    );
+    setScienceOutputs(this.manifest.id, [
+      {
+        key: 'delta',
+        label: this.zh ? '对数衰减率 δ' : 'Log decrement delta',
+        value: fmtMetric(id.delta),
+        severity: 'info',
+        hint: 'delta = ln(A_i/A_i+1) = 2*pi*zeta/sqrt(1-zeta^2)',
+      },
+      {
+        key: 'zeta-id',
+        label: this.zh ? '识别阻尼比 ζ_id' : 'Identified zeta',
+        value: fmtMetric(id.zeta),
+        severity: 'ok',
+        hint: `zeta = delta/sqrt(4*pi^2 + delta^2) · ${id.peaks} ${this.zh ? '个峰' : 'peaks'}`,
+      },
+      {
+        key: 'wd',
+        label: this.zh ? '有阻尼固有频率 ωd' : 'Damped natural frequency wd',
+        value: fmtMetric(id.wd),
+        unit: 'rad/s',
+        severity: 'info',
+        hint: `wd = 2*pi/T_d · fd = ${fmtMetric(id.wd / (2 * Math.PI))} Hz`,
+      },
+      {
+        key: 'wn-id',
+        label: this.zh ? '识别固有频率 ωn' : 'Identified wn',
+        value: fmtMetric(id.wn),
+        unit: 'rad/s',
+        severity: 'ok',
+        hint: `wn = wd/sqrt(1-zeta^2) · fn = ${fmtMetric(id.fn)} Hz`,
+      },
+    ]);
+    return {
+      ok: true,
+      output: table,
+    };
+  }
+
   /** Recompute + refresh the parameter panel + redraw after a compute() mutation. */
   private refreshAfterCompute() {
     this.recompute();
@@ -941,14 +1077,18 @@ export class EngVibrationPlugin implements Plugin {
     if (!data || typeof data !== 'object') return;
     const src = (data as { state?: Record<string, unknown> }).state ?? (data as Record<string, unknown>);
     const numKeys: Array<keyof State> = [
-      'm', 'k', 'c', 'x0', 'v0', 'tEnd', 'F0', 'chainN', 'chainM', 'chainK',
+      'm', 'k', 'c', 'x0', 'v0', 'tEnd', 'F0',
       'beamEI', 'beamRhoA', 'beamL', 'beamN', 'zetaM', 'zetaIso', 'r0', 'zetaU', 'rOp', 'kappa',
     ];
     for (const key of numKeys) {
       const v = src[key];
       if (typeof v === 'number' && Number.isFinite(v)) (this.state as unknown as Record<string, number>)[key] = v;
     }
-    if (src.mode === 'sdof' || src.mode === 'mdof' || src.mode === 'frf' || src.mode === 'isolation' || src.mode === 'unbalance') {
+    for (const key of ['massesText', 'springsText', 'dampingsText'] as const) {
+      const v = src[key];
+      if (typeof v === 'string') this.state[key] = v;
+    }
+    if (src.mode === 'sdof' || src.mode === 'mdof' || src.mode === 'frf' || src.mode === 'unbalance') {
       this.state.mode = src.mode;
     }
     if (src.system === 'chain' || src.system === 'beam') this.state.system = src.system;
@@ -977,13 +1117,42 @@ export class EngVibrationPlugin implements Plugin {
   private buildMdofModel(): MdofModel {
     const s = this.state;
     if (s.system === 'chain') {
-      if (this.importedChain) {
-        return buildChain(this.importedChain.masses, this.importedChain.springs);
-      }
-      const n = Math.round(s.chainN);
-      return buildChain(new Array<number>(n).fill(s.chainM), new Array<number>(n + 1).fill(s.chainK));
+      const spec = this.parseChainSpec();
+      return buildChain(spec.masses, spec.springs);
     }
     return buildBeam(Math.round(s.beamN), s.beamEI, s.beamRhoA, s.beamL);
+  }
+
+  /** Resolve the chain composition from the text lists (or an imported table). */
+  private parseChainSpec(): {
+    masses: number[];
+    springs: number[];
+    dampings: number[] | null;
+    /** Non-null for a uniform chain, enabling the exact closed-form spectrum. */
+    uniform: { m: number; k: number } | null;
+  } {
+    const uniformOf = (masses: number[], springs: number[]): { m: number; k: number } | null => {
+      if (masses.length === 0) return null;
+      const m = masses[0]!;
+      if (!masses.every((v) => v === m)) return null;
+      const k = springs[0];
+      if (k === undefined || !springs.every((v) => v === k)) return null;
+      if (springs.length !== masses.length && springs.length !== masses.length + 1) return null;
+      return { m, k };
+    };
+    if (this.importedChain) {
+      const ic = this.importedChain;
+      return { masses: ic.masses, springs: ic.springs, dampings: ic.dampings, uniform: uniformOf(ic.masses, ic.springs) };
+    }
+    const masses = parseNumberList(this.state.massesText, 'm list');
+    const springs = parseNumberList(this.state.springsText, 'k list');
+    const dampRaw = parseNumberList(this.state.dampingsText, 'c list');
+    return {
+      masses,
+      springs,
+      dampings: dampRaw.length > 0 ? dampRaw : null,
+      uniform: uniformOf(masses, springs),
+    };
   }
 
   private computeMdof(): MdofResults {
@@ -991,9 +1160,19 @@ export class EngVibrationPlugin implements Plugin {
     const model = this.buildMdofModel();
     const modes: MdofModes = this.requireEigen(model);
     const nShow = Math.min(3, modes.n);
-    const w2 = modes.omega[Math.min(2, modes.n - 1)]!;
-    const { alpha, beta } = rayleighAlphaBeta(modes.omega[0]!, w2, s.zetaM);
-    const zetas = rayleighModalZeta(modes.omega, alpha, beta);
+    // Damping model: per-DOF dashpots when a full c list is provided, Rayleigh otherwise.
+    const spec = s.system === 'chain' ? this.parseChainSpec() : null;
+    let zetas: number[];
+    let dampingLabel: string;
+    if (spec?.dampings && spec.dampings.length === model.n) {
+      zetas = modalZetaDiagC(modes.shapes, spec.dampings, modes.omega);
+      dampingLabel = 'per-DOF dashpots';
+    } else {
+      const w2 = modes.omega[Math.min(2, modes.n - 1)]!;
+      const { alpha, beta } = rayleighAlphaBeta(modes.omega[0]!, w2, s.zetaM);
+      zetas = rayleighModalZeta(modes.omega, alpha, beta);
+      dampingLabel = `Rayleigh (zeta at w1/w3 = ${fmtMetric(s.zetaM)})`;
+    }
     let driveDof = 0;
     let bv = 0;
     for (let j = 0; j < modes.n; j += 1) {
@@ -1006,8 +1185,8 @@ export class EngVibrationPlugin implements Plugin {
     const frf = mdofDriveFrf(modes, zetas, driveDof, 0.2 * modes.omega[0]!, 30 * modes.omega[0]!, 1500);
     let refOmega: number[] | null = null;
     let refCont: number[] | null = null;
-    if (s.system === 'chain' && !this.importedChain) {
-      refOmega = chainAnalyticOmega(modes.n, s.chainM, s.chainK);
+    if (s.system === 'chain' && spec?.uniform) {
+      refOmega = chainAnalyticOmega(modes.n, spec.uniform.m, spec.uniform.k);
     } else if (s.system === 'beam') {
       refOmega = beamDiscreteOmega(modes.n, s.beamEI, s.beamRhoA, s.beamL, Math.round(s.beamN));
       refCont = beamContinuousOmega(modes.n, s.beamEI, s.beamRhoA, s.beamL);
@@ -1018,7 +1197,7 @@ export class EngVibrationPlugin implements Plugin {
           ? `chain (imported, N = ${modes.n})`
           : `spring chain (N = ${modes.n})`
         : `simply supported beam (${modes.n} nodes)`;
-    return { model, modes, zetas, nShow, driveDof, frf, refOmega, refCont, label };
+    return { model, modes, zetas, dampingLabel, nShow, driveDof, frf, refOmega, refCont, label };
   }
 
   /** generalizedEigenDiagM with a friendlier singular-matrix message. */
@@ -1031,77 +1210,115 @@ export class EngVibrationPlugin implements Plugin {
   }
 
   private computeFrf(): FrfResults {
+    const s = this.state;
+    let w: number[];
+    let magDb: number[];
+    let phaseLagDeg: number[] | null;
+    let id: HalfPowerId;
+    let imported: boolean;
+    let label: string;
+    let trueWn: number | null;
+    let trueZeta: number | null;
     if (this.importedSweep) {
       const sw = this.importedSweep;
-      const id = halfPowerIdentify({ w: sw.w, magDb: sw.magDb, phaseLagDeg: sw.phaseLagDeg ?? sw.magDb.map(() => 0) });
-      return {
-        w: sw.w,
-        magDb: sw.magDb,
-        phaseLagDeg: sw.phaseLagDeg,
-        id,
-        imported: true,
-        label: 'imported sweep',
-        trueWn: null,
-        trueZeta: null,
+      w = sw.w;
+      magDb = sw.magDb;
+      phaseLagDeg = sw.phaseLagDeg;
+      id = halfPowerIdentify({ w: sw.w, magDb: sw.magDb, phaseLagDeg: sw.phaseLagDeg ?? sw.magDb.map(() => 0) });
+      imported = true;
+      label = 'imported sweep';
+      trueWn = null;
+      trueZeta = null;
+    } else if (s.frfSource === 'sdof') {
+      const sd = this.computeSdof();
+      w = sd.sweep.w;
+      magDb = sd.sweep.magDb;
+      phaseLagDeg = sd.sweep.phaseLagDeg;
+      id = sd.id;
+      imported = false;
+      label = 'SDOF receptance';
+      trueWn = sd.derived.wn;
+      trueZeta = sd.derived.zeta;
+    } else {
+      const mdof = this.computeMdof();
+      w = mdof.frf.w;
+      magDb = mdof.frf.magDb;
+      phaseLagDeg = mdof.frf.phaseLagDeg;
+      id = halfPowerIdentify({ w: mdof.frf.w, magDb: mdof.frf.magDb, phaseLagDeg: mdof.frf.phaseLagDeg });
+      imported = false;
+      label = `MDOF drive point (${mdof.label})`;
+      trueWn = mdof.modes.omega[0] ?? null;
+      trueZeta = mdof.zetas[0] ?? null;
+    }
+    // Damping-ratio sweep: receptance family on the same w grid (SDOF source only).
+    let family: SdofFamily | null = null;
+    if (!imported && s.frfSource === 'sdof') {
+      const p: SdofParams = { m: s.m, k: s.k, c: s.c };
+      const sk = Math.sqrt(p.m * p.k);
+      family = {
+        w,
+        curves: ISO_ZETAS.map((z) => {
+          const pz: SdofParams = { m: p.m, k: p.k, c: 2 * z * sk };
+          return w.map((wi) => 20 * Math.log10(sdofReceptance(pz, wi).mag));
+        }),
+        zetas: ISO_ZETAS.slice(),
       };
     }
-    if (this.state.frfSource === 'sdof') {
-      const s = this.computeSdof();
-      return {
-        w: s.sweep.w,
-        magDb: s.sweep.magDb,
-        phaseLagDeg: s.sweep.phaseLagDeg,
-        id: s.id,
-        imported: false,
-        label: 'SDOF receptance',
-        trueWn: s.derived.wn,
-        trueZeta: s.derived.zeta,
-      };
-    }
-    const mdof = this.computeMdof();
-    const id = halfPowerIdentify({ w: mdof.frf.w, magDb: mdof.frf.magDb, phaseLagDeg: mdof.frf.phaseLagDeg });
-    return {
-      w: mdof.frf.w,
-      magDb: mdof.frf.magDb,
-      phaseLagDeg: mdof.frf.phaseLagDeg,
-      id,
-      imported: false,
-      label: `MDOF drive point (${mdof.label})`,
-      trueWn: mdof.modes.omega[0] ?? null,
-      trueZeta: mdof.zetas[0] ?? null,
-    };
+    return { w, magDb, phaseLagDeg, id, imported, label, trueWn, trueZeta, family, iso: this.computeIsoBlock() };
   }
 
-  private computeIso(): IsoResults {
+  /** Base-excitation transmissibility: highlighted curve + zeta family + sqrt(2) identity. */
+  private computeIsoBlock(): FrfIso {
     const s = this.state;
-    const { r, curves } = transmissibilitySweep(ISO_ZETAS, 0.1, 10, 500);
-    const hiR = logspace(0.1, 10, 1200);
-    const hi = { r: hiR, T: hiR.map((ri) => transmissibility(s.zetaIso, ri)) };
-    const peak = transmissibilityPeak(s.zetaIso);
-    const t0 = transmissibility(s.zetaIso, s.r0);
-    const sqrt2Check = Math.abs(transmissibility(s.zetaIso, Math.SQRT2) - 1);
-    return { r, zetaList: ISO_ZETAS.slice(), curves, hi, peak, t0, sqrt2Check };
+    const fam = transmissibilitySweep(ISO_ZETAS, 0.1, 10, 500);
+    const r = logspace(0.1, 10, 1200);
+    const T = r.map((ri) => transmissibility(s.zetaIso, ri));
+    return {
+      r,
+      T,
+      familyZetas: ISO_ZETAS.slice(),
+      familyR: fam.r,
+      familyCurves: fam.curves,
+      peak: transmissibilityPeak(s.zetaIso),
+      t0: transmissibility(s.zetaIso, s.r0),
+      sqrt2Check: Math.abs(transmissibility(s.zetaIso, Math.SQRT2) - 1),
+    };
   }
 
   private computeUnb(): UnbResults {
     const s = this.state;
-    const { r, ampNorm, phaseLagDeg } = unbalanceSweep(s.zetaU, 800, 0.05, 10);
-    const peakExact = 1 / (2 * s.zetaU);
+    const { r, ampNorm, phaseLagDeg } = unbalanceSweep(s.zetaU, 1200, 0.05, 10);
+    const peakClosed = unbalancePeak(s.zetaU);
+    // Dense numeric peak over the same band (validates the closed form).
     let peakNum = 0;
     let peakR = 1;
-    for (let i = 0; i <= 20000; i += 1) {
-      const rr = 0.5 + (i * 1) / 20000;
+    const logLo = Math.log(0.05);
+    const logHi = Math.log(10);
+    const nScan = 20000;
+    for (let i = 0; i <= nScan; i += 1) {
+      const rr = Math.exp(logLo + ((logHi - logLo) * i) / nScan);
       const a = unbalancePoint(s.zetaU, rr).ampNorm;
       if (a > peakNum) {
         peakNum = a;
         peakR = rr;
       }
     }
-    const phaseAt1 = unbalancePoint(s.zetaU, 1).phaseLagDeg;
+    const at1 = unbalancePoint(s.zetaU, 1);
     const orbit = unbalanceOrbit(s.zetaU, s.rOp, s.kappa, 144);
     let orbitMax = 0;
     for (let i = 0; i < orbit.x.length; i += 1) orbitMax = Math.max(orbitMax, Math.hypot(orbit.x[i]!, orbit.y[i]!));
-    return { r, ampNorm, phaseLagDeg, peakExact, peakNum, peakR, phaseAt1, orbit, orbitMax };
+    return {
+      r,
+      ampNorm,
+      phaseLagDeg,
+      peakClosed,
+      ampAt1: at1.ampNorm,
+      peakNum,
+      peakR,
+      phaseAt1: at1.phaseLagDeg,
+      orbit,
+      orbitMax,
+    };
   }
 
   private recompute() {
@@ -1109,7 +1326,6 @@ export class EngVibrationPlugin implements Plugin {
     this.sdofRes = null;
     this.mdofRes = null;
     this.frfRes = null;
-    this.isoRes = null;
     this.unbRes = null;
     try {
       switch (this.state.mode) {
@@ -1121,9 +1337,6 @@ export class EngVibrationPlugin implements Plugin {
           break;
         case 'frf':
           this.frfRes = this.computeFrf();
-          break;
-        case 'isolation':
-          this.isoRes = this.computeIso();
           break;
         case 'unbalance':
           this.unbRes = this.computeUnb();
@@ -1142,8 +1355,11 @@ export class EngVibrationPlugin implements Plugin {
     let n = 0;
     if (this.sdofRes) n += this.sdofRes.decay.t.length + this.sdofRes.sweep.w.length;
     if (this.mdofRes) n += this.mdofRes.model.n * this.mdofRes.model.n + this.mdofRes.frf.w.length;
-    if (this.frfRes) n += this.frfRes.w.length * (this.frfRes.phaseLagDeg ? 2 : 1);
-    if (this.isoRes) n += this.isoRes.hi.r.length + this.isoRes.r.length * this.isoRes.zetaList.length;
+    if (this.frfRes) {
+      n += this.frfRes.w.length * (this.frfRes.phaseLagDeg ? 2 : 1);
+      n += this.frfRes.iso.r.length + this.frfRes.iso.familyR.length * this.frfRes.iso.familyZetas.length;
+      if (this.frfRes.family) n += this.frfRes.family.w.length * this.frfRes.family.zetas.length;
+    }
     if (this.unbRes) n += this.unbRes.r.length * 2 + this.unbRes.orbit.x.length * 2;
     this.api.reportDataScale(n);
   }
@@ -1181,15 +1397,11 @@ export class EngVibrationPlugin implements Plugin {
       }
       case 'frf': {
         const r = this.frfRes!;
-        return `wr = ${fmtMetric(r.id.wr)} rad/s · zeta_id = ${fmtMetric(r.id.zeta)} · wn_id = ${fmtMetric(r.id.wn)} rad/s · Q = ${fmtMetric(r.id.Q)}`;
-      }
-      case 'isolation': {
-        const r = this.isoRes!;
-        return `T_max = ${fmtMetric(r.peak.tMax)} · r_peak = ${fmtMetric(r.peak.rPeak)} · T(r0) = ${fmtMetric(r.t0)} · efficiency = ${fmtMetric((1 - r.t0) * 100)} %`;
+        return `wr = ${fmtMetric(r.id.wr)} rad/s · zeta_id = ${fmtMetric(r.id.zeta)} · T(r0) = ${fmtMetric(r.iso.t0)} · eff = ${fmtMetric((1 - r.iso.t0) * 100)} %`;
       }
       case 'unbalance': {
         const r = this.unbRes!;
-        return `peak mX/(me*e) = ${fmtMetric(r.peakNum)} (exact 1/(2*zeta) = ${fmtMetric(r.peakExact)}) · phase(r=1) = ${fmtMetric(r.phaseAt1)} deg`;
+        return `peak mX/(me*e) = ${fmtMetric(r.peakClosed.ampPeak)} at r_peak = ${fmtMetric(r.peakClosed.rPeak)} · mX/(me*e; r=1) = 1/(2*zeta) = ${fmtMetric(r.ampAt1)} · phase(r=1) = ${fmtMetric(r.phaseAt1, 6)} deg`;
       }
     }
   }
@@ -1240,6 +1452,17 @@ export class EngVibrationPlugin implements Plugin {
         value: Number.isFinite(d.Q) ? fmtMetric(d.Q) : '∞',
         severity: 'info',
         hint: 'Q = 1/(2ζ)',
+      });
+      metrics.push({
+        key: 'fd',
+        label: zh ? '有阻尼固有频率 fd' : 'Damped natural frequency fd',
+        value: d.zeta < 1 ? fmtMetric((d.wn * Math.sqrt(1 - d.zeta * d.zeta)) / (2 * Math.PI)) : '—',
+        unit: 'Hz',
+        severity: 'info',
+        hint:
+          d.zeta < 1
+            ? `fd = fn*sqrt(1-zeta^2) · wd = ${fmtMetric(d.wn * Math.sqrt(1 - d.zeta * d.zeta))} rad/s`
+            : 'no oscillation at zeta >= 1 (critically / over-damped)',
       });
       metrics.push({
         key: 'xres',
@@ -1314,7 +1537,7 @@ export class EngVibrationPlugin implements Plugin {
         label: zh ? '一阶模态阻尼 ζ1' : 'First-mode damping zeta1',
         value: fmtMetric(r.zetas[0]!),
         severity: 'info',
-        hint: zh ? 'Rayleigh：ζ(ω1) = ζ(ω3) = 目标值' : 'Rayleigh: zeta(w1) = zeta(w3) = target',
+        hint: zh ? `阻尼模型：${r.dampingLabel}` : `damping model: ${r.dampingLabel}`,
       });
     }
 
@@ -1364,6 +1587,44 @@ export class EngVibrationPlugin implements Plugin {
         value: fmtMetric(r.id.peakDb),
         unit: 'dB',
         severity: 'info',
+      });
+      // Base-excitation transmissibility / isolation block.
+      const iso = r.iso;
+      const oneOver2z = 1 / (2 * this.state.zetaIso);
+      metrics.push({
+        key: 'tmax',
+        label: zh ? '传递率峰值 T_max' : 'Transmissibility peak T_max',
+        value: fmtMetric(iso.peak.tMax),
+        severity: errOk(iso.peak.tMax, oneOver2z, this.state.zetaIso <= 0.1 ? 0.01 : 0.1) ? 'ok' : 'info',
+        hint: zh
+          ? `1/(2ζ) = ${fmtMetric(oneOver2z)}（小阻尼近似，精确峰含 O(ζ²) 修正）`
+          : `1/(2*zeta) = ${fmtMetric(oneOver2z)} (small-damping approximation; the exact peak carries an O(zeta^2) correction)`,
+      });
+      pushRel('rel-err-tmax', 'T_max−1/(2ζ) 相对误差', 'T_max vs 1/(2*zeta) rel err', iso.peak.tMax, oneOver2z);
+      metrics.push({
+        key: 'rpeak',
+        label: zh ? '峰值频率比 r_peak' : 'Peak ratio r_peak',
+        value: fmtMetric(iso.peak.rPeak),
+        severity: 'info',
+        hint: 'r_peak = sqrt((sqrt(1+8*zeta^2)-1))/(2*zeta) — from 2*zeta^2*u^2 + u - 1 = 0 with u = r^2',
+      });
+      metrics.push({
+        key: 'iso-eff',
+        label: zh ? `隔振效率 (r0 = ${fmtMetric(this.state.r0)})` : `Isolation efficiency (r0 = ${fmtMetric(this.state.r0)})`,
+        value: fmtMetric((1 - iso.t0) * 100, 3),
+        unit: '%',
+        severity: iso.t0 < 1 ? 'ok' : 'warn',
+        hint:
+          iso.t0 < 1
+            ? `T(r0) = ${fmtMetric(iso.t0)} < 1 (${zh ? '隔离区' : 'isolation region'})`
+            : `T(r0) = ${fmtMetric(iso.t0)} >= 1 (${zh ? '放大区，需 r0 > √2' : 'amplification region — need r0 > sqrt(2)'})`,
+      });
+      metrics.push({
+        key: 'sqrt2-check',
+        label: zh ? '√2 分界校核 |T(√2)−1|' : 'sqrt(2) boundary check |T(sqrt2)-1|',
+        value: fmtMetric(iso.sqrt2Check, 3),
+        severity: iso.sqrt2Check < 1e-12 ? 'ok' : 'warn',
+        hint: zh ? 'T(√2) = 1 对一切 ζ 精确成立（代数恒等式）' : 'T(sqrt(2)) = 1 exactly for every zeta (algebraic identity)',
       });
     }
 

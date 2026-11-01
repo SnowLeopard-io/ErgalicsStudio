@@ -1,6 +1,6 @@
-// Data Lineage Visualizer kernel tests — impact analysis (upstream/downstream
-// BFS with depths, multi-level chains, branching), git version annotation,
-// GraphML/JSON exporters and the run-history adapter.
+// Lineage analysis kernel tests (src/core/lineage/analysis) — impact analysis
+// (upstream/downstream BFS with depths, multi-level chains, branching), git
+// version annotation, GraphML/JSON exporters and the run-history adapter.
 import { describe, it, expect } from 'vitest';
 import { buildLineage } from '@/core/lineage/graph';
 import type { LineageFile, LineageGraph } from '@/core/lineage/graph';
@@ -17,8 +17,8 @@ import {
   toGraphml,
   toLineageJson,
   upstreamOf,
-} from '@/plugins/builtin/dataeng/lineage/kernel';
-import type { CommitRef, LineageJson } from '@/plugins/builtin/dataeng/lineage/kernel';
+} from '@/core/lineage/analysis';
+import type { CommitRef, LineageJson } from '@/core/lineage/analysis';
 
 /** Minimal deterministic RunRecord factory (no crypto dependency). */
 function makeRun(partial: Partial<RunRecord> & { id: string }): RunRecord {

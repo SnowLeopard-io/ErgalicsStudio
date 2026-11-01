@@ -17,9 +17,11 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
 import {
   LATEX_TEMPLATES,
+  applyLatexTemplate,
   equationSnippet,
   figureSnippet,
   getLatexTemplate,
+  insertLatexSnippet,
   latexPreviewBody,
   latexPreviewHtml,
   renderBibtexFile,
@@ -35,6 +37,7 @@ import {
 } from '@/core/publish/bridge';
 import { CITATION_STYLES, type CitationStyle } from '@/core/publish/citation';
 import type { ManuscriptRecord } from '@/core/publish/state';
+import type { FigureSheet } from '@/types/project';
 import {
   downloadText,
   printHtml,
@@ -42,54 +45,15 @@ import {
   writePublishArtifacts,
 } from './shared';
 
-const EQUATION_PRESETS: Array<{ id: string; tex: string }> = [
-  { id: 'fraction', tex: '\\frac{a}{b}' },
+const EMPTY_SHEETS: FigureSheet[] = [];
+
+const EQUATION_PRESETS: Array<{ id: string; tex: string }> = [  { id: 'fraction', tex: '\\frac{a}{b}' },
   { id: 'sqrt', tex: '\\sqrt{x^2 + y^2}' },
   { id: 'integral', tex: '\\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}' },
   { id: 'sum', tex: '\\sum_{i=1}^{n} x_i' },
   { id: 'matrix', tex: '\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}' },
   { id: 'greek', tex: '\\alpha, \\beta, \\gamma, \\Delta, \\mu, \\sigma' },
 ];
-
-/**
- * Live preview surface. Writing into the iframe document imperatively (instead
- * of re-assigning `srcDoc`) keeps the update synchronous with the editor and
- * avoids the white flash / scroll jump of a full iframe reload on every
- * keystroke. The scroll position is carried over so the reader stays put.
- */
-function PreviewFrame({ html, title }: { html: string; title: string }) {
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const bootstrapped = useRef(false);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) return;
-    const doc = frame.contentDocument;
-    if (!doc) {
-      frame.srcdoc = html;
-      bootstrapped.current = true;
-      return;
-    }
-    const scroll = bootstrapped.current ? doc.scrollingElement?.scrollTop ?? 0 : 0;
-    doc.open();
-    doc.write(html || '<!doctype html><html><body></body></html>');
-    doc.close();
-    bootstrapped.current = true;
-    if (scroll > 0) {
-      const scroller = doc.scrollingElement;
-      if (scroller) scroller.scrollTop = scroll;
-    }
-  }, [html]);
-
-  return (
-    <iframe
-      ref={frameRef}
-      className="publish-preview"
-      title={title}
-      aria-label={title}
-    />
-  );
-}
 
 export default function LatexEditorPage() {
   const t = useT();
@@ -114,7 +78,7 @@ export default function LatexEditorPage() {
   const [replaceStarter, setReplaceStarter] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const sheets = project?.state.figureSheets ?? [];
+  const sheets = project?.state.figureSheets ?? EMPTY_SHEETS;
   const library = publish.library;
 
   // Load the active manuscript into the editor. `active?.id` (not `active`)
@@ -159,16 +123,21 @@ export default function LatexEditorPage() {
   const resolveFigure = useMemo(() => makeFigureResolver(sheets), [sheets]);
   const previewHtml = useMemo(() => {
     if (!source.trim()) return '';
-    return latexPreviewHtml(source, { entries: library, style, resolveFigure });
-  }, [source, library, style, resolveFigure]);
+    return latexPreviewHtml(source, {
+      entries: library,
+      style,
+      templateId,
+      resolveFigure,
+    });
+  }, [source, library, style, templateId, resolveFigure]);
 
-  // Debounce only the (potentially slow) HTML render, not the iframe write:
-  // 140 ms still feels live while coalescing fast typing bursts.
-  const [previewDoc, setPreviewDoc] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setPreviewDoc(previewHtml), 140);
-    return () => clearTimeout(timer);
-  }, [previewHtml]);
+  // Switching the journal template rewrites the preamble (document class,
+  // required packages, bibliography style) and re-themes the preview. The
+  // author's body text is never touched.
+  const changeTemplate = (next: LatexTemplateId) => {
+    setTemplateId(next);
+    if (source.trim()) setSource(applyLatexTemplate(source, next));
+  };
 
   const equationPreview = useMemo(
     () => latexPreviewBody(`$$${equationTex}$$`, { entries: library, style }),
@@ -192,13 +161,15 @@ export default function LatexEditorPage() {
 
   const insertAtCursor = (snippet: string) => {
     const el = textareaRef.current;
-    const start = el?.selectionStart ?? source.length;
-    const end = el?.selectionEnd ?? source.length;
-    const next = `${source.slice(0, start)}${snippet}${source.slice(end)}`;
+    const { source: next, caret } = insertLatexSnippet(
+      source,
+      snippet,
+      el?.selectionStart ?? source.length,
+      el?.selectionEnd ?? source.length,
+    );
     setSource(next);
     requestAnimationFrame(() => {
       el?.focus();
-      const caret = start + snippet.length;
       el?.setSelectionRange(caret, caret);
     });
   };
@@ -311,7 +282,7 @@ export default function LatexEditorPage() {
               <select
                 className="select"
                 value={templateId}
-                onChange={(e) => setTemplateId(e.target.value as LatexTemplateId)}
+                onChange={(e) => changeTemplate(e.target.value as LatexTemplateId)}
                 disabled={!active}
               >
                 {LATEX_TEMPLATES.map((tpl) => (
@@ -437,7 +408,11 @@ export default function LatexEditorPage() {
                 </div>
                 <div className="publish-pane">
                   <div className="publish-pane-title">{t('publish.latex.preview')}</div>
-                  <PreviewFrame html={previewDoc} title={t('publish.latex.preview')} />
+                  <iframe
+                    className="publish-preview"
+                    title={t('publish.latex.preview')}
+                    srcDoc={previewHtml}
+                  />
                 </div>
               </div>
               <p className="publish-hint">{t('publish.latex.compile_hint')}</p>

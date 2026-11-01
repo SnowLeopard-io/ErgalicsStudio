@@ -1,5 +1,5 @@
 // ==========================================================================
-// Data Lineage Visualizer — pure kernel (no React, no stores, no DOM).
+// Lineage analysis — pure kernel extensions (no React, no stores, no DOM).
 //
 // Extends the core lineage layer (`buildLineage`) with:
 //   - upstream/downstream reachability (BFS, cycle-safe) with depths

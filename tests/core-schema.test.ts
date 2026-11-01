@@ -1,4 +1,4 @@
-// Tests for the Schema Inference & Validator plugin (dataeng/schema):
+// Tests for the schema kernel (src/core/dataeng/schema):
 // type inference + nullability, functional dependencies, JSON Schema
 // emission, violation detection, schema drift and the data contract
 // serialisation round trip.
@@ -16,9 +16,7 @@ import {
   toJsonSchema,
   validateAgainstSchema,
   validateContract,
-} from '@/plugins/builtin/dataeng/schema/kernel';
-import { schemaManifest } from '@/plugins/builtin/dataeng/schema/manifest';
-import createSchemaPlugin from '@/plugins/builtin/dataeng/schema/plugin';
+} from '@/core/dataeng/schema';
 
 // ---- fixtures -----------------------------------------------------------------
 
@@ -334,26 +332,3 @@ describe('data contract', () => {
   });
 });
 
-// ---- manifest / factory smoke ----------------------------------------------------------
-
-describe('schema plugin surface', () => {
-  it('declares the required manifest fields', () => {
-    expect(schemaManifest.id).toBe('data.schema');
-    expect(schemaManifest.name).toBe('Schema Inference & Validator');
-    expect(schemaManifest.nameI18n?.['zh-CN']).toBe('Schema 推断与校验');
-    expect(schemaManifest.category).toBe('scientific');
-    expect(schemaManifest.sandbox).toBe('trusted');
-    expect(schemaManifest.research?.tier).toBe('quasi-research');
-    expect(schemaManifest.research?.reproducible).toBe(true);
-    expect(schemaManifest.formats?.map((f) => f.extension).sort()).toEqual(['.csv', '.json']);
-    expect(schemaManifest.descriptionI18n?.['zh-CN']).toBeTruthy();
-    expect(schemaManifest.descriptionI18n?.['en-US']).toBeTruthy();
-  });
-
-  it('exposes a default factory producing a Plugin instance', () => {
-    const plugin = createSchemaPlugin();
-    expect(plugin.manifest.id).toBe('data.schema');
-    expect(typeof plugin.init).toBe('function');
-    expect(typeof plugin.getParams).toBe('function');
-  });
-});

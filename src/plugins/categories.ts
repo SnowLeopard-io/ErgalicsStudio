@@ -190,10 +190,6 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'ai.rl': 'data',
   'ai.xai': 'data',
   'ai.vectordb': 'data',
-  'data.etl': 'data',
-  'data.lineage': 'data',
-  'data.schema': 'data',
-  'data.synth': 'data',
 
   // Mathematics & statistics (research-grade kernels). The former separate
   // "statistical analysis" group now lives here too.

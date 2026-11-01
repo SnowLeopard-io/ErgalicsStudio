@@ -166,10 +166,6 @@ import { simMontecarloManifest } from './sim/montecarlo/manifest';
 import { simAbmManifest } from './sim/abm/manifest';
 import { simSdManifest } from './sim/sysdyn/manifest';
 import { simDesManifest } from './sim/des/manifest';
-import { etlManifest } from './dataeng/etl/manifest';
-import { lineageManifest } from './dataeng/lineage/manifest';
-import { schemaManifest } from './dataeng/schema/manifest';
-import { synthManifest as dataengSynthManifest } from './dataeng/synth/manifest';
 
 export interface BuiltinPluginInfo {
   manifest: PluginManifest;
@@ -1136,39 +1132,6 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: simDesManifest,
     load: async () => {
       const mod = await import('./sim/des/plugin');
-      return mod.default();
-    },
-  },
-  // ---- Data engineering suite (ETL / lineage / schema / synthetic) ----------
-  {
-    manifest: etlManifest,
-    autoload: true,
-    load: async () => {
-      const mod = await import('./dataeng/etl/plugin');
-      return mod.default();
-    },
-  },
-  {
-    manifest: lineageManifest,
-    autoload: true,
-    load: async () => {
-      const mod = await import('./dataeng/lineage/plugin');
-      return mod.default();
-    },
-  },
-  {
-    manifest: schemaManifest,
-    autoload: true,
-    load: async () => {
-      const mod = await import('./dataeng/schema/plugin');
-      return mod.default();
-    },
-  },
-  {
-    manifest: dataengSynthManifest,
-    autoload: true,
-    load: async () => {
-      const mod = await import('./dataeng/synth/plugin');
       return mod.default();
     },
   },

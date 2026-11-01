@@ -32,9 +32,11 @@ import {
   type CitationStyle,
 } from '@/core/publish/citation';
 import {
+  applyLatexTemplate,
   equationSnippet,
   figureSnippet,
   getLatexTemplate,
+  insertLatexSnippet,
   latexPreviewBody,
   latexPreviewHtml,
   renderLatex,
@@ -304,6 +306,64 @@ describe('latex', () => {
     expect(html).toContain('<!doctype html>');
     expect(html).toContain('katex');
     expect(html).toContain('<h1>T</h1>');
+  });
+
+  it('rewrites the preamble when the journal template changes', () => {
+    const source = starterLatex('ieee', 'Paper');
+    const acm = applyLatexTemplate(source, 'acm');
+    expect(acm).toContain('\\documentclass[sigconf,nonacm]{acmart}');
+    expect(acm).toContain('\\bibliographystyle{ACM-Reference-Format}');
+    expect(acm).not.toContain('\\documentclass[conference]{IEEEtran}');
+    expect(acm).toContain('\\section{Introduction}');
+    expect(acm).toContain('Paper');
+    // Switching back restores the IEEE preamble without duplicating packages.
+    const back = applyLatexTemplate(acm, 'ieee');
+    expect(back).toContain('\\documentclass[conference]{IEEEtran}');
+    expect(back.match(/\\usepackage\{cite\}/g)?.length).toBe(1);
+  });
+
+  it('re-themes the preview for the selected template', () => {
+    const twoCol = latexPreviewHtml(starterLatex('ieee'), { templateId: 'ieee' });
+    expect(twoCol).toContain('lp-tpl-ieee');
+    expect(twoCol).toContain('lp-two-col');
+    const apa = latexPreviewHtml(starterLatex('apa'), { templateId: 'apa' });
+    expect(apa).toContain('<article class="lp-paper lp-tpl-apa">');
+    expect(apa).not.toContain('lp-paper lp-tpl-apa lp-two-col');
+  });
+
+  it('does not leak bibliography directives into the preview body', () => {
+    const src = [
+      '\\begin{document}',
+      '\\section{Methods}',
+      'Body text.',
+      '\\bibliographystyle{IEEEtran}',
+      '\\nocite{*}',
+      '\\bibliography{references}',
+      '\\end{document}',
+    ].join('\n');
+    const body = latexPreviewBody(src, { entries: parseBibtex(SAMPLE) });
+    expect(body).not.toContain('\\bibliographystyle');
+    expect(body).not.toContain('IEEEtran');
+    expect(body).not.toContain('\\nocite');
+    expect(body).not.toContain('\\bibliography');
+    expect(body).toContain('Methods');
+    expect(body).toContain('References');
+  });
+
+  it('inserts snippets before \\end{document} when the caret sits at EOF', () => {
+    const src = '\\begin{document}\nBody.\n\\end{document}\n';
+    const snippet = `\n${figureSnippet('figures/fig-1.svg', 'Result')}\n`;
+    const { source, caret } = insertLatexSnippet(src, snippet, src.length);
+    expect(source.indexOf('\\begin{figure}')).toBeLessThan(source.indexOf('\\end{document}'));
+    expect(source.endsWith('\\end{document}\n')).toBe(true);
+    expect(caret).toBe(source.indexOf('\\end{document}'));
+    // A caret inside the body still inserts exactly where it is.
+    const inside = insertLatexSnippet(src, 'X', 20);
+    expect(inside.source.slice(20, 21)).toBe('X');
+    // With a bibliography, EOF insertions land before it, not after.
+    const withBib = '\\begin{document}\nBody.\n\\bibliography{refs}\n\\end{document}\n';
+    const tagged = insertLatexSnippet(withBib, 'FIG', withBib.length);
+    expect(tagged.source.indexOf('FIG')).toBeLessThan(tagged.source.indexOf('\\bibliography{refs}'));
   });
 
   it('renders \\includesvg figures through the sheet resolver', () => {

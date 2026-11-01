@@ -394,7 +394,7 @@ function blasiusMarch(s0: number): { fp: number[]; f: number[]; eta: number[]; f
 export function blasiusSolve(): BlasiusSolution {
   let s0 = 0.332;
   let s1 = 0.34;
-  const m0 = blasiusMarch(s0);
+  let m0 = blasiusMarch(s0);
   let m1 = blasiusMarch(s1);
   let g0 = m0.fpEnd - 1;
   let g1 = m1.fpEnd - 1;

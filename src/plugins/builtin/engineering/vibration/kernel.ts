@@ -115,12 +115,36 @@ export function sdofFreeDecayExact(p: SdofParams, x0: number, v0: number, t: num
   return env * (x0 * Math.cosh(s * t) + ((v0 + zeta * wn * x0) / s) * Math.sinh(s * t));
 }
 
+/** Exact free-decay velocity v(t) (analytic derivative of sdofFreeDecayExact). */
+export function sdofFreeVelocityExact(p: SdofParams, x0: number, v0: number, t: number): number {
+  const { wn, zeta } = sdofDerived(p);
+  if (t <= 0) return v0;
+  const zwn = zeta * wn;
+  const c1 = v0 + zwn * x0;
+  if (zeta < 1) {
+    const wd = wn * Math.sqrt(1 - zeta * zeta);
+    const env = Math.exp(-zwn * t);
+    return env * (c1 * Math.cos(wd * t) - x0 * wd * Math.sin(wd * t)) - zwn * sdofFreeDecayExact(p, x0, v0, t);
+  }
+  if (zeta === 1) {
+    const env = Math.exp(-wn * t);
+    return env * (c1 - wn * (x0 + c1 * t));
+  }
+  const s = wn * Math.sqrt(zeta * zeta - 1);
+  const env = Math.exp(-zwn * t);
+  return env * (c1 * Math.cosh(s * t) + x0 * s * Math.sinh(s * t)) - zwn * sdofFreeDecayExact(p, x0, v0, t);
+}
+
 export interface DecaySim {
   t: number[];
   /** RK4 solution. */
   xNum: number[];
   /** Exact closed-form solution sampled on the same grid. */
   xExact: number[];
+  /** RK4 velocity (phase-plane ordinate). */
+  vNum: number[];
+  /** Exact closed-form velocity sampled on the same grid. */
+  vExact: number[];
   /** max |xNum - xExact|. */
   maxAbsDev: number;
   /** maxAbsDev / max(|xNum|, |xExact|). */
@@ -138,11 +162,15 @@ export function sdofFreeDecayRk4(p: SdofParams, x0: number, v0: number, tEnd: nu
   const t: number[] = new Array(nSteps + 1);
   const xNum: number[] = new Array(nSteps + 1);
   const xExact: number[] = new Array(nSteps + 1);
+  const vNum: number[] = new Array(nSteps + 1);
+  const vExact: number[] = new Array(nSteps + 1);
   let x = x0;
   let v = v0;
   t[0] = 0;
   xNum[0] = x0;
   xExact[0] = x0;
+  vNum[0] = v0;
+  vExact[0] = v0;
   for (let i = 1; i <= nSteps; i += 1) {
     const [k1x, k1v] = f(x, v);
     const [k2x, k2v] = f(x + (dt / 2) * k1x, v + (dt / 2) * k1v);
@@ -153,12 +181,81 @@ export function sdofFreeDecayRk4(p: SdofParams, x0: number, v0: number, tEnd: nu
     t[i] = i * dt;
     xNum[i] = x;
     xExact[i] = sdofFreeDecayExact(p, x0, v0, t[i]!);
+    vNum[i] = v;
+    vExact[i] = sdofFreeVelocityExact(p, x0, v0, t[i]!);
   }
   let maxX = 0;
   for (let i = 0; i <= nSteps; i += 1) maxX = Math.max(maxX, Math.abs(xNum[i]!), Math.abs(xExact[i]!));
   let maxAbsDev = 0;
   for (let i = 0; i <= nSteps; i += 1) maxAbsDev = Math.max(maxAbsDev, Math.abs(xNum[i]! - xExact[i]!));
-  return { t, xNum, xExact, maxAbsDev, maxRelDev: maxX > 0 ? maxAbsDev / maxX : maxAbsDev };
+  return { t, xNum, xExact, vNum, vExact, maxAbsDev, maxRelDev: maxX > 0 ? maxAbsDev / maxX : maxAbsDev };
+}
+
+export interface DecayIdentification {
+  ok: boolean;
+  /** Log decrement delta = ln(A_i / A_{i+1}) between successive positive peaks. */
+  delta: number;
+  /** Damping ratio zeta = delta / sqrt(4*pi^2 + delta^2). */
+  zeta: number;
+  /** Damped natural frequency from the mean peak spacing (rad/s). */
+  wd: number;
+  /** Undamped natural frequency wd / sqrt(1 - zeta^2) (rad/s). */
+  wn: number;
+  /** wn / (2*pi) (Hz). */
+  fn: number;
+  /** First peak amplitude (envelope reference). */
+  a1: number;
+  /** Number of positive peaks used. */
+  peaks: number;
+}
+
+const DECAY_ID_NAN: DecayIdentification = {
+  ok: false,
+  delta: Number.NaN,
+  zeta: Number.NaN,
+  wd: Number.NaN,
+  wn: Number.NaN,
+  fn: Number.NaN,
+  a1: Number.NaN,
+  peaks: 0,
+};
+
+/**
+ * Log-decrement identification of a lightly damped free decay from a sampled
+ * displacement history: locate successive positive local maxima above 5 % of
+ * the global amplitude, average delta = ln(A_i/A_{i+1}) = 2*pi*zeta/sqrt(1-zeta^2)
+ * and the peak spacing T_d = 2*pi/wd. Needs at least 3 peaks (2 increments).
+ */
+export function decayIdentify(t: number[], x: number[]): DecayIdentification {
+  const n = t.length;
+  if (n < 8 || x.length !== n) return { ...DECAY_ID_NAN };
+  let xMax = 0;
+  for (const v of x) if (Math.abs(v) > xMax) xMax = Math.abs(v);
+  if (!(xMax > 0) || !Number.isFinite(xMax)) return { ...DECAY_ID_NAN };
+  const floor = 0.05 * xMax;
+  const pk: Array<{ t: number; a: number }> = [];
+  for (let i = 1; i < n - 1; i += 1) {
+    if (x[i]! > x[i - 1]! && x[i]! >= x[i + 1]! && x[i]! > floor) {
+      pk.push({ t: t[i]!, a: x[i]! });
+    }
+  }
+  if (pk.length < 3) return { ...DECAY_ID_NAN };
+  let sDelta = 0;
+  let sPer = 0;
+  for (let i = 0; i + 1 < pk.length; i += 1) {
+    const ratio = pk[i]!.a / pk[i + 1]!.a;
+    if (!(ratio > 1)) return { ...DECAY_ID_NAN }; // growing or flat peaks: not a stable decay
+    sDelta += Math.log(ratio);
+    sPer += pk[i + 1]!.t - pk[i]!.t;
+  }
+  const m = pk.length - 1;
+  const delta = sDelta / m;
+  const Td = sPer / m;
+  if (!(delta > 0) || !(Td > 0) || delta > 4) return { ...DECAY_ID_NAN };
+  const zeta = delta / Math.sqrt(4 * Math.PI * Math.PI + delta * delta);
+  const wd = (2 * Math.PI) / Td;
+  const wn = wd / Math.sqrt(1 - zeta * zeta);
+  return { ok: true, delta, zeta, wd, wn, fn: wn / (2 * Math.PI), a1: pk[0]!.a, peaks: pk.length };
 }
 
 /** Receptance H(jw) = X/F = 1/(k - m*w^2 + j*c*w); phaseLagDeg is the angle by
@@ -532,6 +629,24 @@ export function rayleighModalZeta(omega: number[], alpha: number, beta: number):
   return omega.map((w) => alpha / (2 * w) + (beta * w) / 2);
 }
 
+/**
+ * Modal damping ratios for per-DOF viscous dashpots to ground, C = diag(c_i):
+ * with mass-normalized modes the modal damping ratio is
+ * zeta_r = (phi_r^T C phi_r) / (2*w_r) = (sum_i c_i * phi_ir^2) / (2*w_r).
+ */
+export function modalZetaDiagC(shapes: number[][], cDiag: number[], omega: number[]): number[] {
+  const n = omega.length;
+  if (cDiag.length !== n || shapes.length !== n) {
+    throw new VibrationError('damping list length must match the DOF count');
+  }
+  for (const c of cDiag) if (!(c >= 0)) throw new VibrationError('dampings must be >= 0 N*s/m');
+  return omega.map((w, r) => {
+    let cr = 0;
+    for (let i = 0; i < n; i += 1) cr += cDiag[i]! * shapes[i]![r]! * shapes[i]![r]!;
+    return cr / (2 * w);
+  });
+}
+
 // ---- analytic references ---------------------------------------------------
 
 /** Exact fixed-fixed uniform chain spectrum w_r = 2*sqrt(k/m)*sin(r*pi/(2*(n+1))). */
@@ -672,15 +787,15 @@ export interface TransPeak {
 
 /**
  * Closed-form peak of T(r): differentiating T^2 in u = r^2 gives
- * 4*zeta^2*u^2 + u - (1 + 2*zeta^2) = 0, hence
- * u* = (sqrt(1 + 16*zeta^2 + 32*zeta^4) - 1)/(8*zeta^2).
+ * 2*zeta^2*u^2 + u - 1 = 0, hence u* = (sqrt(1 + 8*zeta^2) - 1)/(4*zeta^2)
+ * and r_peak = sqrt(u*) = sqrt(sqrt(1+8*zeta^2)-1)/(2*zeta) (just below 1).
  * For small zeta, T_max = 1/(2*zeta) * (1 + O(zeta^2)).
  */
 export function transmissibilityPeak(zeta: number): TransPeak {
   if (!(zeta >= 0)) throw new VibrationError('transmissibility zeta must be >= 0');
   if (zeta === 0) return { rPeak: 1, tMax: Number.POSITIVE_INFINITY };
   const z2 = zeta * zeta;
-  const u = (Math.sqrt(1 + 16 * z2 + 32 * z2 * z2) - 1) / (8 * z2);
+  const u = (Math.sqrt(1 + 8 * z2) - 1) / (4 * z2);
   const t2 = (1 + 4 * z2 * u) / ((1 - u) * (1 - u) + 4 * z2 * u);
   return { rPeak: Math.sqrt(u), tMax: Math.sqrt(t2) };
 }
@@ -717,8 +832,10 @@ export interface UnbalancePoint {
 /**
  * Rotating-unbalance response of the SDOF (mass m, unbalance me*e at speed
  * w = r*wn): the normalized amplitude m*X/(me*e) = r^2/|1-r^2+2i*zeta*r| peaks
- * at EXACTLY 1/(2*zeta) on r = 1, where the phase lag is EXACTLY 90 degrees
- * (algebraic identities, valid for every zeta > 0).
+ * at r_peak = 1/sqrt(1-2*zeta^2) (zeta < 1/sqrt(2)) with peak value
+ * 1/(2*zeta*sqrt(1-zeta^2)); at r = 1 the amplitude is EXACTLY 1/(2*zeta) and
+ * the phase lag is EXACTLY 90 degrees (algebraic identities, valid for every
+ * zeta > 0).
  */
 export function unbalancePoint(zeta: number, r: number): UnbalancePoint {
   if (!(zeta > 0)) throw new VibrationError('unbalance zeta must be > 0');
@@ -728,6 +845,29 @@ export function unbalancePoint(zeta: number, r: number): UnbalancePoint {
     ampNorm: (r * r) / Math.sqrt(d),
     phaseLagDeg: toDeg(Math.atan2(2 * zeta * r, 1 - r * r)),
   };
+}
+
+export interface UnbalancePeakCF {
+  /** Frequency ratio at the peak, r_peak = 1/sqrt(1-2*zeta^2). */
+  rPeak: number;
+  /** Peak normalized amplitude, 1/(2*zeta*sqrt(1-zeta^2)). */
+  ampPeak: number;
+}
+
+/**
+ * Closed-form peak of the normalized unbalance amplitude: writing u = r^2 the
+ * amplitude squared is u^2/(u^2 + (4*zeta^2-2)*u + 1), whose derivative
+ * vanishes at u = 1/(1-2*zeta^2); hence r_peak = 1/sqrt(1-2*zeta^2) and
+ * A_peak = 1/(2*zeta*sqrt(1-zeta^2)). Requires zeta < 1/sqrt(2) — above that
+ * the amplitude grows monotonically and no interior peak exists.
+ */
+export function unbalancePeak(zeta: number): UnbalancePeakCF {
+  if (!(zeta > 0)) throw new VibrationError('unbalance zeta must be > 0');
+  const den = 1 - 2 * zeta * zeta;
+  if (!(den > 0)) {
+    throw new VibrationError('no interior unbalance peak for zeta >= 1/sqrt(2)');
+  }
+  return { rPeak: 1 / Math.sqrt(den), ampPeak: 1 / (2 * zeta * Math.sqrt(1 - zeta * zeta)) };
 }
 
 export interface UnbalanceSweep {

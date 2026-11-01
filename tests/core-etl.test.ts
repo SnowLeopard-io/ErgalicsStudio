@@ -1,12 +1,11 @@
 // ==========================================================================
-// Unit tests for the ETL Pipeline Builder plugin (data.etl):
+// Unit tests for the ETL kernel (src/core/dataeng/etl):
 // transform primitives (filter / map / reduce / join / groupBy / pivot /
 // melt / impute / normalize / coerceType), column-type inference, CSV/JSON
 // ingestion, the pandas / R / SQL code exporters and the flow-DAG export.
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import type { PluginApi } from '@/types/plugin';
 import {
   applyStep,
   etlCoerceType,
@@ -28,10 +27,8 @@ import {
   toPandasCode,
   toRCode,
   toSqlCode,
-} from '@/plugins/builtin/dataeng/etl/kernel';
-import type { EtlStep, EtTable } from '@/plugins/builtin/dataeng/etl/kernel';
-import { etlManifest } from '@/plugins/builtin/dataeng/etl/manifest';
-import createEtlPlugin from '@/plugins/builtin/dataeng/etl/plugin';
+} from '@/core/dataeng/etl';
+import type { EtlStep, EtTable } from '@/core/dataeng/etl';
 
 const SALES: EtTable = {
   columns: [
@@ -368,49 +365,5 @@ describe('flow-mode export', () => {
       to: { nodeId: 'etl-step-1', portId: 'data' },
     });
     expect(graph.connections[1]!.from.nodeId).toBe('etl-step-1');
-  });
-});
-
-describe('manifest and plugin wiring', () => {
-  it('declares the data.etl plugin contract', () => {
-    expect(etlManifest.id).toBe('data.etl');
-    expect(etlManifest.name).toBe('ETL Pipeline Builder');
-    expect(etlManifest.nameI18n?.['zh-CN']).toBe('ETL 流水线');
-    expect(etlManifest.category).toBe('scientific');
-    expect(etlManifest.sandbox).toBe('trusted');
-    expect(etlManifest.research?.tier).toBe('quasi-research');
-    expect(etlManifest.research?.reproducible).toBe(true);
-    expect(etlManifest.formats?.map((f) => f.extension)).toEqual(['.csv', '.json']);
-  });
-
-  it('restores persisted pipeline state and computes over CSV input', async () => {
-    const saved: Record<string, unknown> = {
-      pipeline: [{ kind: 'filter', column: 'units', op: '>=', value: '100' }] satisfies EtlStep[],
-      apiUrl: 'https://example.org/data.json',
-    };
-    const api = {
-      locale: 'en-US',
-      onLocaleChange: () => () => {},
-      getParam: (key: string) => saved[key],
-      setParam: (key: string, value: unknown) => {
-        saved[key] = value;
-      },
-      notify: () => {},
-      setStatus: () => {},
-      reportDataScale: () => {},
-    } as unknown as PluginApi;
-
-    const plugin = createEtlPlugin();
-    await plugin.init(api);
-
-    const urlParam = (await plugin.getParams()).find((p) => p.key === 'apiUrl');
-    expect(urlParam && 'value' in urlParam ? urlParam.value : undefined).toBe('https://example.org/data.json');
-
-    const progress: number[] = [];
-    const res = await plugin.compute!('region,units\nNorth,120\nSouth,60\nEast,140', (p) => progress.push(p.done));
-    expect(res.ok).toBe(true);
-    const output = res.output as { rows: number };
-    expect(output.rows).toBe(2);
-    expect(progress).toEqual([0, 1]);
   });
 });
