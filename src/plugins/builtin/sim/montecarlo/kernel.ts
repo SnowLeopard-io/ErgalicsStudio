@@ -330,19 +330,19 @@ export function sampleLhs(n: number, k: number, rng: Rng): number[][] {
 const SOBOL_JOE_KUO: ReadonlyArray<readonly [number, number, readonly number[]]> = [
   [1, 0, [1]],
   [2, 1, [1, 3]],
-  [3, 1, [1, 3, 1]],
-  [3, 2, [1, 1, 1]],
+  [3, 2, [1, 3, 1]],
+  [3, 1, [1, 1, 1]],
+  [4, 4, [1, 1, 3, 3]],
   [4, 1, [1, 3, 5, 13]],
-  [4, 4, [1, 1, 5, 5]],
-  [5, 2, [1, 3, 3, 9, 11]],
-  [5, 4, [1, 3, 1, 1, 3]],
-  [5, 7, [1, 1, 5, 1, 1]],
-  [5, 11, [1, 1, 1, 3, 5]],
-  [5, 13, [1, 1, 1, 3, 3]],
-  [5, 14, [1, 1, 3, 1, 1]],
-  [6, 1, [1, 1, 1, 3, 9, 7]],
-  [6, 13, [1, 1, 1, 1, 3, 5]],
-  [6, 16, [1, 1, 1, 3, 15, 1]],
+  [5, 4, [1, 1, 5, 5, 17]],
+  [5, 2, [1, 1, 5, 5, 5]],
+  [5, 14, [1, 1, 7, 11, 19]],
+  [5, 13, [1, 1, 5, 1, 1]],
+  [5, 11, [1, 1, 1, 3, 11]],
+  [5, 7, [1, 3, 5, 5, 31]],
+  [6, 16, [1, 3, 3, 9, 7, 49]],
+  [6, 22, [1, 1, 1, 15, 21, 21]],
+  [6, 1, [1, 3, 1, 13, 27, 49]],
 ];
 
 /** Direction-number table per dimension. */
@@ -366,10 +366,11 @@ function sobolDirections(dim: number): Uint32Array[] {
       const m: number[] = init.slice();
       // Bratley-Fox recurrence:
       // m_i = 2^s * m_{i-s} XOR m_{i-s} XOR (XOR_j a_j * 2^j * m_{i-j})
+      // `poly` stores a_1 in bit 0, a_2 in bit 1, … (classic Bratley–Fox table).
       for (let i = s + 1; i <= 32; i++) {
         let acc = (m[i - s - 1]! << s) ^ m[i - s - 1]!;
         for (let j = 1; j < s; j++) {
-          if ((poly >>> j) & 1) acc ^= m[i - j - 1]! << j;
+          if ((poly >>> (j - 1)) & 1) acc ^= m[i - j - 1]! << j;
         }
         m.push(acc & 0xffffffff);
       }

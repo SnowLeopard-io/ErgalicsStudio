@@ -880,6 +880,13 @@ export function CentralArea() {
     baseX: number;
     baseY: number;
   } | null>(null);
+  // Touch multi-pointer state. One finger pans; two fingers pinch-zoom.
+  // Without dedicated pinch handling the second finger's moves were read as
+  // pan deltas against the first finger's origin, so the viewport flipped
+  // between two far-apart offsets on every event (the tablet flicker) and
+  // pinch could never zoom.
+  const touchPoints = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
 
   // Pan/zoom only makes sense on a bare 2D viewport: the 3D canvas is up
   // (OrbitControls owns the input there) and plugin DOM must keep its own
@@ -907,18 +914,59 @@ export function CentralArea() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
-    const v = getViewport2d();
-    drag2d.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      baseX: v.x,
-      baseY: v.y,
-    };
+    touchPoints.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touchPoints.current.size === 2) {
+      // Second finger down: switch from pan to pinch-zoom.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      pinch.current = {
+        dist: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)),
+        cx: (a!.x + b!.x) / 2,
+        cy: (a!.y + b!.y) / 2,
+      };
+      drag2d.current = null;
+    } else if (touchPoints.current.size === 1) {
+      const v = getViewport2d();
+      drag2d.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        baseX: v.x,
+        baseY: v.y,
+      };
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.style.cursor = 'grabbing';
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const tracked = touchPoints.current.get(e.pointerId);
+    if (tracked) {
+      tracked.x = e.clientX;
+      tracked.y = e.clientY;
+    }
+    if (pinch.current && touchPoints.current.size >= 2) {
+      // Pinch: scale around the finger midpoint and follow its translation.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      const dist = Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y));
+      const cx = (a!.x + b!.x) / 2;
+      const cy = (a!.y + b!.y) / 2;
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (rect) {
+        const v = getViewport2d();
+        // Host-space midpoint before/after this move.
+        const mx = pinch.current.cx - rect.left;
+        const my = pinch.current.cy - rect.top;
+        const nx = cx - rect.left;
+        const ny = cy - rect.top;
+        const next = Math.min(12, Math.max(0.1, v.scale * (dist / pinch.current.dist)));
+        const k = next / v.scale;
+        const p = clampPan(nx - (mx - v.x) * k + (nx - mx), ny - (my - v.y) * k + (ny - my));
+        setViewport2d({ x: p.x, y: p.y, scale: next });
+        setVp2d({ x: p.x, y: p.y, scale: next });
+        rerenderActivePlugin();
+      }
+      pinch.current = { dist, cx, cy };
+      return;
+    }
     const drag = drag2d.current;
     if (drag) {
       const v = getViewport2d();
@@ -937,7 +985,27 @@ export function CentralArea() {
   };
 
   const onPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!drag2d.current) return;
+    const tracked = touchPoints.current.delete(e.pointerId);
+    if (!tracked && !drag2d.current && !pinch.current) return;
+    if (touchPoints.current.size >= 2) {
+      // A third finger lifted; re-anchor the pinch on the remaining two.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      pinch.current = {
+        dist: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)),
+        cx: (a!.x + b!.x) / 2,
+        cy: (a!.y + b!.y) / 2,
+      };
+      return;
+    }
+    pinch.current = null;
+    if (touchPoints.current.size === 1) {
+      // One finger left on the glass: resume panning from its position so the
+      // view does not jump back to the stale single-finger drag origin.
+      const [p] = [...touchPoints.current.values()] as [{ x: number; y: number }];
+      const v = getViewport2d();
+      drag2d.current = { startX: p!.x, startY: p!.y, baseX: v.x, baseY: v.y };
+      return;
+    }
     drag2d.current = null;
     e.currentTarget.style.cursor = '';
     try {

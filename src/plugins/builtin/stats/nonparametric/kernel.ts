@@ -329,7 +329,18 @@ export function rankCorrelations(a: number[], b: number[]): { rho: number; rhoP:
   }
   const denom = Math.sqrt((concordant + discordant + tiesA) * (concordant + discordant + tiesB));
   const tau = denom > 0 ? (concordant - discordant) / denom : 0;
-  const tauP = 2 * (1 - normalCdf(Math.abs((3 * tau * Math.sqrt(n * (n - 1))) / Math.sqrt(2 * (2 * n + 5)))));
+  // Tie-corrected normal approximation for S = C − D (Kendall 1945). The
+  // untied variance 2(2n+5)/(9n(n−1)) is badly anti-conservative with ties.
+  const tieTerm = (vals: number[]): number => {
+    const counts = new Map<number, number>();
+    for (let i = 0; i < n; i += 1) counts.set(vals[i]!, (counts.get(vals[i]!) ?? 0) + 1);
+    let acc = 0;
+    for (const c of counts.values()) if (c > 1) acc += c * (c - 1) * (2 * c + 5);
+    return acc;
+  };
+  const varS = (n * (n - 1) * (2 * n + 5) - tieTerm(a) - tieTerm(b)) / 18;
+  const zTau = varS > 0 ? (concordant - discordant) / Math.sqrt(varS) : 0;
+  const tauP = 2 * (1 - normalCdf(Math.abs(zTau)));
   return { rho, rhoP, tau, tauP };
 }
 
