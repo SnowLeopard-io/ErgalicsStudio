@@ -397,20 +397,21 @@ export function stepTraffic(world: ABMWorld, maxSpeed: number, pSlow: number, rn
   const n = world.width;
   const next: ABMWorld = { ...world, agents: world.agents.map((a) => ({ ...a, attrs: { ...a.attrs } })) };
   const sorted = [...next.agents].sort((a, b) => Math.round(a.x) - Math.round(b.x));
+  // Snapshot positions: Nagel–Schreckenberg is a simultaneous update, so every
+  // gap and move is computed from the start-of-step configuration.
+  const oldX = sorted.map((a) => Math.round(a.x));
   for (let i = 0; i < sorted.length; i++) {
     const car = sorted[i]!;
-    const lead = sorted[(i + 1) % sorted.length]!;
-    const gap = i + 1 === sorted.length
-      ? n - (Math.round(car.x) - Math.round(lead.x))
-      : Math.round(lead.x) - Math.round(car.x);
+    const leadX = oldX[(i + 1) % sorted.length]!;
+    const gap = i + 1 === sorted.length ? n - (oldX[i]! - leadX) : leadX - oldX[i]!;
     // 1. accelerate
     car.attrs.speed = Math.min(car.attrs.speed! + 1, maxSpeed);
     // 2. brake to keep gap >= speed (gap counts cells between cars)
     car.attrs.speed = Math.min(car.attrs.speed!, Math.max(gap - 1, 0));
     // 3. random slowdown
     if (car.attrs.speed! > 0 && rng.next() < pSlow) car.attrs.speed = car.attrs.speed! - 1;
-    // 4. advance (ring)
-    car.x = mod(car.x + car.attrs.speed!, n);
+    // 4. advance from the snapshot position (ring)
+    car.x = mod(oldX[i]! + car.attrs.speed!, n);
   }
   return next;
 }

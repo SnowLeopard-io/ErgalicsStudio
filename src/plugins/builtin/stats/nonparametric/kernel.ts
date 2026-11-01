@@ -90,7 +90,7 @@ export function mannWhitney(a: number[], b: number[]): NpResult | null {
   const n = n1 + n2;
   const tie = tieCorrection(r);
   const sigma = Math.sqrt((n1 * n2 / 12) * (n + 1 - tie / (n * (n - 1))));
-  const z = sigma > 0 ? (u - (n1 * n2) / 2 + 0.5 * Math.sign(u - (n1 * n2) / 2)) / sigma : 0;
+  const z = sigma > 0 ? (u - (n1 * n2) / 2 + 0.5) / sigma : 0;
   const p = 2 * (1 - normalCdf(Math.abs(z)));
   const rbc = 1 - (2 * u) / (n1 * n2);
   return {
@@ -278,15 +278,30 @@ export function ksOneSampleNormal(x: number[]): NpResult | null {
     const cdf = normalCdf((v - m) / s);
     d = Math.max(d, Math.abs(cdf - (i + 1) / x.length), Math.abs(cdf - i / x.length));
   });
-  const p = Math.min(1, 2 * Math.exp(-2 * x.length * d * d));
+  // Parameters are estimated from the sample, so the null is Lilliefors, not
+  // the known-parameter Kolmogorov distribution. Dallal–Wilkinson approximation.
+  const n = x.length;
+  const p = Math.min(
+    1,
+    Math.max(
+      0,
+      Math.exp(
+        -7.01256 * d * d * (n + 2.78019) +
+          2.99587 * d * Math.sqrt(n + 2.78019) -
+          0.122119 +
+          0.974598 / Math.sqrt(n) +
+          1.67997 / n,
+      ),
+    ),
+  );
   return {
-    test: 'Kolmogorov–Smirnov (normal)',
+    test: 'Lilliefors (KS against fitted normal)',
     statistic: d,
     df: NaN,
     p,
     effect: d,
     effectLabel: 'D',
-    detail: `D=${fmt(d, 4)} vs N(${fmt(m, 3)}, ${fmt(s, 3)}), n=${x.length}`,
+    detail: `D=${fmt(d, 4)} vs N(${fmt(m, 3)}, ${fmt(s, 3)}), n=${n}`,
   };
 }
 

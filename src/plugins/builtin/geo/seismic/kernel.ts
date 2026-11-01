@@ -31,7 +31,7 @@ export interface VelocityLayer {
  * constant layer averages preserves the transition-zone gradients that control
  * the first-arrival P/S branches. Density is not needed for travel times.
  */
-export const EARTH_RADIAL_NODES: readonly Array<{ depthKm: number; vp: number; vs: number }> = [
+export const EARTH_RADIAL_NODES: ReadonlyArray<{ depthKm: number; vp: number; vs: number }> = [
   { depthKm: 0, vp: 5.8, vs: 3.36 },
   { depthKm: 20, vp: 6.5, vs: 3.7 },
   { depthKm: 35, vp: 8.04, vs: 4.47 },

@@ -208,12 +208,10 @@ export function fitDoe(dataset: DoeDataset, order: 1 | 2 = 2): DoeFit | null {
   });
 
   const anova: AnovaRow[] = [];
-  let modelSs = 0;
   for (let j = 0; j < design.columns.length; j += 1) {
     const reduced = design.columns.map((_, k) => k !== j);
     const fit = leastSquares(designMatrix(design, reduced), y);
     const ss = fit ? Math.max(0, fit.sse - full.sse) : 0;
-    modelSs += ss;
     const df = 1;
     const ms = ss / df;
     const f = mse > 0 ? ms / mse : 0;
@@ -228,13 +226,14 @@ export function fitDoe(dataset: DoeDataset, order: 1 | 2 = 2): DoeFit | null {
       eta2: ss + full.sse > 0 ? ss / (ss + full.sse) : 0,
     });
   }
-  // Block effect (when present) is reported as a separate pooled term.
-  const residualsSs = Math.max(0, sst - modelSs);
+  // Residual row: Type-III term SS do not partition the model SS, so use the
+  // full-model residual SSE directly.
+  const residualsSs = full.sse;
   anova.push({
     term: 'Residual',
     df: full.df,
     ss: residualsSs,
-    ms: full.df > 0 ? residualsSs / full.df : 0,
+    ms: mse,
     f: NaN,
     p: NaN,
     eta2: sst > 0 ? residualsSs / sst : 0,

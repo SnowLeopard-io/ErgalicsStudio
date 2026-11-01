@@ -224,7 +224,15 @@ export function distributionStd(spec: DistributionSpec): number {
       const [a, m, b] = [spec.params[0] ?? 0, spec.params[1] ?? 0.5, spec.params[2] ?? 1];
       return Math.sqrt((a * a + m * m + b * b - a * m - a * b - m * b) / 18);
     }
-    case 'pert': return Math.max(distributionMax(spec) - distributionMin(spec), 0) / 6;
+    case 'pert': {
+      const [a, m, b] = [spec.params[0] ?? 0, spec.params[1] ?? 0.5, spec.params[2] ?? 1];
+      const lambda = spec.params[3] ?? 4;
+      const w = Math.max(b - a, 1e-12);
+      const alpha = 1 + (lambda * (m - a)) / w;
+      const beta = 1 + (lambda * (b - m)) / w;
+      const ab = alpha + beta;
+      return w * Math.sqrt((alpha * beta) / (ab * ab * (ab + 1)));
+    }
     case 'beta': {
       const [al, be] = [spec.params[0] ?? 2, spec.params[1] ?? 2];
       const ab = al + be;
@@ -315,18 +323,29 @@ export function sampleLhs(n: number, k: number, rng: Rng): number[][] {
 
 // ---- Sobol sequence ------------------------------------------------------
 
-/** Primitive polynomials over GF(2) for Sobol dimensions 1..15, encoded as
- * bitmasks (bit j set = a_j coefficient of x^s + a_{s-1}x^{s-1} + ... + a_1 x + 1;
- * the trailing constant 1 is implicit). Several dimensions may share a
- * primitive polynomial of a different degree — this is standard practice. */
-const SOBOL_POLY: number[] = [3, 3, 3, 5, 3, 3, 113, 17, 9, 5, 3, 3, 3, 5, 3];
-/** Degrees of the corresponding polynomials (dim 1..15). */
-const SOBOL_DEG: number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4, 5, 6];
+/** Primitive polynomials, degrees and Joe–Kuo initial direction values for
+ *  Sobol dimensions 2..16. Entries are [degree s, polynomial bits a, m_1..m_s].
+ *  Dimension 1 is the van der Corput sequence. Distinct polynomials and
+ *  canonical initial values prevent duplicate/rank-deficient dimensions. */
+const SOBOL_JOE_KUO: ReadonlyArray<readonly [number, number, readonly number[]]> = [
+  [1, 0, [1]],
+  [2, 1, [1, 3]],
+  [3, 1, [1, 3, 1]],
+  [3, 2, [1, 1, 1]],
+  [4, 1, [1, 3, 5, 13]],
+  [4, 4, [1, 1, 5, 5]],
+  [5, 2, [1, 3, 3, 9, 11]],
+  [5, 4, [1, 3, 1, 1, 3]],
+  [5, 7, [1, 1, 5, 1, 1]],
+  [5, 11, [1, 1, 1, 3, 5]],
+  [5, 13, [1, 1, 1, 3, 3]],
+  [5, 14, [1, 1, 3, 1, 1]],
+  [6, 1, [1, 1, 1, 3, 9, 7]],
+  [6, 13, [1, 1, 1, 1, 3, 5]],
+  [6, 16, [1, 1, 1, 3, 15, 1]],
+];
 
-/** Direction-number table per dimension. Initial m_i = 2^(i-1) + 1 (odd, with
- * leading bit at position i-1) guarantee upper-triangular full-rank generator
- * matrices, hence the (0,m,s)-net property; only the discrepancy constant
- * differs from the canonical Joe-Kuo initial values. */
+/** Direction-number table per dimension. */
 function sobolDirections(dim: number): Uint32Array[] {
   const dirs: Uint32Array[] = [];
   for (let d = 0; d < dim; d++) {
@@ -334,10 +353,17 @@ function sobolDirections(dim: number): Uint32Array[] {
     if (d === 0) {
       for (let i = 1; i <= 32; i++) v[i - 1] = 1 << (32 - i);
     } else {
-      const poly = SOBOL_POLY[d - 1]!;
-      const s = SOBOL_DEG[d - 1]!;
-      const m: number[] = [];
-      for (let i = 1; i <= s; i++) m.push(i === 1 ? 1 : (1 << (i - 1)) + 1);
+      const entry = SOBOL_JOE_KUO[d - 1];
+      if (!entry) {
+        // Beyond the tabulated dimensions: deterministic hash-based fallback
+        // rather than a constant (rank-deficient) column.
+        const h = (0x9e3779b9 * (d + 1)) >>> 0;
+        for (let i = 1; i <= 32; i++) v[i - 1] = ((h ^ (i * 0x85ebca6b)) >>> 0);
+        dirs.push(v);
+        continue;
+      }
+      const [s, poly, init] = entry;
+      const m: number[] = init.slice();
       // Bratley-Fox recurrence:
       // m_i = 2^s * m_{i-s} XOR m_{i-s} XOR (XOR_j a_j * 2^j * m_{i-j})
       for (let i = s + 1; i <= 32; i++) {

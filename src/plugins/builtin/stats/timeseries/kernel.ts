@@ -8,7 +8,7 @@
 // with confidence bands and the Granger causality F-test.
 // ==========================================================================
 
-import { fCdf, normalCdf, normalInv } from '@/core/stats/special';
+import { fCdf, normalInv } from '@/core/stats/special';
 import {
   fmt,
   mean,
@@ -173,11 +173,22 @@ export function seasonalDecompose(x: number[], period: number, mode: 'additive' 
   const p = Math.max(2, Math.round(period));
   const trend = new Array<number>(n).fill(NaN);
   const half = Math.floor(p / 2);
-  for (let t = 0; t < n; t += 1) {
-    if (t - half < 0 || t + (p - half) > n) continue;
-    let s = 0;
-    for (let k = 0; k < p; k += 1) s += x[t - half + k]!;
-    trend[t] = s / p;
+  if (p % 2 === 0) {
+    // Even period: a centred 2×p moving average has half weights at both ends,
+    // so the window is [t−p/2, t+p/2] (p+1 points) and is centred on t.
+    for (let t = 0; t < n; t += 1) {
+      if (t - half < 0 || t + half >= n) continue;
+      let s = 0.5 * x[t - half]! + 0.5 * x[t + half]!;
+      for (let k = -half + 1; k < half; k += 1) s += x[t + k]!;
+      trend[t] = s / p;
+    }
+  } else {
+    for (let t = 0; t < n; t += 1) {
+      if (t - half < 0 || t + (p - half) > n) continue;
+      let s = 0;
+      for (let k = 0; k < p; k += 1) s += x[t - half + k]!;
+      trend[t] = s / p;
+    }
   }
   const sums = new Array<number>(p).fill(0);
   const counts = new Array<number>(p).fill(0);
@@ -259,6 +270,59 @@ function difference(x: number[], d: number): number[] {
 }
 
 /** Augmented Dickey-Fuller test (constant, no trend). */
+/**
+ * Approximate Dickey–Fuller τ p-value (constant, no trend) by monotone
+ * interpolation of the standard asymptotic quantiles. A normal tail is badly
+ * miscalibrated for this non-standard distribution.
+ */
+function dfPValue(stat: number): number {
+  const q: Array<[number, number]> = [
+    [-3.43, 0.01],
+    [-3.12, 0.025],
+    [-2.86, 0.05],
+    [-2.57, 0.1],
+    [-1.57, 0.5],
+    [-0.44, 0.9],
+    [-0.08, 0.95],
+    [0.24, 0.975],
+    [0.6, 0.99],
+  ];
+  if (!Number.isFinite(stat)) return NaN;
+  if (stat <= q[0]![0]) return 0.01;
+  if (stat >= q[q.length - 1]![0]) return 0.99;
+  for (let i = 0; i + 1 < q.length; i += 1) {
+    const a = q[i]!;
+    const b = q[i + 1]!;
+    if (stat >= a[0] && stat <= b[0]) {
+      const f = (stat - a[0]) / (b[0] - a[0]);
+      return a[1] + (b[1] - a[1]) * f;
+    }
+  }
+  return 0.5;
+}
+
+/** KPSS level-test p-value from the asymptotic quantile table. */
+function kpssPValue(stat: number): number {
+  const q: Array<[number, number]> = [
+    [0.347, 0.1],
+    [0.463, 0.05],
+    [0.574, 0.025],
+    [0.739, 0.01],
+  ];
+  if (!Number.isFinite(stat)) return NaN;
+  if (stat <= q[0]![0]) return 1;
+  if (stat >= q[q.length - 1]![0]) return 0.001;
+  for (let i = 0; i + 1 < q.length; i += 1) {
+    const a = q[i]!;
+    const b = q[i + 1]!;
+    if (stat >= a[0] && stat <= b[0]) {
+      const f = (stat - a[0]) / (b[0] - a[0]);
+      return a[1] + (b[1] - a[1]) * f;
+    }
+  }
+  return 0.05;
+}
+
 export function adfTest(x: number[], maxLag = 1): UnitRootTest {
   const n = x.length;
   if (n < 8) return { id: 'adf', statistic: NaN, p: NaN, critical5: -2.86, stationary: false, lags: 0, detail: 'not enough observations' };
@@ -277,7 +341,7 @@ export function adfTest(x: number[], maxLag = 1): UnitRootTest {
   const gamma = fit.beta[1]!;
   const se = Math.sqrt(Math.max(1e-30, fit.cov[1]?.[1] ?? 0));
   const stat = gamma / se;
-  const p = normalCdf(stat);
+  const p = dfPValue(stat);
   return {
     id: 'adf',
     statistic: stat,
@@ -311,8 +375,8 @@ export function kpssTest(x: number[]): UnitRootTest {
     lrv += 2 * w * cov;
   }
   const stat = s.reduce((a, v) => a + v * v, 0) / (n * n * Math.max(1e-30, lrv));
-  // Smooth approximation to the KPSS asymptotic distribution (level).
-  const p = Math.min(1, Math.max(0, 1 - Math.exp(-2.2 * stat)));
+  // Approximate KPSS asymptotic p-value (calibrated: p(0.463) = 0.05).
+  const p = kpssPValue(stat);
   return {
     id: 'kpss',
     statistic: stat,
@@ -343,11 +407,14 @@ export function ppTest(x: number[], lags?: number): UnitRootTest {
     lrv += 2 * (1 - l / (L + 1)) * cov;
   }
   const s2 = fit.sse / n;
-  const stat = Math.sqrt(s2 / Math.max(1e-30, lrv)) * (rho / se) - (lrv - s2) / (2 * se * Math.sqrt(Math.max(1e-30, lrv)) / Math.sqrt(n));
+  const tRho = (rho - 1) / se;
+  const stat =
+    Math.sqrt(s2 / Math.max(1e-30, lrv)) * tRho -
+    ((lrv - s2) * (n * se)) / Math.max(1e-30, 2 * s2 * Math.sqrt(lrv));
   return {
     id: 'pp',
     statistic: stat,
-    p: normalCdf(stat),
+    p: dfPValue(stat),
     critical5: -2.86,
     stationary: stat < -2.86,
     lags: L,
@@ -455,6 +522,14 @@ export function forecastArima(model: ArimaModel, horizon = 12, conf = 0.95): For
     eps[t] = hist[t]! - pred;
   }
   const out: ForecastPoint[] = [];
+  // ψ-weights of the MA(∞) representation: Var(e_{t+h}) = σ² Σ_{j=0}^{h-1} ψ_j².
+  const psi = new Array<number>(horizon).fill(0);
+  psi[0] = 1;
+  for (let j = 1; j < horizon; j += 1) {
+    let v = j - 1 < model.q ? model.ma[j - 1]! : 0;
+    for (let i = 1; i <= Math.min(model.p, j); i += 1) v += model.ar[i - 1]! * psi[j - i]!;
+    psi[j] = v;
+  }
   for (let h = 1; h <= horizon; h += 1) {
     const idx = hist.length - 1 + h;
     let pred = model.intercept;
@@ -468,7 +543,9 @@ export function forecastArima(model: ArimaModel, horizon = 12, conf = 0.95): For
       pred += model.ma[j]! * e;
     }
     hist.push(pred);
-    const varH = Math.max(1e-30, model.sigma2 * h);
+    let psiSq = 0;
+    for (let j = 0; j < h; j += 1) psiSq += psi[j]! * psi[j]!;
+    const varH = Math.max(1e-30, model.sigma2 * psiSq);
     out.push({ step: h, mean: pred, lo: pred - z * Math.sqrt(varH), hi: pred + z * Math.sqrt(varH) });
   }
   return out;
@@ -486,8 +563,9 @@ export function fitGarch11(values: number[]): GarchFit | null {
     let h = Math.max(1e-12, varianceR);
     let ll = 0;
     for (const v of r) {
-      h = omega + alpha * v * v + beta * h;
+      // σ_t² is formed from r_{t−1}; the likelihood term is for r_t.
       ll += Math.log(h) + (v * v) / h;
+      h = omega + alpha * v * v + beta * h;
     }
     return ll;
   };
@@ -525,12 +603,13 @@ export function fitGarch11(values: number[]): GarchFit | null {
   const forecastVol: number[] = [];
   let fh = h;
   for (let i = 0; i < 12; i += 1) {
-    fh = omega + (alpha + beta) * fh;
     forecastVol.push(Math.sqrt(fh));
+    fh = omega + (alpha + beta) * fh;
   }
   const persistence = alpha + beta;
   const unconditionalVol = persistence < 1 ? Math.sqrt(omega / (1 - persistence)) : Infinity;
-  return { omega, alpha, beta, persistence, unconditionalVol, logLik: -0.5 * best, forecastVol, returns };
+  const logLik = -0.5 * (best + r.length * Math.log(2 * Math.PI));
+  return { omega, alpha, beta, persistence, unconditionalVol, logLik, forecastVol, returns };
 }
 
 /** Granger causality F-test of x → y over lags 1..maxLag. */

@@ -6,7 +6,7 @@
 // funnel-plot asymmetry and a Duval-Tweedie trim-and-fill estimate.
 // ==========================================================================
 
-import { chiSquareCdf, normalCdf } from '@/core/stats/special';
+import { chiSquareCdf, normalCdf, studentTCdf } from '@/core/stats/special';
 import { fmt, mean, parseTable } from '../../shared/stats-utils';
 
 export interface MetaStudy {
@@ -137,8 +137,8 @@ export function metaAnalyze(studies: MetaStudy[]): MetaResult | null {
     }
     const seIntercept = Math.sqrt(Math.max(1e-30, (sse / Math.max(1, k - 2)) * (1 / k + (mx * mx) / Math.max(1e-30, sxx))));
     const t = intercept / seIntercept;
-    // Two-sided p from a t approximation with k-2 df (normal for simplicity).
-    egger = { intercept, se: seIntercept, t, p: 2 * (1 - normalCdf(Math.abs(t))) };
+    // Two-sided p from t with k−2 df (small k makes the normal tail too liberal).
+    egger = { intercept, se: seIntercept, t, p: 2 * (1 - studentTCdf(Math.abs(t), Math.max(1, k - 2))) };
   }
 
   // Duval-Tweedie trim-and-fill (iterative, fixed-effect side).
@@ -182,30 +182,27 @@ function metaBasic(studies: MetaStudy[]): { estimate: number; lo: number; hi: nu
 
 function trimAndFill(studies: MetaStudy[], center: number): { filled: number; estimate: number; lo: number; hi: number } {
   let current = [...studies];
-  let filled = 0;
+  const trimmed: MetaStudy[] = [];
   for (let iter = 0; iter < 10; iter += 1) {
-    // Rank by distance from the centre; trim the most extreme on the heavy side.
     const sorted = [...current].sort((a, b) => a.effect - b.effect);
     const left = current.filter((s) => s.effect < center).length;
     const right = current.length - left;
-    const side = right >= left ? 'right' : 'left';
+    // Trim the most extreme studies on the heavier side; their mirror images
+    // are the missing studies on the opposite side.
+    const heavy: 'left' | 'right' = right >= left ? 'right' : 'left';
     const kTrim = Math.max(0, Math.min(3, Math.abs(right - left)));
     if (kTrim === 0) break;
-    const trimmed = side === 'right' ? sorted.slice(0, sorted.length - kTrim) : sorted.slice(kTrim);
-    const re = pooledFrom(trimmed, 0);
-    current = trimmed;
-    center = re.estimate;
-    filled = kTrim;
+    if (heavy === 'right') {
+      trimmed.push(...sorted.slice(sorted.length - kTrim));
+      current = sorted.slice(0, sorted.length - kTrim);
+    } else {
+      trimmed.push(...sorted.slice(0, kTrim));
+      current = sorted.slice(kTrim);
+    }
+    if (current.length === 0) break;
+    center = pooledFrom(current, 0).estimate;
   }
-  // Impute mirror images of the trimmed studies around the centre.
-  const imputed: MetaStudy[] = [];
-  const sorted = [...studies].sort((a, b) => a.effect - b.effect);
-  const side = mean(studies.map((s) => s.effect)) >= center ? 'left' : 'right';
-  const trim = Math.min(filled, sorted.length);
-  for (let i = 0; i < trim; i += 1) {
-    const src = side === 'left' ? sorted[i]! : sorted[sorted.length - 1 - i]!;
-    imputed.push({ ...src, effect: 2 * center - src.effect });
-  }
+  const imputed = trimmed.map((s) => ({ ...s, effect: 2 * center - s.effect }));
   const filledSet = [...studies, ...imputed];
   const res = pooledFrom(filledSet, 0);
   return { filled: imputed.length, estimate: res.estimate, lo: res.lo, hi: res.hi };
