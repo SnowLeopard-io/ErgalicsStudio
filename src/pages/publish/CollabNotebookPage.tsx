@@ -138,6 +138,8 @@ export default function CollabNotebookPage() {
       channelRef.current = null;
       return;
     }
+    // Fresh room: drop peers learned under the previous notebook.
+    setPeers([]);
     const channel = createCollabChannel(noteId, (message: CollabMessage) => {
       const current = noteRef.current;
       if (!current || current.id !== noteId) return;

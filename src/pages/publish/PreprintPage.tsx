@@ -39,7 +39,7 @@ const EMPTY_SHEETS: FigureSheet[] = [];
 
 interface ParsedManuscript {
   title: string;
-  authors: string;
+  authors: string[];
   abstract: string;
 }
 
@@ -65,8 +65,7 @@ function parseManuscript(source: string, fallbackTitle: string): ParsedManuscrip
   const authors = extractBraced(source, 'author')
     .split(/\\and/)
     .map((name) => name.replace(/\\thanks\{[^{}]*\}/g, '').replace(/[{}]/g, '').trim())
-    .filter(Boolean)
-    .join(', ');
+    .filter(Boolean);
   const abstractStart = source.indexOf('\\begin{abstract}');
   const abstractEnd = source.indexOf('\\end{abstract}');
   const abstract =
@@ -145,14 +144,17 @@ export default function PreprintPage() {
       cffVersion: '1.2.0',
       message: 'If you use this work, please cite it as below.',
       title: parsed.title,
-      authors: parsed.authors
-        .split(',')
-        .map((name) => {
-          const tokens = name.trim().split(/\s+/);
-          const family = tokens.pop() ?? name;
-          return { family, given: tokens.join(' ') };
-        })
-        .filter((a) => a.family),
+      authors: parsed.authors.map((name) => {
+        // "Family, Given" (LaTeX convention) keeps the whole name intact now
+        // that \and authors stay separate; only the comma inside a name splits.
+        if (name.includes(',')) {
+          const [family = '', ...rest] = name.split(',');
+          return { family: family.trim(), given: rest.join(',').trim() };
+        }
+        const tokens = name.trim().split(/\s+/);
+        const family = tokens.pop() ?? name;
+        return { family, given: tokens.join(' ') };
+      }),
       year: String(new Date().getFullYear()),
       version: project.metadata.version,
       doi: doi || undefined,
@@ -163,7 +165,7 @@ export default function PreprintPage() {
       metadata: buildArxivMetadata(
         {
           title: parsed.title,
-          authors: parsed.authors ? parsed.authors.split(',').map((name) => ({ name: name.trim() })) : [],
+          authors: parsed.authors.map((name) => ({ name: name.trim() })),
           abstract: parsed.abstract,
         },
         {
@@ -290,7 +292,7 @@ export default function PreprintPage() {
                   <div>
                     <div className="publish-mini-title">{t('publish.preprint.metadata')}</div>
                     <p className="publish-mono">{parsed?.title}</p>
-                    <p className="publish-muted">{parsed?.authors || '—'}</p>
+                    <p className="publish-muted">{parsed?.authors.join(', ') || '—'}</p>
                     <p className="publish-hint">{parsed?.abstract || '—'}</p>
                   </div>
                   <div>

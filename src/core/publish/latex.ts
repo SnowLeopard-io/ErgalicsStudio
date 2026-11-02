@@ -141,11 +141,15 @@ export interface LatexDocument {
 }
 
 function escapeLatex(s: string): string {
+  // Backslashes first via a placeholder: the literal `\textbackslash{}` that
+  // ends up in the output must not have its braces re-escaped by the next pass.
+  // (U+E000 is a private-use char that never appears in source text.)
   return s
-    .replace(/\\/g, '\\textbackslash{}')
+    .replace(/\\/g, '\uE000')
     .replace(/([&%$#_{}])/g, '\\$1')
     .replace(/~/g, '\\textasciitilde{}')
-    .replace(/\^/g, '\\textasciicircum{}');
+    .replace(/\^/g, '\\textasciicircum{}')
+    .replace(/\uE000/g, '\\textbackslash{}');
 }
 
 /** Escape plain text for insertion into a LaTeX document. */

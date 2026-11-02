@@ -17,7 +17,6 @@
     "build:wasm": "node scripts/build-wasm.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "build:website": "npm run build --prefix website",
-    "build:desktop": "node scripts/desktop-build.mjs",
     "deploy:merge": "node scripts/merge-deploy.mjs",
     "docs:dev": "npm run dev --prefix docs",
     "docs:preview": "npm run preview --prefix docs",
