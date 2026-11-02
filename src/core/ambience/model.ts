@@ -125,7 +125,7 @@ function uiImage(id: BadgeId): string {
   return entry?.default ?? '';
 }
 
-export const BADGES: BadgeDef[] = [
+const BADGE_DEFS: Array<Omit<BadgeDef, 'hdPath'>> = [
   { id: 'first-spark', rarity: 'common', nameKey: 'badges.first-spark.name', descKey: 'badges.first-spark.desc',
     check: (t) => t.xp > 0 },
   { id: 'pathfinder', rarity: 'common', nameKey: 'badges.pathfinder.name', descKey: 'badges.pathfinder.desc',
@@ -150,7 +150,12 @@ export const BADGES: BadgeDef[] = [
     check: (t) => t.lastRun != null && (t.lastRun.hour >= 0 && t.lastRun.hour < 5) },
   { id: 'xp-master', rarity: 'epic', nameKey: 'badges.xp-master.name', descKey: 'badges.xp-master.desc',
     check: (t) => t.xp >= 2500 },
-].map((d) => ({ ...d, hdPath: `${HD_BASE}badge-${d.id}.jpg` }));
+];
+
+export const BADGES: BadgeDef[] = BADGE_DEFS.map((d) => ({
+  ...d,
+  hdPath: `${HD_BASE}badge-${d.id}.jpg`,
+}));
 
 export function badgeUiImage(id: BadgeId): string {
   return uiImage(id);

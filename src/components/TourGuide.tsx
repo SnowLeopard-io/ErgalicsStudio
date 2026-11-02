@@ -298,7 +298,7 @@ export function TourGuide() {
               <button type="button" className="btn btn-sm btn-primary" onClick={next}>
                 {t('tour.begin')}
               </button>
-              <button type="button" className="btn btn-sm" onClick={finish}>
+              <button type="button" className="btn btn-sm" onClick={() => finish()}>
                 {t('tour.skip')}
               </button>
             </>
@@ -307,7 +307,7 @@ export function TourGuide() {
               {t('tour.finish')}
             </button>
           ) : def.mode === 'click' ? (
-            <button type="button" className="btn btn-sm" onClick={finish}>
+            <button type="button" className="btn btn-sm" onClick={() => finish()}>
               {t('tour.skip')}
             </button>
           ) : (
@@ -315,7 +315,7 @@ export function TourGuide() {
               <button type="button" className="btn btn-sm btn-primary" onClick={next}>
                 {t('tour.next')}
               </button>
-              <button type="button" className="btn btn-sm" onClick={finish}>
+              <button type="button" className="btn btn-sm" onClick={() => finish()}>
                 {t('tour.skip')}
               </button>
             </>

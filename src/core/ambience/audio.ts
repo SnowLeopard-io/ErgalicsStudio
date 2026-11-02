@@ -144,7 +144,7 @@ export function setAmbientTheme(dark: boolean): void {
 }
 
 export function startAmbient(): void {
-  if (!config.enabled || !config.ambientEnabled || ambientNodes) return;
+  if (ambientNodes) return;
   const ac = ensureContext();
   if (!ac || !master) return;
   const gain = ac.createGain();
