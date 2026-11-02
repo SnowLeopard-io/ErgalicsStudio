@@ -11,8 +11,8 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. 236 test files, 3836 tests
-(3834 including 2 skipped):
+Environment: `node`. 235 test files, 3835 tests
+(3833 including 2 skipped):
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |

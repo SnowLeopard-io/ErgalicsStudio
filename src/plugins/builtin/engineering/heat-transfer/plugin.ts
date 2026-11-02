@@ -205,6 +205,9 @@ interface Products {
   condParams: ConductionParams | null;
   conv: ConvectionResult | null;
   convSweep: Array<{ L: number; h: number }> | null;
+  /** Reference sweep at a fixed u_ref = 1 m/s, drawn as a dashed ghost curve
+   *  so the effect of the velocity slider stays visible despite y auto-scaling. */
+  convRefSweep: Array<{ L: number; h: number }> | null;
   rad: RadiationResult | null;
   spectrum: SpectralPoint[] | null;
   ex: ExchangerResult | null;
@@ -287,7 +290,7 @@ export class EngHeatPlugin implements Plugin {
   private zh = false;
   private state: State = { ...DEFAULT_STATE };
   private products: Products = {
-    cond: null, condParams: null, conv: null, convSweep: null,
+    cond: null, condParams: null, conv: null, convSweep: null, convRefSweep: null,
     rad: null, spectrum: null, ex: null, profiles: null, res: null, error: null,
   };
   /** Cached offscreen heatmap (rebuilt only when the grid size changes). */
@@ -652,6 +655,16 @@ export class EngHeatPlugin implements Plugin {
           sweep.push({ L, h: r.h });
         }
         p.convSweep = sweep;
+        // Reference sweep at fixed u_ref = 1 m/s (same fluid/geometry) for a
+        // stable visual baseline: with y auto-scaling the active curve alone
+        // looks unchanged when u varies (h scales roughly uniformly).
+        const refSweep: Array<{ L: number; h: number }> = [];
+        for (let i = 0; i < 72; i += 1) {
+          const L = 0.005 * Math.pow(300, i / 71);
+          const r = solveConvection({ geom: s.convGeom, fluid, u: 1, L, tSurf: s.tSurf, tInf: s.tInfC });
+          refSweep.push({ L, h: r.h });
+        }
+        p.convRefSweep = refSweep;
       } else if (s.mode === 'radiation') {
         p.rad = solveRadiation({
           t1: s.radT1, t2: s.radT2, eps1: s.eps1, eps2: s.eps2,
@@ -669,7 +682,7 @@ export class EngHeatPlugin implements Plugin {
         });
       }
     } catch (e) {
-      p.cond = null; p.condParams = null; p.conv = null; p.convSweep = null;
+      p.cond = null; p.condParams = null; p.conv = null; p.convSweep = null; p.convRefSweep = null;
       p.rad = null; p.spectrum = null; p.ex = null; p.profiles = null; p.res = null;
       p.error = e instanceof Error ? e.message : String(e);
     }
@@ -1143,6 +1156,15 @@ export class EngHeatPlugin implements Plugin {
       if (pt.h < hLo) hLo = pt.h;
       if (pt.h > hHi) hHi = pt.h;
     }
+    // Include the fixed-u reference curve in the y-range so moving the live
+    // curve relative to the ghost baseline is visible despite auto-scaling.
+    const ref = this.products.convRefSweep;
+    if (ref) {
+      for (const pt of ref) {
+        if (pt.h < hLo) hLo = pt.h;
+        if (pt.h > hHi) hHi = pt.h;
+      }
+    }
     hLo = Math.max(0, hLo - (hHi - hLo) * 0.08);
     hHi += (hHi - hLo) * 0.08 + 1e-9;
     const mapX = (L: number): number => r.x + ((Math.log10(L) - logLo) / (logHi - logLo)) * r.w;
@@ -1177,6 +1199,21 @@ export class EngHeatPlugin implements Plugin {
     g.beginPath();
     g.rect(r.x, r.y, r.w, r.h);
     g.clip();
+    // Ghost baseline at fixed u_ref = 1 m/s (dashed grey).
+    if (ref && ref.length >= 2) {
+      g.strokeStyle = 'rgba(150,160,175,0.55)';
+      g.lineWidth = 1.5;
+      g.setLineDash([5, 4]);
+      g.beginPath();
+      for (let i = 0; i < ref.length; i += 1) {
+        const x = mapX(ref[i]!.L);
+        const y = mapY(clamp(ref[i]!.h, hLo, hHi));
+        if (i === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.stroke();
+      g.setLineDash([]);
+    }
     g.strokeStyle = 'rgba(110,168,216,0.95)';
     g.lineWidth = 2;
     g.beginPath();
@@ -1203,7 +1240,8 @@ export class EngHeatPlugin implements Plugin {
     const g1 = isNat ? `Ra = ${fmtMetric(cur.ra)}` : `Re = ${fmtMetric(cur.re)}`;
     g.fillText(`${g1} · Nu = ${fmtMetric(cur.nu, 3)} · Pr = ${fmtMetric(cur.pr, 3)} · ${cur.regime}`, 16, h - 26);
     g.fillStyle = 'rgba(200,210,225,0.95)';
-    g.fillText(`h = ${fmtMetric(cur.h)} W/(m2 K) · ${cur.correlation}`, 16, h - 10);
+    const refNote = ref ? ` · ${zh ? '虚线: u=1 m/s 基准' : 'dashed: u = 1 m/s reference'}` : '';
+    g.fillText(`h = ${fmtMetric(cur.h)} W/(m2 K) · u = ${fmtMetric(this.state.u)} m/s${refNote} · ${cur.correlation}`, 16, h - 10);
   }
 
   /** Planck spectral curve with the Wien peak marker. */

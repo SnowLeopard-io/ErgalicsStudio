@@ -28,7 +28,7 @@ The following are functional today:
 | Plugin sandbox | Worker-based, with a typed RPC protocol. |
 | Git-backed projects | A workspace VFS (`src/core/vfs/`) shared by the file explorer, per-file editors and the Git working tree; isomorphic-git in the browser and simple-git under Node, with a sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks). |
 | i18n | zh-CN / en-US with reactive locale switching — Block mode uses Blockly's `BKY_*` key system so block labels re-localise with the rest. |
-| Theming / sharing / CI / tests | Theming (dark / light), sharing, GitHub Actions CI, and automated tests (3836 Vitest unit tests across 236 test files plus Playwright E2E suites). |
+| Theming / sharing / CI / tests | Theming (dark / light), sharing, GitHub Actions CI, and automated tests (3835 Vitest unit tests across 235 test files plus Playwright E2E suites). |
 
 Built but not yet shipped as a product: the fully-automated third-party
 submission & install pipeline for the plugin marketplace (the `.cspkg`
