@@ -18,6 +18,7 @@ import {
   decodeAudioClip,
   type AudioClip,
 } from '@/core/audio';
+import { setHostAudioPluginOpen } from '@/core/ambience/audio';
 import { acousticFigurePanels } from './figure';
 import { acousticsManifest } from './manifest';
 import {
@@ -122,10 +123,13 @@ export class AcousticsPlugin implements Plugin {
 
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
+    // A sound-capable plugin owns the soundscape while it is open.
+    setHostAudioPluginOpen(true);
   }
 
   async deactivate() {
     this.stopPlayback(false);
+    setHostAudioPluginOpen(false);
   }
 
   render(container: ContainerCapabilities) {

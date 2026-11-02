@@ -15,6 +15,9 @@
 import type { ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
 import { actionButton, actionFired, notify } from '@/core/plugin-tools/enhance';
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
+// While this plugin is open (and while any voice sounds), the host's ambient
+// music must stand down so the two never overlap (see core/ambience/audio.ts).
+import { setHostAudioActive, setHostAudioPluginOpen } from '@/core/ambience/audio';
 import { keysManifest } from './manifest';
 import {
   INSTRUMENTS,
@@ -113,12 +116,15 @@ export class KeysPlugin implements Plugin {
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
     this.attachCanvas();
+    // A sound-capable plugin owns the soundscape while it is open.
+    setHostAudioPluginOpen(true);
   }
 
   async deactivate() {
     this.heldKeys.clear();
     this.stopAll();
     this.detachCanvas();
+    setHostAudioPluginOpen(false);
   }
 
   render(container: ContainerCapabilities) {
@@ -560,6 +566,9 @@ export class KeysPlugin implements Plugin {
   // ---- outputs & drawing -------------------------------------------------------
 
   private setOutputs() {
+    // Ambient-music ducking follows the voice map: any entry — including a
+    // released-but-still-tailing one — keeps the music paused.
+    setHostAudioActive(this.voices.size > 0);
     const metrics: ScienceMetric[] = [
       { key: 'voices', label: this.zh ? '正在发声' : 'Active voices', value: fmtMetric(this.voices.size) },
     ];

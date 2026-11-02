@@ -211,8 +211,11 @@ interface AmbientState {
 }
 
 let ambientNodes: AmbientState | null = null;
-/** True while a plugin plays its own audio — the music stands down. */
+/** True while a host-side clip player is actively producing sound. */
 let hostAudioActive = false;
+/** True while a sound-capable plugin (keys, synth…) is open — the music
+ *  stands down for the whole visit, not just while notes sound. */
+let hostPluginOpen = false;
 /** Whether the user wants the music on at all (mirrors the store setting). */
 let ambientWanted = false;
 
@@ -220,6 +223,22 @@ let ambientWanted = false;
  *  whether to resume the music after a clip finishes. */
 export function setAmbientWanted(wanted: boolean): void {
   ambientWanted = wanted;
+}
+
+function syncAmbientLifecycle(): void {
+  if (hostAudioActive || hostPluginOpen) {
+    stopAmbient();
+  } else if (config.enabled && ambientWanted) {
+    startAmbient();
+  }
+}
+
+/** Open/close a sound-capable plugin view: while any such plugin is open,
+ *  the ambient music stays silent so the plugin owns the soundscape. */
+export function setHostAudioPluginOpen(open: boolean): void {
+  if (hostPluginOpen === open) return;
+  hostPluginOpen = open;
+  syncAmbientLifecycle();
 }
 
 function playPadNote(
@@ -310,15 +329,11 @@ export function setAmbientTheme(dark: boolean): void {
 export function setHostAudioActive(active: boolean): void {
   if (hostAudioActive === active) return;
   hostAudioActive = active;
-  if (active) {
-    stopAmbient();
-  } else if (config.enabled && ambientWanted) {
-    startAmbient();
-  }
+  syncAmbientLifecycle();
 }
 
 export function startAmbient(): void {
-  if (ambientNodes || hostAudioActive) return;
+  if (ambientNodes || hostAudioActive || hostPluginOpen) return;
   const ac = ensureContext();
   if (!ac || !master) return;
   const trackId = (AMBIENT_TRACK_IDS.includes(config.ambientTrack as AmbientTrackId)
