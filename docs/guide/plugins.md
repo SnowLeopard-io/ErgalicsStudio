@@ -96,8 +96,10 @@ locale (`locale`, `t`, `onLocaleChange`), status/perf (`setStatus`,
 `reportGpuTime`, `reportDataScale`), notifications (`notify`), **logging**
 (`log`), **result export** (`exportFile`), **intermediate-result caching**
 (`cache`), files (`openFile`, `readText`, `readBinary`), project-scoped
-persistence (`getParam`, `setParam`), and — when a WebGPU device is available
-— GPU compute (`gpu`, see [Native Core & WebGPU](native-core)).
+persistence (`getParam`, `setParam`), cancellation/foreground probes
+(`onCancel`, `isActive`) with an optional self-reload (`reload`), and — when
+a WebGPU device is available — GPU compute (`gpu`, see
+[Native Core & WebGPU](native-core)).
 
 ### Logging (`api.log`)
 
@@ -223,8 +225,8 @@ Built-in plugins share framework-level helpers through `src/core/` only:
 
 ## Built-in example plugins
 
-One hundred forty-eight scientific/core plugins (plus a further ten `fun.*` toys
-declaring `autoload: false` — 158 built-ins in total) ship in
+One hundred fifty-three scientific/core plugins (plus a further ten `fun.*` toys
+declaring `autoload: false` — 163 built-ins in total) ship in
 `src/plugins/builtin/` and cover the full plugin contract surface — 2D
 canvas, host Three.js scene, `loadData`, `compute`, and the `api.gpu`
 accelerated path. The table below is a representative cross-section; the
@@ -483,6 +485,15 @@ my-plugin.cspkg
 
 The entry source is a function body that receives the (sandboxed) `api` and
 returns a `Plugin` object.
+
+### Signing & trust
+
+The install pipeline verifies an **ed25519** signature embedded in the
+manifest (`signature.fingerprint` / `sig` / `signer` / `signedAt`, optional
+`pub`). Unsigned or unknown-key packages install only after an explicit
+"trust this source" confirmation; tampered packages are always rejected.
+A signing key may also be registry-restricted to sandboxed (`isolated`)
+packages only — a `trusted` manifest signed by such a key is refused.
 
 ## Sandboxing
 

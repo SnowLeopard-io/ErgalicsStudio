@@ -72,11 +72,11 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **158 built-in plugins (148 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
-| Research          | **29 standalone research tools in 6 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
 
@@ -102,7 +102,7 @@ What ships today:
 
 | Capability | Details |
 | --- | --- |
-| **158 built-in plugins** | (148 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
+| **163 built-in plugins** | (153 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -204,14 +204,14 @@ flowchart TB
     end
 
     subgraph Blocks["Block system (Flow mode, src/blocks)"]
-        D1["Catalog (57 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
+        D1["Catalog (63 blocks)<br/>data_source · transform · filter<br/>math · statistics · units · visualize · plot"]
         D2["Compiler<br/>pure functions · validate ports/types<br/>topo sort · diagnostics"]
         D3["Executor<br/>incremental cache<br/>dirty propagation · run()"]
         D4["Render bridge<br/>viz.* RenderedView → plugin.loadData<br/>(side-effect-free)"]
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (148 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (153 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -245,7 +245,7 @@ flowchart TB
 ```
 .
 ├── src/                      # frontend
-│   ├── core/                 #   47 subdirectories + 39 root modules: storage, events, compute,
+│   ├── core/                 #   49 subdirectories + 39 root modules: storage, events, compute,
 │   │                         #   gpu, wasm, fileFormat, scene3d, sandbox, cspkg, errors,
 │   │                         #   validation, data-quality, stats, io (HDF5/NetCDF/FITS/Zarr/Parquet),
 │   │                         #   plot, repro, uncertainty, units, experiment, lineage,
@@ -253,7 +253,7 @@ flowchart TB
 │   │                         #   profiler, sql, report, inference, logger, vfs (workspace
 │   │                         #   file system), git (version control), research (science output)
 │   ├── blocks/               #   block system (Flow mode): registry · compiler · executor ·
-│   │                         #     ops · catalog (57 blocks) · sample · l10n · render · context · fileData
+│   │                         #     ops · catalog (63 blocks) · sample · l10n · render · context · fileData
 │   ├── editor/               #   Block & Code modes: ir · block (Blockly) · code · codegen ·
 │   │                         #     runtime (StudioApi + interpreter)
 │   ├── components/           #   flow canvas / block & code canvas / workbench shell /
@@ -261,8 +261,8 @@ flowchart TB
 │   ├── pages/                #   welcome, workbench (file explorer · tabbed central area),
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
-│   │                         #     measure · model · data · signal · deliver · utils)
-│   ├── plugins/builtin/      #   158 plugins: 148 scientific auto-load + 10 fun (2D + 3D)
+│   │                         #     measure · model · data · signal · deliver · publish · utils)
+│   ├── plugins/builtin/      #   163 plugins: 153 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -283,7 +283,7 @@ for "I already know the plugin; I just need to point it at a file".
 
 ![Standard mode — drop a file, see a visualisation](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**Flow mode** — compose a visual dataflow **pipeline** from **57 built-in
+**Flow mode** — compose a visual dataflow **pipeline** from **63 built-in
 blocks** (data_source / transform / filter / math / statistics / units /
 visualize / plot) and run it. Left palette, central canvas (nodes + edges),
 right per-node parameter editor, bottom live result preview that adapts to
@@ -331,7 +331,7 @@ prevents node loss) — a round trip fixed by
 
 ## Research Modules
 
-All 29 research tools live in one registry
+All 33 research tools live in one registry
 (`src/pages/research/toolRegistry.ts`) and share the **ToolShell** layout.
 Canonical routes are `/studio/<toolId>` (legacy `/#/<id>` hash routes are
 kept as redirects); every tool can also open **embedded as a tab of the
@@ -366,6 +366,10 @@ page on top, all unit-tested:
 | deliver | Supplement | `/studio/supplement` | Paper companion ZIP (`manifest.json` + runs + lineage + data/code/files + optional `repro.lock`) |
 | deliver | Course | `/studio/course` | Assign homework, collect and offline-grade student lab submissions (requires project) |
 | deliver | Gallery | `/studio/gallery` | Browse and reopen community-shared reproducible works |
+| publish | LaTeX Editor | `/studio/latex-editor` | Author online with live preview, figure and equation insertion, PDF export (requires project) |
+| publish | Citation Manager | `/studio/citation-manager` | BibTeX import, seven citation styles, DOI lookup and reference graph (requires project) |
+| publish | Collaborative Notebook | `/studio/collab-notebook` | CRDT real-time editing, comments, history diff and multi-format export (requires project) |
+| publish | Preprint Publishing | `/studio/preprint` | arXiv-compatible packaging, reproducibility badge, one-click reproduce link and Git snapshot (requires project) |
 | utils | Unit Convert | `/studio/unit-convert` | Unit conversions (no project required) |
 | utils | Calc | `/studio/calc` | Calculator (no project required) |
 | utils | Format Convert | `/studio/format-convert` | Data format conversion (no project required) |
@@ -450,7 +454,7 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**148 scientific plugins** auto-load at startup, grouped into **19
+**153 scientific plugins** auto-load at startup, grouped into **19
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
@@ -619,7 +623,7 @@ examples dialog:
 | Plane Truss FEA | 平面桁架有限元分析 | 2-DOF bar elements, stiffness assembly and constraint condensation. |
 | Control Systems Lab | 控制系统实验室 | First/second-order plants with PID unity feedback: step-response metrics and Bode sweeps. |
 | FEM Lab | 有限元实验室 | Parametric 2-D Delaunay meshing, P1 assembly and conjugate-gradient solves for Poisson, transient heat and plane elasticity, with convergence benchmarks. |
-| Fluid Mechanics | 流体力学 | Pipe flow via Darcy–Weisbach / Colebrook–White on an interactive Moody chart, Bernoulli duct energy lines, Blasius boundary layers and projected streamlines with Stokes drag and Kutta–Joukowski lift. |
+| Fluid Mechanics Lab | 流体力学实验室 | Pipe flow via Darcy–Weisbach / Colebrook–White on an interactive Moody chart, Bernoulli duct energy lines, Blasius boundary layers and projected streamlines with Stokes drag and Kutta–Joukowski lift. |
 | Vibration Analysis | 振动分析 | SDOF/MDOF modal analysis (generalized Jacobi), FRF with damping sweeps, transmissibility and rotating unbalance, all benchmarked against closed forms. |
 | Heat Transfer Analysis | 传热分析 | 2-D FD conduction with isotherms, convection correlations, radiation view factors, LMTD vs ε-NTU exchangers and thermal resistance networks. |
 | Mechanism Kinematics | 机构运动学 | Four-bar Grashof analysis with coupler curves, Kennedy instant centers, cam profile synthesis and planetary gear trains via Willis equation. |
@@ -694,7 +698,7 @@ examples dialog:
 | Ocean Swell · Sunrise & Sunset | 波浪海面 · 日升日落 | Gerstner wave trains from a discretised Pierson–Moskowitz spectrum, two-lobe sun path, Schlick-Fresnel water body and marine haze. |
 | Misty Peaks · Layered Ridges | 雾锁青山 · 叠嶂云海 | Near-to-far ridged-noise ridge silhouettes, sun-lit, dissolved by aerial perspective and a Koschmieder-visibility mist band. |
 
-**Music & Art Science (4)**
+**Music & Art Science (5)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -1255,7 +1259,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**3260 tests across 204 files**, covering:
+**3836 tests across 236 files**, covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync
@@ -1313,7 +1317,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
-- [x] 158 built-in plugins (148 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
@@ -1322,10 +1326,10 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Send-to-Figure-Studio linkage across all research-grade plugin suites (physics / chem / bio / env / geo / math / stats / econ / psych / astro / data / engineering + both solvers)
 - [x] Research-grade plugin metadata (four-tier badges) + unified scientific-output strip
 - [x] Git-backed projects — adapter, project-store sync and sidebar Git panel (branch / commit / clone / remote sync / auto-commit / preinstalled hooks / CI template; diff viewer & conflict wizard pending)
-- [x] Flow mode (compiler + incremental executor + 57 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
+- [x] Flow mode (compiler + incremental executor + 63 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
-- [x] 29 standalone research tools in 6 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
+- [x] 33 standalone research tools in 7 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
 - [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)

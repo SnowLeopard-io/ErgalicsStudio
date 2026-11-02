@@ -388,40 +388,44 @@ export class EngHeatPlugin implements Plugin {
       {
         key: 'tL', label: 'T_left (K)', labelI18n: { 'zh-CN': '左边界温度 (K)', 'en-US': 'T_left (K)' },
         type: 'range', min: 1, max: 2000, step: 1, value: s.tL,
-        visibleWhen: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeL', in: ['dirichlet'] }],
+        visibleWhen: { all: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeL', in: ['dirichlet'] }] },
       },
       {
         key: 'tR', label: 'T_right (K)', labelI18n: { 'zh-CN': '右边界温度 (K)', 'en-US': 'T_right (K)' },
         type: 'range', min: 1, max: 2000, step: 1, value: s.tR,
-        visibleWhen: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeR', in: ['dirichlet'] }],
+        visibleWhen: { all: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeR', in: ['dirichlet'] }] },
       },
       {
         key: 'tT', label: 'T_top (K)', labelI18n: { 'zh-CN': '上边界温度 (K)', 'en-US': 'T_top (K)' },
         type: 'range', min: 1, max: 2000, step: 1, value: s.tT,
-        visibleWhen: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeT', in: ['dirichlet'] }],
+        visibleWhen: { all: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeT', in: ['dirichlet'] }] },
       },
       {
         key: 'tB', label: 'T_bottom (K)', labelI18n: { 'zh-CN': '下边界温度 (K)', 'en-US': 'T_bottom (K)' },
         type: 'range', min: 1, max: 2000, step: 1, value: s.tB,
-        visibleWhen: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeB', in: ['dirichlet'] }],
+        visibleWhen: { all: [{ key: 'mode', in: ['conduction'] }, { key: 'edgeB', in: ['dirichlet'] }] },
       },
       {
         key: 'hConv', label: 'h_film (W/m2K)', labelI18n: { 'zh-CN': '对流膜系数 h (W/m²·K)', 'en-US': 'Film h (W/m2K)' },
         type: 'range', min: 1, max: 1000, step: 1, value: s.hConv,
-        visibleWhen: [
-          { key: 'mode', in: ['conduction'] },
-          { key: 'edgeL', in: ['convection'] }, { key: 'edgeR', in: ['convection'] },
-          { key: 'edgeT', in: ['convection'] }, { key: 'edgeB', in: ['convection'] },
-        ],
+        visibleWhen: {
+          all: [
+            { key: 'mode', in: ['conduction'] },
+            [{ key: 'edgeL', in: ['convection'] }, { key: 'edgeR', in: ['convection'] },
+             { key: 'edgeT', in: ['convection'] }, { key: 'edgeB', in: ['convection'] }],
+          ],
+        },
       },
       {
         key: 'tInf', label: 'T_ambient (K)', labelI18n: { 'zh-CN': '环境温度 (K)', 'en-US': 'Ambient T (K)' },
         type: 'range', min: 1, max: 2000, step: 1, value: s.tInf,
-        visibleWhen: [
-          { key: 'mode', in: ['conduction'] },
-          { key: 'edgeL', in: ['convection'] }, { key: 'edgeR', in: ['convection'] },
-          { key: 'edgeT', in: ['convection'] }, { key: 'edgeB', in: ['convection'] },
-        ],
+        visibleWhen: {
+          all: [
+            { key: 'mode', in: ['conduction'] },
+            [{ key: 'edgeL', in: ['convection'] }, { key: 'edgeR', in: ['convection'] },
+             { key: 'edgeT', in: ['convection'] }, { key: 'edgeB', in: ['convection'] }],
+          ],
+        },
       },
       {
         key: 'hsOn', label: 'Hot-spot source', labelI18n: { 'zh-CN': '热点源', 'en-US': 'Hot-spot source' },
