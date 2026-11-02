@@ -501,64 +501,70 @@ export class IsomorphicGitAdapter implements GitAdapter {
 
   /**
    * Switch to `ref`. A plain checkout (create=false) refuses to run with
-   * staged/unstaged changes — switching would silently discard them (the old
-   * implementation always passed `force: true`). Pass create=true (new
-   * branch at HEAD, working tree untouched) or commit first. Untracked files
-   * are allowed, matching git's tolerance when they are not overwritten.
+   * staged/unstaged changes when the switch would rewrite files — switching
+   * to a different commit discards them (the old implementation always
+   * passed `force: true`). A ref resolving to the current HEAD commit (a
+   * branch just created at HEAD, the "create branch" UI flow) only moves
+   * HEAD, so a dirty tree is tolerated — `git switch -c` semantics. Untracked
+   * files are allowed, matching git's tolerance when they are not overwritten.
    */
   async checkout(repoPath: string, ref: string, create = false): Promise<void> {
     assertValidGitRef(ref, 'branch/ref');
     const fs = this.getFS();
-    if (!create) {
-      // Unborn HEAD resolves to undefined — nothing to lose yet.
-      const current = await Git.currentBranch({ fs, dir: repoPath }).catch(() => undefined);
-      if (current && current !== ref) {
-        // A ref that resolves to the current HEAD commit (e.g. a branch just
-        // created at HEAD, the "create branch" UI flow) can never lose
-        // anything — same as `git switch -c`, which tolerates a dirty tree.
-        const sameCommit = await Git.resolveRef({ fs, dir: repoPath, ref })
-          .then(async (oid) =>
-            oid === (await Git.resolveRef({ fs, dir: repoPath, ref: 'HEAD' }).catch(() => undefined)),
-          )
-          .catch(() => false);
-        if (!sameCommit) {
-          const st = await this.status(repoPath);
-          const dirty = [...st.staged, ...st.unstaged];
-          if (dirty.length > 0) {
-            const err = new Error(
-              `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
-                'Commit these files first:\n' +
-                dirty.map((f) => `  ${f}`).join('\n'),
-            ) as GitError;
-            err.code = GIT_ERROR_CODES.DIRTY;
-            err.gitCommand = 'checkout';
-            throw err;
-          }
-          // Untracked files survive a checkout in real git — unless the target
-          // branch contains a file at the same path, in which case git refuses
-          // instead of silently destroying them. Mirror that guard here: the
-          // force checkout below would otherwise overwrite them.
-          if (st.untracked.length > 0) {
-            const targetFiles = new Set(
-              await Git.listFiles({ fs, dir: repoPath, ref }).catch(() => [] as string[]),
-            );
-            const collisions = st.untracked.filter((f) => targetFiles.has(f));
-            if (collisions.length > 0) {
-              const err = new Error(
-                `Cannot checkout '${ref}': untracked files would be overwritten. ` +
-                  'Add or commit them first:\n' +
-                  collisions.map((f) => `  ${f}`).join('\n'),
-              ) as GitError;
-              err.code = GIT_ERROR_CODES.DIRTY;
-              err.gitCommand = 'checkout';
-              throw err;
-            }
-          }
-        }
+    if (create) {
+      // Idempotent: the "create branch" UI may run on an existing branch.
+      const existing = await Git.resolveRef({ fs, dir: repoPath, ref }).catch(() => undefined);
+      if (existing === undefined) {
+        await Git.branch({ fs, dir: repoPath, ref });
       }
     }
-    if (create) {
-      await Git.branch({ fs, dir: repoPath, ref });
+    // Same-commit fast path: pointing HEAD at `ref` cannot lose anything.
+    // Rewrite HEAD without touching the working tree so uncommitted edits
+    // survive (a force checkout would reset them to the commit content).
+    const [headOid, targetOid] = await Promise.all([
+      Git.resolveRef({ fs, dir: repoPath, ref: 'HEAD' }).catch(() => undefined),
+      Git.resolveRef({ fs, dir: repoPath, ref }).catch(() => undefined),
+    ]);
+    const current = await Git.currentBranch({ fs, dir: repoPath }).catch(() => undefined);
+    if (targetOid !== undefined && headOid !== undefined && targetOid === headOid) {
+      if (current !== ref) {
+        await fs.promises.writeFile(`${repoPath}/.git/HEAD`, `ref: refs/heads/${ref}\n`, 'utf8');
+      }
+      return;
+    }
+    if (!create && current) {
+      const st = await this.status(repoPath);
+      const dirty = [...st.staged, ...st.unstaged];
+      if (dirty.length > 0) {
+        const err = new Error(
+          `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
+            'Commit these files first:\n' +
+            dirty.map((f) => `  ${f}`).join('\n'),
+        ) as GitError;
+        err.code = GIT_ERROR_CODES.DIRTY;
+        err.gitCommand = 'checkout';
+        throw err;
+      }
+      // Untracked files survive a checkout in real git — unless the target
+      // branch contains a file at the same path, in which case git refuses
+      // instead of silently destroying them. Mirror that guard here: the
+      // force checkout below would otherwise overwrite them.
+      if (st.untracked.length > 0) {
+        const targetFiles = new Set(
+          await Git.listFiles({ fs, dir: repoPath, ref }).catch(() => [] as string[]),
+        );
+        const collisions = st.untracked.filter((f) => targetFiles.has(f));
+        if (collisions.length > 0) {
+          const err = new Error(
+            `Cannot checkout '${ref}': untracked files would be overwritten. ` +
+              'Add or commit them first:\n' +
+              collisions.map((f) => `  ${f}`).join('\n'),
+          ) as GitError;
+          err.code = GIT_ERROR_CODES.DIRTY;
+          err.gitCommand = 'checkout';
+          throw err;
+        }
+      }
     }
     await Git.checkout({ fs, dir: repoPath, ref, force: true });
   }

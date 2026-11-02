@@ -360,12 +360,32 @@ describe('ahead/behind (§3.3 GitStatus)', () => {
 });
 
 describe('checkout dirty-tree guard (§3.3)', () => {
-  it('refuses to discard staged/unstaged changes on branch switch', async () => {
+  it('allows switching to a branch at HEAD with a dirty tree, preserving edits', async () => {
     const { adapter } = makeAdapter();
     const repo = nextRepo();
     await adapter.init(repo, 'standard');
     await adapter.branch(repo, 'exp/new-method');
 
+    // Same-commit branch switch only moves HEAD (git switch -c semantics):
+    // the uncommitted edit must survive and the branch must change.
+    await adapter.writeFile(repo, 'project.clproj', '{"edited":true}');
+    await adapter.checkout(repo, 'exp/new-method');
+    const st = await adapter.status(repo);
+    expect(st.currentBranch).toBe('exp/new-method');
+    await expect(adapter.readFile(repo, 'project.clproj')).resolves.toBe('{"edited":true}');
+  });
+
+  it('refuses to discard staged/unstaged changes when switching to a different commit', async () => {
+    const { adapter } = makeAdapter();
+    const repo = nextRepo();
+    await adapter.init(repo, 'standard');
+    await adapter.branch(repo, 'exp/new-method');
+
+    // Commit on main so the target branch points at a different commit —
+    // switching back would rewrite files, so a dirty tree must be refused.
+    await adapter.writeFile(repo, 'notes.md', 'committed on main');
+    await adapter.add(repo, ['notes.md']);
+    await adapter.commit(repo, 'add notes');
     await adapter.writeFile(repo, 'project.clproj', '{"edited":true}');
     await expect(adapter.checkout(repo, 'exp/new-method')).rejects.toThrow(
       /uncommitted changes would be lost[\s\S]*project\.clproj/,
