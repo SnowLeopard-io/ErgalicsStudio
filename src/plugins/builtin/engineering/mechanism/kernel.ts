@@ -217,7 +217,10 @@ export function couplerPointVelocity(
 
 /** Transmission angle mu: coupler-rocker angle folded so 90 deg is ideal. */
 export function transmissionAngleDeg(theta3: number, theta4: number): number {
-  let mu = Math.abs(theta4 - theta3);
+  // Wrap the raw difference into [0, pi) first: atan2 angles may differ by
+  // more than pi (e.g. 311 deg), which is the same line direction as 48 deg.
+  let mu = Math.abs(theta4 - theta3) % TAU;
+  if (mu > Math.PI) mu = TAU - mu;
   if (mu > Math.PI / 2) mu = Math.PI - mu;
   return mu / DEG;
 }
@@ -688,7 +691,9 @@ export function designCam(p: CamParams, n = 720): CamResult {
     const y2 = pp.pitchY - 2 * p0.pitchY + pm.pitchY;
     const speed = Math.hypot(x1, y1);
     const cross = x1 * y2 - y1 * x2;
-    const kappa = cross / (speed * speed * speed); // signed 1/R
+    // kappa = |x' x x''| / |x'|^3 with x' = (pp-pm)/(2h) and
+    // x'' = (pp-2p0+pm)/h^2, which contributes the factor 4 below.
+    const kappa = (4 * cross) / (speed * speed * speed); // signed 1/R
     p0.curvatureR = kappa !== 0 ? 1 / kappa : Number.POSITIVE_INFINITY;
     if (kappa > 1e-9) minConvex = Math.min(minConvex, 1 / kappa);
   }
@@ -757,7 +762,10 @@ export function parseGearStages(text: string): GearStage[] {
   for (const chunk of chunks) {
     const m = /^(i:)?(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/.exec(chunk);
     if (!m) throw new MechanismError(`bad gear stage "${chunk}" (expected za/zb, e.g. 20/60)`);
-    stages.push({ za: Number(m[2]), zb: Number(m[3]), internal: !!m[1] });
+    const za = Number(m[2]);
+    const zb = Number(m[3]);
+    if (!(za > 0) || !(zb > 0)) throw new MechanismError(`bad gear stage "${chunk}" (tooth counts must be > 0)`);
+    stages.push({ za, zb, internal: !!m[1] });
   }
   if (stages.length === 0) throw new MechanismError('no gear stages given');
   return stages;

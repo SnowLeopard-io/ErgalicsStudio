@@ -37,13 +37,12 @@ import {
   type CamLaw,
   type CamParams,
   type CamResult,
+  type CamSample,
   type FourBarLinks,
   type FourBarSweep,
-  type GearStage,
   type GrashofClass,
   MECH_DEG,
   MECH_TAU,
-  MechanismError,
   type TrainResult,
   type WillisResult,
   camState,
@@ -392,11 +391,9 @@ export class EngMechanismPlugin implements Plugin {
   private cam: CamResult | null = null;
   private train: TrainResult | null = null;
   private planet: WillisResult | null = null;
-  private planetStages: GearStage[] | null = null;
   /** Max relative deviation |vP analytic − vP numeric| / |vP numeric|. */
   private velErr = Number.NaN;
   private links: FourBarLinks = { ...DEFAULT_LINKS };
-  private timingText = DEFAULT_STATE.timingText;
   private errorMsg: string | null = null;
   private dirty = true;
 
@@ -1318,7 +1315,6 @@ export class EngMechanismPlugin implements Plugin {
       notify(this.api, 'warning', 'Nothing to send — run the analysis first.', '暂无可发送内容 — 请先运行分析。');
       return;
     }
-    const zh = this.zh;
     const titles: Record<Mode, Bilingual> = {
       fourbar: { zh: '四杆机构运动学分析', en: 'Four-bar kinematics analysis' },
       velocity: { zh: '四杆机构速度分析', en: 'Four-bar velocity analysis' },
@@ -1328,16 +1324,18 @@ export class EngMechanismPlugin implements Plugin {
     let caption: Bilingual;
     if ((this.state.mode === 'fourbar' || this.state.mode === 'velocity') && this.sweep) {
       const sw = this.sweep;
-      caption = zh
-        ? `Grashof：${GRASHOF_ZH[sw.grashof]}，μmin = ${fmtMetric(sw.minTransmissionDeg)}°，摇杆摆角 = ${fmtMetric(sw.rockerSwingDeg)}°，闭环残差 ${fmtMetric(sw.maxResidual)}。`
-        : `Grashof: ${GRASHOF_EN[sw.grashof]}, min transmission angle = ${fmtMetric(sw.minTransmissionDeg)} deg, rocker swing = ${fmtMetric(sw.rockerSwingDeg)} deg, closure residual ${fmtMetric(sw.maxResidual)}.`;
+      caption = {
+        zh: `Grashof：${GRASHOF_ZH[sw.grashof]}，μmin = ${fmtMetric(sw.minTransmissionDeg)}°，摇杆摆角 = ${fmtMetric(sw.rockerSwingDeg)}°，闭环残差 ${fmtMetric(sw.maxResidual)}。`,
+        en: `Grashof: ${GRASHOF_EN[sw.grashof]}, min transmission angle = ${fmtMetric(sw.minTransmissionDeg)} deg, rocker swing = ${fmtMetric(sw.rockerSwingDeg)} deg, closure residual ${fmtMetric(sw.maxResidual)}.`,
+      };
     } else if (this.state.mode === 'cam' && this.cam) {
       const cam = this.cam;
-      caption = zh
-        ? `最大压力角（推程）= ${fmtMetric(cam.maxPressureRiseDeg)}°，${cam.undercut ? '存在根切风险' : '无根切'}，凸段最小曲率半径 ${fmtMetric(cam.minConvexCurvatureR)}。`
-        : `Max pressure angle (rise) = ${fmtMetric(cam.maxPressureRiseDeg)} deg, ${cam.undercut ? 'undercut risk' : 'no undercut'}, min convex curvature radius ${fmtMetric(cam.minConvexCurvatureR)}.`;
+      caption = {
+        zh: `最大压力角（推程）= ${fmtMetric(cam.maxPressureRiseDeg)}°，${cam.undercut ? '存在根切风险' : '无根切'}，凸段最小曲率半径 ${fmtMetric(cam.minConvexCurvatureR)}。`,
+        en: `Max pressure angle (rise) = ${fmtMetric(cam.maxPressureRiseDeg)} deg, ${cam.undercut ? 'undercut risk' : 'no undercut'}, min convex curvature radius ${fmtMetric(cam.minConvexCurvatureR)}.`,
+      };
     } else {
-      caption = zh ? '轮系传动比分析。' : 'Gear-train ratio analysis.';
+      caption = { zh: '轮系传动比分析。', en: 'Gear-train ratio analysis.' };
     }
     await pushPanelsToFigure(
       this.api,
@@ -1435,6 +1433,9 @@ export class EngMechanismPlugin implements Plugin {
           [],
           zh,
         );
+        const cp = this.camParams();
+        const stCur = camState(cp, this.state.camThetaDeg * MECH_DEG);
+        const s0 = Math.sqrt(cp.r0 * cp.r0 - cp.offset * cp.offset);
         drawChart(
           g,
           { x: chartX, y: padT + ch + gap, w: chartW, h: ch },
@@ -1442,7 +1443,7 @@ export class EngMechanismPlugin implements Plugin {
           zh ? '凸轮转角 (deg)' : 'cam angle (deg)',
           'α (deg)',
           [{ xs: thetas, ys: cam.samples.map((smp) => smp.pressureDeg), color: COLOR_ROSE }],
-          [{ x: this.state.camThetaDeg, y: camState(this.camParams(), (this.state.camThetaDeg * MECH_DEG)).pressureDeg, color: COLOR_ROSE }],
+          [{ x: this.state.camThetaDeg, y: (Math.atan2(Math.abs(stCur.ds - cp.offset), stCur.s + s0) / MECH_DEG), color: COLOR_ROSE }],
           [{ y: 30, color: 'rgba(179,146,94,0.7)' }],
           zh,
         );
@@ -1479,7 +1480,7 @@ export class EngMechanismPlugin implements Plugin {
         );
       }
     }
-    this.drawFooter(g, w, h);
+    this.drawFooter(g, h);
   }
 
   /** Velocity view at the current crank angle (null when unassemblable/singular). */
@@ -1829,7 +1830,7 @@ export class EngMechanismPlugin implements Plugin {
     g.setLineDash([]);
 
     // Pitch curve (dashed) and actual profile (solid).
-    const drawLoop = (getX: (smp: (typeof cam.samples)[number]) => number, getY: (smp: (typeof cam.samples)[number]) => number, color: string, dash: number[], width: number): void => {
+    const drawLoop = (getX: (smp: CamSample) => number, getY: (smp: CamSample) => number, color: string, dash: number[], width: number): void => {
       g.strokeStyle = color;
       g.lineWidth = width;
       if (dash.length) g.setLineDash(dash);
@@ -1882,7 +1883,7 @@ export class EngMechanismPlugin implements Plugin {
     g.stroke();
 
     // Pressure-angle normal at the contact (tilted α from the follower axis).
-    if (st.pressureDeg !== undefined && st.ds !== 0 || Math.abs(e) > 0) {
+    if (Math.abs(e) > 0) {
       const alpha = Math.atan2(Math.abs(st.ds - e), st.s + s0);
       const sign = st.ds - e >= 0 ? 1 : -1;
       const nx = Math.sin(alpha) * sign;
@@ -1909,14 +1910,13 @@ export class EngMechanismPlugin implements Plugin {
       r.y + r.h - 6,
     );
     g.textAlign = 'right';
-    g.fillText(zh ? '实线：实际廓线 · 虚线：理论廓线' : 'solid: actual · dashed: pitch', r.x + r.w - 6, r.y + r.h - 6);
+    g.fillText(this.zh ? '实线：实际廓线 · 虚线：理论廓线' : 'solid: actual · dashed: pitch', r.x + r.w - 6, r.y + r.h - 6);
     g.restore();
     // cx unused marker (keeps lint calm without changing behavior).
     void cx;
   }
 
   private drawGearScene(g: CanvasRenderingContext2D, r: Rect): void {
-    const s = this.state;
     const zh = this.zh;
     g.save();
     g.beginPath();
@@ -2094,7 +2094,7 @@ export class EngMechanismPlugin implements Plugin {
     }
   }
 
-  private drawFooter(g: CanvasRenderingContext2D, w: number, h: number): void {
+  private drawFooter(g: CanvasRenderingContext2D, h: number): void {
     const s = this.state;
     const zh = this.zh;
     g.textAlign = 'left';

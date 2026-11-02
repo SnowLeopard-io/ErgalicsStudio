@@ -25,7 +25,7 @@
 // ==========================================================================
 
 import type { ContainerCapabilities, ComputeResult, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { isDataTable, createDataTable, type DataTable } from '@/types/datatable';
+import { isDataTable, createDataTable, type DataTable, type DataValue } from '@/types/datatable';
 import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } from '@/core/plugin-tools/enhance';
 import {
   clearScienceOutputs,
@@ -52,21 +52,16 @@ import {
   RE_TRANSITIONAL_MAX,
   aeroReduction,
   blasiusThicknesses,
-  classifyRegime,
-  colebrookWhite,
   ductConservation,
-  ductDiameter,
   ductStations,
   haalandFriction,
   moodyBlasiusCurve,
   moodyLaminarLine,
   moodyTurbulentCurve,
-  pipeBlasiusFriction,
   pipeFlow,
   pohlhausenProfile,
   pohlhausenShape,
   potentialFlowVelocity,
-  reynoldsNumber,
   solveBlasius,
   surfaceSpeedRatio,
 } from './kernel';
@@ -223,6 +218,8 @@ interface BlProducts {
   cf: number[];
   /** Pohlhausen moments at the current λ. */
   pohl: ReturnType<typeof pohlhausenShape>;
+  /** The λ the Pohlhausen moments/profiles were evaluated at. */
+  lambda: number;
   eta: number[];
   blasiusProfile: number[];
   pohlhausenProfile: number[];
@@ -286,7 +283,8 @@ function parseTableInput(input: unknown): ParsedTable {
     if (t.startsWith('{') || t.startsWith('[')) return parseTableInput(JSON.parse(t) as unknown);
     return parseCsvTable(t);
   }
-  if (isDataTable(input)) return dataTableToParsed(input);
+  const dv = input as DataValue | undefined;
+  if (isDataTable(dv)) return dataTableToParsed(dv);
   if (Array.isArray(input)) {
     if (input.length === 0) throw new Error('empty input array');
     const first = input[0] as unknown;
@@ -376,7 +374,6 @@ export class EngFluidPlugin implements Plugin {
 
   getParams(): ParamDefinition[] {
     const s = this.state;
-    const modeIn = (...modes: FluidMode[]) => ({ key: 'mode', in: modes });
     return [
       {
         key: 'mode',
@@ -742,7 +739,7 @@ export class EngFluidPlugin implements Plugin {
         }
         this.products = {
           mode: 'bl',
-          data: { sol, xs, delta, deltaStar, theta, cf, pohl, eta, blasiusProfile, pohlhausenProfile: pohlhausenProfileArr, nu, uInf: s.uInf },
+          data: { sol, xs, delta, deltaStar, theta, cf, pohl, lambda: s.lambda, eta, blasiusProfile, pohlhausenProfile: pohlhausenProfileArr, nu, uInf: s.uInf },
         };
       } else {
         const nu = s.mu / s.rho;
@@ -1085,7 +1082,6 @@ export class EngFluidPlugin implements Plugin {
       notify(this.api, 'warning', 'No computation yet — press "Run" first.', '尚未计算 — 请先点击「运行」。');
       return;
     }
-    const zh = this.zh;
     const payload: FigurePayload = {};
     let title: Bilingual;
     let caption: Bilingual;
@@ -1238,7 +1234,6 @@ export class EngFluidPlugin implements Plugin {
     }
     if (p.mode === 'bl') {
       const b = p.data;
-      const n = b.xs.length;
       const table = createDataTable('eng-fluid-blasius', [
         { name: 'x', type: 'f64', data: Float64Array.from(b.xs), unit: 'm' },
         { name: 'delta99', type: 'f64', data: Float64Array.from(b.delta), unit: 'm' },
@@ -1260,7 +1255,6 @@ export class EngFluidPlugin implements Plugin {
       };
     }
     const st = p.data;
-    const n = st.thetaDeg.length;
     const table = createDataTable('eng-fluid-stream', [
       { name: 'theta_deg', type: 'f64', data: Float64Array.from(st.thetaDeg), unit: 'deg' },
       { name: 'speed_ratio', type: 'f64', data: Float64Array.from(st.speedRatio) },

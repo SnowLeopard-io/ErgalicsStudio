@@ -92,6 +92,8 @@ export interface ConductionParams {
   tEnd: number;
   /** Time step (s); 0 = automatic (stability-limited for explicit). */
   dt: number;
+  /** Optional uniform initial temperature (K); default: tInf, else mean of the Dirichlet values. */
+  initT?: number;
 }
 
 export interface ConductionResult {
@@ -147,7 +149,7 @@ export function validateConduction(p: ConductionParams): void {
     if (!Number.isFinite(p.tInf)) throw new HeatError('tInf must be finite for convection edges');
   }
   if (p.source.enabled) {
-    if (!Number.isFinite(p.source.q) || p.source.q < 0) throw new HeatError('source q''' + ' must be finite and >= 0');
+    if (!Number.isFinite(p.source.q) || p.source.q < 0) throw new HeatError("source q''' must be finite and >= 0");
     const allBlocked =
       p.edges.left.kind === 'insulated' && p.edges.right.kind === 'insulated' &&
       p.edges.top.kind === 'insulated' && p.edges.bottom.kind === 'insulated';
@@ -169,7 +171,7 @@ function inSource(p: ConductionParams, x: number, y: number): boolean {
 /** Deterministic initial field: Dirichlet edges set, interior = mild default. */
 function initField(p: ConductionParams, nx: number, ny: number): Float64Array {
   const T = new Float64Array(nx * ny);
-  let seed = p.tInf;
+  let seed = p.initT ?? p.tInf;
   if (!Number.isFinite(seed)) {
     const vals: number[] = [];
     if (p.edges.left.kind === 'dirichlet') vals.push(p.edges.left.value);
@@ -245,70 +247,96 @@ function thomas(a: Float64Array, b: Float64Array, c: Float64Array, d: Float64Arr
   for (let i = n - 2; i >= 0; i -= 1) d[i] = (d[i]! - c[i]! * d[i + 1]!) / b[i]!;
 }
 
-/** One Peaceman-Rachford ADI half+half step. Returns max |delta T|. */
+/**
+ * One Peaceman-Rachford ADI step over dt: an x-implicit half step (dt/2)
+ * followed by a y-implicit half step (dt/2). The y half step reuses the same
+ * coefficient convention as the x half step (edge rows get their proper
+ * implicit weights), so the split is a consistent second-order discretization
+ * of the semi-discrete system and preserves steady states exactly.
+ * Returns max |delta T| over the full step.
+ */
 function adiStep(p: ConductionParams, T: Float64Array, nx: number, ny: number, dx: number, dy: number, rx: number, ry: number, dt: number, work: Float64Array): number {
   const srcRate = p.source.enabled ? (p.source.q * p.alpha) / p.k : 0;
   const biX = (p.hConv * dx) / p.k; // cell Biot on x-edges
   const biY = (p.hConv * dy) / p.k; // cell Biot on y-edges
-  const a = new Float64Array(Math.max(nx, ny));
-  const b = new Float64Array(Math.max(nx, ny));
-  const c = new Float64Array(Math.max(nx, ny));
-  const d = new Float64Array(Math.max(nx, ny));
+  const nMax = Math.max(nx, ny);
+  const a = new Float64Array(nMax);
+  const b = new Float64Array(nMax);
+  const c = new Float64Array(nMax);
+  const d = new Float64Array(nMax);
+  const src = (i: number, j: number): number => (srcRate !== 0 && inSource(p, i * dx, j * dy) ? srcRate * dt : 0);
 
-  // Half step 1: implicit in x for every row j (y-direction explicit).
+  // Half step 1 (dt/2): implicit in x for every row j, y treated explicitly
+  // with half weights; boundary rows receive their half-cell implicit weights
+  // (Dirichlet rows pinned, Neumann/Robin rows via mirror coefficients).
+  const rxh = rx / 2;
   for (let j = 0; j < ny; j += 1) {
-    const yTerm = (i: number): number => {
-      const t0 = T[j * nx + i]!;
-      const yl = j > 0 ? T[(j - 1) * nx + i]! : t0; // insulated-style mirror at j = 0
-      const yh = j < ny - 1 ? T[(j + 1) * nx + i]! : t0; // mirror at j = ny-1
-      return ry * (yl - 2 * t0 + yh);
-    };
+    const yEdgeLow = p.edges.bottom.kind === 'dirichlet' && j === 0;
+    const yEdgeHigh = p.edges.top.kind === 'dirichlet' && j === ny - 1;
     for (let i = 0; i < nx; i += 1) {
       const base = T[j * nx + i]!;
-      const s = srcRate !== 0 && inSource(p, i * dx, j * dy) ? srcRate * dt : 0;
+      const s = src(i, j) / 2;
+      // Neighbors in y (half-cell mirror at the insulated/Robin edge rows).
+      const yl = j > 0 ? T[(j - 1) * nx + i]! : T[nx + i]!;
+      const yh = j < ny - 1 ? T[(j + 1) * nx + i]! : T[(ny - 2) * nx + i]!;
+      // The half-cell mirror at edge rows already encodes the (dt/2) worth,
+      // so one uniform PR weight fits every row.
+      let yExp = (ry / 2) * (yl - 2 * base + yh);
+      if (yEdgeLow || yEdgeHigh) yExp = 0; // pinned row: no y update
+      // Robin edges: the surface flux belongs to the explicit operator as
+      // well (mirror term (ry/2) * 2 * biY * (tInf - T)), otherwise each
+      // edge loses half of its driving flux per full step.
+      if (j === 0 && p.edges.bottom.kind === 'convection') yExp += ry * biY * (p.tInf - base);
+      if (j === ny - 1 && p.edges.top.kind === 'convection') yExp += ry * biY * (p.tInf - base);
+      // Tridiagonal row for the implicit x solve (proper edge weights).
       if (i === 0) {
-        if (p.edges.left.kind === 'dirichlet') { a[i] = 0; b[i] = 1; c[i] = 0; d[i] = p.edges.left.value; }
+        if (p.edges.left.kind === 'dirichlet') { a[0] = 0; b[0] = 1; c[0] = 0; d[0] = p.edges.left.value; }
         else if (p.edges.left.kind === 'convection') {
-          // Semi-discrete half-cell balance, implicit: stable for any dt.
-          a[i] = 0; b[i] = 1 + 2 * rx * (1 + biX); c[i] = -2 * rx; d[i] = base + 2 * rx * biX * p.tInf + yTerm(i) + s;
-        } else { a[i] = 0; b[i] = 1 + 2 * rx; c[i] = -2 * rx; d[i] = base + yTerm(i) + s; }
+          a[0] = 0; b[0] = 1 + 2 * rxh * (1 + biX); c[0] = -2 * rxh; d[0] = base + yExp + s + 2 * rxh * biX * p.tInf;
+        } else { a[0] = 0; b[0] = 1 + 2 * rxh; c[0] = -2 * rxh; d[0] = base + yExp + s; }
       } else if (i === nx - 1) {
         if (p.edges.right.kind === 'dirichlet') { a[i] = 0; b[i] = 1; c[i] = 0; d[i] = p.edges.right.value; }
         else if (p.edges.right.kind === 'convection') {
-          a[i] = -2 * rx; b[i] = 1 + 2 * rx * (1 + biX); c[i] = 0; d[i] = base + 2 * rx * biX * p.tInf + yTerm(i) + s;
-        } else { a[i] = -2 * rx; b[i] = 1 + 2 * rx; c[i] = 0; d[i] = base + yTerm(i) + s; }
+          a[i] = -2 * rxh; b[i] = 1 + 2 * rxh * (1 + biX); c[i] = 0; d[i] = base + yExp + s + 2 * rxh * biX * p.tInf;
+        } else { a[i] = -2 * rxh; b[i] = 1 + 2 * rxh; c[i] = 0; d[i] = base + yExp + s; }
       } else {
-        a[i] = -rx; b[i] = 1 + 2 * rx; c[i] = -rx; d[i] = base + yTerm(i) + s;
+        a[i] = -rxh; b[i] = 1 + 2 * rxh; c[i] = -rxh; d[i] = base + yExp + s;
       }
     }
     thomas(a, b, c, d, nx);
     for (let i = 0; i < nx; i += 1) work[j * nx + i] = d[i]!;
   }
 
-  // Half step 2: implicit in y for every column i (x-direction explicit from work).
+  // Half step 2 (dt/2): implicit in y for every column i, x treated
+  // explicitly from the intermediate field with half weights (mirror image
+  // of half step 1, so both half steps share one coefficient convention).
+  const ryh = ry / 2;
   let maxDelta = 0;
   for (let i = 0; i < nx; i += 1) {
-    const xTerm = (j: number): number => {
-      const t0 = work[j * nx + i]!;
-      const xl = i > 0 ? work[j * nx + i - 1]! : t0; // mirror at i = 0
-      const xh = i < nx - 1 ? work[j * nx + i + 1]! : t0; // mirror at i = nx-1
-      return rx * (xl - 2 * t0 + xh);
-    };
+    const xEdgeLow = p.edges.left.kind === 'dirichlet' && i === 0;
+    const xEdgeHigh = p.edges.right.kind === 'dirichlet' && i === nx - 1;
     for (let j = 0; j < ny; j += 1) {
       const base = work[j * nx + i]!;
-      const s = srcRate !== 0 && inSource(p, i * dx, j * dy) ? srcRate * dt : 0;
+      const s = src(i, j) / 2;
+      const xl = i > 0 ? work[j * nx + i - 1]! : work[j * nx + 1]!;
+      const xh = i < nx - 1 ? work[j * nx + i + 1]! : work[j * nx + nx - 2]!;
+      let xExp = (rx / 2) * (xl - 2 * base + xh);
+      if (xEdgeLow || xEdgeHigh) xExp = 0; // pinned column: no x update
+      // Robin edges: surface flux in the explicit operator (see half step 1).
+      if (i === 0 && p.edges.left.kind === 'convection') xExp += rx * biX * (p.tInf - base);
+      if (i === nx - 1 && p.edges.right.kind === 'convection') xExp += rx * biX * (p.tInf - base);
       if (j === 0) {
-        if (p.edges.bottom.kind === 'dirichlet') { a[j] = 0; b[j] = 1; c[j] = 0; d[j] = p.edges.bottom.value; }
+        if (p.edges.bottom.kind === 'dirichlet') { a[0] = 0; b[0] = 1; c[0] = 0; d[0] = p.edges.bottom.value; }
         else if (p.edges.bottom.kind === 'convection') {
-          a[j] = 0; b[j] = 1 + 2 * ry * (1 + biY); c[j] = -2 * ry; d[j] = base + 2 * ry * biY * p.tInf + xTerm(j) + s;
-        } else { a[j] = 0; b[j] = 1 + 2 * ry; c[j] = -2 * ry; d[j] = base + xTerm(j) + s; }
+          a[0] = 0; b[0] = 1 + 2 * ryh * (1 + biY); c[0] = -2 * ryh; d[0] = base + xExp + s + 2 * ryh * biY * p.tInf;
+        } else { a[0] = 0; b[0] = 1 + 2 * ryh; c[0] = -2 * ryh; d[0] = base + xExp + s; }
       } else if (j === ny - 1) {
         if (p.edges.top.kind === 'dirichlet') { a[j] = 0; b[j] = 1; c[j] = 0; d[j] = p.edges.top.value; }
         else if (p.edges.top.kind === 'convection') {
-          a[j] = -2 * ry; b[j] = 1 + 2 * ry * (1 + biY); c[j] = 0; d[j] = base + 2 * ry * biY * p.tInf + xTerm(j) + s;
-        } else { a[j] = -2 * ry; b[j] = 1 + 2 * ry; c[j] = 0; d[j] = base + xTerm(j) + s; }
+          a[j] = -2 * ryh; b[j] = 1 + 2 * ryh * (1 + biY); c[j] = 0; d[j] = base + xExp + s + 2 * ryh * biY * p.tInf;
+        } else { a[j] = -2 * ryh; b[j] = 1 + 2 * ryh; c[j] = 0; d[j] = base + xExp + s; }
       } else {
-        a[j] = -ry; b[j] = 1 + 2 * ry; c[j] = -ry; d[j] = base + xTerm(j) + s;
+        a[j] = -ryh; b[j] = 1 + 2 * ryh; c[j] = -ryh; d[j] = base + xExp + s;
       }
     }
     thomas(a, b, c, d, ny);
@@ -446,19 +474,20 @@ export function marchingSquares(T: Float64Array, nx: number, ny: number, level: 
       const center = 0.25 * (v00 + v10 + v11 + v01) > level;
       const push = (x1: number, y1: number, x2: number, y2: number): void => { segs.push([x1, y1, x2, y2]); };
       switch (code) {
-        case 1: case 14: push(topX, j, leftY, j + 1); break;
-        case 2: case 13: push(topX, j, rightY, j + 1); break;
-        case 3: case 12: push(leftY, j + 1, rightY, j + 1); break;
-        case 4: case 11: push(rightY, j + 1, botX, j); break;
-        case 6: case 9: push(topX, j, botX, j); break;
-        case 7: case 8: push(leftY, j + 1, botX, j); break;
-        case 5: // saddle
-          if (center) { push(topX, j, rightY, j + 1); push(leftY, j + 1, botX, j); }
-          else { push(topX, j, leftY, j + 1); push(rightY, j + 1, botX, j); }
+        // 1 = corner (i,j) inside; contour crosses top and left edges.
+        case 1: case 14: push(topX, j, i, leftY); break;
+        case 2: case 13: push(topX, j, i + 1, rightY); break;
+        case 3: case 12: push(i, leftY, i + 1, rightY); break;
+        case 4: case 11: push(i + 1, rightY, botX, j + 1); break;
+        case 6: case 9: push(topX, j, botX, j + 1); break;
+        case 7: case 8: push(i, leftY, botX, j + 1); break;
+        case 5: // saddle: v00,v11 above
+          if (center) { push(topX, j, i + 1, rightY); push(botX, j + 1, i, leftY); }
+          else { push(topX, j, i, leftY); push(i + 1, rightY, botX, j + 1); }
           break;
-        case 10: // saddle
-          if (center) { push(topX, j, leftY, j + 1); push(rightY, j + 1, botX, j); }
-          else { push(topX, j, rightY, j + 1); push(leftY, j + 1, botX, j); }
+        case 10: // saddle: v10,v01 above
+          if (center) { push(topX, j, i, leftY); push(i + 1, rightY, botX, j + 1); }
+          else { push(topX, j, i + 1, rightY); push(botX, j + 1, i, leftY); }
           break;
         default: break;
       }
@@ -956,7 +985,8 @@ export type HeatRowMode = 'convection' | 'radiation' | 'exchanger' | 'resistance
 const num = (o: Record<string, unknown>, key: string, fallback = Number.NaN): number => {
   const v = o[key];
   if (typeof v === 'number' && Number.isFinite(v)) return v;
-  const n = Number(String(v ?? '').trim());
+  // Missing keys fall through with `undefined` -> NaN -> the caller's fallback.
+  const n = Number(String(v).trim());
   return Number.isFinite(n) ? n : fallback;
 };
 

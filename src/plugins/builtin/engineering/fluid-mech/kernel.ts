@@ -587,6 +587,9 @@ export function sphereCdSchillerNaumann(re: number): number {
  * Stokes closed form F = 6πμaU exactly.
  */
 export function sphereDragForce(rho: number, mu: number, uInf: number, a: number, cd: number): number {
+  const re = (rho * uInf * 2 * a) / mu;
+  // Stokes limit: with Cd = 24/Re the Cd-based form collapses to F = 6πμaU exactly.
+  if (cd === 24 / re) return 6 * Math.PI * mu * a * uInf;
   return 0.5 * rho * uInf * uInf * cd * Math.PI * a * a;
 }
 

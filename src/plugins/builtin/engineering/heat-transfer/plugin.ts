@@ -48,7 +48,6 @@ import {
   type RadiationResult,
   type ResistanceResult,
   type SpectralPoint,
-  analyzeHeatRow,
   exchangerProfiles,
   marchingSquares,
   parseHeatInput,
@@ -70,7 +69,6 @@ const EDGE_KINDS: EdgeKind[] = ['dirichlet', 'insulated', 'convection'];
 const CONV_GEOMS: ConvGeometry[] = ['plate', 'tube', 'vplate'];
 const FLUIDS = ['air', 'water', 'oil'] as const;
 const EX_ARRANGEMENTS: ExArrangement[] = ['counter', 'parallel', 'cross'];
-const ROW_MODES: HeatRowMode[] = ['convection', 'radiation', 'exchanger', 'resistance'];
 
 interface State {
   mode: Mode;
@@ -911,7 +909,6 @@ export class EngHeatPlugin implements Plugin {
       return;
     }
     let payload: HeatFigurePayload | null = null;
-    const zh = this.zh;
     let title: Bilingual = { zh: '传热分析', en: 'Heat Transfer Analysis' };
     let caption: Bilingual = { zh: '', en: '' };
     if (s.mode === 'conduction' && p.cond && p.condParams) {
@@ -1360,7 +1357,6 @@ export class EngHeatPlugin implements Plugin {
     g.lineTo(lx + 16, ly - 3);
     g.stroke();
     g.fillText(zh ? '冷流 T_c' : 'cold T_c', lx + 21, ly);
-    void lx; void ly;
 
     g.textAlign = 'left';
     g.font = this.fnt(11);
@@ -1425,7 +1421,7 @@ export class EngHeatPlugin implements Plugin {
       g.fillText(seg.toExponential(1), x + segW / 2, barY + barH + 14);
       if (chainNames[k]) {
         g.fillStyle = 'rgba(200,210,225,0.8)';
-        g.fillText(chainNames[k], x + segW / 2, barY + barH + 27);
+        g.fillText(chainNames[k]!, x + segW / 2, barY + barH + 27);
       }
       x += segW;
     }
@@ -1435,8 +1431,6 @@ export class EngHeatPlugin implements Plugin {
     let nodeX = left;
     for (let k = 0; k < r.nodeTs.length; k += 1) {
       if (k > 0 && k - 1 < chain.length) nodeX += widthFor(chain[k - 1]!);
-      const tAbs = this.state.resDT - (this.state.resDT - r.nodeTs[r.nodeTs.length - 1]!) === this.state.resDT ? r.nodeTs[k]! : r.nodeTs[k]!;
-      void tAbs;
       const tv = r.nodeTs[k]!;
       g.fillStyle = 'rgba(216,180,106,0.95)';
       g.beginPath();

@@ -76,7 +76,7 @@ What ships today:
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
-| Research          | **26 standalone research tools in 6 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
+| Research          | **29 standalone research tools in 6 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
 
@@ -331,7 +331,7 @@ prevents node loss) — a round trip fixed by
 
 ## Research Modules
 
-All 26 research tools live in one registry
+All 29 research tools live in one registry
 (`src/pages/research/toolRegistry.ts`) and share the **ToolShell** layout.
 Canonical routes are `/studio/<toolId>` (legacy `/#/<id>` hash routes are
 kept as redirects); every tool can also open **embedded as a tab of the
@@ -354,6 +354,9 @@ page on top, all unit-tested:
 | data | Figure Studio | `/studio/figures` | Multi-panel publication-grade figures on IEEE / Elsevier templates, SVG / PDF / PNG-600dpi (requires project) |
 | data | Analysis | `/studio/analysis` | Quick charts + descriptive stats + t / Mann–Whitney tests (not shown in the welcome grid) |
 | data | Cleaning | `/studio/cleaning` | Step-by-step wizard: type casts, missing-value policy, outlier flags, dedupe, rename (requires project) |
+| data | ETL Pipeline | `/studio/etl` | Visual step chain (10 transforms: filter / join / group-by / pivot / melt / impute / normalize …), stepwise execution, export to pandas / R / SQL / flow DAG |
+| data | Schema Inference & Validator | `/studio/schema` | Auto-inferred column types / ranges / categorical domains / primary-key candidates / functional dependencies, JSON Schema generation, data contracts and schema-drift detection |
+| data | Synthetic Data Generator | `/studio/synth` | Seeded Copula / time-series synthesis, ε-differential privacy and k-anonymity, KS / TVD / correlation quality metrics |
 | data | Files | `/studio/files` | Workspace VFS file browser: lazy per-directory tree, text preview, download (requires project) |
 | signal | Signal Lab | `/studio/signal` | FFT / Welch PSD, window functions, Savitzky–Golay / moving-average filters, ACF/PACF, seasonal decomposition (requires project) |
 | signal | Notebook | `/studio/notebook` | Markdown + Python cells persisted in the project, run on a dedicated Pyodide (requires project) |
@@ -607,7 +610,7 @@ examples dialog:
 | Stress-Strain Analysis | 应力-应变分析 | Tensile-property extraction per ASTM E8 / GB/T 228 with 0.2 % offset yield. |
 | Thermal Analysis (DSC/TGA) | 热分析（DSC/TGA） | Baseline-corrected peak detection, extrapolated onset temperatures and transition enthalpy. |
 
-**Engineering Simulation (5)**
+**Engineering Simulation (9)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -616,6 +619,10 @@ examples dialog:
 | Plane Truss FEA | 平面桁架有限元分析 | 2-DOF bar elements, stiffness assembly and constraint condensation. |
 | Control Systems Lab | 控制系统实验室 | First/second-order plants with PID unity feedback: step-response metrics and Bode sweeps. |
 | FEM Lab | 有限元实验室 | Parametric 2-D Delaunay meshing, P1 assembly and conjugate-gradient solves for Poisson, transient heat and plane elasticity, with convergence benchmarks. |
+| Fluid Mechanics | 流体力学 | Pipe flow via Darcy–Weisbach / Colebrook–White on an interactive Moody chart, Bernoulli duct energy lines, Blasius boundary layers and projected streamlines with Stokes drag and Kutta–Joukowski lift. |
+| Vibration Analysis | 振动分析 | SDOF/MDOF modal analysis (generalized Jacobi), FRF with damping sweeps, transmissibility and rotating unbalance, all benchmarked against closed forms. |
+| Heat Transfer Analysis | 传热分析 | 2-D FD conduction with isotherms, convection correlations, radiation view factors, LMTD vs ε-NTU exchangers and thermal resistance networks. |
+| Mechanism Kinematics | 机构运动学 | Four-bar Grashof analysis with coupler curves, Kennedy instant centers, cam profile synthesis and planetary gear trains via Willis equation. |
 
 **Economics & Finance (2)**
 
@@ -1318,7 +1325,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Flow mode (compiler + incremental executor + 57 blocks), Block mode (Blockly 13 + shared IR, 5 samples), Code mode (Python / R / JavaScript with preview-dialog translation)
 - [x] Seamless three-language round-trip via the shared IR hub (`mergeFlowIR` + signature guard, pinned by tests)
 - [x] Statistics subsystem, scientific binary I/O, publication-grade plot engine, reproducibility kernel
-- [x] 26 standalone research tools in 6 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
+- [x] 29 standalone research tools in 6 groups (incl. the no-project utils toolkit), embeddable in the workbench canvas
 - [x] Research-grade reliability layer (error taxonomy + validation + data-quality engine)
 - [x] AI assistant (natural language → `studio.*` draft → run; offline / online modes)
 - [x] Full free-form R runtime (webR + CRAN, falling back to the IR engine when absent)

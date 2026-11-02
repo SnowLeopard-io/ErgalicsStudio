@@ -105,6 +105,10 @@ import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
 import { femLabManifest } from './engineering/fem-lab/manifest';
+import { engFluidManifest } from './engineering/fluid-mech/manifest';
+import { engVibrationManifest } from './engineering/vibration/manifest';
+import { engHeatManifest } from './engineering/heat-transfer/manifest';
+import { engMechanismManifest } from './engineering/mechanism/manifest';
 import { bioPkManifest } from './med/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
@@ -691,6 +695,34 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: femLabManifest,
     load: async () => {
       const mod = await import('./engineering/fem-lab');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engFluidManifest,
+    load: async () => {
+      const mod = await import('./engineering/fluid-mech');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engVibrationManifest,
+    load: async () => {
+      const mod = await import('./engineering/vibration');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engHeatManifest,
+    load: async () => {
+      const mod = await import('./engineering/heat-transfer');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engMechanismManifest,
+    load: async () => {
+      const mod = await import('./engineering/mechanism');
       return mod.default();
     },
   },

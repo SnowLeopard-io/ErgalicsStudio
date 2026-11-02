@@ -337,7 +337,6 @@ export function halfPowerIdentify(s: FrfSweep): HalfPowerId {
   // Parabolic peak refinement in log w (grid is log-spaced => equal steps).
   const x1 = Math.log(s.w[imax - 1]!);
   const x2 = Math.log(s.w[imax]!);
-  const x3 = Math.log(s.w[imax + 1]!);
   const y1 = s.magDb[imax - 1]!;
   const y2 = s.magDb[imax]!;
   const y3 = s.magDb[imax + 1]!;
@@ -418,16 +417,19 @@ export function buildChain(masses: number[], springs: number[]): MdofModel {
   const kArr = springs.length === n + 1 ? springs.slice() : [...springs, springs[springs.length - 1]!];
   for (const k of kArr) if (!(k > 0)) throw new VibrationError('chain stiffnesses must be > 0 N/m');
   const K = zeros(n);
+  // Element e connects DOF e-1 and DOF e; DOF -1 and DOF n are the (eliminated)
+  // walls, so an element touching a wall contributes only to the diagonal of
+  // its free DOF, while an interior element contributes the full 2x2 block.
   for (let e = 0; e <= n; e += 1) {
     const k = kArr[e]!;
     const a = e - 1;
     const b = e;
-    if (a >= 0) {
-      K[a]![a]! += k;
+    if (a >= 0) K[a]![a]! += k;
+    if (b <= n - 1) K[b]![b]! += k;
+    if (a >= 0 && b <= n - 1) {
       K[a]![b]! -= k;
       K[b]![a]! -= k;
     }
-    K[b]![b]! += k;
   }
   const positions: number[] = new Array(n);
   for (let j = 0; j < n; j += 1) positions[j] = (j + 1) / (n + 1);
@@ -523,10 +525,12 @@ export function jacobiEigenSym(aIn: number[][]): EigenDecomposition {
           if (i === p || i === q) continue;
           const aip = a[i]![p]!;
           const aiq = a[i]![q]!;
-          a[i]![p] = c * aip - s * aiq;
-          a[p]![i] = a[i]![p];
-          a[i]![q] = s * aip + c * aiq;
-          a[q]![i] = a[i]![q];
+          const bp = c * aip - s * aiq;
+          const bq = s * aip + c * aiq;
+          a[i]![p] = bp;
+          a[p]![i] = bp;
+          a[i]![q] = bq;
+          a[q]![i] = bq;
         }
         a[p]![p] = app - t * apq;
         a[q]![q] = aqq + t * apq;

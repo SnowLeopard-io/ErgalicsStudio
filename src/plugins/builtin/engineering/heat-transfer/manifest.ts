@@ -31,6 +31,14 @@ export const engHeatManifest: PluginManifest = {
   entry: 'example.eng-heat',
   category: 'scientific',
   sandbox: 'trusted',
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:01aa50c0080b0becf17b99809b338c04',
+    sig: '8c927f88fd60c93870a76df9de4a41d5fc1a83443f292fc578ce1585f62a47ab18f9cc9d14da42e938b8a0280161e0a4d9e79ad01a6775848128e6d696d69e0a',
+    signer: 'Ergalics Studio (engineering suite pack)',
+    signedAt: '2026-11-01T00:00:00.000Z',
+    pub: '30bb575dc5976b695a64a51200067f2a3ae4939ec038f0eb3e543ccf6e31ad1c',
+  },
   formats: [
     { extension: '.csv', mimeTypes: ['text/csv'], description: 'mode-specific parameter rows: u,len,ts,tinf,fluid | t1,t2,eps1,eps2 | thin,tcin,ch,cc,ua | area,dt,layers' },
   ],

@@ -3,6 +3,7 @@ import {
   G,
   RE_LAMINAR_MAX,
   RE_TRANSITIONAL_MAX,
+  aeroReduction,
   blasiusThicknesses,
   cylinderCl,
   cylinderStagnationAngles,
@@ -85,7 +86,7 @@ describe('eng-fluid pipe flow (Darcy–Weisbach / Colebrook–White)', () => {
   it('transitional blend is continuous and monotone between the laminar value and Colebrook at Re = 4000', () => {
     const fLam = laminarFriction(RE_LAMINAR_MAX);
     const fTurb = colebrookWhite(RE_TRANSITIONAL_MAX, 0.003);
-    const fMid = darcyFrictionFactor(3000, 0.003);
+    const fMid = darcyFrictionFactor((RE_LAMINAR_MAX + RE_TRANSITIONAL_MAX) / 2, 0.003);
     expect(darcyFrictionFactor(RE_LAMINAR_MAX, 0.003)).toBeCloseTo(fLam, 15);
     expect(darcyFrictionFactor(RE_TRANSITIONAL_MAX, 0.003)).toBeCloseTo(fTurb, 15);
     expect(fMid).toBeGreaterThan(fLam);
@@ -208,8 +209,13 @@ describe('eng-fluid Pohlhausen separation indicator', () => {
       expect(pohlhausenProfile(lambda, 0)).toBeCloseTo(0, 12);
       expect(pohlhausenProfile(lambda, 1)).toBeCloseTo(1, 12);
       const h = 1e-5;
-      const shearFd = (pohlhausenProfile(lambda, h) - pohlhausenProfile(lambda, 0)) / h;
-      expect(shearFd).toBeCloseTo(2 + lambda / 6, 4);
+      // Richardson-extrapolated one-sided difference: the kernel clamps η to
+      // [0, 1] so a central difference at 0 is unavailable, and a plain
+      // forward difference carries an O(h)·λ/2 truncation error.
+      const d1 = (pohlhausenProfile(lambda, h) - pohlhausenProfile(lambda, 0)) / h;
+      const d2 = (pohlhausenProfile(lambda, h / 2) - pohlhausenProfile(lambda, 0)) / (h / 2);
+      const shearFd = 2 * d2 - d1;
+      expect(shearFd).toBeCloseTo(2 + lambda / 6, 6);
       const edgeFd = (pohlhausenProfile(lambda, 1) - pohlhausenProfile(lambda, 1 - h)) / h;
       expect(Math.abs(edgeFd)).toBeLessThan(1e-4);
     }

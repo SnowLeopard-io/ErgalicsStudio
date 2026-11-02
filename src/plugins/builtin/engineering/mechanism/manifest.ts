@@ -34,6 +34,14 @@ export const engMechanismManifest: PluginManifest = {
   entry: 'example.eng-mechanism',
   category: 'scientific',
   sandbox: 'trusted',
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:01aa50c0080b0becf17b99809b338c04',
+    sig: 'd835fe7ead0c2c85b13196a8d04efc8da763541a26ed83be6df3ecfaa7fe51aa6ba9020e516d048584d9858367a02d05239d807df4015e43a77583ece1c90301',
+    signer: 'Ergalics Studio (engineering suite pack)',
+    signedAt: '2026-11-01T00:00:00.000Z',
+    pub: '30bb575dc5976b695a64a51200067f2a3ae4939ec038f0eb3e543ccf6e31ad1c',
+  },
   formats: [
     {
       extension: '.csv',

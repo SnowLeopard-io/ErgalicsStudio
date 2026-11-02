@@ -32,6 +32,14 @@ export const engVibrationManifest: PluginManifest = {
   entry: 'example.eng-vibration',
   category: 'scientific',
   sandbox: 'trusted',
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:01aa50c0080b0becf17b99809b338c04',
+    sig: '8c9b04b119ee6b39cbd17ed0bd234e843f813dc0d4e1ecc9a9694501ebb5751ca0ef89933bc4ead30b2b55b69a65abbcb9b8f6c7dba3804207c1000212c3750e',
+    signer: 'Ergalics Studio (engineering suite pack)',
+    signedAt: '2026-11-01T00:00:00.000Z',
+    pub: '30bb575dc5976b695a64a51200067f2a3ae4939ec038f0eb3e543ccf6e31ad1c',
+  },
   formats: [
     {
       extension: '.csv',

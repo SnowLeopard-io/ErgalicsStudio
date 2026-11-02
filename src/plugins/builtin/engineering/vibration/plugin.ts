@@ -28,7 +28,7 @@
 // ==========================================================================
 
 import type { ComputeResult, ContainerCapabilities, ParamDefinition, Plugin, PluginApi } from '@/types/plugin';
-import { createDataTable, isDataTable } from '@/types/datatable';
+import { createDataTable, type DataValue, isDataTable } from '@/types/datatable';
 import { emit } from '@/core/events';
 import {
   actionButton,
@@ -344,13 +344,16 @@ function parseCsvTable(text: string): ParsedTable {
 }
 
 function parseTableInput(input: unknown): ParsedTable {
-  // Native DataTable from the block system (columnar, typed columns).
-  if (isDataTable(input)) {
-    const names = input.columnNames();
-    if (input.length === 0) throw new VibrationError('DataTable has no rows');
+  // Native DataTable from the block system (columnar, typed columns). The
+  // object pre-check keeps `null` away from isDataTable's `in` probe.
+  const dv: DataValue | undefined =
+    input !== null && typeof input === 'object' ? (input as DataValue) : undefined;
+  if (isDataTable(dv)) {
+    const names = dv.columnNames();
+    if (dv.length === 0) throw new VibrationError('DataTable has no rows');
     const rows: number[][] = [];
-    for (let i = 0; i < input.length; i += 1) {
-      const rec = input.getRow(i);
+    for (let i = 0; i < dv.length; i += 1) {
+      const rec = dv.getRow(i);
       const row = names.map((nm) => Number(rec[nm]));
       if (row.some((v) => !Number.isFinite(v))) {
         throw new VibrationError(`non-numeric DataTable cell in row ${i + 1}`);
@@ -1772,8 +1775,7 @@ export class EngVibrationPlugin implements Plugin {
       );
       return;
     }
-    const hasResult =
-      this.sdofRes || this.mdofRes || this.frfRes || this.isoRes || this.unbRes;
+    const hasResult = this.sdofRes || this.mdofRes || this.frfRes || this.unbRes;
     if (!hasResult) {
       drawEmptyCanvas(this.api, canvas, {
         title: 'No computation yet',
@@ -1792,10 +1794,9 @@ export class EngVibrationPlugin implements Plugin {
     g.fillStyle = COL.bright;
     g.font = this.fnt(13);
     const titles: Record<VibMode, [string, string]> = {
-      sdof: ['单自由度 · 自由衰减 / 频响', 'SDOF · free decay / frequency response'],
+      sdof: ['单自由度 · 自由衰减 / 相平面 / 频响', 'SDOF · free decay / phase plane / FRF'],
       mdof: ['多自由度 · 振型与频响', 'MDOF · mode shapes and FRF'],
-      frf: ['频响函数 · 幅频 / 相频', 'FRF · magnitude / phase'],
-      isolation: ['隔振传递率 T(r)', 'Isolation transmissibility T(r)'],
+      frf: ['频响函数与传递率 · 幅频 / T(r) / 相频', 'FRF & transmissibility · magnitude / T(r) / phase'],
       unbalance: ['旋转不平衡 · 幅值 / 相位 / 轴心轨迹', 'Rotating unbalance · amplitude / phase / orbit'],
     };
     const t = titles[this.state.mode];
@@ -1809,12 +1810,12 @@ export class EngVibrationPlugin implements Plugin {
     const gap = 12;
     switch (this.state.mode) {
       case 'sdof': {
-        const h1 = (avail - 2 * gap) * 0.4;
-        const h2 = (avail - 2 * gap) * 0.32;
+        const h1 = (avail - 2 * gap) * 0.42;
+        const h2 = (avail - 2 * gap) * 0.30;
         const h3 = (avail - 2 * gap) * 0.28;
         this.drawDecay(g, { x: left, y: top, w: width, h: h1 }, true);
-        this.drawSdofAmp(g, { x: left, y: top + h1 + gap, w: width, h: h2 }, true);
-        this.drawSdofPhase(g, { x: left, y: top + h1 + h2 + 2 * gap, w: width, h: h3 }, true);
+        this.drawPhasePlane(g, { x: left, y: top + h1 + gap, w: width, h: h2 }, true);
+        this.drawSdofAmp(g, { x: left, y: top + h1 + h2 + 2 * gap, w: width, h: h3 }, true);
         this.drawFooterSdof(g, h);
         break;
       }
@@ -1828,17 +1829,14 @@ export class EngVibrationPlugin implements Plugin {
       }
       case 'frf': {
         const hasPhase = this.frfRes?.phaseLagDeg != null;
-        const h1 = hasPhase ? (avail - gap) * 0.56 : avail;
-        this.drawFrfMag(g, { x: left, y: top, w: width, h: h1 }, true);
+        const nPanels = hasPhase ? 3 : 2;
+        const hEach = (avail - (nPanels - 1) * gap) / nPanels;
+        this.drawFrfMag(g, { x: left, y: top, w: width, h: hEach }, true);
+        this.drawTrans(g, { x: left, y: top + hEach + gap, w: width, h: hEach }, true);
         if (hasPhase) {
-          this.drawFrfPhase(g, { x: left, y: top + h1 + gap, w: width, h: avail - gap - h1 }, true);
+          this.drawFrfPhase(g, { x: left, y: top + 2 * (hEach + gap), w: width, h: hEach }, true);
         }
         this.drawFooterFrf(g, h);
-        break;
-      }
-      case 'isolation': {
-        this.drawIso(g, { x: left, y: top, w: width, h: avail }, true);
-        this.drawFooterIso(g, h);
         break;
       }
       case 'unbalance': {
@@ -2037,49 +2035,97 @@ export class EngVibrationPlugin implements Plugin {
     g.restore();
   }
 
-  /** SDOF phase-lag panel (0..180 deg). */
-  private drawSdofPhase(g: CanvasRenderingContext2D, r: Rect, showX: boolean) {
-    const s = this.sdofRes!;
-    const sweep = s.sweep;
+  /** Phase plane (x, v) of the free decay: RK4 spiral + exact closed form. */
+  private drawPhasePlane(g: CanvasRenderingContext2D, r: Rect, showX: boolean) {
+    const d = this.sdofRes!.decay;
     const zh = this.zh;
-    const wLo = sweep.w[0]!;
-    const wHi = sweep.w[sweep.w.length - 1]!;
-    const logLo = Math.log10(wLo);
-    const logHi = Math.log10(wHi);
-    const mapX = (wi: number): number => r.x + ((Math.log10(wi) - logLo) / (logHi - logLo)) * r.w;
-    const mapY = (v: number): number => r.y + r.h - ((v - 0) / 200) * r.h;
-    drawFrame(g, r, zh ? '相频（位移滞后力）' : 'Phase (displacement lag)', 'ω (rad/s, log)', 'lag (°)', showX, zh);
-    this.drawLogGrid(g, r, logLo, logHi, 0, 200, mapX, mapY, showX);
+    let xLo = Infinity;
+    let xHi = -Infinity;
+    let vLo = Infinity;
+    let vHi = -Infinity;
+    for (let i = 0; i < d.t.length; i += 1) {
+      xLo = Math.min(xLo, d.xNum[i]!, d.xExact[i]!);
+      xHi = Math.max(xHi, d.xNum[i]!, d.xExact[i]!);
+      vLo = Math.min(vLo, d.vNum[i]!, d.vExact[i]!);
+      vHi = Math.max(vHi, d.vNum[i]!, d.vExact[i]!);
+    }
+    // Equal aspect: one shared half-span on both axes keeps the spiral shape.
+    const cx = (xLo + xHi) / 2;
+    const cy = (vLo + vHi) / 2;
+    const halfSpan = Math.max(xHi - xLo, vHi - vLo, 1e-12) * 0.65;
+    const side = Math.min(r.w, r.h) - 26;
+    const ox = r.x + r.w / 2;
+    const oy = r.y + r.h / 2 + 6;
+    const mapX = (v: number): number => ox + ((v - cx) / (2 * halfSpan)) * side;
+    const mapY = (v: number): number => oy - ((v - cy) / (2 * halfSpan)) * side;
+    drawFrame(g, r, zh ? '相平面 (x, v)' : 'Phase plane (x, v)', 'x (m)', 'v (m/s)', showX, zh);
+    // center cross
+    g.strokeStyle = COL.grid;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(mapX(0), r.y);
+    g.lineTo(mapX(0), r.y + r.h);
+    g.moveTo(r.x, mapY(0));
+    g.lineTo(r.x + r.w, mapY(0));
+    g.stroke();
     g.save();
     g.beginPath();
     g.rect(r.x, r.y, r.w, r.h);
     g.clip();
-    // 90 deg reference
-    g.setLineDash([4, 4]);
-    g.strokeStyle = 'rgba(170,182,200,0.5)';
-    g.lineWidth = 1;
+    // exact reference (dashed ochre)
+    g.strokeStyle = COL.ref;
+    g.setLineDash([5, 3]);
+    g.lineWidth = 1.1;
     g.beginPath();
-    g.moveTo(r.x, mapY(90));
-    g.lineTo(r.x + r.w, mapY(90));
-    g.stroke();
-    g.setLineDash([]);
-    g.strokeStyle = COL.green;
-    g.lineWidth = 2;
-    g.beginPath();
-    for (let i = 0; i < sweep.w.length; i += 1) {
-      const x = mapX(sweep.w[i]!);
-      const y = mapY(sweep.phaseLagDeg[i]!);
+    for (let i = 0; i < d.t.length; i += 1) {
+      const x = mapX(d.xExact[i]!);
+      const y = mapY(d.vExact[i]!);
       if (i === 0) g.moveTo(x, y);
       else g.lineTo(x, y);
     }
     g.stroke();
-    // resonance marker: exactly 90 deg at w = wn
-    const px = mapX(s.derived.wn);
+    g.setLineDash([]);
+    // RK4 spiral (solid blue)
+    g.strokeStyle = COL.main;
+    g.lineWidth = 1.6;
+    g.beginPath();
+    for (let i = 0; i < d.t.length; i += 1) {
+      const x = mapX(d.xNum[i]!);
+      const y = mapY(d.vNum[i]!);
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+    // start point
     g.fillStyle = COL.marker;
     g.beginPath();
-    g.arc(px, mapY(90), 3, 0, Math.PI * 2);
+    g.arc(mapX(d.xNum[0]!), mapY(d.vNum[0]!), 3, 0, Math.PI * 2);
     g.fill();
     g.restore();
+    // compact legend
+    g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
+    g.textAlign = 'left';
+    const lx = r.x + r.w - 128;
+    let ly = r.y + 16;
+    g.strokeStyle = COL.main;
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.moveTo(lx, ly - 3);
+    g.lineTo(lx + 16, ly - 3);
+    g.stroke();
+    g.fillStyle = 'rgba(200,210,225,0.95)';
+    g.fillText('RK4', lx + 21, ly);
+    ly += 13;
+    g.strokeStyle = COL.ref;
+    g.setLineDash([5, 3]);
+    g.lineWidth = 1.1;
+    g.beginPath();
+    g.moveTo(lx, ly - 3);
+    g.lineTo(lx + 16, ly - 3);
+    g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = 'rgba(200,210,225,0.95)';
+    g.fillText(zh ? '精确解' : 'exact', lx + 21, ly);
   }
 
   /** Decade grid + linear-y ticks shared by log-x panels. */
@@ -2291,6 +2337,21 @@ export class EngVibrationPlugin implements Plugin {
     g.beginPath();
     g.rect(r.x, r.y, r.w, r.h);
     g.clip();
+    // damping-ratio sweep overlay (receptance family, SDOF source)
+    if (f.family) {
+      for (let c = 0; c < f.family.curves.length; c += 1) {
+        g.strokeStyle = FAMILY_COLORS[c % FAMILY_COLORS.length]!;
+        g.lineWidth = 1;
+        g.beginPath();
+        for (let i = 0; i < f.family.w.length; i += 1) {
+          const x = mapX(f.family.w[i]!);
+          const y = mapY(f.family.curves[c]![i]!);
+          if (i === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+    }
     g.strokeStyle = f.imported ? COL.purple : COL.main;
     g.lineWidth = 2;
     g.beginPath();
@@ -2345,19 +2406,19 @@ export class EngVibrationPlugin implements Plugin {
     g.restore();
   }
 
-  /** Isolation panel: family curves, highlighted zeta, sqrt(2) boundary, operating point. */
-  private drawIso(g: CanvasRenderingContext2D, r: Rect, showX: boolean) {
-    const iso = this.isoRes!;
+  /** Transmissibility panel: zeta family, highlighted curve, sqrt(2) boundary and the shaded isolation band r > sqrt(2). */
+  private drawTrans(g: CanvasRenderingContext2D, r: Rect, showX: boolean) {
+    const iso = this.frfRes!.iso;
     const zh = this.zh;
-    const rLo = iso.r[0]!;
-    const rHi = iso.r[iso.r.length - 1]!;
+    const rLo = iso.familyR[0]!;
+    const rHi = iso.familyR[iso.familyR.length - 1]!;
     const logLo = Math.log10(rLo);
     const logHi = Math.log10(rHi);
     const hiPeak = iso.peak.tMax;
     const yHi = Math.min(30, Math.max(2.2, hiPeak * 1.15));
     const mapX = (rv: number): number => r.x + ((Math.log10(rv) - logLo) / (logHi - logLo)) * r.w;
     const mapY = (v: number): number => r.y + r.h - (v / yHi) * r.h;
-    drawFrame(g, r, zh ? '传递率曲线族（虚线以上为放大区）' : 'Transmissibility family (above the dashed line = amplification)', 'r = ω/ωn (log)', 'T', showX, zh);
+    drawFrame(g, r, zh ? '传递率 T(r)（r > √2 为隔振区，着色）' : 'Transmissibility T(r) (isolation band r > sqrt(2) shaded)', 'r = ω/ωn (log)', 'T', showX, zh);
     // grid
     g.lineWidth = 1;
     g.font = '10px Consolas, monospace';
@@ -2385,10 +2446,16 @@ export class EngVibrationPlugin implements Plugin {
       g.fillStyle = COL.text;
       g.fillText(fmtTick(v), r.x - 4, y + 3);
     }
+    const xb = mapX(Math.SQRT2);
     g.save();
     g.beginPath();
     g.rect(r.x, r.y, r.w, r.h);
     g.clip();
+    // isolation band: r > sqrt(2) where T < 1 for every zeta
+    if (xb < r.x + r.w) {
+      g.fillStyle = 'rgba(108,166,138,0.12)';
+      g.fillRect(Math.max(r.x, xb), r.y, r.x + r.w - Math.max(r.x, xb), r.h);
+    }
     // T = 1 line and the sqrt(2) boundary
     g.setLineDash([5, 4]);
     g.strokeStyle = 'rgba(170,182,200,0.55)';
@@ -2397,7 +2464,6 @@ export class EngVibrationPlugin implements Plugin {
     g.moveTo(r.x, mapY(1));
     g.lineTo(r.x + r.w, mapY(1));
     g.stroke();
-    const xb = mapX(Math.SQRT2);
     g.strokeStyle = COL.marker;
     g.beginPath();
     g.moveTo(xb, r.y);
@@ -2406,15 +2472,15 @@ export class EngVibrationPlugin implements Plugin {
     g.setLineDash([]);
     g.fillStyle = 'rgba(220,210,180,0.95)';
     g.textAlign = 'left';
-    g.fillText('r = √2 (T = 1)', xb + 5, r.y + r.h - 8);
-    // family curves
-    for (let c = 0; c < iso.zetaList.length; c += 1) {
+    g.fillText('r = √2 (T = 1)', Math.min(xb + 5, r.x + r.w - 84), r.y + r.h - 8);
+    // zeta family curves
+    for (let c = 0; c < iso.familyZetas.length; c += 1) {
       g.strokeStyle = FAMILY_COLORS[c % FAMILY_COLORS.length]!;
       g.lineWidth = 1.2;
       g.beginPath();
-      for (let i = 0; i < iso.r.length; i += 1) {
-        const x = mapX(iso.r[i]!);
-        const y = mapY(Math.min(iso.curves[c]![i]!, yHi));
+      for (let i = 0; i < iso.familyR.length; i += 1) {
+        const x = mapX(iso.familyR[i]!);
+        const y = mapY(Math.min(iso.familyCurves[c]![i]!, yHi));
         if (i === 0) g.moveTo(x, y);
         else g.lineTo(x, y);
       }
@@ -2424,9 +2490,9 @@ export class EngVibrationPlugin implements Plugin {
     g.strokeStyle = COL.main;
     g.lineWidth = 2.2;
     g.beginPath();
-    for (let i = 0; i < iso.hi.r.length; i += 1) {
-      const x = mapX(iso.hi.r[i]!);
-      const y = mapY(Math.min(iso.hi.T[i]!, yHi));
+    for (let i = 0; i < iso.r.length; i += 1) {
+      const x = mapX(iso.r[i]!);
+      const y = mapY(Math.min(iso.T[i]!, yHi));
       if (i === 0) g.moveTo(x, y);
       else g.lineTo(x, y);
     }
@@ -2447,7 +2513,7 @@ export class EngVibrationPlugin implements Plugin {
     let ly = r.y + 16;
     g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.textAlign = 'left';
-    for (let c = 0; c < iso.zetaList.length; c += 1) {
+    for (let c = 0; c < iso.familyZetas.length; c += 1) {
       g.strokeStyle = FAMILY_COLORS[c % FAMILY_COLORS.length]!;
       g.lineWidth = 2;
       g.beginPath();
@@ -2455,7 +2521,7 @@ export class EngVibrationPlugin implements Plugin {
       g.lineTo(lx + 14, ly - 3);
       g.stroke();
       g.fillStyle = 'rgba(200,210,225,0.95)';
-      g.fillText(`ζ = ${iso.zetaList[c]}`, lx + 19, ly);
+      g.fillText(`ζ = ${iso.familyZetas[c]}`, lx + 19, ly);
       ly += 12;
     }
     g.strokeStyle = COL.main;
@@ -2476,7 +2542,7 @@ export class EngVibrationPlugin implements Plugin {
     const rHi = u.r[u.r.length - 1]!;
     const logLo = Math.log10(rLo);
     const logHi = Math.log10(rHi);
-    const yHi = u.peakExact * 1.3;
+    const yHi = u.peakClosed.ampPeak * 1.3;
     const mapX = (rv: number): number => r.x + ((Math.log10(rv) - logLo) / (logHi - logLo)) * r.w;
     const mapY = (v: number): number => r.y + r.h - (v / yHi) * r.h;
     drawFrame(g, r, 'm·X/(m_e·e)', 'r = ω/ωn (log)', 'mX/(me·e)', showX, zh);
@@ -2485,15 +2551,22 @@ export class EngVibrationPlugin implements Plugin {
     g.beginPath();
     g.rect(r.x, r.y, r.w, r.h);
     g.clip();
-    // exact peak level 1/(2 zeta) at r = 1
+    // closed-form peak level at r_peak = 1/sqrt(1-2*zeta^2)
     g.setLineDash([4, 4]);
     g.strokeStyle = COL.marker;
     g.lineWidth = 1;
     g.beginPath();
-    g.moveTo(r.x, mapY(u.peakExact));
-    g.lineTo(r.x + r.w, mapY(u.peakExact));
+    g.moveTo(r.x, mapY(u.peakClosed.ampPeak));
+    g.lineTo(r.x + r.w, mapY(u.peakClosed.ampPeak));
     g.stroke();
+    const xp = mapX(u.peakClosed.rPeak);
+    g.beginPath();
+    g.moveTo(xp, r.y);
+    g.lineTo(xp, r.y + r.h);
+    g.stroke();
+    // exact r = 1 reference (amplitude exactly 1/(2*zeta) there)
     const x1 = mapX(1);
+    g.strokeStyle = 'rgba(170,182,200,0.6)';
     g.beginPath();
     g.moveTo(x1, r.y);
     g.lineTo(x1, r.y + r.h);
@@ -2511,12 +2584,18 @@ export class EngVibrationPlugin implements Plugin {
     g.stroke();
     g.fillStyle = COL.marker;
     g.beginPath();
-    g.arc(x1, mapY(u.peakExact), 3.5, 0, Math.PI * 2);
+    g.arc(xp, mapY(u.peakClosed.ampPeak), 3.5, 0, Math.PI * 2);
     g.fill();
     g.font = '10px Consolas, monospace';
     g.textAlign = 'left';
     g.fillStyle = 'rgba(220,210,180,0.95)';
-    g.fillText(`1/(2ζ) = ${fmtMetric(u.peakExact)}`, x1 + 6, mapY(u.peakExact) - 6);
+    g.fillText(
+      `peak = ${fmtMetric(u.peakClosed.ampPeak)} @ r_peak = ${fmtMetric(u.peakClosed.rPeak)}`,
+      Math.min(xp + 6, r.x + r.w - 170),
+      mapY(u.peakClosed.ampPeak) - 6,
+    );
+    g.fillStyle = 'rgba(170,182,200,0.9)';
+    g.fillText(`1/(2ζ) = ${fmtMetric(u.ampAt1, 6)} @ r = 1`, x1 + 6, clamp(mapY(u.ampAt1) + 14, r.y + 12, r.y + r.h - 6));
     g.restore();
   }
 
@@ -2642,16 +2721,22 @@ export class EngVibrationPlugin implements Plugin {
     const line1 = zh
       ? `SDOF：m = ${fmtMetric(r.p.m)} kg，k = ${fmtMetric(r.p.k)} N/m，c = ${fmtMetric(r.p.c)} N·s/m（RK4 步数 4800）`
       : `SDOF: m = ${fmtMetric(r.p.m)} kg, k = ${fmtMetric(r.p.k)} N/m, c = ${fmtMetric(r.p.c)} N*s/m (4800 RK4 steps)`;
-    const zid = r.id.ok ? fmtMetric(r.id.zeta) : '—';
-    const wnid = r.id.ok ? fmtMetric(r.id.wn) : '—';
-    const line2 = `wn = ${fmtMetric(d.wn)} rad/s · fn = ${fmtMetric(d.wn / (2 * Math.PI))} Hz · zeta = ${fmtMetric(d.zeta)} · Q = ${Number.isFinite(d.Q) ? fmtMetric(d.Q) : '∞'} · zeta_id = ${zid} · wn_id = ${wnid} rad/s`;
+    const wd = d.zeta < 1 ? d.wn * Math.sqrt(1 - d.zeta * d.zeta) : Number.NaN;
+    const line2 = `wn = ${fmtMetric(d.wn)} rad/s · fn = ${fmtMetric(d.wn / (2 * Math.PI))} Hz · wd = ${Number.isFinite(wd) ? fmtMetric(wd) : '—'} rad/s · fd = ${Number.isFinite(wd) ? `${fmtMetric(wd / (2 * Math.PI))} Hz` : '—'} · zeta = ${fmtMetric(d.zeta)} · Q = ${Number.isFinite(d.Q) ? fmtMetric(d.Q) : '∞'}`;
     this.drawFooterBase(g, h, line1, line2);
   }
 
   private drawFooterMdof(g: CanvasRenderingContext2D, h: number) {
     const r = this.mdofRes!;
     const zh = this.zh;
-    const line1 = zh ? `模型：${r.label} · Rayleigh 阻尼锚定 ω1/ω3，ζ = ${fmtMetric(this.state.zetaM)}` : `Model: ${r.label} · Rayleigh damping pinned at w1/w3, zeta = ${fmtMetric(this.state.zetaM)}`;
+    const dampTxt = r.dampingLabel.startsWith('per-DOF')
+      ? zh
+        ? '每自由度阻尼（c 列表）'
+        : r.dampingLabel
+      : zh
+        ? `Rayleigh 阻尼（ζ@ω1/ω3 = ${fmtMetric(this.state.zetaM)}）`
+        : r.dampingLabel;
+    const line1 = `${zh ? '模型：' : 'Model: '}${r.label} · ${dampTxt}`;
     const ws = [0, 1, 2]
       .slice(0, r.nShow)
       .map((i) => `w${i + 1} = ${fmtMetric(r.modes.omega[i]!)} rad/s`)
@@ -2663,22 +2748,17 @@ export class EngVibrationPlugin implements Plugin {
   private drawFooterFrf(g: CanvasRenderingContext2D, h: number) {
     const r = this.frfRes!;
     const zh = this.zh;
+    const famTxt = r.family
+      ? zh
+        ? ` · ζ 族叠加（${r.family.zetas.length} 条，0.02…1）`
+        : ` · zeta family overlay (${r.family.zetas.length} curves, 0.02..1)`
+      : '';
     const line1 = zh
-      ? `来源：${r.label}${r.imported ? '（导入数据）' : ''} · 半功率点 = 峰值 −3.0103 dB`
-      : `Source: ${r.label}${r.imported ? ' (imported)' : ''} · half-power = peak - 3.0103 dB`;
+      ? `来源：${r.label}${r.imported ? '（导入数据）' : ''} · 半功率点 = 峰值 −3.0103 dB · T(r) 面板：r > √2 隔振区${famTxt}`
+      : `Source: ${r.label}${r.imported ? ' (imported)' : ''} · half-power = peak - 3.0103 dB · T(r) panel: isolation band r > sqrt(2)${famTxt}`;
     const zid = r.id.ok ? fmtMetric(r.id.zeta) : '—';
     const wnid = r.id.ok ? fmtMetric(r.id.wn) : '—';
-    const line2 = `wr = ${fmtMetric(r.id.wr)} rad/s · zeta_id = ${zid} · wn_id = ${wnid} rad/s · Q = ${r.id.ok ? fmtMetric(r.id.Q) : '—'}`;
-    this.drawFooterBase(g, h, line1, line2);
-  }
-
-  private drawFooterIso(g: CanvasRenderingContext2D, h: number) {
-    const r = this.isoRes!;
-    const zh = this.zh;
-    const line1 = zh
-      ? `隔振：高亮 ζ = ${fmtMetric(this.state.zetaIso)} · 隔离区 r > √2（T < 1）`
-      : `Isolation: highlighted zeta = ${fmtMetric(this.state.zetaIso)} · isolation region r > sqrt(2) (T < 1)`;
-    const line2 = `T_max = ${fmtMetric(r.peak.tMax)} · 1/(2ζ) = ${fmtMetric(1 / (2 * this.state.zetaIso))} · r_peak = ${fmtMetric(r.peak.rPeak)} · T(r0) = ${fmtMetric(r.t0)} · eff = ${fmtMetric((1 - r.t0) * 100)} %`;
+    const line2 = `wr = ${fmtMetric(r.id.wr)} rad/s · zeta_id = ${zid} · wn_id = ${wnid} rad/s · T_max = ${fmtMetric(r.iso.peak.tMax)} @ r_peak = ${fmtMetric(r.iso.peak.rPeak)} · T(r0) = ${fmtMetric(r.iso.t0)} · eff = ${fmtMetric((1 - r.iso.t0) * 100)} %`;
     this.drawFooterBase(g, h, line1, line2);
   }
 
@@ -2686,9 +2766,9 @@ export class EngVibrationPlugin implements Plugin {
     const r = this.unbRes!;
     const zh = this.zh;
     const line1 = zh
-      ? `不平衡：F0 = me·e·ω² · 归一化幅值峰精确 1/(2ζ)（r = 1），相位恒 90°`
-      : `Unbalance: F0 = me*e*w^2 · the normalized peak is exactly 1/(2*zeta) at r = 1 with exactly 90 deg phase`;
-    const line2 = `peak = ${fmtMetric(r.peakNum)} (exact ${fmtMetric(r.peakExact)}) · r_peak = ${fmtMetric(r.peakR)} · phase(r=1) = ${fmtMetric(r.phaseAt1, 6)}° · orbit max = ${fmtMetric(r.orbitMax)}`;
+      ? `不平衡：F = me·e·ω² · 峰值 1/(2ζ√(1−ζ²)) 位于 r_peak = 1/√(1−2ζ²)；r = 1 处幅值恒 1/(2ζ)、相位恒 90°`
+      : `Unbalance: F = me*e*w^2 · peak 1/(2*zeta*sqrt(1-zeta^2)) at r_peak = 1/sqrt(1-2*zeta^2); at r = 1 the amplitude is exactly 1/(2*zeta) with exactly 90 deg lag`;
+    const line2 = `peak = ${fmtMetric(r.peakClosed.ampPeak)} (scan ${fmtMetric(r.peakNum)} @ r = ${fmtMetric(r.peakR)}) · r_peak = ${fmtMetric(r.peakClosed.rPeak)} · mX/(me*e; r=1) = ${fmtMetric(r.ampAt1, 6)} · phase(r=1) = ${fmtMetric(r.phaseAt1, 6)}° · orbit max = ${fmtMetric(r.orbitMax)}`;
     this.drawFooterBase(g, h, line1, line2);
   }
 }

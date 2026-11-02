@@ -66,11 +66,11 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**162 个内置插件（152 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**158 个内置插件（148 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、189 个示例数据集 + 11 个示例工程 |
 | 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
-| 科研 | **26 个独立科研工具，分 6 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
+| 科研 | **29 个独立科研工具，分 6 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
 
@@ -96,19 +96,19 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 能力 | 说明 |
 | --- | --- |
-| **162 个内置插件** | （152 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **19 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 医学与公共卫生 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 社会科学 / 数据与智能 / 计算机科学 / 特效渲染 / 音乐与艺术科学 / 趣味工具）。 |
+| **158 个内置插件** | （148 个科学插件自动加载 + 10 个趣味工具手动加载），覆盖完整 API 面；两级加载，侧边栏按 **19 个学科**分组（图表 / 数学与统计 / 物理 / 化学 / 生物 / 医学与公共卫生 / 地理 / 环境 / 天文 / 材料学 / 工程仿真 / 经济与金融 / 心理与行为 / 社会科学 / 数据与智能 / 计算机科学 / 特效渲染 / 音乐与艺术科学 / 趣味工具）。 |
 | 市场目录 | `src/plugins/marketplace.ts`（精选标签 / 流行度 / 分类筛选）。 |
 | `.cspkg` 包加载 | 清单校验 + **Worker 优先隔离**（§沙箱）：第三方入口经 postMessage 桥接与 OffscreenCanvas 渲染，回退为受限制作用域的 `new Function`（非安全边界）；两者均受 Ed25519 签名门禁约束（FR-05，见 `SECURITY.md`）。 |
 | 本地化参数面板 | 插件参数面板内置 CSV 导出按钮、分析叠加层（趋势线、累积/密度直方图、均值标记、抖动点、排序）；全部科研级插件带发送至 Figure Studio 动作。 |
 
-**数据工程套件**（`src/plugins/builtin/dataeng/`，4 个插件，面向端到端科研可复现）
+**数据工程套件**（4 个科研工具，`src/pages/labs/` + `src/core/dataeng/`，面向端到端科研可复现，均列入顶部启动器 data 组）
 
-| 插件 | 能力 |
+| 工具 | 能力 |
 | --- | --- |
-| **ETL 流水线**（`data.etl`） | 可视化步骤链：filter / map / reduce / join / group-by / pivot / melt / impute / normalize / 类型强转；CSV / JSON / URL 数据源；逐步执行进度与行数统计；导出 pandas / R / SQL 代码与流程模式 DAG JSON。 |
-| **数据血缘图**（`data.lineage`） | 基于运行历史构建 数据源 → 变换 → 输出 的 DAG；上游溯源与下游影响分析（点击高亮）；Git 提交版本注解（读取失败时优雅降级）；导出 JSON / GraphML。 |
-| **Schema 推断与校验**（`data.schema`） | 列类型 / 缺失率 / 唯一率 / 范围 / 类别域 / 正则指纹自动推断，主键候选与函数依赖探测；JSON Schema（draft-07）生成；数据契约定义与校验；跨数据集 schema 漂移检测（7 类，带严重度）。 |
-| **合成数据生成器**（`data.synth`） | 种子化纯 TS 内核：高斯 Copula 保多变量相关结构（PSD 修正 + Cholesky）、边缘分布拟合（KS 择优）、时序 AR(1) 模式；ε-差分隐私（Laplace）与 k-匿名；质量指标（KS / TVD / 相关矩阵差）。 |
+| **ETL 流水线**（`/studio/etl`） | 可视化步骤链：filter / map / reduce / join / group-by / pivot / melt / impute / normalize / 类型强转；CSV / JSON / URL 数据源；逐步执行进度与行数统计；导出 pandas / R / SQL 代码与流程模式 DAG JSON。 |
+| **数据血缘图**（`/studio/lineage`，增强） | 基于运行历史构建 数据源 → 变换 → 输出 的 DAG；上游溯源与下游影响分析（点击高亮）；导出 JSON / GraphML。 |
+| **Schema 推断与校验**（`/studio/schema`） | 列类型 / 缺失率 / 唯一率 / 范围 / 类别域 / 正则指纹自动推断，主键候选与函数依赖探测；JSON Schema（draft-07）生成；数据契约定义与校验；跨数据集 schema 漂移检测（7 类，带严重度）。 |
+| **合成数据生成器**（`/studio/synth`） | 种子化纯 TS 内核：高斯 Copula 保多变量相关结构（PSD 修正 + Cholesky）、边缘分布拟合（KS 择优）、时序 AR(1) 模式；ε-差分隐私（Laplace）与 k-匿名；质量指标（KS / TVD / 相关矩阵差）。 |
 
 **科研级插件**
 
@@ -280,7 +280,7 @@ flowchart TB
 
 ## 科研模块
 
-全部 26 个科研工具收录在单一注册表（`src/pages/research/toolRegistry.ts`）中，共享 **ToolShell** 统一布局。规范路由为 `/studio/<toolId>`（旧 `/#/<id>` 哈希路由保留为重定向）；每个工具也可经 `openToolEmbedded` **内嵌为标准模式中央画布的一个标签页**。`requireProject` 的工具在未打开项目时显示 `EmptyProject` 占位。每个模块都遵循"纯 TS 核心（无 React）→ Zustand store → 页面，单元测试覆盖"的分层：
+全部 29 个科研工具收录在单一注册表（`src/pages/research/toolRegistry.ts`）中，共享 **ToolShell** 统一布局。规范路由为 `/studio/<toolId>`（旧 `/#/<id>` 哈希路由保留为重定向）；每个工具也可经 `openToolEmbedded` **内嵌为标准模式中央画布的一个标签页**。`requireProject` 的工具在未打开项目时显示 `EmptyProject` 占位。每个模块都遵循"纯 TS 核心（无 React）→ Zustand store → 页面，单元测试覆盖"的分层：
 
 | 分组 | 页面 | 路由 | 功能 |
 | ---- | ---- | ---- | ---- |
@@ -295,6 +295,9 @@ flowchart TB
 | data | Figure Studio | `/studio/figures` | 在 IEEE / Elsevier 模板上组合多面板出版级图表，SVG / PDF / PNG-600dpi 导出（需项目） |
 | data | 分析 | `/studio/analysis` | 快速图表 + 描述统计 + t / Mann–Whitney 检验（不在欢迎页网格展示） |
 | data | 数据清洗向导 | `/studio/cleaning` | 分步向导：类型转换、缺失值策略、异常值标记、去重、重命名（需项目） |
+| data | ETL 流水线 | `/studio/etl` | 可视化步骤链（filter / join / group-by / pivot / melt / impute / normalize 等 10 种变换），逐步执行，导出 pandas / R / SQL / 流程 DAG |
+| data | Schema 推断与校验 | `/studio/schema` | 列类型 / 范围 / 类别域 / 主键候选 / 函数依赖自动推断，JSON Schema 生成，数据契约校验与 schema 漂移检测 |
+| data | 合成数据生成器 | `/studio/synth` | 种子化 Copula / 时序合成，ε-差分隐私与 k-匿名，KS / TVD / 相关结构质量指标 |
 | data | 工作区文件 | `/studio/files` | 面向 VFS 的工作区文件浏览器：按目录懒加载的文件树、文本预览、下载（需项目） |
 | signal | 信号实验室 | `/studio/signal` | FFT / Welch PSD、窗函数、Savitzky–Golay / 移动平均滤波、ACF/PACF、季节分解（需项目） |
 | signal | Notebook | `/studio/notebook` | 项目内 Markdown + Python 混合单元格，运行于专用 Pyodide（需项目） |
@@ -1116,7 +1119,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 - [x] 流程模式（编译器 + 增量执行器 + 57 个区块）、积木模式（Blockly 13 + 共享 IR，5 个示例）、代码模式（Python / R / JavaScript，预览窗互译）
 - [x] 三语言无缝往返（共享 IR 中枢，`mergeFlowIR` + 签名守卫，测试固化）
 - [x] 统计分析子系统（`src/core/stats/`）、科研二进制导入（`src/core/io/`）、出版级绘图引擎（`src/core/plot/`）、可复现性内核
-- [x] 26 个独立科研工具分 6 组（含免项目的 utils 小工具组），支持内嵌到工作台画布
+- [x] 29 个独立科研工具分 6 组（含免项目的 utils 小工具组），支持内嵌到工作台画布
 - [x] 研究级可靠性层（错误分类法 + 校验框架 + 数据质量引擎）
 - [x] AI 助手（自然语言 → `studio.*` 代码草稿 → 运行；离线 / 在线两种模式）
 - [x] 完整自由语法 R 运行时（webR + CRAN 包，缺失时回退 IR 引擎）

@@ -29,6 +29,14 @@ export const engFluidManifest: PluginManifest = {
   entry: 'example.eng-fluid',
   category: 'scientific',
   sandbox: 'trusted',
+  signature: {
+    alg: 'ed25519',
+    fingerprint: 'ed25519:01aa50c0080b0becf17b99809b338c04',
+    sig: '12465a678c084fa38badd9c277923ff61ec02663c9a33ce4b563e185abc1af186edae1d5060e2ce372648ea623e4af7a464346a02c312728b4fcbccf5cedf308',
+    signer: 'Ergalics Studio (engineering suite pack)',
+    signedAt: '2026-11-01T00:00:00.000Z',
+    pub: '30bb575dc5976b695a64a51200067f2a3ae4939ec038f0eb3e543ccf6e31ad1c',
+  },
   research: {
     tier: 'research',
     units: { length: 'm', velocity: 'm/s', viscosity: 'Pa·s', density: 'kg/m³', pressure: 'Pa', head: 'm' },

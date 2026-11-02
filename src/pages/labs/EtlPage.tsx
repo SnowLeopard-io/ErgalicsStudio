@@ -452,13 +452,20 @@ function StepParams({ step, columns, t, onPatch }: StepParamsProps) {
     <input
       className="input"
       type="text"
+      aria-label={key}
       {...listAttr}
       value={value}
       onChange={(e) => onPatch({ [key]: e.target.value })}
     />
   );
   const text = (key: string, value: string) => (
-    <input className="input" type="text" value={value} onChange={(e) => onPatch({ [key]: e.target.value })} />
+    <input
+      className="input"
+      type="text"
+      aria-label={key}
+      value={value}
+      onChange={(e) => onPatch({ [key]: e.target.value })}
+    />
   );
   const select = (key: string, value: string, options: readonly string[]) => (
     <select className="input" value={value} onChange={(e) => onPatch({ [key]: e.target.value })}>
@@ -471,6 +478,7 @@ function StepParams({ step, columns, t, onPatch }: StepParamsProps) {
     <input
       className="input"
       type="text"
+      aria-label={key}
       {...listAttr}
       value={values.join(', ')}
       onChange={(e) =>
