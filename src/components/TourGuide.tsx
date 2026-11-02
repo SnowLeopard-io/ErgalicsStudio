@@ -136,12 +136,12 @@ export function TourGuide() {
   const isLast = def.mode === 'done';
   const finished = step >= STEPS.length;
 
-  const advance = useCallback(() => (isLast ? finish() : next()), [isLast, finish, next]);
+  const advance = useCallback(() => (isLast ? finish(true) : next()), [isLast, finish, next]);
 
   // Walked past the final step (e.g. clicked the last highlighted element
   // right as the tour ended) — treat as completion.
   useEffect(() => {
-    if (active && finished) finish();
+    if (active && finished) finish(true);
   }, [active, finished, finish]);
 
   // Track the highlighted element's position: an interval re-reads the rect
@@ -303,7 +303,7 @@ export function TourGuide() {
               </button>
             </>
           ) : def.mode === 'done' ? (
-            <button type="button" className="btn btn-sm btn-primary" onClick={finish}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => finish(true)}>
               {t('tour.finish')}
             </button>
           ) : def.mode === 'click' ? (

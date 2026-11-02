@@ -29,10 +29,13 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import ThemeMarketPanel from './ThemeMarketPanel';
 import { PwaPanel } from './PwaPanel';
+import { AmbienceSettingsPanel, AchievementsPanel } from '@/components/ambience/AmbiencePanels';
 
 const CATEGORIES = [
   { id: 'general', labelKey: 'settings.general' },
   { id: 'theme', labelKey: 'settings.theme' },
+  { id: 'ambience', labelKey: 'settings.ambience' },
+  { id: 'achievements', labelKey: 'settings.achievements' },
   { id: 'gpu', labelKey: 'settings.gpu' },
   { id: 'data', labelKey: 'settings.data' },
   { id: 'store', labelKey: 'settings.store' },
@@ -339,6 +342,10 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
             )}
 
             {active === 'theme' && <ThemeMarketPanel />}
+
+            {active === 'ambience' && <AmbienceSettingsPanel />}
+
+            {active === 'achievements' && <AchievementsPanel />}
 
             {active === 'gpu' && (
               <section className="card settings-section">

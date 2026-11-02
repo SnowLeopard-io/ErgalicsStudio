@@ -19,6 +19,7 @@ import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
 import { useModeSync } from '@/hooks/useModeSync';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
+import { XpIndicator } from '@/components/ambience/AmbienceLayer';
 
 const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
 
@@ -184,6 +185,11 @@ export function TopBar() {
       />
 
       <div className="topbar-actions">
+        {/* Zone 1.5 — ambience: level + XP progress (hidden when rewards are
+            disabled; keeps a quiet, instrument-console footprint). */}
+        <XpIndicator />
+        <span className="topbar-divider" aria-hidden="true" />
+
         {/* Zone 2 — work modes (filled + underline double indication). */}
         <div className="topbar-cluster mode-switch">
           {MODE_KEYS.map((key) => (

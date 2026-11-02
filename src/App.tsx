@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BootGate } from '@/components/BootGate';
 import { BannerStack, ToastStack } from '@/components/Feedback';
+import { AmbienceLayer } from '@/components/ambience/AmbienceLayer';
 import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -67,6 +68,7 @@ function AppShell() {
     <>
       <BannerStack />
       <ToastStack />
+      <AmbienceLayer />
       <TemplateTourOverlay />
       <CrossSiteSwitcher />
       <CommandPalette />

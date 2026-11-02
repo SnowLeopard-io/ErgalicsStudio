@@ -244,6 +244,13 @@ export default function WelcomePage() {
 
   return (
     <div className="welcome">
+      {/* Ambient background: three slow-drifting low-saturation glows. Pure
+          decoration — pointer-transparent, removed under reduced motion. */}
+      <div className="welcome-ambient" aria-hidden="true">
+        <span className="wa-1" />
+        <span className="wa-2" />
+        <span className="wa-3" />
+      </div>
       <header className="welcome-topbar">
         <Link className="brand" to="/">
           <span className="brand-name">Ergalics Studio</span>
