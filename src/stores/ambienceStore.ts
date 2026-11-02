@@ -27,6 +27,7 @@ import {
 import {
   configureAudio,
   playCue,
+  setAmbientWanted,
   startAmbient,
   stopAmbient,
 } from '@/core/ambience/audio';
@@ -56,6 +57,7 @@ interface AmbienceStore {
 
   setSoundEnabled: (v: boolean) => void;
   setAmbientEnabled: (v: boolean) => void;
+  setAmbientTrack: (id: string) => void;
   setVolume: (v: number) => void;
   setMotion: (v: AmbienceSettings['motion']) => void;
   setRewardsEnabled: (v: boolean) => void;
@@ -116,7 +118,12 @@ function persist(get: () => AmbienceStore): void {
 /** Apply non-reactive side effects of a settings change: audio engine config,
  *  ambient pad lifecycle and the [data-motion] hook used by CSS. */
 function applySideEffects(settings: AmbienceSettings): void {
-  configureAudio({ enabled: settings.soundEnabled, volume: settings.volume });
+  configureAudio({
+    enabled: settings.soundEnabled,
+    volume: settings.volume,
+    ambientTrack: settings.ambientTrack,
+  });
+  setAmbientWanted(settings.soundEnabled && settings.ambientEnabled);
   if (settings.soundEnabled && settings.ambientEnabled) startAmbient();
   else stopAmbient();
   if (typeof document !== 'undefined') {
@@ -141,6 +148,14 @@ export const useAmbienceStore = create<AmbienceStore>((set, get) => ({
   },
   setAmbientEnabled: (v) => {
     set((s) => ({ settings: { ...s.settings, ambientEnabled: v } }));
+    applySideEffects(get().settings);
+    persist(get);
+  },
+  setAmbientTrack: (id) => {
+    set((s) => ({ settings: { ...s.settings, ambientTrack: id } }));
+    // Restart the music so the new theme takes effect immediately.
+    const wasRunning = get().settings.soundEnabled && get().settings.ambientEnabled;
+    if (wasRunning) stopAmbient();
     applySideEffects(get().settings);
     persist(get);
   },

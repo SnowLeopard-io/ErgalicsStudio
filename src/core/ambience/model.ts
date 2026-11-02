@@ -171,6 +171,8 @@ export interface AmbienceSettings {
   motion: 'full' | 'reduced' | 'off';
   /** Master switch for XP + badges (progress keeps accumulating silently). */
   rewardsEnabled: boolean;
+  /** Which generative ambient theme is selected (see audio.ts). */
+  ambientTrack: string;
 }
 
 export interface AmbienceProgress {
@@ -192,6 +194,7 @@ export const DEFAULT_SETTINGS: AmbienceSettings = {
   volume: 70,
   motion: 'full',
   rewardsEnabled: true,
+  ambientTrack: 'starfield',
 };
 
 export const DEFAULT_PROGRESS: AmbienceProgress = {

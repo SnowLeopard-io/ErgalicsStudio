@@ -715,16 +715,36 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     get().setDirty(true);
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);
+    // Mirror into the workspace data/ folder so the sidebar file explorer
+    // shows the import immediately. Same-name import overwrites the mirrored
+    // copy (matching the data-files list's replace semantics, so no
+    // "name (2)" duplicates). Non-fatal: the file still lives in the
+    // in-project data list even if the VFS write fails.
+    try {
+      await getVfs().writeFile(getProjectRepoPath(current), `data/${file.name}`, content);
+      useAppStore.getState().bumpFileOps(); // refresh the sidebar explorer
+    } catch (err) {
+      logger.warn('io', 'workspace data/ mirror failed', err);
+    }
     return entry.id;
   },
 
   removeDataFile: (id) => {
     const { project } = get();
     if (!project) return;
+    const entry = project.data.files.find((f) => f.id === id);
     const files = project.data.files.filter((f) => f.id !== id);
     set({ project: { ...project, data: { ...project.data, files } } });
     get().setDirty(true);
     setProjectFiles(files);
+    // Drop the workspace data/ mirror written by addDataFile (absent copy is
+    // fine — legacy projects never had one).
+    if (entry) {
+      void getVfs()
+        .deleteEntry(getProjectRepoPath(project), `data/${entry.name}`, false)
+        .then(() => useAppStore.getState().bumpFileOps())
+        .catch(() => undefined);
+    }
     // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
     // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
     // reach, so the bytes would stay parked in storage forever.

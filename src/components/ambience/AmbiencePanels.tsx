@@ -8,13 +8,14 @@ import { downloadBlob } from '@/core/download';
 import { useAppStore } from '@/stores/appStore';
 import { useAmbienceStore } from '@/stores/ambienceStore';
 import { BADGES, badgeUiImage, type BadgeId } from '@/core/ambience/model';
+import { AMBIENT_TRACK_IDS } from '@/core/ambience/audio';
 import { XpIndicator } from './AmbienceLayer';
 
 export function AmbienceSettingsPanel() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
   const {
-    settings, setSoundEnabled, setAmbientEnabled, setVolume, setMotion, setRewardsEnabled,
+    settings, setSoundEnabled, setAmbientEnabled, setAmbientTrack, setVolume, setMotion, setRewardsEnabled,
     exportProgress, importProgress,
   } = useAmbienceStore();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -61,6 +62,21 @@ export function AmbienceSettingsPanel() {
         </div>
       </div>
       <p className="settings-label ambience-hint">{t('ambience.ambient_desc')}</p>
+
+      <div className="settings-row">
+        <label className="settings-label" htmlFor="ambience-track">{t('ambience.ambient_track')}</label>
+        <select
+          id="ambience-track"
+          className="select settings-control"
+          value={settings.ambientTrack}
+          disabled={!settings.soundEnabled || !settings.ambientEnabled}
+          onChange={(e) => setAmbientTrack(e.target.value)}
+        >
+          {AMBIENT_TRACK_IDS.map((id) => (
+            <option key={id} value={id}>{t(`ambience.track.${id}`)}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="settings-row">
         <label className="settings-label" htmlFor="ambience-volume">{t('ambience.volume')}</label>
