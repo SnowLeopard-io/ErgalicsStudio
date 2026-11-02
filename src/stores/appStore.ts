@@ -354,6 +354,15 @@ export const useAppStore = create<AppStore>((set, get) => {
   notify: (kind, message, action) => {
     const id = ++notifId;
     set((s) => ({ notifications: [...s.notifications, { id, kind, message, action }] }));
+    // Ambience: a quiet cue per toast kind. Lazy import keeps the core store
+    // free of the audio module; a failure must never affect the toast itself.
+    void import('@/core/ambience/audio')
+      .then(({ playCue }) => {
+        if (kind === 'success') playCue('success');
+        else if (kind === 'error') playCue('error');
+        else playCue('notify');
+      })
+      .catch(() => undefined);
     // Action toasts stay up longer so the user can actually click through.
     const ttl = action ? 8000 : 4000;
     const timer = setTimeout(() => {

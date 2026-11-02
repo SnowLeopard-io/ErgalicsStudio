@@ -66,6 +66,15 @@ export function StatusBar() {
   }, [perfOpen]);
 
   const lowFps = perf.fps > 0 && perf.fps < 30;
+
+  // Local clock in the right corner — ticks every 15 s (minute precision is
+  // enough for an ambient status readout; fewer timers than per-second).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const highGpu = perf.gpuMs > 16;
   const highMemory =
     perf.deviceMemoryMb > 0 && perf.memoryMb > 0.85 * perf.deviceMemoryMb;
@@ -156,6 +165,7 @@ export function StatusBar() {
       </div>
       <div className="statusbar-right">
         {activePlugin ? <span>{activePlugin.name}</span> : <span>{t('workbench.right.no_plugin')}</span>}
+        <span className="statusbar-clock" title={now.toLocaleDateString()}>{clock}</span>
       </div>
 
       {perfOpen && (

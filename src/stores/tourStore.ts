@@ -16,8 +16,10 @@ interface TourState {
   step: number;
   start: () => void;
   next: () => void;
-  /** Stop the tour and remember the user has seen (or skipped) it. */
-  finish: () => void;
+  /** Stop the tour and remember the user has seen (or skipped) it.
+   *  `completed` distinguishes finishing the last step (rewards the tour XP /
+   *  badge) from skipping midway. */
+  finish: (completed?: boolean) => void;
 }
 
 export const useTourStore = create<TourState>((set) => ({
@@ -25,13 +27,31 @@ export const useTourStore = create<TourState>((set) => ({
   step: 0,
   start: () => set({ active: true, step: 0 }),
   next: () => set((s) => ({ step: s.step + 1 })),
-  finish: () => {
+  finish: (completed = false) => {
     set({ active: false, step: 0 });
     try {
       localStorage.setItem(STORAGE_KEY, 'done');
     } catch {
       /* private mode — tour will just re-offer next visit */
     }
+    if (!completed) return;
+    // Ambience: tour completion XP + badge. Lazy import keeps this tiny store
+    // free of the ambience graph; a failure must never affect the tour itself.
+    void import('./ambienceStore')
+      .then(({ useAmbienceStore }) => {
+        const store = useAmbienceStore.getState();
+        if (store.progress.flags.tourRewarded) return;
+        useAmbienceStore.setState((s) => ({
+          progress: {
+            ...s.progress,
+            counters: { ...s.progress.counters },
+            flags: { ...s.progress.flags, tourRewarded: true },
+          },
+        }));
+        store.awardXp('tour_completed');
+        store.checkBadges();
+      })
+      .catch(() => undefined);
   },
 }));
 

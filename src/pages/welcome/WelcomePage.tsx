@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { useDaypart } from '@/core/ambience/vitality';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -44,6 +45,7 @@ let deepLinkConsumed = false;
 
 export default function WelcomePage() {
   const t = useT();
+  const daypart = useDaypart();
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
@@ -244,6 +246,13 @@ export default function WelcomePage() {
 
   return (
     <div className="welcome">
+      {/* Ambient background: three slow-drifting low-saturation glows. Pure
+          decoration — pointer-transparent, removed under reduced motion. */}
+      <div className="welcome-ambient" aria-hidden="true">
+        <span className="wa-1" />
+        <span className="wa-2" />
+        <span className="wa-3" />
+      </div>
       <header className="welcome-topbar">
         <Link className="brand" to="/">
           <span className="brand-name">Ergalics Studio</span>
@@ -259,6 +268,7 @@ export default function WelcomePage() {
         <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
           <p className="welcome-subtitle">{t('welcome.subtitle')}</p>
+          <p className="welcome-greeting">{t(`ambience.greeting.${daypart}`)}</p>
           <div className="welcome-cta-row">
             <button
               type="button"

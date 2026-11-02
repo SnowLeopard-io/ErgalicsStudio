@@ -154,7 +154,7 @@ export default function PreprintPage() {
         const tokens = name.trim().split(/\s+/);
         const family = tokens.pop() ?? name;
         return { family, given: tokens.join(' ') };
-      }),
+      }).filter((a) => a.family),
       year: String(new Date().getFullYear()),
       version: project.metadata.version,
       doi: doi || undefined,

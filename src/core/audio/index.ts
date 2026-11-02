@@ -16,6 +16,17 @@
 
 import type { PluginApi } from '@/types/plugin';
 import { decodeWav, WavError } from './wav';
+// Ambience ducking: while a clip player is active, the ambient music must
+// stand down (see ambience/audio.ts). Static import is safe — no cycle.
+import { setHostAudioActive } from '@/core/ambience/audio';
+
+/** Players currently producing sound, module-level across all plugin
+ *  sessions; the music pauses iff this set is non-empty. */
+const activePlayers = new Set<AudioClipPlayer>();
+
+function syncHostAudio(): void {
+  setHostAudioActive(activePlayers.size > 0);
+}
 
 export { decodeWav, encodeWav, WavError } from './wav';
 export type { DecodedWav } from './wav';
@@ -232,6 +243,8 @@ export class AudioClipPlayer {
       if (this.source === source) {
         this._playing = false;
         this.source = null;
+        activePlayers.delete(this);
+        syncHostAudio();
       }
       onEnded?.();
     };
@@ -240,6 +253,9 @@ export class AudioClipPlayer {
     this.source = source;
     this.gain = gain;
     this._playing = true;
+    // Duck the ambient music for the duration of the clip.
+    activePlayers.add(this);
+    syncHostAudio();
   }
 
   setVolume(v: number): void {
@@ -260,7 +276,11 @@ export class AudioClipPlayer {
       this.gain.disconnect();
       this.gain = null;
     }
-    this._playing = false;
+    if (this._playing) {
+      this._playing = false;
+      activePlayers.delete(this);
+      syncHostAudio();
+    }
   }
 
   dispose(): void {

@@ -264,7 +264,10 @@ export function FileExplorer() {
   // External working-tree changes (e.g. an MD preview save) refresh listings.
   useEffect(() => {
     if (!project) return;
-    void refreshDirs(['', ...expanded]);
+    // Refresh every directory we have a listing for (not only expanded ones):
+    // a bump may arrive while a subtree was collapsed after an earlier load,
+    // and its cached listing must not resurface stale content on re-expand.
+    void refreshDirs(['', ...expanded, ...Object.keys(tree)]);
   }, [fileOpsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDir = (dir: string) => {
@@ -273,7 +276,9 @@ export function FileExplorer() {
       if (next.has(dir)) next.delete(dir);
       else {
         next.add(dir);
-        if (!(dir in tree)) void loadDir(dir);
+        // Always reload on expand: the cached listing may predate external
+        // writes (imports, explorer ops in another view) — cheap and fresh.
+        void loadDir(dir);
       }
       return next;
     });
@@ -508,9 +513,51 @@ export function FileExplorer() {
       }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
+      // 顶部栏「数据」列表（project.data.files）与 data/ 目录是双轨存储：
+      // 删除镜像文件时必须同步移除列表条目，否则顶栏计数与「载入插件」
+      // 仍能看到已删除的文件。removeDataFile 的 VFS 重复删除会被静默吞掉。
+      if (!entry.isDir && entry.path.startsWith('data/')) {
+        const name = entry.path.slice('data/'.length);
+        const match = useProjectStore
+          .getState()
+          .project?.data.files.find((f) => f.name === name);
+        if (match) useProjectStore.getState().removeDataFile(match.id);
+      }
       notify('success', t('workbench.explorer.deleted_hint'));
     } catch {
       notify('error', t('workbench.explorer.op_failed'));
+    }
+  };
+
+  // ---- 顶部栏「数据」列表与 data/ 目录的双轨同步 ---------------------------
+  // 重命名 / 移动 data/ 下的文件时，project.data.files 里的条目必须跟着变，
+  // 否则顶栏计数与「载入插件」仍指向旧路径。仅处理 data/ 顶层的普通文件。
+
+  /** Is `path` a file directly under the project's data/ folder? */
+  const isTopLevelDataFile = (path: string) => path.startsWith('data/') && !path.slice(5).includes('/');
+
+  /** Sync the in-project data-files list after the VFS entry at `oldPath`
+   *  became `newPath` (rename or move). Read-only on the VFS except the
+   *  move-into-data/ case, which upserts the entry from the file content. */
+  const syncDataTrack = async (oldPath: string, newPath: string) => {
+    if (oldPath === newPath) return;
+    const wasData = isTopLevelDataFile(oldPath);
+    const isData = isTopLevelDataFile(newPath);
+    const store = useProjectStore.getState();
+    if (!store.project) return;
+    if (wasData && isData) {
+      const match = store.project.data.files.find((f) => f.name === oldPath.slice(5));
+      if (match) store.renameDataFile(match.id, newPath.slice(5));
+    } else if (wasData && !isData) {
+      const match = store.project.data.files.find((f) => f.name === oldPath.slice(5));
+      if (match) store.removeDataFile(match.id);
+    } else if (!wasData && isData) {
+      try {
+        const content = await getVfs().readFile(getProjectRepoPath(store.project), newPath);
+        await store.addDataFile(new File([content], newPath.slice(5), { type: 'text/plain' }));
+      } catch {
+        // Unsupported format — the file lives on in the workspace tree only.
+      }
     }
   };
 
@@ -540,6 +587,7 @@ export function FileExplorer() {
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
+      await syncDataTrack(entry.path, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {
@@ -621,6 +669,7 @@ export function FileExplorer() {
       }
       try {
         await adapter.renameEntry(repoPath, src.path, target);
+        await syncDataTrack(src.path, target);
         await refreshDirs([targetDir, dirname(src.path)]);
         notify('success', t('workbench.explorer.moved_hint'));
       } catch {
