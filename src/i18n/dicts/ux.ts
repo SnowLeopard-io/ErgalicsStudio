@@ -59,6 +59,8 @@ export const uxZh: LocaleDictionary = {
   'ux.shortcuts.palette_go': '执行命令',
   'ux.shortcuts.palette_close': '关闭面板',
   'ux.shortcuts.block_delete': '删除选中节点',
+  'ux.shortcuts.key_wheel': '滚轮',
+  'ux.shortcuts.key_dclick': '双击',
   // ---- 2D 视口 ----
   'ux.view.reset': '滚轮缩放 · 双击画布或点击此处复位视图',
   // ---- 导航 ----
@@ -123,6 +125,8 @@ export const uxEn: LocaleDictionary = {
   'ux.shortcuts.palette_go': 'Run command',
   'ux.shortcuts.palette_close': 'Close palette',
   'ux.shortcuts.block_delete': 'Delete selected node',
+  'ux.shortcuts.key_wheel': 'Wheel',
+  'ux.shortcuts.key_dclick': 'Double-click',
   // ---- 2D viewport ----
   'ux.view.reset': 'Wheel to zoom · double-click the canvas or click here to reset the view',
   // ---- navigation ----

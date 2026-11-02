@@ -83,8 +83,9 @@ const STEPS: TourStepDef[] = [
   {
     mode: 'click',
     // The library opens on its first category — the truss sample lives under
-    // Physics, so switching categories is a required intermediate click.
-    selector: '[data-example-cat="physics"]',
+    // Engineering (disciplineOf('example.structure')), so switching categories
+    // is a required intermediate click.
+    selector: '[data-example-cat="engineering"]',
     titleKey: 'tour.cat_title',
     bodyKey: 'tour.cat_body',
   },
