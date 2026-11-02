@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, editorTabKey } from '@/stores/appStore';
+import { registerEditorFlush } from '@/stores/editorFlush';
 import { createBlockGraphStore } from '@/stores/blockStore';
 import { GraphStoreProvider } from '@/components/blocks/graphStore';
 import { BlockPalette } from '@/components/blocks/BlockPalette';
@@ -64,6 +65,16 @@ export function FlowFileEditor({ path }: { path: string }) {
     flush();
     void saveEditorFile(path);
   }, [flush, saveEditorFile, path]);
+
+  // Register the synchronous flush for save / close flows; on unmount flush
+  // once more so a pending debounce never drops the last edit.
+  useEffect(() => {
+    const unregister = registerEditorFlush(editorTabKey(path), flush);
+    return () => {
+      unregister();
+      flush();
+    };
+  }, [flush, path]);
 
   // Hydrate the local store once from the file buffer, then watch the store:
   // only swaps of the instances/connections arrays are real edits — viewport

@@ -14,6 +14,7 @@ import type * as BlocklyNS from 'blockly/core';
 import { useLocale, useT } from '@/i18n';
 import { useTheme } from '@/theme';
 import { useAppStore, editorTabKey } from '@/stores/appStore';
+import { registerEditorFlush } from '@/stores/editorFlush';
 import {
   initBlocklyEngine,
   createWorkspace,
@@ -69,6 +70,16 @@ export function BlockFileEditor({ path }: { path: string }) {
     flush();
     void saveEditorFile(path);
   }, [flush, saveEditorFile, path]);
+
+  // Register the synchronous flush for save / close flows; on unmount flush
+  // once more so a pending debounce never drops the last edit.
+  useEffect(() => {
+    const unregister = registerEditorFlush(editorTabKey(path), flush);
+    return () => {
+      unregister();
+      flush();
+    };
+  }, [flush, path]);
 
   // Workspace lifecycle: recreated on locale / theme change so block labels
   // and colours follow the app language and dark mode.

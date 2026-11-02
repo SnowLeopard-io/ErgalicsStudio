@@ -33,7 +33,6 @@ function sharedNumericColumns(original: SynthTable, synthetic: SynthTable): stri
   for (const name of original.columns) {
     if (!synthetic.columns.includes(name)) continue;
     const oi = original.columns.indexOf(name);
-    const si = synthetic.columns.indexOf(name);
     let numeric = false;
     for (const row of original.rows) {
       if (parseNum(String(row[oi] ?? '')) !== null) {
@@ -110,7 +109,7 @@ function CompareHistogram({
         let bin = Math.floor((v - lo) / binWidth);
         if (bin < 0) bin = 0;
         if (bin >= HIST_BINS) bin = HIST_BINS - 1;
-        counts[bin] += 1;
+        counts[bin] = (counts[bin] ?? 0) + 1;
       }
       return counts.map((c) => c / values.length / binWidth);
     };
@@ -513,3 +512,5 @@ export function SynthPage() {
     </ToolShell>
   );
 }
+
+export default SynthPage;

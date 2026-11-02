@@ -167,7 +167,17 @@ export class EngTrussPlugin implements Plugin {
       return;
     }
     const text = await file.text();
-    this.state.modelText = JSON.stringify(JSON.parse(text));
+    try {
+      this.state.modelText = JSON.stringify(JSON.parse(text));
+    } catch (err) {
+      notify(
+        this.api,
+        'error',
+        `Model JSON parse failed: ${err instanceof Error ? err.message : String(err)}`,
+        `模型 JSON 解析失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+      return;
+    }
     this.solve(true);
   }
 

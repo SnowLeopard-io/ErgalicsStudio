@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { useAppStore, fileTabKey, type FilePreviewKind } from '@/stores/appStore';
+import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
@@ -477,6 +477,18 @@ export function FileExplorer() {
     try {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
       closeTab(fileTabKey(entry.path));
+      closeTab(editorTabKey(entry.path));
+      if (entry.isDir) {
+        // Close every editor tab under the deleted directory — a surviving
+        // dirty tab would recreate the file on its next save.
+        const prefix = `${entry.path}/`;
+        const tabs = useAppStore.getState().canvasTabs;
+        for (const tab of tabs) {
+          if (tab.kind === 'editor' && (tab.path === entry.path || tab.path.startsWith(prefix))) {
+            closeTab(tab.key);
+          }
+        }
+      }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
       notify('success', t('workbench.explorer.deleted_hint'));

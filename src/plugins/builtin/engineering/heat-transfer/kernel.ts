@@ -409,7 +409,7 @@ export function solveConduction(p: ConductionParams, steadyTol = 1e-3): Conducti
       if (it === cap - 1) converged = false;
     }
   } else {
-    let nSteps = Math.ceil(p.tEnd / dt);
+    const nSteps = Math.ceil(p.tEnd / dt);
     if (nSteps > MAX_STEPS) {
       throw new HeatError(`tEnd/dt needs ${nSteps} steps (cap ${MAX_STEPS}) — increase dt or shorten tEnd`);
     }

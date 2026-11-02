@@ -3,6 +3,7 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
@@ -1360,7 +1361,14 @@ export function CentralArea() {
                     title={t('suite.close')}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (dirty) {
+                      // Pull any debounced-but-unpushed edit into the store
+                      // before deciding whether the tab is really clean.
+                      if (tab.kind === 'editor') flushEditorFile(tab.key);
+                      const nowDirty =
+                        tab.kind === 'editor'
+                          ? (useAppStore.getState().editorFiles[tab.key]?.dirty ?? false)
+                          : false;
+                      if (nowDirty) {
                         setConfirmCloseKey(tab.key);
                         return;
                       }

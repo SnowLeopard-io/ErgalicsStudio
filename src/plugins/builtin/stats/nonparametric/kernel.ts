@@ -162,13 +162,15 @@ export function kruskalWallis(groups: NpGroup[]): NpResult | null {
   const hCorr = correction > 0 ? h / correction : h;
   const df = valid.length - 1;
   const p = 1 - chiSquareCdf(hCorr, df);
-  const eps2 = Math.max(0, (hCorr - df + 1) / (n - df));
+  // Standard epsilon-squared effect size (Tomczak & Tomczak 2014):
+  // ε² = (H − k + 1) / (n − k) with k groups; df = k − 1.
+  const eps2 = Math.max(0, (hCorr - df) / Math.max(1, n - df - 1));
   return {
     test: 'Kruskal–Wallis H',
     statistic: hCorr,
     df,
     p,
-    effect: Math.sqrt(eps2),
+    effect: eps2,
     effectLabel: 'ε² (rank)',
     detail: `H=${fmt(hCorr, 3)} on ${df} df, n=${n}, ${valid.length} groups (tie-corrected)`,
   };
