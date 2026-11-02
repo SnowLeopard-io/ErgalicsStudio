@@ -27,13 +27,19 @@ const DEEP_LINKS = [
 function AnimatedMetricValue({ text }: { text: string }) {
   const match = useMemo(() => text.match(/^\s*-?\d+(?:\.\d+)?/), [text]);
   const target = useMemo(() => (match ? Number.parseFloat(match[0]) : null), [match]);
-  const [display, setDisplay] = useState(target);
+  const [tween, setTween] = useState<number | null>(target);
   const rafRef = useRef(0);
+  /** Mount-only guard: the count-up plays once per metric span lifetime
+   *  (plugin switch remounts the spans). Afterwards a data refresh updates
+   *  the number in place — re-running the tween on every publish made the
+   *  strip visibly bounce. */
+  const doneRef = useRef(target === null);
 
   useEffect(() => {
-    if (target === null || !Number.isFinite(target)) return;
+    if (target === null || doneRef.current) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplay(target);
+      doneRef.current = true;
+      setTween(null);
       return;
     }
     const t0 = performance.now();
@@ -41,8 +47,13 @@ function AnimatedMetricValue({ text }: { text: string }) {
     const tick = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
       const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(target * eased);
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      setTween(target * eased);
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        doneRef.current = true;
+        setTween(null);
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
@@ -50,7 +61,7 @@ function AnimatedMetricValue({ text }: { text: string }) {
 
   if (target === null) return <>{text}</>;
   const decimals = (match![0].split('.')[1] ?? '').length;
-  const current = display === null ? target : display;
+  const current = tween ?? target;
   return <>{current.toFixed(decimals)}{text.slice(match![0].length)}</>;
 }
 
@@ -94,10 +105,6 @@ export function ScienceOutputStrip() {
   const entry = activeId ? outputs[activeId] : undefined;
   if (!entry || entry.metrics.length === 0) return null;
 
-  // Remount key: when the active plugin publishes new numbers, the strip
-  // replays its entrance and the values count up again.
-  const seq = entry.seq ?? 0;
-
   const handoff = async (tool: (typeof DEEP_LINKS)[number]['tool']) => {
     if (!sourceFile) return;
     const text = await resolveDataFile(sourceFile);
@@ -112,7 +119,7 @@ export function ScienceOutputStrip() {
       <div className="science-strip-items">
         {entry.metrics.map((m, i) => (
           <span
-            key={`${m.key}-${seq}`}
+            key={m.key}
             className={`science-metric sev-${m.severity ?? 'info'}`}
             title={m.hint ?? m.label}
             style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}

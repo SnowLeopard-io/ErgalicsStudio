@@ -398,6 +398,14 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
                 value={mdText}
                 spellCheck={false}
                 onChange={(e) => setMdText(e.target.value)}
+                onKeyDown={(e) => {
+                  // Editor-standard save shortcut: Ctrl/Cmd+S writes the
+                  // draft back to the working tree without leaving the keys.
+                  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                    e.preventDefault();
+                    void saveMarkdown();
+                  }
+                }}
               />
             )}
             {(view === 'preview' || view === 'split') && (
@@ -760,10 +768,16 @@ export function CentralArea() {
   const editorFiles = useAppStore((s) => s.editorFiles);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
+  const reorderTabs = useAppStore((s) => s.reorderTabs);
   const saveEditorFile = useAppStore((s) => s.saveEditorFile);
   // Editor tab with unsaved edits pending a close confirmation (design doc
   // P5): key of the tab, null when no confirmation is active.
   const [confirmCloseKey, setConfirmCloseKey] = useState<string | null>(null);
+  // Tab drag-reorder: source key while a native drag is in flight (ref —
+  // read in dragover without re-rendering), and the tab currently hovered
+  // as a drop target (state — drives the drop-target highlight).
+  const dragTabKey = useRef<string | null>(null);
+  const [dragOverTabKey, setDragOverTabKey] = useState<string | null>(null);
   // Tab strip panning: the scrollbar stays hidden, so the strip pans via
   // wheel (vertical delta → horizontal) and mouse drag; a small movement
   // threshold keeps tab clicks working while dragging pans the row. The
@@ -791,6 +805,10 @@ export function CentralArea() {
     el.addEventListener('wheel', onWheel, { passive: false });
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      // A press on a tab starts a native HTML5 drag (tab reorder); capturing
+      // the pointer for strip-panning would suppress that drag, so presses
+      // landing on tabs are left to the drag driver (wheel still pans).
+      if ((e.target as HTMLElement | null)?.closest?.('.central-tool-tab')) return;
       dragging = true;
       moved = false;
       startX = e.clientX;
@@ -1316,6 +1334,21 @@ export function CentralArea() {
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
               const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
+              // Shared by the × button and middle-click close: pull any
+              // debounced-but-unpushed edit into the store first, and route
+              // dirty editors through the save/discard confirmation.
+              const requestClose = () => {
+                if (tab.kind === 'editor') flushEditorFile(tab.key);
+                const nowDirty =
+                  tab.kind === 'editor'
+                    ? (useAppStore.getState().editorFiles[tab.key]?.dirty ?? false)
+                    : false;
+                if (nowDirty) {
+                  setConfirmCloseKey(tab.key);
+                  return;
+                }
+                closeTab(tab.key);
+              };
               return (
                 <div
                   key={tab.key}
@@ -1324,9 +1357,50 @@ export function CentralArea() {
                   tabIndex={active ? 0 : -1}
                   className={`central-tool-tab${active ? ' active' : ''}${
                     tab.kind === 'file' ? ' file-tab' : ''
-                  }${tab.kind === 'editor' ? ' editor-tab' : ''}`}
+                  }${tab.kind === 'editor' ? ' editor-tab' : ''}${
+                    dragOverTabKey === tab.key && dragTabKey.current !== tab.key ? ' drop-target' : ''
+                  }`}
                   title={label}
                   onClick={() => activateTab(tab.key)}
+                  onAuxClick={(e) => {
+                    // VS Code convention: middle-click closes the tab without
+                    // activating it first.
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      requestClose();
+                    }
+                  }}
+                  draggable
+                  onDragStart={(e) => {
+                    dragTabKey.current = tab.key;
+                    // Required for Firefox to initiate the drag at all.
+                    e.dataTransfer.setData('text/plain', tab.key);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    dragTabKey.current = null;
+                    setDragOverTabKey(null);
+                  }}
+                  onDragOver={(e) => {
+                    if (!dragTabKey.current) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverTabKey !== tab.key) setDragOverTabKey(tab.key);
+                  }}
+                  onDragLeave={(e) => {
+                    // Child elements (icon/name spans) fire dragleave while
+                    // crossing; only clear when actually leaving the tab.
+                    if (!e.currentTarget.contains(e.relatedTarget as Node) && dragOverTabKey === tab.key) {
+                      setDragOverTabKey(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = dragTabKey.current;
+                    dragTabKey.current = null;
+                    setDragOverTabKey(null);
+                    if (from && from !== tab.key) reorderTabs(from, tab.key);
+                  }}
                   onKeyDown={(e) => {
                     // The tablist handler already handles arrows; here we only
                     // forward Enter/Space so the focused tab can be activated
@@ -1361,18 +1435,7 @@ export function CentralArea() {
                     title={t('suite.close')}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Pull any debounced-but-unpushed edit into the store
-                      // before deciding whether the tab is really clean.
-                      if (tab.kind === 'editor') flushEditorFile(tab.key);
-                      const nowDirty =
-                        tab.kind === 'editor'
-                          ? (useAppStore.getState().editorFiles[tab.key]?.dirty ?? false)
-                          : false;
-                      if (nowDirty) {
-                        setConfirmCloseKey(tab.key);
-                        return;
-                      }
-                      closeTab(tab.key);
+                      requestClose();
                     }}
                   >
                     <CloseIcon size={10} />

@@ -7918,6 +7918,13 @@
   border-bottom-color: var(--color-accent);
 }
 
+/* Drop indicator while another tab is dragged over this one: the accent
+   bottom edge (same line the active tab uses) reads as "insert here". */
+.central-tool-tab.drop-target {
+  background: var(--color-bg-secondary);
+  border-bottom-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
 .central-tool-tab-icon {
   display: flex;
   flex-shrink: 0;
@@ -7934,8 +7941,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  /* 20px box around a 10px glyph: a 16px target was routinely missed on
+     the first click (Fitts's law — small edge-aligned targets). */
+  width: 20px;
+  height: 20px;
+  margin-right: -3px;
   padding: 0;
   border: none;
   border-radius: 4px;
