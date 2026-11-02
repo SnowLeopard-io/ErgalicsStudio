@@ -2525,9 +2525,32 @@
 }
 
 .share-hint {
-  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  /* No negative top margin: this hint follows checkboxes as well as headings,
+     and the old -1*space-2 pull-up painted it over the control above. */
+  margin: 0 0 var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
+}
+
+/* Share dialog: the "share to gallery" block keeps its own vertical rhythm so
+   heading / checkbox / hint never lean on each other's margins. */
+.share-gallery-block {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.share-gallery-block .share-section-title {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+}
+
+.share-gallery-block .share-option {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+}
+
+.share-gallery-block .share-hint {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
