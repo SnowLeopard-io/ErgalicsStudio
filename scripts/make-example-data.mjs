@@ -14,20 +14,22 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 // ---------- distribution.dat ----------
+// Seeded like every other dataset here: regenerating must be byte-identical.
+const distRng = mulberry32(12000);
 const gauss = () => {
   let u = 0;
   let v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = distRng();
+  while (v === 0) v = distRng();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 const lines = [];
 for (let i = 0; i < 12000; i += 1) {
-  const r = Math.random();
+  const r = distRng();
   let v;
   if (r < 0.4) v = -2.2 + gauss() * 0.5;
   else if (r < 0.75) v = 1.8 + gauss() * 0.7;
-  else v = Math.random() * 10 - 5;
+  else v = distRng() * 10 - 5;
   lines.push(v.toFixed(4));
 }
 const distPath = join(root, 'examples', 'data', 'distribution.dat');
@@ -310,11 +312,27 @@ const assetsDir = join(root, 'src', 'core');
 const GENERATED_EXPORTS = ['TEST_PATTERN_PNG_BASE64', 'IMAGEPROC_SUBJECT_PNG_BASE64'];
 let preserved = '';
 try {
-  preserved = readFileSync(join(assetsDir, 'exampleAssets.ts'), 'utf8')
-    .split(/(?=export const )/g)
-    .filter((part) => /^export const \w+/.test(part))
-    .filter((part) => !GENERATED_EXPORTS.some((name) => part.startsWith(`export const ${name}`)))
-    .map((part) => part.trimEnd())
+  // Line-based scan: a preserved block is a run of `//` comment lines followed
+  // by an `export const NAME = '…';` value (the closing `;` ends the block).
+  // This keeps each hand-added comment attached to the export it documents.
+  const lines = readFileSync(join(assetsDir, 'exampleAssets.ts'), 'utf8').split(/\r?\n/);
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    const start = i;
+    let j = i;
+    while (j < lines.length && lines[j].startsWith('//')) j += 1;
+    if (j < lines.length && /^export const \w+/.test(lines[j])) {
+      let k = j;
+      while (k < lines.length && !lines[k].trimEnd().endsWith(';')) k += 1;
+      blocks.push(lines.slice(start, k + 1).join('\n'));
+      i = k + 1;
+    } else {
+      i = start + 1; // stray line (e.g. part of the generated header): skip
+    }
+  }
+  preserved = blocks
+    .filter((b) => !GENERATED_EXPORTS.some((name) => b.includes(`export const ${name}`)))
     .join('\n\n');
 } catch {
   // First run: no existing asset file to preserve.

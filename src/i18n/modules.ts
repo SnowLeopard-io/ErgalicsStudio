@@ -21,6 +21,7 @@ import { aboutZh, aboutEn } from './dicts/about';
 import { chemZh, chemEn } from './dicts/chem';
 import { uxZh, uxEn } from './dicts/ux';
 import { publishZh, publishEn } from './dicts/publish';
+import { ambienceZh, ambienceEn } from './dicts/ambience';
 
 export const MODULE_ZH: LocaleDictionary = {
   ...pluginSigningZh,
@@ -42,6 +43,7 @@ export const MODULE_ZH: LocaleDictionary = {
   ...chemZh,
   ...uxZh,
   ...publishZh,
+  ...ambienceZh,
 };
 export const MODULE_EN: LocaleDictionary = {
   ...pluginSigningEn,
@@ -63,4 +65,5 @@ export const MODULE_EN: LocaleDictionary = {
   ...chemEn,
   ...uxEn,
   ...publishEn,
+  ...ambienceEn,
 };
