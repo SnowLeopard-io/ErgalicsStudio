@@ -8,6 +8,7 @@ import { downloadBlob } from '@/core/download';
 import { useAppStore } from '@/stores/appStore';
 import { useAmbienceStore } from '@/stores/ambienceStore';
 import { BADGES, badgeUiImage, type BadgeId } from '@/core/ambience/model';
+import { XpIndicator } from './AmbienceLayer';
 
 export function AmbienceSettingsPanel() {
   const t = useT();
@@ -152,6 +153,10 @@ export function AchievementsPanel() {
   return (
     <section className="card settings-section">
       <h2 className="settings-section-title">{t('ambience.wall_title')}</h2>
+      {/* Level + XP progress lives here (settings) instead of the top bar. */}
+      <div className="ambience-xp-in-panel">
+        <XpIndicator />
+      </div>
       <p className="settings-label">
         {t('ambience.wall_progress', { unlocked: unlockedCount, total: BADGES.length })}
       </p>

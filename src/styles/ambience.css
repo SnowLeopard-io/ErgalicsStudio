@@ -466,6 +466,86 @@
   to { transform: translate(6vw, 4vh) scale(1.12); }
 }
 
+/* ---- XP indicator rendered inside the achievements settings panel ----------- */
+
+.ambience-xp-in-panel {
+  max-width: 420px;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+/* The hover detail popover is top-bar-oriented; inside the panel always show
+   it inline instead of a floating popover. */
+.ambience-xp-in-panel .xp-indicator {
+  min-width: 100%;
+  max-width: none;
+  cursor: default;
+}
+
+.ambience-xp-in-panel .xp-detail {
+  position: static;
+  display: flex;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+  padding: var(--space-1) 0 0;
+  min-width: 0;
+}
+
+/* ---- user profile (settings) ------------------------------------------------- */
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 22px;
+  font-weight: 600;
+  flex: none;
+}
+
+.profile-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.profile-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-textarea {
+  resize: vertical;
+  min-height: 2.4em;
+  line-height: 1.5;
+}
+
 /* ---- motion discipline -------------------------------------------------------- */
 /* data-motion is applied by ambienceStore; 'reduced' drops ambient decoration,
    'off' additionally freezes the one-shot entrance animations here. */
