@@ -11,6 +11,8 @@ import {
   useAmbienceStore,
 } from '@/stores/ambienceStore';
 import { BADGES, badgeUiImage, levelFromXp, rankKeyForLevel } from '@/core/ambience/model';
+import { on, RUN_COMPLETED } from '@/core/events';
+import { revealCanvasGrowth, useDaypart } from '@/core/ambience/vitality';
 
 const BADGE_BY_ID = new Map(BADGES.map((b) => [b.id, b]));
 
@@ -201,6 +203,34 @@ export function XpIndicator() {
   );
 }
 
+/** Time-of-day ambience: mirrors the local daypart onto <html data-daypart>
+ *  so CSS can shift the welcome-page glow (and future ambient surfaces)
+ *  between dawn/day/dusk/night tones. Re-evaluates every 5 minutes. */
+function DaypartSync() {
+  const daypart = useDaypart();
+  useEffect(() => {
+    document.documentElement.dataset.daypart = daypart;
+    return () => {
+      delete document.documentElement.dataset.daypart;
+    };
+  }, [daypart]);
+  return null;
+}
+
+/** Growth reveal: when a computation completes, the shared plugin canvas
+ *  sweeps in left-to-right once — the chart appears to "grow" instead of
+ *  popping. One-shot, gated by the motion setting. */
+function GrowthReveal() {
+  useEffect(() => {
+    const sub = on(RUN_COMPLETED, () => {
+      const canvas = document.querySelector<HTMLElement>('.central-canvas');
+      revealCanvasGrowth(canvas);
+    });
+    return () => sub.unsubscribe();
+  }, []);
+  return null;
+}
+
 export function AmbienceLayer() {
   return (
     <>
@@ -208,6 +238,8 @@ export function AmbienceLayer() {
       <XpFloats />
       <BadgeToasts />
       <LevelUpOverlay />
+      <DaypartSync />
+      <GrowthReveal />
     </>
   );
 }

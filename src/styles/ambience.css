@@ -546,6 +546,72 @@
   line-height: 1.5;
 }
 
+/* ---- vitality: science-metric growth ---------------------------------------- */
+
+/* Fresh numbers rise softly into the strip, staggered left to right. */
+@keyframes science-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-motion='full'] .science-metric {
+  animation: science-in 0.45s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* ---- vitality: breathing micro-motion ---------------------------------------- */
+
+@keyframes amb-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+/* The Σ mark breathes slowly — the strip is "alive" while results are up,
+ * but the numbers themselves stay perfectly still for legibility. */
+[data-motion='full'] .science-strip-title {
+  animation: amb-breathe 5s ease-in-out infinite;
+}
+
+/* Status-bar clock: a quiet instrument readout, tabular digits. */
+.statusbar-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+  margin-left: var(--space-3);
+  letter-spacing: 0.02em;
+}
+
+/* ---- vitality: time-of-day ambience ------------------------------------------- */
+
+/* The welcome glow drifts through the day: warm dawn, neutral day, low
+ * amber dusk, deep-blue night. Hue-rotate keeps saturation and the existing
+ * palette relationships intact — only the tone shifts. */
+[data-daypart='dawn'] .welcome-ambient span {
+  filter: hue-rotate(12deg) saturate(1.05);
+}
+[data-daypart='dusk'] .welcome-ambient span {
+  filter: hue-rotate(-18deg) saturate(1.1);
+}
+[data-daypart='night'] .welcome-ambient span {
+  filter: hue-rotate(-55deg) saturate(0.9) brightness(0.85);
+}
+
+.welcome-greeting {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.02em;
+}
+
 /* ---- motion discipline -------------------------------------------------------- */
 /* data-motion is applied by ambienceStore; 'reduced' drops ambient decoration,
    'off' additionally freezes the one-shot entrance animations here. */

@@ -35,6 +35,9 @@ export interface ScienceOutputEntry {
   pluginId: string;
   metrics: ScienceMetric[];
   updatedAt: number;
+  /** Publish counter — bumps on every setScienceOutputs so the UI can replay
+   *  its entrance animation when genuinely fresh numbers arrive. */
+  seq: number;
 }
 
 type Listener = (snapshot: Record<string, ScienceOutputEntry>) => void;
@@ -68,7 +71,8 @@ export function setScienceOutputs(pluginId: string, metrics: ScienceMetric[]): v
   if (metrics.length === 0) {
     outputs.delete(pluginId);
   } else {
-    outputs.set(pluginId, { pluginId, metrics, updatedAt: Date.now() });
+    const seq = (outputs.get(pluginId)?.seq ?? 0) + 1;
+    outputs.set(pluginId, { pluginId, metrics, updatedAt: Date.now(), seq });
   }
   emit();
 }

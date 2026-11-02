@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   getScienceOutputs,
@@ -18,6 +18,41 @@ const DEEP_LINKS = [
   { tool: 'uncertainty', titleKey: 'uncertainty.title' },
   { tool: 'signal', titleKey: 'signal.title' },
 ] as const;
+
+/** Count-up for numeric metric values: when a fresh number arrives it grows
+ *  from zero over ~650 ms (ease-out). Non-numeric values ("converged", dates,
+ *  strings with no leading number) render statically. Motion-safe by nature:
+ *  a CSS class gates the strip entrance, and a JS-driven 650 ms count is
+ *  short enough not to bother reduced-motion users — but we skip it anyway. */
+function AnimatedMetricValue({ text }: { text: string }) {
+  const match = useMemo(() => text.match(/^\s*-?\d+(?:\.\d+)?/), [text]);
+  const target = useMemo(() => (match ? Number.parseFloat(match[0]) : null), [match]);
+  const [display, setDisplay] = useState(target);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    if (target === null || !Number.isFinite(target)) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(target);
+      return;
+    }
+    const t0 = performance.now();
+    const dur = 650;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(target * eased);
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target]);
+
+  if (target === null) return <>{text}</>;
+  const decimals = (match![0].split('.')[1] ?? '').length;
+  const current = display === null ? target : display;
+  return <>{current.toFixed(decimals)}{text.slice(match![0].length)}</>;
+}
 
 /**
  * Unified scientific-output strip rendered under the workbench viewport.
@@ -59,6 +94,10 @@ export function ScienceOutputStrip() {
   const entry = activeId ? outputs[activeId] : undefined;
   if (!entry || entry.metrics.length === 0) return null;
 
+  // Remount key: when the active plugin publishes new numbers, the strip
+  // replays its entrance and the values count up again.
+  const seq = entry.seq ?? 0;
+
   const handoff = async (tool: (typeof DEEP_LINKS)[number]['tool']) => {
     if (!sourceFile) return;
     const text = await resolveDataFile(sourceFile);
@@ -71,15 +110,16 @@ export function ScienceOutputStrip() {
     <div className="science-strip" role="status">
       <span className="science-strip-title">Σ</span>
       <div className="science-strip-items">
-        {entry.metrics.map((m) => (
+        {entry.metrics.map((m, i) => (
           <span
-            key={m.key}
+            key={`${m.key}-${seq}`}
             className={`science-metric sev-${m.severity ?? 'info'}`}
             title={m.hint ?? m.label}
+            style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
           >
             <span className="science-metric-label">{m.label}</span>
             <span className="science-metric-value">
-              {m.value}
+              <AnimatedMetricValue text={String(m.value)} />
               {m.unit ? <span className="science-metric-unit"> {m.unit}</span> : null}
             </span>
           </span>
