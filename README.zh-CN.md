@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="ico.ico" alt="Ergalics Studio logo" width="96" />
+<img src="public/ico.ico" alt="Ergalics Studio logo" width="96" />
 
 <h1>Ergalics Studio</h1>
 
