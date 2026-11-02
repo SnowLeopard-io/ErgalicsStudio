@@ -19,6 +19,8 @@ export type ResearchGroupId =
   | 'data'
   | 'signal'
   | 'deliver'
+  /** Writing and publication surfaces (LaTeX, citations, notebooks, preprints). */
+  | 'publish'
   /** Lightweight no-project utilities (converters, calculators). Rendered as
    *  the last group in the launchers, visually separate from research suites. */
   | 'utils';
@@ -93,6 +95,15 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('lineage', () => import('@/pages/labs/LineagePage'), {
     icon: 'lineage', titleKey: 'lineage.title', group: 'data',
   }),
+  tool('etl', () => import('@/pages/labs/EtlPage'), {
+    icon: 'cleaning', titleKey: 'tool.etl.title', group: 'data',
+  }),
+  tool('schema', () => import('@/pages/labs/SchemaPage'), {
+    icon: 'profiler', titleKey: 'tool.schema.title', group: 'data',
+  }),
+  tool('synth', () => import('@/pages/labs/SynthPage'), {
+    icon: 'uncertainty', titleKey: 'tool.synth.title', group: 'data',
+  }),
   tool('figures', () => import('@/pages/figures/FigureStudioPage'), {
     icon: 'figures', titleKey: 'figure.title', group: 'data', requireProject: true,
   }),
@@ -129,6 +140,35 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
   tool('gallery', () => import('@/pages/gallery/GalleryPage'), {
     icon: 'gallery', titleKey: 'tool.gallery.title', group: 'deliver',
   }),
+  // ---- research writing & publication --------------------------------------
+  tool('latex-editor', () => import('@/pages/publish/LatexEditorPage'), {
+    icon: 'latex',
+    titleKey: 'tool.latex-editor.title',
+    descKey: 'tool.latex-editor.desc',
+    group: 'publish',
+    requireProject: true,
+  }),
+  tool('citation-manager', () => import('@/pages/publish/CitationManagerPage'), {
+    icon: 'citation',
+    titleKey: 'tool.citation-manager.title',
+    descKey: 'tool.citation-manager.desc',
+    group: 'publish',
+    requireProject: true,
+  }),
+  tool('collab-notebook', () => import('@/pages/publish/CollabNotebookPage'), {
+    icon: 'collab',
+    titleKey: 'tool.collab-notebook.title',
+    descKey: 'tool.collab-notebook.desc',
+    group: 'publish',
+    requireProject: true,
+  }),
+  tool('preprint', () => import('@/pages/publish/PreprintPage'), {
+    icon: 'preprint',
+    titleKey: 'tool.preprint.title',
+    descKey: 'tool.preprint.desc',
+    group: 'publish',
+    requireProject: true,
+  }),
   // ---- utility toolkit (no project required) ------------------------------
   tool('unit-convert', () => import('@/pages/utils/UnitConvertPage'), {
     icon: 'units', titleKey: 'tool.unit-convert.title', group: 'utils',
@@ -151,7 +191,7 @@ export const RESEARCH_TOOLS: ResearchTool[] = [
 ];
 
 export const GRID_GROUPS: ResearchGroupId[] = [
-  'measure', 'model', 'data', 'signal', 'deliver', 'utils',
+  'measure', 'model', 'data', 'signal', 'deliver', 'publish', 'utils',
 ];
 
 const BY_ID = new Map(RESEARCH_TOOLS.map((x) => [x.id, x]));

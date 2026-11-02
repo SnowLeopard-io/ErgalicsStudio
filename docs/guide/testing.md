@@ -11,8 +11,8 @@ npm test           # vitest run
 npm run test:watch
 ```
 
-Environment: `node`. 223 test files, 3568 tests
-(2870 including 2 skipped):
+Environment: `node`. 235 test files, 3835 tests
+(3833 including 2 skipped):
 
 | Suite                  | Covers                                                     |
 | ---------------------- | ---------------------------------------------------------- |
@@ -50,7 +50,9 @@ Notable techniques:
 npm run test:e2e
 ```
 
-Each suite boots `vite preview` on its own port, drives headless Edge
+Each suite boots a local server (`vite preview`, or the dev server for
+`verify-webgpu`) on its preferred port — falling back to any free port when
+taken — drives headless Edge
 (`C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe` by default),
 and asserts real pixels + zero console errors:
 
@@ -62,18 +64,20 @@ and asserts real pixels + zero console errors:
 | `verify-3d`      | 4199 | 3D point cloud in the host Three.js scene                  |
 | `verify-plugins` | 4198 | 3D↔2D surface visibility, contour, scatter, tornado sample |
 | `verify-webgpu`  | 4289 | real WebGPU path in headless Edge (SwiftShader): numeric harness (GPU vs CPU integrator within ~2e-6) + Particles app integration asserting a `wasm`-engine toast |
-| `verify-block-mode` | 4173 | block editor: mode switch, compile, run, block → code sync |
+| `verify-block-mode` | 4174 | block editor: mode switch, compile, run, block → code sync |
 | `verify-code-mode`  | 4175 | Monaco + Pyodide: run a Python program, console, variable panel, plot canvas |
-| `verify-ai-samples` | 4173 | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
-| `verify-ai-training`| 4173 | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
+| `verify-ai-samples` | 4211 | AI Training: load all 4 samples (linear / non-linear / logistic / MNIST) |
+| `verify-ai-training`| 4199 | AI Trainer: activate, TF.js train, loss curve, model-switch reset, decision boundary, MNIST CNN grid |
 | `verify-research`| 4176 | research suite: runs / uncertainty / profiler / figures / supplement / notebook / lineage |
 
-`verify-lang-modes` (R/JS on the IR engine and mode round-trips) and
-`npm run verify:site` (merged-deploy path integrity) run separately.
+`verify-lang-modes` (R/JS on the IR engine and mode round-trips),
+`verify-r-runtime` (webR runtime integrity) and `npm run verify:site`
+(merged-deploy path integrity) run separately.
 
-> If Edge is not at the default path, update the `EDGE` constant in each
-> script. New plugin/feature work should ship with an E2E check — screenshots
-> are written under the temp `opencode/shots` directory for visual review.
+> If Edge or Chrome is not at a default path, point `BROWSER_PATH` (or
+> `EDGE_PATH` / `CHROME_PATH`) at the executable. New plugin/feature work
+> should ship with an E2E check — screenshots are written under the temp
+> `ergalics-shots` directory (override with `SHOTS_DIR`) for visual review.
 
 ## Combined checks
 

@@ -848,6 +848,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           ),
         );
         // Phase 2 — register in declared order (list order is UI order).
+        // After each registration, yield one frame so the browser paints:
+        // the sidebar then fills progressively instead of jumping from empty
+        // to full in a single commit. `document.hidden` falls back to a
+        // macrotask (rAF never fires in a hidden tab).
+        const paint = () =>
+          new Promise<void>((resolve) => {
+            if (typeof document !== 'undefined' && document.hidden) {
+              setTimeout(resolve, 0);
+              return;
+            }
+            requestAnimationFrame(() => resolve());
+          });
         for (const plugin of warmed) {
           if (!plugin) continue; // module failed to load — skip, stay degraded
           try {
@@ -855,6 +867,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           } catch (err) {
             logger.warn('plugin', 'failed to register builtin', { id: plugin.manifest.id }, err);
           }
+          await paint();
         }
         // Mark ready only once the registry is actually populated.
         set({ initialized: true });

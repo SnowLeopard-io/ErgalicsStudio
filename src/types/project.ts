@@ -1,4 +1,5 @@
 import { sanitizeSvg } from '../core/sanitize/sanitizeSvg';
+import { createPublishState, normalizePublishState } from '../core/publish/state';
 
 export interface FileEntry {
   id: string;
@@ -45,6 +46,8 @@ export interface ProjectState {
   reports?: import('../core/report/builder').ReportSpec[] | null;
   /** Data Profiler cached reports keyed by file id (F5, FR5.6). */
   profiles?: import('../core/profiler/profile').SavedProfile[] | null;
+  /** Research publishing: manuscripts, BibTeX library, collab notes, preprints. */
+  publish?: import('../core/publish/state').PublishState | null;
 }
 
 /** A multi-panel publication figure persisted in the project (Figure Studio). */
@@ -106,6 +109,7 @@ export function createEmptyProject(name: string): Project {
       sweepResults: {},
       reports: [],
       profiles: [],
+      publish: createPublishState(),
     },
     metadata: {
       version: PROJECT_FORMAT_VERSION,
@@ -192,6 +196,9 @@ export function normalizeProject(parsed: Project): Project {
         state.sweepResults && typeof state.sweepResults === 'object' ? state.sweepResults : {},
       reports: Array.isArray(state.reports) ? state.reports.map(sanitizeReportSpec) : [],
       profiles: Array.isArray(state.profiles) ? state.profiles : [],
+      publish: state.publish
+        ? normalizePublishState(state.publish)
+        : createPublishState(),
     },
     metadata: {
       version: parsed.metadata?.version ?? PROJECT_FORMAT_VERSION,

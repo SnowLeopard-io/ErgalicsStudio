@@ -20,6 +20,7 @@ import { galleryZh, galleryEn } from './dicts/gallery';
 import { aboutZh, aboutEn } from './dicts/about';
 import { chemZh, chemEn } from './dicts/chem';
 import { uxZh, uxEn } from './dicts/ux';
+import { publishZh, publishEn } from './dicts/publish';
 
 export const MODULE_ZH: LocaleDictionary = {
   ...pluginSigningZh,
@@ -40,6 +41,7 @@ export const MODULE_ZH: LocaleDictionary = {
   ...aboutZh,
   ...chemZh,
   ...uxZh,
+  ...publishZh,
 };
 export const MODULE_EN: LocaleDictionary = {
   ...pluginSigningEn,
@@ -60,4 +62,5 @@ export const MODULE_EN: LocaleDictionary = {
   ...aboutEn,
   ...chemEn,
   ...uxEn,
+  ...publishEn,
 };

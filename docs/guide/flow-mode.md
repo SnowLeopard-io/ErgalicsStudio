@@ -30,8 +30,9 @@ blocks/
   compiler       pure: validate → topological sort → CompiledRegion
   executor       DagExecutor: run(), incremental cache, dirty propagation
   context        MemoryStorage + RuntimeEnvironment
+  fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        42 built-in block types (data_source → … → plot · visualize)
+  catalog        63 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -65,13 +66,14 @@ later is an *extension*, not a refactor.
 
 ## Values that flow on ports
 
-Three types, defined in `src/types/datatable.ts`:
+Four types, defined in `src/types/datatable.ts`:
 
 | Type           | Shape                                                              | Producers                              | UI rendering                              |
 | -------------- | ------------------------------------------------------------------ | -------------------------------------- | ----------------------------------------- |
 | `DataTable`    | `{ columns, length, getColumn, getRow, columnNames, … }`           | `source.*`, `transform.*`, `stats.*`  | Read-only table (or a viz via `viz.*`)    |
+| `Dataset`      | ND-array / series dataset (research-grade data beyond 2-D tables)  | research data importers                | Read-only table (2-D slice)               |
 | `Scalar`       | `{ kind: 'scalar', value: number \| string \| boolean }`           | (future reductions / control flow)     | Inline value                              |
-| `RenderedView` | `{ kind: 'rendered-view', id, viewType, data }`                    | `viz.*` blocks                         | Live plugin render (the host's 2D canvas) |
+| `RenderedView` | `{ kind: 'rendered-view', id, viewType, data }`                    | `viz.*` / `plot.*` blocks              | Live plugin render (the host's 2D canvas) |
 
 A pipeline mixes them freely — the result preview adapts.
 
@@ -137,18 +139,17 @@ selection.
 
 ## Built-in blocks
 
-The catalog (`src/blocks/catalog/`) registers **42 built-in blocks across
-eight categories**:
+The catalog (`src/blocks/catalog/`) registers **63 built-in blocks across
+six categories**:
 
 | Category     | Blocks                                                                                |
 | ------------ | ------------------------------------------------------------------------------------- |
 | data_source  | Example Data · Random Data · Grid Data · File                                          |
 | transform    | Select Columns · Rename Column · Add Column · Normalize · Sort                        |
 | filter       | Range Filter · Value Filter · Top-K                                                   |
-| math         | Add · Subtract · Multiply · Divide · Square Root · Absolute Value                     |
+| math         | Add · Subtract · Multiply · Divide · Square Root · Absolute Value · Unit Convert · Unit Check |
 | statistics   | Summary · Histogram · one-/two-/paired-sample t-tests · one-way ANOVA · Mann–Whitney U · chi-square · correlation · Cohen's d · multiple-comparison correction · bootstrap CI · Monte-Carlo · MCMC |
-| units        | Unit Convert · Unit Check                                                              |
-| visualize    | `viz.*` Scatter · Line · Histogram · 2-D Point Cloud (plugin bridge) · `plot.*` Line · Scatter · Histogram · Bar (vector SVG) |
+| visualize    | `viz.*` Scatter · Line · Histogram · 2-D Point Cloud, plus 21 domain views (geology ×3 · tuning table · color palette · acoustics waveform · synth presets · CS ×7 · statistics views ×7) and `plot.*` Line · Scatter · Histogram · Bar (vector SVG) |
 
 Control-flow blocks (`if_else`, `switch`, `repeat`, `parallel`) are
 **deliberately deferred**. The `region` seam on `BlockInstance` is in place
