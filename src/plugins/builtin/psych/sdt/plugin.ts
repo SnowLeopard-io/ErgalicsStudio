@@ -69,6 +69,10 @@ export class SdtPlugin implements Plugin {
   }
 
   async deactivate() {
+    // Release the shared host canvas listeners; draw() re-binds on next
+    // activation. Without this, stale pointer handlers keep mutating state
+    // (and capture pointers) while another plugin owns the canvas.
+    this.unbindCanvas();
     this.dragging = false;
   }
 

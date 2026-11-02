@@ -226,7 +226,12 @@ export function solveBDF(
       // true constant matters: a conservative multiplier here shrinks every
       // accuracy-limited step by its 1/(k+1)-th power (up to 35% at k = 5).
       const estK = errorRatio(tNew, tHist, order, order + 1);
-      errEst = yNew.map((v, i) => (v - yPred[i]!) * estK);
+      // errorRatio returns e/d = (corrector LTE)/(predictor-coefficient
+      // product); the observed (yNew − yPred) mixes both, so the multiplier
+      // recovering the corrector LTE alone is e/(e−d) = estK/(estK−1)
+      // (= 1/3 for k = 1 on a uniform mesh, 2/11 for k = 2, …).
+      const mult = estK / (estK - 1);
+      errEst = yNew.map((v, i) => (v - yPred[i]!) * mult);
     }
     const errNorm = wrmsNorm(errEst, scale);
     if (process.env.BDF_DEBUG) {

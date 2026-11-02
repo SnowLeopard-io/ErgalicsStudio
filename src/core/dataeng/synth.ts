@@ -628,7 +628,7 @@ export function cholesky(matrix: number[][]): number[][] | null {
       let s = matrix[i]![j]!;
       for (let k = 0; k < j; k += 1) s -= L[i]![k]! * L[j]![k]!;
       if (i === j) {
-        if (s <= 1e-12) return null;
+        if (!Number.isFinite(s) || s <= 1e-12) return null;
         L[i]![j] = Math.sqrt(s);
       } else {
         L[i]![j] = s / L[j]![j]!;
@@ -669,13 +669,16 @@ export function buildCopula(numeric: ColumnModel[]): CopulaBundle {
   const usable = numeric.filter((c) => (c.sorted?.length ?? 0) >= 2 && (c.fit?.kind ?? 'constant') !== 'constant');
   const m = usable.length;
   if (m === 0) return { columns: [], corr: [], chol: [] };
-  const n = Math.min(...usable.map((c) => c.values!.length));
   // Normal scores per row: rank of each observation within its column
-  // (average ranks for ties) → u = rank/(n+1) → z = Φ⁻¹(u). Row order is
-  // preserved so cross-column Pearson correlations estimate the copula.
+  // (average ranks for ties) → u = rank/(len+1) → z = Φ⁻¹(u). Normalization
+  // uses each column's own value count: columns may have different lengths
+  // (missing cells are dropped per column), and the global minimum would push
+  // longer columns to u ≥ 1 → ±Inf normal scores. Row order is preserved so
+  // cross-column Pearson correlations estimate the copula.
   const z: number[][] = usable.map((c) => {
     const ranks = averageRanks(c.values!);
-    return ranks.map((r) => normalQuantile(r / (n + 1)));
+    const len = c.values!.length;
+    return ranks.map((r) => normalQuantile(r / (len + 1)));
   });
   const corr: number[][] = Array.from({ length: m }, () => new Array<number>(m).fill(0));
   for (let i = 0; i < m; i += 1) {

@@ -1743,12 +1743,7 @@ async function buildDoc(browser, page, base, opts = {}) {
       const hasFig = ch.some((b) => b.kind === 'figure');
       const cands = [];
       for (const scale of [1]) {
-        const scaled =
-          scale === 1
-            ? ch
-            : ch.map((b) =>
-                b.kind === 'figure' ? { ...b, html: setWidth(b.html, Math.round(82 * scale)) } : b,
-              );
+        const scaled = ch;
         const m = await measureBlocks(page, scaled, base);
         if (opts.shrink) m.contentHeight -= opts.shrink;
         const packed = packPages(scaled, m);

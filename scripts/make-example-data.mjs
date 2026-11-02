@@ -7,7 +7,7 @@
 //                                     of the kernel's makeTestImage, seed 20261011)
 // Run: node scripts/make-example-data.mjs
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -246,18 +246,22 @@ for (let y = 0; y < H; y += 1) {
     raw[o + 2] = c[2];
   }
 }
-const ihdr = Buffer.alloc(13);
-ihdr.writeUInt32BE(W, 0);
-ihdr.writeUInt32BE(H, 4);
-ihdr[8] = 8; // bit depth
-ihdr[9] = 2; // color type RGB
-const png = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  chunk('IHDR', ihdr),
-  chunk('IDAT', deflateSync(raw)),
-  chunk('IEND', Buffer.alloc(0)),
-]);
-const base64 = png.toString('base64');
+// Assemble a PNG from signature + chunks. `raw` must already contain per-row
+// filter bytes; `colorType` 2 = RGB, 0 = 8-bit grayscale.
+function buildPng(width, height, colorType, raw) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = colorType;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+const base64 = buildPng(W, H, 2, raw).toString('base64');
 
 // ---------- imageproc subject PNG ----------
 // Exact rasterization of makeTestImage(256, 256, 20261011) from the
@@ -297,9 +301,24 @@ for (let y = 0; y < IH; y += 1) {
     gray[y * (IW + 1) + 1 + x] = Math.min(255, Math.max(0, Math.round(v + 9 * nextNormal())));
   }
 }
-const subjectBase64 = png(0, IW, IH, gray).toString('base64');
+const subjectBase64 = buildPng(IW, IH, 0, gray).toString('base64');
 
 const assetsDir = join(root, 'src', 'core');
+// exampleAssets.ts is hand-extended with exports this script does not generate
+// (e.g. acoustics WAV, DICOM phantom slices). Regenerating must preserve them
+// instead of silently dropping those assets.
+const GENERATED_EXPORTS = ['TEST_PATTERN_PNG_BASE64', 'IMAGEPROC_SUBJECT_PNG_BASE64'];
+let preserved = '';
+try {
+  preserved = readFileSync(join(assetsDir, 'exampleAssets.ts'), 'utf8')
+    .split(/(?=export const )/g)
+    .filter((part) => /^export const \w+/.test(part))
+    .filter((part) => !GENERATED_EXPORTS.some((name) => part.startsWith(`export const ${name}`)))
+    .map((part) => part.trimEnd())
+    .join('\n\n');
+} catch {
+  // First run: no existing asset file to preserve.
+}
 mkdirSync(assetsDir, { recursive: true });
 writeFileSync(
   join(assetsDir, 'exampleAssets.ts'),
@@ -308,7 +327,8 @@ writeFileSync(
     `// 256x256 seeded test-subject PNG (rasterization of the kernel's makeTestImage\n` +
     `// with seed 20261011) for the Image Processing example.\n` +
     `export const TEST_PATTERN_PNG_BASE64 =\n  '${base64}';\n\n` +
-    `export const IMAGEPROC_SUBJECT_PNG_BASE64 =\n  '${subjectBase64}';\n`,
+    `export const IMAGEPROC_SUBJECT_PNG_BASE64 =\n  '${subjectBase64}';\n` +
+    (preserved ? `\n${preserved}\n` : ''),
 );
 
 console.log('generated:');
