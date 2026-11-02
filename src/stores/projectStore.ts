@@ -98,6 +98,9 @@ interface ProjectStore {
   addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
+  /** Rename a data-file entry in place (workspace explorer rename/move sync;
+   *  id stays stable, VFS is the caller's responsibility). */
+  renameDataFile: (id: string, name: string) => void;
 
   // Git operations
   initGitRepo: (template?: 'standard' | 'minimal') => Promise<void>;
@@ -750,6 +753,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // reach, so the bytes would stay parked in storage forever.
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
+  },
+
+  renameDataFile: (id, name) => {
+    const { project } = get();
+    if (!project) return;
+    const files = project.data.files.map((f) =>
+      f.id === id ? { ...f, name, format: fileExtension(name) } : f,
+    );
+    set({ project: { ...project, data: { ...project.data, files } } });
+    get().setDirty(true);
+    setProjectFiles(files);
   },
 
   // Git operations
