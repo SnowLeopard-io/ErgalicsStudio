@@ -157,7 +157,11 @@ export function BlockFileEditor({ path }: { path: string }) {
     const cur = useAppStore.getState().editorFiles[editorTabKey(path)];
     if (!cur || cur.dirty) return;
     void readRepoFileText(path).then((text) => {
-      if (text === null || text === cur.payload) return;
+      // Re-check the live tab state: edits made while the read was in flight
+      // replaced the store entry — a stale snapshot must not clobber them.
+      const now = useAppStore.getState().editorFiles[editorTabKey(path)];
+      if (!now || now.dirty || now !== cur) return;
+      if (text === null || text === now.payload) return;
       updateEditorFile(path, text);
       const after = useAppStore.getState().editorFiles[editorTabKey(path)];
       // updateEditorFile marks dirty — restore the clean flag after a reload.

@@ -653,13 +653,18 @@ class ExprParser {
       if (fstr) return fstr;
     }
     if (name === 'length' && args.length === 1) return { kind: 'Call', callee: 'len', args };
-    // R `seq(0, (n) - 1)` is the emitted form of python `range(0, n)`.
-    if (name === 'seq' && args.length === 2) {
+    // R `seq(0, (n) - 1)` is the emitted form of python `range(0, n)`;
+    // with a step, codegen emits `seq(a, (b) - 1, by = s)` for `range(a, b, s)`.
+    if (name === 'seq' && (args.length === 2 || args.length === 3)) {
       const stop = args[1]!;
+      const step = named.get('by') ?? (args.length === 3 ? args[2] : undefined);
       if (stop.kind === 'BinaryOp' && stop.op === '-' && stop.right.kind === 'Number' && stop.right.value === 1) {
         const start = args[0]!;
-        if (start.kind === 'Number' && start.value === 0) return { kind: 'Call', callee: 'range', args: [stop.left] };
-        return { kind: 'Call', callee: 'range', args: [start, stop.left] };
+        if (step === undefined) {
+          if (start.kind === 'Number' && start.value === 0) return { kind: 'Call', callee: 'range', args: [stop.left] };
+          return { kind: 'Call', callee: 'range', args: [start, stop.left] };
+        }
+        return { kind: 'Call', callee: 'range', args: [start, stop.left, step] };
       }
     }
     // Bare math functions in R/JS source (`sin(x)`) canonicalize to math.*.
