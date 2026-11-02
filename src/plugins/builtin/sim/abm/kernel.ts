@@ -273,7 +273,10 @@ export function initPredatorPrey(cols: number, rows: number, nPrey: number, nPre
     agents.push({ id: id++, x: rng.next(), y: rng.next(), type: 1, attrs: { energy: 12 }, alive: true });
   }
   const grass = new Float32Array(cols * rows);
-  for (let i = 0; i < grass.length; i++) grass[i] = rng.next() < 0.5 ? 1 : Math.floor(rng.next() * 10);
+  // Grass is a fraction in [0, 1]: 1 = mature, < 1 = regrowing. Scale the
+  // immature draw into [0, 0.9] instead of raw integers 0–9 (which the >= 1
+  // eating threshold would treat as instantly mature on ~90% of cells).
+  for (let i = 0; i < grass.length; i++) grass[i] = rng.next() < 0.5 ? 1 : Math.floor(rng.next() * 10) / 10;
   return { width: 1, height: 1, gridMode: true, cols, rows, agents, grass };
 }
 

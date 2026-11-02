@@ -18,7 +18,7 @@ export interface CrdtAtom {
   id: string;
   /** Id of the atom this one was inserted after (null = document start). */
   after: string | null;
-  /** One UTF-16 code unit (surrogate pairs are stored as two atoms). */
+  /** One Unicode code point (surrogate pairs are stored as a single atom). */
   value: string;
   deleted: boolean;
 }
@@ -171,16 +171,20 @@ export class TextCrdt {
   replaceAll(next: string): void {
     const prev = this.getText();
     if (prev === next) return;
+    // Diff over code-point arrays so offsets align with atom indices
+    // (insert() stores one atom per code point, not per UTF-16 code unit).
+    const prevCp = Array.from(prev);
+    const nextCp = Array.from(next);
     let start = 0;
-    while (start < prev.length && start < next.length && prev[start] === next[start]) start += 1;
-    let endPrev = prev.length;
-    let endNext = next.length;
-    while (endPrev > start && endNext > start && prev[endPrev - 1] === next[endNext - 1]) {
+    while (start < prevCp.length && start < nextCp.length && prevCp[start] === nextCp[start]) start += 1;
+    let endPrev = prevCp.length;
+    let endNext = nextCp.length;
+    while (endPrev > start && endNext > start && prevCp[endPrev - 1] === nextCp[endNext - 1]) {
       endPrev -= 1;
       endNext -= 1;
     }
     this.delete(start, endPrev - start);
-    this.insert(start, next.slice(start, endNext));
+    this.insert(start, nextCp.slice(start, endNext).join(''));
   }
 
   snapshot(): CrdtState {

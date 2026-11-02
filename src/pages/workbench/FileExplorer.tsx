@@ -223,15 +223,19 @@ export function FileExplorer() {
   /** Drag source, tracked via ref so it survives the drop event. */
   const dragRef = useRef<VfsEntry | null>(null);
 
+  /** Load a directory listing into `tree` and return the fetched entries (so
+   *  async callers don't read the stale render closure afterwards). */
   const loadDir = useCallback(
-    async (dir: string) => {
-      if (!project) return;
+    async (dir: string): Promise<VfsEntry[]> => {
+      if (!project) return [];
       try {
         const adapter = getVfs();
         const entries = await adapter.readDir(getProjectRepoPath(project), dir);
         setTree((prev) => ({ ...prev, [dir]: entries }));
+        return entries;
       } catch {
         setTree((prev) => ({ ...prev, [dir]: [] }));
+        return [];
       }
     },
     [project],
@@ -388,15 +392,21 @@ export function FileExplorer() {
 
   const existsName = (dir: string, name: string): boolean => !!entryAt(dir, name);
 
-  /** Pick an unused name in `dir` for a copy/paste target. */
-  const suggestUniqueName = (dir: string, name: string): string => {
-    if (!existsName(dir, name)) return name;
+  /** Pick an unused name in `dir` for a copy/paste target. `exists` lets
+   *  async callers check freshly loaded listings instead of the stale
+   *  render-closure `tree`. */
+  const suggestUniqueName = (
+    dir: string,
+    name: string,
+    exists: (n: string) => boolean = (n) => existsName(dir, n),
+  ): string => {
+    if (!exists(name)) return name;
     const dot = name.lastIndexOf('.');
     const stem = dot > 0 ? name.slice(0, dot) : name;
     const ext = dot > 0 ? name.slice(dot) : '';
     for (let i = 1; ; i += 1) {
       const cand = `${stem} (${i})${ext}`;
-      if (!existsName(dir, cand)) return cand;
+      if (!exists(cand)) return cand;
     }
   };
 
@@ -427,6 +437,13 @@ export function FileExplorer() {
     const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
+      // The target dir may never have been listed; load it now so conflict
+      // checks and unique-name suggestions see the real contents. The `tree`
+      // state in this render closure stays stale for directories loaded here,
+      // so checks must use the freshly returned listing.
+      const fresh = tree[targetDir] ? null : await loadDir(targetDir);
+      const exists = (name: string): boolean =>
+        fresh ? fresh.some((e) => e.name === name) : existsName(targetDir, name);
       let failed = false;
       for (const item of clipboard.items) {
         if (clipboard.mode === 'cut') {
@@ -436,14 +453,14 @@ export function FileExplorer() {
             failed = true;
             continue;
           }
-          if (existsName(targetDir, basename(item.path))) {
+          if (exists(basename(item.path))) {
             notify('error', t('workbench.explorer.name_conflict', { name: basename(item.path) }));
             failed = true;
             continue;
           }
           await adapter.renameEntry(repoPath, item.path, target);
         } else {
-          const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path)));
+          const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
         }
       }
@@ -595,8 +612,10 @@ export function FileExplorer() {
       // The target directory may never have been expanded, in which case the
       // conflict table is empty and the guard below would silently pass —
       // load it first so an existing same-name entry is actually detected.
-      if (!tree[targetDir]) await loadDir(targetDir);
-      if (existsName(targetDir, basename(src.path))) {
+      // Use the freshly returned listing: `tree` in this render closure stays
+      // stale for directories loaded here.
+      const targetEntries = tree[targetDir] ?? (await loadDir(targetDir));
+      if (targetEntries.some((e) => e.name === basename(src.path))) {
         notify('error', t('workbench.explorer.name_conflict', { name: basename(src.path) }));
         return;
       }
