@@ -15,7 +15,6 @@ import { useAppStore } from '@/stores/appStore';
 import {
   applyStep,
   missingCellRate,
-  parseCsvTable,
   parseJsonTable,
   parseTableAuto,
   stepsToFlowGraph,

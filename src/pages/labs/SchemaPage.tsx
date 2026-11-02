@@ -60,7 +60,7 @@ export default function SchemaPage() {
   const [contract, setContract] = useState<DataContract | null>(loadSavedContract);
   const [contractSavedAt, setContractSavedAt] = useState('');
 
-  const parseUpload = (text: string, name: string, format: 'csv' | 'json') => {
+  const parseUpload = (text: string, format: 'csv' | 'json') => {
     try {
       return parseDataRows(text, format);
     } catch (err) {
@@ -73,7 +73,7 @@ export default function SchemaPage() {
     if (!file) return;
     setError('');
     const format = /\.json$/i.test(file.name) ? 'json' : 'csv';
-    const rows = parseUpload(await file.text(), file.name, format);
+    const rows = parseUpload(await file.text(), format);
     if (!rows) return;
     setSchema(inferSchema(rows));
     setSourceName(file.name);
@@ -87,7 +87,7 @@ export default function SchemaPage() {
     if (!file || !schema) return;
     setError('');
     const format = /\.json$/i.test(file.name) ? 'json' : 'csv';
-    const rows = parseUpload(await file.text(), file.name, format);
+    const rows = parseUpload(await file.text(), format);
     if (!rows) return;
     setSecondName(file.name);
     setValidation(validateAgainstSchema(rows, schema));

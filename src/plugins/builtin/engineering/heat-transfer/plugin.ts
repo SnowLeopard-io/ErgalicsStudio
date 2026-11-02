@@ -1381,7 +1381,7 @@ export class EngHeatPlugin implements Plugin {
 
     // Legend.
     g.font = `10px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
-    let lx = r.x + r.w - 110;
+    const lx = r.x + r.w - 110;
     let ly = r.y + 16;
     g.strokeStyle = 'rgba(201,138,122,0.95)';
     g.lineWidth = 2;
