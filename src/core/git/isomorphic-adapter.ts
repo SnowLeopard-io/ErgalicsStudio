@@ -513,36 +513,46 @@ export class IsomorphicGitAdapter implements GitAdapter {
       // Unborn HEAD resolves to undefined — nothing to lose yet.
       const current = await Git.currentBranch({ fs, dir: repoPath }).catch(() => undefined);
       if (current && current !== ref) {
-        const st = await this.status(repoPath);
-        const dirty = [...st.staged, ...st.unstaged];
-        if (dirty.length > 0) {
-          const err = new Error(
-            `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
-              'Commit these files first:\n' +
-              dirty.map((f) => `  ${f}`).join('\n'),
-          ) as GitError;
-          err.code = GIT_ERROR_CODES.DIRTY;
-          err.gitCommand = 'checkout';
-          throw err;
-        }
-        // Untracked files survive a checkout in real git — unless the target
-        // branch contains a file at the same path, in which case git refuses
-        // instead of silently destroying them. Mirror that guard here: the
-        // force checkout below would otherwise overwrite them.
-        if (st.untracked.length > 0) {
-          const targetFiles = new Set(
-            await Git.listFiles({ fs, dir: repoPath, ref }).catch(() => [] as string[]),
-          );
-          const collisions = st.untracked.filter((f) => targetFiles.has(f));
-          if (collisions.length > 0) {
+        // A ref that resolves to the current HEAD commit (e.g. a branch just
+        // created at HEAD, the "create branch" UI flow) can never lose
+        // anything — same as `git switch -c`, which tolerates a dirty tree.
+        const sameCommit = await Git.resolveRef({ fs, dir: repoPath, ref })
+          .then(async (oid) =>
+            oid === (await Git.resolveRef({ fs, dir: repoPath, ref: 'HEAD' }).catch(() => undefined)),
+          )
+          .catch(() => false);
+        if (!sameCommit) {
+          const st = await this.status(repoPath);
+          const dirty = [...st.staged, ...st.unstaged];
+          if (dirty.length > 0) {
             const err = new Error(
-              `Cannot checkout '${ref}': untracked files would be overwritten. ` +
-                'Add or commit them first:\n' +
-                collisions.map((f) => `  ${f}`).join('\n'),
+              `Cannot checkout '${ref}': uncommitted changes would be lost. ` +
+                'Commit these files first:\n' +
+                dirty.map((f) => `  ${f}`).join('\n'),
             ) as GitError;
             err.code = GIT_ERROR_CODES.DIRTY;
             err.gitCommand = 'checkout';
             throw err;
+          }
+          // Untracked files survive a checkout in real git — unless the target
+          // branch contains a file at the same path, in which case git refuses
+          // instead of silently destroying them. Mirror that guard here: the
+          // force checkout below would otherwise overwrite them.
+          if (st.untracked.length > 0) {
+            const targetFiles = new Set(
+              await Git.listFiles({ fs, dir: repoPath, ref }).catch(() => [] as string[]),
+            );
+            const collisions = st.untracked.filter((f) => targetFiles.has(f));
+            if (collisions.length > 0) {
+              const err = new Error(
+                `Cannot checkout '${ref}': untracked files would be overwritten. ` +
+                  'Add or commit them first:\n' +
+                  collisions.map((f) => `  ${f}`).join('\n'),
+              ) as GitError;
+              err.code = GIT_ERROR_CODES.DIRTY;
+              err.gitCommand = 'checkout';
+              throw err;
+            }
           }
         }
       }

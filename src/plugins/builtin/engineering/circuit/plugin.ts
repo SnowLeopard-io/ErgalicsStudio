@@ -138,7 +138,17 @@ export class EngCircuitPlugin implements Plugin {
       return;
     }
     const text = await file.text();
-    this.state.netlistText = JSON.stringify(JSON.parse(text));
+    try {
+      this.state.netlistText = JSON.stringify(JSON.parse(text));
+    } catch (err) {
+      notify(
+        this.api,
+        'error',
+        `Netlist JSON parse failed: ${err instanceof Error ? err.message : String(err)}`,
+        `网表 JSON 解析失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+      return;
+    }
     this.solve(true);
   }
 

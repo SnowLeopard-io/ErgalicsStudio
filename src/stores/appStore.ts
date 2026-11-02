@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { logger } from '@/core/logger';
 import { t } from '@/i18n';
+import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
@@ -550,6 +551,9 @@ export const useAppStore = create<AppStore>((set, get) => {
    *  (a notification is emitted; callers just skip their close). */
   saveEditorFile: async (path) => {
     const key = editorTabKey(path);
+    // Pull the live editor content into the store first — the debounced push
+    // may be up to 300ms behind the visible buffer.
+    flushEditorFile(key);
     const cur = useAppStore.getState().editorFiles[key];
     if (!cur) return false;
     try {

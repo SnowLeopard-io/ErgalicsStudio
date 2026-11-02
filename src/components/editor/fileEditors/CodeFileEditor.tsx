@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, editorTabKey } from '@/stores/appStore';
+import { registerEditorFlush } from '@/stores/editorFlush';
 import { useMonacoEditor } from './useMonacoEditor';
 import { monacoLanguageFor, readRepoFileText } from './shared';
 import { editorStoreOpenInMode } from './openInMode';
@@ -93,15 +94,21 @@ export function CodeFileEditor({ path }: { path: string }) {
     });
   }, [fileOpsVersion, path, updateEditorFile]);
 
-  // Flush a pending debounced push before the pane unmounts.
+  // Flush a pending debounced push before the pane unmounts, and let save /
+  // close flows pull the live buffer synchronously via the registry.
   useEffect(() => {
-    return () => {
-      if (pushTimer.current !== null) {
-        window.clearTimeout(pushTimer.current);
-        pushTimer.current = null;
-      }
+    const flushFromEditor = () => {
+      const editor = editorRef.current;
+      if (editor) flush(editor.getValue());
     };
-  }, []);
+    const unregister = registerEditorFlush(editorTabKey(path), flushFromEditor);
+    return () => {
+      unregister();
+      flushFromEditor();
+    };
+    // editorRef is a stable ref object returned by useMonacoEditor above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flush, path]);
 
   if (!state) return null;
 

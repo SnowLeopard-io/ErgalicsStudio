@@ -812,8 +812,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
-    // Capture the live project state, not whatever the last save left.
+    // Capture the live project state, not whatever the last save left, and
+    // restage it — the staging area may hold an older snapshot than the one
+    // just written (mirrors commitWorkingTree's write→add→commit order).
     await syncProjectSnapshot(project);
+    await adapter.add(repoPath, ['project.clproj']);
     const hash = await adapter.commit(repoPath, message);
     await refreshGitStatusForProject(project);
     await get().loadGitLog();
