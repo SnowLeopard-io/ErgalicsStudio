@@ -2525,9 +2525,32 @@
 }
 
 .share-hint {
-  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  /* No negative top margin: this hint follows checkboxes as well as headings,
+     and the old -1*space-2 pull-up painted it over the control above. */
+  margin: 0 0 var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
+}
+
+/* Share dialog: the "share to gallery" block keeps its own vertical rhythm so
+   heading / checkbox / hint never lean on each other's margins. */
+.share-gallery-block {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.share-gallery-block .share-section-title {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+}
+
+.share-gallery-block .share-option {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+}
+
+.share-gallery-block .share-hint {
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
@@ -7895,6 +7918,13 @@
   border-bottom-color: var(--color-accent);
 }
 
+/* Drop indicator while another tab is dragged over this one: the accent
+   bottom edge (same line the active tab uses) reads as "insert here". */
+.central-tool-tab.drop-target {
+  background: var(--color-bg-secondary);
+  border-bottom-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
 .central-tool-tab-icon {
   display: flex;
   flex-shrink: 0;
@@ -7911,8 +7941,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  /* 20px box around a 10px glyph: a 16px target was routinely missed on
+     the first click (Fitts's law — small edge-aligned targets). */
+  width: 20px;
+  height: 20px;
+  margin-right: -3px;
   padding: 0;
   border: none;
   border-radius: 4px;

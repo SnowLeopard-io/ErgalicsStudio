@@ -297,13 +297,14 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
             )}
 
             {/* ---- FR-19: share to the work gallery ---- */}
-            <h4 className="share-section-title">{t('gallery.share_section')}</h4>
-            <CheckOption
-              checked={galleryEnabled}
-              label={t('gallery.share_enable')}
-              onChange={() => setGalleryEnabled((v) => !v)}
-            />
-            <p className="share-hint">{t('gallery.share_desc')}</p>
+            <div className="share-gallery-block">
+              <h4 className="share-section-title">{t('gallery.share_section')}</h4>
+              <CheckOption
+                checked={galleryEnabled}
+                label={t('gallery.share_enable')}
+                onChange={() => setGalleryEnabled((v) => !v)}
+              />
+              <p className="share-hint">{t('gallery.share_desc')}</p>
             {galleryEnabled && (
               <div className="gallery-share-form">
                 <div className="analysis-row">
@@ -390,6 +391,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
                 </div>
               </div>
             )}
+            </div>
           </>
         ) : (
           <>

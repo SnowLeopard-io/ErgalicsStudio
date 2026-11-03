@@ -239,6 +239,9 @@ interface AppStore {
   lastActivePluginId: string | null;
   /** Close one tab (file or suite); activates the nearest remaining tab. */
   closeTab: (key: string) => void;
+  /** Reorder the canvas tab strip by drag: move `fromKey` to sit at
+   *  `toKey`'s position. No-op unless both tabs exist. */
+  reorderTabs: (fromKey: string, toKey: string) => void;
   /** Update a file tab's path/name after an explorer rename, preserving
    *  content so the open preview survives the rename. */
   renameFileTab: (oldPath: string, name: string, newPath: string) => void;
@@ -686,6 +689,22 @@ export const useAppStore = create<AppStore>((set, get) => {
               : null
             : s.activeTab,
       };
+    });
+  },
+
+  /** Reorder the tab strip: pull `fromKey` out and insert it where `toKey`
+   *  currently sits. The active tab stays active — reordering is purely
+   *  positional, never a selection change. */
+  reorderTabs: (fromKey, toKey) => {
+    if (fromKey === toKey) return;
+    set((s) => {
+      const from = s.canvasTabs.findIndex((tab) => tab.key === fromKey);
+      const to = s.canvasTabs.findIndex((tab) => tab.key === toKey);
+      if (from < 0 || to < 0) return s;
+      const next = [...s.canvasTabs];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved!);
+      return { canvasTabs: next };
     });
   },
 
