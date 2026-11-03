@@ -1061,7 +1061,23 @@
 .git-panel-hint {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: 1.55;
   color: var(--color-text-tertiary);
+}
+
+/* No-repo placeholder: give the hint + init button real breathing room —
+   previously they hung directly off the panel's 8px group gap and read as
+   one cramped blob under the GIT header. */
+.git-panel-no-repo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.git-panel-no-repo .git-panel-hint {
+  margin-bottom: var(--space-1);
 }
 
 .git-panel-status {
@@ -10288,14 +10304,14 @@
 
 /* Git panel: collapsed clone/proxy section + staged sub-header */
 .git-advanced {
-  margin-bottom: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
 }
 
 .git-advanced > summary {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
   font-size: var(--font-size-xs);
@@ -10319,7 +10335,11 @@
 }
 
 .git-advanced .git-clone-row {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.git-advanced .btn {
+  margin-top: var(--space-2);
 }
 
 /* "Staged changes" sub-header: static label (no fold), same type as the

@@ -250,17 +250,37 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       </summary>
       {open && (
         <>
-      {/* Clone + proxy are secondary setup — collapsed by default so the
-          commit box and change tree (the VSCode primary surface) lead.
-          With a repo already open, clone (which spawns a NEW project) is
-          hidden; only the CORS proxy setting remains. */}
-      <details className="git-advanced">
-        <summary title={repo ? t('git.proxy_summary') : t('git.advanced_summary')}>
-          <span className="git-panel-caret">▸</span>
-          {repo ? t('git.proxy_summary') : t('git.advanced_summary')}
-        </summary>
-        {!repo && (
-          <>
+      {/* No repo yet: the primary action is enabling version control;
+          clone-from-URL (which spawns a NEW project) and the CORS proxy are
+          secondary, collapsed below. */}
+      {!repo && (
+        <>
+          <div className="git-panel-no-repo">
+            <p className="git-panel-hint">{t('git.no_repo')}</p>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await useProjectStore.getState().initGitRepo('standard');
+                  await useProjectStore.getState().loadGitLog();
+                } catch (err) {
+                  reportError(err);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {t('git.init_repo')}
+            </button>
+          </div>
+          <details className="git-advanced">
+            <summary title={t('git.advanced_summary')}>
+              <span className="git-panel-caret">▸</span>
+              {t('git.advanced_summary')}
+            </summary>
             <div className="git-clone-row">
               <input
                 className="git-clone-input"
@@ -283,58 +303,26 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               </button>
             </div>
             {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
-          </>
-        )}
-        <div className="git-clone-row git-proxy-row">
-          <input
-            className="git-clone-input"
-            type="text"
-            value={proxy}
-            placeholder={t('git.cors_proxy')}
-            title={t('git.cors_hint')}
-            onChange={(e) => setProxy(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
-            }}
-            onBlur={() => {
-              if (proxy.trim() !== getGitCorsProxy()) applyProxy();
-            }}
-          />
-        </div>
-        {repo && (
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={() => navigate('/settings')}
-            title={t('git.auth_hint')}
-          >
-            {t('git.identity_settings')}
-          </button>
-        )}
-      </details>
-      {!repo ? (
-        <div className="git-panel-no-repo">
-          <p className="git-panel-hint">{t('git.no_repo')}</p>
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await useProjectStore.getState().initGitRepo('standard');
-                await useProjectStore.getState().loadGitLog();
-              } catch (err) {
-                reportError(err);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {t('git.init_repo')}
-          </button>
-        </div>
-      ) : (
+            <div className="git-clone-row git-proxy-row">
+              <input
+                className="git-clone-input"
+                type="text"
+                value={proxy}
+                placeholder={t('git.cors_proxy')}
+                title={t('git.cors_hint')}
+                onChange={(e) => setProxy(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
+                }}
+                onBlur={() => {
+                  if (proxy.trim() !== getGitCorsProxy()) applyProxy();
+                }}
+              />
+            </div>
+          </details>
+        </>
+      )}
+      {repo && (
         <>
           {/* VSCode source-control layout: message box + primary commit
               action live ABOVE the change tree. Enter or Ctrl+Enter commits;
@@ -520,6 +508,39 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
             </ul>
           )}
           {gitLoading && <span className="spinner" />}
+
+          {/* Secondary setup last (VSCode order: the commit flow leads):
+              CORS proxy for remote ops + the identity/credentials entry. */}
+          <details className="git-advanced">
+            <summary title={t('git.proxy_summary')}>
+              <span className="git-panel-caret">▸</span>
+              {t('git.proxy_summary')}
+            </summary>
+            <div className="git-clone-row git-proxy-row">
+              <input
+                className="git-clone-input"
+                type="text"
+                value={proxy}
+                placeholder={t('git.cors_proxy')}
+                title={t('git.cors_hint')}
+                onChange={(e) => setProxy(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
+                }}
+                onBlur={() => {
+                  if (proxy.trim() !== getGitCorsProxy()) applyProxy();
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => navigate('/settings')}
+              title={t('git.auth_hint')}
+            >
+              {t('git.identity_settings')}
+            </button>
+          </details>
           </>
         )}
         </>
