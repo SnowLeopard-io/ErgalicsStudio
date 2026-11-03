@@ -146,7 +146,12 @@ export const enUS: LocaleDictionary = {
   'workbench.preview.mode_preview': 'Preview',
   'workbench.preview.mode_split': 'Split',
   'workbench.preview.insert_image': 'Insert image',
-  'workbench.preview.image_failed': 'Failed to insert image',
+  'workbench.preview.image_url_placeholder': 'https://example.com/image.png',
+  'workbench.preview.image_url_invalid': 'Enter a valid image URL (http/https)',
+  'workbench.preview.image_insert': 'Insert',
+  'workbench.preview.image_workspace': 'Workspace images (click to insert)',
+  'workbench.preview.image_workspace_empty': 'No image files in the workspace yet',
+  'workbench.preview.image_pick': 'Insert this image',
   // ---- unified canvas export (replaces per-plugin snapshot buttons) ----
   'workbench.export.menu': 'Export',
   'workbench.export.download_png': 'Download PNG',
@@ -392,6 +397,8 @@ export const enUS: LocaleDictionary = {
   'git.cors_proxy': 'CORS proxy URL',
   'git.cors_saved': 'Git CORS proxy updated.',
   'git.cors_hint': 'Request blocked by CORS: the public proxy may not cover this host — run your own proxy and put its URL in the Git panel proxy field.',
+  'git.auth_hint': 'Remote operations need auth: fill in "Git remote account / access token" under Settings → User profile, then retry.',
+  'git.identity_settings': 'Git identity & credentials…',
   'git.op_failed': 'Git operation failed: {reason}',
 
   'settings.title': 'Settings',

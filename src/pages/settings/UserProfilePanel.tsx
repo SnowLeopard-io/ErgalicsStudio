@@ -39,6 +39,45 @@ export function UserProfilePanel() {
           placeholder={t('profile.name_placeholder')}
           onChange={(e) => update({ name: e.target.value })}
         />
+        <p className="settings-hint">{t('profile.name_git_hint')}</p>
+      </div>
+
+      <div className="settings-row">
+        <label className="settings-label" htmlFor="profile-email">{t('profile.email')}</label>
+        <input
+          id="profile-email"
+          type="text"
+          className="input settings-control"
+          value={profile.email}
+          placeholder={t('profile.email_placeholder')}
+          onChange={(e) => update({ email: e.target.value })}
+        />
+        <p className="settings-hint">{t('profile.email_git_hint')}</p>
+      </div>
+
+      <div className="settings-row">
+        <label className="settings-label" htmlFor="profile-git-username">{t('profile.git_username')}</label>
+        <input
+          id="profile-git-username"
+          type="text"
+          className="input settings-control"
+          value={profile.gitUsername}
+          placeholder={t('profile.git_username_placeholder')}
+          onChange={(e) => update({ gitUsername: e.target.value })}
+        />
+      </div>
+
+      <div className="settings-row">
+        <label className="settings-label" htmlFor="profile-git-token">{t('profile.git_token')}</label>
+        <input
+          id="profile-git-token"
+          type="password"
+          className="input settings-control"
+          value={profile.gitToken}
+          placeholder={t('profile.git_token_placeholder')}
+          onChange={(e) => update({ gitToken: e.target.value })}
+        />
+        <p className="settings-hint">{t('profile.git_hint')}</p>
       </div>
 
       <div className="settings-row">

@@ -150,7 +150,12 @@ export const zhCN: LocaleDictionary = {
   'workbench.preview.mode_preview': '预览',
   'workbench.preview.mode_split': '分栏',
   'workbench.preview.insert_image': '插入图片',
-  'workbench.preview.image_failed': '图片插入失败',
+  'workbench.preview.image_url_placeholder': 'https://example.com/image.png',
+  'workbench.preview.image_url_invalid': '请输入有效的图片链接（http/https）',
+  'workbench.preview.image_insert': '插入',
+  'workbench.preview.image_workspace': '工作区图片（点击插入）',
+  'workbench.preview.image_workspace_empty': '工作区中暂无图片文件',
+  'workbench.preview.image_pick': '插入此图片',
   // ---- 画布统一导出（替代各插件各自的快照按钮） ----
   'workbench.export.menu': '导出',
   'workbench.export.download_png': '下载 PNG',
@@ -395,6 +400,8 @@ export const zhCN: LocaleDictionary = {
   'git.cors_proxy': 'CORS 代理地址',
   'git.cors_saved': 'Git CORS 代理已更新。',
   'git.cors_hint': '请求被 CORS 拦截：公共代理可能不支持该托管站，可自建代理后把地址填入 Git 面板的代理输入框。',
+  'git.auth_hint': '远程操作需要鉴权：请在 设置 → 用户资料 中填写「Git 远程账号 / 访问令牌」后重试。',
+  'git.identity_settings': 'Git 身份 / 凭据设置…',
   'git.op_failed': 'Git 操作失败：{reason}',
 
   'settings.title': '设置',

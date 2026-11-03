@@ -234,12 +234,38 @@ function restoreEditor(state: {
  * Centralized so openProject and loadProjectFromText share the exact same
  * restoration sequence and the stale-response guard.
  */
+// ---- last-opened project (session restore) ----
+// The recent list is sorted by updatedAt (most recently *saved* first), which
+// drifts away from "the project the user actually had open last" — browsing
+// project A while B autosaves, or opening a shared project read-only, both
+// break the heuristic. So the id of whatever becomes active is recorded here
+// and the cold-start restore reads it back.
+const LAST_PROJECT_KEY = 'ergalics:last-opened-project';
+
+function recordLastOpenedProject(id: string): void {
+  try {
+    localStorage.setItem(LAST_PROJECT_KEY, id);
+  } catch {
+    /* storage unavailable — restore just falls back to recent[0] */
+  }
+}
+
+/** Id of the project that was last active in this browser, or null. */
+export function getLastOpenedProjectId(): string | null {
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function applyOpenedProject(project: Project): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
   // project's repo — a fresh project must not show or edit them.
   useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+  recordLastOpenedProject(project.id);
   syncProjectFiles(project);
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);

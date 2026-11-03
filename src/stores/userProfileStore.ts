@@ -12,6 +12,8 @@ export type Gender = 'unspecified' | 'female' | 'male' | 'other';
 
 export interface UserProfile {
   name: string;
+  /** Commit-author email. Used by the git layer (see settings hint). */
+  email: string;
   gender: Gender;
   /** e.g. school year / class label, free-form. */
   birthYear: string;
@@ -22,12 +24,18 @@ export interface UserProfile {
   /** Career/education timeline, one entry per line in the UI. */
   experience: string;
   bio: string;
+  /** Remote git account name for push/pull auth (often the site username). */
+  gitUsername: string;
+  /** Remote access token / password. Local-only, never leaves the browser
+   *  except inside the git HTTP request itself. */
+  gitToken: string;
 }
 
 const STORAGE_KEY = 'ergalics:user-profile';
 
 export const EMPTY_PROFILE: UserProfile = {
   name: '',
+  email: '',
   gender: 'unspecified',
   birthYear: '',
   academy: '',
@@ -35,6 +43,8 @@ export const EMPTY_PROFILE: UserProfile = {
   hobbies: '',
   experience: '',
   bio: '',
+  gitUsername: '',
+  gitToken: '',
 };
 
 function load(): UserProfile {

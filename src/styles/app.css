@@ -2488,6 +2488,15 @@
   color: var(--color-text-secondary);
 }
 
+/* Quiet helper line under a settings field (e.g. "also used as the Git
+   commit author name"). Slightly pulled up to hug its field. */
+.settings-hint {
+  width: 100%;
+  margin: -2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
 .settings-control {
   width: 220px;
 }
@@ -8352,8 +8361,92 @@
   gap: 6px;
 }
 
-.central-md-save {
+/* Toolbar right group: mode pills stay left, insert/save pinned right. */
+.central-md-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* "Insert image" picker: online URL row + clickable workspace-file table. */
+.md-img-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.md-img-url {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.md-img-url input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.md-img-workspace {
+  font-size: var(--font-size-sm, 13px);
+  opacity: 0.75;
+}
+
+.md-img-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.md-img-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 7px var(--space-2);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.md-img-list .md-img-row:last-child {
+  border-bottom: none;
+}
+
+.md-img-row:hover {
+  background: var(--color-hover, rgba(255, 255, 255, 0.06));
+}
+
+.md-img-path {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs, 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-img-size {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: var(--font-size-xs, 12px);
+}
+
+.md-img-empty {
+  font-size: var(--font-size-sm, 13px);
+  opacity: 0.6;
+  text-align: center;
+  padding: var(--space-3) 0;
 }
 
 .central-md-body {

@@ -119,6 +119,23 @@ function mdImageCandidates(src: string, mdPath: string): string[] {
 const MD_VIEWS = ['edit', 'preview', 'split'] as const;
 type MdView = (typeof MD_VIEWS)[number];
 
+/** Bounded recursive walk of the workspace tree collecting image files for
+ *  the markdown "insert image" picker (workspace-sourced only — no local
+ *  file dialog). Depth/amount caps keep pathological trees responsive. */
+async function listWorkspaceImages(rootPath: string): Promise<{ path: string; size: number }[]> {
+  const out: { path: string; size: number }[] = [];
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > 6 || out.length >= 500) return;
+    const entries = await getVfs().readDir(rootPath, dir); // missing dir → []
+    for (const entry of entries) {
+      if (entry.isDir) await walk(entry.path, depth + 1);
+      else if (IMG_MIME[imgExt(entry.name)]) out.push({ path: entry.path, size: entry.size });
+    }
+  };
+  await walk('', 0);
+  return out.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /**
  * File preview overlay (VS Code editor-area style). Renders by kind:
  * text → monospace `<pre>`; markdown → editable preview/split with save-back
@@ -151,10 +168,15 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // diagrams, KaTeX math) via the async enhancer.
   const mdPreviewRef = useRef<HTMLDivElement>(null);
   const mdEditRef = useRef<HTMLTextAreaElement>(null);
-  const mdImgInputRef = useRef<HTMLInputElement>(null);
   // Blob URLs created for project-relative markdown images (resolved VFS path
   // → URL). Cached so React re-renders don't re-read bytes; revoked on unmount.
   const mdImgUrlsRef = useRef(new Map<string, string>());
+
+  // "Insert image" picker: online URL or a clickable workspace-file table —
+  // deliberately no OS file dialog (workspace discipline + portable md).
+  const [imgPickerOpen, setImgPickerOpen] = useState(false);
+  const [imgUrl, setImgUrl] = useState('');
+  const [wsImages, setWsImages] = useState<{ path: string; size: number }[] | null>(null);
 
   // Plugins whose declared formats accept this file's extension. The preview
   // footer offers "open with <plugin>" so a recognized file (e.g. a .cif unit
@@ -309,35 +331,47 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
     }
   };
 
-  /** Insert a picked image into the md draft: bytes go into the project
-   *  workspace `figures/` dir, the editor gets a root-relative `![](…)` at
-   *  the cursor. Switches to split view first so the result is visible. */
-  const insertImageFile = async (file: File) => {
-    if (!project) {
-      notify('warning', t('workbench.export.no_project'));
+  /** Insert an image reference into the md draft at the cursor. `ref` is a
+   *  workspace-relative path (picked from the workspace table) or an external
+   *  http(s) URL typed by the user. Switches to split view first so the
+   *  result is visible. */
+  const insertImageRef = (ref: string) => {
+    if (view === 'preview') setView('split');
+    const snippet = `![](${ref})`;
+    const ta = mdEditRef.current;
+    const start = ta && view !== 'preview' ? (ta.selectionStart ?? mdText.length) : mdText.length;
+    const end = ta && view !== 'preview' ? (ta.selectionEnd ?? start) : start;
+    const next = mdText.slice(0, start) + snippet + mdText.slice(end);
+    setMdText(next);
+    requestAnimationFrame(() => {
+      if (!ta) return;
+      ta.focus();
+      const pos = start + snippet.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  // Load the workspace image table each time the picker opens.
+  useEffect(() => {
+    if (!imgPickerOpen || !project) return undefined;
+    let alive = false;
+    void listWorkspaceImages(getProjectRepoPath(project)).then((list) => {
+      if (!alive) setWsImages(list);
+    });
+    return () => {
+      alive = true;
+    };
+  }, [imgPickerOpen, project]);
+
+  const insertOnlineImage = () => {
+    const url = imgUrl.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      notify('warning', t('workbench.preview.image_url_invalid'));
       return;
     }
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const path = await saveBinaryArtifact(project, 'figures', file.name, bytes);
-      if (view === 'preview') setView('split');
-      const snippet = `![](${path})`;
-      const ta = mdEditRef.current;
-      const start = ta && view !== 'preview' ? (ta.selectionStart ?? mdText.length) : mdText.length;
-      const end = ta && view !== 'preview' ? (ta.selectionEnd ?? start) : start;
-      const next = mdText.slice(0, start) + snippet + mdText.slice(end);
-      setMdText(next);
-      requestAnimationFrame(() => {
-        if (!ta) return;
-        ta.focus();
-        const pos = start + snippet.length;
-        ta.setSelectionRange(pos, pos);
-      });
-      notify('success', t('workbench.export.saved', { path }));
-    } catch (err) {
-      logger.error('workbench', 'md image insert failed', err);
-      notify('error', t('workbench.preview.image_failed'));
-    }
+    insertImageRef(url);
+    setImgUrl('');
+    setImgPickerOpen(false);
   };
 
   let body: JSX.Element;
@@ -368,29 +402,64 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className="btn btn-sm central-md-save"
-              onClick={() => mdImgInputRef.current?.click()}
-            >
-              {t('workbench.preview.insert_image')}
-            </button>
-            <button type="button" className="btn btn-sm central-md-save" onClick={() => void saveMarkdown()}>
-              {t('workbench.preview.save')}
-            </button>
+            <div className="central-md-actions">
+              <button type="button" className="btn btn-sm" onClick={() => setImgPickerOpen(true)}>
+                {t('workbench.preview.insert_image')}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => void saveMarkdown()}>
+                {t('workbench.preview.save')}
+              </button>
+            </div>
           </div>
-          <input
-            ref={mdImgInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            aria-label={t('workbench.preview.insert_image')}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void insertImageFile(f);
-            }}
-          />
+          <Modal
+            open={imgPickerOpen}
+            title={t('workbench.preview.insert_image')}
+            onClose={() => setImgPickerOpen(false)}
+            width={520}
+          >
+            <div className="md-img-picker">
+              <div className="md-img-url">
+                <input
+                  type="url"
+                  value={imgUrl}
+                  placeholder={t('workbench.preview.image_url_placeholder')}
+                  onChange={(e) => setImgUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') insertOnlineImage();
+                  }}
+                />
+                <button type="button" className="btn btn-sm" onClick={insertOnlineImage}>
+                  {t('workbench.preview.image_insert')}
+                </button>
+              </div>
+              <div className="md-img-workspace">{t('workbench.preview.image_workspace')}</div>
+              {wsImages === null ? (
+                <p className="md-img-empty">{t('workbench.preview.loading')}</p>
+              ) : wsImages.length === 0 ? (
+                <p className="md-img-empty">{t('workbench.preview.image_workspace_empty')}</p>
+              ) : (
+                <div className="md-img-list" role="listbox" aria-label={t('workbench.preview.image_workspace')}>
+                  {wsImages.map((f) => (
+                    <button
+                      key={f.path}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className="md-img-row"
+                      title={t('workbench.preview.image_pick')}
+                      onClick={() => {
+                        insertImageRef(f.path);
+                        setImgPickerOpen(false);
+                      }}
+                    >
+                      <span className="md-img-path">{f.path}</span>
+                      <span className="md-img-size">{fmtSize(f.size)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Modal>
           <div className={`central-md-body mode-${view}`}>
             {(view === 'edit' || view === 'split') && (
               <textarea

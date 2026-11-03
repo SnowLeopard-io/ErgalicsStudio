@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { useProjectStore, generateCommitMessage } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
@@ -13,6 +14,7 @@ import { getGitCorsProxy, setGitCorsProxy } from '@/core/git/isomorphic-adapter'
  */
 export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const t = useT();
+  const navigate = useNavigate();
   const project = useProjectStore((s) => s.project);
   const gitRepo = useProjectStore((s) => s.gitRepo);
   const gitCommits = useProjectStore((s) => s.gitCommits);
@@ -67,6 +69,11 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
     // host — tell the user there is a way out instead of a bare ERR_FAILED.
     if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
       reason += ` — ${t('git.cors_hint')}`;
+    }
+    // 401/403 mean missing or wrong remote credentials — point at the
+    // settings page where git identity fields live.
+    if (/\b401\b|\b403\b|unauthorized|authentication|auth required|access denied/i.test(reason)) {
+      reason += ` — ${t('git.auth_hint')}`;
     }
     notify('error', t('git.op_failed', { reason }));
   };
@@ -294,6 +301,16 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
             }}
           />
         </div>
+        {repo && (
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => navigate('/settings')}
+            title={t('git.auth_hint')}
+          >
+            {t('git.identity_settings')}
+          </button>
+        )}
       </details>
       {!repo ? (
         <div className="git-panel-no-repo">
