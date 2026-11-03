@@ -13,6 +13,7 @@ import LightningFS from '@isomorphic-git/lightning-fs';
 import {
   GitAdapter,
   GitStatus,
+  GitStatusEntry,
   GitCommit,
   GitBranch,
   GitRemote,
@@ -75,6 +76,47 @@ export function setGitCorsProxy(url: string): void {
 /** Per-call override falling back to the persisted global proxy. */
 const proxyFor = (opts?: { corsProxy?: string }) => opts?.corsProxy ?? getGitCorsProxy();
 
+// ---- Git identity & remote credentials --------------------------------------
+// Commit authorship and push/pull authentication come from the settings
+// "用户资料" page (UserProfilePanel). That store persists to
+// 'ergalics:user-profile' on every keystroke, so reading localStorage here
+// keeps the core adapter free of store imports while always seeing fresh
+// values at git-call time.
+const USER_PROFILE_KEY = 'ergalics:user-profile';
+
+function readUserProfile(): Record<string, unknown> | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(USER_PROFILE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Commit author from the user profile, falling back to the studio default
+ *  field by field (a name-only or email-only profile still works). */
+function gitAuthor(): { name: string; email: string } {
+  const p = readUserProfile();
+  const name = typeof p?.name === 'string' ? p.name.trim() : '';
+  const email = typeof p?.email === 'string' ? p.email.trim() : '';
+  if (!name && !email) return DEFAULT_AUTHOR;
+  return {
+    name: name || DEFAULT_AUTHOR.name,
+    email: email || DEFAULT_AUTHOR.email,
+  };
+}
+
+/** Remote credentials for push/pull/fetch/clone; `undefined` until the user
+ *  configured both a username and a token in settings. */
+function gitAuth(): { username: string; password: string } | undefined {
+  const p = readUserProfile();
+  const username = typeof p?.gitUsername === 'string' ? p.gitUsername.trim() : '';
+  const password = typeof p?.gitToken === 'string' ? p.gitToken : '';
+  if (!username || !password) return undefined;
+  return { username, password };
+}
+
 /**
  * Create `dirPath` segment by segment (absolute, from the fs root).
  * LightningFS `mkdir` has no `recursive` option and `writeFile` does not
@@ -125,15 +167,20 @@ function mapStatusRow(row: readonly (string | number | undefined)[], out: GitSta
   const head = Number(row[1] ?? 0);
   const workdir = Number(row[2] ?? 0);
   const stage = Number(row[3] ?? 0);
+  const entry: GitStatusEntry = { path: file, staged: null, worktree: null };
   if (head === 0 && stage === 0) {
-    if (workdir !== 0) out.untracked.push(file);
-    return;
-  }
-  if (stage !== head) {
+    if (workdir !== 0) {
+      out.untracked.push(file);
+      entry.worktree = 'U';
+    }
+  } else if (stage !== head) {
     out.staged.push(file);
-    return;
+    entry.staged = head === 0 ? 'A' : stage === 0 ? 'D' : 'M';
+  } else if (workdir !== stage) {
+    out.unstaged.push(file);
+    entry.worktree = workdir === 0 ? 'D' : 'M';
   }
-  if (workdir !== stage) out.unstaged.push(file);
+  if (entry.staged || entry.worktree) (out.entries ??= []).push(entry);
 }
 
 // ---- Minimal line diff (LCS) ----------------------------------------------
@@ -225,7 +272,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       fs,
       dir: repoPath,
       message: 'chore: init project with standard structure',
-      author: DEFAULT_AUTHOR,
+      author: gitAuthor(),
     });
   }
 
@@ -243,6 +290,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
         dir: targetPath,
         url,
         corsProxy: proxyFor(opts),
+        onAuth: () => gitAuth(),
         // Follow the remote's HEAD when no branch is given — hardcoding
         // 'main' breaks remotes whose default branch is master/trunk.
         ...(opts?.branch ? { ref: opts.branch } : {}),
@@ -279,6 +327,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       ahead: 0,
       behind: 0,
       currentBranch: 'main',
+      entries: [],
     };
     for (const row of matrix) mapStatusRow(row, result);
     result.clean =
@@ -489,13 +538,24 @@ export class IsomorphicGitAdapter implements GitAdapter {
     }
   }
 
+  /** Unstage files: resetIndex clears the index entry so a staged new file
+   *  becomes untracked again and a staged modification falls back to its
+   *  worktree state (isomorphic-git has no path-limited "checkout -- file"
+   *  for the index, resetIndex IS that operation). */
+  async resetIndex(repoPath: string, files: string[]): Promise<void> {
+    const fs = this.getFS();
+    for (const filepath of files) {
+      await Git.resetIndex({ fs, dir: repoPath, filepath });
+    }
+  }
+
   async commit(repoPath: string, message: string, opts?: CommitOptions): Promise<string> {
     const fs = this.getFS();
     return Git.commit({
       fs,
       dir: repoPath,
       message,
-      author: opts?.author || DEFAULT_AUTHOR,
+      author: opts?.author || gitAuthor(),
     });
   }
 
@@ -617,6 +677,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
         ref: opts.branch,
         force: opts.force,
         corsProxy: proxyFor(opts),
+        onAuth: () => gitAuth(),
         onProgress: toProgressHandler(opts.onProgress),
         signal: controller.signal,
       });
@@ -637,9 +698,10 @@ export class IsomorphicGitAdapter implements GitAdapter {
       remote: opts.remote,
       ref: opts.branch,
       corsProxy: proxyFor(opts),
+      onAuth: () => gitAuth(),
       fastForward: true,
       singleBranch: true,
-      author: DEFAULT_AUTHOR,
+      author: gitAuthor(),
     });
   }
 
@@ -651,6 +713,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       dir: repoPath,
       remote,
       corsProxy: getGitCorsProxy(),
+      onAuth: () => gitAuth(),
     });
   }
 

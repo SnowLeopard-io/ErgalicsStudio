@@ -1061,7 +1061,23 @@
 .git-panel-hint {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: 1.55;
   color: var(--color-text-tertiary);
+}
+
+/* No-repo placeholder: give the hint + init button real breathing room —
+   previously they hung directly off the panel's 8px group gap and read as
+   one cramped blob under the GIT header. */
+.git-panel-no-repo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.git-panel-no-repo .git-panel-hint {
+  margin-bottom: var(--space-1);
 }
 
 .git-panel-status {
@@ -1167,6 +1183,159 @@
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
+}
+
+/* ---- VSCode-style source-control layout -----------------------------------
+   Message box + full-width primary commit button on top, then the change
+   tree: a collapsible "更改 N" header and file rows with status letters,
+   dim directories and a hover-to-stage action (VSCode's ＋). */
+
+.git-commit-input {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.git-commit-btn {
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+/* The kbd chip mirrors VSCode's "Ctrl+Enter" hint inside the commit button. */
+.git-commit-kbd {
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--color-text-inverse) 45%, transparent);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  opacity: 0.9;
+}
+
+.git-commit-btn:disabled .git-commit-kbd {
+  opacity: 0.55;
+}
+
+.git-changes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+}
+
+.git-changes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.git-changes-toggle:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.git-panel-caret-closed {
+  transform: rotate(-90deg);
+}
+
+.git-change-list {
+  margin: 0;
+  padding: 0 0 0 14px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.git-change-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  transition: background var(--transition-fast);
+}
+
+.git-change-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.git-change-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.git-change-name {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* VSCode renders the folder after the file name in a dimmer tone. */
+.git-change-dir {
+  flex-shrink: 1;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-change-letter {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+/* Letter colors follow VSCode decorations: staged green, unstaged modified
+   orange, untracked green U. */
+.git-st-staged {
+  color: var(--color-success);
+}
+
+.git-st-unstaged {
+  color: var(--color-warning);
+}
+
+.git-st-untracked {
+  color: var(--color-success);
+}
+
+/* Hover-revealed per-file stage action; tiny on purpose so it does not
+   widen the row (desktop precision pointers only — see the coarse block). */
+.git-change-stage {
+  visibility: hidden;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  min-height: 0;
+  font-size: var(--font-size-sm);
+}
+
+.git-change-item:hover .git-change-stage,
+.git-change-item:focus-within .git-change-stage {
+  visibility: visible;
 }
 
 .git-log {
@@ -2335,6 +2504,15 @@
   color: var(--color-text-secondary);
 }
 
+/* Quiet helper line under a settings field (e.g. "also used as the Git
+   commit author name"). Slightly pulled up to hug its field. */
+.settings-hint {
+  width: 100%;
+  margin: -2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
 .settings-control {
   width: 220px;
 }
@@ -3022,7 +3200,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  height: 100%;
+  /* Full-bleed inside flex parents (.workbench-body etc.): without an explicit
+     width the flex child shrinks to content and the card drifts off-centre. */
+  width: 100%;
+  min-height: 100%;
   padding: var(--space-5);
   text-align: center;
 }
@@ -3044,6 +3225,20 @@
   gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* Chunk-load recovery card: explanation + warned reload choice. */
+.error-fallback-note {
+  max-width: min(560px, 88vw);
+  font-size: var(--font-size-sm, 13px);
+  line-height: 1.5;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.error-fallback-note.error-fallback-warn {
+  color: var(--color-warning, #d97706);
+  opacity: 1;
 }
 
 .error-fallback-detail {
@@ -7870,7 +8065,7 @@
   display: flex;
   align-items: stretch;
   gap: 2px;
-  height: 34px;
+  height: var(--central-tabs-height);
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
@@ -7884,10 +8079,11 @@
 }
 
 /* 标签条不再遮挡画布：overlay 栈里出现标签条时，插件画布宿主从标签条
-   下方开始（34px 行高 + 1px 分隔线）——VS Code 编辑区同款布局，标签条
-   独占一行，画布/窗格占满其余空间，互不重叠。 */
+   下方开始（标签行高 + 1px 分隔线，均取自 --central-tabs-height 以便紧凑
+   档同步缩放）——VS Code 编辑区同款布局，标签条独占一行，画布/窗格占满
+   其余空间，互不重叠。 */
 .central:has(> .central-overlay-stack > .central-tool-tabs) > .central-plugin-host {
-  inset: 35px 0 0 0;
+  inset: calc(var(--central-tabs-height) + 1px) 0 0 0;
 }
 
 .central-tool-tab {
@@ -8181,8 +8377,92 @@
   gap: 6px;
 }
 
-.central-md-save {
+/* Toolbar right group: mode pills stay left, insert/save pinned right. */
+.central-md-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* "Insert image" picker: online URL row + clickable workspace-file table. */
+.md-img-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.md-img-url {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.md-img-url input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.md-img-workspace {
+  font-size: var(--font-size-sm, 13px);
+  opacity: 0.75;
+}
+
+.md-img-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.md-img-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 7px var(--space-2);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.md-img-list .md-img-row:last-child {
+  border-bottom: none;
+}
+
+.md-img-row:hover {
+  background: var(--color-hover, rgba(255, 255, 255, 0.06));
+}
+
+.md-img-path {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs, 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-img-size {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: var(--font-size-xs, 12px);
+}
+
+.md-img-empty {
+  font-size: var(--font-size-sm, 13px);
+  opacity: 0.6;
+  text-align: center;
+  padding: var(--space-3) 0;
 }
 
 .central-md-body {
@@ -9677,3 +9957,401 @@
   }
 }
 
+/* ==========================================================================
+   Mobile adaptation — forced landscape, compact tier, touch targets
+   ==========================================================================
+   The workbench is portrait-incompatible by design. See
+   src/core/orientation.ts for the three lock layers (manifest →
+   screen.orientation.lock → the guard below). The compact media query must
+   stay identical to COMPACT_VIEWPORT_QUERY in that file;
+   tests/orientation.test.ts asserts the two strings match.
+   ========================================================================== */
+
+/* ---- portrait guard: blocking overlay when the engine refused the lock -- */
+
+.portrait-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--color-bg-primary);
+}
+
+.portrait-guard-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 420px;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+}
+
+/* The glyph tips from upright into landscape so the instruction registers
+   before the text is read. */
+.portrait-guard-glyph {
+  font-size: 40px;
+  line-height: 1;
+  color: var(--color-accent);
+  transform-origin: 50% 50%;
+  animation: portrait-guard-turn 2.4s var(--ease-out) infinite;
+}
+
+@keyframes portrait-guard-turn {
+  0%,
+  40% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(90deg);
+  }
+}
+
+.portrait-guard-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.portrait-guard-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portrait-guard-glyph {
+    animation: none;
+    transform: rotate(90deg);
+  }
+}
+
+/* ---- compact tier: landscape phones ------------------------------------
+   Covers every mainstream landscape phone viewport (844×390, 851×393,
+   915×412, 780×360, 640×360 …): width ≤1024 and height ≤560. Portrait is
+   refused outright by the guard above, so portrait-only viewports never
+   reach a half-adapted layout. */
+
+@media (max-width: 1024px) and (max-height: 560px) {
+  /* Proportional scaling: structural tokens derive from their desktop values
+     through --ui-scale, so the chrome shrinks as one system instead of
+     per-rule nudges. Type keeps a legibility floor (max()) — a phone CSS px
+     is physically larger than a monitor's, so text must not scale blindly. */
+  :root {
+    --ui-scale: 0.9;
+    --topbar-height: calc(52px * var(--ui-scale));
+    --statusbar-height: calc(30px * var(--ui-scale));
+    --space-3: calc(12px * var(--ui-scale));
+    --space-4: calc(16px * var(--ui-scale));
+    --space-5: calc(24px * var(--ui-scale));
+    --space-6: calc(32px * var(--ui-scale));
+    --font-size-base: max(12.5px, calc(13.5px * var(--ui-scale)));
+    --font-size-md: max(14px, calc(15px * var(--ui-scale)));
+    --font-size-lg: max(17px, calc(19px * var(--ui-scale)));
+    --central-tabs-height: calc(34px * var(--ui-scale));
+  }
+
+  /* dvh: 100vh on mobile counts the strip behind the browser chrome, which
+     would push the status bar out of view. */
+  .app-root,
+  .welcome,
+  .workbench,
+  .settings,
+  .share-loading,
+  .plugin-view,
+  .tool-shell {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Notch insets (viewport-fit=cover): top chrome hugs the cut-out sides
+     and is allowed to wrap rather than clip its trailing actions. */
+  .topbar,
+  .tool-topbar {
+    height: auto;
+    min-height: var(--topbar-height);
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+    padding-top: var(--space-1);
+    padding-bottom: var(--space-1);
+    padding-left: calc(var(--space-2) + var(--safe-inset-left));
+    padding-right: calc(var(--space-2) + var(--safe-inset-right));
+  }
+
+  .welcome-topbar,
+  .settings-topbar {
+    padding-left: calc(var(--space-4) + var(--safe-inset-left));
+    padding-right: calc(var(--space-4) + var(--safe-inset-right));
+  }
+
+  /* The body row is inset so the activity rail and canvas clear the notch;
+     the absolutely-positioned panel layers below anchor to the same offsets. */
+  .workbench-body {
+    padding-left: var(--safe-inset-left);
+    padding-right: var(--safe-inset-right);
+  }
+
+  .statusbar {
+    /* The bottom inset is the home-indicator strip: pad it away and grow
+       the bar so its content keeps the full --statusbar-height of room. */
+    height: calc(var(--statusbar-height) + var(--safe-inset-bottom));
+    padding-top: 0;
+    padding-bottom: var(--safe-inset-bottom);
+    padding-left: calc(var(--space-2) + var(--safe-inset-left));
+    padding-right: calc(var(--space-2) + var(--safe-inset-right));
+    gap: var(--space-2);
+  }
+
+  /* Side chrome clears the cut-out too (both panels hug a screen edge). */
+  .sidebar {
+    padding-left: calc(var(--space-3) + var(--safe-inset-left));
+  }
+
+  .right-panel {
+    padding-right: calc(var(--space-3) + var(--safe-inset-right));
+  }
+
+  /* Status readouts yield in order: the left label truncates, the GPU chip
+     caps its width, the plugin name gives up its slot entirely — a phone
+     status line has no room for all of them. */
+  .statusbar-left {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .statusbar-right span:first-child {
+    display: none;
+  }
+
+  .gpu-chip {
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Declutter: the side panels float over the canvas instead of squeezing
+     it. The wrap leaves the flex row (absolute), so the work area keeps the
+     full width; an explicit z-index + shadow keep the layering legible. */
+  .panel-wrap {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 44;
+    max-width: min(320px, 74vw);
+    box-shadow: var(--shadow-3);
+  }
+
+  .panel-wrap:has(> .sidebar) {
+    left: calc(var(--activitybar-width) + var(--safe-inset-left));
+  }
+
+  .panel-wrap:has(> .right-panel) {
+    right: var(--safe-inset-right);
+  }
+
+  .panel-edge-left.panel-edge-btn {
+    left: calc(var(--activitybar-width) + var(--safe-inset-left));
+  }
+
+  .panel-edge-right.panel-edge-btn {
+    right: var(--safe-inset-right);
+  }
+
+  /* Floating furniture clears the status bar, the notch and each other:
+     the cross-site switcher owns the corner, the AI ball stacks above it. */
+  .cross-site-switcher {
+    right: calc(var(--safe-inset-right) + var(--space-2));
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + var(--space-2));
+  }
+
+  .csw-label {
+    display: none;
+  }
+
+  .toast-stack {
+    right: calc(var(--safe-inset-right) + var(--space-3));
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + var(--space-4));
+  }
+
+  .banner-stack {
+    padding-left: var(--safe-inset-left);
+    padding-right: var(--safe-inset-right);
+  }
+
+  .ai-overlay {
+    right: calc(var(--safe-inset-right) + var(--space-2));
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + var(--space-2));
+    width: min(
+      384px,
+      calc(100vw - var(--safe-inset-left) - var(--safe-inset-right) - var(--space-4))
+    );
+    max-width: none;
+  }
+
+  .ai-fab {
+    right: calc(var(--safe-inset-right) + var(--space-2));
+    /* Sits above the cross-site switcher pill row, not behind it. */
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 56px);
+  }
+}
+
+/* ---- touch targets: coarse pointer only ---------------------------------
+   Fine pointers keep the dense desktop chrome; touch devices get phone-sized
+   hit areas on navigation, topbar actions and the panel rails. */
+
+@media (pointer: coarse) {
+  :root {
+    /* Room for the 44px activity buttons. */
+    --activitybar-width: 48px;
+    /* Taller status bar so its chips stay individually tappable. */
+    --statusbar-height: 34px;
+  }
+
+  .activity-item {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Icon buttons keep their glyph size but gain a phone-sized hit box;
+     the topbar clusters grow with them so nothing overflows its frame. */
+  .icon-btn {
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  .topbar .icon-btn,
+  .tool-topbar .icon-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .topbar-cluster {
+    height: 40px;
+  }
+
+  .topbar .btn,
+  .tool-topbar .btn {
+    min-height: 40px;
+  }
+
+  .btn-sm {
+    padding: 6px 12px;
+  }
+
+  .statusbar-btn,
+  .gpu-chip,
+  .statusbar-progress-cancel {
+    min-height: 26px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* Panel rails: the 16px desktop strips are below the comfortable touch
+     minimum, so they widen — and the resize感应条 they overlap widens with
+     them (it keeps z-index priority over the button's inner edge). */
+  .panel-edge-btn,
+  .panel-collapse-btn {
+    width: 36px;
+  }
+
+  .panel-collapse-right {
+    right: -36px;
+  }
+
+  .panel-collapse-left {
+    left: -36px;
+  }
+
+  .panel-resize-handle {
+    width: 12px;
+  }
+
+  .panel-resize-right {
+    right: -12px;
+  }
+
+  .panel-resize-left {
+    left: -12px;
+  }
+
+  .ai-fab {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+
+/* Touch: no hover in the change tree — keep the per-file stage action
+   permanently visible and at the shared 36px rail width. */
+@media (pointer: coarse) {
+  .git-change-stage {
+    visibility: visible;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Git panel: collapsed clone/proxy section + staged sub-header */
+.git-advanced {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.git-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.git-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.git-advanced > summary:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.git-advanced[open] > summary .git-panel-caret {
+  transform: rotate(90deg);
+}
+
+.git-advanced .git-clone-row {
+  margin-top: var(--space-2);
+}
+
+.git-advanced .btn {
+  margin-top: var(--space-2);
+}
+
+/* "Staged changes" sub-header: static label (no fold), same type as the
+   changes header so the two groups read as siblings. */
+.git-changes-sub {
+  margin-top: 0;
+}
+
+.git-changes-static {
+  cursor: default;
+}
+
+.git-changes-static:hover {
+  background: none;
+}

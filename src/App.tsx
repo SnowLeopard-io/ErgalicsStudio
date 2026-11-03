@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
+import { Suspense, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { lazyRetry } from '@/core/lazyRetry';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BootGate } from '@/components/BootGate';
 import { BannerStack, ToastStack } from '@/components/Feedback';
@@ -9,18 +10,19 @@ import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ShortcutsDialog } from '@/components/ShortcutsDialog';
+import { PortraitGuard } from '@/components/PortraitGuard';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
 import { RESEARCH_TOOLS } from '@/pages/research/toolRegistry';
 
-const WelcomePage = lazy(() => import('@/pages/welcome/WelcomePage'));
-const WorkbenchPage = lazy(() => import('@/pages/workbench/WorkbenchPage'));
-const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
-const PluginViewPage = lazy(() => import('@/pages/plugin/PluginViewPage'));
-const ShareLinkPage = lazy(() => import('@/pages/share/ShareLinkPage'));
+const WelcomePage = lazyRetry(() => import('@/pages/welcome/WelcomePage'));
+const WorkbenchPage = lazyRetry(() => import('@/pages/workbench/WorkbenchPage'));
+const SettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
+const PluginViewPage = lazyRetry(() => import('@/pages/plugin/PluginViewPage'));
+const ShareLinkPage = lazyRetry(() => import('@/pages/share/ShareLinkPage'));
 // All research tools resolve through one /studio/:toolId route + registry.
-const StudioToolPage = lazy(() => import('@/pages/studio/StudioToolPage'));
+const StudioToolPage = lazyRetry(() => import('@/pages/studio/StudioToolPage'));
 
 initProjectStore();
 initExperimentStore();
@@ -73,6 +75,9 @@ function AppShell() {
       <CrossSiteSwitcher />
       <CommandPalette />
       <ShortcutsDialog />
+      {/* Landscape-only layout: blocks portrait on touch devices where the
+          platform refused the orientation lock (see core/orientation.ts). */}
+      <PortraitGuard />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
             the `.route-stage` fade/settle entrance. `loc` is passed through

@@ -113,6 +113,9 @@ interface ProjectStore {
    *  `runs/run-<id>.json` + `runs/index.json` (§3.1) and commits it. */
   autoCommitRun: (run: RunRecord) => Promise<void>;
   gitAdd: (files: string[]) => Promise<void>;
+  /** Unstage paths (index → back to HEAD; a staged new file returns to
+   *  untracked). Mirrors VSCode's － action in the source-control tree. */
+  gitUnstage: (files: string[]) => Promise<void>;
   gitCommit: (message: string) => Promise<string>;
   gitCheckout: (ref: string, create?: boolean) => Promise<void>;
   gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
@@ -231,12 +234,38 @@ function restoreEditor(state: {
  * Centralized so openProject and loadProjectFromText share the exact same
  * restoration sequence and the stale-response guard.
  */
+// ---- last-opened project (session restore) ----
+// The recent list is sorted by updatedAt (most recently *saved* first), which
+// drifts away from "the project the user actually had open last" — browsing
+// project A while B autosaves, or opening a shared project read-only, both
+// break the heuristic. So the id of whatever becomes active is recorded here
+// and the cold-start restore reads it back.
+const LAST_PROJECT_KEY = 'ergalics:last-opened-project';
+
+function recordLastOpenedProject(id: string): void {
+  try {
+    localStorage.setItem(LAST_PROJECT_KEY, id);
+  } catch {
+    /* storage unavailable — restore just falls back to recent[0] */
+  }
+}
+
+/** Id of the project that was last active in this browser, or null. */
+export function getLastOpenedProjectId(): string | null {
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function applyOpenedProject(project: Project): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
   // project's repo — a fresh project must not show or edit them.
   useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+  recordLastOpenedProject(project.id);
   syncProjectFiles(project);
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
@@ -841,6 +870,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await refreshGitStatusForProject(project);
   },
 
+  gitUnstage: async (files) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.resetIndex(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
   gitCommit: async (message: string) => {
     const { project } = get();
     if (!project) throw new Error('No project open');
@@ -962,32 +1000,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const repoPath = targetPath || getProjectRepoPath(seed);
     await adapter.clone(url, repoPath, { branch, onProgress });
 
-    // A git-backed project must carry a project.clproj at its root (§3.1).
-    // On a malformed clone, clean up the orphan repo (including the .git
-    // object tree) before failing — otherwise every retry parks another
-    // full repo copy in VFS storage.
-    let raw: string;
-    try {
-      raw = await adapter.readFile(repoPath, 'project.clproj');
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
-    }
+    // Repo display name: last URL path segment minus ".git" (e.g.
+    // https://host/user/ergalics-demo.git → "ergalics-demo").
+    const repoName =
+      url
+        .replace(/\/+$/, '')
+        .split('/')
+        .pop()
+        ?.replace(/\.git$/, '') || 'Cloned Project';
+
+    // A git-backed project normally carries a project.clproj at its root
+    // (§3.1). Plain code repositories (most GitHub/Gitee repos) don't have
+    // one — instead of failing the whole clone, wrap the cloned file tree
+    // in a fresh project so the files show up in the workspace. On a
+    // malformed clone (empty repo / unreadable manifest) clean up the
+    // orphan repo (including the .git object tree) before failing —
+    // otherwise every retry parks another full repo copy in VFS storage.
     let project: Project;
     try {
-      project = deserializeProject(raw);
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
+      const raw = await adapter.readFile(repoPath, 'project.clproj');
+      try {
+        project = deserializeProject(raw);
+      } catch (err) {
+        await getVfs()
+          .deleteRoot(repoPath)
+          .catch(() => undefined);
+        throw err;
+      }
+    } catch {
+      // No readable project.clproj (LightningFS error shapes vary by
+      // backend, so don't sniff messages): treat the clone as a plain
+      // repository and adopt the seed project shell — whose repoPath is
+      // exactly the clone destination — keeping the cloned files as-is.
+      // An empty repo wraps the same way and opens as an empty project.
+      project = { ...seed, name: repoName };
     }
     // Detach from the source project's identity: this installation owns its
     // own IndexedDB record and repo path.
     project.id = seed.id;
-    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = 'Cloned Project';
+    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = repoName;
 
     const seq = ++openSeq;
     await saveProject(project);

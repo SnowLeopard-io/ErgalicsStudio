@@ -487,28 +487,33 @@
   background: var(--color-bg-secondary);
 }
 
-/* The hover detail popover is top-bar-oriented; inside the panel always show
-   it inline instead of a floating popover. The indicator switches to a column
-   so the detail rows get the full width — as a third flex item beside the
-   rail they were squeezed into an overlap-wrapped sliver. */
-.ambience-xp-in-panel .xp-indicator {
-  display: flex;
+/* The hover detail popover is top-bar-oriented; inside the panel the inline
+   variant takes over (see XpIndicator `variant`). It gets its own class —
+   `.xp-detail-inline` — instead of overriding the absolutely-positioned
+   `.xp-detail`, so a missed/overridden `position` can never make the panel
+   detail escape its card and overlap the sections below it. */
+.xp-indicator-inline {
+  /* The base .xp-indicator is sized for the single-line top bar (height:
+     26px). Left unoverridden it pins this stacked variant to 26px and the
+     detail rows spill out of the card, overlapping the label below. */
+  height: auto;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
   min-width: 100%;
   max-width: none;
+  padding: 0;
   cursor: default;
 }
 
-.ambience-xp-in-panel .xp-detail {
-  position: static;
+.xp-detail-inline {
   display: flex;
-  box-shadow: none;
-  border: none;
-  background: transparent;
-  padding: var(--space-1) 0 0;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
+  padding: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
 }
 
 /* ---- user profile (settings) ------------------------------------------------- */

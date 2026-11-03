@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { lazyRetry } from '@/core/lazyRetry';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
@@ -11,7 +12,7 @@ import { useAppStore } from '@/stores/appStore';
 import { perfMonitor } from '@/core/perf';
 import { logger } from '@/core/logger';
 import { useT } from '@/i18n';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getLastOpenedProjectId } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
@@ -26,10 +27,10 @@ import { useTourStore, tourSeen } from '@/stores/tourStore';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
 // Standard/Flow first paint is unaffected (editor architecture §1.1).
-const BlockEditor = lazy(() =>
+const BlockEditor = lazyRetry(() =>
   import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
 );
-const CodeEditor = lazy(() =>
+const CodeEditor = lazyRetry(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 
@@ -80,9 +81,13 @@ export default function WorkbenchPage() {
         try {
           await useProjectStore.getState().loadRecent();
           const { project, recent } = useProjectStore.getState();
-          if (!project && recent[0]) {
-            await useProjectStore.getState().openProject(recent[0].id);
-          }
+          if (project) return;
+          // Prefer the project that was actually open at last shutdown (see
+          // getLastOpenedProjectId — updatedAt ordering is not "last opened").
+          const lastId = getLastOpenedProjectId();
+          const target =
+            (lastId && recent.find((p) => p.id === lastId)) || recent[0] || null;
+          if (target) await useProjectStore.getState().openProject(target.id);
         } catch (err) {
           // A project left in an old or corrupt shape used to fail silently
           // here: no project, no fallback, no message — just an unhandled

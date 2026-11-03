@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { NamePromptDialog } from '../workbench/dialogs/NamePromptDialog';
 import { TemplatePanel } from './TemplatePanel';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
 import { siteUrl, docsUrl } from '@/core/site-links';
@@ -22,6 +23,7 @@ import {
   FolderOpenIcon,
   BookIcon,
   CloseIcon,
+  GitBranchIcon,
 } from '@/components/icons';
 
 const APP_VERSION = currentAppVersion();
@@ -57,6 +59,39 @@ export default function WelcomePage() {
   const importFolder = useProjectStore((s) => s.importFolder);
   const removeProject = useProjectStore((s) => s.remove);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  /** Git-URL clone prompt (same flow as the top-bar project menu). */
+  const [cloneOpen, setCloneOpen] = useState(false);
+
+  /** One-click clone from the welcome page: the store creates the project,
+   *  we jump straight into the workbench. Progress streams into the dialog
+   *  via `report`; error reporting mirrors the GitPanel (short code + CORS
+   *  hint for network-level failures). */
+  const cloneFromUrl = async (url: string, report: (status: string) => void) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    try {
+      await useProjectStore.getState().gitClone(trimmed, undefined, undefined, (phase, loaded, total) => {
+        report(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
+      notify('success', t('git.cloned'));
+      setCloneOpen(false);
+      navigate('/workbench');
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      const raw = err instanceof Error ? err.message : String(err);
+      let reason = code && !raw.startsWith(code) ? `${code}: ${raw}` : raw;
+      if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
+        reason += ` — ${t('git.cors_hint')}`;
+      }
+      // Surface in-dialog too: a transient toast is easy to miss while the
+      // modal is up, and the input stays available for a corrected retry.
+      report(t('git.op_failed', { reason }));
+      notify('error', t('git.op_failed', { reason }));
+    } finally {
+      setBusy(false);
+    }
+  };
   const [hardware, setHardware] = useState<HardwareState>({
     webgpu: 'pending',
     gpuName: '',
@@ -294,6 +329,15 @@ export default function WelcomePage() {
             >
               <BookIcon size={14} /> {t('welcome.start.samples')}
             </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setCloneOpen(true)}
+              disabled={busy}
+              title={t('project.clone_prompt')}
+            >
+              <GitBranchIcon size={14} /> {t('project.clone')}
+            </button>
           </div>
           {/* Secondary, low-weight entries kept out of the primary CTA row. */}
           <div className="welcome-quiet-row">
@@ -454,6 +498,14 @@ export default function WelcomePage() {
         </button>
       </footer>
       {/* Deleting a pipeline/project is irreversible — confirm first. */}
+      <NamePromptDialog
+        open={cloneOpen}
+        title={t('project.clone')}
+        message={t('project.clone_prompt')}
+        initial="https://"
+        onClose={() => setCloneOpen(false)}
+        onConfirm={cloneFromUrl}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('common.delete')}

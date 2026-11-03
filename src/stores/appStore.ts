@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { logger } from '@/core/logger';
+import { COMPACT_VIEWPORT_QUERY } from '@/core/orientation';
 import { t } from '@/i18n';
 import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
@@ -273,10 +274,39 @@ const PANEL_DEFAULTS = {
 
 const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
 
+/** Phone-sized touch viewport (landscape phones match this query — see
+ *  core/orientation.ts COMPACT_VIEWPORT_QUERY, which the CSS compact tier
+ *  mirrors). Desktop windows never match, so their panel defaults are
+ *  untouched. */
+function compactTouchViewport(): boolean {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return (
+      window.matchMedia('(pointer: coarse)').matches &&
+      window.matchMedia(COMPACT_VIEWPORT_QUERY).matches
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** First-paint defaults: a phone has no room for both side panels docked —
+ *  they float over the canvas on that tier (app.css compact block), so they
+ *  start collapsed and are one tap away. A persisted user choice always
+ *  wins over this. */
+function defaultPanelPrefs(): typeof PANEL_DEFAULTS {
+  const defaults = { ...PANEL_DEFAULTS };
+  if (compactTouchViewport()) {
+    defaults.sidebarOpen = false;
+    defaults.rightPanelOpen = false;
+  }
+  return defaults;
+}
+
 function loadPanelPrefs(): typeof PANEL_DEFAULTS {
   try {
     const raw = localStorage.getItem(PANEL_PREFS_KEY);
-    if (!raw) return { ...PANEL_DEFAULTS };
+    if (!raw) return defaultPanelPrefs();
     const parsed = JSON.parse(raw) as Partial<typeof PANEL_DEFAULTS>;
     return {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
@@ -287,7 +317,7 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
         : PANEL_DEFAULTS.sidebarView,
     };
   } catch {
-    return { ...PANEL_DEFAULTS };
+    return defaultPanelPrefs();
   }
 }
 

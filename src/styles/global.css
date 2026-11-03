@@ -39,6 +39,16 @@
   --activitybar-width: 42px;
   --sidebar-width: 248px;
   --right-panel-width: 284px;
+  --central-tabs-height: 34px;
+  /* Master geometry scale for the compact (landscape-phone) tier in app.css:
+     every structural token there is derived from its desktop value through
+     this factor, so the chrome scales as one system. 1 = stock desktop. */
+  --ui-scale: 1;
+  /* Notch / home-indicator insets (viewport-fit=cover in index.html).
+     env() falls back to 0 on desktop and on devices without insets. */
+  --safe-inset-left: env(safe-area-inset-left, 0px);
+  --safe-inset-right: env(safe-area-inset-right, 0px);
+  --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
   --transition-fast: 120ms ease;
   --transition-base: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
