@@ -279,6 +279,8 @@ export const zhCN: LocaleDictionary = {
   'project.new': '新建项目',
   'project.open': '打开项目',
   'project.open_folder': '打开项目文件夹',
+  'project.clone': '从 Git URL 克隆项目',
+  'project.clone_prompt': '输入仓库的 Git URL（GitHub / Gitee 等，克隆后作为新项目打开）',
   'project.save': '保存',
   'project.save_as': '另存为',
   'project.delete': '删除项目',

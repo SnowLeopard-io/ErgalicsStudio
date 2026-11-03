@@ -1,5 +1,6 @@
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAppStore } from '@/stores/appStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ShareDialog } from './dialogs/ShareDialog';
 import { NamePromptDialog } from './dialogs/NamePromptDialog';
@@ -18,6 +19,7 @@ export type TopBarDialogKey =
   | 'perf'
   | 'new'
   | 'rename'
+  | 'clone'
   | 'project_delete';
 
 interface TopBarDialogsProps {
@@ -32,6 +34,28 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
   const rename = useProjectStore((s) => s.rename);
   const createProject = useProjectStore((s) => s.createProject);
   const removeProject = useProjectStore((s) => s.remove);
+  const notify = useAppStore((s) => s.notify);
+
+  /** One-click clone (US-04): the store creates a fresh project from the
+   *  URL and opens it. Errors mirror the GitPanel's reporting — short code
+   *  plus the CORS hint for network-level failures. */
+  const cloneFromUrl = async (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    try {
+      await useProjectStore.getState().gitClone(trimmed);
+      notify('success', t('git.cloned'));
+      onClose();
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      const raw = err instanceof Error ? err.message : String(err);
+      let reason = code && !raw.startsWith(code) ? `${code}: ${raw}` : raw;
+      if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
+        reason += ` — ${t('git.cors_hint')}`;
+      }
+      notify('error', t('git.op_failed', { reason }));
+    }
+  };
 
   return (
     <>
@@ -45,6 +69,14 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
           await createProject(name);
           onClose();
         }}
+      />
+      <NamePromptDialog
+        open={dialog === 'clone'}
+        title={t('project.clone')}
+        message={t('project.clone_prompt')}
+        initial="https://"
+        onClose={onClose}
+        onConfirm={cloneFromUrl}
       />
       <NamePromptDialog
         open={dialog === 'rename'}

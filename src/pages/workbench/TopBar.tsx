@@ -151,6 +151,7 @@ export function TopBar() {
             label: t('project.open_folder'),
             onClick: () => folderInputRef.current?.click(),
           },
+          { key: 'clone', label: t('project.clone'), onClick: openDialog('clone') },
           { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
           { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           {

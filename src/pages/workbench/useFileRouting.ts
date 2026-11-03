@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useT } from '@/i18n';
 import { usePluginStore, runTracked, refreshParamDefs } from '@/stores/pluginStore';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { getVfs, safeVfsRelPath } from '@/core/vfs';
 import { useAppStore } from '@/stores/appStore';
 import {
   detectFormats,
@@ -60,10 +61,14 @@ export function useFileRouting() {
   const loadIntoPlugin = async (id: string, file: File) => {
     const pluginStore = usePluginStore.getState();
     if (pluginStore.activeId !== id) await pluginStore.activate(id);
-    // Register the dropped file in the project's data-file list so the top
-    // data area (TopBar count + ProjectFilesDialog) reflects the import.
-    // Binary formats (.npz/.npy) cannot be stored as text FileEntry content,
-    // so they stay unlisted and flow straight into the plugin.
+    // Register the dropped file so both import surfaces reflect it:
+    //  - text data files → project data list (top-bar count + dialog) AND a
+    //    workspace data/ mirror for the file explorer (addDataFile does both);
+    //  - binary/plugin-native files (images, .npz, …) → a raw-bytes mirror in
+    //    the workspace data/ folder only. They cannot join the data list,
+    //    whose entries are text-parsed everywhere (chunk store, CSV preview,
+    //    studio.load()), but anything dropped on the canvas must still land
+    //    in the project's data folder.
     if (isSupportedDataFileName(file.name)) {
       try {
         const duplicate = useProjectStore
@@ -77,6 +82,21 @@ export function useFileRouting() {
         }
       } catch (err) {
         logger.warn('io', 'data file registration failed', err);
+      }
+    } else {
+      try {
+        const project = useProjectStore.getState().project;
+        if (project) {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          await getVfs().writeFileBinary(
+            getProjectRepoPath(project),
+            safeVfsRelPath(`data/${file.name}`),
+            bytes,
+          );
+          useAppStore.getState().bumpFileOps(); // refresh the sidebar explorer
+        }
+      } catch (err) {
+        logger.warn('io', 'data/ binary mirror failed', err);
       }
     }
     try {

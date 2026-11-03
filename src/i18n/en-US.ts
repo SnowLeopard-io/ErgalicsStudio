@@ -276,6 +276,8 @@ export const enUS: LocaleDictionary = {
   'project.new': 'New Project',
   'project.open': 'Open Project',
   'project.open_folder': 'Open project folder',
+  'project.clone': 'Clone Project from Git URL',
+  'project.clone_prompt': 'Git URL of the repository (GitHub, Gitee, …) — opens as a new project',
   'project.save': 'Save',
   'project.save_as': 'Save As',
   'project.delete': 'Delete project',
