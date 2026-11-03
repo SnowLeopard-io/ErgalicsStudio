@@ -490,7 +490,12 @@ export const enUS: LocaleDictionary = {
   'error.storage_unavailable': 'Storage unavailable, running in memory mode',
   'error.gpu_oom': 'GPU out of memory, lowered precision',
   'error.unexpected': 'Something went wrong',
+  'error.chunk_title': 'Module failed to load',
+  'error.chunk_body': 'A UI module could not be fetched from the server after several attempts (common after a dev-server restart or a redeploy). Everything else keeps working.',
+  'error.chunk_warn': 'Note: "Reload page" interrupts any running simulation and may discard unsaved changes — save first. Prefer "Reload module".',
   'error.details': 'Show details',
+  'error.chunk_retry': 'Reload module',
+  'error.chunk_reload': 'Reload page',
   'error.copy_details': 'Copy diagnostics',
   'error.copied': 'Copied',
 

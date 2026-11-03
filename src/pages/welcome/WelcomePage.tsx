@@ -63,14 +63,17 @@ export default function WelcomePage() {
   const [cloneOpen, setCloneOpen] = useState(false);
 
   /** One-click clone from the welcome page: the store creates the project,
-   *  we jump straight into the workbench. Error reporting mirrors the
-   *  GitPanel (short code + CORS hint for network-level failures). */
-  const cloneFromUrl = async (url: string) => {
+   *  we jump straight into the workbench. Progress streams into the dialog
+   *  via `report`; error reporting mirrors the GitPanel (short code + CORS
+   *  hint for network-level failures). */
+  const cloneFromUrl = async (url: string, report: (status: string) => void) => {
     const trimmed = url.trim();
     if (!trimmed) return;
     setBusy(true);
     try {
-      await useProjectStore.getState().gitClone(trimmed);
+      await useProjectStore.getState().gitClone(trimmed, undefined, undefined, (phase, loaded, total) => {
+        report(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
       notify('success', t('git.cloned'));
       setCloneOpen(false);
       navigate('/workbench');

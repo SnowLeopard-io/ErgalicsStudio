@@ -8,7 +8,8 @@
 // welcome-page launch grid.
 // ==========================================================================
 
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { type ComponentType, type LazyExoticComponent } from 'react';
+import { lazyRetry } from '@/core/lazyRetry';
 import type { NavigateFunction } from 'react-router-dom';
 import { useAppStore } from '@/stores/appStore';
 import type { ToolIconKind } from '@/components/icons';
@@ -67,7 +68,7 @@ const tool = (
   group: opts.group,
   inGrid: opts.inGrid ?? true,
   requireProject: opts.requireProject ?? false,
-  component: lazy(loader),
+  component: lazyRetry(loader),
 });
 
 export const RESEARCH_TOOLS: ResearchTool[] = [

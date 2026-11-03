@@ -1,4 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
@@ -7,16 +8,16 @@ import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
-const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
+const LazySettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
 // File editor tabs (design doc P2-P4): Monaco code / Blockly block / flow DAG.
 // Each lazy so the editors (and their heavy runtimes) load on first use.
-const LazyCodeFileEditor = lazy(() =>
+const LazyCodeFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/CodeFileEditor').then((m) => ({ default: m.CodeFileEditor })),
 );
-const LazyBlockFileEditor = lazy(() =>
+const LazyBlockFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/BlockFileEditor').then((m) => ({ default: m.BlockFileEditor })),
 );
-const LazyFlowFileEditor = lazy(() =>
+const LazyFlowFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
 );
 import { Modal } from '@/components/Modal';

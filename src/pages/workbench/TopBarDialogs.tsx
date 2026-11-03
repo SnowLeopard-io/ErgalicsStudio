@@ -37,13 +37,16 @@ export function TopBarDialogs({ dialog, onClose }: TopBarDialogsProps) {
   const notify = useAppStore((s) => s.notify);
 
   /** One-click clone (US-04): the store creates a fresh project from the
-   *  URL and opens it. Errors mirror the GitPanel's reporting — short code
-   *  plus the CORS hint for network-level failures. */
-  const cloneFromUrl = async (url: string) => {
+   *  URL and opens it. Progress streams into the dialog via `report`;
+   *  errors mirror the GitPanel's reporting — short code plus the CORS
+   *  hint for network-level failures. */
+  const cloneFromUrl = async (url: string, report: (status: string) => void) => {
     const trimmed = url.trim();
     if (!trimmed) return;
     try {
-      await useProjectStore.getState().gitClone(trimmed);
+      await useProjectStore.getState().gitClone(trimmed, undefined, undefined, (phase, loaded, total) => {
+        report(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
       notify('success', t('git.cloned'));
       onClose();
     } catch (err) {

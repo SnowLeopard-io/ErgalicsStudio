@@ -493,7 +493,12 @@ export const zhCN: LocaleDictionary = {
   'error.storage_unavailable': '存储不可用，将使用内存模式',
   'error.gpu_oom': 'GPU 内存不足，已尝试降低精度',
   'error.unexpected': '出错了',
+  'error.chunk_title': '模块加载失败',
+  'error.chunk_body': '界面的一个功能模块在多次尝试后仍未能从服务器加载（常见于开发服务器重启或版本更新后）。其余功能不受影响。',
+  'error.chunk_warn': '注意：「刷新页面」会中断正在运行的模拟或计算，未保存的修改可能丢失，请先保存。优先尝试「重新加载模块」。',
   'error.details': '查看详情',
+  'error.chunk_retry': '重新加载模块',
+  'error.chunk_reload': '刷新页面',
   'error.copy_details': '复制诊断信息',
   'error.copied': '已复制',
 

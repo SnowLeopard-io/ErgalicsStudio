@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { lazyRetry } from '@/core/lazyRetry';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
@@ -26,10 +27,10 @@ import { useTourStore, tourSeen } from '@/stores/tourStore';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
 // Standard/Flow first paint is unaffected (editor architecture §1.1).
-const BlockEditor = lazy(() =>
+const BlockEditor = lazyRetry(() =>
   import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
 );
-const CodeEditor = lazy(() =>
+const CodeEditor = lazyRetry(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 

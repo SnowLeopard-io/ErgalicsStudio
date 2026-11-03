@@ -3199,6 +3199,20 @@
   justify-content: center;
 }
 
+/* Chunk-load recovery card: explanation + warned reload choice. */
+.error-fallback-note {
+  max-width: min(560px, 88vw);
+  font-size: var(--font-size-sm, 13px);
+  line-height: 1.5;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.error-fallback-note.error-fallback-warn {
+  color: var(--color-warning, #d97706);
+  opacity: 1;
+}
+
 .error-fallback-detail {
   max-width: min(720px, 90vw);
   max-height: 240px;
