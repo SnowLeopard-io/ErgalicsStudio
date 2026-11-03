@@ -113,6 +113,9 @@ interface ProjectStore {
    *  `runs/run-<id>.json` + `runs/index.json` (§3.1) and commits it. */
   autoCommitRun: (run: RunRecord) => Promise<void>;
   gitAdd: (files: string[]) => Promise<void>;
+  /** Unstage paths (index → back to HEAD; a staged new file returns to
+   *  untracked). Mirrors VSCode's － action in the source-control tree. */
+  gitUnstage: (files: string[]) => Promise<void>;
   gitCommit: (message: string) => Promise<string>;
   gitCheckout: (ref: string, create?: boolean) => Promise<void>;
   gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
@@ -838,6 +841,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
     await adapter.add(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
+  gitUnstage: async (files) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.resetIndex(repoPath, files);
     await refreshGitStatusForProject(project);
   },
 

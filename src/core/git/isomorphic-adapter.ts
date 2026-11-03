@@ -13,6 +13,7 @@ import LightningFS from '@isomorphic-git/lightning-fs';
 import {
   GitAdapter,
   GitStatus,
+  GitStatusEntry,
   GitCommit,
   GitBranch,
   GitRemote,
@@ -125,15 +126,20 @@ function mapStatusRow(row: readonly (string | number | undefined)[], out: GitSta
   const head = Number(row[1] ?? 0);
   const workdir = Number(row[2] ?? 0);
   const stage = Number(row[3] ?? 0);
+  const entry: GitStatusEntry = { path: file, staged: null, worktree: null };
   if (head === 0 && stage === 0) {
-    if (workdir !== 0) out.untracked.push(file);
-    return;
-  }
-  if (stage !== head) {
+    if (workdir !== 0) {
+      out.untracked.push(file);
+      entry.worktree = 'U';
+    }
+  } else if (stage !== head) {
     out.staged.push(file);
-    return;
+    entry.staged = head === 0 ? 'A' : stage === 0 ? 'D' : 'M';
+  } else if (workdir !== stage) {
+    out.unstaged.push(file);
+    entry.worktree = workdir === 0 ? 'D' : 'M';
   }
-  if (workdir !== stage) out.unstaged.push(file);
+  if (entry.staged || entry.worktree) (out.entries ??= []).push(entry);
 }
 
 // ---- Minimal line diff (LCS) ----------------------------------------------
@@ -279,6 +285,7 @@ export class IsomorphicGitAdapter implements GitAdapter {
       ahead: 0,
       behind: 0,
       currentBranch: 'main',
+      entries: [],
     };
     for (const row of matrix) mapStatusRow(row, result);
     result.clean =
@@ -486,6 +493,17 @@ export class IsomorphicGitAdapter implements GitAdapter {
         continue;
       }
       await Git.add({ fs, dir: repoPath, filepath: file });
+    }
+  }
+
+  /** Unstage files: resetIndex clears the index entry so a staged new file
+   *  becomes untracked again and a staged modification falls back to its
+   *  worktree state (isomorphic-git has no path-limited "checkout -- file"
+   *  for the index, resetIndex IS that operation). */
+  async resetIndex(repoPath: string, files: string[]): Promise<void> {
+    const fs = this.getFS();
+    for (const filepath of files) {
+      await Git.resetIndex({ fs, dir: repoPath, filepath });
     }
   }
 

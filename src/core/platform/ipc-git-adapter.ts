@@ -59,6 +59,9 @@ export class IpcGitAdapter implements GitAdapter {
   add(repoPath: string, files: string[]): Promise<void> {
     return this.call('add', repoPath, files);
   }
+  resetIndex(repoPath: string, files: string[]): Promise<void> {
+    return this.call('resetIndex', repoPath, files);
+  }
   commit(repoPath: string, message: string, opts?: { author?: { name: string; email: string } }): Promise<string> {
     return this.call('commit', repoPath, message, opts);
   }

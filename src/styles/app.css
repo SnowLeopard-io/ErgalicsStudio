@@ -10175,3 +10175,53 @@
     height: 28px;
   }
 }
+
+/* Git panel: collapsed clone/proxy section + staged sub-header */
+.git-advanced {
+  margin-bottom: var(--space-2);
+}
+
+.git-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.git-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.git-advanced > summary:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.git-advanced[open] > summary .git-panel-caret {
+  transform: rotate(90deg);
+}
+
+.git-advanced .git-clone-row {
+  margin-top: var(--space-1);
+}
+
+/* "Staged changes" sub-header: static label (no fold), same type as the
+   changes header so the two groups read as siblings. */
+.git-changes-sub {
+  margin-top: 0;
+}
+
+.git-changes-static {
+  cursor: default;
+}
+
+.git-changes-static:hover {
+  background: none;
+}

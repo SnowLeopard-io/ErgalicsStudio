@@ -159,26 +159,41 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       ? ` ↑${status.ahead} ↓${status.behind}`
       : '';
 
-  /** VSCode-style change rows: one entry per file with a status letter.
-   *  Precedence follows VSCode's decoration logic — a file that is both
-   *  staged and modified shows once as staged (green M); untracked shows U.
-   *  The path splits into name + dim directory like the VSCode tree. */
-  const changeRows = (() => {
-    if (!status) return [];
-    const seen = new Map<string, { path: string; letter: string; kind: 'staged' | 'unstaged' | 'untracked' }>();
-    for (const p of status.staged) seen.set(p, { path: p, letter: 'M', kind: 'staged' });
-    for (const p of status.unstaged) if (!seen.has(p)) seen.set(p, { path: p, letter: 'M', kind: 'unstaged' });
-    for (const p of status.untracked) if (!seen.has(p)) seen.set(p, { path: p, letter: 'U', kind: 'untracked' });
-    return [...seen.values()]
-      .sort((a, b) => a.path.localeCompare(b.path))
-      .map((row) => {
-        const idx = row.path.lastIndexOf('/');
-        return {
-          ...row,
-          name: idx >= 0 ? row.path.slice(idx + 1) : row.path,
-          dir: idx >= 0 ? row.path.slice(0, idx) : '',
-        };
-      });
+  /** Change-tree rows, split into the two VSCode groups: "Staged Changes"
+   *  (index vs HEAD, − unstages) and "Changes" (worktree vs index, ＋ stages).
+   *  Letters come from the decoded status-matrix entries (A/M/D/U); adapters
+   *  without entries fall back to the path buckets (M/U). */
+  const splitRows = (() => {
+    const split = (path: string, letter: string, kind: 'staged' | 'unstaged' | 'untracked') => {
+      const idx = path.lastIndexOf('/');
+      return {
+        path,
+        letter,
+        kind,
+        name: idx >= 0 ? path.slice(idx + 1) : path,
+        dir: idx >= 0 ? path.slice(0, idx) : '',
+      };
+    };
+    if (status?.entries) {
+      return {
+        stagedRows: status.entries
+          .filter((e) => e.staged)
+          .map((e) => split(e.path, e.staged as string, 'staged'))
+          .sort((a, b) => a.path.localeCompare(b.path)),
+        worktreeRows: status.entries
+          .filter((e) => e.worktree)
+          .map((e) => split(e.path, e.worktree as string, e.worktree === 'U' ? 'untracked' : 'unstaged'))
+          .sort((a, b) => a.path.localeCompare(b.path)),
+      };
+    }
+    if (!status) return { stagedRows: [], worktreeRows: [] };
+    return {
+      stagedRows: status.staged.map((p) => split(p, 'M', 'staged')),
+      worktreeRows: [
+        ...status.unstaged.map((p) => split(p, 'M', 'unstaged')),
+        ...status.untracked.map((p) => split(p, 'U', 'untracked')),
+      ].sort((a, b) => a.path.localeCompare(b.path)),
+    };
   })();
 
   /** Per-file stage (the ＋ hover action in the change tree). */
@@ -186,6 +201,19 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
     setBusy(true);
     try {
       await useProjectStore.getState().gitAdd([file]);
+      await useProjectStore.getState().refreshGitStatus();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Per-file unstage (the − hover action in the staged group). */
+  const unstageOne = async (file: string) => {
+    setBusy(true);
+    try {
+      await useProjectStore.getState().gitUnstage([file]);
       await useProjectStore.getState().refreshGitStatus();
     } catch (err) {
       reportError(err);
@@ -215,44 +243,52 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       </summary>
       {open && (
         <>
-      <div className="git-clone-row">
-        <input
-          className="git-clone-input"
-          type="text"
-          value={cloneUrl}
-          placeholder={t('git.clone_placeholder')}
-          onChange={(e) => setCloneUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void clone();
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={busy || !cloneUrl.trim()}
-          onClick={() => void clone()}
-          title={t('git.clone')}
-        >
-          {t('git.clone')}
-        </button>
-      </div>
-      {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
-      <div className="git-clone-row git-proxy-row">
-        <input
-          className="git-clone-input"
-          type="text"
-          value={proxy}
-          placeholder={t('git.cors_proxy')}
-          title={t('git.cors_hint')}
-          onChange={(e) => setProxy(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
-          }}
-          onBlur={() => {
-            if (proxy.trim() !== getGitCorsProxy()) applyProxy();
-          }}
-        />
-      </div>
+      {/* Clone + proxy are secondary setup — collapsed by default so the
+          commit box and change tree (the VSCode primary surface) lead. */}
+      <details className="git-advanced">
+        <summary title={t('git.advanced_summary')}>
+          <span className="git-panel-caret">▸</span>
+          {t('git.advanced_summary')}
+        </summary>
+        <div className="git-clone-row">
+          <input
+            className="git-clone-input"
+            type="text"
+            value={cloneUrl}
+            placeholder={t('git.clone_placeholder')}
+            onChange={(e) => setCloneUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void clone();
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={busy || !cloneUrl.trim()}
+            onClick={() => void clone()}
+            title={t('git.clone')}
+          >
+            {t('git.clone')}
+          </button>
+        </div>
+        {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
+        <div className="git-clone-row git-proxy-row">
+          <input
+            className="git-clone-input"
+            type="text"
+            value={proxy}
+            placeholder={t('git.cors_proxy')}
+            title={t('git.cors_hint')}
+            onChange={(e) => setProxy(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) applyProxy();
+            }}
+            onBlur={() => {
+              if (proxy.trim() !== getGitCorsProxy()) applyProxy();
+            }}
+          />
+        </div>
+      </details>
       {!repo ? (
         <div className="git-panel-no-repo">
           <p className="git-panel-hint">{t('git.no_repo')}</p>
@@ -304,6 +340,38 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
             </span>
           </button>
 
+          {/* Staged group first (VSCode order): green letters, − unstages. */}
+          {splitRows.stagedRows.length > 0 && (
+            <>
+              <div className="git-changes-header git-changes-sub">
+                <span className="git-changes-toggle git-changes-static">
+                  {t('git.staged_changes')}
+                  <b className="git-pending-dot">{splitRows.stagedRows.length}</b>
+                </span>
+              </div>
+              <ul className="git-change-list">
+                {splitRows.stagedRows.map((row) => (
+                  <li key={row.path} className="git-change-item" title={row.path}>
+                    <span className="git-change-letter git-st-staged">{row.letter}</span>
+                    <span className="git-change-file">
+                      <span className="git-change-name">{row.name}</span>
+                      {row.dir && <span className="git-change-dir">{row.dir}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      className="icon-btn git-change-stage"
+                      title={t('git.unstage_file')}
+                      disabled={busy}
+                      onClick={() => void unstageOne(row.path)}
+                    >
+                      −
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
           {/* Change tree: collapsible header with count badge + refresh,
               file rows with status letter, dim directory and a hover ＋
               that stages just that file. */}
@@ -320,7 +388,9 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
                 ▾
               </span>
               {t('git.changes')}
-              {pending > 0 && <b className="git-pending-dot">{pending}</b>}
+              {splitRows.worktreeRows.length > 0 && (
+                <b className="git-pending-dot">{splitRows.worktreeRows.length}</b>
+              )}
             </button>
             <button
               type="button"
@@ -339,7 +409,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               <span className="git-clean">{t('git.clean')}</span>
             ) : (
               <ul className="git-change-list">
-                {changeRows.map((row) => (
+                {splitRows.worktreeRows.map((row) => (
                   <li key={row.path} className="git-change-item" title={row.path}>
                     <span className={`git-change-letter git-st-${row.kind}`}>{row.letter}</span>
                     <span className="git-change-file">
