@@ -377,6 +377,7 @@ export const enUS: LocaleDictionary = {
   'git.stage_file': 'Stage this file',
   'git.unstage_file': 'Unstage this file',
   'git.advanced_summary': 'Clone repository / CORS proxy',
+  'git.proxy_summary': 'CORS proxy',
   'git.commit_hint': 'Press Ctrl+Enter to commit',
   'git.commit_placeholder': 'Commit message (Ctrl+Enter; default: save: <project>)',
   'git.commit': 'Commit',

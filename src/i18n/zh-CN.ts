@@ -380,6 +380,7 @@ export const zhCN: LocaleDictionary = {
   'git.stage_file': '暂存此文件',
   'git.unstage_file': '取消暂存此文件',
   'git.advanced_summary': '克隆仓库 / CORS 代理',
+  'git.proxy_summary': 'CORS 代理',
   'git.commit_hint': '按 Ctrl+Enter 快速提交',
   'git.commit_placeholder': '提交信息（Ctrl+Enter 提交，默认 save: <项目名>）',
   'git.commit': '提交',

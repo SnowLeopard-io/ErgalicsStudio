@@ -244,34 +244,40 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       {open && (
         <>
       {/* Clone + proxy are secondary setup — collapsed by default so the
-          commit box and change tree (the VSCode primary surface) lead. */}
+          commit box and change tree (the VSCode primary surface) lead.
+          With a repo already open, clone (which spawns a NEW project) is
+          hidden; only the CORS proxy setting remains. */}
       <details className="git-advanced">
-        <summary title={t('git.advanced_summary')}>
+        <summary title={repo ? t('git.proxy_summary') : t('git.advanced_summary')}>
           <span className="git-panel-caret">▸</span>
-          {t('git.advanced_summary')}
+          {repo ? t('git.proxy_summary') : t('git.advanced_summary')}
         </summary>
-        <div className="git-clone-row">
-          <input
-            className="git-clone-input"
-            type="text"
-            value={cloneUrl}
-            placeholder={t('git.clone_placeholder')}
-            onChange={(e) => setCloneUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void clone();
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={busy || !cloneUrl.trim()}
-            onClick={() => void clone()}
-            title={t('git.clone')}
-          >
-            {t('git.clone')}
-          </button>
-        </div>
-        {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
+        {!repo && (
+          <>
+            <div className="git-clone-row">
+              <input
+                className="git-clone-input"
+                type="text"
+                value={cloneUrl}
+                placeholder={t('git.clone_placeholder')}
+                onChange={(e) => setCloneUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) void clone();
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={busy || !cloneUrl.trim()}
+                onClick={() => void clone()}
+                title={t('git.clone')}
+              >
+                {t('git.clone')}
+              </button>
+            </div>
+            {cloneStatus && <p className="git-panel-hint git-clone-progress">{cloneStatus}</p>}
+          </>
+        )}
         <div className="git-clone-row git-proxy-row">
           <input
             className="git-clone-input"
