@@ -1,5 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+// Must run before any git code: isomorphic-git expects the Node Buffer global
+// in the browser (see polyfills/buffer.ts).
+import '@/polyfills/buffer';
 import App from './App';
 import { installGlobalErrorHandlers } from '@/core/errors';
 import { initPwa, registerServiceWorker } from '@/core/pwa';
