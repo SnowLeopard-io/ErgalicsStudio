@@ -25,6 +25,8 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const [cloneStatus, setCloneStatus] = useState('');
   const [proxy, setProxy] = useState(getGitCorsProxy());
   const [busy, setBusy] = useState(false);
+  /** VSCode keeps the change tree expanded; users can fold it away. */
+  const [changesOpen, setChangesOpen] = useState(true);
   // The panel ships COLLAPSED: most users never configure a CORS proxy, so
   // spending sidebar space (and a status scan) on Git by default is noise.
   // The choice persists per browser. The dedicated git activity view forces
@@ -157,6 +159,41 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       ? ` ↑${status.ahead} ↓${status.behind}`
       : '';
 
+  /** VSCode-style change rows: one entry per file with a status letter.
+   *  Precedence follows VSCode's decoration logic — a file that is both
+   *  staged and modified shows once as staged (green M); untracked shows U.
+   *  The path splits into name + dim directory like the VSCode tree. */
+  const changeRows = (() => {
+    if (!status) return [];
+    const seen = new Map<string, { path: string; letter: string; kind: 'staged' | 'unstaged' | 'untracked' }>();
+    for (const p of status.staged) seen.set(p, { path: p, letter: 'M', kind: 'staged' });
+    for (const p of status.unstaged) if (!seen.has(p)) seen.set(p, { path: p, letter: 'M', kind: 'unstaged' });
+    for (const p of status.untracked) if (!seen.has(p)) seen.set(p, { path: p, letter: 'U', kind: 'untracked' });
+    return [...seen.values()]
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((row) => {
+        const idx = row.path.lastIndexOf('/');
+        return {
+          ...row,
+          name: idx >= 0 ? row.path.slice(idx + 1) : row.path,
+          dir: idx >= 0 ? row.path.slice(0, idx) : '',
+        };
+      });
+  })();
+
+  /** Per-file stage (the ＋ hover action in the change tree). */
+  const stageOne = async (file: string) => {
+    setBusy(true);
+    try {
+      await useProjectStore.getState().gitAdd([file]);
+      await useProjectStore.getState().refreshGitStatus();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <details className="sidebar-group git-panel" open={open} onToggle={(e) => toggle((e.target as HTMLDetailsElement).open)}>
       <summary
@@ -240,6 +277,89 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
         </div>
       ) : (
         <>
+          {/* VSCode source-control layout: message box + primary commit
+              action live ABOVE the change tree. Enter or Ctrl+Enter commits;
+              the kbd chip on the button advertises the shortcut. */}
+          <input
+            className="git-commit-input"
+            type="text"
+            value={message}
+            placeholder={t('git.commit_placeholder')}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void commit();
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-primary git-commit-btn"
+            disabled={busy || pending === 0}
+            onClick={() => void commit()}
+            title={t('git.commit_hint')}
+          >
+            <span aria-hidden="true">✓</span>
+            {t('git.commit')}
+            <span className="git-commit-kbd" aria-hidden="true">
+              Ctrl+Enter
+            </span>
+          </button>
+
+          {/* Change tree: collapsible header with count badge + refresh,
+              file rows with status letter, dim directory and a hover ＋
+              that stages just that file. */}
+          <div className="git-changes-header">
+            <button
+              type="button"
+              className="git-changes-toggle"
+              onClick={() => setChangesOpen((v) => !v)}
+            >
+              <span
+                className={`git-panel-caret${changesOpen ? '' : ' git-panel-caret-closed'}`}
+                aria-hidden="true"
+              >
+                ▾
+              </span>
+              {t('git.changes')}
+              {pending > 0 && <b className="git-pending-dot">{pending}</b>}
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={t('git.refresh')}
+              onClick={() => {
+                void useProjectStore.getState().refreshGitStatus();
+                void useProjectStore.getState().loadGitLog();
+              }}
+            >
+              ⟳
+            </button>
+          </div>
+          {changesOpen &&
+            (pending === 0 ? (
+              <span className="git-clean">{t('git.clean')}</span>
+            ) : (
+              <ul className="git-change-list">
+                {changeRows.map((row) => (
+                  <li key={row.path} className="git-change-item" title={row.path}>
+                    <span className={`git-change-letter git-st-${row.kind}`}>{row.letter}</span>
+                    <span className="git-change-file">
+                      <span className="git-change-name">{row.name}</span>
+                      {row.dir && <span className="git-change-dir">{row.dir}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      className="icon-btn git-change-stage"
+                      title={t('git.stage_file')}
+                      disabled={busy || row.kind === 'staged'}
+                      onClick={() => void stageOne(row.path)}
+                    >
+                      ＋
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ))}
+
           <div className="git-panel-status">
             <span className="git-branch" title={t('git.branch')}>
               ⎇ {repo.currentBranch}
@@ -273,17 +393,6 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               >
                 ⇣
               </button>
-              <button
-                type="button"
-                className="icon-btn"
-                title={t('git.refresh')}
-                onClick={() => {
-                  void useProjectStore.getState().refreshGitStatus();
-                  void useProjectStore.getState().loadGitLog();
-                }}
-              >
-                ⟳
-              </button>
             </span>
           </div>
           <div className="git-branch-row">
@@ -305,35 +414,6 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               title={t('git.new_branch')}
             >
               ＋
-            </button>
-          </div>
-          <div className="git-panel-changes">
-            {pending === 0 ? (
-              <span className="git-clean">{t('git.clean')}</span>
-            ) : (
-              <button type="button" className="git-changes-btn" onClick={() => void commit()}>
-                {t('git.stage_commit_all', { n: pending })}
-              </button>
-            )}
-          </div>
-          <div className="git-commit-row">
-            <input
-              className="git-commit-input"
-              type="text"
-              value={message}
-              placeholder={t('git.commit_placeholder')}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void commit();
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-sm"
-              disabled={busy || pending === 0}
-              onClick={() => void commit()}
-            >
-              {t('git.commit')}
             </button>
           </div>
           {gitCommits.length > 0 && (

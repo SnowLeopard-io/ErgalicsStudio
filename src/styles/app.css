@@ -1169,6 +1169,159 @@
   font-size: var(--font-size-sm);
 }
 
+/* ---- VSCode-style source-control layout -----------------------------------
+   Message box + full-width primary commit button on top, then the change
+   tree: a collapsible "更改 N" header and file rows with status letters,
+   dim directories and a hover-to-stage action (VSCode's ＋). */
+
+.git-commit-input {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.git-commit-btn {
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+/* The kbd chip mirrors VSCode's "Ctrl+Enter" hint inside the commit button. */
+.git-commit-kbd {
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--color-text-inverse) 45%, transparent);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  opacity: 0.9;
+}
+
+.git-commit-btn:disabled .git-commit-kbd {
+  opacity: 0.55;
+}
+
+.git-changes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+}
+
+.git-changes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.git-changes-toggle:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.git-panel-caret-closed {
+  transform: rotate(-90deg);
+}
+
+.git-change-list {
+  margin: 0;
+  padding: 0 0 0 14px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.git-change-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  transition: background var(--transition-fast);
+}
+
+.git-change-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.git-change-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.git-change-name {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* VSCode renders the folder after the file name in a dimmer tone. */
+.git-change-dir {
+  flex-shrink: 1;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-change-letter {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+/* Letter colors follow VSCode decorations: staged green, unstaged modified
+   orange, untracked green U. */
+.git-st-staged {
+  color: var(--color-success);
+}
+
+.git-st-unstaged {
+  color: var(--color-warning);
+}
+
+.git-st-untracked {
+  color: var(--color-success);
+}
+
+/* Hover-revealed per-file stage action; tiny on purpose so it does not
+   widen the row (desktop precision pointers only — see the coarse block). */
+.git-change-stage {
+  visibility: hidden;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  min-height: 0;
+  font-size: var(--font-size-sm);
+}
+
+.git-change-item:hover .git-change-stage,
+.git-change-item:focus-within .git-change-stage {
+  visibility: visible;
+}
+
 .git-log {
   list-style: none;
   margin: var(--space-2) 0 0;
@@ -10012,3 +10165,13 @@
   }
 }
 
+
+/* Touch: no hover in the change tree — keep the per-file stage action
+   permanently visible and at the shared 36px rail width. */
+@media (pointer: coarse) {
+  .git-change-stage {
+    visibility: visible;
+    width: 28px;
+    height: 28px;
+  }
+}
