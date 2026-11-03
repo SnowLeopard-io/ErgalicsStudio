@@ -179,16 +179,20 @@ export function XpIndicator() {
 
   return (
     <div className="xp-indicator" title={`${t('ambience.level')} ${level} · ${t(rank)}`}>
-      <span className="xp-level-badge">{level}</span>
-      <span
-        className="xp-rail"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={span}
-        aria-valuenow={into}
-        aria-label={`${t('ambience.level')} ${level}: ${into}/${span}`}
-      >
-        <span className="xp-rail-fill" style={{ width: `${pct}%` }} />
+      {/* Badge + rail live in their own row so the panel variant can stack
+          the detail block below instead of squeezing it beside the rail. */}
+      <span className="xp-track">
+        <span className="xp-level-badge">{level}</span>
+        <span
+          className="xp-rail"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={span}
+          aria-valuenow={into}
+          aria-label={`${t('ambience.level')} ${level}: ${into}/${span}`}
+        >
+          <span className="xp-rail-fill" style={{ width: `${pct}%` }} />
+        </span>
       </span>
       <span className="xp-detail" aria-hidden="true">
         <span className="xp-detail-row">{`${t('ambience.level')} ${level} · ${t(rank)}`}</span>

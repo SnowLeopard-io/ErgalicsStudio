@@ -58,6 +58,16 @@
   overflow: hidden;
 }
 
+/* Badge + rail row: a stable sub-layout used by both the top-bar indicator
+   (inline) and the settings-panel variant (stacked above the detail text). */
+.xp-track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
 .xp-rail-fill {
   position: absolute;
   inset: 0 auto 0 0;
@@ -478,8 +488,14 @@
 }
 
 /* The hover detail popover is top-bar-oriented; inside the panel always show
-   it inline instead of a floating popover. */
+   it inline instead of a floating popover. The indicator switches to a column
+   so the detail rows get the full width — as a third flex item beside the
+   rail they were squeezed into an overlap-wrapped sliver. */
 .ambience-xp-in-panel .xp-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
   min-width: 100%;
   max-width: none;
   cursor: default;
