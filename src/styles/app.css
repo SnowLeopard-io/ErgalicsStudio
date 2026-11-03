@@ -3175,7 +3175,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  height: 100%;
+  /* Full-bleed inside flex parents (.workbench-body etc.): without an explicit
+     width the flex child shrinks to content and the card drifts off-centre. */
+  width: 100%;
+  min-height: 100%;
   padding: var(--space-5);
   text-align: center;
 }

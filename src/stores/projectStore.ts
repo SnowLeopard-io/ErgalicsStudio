@@ -974,32 +974,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const repoPath = targetPath || getProjectRepoPath(seed);
     await adapter.clone(url, repoPath, { branch, onProgress });
 
-    // A git-backed project must carry a project.clproj at its root (§3.1).
-    // On a malformed clone, clean up the orphan repo (including the .git
-    // object tree) before failing — otherwise every retry parks another
-    // full repo copy in VFS storage.
-    let raw: string;
-    try {
-      raw = await adapter.readFile(repoPath, 'project.clproj');
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
-    }
+    // Repo display name: last URL path segment minus ".git" (e.g.
+    // https://host/user/ergalics-demo.git → "ergalics-demo").
+    const repoName =
+      url
+        .replace(/\/+$/, '')
+        .split('/')
+        .pop()
+        ?.replace(/\.git$/, '') || 'Cloned Project';
+
+    // A git-backed project normally carries a project.clproj at its root
+    // (§3.1). Plain code repositories (most GitHub/Gitee repos) don't have
+    // one — instead of failing the whole clone, wrap the cloned file tree
+    // in a fresh project so the files show up in the workspace. On a
+    // malformed clone (empty repo / unreadable manifest) clean up the
+    // orphan repo (including the .git object tree) before failing —
+    // otherwise every retry parks another full repo copy in VFS storage.
     let project: Project;
     try {
-      project = deserializeProject(raw);
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
+      const raw = await adapter.readFile(repoPath, 'project.clproj');
+      try {
+        project = deserializeProject(raw);
+      } catch (err) {
+        await getVfs()
+          .deleteRoot(repoPath)
+          .catch(() => undefined);
+        throw err;
+      }
+    } catch {
+      // No readable project.clproj (LightningFS error shapes vary by
+      // backend, so don't sniff messages): treat the clone as a plain
+      // repository and adopt the seed project shell — whose repoPath is
+      // exactly the clone destination — keeping the cloned files as-is.
+      // An empty repo wraps the same way and opens as an empty project.
+      project = { ...seed, name: repoName };
     }
     // Detach from the source project's identity: this installation owns its
     // own IndexedDB record and repo path.
     project.id = seed.id;
-    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = 'Cloned Project';
+    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = repoName;
 
     const seq = ++openSeq;
     await saveProject(project);

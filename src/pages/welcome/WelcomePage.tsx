@@ -84,6 +84,9 @@ export default function WelcomePage() {
       if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
         reason += ` — ${t('git.cors_hint')}`;
       }
+      // Surface in-dialog too: a transient toast is easy to miss while the
+      // modal is up, and the input stays available for a corrected retry.
+      report(t('git.op_failed', { reason }));
       notify('error', t('git.op_failed', { reason }));
     } finally {
       setBusy(false);

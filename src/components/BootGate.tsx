@@ -40,8 +40,14 @@ export function BootGate({ children }: { children: React.ReactNode }) {
   const splashGone = useRef(false);
 
   useEffect(() => {
-    installBootChunkRecovery();
-  }, []);
+    // Boot-phase only: while the splash is up a chunk failure means a dead
+    // page, so the single auto-reload is the only self-help. Once boot ends
+    // (ready *or* stuck — the stuck recovery UI has its own buttons) the
+    // listener is removed, so later chunk failures surface through the
+    // ErrorBoundary card and never force-refresh a working session.
+    if (phase !== 'booting') return undefined;
+    return installBootChunkRecovery();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'booting') return;

@@ -47,10 +47,10 @@ export function NamePromptDialog({
     const result = onConfirm(ref.current?.value ?? '', setStatusText);
     if (result && typeof result.then === 'function') {
       setPending(true);
-      result.finally(() => {
-        setPending(false);
-        setStatusText('');
-      });
+      // Keep the last status line after settle: on failure the confirm
+      // handler reports the error through `report`, and wiping it here
+      // would leave the dialog looking like nothing happened.
+      result.finally(() => setPending(false));
     }
   };
 
