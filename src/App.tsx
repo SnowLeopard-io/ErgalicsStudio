@@ -9,6 +9,7 @@ import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ShortcutsDialog } from '@/components/ShortcutsDialog';
+import { PortraitGuard } from '@/components/PortraitGuard';
 import { initProjectStore } from '@/stores/projectStore';
 import { initExperimentStore } from '@/stores/experimentStore';
 import { initLineageStore } from '@/stores/lineageStore';
@@ -73,6 +74,9 @@ function AppShell() {
       <CrossSiteSwitcher />
       <CommandPalette />
       <ShortcutsDialog />
+      {/* Landscape-only layout: blocks portrait on touch devices where the
+          platform refused the orientation lock (see core/orientation.ts). */}
+      <PortraitGuard />
       <Suspense fallback={<div className="route-loading"><span className="spinner" /></div>}>
         {/* Keyed by pathname so each navigation remounts the stage and replays
             the `.route-stage` fade/settle entrance. `loc` is passed through

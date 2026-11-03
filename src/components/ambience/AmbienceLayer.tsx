@@ -166,8 +166,16 @@ function XpFloats() {
   );
 }
 
-/** Top-bar XP indicator: level badge + progress rail + hover detail. */
-export function XpIndicator() {
+/**
+ * XP indicator: level badge + progress rail + detail block.
+ *
+ * - `popover` (default): top-bar form — details float below on hover.
+ * - `inline`: settings-panel form — details sit in normal flow under the rail.
+ *   The two use distinct detail class names rather than a descendant override
+ *   of the absolutely-positioned popover, so the panel layout can never fall
+ *   back to escaping its card (overlapping the content below it).
+ */
+export function XpIndicator({ variant = 'popover' }: { variant?: 'popover' | 'inline' }) {
   const t = useT();
   const rewardsEnabled = useAmbienceStore((s) => s.settings.rewardsEnabled);
   const xp = useAmbienceStore((s) => s.progress.xp);
@@ -176,9 +184,13 @@ export function XpIndicator() {
   const { level, into, span } = levelFromXp(xp);
   const pct = Math.min(100, Math.round((into / span) * 100));
   const rank = rankKeyForLevel(level);
+  const inline = variant === 'inline';
 
   return (
-    <div className="xp-indicator" title={`${t('ambience.level')} ${level} · ${t(rank)}`}>
+    <div
+      className={`xp-indicator${inline ? ' xp-indicator-inline' : ''}`}
+      title={`${t('ambience.level')} ${level} · ${t(rank)}`}
+    >
       {/* Badge + rail live in their own row so the panel variant can stack
           the detail block below instead of squeezing it beside the rail. */}
       <span className="xp-track">
@@ -194,7 +206,10 @@ export function XpIndicator() {
           <span className="xp-rail-fill" style={{ width: `${pct}%` }} />
         </span>
       </span>
-      <span className="xp-detail" aria-hidden="true">
+      <span
+        className={inline ? 'xp-detail-inline' : 'xp-detail'}
+        aria-hidden={inline ? undefined : 'true'}
+      >
         <span className="xp-detail-row">{`${t('ambience.level')} ${level} · ${t(rank)}`}</span>
         <span className="xp-detail-row xp-detail-muted">
           {t('ambience.level_next', { xp: span - into })}

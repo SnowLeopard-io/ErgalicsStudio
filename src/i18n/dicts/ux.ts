@@ -66,6 +66,9 @@ export const uxZh: LocaleDictionary = {
   // ---- 导航 ----
   'ux.nav.workbench': '工作台',
   'ux.nav.welcome': '欢迎页',
+  // ---- 强制横屏（竖屏守卫遮罩） ----
+  'ux.orientation.title': '请旋转至横屏',
+  'ux.orientation.hint': 'Ergalics Studio 为横屏布局设计，将设备横向放置即可继续使用',
 };
 
 export const uxEn: LocaleDictionary = {
@@ -132,4 +135,7 @@ export const uxEn: LocaleDictionary = {
   // ---- navigation ----
   'ux.nav.workbench': 'Workbench',
   'ux.nav.welcome': 'Welcome',
+  // ---- forced landscape (portrait guard overlay) ----
+  'ux.orientation.title': 'Rotate to landscape',
+  'ux.orientation.hint': 'Ergalics Studio is built for landscape — turn your device sideways to continue',
 };

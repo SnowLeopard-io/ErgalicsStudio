@@ -169,9 +169,10 @@ export function AchievementsPanel() {
   return (
     <section className="card settings-section">
       <h2 className="settings-section-title">{t('ambience.wall_title')}</h2>
-      {/* Level + XP progress lives here (settings) instead of the top bar. */}
+      {/* Level + XP progress lives here (settings) instead of the top bar.
+          `inline` keeps the detail rows in normal flow inside this card. */}
       <div className="ambience-xp-in-panel">
-        <XpIndicator />
+        <XpIndicator variant="inline" />
       </div>
       <p className="settings-label">
         {t('ambience.wall_progress', { unlocked: unlockedCount, total: BADGES.length })}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { installGlobalErrorHandlers } from '@/core/errors';
 import { initPwa, registerServiceWorker } from '@/core/pwa';
+import { initOrientationLock } from '@/core/orientation';
 import { restoreAppliedTheme } from '@/core/theme-pack/registry';
 import './styles/global.css';
 import './styles/app.css';
@@ -21,6 +22,11 @@ const teardownGlobalHandlers = installGlobalErrorHandlers();
 // hand-written offline service worker (production builds only).
 initPwa();
 window.addEventListener('load', () => void registerServiceWorker());
+
+// Mobile adaptation: force landscape at startup and re-lock whenever the
+// engine rotates back to portrait (see core/orientation.ts for the layering
+// and the fallback guard on engines without a lock API).
+const teardownOrientationLock = initOrientationLock();
 
 // FR-21: re-apply the user's chosen .cstheme before first paint.
 restoreAppliedTheme();
@@ -62,6 +68,7 @@ createRoot(document.getElementById('root')!).render(
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     teardownGlobalHandlers();
+    teardownOrientationLock();
     window.removeEventListener('keydown', onKeyDown);
   });
 }
