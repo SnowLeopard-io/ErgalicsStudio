@@ -12,6 +12,8 @@ export type Gender = 'unspecified' | 'female' | 'male' | 'other';
 
 export interface UserProfile {
   name: string;
+  /** Avatar image as a downscaled square data URL ('' = initials avatar). */
+  avatar: string;
   /** Commit-author email. Used by the git layer (see settings hint). */
   email: string;
   gender: Gender;
@@ -35,6 +37,7 @@ const STORAGE_KEY = 'ergalics:user-profile';
 
 export const EMPTY_PROFILE: UserProfile = {
   name: '',
+  avatar: '',
   email: '',
   gender: 'unspecified',
   birthYear: '',
@@ -51,7 +54,13 @@ function load(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...EMPTY_PROFILE };
-    return { ...EMPTY_PROFILE, ...(JSON.parse(raw) as Partial<UserProfile>) };
+    const merged = { ...EMPTY_PROFILE, ...(JSON.parse(raw) as Partial<UserProfile>) };
+    // Avatar must be an image data URL; anything else (e.g. tampered or very
+    // old payloads) falls back to the initials avatar.
+    if (typeof merged.avatar !== 'string' || !merged.avatar.startsWith('data:image/')) {
+      merged.avatar = '';
+    }
+    return merged;
   } catch {
     return { ...EMPTY_PROFILE };
   }
