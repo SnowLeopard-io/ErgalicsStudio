@@ -103,37 +103,89 @@ export function ScienceOutputStrip() {
   }, [activeId, runHistory, projectFiles]);
 
   const entry = activeId ? outputs[activeId] : undefined;
+
+  // Metrics row: mouse-wheel scrolls it horizontally (deltaY → scrollLeft) so
+  // overflowing metrics stay reachable without a visible scrollbar or drag.
+  // Native listener with passive:false — React's wheel handler can't
+  // preventDefault (passive by default). Hooks stay above the conditional
+  // return (metrics appearing/disappearing must not change hook order); the
+  // effect no-ops while the strip isn't rendered.
+  const itemsRef = useRef<HTMLDivElement>(null);
+  const hasEntry = !!(entry && entry.metrics.length > 0);
+  // Deep-link popover above the strip: opens on mouse hover (desktop) and on
+  // tap (touch — pointerType-aware so a mouse click never toggles it). Close
+  // is delayed briefly so the pointer can cross the card/strip gap (the CSS
+  // ::after bridge usually covers it; this is the second line of defense).
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const closeTimer = useRef<number | null>(null);
+  const openActions = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setActionsOpen(true);
+  };
+  const scheduleClose = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setActionsOpen(false);
+    }, 140);
+  };
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    const el = itemsRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth + 1) return;
+      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!delta) return;
+      e.preventDefault();
+      el.scrollLeft = Math.max(
+        0,
+        Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + delta),
+      );
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [hasEntry]);
+
   if (!entry || entry.metrics.length === 0) return null;
+
+  // Metrics row mouse-wheel binding lives above (hooks-before-return).
 
   const handoff = async (tool: (typeof DEEP_LINKS)[number]['tool']) => {
     if (!sourceFile) return;
+    // Immersive fullscreen must give way: research suites open as embedded
+    // canvas tabs in the standard workbench layout, so drop out of fullscreen
+    // before navigating.
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
     const text = await resolveDataFile(sourceFile);
     if (text === undefined) return;
+    setActionsOpen(false);
     stageLabHandoff({ name: sourceFile, csv: text, target: tool });
     openToolEmbedded(navigate, tool, pathname);
   };
 
   return (
-    <div className="science-strip" role="status">
-      <span className="science-strip-title">Σ</span>
-      <div className="science-strip-items">
-        {entry.metrics.map((m, i) => (
-          <span
-            key={m.key}
-            className={`science-metric sev-${m.severity ?? 'info'}`}
-            title={m.hint ?? m.label}
-            style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
-          >
-            <span className="science-metric-label">{m.label}</span>
-            <span className="science-metric-value">
-              <AnimatedMetricValue text={String(m.value)} />
-              {m.unit ? <span className="science-metric-unit"> {m.unit}</span> : null}
-            </span>
-          </span>
-        ))}
-      </div>
+    <div
+      className="science-strip-zone"
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') openActions();
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') scheduleClose();
+      }}
+    >
       {sourceFile && (
-        <div className="science-strip-actions">
+        <div className={`science-strip-popover${actionsOpen ? ' open' : ''}`}>
           <span className="science-strip-hint">{t('science.deep_link')}</span>
           {DEEP_LINKS.map(({ tool, titleKey }) => (
             <button
@@ -147,6 +199,31 @@ export function ScienceOutputStrip() {
           ))}
         </div>
       )}
+      <div
+        className="science-strip"
+        role="status"
+        onPointerUp={(e) => {
+          if (e.pointerType !== 'mouse') setActionsOpen((v) => !v);
+        }}
+      >
+        <span className="science-strip-title">Σ</span>
+        <div className="science-strip-items" ref={itemsRef}>
+          {entry.metrics.map((m, i) => (
+            <span
+              key={m.key}
+              className={`science-metric sev-${m.severity ?? 'info'}`}
+              title={m.hint ?? m.label}
+              style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}
+            >
+              <span className="science-metric-label">{m.label}</span>
+              <span className="science-metric-value">
+                <AnimatedMetricValue text={String(m.value)} />
+                {m.unit ? <span className="science-metric-unit"> {m.unit}</span> : null}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

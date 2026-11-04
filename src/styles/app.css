@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    Welcome page
    ========================================================================== */
 
@@ -1027,7 +1027,9 @@
   padding: 6px 14px;
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
-  overflow-x: auto;
+  /* The strip itself never scrolls — only the metrics row does (below), so
+     the pinned deep-link actions on the right can never be clipped. */
+  overflow: hidden;
   flex-shrink: 0;
 }
 
@@ -1044,6 +1046,18 @@
   align-items: center;
   gap: var(--space-4);
   white-space: nowrap;
+  /* Only this row scrolls horizontally (mouse wheel maps to scrollLeft —
+     see ScienceOutputStrip). Scrollbar hidden; the wheel + edge fade do the
+     affordance work instead. */
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.science-strip-items::-webkit-scrollbar {
+  display: none;
 }
 
 .science-metric {
@@ -1063,14 +1077,56 @@
   color: var(--color-text-primary);
 }
 
-/* Deep-link cluster: carry the plugin's staged data file into an embedded
-   research suite. Pushed to the far end of the strip so metrics read first. */
-.science-strip-actions {
+/* Zone wrapper: anchors the slide-up deep-link popover above the strip
+   without affecting the strip's own layout (popover is out of flow). */
+.science-strip-zone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Deep-link popover: hidden until the strip is hovered (mouse) or tapped
+   (touch); slides up from behind the strip's top edge. */
+.science-strip-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 14px;
+  z-index: 46;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
-  flex-shrink: 0;
+  max-width: min(92vw, 480px);
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility var(--transition-fast);
+}
+
+.science-strip-popover.open {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Invisible bridge over the 6px gap between card and strip: without it the
+   pointer crosses canvas-only space while travelling up and the hover close
+   fires before the cursor reaches the card. */
+.science-strip-popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
 }
 
 .science-strip-hint {
