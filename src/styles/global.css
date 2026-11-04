@@ -939,8 +939,10 @@ button {
     var(--color-bg-elevated);
   opacity: 0.9;
   pointer-events: none;
+  /* Fade in only after the pill has sunk behind the bar; fade out at once
+     while the pill rises out of it. */
   transition:
-    opacity 0.3s ease,
+    opacity 0.3s ease 0.18s,
     transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
   transform: translateX(-50%) scaleX(1);
 }
@@ -948,6 +950,9 @@ button {
 .csw-puddle.is-hidden {
   opacity: 0;
   transform: translateX(-50%) scaleX(0.25);
+  transition:
+    opacity 0.16s ease,
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
 }
 
 .csw-label {
