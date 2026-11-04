@@ -1790,6 +1790,11 @@
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
   gap: var(--space-4);
+  /* One layer above the cross-site pill (1400) so the pill can slide up from
+     behind the bar; still below banners (1500), toasts (1600) and the AI
+     window (1700). Kept relative so the perf popover still anchors here. */
+  position: relative;
+  z-index: 1401;
 }
 
 .statusbar-center {
@@ -7709,15 +7714,37 @@
   color: var(--color-error);
 }
 
-/* ---- AI 助手悬浮球 ---- */
+/* ---- AI 助手悬浮球（贴边水洼 → 汇聚成水珠） ---- */
 
+/* Closed: [melt] back toward the droplet instead of vanishing abruptly.
+   `visibility` is delayed so the fade/scale can finish first, and hiding it
+   also removes the panel from hit-testing and the tab order. */
 .ai-overlay.is-closed {
-  display: none;
+  opacity: 0;
+  transform: translate(10px, 14px) scale(0.94);
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    transform 0.26s ease,
+    visibility 0s linear 0.26s;
+}
+
+/* Fixed detection anchor at the resting puddle's centre. It must not resize
+   with the button, otherwise the proximity threshold would oscillate. */
+.ai-fab-anchor {
+  position: fixed;
+  right: calc(var(--safe-inset-right) + 4px);
+  bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 31px);
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  /* Sits under the ball itself. */
+  z-index: 0;
 }
 
 .ai-fab {
   position: fixed;
-  right: 16px;
+  right: 14px;
   bottom: calc(var(--statusbar-height) + 12px);
   width: 40px;
   height: 40px;
@@ -7725,21 +7752,78 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   border: 1px solid var(--color-accent);
   background: var(--color-accent);
   color: var(--color-text-inverse);
   box-shadow: 0 0 12px var(--color-glow);
   cursor: pointer;
+  overflow: hidden;
+  transform-origin: 100% 50%;
   /* Above toasts (1600), below the AI window (1700) when it reopens. */
   z-index: 1650;
   transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+    right 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-radius 0.42s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
-.ai-fab:hover {
-  transform: translateY(-2px) scale(1.05);
+.ai-fab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.24s ease,
+    transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Melted into the right edge: only a rounded sliver of water remains. */
+.ai-fab.is-puddle {
+  right: 0;
+  width: 16px;
+  height: 34px;
+  transform: translateX(40%);
+  border-color: transparent;
+  border-radius: 62% 0 0 62% / 52% 0 0 52%;
+  background:
+    radial-gradient(120% 90% at 15% 35%, rgb(255 255 255 / 0.45), transparent 60%),
+    var(--color-accent);
+  box-shadow: none;
+  opacity: 0.55;
+}
+
+.ai-fab.is-puddle .ai-fab-icon {
+  opacity: 0;
+  transform: scale(0.3);
+}
+
+.ai-fab:hover,
+.ai-fab:focus-visible,
+.ai-fab.is-puddle:hover,
+.ai-fab.is-puddle:focus-visible {
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  transform: translateX(0) scale(1.05);
+  border-radius: 999px;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
   box-shadow: 0 0 16px var(--glow-hover);
+  opacity: 1;
+}
+
+.ai-fab:hover .ai-fab-icon,
+.ai-fab:focus-visible .ai-fab-icon,
+.ai-fab.is-puddle:hover .ai-fab-icon,
+.ai-fab.is-puddle:focus-visible .ai-fab-icon {
+  opacity: 1;
+  transform: none;
 }
 
 /* ---- 图表读出：十字线 + mono 读数卡 ---- */
@@ -10275,10 +10359,17 @@
   }
 
   /* Floating furniture clears the status bar, the notch and each other:
-     the cross-site switcher owns the corner, the AI ball stacks above it. */
+     the switcher rests bottom-centre, the AI droplet on the right edge. */
   .cross-site-switcher {
-    right: calc(var(--safe-inset-right) + var(--space-2));
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + var(--space-2));
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 12px);
+  }
+
+  .csw-puddle {
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) - 1px);
+  }
+
+  .csw-anchor {
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 2px);
   }
 
   .csw-label {
@@ -10306,9 +10397,17 @@
   }
 
   .ai-fab {
-    right: calc(var(--safe-inset-right) + var(--space-2));
-    /* Sits above the cross-site switcher pill row, not behind it. */
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 56px);
+    right: calc(var(--safe-inset-right) + 14px);
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 12px);
+  }
+
+  .ai-fab.is-puddle {
+    right: var(--safe-inset-right);
+  }
+
+  .ai-fab-anchor {
+    right: calc(var(--safe-inset-right) + 4px);
+    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 31px);
   }
 }
 

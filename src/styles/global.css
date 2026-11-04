@@ -868,13 +868,18 @@ button {
   }
 }
 
-/* ---- cross-site switcher (官网 / 工作台 / 文档) ---- */
+/* ---- cross-site switcher (官网 / 工作台 / 文档) ----
+   Rests as a thin puddle on the bottom edge; slides up only while the pointer
+   is near the status bar (JS adds `.is-awake`). Bottom-centred so it never
+   collides with the AI droplet in the right corner. */
 .cross-site-switcher {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  left: 50%;
+  bottom: calc(var(--statusbar-height) + 12px);
   /* Below banners (1500), toasts (1600), modals (2000) and the guided-tour
-     overlay (2500) so it never floats above an active overlay. */
+     overlay (2500) so it never floats above an active overlay. The status bar
+     itself sits one layer above (1401) so the pill appears to fly out from
+     behind it. */
   z-index: 1400;
   display: flex;
   align-items: center;
@@ -884,6 +889,65 @@ button {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  /* Retracted: melted down behind the status bar, squashed like a water bead.
+     The offset clears the pill's own height so no sliver peeks above the bar. */
+  transform: translate(-50%, calc(100% + 14px)) scale(0.72);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1),
+    opacity 0.28s ease;
+}
+
+.cross-site-switcher.is-awake {
+  transform: translate(-50%, 0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fixed detection centre for the resting bead. It must not resize with the
+   pill, otherwise the proximity radius would oscillate at the threshold. */
+.csw-anchor {
+  position: fixed;
+  left: calc(50% - 0.5px);
+  bottom: calc(var(--statusbar-height) + 2px);
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* The resting hint: a bead of water seeping out of the status bar itself.
+   Same surface + top border as the bar, so the two read as one continuous
+   body rather than a floating chip. Purely decorative. */
+.csw-puddle {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--statusbar-height) - 1px);
+  z-index: 1399;
+  width: 46px;
+  height: 7px;
+  border-radius: 999px 999px 0 0;
+  border-top: 1px solid var(--color-border);
+  background:
+    radial-gradient(
+      62% 140% at 50% 100%,
+      color-mix(in srgb, var(--color-accent) 26%, transparent),
+      transparent 72%
+    ),
+    var(--color-bg-elevated);
+  opacity: 0.9;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
+  transform: translateX(-50%) scaleX(1);
+}
+
+.csw-puddle.is-hidden {
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.25);
 }
 
 .csw-label {
@@ -919,11 +983,14 @@ button {
   cursor: default;
 }
 
-/* Keep it out of the way on narrow viewports. */
+/* Keep it compact on narrow viewports. */
 @media (max-width: 640px) {
   .csw-label { display: none; }
-  .cross-site-switcher { right: 10px; bottom: 10px; }
+  .cross-site-switcher { bottom: calc(var(--statusbar-height) + 12px); }
+  .csw-puddle { bottom: calc(var(--statusbar-height) - 1px); }
 }
+
+/* Touch devices have no hover proximity — JS keeps the pill permanently awake. */
 
 /* ---- AI assistant floating window ---- */
 .ai-overlay {
@@ -938,6 +1005,12 @@ button {
   /* The layer itself never intercepts clicks; only the panel inside does,
      so the block/code canvas stays fully interactive beneath it. */
   pointer-events: none;
+  /* Grow out of / melt back toward the AI droplet in the bottom-right. */
+  transform-origin: 100% 100%;
+  transition:
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.22, 1.4, 0.36, 1),
+    visibility 0s;
 }
 
 .ai-overlay .ai-panel {
