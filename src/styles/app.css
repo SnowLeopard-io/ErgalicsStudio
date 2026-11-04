@@ -2505,12 +2505,31 @@
 }
 
 /* Quiet helper line under a settings field (e.g. "also used as the Git
-   commit author name"). Slightly pulled up to hug its field. */
+   commit author name"). */
 .settings-hint {
-  width: 100%;
-  margin: -2px 0 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
+}
+
+/* Aligned two-column form grid (used by the user-profile panel): labels in
+   a fixed left rail, controls in the right column with their helper hint
+   directly underneath. The default .settings-row flex (label far left,
+   control far right) cannot host a third hint element cleanly. */
+.settings-form-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 420px);
+  align-items: center;
+  gap: 4px var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.settings-form-row .settings-control {
+  width: 100%;
+}
+
+.settings-form-row .settings-hint {
+  grid-column: 2;
+  margin: 0;
 }
 
 .settings-control {

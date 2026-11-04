@@ -29,7 +29,7 @@ export function UserProfilePanel() {
         </div>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-name">{t('profile.name')}</label>
         <input
           id="profile-name"
@@ -42,7 +42,7 @@ export function UserProfilePanel() {
         <p className="settings-hint">{t('profile.name_git_hint')}</p>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-email">{t('profile.email')}</label>
         <input
           id="profile-email"
@@ -55,7 +55,7 @@ export function UserProfilePanel() {
         <p className="settings-hint">{t('profile.email_git_hint')}</p>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-git-username">{t('profile.git_username')}</label>
         <input
           id="profile-git-username"
@@ -67,7 +67,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-git-token">{t('profile.git_token')}</label>
         <input
           id="profile-git-token"
@@ -80,7 +80,7 @@ export function UserProfilePanel() {
         <p className="settings-hint">{t('profile.git_hint')}</p>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-gender">{t('profile.gender')}</label>
         <select
           id="profile-gender"
@@ -94,7 +94,7 @@ export function UserProfilePanel() {
         </select>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-birth">{t('profile.birth_year')}</label>
         <input
           id="profile-birth"
@@ -106,7 +106,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-academy">{t('profile.academy')}</label>
         <input
           id="profile-academy"
@@ -118,7 +118,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-workplace">{t('profile.workplace')}</label>
         <input
           id="profile-workplace"
@@ -130,7 +130,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-hobbies">{t('profile.hobbies')}</label>
         <textarea
           id="profile-hobbies"
@@ -142,7 +142,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-experience">{t('profile.experience')}</label>
         <textarea
           id="profile-experience"
@@ -154,7 +154,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label" htmlFor="profile-bio">{t('profile.bio')}</label>
         <textarea
           id="profile-bio"
@@ -166,7 +166,7 @@ export function UserProfilePanel() {
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-form-row">
         <label className="settings-label">{t('profile.reset')}</label>
         <button type="button" className="btn" onClick={reset}>{t('profile.reset')}</button>
       </div>
