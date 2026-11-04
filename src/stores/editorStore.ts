@@ -52,6 +52,8 @@ export interface EditorStore {
   setSessionLanguage: (id: string, language: CodeLanguage) => void;
   /** Commit an accepted (possibly user-edited) translation verbatim. */
   applyLanguageWithCode: (id: string, language: CodeLanguage, code: string) => void;
+  /** Bind/unbind the workspace file that code-mode edits mirror into. */
+  setSessionFilePath: (id: string, path: string | null) => void;
   /** Discard the translation: switch language with a blank buffer. */
   blankSession: (id: string, language: CodeLanguage) => void;
   /** Undo a "discard" from a pre-switch snapshot. */
@@ -126,6 +128,7 @@ function sanitizeSession(raw: unknown): EditorSession | null {
     language,
     ir: isIRProgram(s.ir) ? s.ir : emptyProgram(),
     lastCode: typeof s.lastCode === 'string' ? s.lastCode : '',
+    ...(typeof s.filePath === 'string' && s.filePath !== '' ? { filePath: s.filePath } : {}),
     ...(s.blockGraph === undefined ? {} : { blockGraph: s.blockGraph }),
     ...(s.flowGraph === undefined ? {} : { flowGraph: s.flowGraph }),
     // Unknown state → 'block-dirty', the safe direction: regenerate code from
@@ -201,6 +204,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
               syncState: 'code-dirty',
               updatedAt: Date.now(),
             }
+          : x,
+      ),
+    }));
+    notifyChanged();
+  },
+
+  setSessionFilePath: (id, path) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? { ...x, filePath: path ?? undefined, updatedAt: Date.now() }
           : x,
       ),
     }));

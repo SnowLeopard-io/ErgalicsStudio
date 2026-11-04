@@ -43,6 +43,9 @@ export interface EditorSession {
   ir: IRProgram;
   /** Last synced code text (used to restore cursor/diff on re-sync). */
   lastCode: string;
+  /** Workspace file this session was opened from (via "open in code mode").
+   *  Code-mode edits are mirrored back into that file's tab buffer. */
+  filePath?: string;
   /** One-shot flag: force the code buffer empty on the next load, undoing the
    *  anti-wipe guard (used after "discard translation" blanking). */
   forceBlank?: boolean;

@@ -43,6 +43,11 @@ export function CodeFileEditor({ path }: { path: string }) {
         window.clearTimeout(pushTimer.current);
         pushTimer.current = null;
       }
+      // Do not mark the tab dirty when nothing actually changed — an unmount
+      // flush used to turn every file into a permanently dirty buffer, which
+      // then blocked external reloads (and could pin an empty payload).
+      const cur = useAppStore.getState().editorFiles[editorTabKey(path)];
+      if (cur && cur.payload === value) return;
       updateEditorFile(path, value);
     },
     [path, updateEditorFile],
@@ -120,12 +125,18 @@ export function CodeFileEditor({ path }: { path: string }) {
     return <BrokenFileView name={state.name} payload={state.payload} />;
   }
 
-  const openInCodeMode = () =>
+  const openInCodeMode = () => {
+    // Read the LIVE Monaco value (the store copy is debounced by 300 ms), so
+    // opening the mode right after typing never hands over stale text.
+    const code = editorRef.current?.getValue() ?? state.payload;
+    flush(code);
     editorStoreOpenInMode({
       mode: 'code',
       language: toCodeLanguage(monacoLang),
-      code: state.payload,
+      code,
+      path,
     });
+  };
 
   return (
     <div className="central-file-editor">
