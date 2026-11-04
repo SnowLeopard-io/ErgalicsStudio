@@ -19,7 +19,6 @@ import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
-import { TourGuide } from '@/components/TourGuide';
 import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
 import { warmPythonRuntime } from '@/core/pyodide/code-runtime';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
@@ -57,11 +56,18 @@ export default function WorkbenchPage() {
   useFlowSync();
 
   // First visit to the workbench: auto-start the guided tour once the layout
-  // has settled. Skipped/completed tours are remembered in localStorage and
-  // never auto-offered again (the top-bar "?" button re-runs it on demand).
+  // has settled. The entry chooser offers two parts — "meet the interface"
+  // and "run the research workflow" — so neither is forced. Skipped/completed
+  // tours are remembered in localStorage, and the top-bar "?" button reopens
+  // the chooser on demand.
   useEffect(() => {
     if (tourSeen()) return;
-    const timer = window.setTimeout(() => useTourStore.getState().start(), 900);
+    const timer = window.setTimeout(() => {
+      // The welcome page's debut CTA may already have armed the tour while
+      // this page mounts; never clobber that running flow.
+      if (useTourStore.getState().active) return;
+      useTourStore.getState().start('menu');
+    }, 900);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -147,7 +153,6 @@ export default function WorkbenchPage() {
         <StatusBar />
       </ErrorBoundary>
       <PythonRuntimeNotice />
-      <TourGuide />
       <AiAssistantOverlay />
       <ModeConvertDialog />
     </div>

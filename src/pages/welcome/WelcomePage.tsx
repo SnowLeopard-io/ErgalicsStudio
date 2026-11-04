@@ -16,9 +16,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { NamePromptDialog } from '../workbench/dialogs/NamePromptDialog';
 import { TemplatePanel } from './TemplatePanel';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
+import { beginDebut } from '@/core/debut';
+import { useTourStore } from '@/stores/tourStore';
 import { siteUrl, docsUrl } from '@/core/site-links';
 import {
   PlusIcon,
+  SparklesIcon,
   FileIcon,
   FolderOpenIcon,
   BookIcon,
@@ -240,6 +243,25 @@ export default function WelcomePage() {
     }
   };
 
+  /** The 30-second debut: real sample data + a composed publication figure. */
+  const startDebutFlow = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await beginDebut();
+      if (!result.ok) {
+        notify('error', t('tour.debut_failed'));
+        return;
+      }
+      // Continue the tour on the figure step; the intro already played on the
+      // workbench (or is deliberately skipped here).
+      navigate('/studio/figures');
+      useTourStore.getState().startAt('debut', 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const continueProject = async (id: string) => {
     if (busy) return;
     setBusy(true);
@@ -308,6 +330,14 @@ export default function WelcomePage() {
             <button
               type="button"
               className="btn btn-primary welcome-cta-primary welcome-enter"
+              onClick={() => void startDebutFlow()}
+              disabled={busy}
+            >
+              <SparklesIcon size={15} /> {t('welcome.start.debut')}
+            </button>
+            <button
+              type="button"
+              className="btn"
               onClick={() => void startNew()}
               disabled={busy}
             >

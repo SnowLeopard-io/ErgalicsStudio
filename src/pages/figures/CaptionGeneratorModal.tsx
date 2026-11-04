@@ -92,6 +92,7 @@ export function CaptionGeneratorModal({
               onApply(text);
               onClose();
             }}
+            data-tour="caption-apply"
           >
             {t('submit.caption_apply')}
           </button>
