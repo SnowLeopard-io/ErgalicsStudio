@@ -300,7 +300,7 @@ export function TopBar() {
             title={t('workbench.tour.title')}
             aria-label={t('workbench.tour.title')}
             data-tour="tour"
-            onClick={startTour}
+            onClick={() => startTour('menu')}
           >
             <HelpIcon size={15} />
           </button>

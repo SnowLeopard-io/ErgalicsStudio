@@ -3301,6 +3301,54 @@
   line-height: 1.6;
 }
 
+/* Debut completion card: the "result" of the 30-second loop, styled like a
+   small instrument plate rather than a gamified badge. */
+.tour-result-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, var(--color-accent-soft), transparent 62%),
+    var(--color-bg-secondary);
+}
+
+.tour-result-seal {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  color: var(--color-accent-text);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tour-result-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tour-result-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-text);
+}
+
+.tour-result-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 /* ==========================================================================
    Misc
    ========================================================================== */

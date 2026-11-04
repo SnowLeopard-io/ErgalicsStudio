@@ -8,6 +8,7 @@ import { BannerStack, ToastStack } from '@/components/Feedback';
 import { AmbienceLayer } from '@/components/ambience/AmbienceLayer';
 import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
+import { TourGuide } from '@/components/TourGuide';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ShortcutsDialog } from '@/components/ShortcutsDialog';
 import { PortraitGuard } from '@/components/PortraitGuard';
@@ -72,6 +73,7 @@ function AppShell() {
       <ToastStack />
       <AmbienceLayer />
       <TemplateTourOverlay />
+      <TourGuide />
       <CrossSiteSwitcher />
       <CommandPalette />
       <ShortcutsDialog />
