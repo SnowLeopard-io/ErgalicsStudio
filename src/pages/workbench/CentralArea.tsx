@@ -4,7 +4,7 @@ import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useAppStore, type FilePreviewState } from '@/stores/appStore';
 import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
@@ -205,9 +205,11 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
             type: preview.mimeType,
           });
       await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
-      // Hand the canvas back to the plugin: the preview overlay would otherwise
-      // keep covering the (now active) plugin view.
-      useAppStore.getState().closeTab(fileTabKey(preview.path));
+      // Hand the view back to the plugin, but KEEP the file tab open — closing
+      // it here used to yank the tab away mid-interaction, which felt like the
+      // file was lost. showPluginCanvas switches back to the canvas while the
+      // preview tab stays in the strip (user closes it explicitly if wanted).
+      useAppStore.getState().showPluginCanvas();
     } catch (err) {
       logger.warn('workbench', 'open-with-plugin read failed', err);
       notify('error', t('workbench.preview.open_failed'));
