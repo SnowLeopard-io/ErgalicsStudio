@@ -82,6 +82,7 @@ async function exportProfileCard(profile: UserProfile, fallbackName: string): Pr
   ctx.fillRect(1, 1, w - 2, 64);
 
   const name = profile.name.trim() || fallbackName;
+  // Subtitle carries both affiliation fields verbatim (no dedupe by design).
   const affil = [profile.academy.trim(), profile.workplace.trim()].filter(Boolean).join(' · ');
 
   // Avatar: 88px circle at (48, 108).
@@ -123,7 +124,8 @@ async function exportProfileCard(profile: UserProfile, fallbackName: string): Pr
   ctx.font = '400 15px Inter, "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText(affil || '—', 160, av.y + 68);
 
-  // Contact rows.
+  // Contact rows. Every row renders (empty values get a muted dash) so the
+  // card layout stays complete and prompts filling the missing fields.
   const rows: Array<[string, string]> = [
     ['Email', profile.email.trim()],
     ['Git', profile.gitUsername.trim()],
@@ -132,13 +134,17 @@ async function exportProfileCard(profile: UserProfile, fallbackName: string): Pr
   let rowY = 236;
   ctx.font = '500 13px Inter, "PingFang SC", "Microsoft YaHei", sans-serif';
   for (const [label, value] of rows) {
-    if (!value) continue;
     ctx.fillStyle = '#778ba3';
     ctx.fillText(label.toUpperCase(), 48, rowY);
-    ctx.fillStyle = '#e6edf3';
     // Single line, clipped, so the card never overflows.
     const clipped = value.length > 52 ? `${value.slice(0, 51)}…` : value;
-    ctx.fillText(clipped, 160, rowY);
+    if (value) {
+      ctx.fillStyle = '#e6edf3';
+      ctx.fillText(clipped, 160, rowY);
+    } else {
+      ctx.fillStyle = '#46586b';
+      ctx.fillText('—', 160, rowY);
+    }
     rowY += 36;
   }
 
