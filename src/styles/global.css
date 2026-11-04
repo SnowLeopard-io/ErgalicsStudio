@@ -194,6 +194,27 @@ body {
   transition: background-color var(--transition-base), color var(--transition-base);
 }
 
+/* UI chrome is click/drag-only: toolbars, panels, tabs, buttons, canvas
+ * figures and chart SVGs must not fall victim to accidental text/image
+ * selection drags. Real content surfaces re-enable selection below. */
+#root {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root input,
+#root textarea,
+#root [contenteditable],
+#root .monaco-editor,
+#root pre,
+#root code,
+#root .xterm,
+#root .central-md-preview,
+#root .nb-md {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 a {
   color: var(--color-accent-text);
   text-decoration: none;

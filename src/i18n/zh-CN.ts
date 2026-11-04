@@ -159,6 +159,9 @@ export const zhCN: LocaleDictionary = {
   // ---- 画布统一导出（替代各插件各自的快照按钮） ----
   'workbench.export.menu': '导出',
   'workbench.export.download_png': '下载 PNG',
+  'workbench.export.download_png_1080p': '下载 PNG（1080P 高清）',
+  'workbench.export.fullscreen': '沉浸全屏',
+  'workbench.export.fullscreen_exit': '退出全屏',
   'workbench.export.save_workspace': '保存到工作区 figures/',
   'workbench.export.download_png_transparent': '下载 PNG（透明背景）',
   'workbench.export.save_workspace_transparent': '保存到工作区（透明背景）',

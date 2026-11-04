@@ -316,9 +316,11 @@ export interface Scene3DHandle {
   /**
    * Export the current frame as a PNG data URL. Pass `{ transparent: true }`
    * to drop the background and reference furniture (grid/axes) so only the
-   * plugin's own objects are captured on a transparent canvas.
+   * plugin's own objects are captured on a transparent canvas. Pass
+   * `{ width, height }` to render a full-quality off-size frame (e.g. 1080p
+   * export) independent of the on-screen viewport size.
    */
-  snapshot(opts?: { transparent?: boolean }): string;
+  snapshot(opts?: { transparent?: boolean; width?: number; height?: number }): string;
   /**
    * Export the plugin content (everything except the host's reference
    * furniture) as a 3D model. `glb` keeps materials, `stl` is binary

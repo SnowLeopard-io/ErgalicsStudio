@@ -693,6 +693,20 @@
   flex-direction: column;
 }
 
+/* Immersive fullscreen (canvas toolbar entry): the wrap IS the fullscreen
+   element, so it must fill the viewport edge-to-edge — the flex/percentage
+   height chain from the workbench no longer applies in that state. */
+.central-wrap:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-bg-primary);
+}
+
+.central-wrap:fullscreen .central {
+  border-radius: 0;
+  border: none;
+}
+
 .central {
   position: relative;
   flex: 1;
@@ -913,6 +927,10 @@
   right: 14px;
   top: 14px;
   z-index: 6;
+  /* Fullscreen toggle + export menu sit as one horizontal pill cluster. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .central-export-btn {
