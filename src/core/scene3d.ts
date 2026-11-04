@@ -210,7 +210,7 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
     },
     isVisible: () => visible,
     render: renderFrame,
-    snapshot: (opts?: { transparent?: boolean }) => {
+    snapshot: (opts?: { transparent?: boolean; width?: number; height?: number }) => {
       // Render immediately before exporting so the captured frame matches the
       // current camera/state even if the rAF loop isn't actively drawing.
       // In transparent mode, temporarily drop the background and reference
@@ -224,6 +224,18 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
         axes.visible = false;
         renderer.setClearColor(0x000000, 0);
       }
+      // Off-size capture (e.g. 1080p export): pin renderer DPR to 1 so the
+      // output bitmap is exactly width×height, follow the export aspect, and
+      // restore the on-screen frame afterwards (setSize cleared the buffer).
+      const sized = typeof opts?.width === 'number' && typeof opts?.height === 'number';
+      const restoreW = container.clientWidth || 640;
+      const restoreH = container.clientHeight || 480;
+      if (sized) {
+        renderer.setPixelRatio(1);
+        renderer.setSize(opts!.width!, opts!.height!, false);
+        camera.aspect = opts!.width! / opts!.height!;
+        camera.updateProjectionMatrix();
+      }
       try {
         renderFrame();
         return renderer.domElement.toDataURL('image/png');
@@ -233,6 +245,13 @@ export function createScene3D(container: HTMLElement): Scene3DHandle {
         axes.visible = axesVisible;
         if (opts?.transparent) {
           renderer.setClearColor(SCENE_BACKGROUND, 1);
+        }
+        if (sized) {
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          renderer.setSize(restoreW, restoreH);
+          camera.aspect = restoreW / restoreH;
+          camera.updateProjectionMatrix();
+          renderFrame();
         }
       }
     },

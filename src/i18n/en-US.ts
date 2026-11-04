@@ -155,6 +155,9 @@ export const enUS: LocaleDictionary = {
   // ---- unified canvas export (replaces per-plugin snapshot buttons) ----
   'workbench.export.menu': 'Export',
   'workbench.export.download_png': 'Download PNG',
+  'workbench.export.download_png_1080p': 'Download PNG (1080p hi-res)',
+  'workbench.export.fullscreen': 'Immersive fullscreen',
+  'workbench.export.fullscreen_exit': 'Exit fullscreen',
   'workbench.export.save_workspace': 'Save to workspace figures/',
   'workbench.export.download_png_transparent': 'Download PNG (transparent)',
   'workbench.export.save_workspace_transparent': 'Save to workspace (transparent)',

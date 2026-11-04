@@ -1,9 +1,10 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useAppStore, type FilePreviewState } from '@/stores/appStore';
 import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
@@ -31,7 +32,7 @@ import { downloadBlob } from '@/core/download';
 import { getVfs } from '@/core/vfs';
 import { dataUrlToBlob } from '@/core/plugin-tools/enhance';
 import { saveBinaryArtifact } from '@/core/workspace-artifacts';
-import { DownloadIcon } from '@/components/icons';
+import { DownloadIcon, MaximizeIcon, MinimizeIcon } from '@/components/icons';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
 // still cached in `scene3dRef` and exposed synchronously via `getThree`, while
@@ -50,6 +51,7 @@ import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
@@ -203,9 +205,11 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
             type: preview.mimeType,
           });
       await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
-      // Hand the canvas back to the plugin: the preview overlay would otherwise
-      // keep covering the (now active) plugin view.
-      useAppStore.getState().closeTab(fileTabKey(preview.path));
+      // Hand the view back to the plugin, but KEEP the file tab open — closing
+      // it here used to yank the tab away mid-interaction, which felt like the
+      // file was lost. showPluginCanvas switches back to the canvas while the
+      // preview tab stays in the strip (user closes it explicitly if wanted).
+      useAppStore.getState().showPluginCanvas();
     } catch (err) {
       logger.warn('workbench', 'open-with-plugin read failed', err);
       notify('error', t('workbench.preview.open_failed'));
@@ -626,9 +630,13 @@ function EmbeddedToolView({ toolId }: { toolId: string }) {
 function PluginExportMenu({
   canvasRef,
   scene3dRef,
+  fullscreen,
+  onToggleFullscreen,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   scene3dRef: React.RefObject<Scene3DHandle | null>;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
 }) {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
@@ -719,6 +727,48 @@ function PluginExportMenu({
     }
   };
 
+  /** True 1920×1080 re-render, independent of the on-screen viewport size.
+   *  3-D: the scene handle re-renders off-size via its sized snapshot. 2-D:
+   *  temporarily stretch the live canvas to 1920×1080 CSS px (plugins size
+   *  their bitmap from clientWidth at draw start), force one synchronous
+   *  re-render, let two frames flush, snapshot, then restore and re-render. */
+  const grabPng1080 = async (): Promise<Blob | null> => {
+    const three = scene3dRef.current;
+    if (three?.isVisible()) {
+      try {
+        return dataUrlToBlob(three.snapshot({ width: 1920, height: 1080 }));
+      } catch {
+        return null;
+      }
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const prevStyle = canvas.getAttribute('style') ?? '';
+    canvas.style.width = '1920px';
+    canvas.style.height = '1080px';
+    try {
+      rerenderActivePlugin();
+      // Two rAFs: first flushes layout + plugin draw, second guarantees the
+      // bitmap blit is committed before toDataURL reads it back.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return dataUrlToBlob(canvas.toDataURL('image/png'));
+    } catch {
+      return null;
+    } finally {
+      canvas.setAttribute('style', prevStyle);
+      rerenderActivePlugin();
+    }
+  };
+
+  const doDownload1080 = async () => {
+    const blob = await grabPng1080();
+    if (!blob) {
+      notify('warning', t('workbench.export.no_canvas'));
+      return;
+    }
+    downloadBlob(`${baseName()}-1080p.png`, blob, 'image/png');
+  };
+
   /** Encode the active 3-D scene as a downloadable model file. */
   const exportModel = async (format: 'glb' | 'stl', toWorkspace: boolean) => {
     const three = scene3dRef.current;
@@ -762,6 +812,17 @@ function PluginExportMenu({
       <button
         type="button"
         className="central-export-btn"
+        title={fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}
+        aria-label={fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}
+        aria-pressed={fullscreen}
+        onClick={onToggleFullscreen}
+      >
+        {fullscreen ? <MinimizeIcon size={13} /> : <MaximizeIcon size={13} />}
+        <span>{fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}</span>
+      </button>
+      <button
+        type="button"
+        className="central-export-btn"
         title={t('workbench.export.menu')}
         aria-label={t('workbench.export.menu')}
         aria-haspopup="menu"
@@ -777,6 +838,11 @@ function PluginExportMenu({
       {open && (
         <div className="central-export-menu" role="menu">
           {menuBtn(t('workbench.export.download_png'), runAndClose(() => doDownload(false)), 'dl')}
+          {menuBtn(
+            t('workbench.export.download_png_1080p'),
+            runAndClose(() => void doDownload1080()),
+            'dl1080',
+          )}
           {menuBtn(
             t('workbench.export.save_workspace'),
             runAndClose(() => void doSaveWorkspace(false)),
@@ -819,6 +885,34 @@ function PluginExportMenu({
 
 export function CentralArea() {
   const t = useT();
+  // Immersive fullscreen: the fullscreen element is the canvas wrap itself —
+  // the LEFT sidebar stays behind (immersion), but the RIGHT panel is
+  // portaled in as a floating layer so it can still extend over the canvas
+  // (both instances share the same zustand state; the non-fullscreen one is
+  // simply not displayed by the browser). The existing ResizeObserver
+  // re-renders the plugin at the new size automatically.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => typeof document !== 'undefined' && document.fullscreenElement != null,
+  );
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+  const toggleFullscreen = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    const request =
+      el.requestFullscreen ??
+      (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> })
+        .webkitRequestFullscreen;
+    void request?.call(el).catch(() => undefined);
+  };
   const activePlugin = usePluginStore(
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
@@ -1273,7 +1367,7 @@ export function CentralArea() {
   };
 
   return (
-    <div className="central-wrap">
+    <div className="central-wrap" ref={wrapRef}>
       <div
         className="central"
       onDragEnter={(e) => {
@@ -1327,8 +1421,16 @@ export function CentralArea() {
         {/* Unified export control: only on the foreground plugin canvas —
             file/suite tabs cover it with an opaque overlay anyway. */}
         {activeTab === null && activePlugin && (
-          <PluginExportMenu canvasRef={canvasRef} scene3dRef={scene3dRef} />
+          <PluginExportMenu
+            canvasRef={canvasRef}
+            scene3dRef={scene3dRef}
+            fullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+          />
         )}
+        {/* Immersive fullscreen: floating instance of the right panel so it
+            can extend over the canvas (state is shared with the docked one). */}
+        {isFullscreen && wrapRef.current && createPortal(<RightPanel />, wrapRef.current)}
       </div>
       {/* 画布标签体系（VS Code 编辑区风格）：插件画布本身是第一个"标签"，
           文件预览与内嵌套件跟在后面。所有已打开的标签保持挂载，切换仅改
