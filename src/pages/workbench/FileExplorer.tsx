@@ -651,8 +651,16 @@ export function FileExplorer() {
     e.preventDefault();
     e.stopPropagation();
     setDropTarget(null);
+    if (!project) return;
+    // External OS drop (no internal drag in flight): import the files into
+    // the target directory instead of treating the event as a move.
+    const files = Array.from(e.dataTransfer.files);
+    if (!dragRef.current && files.length > 0) {
+      await importExternalFiles(files, targetDir);
+      return;
+    }
     const src = dragRef.current;
-    if (!project || !canDropInto(src, targetDir)) return;
+    if (!canDropInto(src, targetDir)) return;
     if (src) {
       const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
@@ -676,6 +684,41 @@ export function FileExplorer() {
         notify('error', t('workbench.explorer.move_failed'));
       }
     }
+  };
+
+  /** Import files dragged in from the OS into `targetDir`. Name conflicts are
+   *  auto-suffixed ("name (1).ext") instead of overwriting workspace files.
+   *  Only flat file lists are supported (folder drags from the OS expose no
+   *  portable tree without the async entry API — those fall back to flat). */
+  const importExternalFiles = async (files: File[], targetDir: string) => {
+    if (!project) return;
+    const adapter = getVfs();
+    const repoPath = getProjectRepoPath(project);
+    let ok = 0;
+    for (const file of files) {
+      try {
+        if (!isValidVfsEntryName(file.name)) continue;
+        const existing = new Set(
+          (tree[targetDir] ?? (await loadDir(targetDir))).map((e) => e.name),
+        );
+        const dot = file.name.lastIndexOf('.');
+        const stem = dot > 0 ? file.name.slice(0, dot) : file.name;
+        const ext = dot > 0 ? file.name.slice(dot) : '';
+        let name = file.name;
+        for (let i = 1; existing.has(name); i += 1) name = `${stem} (${i})${ext}`;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        await adapter.writeFileBinary(repoPath, joinPath(targetDir, name), bytes);
+        existing.add(name);
+        ok += 1;
+      } catch {
+        /* counted as failed below */
+      }
+    }
+    await refreshDirs([targetDir]);
+    useAppStore.getState().bumpFileOps();
+    if (files.length === 0) return;
+    if (ok === files.length) notify('success', t('workbench.explorer.imported', { n: ok }));
+    else notify('warning', t('workbench.explorer.import_partial', { ok, total: files.length }));
   };
 
   // ---- keyboard shortcuts (F2 / Delete / Copy/Cut/Paste / Ctrl+N / Enter) ---
@@ -766,7 +809,10 @@ export function FileExplorer() {
         onDragOver={
           isRoot
             ? (e) => {
-                if (canDropInto(dragRef.current, rootDir)) {
+                if (e.dataTransfer.types.includes('Files')) {
+                  e.preventDefault();
+                  setDropTarget(rootDir);
+                } else if (canDropInto(dragRef.current, rootDir)) {
                   e.preventDefault();
                   setDropTarget(rootDir);
                 }
@@ -822,7 +868,11 @@ export function FileExplorer() {
                     ev.dataTransfer.setData('text/plain', e.path);
                   }}
                   onDragOver={(ev) => {
-                    if (canDropInto(dragRef.current, e.path)) {
+                    if (ev.dataTransfer.types.includes('Files')) {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      setDropTarget(e.path);
+                    } else if (canDropInto(dragRef.current, e.path)) {
                       ev.preventDefault();
                       ev.stopPropagation();
                       setDropTarget(e.path);
@@ -863,6 +913,13 @@ export function FileExplorer() {
                   dragRef.current = e;
                   ev.dataTransfer.effectAllowed = 'move';
                   ev.dataTransfer.setData('text/plain', e.path);
+                }}
+                onDragOver={(ev) => {
+                  // Files land in the row's parent directory.
+                  if (ev.dataTransfer.types.includes('Files')) ev.preventDefault();
+                }}
+                onDrop={(ev) => {
+                  void onDropTarget(dir)(ev);
                 }}
               >
                 <span className="explorer-name">{e.name}</span>

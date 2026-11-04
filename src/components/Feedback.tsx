@@ -93,7 +93,7 @@ export function BannerStack() {
           role="alert"
         >
           <span>
-            {t(b.messageKey)}
+            {t(b.messageKey, b.params)}
             {b.pluginId ? ` · ${pluginName(b.pluginId)}` : ''}
           </span>
           {b.dismissible && (
