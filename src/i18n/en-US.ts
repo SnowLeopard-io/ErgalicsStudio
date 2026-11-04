@@ -115,6 +115,8 @@ export const enUS: LocaleDictionary = {
   'workbench.explorer.renamed_hint': 'Renamed',
   'workbench.explorer.op_failed': 'Operation failed',
   'workbench.explorer.move_failed': 'Cannot move to that location',
+  'workbench.explorer.imported': 'Imported {n} file(s)',
+  'workbench.explorer.import_partial': 'Import finished: {ok}/{total} succeeded',
   'workbench.explorer.delete_title': 'Confirm delete',
   'workbench.explorer.delete_confirm': 'Delete',
   'workbench.explorer.clip_hint': 'Clipboard',
@@ -497,6 +499,8 @@ export const enUS: LocaleDictionary = {
   'error.wasm_failed': 'WASM module failed to load, retrying',
   'error.webgpu_unavailable': 'WebGPU unavailable, switched to CPU fallback',
   'error.file_unsupported': 'No loaded plugin supports this format',
+  'error.file_unsupported_formats':
+    'No plugin can open this format. Supported file formats: {formats}',
   'error.data_too_large': 'Data too large, consider chunked loading or sample data',
   'error.storage_unavailable': 'Storage unavailable, running in memory mode',
   'error.gpu_oom': 'GPU out of memory, lowered precision',

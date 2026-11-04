@@ -10,6 +10,8 @@ export interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
+  /** Interpolation values for `messageKey` (e.g. a list of file extensions). */
+  params?: Record<string, string | number>;
   dismissible?: boolean;
   /** Plugin id this banner refers to, when applicable. */
   pluginId?: string;
@@ -193,7 +195,7 @@ interface AppStore {
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
-  setBanner: (messageKey: string) => void;
+  setBanner: (messageKey: string, params?: Record<string, string | number>) => void;
   removeBanner: (id: number) => void;
   setError: (pluginId: string) => void;
   notify: (kind: Notification['kind'], message: string, action?: Notification['action']) => void;
@@ -362,11 +364,14 @@ export const useAppStore = create<AppStore>((set, get) => {
       banners: [...s.banners, { id: ++bannerId, kind, messageKey, dismissible: true }],
     }));
   },
-  setBanner: (messageKey) => {
+  setBanner: (messageKey, params) => {
     const existing = get().banners.some((b) => b.messageKey === messageKey);
     if (existing) return;
     set((s) => ({
-      banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey, dismissible: true }],
+      banners: [
+        ...s.banners,
+        { id: ++bannerId, kind: 'error', messageKey, params, dismissible: true },
+      ],
     }));
   },
   removeBanner: (id) =>

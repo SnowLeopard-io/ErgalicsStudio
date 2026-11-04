@@ -64,6 +64,35 @@ describe('editorStore', () => {
     expect((restored.sessions[0]!.ir.body[0] as { kind: string }).kind).toBe('Number');
   });
 
+  it('binds a workspace file to a code session and persists the binding', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().setSessionFilePath(session.id, 'hello.py');
+    expect(useEditorStore.getState().sessions[0]!.filePath).toBe('hello.py');
+
+    // Survives .clproj serialization (plus the sanitizer on restore).
+    const snapshot = useEditorStore.getState().toJSON();
+    reset();
+    useEditorStore.getState().fromJSON(snapshot);
+    expect(useEditorStore.getState().sessions[0]!.filePath).toBe('hello.py');
+
+    // Unbinding removes the field entirely (nothing stale in the snapshot).
+    useEditorStore.getState().setSessionFilePath(session.id, null);
+    expect(useEditorStore.getState().sessions[0]!.filePath).toBeUndefined();
+  });
+
+  it('drops an invalid persisted filePath instead of trusting external input', () => {
+    useEditorStore.getState().fromJSON({
+      sessions: [
+        {
+          ...useEditorStore.getState().createSession('code', 'python'),
+          filePath: 42,
+        } as unknown as EditorSession,
+      ],
+      activeSessionId: null,
+    });
+    expect(useEditorStore.getState().sessions[0]!.filePath).toBeUndefined();
+  });
+
   it('appendConsole stamps timestamps and streams', () => {
     useEditorStore.getState().appendConsole({ stream: 'stdout', text: 'hi' });
     const entry = useEditorStore.getState().console[0]!;
