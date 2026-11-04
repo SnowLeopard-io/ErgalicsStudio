@@ -7,7 +7,7 @@ import {
   components,
   degreeAssortativity,
   louvain,
-} from '../src/plugins/builtin/proteinAnalytics';
+} from '../src/plugins/builtin/bio/protein/analytics';
 
 /** Two tightly connected cliques joined by a single weak bridge: Louvain
  *  should recover exactly two dense communities with positive modularity. */

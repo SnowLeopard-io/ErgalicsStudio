@@ -60,6 +60,8 @@ export interface PlotSpec {
   ticks?: number;
   /** Override the x-axis ticks with categorical labels (used by bar charts). */
   xTicksOverride?: CategoricalTicks[];
+  /** Override the y-axis ticks with categorical labels (e.g. forest plots). */
+  yTicksOverride?: CategoricalTicks[];
   /** Draw light gridlines at ticks. */
   grid?: boolean;
   /** Draw a legend (only if more than one series, or forced). */

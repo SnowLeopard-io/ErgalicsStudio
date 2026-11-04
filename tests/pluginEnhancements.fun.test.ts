@@ -11,16 +11,16 @@
 // ==========================================================================
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { MandelbrotPlugin } from '@/plugins/builtin/mandelbrot';
-import { SpirographPlugin } from '@/plugins/builtin/spirograph';
-import { LissajousPlugin } from '@/plugins/builtin/lissajous';
-import { LifePlugin } from '@/plugins/builtin/life';
-import { HarmonographPlugin } from '@/plugins/builtin/harmonograph';
-import { PalettePlugin } from '@/plugins/builtin/palette';
-import { KochPlugin } from '@/plugins/builtin/koch';
-import { BarnsleyPlugin } from '@/plugins/builtin/barnsley';
-import { FireworksPlugin } from '@/plugins/builtin/fireworks';
-import { TruchetPlugin } from '@/plugins/builtin/truchet';
+import { MandelbrotPlugin } from '@/plugins/builtin/fun/mandelbrot/plugin';
+import { SpirographPlugin } from '@/plugins/builtin/fun/spirograph/plugin';
+import { LissajousPlugin } from '@/plugins/builtin/fun/lissajous/plugin';
+import { LifePlugin } from '@/plugins/builtin/fun/life/plugin';
+import { HarmonographPlugin } from '@/plugins/builtin/fun/harmonograph/plugin';
+import { PalettePlugin } from '@/plugins/builtin/fun/palette/plugin';
+import { KochPlugin } from '@/plugins/builtin/fun/koch/plugin';
+import { BarnsleyPlugin } from '@/plugins/builtin/fun/barnsley/plugin';
+import { FireworksPlugin } from '@/plugins/builtin/fun/fireworks/plugin';
+import { TruchetPlugin } from '@/plugins/builtin/fun/truchet/plugin';
 import type { ContainerCapabilities, ParamDefinition, PluginApi } from '@/types/plugin';
 
 // Animation loops schedule frames; node has no rAF / DOM.

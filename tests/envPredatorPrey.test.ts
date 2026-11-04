@@ -14,7 +14,7 @@ import {
   parseLvCsv,
   runLvBenchmarks,
   simulateLv,
-} from '../src/plugins/builtin/env-predator-prey/kernel';
+} from '../src/plugins/builtin/env/predator-prey/kernel';
 
 const P = DEFAULT_LV_PARAMS;
 const T0 = (2 * Math.PI) / linearOmega(P);

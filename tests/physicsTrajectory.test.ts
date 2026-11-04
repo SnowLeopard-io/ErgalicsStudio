@@ -23,7 +23,7 @@ import {
   smoothTrajectory,
   synthesizeProjectile,
   type Trajectory,
-} from '../src/plugins/builtin/physics-trajectory/kernel';
+} from '../src/plugins/builtin/physics/trajectory/kernel';
 
 // ---- benchmark ①: projectile recovery from 0.5 % noise -------------------------------
 

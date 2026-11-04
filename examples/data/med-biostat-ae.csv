@@ -1,0 +1,17 @@
+treatment,event,cases,n
+DrugA,headache,60,500
+DrugA,nausea,40,500
+DrugA,dizziness,30,500
+DrugA,insomnia,25,500
+DrugA,fatigue,20,500
+DrugA,rash,10,500
+DrugA,cough,8,500
+DrugA,edema,7,500
+DrugB,headache,18,500
+DrugB,nausea,42,500
+DrugB,dizziness,28,500
+DrugB,insomnia,22,500
+DrugB,fatigue,26,500
+DrugB,rash,12,500
+DrugB,cough,10,500
+DrugB,edema,12,500

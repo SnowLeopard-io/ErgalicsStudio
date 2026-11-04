@@ -10,7 +10,7 @@ import {
   step,
   stepN,
   totalMass,
-} from '../src/plugins/builtin/chem-turing/kernel';
+} from '../src/plugins/builtin/chem/turing/kernel';
 
 const STD = { f: 0.03, k: 0.062, du: 0.16, dv: 0.08, dt: 1.0 } as const;
 

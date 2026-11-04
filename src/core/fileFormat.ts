@@ -186,6 +186,38 @@ export function matchesFormats(
   );
 }
 
+// ---- Preview-only formats -------------------------------------------------
+//
+// Extensions the canvas can display even though no plugin declares them.
+// Mirrors `classifyFile` in FileExplorer (image / PDF / video / audio) plus the
+// plain-text kinds.
+
+const PREVIEW_EXTENSIONS = [
+  '.md',
+  '.markdown',
+  '.svg',
+  '.bmp',
+  '.ico',
+  '.pdf',
+  '.mp4',
+  '.webm',
+  '.mov',
+  '.mp3',
+  '.wav',
+  '.ogg',
+  '.oga',
+  '.m4a',
+  '.yml',
+  '.yaml',
+  '.toml',
+  '.log',
+  '.ini',
+  '.sh',
+  '.js',
+  '.py',
+  '.r',
+];
+
 /** Collect all supported extensions across plugins for error messages. */
 export function collectSupportedExtensions(
   formats: { pluginId: string; formats: SupportedFormat[] }[],
@@ -195,6 +227,34 @@ export function collectSupportedExtensions(
     for (const f of list) set.add(f.extension);
   }
   return [...set];
+}
+
+/**
+ * Extensions the app handles itself, regardless of which plugins happen to be
+ * loaded at that moment: the preview/project formats and the scientific binary
+ * importers. Keeping this list static stops the "unsupported file" hint from
+ * shrinking to only the plugins that finished autoloading.
+ */
+export function builtinSupportedExtensions(): string[] {
+  return [
+    ...Object.keys(EXTENSION_FORMATS),
+    ...Object.keys(SCIENTIFIC_EXTENSIONS),
+    ...DATA_FILE_EXTENSIONS,
+    // Preview-only formats handled by the canvas (PDF/video/audio, extra
+    // image and text kinds) — these have no plugin manifest behind them.
+    ...PREVIEW_EXTENSIONS,
+  ];
+}
+
+/** Complete, de-duplicated and sorted extension list for user-facing hints. */
+export function allSupportedExtensions(
+  formats: { pluginId: string; formats: SupportedFormat[] }[],
+): string[] {
+  const set = new Set<string>(builtinSupportedExtensions());
+  for (const { formats: list } of formats) {
+    for (const f of list) set.add(f.extension.toLowerCase());
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
 }
 
 // ---- Scientific binary formats (research data) -------------------------

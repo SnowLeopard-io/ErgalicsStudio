@@ -173,6 +173,27 @@ export function toDelimited(table: DataTable, columns: string[], delimiter = ' '
   return lines.join('\n');
 }
 
+/** RFC-4180-ish CSV escaping for a single cell. */
+function csvCell(value: unknown): string {
+  const text = value === undefined || value === null ? '' : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * Serialize a DataTable (including text / boolean columns) as CSV with a
+ * header row. Used by visualize blocks whose target plugin parses a named
+ * table rather than bare numeric columns.
+ */
+export function toCsvTable(table: DataTable, columns?: string[]): string {
+  const cols = columns && columns.length > 0 ? columns : table.columnNames();
+  const data = cols.map((name) => table.getColumn(name));
+  const lines = [cols.map(csvCell).join(',')];
+  for (let i = 0; i < table.length; i += 1) {
+    lines.push(cols.map((_, c) => csvCell(data[c]?.[i])).join(','));
+  }
+  return lines.join('\n');
+}
+
 // ---- numeric kernels ----
 
 export function normalize(values: Float64Array, mode: NormalizeMode): Float64Array {

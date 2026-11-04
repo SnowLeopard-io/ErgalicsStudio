@@ -2,6 +2,7 @@ import { Component, Fragment } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { t } from '@/i18n';
 import { reportError, normalizeError } from '@/core/errors';
+import { isChunkLoadError } from '@/core/lazyRetry';
 
 interface Props {
   fallback?: ReactNode;
@@ -85,6 +86,38 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
+      // A lazy-chunk import that survived every silent retry gets its own
+      // recovery card: the module may come back after a dev-server restart or
+      // a redeploy, so offer a non-destructive retry (remount) first and make
+      // the page reload an explicit, warned-about choice — reloading would
+      // interrupt running simulations and discard unsaved buffers.
+      if (isChunkLoadError(this.state.error)) {
+        return (
+          <div className="error-fallback" role="alert">
+            <div className="error-fallback-title">⦿ {t('error.chunk_title')}</div>
+            <div className="error-fallback-note">{t('error.chunk_body')}</div>
+            <div className="error-fallback-note error-fallback-warn">{t('error.chunk_warn')}</div>
+            <div className="error-fallback-actions">
+              <button type="button" className="btn" onClick={this.reset}>
+                {t('error.chunk_retry')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => window.location.reload()}
+              >
+                {t('error.chunk_reload')}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={this.toggleDetails}>
+                {t('error.details')}
+              </button>
+            </div>
+            {this.state.showDetails && (
+              <pre className="error-fallback-detail">{this.state.details}</pre>
+            )}
+          </div>
+        );
+      }
       const appError = this.state.error ? normalizeError(this.state.error) : null;
       return (
         <div className="error-fallback" role="alert">

@@ -17,6 +17,9 @@ import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 interface ShortcutRow {
   keys: string[];
   labelKey: string;
+  /** Optional i18n key overriding a literal key cap (for gesture words like
+   *  "wheel" that must follow the UI locale). */
+  keysKey?: string;
 }
 
 interface ShortcutGroup {
@@ -37,8 +40,8 @@ const GROUPS: ShortcutGroup[] = [
   {
     groupKey: 'ux.shortcuts.group.workbench',
     rows: [
-      { keys: ['滚轮'], labelKey: 'ux.shortcuts.zoom' },
-      { keys: ['双击'], labelKey: 'ux.shortcuts.reset_view' },
+      { keys: ['wheel'], keysKey: 'ux.shortcuts.key_wheel', labelKey: 'ux.shortcuts.zoom' },
+      { keys: ['dblclick'], keysKey: 'ux.shortcuts.key_dclick', labelKey: 'ux.shortcuts.reset_view' },
       { keys: ['Ctrl', 'Enter'], labelKey: 'ux.shortcuts.run_sql' },
     ],
   },
@@ -111,7 +114,9 @@ export function ShortcutsDialog() {
                     {row.keys.map((k, i) => (
                       <span key={k}>
                         {i > 0 && <span className="shortcuts-plus">+</span>}
-                        <kbd className="shortcuts-kbd">{k}</kbd>
+                        <kbd className="shortcuts-kbd">
+                          {row.keysKey ? t(row.keysKey) : k}
+                        </kbd>
                       </span>
                     ))}
                   </span>

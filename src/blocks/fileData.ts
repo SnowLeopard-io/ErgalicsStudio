@@ -154,8 +154,11 @@ function parseDelimitedColumns(
   const rows = raw[0]!.length;
   const columns: ParsedColumn[] = raw.map((cells, i) => {
     const name = headerArr?.[i] ?? defaultName(i);
-    const finite = cells.filter((c) => c !== '' && Number.isFinite(Number(c)));
-    if (finite.length === 0) {
+    // Same numeric-cell rule as header detection: NaN / Infinity / overflow
+    // literals count as numeric, otherwise an all-Infinity column would be
+    // misread as categorical ("no numeric data found").
+    const numeric = cells.filter((c) => c !== '' && isNumericToken(c));
+    if (numeric.length === 0) {
       // Categorical / label column — keep its strings.
       return { name, type: 'string' as const, data: [...cells] };
     }
@@ -163,7 +166,7 @@ function parseDelimitedColumns(
     return {
       name,
       type: 'f64' as const,
-      data: toFloat64(cells.map((c) => (c !== '' && Number.isFinite(Number(c)) ? Number(c) : NaN))),
+      data: toFloat64(cells.map((c) => (c !== '' && isNumericToken(c) ? Number(c) : NaN))),
     };
   });
 

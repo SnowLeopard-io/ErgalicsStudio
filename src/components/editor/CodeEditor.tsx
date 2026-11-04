@@ -25,11 +25,16 @@ import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
+import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
-import { createCodeRuntime, type CodeRuntime } from '@/core/pyodide/runtime';
+import type { CodeRuntime } from '@/core/pyodide/runtime';
+import {
+  getPythonRuntime,
+  subscribePythonOutput,
+  warmPythonRuntime,
+} from '@/core/pyodide/code-runtime';
 import { createRRuntime } from '@/core/r/runtime-factory';
 import type { RLanguageRuntime, REngine } from '@/core/r/types';
 import { hashString } from '@/core/repro/random';
@@ -91,6 +96,14 @@ export function CodeEditor() {
   const loadedKeyRef = useRef<string | null>(null);
   const syncTimerRef = useRef<number | null>(null);
   const syncLangRef = useRef<CodeLanguage>('python');
+  /** Live text of the current buffer (null until Monaco is created), used to
+   *  mirror code-mode edits back into the source file tab on unmount. */
+  const codeTextRef = useRef<string | null>(null);
+  /** Workspace file this code session is bound to (if opened from a file). */
+  const filePathRef = useRef<string | undefined>(undefined);
+  filePathRef.current = session?.filePath;
+  /** Latest "save bound file" action for the Monaco Ctrl/⌘+S command. */
+  const saveBoundRef = useRef<() => void>(() => {});
   /** True while WE replace the buffer (session load / language switch). */
   const silentSetRef = useRef(false);
   /** Latest run action, invoked by the Ctrl/⌘+Enter editor command. */
@@ -122,6 +135,7 @@ export function CodeEditor() {
   useEffect(() => {
     if (!containerRef.current) return;
     const initial = useEditorStore.getState().sessions.find((s) => s.id === activeSessionId)?.lastCode ?? '';
+    codeTextRef.current = initial;
     const editor = monaco.editor.create(containerRef.current, {
       value: initial,
       language: MONACO_LANG[useEditorStore.getState().sessions.find((s) => s.id === activeSessionId)?.language ?? 'python'],
@@ -143,10 +157,17 @@ export function CodeEditor() {
       runActionRef.current();
     });
 
+    // When this session came from a workspace file, Ctrl/⌘+S saves that file
+    // instead of only persisting the project snapshot.
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      saveBoundRef.current();
+    });
+
     editor.onDidChangeModelContent(() => {
       if (silentSetRef.current) return;
       const sid = useEditorStore.getState().activeSessionId;
       if (!sid) return;
+      codeTextRef.current = editor.getValue();
       // Capture the language of THIS edit; a stale flush after a language
       // switch must not parse the old dialect's text as the new dialect.
       syncLangRef.current = useEditorStore.getState().sessions.find((s) => s.id === sid)?.language ?? 'python';
@@ -156,8 +177,11 @@ export function CodeEditor() {
         const text = editor.getValue();
         const curSid = useEditorStore.getState().activeSessionId;
         if (!curSid) return;
-        const curLang = useEditorStore.getState().sessions.find((s) => s.id === curSid)?.language ?? 'python';
-        if (curLang !== syncLangRef.current) return; // language switched meanwhile
+        const curSess = useEditorStore.getState().sessions.find((s) => s.id === curSid);
+        // Mirror the text into the source file's tab buffer so returning to
+        // the workspace (or saving the project) never shows a stale/empty file.
+        if (curSess?.filePath) useAppStore.getState().updateEditorFile(curSess.filePath, text);
+        if ((curSess?.language ?? 'python') !== syncLangRef.current) return; // language switched meanwhile
         // Parse the edited code back into the IR hub so Block/Flow regenerate.
         useEditorStore.getState().syncFromCode(curSid, text);
       }, SYNC_DEBOUNCE_MS);
@@ -194,33 +218,22 @@ export function CodeEditor() {
   // ---- Pyodide runtime lifecycle (Python engine) -----------------------
 
   useEffect(() => {
-    const runtime = createCodeRuntime({
-      // Serve Pyodide same-origin from public/pyodide (vendored by the
-      // copy-pyodide build step) instead of cdn.jsdelivr.net — far more
-      // reliable from mainland China and cached by the app's own origin.
-      indexURL: new URL('pyodide/', document.baseURI).href,
-      activatePlugin: async (pluginId) => {
-        const store = usePluginStore.getState();
-        if (store.activeId !== pluginId) {
-          await store.activate(pluginId);
-        } else {
-          rerenderActivePlugin();
-        }
-        return store.getActive();
-      },
-      onStdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
-      onStderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
-      onNotify: (kind, message) => useAppStore.getState().notify(kind, message),
+    // The interpreter is session-wide (core/pyodide/code-runtime) and is NOT
+    // disposed here: switching modes or projects reuses the already-booted
+    // worker instead of paying the Pyodide download/init cost again.
+    let alive = true;
+    runtimeRef.current = getPythonRuntime();
+    const unsubscribe = subscribePythonOutput({
+      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
+      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
     });
-    runtimeRef.current = runtime;
-    void runtime.runPython('import studio', {}, {}).then(
-      () => setRuntimeReady(true),
-      () => setRuntimeReady(false),
-    );
+    void warmPythonRuntime().then((ok) => {
+      if (alive) setRuntimeReady(ok);
+    });
     return () => {
-      runtime.dispose();
+      alive = false;
+      unsubscribe();
       runtimeRef.current = null;
-      setRuntimeReady(false);
     };
   }, []);
 
@@ -343,6 +356,7 @@ export function CodeEditor() {
       // freshly translated buffer is not re-parsed straight back.
       silentSetRef.current = true;
       editor.setValue(value);
+      codeTextRef.current = value;
       monaco.editor.setModelLanguage(editor.getModel()!, MONACO_LANG[language]);
       editor.updateOptions({ tabSize: LANG_TAB_SIZE[language] });
       window.requestAnimationFrame(() => {
@@ -367,11 +381,14 @@ export function CodeEditor() {
       const code = codegen(pendingLoad, lang === 'js' ? 'js' : lang === 'r' ? 'r' : 'python');
       silentSetRef.current = true;
       editor.setValue(code);
+      codeTextRef.current = code;
       monaco.editor.setModelLanguage(editor.getModel()!, MONACO_LANG[lang]);
       window.requestAnimationFrame(() => {
         silentSetRef.current = false;
       });
       if (sid) useEditorStore.getState().updateSessionIR(sid, pendingLoad, code);
+      const filePath = sid ? useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath : undefined;
+      if (filePath) useAppStore.getState().updateEditorFile(filePath, code);
       loadedKeyRef.current = `${sid}:${lang}`;
     }
     clearPreviewSurface(canvasRef.current, domRef.current);
@@ -491,6 +508,29 @@ export function CodeEditor() {
       });
     }
   };
+
+  /** Persist the live code-mode buffer into its bound workspace file. */
+  const saveBoundFile = async () => {
+    const path = filePathRef.current;
+    const editor = editorRef.current;
+    if (!path || !editor) return;
+    const text = editor.getValue();
+    codeTextRef.current = text;
+    useAppStore.getState().updateEditorFile(path, text);
+    await useAppStore.getState().saveEditorFile(path);
+  };
+  saveBoundRef.current = () => void saveBoundFile();
+
+  // Leaving code mode (or the whole workbench) must not strand the text in the
+  // IR hub: mirror the final buffer into the file tab so the workspace shows
+  // what the user typed. The explicit Save / Ctrl+S path writes it to the VFS.
+  useEffect(() => {
+    return () => {
+      const path = filePathRef.current;
+      if (!path || codeTextRef.current === null) return;
+      useAppStore.getState().updateEditorFile(path, codeTextRef.current);
+    };
+  }, []);
 
   const stop = () => {
     // Python and the full R runtime run in workers; interrupting them means
@@ -618,7 +658,6 @@ export function CodeEditor() {
   /** Translate the whole buffer from the IR hub into another dialect. */
   const switchLanguage = (lang: CodeLanguage) => {
     if (lang === language || isRunning || activeSessionId === null) return;
-    if (activeSessionId === null) return;
     const sid = activeSessionId;
     // Flush any pending edit first so the IR reflects the latest keystrokes
     // in the current dialect before translating.
@@ -650,6 +689,8 @@ export function CodeEditor() {
     if (!d || !sid) return;
     const text = previewRef.current?.getValue() ?? d.translated;
     useEditorStore.getState().applyLanguageWithCode(sid, d.target, text);
+    const filePath = useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath;
+    if (filePath) useAppStore.getState().updateEditorFile(filePath, text);
     setDraft(null);
   };
 
@@ -750,6 +791,17 @@ export function CodeEditor() {
             </button>
           ))}
         </div>
+
+        {session?.filePath && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            title={session.filePath}
+            onClick={() => void saveBoundFile()}
+          >
+            {t('workbench.editor.save')}
+          </button>
+        )}
 
         <span
           className="be-code-lang be-code-lang-toolbar"

@@ -14,7 +14,7 @@ import {
   vgSe,
   vgTheta,
   type VGParams,
-} from '../src/plugins/builtin/geo-soilwater/kernel';
+} from '../src/plugins/builtin/geo/soilwater/kernel';
 
 const rel = (a: number, b: number) => Math.abs(a - b) / Math.abs(b);
 

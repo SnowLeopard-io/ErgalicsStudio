@@ -17,7 +17,7 @@ import {
   screenEnergyCircle,
   screenEnergySlit,
   type DiffractionParams,
-} from '../src/plugins/builtin/physics-diffraction/kernel';
+} from '../src/plugins/builtin/physics/diffraction/kernel';
 
 const farSlit: DiffractionParams = {
   aperture: 'slit',

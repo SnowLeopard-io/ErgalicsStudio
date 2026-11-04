@@ -11,7 +11,7 @@ import {
   mergedChiSquare,
   parseTraitCsv,
   runMendelBenchmarks,
-} from '../src/plugins/builtin/bio-mendel/kernel';
+} from '../src/plugins/builtin/bio/mendel/kernel';
 
 describe('bio-mendel kernel', () => {
   it('reproduces the hand-computed example O=[12,8] vs 3:1 → χ² = 2.4 exactly', () => {

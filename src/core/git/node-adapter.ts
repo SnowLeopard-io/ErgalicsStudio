@@ -253,6 +253,13 @@ export class NodeGitAdapter implements GitAdapter {
     await git.add(files);
   }
 
+  /** Unstage paths: `git reset HEAD -- <files>` restores the index entries
+   *  from HEAD (a staged new file becomes untracked again). */
+  async resetIndex(repoPath: string, files: string[]): Promise<void> {
+    const git = this.getGit(repoPath);
+    await git.raw(['reset', 'HEAD', '--', ...files]);
+  }
+
   async commit(repoPath: string, message: string, opts?: CommitOptions): Promise<string> {
     const git = this.getGit(repoPath);
     if (opts?.author) {

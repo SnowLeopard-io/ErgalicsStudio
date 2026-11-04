@@ -173,10 +173,13 @@ for (const [id, cur] of current) {
     continue;
   }
   const baseVal = ref.value;
-  // Guard against divide-by-zero on degenerate baselines.
+  // Guard against divide-by-zero on degenerate baselines: respect the metric
+  // direction so 0→100 on an 'up' metric is an improvement, not a regression.
   if (baseVal === 0) {
-    rows.push({ id, status: cur.value === 0 ? 'ok' : 'regression', delta: null, cur: cur.value, base: baseVal, unit: cur.unit });
-    if (cur.value !== 0) regressions += 1;
+    const zeroImproves = cur.direction === 'up' ? cur.value > 0 : cur.value < 0;
+    const status = cur.value === 0 ? 'ok' : zeroImproves ? 'improvement' : 'regression';
+    rows.push({ id, status, delta: null, cur: cur.value, base: baseVal, unit: cur.unit });
+    if (status === 'regression') regressions += 1;
     continue;
   }
   const change = (cur.value - baseVal) / Math.abs(baseVal); // signed

@@ -33,9 +33,10 @@ export function bonferroni(pvals: number[], alpha = 0.05): CorrectionResult {
 }
 
 /**
- * Benjamini-Hochberg FDR control. Sorts ascending, computes q_i = p_i * m / i,
- * then enforces monotonicity from the largest (step-up). Returns q-values and
- * the significance mask at `alpha`.
+ * Benjamini-Hochberg FDR control (step-up). Sorts ascending, computes the raw
+ * ratios q_i = p_i * m / i, then enforces monotonicity from the largest down
+ * (suffix running-minimum, capped at 1) — the standard BH step-up procedure.
+ * Returns q-values and the significance mask at `alpha`.
  */
 export function benjaminiHochberg(pvals: number[], alpha = 0.05): CorrectionResult {
   const m = pvals.length;
@@ -44,13 +45,12 @@ export function benjaminiHochberg(pvals: number[], alpha = 0.05): CorrectionResu
   const p = pvals.map(sanitizeP);
   const order = [...p.keys()].sort((a, b) => p[a]! - p[b]!);
   const q = new Array<number>(m).fill(0);
-  let prev = 0;
-  for (let k = 0; k < m; k += 1) {
+  let prev = 1;
+  for (let k = m - 1; k >= 0; k -= 1) {
     const i = order[k]!;
-    const val = (p[i]! * m) / (k + 1);
-    const qq = Math.max(val, prev);
-    q[i] = qq;
-    prev = qq;
+    const val = Math.min(1, (p[i]! * m) / (k + 1));
+    prev = Math.min(val, prev);
+    q[i] = prev;
   }
   return { adjusted: q, significant: q.map((v) => v <= alpha) };
 }

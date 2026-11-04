@@ -8,7 +8,7 @@
  *   const PRECACHE_MANIFEST = /*__PRECACHE_MANIFEST__*\/ []; → ['./index.html', './assets/…']
  *
  * Precache policy (app shell, kept small on purpose):
- *   - index.html, manifest.webmanifest, favicon.svg, ico.ico
+ *   - index.html, manifest.webmanifest, ico.ico, icon-192.png, icon-512.png
  *   - assets/*.js + *.css below MAX_PRECACHE_BYTES each (hashed core chunks;
  *     the multi-MB editor/blockly/duckdb chunks stay in the runtime tier and
  *     are cached on first online use by the SW's stale-while-revalidate rule)
@@ -25,7 +25,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MAX_PRECACHE_BYTES = 512 * 1024;
-const SHELL_FILES = ['index.html', 'manifest.webmanifest', 'favicon.svg', 'ico.ico'];
+const SHELL_FILES = ['index.html', 'manifest.webmanifest', 'ico.ico', 'icon-192.png', 'icon-512.png'];
 
 /**
  * Inject the precache manifest + version into `<distDir>/sw.js`.

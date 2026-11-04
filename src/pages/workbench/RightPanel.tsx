@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
@@ -149,17 +149,33 @@ export function RightPanel() {
   /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
    *  与侧栏收起保持一致的过渡。 */
   const [closing, setClosing] = useState(false);
+  /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
+   *  的收起按钮，动画结束后必须摘掉该类（与 Sidebar 同一套计时兜底）。 */
+  const [entered, setEntered] = useState(false);
+  const openingFallbackTimer = useRef<number | null>(null);
 
   // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
   useEffect(() => {
-    if (rightPanelOpen) setClosing(false);
+    if (rightPanelOpen) {
+      setClosing(false);
+      if (openingFallbackTimer.current !== null) {
+        window.clearTimeout(openingFallbackTimer.current);
+        openingFallbackTimer.current = null;
+      }
+      const t = window.setTimeout(() => setEntered(true), 280);
+      return () => window.clearTimeout(t);
+    }
+    setEntered(false);
   }, [rightPanelOpen]);
 
   const handleCollapse = () => {
     if (closing) return;
     setClosing(true);
     // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
-    window.setTimeout(() => {
+    // 保存句柄，避免快速“收起→展开”后旧兜底定时器把面板再次收起。
+    if (openingFallbackTimer.current !== null) window.clearTimeout(openingFallbackTimer.current);
+    openingFallbackTimer.current = window.setTimeout(() => {
+      openingFallbackTimer.current = null;
       if (useAppStore.getState().rightPanelOpen) toggleRightPanel();
     }, 300);
   };
@@ -225,7 +241,7 @@ export function RightPanel() {
   // 感应区必须整体落在面板左缘外才完整可命中。
   return (
     <div
-      className={`panel-wrap${closing ? ' panel-wrap-closing' : ''}`}
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : entered ? '' : ' panel-wrap-opening'}`}
       style={
         {
           width: resize.width,

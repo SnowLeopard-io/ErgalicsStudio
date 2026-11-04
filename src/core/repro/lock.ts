@@ -17,6 +17,7 @@
 // run-vs-run diff surfaced on the experiment page (FR-11).
 // ==========================================================================
 
+import { currentAppVersion } from '@/core/citation';
 import { hashString } from './random';
 import { fingerprint } from '@/core/chunked/reader';
 import type { Project } from '@/types/project';
@@ -231,8 +232,7 @@ export const APP_DEPENDENCY_NAME = 'app';
  * `BuildLockOptions.buildHash`.
  */
 export function appBuildHash(): string {
-  const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0';
-  return hashString(`ergalics-studio@${version}`);
+  return hashString(`ergalics-studio@${currentAppVersion()}`);
 }
 
 /** Normalise a dependency list: sorted by name, duplicate names keep first. */
@@ -268,7 +268,7 @@ export function buildLock(project: Project, options: BuildLockOptions = {}): Rep
   const artifacts = collectCodeArtifacts(project);
 
   const versions: LockVersions = {
-    studio: options.versions?.studio ?? '0.1.0',
+    studio: options.versions?.studio ?? currentAppVersion(),
     projectFormat:
       options.versions?.projectFormat ?? project.metadata?.version ?? '1.0',
     plotEngine: options.versions?.plotEngine,

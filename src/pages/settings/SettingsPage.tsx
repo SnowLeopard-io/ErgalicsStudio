@@ -29,10 +29,15 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import ThemeMarketPanel from './ThemeMarketPanel';
 import { PwaPanel } from './PwaPanel';
+import { UserProfilePanel } from './UserProfilePanel';
+import { AmbienceSettingsPanel, AchievementsPanel } from '@/components/ambience/AmbiencePanels';
 
 const CATEGORIES = [
   { id: 'general', labelKey: 'settings.general' },
+  { id: 'profile', labelKey: 'settings.profile' },
   { id: 'theme', labelKey: 'settings.theme' },
+  { id: 'ambience', labelKey: 'settings.ambience' },
+  { id: 'achievements', labelKey: 'settings.achievements' },
   { id: 'gpu', labelKey: 'settings.gpu' },
   { id: 'data', labelKey: 'settings.data' },
   { id: 'store', labelKey: 'settings.store' },
@@ -53,7 +58,12 @@ interface TeamMember {
   github?: string;
   gitee: string;
   roleKey: 'about.team_lead_role' | 'about.team_dev_role' | 'about.team_dev2_role' | 'about.team_dev3_role';
-  introKey: 'about.team_lead_intro' | 'about.team_dev_intro' | 'about.team_dev2_intro' | 'about.team_dev3_intro';
+  introKey:
+    | 'about.team_lead_intro'
+    | 'about.team_dev_intro'
+    | 'about.team_dev2_intro'
+    | 'about.team_dev3_intro'
+    | 'about.team_zspro_intro';
 }
 
 const TEAM: TeamMember[] = [
@@ -88,6 +98,22 @@ const TEAM: TeamMember[] = [
     roleKey: 'about.team_dev3_role',
     introKey: 'about.team_dev3_intro',
   },
+  {
+    name: 'zspro',
+    giteeName: 'yspro',
+    github: 'https://github.com/zspro',
+    gitee: 'https://gitee.com/yspro',
+    roleKey: 'about.team_dev3_role',
+    introKey: 'about.team_zspro_intro',
+  },
+  {
+    name: 'skyfireitdiy',
+    giteeName: 'skyfireitdiy',
+    github: 'https://github.com/skyfireitdiy',
+    gitee: 'https://gitee.com/skyfireitdiy',
+    roleKey: 'about.team_dev3_role',
+    introKey: 'about.team_dev3_intro',
+  },
 ];
 
 export default function SettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
@@ -119,6 +145,15 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
       return next;
     }, { replace: true });
   };
+
+  // External navigation (deep links clicked while the page is already open)
+  // must move the panel too, not just the URL.
+  useEffect(() => {
+    if (paramCat && CATEGORIES.some((c) => c.id === paramCat) && paramCat !== active) {
+      setActive(paramCat as CategoryId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramCat]);
 
   // FR-17: chunk-storage panel state (all reads degrade to zero on failure).
   const opfsAvailable = isOpfsAvailable();
@@ -169,13 +204,19 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
     stopMigrationRef.current = false;
     setMigrateResult(null);
     setMigrateProgress({ done: 0, total: 0 });
-    const result = await migrateIdbToOpfs({
-      shouldStop: () => stopMigrationRef.current,
-      onProgress: (p) => setMigrateProgress({ done: p.done, total: p.total }),
-    });
-    setMigrateResult(result);
-    setMigrateProgress(null);
-    void refreshChunkUsage();
+    try {
+      const result = await migrateIdbToOpfs({
+        shouldStop: () => stopMigrationRef.current,
+        onProgress: (p) => setMigrateProgress({ done: p.done, total: p.total }),
+      });
+      setMigrateResult(result);
+    } catch (err) {
+      // Never leave the progress UI stuck: surface the failure and reset.
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setMigrateProgress(null);
+      void refreshChunkUsage();
+    }
   };
 
   const copyCitation = async (text: string) => {
@@ -194,10 +235,22 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   }, []);
 
   const doClearCache = async () => {
-    await clearCache();
-    setUsage(await storageUsage());
-    setClearOpen(false);
-    notify('success', t('settings.cache_cleared'));
+    try {
+      await clearCache();
+      setUsage(await storageUsage());
+      // The DB records are gone, but the stores still hold the now-dead project
+      // in memory (and its recent list). Refresh both so the app reflects the
+      // wipe instead of presenting a phantom project that will fail on the next
+      // save.
+      const { useProjectStore } = await import('@/stores/projectStore');
+      useProjectStore.setState({ project: null, dirty: false, status: 'ready', statusText: null, recent: [] });
+      void useProjectStore.getState().loadRecent().catch(() => undefined);
+      notify('success', t('settings.cache_cleared'));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setClearOpen(false);
+    }
   };
 
   const gpu = getGpuBackend();
@@ -291,6 +344,12 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
             )}
 
             {active === 'theme' && <ThemeMarketPanel />}
+
+            {active === 'profile' && <UserProfilePanel />}
+
+            {active === 'ambience' && <AmbienceSettingsPanel />}
+
+            {active === 'achievements' && <AchievementsPanel />}
 
             {active === 'gpu' && (
               <section className="card settings-section">

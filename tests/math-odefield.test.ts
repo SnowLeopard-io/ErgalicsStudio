@@ -12,7 +12,7 @@ import {
   runOdefieldBenchmarks,
   saddleManifoldDeviation,
   type VectorField,
-} from '../src/plugins/builtin/math-odefield/kernel';
+} from '../src/plugins/builtin/math/odefield/kernel';
 
 function mustCompile(src: string): (x: number, y: number) => number {
   const c = compileReal2(src);

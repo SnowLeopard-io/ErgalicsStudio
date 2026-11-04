@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyseThermal, estimateBaseline, type ThermalPoint } from '../src/plugins/builtin/mats-thermal/kernel';
+import { analyseThermal, estimateBaseline, type ThermalPoint } from '../src/plugins/builtin/materials/thermal/kernel';
 
 /** Build a synthetic DSC curve: a triangular endothermic peak on a flat zero baseline.
  *  The baseline-subtracted area of a triangle of base `w` and height `h` is w·h/2. */

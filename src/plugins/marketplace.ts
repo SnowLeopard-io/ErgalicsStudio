@@ -166,6 +166,28 @@ const OVERLAY: Record<string, Overlay> = {
     tags: ['astronomy', 'fits', 'ccd', 'photometry', 'calibration', 'pipeline'],
     popularity: 92,
   },
+  // Medicine & public health suite — curated discovery metadata. Name /
+  // description / author / version come from the signed manifests.
+  'example.med-ecg': {
+    category: 'scientific',
+    tags: ['ecg', 'cardiology', 'hrv', 'arrhythmia', 'signal-processing', 'wfdb'],
+    popularity: 78,
+  },
+  'example.med-imaging': {
+    category: 'scientific',
+    tags: ['dicom', 'ct', 'mri', 'windowing', '3d-reconstruction', 'roi'],
+    popularity: 80,
+  },
+  'example.med-biostat': {
+    category: 'scientific',
+    tags: ['clinical-trials', 'sample-size', 'randomization', 'interim-analysis', 'pharmacovigilance'],
+    popularity: 74,
+  },
+  'example.med-genomics': {
+    category: 'scientific',
+    tags: ['gwas', 'manhattan', 'volcano', 'ld', 'gsea', 'circos'],
+    popularity: 79,
+  },
 };
 
 // Community submissions — signed demo packages exercising the FR-05 pipeline.

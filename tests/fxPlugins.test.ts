@@ -14,7 +14,7 @@ import {
   shadowAngularDiameterRad,
   traceGeodesic,
   initialConditionsFromB,
-} from '@/plugins/builtin/blackhole/physics';
+} from '@/plugins/builtin/fx/blackhole/physics';
 import {
   CFL_MAX_2D,
   shallowWaterSpeed,
@@ -26,11 +26,11 @@ import {
   gerstnerDisplacement,
   gerstnerSteepness,
   type OceanWave,
-} from '@/plugins/builtin/water/physics';
-import { blackholeManifest } from '@/plugins/builtin/blackhole/manifest';
-import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/blackhole/shader';
-import { CLOUD_FRAGMENT } from '@/plugins/builtin/cloud/shader';
-import { waterManifest } from '@/plugins/builtin/water/manifest';
+} from '@/plugins/builtin/fx/water/physics';
+import { blackholeManifest } from '@/plugins/builtin/fx/blackhole/manifest';
+import { BLACKHOLE_FRAGMENT } from '@/plugins/builtin/fx/blackhole/shader';
+import { CLOUD_FRAGMENT } from '@/plugins/builtin/fx/cloud/shader';
+import { waterManifest } from '@/plugins/builtin/fx/water/manifest';
 import { BUILTIN_PLUGINS } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import { BUILTIN_EXAMPLES } from '@/core/examples';

@@ -14,7 +14,7 @@ import {
   stdNormCdf,
   stdNormPdf,
   stdNormQuantile,
-} from '../src/plugins/builtin/psych-sdt/kernel';
+} from '../src/plugins/builtin/psych/sdt/kernel';
 
 describe('psych-sdt kernel (signal detection theory)', () => {
   it('Phi is exact at 0, hits the published N(1.96), and is symmetric', () => {

@@ -44,6 +44,10 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const overlayRef = useRef<HTMLDivElement>(null);
+  // Text selection inside the dialog ends with a click on the overlay (the
+  // press started on the card). Only close when the press itself began on
+  // the overlay, so drag-selecting body text never discards the dialog.
+  const mouseDownOnOverlay = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +111,17 @@ export function Modal({ open, title, onClose, children, footer, width }: ModalPr
     : undefined;
 
   return (
-    <div ref={overlayRef} className="modal-overlay" onClick={() => onCloseRef.current()}>
+    <div
+      ref={overlayRef}
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        mouseDownOnOverlay.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (mouseDownOnOverlay.current && e.target === e.currentTarget) onCloseRef.current();
+        mouseDownOnOverlay.current = false;
+      }}
+    >
       <div
         className="modal"
         style={sizeVars}

@@ -6,6 +6,7 @@ import {
   detectFormatByMagic,
   matchesFormats,
   collectSupportedExtensions,
+  allSupportedExtensions,
   detectScientificFormat,
   scientificFormatFromName,
 } from '@/core/fileFormat';
@@ -109,6 +110,23 @@ describe('matchesFormats / collectSupportedExtensions', () => {
         { pluginId: 'b', formats: [{ extension: '.xyz', mimeTypes: [] }] },
       ]),
     ).toEqual(['.xyz', '.dat']);
+  });
+
+  it('advertises the complete built-in + plugin format set', () => {
+    const supported = allSupportedExtensions([
+      { pluginId: 'bio-seqalign', formats: [{ extension: '.fasta', mimeTypes: [] }] },
+      { pluginId: 'bio-protein', formats: [{ extension: '.pdb', mimeTypes: [] }] },
+    ]);
+    // Plugin-declared formats are merged…
+    expect(supported).toContain('.fasta');
+    expect(supported).toContain('.pdb');
+    // …and app-handled preview/project/scientific formats are always present,
+    // even when those plugins are not loaded yet.
+    for (const ext of ['.pdf', '.png', '.md', '.clproj', '.h5', '.parquet', '.fits', '.nc']) {
+      expect(supported).toContain(ext);
+    }
+    // Sorted and de-duplicated.
+    expect(supported).toEqual([...new Set(supported)].sort((a, b) => a.localeCompare(b)));
   });
 });
 

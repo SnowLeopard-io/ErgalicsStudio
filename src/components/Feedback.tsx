@@ -93,7 +93,7 @@ export function BannerStack() {
           role="alert"
         >
           <span>
-            {t(b.messageKey)}
+            {t(b.messageKey, b.params)}
             {b.pluginId ? ` · ${pluginName(b.pluginId)}` : ''}
           </span>
           {b.dismissible && (
@@ -117,16 +117,27 @@ export function ToastStack() {
   const notifications = useAppStore((s) => s.notifications);
   const dismiss = useAppStore((s) => s.dismissNotification);
   const items = useAnimatedItems(notifications);
+  const t = useT();
 
   if (items.length === 0) return null;
 
   return (
-    <div className="toast-stack">
+    // `role="status"` + `aria-live="polite"` make the toasts audible to screen
+    // readers; without it, async results (save failures, import errors) were
+    // silent for assistive-tech users. `atomic` announces the whole region so a
+    // newly added toast is read out even though the container is not re-created.
+    <div className="toast-stack" role="status" aria-live="polite" aria-atomic="false">
       {items.map((n) => (
         <div
           key={n.id}
           className={`toast toast-${n.kind} ${n.leaving ? 'leaving' : ''}`}
           onClick={() => dismiss(n.id)}
+          role="button"
+          tabIndex={0}
+          aria-label={t('common.close')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') dismiss(n.id);
+          }}
         >
           {n.message}
           {n.action && (

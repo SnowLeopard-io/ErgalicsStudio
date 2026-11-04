@@ -19,7 +19,7 @@ import {
   stepAsync,
   stepSync,
   type EvoParams,
-} from '../src/plugins/builtin/econ-evogame/kernel';
+} from '../src/plugins/builtin/econ/evogame/kernel';
 
 const base: EvoParams = {
   b: 1.8,

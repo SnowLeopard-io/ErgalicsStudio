@@ -257,6 +257,46 @@ function validateNode(node: unknown, path: string, out: IRDiagnostic[]): void {
       if (n.lang !== 'python' && n.lang !== 'r' && n.lang !== 'js') out.push(diag(path, `unknown RawExpr lang "${String(n.lang)}"`));
       if (typeof n.text !== 'string') out.push(diag(path, 'RawExpr.text must be a string'));
       break;
+    case 'Import':
+      if (typeof n.module !== 'string' || n.module.length === 0) {
+        out.push(diag(path, 'Import.module must be a non-empty string'));
+      }
+      break;
+    case 'Ternary':
+      validateNode(n.cond, `${path}.cond`, out);
+      validateNode(n.then, `${path}.then`, out);
+      validateNode(n.alt, `${path}.alt`, out);
+      break;
+    case 'FString':
+      if (!Array.isArray(n.parts)) out.push(diag(path, 'FString.parts must be an array'));
+      else n.parts.forEach((p, i) => {
+        if (p === null || typeof p !== 'object') {
+          out.push(diag(`${path}.parts[${i}]`, 'FString part must be an object'));
+          return;
+        }
+        if (p.expr !== undefined) validateNode(p.expr, `${path}.parts[${i}].expr`, out);
+      });
+      break;
+    case 'ListComp':
+      if (!Array.isArray(n.vars) || n.vars.length === 0) out.push(diag(path, 'ListComp.vars must be a non-empty array'));
+      else n.vars.forEach((v, i) => {
+        if (typeof v !== 'string' || v.length === 0) out.push(diag(`${path}.vars[${i}]`, 'var must be a non-empty string'));
+      });
+      validateNode(n.iter, `${path}.iter`, out);
+      validateNode(n.body, `${path}.body`, out);
+      if (n.cond !== undefined) validateNode(n.cond, `${path}.cond`, out);
+      break;
+    case 'Join':
+      if (typeof n.sep !== 'string') out.push(diag(path, 'Join.sep must be a string'));
+      validateNode(n.items, `${path}.items`, out);
+      break;
+    case 'Lambda':
+      if (!Array.isArray(n.params)) out.push(diag(path, 'Lambda.params must be an array'));
+      else n.params.forEach((p, i) => {
+        if (typeof p !== 'string' || p.length === 0) out.push(diag(`${path}.params[${i}]`, 'param must be a non-empty string'));
+      });
+      validateNode(n.body, `${path}.body`, out);
+      break;
     default:
       out.push(diag(path, `unknown node kind "${String((n as { kind?: string }).kind)}"`));
   }

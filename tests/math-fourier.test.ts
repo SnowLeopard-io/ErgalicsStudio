@@ -13,7 +13,7 @@ import {
   runFourierBenchmarks,
   SI_PI,
   WAVEFORMS,
-} from '../src/plugins/builtin/math-fourier/kernel';
+} from '../src/plugins/builtin/math/fourier/kernel';
 
 describe('math-fourier kernel — analytic constants', () => {
   it('Si(π) ≈ 1.851937 and the Gibbs constant 2·Si(π)/π ≈ 1.17898', () => {

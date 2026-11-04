@@ -18,15 +18,15 @@ import { packWaveParams, waveKernelWGSL, waveStepCPU } from '@/core/wgsl';
 import {
   parseGeoJSON,
   numericPropertyKeys,
-} from '@/plugins/builtin/geo/geoMap';
+} from '@/plugins/builtin/geo/geoMap/plugin';
 import {
   pendulumDeriv,
   pendulumEnergy,
   pendulumStepRK4,
-} from '@/plugins/builtin/doublePendulum';
-import { parseMask } from '@/plugins/builtin/fluid';
-import { parseGrid, parseWaveData, resampleGrid } from '@/plugins/builtin/wave';
-import { parsePendulumIC } from '@/plugins/builtin/doublePendulum';
+} from '@/plugins/builtin/physics/pendulum/plugin';
+import { parseMask } from '@/plugins/builtin/physics/fluid/plugin';
+import { parseGrid, parseWaveData, resampleGrid } from '@/plugins/builtin/physics/wave/plugin';
+import { parsePendulumIC } from '@/plugins/builtin/physics/pendulum/plugin';
 
 // ---- Fluid (LBM D2Q9) -------------------------------------------------------
 

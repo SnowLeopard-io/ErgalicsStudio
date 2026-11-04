@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
@@ -12,13 +12,14 @@ import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useAppStore } from '@/stores/appStore';
-import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+import { GRID_GROUPS, RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
 
 /** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
 const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
 
-/** Research-suite groups (in launcher order) for the sidebar research view. */
-const RESEARCH_GROUP_IDS = ['measure', 'model', 'data', 'signal', 'deliver'] as const;
+/** Research-suite groups for the sidebar research view, derived from the
+ *  registry so a newly registered group (e.g. publish) shows up here too. */
+const RESEARCH_GROUP_IDS = GRID_GROUPS.filter((group) => group !== 'utils');
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];
@@ -74,17 +75,34 @@ export function Sidebar() {
   /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
    *  这样收起和展开两个方向都有过渡。 */
   const [closing, setClosing] = useState(false);
+  /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
+   *  的收起按钮，动画结束后必须摘掉该类。计时兜底覆盖 animationend 未触发
+   *  的情况（如 reduced-motion 下动画被禁用）。 */
+  const [entered, setEntered] = useState(false);
 
   // 重新展开时清掉退场标记，否则下次挂载的 wrap 会带上收拢动画类。
+  const collapseFallbackTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (sidebarOpen) setClosing(false);
+    if (sidebarOpen) {
+      setClosing(false);
+      if (collapseFallbackTimer.current !== null) {
+        window.clearTimeout(collapseFallbackTimer.current);
+        collapseFallbackTimer.current = null;
+      }
+      const t = window.setTimeout(() => setEntered(true), 280);
+      return () => window.clearTimeout(t);
+    }
+    setEntered(false);
   }, [sidebarOpen]);
 
   const handleCollapse = () => {
     if (closing) return;
     setClosing(true);
     // 兜底：onAnimationEnd 因任何原因未触发时也保证最终收起。
-    window.setTimeout(() => {
+    // 保存句柄，避免快速“收起→展开”后旧兜底定时器把侧栏再次收起。
+    if (collapseFallbackTimer.current !== null) window.clearTimeout(collapseFallbackTimer.current);
+    collapseFallbackTimer.current = window.setTimeout(() => {
+      collapseFallbackTimer.current = null;
       if (useAppStore.getState().sidebarOpen) toggleSidebar();
     }, 300);
   };
@@ -95,6 +113,16 @@ export function Sidebar() {
       if (useAppStore.getState().sidebarOpen) toggleSidebar();
     }
   };
+
+  // 活动栏点击已激活入口的收起请求以窗口事件到达（appStore.setSidebarView
+  // 派发），复用与边缘收起按钮相同的退场动画路径。
+  useEffect(() => {
+    const onCollapseRequest = () => handleCollapse();
+    window.addEventListener('ergalics:collapse-sidebar', onCollapseRequest);
+    return () => window.removeEventListener('ergalics:collapse-sidebar', onCollapseRequest);
+    // handleCollapse reads store state via getState() and setters are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Activating a plugin hands the canvas back to it: switch to the plugin
    *  tab. Open file/suite tabs stay in the strip and can be switched back. */
@@ -172,7 +200,7 @@ export function Sidebar() {
     // 手柄挂在包裹层而非侧栏内部：侧栏 overflow 会裁剪超出边界的部分，
     // 感应区必须整体落在侧栏右缘外才完整可命中。
     <div
-      className={`panel-wrap${closing ? ' panel-wrap-closing' : ''}`}
+      className={`panel-wrap${closing ? ' panel-wrap-closing' : entered ? '' : ' panel-wrap-opening'}`}
       style={
         {
           width: resize.width,

@@ -7,7 +7,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { logger } from './logger';
 import type { Plugin, PluginManifest, PluginApi } from '@/types/plugin';
 import { savePluginPackage, type StoredPluginPackage } from './storage';
-import { createPluginSandbox, evaluatePluginLegacy } from './sandbox';
+import { createPluginSandbox, evaluatePluginLegacy, isSandboxSupported } from './sandbox';
 import {
   TRUSTED_KEYS,
   verifyPackageSignature,
@@ -187,6 +187,32 @@ export async function parseCspkg(buffer: ArrayBuffer): Promise<{
 
 export type CspkgExecutionMode = 'isolated' | 'trusted' | 'legacy-fallback';
 
+/**
+ * May a package signed by `fingerprint` be allowed to opt into host
+ * execution (`sandbox: "trusted"`)?
+ *
+ * Signing answers "who published this package"; `allowTrustedMode` is the
+ * per-key extension of that answer: some built-in registry keys may verify
+ * valid signatures but must never grant host execution. The website demo
+ * publisher key, for example, ships its signing seed in the public website
+ * bundle, so anyone can produce a correctly-signed package with it — such
+ * packages are confined to the sandbox by construction.
+ *
+ * `signatureOk === false` means the package did not verify against the
+ * registry and got here via the explicit `trustUnsigned` confirmation; the
+ * user has already vouched for the source by hand, so trusted mode is left
+ * to the manifest as before.
+ */
+export function trustedModeAllowedForKey(
+  fingerprint: string | undefined,
+  signatureOk: boolean,
+): boolean {
+  if (!signatureOk) return true;
+  if (!fingerprint) return false;
+  const key = TRUSTED_KEYS.find((k) => k.fingerprint === fingerprint);
+  return key ? key.allowTrustedMode !== false : false;
+}
+
 export interface LoadedCspkg {
   plugin: Plugin;
   /** Which execution context the plugin ended up running in. */
@@ -276,6 +302,15 @@ export async function loadCspkg(
   let mode: CspkgExecutionMode;
 
   if (manifest.sandbox === 'trusted') {
+    if (!trustedModeAllowedForKey(signature.fingerprint, signature.ok)) {
+      // The signing key is only allowed to publish sandboxed packages (see
+      // trustedModeAllowedForKey). Silently downgrading would surprise the
+      // author; refusing tells the user exactly what happened.
+      logger.error('cspkg', `trusted-mode refused for ${manifest.id}: key ${signature.fingerprint} may only publish sandboxed packages`);
+      throw new Error(
+        `cspkg: package "${manifest.id}" requests trusted execution, but its signing key (${signature.fingerprint ?? 'unknown'}) is only allowed to publish sandboxed packages. Re-install the sandboxed ("isolated") build instead.`,
+      );
+    }
     // Trusted packages execute directly (full DOM capability). This is the
     // legacy path kept for packages that must use `dom`/`three` handles.
     try {
@@ -294,7 +329,10 @@ export async function loadCspkg(
     if (sandboxed) {
       plugin = sandboxed.plugin;
       mode = 'isolated';
-    } else {
+    } else if (!isSandboxSupported()) {
+      // Workers genuinely absent (node, ancient browser): best-effort
+      // restricted scope, clearly surfaced as `legacy-fallback` so the UI
+      // can warn the user.
       logger.warn('cspkg', `worker sandbox unavailable for ${manifest.id}, using fallback`);
       try {
         plugin = evaluatePluginLegacy(entrySrc, getApi(manifest.id));
@@ -303,6 +341,15 @@ export async function loadCspkg(
         logger.error('cspkg', 'entry evaluation failed', err);
         throw new Error(`cspkg: entry evaluation failed — ${err instanceof Error ? err.message : String(err)}`);
       }
+    } else {
+      // Workers ARE available, so `createPluginSandbox` returning null means
+      // this plugin's entry threw or wedged while booting inside its worker.
+      // Re-running it unsandboxed would let a plugin escape the boundary by
+      // simply throwing on boot — refuse instead.
+      logger.error('cspkg', `sandbox boot failed for ${manifest.id} despite worker support, refusing legacy fallback`);
+      throw new Error(
+        `cspkg: plugin "${manifest.id}" failed to start inside the sandbox and the worker API is available; refusing to re-run its entry code unsandboxed. The package is probably broken or hostile.`,
+      );
     }
   }
 

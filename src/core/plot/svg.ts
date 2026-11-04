@@ -391,8 +391,15 @@ export function wrapTitle(text: string, maxW: number): string[] {
 
 /** Render a PlotSpec to a standalone SVG document string. */
 export function renderSVG(spec: PlotSpec): string {
-  const width = spec.width || 640;
-  const height = spec.height || 420;
+  // `spec` may be deserialized from an untrusted `.clproj`, so the canvas
+  // size is not trusted — clamp to a sane positive range to avoid emitting a
+  // multi-gigabyte SVG or degenerate (zero/negative/NaN) geometry.
+  const clampDim = (v: number | undefined, fallback: number): number => {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return fallback;
+    return Math.min(Math.round(v), 16384);
+  };
+  const width = clampDim(spec.width, 640);
+  const height = clampDim(spec.height, 420);
   // Multi-line title: wrap within the canvas (inset clears the top-left panel
   // tag) and push the plot area down so wrapped lines never collide.
   const TITLE_INSET = 18;
@@ -408,6 +415,14 @@ export function renderSVG(spec: PlotSpec): string {
   const xScaleKind = spec.xScale ?? 'linear';
   const yScaleKind = spec.yScale ?? 'linear';
 
+  // Legend: only series with a real name get an entry. Its column is reserved
+  // *inside* the canvas instead of being painted past the right edge (which
+  // used to clip labels or spill into neighbouring figure panels).
+  const showLegend =
+    (spec.legend ?? spec.series.length > 1) && spec.series.some((s) => s.name.trim() !== '');
+  const legendEntries = showLegend ? spec.series.filter((s) => s.name.trim() !== '') : [];
+  const legendTextW = Math.max(0, ...legendEntries.map((s) => estTickWidth(s.name)));
+
   // A field grid spans exactly [0, cols] × [0, rows] unless overridden.
   const xDomain =
     spec.xDomain ?? (firstField ? [0, firstField.field.cols] : autoDomain(spec.series, 'x')) ?? [0, 1];
@@ -420,10 +435,24 @@ export function renderSVG(spec: PlotSpec): string {
   // y-axis title. Size the margin from the widest tick label so the two never
   // collide; narrow ticks keep the default 60px margin. The title itself sits
   // a fixed 14px gap left of the widest tick text.
-  const yTickMaxW = Math.max(0, ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t))));
+  const yTickMaxW = Math.max(
+    0,
+    ...yTicksInfo.ticks.map((t) => estTickWidth(formatTick(t))),
+    ...(spec.yTicksOverride ?? []).map((t) => estTickWidth(t.label)),
+  );
   const left = Math.max(MARGIN.LEFT_FLOOR, Math.ceil(yTickMaxW + TICK_LEN + 40));
   const yLabelX = Math.max(14, Math.round(left - yTickMaxW - TICK_LEN - 6 - 14));
-  const plotW = width - left - MARGIN.right - (firstField ? COLORBAR_SPACE : 0);
+  // Reserve a right-hand legend column, but never squeeze the plot below a
+  // usable width — narrow panels fall back to a clipped (still inside-canvas)
+  // legend rather than drawing it outside the SVG viewBox.
+  const fieldSpace = firstField ? COLORBAR_SPACE : 0;
+  const minPlotW = 80;
+  const maxLegendW = Math.max(0, width - left - MARGIN.right - fieldSpace - minPlotW);
+  const legendW = showLegend
+    ? Math.max(0, Math.min(legendTextW + 34, Math.floor(width * 0.38), maxLegendW))
+    : 0;
+  const legendVisible = showLegend && legendEntries.length > 0 && legendW >= 50;
+  const plotW = width - left - MARGIN.right - fieldSpace - legendW;
   // A field grid maps 1:1 onto its data domain (niceTicks would pad it and
   // leave the heatmap floating inside the axes).
   const xDom: [number, number] = firstField
@@ -520,7 +549,13 @@ export function renderSVG(spec: PlotSpec): string {
         const d = pts
           .map((p, i) => `${i === 0 ? 'M' : 'L'}${x.toPixel(p.x).toFixed(1)} ${y.toPixel(p.y).toFixed(1)}`)
           .join(' ');
-        const dash = s.dash && s.dash.length ? ` stroke-dasharray="${s.dash.join(',')}"` : '';
+        // `s.dash` may be deserialized from an untrusted project file — coerce
+        // every entry to a finite, non-negative number so a crafted
+        // `["4\" onload=\"..."]` cannot break out of the attribute.
+        const dashVals = (s.dash ?? [])
+          .filter((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)
+          .map((n) => Math.min(n, 1000));
+        const dash = dashVals.length ? ` stroke-dasharray="${dashVals.join(',')}"` : '';
         parts.push(
           `<path d="${d}" fill="none" stroke="${escapeAttr(s.color)}" stroke-width="1.6"${dash} stroke-linejoin="round" stroke-linecap="round"/>`,
         );
@@ -571,15 +606,18 @@ export function renderSVG(spec: PlotSpec): string {
       );
     }
   }
-  // Y ticks + labels.
-  for (const t of yTicksInfo.ticks) {
-    const py = y.toPixel(t);
+  // Y ticks + labels (categorical overrides drive forest-plot study names).
+  const yTickDefs = spec.yTicksOverride?.length
+    ? spec.yTicksOverride.map((t) => ({ value: t.pos, label: t.label }))
+    : yTicksInfo.ticks.map((t) => ({ value: t, label: formatTick(t) }));
+  for (const t of yTickDefs) {
+    const py = y.toPixel(t.value);
     if (py < topV - 0.5 || py > topV + plotH + 0.5) continue;
     parts.push(
       `<line x1="${left}" y1="${py.toFixed(1)}" x2="${(left - TICK_LEN).toFixed(1)}" y2="${py.toFixed(1)}" stroke="#222" stroke-width="1"/>`,
     );
     parts.push(
-      `<text x="${(left - TICK_LEN - 6).toFixed(1)}" y="${(py + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#222">${escapeText(formatTick(t))}</text>`,
+      `<text x="${(left - TICK_LEN - 6).toFixed(1)}" y="${(py + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#222">${escapeText(t.label)}</text>`,
     );
   }
 
@@ -635,13 +673,23 @@ export function renderSVG(spec: PlotSpec): string {
     });
   }
 
-  // Legend.
-  const showLegend =
-    spec.legend ?? spec.series.length > 1;
-  if (showLegend && spec.series.length > 0) {
-    const legendX = left + plotW + 12;
-    const itemH = 20;
-    spec.series.forEach((s, i) => {
+  // Legend — painted inside its reserved right-hand column so labels never
+  // leave the canvas or overlap a neighbouring panel.
+  if (legendVisible) {
+    const legendX = left + plotW + fieldSpace + 10;
+    const textX = legendX + 24;
+    const availTextW = Math.max(12, width - textX - 6);
+    const itemH = Math.max(12, Math.min(20, (plotH - 8) / Math.max(1, legendEntries.length)));
+    const fit = (text: string): string => {
+      if (estTickWidth(text) <= availTextW) return text;
+      let out = '';
+      for (const ch of text) {
+        if (estTickWidth(`${out}${ch}…`) > availTextW) break;
+        out += ch;
+      }
+      return `${out}…`;
+    };
+    legendEntries.forEach((s, i) => {
       const ly = topV + i * itemH + 4;
       if (s.kind === 'line') {
         parts.push(
@@ -651,7 +699,7 @@ export function renderSVG(spec: PlotSpec): string {
         parts.push(`<rect x="${legendX}" y="${ly - 6}" width="14" height="12" fill="${escapeAttr(s.color)}"/>`);
       }
       parts.push(
-        `<text x="${legendX + 24}" y="${ly + 4}" font-size="12" fill="#222">${escapeText(s.name)}</text>`,
+        `<text x="${textX}" y="${ly + 4}" font-size="12" fill="#222">${escapeText(fit(s.name))}</text>`,
       );
     });
     void COL_W;

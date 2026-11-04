@@ -18,7 +18,7 @@ import {
 type Phase = 'booting' | 'ready' | 'stuck';
 
 /** Per-step progress values for the splash bar (percent). */
-const STEP_PROGRESS: Record<BootStep, number> = { modules: 40, engine: 62, plugins: 88 };
+const STEP_PROGRESS: Record<BootStep, number> = { modules: 45, engine: 80 };
 
 function updateSplash(step: BootStep, label: string): void {
   const bar = document.getElementById('boot-bar');
@@ -40,8 +40,14 @@ export function BootGate({ children }: { children: React.ReactNode }) {
   const splashGone = useRef(false);
 
   useEffect(() => {
-    installBootChunkRecovery();
-  }, []);
+    // Boot-phase only: while the splash is up a chunk failure means a dead
+    // page, so the single auto-reload is the only self-help. Once boot ends
+    // (ready *or* stuck — the stuck recovery UI has its own buttons) the
+    // listener is removed, so later chunk failures surface through the
+    // ErrorBoundary card and never force-refresh a working session.
+    if (phase !== 'booting') return undefined;
+    return installBootChunkRecovery();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'booting') return;
@@ -54,6 +60,8 @@ export function BootGate({ children }: { children: React.ReactNode }) {
     }).then((result) => {
       if (!alive) return;
       if (result === 'ready') {
+        const bar = document.getElementById('boot-bar');
+        if (bar) bar.style.width = '100%';
         // Render children underneath the splash first, then fade it away so
         // the reveal never shows a blank frame.
         setPhase('ready');

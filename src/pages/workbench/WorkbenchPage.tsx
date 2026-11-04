@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { lazyRetry } from '@/core/lazyRetry';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
@@ -11,14 +12,15 @@ import { useAppStore } from '@/stores/appStore';
 import { perfMonitor } from '@/core/perf';
 import { logger } from '@/core/logger';
 import { useT } from '@/i18n';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getLastOpenedProjectId } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { loadWasm } from '@/core/wasm';
 import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
-import { TourGuide } from '@/components/TourGuide';
+import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
+import { warmPythonRuntime } from '@/core/pyodide/code-runtime';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
 // Styles for the desktop-only terminal drawer (shell is styled before the
@@ -27,10 +29,10 @@ import '@/components/terminal/terminal.css';
 
 // Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
 // Standard/Flow first paint is unaffected (editor architecture §1.1).
-const BlockEditor = lazy(() =>
+const BlockEditor = lazyRetry(() =>
   import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
 );
-const CodeEditor = lazy(() =>
+const CodeEditor = lazyRetry(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 
@@ -70,11 +72,18 @@ export default function WorkbenchPage() {
   useFlowSync();
 
   // First visit to the workbench: auto-start the guided tour once the layout
-  // has settled. Skipped/completed tours are remembered in localStorage and
-  // never auto-offered again (the top-bar "?" button re-runs it on demand).
+  // has settled. The entry chooser offers two parts — "meet the interface"
+  // and "run the research workflow" — so neither is forced. Skipped/completed
+  // tours are remembered in localStorage, and the top-bar "?" button reopens
+  // the chooser on demand.
   useEffect(() => {
     if (tourSeen()) return;
-    const timer = window.setTimeout(() => useTourStore.getState().start(), 900);
+    const timer = window.setTimeout(() => {
+      // The welcome page's debut CTA may already have armed the tour while
+      // this page mounts; never clobber that running flow.
+      if (useTourStore.getState().active) return;
+      useTourStore.getState().start('menu');
+    }, 900);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -94,9 +103,13 @@ export default function WorkbenchPage() {
         try {
           await useProjectStore.getState().loadRecent();
           const { project, recent } = useProjectStore.getState();
-          if (!project && recent[0]) {
-            await useProjectStore.getState().openProject(recent[0].id);
-          }
+          if (project) return;
+          // Prefer the project that was actually open at last shutdown (see
+          // getLastOpenedProjectId — updatedAt ordering is not "last opened").
+          const lastId = getLastOpenedProjectId();
+          const target =
+            (lastId && recent.find((p) => p.id === lastId)) || recent[0] || null;
+          if (target) await useProjectStore.getState().openProject(target.id);
         } catch (err) {
           // A project left in an old or corrupt shape used to fail silently
           // here: no project, no fallback, no message — just an unhandled
@@ -110,6 +123,17 @@ export default function WorkbenchPage() {
     // `t` is a stable module-level function and the restore runs once per
     // page load (restoreStarted guard), so re-running here cannot happen.
   }, [t]);
+
+  // One-time Python runtime warm-up once the workspace is idle. The
+  // interpreter is session-wide (core/pyodide/code-runtime), so this is the
+  // only load the user pays for in this session; later code/notebook/solver
+  // runs reuse the booted interpreter (or the now-cached /pyodide/ assets).
+  useEffect(() => {
+    // Delayed on purpose: the first seconds belong to the workspace chunks
+    // and the plugin registry, not to a 30 MB interpreter download.
+    const timer = window.setTimeout(() => void warmPythonRuntime({ silent: true }), 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className="workbench">
@@ -156,7 +180,7 @@ export default function WorkbenchPage() {
       <ErrorBoundary>
         <StatusBar />
       </ErrorBoundary>
-      <TourGuide />
+      <PythonRuntimeNotice />
       <AiAssistantOverlay />
       <ModeConvertDialog />
     </div>

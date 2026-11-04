@@ -166,7 +166,7 @@ describe('advanceNBodyCPU', () => {
 
 describe('NBodyPlugin compute (CPU fallback)', () => {
   it('runs the CPU integrator and reports progress when no GPU is present', async () => {
-    const { NBodyPlugin } = await import('@/plugins/builtin/nbody');
+    const { NBodyPlugin } = await import('@/plugins/builtin/physics/nbody/plugin');
     const plugin = new NBodyPlugin();
     const api = makeApi();
     await plugin.init(api);
@@ -186,7 +186,7 @@ describe('NBodyPlugin compute (CPU fallback)', () => {
   });
 
   it('returns an error when no data has been loaded', async () => {
-    const { NBodyPlugin } = await import('@/plugins/builtin/nbody');
+    const { NBodyPlugin } = await import('@/plugins/builtin/physics/nbody/plugin');
     const plugin = new NBodyPlugin();
     const api = makeApi();
     await plugin.init(api);
@@ -201,7 +201,7 @@ describe('NBodyPlugin compute (CPU fallback)', () => {
 
 describe('ProteinPlugin compute (force-directed layout)', () => {
   it('lays out a connected network and reports component metrics', async () => {
-    const { ProteinPlugin } = await import('@/plugins/builtin/protein');
+    const { ProteinPlugin } = await import('@/plugins/builtin/bio/protein/plugin');
     const plugin = new ProteinPlugin();
     const api = makeApi();
     await plugin.init(api);
@@ -236,7 +236,7 @@ describe('ProteinPlugin compute (force-directed layout)', () => {
   });
 
   it('parses numeric-index edges and weight arrays', async () => {
-    const { ProteinPlugin } = await import('@/plugins/builtin/protein');
+    const { ProteinPlugin } = await import('@/plugins/builtin/bio/protein/plugin');
     const plugin = new ProteinPlugin();
     await plugin.init(makeApi());
     const file = new File(
@@ -249,7 +249,7 @@ describe('ProteinPlugin compute (force-directed layout)', () => {
   });
 
   it('returns an error when no network has been loaded', async () => {
-    const { ProteinPlugin } = await import('@/plugins/builtin/protein');
+    const { ProteinPlugin } = await import('@/plugins/builtin/bio/protein/plugin');
     const plugin = new ProteinPlugin();
     await plugin.init(makeApi());
     const result = await plugin.compute(null);

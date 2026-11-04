@@ -12,7 +12,7 @@ import {
   simulateStep,
   textbookSettlingTime2pct,
   validateParams,
-} from '../src/plugins/builtin/eng-control/kernel';
+} from '../src/plugins/builtin/engineering/control/kernel';
 
 /** Unified relative-error yardstick: |computed − analytic| / |analytic|. */
 function relErr(computed: number, analytic: number): number {

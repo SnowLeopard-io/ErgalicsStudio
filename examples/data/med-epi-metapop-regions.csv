@@ -1,0 +1,8 @@
+# metapopulation region table for the bio-epidemic plugin (multi-region SEIR)
+# columns: region,population,infected
+region,population,infected
+North,1800000,60
+South,1400000,25
+East,900000,120
+West,700000,10
+Capital,2400000,45

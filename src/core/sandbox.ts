@@ -62,6 +62,19 @@ export const SANDBOX_LONG_RPC_TIMEOUT_MS = 600_000;
 /** Teardown should be immediate; a hung `destroy` must not block it. */
 export const SANDBOX_DESTROY_TIMEOUT_MS = 3_000;
 
+/**
+ * True when this runtime can host the Web Worker sandbox at all.
+ *
+ * This answers "is the security boundary available here?" (e.g. Node or a
+ * very old browser has no Worker), which is distinct from "did this
+ * particular plugin boot inside its worker?" — only the former may justify
+ * falling back to `evaluatePluginLegacy`; a worker that exists but fails to
+ * boot means the plugin's entry code threw and must NOT be re-run unsandboxed.
+ */
+export function isSandboxSupported(): boolean {
+  return typeof Worker === 'function';
+}
+
 // ---- RPC protocol helpers (pure, unit-testable) ----
 
 /** Functions replaced by this token during structured-clone serialization. */

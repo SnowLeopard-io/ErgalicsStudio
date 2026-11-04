@@ -8,7 +8,7 @@ import {
   mulberry32,
   onsagerMagnetization,
   runIsingPoint,
-} from '../src/plugins/builtin/physics-ising/kernel';
+} from '../src/plugins/builtin/physics/ising/kernel';
 
 const relErr = (a: number, b: number): number => Math.abs(a - b) / Math.abs(b);
 

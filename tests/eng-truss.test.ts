@@ -4,7 +4,7 @@ import {
   type TrussModel,
   parseTrussModel,
   solveTruss,
-} from '../src/plugins/builtin/eng-truss/kernel';
+} from '../src/plugins/builtin/engineering/truss/kernel';
 
 /** Unified relative-error yardstick: |computed − analytic| / |analytic|. */
 function relErr(computed: number, analytic: number): number {

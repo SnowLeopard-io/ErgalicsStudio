@@ -149,6 +149,68 @@ export interface BaseParam {
    * numeric input). Only honoured inside a group.
    */
   inline?: boolean;
+  /**
+   * Conditional visibility. Hide this control when the controlling parameter
+   * makes it irrelevant (e.g. a diffusion strength slider in a mode that does
+   * not use it), so the panel only shows controls that actually take effect.
+   */
+  visibleWhen?: ParamVisibilityRule;
+}
+
+export interface ParamVisibility {
+  /** Key of the parameter whose current value controls visibility. Omit for a
+   *  purely conjunctive rule (only `all` sub-rules, no direct key gate). */
+  key?: string;
+  /** Show only when the controlling value is one of these. */
+  in?: ReadonlyArray<string | number | boolean>;
+  /** Show only when the controlling value is none of these. */
+  notIn?: ReadonlyArray<string | number | boolean>;
+  /**
+   * Conjunctive sub-rules: EVERY entry must match (an entry that is itself an
+   * array matches when ANY of its members match). Combined with `in`/`notIn`
+   * this expresses "show only when A AND (B OR C)" — e.g. an edge-temperature
+   * slider that applies to conduction mode with a Dirichlet boundary only.
+   */
+  all?: ReadonlyArray<ParamVisibilityRule>;
+}
+
+/** One visibility rule, or an OR-list of rules. */
+export type ParamVisibilityRule = ParamVisibility | ReadonlyArray<ParamVisibility>;
+
+/** Resolve a param's conditional visibility against the current definitions. */
+export function isParamVisible(
+  def: BaseParam,
+  params: readonly ParamDefinition[],
+): boolean {
+  const cond = def.visibleWhen;
+  if (!cond) return true;
+  const rules = Array.isArray(cond) ? cond : [cond];
+  return rules.some((rule) => matchesVisibility(rule as ParamVisibility, params));
+}
+
+function matchesVisibility(
+  cond: ParamVisibility,
+  params: readonly ParamDefinition[],
+): boolean {
+  // A conjunctive rule may omit `key` entirely (only `all` sub-rules);
+  // the key/value gate below only applies when a key is given.
+  if (cond.key !== undefined) {
+    const controller = params.find((p) => p.key === cond.key);
+    if (!controller || !('value' in controller)) return true;
+    const value = controller.value as string | number | boolean;
+    if (cond.in && !cond.in.includes(value)) return false;
+    if (cond.notIn && cond.notIn.includes(value)) return false;
+  }
+  if (cond.all && !cond.all.every((r) => matchesVisibilityRule(r, params))) return false;
+  return true;
+}
+
+function matchesVisibilityRule(
+  rule: ParamVisibilityRule,
+  params: readonly ParamDefinition[],
+): boolean {
+  const rules = Array.isArray(rule) ? rule : [rule];
+  return rules.some((r) => matchesVisibility(r as ParamVisibility, params));
 }
 
 export interface RangeParam extends BaseParam {
@@ -254,9 +316,11 @@ export interface Scene3DHandle {
   /**
    * Export the current frame as a PNG data URL. Pass `{ transparent: true }`
    * to drop the background and reference furniture (grid/axes) so only the
-   * plugin's own objects are captured on a transparent canvas.
+   * plugin's own objects are captured on a transparent canvas. Pass
+   * `{ width, height }` to render a full-quality off-size frame (e.g. 1080p
+   * export) independent of the on-screen viewport size.
    */
-  snapshot(opts?: { transparent?: boolean }): string;
+  snapshot(opts?: { transparent?: boolean; width?: number; height?: number }): string;
   /**
    * Export the plugin content (everything except the host's reference
    * furniture) as a 3D model. `glb` keeps materials, `stl` is binary
@@ -512,8 +576,11 @@ export interface PluginApi {
    */
   readonly gpu?: GpuComputeApi;
 
-  /** Load a file through the host data loader. */
-  openFile(): Promise<File | null>;
+  /**
+   * Load a file through the host data loader. `accept` optionally restricts
+   * the native picker (same syntax as `<input accept>`), e.g. '.dcm,.ima'.
+   */
+  openFile(accept?: string): Promise<File | null>;
   /** Read a file's text content. */
   readText(file: File): Promise<string>;
   /** Read a file's ArrayBuffer. */

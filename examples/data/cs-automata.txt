@@ -1,0 +1,7 @@
+# Regex / automata example: (a|b)*abb over a small alphabet
+regex: (a|b)*abb
+test: ababb
+test: aabb
+test: aba
+test: babb
+test: abababb

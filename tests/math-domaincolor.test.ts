@@ -15,7 +15,7 @@ import {
   windingCount,
   windingNumber,
   type Complex,
-} from '../src/plugins/builtin/math-domaincolor/kernel';
+} from '../src/plugins/builtin/math/domaincolor/kernel';
 
 function closeTo(a: Complex, re: number, im: number, tol = 1e-12): void {
   expect(Math.hypot(a.re - re, a.im - im)).toBeLessThan(tol);

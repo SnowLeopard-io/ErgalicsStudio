@@ -220,12 +220,13 @@ export function Dropdown({
   }, [open, align, visibleItems.length]);
 
   return (
-    <div className="menu-wrap" ref={ref} aria-label={ariaLabel}>
+    <div className="menu-wrap" ref={ref}>
       <button
         type="button"
         className={triggerClassName}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={ariaLabel}
         onClick={() => setOpenBoth(!open)}
       >
         {trigger}

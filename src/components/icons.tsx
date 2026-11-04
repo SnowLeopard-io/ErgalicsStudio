@@ -171,6 +171,26 @@ export const DownloadIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Enter-immersive-fullscreen glyph (corners pointing out) — canvas toolbar. */
+export const MaximizeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+    <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+    <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+  </Svg>
+);
+
+/** Exit-immersive-fullscreen glyph (corners pointing in) — canvas toolbar. */
+export const MinimizeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+    <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+    <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+    <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+  </Svg>
+);
+
 /** Plain document glyph (file without a plus) — distinguishes single-file
     project open from folder import on the welcome CTA row. */
 export const FileIcon = (p: IconProps) => (
@@ -322,7 +342,11 @@ export type ToolIconKind =
   | 'convert'
   | 'sigfig'
   | 'molar'
-  | 'quickstats';
+  | 'quickstats'
+  | 'latex'
+  | 'citation'
+  | 'collab'
+  | 'preprint';
 
 export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) {
   switch (kind) {
@@ -537,6 +561,39 @@ export function ToolIcon({ kind, ...rest }: IconProps & { kind: ToolIconKind }) 
         <Svg {...rest}>
           <path d="M16.5 4H8.5l4 5-4 5h8" />
           <path d="M4 20v-3M9 20v-5M14 20v-2M19 20v-6" />
+        </Svg>
+      );
+    case 'latex': // document with a typeset formula
+      return (
+        <Svg {...rest}>
+          <path d="M6 3h8.5L19 7.5V21H6z" />
+          <path d="M14.5 3v4.5H19" />
+          <path d="M8.5 12h2l1.5 3 1.5-6 1.5 3h1.5" />
+        </Svg>
+      );
+    case 'citation': // quotation marks with a link
+      return (
+        <Svg {...rest}>
+          <path d="M9 6H5.5A1.5 1.5 0 0 0 4 7.5V12h4.5V9" />
+          <path d="M18 6h-3.5A1.5 1.5 0 0 0 13 7.5V12h4.5V9" />
+          <path d="M6 15.5c0 2 1 3 3 3.5M15 15.5c0 2 1 3 3 3.5" />
+        </Svg>
+      );
+    case 'collab': // two people / shared edit
+      return (
+        <Svg {...rest}>
+          <circle cx="8.5" cy="8" r="2.6" />
+          <circle cx="16" cy="9.5" r="2.2" />
+          <path d="M4 19c0-2.6 2-4.2 4.5-4.2S13 16.4 13 19" />
+          <path d="M14.5 18.5c.3-2 1.6-3.2 3.3-3.2 1.4 0 2.5.8 3 2.2" />
+        </Svg>
+      );
+    case 'preprint': // paper plane over a document
+      return (
+        <Svg {...rest}>
+          <path d="M4 5.5 20 3l-4 12-5-3.5z" />
+          <path d="m11 11.5 4-4" />
+          <path d="M6 15v5h12v-4" />
         </Svg>
       );
   }

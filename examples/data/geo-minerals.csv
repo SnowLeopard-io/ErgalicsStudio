@@ -1,0 +1,22 @@
+# Ergalics Studio — teaching mineral database
+# Columns: id,name,name_zh,formula,class,group,group_zh,hardness,sg,crystal_system,cleavage,cleavage_zh,luster,streak,streak_zh,color,color_zh,birefringence,relief,optical_sign,notes,notes_zh
+# Quoted fields may contain commas. Hardness is Mohs; sg is g/cm3; birefringence is dimensionless.
+id,name,name_zh,formula,class,group,group_zh,hardness,sg,crystal_system,cleavage,cleavage_zh,luster,streak,streak_zh,color,color_zh,birefringence,relief,optical_sign,notes,notes_zh
+quartz,Quartz,石英,SiO2,silicate,framework silicate,架状硅酸盐,7,2.65,hexagonal,"none, conchoidal fracture",无解理/贝壳状断口,vitreous,white,白色,"colourless / white / grey",无色/白/灰,0.009,low,+,Most common crustal mineral,地壳中最常见的矿物
+orthoclase,Orthoclase feldspar,正长石,KAlSi3O8,silicate,framework silicate,架状硅酸盐,6,2.56,monoclinic,"two good at 90 deg",两组完全解理约90度,vitreous,white,白色,"pink / white / cream",粉/白/米色,0.007,low,-,Alkali feldspar,碱性长石
+plagioclase,Plagioclase feldspar,斜长石,"(Na,Ca)Al(Al,Si)Si2O8",silicate,framework silicate,架状硅酸盐,6,2.68,triclinic,"two good at ~86 deg",两组完全解理约86度,vitreous,white,白色,"white / grey",白/灰,0.009,low,+,Polysynthetic twinning,聚片双晶
+muscovite,Muscovite mica,白云母,KAl2(AlSi3O10)(OH)2,silicate,sheet silicate,层状硅酸盐,2.5,2.82,monoclinic,perfect basal,底面完全解理,pearly,white,白色,"colourless / silvery",无色/银白,0.036,moderate,-,Colourless mica,无色云母
+biotite,Biotite mica,黑云母,"K(Mg,Fe)3(AlSi3O10)(OH)2",silicate,sheet silicate,层状硅酸盐,2.5,3.0,monoclinic,perfect basal,底面完全解理,pearly,white,白色,"black / dark brown",黑/深褐,0.045,moderate,-,Dark mica,暗色云母
+hornblende,Hornblende,普通角闪石,"Ca2(Mg,Fe)5Si8O22(OH)2",silicate,double-chain silicate,双链硅酸盐,5.5,3.2,monoclinic,"two good at ~56 deg",两组完全解理约56度,vitreous,white,白色,"black / dark green",黑/暗绿,0.02,moderate,-,Diagnostic 56 deg cleavage,56度解理为鉴定特征
+augite,Augite,普通辉石,"(Ca,Na)(Mg,Fe,Al)(Si,Al)2O6",silicate,single-chain silicate,单链硅酸盐,6,3.3,monoclinic,"two good at ~87 deg",两组完全解理约87度,vitreous,white,白色,"black / dark green",黑/暗绿,0.024,moderate,+,Pyroxene with 87 deg cleavage,约87度解理的辉石
+olivine,Olivine,橄榄石,"(Mg,Fe)2SiO4",silicate,isolated tetrahedra,岛状硅酸盐,6.5,3.35,orthorhombic,"poor, conchoidal",解理差/贝壳状,vitreous,white,白色,"olive green / yellow-green",橄榄绿/黄绿,0.035,high,+,Mantle mineral,地幔主要矿物
+calcite,Calcite,方解石,CaCO3,carbonate,carbonate,碳酸盐,3,2.71,hexagonal,perfect rhombohedral,菱面体完全解理,vitreous,white,白色,"colourless / white",无色/白,0.172,low,-,Extreme birefringence,极高双折射率
+dolomite,Dolomite,白云石,CaMg(CO3)2,carbonate,carbonate,碳酸盐,3.5,2.86,hexagonal,perfect rhombohedral,菱面体完全解理,vitreous,white,白色,"white / grey / pink",白/灰/粉,0.179,low,-,Curved crystal faces,晶面弯曲
+halite,Halite,石盐,NaCl,halide,halide,卤化物,2.5,2.16,cubic,perfect cubic,立方体完全解理,vitreous,white,白色,"colourless / white",无色/白,0,cubic,none,Isotropic cubic halide,等轴均质卤化物
+pyrite,Pyrite,黄铁矿,FeS2,sulfide,sulfide,硫化物,6.5,5.0,cubic,"none, conchoidal",无解理/贝壳状,metallic,greenish black,绿黑色,brass yellow,黄铜色,0,high,none,Fool's gold,愚人金
+magnetite,Magnetite,磁铁矿,Fe3O4,oxide,spinel oxide,尖晶石型氧化物,6,5.17,cubic,none,无解理,metallic,black,黑色,black,黑色,0,high,none,Strongly magnetic,强磁性
+hematite,Hematite,赤铁矿,Fe2O3,oxide,oxide,氧化物,5.5,5.26,hexagonal,none,无解理,metallic,reddish brown,樱红色,"steel grey / red",钢灰/红,0,high,none,Reddish-brown streak,樱红色条痕
+corundum,Corundum,刚玉,Al2O3,oxide,oxide,氧化物,9,4.0,hexagonal,"none, parting",无解理/有裂理,adamantine,white,白色,"blue / red / brown",蓝/红/褐,0.008,high,-,Ruby and sapphire,红宝石与蓝宝石
+garnet,Almandine garnet,铁铝榴石,Fe3Al2(SiO4)3,silicate,nesosilicate,岛状硅酸盐,7.5,4.3,cubic,none,无解理,vitreous,white,白色,"deep red / brown",深红/褐,0,high,none,Isotropic garnet,均质石榴子石
+talc,Talc,滑石,Mg3Si4O10(OH)2,silicate,sheet silicate,层状硅酸盐,1,2.75,monoclinic,perfect basal,底面完全解理,pearly,white,白色,"white / pale green",白/淡绿,0.051,moderate,-,Reference mineral 1 on Mohs scale,莫氏硬度1的标准矿物
+rutile,Rutile,金红石,TiO2,oxide,oxide,氧化物,6.5,4.23,tetragonal,good prismatic,柱面解理良好,adamantine,pale brown,浅褐色,"red / brown / black",红/褐/黑,0.287,very-high,+,Needle-like inclusions,针状包裹体

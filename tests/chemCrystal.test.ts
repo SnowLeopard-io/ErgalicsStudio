@@ -7,17 +7,17 @@ import {
   reducedFormula,
   formatFormula,
   cellObservables,
-} from '@/plugins/builtin/chem-crystal/cellInfo';
-import { CRYSTAL_SAMPLES, findSample } from '@/plugins/builtin/chem-crystal/samples';
-import { buildCrystalGroup } from '@/plugins/builtin/chem-crystal/crystal3d';
+} from '@/plugins/builtin/chem/crystal/cellInfo';
+import { CRYSTAL_SAMPLES, findSample } from '@/plugins/builtin/chem/crystal/samples';
+import { buildCrystalGroup } from '@/plugins/builtin/chem/crystal/crystal3d';
 import { minImageDistance, inferBonds } from '@/core/chem/structure';
 import {
   detectFormat,
   parseStructure,
   type LoadedCell,
-} from '@/plugins/builtin/chem-crystal/parse';
-import { ChemCrystalPlugin } from '@/plugins/builtin/chem-crystal/plugin';
-import { chemCrystalManifest } from '@/plugins/builtin/chem-crystal/manifest';
+} from '@/plugins/builtin/chem/crystal/parse';
+import { ChemCrystalPlugin } from '@/plugins/builtin/chem/crystal/plugin';
+import { chemCrystalManifest } from '@/plugins/builtin/chem/crystal/manifest';
 import { findBuiltin } from '@/plugins/builtin';
 import { disciplineOf } from '@/plugins/categories';
 import type { PluginApi } from '@/types/plugin';

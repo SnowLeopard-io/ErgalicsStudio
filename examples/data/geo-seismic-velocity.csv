@@ -1,0 +1,13 @@
+// Sample radial velocity model for geo-seismic (depth_km, vp_km_s,
+// vs_km_s, density_g_cm3). PREM-like layer averages, sampled at layer
+// boundaries so the loader has a well-defined piecewise-linear profile.
+# depth_km,vp_km_s,vs_km_s,density_g_cm3
+0,5.80,3.36,2.60
+15,6.80,3.90,2.90
+35,8.10,4.50,3.35
+100,8.00,4.40,3.30
+220,9.10,4.90,3.90
+660,10.30,5.60,4.40
+2890,13.70,7.30,5.50
+5150,8.00,0.00,10.00
+6371,11.00,3.50,13.00

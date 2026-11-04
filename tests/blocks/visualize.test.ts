@@ -68,6 +68,70 @@ describe('visualize blocks', () => {
   });
 });
 
+describe('geoscience visualize blocks', () => {
+  it('viz.geo_seismic_model feeds a depth/vP/vS table to the seismic plugin', async () => {
+    const view = await runViz('viz.geo_seismic_model', { depthColumn: 'x', vpColumn: 'y', vsColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-seismic');
+    expect(payload.text.split('\n')[0]).toBe('0 0 0');
+  });
+
+  it('viz.geo_mineral_database preserves text columns as CSV', async () => {
+    const view = await runViz('viz.geo_mineral_database', {});
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-minerals');
+    const lines = payload.text.split('\n');
+    expect(lines[0]).toBe('x,y');
+    expect(lines).toHaveLength(17);
+  });
+
+  it('viz.geo_pumping_test emits a pumping-test header for the hydrogeology plugin', async () => {
+    const view = await runViz('viz.geo_pumping_test', { timeColumn: 'x', drawdownColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.geo-hydrogeology');
+    expect(payload.text.split('\n')[0]).toBe('time_days,drawdown_m');
+    expect(payload.text.split('\n')[1]).toBe('0,0');
+  });
+});
+
+describe('music & art science visualize blocks', () => {
+  it('viz.tuning_table serializes a degree/ratio table for the tuning plugin', async () => {
+    const view = await runViz('viz.tuning_table', { degreeColumn: 'x', ratioColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.tuning');
+    expect(view.viewType).toBe('tuning-table');
+    expect(payload.text.split('\n')[0]).toBe('x,y');
+  });
+
+  it('viz.color_palette emits a colour table for the colour science plugin', async () => {
+    const view = await runViz('viz.color_palette', { rColumn: 'x', gColumn: 'y', bColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.color-science');
+    expect(view.viewType).toBe('color-palette');
+    expect(payload.text.split('\n')[0]).toBe('x,y,y');
+  });
+
+  it('viz.acoustics_waveform emits a time/amplitude CSV for the acoustics plugin', async () => {
+    const view = await runViz('viz.acoustics_waveform', { timeColumn: 'x', amplitudeColumn: 'y' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.acoustics');
+    expect(view.viewType).toBe('acoustics-waveform');
+    expect(payload.text.split('\n')[0]).toBe('x,y');
+    expect(payload.text.split('\n')[1]).toBe('0,0');
+  });
+
+  it('viz.synth_presets emits JSON presets for the synth plugin', async () => {
+    const view = await runViz('viz.synth_presets', { midiColumn: 'x' });
+    const payload = view.data as VizPayload;
+    expect(payload.pluginId).toBe('example.synth');
+    expect(view.viewType).toBe('synth-presets');
+    const presets = JSON.parse(payload.text) as Array<{ midi: number; wave: string }>;
+    expect(presets).toHaveLength(16);
+    expect(presets[0]!.midi).toBe(0);
+    expect(presets[0]!.wave).toBe('sine');
+  });
+});
+
 describe('renderView bridge', () => {
   it('activates the target plugin and feeds it a File', async () => {
     const loadData = vi.fn(async (_file: File) => {});

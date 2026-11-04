@@ -131,6 +131,20 @@ export class OpfsChunkStore {
     }
     const meta: OpfsMeta = { sizes, total };
     await writeFile(dir, META_FILE, textEncode(JSON.stringify(meta)));
+    // A shrink replaces fewer chunks than the previous write — drop the
+    // now-unreferenced high-index leftovers so repeated re-ingests don't
+    // leak OPFS space.
+    try {
+      const names = (dir as unknown as { keys(): AsyncIterableIterator<string> }).keys();
+      for await (const name of names) {
+        const m = /^(\d+)\.bin$/.exec(name);
+        if (m && Number(m[1]) >= chunks.length) {
+          await dir.removeEntry(name).catch(() => undefined);
+        }
+      }
+    } catch {
+      // Enumeration best-effort; stale chunks are harmless to reads.
+    }
   }
 
   private async readMeta(projectId: string, fileId: string): Promise<OpfsMeta> {

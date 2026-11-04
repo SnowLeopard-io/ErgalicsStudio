@@ -21,11 +21,11 @@ import {
   surfaceAlbedo,
   surfaceCo2,
   carbonRun,
-} from '@/plugins/builtin/env/envCore';
-import { parseAqiCsv, aqiFigurePanels } from '@/plugins/builtin/env/aqi';
-import { parseWaterCsv, waterFigurePanels } from '@/plugins/builtin/env/water';
-import { parseCarbonCsv, carbonFigurePanels } from '@/plugins/builtin/env/carbon';
-import { parseAbundanceCsv, biodiversityFigurePanels } from '@/plugins/builtin/env/biodiversity';
+} from '@/plugins/builtin/env/shared/envCore';
+import { parseAqiCsv, aqiFigurePanels } from '@/plugins/builtin/env/aqi/plugin';
+import { parseWaterCsv, waterFigurePanels } from '@/plugins/builtin/env/water/plugin';
+import { parseCarbonCsv, carbonFigurePanels } from '@/plugins/builtin/env/carbon/plugin';
+import { parseAbundanceCsv, biodiversityFigurePanels } from '@/plugins/builtin/env/biodiversity/plugin';
 
 import aqiWeekCsv from '../examples/data/env-aqi-week.csv?raw';
 import waterRiverCsv from '../examples/data/env-water-river.csv?raw';

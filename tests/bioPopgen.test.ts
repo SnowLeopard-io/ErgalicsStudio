@@ -8,7 +8,7 @@ import {
   parseGenotypeCounts,
   parseVcfGenotypes,
   wrightFisher,
-} from '../src/plugins/builtin/bio-popgen/popgen';
+} from '../src/plugins/builtin/bio/popgen/popgen';
 
 describe('bio-popgen kernel', () => {
   it('mulberry32 is deterministic and bounded', () => {

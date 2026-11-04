@@ -18,7 +18,7 @@ import {
   parseStarTable,
   runHrBenchmark,
   type StarRecord,
-} from '@/plugins/builtin/astro-hrdiagram/kernel';
+} from '@/plugins/builtin/astro/hrdiagram/kernel';
 
 describe('distance modulus anchors (unified error convention)', () => {
   it('gives M_V = V at exactly 10 pc (π = 0.1″) to < 1e-9', () => {

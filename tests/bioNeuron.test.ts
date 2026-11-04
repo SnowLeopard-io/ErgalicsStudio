@@ -10,7 +10,7 @@ import {
   runHhBenchmarks,
   simulateHH,
   vtrap,
-} from '../src/plugins/builtin/bio-neuron/kernel';
+} from '../src/plugins/builtin/bio/neuron/kernel';
 
 const NO_STIM = { hold: 0, pulseAmp: 0, pulseStart: 0, pulseDur: 0 };
 

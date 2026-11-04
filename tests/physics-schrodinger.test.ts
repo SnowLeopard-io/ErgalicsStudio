@@ -13,7 +13,7 @@ import {
   packetStats,
   relErr,
   solveStationary,
-} from '../src/plugins/builtin/physics-schrodinger/kernel';
+} from '../src/plugins/builtin/physics/schrodinger/kernel';
 
 describe('physics-schrodinger stationary states', () => {
   it('infinite well: E_n ~ n^2 pi^2 (hbar^2/2mL^2 = 1), relative error < 1e-3', () => {

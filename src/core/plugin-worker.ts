@@ -124,7 +124,7 @@ export function createPluginWorkerRuntime(
       clear: () => callApi('cache.clear'),
       keys: () => callApi<string[]>('cache.keys'),
     } satisfies PluginCacheApi,
-    openFile: () => callApi<File | null>('openFile'),
+    openFile: (accept?: string) => callApi<File | null>('openFile', [accept]),
     readText: (file) => callApi<string>('readText', [file]) as unknown as Promise<string>,
     readBinary: (file) =>
       callApi<ArrayBuffer>('readBinary', [file]) as unknown as Promise<ArrayBuffer>,

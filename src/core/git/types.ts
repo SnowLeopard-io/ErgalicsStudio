@@ -11,6 +11,21 @@ export interface GitStatus {
   behind: number;
   currentBranch: string;
   currentCommit?: string;
+  /** Per-file letters for the VSCode-style change tree. Optional so older
+   *  adapters / test fixtures without entries keep working — consumers must
+   *  fall back to the path buckets above when absent. */
+  entries?: GitStatusEntry[];
+}
+
+export type GitFileLetter = 'A' | 'M' | 'D' | 'U';
+
+/** One row of the status matrix, decoded: `staged` is the index-vs-HEAD
+ *  change (A/M/D), `worktree` the workdir-vs-index change (M/D, or U for
+ *  untracked). A path can carry both (staged then edited again). */
+export interface GitStatusEntry {
+  path: string;
+  staged: GitFileLetter | null;
+  worktree: GitFileLetter | null;
 }
 
 export interface GitCommit {
@@ -162,6 +177,9 @@ export interface GitAdapter {
 
   // Write operations
   add(repoPath: string, files: string[]): Promise<void>;
+  /** Unstage: reset index entries back to HEAD (isomorphic-git resetIndex).
+   *  A staged new file becomes untracked again. */
+  resetIndex(repoPath: string, files: string[]): Promise<void>;
   commit(repoPath: string, message: string, opts?: CommitOptions): Promise<string>;
   checkout(repoPath: string, ref: string, create?: boolean): Promise<void>;
   branch(repoPath: string, name: string, startPoint?: string): Promise<void>;

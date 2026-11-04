@@ -15,9 +15,12 @@
 //                   core). Both degrade gracefully internally, so a probe
 //                   failure never blocks startup — it only decides which
 //                   backend the app will use.
-//   3. "plugins"  — every autoload built-in plugin is warmed + registered,
-//                   so the workbench opens with its full registry instead of
-//                   plugins popping in one by one.
+//
+// Built-in plugins are deliberately NOT part of this checklist. Warming the
+// full registry means downloading dozens of chunks; on a slow link that
+// pinned the splash (the watchdog could only flag a timeout, it could not
+// abort the await), so users never reached the first screen. The workbench
+// starts that load itself once it mounts — see WorkbenchPage.
 //
 // A watchdog bounds the whole sequence: on timeout the caller may offer an
 // "enter anyway" escape hatch instead of trapping the user behind the splash.
@@ -27,7 +30,7 @@ import { initGpu } from './gpu';
 import { wasmStatus } from './wasm';
 import { initDesktopPlatform } from './platform/bootstrap';
 
-export type BootStep = 'modules' | 'engine' | 'plugins';
+export type BootStep = 'modules' | 'engine';
 export type BootOutcome = 'ready' | 'failed' | 'timeout';
 
 export interface BootOptions {
@@ -88,13 +91,6 @@ export async function runBoot(opts: BootOptions = {}): Promise<BootOutcome> {
     await Promise.allSettled([initGpu(), wasmStatus()]);
     if (timedOut) return 'timeout';
 
-    // --- 3. built-in plugins ----------------------------------------------
-    // Warm + register every autoload plugin so the workbench never shows the
-    // "plugins popping in one by one" sequence. ensureBuiltinsLoaded caches
-    // its promise, so WorkbenchPage's own call later reuses this result.
-    onStep?.('plugins');
-    const { usePluginStore } = await import('@/stores/pluginStore');
-    await usePluginStore.getState().ensureBuiltinsLoaded();
     // Fully done — even if the watchdog fired mid-way, everything is ready.
     clearTimeout(watchdog);
     return 'ready';
@@ -119,13 +115,20 @@ const RELOAD_MARKER = 'ergalics:boot-chunk-reloaded';
 const CHUNK_ERROR_PATTERN =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i;
 
-export function installBootChunkRecovery(): void {
+export function installBootChunkRecovery(): () => void {
+  // The per-session marker prevents a reload loop if the site itself is
+  // broken (deploy half-finished): after one automatic reload, no more.
   try {
-    if (sessionStorage.getItem(RELOAD_MARKER)) return;
+    if (sessionStorage.getItem(RELOAD_MARKER)) return () => undefined;
   } catch {
     /* storage unavailable — skip the guard, keep the recovery */
   }
-  window.addEventListener('unhandledrejection', (event) => {
+  // Auto-reload is a boot-splash-only lifeline: at that point the React tree
+  // has not rendered, so a chunk failure means a dead page and a single
+  // reload is the only self-help. Once boot finishes, chunk failures must
+  // surface through the ErrorBoundary recovery card instead — an automatic
+  // reload would interrupt running simulations and discard unsaved work.
+  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
     const reason = event.reason as Error | string | undefined;
     const message = typeof reason === 'string' ? reason : reason?.message ?? '';
     if (!CHUNK_ERROR_PATTERN.test(message)) return;
@@ -135,5 +138,7 @@ export function installBootChunkRecovery(): void {
       /* ignore */
     }
     window.location.reload();
-  });
+  };
+  window.addEventListener('unhandledrejection', onUnhandledRejection);
+  return () => window.removeEventListener('unhandledrejection', onUnhandledRejection);
 }

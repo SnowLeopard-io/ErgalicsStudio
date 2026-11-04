@@ -11,7 +11,6 @@
 
 export type PluginDiscipline =
   | 'charts'
-  | 'stats'
   | 'math'
   | 'physics'
   | 'engineering'
@@ -19,11 +18,15 @@ export type PluginDiscipline =
   | 'fx'
   | 'chem'
   | 'bio'
+  | 'med'
   | 'geo'
   | 'env'
   | 'materials'
   | 'econ'
   | 'psych'
+  | 'socio'
+  | 'artsci'
+  | 'cs'
   | 'data'
   | 'fun';
 
@@ -37,11 +40,11 @@ export interface DisciplineInfo {
  * data tooling, and finally rendering / fun utilities. */
 export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'charts', nameI18n: { 'zh-CN': '图表可视化', 'en-US': 'Charts' } },
-  { id: 'stats', nameI18n: { 'zh-CN': '数学统计', 'en-US': 'Statistics' } },
-  { id: 'math', nameI18n: { 'zh-CN': '数学方法', 'en-US': 'Mathematics' } },
+  { id: 'math', nameI18n: { 'zh-CN': '数学与统计', 'en-US': 'Mathematics & Statistics' } },
   { id: 'physics', nameI18n: { 'zh-CN': '物理模拟', 'en-US': 'Physics' } },
   { id: 'chem', nameI18n: { 'zh-CN': '化学', 'en-US': 'Chemistry' } },
   { id: 'bio', nameI18n: { 'zh-CN': '生物学', 'en-US': 'Biology' } },
+  { id: 'med', nameI18n: { 'zh-CN': '医学与公共卫生', 'en-US': 'Medicine & Public Health' } },
   { id: 'geo', nameI18n: { 'zh-CN': '地理', 'en-US': 'Geography' } },
   { id: 'env', nameI18n: { 'zh-CN': '环境', 'en-US': 'Environmental' } },
   { id: 'astro', nameI18n: { 'zh-CN': '天文', 'en-US': 'Astronomy' } },
@@ -49,6 +52,9 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
   { id: 'engineering', nameI18n: { 'zh-CN': '工程仿真', 'en-US': 'Engineering' } },
   { id: 'econ', nameI18n: { 'zh-CN': '经济与金融', 'en-US': 'Economics' } },
   { id: 'psych', nameI18n: { 'zh-CN': '心理与行为', 'en-US': 'Psychology' } },
+  { id: 'socio', nameI18n: { 'zh-CN': '社会科学', 'en-US': 'Social Science' } },
+  { id: 'artsci', nameI18n: { 'zh-CN': '音乐与艺术科学', 'en-US': 'Music & Art Science' } },
+  { id: 'cs', nameI18n: { 'zh-CN': '计算机科学', 'en-US': 'Computer Science' } },
   { id: 'data', nameI18n: { 'zh-CN': '数据与智能', 'en-US': 'Data & AI' } },
   { id: 'fx', nameI18n: { 'zh-CN': '特效渲染', 'en-US': 'Visual FX' } },
   { id: 'fun', nameI18n: { 'zh-CN': '趣味工具', 'en-US': 'Fun & Utility' } },
@@ -74,13 +80,11 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.point-cloud-3d': 'charts',
   'example.model3d': 'charts',
   'example.image': 'charts',
-
-  // Statistics & math
-  'example.histogram': 'stats',
-  'example.boxplot': 'stats',
-  'example.violin': 'stats',
-  'example.qqplot': 'stats',
-  'example.errorband': 'stats',
+  'example.histogram': 'charts',
+  'example.boxplot': 'charts',
+  'example.violin': 'charts',
+  'example.qqplot': 'charts',
+  'example.errorband': 'charts',
 
   // Physics & simulation
   'example.particles': 'physics',
@@ -135,6 +139,9 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.geo-carbondating': 'geo',
   'example.geo-soilwater': 'geo',
   'example.geo-hydrology': 'geo',
+  'example.geo-seismic': 'geo',
+  'example.geo-minerals': 'geo',
+  'example.geo-hydrogeology': 'geo',
 
   // Environmental science
   'example.env-aqi': 'env',
@@ -157,36 +164,94 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.eng-truss': 'engineering',
   'example.eng-control': 'engineering',
   'example.fem-lab': 'engineering',
+  'example.eng-fluid': 'engineering',
+  'example.eng-vibration': 'engineering',
+  'example.eng-heat': 'engineering',
+  'example.eng-mechanism': 'engineering',
 
   // Biology
   'example.protein': 'bio',
   'example.bio-enzyme': 'bio',
-  'example.bio-epidemic': 'bio',
   'example.bio-seqalign': 'bio',
   'example.bio-popgen': 'bio',
-  'example.bio-pk': 'bio',
   'example.bio-mendel': 'bio',
   'example.bio-neuron': 'bio',
+
+  // Medicine & public health (research-grade kernels)
+  'example.bio-epidemic': 'med',
+  'example.bio-pk': 'med',
+  'example.med-ecg': 'med',
+  'example.med-imaging': 'med',
+  'example.med-biostat': 'med',
+  'example.med-genomics': 'med',
 
   // Data & AI
   'example.ai-training': 'data',
   'example.data-imageproc': 'data',
+  'ai.automl': 'data',
+  'ai.nlp': 'data',
+  'ai.recsys': 'data',
+  'ai.rl': 'data',
+  'ai.xai': 'data',
+  'ai.vectordb': 'data',
 
-  // Mathematics (research-grade kernels)
+  // Mathematics & statistics (research-grade kernels). The former separate
+  // "statistical analysis" group now lives here too.
   'example.math-fourier': 'math',
   'example.math-domaincolor': 'math',
   'example.math-odefield': 'math',
-
-  // Statistics (research-grade kernels)
-  'example.stats-clt': 'stats',
-  'example.stats-markov': 'stats',
-  'example.stats-zipf': 'stats',
+  'example.math-linalg': 'math',
+  'example.math-dist': 'math',
+  'example.math-numerics': 'math',
+  'example.math-graph': 'math',
+  'example.math-topology': 'math',
+  'example.math-game': 'math',
+  'example.stats-clt': 'math',
+  'example.stats-markov': 'math',
+  'example.stats-zipf': 'math',
+  'example.stats-doe': 'math',
+  'example.stats-timeseries': 'math',
+  'example.stats-multivariate': 'math',
+  'example.stats-nonparametric': 'math',
+  'example.stats-survival': 'math',
+  'example.stats-meta': 'math',
+  'example.stats-bayes': 'math',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',
   'example.econ-evogame': 'econ',
   'example.psych-sdt': 'psych',
   'example.psych-rt': 'psych',
+
+  // Social science (research-grade kernels: demography / political science /
+  // sociology)
+  'example.socio-popforecast': 'socio',
+  'example.socio-voting': 'socio',
+  'example.socio-sna': 'socio',
+  'example.socio-inequality': 'socio',
+  'example.socio-opinion': 'socio',
+
+  // Music & art science (interdisciplinary)
+  'example.acoustics': 'artsci',
+  'example.tuning': 'artsci',
+  'example.synth': 'artsci',
+  'example.keys': 'artsci',
+  'example.color-science': 'artsci',
+
+  // Computer science & software engineering
+  'example.algorithms': 'cs',
+  'example.datastructures': 'cs',
+  'example.automata': 'cs',
+  'example.crypto': 'cs',
+  'example.neuralviz': 'cs',
+  'example.complexity': 'cs',
+  'example.netproto': 'cs',
+
+  // General-purpose simulation engines
+  'example.sim-montecarlo': 'math',
+  'example.sim-abm': 'physics',
+  'example.sim-sd': 'engineering',
+  'example.sim-des': 'engineering',
 
   // Fun & utility
   'fun.mandelbrot': 'fun',

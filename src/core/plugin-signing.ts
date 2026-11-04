@@ -266,6 +266,36 @@ export function verifyPackageSignature(
   return { ok: true, message: 'Signature verified.', fingerprint, signer };
 }
 
+/**
+ * Verify the pinned signature on a bundled (built-in) manifest.
+ *
+ * Bundled plugins are trusted by inclusion in the app bundle, not by the
+ * `.cspkg` installation gate. Their manifests nevertheless carry a pinned
+ * ed25519 signature over the canonical manifest JSON plus the symbolic
+ * `entry` id, and this helper re-checks it against the embedded public key —
+ * so an accidental edit to a signed manifest is caught by the test suite.
+ * Intentional edits require re-signing with the pack key.
+ */
+export function verifyBundledManifestSignature(manifest: PluginManifest): SignatureCheckResult {
+  const sig = manifest.signature;
+  if (!sig) {
+    return { ok: false, reason: 'missing', message: `Bundled manifest "${manifest.id}" has no pinned signature.` };
+  }
+  if (!sig.pub) {
+    return {
+      ok: false,
+      reason: 'malformed',
+      message: `Bundled manifest "${manifest.id}" must embed its public key (signature.pub) to be self-verifiable.`,
+      fingerprint: sig.fingerprint,
+      signer: sig.signer,
+    };
+  }
+  return verifyPackageSignature(
+    { manifest, entryBytes: utf8Bytes(manifest.entry) },
+    [{ fingerprint: sig.fingerprint, publicKey: sig.pub, label: 'bundled manifest' }],
+  );
+}
+
 // ---- trusted key registry --------------------------------------------------
 
 export interface TrustedKey {
@@ -277,6 +307,15 @@ export interface TrustedKey {
   label: string;
   /** Built-in keys cannot be removed by the user. */
   builtin?: boolean;
+  /**
+   * Whether packages signed by this key may opt into host execution
+   * (`sandbox: "trusted"`). Defaults to `true`, but keys whose signing seed
+   * is effectively public (e.g. the website demo publisher, whose seed ships
+   * in the public website bundle) must set `false`: a valid signature from
+   * such a key proves origin, not integrity of intent, and must never relax
+   * sandbox isolation (spec §6.2).
+   */
+  allowTrustedMode?: boolean;
   addedAt?: number;
 }
 
@@ -304,6 +343,10 @@ export const OFFICIAL_TRUSTED_KEYS: readonly TrustedKey[] = Object.freeze([
     publicKey: 'd13f151cb3b44e8a17c9e738c8b49f0ad8db44ac0fe151a2b285196ad67a3b3a',
     label: 'Ergalics Studio Website (demo publisher)',
     builtin: true,
+    // The website demo seed is public, so anyone can produce a validly-signed
+    // package with it. Such packages are confined to the worker sandbox and
+    // can never opt into trusted (host) execution.
+    allowTrustedMode: false,
   },
 ]);
 

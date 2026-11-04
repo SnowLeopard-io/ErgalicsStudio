@@ -1,7 +1,8 @@
 // .cspkg package parsing & loading tests (spec §6.3)
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
-import { parseCspkg, loadCspkg } from '@/core/cspkg';
+import { parseCspkg, loadCspkg, trustedModeAllowedForKey } from '@/core/cspkg';
+import { signPackage, TRUSTED_KEYS } from '@/core/plugin-signing';
 import type { PluginApi, PluginManifest } from '@/types/plugin';
 
 // storage (IndexedDB) is not available in node; the loader already swallows
@@ -204,5 +205,126 @@ describe('loadCspkg (trusted mode)', () => {
         trustUnsigned: true,
       }),
     ).rejects.toThrow('not found');
+  });
+});
+
+// ---- FR-05 trusted-mode gating ------------------------------------------
+//
+// The website demo-publisher seed is public (it ships in the website bundle),
+// so anyone can produce a correctly-signed package with it. Such a signature
+// proves origin, not intent — the key is only allowed to publish sandboxed
+// packages and can NEVER opt into host (`trusted`) execution.
+
+const WEBSITE_PUBLISHER_SEED =
+  '66fd265b1796c7283d5d8d254fa13b9b078e23414f3e64bb1cc6b49556b80090';
+
+function makeSignedCspkg(manifest: Partial<PluginManifest>, entry: string): ArrayBuffer {
+  const entryBytes = strToU8(entry);
+  const base: PluginManifest = { ...VALID_MANIFEST, ...manifest } as PluginManifest;
+  const signature = signPackage(base, entryBytes, {
+    seedHex: WEBSITE_PUBLISHER_SEED,
+    signer: 'website-demo',
+  });
+  const withSig = { ...base, signature };
+  const zipped = zipSync({
+    'manifest.json': strToU8(JSON.stringify(withSig)),
+    'dist/index.js': entryBytes,
+  });
+  return zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
+}
+
+describe('trusted-mode gating (allowTrustedMode)', () => {
+  const ENTRY = `
+    return {
+      manifest: { id: 'unused', name: 'x', version: '0', author: 'a', description: 'd', entry: 'e' },
+      init() {}, destroy() {}, activate() {}, deactivate() {}, getParams() { return []; },
+    };
+  `;
+
+  it('trustedModeAllowedForKey: website demo key may not request trusted mode', () => {
+    const demoFp = TRUSTED_KEYS.find((k) => k.label.includes('Website'))!.fingerprint;
+    expect(trustedModeAllowedForKey(demoFp, true)).toBe(false);
+    // The official release key keeps the ability.
+    const officialFp = TRUSTED_KEYS.find((k) => k.label.includes('Official'))!.fingerprint;
+    expect(trustedModeAllowedForKey(officialFp, true)).toBe(true);
+  });
+
+  it('trustedModeAllowedForKey: explicit trustUnsigned confirmation keeps the manifest choice', () => {
+    const demoFp = TRUSTED_KEYS.find((k) => k.label.includes('Website'))!.fingerprint;
+    // signatureOk === false means the user hand-confirmed the source, so the
+    // key's allowTrustedMode no longer applies.
+    expect(trustedModeAllowedForKey(demoFp, false)).toBe(true);
+  });
+
+  it('refuses a website-signed package that requests sandbox: "trusted"', async () => {
+    const buffer = makeSignedCspkg({ sandbox: 'trusted' }, ENTRY);
+    // Signature verifies against the built-in demo key (signature.ok === true),
+    // but the key may only publish sandboxed packages — installation must fail
+    // with a clear explanation instead of silently running in the host.
+    await expect(
+      loadCspkg(new File([buffer], 'trusted-demo.cspkg'), () => ({} as PluginApi)),
+    ).rejects.toThrow(/only allowed to publish sandboxed packages/);
+  });
+
+  it('still installs a website-signed sandboxed package', async () => {
+    // Same key + entry, but sandbox: 'isolated' — the normal website download
+    // path — must keep installing (falls back to legacy in node, no Worker).
+    const buffer = makeSignedCspkg({ sandbox: 'isolated' }, ENTRY);
+    const { mode } = await loadCspkg(
+      new File([buffer], 'isolated-demo.cspkg'),
+      () => ({} as PluginApi),
+    );
+    expect(['isolated', 'legacy-fallback']).toContain(mode);
+  });
+});
+
+// ---- sandbox fallback hardening ------------------------------------------
+//
+// When the Worker API IS available but a plugin's entry throws inside its
+// worker, the old loader re-ran the entry unsandboxed (legacy `new Function`),
+// letting a plugin escape the security boundary simply by throwing on boot.
+// The loader must refuse that fallback; only a genuinely absent Worker API may
+// fall back to the restricted scope.
+
+describe('loadCspkg sandbox fallback hardening', () => {
+  const GOOD_ENTRY = `
+    return {
+      manifest: { id: 'unused', name: 'x', version: '0', author: 'a', description: 'd', entry: 'e' },
+      init() {}, destroy() {}, activate() {}, deactivate() {}, getParams() { return []; },
+    };
+  `;
+
+  it('refuses to re-run an entry unsandboxed when a worker exists but boot failed', async () => {
+    // FakeWorker that reports a boot failure (worker API present).
+    class FailingBootWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      constructor(_u: string | URL, _o?: WorkerOptions) {}
+      postMessage(msg: unknown) {
+        const id = (msg as { id: number }).id;
+        queueMicrotask(() =>
+          this.onmessage?.({ data: { id, ok: false, error: 'boot failed: hostile' } }),
+        );
+      }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', FailingBootWorker);
+    try {
+      const buffer = (() => {
+        const zipped = zipSync({
+          'manifest.json': strToU8(JSON.stringify({ ...VALID_MANIFEST, sandbox: 'isolated' })),
+          'dist/index.js': strToU8(GOOD_ENTRY),
+        });
+        return zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
+      })();
+      // Worker API is now present, so a boot failure must NOT fall back to
+      // legacy evaluation — it must be refused outright.
+      await expect(
+        loadCspkg(new File([buffer], 'boot-fail.cspkg'), () => ({} as PluginApi), {
+          trustUnsigned: true,
+        }),
+      ).rejects.toThrow(/refusing to re-run its entry code unsandboxed/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

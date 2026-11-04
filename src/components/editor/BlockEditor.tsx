@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type * as BlocklyNS from 'blockly/core';
 import { useLocale, useT } from '@/i18n';
-import { getResolvedTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
@@ -43,7 +43,10 @@ function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivEleme
 export function BlockEditor() {
   const t = useT();
   const { locale } = useLocale();
-  const dark = getResolvedTheme() === 'dark';
+  // Subscribe so switching light/dark re-creates the workspace with the new
+  // Blockly theme (a one-shot getResolvedTheme() read would stay stale).
+  const { resolved: themeResolved } = useTheme();
+  const dark = themeResolved === 'dark';
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
   const isRunning = useEditorStore((s) => s.isRunning);
@@ -248,8 +251,8 @@ export function BlockEditor() {
     <div className="block-editor">
       <div className="block-editor-toolbar">
         <button type="button" className="be-run-btn" onClick={() => void run()} disabled={isRunning}>
-          <span className="be-run-icon">{isRunning ? '■' : '▶'}</span>
-          <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
+          <span className="be-run-icon">{isRunning ? '⏳' : '▶'}</span>
+          <span>{isRunning ? t('editor.status.running') : t('editor.run')}</span>
         </button>
 
         <div className="block-editor-toggle">

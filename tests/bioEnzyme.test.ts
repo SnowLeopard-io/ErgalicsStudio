@@ -8,7 +8,7 @@ import {
   reportFit,
   synthesizeRates,
   type RateParams,
-} from '../src/plugins/builtin/bio-enzyme/kinetics';
+} from '../src/plugins/builtin/bio/enzyme/kinetics';
 
 const base: RateParams = { vmax: 100, km: 5, inhibitor: 10, ki: 10, mode: 'none' };
 

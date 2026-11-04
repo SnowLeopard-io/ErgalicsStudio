@@ -218,13 +218,53 @@
   animation: menu-item-in 0.16s ease backwards;
 }
 
-/* Sidebar slides in from the left, right panel from the right, on mount. */
-.sidebar {
-  animation: slide-in-left 0.34s var(--ease-out) backwards;
-}
+/* Sidebar entrance is handled by .panel-wrap-opening (width expand) — no
+   separate inner slide-in, which used to read as a double animation. */
 
 .right-panel {
   animation: slide-in-right 0.34s var(--ease-out) backwards;
+}
+
+/* Sidebar view swap: the view body mounts fresh on each activity-bar switch,
+   so a short fade+slide softens the otherwise instant content change. */
+.sidebar > .file-explorer,
+.sidebar > .sidebar-group {
+  animation: view-fade-in 0.18s var(--ease-out) backwards;
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+/* Active indicator bar grows in instead of popping (pseudo-element mounts
+   with the .is-active class, so the animation runs on each activation). */
+.activity-item.is-active::before {
+  animation: activity-indicator-in 0.2s var(--ease-out) backwards;
+}
+
+@keyframes activity-indicator-in {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* Canvas page entrance: research tool suites (standalone /studio pages and
+   embedded CentralArea overlays) and the settings page fade+rise in instead
+   of appearing abruptly. Runs once per mount — internal re-renders are not
+   affected. */
+.tool-shell,
+.settings {
+  animation: page-enter 0.26s var(--ease-out) backwards;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 /* ---- status dots pulse ---- */
@@ -247,41 +287,21 @@
   color: var(--color-error);
 }
 
-/* ---- welcome hero cascade ---- */
+/* ---- welcome hero cascade (distilled page: title → subtitle → CTA) ------- */
 
-.welcome-eyebrow {
+.welcome-title {
   animation: fade-up 0.5s var(--ease-spring) backwards;
   animation-delay: 0.04s;
 }
 
-.welcome-title {
+.welcome-subtitle {
   animation: fade-up 0.5s var(--ease-spring) backwards;
   animation-delay: 0.1s;
 }
 
-.welcome-subtitle {
+.welcome-cta-row {
   animation: fade-up 0.5s var(--ease-spring) backwards;
   animation-delay: 0.16s;
-}
-
-.welcome-version {
-  animation: fade-up 0.5s var(--ease-spring) backwards;
-  animation-delay: 0.22s;
-}
-
-.welcome-signal {
-  animation: fade-up 0.5s var(--ease-spring) backwards;
-  animation-delay: 0.28s;
-}
-
-.welcome-enter {
-  animation: fade-up 0.5s var(--ease-spring) backwards;
-  animation-delay: 0.34s;
-}
-
-.welcome-hardware {
-  animation: card-in 0.5s var(--ease-spring) backwards;
-  animation-delay: 0.4s;
 }
 
 /* ---- toast / banner exit states (driven from Feedback.tsx) ---- */
@@ -376,14 +396,17 @@
   .right-panel,
   .status-dot,
   .perf-dot,
-  .welcome-eyebrow,
   .welcome-title,
   .welcome-subtitle,
-  .welcome-version,
-  .welcome-signal,
-  .welcome-enter,
-  .welcome-hardware,
-  .central-drop-hint {
+  .welcome-cta-row,
+  .central-drop-hint,
+  .panel-wrap-opening,
+  .panel-wrap-closing,
+  .sidebar > .file-explorer,
+  .sidebar > .sidebar-group,
+  .activity-item.is-active::before,
+  .tool-shell,
+  .settings {
     animation: none !important;
   }
 

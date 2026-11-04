@@ -51,7 +51,7 @@ function nextFrame(): Promise<void> {
 export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const t = useT();
   const project = useProjectStore((s) => s.project);
-  const notify = useProjectStore.getState().applyPluginParams;
+  const syncPluginParams = useProjectStore.getState().applyPluginParams;
   const notifyApp = useAppStore((s) => s.notify);
   const currentPlot = useAnalysisStore((s) => s.currentPlot);
   const [options, setOptions] = useState<ShareOptions>(DEFAULT_OPTIONS);
@@ -94,7 +94,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     setSnapshotStage('collect');
     await nextFrame();
     // Persist latest plugin params so the lock hashes the current state.
-    await notify();
+    await syncPluginParams();
     const projectNow = useProjectStore.getState().project;
     if (!projectNow) throw new Error(t('gallery.share_no_snapshot'));
     await useExperimentStore.getState().loadRuns();
@@ -181,7 +181,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     // Persist the latest plugin params into the project before serializing,
     // and await it — otherwise the payload can be built from a stale
     // snapshot and share a project missing the current parameters.
-    await notify();
+    await syncPluginParams();
     const projectNow = useProjectStore.getState().project;
     if (!projectNow) return;
     const payload = {
@@ -297,13 +297,14 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
             )}
 
             {/* ---- FR-19: share to the work gallery ---- */}
-            <h4 className="share-section-title">{t('gallery.share_section')}</h4>
-            <CheckOption
-              checked={galleryEnabled}
-              label={t('gallery.share_enable')}
-              onChange={() => setGalleryEnabled((v) => !v)}
-            />
-            <p className="share-hint">{t('gallery.share_desc')}</p>
+            <div className="share-gallery-block">
+              <h4 className="share-section-title">{t('gallery.share_section')}</h4>
+              <CheckOption
+                checked={galleryEnabled}
+                label={t('gallery.share_enable')}
+                onChange={() => setGalleryEnabled((v) => !v)}
+              />
+              <p className="share-hint">{t('gallery.share_desc')}</p>
             {galleryEnabled && (
               <div className="gallery-share-form">
                 <div className="analysis-row">
@@ -390,6 +391,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
                 </div>
               </div>
             )}
+            </div>
           </>
         ) : (
           <>

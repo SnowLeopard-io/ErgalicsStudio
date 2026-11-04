@@ -32,7 +32,7 @@ try {
   }));
   step('signal line present', await page.evaluate(() => !!document.querySelector('.welcome-signal')));
   const heroBox = await page.locator('.welcome-hero').boundingBox();
-  const hwBox = await page.locator('.welcome-hardware').boundingBox();
+  const hwBox = await page.locator('.welcome-envbar').boundingBox();
   step('hero & hardware visible', { hero: !!heroBox, hardware: !!hwBox });
   step('hero centered', heroBox ? Math.abs(heroBox.x + heroBox.width / 2 - 720) < 60 : 'n/a');
 

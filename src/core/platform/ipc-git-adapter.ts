@@ -6,6 +6,7 @@
 // every git-backed feature keep calling getGitAdapter() unchanged.
 
 import type {
+  CloneOptions,
   DiffOptions,
   DiffResult,
   GitAdapter,
@@ -25,11 +26,17 @@ export class IpcGitAdapter implements GitAdapter {
     return desktopBridge().git.invoke<T>(method, args);
   }
 
-  init(repoPath: string): Promise<void> {
-    return this.call('init', repoPath);
+  init(repoPath: string, template?: 'standard' | 'minimal'): Promise<void> {
+    return this.call('init', repoPath, template);
   }
-  clone(url: string, targetPath: string): Promise<void> {
-    return this.call('clone', url, targetPath);
+  clone(url: string, targetPath: string, opts?: CloneOptions): Promise<void> {
+    // Strip callback fields — they cannot survive structured clone over IPC.
+    // The main-process bridge supports the serializable subset (branch/depth/
+    // singleBranch/corsProxy); progress callbacks stay renderer-side no-ops.
+    const serializable = opts
+      ? (Object.fromEntries(Object.entries(opts).filter(([, v]) => typeof v !== 'function')) as Partial<CloneOptions>)
+      : undefined;
+    return this.call('clone', url, targetPath, serializable);
   }
   isRepo(repoPath: string): Promise<boolean> {
     return this.call('isRepo', repoPath);
@@ -51,6 +58,9 @@ export class IpcGitAdapter implements GitAdapter {
   }
   add(repoPath: string, files: string[]): Promise<void> {
     return this.call('add', repoPath, files);
+  }
+  resetIndex(repoPath: string, files: string[]): Promise<void> {
+    return this.call('resetIndex', repoPath, files);
   }
   commit(repoPath: string, message: string, opts?: { author?: { name: string; email: string } }): Promise<string> {
     return this.call('commit', repoPath, message, opts);

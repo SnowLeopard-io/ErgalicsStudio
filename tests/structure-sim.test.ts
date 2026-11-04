@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import createStructurePlugin from '@/plugins/builtin/structure';
+import createStructurePlugin from '@/plugins/builtin/engineering/structure/plugin';
 import type { ContainerCapabilities, Plugin, PluginApi } from '@/types/plugin';
 
 type AnyPlugin = Plugin & Record<string, any>;

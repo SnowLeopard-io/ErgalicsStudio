@@ -14,6 +14,17 @@ function clip(label: string): string {
 
 interface LineageCanvasProps {
   graph: LineageGraph;
+  /**
+   * Optional node id to mark as selected (e.g. the last node clicked in an
+   * impact-analysis interaction). Purely additive styling hook.
+   */
+  selectedId?: string | null;
+  /** Optional upstream (data source) highlight set of node ids. */
+  highlightUpstream?: ReadonlySet<string> | null;
+  /** Optional downstream (affected output) highlight set of node ids. */
+  highlightDownstream?: ReadonlySet<string> | null;
+  /** Optional node click callback (receives the node id). */
+  onNodeClick?: (id: string) => void;
 }
 
 /**
@@ -21,7 +32,13 @@ interface LineageCanvasProps {
  * the plot engine is intentionally not used). Layout comes from the core
  * `layoutDag`; colors/typography ride on global.css design tokens.
  */
-export function LineageCanvas({ graph }: LineageCanvasProps) {
+export function LineageCanvas({
+  graph,
+  selectedId = null,
+  highlightUpstream = null,
+  highlightDownstream = null,
+  onNodeClick,
+}: LineageCanvasProps) {
   const t = useT();
   const layout = useMemo(() => layoutDag(graph, { nodeWidth: NODE_W, nodeHeight: NODE_H }), [graph]);
 
@@ -64,8 +81,22 @@ export function LineageCanvas({ graph }: LineageCanvasProps) {
           n.kind === 'file'
             ? 'lineage-node lineage-node-file'
             : `lineage-node lineage-node-run${n.failed ? ' lineage-node-failed' : ''}`;
+        const classes = [
+          cls,
+          selectedId === n.id ? 'lineage-node-selected' : '',
+          highlightUpstream?.has(n.id) ? 'lineage-node-upstream' : '',
+          highlightDownstream?.has(n.id) ? 'lineage-node-downstream' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
         return (
-          <g key={n.id} className={cls} transform={`translate(${p.x}, ${p.y})`}>
+          <g
+            key={n.id}
+            className={classes}
+            transform={`translate(${p.x}, ${p.y})`}
+            onClick={onNodeClick ? () => onNodeClick(n.id) : undefined}
+            style={onNodeClick ? { cursor: 'pointer' } : undefined}
+          >
             <rect width={NODE_W} height={NODE_H} rx={6} ry={6} />
             <text x={NODE_W / 2} y={NODE_H / 2 + 4} textAnchor="middle">
               {clip(byId.get(n.id)?.label ?? n.id)}

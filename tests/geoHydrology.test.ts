@@ -17,7 +17,7 @@ import {
   potentialRetention,
   runScsEvent,
   scsRunoff,
-} from '../src/plugins/builtin/geo-hydrology/kernel';
+} from '../src/plugins/builtin/geo/hydrology/kernel';
 
 const S80 = potentialRetention(80); // 63.5 mm
 

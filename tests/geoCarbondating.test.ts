@@ -15,7 +15,7 @@ import {
   libbyAgeFromF14C,
   parseCalibrationCurve,
   uncalibratedAge,
-} from '../src/plugins/builtin/geo-carbondating/kernel';
+} from '../src/plugins/builtin/geo/carbondating/kernel';
 
 // Official IntCal20 grid rows (Reimer et al. 2020), used as INDEPENDENT
 // anchors — the excerpt file must reproduce them exactly.

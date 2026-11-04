@@ -20,7 +20,7 @@ import {
   mulberry32,
   randomStarField,
   simulateFrame,
-} from '@/plugins/builtin/astro/kernel';
+} from '@/plugins/builtin/astro/pipeline/kernel';
 
 describe('raytrace/astro ephemeris', () => {
   it('computes the Julian Day of J2000.0', () => {

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Teaching sine",
+    "wave": "sine",
+    "midi": 69,
+    "detune": 0,
+    "fmRatio": 1,
+    "fmIndex": 0,
+    "filter": "lowpass",
+    "cutoff": 6000,
+    "q": 0.7,
+    "adsr": { "attack": 0.02, "decay": 0.25, "sustain": 0.7, "release": 0.4 },
+    "lfoRate": 5,
+    "lfoDepth": 0.05,
+    "lfoShape": "sine",
+    "duration": 2
+  },
+  {
+    "name": "FM bell study",
+    "wave": "sine",
+    "midi": 72,
+    "detune": 0,
+    "fmRatio": 3.5,
+    "fmIndex": 4.5,
+    "filter": "bandpass",
+    "cutoff": 4200,
+    "q": 2.6,
+    "adsr": { "attack": 0.002, "decay": 1.6, "sustain": 0, "release": 1.1 },
+    "lfoRate": 0.6,
+    "lfoDepth": 0.03,
+    "lfoShape": "triangle",
+    "duration": 2.8
+  },
+  {
+    "name": "Resonant saw sweep",
+    "wave": "sawtooth",
+    "midi": 45,
+    "detune": 12,
+    "fmRatio": 1,
+    "fmIndex": 0,
+    "filter": "lowpass",
+    "cutoff": 900,
+    "q": 6.5,
+    "adsr": { "attack": 0.4, "decay": 0.6, "sustain": 0.55, "release": 0.5 },
+    "lfoRate": 0.8,
+    "lfoDepth": 0.6,
+    "lfoShape": "sine",
+    "duration": 3
+  }
+]

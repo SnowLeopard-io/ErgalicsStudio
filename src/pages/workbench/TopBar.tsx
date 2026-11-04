@@ -13,7 +13,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon } from '@/components/icons';
+import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -28,6 +28,8 @@ export function TopBar() {
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
   const recent = useProjectStore((s) => s.recent);
+  /** True while the open project is backed by a git repo (hides clone). */
+  const gitIsRepo = useProjectStore((s) => s.gitRepo?.isRepo === true);
   const openProject = useProjectStore((s) => s.openProject);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
@@ -151,6 +153,9 @@ export function TopBar() {
             label: t('project.open_folder'),
             onClick: () => folderInputRef.current?.click(),
           },
+          // Clone spawns a NEW project — meaningless while a git-backed
+          // project is already open, so the entry hides in that case.
+          ...(gitIsRepo ? [] : [{ key: 'clone', label: t('project.clone'), onClick: openDialog('clone') }]),
           { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
           { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           {
@@ -240,24 +245,18 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3c — research tools: general analysis stays a direct button,
-            all other tools live behind the searchable/recency launcher. */}
+        {/* Zone 3c — research tools: every suite (including analysis) lives
+            behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button
-            type="button"
-            className="cluster-btn"
-            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
-          >
-            {t('workbench.analyze')}
-          </button>
           <ResearchLauncher />
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 4 — global tools. Low-frequency entries (shortcuts, tour) and
-            the perf gauge live in the ⋯ overflow menu; the gauge surfaces here
-            only while a perf warning is active. Palette + AI stay direct. */}
+        {/* Zone 4 — global tools. Low-frequency entries (shortcuts) and the
+            perf gauge live in the ⋯ overflow menu; the gauge surfaces here
+            only while a perf warning is active. Palette + AI + the guided
+            tour stay direct — the tour must be discoverable at the top right. */}
         <div className="topbar-cluster cluster-icons">
           <button
             type="button"
@@ -295,6 +294,16 @@ export function TopBar() {
               <span className="perf-indicator-dot" aria-hidden="true" />
             </button>
           )}
+          <button
+            type="button"
+            className="cluster-btn icon-only"
+            title={t('workbench.tour.title')}
+            aria-label={t('workbench.tour.title')}
+            data-tour="tour"
+            onClick={() => startTour('menu')}
+          >
+            <HelpIcon size={15} />
+          </button>
           <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
@@ -309,7 +318,6 @@ export function TopBar() {
             { key: 'shortcuts', label: t('ux.shortcuts.title'), onClick: () => useShortcutsStore.getState().toggle() },
             { key: 'ai', label: t('ai.toggle'), onClick: () => toggleAi() },
             { key: 'settings', label: t('workbench.tools.settings'), onClick: () => navigate('/settings') },
-            { key: 'tour', label: t('workbench.tour.title'), onClick: startTour },
             { key: 'perf', label: perfTitle, onClick: openDialog('perf') },
           ]}
         />

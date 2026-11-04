@@ -14,7 +14,7 @@ import type { IRProgram } from '@/editor/ir';
 import type { BlockGraphState } from '@/types/block';
 
 type OpenInModeRequest =
-  | { mode: 'code'; language: 'python' | 'r' | 'js'; code: string }
+  | { mode: 'code'; language: 'python' | 'r' | 'js'; code: string; path?: string }
   | { mode: 'block'; ir: IRProgram }
   | { mode: 'flow'; graph: BlockGraphState };
 
@@ -26,13 +26,18 @@ export function editorStoreOpenInMode(req: OpenInModeRequest): void {
 
   if (req.mode === 'code') {
     st.applyLanguageWithCode(sid, req.language, req.code);
+    // Remember where this buffer came from so later code-mode edits can be
+    // mirrored back into the file tab (they used to live only in the IR hub).
+    st.setSessionFilePath(sid, req.path ?? null);
   } else if (req.mode === 'block') {
+    st.setSessionFilePath(sid, null);
     st.updateSessionIR(sid, req.ir);
     // requestLoad guarantees the (possibly already-mounted) workspace reloads
     // this IR even when the session id did not change.
     st.requestLoad(req.ir);
   } else {
     // Flow mode hydrates its DAG from the IR hub on entry (useFlowSync).
+    st.setSessionFilePath(sid, null);
     st.updateSessionIR(sid, flowToIR(req.graph));
   }
   useAppStore.getState().setMode(req.mode);

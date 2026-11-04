@@ -87,9 +87,14 @@ let pendingFigureTitle = '';
 
 function scheduleFigureAutoCommit(title: string): void {
   pendingFigureTitle = title;
+  // Pin the owning project so a mid-debounce project switch cannot commit
+  // this project's figure title onto whichever project is active later.
+  const ownerProjectId = useProjectStore.getState().project?.id ?? null;
   if (figureCommitTimer) clearTimeout(figureCommitTimer);
   figureCommitTimer = setTimeout(() => {
     figureCommitTimer = null;
+    const currentProjectId = useProjectStore.getState().project?.id ?? null;
+    if (currentProjectId === null || currentProjectId !== ownerProjectId) return;
     void useProjectStore.getState().autoCommit('figure', pendingFigureTitle);
   }, FIGURE_COMMIT_DEBOUNCE_MS);
 }

@@ -21,7 +21,7 @@ import {
   trapezoidFluxTau,
   trapezoidSelfConsistency,
   type TrapezoidParams,
-} from '@/plugins/builtin/astro-transit/kernel';
+} from '@/plugins/builtin/astro/transit/kernel';
 
 const REFERENCE_P = 3.52474859; // HD 209458 b (NASA Exoplanet Archive)
 

@@ -35,6 +35,9 @@ export interface ScienceOutputEntry {
   pluginId: string;
   metrics: ScienceMetric[];
   updatedAt: number;
+  /** Publish counter — bumps on every setScienceOutputs so the UI can replay
+   *  its entrance animation when genuinely fresh numbers arrive. */
+  seq: number;
 }
 
 type Listener = (snapshot: Record<string, ScienceOutputEntry>) => void;
@@ -66,10 +69,17 @@ function emit(): void {
  */
 export function setScienceOutputs(pluginId: string, metrics: ScienceMetric[]): void {
   if (metrics.length === 0) {
-    outputs.delete(pluginId);
-  } else {
-    outputs.set(pluginId, { pluginId, metrics, updatedAt: Date.now() });
+    if (outputs.delete(pluginId)) emit();
+    return;
   }
+  const prev = outputs.get(pluginId);
+  // 幂等发布：许多插件在 draw()/渲染路径里带着完全相同的数字反复调用
+  // setScienceOutputs。每次都递增 `seq` 会让底部指标条重挂载、重放入场
+  // 动画并从零重新 count-up——表现为“反复横跳”。只有指标内容真正变化
+  // 才算新鲜数据。
+  const next = JSON.stringify(metrics);
+  if (prev && JSON.stringify(prev.metrics) === next) return;
+  outputs.set(pluginId, { pluginId, metrics, updatedAt: Date.now(), seq: (prev?.seq ?? 0) + 1 });
   emit();
 }
 

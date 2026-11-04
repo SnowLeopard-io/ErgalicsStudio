@@ -16,17 +16,17 @@ import {
   fluidMacroCPU,
   fluidStepCPU,
 } from '@/core/wgsl';
-import { ProteinPlugin } from '@/plugins/builtin/protein';
-import { NBodyPlugin } from '@/plugins/builtin/nbody';
-import { FluidPlugin } from '@/plugins/builtin/fluid';
-import { ParticlePlugin } from '@/plugins/builtin/particles';
-import { WavePlugin } from '@/plugins/builtin/wave';
-import { DoublePendulumPlugin } from '@/plugins/builtin/doublePendulum';
-import { StructurePlugin } from '@/plugins/builtin/structure';
-import { LifePlugin } from '@/plugins/builtin/life';
-import { ContourPlugin } from '@/plugins/builtin/contour';
-import { parseTreemapData } from '@/plugins/builtin/treemap';
-import { parseBoxData } from '@/plugins/builtin/boxPlot';
+import { ProteinPlugin } from '@/plugins/builtin/bio/protein/plugin';
+import { NBodyPlugin } from '@/plugins/builtin/physics/nbody/plugin';
+import { FluidPlugin } from '@/plugins/builtin/physics/fluid/plugin';
+import { ParticlePlugin } from '@/plugins/builtin/physics/particles/plugin';
+import { WavePlugin } from '@/plugins/builtin/physics/wave/plugin';
+import { DoublePendulumPlugin } from '@/plugins/builtin/physics/pendulum/plugin';
+import { StructurePlugin } from '@/plugins/builtin/engineering/structure/plugin';
+import { LifePlugin } from '@/plugins/builtin/fun/life/plugin';
+import { ContourPlugin } from '@/plugins/builtin/charts/contour/plugin';
+import { parseTreemapData } from '@/plugins/builtin/charts/treemap/plugin';
+import { parseBoxData } from '@/plugins/builtin/charts/boxPlot/plugin';
 import { useChunkStore } from '@/stores/chunkStore';
 import { DATA_INGESTED, on } from '@/core/events';
 import type { FileEntry } from '@/types/project';
