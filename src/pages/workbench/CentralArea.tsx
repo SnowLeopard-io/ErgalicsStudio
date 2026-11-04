@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
@@ -50,6 +51,7 @@ import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
@@ -881,9 +883,12 @@ function PluginExportMenu({
 
 export function CentralArea() {
   const t = useT();
-  // Immersive fullscreen: the whole canvas wrap (canvas + tool tabs) is the
-  // fullscreen element; the existing ResizeObserver re-renders the plugin at
-  // the new size automatically.
+  // Immersive fullscreen: the fullscreen element is the canvas wrap itself —
+  // the LEFT sidebar stays behind (immersion), but the RIGHT panel is
+  // portaled in as a floating layer so it can still extend over the canvas
+  // (both instances share the same zustand state; the non-fullscreen one is
+  // simply not displayed by the browser). The existing ResizeObserver
+  // re-renders the plugin at the new size automatically.
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(
     () => typeof document !== 'undefined' && document.fullscreenElement != null,
@@ -900,7 +905,10 @@ export function CentralArea() {
       void document.exitFullscreen().catch(() => undefined);
       return;
     }
-    const request = el.requestFullscreen ?? (el as HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen;
+    const request =
+      el.requestFullscreen ??
+      (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> })
+        .webkitRequestFullscreen;
     void request?.call(el).catch(() => undefined);
   };
   const activePlugin = usePluginStore(
@@ -1418,6 +1426,9 @@ export function CentralArea() {
             onToggleFullscreen={toggleFullscreen}
           />
         )}
+        {/* Immersive fullscreen: floating instance of the right panel so it
+            can extend over the canvas (state is shared with the docked one). */}
+        {isFullscreen && wrapRef.current && createPortal(<RightPanel />, wrapRef.current)}
       </div>
       {/* 画布标签体系（VS Code 编辑区风格）：插件画布本身是第一个"标签"，
           文件预览与内嵌套件跟在后面。所有已打开的标签保持挂载，切换仅改
