@@ -8,7 +8,7 @@
 // every modern browser is "Save as PDF" — no server-side TeX required.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -77,7 +77,16 @@ export default function LatexEditorPage() {
   const [equationTex, setEquationTex] = useState('E = mc^2');
   const [deleteTarget, setDeleteTarget] = useState<ManuscriptRecord | null>(null);
   const [replaceStarter, setReplaceStarter] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+
+  /** Apply the preview zoom to the iframe document (same-origin srcdoc). */
+  const applyPreviewZoom = useCallback(() => {
+    const doc = previewRef.current?.contentDocument;
+    if (!doc) return;
+    doc.documentElement.style.setProperty('zoom', String(previewZoom));
+  }, [previewZoom]);
 
   const sheets = project?.state.figureSheets ?? EMPTY_SHEETS;
   const library = publish.library;
@@ -131,6 +140,12 @@ export default function LatexEditorPage() {
       resolveFigure,
     });
   }, [source, library, style, templateId, resolveFigure]);
+
+  // Re-apply the zoom after every preview rebuild (the iframe reloads when
+  // `srcDoc` changes) and whenever the slider moves.
+  useEffect(() => {
+    applyPreviewZoom();
+  }, [applyPreviewZoom, previewHtml]);
 
   // Switching the journal template rewrites the preamble (document class,
   // required packages, bibliography style) and re-themes the preview. The
@@ -466,11 +481,41 @@ export default function LatexEditorPage() {
                 </div>
                 <div className="publish-pane">
                   <div className="publish-pane-title">{t('publish.latex.preview')}</div>
+                  <div
+                    className="publish-preview-bar"
+                    role="toolbar"
+                    aria-label={t('publish.latex.zoom')}
+                  >
+                    <span className="publish-preview-bar-label">{t('publish.latex.zoom')}</span>
+                    <input
+                      className="publish-zoom-range"
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={10}
+                      value={Math.round(previewZoom * 100)}
+                      onChange={(e) => setPreviewZoom(Number(e.target.value) / 100)}
+                      aria-label={t('publish.latex.zoom')}
+                    />
+                    <span className="publish-zoom-value" aria-live="polite">
+                      {Math.round(previewZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={previewZoom === 1}
+                      onClick={() => setPreviewZoom(1)}
+                    >
+                      {t('publish.latex.zoom_reset')}
+                    </button>
+                  </div>
                   <iframe
+                    ref={previewRef}
                     className="publish-preview"
                     data-tour="publish-preview"
                     title={t('publish.latex.preview')}
                     srcDoc={previewHtml}
+                    onLoad={applyPreviewZoom}
                   />
                 </div>
               </div>

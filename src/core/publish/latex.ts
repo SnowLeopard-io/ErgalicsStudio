@@ -687,8 +687,11 @@ export function latexPreviewHtml(src: string, options: LatexPreviewOptions = {})
 export function latexPreviewCss(): string {
   return `:root{--lp-fg:#1a1c1e;--lp-muted:#5f6368;--lp-border:#dfe1e5;--lp-bg:#fff;--lp-accent:#1a56c4}
 *{box-sizing:border-box}
-body.lp-root{margin:0;background:#eef0f3;color:var(--lp-fg);font:16px/1.65 "Times New Roman",Georgia,serif}
-.lp-paper{width:100%;max-width:none;margin:0;background:var(--lp-bg);padding:clamp(22px,4.5vw,52px) clamp(18px,5vw,56px);min-height:100vh}
+body.lp-root{margin:0;padding:18px 0;background:#eef0f3;color:var(--lp-fg);font:16px/1.65 "Times New Roman",Georgia,serif}
+/* Fixed A4 canvas: the preview never shrinks to fit a narrow pane. When the
+   pane is narrower than 210mm the iframe scrolls horizontally instead, so
+   typography stays at the real paper size. */
+.lp-paper{width:210mm;min-height:297mm;margin:0 auto;background:var(--lp-bg);padding:18mm 16mm;box-shadow:0 1px 10px rgba(0,0,0,.14)}
 /* Journal-template typography: the preview follows the template picker. */
 .lp-tpl-acm{font-family:"Helvetica Neue",Arial,sans-serif}
 .lp-tpl-acm .lp-heading{font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700}
@@ -722,7 +725,7 @@ figcaption{color:var(--lp-muted);font-size:13px;margin-top:8px}
 .lp-ref{color:var(--lp-accent);font-family:var(--font-mono,monospace);font-size:12px}
 a{color:var(--lp-accent)}
 .lp-list{margin:8px 0 8px 22px}
-@media print{body.lp-root{background:#fff}.lp-paper{box-shadow:none;margin:0;padding:0;max-width:none}}`;
+@media print{body.lp-root{background:#fff;padding:0}.lp-paper{width:auto;min-height:0;box-shadow:none;margin:0;padding:0}}`;
 }
 
 /** Bibliography file content for a `.tex` project. */
