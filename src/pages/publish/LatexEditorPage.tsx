@@ -231,7 +231,7 @@ export default function LatexEditorPage() {
         <aside className="publish-side">
           <div className="publish-side-head">
             <h2 className="publish-side-title">{t('publish.latex.manuscripts')}</h2>
-            <button type="button" className="btn btn-sm btn-primary" onClick={createManuscript}>
+            <button type="button" className="btn btn-sm btn-primary" data-tour="publish-new" onClick={createManuscript}>
               + {t('publish.latex.new')}
             </button>
           </div>
@@ -356,7 +356,7 @@ export default function LatexEditorPage() {
                 <button type="button" className="btn btn-sm" onClick={handlePrint}>
                   {t('publish.latex.export_pdf')}
                 </button>
-                <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveWorkspace}>
+                <button type="button" className="btn btn-sm btn-primary" data-tour="publish-save" onClick={handleSaveWorkspace}>
                   {t('publish.latex.save_workspace')}
                 </button>
               </div>
@@ -399,6 +399,7 @@ export default function LatexEditorPage() {
                   <textarea
                     ref={textareaRef}
                     className="publish-source"
+                    data-tour="publish-editor"
                     value={safeSource}
                     onChange={(e) => setSource(e.target.value)}
                     spellCheck={false}
@@ -410,6 +411,7 @@ export default function LatexEditorPage() {
                   <div className="publish-pane-title">{t('publish.latex.preview')}</div>
                   <iframe
                     className="publish-preview"
+                    data-tour="publish-preview"
                     title={t('publish.latex.preview')}
                     srcDoc={previewHtml}
                   />

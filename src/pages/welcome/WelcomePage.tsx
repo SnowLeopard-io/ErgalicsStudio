@@ -16,12 +16,9 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { NamePromptDialog } from '../workbench/dialogs/NamePromptDialog';
 import { TemplatePanel } from './TemplatePanel';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
-import { beginDebut } from '@/core/debut';
-import { useTourStore } from '@/stores/tourStore';
 import { siteUrl, docsUrl } from '@/core/site-links';
 import {
   PlusIcon,
-  SparklesIcon,
   FileIcon,
   FolderOpenIcon,
   BookIcon,
@@ -30,6 +27,9 @@ import {
 } from '@/components/icons';
 
 const APP_VERSION = currentAppVersion();
+
+/** Rotating hero taglines — one shows at a time, cycling every 3 s. */
+const TAGLINE_COUNT = 6;
 
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
@@ -51,6 +51,13 @@ let deepLinkConsumed = false;
 export default function WelcomePage() {
   const t = useT();
   const daypart = useDaypart();
+
+  /** Hero tagline rotation — advances every 3 s, fading via CSS on remount. */
+  const [tagline, setTagline] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTagline((i) => (i + 1) % TAGLINE_COUNT), 3000);
+    return () => window.clearInterval(timer);
+  }, []);
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
@@ -243,25 +250,6 @@ export default function WelcomePage() {
     }
   };
 
-  /** The 30-second debut: real sample data + a composed publication figure. */
-  const startDebutFlow = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const result = await beginDebut();
-      if (!result.ok) {
-        notify('error', t('tour.debut_failed'));
-        return;
-      }
-      // Continue the tour on the figure step; the intro already played on the
-      // workbench (or is deliberately skipped here).
-      navigate('/studio/figures');
-      useTourStore.getState().startAt('debut', 1);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const continueProject = async (id: string) => {
     if (busy) return;
     setBusy(true);
@@ -324,20 +312,15 @@ export default function WelcomePage() {
       <main className="welcome-main">
         <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
-          <p className="welcome-subtitle">{t('welcome.subtitle')}</p>
+          {/* key= remounts the node so the fade-in animation replays. */}
+          <p className="welcome-subtitle welcome-tagline" key={tagline}>
+            {t(`welcome.tagline.${tagline}`)}
+          </p>
           <p className="welcome-greeting">{t(`ambience.greeting.${daypart}`)}</p>
           <div className="welcome-cta-row">
             <button
               type="button"
               className="btn btn-primary welcome-cta-primary welcome-enter"
-              onClick={() => void startDebutFlow()}
-              disabled={busy}
-            >
-              <SparklesIcon size={15} /> {t('welcome.start.debut')}
-            </button>
-            <button
-              type="button"
-              className="btn"
               onClick={() => void startNew()}
               disabled={busy}
             >
