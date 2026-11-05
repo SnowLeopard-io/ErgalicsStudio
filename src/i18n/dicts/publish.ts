@@ -61,6 +61,8 @@ export const publishZh: LocaleDictionary = {
   'publish.latex.starter': '示例',
   'publish.latex.template_note': '模板会决定文档类、宏包与参考文献样式。',
   'publish.latex.compile_hint': '浏览器内预览支持常用排版子集；PDF 由内置排版生成，与 .tex 一起导出。',
+  'publish.latex.zoom': '缩放',
+  'publish.latex.zoom_reset': '重置',
 
   'publish.citation.library': '文献库',
   'publish.citation.import_bibtex': '导入 BibTeX',
@@ -222,6 +224,8 @@ export const publishEn: LocaleDictionary = {
   'publish.latex.starter': 'Starter',
   'publish.latex.template_note': 'The template sets the document class, packages and bibliography style.',
   'publish.latex.compile_hint': 'The in-browser preview covers common layout; the PDF is typeset in-app and exported beside the .tex.',
+  'publish.latex.zoom': 'Zoom',
+  'publish.latex.zoom_reset': 'Reset',
 
   'publish.citation.library': 'Library',
   'publish.citation.import_bibtex': 'Import BibTeX',

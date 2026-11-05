@@ -9865,12 +9865,49 @@
 }
 
 .publish-preview {
+  display: block;
   flex: 1;
   width: 100%;
   min-height: 480px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: #eef0f3;
+  /* The document inside is a fixed A4 page; a narrow pane scrolls instead of
+     scaling the paper down. */
+  overflow: auto;
+}
+
+/* Zoom bar above the paper preview: the page keeps its A4 layout and only the
+   display scale changes. */
+.publish-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.publish-preview-bar-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.publish-zoom-range {
+  flex: 1 1 120px;
+  min-width: 90px;
+  max-width: 220px;
+  accent-color: var(--color-accent, #1a56c4);
+  cursor: pointer;
+}
+
+.publish-zoom-value {
+  min-width: 40px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .publish-equation-panel {
