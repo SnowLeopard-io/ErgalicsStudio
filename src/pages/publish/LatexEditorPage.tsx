@@ -36,11 +36,12 @@ import {
   referencedFigures,
 } from '@/core/publish/bridge';
 import { CITATION_STYLES, type CitationStyle } from '@/core/publish/citation';
+import { buildManuscriptPdf } from '@/core/publish/pdf';
 import type { ManuscriptRecord } from '@/core/publish/state';
+import { downloadBlob } from '@/core/download';
 import type { FigureSheet } from '@/types/project';
 import {
   downloadText,
-  printHtml,
   usePublishState,
   writePublishArtifacts,
 } from './shared';
@@ -190,23 +191,79 @@ export default function LatexEditorPage() {
     notify('success', t('publish.latex.equation_inserted'));
   };
 
-  const handleExportTex = () => {
+  const handleExportTex = async () => {
     const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
     downloadText(`${safe}.tex`, source, 'application/x-tex;charset=utf-8');
+    // "Export manuscript" means the compiled-looking PDF too, not just the
+    // source. Keep the .tex download above even if PDF layout fails.
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
-  const handlePrint = () => {
-    if (!previewHtml) return;
-    printHtml(previewHtml, name || 'manuscript');
+  const handleExportPdf = async () => {
+    const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
   const handleSaveWorkspace = async () => {
-    if (!project || !active) return;
+    if (!project) {
+      notify('warning', t('publish.common.no_project'));
+      return;
+    }
+    if (!active) {
+      notify('warning', t('publish.latex.no_manuscript'));
+      return;
+    }
     try {
-      const files = [
+      // Flush the editor buffer first: the write-through autosave is
+      // debounced, so project.state could still hold the previous text.
+      const manuscript: ManuscriptRecord = {
+        ...active,
+        name: name.trim() || t('publish.common.untitled'),
+        source,
+        templateId,
+        citationStyle: style,
+        updatedAt: Date.now(),
+      };
+      saveManuscript(manuscript);
+      const files: Array<{ path: string; content?: string; bytes?: Uint8Array }> = [
         { path: 'manuscript/main.tex', content: source },
         { path: 'manuscript/references.bib', content: renderBibtexFile(library) },
       ];
+      // Archive the PDF next to the sources so the workspace holds a complete
+      // submission bundle. A layout failure must not block the text files.
+      try {
+        files.push({
+          path: 'manuscript/main.pdf',
+          bytes: await buildManuscriptPdf(source, {
+            entries: library,
+            style,
+            templateId,
+            resolveFigure,
+          }),
+        });
+      } catch {
+        notify('warning', t('publish.latex.pdf_failed'));
+      }
       const wanted = new Set(referencedFigures(source));
       for (const sheet of sheets) {
         const file = figureSheetPath(sheet);
@@ -215,8 +272,8 @@ export default function LatexEditorPage() {
           files.push({ path: file, content: figureSheetSvg(sheet) });
         }
       }
-      await writePublishArtifacts(files, `${active.name} (${active.templateId})`);
-      notify('success', t('publish.common.git_saved'));
+      const written = await writePublishArtifacts(files, `${manuscript.name} (${manuscript.templateId})`);
+      notify('success', t('publish.common.workspace_saved', { path: written.join(', ') }));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
     }
@@ -231,7 +288,7 @@ export default function LatexEditorPage() {
         <aside className="publish-side">
           <div className="publish-side-head">
             <h2 className="publish-side-title">{t('publish.latex.manuscripts')}</h2>
-            <button type="button" className="btn btn-sm btn-primary" onClick={createManuscript}>
+            <button type="button" className="btn btn-sm btn-primary" data-tour="publish-new" onClick={createManuscript}>
               + {t('publish.latex.new')}
             </button>
           </div>
@@ -353,10 +410,10 @@ export default function LatexEditorPage() {
                 <button type="button" className="btn btn-sm" onClick={handleExportTex}>
                   {t('publish.latex.export_tex')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={handlePrint}>
+                <button type="button" className="btn btn-sm" onClick={() => void handleExportPdf()}>
                   {t('publish.latex.export_pdf')}
                 </button>
-                <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveWorkspace}>
+                <button type="button" className="btn btn-sm btn-primary" data-tour="publish-save" onClick={handleSaveWorkspace}>
                   {t('publish.latex.save_workspace')}
                 </button>
               </div>
@@ -399,6 +456,7 @@ export default function LatexEditorPage() {
                   <textarea
                     ref={textareaRef}
                     className="publish-source"
+                    data-tour="publish-editor"
                     value={safeSource}
                     onChange={(e) => setSource(e.target.value)}
                     spellCheck={false}
@@ -410,6 +468,7 @@ export default function LatexEditorPage() {
                   <div className="publish-pane-title">{t('publish.latex.preview')}</div>
                   <iframe
                     className="publish-preview"
+                    data-tour="publish-preview"
                     title={t('publish.latex.preview')}
                     srcDoc={previewHtml}
                   />

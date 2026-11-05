@@ -35,10 +35,10 @@ import {
   notebookToHtml,
   notebookToIpynb,
 } from '@/core/publish/export';
+import { buildNotebookPdf } from '@/core/publish/pdf';
 import { downloadBlob } from '@/core/download';
 import {
   downloadText,
-  printHtml,
   readTextFile,
   usePublishState,
   writePublishArtifacts,
@@ -266,22 +266,33 @@ export default function CollabNotebookPage() {
     );
   };
 
+  const exportPdf = async () => {
+    if (!note) return;
+    try {
+      downloadBlob(
+        `${notebookFileStem(note)}.pdf`,
+        await buildNotebookPdf(note),
+        'application/pdf',
+      );
+    } catch (err) {
+      notify('error', t('publish.common.error', { reason: String(err) }));
+    }
+  };
+
   const saveWorkspace = async () => {
     if (!note) return;
     try {
-      await writePublishArtifacts(
-        [
-          {
-            path: `manuscript/notebook-${notebookFileStem(note)}.md`,
-            content: notebookToMarkdown(note),
-          },
-          {
-            path: `manuscript/notebook-${notebookFileStem(note)}.ipynb`,
-            content: notebookToIpynb(note),
-          },
-        ],
-        `notebook ${note.title}`,
-      );
+      const stem = notebookFileStem(note);
+      const files: Array<{ path: string; content?: string; bytes?: Uint8Array }> = [
+        { path: `manuscript/notebook-${stem}.md`, content: notebookToMarkdown(note) },
+        { path: `manuscript/notebook-${stem}.ipynb`, content: notebookToIpynb(note) },
+      ];
+      try {
+        files.push({ path: `manuscript/notebook-${stem}.pdf`, bytes: await buildNotebookPdf(note) });
+      } catch {
+        // Keep the text exports even if PDF layout fails.
+      }
+      await writePublishArtifacts(files, `notebook ${note.title}`);
       notify('success', t('publish.common.git_saved'));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
@@ -402,7 +413,7 @@ export default function CollabNotebookPage() {
                     <button
                       type="button"
                       className="btn btn-sm"
-                      onClick={() => printHtml(notebookToHtml(note), note.title)}
+                      onClick={() => void exportPdf()}
                     >
                       {t('publish.collab.export_pdf')}
                     </button>

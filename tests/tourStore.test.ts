@@ -1,7 +1,7 @@
-// Guided-tour state: two flows share one store, and the debut can resume at a
-// specific step (the welcome page's CTA skips the intro).
+// Guided-tour state: every onboarding part shares one store, and a flow can
+// resume at a specific step (the welcome page's CTA skips the intro).
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useTourStore } from '@/stores/tourStore';
+import { useTourStore, type TourFlow } from '@/stores/tourStore';
 
 function reset() {
   useTourStore.setState({ active: false, flow: 'menu', step: 0 });
@@ -18,6 +18,14 @@ describe('tourStore', () => {
   it('starts the debut flow at step 0', () => {
     useTourStore.getState().start('debut');
     expect(useTourStore.getState()).toMatchObject({ active: true, flow: 'debut', step: 0 });
+  });
+
+  it('starts each additional feature flow', () => {
+    const flows: TourFlow[] = ['analysis', 'publish', 'launcher'];
+    for (const flow of flows) {
+      useTourStore.getState().start(flow);
+      expect(useTourStore.getState()).toMatchObject({ active: true, flow, step: 0 });
+    }
   });
 
   it('resumes a flow at a specific step', () => {

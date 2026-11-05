@@ -262,7 +262,7 @@ export function Dropdown({
             }
             if (item.header) {
               return (
-                <div key={item.key} className="menu-group-label">
+                <div key={item.key} className="menu-group-label" data-menu-key={item.key}>
                   {item.label}
                 </div>
               );
@@ -282,6 +282,7 @@ export function Dropdown({
                   filterable && kbdIndex === activeIndex ? 'menu-item-kbd' : '',
                 ].join(' ').trim()}
                 disabled={item.disabled}
+                data-menu-key={item.key}
                 onMouseEnter={() => filterable && setActiveIndex(Math.max(0, kbdIndex))}
                 onClick={() => {
                   setOpenBoth(false);

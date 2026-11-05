@@ -52,7 +52,7 @@ export function ToolShell({ toolId, title, headerExtra, children }: ToolShellPro
   // unreachable in embedded mode.
   if (!location.pathname.startsWith('/studio')) {
     return (
-      <div className="tool-shell embedded">
+      <div className="tool-shell embedded" data-tour="embedded-tool">
         {headerExtra && (
           <div className="tool-embedded-bar">
             <div className="tool-topbar-extra">{headerExtra}</div>

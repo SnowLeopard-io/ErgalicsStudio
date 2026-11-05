@@ -222,7 +222,31 @@
 .welcome-subtitle {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
-  margin: 0 0 var(--space-2);
+  /* Tight: the hero relies on the section gap, not element margins. */
+  margin: var(--space-1) 0 0;
+  min-height: 1.5em;
+}
+
+/* Rotating hero tagline: fades in on each 3 s swap (key-remount replay). */
+.welcome-tagline {
+  animation: tagline-fade 600ms var(--ease-out);
+}
+
+@keyframes tagline-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-tagline {
+    animation: none;
+  }
 }
 
 .welcome-section-title {
@@ -3202,10 +3226,12 @@
   font-size: var(--font-size-md);
 }
 
-/* Menu step (track chooser): the hero card widens further to fit a 2x2
-   grid — one clickable card per competition track. */
+/* Menu step (track chooser): the hero card widens further to fit the
+   onboarding parts — two primary cards, then a 3-up row of extra features. */
 .tour-tip-hero:has(.tour-menu-grid) {
   width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 /* Audience chooser: two stacked full-width identity cards. */
@@ -3246,6 +3272,25 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
   margin: var(--space-3) 0 var(--space-3);
+}
+
+.tour-menu-grid.is-more {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tour-menu-more {
+  margin-top: var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .tour-menu-grid.is-more {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

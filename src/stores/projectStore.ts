@@ -259,7 +259,10 @@ export function getLastOpenedProjectId(): string | null {
   }
 }
 
-function applyOpenedProject(project: Project): void {
+function applyOpenedProject(
+  project: Project,
+  { seedWorkspace = true }: { seedWorkspace?: boolean } = {},
+): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
@@ -267,6 +270,22 @@ function applyOpenedProject(project: Project): void {
   useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
   recordLastOpenedProject(project.id);
   syncProjectFiles(project);
+  // Repair the workspace skeleton without overwriting user files: projects
+  // loaded from a .clproj (import / debut sample) have no workspace tree yet,
+  // so manuscript/, figures/, data/ … would be missing from the explorer and
+  // "write to workspace" would appear to do nothing. Folder imports already
+  // bring their own authoritative tree, so they skip this.
+  if (seedWorkspace) {
+    const session = projectSession;
+    const repoPath = getProjectRepoPath(project);
+    void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false })
+      .then(() => {
+        if (session !== projectSession) return;
+        void syncProjectSnapshot(project);
+        useAppStore.getState().bumpFileOps();
+      })
+      .catch((err) => logger.warn('project', 'workspace skeleton seed failed', err));
+  }
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
   restoreBlockGraph(project.state.blockGraph);
@@ -493,7 +512,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (seq !== openSeq) return project;
 
     useAppStore.getState().setMode('standard');
-    applyOpenedProject(project);
+    applyOpenedProject(project, { seedWorkspace: false });
     void syncProjectSnapshot(project);
     useAppStore.getState().bumpFileOps();
     if (failed > 0) {

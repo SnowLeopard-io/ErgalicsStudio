@@ -32,8 +32,16 @@ export async function copyText(text: string): Promise<boolean> {
  * project store to commit them (`manuscript` conventional commit). Returns the
  * repo-relative paths that were written.
  */
+export interface PublishArtifact {
+  path: string;
+  /** UTF-8 text content (source files, BibTeX, SVG). */
+  content?: string;
+  /** Binary content (PDF, PNG, …). Takes precedence over `content`. */
+  bytes?: Uint8Array;
+}
+
 export async function writePublishArtifacts(
-  files: Array<{ path: string; content: string }>,
+  files: PublishArtifact[],
   details: string,
 ): Promise<string[]> {
   const { project, autoCommit } = useProjectStore.getState();
@@ -41,7 +49,8 @@ export async function writePublishArtifacts(
   const root = getProjectRepoPath(project);
   const vfs = getVfs();
   for (const file of files) {
-    await vfs.writeFile(root, file.path, file.content);
+    if (file.bytes) await vfs.writeFileBinary(root, file.path, file.bytes);
+    else await vfs.writeFile(root, file.path, file.content ?? '');
   }
   useAppStore.getState().bumpFileOps();
   await autoCommit('manuscript', details);
