@@ -624,7 +624,7 @@
 }
 
 .profile-textarea {
-  resize: vertical;
+  resize: none;
   min-height: 2.4em;
   line-height: 1.5;
 }
