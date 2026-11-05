@@ -46,9 +46,11 @@ const PREVIEW_CAP_CHARS = 200_000;
 const TEXT_EXT = new Set([
   'md', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'svg',
   'clproj', 'lock', 'log', 'ini', 'sh', 'js', 'py', 'r',
-  // Manuscript / bibliography sources are plain text too (the code editor
+  // Manuscript / bibliography sources are plain text too (the LaTeX editor
   // claims them first, but this keeps the preview fallback correct).
   'tex', 'ltx', 'sty', 'cls', 'bib', 'cff',
+  // Other research-suite artifacts written into the workspace.
+  'html', 'htm', 'ipynb',
 ]);
 /** Extension-less files that are still text. */
 const TEXT_NAME = new Set(['.gitignore', '.gitattributes', 'license', 'readme']);

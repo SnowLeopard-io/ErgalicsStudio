@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
-import { saveTextArtifact } from '@/core/workspace-artifacts';
+import { saveBinaryArtifact, saveTextArtifact } from '@/core/workspace-artifacts';
 import { useAnalysisStore } from '@/stores/analysisStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import { parseDataText } from '@/blocks/fileData';
@@ -15,6 +15,7 @@ import {
   dataTableToBar,
   exportSVG,
   exportPDF,
+  buildPDF,
 } from '@/core/plot';
 import { summary } from '@/core/stats/descriptive';
 import { tTestOneSample, tTestTwoSample, mannWhitney } from '@/core/stats/tests';
@@ -159,24 +160,30 @@ export default function AnalysisPage() {
     if (preview) void exportPDF(preview.markup, `${safeName(baseName())}.pdf`);
   };
 
-  /** Save the chart SVG into the project workspace (figures/). */
-  const onSaveToWorkspace = () => {
+  /** Save the chart into the project workspace as SVG + PDF (figures/). */
+  const onSaveToWorkspace = async () => {
     if (!preview) return;
-    const project = useProjectStore.getState().project;
-    if (!project) {
+    const p = useProjectStore.getState().project;
+    if (!p) {
       setParseError(t('labs.no_project'));
       return;
     }
-    void saveTextArtifact(
-      project,
-      'figures',
-      `${safeName(baseName())}.svg`,
-      preview.markup,
-    )
-      .then((path) => notify('success', t('labs.saved_ws', { path })))
-      .catch((err) =>
-        setParseError(err instanceof Error ? err.message : String(err)),
-      );
+    const base = safeName(baseName());
+    try {
+      const written = [await saveTextArtifact(p, 'figures', `${base}.svg`, preview.markup)];
+      // The chart's PDF export belongs beside the SVG, exactly like the
+      // figure studio's "save all formats" action.
+      try {
+        written.push(
+          await saveBinaryArtifact(p, 'figures', `${base}.pdf`, await buildPDF(preview.markup)),
+        );
+      } catch {
+        // A layout failure must not lose the SVG that was already written.
+      }
+      notify('success', t('labs.saved_ws', { path: written.join(', ') }));
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   /** Save the statistical test result into the workspace (runs/) as a JSON
