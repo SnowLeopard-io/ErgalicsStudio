@@ -42,7 +42,6 @@ import { downloadBlob } from '@/core/download';
 import type { FigureSheet } from '@/types/project';
 import {
   downloadText,
-  printHtml,
   usePublishState,
   writePublishArtifacts,
 } from './shared';
@@ -210,9 +209,19 @@ export default function LatexEditorPage() {
     }
   };
 
-  const handlePrint = () => {
-    if (!previewHtml) return;
-    printHtml(previewHtml, name || 'manuscript');
+  const handleExportPdf = async () => {
+    const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
   const handleSaveWorkspace = async () => {
@@ -401,7 +410,7 @@ export default function LatexEditorPage() {
                 <button type="button" className="btn btn-sm" onClick={handleExportTex}>
                   {t('publish.latex.export_tex')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={handlePrint}>
+                <button type="button" className="btn btn-sm" onClick={() => void handleExportPdf()}>
                   {t('publish.latex.export_pdf')}
                 </button>
                 <button type="button" className="btn btn-sm btn-primary" data-tour="publish-save" onClick={handleSaveWorkspace}>
