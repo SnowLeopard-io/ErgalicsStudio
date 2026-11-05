@@ -388,7 +388,7 @@ export const enUS: LocaleDictionary = {
   'tour.publish_preview_title': 'Live preview on the right',
   'tour.publish_preview_body': 'The preview follows the source, rendering with the current journal template, citation style and figure references.',
   'tour.publish_save_title': 'Write to the workspace',
-  'tour.publish_save_body': 'Click "Write to workspace": manuscript/main.tex and references.bib are written into the project, together with every referenced figure. The confirmation shows the exact paths.',
+  'tour.publish_save_body': 'Click "Write to workspace": manuscript/main.tex, main.pdf and references.bib are written into the project, together with every referenced figure. The confirmation shows the exact paths.',
   'tour.publish_done_title': 'Manuscript archived',
   'tour.publish_done_body': 'From the workbench you completed the full loop: open the tool → create a manuscript → edit and preview → save. Next up: citations or a preprint.',
   // ---- Research launcher ----

@@ -36,7 +36,9 @@ import {
   referencedFigures,
 } from '@/core/publish/bridge';
 import { CITATION_STYLES, type CitationStyle } from '@/core/publish/citation';
+import { buildManuscriptPdf } from '@/core/publish/pdf';
 import type { ManuscriptRecord } from '@/core/publish/state';
+import { downloadBlob } from '@/core/download';
 import type { FigureSheet } from '@/types/project';
 import {
   downloadText,
@@ -190,9 +192,22 @@ export default function LatexEditorPage() {
     notify('success', t('publish.latex.equation_inserted'));
   };
 
-  const handleExportTex = () => {
+  const handleExportTex = async () => {
     const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
     downloadText(`${safe}.tex`, source, 'application/x-tex;charset=utf-8');
+    // "Export manuscript" means the compiled-looking PDF too, not just the
+    // source. Keep the .tex download above even if PDF layout fails.
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
   const handlePrint = () => {
@@ -221,10 +236,25 @@ export default function LatexEditorPage() {
         updatedAt: Date.now(),
       };
       saveManuscript(manuscript);
-      const files = [
+      const files: Array<{ path: string; content?: string; bytes?: Uint8Array }> = [
         { path: 'manuscript/main.tex', content: source },
         { path: 'manuscript/references.bib', content: renderBibtexFile(library) },
       ];
+      // Archive the PDF next to the sources so the workspace holds a complete
+      // submission bundle. A layout failure must not block the text files.
+      try {
+        files.push({
+          path: 'manuscript/main.pdf',
+          bytes: await buildManuscriptPdf(source, {
+            entries: library,
+            style,
+            templateId,
+            resolveFigure,
+          }),
+        });
+      } catch {
+        notify('warning', t('publish.latex.pdf_failed'));
+      }
       const wanted = new Set(referencedFigures(source));
       for (const sheet of sheets) {
         const file = figureSheetPath(sheet);

@@ -391,7 +391,7 @@ export const zhCN: LocaleDictionary = {
   'tour.publish_preview_title': '右边实时预览',
   'tour.publish_preview_body': '预览会随着源码更新，期刊模板、引用样式和图片引用都按当前设置渲染。',
   'tour.publish_save_title': '写入工作区',
-  'tour.publish_save_body': '点击「写入工作区」：manuscript/main.tex 与 references.bib 会写进项目，引用到的图也会一起归档。保存成功后提示会显示实际写入路径。',
+  'tour.publish_save_body': '点击「写入工作区」：manuscript/main.tex、main.pdf 与 references.bib 会写进项目，引用到的图也会一起归档。保存成功后提示会显示实际写入路径。',
   'tour.publish_done_title': '稿件已归档',
   'tour.publish_done_body': '从工作台出发，你已经完成「打开工具 → 新建稿件 → 编辑预览 → 保存」的完整写作流程。之后还可以继续管理引用或生成预印本。',
   // ---- Research launcher ----
