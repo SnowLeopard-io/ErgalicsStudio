@@ -201,8 +201,26 @@ export default function LatexEditorPage() {
   };
 
   const handleSaveWorkspace = async () => {
-    if (!project || !active) return;
+    if (!project) {
+      notify('warning', t('publish.common.no_project'));
+      return;
+    }
+    if (!active) {
+      notify('warning', t('publish.latex.no_manuscript'));
+      return;
+    }
     try {
+      // Flush the editor buffer first: the write-through autosave is
+      // debounced, so project.state could still hold the previous text.
+      const manuscript: ManuscriptRecord = {
+        ...active,
+        name: name.trim() || t('publish.common.untitled'),
+        source,
+        templateId,
+        citationStyle: style,
+        updatedAt: Date.now(),
+      };
+      saveManuscript(manuscript);
       const files = [
         { path: 'manuscript/main.tex', content: source },
         { path: 'manuscript/references.bib', content: renderBibtexFile(library) },
@@ -215,8 +233,8 @@ export default function LatexEditorPage() {
           files.push({ path: file, content: figureSheetSvg(sheet) });
         }
       }
-      await writePublishArtifacts(files, `${active.name} (${active.templateId})`);
-      notify('success', t('publish.common.git_saved'));
+      const written = await writePublishArtifacts(files, `${manuscript.name} (${manuscript.templateId})`);
+      notify('success', t('publish.common.workspace_saved', { path: written.join(', ') }));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
     }

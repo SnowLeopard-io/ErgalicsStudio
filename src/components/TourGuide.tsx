@@ -404,7 +404,7 @@ export function TourGuide() {
   }, [active, finished, def, advance]);
 
   // "change" steps advance when the highlighted form control actually changes
-  // (e.g. choosing a dataset in a <select>). This is the honest analogue of a
+  // (e.g. choosing a dataset in a dropdown). This is the honest analogue of a
   // click step for controls whose value — not the click — is the action.
   useEffect(() => {
     if (!active || finished || def.mode !== 'change' || !def.selector) return;
