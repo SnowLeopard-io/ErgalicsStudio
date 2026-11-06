@@ -7,12 +7,11 @@ import { useAppStore } from '@/stores/appStore';
 import {
   detectFormats,
   matchesFormats,
-  allSupportedExtensions,
+  collectSupportedExtensions,
   detectScientificFormat,
   scientificFormatFromName,
   isSupportedDataFileName,
 } from '@/core/fileFormat';
-import { getBuiltinManifests } from '@/plugins/builtin';
 import {
   loadScientificData,
   toDataset,
@@ -169,25 +168,10 @@ export function useFileRouting() {
       .map(({ pluginId }) => pluginId);
 
     if (matches.length === 0) {
-      // Advertise the formats the app can handle as a whole, not just those of
-      // the plugins that happen to be loaded at that instant: the built-in
-      // manifests plus the app's own preview/project/scientific importers.
-      // Otherwise the hint lists a seemingly random subset (and omits e.g.
-      // .pdb, .fasta, .vcf, images, HDF5/Parquet/FITS/NetCDF) while plugins
-      // are still autoloading.
-      const supported = allSupportedExtensions([
-        ...pluginStore.getFormats(),
-        ...getBuiltinManifests().map((manifest) => ({
-          pluginId: manifest.id,
-          formats: manifest.formats ?? [],
-        })),
-      ]);
-      // Keep the banner message a stable i18n key: appending the extension list
-      // to the key made the whole string un-translatable (it rendered raw as
-      // "error.file_unsupported: .dat, …"). Interpolate it as a parameter.
-      useAppStore
-        .getState()
-        .setBanner('error.file_unsupported_formats', { formats: supported.join(', ') });
+      const supported = collectSupportedExtensions(pluginStore.getFormats());
+      useAppStore.getState().setBanner(
+        `error.file_unsupported${supported.length ? `: ${supported.join(', ')}` : ''}`,
+      );
       return;
     }
     if (matches.length === 1) {

@@ -125,6 +125,22 @@ function isPublishSourceFile(name: string): boolean {
 function adoptTexFile(name: string, source: string): void {
   const store = usePublishStore.getState();
   const manuscripts = useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+  const stem = name.replace(/\.[^.]+$/, '') || 'manuscript';
+  // The workspace file name is the identity: opening HELLO.tex must focus the
+  // HELLO manuscript instead of creating a duplicate record. Source matching
+  // remains for manuscripts exported before stems were recorded.
+  const byStem = manuscripts.find(
+    (m) => (m.workspaceStem ?? '').toLowerCase() === stem.toLowerCase(),
+  );
+  if (byStem) {
+    // The workspace file is authoritative when opened from the file manager.
+    if (byStem.source !== source) {
+      store.saveManuscript({ ...byStem, source, updatedAt: Date.now() });
+    } else {
+      store.setActiveManuscript(byStem.id);
+    }
+    return;
+  }
   const existing = manuscripts.find((m) => m.source === source);
   if (existing) {
     store.setActiveManuscript(existing.id);
@@ -133,10 +149,11 @@ function adoptTexFile(name: string, source: string): void {
   const now = Date.now();
   const record: ManuscriptRecord = {
     id: crypto.randomUUID(),
-    name: name.replace(/\.[^.]+$/, '') || 'Manuscript',
+    name: stem,
     templateId: 'ieee',
     citationStyle: 'ieee',
     source,
+    workspaceStem: stem,
     createdAt: now,
     updatedAt: now,
   };
@@ -617,6 +634,46 @@ export function FileExplorer() {
     }
   };
 
+  /** Keep a manuscript's record in sync when its `.tex` is renamed/moved. */
+  const syncManuscriptTrack = async (oldPath: string, newPath: string) => {
+    const isTex = (p: string) => /^manuscript\/[^/]+\.tex$/i.test(p);
+    if (!isTex(oldPath) || !isTex(newPath)) return;
+    const oldStem = basename(oldPath).replace(/\.[^.]+$/, '');
+    const newStem = basename(newPath).replace(/\.[^.]+$/, '');
+    if (!oldStem || oldStem === newStem) return;
+    const publishStore = usePublishStore.getState();
+    const manuscripts =
+      useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+    const match = manuscripts.find(
+      (m) => (m.workspaceStem ?? '').toLowerCase() === oldStem.toLowerCase(),
+    );
+    if (!match) return;
+    // The file manager is the source of truth for the name shown in the editor.
+    publishStore.saveManuscript({
+      ...match,
+      name: newStem,
+      workspaceStem: newStem,
+      updatedAt: Date.now(),
+    });
+    // Keep the archived PDF beside the renamed source when possible.
+    const current = useProjectStore.getState().project;
+    if (!current) return;
+    const repoPath = getProjectRepoPath(current);
+    const vfs = getVfs();
+    const oldPdf = oldPath.replace(/\.tex$/i, '.pdf');
+    const newPdf = newPath.replace(/\.tex$/i, '.pdf');
+    try {
+      if (
+        (await vfs.exists(repoPath, oldPdf)) &&
+        !(await vfs.exists(repoPath, newPdf))
+      ) {
+        await vfs.renameEntry(repoPath, oldPdf, newPdf);
+      }
+    } catch {
+      // The archived PDF is optional; the .tex rename already succeeded.
+    }
+  };
+
   const beginRename = (entry: VfsEntry) => {
     setMenu(null);
     setSelected(entry);
@@ -644,6 +701,7 @@ export function FileExplorer() {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
       await syncDataTrack(entry.path, target);
+      await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {

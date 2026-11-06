@@ -1,13 +1,15 @@
 // ==========================================================================
 // Ergalics Studio — plot export (SVG file + PDF, browser only)
 //
-// SVG exports are trivial (the markup is already a string). PDF relies on
-// `jspdf` + `svg2pdf.js`, both loaded *dynamically* so they never enter the
-// Standard-mode initial bundle. PDF export is skipped in non-DOM (test/node)
-// environments by design.
+// SVG exports are trivial (the markup is already a string). PDF rasterizes the
+// SVG at print resolution and embeds a PNG, so the PDF matches the on-screen
+// chart exactly (svg2pdf re-flowed bars and mapped π onto its Symbol font).
+// `jspdf` is loaded *dynamically* so it never enters the Standard-mode initial
+// bundle. PDF export is skipped in non-DOM (test/node) environments by design.
 // ==========================================================================
 
 import { logger } from '@/core/logger';
+import { fitSvgBox, svgAspectRatio } from '@/core/pdf/svg';
 
 /** Trigger a browser download of the given text content. */
 export function downloadText(
@@ -142,13 +144,16 @@ export function rasterizePNG(svg: string, scale = 600 / 96): Promise<Uint8Array>
   });
 }
 
-interface Svg2PdfModule {
-  svg2pdf: (
-    element: SVGElement,
-    pdf: unknown,
-    options?: { x?: number; y?: number; width?: number; height?: number },
-  ) => Promise<void>;
+/** Base64 data URL for rasterized PNG bytes (jsPDF's accepted image source). */
+function pngDataUrl(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunk));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
 }
+
 interface JsPdfModule {
   jsPDF: new (opts: {
     orientation?: 'portrait' | 'landscape';
@@ -156,14 +161,33 @@ interface JsPdfModule {
     format?: string | number[];
   }) => {
     save: (name: string) => void;
-    addImage?: unknown;
+    addFileToVFS: (filename: string, data: string) => void;
+    addFont: (filename: string, family: string, style?: string) => void;
+    addImage: (
+      imageData: string,
+      format: string,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ) => void;
     output?: (type: string) => unknown;
   };
 }
 
+/** A4 landscape page used for standalone chart PDFs (mm). */
+const PDF_PAGE_WIDTH_MM = 297;
+const PDF_PAGE_HEIGHT_MM = 210;
+const PDF_MARGIN_MM = 15;
+
 /**
- * Render an SVG string into a vector PDF and return the **bytes** (no
- * download). Lazily imports `jspdf` + `svg2pdf.js`; throws if unavailable.
+ * Render an SVG string into a PDF and return the **bytes** (no download).
+ *
+ * The SVG is rasterized at print resolution and embedded as a PNG instead of
+ * being re-drawn with svg2pdf: svg2pdf maps Greek/symbol glyphs onto jsPDF's
+ * built-in Symbol font (`π` became `¼`) and re-flows bar geometry, so a
+ * rasterized bitmap is the only way to keep the PDF identical to the on-screen
+ * preview. Lazily imports `jspdf`; throws if unavailable.
  */
 export async function buildPDF(
   svg: string,
@@ -173,33 +197,32 @@ export async function buildPDF(
     throw new Error('buildPDF is only available in a browser environment');
   }
   // `as any` on the specifier keeps tsc from demanding type declarations for
-  // these optional, browser-only deps (they are loaded lazily at runtime).
+  // this optional, browser-only dep (loaded lazily at runtime).
   const jspdfMod = (await import('jspdf' as any)) as JsPdfModule;
-  const svg2pdfMod = (await import('svg2pdf.js' as any)) as Svg2PdfModule;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svg, 'image/svg+xml');
-  const svgEl = doc.querySelector('svg');
+  const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  const svgEl = parsed.querySelector('svg');
   if (!svgEl) throw new Error('invalid SVG markup');
-  // Attach to the live document before rendering: svg2pdf measures text and
-  // element geometry via `getBBox`, which only works on elements that are part
-  // of the rendered tree (Firefox throws on detached elements). The clone must
-  // keep its real `width`/`height` attributes — clamping the box to 1px makes
-  // svg2pdf collapse the whole figure into a 1px layout box (blank PDF).
-  svgEl.setAttribute('style', 'position:absolute;left:-99999px;top:0');
-  document.body.appendChild(svgEl);
-  try {
-    const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    await svg2pdfMod.svg2pdf(svgEl as unknown as SVGElement, pdf, {
-      x: (297 - widthMm) / 2,
-      y: 15,
-      width: widthMm,
-    });
-    const raw = pdf.output?.('arraybuffer');
-    if (!(raw instanceof ArrayBuffer)) throw new Error('jsPDF arraybuffer output unavailable');
-    return new Uint8Array(raw);
-  } finally {
-    svgEl.remove();
-  }
+
+  // Fit the intrinsic aspect ratio into the printable area (see the svg2pdf
+  // note above: a 420 mm-tall box on a 210 mm page used to clip the chart).
+  const aspect = svgAspectRatio(svgEl);
+  const maxWidth = PDF_PAGE_WIDTH_MM - PDF_MARGIN_MM * 2;
+  const maxHeight = PDF_PAGE_HEIGHT_MM - PDF_MARGIN_MM * 2;
+  const { width, height } = fitSvgBox(aspect, Math.min(widthMm, maxWidth), maxHeight);
+
+  const png = await rasterizePNG(svg, 300 / 96);
+  const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  pdf.addImage(
+    pngDataUrl(png),
+    'PNG',
+    (PDF_PAGE_WIDTH_MM - width) / 2,
+    (PDF_PAGE_HEIGHT_MM - height) / 2,
+    width,
+    height,
+  );
+  const raw = pdf.output?.('arraybuffer');
+  if (!(raw instanceof ArrayBuffer)) throw new Error('jsPDF arraybuffer output unavailable');
+  return new Uint8Array(raw);
 }
 
 /**

@@ -38,6 +38,11 @@ import {
 import { CITATION_STYLES, type CitationStyle } from '@/core/publish/citation';
 import { buildManuscriptPdf } from '@/core/publish/pdf';
 import type { ManuscriptRecord } from '@/core/publish/state';
+import {
+  manuscriptBundle,
+  manuscriptStem,
+  nextWorkspaceStem,
+} from '@/core/publish/unique';
 import { downloadBlob } from '@/core/download';
 import type { FigureSheet } from '@/types/project';
 import {
@@ -249,26 +254,38 @@ export default function LatexEditorPage() {
       return;
     }
     try {
+      const displayName = name.trim() || t('publish.common.untitled');
+      // The workspace file name follows the manuscript name (HELLO →
+      // manuscript/HELLO.tex). Other manuscripts reserve their stems, so a
+      // duplicate name gets `-2`; re-saving keeps the same bundle.
+      const stem = nextWorkspaceStem(
+        displayName,
+        manuscripts
+          .filter((m) => m.id !== active.id)
+          .map((m) => m.workspaceStem ?? manuscriptStem(m.name)),
+      );
+      const bundle = manuscriptBundle(stem);
       // Flush the editor buffer first: the write-through autosave is
       // debounced, so project.state could still hold the previous text.
       const manuscript: ManuscriptRecord = {
         ...active,
-        name: name.trim() || t('publish.common.untitled'),
+        name: displayName,
         source,
         templateId,
         citationStyle: style,
+        workspaceStem: stem,
         updatedAt: Date.now(),
       };
       saveManuscript(manuscript);
       const files: Array<{ path: string; content?: string; bytes?: Uint8Array }> = [
-        { path: 'manuscript/main.tex', content: source },
+        { path: bundle.tex, content: source },
         { path: 'manuscript/references.bib', content: renderBibtexFile(library) },
       ];
       // Archive the PDF next to the sources so the workspace holds a complete
       // submission bundle. A layout failure must not block the text files.
       try {
         files.push({
-          path: 'manuscript/main.pdf',
+          path: bundle.pdf,
           bytes: await buildManuscriptPdf(source, {
             entries: library,
             style,
@@ -287,7 +304,16 @@ export default function LatexEditorPage() {
           files.push({ path: file, content: figureSheetSvg(sheet) });
         }
       }
-      const written = await writePublishArtifacts(files, `${manuscript.name} (${manuscript.templateId})`);
+      // Renaming a manuscript renames its bundle: remove the old copies.
+      const cleanup =
+        active.workspaceStem && active.workspaceStem !== stem
+          ? [manuscriptBundle(active.workspaceStem).tex, manuscriptBundle(active.workspaceStem).pdf]
+          : [];
+      const written = await writePublishArtifacts(
+        files,
+        `${manuscript.name} (${manuscript.templateId})`,
+        { cleanup },
+      );
       notify('success', t('publish.common.workspace_saved', { path: written.join(', ') }));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
@@ -321,6 +347,7 @@ export default function LatexEditorPage() {
                   <span className="publish-list-name">{m.name}</span>
                   <span className="publish-list-meta">
                     {getLatexTemplate(m.templateId).label} · {m.citationStyle.toUpperCase()}
+                    {m.workspaceStem ? ` · manuscript/${m.workspaceStem}.tex` : ''}
                   </span>
                 </button>
                 <button
