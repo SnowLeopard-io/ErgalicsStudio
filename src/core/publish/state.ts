@@ -20,6 +20,12 @@ export interface ManuscriptRecord {
   citationStyle: CitationStyle;
   /** Raw `.tex` source, edited directly in the LaTeX editor. */
   source: string;
+  /**
+   * File stem of this manuscript's workspace bundle (`HELLO`, `HELLO-2`, …).
+   * Assigned on the first workspace export and kept in sync with the file
+   * manager so re-saving overwrites the same files.
+   */
+  workspaceStem?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -81,6 +87,14 @@ export function normalizePublishState(raw: unknown): PublishState {
           ? (m.citationStyle as CitationStyle)
           : 'ieee',
         source: typeof m.source === 'string' ? m.source : '',
+        workspaceStem:
+          typeof m.workspaceStem === 'string'
+            ? m.workspaceStem
+            : typeof m.workspaceSuffix === 'string'
+              ? m.workspaceSuffix
+                ? `main${m.workspaceSuffix}`
+                : 'main'
+              : undefined,
         createdAt: typeof m.createdAt === 'number' ? m.createdAt : Date.now(),
         updatedAt: typeof m.updatedAt === 'number' ? m.updatedAt : Date.now(),
       }))

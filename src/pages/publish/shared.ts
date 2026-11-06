@@ -43,14 +43,21 @@ export interface PublishArtifact {
 export async function writePublishArtifacts(
   files: PublishArtifact[],
   details: string,
+  options: { cleanup?: string[] } = {},
 ): Promise<string[]> {
   const { project, autoCommit } = useProjectStore.getState();
   if (!project) return [];
   const root = getProjectRepoPath(project);
   const vfs = getVfs();
+
   for (const file of files) {
     if (file.bytes) await vfs.writeFileBinary(root, file.path, file.bytes);
     else await vfs.writeFile(root, file.path, file.content ?? '');
+  }
+  // A renamed manuscript drops its previous bundle instead of leaving a stale
+  // copy that the file manager would show as another paper.
+  for (const path of options.cleanup ?? []) {
+    if (await vfs.exists(root, path)) await vfs.deleteEntry(root, path, false);
   }
   useAppStore.getState().bumpFileOps();
   await autoCommit('manuscript', details);
