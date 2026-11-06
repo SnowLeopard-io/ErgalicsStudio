@@ -12,6 +12,7 @@ export function manuscriptStem(name: string, fallback = 'manuscript'): string {
   const stem = name
     .normalize('NFKC')
     .trim()
+    // eslint-disable-next-line no-control-regex -- strip control chars illegal in filenames
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-')
     .replace(/\s+/g, '-')
     .replace(/-{2,}/g, '-')

@@ -1,10 +1,11 @@
 // ==========================================================================
 // Ergalics Studio — plot export (SVG file + PDF, browser only)
 //
-// SVG exports are trivial (the markup is already a string). PDF relies on
-// `jspdf` + `svg2pdf.js`, both loaded *dynamically* so they never enter the
-// Standard-mode initial bundle. PDF export is skipped in non-DOM (test/node)
-// environments by design.
+// SVG exports are trivial (the markup is already a string). PDF rasterizes the
+// SVG at print resolution and embeds a PNG, so the PDF matches the on-screen
+// chart exactly (svg2pdf re-flowed bars and mapped π onto its Symbol font).
+// `jspdf` is loaded *dynamically* so it never enters the Standard-mode initial
+// bundle. PDF export is skipped in non-DOM (test/node) environments by design.
 // ==========================================================================
 
 import { logger } from '@/core/logger';
