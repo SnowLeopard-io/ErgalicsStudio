@@ -3,17 +3,28 @@
 //
 // The LaTeX preview is already rendered to semantic HTML. There is no TeX
 // distribution in the browser, so this module lays that rendered content out
-// with jsPDF's text API: title, authors, headings, paragraphs, lists and
-// captions become a real, downloadable PDF alongside the .tex/.bib sources.
+// with jsPDF's text API. The layout follows the selected journal template
+// (two-column IEEE/ACM/Nature/Science, single-column APA/Chicago, their body
+// sizes and leading) so the exported PDF resembles the live preview.
+//
+// Figures are rasterized from their SVG at print resolution before embedding:
+// this keeps the exact rendering of the live preview (Greek labels, bar
+// geometry, CJK) instead of relying on svg2pdf's built-in-font fallbacks.
 //
 // jsPDF is imported lazily so it never enters the Standard-mode initial
 // bundle, mirroring `@/core/plot/export`.
 // ==========================================================================
 
-import { latexPreviewBody, type LatexPreviewOptions } from './latex';
+import {
+  getLatexTemplate,
+  latexPreviewBody,
+  type LatexPreviewOptions,
+  type LatexTemplateId,
+} from './latex';
 import { notebookToMarkdown, type CollabNote } from './collab';
 import { CJK_FONT_FAMILY, NON_LATIN1, registerFont, winAnsiSafe } from '../pdf/font';
-import { drawSvgToPdf, fitSvgBox, svgAspectRatio } from '../pdf/svg';
+import { fitSvgBox, svgAspectRatio } from '../pdf/svg';
+import { rasterizePNG } from '@/core/plot/export';
 
 interface JsPdfDoc {
   setFont(family: string, style?: string): void;
@@ -28,6 +39,14 @@ interface JsPdfDoc {
   getTextWidth(text: string): number;
   splitTextToSize(text: string, maxWidth: number): string[];
   addPage(): void;
+  addImage(
+    imageData: string,
+    format: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void;
   addFileToVFS(filename: string, data: string): void;
   addFont(filename: string, family: string, style?: string): void;
   internal: {
@@ -56,6 +75,83 @@ const MUTED_COLOR: [number, number, number] = [95, 99, 104];
 function cleanText(value: string | null | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim();
 }
+
+/** Base64 data URL for a rasterized figure. */
+function pngDataUrl(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunk));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+// --------------------------------------------------------------------------
+// Template typography
+// --------------------------------------------------------------------------
+
+interface TemplateMetrics {
+  columns: 1 | 2;
+  font: 'times' | 'helvetica';
+  bodyPt: number;
+  titlePt: number;
+  authorPt: number;
+  headingPt: { h2: number; h3: number; h4: number };
+  captionPt: number;
+  lineFactor: number;
+  margin: { top: number; right: number; bottom: number; left: number };
+  columnGap: number;
+  abstractPt: number;
+}
+
+/**
+ * Typography distilled from `.lp-tpl-*` in `latex.ts`: Times body, sans for
+ * ACM, larger leading for APA/Chicago, and the two-column journal layouts.
+ */
+function templateMetrics(id: LatexTemplateId | undefined): TemplateMetrics {
+  const columns = getLatexTemplate(id).columns;
+  const journal = { top: 16, right: 15, bottom: 18, left: 15, columnGap: 6 };
+  switch (id) {
+    case 'acm':
+      return {
+        columns, font: 'helvetica', bodyPt: 9.2, titlePt: 18, authorPt: 9,
+        headingPt: { h2: 11.5, h3: 10.2, h4: 9.4 }, captionPt: 8.2, lineFactor: 1.32,
+        margin: journal, columnGap: 6, abstractPt: 9,
+      };
+    case 'nature':
+    case 'science':
+      return {
+        columns, font: 'times', bodyPt: 9.5, titlePt: 22, authorPt: 9.5,
+        headingPt: { h2: 12.5, h3: 10.8, h4: 10 }, captionPt: 8, lineFactor: 1.3,
+        margin: { ...journal, top: 15 }, columnGap: 6, abstractPt: 9,
+      };
+    case 'apa':
+      return {
+        columns, font: 'times', bodyPt: 12, titlePt: 18, authorPt: 11,
+        headingPt: { h2: 13, h3: 12, h4: 12 }, captionPt: 10, lineFactor: 1.9,
+        margin: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
+        columnGap: 0, abstractPt: 12,
+      };
+    case 'chicago':
+      return {
+        columns, font: 'times', bodyPt: 12, titlePt: 18, authorPt: 11,
+        headingPt: { h2: 13.5, h3: 12.5, h4: 12 }, captionPt: 10, lineFactor: 1.7,
+        margin: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
+        columnGap: 0, abstractPt: 12,
+      };
+    case 'ieee':
+    default:
+      return {
+        columns, font: 'times', bodyPt: 9.6, titlePt: 19, authorPt: 9,
+        headingPt: { h2: 11.5, h3: 10.2, h4: 9.6 }, captionPt: 8.2, lineFactor: 1.34,
+        margin: journal, columnGap: 6, abstractPt: 9,
+      };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Inline markup → styled runs
+// --------------------------------------------------------------------------
 
 interface InlineStyle {
   bold: boolean;
@@ -130,8 +226,9 @@ export type ManuscriptPdfOptions = LatexPreviewOptions;
 /**
  * Render a `.tex` source into PDF bytes.
  *
- * Browser-only: the preview parser needs a DOM (DOMParser) and jsPDF needs a
- * document to attach its output blob lifecycle to.
+ * Browser-only: the preview parser needs a DOM (DOMParser), figures are
+ * rasterized through a canvas, and jsPDF needs a document for its output
+ * blob lifecycle.
  */
 export async function buildManuscriptPdf(
   source: string,
@@ -148,28 +245,50 @@ export async function buildManuscriptPdf(
   // visible one so equations are not duplicated in the extracted text.
   container.querySelectorAll('.katex-mathml').forEach((el) => el.remove());
 
+  const layout = templateMetrics(options.templateId);
   const jspdfMod = (await import('jspdf' as any)) as JsPdfModule;
   const doc = new jspdfMod.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const needsCjk = NON_LATIN1.test(container.textContent ?? '');
   const cjkReady = await registerFont(doc, needsCjk);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const maxWidth = pageWidth - MARGIN_MM * 2;
-  let y = MARGIN_MM;
+  const contentWidth = pageWidth - layout.margin.left - layout.margin.right;
+  const columnWidth =
+    layout.columns === 2
+      ? (contentWidth - layout.columnGap * (layout.columns - 1)) / layout.columns
+      : contentWidth;
+  const bottom = pageHeight - layout.margin.bottom;
+  const colX = (index: number) =>
+    layout.margin.left + index * (columnWidth + layout.columnGap);
+
+  let y = layout.margin.top;
+  /** Header (title/authors) spans the page; body flows in template columns. */
+  let mode: 'full' | 'body' = 'full';
+  let col = 0;
+  let bodyTop = layout.margin.top;
+
+  const flowX = () => (mode === 'full' ? layout.margin.left : colX(col));
+  const flowWidth = () => (mode === 'full' ? contentWidth : columnWidth);
+
+  const advanceFlow = () => {
+    if (mode === 'body' && layout.columns === 2 && col === 0) {
+      col = 1;
+      y = bodyTop;
+      return;
+    }
+    doc.addPage();
+    col = 0;
+    y = layout.margin.top;
+  };
 
   const ensureSpace = (height: number) => {
-    if (y + height <= pageHeight - MARGIN_MM) return;
-    doc.addPage();
-    y = MARGIN_MM;
+    if (y + height <= bottom) return;
+    advanceFlow();
   };
 
   const applyFont = (run: InlineRun, sizePt: number) => {
     const cjk = cjkReady && NON_LATIN1.test(run.text);
-    const family = cjk
-      ? CJK_FONT_FAMILY
-      : run.code
-        ? 'courier'
-        : 'times';
+    const family = cjk ? CJK_FONT_FAMILY : run.code ? 'courier' : layout.font;
     const style = cjk
       ? 'normal'
       : run.bold && run.italic
@@ -223,14 +342,16 @@ export async function buildManuscriptPdf(
       color?: [number, number, number];
       /** Hanging bullet/number drawn in the indentation of the first line. */
       marker?: string;
+      justify?: boolean;
+      lineFactor?: number;
     } = {},
   ) => {
     const indentMm = opts.indentMm ?? 0;
-    const available = maxWidth - indentMm;
-    const lineHeight = sizePt * PT_TO_MM * 1.45;
+    const lineHeight = sizePt * PT_TO_MM * (opts.lineFactor ?? layout.lineFactor);
     const tokens = tokenize(runs);
     if (tokens.length === 0) return;
 
+    const available = flowWidth() - indentMm;
     const lines: InlineToken[][] = [];
     let line: InlineToken[] = [];
     let lineWidth = 0;
@@ -259,21 +380,28 @@ export async function buildManuscriptPdf(
 
     doc.setTextColor(...(opts.color ?? TEXT_COLOR));
     let firstLine = true;
-    for (const current of lines) {
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+      const current = lines[lineIndex]!;
       ensureSpace(lineHeight);
       if (firstLine && opts.marker) {
         const markerCjk = cjkReady && NON_LATIN1.test(opts.marker);
-        doc.setFont(markerCjk ? CJK_FONT_FAMILY : 'times', 'normal');
+        doc.setFont(markerCjk ? CJK_FONT_FAMILY : layout.font, 'normal');
         doc.setFontSize(sizePt);
-        doc.text(opts.marker, MARGIN_MM + Math.max(0, indentMm - 4.5), y);
+        doc.text(opts.marker, flowX() + Math.max(0, indentMm - 4.5), y);
         firstLine = false;
       }
       const widths = current.map((token) => measureToken(token, sizePt));
       const total = widths.reduce((sum, width) => sum + width, 0);
+      const isLast = lineIndex === lines.length - 1;
+      const spaces = current.filter((token) => token.space).length;
+      const extraSpace =
+        opts.justify && !isLast && spaces > 0
+          ? Math.max(0, available - total) / spaces
+          : 0;
       let x =
         opts.align === 'center'
-          ? MARGIN_MM + indentMm + Math.max(0, (available - total) / 2)
-          : MARGIN_MM + indentMm;
+          ? flowX() + indentMm + Math.max(0, (available - total) / 2)
+          : flowX() + indentMm;
       for (let i = 0; i < current.length; i += 1) {
         const token = current[i]!;
         const { bold } = applyFont(token.style, sizePt);
@@ -284,7 +412,7 @@ export async function buildManuscriptPdf(
             : 0;
         doc.text(token.text, x, y + shift);
         if (bold) doc.text(token.text, x + sizePt * PT_TO_MM * 0.03, y + shift);
-        x += widths[i] ?? 0;
+        x += (widths[i] ?? 0) + (token.space ? extraSpace : 0);
       }
       y += lineHeight;
     }
@@ -298,6 +426,8 @@ export async function buildManuscriptPdf(
       align?: 'left' | 'center';
       color?: [number, number, number];
       marker?: string;
+      justify?: boolean;
+      lineFactor?: number;
     } = {},
     base: InlineStyle = BASE_INLINE_STYLE,
   ) => {
@@ -309,23 +439,23 @@ export async function buildManuscriptPdf(
     sizePt: number,
     style: 'normal' | 'bold' | 'italic' = 'normal',
     indentMm = 0,
-    opts: { align?: 'left' | 'center'; color?: [number, number, number] } = {},
+    opts: {
+      align?: 'left' | 'center';
+      color?: [number, number, number];
+      justify?: boolean;
+      lineFactor?: number;
+    } = {},
   ) => {
     const text = cleanText(value);
     if (!text) return;
     const runs: InlineRun[] = [
-      {
-        text,
-        ...BASE_INLINE_STYLE,
-        bold: style === 'bold',
-        italic: style === 'italic',
-      },
+      { text, ...BASE_INLINE_STYLE, bold: style === 'bold', italic: style === 'italic' },
     ];
     writeRuns(runs, sizePt, { indentMm, ...opts });
   };
 
   const writeCode = (value: string) => {
-    const sizePt = 8.5;
+    const sizePt = 8;
     const lineHeight = sizePt * PT_TO_MM * 1.35;
     doc.setTextColor(45, 48, 54);
     for (const rawLine of value.split(/\r?\n/)) {
@@ -334,11 +464,11 @@ export async function buildManuscriptPdf(
       doc.setFontSize(sizePt);
       const lines = doc.splitTextToSize(
         (cjkReady ? rawLine : winAnsiSafe(rawLine)).replace(/\t/g, '  ') || ' ',
-        maxWidth - 4,
+        flowWidth() - 3,
       );
       for (const line of lines) {
         ensureSpace(lineHeight);
-        doc.text(line, MARGIN_MM + 4, y);
+        doc.text(line, flowX() + 3, y);
         y += lineHeight;
       }
     }
@@ -351,39 +481,60 @@ export async function buildManuscriptPdf(
         .join('  |  '),
     );
     for (const row of rows) {
-      if (row) write(row, 9);
+      if (row) write(row, Math.max(7.5, layout.bodyPt - 1.5), 'normal', 0, { lineFactor: 1.3 });
     }
   };
 
   for (const node of Array.from(container.children)) {
     const tag = node.tagName.toLowerCase();
     if (tag === 'header') {
-      write(node.querySelector('h1')?.textContent ?? '', 20, 'bold', 0, { align: 'center' });
+      write(node.querySelector('h1')?.textContent ?? '', layout.titlePt, 'bold', 0, {
+        align: 'center',
+        lineFactor: 1.16,
+      });
       const authors = Array.from(node.querySelectorAll('.lp-author'))
         .map((el) => cleanText(el.textContent))
         .filter(Boolean)
         .join(' · ');
       if (authors) {
-        y += 2;
-        write(authors, 10.5, 'normal', 0, { align: 'center', color: MUTED_COLOR });
+        y += 2.5;
+        write(authors, layout.authorPt, 'normal', 0, {
+          align: 'center',
+          color: MUTED_COLOR,
+          lineFactor: 1.2,
+        });
       }
-      y += 6;
+      y += 5;
+      bodyTop = y;
+      mode = 'body';
+      col = 0;
       continue;
     }
     if (node.classList.contains('lp-abstract')) {
-      y += 2;
-      write('Abstract', 10.5, 'bold');
+      y += 1.5;
+      write('Abstract', layout.abstractPt, 'bold', 0, { lineFactor: 1.2 });
       y += 0.5;
       const paragraph = node.querySelector('p');
-      if (paragraph) writeRich(paragraph, 10, { color: MUTED_COLOR });
-      y += 3;
+      if (paragraph) {
+        writeRich(paragraph, layout.abstractPt, {
+          color: MUTED_COLOR,
+          justify: true,
+          lineFactor: 1.28,
+        });
+      }
+      y += 2.5;
       continue;
     }
     if (tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5') {
-      y += tag === 'h2' ? 4.5 : 3;
-      const size = tag === 'h2' ? 14.5 : tag === 'h3' ? 12.5 : 11.5;
-      write(node.textContent ?? '', size, 'bold');
-      y += 1.5;
+      const size =
+        tag === 'h2'
+          ? layout.headingPt.h2
+          : tag === 'h3'
+            ? layout.headingPt.h3
+            : layout.headingPt.h4;
+      y += tag === 'h2' ? 3.5 : 2.4;
+      write(node.textContent ?? '', size, 'bold', 0, { lineFactor: 1.18 });
+      y += 1.2;
       continue;
     }
     if (tag === 'ul' || tag === 'ol') {
@@ -392,9 +543,15 @@ export async function buildManuscriptPdf(
         // A hyphen keeps the marker inside WinAnsi when no Unicode font is
         // embedded; the pipeline otherwise renders it as `?`.
         const marker = ordered ? `${index + 1}.` : cjkReady ? '•' : '-';
-        writeRich(li, 10, { indentMm: 6, marker });
+        writeRich(li, layout.bodyPt, {
+          indentMm: 5,
+          marker,
+          justify: true,
+          lineFactor: 1.32,
+        });
+        y += 0.5;
       });
-      y += 2;
+      y += 1.5;
       continue;
     }
     if (tag === 'figure') {
@@ -402,50 +559,59 @@ export async function buildManuscriptPdf(
       const art = node.querySelector('.lp-figure-art svg, svg');
       if (art) {
         const aspect = svgAspectRatio(art);
-        const maxFigureHeight = pageHeight - MARGIN_MM * 2 - 16;
-        const box = fitSvgBox(aspect, maxWidth, maxFigureHeight);
-        if (y + box.height + 14 > pageHeight - MARGIN_MM && y > MARGIN_MM) {
-          doc.addPage();
-          y = MARGIN_MM;
+        const maxHeight = bottom - layout.margin.top - 12;
+        const box = fitSvgBox(aspect, flowWidth(), maxHeight);
+        if (y + box.height + 10 > bottom) advanceFlow();
+        try {
+          const png = await rasterizePNG(
+            new XMLSerializer().serializeToString(art),
+            300 / 96,
+          );
+          doc.addImage(
+            pngDataUrl(png),
+            'PNG',
+            flowX() + (flowWidth() - box.width) / 2,
+            y,
+            box.width,
+            box.height,
+          );
+        } catch {
+          write('[Figure could not be rendered]', layout.bodyPt, 'italic');
         }
-        await drawSvgToPdf(new XMLSerializer().serializeToString(art), doc, {
-          x: MARGIN_MM + (maxWidth - box.width) / 2,
-          y,
-          width: box.width,
-          height: box.height,
-        });
-        y += box.height + 3;
+        y += box.height + 2.5;
       } else {
         const placeholder = cleanText(node.querySelector('.lp-figure-placeholder')?.textContent);
         if (placeholder) {
-          write(`[Figure not found: ${placeholder}]`, 9, 'italic');
+          write(`[Figure not found: ${placeholder}]`, layout.captionPt, 'italic');
           y += 2;
         }
       }
       if (caption) {
-        writeRich(caption, 9, { align: 'center', color: MUTED_COLOR }, {
-          ...BASE_INLINE_STYLE,
-          italic: true,
-        });
+        writeRich(
+          caption,
+          layout.captionPt,
+          { align: 'center', color: MUTED_COLOR, lineFactor: 1.25 },
+          { ...BASE_INLINE_STYLE, italic: true },
+        );
       }
       const table = node.querySelector('table');
       if (table) {
         y += 1;
         writeTable(table);
       }
-      y += 3;
+      y += 2.5;
       continue;
     }
     if (tag === 'div' && node.classList.contains('lp-equation')) {
-      y += 3;
-      write(node.textContent ?? '', 10, 'normal', 0, { align: 'center' });
-      y += 3;
+      y += 2.5;
+      write(node.textContent ?? '', layout.bodyPt, 'normal', 0, { align: 'center' });
+      y += 2.5;
       continue;
     }
     if (tag === 'pre') {
-      y += 2;
+      y += 1.5;
       writeCode(node.textContent ?? '');
-      y += 2;
+      y += 1.5;
       continue;
     }
     if (tag === 'table') {
@@ -454,11 +620,11 @@ export async function buildManuscriptPdf(
       continue;
     }
     if (tag === 'div' && node.classList.contains('lp-center')) {
-      writeRich(node, 10);
+      writeRich(node, layout.bodyPt, { align: 'center' });
       y += 2;
       continue;
     }
-    writeRich(node, 10);
+    writeRich(node, layout.bodyPt, { justify: true });
     y += 2.5;
   }
 
@@ -472,6 +638,10 @@ export interface PdfTextBlock {
   /** 1–4 for headings. */
   level?: number;
 }
+
+// --------------------------------------------------------------------------
+// Plain-text PDF (notebook)
+// --------------------------------------------------------------------------
 
 /**
  * Render ordered text blocks into PDF bytes. Used by the collaboration
