@@ -49,6 +49,19 @@ interface JsPdfDoc {
   ): void;
   addFileToVFS(filename: string, data: string): void;
   addFont(filename: string, family: string, style?: string): void;
+  setDrawColor(r: number, g: number, b: number): void;
+  setFillColor(r: number, g: number, b: number): void;
+  setLineWidth(width: number): void;
+  line(x1: number, y1: number, x2: number, y2: number): void;
+  roundedRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rx: number,
+    ry: number,
+    style?: string,
+  ): void;
   internal: {
     pageSize: {
       getWidth(): number;
@@ -71,6 +84,8 @@ const MARGIN_MM = 18;
 const PT_TO_MM = 25.4 / 72;
 const TEXT_COLOR: [number, number, number] = [28, 30, 34];
 const MUTED_COLOR: [number, number, number] = [95, 99, 104];
+const RULE_COLOR: [number, number, number] = [223, 225, 229];
+const PANEL_COLOR: [number, number, number] = [247, 248, 250];
 
 function cleanText(value: string | null | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim();
@@ -105,46 +120,45 @@ interface TemplateMetrics {
 }
 
 /**
- * Typography distilled from `.lp-tpl-*` in `latex.ts`: Times body, sans for
- * ACM, larger leading for APA/Chicago, and the two-column journal layouts.
+ * Typography distilled from `.lp-tpl-*` in `latex.ts`. The preview sets sizes
+ * in CSS px at 96 dpi, so 1 px = 0.75 pt; matching those numbers keeps the
+ * exported PDF visually identical to the live A4 preview (body copy, headings,
+ * leading, paper padding and the two-column gutter all line up).
  */
 function templateMetrics(id: LatexTemplateId | undefined): TemplateMetrics {
   const columns = getLatexTemplate(id).columns;
-  const journal = { top: 16, right: 15, bottom: 18, left: 15, columnGap: 6 };
+  const headingPt = { h2: 14.25, h3: 12, h4: 11.25 };
+  // `.lp-paper` padding is 18mm top/bottom and 16mm left/right.
+  const paper = { top: 18, right: 16, bottom: 18, left: 16 };
+  // Two-column gutter is 26px at 96 dpi.
+  const columnGap = 26 * 0.75 * (25.4 / 72);
   switch (id) {
     case 'acm':
       return {
-        columns, font: 'helvetica', bodyPt: 9.2, titlePt: 18, authorPt: 9,
-        headingPt: { h2: 11.5, h3: 10.2, h4: 9.4 }, captionPt: 8.2, lineFactor: 1.32,
-        margin: journal, columnGap: 6, abstractPt: 9,
+        columns, font: 'helvetica', bodyPt: 12, titlePt: 20.25, authorPt: 10.5,
+        headingPt, captionPt: 9.75, lineFactor: 1.65,
+        margin: paper, columnGap, abstractPt: 12,
       };
     case 'nature':
     case 'science':
       return {
-        columns, font: 'times', bodyPt: 9.5, titlePt: 22, authorPt: 9.5,
-        headingPt: { h2: 12.5, h3: 10.8, h4: 10 }, captionPt: 8, lineFactor: 1.3,
-        margin: { ...journal, top: 15 }, columnGap: 6, abstractPt: 9,
+        columns, font: 'times', bodyPt: 11.25, titlePt: 22.5, authorPt: 10.5,
+        headingPt, captionPt: 9.75, lineFactor: 1.65,
+        margin: paper, columnGap, abstractPt: 11.25,
       };
     case 'apa':
-      return {
-        columns, font: 'times', bodyPt: 12, titlePt: 18, authorPt: 11,
-        headingPt: { h2: 13, h3: 12, h4: 12 }, captionPt: 10, lineFactor: 1.9,
-        margin: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
-        columnGap: 0, abstractPt: 12,
-      };
     case 'chicago':
       return {
-        columns, font: 'times', bodyPt: 12, titlePt: 18, authorPt: 11,
-        headingPt: { h2: 13.5, h3: 12.5, h4: 12 }, captionPt: 10, lineFactor: 1.7,
-        margin: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
-        columnGap: 0, abstractPt: 12,
+        columns, font: 'times', bodyPt: 12.75, titlePt: 20.25, authorPt: 10.5,
+        headingPt, captionPt: 9.75, lineFactor: 1.9,
+        margin: paper, columnGap: 0, abstractPt: 12.75,
       };
     case 'ieee':
     default:
       return {
-        columns, font: 'times', bodyPt: 9.6, titlePt: 19, authorPt: 9,
-        headingPt: { h2: 11.5, h3: 10.2, h4: 9.6 }, captionPt: 8.2, lineFactor: 1.34,
-        margin: journal, columnGap: 6, abstractPt: 9,
+        columns, font: 'times', bodyPt: 12, titlePt: 20.25, authorPt: 10.5,
+        headingPt, captionPt: 9.75, lineFactor: 1.65,
+        margin: paper, columnGap, abstractPt: 12,
       };
   }
 }
@@ -333,25 +347,11 @@ export async function buildManuscriptPdf(
     return tokens;
   };
 
-  const writeRuns = (
-    runs: InlineRun[],
+  const wrapTokens = (
+    tokens: InlineToken[],
     sizePt: number,
-    opts: {
-      indentMm?: number;
-      align?: 'left' | 'center';
-      color?: [number, number, number];
-      /** Hanging bullet/number drawn in the indentation of the first line. */
-      marker?: string;
-      justify?: boolean;
-      lineFactor?: number;
-    } = {},
-  ) => {
-    const indentMm = opts.indentMm ?? 0;
-    const lineHeight = sizePt * PT_TO_MM * (opts.lineFactor ?? layout.lineFactor);
-    const tokens = tokenize(runs);
-    if (tokens.length === 0) return;
-
-    const available = flowWidth() - indentMm;
+    available: number,
+  ): InlineToken[][] => {
     const lines: InlineToken[][] = [];
     let line: InlineToken[] = [];
     let lineWidth = 0;
@@ -377,6 +377,31 @@ export async function buildManuscriptPdf(
       while (line.length > 0 && line[line.length - 1]!.space) line.pop();
       lines.push(line);
     }
+    return lines;
+  };
+
+  const writeRuns = (
+    runs: InlineRun[],
+    sizePt: number,
+    opts: {
+      indentMm?: number;
+      align?: 'left' | 'center';
+      color?: [number, number, number];
+      /** Hanging bullet/number drawn in the indentation of the first line. */
+      marker?: string;
+      justify?: boolean;
+      lineFactor?: number;
+      /** Total width to lay out into, overriding the current column width. */
+      maxWidthMm?: number;
+    } = {},
+  ) => {
+    const indentMm = opts.indentMm ?? 0;
+    const lineHeight = sizePt * PT_TO_MM * (opts.lineFactor ?? layout.lineFactor);
+    const tokens = tokenize(runs);
+    if (tokens.length === 0) return 0;
+
+    const available = (opts.maxWidthMm ?? flowWidth()) - indentMm;
+    const lines = wrapTokens(tokens, sizePt, available);
 
     doc.setTextColor(...(opts.color ?? TEXT_COLOR));
     let firstLine = true;
@@ -416,6 +441,7 @@ export async function buildManuscriptPdf(
       }
       y += lineHeight;
     }
+    return lines.length;
   };
 
   const writeRich = (
@@ -428,10 +454,11 @@ export async function buildManuscriptPdf(
       marker?: string;
       justify?: boolean;
       lineFactor?: number;
+      maxWidthMm?: number;
     } = {},
     base: InlineStyle = BASE_INLINE_STYLE,
   ) => {
-    writeRuns(collectInlineRuns(node, base), sizePt, opts);
+    return writeRuns(collectInlineRuns(node, base), sizePt, opts);
   };
 
   const write = (
@@ -444,14 +471,15 @@ export async function buildManuscriptPdf(
       color?: [number, number, number];
       justify?: boolean;
       lineFactor?: number;
+      maxWidthMm?: number;
     } = {},
   ) => {
     const text = cleanText(value);
-    if (!text) return;
+    if (!text) return 0;
     const runs: InlineRun[] = [
       { text, ...BASE_INLINE_STYLE, bold: style === 'bold', italic: style === 'italic' },
     ];
-    writeRuns(runs, sizePt, { indentMm, ...opts });
+    return writeRuns(runs, sizePt, { indentMm, ...opts });
   };
 
   const writeCode = (value: string) => {
@@ -481,7 +509,7 @@ export async function buildManuscriptPdf(
         .join('  |  '),
     );
     for (const row of rows) {
-      if (row) write(row, Math.max(7.5, layout.bodyPt - 1.5), 'normal', 0, { lineFactor: 1.3 });
+      if (row) write(row, layout.captionPt, 'normal', 0, { lineFactor: 1.3 });
     }
   };
 
@@ -490,39 +518,83 @@ export async function buildManuscriptPdf(
     if (tag === 'header') {
       write(node.querySelector('h1')?.textContent ?? '', layout.titlePt, 'bold', 0, {
         align: 'center',
-        lineFactor: 1.16,
+        lineFactor: 1.25,
       });
       const authors = Array.from(node.querySelectorAll('.lp-author'))
         .map((el) => cleanText(el.textContent))
         .filter(Boolean)
         .join(' · ');
       if (authors) {
-        y += 2.5;
+        y += 2.65;
         write(authors, layout.authorPt, 'normal', 0, {
           align: 'center',
           color: MUTED_COLOR,
-          lineFactor: 1.2,
+          lineFactor: 1.25,
         });
       }
-      y += 5;
+      // `.lp-head` padding-bottom 18px + margin-bottom 26px, with a hairline
+      // rule between them.
+      y += 4.76;
+      doc.setDrawColor(...RULE_COLOR);
+      doc.setLineWidth(0.2);
+      doc.line(layout.margin.left, y, pageWidth - layout.margin.right, y);
+      y += 6.88;
       bodyTop = y;
       mode = 'body';
       col = 0;
       continue;
     }
     if (node.classList.contains('lp-abstract')) {
-      y += 1.5;
-      write('Abstract', layout.abstractPt, 'bold', 0, { lineFactor: 1.2 });
-      y += 0.5;
+      // In two-column templates the abstract spans both columns (as in the
+      // preview); it also gets the preview's light panel and border.
+      const fullSpan = layout.columns === 2 && mode === 'body' && col === 0;
+      if (fullSpan) {
+        mode = 'full';
+        col = 0;
+      }
+      const padX = 4.23;
+      const padY = 3.18;
+      const boxWidth = fullSpan ? contentWidth : flowWidth();
+      const size = layout.abstractPt;
+      const headingLine = size * PT_TO_MM * 1.25;
+      const lineHeight = size * PT_TO_MM * layout.lineFactor;
       const paragraph = node.querySelector('p');
+      const lineCount = paragraph
+        ? wrapTokens(
+            tokenize(collectInlineRuns(paragraph)),
+            size,
+            boxWidth - padX * 2,
+          ).length
+        : 0;
+      const boxHeight = padY * 2 + headingLine + 1.6 + lineCount * lineHeight;
+      y += 4.76;
+      if (y + boxHeight > bottom) advanceFlow();
+      const boxTop = y;
+      doc.setFillColor(...PANEL_COLOR);
+      doc.setDrawColor(...RULE_COLOR);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(flowX(), boxTop, boxWidth, boxHeight, 1.5, 1.5, 'FD');
+      y = boxTop + padY + headingLine * 0.78;
+      write('Abstract', size, 'bold', padX, {
+        lineFactor: 1.25,
+        maxWidthMm: boxWidth - padX,
+      });
+      y += 1.6;
       if (paragraph) {
-        writeRich(paragraph, layout.abstractPt, {
+        writeRich(paragraph, size, {
+          indentMm: padX,
+          maxWidthMm: boxWidth - padX,
           color: MUTED_COLOR,
           justify: true,
-          lineFactor: 1.28,
+          lineFactor: layout.lineFactor,
         });
       }
-      y += 2.5;
+      y = boxTop + boxHeight + 4.76;
+      if (fullSpan) {
+        mode = 'body';
+        bodyTop = y;
+        col = 0;
+      }
       continue;
     }
     if (tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5') {
@@ -532,22 +604,25 @@ export async function buildManuscriptPdf(
           : tag === 'h3'
             ? layout.headingPt.h3
             : layout.headingPt.h4;
-      y += tag === 'h2' ? 3.5 : 2.4;
-      write(node.textContent ?? '', size, 'bold', 0, { lineFactor: 1.18 });
-      y += 1.2;
+      // `.lp-heading` margin: 28px top, 10px bottom.
+      y += 7.41;
+      write(node.textContent ?? '', size, 'bold', 0, { lineFactor: 1.3 });
+      y += 2.65;
       continue;
     }
     if (tag === 'ul' || tag === 'ol') {
       const ordered = tag === 'ol';
+      // `.lp-bib` is 13.5px; ordinary lists inherit the body size.
+      const listPt = node.classList.contains('lp-bib') ? 10.125 : layout.bodyPt;
       Array.from(node.querySelectorAll(':scope > li')).forEach((li, index) => {
         // A hyphen keeps the marker inside WinAnsi when no Unicode font is
         // embedded; the pipeline otherwise renders it as `?`.
         const marker = ordered ? `${index + 1}.` : cjkReady ? '•' : '-';
-        writeRich(li, layout.bodyPt, {
-          indentMm: 5,
+        writeRich(li, listPt, {
+          indentMm: 5.82,
           marker,
           justify: true,
-          lineFactor: 1.32,
+          lineFactor: layout.lineFactor,
         });
         y += 0.5;
       });
@@ -555,6 +630,7 @@ export async function buildManuscriptPdf(
       continue;
     }
     if (tag === 'figure') {
+      y += 5.29;
       const caption = node.querySelector('figcaption');
       const art = node.querySelector('.lp-figure-art svg, svg');
       if (art) {
@@ -587,10 +663,11 @@ export async function buildManuscriptPdf(
         }
       }
       if (caption) {
+        y += 2.12;
         writeRich(
           caption,
           layout.captionPt,
-          { align: 'center', color: MUTED_COLOR, lineFactor: 1.25 },
+          { align: 'center', color: MUTED_COLOR, lineFactor: 1.65 },
           { ...BASE_INLINE_STYLE, italic: true },
         );
       }
@@ -599,13 +676,13 @@ export async function buildManuscriptPdf(
         y += 1;
         writeTable(table);
       }
-      y += 2.5;
+      y += 5.29;
       continue;
     }
     if (tag === 'div' && node.classList.contains('lp-equation')) {
-      y += 2.5;
+      y += 3.7;
       write(node.textContent ?? '', layout.bodyPt, 'normal', 0, { align: 'center' });
-      y += 2.5;
+      y += 3.7;
       continue;
     }
     if (tag === 'pre') {
