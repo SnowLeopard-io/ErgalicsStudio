@@ -12,6 +12,7 @@
 
 import { latexPreviewBody, type LatexPreviewOptions } from './latex';
 import { notebookToMarkdown, type CollabNote } from './collab';
+import { CJK_FONT_FAMILY, NON_LATIN1, registerFont, winAnsiSafe } from '../pdf/font';
 
 interface JsPdfDoc {
   setFont(family: string, style?: string): void;
@@ -20,6 +21,8 @@ interface JsPdfDoc {
   text(text: string, x: number, y: number): void;
   splitTextToSize(text: string, maxWidth: number): string[];
   addPage(): void;
+  addFileToVFS(filename: string, data: string): void;
+  addFont(filename: string, family: string, style?: string): void;
   internal: {
     pageSize: {
       getWidth(): number;
@@ -68,6 +71,8 @@ export async function buildManuscriptPdf(
 
   const jspdfMod = (await import('jspdf' as any)) as JsPdfModule;
   const doc = new jspdfMod.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const needsCjk = NON_LATIN1.test(container.textContent ?? '');
+  const cjkReady = await registerFont(doc, needsCjk);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const maxWidth = pageWidth - MARGIN_MM * 2;
@@ -87,14 +92,23 @@ export async function buildManuscriptPdf(
   ) => {
     const text = cleanText(value);
     if (!text) return;
-    doc.setFont('times', style);
+    const cjk = cjkReady && NON_LATIN1.test(text);
+    // Droid Sans Fallback covers Latin as well, so mixed Chinese/English runs
+    // stay on one font instead of switching family mid-line.
+    doc.setFont(cjk ? CJK_FONT_FAMILY : 'times', cjk ? 'normal' : style);
     doc.setFontSize(sizePt);
     doc.setTextColor(28, 30, 34);
-    const lines = doc.splitTextToSize(text, maxWidth - indentMm);
+    const lines = doc.splitTextToSize(cjkReady ? text : winAnsiSafe(text), maxWidth - indentMm);
     const lineHeight = sizePt * PT_TO_MM * 1.45;
+    // The CJK face has a single regular weight; fake bold headings by
+    // double-drawing with a sub-millimetre offset.
+    const fakeBold = cjk && style === 'bold';
+    const boldOffset = sizePt * PT_TO_MM * 0.03;
     for (const line of lines) {
       ensureSpace(lineHeight);
-      doc.text(line, MARGIN_MM + indentMm, y);
+      const x = MARGIN_MM + indentMm;
+      doc.text(line, x, y);
+      if (fakeBold) doc.text(line, x + boldOffset, y);
       y += lineHeight;
     }
   };
@@ -174,6 +188,8 @@ export async function buildTextPdf(
   }
   const jspdfMod = (await import('jspdf' as any)) as JsPdfModule;
   const doc = new jspdfMod.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const needsCjk = NON_LATIN1.test(title) || blocks.some((block) => NON_LATIN1.test(block.text));
+  const cjkReady = await registerFont(doc, needsCjk);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const maxWidth = pageWidth - MARGIN_MM * 2;
@@ -194,25 +210,34 @@ export async function buildTextPdf(
   ) => {
     const text = cleanText(value);
     if (!text) return;
-    doc.setFont(family, style);
+    const cjk = cjkReady && NON_LATIN1.test(text);
+    doc.setFont(cjk ? CJK_FONT_FAMILY : family, cjk ? 'normal' : style);
     doc.setFontSize(sizePt);
     doc.setTextColor(28, 30, 34);
-    const lines = doc.splitTextToSize(text, maxWidth - indentMm);
+    const lines = doc.splitTextToSize(cjkReady ? text : winAnsiSafe(text), maxWidth - indentMm);
     const lineHeight = sizePt * PT_TO_MM * 1.45;
+    const fakeBold = cjk && style === 'bold';
+    const boldOffset = sizePt * PT_TO_MM * 0.03;
     for (const line of lines) {
       ensureSpace(lineHeight);
-      doc.text(line, MARGIN_MM + indentMm, y);
+      const x = MARGIN_MM + indentMm;
+      doc.text(line, x, y);
+      if (fakeBold) doc.text(line, x + boldOffset, y);
       y += lineHeight;
     }
   };
 
   const writeCode = (value: string) => {
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(45, 48, 54);
     const lineHeight = 8.5 * PT_TO_MM * 1.35;
     for (const rawLine of value.split(/\r?\n/)) {
-      const lines = doc.splitTextToSize(rawLine.replace(/\t/g, '  ') || ' ', maxWidth - 4);
+      const cjk = cjkReady && NON_LATIN1.test(rawLine);
+      doc.setFont(cjk ? CJK_FONT_FAMILY : 'courier', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(45, 48, 54);
+      const lines = doc.splitTextToSize(
+        rawLine.replace(/\t/g, '  ') || ' ',
+        maxWidth - 4,
+      );
       for (const line of lines) {
         ensureSpace(lineHeight);
         doc.text(line, MARGIN_MM + 4, y);

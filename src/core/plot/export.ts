@@ -8,6 +8,12 @@
 // ==========================================================================
 
 import { logger } from '@/core/logger';
+import {
+  CJK_FONT_FAMILY,
+  NON_LATIN1,
+  ensureFontFace,
+  registerFont,
+} from '@/core/pdf/font';
 
 /** Trigger a browser download of the given text content. */
 export function downloadText(
@@ -156,9 +162,59 @@ interface JsPdfModule {
     format?: string | number[];
   }) => {
     save: (name: string) => void;
+    addFileToVFS: (filename: string, data: string) => void;
+    addFont: (filename: string, family: string, style?: string) => void;
     addImage?: unknown;
     output?: (type: string) => unknown;
   };
+}
+
+/** A4 landscape page used for standalone chart PDFs (mm). */
+const PDF_PAGE_WIDTH_MM = 297;
+const PDF_PAGE_HEIGHT_MM = 210;
+const PDF_MARGIN_MM = 15;
+
+/** Intrinsic width/height ratio from `viewBox`, falling back to the attributes. */
+function svgAspectRatio(svgEl: Element): number {
+  const viewBox = svgEl.getAttribute('viewBox');
+  if (viewBox) {
+    const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+    const vbWidth = parts[2];
+    const vbHeight = parts[3];
+    if (
+      vbWidth !== undefined &&
+      vbHeight !== undefined &&
+      Number.isFinite(vbWidth) &&
+      Number.isFinite(vbHeight) &&
+      vbWidth > 0 &&
+      vbHeight > 0
+    ) {
+      return vbWidth / vbHeight;
+    }
+  }
+  const width = Number.parseFloat(svgEl.getAttribute('width') ?? '');
+  const height = Number.parseFloat(svgEl.getAttribute('height') ?? '');
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    return width / height;
+  }
+  return 4 / 3;
+}
+
+/** Resolve the jsPDF font style svg2pdf will request for this element. */
+function svgFontStyle(el: Element): 'normal' | 'bold' | 'italic' | 'bolditalic' {
+  let weight = '';
+  let style = '';
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    if (!weight) weight = node.getAttribute('font-weight') ?? '';
+    if (!style) style = node.getAttribute('font-style') ?? '';
+  }
+  const numericWeight = Number.parseInt(weight, 10);
+  const bold = weight === 'bold' || weight === 'bolder' || numericWeight >= 600;
+  const italic = style === 'italic' || style === 'oblique';
+  if (bold && italic) return 'bolditalic';
+  if (bold) return 'bold';
+  if (italic) return 'italic';
+  return 'normal';
 }
 
 /**
@@ -180,6 +236,17 @@ export async function buildPDF(
   const doc = parser.parseFromString(svg, 'image/svg+xml');
   const svgEl = doc.querySelector('svg');
   if (!svgEl) throw new Error('invalid SVG markup');
+
+  // Greek letters / CJK in labels cannot be encoded by jsPDF's built-in
+  // fonts (π used to come out as ¼). Embed the Unicode font and point the
+  // affected text nodes at it; Latin-only charts keep the compact base fonts.
+  const unicodeNodes = Array.from(svgEl.querySelectorAll('text, tspan')).filter((el) =>
+    NON_LATIN1.test(el.textContent ?? ''),
+  );
+  const fontStyles = new Set<string>(['normal']);
+  for (const el of unicodeNodes) fontStyles.add(svgFontStyle(el));
+  if (unicodeNodes.length > 0) await ensureFontFace();
+
   // Attach to the live document before rendering: svg2pdf measures text and
   // element geometry via `getBBox`, which only works on elements that are part
   // of the rendered tree (Firefox throws on detached elements). The clone must
@@ -189,10 +256,29 @@ export async function buildPDF(
   document.body.appendChild(svgEl);
   try {
     const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const fontReady = await registerFont(pdf, unicodeNodes.length > 0, [...fontStyles]);
+    if (fontReady) {
+      for (const el of unicodeNodes) el.setAttribute('font-family', CJK_FONT_FAMILY);
+    }
+
+    // svg2pdf ignores the SVG's viewBox when sizing unless an explicit height
+    // is supplied: passing only `width` made it use the pixel height as
+    // millimetres, vertically centring a 420 mm-tall box on a 210 mm page and
+    // clipping most of the chart. Fit to the printable area instead.
+    const aspect = svgAspectRatio(svgEl);
+    const maxWidth = PDF_PAGE_WIDTH_MM - PDF_MARGIN_MM * 2;
+    const maxHeight = PDF_PAGE_HEIGHT_MM - PDF_MARGIN_MM * 2;
+    let outWidth = Math.min(widthMm, maxWidth);
+    let outHeight = outWidth / aspect;
+    if (outHeight > maxHeight) {
+      outHeight = maxHeight;
+      outWidth = outHeight * aspect;
+    }
     await svg2pdfMod.svg2pdf(svgEl as unknown as SVGElement, pdf, {
-      x: (297 - widthMm) / 2,
-      y: 15,
-      width: widthMm,
+      x: (PDF_PAGE_WIDTH_MM - outWidth) / 2,
+      y: (PDF_PAGE_HEIGHT_MM - outHeight) / 2,
+      width: outWidth,
+      height: outHeight,
     });
     const raw = pdf.output?.('arraybuffer');
     if (!(raw instanceof ArrayBuffer)) throw new Error('jsPDF arraybuffer output unavailable');
