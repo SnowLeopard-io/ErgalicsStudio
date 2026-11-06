@@ -639,8 +639,15 @@ export async function buildManuscriptPdf(
         const box = fitSvgBox(aspect, flowWidth(), maxHeight);
         if (y + box.height + 10 > bottom) advanceFlow();
         try {
+          // Serialize a clone with an explicit namespace: an inline SVG taken
+          // from the HTML preview loses it otherwise, and `<img>` refuses to
+          // load the blob.
+          const clone = art.cloneNode(true) as Element;
+          if (!clone.getAttribute('xmlns')) {
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          }
           const png = await rasterizePNG(
-            new XMLSerializer().serializeToString(art),
+            new XMLSerializer().serializeToString(clone),
             300 / 96,
           );
           doc.addImage(
