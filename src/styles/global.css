@@ -393,6 +393,34 @@ button {
   box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
+/* Textareas do not resize by default. The native grip is painted in a fixed
+   light colour that clashes with the dark surfaces, and most fields already
+   sit in layouts that size them. Large source editors opt back in with
+   `resize: vertical`; their grip is themed below. */
+textarea {
+  resize: none;
+}
+
+/* Themed grip for the editors that do opt into vertical resizing. Chromium
+   paints `::-webkit-resizer` instead of the default light corner box. */
+textarea::-webkit-resizer {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 0 58%,
+      var(--color-text-tertiary) 58% 64%,
+      transparent 64%
+    ),
+    linear-gradient(
+      135deg,
+      transparent 0 74%,
+      var(--color-text-tertiary) 74% 80%,
+      transparent 80%
+    );
+  opacity: 0.55;
+  border-bottom-right-radius: var(--radius-sm);
+}
+
 .select {
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-text-tertiary) 50%),

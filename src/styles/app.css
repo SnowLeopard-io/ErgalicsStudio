@@ -222,7 +222,31 @@
 .welcome-subtitle {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
-  margin: 0 0 var(--space-2);
+  /* Tight: the hero relies on the section gap, not element margins. */
+  margin: var(--space-1) 0 0;
+  min-height: 1.5em;
+}
+
+/* Rotating hero tagline: fades in on each 3 s swap (key-remount replay). */
+.welcome-tagline {
+  animation: tagline-fade 600ms var(--ease-out);
+}
+
+@keyframes tagline-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-tagline {
+    animation: none;
+  }
 }
 
 .welcome-section-title {
@@ -3202,10 +3226,12 @@
   font-size: var(--font-size-md);
 }
 
-/* Menu step (track chooser): the hero card widens further to fit a 2x2
-   grid — one clickable card per competition track. */
+/* Menu step (track chooser): the hero card widens further to fit the
+   onboarding parts — two primary cards, then a 3-up row of extra features. */
 .tour-tip-hero:has(.tour-menu-grid) {
   width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 /* Audience chooser: two stacked full-width identity cards. */
@@ -3246,6 +3272,25 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
   margin: var(--space-3) 0 var(--space-3);
+}
+
+.tour-menu-grid.is-more {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tour-menu-more {
+  margin-top: var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .tour-menu-grid.is-more {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -4227,7 +4272,7 @@
 }
 
 .figures-caption {
-  resize: vertical;
+  resize: none;
 }
 
 .figures-export {
@@ -4278,7 +4323,7 @@
 .figures-data {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-  resize: vertical;
+  resize: none;
 }
 
 @media (max-width: 560px) {
@@ -9807,7 +9852,7 @@
   flex: 1;
   width: 100%;
   min-height: 480px;
-  resize: vertical;
+  resize: none;
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -9820,12 +9865,49 @@
 }
 
 .publish-preview {
+  display: block;
   flex: 1;
   width: 100%;
   min-height: 480px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: #eef0f3;
+  /* The document inside is a fixed A4 page; a narrow pane scrolls instead of
+     scaling the paper down. */
+  overflow: auto;
+}
+
+/* Zoom bar above the paper preview: the page keeps its A4 layout and only the
+   display scale changes. */
+.publish-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.publish-preview-bar-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.publish-zoom-range {
+  flex: 1 1 120px;
+  min-width: 90px;
+  max-width: 220px;
+  accent-color: var(--color-accent, #1a56c4);
+  cursor: pointer;
+}
+
+.publish-zoom-value {
+  min-width: 40px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .publish-equation-panel {
@@ -10062,7 +10144,7 @@
 
 .publish-cell-input {
   width: 100%;
-  resize: vertical;
+  resize: none;
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);

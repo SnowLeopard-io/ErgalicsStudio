@@ -225,6 +225,7 @@ export default function ProfilerPage() {
         <div className="analysis-row">
           <select
             className="input"
+            data-tour="profiler-file"
             value={file}
             disabled={scanning}
             onChange={(e) => {
@@ -247,7 +248,7 @@ export default function ProfilerPage() {
           {scanning ? (
             <button type="button" className="btn btn-danger" onClick={cancel}>{t('profile.cancel')}</button>
           ) : (
-            <button type="button" className="btn btn-primary" disabled={!file} onClick={() => void scan(true)}>
+            <button type="button" className="btn btn-primary" data-tour="profiler-run" disabled={!file} onClick={() => void scan(true)}>
               {cachedForFile ? t('profile.rescan') : t('analysis.run')}
             </button>
           )}
@@ -267,7 +268,7 @@ export default function ProfilerPage() {
 
         {p && (
           <>
-            <div className="profile-summary">
+            <div className="profile-summary" data-tour="profiler-summary">
               <span className="profile-score">{(p.score * 100).toFixed(0)}/100</span>
               <span>{t('profile.rows')}: <strong>{p.rows}</strong></span>
               <span>{t('profile.columns')}: <strong>{p.columns.length}</strong></span>

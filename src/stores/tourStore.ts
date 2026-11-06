@@ -4,10 +4,13 @@
 // it is running, which flow it belongs to and which step it is on. The step
 // definitions themselves live in TourGuide.tsx (they need i18n + selectors).
 //
-// Two flows share this store:
-//   • 'menu'  — the entry chooser: "认识界面" or "跑通科研工作流".
-//   • 'debut' — the 30-second "data → paper figure" first-run story.
-//   • 'ui'    — the classic region-by-region workbench walkthrough.
+// Every onboarding part shares this store:
+//   • 'menu'     — the entry chooser (see the cards in TourGuide).
+//   • 'debut'    — the 30-second "data → paper figure" first-run story.
+//   • 'ui'       — the classic region-by-region workbench walkthrough.
+//   • 'analysis' — bundled sample data → descriptive statistics.
+//   • 'publish'  — LaTeX manuscript → live preview → workspace files.
+//   • 'launcher' — research-tool launcher map → open a suite.
 //
 // Completion is persisted in localStorage ('ergalics:tour') so the tour
 // auto-starts only on the very first visit to the workbench.
@@ -16,7 +19,7 @@ import { create } from 'zustand';
 
 const STORAGE_KEY = 'ergalics:tour';
 
-export type TourFlow = 'menu' | 'debut' | 'ui';
+export type TourFlow = 'menu' | 'debut' | 'ui' | 'analysis' | 'publish' | 'launcher';
 
 interface TourState {
   active: boolean;

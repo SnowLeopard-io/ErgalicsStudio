@@ -14,15 +14,24 @@ export function monacoLanguageFor(name: string): string {
   const lower = name.toLowerCase();
   if (lower.endsWith('.py')) return 'python';
   if (lower.endsWith('.r') || lower.endsWith('.rscript')) return 'r';
+  if (lower.endsWith('.tex') || lower.endsWith('.ltx') || lower.endsWith('.sty') || lower.endsWith('.cls')) {
+    return 'latex';
+  }
+  // Monaco has no BibTeX grammar in the default bundle; plain text still gives
+  // the author a proper editable tab (line numbers, search, save).
+  if (lower.endsWith('.bib')) return 'plaintext';
   return 'javascript';
 }
 
 /** Which editor kind a file opens with (null = plain preview). Design doc:
- *  `.py/.js/.r` → code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. */
+ *  `.py/.js/.r` → code, `*.flow.json` → flow DAG, `*.block.json` → Blockly.
+ *  `.tex`/`.ltx`/`.bib` are routed to the publishing suites by the explorer
+ *  BEFORE this check; only the auxiliary LaTeX style files open as code. */
 export function editorKindForFile(name: string): FileEditorKind | null {
   const lower = name.toLowerCase();
   if (lower.endsWith('.py') || lower.endsWith('.js') || lower.endsWith('.mjs')) return 'code';
   if (lower.endsWith('.r') || lower.endsWith('.rscript')) return 'code';
+  if (lower.endsWith('.sty') || lower.endsWith('.cls')) return 'code';
   if (lower.endsWith('.flow.json')) return 'flow';
   if (lower.endsWith('.block.json')) return 'block';
   return null;

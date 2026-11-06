@@ -8,7 +8,7 @@
 // every modern browser is "Save as PDF" — no server-side TeX required.
 // ==========================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -36,11 +36,17 @@ import {
   referencedFigures,
 } from '@/core/publish/bridge';
 import { CITATION_STYLES, type CitationStyle } from '@/core/publish/citation';
+import { buildManuscriptPdf } from '@/core/publish/pdf';
 import type { ManuscriptRecord } from '@/core/publish/state';
+import {
+  manuscriptBundle,
+  manuscriptStem,
+  nextWorkspaceStem,
+} from '@/core/publish/unique';
+import { downloadBlob } from '@/core/download';
 import type { FigureSheet } from '@/types/project';
 import {
   downloadText,
-  printHtml,
   usePublishState,
   writePublishArtifacts,
 } from './shared';
@@ -76,7 +82,16 @@ export default function LatexEditorPage() {
   const [equationTex, setEquationTex] = useState('E = mc^2');
   const [deleteTarget, setDeleteTarget] = useState<ManuscriptRecord | null>(null);
   const [replaceStarter, setReplaceStarter] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+
+  /** Apply the preview zoom to the iframe document (same-origin srcdoc). */
+  const applyPreviewZoom = useCallback(() => {
+    const doc = previewRef.current?.contentDocument;
+    if (!doc) return;
+    doc.documentElement.style.setProperty('zoom', String(previewZoom));
+  }, [previewZoom]);
 
   const sheets = project?.state.figureSheets ?? EMPTY_SHEETS;
   const library = publish.library;
@@ -130,6 +145,12 @@ export default function LatexEditorPage() {
       resolveFigure,
     });
   }, [source, library, style, templateId, resolveFigure]);
+
+  // Re-apply the zoom after every preview rebuild (the iframe reloads when
+  // `srcDoc` changes) and whenever the slider moves.
+  useEffect(() => {
+    applyPreviewZoom();
+  }, [applyPreviewZoom, previewHtml]);
 
   // Switching the journal template rewrites the preamble (document class,
   // required packages, bibliography style) and re-themes the preview. The
@@ -190,23 +211,91 @@ export default function LatexEditorPage() {
     notify('success', t('publish.latex.equation_inserted'));
   };
 
-  const handleExportTex = () => {
+  const handleExportTex = async () => {
     const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
     downloadText(`${safe}.tex`, source, 'application/x-tex;charset=utf-8');
+    // "Export manuscript" means the compiled-looking PDF too, not just the
+    // source. Keep the .tex download above even if PDF layout fails.
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
-  const handlePrint = () => {
-    if (!previewHtml) return;
-    printHtml(previewHtml, name || 'manuscript');
+  const handleExportPdf = async () => {
+    const safe = (name || 'manuscript').replace(/[^\w.-]+/g, '_');
+    try {
+      const pdf = await buildManuscriptPdf(source, {
+        entries: library,
+        style,
+        templateId,
+        resolveFigure,
+      });
+      await downloadBlob(`${safe}.pdf`, pdf, 'application/pdf');
+    } catch {
+      notify('warning', t('publish.latex.pdf_failed'));
+    }
   };
 
   const handleSaveWorkspace = async () => {
-    if (!project || !active) return;
+    if (!project) {
+      notify('warning', t('publish.common.no_project'));
+      return;
+    }
+    if (!active) {
+      notify('warning', t('publish.latex.no_manuscript'));
+      return;
+    }
     try {
-      const files = [
-        { path: 'manuscript/main.tex', content: source },
+      const displayName = name.trim() || t('publish.common.untitled');
+      // The workspace file name follows the manuscript name (HELLO →
+      // manuscript/HELLO.tex). Other manuscripts reserve their stems, so a
+      // duplicate name gets `-2`; re-saving keeps the same bundle.
+      const stem = nextWorkspaceStem(
+        displayName,
+        manuscripts
+          .filter((m) => m.id !== active.id)
+          .map((m) => m.workspaceStem ?? manuscriptStem(m.name)),
+      );
+      const bundle = manuscriptBundle(stem);
+      // Flush the editor buffer first: the write-through autosave is
+      // debounced, so project.state could still hold the previous text.
+      const manuscript: ManuscriptRecord = {
+        ...active,
+        name: displayName,
+        source,
+        templateId,
+        citationStyle: style,
+        workspaceStem: stem,
+        updatedAt: Date.now(),
+      };
+      saveManuscript(manuscript);
+      const files: Array<{ path: string; content?: string; bytes?: Uint8Array }> = [
+        { path: bundle.tex, content: source },
         { path: 'manuscript/references.bib', content: renderBibtexFile(library) },
       ];
+      // Archive the PDF next to the sources so the workspace holds a complete
+      // submission bundle. A layout failure must not block the text files.
+      try {
+        files.push({
+          path: bundle.pdf,
+          bytes: await buildManuscriptPdf(source, {
+            entries: library,
+            style,
+            templateId,
+            resolveFigure,
+          }),
+        });
+      } catch {
+        notify('warning', t('publish.latex.pdf_failed'));
+      }
       const wanted = new Set(referencedFigures(source));
       for (const sheet of sheets) {
         const file = figureSheetPath(sheet);
@@ -215,8 +304,17 @@ export default function LatexEditorPage() {
           files.push({ path: file, content: figureSheetSvg(sheet) });
         }
       }
-      await writePublishArtifacts(files, `${active.name} (${active.templateId})`);
-      notify('success', t('publish.common.git_saved'));
+      // Renaming a manuscript renames its bundle: remove the old copies.
+      const cleanup =
+        active.workspaceStem && active.workspaceStem !== stem
+          ? [manuscriptBundle(active.workspaceStem).tex, manuscriptBundle(active.workspaceStem).pdf]
+          : [];
+      const written = await writePublishArtifacts(
+        files,
+        `${manuscript.name} (${manuscript.templateId})`,
+        { cleanup },
+      );
+      notify('success', t('publish.common.workspace_saved', { path: written.join(', ') }));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
     }
@@ -231,7 +329,7 @@ export default function LatexEditorPage() {
         <aside className="publish-side">
           <div className="publish-side-head">
             <h2 className="publish-side-title">{t('publish.latex.manuscripts')}</h2>
-            <button type="button" className="btn btn-sm btn-primary" onClick={createManuscript}>
+            <button type="button" className="btn btn-sm btn-primary" data-tour="publish-new" onClick={createManuscript}>
               + {t('publish.latex.new')}
             </button>
           </div>
@@ -249,6 +347,7 @@ export default function LatexEditorPage() {
                   <span className="publish-list-name">{m.name}</span>
                   <span className="publish-list-meta">
                     {getLatexTemplate(m.templateId).label} · {m.citationStyle.toUpperCase()}
+                    {m.workspaceStem ? ` · manuscript/${m.workspaceStem}.tex` : ''}
                   </span>
                 </button>
                 <button
@@ -353,10 +452,10 @@ export default function LatexEditorPage() {
                 <button type="button" className="btn btn-sm" onClick={handleExportTex}>
                   {t('publish.latex.export_tex')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={handlePrint}>
+                <button type="button" className="btn btn-sm" onClick={() => void handleExportPdf()}>
                   {t('publish.latex.export_pdf')}
                 </button>
-                <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveWorkspace}>
+                <button type="button" className="btn btn-sm btn-primary" data-tour="publish-save" onClick={handleSaveWorkspace}>
                   {t('publish.latex.save_workspace')}
                 </button>
               </div>
@@ -399,6 +498,7 @@ export default function LatexEditorPage() {
                   <textarea
                     ref={textareaRef}
                     className="publish-source"
+                    data-tour="publish-editor"
                     value={safeSource}
                     onChange={(e) => setSource(e.target.value)}
                     spellCheck={false}
@@ -408,10 +508,41 @@ export default function LatexEditorPage() {
                 </div>
                 <div className="publish-pane">
                   <div className="publish-pane-title">{t('publish.latex.preview')}</div>
+                  <div
+                    className="publish-preview-bar"
+                    role="toolbar"
+                    aria-label={t('publish.latex.zoom')}
+                  >
+                    <span className="publish-preview-bar-label">{t('publish.latex.zoom')}</span>
+                    <input
+                      className="publish-zoom-range"
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={10}
+                      value={Math.round(previewZoom * 100)}
+                      onChange={(e) => setPreviewZoom(Number(e.target.value) / 100)}
+                      aria-label={t('publish.latex.zoom')}
+                    />
+                    <span className="publish-zoom-value" aria-live="polite">
+                      {Math.round(previewZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={previewZoom === 1}
+                      onClick={() => setPreviewZoom(1)}
+                    >
+                      {t('publish.latex.zoom_reset')}
+                    </button>
+                  </div>
                   <iframe
+                    ref={previewRef}
                     className="publish-preview"
+                    data-tour="publish-preview"
                     title={t('publish.latex.preview')}
                     srcDoc={previewHtml}
+                    onLoad={applyPreviewZoom}
                   />
                 </div>
               </div>

@@ -17,8 +17,11 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/i18n';
 import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { usePublishStore } from '@/stores/publishStore';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
+import { parseBibtex } from '@/core/publish/bibtex';
+import type { ManuscriptRecord } from '@/core/publish/state';
 import {
   editorKindForFile,
   parseFlowPayload,
@@ -43,6 +46,11 @@ const PREVIEW_CAP_CHARS = 200_000;
 const TEXT_EXT = new Set([
   'md', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'svg',
   'clproj', 'lock', 'log', 'ini', 'sh', 'js', 'py', 'r',
+  // Manuscript / bibliography sources are plain text too (the LaTeX editor
+  // claims them first, but this keeps the preview fallback correct).
+  'tex', 'ltx', 'sty', 'cls', 'bib', 'cff',
+  // Other research-suite artifacts written into the workspace.
+  'html', 'htm', 'ipynb',
 ]);
 /** Extension-less files that are still text. */
 const TEXT_NAME = new Set(['.gitignore', '.gitattributes', 'license', 'readme']);
@@ -105,6 +113,57 @@ function classifyFile(name: string): Classification {
   }
   if (isTextFile(name)) return { kind: 'text', mime: 'text/plain;charset=utf-8' };
   return { kind: 'unknown', mime: 'application/octet-stream' };
+}
+
+/** Manuscript sources open in the LaTeX editor suite by default. */
+function isPublishSourceFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.tex') || lower.endsWith('.ltx') || lower.endsWith('.bib');
+}
+
+/** Focus the matching manuscript, or adopt a workspace `.tex` as a new one. */
+function adoptTexFile(name: string, source: string): void {
+  const store = usePublishStore.getState();
+  const manuscripts = useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+  const stem = name.replace(/\.[^.]+$/, '') || 'manuscript';
+  // The workspace file name is the identity: opening HELLO.tex must focus the
+  // HELLO manuscript instead of creating a duplicate record. Source matching
+  // remains for manuscripts exported before stems were recorded.
+  const byStem = manuscripts.find(
+    (m) => (m.workspaceStem ?? '').toLowerCase() === stem.toLowerCase(),
+  );
+  if (byStem) {
+    // The workspace file is authoritative when opened from the file manager.
+    if (byStem.source !== source) {
+      store.saveManuscript({ ...byStem, source, updatedAt: Date.now() });
+    } else {
+      store.setActiveManuscript(byStem.id);
+    }
+    return;
+  }
+  const existing = manuscripts.find((m) => m.source === source);
+  if (existing) {
+    store.setActiveManuscript(existing.id);
+    return;
+  }
+  const now = Date.now();
+  const record: ManuscriptRecord = {
+    id: crypto.randomUUID(),
+    name: stem,
+    templateId: 'ieee',
+    citationStyle: 'ieee',
+    source,
+    workspaceStem: stem,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.saveManuscript(record);
+}
+
+/** Merge a workspace `.bib` into the citation library (same-key replaces). */
+function adoptBibFile(source: string): void {
+  const entries = parseBibtex(source);
+  if (entries.length > 0) usePublishStore.getState().addLibraryEntries(entries);
 }
 
 /** Static guide rows for the standard project skeleton (§3.1 templates). */
@@ -300,6 +359,20 @@ export function FileExplorer() {
     try {
       const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
+      // Manuscript sources open in the LaTeX editor, not the plain code
+      // editor: .tex is adopted as a manuscript, .bib is merged into the
+      // citation library the editor previews against.
+      if (isPublishSourceFile(entry.name)) {
+        try {
+          const raw = await adapter.readFile(repoPath, entry.path);
+          if (entry.name.toLowerCase().endsWith('.bib')) adoptBibFile(raw);
+          else adoptTexFile(entry.name, raw);
+        } catch {
+          // The editor can still be opened if the file read fails.
+        }
+        useAppStore.getState().setEmbeddedTool('latex-editor');
+        return;
+      }
       // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
       // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
       // payload that fails its format check degrades to a read-only view.
@@ -561,6 +634,46 @@ export function FileExplorer() {
     }
   };
 
+  /** Keep a manuscript's record in sync when its `.tex` is renamed/moved. */
+  const syncManuscriptTrack = async (oldPath: string, newPath: string) => {
+    const isTex = (p: string) => /^manuscript\/[^/]+\.tex$/i.test(p);
+    if (!isTex(oldPath) || !isTex(newPath)) return;
+    const oldStem = basename(oldPath).replace(/\.[^.]+$/, '');
+    const newStem = basename(newPath).replace(/\.[^.]+$/, '');
+    if (!oldStem || oldStem === newStem) return;
+    const publishStore = usePublishStore.getState();
+    const manuscripts =
+      useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+    const match = manuscripts.find(
+      (m) => (m.workspaceStem ?? '').toLowerCase() === oldStem.toLowerCase(),
+    );
+    if (!match) return;
+    // The file manager is the source of truth for the name shown in the editor.
+    publishStore.saveManuscript({
+      ...match,
+      name: newStem,
+      workspaceStem: newStem,
+      updatedAt: Date.now(),
+    });
+    // Keep the archived PDF beside the renamed source when possible.
+    const current = useProjectStore.getState().project;
+    if (!current) return;
+    const repoPath = getProjectRepoPath(current);
+    const vfs = getVfs();
+    const oldPdf = oldPath.replace(/\.tex$/i, '.pdf');
+    const newPdf = newPath.replace(/\.tex$/i, '.pdf');
+    try {
+      if (
+        (await vfs.exists(repoPath, oldPdf)) &&
+        !(await vfs.exists(repoPath, newPdf))
+      ) {
+        await vfs.renameEntry(repoPath, oldPdf, newPdf);
+      }
+    } catch {
+      // The archived PDF is optional; the .tex rename already succeeded.
+    }
+  };
+
   const beginRename = (entry: VfsEntry) => {
     setMenu(null);
     setSelected(entry);
@@ -588,6 +701,7 @@ export function FileExplorer() {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
       await syncDataTrack(entry.path, target);
+      await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {
