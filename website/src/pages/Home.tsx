@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useT } from '../i18n-react';
-import { studioUrl } from '../studio-link';
+import { docsUrl, studioUrl } from '../studio-link';
 import { GALLERY } from '../data/gallery';
+import { DISCIPLINES, FACTS } from '../data/facts';
 import { CoverArt } from '../components/CoverArt';
 import { BlackHole } from '../components/BlackHole';
 import { Nebula } from '../components/Nebula';
@@ -23,24 +24,29 @@ const MODE_SHOTS: Record<ModeId, string> = {
   code: modeCodeShot,
 };
 
-/** 26 built-in research tools in six groups — names mirrored from the
+/** 33 built-in research tools in seven groups — names mirrored from the
  *  workstation's src/pages/research/toolRegistry.ts (single source of truth)
- *  and its i18n dicts. Group counts: 2 + 4 + 6 + 3 + 5 + 6 = 26. */
+ *  and its i18n dicts. Group counts: 2 + 4 + 9 + 3 + 5 + 4 + 6 = 33. */
 const TOOL_GROUPS: { id: string; count: string; tools: string[] }[] = [
   { id: 'measure', count: '02', tools: ['uncertainty', 'profiler'] },
   { id: 'model', count: '04', tools: ['model-lab', 'inference', 'model-inference', 'sweeps'] },
-  { id: 'data', count: '06', tools: ['sql', 'lineage', 'figures', 'analysis', 'cleaning', 'files'] },
+  { id: 'data', count: '09', tools: ['sql', 'etl', 'schema', 'synth', 'lineage', 'figures', 'analysis', 'cleaning', 'files'] },
   { id: 'signal', count: '03', tools: ['signal', 'notebook', 'runs'] },
   { id: 'deliver', count: '05', tools: ['report', 'reprolock', 'supplement', 'course', 'gallery'] },
+  { id: 'publish', count: '04', tools: ['latex-editor', 'citation-manager', 'collab-notebook', 'preprint'] },
   { id: 'utils', count: '06', tools: ['unit-convert', 'calc', 'format-convert', 'sigfig', 'molar-mass', 'quick-stats'] },
 ];
+
+const CAPABILITY_ROWS = ['plugins', 'tools', 'flow', 'blocks', 'formats', 'runtimes', 'gpu', 'tests', 'samples'] as const;
+const SCENARIOS = ['research', 'teaching', 'simulation', 'open'] as const;
+const START_CARDS = ['s1', 's2', 's3', 's4'] as const;
 
 const FORMATS = ['CSV', 'JSON', 'HDF5', 'NetCDF', 'FITS', 'Zarr', 'Parquet'];
 
 const REPRO_STEPS = ['s1', 's2', 's3'] as const;
 
-/** Hand-drawn per-mode schematic. Neutral strokes follow currentColor; teal
- *  marks only the one "live" element of each mode. */
+/** Hand-drawn per-mode schematic. Neutral strokes follow currentColor; the
+ *  accent marks only the one "live" element of each mode. */
 function ModeArt({ mode }: { mode: ModeId }) {
   const T = 'var(--color-text-tertiary)';
   const A = 'var(--color-accent)';
@@ -195,16 +201,49 @@ export function Home() {
             <Link to="/gallery" className="btn btn-ghost btn-lg">{t('hero.cta2')}</Link>
           </div>
           <dl className="hero-stats reveal">
-            <div className="hs"><dt className="hs-label">{t('stats.tools')}</dt><dd className="hs-num">26</dd></div>
-            <div className="hs"><dt className="hs-label">{t('stats.modes')}</dt><dd className="hs-num">4</dd></div>
-            <div className="hs"><dt className="hs-label">{t('stats.blocks')}</dt><dd className="hs-num">38</dd></div>
-            <div className="hs"><dt className="hs-label">{t('stats.tests')}</dt><dd className="hs-num">2815</dd></div>
+            <div className="hs"><dt className="hs-label">{t('stats.plugins')}</dt><dd className="hs-num">{FACTS.plugins}</dd></div>
+            <div className="hs"><dt className="hs-label">{t('stats.disciplines')}</dt><dd className="hs-num">{FACTS.disciplines}</dd></div>
+            <div className="hs"><dt className="hs-label">{t('stats.tools')}</dt><dd className="hs-num">{FACTS.tools}</dd></div>
+            <div className="hs"><dt className="hs-label">{t('stats.blocks')}</dt><dd className="hs-num">{FACTS.flowBlocks}</dd></div>
+            <div className="hs"><dt className="hs-label">{t('stats.tests')}</dt><dd className="hs-num">{FACTS.tests.toLocaleString('en-US')}</dd></div>
           </dl>
         </div>
         <span className="hero-art-badge">{t('hero.artBadge')}</span>
       </section>
 
-      {/* 2 — four work modes (keyboard-accessible tabs) */}
+      {/* 2 — what it is: statement, three pillars, one analysis path */}
+      <section className="overview" aria-labelledby="overview-title">
+        <div className="overview-body reveal">
+          <div className="overview-lead-col">
+            <p className="kicker">{t('overview.kicker')}</p>
+            <h2 className="overview-title" id="overview-title">{t('overview.title')}</h2>
+            <p className="overview-lead">{t('overview.lead')}</p>
+          </div>
+          <ol className="pillar-list">
+            {(['p1', 'p2', 'p3'] as const).map((p, i) => (
+              <li key={p} className="pillar">
+                <span className="pillar-num" aria-hidden="true">0{i + 1}</span>
+                <h3 className="pillar-t">{t(`overview.${p}.t`)}</h3>
+                <p className="pillar-d">{t(`overview.${p}.d`)}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="overview-pipe reveal">
+          <span className="pipe-label">{t('overview.pipe.label')}</span>
+          <ol className="pipe-steps">
+            {(['step1', 'step2', 'step3', 'step4', 'step5'] as const).map((s, i) => (
+              <li key={s} className="pipe-step">
+                <span className="pipe-dot" aria-hidden="true" />
+                <span className="pipe-text">{t(`overview.${s}`)}</span>
+                {i < 4 && <span className="pipe-line" aria-hidden="true" />}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* 3 — four work modes (keyboard-accessible tabs) */}
       <section className="modes" aria-labelledby="modes-title">
         <div className="section-head reveal">
           <h2 className="section-title" id="modes-title">{t('modes.title')}</h2>
@@ -258,7 +297,66 @@ export function Home() {
         </div>
       </section>
 
-      {/* 3 — research toolbelt: 26 tools in six groups */}
+      {/* 4 — capability matrix: source-derived counts */}
+      <section className="capability" aria-labelledby="cap-title">
+        <div className="section-head reveal">
+          <h2 className="section-title" id="cap-title">{t('cap.title')}</h2>
+          <p className="section-desc">{t('cap.desc')}</p>
+        </div>
+        <div className="cap-wrap reveal">
+          <table className="cap-table">
+            <thead>
+              <tr>
+                <th scope="col">{t('cap.col.item')}</th>
+                <th scope="col">{t('cap.col.value')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CAPABILITY_ROWS.map((row) => (
+                <tr key={row}>
+                  <th scope="row">{t(`cap.row.${row}`)}</th>
+                  <td>{t(`cap.v.${row}`)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 5 — discipline atlas: plugin counts by field */}
+      <section className="disciplines" aria-labelledby="disc-title">
+        <div className="section-head reveal">
+          <h2 className="section-title" id="disc-title">{t('disc.title')}</h2>
+          <p className="section-desc">{t('disc.desc')}</p>
+        </div>
+        <div className="disc-layout reveal">
+          <div className="disc-chart" role="list">
+            {DISCIPLINES.map((d) => (
+              <div key={d.id} className="disc-row" role="listitem">
+                <span className="disc-name">{t(`disc.${d.id}`)}</span>
+                <span className="disc-bar" aria-hidden="true">
+                  <span style={{ width: `${(d.count / DISCIPLINES[0].count) * 100}%` }} />
+                </span>
+                <span className="disc-count">{d.count}</span>
+              </div>
+            ))}
+          </div>
+          <aside className="disc-meta">
+            <div className="disc-big">
+              <span className="disc-big-num">{FACTS.plugins}</span>
+              <span className="disc-big-unit">{t('disc.unit')}</span>
+            </div>
+            <p className="disc-note">{t('disc.note')}</p>
+            <p className="disc-scale" aria-hidden="true">
+              <span>{DISCIPLINES[0].count}</span>
+              <span className="disc-scale-line" />
+              <span>0</span>
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      {/* 6 — research toolbelt: 33 tools in seven groups */}
       <section className="toolbelt" aria-labelledby="toolbelt-title">
         <div className="section-head reveal">
           <h2 className="section-title" id="toolbelt-title">{t('toolbelt.title')}</h2>
@@ -336,7 +434,25 @@ export function Home() {
         <p className="repro-gate reveal">{t('repro.gate')}</p>
       </section>
 
-      {/* 6 — gallery excerpt */}
+      {/* 8 — scenarios: four concrete uses */}
+      <section className="scenarios" aria-labelledby="scen-title">
+        <div className="section-head reveal">
+          <h2 className="section-title" id="scen-title">{t('scen.title')}</h2>
+          <p className="section-desc">{t('scen.desc')}</p>
+        </div>
+        <div className="scenario-grid">
+          {SCENARIOS.map((s, i) => (
+            <article key={s} className="scenario-card reveal">
+              <span className="scenario-num" aria-hidden="true">0{i + 1}</span>
+              <h3 className="scenario-t">{t(`scen.${s}.t`)}</h3>
+              <p className="scenario-d">{t(`scen.${s}.d`)}</p>
+              <p className="scenario-eg">{t(`scen.${s}.eg`)}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* 9 — gallery excerpt */}
       <section className="showcase" aria-labelledby="showcase-title">
         <div className="featured-head reveal">
           <h2 className="section-title" id="showcase-title">{t('gallery.title')}</h2>
@@ -358,7 +474,33 @@ export function Home() {
         </div>
       </section>
 
-      {/* 7 — closing CTA */}
+      {/* 10 — getting started and contributing */}
+      <section className="start" aria-labelledby="start-title">
+        <div className="section-head reveal">
+          <h2 className="section-title" id="start-title">{t('start.title')}</h2>
+          <p className="section-desc">{t('start.desc')}</p>
+        </div>
+        <div className="start-grid">
+          {START_CARDS.map((s, i) => (
+            <article key={s} className="start-card reveal">
+              <span className="start-num" aria-hidden="true">0{i + 1}</span>
+              <h3 className="start-t">{t(`start.${s}.t`)}</h3>
+              <p className="start-d">{t(`start.${s}.d`)}</p>
+              {s === 's1' && <a className="start-link" href={studioUrl('/')}>{t('start.s1.cta')} →</a>}
+              {s === 's2' && <a className="start-link" href={docsUrl('/guide/introduction')}>{t('start.s2.cta')} →</a>}
+              {s === 's3' && (
+                <p className="start-links">
+                  <a className="start-link" href="https://github.com/SnowLeopard-io/ErgalicsStudio" target="_blank" rel="noreferrer">GitHub</a>
+                  <a className="start-link" href="https://gitee.com/cnt-code/ergalics-studio" target="_blank" rel="noreferrer">Gitee</a>
+                </p>
+              )}
+              {s === 's4' && <a className="start-link" href="https://github.com/SnowLeopard-io/ErgalicsStudio/blob/main/CITATION.cff" target="_blank" rel="noreferrer">{t('start.s4.cta')} →</a>}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* 11 — closing CTA */}
       <section className="closing" aria-labelledby="closing-title">
         {/* live Milky-Way nebula background, ported from the fx.stars plugin */}
         <div className="closing-bg" aria-hidden="true">

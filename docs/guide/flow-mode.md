@@ -32,7 +32,7 @@ blocks/
   context        MemoryStorage + RuntimeEnvironment
   fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        63 built-in block types (data_source → … → plot · visualize)
+  catalog        53 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -139,17 +139,19 @@ selection.
 
 ## Built-in blocks
 
-The catalog (`src/blocks/catalog/`) registers **63 built-in blocks across
-six categories**:
+The catalog (`src/blocks/catalog/`) registers **53 built-in blocks across
+eight categories**:
 
-| Category     | Blocks                                                                                |
-| ------------ | ------------------------------------------------------------------------------------- |
-| data_source  | Example Data · Random Data · Grid Data · File                                          |
-| transform    | Select Columns · Rename Column · Add Column · Normalize · Sort                        |
-| filter       | Range Filter · Value Filter · Top-K                                                   |
-| math         | Add · Subtract · Multiply · Divide · Square Root · Absolute Value · Unit Convert · Unit Check |
-| statistics   | Summary · Histogram · one-/two-/paired-sample t-tests · one-way ANOVA · Mann–Whitney U · chi-square · correlation · Cohen's d · multiple-comparison correction · bootstrap CI · Monte-Carlo · MCMC |
-| visualize    | `viz.*` Scatter · Line · Histogram · 2-D Point Cloud, plus 21 domain views (geology ×3 · tuning table · color palette · acoustics waveform · synth presets · CS ×7 · statistics views ×7) and `plot.*` Line · Scatter · Histogram · Bar (vector SVG) |
+| Category     | Count | Blocks                                                                                |
+| ------------ | ----- | ------------------------------------------------------------------------------------- |
+| data_source  | 4     | Example Data · Random Data · Grid Data · File                                          |
+| transform    | 5     | Select Columns · Rename Column · Add Column · Normalize · Sort                        |
+| filter       | 3     | Range Filter · Value Filter · Top-K                                                   |
+| math         | 6     | Add · Subtract · Multiply · Divide · Square Root · Absolute Value                     |
+| statistics   | 14    | Summary · Histogram · one-/two-/paired-sample t-tests · one-way ANOVA · Mann–Whitney U · chi-square · correlation · Cohen's d · multiple-comparison correction · bootstrap CI · Monte-Carlo · MCMC |
+| units        | 2     | Unit Convert · Unit Check                                                             |
+| visualize    | 25    | `viz.*` Scatter · Line · Histogram · 2-D Point Cloud, plus 14 domain views (geology ×3 · tuning table · color palette · acoustics waveform · synth presets · CS ×7) and 7 statistics views |
+| plot         | 4     | `plot.*` Line · Scatter · Histogram · Bar (vector SVG)                                 |
 
 Control-flow blocks (`if_else`, `switch`, `repeat`, `parallel`) are
 **deliberately deferred**. The `region` seam on `BlockInstance` is in place
