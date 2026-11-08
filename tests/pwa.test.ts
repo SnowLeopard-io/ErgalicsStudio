@@ -106,14 +106,16 @@ describe('FR-20 gen-sw-precache', () => {
       mkdirSync(join(dir, 'assets'));
       writeFileSync(join(dir, 'index.html'), '<!doctype html><title>x</title>');
       writeFileSync(join(dir, 'manifest.webmanifest'), '{}');
-      writeFileSync(join(dir, 'favicon.svg'), '<svg/>');
+      writeFileSync(join(dir, 'ico.ico'), '<bin>');
+      writeFileSync(join(dir, 'icon-192.png'), '<bin>');
+      writeFileSync(join(dir, 'icon-512.png'), '<bin>');
       writeFileSync(join(dir, 'assets', 'core-1.js'), 'console.log(1)');
       writeFileSync(join(dir, 'assets', 'core-2.css'), 'body{}');
       writeFileSync(join(dir, 'assets', 'huge-3.js'), 'x'.repeat(600 * 1024)); // > 512 KiB cap
       writeFileSync(join(dir, 'sw.js'), readFileSync(join(ROOT, 'public', 'sw.js'), 'utf8'));
 
       const count = injectSwPrecache(dir);
-      expect(count).toBe(5); // shell(3) + core-1.js + core-2.css (huge excluded)
+      expect(count).toBe(7); // shell(5) + core-1.js + core-2.css (huge excluded)
 
       const out = readFileSync(join(dir, 'sw.js'), 'utf8');
       expect(out).not.toContain('__SW_VERSION__');

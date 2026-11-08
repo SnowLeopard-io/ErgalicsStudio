@@ -11,7 +11,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ToolShell, ToolSkeleton } from '@/components/ToolShell';
 import { EmptyProject, EmptyState } from '@/components/EmptyState';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getLastOpenedProjectId } from '@/stores/projectStore';
 import { useT } from '@/i18n';
 import { getTool } from '@/pages/research/toolRegistry';
 import { StatusBar } from '@/pages/workbench/StatusBar';
@@ -39,9 +39,12 @@ export default function StudioToolPage() {
         const store = useProjectStore.getState();
         await store.loadRecent();
         const recent = useProjectStore.getState().recent;
-        if (!cancelled && recent[0] && !useProjectStore.getState().project) {
-          await useProjectStore.getState().openProject(recent[0].id);
-        }
+        if (cancelled || useProjectStore.getState().project) return;
+        // Same semantics as the workbench restore: last *opened* project
+        // first (updatedAt ordering is not "last opened"), then recent[0].
+        const lastId = getLastOpenedProjectId();
+        const target = (lastId && recent.find((p) => p.id === lastId)) || recent[0] || null;
+        if (target) await useProjectStore.getState().openProject(target.id);
       } catch {
         /* EmptyProject below is the fallback surface. */
       } finally {

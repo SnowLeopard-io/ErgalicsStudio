@@ -433,7 +433,7 @@ export function modularity(g: Graph, communityOf: ArrayLike<number>, gamma = 1):
   let q = 0;
   for (let c = 0; c < n; c += 1) {
     if (degSum[c] === 0) continue;
-    q += intra[c]! / twoM - (gamma * (degSum[c]! / twoM)) ** 2;
+    q += (2 * intra[c]!) / twoM - (gamma * (degSum[c]! / twoM)) ** 2;
   }
   return q;
 }

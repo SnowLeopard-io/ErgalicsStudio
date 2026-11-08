@@ -1,0 +1,719 @@
+/* ==========================================================================
+   Ergalics Studio — Ambience layer (XP / badges / sound-adjacent visuals)
+   All colors resolve through existing theme variables; the small set of
+   ambience-specific vars below is re-declared per theme so dark and light
+   get the right texture (glow vs. shadow). Decorative motion in this file is
+   disabled by [data-motion='off'] / [data-motion='reduced'] and by
+   prefers-reduced-motion.
+   ========================================================================== */
+
+:root {
+  --amb-glow: rgba(45, 212, 191, 0.22);
+  --amb-float-bg: rgba(20, 30, 40, 0.92);
+  --amb-badge-shadow: 0 0 24px rgba(45, 212, 191, 0.18);
+}
+
+:root[data-theme='light'] {
+  --amb-glow: rgba(13, 148, 136, 0.16);
+  --amb-float-bg: rgba(255, 255, 255, 0.95);
+  --amb-badge-shadow: 0 2px 14px rgba(13, 148, 136, 0.18);
+}
+
+/* ---- top-bar XP indicator ------------------------------------------------ */
+
+.xp-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+  min-width: 120px;
+  max-width: 170px;
+  padding: 0 var(--space-2);
+  height: 26px;
+  cursor: default;
+}
+
+.xp-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--color-accent-soft);
+  flex: none;
+}
+
+.xp-rail {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-bg-active);
+  overflow: hidden;
+}
+
+/* Badge + rail row: a stable sub-layout used by both the top-bar indicator
+   (inline) and the settings-panel variant (stacked above the detail text). */
+.xp-track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.xp-rail-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  box-shadow: 0 0 8px var(--amb-glow);
+  transition: width 480ms var(--ease-out);
+}
+
+.xp-detail {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  pointer-events: none;
+}
+
+.xp-indicator:hover .xp-detail,
+.xp-indicator:focus-within .xp-detail {
+  display: flex;
+}
+
+.xp-detail-muted {
+  color: var(--color-text-tertiary);
+}
+
+/* ---- floating +N hints ---------------------------------------------------- */
+
+.xp-float-stack {
+  position: fixed;
+  top: calc(var(--topbar-height) + 10px);
+  right: 18px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.xp-float {
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-text);
+  background: var(--amb-float-bg);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--amb-badge-shadow);
+  animation: xp-float-rise 1.8s var(--ease-out) forwards;
+}
+
+@keyframes xp-float-rise {
+  0% { opacity: 0; transform: translateY(6px); }
+  12% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+
+/* ---- badge unlock toast ---------------------------------------------------- */
+
+.badge-toast {
+  position: fixed;
+  top: calc(var(--topbar-height) + 12px);
+  right: 18px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 300px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-3), var(--amb-badge-shadow);
+  animation: badge-toast-in 360ms var(--ease-spring);
+}
+
+@keyframes badge-toast-in {
+  from { opacity: 0; transform: translateX(24px) scale(0.97); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.badge-toast-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex: none;
+  filter: drop-shadow(0 0 10px var(--amb-glow));
+}
+
+.badge-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.badge-toast-eyebrow {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.badge-toast-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.badge-toast-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- level-up overlay ------------------------------------------------------ */
+
+.levelup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-overlay);
+  animation: pop-in 240ms var(--ease-out);
+}
+
+.levelup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(360px, calc(100vw - 48px));
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-3), 0 0 60px var(--amb-glow);
+  animation: levelup-card-in 420ms var(--ease-spring);
+}
+
+@keyframes levelup-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.levelup-eyebrow {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-text);
+}
+
+.levelup-level {
+  font-family: var(--font-mono);
+  font-size: 42px;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+  text-shadow: 0 0 24px var(--amb-glow);
+}
+
+.levelup-rank {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-accent-text);
+}
+
+.levelup-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.levelup-btn {
+  margin-top: var(--space-3);
+}
+
+/* ---- celebration burst canvas ---------------------------------------------- */
+
+.ambience-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- achievements wall (settings) ------------------------------------------ */
+
+.badge-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.badge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-2);
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.badge-card.unlocked {
+  border-color: var(--color-border-strong);
+}
+
+.badge-card.unlocked:hover {
+  box-shadow: var(--amb-badge-shadow);
+}
+
+.badge-card-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin-bottom: var(--space-1);
+}
+
+/* Locked badges read as dormant: grayscale + faded, no glow. */
+.badge-card:not(.unlocked) .badge-card-img {
+  filter: grayscale(1) opacity(0.35);
+}
+
+.badge-card.unlocked .badge-card-img {
+  filter: drop-shadow(0 0 12px var(--amb-glow));
+}
+
+/* Rarity rims — a quiet nod, not a gold-plated frame. */
+.badge-card.rarity-rare.unlocked { border-color: var(--cat-utility); }
+.badge-card.rarity-epic.unlocked { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent-soft); }
+
+.badge-card-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.badge-card:not(.unlocked) .badge-card-name {
+  color: var(--color-text-tertiary);
+}
+
+.badge-card-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  min-height: 2.6em;
+}
+
+.badge-card-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.badge-card-download {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-text);
+  text-decoration: none;
+}
+
+.badge-card-download:hover {
+  text-decoration: underline;
+}
+
+/* ---- settings row helpers --------------------------------------------------- */
+
+.ambience-row-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ambience-hint {
+  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  padding-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.ambience-switch {
+  appearance: none;
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
+  background: var(--color-bg-active);
+  border: 1px solid var(--color-border);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.ambience-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  transition: transform 180ms var(--ease-spring), background var(--transition-base);
+}
+
+.ambience-switch:checked {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.ambience-switch:checked::after {
+  transform: translateX(15px);
+  background: var(--color-accent);
+}
+
+.ambience-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ambience-volume {
+  width: 140px;
+  accent-color: var(--color-accent);
+}
+
+.ambience-volume-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  min-width: 34px;
+  text-align: right;
+}
+
+/* ---- welcome-page ambient glow ---------------------------------------------- */
+
+/* Anchor the ambient layer inside the welcome viewport. */
+.welcome {
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.welcome-ambient span {
+  position: absolute;
+  width: 46vw;
+  height: 46vw;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  background: radial-gradient(circle, var(--amb-glow) 0%, transparent 70%);
+}
+
+.welcome-ambient .wa-1 {
+  top: -18vw;
+  left: -10vw;
+  animation: ambient-drift 64s ease-in-out infinite alternate;
+}
+
+.welcome-ambient .wa-2 {
+  bottom: -22vw;
+  right: -12vw;
+  width: 52vw;
+  height: 52vw;
+  animation: ambient-drift 78s ease-in-out infinite alternate-reverse;
+}
+
+.welcome-ambient .wa-3 {
+  top: 30%;
+  right: 22%;
+  width: 26vw;
+  height: 26vw;
+  opacity: 0.3;
+  animation: ambient-drift 92s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(6vw, 4vh) scale(1.12); }
+}
+
+/* ---- XP indicator rendered inside the achievements settings panel ----------- */
+
+.ambience-xp-in-panel {
+  max-width: 420px;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+/* The hover detail popover is top-bar-oriented; inside the panel the inline
+   variant takes over (see XpIndicator `variant`). It gets its own class —
+   `.xp-detail-inline` — instead of overriding the absolutely-positioned
+   `.xp-detail`, so a missed/overridden `position` can never make the panel
+   detail escape its card and overlap the sections below it. */
+.xp-indicator-inline {
+  /* The base .xp-indicator is sized for the single-line top bar (height:
+     26px). Left unoverridden it pins this stacked variant to 26px and the
+     detail rows spill out of the card, overlapping the label below. */
+  height: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-width: 100%;
+  max-width: none;
+  padding: 0;
+  cursor: default;
+}
+
+.xp-detail-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+/* ---- user profile (settings) ------------------------------------------------- */
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: 22px;
+  font-weight: 600;
+  flex: none;
+}
+
+/* Clickable avatar: opens the image picker; hover hints at upload. */
+.profile-avatar-btn {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.profile-avatar-btn .profile-avatar {
+  width: 100%;
+  height: 100%;
+  transition: box-shadow var(--transition-fast);
+}
+
+.profile-avatar-btn:hover .profile-avatar {
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.profile-avatar-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent);
+  object-fit: cover;
+}
+
+/* Tiny remove badge on the top-right of the photo avatar. */
+.profile-avatar-remove {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.profile-avatar-remove:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.profile-head-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.profile-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.profile-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-textarea {
+  resize: none;
+  min-height: 2.4em;
+  line-height: 1.5;
+}
+
+/* ---- vitality: science-metric growth ---------------------------------------- */
+
+/* Fresh numbers rise softly into the strip, staggered left to right. */
+@keyframes science-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-motion='full'] .science-metric {
+  animation: science-in 0.45s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* ---- vitality: breathing micro-motion ---------------------------------------- */
+
+@keyframes amb-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+/* The Σ mark breathes slowly — the strip is "alive" while results are up,
+ * but the numbers themselves stay perfectly still for legibility. */
+[data-motion='full'] .science-strip-title {
+  animation: amb-breathe 5s ease-in-out infinite;
+}
+
+/* Status-bar clock: a quiet instrument readout, tabular digits. */
+.statusbar-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+  margin-left: var(--space-3);
+  letter-spacing: 0.02em;
+}
+
+/* ---- vitality: time-of-day ambience ------------------------------------------- */
+
+/* The welcome glow drifts through the day: warm dawn, neutral day, low
+ * amber dusk, deep-blue night. Hue-rotate keeps saturation and the existing
+ * palette relationships intact — only the tone shifts. */
+[data-daypart='dawn'] .welcome-ambient span {
+  filter: hue-rotate(12deg) saturate(1.05);
+}
+[data-daypart='dusk'] .welcome-ambient span {
+  filter: hue-rotate(-18deg) saturate(1.1);
+}
+[data-daypart='night'] .welcome-ambient span {
+  filter: hue-rotate(-55deg) saturate(0.9) brightness(0.85);
+}
+
+.welcome-greeting {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* ---- motion discipline -------------------------------------------------------- */
+/* data-motion is applied by ambienceStore; 'reduced' drops ambient decoration,
+   'off' additionally freezes the one-shot entrance animations here. */
+
+[data-motion='reduced'] .welcome-ambient,
+[data-motion='off'] .welcome-ambient {
+  display: none;
+}
+
+[data-motion='off'] .xp-rail-fill,
+[data-motion='off'] .xp-float,
+[data-motion='off'] .badge-toast,
+[data-motion='off'] .levelup-card,
+[data-motion='off'] .levelup-overlay {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-ambient { display: none; }
+  .xp-float, .badge-toast, .levelup-card, .levelup-overlay { animation-duration: 1ms; }
+}

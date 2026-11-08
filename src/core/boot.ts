@@ -115,13 +115,20 @@ const RELOAD_MARKER = 'ergalics:boot-chunk-reloaded';
 const CHUNK_ERROR_PATTERN =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i;
 
-export function installBootChunkRecovery(): void {
+export function installBootChunkRecovery(): () => void {
+  // The per-session marker prevents a reload loop if the site itself is
+  // broken (deploy half-finished): after one automatic reload, no more.
   try {
-    if (sessionStorage.getItem(RELOAD_MARKER)) return;
+    if (sessionStorage.getItem(RELOAD_MARKER)) return () => undefined;
   } catch {
     /* storage unavailable — skip the guard, keep the recovery */
   }
-  window.addEventListener('unhandledrejection', (event) => {
+  // Auto-reload is a boot-splash-only lifeline: at that point the React tree
+  // has not rendered, so a chunk failure means a dead page and a single
+  // reload is the only self-help. Once boot finishes, chunk failures must
+  // surface through the ErrorBoundary recovery card instead — an automatic
+  // reload would interrupt running simulations and discard unsaved work.
+  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
     const reason = event.reason as Error | string | undefined;
     const message = typeof reason === 'string' ? reason : reason?.message ?? '';
     if (!CHUNK_ERROR_PATTERN.test(message)) return;
@@ -131,5 +138,7 @@ export function installBootChunkRecovery(): void {
       /* ignore */
     }
     window.location.reload();
-  });
+  };
+  window.addEventListener('unhandledrejection', onUnhandledRejection);
+  return () => window.removeEventListener('unhandledrejection', onUnhandledRejection);
 }

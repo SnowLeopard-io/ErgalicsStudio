@@ -28,6 +28,8 @@ export function TopBar() {
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
   const recent = useProjectStore((s) => s.recent);
+  /** True while the open project is backed by a git repo (hides clone). */
+  const gitIsRepo = useProjectStore((s) => s.gitRepo?.isRepo === true);
   const openProject = useProjectStore((s) => s.openProject);
   const save = useProjectStore((s) => s.save);
   const saveAs = useProjectStore((s) => s.saveAs);
@@ -151,6 +153,9 @@ export function TopBar() {
             label: t('project.open_folder'),
             onClick: () => folderInputRef.current?.click(),
           },
+          // Clone spawns a NEW project — meaningless while a git-backed
+          // project is already open, so the entry hides in that case.
+          ...(gitIsRepo ? [] : [{ key: 'clone', label: t('project.clone'), onClick: openDialog('clone') }]),
           { key: 'rename', label: t('project.rename'), onClick: openDialog('rename') },
           { key: 'save_as', label: t('project.save_as'), onClick: () => saveAs() },
           {
@@ -240,16 +245,9 @@ export function TopBar() {
 
         <span className="topbar-divider" aria-hidden="true" />
 
-        {/* Zone 3c — research tools: general analysis stays a direct button,
-            all other tools live behind the searchable/recency launcher. */}
+        {/* Zone 3c — research tools: every suite (including analysis) lives
+            behind the searchable/recency launcher. */}
         <div className="topbar-cluster">
-          <button
-            type="button"
-            className="cluster-btn"
-            onClick={() => openToolEmbedded(navigate, 'analysis', location.pathname)}
-          >
-            {t('workbench.analyze')}
-          </button>
           <ResearchLauncher />
         </div>
 
@@ -302,7 +300,7 @@ export function TopBar() {
             title={t('workbench.tour.title')}
             aria-label={t('workbench.tour.title')}
             data-tour="tour"
-            onClick={startTour}
+            onClick={() => startTour('menu')}
           >
             <HelpIcon size={15} />
           </button>

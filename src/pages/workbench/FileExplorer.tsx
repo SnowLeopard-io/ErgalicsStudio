@@ -15,10 +15,13 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { useAppStore, fileTabKey, type FilePreviewKind } from '@/stores/appStore';
+import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { usePublishStore } from '@/stores/publishStore';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
+import { parseBibtex } from '@/core/publish/bibtex';
+import type { ManuscriptRecord } from '@/core/publish/state';
 import {
   editorKindForFile,
   parseFlowPayload,
@@ -43,6 +46,11 @@ const PREVIEW_CAP_CHARS = 200_000;
 const TEXT_EXT = new Set([
   'md', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'svg',
   'clproj', 'lock', 'log', 'ini', 'sh', 'js', 'py', 'r',
+  // Manuscript / bibliography sources are plain text too (the LaTeX editor
+  // claims them first, but this keeps the preview fallback correct).
+  'tex', 'ltx', 'sty', 'cls', 'bib', 'cff',
+  // Other research-suite artifacts written into the workspace.
+  'html', 'htm', 'ipynb',
 ]);
 /** Extension-less files that are still text. */
 const TEXT_NAME = new Set(['.gitignore', '.gitattributes', 'license', 'readme']);
@@ -105,6 +113,57 @@ function classifyFile(name: string): Classification {
   }
   if (isTextFile(name)) return { kind: 'text', mime: 'text/plain;charset=utf-8' };
   return { kind: 'unknown', mime: 'application/octet-stream' };
+}
+
+/** Manuscript sources open in the LaTeX editor suite by default. */
+function isPublishSourceFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.tex') || lower.endsWith('.ltx') || lower.endsWith('.bib');
+}
+
+/** Focus the matching manuscript, or adopt a workspace `.tex` as a new one. */
+function adoptTexFile(name: string, source: string): void {
+  const store = usePublishStore.getState();
+  const manuscripts = useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+  const stem = name.replace(/\.[^.]+$/, '') || 'manuscript';
+  // The workspace file name is the identity: opening HELLO.tex must focus the
+  // HELLO manuscript instead of creating a duplicate record. Source matching
+  // remains for manuscripts exported before stems were recorded.
+  const byStem = manuscripts.find(
+    (m) => (m.workspaceStem ?? '').toLowerCase() === stem.toLowerCase(),
+  );
+  if (byStem) {
+    // The workspace file is authoritative when opened from the file manager.
+    if (byStem.source !== source) {
+      store.saveManuscript({ ...byStem, source, updatedAt: Date.now() });
+    } else {
+      store.setActiveManuscript(byStem.id);
+    }
+    return;
+  }
+  const existing = manuscripts.find((m) => m.source === source);
+  if (existing) {
+    store.setActiveManuscript(existing.id);
+    return;
+  }
+  const now = Date.now();
+  const record: ManuscriptRecord = {
+    id: crypto.randomUUID(),
+    name: stem,
+    templateId: 'ieee',
+    citationStyle: 'ieee',
+    source,
+    workspaceStem: stem,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.saveManuscript(record);
+}
+
+/** Merge a workspace `.bib` into the citation library (same-key replaces). */
+function adoptBibFile(source: string): void {
+  const entries = parseBibtex(source);
+  if (entries.length > 0) usePublishStore.getState().addLibraryEntries(entries);
 }
 
 /** Static guide rows for the standard project skeleton (§3.1 templates). */
@@ -223,15 +282,19 @@ export function FileExplorer() {
   /** Drag source, tracked via ref so it survives the drop event. */
   const dragRef = useRef<VfsEntry | null>(null);
 
+  /** Load a directory listing into `tree` and return the fetched entries (so
+   *  async callers don't read the stale render closure afterwards). */
   const loadDir = useCallback(
-    async (dir: string) => {
-      if (!project) return;
+    async (dir: string): Promise<VfsEntry[]> => {
+      if (!project) return [];
       try {
         const adapter = getVfs();
         const entries = await adapter.readDir(getProjectRepoPath(project), dir);
         setTree((prev) => ({ ...prev, [dir]: entries }));
+        return entries;
       } catch {
         setTree((prev) => ({ ...prev, [dir]: [] }));
+        return [];
       }
     },
     [project],
@@ -260,7 +323,10 @@ export function FileExplorer() {
   // External working-tree changes (e.g. an MD preview save) refresh listings.
   useEffect(() => {
     if (!project) return;
-    void refreshDirs(['', ...expanded]);
+    // Refresh every directory we have a listing for (not only expanded ones):
+    // a bump may arrive while a subtree was collapsed after an earlier load,
+    // and its cached listing must not resurface stale content on re-expand.
+    void refreshDirs(['', ...expanded, ...Object.keys(tree)]);
   }, [fileOpsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDir = (dir: string) => {
@@ -269,7 +335,9 @@ export function FileExplorer() {
       if (next.has(dir)) next.delete(dir);
       else {
         next.add(dir);
-        if (!(dir in tree)) void loadDir(dir);
+        // Always reload on expand: the cached listing may predate external
+        // writes (imports, explorer ops in another view) — cheap and fresh.
+        void loadDir(dir);
       }
       return next;
     });
@@ -291,6 +359,20 @@ export function FileExplorer() {
     try {
       const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
+      // Manuscript sources open in the LaTeX editor, not the plain code
+      // editor: .tex is adopted as a manuscript, .bib is merged into the
+      // citation library the editor previews against.
+      if (isPublishSourceFile(entry.name)) {
+        try {
+          const raw = await adapter.readFile(repoPath, entry.path);
+          if (entry.name.toLowerCase().endsWith('.bib')) adoptBibFile(raw);
+          else adoptTexFile(entry.name, raw);
+        } catch {
+          // The editor can still be opened if the file read fails.
+        }
+        useAppStore.getState().setEmbeddedTool('latex-editor');
+        return;
+      }
       // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
       // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
       // payload that fails its format check degrades to a read-only view.
@@ -388,15 +470,21 @@ export function FileExplorer() {
 
   const existsName = (dir: string, name: string): boolean => !!entryAt(dir, name);
 
-  /** Pick an unused name in `dir` for a copy/paste target. */
-  const suggestUniqueName = (dir: string, name: string): string => {
-    if (!existsName(dir, name)) return name;
+  /** Pick an unused name in `dir` for a copy/paste target. `exists` lets
+   *  async callers check freshly loaded listings instead of the stale
+   *  render-closure `tree`. */
+  const suggestUniqueName = (
+    dir: string,
+    name: string,
+    exists: (n: string) => boolean = (n) => existsName(dir, n),
+  ): string => {
+    if (!exists(name)) return name;
     const dot = name.lastIndexOf('.');
     const stem = dot > 0 ? name.slice(0, dot) : name;
     const ext = dot > 0 ? name.slice(dot) : '';
     for (let i = 1; ; i += 1) {
       const cand = `${stem} (${i})${ext}`;
-      if (!existsName(dir, cand)) return cand;
+      if (!exists(cand)) return cand;
     }
   };
 
@@ -427,6 +515,13 @@ export function FileExplorer() {
     const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     try {
+      // The target dir may never have been listed; load it now so conflict
+      // checks and unique-name suggestions see the real contents. The `tree`
+      // state in this render closure stays stale for directories loaded here,
+      // so checks must use the freshly returned listing.
+      const fresh = tree[targetDir] ? null : await loadDir(targetDir);
+      const exists = (name: string): boolean =>
+        fresh ? fresh.some((e) => e.name === name) : existsName(targetDir, name);
       let failed = false;
       for (const item of clipboard.items) {
         if (clipboard.mode === 'cut') {
@@ -436,14 +531,14 @@ export function FileExplorer() {
             failed = true;
             continue;
           }
-          if (existsName(targetDir, basename(item.path))) {
+          if (exists(basename(item.path))) {
             notify('error', t('workbench.explorer.name_conflict', { name: basename(item.path) }));
             failed = true;
             continue;
           }
           await adapter.renameEntry(repoPath, item.path, target);
         } else {
-          const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path)));
+          const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
         }
       }
@@ -477,11 +572,105 @@ export function FileExplorer() {
     try {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
       closeTab(fileTabKey(entry.path));
+      closeTab(editorTabKey(entry.path));
+      if (entry.isDir) {
+        // Close every editor tab under the deleted directory — a surviving
+        // dirty tab would recreate the file on its next save.
+        const prefix = `${entry.path}/`;
+        const tabs = useAppStore.getState().canvasTabs;
+        for (const tab of tabs) {
+          if (tab.kind === 'editor' && (tab.path === entry.path || tab.path.startsWith(prefix))) {
+            closeTab(tab.key);
+          }
+        }
+      }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
+      // 顶部栏「数据」列表（project.data.files）与 data/ 目录是双轨存储：
+      // 删除镜像文件时必须同步移除列表条目，否则顶栏计数与「载入插件」
+      // 仍能看到已删除的文件。removeDataFile 的 VFS 重复删除会被静默吞掉。
+      if (!entry.isDir && entry.path.startsWith('data/')) {
+        const name = entry.path.slice('data/'.length);
+        const match = useProjectStore
+          .getState()
+          .project?.data.files.find((f) => f.name === name);
+        if (match) useProjectStore.getState().removeDataFile(match.id);
+      }
       notify('success', t('workbench.explorer.deleted_hint'));
     } catch {
       notify('error', t('workbench.explorer.op_failed'));
+    }
+  };
+
+  // ---- 顶部栏「数据」列表与 data/ 目录的双轨同步 ---------------------------
+  // 重命名 / 移动 data/ 下的文件时，project.data.files 里的条目必须跟着变，
+  // 否则顶栏计数与「载入插件」仍指向旧路径。仅处理 data/ 顶层的普通文件。
+
+  /** Is `path` a file directly under the project's data/ folder? */
+  const isTopLevelDataFile = (path: string) => path.startsWith('data/') && !path.slice(5).includes('/');
+
+  /** Sync the in-project data-files list after the VFS entry at `oldPath`
+   *  became `newPath` (rename or move). Read-only on the VFS except the
+   *  move-into-data/ case, which upserts the entry from the file content. */
+  const syncDataTrack = async (oldPath: string, newPath: string) => {
+    if (oldPath === newPath) return;
+    const wasData = isTopLevelDataFile(oldPath);
+    const isData = isTopLevelDataFile(newPath);
+    const store = useProjectStore.getState();
+    if (!store.project) return;
+    if (wasData && isData) {
+      const match = store.project.data.files.find((f) => f.name === oldPath.slice(5));
+      if (match) store.renameDataFile(match.id, newPath.slice(5));
+    } else if (wasData && !isData) {
+      const match = store.project.data.files.find((f) => f.name === oldPath.slice(5));
+      if (match) store.removeDataFile(match.id);
+    } else if (!wasData && isData) {
+      try {
+        const content = await getVfs().readFile(getProjectRepoPath(store.project), newPath);
+        await store.addDataFile(new File([content], newPath.slice(5), { type: 'text/plain' }));
+      } catch {
+        // Unsupported format — the file lives on in the workspace tree only.
+      }
+    }
+  };
+
+  /** Keep a manuscript's record in sync when its `.tex` is renamed/moved. */
+  const syncManuscriptTrack = async (oldPath: string, newPath: string) => {
+    const isTex = (p: string) => /^manuscript\/[^/]+\.tex$/i.test(p);
+    if (!isTex(oldPath) || !isTex(newPath)) return;
+    const oldStem = basename(oldPath).replace(/\.[^.]+$/, '');
+    const newStem = basename(newPath).replace(/\.[^.]+$/, '');
+    if (!oldStem || oldStem === newStem) return;
+    const publishStore = usePublishStore.getState();
+    const manuscripts =
+      useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
+    const match = manuscripts.find(
+      (m) => (m.workspaceStem ?? '').toLowerCase() === oldStem.toLowerCase(),
+    );
+    if (!match) return;
+    // The file manager is the source of truth for the name shown in the editor.
+    publishStore.saveManuscript({
+      ...match,
+      name: newStem,
+      workspaceStem: newStem,
+      updatedAt: Date.now(),
+    });
+    // Keep the archived PDF beside the renamed source when possible.
+    const current = useProjectStore.getState().project;
+    if (!current) return;
+    const repoPath = getProjectRepoPath(current);
+    const vfs = getVfs();
+    const oldPdf = oldPath.replace(/\.tex$/i, '.pdf');
+    const newPdf = newPath.replace(/\.tex$/i, '.pdf');
+    try {
+      if (
+        (await vfs.exists(repoPath, oldPdf)) &&
+        !(await vfs.exists(repoPath, newPdf))
+      ) {
+        await vfs.renameEntry(repoPath, oldPdf, newPdf);
+      }
+    } catch {
+      // The archived PDF is optional; the .tex rename already succeeded.
     }
   };
 
@@ -511,6 +700,8 @@ export function FileExplorer() {
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
+      await syncDataTrack(entry.path, target);
+      await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
       notify('success', t('workbench.explorer.renamed_hint'));
     } catch {
@@ -574,8 +765,16 @@ export function FileExplorer() {
     e.preventDefault();
     e.stopPropagation();
     setDropTarget(null);
+    if (!project) return;
+    // External OS drop (no internal drag in flight): import the files into
+    // the target directory instead of treating the event as a move.
+    const files = Array.from(e.dataTransfer.files);
+    if (!dragRef.current && files.length > 0) {
+      await importExternalFiles(files, targetDir);
+      return;
+    }
     const src = dragRef.current;
-    if (!project || !canDropInto(src, targetDir)) return;
+    if (!canDropInto(src, targetDir)) return;
     if (src) {
       const adapter = getVfs();
       const repoPath = getProjectRepoPath(project);
@@ -583,19 +782,57 @@ export function FileExplorer() {
       // The target directory may never have been expanded, in which case the
       // conflict table is empty and the guard below would silently pass —
       // load it first so an existing same-name entry is actually detected.
-      if (!tree[targetDir]) await loadDir(targetDir);
-      if (existsName(targetDir, basename(src.path))) {
+      // Use the freshly returned listing: `tree` in this render closure stays
+      // stale for directories loaded here.
+      const targetEntries = tree[targetDir] ?? (await loadDir(targetDir));
+      if (targetEntries.some((e) => e.name === basename(src.path))) {
         notify('error', t('workbench.explorer.name_conflict', { name: basename(src.path) }));
         return;
       }
       try {
         await adapter.renameEntry(repoPath, src.path, target);
+        await syncDataTrack(src.path, target);
         await refreshDirs([targetDir, dirname(src.path)]);
         notify('success', t('workbench.explorer.moved_hint'));
       } catch {
         notify('error', t('workbench.explorer.move_failed'));
       }
     }
+  };
+
+  /** Import files dragged in from the OS into `targetDir`. Name conflicts are
+   *  auto-suffixed ("name (1).ext") instead of overwriting workspace files.
+   *  Only flat file lists are supported (folder drags from the OS expose no
+   *  portable tree without the async entry API — those fall back to flat). */
+  const importExternalFiles = async (files: File[], targetDir: string) => {
+    if (!project) return;
+    const adapter = getVfs();
+    const repoPath = getProjectRepoPath(project);
+    let ok = 0;
+    for (const file of files) {
+      try {
+        if (!isValidVfsEntryName(file.name)) continue;
+        const existing = new Set(
+          (tree[targetDir] ?? (await loadDir(targetDir))).map((e) => e.name),
+        );
+        const dot = file.name.lastIndexOf('.');
+        const stem = dot > 0 ? file.name.slice(0, dot) : file.name;
+        const ext = dot > 0 ? file.name.slice(dot) : '';
+        let name = file.name;
+        for (let i = 1; existing.has(name); i += 1) name = `${stem} (${i})${ext}`;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        await adapter.writeFileBinary(repoPath, joinPath(targetDir, name), bytes);
+        existing.add(name);
+        ok += 1;
+      } catch {
+        /* counted as failed below */
+      }
+    }
+    await refreshDirs([targetDir]);
+    useAppStore.getState().bumpFileOps();
+    if (files.length === 0) return;
+    if (ok === files.length) notify('success', t('workbench.explorer.imported', { n: ok }));
+    else notify('warning', t('workbench.explorer.import_partial', { ok, total: files.length }));
   };
 
   // ---- keyboard shortcuts (F2 / Delete / Copy/Cut/Paste / Ctrl+N / Enter) ---
@@ -686,7 +923,10 @@ export function FileExplorer() {
         onDragOver={
           isRoot
             ? (e) => {
-                if (canDropInto(dragRef.current, rootDir)) {
+                if (e.dataTransfer.types.includes('Files')) {
+                  e.preventDefault();
+                  setDropTarget(rootDir);
+                } else if (canDropInto(dragRef.current, rootDir)) {
                   e.preventDefault();
                   setDropTarget(rootDir);
                 }
@@ -742,7 +982,11 @@ export function FileExplorer() {
                     ev.dataTransfer.setData('text/plain', e.path);
                   }}
                   onDragOver={(ev) => {
-                    if (canDropInto(dragRef.current, e.path)) {
+                    if (ev.dataTransfer.types.includes('Files')) {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      setDropTarget(e.path);
+                    } else if (canDropInto(dragRef.current, e.path)) {
                       ev.preventDefault();
                       ev.stopPropagation();
                       setDropTarget(e.path);
@@ -783,6 +1027,13 @@ export function FileExplorer() {
                   dragRef.current = e;
                   ev.dataTransfer.effectAllowed = 'move';
                   ev.dataTransfer.setData('text/plain', e.path);
+                }}
+                onDragOver={(ev) => {
+                  // Files land in the row's parent directory.
+                  if (ev.dataTransfer.types.includes('Files')) ev.preventDefault();
+                }}
+                onDrop={(ev) => {
+                  void onDropTarget(dir)(ev);
                 }}
               >
                 <span className="explorer-name">{e.name}</span>

@@ -12,13 +12,14 @@ import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
 import { useAppStore } from '@/stores/appStore';
-import { RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
+import { GRID_GROUPS, RESEARCH_TOOLS, openToolEmbedded } from '@/pages/research/toolRegistry';
 
 /** Utility-toolkit entries shown in the sidebar tools view (activity bar). */
 const UTIL_TOOLS = RESEARCH_TOOLS.filter((tool) => tool.group === 'utils');
 
-/** Research-suite groups (in launcher order) for the sidebar research view. */
-const RESEARCH_GROUP_IDS = ['measure', 'model', 'data', 'signal', 'deliver'] as const;
+/** Research-suite groups for the sidebar research view, derived from the
+ *  registry so a newly registered group (e.g. publish) shows up here too. */
+const RESEARCH_GROUP_IDS = GRID_GROUPS.filter((group) => group !== 'utils');
 
 /** Plugins showcased in the sidebar "New Releases" section (topmost group). */
 const FRESH_PLUGIN_IDS = ['example.em-eigensolver', 'example.fluid-cfd-coupler'];

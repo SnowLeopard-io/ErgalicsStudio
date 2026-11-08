@@ -51,6 +51,7 @@ export function Plugins() {
       <header className="page-head">
         <h1>{t('plugins.title')}</h1>
         <p>{t('plugins.desc')}</p>
+        <p className="page-meta">{t('plugins.countline')}</p>
       </header>
 
       <div className="plugin-toolbar">
@@ -73,8 +74,8 @@ export function Plugins() {
           ))}
         </div>
         <select className="sort-select" value={sort} onChange={(e) => setSort(e.target.value as 'installs' | 'updated')} aria-label="sort">
-          <option value="installs">↓ installs</option>
-          <option value="updated">↓ updated</option>
+          <option value="installs">↓ {t('plugins.sort.installs')}</option>
+          <option value="updated">↓ {t('plugins.sort.updated')}</option>
         </select>
       </div>
 

@@ -66,8 +66,8 @@ const chapters: TechDoc[] = [
     file: '04-四大工作模式.md',
     title: { zh: '04 · 四大工作模式', en: '04 · The Four Working Modes' },
     desc: {
-      zh: '积木、流程、代码与 Notebook 模式的实现与互转机制。',
-      en: 'How the blocks, flow, code and notebook modes are implemented and interconverted.',
+      zh: '标准、流程、积木与代码模式的实现与共享 IR 互转机制。',
+      en: 'How standard, flow, block and code modes are implemented and interconverted over the shared IR.',
     },
     formats: ['pdf', 'html', 'md'],
   },
@@ -75,8 +75,8 @@ const chapters: TechDoc[] = [
     file: '05-科研工具集.md',
     title: { zh: '05 · 科研工具集', en: '05 · Research Tool Suite' },
     desc: {
-      zh: '15 个科研工具页的功能设计与使用方式。',
-      en: 'The 15 research tool pages: design and usage.',
+      zh: '33 个科研工具的功能分组与使用方式。',
+      en: 'The 33 research tools, grouped by function, with usage notes.',
     },
     formats: ['pdf', 'html', 'md'],
   },

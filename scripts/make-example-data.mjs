@@ -7,27 +7,29 @@
 //                                     of the kernel's makeTestImage, seed 20261011)
 // Run: node scripts/make-example-data.mjs
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 // ---------- distribution.dat ----------
+// Seeded like every other dataset here: regenerating must be byte-identical.
+const distRng = mulberry32(12000);
 const gauss = () => {
   let u = 0;
   let v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = distRng();
+  while (v === 0) v = distRng();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 const lines = [];
 for (let i = 0; i < 12000; i += 1) {
-  const r = Math.random();
+  const r = distRng();
   let v;
   if (r < 0.4) v = -2.2 + gauss() * 0.5;
   else if (r < 0.75) v = 1.8 + gauss() * 0.7;
-  else v = Math.random() * 10 - 5;
+  else v = distRng() * 10 - 5;
   lines.push(v.toFixed(4));
 }
 const distPath = join(root, 'examples', 'data', 'distribution.dat');
@@ -246,18 +248,22 @@ for (let y = 0; y < H; y += 1) {
     raw[o + 2] = c[2];
   }
 }
-const ihdr = Buffer.alloc(13);
-ihdr.writeUInt32BE(W, 0);
-ihdr.writeUInt32BE(H, 4);
-ihdr[8] = 8; // bit depth
-ihdr[9] = 2; // color type RGB
-const png = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  chunk('IHDR', ihdr),
-  chunk('IDAT', deflateSync(raw)),
-  chunk('IEND', Buffer.alloc(0)),
-]);
-const base64 = png.toString('base64');
+// Assemble a PNG from signature + chunks. `raw` must already contain per-row
+// filter bytes; `colorType` 2 = RGB, 0 = 8-bit grayscale.
+function buildPng(width, height, colorType, raw) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = colorType;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+const base64 = buildPng(W, H, 2, raw).toString('base64');
 
 // ---------- imageproc subject PNG ----------
 // Exact rasterization of makeTestImage(256, 256, 20261011) from the
@@ -297,9 +303,40 @@ for (let y = 0; y < IH; y += 1) {
     gray[y * (IW + 1) + 1 + x] = Math.min(255, Math.max(0, Math.round(v + 9 * nextNormal())));
   }
 }
-const subjectBase64 = png(0, IW, IH, gray).toString('base64');
+const subjectBase64 = buildPng(IW, IH, 0, gray).toString('base64');
 
 const assetsDir = join(root, 'src', 'core');
+// exampleAssets.ts is hand-extended with exports this script does not generate
+// (e.g. acoustics WAV, DICOM phantom slices). Regenerating must preserve them
+// instead of silently dropping those assets.
+const GENERATED_EXPORTS = ['TEST_PATTERN_PNG_BASE64', 'IMAGEPROC_SUBJECT_PNG_BASE64'];
+let preserved = '';
+try {
+  // Line-based scan: a preserved block is a run of `//` comment lines followed
+  // by an `export const NAME = '…';` value (the closing `;` ends the block).
+  // This keeps each hand-added comment attached to the export it documents.
+  const lines = readFileSync(join(assetsDir, 'exampleAssets.ts'), 'utf8').split(/\r?\n/);
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    const start = i;
+    let j = i;
+    while (j < lines.length && lines[j].startsWith('//')) j += 1;
+    if (j < lines.length && /^export const \w+/.test(lines[j])) {
+      let k = j;
+      while (k < lines.length && !lines[k].trimEnd().endsWith(';')) k += 1;
+      blocks.push(lines.slice(start, k + 1).join('\n'));
+      i = k + 1;
+    } else {
+      i = start + 1; // stray line (e.g. part of the generated header): skip
+    }
+  }
+  preserved = blocks
+    .filter((b) => !GENERATED_EXPORTS.some((name) => b.includes(`export const ${name}`)))
+    .join('\n\n');
+} catch {
+  // First run: no existing asset file to preserve.
+}
 mkdirSync(assetsDir, { recursive: true });
 writeFileSync(
   join(assetsDir, 'exampleAssets.ts'),
@@ -308,7 +345,8 @@ writeFileSync(
     `// 256x256 seeded test-subject PNG (rasterization of the kernel's makeTestImage\n` +
     `// with seed 20261011) for the Image Processing example.\n` +
     `export const TEST_PATTERN_PNG_BASE64 =\n  '${base64}';\n\n` +
-    `export const IMAGEPROC_SUBJECT_PNG_BASE64 =\n  '${subjectBase64}';\n`,
+    `export const IMAGEPROC_SUBJECT_PNG_BASE64 =\n  '${subjectBase64}';\n` +
+    (preserved ? `\n${preserved}\n` : ''),
 );
 
 console.log('generated:');

@@ -7,8 +7,12 @@
          the relative build base, so it resolves under /<repo>/app/ too). -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#2dd4bf" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Ergalics Studio - 浏览器端专业科学计算工作站" />
+    <!-- viewport-fit=cover lets the layout reach the notch on landscape
+         phones; safe-area insets are re-applied via env() in app.css. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Bilingual so search results / link previews read correctly for both
+         locales (the boot splash below follows the same CN · EN convention). -->
+    <meta name="description" content="Ergalics Studio - 专业科学计算工作站 · Professional scientific computing workbench in your browser" />
     <title>Ergalics Studio</title>
     <style>
       /* Static boot screen: renders from the first HTML parse, before any JS

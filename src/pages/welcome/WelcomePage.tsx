@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useT } from '@/i18n';
+import { useDaypart } from '@/core/ambience/vitality';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -12,6 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { NamePromptDialog } from '../workbench/dialogs/NamePromptDialog';
 import { TemplatePanel } from './TemplatePanel';
 import { GALLERY_ID_TO_TEMPLATE, getTemplate, loadTemplate } from '@/core/templates';
 import { siteUrl, docsUrl } from '@/core/site-links';
@@ -21,9 +23,13 @@ import {
   FolderOpenIcon,
   BookIcon,
   CloseIcon,
+  GitBranchIcon,
 } from '@/components/icons';
 
 const APP_VERSION = currentAppVersion();
+
+/** Rotating hero taglines — one shows at a time, cycling every 3 s. */
+const TAGLINE_COUNT = 6;
 
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
@@ -44,6 +50,14 @@ let deepLinkConsumed = false;
 
 export default function WelcomePage() {
   const t = useT();
+  const daypart = useDaypart();
+
+  /** Hero tagline rotation — advances every 3 s, fading via CSS on remount. */
+  const [tagline, setTagline] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTagline((i) => (i + 1) % TAGLINE_COUNT), 3000);
+    return () => window.clearInterval(timer);
+  }, []);
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
@@ -55,6 +69,39 @@ export default function WelcomePage() {
   const importFolder = useProjectStore((s) => s.importFolder);
   const removeProject = useProjectStore((s) => s.remove);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  /** Git-URL clone prompt (same flow as the top-bar project menu). */
+  const [cloneOpen, setCloneOpen] = useState(false);
+
+  /** One-click clone from the welcome page: the store creates the project,
+   *  we jump straight into the workbench. Progress streams into the dialog
+   *  via `report`; error reporting mirrors the GitPanel (short code + CORS
+   *  hint for network-level failures). */
+  const cloneFromUrl = async (url: string, report: (status: string) => void) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    try {
+      await useProjectStore.getState().gitClone(trimmed, undefined, undefined, (phase, loaded, total) => {
+        report(total > 0 ? `${phase} ${loaded}/${total}` : `${phase} ${loaded}`);
+      });
+      notify('success', t('git.cloned'));
+      setCloneOpen(false);
+      navigate('/workbench');
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      const raw = err instanceof Error ? err.message : String(err);
+      let reason = code && !raw.startsWith(code) ? `${code}: ${raw}` : raw;
+      if (/failed to fetch|networkerror|cors|err_failed|proxy/i.test(reason)) {
+        reason += ` — ${t('git.cors_hint')}`;
+      }
+      // Surface in-dialog too: a transient toast is easy to miss while the
+      // modal is up, and the input stays available for a corrected retry.
+      report(t('git.op_failed', { reason }));
+      notify('error', t('git.op_failed', { reason }));
+    } finally {
+      setBusy(false);
+    }
+  };
   const [hardware, setHardware] = useState<HardwareState>({
     webgpu: 'pending',
     gpuName: '',
@@ -244,6 +291,13 @@ export default function WelcomePage() {
 
   return (
     <div className="welcome">
+      {/* Ambient background: three slow-drifting low-saturation glows. Pure
+          decoration — pointer-transparent, removed under reduced motion. */}
+      <div className="welcome-ambient" aria-hidden="true">
+        <span className="wa-1" />
+        <span className="wa-2" />
+        <span className="wa-3" />
+      </div>
       <header className="welcome-topbar">
         <Link className="brand" to="/">
           <span className="brand-name">Ergalics Studio</span>
@@ -258,7 +312,11 @@ export default function WelcomePage() {
       <main className="welcome-main">
         <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
-          <p className="welcome-subtitle">{t('welcome.subtitle')}</p>
+          {/* key= remounts the node so the fade-in animation replays. */}
+          <p className="welcome-subtitle welcome-tagline" key={tagline}>
+            {t(`welcome.tagline.${tagline}`)}
+          </p>
+          <p className="welcome-greeting">{t(`ambience.greeting.${daypart}`)}</p>
           <div className="welcome-cta-row">
             <button
               type="button"
@@ -283,6 +341,15 @@ export default function WelcomePage() {
               disabled={busy}
             >
               <BookIcon size={14} /> {t('welcome.start.samples')}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setCloneOpen(true)}
+              disabled={busy}
+              title={t('project.clone_prompt')}
+            >
+              <GitBranchIcon size={14} /> {t('project.clone')}
             </button>
           </div>
           {/* Secondary, low-weight entries kept out of the primary CTA row. */}
@@ -444,6 +511,14 @@ export default function WelcomePage() {
         </button>
       </footer>
       {/* Deleting a pipeline/project is irreversible — confirm first. */}
+      <NamePromptDialog
+        open={cloneOpen}
+        title={t('project.clone')}
+        message={t('project.clone_prompt')}
+        initial="https://"
+        onClose={() => setCloneOpen(false)}
+        onConfirm={cloneFromUrl}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('common.delete')}

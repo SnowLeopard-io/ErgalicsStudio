@@ -1,21 +1,24 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { useAppStore, fileTabKey, type FilePreviewState } from '@/stores/appStore';
+import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
-const LazySettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
+const LazySettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
 // File editor tabs (design doc P2-P4): Monaco code / Blockly block / flow DAG.
 // Each lazy so the editors (and their heavy runtimes) load on first use.
-const LazyCodeFileEditor = lazy(() =>
+const LazyCodeFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/CodeFileEditor').then((m) => ({ default: m.CodeFileEditor })),
 );
-const LazyBlockFileEditor = lazy(() =>
+const LazyBlockFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/BlockFileEditor').then((m) => ({ default: m.BlockFileEditor })),
 );
-const LazyFlowFileEditor = lazy(() =>
+const LazyFlowFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
 );
 import { Modal } from '@/components/Modal';
@@ -29,7 +32,7 @@ import { downloadBlob } from '@/core/download';
 import { getVfs } from '@/core/vfs';
 import { dataUrlToBlob } from '@/core/plugin-tools/enhance';
 import { saveBinaryArtifact } from '@/core/workspace-artifacts';
-import { DownloadIcon } from '@/components/icons';
+import { DownloadIcon, MaximizeIcon, MinimizeIcon } from '@/components/icons';
 // B1: three (~400KB) must stay out of the first-screen bundle. The scene3d
 // module is dynamically imported on first 3-D demand; the created handle is
 // still cached in `scene3dRef` and exposed synchronously via `getThree`, while
@@ -48,6 +51,7 @@ import type { Scene3DHandle } from '@/types/plugin';
 import { FileRouterDialog } from '../plugin-dialog/FileRouterDialog';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { DataDialog } from './DataDialog';
+import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
 import { WorkbenchModeCards } from '@/components/WorkbenchModes';
@@ -117,6 +121,23 @@ function mdImageCandidates(src: string, mdPath: string): string[] {
 const MD_VIEWS = ['edit', 'preview', 'split'] as const;
 type MdView = (typeof MD_VIEWS)[number];
 
+/** Bounded recursive walk of the workspace tree collecting image files for
+ *  the markdown "insert image" picker (workspace-sourced only — no local
+ *  file dialog). Depth/amount caps keep pathological trees responsive. */
+async function listWorkspaceImages(rootPath: string): Promise<{ path: string; size: number }[]> {
+  const out: { path: string; size: number }[] = [];
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > 6 || out.length >= 500) return;
+    const entries = await getVfs().readDir(rootPath, dir); // missing dir → []
+    for (const entry of entries) {
+      if (entry.isDir) await walk(entry.path, depth + 1);
+      else if (IMG_MIME[imgExt(entry.name)]) out.push({ path: entry.path, size: entry.size });
+    }
+  };
+  await walk('', 0);
+  return out.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /**
  * File preview overlay (VS Code editor-area style). Renders by kind:
  * text → monospace `<pre>`; markdown → editable preview/split with save-back
@@ -149,10 +170,15 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   // diagrams, KaTeX math) via the async enhancer.
   const mdPreviewRef = useRef<HTMLDivElement>(null);
   const mdEditRef = useRef<HTMLTextAreaElement>(null);
-  const mdImgInputRef = useRef<HTMLInputElement>(null);
   // Blob URLs created for project-relative markdown images (resolved VFS path
   // → URL). Cached so React re-renders don't re-read bytes; revoked on unmount.
   const mdImgUrlsRef = useRef(new Map<string, string>());
+
+  // "Insert image" picker: online URL or a clickable workspace-file table —
+  // deliberately no OS file dialog (workspace discipline + portable md).
+  const [imgPickerOpen, setImgPickerOpen] = useState(false);
+  const [imgUrl, setImgUrl] = useState('');
+  const [wsImages, setWsImages] = useState<{ path: string; size: number }[] | null>(null);
 
   // Plugins whose declared formats accept this file's extension. The preview
   // footer offers "open with <plugin>" so a recognized file (e.g. a .cif unit
@@ -179,9 +205,11 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
             type: preview.mimeType,
           });
       await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
-      // Hand the canvas back to the plugin: the preview overlay would otherwise
-      // keep covering the (now active) plugin view.
-      useAppStore.getState().closeTab(fileTabKey(preview.path));
+      // Hand the view back to the plugin, but KEEP the file tab open — closing
+      // it here used to yank the tab away mid-interaction, which felt like the
+      // file was lost. showPluginCanvas switches back to the canvas while the
+      // preview tab stays in the strip (user closes it explicitly if wanted).
+      useAppStore.getState().showPluginCanvas();
     } catch (err) {
       logger.warn('workbench', 'open-with-plugin read failed', err);
       notify('error', t('workbench.preview.open_failed'));
@@ -307,35 +335,47 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
     }
   };
 
-  /** Insert a picked image into the md draft: bytes go into the project
-   *  workspace `figures/` dir, the editor gets a root-relative `![](…)` at
-   *  the cursor. Switches to split view first so the result is visible. */
-  const insertImageFile = async (file: File) => {
-    if (!project) {
-      notify('warning', t('workbench.export.no_project'));
+  /** Insert an image reference into the md draft at the cursor. `ref` is a
+   *  workspace-relative path (picked from the workspace table) or an external
+   *  http(s) URL typed by the user. Switches to split view first so the
+   *  result is visible. */
+  const insertImageRef = (ref: string) => {
+    if (view === 'preview') setView('split');
+    const snippet = `![](${ref})`;
+    const ta = mdEditRef.current;
+    const start = ta && view !== 'preview' ? (ta.selectionStart ?? mdText.length) : mdText.length;
+    const end = ta && view !== 'preview' ? (ta.selectionEnd ?? start) : start;
+    const next = mdText.slice(0, start) + snippet + mdText.slice(end);
+    setMdText(next);
+    requestAnimationFrame(() => {
+      if (!ta) return;
+      ta.focus();
+      const pos = start + snippet.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  // Load the workspace image table each time the picker opens.
+  useEffect(() => {
+    if (!imgPickerOpen || !project) return undefined;
+    let alive = false;
+    void listWorkspaceImages(getProjectRepoPath(project)).then((list) => {
+      if (!alive) setWsImages(list);
+    });
+    return () => {
+      alive = true;
+    };
+  }, [imgPickerOpen, project]);
+
+  const insertOnlineImage = () => {
+    const url = imgUrl.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      notify('warning', t('workbench.preview.image_url_invalid'));
       return;
     }
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const path = await saveBinaryArtifact(project, 'figures', file.name, bytes);
-      if (view === 'preview') setView('split');
-      const snippet = `![](${path})`;
-      const ta = mdEditRef.current;
-      const start = ta && view !== 'preview' ? (ta.selectionStart ?? mdText.length) : mdText.length;
-      const end = ta && view !== 'preview' ? (ta.selectionEnd ?? start) : start;
-      const next = mdText.slice(0, start) + snippet + mdText.slice(end);
-      setMdText(next);
-      requestAnimationFrame(() => {
-        if (!ta) return;
-        ta.focus();
-        const pos = start + snippet.length;
-        ta.setSelectionRange(pos, pos);
-      });
-      notify('success', t('workbench.export.saved', { path }));
-    } catch (err) {
-      logger.error('workbench', 'md image insert failed', err);
-      notify('error', t('workbench.preview.image_failed'));
-    }
+    insertImageRef(url);
+    setImgUrl('');
+    setImgPickerOpen(false);
   };
 
   let body: JSX.Element;
@@ -366,29 +406,64 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className="btn btn-sm central-md-save"
-              onClick={() => mdImgInputRef.current?.click()}
-            >
-              {t('workbench.preview.insert_image')}
-            </button>
-            <button type="button" className="btn btn-sm central-md-save" onClick={() => void saveMarkdown()}>
-              {t('workbench.preview.save')}
-            </button>
+            <div className="central-md-actions">
+              <button type="button" className="btn btn-sm" onClick={() => setImgPickerOpen(true)}>
+                {t('workbench.preview.insert_image')}
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => void saveMarkdown()}>
+                {t('workbench.preview.save')}
+              </button>
+            </div>
           </div>
-          <input
-            ref={mdImgInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            aria-label={t('workbench.preview.insert_image')}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void insertImageFile(f);
-            }}
-          />
+          <Modal
+            open={imgPickerOpen}
+            title={t('workbench.preview.insert_image')}
+            onClose={() => setImgPickerOpen(false)}
+            width={520}
+          >
+            <div className="md-img-picker">
+              <div className="md-img-url">
+                <input
+                  type="url"
+                  value={imgUrl}
+                  placeholder={t('workbench.preview.image_url_placeholder')}
+                  onChange={(e) => setImgUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') insertOnlineImage();
+                  }}
+                />
+                <button type="button" className="btn btn-sm" onClick={insertOnlineImage}>
+                  {t('workbench.preview.image_insert')}
+                </button>
+              </div>
+              <div className="md-img-workspace">{t('workbench.preview.image_workspace')}</div>
+              {wsImages === null ? (
+                <p className="md-img-empty">{t('workbench.preview.loading')}</p>
+              ) : wsImages.length === 0 ? (
+                <p className="md-img-empty">{t('workbench.preview.image_workspace_empty')}</p>
+              ) : (
+                <div className="md-img-list" role="listbox" aria-label={t('workbench.preview.image_workspace')}>
+                  {wsImages.map((f) => (
+                    <button
+                      key={f.path}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className="md-img-row"
+                      title={t('workbench.preview.image_pick')}
+                      onClick={() => {
+                        insertImageRef(f.path);
+                        setImgPickerOpen(false);
+                      }}
+                    >
+                      <span className="md-img-path">{f.path}</span>
+                      <span className="md-img-size">{fmtSize(f.size)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Modal>
           <div className={`central-md-body mode-${view}`}>
             {(view === 'edit' || view === 'split') && (
               <textarea
@@ -397,6 +472,14 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
                 value={mdText}
                 spellCheck={false}
                 onChange={(e) => setMdText(e.target.value)}
+                onKeyDown={(e) => {
+                  // Editor-standard save shortcut: Ctrl/Cmd+S writes the
+                  // draft back to the working tree without leaving the keys.
+                  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                    e.preventDefault();
+                    void saveMarkdown();
+                  }
+                }}
               />
             )}
             {(view === 'preview' || view === 'split') && (
@@ -547,9 +630,13 @@ function EmbeddedToolView({ toolId }: { toolId: string }) {
 function PluginExportMenu({
   canvasRef,
   scene3dRef,
+  fullscreen,
+  onToggleFullscreen,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   scene3dRef: React.RefObject<Scene3DHandle | null>;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
 }) {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
@@ -640,6 +727,48 @@ function PluginExportMenu({
     }
   };
 
+  /** True 1920×1080 re-render, independent of the on-screen viewport size.
+   *  3-D: the scene handle re-renders off-size via its sized snapshot. 2-D:
+   *  temporarily stretch the live canvas to 1920×1080 CSS px (plugins size
+   *  their bitmap from clientWidth at draw start), force one synchronous
+   *  re-render, let two frames flush, snapshot, then restore and re-render. */
+  const grabPng1080 = async (): Promise<Blob | null> => {
+    const three = scene3dRef.current;
+    if (three?.isVisible()) {
+      try {
+        return dataUrlToBlob(three.snapshot({ width: 1920, height: 1080 }));
+      } catch {
+        return null;
+      }
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const prevStyle = canvas.getAttribute('style') ?? '';
+    canvas.style.width = '1920px';
+    canvas.style.height = '1080px';
+    try {
+      rerenderActivePlugin();
+      // Two rAFs: first flushes layout + plugin draw, second guarantees the
+      // bitmap blit is committed before toDataURL reads it back.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return dataUrlToBlob(canvas.toDataURL('image/png'));
+    } catch {
+      return null;
+    } finally {
+      canvas.setAttribute('style', prevStyle);
+      rerenderActivePlugin();
+    }
+  };
+
+  const doDownload1080 = async () => {
+    const blob = await grabPng1080();
+    if (!blob) {
+      notify('warning', t('workbench.export.no_canvas'));
+      return;
+    }
+    downloadBlob(`${baseName()}-1080p.png`, blob, 'image/png');
+  };
+
   /** Encode the active 3-D scene as a downloadable model file. */
   const exportModel = async (format: 'glb' | 'stl', toWorkspace: boolean) => {
     const three = scene3dRef.current;
@@ -683,6 +812,17 @@ function PluginExportMenu({
       <button
         type="button"
         className="central-export-btn"
+        title={fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}
+        aria-label={fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}
+        aria-pressed={fullscreen}
+        onClick={onToggleFullscreen}
+      >
+        {fullscreen ? <MinimizeIcon size={13} /> : <MaximizeIcon size={13} />}
+        <span>{fullscreen ? t('workbench.export.fullscreen_exit') : t('workbench.export.fullscreen')}</span>
+      </button>
+      <button
+        type="button"
+        className="central-export-btn"
         title={t('workbench.export.menu')}
         aria-label={t('workbench.export.menu')}
         aria-haspopup="menu"
@@ -698,6 +838,11 @@ function PluginExportMenu({
       {open && (
         <div className="central-export-menu" role="menu">
           {menuBtn(t('workbench.export.download_png'), runAndClose(() => doDownload(false)), 'dl')}
+          {menuBtn(
+            t('workbench.export.download_png_1080p'),
+            runAndClose(() => void doDownload1080()),
+            'dl1080',
+          )}
           {menuBtn(
             t('workbench.export.save_workspace'),
             runAndClose(() => void doSaveWorkspace(false)),
@@ -740,6 +885,34 @@ function PluginExportMenu({
 
 export function CentralArea() {
   const t = useT();
+  // Immersive fullscreen: the fullscreen element is the canvas wrap itself —
+  // the LEFT sidebar stays behind (immersion), but the RIGHT panel is
+  // portaled in as a floating layer so it can still extend over the canvas
+  // (both instances share the same zustand state; the non-fullscreen one is
+  // simply not displayed by the browser). The existing ResizeObserver
+  // re-renders the plugin at the new size automatically.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => typeof document !== 'undefined' && document.fullscreenElement != null,
+  );
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+  const toggleFullscreen = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    const request =
+      el.requestFullscreen ??
+      (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> })
+        .webkitRequestFullscreen;
+    void request?.call(el).catch(() => undefined);
+  };
   const activePlugin = usePluginStore(
     (s) => s.registry.find((e) => e.id === s.activeId)?.plugin ?? null,
   );
@@ -759,10 +932,16 @@ export function CentralArea() {
   const editorFiles = useAppStore((s) => s.editorFiles);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
+  const reorderTabs = useAppStore((s) => s.reorderTabs);
   const saveEditorFile = useAppStore((s) => s.saveEditorFile);
   // Editor tab with unsaved edits pending a close confirmation (design doc
   // P5): key of the tab, null when no confirmation is active.
   const [confirmCloseKey, setConfirmCloseKey] = useState<string | null>(null);
+  // Tab drag-reorder: source key while a native drag is in flight (ref —
+  // read in dragover without re-rendering), and the tab currently hovered
+  // as a drop target (state — drives the drop-target highlight).
+  const dragTabKey = useRef<string | null>(null);
+  const [dragOverTabKey, setDragOverTabKey] = useState<string | null>(null);
   // Tab strip panning: the scrollbar stays hidden, so the strip pans via
   // wheel (vertical delta → horizontal) and mouse drag; a small movement
   // threshold keeps tab clicks working while dragging pans the row. The
@@ -790,6 +969,10 @@ export function CentralArea() {
     el.addEventListener('wheel', onWheel, { passive: false });
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      // A press on a tab starts a native HTML5 drag (tab reorder); capturing
+      // the pointer for strip-panning would suppress that drag, so presses
+      // landing on tabs are left to the drag driver (wheel still pans).
+      if ((e.target as HTMLElement | null)?.closest?.('.central-tool-tab')) return;
       dragging = true;
       moved = false;
       startX = e.clientX;
@@ -880,6 +1063,13 @@ export function CentralArea() {
     baseX: number;
     baseY: number;
   } | null>(null);
+  // Touch multi-pointer state. One finger pans; two fingers pinch-zoom.
+  // Without dedicated pinch handling the second finger's moves were read as
+  // pan deltas against the first finger's origin, so the viewport flipped
+  // between two far-apart offsets on every event (the tablet flicker) and
+  // pinch could never zoom.
+  const touchPoints = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
 
   // Pan/zoom only makes sense on a bare 2D viewport: the 3D canvas is up
   // (OrbitControls owns the input there) and plugin DOM must keep its own
@@ -907,18 +1097,59 @@ export function CentralArea() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pan2dAllowed(e.target)) return;
-    const v = getViewport2d();
-    drag2d.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      baseX: v.x,
-      baseY: v.y,
-    };
+    touchPoints.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touchPoints.current.size === 2) {
+      // Second finger down: switch from pan to pinch-zoom.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      pinch.current = {
+        dist: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)),
+        cx: (a!.x + b!.x) / 2,
+        cy: (a!.y + b!.y) / 2,
+      };
+      drag2d.current = null;
+    } else if (touchPoints.current.size === 1) {
+      const v = getViewport2d();
+      drag2d.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        baseX: v.x,
+        baseY: v.y,
+      };
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.style.cursor = 'grabbing';
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const tracked = touchPoints.current.get(e.pointerId);
+    if (tracked) {
+      tracked.x = e.clientX;
+      tracked.y = e.clientY;
+    }
+    if (pinch.current && touchPoints.current.size >= 2) {
+      // Pinch: scale around the finger midpoint and follow its translation.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      const dist = Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y));
+      const cx = (a!.x + b!.x) / 2;
+      const cy = (a!.y + b!.y) / 2;
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (rect) {
+        const v = getViewport2d();
+        // Host-space midpoint before/after this move.
+        const mx = pinch.current.cx - rect.left;
+        const my = pinch.current.cy - rect.top;
+        const nx = cx - rect.left;
+        const ny = cy - rect.top;
+        const next = Math.min(12, Math.max(0.1, v.scale * (dist / pinch.current.dist)));
+        const k = next / v.scale;
+        const p = clampPan(nx - (mx - v.x) * k + (nx - mx), ny - (my - v.y) * k + (ny - my));
+        setViewport2d({ x: p.x, y: p.y, scale: next });
+        setVp2d({ x: p.x, y: p.y, scale: next });
+        rerenderActivePlugin();
+      }
+      pinch.current = { dist, cx, cy };
+      return;
+    }
     const drag = drag2d.current;
     if (drag) {
       const v = getViewport2d();
@@ -937,7 +1168,27 @@ export function CentralArea() {
   };
 
   const onPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!drag2d.current) return;
+    const tracked = touchPoints.current.delete(e.pointerId);
+    if (!tracked && !drag2d.current && !pinch.current) return;
+    if (touchPoints.current.size >= 2) {
+      // A third finger lifted; re-anchor the pinch on the remaining two.
+      const [a, b] = [...touchPoints.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      pinch.current = {
+        dist: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)),
+        cx: (a!.x + b!.x) / 2,
+        cy: (a!.y + b!.y) / 2,
+      };
+      return;
+    }
+    pinch.current = null;
+    if (touchPoints.current.size === 1) {
+      // One finger left on the glass: resume panning from its position so the
+      // view does not jump back to the stale single-finger drag origin.
+      const [p] = [...touchPoints.current.values()] as [{ x: number; y: number }];
+      const v = getViewport2d();
+      drag2d.current = { startX: p!.x, startY: p!.y, baseX: v.x, baseY: v.y };
+      return;
+    }
     drag2d.current = null;
     e.currentTarget.style.cursor = '';
     try {
@@ -1116,7 +1367,7 @@ export function CentralArea() {
   };
 
   return (
-    <div className="central-wrap">
+    <div className="central-wrap" ref={wrapRef}>
       <div
         className="central"
       onDragEnter={(e) => {
@@ -1170,8 +1421,16 @@ export function CentralArea() {
         {/* Unified export control: only on the foreground plugin canvas —
             file/suite tabs cover it with an opaque overlay anyway. */}
         {activeTab === null && activePlugin && (
-          <PluginExportMenu canvasRef={canvasRef} scene3dRef={scene3dRef} />
+          <PluginExportMenu
+            canvasRef={canvasRef}
+            scene3dRef={scene3dRef}
+            fullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+          />
         )}
+        {/* Immersive fullscreen: floating instance of the right panel so it
+            can extend over the canvas (state is shared with the docked one). */}
+        {isFullscreen && wrapRef.current && createPortal(<RightPanel />, wrapRef.current)}
       </div>
       {/* 画布标签体系（VS Code 编辑区风格）：插件画布本身是第一个"标签"，
           文件预览与内嵌套件跟在后面。所有已打开的标签保持挂载，切换仅改
@@ -1247,6 +1506,21 @@ export function CentralArea() {
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
               const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
+              // Shared by the × button and middle-click close: pull any
+              // debounced-but-unpushed edit into the store first, and route
+              // dirty editors through the save/discard confirmation.
+              const requestClose = () => {
+                if (tab.kind === 'editor') flushEditorFile(tab.key);
+                const nowDirty =
+                  tab.kind === 'editor'
+                    ? (useAppStore.getState().editorFiles[tab.key]?.dirty ?? false)
+                    : false;
+                if (nowDirty) {
+                  setConfirmCloseKey(tab.key);
+                  return;
+                }
+                closeTab(tab.key);
+              };
               return (
                 <div
                   key={tab.key}
@@ -1255,9 +1529,50 @@ export function CentralArea() {
                   tabIndex={active ? 0 : -1}
                   className={`central-tool-tab${active ? ' active' : ''}${
                     tab.kind === 'file' ? ' file-tab' : ''
-                  }${tab.kind === 'editor' ? ' editor-tab' : ''}`}
+                  }${tab.kind === 'editor' ? ' editor-tab' : ''}${
+                    dragOverTabKey === tab.key && dragTabKey.current !== tab.key ? ' drop-target' : ''
+                  }`}
                   title={label}
                   onClick={() => activateTab(tab.key)}
+                  onAuxClick={(e) => {
+                    // VS Code convention: middle-click closes the tab without
+                    // activating it first.
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      requestClose();
+                    }
+                  }}
+                  draggable
+                  onDragStart={(e) => {
+                    dragTabKey.current = tab.key;
+                    // Required for Firefox to initiate the drag at all.
+                    e.dataTransfer.setData('text/plain', tab.key);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    dragTabKey.current = null;
+                    setDragOverTabKey(null);
+                  }}
+                  onDragOver={(e) => {
+                    if (!dragTabKey.current) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverTabKey !== tab.key) setDragOverTabKey(tab.key);
+                  }}
+                  onDragLeave={(e) => {
+                    // Child elements (icon/name spans) fire dragleave while
+                    // crossing; only clear when actually leaving the tab.
+                    if (!e.currentTarget.contains(e.relatedTarget as Node) && dragOverTabKey === tab.key) {
+                      setDragOverTabKey(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = dragTabKey.current;
+                    dragTabKey.current = null;
+                    setDragOverTabKey(null);
+                    if (from && from !== tab.key) reorderTabs(from, tab.key);
+                  }}
                   onKeyDown={(e) => {
                     // The tablist handler already handles arrows; here we only
                     // forward Enter/Space so the focused tab can be activated
@@ -1292,11 +1607,7 @@ export function CentralArea() {
                     title={t('suite.close')}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (dirty) {
-                        setConfirmCloseKey(tab.key);
-                        return;
-                      }
-                      closeTab(tab.key);
+                      requestClose();
                     }}
                   >
                     <CloseIcon size={10} />

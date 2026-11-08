@@ -1,22 +1,32 @@
 // Ergalics Studio — guided tour overlay (新手引导)
 //
-// A single basic product tour, in two phases:
-//   1. "view" steps introduce every region of the workbench (top bar, activity
-//      bar, sidebar, canvas tab strip, parameter panel, status bar, global
-//      tools / AI assistant) — advanced with a Next button.
-//   2. "click" steps make the user physically run the first sample: open the
-//      examples dialog, load the structure sample (auto-scrolled into view),
-//      press Run. A capture-phase document listener advances when the click
-//      lands inside the highlighted target.
+// All flows share one overlay. The first two are the original onboarding
+// story; the rest are feature tours that always start on the workbench and
+// click their way into the feature (never jump straight to a /studio page):
 //
-// The overlay layer is pointer-events:none; only the tooltip card captures
-// clicks, so the real UI under the spotlight stays fully interactive.
+//   1. 'menu'     — the entry chooser rendered as cards.
+//   2. 'debut'    — the first-run 30-second story: sample data → publication
+//                   figure → caption → SVG/PDF/PNG files.
+//   3. 'ui'       — the region-by-region workbench walkthrough.
+//   4. 'analysis' — workbench → 科研 launcher → Data Profiler → sample scan.
+//   5. 'publish'  — workbench → 科研 launcher → LaTeX editor → manuscript.
+//   6. 'launcher' — workbench → 科研 launcher → an embedded research suite.
+//
+// "view" steps advance with a Next button; "click" steps make the user
+// physically click the highlighted control (a capture-phase document listener
+// advances when the click lands inside it). The overlay layer is
+// pointer-events:none; only the tooltip card captures clicks, so the real UI
+// under the spotlight stays fully interactive.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
-import { useTourStore } from '@/stores/tourStore';
+import { useTourStore, type TourFlow } from '@/stores/tourStore';
+import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { beginDebut } from '@/core/debut';
 
-type StepMode = 'intro' | 'view' | 'click' | 'done';
+type StepMode = 'intro' | 'view' | 'click' | 'change' | 'done';
 
 interface TourStepDef {
   mode: StepMode;
@@ -26,12 +36,55 @@ interface TourStepDef {
   bodyKey: string;
 }
 
-const STEPS: TourStepDef[] = [
+/** Entry chooser: the two parts of onboarding, on equal footing. */
+const MENU_STEPS: TourStepDef[] = [
   {
     mode: 'intro',
-    titleKey: 'tour.intro_ai_title',
-    bodyKey: 'tour.intro_ai_body',
+    titleKey: 'tour.menu_title',
+    bodyKey: 'tour.menu_body',
   },
+];
+
+/** 30-second first-run flow: data → figure → caption → files. */
+const DEBUT_STEPS: TourStepDef[] = [
+  {
+    mode: 'intro',
+    titleKey: 'tour.debut_intro_title',
+    bodyKey: 'tour.debut_intro_body',
+  },
+  {
+    mode: 'view',
+    selector: '[data-tour="figure-preview"]',
+    titleKey: 'tour.debut_figure_title',
+    bodyKey: 'tour.debut_figure_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="figure-caption"]',
+    titleKey: 'tour.debut_caption_title',
+    bodyKey: 'tour.debut_caption_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="caption-apply"]',
+    titleKey: 'tour.debut_caption_apply_title',
+    bodyKey: 'tour.debut_caption_apply_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="figure-save-ws"]',
+    titleKey: 'tour.debut_save_title',
+    bodyKey: 'tour.debut_save_body',
+  },
+  {
+    mode: 'done',
+    titleKey: 'tour.debut_done_title',
+    bodyKey: 'tour.debut_done_body',
+  },
+];
+
+/** Region-by-region workbench walkthrough (the original tour). */
+const UI_STEPS: TourStepDef[] = [
   {
     mode: 'view',
     selector: '.topbar',
@@ -83,8 +136,9 @@ const STEPS: TourStepDef[] = [
   {
     mode: 'click',
     // The library opens on its first category — the truss sample lives under
-    // Physics, so switching categories is a required intermediate click.
-    selector: '[data-example-cat="physics"]',
+    // Engineering (disciplineOf('example.structure')), so switching categories
+    // is a required intermediate click.
+    selector: '[data-example-cat="engineering"]',
     titleKey: 'tour.cat_title',
     bodyKey: 'tour.cat_body',
   },
@@ -109,6 +163,126 @@ const STEPS: TourStepDef[] = [
   },
 ];
 
+/** Data analysis: start from the workbench, open Data Profiler, scan a sample. */
+const ANALYSIS_STEPS: TourStepDef[] = [
+  {
+    mode: 'click',
+    selector: '.launcher-trigger',
+    titleKey: 'tour.analysis_open_title',
+    bodyKey: 'tour.analysis_open_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-menu-key="profiler"]',
+    titleKey: 'tour.analysis_pick_title',
+    bodyKey: 'tour.analysis_pick_body',
+  },
+  {
+    mode: 'change',
+    selector: '[data-tour="profiler-file"]',
+    titleKey: 'tour.analysis_file_title',
+    bodyKey: 'tour.analysis_file_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="profiler-run"]',
+    titleKey: 'tour.analysis_summary_title',
+    bodyKey: 'tour.analysis_summary_body',
+  },
+  {
+    mode: 'view',
+    selector: '[data-tour="profiler-summary"]',
+    titleKey: 'tour.analysis_output_title',
+    bodyKey: 'tour.analysis_output_body',
+  },
+  {
+    mode: 'done',
+    titleKey: 'tour.analysis_done_title',
+    bodyKey: 'tour.analysis_done_body',
+  },
+];
+
+/** Paper writing: start from the workbench, open LaTeX, write and save. */
+const PUBLISH_STEPS: TourStepDef[] = [
+  {
+    mode: 'click',
+    selector: '.launcher-trigger',
+    titleKey: 'tour.publish_open_title',
+    bodyKey: 'tour.publish_open_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-menu-key="latex-editor"]',
+    titleKey: 'tour.publish_pick_title',
+    bodyKey: 'tour.publish_pick_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="publish-new"]',
+    titleKey: 'tour.publish_new_title',
+    bodyKey: 'tour.publish_new_body',
+  },
+  {
+    mode: 'view',
+    selector: '[data-tour="publish-editor"]',
+    titleKey: 'tour.publish_editor_title',
+    bodyKey: 'tour.publish_editor_body',
+  },
+  {
+    mode: 'view',
+    selector: '[data-tour="publish-preview"]',
+    titleKey: 'tour.publish_preview_title',
+    bodyKey: 'tour.publish_preview_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-tour="publish-save"]',
+    titleKey: 'tour.publish_save_title',
+    bodyKey: 'tour.publish_save_body',
+  },
+  {
+    mode: 'done',
+    titleKey: 'tour.publish_done_title',
+    bodyKey: 'tour.publish_done_body',
+  },
+];
+
+/** Research tools: open the launcher, then enter one suite from its group. */
+const LAUNCHER_STEPS: TourStepDef[] = [
+  {
+    mode: 'click',
+    selector: '.launcher-trigger',
+    titleKey: 'tour.launcher_open_title',
+    bodyKey: 'tour.launcher_open_body',
+  },
+  {
+    mode: 'click',
+    selector: '[data-menu-key="uncertainty"]',
+    titleKey: 'tour.launcher_pick_title',
+    bodyKey: 'tour.launcher_pick_body',
+  },
+  {
+    mode: 'view',
+    selector: '[data-tour="embedded-tool"]',
+    titleKey: 'tour.launcher_tool_title',
+    bodyKey: 'tour.launcher_tool_body',
+  },
+  {
+    mode: 'done',
+    titleKey: 'tour.launcher_done_title',
+    bodyKey: 'tour.launcher_done_body',
+  },
+];
+
+const FLOWS: Record<TourFlow, TourStepDef[]> = {
+  menu: MENU_STEPS,
+  debut: DEBUT_STEPS,
+  ui: UI_STEPS,
+  analysis: ANALYSIS_STEPS,
+  publish: PUBLISH_STEPS,
+  launcher: LAUNCHER_STEPS,
+};
+
 const TIP_WIDTH = 320;
 /** How much of the target must sit inside the viewport to stop scrolling. */
 const VISIBILITY_THRESHOLD = 0.85;
@@ -122,25 +296,30 @@ interface Rect {
 
 export function TourGuide() {
   const t = useT();
+  const navigate = useNavigate();
   const active = useTourStore((s) => s.active);
+  const flow = useTourStore((s) => s.flow);
   const step = useTourStore((s) => s.step);
   const next = useTourStore((s) => s.next);
   const finish = useTourStore((s) => s.finish);
+  const start = useTourStore((s) => s.start);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [launching, setLaunching] = useState(false);
 
-  const stepIndex = Math.min(step, STEPS.length - 1);
+  const steps = FLOWS[flow];
+  const stepIndex = Math.min(step, steps.length - 1);
   // stepIndex is clamped to the last step, so the lookup always lands; the
   // fallback just satisfies noUncheckedIndexedAccess.
-  const def = STEPS[stepIndex] ?? STEPS[STEPS.length - 1]!;
+  const def = steps[stepIndex] ?? steps[steps.length - 1]!;
   const isLast = def.mode === 'done';
-  const finished = step >= STEPS.length;
+  const finished = step >= steps.length;
 
-  const advance = useCallback(() => (isLast ? finish() : next()), [isLast, finish, next]);
+  const advance = useCallback(() => (isLast ? finish(true) : next()), [isLast, finish, next]);
 
   // Walked past the final step (e.g. clicked the last highlighted element
   // right as the tour ended) — treat as completion.
   useEffect(() => {
-    if (active && finished) finish();
+    if (active && finished) finish(true);
   }, [active, finished, finish]);
 
   // Track the highlighted element's position: an interval re-reads the rect
@@ -224,6 +403,19 @@ export function TourGuide() {
     // `advance` follows def/isLast; re-subscribing on step change is intended.
   }, [active, finished, def, advance]);
 
+  // "change" steps advance when the highlighted form control actually changes
+  // (e.g. choosing a dataset in a dropdown). This is the honest analogue of a
+  // click step for controls whose value — not the click — is the action.
+  useEffect(() => {
+    if (!active || finished || def.mode !== 'change' || !def.selector) return;
+    const onDocChange = (e: Event) => {
+      const el = document.querySelector(def.selector!);
+      if (el && e.composedPath().includes(el)) advance();
+    };
+    document.addEventListener('change', onDocChange, true);
+    return () => document.removeEventListener('change', onDocChange, true);
+  }, [active, finished, def, advance]);
+
   // Escape exits the tour.
   useEffect(() => {
     if (!active) return;
@@ -233,6 +425,60 @@ export function TourGuide() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active, finish]);
+
+  const launchDebut = useCallback(async () => {
+    if (launching) return;
+    setLaunching(true);
+    const result = await beginDebut();
+    if (!result.ok) {
+      setLaunching(false);
+      useAppStore.getState().notify('error', t('tour.debut_failed'));
+      return;
+    }
+    navigate('/studio/figures');
+    // Start the tour on the composed figure step; the intro already happened.
+    useTourStore.getState().startAt('debut', 1);
+    setLaunching(false);
+  }, [launching, navigate, t]);
+
+  /** The UI walkthrough only makes sense on the workbench, so bring the user
+   *  back there before switching flows (the debut ends on /studio/figures). */
+  const startUi = useCallback(
+    (step = 0) => {
+      navigate('/workbench');
+      start('ui', step);
+    },
+    [navigate, start],
+  );
+
+  const startAnalysis = useCallback(() => {
+    navigate('/workbench');
+    start('analysis', 0);
+  }, [navigate, start]);
+
+  /** Writing needs a project. If the user has none, quietly build the debut
+   *  project first — it also gives the manuscript a figure to reference.
+   *  The tour itself still starts on the workbench and clicks its way in. */
+  const startPublish = useCallback(async () => {
+    if (launching) return;
+    setLaunching(true);
+    if (!useProjectStore.getState().project) {
+      const result = await beginDebut();
+      if (!result.ok) {
+        setLaunching(false);
+        useAppStore.getState().notify('error', t('tour.debut_failed'));
+        return;
+      }
+    }
+    navigate('/workbench');
+    start('publish', 0);
+    setLaunching(false);
+  }, [launching, navigate, start, t]);
+
+  const startLauncher = useCallback(() => {
+    navigate('/workbench');
+    start('launcher', 0);
+  }, [navigate, start]);
 
   if (!active || finished) return null;
 
@@ -253,6 +499,76 @@ export function TourGuide() {
   }
 
   const hero = !rect;
+  const isMenu = flow === 'menu' && def.mode === 'intro';
+  const isDebutIntro = flow === 'debut' && def.mode === 'intro';
+  const isDebutDone = flow === 'debut' && def.mode === 'done';
+
+  const renderActions = () => {
+    if (isMenu) {
+      return (
+        <button type="button" className="btn btn-sm" onClick={() => finish()}>
+          {t('tour.skip')}
+        </button>
+      );
+    }
+    if (isDebutIntro) {
+      return (
+        <>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => void launchDebut()}
+            disabled={launching}
+          >
+            {launching ? t('tour.debut_loading') : t('tour.debut_start')}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => finish()}>
+            {t('tour.skip')}
+          </button>
+        </>
+      );
+    }
+    if (def.mode === 'intro') {
+      return (
+        <button type="button" className="btn btn-sm" onClick={() => finish()}>
+          {t('tour.skip')}
+        </button>
+      );
+    }
+    if (def.mode === 'done') {
+      return (
+        <>
+          <button type="button" className="btn btn-sm" onClick={() => start('menu')}>
+            {t('tour.menu_back')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => finish(true)}
+          >
+            {t('tour.finish')}
+          </button>
+        </>
+      );
+    }
+    if (def.mode === 'click' || def.mode === 'change') {
+      return (
+        <button type="button" className="btn btn-sm" onClick={() => finish()}>
+          {t('tour.skip')}
+        </button>
+      );
+    }
+    return (
+      <>
+        <button type="button" className="btn btn-sm btn-primary" onClick={next}>
+          {t('tour.next')}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => finish()}>
+          {t('tour.skip')}
+        </button>
+      </>
+    );
+  };
 
   return (
     <div className="tour-layer" role="dialog" aria-label={t('workbench.tour.title')}>
@@ -276,50 +592,83 @@ export function TourGuide() {
           <span className="tour-tip-title">{t(def.titleKey)}</span>
           {!hero && (
             <span className="tour-tip-count">
-              {stepIndex + 1} / {STEPS.length}
+              {stepIndex + 1} / {steps.length}
             </span>
           )}
         </div>
         <p className={`tour-tip-body${def.mode === 'intro' ? ' tour-intro-body' : ''}`}>
           {t(def.bodyKey)}
         </p>
-        {def.mode === 'click' && <div className="tour-tip-hint">{t('tour.click_hint')}</div>}
+        {isMenu && (
+          <>
+            <div className="tour-menu-grid">
+              <button type="button" className="tour-menu-card" onClick={() => startUi()}>
+                <span className="tour-menu-badge">{t('tour.menu_ui_badge')}</span>
+                <span className="tour-menu-name">{t('tour.menu_ui_title')}</span>
+                <span className="tour-menu-desc">{t('tour.menu_ui_desc')}</span>
+              </button>
+              <button
+                type="button"
+                className="tour-menu-card"
+                onClick={() => start('debut')}
+                disabled={launching}
+              >
+                <span className="tour-menu-badge">{t('tour.menu_workflow_badge')}</span>
+                <span className="tour-menu-name">{t('tour.menu_workflow_title')}</span>
+                <span className="tour-menu-desc">{t('tour.menu_workflow_desc')}</span>
+              </button>
+            </div>
+            <div className="tour-menu-more">{t('tour.menu_more')}</div>
+            <div className="tour-menu-grid is-more">
+              <button type="button" className="tour-menu-card" onClick={startAnalysis}>
+                <span className="tour-menu-badge">{t('tour.menu_analysis_badge')}</span>
+                <span className="tour-menu-name">{t('tour.menu_analysis_title')}</span>
+                <span className="tour-menu-desc">{t('tour.menu_analysis_desc')}</span>
+              </button>
+              <button
+                type="button"
+                className="tour-menu-card"
+                onClick={() => void startPublish()}
+                disabled={launching}
+              >
+                <span className="tour-menu-badge">{t('tour.menu_publish_badge')}</span>
+                <span className="tour-menu-name">
+                  {launching ? t('tour.debut_loading') : t('tour.menu_publish_title')}
+                </span>
+                <span className="tour-menu-desc">{t('tour.menu_publish_desc')}</span>
+              </button>
+              <button type="button" className="tour-menu-card" onClick={startLauncher}>
+                <span className="tour-menu-badge">{t('tour.menu_launcher_badge')}</span>
+                <span className="tour-menu-name">{t('tour.menu_launcher_title')}</span>
+                <span className="tour-menu-desc">{t('tour.menu_launcher_desc')}</span>
+              </button>
+            </div>
+          </>
+        )}
+        {isDebutDone && (
+          <div className="tour-result-card">
+            <span className="tour-result-seal" aria-hidden="true">
+              ◇
+            </span>
+            <span className="tour-result-copy">
+              <span className="tour-result-title">{t('tour.debut_result_title')}</span>
+              <span className="tour-result-meta">{t('tour.debut_result_meta')}</span>
+            </span>
+          </div>
+        )}
+        {(def.mode === 'click' || def.mode === 'change') && (
+          <div className="tour-tip-hint">
+            {t(def.mode === 'change' ? 'tour.change_hint' : 'tour.click_hint')}
+          </div>
+        )}
         {!hero && (
           <div className="tour-dots" aria-hidden="true">
-            {Array.from({ length: STEPS.length }, (_, i) => (
+            {Array.from({ length: steps.length }, (_, i) => (
               <span key={i} className={`tour-dot${i === stepIndex ? ' is-active' : ''}`} />
             ))}
           </div>
         )}
-        <div className="tour-tip-actions">
-          {def.mode === 'intro' ? (
-            <>
-              <button type="button" className="btn btn-sm btn-primary" onClick={next}>
-                {t('tour.begin')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={finish}>
-                {t('tour.skip')}
-              </button>
-            </>
-          ) : def.mode === 'done' ? (
-            <button type="button" className="btn btn-sm btn-primary" onClick={finish}>
-              {t('tour.finish')}
-            </button>
-          ) : def.mode === 'click' ? (
-            <button type="button" className="btn btn-sm" onClick={finish}>
-              {t('tour.skip')}
-            </button>
-          ) : (
-            <>
-              <button type="button" className="btn btn-sm btn-primary" onClick={next}>
-                {t('tour.next')}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={finish}>
-                {t('tour.skip')}
-              </button>
-            </>
-          )}
-        </div>
+        <div className="tour-tip-actions">{renderActions()}</div>
       </div>
     </div>
   );

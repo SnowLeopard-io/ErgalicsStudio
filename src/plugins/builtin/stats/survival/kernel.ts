@@ -129,11 +129,16 @@ export function kaplanMeier(time: number[], event: boolean[], label = 'all', con
       greenwood += d / (nRisk * (nRisk - d || 1));
       totalEvents += d;
     }
-    if (d === 0) censored += c;
+    censored += c;
     const se = s * Math.sqrt(greenwood);
     let lo = 0;
     let hi = 1;
-    if (s > 0 && s < 1 && se > 0) {
+    if (greenwood === 0) {
+      // No event observed yet: the estimate carries no uncertainty, so the
+      // confidence band collapses onto the curve instead of spanning [0, 1].
+      lo = s;
+      hi = s;
+    } else if (s > 0 && s < 1) {
       const loglog = Math.log(-Math.log(s));
       const half = (z * Math.sqrt(greenwood)) / Math.abs(Math.log(s));
       lo = Math.exp(-Math.exp(loglog + half));

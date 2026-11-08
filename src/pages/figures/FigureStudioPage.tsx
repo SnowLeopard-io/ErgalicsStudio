@@ -439,7 +439,8 @@ export default function FigureStudioPage() {
         <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteSheet}>
           {t('figure.delete_sheet')}
         </button>
-        <button type="button" className="btn btn-sm" onClick={() => setCaptionOpen(true)}>
+        <button type="button" className="btn btn-sm" onClick={() => setCaptionOpen(true)}
+          data-tour="figure-caption">
           {t('submit.caption_generate')}
         </button>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setCheckOpen(true)}>
@@ -568,7 +569,7 @@ export default function FigureStudioPage() {
           </aside>
 
           <section className="figures-stage">
-            <div className="figures-preview" aria-label={t('figure.preview')}>
+            <div className="figures-preview" aria-label={t('figure.preview')} data-tour="figure-preview">
               {composed && (
                 <FigureReadout panels={panelGeoms}>
                   <div
@@ -615,6 +616,7 @@ export default function FigureStudioPage() {
                 disabled={active.panels.length === 0 || !project}
                 title={project ? t('labs.save_ws') : t('labs.no_project')}
                 onClick={() => void saveSheetAllFormats()}
+                data-tour="figure-save-ws"
               >
                 {t('figure.save_ws')}
               </button>

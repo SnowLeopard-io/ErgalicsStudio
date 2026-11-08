@@ -183,4 +183,23 @@ describe('workspace helpers', () => {
     expect(names).not.toContain('.github');
     expect(await vfs.readFile(ROOT, 'data/.gitkeep')).toBe('');
   });
+
+  it('seedStandardSkeleton({ overwrite: false }) keeps existing user files', async () => {
+    const vfs = new MemoryVfs();
+    await vfs.writeFile(ROOT, 'manuscript/main.tex', '\\documentclass{article}');
+    const written = await seedStandardSkeleton(vfs, ROOT, { overwrite: false });
+    expect(written).not.toContain('manuscript/main.tex');
+    expect(await vfs.readFile(ROOT, 'manuscript/main.tex')).toBe('\\documentclass{article}');
+    // Missing skeleton entries are still created (including manuscript/).
+    expect(written).toContain('manuscript/.gitkeep');
+    expect(await vfs.exists(ROOT, 'manuscript/.gitkeep')).toBe(true);
+    expect(await vfs.exists(ROOT, 'data/.gitkeep')).toBe(true);
+  });
+
+  it('seedStandardSkeleton overwrites by default (fresh-project behaviour)', async () => {
+    const vfs = new MemoryVfs();
+    await vfs.writeFile(ROOT, 'data/.gitkeep', 'user content');
+    await seedStandardSkeleton(vfs, ROOT);
+    expect(await vfs.readFile(ROOT, 'data/.gitkeep')).toBe('');
+  });
 });

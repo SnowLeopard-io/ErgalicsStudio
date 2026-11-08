@@ -17,7 +17,7 @@ state, not aspirational designs.
 | Projects      | create/save/open/autosave/share `.clproj`                      | Done      |
 | Data loading  | file picker / drag & drop / format detection / routing         | Done      |
 | Rendering     | 2D canvas + host Three.js scene (lazy, visibility-managed)     | Done      |
-| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 42 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
+| Flow mode     | compiler (validate/topology) + executor (incremental cache) + 53 built-in block types + Flow canvas + result preview + sample pipelines | Done      |
 | Block mode    | shared IR + Blockly 13 (lazy-loaded) + interpreter + JS / Python codegen + 40 built-in blocks + 5 sample programs + `studio.*` API reusing Flow ops + i18n via `BKY_*` | Done      |
 | i18n          | zh-CN / en-US, detection, reactive switching, Blockly `BKY_*`  | Done      |
 | Theming       | dark/light, system-follow, CSS variables                       | Done      |
@@ -32,7 +32,7 @@ state, not aspirational designs.
 | Unit system | typed `Quantity` with SI parsing, dimensional algebra + `units.convert`/`units.check` blocks + QuantityInput (`src/core/units/`) | Done      |
 | Data lineage  | file→run DAG rebuilt from run records + ingestion, layered layout (`src/core/lineage/`), LineageCanvas dialog | Done      |
 | Chunked ingestion | async row-window reader for large delimited files, preview + fingerprint (`src/core/chunked/`) | Done      |
-| Research toolset | 26 standalone tools under `/studio/<id>`, grouped in six categories (measurement & uncertainty, model & inference, data & graphs, signal & records, deliver & reproduce, utilities; the analysis page is excluded from the welcome grid), also embeddable as workbench tabs (`src/pages/research/toolRegistry.ts`) | Done      |
+| Research toolset | 33 standalone tools under `/studio/<id>`, grouped in seven categories (measurement & uncertainty, model & inference, data & graphs, signal & records, deliver & reproduce, publish, utilities; the analysis page is excluded from the welcome grid), also embeddable as workbench tabs (`src/pages/research/toolRegistry.ts`) | Done      |
 | Figure Studio | multi-panel publication figures on journal templates (IEEE/Elsevier), SVG/PDF/PNG-600dpi export, `/studio/figures` route (`src/core/figure/`) | Done      |
 | Supplement packaging | paper-ready zip with manifest.json (runs + lineage + contents: data/code/files + optional repro.lock) (`src/core/package/supplement.ts`) | Done      |
 | Notebook      | mixed markdown/code cells in the project, dedicated Pyodide runtime, runs feed the experiment history — `/studio/notebook` route (`src/core/notebook/`) | Done      |
@@ -43,7 +43,7 @@ state, not aspirational designs.
 | Code mode     | Monaco + Pyodide (Python) + REPL + 9 sample programs on the existing IR; three-mode conversion (Block ↔ Flow ↔ Code via IR) done; **R ships as a full webR runtime** (vendored in `public/webr/`, auto-copied by `scripts/copy-webr.mjs`, missing bundle falls back to the IR engine) | Done |
 | Scientific solvers | sparse Hermitian eigensolver (thick-restart Lanczos / LOBPCG / Jacobi-Davidson + MINRES shift-invert, 2-D spectrum report + 3-D mode fields) and 1D–3D fluid-network bidirectional coupler (multi-rate time-step coordination + coarse–fine subcycling), both run in Pyodide workers — `em-eigensolver`, `fluid-cfd-coupler` | Done |
 | Marketplace   | plugin registry UI & remote install; `.cspkg` package-signing gate (ed25519, FR-05) live | Signing gate: Done · registry/install: Next |
-| CI            | GitHub Actions (unit + E2E + Pages deploy)                     | Done      |
+| CI            | GitHub Actions — 5 workflows: ci / bench / deploy / release / security | Done      |
 | Error handling| error boundaries, fallbacks, retry                            | Partial   |
 
 ## Milestones

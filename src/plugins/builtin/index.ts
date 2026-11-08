@@ -105,6 +105,10 @@ import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
 import { femLabManifest } from './engineering/fem-lab/manifest';
+import { engFluidManifest } from './engineering/fluid-mech/manifest';
+import { engVibrationManifest } from './engineering/vibration/manifest';
+import { engHeatManifest } from './engineering/heat-transfer/manifest';
+import { engMechanismManifest } from './engineering/mechanism/manifest';
 import { bioPkManifest } from './med/pk/manifest';
 import { bioMendelManifest } from './bio/mendel/manifest';
 import { bioNeuronManifest } from './bio/neuron/manifest';
@@ -153,6 +157,7 @@ import { dataImageprocManifest } from './data/imageproc/manifest';
 import { acousticsManifest } from './artsci/acoustics/manifest';
 import { tuningManifest } from './artsci/tuning/manifest';
 import { synthManifest } from './artsci/synth/manifest';
+import { keysManifest } from './artsci/keys/manifest';
 import { colorScienceManifest } from './artsci/color-science/manifest';
 import { algorithmsManifest } from './cs/algorithms/manifest';
 import { dataStructuresManifest } from './cs/datastructures/manifest';
@@ -693,6 +698,34 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
       return mod.default();
     },
   },
+  {
+    manifest: engFluidManifest,
+    load: async () => {
+      const mod = await import('./engineering/fluid-mech');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engVibrationManifest,
+    load: async () => {
+      const mod = await import('./engineering/vibration');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engHeatManifest,
+    load: async () => {
+      const mod = await import('./engineering/heat-transfer');
+      return mod.default();
+    },
+  },
+  {
+    manifest: engMechanismManifest,
+    load: async () => {
+      const mod = await import('./engineering/mechanism');
+      return mod.default();
+    },
+  },
   // ---- Research suite: medicine & environment (research-grade kernels) -------
   {
     manifest: bioPkManifest,
@@ -1038,6 +1071,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: synthManifest,
     load: async () => {
       const mod = await import('./artsci/synth');
+      return mod.default();
+    },
+  },
+  {
+    manifest: keysManifest,
+    load: async () => {
+      const mod = await import('./artsci/keys');
       return mod.default();
     },
   },

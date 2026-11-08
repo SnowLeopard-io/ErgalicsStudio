@@ -90,7 +90,7 @@ export function mannWhitney(a: number[], b: number[]): NpResult | null {
   const n = n1 + n2;
   const tie = tieCorrection(r);
   const sigma = Math.sqrt((n1 * n2 / 12) * (n + 1 - tie / (n * (n - 1))));
-  const z = sigma > 0 ? (u - (n1 * n2) / 2 + 0.5 * Math.sign(u - (n1 * n2) / 2)) / sigma : 0;
+  const z = sigma > 0 ? (u - (n1 * n2) / 2 + 0.5) / sigma : 0;
   const p = 2 * (1 - normalCdf(Math.abs(z)));
   const rbc = 1 - (2 * u) / (n1 * n2);
   return {
@@ -162,13 +162,15 @@ export function kruskalWallis(groups: NpGroup[]): NpResult | null {
   const hCorr = correction > 0 ? h / correction : h;
   const df = valid.length - 1;
   const p = 1 - chiSquareCdf(hCorr, df);
-  const eps2 = Math.max(0, (hCorr - df + 1) / (n - df));
+  // Standard epsilon-squared effect size (Tomczak & Tomczak 2014):
+  // ε² = (H − k + 1) / (n − k) with k groups; df = k − 1.
+  const eps2 = Math.max(0, (hCorr - df) / Math.max(1, n - df - 1));
   return {
     test: 'Kruskal–Wallis H',
     statistic: hCorr,
     df,
     p,
-    effect: Math.sqrt(eps2),
+    effect: eps2,
     effectLabel: 'ε² (rank)',
     detail: `H=${fmt(hCorr, 3)} on ${df} df, n=${n}, ${valid.length} groups (tie-corrected)`,
   };
@@ -278,15 +280,30 @@ export function ksOneSampleNormal(x: number[]): NpResult | null {
     const cdf = normalCdf((v - m) / s);
     d = Math.max(d, Math.abs(cdf - (i + 1) / x.length), Math.abs(cdf - i / x.length));
   });
-  const p = Math.min(1, 2 * Math.exp(-2 * x.length * d * d));
+  // Parameters are estimated from the sample, so the null is Lilliefors, not
+  // the known-parameter Kolmogorov distribution. Dallal–Wilkinson approximation.
+  const n = x.length;
+  const p = Math.min(
+    1,
+    Math.max(
+      0,
+      Math.exp(
+        -7.01256 * d * d * (n + 2.78019) +
+          2.99587 * d * Math.sqrt(n + 2.78019) -
+          0.122119 +
+          0.974598 / Math.sqrt(n) +
+          1.67997 / n,
+      ),
+    ),
+  );
   return {
-    test: 'Kolmogorov–Smirnov (normal)',
+    test: 'Lilliefors (KS against fitted normal)',
     statistic: d,
     df: NaN,
     p,
     effect: d,
     effectLabel: 'D',
-    detail: `D=${fmt(d, 4)} vs N(${fmt(m, 3)}, ${fmt(s, 3)}), n=${x.length}`,
+    detail: `D=${fmt(d, 4)} vs N(${fmt(m, 3)}, ${fmt(s, 3)}), n=${n}`,
   };
 }
 
@@ -314,7 +331,18 @@ export function rankCorrelations(a: number[], b: number[]): { rho: number; rhoP:
   }
   const denom = Math.sqrt((concordant + discordant + tiesA) * (concordant + discordant + tiesB));
   const tau = denom > 0 ? (concordant - discordant) / denom : 0;
-  const tauP = 2 * (1 - normalCdf(Math.abs((3 * tau * Math.sqrt(n * (n - 1))) / Math.sqrt(2 * (2 * n + 5)))));
+  // Tie-corrected normal approximation for S = C − D (Kendall 1945). The
+  // untied variance 2(2n+5)/(9n(n−1)) is badly anti-conservative with ties.
+  const tieTerm = (vals: number[]): number => {
+    const counts = new Map<number, number>();
+    for (let i = 0; i < n; i += 1) counts.set(vals[i]!, (counts.get(vals[i]!) ?? 0) + 1);
+    let acc = 0;
+    for (const c of counts.values()) if (c > 1) acc += c * (c - 1) * (2 * c + 5);
+    return acc;
+  };
+  const varS = (n * (n - 1) * (2 * n + 5) - tieTerm(a) - tieTerm(b)) / 18;
+  const zTau = varS > 0 ? (concordant - discordant) / Math.sqrt(varS) : 0;
+  const tauP = 2 * (1 - normalCdf(Math.abs(zTau)));
   return { rho, rhoP, tau, tauP };
 }
 

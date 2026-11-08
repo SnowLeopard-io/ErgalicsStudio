@@ -164,6 +164,10 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.eng-truss': 'engineering',
   'example.eng-control': 'engineering',
   'example.fem-lab': 'engineering',
+  'example.eng-fluid': 'engineering',
+  'example.eng-vibration': 'engineering',
+  'example.eng-heat': 'engineering',
+  'example.eng-mechanism': 'engineering',
 
   // Biology
   'example.protein': 'bio',
@@ -231,6 +235,7 @@ export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.acoustics': 'artsci',
   'example.tuning': 'artsci',
   'example.synth': 'artsci',
+  'example.keys': 'artsci',
   'example.color-science': 'artsci',
 
   // Computer science & software engineering

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { logger } from '@/core/logger';
+import { COMPACT_VIEWPORT_QUERY } from '@/core/orientation';
 import { t } from '@/i18n';
+import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
@@ -8,6 +10,8 @@ export interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
+  /** Interpolation values for `messageKey` (e.g. a list of file extensions). */
+  params?: Record<string, string | number>;
   dismissible?: boolean;
   /** Plugin id this banner refers to, when applicable. */
   pluginId?: string;
@@ -191,7 +195,7 @@ interface AppStore {
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
-  setBanner: (messageKey: string) => void;
+  setBanner: (messageKey: string, params?: Record<string, string | number>) => void;
   removeBanner: (id: number) => void;
   setError: (pluginId: string) => void;
   notify: (kind: Notification['kind'], message: string, action?: Notification['action']) => void;
@@ -238,6 +242,9 @@ interface AppStore {
   lastActivePluginId: string | null;
   /** Close one tab (file or suite); activates the nearest remaining tab. */
   closeTab: (key: string) => void;
+  /** Reorder the canvas tab strip by drag: move `fromKey` to sit at
+   *  `toKey`'s position. No-op unless both tabs exist. */
+  reorderTabs: (fromKey: string, toKey: string) => void;
   /** Update a file tab's path/name after an explorer rename, preserving
    *  content so the open preview survives the rename. */
   renameFileTab: (oldPath: string, name: string, newPath: string) => void;
@@ -269,10 +276,39 @@ const PANEL_DEFAULTS = {
 
 const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
 
+/** Phone-sized touch viewport (landscape phones match this query — see
+ *  core/orientation.ts COMPACT_VIEWPORT_QUERY, which the CSS compact tier
+ *  mirrors). Desktop windows never match, so their panel defaults are
+ *  untouched. */
+function compactTouchViewport(): boolean {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return (
+      window.matchMedia('(pointer: coarse)').matches &&
+      window.matchMedia(COMPACT_VIEWPORT_QUERY).matches
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** First-paint defaults: a phone has no room for both side panels docked —
+ *  they float over the canvas on that tier (app.css compact block), so they
+ *  start collapsed and are one tap away. A persisted user choice always
+ *  wins over this. */
+function defaultPanelPrefs(): typeof PANEL_DEFAULTS {
+  const defaults = { ...PANEL_DEFAULTS };
+  if (compactTouchViewport()) {
+    defaults.sidebarOpen = false;
+    defaults.rightPanelOpen = false;
+  }
+  return defaults;
+}
+
 function loadPanelPrefs(): typeof PANEL_DEFAULTS {
   try {
     const raw = localStorage.getItem(PANEL_PREFS_KEY);
-    if (!raw) return { ...PANEL_DEFAULTS };
+    if (!raw) return defaultPanelPrefs();
     const parsed = JSON.parse(raw) as Partial<typeof PANEL_DEFAULTS>;
     return {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
@@ -283,7 +319,7 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
         : PANEL_DEFAULTS.sidebarView,
     };
   } catch {
-    return { ...PANEL_DEFAULTS };
+    return defaultPanelPrefs();
   }
 }
 
@@ -328,11 +364,14 @@ export const useAppStore = create<AppStore>((set, get) => {
       banners: [...s.banners, { id: ++bannerId, kind, messageKey, dismissible: true }],
     }));
   },
-  setBanner: (messageKey) => {
+  setBanner: (messageKey, params) => {
     const existing = get().banners.some((b) => b.messageKey === messageKey);
     if (existing) return;
     set((s) => ({
-      banners: [...s.banners, { id: ++bannerId, kind: 'error', messageKey, dismissible: true }],
+      banners: [
+        ...s.banners,
+        { id: ++bannerId, kind: 'error', messageKey, params, dismissible: true },
+      ],
     }));
   },
   removeBanner: (id) =>
@@ -353,6 +392,15 @@ export const useAppStore = create<AppStore>((set, get) => {
   notify: (kind, message, action) => {
     const id = ++notifId;
     set((s) => ({ notifications: [...s.notifications, { id, kind, message, action }] }));
+    // Ambience: a quiet cue per toast kind. Lazy import keeps the core store
+    // free of the audio module; a failure must never affect the toast itself.
+    void import('@/core/ambience/audio')
+      .then(({ playCue }) => {
+        if (kind === 'success') playCue('success');
+        else if (kind === 'error') playCue('error');
+        else playCue('notify');
+      })
+      .catch(() => undefined);
     // Action toasts stay up longer so the user can actually click through.
     const ttl = action ? 8000 : 4000;
     const timer = setTimeout(() => {
@@ -550,6 +598,9 @@ export const useAppStore = create<AppStore>((set, get) => {
    *  (a notification is emitted; callers just skip their close). */
   saveEditorFile: async (path) => {
     const key = editorTabKey(path);
+    // Pull the live editor content into the store first — the debounced push
+    // may be up to 300ms behind the visible buffer.
+    flushEditorFile(key);
     const cur = useAppStore.getState().editorFiles[key];
     if (!cur) return false;
     try {
@@ -673,6 +724,22 @@ export const useAppStore = create<AppStore>((set, get) => {
               : null
             : s.activeTab,
       };
+    });
+  },
+
+  /** Reorder the tab strip: pull `fromKey` out and insert it where `toKey`
+   *  currently sits. The active tab stays active — reordering is purely
+   *  positional, never a selection change. */
+  reorderTabs: (fromKey, toKey) => {
+    if (fromKey === toKey) return;
+    set((s) => {
+      const from = s.canvasTabs.findIndex((tab) => tab.key === fromKey);
+      const to = s.canvasTabs.findIndex((tab) => tab.key === toKey);
+      if (from < 0 || to < 0) return s;
+      const next = [...s.canvasTabs];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved!);
+      return { canvasTabs: next };
     });
   },
 

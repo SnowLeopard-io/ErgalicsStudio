@@ -1,14 +1,19 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+// Must run before any git code: isomorphic-git expects the Node Buffer global
+// in the browser (see polyfills/buffer.ts).
+import '@/polyfills/buffer';
 import App from './App';
 import { installGlobalErrorHandlers } from '@/core/errors';
 import { initPwa, registerServiceWorker } from '@/core/pwa';
+import { initOrientationLock } from '@/core/orientation';
 import { restoreAppliedTheme } from '@/core/theme-pack/registry';
 import './styles/global.css';
 import './styles/app.css';
 import './styles/blocks.css';
 import './styles/animations.css';
 import './styles/lab-polish.css';
+import './styles/ambience.css';
 
 // Global error capture (spec §11.2 application-level boundary). Every
 // uncaught error / rejection is normalised into the error registry (dedup,
@@ -21,8 +26,20 @@ const teardownGlobalHandlers = installGlobalErrorHandlers();
 initPwa();
 window.addEventListener('load', () => void registerServiceWorker());
 
+// Mobile adaptation: force landscape at startup and re-lock whenever the
+// engine rotates back to portrait (see core/orientation.ts for the layering
+// and the fallback guard on engines without a lock API).
+const teardownOrientationLock = initOrientationLock();
+
 // FR-21: re-apply the user's chosen .cstheme before first paint.
 restoreAppliedTheme();
+
+// Ambience system (sounds / motion / XP / badges): boot fire-and-forget after
+// the first paint so it can never delay startup. The engine wires event-bus
+// XP hooks, the daily-login streak and global interaction sounds.
+void import('@/core/ambience/engine')
+  .then((m) => m.initAmbienceEngine())
+  .catch(() => undefined);
 
 // FR-05: restore user-added trusted publisher keys from IndexedDB so sources
 // the user trusted in an earlier session install without re-confirming.
@@ -54,6 +71,7 @@ createRoot(document.getElementById('root')!).render(
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     teardownGlobalHandlers();
+    teardownOrientationLock();
     window.removeEventListener('keydown', onKeyDown);
   });
 }

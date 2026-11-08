@@ -46,13 +46,13 @@ round-tripped through `IRProgram` (a list of `IRNode`s), and the same IR is
 what a future Code mode will edit. Blockly JSON ⇄ IR lives in
 `src/editor/block/convert.ts`; the rest of the system speaks IR only.
 
-The IR is intentionally small:
+The IR started small and has grown with the multi-language parser (Python/R/JS all compile to it):
 
 | Node family | Members / notes |
 | --- | --- |
-| **Statement nodes** | `VarAssign`, `PlotScatter`, `PlotLine`, `PlotHistogram`, `PlotPointCloud`, `If`, `Repeat`, `While`, `ForEach`, `StudioCall` (e.g. `print`), `RawCode` (degraded nodes we can't yet represent). |
-| **Expression nodes** | `LoadCSV`, `LoadXYZ`, `Random`, `Range`, `Normalize`, `Sort`, `Select`, `Filter`, `AddColumn`, `Summary`, `Histogram`, `Var`, `Number`, `String`, `Boolean`, `BinaryOp`, `UnaryOp`, `List`, `ListIndex`, `Function`, `Call`. |
-| **Helpers** | `makeProgram(body, variables, lang)` is the only constructor; `hashIR(program)` (FNV-1a, synchronous) fingerprints a program for cache invalidation; `validateIR(program)` walks the tree and returns structured `diagnostics` instead of throwing. |
+| **Statement nodes** | `VarAssign`, `PlotScatter`, `PlotLine`, `PlotHistogram`, `PlotPointCloud`, `If`, `Repeat`, `While`, `ForEach`, `Break`, `Continue`, `FuncDef`, `Return`, `StudioCall` (e.g. `print`), `Import`, `GpuRun`, `RawCode` (degraded nodes we can't yet represent). |
+| **Expression nodes** | `LoadCSV`, `LoadXYZ`, `Random`, `Range`, `Normalize`, `Sort`, `Select`, `Filter`, `AddColumn`, `Summary`, `Histogram`, `VarRef`, `Number`, `String`, `Boolean`, `Null`, `BinaryOp`, `UnaryOp`, `List`, `ListIndex`, `ListSlice`, `Dict`, `Ternary`, `FString`, `ListComp`, `Join`, `Lambda`, `Call`, `RawExpr`. |
+| **Helpers** | `makeProgram(body, functions = [], sourceLang?)` is the only constructor; `hashIR(program)` (FNV-1a, synchronous) fingerprints a program for cache invalidation; `validateIR(program)` walks the tree and returns structured `diagnostics` instead of throwing. |
 
 Why FNV-1a and not SHA-1? Because IR hashing runs on every keystroke in the
 Blockly workspace. WebCrypto's SHA-1 is asynchronous and would force the
@@ -70,7 +70,7 @@ Blockly workspace JSON
    ┌────┴────────────────────────┐
    ▼                              ▼
 src/editor/runtime/        src/editor/codegen/
-  interpreter.ts              js.ts · python.ts
+  interpreter.ts              js.ts · python.ts · r.ts
    │                              │
    ▼                              ▼
 StudioApi                      emitted code
@@ -89,7 +89,7 @@ Three things to notice:
    `plugin.loadData(file)`. Adding a visualisation to Flow mode
    automatically lights up a `studio.plot` variant in Block mode.
 2. **The interpreter and the codegen share the IR shape, not the source.**
-   `codegenJS` / `codegenPython` are pure functions that walk the same
+   `codegenJS` / `codegenPython` / `codegenR` are pure functions that walk the same
    node union; the interpreter does the same walk at runtime. They never
    drift because they parse the same data.
 3. **Block mode is lazy-loaded.** `BlockEditor` and `CodeEditor` are
@@ -140,11 +140,13 @@ hands it to `plugin.loadData`. Plot types map to plugin ids in one place
 | `VarAssign` | Writes into a variable table. |
 | `PlotScatter` / `PlotLine` / `PlotHistogram` / `PlotPointCloud` | Build a `RenderedView`, call `studio.plot(...)`, which fans out to the plugin. |
 | `If` / `Repeat` / `While` / `ForEach` | Execute their body in order with a fresh sub-scope. |
+| `Break` / `Continue` / `FuncDef` / `Return` / `Import` / `Ternary` / `FString` / `ListComp` / `Join` / `Lambda` / `Dict` / `ListSlice` | First-class support added with the multi-language parser (Python/R/JS). |
 | `StudioCall { method: 'print' }` | Writes to the console panel. |
 | `RawCode` (a `studio_raw` Blockly block) | What we degrade to when an IR shape we cannot yet represent appears (e.g. an exotic block in a user's saved program); runs verbatim through `new Function`. |
 
-The interpreter returns an `InterpretResult` with `{ ok, variables, output }`
-and propagates `console` / `error` into the editor store. The
+The interpreter returns an `InterpreterResult` with `{ ok, variables, error? }`;
+console output reaches the editor store through the `StudioApi.print` /
+`notify` callbacks. The
 **VariablePanel** and **ConsolePanel** cards in the right column read from
 that store directly — no React state to keep in sync.
 
@@ -176,7 +178,7 @@ old workspaces.
 ## Built-in blocks
 
 `src/editor/block/blocks.ts` defines the catalogue (40 entries). They are
-laid out into nine toolbox categories (`src/editor/block/toolbox.ts`), each
+laid out into ten toolbox categories (`src/editor/block/toolbox.ts`), each
 with a colour matching the Scratch convention:
 
 | Category    | Colour  | Blocks                                                                                       |
@@ -184,11 +186,12 @@ with a colour matching the Scratch convention:
 | 启动 / Start | green   | `studio_run` (the hat — only entry point)                                                    |
 | 数据 / Data  | blue    | `studio_load_csv`, `studio_load_xyz`, `studio_random`, `studio_range`, `studio_list`, `studio_list_index` |
 | 变量 / Variables | orange | `studio_var`, `studio_var_assign`                                                             |
-| 运算 / Operators | green | `studio_number`, `studio_string`, `studio_boolean`, `studio_math_op`, `studio_compare`, `studio_logic_op`, `studio_unary` |
-| 变换 / Transform | pink  | `studio_normalize`, `studio_sort`, `studio_select`, `studio_filter`                          |
+| 运算 / Operators | green | `studio_number`, `studio_string`, `studio_boolean`, `studio_null`, `studio_math_op`, `studio_compare`, `studio_logic_op`, `studio_unary` |
+| 变换 / Transform | pink  | `studio_normalize`, `studio_sort`, `studio_select`, `studio_filter`, `studio_add_column`                          |
 | 统计 / Statistics | purple | `studio_summary`, `studio_histogram`                                                          |
 | 可视化 / Visualize | red | `studio_plot_scatter`, `studio_line`, `studio_plot_histogram`, `studio_plot_pointcloud`    |
-| 控制 / Control | yellow | `studio_repeat`, `studio_while`, `studio_for_each`, `studio_if`                              |
+| 控制 / Control | yellow | `studio_repeat`, `studio_while`, `studio_for_each`, `studio_if`, `studio_break`, `studio_continue`                              |
+| 函数 / Functions | purple | `studio_function_def`, `studio_return`, `studio_call`                                        |
 | 工具 / Utility | gray   | `studio_print`                                                                                |
 
 All block names, tooltips, dropdown options, and toolbox category names go

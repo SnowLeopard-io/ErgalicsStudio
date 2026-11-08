@@ -32,7 +32,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime Layer"]
-        C1["Plugin runtime<br/>builtin/* (148 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (153 product + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["Native core (Rust→WASM)<br/>device mgmt · compute<br/>kernel scheduling<br/>file-kind detection"]
     end
 
@@ -92,12 +92,13 @@ workbench state is held by five of them:
 Beyond these, the research modules own business-layer stores
 (`experimentStore`, `figureStore`, `lineageStore`, `notebookStore`,
 `chunkStore`, `researchStore`, `analysisStore`, `blockStore`), and the UI
-surface has its own stores (AI assistant panel, command palette, shortcuts,
-guided tours).
+surface has its own stores (AI assistant panel, command palette,
+shortcuts, guided tours, template tours, publishing), plus two
+mode-syncing hooks (`useFlowSync`, `useModeConvert`).
 
 Cross-cutting UI communication uses a small typed event bus
 (`src/core/events.ts`) — e.g. `plugin:<id>:params`, `host:params:changed`,
-`host:file:choose-plugin`.
+`host:cancel-task`.
 
 ## Rendering pipeline
 
@@ -127,7 +128,7 @@ the exact API surface and the calling conventions.
 | Rule | Meaning |
 | --- | --- |
 | `pages → stores → core` | Lower layers never import higher ones. |
-| `core` stays DOM-light | Pure services (i18n, fileFormat, storage adapters) are unit-testable in a node environment. |
+| `core` stays DOM-light | Pure services (i18n at `src/i18n/`, fileFormat, storage adapters) are unit-testable in a node environment. |
 | Plugin contract | `src/types/plugin.ts` is the only shared vocabulary between the host and third-party code. |
 
 **Engine reuse inside `core` (current state).** Six files under `src/core/`

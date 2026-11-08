@@ -98,6 +98,9 @@ interface ProjectStore {
   addDataFile: (file: File) => Promise<string | null>;
   /** Remove a data file from the current project. */
   removeDataFile: (id: string) => void;
+  /** Rename a data-file entry in place (workspace explorer rename/move sync;
+   *  id stays stable, VFS is the caller's responsibility). */
+  renameDataFile: (id: string, name: string) => void;
 
   // Git operations
   initGitRepo: (template?: 'standard' | 'minimal') => Promise<void>;
@@ -110,6 +113,9 @@ interface ProjectStore {
    *  `runs/run-<id>.json` + `runs/index.json` (§3.1) and commits it. */
   autoCommitRun: (run: RunRecord) => Promise<void>;
   gitAdd: (files: string[]) => Promise<void>;
+  /** Unstage paths (index → back to HEAD; a staged new file returns to
+   *  untracked). Mirrors VSCode's － action in the source-control tree. */
+  gitUnstage: (files: string[]) => Promise<void>;
   gitCommit: (message: string) => Promise<string>;
   gitCheckout: (ref: string, create?: boolean) => Promise<void>;
   gitCreateBranch: (name: string, startPoint?: string) => Promise<void>;
@@ -228,13 +234,58 @@ function restoreEditor(state: {
  * Centralized so openProject and loadProjectFromText share the exact same
  * restoration sequence and the stale-response guard.
  */
-function applyOpenedProject(project: Project): void {
+// ---- last-opened project (session restore) ----
+// The recent list is sorted by updatedAt (most recently *saved* first), which
+// drifts away from "the project the user actually had open last" — browsing
+// project A while B autosaves, or opening a shared project read-only, both
+// break the heuristic. So the id of whatever becomes active is recorded here
+// and the cold-start restore reads it back.
+const LAST_PROJECT_KEY = 'ergalics:last-opened-project';
+
+function recordLastOpenedProject(id: string): void {
+  try {
+    localStorage.setItem(LAST_PROJECT_KEY, id);
+  } catch {
+    /* storage unavailable — restore just falls back to recent[0] */
+  }
+}
+
+/** Id of the project that was last active in this browser, or null. */
+export function getLastOpenedProjectId(): string | null {
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function applyOpenedProject(
+  project: Project,
+  { seedWorkspace = true }: { seedWorkspace?: boolean } = {},
+): void {
   projectSession += 1;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
   // project's repo — a fresh project must not show or edit them.
   useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+  recordLastOpenedProject(project.id);
   syncProjectFiles(project);
+  // Repair the workspace skeleton without overwriting user files: projects
+  // loaded from a .clproj (import / debut sample) have no workspace tree yet,
+  // so manuscript/, figures/, data/ … would be missing from the explorer and
+  // "write to workspace" would appear to do nothing. Folder imports already
+  // bring their own authoritative tree, so they skip this.
+  if (seedWorkspace) {
+    const session = projectSession;
+    const repoPath = getProjectRepoPath(project);
+    void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false })
+      .then(() => {
+        if (session !== projectSession) return;
+        void syncProjectSnapshot(project);
+        useAppStore.getState().bumpFileOps();
+      })
+      .catch((err) => logger.warn('project', 'workspace skeleton seed failed', err));
+  }
   void useProjectStore.getState().loadRecent();
   usePluginStore.getState().restoreState(project);
   restoreBlockGraph(project.state.blockGraph);
@@ -461,7 +512,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (seq !== openSeq) return project;
 
     useAppStore.getState().setMode('standard');
-    applyOpenedProject(project);
+    applyOpenedProject(project, { seedWorkspace: false });
     void syncProjectSnapshot(project);
     useAppStore.getState().bumpFileOps();
     if (failed > 0) {
@@ -715,21 +766,52 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     get().setDirty(true);
     // Keep the runtime file registry in sync so flow/block can resolve it.
     setProjectFiles(files);
+    // Mirror into the workspace data/ folder so the sidebar file explorer
+    // shows the import immediately. Same-name import overwrites the mirrored
+    // copy (matching the data-files list's replace semantics, so no
+    // "name (2)" duplicates). Non-fatal: the file still lives in the
+    // in-project data list even if the VFS write fails.
+    try {
+      await getVfs().writeFile(getProjectRepoPath(current), `data/${file.name}`, content);
+      useAppStore.getState().bumpFileOps(); // refresh the sidebar explorer
+    } catch (err) {
+      logger.warn('io', 'workspace data/ mirror failed', err);
+    }
     return entry.id;
   },
 
   removeDataFile: (id) => {
     const { project } = get();
     if (!project) return;
+    const entry = project.data.files.find((f) => f.id === id);
     const files = project.data.files.filter((f) => f.id !== id);
     set({ project: { ...project, data: { ...project.data, files } } });
     get().setDirty(true);
     setProjectFiles(files);
+    // Drop the workspace data/ mirror written by addDataFile (absent copy is
+    // fine — legacy projects never had one).
+    if (entry) {
+      void getVfs()
+        .deleteEntry(getProjectRepoPath(project), `data/${entry.name}`, false)
+        .then(() => useAppStore.getState().bumpFileOps())
+        .catch(() => undefined);
+    }
     // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
     // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
     // reach, so the bytes would stay parked in storage forever.
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
+  },
+
+  renameDataFile: (id, name) => {
+    const { project } = get();
+    if (!project) return;
+    const files = project.data.files.map((f) =>
+      f.id === id ? { ...f, name, format: fileExtension(name) } : f,
+    );
+    set({ project: { ...project, data: { ...project.data, files } } });
+    get().setDirty(true);
+    setProjectFiles(files);
   },
 
   // Git operations
@@ -807,13 +889,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await refreshGitStatusForProject(project);
   },
 
+  gitUnstage: async (files) => {
+    const { project } = get();
+    if (!project) return;
+    const adapter = getGitAdapter();
+    const repoPath = getProjectRepoPath(project);
+    await adapter.resetIndex(repoPath, files);
+    await refreshGitStatusForProject(project);
+  },
+
   gitCommit: async (message: string) => {
     const { project } = get();
     if (!project) throw new Error('No project open');
     const adapter = getGitAdapter();
     const repoPath = getProjectRepoPath(project);
-    // Capture the live project state, not whatever the last save left.
+    // Capture the live project state, not whatever the last save left, and
+    // restage it — the staging area may hold an older snapshot than the one
+    // just written (mirrors commitWorkingTree's write→add→commit order).
     await syncProjectSnapshot(project);
+    await adapter.add(repoPath, ['project.clproj']);
     const hash = await adapter.commit(repoPath, message);
     await refreshGitStatusForProject(project);
     await get().loadGitLog();
@@ -925,32 +1019,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const repoPath = targetPath || getProjectRepoPath(seed);
     await adapter.clone(url, repoPath, { branch, onProgress });
 
-    // A git-backed project must carry a project.clproj at its root (§3.1).
-    // On a malformed clone, clean up the orphan repo (including the .git
-    // object tree) before failing — otherwise every retry parks another
-    // full repo copy in VFS storage.
-    let raw: string;
-    try {
-      raw = await adapter.readFile(repoPath, 'project.clproj');
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
-    }
+    // Repo display name: last URL path segment minus ".git" (e.g.
+    // https://host/user/ergalics-demo.git → "ergalics-demo").
+    const repoName =
+      url
+        .replace(/\/+$/, '')
+        .split('/')
+        .pop()
+        ?.replace(/\.git$/, '') || 'Cloned Project';
+
+    // A git-backed project normally carries a project.clproj at its root
+    // (§3.1). Plain code repositories (most GitHub/Gitee repos) don't have
+    // one — instead of failing the whole clone, wrap the cloned file tree
+    // in a fresh project so the files show up in the workspace. On a
+    // malformed clone (empty repo / unreadable manifest) clean up the
+    // orphan repo (including the .git object tree) before failing —
+    // otherwise every retry parks another full repo copy in VFS storage.
     let project: Project;
     try {
-      project = deserializeProject(raw);
-    } catch (err) {
-      await getVfs()
-        .deleteRoot(repoPath)
-        .catch(() => undefined);
-      throw err;
+      const raw = await adapter.readFile(repoPath, 'project.clproj');
+      try {
+        project = deserializeProject(raw);
+      } catch (err) {
+        await getVfs()
+          .deleteRoot(repoPath)
+          .catch(() => undefined);
+        throw err;
+      }
+    } catch {
+      // No readable project.clproj (LightningFS error shapes vary by
+      // backend, so don't sniff messages): treat the clone as a plain
+      // repository and adopt the seed project shell — whose repoPath is
+      // exactly the clone destination — keeping the cloned files as-is.
+      // An empty repo wraps the same way and opens as an empty project.
+      project = { ...seed, name: repoName };
     }
     // Detach from the source project's identity: this installation owns its
     // own IndexedDB record and repo path.
     project.id = seed.id;
-    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = 'Cloned Project';
+    if (!project.name || project.name === DEFAULT_PROJECT_NAME) project.name = repoName;
 
     const seq = ++openSeq;
     await saveProject(project);

@@ -1,4 +1,4 @@
-﻿// ==========================================================================
+﻿﻿// ==========================================================================
 // synth — Synthesizer Lab
 //
 // The design surface edits one preset at a time (oscillator, FM, filter,
@@ -12,6 +12,7 @@ import { actionButton, actionFired, drawEmptyCanvas, exportRowsCsv, notify } fro
 import { clearScienceOutputs, fmtMetric, setScienceOutputs, type ScienceMetric } from '@/core/research/scienceOutput';
 import { pushPanelsToFigure, type Bilingual } from '@/core/figure/sheet';
 import { AudioClipPlayer, audioErrorText, type AudioClip } from '@/core/audio';
+import { setHostAudioPluginOpen } from '@/core/ambience/audio';
 import { synthFigurePanels } from './figure';
 import { synthManifest } from './manifest';
 import {
@@ -105,10 +106,13 @@ export class SynthPlugin implements Plugin {
 
   async activate(context: { container: ContainerCapabilities }) {
     this.ctx = context.container;
+    // A sound-capable plugin owns the soundscape while it is open.
+    setHostAudioPluginOpen(true);
   }
 
   async deactivate() {
     this.stopPlayback(false);
+    setHostAudioPluginOpen(false);
   }
 
   render(container: ContainerCapabilities) {

@@ -39,6 +39,16 @@
   --activitybar-width: 42px;
   --sidebar-width: 248px;
   --right-panel-width: 284px;
+  --central-tabs-height: 34px;
+  /* Master geometry scale for the compact (landscape-phone) tier in app.css:
+     every structural token there is derived from its desktop value through
+     this factor, so the chrome scales as one system. 1 = stock desktop. */
+  --ui-scale: 1;
+  /* Notch / home-indicator insets (viewport-fit=cover in index.html).
+     env() falls back to 0 on desktop and on devices without insets. */
+  --safe-inset-left: env(safe-area-inset-left, 0px);
+  --safe-inset-right: env(safe-area-inset-right, 0px);
+  --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
   --transition-fast: 120ms ease;
   --transition-base: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
@@ -182,6 +192,27 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+/* UI chrome is click/drag-only: toolbars, panels, tabs, buttons, canvas
+ * figures and chart SVGs must not fall victim to accidental text/image
+ * selection drags. Real content surfaces re-enable selection below. */
+#root {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root input,
+#root textarea,
+#root [contenteditable],
+#root .monaco-editor,
+#root pre,
+#root code,
+#root .xterm,
+#root .central-md-preview,
+#root .nb-md {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 a {
@@ -360,6 +391,34 @@ button {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* Textareas do not resize by default. The native grip is painted in a fixed
+   light colour that clashes with the dark surfaces, and most fields already
+   sit in layouts that size them. Large source editors opt back in with
+   `resize: vertical`; their grip is themed below. */
+textarea {
+  resize: none;
+}
+
+/* Themed grip for the editors that do opt into vertical resizing. Chromium
+   paints `::-webkit-resizer` instead of the default light corner box. */
+textarea::-webkit-resizer {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 0 58%,
+      var(--color-text-tertiary) 58% 64%,
+      transparent 64%
+    ),
+    linear-gradient(
+      135deg,
+      transparent 0 74%,
+      var(--color-text-tertiary) 74% 80%,
+      transparent 80%
+    );
+  opacity: 0.55;
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 .select {
@@ -837,13 +896,18 @@ button {
   }
 }
 
-/* ---- cross-site switcher (官网 / 工作台 / 文档) ---- */
+/* ---- cross-site switcher (官网 / 工作台 / 文档) ----
+   Rests as a thin puddle on the bottom edge; slides up only while the pointer
+   is near the status bar (JS adds `.is-awake`). Bottom-centred so it never
+   collides with the AI droplet in the right corner. */
 .cross-site-switcher {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  left: 50%;
+  bottom: calc(var(--statusbar-height) + 12px);
   /* Below banners (1500), toasts (1600), modals (2000) and the guided-tour
-     overlay (2500) so it never floats above an active overlay. */
+     overlay (2500) so it never floats above an active overlay. The status bar
+     itself sits one layer above (1401) so the pill appears to fly out from
+     behind it. */
   z-index: 1400;
   display: flex;
   align-items: center;
@@ -853,6 +917,70 @@ button {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  /* Retracted: melted down behind the status bar, squashed like a water bead.
+     The offset clears the pill's own height so no sliver peeks above the bar. */
+  transform: translate(-50%, calc(100% + 14px)) scale(0.72);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1),
+    opacity 0.28s ease;
+}
+
+.cross-site-switcher.is-awake {
+  transform: translate(-50%, 0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fixed detection centre for the resting bead. It must not resize with the
+   pill, otherwise the proximity radius would oscillate at the threshold. */
+.csw-anchor {
+  position: fixed;
+  left: calc(50% - 0.5px);
+  bottom: calc(var(--statusbar-height) + 2px);
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* The resting hint: a bead of water seeping out of the status bar itself.
+   Same surface + top border as the bar, so the two read as one continuous
+   body rather than a floating chip. Purely decorative. */
+.csw-puddle {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--statusbar-height) - 1px);
+  z-index: 1399;
+  width: 46px;
+  height: 7px;
+  border-radius: 999px 999px 0 0;
+  border-top: 1px solid var(--color-border);
+  background:
+    radial-gradient(
+      62% 140% at 50% 100%,
+      color-mix(in srgb, var(--color-accent) 26%, transparent),
+      transparent 72%
+    ),
+    var(--color-bg-elevated);
+  opacity: 0.9;
+  pointer-events: none;
+  /* Fade in only after the pill has sunk behind the bar; fade out at once
+     while the pill rises out of it. */
+  transition:
+    opacity 0.3s ease 0.18s,
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
+  transform: translateX(-50%) scaleX(1);
+}
+
+.csw-puddle.is-hidden {
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.25);
+  transition:
+    opacity 0.16s ease,
+    transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
 }
 
 .csw-label {
@@ -888,11 +1016,14 @@ button {
   cursor: default;
 }
 
-/* Keep it out of the way on narrow viewports. */
+/* Keep it compact on narrow viewports. */
 @media (max-width: 640px) {
   .csw-label { display: none; }
-  .cross-site-switcher { right: 10px; bottom: 10px; }
+  .cross-site-switcher { bottom: calc(var(--statusbar-height) + 12px); }
+  .csw-puddle { bottom: calc(var(--statusbar-height) - 1px); }
 }
+
+/* Touch devices have no hover proximity — JS keeps the pill permanently awake. */
 
 /* ---- AI assistant floating window ---- */
 .ai-overlay {
@@ -907,6 +1038,12 @@ button {
   /* The layer itself never intercepts clicks; only the panel inside does,
      so the block/code canvas stays fully interactive beneath it. */
   pointer-events: none;
+  /* Grow out of / melt back toward the AI droplet in the bottom-right. */
+  transform-origin: 100% 100%;
+  transition:
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.22, 1.4, 0.36, 1),
+    visibility 0s;
 }
 
 .ai-overlay .ai-panel {

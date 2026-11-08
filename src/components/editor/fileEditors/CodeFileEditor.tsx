@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, editorTabKey } from '@/stores/appStore';
+import { registerEditorFlush } from '@/stores/editorFlush';
 import { useMonacoEditor } from './useMonacoEditor';
 import { monacoLanguageFor, readRepoFileText } from './shared';
 import { editorStoreOpenInMode } from './openInMode';
@@ -42,6 +43,11 @@ export function CodeFileEditor({ path }: { path: string }) {
         window.clearTimeout(pushTimer.current);
         pushTimer.current = null;
       }
+      // Do not mark the tab dirty when nothing actually changed — an unmount
+      // flush used to turn every file into a permanently dirty buffer, which
+      // then blocked external reloads (and could pin an empty payload).
+      const cur = useAppStore.getState().editorFiles[editorTabKey(path)];
+      if (cur && cur.payload === value) return;
       updateEditorFile(path, value);
     },
     [path, updateEditorFile],
@@ -78,7 +84,11 @@ export function CodeFileEditor({ path }: { path: string }) {
     const cur = useAppStore.getState().editorFiles[editorTabKey(path)];
     if (!cur || cur.dirty) return;
     void readRepoFileText(path).then((text) => {
-      if (text === null || text === cur.payload) return;
+      // Re-check the live tab state: edits made while the read was in flight
+      // replaced the store entry — a stale snapshot must not clobber them.
+      const now = useAppStore.getState().editorFiles[editorTabKey(path)];
+      if (!now || now.dirty || now !== cur) return;
+      if (text === null || text === now.payload) return;
       updateEditorFile(path, text);
       const after = useAppStore.getState().editorFiles[editorTabKey(path)];
       // updateEditorFile marks dirty — restore the clean flag after a reload.
@@ -93,15 +103,21 @@ export function CodeFileEditor({ path }: { path: string }) {
     });
   }, [fileOpsVersion, path, updateEditorFile]);
 
-  // Flush a pending debounced push before the pane unmounts.
+  // Flush a pending debounced push before the pane unmounts, and let save /
+  // close flows pull the live buffer synchronously via the registry.
   useEffect(() => {
-    return () => {
-      if (pushTimer.current !== null) {
-        window.clearTimeout(pushTimer.current);
-        pushTimer.current = null;
-      }
+    const flushFromEditor = () => {
+      const editor = editorRef.current;
+      if (editor) flush(editor.getValue());
     };
-  }, []);
+    const unregister = registerEditorFlush(editorTabKey(path), flushFromEditor);
+    return () => {
+      unregister();
+      flushFromEditor();
+    };
+    // editorRef is a stable ref object returned by useMonacoEditor above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flush, path]);
 
   if (!state) return null;
 
@@ -109,12 +125,18 @@ export function CodeFileEditor({ path }: { path: string }) {
     return <BrokenFileView name={state.name} payload={state.payload} />;
   }
 
-  const openInCodeMode = () =>
+  const openInCodeMode = () => {
+    // Read the LIVE Monaco value (the store copy is debounced by 300 ms), so
+    // opening the mode right after typing never hands over stale text.
+    const code = editorRef.current?.getValue() ?? state.payload;
+    flush(code);
     editorStoreOpenInMode({
       mode: 'code',
       language: toCodeLanguage(monacoLang),
-      code: state.payload,
+      code,
+      path,
     });
+  };
 
   return (
     <div className="central-file-editor">

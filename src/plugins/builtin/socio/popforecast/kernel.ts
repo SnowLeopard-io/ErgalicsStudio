@@ -334,13 +334,33 @@ export interface PopRun {
   years: number;
 }
 
-/** Full deterministic projection for the given parameters. */
+/** Full deterministic projection for the given parameters.
+ *
+ *  Age classes are `AGE_SPAN / classes` years wide, so one application of the
+ *  Leslie matrix advances `width` years. The public horizon `years` is kept in
+ *  real years: the matrix is applied `round(years / width)` times, migration is
+ *  scaled to `migrationPerYear × width` per step, and the reported `lambda` is
+ *  annualised as λ_step^(1/width). Rows are linearly interpolated back to a
+ *  yearly grid for display.
+ */
 export function simulatePopForecast(p: PopForecastParams): PopRun {
   const k = Math.max(1, Math.round(p.classes));
+  const width = AGE_SPAN / k;
   const L = buildLeslieMatrix(p);
   const n0 = initialPopulation(k, p.seed);
-  const m = migrationVector(p.migrationPerYear, k);
-  const populations = project(L, n0, p.years, m);
+  const steps = Math.max(1, Math.round(p.years / width));
+  const m = migrationVector(p.migrationPerYear * width, k);
+  const stepRows = project(L, n0, steps, m);
+  const populations: number[][] = [];
+  for (let t = 0; t <= p.years; t += 1) {
+    const s = Math.min(steps, t / width);
+    const lo = Math.min(steps, Math.floor(s));
+    const hi = Math.min(steps, lo + 1);
+    const f = Math.min(1, Math.max(0, s - lo));
+    const a = stepRows[lo]!;
+    const b = stepRows[hi]!;
+    populations.push(a.map((v, i) => v + ((b[i] ?? v) - v) * f));
+  }
   const totals: number[] = [];
   const share65: number[] = [];
   const dependency: number[] = [];
@@ -352,6 +372,7 @@ export function simulatePopForecast(p: PopForecastParams): PopRun {
     dependency.push(a.dependencyRatio);
     medianAge.push(a.medianAge);
   }
+  const lambdaStep = growthRate(L);
   return {
     classes: k,
     leslie: L,
@@ -360,7 +381,7 @@ export function simulatePopForecast(p: PopForecastParams): PopRun {
     share65,
     dependency,
     medianAge,
-    lambda: growthRate(L),
+    lambda: lambdaStep > 0 ? Math.pow(lambdaStep, 1 / width) : lambdaStep,
     years: p.years,
   };
 }
@@ -433,7 +454,8 @@ export function leslieCubicDominantRoot(fertility: number[], survival: number[])
     const x = Math.cbrt(-q / 2 + sq) + Math.cbrt(-q / 2 - sq);
     return x - a / 3;
   }
-  // Three real roots: bisect the original cubic on [0, 1e3] (c < 0 here).
+  // Three real roots: bisect the original cubic directly. `t` is already λ;
+  // do not subtract the depressed-cubic shift a/3 again.
   const poly = (t: number): number => t * t * t + a * t * t + b * t + c;
   let lo = 0;
   let hi = 1e3;
@@ -442,7 +464,7 @@ export function leslieCubicDominantRoot(fertility: number[], survival: number[])
     if (poly(mid) > 0) hi = mid;
     else lo = mid;
   }
-  return (lo + hi) / 2 - a / 3;
+  return (lo + hi) / 2;
 }
 
 /**

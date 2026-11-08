@@ -71,7 +71,8 @@ clones.
 - requests a high-performance adapter, with a `cpu-fallback` mode;
 - listens for `uncapturederror` and flags out-of-memory;
 - exposes `getGpuBackend()` / `subscribeGpu()` for the UI;
-- reports GPU time to the perf panel via `api.reportGpuTime()`.
+- does not measure compute time itself — plugins report real kernel time
+  through `api.reportGpuTime()`, which the perf panel consumes.
 
 ## Compute service & plugin surface
 
@@ -89,9 +90,11 @@ paths expose the same primitives:
 
 Plugins reach it as `api.gpu` and must check `available` — when WebGPU is
 absent, `api.gpu` is `undefined` and plugins fall back to CPU. Reusable WGSL
-templates live in `src/core/wgsl.ts` (particle integration and a 3-D
-all-pairs N-body gravity kernel, plus host-side pack/unpack helpers that
-mirror the kernel math for the CPU fallback).
+templates live in `src/core/wgsl.ts` (particle integration, 3-D all-pairs
+N-body gravity, histogram, heatmap, point-cloud projection,
+lattice-Boltzmann collide/stream, wave leapfrog, matmul, FFT and k-means
+kernels, each with host-side pack/unpack helpers that mirror the kernel
+math for the CPU fallback).
 
 The example Particles plugin exercises the single-buffer path: it uploads an
 interleaved `[x, y, vx, vy]` storage buffer plus a uniform params buffer,

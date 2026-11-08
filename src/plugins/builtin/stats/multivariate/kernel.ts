@@ -120,16 +120,22 @@ export function varimax(loadings: Matrix, iterations = 50): Matrix {
   for (let it = 0; it < iterations; it += 1) {
     for (let a = 0; a < k; a += 1) {
       for (let b = a + 1; b < k; b += 1) {
-        let num = 0;
-        let den = 0;
+        let A = 0;
+        let B = 0;
+        let C = 0;
+        let D = 0;
         for (let i = 0; i < p; i += 1) {
           const u = current[i]![a]!;
           const v = current[i]![b]!;
           const s = u * u - v * v;
           const d = 2 * u * v;
-          num += s * d;
-          den += s * s - d * d;
+          A += u;
+          B += v;
+          C += s;
+          D += s * d;
         }
+        const num = D - (2 * A * B) / p;
+        const den = C - (A * A - B * B) / p;
         const angle = 0.25 * Math.atan2(num, den);
         const c = Math.cos(angle);
         const s = Math.sin(angle);
@@ -452,18 +458,25 @@ export function discriminant(x: Matrix, groups: string[], kind: 'lda' | 'qda' = 
   });
   let correct = 0;
   confusion.forEach((row, i) => (correct += row[i]!));
-  // Wilks' lambda ~ prod(1/(1+canonical)) approximated from between/within.
+  // Wilks' Λ = |W| / |W + B| over the full p×p scatter matrices.
   const grand = Array.from({ length: p }, (_, j) => mean(x.map((r) => r[j]!)));
-  let between = 0;
-  let within = 0;
-  stats.classes.forEach((c, ci) => {
-    const n = groups.filter((g) => g === c).length;
-    stats.means[ci]!.forEach((m, j) => {
-      between += n * (m - grand[j]!) ** 2;
-    });
-    within += (n - 1) * stats.covs[ci]![0]![0]!;
+  const W = zeros(p, p);
+  const B = zeros(p, p);
+  stats.classes.forEach((_, ci) => {
+    const n = groups.filter((g) => g === stats.classes[ci]).length;
+    const cov = stats.covs[ci]!;
+    for (let i = 0; i < p; i += 1) {
+      for (let j = 0; j < p; j += 1) W[i]![j]! += Math.max(1, n - 1) * cov[i]![j]!;
+    }
+    const d = stats.means[ci]!.map((m, j) => m - grand[j]!);
+    for (let i = 0; i < p; i += 1) for (let j = 0; j < p; j += 1) B[i]![j]! += n * d[i]! * d[j]!;
   });
-  const lambda = within / Math.max(1e-30, within + between);
+  const logDet = (M: Matrix): number => {
+    const eig = jacobiEigen(M);
+    return eig.values.reduce((s, v) => s + Math.log(Math.max(1e-30, v)), 0);
+  };
+  const wPlusB = W.map((row, i) => row.map((v, j) => v + B[i]![j]!));
+  const lambda = Math.exp(logDet(W) - logDet(wPlusB));
   const df = Math.max(1, (stats.classes.length - 1) * p);
   const chi = -Math.max(0, x.length - 1 - (p + stats.classes.length) / 2) * Math.log(Math.max(1e-30, lambda));
   const pValue = 1 - chiSquareCdf(chi, df);
@@ -541,7 +554,12 @@ export function mahalanobisOutliers(x: Matrix, alpha = 0.975): OutlierResult {
     for (let i = 0; i < p; i += 1) for (let j = 0; j < p; j += 1) q += d[i]! * inv[i]![j]! * d[j]!;
     return Math.sqrt(Math.max(0, q));
   });
-  return { distances, flagged: distances.map((d, i) => (d > threshold ? i : -1)).filter((i) => i >= 0), threshold };
+  // D² ~ χ²_p, so the cutoff is compared with the squared distance.
+  return {
+    distances,
+    flagged: distances.map((d, i) => (d * d > threshold ? i : -1)).filter((i) => i >= 0),
+    threshold,
+  };
 }
 
 function chiSquareInvLocal(p: number, df: number): number {

@@ -273,7 +273,10 @@ export function initPredatorPrey(cols: number, rows: number, nPrey: number, nPre
     agents.push({ id: id++, x: rng.next(), y: rng.next(), type: 1, attrs: { energy: 12 }, alive: true });
   }
   const grass = new Float32Array(cols * rows);
-  for (let i = 0; i < grass.length; i++) grass[i] = rng.next() < 0.5 ? 1 : Math.floor(rng.next() * 10);
+  // Grass is a fraction in [0, 1]: 1 = mature, < 1 = regrowing. Scale the
+  // immature draw into [0, 0.9] instead of raw integers 0–9 (which the >= 1
+  // eating threshold would treat as instantly mature on ~90% of cells).
+  for (let i = 0; i < grass.length; i++) grass[i] = rng.next() < 0.5 ? 1 : Math.floor(rng.next() * 10) / 10;
   return { width: 1, height: 1, gridMode: true, cols, rows, agents, grass };
 }
 
@@ -397,20 +400,21 @@ export function stepTraffic(world: ABMWorld, maxSpeed: number, pSlow: number, rn
   const n = world.width;
   const next: ABMWorld = { ...world, agents: world.agents.map((a) => ({ ...a, attrs: { ...a.attrs } })) };
   const sorted = [...next.agents].sort((a, b) => Math.round(a.x) - Math.round(b.x));
+  // Snapshot positions: Nagel–Schreckenberg is a simultaneous update, so every
+  // gap and move is computed from the start-of-step configuration.
+  const oldX = sorted.map((a) => Math.round(a.x));
   for (let i = 0; i < sorted.length; i++) {
     const car = sorted[i]!;
-    const lead = sorted[(i + 1) % sorted.length]!;
-    const gap = i + 1 === sorted.length
-      ? n - (Math.round(car.x) - Math.round(lead.x))
-      : Math.round(lead.x) - Math.round(car.x);
+    const leadX = oldX[(i + 1) % sorted.length]!;
+    const gap = i + 1 === sorted.length ? n - (oldX[i]! - leadX) : leadX - oldX[i]!;
     // 1. accelerate
     car.attrs.speed = Math.min(car.attrs.speed! + 1, maxSpeed);
     // 2. brake to keep gap >= speed (gap counts cells between cars)
     car.attrs.speed = Math.min(car.attrs.speed!, Math.max(gap - 1, 0));
     // 3. random slowdown
     if (car.attrs.speed! > 0 && rng.next() < pSlow) car.attrs.speed = car.attrs.speed! - 1;
-    // 4. advance (ring)
-    car.x = mod(car.x + car.attrs.speed!, n);
+    // 4. advance from the snapshot position (ring)
+    car.x = mod(oldX[i]! + car.attrs.speed!, n);
   }
   return next;
 }

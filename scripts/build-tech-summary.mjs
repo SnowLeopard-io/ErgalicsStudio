@@ -225,8 +225,8 @@ lines.push(...emitChapter(6, 'GPU 计算与原生核心', '06-GPU计算与原生
 lines.push(...emitChapter(7, '科学计算子系统', '07-科学计算子系统'));
 lines.push(...emitChapter(8, '测试与质量保障', '08-测试与质量保障'));
 lines.push(USAGE);
-lines.push(...emitChapter(9, '技术创新', '01-产品介绍', pick01Innovation));
-lines.push(...emitChapter(10, '应用场景库', '11-应用场景库'));
+lines.push(...emitChapter(10, '技术创新', '01-产品介绍', pick01Innovation));
+lines.push(...emitChapter(11, '应用场景库', '11-应用场景库'));
 lines.push(APPENDIX);
 
 const out = lines

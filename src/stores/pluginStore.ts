@@ -93,6 +93,33 @@ interface PluginStore {
  *  currently-active plugin's handler (see unload/deactivate). */
 const paramSubscriptions = new Map<string, BusSubscription[]>();
 
+/** Last applied param payload per plugin, so a repeated (no-op) param event
+ *  can be told apart from a real change. */
+const lastParams = new Map<string, Record<string, unknown>>();
+
+/** Shallow-compare two param payloads. Values are usually primitives; for the
+ *  rare object value (color, …) a stable JSON compare is the fallback. */
+function sameParams(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) {
+    const va = a[k];
+    const vb = b[k];
+    if (Object.is(va, vb)) continue;
+    if (
+      typeof va === 'object' &&
+      va !== null &&
+      typeof vb === 'object' &&
+      vb !== null &&
+      JSON.stringify(va) === JSON.stringify(vb)
+    ) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
 /** Cap on the in-memory run history so long sessions cannot grow it forever. */
 const RUN_HISTORY_CAP = 500;
 /** Per-plugin locale subscriptions so they can be released on unload. */
@@ -444,6 +471,7 @@ async function deactivateCurrentPlugin(): Promise<void> {
   // Only clear the active plugin's own subscriptions.
   for (const sub of paramSubscriptions.get(activeId) ?? []) sub.unsubscribe();
   paramSubscriptions.delete(activeId);
+  lastParams.delete(activeId);
   // If the deactivated plugin owned the in-flight computation, release the
   // global busy state: its background completion can no longer reset the
   // host status (api.setStatus only forwards for the visible/owning plugin),
@@ -549,6 +577,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       // subscription when some other plugin was unloaded.
       for (const sub of paramSubscriptions.get(id) ?? []) sub.unsubscribe();
       paramSubscriptions.delete(id);
+      lastParams.delete(id);
       for (const unsub of localeSubscriptions.get(id) ?? []) unsub();
       localeSubscriptions.delete(id);
       // Release the plugin's cancel handlers and, if it owned the in-flight
@@ -678,12 +707,21 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
-        // A parameter change invalidates previously published conclusions:
-        // clear them *before* updateParams so a fresh publish made inside the
-        // call survives. Env-style plugins re-publish during draw(); for
-        // compute-style plugins the stale metrics honestly disappear until the
-        // next computation (scienceOutput contract: stale results never linger).
-        clearScienceOutputs(id);
+        // A *changed* parameter payload invalidates previously published
+        // conclusions: clear them *before* updateParams so a fresh publish
+        // made inside the call survives. Env-style plugins re-publish during
+        // draw(); for compute-style plugins the stale metrics honestly
+        // disappear until the next computation (scienceOutput contract:
+        // stale results never linger).
+        // An unchanged payload (slider commit on pointer-up, a panel click
+        // re-emitting the current value, a canvas gesture bouncing through
+        // the panel) must NOT clear: updateState sees no change, updateParams
+        // skips the recompute, nothing republishes — and the Σ strip would
+        // stay hidden until the next real run.
+        const prev = lastParams.get(id);
+        const changed = prev === undefined || !sameParams(prev, params);
+        lastParams.set(id, { ...params });
+        if (changed) clearScienceOutputs(id);
         void Promise.resolve()
           .then(() => plugin.updateParams?.(params))
           .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
@@ -848,6 +886,18 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           ),
         );
         // Phase 2 — register in declared order (list order is UI order).
+        // After each registration, yield one frame so the browser paints:
+        // the sidebar then fills progressively instead of jumping from empty
+        // to full in a single commit. `document.hidden` falls back to a
+        // macrotask (rAF never fires in a hidden tab).
+        const paint = () =>
+          new Promise<void>((resolve) => {
+            if (typeof document !== 'undefined' && document.hidden) {
+              setTimeout(resolve, 0);
+              return;
+            }
+            requestAnimationFrame(() => resolve());
+          });
         for (const plugin of warmed) {
           if (!plugin) continue; // module failed to load — skip, stay degraded
           try {
@@ -855,6 +905,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
           } catch (err) {
             logger.warn('plugin', 'failed to register builtin', { id: plugin.manifest.id }, err);
           }
+          await paint();
         }
         // Mark ready only once the registry is actually populated.
         set({ initialized: true });
