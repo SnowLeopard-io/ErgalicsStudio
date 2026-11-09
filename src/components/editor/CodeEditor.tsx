@@ -24,7 +24,6 @@ import type * as MonacoNS from 'monaco-editor';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
 import {
-  CloseIcon,
   CornerDownLeftIcon,
   DownloadIcon,
   LoaderIcon,
@@ -53,7 +52,7 @@ import { parseCodeToIR } from '@/editor/code/parse';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
-import { makeProgram, type IRProgram } from '@/editor/ir';
+import { useModeConvert } from '@/stores/useModeConvert';
 
 import { ConsolePanel } from './ConsolePanel';
 import { useEditorSplit } from './useEditorSplit';
@@ -71,9 +70,6 @@ const MONACO_LANG: Record<CodeLanguage, MonacoLang> = {
 };
 
 const LANG_TAB_SIZE: Record<CodeLanguage, number> = { python: 4, r: 2, js: 2 };
-
-type SharedLang = 'python' | 'r' | 'js';
-const toSourceLang = (l: CodeLanguage): SharedLang => (l === 'r' ? 'r' : l === 'js' ? 'js' : 'python');
 
 export function CodeEditor() {
   const t = useT();
@@ -117,12 +113,7 @@ export function CodeEditor() {
   const [rLoadPercent, setRLoadPercent] = useState<number | null>(null);
   const [rPkgInput, setRPkgInput] = useState('');
   const [rInstalling, setRInstalling] = useState(false);
-
-  // ---- Language-switch preview (translate → apply / discard / cancel) ----
-  const previewContainerRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
-  const [draft, setDraft] = useState<{ target: CodeLanguage; translated: string } | null>(null);
-  const [undoSnap, setUndoSnap] = useState<{ language: CodeLanguage; ir: IRProgram; lastCode: string } | null>(null);
+  const requestTarget = useModeConvert((s) => s.requestTarget);
 
   // ---- Monaco setup (once per mount; theme applied reactively) ----------
 
@@ -651,96 +642,21 @@ export function CodeEditor() {
     }
   };
 
-  /** Translate the whole buffer from the IR hub into another dialect. */
+  /** Convert the whole buffer into another code dialect. This goes through the
+   *  shared conversion pipeline: preview → write a sibling file (same base,
+   *  new extension) → open that file in code mode. The current file is left
+   *  untouched, so nothing is lost if the translation is rejected. */
   const switchLanguage = (lang: CodeLanguage) => {
     if (lang === language || isRunning || activeSessionId === null) return;
-    const sid = activeSessionId;
     // Flush any pending edit first so the IR reflects the latest keystrokes
     // in the current dialect before translating.
     if (syncTimerRef.current !== null) {
       window.clearTimeout(syncTimerRef.current);
       syncTimerRef.current = null;
-      useEditorStore.getState().syncFromCode(sid, editorRef.current?.getValue() ?? '');
+      useEditorStore.getState().syncFromCode(activeSessionId, editorRef.current?.getValue() ?? '');
     }
-    const st = useEditorStore.getState();
-    const sess = st.sessions.find((s) => s.id === sid);
-    if (!sess) return;
-    // Rebuild the IR from the current text (same recovery as setSessionLanguage)
-    // then generate the target-dialect text. Never offer an empty translation
-    // that would silently wipe real source — fall back to the source text so the
-    // preview still shows something the user can explicitly accept or discard.
-    let ir = sess.ir;
-    if ((!ir || ir.body.length === 0) && sess.lastCode.trim() !== '') {
-      ir = parseCodeToIR(sess.lastCode, toSourceLang(sess.language)).program;
-    }
-    const translated = codegen(ir, toSourceLang(lang));
-    const finalText = translated.trim() !== '' || sess.lastCode.trim() === '' ? translated : sess.lastCode;
-    setDraft({ target: lang, translated: finalText });
+    requestTarget({ kind: 'language', language: lang });
   };
-
-  /** Accept the previewed translation (user edits in the mini-editor win). */
-  const applyDraft = () => {
-    const d = draft;
-    const sid = activeSessionId;
-    if (!d || !sid) return;
-    const text = previewRef.current?.getValue() ?? d.translated;
-    useEditorStore.getState().applyLanguageWithCode(sid, d.target, text);
-    const filePath = useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath;
-    if (filePath) useAppStore.getState().updateEditorFile(filePath, text);
-    setDraft(null);
-  };
-
-  /** Discard the translation: switch language with a blank buffer to write from
-   *  scratch, but keep a snapshot so the previous code can be restored. */
-  const discardDraft = () => {
-    const d = draft;
-    const sid = activeSessionId;
-    if (!d || !sid) return;
-    const st = useEditorStore.getState();
-    const sess = st.sessions.find((s) => s.id === sid);
-    setUndoSnap({
-      language: sess?.language ?? language,
-      ir: sess?.ir ?? makeProgram([]),
-      lastCode: sess?.lastCode ?? '',
-    });
-    st.blankSession(sid, d.target);
-    setDraft(null);
-  };
-
-  /** Cancel the switch entirely — keep the current language and code. */
-  const cancelDraft = () => {
-    setDraft(null);
-  };
-
-  /** Restore the code that was blanked by a prior "discard". */
-  const applyUndo = () => {
-    const sid = activeSessionId;
-    if (!sid || !undoSnap) return;
-    useEditorStore.getState().restoreSessionSnapshot(sid, undoSnap);
-    setUndoSnap(null);
-  };
-
-  /** Backing (mini) Monaco editor shown inside the translation preview. */
-  useEffect(() => {
-    if (!draft || !previewContainerRef.current) return;
-    const pre = monaco.editor.create(previewContainerRef.current, {
-      value: draft.translated,
-      language: MONACO_LANG[draft.target],
-      theme: 'ergalics',
-      automaticLayout: true,
-      minimap: { enabled: false },
-      fontSize: 12,
-      lineNumbers: 'on',
-      scrollBeyondLastLine: false,
-      wordWrap: 'on',
-      readOnly: false,
-    });
-    previewRef.current = pre;
-    return () => {
-      pre.dispose();
-      previewRef.current = null;
-    };
-  }, [draft]);
 
   const rBooting = language === 'r' && rLoadPercent !== null;
   const rReady = language !== 'r' || (rEngine !== null && !rBooting);
@@ -907,45 +823,6 @@ export function CodeEditor() {
           </div>
         </div>
       </div>
-
-      {/* Language-switch translation preview: explicit apply / discard / cancel */}
-      {draft && (
-        <div className="be-switch-preview" role="dialog" aria-label={t('editor.switch.title')}>
-          <div className="be-switch-preview-head">
-            <span className="be-switch-preview-title">{t('editor.switch.title')}</span>
-            <span className="be-switch-preview-sub">{t('editor.switch.sub', { from: MONACO_LANG[language], to: MONACO_LANG[draft.target] })}</span>
-            <button type="button" className="be-switch-preview-close" onClick={cancelDraft} aria-label={t('editor.switch.cancel')}>
-              <CloseIcon size={12} />
-            </button>
-          </div>
-          <div className="be-switch-editor" ref={previewContainerRef} />
-          <div className="be-switch-preview-foot">
-            <span className="be-switch-preview-note">{t('editor.switch.note')}</span>
-            <button type="button" className="be-switch-btn be-switch-btn-cancel" onClick={cancelDraft}>
-              {t('editor.switch.cancel')}
-            </button>
-            <button type="button" className="be-switch-btn be-switch-btn-discard" onClick={discardDraft}>
-              {t('editor.switch.discard')}
-            </button>
-            <button type="button" className="be-switch-btn be-switch-btn-apply" onClick={applyDraft}>
-              {t('editor.switch.apply')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* One-click undo after a "discard" blanked the buffer */}
-      {!draft && undoSnap && (
-        <div className="be-switch-undo" role="status">
-          <span className="be-switch-undo-text">{t('editor.switch.blanked')}</span>
-          <button type="button" className="be-switch-undo-btn" onClick={applyUndo}>
-            {t('editor.switch.undo')}
-          </button>
-          <button type="button" className="be-switch-undo-x" onClick={() => setUndoSnap(null)} aria-label={t('common.close')}>
-            <CloseIcon size={12} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
 import { useModeSync } from '@/hooks/useModeSync';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
+import { ConvertMenu } from './ConvertMenu';
 
 const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
 
@@ -216,6 +217,12 @@ export function TopBar() {
               aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
             />
           )}
+        </div>
+
+        {/* Zone 2b — common conversion menu: available in every mode, listing
+            the other modes and the three code dialects. */}
+        <div className="topbar-cluster convert-cluster">
+          <ConvertMenu />
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />

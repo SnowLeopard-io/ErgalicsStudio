@@ -377,16 +377,20 @@ export function FileExplorer() {
         useAppStore.getState().setEmbeddedTool('latex-editor');
         return;
       }
-      // Editable files open directly in their workbench mode (the mode is the
-      // editor now — no separate file tab + "open in mode" round-trip):
-      // `.py/.js/.r` → code surface bound to the file, `*.flow.json` → flow
-      // surface, `*.block.json` → block surface. A payload that fails its
-      // format check degrades to a read-only view.
+      // Editable files open directly, one tab per file so several sources
+      // (e.g. two Python modules) can stay open side by side: `.py/.js/.r`
+      // become code editor tabs, `*.flow.json` → flow surface, `*.block.json`
+      // → block surface. A payload that fails its format check degrades to a
+      // read-only view.
       const editorKind = editorKindForFile(entry.name);
       if (editorKind) {
         const raw = await adapter.readFile(repoPath, entry.path);
         if (editorKind === 'flow') {
           const parsed = parseFlowPayload(raw);
+          // Block / flow files open in their real workbench (canvas + run),
+          // each file getting its own surface tab and editor session so a
+          // code file, a block file and a flow file stay open together. A
+          // malformed payload degrades to the read-only editor tab.
           if (parsed) {
             editorStoreOpenInMode({
               mode: 'flow',
@@ -407,7 +411,11 @@ export function FileExplorer() {
         if (editorKind === 'block') {
           const parsed = parseBlockPayload(raw);
           if (parsed) {
-            editorStoreOpenInMode({ mode: 'block', ir: parsed.ir as IRProgram, path: entry.path });
+            editorStoreOpenInMode({
+              mode: 'block',
+              ir: parsed.ir as unknown as IRProgram,
+              path: entry.path,
+            });
             return;
           }
           openFileEditor({
@@ -421,6 +429,9 @@ export function FileExplorer() {
         }
         const language = codeLanguageForFile(entry.name);
         if (language) {
+          // Source files open in the full code workbench (editor + console +
+          // variables + preview). Each file gets its own surface tab/session,
+          // so several Python/R/JS files stay open side by side.
           editorStoreOpenInMode({ mode: 'code', language, code: raw, path: entry.path });
           return;
         }
@@ -777,7 +788,16 @@ export function FileExplorer() {
         await adapter.writeFile(repoPath, path, '');
       }
       await refreshDirs([parentDir]);
-      if (type === 'file') await openPreview({ name, path, isDir: false, size: 0 });
+      if (type === 'file') {
+        // A brand-new source file belongs in its editor, not a read-only
+        // preview — it is empty and meant to be typed into.
+        const language = codeLanguageForFile(name);
+        if (language) {
+          editorStoreOpenInMode({ mode: 'code', language, code: '', path });
+        } else {
+          await openPreview({ name, path, isDir: false, size: 0 });
+        }
+      }
     } catch {
       notify('error', t('workbench.explorer.op_failed'));
     }

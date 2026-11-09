@@ -9,6 +9,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
+import { syncSurfaceTabSession } from '@/components/editor/fileEditors/openInMode';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
 // File editor tabs (design doc P2-P4): Monaco code / Blockly block / flow DAG.
@@ -1524,9 +1525,10 @@ export function CentralArea() {
                     : tab.kind === 'editor'
                       ? (editorFiles[tab.key]?.name ?? tab.path)
                       : tab.kind === 'surface'
-                        ? boundFilePath && tab.mode === mode
-                          ? boundFilePath.split('/').pop()!
-                          : t(`workbench.mode.${tab.mode}`)
+                        ? (tab.path?.split('/').pop() ??
+                          (boundFilePath && tab.mode === mode
+                            ? boundFilePath.split('/').pop()!
+                            : t(`workbench.mode.${tab.mode}`)))
                         : (filePreviews[tab.key]?.name ?? tab.path);
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
@@ -1558,7 +1560,12 @@ export function CentralArea() {
                     dragOverTabKey === tab.key && dragTabKey.current !== tab.key ? ' drop-target' : ''
                   }`}
                   title={label}
-                  onClick={() => activateTab(tab.key)}
+                  onClick={() => {
+                    activateTab(tab.key);
+                    // File-bound code surfaces share one mounted editor: move
+                    // the active session to this tab's own file session.
+                    syncSurfaceTabSession(tab);
+                  }}
                   onAuxClick={(e) => {
                     // VS Code convention: middle-click closes the tab without
                     // activating it first.
@@ -1606,6 +1613,7 @@ export function CentralArea() {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       activateTab(tab.key);
+                      syncSurfaceTabSession(tab);
                     }
                   }}
                 >

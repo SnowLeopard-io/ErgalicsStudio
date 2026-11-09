@@ -130,8 +130,10 @@ export type CanvasTab =
   | { kind: 'editor'; key: string; path: string; editor: FileEditorKind }
   /** A workbench surface (flow / block / code) embedded in the canvas. The
    *  four modes are tabs now, not full-page swaps: the explorer and side
-   *  panels stay put while the surface occupies the editor area. */
-  | { kind: 'surface'; key: string; mode: WorkbenchMode }
+   *  panels stay put while the surface occupies the editor area. `path` is
+   *  the file the surface is currently editing (its tab label), so the strip
+   *  always points at a real file instead of a generic "代码" label. */
+  | { kind: 'surface'; key: string; mode: WorkbenchMode; path?: string }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
@@ -141,8 +143,11 @@ export const fileTabKey = (path: string): string => `file:${path}`;
 /** Tab key for a file editor tab. */
 export const editorTabKey = (path: string): string => `editor:${path}`;
 
-/** Tab key for an embedded workbench surface (flow / block / code). */
-export const surfaceTabKey = (mode: WorkbenchMode): string => `surface:${mode}`;
+/** Tab key for an embedded workbench surface (flow / block / code). A surface
+ *  bound to a file gets its own key so several sources can stay open at once
+ *  (e.g. `a.py` and `b.py`), each with its own editor session. */
+export const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
+  path ? `surface:${mode}:${path}` : `surface:${mode}`;
 
 /** Stable tab key for the embedded settings page. */
 export const settingsTabKey = 'settings:app';
@@ -223,8 +228,8 @@ interface AppStore {
   toggleModePanel: () => void;
   /** Select a workbench mode. Standard returns to the plugin canvas; the three
    *  editing surfaces open (or focus) their own canvas tab instead of
-   *  replacing the whole page. */
-  setMode: (mode: WorkbenchMode) => void;
+   *  replacing the whole page. `path` binds that surface tab to a file. */
+  setMode: (mode: WorkbenchMode, path?: string) => void;
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
   openFilePreview: (preview: FilePreviewState) => void;
@@ -471,7 +476,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       persistPanelPrefs(next);
       return next;
     }),
-  setMode: (mode) => {
+  setMode: (mode, path) => {
     // Standard is the canvas baseline (plugin host), not a tab: returning to
     // it clears the active tab and brings the plugin canvas back.
     if (mode === 'standard') {
@@ -479,14 +484,27 @@ export const useAppStore = create<AppStore>((set, get) => {
       get().showPluginCanvas();
       return;
     }
-    const key = surfaceTabKey(mode);
-    set((s) => ({
-      mode,
-      canvasTabs: s.canvasTabs.some((tab) => tab.key === key)
-        ? s.canvasTabs
-        : [...s.canvasTabs, { kind: 'surface' as const, key, mode }],
-      activeTab: key,
-    }));
+    const key = surfaceTabKey(mode, path);
+    set((s) => {
+      // Mode button without a file: focus an already-open surface of that
+      // mode instead of spawning a second generic one.
+      if (!path) {
+        const existing = s.canvasTabs.find((tab) => tab.kind === 'surface' && tab.mode === mode);
+        if (existing) return { mode, activeTab: existing.key };
+      }
+      const exists = s.canvasTabs.some((tab) => tab.key === key);
+      return {
+        mode,
+        canvasTabs: exists
+          ? s.canvasTabs.map((tab) =>
+              tab.key === key && tab.kind === 'surface' && path !== undefined
+                ? { ...tab, path }
+                : tab,
+            )
+          : [...s.canvasTabs, { kind: 'surface' as const, key, mode, path }],
+        activeTab: key,
+      };
+    });
     // The surface tab covers the plugin canvas; stop its rendering loop.
     deactivatePluginLazy();
   },

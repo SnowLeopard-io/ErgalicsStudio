@@ -6010,6 +6010,22 @@
   animation: underline-in 0.2s var(--ease-out) backwards;
 }
 
+/* ---- Top bar: shared conversion menu ------------------------------------- */
+.topbar-cluster .convert-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-cluster .convert-trigger svg {
+  flex: none;
+  opacity: 0.85;
+}
+
+.topbar-cluster .convert-trigger:hover svg {
+  opacity: 1;
+}
+
 .topbar-cluster .cluster-btn.icon-only {
   width: 32px;
   padding: 0;
