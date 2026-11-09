@@ -28,6 +28,7 @@ import {
   disposeWorkspace,
 } from '@/editor/block';
 import { ConsolePanel } from './ConsolePanel';
+import { SurfaceToolbar } from './SurfaceToolbar';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
@@ -242,7 +243,8 @@ export function BlockEditor() {
 
   return (
     <div className="block-editor">
-      <div className="block-editor-toolbar">
+      <SurfaceToolbar>
+        <div className="block-editor-toolbar">
         <button type="button" className="be-run-btn" onClick={() => void run()} disabled={isRunning}>
           <span className="be-run-icon">
             {isRunning ? <LoaderIcon size={12} className="is-spinning" /> : <PlayIcon size={12} />}
@@ -274,7 +276,8 @@ export function BlockEditor() {
             {isRunning ? t('editor.status.running') : error ? t('editor.status.error') : t('editor.status.idle')}
           </span>
         </div>
-      </div>
+        </div>
+      </SurfaceToolbar>
 
       <div className="block-editor-main">
         <div className="block-editor-top">

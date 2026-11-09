@@ -2165,6 +2165,30 @@
   gap: 10px;
 }
 
+/* Surface toolbar portaled in from the code / block canvas: drop the floating
+   card chrome so it reads as sidebar instrument row, not a panel over a canvas. */
+.rp-surface-toolbar {
+  flex: none;
+}
+
+.rp-surface-toolbar:empty {
+  display: none;
+}
+
+.rp-surface-toolbar .block-editor-toolbar {
+  margin: 0;
+  padding: 8px 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.rp-surface-toolbar .be-toolbar-spacer {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .rp-mode-preview {
   flex: 1 1 55%;
   min-height: 140px;

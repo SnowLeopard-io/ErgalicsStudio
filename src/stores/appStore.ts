@@ -825,40 +825,78 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  /** Update a file tab's path/name after an explorer rename, preserving its
-   *  open state and content. Covers both preview tabs and editor tabs (the
-   *  buffer migrates so dirty state survives the rename). */
+  /** Update open tabs and buffers after an explorer rename/move. Handles
+   *  preview, editor and file-bound `surface` tabs, plus every descendant when
+   *  a directory is relocated, so a renaming code/flow/block file keeps its
+   *  tab label and its buffer instead of leaving a stale path behind. */
   renameFileTab: (oldPath, name, newPath) => {
-    const oldKey = fileTabKey(oldPath);
-    const newKey = fileTabKey(newPath);
-    const oldEditorKey = editorTabKey(oldPath);
-    const newEditorKey = editorTabKey(newPath);
+    /** Map a path inside the renamed subtree to its new location. */
+    const remapPath = (path: string): string | null => {
+      if (path === oldPath) return newPath;
+      if (path.startsWith(`${oldPath}/`)) return `${newPath}${path.slice(oldPath.length)}`;
+      return null;
+    };
     set((s) => {
-      const prev = s.filePreviews[oldKey];
-      const editor = s.editorFiles[oldEditorKey];
-      if (!prev && !editor) return s;
+      const keyMap = new Map<string, string>();
       const filePreviews = { ...s.filePreviews };
       const editorFiles = { ...s.editorFiles };
-      if (prev) {
-        filePreviews[newKey] = { ...prev, name, path: newPath };
-        delete filePreviews[oldKey];
+      let changed = false;
+
+      for (const [key, preview] of Object.entries(s.filePreviews)) {
+        const nextPath = remapPath(preview.path);
+        if (!nextPath) continue;
+        const nextKey = fileTabKey(nextPath);
+        filePreviews[nextKey] = {
+          ...preview,
+          path: nextPath,
+          ...(preview.path === oldPath ? { name } : {}),
+        };
+        delete filePreviews[key];
+        keyMap.set(key, nextKey);
+        changed = true;
       }
-      if (editor) {
-        editorFiles[newEditorKey] = { ...editor, name, path: newPath };
-        delete editorFiles[oldEditorKey];
+      for (const [key, file] of Object.entries(s.editorFiles)) {
+        const nextPath = remapPath(file.path);
+        if (!nextPath) continue;
+        const nextKey = editorTabKey(nextPath);
+        editorFiles[nextKey] = {
+          ...file,
+          path: nextPath,
+          ...(file.path === oldPath ? { name } : {}),
+        };
+        delete editorFiles[key];
+        keyMap.set(key, nextKey);
+        changed = true;
       }
+
+      const canvasTabs = s.canvasTabs.map((tab) => {
+        if (tab.kind === 'file' || tab.kind === 'editor') {
+          const nextPath = remapPath(tab.path);
+          if (!nextPath) return tab;
+          const nextKey = tab.kind === 'file' ? fileTabKey(nextPath) : editorTabKey(nextPath);
+          keyMap.set(tab.key, nextKey);
+          changed = true;
+          return tab.kind === 'file'
+            ? { kind: 'file' as const, key: nextKey, path: nextPath }
+            : { kind: 'editor' as const, key: nextKey, path: nextPath, editor: tab.editor };
+        }
+        if (tab.kind === 'surface' && tab.path) {
+          const nextPath = remapPath(tab.path);
+          if (!nextPath) return tab;
+          const nextKey = surfaceTabKey(tab.mode, nextPath);
+          keyMap.set(tab.key, nextKey);
+          changed = true;
+          return { kind: 'surface' as const, key: nextKey, mode: tab.mode, path: nextPath };
+        }
+        return tab;
+      });
+
+      if (!changed) return s;
       return {
         filePreviews,
         editorFiles,
-        canvasTabs: s.canvasTabs.map((tab) => {
-          if (tab.key === oldKey && tab.kind === 'file')
-            return { kind: 'file' as const, key: newKey, path: newPath };
-          if (tab.key === oldEditorKey && tab.kind === 'editor')
-            return { kind: 'editor' as const, key: newEditorKey, path: newPath, editor: tab.editor };
-          return tab;
-        }),
-        activeTab:
-          s.activeTab === oldKey ? newKey : s.activeTab === oldEditorKey ? newEditorKey : s.activeTab,
+        canvasTabs,
+        activeTab: s.activeTab ? keyMap.get(s.activeTab) ?? s.activeTab : s.activeTab,
       };
     });
   },

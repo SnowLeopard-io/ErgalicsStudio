@@ -548,6 +548,23 @@ export function FileExplorer() {
     [],
   );
 
+  /** Keep editor sessions bound to a renamed/moved path (and every descendant
+   *  when a directory moves). Tabs are remapped by appStore.renameFileTab; the
+   *  session's `filePath` is the other half of the binding, so leaving it stale
+   *  would keep saving to the old location. */
+  const relocateSessions = (oldPath: string, newPath: string) => {
+    const editor = useEditorStore.getState();
+    for (const session of editor.sessions) {
+      const path = session.filePath;
+      if (!path) continue;
+      if (path === oldPath) {
+        editor.setSessionFilePath(session.id, newPath);
+      } else if (path.startsWith(`${oldPath}/`)) {
+        editor.setSessionFilePath(session.id, `${newPath}${path.slice(oldPath.length)}`);
+      }
+    }
+  };
+
   /** Paste the clipboard into `targetDir`. copy → write copies; cut → move. */
   const paste = async (targetDir: string) => {
     if (!project || !clipboard || clipboard.items.length === 0) return;
@@ -576,6 +593,8 @@ export function FileExplorer() {
             continue;
           }
           await adapter.renameEntry(repoPath, item.path, target);
+          renameFileTab(item.path, basename(target), target);
+          relocateSessions(item.path, target);
         } else {
           const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
@@ -748,6 +767,7 @@ export function FileExplorer() {
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
+      relocateSessions(entry.path, target);
       await syncDataTrack(entry.path, target);
       await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
@@ -848,6 +868,8 @@ export function FileExplorer() {
       }
       try {
         await adapter.renameEntry(repoPath, src.path, target);
+        renameFileTab(src.path, basename(target), target);
+        relocateSessions(src.path, target);
         await syncDataTrack(src.path, target);
         await refreshDirs([targetDir, dirname(src.path)]);
         notify('success', t('workbench.explorer.moved_hint'));

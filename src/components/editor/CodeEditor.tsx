@@ -52,9 +52,9 @@ import { parseCodeToIR } from '@/editor/code/parse';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
-import { useModeConvert } from '@/stores/useModeConvert';
 
 import { ConsolePanel } from './ConsolePanel';
+import { SurfaceToolbar } from './SurfaceToolbar';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 
@@ -113,7 +113,6 @@ export function CodeEditor() {
   const [rLoadPercent, setRLoadPercent] = useState<number | null>(null);
   const [rPkgInput, setRPkgInput] = useState('');
   const [rInstalling, setRInstalling] = useState(false);
-  const requestTarget = useModeConvert((s) => s.requestTarget);
 
   // ---- Monaco setup (once per mount; theme applied reactively) ----------
 
@@ -642,30 +641,9 @@ export function CodeEditor() {
     }
   };
 
-  /** Convert the whole buffer into another code dialect. This goes through the
-   *  shared conversion pipeline: preview → write a sibling file (same base,
-   *  new extension) → open that file in code mode. The current file is left
-   *  untouched, so nothing is lost if the translation is rejected. */
-  const switchLanguage = (lang: CodeLanguage) => {
-    if (lang === language || isRunning || activeSessionId === null) return;
-    // Flush any pending edit first so the IR reflects the latest keystrokes
-    // in the current dialect before translating.
-    if (syncTimerRef.current !== null) {
-      window.clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = null;
-      useEditorStore.getState().syncFromCode(activeSessionId, editorRef.current?.getValue() ?? '');
-    }
-    requestTarget({ kind: 'language', language: lang });
-  };
-
   const rBooting = language === 'r' && rLoadPercent !== null;
   const rReady = language !== 'r' || (rEngine !== null && !rBooting);
   const engineReady = (language !== 'python' || runtimeReady) && rReady;
-  const langButtons: { id: CodeLanguage; label: string }[] = [
-    { id: 'python', label: 'Python' },
-    { id: 'r', label: 'R' },
-    { id: 'js', label: 'JS' },
-  ];
 
   // FR-07: expose this editor's run pipeline to the global floating AI panel.
   // A stable wrapper (one registration) always delegates to the latest
@@ -678,7 +656,8 @@ export function CodeEditor() {
 
   return (
     <div className="block-editor code-editor">
-      <div className="block-editor-toolbar">
+      <SurfaceToolbar>
+        <div className="block-editor-toolbar">
         <button
           type="button"
           className="be-run-btn"
@@ -689,20 +668,6 @@ export function CodeEditor() {
           <span className="be-run-icon">{isRunning ? <StopIcon size={12} /> : <PlayIcon size={12} />}</span>
           <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
         </button>
-
-        <div className="block-editor-toggle code-editor-lang-toggle" role="group" aria-label={t('editor.language')}>
-          {langButtons.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={`btn btn-sm${language === b.id ? ' btn-toggle-on' : ''}`}
-              onClick={() => switchLanguage(b.id)}
-              disabled={isRunning}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
 
         {session?.filePath && (
           <button
@@ -750,7 +715,8 @@ export function CodeEditor() {
                   : t('editor.loading_runtime')}
           </span>
         </div>
-      </div>
+        </div>
+      </SurfaceToolbar>
 
       <div className="block-editor-main">
         <div className="block-editor-top">
