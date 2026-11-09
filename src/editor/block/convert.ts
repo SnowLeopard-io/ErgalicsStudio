@@ -316,7 +316,7 @@ function irChain(nodes: IRNode[]): BlockJSON | undefined {
   let tail: BlockJSON | undefined;
   for (const n of nodes) {
     let b = irToBlockJSON(n, 'statement');
-    if (!STATEMENT_BLOCK_TYPES.has(b.type)) {
+    if (!b.type || !STATEMENT_BLOCK_TYPES.has(b.type)) {
       // e.g. a bare `x` expression statement parses to VarRef, which maps to
       // the value block `studio_var`. Degrade it to a raw statement so the
       // serialized chain stays valid.

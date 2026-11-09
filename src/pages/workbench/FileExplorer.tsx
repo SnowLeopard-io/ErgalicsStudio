@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
@@ -611,16 +612,25 @@ export function FileExplorer() {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
       closeTab(fileTabKey(entry.path));
       closeTab(editorTabKey(entry.path));
-      if (entry.isDir) {
-        // Close every editor tab under the deleted directory — a surviving
-        // dirty tab would recreate the file on its next save.
-        const prefix = `${entry.path}/`;
-        const tabs = useAppStore.getState().canvasTabs;
-        for (const tab of tabs) {
-          if (tab.kind === 'editor' && (tab.path === entry.path || tab.path.startsWith(prefix))) {
-            closeTab(tab.key);
-          }
-        }
+      // Every tab kind that points at a file must go with it: code / flow /
+      // block surfaces are `surface` tabs now, so closing only preview/editor
+      // tabs left deleted files visible in the strip.
+      const prefix = `${entry.path}/`;
+      const isDeletedPath = (path: string | undefined): boolean =>
+        !!path && (path === entry.path || (entry.isDir && path.startsWith(prefix)));
+      const tabs = useAppStore.getState().canvasTabs;
+      for (const tab of tabs) {
+        const tabPath =
+          tab.kind === 'file' || tab.kind === 'editor' || tab.kind === 'surface'
+            ? tab.path
+            : undefined;
+        if (isDeletedPath(tabPath)) closeTab(tab.key);
+      }
+      // Drop editor sessions bound to the deleted paths too — a surviving
+      // session would keep the file "open" and recreate it on the next save.
+      const editor = useEditorStore.getState();
+      for (const session of editor.sessions) {
+        if (isDeletedPath(session.filePath)) editor.removeSession(session.id);
       }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
