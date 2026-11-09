@@ -33,6 +33,12 @@
     'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular,
     Consolas, 'PingFang SC', 'Microsoft YaHei', monospace;
+  /* Data surfaces (console / variables): mono for code, but CJK must resolve
+     to a sans face. Windows' generic `monospace` maps to a serif (SimSun), so
+     the CJK families are listed explicitly before the generic fallback. */
+  --font-console: 'JetBrains Mono', 'Cascadia Mono', Consolas,
+    'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC',
+    'Noto Sans Mono CJK SC', monospace;
   --font-family: var(--font-sans);
   --topbar-height: 52px;
   --statusbar-height: 30px;
@@ -210,7 +216,9 @@ body {
 #root code,
 #root .xterm,
 #root .central-md-preview,
-#root .nb-md {
+#root .nb-md,
+#root .editor-console,
+#root .editor-vars {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -793,7 +801,12 @@ textarea::-webkit-resizer {
   font-size: var(--font-size-sm);
   cursor: pointer;
   animation: toast-in var(--transition-base);
-  max-width: 360px;
+  /* Single row: the message and its action sit side by side instead of the
+     action's label wrapping inside a narrow 360px card. */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
 }
 
 @keyframes toast-in {
@@ -814,7 +827,8 @@ textarea::-webkit-resizer {
    page background colour is the correct contrasting ink). */
 .toast-action {
   display: inline-block;
-  margin-top: 8px;
+  flex: 0 0 auto;
+  margin-top: 0;
   padding: 5px 14px;
   border: none;
   border-radius: var(--radius-sm);
@@ -823,6 +837,7 @@ textarea::-webkit-resizer {
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: var(--shadow-1);
 }

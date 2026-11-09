@@ -39,6 +39,10 @@ export function TopBar() {
   const resetToWelcome = useAppStore((s) => s.resetToWelcome);
   const toggleModePanel = useAppStore((s) => s.toggleModePanel);
   const modePanelOpen = useAppStore((s) => s.modePanelOpen);
+  // Code/block surfaces keep their preview + variables in the right sidebar,
+  // so ☰ toggles that panel instead of a mode-internal pane.
+  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
+  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
   const mode = useAppStore((s) => s.mode);
   const requestMode = useModeConvert((s) => s.requestMode);
   const perfFps = useAppStore((s) => s.perf.fps);
@@ -96,11 +100,11 @@ export function TopBar() {
       {mode !== 'standard' && (
         <button
           type="button"
-          className={`icon-btn${modePanelOpen ? ' is-active' : ''}`}
+          className={`icon-btn${(mode === 'flow' ? modePanelOpen : rightPanelOpen) ? ' is-active' : ''}`}
           aria-label={t('workbench.menu.toggle_panel')}
-          aria-pressed={modePanelOpen}
+          aria-pressed={mode === 'flow' ? modePanelOpen : rightPanelOpen}
           title={t('workbench.menu.toggle_panel')}
-          onClick={toggleModePanel}
+          onClick={mode === 'flow' ? toggleModePanel : toggleRightPanel}
         >
           <MenuIcon size={17} />
         </button>

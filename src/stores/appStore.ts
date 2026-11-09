@@ -128,6 +128,10 @@ export interface EditorFileState {
 export type CanvasTab =
   | { kind: 'file'; key: string; path: string }
   | { kind: 'editor'; key: string; path: string; editor: FileEditorKind }
+  /** A workbench surface (flow / block / code) embedded in the canvas. The
+   *  four modes are tabs now, not full-page swaps: the explorer and side
+   *  panels stay put while the surface occupies the editor area. */
+  | { kind: 'surface'; key: string; mode: WorkbenchMode }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
@@ -136,6 +140,9 @@ export const fileTabKey = (path: string): string => `file:${path}`;
 
 /** Tab key for a file editor tab. */
 export const editorTabKey = (path: string): string => `editor:${path}`;
+
+/** Tab key for an embedded workbench surface (flow / block / code). */
+export const surfaceTabKey = (mode: WorkbenchMode): string => `surface:${mode}`;
 
 /** Stable tab key for the embedded settings page. */
 export const settingsTabKey = 'settings:app';
@@ -214,6 +221,9 @@ interface AppStore {
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
   toggleModePanel: () => void;
+  /** Select a workbench mode. Standard returns to the plugin canvas; the three
+   *  editing surfaces open (or focus) their own canvas tab instead of
+   *  replacing the whole page. */
   setMode: (mode: WorkbenchMode) => void;
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
@@ -227,6 +237,10 @@ interface AppStore {
    *  dirty flag and bump fileOps so the explorer refreshes. Resolves to
    *  false on failure (notification emitted). */
   saveEditorFile: (path: string) => Promise<boolean>;
+  /** Write a live mode buffer straight to the workspace tree. Mode surfaces
+   *  are bound to files without an editor tab, so they cannot use the tab
+   *  buffer save path. */
+  saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -458,17 +472,23 @@ export const useAppStore = create<AppStore>((set, get) => {
       return next;
     }),
   setMode: (mode) => {
-    if (mode === get().mode) return;
-    set({ mode });
-    // Plugins render into the Standard mode's CentralArea; leaving Standard
-    // unmounts that surface, so a still-active plugin must be deactivated —
-    // otherwise it keeps rendering into detached DOM and holding GPU work.
-    if (mode !== 'standard') {
-      // Lazy import keeps appStore free of a pluginStore cycle.
-      void import('./pluginStore')
-        .then((m) => m.usePluginStore.getState().deactivate())
-        .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
+    // Standard is the canvas baseline (plugin host), not a tab: returning to
+    // it clears the active tab and brings the plugin canvas back.
+    if (mode === 'standard') {
+      set({ mode });
+      get().showPluginCanvas();
+      return;
     }
+    const key = surfaceTabKey(mode);
+    set((s) => ({
+      mode,
+      canvasTabs: s.canvasTabs.some((tab) => tab.key === key)
+        ? s.canvasTabs
+        : [...s.canvasTabs, { kind: 'surface' as const, key, mode }],
+      activeTab: key,
+    }));
+    // The surface tab covers the plugin canvas; stop its rendering loop.
+    deactivatePluginLazy();
   },
 
   /** Activity-bar click: switch the sidebar view and open the sidebar.
@@ -633,12 +653,41 @@ export const useAppStore = create<AppStore>((set, get) => {
     }
   },
 
+  /** Write a live mode buffer straight to the workspace tree. Mode surfaces
+   *  bind to files without an editor tab, so they cannot use the tab buffer
+   *  save path. Keeps a matching tab buffer in sync when one exists. */
+  saveWorkspaceFile: async (path, text) => {
+    try {
+      const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
+        import('./projectStore'),
+        import('@/core/vfs'),
+      ]);
+      const project = useProjectStore.getState().project;
+      if (!project) throw new Error('no project open');
+      await getVfs().writeFile(getProjectRepoPath(project), path, text);
+      set((s) => {
+        const key = editorTabKey(path);
+        const cur = s.editorFiles[key];
+        if (!cur) return s;
+        return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } } };
+      });
+      useAppStore.getState().bumpFileOps();
+      useAppStore.getState().notify('success', t('workbench.editor.saved'));
+      return true;
+    } catch (err) {
+      logger.error('appStore', 'workspace file save failed', err);
+      useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
+      return false;
+    }
+  },
+
   /** Activate a tab by key. Activating a suite tab deactivates the active
    *  plugin (it would otherwise keep rendering into the hidden canvas and
    *  burning GPU/CPU — same as a mode switch). */
   activateTab: (key) => {
-    if (!get().canvasTabs.some((tab) => tab.key === key)) return;
-    set({ activeTab: key });
+    const tab = get().canvasTabs.find((t) => t.key === key);
+    if (!tab) return;
+    set(tab.kind === 'surface' ? { activeTab: key, mode: tab.mode } : { activeTab: key });
     // Tool embeds AND file previews both replace the plugin canvas — the
     // active plugin must stop painting (GPU/CPU + visibility) either way.
     deactivatePluginLazy();
@@ -677,7 +726,7 @@ export const useAppStore = create<AppStore>((set, get) => {
           }
         }
       }
-      return { canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} };
+      return { canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {}, mode: 'standard' as WorkbenchMode };
     });
     void import('./pluginStore')
       .then((m) => {
@@ -712,19 +761,34 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (closed.kind === 'editor') {
         delete editorFiles[key];
       }
+      const nextActive =
+        s.activeTab === key
+          ? next.length
+            ? (next[Math.max(0, s.canvasTabs.findIndex((tab) => tab.key === key) - 1)]?.key ??
+              null)
+            : null
+          : s.activeTab;
+      // Closing the active surface tab falls back to whatever is now in front:
+      // another surface tab keeps its mode, the plain canvas resets to standard.
+      const nextSurface =
+        closed.kind === 'surface' && s.activeTab === key
+          ? next.find((tab) => tab.key === nextActive && tab.kind === 'surface')
+          : undefined;
+      const nextMode: WorkbenchMode | undefined =
+        closed.kind === 'surface' && s.activeTab === key
+          ? nextSurface && nextSurface.kind === 'surface'
+            ? nextSurface.mode
+            : 'standard'
+          : undefined;
       return {
         canvasTabs: next,
         filePreviews,
         editorFiles,
-        activeTab:
-          s.activeTab === key
-            ? next.length
-              ? (next[Math.max(0, s.canvasTabs.findIndex((tab) => tab.key === key) - 1)]?.key ??
-                null)
-              : null
-            : s.activeTab,
+        activeTab: nextActive,
+        ...(nextMode ? { mode: nextMode } : {}),
       };
     });
+    if (get().activeTab === null) get().showPluginCanvas();
   },
 
   /** Reorder the tab strip: pull `fromKey` out and insert it where `toKey`

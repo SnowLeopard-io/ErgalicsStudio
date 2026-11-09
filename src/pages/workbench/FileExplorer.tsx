@@ -23,10 +23,14 @@ import type { VfsEntry } from '@/core/vfs';
 import { parseBibtex } from '@/core/publish/bibtex';
 import type { ManuscriptRecord } from '@/core/publish/state';
 import {
+  codeLanguageForFile,
   editorKindForFile,
   parseFlowPayload,
   parseBlockPayload,
 } from '@/components/editor/fileEditors/shared';
+import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
+import type { BlockGraphState } from '@/types/block';
+import type { IRProgram } from '@/editor/ir';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -373,31 +377,54 @@ export function FileExplorer() {
         useAppStore.getState().setEmbeddedTool('latex-editor');
         return;
       }
-      // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
-      // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
-      // payload that fails its format check degrades to a read-only view.
+      // Editable files open directly in their workbench mode (the mode is the
+      // editor now — no separate file tab + "open in mode" round-trip):
+      // `.py/.js/.r` → code surface bound to the file, `*.flow.json` → flow
+      // surface, `*.block.json` → block surface. A payload that fails its
+      // format check degrades to a read-only view.
       const editorKind = editorKindForFile(entry.name);
       if (editorKind) {
         const raw = await adapter.readFile(repoPath, entry.path);
         if (editorKind === 'flow') {
+          const parsed = parseFlowPayload(raw);
+          if (parsed) {
+            editorStoreOpenInMode({
+              mode: 'flow',
+              graph: parsed.graph as unknown as BlockGraphState,
+              path: entry.path,
+            });
+            return;
+          }
           openFileEditor({
             path: entry.path,
             name: entry.name,
             editor: 'flow',
             payload: raw,
-            broken: parseFlowPayload(raw) === null,
+            broken: true,
           });
-        } else if (editorKind === 'block') {
+          return;
+        }
+        if (editorKind === 'block') {
+          const parsed = parseBlockPayload(raw);
+          if (parsed) {
+            editorStoreOpenInMode({ mode: 'block', ir: parsed.ir as IRProgram, path: entry.path });
+            return;
+          }
           openFileEditor({
             path: entry.path,
             name: entry.name,
             editor: 'block',
             payload: raw,
-            broken: parseBlockPayload(raw) === null,
+            broken: true,
           });
-        } else {
-          openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
+          return;
         }
+        const language = codeLanguageForFile(entry.name);
+        if (language) {
+          editorStoreOpenInMode({ mode: 'code', language, code: raw, path: entry.path });
+          return;
+        }
+        openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
         return;
       }
       const { kind, mime } = classifyFile(entry.name);

@@ -1286,7 +1286,11 @@
   align-items: center;
   gap: 8px;
   color: var(--color-text-primary);
-  font-family: 'JetBrains Mono', monospace;
+  /* Full mono stack, not a bare "monospace": Windows would otherwise fall
+     back to a CJK serif face for Chinese identifiers. */
+  font-family: var(--font-console);
+  user-select: text;
+  -webkit-user-select: text;
   font-weight: 500;
 }
 
@@ -1324,7 +1328,9 @@
 
 .editor-var-value {
   color: var(--color-text-secondary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-console);
+  user-select: text;
+  -webkit-user-select: text;
   font-size: 11px;
   padding: 3px 9px;
   background: var(--color-bg-tertiary);
@@ -1344,12 +1350,20 @@
   border-color: rgba(244, 114, 182, 0.25);
 }
 
+/* Console output and variable values are data surfaces: let text be selected
+   and copied (the app root disables selection for UI chrome). */
+.editor-console,
+.editor-vars {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* Console lines */
 .editor-console-line {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-console);
   font-size: 11.5px;
   line-height: 1.5;
   padding: 6px 14px;
@@ -1464,7 +1478,7 @@
 }
 
 .code-editor-repl-prompt {
-  font-family: var(--font-mono);
+  font-family: var(--font-console);
   font-size: 12px;
   font-weight: 700;
   color: var(--color-accent-text);
@@ -1477,7 +1491,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-console);
   font-size: 12px;
   outline: none;
 }
@@ -1608,9 +1622,15 @@
 
 .be-switch-undo {
   position: absolute;
-  left: 50%;
+  /* Centred pill that grows with its content. With `left: 50%` alone the
+     shrink-to-fit width was capped at half the editor, so the message and the
+     action button wrapped onto two lines. */
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100% - 24px);
   bottom: 22px;
-  transform: translateX(-50%);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -1621,27 +1641,47 @@
   border-radius: 999px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   font-size: 12px;
+  white-space: nowrap;
 }
 
-.be-switch-undo-text { opacity: 0.85; }
+.be-switch-undo-text {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .be-switch-undo-btn {
+  flex: 0 0 auto;
   background: var(--color-accent);
   color: var(--color-text-inverse);
   border: none;
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .be-switch-undo-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   background: none;
   border: none;
+  padding: 2px;
+  /* Buttons do not inherit text colour (UA default is ButtonText), which
+     looked wrong in the light theme; follow the themed text tokens. */
+  color: var(--color-text-secondary);
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.7;
   font-size: 12px;
   line-height: 1;
+}
+
+.be-switch-undo-x:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
 }
 
 /* ---- Mode conversion confirmation dialog (workbench-wide) ---------------- */
@@ -2107,4 +2147,61 @@
 .ai-panel-input .input {
   flex: 1;
   min-width: 0;
+}
+
+/* ==========================================================================
+   Right sidebar: result preview + variables (code / block surfaces)
+   ========================================================================== */
+
+.rp-mode-panel {
+  /* The aside is a block box, so `flex: 1` alone cannot stretch it: an
+     explicit 100% height gives the preview canvas a definite size (absolute
+     canvases inside an auto-height card collapse to 0 and draw nothing). */
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rp-mode-preview {
+  flex: 1 1 55%;
+  min-height: 140px;
+  display: flex;
+  min-width: 0;
+}
+
+/* The preview card is a sidebar section here, not a fixed 240px card. */
+.rp-mode-preview .rp-result-preview {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+.rp-mode-vars {
+  flex: 1 1 45%;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rp-mode-vars .editor-vars {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Off-screen hosting surface: keeps canvas refs valid while the right panel
+   is collapsed mid-run. Never visible, never interactive. */
+.rp-host-hidden {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 320px;
+  height: 260px;
+  overflow: hidden;
+  pointer-events: none;
 }

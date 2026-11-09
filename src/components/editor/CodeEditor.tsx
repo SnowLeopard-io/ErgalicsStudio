@@ -34,8 +34,8 @@ import {
 } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
-import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
+import { clearHostPreview } from '@/stores/pluginStore';
+import { collectRuntimeFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
 import type { CodeRuntime } from '@/core/pyodide/runtime';
@@ -54,7 +54,7 @@ import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 import { makeProgram, type IRProgram } from '@/editor/ir';
-import { VariablePanel } from './VariablePanel';
+
 import { ConsolePanel } from './ConsolePanel';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
@@ -75,15 +75,6 @@ const LANG_TAB_SIZE: Record<CodeLanguage, number> = { python: 4, r: 2, js: 2 };
 type SharedLang = 'python' | 'r' | 'js';
 const toSourceLang = (l: CodeLanguage): SharedLang => (l === 'r' ? 'r' : l === 'js' ? 'js' : 'python');
 
-/** Clear the 2D preview canvas + DOM overlay before a fresh run. */
-function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivElement | null): void {
-  if (canvas) {
-    const g = canvas.getContext('2d');
-    if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (dom) dom.innerHTML = '';
-}
-
 export function CodeEditor() {
   const t = useT();
   const { resolved: resolvedTheme } = useTheme();
@@ -94,21 +85,11 @@ export function CodeEditor() {
   const language: CodeLanguage = session?.language ?? 'python';
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
-  // Right pane (preview / variables) toggled by the top-bar ☰. The console
-  // lives in a resizable dock under the editor regardless of this toggle.
-  const panelOpen = useAppStore((s) => s.modePanelOpen);
-  const {
-    sideWidth,
-    dockHeight,
-    varsWidth,
-    sideHandleProps,
-    dockHandleProps,
-    varsHandleProps,
-  } = useEditorSplit();
+  // Result preview + variables live in the workbench right sidebar now; this
+  // surface only keeps the console dock under the editor.
+  const { dockHeight, dockHandleProps } = useEditorSplit();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const domRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const editorRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
   const runtimeRef = useRef<CodeRuntime | null>(null);
   const replRef = useRef<HTMLInputElement>(null);
@@ -329,25 +310,6 @@ export function CodeEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // Register render containers for the preview area (2D plugins), mirroring
-  // block mode so plot payloads draw into the code editor's preview surface.
-  useEffect(() => {
-    if (!domRef.current || !canvasRef.current) return;
-    setHostContainers({
-      dom: domRef.current,
-      canvas2d: canvasRef.current,
-      reportDataScale: (n) => useAppStore.getState().setDataScale(n),
-      clearCanvas2d: () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const g = canvas.getContext('2d');
-        if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-      },
-    });
-    rerenderActivePlugin();
-    return () => setHostContainers(null);
-  }, []);
-
   // Ensure a code session exists; when the session OR its language changes,
   // (re)load the translated text and switch Monaco's model language.
   useEffect(() => {
@@ -410,19 +372,33 @@ export function CodeEditor() {
       if (filePath) useAppStore.getState().updateEditorFile(filePath, code);
       loadedKeyRef.current = `${sid}:${lang}`;
     }
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
-  /** Ship every resolvable data file into the worker as _FILES. */
-  const collectFiles = async (): Promise<Record<string, string>> => {
-    const files: Record<string, string> = {};
-    for (const name of listDataFiles()) {
-      const text = await resolveDataFile(name);
-      if (text !== undefined) files[name] = text;
+  // Show verbatim source handed over by the explorer (opening another file in
+  // the already-mounted code surface). Keyed by token so switching to a file
+  // with identical text still re-syncs the buffer and model language.
+  const pendingCode = useEditorStore((s) => s.pendingCode);
+  useEffect(() => {
+    if (!pendingCode) return;
+    const editor = editorRef.current;
+    if (editor) {
+      silentSetRef.current = true;
+      editor.setValue(pendingCode.code);
+      codeTextRef.current = pendingCode.code;
+      monaco.editor.setModelLanguage(editor.getModel()!, MONACO_LANG[language]);
+      window.requestAnimationFrame(() => {
+        silentSetRef.current = false;
+      });
+      loadedKeyRef.current = `${activeSessionId}:${language}`;
     }
-    return files;
-  };
+    useEditorStore.getState().consumeCodeLoad();
+  }, [pendingCode, activeSessionId, language]);
+
+  /** Ship every resolvable file into the worker as _FILES: the explorer
+   *  working tree first, then project data files and bundled examples. */
+  const collectFiles = async (): Promise<Record<string, string>> => collectRuntimeFiles();
 
   /** Run JavaScript text through the IR interpreter (block-mode engine). */
   const runViaIR = async (code: string, lang: CodeLanguage): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
@@ -448,7 +424,7 @@ export function CodeEditor() {
   const runR = async (code: string): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
     const runtime = rRuntimeRef.current;
     if (!runtime) return runViaIR(code, 'r');
-    const result = await runtime.exec(code);
+    const result = await runtime.exec(code, await collectFiles());
     if (result.stdout) {
       // Full-R console output is clearly separated from DSL degrade notices.
       useEditorStore
@@ -485,7 +461,7 @@ export function CodeEditor() {
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let outputs: Record<string, unknown> = {};
     try {
@@ -535,8 +511,9 @@ export function CodeEditor() {
     if (!path || !editor) return;
     const text = editor.getValue();
     codeTextRef.current = text;
-    useAppStore.getState().updateEditorFile(path, text);
-    await useAppStore.getState().saveEditorFile(path);
+    // Write straight to the workspace tree: the mode owns the buffer now and
+    // there may be no matching editor tab.
+    await useAppStore.getState().saveWorkspaceFile(path, text);
   };
   saveBoundRef.current = () => void saveBoundFile();
 
@@ -577,7 +554,7 @@ export function CodeEditor() {
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let error: string | undefined;
     let outputs: Record<string, unknown> = {};
@@ -862,34 +839,10 @@ export function CodeEditor() {
       <div className="block-editor-main">
         <div className="block-editor-top">
           <div ref={containerRef} className="code-editor-monaco" />
-
-          {panelOpen && (
-            <div
-              className="be-splitter is-vertical"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t('editor.panel.resize')}
-              aria-valuenow={sideWidth}
-              aria-valuemin={220}
-              aria-valuemax={560}
-              tabIndex={0}
-              {...sideHandleProps}
-            />
-          )}
-
-          <div
-            className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}
-            style={panelOpen ? { width: sideWidth } : undefined}
-          >
-            <div className="block-editor-preview">
-              <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-              <div ref={domRef} className="block-editor-preview-dom" />
-              <canvas ref={canvasRef} className="block-editor-preview-canvas" />
-            </div>
-          </div>
         </div>
 
-        {/* Bottom dock: console and variables side by side; drag to resize. */}
+        {/* Bottom dock: console under the editor; result preview and variables
+            now render in the workbench right sidebar. */}
         <div
           className="be-splitter is-horizontal"
           role="separator"
@@ -951,22 +904,6 @@ export function CodeEditor() {
                 </button>
               </div>
             )}
-          </div>
-
-          <div
-            className="be-splitter is-vertical"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t('editor.vars.resize')}
-            aria-valuenow={varsWidth}
-            aria-valuemin={200}
-            aria-valuemax={420}
-            tabIndex={0}
-            {...varsHandleProps}
-          />
-
-          <div className="block-editor-vars" style={{ width: varsWidth }}>
-            <VariablePanel />
           </div>
         </div>
       </div>

@@ -1,12 +1,14 @@
 // ==========================================================================
 // Ergalics Studio — workbench mode conversion gate
 //
-// An intermediate confirmation step for switching between the three IR-backed
-// editing surfaces (flow / block / code), mirroring the code-mode language
-// switch draft: the conversion result is previewed (node counts, statements
-// the target canvas cannot represent, regenerated code) and only applied
-// after the user confirms. Entry points (top bar, welcome cards, command
-// palette) call requestMode() instead of appStore.setMode() directly.
+// Switching between the three IR-backed editing surfaces (flow / block / code)
+// is a real format conversion, not a re-render of one buffer: on confirm the
+// program is converted into the target format, written to a sibling file
+// (same directory, same base name, new suffix) and that new file is opened in
+// the target mode. A preview of the conversion (node counts, statements the
+// target canvas cannot represent, regenerated code) is shown first.
+// Entry points (top bar, welcome cards, command palette) call requestMode()
+// instead of appStore.setMode() directly.
 // ==========================================================================
 
 import { create } from 'zustand';
@@ -14,11 +16,34 @@ import { useAppStore } from './appStore';
 import { useEditorStore } from './editorStore';
 import type { WorkbenchMode } from '@/types/editor';
 import { codegen } from '@/editor/codegen';
-import { isFlowStatement } from '@/editor/flow/convert';
+import { parseCodeToIR } from '@/editor/code/parse';
+import { irToFlow, isFlowStatement } from '@/editor/flow/convert';
+import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
 import type { IRNode, IRProgram } from '@/editor/ir';
 
 const EDIT_TARGETS = ['flow', 'block', 'code'] as const;
 type EditTarget = (typeof EDIT_TARGETS)[number];
+
+const CODE_EXT: Record<'python' | 'r' | 'js', string> = { python: 'py', r: 'r', js: 'js' };
+
+/** Strip a known program/mode suffix to get the directory-relative base name. */
+function baseName(path: string): string {
+  return path
+    .replace(/\.(flow|block)\.json$/i, '')
+    .replace(/\.(py|js|mjs|r)$/i, '');
+}
+
+/** Sibling path for a converted file: same directory, same base, new suffix. */
+function targetPathFor(
+  source: string,
+  target: EditTarget,
+  language: 'python' | 'r' | 'js',
+): string {
+  const base = baseName(source);
+  if (target === 'block') return `${base}.block.json`;
+  if (target === 'flow') return `${base}.flow.json`;
+  return `${base}.${CODE_EXT[language]}`;
+}
 
 export interface ModeConvertPreview {
   target: EditTarget;
@@ -65,7 +90,12 @@ export const useModeConvert = create<ModeConvertState>((set, get) => ({
 
   requestMode: (mode) => {
     const app = useAppStore.getState();
-    if (mode === app.mode) return;
+    // Same mode: still make sure its canvas tab is in front (the user may be
+    // looking at a file tab that was opened from inside that surface).
+    if (mode === app.mode) {
+      app.setMode(mode);
+      return;
+    }
     // Non-editing targets (standard) pass straight through — no conversion.
     if (!EDIT_TARGETS.includes(mode as EditTarget)) {
       app.setMode(mode);
@@ -106,8 +136,61 @@ export const useModeConvert = create<ModeConvertState>((set, get) => ({
     const p = get().pending;
     if (!p) return;
     set({ pending: null });
-    useAppStore.getState().setMode(p.target);
+    void convertToSiblingFile(p.target);
   },
 
   cancel: () => set({ pending: null }),
 }));
+
+/** Convert the active session's program into `target`'s on-disk format and
+ *  write it NEXT TO the source file (same directory, same base name, new
+ *  suffix). The target mode then opens that freshly written file — switching
+ *  modes is a real format conversion on disk, not a re-render of one buffer.
+ *  Sessions without a bound file cannot be placed anywhere, so they keep the
+ *  old in-memory behavior. */
+async function convertToSiblingFile(target: EditTarget): Promise<void> {
+  const app = useAppStore.getState();
+  const st = useEditorStore.getState();
+  const sess = st.sessions.find((s) => s.id === st.activeSessionId);
+  if (!sess || !sess.filePath || app.mode === target) {
+    app.setMode(target);
+    return;
+  }
+  const language = codegenLang(sess.language);
+  // Code buffers are authoritative for code mode (the user may have typed
+  // past the IR); block/flow keep their IR hub in sync while editing. If the
+  // text cannot be parsed, fall back to the hub so conversion still works.
+  let ir = sess.ir;
+  if (app.mode === 'code') {
+    try {
+      ir = parseCodeToIR(sess.lastCode, language).program;
+    } catch {
+      ir = sess.ir;
+    }
+  }
+  const path = targetPathFor(sess.filePath, target, language);
+  if (path === sess.filePath) {
+    app.setMode(target);
+    return;
+  }
+
+  let text: string;
+  const graph = target === 'flow' ? irToFlow(ir) : null;
+  if (target === 'block') {
+    text = JSON.stringify({ version: 1, kind: 'ergalics-block', ir }, null, 2);
+  } else if (graph) {
+    text = JSON.stringify({ version: 1, kind: 'ergalics-flow', graph }, null, 2);
+  } else {
+    text = codegen(ir, language);
+  }
+
+  if (!(await app.saveWorkspaceFile(path, text))) return;
+
+  if (target === 'code') {
+    editorStoreOpenInMode({ mode: 'code', language, code: text, path });
+  } else if (target === 'block') {
+    editorStoreOpenInMode({ mode: 'block', ir, path });
+  } else if (graph) {
+    editorStoreOpenInMode({ mode: 'flow', graph, path });
+  }
+}

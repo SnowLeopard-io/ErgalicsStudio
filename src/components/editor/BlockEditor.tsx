@@ -11,10 +11,10 @@ import * as Blockly from 'blockly/core';
 import type * as BlocklyNS from 'blockly/core';
 import { useLocale, useT } from '@/i18n';
 import { useTheme } from '@/theme';
-import { LoaderIcon, PlayIcon } from '@/components/icons';
+import { DownloadIcon, LoaderIcon, PlayIcon } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
+import { clearHostPreview } from '@/stores/pluginStore';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import { hashString } from '@/core/repro/random';
@@ -27,21 +27,10 @@ import {
   loadIRIntoWorkspace,
   disposeWorkspace,
 } from '@/editor/block';
-import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
-
-/** Clear the 2D preview canvas + DOM overlay so a previous run's plot never
- *  lingers when loading a new sample or starting a fresh run. */
-function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivElement | null): void {
-  if (canvas) {
-    const g = canvas.getContext('2d');
-    if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (dom) dom.innerHTML = '';
-}
 
 export function BlockEditor() {
   const t = useT();
@@ -52,25 +41,20 @@ export function BlockEditor() {
   const dark = themeResolved === 'dark';
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
+  // A file opened from the explorer binds the mode to that path; saving writes
+  // the workspace back without an intermediate file tab.
+  const boundPath = useEditorStore(
+    (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
+  );
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   const error = useEditorStore((s) => s.error);
-  // Right pane (preview / variables) toggled by the top-bar ☰. The console
-  // lives in a resizable dock under the workspace regardless of this toggle.
-  const panelOpen = useAppStore((s) => s.modePanelOpen);
-  const {
-    sideWidth,
-    dockHeight,
-    varsWidth,
-    sideHandleProps,
-    dockHandleProps,
-    varsHandleProps,
-  } = useEditorSplit();
+  // Result preview + variables live in the workbench right sidebar now; this
+  // surface only keeps the console dock under the workspace.
+  const { dockHeight, dockHandleProps } = useEditorSplit();
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
-  const domRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastLoadedId = useRef<string | null>(null);
   const codeViewRef = useRef<'js' | 'python' | null>(null);
   const debounceRef = useRef<number | undefined>(undefined);
@@ -148,27 +132,6 @@ export function BlockEditor() {
     lastLoadedId.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Register render containers for the preview area (2D plugins).
-  useEffect(() => {
-    if (!domRef.current || !canvasRef.current) return;
-    setHostContainers({
-      dom: domRef.current,
-      canvas2d: canvasRef.current,
-      reportDataScale: (n) => useAppStore.getState().setDataScale(n),
-      clearCanvas2d: () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const g = canvas.getContext('2d');
-        if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-      },
-    });
-    // If a plugin is still active (e.g. the editor just remounted after a
-    // mode toggle), redraw it into the fresh preview containers — otherwise
-    // its cached container points at a detached canvas and plotting breaks.
-    rerenderActivePlugin();
-    return () => setHostContainers(null);
-  }, []);
-
   // Consume a program requested by an external caller (e.g. the samples
   // dialog in the top bar). The session IR is already updated by the caller,
   // so this only refreshes the already-mounted workspace.
@@ -181,7 +144,7 @@ export function BlockEditor() {
     }
     // A freshly-loaded sample must not show the previous sample's plot or
     // variables — the store already cleared the latter via resetRunOutputs().
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
@@ -196,7 +159,7 @@ export function BlockEditor() {
     useEditorStore.getState().setVariables({});
     // Clear the previous run's plot so the preview is blank until the new
     // run produces output.
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let outputs: Record<string, unknown> = {};
     try {
@@ -267,6 +230,16 @@ export function BlockEditor() {
     setCode(ir ? (lang === 'js' ? codegenJS(ir) : codegenPython(ir)) : '');
   };
 
+  /** Persist the Blockly workspace into its bound `.block.json` file. */
+  const saveBoundFile = async () => {
+    const ws = wsRef.current;
+    const sid = useEditorStore.getState().activeSessionId;
+    const path = useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath;
+    if (!ws || !path) return;
+    const payload = JSON.stringify({ version: 1, kind: 'ergalics-block', ir: workspaceToIR(ws) }, null, 2);
+    await useAppStore.getState().saveWorkspaceFile(path, payload);
+  };
+
   return (
     <div className="block-editor">
       <div className="block-editor-toolbar">
@@ -285,6 +258,13 @@ export function BlockEditor() {
             JS
           </button>
         </div>
+
+        {boundPath && (
+          <button type="button" className="btn btn-sm" onClick={() => void saveBoundFile()}>
+            <DownloadIcon size={12} />
+            <span>{t('workbench.editor.save')}</span>
+          </button>
+        )}
 
         <div className="be-toolbar-spacer" />
 
@@ -309,36 +289,10 @@ export function BlockEditor() {
               <pre>{code}</pre>
             </div>
           )}
-
-          {panelOpen && (
-            <div
-              className="be-splitter is-vertical"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t('editor.panel.resize')}
-              aria-valuenow={sideWidth}
-              aria-valuemin={220}
-              aria-valuemax={560}
-              tabIndex={0}
-              {...sideHandleProps}
-            />
-          )}
-
-          {/* Kept mounted (only hidden) so plugin host container refs survive
-              panel toggles mid-session. */}
-          <div
-            className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}
-            style={panelOpen ? { width: sideWidth } : undefined}
-          >
-            <div className="block-editor-preview">
-              <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-              <div ref={domRef} className="block-editor-preview-dom" />
-              <canvas ref={canvasRef} className="block-editor-preview-canvas" />
-            </div>
-          </div>
         </div>
 
-        {/* Bottom dock: console and variables side by side; drag to resize. */}
+        {/* Bottom dock: console under the workspace; result preview and
+            variables now render in the workbench right sidebar. */}
         <div
           className="be-splitter is-horizontal"
           role="separator"
@@ -354,22 +308,6 @@ export function BlockEditor() {
         <div className="block-editor-bottom" style={{ height: dockHeight }}>
           <div className="editor-panel editor-console-wrap">
             <ConsolePanel />
-          </div>
-
-          <div
-            className="be-splitter is-vertical"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t('editor.vars.resize')}
-            aria-valuenow={varsWidth}
-            aria-valuemin={200}
-            aria-valuemax={420}
-            tabIndex={0}
-            {...varsHandleProps}
-          />
-
-          <div className="block-editor-vars" style={{ width: varsWidth }}>
-            <VariablePanel />
           </div>
         </div>
       </div>

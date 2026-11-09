@@ -15,8 +15,8 @@ import type { BlockGraphState } from '@/types/block';
 
 type OpenInModeRequest =
   | { mode: 'code'; language: 'python' | 'r' | 'js'; code: string; path?: string }
-  | { mode: 'block'; ir: IRProgram }
-  | { mode: 'flow'; graph: BlockGraphState };
+  | { mode: 'block'; ir: IRProgram; path?: string }
+  | { mode: 'flow'; graph: BlockGraphState; path?: string };
 
 export function editorStoreOpenInMode(req: OpenInModeRequest): void {
   const st = useEditorStore.getState();
@@ -29,16 +29,31 @@ export function editorStoreOpenInMode(req: OpenInModeRequest): void {
     // Remember where this buffer came from so later code-mode edits can be
     // mirrored back into the file tab (they used to live only in the IR hub).
     st.setSessionFilePath(sid, req.path ?? null);
+    // The code surface may already be mounted (same session + language), in
+    // which case the session effect above does not reload Monaco — push the
+    // verbatim source explicitly so switching files swaps the buffer.
+    st.requestCodeLoad(req.code);
   } else if (req.mode === 'block') {
-    st.setSessionFilePath(sid, null);
+    st.setSessionFilePath(sid, req.path ?? null);
     st.updateSessionIR(sid, req.ir);
     // requestLoad guarantees the (possibly already-mounted) workspace reloads
     // this IR even when the session id did not change.
     st.requestLoad(req.ir);
   } else {
     // Flow mode hydrates its DAG from the IR hub on entry (useFlowSync).
-    st.setSessionFilePath(sid, null);
+    st.setSessionFilePath(sid, req.path ?? null);
     st.updateSessionIR(sid, flowToIR(req.graph));
   }
-  useAppStore.getState().setMode(req.mode);
+  // One file = one tab: the mode surface IS the editor for this file, so drop
+  // any preview/editor tab that was opened for the same path (otherwise the
+  // strip shows both `coupler.py` and `代码` side by side).
+  const app = useAppStore.getState();
+  if (req.path) {
+    for (const tab of app.canvasTabs) {
+      if ((tab.kind === 'file' || tab.kind === 'editor') && tab.path === req.path) {
+        app.closeTab(tab.key);
+      }
+    }
+  }
+  app.setMode(req.mode);
 }

@@ -5,6 +5,7 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { flushEditorFile } from '@/stores/editorFlush';
 import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
@@ -20,6 +21,17 @@ const LazyBlockFileEditor = lazyRetry(() =>
 );
 const LazyFlowFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
+);
+// The three editing surfaces are canvas tabs too (never full-page swaps):
+// flow DAG, Blockly workspace and the Monaco/Pyodide code editor.
+const LazyFlowSurface = lazyRetry(() =>
+  import('@/components/blocks/BlockWorkbench').then((m) => ({ default: m.BlockWorkbench })),
+);
+const LazyBlockSurface = lazyRetry(() =>
+  import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
+);
+const LazyCodeSurface = lazyRetry(() =>
+  import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 import { Modal } from '@/components/Modal';
 import { ToolShell } from '@/components/ToolShell';
@@ -54,7 +66,7 @@ import { DataDialog } from './DataDialog';
 import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
-import { WorkbenchModeCards } from '@/components/WorkbenchModes';
+import { WorkbenchModeCards, ModeIcon } from '@/components/WorkbenchModes';
 
 function fmtSize(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '';
@@ -928,7 +940,13 @@ export function CentralArea() {
   // buffers, scroll positions and tool state survive the switch.
   const canvasTabs = useAppStore((s) => s.canvasTabs);
   const activeTab = useAppStore((s) => s.activeTab);
+  const mode = useAppStore((s) => s.mode);
   const filePreviews = useAppStore((s) => s.filePreviews);
+  // Mode surfaces opened from a file are labelled with that file: one file is
+  // one tab ("coupler.py"), not a preview tab plus a generic "代码" tab.
+  const boundFilePath = useEditorStore(
+    (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
+  );
   const editorFiles = useAppStore((s) => s.editorFiles);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
@@ -1035,6 +1053,8 @@ export function CentralArea() {
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Identity used to claim/release the shared plugin render host. */
+  const hostOwnerRef = useRef({});
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scene3dRef = useRef<Scene3DHandle | null>(null);
   const dragDepth = useRef(0);
@@ -1250,6 +1270,7 @@ export function CentralArea() {
   }, [activeId]);
 
   useEffect(() => {
+    if (activeTab !== null) return;
     if (!domRef.current || !canvasRef.current) return;
     // Inject the 2D viewport transform into the shared canvas context before
     // any plugin draws into it.
@@ -1286,7 +1307,7 @@ export function CentralArea() {
         if (!canvas) return;
         clearCanvas2dInViewport(canvas);
       },
-    });
+    }, hostOwnerRef.current);
     // If a plugin is still active (e.g. CentralArea just remounted after a
     // block-mode toggle), redraw it into the fresh container elements. The
     // canvas must carry its final CSS size *before* that first draw — during
@@ -1306,11 +1327,11 @@ export function CentralArea() {
     });
     return () => {
       cancelAnimationFrame(settle);
-      setHostContainers(null);
+      setHostContainers(null, hostOwnerRef.current);
       scene3dRef.current?.dispose();
       scene3dRef.current = null;
     };
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -1502,7 +1523,11 @@ export function CentralArea() {
                     ? t('settings.title')
                     : tab.kind === 'editor'
                       ? (editorFiles[tab.key]?.name ?? tab.path)
-                      : (filePreviews[tab.key]?.name ?? tab.path);
+                      : tab.kind === 'surface'
+                        ? boundFilePath && tab.mode === mode
+                          ? boundFilePath.split('/').pop()!
+                          : t(`workbench.mode.${tab.mode}`)
+                        : (filePreviews[tab.key]?.name ?? tab.path);
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
               const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
@@ -1598,6 +1623,11 @@ export function CentralArea() {
                       <SettingsIcon size={12} />
                     </span>
                   )}
+                  {tab.kind === 'surface' && (
+                    <span className="central-tool-tab-icon" aria-hidden="true">
+                      <ModeIcon kind={tab.mode} />
+                    </span>
+                  )}
                   {dirty && <span className="central-editor-dirty-dot" aria-hidden="true" />}
                   <span className="central-tool-tab-name">{label}</span>
                   <button
@@ -1641,6 +1671,23 @@ export function CentralArea() {
                   return (
                     <Suspense fallback={<PreviewLoading />}>
                       <Cmp path={tab.path} />
+                    </Suspense>
+                  );
+                }
+                if (tab.kind === 'surface') {
+                  // Only the focused surface stays mounted: Blockly/Monaco
+                  // each own an editor session, so keeping hidden surfaces
+                  // alive would let them fight over the active IR.
+                  if (tab.key !== activeTab) return null;
+                  const Cmp =
+                    tab.mode === 'flow'
+                      ? LazyFlowSurface
+                      : tab.mode === 'block'
+                        ? LazyBlockSurface
+                        : LazyCodeSurface;
+                  return (
+                    <Suspense fallback={<PreviewLoading />}>
+                      <Cmp />
                     </Suspense>
                   );
                 }

@@ -7,7 +7,7 @@ import {
   serializeProject,
   touchProject,
 } from '@/types/project';
-import { setProjectFiles } from '@/core/dataFiles';
+import { setProjectFiles, setWorkspaceFileSource, setWorkspaceSnapshot } from '@/core/dataFiles';
 import { isSupportedDataFileName } from '@/core/fileFormat';
 import {
   saveProject,
@@ -201,6 +201,46 @@ function fileExtension(name: string): string {
 /** Re-sync the shared file registry whenever the current project changes. */
 function syncProjectFiles(project: Project | null): void {
   setProjectFiles(project?.data.files ?? []);
+  // Code/flow/block surfaces read `studio.load()` files through the same
+  // workspace tree the explorer shows, so imported files stop being invisible
+  // to the runtimes.
+  setWorkspaceFileSource(project ? () => readWorkspaceDataFiles(project) : null);
+  if (!project) {
+    setWorkspaceSnapshot({});
+    return;
+  }
+  // Populate the name/snapshot cache used by the sync file pickers.
+  void readWorkspaceDataFiles(project)
+    .then(setWorkspaceSnapshot)
+    .catch(() => undefined);
+}
+
+/** Cap for staging one workspace file into a runtime (avoid multi-MB JSON). */
+const MAX_STAGED_FILE_BYTES = 4 * 1024 * 1024;
+
+/** Walk the project workspace tree and return its text data files. */
+async function readWorkspaceDataFiles(project: Project): Promise<Record<string, string>> {
+  const root = getProjectRepoPath(project);
+  const vfs = getVfs();
+  const out: Record<string, string> = {};
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await vfs.readDir(root, dir);
+    for (const entry of entries) {
+      if (entry.isDir) {
+        await walk(entry.path);
+        continue;
+      }
+      if (!isSupportedDataFileName(entry.name)) continue;
+      if (entry.size > MAX_STAGED_FILE_BYTES) continue;
+      try {
+        out[entry.path] = await vfs.readFile(root, entry.path);
+      } catch (err) {
+        logger.warn('project', `workspace file not readable: ${entry.path}`, err);
+      }
+    }
+  };
+  await walk('');
+  return out;
 }
 
 const EMPTY_BLOCK_GRAPH: BlockGraphState = {
@@ -777,6 +817,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (err) {
       logger.warn('io', 'workspace data/ mirror failed', err);
     }
+    void readWorkspaceDataFiles(current).then(setWorkspaceSnapshot).catch(() => undefined);
     return entry.id;
   },
 
@@ -799,6 +840,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
     // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
     // reach, so the bytes would stay parked in storage forever.
+    void readWorkspaceDataFiles(project).then(setWorkspaceSnapshot).catch(() => undefined);
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
   },

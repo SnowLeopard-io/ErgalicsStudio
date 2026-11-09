@@ -46,6 +46,12 @@ export interface EditorStore {
   error: string | null;
   /** A program an external caller (e.g. the samples dialog) asked to load. */
   pendingLoad: IRProgram | null;
+  /** Verbatim source an external caller asked the code buffer to show (e.g.
+   *  opening another `.py` in the already-mounted code surface). The token
+   *  forces the effect even when the text repeats. */
+  pendingCode: { code: string; token: number } | null;
+  requestCodeLoad: (code: string) => void;
+  consumeCodeLoad: () => void;
 
   createSession: (mode: 'block' | 'code', language: CodeLanguage) => EditorSession;
   /** Switch a code session's language and translate its code from the IR. */
@@ -151,6 +157,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isRunning: false,
   error: null,
   pendingLoad: null,
+  pendingCode: null,
+  requestCodeLoad: (code) =>
+    set((s) => ({ pendingCode: { code, token: (s.pendingCode?.token ?? 0) + 1 } })),
+  consumeCodeLoad: () => set({ pendingCode: null }),
 
   createSession: (mode, language) => {
     const session = createEditorSession(mode, language, emptyProgram());

@@ -8450,6 +8450,11 @@
   flex-shrink: 0;
 }
 
+.central-tool-tab-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
 .central-tool-tab-name {
   min-width: 0;
   overflow: hidden;
