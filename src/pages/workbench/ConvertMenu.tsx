@@ -2,10 +2,11 @@
 // Ergalics Studio — common conversion menu (top bar, every mode)
 //
 // One dropdown lists every surface the program can be converted into:
-// the three workbench modes (flow / block / code) and the three code
-// dialects (Python / R / JavaScript). Choosing a language converts into code
-// mode in that dialect, using the same preview → write sibling file → open
-// pipeline as a mode switch (see stores/useModeConvert.ts).
+// the four workbench modes (Standard / flow / block / code) and the three code
+// dialects (Python / R / JavaScript). Standard simply leaves the editing
+// surfaces; the others convert through the shared IR hub. Choosing a language
+// converts into code mode in that dialect, using the same preview → write
+// sibling file → open pipeline as a mode switch (see stores/useModeConvert.ts).
 // ==========================================================================
 
 import { useT } from '@/i18n';
@@ -35,9 +36,19 @@ export function ConvertMenu() {
     (s) => s.sessions.find((x) => x.id === s.activeSessionId)?.language ?? 'python',
   );
   const requestTarget = useModeConvert((s) => s.requestTarget);
+  const requestMode = useModeConvert((s) => s.requestMode);
 
   const items: MenuItemDef[] = [
     { key: 'convert-modes', label: t('workbench.convert.mode_group'), header: true },
+    // Standard is not an IR surface, so it switches directly instead of going
+    // through the conversion preview.
+    {
+      key: 'mode:standard',
+      label: t('workbench.mode.standard'),
+      active: mode === 'standard',
+      disabled: mode === 'standard',
+      onClick: () => requestMode('standard'),
+    },
     ...MODE_TARGETS.map((m) => ({
       key: `mode:${m.id}`,
       label: t(m.labelKey),

@@ -6,7 +6,6 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useAppStore } from '@/stores/appStore';
-import { useModeConvert } from '@/stores/useModeConvert';
 import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -20,8 +19,6 @@ import { useShortcutsStore } from '@/stores/shortcutsStore';
 import { useModeSync } from '@/hooks/useModeSync';
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 import { ConvertMenu } from './ConvertMenu';
-
-const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
 
 export function TopBar() {
   const t = useT();
@@ -45,7 +42,6 @@ export function TopBar() {
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
   const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
   const mode = useAppStore((s) => s.mode);
-  const requestMode = useModeConvert((s) => s.requestMode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
@@ -196,19 +192,11 @@ export function TopBar() {
       />
 
       <div className="topbar-actions">
-        {/* Zone 2 — work modes (filled + underline double indication). */}
-        <div className="topbar-cluster mode-switch">
-          {MODE_KEYS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`mode-btn${mode === key ? ' is-on' : ''}`}
-              aria-pressed={mode === key}
-              onClick={() => requestMode(key)}
-            >
-              {t(`workbench.mode.${key}`)}
-            </button>
-          ))}
+        {/* Zone 2 — the single work-mode entry point is the conversion menu;
+            it lists every mode (including Standard) and the three code
+            dialects, so no separate mode-button strip is needed. */}
+        <div className="topbar-cluster convert-cluster">
+          <ConvertMenu />
           {syncState !== 'idle' && (
             <span
               className={`mode-sync-dot is-${syncState}`}
@@ -217,12 +205,6 @@ export function TopBar() {
               aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
             />
           )}
-        </div>
-
-        {/* Zone 2b — common conversion menu: available in every mode, listing
-            the other modes and the three code dialects. */}
-        <div className="topbar-cluster convert-cluster">
-          <ConvertMenu />
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />
