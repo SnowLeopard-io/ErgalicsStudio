@@ -9,6 +9,7 @@
 import { useT } from '@/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 import { isDataTable, isRenderedView, isScalar } from '@/types/datatable';
+import { DotIcon, ImageIcon, TableIcon, VariableIcon } from '@/components/icons';
 
 function summarize(value: import('@/types/datatable').DataValue | undefined): { text: string; kind: 'scalar' | 'table' | 'view' | 'unknown' } {
   if (!value) return { text: 'undefined', kind: 'unknown' };
@@ -18,12 +19,12 @@ function summarize(value: import('@/types/datatable').DataValue | undefined): { 
   return { text: String(value), kind: 'unknown' };
 }
 
-function icon(kind: 'scalar' | 'table' | 'view' | 'unknown'): string {
+function VarIcon({ kind }: { kind: 'scalar' | 'table' | 'view' | 'unknown' }) {
   switch (kind) {
-    case 'scalar': return '123';
-    case 'table': return '▦';
-    case 'view': return '◳';
-    default: return '○';
+    case 'scalar': return <VariableIcon size={12} />;
+    case 'table': return <TableIcon size={12} />;
+    case 'view': return <ImageIcon size={12} />;
+    default: return <DotIcon size={12} />;
   }
 }
 
@@ -41,7 +42,9 @@ export function VariablePanel() {
       <div className="editor-panel-body">
         {names.length === 0 ? (
           <div className="editor-panel-empty">
-            <span className="editor-panel-empty-icon">◇</span>
+            <span className="editor-panel-empty-icon">
+              <VariableIcon size={18} />
+            </span>
             <span>{t('blocks.preview.empty')}</span>
           </div>
         ) : (
@@ -50,7 +53,9 @@ export function VariablePanel() {
             return (
               <div key={name} className="editor-var-row">
                 <span className="editor-var-name">
-                  <span className={`editor-var-icon is-${kind}`}>{icon(kind)}</span>
+                  <span className={`editor-var-icon is-${kind}`}>
+                    <VarIcon kind={kind} />
+                  </span>
                   {name}
                 </span>
                 <span className={`editor-var-value is-${kind}`}>{text}</span>

@@ -4,6 +4,7 @@ import { useT } from '@/i18n';
 import { useProjectStore, generateCommitMessage } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { getGitCorsProxy, setGitCorsProxy } from '@/core/git/isomorphic-adapter';
+import { ChevronDownIcon, ChevronRightIcon } from '@/components/icons';
 
 /**
  * Git panel (§3.5): branch + ahead/behind, Pull/Push/Fetch, new-branch and
@@ -239,7 +240,9 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
           if (alwaysOpen) e.preventDefault();
         }}
       >
-        <span className="git-panel-caret">▸</span>
+        <span className="git-panel-caret">
+          <ChevronRightIcon size={12} />
+        </span>
         <span>{t('git.panel_title')}</span>
         {repo && (
           <span className="git-panel-badge" title={repo.currentBranch}>
@@ -278,7 +281,9 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
           </div>
           <details className="git-advanced">
             <summary title={t('git.advanced_summary')}>
-              <span className="git-panel-caret">▸</span>
+              <span className="git-panel-caret">
+                <ChevronRightIcon size={12} />
+              </span>
               {t('git.advanced_summary')}
             </summary>
             <div className="git-clone-row">
@@ -396,7 +401,7 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
                 className={`git-panel-caret${changesOpen ? '' : ' git-panel-caret-closed'}`}
                 aria-hidden="true"
               >
-                ▾
+                <ChevronDownIcon size={12} />
               </span>
               {t('git.changes')}
               {splitRows.worktreeRows.length > 0 && (
@@ -513,7 +518,9 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
               CORS proxy for remote ops + the identity/credentials entry. */}
           <details className="git-advanced">
             <summary title={t('git.proxy_summary')}>
-              <span className="git-panel-caret">▸</span>
+              <span className="git-panel-caret">
+                <ChevronRightIcon size={12} />
+              </span>
               {t('git.proxy_summary')}
             </summary>
             <div className="git-clone-row git-proxy-row">

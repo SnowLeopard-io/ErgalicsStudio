@@ -154,8 +154,10 @@
 }
 
 .more-caret {
+  display: inline-flex;
+  align-items: center;
   margin-left: 4px;
-  font-size: var(--font-size-xs);
+  vertical-align: middle;
   color: var(--color-text-tertiary);
 }
 
@@ -421,9 +423,13 @@
   display: none;
 }
 .git-panel-caret {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
   transition: transform 0.15s ease;
-  font-size: 11px;
 }
 .git-panel[open] > summary.git-panel-summary .git-panel-caret {
   transform: rotate(90deg);
@@ -495,9 +501,12 @@
   color: var(--color-text-primary);
 }
 .explorer-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 12px;
+  height: 12px;
   flex: none;
-  font-size: 11px;
   color: var(--color-text-tertiary);
 }
 .explorer-twisty.is-open {
@@ -625,8 +634,12 @@
 }
 
 .plugin-group-chevron {
-  display: inline-block;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
   transition: transform var(--transition-fast);
 }
 
@@ -7889,6 +7902,15 @@
     var(--color-accent);
   box-shadow: none;
   opacity: 0.55;
+  /* The bead is only ~10px of visible sliver; the icon is invisible anyway,
+     so let a padded pseudo-element carry a finger-sized hit area instead. */
+  overflow: visible;
+}
+
+.ai-fab.is-puddle::after {
+  content: '';
+  position: absolute;
+  inset: -10px -18px;
 }
 
 .ai-fab.is-puddle .ai-fab-icon {
@@ -7896,9 +7918,30 @@
   transform: scale(0.3);
 }
 
-.ai-fab:hover,
+/* Hover expansion is pointer-only. Touch browsers keep :hover latched after
+   a tap, which left the droplet expanded indefinitely on phones/tablets. */
+@media (hover: hover) {
+  .ai-fab:hover,
+  .ai-fab.is-puddle:hover {
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    transform: translateX(0) scale(1.05);
+    border-radius: 999px;
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    box-shadow: 0 0 16px var(--glow-hover);
+    opacity: 1;
+  }
+
+  .ai-fab:hover .ai-fab-icon,
+  .ai-fab.is-puddle:hover .ai-fab-icon {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .ai-fab:focus-visible,
-.ai-fab.is-puddle:hover,
 .ai-fab.is-puddle:focus-visible {
   right: 14px;
   width: 40px;
@@ -7911,9 +7954,7 @@
   opacity: 1;
 }
 
-.ai-fab:hover .ai-fab-icon,
 .ai-fab:focus-visible .ai-fab-icon,
-.ai-fab.is-puddle:hover .ai-fab-icon,
 .ai-fab.is-puddle:focus-visible .ai-fab-icon {
   opacity: 1;
   transform: none;

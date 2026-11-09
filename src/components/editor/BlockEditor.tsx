@@ -7,9 +7,11 @@
 // ==========================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import * as Blockly from 'blockly/core';
 import type * as BlocklyNS from 'blockly/core';
 import { useLocale, useT } from '@/i18n';
 import { useTheme } from '@/theme';
+import { LoaderIcon, PlayIcon } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
@@ -27,6 +29,7 @@ import {
 } from '@/editor/block';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
+import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
 
@@ -52,8 +55,17 @@ export function BlockEditor() {
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   const error = useEditorStore((s) => s.error);
-  // Right pane (preview / variables / console) toggled by the top-bar ☰.
+  // Right pane (preview / variables) toggled by the top-bar ☰. The console
+  // lives in a resizable dock under the workspace regardless of this toggle.
   const panelOpen = useAppStore((s) => s.modePanelOpen);
+  const {
+    sideWidth,
+    dockHeight,
+    varsWidth,
+    sideHandleProps,
+    dockHandleProps,
+    varsHandleProps,
+  } = useEditorSplit();
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
@@ -74,9 +86,16 @@ export function BlockEditor() {
   // so blocks re-label and re-colour into the new language / dark mode).
   useEffect(() => {
     initBlocklyEngine(locale, dark);
+    let ro: ResizeObserver | null = null;
     if (divRef.current) {
-      const ws = createWorkspace(divRef.current);
+      const host = divRef.current;
+      const ws = createWorkspace(host);
       wsRef.current = ws;
+      // Blockly only re-measures its SVG on window resize; the splitter and
+      // console dock change the host element without a window resize, so
+      // observe the host directly or the canvas keeps its old size.
+      ro = new ResizeObserver(() => Blockly.svgResize(ws));
+      ro.observe(host);
       ws.addChangeListener(() => {
         // Push the edited blocks into the IR hub; this regenerates both the
         // Flow DAG and the Code text so the three modes stay in lockstep.
@@ -102,6 +121,7 @@ export function BlockEditor() {
       lastLoadedId.current = sid ?? null;
     }
     return () => {
+      ro?.disconnect();
       if (wsRef.current) {
         disposeWorkspace(wsRef.current);
         wsRef.current = null;
@@ -251,7 +271,9 @@ export function BlockEditor() {
     <div className="block-editor">
       <div className="block-editor-toolbar">
         <button type="button" className="be-run-btn" onClick={() => void run()} disabled={isRunning}>
-          <span className="be-run-icon">{isRunning ? '⏳' : '▶'}</span>
+          <span className="be-run-icon">
+            {isRunning ? <LoaderIcon size={12} className="is-spinning" /> : <PlayIcon size={12} />}
+          </span>
           <span>{isRunning ? t('editor.status.running') : t('editor.run')}</span>
         </button>
 
@@ -275,28 +297,80 @@ export function BlockEditor() {
       </div>
 
       <div className="block-editor-main">
-        <div className="block-editor-workspace" ref={divRef} />
+        <div className="block-editor-top">
+          <div className="block-editor-workspace" ref={divRef} />
 
-        {codeView && (
-          <div className="block-editor-code">
-            <div className="block-editor-code-head">
-              <span className="be-code-lang">{codeView === 'js' ? 'JavaScript' : 'Python'}</span>
-              <button type="button" className="be-code-refresh" onClick={refreshCode}>{t('common.refresh')}</button>
+          {codeView && (
+            <div className="block-editor-code">
+              <div className="block-editor-code-head">
+                <span className="be-code-lang">{codeView === 'js' ? 'JavaScript' : 'Python'}</span>
+                <button type="button" className="be-code-refresh" onClick={refreshCode}>{t('common.refresh')}</button>
+              </div>
+              <pre>{code}</pre>
             </div>
-            <pre>{code}</pre>
-          </div>
-        )}
+          )}
 
-        {/* Kept mounted (only hidden) so plugin host container refs survive
-            panel toggles mid-session. */}
-        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
-          <div className="block-editor-preview">
-            <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-            <div ref={domRef} className="block-editor-preview-dom" />
-            <canvas ref={canvasRef} className="block-editor-preview-canvas" />
+          {panelOpen && (
+            <div
+              className="be-splitter is-vertical"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t('editor.panel.resize')}
+              aria-valuenow={sideWidth}
+              aria-valuemin={220}
+              aria-valuemax={560}
+              tabIndex={0}
+              {...sideHandleProps}
+            />
+          )}
+
+          {/* Kept mounted (only hidden) so plugin host container refs survive
+              panel toggles mid-session. */}
+          <div
+            className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}
+            style={panelOpen ? { width: sideWidth } : undefined}
+          >
+            <div className="block-editor-preview">
+              <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
+              <div ref={domRef} className="block-editor-preview-dom" />
+              <canvas ref={canvasRef} className="block-editor-preview-canvas" />
+            </div>
           </div>
-          <VariablePanel />
-          <ConsolePanel />
+        </div>
+
+        {/* Bottom dock: console and variables side by side; drag to resize. */}
+        <div
+          className="be-splitter is-horizontal"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('editor.dock.resize')}
+          aria-valuenow={dockHeight}
+          aria-valuemin={96}
+          aria-valuemax={460}
+          tabIndex={0}
+          {...dockHandleProps}
+        />
+
+        <div className="block-editor-bottom" style={{ height: dockHeight }}>
+          <div className="editor-panel editor-console-wrap">
+            <ConsolePanel />
+          </div>
+
+          <div
+            className="be-splitter is-vertical"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t('editor.vars.resize')}
+            aria-valuenow={varsWidth}
+            aria-valuemin={200}
+            aria-valuemax={420}
+            tabIndex={0}
+            {...varsHandleProps}
+          />
+
+          <div className="block-editor-vars" style={{ width: varsWidth }}>
+            <VariablePanel />
+          </div>
         </div>
       </div>
     </div>

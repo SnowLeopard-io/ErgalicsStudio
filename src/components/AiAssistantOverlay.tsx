@@ -16,7 +16,9 @@
 //
 // Closed, the ball rests as a small "water puddle" tucked into the right
 // screen edge. Pointer proximity (or keyboard focus) makes it gather back
-// into a full droplet; moving away lets it melt back into the edge.
+// into a full droplet; moving away lets it melt back into the edge. Touch
+// devices have no hover, so there the bead simply stays at rest and a tap
+// opens the assistant directly — it must never sit permanently expanded.
 // ==========================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -57,7 +59,9 @@ export function AiAssistantOverlay() {
       return;
     }
     if (window.matchMedia?.('(pointer: coarse)').matches) {
-      setAwake(true);
+      // No hover proximity on touch: keep the bead at rest. Tapping it opens
+      // the panel (the button's onClick), so the droplet never stays expanded.
+      setAwake(false);
       return;
     }
 
@@ -107,7 +111,11 @@ export function AiAssistantOverlay() {
             className={`ai-fab${awake ? '' : ' is-puddle'}`}
             title={t('ux.ai.open')}
             aria-label={t('ux.ai.open')}
-            onFocus={() => setAwake(true)}
+            onFocus={() => {
+              // Touch focus follows the tap that opens the panel; waking the
+              // droplet here would leave it expanded forever after closing.
+              if (!window.matchMedia?.('(pointer: coarse)').matches) setAwake(true);
+            }}
             onBlur={() => {
               // Coarse pointers have no hover: keep the droplet gathered.
               if (!window.matchMedia?.('(pointer: coarse)').matches) setAwake(false);

@@ -23,6 +23,15 @@ import { useEffect, useRef, useState } from 'react';
 import type * as MonacoNS from 'monaco-editor';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
+import {
+  CloseIcon,
+  CornerDownLeftIcon,
+  DownloadIcon,
+  LoaderIcon,
+  PlayIcon,
+  StopIcon,
+  ToolIcon,
+} from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
 import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
@@ -47,6 +56,7 @@ import type { CodeLanguage } from '@/types/editor';
 import { makeProgram, type IRProgram } from '@/editor/ir';
 import { VariablePanel } from './VariablePanel';
 import { ConsolePanel } from './ConsolePanel';
+import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 
 /** Keystroke → IR debounce (mirrors block mode's 120ms, slightly roomier). */
@@ -84,8 +94,17 @@ export function CodeEditor() {
   const language: CodeLanguage = session?.language ?? 'python';
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
-  // Right pane (preview / variables / console) toggled by the top-bar ☰.
+  // Right pane (preview / variables) toggled by the top-bar ☰. The console
+  // lives in a resizable dock under the editor regardless of this toggle.
   const panelOpen = useAppStore((s) => s.modePanelOpen);
+  const {
+    sideWidth,
+    dockHeight,
+    varsWidth,
+    sideHandleProps,
+    dockHandleProps,
+    varsHandleProps,
+  } = useEditorSplit();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const domRef = useRef<HTMLDivElement>(null);
@@ -774,7 +793,7 @@ export function CodeEditor() {
           onClick={isRunning ? stop : () => void run()}
           disabled={!isRunning && !engineReady}
         >
-          <span className="be-run-icon">{isRunning ? '■' : '▶'}</span>
+          <span className="be-run-icon">{isRunning ? <StopIcon size={12} /> : <PlayIcon size={12} />}</span>
           <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
         </button>
 
@@ -841,15 +860,49 @@ export function CodeEditor() {
       </div>
 
       <div className="block-editor-main">
-        <div ref={containerRef} className="code-editor-monaco" />
+        <div className="block-editor-top">
+          <div ref={containerRef} className="code-editor-monaco" />
 
-        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
-          <div className="block-editor-preview">
-            <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-            <div ref={domRef} className="block-editor-preview-dom" />
-            <canvas ref={canvasRef} className="block-editor-preview-canvas" />
+          {panelOpen && (
+            <div
+              className="be-splitter is-vertical"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t('editor.panel.resize')}
+              aria-valuenow={sideWidth}
+              aria-valuemin={220}
+              aria-valuemax={560}
+              tabIndex={0}
+              {...sideHandleProps}
+            />
+          )}
+
+          <div
+            className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}
+            style={panelOpen ? { width: sideWidth } : undefined}
+          >
+            <div className="block-editor-preview">
+              <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
+              <div ref={domRef} className="block-editor-preview-dom" />
+              <canvas ref={canvasRef} className="block-editor-preview-canvas" />
+            </div>
           </div>
-          <VariablePanel />
+        </div>
+
+        {/* Bottom dock: console and variables side by side; drag to resize. */}
+        <div
+          className="be-splitter is-horizontal"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('editor.dock.resize')}
+          aria-valuenow={dockHeight}
+          aria-valuemin={96}
+          aria-valuemax={460}
+          tabIndex={0}
+          {...dockHandleProps}
+        />
+
+        <div className="block-editor-bottom" style={{ height: dockHeight }}>
           <div className="editor-panel editor-console-wrap">
             <ConsolePanel />
             {/* REPL needs a persistent Python namespace — Pyodide only. */}
@@ -866,14 +919,16 @@ export function CodeEditor() {
                   spellCheck={false}
                 />
                 <button type="button" className="code-editor-repl-go" onClick={() => void runRepl()} title={t('editor.run')}>
-                  ↵
+                  <CornerDownLeftIcon size={12} />
                 </button>
               </div>
             )}
             {/* CRAN package install — full R runtime only (builtin IR throws). */}
             {language === 'r' && rEngine === 'webr' && (
               <div className="code-editor-repl code-editor-r-install">
-                <span className="code-editor-repl-prompt">📦</span>
+                <span className="code-editor-repl-prompt">
+                  <ToolIcon kind="supplement" size={12} />
+                </span>
                 <input
                   type="text"
                   value={rPkgInput}
@@ -892,10 +947,26 @@ export function CodeEditor() {
                   disabled={rInstalling || rPkgInput.trim().length === 0}
                   title={t('r.install.button')}
                 >
-                  {rInstalling ? '…' : '⬇'}
+                  {rInstalling ? <LoaderIcon size={12} className="is-spinning" /> : <DownloadIcon size={12} />}
                 </button>
               </div>
             )}
+          </div>
+
+          <div
+            className="be-splitter is-vertical"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t('editor.vars.resize')}
+            aria-valuenow={varsWidth}
+            aria-valuemin={200}
+            aria-valuemax={420}
+            tabIndex={0}
+            {...varsHandleProps}
+          />
+
+          <div className="block-editor-vars" style={{ width: varsWidth }}>
+            <VariablePanel />
           </div>
         </div>
       </div>
@@ -907,7 +978,7 @@ export function CodeEditor() {
             <span className="be-switch-preview-title">{t('editor.switch.title')}</span>
             <span className="be-switch-preview-sub">{t('editor.switch.sub', { from: MONACO_LANG[language], to: MONACO_LANG[draft.target] })}</span>
             <button type="button" className="be-switch-preview-close" onClick={cancelDraft} aria-label={t('editor.switch.cancel')}>
-              ✕
+              <CloseIcon size={12} />
             </button>
           </div>
           <div className="be-switch-editor" ref={previewContainerRef} />
@@ -934,7 +1005,7 @@ export function CodeEditor() {
             {t('editor.switch.undo')}
           </button>
           <button type="button" className="be-switch-undo-x" onClick={() => setUndoSnap(null)} aria-label={t('common.close')}>
-            ✕
+            <CloseIcon size={12} />
           </button>
         </div>
       )}

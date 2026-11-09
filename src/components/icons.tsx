@@ -220,6 +220,81 @@ export const PlayIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Solid square — the "stop" state of the editor run button. */
+export const StopIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+/** Open arc — spinning "busy" marker while a run is in flight. */
+export const LoaderIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3a9 9 0 1 0 9 9" />
+  </Svg>
+);
+
+/** Warning triangle — stderr lines in the console. */
+export const AlertIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4.5 21 20H3z" />
+    <path d="M12 10v4.5" />
+    <path d="M12 17.5h.01" />
+  </Svg>
+);
+
+/** Circled i — informational console lines. */
+export const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5" />
+    <path d="M12 7.8h.01" />
+  </Svg>
+);
+
+/** Terminal window — empty-console placeholder. */
+export const TerminalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="4" width="19" height="16" rx="2" />
+    <path d="m6.5 9 3.5 3-3.5 3" />
+    <path d="M13 15.5h4.5" />
+  </Svg>
+);
+
+/** Enter key — REPL submit action. */
+export const CornerDownLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 5v6a3 3 0 0 1-3 3H5" />
+    <path d="m9 10-4 4 4 4" />
+  </Svg>
+);
+
+// ---- variable-type glyphs (variable panel) --------------------------------
+
+/** Grid — DataTable variables. */
+export const TableIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+    <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5V19" />
+  </Svg>
+);
+
+/** Framed picture — rendered-view variables. */
+export const ImageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+    <circle cx="9" cy="9.5" r="1.4" />
+    <path d="m4.5 17 5-5.5 4 4 3-2.5 3.5 4" />
+  </Svg>
+);
+
+/** Hollow dot — unknown / opaque values. */
+export const DotIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="5" />
+  </Svg>
+);
+
 export const BookIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />

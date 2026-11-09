@@ -13,7 +13,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
+import { ChevronDownIcon, MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -131,7 +131,9 @@ export function TopBar() {
           <span title={project ? project.name : t('project.new')}>
             {project ? project.name : t('project.new')}
             {dirty && <span className="project-dirty">•</span>}
-            <span className="more-caret">▾</span>
+            <span className="more-caret">
+              <ChevronDownIcon size={12} />
+            </span>
           </span>
         }
         items={[

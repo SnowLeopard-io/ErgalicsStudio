@@ -753,9 +753,19 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 11px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 5px;
+}
+
+/* Busy marker (run in flight). `spin` lives in global.css. */
+.is-spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation-duration: 2.4s;
+  }
 }
 
 /* Spacer pushes the status pill to the right */
@@ -862,11 +872,99 @@
 
 .block-editor-main {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 12px;
   padding: 12px;
   padding-top: 8px;
+}
+
+/* Editor row (canvas/workspace + side panel) above the console dock. */
+.block-editor-top {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Resizable console dock — height is driven by the horizontal splitter. */
+.block-editor-bottom {
+  display: flex;
+  flex: none;
+  min-height: 0;
+}
+
+.block-editor-bottom > .editor-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Variables pane docked to the right of the console. */
+.block-editor-vars {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+}
+
+.block-editor-vars > .editor-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- panel splitters (pointer + keyboard resizable) ---- */
+
+.be-splitter {
+  position: relative;
+  flex: none;
+  background: transparent;
+  touch-action: none;
+  z-index: 2;
+}
+
+.be-splitter.is-vertical {
+  width: 12px;
+  cursor: col-resize;
+}
+
+.be-splitter.is-horizontal {
+  height: 12px;
+  cursor: row-resize;
+}
+
+/* Hairline grip, invisible until hover/focus so the layout stays quiet. */
+.be-splitter::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.be-splitter.is-vertical::before {
+  width: 2px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.be-splitter.is-horizontal::before {
+  width: 32px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.be-splitter:hover::before,
+.be-splitter:active::before,
+.be-splitter:focus-visible::before {
+  background: var(--color-accent);
+}
+
+/* The grip is the focus affordance; suppress the global focus ring. */
+.be-splitter:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .block-editor-workspace {
@@ -1001,9 +1099,11 @@
   min-height: 0;
 }
 
-/* Preview card */
+/* Preview card — the only occupant of the side column, so it takes the
+   remaining height instead of leaving dead space under a fixed 240px box. */
 .block-editor-preview {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 160px;
   height: 240px;
   position: relative;
   border-radius: 12px;
