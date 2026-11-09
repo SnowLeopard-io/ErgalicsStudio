@@ -8,6 +8,28 @@ All notable changes to Ergalics Studio are documented here. The format follows [
 
 `1.0.0` corresponds to the **SDK v1 contract freeze** (commit `c7b7327`, 2026-09-12). Everything before it belongs to the v0 experimental period, consistent with the "experimental v0 → SDK v1" phase division in the plugin SDK migration guide.
 
+## [v2.1.0] - 2026-11-09 发布 / Release
+
+- LaTeX 手稿工作流：稿件导出为按期刊模板排版的 PDF（双栏 / 单栏、标题与摘要跨栏、模板字号与行距），嵌入 CJK 字体，图表以 300 DPI 栅格化后写入 PDF；工作区 `.tex` / `.pdf` 文件随稿件命名，改名时同步重命名，从文件管理器打开时定位到原稿件
+
+- LaTeX manuscript workflow: manuscripts export to template-aware PDFs (two- / single-column, full-width title and abstract, per-template type scale and leading) with embedded CJK fonts and 300 DPI rasterized figures; workspace `.tex` / `.pdf` files follow the manuscript name, rename together, and resolve back to the same manuscript when opened from the file explorer
+
+- 协作笔记本与分析图表新增内置 PDF 导出与保存；LaTeX 预览支持缩放控制，稿件图表与实时预览保持一致
+
+- Collaboration notebooks and analysis charts gain built-in PDF export and saving; the LaTeX preview gains zoom controls and exported figures now match the live preview
+
+- 工作台体验：全屏 1080P 导出、全屏下右侧面板悬浮、画布标签拖拽重排、外部文件拖入导入、代码模式会话绑定工作区文件、工作区骨架种子（增量写入且不覆盖用户文件）、30 秒首秀引导与数据分析 / 写作引导
+
+- Workbench experience: 1080P full-screen export, a floating right panel while full-screen, drag-to-reorder canvas tabs, external-file drag-and-drop import, code-mode sessions bound to workspace files, incremental workspace skeleton seeding that never overwrites user files, plus a 30-second first-run tour and guided data-analysis / writing flows
+
+- Git 面板升级为 VSCode 风格布局，支持暂存 / 取消暂存、按 URL 克隆仓库和 Git 身份验证
+
+- The Git panel adopts a VSCode-style layout with stage / unstage, clone-by-URL and Git identity authentication
+
+- 新增体验与氛围系统（经验值、徽章、音效与环境音乐）、用户资料卡、强制横屏适配与数据文件重命名同步
+
+- Added the experience and ambience system (XP, badges, sound effects and ambient music), a user profile card, forced-landscape adaptation and data-file rename synchronisation
+
 ## [v2.0.0] - 2026-10-13 正式发布 / Official release
 
 - 工作台模块化外壳：左侧活动栏在文件 / Git / 插件三个视图间切换（侧栏可调宽、可收起），中央标签区让插件画布、文件预览、按文件分派的编辑器与内嵌科研工具以标签页共存
