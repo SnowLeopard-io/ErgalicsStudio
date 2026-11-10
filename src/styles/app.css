@@ -912,59 +912,6 @@
   color: var(--color-text-secondary);
 }
 
-.central-empty-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
-/* Empty state now documents the file→canvas mapping instead of offering one
-   card per mode (modes are picked by the file you open). */
-.central-empty-filetypes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-
-.central-empty-filetypes-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-}
-
-.central-empty-filetype-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.central-empty-filetype {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg-secondary);
-}
-
-.central-empty-filetype em {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-tertiary);
-}
-
-.central-empty-filetype code {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
 .central-dropzone {
   margin-top: var(--space-5);
   padding: var(--space-5) var(--space-6);
@@ -979,6 +926,178 @@
 .central-dropzone:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
+}
+
+/* --------------------------------------------------------------------------
+   Welcome cover — VS Code-style start page. The welcome content is a
+   scrolling, left-aligned cover with a two-column start/recent layout,
+   instead of a single vertically-centered hero. `.central-empty` keeps the
+   absolute positioning; these rules only replace its flex centering.
+   -------------------------------------------------------------------------- */
+.central-empty.welcome-cover {
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0;
+  text-align: left;
+  overscroll-behavior: contain;
+}
+
+.welcome-cover-scroll {
+  display: flex;
+  align-items: center;
+  min-height: 100%;
+  padding: clamp(28px, 7vh, 72px) var(--space-6) var(--space-8);
+}
+
+.welcome-cover-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: min(760px, 100%);
+  /* Auto margins center the cover in the viewport when it fits, but unlike
+     `justify-content: center` they do not clip the top when it scrolls. */
+  margin: auto;
+}
+
+.welcome-cover-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.welcome-cover-hero .central-empty-mark {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 0;
+}
+
+.welcome-cover-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+.welcome-cover-section {
+  min-width: 0;
+}
+
+.welcome-cover-heading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}
+
+.welcome-cover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-cover-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.welcome-cover-row:hover,
+.welcome-cover-row:focus-visible {
+  border-color: var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.welcome-cover-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.welcome-cover-row > svg {
+  flex: none;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.welcome-cover-row:hover > svg {
+  color: var(--color-accent);
+}
+
+.welcome-cover-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.welcome-cover-row-meta {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.welcome-cover-empty {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.welcome-cover-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.welcome-cover-footer .central-dropzone {
+  width: 100%;
+  margin: 0;
+  padding: 22px var(--space-5);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.welcome-cover-footer .central-empty-tip {
+  margin: 0;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .welcome-cover-scroll {
+    padding: var(--space-5) var(--space-4) var(--space-6);
+  }
+
+  .welcome-cover-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
 }
 
 .central-progress {

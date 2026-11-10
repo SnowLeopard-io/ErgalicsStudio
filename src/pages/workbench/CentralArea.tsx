@@ -8,7 +8,16 @@ import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { flushEditorFile } from '@/stores/editorFlush';
-import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
+import {
+  CloseIcon,
+  ToolIcon,
+  SettingsIcon,
+  PlusIcon,
+  FolderOpenIcon,
+  BookIcon,
+  ToolboxIcon,
+  ClockIcon,
+} from '@/components/icons';
 import { syncSurfaceTabSession } from '@/components/editor/fileEditors/openInMode';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
@@ -898,6 +907,7 @@ function PluginExportMenu({
 
 export function CentralArea() {
   const t = useT();
+  const { locale } = useLocale();
   // Immersive fullscreen: the fullscreen element is the canvas wrap itself —
   // the LEFT sidebar stays behind (immersion), but the RIGHT panel is
   // portaled in as a floating layer so it can still extend over the canvas
@@ -1452,7 +1462,6 @@ export function CentralArea() {
   // fresh entries even if the sidebar never loaded them this session.
   useEffect(() => {
     if (showWelcome) void useProjectStore.getState().loadRecent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWelcome]);
 
   return (
@@ -1781,55 +1790,111 @@ export function CentralArea() {
           ))}
         </div>
       )}
-      {!activePlugin && (
-        <div className="central-empty">
-          {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
-          <svg className="central-empty-mark" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M6 18 V6 H18" />
-            <path d="M46 6 H58 V18" />
-            <path d="M58 46 V58 H46" />
-            <path d="M18 58 H6 V46" />
-            <circle className="central-empty-mark-ring" cx="32" cy="32" r="11" />
-            <circle className="central-empty-mark-core" cx="32" cy="32" r="2.6" />
-          </svg>
-          <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
-          <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
-          <div className="central-empty-actions">
-            <button type="button" className="btn btn-primary" onClick={openProjectFile}>
-              {t('workbench.empty.open_project')}
-            </button>
-            <button type="button" className="btn" onClick={() => setPluginDialogOpen(true)}>
-              {t('workbench.empty.load_plugin')}
-            </button>
-            <button type="button" className="btn" onClick={() => setExampleDialogOpen(true)}>
-              {t('workbench.empty.example_data')}
-            </button>
-          </div>
-          {/* Modes are no longer chosen up front: opening a file picks the
-              canvas. The chips just document which extensions map where. */}
-          <div className="central-empty-filetypes">
-            <span className="central-empty-filetypes-label">
-              {t('workbench.empty.filetypes')}
-            </span>
-            <div className="central-empty-filetype-row">
-              <span className="central-empty-filetype">
-                <em>{t('workbench.empty.chip_code')}</em>
-                <code>.py .js .r</code>
-              </span>
-              <span className="central-empty-filetype">
-                <em>{t('workbench.empty.chip_block')}</em>
-                <code>.block.json</code>
-              </span>
-              <span className="central-empty-filetype">
-                <em>{t('workbench.empty.chip_flow')}</em>
-                <code>.flow.json</code>
-              </span>
+      {showWelcome && (
+        <div className="central-empty welcome-cover">
+          <div className="welcome-cover-scroll">
+            <div className="welcome-cover-inner">
+              <header className="welcome-cover-hero">
+                {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
+                <svg className="central-empty-mark" viewBox="0 0 64 64" aria-hidden="true">
+                  <path d="M6 18 V6 H18" />
+                  <path d="M46 6 H58 V18" />
+                  <path d="M58 46 V58 H46" />
+                  <path d="M18 58 H6 V46" />
+                  <circle className="central-empty-mark-ring" cx="32" cy="32" r="11" />
+                  <circle className="central-empty-mark-core" cx="32" cy="32" r="2.6" />
+                </svg>
+                <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
+                <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
+              </header>
+
+              {/* VS Code-style two-column cover: actions on the left, recent
+                  projects on the right. Stacks to one column when narrow. */}
+              <div className="welcome-cover-grid">
+                <section className="welcome-cover-section">
+                  <h3 className="welcome-cover-heading">{t('workbench.empty.start')}</h3>
+                  <ul className="welcome-cover-list">
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => void startNewProject()}
+                        disabled={newProjectBusy}
+                      >
+                        <PlusIcon size={16} />
+                        <span className="welcome-cover-row-label">{t('project.new')}</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" className="welcome-cover-row" onClick={openProjectFile}>
+                        <FolderOpenIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.open_project')}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => setExampleDialogOpen(true)}
+                      >
+                        <BookIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.example_data')}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => setPluginDialogOpen(true)}
+                      >
+                        <ToolboxIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.load_plugin')}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </section>
+
+                <section className="welcome-cover-section">
+                  <h3 className="welcome-cover-heading">{t('workbench.project.recent')}</h3>
+                  {recentProjects.length > 0 ? (
+                    <ul className="welcome-cover-list">
+                      {recentProjects.slice(0, 6).map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            className="welcome-cover-row"
+                            title={p.name}
+                            onClick={() => void openRecentProject(p.id)}
+                          >
+                            <ClockIcon size={16} />
+                            <span className="welcome-cover-row-label">{p.name}</span>
+                            <span className="welcome-cover-row-meta">
+                              {new Date(p.updatedAt).toLocaleDateString(locale)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="welcome-cover-empty">{t('workbench.project.recent_empty')}</p>
+                  )}
+                </section>
+              </div>
+
+              <footer className="welcome-cover-footer">
+                <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
+                <p className="central-empty-tip">
+                  <kbd>Ctrl</kbd>+<kbd>S</kbd> {t('workbench.empty.tip_save')}
+                </p>
+              </footer>
             </div>
           </div>
-          <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
-          <p className="central-empty-tip">
-            <kbd>Ctrl</kbd>+<kbd>S</kbd> {t('workbench.empty.tip_save')}
-          </p>
         </div>
       )}
 
