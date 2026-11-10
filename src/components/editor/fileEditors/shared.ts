@@ -37,6 +37,15 @@ export function editorKindForFile(name: string): FileEditorKind | null {
   return null;
 }
 
+/** Workbench code-mode language for a file (null = not a code-mode target). */
+export function codeLanguageForFile(name: string): 'python' | 'r' | 'js' | null {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.py')) return 'python';
+  if (lower.endsWith('.r') || lower.endsWith('.rscript')) return 'r';
+  if (lower.endsWith('.js') || lower.endsWith('.mjs')) return 'js';
+  return null;
+}
+
 /** Flow file payload shape (`{version, kind, graph}`). */
 export interface FlowFilePayload {
   version: 1;

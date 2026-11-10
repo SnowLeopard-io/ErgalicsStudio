@@ -33,6 +33,12 @@
     'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular,
     Consolas, 'PingFang SC', 'Microsoft YaHei', monospace;
+  /* Data surfaces (console / variables): mono for code, but CJK must resolve
+     to a sans face. Windows' generic `monospace` maps to a serif (SimSun), so
+     the CJK families are listed explicitly before the generic fallback. */
+  --font-console: 'JetBrains Mono', 'Cascadia Mono', Consolas,
+    'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC',
+    'Noto Sans Mono CJK SC', monospace;
   --font-family: var(--font-sans);
   --topbar-height: 52px;
   --statusbar-height: 30px;
@@ -210,7 +216,9 @@ body {
 #root code,
 #root .xterm,
 #root .central-md-preview,
-#root .nb-md {
+#root .nb-md,
+#root .editor-console,
+#root .editor-vars {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -793,7 +801,12 @@ textarea::-webkit-resizer {
   font-size: var(--font-size-sm);
   cursor: pointer;
   animation: toast-in var(--transition-base);
-  max-width: 360px;
+  /* Single row: the message and its action sit side by side instead of the
+     action's label wrapping inside a narrow 360px card. */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
 }
 
 @keyframes toast-in {
@@ -814,7 +827,8 @@ textarea::-webkit-resizer {
    page background colour is the correct contrasting ink). */
 .toast-action {
   display: inline-block;
-  margin-top: 8px;
+  flex: 0 0 auto;
+  margin-top: 0;
   padding: 5px 14px;
   border: none;
   border-radius: var(--radius-sm);
@@ -823,6 +837,7 @@ textarea::-webkit-resizer {
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: var(--shadow-1);
 }
@@ -948,7 +963,8 @@ textarea::-webkit-resizer {
 
 /* The resting hint: a bead of water seeping out of the status bar itself.
    Same surface + top border as the bar, so the two read as one continuous
-   body rather than a floating chip. Purely decorative. */
+   body rather than a floating chip. It doubles as the touch trigger that
+   reveals the pill, since touch devices have no hover proximity. */
 .csw-puddle {
   position: fixed;
   left: 50%;
@@ -956,8 +972,10 @@ textarea::-webkit-resizer {
   z-index: 1399;
   width: 46px;
   height: 7px;
-  border-radius: 999px 999px 0 0;
+  padding: 0;
+  border: 0;
   border-top: 1px solid var(--color-border);
+  border-radius: 999px 999px 0 0;
   background:
     radial-gradient(
       62% 140% at 50% 100%,
@@ -966,7 +984,10 @@ textarea::-webkit-resizer {
     ),
     var(--color-bg-elevated);
   opacity: 0.9;
-  pointer-events: none;
+  appearance: none;
+  cursor: pointer;
+  /* Tappable: on touch this bead is the only way to summon the pill. */
+  pointer-events: auto;
   /* Fade in only after the pill has sunk behind the bar; fade out at once
      while the pill rises out of it. */
   transition:
@@ -981,6 +1002,20 @@ textarea::-webkit-resizer {
   transition:
     opacity 0.16s ease,
     transform 0.46s cubic-bezier(0.22, 1.45, 0.36, 1);
+  pointer-events: none;
+}
+
+/* The bead is 46×7; pad the hit box to a comfortable finger target without
+   changing how it looks. */
+.csw-puddle::after {
+  content: '';
+  position: absolute;
+  inset: -16px -22px 0;
+}
+
+.csw-puddle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .csw-label {
@@ -1022,8 +1057,6 @@ textarea::-webkit-resizer {
   .cross-site-switcher { bottom: calc(var(--statusbar-height) + 12px); }
   .csw-puddle { bottom: calc(var(--statusbar-height) - 1px); }
 }
-
-/* Touch devices have no hover proximity — JS keeps the pill permanently awake. */
 
 /* ---- AI assistant floating window ---- */
 .ai-overlay {

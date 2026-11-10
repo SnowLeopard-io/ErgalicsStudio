@@ -20,13 +20,22 @@
 // ==========================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type * as MonacoNS from 'monaco-editor';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
+import {
+  CornerDownLeftIcon,
+  DownloadIcon,
+  LoaderIcon,
+  PlayIcon,
+  StopIcon,
+  ToolIcon,
+} from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
-import { resolveDataFile, listDataFiles } from '@/core/dataFiles';
+import { clearHostPreview } from '@/stores/pluginStore';
+import { collectRuntimeFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
 import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
 import type { CodeRuntime } from '@/core/pyodide/runtime';
@@ -44,9 +53,10 @@ import { parseCodeToIR } from '@/editor/code/parse';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
-import { makeProgram, type IRProgram } from '@/editor/ir';
-import { VariablePanel } from './VariablePanel';
+
 import { ConsolePanel } from './ConsolePanel';
+import { SurfaceToolbar } from './SurfaceToolbar';
+import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 
 /** Keystroke → IR debounce (mirrors block mode's 120ms, slightly roomier). */
@@ -62,34 +72,30 @@ const MONACO_LANG: Record<CodeLanguage, MonacoLang> = {
 
 const LANG_TAB_SIZE: Record<CodeLanguage, number> = { python: 4, r: 2, js: 2 };
 
-type SharedLang = 'python' | 'r' | 'js';
-const toSourceLang = (l: CodeLanguage): SharedLang => (l === 'r' ? 'r' : l === 'js' ? 'js' : 'python');
-
-/** Clear the 2D preview canvas + DOM overlay before a fresh run. */
-function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivElement | null): void {
-  if (canvas) {
-    const g = canvas.getContext('2d');
-    if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (dom) dom.innerHTML = '';
-}
-
 export function CodeEditor() {
   const t = useT();
   const { resolved: resolvedTheme } = useTheme();
   const dark = resolvedTheme === 'dark';
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
-  const session = useEditorStore((s) => s.sessions.find((x) => x.id === s.activeSessionId) ?? null);
-  const language: CodeLanguage = session?.language ?? 'python';
+  // Subscribe only to the two session fields this surface reads. Selecting the
+  // whole session object re-rendered the entire code surface every 150 ms
+  // while typing (syncFromCode replaces the session on each parse); with a
+  // shallow-compared projection the editor stays quiet and only Monaco paints.
+  const sessionMeta = useEditorStore(
+    useShallow((s) => {
+      const sess = s.sessions.find((x) => x.id === s.activeSessionId);
+      return { language: sess?.language ?? ('python' as CodeLanguage), filePath: sess?.filePath };
+    }),
+  );
+  const language: CodeLanguage = sessionMeta.language;
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
-  // Right pane (preview / variables / console) toggled by the top-bar ☰.
-  const panelOpen = useAppStore((s) => s.modePanelOpen);
+  // Result preview + variables live in the workbench right sidebar now; this
+  // surface only keeps the console dock under the editor.
+  const { dockHeight, dockHandleProps } = useEditorSplit();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const domRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const editorRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
   const runtimeRef = useRef<CodeRuntime | null>(null);
   const replRef = useRef<HTMLInputElement>(null);
@@ -101,7 +107,7 @@ export function CodeEditor() {
   const codeTextRef = useRef<string | null>(null);
   /** Workspace file this code session is bound to (if opened from a file). */
   const filePathRef = useRef<string | undefined>(undefined);
-  filePathRef.current = session?.filePath;
+  filePathRef.current = sessionMeta.filePath;
   /** Latest "save bound file" action for the Monaco Ctrl/⌘+S command. */
   const saveBoundRef = useRef<() => void>(() => {});
   /** True while WE replace the buffer (session load / language switch). */
@@ -117,12 +123,6 @@ export function CodeEditor() {
   const [rLoadPercent, setRLoadPercent] = useState<number | null>(null);
   const [rPkgInput, setRPkgInput] = useState('');
   const [rInstalling, setRInstalling] = useState(false);
-
-  // ---- Language-switch preview (translate → apply / discard / cancel) ----
-  const previewContainerRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
-  const [draft, setDraft] = useState<{ target: CodeLanguage; translated: string } | null>(null);
-  const [undoSnap, setUndoSnap] = useState<{ language: CodeLanguage; ir: IRProgram; lastCode: string } | null>(null);
 
   // ---- Monaco setup (once per mount; theme applied reactively) ----------
 
@@ -208,7 +208,12 @@ export function CodeEditor() {
     return () => {
       if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
       providers.forEach((p) => p.dispose());
+      // Dispose the implicit model too: editor.dispose() leaves it registered
+      // in Monaco, leaking a model every time the surface/session is
+      // recreated (mode switches, file-bound surfaces, project opens).
+      const model = editor.getModel();
       editor.dispose();
+      model?.dispose();
       editorRef.current = null;
     };
     // Editor instance is bound to the active session (matches prior design).
@@ -310,25 +315,6 @@ export function CodeEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // Register render containers for the preview area (2D plugins), mirroring
-  // block mode so plot payloads draw into the code editor's preview surface.
-  useEffect(() => {
-    if (!domRef.current || !canvasRef.current) return;
-    setHostContainers({
-      dom: domRef.current,
-      canvas2d: canvasRef.current,
-      reportDataScale: (n) => useAppStore.getState().setDataScale(n),
-      clearCanvas2d: () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const g = canvas.getContext('2d');
-        if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-      },
-    });
-    rerenderActivePlugin();
-    return () => setHostContainers(null);
-  }, []);
-
   // Ensure a code session exists; when the session OR its language changes,
   // (re)load the translated text and switch Monaco's model language.
   useEffect(() => {
@@ -391,19 +377,33 @@ export function CodeEditor() {
       if (filePath) useAppStore.getState().updateEditorFile(filePath, code);
       loadedKeyRef.current = `${sid}:${lang}`;
     }
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
-  /** Ship every resolvable data file into the worker as _FILES. */
-  const collectFiles = async (): Promise<Record<string, string>> => {
-    const files: Record<string, string> = {};
-    for (const name of listDataFiles()) {
-      const text = await resolveDataFile(name);
-      if (text !== undefined) files[name] = text;
+  // Show verbatim source handed over by the explorer (opening another file in
+  // the already-mounted code surface). Keyed by token so switching to a file
+  // with identical text still re-syncs the buffer and model language.
+  const pendingCode = useEditorStore((s) => s.pendingCode);
+  useEffect(() => {
+    if (!pendingCode) return;
+    const editor = editorRef.current;
+    if (editor) {
+      silentSetRef.current = true;
+      editor.setValue(pendingCode.code);
+      codeTextRef.current = pendingCode.code;
+      monaco.editor.setModelLanguage(editor.getModel()!, MONACO_LANG[language]);
+      window.requestAnimationFrame(() => {
+        silentSetRef.current = false;
+      });
+      loadedKeyRef.current = `${activeSessionId}:${language}`;
     }
-    return files;
-  };
+    useEditorStore.getState().consumeCodeLoad();
+  }, [pendingCode, activeSessionId, language]);
+
+  /** Ship every resolvable file into the worker as _FILES: the explorer
+   *  working tree first, then project data files and bundled examples. */
+  const collectFiles = async (): Promise<Record<string, string>> => collectRuntimeFiles();
 
   /** Run JavaScript text through the IR interpreter (block-mode engine). */
   const runViaIR = async (code: string, lang: CodeLanguage): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
@@ -429,7 +429,7 @@ export function CodeEditor() {
   const runR = async (code: string): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
     const runtime = rRuntimeRef.current;
     if (!runtime) return runViaIR(code, 'r');
-    const result = await runtime.exec(code);
+    const result = await runtime.exec(code, await collectFiles());
     if (result.stdout) {
       // Full-R console output is clearly separated from DSL degrade notices.
       useEditorStore
@@ -466,7 +466,7 @@ export function CodeEditor() {
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let outputs: Record<string, unknown> = {};
     try {
@@ -476,6 +476,9 @@ export function CodeEditor() {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
+          if (result.files && Object.keys(result.files).length) {
+            await useAppStore.getState().saveWorkspaceFiles(result.files);
+          }
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -516,8 +519,9 @@ export function CodeEditor() {
     if (!path || !editor) return;
     const text = editor.getValue();
     codeTextRef.current = text;
-    useAppStore.getState().updateEditorFile(path, text);
-    await useAppStore.getState().saveEditorFile(path);
+    // Write straight to the workspace tree: the mode owns the buffer now and
+    // there may be no matching editor tab.
+    await useAppStore.getState().saveWorkspaceFile(path, text);
   };
   saveBoundRef.current = () => void saveBoundFile();
 
@@ -558,7 +562,7 @@ export function CodeEditor() {
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let error: string | undefined;
     let outputs: Record<string, unknown> = {};
@@ -569,6 +573,9 @@ export function CodeEditor() {
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
+          if (result.files && Object.keys(result.files).length) {
+            await useAppStore.getState().saveWorkspaceFiles(result.files);
+          }
         } else {
           error = result.error ?? 'run failed';
         }
@@ -655,105 +662,9 @@ export function CodeEditor() {
     }
   };
 
-  /** Translate the whole buffer from the IR hub into another dialect. */
-  const switchLanguage = (lang: CodeLanguage) => {
-    if (lang === language || isRunning || activeSessionId === null) return;
-    const sid = activeSessionId;
-    // Flush any pending edit first so the IR reflects the latest keystrokes
-    // in the current dialect before translating.
-    if (syncTimerRef.current !== null) {
-      window.clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = null;
-      useEditorStore.getState().syncFromCode(sid, editorRef.current?.getValue() ?? '');
-    }
-    const st = useEditorStore.getState();
-    const sess = st.sessions.find((s) => s.id === sid);
-    if (!sess) return;
-    // Rebuild the IR from the current text (same recovery as setSessionLanguage)
-    // then generate the target-dialect text. Never offer an empty translation
-    // that would silently wipe real source — fall back to the source text so the
-    // preview still shows something the user can explicitly accept or discard.
-    let ir = sess.ir;
-    if ((!ir || ir.body.length === 0) && sess.lastCode.trim() !== '') {
-      ir = parseCodeToIR(sess.lastCode, toSourceLang(sess.language)).program;
-    }
-    const translated = codegen(ir, toSourceLang(lang));
-    const finalText = translated.trim() !== '' || sess.lastCode.trim() === '' ? translated : sess.lastCode;
-    setDraft({ target: lang, translated: finalText });
-  };
-
-  /** Accept the previewed translation (user edits in the mini-editor win). */
-  const applyDraft = () => {
-    const d = draft;
-    const sid = activeSessionId;
-    if (!d || !sid) return;
-    const text = previewRef.current?.getValue() ?? d.translated;
-    useEditorStore.getState().applyLanguageWithCode(sid, d.target, text);
-    const filePath = useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath;
-    if (filePath) useAppStore.getState().updateEditorFile(filePath, text);
-    setDraft(null);
-  };
-
-  /** Discard the translation: switch language with a blank buffer to write from
-   *  scratch, but keep a snapshot so the previous code can be restored. */
-  const discardDraft = () => {
-    const d = draft;
-    const sid = activeSessionId;
-    if (!d || !sid) return;
-    const st = useEditorStore.getState();
-    const sess = st.sessions.find((s) => s.id === sid);
-    setUndoSnap({
-      language: sess?.language ?? language,
-      ir: sess?.ir ?? makeProgram([]),
-      lastCode: sess?.lastCode ?? '',
-    });
-    st.blankSession(sid, d.target);
-    setDraft(null);
-  };
-
-  /** Cancel the switch entirely — keep the current language and code. */
-  const cancelDraft = () => {
-    setDraft(null);
-  };
-
-  /** Restore the code that was blanked by a prior "discard". */
-  const applyUndo = () => {
-    const sid = activeSessionId;
-    if (!sid || !undoSnap) return;
-    useEditorStore.getState().restoreSessionSnapshot(sid, undoSnap);
-    setUndoSnap(null);
-  };
-
-  /** Backing (mini) Monaco editor shown inside the translation preview. */
-  useEffect(() => {
-    if (!draft || !previewContainerRef.current) return;
-    const pre = monaco.editor.create(previewContainerRef.current, {
-      value: draft.translated,
-      language: MONACO_LANG[draft.target],
-      theme: 'ergalics',
-      automaticLayout: true,
-      minimap: { enabled: false },
-      fontSize: 12,
-      lineNumbers: 'on',
-      scrollBeyondLastLine: false,
-      wordWrap: 'on',
-      readOnly: false,
-    });
-    previewRef.current = pre;
-    return () => {
-      pre.dispose();
-      previewRef.current = null;
-    };
-  }, [draft]);
-
   const rBooting = language === 'r' && rLoadPercent !== null;
   const rReady = language !== 'r' || (rEngine !== null && !rBooting);
   const engineReady = (language !== 'python' || runtimeReady) && rReady;
-  const langButtons: { id: CodeLanguage; label: string }[] = [
-    { id: 'python', label: 'Python' },
-    { id: 'r', label: 'R' },
-    { id: 'js', label: 'JS' },
-  ];
 
   // FR-07: expose this editor's run pipeline to the global floating AI panel.
   // A stable wrapper (one registration) always delegates to the latest
@@ -766,7 +677,8 @@ export function CodeEditor() {
 
   return (
     <div className="block-editor code-editor">
-      <div className="block-editor-toolbar">
+      <SurfaceToolbar>
+        <div className="block-editor-toolbar">
         <button
           type="button"
           className="be-run-btn"
@@ -774,29 +686,15 @@ export function CodeEditor() {
           onClick={isRunning ? stop : () => void run()}
           disabled={!isRunning && !engineReady}
         >
-          <span className="be-run-icon">{isRunning ? '■' : '▶'}</span>
+          <span className="be-run-icon">{isRunning ? <StopIcon size={12} /> : <PlayIcon size={12} />}</span>
           <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
         </button>
 
-        <div className="block-editor-toggle code-editor-lang-toggle" role="group" aria-label={t('editor.language')}>
-          {langButtons.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={`btn btn-sm${language === b.id ? ' btn-toggle-on' : ''}`}
-              onClick={() => switchLanguage(b.id)}
-              disabled={isRunning}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
-
-        {session?.filePath && (
+        {sessionMeta.filePath && (
           <button
             type="button"
             className="btn btn-sm"
-            title={session.filePath}
+            title={sessionMeta.filePath}
             onClick={() => void saveBoundFile()}
           >
             {t('workbench.editor.save')}
@@ -838,18 +736,29 @@ export function CodeEditor() {
                   : t('editor.loading_runtime')}
           </span>
         </div>
-      </div>
+        </div>
+      </SurfaceToolbar>
 
       <div className="block-editor-main">
-        <div ref={containerRef} className="code-editor-monaco" />
+        <div className="block-editor-top">
+          <div ref={containerRef} className="code-editor-monaco" />
+        </div>
 
-        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
-          <div className="block-editor-preview">
-            <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-            <div ref={domRef} className="block-editor-preview-dom" />
-            <canvas ref={canvasRef} className="block-editor-preview-canvas" />
-          </div>
-          <VariablePanel />
+        {/* Bottom dock: console under the editor; result preview and variables
+            now render in the workbench right sidebar. */}
+        <div
+          className="be-splitter is-horizontal"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('editor.dock.resize')}
+          aria-valuenow={dockHeight}
+          aria-valuemin={96}
+          aria-valuemax={460}
+          tabIndex={0}
+          {...dockHandleProps}
+        />
+
+        <div className="block-editor-bottom" style={{ height: dockHeight }}>
           <div className="editor-panel editor-console-wrap">
             <ConsolePanel />
             {/* REPL needs a persistent Python namespace — Pyodide only. */}
@@ -866,14 +775,16 @@ export function CodeEditor() {
                   spellCheck={false}
                 />
                 <button type="button" className="code-editor-repl-go" onClick={() => void runRepl()} title={t('editor.run')}>
-                  ↵
+                  <CornerDownLeftIcon size={12} />
                 </button>
               </div>
             )}
             {/* CRAN package install — full R runtime only (builtin IR throws). */}
             {language === 'r' && rEngine === 'webr' && (
               <div className="code-editor-repl code-editor-r-install">
-                <span className="code-editor-repl-prompt">📦</span>
+                <span className="code-editor-repl-prompt">
+                  <ToolIcon kind="supplement" size={12} />
+                </span>
                 <input
                   type="text"
                   value={rPkgInput}
@@ -892,52 +803,13 @@ export function CodeEditor() {
                   disabled={rInstalling || rPkgInput.trim().length === 0}
                   title={t('r.install.button')}
                 >
-                  {rInstalling ? '…' : '⬇'}
+                  {rInstalling ? <LoaderIcon size={12} className="is-spinning" /> : <DownloadIcon size={12} />}
                 </button>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Language-switch translation preview: explicit apply / discard / cancel */}
-      {draft && (
-        <div className="be-switch-preview" role="dialog" aria-label={t('editor.switch.title')}>
-          <div className="be-switch-preview-head">
-            <span className="be-switch-preview-title">{t('editor.switch.title')}</span>
-            <span className="be-switch-preview-sub">{t('editor.switch.sub', { from: MONACO_LANG[language], to: MONACO_LANG[draft.target] })}</span>
-            <button type="button" className="be-switch-preview-close" onClick={cancelDraft} aria-label={t('editor.switch.cancel')}>
-              ✕
-            </button>
-          </div>
-          <div className="be-switch-editor" ref={previewContainerRef} />
-          <div className="be-switch-preview-foot">
-            <span className="be-switch-preview-note">{t('editor.switch.note')}</span>
-            <button type="button" className="be-switch-btn be-switch-btn-cancel" onClick={cancelDraft}>
-              {t('editor.switch.cancel')}
-            </button>
-            <button type="button" className="be-switch-btn be-switch-btn-discard" onClick={discardDraft}>
-              {t('editor.switch.discard')}
-            </button>
-            <button type="button" className="be-switch-btn be-switch-btn-apply" onClick={applyDraft}>
-              {t('editor.switch.apply')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* One-click undo after a "discard" blanked the buffer */}
-      {!draft && undoSnap && (
-        <div className="be-switch-undo" role="status">
-          <span className="be-switch-undo-text">{t('editor.switch.blanked')}</span>
-          <button type="button" className="be-switch-undo-btn" onClick={applyUndo}>
-            {t('editor.switch.undo')}
-          </button>
-          <button type="button" className="be-switch-undo-x" onClick={() => setUndoSnap(null)} aria-label={t('common.close')}>
-            ✕
-          </button>
-        </div>
-      )}
     </div>
   );
 }

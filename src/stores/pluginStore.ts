@@ -217,9 +217,29 @@ export interface HostContainers {
 }
 
 let hostContainers: HostContainers | null = null;
+/** Who currently owns the render target. Several surfaces (plugin canvas,
+ *  code preview, block preview) can be mounted at once — the last *visible*
+ *  one registers, and only that owner may clear the registration. */
+let hostOwner: object | null = null;
 
-export function setHostContainers(containers: HostContainers | null): void {
+export function setHostContainers(containers: HostContainers | null, owner?: object): void {
+  if (containers === null) {
+    // Ignore stale cleanups from a surface that already lost ownership.
+    if (owner && hostOwner && owner !== hostOwner) return;
+    hostContainers = null;
+    hostOwner = null;
+    return;
+  }
   hostContainers = containers;
+  hostOwner = owner ?? null;
+}
+
+/** Clear the current preview host (canvas pixels + overlay DOM). Runs that
+ *  produce no plot must not leave the previous frame visible. */
+export function clearHostPreview(): void {
+  if (!hostContainers) return;
+  hostContainers.clearCanvas2d?.();
+  hostContainers.dom.replaceChildren();
 }
 
 /**

@@ -82,9 +82,13 @@ export function resolveProjectFile(path: string): string | undefined {
   return projectFiles.get(base);
 }
 
-/** Resolve any file — project files take priority, then bundled examples. */
+/** Resolve any file — workspace tree first, then project files, then examples. */
 export async function resolveDataFile(path: string): Promise<string | undefined> {
-  return resolveProjectFile(path) ?? resolveBundledFile(path);
+  const known = workspaceSnapshot[path] ?? workspaceSnapshot[basename(path)];
+  if (known !== undefined) return known;
+  const live = await collectWorkspaceFiles();
+  const hit = live[path] ?? live[basename(path)];
+  return hit ?? resolveProjectFile(path) ?? resolveBundledFile(path);
 }
 
 /** Resolve a bundled example file by name (async — lazily fetched). */
@@ -92,11 +96,127 @@ export async function resolveBundledFile(path: string): Promise<string | undefin
   return loadBundledFile(path);
 }
 
-/** All resolvable file names (project files first, then bundled examples). */
+/** All resolvable file names (workspace files, project files, examples). */
 export function listDataFiles(): string[] {
-  const names = new Set<string>(projectFiles.keys());
+  const names = new Set<string>(workspaceNames);
+  for (const name of projectFiles.keys()) names.add(name);
   for (const key of Object.keys(bundledFiles)) names.add(basename(key));
   return Array.from(names);
+}
+
+// ---- Workspace (real file explorer) integration ---------------------------
+//
+// Code/flow/block surfaces must see the same files the file explorer shows.
+// The explorer lives on the VFS, which this module must not import (it would
+// create a projectStore/dataFiles cycle), so the owner registers a loader.
+
+/** Latest workspace scan (workspace-relative path → text). */
+let workspaceSnapshot: Record<string, string> = {};
+/** Base names from that scan, used by the synchronous pickers. */
+let workspaceNames: string[] = [];
+
+/** Publish a workspace scan: powers both `studio.load` and file pickers. */
+export function setWorkspaceSnapshot(files: Record<string, string>): void {
+  workspaceSnapshot = files;
+  const names = new Set<string>();
+  for (const path of Object.keys(files)) names.add(basename(path));
+  workspaceNames = Array.from(names);
+}
+
+export type WorkspaceFileSource = () => Promise<Record<string, string>>;
+
+let workspaceSource: WorkspaceFileSource | null = null;
+
+/** Register (or clear) the loader that reads the project's workspace tree. */
+export function setWorkspaceFileSource(source: WorkspaceFileSource | null): void {
+  workspaceSource = source;
+}
+
+/**
+ * Data files from the real workspace tree, keyed by both workspace-relative
+ * path ('data/telemetry.csv') and basename ('telemetry.csv'). Only formats
+ * the data pipeline understands are read — binary assets are skipped.
+ */
+export async function collectWorkspaceFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    if (!isSupportedDataFileName(path)) continue;
+    out[path] = text;
+    const base = basename(path);
+    if (!(base in out)) out[base] = text;
+  }
+  return out;
+}
+
+/**
+ * Workspace text files (data **and** code sources) for runtime staging.
+ *
+ * `studio.load('data/x.csv')` and cross-folder imports both resolve from
+ * this: every file keeps its workspace-relative path, and a basename alias
+ * is added when unambiguous so the older `studio.load('x.csv')` form still
+ * works.
+ */
+export async function collectWorkspaceRuntimeFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    out[path] = text;
+  }
+  const baseCounts = new Map<string, number>();
+  for (const path of Object.keys(files)) {
+    const base = basename(path);
+    baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
+  }
+  for (const [path, text] of Object.entries(files)) {
+    const base = basename(path);
+    // Only alias a basename when no other file shares it — otherwise the
+    // full path is the only unambiguous handle.
+    if (baseCounts.get(base) === 1 && !(base in out)) out[base] = text;
+  }
+  return out;
+}
+
+async function readWorkspaceSource(): Promise<Record<string, string>> {
+  if (!workspaceSource) return {};
+  try {
+    return await workspaceSource();
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Everything a code run can `studio.load()` (and import): the explorer
+ * working tree, the project data registry, then bundled examples (first
+ * source wins).
+ */
+export async function collectRuntimeFiles(): Promise<Record<string, string>> {
+  const workspace = await collectWorkspaceRuntimeFiles();
+  if (Object.keys(workspace).length) {
+    // The synchronous pickers only publish data files from the snapshot.
+    setWorkspaceSnapshot(collectDataFrom(workspace));
+  }
+  const out: Record<string, string> = { ...workspace };
+  for (const [name, text] of projectFiles) {
+    if (!(name in out)) out[name] = text;
+  }
+  for (const key of Object.keys(bundledFiles)) {
+    const base = basename(key);
+    if (base in out) continue;
+    const text = await loadBundledFile(key);
+    if (text !== undefined) out[base] = text;
+  }
+  return out;
+}
+
+/** Filter a runtime file map down to data formats (picker snapshot). */
+function collectDataFrom(files: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    if (isSupportedDataFileName(path)) out[path] = text;
+  }
+  return out;
 }
 
 export interface GroupedDataFiles {
@@ -135,7 +255,7 @@ export function listDataFilesGrouped(allow?: readonly string[]): GroupedDataFile
   const ok = allow
     ? (n: string) => allow.includes(extensionOf(n))
     : isSupportedDataFileName;
-  const project = Array.from(projectFiles.keys()).filter(ok);
+  const project = Array.from(new Set([...workspaceNames, ...projectFiles.keys()])).filter(ok);
   const projectSet = new Set(project);
   const examples: string[] = [];
   const seen = new Set<string>();

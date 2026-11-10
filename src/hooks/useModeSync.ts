@@ -4,7 +4,10 @@
 // either side converges through useFlowSync, but between edits the two can
 // diverge (e.g. IR regenerated from code while the canvas still shows the old
 // graph). This hook surfaces that as a single traffic-light state for the
-// top-bar dot. rAF-throttled because toJSON() walks the whole graph.
+// top-bar dot. Computing it means cloning the whole graph (`toJSON()`) and
+// converting the IR to a flow, so it is debounced: an rAF used to run it once
+// per animation frame while typing/dragging, competing with the editor for
+// the main thread. A short idle delay is plenty for a status light.
 import { useEffect, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useBlockStore } from '@/stores/blockStore';
@@ -12,6 +15,8 @@ import { useEditorStore } from '@/stores/editorStore';
 import { irToFlow, flowGraphSignature } from '@/editor/flow/convert';
 
 export type ModeSyncState = 'idle' | 'synced' | 'diverged';
+
+const SYNC_RECOMPUTE_DELAY_MS = 250;
 
 export function useModeSync(): ModeSyncState {
   const mode = useAppStore((s) => s.mode);
@@ -23,10 +28,10 @@ export function useModeSync(): ModeSyncState {
       return;
     }
 
-    let raf = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
     const compute = () => {
-      raf = 0;
+      timer = null;
       if (disposed) return;
       const sid = useEditorStore.getState().activeSessionId;
       if (!sid) {
@@ -48,7 +53,8 @@ export function useModeSync(): ModeSyncState {
       }
     };
     const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(compute);
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(compute, SYNC_RECOMPUTE_DELAY_MS);
     };
 
     compute();
@@ -56,7 +62,7 @@ export function useModeSync(): ModeSyncState {
     const unEditor = useEditorStore.subscribe(schedule);
     return () => {
       disposed = true;
-      if (raf) cancelAnimationFrame(raf);
+      if (timer !== null) clearTimeout(timer);
       unBlock();
       unEditor();
     };

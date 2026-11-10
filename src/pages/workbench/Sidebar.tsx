@@ -5,7 +5,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
+import { ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
@@ -316,7 +316,9 @@ export function Sidebar() {
                 className="plugin-group-header"
                 onClick={() => toggleGroup(group.id)}
               >
-                <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>▾</span>
+                <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>
+                  <ChevronDownIcon size={12} />
+                </span>
                 <span className="plugin-group-name">{group.label}</span>
                 <span className="plugin-group-count">{group.entries.length}</span>
               </button>

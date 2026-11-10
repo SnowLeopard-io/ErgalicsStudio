@@ -100,6 +100,8 @@ export interface ResultMessage {
   id: number;
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
+  /** Workspace files the program created or changed (relative paths). */
+  files?: Record<string, string>;
   error?: string;
   durationMs: number;
 }

@@ -2,8 +2,8 @@
 // Ergalics Studio — Blockly "studio-kids" theme
 //
 // Compact, modern theme tuned for the Ergalics Studio workbench (block-code-
-// modes.md §6.6). The workspace background is a deep neutral so the colorful
-// Scratch-style category colors stand out; the toolbox/flyout gets a softer
+// modes.md §6.6). The workspace background is a deep neutral so the category
+// colours stand out; the toolbox/flyout gets a softer
 // accent scrollbar and a teal selection glow to match the app's accent.
 // ==========================================================================
 

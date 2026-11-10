@@ -4,8 +4,11 @@ import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore, toolTabKey } from '@/stores/appStore';
 import { FileInfoPanel } from './FileInfoPanel';
+import { ResultPreview } from '@/components/editor/ResultPreview';
+import { VariablePanel } from '@/components/editor/VariablePanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
+import { ParamEditor } from '@/components/blocks/ParamEditor';
 import { EmptyState } from '@/components/EmptyState';
 import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
@@ -13,6 +16,7 @@ import { getTool } from '@/pages/research/toolRegistry';
 import { emit, on, type BusSubscription } from '@/core/events';
 import type { ParamDefinition } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
+import { useSurfaceChrome } from '@/stores/surfaceChromeStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 
 /** Introduction card for the suite currently embedded in the central canvas:
@@ -149,6 +153,16 @@ export function RightPanel() {
   /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
    *  与侧栏收起保持一致的过渡。 */
   const [closing, setClosing] = useState(false);
+  /** Code/block surfaces put their result preview + variables in this sidebar
+   *  (the editor area stays purely editing). Keyed off the mode rather than
+   *  the active tab so the preview host stays mounted while the console or a
+   *  file tab has focus. */
+  const surfaceActive = useAppStore((s) => s.mode === 'code' || s.mode === 'block');
+  /** Flow mode puts its node parameter inspector in this sidebar (the canvas
+   *  itself stays free of side panes). */
+  const flowActive = useAppStore((s) => s.mode === 'flow');
+  /** Stable ref setter for the surface-toolbar portal host (see SurfaceToolbar). */
+  const setToolbarHost = useSurfaceChrome((s) => s.setHost);
   /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
    *  的收起按钮，动画结束后必须摘掉该类（与 Sidebar 同一套计时兜底）。 */
   const [entered, setEntered] = useState(false);
@@ -225,15 +239,25 @@ export function RightPanel() {
   // 展开按钮，点击恢复展开。
   if (!rightPanelOpen) {
     return (
-      <button
-        type="button"
-        className="panel-edge-btn panel-edge-right"
-        aria-label={t('ux.panel.expand_right')}
-        title={t('ux.panel.expand_right')}
-        onClick={toggleRightPanel}
-      >
-        <ChevronLeftIcon size={12} />
-      </button>
+      <>
+        {/* Keep the render host alive while the panel is collapsed, otherwise
+            a run that plots with the panel closed has nowhere to draw and the
+            image disappears entirely (reopening would show a blank card). */}
+        {surfaceActive && (
+          <div className="rp-host-hidden" aria-hidden="true">
+            <ResultPreview />
+          </div>
+        )}
+        <button
+          type="button"
+          className="panel-edge-btn panel-edge-right"
+          aria-label={t('ux.panel.expand_right')}
+          title={t('ux.panel.expand_right')}
+          onClick={toggleRightPanel}
+        >
+          <ChevronLeftIcon size={12} />
+        </button>
+      </>
     );
   }
 
@@ -271,7 +295,29 @@ export function RightPanel() {
         <ChevronRightIcon size={12} />
       </button>
       <aside className="right-panel">
-      {embeddedToolId ? (
+      {flowActive ? (
+        <div className="rp-flow-params">
+          <h3 className="panel-title">{t('workbench.right.params')}</h3>
+          <ParamEditor />
+        </div>
+      ) : surfaceActive ? (
+        <div className="rp-mode-panel">
+          {/* Toolbar host: code / block surfaces portal their run / save /
+              status controls here so the central area stays a clean canvas. */}
+          <div className="rp-surface-toolbar" ref={setToolbarHost} />
+          <section className="rp-mode-preview">
+            <div className="rp-pane-head">
+              <span className="rp-pane-title">{t('editor.preview.title')}</span>
+            </div>
+            <div className="rp-pane-body">
+              <ResultPreview />
+            </div>
+          </section>
+          <section className="rp-mode-vars">
+            <VariablePanel />
+          </section>
+        </div>
+      ) : embeddedToolId ? (
         <>
           <h3 className="panel-title">{t('workbench.right.suite')}</h3>
           <SuiteIntro toolId={embeddedToolId} />

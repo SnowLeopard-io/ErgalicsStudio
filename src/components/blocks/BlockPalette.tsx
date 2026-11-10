@@ -5,6 +5,7 @@
 // canvas near the current viewport center.
 // ==========================================================================
 
+import { memo } from 'react';
 import { useLocale, useT } from '@/i18n';
 import { useGraphStore } from './graphStore';
 import { BLOCK_CATEGORIES, blockRegistry } from '@/blocks/registry';
@@ -24,15 +25,19 @@ const CATEGORY_LABEL_KEYS: Record<BlockCategory, string> = {
   utility: 'blocks.category.utility',
 };
 
-export function BlockPalette() {
+function BlockPaletteImpl() {
   const t = useT();
   const { locale } = useLocale();
   const store = useGraphStore();
+  // Subscribe to nothing else: the palette used to select `viewport` and
+  // `canvasSize`, so every pan/zoom frame re-rendered the entire block list
+  // (hundreds of buttons) even though those values are only read on click.
   const addInstance = store((s) => s.addInstance);
-  const viewport = store((s) => s.viewport);
-  const canvasSize = store((s) => s.canvasSize);
 
   const drop = (blockId: string) => {
+    // Read the live viewport/canvas size at drop time (same values as before,
+    // without a render per pointermove).
+    const { canvasSize, viewport } = store.getState();
     // Drop at the centre of the visible canvas (in world coordinates), so
     // zoom/pan no longer sends new blocks to a screen corner.
     const center = screenToWorld(
@@ -68,3 +73,8 @@ export function BlockPalette() {
     </div>
   );
 }
+
+/** The registry list never changes at runtime and this component no longer
+ *  subscribes to the viewport, so keep parent re-renders (e.g. a 300 ms buffer
+ *  push while editing a flow file) from rebuilding the whole list. */
+export const BlockPalette = memo(BlockPaletteImpl);

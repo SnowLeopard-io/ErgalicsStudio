@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
@@ -23,10 +24,14 @@ import type { VfsEntry } from '@/core/vfs';
 import { parseBibtex } from '@/core/publish/bibtex';
 import type { ManuscriptRecord } from '@/core/publish/state';
 import {
+  codeLanguageForFile,
   editorKindForFile,
   parseFlowPayload,
   parseBlockPayload,
 } from '@/components/editor/fileEditors/shared';
+import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
+import type { BlockGraphState } from '@/types/block';
+import type { IRProgram } from '@/editor/ir';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -373,31 +378,65 @@ export function FileExplorer() {
         useAppStore.getState().setEmbeddedTool('latex-editor');
         return;
       }
-      // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
-      // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
-      // payload that fails its format check degrades to a read-only view.
+      // Editable files open directly, one tab per file so several sources
+      // (e.g. two Python modules) can stay open side by side: `.py/.js/.r`
+      // become code editor tabs, `*.flow.json` → flow surface, `*.block.json`
+      // → block surface. A payload that fails its format check degrades to a
+      // read-only view.
       const editorKind = editorKindForFile(entry.name);
       if (editorKind) {
         const raw = await adapter.readFile(repoPath, entry.path);
         if (editorKind === 'flow') {
+          const parsed = parseFlowPayload(raw);
+          // Block / flow files open in their real workbench (canvas + run),
+          // each file getting its own surface tab and editor session so a
+          // code file, a block file and a flow file stay open together. A
+          // malformed payload degrades to the read-only editor tab.
+          if (parsed) {
+            editorStoreOpenInMode({
+              mode: 'flow',
+              graph: parsed.graph as unknown as BlockGraphState,
+              path: entry.path,
+            });
+            return;
+          }
           openFileEditor({
             path: entry.path,
             name: entry.name,
             editor: 'flow',
             payload: raw,
-            broken: parseFlowPayload(raw) === null,
+            broken: true,
           });
-        } else if (editorKind === 'block') {
+          return;
+        }
+        if (editorKind === 'block') {
+          const parsed = parseBlockPayload(raw);
+          if (parsed) {
+            editorStoreOpenInMode({
+              mode: 'block',
+              ir: parsed.ir as unknown as IRProgram,
+              path: entry.path,
+            });
+            return;
+          }
           openFileEditor({
             path: entry.path,
             name: entry.name,
             editor: 'block',
             payload: raw,
-            broken: parseBlockPayload(raw) === null,
+            broken: true,
           });
-        } else {
-          openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
+          return;
         }
+        const language = codeLanguageForFile(entry.name);
+        if (language) {
+          // Source files open in the full code workbench (editor + console +
+          // variables + preview). Each file gets its own surface tab/session,
+          // so several Python/R/JS files stay open side by side.
+          editorStoreOpenInMode({ mode: 'code', language, code: raw, path: entry.path });
+          return;
+        }
+        openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
         return;
       }
       const { kind, mime } = classifyFile(entry.name);
@@ -509,6 +548,23 @@ export function FileExplorer() {
     [],
   );
 
+  /** Keep editor sessions bound to a renamed/moved path (and every descendant
+   *  when a directory moves). Tabs are remapped by appStore.renameFileTab; the
+   *  session's `filePath` is the other half of the binding, so leaving it stale
+   *  would keep saving to the old location. */
+  const relocateSessions = (oldPath: string, newPath: string) => {
+    const editor = useEditorStore.getState();
+    for (const session of editor.sessions) {
+      const path = session.filePath;
+      if (!path) continue;
+      if (path === oldPath) {
+        editor.setSessionFilePath(session.id, newPath);
+      } else if (path.startsWith(`${oldPath}/`)) {
+        editor.setSessionFilePath(session.id, `${newPath}${path.slice(oldPath.length)}`);
+      }
+    }
+  };
+
   /** Paste the clipboard into `targetDir`. copy → write copies; cut → move. */
   const paste = async (targetDir: string) => {
     if (!project || !clipboard || clipboard.items.length === 0) return;
@@ -537,6 +593,8 @@ export function FileExplorer() {
             continue;
           }
           await adapter.renameEntry(repoPath, item.path, target);
+          renameFileTab(item.path, basename(target), target);
+          relocateSessions(item.path, target);
         } else {
           const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
@@ -573,16 +631,25 @@ export function FileExplorer() {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
       closeTab(fileTabKey(entry.path));
       closeTab(editorTabKey(entry.path));
-      if (entry.isDir) {
-        // Close every editor tab under the deleted directory — a surviving
-        // dirty tab would recreate the file on its next save.
-        const prefix = `${entry.path}/`;
-        const tabs = useAppStore.getState().canvasTabs;
-        for (const tab of tabs) {
-          if (tab.kind === 'editor' && (tab.path === entry.path || tab.path.startsWith(prefix))) {
-            closeTab(tab.key);
-          }
-        }
+      // Every tab kind that points at a file must go with it: code / flow /
+      // block surfaces are `surface` tabs now, so closing only preview/editor
+      // tabs left deleted files visible in the strip.
+      const prefix = `${entry.path}/`;
+      const isDeletedPath = (path: string | undefined): boolean =>
+        !!path && (path === entry.path || (entry.isDir && path.startsWith(prefix)));
+      const tabs = useAppStore.getState().canvasTabs;
+      for (const tab of tabs) {
+        const tabPath =
+          tab.kind === 'file' || tab.kind === 'editor' || tab.kind === 'surface'
+            ? tab.path
+            : undefined;
+        if (isDeletedPath(tabPath)) closeTab(tab.key);
+      }
+      // Drop editor sessions bound to the deleted paths too — a surviving
+      // session would keep the file "open" and recreate it on the next save.
+      const editor = useEditorStore.getState();
+      for (const session of editor.sessions) {
+        if (isDeletedPath(session.filePath)) editor.removeSession(session.id);
       }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
@@ -700,6 +767,7 @@ export function FileExplorer() {
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
+      relocateSessions(entry.path, target);
       await syncDataTrack(entry.path, target);
       await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
@@ -750,7 +818,16 @@ export function FileExplorer() {
         await adapter.writeFile(repoPath, path, '');
       }
       await refreshDirs([parentDir]);
-      if (type === 'file') await openPreview({ name, path, isDir: false, size: 0 });
+      if (type === 'file') {
+        // A brand-new source file belongs in its editor, not a read-only
+        // preview — it is empty and meant to be typed into.
+        const language = codeLanguageForFile(name);
+        if (language) {
+          editorStoreOpenInMode({ mode: 'code', language, code: '', path });
+        } else {
+          await openPreview({ name, path, isDir: false, size: 0 });
+        }
+      }
     } catch {
       notify('error', t('workbench.explorer.op_failed'));
     }
@@ -791,6 +868,8 @@ export function FileExplorer() {
       }
       try {
         await adapter.renameEntry(repoPath, src.path, target);
+        renameFileTab(src.path, basename(target), target);
+        relocateSessions(src.path, target);
         await syncDataTrack(src.path, target);
         await refreshDirs([targetDir, dirname(src.path)]);
         notify('success', t('workbench.explorer.moved_hint'));

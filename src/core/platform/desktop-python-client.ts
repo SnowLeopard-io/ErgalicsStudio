@@ -20,6 +20,9 @@ export interface DesktopPythonClientOptions {
 export interface DesktopPythonRunResult {
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
+  /** Present for parity with Pyodide; the desktop channel does not collect
+   *  workspace outputs yet, so it stays undefined. */
+  files?: Record<string, string>;
   error?: string;
   durationMs: number;
 }

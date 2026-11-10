@@ -12,6 +12,7 @@
 
 import { makeProgram, type BinaryOperator, type IRNode, type IRProgram } from '../ir/types';
 import { codegenJS } from '../codegen/js';
+import { BLOCK_DEFS } from './blocks';
 
 // ---- Blockly JSON shapes (loosely typed — Blockly's serializer is untyped) ----
 
@@ -303,11 +304,24 @@ function statementBlock(type: string, fields: Record<string, unknown>, inputs: R
   return { type, fields, inputs };
 }
 
+/** Blockly blocks that can live in a statement stack (they declare a previous
+ *  statement connection). Anything else is a value block: chaining it via
+ *  `next` makes Blockly throw "missing a previous connection" on load. */
+const STATEMENT_BLOCK_TYPES = new Set(
+  BLOCK_DEFS.filter((d) => 'previousStatement' in d).map((d) => d.type),
+);
+
 function irChain(nodes: IRNode[]): BlockJSON | undefined {
   let head: BlockJSON | undefined;
   let tail: BlockJSON | undefined;
   for (const n of nodes) {
-    const b = irToBlockJSON(n);
+    let b = irToBlockJSON(n, 'statement');
+    if (!b.type || !STATEMENT_BLOCK_TYPES.has(b.type)) {
+      // e.g. a bare `x` expression statement parses to VarRef, which maps to
+      // the value block `studio_var`. Degrade it to a raw statement so the
+      // serialized chain stays valid.
+      b = rawFallback(n, 'statement');
+    }
     if (!head) head = b;
     else tail!.next = { block: b };
     tail = b;

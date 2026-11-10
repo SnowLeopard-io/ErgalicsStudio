@@ -1,13 +1,24 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { flushEditorFile } from '@/stores/editorFlush';
-import { useModeConvert } from '@/stores/useModeConvert';
-import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
+import {
+  CloseIcon,
+  ToolIcon,
+  SettingsIcon,
+  PlusIcon,
+  FolderOpenIcon,
+  BookIcon,
+  ToolboxIcon,
+  ClockIcon,
+} from '@/components/icons';
+import { syncSurfaceTabSession } from '@/components/editor/fileEditors/openInMode';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
 const LazySettingsPage = lazyRetry(() => import('@/pages/settings/SettingsPage'));
 // File editor tabs (design doc P2-P4): Monaco code / Blockly block / flow DAG.
@@ -20,6 +31,17 @@ const LazyBlockFileEditor = lazyRetry(() =>
 );
 const LazyFlowFileEditor = lazyRetry(() =>
   import('@/components/editor/fileEditors/FlowFileEditor').then((m) => ({ default: m.FlowFileEditor })),
+);
+// The three editing surfaces are canvas tabs too (never full-page swaps):
+// flow DAG, Blockly workspace and the Monaco/Pyodide code editor.
+const LazyFlowSurface = lazyRetry(() =>
+  import('@/components/blocks/BlockWorkbench').then((m) => ({ default: m.BlockWorkbench })),
+);
+const LazyBlockSurface = lazyRetry(() =>
+  import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
+);
+const LazyCodeSurface = lazyRetry(() =>
+  import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
 );
 import { Modal } from '@/components/Modal';
 import { ToolShell } from '@/components/ToolShell';
@@ -54,7 +76,7 @@ import { DataDialog } from './DataDialog';
 import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
-import { WorkbenchModeCards } from '@/components/WorkbenchModes';
+import { ModeIcon } from '@/components/WorkbenchModes';
 
 function fmtSize(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '';
@@ -885,6 +907,7 @@ function PluginExportMenu({
 
 export function CentralArea() {
   const t = useT();
+  const { locale } = useLocale();
   // Immersive fullscreen: the fullscreen element is the canvas wrap itself —
   // the LEFT sidebar stays behind (immersion), but the RIGHT panel is
   // portaled in as a floating layer so it can still extend over the canvas
@@ -928,8 +951,49 @@ export function CentralArea() {
   // buffers, scroll positions and tool state survive the switch.
   const canvasTabs = useAppStore((s) => s.canvasTabs);
   const activeTab = useAppStore((s) => s.activeTab);
+  // Welcome screen: shown only when nothing is open — no plugin canvas and no
+  // file/surface tab. Once a tab exists the welcome steps aside for it.
+  const recentProjects = useProjectStore((s) => s.recent);
+  const showWelcome = !activePlugin && canvasTabs.length === 0;
+  const mode = useAppStore((s) => s.mode);
   const filePreviews = useAppStore((s) => s.filePreviews);
-  const editorFiles = useAppStore((s) => s.editorFiles);
+  // Mode surfaces opened from a file are labelled with that file: one file is
+  // one tab ("coupler.py"), not a preview tab plus a generic "代码" tab.
+  const boundFilePath = useEditorStore(
+    (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
+  );
+  // The tab strip only needs each editor tab's name + dirty flag, NOT the
+  // whole `editorFiles` map. Subscribing to the map made every debounced
+  // buffer push (every 300 ms while typing in a code/flow/block file tab)
+  // re-render this entire 2000-line central area — on top of the live editor
+  // itself. A shallow-compared primitive list keeps this component quiet until
+  // a label or dirty dot actually changes.
+  const editorTabMetaList = useAppStore(
+    useShallow((s) =>
+      s.canvasTabs.flatMap((tab) =>
+        tab.kind === 'editor'
+          ? [
+              `${tab.key}\u0000${s.editorFiles[tab.key]?.name ?? tab.path}\u0000${
+                s.editorFiles[tab.key]?.dirty ? '1' : '0'
+              }`,
+            ]
+          : [],
+      ),
+    ),
+  );
+  const editorTabMeta = useMemo(() => {
+    const map = new Map<string, { name: string; dirty: boolean }>();
+    for (const entry of editorTabMetaList) {
+      const first = entry.indexOf('\u0000');
+      const second = entry.indexOf('\u0000', first + 1);
+      if (first < 0 || second < 0) continue;
+      map.set(entry.slice(0, first), {
+        name: entry.slice(first + 1, second),
+        dirty: entry.slice(second + 1) === '1',
+      });
+    }
+    return map;
+  }, [editorTabMetaList]);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const reorderTabs = useAppStore((s) => s.reorderTabs);
@@ -1035,12 +1099,15 @@ export function CentralArea() {
 
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Identity used to claim/release the shared plugin render host. */
+  const hostOwnerRef = useRef({});
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scene3dRef = useRef<Scene3DHandle | null>(null);
   const dragDepth = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
+  const [newProjectBusy, setNewProjectBusy] = useState(false);
   // Mirror of the viewport for rendering: the viewport store lives outside
   // React, so this state exists purely to surface a visible zoom badge /
   // reset affordance (invisible viewport state already caused two "render is
@@ -1250,6 +1317,7 @@ export function CentralArea() {
   }, [activeId]);
 
   useEffect(() => {
+    if (activeTab !== null) return;
     if (!domRef.current || !canvasRef.current) return;
     // Inject the 2D viewport transform into the shared canvas context before
     // any plugin draws into it.
@@ -1286,7 +1354,7 @@ export function CentralArea() {
         if (!canvas) return;
         clearCanvas2dInViewport(canvas);
       },
-    });
+    }, hostOwnerRef.current);
     // If a plugin is still active (e.g. CentralArea just remounted after a
     // block-mode toggle), redraw it into the fresh container elements. The
     // canvas must carry its final CSS size *before* that first draw — during
@@ -1306,11 +1374,11 @@ export function CentralArea() {
     });
     return () => {
       cancelAnimationFrame(settle);
-      setHostContainers(null);
+      setHostContainers(null, hostOwnerRef.current);
       scene3dRef.current?.dispose();
       scene3dRef.current = null;
     };
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -1365,6 +1433,36 @@ export function CentralArea() {
     };
     input.click();
   };
+
+  // Welcome screen actions: start a blank project, or jump straight into a
+  // recently saved one.
+  const startNewProject = async () => {
+    if (newProjectBusy) return;
+    setNewProjectBusy(true);
+    try {
+      await useProjectStore.getState().createProject('');
+    } catch (err: unknown) {
+      logger.error('project', 'create from welcome failed', err);
+      useAppStore.getState().notify('error', t('project.create_failed'));
+    } finally {
+      setNewProjectBusy(false);
+    }
+  };
+
+  const openRecentProject = async (id: string) => {
+    try {
+      await useProjectStore.getState().openProject(id);
+    } catch (err: unknown) {
+      logger.error('project', 'open recent from welcome failed', err);
+      useAppStore.getState().notify('error', t('project.open_failed'));
+    }
+  };
+
+  // The welcome list is filled once per mount so "open a project" always has
+  // fresh entries even if the sidebar never loaded them this session.
+  useEffect(() => {
+    if (showWelcome) void useProjectStore.getState().loadRecent();
+  }, [showWelcome]);
 
   return (
     <div className="central-wrap" ref={wrapRef}>
@@ -1501,11 +1599,16 @@ export function CentralArea() {
                   : tab.kind === 'settings'
                     ? t('settings.title')
                     : tab.kind === 'editor'
-                      ? (editorFiles[tab.key]?.name ?? tab.path)
-                      : (filePreviews[tab.key]?.name ?? tab.path);
+                      ? (editorTabMeta.get(tab.key)?.name ?? tab.path)
+                      : tab.kind === 'surface'
+                        ? (tab.path?.split('/').pop() ??
+                          (boundFilePath && tab.mode === mode
+                            ? boundFilePath.split('/').pop()!
+                            : t(`workbench.mode.${tab.mode}`)))
+                        : (filePreviews[tab.key]?.name ?? tab.path);
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
-              const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
+              const dirty = tab.kind === 'editor' && (editorTabMeta.get(tab.key)?.dirty ?? false);
               // Shared by the × button and middle-click close: pull any
               // debounced-but-unpushed edit into the store first, and route
               // dirty editors through the save/discard confirmation.
@@ -1533,7 +1636,12 @@ export function CentralArea() {
                     dragOverTabKey === tab.key && dragTabKey.current !== tab.key ? ' drop-target' : ''
                   }`}
                   title={label}
-                  onClick={() => activateTab(tab.key)}
+                  onClick={() => {
+                    activateTab(tab.key);
+                    // File-bound code surfaces share one mounted editor: move
+                    // the active session to this tab's own file session.
+                    syncSurfaceTabSession(tab);
+                  }}
                   onAuxClick={(e) => {
                     // VS Code convention: middle-click closes the tab without
                     // activating it first.
@@ -1581,6 +1689,7 @@ export function CentralArea() {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       activateTab(tab.key);
+                      syncSurfaceTabSession(tab);
                     }
                   }}
                 >
@@ -1596,6 +1705,11 @@ export function CentralArea() {
                   {tab.kind === 'settings' && (
                     <span className="central-tool-tab-icon" aria-hidden="true">
                       <SettingsIcon size={12} />
+                    </span>
+                  )}
+                  {tab.kind === 'surface' && (
+                    <span className="central-tool-tab-icon" aria-hidden="true">
+                      <ModeIcon kind={tab.mode} />
                     </span>
                   )}
                   {dirty && <span className="central-editor-dirty-dot" aria-hidden="true" />}
@@ -1616,8 +1730,9 @@ export function CentralArea() {
               );
             })}
           </div>
-          {/* 所有标签的窗格保持挂载（display 切换），关闭标签才会卸载并
-              回收其 blob URL——这是"切换保留状态"的关键。 */}
+          {/* 工具标签保持挂载（display 切换），关闭标签才会卸载并回收其
+              blob URL；文件/表面编辑器只挂载当前标签——Monaco/Blockly
+              实例太重，多文件同时存活是卡顿的主因，缓冲区在 store 里。 */}
           {canvasTabs.map((tab) => (
             <div
               key={tab.key}
@@ -1632,6 +1747,13 @@ export function CentralArea() {
                     </Suspense>
                   );
                 if (tab.kind === 'editor') {
+                  // Only the focused file editor stays mounted. Monaco and
+                  // Blockly are expensive (workers, DOM, completion
+                  // providers), so keeping every open file alive made a
+                  // multi-file workspace crawl. Buffers live in
+                  // appStore.editorFiles and each editor flushes on unmount,
+                  // so switching tabs loses nothing but scroll position.
+                  if (tab.key !== activeTab) return null;
                   const Cmp =
                     tab.editor === 'code'
                       ? LazyCodeFileEditor
@@ -1644,6 +1766,23 @@ export function CentralArea() {
                     </Suspense>
                   );
                 }
+                if (tab.kind === 'surface') {
+                  // Only the focused surface stays mounted: Blockly/Monaco
+                  // each own an editor session, so keeping hidden surfaces
+                  // alive would let them fight over the active IR.
+                  if (tab.key !== activeTab) return null;
+                  const Cmp =
+                    tab.mode === 'flow'
+                      ? LazyFlowSurface
+                      : tab.mode === 'block'
+                        ? LazyBlockSurface
+                        : LazyCodeSurface;
+                  return (
+                    <Suspense fallback={<PreviewLoading />}>
+                      <Cmp />
+                    </Suspense>
+                  );
+                }
                 const preview = filePreviews[tab.key];
                 return preview ? <PreviewOverlay preview={preview} /> : null;
               })()}
@@ -1651,37 +1790,111 @@ export function CentralArea() {
           ))}
         </div>
       )}
-      {!activePlugin && (
-        <div className="central-empty">
-          {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
-          <svg className="central-empty-mark" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M6 18 V6 H18" />
-            <path d="M46 6 H58 V18" />
-            <path d="M58 46 V58 H46" />
-            <path d="M18 58 H6 V46" />
-            <circle className="central-empty-mark-ring" cx="32" cy="32" r="11" />
-            <circle className="central-empty-mark-core" cx="32" cy="32" r="2.6" />
-          </svg>
-          <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
-          <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
-          <div className="central-empty-actions">
-            <button type="button" className="btn" onClick={() => setPluginDialogOpen(true)}>
-              {t('workbench.empty.load_plugin')}
-            </button>
-            <button type="button" className="btn" onClick={() => setExampleDialogOpen(true)}>
-              {t('workbench.empty.example_data')}
-            </button>
-            <button type="button" className="btn" onClick={openProjectFile}>
-              {t('workbench.empty.open_project')}
-            </button>
+      {showWelcome && (
+        <div className="central-empty welcome-cover">
+          <div className="welcome-cover-scroll">
+            <div className="welcome-cover-inner">
+              <header className="welcome-cover-hero">
+                {/* Viewfinder mark echoing the corner brackets of the canvas frame. */}
+                <svg className="central-empty-mark" viewBox="0 0 64 64" aria-hidden="true">
+                  <path d="M6 18 V6 H18" />
+                  <path d="M46 6 H58 V18" />
+                  <path d="M58 46 V58 H46" />
+                  <path d="M18 58 H6 V46" />
+                  <circle className="central-empty-mark-ring" cx="32" cy="32" r="11" />
+                  <circle className="central-empty-mark-core" cx="32" cy="32" r="2.6" />
+                </svg>
+                <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
+                <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
+              </header>
+
+              {/* VS Code-style two-column cover: actions on the left, recent
+                  projects on the right. Stacks to one column when narrow. */}
+              <div className="welcome-cover-grid">
+                <section className="welcome-cover-section">
+                  <h3 className="welcome-cover-heading">{t('workbench.empty.start')}</h3>
+                  <ul className="welcome-cover-list">
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => void startNewProject()}
+                        disabled={newProjectBusy}
+                      >
+                        <PlusIcon size={16} />
+                        <span className="welcome-cover-row-label">{t('project.new')}</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" className="welcome-cover-row" onClick={openProjectFile}>
+                        <FolderOpenIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.open_project')}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => setExampleDialogOpen(true)}
+                      >
+                        <BookIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.example_data')}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="welcome-cover-row"
+                        onClick={() => setPluginDialogOpen(true)}
+                      >
+                        <ToolboxIcon size={16} />
+                        <span className="welcome-cover-row-label">
+                          {t('workbench.empty.load_plugin')}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </section>
+
+                <section className="welcome-cover-section">
+                  <h3 className="welcome-cover-heading">{t('workbench.project.recent')}</h3>
+                  {recentProjects.length > 0 ? (
+                    <ul className="welcome-cover-list">
+                      {recentProjects.slice(0, 6).map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            className="welcome-cover-row"
+                            title={p.name}
+                            onClick={() => void openRecentProject(p.id)}
+                          >
+                            <ClockIcon size={16} />
+                            <span className="welcome-cover-row-label">{p.name}</span>
+                            <span className="welcome-cover-row-meta">
+                              {new Date(p.updatedAt).toLocaleDateString(locale)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="welcome-cover-empty">{t('workbench.project.recent_empty')}</p>
+                  )}
+                </section>
+              </div>
+
+              <footer className="welcome-cover-footer">
+                <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
+                <p className="central-empty-tip">
+                  <kbd>Ctrl</kbd>+<kbd>S</kbd> {t('workbench.empty.tip_save')}
+                </p>
+              </footer>
+            </div>
           </div>
-          <div className="central-empty-modes">
-            <WorkbenchModeCards onMode={(m) => useModeConvert.getState().requestMode(m)} />
-          </div>
-          <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
-          <p className="central-empty-tip">
-            <kbd>Ctrl</kbd>+<kbd>S</kbd> {t('workbench.empty.tip_save')}
-          </p>
         </div>
       )}
 

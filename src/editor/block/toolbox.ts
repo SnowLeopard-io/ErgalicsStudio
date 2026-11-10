@@ -1,10 +1,13 @@
 // ==========================================================================
 // Ergalics Studio — Blockly toolbox (block mode)
 //
-// Categories aligned with the Scratch convention (data=blue, control=yellow,
-// ops=green, viz=pink) from editor architecture §6.6. Value inputs get shadow
-// blocks so blocks are runnable the moment they're dragged out.
+// Categories mirror the block palette (see BLOCK_PALETTE in ./blocks) so the
+// flyout chips and the blocks share one muted, technical colour system.
+// Value inputs get shadow blocks so blocks are runnable the moment they're
+// dragged out.
 // ==========================================================================
+
+import { BLOCK_PALETTE } from './blocks';
 
 function shadowNumber(value: number): unknown {
   return { type: 'studio_number', fields: { NUM: value } };
@@ -41,13 +44,13 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_START}',
-      colour: '#22C55E',
+      colour: BLOCK_PALETTE.run,
       contents: [block('studio_run')],
     },
     {
       kind: 'category',
       name: '%{BKY_CAT_DATA}',
-      colour: '#4C97FF',
+      colour: BLOCK_PALETTE.data,
       contents: [
         block('studio_load_csv'),
         block('studio_load_xyz'),
@@ -70,13 +73,13 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_VARIABLES}',
-      colour: '#FF8C1A',
+      colour: BLOCK_PALETTE.variable,
       contents: [block('studio_var'), block('studio_var_assign', { VALUE: { shadow: shadowNumber(0) } })],
     },
     {
       kind: 'category',
       name: '%{BKY_CAT_OPERATORS}',
-      colour: '#59C059',
+      colour: BLOCK_PALETTE.operation,
       contents: [
         block('studio_number'),
         block('studio_string'),
@@ -100,7 +103,7 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_TRANSFORM}',
-      colour: '#CF63CF',
+      colour: BLOCK_PALETTE.transform,
       contents: [
         block('studio_normalize'),
         block('studio_sort'),
@@ -112,13 +115,13 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_STATS}',
-      colour: '#9966FF',
+      colour: BLOCK_PALETTE.statistic,
       contents: [block('studio_summary'), block('studio_histogram', { BINS: { shadow: shadowNumber(10) } })],
     },
     {
       kind: 'category',
       name: '%{BKY_CAT_VIZ}',
-      colour: '#FF6680',
+      colour: BLOCK_PALETTE.visualization,
       contents: [
         block('studio_plot_scatter'),
         block('studio_line'),
@@ -129,7 +132,7 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_CONTROL}',
-      colour: '#FFAB19',
+      colour: BLOCK_PALETTE.control,
       contents: [
         block('studio_repeat', { COUNT: { shadow: shadowNumber(10) } }),
         // A `false` shadow: a constant `1 < 10` compare is always true, so a
@@ -145,7 +148,7 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_FUNCTIONS}',
-      colour: '#9966FF',
+      colour: BLOCK_PALETTE.statistic,
       contents: [
         block('studio_function_def'),
         block('studio_return'),
@@ -155,7 +158,7 @@ export const TOOLBOX = {
     {
       kind: 'category',
       name: '%{BKY_CAT_UTILITY}',
-      colour: '#8A97A8',
+      colour: BLOCK_PALETTE.util,
       contents: [block('studio_print', { TEXT: { shadow: shadowString('你好') } })],
     },
   ] as ToolboxCategory[],

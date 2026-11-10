@@ -1,11 +1,12 @@
 // ==========================================================================
-// Ergalics Studio — mode conversion confirmation dialog
+// Ergalics Studio — conversion confirmation dialog
 //
 // Rendered by WorkbenchPage when useModeConvert holds a pending conversion:
-// shows what the target mode's canvas will contain, which statements stay as
-// raw code, and the regenerated program text. Apply switches the mode;
-// cancel keeps the current one. Styling mirrors the code-mode language
-// switch preview (be-switch-* classes).
+// shows what the target surface will contain, which statements stay as raw
+// code, the regenerated program text, and the sibling file that will be
+// written before it opens. Apply commits the conversion; cancel keeps the
+// current surface untouched. Styling mirrors the code-mode language switch
+// preview (be-switch-* classes).
 // ==========================================================================
 
 import { useT } from '@/i18n';
@@ -18,8 +19,9 @@ export function ModeConvertDialog() {
   const cancel = useModeConvert((s) => s.cancel);
   if (!pending) return null;
 
-  const fromLabel = t(`workbench.mode.${pending.from}`);
-  const toLabel = t(`workbench.mode.${pending.target}`);
+  const fromLabel = t(pending.fromKey);
+  const toLabel = t(pending.toKey);
+  const isLanguage = pending.target.kind === 'language';
 
   return (
     <div className="mode-convert-overlay" role="presentation">
@@ -33,7 +35,14 @@ export function ModeConvertDialog() {
         </div>
         <div className="mode-convert-body">
           <p className="mode-convert-line">
-            {t('mode.convert.nodes', { n: pending.nodes, mode: toLabel })}
+            {isLanguage
+              ? t('mode.convert.nodes.language', { n: pending.nodes, lang: toLabel })
+              : t('mode.convert.nodes', { n: pending.nodes, mode: toLabel })}
+          </p>
+          <p className="mode-convert-line mode-convert-path">
+            {pending.path
+              ? t('mode.convert.file', { path: pending.path })
+              : t('mode.convert.file.none')}
           </p>
           {pending.hidden.length > 0 && (
             <div className="mode-convert-warn">

@@ -34,14 +34,6 @@
   position: relative;
 }
 
-.block-workbench-right {
-  width: 260px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  overflow-y: auto;
-}
-
 /* ---- canvas ---- */
 
 .block-canvas {
@@ -694,21 +686,19 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
-  /* Solid floating bar — no glassmorphism, instrument panel instead. */
-  margin: 12px 12px 0 12px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  padding: 6px 12px;
+  /* Flat instrument row: hairline under it, no floating card. */
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
   position: relative;
   z-index: 5;
 }
 
 :root[data-theme='dark'] .block-editor-toolbar {
-  background: rgba(18, 24, 32, 0.92);
+  background: transparent;
 }
 
 /* Run / Stop — solid instrument key: flat accent, single shadow, no
@@ -716,28 +706,25 @@
 .be-run-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 14px;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
   border: none;
-  border-radius: 9px;
+  border-radius: 3px;
   background: var(--color-accent);
   color: #ffffff;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  transition: transform 120ms ease, box-shadow 200ms ease, filter 200ms ease;
+  transition: background 120ms ease, filter 120ms ease;
 }
 
 .be-run-btn:hover:not(:disabled) {
   background: var(--color-accent-hover);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 .be-run-btn:active:not(:disabled) {
-  transform: translateY(0);
   filter: brightness(0.96);
 }
 
@@ -751,11 +738,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 5px;
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Busy marker (run in flight). `spin` lives in global.css. */
+.is-spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation-duration: 2.4s;
+  }
 }
 
 /* Spacer pushes the status pill to the right */
@@ -767,11 +764,11 @@
 .be-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
   background: var(--color-bg-tertiary);
@@ -798,11 +795,10 @@
 }
 
 .be-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 8px currentColor;
 }
 
 .be-status-pill.is-idle .be-status-dot {
@@ -822,12 +818,11 @@
 /* Existing segmented Python/JS toggle — keep, but tighter & aligned with new toolbar */
 .block-editor-toggle {
   display: inline-flex;
-  height: 30px;
+  height: 24px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 3px;
   overflow: hidden;
   background: var(--color-bg-tertiary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .block-editor-toggle .btn {
@@ -862,24 +857,107 @@
 
 .block-editor-main {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 12px;
-  padding: 12px;
-  padding-top: 8px;
+  padding: 0;
+}
+
+/* Editor row (canvas/workspace + side panel) above the console dock. */
+.block-editor-top {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Resizable console dock — height is driven by the horizontal splitter. */
+.block-editor-bottom {
+  display: flex;
+  flex: none;
+  min-height: 0;
+}
+
+.block-editor-bottom > .editor-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Variables pane docked to the right of the console. */
+.block-editor-vars {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+}
+
+.block-editor-vars > .editor-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- panel splitters (pointer + keyboard resizable) ---- */
+
+.be-splitter {
+  position: relative;
+  flex: none;
+  background: transparent;
+  touch-action: none;
+  z-index: 2;
+}
+
+.be-splitter.is-vertical {
+  width: 12px;
+  cursor: col-resize;
+}
+
+.be-splitter.is-horizontal {
+  height: 12px;
+  cursor: row-resize;
+}
+
+/* Hairline grip, invisible until hover/focus so the layout stays quiet. */
+.be-splitter::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.be-splitter.is-vertical::before {
+  width: 2px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.be-splitter.is-horizontal::before {
+  width: 32px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.be-splitter:hover::before,
+.be-splitter:active::before,
+.be-splitter:focus-visible::before {
+  background: var(--color-accent);
+}
+
+/* The grip is the focus affordance; suppress the global focus ring. */
+.be-splitter:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .block-editor-workspace {
   flex: 1;
   min-width: 0;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
 
 /* Blockly's SVG text must not inherit the app's monospace stack — a
@@ -935,21 +1013,19 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  border-radius: 0;
+  border-left: 1px solid var(--color-border);
   overflow: hidden;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
 
 .block-editor-code-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  height: 26px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+  background: transparent;
 }
 
 .be-code-lang {
@@ -1001,9 +1077,11 @@
   min-height: 0;
 }
 
-/* Preview card */
+/* Preview card — the only occupant of the side column, so it takes the
+   remaining height instead of leaving dead space under a fixed 240px box. */
 .block-editor-preview {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 160px;
   height: 240px;
   position: relative;
   border-radius: 12px;
@@ -1056,71 +1134,71 @@
 
 /* ---------- shared editor panels (variables / console) ---------- */
 
+/* Flat panel chrome, VS Code "panel / view" style: a 26px caption bar with a
+   hairline under it, no cards, no shadows, no rounded corners. */
 .editor-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
   flex: 1;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   overflow: hidden;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
 
 .editor-panel-head {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 14px;
+  height: 26px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+  background: transparent;
 }
 
 .editor-panel-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .editor-panel-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-text-tertiary) 18%, transparent);
+  color: var(--color-text-secondary);
 }
 
 .editor-panel-actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .editor-panel-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 3px;
   font-size: 12px;
-  transition: all 150ms ease;
+  transition: background 100ms ease, color 100ms ease;
 }
 
 .editor-panel-action:hover {
@@ -1132,49 +1210,38 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px 0;
+  padding: 2px 0;
 }
 
-/* Empty state with icon + label */
+/* Empty state: one quiet line of helper text, like an empty VS Code view. */
 .editor-panel-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 28px 14px;
-  font-size: 11.5px;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
-  text-align: center;
 }
 
 .editor-panel-empty-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--color-bg-tertiary);
+  width: 14px;
+  height: 14px;
   color: var(--color-text-tertiary);
-  font-size: 16px;
-  border: 1px solid var(--color-border);
 }
 
-/* Variable rows */
+/* Variable rows — dense list rows (22px), no separators or value chips. */
 .editor-var-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  padding: 7px 14px;
-  font-size: 11.5px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-  transition: background 120ms ease;
-}
-
-.editor-var-row:last-child {
-  border-bottom: none;
+  height: 22px;
+  padding: 0 12px;
+  font-size: 12px;
+  transition: background 100ms ease;
 }
 
 .editor-var-row:hover {
@@ -1184,82 +1251,63 @@
 .editor-var-name {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
   color: var(--color-text-primary);
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 500;
+  /* Full mono stack, not a bare "monospace": Windows would otherwise fall
+     back to a CJK serif face for Chinese identifiers. */
+  font-family: var(--font-console);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .editor-var-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.editor-var-icon.is-scalar {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
-}
-
-.editor-var-icon.is-table {
-  background: rgba(99, 102, 241, 0.14);
-  color: #a5b4fc;
-}
-
-.editor-var-icon.is-view {
-  background: rgba(244, 114, 182, 0.14);
-  color: #f9a8d4;
-}
-
-.editor-var-icon.is-unknown {
-  background: var(--color-bg-tertiary);
+  width: 14px;
+  height: 14px;
+  flex: none;
   color: var(--color-text-tertiary);
 }
 
 .editor-var-value {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  padding: 3px 9px;
-  background: var(--color-bg-tertiary);
-  border-radius: 5px;
-  border: 1px solid var(--color-border);
+  font-family: var(--font-console);
+  user-select: text;
+  -webkit-user-select: text;
+  font-size: 11.5px;
 }
 
-.editor-var-value.is-table {
-  background: rgba(99, 102, 241, 0.10);
-  color: #a5b4fc;
-  border-color: rgba(99, 102, 241, 0.25);
-}
-
+.editor-var-value.is-table,
 .editor-var-value.is-view {
-  background: rgba(244, 114, 182, 0.10);
-  color: #f9a8d4;
-  border-color: rgba(244, 114, 182, 0.25);
+  color: var(--color-accent-text);
 }
 
-/* Console lines */
+/* Console output and variable values are data surfaces: let text be selected
+   and copied (the app root disables selection for UI chrome). */
+.editor-console,
+.editor-vars {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Console lines — terminal output, not list items: no row borders, mono 12px. */
 .editor-console-line {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
-  line-height: 1.5;
-  padding: 6px 14px;
+  gap: 6px;
+  font-family: var(--font-console);
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 1px 12px;
   white-space: pre-wrap;
   word-break: break-all;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-}
-
-.editor-console-line:last-child {
-  border-bottom: none;
 }
 
 .editor-console-glyph {
@@ -1267,11 +1315,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  color: var(--color-text-tertiary);
 }
 
 .editor-console-text {
@@ -1279,32 +1326,20 @@
   min-width: 0;
 }
 
-.editor-console-line.is-stdout .editor-console-glyph {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
-}
-
 .editor-console-line.is-stdout {
   color: var(--color-text-primary);
 }
 
 .editor-console-line.is-stderr {
-  background: rgba(248, 113, 113, 0.08);
-  color: #fca5a5;
+  color: var(--color-error);
 }
 
 .editor-console-line.is-stderr .editor-console-glyph {
-  background: rgba(248, 113, 113, 0.18);
-  color: #fca5a5;
+  color: var(--color-error);
 }
 
 .editor-console-line.is-info {
-  color: var(--color-accent-text);
-}
-
-.editor-console-line.is-info .editor-console-glyph {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
+  color: var(--color-text-secondary);
 }
 
 /* ---------- code editor (Monaco + Pyodide) ---------- */
@@ -1313,17 +1348,13 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  border-radius: 0;
   overflow: hidden;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 12px 32px -16px rgba(0, 0, 0, 0.28);
 }
 
 .be-code-lang-toolbar {
-  padding: 5px 12px;
-  border-radius: 999px;
+  padding: 3px 8px;
+  border-radius: 3px;
   background: var(--color-bg-tertiary);
   font-size: 11px;
 }
@@ -1343,7 +1374,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
 .editor-console-wrap > .editor-panel-body {
@@ -1357,16 +1388,16 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-bg-tertiary);
+  padding: 4px 12px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .code-editor-repl-prompt {
-  font-family: var(--font-mono);
+  font-family: var(--font-console);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--color-accent-text);
   user-select: none;
 }
@@ -1377,7 +1408,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-console);
   font-size: 12px;
   outline: none;
 }
@@ -1388,22 +1419,22 @@
 
 .code-editor-repl-go {
   border: none;
-  background: var(--color-accent-soft);
-  color: var(--color-accent-text);
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
   font-size: 13px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms ease;
+  transition: background 100ms ease, color 100ms ease;
 }
 
 .code-editor-repl-go:hover {
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 /* ==========================================================================
@@ -1508,9 +1539,15 @@
 
 .be-switch-undo {
   position: absolute;
-  left: 50%;
+  /* Centred pill that grows with its content. With `left: 50%` alone the
+     shrink-to-fit width was capped at half the editor, so the message and the
+     action button wrapped onto two lines. */
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100% - 24px);
   bottom: 22px;
-  transform: translateX(-50%);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -1521,27 +1558,47 @@
   border-radius: 999px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   font-size: 12px;
+  white-space: nowrap;
 }
 
-.be-switch-undo-text { opacity: 0.85; }
+.be-switch-undo-text {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .be-switch-undo-btn {
+  flex: 0 0 auto;
   background: var(--color-accent);
   color: var(--color-text-inverse);
   border: none;
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .be-switch-undo-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   background: none;
   border: none;
+  padding: 2px;
+  /* Buttons do not inherit text colour (UA default is ButtonText), which
+     looked wrong in the light theme; follow the themed text tokens. */
+  color: var(--color-text-secondary);
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.7;
   font-size: 12px;
   line-height: 1;
+}
+
+.be-switch-undo-x:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
 }
 
 /* ---- Mode conversion confirmation dialog (workbench-wide) ---------------- */
@@ -2007,4 +2064,146 @@
 .ai-panel-input .input {
   flex: 1;
   min-width: 0;
+}
+
+/* ==========================================================================
+   Right sidebar: result preview + variables (code / block surfaces)
+   ========================================================================== */
+
+.rp-mode-panel {
+  /* The aside is a block box, so `flex: 1` alone cannot stretch it: an
+     explicit 100% height gives the preview canvas a definite size (absolute
+     canvases inside an auto-height card collapse to 0 and draw nothing). */
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Zero out the sidebar's padding so the panes sit flush like VS Code views. */
+.right-panel:has(.rp-mode-panel) {
+  padding: 0;
+}
+
+/* Flat caption bar shared by the sidebar panes (mirrors .editor-panel-head). */
+.rp-pane-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rp-pane-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.rp-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* Flow mode node inspector, relocated from the canvas into the right sidebar. */
+.rp-flow-params {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rp-flow-params .block-param-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Surface toolbar portaled in from the code / block canvas: drop the floating
+   card chrome so it reads as sidebar instrument row, not a panel over a canvas. */
+.rp-surface-toolbar {
+  flex: none;
+}
+
+.rp-surface-toolbar:empty {
+  display: none;
+}
+
+.rp-surface-toolbar .block-editor-toolbar {
+  margin: 0;
+  padding: 6px 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:root[data-theme='dark'] .rp-surface-toolbar .block-editor-toolbar {
+  background: transparent;
+}
+
+.rp-surface-toolbar .be-toolbar-spacer {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.rp-mode-preview {
+  flex: 1 1 55%;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The preview card is a sidebar view here: drop the card chrome. */
+.rp-mode-preview .rp-result-preview {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--color-bg-primary);
+}
+
+/* The pane caption replaces the floating pill label. */
+.rp-mode-preview .block-editor-preview-label {
+  display: none;
+}
+
+.rp-mode-vars {
+  flex: 1 1 45%;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rp-mode-vars .editor-vars {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Off-screen hosting surface: keeps canvas refs valid while the right panel
+   is collapsed mid-run. Never visible, never interactive. */
+.rp-host-hidden {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 320px;
+  height: 260px;
+  overflow: hidden;
+  pointer-events: none;
 }
