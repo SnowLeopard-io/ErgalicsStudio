@@ -138,29 +138,65 @@ export function setWorkspaceFileSource(source: WorkspaceFileSource | null): void
  * the data pipeline understands are read — binary assets are skipped.
  */
 export async function collectWorkspaceFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    if (!isSupportedDataFileName(path)) continue;
+    out[path] = text;
+    const base = basename(path);
+    if (!(base in out)) out[base] = text;
+  }
+  return out;
+}
+
+/**
+ * Workspace text files (data **and** code sources) for runtime staging.
+ *
+ * `studio.load('data/x.csv')` and cross-folder imports both resolve from
+ * this: every file keeps its workspace-relative path, and a basename alias
+ * is added when unambiguous so the older `studio.load('x.csv')` form still
+ * works.
+ */
+export async function collectWorkspaceRuntimeFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    out[path] = text;
+  }
+  const baseCounts = new Map<string, number>();
+  for (const path of Object.keys(files)) {
+    const base = basename(path);
+    baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
+  }
+  for (const [path, text] of Object.entries(files)) {
+    const base = basename(path);
+    // Only alias a basename when no other file shares it — otherwise the
+    // full path is the only unambiguous handle.
+    if (baseCounts.get(base) === 1 && !(base in out)) out[base] = text;
+  }
+  return out;
+}
+
+async function readWorkspaceSource(): Promise<Record<string, string>> {
   if (!workspaceSource) return {};
   try {
-    const files = await workspaceSource();
-    const out: Record<string, string> = {};
-    for (const [path, text] of Object.entries(files)) {
-      if (!isSupportedDataFileName(path)) continue;
-      out[path] = text;
-      const base = basename(path);
-      if (!(base in out)) out[base] = text;
-    }
-    return out;
+    return await workspaceSource();
   } catch {
     return {};
   }
 }
 
 /**
- * Everything a code run can `studio.load()`: the explorer working tree, the
- * project data registry, then bundled examples (first source wins).
+ * Everything a code run can `studio.load()` (and import): the explorer
+ * working tree, the project data registry, then bundled examples (first
+ * source wins).
  */
 export async function collectRuntimeFiles(): Promise<Record<string, string>> {
-  const workspace = await collectWorkspaceFiles();
-  if (Object.keys(workspace).length) setWorkspaceSnapshot(workspace);
+  const workspace = await collectWorkspaceRuntimeFiles();
+  if (Object.keys(workspace).length) {
+    // The synchronous pickers only publish data files from the snapshot.
+    setWorkspaceSnapshot(collectDataFrom(workspace));
+  }
   const out: Record<string, string> = { ...workspace };
   for (const [name, text] of projectFiles) {
     if (!(name in out)) out[name] = text;
@@ -170,6 +206,15 @@ export async function collectRuntimeFiles(): Promise<Record<string, string>> {
     if (base in out) continue;
     const text = await loadBundledFile(key);
     if (text !== undefined) out[base] = text;
+  }
+  return out;
+}
+
+/** Filter a runtime file map down to data formats (picker snapshot). */
+function collectDataFrom(files: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [path, text] of Object.entries(files)) {
+    if (isSupportedDataFileName(path)) out[path] = text;
   }
   return out;
 }

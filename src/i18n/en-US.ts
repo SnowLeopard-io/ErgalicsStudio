@@ -179,6 +179,7 @@ export const enUS: LocaleDictionary = {
   'workbench.editor.save': 'Save',
   'workbench.editor.saved': 'Saved to workspace',
   'workbench.editor.save_failed': 'Failed to save',
+  'workbench.editor.outputs_saved': 'Wrote {count} result file(s) to the workspace',
   'workbench.editor.dirty_title': 'Unsaved changes',
   'workbench.editor.dirty_message': 'This file has unsaved changes — closing the tab will discard them.',
   'workbench.editor.save_and_close': 'Save and close',

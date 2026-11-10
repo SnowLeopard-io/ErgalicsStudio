@@ -306,7 +306,12 @@ export function RightPanel() {
               status controls here so the central area stays a clean canvas. */}
           <div className="rp-surface-toolbar" ref={setToolbarHost} />
           <section className="rp-mode-preview">
-            <ResultPreview />
+            <div className="rp-pane-head">
+              <span className="rp-pane-title">{t('editor.preview.title')}</span>
+            </div>
+            <div className="rp-pane-body">
+              <ResultPreview />
+            </div>
           </section>
           <section className="rp-mode-vars">
             <VariablePanel />

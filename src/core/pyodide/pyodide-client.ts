@@ -29,6 +29,8 @@ export interface PyodideClientOptions {
 export interface PyodideRunResult {
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
+  /** Workspace files the program created or changed (relative paths). */
+  files?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -196,6 +198,7 @@ export class PyodideClient {
           pending.resolve({
             ok: event.ok,
             variables: event.variables,
+            files: event.files,
             error: event.error,
             durationMs: event.durationMs,
           });

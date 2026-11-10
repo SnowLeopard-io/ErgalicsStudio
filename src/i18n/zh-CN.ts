@@ -183,6 +183,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.editor.save': '保存',
   'workbench.editor.saved': '已保存到工作区',
   'workbench.editor.save_failed': '保存失败',
+  'workbench.editor.outputs_saved': '已将 {count} 个结果文件写入工作区',
   'workbench.editor.dirty_title': '有未保存的更改',
   'workbench.editor.dirty_message': '此文件有未保存的更改，关闭标签将丢失这些更改。',
   'workbench.editor.save_and_close': '保存并关闭',

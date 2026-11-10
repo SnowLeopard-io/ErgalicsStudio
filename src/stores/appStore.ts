@@ -176,13 +176,6 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
-  /**
-   * Mode-specific side panel visibility for Flow/Block/Code. Standard mode
-   * uses `sidebarOpen`; the other modes own panels (flow palette+legend,
-   * block preview, code variables) toggled by the same top-bar ☰ button,
-   * so ☰ is meaningful in every mode.
-   */
-  modePanelOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
@@ -190,8 +183,10 @@ interface AppStore {
   /**
    * Canvas tab strip (VS Code editor-area style): files opened from the
    * explorer and research suites embedded from the launcher share one tab
-   * list. Every open tab stays mounted — switching tabs only toggles
-   * visibility, so scroll position / edit buffer / tool state survive.
+   * list. Tool tabs stay mounted while hidden so tool state survives; file
+   * editor tabs mount only while focused, because Monaco/Blockly instances
+   * are heavy and keeping every open file alive was a multi-file bottleneck.
+   * Edit buffers live in `editorFiles`, so switching tabs loses nothing.
    */
   canvasTabs: CanvasTab[];
   /** Active tab key (fileTabKey / toolTabKey), or null when none is open. */
@@ -225,7 +220,6 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
-  toggleModePanel: () => void;
   /** Select a workbench mode. Standard returns to the plugin canvas; the three
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
@@ -246,6 +240,9 @@ interface AppStore {
    *  are bound to files without an editor tab, so they cannot use the tab
    *  buffer save path. */
   saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
+  /** Persist a batch of files produced by a code run (workspace-relative
+   *  paths). Refreshes the explorer once and resolves to the write count. */
+  saveWorkspaceFiles: (files: Record<string, string>) => Promise<number>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -289,7 +286,6 @@ const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
 const PANEL_DEFAULTS = {
   sidebarOpen: true,
   rightPanelOpen: true,
-  modePanelOpen: true,
   sidebarView: 'plugins' as SidebarView,
 };
 
@@ -332,7 +328,6 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
     return {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
       rightPanelOpen: parsed.rightPanelOpen ?? PANEL_DEFAULTS.rightPanelOpen,
-      modePanelOpen: parsed.modePanelOpen ?? PANEL_DEFAULTS.modePanelOpen,
       sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
         ? (parsed.sidebarView as SidebarView)
         : PANEL_DEFAULTS.sidebarView,
@@ -345,7 +340,6 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
 const persistPanelPrefs = (s: {
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
-  modePanelOpen: boolean;
   sidebarView: SidebarView;
 }) => {
   try {
@@ -364,7 +358,6 @@ export const useAppStore = create<AppStore>((set, get) => {
   perf: DEFAULT_PERF,
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
-  modePanelOpen: panelPrefs.modePanelOpen,
   sidebarView: panelPrefs.sidebarView,
   canvasTabs: [],
   activeTab: null,
@@ -467,12 +460,6 @@ export const useAppStore = create<AppStore>((set, get) => {
   toggleRightPanel: () =>
     set((s) => {
       const next = { ...s, rightPanelOpen: !s.rightPanelOpen };
-      persistPanelPrefs(next);
-      return next;
-    }),
-  toggleModePanel: () =>
-    set((s) => {
-      const next = { ...s, modePanelOpen: !s.modePanelOpen };
       persistPanelPrefs(next);
       return next;
     }),
@@ -696,6 +683,47 @@ export const useAppStore = create<AppStore>((set, get) => {
       logger.error('appStore', 'workspace file save failed', err);
       useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
       return false;
+    }
+  },
+
+  /** Persist a batch of files produced by a code run. Writes every path and
+   *  refreshes file browsers once, so a script dumping several outputs does
+   *  not spam one toast per file. */
+  saveWorkspaceFiles: async (files) => {
+    const entries = Object.entries(files);
+    if (!entries.length) return 0;
+    try {
+      const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
+        import('./projectStore'),
+        import('@/core/vfs'),
+      ]);
+      const project = useProjectStore.getState().project;
+      if (!project) throw new Error('no project open');
+      const vfs = getVfs();
+      const root = getProjectRepoPath(project);
+      let written = 0;
+      for (const [path, text] of entries) {
+        await vfs.writeFile(root, path, text);
+        written += 1;
+        set((s) => {
+          const key = editorTabKey(path);
+          const cur = s.editorFiles[key];
+          if (!cur) return s;
+          return {
+            editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } },
+          };
+        });
+      }
+      useAppStore.getState().bumpFileOps();
+      useAppStore.getState().notify(
+        'success',
+        t('workbench.editor.outputs_saved', { count: written }),
+      );
+      return written;
+    } catch (err) {
+      logger.error('appStore', 'workspace output save failed', err);
+      useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
+      return 0;
     }
   },
 

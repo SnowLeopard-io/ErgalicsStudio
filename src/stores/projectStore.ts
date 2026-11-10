@@ -8,7 +8,7 @@ import {
   touchProject,
 } from '@/types/project';
 import { setProjectFiles, setWorkspaceFileSource, setWorkspaceSnapshot } from '@/core/dataFiles';
-import { isSupportedDataFileName } from '@/core/fileFormat';
+import { isRuntimeTextFileName, isSupportedDataFileName } from '@/core/fileFormat';
 import {
   saveProject,
   deleteProject,
@@ -218,7 +218,11 @@ function syncProjectFiles(project: Project | null): void {
 /** Cap for staging one workspace file into a runtime (avoid multi-MB JSON). */
 const MAX_STAGED_FILE_BYTES = 4 * 1024 * 1024;
 
-/** Walk the project workspace tree and return its text data files. */
+/** Walk the project workspace tree and return its text files.
+ *
+ *  This includes code sources (.py/.r/.js), not just data: the Python runtime
+ *  mounts the tree so one file can import another across folders. Data-only
+ *  consumers (`collectWorkspaceFiles`, pickers) filter this down again. */
 async function readWorkspaceDataFiles(project: Project): Promise<Record<string, string>> {
   const root = getProjectRepoPath(project);
   const vfs = getVfs();
@@ -230,7 +234,7 @@ async function readWorkspaceDataFiles(project: Project): Promise<Record<string, 
         await walk(entry.path);
         continue;
       }
-      if (!isSupportedDataFileName(entry.name)) continue;
+      if (!isRuntimeTextFileName(entry.name)) continue;
       if (entry.size > MAX_STAGED_FILE_BYTES) continue;
       try {
         out[entry.path] = await vfs.readFile(root, entry.path);

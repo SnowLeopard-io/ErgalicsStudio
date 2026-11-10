@@ -107,6 +107,130 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
   postMessage({ type: 'ready', version: 'pyodide' });
 }
 
+// ---- workspace staging ----------------------------------------------------
+//
+// Every runtime text file is mounted under /workspace (its workspace-relative
+// path preserved), which gives Python real cross-folder imports:
+//
+//   data/raw.csv        → /workspace/data/raw.csv
+//   lib/stats.py        → /workspace/lib/stats.py   (importable: `import stats`)
+//
+// The interpreter runs with /workspace as its cwd, so open("out/report.csv",
+// "w") lands in the project tree as well.
+
+const WORKSPACE_ROOT = '/workspace';
+const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+
+interface EmscriptenFS {
+  mkdirTree(path: string): void;
+  writeFile(path: string, data: string, opts?: { encoding?: 'utf8' }): void;
+  readdir(path: string): string[];
+  readFile(path: string, opts?: { encoding: 'utf8' }): string;
+  stat(path: string): { mode: number; size: number };
+  isDir(mode: number): boolean;
+}
+
+function workspaceFs(py: PyodideInterface): EmscriptenFS {
+  return py.FS as unknown as EmscriptenFS;
+}
+
+/** Normalise a workspace path: forward slashes, no leading slash or `..`. */
+function normalizeRel(path: string): string | null {
+  const rel = path.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!rel || rel.split('/').includes('..')) return null;
+  return rel;
+}
+
+function ensureDir(fs: EmscriptenFS, dir: string): void {
+  try {
+    fs.mkdirTree(dir);
+  } catch {
+    /* already exists */
+  }
+}
+
+/** Mount the workspace tree into the interpreter's MEMFS. */
+function mountWorkspace(py: PyodideInterface, files: Record<string, string>): void {
+  const fs = workspaceFs(py);
+  ensureDir(fs, WORKSPACE_ROOT);
+  for (const [path, text] of Object.entries(files)) {
+    const rel = normalizeRel(path);
+    if (!rel) continue;
+    const full = `${WORKSPACE_ROOT}/${rel}`;
+    try {
+      ensureDir(fs, full.slice(0, full.lastIndexOf('/')));
+      fs.writeFile(full, text, { encoding: 'utf8' });
+    } catch {
+      /* unreadable source — skip rather than fail the whole run */
+    }
+  }
+}
+
+/** Make /workspace importable and clear cached modules from previous runs. */
+function prepareWorkspaceRuntime(py: PyodideInterface): void {
+  py.runPython(`
+import os as _os, sys as _sys, importlib as _il
+_os.makedirs('/workspace', exist_ok=True)
+_os.chdir('/workspace')
+for _root, _dirs, _files in _os.walk('/workspace'):
+    _dirs[:] = [d for d in _dirs if d != '__pycache__']
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+for _name, _mod in list(_sys.modules.items()):
+    _file = getattr(_mod, '__file__', None)
+    if isinstance(_file, str) and _file.startswith('/workspace/'):
+        del _sys.modules[_name]
+_il.invalidate_caches()
+`);
+}
+
+/**
+ * Files under /workspace that the program created or changed. Compared
+ * against the mounted inputs, so a script can write `out/result.csv`
+ * (relative to cwd) or `data/clean.csv` and both reach the project tree.
+ */
+function collectWorkspaceOutputs(
+  py: PyodideInterface,
+  inputs: Record<string, string>,
+): Record<string, string> {
+  const fs = workspaceFs(py);
+  const out: Record<string, string> = {};
+  const walk = (dir: string, prefix: string): void => {
+    let names: string[];
+    try {
+      names = fs.readdir(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      if (name === '.' || name === '..' || name === '__pycache__') continue;
+      const full = `${dir}/${name}`;
+      const rel = prefix ? `${prefix}/${name}` : name;
+      let stat: { mode: number; size: number };
+      try {
+        stat = fs.stat(full);
+      } catch {
+        continue;
+      }
+      if (fs.isDir(stat.mode)) {
+        walk(full, rel);
+        continue;
+      }
+      if (stat.size > MAX_OUTPUT_BYTES) continue;
+      let text: string;
+      try {
+        text = fs.readFile(full, { encoding: 'utf8' });
+      } catch {
+        continue; // binary output — the workspace only stores text
+      }
+      if (inputs[rel] === text) continue;
+      out[rel] = text;
+    }
+  };
+  walk(WORKSPACE_ROOT, '');
+  return out;
+}
+
 // ---- run / repl ----------------------------------------------------------
 
 function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapshot> {
@@ -132,13 +256,17 @@ async function handleRun(msg: RunMessage): Promise<void> {
     // "argument of type 'JsProxy' is not a container or iterable").
     py.globals.set('_FILES', py.toPy(msg.files));
     py.globals.set('_PARAMS', py.toPy(msg.params));
+    mountWorkspace(py, msg.files);
+    prepareWorkspaceRuntime(py);
     await py.runPythonAsync(msg.code);
     const variables = snapshotVariables(py);
+    const files = collectWorkspaceOutputs(py, msg.files);
     postMessage({
       type: 'result',
       id: msg.id,
       ok: true,
       variables,
+      files,
       durationMs: performance.now() - started,
     });
   } catch (err) {

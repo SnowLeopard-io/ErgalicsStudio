@@ -1654,8 +1654,9 @@ export function CentralArea() {
               );
             })}
           </div>
-          {/* 所有标签的窗格保持挂载（display 切换），关闭标签才会卸载并
-              回收其 blob URL——这是"切换保留状态"的关键。 */}
+          {/* 工具标签保持挂载（display 切换），关闭标签才会卸载并回收其
+              blob URL；文件/表面编辑器只挂载当前标签——Monaco/Blockly
+              实例太重，多文件同时存活是卡顿的主因，缓冲区在 store 里。 */}
           {canvasTabs.map((tab) => (
             <div
               key={tab.key}
@@ -1670,6 +1671,13 @@ export function CentralArea() {
                     </Suspense>
                   );
                 if (tab.kind === 'editor') {
+                  // Only the focused file editor stays mounted. Monaco and
+                  // Blockly are expensive (workers, DOM, completion
+                  // providers), so keeping every open file alive made a
+                  // multi-file workspace crawl. Buffers live in
+                  // appStore.editorFiles and each editor flushes on unmount,
+                  // so switching tabs loses nothing but scroll position.
+                  if (tab.key !== activeTab) return null;
                   const Cmp =
                     tab.editor === 'code'
                       ? LazyCodeFileEditor

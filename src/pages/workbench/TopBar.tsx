@@ -12,7 +12,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { ChevronDownIcon, MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
+import { ChevronDownIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
@@ -35,13 +35,6 @@ export function TopBar() {
   const importFolder = useProjectStore((s) => s.importFolder);
   const notify = useAppStore((s) => s.notify);
   const resetToWelcome = useAppStore((s) => s.resetToWelcome);
-  const toggleModePanel = useAppStore((s) => s.toggleModePanel);
-  const modePanelOpen = useAppStore((s) => s.modePanelOpen);
-  // Code/block surfaces keep their preview + variables in the right sidebar,
-  // so ☰ toggles that panel instead of a mode-internal pane.
-  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
-  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
-  const mode = useAppStore((s) => s.mode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
@@ -91,21 +84,9 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Zone 1 — navigation: ☰ (mode panel toggle in non-standard modes;
-          in Standard the sidebar owns its edge collapse button instead),
-          brand, current project name. */}
-      {mode !== 'standard' && (
-        <button
-          type="button"
-          className={`icon-btn${(mode === 'flow' ? modePanelOpen : rightPanelOpen) ? ' is-active' : ''}`}
-          aria-label={t('workbench.menu.toggle_panel')}
-          aria-pressed={mode === 'flow' ? modePanelOpen : rightPanelOpen}
-          title={t('workbench.menu.toggle_panel')}
-          onClick={mode === 'flow' ? toggleModePanel : toggleRightPanel}
-        >
-          <MenuIcon size={17} />
-        </button>
-      )}
+      {/* Zone 1 — brand, current project name. The sidebar and right panel
+          carry their own edge collapse buttons, so the old ☰ shortcut is
+          gone (it was a leftover duplicate). */}
 
       {/* Brand = home: back to the boot state — empty canvas with the
           welcome screen (plugin deactivated, all canvas tabs closed). */}

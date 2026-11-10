@@ -79,6 +79,19 @@ export function loadIRIntoWorkspace(ws: Blockly.Workspace, program: IRProgram): 
   } finally {
     Blockly.Events.enable();
   }
+  centerWorkspace(ws);
+}
+
+/** Put the loaded blocks in the middle of the canvas instead of leaving them
+ *  pinned to the top-left corner (a headless workspace has no viewport, so
+ *  this is a no-op there). */
+function centerWorkspace(ws: Blockly.Workspace): void {
+  const svg = ws as Blockly.WorkspaceSvg;
+  if (typeof svg.centerOnBlock !== 'function' || typeof svg.render !== 'function') return;
+  svg.render();
+  const first = ws.getTopBlocks(true)[0];
+  if (first) svg.centerOnBlock(first.id);
+  else svg.scrollCenter();
 }
 
 export function disposeWorkspace(ws: Blockly.WorkspaceSvg): void {

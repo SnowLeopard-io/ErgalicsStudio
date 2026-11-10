@@ -461,6 +461,9 @@ export function CodeEditor() {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
+          if (result.files && Object.keys(result.files).length) {
+            await useAppStore.getState().saveWorkspaceFiles(result.files);
+          }
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -555,6 +558,9 @@ export function CodeEditor() {
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
+          if (result.files && Object.keys(result.files).length) {
+            await useAppStore.getState().saveWorkspaceFiles(result.files);
+          }
         } else {
           error = result.error ?? 'run failed';
         }
