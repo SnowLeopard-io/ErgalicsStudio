@@ -34,14 +34,6 @@
   position: relative;
 }
 
-.block-workbench-right {
-  width: 260px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  overflow-y: auto;
-}
-
 /* ---- canvas ---- */
 
 .block-canvas {
@@ -2163,6 +2155,21 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Flow mode node inspector, relocated from the canvas into the right sidebar. */
+.rp-flow-params {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rp-flow-params .block-param-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Surface toolbar portaled in from the code / block canvas: drop the floating

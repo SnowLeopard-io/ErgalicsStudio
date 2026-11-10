@@ -10,7 +10,6 @@
 import { BlockPalette } from './BlockPalette';
 import { BlockCanvas } from './BlockCanvas';
 import { BlockToolbar } from './BlockToolbar';
-import { ParamEditor } from './ParamEditor';
 import { BlockPreview } from './BlockPreview';
 import { FlowLegend } from './FlowLegend';
 import { useEffect, useRef } from 'react';
@@ -53,9 +52,6 @@ export function BlockWorkbench() {
           <BlockCanvas />
         </div>
         <BlockPreview />
-      </div>
-      <div className="block-workbench-right">
-        <ParamEditor />
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { ResultPreview } from '@/components/editor/ResultPreview';
 import { VariablePanel } from '@/components/editor/VariablePanel';
 import type { FilePreviewState } from '@/stores/appStore';
 import { ParamPanel } from '@/components/ParamPanel';
+import { ParamEditor } from '@/components/blocks/ParamEditor';
 import { EmptyState } from '@/components/EmptyState';
 import { CITATION_META, citationUrl, currentAppVersion } from '@/core/citation';
 import { ToolIcon } from '@/components/icons';
@@ -157,6 +158,9 @@ export function RightPanel() {
    *  the active tab so the preview host stays mounted while the console or a
    *  file tab has focus. */
   const surfaceActive = useAppStore((s) => s.mode === 'code' || s.mode === 'block');
+  /** Flow mode puts its node parameter inspector in this sidebar (the canvas
+   *  itself stays free of side panes). */
+  const flowActive = useAppStore((s) => s.mode === 'flow');
   /** Stable ref setter for the surface-toolbar portal host (see SurfaceToolbar). */
   const setToolbarHost = useSurfaceChrome((s) => s.setHost);
   /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
@@ -291,7 +295,12 @@ export function RightPanel() {
         <ChevronRightIcon size={12} />
       </button>
       <aside className="right-panel">
-      {surfaceActive ? (
+      {flowActive ? (
+        <div className="rp-flow-params">
+          <h3 className="panel-title">{t('workbench.right.params')}</h3>
+          <ParamEditor />
+        </div>
+      ) : surfaceActive ? (
         <div className="rp-mode-panel">
           {/* Toolbar host: code / block surfaces portal their run / save /
               status controls here so the central area stays a clean canvas. */}
