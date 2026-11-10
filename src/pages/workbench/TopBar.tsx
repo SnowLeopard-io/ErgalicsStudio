@@ -16,7 +16,7 @@ import { ChevronDownIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
-import { useModeSync } from '@/hooks/useModeSync';
+
 import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 import { ConvertMenu } from './ConvertMenu';
 
@@ -40,7 +40,6 @@ export function TopBar() {
   const startTour = useTourStore((s) => s.start);
   const aiOpen = useAiPanelStore((s) => s.open);
   const toggleAi = useAiPanelStore((s) => s.toggle);
-  const syncState = useModeSync();
 
   // Single dialog key: only one TopBar dialog can be open at a time, so the
   // previous eleven booleans collapse into this one piece of state (rendered
@@ -178,14 +177,6 @@ export function TopBar() {
             dialects, so no separate mode-button strip is needed. */}
         <div className="topbar-cluster convert-cluster">
           <ConvertMenu />
-          {syncState !== 'idle' && (
-            <span
-              className={`mode-sync-dot is-${syncState}`}
-              data-sync={syncState}
-              title={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
-              aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
-            />
-          )}
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />

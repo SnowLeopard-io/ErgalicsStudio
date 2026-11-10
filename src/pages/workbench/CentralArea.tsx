@@ -8,7 +8,6 @@ import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { useAppStore, type FilePreviewState } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { flushEditorFile } from '@/stores/editorFlush';
-import { useModeConvert } from '@/stores/useModeConvert';
 import { CloseIcon, ToolIcon, SettingsIcon } from '@/components/icons';
 import { syncSurfaceTabSession } from '@/components/editor/fileEditors/openInMode';
 // Settings embedded in a canvas tab — lazy chunk, same rationale as scene3d.
@@ -68,7 +67,7 @@ import { DataDialog } from './DataDialog';
 import { RightPanel } from './RightPanel';
 import { ScienceOutputStrip } from '@/components/ScienceOutputStrip';
 import { useFileRouting } from './useFileRouting';
-import { WorkbenchModeCards, ModeIcon } from '@/components/WorkbenchModes';
+import { ModeIcon } from '@/components/WorkbenchModes';
 
 function fmtSize(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '';
@@ -942,6 +941,10 @@ export function CentralArea() {
   // buffers, scroll positions and tool state survive the switch.
   const canvasTabs = useAppStore((s) => s.canvasTabs);
   const activeTab = useAppStore((s) => s.activeTab);
+  // Welcome screen: shown only when nothing is open — no plugin canvas and no
+  // file/surface tab. Once a tab exists the welcome steps aside for it.
+  const recentProjects = useProjectStore((s) => s.recent);
+  const showWelcome = !activePlugin && canvasTabs.length === 0;
   const mode = useAppStore((s) => s.mode);
   const filePreviews = useAppStore((s) => s.filePreviews);
   // Mode surfaces opened from a file are labelled with that file: one file is
@@ -1094,6 +1097,7 @@ export function CentralArea() {
   const [dragOver, setDragOver] = useState(false);
   const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false);
+  const [newProjectBusy, setNewProjectBusy] = useState(false);
   // Mirror of the viewport for rendering: the viewport store lives outside
   // React, so this state exists purely to surface a visible zoom badge /
   // reset affordance (invisible viewport state already caused two "render is
@@ -1419,6 +1423,37 @@ export function CentralArea() {
     };
     input.click();
   };
+
+  // Welcome screen actions: start a blank project, or jump straight into a
+  // recently saved one.
+  const startNewProject = async () => {
+    if (newProjectBusy) return;
+    setNewProjectBusy(true);
+    try {
+      await useProjectStore.getState().createProject('');
+    } catch (err: unknown) {
+      logger.error('project', 'create from welcome failed', err);
+      useAppStore.getState().notify('error', t('project.create_failed'));
+    } finally {
+      setNewProjectBusy(false);
+    }
+  };
+
+  const openRecentProject = async (id: string) => {
+    try {
+      await useProjectStore.getState().openProject(id);
+    } catch (err: unknown) {
+      logger.error('project', 'open recent from welcome failed', err);
+      useAppStore.getState().notify('error', t('project.open_failed'));
+    }
+  };
+
+  // The welcome list is filled once per mount so "open a project" always has
+  // fresh entries even if the sidebar never loaded them this session.
+  useEffect(() => {
+    if (showWelcome) void useProjectStore.getState().loadRecent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showWelcome]);
 
   return (
     <div className="central-wrap" ref={wrapRef}>
@@ -1760,18 +1795,36 @@ export function CentralArea() {
           <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
           <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
           <div className="central-empty-actions">
+            <button type="button" className="btn btn-primary" onClick={openProjectFile}>
+              {t('workbench.empty.open_project')}
+            </button>
             <button type="button" className="btn" onClick={() => setPluginDialogOpen(true)}>
               {t('workbench.empty.load_plugin')}
             </button>
             <button type="button" className="btn" onClick={() => setExampleDialogOpen(true)}>
               {t('workbench.empty.example_data')}
             </button>
-            <button type="button" className="btn" onClick={openProjectFile}>
-              {t('workbench.empty.open_project')}
-            </button>
           </div>
-          <div className="central-empty-modes">
-            <WorkbenchModeCards onMode={(m) => useModeConvert.getState().requestMode(m)} />
+          {/* Modes are no longer chosen up front: opening a file picks the
+              canvas. The chips just document which extensions map where. */}
+          <div className="central-empty-filetypes">
+            <span className="central-empty-filetypes-label">
+              {t('workbench.empty.filetypes')}
+            </span>
+            <div className="central-empty-filetype-row">
+              <span className="central-empty-filetype">
+                <em>{t('workbench.empty.chip_code')}</em>
+                <code>.py .js .r</code>
+              </span>
+              <span className="central-empty-filetype">
+                <em>{t('workbench.empty.chip_block')}</em>
+                <code>.block.json</code>
+              </span>
+              <span className="central-empty-filetype">
+                <em>{t('workbench.empty.chip_flow')}</em>
+                <code>.flow.json</code>
+              </span>
+            </div>
           </div>
           <div className="central-dropzone">{t('workbench.empty.drag_file')}</div>
           <p className="central-empty-tip">

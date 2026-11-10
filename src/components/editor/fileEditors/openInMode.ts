@@ -56,9 +56,13 @@ export function editorStoreOpenInMode(req: OpenInModeRequest): void {
     // this IR even when the session id did not change.
     st.requestLoad(req.ir);
   } else {
-    // Flow mode hydrates its DAG from the IR hub on entry (useFlowSync).
+    // A flow file carries the exact DAG — hand it to the canvas verbatim.
+    // Rebuilding the DAG from the IR would silently drop blocks IR cannot
+    // represent (stats.*, units.*, viz.geo_*, plot.bar, …), which made a
+    // saved flow look empty after closing and reopening it.
     st.setSessionFilePath(sid, req.path ?? null);
     st.updateSessionIR(sid, flowToIR(req.graph));
+    st.requestFlowLoad(req.graph);
   }
 
   // One file = one tab: the surface IS the editor for this file, so drop any
