@@ -595,11 +595,14 @@ export const useAppStore = create<AppStore>((set, get) => {
     deactivatePluginLazy();
   },
 
-  /** Push the editor's live buffer into the store + mark dirty. No-op when
-   *  the tab was closed while the debounce was pending. Also marks the open
-   *  project dirty so an autosave persists the edited file (previously the
-   *  buffer was only ever written on an explicit save, so a silent refresh
-   *  inside the autosave window discarded in-editor edits). */
+  /** Push the editor's live buffer into the store and mark the tab dirty.
+   *  Deliberately does NOT mark the whole project dirty: file-tab buffers are
+   *  not part of the project snapshot (they live in `editorFiles` and are
+   *  written to the workspace by `saveEditorFile`). Marking the project dirty
+   *  made every 300 ms keystroke debounce schedule a full project save —
+   *  serializing the complete project (data tables included) every couple of
+   *  seconds while typing, a major source of editor lag. The tab's own dirty
+   *  flag still drives the dot and the save/discard prompt. */
   updateEditorFile: (path, payload) => {
     const key = editorTabKey(path);
     set((s) => {
@@ -607,14 +610,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (!cur) return s;
       return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload, dirty: true } } };
     });
-    // Lazy import: projectStore imports this store, so a static import would
-    // close a cycle. Marking dirty is best-effort — a failure here must never
-    // block the editor update above.
-    void import('./projectStore')
-      .then(({ useProjectStore }) => {
-        if (useProjectStore.getState().project) useProjectStore.getState().setDirty(true);
-      })
-      .catch(() => undefined);
   },
 
   /** Write the buffered payload to the workspace tree. Uses lazy imports (the

@@ -19,6 +19,9 @@ import { BLOCK_GRAPH_CHANGED } from '@/stores/blockStore';
 import { irToFlow, flowGraphSignature } from '@/editor/flow/convert';
 import { on } from '@/core/events';
 
+/** 合併連續的 DAG 變更（拖曳/連線時每幀都會觸發）。 */
+const FLOW_SYNC_DEBOUNCE_MS = 120;
+
 /**
  * 掛載一次（例如於 WorkbenchPage）。銜接流程 DAG ⇄ IR 的往返轉換。
  */
@@ -29,9 +32,15 @@ export function useFlowSync(): void {
   const hydratedSigRef = useRef<string | null>(null);
 
   // 將流程 DAG 的編輯推入 IR 中樞，使區塊／程式碼重新生成。
+  // 拖曳節點時 `BLOCK_GRAPH_CHANGED` 會隨每個 pointermove 觸發，而每次同步
+  // 都要把整張 DAG 轉成 IR 並重新 codegen（還可能觸發存檔排程）。以短延遲
+  // 合併同一批手勢，避免拖曳時每一幀都做一次全圖轉換。
   useEffect(() => {
     if (mode !== 'flow') return;
-    const off = on(BLOCK_GRAPH_CHANGED, () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const flush = () => {
+      timer = null;
       const sid = useEditorStore.getState().activeSessionId;
       if (!sid) return;
       const graph = useBlockStore.getState().toJSON();
@@ -39,8 +48,20 @@ export function useFlowSync(): void {
       if (sig === hydratedSigRef.current) return; // 與注水內容相同 → 忽略
       hydratedSigRef.current = sig;
       useEditorStore.getState().syncFromFlow(sid, graph);
+    };
+
+    const off = on(BLOCK_GRAPH_CHANGED, () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(flush, FLOW_SYNC_DEBOUNCE_MS);
     });
-    return off.unsubscribe;
+    return () => {
+      off.unsubscribe();
+      // 離開流程模式（或卸載）前把最後一筆待同步的編輯送出，避免遺失。
+      if (timer !== null) {
+        clearTimeout(timer);
+        flush();
+      }
+    };
   }, [mode]);
 
   // 進入流程模式時，從目前的 IR 中樞注水 DAG。

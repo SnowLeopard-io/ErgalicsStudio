@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { lazyRetry } from '@/core/lazyRetry';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
@@ -948,7 +949,38 @@ export function CentralArea() {
   const boundFilePath = useEditorStore(
     (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
   );
-  const editorFiles = useAppStore((s) => s.editorFiles);
+  // The tab strip only needs each editor tab's name + dirty flag, NOT the
+  // whole `editorFiles` map. Subscribing to the map made every debounced
+  // buffer push (every 300 ms while typing in a code/flow/block file tab)
+  // re-render this entire 2000-line central area — on top of the live editor
+  // itself. A shallow-compared primitive list keeps this component quiet until
+  // a label or dirty dot actually changes.
+  const editorTabMetaList = useAppStore(
+    useShallow((s) =>
+      s.canvasTabs.flatMap((tab) =>
+        tab.kind === 'editor'
+          ? [
+              `${tab.key}\u0000${s.editorFiles[tab.key]?.name ?? tab.path}\u0000${
+                s.editorFiles[tab.key]?.dirty ? '1' : '0'
+              }`,
+            ]
+          : [],
+      ),
+    ),
+  );
+  const editorTabMeta = useMemo(() => {
+    const map = new Map<string, { name: string; dirty: boolean }>();
+    for (const entry of editorTabMetaList) {
+      const first = entry.indexOf('\u0000');
+      const second = entry.indexOf('\u0000', first + 1);
+      if (first < 0 || second < 0) continue;
+      map.set(entry.slice(0, first), {
+        name: entry.slice(first + 1, second),
+        dirty: entry.slice(second + 1) === '1',
+      });
+    }
+    return map;
+  }, [editorTabMetaList]);
   const activateTab = useAppStore((s) => s.activateTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const reorderTabs = useAppStore((s) => s.reorderTabs);
@@ -1523,7 +1555,7 @@ export function CentralArea() {
                   : tab.kind === 'settings'
                     ? t('settings.title')
                     : tab.kind === 'editor'
-                      ? (editorFiles[tab.key]?.name ?? tab.path)
+                      ? (editorTabMeta.get(tab.key)?.name ?? tab.path)
                       : tab.kind === 'surface'
                         ? (tab.path?.split('/').pop() ??
                           (boundFilePath && tab.mode === mode
@@ -1532,7 +1564,7 @@ export function CentralArea() {
                         : (filePreviews[tab.key]?.name ?? tab.path);
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
-              const dirty = tab.kind === 'editor' && (editorFiles[tab.key]?.dirty ?? false);
+              const dirty = tab.kind === 'editor' && (editorTabMeta.get(tab.key)?.dirty ?? false);
               // Shared by the × button and middle-click close: pull any
               // debounced-but-unpushed edit into the store first, and route
               // dirty editors through the save/discard confirmation.

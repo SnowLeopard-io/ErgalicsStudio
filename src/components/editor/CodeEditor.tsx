@@ -20,6 +20,7 @@
 // ==========================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type * as MonacoNS from 'monaco-editor';
 import { useT } from '@/i18n';
 import { useTheme } from '@/theme';
@@ -77,8 +78,17 @@ export function CodeEditor() {
   const dark = resolvedTheme === 'dark';
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
-  const session = useEditorStore((s) => s.sessions.find((x) => x.id === s.activeSessionId) ?? null);
-  const language: CodeLanguage = session?.language ?? 'python';
+  // Subscribe only to the two session fields this surface reads. Selecting the
+  // whole session object re-rendered the entire code surface every 150 ms
+  // while typing (syncFromCode replaces the session on each parse); with a
+  // shallow-compared projection the editor stays quiet and only Monaco paints.
+  const sessionMeta = useEditorStore(
+    useShallow((s) => {
+      const sess = s.sessions.find((x) => x.id === s.activeSessionId);
+      return { language: sess?.language ?? ('python' as CodeLanguage), filePath: sess?.filePath };
+    }),
+  );
+  const language: CodeLanguage = sessionMeta.language;
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   // Result preview + variables live in the workbench right sidebar now; this
@@ -97,7 +107,7 @@ export function CodeEditor() {
   const codeTextRef = useRef<string | null>(null);
   /** Workspace file this code session is bound to (if opened from a file). */
   const filePathRef = useRef<string | undefined>(undefined);
-  filePathRef.current = session?.filePath;
+  filePathRef.current = sessionMeta.filePath;
   /** Latest "save bound file" action for the Monaco Ctrl/⌘+S command. */
   const saveBoundRef = useRef<() => void>(() => {});
   /** True while WE replace the buffer (session load / language switch). */
@@ -198,7 +208,12 @@ export function CodeEditor() {
     return () => {
       if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
       providers.forEach((p) => p.dispose());
+      // Dispose the implicit model too: editor.dispose() leaves it registered
+      // in Monaco, leaking a model every time the surface/session is
+      // recreated (mode switches, file-bound surfaces, project opens).
+      const model = editor.getModel();
       editor.dispose();
+      model?.dispose();
       editorRef.current = null;
     };
     // Editor instance is bound to the active session (matches prior design).
@@ -675,11 +690,11 @@ export function CodeEditor() {
           <span>{isRunning ? t('editor.stop') : t('editor.run')}</span>
         </button>
 
-        {session?.filePath && (
+        {sessionMeta.filePath && (
           <button
             type="button"
             className="btn btn-sm"
-            title={session.filePath}
+            title={sessionMeta.filePath}
             onClick={() => void saveBoundFile()}
           >
             {t('workbench.editor.save')}

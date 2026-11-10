@@ -19,7 +19,13 @@ import type { IRProgram } from '../ir/types';
 /** Theme name (dark variants get their own so redefinition never throws). */
 export const THEME_NAME = (dark: boolean) => (dark ? 'studio-kids-dark' : 'studio-kids');
 
-/** Register custom blocks, locale and theme. Idempotent for block defs. */
+// Blockly locale/theme are process-global. Re-applying them on every workspace
+// creation (each block/flow file tab mount) meant spreading the whole message
+// dictionary and throwing/catching on an already-registered theme each time.
+let appliedLocale: 'zh-CN' | 'en-US' | null = null;
+const definedThemes = new Set<string>();
+
+/** Register custom blocks, locale and theme. Idempotent. */
 export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): void {
   // Register only the block types not already present — `defineBlocksWithJsonArray`
   // throws on duplicates, and HMR can re-run this module with a fresh flag.
@@ -27,17 +33,24 @@ export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): voi
   if (missing.length > 0) {
     Blockly.defineBlocksWithJsonArray(missing as unknown as Parameters<typeof Blockly.defineBlocksWithJsonArray>[0]);
   }
-  // Apply locale messages on every call (base Blockly messages + our custom
-  // block messages) so `%{BKY_*}` refs resolve to the current language.
-  const base = (locale === 'zh-CN' ? zhHans : en) as unknown as Record<string, string>;
-  Blockly.setLocale({ ...base, ...BLOCK_I18N[locale] });
+  // Apply locale messages (base Blockly messages + our custom block messages)
+  // so `%{BKY_*}` refs resolve to the current language. Only when it changed.
+  if (appliedLocale !== locale) {
+    const base = (locale === 'zh-CN' ? zhHans : en) as unknown as Record<string, string>;
+    Blockly.setLocale({ ...base, ...BLOCK_I18N[locale] });
+    appliedLocale = locale;
+  }
   // Blockly.Theme.defineTheme throws when the name is already registered, so
   // define each variant once; a dark/light toggle re-injects the workspace
   // with the already-registered theme under its own name.
-  try {
-    Blockly.Theme.defineTheme(THEME_NAME(dark), createKidsTheme(dark) as unknown as Blockly.Theme);
-  } catch {
-    // Already defined — safe to ignore (theme is registered once per variant).
+  const themeName = THEME_NAME(dark);
+  if (!definedThemes.has(themeName)) {
+    try {
+      Blockly.Theme.defineTheme(themeName, createKidsTheme(dark) as unknown as Blockly.Theme);
+    } catch {
+      // Already defined (HMR re-evaluated this module) — safe to ignore.
+    }
+    definedThemes.add(themeName);
   }
 }
 
