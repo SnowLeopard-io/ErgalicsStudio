@@ -161,15 +161,18 @@ function clampRect(rect: WindowRect): WindowRect {
  * way a desktop window does: dragging the top edge moves the TOP edge (the
  * bottom stays put), dragging the left edge moves the LEFT edge, and the
  * corners combine both.
+ *
+ * The viewport size is a parameter so the maths stays pure (and testable).
  */
 export function resizeRect(
   start: WindowRect,
   dir: ResizeDir,
   dx: number,
   dy: number,
+  viewport: { w: number; h: number },
 ): WindowRect {
-  const minW = Math.min(SIZE_MIN.w, window.innerWidth - 2 * EDGE_MARGIN);
-  const minH = Math.min(SIZE_MIN.h, window.innerHeight - 2 * EDGE_MARGIN);
+  const minW = Math.min(SIZE_MIN.w, viewport.w - 2 * EDGE_MARGIN);
+  const minH = Math.min(SIZE_MIN.h, viewport.h - 2 * EDGE_MARGIN);
   let left = start.left;
   let top = start.top;
   let right = start.left + start.width;
@@ -179,13 +182,19 @@ export function resizeRect(
     top = Math.min(Math.max(start.top + dy, EDGE_MARGIN), bottom - minH);
   }
   if (dir.includes('s')) {
-    bottom = Math.max(Math.min(start.top + start.height + dy, window.innerHeight - EDGE_MARGIN), top + minH);
+    bottom = Math.max(
+      Math.min(start.top + start.height + dy, viewport.h - EDGE_MARGIN),
+      top + minH,
+    );
   }
   if (dir.includes('w')) {
     left = Math.min(Math.max(start.left + dx, EDGE_MARGIN), right - minW);
   }
   if (dir.includes('e')) {
-    right = Math.max(Math.min(start.left + start.width + dx, window.innerWidth - EDGE_MARGIN), left + minW);
+    right = Math.max(
+      Math.min(start.left + start.width + dx, viewport.w - EDGE_MARGIN),
+      left + minW,
+    );
   }
   return { left, top, width: right - left, height: bottom - top };
 }
@@ -304,7 +313,10 @@ export function TerminalPanel() {
   const onResizeMove = (e: React.PointerEvent) => {
     const drag = resizeRef.current;
     if (!drag) return;
-    const next = resizeRect(drag.rect, drag.dir, e.clientX - drag.x, e.clientY - drag.y);
+    const next = resizeRect(drag.rect, drag.dir, e.clientX - drag.x, e.clientY - drag.y, {
+      w: window.innerWidth,
+      h: window.innerHeight,
+    });
     setRect(next);
   };
 
