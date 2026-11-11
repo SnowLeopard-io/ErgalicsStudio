@@ -53,6 +53,7 @@ export const zhCN: LocaleDictionary = {
   'welcome.tagline.4': '开箱即用的科学计算插件，随开随用',
   'welcome.tagline.5': '为科研人打造的浏览器工作站',
   'welcome.browse_examples': '浏览示例',
+  'welcome.browse_templates': '浏览模板',
   'welcome.hardware.title': '硬件状态',
   'welcome.hardware.webgpu': 'WebGPU',
   'welcome.hardware.webgpu_available': 'WebGPU 可用',

@@ -1813,7 +1813,7 @@ export function CentralArea() {
               <div className="welcome-cover-grid">
                 <section className="welcome-cover-section">
                   <h3 className="welcome-cover-heading">{t('workbench.empty.start')}</h3>
-                  <ul className="welcome-cover-list">
+                  <ul className="welcome-cover-list welcome-cover-list--grid">
                     <li>
                       <button
                         type="button"

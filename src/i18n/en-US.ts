@@ -49,6 +49,7 @@ export const enUS: LocaleDictionary = {
   'welcome.tagline.4': 'Scientific plugins that run out of the box',
   'welcome.tagline.5': 'A browser workbench built for researchers',
   'welcome.browse_examples': 'Browse examples',
+  'welcome.browse_templates': 'Browse templates',
   'welcome.hardware.title': 'Hardware Status',
   'welcome.hardware.webgpu': 'WebGPU',
   'welcome.hardware.webgpu_available': 'WebGPU Available',

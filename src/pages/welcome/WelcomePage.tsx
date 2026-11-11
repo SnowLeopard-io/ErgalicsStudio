@@ -21,7 +21,6 @@ import {
   PlusIcon,
   FileIcon,
   FolderOpenIcon,
-  BookIcon,
   CloseIcon,
   GitBranchIcon,
 } from '@/components/icons';
@@ -337,39 +336,33 @@ export default function WelcomePage() {
             <button
               type="button"
               className="btn"
-              onClick={() => navigate('/workbench', { state: { openDataDialog: true } })}
-              disabled={busy}
-            >
-              <BookIcon size={14} /> {t('welcome.start.samples')}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setCloneOpen(true)}
-              disabled={busy}
-              title={t('project.clone_prompt')}
-            >
-              <GitBranchIcon size={14} /> {t('project.clone')}
-            </button>
-          </div>
-          {/* Secondary, low-weight entries kept out of the primary CTA row. */}
-          <div className="welcome-quiet-row">
-            <button
-              type="button"
-              className="welcome-quiet-link"
               onClick={() => folderInputRef.current?.click()}
               disabled={busy}
             >
-              <FolderOpenIcon size={13} /> {t('project.open_folder')}
+              <FolderOpenIcon size={14} /> {t('project.open_folder')}
             </button>
-            <span className="welcome-quiet-sep" aria-hidden="true">·</span>
+          </div>
+          {/* Secondary, low-weight entries kept out of the primary CTA row:
+              these are rarer / power-user actions, styled as links so they read
+              as clickable text rather than competing with the main buttons. */}
+          <div className="welcome-quiet-row">
             <button
               type="button"
               className="welcome-quiet-link"
               onClick={() => setTemplateOpen(true)}
               disabled={busy}
             >
-              {t('welcome.browse_examples')}
+              {t('welcome.browse_templates')}
+            </button>
+            <span className="welcome-quiet-sep" aria-hidden="true">·</span>
+            <button
+              type="button"
+              className="welcome-quiet-link"
+              onClick={() => setCloneOpen(true)}
+              disabled={busy}
+              title={t('project.clone_prompt')}
+            >
+              <GitBranchIcon size={13} /> {t('project.clone')}
             </button>
           </div>
         </section>

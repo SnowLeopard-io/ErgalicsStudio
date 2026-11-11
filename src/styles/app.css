@@ -895,7 +895,7 @@
 }
 
 .central-empty-tip {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-5) 0 0;
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   color: var(--color-text-tertiary);
@@ -1003,6 +1003,13 @@
   list-style: none;
 }
 
+/* Start actions read better as a 2×2 tile grid than a single tall column. */
+.welcome-cover-list--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
 .welcome-cover-row {
   display: flex;
   align-items: center;
@@ -1085,7 +1092,7 @@
 }
 
 .welcome-cover-footer .central-empty-tip {
-  margin: 0;
+  margin: var(--space-3) 0 0;
   text-align: center;
 }
 
@@ -6289,13 +6296,24 @@
   border: none;
   background: none;
   font: inherit;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   cursor: pointer;
+  text-decoration: none;
+  text-underline-offset: 3px;
   transition: color var(--transition-fast);
 }
 
+/* Read as links, not inert text: accent + underline on hover (and a visible
+   underline at rest is avoided so the row stays quiet). */
 .welcome-quiet-link:hover {
   color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.welcome-quiet-link:disabled {
+  color: var(--color-text-tertiary);
+  cursor: default;
+  text-decoration: none;
 }
 
 .welcome-quiet-link:focus-visible {
