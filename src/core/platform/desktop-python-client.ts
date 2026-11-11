@@ -103,7 +103,10 @@ export class DesktopPythonClient {
    * there is nothing to mount — the browser (Pyodide) build is the one that
    * needs the workspace materialised in the virtual FS.
    */
-  async mountWorkspace(_files: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
+  async mountWorkspace(
+    _files: Record<string, string>,
+    _dataFiles?: Record<string, string>,
+  ): Promise<{ ok: boolean; error?: string }> {
     return { ok: true };
   }
 

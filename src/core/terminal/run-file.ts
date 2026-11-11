@@ -68,6 +68,10 @@ function normalizeSegments(path: string): string {
 /**
  * Python program that runs a script file by ABSOLUTE path, so it works no
  * matter which directory the interpreter currently sits in.
+ *
+ * The script runs in its own namespace (like a real script) but receives the
+ * `studio` object — the same API the editor's 运行 button provides, so
+ * `studio.print(...)` / `studio.load(...)` work in a terminal script too.
  */
 export function pythonRunProgram(absPath: string): string {
   return [
@@ -75,7 +79,7 @@ export function pythonRunProgram(absPath: string): string {
     `import runpy`,
     `_f = ${JSON.stringify(absPath)}`,
     `if os.path.isfile(_f):`,
-    `    runpy.run_path(_f, run_name="__main__")`,
+    `    runpy.run_path(_f, init_globals={'studio': studio}, run_name="__main__")`,
     `else:`,
     `    print('python: no such file: ' + _f)`,
   ].join('\n');

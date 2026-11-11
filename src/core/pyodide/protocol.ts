@@ -54,6 +54,9 @@ export interface MountMessage {
   type: 'mount';
   id?: number;
   files: Record<string, string>;
+  /** Optional: the studio file registry (project + bundled examples), so
+   *  `studio.load(...)` resolves the same way it does during a run. */
+  dataFiles?: Record<string, string>;
 }
 
 /**

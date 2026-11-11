@@ -339,8 +339,11 @@ export class PyodideClient {
    * runs scripts from it, so /workspace must exist even before the first
    * 运行.
    */
-  mountWorkspace(files: Record<string, string>): Promise<MountResult> {
-    return this.request<MountResult>({ type: 'mount', files });
+  mountWorkspace(
+    files: Record<string, string>,
+    dataFiles?: Record<string, string>,
+  ): Promise<MountResult> {
+    return this.request<MountResult>({ type: 'mount', files, dataFiles });
   }
 
   /** Install extra Pyodide packages into the live interpreter. */

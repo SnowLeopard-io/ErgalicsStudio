@@ -303,6 +303,9 @@ async function handleMount(msg: MountMessage): Promise<void> {
     const py = await ensurePyodide(activeIndexURL);
     const cwd = rememberCwd(py);
     const fs = workspaceFs(py);
+    // The studio file registry: `studio.load('data/x.csv')` reads from it,
+    // exactly like during a run. The FS tree itself stays project-only.
+    py.globals.set('_FILES', py.toPy(msg.dataFiles ?? msg.files));
     // Start from an empty tree: a previous run may have left the bundled
     // example files and basename aliases behind.
     resetWorkspaceTree(py);

@@ -14,7 +14,7 @@
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
-import { collectProjectFiles } from '@/core/dataFiles';
+import { collectProjectFiles, collectRuntimeFiles } from '@/core/dataFiles';
 import { createCodeRuntime, type CodeRuntime } from './runtime';
 import {
   pythonRuntimeBegin,
@@ -144,7 +144,11 @@ export async function mountWorkspaceFiles(force = false): Promise<boolean> {
     const key = `${project?.id ?? 'none'}:${version}`;
     if (!force && mountedKey === key) return true;
     const files = await collectProjectFiles();
-    const result = await getPythonRuntime().mountWorkspace(files);
+    // The studio file registry additionally knows the bundled examples and
+    // the basename aliases, so `studio.load('x.csv')` behaves exactly like
+    // during a run — while /workspace itself stays the project tree.
+    const dataFiles = await collectRuntimeFiles();
+    const result = await getPythonRuntime().mountWorkspace(files, dataFiles);
     if (result.ok) mountedKey = key;
     return result.ok;
   } catch {
