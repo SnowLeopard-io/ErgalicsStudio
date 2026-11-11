@@ -28,13 +28,48 @@ import {
   RUN_SESSION_ID,
   useTerminalStore,
 } from '@/stores/terminalStore';
-import { getPythonRuntime, warmPythonRuntime } from '@/core/pyodide/code-runtime';
+import {
+  collectWorkspaceOutputsFromRuntime,
+  getPythonRuntime,
+  mountWorkspaceFiles,
+} from '@/core/pyodide/code-runtime';
 import {
   buildMagicPython,
   isClearCommand,
+  isHostCommand,
   parseReplCommand,
+  pythonLiteral,
 } from '@/core/pyodide/repl-commands';
+import { runHostCommand } from '@/core/terminal/host-commands';
+import {
+  engineForFile,
+  pythonRunProgram,
+  resolvePath,
+  runScriptFile,
+} from '@/core/terminal/run-file';
+import { toProjectPath } from '@/core/workspace/open-file';
+import { getVfs } from '@/core/vfs';
+import { getProjectRepoPath, useProjectStore } from '@/stores/projectStore';
 import { CloseIcon, PlusIcon, TerminalIcon } from '@/components/icons';
+
+/**
+ * Decode the base64(JSON) payload returned by the studio module's
+ * `_capture` helper. The repl channel hands back the Python repr of the
+ * returned string, so the surrounding quotes are stripped first.
+ */
+function decodeCapture(repr: string): { out: string; err: string } | null {
+  let b64 = repr.trim();
+  if (b64.startsWith("'") && b64.endsWith("'")) b64 = b64.slice(1, -1);
+  if (!b64) return null;
+  try {
+    const json = atob(b64);
+    const parsed = JSON.parse(json) as { out?: string; err?: string };
+    if (typeof parsed.out !== 'string' && typeof parsed.err !== 'string') return null;
+    return { out: parsed.out ?? '', err: parsed.err ?? '' };
+  } catch {
+    return null;
+  }
+}
 
 /** How many submitted lines stay in a session's input history (↑/↓). */
 const HISTORY_LIMIT = 100;
@@ -78,6 +113,20 @@ function loadPrefs(): TerminalPrefs {
 /** Which resize grip was grabbed (bottom-right stays anchored). */
 type ResizeDir = 'n' | 'w' | 'nw';
 
+/**
+ * True when the buffer is an unfinished block: the line ends with ':' (a
+ * Python header) or brackets are still open. Enter then continues the block
+ * instead of submitting it.
+ */
+export function needsContinuation(text: string): boolean {
+  const trimmed = text.trimEnd();
+  if (!trimmed) return false;
+  if (trimmed.endsWith(':')) return true;
+  const opens = (text.match(/[([{]/g) ?? []).length;
+  const closes = (text.match(/[)\]}]/g) ?? []).length;
+  return opens > closes;
+}
+
 export function TerminalPanel() {
   const t = useT();
   const prefs = useRef(loadPrefs());
@@ -113,7 +162,9 @@ export function TerminalPanel() {
     [activeSession.id, clearRunConsole],
   );
 
-  const cwd = activeSession.cwd;
+  // The interpreter has ONE working directory — the prompt shows it for every
+  // session (a `cd` anywhere moves all of them).
+  const cwd = useTerminalStore((s) => s.cwd);
 
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -123,7 +174,12 @@ export function TerminalPanel() {
   /** Position in `history` while browsing: -1 = live draft. */
   const [historyIdx, setHistoryIdx] = useState(-1);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** Latest capture runner — the open effect below runs before the callback
+   *  that defines it is created. */
+  const runCapturedRef = useRef<(code: string) => Promise<{ out: string; err: string }>>(
+    async () => ({ out: '', err: '' }),
+  );
 
   // ---- window geometry (persisted) -------------------------------------
   const [size, setSize] = useState({ w: prefs.current.w, h: prefs.current.h });
@@ -230,15 +286,26 @@ export function TerminalPanel() {
   }, [toggle]);
 
   // Opening the window from a cold session should start warming the
-  // interpreter immediately (silent: no runtime-notice chrome for a preempt).
+  // interpreter immediately (silent: no runtime-notice chrome for a preempt)
+  // and materialise the project tree in it — `ls` / `cd data` must work
+  // before the user ever presses 运行.
   useEffect(() => {
-    if (open) {
-      void warmPythonRuntime({ silent: true });
-      // Focus after the open transition so the window is ready to type into.
-      const timer = window.setTimeout(() => inputRef.current?.focus(), 180);
-      return () => window.clearTimeout(timer);
-    }
-    return undefined;
+    if (!open) return undefined;
+    let alive = true;
+    void (async () => {
+      const mounted = await mountWorkspaceFiles();
+      if (!alive || !mounted) return;
+      // The mount resets the cwd to /workspace; re-read it for the prompt.
+      const pwd = await runCapturedRef.current("print(__import__('os').getcwd())");
+      const path = pwd.out.trim();
+      if (path) useTerminalStore.getState().setCwd(path);
+    })();
+    // Focus after the open transition so the window is ready to type into.
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 180);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
   }, [open]);
 
   // Keep the latest output visible, like a real terminal.
@@ -246,6 +313,16 @@ export function TerminalPanel() {
     const body = bodyRef.current;
     if (body) body.scrollTop = body.scrollHeight;
   }, [entries]);
+
+  // The input grows with the buffer (a multi-line Python block needs room)
+  // but never takes more than a third of the window.
+  useEffect(() => {
+    const area = inputRef.current;
+    if (!area) return;
+    area.style.height = 'auto';
+    const max = Math.max(60, Math.floor((size.h || 340) / 3));
+    area.style.height = `${Math.min(area.scrollHeight, max)}px`;
+  }, [draft, size.h]);
 
   /** Append a line to the ACTIVE session's transcript. */
   const appendActive = useCallback(
@@ -257,6 +334,69 @@ export function TerminalPanel() {
       }
     },
     [activeSession.id],
+  );
+
+  /**
+   * Run one command in the interpreter and capture ITS output.
+   *
+   * The plain repl channel streams stdout into the global console — which
+   * belongs to the run session, so a command typed in session 2 would print
+   * into session 1. The studio module's `_capture` helper redirects both
+   * streams into buffers and hands them back base64-encoded, so every
+   * session owns exactly its own output.
+   */
+  const runCaptured = useCallback(async (code: string): Promise<{ out: string; err: string }> => {
+    const result = await getPythonRuntime().repl(`_capture(${pythonLiteral(code)})`);
+    if (!result.ok) return { out: '', err: result.error ?? 'error' };
+    const payload = decodeCapture(result.text);
+    if (payload) return payload;
+    // No capture helper (older worker): fall back to the plain channel.
+    return { out: result.text, err: '' };
+  }, []);
+  runCapturedRef.current = runCaptured;
+
+  /**
+   * Run a script file, dispatching on its type: Python runs inside the
+   * session interpreter (so its output belongs to this terminal session),
+   * JavaScript / R run in the workbench engines.
+   */
+  const runScript = useCallback(
+    async (arg: string, append: (stream: 'stdout' | 'stderr' | 'info', text: string) => void) => {
+      const target = arg.trim();
+      if (!target) {
+        append('stderr', 'run: missing file argument');
+        return;
+      }
+      const abs = resolvePath(cwd, target);
+      const projectPath = toProjectPath(abs);
+      const engine = engineForFile(projectPath);
+      if (engine === 'python') {
+        const { out, err } = await runCaptured(pythonRunProgram(abs));
+        if (out) append('stdout', out);
+        if (err) append('stderr', err);
+        const pwd = await runCaptured("print(__import__('os').getcwd())");
+        const path = pwd.out.trim();
+        if (path) setCwdStore(path);
+        return;
+      }
+      const project = useProjectStore.getState().project;
+      if (!project) {
+        append('stderr', 'run: no project open');
+        return;
+      }
+      try {
+        const adapter = getVfs();
+        const raw = await adapter.readFile(getProjectRepoPath(project), projectPath);
+        const result = await runScriptFile(projectPath, raw);
+        if (result.stdout) append('stdout', result.stdout);
+        if (!result.ok) append('stderr', result.error ?? 'run failed');
+        else append('info', `finished ${projectPath}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        append('stderr', `run: ${message}`);
+      }
+    },
+    [cwd, runCaptured, setCwdStore],
   );
 
   const submit = useCallback(
@@ -279,35 +419,73 @@ export function TerminalPanel() {
         // Echo the prompt line so the transcript reads like a shell session.
         appendActive('info', `${cwd}>${text}`);
         const cmd = parseReplCommand(text);
-        const code = cmd ? buildMagicPython(cmd) : text;
-        const result = await getPythonRuntime().repl(code);
-        if (result.ok && result.text) appendActive('stdout', result.text);
-        if (!result.ok) {
-          appendActive('stderr', result.error ?? 'error');
+
+        // Host commands act on the workbench (open / touch / git / pip …).
+        if (cmd && isHostCommand(cmd.magic)) {
+          await runHostCommand(cmd, { append: appendActive, cwd, runPython: runCaptured });
+          return;
         }
-        // A successful `cd` moves the interpreter's cwd: re-query it (as an
-        // expression, so the repr comes back in result.text) and refresh this
-        // session's prompt. Magics print via stdout, so their result.text is
-        // empty — this side channel is the only way to read the path back.
-        if (cmd?.magic === 'cd' && result.ok) {
-          const pwd = await getPythonRuntime().repl("__import__('os').getcwd()");
-          if (pwd.ok && pwd.text) {
-            setCwdStore(sessionId, pwd.text.trim().replace(/^'(.*)'$/, '$1'));
+
+        // `run` dispatches on the file type: Python runs in the session
+        // interpreter, JS / R run in the workbench engines.
+        if (cmd?.magic === 'run') {
+          await runScript(cmd.arg, appendActive);
+          // Whatever the script wrote into the workspace goes back into the
+          // project — the terminal must not be a dead end for artefacts.
+          const produced = await collectWorkspaceOutputsFromRuntime();
+          const names = Object.keys(produced);
+          if (names.length) {
+            await useAppStore.getState().saveWorkspaceFiles(produced);
+            useAppStore.getState().bumpFileOps();
+            appendActive('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
           }
+          return;
+        }
+
+        const code = cmd ? buildMagicPython(cmd) : text;
+        const { out, err } = await runCaptured(code);
+        if (out) appendActive('stdout', out);
+        if (err) appendActive('stderr', err);
+        // `cd` moved the interpreter's working directory: re-read it so the
+        // prompt shows where we actually are.
+        if (cmd?.magic === 'cd') {
+          const pwd = await runCaptured("print(__import__('os').getcwd())");
+          const path = pwd.out.trim();
+          if (path) setCwdStore(path);
         }
       } finally {
         setBusy(false);
       }
     },
-    [busy, activeSession.id, cwd, appendActive, clearActive, setCwdStore],
+    [busy, activeSession.id, cwd, appendActive, clearActive, setCwdStore, runCaptured, runScript],
   );
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      // Shift+Enter always inserts a newline; a plain Enter continues the
+      // block when the line ends with ':' or leaves brackets open (Python
+      // `def` / `if` blocks), otherwise it submits.
+      if (e.shiftKey) {
+        e.preventDefault();
+        insertNewline();
+        return;
+      }
+      if (needsContinuation(draft)) {
+        e.preventDefault();
+        insertNewline();
+        return;
+      }
       e.preventDefault();
       void submit(draft);
       return;
     }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      insertIndent(e.shiftKey);
+      return;
+    }
+    // History navigation only makes sense for a single-line buffer.
+    if (draft.includes('\n')) return;
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       const next = historyIdx < 0 ? history.length - 1 : Math.max(0, historyIdx - 1);
@@ -329,6 +507,44 @@ export function TerminalPanel() {
         setDraft(history[next]!);
       }
     }
+  };
+
+  /** Insert a newline, keeping the current indentation (plus one level when
+   *  the line ends with ':'). */
+  const insertNewline = () => {
+    const area = inputRef.current;
+    const caret = area?.selectionStart ?? draft.length;
+    const before = draft.slice(0, caret);
+    const indent = before.match(/^[ \t]*/)?.[0] ?? '';
+    const extra = before.trimEnd().endsWith(':') ? '    ' : '';
+    const next = `${before}\n${indent}${extra}${draft.slice(caret)}`;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      const pos = before.length + 1 + indent.length + extra.length;
+      el.selectionStart = pos;
+      el.selectionEnd = pos;
+      el.focus();
+    });
+  };
+
+  /** Tab indents the current line (Shift+Tab dedents it). */
+  const insertIndent = (outdent: boolean) => {
+    const area = inputRef.current;
+    const caret = area?.selectionStart ?? draft.length;
+    const lineStart = draft.lastIndexOf('\n', caret - 1) + 1;
+    const line = draft.slice(lineStart);
+    const nextLine = outdent ? line.replace(/^ {1,4}/, '') : `    ${line}`;
+    const next = draft.slice(0, lineStart) + nextLine + draft.slice(lineStart + line.length);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.selectionStart = lineStart + nextLine.length;
+      el.selectionEnd = lineStart + nextLine.length;
+      el.focus();
+    });
   };
 
   // Switching sessions swaps the input history too.
@@ -445,9 +661,11 @@ export function TerminalPanel() {
           <span className="terminal-prompt" aria-hidden="true">
             {`${cwd}>`}
           </span>
-          <input
+          <textarea
             ref={inputRef}
+            className="terminal-input-area"
             value={draft}
+            rows={1}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             spellCheck={false}

@@ -98,6 +98,26 @@ export class DesktopPythonClient {
     }
   }
 
+  /**
+   * Desktop edition: the interpreter runs against the real project tree, so
+   * there is nothing to mount — the browser (Pyodide) build is the one that
+   * needs the workspace materialised in the virtual FS.
+   */
+  async mountWorkspace(_files: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
+    return { ok: true };
+  }
+
+  /** Desktop edition: CPython has no Pyodide wheels — installing is a no-op. */
+  async installPackages(packages: string[]): Promise<{ ok: boolean; loaded: string[]; error?: string }> {
+    return { ok: true, loaded: packages };
+  }
+
+  /** Desktop edition: the interpreter writes straight into the project tree,
+   *  so there is nothing to collect back. */
+  async collectWorkspaceFiles(): Promise<{ ok: boolean; files: Record<string, string>; error?: string }> {
+    return { ok: true, files: {} };
+  }
+
   interrupt(): void {
     if (!this.sessionId) return;
     const sessionId = this.sessionId;

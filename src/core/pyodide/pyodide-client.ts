@@ -11,6 +11,9 @@ import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
   type PlotPayload,
+  type CollectMessage,
+  type LoadPackagesMessage,
+  type MountMessage,
   type RunMessage,
   type VariableSnapshot,
   type WorkerEvent,
@@ -42,8 +45,35 @@ export interface PyodideReplResult {
 }
 
 interface Pending {
-  resolve: (value: PyodideRunResult | PyodideReplResult) => void;
+  resolve: (
+    value:
+      | PyodideRunResult
+      | PyodideReplResult
+      | MountResult
+      | LoadPackagesResult
+      | CollectResult,
+  ) => void;
   reject: (reason: Error) => void;
+}
+
+/** Result of a workspace-only mount request. */
+export interface MountResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Result of a package install request. */
+export interface LoadPackagesResult {
+  ok: boolean;
+  loaded: string[];
+  error?: string;
+}
+
+/** Result of a workspace-output collection request. */
+export interface CollectResult {
+  ok: boolean;
+  files: Record<string, string>;
+  error?: string;
 }
 
 export class PyodideClient {
@@ -213,13 +243,49 @@ export class PyodideClient {
         }
         break;
       }
+      case 'mount-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, error: event.error });
+        }
+        break;
+      }
+      case 'load-packages-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, loaded: event.loaded, error: event.error });
+        }
+        break;
+      }
+      case 'collect-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, files: event.files, error: event.error });
+        }
+        break;
+      }
       case 'ready':
         break;
     }
   }
 
-  private request<T extends PyodideRunResult | PyodideReplResult>(
-    message: RunMessage | { type: 'repl'; code: string },
+  private request<
+    T extends
+      | PyodideRunResult
+      | PyodideReplResult
+      | MountResult
+      | LoadPackagesResult
+      | CollectResult,
+  >(
+    message:
+      | RunMessage
+      | { type: 'repl'; code: string }
+      | MountMessage
+      | LoadPackagesMessage
+      | CollectMessage,
   ): Promise<T> {
     const id = this.nextId++;
     const promise = new Promise<T>((resolve, reject) => {
@@ -265,6 +331,34 @@ export class PyodideClient {
   /** Evaluate one REPL line (expression or statement). */
   repl(code: string): Promise<PyodideReplResult> {
     return this.request<PyodideReplResult>({ type: 'repl', code });
+  }
+
+  /**
+   * Materialise the workspace files in the interpreter WITHOUT running any
+   * user code — the terminal browses the project tree (`ls`, `cd data`) and
+   * runs scripts from it, so /workspace must exist even before the first
+   * 运行.
+   */
+  mountWorkspace(files: Record<string, string>): Promise<MountResult> {
+    return this.request<MountResult>({ type: 'mount', files });
+  }
+
+  /** Install extra Pyodide packages into the live interpreter. */
+  installPackages(packages: string[]): Promise<LoadPackagesResult> {
+    return this.request<LoadPackagesResult>({
+      type: 'load-packages',
+      packages,
+    });
+  }
+
+  /**
+   * Files the interpreter created or changed since the last mount/run.
+   * The terminal writes them back into the project.
+   */
+  collectWorkspaceFiles(): Promise<CollectResult> {
+    return this.request<CollectResult>({
+      type: 'collect',
+    });
   }
 
   /** Hard-stop the current run by terminating + discarding the worker. */

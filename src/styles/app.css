@@ -2192,10 +2192,10 @@
 .terminal-drawer-input {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
-  padding: 0 var(--space-3);
-  height: 32px;
+  padding: var(--space-1) var(--space-3);
+  min-height: 32px;
   border-top: 1px solid var(--color-border);
 }
 
@@ -2203,10 +2203,12 @@
   flex-shrink: 0;
   font-family: var(--font-console);
   font-size: 12px;
+  line-height: 1.5;
   color: var(--color-accent-text);
 }
 
-.terminal-drawer-input input {
+.terminal-drawer-input input,
+.terminal-input-area {
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -2216,16 +2218,22 @@
   font-size: 12px;
   color: var(--color-text-primary);
   outline: none;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
-.terminal-drawer-input input::placeholder {
+.terminal-drawer-input input::placeholder,
+.terminal-input-area::placeholder {
   color: var(--color-text-tertiary);
 }
 
 /* A real terminal has no focus chrome: suppress the global focus-visible
    ring (global.css) — the caret alone marks the input position. */
 .terminal-drawer-input input:focus,
-.terminal-drawer-input input:focus-visible {
+.terminal-drawer-input input:focus-visible,
+.terminal-input-area:focus,
+.terminal-input-area:focus-visible {
   outline: none;
   border: none;
   box-shadow: none;

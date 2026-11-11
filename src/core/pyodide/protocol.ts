@@ -44,7 +44,46 @@ export interface ReplMessage {
   code: string;
 }
 
-export type WorkerRequest = InitMessage | RunMessage | ReplMessage;
+/**
+ * Materialise the workspace files in the interpreter WITHOUT running user
+ * code. The terminal browses and runs project files (`ls`, `cd data`,
+ * `python script.py`), so the tree must exist in the interpreter even when
+ * the user has not pressed 运行 yet.
+ */
+export interface MountMessage {
+  type: 'mount';
+  id?: number;
+  files: Record<string, string>;
+}
+
+/**
+ * Load extra Pyodide packages into the running interpreter (the terminal's
+ * `pip install <pkg>`). Pyodide ships scientific wheels as packages, so
+ * installing means loading the wheel — no network index involved.
+ */
+export interface LoadPackagesMessage {
+  type: 'load-packages';
+  id?: number;
+  packages: string[];
+}
+
+/**
+ * Collect the files the interpreter created or changed since the last
+ * mount/run. The terminal uses it to write a script's output back into the
+ * project (same behaviour as the editor's 运行 button).
+ */
+export interface CollectMessage {
+  type: 'collect';
+  id?: number;
+}
+
+export type WorkerRequest =
+  | InitMessage
+  | RunMessage
+  | ReplMessage
+  | MountMessage
+  | LoadPackagesMessage
+  | CollectMessage;
 
 /** Notification severity the Python studio.notify() may emit. */
 export type NotifyKind = 'info' | 'success' | 'warning' | 'error';
@@ -114,6 +153,32 @@ export interface ReplResultMessage {
   error?: string;
 }
 
+/** Result of a workspace-only mount (no user code executed). */
+export interface MountResultMessage {
+  type: 'mount-result';
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+/** Result of a package install (Pyodide loadPackage). */
+export interface LoadPackagesResultMessage {
+  type: 'load-packages-result';
+  id: number;
+  ok: boolean;
+  loaded: string[];
+  error?: string;
+}
+
+/** Files the interpreter created or changed since the last baseline. */
+export interface CollectResultMessage {
+  type: 'collect-result';
+  id: number;
+  ok: boolean;
+  files: Record<string, string>;
+  error?: string;
+}
+
 /**
  * Bootstrap failed (CDN unreachable, WASM compile error, package load
  * failure). The host treats this as fatal before `ready` instead of waiting
@@ -132,4 +197,7 @@ export type WorkerEvent =
   | NotifyMessage
   | ResultMessage
   | ReplResultMessage
+  | MountResultMessage
+  | LoadPackagesResultMessage
+  | CollectResultMessage
   | InitFailedMessage;

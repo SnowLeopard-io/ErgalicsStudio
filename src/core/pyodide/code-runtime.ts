@@ -13,6 +13,7 @@
 
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
+import { collectRuntimeFiles } from '@/core/dataFiles';
 import { createCodeRuntime, type CodeRuntime } from './runtime';
 import {
   pythonRuntimeBegin,
@@ -117,4 +118,52 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
 /** True while the interpreter is booting (used for lazy UI hints). */
 export function isPythonRuntimeWarm(): boolean {
   return boot !== null;
+}
+
+/**
+ * Materialise the project tree in the interpreter (no user code runs).
+ *
+ * The workspace is normally staged by a run (prepareWorkspaceRuntime mounts
+ * the files and resets the cwd to /workspace). The terminal needs the tree
+ * to exist on its own: `ls`, `cd data` and `python script.py` must work
+ * before the user ever presses 运行.
+ */
+export async function mountWorkspaceFiles(): Promise<boolean> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return false;
+  try {
+    const files = await collectRuntimeFiles();
+    const result = await getPythonRuntime().mountWorkspace(files);
+    return result.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install Pyodide wheels into the live interpreter (terminal `pip install`).
+ * Pyodide ships the scientific stack as loadable wheels, so "installing" is
+ * loading the package from the bundled /pyodide directory — offline, like
+ * everything else in the browser build.
+ */
+export async function installPythonPackages(
+  packages: string[],
+): Promise<{ ok: boolean; loaded: string[]; error?: string }> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return { ok: false, loaded: [], error: 'Python runtime is not available' };
+  return getPythonRuntime().installPackages(packages);
+}
+
+/**
+ * Files the interpreter created or changed since the last mount/run. The
+ * terminal writes them into the project, so a script run from the terminal
+ * produces the same artefacts as the editor's 运行 button.
+ */
+export async function collectWorkspaceOutputsFromRuntime(): Promise<Record<string, string>> {
+  try {
+    const result = await getPythonRuntime().collectWorkspaceFiles();
+    return result.ok ? result.files : {};
+  } catch {
+    return {};
+  }
 }

@@ -41,6 +41,9 @@ export async function openWorkspaceFile(path: string): Promise<string> {
     const adapter = getVfs();
     const repoPath = getProjectRepoPath(project);
     const raw = await adapter.readFile(repoPath, rel);
+    // Keep the explorer in sync with the editor: the tree reveals + selects
+    // the file that was just opened.
+    useAppStore.getState().setRevealFilePath(rel);
     const kind = editorKindForFile(name);
     if (kind === 'code') {
       const language = codeLanguageForFile(name);

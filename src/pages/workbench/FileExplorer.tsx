@@ -261,6 +261,8 @@ export function FileExplorer() {
   const renameFileTab = useAppStore((s) => s.renameFileTab);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
   const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
+  const revealFilePath = useAppStore((s) => s.revealFilePath);
+  const setRevealFilePath = useAppStore((s) => s.setRevealFilePath);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
   const [tree, setTree] = useState<Record<string, VfsEntry[]>>({});
@@ -334,8 +336,25 @@ export function FileExplorer() {
     void refreshDirs(['', ...expanded, ...Object.keys(tree)]);
   }, [fileOpsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleDir = (dir: string) => {
-    setExpanded((prev) => {
+  // Reveal request (terminal `open file`): expand the parent directories of
+  // the path and select the file, so the tree mirrors what the editor shows.
+  useEffect(() => {
+    if (!revealFilePath || !project) return;
+    const parts = revealFilePath.split('/').filter(Boolean);
+    if (!parts.length) return;
+    const dirs = [''];
+    for (let i = 0; i < parts.length - 1; i += 1) dirs.push(parts.slice(0, i + 1).join('/'));
+    const name = parts[parts.length - 1]!;
+    setExpanded((prev) => new Set([...prev, ...dirs]));
+    void refreshDirs(dirs).then((lists) => {
+      const all = lists.flat().filter((e): e is VfsEntry => !!e);
+      const found = all.find((e) => e.name === name && !e.isDir);
+      if (found) setSelected(found);
+      setRevealFilePath(null);
+    });
+  }, [revealFilePath, project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleDir = (dir: string) => {    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(dir)) next.delete(dir);
       else {

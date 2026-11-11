@@ -201,6 +201,9 @@ interface AppStore {
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
   fileOpsVersion: number;
+  /** Path the file explorer should reveal + select (set by the terminal's
+   *  `open` command, so the tree and the editor stay in sync). */
+  revealFilePath: string | null;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -274,6 +277,8 @@ interface AppStore {
    *  a standalone route — same contract as file/suite tabs. */
   openSettingsTab: () => void;
   bumpFileOps: () => void;
+  /** Ask the file explorer to reveal (expand + select) a project path. */
+  setRevealFilePath: (path: string | null) => void;
 }
 
 let bannerId = 0;
@@ -371,6 +376,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   editorFiles: {},
   lastActivePluginId: null,
   fileOpsVersion: 0,
+  revealFilePath: null,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -966,5 +972,6 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
+  setRevealFilePath: (path) => set({ revealFilePath: path }),
   };
 });
