@@ -154,13 +154,22 @@ export function RightPanel() {
    *  与侧栏收起保持一致的过渡。 */
   const [closing, setClosing] = useState(false);
   /** Code/block surfaces put their result preview + variables in this sidebar
-   *  (the editor area stays purely editing). Keyed off the mode rather than
-   *  the active tab so the preview host stays mounted while the console or a
-   *  file tab has focus. */
-  const surfaceActive = useAppStore((s) => s.mode === 'code' || s.mode === 'block');
+   *  (the editor area stays purely editing). Keyed off the mode AND the
+   *  foreground tab: the mode alone is not enough since the plugin canvas is
+   *  not a tab — `showPluginCanvas()` clears `activeTab` without touching
+   *  `mode`, and with a bare mode check the panel stayed stuck on the code
+   *  result preview instead of handing control back to the plugin params. */
+  const surfaceActive = useAppStore((s) => {
+    if (s.mode !== 'code' && s.mode !== 'block') return false;
+    // Plugin canvas in front (no active tab) → the plugin panel takes over.
+    if (s.activeTab === null) return false;
+    return s.canvasTabs.some((tab) => tab.key === s.activeTab);
+  });
   /** Flow mode puts its node parameter inspector in this sidebar (the canvas
-   *  itself stays free of side panes). */
-  const flowActive = useAppStore((s) => s.mode === 'flow');
+   *  itself stays free of side panes). Same tab-foreground caveat. */
+  const flowActive = useAppStore(
+    (s) => s.mode === 'flow' && s.activeTab !== null && s.canvasTabs.some((tab) => tab.key === s.activeTab),
+  );
   /** Stable ref setter for the surface-toolbar portal host (see SurfaceToolbar). */
   const setToolbarHost = useSurfaceChrome((s) => s.setHost);
   /** 展开入场已结束：panel-wrap-opening 的 overflow:hidden 会裁剪挂在外缘
