@@ -47,7 +47,7 @@ export function codeLanguageForFile(name: string): 'python' | 'r' | 'js' | null 
 }
 
 /** Flow file payload shape (`{version, kind, graph}`). */
-export interface FlowFilePayload {
+interface FlowFilePayload {
   version: 1;
   kind: 'ergalics-flow';
   graph: {
@@ -58,7 +58,7 @@ export interface FlowFilePayload {
 }
 
 /** Block file payload shape (`{version, kind, ir}`). */
-export interface BlockFilePayload {
+interface BlockFilePayload {
   version: 1;
   kind: 'ergalics-block';
   ir: unknown;

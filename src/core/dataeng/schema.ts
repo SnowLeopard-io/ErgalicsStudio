@@ -20,7 +20,7 @@ import type { Row } from '@/core/data-quality';
 
 // ---- schema model -----------------------------------------------------------
 
-export type SchemaColumnType =
+type SchemaColumnType =
   | 'integer'
   | 'number'
   | 'boolean'
@@ -29,12 +29,12 @@ export type SchemaColumnType =
   | 'string'
   | 'categorical';
 
-export interface CategoryCount {
+interface CategoryCount {
   value: string;
   count: number;
 }
 
-export interface ColumnSchema {
+interface ColumnSchema {
   name: string;
   type: SchemaColumnType;
   nullable: boolean;
@@ -57,13 +57,13 @@ export interface ColumnSchema {
   primaryKeyCandidate: boolean;
 }
 
-export interface FunctionalDependency {
+interface FunctionalDependency {
   /** Column A whose value uniquely determines column B (A → B). */
   determinant: string;
   dependent: string;
 }
 
-export interface ColumnCorrelation {
+interface ColumnCorrelation {
   a: string;
   b: string;
   /** Pearson r over rows where both columns are present. */
@@ -87,7 +87,7 @@ const FD_MAX_COLUMNS = 40;
 /** |Pearson r| at which two numeric columns are reported as correlated. */
 const CORRELATION_THRESHOLD = 0.7;
 /** Default relative tolerance for range drift (5 % of the observed span). */
-export const DEFAULT_RANGE_TOLERANCE = 0.05;
+const DEFAULT_RANGE_TOLERANCE = 0.05;
 
 // ---- cell classification -------------------------------------------------------
 
@@ -196,7 +196,7 @@ export function parseCsvTable(text: string): RawTable | null {
 }
 
 /** Coerce one CSV string cell: '' / number / boolean / trimmed string. */
-export function coerceCell(cell: string): unknown {
+function coerceCell(cell: string): unknown {
   const t = cell.trim();
   if (t === '') return '';
   if (INT_RE.test(t) || NUM_RE.test(t)) return Number(t);
@@ -205,7 +205,7 @@ export function coerceCell(cell: string): unknown {
   return t;
 }
 
-export function tableToTypedRows(table: RawTable): Row[] {
+function tableToTypedRows(table: RawTable): Row[] {
   return table.rows.map((cells) => {
     const row: Row = {};
     table.columns.forEach((name, i) => {
@@ -589,7 +589,7 @@ export function toJsonSchema(schema: TableSchema): Record<string, unknown> {
 
 // ---- validation ----------------------------------------------------------------------
 
-export type ViolationCode =
+type ViolationCode =
   | 'MISSING_REQUIRED'
   | 'TYPE_MISMATCH'
   | 'OUT_OF_RANGE'
@@ -599,7 +599,7 @@ export type ViolationCode =
   | 'UNKNOWN_COLUMN'
   | 'UNIQUE_KEY_VIOLATION';
 
-export interface Violation {
+interface Violation {
   /** Row index; -1 marks a column-level (not row-localisable) finding. */
   row: number;
   column: string;
@@ -619,7 +619,7 @@ export interface ValidationResult {
   violatingRowRatio: number;
 }
 
-export interface ValidateOptions {
+interface ValidateOptions {
   /** Sigma multiplier for outlier warnings (default 3). */
   outlierSigma?: number;
   /** Suppress UNKNOWN_COLUMN findings (used by permissive contracts). */
@@ -806,7 +806,7 @@ export function validateAgainstSchema(
 
 // ---- schema drift -----------------------------------------------------------------------
 
-export type DriftKind =
+type DriftKind =
   | 'added-column'
   | 'removed-column'
   | 'type-changed'
@@ -815,7 +815,7 @@ export type DriftKind =
   | 'category-contracted'
   | 'range-drift';
 
-export type DriftSeverity = 'info' | 'warning' | 'error';
+type DriftSeverity = 'info' | 'warning' | 'error';
 
 export interface DriftItem {
   kind: DriftKind;
@@ -968,7 +968,7 @@ export function diffSchemas(
 
 // ---- data contract -------------------------------------------------------------------------
 
-export interface DataContractConstraints {
+interface DataContractConstraints {
   /** Column groups whose combined values must be unique per row. */
   uniqueKeys: string[][];
   /** Columns that must be present and non-missing in every row. */

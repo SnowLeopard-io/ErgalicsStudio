@@ -21,7 +21,7 @@ import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
 import { clearScienceOutputs } from '@/core/research/scienceOutput';
 
-export interface BeginRunInput {
+interface BeginRunInput {
   pluginId: string;
   kind: PluginRunRecord['kind'];
   label?: string;
@@ -198,7 +198,7 @@ on<{ id: string }>('plugin:activate-request', ({ id }) => {
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
 // and registers them here so activated plugins render into real DOM.
-export interface HostContainers {
+interface HostContainers {
   dom: HTMLDivElement;
   canvas2d: HTMLCanvasElement;
   reportDataScale: (n: number) => void;
@@ -1045,44 +1045,6 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
 }));
 
 /**
- * Load a plugin from an instance or a factory.
- *
- * Function factories are probed with a placeholder `__init__` id (the real
- * manifest id is only known after building the plugin). Any params the
- * factory body wrote during the probe are migrated to the real id so later
- * `getParam`/`setParam` lookups agree.
- */
-export async function loadPluginFromModule(factory: Plugin | ((api: PluginApi) => Plugin)): Promise<void> {
-  if (typeof factory !== 'function') {
-    await usePluginStore.getState().load(factory);
-    return;
-  }
-  const probe = (factory as (api: PluginApi) => Plugin)(buildPluginApi('__init__'));
-  useProjectStore.setState((s) => {
-    if (!s.project) return s;
-    const parameters = s.project.state.parameters;
-    const probeBucket = parameters['__init__'];
-    if (!probeBucket || Object.keys(probeBucket).length === 0) return s;
-    const realId = probe.manifest?.id;
-    if (!realId || realId === '__init__') return s;
-    return {
-      project: {
-        ...s.project,
-        state: {
-          ...s.project.state,
-          parameters: {
-            ...parameters,
-            [realId]: { ...probeBucket, ...parameters[realId] },
-            '__init__': {},
-          },
-        },
-      },
-    };
-  });
-  await usePluginStore.getState().load(probe);
-}
-
-/**
  * Run an action as a tracked experiment step.
  *
  * Wraps the host's data-import path so every import is recorded with its
@@ -1104,10 +1066,6 @@ export async function runTracked<T>(
     usePluginStore.getState().finishRun(runId, false, err instanceof Error ? err.message : String(err));
     throw err;
   }
-}
-
-export function isPluginActive(id: string): boolean {
-  return usePluginStore.getState().activeId === id;
 }
 
 /**

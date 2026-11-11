@@ -5,7 +5,7 @@
 import type { TFn } from '../useSweepExecution';
 import type { SweepPlan, SweepResult } from '@/core/sweep/types';
 
-export interface PlanListProps {
+interface PlanListProps {
   t: TFn;
   plans: SweepPlan[];
   results: Record<string, SweepResult>;

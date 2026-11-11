@@ -25,7 +25,7 @@ import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMod
 import type { IRNode, IRProgram } from '@/editor/ir';
 
 const EDIT_TARGETS = ['flow', 'block', 'code'] as const;
-export type EditTarget = (typeof EDIT_TARGETS)[number];
+type EditTarget = (typeof EDIT_TARGETS)[number];
 
 /** A conversion destination: another workbench mode, or another code dialect
  *  (which implies code mode). Language targets are what makes Python ⇄ R ⇄ JS
@@ -55,7 +55,7 @@ function targetPathFor(
   return `${base}.${CODE_EXT[language]}`;
 }
 
-export interface ModeConvertPreview {
+interface ModeConvertPreview {
   target: ConvertTarget;
   /** Workbench mode the conversion lands in (language → code). */
   targetMode: EditTarget;

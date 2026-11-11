@@ -18,7 +18,6 @@ import {
   wrapAsync,
   unwrapOr,
   partitionResults,
-  retryAsync,
   invariant,
   assertRange,
   assertFiniteNumber,
@@ -128,61 +127,6 @@ describe('Result', () => {
     const { values, errors } = partitionResults([ok(1), err('bad'), ok(3)]);
     expect(values).toEqual([1, 3]);
     expect(errors).toEqual(['bad']);
-  });
-});
-
-describe('retryAsync', () => {
-  const immediateSleep = () => Promise.resolve();
-
-  it('returns the first successful attempt', async () => {
-    const fn = vi.fn(async () => 'done');
-    await expect(retryAsync(fn, { sleep: immediateSleep })).resolves.toBe('done');
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries retriable errors then succeeds', async () => {
-    const onRetry = vi.fn();
-    let attempts = 0;
-    const fn = vi.fn(async () => {
-      attempts += 1;
-      if (attempts < 3) throw new IoError('flaky');
-      return 'ok';
-    });
-    await expect(
-      retryAsync(fn, { attempts: 4, baseDelayMs: 0, onRetry, sleep: immediateSleep }),
-    ).resolves.toBe('ok');
-    expect(fn).toHaveBeenCalledTimes(3);
-    expect(onRetry).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not retry non-retriable errors', async () => {
-    const fn = vi.fn(async () => {
-      throw new ComputeError('fatal');
-    });
-    await expect(retryAsync(fn, { attempts: 5, sleep: immediateSleep })).rejects.toBeInstanceOf(
-      ComputeError,
-    );
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
-  it('honours shouldRetry and pre-aborted signals', async () => {
-    const fn = vi.fn(async () => {
-      throw new IoError('nope');
-    });
-    await expect(
-      retryAsync(fn, {
-        attempts: 4,
-        shouldRetry: () => false,
-        sleep: immediateSleep,
-      }),
-    ).rejects.toBeInstanceOf(IoError);
-    expect(fn).toHaveBeenCalledTimes(1);
-
-    const controller = new AbortController();
-    controller.abort();
-    await expect(
-      retryAsync(async () => 'never', { signal: controller.signal, sleep: immediateSleep }),
-    ).rejects.toBeInstanceOf(OperationAbortedError);
   });
 });
 

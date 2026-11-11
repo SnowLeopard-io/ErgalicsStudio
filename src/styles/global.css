@@ -263,18 +263,6 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* ==========================================================================
-   Shared primitives
-   ========================================================================== */
-
-.app-root {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 /* ---- buttons ---- */
 
 .btn {
@@ -452,30 +440,6 @@ textarea::-webkit-resizer {
   color: var(--color-text-secondary);
 }
 
-/* quantity input: value + unit pair (unit algebra) */
-.qty-input {
-  display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
-  min-width: 0;
-}
-
-.qty-input .qty-input-value {
-  width: 110px;
-  flex: 0 1 auto;
-}
-
-.qty-input .qty-input-unit {
-  width: 92px;
-  flex: 0 1 auto;
-  font-family: var(--font-mono);
-}
-
-.qty-input-invalid .qty-input-unit {
-  border-color: var(--color-error);
-  color: var(--color-error);
-}
-
 /* ---- structural ---- */
 
 .card {
@@ -508,12 +472,6 @@ textarea::-webkit-resizer {
   background: var(--color-success-soft);
   color: var(--color-success);
 }
-
-.tag-warning {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
-}
-
 .tag-error {
   background: var(--color-error-soft);
   color: var(--color-error);

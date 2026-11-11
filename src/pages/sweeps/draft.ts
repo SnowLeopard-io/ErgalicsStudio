@@ -13,7 +13,7 @@ import { expandPlan } from '@/core/sweep/design';
 import type { SweepAxis, SweepPlan, SweepResult, SweepSource } from '@/core/sweep/types';
 import { parseJsonText, parseNumericText } from '@/core/validation';
 
-export type AxisMode = 'grid' | 'list' | 'lhs';
+type AxisMode = 'grid' | 'list' | 'lhs';
 
 export interface AxisDraft {
   param: string;
@@ -47,7 +47,7 @@ export interface DraftIssue {
   message: string;
 }
 
-export interface BuiltDraft {
+interface BuiltDraft {
   plan: SweepPlan | null;
   issues: DraftIssue[];
 }
@@ -67,9 +67,9 @@ export const EMPTY_AXIS: AxisDraft = {
 
 /** Boundary caps — a 3-axis grid must not be able to schedule 1e9 runs. */
 export const MAX_AXES = 3;
-export const MAX_REPEATS = 10_000;
-export const MAX_GRID_STEPS = 10_000;
-export const MAX_LHS_N = 100_000;
+const MAX_REPEATS = 10_000;
+const MAX_GRID_STEPS = 10_000;
+const MAX_LHS_N = 100_000;
 export const MAX_SWEEP_CELLS = 100_000;
 
 const PARAM_PATH = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/;

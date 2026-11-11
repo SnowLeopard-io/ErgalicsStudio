@@ -10,14 +10,14 @@ import { logger } from '../logger';
 import type { VariableSnapshot } from '../pyodide/protocol';
 import { desktopBridge, type DesktopPythonApi } from './index';
 
-export interface DesktopPythonClientOptions {
+interface DesktopPythonClientOptions {
   loadPackages?: string[];
   onStdout?: (text: string) => void;
   onStderr?: (text: string) => void;
   onNotify?: (kind: 'info' | 'success' | 'warning' | 'error', message: string) => void;
 }
 
-export interface DesktopPythonRunResult {
+interface DesktopPythonRunResult {
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
   /** Present for parity with Pyodide; the desktop channel does not collect

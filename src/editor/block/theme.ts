@@ -7,7 +7,7 @@
 // accent scrollbar and a teal selection glow to match the app's accent.
 // ==========================================================================
 
-export interface KidsTheme {
+interface KidsTheme {
   name: string;
   fontStyle?: { family?: string; weight?: string; size?: number };
   componentStyles?: Record<string, string | number>;

@@ -82,7 +82,7 @@ interface ParsedData {
  * - histogram/bar: three numbers per line are explicit (x0, x1, y) bars;
  *   one number per line is a raw value (auto-binned / counted).
  */
-export function parsePanelData(kind: PanelKind, text: string): ParsedData | null {
+function parsePanelData(kind: PanelKind, text: string): ParsedData | null {
   const rows: number[][] = [];
   for (const line of text.split('\n')) {
     const trimmed = line.trim();

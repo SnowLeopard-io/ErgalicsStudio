@@ -13,7 +13,7 @@ import type { AxisValue } from '@/core/sweep/design';
 import type { PlotSpec } from '@/core/plot';
 import { fmt as fmtNum } from '../research/researchUi';
 
-export const HEAT_COLORS = ['#08306b', '#2171b5', '#6baed6', '#fdae61', '#f46d43', '#d73027', '#a50f15'];
+const HEAT_COLORS = ['#08306b', '#2171b5', '#6baed6', '#fdae61', '#f46d43', '#d73027', '#a50f15'];
 
 export function heatColor(value: number, low: number, high: number): string {
   if (!Number.isFinite(value) || high === low) return '#e5e5e5';
@@ -22,7 +22,7 @@ export function heatColor(value: number, low: number, high: number): string {
   return HEAT_COLORS[index]!;
 }
 
-export type ResponseSurface =
+type ResponseSurface =
   | { kind: 'line'; spec: PlotSpec }
   | {
       kind: 'heat';

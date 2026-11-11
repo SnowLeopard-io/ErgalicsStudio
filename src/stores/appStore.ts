@@ -6,7 +6,7 @@ import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
-export interface Banner {
+interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
@@ -29,7 +29,7 @@ export interface Notification {
   action?: { label: string; run: () => void };
 }
 
-export interface PerfMetrics {
+interface PerfMetrics {
   fps: number;
   frameMs: number;
   gpuMs: number;
@@ -110,7 +110,7 @@ export type FileEditorKind = 'code' | 'block' | 'flow';
  *  "save & close" (from the tab strip) can write without reaching into the
  *  editor component; editors push their debounced buffer via
  *  `updateEditorFile`. */
-export interface EditorFileState {
+interface EditorFileState {
   name: string;
   path: string;
   editor: FileEditorKind;
@@ -146,11 +146,11 @@ export const editorTabKey = (path: string): string => `editor:${path}`;
 /** Tab key for an embedded workbench surface (flow / block / code). A surface
  *  bound to a file gets its own key so several sources can stay open at once
  *  (e.g. `a.py` and `b.py`), each with its own editor session. */
-export const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
+const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
   path ? `surface:${mode}:${path}` : `surface:${mode}`;
 
 /** Stable tab key for the embedded settings page. */
-export const settingsTabKey = 'settings:app';
+const settingsTabKey = 'settings:app';
 
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The

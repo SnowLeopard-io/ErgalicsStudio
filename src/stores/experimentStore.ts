@@ -18,7 +18,7 @@ import { useProjectStore, getProjectSession } from '@/stores/projectStore';
 import { FLOW_RUN_FINISHED } from '@/stores/blockStore';
 import type { FlowRunFinishedPayload } from '@/stores/blockStore';
 
-export interface RecordRunInput {
+interface RecordRunInput {
   source: RunSource;
   label?: string;
   params?: Record<string, unknown>;

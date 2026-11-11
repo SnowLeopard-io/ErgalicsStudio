@@ -38,7 +38,7 @@ export interface FlowRunFinishedPayload {
 
 export type { BlockGraphState };
 
-export interface BlockStore {
+interface BlockStore {
   instances: BlockInstance[];
   connections: BlockConnection[];
   viewport: { x: number; y: number; zoom: number };

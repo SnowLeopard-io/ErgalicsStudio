@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export interface NumFieldProps {
+interface NumFieldProps {
   /** Current numeric value, shown whenever the field is not focused. */
   value: number;
   /** Fires for every keystroke whose text parses to a finite number. */

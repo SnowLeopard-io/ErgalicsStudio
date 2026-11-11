@@ -30,7 +30,7 @@ export type PluginDiscipline =
   | 'data'
   | 'fun';
 
-export interface DisciplineInfo {
+interface DisciplineInfo {
   id: PluginDiscipline;
   nameI18n: Record<string, string>;
 }
@@ -61,7 +61,7 @@ export const PLUGIN_DISCIPLINES: DisciplineInfo[] = [
 ];
 
 /** Discipline per plugin id (built-ins). Unmapped ids default to 'charts'. */
-export const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
+const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   // Charts & visualisation
   'example.scatter': 'charts',
   'example.timeseries': 'charts',

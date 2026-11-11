@@ -9,9 +9,9 @@
 
 import type { SVGProps } from 'react';
 
-export type IconSize = 14 | 16 | 18 | 20 | 22 | 24;
+type IconSize = 14 | 16 | 18 | 20 | 22 | 24;
 
-export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
+interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   size?: IconSize | number;
   /** Accessible name. When omitted the icon is hidden from assistive tech. */
   label?: string;
@@ -47,12 +47,6 @@ function Svg({
 }
 
 // ---- generic UI glyphs ----------------------------------------------------
-
-export const MenuIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 6h16M4 12h16M4 18h16" />
-  </Svg>
-);
 
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -112,15 +106,6 @@ export const HelpIcon = (p: IconProps) => (
     <circle cx="12" cy="12" r="9" />
     <path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8" />
     <path d="M12 17h.01" />
-  </Svg>
-);
-
-export const KeyboardIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2" y="5" width="20" height="14" rx="2" />
-    <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01" />
-    <path d="M6 13h.01M10 13h.01M14 13h.01M18 13h.01" />
-    <path d="M8 17h8" />
   </Svg>
 );
 

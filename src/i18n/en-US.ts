@@ -71,19 +71,6 @@ export const enUS: LocaleDictionary = {
 'sites.website': 'Website',
 'sites.studio': 'Studio',
 'sites.docs': 'Docs',
-  'modes.title': 'Workbench Modes',
-  'modes.runs.title': 'Experiment Runs',
-  'modes.runs.desc': 'Browse run history and metrics',
-  'modes.uncertainty.title': 'Uncertainty',
-  'modes.uncertainty.desc': 'Bootstrap and Monte Carlo confidence intervals',
-  'modes.model-lab.title': 'Model Lab',
-  'modes.model-lab.desc': 'Regression modeling and diagnostics',
-  'modes.sweeps.title': 'Sweep Studio',
-  'modes.sweeps.desc': 'Parameter grids and response surfaces',
-  'modes.signal.title': 'Signal Lab',
-  'modes.signal.desc': 'Spectra, filtering and decomposition',
-  'modes.report.title': 'Report Builder',
-  'modes.report.desc': 'Package narrative and charts into HTML',
 
   'workbench.sidebar.project': 'Project',
   'workbench.sidebar.plugins': 'Plugins',
@@ -818,12 +805,8 @@ export const enUS: LocaleDictionary = {
   'uncertainty.running': 'Sampling…',
   'uncertainty.cancel': 'Cancel',
   'uncertainty.cancelled': 'Cancelled (partial samples kept)',
-  'uncertainty.done': 'Done',
 
   // ---- units ----
-  'units.value': 'Value',
-  'units.unit': 'Unit',
-  'units.invalid_unit': 'Invalid unit',
 
   // ---- lineage ----
   'lineage.title': 'Data Lineage',
@@ -1088,7 +1071,6 @@ export const enUS: LocaleDictionary = {
   'uncertainty.engine_gpu': 'GPU',
   'uncertainty.gpu_unavailable': 'GPU unavailable: {reason}',
   'uncertainty.used_engine': 'Engine used',
-  'uncertainty.device': 'Device',
   'uncertainty.duration_ms': 'Duration (ms)',
   'uncertainty.stat_variance': 'Statistic: variance',
   'uncertainty.stat_sd': 'Statistic: standard deviation',
@@ -1228,7 +1210,6 @@ export const enUS: LocaleDictionary = {
   'model.title': 'Model Lab',
   'model.target': 'Target column (y)',
   'model.predictors': 'Predictor columns (multi-select)',
-  'model.kind': 'Model type',
   'model.kind_ols': 'Linear regression (OLS)',
   'model.kind_logistic': 'Logistic regression',
   'model.kind_ridge': 'Ridge regression (K-fold CV for λ)',
@@ -1251,7 +1232,6 @@ export const enUS: LocaleDictionary = {
   'model.lambda': 'λ',
   'model.rmse': 'RMSE',
   'model.intercept': 'intercept',
-  'model.confusion': 'Confusion matrix (actual × predicted)',
   'model.diagnostics': '2×2 diagnostic plots',
   'model.to_figure': 'Send diagnostics to Figure Studio',
   'model.record_fit': 'Record this fit',
@@ -1262,7 +1242,6 @@ export const enUS: LocaleDictionary = {
 
   // ---- F9 Inference Forge ----
   'inference.title': 'Inference Forge',
-  'inference.template': 'Model template',
   'inference.template_mean': 'Normal mean model (mu, sigma)',
   'inference.template_linear': 'Bayesian linear regression (a + b·x)',
   'inference.template_hier': 'Hierarchical normal means (8-schools style)',
@@ -1299,7 +1278,6 @@ export const enUS: LocaleDictionary = {
   'inference.criteria': 'Model comparison (WAIC / PSIS-LOO)',
   'inference.waic': 'WAIC elpd',
   'inference.loo': 'LOO elpd',
-  'inference.p_eff': 'p_eff',
   'inference.pareto_warn': 'LOO: max Pareto k = {k} (> 0.7 — the approximation is unreliable for some points)',
   'inference.ppc': 'Posterior predictive check',
   'inference.ppc_stat': 'Statistic',
@@ -1465,7 +1443,6 @@ export const enUS: LocaleDictionary = {
   'launcher.recent': 'Recent',
   'launcher.recent_group': 'Recently used',
   'launcher.empty': 'No tools match',
-  'launcher.clear_search': 'Clear search',
   'launcher.unknown_title': 'Unknown tool',
   'launcher.unknown_desc': 'This tool address is invalid; it may have been moved or renamed.',
   'workbench.menu.more': 'More',
@@ -1545,14 +1522,6 @@ export const enUS: LocaleDictionary = {
   'welcome.start.debut': '30-second paper figure',
   'welcome.start.recent': 'Continue recent project',
   'welcome.start.samples': 'Browse sample datasets',
-  'modes.standard.title': 'Standard',
-  'modes.standard.desc': 'Three-pane plugin workbench',
-  'modes.flow.title': 'Flow',
-  'modes.flow.desc': 'Compose experiments on a DAG block canvas',
-  'modes.block.title': 'Blocks',
-  'modes.block.desc': 'Blockly block program editor',
-  'modes.code.title': 'Code',
-  'modes.code.desc': 'Monaco code editor with Python runtime',
 
   // ---- Utility toolkit (unit-convert / calc / format-convert / sigfig /
   //      molar-mass / quick-stats) ------------------------------------------

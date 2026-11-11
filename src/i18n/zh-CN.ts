@@ -75,19 +75,6 @@ export const zhCN: LocaleDictionary = {
 'sites.website': '官网',
 'sites.studio': '工作台',
 'sites.docs': '文档',
-  'modes.title': '工作台模式',
-  'modes.runs.title': '实验记录',
-  'modes.runs.desc': '查看历史运行与指标',
-  'modes.uncertainty.title': '不确定性分析',
-  'modes.uncertainty.desc': 'Bootstrap 与蒙特卡洛置信区间',
-  'modes.model-lab.title': '模型实验室',
-  'modes.model-lab.desc': '回归建模与诊断图',
-  'modes.sweeps.title': '参数扫描',
-  'modes.sweeps.desc': '参数网格批量实验与响应面',
-  'modes.signal.title': '信号实验室',
-  'modes.signal.desc': '频谱、滤波与时序分解',
-  'modes.report.title': '报告生成器',
-  'modes.report.desc': '叙述与图表打包为交互报告',
 
   'workbench.sidebar.project': '项目',
   'workbench.sidebar.plugins': '插件',
@@ -820,12 +807,8 @@ export const zhCN: LocaleDictionary = {
   'uncertainty.running': '采样中…',
   'uncertainty.cancel': '取消',
   'uncertainty.cancelled': '已取消（保留已完成采样）',
-  'uncertainty.done': '完成',
 
   // ---- units ----
-  'units.value': '数值',
-  'units.unit': '单位',
-  'units.invalid_unit': '无效单位',
 
   // ---- lineage ----
   'lineage.title': '数据血缘',
@@ -1090,7 +1073,6 @@ export const zhCN: LocaleDictionary = {
   'uncertainty.engine_gpu': 'GPU',
   'uncertainty.gpu_unavailable': 'GPU 不可用：{reason}',
   'uncertainty.used_engine': '实际引擎',
-  'uncertainty.device': '设备',
   'uncertainty.duration_ms': '耗时（毫秒）',
   'uncertainty.stat_variance': '统计量：方差',
   'uncertainty.stat_sd': '统计量：标准差',
@@ -1230,7 +1212,6 @@ export const zhCN: LocaleDictionary = {
   'model.title': '模型工作台',
   'model.target': '因变量列（y）',
   'model.predictors': '自变量列（多选）',
-  'model.kind': '模型类型',
   'model.kind_ols': '线性回归 OLS',
   'model.kind_logistic': '逻辑回归',
   'model.kind_ridge': '岭回归（K 折 CV 选 λ）',
@@ -1253,7 +1234,6 @@ export const zhCN: LocaleDictionary = {
   'model.lambda': 'λ',
   'model.rmse': 'RMSE',
   'model.intercept': '截距',
-  'model.confusion': '混淆矩阵（实际×预测）',
   'model.diagnostics': '诊断图四联图',
   'model.to_figure': '发送诊断图到 Figure Studio',
   'model.record_fit': '记录此次拟合',
@@ -1264,7 +1244,6 @@ export const zhCN: LocaleDictionary = {
 
   // ---- F9 Inference Forge ----
   'inference.title': '贝叶斯推断',
-  'inference.template': '模型模板',
   'inference.template_mean': '正态均值模型（mu, sigma）',
   'inference.template_linear': '贝叶斯线性回归（a + b·x）',
   'inference.template_hier': '层级正态均值模型（八校风格）',
@@ -1301,7 +1280,6 @@ export const zhCN: LocaleDictionary = {
   'inference.criteria': '模型比较（WAIC / PSIS-LOO）',
   'inference.waic': 'WAIC elpd',
   'inference.loo': 'LOO elpd',
-  'inference.p_eff': 'p_eff',
   'inference.pareto_warn': 'LOO：最大 Pareto k = {k}（> 0.7——部分点的近似不可靠）',
   'inference.ppc': '后验预测检查（PPC）',
   'inference.ppc_stat': '统计量',
@@ -1467,7 +1445,6 @@ export const zhCN: LocaleDictionary = {
   'launcher.recent': '最近',
   'launcher.recent_group': '最近使用',
   'launcher.empty': '没有匹配的工具',
-  'launcher.clear_search': '清除搜索',
   'launcher.unknown_title': '工具不存在',
   'launcher.unknown_desc': '该工具地址无效，可能已被移动或重命名。',
   'workbench.menu.more': '更多',
@@ -1547,14 +1524,6 @@ export const zhCN: LocaleDictionary = {
   'welcome.start.debut': '30 秒：做一张论文图',
   'welcome.start.recent': '继续最近项目',
   'welcome.start.samples': '浏览示例数据集',
-  'modes.standard.title': '标准模式',
-  'modes.standard.desc': '三栏插件工作台',
-  'modes.flow.title': '流程模式',
-  'modes.flow.desc': 'DAG 积木编排实验流程',
-  'modes.block.title': '积木模式',
-  'modes.block.desc': 'Blockly 块状程序编辑器',
-  'modes.code.title': '代码模式',
-  'modes.code.desc': 'Monaco 代码编辑器与 Python 运行',
 
   // ---- Utility toolkit (unit-convert / calc / format-convert / sigfig /
   //      molar-mass / quick-stats) ------------------------------------------

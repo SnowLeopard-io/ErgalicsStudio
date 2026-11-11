@@ -4,7 +4,7 @@
 
 import { fmt as fmtNum } from '@/pages/research/researchUi';
 
-export interface HeatMapProps {
+interface HeatMapProps {
   xVals: number[];
   yVals: number[];
   grid: number[][];

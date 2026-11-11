@@ -17,7 +17,7 @@ import { workspaceJSONToIR, irToWorkspaceJSON } from './convert';
 import type { IRProgram } from '../ir/types';
 
 /** Theme name (dark variants get their own so redefinition never throws). */
-export const THEME_NAME = (dark: boolean) => (dark ? 'studio-kids-dark' : 'studio-kids');
+const THEME_NAME = (dark: boolean) => (dark ? 'studio-kids-dark' : 'studio-kids');
 
 // Blockly locale/theme are process-global. Re-applying them on every workspace
 // creation (each block/flow file tab mount) meant spreading the whole message

@@ -173,7 +173,7 @@ function exampleContent(name: string): Promise<string> {
  * suite to the top of the "示例" dialog's dataset tab; otherwise samples
  * inherit their plugin's sidebar discipline.
  */
-export type ExampleGroup = 'lab' | 'chem' | PluginDiscipline;
+type ExampleGroup = 'lab' | 'chem' | PluginDiscipline;
 
 export interface BuiltinExample {
   id: string;
@@ -3588,31 +3588,6 @@ export function exampleName(ex: BuiltinExample, locale: Locale): string {
 }
 export function exampleDescription(ex: BuiltinExample, locale: Locale): string {
   return ex.descriptionI18n[locale] ?? '';
-}
-
-/**
- * Split the sample list into the labelled group sections shown first in the
- * "示例" dialog, plus everything else. Keeps authoring order inside each part.
- */
-export function groupExamples(list: BuiltinExample[]): {
-  groups: { key: ExampleGroup; items: BuiltinExample[] }[];
-  rest: BuiltinExample[];
-} {
-  const groups: { key: ExampleGroup; items: BuiltinExample[] }[] = [];
-  const rest: BuiltinExample[] = [];
-  for (const ex of list) {
-    if (!ex.group) {
-      rest.push(ex);
-      continue;
-    }
-    let bucket = groups.find((g) => g.key === ex.group);
-    if (!bucket) {
-      bucket = { key: ex.group, items: [] };
-      groups.push(bucket);
-    }
-    bucket.items.push(ex);
-  }
-  return { groups, rest };
 }
 
 /** Wrap sample content into a real File so plugins load it like user data. */

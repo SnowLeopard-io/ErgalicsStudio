@@ -590,13 +590,6 @@
   content: '▸ ';
   color: var(--color-text-tertiary);
 }
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
 .plugin-list {
   list-style: none;
   margin: 0;
@@ -1449,34 +1442,9 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
-
-.git-panel-changes {
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
 .git-clean {
   color: var(--color-text-tertiary);
 }
-
-.git-changes-btn {
-  all: unset;
-  cursor: pointer;
-  color: var(--color-accent-text);
-  font-size: var(--font-size-sm);
-  text-decoration: underline dotted;
-}
-
-.git-changes-btn:hover {
-  text-decoration-style: solid;
-}
-
-.git-commit-row {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 .git-commit-input {
   flex: 1;
   min-width: 0;
@@ -2148,20 +2116,6 @@
   color: var(--color-warning);
 }
 
-.perf-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-  flex-shrink: 0;
-}
-
-.perf-entry.perf-warn .perf-dot {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
-}
-
 /* ==========================================================================
    Plugin dialog
    ========================================================================== */
@@ -2384,55 +2338,12 @@
   background: var(--cat-utility-soft);
   color: var(--cat-utility);
 }
-
-.example-data-subtitle {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-3);
-}
-
 .example-data-tags {
   display: flex;
   gap: var(--space-1);
   flex-wrap: wrap;
   margin-top: var(--space-2);
 }
-
-/* Labelled sections inside the "示例" dialog dataset tab. */
-.example-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.example-group + .example-group {
-  margin-top: var(--space-4);
-}
-
-.example-group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.example-group-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--color-text-primary);
-}
-
-.example-group-count {
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  line-height: 18px;
-}
-
 /* "示例" dialog datasets tab: left type selector + right example list. */
 .example-layout {
   display: flex;
@@ -3148,21 +3059,6 @@
   white-space: pre-wrap;
   color: var(--color-text-secondary);
 }
-
-/* Lab pages (research tools promoted from dialogs): drop the modal-era
-   height cap so content flows in the page scroll. */
-.lab-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.lab-page .analysis-body {
-  max-height: none;
-  overflow: visible;
-}
-
 /* AnalysisPage now renders as a full-page /studio/<tool> inside ToolShell,
    which scrolls the whole body (tool-body: overflow-y:auto). Drop the
    modal-era 72vh cap there too, or the content is squeezed to the top, the
@@ -3425,12 +3321,6 @@
   max-height: calc(100vh - 32px);
   overflow-y: auto;
 }
-
-/* Audience chooser: two stacked full-width identity cards. */
-.tour-menu-grid.is-audience {
-  grid-template-columns: 1fr;
-}
-
 /* Intro (track briefing) step: multi-line copy, wider hero card. */
 .tour-tip-hero:has(.tour-intro-body) {
   width: min(640px, calc(100vw - 48px));
@@ -3699,12 +3589,6 @@
   align-items: center;
   justify-content: center;
 }
-
-.modal-sm {
-  min-width: 320px;
-  max-width: 380px;
-}
-
 .plugin-view {
   height: 100vh;
   display: flex;
@@ -3937,13 +3821,6 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
-
-.runs-diff-list {
-  margin: 0 0 var(--space-2);
-  padding-left: var(--space-5);
-  font-size: var(--font-size-sm);
-}
-
 /* ---- Research modules — data lineage dialog (design tokens only) --------- */
 
 .lineage-dialog {
@@ -4307,33 +4184,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
-
-/* ---- Research modules — Figure Studio (/figures) ------------------------- */
-
-.figures-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-height: 100vh;
-  padding: var(--space-4) var(--space-5);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.figures-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.figures-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
 /* The sheet selector lives inside the flex-wrap header-extra row. `.input`
    defaults to width:100%, which resolves against the shrink-to-fit flex
    container and pushes the action buttons onto a second line; size it to
@@ -4657,26 +4507,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
-
-/* ---- Research modules — Notebook (/notebook) ------------------------------ */
-
-.nb-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-height: 100vh;
-  padding: var(--space-4) var(--space-5);
-  max-width: 980px;
-  margin: 0 auto;
-}
-
-.nb-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
 .nb-cells {
   display: flex;
   flex-direction: column;
@@ -5608,17 +5438,6 @@
   color: var(--color-error);
   background: var(--color-bg-hover);
 }
-
-/* Mode selection as a single-line segmented control (replaces the four
-   large mode cards on the welcome page; the shared mode cards remain in use
-   by the workbench empty state). */
-.welcome-modes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 /* One-line environment status strip: the four checks side by side, each a
    dot + label (+ GPU name). Permanent — never collapsible. */
 .welcome-envbar {
@@ -5677,91 +5496,6 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
-}
-
-.central-empty-modes {
-  /* Cap by the parent (the central viewport), never by 94vw — vw includes
-     the sidebar/panel widths, so the grid used to spill over them. */
-  width: min(860px, 100%);
-  margin-top: var(--space-2);
-}
-
-.wb-modes-grid {
-  display: grid;
-  /* Auto-fit keeps 3 columns on wide areas and folds to 2/1 as the central
-     viewport narrows, without media queries (area width ≠ viewport width). */
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3);
-}
-
-.wb-mode-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-  min-width: 0;
-  transition: border-color var(--transition-fast), transform var(--transition-fast),
-    box-shadow var(--transition-fast), background var(--transition-fast);
-}
-
-.wb-mode-card:hover {
-  border-color: var(--color-accent);
-  background: var(--color-bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
-}
-
-.wb-mode-card:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.wb-mode-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wb-mode-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-.wb-mode-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.wb-mode-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.wb-mode-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wb-mode-desc {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-  line-height: 1.4;
-  /* Single line with ellipsis: wrapping inside a narrow card looks messy. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -6843,15 +6577,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-bg-primary);
 }
-
-.course-chip-teacher {
-  background: var(--color-accent);
-}
-
-.course-chip-student {
-  background: var(--color-accent);
-}
-
 .course-change-btn {
   color: var(--color-text-secondary);
 }
@@ -7223,17 +6948,6 @@
   gap: 6px;
   margin-top: auto;
 }
-
-.gallery-repro-locked {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.gallery-repro-drifted {
-  color: var(--color-warning);
-  border-color: var(--color-warning);
-}
-
 .gallery-detail {
   display: flex;
   flex-direction: column;
@@ -7618,36 +7332,6 @@
   margin: 0 2px;
   color: var(--color-text-tertiary);
   font-size: var(--font-size-xs);
-}
-
-/* ---- 模式同步指示点 ---- */
-
-.topbar-cluster > :last-child.mode-sync-dot {
-  /* 集群的 last-child 端盖圆角规则会把右两角压平成 calc(radius-sm-1px)，
-     让圆点右半看起来被"切掉"；这里恢复四角全圆。 */
-  border-radius: 999px;
-}
-
-.mode-sync-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  margin-left: 6px;
-  margin-right: 10px;
-  flex: 0 0 auto;
-  transition:
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.mode-sync-dot.is-synced {
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-}
-
-.mode-sync-dot.is-diverged {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
 }
 
 /* ---- 侧栏 / 右栏拖拽手柄 ---- */
@@ -8226,15 +7910,6 @@
 .plot-readout-val {
   color: var(--color-text-primary);
 }
-
-.plot-readout-nearest .plot-readout-key {
-  color: var(--color-accent);
-}
-
-.plot-readout-nearest .plot-readout-val {
-  color: var(--color-accent-text);
-}
-
 /* ---- 紧凑空状态（列表/侧栏内的空提示） ---- */
 
 .empty-state-inline {
@@ -8838,39 +8513,6 @@
 .central-file-loading {
   background: var(--color-bg-primary);
 }
-
-/* 顶部标签条：文件名 + 只读标记 + 关闭。 */
-.central-file-preview-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  padding: 0 var(--space-2) 0 var(--space-3);
-  height: 36px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
-}
-
-.central-file-preview-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.central-file-preview-readonly {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 1px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
 .central-file-preview-content {
   flex: 1;
   min-height: 0;
@@ -9011,8 +8653,6 @@
   min-height: 0;
   display: flex;
 }
-
-.central-md-body.mode-edit .central-md-edit,
 .central-md-body.mode-preview .central-md-preview {
   width: 100%;
 }
@@ -9108,11 +8748,7 @@
   border-left: 3px solid var(--color-accent);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
-}
-
-/* GFM task lists: hide the raw checkbox disabled state, keep spacing tight. */
-.central-md-preview li.task-list-item,
-.nb-md li.task-list-item {
+}/* GFM task lists: hide the raw checkbox disabled state {
   list-style: none;
   margin-left: -18px;
 }
@@ -10883,7 +10519,6 @@
     height: 44px;
   }
 }
-
 
 /* Touch: no hover in the change tree — keep the per-file stage action
    permanently visible and at the shared 36px rail width. */
