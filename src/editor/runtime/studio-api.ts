@@ -30,21 +30,19 @@ import type { NormalizeMode, SortDirection } from '@/blocks/ops';
 import { parseDataText } from '@/blocks/fileData';
 import {
   createDataTable,
-  isDataTable,
   type DataTable,
-  type DataValue,
   type RenderedView,
 } from '@/types/datatable';
 import type { VizPayload } from '@/blocks/catalog/visualize';
 
-export type PlotType =
+type PlotType =
   | 'scatter'
   | 'line'
   | 'histogram'
   | 'pointcloud'
   | 'point-cloud';
 
-export interface PlotOpts {
+interface PlotOpts {
   x?: string;
   y?: string;
   z?: string;
@@ -54,7 +52,7 @@ export interface PlotOpts {
 }
 
 /** Comparison operators a column filter may use. */
-export type ComparisonOp = '==' | '!=' | '<' | '<=' | '>' | '>=';
+type ComparisonOp = '==' | '!=' | '<' | '<=' | '>' | '>=';
 
 export type NotifyKind = 'info' | 'success' | 'warning' | 'error';
 
@@ -382,10 +380,4 @@ export function createStudioApi(
   };
 
   return api;
-}
-
-/** Narrow a value flowing through the runtime to a DataTable. */
-export function requireDataTable(value: unknown): DataTable {
-  if (isDataTable(value as DataValue | undefined)) return value as DataTable;
-  throw new Error('expected a DataTable');
 }

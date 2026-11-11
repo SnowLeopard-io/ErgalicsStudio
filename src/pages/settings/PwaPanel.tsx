@@ -20,7 +20,7 @@ import {
   swSupported,
 } from '@/core/pwa';
 
-export interface PwaPanelProps {
+interface PwaPanelProps {
   classPrefix?: string;
 }
 

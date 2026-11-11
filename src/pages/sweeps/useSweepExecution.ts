@@ -15,16 +15,16 @@ import { isAbortError, normalizeError, toErrorMessage } from '@/core/errors';
 import { reportError } from '@/core/errors';
 
 export type NotifyKind = 'success' | 'error' | 'info' | 'warning';
-export type NotifyFn = (kind: NotifyKind, message: string) => void;
+type NotifyFn = (kind: NotifyKind, message: string) => void;
 export type TFn = (key: string, params?: Record<string, string | number>) => string;
 
-export interface SweepExecutionOptions {
+interface SweepExecutionOptions {
   saveResult: (result: SweepResult) => void;
   notify: NotifyFn;
   t: TFn;
 }
 
-export interface RunRequest {
+interface RunRequest {
   plan: SweepPlan;
   resume: boolean;
   existing: SweepResult | null;

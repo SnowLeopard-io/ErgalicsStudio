@@ -591,15 +591,6 @@
   border-bottom-color: var(--color-accent);
 }
 
-.data-pipeline-option {
-  padding: var(--space-4);
-}
-
-.data-pipeline-desc {
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-3);
-}
-
 /* ---- toolbar diagnostics ---- */
 
 .block-toolbar-wrap {
@@ -622,35 +613,6 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-error);
-}
-
-/* ---- editor (block/code) placeholder ---- */
-
-.editor-placeholder {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-primary);
-}
-
-.editor-placeholder-icon {
-  font-size: 40px;
-  line-height: 1;
-}
-
-.editor-placeholder-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.editor-placeholder-hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
 }
 
 /* ==========================================================================
@@ -883,19 +845,6 @@
   min-width: 0;
 }
 
-/* Variables pane docked to the right of the console. */
-.block-editor-vars {
-  display: flex;
-  flex: none;
-  min-width: 0;
-  min-height: 0;
-}
-
-.block-editor-vars > .editor-panel {
-  flex: 1;
-  min-width: 0;
-}
-
 /* ---- panel splitters (pointer + keyboard resizable) ---- */
 
 .be-splitter {
@@ -904,11 +853,6 @@
   background: transparent;
   touch-action: none;
   z-index: 2;
-}
-
-.be-splitter.is-vertical {
-  width: 12px;
-  cursor: col-resize;
 }
 
 .be-splitter.is-horizontal {
@@ -925,12 +869,6 @@
   border-radius: 999px;
   background: var(--color-border);
   transition: background var(--transition-fast), transform var(--transition-fast);
-}
-
-.be-splitter.is-vertical::before {
-  width: 2px;
-  height: 32px;
-  transform: translate(-50%, -50%);
 }
 
 .be-splitter.is-horizontal::before {
@@ -1064,17 +1002,6 @@
   color: var(--color-text-primary);
   white-space: pre;
   background: var(--color-bg-primary);
-}
-
-/* ---------- right column: stacked cards ---------- */
-
-.block-editor-right {
-  width: 308px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
 }
 
 /* Preview card — the only occupant of the side column, so it takes the
@@ -1495,11 +1422,6 @@
   line-height: 1;
 }
 
-.be-switch-editor {
-  flex: 1;
-  min-height: 0;
-}
-
 .be-switch-preview-foot {
   display: flex;
   align-items: center;
@@ -1535,70 +1457,6 @@
   background: var(--color-accent);
   color: var(--color-text-inverse);
   border-color: var(--color-accent);
-}
-
-.be-switch-undo {
-  position: absolute;
-  /* Centred pill that grows with its content. With `left: 50%` alone the
-     shrink-to-fit width was capped at half the editor, so the message and the
-     action button wrapped onto two lines. */
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: max-content;
-  max-width: calc(100% - 24px);
-  bottom: 22px;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.be-switch-undo-text {
-  opacity: 0.85;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.be-switch-undo-btn {
-  flex: 0 0 auto;
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  border: none;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.be-switch-undo-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  background: none;
-  border: none;
-  padding: 2px;
-  /* Buttons do not inherit text colour (UA default is ButtonText), which
-     looked wrong in the light theme; follow the themed text tokens. */
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  opacity: 0.7;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.be-switch-undo-x:hover {
-  color: var(--color-text-primary);
-  opacity: 1;
 }
 
 /* ---- Mode conversion confirmation dialog (workbench-wide) ---------------- */
@@ -1671,16 +1529,6 @@
   line-height: 1.5;
   overflow: auto;
   white-space: pre;
-}
-
-/* ==========================================================================
-   ☰ panel toggle (P2): the block/code right pane hosts plugin containers via
-   refs and must stay mounted — hide with CSS rather than unmounting.
-   ========================================================================== */
-
-.block-editor-right.is-panel-hidden,
-.block-workbench-left.is-panel-hidden {
-  display: none;
 }
 
 /* ---- Flow mode: legend + live node/connection counts (left pane footer) ---- */

@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react';
 import type { UIEvent } from 'react';
 
-export interface VirtualTableColumn {
+interface VirtualTableColumn {
   name: string;
   title?: string;
 }

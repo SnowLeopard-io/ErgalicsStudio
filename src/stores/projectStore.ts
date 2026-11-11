@@ -40,7 +40,7 @@ import type { RunRecord } from '@/core/experiment/record';
 // Re-exported for existing consumers (GitPanel).
 export { generateCommitMessage };
 
-export type ProjectStatus =
+type ProjectStatus =
   | 'ready'
   | 'saving'
   | 'saved'
@@ -48,7 +48,7 @@ export type ProjectStatus =
   | 'loading'
   | 'error';
 
-export interface GitRepoInfo {
+interface GitRepoInfo {
   isRepo: boolean;
   status: GitStatus | null;
   branches: GitBranch[];

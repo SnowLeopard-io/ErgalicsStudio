@@ -256,7 +256,7 @@ export function unaryColumn(a: Float64Array, op: (v: number) => number): Float64
 
 // ---- summary / histogram ----
 
-export interface ColumnSummary {
+interface ColumnSummary {
   mean: number;
   std: number;
   min: number;

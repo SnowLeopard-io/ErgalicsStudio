@@ -65,7 +65,7 @@ export function setProjectFiles(files: FileEntry[]): void {
 }
 
 /** Decode a stored FileEntry back to its text content. */
-export function decodeFileEntry(entry: FileEntry): string {
+function decodeFileEntry(entry: FileEntry): string {
   // Data files are stored as plain text. Keep this a single source of truth
   // in case a binary (base64) path is added later.
   return entry.content;
@@ -77,7 +77,7 @@ export function listProjectFiles(): string[] {
 }
 
 /** Resolve a project data file's text by name (or undefined). */
-export function resolveProjectFile(path: string): string | undefined {
+function resolveProjectFile(path: string): string | undefined {
   const base = basename(path);
   return projectFiles.get(base);
 }
@@ -92,7 +92,7 @@ export async function resolveDataFile(path: string): Promise<string | undefined>
 }
 
 /** Resolve a bundled example file by name (async — lazily fetched). */
-export async function resolveBundledFile(path: string): Promise<string | undefined> {
+async function resolveBundledFile(path: string): Promise<string | undefined> {
   return loadBundledFile(path);
 }
 
@@ -123,7 +123,7 @@ export function setWorkspaceSnapshot(files: Record<string, string>): void {
   workspaceNames = Array.from(names);
 }
 
-export type WorkspaceFileSource = () => Promise<Record<string, string>>;
+type WorkspaceFileSource = () => Promise<Record<string, string>>;
 
 let workspaceSource: WorkspaceFileSource | null = null;
 
@@ -157,7 +157,7 @@ export async function collectWorkspaceFiles(): Promise<Record<string, string>> {
  * is added when unambiguous so the older `studio.load('x.csv')` form still
  * works.
  */
-export async function collectWorkspaceRuntimeFiles(): Promise<Record<string, string>> {
+async function collectWorkspaceRuntimeFiles(): Promise<Record<string, string>> {
   const files = await readWorkspaceSource();
   const out: Record<string, string> = {};
   for (const [path, text] of Object.entries(files)) {
@@ -210,6 +210,27 @@ export async function collectRuntimeFiles(): Promise<Record<string, string>> {
   return out;
 }
 
+/**
+ * The PROJECT's own files — the working tree plus the data registry, keyed
+ * by their real relative paths.
+ *
+ * This is deliberately NOT collectRuntimeFiles(): that one also folds in the
+ * bundled example catalogue (the 示例 datasets) and adds basename aliases,
+ * which is right for `studio.load()` during a run but wrong for the
+ * terminal, whose `ls` must show the project tree as it is on disk.
+ */
+export async function collectProjectFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  if (Object.keys(files).length) {
+    setWorkspaceSnapshot(collectDataFrom(files));
+  }
+  const out: Record<string, string> = { ...files };
+  for (const [name, text] of projectFiles) {
+    if (!(name in out)) out[name] = text;
+  }
+  return out;
+}
+
 /** Filter a runtime file map down to data formats (picker snapshot). */
 function collectDataFrom(files: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -219,7 +240,7 @@ function collectDataFrom(files: Record<string, string>): Record<string, string> 
   return out;
 }
 
-export interface GroupedDataFiles {
+interface GroupedDataFiles {
   /** User-imported project files, in insertion order. */
   project: string[];
   /** Bundled example datasets (names shadowed by project files excluded). */
@@ -235,8 +256,6 @@ export interface GroupedDataFiles {
 
 /** Tabular / series data (signal, model fit, statistics, SQL, uncertainty). */
 export const DATA_EXTS_SERIES: readonly string[] = ['.csv', '.tsv', '.txt', '.dat', '.json'];
-/** Point-cloud / geometric data (.xyz coordinate dumps + tabular fallbacks). */
-export const DATA_EXTS_POINT: readonly string[] = ['.xyz', '.csv', '.tsv', '.txt', '.dat'];
 
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.');

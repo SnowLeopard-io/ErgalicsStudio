@@ -73,19 +73,6 @@ export function quantile(xs: number[], q: number): number {
   return s[lo]! * (1 - t) + s[hi]! * t;
 }
 
-/** Empirical CDF evaluated at `x`: P(X <= x). */
-export function ecdf(sortedValues: number[], x: number): number {
-  if (sortedValues.length === 0) return 0;
-  let lo = 0;
-  let hi = sortedValues.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (sortedValues[mid]! <= x) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo / sortedValues.length;
-}
-
 /** Two-sample Kolmogorov–Smirnov statistic sup|F1(x) - F2(x)|. */
 export function ksStatistic(a: number[], b: number[]): number {
   if (a.length === 0 || b.length === 0) return 0;
@@ -132,7 +119,7 @@ export function pearson(a: number[], b: number[]): number {
 }
 
 /** Average-rank transform (ties share the mean of their positions, 1-based). */
-export function averageRanks(values: number[]): number[] {
+function averageRanks(values: number[]): number[] {
   const n = values.length;
   const idx = Array.from({ length: n }, (_, i) => i).sort((x, y) => values[x]! - values[y]!);
   const ranks = new Array<number>(n).fill(0);
@@ -296,7 +283,7 @@ export function toCsv(table: SynthTable): string {
 
 // ---- column typing -----------------------------------------------------------
 
-export type ColumnRole = 'numeric' | 'categorical' | 'boolean' | 'text' | 'id' | 'empty';
+type ColumnRole = 'numeric' | 'categorical' | 'boolean' | 'text' | 'id' | 'empty';
 
 const BOOL_TRUE = new Set(['true', 'yes', 'y', '1', 't']);
 const BOOL_FALSE = new Set(['false', 'no', 'n', '0', 'f']);
@@ -311,7 +298,7 @@ function truthyCell(s: string): boolean | null {
 }
 
 /** Classify one column from its string cells (null = missing). */
-export function profileRole(cells: string[]): { role: ColumnRole; missing: number; unique: number } {
+function profileRole(cells: string[]): { role: ColumnRole; missing: number; unique: number } {
   const total = cells.length;
   if (total === 0) return { role: 'empty', missing: 0, unique: 0 };
   let missing = 0;
@@ -348,7 +335,7 @@ export function profileRole(cells: string[]): { role: ColumnRole; missing: numbe
 
 export type DistKind = 'constant' | 'normal' | 'lognormal' | 'uniform' | 'exponential';
 
-export interface DistFit {
+interface DistFit {
   kind: DistKind;
   ks: number;
   /** Named parameters: mu/sigma, mulog/sigmalog, a/b, or rate. */
@@ -427,7 +414,7 @@ export function sampleDist(fit: DistFit, rng: Rng): number {
 
 // ---- table model ------------------------------------------------------------
 
-export interface ColumnModel {
+interface ColumnModel {
   name: string;
   role: ColumnRole;
   missingRate: number;
@@ -449,7 +436,7 @@ export interface ColumnModel {
   unique?: number;
 }
 
-export interface SynthModel {
+interface SynthModel {
   columns: ColumnModel[];
   rowCount: number;
 }
@@ -528,7 +515,7 @@ export function lag1Autocorr(xs: number[]): number {
 }
 
 /** Draw one value from an empirical marginal via the type-7 quantile function. */
-export function sampleEmpirical(sorted: number[], u: number): number {
+function sampleEmpirical(sorted: number[], u: number): number {
   return quantile(sorted, u);
 }
 
@@ -639,7 +626,7 @@ export function cholesky(matrix: number[][]): number[][] | null {
 }
 
 /** Cholesky with escalating jitter fallback; never returns null for finite input. */
-export function choleskySafe(matrix: number[][]): number[][] {
+function choleskySafe(matrix: number[][]): number[][] {
   const direct = cholesky(matrix);
   if (direct) return direct;
   for (const jitter of [1e-10, 1e-8, 1e-6, 1e-4]) {
@@ -652,7 +639,7 @@ export function choleskySafe(matrix: number[][]): number[][] {
 
 // ---- Gaussian copula ---------------------------------------------------------
 
-export interface CopulaBundle {
+interface CopulaBundle {
   /** Column models participating (non-constant numeric). */
   columns: ColumnModel[];
   /** PSD-corrected normal-score correlation matrix. */
@@ -665,7 +652,7 @@ export interface CopulaBundle {
  * Build the Gaussian-copula kit: per-column empirical marginals plus the
  * correlation matrix of the normal scores (rank → Φ⁻¹), PSD-corrected.
  */
-export function buildCopula(numeric: ColumnModel[]): CopulaBundle {
+function buildCopula(numeric: ColumnModel[]): CopulaBundle {
   const usable = numeric.filter((c) => (c.sorted?.length ?? 0) >= 2 && (c.fit?.kind ?? 'constant') !== 'constant');
   const m = usable.length;
   if (m === 0) return { columns: [], corr: [], chol: [] };
@@ -697,7 +684,7 @@ export function buildCopula(numeric: ColumnModel[]): CopulaBundle {
  * column (empirical quantile transform). Returns values aligned with
  * `bundle.columns`.
  */
-export function sampleCopulaRow(
+function sampleCopulaRow(
   bundle: CopulaBundle,
   rng: Rng,
   dpMarginals?: Array<DpMarginal | null>,
@@ -743,11 +730,11 @@ export function dpMean(values: number[], epsilon: number, rng: Rng): { value: nu
 }
 
 /** Noisy histogram: counts + Laplace(0, 1/ε) (sensitivity 1 per row), floored at 0. */
-export function dpHistogramCounts(counts: number[], epsilon: number, rng: Rng): number[] {
+function dpHistogramCounts(counts: number[], epsilon: number, rng: Rng): number[] {
   return counts.map((c) => Math.max(0, c + laplaceNoise(rng, epsilon, 1)));
 }
 
-export interface DpMarginal {
+interface DpMarginal {
   /** Bin edges (ascending, length = bins + 1). */
   edges: number[];
   /** DP-noised, renormalized bin probabilities. */
@@ -755,7 +742,7 @@ export interface DpMarginal {
 }
 
 /** Build an ε-DP piecewise-uniform marginal from a numeric column (histogram + Laplace). */
-export function buildDpMarginal(values: number[], bins: number, epsilon: number, rng: Rng): DpMarginal {
+function buildDpMarginal(values: number[], bins: number, epsilon: number, rng: Rng): DpMarginal {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const width = hi > lo ? (hi - lo) / bins : 1;
@@ -776,7 +763,7 @@ export function buildDpMarginal(values: number[], bins: number, epsilon: number,
 }
 
 /** Inverse CDF of a DP histogram marginal at probability `u` (no extra RNG). */
-export function dpMarginalQuantile(dp: DpMarginal, u: number): number {
+function dpMarginalQuantile(dp: DpMarginal, u: number): number {
   const clamped = Math.min(1 - 1e-12, Math.max(0, u));
   let acc = 0;
   const last = dp.probs.length - 1;
@@ -794,12 +781,12 @@ export function dpMarginalQuantile(dp: DpMarginal, u: number): number {
 }
 
 /** Inverse-CDF draw from a DP histogram marginal (uniform within the bin). */
-export function sampleDpMarginal(dp: DpMarginal, rng: Rng): number {
+function sampleDpMarginal(dp: DpMarginal, rng: Rng): number {
   return dpMarginalQuantile(dp, rng());
 }
 
 /** ε-DP category frequencies: Laplace(1/ε) on each count, renormalized. */
-export function dpFrequencies(counts: number[], epsilon: number, rng: Rng): number[] {
+function dpFrequencies(counts: number[], epsilon: number, rng: Rng): number[] {
   const noisy = counts.map((c) => Math.max(0, c + laplaceNoise(rng, epsilon, 1)));
   const total = noisy.reduce((s, c) => s + c, 0);
   if (total <= 0) return counts.map(() => 1 / Math.max(1, counts.length));
@@ -807,7 +794,7 @@ export function dpFrequencies(counts: number[], epsilon: number, rng: Rng): numb
 }
 
 /** Noisy missing rate: the missing-count statistic + Laplace(1/ε). */
-export function dpMissingRate(missingCount: number, total: number, epsilon: number, rng: Rng): number {
+function dpMissingRate(missingCount: number, total: number, epsilon: number, rng: Rng): number {
   if (total <= 0) return 0;
   const noisy = Math.max(0, missingCount + laplaceNoise(rng, epsilon, 1));
   return Math.min(1, noisy / total);
@@ -815,7 +802,7 @@ export function dpMissingRate(missingCount: number, total: number, epsilon: numb
 
 // ---- privacy: k-anonymity -----------------------------------------------------
 
-export interface KAnonResult {
+interface KAnonResult {
   table: SynthTable;
   /** Rows removed because their equivalence class was smaller than k. */
   suppressed: number;
@@ -900,7 +887,7 @@ export function applyKAnonymity(table: SynthTable, k: number, bins = 8): KAnonRe
 
 // ---- quality metrics ---------------------------------------------------------
 
-export interface QualityDetail {
+interface QualityDetail {
   column: string;
   kind: 'numeric' | 'categorical' | 'boolean' | 'skipped';
   /** Two-sample KS statistic (numeric columns). */

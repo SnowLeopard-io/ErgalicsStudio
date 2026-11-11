@@ -15,12 +15,12 @@ import type { DataTable } from '@/types/datatable';
 import type { PlotSpec } from '@/core/plot';
 import { useFigureStore } from '@/stores/figureStore';
 
-export interface DataFileGroups {
+interface DataFileGroups {
   project: string[];
   examples: string[];
 }
 
-export function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
+function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
   return listDataFilesGrouped(allow);
 }
 
@@ -107,7 +107,7 @@ export function useFileCols(file: string): Pick<LoadedTable, 'numericCols' | 'al
   return cols;
 }
 
-export interface LoadedTable {
+interface LoadedTable {
   table: DataTable;
   numericCols: string[];
   allCols: string[];

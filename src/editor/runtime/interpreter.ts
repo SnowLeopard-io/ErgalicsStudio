@@ -285,7 +285,7 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
   return map;
 }
 
-export interface InterpreterResult {
+interface InterpreterResult {
   ok: boolean;
   /** Top-level variables, mapped to panel-ready DataValue. */
   variables: Record<string, DataValue>;

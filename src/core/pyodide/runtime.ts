@@ -79,6 +79,9 @@ export function createCodeRuntime(host: CodeRuntimeHost) {
   return {
     runPython,
     repl: (code: string) => runtime.repl(code),
+    mountWorkspace: (files: Record<string, string>) => runtime.mountWorkspace(files),
+    installPackages: (packages: string[]) => runtime.installPackages(packages),
+    collectWorkspaceFiles: () => runtime.collectWorkspaceFiles(),
     interrupt: () => runtime.interrupt(),
     dispose: () => runtime.dispose(),
   };

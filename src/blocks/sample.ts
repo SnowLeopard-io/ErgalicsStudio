@@ -12,7 +12,7 @@ import type { Locale } from '@/i18n';
 import { deserializeProject } from '@/types/project';
 import type { BlockGraphState } from '@/types/block';
 
-export interface SamplePipeline {
+interface SamplePipeline {
   id: string;
   nameI18n: Record<Locale, string>;
   descriptionI18n: Record<Locale, string>;

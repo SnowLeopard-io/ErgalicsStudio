@@ -35,7 +35,7 @@ export interface UserProfile {
 
 const STORAGE_KEY = 'ergalics:user-profile';
 
-export const EMPTY_PROFILE: UserProfile = {
+const EMPTY_PROFILE: UserProfile = {
   name: '',
   avatar: '',
   email: '',

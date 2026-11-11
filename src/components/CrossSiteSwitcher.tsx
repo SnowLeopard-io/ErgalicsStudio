@@ -14,11 +14,11 @@ const CLOSE_DELAY_MS = 420;
  * three properties look and behave the same. In production all three share one
  * origin (GitHub Pages); in dev they fall back to each workspace's fixed port.
  *
- * It now rests as a thin "puddle" merged into the top edge of the status bar
- * and only rises into the full pill while the pointer is near that bead (or
+ * It now rests as a thin "puddle" merged into the bottom edge of the top bar
+ * and only drops into the full pill while the pointer is near that bead (or
  * the menu itself is hovered / focused). Touch devices have no hover, so the
  * bead rests there too and a tap reveals the pill; a tap anywhere else tucks
- * it back behind the status bar.
+ * it back behind the top bar.
  */
 export function CrossSiteSwitcher() {
   const t = useT();

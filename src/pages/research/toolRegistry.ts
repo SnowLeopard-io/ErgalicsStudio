@@ -26,7 +26,7 @@ export type ResearchGroupId =
    *  the last group in the launchers, visually separate from research suites. */
   | 'utils';
 
-export interface ResearchTool {
+interface ResearchTool {
   /** Stable id, also the /studio/<id> slug. */
   id: string;
   /** Canonical route. */
@@ -202,11 +202,6 @@ export function getTool(id: string | undefined): ResearchTool | undefined {
 }
 
 export const GRID_TOOLS = RESEARCH_TOOLS.filter((x) => x.inGrid);
-
-/** Legacy path → tool map for the old-route redirects in App.tsx. */
-export const TOOLS_BY_LEGACY_PATH = new Map(
-  RESEARCH_TOOLS.map((x) => [x.legacyPath, x] as const),
-);
 
 /**
  * Open a research suite embedded in the Standard-mode central canvas instead

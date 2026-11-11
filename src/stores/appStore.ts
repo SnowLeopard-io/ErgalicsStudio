@@ -6,7 +6,7 @@ import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
-export interface Banner {
+interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
@@ -29,7 +29,7 @@ export interface Notification {
   action?: { label: string; run: () => void };
 }
 
-export interface PerfMetrics {
+interface PerfMetrics {
   fps: number;
   frameMs: number;
   gpuMs: number;
@@ -110,7 +110,7 @@ export type FileEditorKind = 'code' | 'block' | 'flow';
  *  "save & close" (from the tab strip) can write without reaching into the
  *  editor component; editors push their debounced buffer via
  *  `updateEditorFile`. */
-export interface EditorFileState {
+interface EditorFileState {
   name: string;
   path: string;
   editor: FileEditorKind;
@@ -146,11 +146,11 @@ export const editorTabKey = (path: string): string => `editor:${path}`;
 /** Tab key for an embedded workbench surface (flow / block / code). A surface
  *  bound to a file gets its own key so several sources can stay open at once
  *  (e.g. `a.py` and `b.py`), each with its own editor session. */
-export const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
+const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
   path ? `surface:${mode}:${path}` : `surface:${mode}`;
 
 /** Stable tab key for the embedded settings page. */
-export const settingsTabKey = 'settings:app';
+const settingsTabKey = 'settings:app';
 
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The
@@ -176,6 +176,8 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
+  /** Bottom terminal drawer, freely invocable from any surface (Ctrl+`). */
+  terminalOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
@@ -199,6 +201,9 @@ interface AppStore {
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
   fileOpsVersion: number;
+  /** Path the file explorer should reveal + select (set by the terminal's
+   *  `open` command, so the tree and the editor stay in sync). */
+  revealFilePath: string | null;
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -220,6 +225,10 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  /** Toggle the bottom terminal drawer (Ctrl+` / activity-bar button). */
+  toggleTerminal: () => void;
+  /** Show or hide the terminal window (persisted with the panel prefs). */
+  setTerminalOpen: (open: boolean) => void;
   /** Select a workbench mode. Standard returns to the plugin canvas; the three
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
@@ -270,6 +279,8 @@ interface AppStore {
    *  a standalone route — same contract as file/suite tabs. */
   openSettingsTab: () => void;
   bumpFileOps: () => void;
+  /** Ask the file explorer to reveal (expand + select) a project path. */
+  setRevealFilePath: (path: string | null) => void;
 }
 
 let bannerId = 0;
@@ -281,12 +292,15 @@ const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const MEMORY_WARN_MB = 0.8 * 512;
 
 /** Panel visibility persists across reloads so a deliberately closed sidebar
- *  (or code/flow panel) stays closed next launch. */
+ *  (or code/flow panel) stays closed next launch. The terminal window is
+ *  part of the same preference set: closing it must survive a reload, and
+ *  opening it must survive one too. */
 const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
 const PANEL_DEFAULTS = {
   sidebarOpen: true,
   rightPanelOpen: true,
   sidebarView: 'plugins' as SidebarView,
+  terminalOpen: false,
 };
 
 const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
@@ -331,6 +345,7 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
       sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
         ? (parsed.sidebarView as SidebarView)
         : PANEL_DEFAULTS.sidebarView,
+      terminalOpen: parsed.terminalOpen ?? PANEL_DEFAULTS.terminalOpen,
     };
   } catch {
     return defaultPanelPrefs();
@@ -341,6 +356,7 @@ const persistPanelPrefs = (s: {
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
   sidebarView: SidebarView;
+  terminalOpen: boolean;
 }) => {
   try {
     localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
@@ -358,6 +374,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   perf: DEFAULT_PERF,
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
+  // Persisted with the panel prefs: a terminal the user closed stays closed
+  // after a reload, and one they left open comes back.
+  terminalOpen: panelPrefs.terminalOpen,
   sidebarView: panelPrefs.sidebarView,
   canvasTabs: [],
   activeTab: null,
@@ -365,6 +384,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   editorFiles: {},
   lastActivePluginId: null,
   fileOpsVersion: 0,
+  revealFilePath: null,
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -460,6 +480,21 @@ export const useAppStore = create<AppStore>((set, get) => {
   toggleRightPanel: () =>
     set((s) => {
       const next = { ...s, rightPanelOpen: !s.rightPanelOpen };
+      persistPanelPrefs(next);
+      return next;
+    }),
+  toggleTerminal: () =>
+    set((s) => {
+      const next = { ...s, terminalOpen: !s.terminalOpen };
+      // Persisted with the panel prefs: closing the terminal must survive a
+      // reload (and opening it must survive one too).
+      persistPanelPrefs(next);
+      return next;
+    }),
+  setTerminalOpen: (open: boolean) =>
+    set((s) => {
+      if (s.terminalOpen === open) return s;
+      const next = { ...s, terminalOpen: open };
       persistPanelPrefs(next);
       return next;
     }),
@@ -958,5 +993,6 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
+  setRevealFilePath: (path) => set({ revealFilePath: path }),
   };
 });

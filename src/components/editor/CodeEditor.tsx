@@ -41,7 +41,6 @@ import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
 import type { CodeRuntime } from '@/core/pyodide/runtime';
 import {
   getPythonRuntime,
-  subscribePythonOutput,
   warmPythonRuntime,
 } from '@/core/pyodide/code-runtime';
 import { createRRuntime } from '@/core/r/runtime-factory';
@@ -54,7 +53,6 @@ import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 
-import { ConsolePanel } from './ConsolePanel';
 import { SurfaceToolbar } from './SurfaceToolbar';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
@@ -91,9 +89,9 @@ export function CodeEditor() {
   const language: CodeLanguage = sessionMeta.language;
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
-  // Result preview + variables live in the workbench right sidebar now; this
-  // surface only keeps the console dock under the editor.
-  const { dockHeight, dockHandleProps } = useEditorSplit();
+  // Result preview + variables live in the workbench right sidebar; console
+  // output lives in the global terminal drawer. The dock keeps the input rows.
+  const { dockHeight } = useEditorSplit();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
@@ -225,19 +223,16 @@ export function CodeEditor() {
   useEffect(() => {
     // The interpreter is session-wide (core/pyodide/code-runtime) and is NOT
     // disposed here: switching modes or projects reuses the already-booted
-    // worker instead of paying the Pyodide download/init cost again.
+    // worker instead of paying the Pyodide download/init cost again. The
+    // stdout/stderr → console bridge lives at the workbench level now, so
+    // output keeps flowing whichever surface is in front.
     let alive = true;
     runtimeRef.current = getPythonRuntime();
-    const unsubscribe = subscribePythonOutput({
-      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
-      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
-    });
     void warmPythonRuntime().then((ok) => {
       if (alive) setRuntimeReady(ok);
     });
     return () => {
       alive = false;
-      unsubscribe();
       runtimeRef.current = null;
     };
   }, []);
@@ -405,6 +400,29 @@ export function CodeEditor() {
    *  working tree first, then project data files and bundled examples. */
   const collectFiles = async (): Promise<Record<string, string>> => collectRuntimeFiles();
 
+  /**
+   * Persist only the files a run actually produced. `result.files` is the
+   * runtime's changed-file diff; anything whose content still equals the
+   * staged input is an echo of what we mounted (the diff is a best-effort
+   * worker-side comparison) and must never be written back — otherwise every
+   * run re-materialises the staged tree (bundled examples at the workspace
+   * root included) into the project.
+   */
+  const saveRunOutputs = async (
+    files: Record<string, string> | undefined,
+    staged: Record<string, string>,
+  ): Promise<void> => {
+    if (!files) return;
+    const produced: Record<string, string> = {};
+    for (const [path, text] of Object.entries(files)) {
+      if (staged[path] === text) continue;
+      produced[path] = text;
+    }
+    if (Object.keys(produced).length === 0) return;
+    await useAppStore.getState().saveWorkspaceFiles(produced);
+  };
+
+
   /** Run JavaScript text through the IR interpreter (block-mode engine). */
   const runViaIR = async (code: string, lang: CodeLanguage): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
     const { program, rawCount } = parseCodeToIR(code, lang);
@@ -462,6 +480,10 @@ export function CodeEditor() {
     if (language === 'r' && !rRuntimeRef.current) return;
     const code = editor.getValue();
     const startedAt = Date.now();
+    // Output lands in the global terminal drawer; bring it up so the user
+    // actually sees the run happen (the open state is persisted, so a later
+    // reload keeps the terminal where the user left it).
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().setTerminalOpen(true);
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
@@ -471,14 +493,13 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
+        const staged = await collectFiles();
+        const result = await runtimeRef.current!.runPython(code, staged, {});
         if (result.ok) {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          if (result.files && Object.keys(result.files).length) {
-            await useAppStore.getState().saveWorkspaceFiles(result.files);
-          }
+          saveRunOutputs(result.files, staged);
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -568,14 +589,13 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
+        const staged = await collectFiles();
+        const result = await runtimeRef.current!.runPython(code, staged, {});
         ok = result.ok;
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          if (result.files && Object.keys(result.files).length) {
-            await useAppStore.getState().saveWorkspaceFiles(result.files);
-          }
+          saveRunOutputs(result.files, staged);
         } else {
           error = result.error ?? 'run failed';
         }
@@ -744,23 +764,11 @@ export function CodeEditor() {
           <div ref={containerRef} className="code-editor-monaco" />
         </div>
 
-        {/* Bottom dock: console under the editor; result preview and variables
-            now render in the workbench right sidebar. */}
-        <div
-          className="be-splitter is-horizontal"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label={t('editor.dock.resize')}
-          aria-valuenow={dockHeight}
-          aria-valuemin={96}
-          aria-valuemax={460}
-          tabIndex={0}
-          {...dockHandleProps}
-        />
-
+        {/* Console output lives in the global terminal drawer now — the
+            inline panel used to mirror the same store view (duplicated).
+            This dock keeps only the REPL / R-install input rows. */}
         <div className="block-editor-bottom" style={{ height: dockHeight }}>
           <div className="editor-panel editor-console-wrap">
-            <ConsolePanel />
             {/* REPL needs a persistent Python namespace — Pyodide only. */}
             {language === 'python' && (
               <div className="code-editor-repl">

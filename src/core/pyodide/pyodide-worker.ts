@@ -14,8 +14,18 @@
 import type { PyodideInterface } from 'pyodide';
 import { STUDIO_PYTHON_SOURCE } from './studio.py';
 import {
+  collectWorkspaceOutputs,
+  mountWorkspace,
+  snapshotWorkspace,
+  WORKSPACE_ROOT,
+  type WorkspaceFs,
+} from './workspace-files';
+import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
+  type CollectMessage,
+  type LoadPackagesMessage,
+  type MountMessage,
   type NotifyKind,
   type PlotMessage,
   type PlotPayload,
@@ -116,54 +126,12 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
 //   lib/stats.py        → /workspace/lib/stats.py   (importable: `import stats`)
 //
 // The interpreter runs with /workspace as its cwd, so open("out/report.csv",
-// "w") lands in the project tree as well.
+// "w") lands in the project tree as well. Mount/snapshot/diff live in
+// ./workspace-files (pure + unit-testable); only the Python-side preparation
+// stays here.
 
-const WORKSPACE_ROOT = '/workspace';
-const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
-
-interface EmscriptenFS {
-  mkdirTree(path: string): void;
-  writeFile(path: string, data: string, opts?: { encoding?: 'utf8' }): void;
-  readdir(path: string): string[];
-  readFile(path: string, opts?: { encoding: 'utf8' }): string;
-  stat(path: string): { mode: number; size: number };
-  isDir(mode: number): boolean;
-}
-
-function workspaceFs(py: PyodideInterface): EmscriptenFS {
-  return py.FS as unknown as EmscriptenFS;
-}
-
-/** Normalise a workspace path: forward slashes, no leading slash or `..`. */
-function normalizeRel(path: string): string | null {
-  const rel = path.replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!rel || rel.split('/').includes('..')) return null;
-  return rel;
-}
-
-function ensureDir(fs: EmscriptenFS, dir: string): void {
-  try {
-    fs.mkdirTree(dir);
-  } catch {
-    /* already exists */
-  }
-}
-
-/** Mount the workspace tree into the interpreter's MEMFS. */
-function mountWorkspace(py: PyodideInterface, files: Record<string, string>): void {
-  const fs = workspaceFs(py);
-  ensureDir(fs, WORKSPACE_ROOT);
-  for (const [path, text] of Object.entries(files)) {
-    const rel = normalizeRel(path);
-    if (!rel) continue;
-    const full = `${WORKSPACE_ROOT}/${rel}`;
-    try {
-      ensureDir(fs, full.slice(0, full.lastIndexOf('/')));
-      fs.writeFile(full, text, { encoding: 'utf8' });
-    } catch {
-      /* unreadable source — skip rather than fail the whole run */
-    }
-  }
+function workspaceFs(py: PyodideInterface): WorkspaceFs {
+  return py.FS as unknown as WorkspaceFs;
 }
 
 /** Make /workspace importable and clear cached modules from previous runs. */
@@ -185,53 +153,27 @@ _il.invalidate_caches()
 }
 
 /**
- * Files under /workspace that the program created or changed. Compared
- * against the mounted inputs, so a script can write `out/result.csv`
- * (relative to cwd) or `data/clean.csv` and both reach the project tree.
+ * Lighter variant for the mount path: make sure /workspace exists and is the
+ * cwd, but keep the imported modules of the session. A mount only adds files
+ * to the tree — dropping the user's imports would be a side effect nobody
+ * asked for.
  */
-function collectWorkspaceOutputs(
-  py: PyodideInterface,
-  inputs: Record<string, string>,
-): Record<string, string> {
-  const fs = workspaceFs(py);
-  const out: Record<string, string> = {};
-  const walk = (dir: string, prefix: string): void => {
-    let names: string[];
-    try {
-      names = fs.readdir(dir);
-    } catch {
-      return;
-    }
-    for (const name of names) {
-      if (name === '.' || name === '..' || name === '__pycache__') continue;
-      const full = `${dir}/${name}`;
-      const rel = prefix ? `${prefix}/${name}` : name;
-      let stat: { mode: number; size: number };
-      try {
-        stat = fs.stat(full);
-      } catch {
-        continue;
-      }
-      if (fs.isDir(stat.mode)) {
-        walk(full, rel);
-        continue;
-      }
-      if (stat.size > MAX_OUTPUT_BYTES) continue;
-      let text: string;
-      try {
-        text = fs.readFile(full, { encoding: 'utf8' });
-      } catch {
-        continue; // binary output — the workspace only stores text
-      }
-      if (inputs[rel] === text) continue;
-      out[rel] = text;
-    }
-  };
-  walk(WORKSPACE_ROOT, '');
-  return out;
+function ensureWorkspaceRoot(py: PyodideInterface): void {
+  py.runPython(`
+import os as _os
+_os.makedirs('/workspace', exist_ok=True)
+_os.chdir('/workspace')
+`);
 }
 
 // ---- run / repl ----------------------------------------------------------
+
+/**
+ * Snapshot of the workspace as it was right after the last mount/run. The
+ * collect message diffs against it, so only files the program actually
+ * created or modified are handed back to the host.
+ */
+let workspaceBaseline: Record<string, string> | null = null;
 
 function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapshot> {
   const snapshot = py.runPython('_snapshot_variables()') as {
@@ -241,6 +183,54 @@ function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapsho
     >;
   };
   return snapshot.toJs({ dict_converter: (entries) => Object.fromEntries(entries) });
+}
+
+/**
+ * Clear the workspace tree before mounting a fresh one.
+ *
+ * A run mounts the "runtime file set", which also folds in the bundled
+ * example catalogue and basename aliases. Those leftovers would otherwise
+ * keep showing up in the terminal's `ls`, so the mount starts from an empty
+ * /workspace and rebuilds exactly the project tree.
+ */
+function resetWorkspaceTree(py: PyodideInterface): void {
+  py.runPython(`
+import os as _os, shutil as _shutil
+_shutil.rmtree('/workspace', ignore_errors=True)
+_os.makedirs('/workspace', exist_ok=True)
+`);
+}
+
+/**
+ * Remember the interpreter's working directory across a workspace reset.
+ *
+ * prepareWorkspaceRuntime() chdir's to /workspace so that relative outputs
+ * land in the project root. That also threw away the terminal's `cd`, which
+ * read as "the command did not work". The directory is restored afterwards
+ * whenever it still exists, so `cd data` then 运行 keeps the user in data/.
+ */
+function rememberCwd(py: PyodideInterface): string {
+  try {
+    return String(py.runPython("__import__('os').getcwd()") ?? '');
+  } catch {
+    return '';
+  }
+}
+
+function restoreCwd(py: PyodideInterface, cwd: string): void {
+  if (!cwd || cwd === WORKSPACE_ROOT) return;
+  // Only a directory INSIDE the workspace may be restored. Before the first
+  // mount the interpreter sits in Pyodide's home (/home/pyodide) — restoring
+  // that would break the "cwd is /workspace" invariant the runtime relies on
+  // (relative outputs would land outside the project).
+  if (!cwd.startsWith(`${WORKSPACE_ROOT}/`)) return;
+  // The paths go into Python source: they MUST be quoted (a bare /workspace
+  // is a syntax error, not a path).
+  const literal = JSON.stringify(cwd);
+  const rootLiteral = JSON.stringify(WORKSPACE_ROOT);
+  py.runPython(
+    `import os as _os\nif _os.path.isdir(${literal}):\n    _os.chdir(${literal})\nelse:\n    _os.chdir(${rootLiteral})`,
+  );
 }
 
 async function handleRun(msg: RunMessage): Promise<void> {
@@ -256,11 +246,19 @@ async function handleRun(msg: RunMessage): Promise<void> {
     // "argument of type 'JsProxy' is not a container or iterable").
     py.globals.set('_FILES', py.toPy(msg.files));
     py.globals.set('_PARAMS', py.toPy(msg.params));
-    mountWorkspace(py, msg.files);
+    const fs = workspaceFs(py);
+    mountWorkspace(fs, msg.files);
+    // Baseline BEFORE the run: everything mounted reads back exactly as it
+    // will after the run, so only files the program actually created or
+    // modified survive the diff.
+    const baseline = snapshotWorkspace(fs);
+    workspaceBaseline = baseline;
+    const cwd = rememberCwd(py);
     prepareWorkspaceRuntime(py);
+    restoreCwd(py, cwd);
     await py.runPythonAsync(msg.code);
     const variables = snapshotVariables(py);
-    const files = collectWorkspaceOutputs(py, msg.files);
+    const files = collectWorkspaceOutputs(fs, baseline);
     postMessage({
       type: 'result',
       id: msg.id,
@@ -295,8 +293,68 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
   }
 }
 
-// ---- message routing -----------------------------------------------------
+/**
+ * Materialise the workspace in the interpreter without running user code.
+ * The terminal needs the project tree to exist in /workspace before the user
+ * ever presses 运行 (browsing with ls/cd, running a script with python).
+ */
+async function handleMount(msg: MountMessage): Promise<void> {
+  try {
+    const py = await ensurePyodide(activeIndexURL);
+    const cwd = rememberCwd(py);
+    const fs = workspaceFs(py);
+    // Start from an empty tree: a previous run may have left the bundled
+    // example files and basename aliases behind.
+    resetWorkspaceTree(py);
+    mountWorkspace(fs, msg.files);
+    ensureWorkspaceRoot(py);
+    restoreCwd(py, cwd);
+    workspaceBaseline = snapshotWorkspace(fs);
+    postMessage({ type: 'mount-result', id: msg.id, ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postMessage({ type: 'mount-result', id: msg.id, ok: false, error: message });
+  }
+}
 
+/**
+ * Hand the files the interpreter created or changed back to the host (the
+ * terminal writes them into the project, like the editor's 运行 button).
+ */
+async function handleCollect(msg: CollectMessage): Promise<void> {
+  try {
+    const py = await ensurePyodide(activeIndexURL);
+    const fs = workspaceFs(py);
+    const files = workspaceBaseline ? collectWorkspaceOutputs(fs, workspaceBaseline) : {};
+    workspaceBaseline = snapshotWorkspace(fs);
+    postMessage({ type: 'collect-result', id: msg.id, ok: true, files });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postMessage({ type: 'collect-result', id: msg.id, ok: false, files: {}, error: message });
+  }
+}
+
+/**
+ * Install extra packages into the live interpreter (terminal `pip install`).
+ * Pyodide wheels are loaded from the same-origin /pyodide bundle, so this
+ * works offline like everything else.
+ */
+async function handleLoadPackages(msg: LoadPackagesMessage): Promise<void> {
+  const loaded: string[] = [];
+  try {
+    const py = await ensurePyodide(activeIndexURL);
+    for (const name of msg.packages) {
+      await py.loadPackage(name);
+      loaded.push(name);
+    }
+    postMessage({ type: 'load-packages-result', id: msg.id, ok: true, loaded });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postMessage({ type: 'load-packages-result', id: msg.id, ok: false, loaded, error: message });
+  }
+}
+
+// ---- message routing -----------------------------------------------------
 self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === 'init') {
@@ -313,5 +371,11 @@ self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
     void handleRun(msg);
   } else if (msg.type === 'repl') {
     void handleRepl(msg);
+  } else if (msg.type === 'mount') {
+    void handleMount(msg);
+  } else if (msg.type === 'load-packages') {
+    void handleLoadPackages(msg);
+  } else if (msg.type === 'collect') {
+    void handleCollect(msg);
   }
 });

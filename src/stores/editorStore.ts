@@ -34,9 +34,9 @@ export const EDITOR_STATE_CHANGED = 'editor:state:changed';
 const MAX_CONSOLE_ENTRIES = 1000;
 
 /** The three editable surfaces that round-trip through the IR hub. */
-export type SyncOrigin = 'block' | 'flow' | 'code';
+type SyncOrigin = 'block' | 'flow' | 'code';
 
-export interface EditorStore {
+interface EditorStore {
   sessions: EditorSession[];
   activeSessionId: string | null;
   /** Top-level variable snapshot from the last run (VariablePanel). */

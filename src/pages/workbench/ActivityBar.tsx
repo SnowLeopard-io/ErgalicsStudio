@@ -9,7 +9,7 @@
 
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon, ToolboxIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon, TerminalIcon, ToolboxIcon } from '@/components/icons';
 
 interface ActivityItem {
   view: SidebarView;
@@ -23,6 +23,8 @@ export function ActivityBar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarView = useAppStore((s) => s.setSidebarView);
   const openSettingsTab = useAppStore((s) => s.openSettingsTab);
+  const terminalOpen = useAppStore((s) => s.terminalOpen);
+  const toggleTerminal = useAppStore((s) => s.toggleTerminal);
 
   const items: ActivityItem[] = [
     { view: 'files', label: t('workbench.activity.files'), Icon: FolderOpenIcon },
@@ -54,8 +56,18 @@ export function ActivityBar() {
         })}
       </div>
 
-      {/* 全局设置：固定在活动栏底部（VS Code 同款位置）。 */}
+      {/* 终端呼出：固定在设置入口上方；开合状态点亮图标。 */}
       <div className="activity-bar-footer">
+        <button
+          type="button"
+          className={`activity-item${terminalOpen ? ' is-active' : ''}`}
+          aria-label={t('terminal.title')}
+          title={`${t('terminal.title')} (Ctrl+\`)`}
+          aria-pressed={terminalOpen}
+          onClick={toggleTerminal}
+        >
+          <TerminalIcon size={20} />
+        </button>
         <button
           type="button"
           className="activity-item"

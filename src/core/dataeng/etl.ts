@@ -24,7 +24,7 @@ import type { Row } from '@/core/data-quality/types';
 import { collectColumnNames, makeMissingChecker } from '@/core/data-quality/profile';
 
 /** Storage type declared for a column (drives parsing, coercion, display). */
-export type EtColumnType = 'number' | 'string' | 'boolean' | 'date' | 'unknown';
+type EtColumnType = 'number' | 'string' | 'boolean' | 'date' | 'unknown';
 
 export interface ColumnMeta {
   name: string;
@@ -50,7 +50,7 @@ export type FilterOp =
   | 'notMissing';
 
 export type AggFn = 'sum' | 'mean' | 'min' | 'max' | 'count';
-export type JoinHow = 'inner' | 'left';
+type JoinHow = 'inner' | 'left';
 export type ImputeMethod = 'mean' | 'median' | 'mode' | 'constant';
 export type NormalizeMethod = 'minmax' | 'zscore';
 
@@ -70,7 +70,7 @@ export type EtlStep =
 export type EtlStepKind = EtlStep['kind'];
 
 /** External tables a pipeline may reference (currently: the join source). */
-export interface PipelineContext {
+interface PipelineContext {
   joinTable?: EtTable;
 }
 
@@ -80,13 +80,13 @@ export interface StepStat {
   ms: number;
 }
 
-export interface PipelineResult {
+interface PipelineResult {
   table: EtTable;
   stats: StepStat[];
 }
 
 /** Missing tokens shared with the core data-quality engine (null/NaN/''). */
-export const isMissingValue = makeMissingChecker();
+const isMissingValue = makeMissingChecker();
 
 // ---- column typing ---------------------------------------------------------
 
@@ -187,7 +187,7 @@ function coerceNumber(value: unknown): number | null {
 }
 
 /** Build a table from row records: columns are first-seen ordered and typed. */
-export function tableFromRows(rows: ReadonlyArray<Row>): EtTable {
+function tableFromRows(rows: ReadonlyArray<Row>): EtTable {
   const names = collectColumnNames(rows);
   const columns: ColumnMeta[] = names.map((name) => ({
     name,
@@ -787,7 +787,7 @@ export function runPipeline(source: EtTable, steps: ReadonlyArray<EtlStep>, ctx:
 // and generic SQL. Map expressions are emitted verbatim (JS is close enough
 // for arithmetic; the doc header says so).
 
-export interface ExportOptions {
+interface ExportOptions {
   source?: string;
   joinSource?: string;
   table?: string;

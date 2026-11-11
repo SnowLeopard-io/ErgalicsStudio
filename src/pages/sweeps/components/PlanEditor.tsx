@@ -8,7 +8,7 @@ import type { AxisDraft, DraftIssue, PlanDraft } from '../draft';
 import { EMPTY_AXIS, MAX_AXES, SOURCES } from '../draft';
 import type { SweepSource } from '@/core/sweep/types';
 
-export interface PlanEditorProps {
+interface PlanEditorProps {
   t: TFn;
   draft: PlanDraft;
   issues: DraftIssue[];

@@ -148,14 +148,14 @@ class FormulaParser {
   }
 }
 
-export interface ElementBreakdown {
+interface ElementBreakdown {
   sym: string;
   count: number;
   mass: number;
   share: number;
 }
 
-export function analyzeFormula(src: string): { total: number; items: ElementBreakdown[] } {
+function analyzeFormula(src: string): { total: number; items: ElementBreakdown[] } {
   const counts = new FormulaParser(tokenizeFormula(src)).parse();
   if (counts.size === 0) throw new Error('empty');
   const items: ElementBreakdown[] = [];

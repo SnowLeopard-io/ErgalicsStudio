@@ -37,7 +37,7 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-export function getThemePreference(): ThemePreference {
+function getThemePreference(): ThemePreference {
   return preference;
 }
 

@@ -22,7 +22,7 @@ export interface AiRunResult {
 }
 
 /** Hook the active editor supplies to execute a generated draft. */
-export type AiRunHandler = (code: string) => Promise<AiRunResult>;
+type AiRunHandler = (code: string) => Promise<AiRunResult>;
 
 interface AiPanelStore {
   open: boolean;

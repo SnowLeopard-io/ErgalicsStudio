@@ -20,6 +20,10 @@
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-bg-elevated) 82%, transparent);
   backdrop-filter: blur(6px);
+  /* Above the cross-site pill (1400) so it retracts behind these headers too
+     (they share --topbar-height with the workbench top bar). */
+  position: relative;
+  z-index: 1401;
 }
 
 .brand {
@@ -325,6 +329,10 @@
   padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  /* One layer above the cross-site pill (1400) so it can melt up behind the
+     bar instead of sliding across it. Menus (1800) and overlays stay above. */
+  position: relative;
+  z-index: 1401;
 }
 
 .project-name {
@@ -590,13 +598,6 @@
   content: '▸ ';
   color: var(--color-text-tertiary);
 }
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
 .plugin-list {
   list-style: none;
   margin: 0;
@@ -895,7 +896,7 @@
 }
 
 .central-empty-tip {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-5) 0 0;
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   color: var(--color-text-tertiary);
@@ -1003,6 +1004,13 @@
   list-style: none;
 }
 
+/* Start actions read better as a 2×2 tile grid than a single tall column. */
+.welcome-cover-list--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
 .welcome-cover-row {
   display: flex;
   align-items: center;
@@ -1085,7 +1093,7 @@
 }
 
 .welcome-cover-footer .central-empty-tip {
-  margin: 0;
+  margin: var(--space-3) 0 0;
   text-align: center;
 }
 
@@ -1366,6 +1374,12 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
+/* The init button is the panel's primary action — give it the full column
+   width instead of hugging its label (the hint stays left-aligned). */
+.git-panel-no-repo .btn {
+  align-self: stretch;
+}
+
 .git-panel-no-repo .git-panel-hint {
   margin-bottom: var(--space-1);
 }
@@ -1436,34 +1450,9 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
-
-.git-panel-changes {
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
 .git-clean {
   color: var(--color-text-tertiary);
 }
-
-.git-changes-btn {
-  all: unset;
-  cursor: pointer;
-  color: var(--color-accent-text);
-  font-size: var(--font-size-sm);
-  text-decoration: underline dotted;
-}
-
-.git-changes-btn:hover {
-  text-decoration-style: solid;
-}
-
-.git-commit-row {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 .git-commit-input {
   flex: 1;
   min-width: 0;
@@ -1979,6 +1968,331 @@
   flex: 1;
 }
 
+/* ---- workbench terminal (components/terminal/TerminalPanel) ----
+   A free-floating window above the status bar (like the AI overlay window):
+   resizable via top/left grips, draggable by the title bar (clamped to the
+   viewport), with a side strip switching between sessions. Open/close is an
+   opacity+transform transition; the component stays mounted when hidden so
+   transcripts, scroll and the interpreter session all survive a toggle. */
+
+.terminal-window {
+  position: fixed;
+  display: flex;
+  flex-direction: row;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-3);
+  /* The resize grips live just OUTSIDE the frame, so the window itself must
+   * not clip them — the rounded corners are handled by its two columns. */
+  overflow: visible;
+  /* Below the status bar chrome (1401) and its popover; above the canvas. */
+  z-index: 1390;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  transition:
+    opacity 0.22s ease,
+    transform 0.26s ease,
+    visibility 0s linear 0s;
+}
+
+/* Closed = fade+settle instead of display:none, so the mount stays alive. */
+.terminal-window.is-closed {
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0.22s;
+}
+
+/* Window-style resize grips: all four edges and all four corners, placed
+   just outside the frame (they never overlap the title bar or the session
+   strip). The cursor tells the user which way the edge will move. */
+.terminal-resize {
+  position: absolute;
+  touch-action: none;
+  z-index: 3;
+}
+
+.terminal-resize.is-n {
+  top: -4px;
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.terminal-resize.is-s {
+  bottom: -4px;
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.terminal-resize.is-w {
+  left: -4px;
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.terminal-resize.is-e {
+  right: -4px;
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.terminal-resize.is-nw {
+  top: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.terminal-resize.is-ne {
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.terminal-resize.is-sw {
+  bottom: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.terminal-resize.is-se {
+  bottom: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+/* Session side strip: vertical list of sessions + a new-session button. */
+.terminal-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 34px;
+  padding: var(--space-2) 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  overflow-y: auto;
+  /* The window does not clip its own corners (the grips live outside it),
+   * so the two columns round their own corners. */
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+  overflow-x: hidden;
+}
+
+.terminal-side-item {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.terminal-side-btn,
+.terminal-side-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.terminal-side-btn:hover,
+.terminal-side-new:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.terminal-side-item.is-active .terminal-side-btn {
+  color: var(--color-accent-text);
+  background: var(--color-bg-active);
+}
+
+/* Per-session close affordance: a small × over the icon's corner on hover. */
+.terminal-side-close {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.terminal-side-item:hover .terminal-side-close {
+  display: inline-flex;
+}
+
+.terminal-side-close:hover {
+  color: var(--color-error);
+}
+
+/* Right column: title bar (drag handle) + transcript + input. */
+.terminal-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.terminal-titlebar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  cursor: move;
+  user-select: none;
+}
+
+.terminal-drawer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+}
+
+.terminal-titlebar-name {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Window buttons: a comfortable hit area (unlike 12px icon chrome). */
+.terminal-win-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.terminal-win-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* cmd-style cold-start banner shown while the console is empty. */
+.terminal-drawer-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 12px;
+  font-family: var(--font-console);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.terminal-drawer-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.terminal-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+.terminal-drawer-input {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  min-height: 32px;
+  border-top: 1px solid var(--color-border);
+}
+
+.terminal-prompt {
+  flex-shrink: 0;
+  font-family: var(--font-console);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-accent-text);
+}
+
+.terminal-drawer-input input,
+.terminal-input-area {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-console);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.terminal-drawer-input input::placeholder,
+.terminal-input-area::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* A real terminal has no focus chrome: suppress the global focus-visible
+   ring (global.css) — the caret alone marks the input position. */
+.terminal-drawer-input input:focus,
+.terminal-drawer-input input:focus-visible,
+.terminal-input-area:focus,
+.terminal-input-area:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.terminal-drawer-input input:disabled {
+  opacity: 0.6;
+}
+
 /* ---- status bar ---- */
 
 .statusbar {
@@ -2133,20 +2447,6 @@
 
 .perf-entry.perf-warn {
   color: var(--color-warning);
-}
-
-.perf-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-  flex-shrink: 0;
-}
-
-.perf-entry.perf-warn .perf-dot {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
 }
 
 /* ==========================================================================
@@ -2371,55 +2671,12 @@
   background: var(--cat-utility-soft);
   color: var(--cat-utility);
 }
-
-.example-data-subtitle {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-3);
-}
-
 .example-data-tags {
   display: flex;
   gap: var(--space-1);
   flex-wrap: wrap;
   margin-top: var(--space-2);
 }
-
-/* Labelled sections inside the "示例" dialog dataset tab. */
-.example-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.example-group + .example-group {
-  margin-top: var(--space-4);
-}
-
-.example-group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.example-group-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--color-text-primary);
-}
-
-.example-group-count {
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  line-height: 18px;
-}
-
 /* "示例" dialog datasets tab: left type selector + right example list. */
 .example-layout {
   display: flex;
@@ -3135,21 +3392,6 @@
   white-space: pre-wrap;
   color: var(--color-text-secondary);
 }
-
-/* Lab pages (research tools promoted from dialogs): drop the modal-era
-   height cap so content flows in the page scroll. */
-.lab-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.lab-page .analysis-body {
-  max-height: none;
-  overflow: visible;
-}
-
 /* AnalysisPage now renders as a full-page /studio/<tool> inside ToolShell,
    which scrolls the whole body (tool-body: overflow-y:auto). Drop the
    modal-era 72vh cap there too, or the content is squeezed to the top, the
@@ -3412,12 +3654,6 @@
   max-height: calc(100vh - 32px);
   overflow-y: auto;
 }
-
-/* Audience chooser: two stacked full-width identity cards. */
-.tour-menu-grid.is-audience {
-  grid-template-columns: 1fr;
-}
-
 /* Intro (track briefing) step: multi-line copy, wider hero card. */
 .tour-tip-hero:has(.tour-intro-body) {
   width: min(640px, calc(100vw - 48px));
@@ -3686,12 +3922,6 @@
   align-items: center;
   justify-content: center;
 }
-
-.modal-sm {
-  min-width: 320px;
-  max-width: 380px;
-}
-
 .plugin-view {
   height: 100vh;
   display: flex;
@@ -3924,13 +4154,6 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
-
-.runs-diff-list {
-  margin: 0 0 var(--space-2);
-  padding-left: var(--space-5);
-  font-size: var(--font-size-sm);
-}
-
 /* ---- Research modules — data lineage dialog (design tokens only) --------- */
 
 .lineage-dialog {
@@ -4294,33 +4517,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
-
-/* ---- Research modules — Figure Studio (/figures) ------------------------- */
-
-.figures-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-height: 100vh;
-  padding: var(--space-4) var(--space-5);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.figures-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.figures-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
 /* The sheet selector lives inside the flex-wrap header-extra row. `.input`
    defaults to width:100%, which resolves against the shrink-to-fit flex
    container and pushes the action buttons onto a second line; size it to
@@ -4644,26 +4840,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
-
-/* ---- Research modules — Notebook (/notebook) ------------------------------ */
-
-.nb-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-height: 100vh;
-  padding: var(--space-4) var(--space-5);
-  max-width: 980px;
-  margin: 0 auto;
-}
-
-.nb-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
 .nb-cells {
   display: flex;
   flex-direction: column;
@@ -5595,17 +5771,6 @@
   color: var(--color-error);
   background: var(--color-bg-hover);
 }
-
-/* Mode selection as a single-line segmented control (replaces the four
-   large mode cards on the welcome page; the shared mode cards remain in use
-   by the workbench empty state). */
-.welcome-modes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 /* One-line environment status strip: the four checks side by side, each a
    dot + label (+ GPU name). Permanent — never collapsible. */
 .welcome-envbar {
@@ -5666,91 +5831,6 @@
   border: 0;
 }
 
-.central-empty-modes {
-  /* Cap by the parent (the central viewport), never by 94vw — vw includes
-     the sidebar/panel widths, so the grid used to spill over them. */
-  width: min(860px, 100%);
-  margin-top: var(--space-2);
-}
-
-.wb-modes-grid {
-  display: grid;
-  /* Auto-fit keeps 3 columns on wide areas and folds to 2/1 as the central
-     viewport narrows, without media queries (area width ≠ viewport width). */
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3);
-}
-
-.wb-mode-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-  min-width: 0;
-  transition: border-color var(--transition-fast), transform var(--transition-fast),
-    box-shadow var(--transition-fast), background var(--transition-fast);
-}
-
-.wb-mode-card:hover {
-  border-color: var(--color-accent);
-  background: var(--color-bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
-}
-
-.wb-mode-card:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.wb-mode-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wb-mode-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-.wb-mode-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.wb-mode-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.wb-mode-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wb-mode-desc {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-  line-height: 1.4;
-  /* Single line with ellipsis: wrapping inside a narrow card looks messy. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* ==========================================================================
    P3/P4 UI restructure — tool shell, launcher, welcome grid, topbar zones
    ========================================================================== */
@@ -5774,6 +5854,10 @@
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  /* Above the cross-site pill (1400): same height as the workbench top bar,
+     so the pill retracts behind it the same way. */
+  position: relative;
+  z-index: 1401;
 }
 
 .tool-topbar-main {
@@ -6289,13 +6373,24 @@
   border: none;
   background: none;
   font: inherit;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   cursor: pointer;
+  text-decoration: none;
+  text-underline-offset: 3px;
   transition: color var(--transition-fast);
 }
 
+/* Read as links, not inert text: accent + underline on hover (and a visible
+   underline at rest is avoided so the row stays quiet). */
 .welcome-quiet-link:hover {
   color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.welcome-quiet-link:disabled {
+  color: var(--color-text-tertiary);
+  cursor: default;
+  text-decoration: none;
 }
 
 .welcome-quiet-link:focus-visible {
@@ -6819,15 +6914,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-bg-primary);
 }
-
-.course-chip-teacher {
-  background: var(--color-accent);
-}
-
-.course-chip-student {
-  background: var(--color-accent);
-}
-
 .course-change-btn {
   color: var(--color-text-secondary);
 }
@@ -7199,17 +7285,6 @@
   gap: 6px;
   margin-top: auto;
 }
-
-.gallery-repro-locked {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.gallery-repro-drifted {
-  color: var(--color-warning);
-  border-color: var(--color-warning);
-}
-
 .gallery-detail {
   display: flex;
   flex-direction: column;
@@ -7594,36 +7669,6 @@
   margin: 0 2px;
   color: var(--color-text-tertiary);
   font-size: var(--font-size-xs);
-}
-
-/* ---- 模式同步指示点 ---- */
-
-.topbar-cluster > :last-child.mode-sync-dot {
-  /* 集群的 last-child 端盖圆角规则会把右两角压平成 calc(radius-sm-1px)，
-     让圆点右半看起来被"切掉"；这里恢复四角全圆。 */
-  border-radius: 999px;
-}
-
-.mode-sync-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  margin-left: 6px;
-  margin-right: 10px;
-  flex: 0 0 auto;
-  transition:
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.mode-sync-dot.is-synced {
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-}
-
-.mode-sync-dot.is-diverged {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
 }
 
 /* ---- 侧栏 / 右栏拖拽手柄 ---- */
@@ -8202,15 +8247,6 @@
 .plot-readout-val {
   color: var(--color-text-primary);
 }
-
-.plot-readout-nearest .plot-readout-key {
-  color: var(--color-accent);
-}
-
-.plot-readout-nearest .plot-readout-val {
-  color: var(--color-accent-text);
-}
-
 /* ---- 紧凑空状态（列表/侧栏内的空提示） ---- */
 
 .empty-state-inline {
@@ -8310,6 +8346,12 @@
   min-height: 0;
   overflow-y: auto;
   min-width: 0;
+  /* .sidebar pads 12px on every side, which parks the explorer's scrollbar a
+     full gutter away from the panel divider. Pull this one edge back into that
+     padding so the scrollbar sits flush against the border, then re-apply the
+     same padding on the inside so rows keep their distance from the thumb. */
+  margin-right: calc(-1 * var(--space-3));
+  padding-right: var(--space-3);
 }
 
 .explorer-section {
@@ -8421,13 +8463,12 @@
   user-select: none;
 }
 
-/* 选中描边用 inset 阴影：outline 画在行框外 1px，会被滚动容器
-   （.file-explorer overflow-x 裁剪）切掉左右边，视觉上"缺框"。 */
+/* 选中参考 Windows 资源管理器：只换底色，不加描边。accent 青绿描边在
+   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替。 */
 .explorer-row.selected,
 .explorer-row.selected:hover {
   background: var(--color-accent-soft);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .explorer-row.drop-target,
@@ -8808,39 +8849,6 @@
 .central-file-loading {
   background: var(--color-bg-primary);
 }
-
-/* 顶部标签条：文件名 + 只读标记 + 关闭。 */
-.central-file-preview-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  padding: 0 var(--space-2) 0 var(--space-3);
-  height: 36px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
-}
-
-.central-file-preview-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.central-file-preview-readonly {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 1px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
 .central-file-preview-content {
   flex: 1;
   min-height: 0;
@@ -8981,8 +8989,6 @@
   min-height: 0;
   display: flex;
 }
-
-.central-md-body.mode-edit .central-md-edit,
 .central-md-body.mode-preview .central-md-preview {
   width: 100%;
 }
@@ -9078,11 +9084,7 @@
   border-left: 3px solid var(--color-accent);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
-}
-
-/* GFM task lists: hide the raw checkbox disabled state, keep spacing tight. */
-.central-md-preview li.task-list-item,
-.nb-md li.task-list-item {
+}/* GFM task lists: hide the raw checkbox disabled state {
   list-style: none;
   margin-left: -18px;
 }
@@ -10717,17 +10719,17 @@
   }
 
   /* Floating furniture clears the status bar, the notch and each other:
-     the switcher rests bottom-centre, the AI droplet on the right edge. */
+     the switcher docks under the top bar, the AI droplet on the right edge. */
   .cross-site-switcher {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 12px);
+    top: calc(var(--topbar-height) + 6px);
   }
 
   .csw-puddle {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) - 1px);
+    top: calc(var(--topbar-height) - 1px);
   }
 
   .csw-anchor {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 2px);
+    top: calc(var(--topbar-height) + 2px);
   }
 
   .csw-label {
@@ -10853,7 +10855,6 @@
     height: 44px;
   }
 }
-
 
 /* Touch: no hover in the change tree — keep the per-file stage action
    permanently visible and at the shared 36px rail width. */

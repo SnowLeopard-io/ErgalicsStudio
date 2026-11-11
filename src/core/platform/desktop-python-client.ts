@@ -10,14 +10,14 @@ import { logger } from '../logger';
 import type { VariableSnapshot } from '../pyodide/protocol';
 import { desktopBridge, type DesktopPythonApi } from './index';
 
-export interface DesktopPythonClientOptions {
+interface DesktopPythonClientOptions {
   loadPackages?: string[];
   onStdout?: (text: string) => void;
   onStderr?: (text: string) => void;
   onNotify?: (kind: 'info' | 'success' | 'warning' | 'error', message: string) => void;
 }
 
-export interface DesktopPythonRunResult {
+interface DesktopPythonRunResult {
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
   /** Present for parity with Pyodide; the desktop channel does not collect
@@ -96,6 +96,26 @@ export class DesktopPythonClient {
       this.sessionId = null;
       throw err;
     }
+  }
+
+  /**
+   * Desktop edition: the interpreter runs against the real project tree, so
+   * there is nothing to mount — the browser (Pyodide) build is the one that
+   * needs the workspace materialised in the virtual FS.
+   */
+  async mountWorkspace(_files: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
+    return { ok: true };
+  }
+
+  /** Desktop edition: CPython has no Pyodide wheels — installing is a no-op. */
+  async installPackages(packages: string[]): Promise<{ ok: boolean; loaded: string[]; error?: string }> {
+    return { ok: true, loaded: packages };
+  }
+
+  /** Desktop edition: the interpreter writes straight into the project tree,
+   *  so there is nothing to collect back. */
+  async collectWorkspaceFiles(): Promise<{ ok: boolean; files: Record<string, string>; error?: string }> {
+    return { ok: true, files: {} };
   }
 
   interrupt(): void {
