@@ -176,9 +176,10 @@ describe('buildMagicPython', () => {
     expect(py).toContain('perf_counter');
   });
 
-  it('run executes a script file', () => {
+  it('run executes a script file with the studio API available', () => {
     const py = buildMagicPython({ magic: 'run', arg: 'hello.py' });
-    expect(py).toContain('runpy.run_path(_f, run_name="__main__")');
+    expect(py).toContain('runpy.run_path(_f');
+    expect(py).toContain("init_globals={'studio': studio}");
   });
 
   it('every generated program guards its own errors (no worker throw)', () => {
@@ -273,6 +274,12 @@ describe('pythonRunProgram — scripts run from any directory', () => {
   it('runs the file by absolute path', () => {
     const py = pythonRunProgram('/workspace/data/run.py');
     expect(py).toContain('_f = "/workspace/data/run.py"');
-    expect(py).toContain('runpy.run_path(_f, run_name="__main__")');
+    expect(py).toContain('runpy.run_path(_f');
+    expect(py).toContain('run_name="__main__"');
+  });
+
+  it('gives the script the studio API (like the editor run button)', () => {
+    const py = pythonRunProgram('/workspace/run.py');
+    expect(py).toContain("init_globals={'studio': studio}");
   });
 });

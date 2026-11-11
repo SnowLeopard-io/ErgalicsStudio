@@ -335,7 +335,7 @@ export function buildMagicPython(cmd: ReplCommand): string {
         `import runpy`,
         `_f = ${pyStr(cmd.arg)}`,
         `if os.path.isfile(_f):`,
-        `    runpy.run_path(_f, run_name="__main__")`,
+        `    runpy.run_path(_f, init_globals={'studio': studio}, run_name="__main__")`,
         `else:`,
         `    print('python: no such file: ' + _f)`,
       ].join('\n');
