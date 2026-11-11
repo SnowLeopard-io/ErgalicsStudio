@@ -176,6 +176,8 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
+  /** Bottom terminal drawer, freely invocable from any surface (Ctrl+`). */
+  terminalOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
@@ -220,6 +222,8 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
+  /** Toggle the bottom terminal drawer (Ctrl+` / status-bar button). */
+  toggleTerminal: () => void;
   /** Select a workbench mode. Standard returns to the plugin canvas; the three
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
@@ -358,6 +362,8 @@ export const useAppStore = create<AppStore>((set, get) => {
   perf: DEFAULT_PERF,
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
+  // Session-only: a terminal the user never opened stays closed next launch.
+  terminalOpen: false,
   sidebarView: panelPrefs.sidebarView,
   canvasTabs: [],
   activeTab: null,
@@ -463,6 +469,8 @@ export const useAppStore = create<AppStore>((set, get) => {
       persistPanelPrefs(next);
       return next;
     }),
+  toggleTerminal: () =>
+    set((s) => ({ terminalOpen: !s.terminalOpen })),
   setMode: (mode, path) => {
     // Standard is the canvas baseline (plugin host), not a tab: returning to
     // it clears the active tab and brings the plugin canvas back.

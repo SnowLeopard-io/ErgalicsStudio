@@ -220,6 +220,13 @@ export const enUS: LocaleDictionary = {
   'workbench.example_data.loaded': 'Example data loaded',
   'workbench.example_data.load_failed': 'Failed to load example data',
   'workbench.right.no_plugin': 'Please activate a plugin first',
+  'terminal.title': 'Terminal',
+  'terminal.banner.version': 'Ergalics Studio [Version 2.1.0]',
+  'terminal.banner.copyright': '(c) Ergalics Studio. All rights reserved.',
+  'terminal.close': 'Collapse terminal',
+  'terminal.new': 'New terminal session',
+  'terminal.close_session': 'Close session',
+  'terminal.input': 'Terminal input',
   'workbench.right.welcome_intro':
     'No plugin is active yet. Load one from the plugin list on the left, or use the "Load Plugin" button in the canvas.',
   'workbench.right.whats_new': "What's new",

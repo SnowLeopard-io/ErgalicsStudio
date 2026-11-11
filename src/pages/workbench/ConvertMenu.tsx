@@ -38,6 +38,21 @@ export function ConvertMenu() {
   const requestTarget = useModeConvert((s) => s.requestTarget);
   const requestMode = useModeConvert((s) => s.requestMode);
 
+  // A conversion needs an open editing surface (flow / block / code) to convert.
+  // On the welcome canvas there is no source program at all, so offering
+  // "convert" would only spawn an empty editor. Standard mode is a read-only
+  // data viewer — it is entered and left automatically, never converted to — so
+  // while it is active the menu stays inert too. Conversion only becomes
+  // available once an editing surface is actually in front.
+  const hasSource = useAppStore((s) =>
+    s.canvasTabs.some(
+      (tab) =>
+        tab.kind === 'surface' &&
+        (tab.mode === 'flow' || tab.mode === 'block' || tab.mode === 'code'),
+    ),
+  );
+  const canConvert = mode !== 'standard' && hasSource;
+
   const items: MenuItemDef[] = [
     { key: 'convert-modes', label: t('workbench.convert.mode_group'), header: true },
     // Standard is not an IR surface, so it switches directly instead of going
@@ -53,7 +68,7 @@ export function ConvertMenu() {
       key: `mode:${m.id}`,
       label: t(m.labelKey),
       active: mode === m.id,
-      disabled: mode === m.id,
+      disabled: !canConvert || mode === m.id,
       onClick: () => requestTarget({ kind: 'mode', mode: m.id }),
     })),
     { key: 'convert-sep', label: '' },
@@ -65,7 +80,7 @@ export function ConvertMenu() {
         label: t(l.labelKey),
         description: l.ext,
         active: current,
-        disabled: current,
+        disabled: !canConvert || current,
         onClick: () => requestTarget({ kind: 'language', language: l.id }),
       };
     }),
@@ -76,6 +91,7 @@ export function ConvertMenu() {
       ariaLabel={t('workbench.convert.menu')}
       triggerClassName="cluster-btn convert-trigger"
       align="left"
+      disabled={!canConvert}
       trigger={
         <>
           <SwapIcon size={13} />

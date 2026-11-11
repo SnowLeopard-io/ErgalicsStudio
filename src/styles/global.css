@@ -870,15 +870,17 @@ textarea::-webkit-resizer {
 }
 
 /* ---- cross-site switcher (官网 / 工作台 / 文档) ----
-   Rests as a thin puddle on the bottom edge; slides up only while the pointer
-   is near the status bar (JS adds `.is-awake`). Bottom-centred so it never
-   collides with the AI droplet in the right corner. */
+   Rests as a thin puddle on the top edge of the workbench; drops down only
+   while the pointer is near it (JS adds `.is-awake`). Top-centred so it
+   retracts up behind the top bar rather than floating over the status bar. */
 .cross-site-switcher {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--statusbar-height) + 12px);
+  /* Docked at the top: the pill hangs just under the top bar instead of the
+     status bar at the bottom of the screen. */
+  top: calc(var(--topbar-height) + 6px);
   /* Below banners (1500), toasts (1600), modals (2000) and the guided-tour
-     overlay (2500) so it never floats above an active overlay. The status bar
+     overlay (2500) so it never floats above an active overlay. The top bar
      itself sits one layer above (1401) so the pill appears to fly out from
      behind it. */
   z-index: 1400;
@@ -890,10 +892,10 @@ textarea::-webkit-resizer {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
-  /* Retracted: melted down behind the status bar, squashed like a water bead.
-     The offset clears the pill's own height so no sliver peeks above the bar. */
-  transform: translate(-50%, calc(100% + 14px)) scale(0.72);
-  transform-origin: 50% 100%;
+  /* Retracted: melted up behind the top bar, squashed like a water bead.
+     The offset clears the pill's own height so no sliver peeks below the bar. */
+  transform: translate(-50%, calc(-100% - 14px)) scale(0.72);
+  transform-origin: 50% 0;
   opacity: 0;
   pointer-events: none;
   transition:
@@ -912,31 +914,32 @@ textarea::-webkit-resizer {
 .csw-anchor {
   position: fixed;
   left: calc(50% - 0.5px);
-  bottom: calc(var(--statusbar-height) + 2px);
+  top: calc(var(--topbar-height) + 2px);
   width: 1px;
   height: 1px;
   pointer-events: none;
   z-index: 0;
 }
 
-/* The resting hint: a bead of water seeping out of the status bar itself.
-   Same surface + top border as the bar, so the two read as one continuous
+/* The resting hint: a bead of water seeping out of the top bar itself.
+   Same surface + bottom border as the bar, so the two read as one continuous
    body rather than a floating chip. It doubles as the touch trigger that
    reveals the pill, since touch devices have no hover proximity. */
 .csw-puddle {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--statusbar-height) - 1px);
+  top: calc(var(--topbar-height) - 1px);
   z-index: 1399;
   width: 46px;
   height: 7px;
   padding: 0;
   border: 0;
-  border-top: 1px solid var(--color-border);
-  border-radius: 999px 999px 0 0;
+  /* Flat edge faces the bar (its own border covers it); the bulge points down. */
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0 0 999px 999px;
   background:
     radial-gradient(
-      62% 140% at 50% 100%,
+      62% 140% at 50% 0%,
       color-mix(in srgb, var(--color-accent) 26%, transparent),
       transparent 72%
     ),
@@ -968,7 +971,7 @@ textarea::-webkit-resizer {
 .csw-puddle::after {
   content: '';
   position: absolute;
-  inset: -16px -22px 0;
+  inset: 0 -22px -16px;
 }
 
 .csw-puddle:focus-visible {
@@ -1012,8 +1015,8 @@ textarea::-webkit-resizer {
 /* Keep it compact on narrow viewports. */
 @media (max-width: 640px) {
   .csw-label { display: none; }
-  .cross-site-switcher { bottom: calc(var(--statusbar-height) + 12px); }
-  .csw-puddle { bottom: calc(var(--statusbar-height) - 1px); }
+  .cross-site-switcher { top: calc(var(--topbar-height) + 6px); }
+  .csw-puddle { top: calc(var(--topbar-height) - 1px); }
 }
 
 /* ---- AI assistant floating window ---- */

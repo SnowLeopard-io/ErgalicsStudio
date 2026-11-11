@@ -27,9 +27,7 @@ import {
   loadIRIntoWorkspace,
   disposeWorkspace,
 } from '@/editor/block';
-import { ConsolePanel } from './ConsolePanel';
 import { SurfaceToolbar } from './SurfaceToolbar';
-import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
 
@@ -50,9 +48,6 @@ export function BlockEditor() {
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   const error = useEditorStore((s) => s.error);
-  // Result preview + variables live in the workbench right sidebar now; this
-  // surface only keeps the console dock under the workspace.
-  const { dockHeight, dockHandleProps } = useEditorSplit();
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
@@ -154,6 +149,9 @@ export function BlockEditor() {
     if (!ws || isRunning) return;
     const ir = workspaceToIR(ws);
     const startedAt = Date.now();
+    // Output lands in the global terminal drawer; bring it up so the user
+    // actually sees the run happen.
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().toggleTerminal();
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
@@ -294,25 +292,8 @@ export function BlockEditor() {
           )}
         </div>
 
-        {/* Bottom dock: console under the workspace; result preview and
-            variables now render in the workbench right sidebar. */}
-        <div
-          className="be-splitter is-horizontal"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label={t('editor.dock.resize')}
-          aria-valuenow={dockHeight}
-          aria-valuemin={96}
-          aria-valuemax={460}
-          tabIndex={0}
-          {...dockHandleProps}
-        />
-
-        <div className="block-editor-bottom" style={{ height: dockHeight }}>
-          <div className="editor-panel editor-console-wrap">
-            <ConsolePanel />
-          </div>
-        </div>
+        {/* The console output lives in the global terminal drawer now (it used
+            to duplicate the same store view inline); running auto-opens it. */}
       </div>
     </div>
   );

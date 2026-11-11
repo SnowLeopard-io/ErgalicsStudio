@@ -20,6 +20,10 @@
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-bg-elevated) 82%, transparent);
   backdrop-filter: blur(6px);
+  /* Above the cross-site pill (1400) so it retracts behind these headers too
+     (they share --topbar-height with the workbench top bar). */
+  position: relative;
+  z-index: 1401;
 }
 
 .brand {
@@ -325,6 +329,10 @@
   padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  /* One layer above the cross-site pill (1400) so it can melt up behind the
+     bar instead of sliding across it. Menus (1800) and overlays stay above. */
+  position: relative;
+  z-index: 1401;
 }
 
 .project-name {
@@ -1958,6 +1966,273 @@
 
 .param-file .input {
   flex: 1;
+}
+
+/* ---- workbench terminal (components/terminal/TerminalPanel) ----
+   A free-floating window above the status bar (like the AI overlay window):
+   resizable via top/left grips, draggable by the title bar (clamped to the
+   viewport), with a side strip switching between sessions. Open/close is an
+   opacity+transform transition; the component stays mounted when hidden so
+   transcripts, scroll and the interpreter session all survive a toggle. */
+
+.terminal-window {
+  position: fixed;
+  display: flex;
+  flex-direction: row;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-3);
+  overflow: hidden; /* the resize grips live just inside the border */
+  /* Below the status bar chrome (1401) and its popover; above the canvas. */
+  z-index: 1390;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  transition:
+    opacity 0.22s ease,
+    transform 0.26s ease,
+    visibility 0s linear 0s;
+}
+
+/* Closed = fade+settle instead of display:none, so the mount stays alive. */
+.terminal-window.is-closed {
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0.22s;
+}
+
+/* Window-style resize grips: invisible hit zones just inside the card edge
+   (the card clips its own corners). Bottom-right stays anchored, so grips
+   cover the top edge, the left edge and the top-left corner only. */
+.terminal-resize {
+  position: absolute;
+  touch-action: none;
+  z-index: 3;
+}
+
+.terminal-resize.is-n {
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.terminal-resize.is-w {
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.terminal-resize.is-nw {
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+/* Session side strip: vertical list of sessions + a new-session button. */
+.terminal-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 34px;
+  padding: var(--space-2) 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  overflow-y: auto;
+}
+
+.terminal-side-item {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.terminal-side-btn,
+.terminal-side-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.terminal-side-btn:hover,
+.terminal-side-new:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.terminal-side-item.is-active .terminal-side-btn {
+  color: var(--color-accent-text);
+  background: var(--color-bg-active);
+}
+
+/* Per-session close affordance: a small × over the icon's corner on hover. */
+.terminal-side-close {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.terminal-side-item:hover .terminal-side-close {
+  display: inline-flex;
+}
+
+.terminal-side-close:hover {
+  color: var(--color-error);
+}
+
+/* Right column: title bar (drag handle) + transcript + input. */
+.terminal-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-titlebar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  cursor: move;
+  user-select: none;
+}
+
+.terminal-drawer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+}
+
+.terminal-titlebar-name {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Window buttons: a comfortable hit area (unlike 12px icon chrome). */
+.terminal-win-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.terminal-win-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* cmd-style cold-start banner shown while the console is empty. */
+.terminal-drawer-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 12px;
+  font-family: var(--font-console);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.terminal-drawer-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.terminal-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+.terminal-drawer-input {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: 32px;
+  border-top: 1px solid var(--color-border);
+}
+
+.terminal-prompt {
+  flex-shrink: 0;
+  font-family: var(--font-console);
+  font-size: 12px;
+  color: var(--color-accent-text);
+}
+
+.terminal-drawer-input input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-console);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.terminal-drawer-input input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* A real terminal has no focus chrome: suppress the global focus-visible
+   ring (global.css) — the caret alone marks the input position. */
+.terminal-drawer-input input:focus,
+.terminal-drawer-input input:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.terminal-drawer-input input:disabled {
+  opacity: 0.6;
 }
 
 /* ---- status bar ---- */
@@ -5521,6 +5796,10 @@
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  /* Above the cross-site pill (1400): same height as the workbench top bar,
+     so the pill retracts behind it the same way. */
+  position: relative;
+  z-index: 1401;
 }
 
 .tool-topbar-main {
@@ -8126,13 +8405,12 @@
   user-select: none;
 }
 
-/* 选中描边用 inset 阴影：outline 画在行框外 1px，会被滚动容器
-   （.file-explorer overflow-x 裁剪）切掉左右边，视觉上"缺框"。 */
+/* 选中参考 Windows 资源管理器：只换底色，不加描边。accent 青绿描边在
+   列表里过于抢眼；背景 tint 不受滚动容器裁剪影响，无需 inset 阴影代替。 */
 .explorer-row.selected,
 .explorer-row.selected:hover {
   background: var(--color-accent-soft);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .explorer-row.drop-target,
@@ -10383,17 +10661,17 @@
   }
 
   /* Floating furniture clears the status bar, the notch and each other:
-     the switcher rests bottom-centre, the AI droplet on the right edge. */
+     the switcher docks under the top bar, the AI droplet on the right edge. */
   .cross-site-switcher {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 12px);
+    top: calc(var(--topbar-height) + 6px);
   }
 
   .csw-puddle {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) - 1px);
+    top: calc(var(--topbar-height) - 1px);
   }
 
   .csw-anchor {
-    bottom: calc(var(--statusbar-height) + var(--safe-inset-bottom) + 2px);
+    top: calc(var(--topbar-height) + 2px);
   }
 
   .csw-label {

@@ -449,6 +449,38 @@ def _repl(code):
     return None
 
 
+def _capture(code):
+    """Execute the given code in this namespace and return its output.
+
+    The terminal runs one command per session, so its output must NOT leak
+    into the global stdout stream (that stream belongs to the run session).
+    Both streams are redirected into buffers here and returned as
+    base64(JSON) — base64 keeps the host free of repr-quoting guesswork.
+    """
+    import base64
+    import io
+    import json
+    import contextlib
+    import traceback
+
+    out = io.StringIO()
+    err = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                tree = compile(code, "<terminal>", "eval")
+            except SyntaxError:
+                exec(compile(code, "<terminal>", "exec"), globals(), globals())
+            else:
+                value = eval(tree, globals(), globals())
+                if value is not None:
+                    print(repr(value))
+    except BaseException:
+        err.write(traceback.format_exc())
+    payload = json.dumps({"out": out.getvalue(), "err": err.getvalue()})
+    return base64.b64encode(payload.encode("utf-8")).decode("ascii")
+
+
 def _snapshot_variables():
     """Summarize top-level variables for the VariablePanel: DataTable -> table
     (with full column data so the host can rebuild a real DataTable), numeric /

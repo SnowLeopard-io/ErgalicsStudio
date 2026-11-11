@@ -13,12 +13,14 @@ import { logger } from '@/core/logger';
 import { useT } from '@/i18n';
 import { useProjectStore, getLastOpenedProjectId } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { subscribePythonOutput, warmPythonRuntime } from '@/core/pyodide/code-runtime';
 import { loadWasm } from '@/core/wasm';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
 import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
-import { warmPythonRuntime } from '@/core/pyodide/code-runtime';
+import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
 
@@ -107,6 +109,18 @@ export default function WorkbenchPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Global stdout/stderr → console bridge. Subscribed once at the workbench
+  // level so interpreter output reaches the console (and the terminal drawer)
+  // no matter which surface is in front — it used to live inside CodeEditor,
+  // which silently dropped all output while a code tab was not mounted.
+  useEffect(() => {
+    const unsubscribe = subscribePythonOutput({
+      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
+      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
+    });
+    return unsubscribe;
+  }, []);
+
   return (
     <div className="workbench">
       {/* TopBar and StatusBar get their own boundaries: previously a crash in
@@ -130,6 +144,9 @@ export default function WorkbenchPage() {
           </Suspense>
         </ErrorBoundary>
       </div>
+      {/* Terminal drawer sits above the status bar (VS Code style); mounted
+          once so it exists in every surface — see components/terminal. */}
+      <TerminalPanel />
       <ErrorBoundary>
         <StatusBar />
       </ErrorBoundary>

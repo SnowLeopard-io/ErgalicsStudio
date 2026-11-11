@@ -41,7 +41,6 @@ import { STUDIO_COMPLETIONS } from '@/core/monaco/completions';
 import type { CodeRuntime } from '@/core/pyodide/runtime';
 import {
   getPythonRuntime,
-  subscribePythonOutput,
   warmPythonRuntime,
 } from '@/core/pyodide/code-runtime';
 import { createRRuntime } from '@/core/r/runtime-factory';
@@ -54,7 +53,6 @@ import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 
-import { ConsolePanel } from './ConsolePanel';
 import { SurfaceToolbar } from './SurfaceToolbar';
 import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
@@ -91,9 +89,9 @@ export function CodeEditor() {
   const language: CodeLanguage = sessionMeta.language;
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
-  // Result preview + variables live in the workbench right sidebar now; this
-  // surface only keeps the console dock under the editor.
-  const { dockHeight, dockHandleProps } = useEditorSplit();
+  // Result preview + variables live in the workbench right sidebar; console
+  // output lives in the global terminal drawer. The dock keeps the input rows.
+  const { dockHeight } = useEditorSplit();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
@@ -225,19 +223,16 @@ export function CodeEditor() {
   useEffect(() => {
     // The interpreter is session-wide (core/pyodide/code-runtime) and is NOT
     // disposed here: switching modes or projects reuses the already-booted
-    // worker instead of paying the Pyodide download/init cost again.
+    // worker instead of paying the Pyodide download/init cost again. The
+    // stdout/stderr → console bridge lives at the workbench level now, so
+    // output keeps flowing whichever surface is in front.
     let alive = true;
     runtimeRef.current = getPythonRuntime();
-    const unsubscribe = subscribePythonOutput({
-      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
-      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
-    });
     void warmPythonRuntime().then((ok) => {
       if (alive) setRuntimeReady(ok);
     });
     return () => {
       alive = false;
-      unsubscribe();
       runtimeRef.current = null;
     };
   }, []);
@@ -485,6 +480,9 @@ export function CodeEditor() {
     if (language === 'r' && !rRuntimeRef.current) return;
     const code = editor.getValue();
     const startedAt = Date.now();
+    // Output lands in the global terminal drawer; bring it up so the user
+    // actually sees the run happen.
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().toggleTerminal();
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
@@ -765,23 +763,11 @@ export function CodeEditor() {
           <div ref={containerRef} className="code-editor-monaco" />
         </div>
 
-        {/* Bottom dock: console under the editor; result preview and variables
-            now render in the workbench right sidebar. */}
-        <div
-          className="be-splitter is-horizontal"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label={t('editor.dock.resize')}
-          aria-valuenow={dockHeight}
-          aria-valuemin={96}
-          aria-valuemax={460}
-          tabIndex={0}
-          {...dockHandleProps}
-        />
-
+        {/* Console output lives in the global terminal drawer now — the
+            inline panel used to mirror the same store view (duplicated).
+            This dock keeps only the REPL / R-install input rows. */}
         <div className="block-editor-bottom" style={{ height: dockHeight }}>
           <div className="editor-panel editor-console-wrap">
-            <ConsolePanel />
             {/* REPL needs a persistent Python namespace — Pyodide only. */}
             {language === 'python' && (
               <div className="code-editor-repl">
