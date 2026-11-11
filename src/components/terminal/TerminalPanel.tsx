@@ -39,6 +39,7 @@ import {
   isHostCommand,
   parseReplCommand,
   pythonLiteral,
+  type ReplMagic,
 } from '@/core/pyodide/repl-commands';
 import { runHostCommand } from '@/core/terminal/host-commands';
 import {
@@ -84,34 +85,110 @@ const EDGE_MARGIN = 8;
 const PREFS_KEY = 'ergalics:terminal-prefs';
 
 interface TerminalPrefs {
-  open: boolean;
-  w: number;
-  h: number;
-  /** Absolute position; null = default (anchored above the status bar, right). */
-  pos: { left: number; top: number } | null;
+  /** Window rectangle in viewport coordinates (left/top/width/height). */
+  rect: WindowRect;
 }
 
 function loadPrefs(): TerminalPrefs {
-  const fallback: TerminalPrefs = { open: false, w: SIZE_DEFAULT.w, h: SIZE_DEFAULT.h, pos: null };
+  const fallback: TerminalPrefs = { rect: defaultRect() };
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return fallback;
-    const p = JSON.parse(raw) as Partial<TerminalPrefs>;
-    const vpMin = (v: number, min: number) => Math.max(Math.min(v, window.innerWidth - 2 * EDGE_MARGIN), min);
-    const vpMinH = (v: number, min: number) => Math.max(Math.min(v, window.innerHeight - 2 * EDGE_MARGIN), min);
-    return {
-      open: p.open === true,
-      w: p.w ? vpMin(p.w, SIZE_MIN.w) : fallback.w,
-      h: p.h ? vpMinH(p.h, SIZE_MIN.h) : fallback.h,
-      pos: p.pos ? { left: p.pos.left, top: p.pos.top } : null,
+    const p = JSON.parse(raw) as Partial<TerminalPrefs> & {
+      w?: number;
+      h?: number;
+      pos?: { left: number; top: number } | null;
     };
+    // Older builds stored a size + an optional position; migrate them.
+    const rect: WindowRect = p.rect
+      ? { left: p.rect.left, top: p.rect.top, width: p.rect.width, height: p.rect.height }
+      : p.pos
+        ? { left: p.pos.left, top: p.pos.top, width: p.w ?? SIZE_DEFAULT.w, height: p.h ?? SIZE_DEFAULT.h }
+        : {
+            ...defaultRect(),
+            width: p.w ?? defaultRect().width,
+            height: p.h ?? defaultRect().height,
+          };
+    return { rect: clampRect(rect) };
   } catch {
     return fallback;
   }
 }
 
-/** Which resize grip was grabbed (bottom-right stays anchored). */
-type ResizeDir = 'n' | 'w' | 'nw';
+/**
+ * Resize handles, named after the edges/corners they move — the same
+ * convention Windows uses: `n` = top edge, `nw` = top-left corner, …
+ */
+type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+/** The window rectangle in viewport coordinates. */
+interface WindowRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The default rectangle: docked above the status bar, on the right.
+ * The window is a plain rectangle everywhere else — every edge and corner
+ * can be dragged, exactly like a desktop window.
+ */
+function defaultRect(): WindowRect {
+  const width = Math.min(SIZE_DEFAULT.w, window.innerWidth - 2 * EDGE_MARGIN);
+  const height = Math.min(SIZE_DEFAULT.h, window.innerHeight - 2 * EDGE_MARGIN);
+  return {
+    left: Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN),
+    top: Math.max(EDGE_MARGIN, window.innerHeight - height - 42),
+    width,
+    height,
+  };
+}
+
+/** Keep a rectangle fully inside the viewport. */
+function clampRect(rect: WindowRect): WindowRect {
+  const maxW = Math.max(SIZE_MIN.w, Math.min(window.innerWidth - 2 * EDGE_MARGIN, window.innerWidth * SIZE_MAX.w));
+  const maxH = Math.max(SIZE_MIN.h, Math.min(window.innerHeight - 2 * EDGE_MARGIN, window.innerHeight * SIZE_MAX.h));
+  const width = Math.min(Math.max(rect.width, Math.min(SIZE_MIN.w, maxW)), maxW);
+  const height = Math.min(Math.max(rect.height, Math.min(SIZE_MIN.h, maxH)), maxH);
+  const left = Math.min(Math.max(rect.left, EDGE_MARGIN), Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN));
+  const top = Math.min(Math.max(rect.top, EDGE_MARGIN), Math.max(EDGE_MARGIN, window.innerHeight - height - EDGE_MARGIN));
+  return { left, top, width, height };
+}
+
+/**
+ * Resize a rectangle by dragging one edge or corner. The edges behave the
+ * way a desktop window does: dragging the top edge moves the TOP edge (the
+ * bottom stays put), dragging the left edge moves the LEFT edge, and the
+ * corners combine both.
+ */
+export function resizeRect(
+  start: WindowRect,
+  dir: ResizeDir,
+  dx: number,
+  dy: number,
+): WindowRect {
+  const minW = Math.min(SIZE_MIN.w, window.innerWidth - 2 * EDGE_MARGIN);
+  const minH = Math.min(SIZE_MIN.h, window.innerHeight - 2 * EDGE_MARGIN);
+  let left = start.left;
+  let top = start.top;
+  let right = start.left + start.width;
+  let bottom = start.top + start.height;
+
+  if (dir.includes('n')) {
+    top = Math.min(Math.max(start.top + dy, EDGE_MARGIN), bottom - minH);
+  }
+  if (dir.includes('s')) {
+    bottom = Math.max(Math.min(start.top + start.height + dy, window.innerHeight - EDGE_MARGIN), top + minH);
+  }
+  if (dir.includes('w')) {
+    left = Math.min(Math.max(start.left + dx, EDGE_MARGIN), right - minW);
+  }
+  if (dir.includes('e')) {
+    right = Math.max(Math.min(start.left + start.width + dx, window.innerWidth - EDGE_MARGIN), left + minW);
+  }
+  return { left, top, width: right - left, height: bottom - top };
+}
 
 /**
  * True when the buffer is an unfinished block: the line ends with ':' (a
@@ -125,6 +202,23 @@ export function needsContinuation(text: string): boolean {
   const opens = (text.match(/[([{]/g) ?? []).length;
   const closes = (text.match(/[)\]}]/g) ?? []).length;
   return opens > closes;
+}
+
+/** Commands that read or write the project tree in the interpreter — they
+ *  need the workspace to be mounted first. */
+function needsWorkspace(magic: ReplMagic): boolean {
+  return (
+    magic === 'ls' ||
+    magic === 'cd' ||
+    magic === 'cat' ||
+    magic === 'head' ||
+    magic === 'tail' ||
+    magic === 'tree' ||
+    magic === 'find' ||
+    magic === 'grep' ||
+    magic === 'wc' ||
+    magic === 'run'
+  );
 }
 
 export function TerminalPanel() {
@@ -154,6 +248,10 @@ export function TerminalPanel() {
         : (transcripts[activeSession.id] ?? []),
     [activeSession.id, runConsole, transcripts],
   );
+  // Every session sits in its own directory: the prompt shows the ACTIVE
+  // session's directory, and a `cd` in one session does not move another.
+  const cwd = activeSession.cwd;
+
   const clearActive = useMemo(
     () =>
       activeSession.id === RUN_SESSION_ID
@@ -162,9 +260,8 @@ export function TerminalPanel() {
     [activeSession.id, clearRunConsole],
   );
 
-  // The interpreter has ONE working directory — the prompt shows it for every
-  // session (a `cd` anywhere moves all of them).
-  const cwd = useTerminalStore((s) => s.cwd);
+  // Every session sits in its own directory (see `cwd` below): the prompt
+  // shows the ACTIVE session's directory.
 
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -175,82 +272,55 @@ export function TerminalPanel() {
   const [historyIdx, setHistoryIdx] = useState(-1);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const windowRef = useRef<HTMLDivElement>(null);
   /** Latest capture runner — the open effect below runs before the callback
    *  that defines it is created. */
   const runCapturedRef = useRef<(code: string) => Promise<{ out: string; err: string }>>(
     async () => ({ out: '', err: '' }),
   );
 
-  // ---- window geometry (persisted) -------------------------------------
-  const [size, setSize] = useState({ w: prefs.current.w, h: prefs.current.h });
-  /** null = anchored above the status bar on the right (the default dock). */
-  const [pos, setPos] = useState<TerminalPrefs['pos']>(prefs.current.pos);
+  // The window geometry persists; the OPEN state lives in the app store
+  // (persisted with the panel prefs), so there is nothing to restore here.
+  const [rect, setRect] = useState<WindowRect>(prefs.current.rect);
   const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  const resizeRef = useRef<{ dir: ResizeDir; x: number; y: number; w: number; h: number } | null>(null);
-
-  // Restore the persisted open state once on mount (appStore defaults closed).
-  useEffect(() => {
-    if (prefs.current.open && !useAppStore.getState().terminalOpen) toggle();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const resizeRef = useRef<{ dir: ResizeDir; x: number; y: number; rect: WindowRect } | null>(null);
 
   // Persist geometry whenever any of it changes.
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ open, w: size.w, h: size.h, pos } satisfies TerminalPrefs));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ rect } satisfies TerminalPrefs));
     } catch {
       /* private mode — geometry simply does not persist */
     }
-  }, [open, size, pos]);
+  }, [rect]);
 
   const startResize = (dir: ResizeDir) => (e: React.PointerEvent) => {
     e.preventDefault();
-    resizeRef.current = { dir, x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+    e.stopPropagation();
+    resizeRef.current = { dir, x: e.clientX, y: e.clientY, rect };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const onResizeMove = (e: React.PointerEvent) => {
     const drag = resizeRef.current;
     if (!drag) return;
-    const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
-    const maxW = Math.min(window.innerWidth * SIZE_MAX.w, window.innerWidth - 2 * EDGE_MARGIN);
-    const maxH = Math.min(window.innerHeight * SIZE_MAX.h, window.innerHeight - 2 * EDGE_MARGIN);
-    let { w, h } = drag;
-    // When docked (pos=null) the bottom-right stays anchored, so dragging the
-    // left edge up-left GROWS the card. In free-position mode the same grips
-    // behave like window edges: the opposite corner follows the pointer.
-    if (drag.dir !== 'n') w = clamp(drag.w - (e.clientX - drag.x), SIZE_MIN.w, maxW);
-    if (drag.dir !== 'w') h = clamp(drag.h - (e.clientY - drag.y), SIZE_MIN.h, maxH);
-    const next = { w: Math.round(w), h: Math.round(h) };
-    setSize(next);
-    // Keep a dragged window fully on-screen while resizing.
-    setPos((p) =>
-      p
-        ? {
-            left: Math.min(Math.max(p.left, EDGE_MARGIN), window.innerWidth - next.w - EDGE_MARGIN),
-            top: Math.min(Math.max(p.top, EDGE_MARGIN), window.innerHeight - next.h - EDGE_MARGIN),
-          }
-        : p,
-    );
+    const next = resizeRect(drag.rect, drag.dir, e.clientX - drag.x, e.clientY - drag.y);
+    setRect(next);
   };
 
   const endResize = () => {
     resizeRef.current = null;
   };
 
-  // Title-bar drag: the first drag converts the docked anchor to absolute
-  // coordinates, then the window follows the pointer — clamped so it can
-  // never leave the viewport. The drag starts ONLY on the bare title bar:
+  // Title-bar drag: the window follows the pointer — clamped so it can never
+  // leave the viewport. The drag starts ONLY on the bare title bar:
   // pointerdown on a button (close) must not capture the pointer, or the
   // button never receives its click.
   const startDrag = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
-    const rect = (e.currentTarget as HTMLElement).closest('.terminal-window')!.getBoundingClientRect();
-    const base = pos ?? { left: rect.left, top: rect.top };
-    setPos(base);
-    dragRef.current = { x: e.clientX, y: e.clientY, left: base.left, top: base.top };
+    dragRef.current = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -259,13 +329,13 @@ export function TerminalPanel() {
     if (!drag) return;
     const left = Math.min(
       Math.max(drag.left + (e.clientX - drag.x), EDGE_MARGIN),
-      window.innerWidth - size.w - EDGE_MARGIN,
+      window.innerWidth - rect.width - EDGE_MARGIN,
     );
     const top = Math.min(
       Math.max(drag.top + (e.clientY - drag.y), EDGE_MARGIN),
-      window.innerHeight - size.h - EDGE_MARGIN,
+      window.innerHeight - rect.height - EDGE_MARGIN,
     );
-    setPos({ left, top });
+    setRect({ ...rect, left, top });
   };
 
   const endDrag = () => {
@@ -293,12 +363,15 @@ export function TerminalPanel() {
     if (!open) return undefined;
     let alive = true;
     void (async () => {
-      const mounted = await mountWorkspaceFiles();
-      if (!alive || !mounted) return;
-      // The mount resets the cwd to /workspace; re-read it for the prompt.
-      const pwd = await runCapturedRef.current("print(__import__('os').getcwd())");
-      const path = pwd.out.trim();
-      if (path) useTerminalStore.getState().setCwd(path);
+      try {
+        const mounted = await mountWorkspaceFiles();
+        if (!alive || !mounted) return;
+        // The mount resets the interpreter's directory; the sessions keep
+        // their own, so nothing to update here.
+      } catch {
+        // The interpreter may still be booting or the runtime failed: the
+        // next command retries the mount.
+      }
     })();
     // Focus after the open transition so the window is ready to type into.
     const timer = window.setTimeout(() => inputRef.current?.focus(), 180);
@@ -306,6 +379,22 @@ export function TerminalPanel() {
       alive = false;
       window.clearTimeout(timer);
     };
+  }, [open]);
+
+  // A hidden window must not keep the keyboard focus: aria-hidden alone
+  // leaves the focused button inside the subtree, which browsers report as
+  // an accessibility error. `inert` (React 18 has no JSX prop for it) both
+  // removes the subtree from the a11y tree and drops the focus.
+  useEffect(() => {
+    const el = windowRef.current;
+    if (!el) return;
+    if (open) {
+      el.removeAttribute('inert');
+      return;
+    }
+    el.setAttribute('inert', '');
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && el.contains(active)) active.blur();
   }, [open]);
 
   // Keep the latest output visible, like a real terminal.
@@ -320,9 +409,9 @@ export function TerminalPanel() {
     const area = inputRef.current;
     if (!area) return;
     area.style.height = 'auto';
-    const max = Math.max(60, Math.floor((size.h || 340) / 3));
+    const max = Math.max(60, Math.floor((rect.height || 340) / 3));
     area.style.height = `${Math.min(area.scrollHeight, max)}px`;
-  }, [draft, size.h]);
+  }, [draft, rect.height]);
 
   /** Append a line to the ACTIVE session's transcript. */
   const appendActive = useCallback(
@@ -376,7 +465,7 @@ export function TerminalPanel() {
         if (err) append('stderr', err);
         const pwd = await runCaptured("print(__import__('os').getcwd())");
         const path = pwd.out.trim();
-        if (path) setCwdStore(path);
+        if (path) setCwdStore(activeSession.id, path);
         return;
       }
       const project = useProjectStore.getState().project;
@@ -396,7 +485,43 @@ export function TerminalPanel() {
         append('stderr', `run: ${message}`);
       }
     },
-    [cwd, runCaptured, setCwdStore],
+    [cwd, activeSession.id, runCaptured, setCwdStore],
+  );
+
+  /**
+   * Write the files the session created or changed back into the project.
+   * Runs before a workspace rebuild (so nothing the user wrote in the
+   * terminal is lost) and after a script run (so its artefacts land in the
+   * project tree).
+   */
+  const syncWorkspaceToProject = useCallback(
+    async (append: (stream: 'stdout' | 'stderr' | 'info', text: string) => void) => {
+      const produced = await collectWorkspaceOutputsFromRuntime();
+      const names = Object.keys(produced);
+      if (!names.length) return;
+      await useAppStore.getState().saveWorkspaceFiles(produced);
+      useAppStore.getState().bumpFileOps();
+      append('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
+    },
+    [],
+  );
+
+  // Every session has its own directory. The interpreter has ONE working
+  // directory, so before a command runs we move it to the active session's
+  // directory — that way `cd` in session 2 does not move session 1.
+  const syncInterpreterCwd = useCallback(
+    async (sessionId: string, target: string) => {
+      const { out, err } = await runCapturedRef.current(
+        `import os\nif os.path.isdir(${pythonLiteral(target)}):\n    os.chdir(${pythonLiteral(target)})\nelse:\n    os.chdir('/workspace')`,
+      );
+      if (err) return;
+      const path = out.trim();
+      if (path && path !== target) {
+        // The directory vanished (e.g. the project changed): fall back.
+        useTerminalStore.getState().setCwd(sessionId, path, false);
+      }
+    },
+    [],
   );
 
   const submit = useCallback(
@@ -420,6 +545,23 @@ export function TerminalPanel() {
         appendActive('info', `${cwd}>${text}`);
         const cmd = parseReplCommand(text);
 
+        // Commands that touch the file system need the project tree in the
+        // interpreter. The mount is FORCED here: a run may have left the
+        // bundled example files behind, and `ls` must show the project tree
+        // as it is on disk. Whatever the session wrote goes back into the
+        // project first, so a rebuild never loses it.
+        if (cmd && needsWorkspace(cmd.magic)) {
+          await syncWorkspaceToProject(appendActive);
+          const mounted = await mountWorkspaceFiles(true);
+          if (!mounted) {
+            appendActive('stderr', 'the Python workspace is not ready yet');
+            return;
+          }
+          // The rebuild reset the interpreter's directory — put it back where
+          // THIS session is.
+          await syncInterpreterCwd(sessionId, cwd);
+        }
+
         // Host commands act on the workbench (open / touch / git / pip …).
         if (cmd && isHostCommand(cmd.magic)) {
           await runHostCommand(cmd, { append: appendActive, cwd, runPython: runCaptured });
@@ -432,32 +574,51 @@ export function TerminalPanel() {
           await runScript(cmd.arg, appendActive);
           // Whatever the script wrote into the workspace goes back into the
           // project — the terminal must not be a dead end for artefacts.
-          const produced = await collectWorkspaceOutputsFromRuntime();
-          const names = Object.keys(produced);
-          if (names.length) {
-            await useAppStore.getState().saveWorkspaceFiles(produced);
-            useAppStore.getState().bumpFileOps();
-            appendActive('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
-          }
+          await syncWorkspaceToProject(appendActive);
           return;
         }
 
-        const code = cmd ? buildMagicPython(cmd) : text;
+        // `cd -` returns to the directory this session was in before the last
+        // cd (the shell's OLDPWD).
+        let cdArg = cmd?.arg ?? '';
+        let effective = cmd;
+        if (cmd?.magic === 'cd' && cdArg === '-') {
+          cdArg = activeSession.prevCwd;
+          effective = { ...cmd, arg: cdArg };
+        } else if (cmd?.magic === 'cd') {
+          // A relative cd resolves against THIS session's directory.
+          await syncInterpreterCwd(sessionId, cwd);
+        }
+
+        const code = effective ? buildMagicPython(effective) : text;
         const { out, err } = await runCaptured(code);
         if (out) appendActive('stdout', out);
         if (err) appendActive('stderr', err);
         // `cd` moved the interpreter's working directory: re-read it so the
-        // prompt shows where we actually are.
+        // prompt shows where we actually are — and remember it for THIS
+        // session only.
         if (cmd?.magic === 'cd') {
           const pwd = await runCaptured("print(__import__('os').getcwd())");
           const path = pwd.out.trim();
-          if (path) setCwdStore(path);
+          if (path) setCwdStore(sessionId, path);
         }
       } finally {
         setBusy(false);
       }
     },
-    [busy, activeSession.id, cwd, appendActive, clearActive, setCwdStore, runCaptured, runScript],
+    [
+      busy,
+      activeSession.id,
+      activeSession.prevCwd,
+      cwd,
+      appendActive,
+      clearActive,
+      setCwdStore,
+      runCaptured,
+      runScript,
+      syncInterpreterCwd,
+      syncWorkspaceToProject,
+    ],
   );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -553,22 +714,35 @@ export function TerminalPanel() {
     setHistoryIdx(-1);
   }, [activeId]);
 
-  const style: React.CSSProperties = pos
-    ? { left: pos.left, top: pos.top, width: size.w, height: size.h }
-    : { width: size.w, height: size.h };
+  const style: React.CSSProperties = {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
 
   return (
     <div
+      ref={windowRef}
       className={`terminal-window${open ? '' : ' is-closed'}`}
       style={style}
       aria-hidden={!open}
       role="complementary"
       aria-label={t('terminal.title')}
     >
-      {/* Window-style resize grips: top edge, left edge, top-left corner. */}
-      <div className="terminal-resize is-n" onPointerDown={startResize('n')} onPointerMove={onResizeMove} onPointerUp={endResize} onPointerCancel={endResize} />
-      <div className="terminal-resize is-w" onPointerDown={startResize('w')} onPointerMove={onResizeMove} onPointerUp={endResize} onPointerCancel={endResize} />
-      <div className="terminal-resize is-nw" onPointerDown={startResize('nw')} onPointerMove={onResizeMove} onPointerUp={endResize} onPointerCancel={endResize} />
+      {/* Window-style resize grips: all four edges and corners, placed just
+          OUTSIDE the frame so they never fight with the title bar or the
+          session strip. */}
+      {(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const).map((dir) => (
+        <div
+          key={dir}
+          className={`terminal-resize is-${dir}`}
+          onPointerDown={startResize(dir)}
+          onPointerMove={onResizeMove}
+          onPointerUp={endResize}
+          onPointerCancel={endResize}
+        />
+      ))}
 
       {/* Session side strip: one entry per session + a new-session button. */}
       <div className="terminal-side" role="tablist" aria-label={t('terminal.title')}>

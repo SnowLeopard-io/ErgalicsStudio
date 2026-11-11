@@ -1983,7 +1983,9 @@
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-3);
-  overflow: hidden; /* the resize grips live just inside the border */
+  /* The resize grips live just OUTSIDE the frame, so the window itself must
+   * not clip them — the rounded corners are handled by its two columns. */
+  overflow: visible;
   /* Below the status bar chrome (1401) and its popover; above the canvas. */
   z-index: 1390;
   opacity: 1;
@@ -2006,9 +2008,9 @@
     visibility 0s linear 0.22s;
 }
 
-/* Window-style resize grips: invisible hit zones just inside the card edge
-   (the card clips its own corners). Bottom-right stays anchored, so grips
-   cover the top edge, the left edge and the top-left corner only. */
+/* Window-style resize grips: all four edges and all four corners, placed
+   just outside the frame (they never overlap the title bar or the session
+   strip). The cursor tells the user which way the edge will move. */
 .terminal-resize {
   position: absolute;
   touch-action: none;
@@ -2016,24 +2018,64 @@
 }
 
 .terminal-resize.is-n {
-  top: 0;
-  left: 10px;
-  right: 10px;
-  height: 7px;
+  top: -4px;
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.terminal-resize.is-s {
+  bottom: -4px;
+  left: 14px;
+  right: 14px;
+  height: 8px;
   cursor: ns-resize;
 }
 
 .terminal-resize.is-w {
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 7px;
+  left: -4px;
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.terminal-resize.is-e {
+  right: -4px;
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
   cursor: ew-resize;
 }
 
 .terminal-resize.is-nw {
-  top: 0;
-  left: 0;
+  top: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.terminal-resize.is-ne {
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.terminal-resize.is-sw {
+  bottom: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.terminal-resize.is-se {
+  bottom: -4px;
+  right: -4px;
   width: 14px;
   height: 14px;
   cursor: nwse-resize;
@@ -2051,6 +2093,11 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   overflow-y: auto;
+  /* The window does not clip its own corners (the grips live outside it),
+   * so the two columns round their own corners. */
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+  overflow-x: hidden;
 }
 
 .terminal-side-item {
@@ -2115,6 +2162,9 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .terminal-titlebar {

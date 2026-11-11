@@ -152,6 +152,20 @@ _il.invalidate_caches()
 `);
 }
 
+/**
+ * Lighter variant for the mount path: make sure /workspace exists and is the
+ * cwd, but keep the imported modules of the session. A mount only adds files
+ * to the tree — dropping the user's imports would be a side effect nobody
+ * asked for.
+ */
+function ensureWorkspaceRoot(py: PyodideInterface): void {
+  py.runPython(`
+import os as _os
+_os.makedirs('/workspace', exist_ok=True)
+_os.chdir('/workspace')
+`);
+}
+
 // ---- run / repl ----------------------------------------------------------
 
 /**
@@ -172,6 +186,22 @@ function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapsho
 }
 
 /**
+ * Clear the workspace tree before mounting a fresh one.
+ *
+ * A run mounts the "runtime file set", which also folds in the bundled
+ * example catalogue and basename aliases. Those leftovers would otherwise
+ * keep showing up in the terminal's `ls`, so the mount starts from an empty
+ * /workspace and rebuilds exactly the project tree.
+ */
+function resetWorkspaceTree(py: PyodideInterface): void {
+  py.runPython(`
+import os as _os, shutil as _shutil
+_shutil.rmtree('/workspace', ignore_errors=True)
+_os.makedirs('/workspace', exist_ok=True)
+`);
+}
+
+/**
  * Remember the interpreter's working directory across a workspace reset.
  *
  * prepareWorkspaceRuntime() chdir's to /workspace so that relative outputs
@@ -189,9 +219,17 @@ function rememberCwd(py: PyodideInterface): string {
 
 function restoreCwd(py: PyodideInterface, cwd: string): void {
   if (!cwd || cwd === WORKSPACE_ROOT) return;
+  // Only a directory INSIDE the workspace may be restored. Before the first
+  // mount the interpreter sits in Pyodide's home (/home/pyodide) — restoring
+  // that would break the "cwd is /workspace" invariant the runtime relies on
+  // (relative outputs would land outside the project).
+  if (!cwd.startsWith(`${WORKSPACE_ROOT}/`)) return;
+  // The paths go into Python source: they MUST be quoted (a bare /workspace
+  // is a syntax error, not a path).
   const literal = JSON.stringify(cwd);
+  const rootLiteral = JSON.stringify(WORKSPACE_ROOT);
   py.runPython(
-    `import os as _os\nif _os.path.isdir(${literal}):\n    _os.chdir(${literal})\nelse:\n    _os.chdir(${WORKSPACE_ROOT})`,
+    `import os as _os\nif _os.path.isdir(${literal}):\n    _os.chdir(${literal})\nelse:\n    _os.chdir(${rootLiteral})`,
   );
 }
 
@@ -264,10 +302,14 @@ async function handleMount(msg: MountMessage): Promise<void> {
   try {
     const py = await ensurePyodide(activeIndexURL);
     const cwd = rememberCwd(py);
-    mountWorkspace(workspaceFs(py), msg.files);
-    prepareWorkspaceRuntime(py);
+    const fs = workspaceFs(py);
+    // Start from an empty tree: a previous run may have left the bundled
+    // example files and basename aliases behind.
+    resetWorkspaceTree(py);
+    mountWorkspace(fs, msg.files);
+    ensureWorkspaceRoot(py);
     restoreCwd(py, cwd);
-    workspaceBaseline = snapshotWorkspace(workspaceFs(py));
+    workspaceBaseline = snapshotWorkspace(fs);
     postMessage({ type: 'mount-result', id: msg.id, ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -481,8 +481,9 @@ export function CodeEditor() {
     const code = editor.getValue();
     const startedAt = Date.now();
     // Output lands in the global terminal drawer; bring it up so the user
-    // actually sees the run happen.
-    if (!useAppStore.getState().terminalOpen) useAppStore.getState().toggleTerminal();
+    // actually sees the run happen (the open state is persisted, so a later
+    // reload keeps the terminal where the user left it).
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().setTerminalOpen(true);
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);

@@ -19,6 +19,11 @@ import type { ConsoleEntry } from '@/types/editor';
 
 export interface TerminalSession {
   id: string;
+  /** Directory this session sits in (its own, not inherited). */
+  cwd: string;
+  /** The directory this session was in before the last `cd` — the target of
+   *  `cd -`. */
+  prevCwd: string;
 }
 
 interface TerminalStore {
@@ -26,11 +31,6 @@ interface TerminalStore {
   activeId: string;
   /** Transcripts of extra sessions; the 'run' session reads editorStore. */
   transcripts: Record<string, ConsoleEntry[]>;
-  /**
-   * Interpreter cwd, shown in the prompt. It is GLOBAL: the interpreter has
-   * one working directory, so a `cd` in any session moves every session.
-   */
-  cwd: string;
   /** Counter for naming new sessions (终端 2, 终端 3, …). */
   nextIndex: number;
   createSession: () => void;
@@ -38,23 +38,28 @@ interface TerminalStore {
   setActive: (id: string) => void;
   append: (id: string, entry: ConsoleEntry) => void;
   clearSession: (id: string) => void;
-  setCwd: (cwd: string) => void;
+  /**
+   * Move a session to a directory. `rememberPrevious` records the old
+   * directory so `cd -` can go back to it.
+   */
+  setCwd: (id: string, cwd: string, rememberPrevious?: boolean) => void;
 }
 
 export const RUN_SESSION_ID = 'run';
 
 export const useTerminalStore = create<TerminalStore>((set) => ({
-  sessions: [{ id: RUN_SESSION_ID }],
+  sessions: [{ id: RUN_SESSION_ID, cwd: '/workspace', prevCwd: '/workspace' }],
   activeId: RUN_SESSION_ID,
   transcripts: {},
-  cwd: '/workspace',
   nextIndex: 2,
 
   createSession: () =>
     set((s) => {
       const id = `t${s.nextIndex}-${Date.now().toString(36)}`;
       return {
-        sessions: [...s.sessions, { id }],
+        // A new session starts at the workspace root — it must NOT inherit
+        // the directory of the session that was active before it.
+        sessions: [...s.sessions, { id, cwd: '/workspace', prevCwd: '/workspace' }],
         activeId: id,
         transcripts: { ...s.transcripts, [id]: [] },
         nextIndex: s.nextIndex + 1,
@@ -83,5 +88,12 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
 
   clearSession: (id) => set((s) => ({ transcripts: { ...s.transcripts, [id]: [] } })),
 
-  setCwd: (cwd) => set({ cwd }),
+  setCwd: (id, cwd, rememberPrevious = true) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? { ...x, cwd, prevCwd: rememberPrevious && x.cwd !== cwd ? x.cwd : x.prevCwd }
+          : x,
+      ),
+    })),
 }));

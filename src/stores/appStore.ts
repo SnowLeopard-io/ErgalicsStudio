@@ -225,8 +225,10 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
-  /** Toggle the bottom terminal drawer (Ctrl+` / status-bar button). */
+  /** Toggle the bottom terminal drawer (Ctrl+` / activity-bar button). */
   toggleTerminal: () => void;
+  /** Show or hide the terminal window (persisted with the panel prefs). */
+  setTerminalOpen: (open: boolean) => void;
   /** Select a workbench mode. Standard returns to the plugin canvas; the three
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
@@ -290,12 +292,15 @@ const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const MEMORY_WARN_MB = 0.8 * 512;
 
 /** Panel visibility persists across reloads so a deliberately closed sidebar
- *  (or code/flow panel) stays closed next launch. */
+ *  (or code/flow panel) stays closed next launch. The terminal window is
+ *  part of the same preference set: closing it must survive a reload, and
+ *  opening it must survive one too. */
 const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
 const PANEL_DEFAULTS = {
   sidebarOpen: true,
   rightPanelOpen: true,
   sidebarView: 'plugins' as SidebarView,
+  terminalOpen: false,
 };
 
 const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
@@ -340,6 +345,7 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
       sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
         ? (parsed.sidebarView as SidebarView)
         : PANEL_DEFAULTS.sidebarView,
+      terminalOpen: parsed.terminalOpen ?? PANEL_DEFAULTS.terminalOpen,
     };
   } catch {
     return defaultPanelPrefs();
@@ -350,6 +356,7 @@ const persistPanelPrefs = (s: {
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
   sidebarView: SidebarView;
+  terminalOpen: boolean;
 }) => {
   try {
     localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
@@ -367,8 +374,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   perf: DEFAULT_PERF,
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
-  // Session-only: a terminal the user never opened stays closed next launch.
-  terminalOpen: false,
+  // Persisted with the panel prefs: a terminal the user closed stays closed
+  // after a reload, and one they left open comes back.
+  terminalOpen: panelPrefs.terminalOpen,
   sidebarView: panelPrefs.sidebarView,
   canvasTabs: [],
   activeTab: null,
@@ -476,7 +484,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       return next;
     }),
   toggleTerminal: () =>
-    set((s) => ({ terminalOpen: !s.terminalOpen })),
+    set((s) => {
+      const next = { ...s, terminalOpen: !s.terminalOpen };
+      // Persisted with the panel prefs: closing the terminal must survive a
+      // reload (and opening it must survive one too).
+      persistPanelPrefs(next);
+      return next;
+    }),
+  setTerminalOpen: (open: boolean) =>
+    set((s) => {
+      if (s.terminalOpen === open) return s;
+      const next = { ...s, terminalOpen: open };
+      persistPanelPrefs(next);
+      return next;
+    }),
   setMode: (mode, path) => {
     // Standard is the canvas baseline (plugin host), not a tab: returning to
     // it clears the active tab and brings the plugin canvas back.

@@ -210,6 +210,27 @@ export async function collectRuntimeFiles(): Promise<Record<string, string>> {
   return out;
 }
 
+/**
+ * The PROJECT's own files — the working tree plus the data registry, keyed
+ * by their real relative paths.
+ *
+ * This is deliberately NOT collectRuntimeFiles(): that one also folds in the
+ * bundled example catalogue (the 示例 datasets) and adds basename aliases,
+ * which is right for `studio.load()` during a run but wrong for the
+ * terminal, whose `ls` must show the project tree as it is on disk.
+ */
+export async function collectProjectFiles(): Promise<Record<string, string>> {
+  const files = await readWorkspaceSource();
+  if (Object.keys(files).length) {
+    setWorkspaceSnapshot(collectDataFrom(files));
+  }
+  const out: Record<string, string> = { ...files };
+  for (const [name, text] of projectFiles) {
+    if (!(name in out)) out[name] = text;
+  }
+  return out;
+}
+
 /** Filter a runtime file map down to data formats (picker snapshot). */
 function collectDataFrom(files: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};

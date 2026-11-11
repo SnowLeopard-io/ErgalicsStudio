@@ -150,8 +150,8 @@ export function BlockEditor() {
     const ir = workspaceToIR(ws);
     const startedAt = Date.now();
     // Output lands in the global terminal drawer; bring it up so the user
-    // actually sees the run happen.
-    if (!useAppStore.getState().terminalOpen) useAppStore.getState().toggleTerminal();
+    // actually sees the run happen (the open state is persisted).
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().setTerminalOpen(true);
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
