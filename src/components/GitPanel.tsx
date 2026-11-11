@@ -240,9 +240,14 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
           if (alwaysOpen) e.preventDefault();
         }}
       >
-        <span className="git-panel-caret">
-          <ChevronRightIcon size={12} />
-        </span>
+        {/* The caret only means something when the panel can actually fold.
+            In alwaysOpen (sidebar) mode collapse is disabled, so showing a
+            chevron implies an affordance that isn't there. */}
+        {!alwaysOpen && (
+          <span className="git-panel-caret">
+            <ChevronRightIcon size={12} />
+          </span>
+        )}
         <span>{t('git.panel_title')}</span>
         {repo && (
           <span className="git-panel-badge" title={repo.currentBranch}>

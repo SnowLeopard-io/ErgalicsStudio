@@ -405,6 +405,29 @@ export function CodeEditor() {
    *  working tree first, then project data files and bundled examples. */
   const collectFiles = async (): Promise<Record<string, string>> => collectRuntimeFiles();
 
+  /**
+   * Persist only the files a run actually produced. `result.files` is the
+   * runtime's changed-file diff; anything whose content still equals the
+   * staged input is an echo of what we mounted (the diff is a best-effort
+   * worker-side comparison) and must never be written back — otherwise every
+   * run re-materialises the staged tree (bundled examples at the workspace
+   * root included) into the project.
+   */
+  const saveRunOutputs = async (
+    files: Record<string, string> | undefined,
+    staged: Record<string, string>,
+  ): Promise<void> => {
+    if (!files) return;
+    const produced: Record<string, string> = {};
+    for (const [path, text] of Object.entries(files)) {
+      if (staged[path] === text) continue;
+      produced[path] = text;
+    }
+    if (Object.keys(produced).length === 0) return;
+    await useAppStore.getState().saveWorkspaceFiles(produced);
+  };
+
+
   /** Run JavaScript text through the IR interpreter (block-mode engine). */
   const runViaIR = async (code: string, lang: CodeLanguage): Promise<{ ok: boolean; outputs: Record<string, unknown> }> => {
     const { program, rawCount } = parseCodeToIR(code, lang);
@@ -471,14 +494,13 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
+        const staged = await collectFiles();
+        const result = await runtimeRef.current!.runPython(code, staged, {});
         if (result.ok) {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          if (result.files && Object.keys(result.files).length) {
-            await useAppStore.getState().saveWorkspaceFiles(result.files);
-          }
+          saveRunOutputs(result.files, staged);
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -568,14 +590,13 @@ export function CodeEditor() {
     let outputs: Record<string, unknown> = {};
     try {
       if (language === 'python') {
-        const result = await runtimeRef.current!.runPython(code, await collectFiles(), {});
+        const staged = await collectFiles();
+        const result = await runtimeRef.current!.runPython(code, staged, {});
         ok = result.ok;
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          if (result.files && Object.keys(result.files).length) {
-            await useAppStore.getState().saveWorkspaceFiles(result.files);
-          }
+          saveRunOutputs(result.files, staged);
         } else {
           error = result.error ?? 'run failed';
         }

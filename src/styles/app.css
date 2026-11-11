@@ -1373,6 +1373,12 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
+/* The init button is the panel's primary action — give it the full column
+   width instead of hugging its label (the hint stays left-aligned). */
+.git-panel-no-repo .btn {
+  align-self: stretch;
+}
+
 .git-panel-no-repo .git-panel-hint {
   margin-bottom: var(--space-1);
 }
