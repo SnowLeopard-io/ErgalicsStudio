@@ -8328,6 +8328,12 @@
   min-height: 0;
   overflow-y: auto;
   min-width: 0;
+  /* .sidebar pads 12px on every side, which parks the explorer's scrollbar a
+     full gutter away from the panel divider. Pull this one edge back into that
+     padding so the scrollbar sits flush against the border, then re-apply the
+     same padding on the inside so rows keep their distance from the thumb. */
+  margin-right: calc(-1 * var(--space-3));
+  padding-right: var(--space-3);
 }
 
 .explorer-section {
