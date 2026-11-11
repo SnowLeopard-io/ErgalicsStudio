@@ -5,6 +5,7 @@ import { useDaypart } from '@/core/ambience/vitality';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { Tagline } from '@/components/Tagline';
 import { currentAppVersion } from '@/core/citation';
 import { initGpu } from '@/core/gpu';
 import { wasmStatus } from '@/core/wasm';
@@ -27,9 +28,6 @@ import {
 
 const APP_VERSION = currentAppVersion();
 
-/** Rotating hero taglines — one shows at a time, cycling every 3 s. */
-const TAGLINE_COUNT = 6;
-
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
   gpuName: string;
@@ -50,13 +48,6 @@ let deepLinkConsumed = false;
 export default function WelcomePage() {
   const t = useT();
   const daypart = useDaypart();
-
-  /** Hero tagline rotation — advances every 3 s, fading via CSS on remount. */
-  const [tagline, setTagline] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => setTagline((i) => (i + 1) % TAGLINE_COUNT), 3000);
-    return () => window.clearInterval(timer);
-  }, []);
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
@@ -311,10 +302,8 @@ export default function WelcomePage() {
       <main className="welcome-main">
         <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
-          {/* key= remounts the node so the fade-in animation replays. */}
-          <p className="welcome-subtitle welcome-tagline" key={tagline}>
-            {t(`welcome.tagline.${tagline}`)}
-          </p>
+          {/* key= remounts the node so the fade-in animation replays (inside Tagline). */}
+          <Tagline className="welcome-subtitle welcome-tagline" />
           <p className="welcome-greeting">{t(`ambience.greeting.${daypart}`)}</p>
           <div className="welcome-cta-row">
             <button

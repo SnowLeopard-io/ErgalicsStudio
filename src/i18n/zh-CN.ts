@@ -212,7 +212,6 @@ export const zhCN: LocaleDictionary = {
   'workbench.menu.project': '项目',
   'workbench.menu.danger': '危险操作',
   'workbench.empty.title': '开始使用 Ergalics Studio',
-  'workbench.empty.subtitle': '打开或新建文件即可开始：代码、积木与流程都在这同一个画布中',
   'workbench.empty.start': '开始',
   'workbench.empty.load_plugin': '加载插件',
   'workbench.empty.example_data': '示例数据',

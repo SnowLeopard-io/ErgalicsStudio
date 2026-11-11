@@ -208,7 +208,6 @@ export const enUS: LocaleDictionary = {
   'workbench.menu.project': 'Project',
   'workbench.menu.danger': 'Danger zone',
   'workbench.empty.title': 'Start using Ergalics Studio',
-  'workbench.empty.subtitle': 'Open or create a file to begin — code, blocks and flows share one canvas',
   'workbench.empty.start': 'Start',
   'workbench.empty.load_plugin': 'Load Plugin',
   'workbench.empty.example_data': 'Example Data',

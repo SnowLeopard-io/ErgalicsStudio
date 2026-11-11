@@ -46,6 +46,7 @@ const LazyCodeSurface = lazyRetry(() =>
 import { Modal } from '@/components/Modal';
 import { ToolShell } from '@/components/ToolShell';
 import { EmptyProject } from '@/components/EmptyState';
+import { Tagline } from '@/components/Tagline';
 import { getTool } from '@/pages/research/toolRegistry';
 import { logger } from '@/core/logger';
 import { mdToHtml } from '@/core/notebook/notebook';
@@ -1805,7 +1806,7 @@ export function CentralArea() {
                   <circle className="central-empty-mark-core" cx="32" cy="32" r="2.6" />
                 </svg>
                 <h2 className="central-empty-title">{t('workbench.empty.title')}</h2>
-                <p className="central-empty-subtitle">{t('workbench.empty.subtitle')}</p>
+                <Tagline className="central-empty-subtitle welcome-tagline" />
               </header>
 
               {/* VS Code-style two-column cover: actions on the left, recent
