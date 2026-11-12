@@ -314,6 +314,8 @@ export const enUS: LocaleDictionary = {
   'project.name': 'Project Name',
   'project.auto_save': 'Auto-saving',
   'project.saved': 'Saved',
+  'project.file_too_large':
+    '{count} file(s) exceed {mb} MB and were not staged into the runtime ({names}). Analysis and runs cannot see them.',
   'project.deleted': 'Deleted',
   'project.prompt_name': 'Please enter a project name',
   'project.prompt_save_as': 'Please enter a file name for Save As',

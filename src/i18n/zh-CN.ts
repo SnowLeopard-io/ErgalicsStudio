@@ -317,6 +317,8 @@ export const zhCN: LocaleDictionary = {
   'project.name': '项目名称',
   'project.auto_save': '自动保存中',
   'project.saved': '已保存',
+  'project.file_too_large':
+    '有 {count} 个文件超过 {mb} MB，未载入运行时（{names}）。数据分析与运行将看不到这些文件。',
   'project.deleted': '已删除',
   'project.prompt_name': '请输入项目名称',
   'project.prompt_save_as': '请输入另存为的文件名',
