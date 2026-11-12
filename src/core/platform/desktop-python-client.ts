@@ -23,6 +23,8 @@ interface DesktopPythonRunResult {
   /** Present for parity with Pyodide; the desktop channel does not collect
    *  workspace outputs yet, so it stays undefined. */
   files?: Record<string, string>;
+  /** Present for parity with Pyodide; desktop CPython writes real files. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -88,7 +90,12 @@ export class DesktopPythonClient {
     }
   }
 
-  async repl(code: string): Promise<{ ok: boolean; text: string; error?: string }> {
+  // `preloadSource` is Pyodide-specific (it scans the script for imports to
+  // auto-load wheels); desktop CPython already has the scientific stack.
+  async repl(
+    code: string,
+    _preloadSource?: string,
+  ): Promise<{ ok: boolean; text: string; error?: string }> {
     const sessionId = await this.ensureSession();
     try {
       return await this.api.repl(sessionId, code);
@@ -117,8 +124,13 @@ export class DesktopPythonClient {
 
   /** Desktop edition: the interpreter writes straight into the project tree,
    *  so there is nothing to collect back. */
-  async collectWorkspaceFiles(): Promise<{ ok: boolean; files: Record<string, string>; error?: string }> {
-    return { ok: true, files: {} };
+  async collectWorkspaceFiles(): Promise<{
+    ok: boolean;
+    files: Record<string, string>;
+    binaryFiles?: Record<string, string>;
+    error?: string;
+  }> {
+    return { ok: true, files: {}, binaryFiles: {} };
   }
 
   interrupt(): void {

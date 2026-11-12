@@ -50,8 +50,12 @@ export function reproductionFromβ(β: number, infectiousDays: number): number {
 }
 
 function rhs(cfg: ModelConfig, y: number[], pop: number): number[] {
-  const β = cfg.r0 / cfg.infectiousDays;
-  const γ = 1 / cfg.infectiousDays;
+  // The periods are clamped here too: a zero infectious/latent period made
+  // γ = 1/0 = Infinity and the whole trajectory diverged to ±Infinity.
+  const infectiousDays = Math.max(0.5, cfg.infectiousDays);
+  const latentDays = Math.max(0.5, cfg.latentDays);
+  const β = cfg.r0 / infectiousDays;
+  const γ = 1 / infectiousDays;
   const S = y[0]!;
   const isSEIR = cfg.model === 'SEIR';
   // infectious compartment is index 1 in SIR, index 2 in SEIR
@@ -60,7 +64,7 @@ function rhs(cfg: ModelConfig, y: number[], pop: number): number[] {
   const dS = -infection;
   if (!isSEIR) return [dS, infection - γ * I, γ * I];
   const E = y[1]!;
-  const σ = 1 / cfg.latentDays;
+  const σ = 1 / latentDays;
   const latent = infection - σ * E;
   const infectious = σ * E - γ * I;
   return [dS, latent, infectious, γ * I];
@@ -104,7 +108,10 @@ export function simulateEpidemic(cfg: ModelConfig): Trajectory {
 
   const h = Math.max(0.001, cfg.timeStep ?? 0.05);
   const steps = Math.max(2, Math.round(cfg.days / h));
-  const traj = integrate(cfg, y0, h, steps);
+  // The integrator must use the SAME clamped population as the initial
+  // state — passing the raw value divided by zero (population 0) and turned
+  // the whole trajectory into NaN.
+  const traj = integrate(cfg, y0, h, steps, pop);
   const N = pop;
   if (n === 3) {
     const rEff = traj.susceptible.map((s) => (cfg.r0 * s) / N);
@@ -127,8 +134,15 @@ export function simulateEpidemic(cfg: ModelConfig): Trajectory {
   };
 }
 
-/** Clean daily integration (kept separate from the reporting loop). */
-function integrate(cfg: ModelConfig, y0: number[], h: number, steps: number): {
+/** Clean daily integration (kept separate from the reporting loop).
+ *  `population` is passed in already clamped by the caller. */
+function integrate(
+  cfg: ModelConfig,
+  y0: number[],
+  h: number,
+  steps: number,
+  population: number,
+): {
   days: number[];
   susceptible: number[];
   exposed?: number[];
@@ -152,7 +166,7 @@ function integrate(cfg: ModelConfig, y0: number[], h: number, steps: number): {
       inf.push(isSEIR ? y[2]! : y[1]!);
       rec.push(isSEIR ? y[3]! : y[2]!);
     }
-    y = rk4Step(cfg, y, cfg.population, h);
+    y = rk4Step(cfg, y, population, h);
   }
   return { days, susceptible: sus, exposed: isSEIR ? ex : undefined, infectious: inf, recovered: rec };
 }

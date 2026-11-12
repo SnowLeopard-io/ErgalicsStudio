@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { useProjectStore } from '@/stores/projectStore';
 import type { BibEntry } from '@/core/publish/bibtex';
+import { makeCitationKey } from '@/core/publish/bibtex';
 import type { CollabNote } from '@/core/publish/collab';
 import type {
   ManuscriptRecord,
@@ -83,15 +84,40 @@ export const usePublishStore = create<PublishStore>(() => ({
     const library = [...read().library];
     for (const entry of entries) {
       const idx = library.findIndex((e) => e.key === entry.key);
-      if (idx < 0) library.push(entry);
-      else library[idx] = entry;
+      if (idx < 0) {
+        library.push(entry);
+        continue;
+      }
+      // The key is already taken. Replacing the entry wholesale silently
+      // DESTROYED the previous reference (two papers by the same author in
+      // the same year produced the same key). An import that carries the
+      // same key AND the same DOI is the same work → update in place;
+      // anything else is a different work → give it a unique key.
+      const sameWork =
+        idx >= 0 &&
+        entry.fields.doi &&
+        entry.fields.doi === library[idx]!.fields.doi;
+      if (sameWork) {
+        library[idx] = entry;
+        continue;
+      }
+      const used = new Set(library.map((e) => e.key));
+      used.delete(entry.key);
+      library.push({ ...entry, key: makeCitationKey(entry, used) });
     }
     patch({ library });
   },
 
   updateLibraryEntry: (key, entry) => {
+    const library = read().library;
+    // A rename must not create a duplicate key: two entries sharing one key
+    // produce invalid BibTeX and ambiguous \cite{} references.
+    const clash = library.some((e) => e.key === entry.key && e.key !== key);
+    const next = clash
+      ? { ...entry, key: makeCitationKey(entry, library.filter((e) => e.key !== key).map((e) => e.key)) }
+      : entry;
     patch({
-      library: read().library.map((e) => (e.key === key ? entry : e)),
+      library: library.map((e) => (e.key === key ? next : e)),
     });
   },
 

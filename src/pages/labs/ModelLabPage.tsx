@@ -20,7 +20,7 @@ import { logisticFit, type LogisticResult } from '@/core/model/logistic';
 import { ridgeCV, type RidgeResult } from '@/core/model/ridge';
 import { polyFit, type PolyResult } from '@/core/model/poly';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
-import { std } from '@/core/stats';
+import { extent, std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
 import {
   useTabularDataGroups,
@@ -287,8 +287,9 @@ export default function ModelLabPage() {
       const deg = Math.min(6, Math.max(1, Math.floor(Number(degree)) || 2));
       const r: PolyResult = polyFit(X[0]!, y, deg);
       const q = diagnosticSeries(r.ols);
-      const xMin = Math.min(...X[0]!);
-      const xMax = Math.max(...X[0]!);
+      // Reduce instead of Math.min(...X): spreading a large sample exceeds
+      // the call-stack limit and crashed the fit on big files.
+      const [xMin, xMax] = extent(X[0]!);
       const curve = Array.from({ length: 120 }, (_, i) => {
         const x = xMin + ((xMax - xMin) * i) / 119;
         return { x, y: r.predict(x) };

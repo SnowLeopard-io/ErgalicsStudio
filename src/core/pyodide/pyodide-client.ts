@@ -14,6 +14,7 @@ import {
   type CollectMessage,
   type LoadPackagesMessage,
   type MountMessage,
+  type ReplMessage,
   type RunMessage,
   type VariableSnapshot,
   type WorkerEvent,
@@ -34,6 +35,8 @@ export interface PyodideRunResult {
   variables: Record<string, VariableSnapshot>;
   /** Workspace files the program created or changed (relative paths). */
   files?: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -73,6 +76,8 @@ export interface LoadPackagesResult {
 export interface CollectResult {
   ok: boolean;
   files: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
 }
 
@@ -229,6 +234,7 @@ export class PyodideClient {
             ok: event.ok,
             variables: event.variables,
             files: event.files,
+            binaryFiles: event.binaryFiles,
             error: event.error,
             durationMs: event.durationMs,
           });
@@ -263,7 +269,12 @@ export class PyodideClient {
         const pending = this.pending.get(event.id);
         if (pending) {
           this.pending.delete(event.id);
-          pending.resolve({ ok: event.ok, files: event.files, error: event.error });
+          pending.resolve({
+            ok: event.ok,
+            files: event.files,
+            binaryFiles: event.binaryFiles,
+            error: event.error,
+          });
         }
         break;
       }
@@ -282,7 +293,7 @@ export class PyodideClient {
   >(
     message:
       | RunMessage
-      | { type: 'repl'; code: string }
+      | ReplMessage
       | MountMessage
       | LoadPackagesMessage
       | CollectMessage,
@@ -329,8 +340,9 @@ export class PyodideClient {
   }
 
   /** Evaluate one REPL line (expression or statement). */
-  repl(code: string): Promise<PyodideReplResult> {
-    return this.request<PyodideReplResult>({ type: 'repl', code });
+  repl(code: string, preloadSource?: string): Promise<PyodideReplResult> {
+    const msg: ReplMessage = { type: 'repl', code, preloadSource };
+    return this.request<PyodideReplResult>(msg);
   }
 
   /**

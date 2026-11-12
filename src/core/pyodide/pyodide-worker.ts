@@ -19,6 +19,7 @@ import {
   snapshotWorkspace,
   WORKSPACE_ROOT,
   type WorkspaceFs,
+  type WorkspaceSnapshot,
 } from './workspace-files';
 import {
   PYODIDE_INDEX_URL,
@@ -61,6 +62,72 @@ function postLog(text: string): void {
 
 function postNotify(kind: NotifyKind, message: string): void {
   postMessage({ type: 'notify', kind, message });
+}
+
+// ---- on-demand scientific packages --------------------------------------
+//
+// pandas / matplotlib / sympy / scipy wheels are vendored by
+// scripts/copy-pyodide.mjs. Loading all of them at boot would add tens of MB
+// to every cold start, so instead the worker inspects the code about to run
+// and lets Pyodide fetch just the wheels those imports need. Everything still
+// comes from the same-origin /pyodide bundle, so this works offline.
+
+/** Vendored packages auto-loaded from `import` statements. */
+const AUTO_LOAD_MODULES = new Set(['pandas', 'matplotlib', 'sympy', 'scipy']);
+/** Packages already requested from loadPackagesFromImports in this worker. */
+const autoLoadedModules = new Set<string>();
+
+/** Top-level vendored modules imported by `code` (`import x`, `from x import y`). */
+function detectAutoLoadImports(code: string): string[] {
+  const found = new Set<string>();
+  const re = /^[ \t]*(?:import|from)[ \t]+([^\n#]+)/gm;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(code)) !== null) {
+    const clauseList = match[1];
+    if (!clauseList) continue;
+    for (const clause of clauseList.split(',')) {
+      const root = clause.trim().split(/[\s.]+/)[0];
+      if (root && AUTO_LOAD_MODULES.has(root)) found.add(root);
+    }
+  }
+  return [...found];
+}
+
+interface ImportLoader {
+  loadPackagesFromImports?: (
+    code: string,
+    options?: {
+      messageCallback?: (message: string) => void;
+      errorCallback?: (message: string) => void;
+    },
+  ) => Promise<unknown>;
+}
+
+/**
+ * Load the vendored wheels referenced by `code` before it executes.
+ *
+ * A failure must not abort the run: the `import` itself is the authoritative
+ * error, and a missing optional wheel should surface as a normal ImportError
+ * rather than a worker-level rejection.
+ */
+async function autoLoadFromImports(py: PyodideInterface, code: string | undefined): Promise<void> {
+  if (!code) return;
+  const pending = detectAutoLoadImports(code).filter((name) => !autoLoadedModules.has(name));
+  if (pending.length === 0) return;
+  const loader = (py as unknown as ImportLoader).loadPackagesFromImports;
+  if (!loader) return;
+  postLog(`[python] loading ${pending.join(', ')} …\n`);
+  try {
+    await loader.call(py, code, {
+      // Wheel progress is noise in the user's output; only warnings surface.
+      messageCallback: () => {},
+      errorCallback: (message: string) => postLog(`[python] ${message}\n`),
+    });
+    for (const name of pending) autoLoadedModules.add(name);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postLog(`[python] automatic package load failed: ${message}\n`);
+  }
 }
 
 // ---- interpreter bootstrap ----------------------------------------------
@@ -131,7 +198,24 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
 // stays here.
 
 function workspaceFs(py: PyodideInterface): WorkspaceFs {
-  return py.FS as unknown as WorkspaceFs;
+  const fs = py.FS as unknown as {
+    mkdirTree(path: string): void;
+    writeFile(path: string, data: string, opts?: { encoding?: 'utf8' }): void;
+    readdir(path: string): string[];
+    readFile(path: string, opts?: { encoding: 'utf8' }): string;
+    readFile(path: string, opts: { encoding: 'binary' }): Uint8Array;
+    stat(path: string): { mode: number; size: number };
+    isDir(mode: number): boolean;
+  };
+  return {
+    mkdirTree: (path) => fs.mkdirTree(path),
+    writeFile: (path, data, opts) => fs.writeFile(path, data, opts),
+    readdir: (path) => fs.readdir(path),
+    readFile: (path, opts) => fs.readFile(path, opts),
+    readFileBinary: (path) => fs.readFile(path, { encoding: 'binary' }),
+    stat: (path) => fs.stat(path),
+    isDir: (mode) => fs.isDir(mode),
+  };
 }
 
 /** Make /workspace importable and clear cached modules from previous runs. */
@@ -173,16 +257,49 @@ _os.chdir('/workspace')
  * collect message diffs against it, so only files the program actually
  * created or modified are handed back to the host.
  */
-let workspaceBaseline: Record<string, string> | null = null;
+let workspaceBaseline: WorkspaceSnapshot | null = null;
 
-function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapshot> {
-  const snapshot = py.runPython('_snapshot_variables()') as {
+function snapshotVariables(
+  py: PyodideInterface,
+  only?: string[],
+): Record<string, VariableSnapshot> {
+  const snapshot = py.runPython(
+    only ? `_snapshot_variables(${JSON.stringify(only)})` : '_snapshot_variables()',
+  ) as {
     toJs: (opts: { dict_converter: (entries: [string, VariableSnapshot][]) => Record<string, VariableSnapshot> }) => Record<
       string,
       VariableSnapshot
     >;
   };
   return snapshot.toJs({ dict_converter: (entries) => Object.fromEntries(entries) });
+}
+
+/**
+ * Identity map of the interpreter's public globals (name → id of its value).
+ *
+ * The interpreter is shared by the whole session, so a program leaves its
+ * variables behind. Comparing the map before and after a run tells us which
+ * names THAT run defined — the variables panel then shows the current
+ * program's results instead of an ever-growing pile of earlier ones.
+ */
+function globalIds(py: PyodideInterface): Record<string, number> {
+  try {
+    const snapshot = py.runPython('_global_ids()') as {
+      toJs: (opts: { dict_converter: (entries: [string, number][]) => Record<string, number> }) => Record<string, number>;
+    };
+    return snapshot.toJs({ dict_converter: (entries) => Object.fromEntries(entries) });
+  } catch {
+    return {};
+  }
+}
+
+/** Names that appeared or whose value was replaced by the run. */
+function changedNames(before: Record<string, number>, after: Record<string, number>): string[] {
+  const changed: string[] = [];
+  for (const [name, id] of Object.entries(after)) {
+    if (before[name] !== id) changed.push(name);
+  }
+  return changed;
 }
 
 /**
@@ -256,15 +373,39 @@ async function handleRun(msg: RunMessage): Promise<void> {
     const cwd = rememberCwd(py);
     prepareWorkspaceRuntime(py);
     restoreCwd(py, cwd);
+    await autoLoadFromImports(py, msg.code);
+    // Snapshot the namespace BEFORE the run: only the names the program
+    // defines (or replaces) belong to its result. Everything an earlier
+    // program left behind is filtered out — the variables panel used to grow
+    // with every run and mixed unrelated programs together.
+    // A program starts from a clean slate: the previous run's variables are
+    // gone, so the results never mix with an unrelated earlier program.
+    // The cleanup happens BEFORE the baseline snapshot — a name the run
+    // redefines then counts as "defined by this run" even when Python hands
+    // out the same cached object (small ints are interned, so `x = 5` twice
+    // yields the same id()).
+    clearPreviousRun(py);
+    const before = globalIds(py);
     await py.runPythonAsync(msg.code);
-    const variables = snapshotVariables(py);
-    const files = collectWorkspaceOutputs(fs, baseline);
+    const after = globalIds(py);
+    // The bootstrap names are never "the program's variables" — the module
+    // object `studio` is even rebound by every `import studio`.
+    const defined = changedNames(before, after).filter((name) => !protectedGlobals.has(name));
+    // Remember what THIS run defined so the next one can clear it again.
+    previousRunVars = {};
+    for (const name of defined) {
+      const id = after[name];
+      if (id !== undefined) previousRunVars[name] = id;
+    }
+    const variables = snapshotVariables(py, defined);
+    const outputs = collectWorkspaceOutputs(fs, baseline);
     postMessage({
       type: 'result',
       id: msg.id,
       ok: true,
       variables,
-      files,
+      files: outputs.files,
+      binaryFiles: outputs.binaryFiles,
       durationMs: performance.now() - started,
     });
   } catch (err) {
@@ -284,12 +425,69 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
   try {
     // See handleRun: bootstrap failures must surface as a repl result too.
     const py = await ensurePyodide(activeIndexURL);
+    // Terminal script runs wrap the file in runpy, so the file's imports are
+    // invisible to the wrapper — scan the script source as well.
+    await autoLoadFromImports(py, msg.preloadSource);
+    await autoLoadFromImports(py, msg.code);
     py.globals.set('_REPL_CODE', msg.code);
     const text = String(py.runPython('_repl(_REPL_CODE)') ?? '');
     postMessage({ type: 'repl-result', id: msg.id, ok: true, text });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     postMessage({ type: 'repl-result', id: msg.id, ok: false, text: '', error: message });
+  }
+}
+
+/**
+ * The variables the previous RUN introduced into the interpreter's global
+ * namespace, mapped to the id() of the value it produced.
+ *
+ * The interpreter is shared by the whole session (the terminal, the notebook
+ * and the editor all use it), so a program leaves its variables behind and
+ * the next run would report them as its own — the variables panel grew with
+ * every run and mixed unrelated programs together. The previous run's
+ * variables are therefore dropped before the next one starts, so every run
+ * begins from a clean slate.
+ */
+let previousRunVars: Record<string, number> = {};
+
+/**
+ * Names the studio bootstrap owns (`studio`, `DataTable`, the helper modules
+ * it imports). They are never cleaned: user code does `import studio`, which
+ * REBINDS the global `studio` to the module object — deleting it afterwards
+ * would break programs that use `studio.load(...)` without importing again.
+ * They are also never reported as the program's own variables.
+ */
+const protectedGlobals = new Set<string>([
+  'studio',
+  'DataTable',
+  're',
+  'studio_bridge',
+]);
+
+/**
+ * Delete the previous run's variables.
+ *
+ * Only names the previous program created are removed, and only when they
+ * still hold the value that program produced: a name the user re-assigned in
+ * the terminal REPL afterwards is left alone — the REPL is an interactive
+ * session whose state the user expects to survive.
+ */
+function clearPreviousRun(py: PyodideInterface): void {
+  const entries = Object.entries(previousRunVars).filter(([name]) => !protectedGlobals.has(name));
+  previousRunVars = {};
+  if (entries.length === 0) return;
+  try {
+    py.runPython(`
+import json as _json
+_wanted = _json.loads(${JSON.stringify(JSON.stringify(entries))})
+_ids = {name: id(value) for name, value in globals().items()}
+for _name, _id in _wanted:
+    if _ids.get(_name) == _id:
+        globals().pop(_name, None)
+`);
+  } catch {
+    /* a failed cleanup must not abort the run */
   }
 }
 
@@ -328,9 +526,17 @@ async function handleCollect(msg: CollectMessage): Promise<void> {
   try {
     const py = await ensurePyodide(activeIndexURL);
     const fs = workspaceFs(py);
-    const files = workspaceBaseline ? collectWorkspaceOutputs(fs, workspaceBaseline) : {};
+    const outputs = workspaceBaseline
+      ? collectWorkspaceOutputs(fs, workspaceBaseline)
+      : { files: {}, binaryFiles: {} };
     workspaceBaseline = snapshotWorkspace(fs);
-    postMessage({ type: 'collect-result', id: msg.id, ok: true, files });
+    postMessage({
+      type: 'collect-result',
+      id: msg.id,
+      ok: true,
+      files: outputs.files,
+      binaryFiles: outputs.binaryFiles,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     postMessage({ type: 'collect-result', id: msg.id, ok: false, files: {}, error: message });

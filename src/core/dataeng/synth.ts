@@ -1,5 +1,5 @@
 // ==========================================================================
-// Synthetic Data Generator kernel — pure TypeScript, deterministic.
+// Synthetic Data Generator kernel �?pure TypeScript, deterministic.
 //
 // No DOM imports, no Python runtime: every function is deterministic given
 // (data, seed), so a run can be replayed bit-for-bit. Contents:
@@ -11,9 +11,9 @@
 //     (selected by minimal KS statistic), categorical by empirical frequency,
 //     boolean by p, low-cardinality text by frequency, high-uniqueness ids
 //     skipped
-//   - multivariate synthesis: Gaussian copula — ranks → uniform → normal
-//     scores → correlation matrix (PSD-corrected by eigenvalue clamping) →
-//     Cholesky sampling → inverse marginal transform
+//   - multivariate synthesis: Gaussian copula �?ranks �?uniform �?normal
+//     scores �?correlation matrix (PSD-corrected by eigenvalue clamping) �?
+//     Cholesky sampling �?inverse marginal transform
 //   - time-series mode: AR(1) with the empirical lag-1 autocorrelation
 //   - privacy: Laplace ε-DP (inverse-transform sampling, noisy histograms /
 //     counts / means) and k-anonymity (binning + suppression of classes < k)
@@ -60,6 +60,31 @@ export function varianceOf(xs: number[]): number {
 
 export function stdOf(xs: number[]): number {
   return Math.sqrt(varianceOf(xs));
+}
+
+/**
+ * Smallest / largest finite value of a sample.
+ *
+ * Never `Math.min(...values)`: spreading a large array into a call exceeds
+ * the engine's argument limit (RangeError at roughly 125k elements), which
+ * crashed the synth page on any CSV with a few hundred thousand rows.
+ */
+function sampleMin(xs: ArrayLike<number>): number {
+  let min = Infinity;
+  for (let i = 0; i < xs.length; i += 1) {
+    const v = xs[i]!;
+    if (Number.isFinite(v) && v < min) min = v;
+  }
+  return min === Infinity ? 0 : min;
+}
+
+function sampleMax(xs: ArrayLike<number>): number {
+  let max = -Infinity;
+  for (let i = 0; i < xs.length; i += 1) {
+    const v = xs[i]!;
+    if (Number.isFinite(v) && v > max) max = v;
+  }
+  return max === -Infinity ? 0 : max;
 }
 
 /** Type-7 quantile (linear interpolation between order statistics). */
@@ -161,7 +186,7 @@ export function normalPdf(x: number): number {
 }
 
 /**
- * Inverse standard normal CDF Φ⁻¹(p) — Acklam's rational approximation
+ * Inverse standard normal CDF Φ⁻�?p) �?Acklam's rational approximation
  * (relative error < 1.2e-9), refined by one Halley step on the CDF.
  */
 export function normalQuantile(p: number): number {
@@ -298,7 +323,7 @@ function profileRole(cells: string[]): { role: ColumnRole; missing: number; uniq
     return { role: 'boolean', missing, unique: uniq.size };
   }
   if (numeric === present && uniq.size >= 2) return { role: 'numeric', missing, unique: uniq.size };
-  // Nearly-all-distinct strings are identifiers — skipped, not sampled.
+  // Nearly-all-distinct strings are identifiers �?skipped, not sampled.
   if (uniqueRatio >= 0.9 && present >= 10) return { role: 'id', missing, unique: uniq.size };
   if (uniq.size <= MAX_CATEGORICAL_UNIQUE || uniqueRatio <= 0.2) {
     return { role: 'categorical', missing, unique: uniq.size };
@@ -334,8 +359,8 @@ export function fitNumeric(values: number[]): DistFit {
   const m = meanOf(values);
   const sd = stdOf(values);
   if (sd < 1e-12 || n < 2) return { kind: 'constant', ks: 0, params: { value: m } };
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const allPositive = lo > 0;
   const nonNegative = lo >= 0;
 
@@ -399,7 +424,7 @@ interface ColumnModel {
   values?: number[];
   /** Sorted non-missing values (empirical marginal for the copula). */
   sorted?: number[];
-  /** numeric | categorical | text — lag-1 autocorrelation of the raw order. */
+  /** numeric | categorical | text �?lag-1 autocorrelation of the raw order. */
   ar1?: number;
   /** categorical | text */
   categories?: string[];
@@ -496,7 +521,7 @@ function sampleEmpirical(sorted: number[], u: number): number {
 
 // ---- linear algebra: PSD correction + Cholesky ------------------------------
 
-/** Jacobi eigen-decomposition of a symmetric matrix → (eigenvalues, eigenvectors). */
+/** Jacobi eigen-decomposition of a symmetric matrix �?(eigenvalues, eigenvectors). */
 export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: number[][] } {
   const n = matrix.length;
   const a = matrix.map((row) => row.slice());
@@ -519,7 +544,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1);
         const s = t * c;
-        // Two-sided rotation A ← Jᵀ A J: columns first, then rows.
+        // Two-sided rotation A �?Jᵀ A J: columns first, then rows.
         for (let k = 0; k < n; k += 1) {
           const akp = a[k]![p]!;
           const akq = a[k]![q]!;
@@ -537,7 +562,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         a[q]![q] = aqq + t * apq;
         a[p]![q] = 0;
         a[q]![p] = 0;
-        // Eigenvector accumulation V ← V·J (column rotation only).
+        // Eigenvector accumulation V �?V·J (column rotation only).
         for (let k = 0; k < n; k += 1) {
           const vkp = v[k]![p]!;
           const vkq = v[k]![q]!;
@@ -553,14 +578,14 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
 
 /**
  * Nearest (in Frobenius sense) positive-semidefinite correlation-like matrix:
- * clamp eigenvalues to ≥ 1e-8, reconstruct, then rescale to unit diagonal.
+ * clamp eigenvalues to �?1e-8, reconstruct, then rescale to unit diagonal.
  */
 export function makePsd(matrix: number[][]): number[][] {
   const n = matrix.length;
   if (n === 0) return [];
   const { values, vectors } = jacobiEigen(matrix);
   const clamped = values.map((lv) => Math.max(1e-8, lv));
-  // R' = V diag(clamped) Vᵀ (V stored row-wise → R'[i][j] = Σ_k V[i][k] λ_k V[j][k]).
+  // R' = V diag(clamped) Vᵀ (V stored row-wise �?R'[i][j] = Σ_k V[i][k] λ_k V[j][k]).
   const out: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
   for (let i = 0; i < n; i += 1) {
     for (let j = i; j < n; j += 1) {
@@ -625,17 +650,17 @@ interface CopulaBundle {
 
 /**
  * Build the Gaussian-copula kit: per-column empirical marginals plus the
- * correlation matrix of the normal scores (rank → Φ⁻¹), PSD-corrected.
+ * correlation matrix of the normal scores (rank �?Φ⁻�?, PSD-corrected.
  */
 function buildCopula(numeric: ColumnModel[]): CopulaBundle {
   const usable = numeric.filter((c) => (c.sorted?.length ?? 0) >= 2 && (c.fit?.kind ?? 'constant') !== 'constant');
   const m = usable.length;
   if (m === 0) return { columns: [], corr: [], chol: [] };
   // Normal scores per row: rank of each observation within its column
-  // (average ranks for ties) → u = rank/(len+1) → z = Φ⁻¹(u). Normalization
+  // (average ranks for ties) �?u = rank/(len+1) �?z = Φ⁻�?u). Normalization
   // uses each column's own value count: columns may have different lengths
   // (missing cells are dropped per column), and the global minimum would push
-  // longer columns to u ≥ 1 → ±Inf normal scores. Row order is preserved so
+  // longer columns to u �?1 �?±Inf normal scores. Row order is preserved so
   // cross-column Pearson correlations estimate the copula.
   const z: number[][] = usable.map((c) => {
     const ranks = averageRanks(c.values!);
@@ -655,7 +680,7 @@ function buildCopula(numeric: ColumnModel[]): CopulaBundle {
 }
 
 /**
- * Draw one correlated copula row: z = L·N(0,I) → u = Φ(z) → x = F⁻¹(u) per
+ * Draw one correlated copula row: z = L·N(0,I) �?u = Φ(z) �?x = F⁻�?u) per
  * column (empirical quantile transform). Returns values aligned with
  * `bundle.columns`.
  */
@@ -682,7 +707,7 @@ function sampleCopulaRow(
 
 /**
  * Laplace noise via inverse-transform sampling:
- *   x = μ − b·sign(u)·ln(1 − 2|u|),  u ~ Uniform(−0.5, 0.5),  b = sensitivity/ε.
+ *   x = μ �?b·sign(u)·ln(1 �?2|u|),  u ~ Uniform(�?.5, 0.5),  b = sensitivity/ε.
  */
 export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu = 0): number {
   const eps = Math.max(1e-9, epsilon);
@@ -693,13 +718,13 @@ export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu 
 
 /**
  * ε-DP release of a bounded-sample mean: the global sensitivity of the mean
- * over values in [min, max] is (max − min)/n, so Laplace noise of that scale
+ * over values in [min, max] is (max �?min)/n, so Laplace noise of that scale
  * is added (Laplace mechanism).
  */
 export function dpMean(values: number[], epsilon: number, rng: Rng): { value: number; sensitivity: number } {
   if (values.length === 0) return { value: 0, sensitivity: 0 };
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const sensitivity = (hi - lo) / values.length;
   return { value: meanOf(values) + laplaceNoise(rng, epsilon, sensitivity), sensitivity };
 }
@@ -718,8 +743,8 @@ interface DpMarginal {
 
 /** Build an ε-DP piecewise-uniform marginal from a numeric column (histogram + Laplace). */
 function buildDpMarginal(values: number[], bins: number, epsilon: number, rng: Rng): DpMarginal {
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const width = hi > lo ? (hi - lo) / bins : 1;
   const counts = new Array<number>(bins).fill(0);
   for (const v of values) {
@@ -810,8 +835,8 @@ export function applyKAnonymity(table: SynthTable, k: number, bins = 8): KAnonRe
         if (typeof v === 'number') values.push(v);
       }
       if (values.length === 0) continue;
-      const lo = Math.min(...values);
-      const hi = Math.max(...values);
+      const lo = sampleMin(values);
+      const hi = sampleMax(values);
       if (hi <= lo) {
         generalizers.set(col.i, (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v));
         continue;
@@ -869,7 +894,7 @@ interface QualityDetail {
   ks?: number;
   /** Total variation distance of category frequencies (categorical / boolean). */
   tvd?: number;
-  /** Similarity in [0, 1]: 1 − statistic. */
+  /** Similarity in [0, 1]: 1 �?statistic. */
   similarity: number;
 }
 
@@ -1055,7 +1080,7 @@ function sampleCategorical(model: ColumnModel, rng: Rng, dpEpsilon: number | nul
 
 /**
  * Generate a synthetic table from `original` under the given options.
- * Deterministic: (original, options) → same output bit-for-bit.
+ * Deterministic: (original, options) �?same output bit-for-bit.
  */
 export function generateSynthetic(original: SynthTable, opts: SynthOptions): SynthResult {
   const startedAt = performance.now();
@@ -1149,12 +1174,12 @@ export function generateSynthetic(original: SynthTable, opts: SynthOptions): Syn
     if (col.role === 'id') {
       skipped.push({
         column: col.name,
-        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) — skipped`,
+        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) �?skipped`,
       });
       return;
     }
     if (col.role === 'empty') {
-      skipped.push({ column: col.name, reason: 'empty column — skipped' });
+      skipped.push({ column: col.name, reason: 'empty column �?skipped' });
       return;
     }
     outColumns.push(col.name);

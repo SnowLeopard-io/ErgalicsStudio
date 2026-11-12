@@ -9,7 +9,7 @@
 //   components/*        PlanList, PlanEditor, SweepResults, HeatMap
 // ==========================================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
@@ -44,14 +44,22 @@ export default function SweepsPage() {
   const deletePlanStore = useResearchStore((state) => state.deletePlan);
   const saveResult = useResearchStore((state) => state.saveSweepResult);
 
-  const plans = project?.state.sweeps ?? [];
+  // Stable identities: the selection effect below depends on `plans`.
+  const plans = useMemo(() => project?.state.sweeps ?? [], [project?.state.sweeps]);
   const results = project?.state.sweepResults ?? {};
 
-  const [selectedId, setSelectedId] = useState<string | null>(plans[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PlanDraft>(() => emptyDraft());
   const [issues, setIssues] = useState<DraftIssue[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<SweepPlan | null>(null);
+
+  // The project loads asynchronously, so the plans are usually empty on the
+  // first render — the selection must be (re)derived once they arrive, or
+  // the page shows the "no plans" empty state although plans exist.
+  useEffect(() => {
+    if (!plans.some((p) => p.id === selectedId)) setSelectedId(plans[0]?.id ?? null);
+  }, [plans, selectedId]);
 
   const plan = plans.find((p) => p.id === selectedId) ?? null;
   const persistedResult: SweepResult | null = plan ? results[plan.id] ?? null : null;

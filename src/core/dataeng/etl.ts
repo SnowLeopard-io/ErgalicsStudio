@@ -617,7 +617,12 @@ export function etlPivot(table: EtTable, index: string, columns: string, value: 
     if (!columnOrder.includes(colName)) columnOrder.push(colName);
     const ik = keyString(iv);
     if (!indexRows.has(ik)) indexRows.set(ik, { [index]: iv });
-    const cellKey = `${ik}\u0001${keyString(cv)}`;
+    // The cell bucket is keyed by the DISPLAY name (the stringified cell
+    // value). keyString() type-tags its argument, so keying the write with
+    // keyString(cv) ('n:2020') and reading it back with keyString(colName)
+    // ('s:2020') never matched — every pivot cell of a numeric column came
+    // back empty.
+    const cellKey = `${ik}\u0001${colName}`;
     const bucket = cells.get(cellKey);
     if (bucket) bucket.push(row[value]);
     else cells.set(cellKey, [row[value]]);
@@ -631,7 +636,7 @@ export function etlPivot(table: EtTable, index: string, columns: string, value: 
     const out: Row = { ...base };
     const ik = keyString(base[index]);
     for (const colName of columnOrder) {
-      const values = cells.get(`${ik}\u0001${keyString(colName)}`);
+      const values = cells.get(`${ik}\u0001${colName}`);
       out[colName] = values ? aggregate(values, fn) : null;
     }
     return out;

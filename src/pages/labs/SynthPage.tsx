@@ -18,6 +18,7 @@ import {
   toCsv,
 } from '@/core/dataeng/synth';
 import type { PrivacyMode, SynthMode, SynthResult, SynthTable } from '@/core/dataeng/synth';
+import { extent } from '@/core/stats';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -98,8 +99,10 @@ function CompareHistogram({
     const b = columnNumbers(synthetic, column);
     if (a.length < 2 || b.length < 2) return;
 
-    const lo = Math.min(Math.min(...a), Math.min(...b));
-    const hi = Math.max(Math.max(...a), Math.max(...b));
+    const [aLo, aHi] = extent(a);
+    const [bLo, bHi] = extent(b);
+    const lo = Math.min(aLo, bLo);
+    const hi = Math.max(aHi, bHi);
     if (!(hi > lo)) return;
     const binWidth = (hi - lo) / HIST_BINS;
 

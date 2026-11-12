@@ -78,6 +78,10 @@ export function pythonRunProgram(absPath: string): string {
     `import os`,
     `import runpy`,
     `_f = ${JSON.stringify(absPath)}`,
+    // Relative paths (the repl `run <file>` entry) resolve against the
+    // interpreter's cwd, so both terminal entries share this program.
+    `if not os.path.isabs(_f):`,
+    `    _f = os.path.abspath(_f)`,
     `if os.path.isfile(_f):`,
     `    runpy.run_path(_f, init_globals={'studio': studio}, run_name="__main__")`,
     `else:`,

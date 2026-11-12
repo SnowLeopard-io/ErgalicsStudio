@@ -133,6 +133,8 @@ export function setWorkspaceSnapshot(files: Record<string, string>): void {
     names.add(basename(path));
   }
   workspaceNames = Array.from(names);
+  // The tree behind the snapshot just changed — the cached scan is stale.
+  invalidateWorkspaceScan();
 }
 
 type WorkspaceFileSource = () => Promise<Record<string, string>>;
@@ -142,23 +144,45 @@ let workspaceSource: WorkspaceFileSource | null = null;
 /** Register (or clear) the loader that reads the project's workspace tree. */
 export function setWorkspaceFileSource(source: WorkspaceFileSource | null): void {
   workspaceSource = source;
+  invalidateWorkspaceScan();
 }
 
 /**
  * Data files from the real workspace tree, keyed by both workspace-relative
  * path ('data/telemetry.csv') and basename ('telemetry.csv'). Only formats
  * the data pipeline understands are read — binary assets are skipped.
+ *
+ * The scan walks the whole project tree, so concurrent callers share ONE
+ * walk: the file pickers resolve every candidate in parallel, and without
+ * this each of them would re-read the entire tree (N walks for N files).
  */
+let workspaceScan: Promise<Record<string, string>> | null = null;
+
 export async function collectWorkspaceFiles(): Promise<Record<string, string>> {
-  const files = await readWorkspaceSource();
-  const out: Record<string, string> = {};
-  for (const [path, text] of Object.entries(files)) {
-    if (!isSupportedDataFileName(path)) continue;
-    out[path] = text;
-    const base = basename(path);
-    if (!(base in out)) out[base] = text;
+  // A scan is running → join it instead of starting a second walk.
+  if (workspaceScan) return workspaceScan;
+  const scan = (async () => {
+    const files = await readWorkspaceSource();
+    const out: Record<string, string> = {};
+    for (const [path, text] of Object.entries(files)) {
+      if (!isSupportedDataFileName(path)) continue;
+      out[path] = text;
+      const base = basename(path);
+      if (!(base in out)) out[base] = text;
+    }
+    return out;
+  })();
+  workspaceScan = scan;
+  try {
+    return await scan;
+  } finally {
+    if (workspaceScan === scan) workspaceScan = null;
   }
-  return out;
+}
+
+/** Drop the in-flight workspace scan (the tree changed under us). */
+export function invalidateWorkspaceScan(): void {
+  workspaceScan = null;
 }
 
 /**

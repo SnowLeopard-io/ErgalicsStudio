@@ -122,6 +122,7 @@ export const zhCN: LocaleDictionary = {
   'workbench.explorer.name_conflict': '同名项目已存在：{name}',
   'workbench.explorer.name_invalid': '名称不合法：{name}（不能包含路径分隔符或 ".."）',
   'workbench.explorer.pasted_hint': '已粘贴',
+  'workbench.explorer.git_badge': 'Git 变更：{letter}（点击打开 Git 面板）',
   'workbench.explorer.copied_hint': '已复制',
   'workbench.explorer.cut_hint': '已剪切',
   'workbench.explorer.moved_hint': '已移动',

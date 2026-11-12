@@ -481,13 +481,28 @@ def _capture(code):
     return base64.b64encode(payload.encode("utf-8")).decode("ascii")
 
 
-def _snapshot_variables():
+def _global_ids():
+    """Map every public global name to the id() of its value.
+
+    The host compares the map before and after a run: a name whose id changed
+    (or that appeared) was defined by THAT run. Names that survived unchanged
+    belong to an earlier program (or to the terminal REPL) and must not be
+    reported as the current run's results."""
+    return {name: id(value) for name, value in globals().items() if not name.startswith("_")}
+
+
+def _snapshot_variables(only=None):
     """Summarize top-level variables for the VariablePanel: DataTable -> table
     (with full column data so the host can rebuild a real DataTable), numeric /
-    string / bool -> scalar, numpy arrays -> a descriptive scalar string."""
+    string / bool -> scalar, numpy arrays -> a descriptive scalar string.
+
+    The optional "only" argument restricts the result to the given names
+    (the host passes the names the current run actually defined)."""
     out = {}
     for name, value in globals().items():
         if name.startswith("_"):
+            continue
+        if only is not None and name not in only:
             continue
         if isinstance(value, DataTable):
             out[name] = {

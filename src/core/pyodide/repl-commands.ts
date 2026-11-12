@@ -27,6 +27,8 @@
 // word followed by an argument free of parentheses/equals signs.
 // ==========================================================================
 
+import { pythonRunProgram } from '@/core/terminal/run-file';
+
 export type ReplMagic =
   // python-side
   | 'pwd'
@@ -328,17 +330,12 @@ export function buildMagicPython(cmd: ReplCommand): string {
     }
     case 'run': {
       // The engine follows the file extension; this program is the Python
-      // path (JS / R scripts are executed by the workbench runtimes).
+      // path (JS / R scripts are executed by the workbench runtimes). One
+      // generator serves both terminal entries — `python <file>` resolves to
+      // the same magic — so a script cannot behave differently depending on
+      // which one triggered it.
       if (!cmd.arg) return `print('python: missing script argument')`;
-      return [
-        `import os`,
-        `import runpy`,
-        `_f = ${pyStr(cmd.arg)}`,
-        `if os.path.isfile(_f):`,
-        `    runpy.run_path(_f, init_globals={'studio': studio}, run_name="__main__")`,
-        `else:`,
-        `    print('python: no such file: ' + _f)`,
-      ].join('\n');
+      return pythonRunProgram(cmd.arg);
     }
     case 'open':
     case 'touch':

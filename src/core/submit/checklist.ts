@@ -134,9 +134,18 @@ export function pxToPt(px: number): number {
   return px * 0.75;
 }
 
-/** Effective export resolution: vector formats are resolution-independent. */
+/**
+ * Effective export resolution.
+ *
+ * SVG is a true vector format (resolution-independent). The PDF export is
+ * NOT: the exporter rasterises the SVG at the requested dpi and embeds the
+ * bitmap, so a PDF's resolution is exactly the raster dpi — reporting "∞"
+ * told the user their artwork met the venue's DPI requirement when it did
+ * not.
+ */
 export function effectiveDpi(settings: SubmissionExportSettings): number {
-  return settings.format === 'png600' ? settings.rasterDpi : Infinity;
+  if (settings.format === 'svg') return Infinity;
+  return settings.rasterDpi;
 }
 
 /** Spreadsheet-style lowercase panel tag (a..z, aa, ab, …), mirrors compose. */

@@ -6,6 +6,14 @@ import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
+/** Decode a base64 payload (worker binary output) into raw bytes. */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
@@ -133,7 +141,18 @@ export type CanvasTab =
    *  panels stay put while the surface occupies the editor area. `path` is
    *  the file the surface is currently editing (its tab label), so the strip
    *  always points at a real file instead of a generic "代码" label. */
-  | { kind: 'surface'; key: string; mode: WorkbenchMode; path?: string }
+  | {
+      kind: 'surface';
+      key: string;
+      mode: WorkbenchMode;
+      path?: string;
+      /** Editor session this surface shows. File-bound surfaces resolve their
+       *  session from `path`; SAMPLE surfaces carry their own session so a
+       *  sample never hijacks the surface of an open file. */
+      sessionId?: string;
+      /** Display name for surfaces that are not bound to a file (samples). */
+      label?: string;
+    }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
@@ -236,6 +255,12 @@ interface AppStore {
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
   setMode: (mode: WorkbenchMode, path?: string) => void;
+  /** Open (or focus) a surface tab bound to an editor SESSION rather than to
+   *  a workspace file — used by the sample dialog. A sample gets its own tab
+   *  and its own session, so loading it never replaces the content of the
+   *  file the user is working on, and the sample buffer is never mirrored
+   *  back into any workspace file (a sample session has no `filePath`). */
+  openSampleTab: (opts: { mode: WorkbenchMode; sessionId: string; label: string }) => void;
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
   openFilePreview: (preview: FilePreviewState) => void;
@@ -253,8 +278,12 @@ interface AppStore {
    *  buffer save path. */
   saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
   /** Persist a batch of files produced by a code run (workspace-relative
-   *  paths). Refreshes the explorer once and resolves to the write count. */
-  saveWorkspaceFiles: (files: Record<string, string>) => Promise<number>;
+   *  paths). `binaryFiles` carries matplotlib figures / PDFs / .npy dumps as
+   *  base64. Refreshes the explorer once and resolves to the write count. */
+  saveWorkspaceFiles: (
+    files: Record<string, string>,
+    binaryFiles?: Record<string, string>,
+  ) => Promise<number>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -537,6 +566,29 @@ export const useAppStore = create<AppStore>((set, get) => {
     deactivatePluginLazy();
   },
 
+  /** Open (or focus) a sample surface: a surface tab bound to an editor
+   *  session instead of a workspace file.
+   *
+   *  `setMode(mode)` without a path FOCUSES an existing surface of that mode
+   *  — which is the surface of the file the user is editing. Loading a
+   *  sample through it made the sample replace the open file's content
+   *  (and risked mirroring the sample buffer back into that file). Samples
+   *  therefore get a tab of their own, keyed by their session. */
+  openSampleTab: ({ mode, sessionId, label }) => {
+    const key = `sample:${mode}:${sessionId}`;
+    set((s) => {
+      const exists = s.canvasTabs.some((tab) => tab.key === key);
+      return {
+        mode,
+        canvasTabs: exists
+          ? s.canvasTabs
+          : [...s.canvasTabs, { kind: 'surface' as const, key, mode, sessionId, label }],
+        activeTab: key,
+      };
+    });
+    deactivatePluginLazy();
+  },
+
   /** Activity-bar click: switch the sidebar view and open the sidebar.
    *  Clicking the already-active view while open collapses the sidebar
    *  (VS Code behaviour) — a second click re-opens it. */
@@ -725,9 +777,11 @@ export const useAppStore = create<AppStore>((set, get) => {
   /** Persist a batch of files produced by a code run. Writes every path and
    *  refreshes file browsers once, so a script dumping several outputs does
    *  not spam one toast per file. */
-  saveWorkspaceFiles: async (files) => {
-    const entries = Object.entries(files);
-    if (!entries.length) return 0;
+  saveWorkspaceFiles: async (files, binaryFiles) => {
+    const textEntries = Object.entries(files);
+    const binaryEntries = Object.entries(binaryFiles ?? {});
+    const total = textEntries.length + binaryEntries.length;
+    if (!total) return 0;
     try {
       const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
         import('./projectStore'),
@@ -738,7 +792,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       const vfs = getVfs();
       const root = getProjectRepoPath(project);
       let written = 0;
-      for (const [path, text] of entries) {
+      for (const [path, text] of textEntries) {
         await vfs.writeFile(root, path, text);
         written += 1;
         set((s) => {
@@ -748,6 +802,19 @@ export const useAppStore = create<AppStore>((set, get) => {
           return {
             editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } },
           };
+        });
+      }
+      for (const [path, base64] of binaryEntries) {
+        await vfs.writeFileBinary(root, path, base64ToBytes(base64));
+        written += 1;
+        // Binary files never have a text editor buffer; drop a stale blob
+        // preview so the explorer/canvas re-reads the new figure.
+        set((s) => {
+          const key = editorTabKey(path);
+          if (!s.editorFiles[key]) return s;
+          const next = { ...s.editorFiles };
+          delete next[key];
+          return { editorFiles: next };
         });
       }
       useAppStore.getState().bumpFileOps();
@@ -823,8 +890,8 @@ export const useAppStore = create<AppStore>((set, get) => {
    *  remaining tab becomes active. A closed file tab's blob URL is revoked
    *  and a closed editor tab's buffer is dropped. */
   closeTab: (key) => {
+    const closed = get().canvasTabs.find((tab) => tab.key === key);
     set((s) => {
-      const closed = s.canvasTabs.find((tab) => tab.key === key);
       if (!closed) return s;
       const next = s.canvasTabs.filter((tab) => tab.key !== key);
       const filePreviews = { ...s.filePreviews };
@@ -870,6 +937,14 @@ export const useAppStore = create<AppStore>((set, get) => {
         ...(nextMode ? { mode: nextMode } : {}),
       };
     });
+    // A sample tab owns its editor session: closing the tab drops the
+    // session too, so the project snapshot never carries a dead sample.
+    if (closed?.kind === 'surface' && closed.sessionId) {
+      const sessionId = closed.sessionId;
+      void import('./editorStore').then((m) => {
+        m.useEditorStore.getState().removeSession(sessionId);
+      });
+    }
     if (get().activeTab === null) get().showPluginCanvas();
   },
 

@@ -1554,10 +1554,11 @@ export function CentralArea() {
                     : tab.kind === 'editor'
                       ? (editorTabMeta.get(tab.key)?.name ?? tab.path)
                       : tab.kind === 'surface'
-                        ? (tab.path?.split('/').pop() ??
-                          (boundFilePath && tab.mode === mode
-                            ? boundFilePath.split('/').pop()!
-                            : t(`workbench.mode.${tab.mode}`)))
+                        ? (tab.label ??
+                          (tab.path?.split('/').pop() ??
+                            (boundFilePath && tab.mode === mode
+                              ? boundFilePath.split('/').pop()!
+                              : t(`workbench.mode.${tab.mode}`))))
                         : (filePreviews[tab.key]?.name ?? tab.path);
               // Editor tabs surface unsaved edits with a dirty dot, and their
               // close button routes through the save/discard confirmation.
