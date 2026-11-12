@@ -226,15 +226,23 @@ function syncProjectFiles(project: Project | null): void {
 /** Cap for staging one workspace file into a runtime (avoid multi-MB JSON). */
 const MAX_STAGED_FILE_BYTES = 4 * 1024 * 1024;
 
+/** Projects we already warned about (one warning per project, not per scan). */
+const oversizeWarned = new Set<string>();
+
 /** Walk the project workspace tree and return its text files.
  *
  *  This includes code sources (.py/.r/.js), not just data: the Python runtime
  *  mounts the tree so one file can import another across folders. Data-only
- *  consumers (`collectWorkspaceFiles`, pickers) filter this down again. */
+ *  consumers (`collectWorkspaceFiles`, pickers) filter this down again.
+ *
+ *  A file above the staging cap is skipped — but NOT silently: it is
+ *  invisible to the data pickers and unreachable from the runtime, so the
+ *  user must be told (they would otherwise conclude the file was lost). */
 async function readWorkspaceDataFiles(project: Project): Promise<Record<string, string>> {
   const root = getProjectRepoPath(project);
   const vfs = getVfs();
   const out: Record<string, string> = {};
+  const oversize: string[] = [];
   const walk = async (dir: string): Promise<void> => {
     const entries = await vfs.readDir(root, dir);
     for (const entry of entries) {
@@ -243,7 +251,10 @@ async function readWorkspaceDataFiles(project: Project): Promise<Record<string, 
         continue;
       }
       if (!isRuntimeTextFileName(entry.name)) continue;
-      if (entry.size > MAX_STAGED_FILE_BYTES) continue;
+      if (entry.size > MAX_STAGED_FILE_BYTES) {
+        oversize.push(entry.path);
+        continue;
+      }
       try {
         out[entry.path] = await vfs.readFile(root, entry.path);
       } catch (err) {
@@ -252,6 +263,25 @@ async function readWorkspaceDataFiles(project: Project): Promise<Record<string, 
     }
   };
   await walk('');
+  if (oversize.length > 0) {
+    logger.warn(
+      'project',
+      `workspace files above the ${MAX_STAGED_FILE_BYTES / 1024 / 1024} MB staging cap were skipped: ${oversize.join(', ')}`,
+    );
+    if (!oversizeWarned.has(project.id)) {
+      oversizeWarned.add(project.id);
+      useAppStore
+        .getState()
+        .notify(
+          'warning',
+          t('project.file_too_large', {
+            count: String(oversize.length),
+            names: oversize.slice(0, 3).join(', '),
+            mb: String(Math.round(MAX_STAGED_FILE_BYTES / 1024 / 1024)),
+          }),
+        );
+    }
+  }
   return out;
 }
 

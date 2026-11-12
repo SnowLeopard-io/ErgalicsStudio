@@ -317,6 +317,8 @@ export const zhCN: LocaleDictionary = {
   'project.name': '项目名称',
   'project.auto_save': '自动保存中',
   'project.saved': '已保存',
+  'project.file_too_large':
+    '有 {count} 个文件超过 {mb} MB，未载入运行时（{names}）。数据分析与运行将看不到这些文件。',
   'project.deleted': '已删除',
   'project.prompt_name': '请输入项目名称',
   'project.prompt_save_as': '请输入另存为的文件名',
@@ -987,6 +989,7 @@ export const zhCN: LocaleDictionary = {
   'synth.value': '值',
   'synth.overall': '总体相似度',
   'synth.mean_ks': '平均 KS 统计量',
+  'synth.skipped_columns': '以下列无法比较（某一侧没有数值），已排除在评分之外：{names}',
   'synth.mean_tvd': '平均总变差 (TVD)',
   'synth.corr_diff': '相关结构差异',
   'synth.missing_diff': '缺失率差异',
@@ -1273,6 +1276,8 @@ export const zhCN: LocaleDictionary = {
   'model.figure_sent': '诊断图已发送到 Figure Studio',
   'model.sample_warn': '数据超过 {n} 行，已固定种子采样 {n} 行拟合',
   'model.need_two': '至少选择 1 个自变量；逻辑回归的因变量必须是 0/1',
+  'model.not_enough_finite': '有效数据行不足（{count} 行）：含缺失值的行已被剔除，无法拟合',
+  'model.dropped_rows': '已剔除 {count} 行含缺失值的数据（不参与拟合）',
 
   // ---- F9 Inference Forge ----
   'inference.title': '贝叶斯推断',

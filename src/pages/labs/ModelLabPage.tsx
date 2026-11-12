@@ -134,6 +134,8 @@ export default function ModelLabPage() {
   const [folds, setFolds] = useState('5');
   const [threshold, setThreshold] = useState('0.5');
   const [error, setError] = useState('');
+  /** Rows dropped from the last fit because a cell was missing (NaN). */
+  const [droppedRows, setDroppedRows] = useState(0);
   const [outcome, setOutcome] = useState<FitOutcome | null>(null);
   const [narrativeInput, setNarrativeInput] = useState<NarrativeInput | null>(null);
   /** Generation counter: lets a superseded fit discard its results. */
@@ -168,6 +170,7 @@ export default function ModelLabPage() {
     setPredictors([]);
     setOutcome(null);
     setError('');
+    setDroppedRows(0);
   };
 
   const togglePredictor = (name: string) => {
@@ -183,6 +186,7 @@ export default function ModelLabPage() {
   const fit = async () => {
     setError('');
     setOutcome(null);
+    setDroppedRows(0);
     setNarrativeInput(null);
     if (!file || !target) {
       setError(t('model.need_two'));
@@ -206,7 +210,27 @@ export default function ModelLabPage() {
       const fullXs = predictors.map((c) =>
         Array.from((table.getColumn(c) as Float64Array | undefined) ?? []) as number[],
       );
-      const idx = sampleRows(fullY.length, LARGE_N);
+      // The parser turns an empty cell into NaN. A single NaN row poisons the
+      // whole fit (the QR factorisation propagates it), and the page then
+      // showed an all-NaN regression as if it had worked — every coefficient
+      // blank, t = 0, p = 1 — and even recorded it in the run history.
+      // Drop the rows that are not fully finite, like the Signal Lab does.
+      const keep: number[] = [];
+      for (let i = 0; i < fullY.length; i += 1) {
+        if (!Number.isFinite(fullY[i]!)) continue;
+        if (!fullXs.every((col) => Number.isFinite(col[i]!))) continue;
+        keep.push(i);
+      }
+      const dropped = fullY.length - keep.length;
+      setDroppedRows(dropped);
+      if (keep.length < 3) {
+        setError(t('model.not_enough_finite', { count: keep.length }));
+        return;
+      }
+      const idx =
+        keep.length > LARGE_N
+          ? sampleRows(keep.length, LARGE_N).map((i) => keep[i]!)
+          : keep;
       const sampled = idx.length !== fullY.length;
       const y = idx.map((i) => fullY[i]!);
       const X = fullXs.map((col) => idx.map((i) => col[i]!));
@@ -339,11 +363,16 @@ export default function ModelLabPage() {
 
   const record = async () => {
     if (!outcome) return;
+    // Never archive a fit whose numbers are not finite — the history would
+    // carry NaN metrics that look like real values later.
+    const metrics = Object.fromEntries(
+      Object.entries(outcome.metrics).filter(([, v]) => typeof v !== 'number' || Number.isFinite(v)),
+    );
     await recordRun({
       source: 'model',
       label: `${kind} on ${file}: ${target} ~ ${predictors.join('+') || '1'}`,
       params: { kind, file, target, predictors, degree: Number(degree), folds: Number(folds) },
-      metrics: outcome.metrics,
+      metrics,
       durationMs: 0,
     });
     notify('success', t('model.recorded'));
@@ -413,6 +442,9 @@ export default function ModelLabPage() {
         )}
 
         {error && <p className="analysis-error">{error}</p>}
+        {droppedRows > 0 && outcome && (
+          <p className="analysis-note">{t('model.dropped_rows', { count: droppedRows })}</p>
+        )}
         {outcome?.sampled && <p className="analysis-note">{t('model.sample_warn', { n: LARGE_N })}</p>}
 
         {outcome && (

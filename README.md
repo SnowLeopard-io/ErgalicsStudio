@@ -1269,7 +1269,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**3975 tests (2 skipped) across 250 files**, covering:
+**4034 tests (2 skipped) across 256 files**, covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync

@@ -122,6 +122,12 @@ export class DesktopPythonClient {
     return { ok: true, loaded: packages };
   }
 
+  /** Desktop edition: a fresh CPython session is the cleanest reset. */
+  async resetNamespace(): Promise<boolean> {
+    this.sessionId = null;
+    return true;
+  }
+
   /** Desktop edition: the interpreter writes straight into the project tree,
    *  so there is nothing to collect back. */
   async collectWorkspaceFiles(): Promise<{

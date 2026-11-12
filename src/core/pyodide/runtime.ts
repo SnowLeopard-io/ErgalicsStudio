@@ -83,6 +83,7 @@ export function createCodeRuntime(host: CodeRuntimeHost) {
       runtime.mountWorkspace(files, dataFiles),
     installPackages: (packages: string[]) => runtime.installPackages(packages),
     collectWorkspaceFiles: () => runtime.collectWorkspaceFiles(),
+    resetNamespace: () => runtime.resetNamespace(),
     interrupt: () => runtime.interrupt(),
     dispose: () => runtime.dispose(),
   };

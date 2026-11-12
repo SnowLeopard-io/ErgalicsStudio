@@ -961,8 +961,11 @@ export function toPandasCode(steps: ReadonlyArray<EtlStep>, opts: ExportOptions 
         break;
       }
       case 'pivot':
+        // fill_value=None keeps an absent (index, column) combination EMPTY —
+        // the kernel leaves it empty too, while fill_value=0 turned "no
+        // measurement" into "a measurement of zero" in the exported script.
         lines.push(
-          `df = df.pivot_table(index=${q(step.index)}, columns=${q(step.columns)}, values=${q(step.value)}, aggfunc=${q(PY_AGG[step.fn])}, fill_value=0).reset_index()`,
+          `df = df.pivot_table(index=${q(step.index)}, columns=${q(step.columns)}, values=${q(step.value)}, aggfunc=${q(PY_AGG[step.fn])}, fill_value=None).reset_index()`,
         );
         break;
       case 'melt':

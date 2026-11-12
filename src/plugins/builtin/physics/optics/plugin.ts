@@ -67,6 +67,12 @@ interface OpticsState {
 const CANVAS_W = 600;
 const CANVAS_H = 400;
 
+/** Clamp a 0..1 layout fraction (the JSON path skipped the panel's clamps). */
+function clamp01(v: number): number {
+  if (!Number.isFinite(v)) return 0.5;
+  return Math.min(0.98, Math.max(0.02, v));
+}
+
 // Wavelength → RGB (visible spectrum approximation), 380..700 nm.
 function wavelengthToColor(nm: number): string {
   let r = 0;
@@ -383,13 +389,28 @@ export class OpticsPlugin implements Plugin {
     if (sx && Number.isFinite(Number(sx.x)) && Number.isFinite(Number(sx.y))) {
       this.source = { x: Number(sx.x) * CANVAS_W, y: Number(sx.y) * CANVAS_H };
     }
-    if (typeof o.lensX === 'number') this.lensX = o.lensX * CANVAS_W;
-    if (typeof o.screenX === 'number') this.screenX = o.screenX * CANVAS_W;
+    if (typeof o.lensX === 'number') this.lensX = clamp01(o.lensX) * CANVAS_W;
+    if (typeof o.screenX === 'number') this.screenX = clamp01(o.screenX) * CANVAS_W;
     if (typeof o.prismX === 'number' && typeof o.prismY === 'number') {
       this.prismCenter = { x: o.prismX * CANVAS_W, y: o.prismY * CANVAS_H };
     }
     if (o.lensType === 'none' || o.lensType === 'convex' || o.lensType === 'concave') this.state.lensType = o.lensType;
-    if (typeof o.focal === 'number') this.state.focal = o.focal;
+    if (typeof o.focal === 'number') {
+      // The panel clamps the focal length to [60, 260]; the file path did not.
+      // A focal length of 0 made the ray slope infinite and the whole trace
+      // NaN — the bench rendered empty with no error at all.
+      const focal = o.focal;
+      if (!Number.isFinite(focal) || focal === 0) {
+        this.api.notify(
+          'warning',
+          this.api.locale === 'zh-CN'
+            ? '焦距必须是有限的非零值——已保留原值。'
+            : 'Focal length must be a finite, non-zero value — keeping the previous one.',
+        );
+      } else {
+        this.state.focal = Math.min(260, Math.max(60, focal));
+      }
+    }
     if (typeof o.prism === 'boolean') this.state.showPrism = o.prism;
     if (typeof o.screen === 'boolean') this.state.showScreen = o.screen;
     this.state.hasData = true;
@@ -531,6 +552,12 @@ export class OpticsPlugin implements Plugin {
     // 2) Through the lens (thin-lens transform) if hit the lens plane.
     if (hitKind === 'lens' && this.state.lensType !== 'none') {
       const f = this.state.lensType === 'convex' ? this.state.focal : -this.state.focal;
+      // A degenerate focal length (0 / non-finite) makes the slope infinite
+      // and the whole trace NaN — the bench then renders EMPTY with no
+      // error. Refuse to trace instead of drawing nothing.
+      if (!Number.isFinite(f) || f === 0) {
+        return { color: wavelengthToColor(nm), pts: [] };
+      }
       // Height of the impact point above the optical axis, and the ray's slope.
       const yAtLens = hit.y - CANVAS_H / 2;
       const slopeIn = Math.abs(dir.x) > 1e-6 ? dir.y / dir.x : 0;

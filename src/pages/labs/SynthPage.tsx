@@ -240,6 +240,7 @@ export function SynthPage() {
         corrAbsDiff: result.report.corrAbsDiff,
         missingRateDiff: result.report.missingRateDiff,
         perColumn: result.report.perColumn,
+        skippedColumns: result.report.skippedColumns,
       },
     };
     await downloadBlob(
@@ -370,6 +371,11 @@ export function SynthPage() {
         {/* --- quality report --- */}
         {report && (
           <>
+            {report.skippedColumns.length > 0 && (
+              <p className="analysis-warning">
+                {t('synth.skipped_columns', { names: report.skippedColumns.join(', ') })}
+              </p>
+            )}
             <div className="share-section-title">{t('synth.metrics_title')}</div>
             <div className="analysis-row">
               <table className="sweep-table">

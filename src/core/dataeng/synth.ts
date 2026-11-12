@@ -1,5 +1,5 @@
 // ==========================================================================
-// Synthetic Data Generator kernel ‚Ä?pure TypeScript, deterministic.
+// Synthetic Data Generator kernel ÔøΩ?pure TypeScript, deterministic.
 //
 // No DOM imports, no Python runtime: every function is deterministic given
 // (data, seed), so a run can be replayed bit-for-bit. Contents:
@@ -11,9 +11,9 @@
 //     (selected by minimal KS statistic), categorical by empirical frequency,
 //     boolean by p, low-cardinality text by frequency, high-uniqueness ids
 //     skipped
-//   - multivariate synthesis: Gaussian copula ‚Ä?ranks ‚Ü?uniform ‚Ü?normal
-//     scores ‚Ü?correlation matrix (PSD-corrected by eigenvalue clamping) ‚Ü?
-//     Cholesky sampling ‚Ü?inverse marginal transform
+//   - multivariate synthesis: Gaussian copula ÔøΩ?ranks ÔøΩ?uniform ÔøΩ?normal
+//     scores ÔøΩ?correlation matrix (PSD-corrected by eigenvalue clamping) ÔøΩ?
+//     Cholesky sampling ÔøΩ?inverse marginal transform
 //   - time-series mode: AR(1) with the empirical lag-1 autocorrelation
 //   - privacy: Laplace Œµ-DP (inverse-transform sampling, noisy histograms /
 //     counts / means) and k-anonymity (binning + suppression of classes < k)
@@ -186,7 +186,7 @@ export function normalPdf(x: number): number {
 }
 
 /**
- * Inverse standard normal CDF Œ¶‚Åª¬?p) ‚Ä?Acklam's rational approximation
+ * Inverse standard normal CDF Œ¶‚ÅªÔøΩ?p) ÔøΩ?Acklam's rational approximation
  * (relative error < 1.2e-9), refined by one Halley step on the CDF.
  */
 export function normalQuantile(p: number): number {
@@ -323,7 +323,7 @@ function profileRole(cells: string[]): { role: ColumnRole; missing: number; uniq
     return { role: 'boolean', missing, unique: uniq.size };
   }
   if (numeric === present && uniq.size >= 2) return { role: 'numeric', missing, unique: uniq.size };
-  // Nearly-all-distinct strings are identifiers ‚Ä?skipped, not sampled.
+  // Nearly-all-distinct strings are identifiers ÔøΩ?skipped, not sampled.
   if (uniqueRatio >= 0.9 && present >= 10) return { role: 'id', missing, unique: uniq.size };
   if (uniq.size <= MAX_CATEGORICAL_UNIQUE || uniqueRatio <= 0.2) {
     return { role: 'categorical', missing, unique: uniq.size };
@@ -424,7 +424,7 @@ interface ColumnModel {
   values?: number[];
   /** Sorted non-missing values (empirical marginal for the copula). */
   sorted?: number[];
-  /** numeric | categorical | text ‚Ä?lag-1 autocorrelation of the raw order. */
+  /** numeric | categorical | text ÔøΩ?lag-1 autocorrelation of the raw order. */
   ar1?: number;
   /** categorical | text */
   categories?: string[];
@@ -521,7 +521,7 @@ function sampleEmpirical(sorted: number[], u: number): number {
 
 // ---- linear algebra: PSD correction + Cholesky ------------------------------
 
-/** Jacobi eigen-decomposition of a symmetric matrix ‚Ü?(eigenvalues, eigenvectors). */
+/** Jacobi eigen-decomposition of a symmetric matrix ÔøΩ?(eigenvalues, eigenvectors). */
 export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: number[][] } {
   const n = matrix.length;
   const a = matrix.map((row) => row.slice());
@@ -544,7 +544,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1);
         const s = t * c;
-        // Two-sided rotation A ‚Ü?J·µÄ A J: columns first, then rows.
+        // Two-sided rotation A ÔøΩ?J·µÄ A J: columns first, then rows.
         for (let k = 0; k < n; k += 1) {
           const akp = a[k]![p]!;
           const akq = a[k]![q]!;
@@ -562,7 +562,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         a[q]![q] = aqq + t * apq;
         a[p]![q] = 0;
         a[q]![p] = 0;
-        // Eigenvector accumulation V ‚Ü?V¬∑J (column rotation only).
+        // Eigenvector accumulation V ÔøΩ?V¬∑J (column rotation only).
         for (let k = 0; k < n; k += 1) {
           const vkp = v[k]![p]!;
           const vkq = v[k]![q]!;
@@ -578,14 +578,14 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
 
 /**
  * Nearest (in Frobenius sense) positive-semidefinite correlation-like matrix:
- * clamp eigenvalues to ‚â?1e-8, reconstruct, then rescale to unit diagonal.
+ * clamp eigenvalues to ÔøΩ?1e-8, reconstruct, then rescale to unit diagonal.
  */
 export function makePsd(matrix: number[][]): number[][] {
   const n = matrix.length;
   if (n === 0) return [];
   const { values, vectors } = jacobiEigen(matrix);
   const clamped = values.map((lv) => Math.max(1e-8, lv));
-  // R' = V diag(clamped) V·µÄ (V stored row-wise ‚Ü?R'[i][j] = Œ£_k V[i][k] Œª_k V[j][k]).
+  // R' = V diag(clamped) V·µÄ (V stored row-wise ÔøΩ?R'[i][j] = Œ£_k V[i][k] Œª_k V[j][k]).
   const out: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
   for (let i = 0; i < n; i += 1) {
     for (let j = i; j < n; j += 1) {
@@ -650,17 +650,17 @@ interface CopulaBundle {
 
 /**
  * Build the Gaussian-copula kit: per-column empirical marginals plus the
- * correlation matrix of the normal scores (rank ‚Ü?Œ¶‚Åª¬?, PSD-corrected.
+ * correlation matrix of the normal scores (rank ÔøΩ?Œ¶‚ÅªÔøΩ?, PSD-corrected.
  */
 function buildCopula(numeric: ColumnModel[]): CopulaBundle {
   const usable = numeric.filter((c) => (c.sorted?.length ?? 0) >= 2 && (c.fit?.kind ?? 'constant') !== 'constant');
   const m = usable.length;
   if (m === 0) return { columns: [], corr: [], chol: [] };
   // Normal scores per row: rank of each observation within its column
-  // (average ranks for ties) ‚Ü?u = rank/(len+1) ‚Ü?z = Œ¶‚Åª¬?u). Normalization
+  // (average ranks for ties) ÔøΩ?u = rank/(len+1) ÔøΩ?z = Œ¶‚ÅªÔøΩ?u). Normalization
   // uses each column's own value count: columns may have different lengths
   // (missing cells are dropped per column), and the global minimum would push
-  // longer columns to u ‚â?1 ‚Ü?¬±Inf normal scores. Row order is preserved so
+  // longer columns to u ÔøΩ?1 ÔøΩ?¬±Inf normal scores. Row order is preserved so
   // cross-column Pearson correlations estimate the copula.
   const z: number[][] = usable.map((c) => {
     const ranks = averageRanks(c.values!);
@@ -680,7 +680,7 @@ function buildCopula(numeric: ColumnModel[]): CopulaBundle {
 }
 
 /**
- * Draw one correlated copula row: z = L¬∑N(0,I) ‚Ü?u = Œ¶(z) ‚Ü?x = F‚Åª¬?u) per
+ * Draw one correlated copula row: z = L¬∑N(0,I) ÔøΩ?u = Œ¶(z) ÔøΩ?x = F‚ÅªÔøΩ?u) per
  * column (empirical quantile transform). Returns values aligned with
  * `bundle.columns`.
  */
@@ -707,7 +707,7 @@ function sampleCopulaRow(
 
 /**
  * Laplace noise via inverse-transform sampling:
- *   x = Œº ‚à?b¬∑sign(u)¬∑ln(1 ‚à?2|u|),  u ~ Uniform(‚à?.5, 0.5),  b = sensitivity/Œµ.
+ *   x = Œº ÔøΩ?b¬∑sign(u)¬∑ln(1 ÔøΩ?2|u|),  u ~ Uniform(ÔøΩ?.5, 0.5),  b = sensitivity/Œµ.
  */
 export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu = 0): number {
   const eps = Math.max(1e-9, epsilon);
@@ -718,7 +718,7 @@ export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu 
 
 /**
  * Œµ-DP release of a bounded-sample mean: the global sensitivity of the mean
- * over values in [min, max] is (max ‚à?min)/n, so Laplace noise of that scale
+ * over values in [min, max] is (max ÔøΩ?min)/n, so Laplace noise of that scale
  * is added (Laplace mechanism).
  */
 export function dpMean(values: number[], epsilon: number, rng: Rng): { value: number; sensitivity: number } {
@@ -894,7 +894,7 @@ interface QualityDetail {
   ks?: number;
   /** Total variation distance of category frequencies (categorical / boolean). */
   tvd?: number;
-  /** Similarity in [0, 1]: 1 ‚à?statistic. */
+  /** Similarity in [0, 1]: 1 ÔøΩ?statistic. */
   similarity: number;
 }
 
@@ -910,6 +910,12 @@ export interface QualityReport {
   missingRateDiff: number | null;
   /** Overall similarity score in [0, 1] (higher = more similar). */
   overall: number;
+  /**
+   * Columns that could NOT be compared (no numeric values on one side).
+   * They are excluded from the score ‚Äî a column that lost all its values is
+   * not a perfect match, it is an absence.
+   */
+  skippedColumns: string[];
 }
 
 function cellsOf(table: SynthTable, name: string): string[] | null {
@@ -965,6 +971,8 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
   let tvdN = 0;
   let missSum = 0;
   let missN = 0;
+  /** Columns that could not be compared (no values on one side). */
+  const skipped: string[] = [];
   const origNumeric = new Map<string, number[]>();
   const synNumeric = new Map<string, number[]>();
 
@@ -978,13 +986,27 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
     if (role === 'numeric') {
       const va = numericCells(a);
       const vb = numericCells(b);
-      const ks = va.length > 0 && vb.length > 0 ? ksStatistic(va, vb) : 0;
-      details.push({ column: name, kind: 'numeric', ks, similarity: 1 - ks });
+      // A column with NO values on one side is not comparable ‚Äî it used to
+      // count as KS = 0 ("identical") and RAISED the overall similarity, so
+      // a synthetic column that lost all its values was reported as a
+      // perfect match.
+      const comparable = va.length > 0 && vb.length > 0;
+      const ks = comparable ? ksStatistic(va, vb) : Number.NaN;
+      details.push({
+        column: name,
+        kind: 'numeric',
+        ks,
+        similarity: comparable ? 1 - ks : Number.NaN,
+      });
       origNumeric.set(name, va);
       synNumeric.set(name, vb);
-      ksSum += ks;
-      ksN += 1;
-      sims.push(1 - ks);
+      if (comparable) {
+        ksSum += ks;
+        ksN += 1;
+        sims.push(1 - ks);
+      } else {
+        skipped.push(name);
+      }
     } else if (role === 'categorical' || role === 'boolean') {
       const tvd = tvdOf(categoryFreqs(a), categoryFreqs(b));
       details.push({ column: name, kind: role === 'boolean' ? 'boolean' : 'categorical', tvd, similarity: 1 - tvd });
@@ -1024,6 +1046,7 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
     corrAbsDiff: corrDiff,
     missingRateDiff: missDiff,
     overall: finite.length > 0 ? finite.reduce((s, v) => s + v, 0) / finite.length : 0,
+    skippedColumns: skipped,
   };
 }
 
@@ -1080,7 +1103,7 @@ function sampleCategorical(model: ColumnModel, rng: Rng, dpEpsilon: number | nul
 
 /**
  * Generate a synthetic table from `original` under the given options.
- * Deterministic: (original, options) ‚Ü?same output bit-for-bit.
+ * Deterministic: (original, options) ÔøΩ?same output bit-for-bit.
  */
 export function generateSynthetic(original: SynthTable, opts: SynthOptions): SynthResult {
   const startedAt = performance.now();
@@ -1174,12 +1197,12 @@ export function generateSynthetic(original: SynthTable, opts: SynthOptions): Syn
     if (col.role === 'id') {
       skipped.push({
         column: col.name,
-        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) ‚Ä?skipped`,
+        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) ÔøΩ?skipped`,
       });
       return;
     }
     if (col.role === 'empty') {
-      skipped.push({ column: col.name, reason: 'empty column ‚Ä?skipped' });
+      skipped.push({ column: col.name, reason: 'empty column ÔøΩ?skipped' });
       return;
     }
     outColumns.push(col.name);

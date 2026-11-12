@@ -10,9 +10,10 @@
 // localStorage. Academic, low-saturation style; global i18n only.
 // ==========================================================================
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import {
   deserializeContract,
   diffSchemas,
@@ -27,7 +28,18 @@ import type { DataContract, DriftItem, TableSchema, ValidationResult } from '@/c
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
 
-const CONTRACT_KEY = 'ergalics:schema-contract';
+const CONTRACT_KEY_PREFIX = 'ergalics:schema-contract';
+
+/**
+ * Storage key of the data contract for a project.
+ *
+ * The contract embeds the column names and types of a dataset — project
+ * data. A single global key carried project A's schema into project B,
+ * where the drift check then compared B's data against A's columns.
+ */
+function contractKey(projectId: string | null): string {
+  return `${CONTRACT_KEY_PREFIX}:${projectId ?? 'no-project'}`;
+}
 
 const fmtPct = (v: number): string => `${(v * 100).toFixed(1)}%`;
 
@@ -38,9 +50,9 @@ function sevColor(severity: string): string {
   return 'var(--color-text-tertiary, #8b98a8)';
 }
 
-function loadSavedContract(): DataContract | null {
+function loadSavedContract(projectId: string | null): DataContract | null {
   try {
-    const raw = localStorage.getItem(CONTRACT_KEY);
+    const raw = localStorage.getItem(contractKey(projectId));
     return raw ? deserializeContract(raw) : null;
   } catch {
     return null;
@@ -50,6 +62,9 @@ function loadSavedContract(): DataContract | null {
 export default function SchemaPage() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
+  // The contract belongs to one project — it must be loaded from and saved
+  // to that project's own slot.
+  const projectId = useProjectStore((s) => s.project?.id ?? null);
 
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [sourceName, setSourceName] = useState('');
@@ -57,8 +72,15 @@ export default function SchemaPage() {
   const [secondName, setSecondName] = useState('');
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [drift, setDrift] = useState<DriftItem[] | null>(null);
-  const [contract, setContract] = useState<DataContract | null>(loadSavedContract);
+  const [contract, setContract] = useState<DataContract | null>(() => loadSavedContract(projectId));
   const [contractSavedAt, setContractSavedAt] = useState('');
+
+  // Switching projects swaps the contract: the old one described the other
+  // project's columns.
+  useEffect(() => {
+    setContract(loadSavedContract(projectId));
+    setContractSavedAt('');
+  }, [projectId]);
 
   const parseUpload = (text: string, format: 'csv' | 'json') => {
     try {
@@ -108,7 +130,7 @@ export default function SchemaPage() {
     if (!schema) return;
     const doc = suggestContract(schema);
     try {
-      localStorage.setItem(CONTRACT_KEY, serializeContract(doc));
+      localStorage.setItem(contractKey(projectId), serializeContract(doc));
       setContract(doc);
       setContractSavedAt(new Date().toLocaleString());
       notify('success', t('schema.contract_saved_msg'));
