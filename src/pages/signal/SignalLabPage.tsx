@@ -183,7 +183,9 @@ export default function SignalLabPage() {
 
       if (op === 'spectrum') {
         const r = spectrum(x, rate, windowKind);
-        const peak = r.freqs[peakFrequency(r)]!;
+        // peakFrequency already returns the dominant frequency in Hz — it must
+        // not be indexed into the frequency array a second time.
+        const peak = peakFrequency(r);
         const spec = lineSpec(
           `${t('signal.op_spectrum')} — ${valueCol}`,
           t('signal.frequency'),
@@ -272,7 +274,11 @@ export default function SignalLabPage() {
       }
 
       // decompose
-      let m = Math.max(2, Math.floor(Number(period)) || 0);
+      // The period field defaults to 0 = "detect it". Clamping to >= 2 first
+      // would make that branch unreachable and every decomposition would run
+      // with m = 2 instead of the detected period.
+      const requested = Math.floor(Number(period));
+      let m = Number.isFinite(requested) && requested >= 2 ? requested : 0;
       let autoPeriod = false;
       if (m === 0) {
         m = suggestPeriod(x) ?? Math.max(2, Math.floor(x.length / 4));

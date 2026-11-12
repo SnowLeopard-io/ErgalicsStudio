@@ -138,10 +138,16 @@ export default function SigFigPage() {
     if (mode === 'sf') {
       const count = Math.min(Math.max(n, 1), 12);
       const R = roundSigDigits(d, count);
+      // The invariant is value = digits × 10^exp. `R` is re-aligned to
+      // `count` digits (padded with zeros, or count+1 after a carry), so the
+      // exponent must shift by len(digits) − count to keep the value. Using
+      // the original exponent made every result that was not already "full
+      // width" wrong by a power of ten (1.5 → 15.0 instead of 1.50).
+      const exp = d.exp + d.digits.length - count;
       return {
         inputSf: sigCount(d),
-        decimal: toDecimalString(R, d.exp, d.neg),
-        sci: toSciString(R, d.exp, d.neg),
+        decimal: toDecimalString(R, exp, d.neg),
+        sci: toSciString(R, exp, d.neg),
       };
     }
     const places = Math.min(Math.max(n, 0), 12);

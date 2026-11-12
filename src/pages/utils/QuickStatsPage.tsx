@@ -76,7 +76,10 @@ export default function QuickStatsPage() {
     if (raw.trim() === '') return [];
     return raw
       .split(/[\s,;]+/)
-      .map((s) => s.replace(/[%,]$/g, ''))
+      .map((s) => s.replace(/[%,]$/g, '').trim())
+      // A trailing separator leaves an empty token behind; Number('') is 0
+      // and 0 is finite, so it would silently become a real observation.
+      .filter((s) => s !== '')
       .map((s) => Number(s))
       .filter((v) => Number.isFinite(v));
   }, [raw]);

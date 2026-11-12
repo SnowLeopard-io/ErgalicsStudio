@@ -192,6 +192,7 @@ const PDF_MARGIN_MM = 15;
 export async function buildPDF(
   svg: string,
   widthMm = 180,
+  dpi = 300,
 ): Promise<Uint8Array> {
   if (typeof document === 'undefined') {
     throw new Error('buildPDF is only available in a browser environment');
@@ -210,7 +211,9 @@ export async function buildPDF(
   const maxHeight = PDF_PAGE_HEIGHT_MM - PDF_MARGIN_MM * 2;
   const { width, height } = fitSvgBox(aspect, Math.min(widthMm, maxWidth), maxHeight);
 
-  const png = await rasterizePNG(svg, 300 / 96);
+  // The PDF carries a RASTER, so its resolution is the rasterization dpi —
+  // the caller's choice, not a hard-coded 300.
+  const png = await rasterizePNG(svg, Math.max(1, dpi) / 96);
   const pdf = new jspdfMod.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   pdf.addImage(
     pngDataUrl(png),
@@ -233,7 +236,8 @@ export async function exportPDF(
   svg: string,
   filename = 'plot.pdf',
   widthMm = 180,
+  dpi = 300,
 ): Promise<void> {
-  const bytes = await buildPDF(svg, widthMm);
+  const bytes = await buildPDF(svg, widthMm, dpi);
   downloadBytes(bytes, filename, 'application/pdf');
 }

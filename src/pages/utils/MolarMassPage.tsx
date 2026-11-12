@@ -47,7 +47,13 @@ type Tok =
 function tokenizeFormula(src: string): Tok[] {
   const s = src
     .replaceAll(/[·⋅*]/g, '.')
-    .replace(/[\^]?[0-9]*[+-]$/, '') // strip a trailing charge like ^2- / + / 3+
+    // Strip a trailing charge. Only an EXPLICIT caret charge may carry a
+    // number (SO4^2-); a bare sign keeps the stoichiometric subscript that
+    // belongs to the element (NO3- must not become NO, NH4+ must not
+    // become NH).
+    .replace(/\^(?:\d+)?[+-]$/, '')
+    .replace(/(\d)([+-])$/, '$1')
+    .replace(/[+-]$/, '')
     .replaceAll(/\s+/g, '');
   if (s === '') throw new Error('empty');
   const toks: Tok[] = [];
@@ -96,23 +102,12 @@ class FormulaParser {
       if (t.k === 'rp') return acc;
       if (t.k === 'sep') { this.pos += 1; continue; }
       if (t.k === 'num') {
-        // Multiplier in front of a unit: 2H2O, CuSO4·5H2O.
+        // A leading multiplier scales the WHOLE formula unit that follows
+        // (2H2O = 2 × H2O, CuSO4·5H2O = CuSO4 + 5 × H2O) — not just its
+        // first element, which used to drop the trailing oxygen.
         this.pos += 1;
         const mult = t.v * scale;
-        const nt = this.toks[this.pos];
-        if (nt?.k === 'elem') {
-          this.pos += 1;
-          const c = this.peekCount();
-          add(nt.sym, mult * c);
-        } else if (nt?.k === 'lp') {
-          this.pos += 1;
-          const inner = this.group(mult);
-          this.expectRp();
-          const c = this.peekCount();
-          for (const [sym, n] of inner) add(sym, n * c);
-        } else {
-          throw new Error('dangling multiplier');
-        }
+        for (const [sym, n] of this.unit(mult)) add(sym, n);
         continue;
       }
       if (t.k === 'lp') {
@@ -129,6 +124,43 @@ class FormulaParser {
         add(t.sym, scale * c);
         continue;
       }
+    }
+    return acc;
+  }
+
+  /**
+   * Parse the atoms of ONE formula unit — elements and parenthesised groups,
+   * each with its own count — up to a separator, a closing parenthesis or the
+   * end of the input. `scale` multiplies every atom it produces.
+   */
+  private unit(scale: number): Map<string, number> {
+    const acc = new Map<string, number>();
+    const add = (sym: string, n: number) => acc.set(sym, (acc.get(sym) ?? 0) + n);
+    while (this.pos < this.toks.length) {
+      const t = this.toks[this.pos];
+      if (!t || t.k === 'sep' || t.k === 'rp') return acc;
+      if (t.k === 'lp') {
+        this.pos += 1;
+        const inner = this.group(scale);
+        this.expectRp();
+        const c = this.peekCount();
+        for (const [sym, n] of inner) add(sym, n * c);
+        continue;
+      }
+      if (t.k === 'elem') {
+        this.pos += 1;
+        const c = this.peekCount();
+        add(t.sym, scale * c);
+        continue;
+      }
+      if (t.k === 'num') {
+        // A multiplier inside the unit (H2O in 5H2O) scales the rest of it.
+        const mult = t.v * scale;
+        this.pos += 1;
+        for (const [sym, n] of this.unit(mult)) add(sym, n);
+        continue;
+      }
+      return acc;
     }
     return acc;
   }

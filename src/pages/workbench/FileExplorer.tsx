@@ -380,9 +380,25 @@ export function FileExplorer() {
           await adapter.renameEntry(repoPath, item.path, target);
           renameFileTab(item.path, basename(target), target);
           relocateSessions(item.path, target);
+          // A move out of (or into) data/ changes the project data-files
+          // list — the rename handler syncs it, the paste path must too.
+          await syncDataTrack(item.path, target);
         } else {
           const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
+          // A copy INTO data/ must join the project data-files list, exactly
+          // like a move does — otherwise the top-bar data list, "load into
+          // plugin" and the project registry keep pointing at the old set.
+          if (isTopLevelDataFile(target)) {
+            try {
+              const content = await adapter.readFile(repoPath, target);
+              await useProjectStore
+                .getState()
+                .addDataFile(new File([content], basename(target), { type: 'text/plain' }));
+            } catch {
+              // Unsupported format — the file lives on in the workspace only.
+            }
+          }
         }
       }
       if (clipboard.mode === 'cut' && !failed) setClipboard(null);

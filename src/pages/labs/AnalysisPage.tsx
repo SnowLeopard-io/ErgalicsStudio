@@ -80,6 +80,12 @@ export default function AnalysisPage() {
     setPreview(null);
     setPreviewSpec(null);
     setParseError('');
+    // The derived results belong to the PREVIOUS file. Keeping them would
+    // let the save action stamp the new file's name onto the old file's
+    // numbers (the artifact claimed the wrong source).
+    setDescText('');
+    setTestResult('');
+    setNarrativeInput(null);
     if (!name) {
       loadGen.current += 1;
       setTable(null);

@@ -45,8 +45,9 @@ interface FigureStore {
     placement?: PanelPlacement,
   ) => void;
   removePanel: (sheetId: string, index: number) => void;
-  /** Compose + download; resolves after the export has been triggered. */
-  exportSheet: (id: string, format: FigureExportFormat) => Promise<void>;
+  /** Compose + download; resolves after the export has been triggered. The
+   *  `dpi` is the rasterization resolution (the PDF carries a raster too). */
+  exportSheet: (id: string, format: FigureExportFormat, dpi?: number) => Promise<void>;
 }
 
 function nextFreeCell(panels: FigurePanel[]): { row: number; col: number } {
@@ -56,6 +57,16 @@ function nextFreeCell(panels: FigurePanel[]): { row: number; col: number } {
       if (!occupied.has(`${row}:${col}`)) return { row, col };
     }
   }
+}
+
+/** True when another panel (not `self`) already occupies the given cell. */
+function cellOccupied(
+  panels: FigurePanel[],
+  row: number,
+  col: number,
+  self = -1,
+): boolean {
+  return panels.some((p, i) => i !== self && p.row === row && p.col === col);
 }
 
 /** Write-through: replace project.state.figureSheets and flag dirty. */
@@ -161,9 +172,20 @@ export const useFigureStore = create<FigureStore>((set) => ({
 
   addPanel: (sheetId, spec, placement) => {
     mutateSheet(sheetId, (sheet) => {
-      const cell = placement?.row !== undefined && placement?.col !== undefined
-        ? { row: placement.row, col: placement.col }
-        : nextFreeCell(sheet.panels);
+      const auto = nextFreeCell(sheet.panels);
+      // A placement may name only ONE axis (the editor's row field can be
+      // filled while the column stays blank) — honour it per axis instead
+      // of discarding the whole placement.
+      let cell = {
+        row: placement?.row ?? auto.row,
+        col: placement?.col ?? auto.col,
+      };
+      // Two panels in the same cell overlap in the exported figure — the
+      // second one is simply drawn on top of the first. Fall back to the
+      // next free cell instead of silently losing a panel.
+      if (cellOccupied(sheet.panels, cell.row, cell.col)) {
+        cell = nextFreeCell(sheet.panels);
+      }
       const panel: FigurePanel = {
         row: cell.row,
         col: cell.col,
@@ -178,11 +200,18 @@ export const useFigureStore = create<FigureStore>((set) => ({
     mutateSheet(sheetId, (sheet) => {
       const panel = sheet.panels[index];
       if (!panel) return null;
+      let row = placement?.row ?? panel.row;
+      let col = placement?.col ?? panel.col;
+      if (cellOccupied(sheet.panels, row, col, index)) {
+        const free = nextFreeCell(sheet.panels.filter((_, i) => i !== index));
+        row = free.row;
+        col = free.col;
+      }
       const next: FigurePanel = {
         ...panel,
         spec,
-        row: placement?.row ?? panel.row,
-        col: placement?.col ?? panel.col,
+        row,
+        col,
         tag: placement?.tag !== undefined ? placement.tag : panel.tag,
       };
       const panels = sheet.panels.slice();
@@ -201,7 +230,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
     saveNow();
   },
 
-  exportSheet: async (id, format) => {
+  exportSheet: async (id, format, dpi = 600) => {
     const { project } = useProjectStore.getState();
     const sheet = project?.state.figureSheets?.find((s) => s.id === id);
     if (!sheet) return;
@@ -209,6 +238,7 @@ export const useFigureStore = create<FigureStore>((set) => ({
       { panels: sheet.panels, templateId: sheet.templateId, caption: sheet.caption },
       format,
       sheet.name || 'figure',
+      dpi,
     );
     emit(FIGURE_EXPORTED, { figureId: id, format: format === 'png600' ? 'png' : format });
   },

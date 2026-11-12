@@ -300,7 +300,16 @@ export default function LatexEditorPage() {
       for (const sheet of sheets) {
         const file = figureSheetPath(sheet);
         const bare = file.replace(/^figures\//, '');
-        if (wanted.has(bare) || wanted.has(file)) {
+        // A manuscript written before the path gained its id suffix refers
+        // to the plain slug — match that too, or the figure would silently
+        // drop out of the bundle.
+        const legacy = figureSlug(sheet.name, sheet.id.slice(0, 8));
+        if (
+          wanted.has(bare) ||
+          wanted.has(file) ||
+          wanted.has(legacy) ||
+          wanted.has(`${legacy}.svg`)
+        ) {
           files.push({ path: file, content: figureSheetSvg(sheet) });
         }
       }

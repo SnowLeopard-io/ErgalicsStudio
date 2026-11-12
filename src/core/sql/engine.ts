@@ -88,6 +88,20 @@ export function uniqueTableNames(fileNames: string[]): Map<string, string> {
 }
 
 /**
+ * Content fingerprint of a file (FNV-1a). The engine is a process-wide
+ * singleton, so a file NAME alone does not identify its content — two
+ * projects can both hold `data/foo.csv` with different rows.
+ */
+export function hashText(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `${text.length.toString(36)}-${(h >>> 0).toString(36)}`;
+}
+
+/**
  * CREATE TABLE statement registering a virtual file as a table. JSON files
  * use read_json_auto, everything else read_csv_auto (auto-detects delimiter
  * and header for CSV/TSV/TXT/XYZ dumps).
@@ -166,6 +180,12 @@ export interface SqlEngine {
    * replaces its table. Returns the refreshed schema list.
    */
   registerFiles(files: { name: string; text: string }[]): Promise<SqlTableSchema[]>;
+  /**
+   * The table name a file was registered under (undefined when it is not
+   * registered). The engine owns the naming — a caller that recomputes the
+   * names itself can disagree with the real tables.
+   */
+  tableFor(fileName: string): string | undefined;
   query(sql: string, opts?: SqlEngineQueryOptions): Promise<SqlQueryResult>;
   /** Terminate the DuckDB worker (abort/timeout recovery or manual reset). */
   reset(): Promise<void>;
@@ -211,6 +231,10 @@ async function createEngine(): Promise<SqlEngine> {
   const id = nextEngineId;
   nextEngineId += 1;
   const tables = new Map<string, string>(); // fileName → tableName
+  /** Content fingerprint per registered file — the engine is a process-wide
+   *  singleton, so a file NAME alone does not identify its content: two
+   *  projects can both hold `data/foo.csv` with different rows. */
+  const fingerprints = new Map<string, string>();
   let schemas: SqlTableSchema[] = [];
   let terminated = false;
 
@@ -226,16 +250,36 @@ async function createEngine(): Promise<SqlEngine> {
       return Array.from(tables.keys());
     },
 
+    tableFor(fileName) {
+      return tables.get(fileName);
+    },
+
     async registerFiles(files) {
       // Compute stable names for every requested file (deduped against each
       // other); already-registered files keep their previous table name.
-      const pending = files.filter((f) => !tables.has(f.name));
-      const names = uniqueTableNames([...tables.keys(), ...pending.map((f) => f.name)]);
-      for (const file of pending) {
-        await db.registerFileText(file.name, file.text);
+      const names = uniqueTableNames([...tables.keys(), ...files.map((f) => f.name)]);
+      const present = new Set<string>();
+      for (const file of files) {
+        present.add(file.name);
+        const hash = hashText(file.text);
+        if (fingerprints.get(file.name) === hash) continue;
         const tableName = names.get(file.name)!;
+        // The file may already be registered (a re-import with the same name
+        // carries new content) → replace the table instead of skipping it.
+        await db.registerFileText(file.name, file.text);
+        await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
         await conn.query(registerStatement(tableName, file.name));
         tables.set(file.name, tableName);
+        fingerprints.set(file.name, hash);
+      }
+      // Files that vanished (deleted / renamed) must not stay queryable —
+      // the engine is shared, so a stale table leaked the old project's data.
+      for (const name of [...tables.keys()]) {
+        if (present.has(name)) continue;
+        const tableName = tables.get(name)!;
+        await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
+        tables.delete(name);
+        fingerprints.delete(name);
       }
       schemas = await refreshSchemas(conn, Array.from(tables.values()));
       return schemas;
