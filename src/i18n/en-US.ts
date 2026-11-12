@@ -118,6 +118,7 @@ export const enUS: LocaleDictionary = {
   'workbench.explorer.name_conflict': 'An item named "{name}" already exists',
   'workbench.explorer.name_invalid': 'Invalid name: "{name}" (path separators and ".." are not allowed)',
   'workbench.explorer.pasted_hint': 'Pasted',
+  'workbench.explorer.git_badge': 'Git change: {letter} (open the Git panel)',
   'workbench.explorer.copied_hint': 'Copied',
   'workbench.explorer.cut_hint': 'Cut',
   'workbench.explorer.moved_hint': 'Moved',

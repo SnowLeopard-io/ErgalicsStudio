@@ -139,12 +139,28 @@ const HELP_LINES = [
   'workspace:  pwd  cd <dir>  ls [dir]  tree [dir]  find <name>  cat <file>',
   '            head/tail <file> [n]  grep <pattern> [file]  wc <file>',
   'run:        python <file.py>  node <file.js>  rscript <file.R>  run <file>',
-  'workbench:  open <file>  touch <file>  git status|log|diff  env  reset',
+  'workbench:  open <file>  touch <file>  env  reset',
+  'git:        status  log [n]  diff  add <files|.>  commit -m "msg"',
+  '            branch [name]  checkout [-b] <ref>  remote  push|pull [remote]',
   'python:     pip install <pkg>  who  time <expr>  clear (cls)',
   'any other line is executed as Python in the session interpreter',
 ];
 
-/** `git status` / `git log` / `git diff` through the project git adapter. */
+const GIT_SUBCOMMANDS = 'status | log | diff | add | commit | branch | checkout | remote | push | pull | init';
+
+/** Refresh the Git panel + file explorer after a mutation. */
+function refreshGitViews(withLog = false): void {
+  const project = useProjectStore.getState().project;
+  if (!project) return;
+  void useProjectStore.getState().refreshGitStatus();
+  // A commit/checkout moves history or swaps worktree files: the change tree
+  // (and log) must re-read, and the explorer re-lists on checkout.
+  if (withLog) void useProjectStore.getState().loadGitLog();
+  if (useAppStore.getState().sidebarView === 'files') useAppStore.getState().bumpFileOps();
+}
+
+/** `git status` / `git log` / `git diff` / `git add` / `git commit` / …
+ *  through the project git adapter — the same one the Git panel uses. */
 async function runGit(arg: string, ctx: HostCommandContext): Promise<void> {
   const project = useProjectStore.getState().project;
   if (!project) {
@@ -153,44 +169,187 @@ async function runGit(arg: string, ctx: HostCommandContext): Promise<void> {
   }
   const tokens = splitArgs(arg);
   const sub = (tokens[0] ?? 'status').toLowerCase();
+  const rest = tokens.slice(1);
   const adapter = getGitAdapter();
   const repoPath = getProjectRepoPath(project);
-  try {
-    if (sub === 'status') {
-      const status = await adapter.status(repoPath);
-      const lines = [`branch ${status.currentBranch}${status.ahead ? ` (+${status.ahead})` : ''}${status.behind ? ` (-${status.behind})` : ''}`];
-      for (const file of status.staged) lines.push(`  A  ${file}`);
-      for (const file of status.unstaged) lines.push(`  M  ${file}`);
-      for (const file of status.untracked) lines.push(`  ?  ${file}`);
-      if (status.clean) lines.push('working tree clean');
-      ctx.append('info', lines.join('\n'));
-      return;
-    }
-    if (sub === 'log') {
-      const commits = await adapter.log(repoPath, { limit: Number(tokens[1] ?? '10') });
-      if (!commits.length) {
-        ctx.append('info', 'no commits yet');
-        return;
-      }
-      const lines = commits.map(
-        (c) => `  ${c.shortHash} ${new Date(c.timestamp).toLocaleString()} ${c.author.name} — ${c.message.split('\n')[0]}`,
-      );
-      ctx.append('info', lines.join('\n'));
-      return;
-    }
-    if (sub === 'diff') {
-      const diffs = await adapter.diff(repoPath, {});
-      if (!diffs.length) {
-        ctx.append('info', 'no changes');
-        return;
-      }
-      const lines = diffs.map((d) => `  ${d.filePath}  +${d.additions} -${d.deletions}`);
-      ctx.append('info', lines.join('\n'));
-      return;
-    }
-    ctx.append('stderr', `git: unknown subcommand '${sub}' (status | log | diff)`);
-  } catch (err) {
+  const fail = (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     ctx.append('stderr', `git: ${message}`);
+  };
+  try {
+    switch (sub) {
+      case 'status': {
+        const status = await adapter.status(repoPath);
+        const lines = [
+          `branch ${status.currentBranch}${status.ahead ? ` (+${status.ahead})` : ''}${status.behind ? ` (-${status.behind})` : ''}`,
+        ];
+        for (const file of status.staged) lines.push(`  A  ${file}`);
+        for (const file of status.unstaged) lines.push(`  M  ${file}`);
+        for (const file of status.untracked) lines.push(`  ?  ${file}`);
+        if (status.clean) lines.push('working tree clean');
+        ctx.append('info', lines.join('\n'));
+        return;
+      }
+      case 'log': {
+        const commits = await adapter.log(repoPath, { limit: Number(rest[0] ?? '10') || 10 });
+        if (!commits.length) {
+          ctx.append('info', 'no commits yet');
+          return;
+        }
+        const lines = commits.map(
+          (c) =>
+            `  ${c.shortHash} ${new Date(c.timestamp).toLocaleString()} ${c.author.name} — ${c.message.split('\n')[0]}`,
+        );
+        ctx.append('info', lines.join('\n'));
+        return;
+      }
+      case 'diff': {
+        const diffs = await adapter.diff(repoPath, {});
+        if (!diffs.length) {
+          ctx.append('info', 'no changes');
+          return;
+        }
+        const lines = diffs.map((d) => `  ${d.filePath}  +${d.additions} -${d.deletions}`);
+        ctx.append('info', lines.join('\n'));
+        return;
+      }
+      case 'add': {
+        const files = await addFileList(adapter, repoPath, rest);
+        if (!files.length) {
+          ctx.append('stderr', 'git add: nothing to add (working tree clean)');
+          return;
+        }
+        await adapter.add(repoPath, files);
+        refreshGitViews();
+        ctx.append('info', `staged ${files.length} file(s)`);
+        return;
+      }
+      case 'reset': {
+        // `git reset` (no args) unstages everything; with paths it unstages
+        // just those entries — mirroring the index-only semantics of git.
+        const files = rest.length ? rest : await changedFiles(adapter, repoPath);
+        if (!files.length) {
+          ctx.append('info', 'git reset: index is empty');
+          return;
+        }
+        await adapter.resetIndex(repoPath, files);
+        refreshGitViews();
+        ctx.append('info', `unstaged ${files.length} file(s)`);
+        return;
+      }
+      case 'commit': {
+        const mFlag = rest.findIndex((t) => t === '-m' || t === '--message');
+        const message = mFlag >= 0 ? rest[mFlag + 1] : undefined;
+        if (!message) {
+          ctx.append('stderr', 'git commit: usage — commit -m "message"');
+          return;
+        }
+        const status = await adapter.status(repoPath);
+        if (status.clean) {
+          ctx.append('info', 'nothing to commit, working tree clean');
+          return;
+        }
+        const hash = await adapter.commit(repoPath, message);
+        refreshGitViews(true);
+        ctx.append('info', `[${status.currentBranch} ${hash.slice(0, 7)}] ${message}`);
+        return;
+      }
+      case 'branch': {
+        if (rest[0]) {
+          await adapter.branch(repoPath, rest[0]);
+          refreshGitViews();
+          ctx.append('info', `created branch ${rest[0]}`);
+        } else {
+          const list = await adapter.branches(repoPath);
+          if (!list.length) {
+            ctx.append('info', 'no branches');
+            return;
+          }
+          ctx.append(
+            'info',
+            list.map((b) => `${b.current ? '* ' : '  '}${b.name}${b.upstream ? ` → ${b.upstream}` : ''}`).join('\n'),
+          );
+        }
+        return;
+      }
+      case 'checkout': {
+        const create = rest.includes('-b');
+        const refs = rest.filter((t) => t !== '-b');
+        const ref = refs[0];
+        if (!ref) {
+          ctx.append('stderr', 'git checkout: usage — checkout <ref> | checkout -b <new-branch>');
+          return;
+        }
+        await adapter.checkout(repoPath, ref, create);
+        refreshGitViews(true);
+        ctx.append('info', `switched to ${ref}`);
+        return;
+      }
+      case 'remote': {
+        const remotes = await adapter.remotes(repoPath);
+        if (!remotes.length) {
+          ctx.append('info', 'no remotes (configure one in the Git panel)');
+          return;
+        }
+        ctx.append('info', remotes.map((r) => `${r.name}\t${r.url}`).join('\n'));
+        return;
+      }
+      case 'push':
+      case 'pull': {
+        const status = await adapter.status(repoPath);
+        const remote = rest[0] ?? 'origin';
+        const remotes = await adapter.remotes(repoPath);
+        if (!remotes.some((r) => r.name === remote)) {
+          ctx.append('stderr', `git ${sub}: no remote '${remote}' (git remote to list)`);
+          return;
+        }
+        const branch = rest[1] ?? status.currentBranch;
+        ctx.append('info', `git ${sub}: ${remote}/${branch} …`);
+        if (sub === 'push') {
+          await adapter.push(repoPath, { remote, branch, setUpstream: true });
+        } else {
+          await adapter.pull(repoPath, { remote, branch });
+        }
+        refreshGitViews(true);
+        ctx.append('info', `git ${sub}: done`);
+        return;
+      }
+      case 'init': {
+        if (await adapter.isRepo(repoPath)) {
+          ctx.append('info', 'git init: already a repository');
+          return;
+        }
+        await adapter.init(repoPath, 'standard');
+        refreshGitViews();
+        ctx.append('info', 'initialized empty git repository');
+        return;
+      }
+      default:
+        ctx.append('stderr', `git: unknown subcommand '${sub}' (${GIT_SUBCOMMANDS})`);
+    }
+  } catch (err) {
+    fail(err);
   }
+}
+
+/** Files to stage for `git add <files…> | . | -A`: explicit paths win, the
+ *  all-shorthands expand to every worktree change (mirrors `git add -A`). */
+async function addFileList(
+  adapter: ReturnType<typeof getGitAdapter>,
+  repoPath: string,
+  rest: string[],
+): Promise<string[]> {
+  if (rest.length && !rest.includes('.') && !rest.includes('-A') && !rest.includes('--all')) {
+    return rest;
+  }
+  return changedFiles(adapter, repoPath);
+}
+
+/** Every path with worktree or index changes (the add/reset universe). */
+async function changedFiles(
+  adapter: ReturnType<typeof getGitAdapter>,
+  repoPath: string,
+): Promise<string[]> {
+  const status = await adapter.status(repoPath);
+  return [...new Set([...status.staged, ...status.unstaged, ...status.untracked])];
 }

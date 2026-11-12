@@ -13,12 +13,13 @@
 // 点击文件 → 中央画布区按类型预览（appStore.filePreview，B 需求）。
 // ==========================================================================
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore, fileTabKey, editorTabKey } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
+import type { GitFileLetter } from '@/core/git/types';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
 import { codeLanguageForFile } from '@/components/editor/fileEditors/shared';
@@ -121,6 +122,7 @@ function InlineInput({
 export function FileExplorer() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
+  const gitRepo = useProjectStore((s) => s.gitRepo);
   const notify = useAppStore((s) => s.notify);
   const activeTab = useAppStore((s) => s.activeTab);
   const closeTab = useAppStore((s) => s.closeTab);
@@ -129,6 +131,7 @@ export function FileExplorer() {
   const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
   const revealFilePath = useAppStore((s) => s.revealFilePath);
   const setRevealFilePath = useAppStore((s) => s.setRevealFilePath);
+  const setSidebarView = useAppStore((s) => s.setSidebarView);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
   const [tree, setTree] = useState<Record<string, VfsEntry[]>>({});
@@ -158,6 +161,21 @@ export function FileExplorer() {
   const rootDir = '';
   /** Drag source, tracked via ref so it survives the drop event. */
   const dragRef = useRef<VfsEntry | null>(null);
+
+  /** Git change letter per path (A/M/D/U), from the shared Git panel state.
+   *  Explorer and Git view share one source of truth, so a commit/checkout
+   *  anywhere updates both without extra adapters. */
+  const gitLetters = useMemo(() => {
+    if (!gitRepo?.isRepo || !gitRepo.status?.entries) return null;
+    const map = new Map<string, GitFileLetter>();
+    for (const entry of gitRepo.status.entries) {
+      const letter = entry.staged ?? entry.worktree;
+      if (letter) map.set(entry.path, letter);
+    }
+    return map;
+  }, [gitRepo]);
+
+  const openGitPanel = () => setSidebarView('git');
 
   /** Load a directory listing into `tree` and return the fetched entries (so
    *  async callers don't read the stale render closure afterwards). */
@@ -883,6 +901,18 @@ export function FileExplorer() {
                 }}
               >
                 <span className="explorer-name">{e.name}</span>
+                {gitLetters?.get(e.path) && (
+                  <span
+                    className={`explorer-git-badge letter-${gitLetters.get(e.path)!.toLowerCase()}`}
+                    title={t('workbench.explorer.git_badge', { letter: gitLetters.get(e.path)! })}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      openGitPanel();
+                    }}
+                  >
+                    {gitLetters.get(e.path)}
+                  </span>
+                )}
               </div>
             </li>
           );

@@ -40,11 +40,15 @@ export function GitPanel({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const open = alwaysOpen ? true : storedOpen;
 
   const projectId = project?.id;
+  // Explorer writes (save/rename/delete/import) and terminal artefact saves
+  // all bump fileOps — the change tree re-scans with them, so the Git view
+  // never shows a stale tree after work happened elsewhere.
+  const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
   useEffect(() => {
     if (!projectId || !open) return;
     void useProjectStore.getState().refreshGitStatus();
     void useProjectStore.getState().loadGitLog();
-  }, [projectId, open]);
+  }, [projectId, open, fileOpsVersion]);
 
   const toggle = (next: boolean) => {
     if (alwaysOpen) return;

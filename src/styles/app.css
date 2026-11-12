@@ -8794,6 +8794,41 @@
   color: var(--color-text-tertiary);
 }
 
+/* Git 变更角标（与 Git 面板共用状态；A/M/D/U 四色） */
+.explorer-git-badge {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.explorer-git-badge.letter-a {
+  background: color-mix(in srgb, var(--color-success, #2ea043) 22%, transparent);
+  color: var(--color-success, #2ea043);
+}
+
+.explorer-git-badge.letter-m {
+  background: color-mix(in srgb, var(--color-warning, #d29922) 22%, transparent);
+  color: var(--color-warning, #d29922);
+}
+
+.explorer-git-badge.letter-d {
+  background: color-mix(in srgb, var(--color-danger, #f85149) 22%, transparent);
+  color: var(--color-danger, #f85149);
+}
+
+.explorer-git-badge.letter-u {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+}
+
 /* ---- 文件资源管理器 · 常规文件管理（A 需求） ---- */
 
 .explorer-actions {
