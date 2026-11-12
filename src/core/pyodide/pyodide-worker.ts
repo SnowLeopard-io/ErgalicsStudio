@@ -25,6 +25,7 @@ import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
   type CollectMessage,
+  type ListPackagesMessage,
   type LoadPackagesMessage,
   type MountMessage,
   type NotifyKind,
@@ -611,6 +612,26 @@ async function handleLoadPackages(msg: LoadPackagesMessage): Promise<void> {
   }
 }
 
+/**
+ * Report the packages the interpreter currently has loaded
+ * (`pyodide.loadedPackages`, name → version) for the settings storage panel.
+ */
+async function handleListPackages(msg: ListPackagesMessage): Promise<void> {
+  try {
+    const py = await ensurePyodide(activeIndexURL);
+    const raw = (py as { loadedPackages?: Record<string, string> }).loadedPackages ?? {};
+    postMessage({
+      type: 'list-packages-result',
+      id: msg.id,
+      ok: true,
+      packages: { ...raw },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postMessage({ type: 'list-packages-result', id: msg.id, ok: false, packages: {}, error: message });
+  }
+}
+
 // ---- message routing -----------------------------------------------------
 self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
@@ -632,6 +653,8 @@ self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
     void handleMount(msg);
   } else if (msg.type === 'load-packages') {
     void handleLoadPackages(msg);
+  } else if (msg.type === 'list-packages') {
+    void handleListPackages(msg);
   } else if (msg.type === 'reset') {
     void handleReset(msg);
   } else if (msg.type === 'collect') {

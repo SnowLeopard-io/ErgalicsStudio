@@ -10,6 +10,7 @@ import { logger } from '../logger';
 import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
+  type ListPackagesMessage,
   type PlotPayload,
   type CollectMessage,
   type LoadPackagesMessage,
@@ -70,6 +71,13 @@ export interface MountResult {
 export interface LoadPackagesResult {
   ok: boolean;
   loaded: string[];
+  error?: string;
+}
+
+/** Result of a loaded-packages query (name → version). */
+export interface ListPackagesResult {
+  ok: boolean;
+  packages: Record<string, string>;
   error?: string;
 }
 
@@ -298,6 +306,7 @@ export class PyodideClient {
       | PyodideReplResult
       | MountResult
       | LoadPackagesResult
+      | ListPackagesResult
       | CollectResult
       | { ok: boolean; error?: string },
   >(
@@ -306,6 +315,7 @@ export class PyodideClient {
       | ReplMessage
       | MountMessage
       | LoadPackagesMessage
+      | ListPackagesMessage
       | ResetMessage
       | CollectMessage,
   ): Promise<T> {
@@ -375,6 +385,11 @@ export class PyodideClient {
       type: 'load-packages',
       packages,
     });
+  }
+
+  /** Query the packages the live interpreter currently has loaded. */
+  listPackages(): Promise<ListPackagesResult> {
+    return this.request<ListPackagesResult>({ type: 'list-packages' });
   }
 
   /**

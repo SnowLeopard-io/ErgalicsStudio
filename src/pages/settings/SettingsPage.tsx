@@ -29,6 +29,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import ThemeMarketPanel from './ThemeMarketPanel';
 import { PwaPanel } from './PwaPanel';
+import PythonPackagesPanel from './PythonPackagesPanel';
 import { UserProfilePanel } from './UserProfilePanel';
 import { AmbienceSettingsPanel, AchievementsPanel } from '@/components/ambience/AmbiencePanels';
 
@@ -540,6 +541,8 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                 </div>
               </section>
             )}
+
+            {active === 'store' && <PythonPackagesPanel />}
 
             {active === 'pwa' && <PwaPanel />}
 

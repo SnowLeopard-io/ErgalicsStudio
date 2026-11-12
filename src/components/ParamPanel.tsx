@@ -4,6 +4,7 @@ import {
   isParamVisible,
   type ParamDefinition,
   type PluginApi,
+  type RangeParam,
   type SelectOption,
 } from '@/types/plugin';
 import { useT } from '@/i18n';
@@ -80,7 +81,7 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
  * once the plugin reports back.
  */
 function RangeControl({
-  def,
+  def: rangeDef,
   api,
   onChange,
 }: {
@@ -88,6 +89,7 @@ function RangeControl({
   api: PluginApi;
   onChange: (key: string, value: unknown) => void;
 }) {
+  const def = rangeDef as RangeParam;
   const [local, setLocal] = useState<number | null>(null);
   // Adopt the authoritative value whenever the plugin reports one back (it
   // may have clamped the raw input, e.g. the optics focal-length range) —

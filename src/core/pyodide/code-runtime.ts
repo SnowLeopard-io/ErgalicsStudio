@@ -15,7 +15,9 @@ import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { collectProjectFiles, collectRuntimeFiles } from '@/core/dataFiles';
+import { logger } from '../logger';
 import { createCodeRuntime, type CodeRuntime } from './runtime';
+import { getPinnedPythonPackages } from './python-packages';
 import {
   pythonRuntimeBegin,
   pythonRuntimeFail,
@@ -103,6 +105,24 @@ export async function resetPythonRuntime(): Promise<boolean> {
 }
 
 /**
+ * Packages the user installed via the settings storage panel (or terminal)
+ * survive a refresh: the pinned list is re-installed from the service
+ * worker's cache right after every successful boot. Fire-and-forget — a
+ * failed pin must never fail the boot itself (the next `import` will surface
+ * a normal ImportError instead).
+ */
+function installPinnedPackages(rt: CodeRuntime): void {
+  const pinned = getPinnedPythonPackages().filter((p) => p !== 'numpy');
+  if (pinned.length === 0) return;
+  void rt
+    .installPackages(pinned)
+    .then((r) => {
+      if (!r.ok) logger.warn('pyodide', 'pinned package install failed', { pinned, error: r.error });
+    })
+    .catch((err: unknown) => logger.warn('pyodide', 'pinned package install threw', err));
+}
+
+/**
  * Boot the interpreter once (idempotent) so later runs never pay the load
  * cost. Resolves true when the runtime is usable.
  */
@@ -119,6 +139,7 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
     (result) => {
       if (!result.ok) throw new Error(result.error || 'Python runtime failed to start');
       pythonRuntimeReady(token);
+      installPinnedPackages(rt);
       return true;
     },
     (err: unknown) => {
@@ -204,6 +225,21 @@ export async function installPythonPackages(
   const ok = await warmPythonRuntime({ silent: true });
   if (!ok) return { ok: false, loaded: [], error: 'Python runtime is not available' };
   return getPythonRuntime().installPackages(packages);
+}
+
+/**
+ * Snapshot of the packages the live interpreter currently has loaded
+ * (name → version) for the settings storage panel. Boots the runtime
+ * silently if needed.
+ */
+export async function listPythonPackages(): Promise<{
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return { ok: false, packages: {}, error: 'Python runtime is not available' };
+  return getPythonRuntime().listPackages();
 }
 
 /**
