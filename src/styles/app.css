@@ -2753,6 +2753,103 @@
   max-height: 340px;
 }
 
+/* Block data-file picker: project data | bundled examples. */
+.data-file-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  min-height: 300px;
+}
+
+.data-file-picker-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.data-file-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.data-file-picker-count {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.data-file-picker-list {
+  flex: 1;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.data-file-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.data-file-picker-item:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.data-file-picker-item.is-current {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-weight: 600;
+}
+
+.data-file-picker-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.data-file-picker-item.is-current .data-file-picker-icon {
+  color: var(--color-accent-text);
+}
+
+.data-file-picker-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .data-file-picker {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tag-primary {
   background: var(--color-accent-soft);
   color: var(--color-accent-text);

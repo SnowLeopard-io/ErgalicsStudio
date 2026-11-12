@@ -512,6 +512,13 @@ export const enUS: LocaleDictionary = {
   'datafiles.group_project': 'Project files (uploaded)',
   'datafiles.group_examples': 'Example datasets (bundled)',
 
+  // ---- block data-file picker (two-column dialog) ----
+  'block.data_file.title': 'Choose a data file',
+  'block.data_file.project': 'Project data',
+  'block.data_file.examples': 'Example data',
+  'block.data_file.empty_project': 'No data files in this project yet',
+  'block.data_file.empty_examples': 'No example data available',
+
   'share.title': 'Share Project',
   'share.include': 'Include',
   'share.data': 'Data',

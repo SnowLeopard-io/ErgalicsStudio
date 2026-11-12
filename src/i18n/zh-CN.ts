@@ -515,6 +515,13 @@ export const zhCN: LocaleDictionary = {
   'datafiles.group_project': '项目文件（我上传的）',
   'datafiles.group_examples': '示例文件（内置）',
 
+  // ---- block data-file picker (two-column dialog) ----
+  'block.data_file.title': '选择数据文件',
+  'block.data_file.project': '项目数据',
+  'block.data_file.examples': '示例数据',
+  'block.data_file.empty_project': '项目中还没有数据文件',
+  'block.data_file.empty_examples': '没有可用的示例数据',
+
   'share.title': '分享项目',
   'share.include': '包含内容',
   'share.data': '数据',
