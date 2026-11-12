@@ -105,10 +105,11 @@ export default function SqlWorkbenchPage() {
         registeredKeyRef.current = contentKey;
         // The engine owns the table naming — ask it instead of recomputing
         // the names locally (the two could disagree after a removal).
+        // Keyed by FILE name → table name.
         const map = new Map<string, string>();
         for (const f of files) {
           const table = engine.tableFor(f.name);
-          if (table) map.set(table, f.name);
+          if (table) map.set(f.name, table);
         }
         setTableByFile(map);
         setStatus('ready');
@@ -128,7 +129,7 @@ export default function SqlWorkbenchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project, filesKey]);
 
-  /** Table name → file name, as registered by the engine. */
+  /** File name → table name, as registered by the engine. */
   const [tableByFile, setTableByFile] = useState<Map<string, string>>(new Map());
 
   /** Project files whose registered table name appears in the SQL text. */

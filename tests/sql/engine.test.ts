@@ -17,16 +17,29 @@ import {
   trimHistory,
   normalizeSqlValue,
   arrowTableToResult,
+  hashText,
   SQL_MAX_HISTORY,
   type ArrowTableLike,
 } from '@/core/sql/engine';
+
+describe('hashText — content fingerprint of a data file', () => {
+  it('distinguishes different content with the same name', () => {
+    // The DuckDB engine is a process-wide singleton: two projects can both
+    // hold `data/foo.csv`. A name-only key served one project's rows for
+    // the other.
+    expect(hashText('a,b\n1,2')).not.toBe(hashText('a,b\n1,3'));
+  });
+
+  it('is stable for the same content', () => {
+    expect(hashText('a,b\n1,2')).toBe(hashText('a,b\n1,2'));
+  });
+});
 
 describe('sanitizeTableName', () => {
   it('strips the extension and keeps identifier characters', () => {
     expect(sanitizeTableName('orders.csv')).toBe('orders');
     expect(sanitizeTableName(' measurements_2024.tsv ')).toBe('measurements_2024');
   });
-
   it('folds spaces, punctuation and unicode to underscores', () => {
     expect(sanitizeTableName('my data (v2).csv')).toBe('my_data_v2');
     expect(sanitizeTableName('run-1/results.txt')).toBe('run_1_results');
