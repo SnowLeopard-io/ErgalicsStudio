@@ -72,10 +72,10 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer + tabbed central area + per-file editors (Code / Flow / Block), **163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
-| Code editing      | Python via Pyodide; R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
+| Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
@@ -89,10 +89,11 @@ What ships today:
 | Capability | Details |
 | --- | --- |
 | Workbench shell | Top bar (project switcher, mode switcher, research launcher), activity bar, multi-view sidebar (Files / Git / Plugins — resizable and collapsible), tabbed central viewport, right parameter panel, status bar with GPU/perf indicators. |
-| File explorer & tabs | Project file tree with file operations and an info panel; the central area hosts tabs for the plugin canvas, file previews (text / markdown / image / PDF / audio / video), file editors, embedded research tools and settings pages. |
+| File explorer & tabs | Project file tree with file operations and Git status badges, plus an info panel with the open-with-plugin action (expanded folders persist); a workspace search panel (case / whole-word / regex, per-file line results); the central area hosts tabs for the plugin canvas, file previews (text / markdown / image / PDF / audio / video), file editors, embedded research tools and settings pages. |
 | File editors | `.py` / `.js` / `.r` open in a Monaco editor, `*.flow.json` in the Flow DAG editor, `*.block.json` in the Blockly editor — each with a dirty state and save-back-to-workspace; an **open-in-mode** bridge pushes any buffer into the corresponding full workbench mode. |
-| Project lifecycle | Create / open / save / autosave / share (`.clproj` in IndexedDB). |
-| File routing | Drag & drop, detected by magic number + extension and routed to a matching plugin (picker if multiple match; replace confirmation on name collision); delimited-text parsing skips `#` comment lines, and the format whitelist includes `.xy` / `.xye`. |
+| Project lifecycle | Create / open / save / autosave / share (`.clproj` in IndexedDB); the last-opened project is restored on the next launch. |
+| Terminal | A multi-session terminal panel: a Python REPL (block continuation, ↑/↓ history) plus shell-style workspace commands (ls / cd / cat / head / tail / tree / find / grep / wc / run) that operate directly on the project file tree. |
+| File routing | Drag & drop, detected by magic number + extension and routed to a matching plugin (picker if multiple match; replace confirmation on name collision); dropped files — binary ones like images included — are also saved into the workspace `data/` directory, and the file explorer accepts files dragged in from the OS, imported per directory with auto-suffixed names on conflicts; delimited-text parsing skips `#` comment lines, and the format whitelist includes `.xy` / `.xye`. |
 | Central export menu | Download the active plugin canvas as PNG (default ≈600 dpi, transparent option) or save it into the project's `figures/` workspace directory; 3-D plugins additionally export the whole scene as **GLB / STL** (download, or save into the `data/` workspace); per-plugin CSV export buttons stay in the parameter panels. |
 | 2D & 3D viewports | Shared 2D canvas container (point clouds, time series, histograms, heatmaps, contour, scatter, bar, radar, network, bubble, violin, sankey, box, parallel coordinates, error bands, treemaps, QQ plots, …) plus a host-managed Three.js 3D scene (created lazily for `renderToScene` plugins, hidden when a 2D plugin is active, fully cleared between plugins; ACES filmic tone mapping with IBL environment lighting). |
 | 3-D model viewer | GLB / GLTF / STL / OBJ / PLY import with Draco & meshopt decoding; shaded / wireframe / normal / X-ray view modes, clipping plane, glTF animation playback, two-point distance measurement and view presets; any 3-D scene exports as GLB / STL from the central export menu. |
@@ -125,12 +126,18 @@ What ships today:
 | --- | --- |
 | Git-backed projects | `src/core/git/` exposes one `GitAdapter` with a browser implementation (isomorphic-git + LightningFS over IndexedDB) and a Node implementation (lazily-loaded simple-git, falling back to isomorphic-git), covering init / status / log / diff / add / commit / checkout / branch / merge / remotes / hooks plus file-level write / delete / rename / listing and repo config. |
 | Workspace VFS | Files live behind a small `Vfs` abstraction (`src/core/vfs/`): LightningFS over IndexedDB in the browser, an in-memory implementation in Node/tests; the Git working tree and the file explorer share it. |
-| Project ↔ repo sync | `projectStore` mirrors the saved snapshot into the repo working tree as `project.clproj` and drives a sidebar **Git panel** (branch + ahead/behind, one-field commit box that stages every pending change with Conventional-Commit messages, recent log, branch / clone / pull / push / fetch through a configurable CORS proxy, auto-commit on runs & figures). |
+| Project ↔ repo sync | `projectStore` mirrors the saved snapshot into the repo working tree as `project.clproj` and drives a sidebar **Git panel** (branch + ahead/behind, one-field commit box that stages every pending change with Conventional-Commit messages, recent log, branch / clone / pull / push / fetch through a configurable CORS proxy, auto-commit on runs & figures); changed files carry Git status badges in the file explorer. |
 
 **Infrastructure**
 
 - i18n (zh-CN / en-US), dark / light theming, performance monitoring (FPS /
   GPU / memory / data scale).
+- UI resilience: lazily-loaded chunks retry automatically; when retries are
+  exhausted a recovery card offers "reload module" or "reload page" — the
+  decision stays with the user, nothing ever force-refreshes, and running
+  simulations are not interrupted; workspace chrome is non-selectable so
+  drags never produce stray text/image selections (editors, terminal and
+  markdown content remain selectable).
 - Research-grade reliability core: structured error taxonomy + `Result` /
   retry + error registry, composable validation framework with safe parsing,
   and a Pandera-style data-quality engine (contracts / profiling /
@@ -293,7 +300,9 @@ validation + cycle detection + Kahn topological sort); the executor has
 incremental caching with dirty propagation, so editing one block re-runs only
 it and its downstream. Graphs save as `*.flow.json` workspace files
 (`{version, kind: 'ergalics-flow', graph}`) editable in the file explorer's
-Flow editor; the legacy project `blockGraph` state is still read. See
+Flow editor; data-source blocks can pick inputs straight from project files
+via the data-file picker, and the legacy project `blockGraph` state is still
+read. See
 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md).
 
 ![Flow mode — a sample pipeline (Normalize → Histogram / Scatter / Summary)](docs/assets/screenshots/platform/mode-flow.png)
@@ -312,7 +321,8 @@ Python codegen is live-visible. Blockly 13 provides the canvas and is
 **Code mode** — a real-scripting Monaco editor with a segmented **Python /
 R / JS** switcher and engine badges. **Python** runs full CPython via a
 Pyodide Web Worker (a proper importable `studio` module, single-expression
-REPL, stop restarts the worker). **R / JavaScript** parse to the shared IR
+REPL, stop restarts the worker; scientific packages auto-install on import
+and `studio.load` accepts `dataFiles` to load project files directly). **R / JavaScript** parse to the shared IR
 and run on the same interpreter as Block mode; R upgrades to a vendored
 full webR runtime when present, falling back to the IR engine otherwise.
 Switching language opens a **floating preview dialog** — a Monaco editor
@@ -1259,7 +1269,7 @@ npm test          # or npm run test:unit
 npm run verify    # typecheck + unit tests
 ```
 
-**3835 tests across 235 files**, covering:
+**3975 tests (2 skipped) across 250 files**, covering:
 data & I/O, the statistics kernel, plugins & sandbox, the environmental and
 bio suites, GPU compute, the Git adapter & project sync, the workspace VFS,
 the research-grade science-output bus, the block system, three-mode IR sync
@@ -1317,6 +1327,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
+- [x] Multi-session terminal (Python REPL + shell-style workspace commands), workspace search, Git status badges, drag-in file import & canvas drop-to-disk `data/`, session restore (last-opened project)
 - [x] 163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)

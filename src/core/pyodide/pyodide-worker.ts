@@ -384,6 +384,55 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
 }
 
 /**
+ * Names that live in the interpreter's global namespace right after the
+ * studio bootstrap. Everything the USER code creates lives on top of this
+ * baseline and is wiped before the next run.
+ */
+let baselineGlobals: string[] = [];
+
+/** Remember the bootstrap namespace (called once, after the studio source ran). */
+function captureBaselineGlobals(py: PyodideInterface): void {
+  try {
+    const names = py.runPython('list(globals().keys())') as unknown;
+    if (Array.isArray(names)) {
+      baselineGlobals = names.filter((n): n is string => typeof n === 'string');
+    }
+  } catch {
+    baselineGlobals = [];
+  }
+}
+
+/**
+ * Reset the USER namespace before a run.
+ *
+ * The interpreter is shared by the whole session (the terminal, the notebook
+ * and the editor all use it), so a program that ran earlier left its
+ * variables behind. The next run then reported them as its own — the
+ * variables panel grew with every run and mixed results of unrelated
+ * programs. A run must start from a clean slate: only the variables it
+ * defines itself are reported.
+ *
+ * The bootstrap names (the `studio` module source, `DataTable`, the helper
+ * modules it imports) are kept — deleting `re` or `DataTable` would break the
+ * studio helpers that close over the module globals.
+ */
+function resetUserNamespace(py: PyodideInterface): void {
+  if (baselineGlobals.length === 0) return;
+  const keep = JSON.stringify(baselineGlobals);
+  try {
+    py.runPython(`
+import json as _json
+_keep = set(_json.loads(${JSON.stringify(keep)}))
+for _name in list(globals()):
+    if _name not in _keep:
+        del globals()[_name]
+`);
+  } catch {
+    /* a failed reset must not abort the run */
+  }
+}
+
+/**
  * Materialise the workspace in the interpreter without running user code.
  * The terminal needs the project tree to exist in /workspace before the user
  * ever presses 运行 (browsing with ls/cd, running a script with python).

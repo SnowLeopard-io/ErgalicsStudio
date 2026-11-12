@@ -141,7 +141,18 @@ export type CanvasTab =
    *  panels stay put while the surface occupies the editor area. `path` is
    *  the file the surface is currently editing (its tab label), so the strip
    *  always points at a real file instead of a generic "代码" label. */
-  | { kind: 'surface'; key: string; mode: WorkbenchMode; path?: string }
+  | {
+      kind: 'surface';
+      key: string;
+      mode: WorkbenchMode;
+      path?: string;
+      /** Editor session this surface shows. File-bound surfaces resolve their
+       *  session from `path`; SAMPLE surfaces carry their own session so a
+       *  sample never hijacks the surface of an open file. */
+      sessionId?: string;
+      /** Display name for surfaces that are not bound to a file (samples). */
+      label?: string;
+    }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
@@ -244,6 +255,12 @@ interface AppStore {
    *  editing surfaces open (or focus) their own canvas tab instead of
    *  replacing the whole page. `path` binds that surface tab to a file. */
   setMode: (mode: WorkbenchMode, path?: string) => void;
+  /** Open (or focus) a surface tab bound to an editor SESSION rather than to
+   *  a workspace file — used by the sample dialog. A sample gets its own tab
+   *  and its own session, so loading it never replaces the content of the
+   *  file the user is working on, and the sample buffer is never mirrored
+   *  back into any workspace file (a sample session has no `filePath`). */
+  openSampleTab: (opts: { mode: WorkbenchMode; sessionId: string; label: string }) => void;
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
   openFilePreview: (preview: FilePreviewState) => void;
@@ -546,6 +563,29 @@ export const useAppStore = create<AppStore>((set, get) => {
       };
     });
     // The surface tab covers the plugin canvas; stop its rendering loop.
+    deactivatePluginLazy();
+  },
+
+  /** Open (or focus) a sample surface: a surface tab bound to an editor
+   *  session instead of a workspace file.
+   *
+   *  `setMode(mode)` without a path FOCUSES an existing surface of that mode
+   *  — which is the surface of the file the user is editing. Loading a
+   *  sample through it made the sample replace the open file's content
+   *  (and risked mirroring the sample buffer back into that file). Samples
+   *  therefore get a tab of their own, keyed by their session. */
+  openSampleTab: ({ mode, sessionId, label }) => {
+    const key = `sample:${mode}:${sessionId}`;
+    set((s) => {
+      const exists = s.canvasTabs.some((tab) => tab.key === key);
+      return {
+        mode,
+        canvasTabs: exists
+          ? s.canvasTabs
+          : [...s.canvasTabs, { kind: 'surface' as const, key, mode, sessionId, label }],
+        activeTab: key,
+      };
+    });
     deactivatePluginLazy();
   },
 
