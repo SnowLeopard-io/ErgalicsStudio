@@ -80,9 +80,18 @@ export function editorStoreOpenInMode(req: OpenInModeRequest): void {
 
 /** Re-activate a file-bound surface tab and swap the editor session to the
  *  one that belongs to its file (tab switching must not leak another file's
- *  program into this tab). */
+ *  program into this tab). Sample surfaces carry their own session instead —
+ *  they are not bound to any file. */
 export function syncSurfaceTabSession(tab: CanvasTab): void {
-  if (tab.kind !== 'surface' || !tab.path) return;
+  if (tab.kind !== 'surface') return;
+  if (tab.sessionId) {
+    // A sample surface owns its session: re-activating the tab must show the
+    // sample again, not the file that happens to share the same mode.
+    const sample = useEditorStore.getState().sessions.find((s) => s.id === tab.sessionId);
+    if (sample) useEditorStore.getState().setActiveSession(sample.id);
+    return;
+  }
+  if (!tab.path) return;
   const st = useEditorStore.getState();
   const session = st.sessions.find((s) => s.filePath === tab.path);
   if (session) {

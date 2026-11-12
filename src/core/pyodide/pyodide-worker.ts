@@ -259,14 +259,47 @@ _os.chdir('/workspace')
  */
 let workspaceBaseline: WorkspaceSnapshot | null = null;
 
-function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapshot> {
-  const snapshot = py.runPython('_snapshot_variables()') as {
+function snapshotVariables(
+  py: PyodideInterface,
+  only?: string[],
+): Record<string, VariableSnapshot> {
+  const snapshot = py.runPython(
+    only ? `_snapshot_variables(${JSON.stringify(only)})` : '_snapshot_variables()',
+  ) as {
     toJs: (opts: { dict_converter: (entries: [string, VariableSnapshot][]) => Record<string, VariableSnapshot> }) => Record<
       string,
       VariableSnapshot
     >;
   };
   return snapshot.toJs({ dict_converter: (entries) => Object.fromEntries(entries) });
+}
+
+/**
+ * Identity map of the interpreter's public globals (name → id of its value).
+ *
+ * The interpreter is shared by the whole session, so a program leaves its
+ * variables behind. Comparing the map before and after a run tells us which
+ * names THAT run defined — the variables panel then shows the current
+ * program's results instead of an ever-growing pile of earlier ones.
+ */
+function globalIds(py: PyodideInterface): Record<string, number> {
+  try {
+    const snapshot = py.runPython('_global_ids()') as {
+      toJs: (opts: { dict_converter: (entries: [string, number][]) => Record<string, number> }) => Record<string, number>;
+    };
+    return snapshot.toJs({ dict_converter: (entries) => Object.fromEntries(entries) });
+  } catch {
+    return {};
+  }
+}
+
+/** Names that appeared or whose value was replaced by the run. */
+function changedNames(before: Record<string, number>, after: Record<string, number>): string[] {
+  const changed: string[] = [];
+  for (const [name, id] of Object.entries(after)) {
+    if (before[name] !== id) changed.push(name);
+  }
+  return changed;
 }
 
 /**
@@ -341,8 +374,24 @@ async function handleRun(msg: RunMessage): Promise<void> {
     prepareWorkspaceRuntime(py);
     restoreCwd(py, cwd);
     await autoLoadFromImports(py, msg.code);
+    // Snapshot the namespace BEFORE the run: only the names the program
+    // defines (or replaces) belong to its result. Everything an earlier
+    // program left behind is filtered out — the variables panel used to grow
+    // with every run and mixed unrelated programs together.
+    // A program starts from a clean slate: the previous run's variables are
+    // gone, so the results never mix with an unrelated earlier program.
+    // The cleanup happens BEFORE the baseline snapshot — a name the run
+    // redefines then counts as "defined by this run" even when Python hands
+    // out the same cached object (small ints are interned, so `x = 5` twice
+    // yields the same id()).
+    clearPreviousRun(py);
+    const before = globalIds(py);
     await py.runPythonAsync(msg.code);
-    const variables = snapshotVariables(py);
+    const after = globalIds(py);
+    const defined = changedNames(before, after);
+    // Remember what THIS run defined so the next one can clear it again.
+    previousRunNames = defined;
+    const variables = snapshotVariables(py, defined);
     const outputs = collectWorkspaceOutputs(fs, baseline);
     postMessage({
       type: 'result',
@@ -384,51 +433,51 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
 }
 
 /**
- * Names that live in the interpreter's global namespace right after the
- * studio bootstrap. Everything the USER code creates lives on top of this
- * baseline and is wiped before the next run.
- */
-let baselineGlobals: string[] = [];
-
-/** Remember the bootstrap namespace (called once, after the studio source ran). */
-function captureBaselineGlobals(py: PyodideInterface): void {
-  try {
-    const names = py.runPython('list(globals().keys())') as unknown;
-    if (Array.isArray(names)) {
-      baselineGlobals = names.filter((n): n is string => typeof n === 'string');
-    }
-  } catch {
-    baselineGlobals = [];
-  }
-}
-
-/**
- * Reset the USER namespace before a run.
+ * Names the previous RUN introduced into the interpreter's global namespace.
  *
  * The interpreter is shared by the whole session (the terminal, the notebook
- * and the editor all use it), so a program that ran earlier left its
- * variables behind. The next run then reported them as its own — the
- * variables panel grew with every run and mixed results of unrelated
- * programs. A run must start from a clean slate: only the variables it
- * defines itself are reported.
- *
- * The bootstrap names (the `studio` module source, `DataTable`, the helper
- * modules it imports) are kept — deleting `re` or `DataTable` would break the
- * studio helpers that close over the module globals.
+ * and the editor all use it), so a program leaves its variables behind and
+ * the next run would report them as its own — the variables panel grew with
+ * every run and mixed unrelated programs together. The previous run's names
+ * are therefore dropped before the next one starts, so every run begins from
+ * a clean slate.
  */
-function resetUserNamespace(py: PyodideInterface): void {
-  if (baselineGlobals.length === 0) return;
-  const keep = JSON.stringify(baselineGlobals);
+let previousRunNames: string[] = [];
+
+/**
+ * Names the studio bootstrap owns (`studio`, `DataTable`, the helper modules
+ * it imports). They are never cleaned: user code does `import studio`, which
+ * REBINDS the global `studio` to the module object — deleting it afterwards
+ * would break programs that use `studio.load(...)` without importing again.
+ */
+const protectedGlobals = new Set<string>([
+  'studio',
+  'DataTable',
+  're',
+  'studio_bridge',
+]);
+
+/**
+ * Delete the previous run's variables.
+ *
+ * Only names the previous program created are removed: the bootstrap
+ * namespace (`studio`, `DataTable`, the helper modules) and anything the
+ * terminal REPL defined stay untouched — the REPL is an interactive session
+ * whose state the user expects to survive.
+ */
+function clearPreviousRun(py: PyodideInterface): void {
+  if (previousRunNames.length === 0) return;
+  const names = previousRunNames.filter((name) => !protectedGlobals.has(name));
+  previousRunNames = [];
+  if (names.length === 0) return;
   try {
     py.runPython(`
 import json as _json
-_keep = set(_json.loads(${JSON.stringify(keep)}))
-for _name in list(globals()):
-    if _name not in _keep:
-        del globals()[_name]
+for _name in _json.loads(${JSON.stringify(JSON.stringify(names))}):
+    globals().pop(_name, None)
 `);
   } catch {
-    /* a failed reset must not abort the run */
+    /* a failed cleanup must not abort the run */
   }
 }
 
