@@ -30,6 +30,7 @@ import {
   type NotifyKind,
   type PlotMessage,
   type PlotPayload,
+  type ResetMessage,
   type RunMessage,
   type ReplMessage,
   type VariableSnapshot,
@@ -364,13 +365,19 @@ async function handleRun(msg: RunMessage): Promise<void> {
     py.globals.set('_FILES', py.toPy(msg.files));
     py.globals.set('_PARAMS', py.toPy(msg.params));
     const fs = workspaceFs(py);
+    // The interpreter is session-wide: /workspace still holds the PREVIOUS
+    // project's tree. `mountWorkspace` only writes, so a file that the
+    // current project does not have stayed readable — a run in project B
+    // could still open project A's data. Reset the tree first so the
+    // interpreter always mirrors exactly the current project.
+    const cwd = rememberCwd(py);
+    resetWorkspaceTree(py);
     mountWorkspace(fs, msg.files);
     // Baseline BEFORE the run: everything mounted reads back exactly as it
     // will after the run, so only files the program actually created or
     // modified survive the diff.
     const baseline = snapshotWorkspace(fs);
     workspaceBaseline = baseline;
-    const cwd = rememberCwd(py);
     prepareWorkspaceRuntime(py);
     restoreCwd(py, cwd);
     await autoLoadFromImports(py, msg.code);
@@ -466,6 +473,13 @@ const protectedGlobals = new Set<string>([
 ]);
 
 /**
+ * The names the studio bootstrap owns. Everything else in the interpreter's
+ * global namespace belongs to user code and is dropped when the project
+ * changes (see handleReset).
+ */
+const BOOTSTRAP_GLOBALS: readonly string[] = [...protectedGlobals];
+
+/**
  * Delete the previous run's variables.
  *
  * Only names the previous program created are removed, and only when they
@@ -488,6 +502,40 @@ for _name, _id in _wanted:
 `);
   } catch {
     /* a failed cleanup must not abort the run */
+  }
+}
+
+/**
+ * Drop the interpreter's USER namespace and its workspace tree.
+ *
+ * The interpreter is session-wide, so a variable the terminal REPL defined
+ * in project A stayed visible in project B — a stray name could silently
+ * carry one project's data into another. Only the bootstrap names survive
+ * (the `studio` module and its helpers).
+ */
+async function handleReset(msg: ResetMessage): Promise<void> {
+  try {
+    const py = await ensurePyodide(activeIndexURL);
+    const keep = JSON.stringify([...BOOTSTRAP_GLOBALS]);
+    py.runPython(`
+import json as _json
+_keep = set(_json.loads(${JSON.stringify(keep)}))
+for _name in list(globals()):
+    if _name.startswith('_') or _name in _keep:
+        continue
+    del globals()[_name]
+`);
+    // The tree belongs to the project too — drop it as well.
+    resetWorkspaceTree(py);
+    previousRunVars = {};
+    postMessage({ type: 'reset-result', id: msg.id ?? 0, ok: true });
+  } catch (err) {
+    postMessage({
+      type: 'reset-result',
+      id: msg.id ?? 0,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -584,6 +632,8 @@ self.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
     void handleMount(msg);
   } else if (msg.type === 'load-packages') {
     void handleLoadPackages(msg);
+  } else if (msg.type === 'reset') {
+    void handleReset(msg);
   } else if (msg.type === 'collect') {
     void handleCollect(msg);
   }

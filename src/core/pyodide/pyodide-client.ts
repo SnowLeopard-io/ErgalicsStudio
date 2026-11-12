@@ -15,6 +15,7 @@ import {
   type LoadPackagesMessage,
   type MountMessage,
   type ReplMessage,
+  type ResetMessage,
   type RunMessage,
   type VariableSnapshot,
   type WorkerEvent,
@@ -265,6 +266,14 @@ export class PyodideClient {
         }
         break;
       }
+      case 'reset-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, error: event.error });
+        }
+        break;
+      }
       case 'collect-result': {
         const pending = this.pending.get(event.id);
         if (pending) {
@@ -289,13 +298,15 @@ export class PyodideClient {
       | PyodideReplResult
       | MountResult
       | LoadPackagesResult
-      | CollectResult,
+      | CollectResult
+      | { ok: boolean; error?: string },
   >(
     message:
       | RunMessage
       | ReplMessage
       | MountMessage
       | LoadPackagesMessage
+      | ResetMessage
       | CollectMessage,
   ): Promise<T> {
     const id = this.nextId++;
@@ -364,6 +375,19 @@ export class PyodideClient {
       type: 'load-packages',
       packages,
     });
+  }
+
+  /**
+   * Drop the interpreter's user namespace and workspace tree.
+   *
+   * The interpreter is session-wide, so the variables of one project stayed
+   * visible in the next. The host calls this when the project changes.
+   */
+  resetNamespace(): Promise<boolean> {
+    return this.request<{ ok: boolean }>({ type: 'reset' }).then(
+      (r) => r.ok,
+      () => false,
+    );
   }
 
   /**

@@ -8,6 +8,8 @@
 // performs, without touching project data files.
 // ==========================================================================
 
+import { useProjectStore } from '@/stores/projectStore';
+
 export interface LabHandoff {
   /** Display name used as the DataTable label (not a real project path). */
   name: string;
@@ -22,13 +24,26 @@ export interface LabHandoff {
 }
 
 let pending: LabHandoff | null = null;
+/** Project the payload was staged in. */
+let pendingProjectId: string | null = null;
+
+/** The project currently open (null when there is none). */
+function currentProjectId(): string | null {
+  return useProjectStore.getState().project?.id ?? null;
+}
 
 export function stageLabHandoff(payload: LabHandoff): void {
   pending = payload;
+  pendingProjectId = currentProjectId();
 }
 
-/** Consume the staged payload (returns it once, then clears). */
+/** Consume the staged payload (returns it once, then clears).
+ *
+ *  A payload carries the CONTENT of a file, so it must not survive a
+ *  project switch: staging a dataset in project A and opening the suite in
+ *  project B would otherwise load project A's data into project B's lab. */
 export function takeLabHandoff(): LabHandoff | null {
+  if (pending && pendingProjectId !== currentProjectId()) pending = null;
   const staged = pending;
   pending = null;
   return staged;

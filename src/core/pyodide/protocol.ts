@@ -78,6 +78,27 @@ export interface LoadPackagesMessage {
 }
 
 /**
+ * Drop the interpreter's USER namespace (and its workspace tree).
+ *
+ * The interpreter is session-wide: variables the terminal REPL defined in
+ * project A stayed visible in project B, so a stray name could silently
+ * carry one project's data into another. The host sends this when the
+ * project changes.
+ */
+export interface ResetMessage {
+  type: 'reset';
+  id?: number;
+}
+
+/** Result of a namespace reset. */
+export interface ResetResultMessage {
+  type: 'reset-result';
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+/**
  * Collect the files the interpreter created or changed since the last
  * mount/run. The terminal uses it to write a script's output back into the
  * project (same behaviour as the editor's 运行 button).
@@ -93,6 +114,7 @@ export type WorkerRequest =
   | ReplMessage
   | MountMessage
   | LoadPackagesMessage
+  | ResetMessage
   | CollectMessage;
 
 /** Notification severity the Python studio.notify() may emit. */
@@ -213,5 +235,6 @@ export type WorkerEvent =
   | ReplResultMessage
   | MountResultMessage
   | LoadPackagesResultMessage
+  | ResetResultMessage
   | CollectResultMessage
   | InitFailedMessage;

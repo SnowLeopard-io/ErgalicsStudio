@@ -87,6 +87,22 @@ export interface WarmOptions {
 }
 
 /**
+ * Drop the interpreter's user namespace and workspace tree.
+ *
+ * The interpreter is session-wide, so the variables of one project stayed
+ * visible in the next: a name the terminal REPL defined in project A could
+ * silently carry that data into project B. A project switch clears it.
+ */
+export async function resetPythonRuntime(): Promise<boolean> {
+  if (!runtime) return true;
+  try {
+    return await runtime.resetNamespace();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Boot the interpreter once (idempotent) so later runs never pay the load
  * cost. Resolves true when the runtime is usable.
  */
@@ -135,6 +151,23 @@ export function isPythonRuntimeWarm(): boolean {
  * a run may have left the bundled example files in the interpreter.
  */
 let mountedKey: string | null = null;
+
+/**
+ * The interpreter's namespace belongs to ONE project. Watch the project
+ * store and clear the namespace whenever the project changes: the
+ * interpreter is session-wide, so the variables the terminal REPL defined
+ * in project A stayed visible in project B — a stray name could silently
+ * carry one project's data into another.
+ */
+let runtimeProjectId: string | null = useProjectStore.getState().project?.id ?? null;
+useProjectStore.subscribe((state) => {
+  const id = state.project?.id ?? null;
+  if (id === runtimeProjectId) return;
+  runtimeProjectId = id;
+  // The tree is re-mounted per project; the namespace is not.
+  mountedKey = null;
+  void resetPythonRuntime();
+});
 
 export async function mountWorkspaceFiles(force = false): Promise<boolean> {
   try {

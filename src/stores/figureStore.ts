@@ -243,3 +243,17 @@ export const useFigureStore = create<FigureStore>((set) => ({
     emit(FIGURE_EXPORTED, { figureId: id, format: format === 'png600' ? 'png' : format });
   },
 }));
+
+// The active sheet belongs to ONE project. Left across a project switch it
+// points at a sheet of the previous project, and every mutation for it
+// silently did nothing (the sheet is not in the new project's state) — a
+// "send plot to Figure Studio" looked successful but dropped the plot.
+let figureProjectId: string | null = useProjectStore.getState().project?.id ?? null;
+useProjectStore.subscribe((state) => {
+  const id = state.project?.id ?? null;
+  if (id === figureProjectId) return;
+  figureProjectId = id;
+  // The active sheet belonged to the previous project — drop it. (The
+  // Figure Studio page picks the new project's first sheet when it mounts.)
+  useFigureStore.setState({ activeSheetId: null });
+});
