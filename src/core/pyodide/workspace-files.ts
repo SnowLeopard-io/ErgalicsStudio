@@ -14,8 +14,11 @@
 /** The interpreter runs with /workspace as its cwd; all paths are relative. */
 export const WORKSPACE_ROOT = '/workspace';
 
-/** Cap for staging one workspace file into a runtime (avoid multi-MB JSON). */
-export const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+/**
+ * Cap for one output file read back from the interpreter. Figures are the
+ * reason this is not tiny: a 300-dpi matplotlib PNG can be several MB.
+ */
+export const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 
 /** Minimal slice of Emscripten's FS the staging logic touches. */
 export interface WorkspaceFs {
