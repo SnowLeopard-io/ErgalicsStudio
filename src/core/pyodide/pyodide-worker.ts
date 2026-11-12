@@ -388,9 +388,15 @@ async function handleRun(msg: RunMessage): Promise<void> {
     const before = globalIds(py);
     await py.runPythonAsync(msg.code);
     const after = globalIds(py);
-    const defined = changedNames(before, after);
+    // The bootstrap names are never "the program's variables" — the module
+    // object `studio` is even rebound by every `import studio`.
+    const defined = changedNames(before, after).filter((name) => !protectedGlobals.has(name));
     // Remember what THIS run defined so the next one can clear it again.
-    previousRunNames = defined;
+    previousRunVars = {};
+    for (const name of defined) {
+      const id = after[name];
+      if (id !== undefined) previousRunVars[name] = id;
+    }
     const variables = snapshotVariables(py, defined);
     const outputs = collectWorkspaceOutputs(fs, baseline);
     postMessage({
@@ -433,22 +439,24 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
 }
 
 /**
- * Names the previous RUN introduced into the interpreter's global namespace.
+ * The variables the previous RUN introduced into the interpreter's global
+ * namespace, mapped to the id() of the value it produced.
  *
  * The interpreter is shared by the whole session (the terminal, the notebook
  * and the editor all use it), so a program leaves its variables behind and
  * the next run would report them as its own — the variables panel grew with
- * every run and mixed unrelated programs together. The previous run's names
- * are therefore dropped before the next one starts, so every run begins from
- * a clean slate.
+ * every run and mixed unrelated programs together. The previous run's
+ * variables are therefore dropped before the next one starts, so every run
+ * begins from a clean slate.
  */
-let previousRunNames: string[] = [];
+let previousRunVars: Record<string, number> = {};
 
 /**
  * Names the studio bootstrap owns (`studio`, `DataTable`, the helper modules
  * it imports). They are never cleaned: user code does `import studio`, which
  * REBINDS the global `studio` to the module object — deleting it afterwards
  * would break programs that use `studio.load(...)` without importing again.
+ * They are also never reported as the program's own variables.
  */
 const protectedGlobals = new Set<string>([
   'studio',
@@ -460,21 +468,23 @@ const protectedGlobals = new Set<string>([
 /**
  * Delete the previous run's variables.
  *
- * Only names the previous program created are removed: the bootstrap
- * namespace (`studio`, `DataTable`, the helper modules) and anything the
- * terminal REPL defined stay untouched — the REPL is an interactive session
- * whose state the user expects to survive.
+ * Only names the previous program created are removed, and only when they
+ * still hold the value that program produced: a name the user re-assigned in
+ * the terminal REPL afterwards is left alone — the REPL is an interactive
+ * session whose state the user expects to survive.
  */
 function clearPreviousRun(py: PyodideInterface): void {
-  if (previousRunNames.length === 0) return;
-  const names = previousRunNames.filter((name) => !protectedGlobals.has(name));
-  previousRunNames = [];
-  if (names.length === 0) return;
+  const entries = Object.entries(previousRunVars).filter(([name]) => !protectedGlobals.has(name));
+  previousRunVars = {};
+  if (entries.length === 0) return;
   try {
     py.runPython(`
 import json as _json
-for _name in _json.loads(${JSON.stringify(JSON.stringify(names))}):
-    globals().pop(_name, None)
+_wanted = _json.loads(${JSON.stringify(JSON.stringify(entries))})
+_ids = {name: id(value) for name, value in globals().items()}
+for _name, _id in _wanted:
+    if _ids.get(_name) == _id:
+        globals().pop(_name, None)
 `);
   } catch {
     /* a failed cleanup must not abort the run */
