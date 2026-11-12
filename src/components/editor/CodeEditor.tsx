@@ -33,7 +33,7 @@ import {
   ToolIcon,
 } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
-import { useAppStore } from '@/stores/appStore';
+import { editorTabKey, useAppStore } from '@/stores/appStore';
 import { clearHostPreview } from '@/stores/pluginStore';
 import { collectRuntimeFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
@@ -553,6 +553,11 @@ export function CodeEditor() {
     return () => {
       const path = filePathRef.current;
       if (!path || codeTextRef.current === null) return;
+      // Only push when the buffer really differs — updateEditorFile marks
+      // the tab dirty, and a plain tab switch must not look like an edit.
+      const key = editorTabKey(path);
+      const current = useAppStore.getState().editorFiles[key];
+      if (current && current.payload === codeTextRef.current) return;
       useAppStore.getState().updateEditorFile(path, codeTextRef.current);
     };
   }, []);
