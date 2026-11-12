@@ -7,7 +7,7 @@
 // stderr / plot / notify) back over postMessage (editor architecture §12).
 // ==========================================================================
 
-export const PYODIDE_VERSION = '314.0.3';
+export const PYODIDE_VERSION = '314.0.7';
 
 /**
  * Fallback Pyodide CDN root. The active runtime loads Pyodide same-origin
@@ -42,6 +42,13 @@ export interface ReplMessage {
   type: 'repl';
   id?: number;
   code: string;
+  /**
+   * Optional source of the script `code` is about to execute (terminal
+   * `python script.py`). The wrapper uses runpy, so its imports live in the
+   * file rather than in `code`; the worker scans this source to auto-load the
+   * scientific packages it needs before the script starts.
+   */
+  preloadSource?: string;
 }
 
 /**

@@ -63,6 +63,72 @@ function postNotify(kind: NotifyKind, message: string): void {
   postMessage({ type: 'notify', kind, message });
 }
 
+// ---- on-demand scientific packages --------------------------------------
+//
+// pandas / matplotlib / sympy / scipy wheels are vendored by
+// scripts/copy-pyodide.mjs. Loading all of them at boot would add tens of MB
+// to every cold start, so instead the worker inspects the code about to run
+// and lets Pyodide fetch just the wheels those imports need. Everything still
+// comes from the same-origin /pyodide bundle, so this works offline.
+
+/** Vendored packages auto-loaded from `import` statements. */
+const AUTO_LOAD_MODULES = new Set(['pandas', 'matplotlib', 'sympy', 'scipy']);
+/** Packages already requested from loadPackagesFromImports in this worker. */
+const autoLoadedModules = new Set<string>();
+
+/** Top-level vendored modules imported by `code` (`import x`, `from x import y`). */
+function detectAutoLoadImports(code: string): string[] {
+  const found = new Set<string>();
+  const re = /^[ \t]*(?:import|from)[ \t]+([^\n#]+)/gm;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(code)) !== null) {
+    const clauseList = match[1];
+    if (!clauseList) continue;
+    for (const clause of clauseList.split(',')) {
+      const root = clause.trim().split(/[\s.]+/)[0];
+      if (root && AUTO_LOAD_MODULES.has(root)) found.add(root);
+    }
+  }
+  return [...found];
+}
+
+interface ImportLoader {
+  loadPackagesFromImports?: (
+    code: string,
+    options?: {
+      messageCallback?: (message: string) => void;
+      errorCallback?: (message: string) => void;
+    },
+  ) => Promise<unknown>;
+}
+
+/**
+ * Load the vendored wheels referenced by `code` before it executes.
+ *
+ * A failure must not abort the run: the `import` itself is the authoritative
+ * error, and a missing optional wheel should surface as a normal ImportError
+ * rather than a worker-level rejection.
+ */
+async function autoLoadFromImports(py: PyodideInterface, code: string | undefined): Promise<void> {
+  if (!code) return;
+  const pending = detectAutoLoadImports(code).filter((name) => !autoLoadedModules.has(name));
+  if (pending.length === 0) return;
+  const loader = (py as unknown as ImportLoader).loadPackagesFromImports;
+  if (!loader) return;
+  postLog(`[python] loading ${pending.join(', ')} …\n`);
+  try {
+    await loader.call(py, code, {
+      // Wheel progress is noise in the user's output; only warnings surface.
+      messageCallback: () => {},
+      errorCallback: (message: string) => postLog(`[python] ${message}\n`),
+    });
+    for (const name of pending) autoLoadedModules.add(name);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    postLog(`[python] automatic package load failed: ${message}\n`);
+  }
+}
+
 // ---- interpreter bootstrap ----------------------------------------------
 
 function ensurePyodide(indexURL: string): Promise<PyodideInterface> {
@@ -256,6 +322,7 @@ async function handleRun(msg: RunMessage): Promise<void> {
     const cwd = rememberCwd(py);
     prepareWorkspaceRuntime(py);
     restoreCwd(py, cwd);
+    await autoLoadFromImports(py, msg.code);
     await py.runPythonAsync(msg.code);
     const variables = snapshotVariables(py);
     const files = collectWorkspaceOutputs(fs, baseline);
@@ -284,6 +351,10 @@ async function handleRepl(msg: ReplMessage): Promise<void> {
   try {
     // See handleRun: bootstrap failures must surface as a repl result too.
     const py = await ensurePyodide(activeIndexURL);
+    // Terminal script runs wrap the file in runpy, so the file's imports are
+    // invisible to the wrapper — scan the script source as well.
+    await autoLoadFromImports(py, msg.preloadSource);
+    await autoLoadFromImports(py, msg.code);
     py.globals.set('_REPL_CODE', msg.code);
     const text = String(py.runPython('_repl(_REPL_CODE)') ?? '');
     postMessage({ type: 'repl-result', id: msg.id, ok: true, text });

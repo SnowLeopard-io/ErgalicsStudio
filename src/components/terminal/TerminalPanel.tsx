@@ -260,14 +260,22 @@ export function TerminalPanel() {
    * streams into buffers and hands them back base64-encoded, so every
    * session owns exactly its own output.
    */
-  const runCaptured = useCallback(async (code: string): Promise<{ out: string; err: string }> => {
-    const result = await getPythonRuntime().repl(`_capture(${pythonLiteral(code)})`);
-    if (!result.ok) return { out: '', err: result.error ?? 'error' };
-    const payload = decodeCapture(result.text);
-    if (payload) return payload;
-    // No capture helper (older worker): fall back to the plain channel.
-    return { out: result.text, err: '' };
-  }, []);
+  const runCaptured = useCallback(
+    async (code: string, preloadSource?: string): Promise<{ out: string; err: string }> => {
+      const result = await getPythonRuntime().repl(
+        `_capture(${pythonLiteral(code)})`,
+        // `_capture` hides the user's source from Pyodide's import scanner, so
+        // hand it the raw text (or the script source) for auto-loading.
+        preloadSource ?? code,
+      );
+      if (!result.ok) return { out: '', err: result.error ?? 'error' };
+      const payload = decodeCapture(result.text);
+      if (payload) return payload;
+      // No capture helper (older worker): fall back to the plain channel.
+      return { out: result.text, err: '' };
+    },
+    [],
+  );
   runCapturedRef.current = runCaptured;
 
   /**
@@ -286,7 +294,15 @@ export function TerminalPanel() {
       const projectPath = toProjectPath(abs);
       const engine = engineForFile(projectPath);
       if (engine === 'python') {
-        const { out, err } = await runCaptured(pythonRunProgram(abs));
+        // The runpy wrapper never shows the file's imports to the worker, so
+        // pass the source along for on-demand package loading.
+        let source: string | undefined;
+        try {
+          source = await readProjectFile(projectPath);
+        } catch {
+          source = undefined;
+        }
+        const { out, err } = await runCaptured(pythonRunProgram(abs), source);
         if (out) append('stdout', out);
         if (err) append('stderr', err);
         const pwd = await runCaptured("print(__import__('os').getcwd())");

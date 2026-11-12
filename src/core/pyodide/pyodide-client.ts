@@ -14,6 +14,7 @@ import {
   type CollectMessage,
   type LoadPackagesMessage,
   type MountMessage,
+  type ReplMessage,
   type RunMessage,
   type VariableSnapshot,
   type WorkerEvent,
@@ -282,7 +283,7 @@ export class PyodideClient {
   >(
     message:
       | RunMessage
-      | { type: 'repl'; code: string }
+      | ReplMessage
       | MountMessage
       | LoadPackagesMessage
       | CollectMessage,
@@ -329,8 +330,9 @@ export class PyodideClient {
   }
 
   /** Evaluate one REPL line (expression or statement). */
-  repl(code: string): Promise<PyodideReplResult> {
-    return this.request<PyodideReplResult>({ type: 'repl', code });
+  repl(code: string, preloadSource?: string): Promise<PyodideReplResult> {
+    const msg: ReplMessage = { type: 'repl', code, preloadSource };
+    return this.request<PyodideReplResult>(msg);
   }
 
   /**

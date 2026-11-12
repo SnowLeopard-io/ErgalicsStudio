@@ -88,7 +88,12 @@ export class DesktopPythonClient {
     }
   }
 
-  async repl(code: string): Promise<{ ok: boolean; text: string; error?: string }> {
+  // `preloadSource` is Pyodide-specific (it scans the script for imports to
+  // auto-load wheels); desktop CPython already has the scientific stack.
+  async repl(
+    code: string,
+    _preloadSource?: string,
+  ): Promise<{ ok: boolean; text: string; error?: string }> {
     const sessionId = await this.ensureSession();
     try {
       return await this.api.repl(sessionId, code);
