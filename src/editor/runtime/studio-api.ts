@@ -158,10 +158,6 @@ function compare(a: unknown, op: ComparisonOp, b: number): boolean {
 
 // ---- delimited text parsing moved to @/blocks/fileData (parseDataText) ----
 
-function toFloat64(value: number[]): Float64Array {
-  return Float64Array.from(value);
-}
-
 // ---- Studio API implementation ----
 
 export function createStudioApi(
@@ -244,7 +240,7 @@ export function createStudioApi(
       for (let v = start; s > 0 ? v < stop : v > stop; v += s) values.push(v);
       return createDataTable(
         'range',
-        [{ name: 'value', type: 'f64', data: toFloat64(values) }],
+        [{ name: 'value', type: 'f64', data: Float64Array.from(values) }],
         { provenance: 'studio.range' },
       );
     },
@@ -263,7 +259,7 @@ export function createStudioApi(
     },
 
     addColumn(df, name, values) {
-      return addColumnOp(df, name, 'f64', toFloat64(values));
+      return addColumnOp(df, name, 'f64', Float64Array.from(values));
     },
 
     addConstantColumn(df, name, value) {

@@ -49,8 +49,9 @@ import {
   runScriptFile,
 } from '@/core/terminal/run-file';
 import { toProjectPath } from '@/core/workspace/open-file';
-import { getVfs } from '@/core/vfs';
-import { getProjectRepoPath, useProjectStore } from '@/stores/projectStore';
+import { readProjectFile } from '@/core/workspace/project-files';
+import { useProjectStore } from '@/stores/projectStore';
+import { useTerminalWindow } from './useTerminalWindow';
 import { CloseIcon, PlusIcon, TerminalIcon } from '@/components/icons';
 
 /**
@@ -74,130 +75,6 @@ function decodeCapture(repr: string): { out: string; err: string } | null {
 
 /** How many submitted lines stay in a session's input history (↑/↓). */
 const HISTORY_LIMIT = 100;
-
-/** Floating-window bounds for the resize grips (min px / max × viewport). */
-const SIZE_MIN = { w: 360, h: 200 };
-const SIZE_MAX = { w: 0.9, h: 0.85 };
-const SIZE_DEFAULT = { w: 560, h: 340 };
-/** Margin kept from the screen edges while dragging (never dragged off-screen). */
-const EDGE_MARGIN = 8;
-
-const PREFS_KEY = 'ergalics:terminal-prefs';
-
-interface TerminalPrefs {
-  /** Window rectangle in viewport coordinates (left/top/width/height). */
-  rect: WindowRect;
-}
-
-function loadPrefs(): TerminalPrefs {
-  const fallback: TerminalPrefs = { rect: defaultRect() };
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return fallback;
-    const p = JSON.parse(raw) as Partial<TerminalPrefs> & {
-      w?: number;
-      h?: number;
-      pos?: { left: number; top: number } | null;
-    };
-    // Older builds stored a size + an optional position; migrate them.
-    const rect: WindowRect = p.rect
-      ? { left: p.rect.left, top: p.rect.top, width: p.rect.width, height: p.rect.height }
-      : p.pos
-        ? { left: p.pos.left, top: p.pos.top, width: p.w ?? SIZE_DEFAULT.w, height: p.h ?? SIZE_DEFAULT.h }
-        : {
-            ...defaultRect(),
-            width: p.w ?? defaultRect().width,
-            height: p.h ?? defaultRect().height,
-          };
-    return { rect: clampRect(rect) };
-  } catch {
-    return fallback;
-  }
-}
-
-/**
- * Resize handles, named after the edges/corners they move — the same
- * convention Windows uses: `n` = top edge, `nw` = top-left corner, …
- */
-type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
-
-/** The window rectangle in viewport coordinates. */
-interface WindowRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-/**
- * The default rectangle: docked above the status bar, on the right.
- * The window is a plain rectangle everywhere else — every edge and corner
- * can be dragged, exactly like a desktop window.
- */
-function defaultRect(): WindowRect {
-  const width = Math.min(SIZE_DEFAULT.w, window.innerWidth - 2 * EDGE_MARGIN);
-  const height = Math.min(SIZE_DEFAULT.h, window.innerHeight - 2 * EDGE_MARGIN);
-  return {
-    left: Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN),
-    top: Math.max(EDGE_MARGIN, window.innerHeight - height - 42),
-    width,
-    height,
-  };
-}
-
-/** Keep a rectangle fully inside the viewport. */
-function clampRect(rect: WindowRect): WindowRect {
-  const maxW = Math.max(SIZE_MIN.w, Math.min(window.innerWidth - 2 * EDGE_MARGIN, window.innerWidth * SIZE_MAX.w));
-  const maxH = Math.max(SIZE_MIN.h, Math.min(window.innerHeight - 2 * EDGE_MARGIN, window.innerHeight * SIZE_MAX.h));
-  const width = Math.min(Math.max(rect.width, Math.min(SIZE_MIN.w, maxW)), maxW);
-  const height = Math.min(Math.max(rect.height, Math.min(SIZE_MIN.h, maxH)), maxH);
-  const left = Math.min(Math.max(rect.left, EDGE_MARGIN), Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN));
-  const top = Math.min(Math.max(rect.top, EDGE_MARGIN), Math.max(EDGE_MARGIN, window.innerHeight - height - EDGE_MARGIN));
-  return { left, top, width, height };
-}
-
-/**
- * Resize a rectangle by dragging one edge or corner. The edges behave the
- * way a desktop window does: dragging the top edge moves the TOP edge (the
- * bottom stays put), dragging the left edge moves the LEFT edge, and the
- * corners combine both.
- *
- * The viewport size is a parameter so the maths stays pure (and testable).
- */
-export function resizeRect(
-  start: WindowRect,
-  dir: ResizeDir,
-  dx: number,
-  dy: number,
-  viewport: { w: number; h: number },
-): WindowRect {
-  const minW = Math.min(SIZE_MIN.w, viewport.w - 2 * EDGE_MARGIN);
-  const minH = Math.min(SIZE_MIN.h, viewport.h - 2 * EDGE_MARGIN);
-  let left = start.left;
-  let top = start.top;
-  let right = start.left + start.width;
-  let bottom = start.top + start.height;
-
-  if (dir.includes('n')) {
-    top = Math.min(Math.max(start.top + dy, EDGE_MARGIN), bottom - minH);
-  }
-  if (dir.includes('s')) {
-    bottom = Math.max(
-      Math.min(start.top + start.height + dy, viewport.h - EDGE_MARGIN),
-      top + minH,
-    );
-  }
-  if (dir.includes('w')) {
-    left = Math.min(Math.max(start.left + dx, EDGE_MARGIN), right - minW);
-  }
-  if (dir.includes('e')) {
-    right = Math.max(
-      Math.min(start.left + start.width + dx, viewport.w - EDGE_MARGIN),
-      left + minW,
-    );
-  }
-  return { left, top, width: right - left, height: bottom - top };
-}
 
 /**
  * True when the buffer is an unfinished block: the line ends with ':' (a
@@ -232,7 +109,6 @@ function needsWorkspace(magic: ReplMagic): boolean {
 
 export function TerminalPanel() {
   const t = useT();
-  const prefs = useRef(loadPrefs());
 
   const open = useAppStore((s) => s.terminalOpen);
   const toggle = useAppStore((s) => s.toggleTerminal);
@@ -288,71 +164,9 @@ export function TerminalPanel() {
     async () => ({ out: '', err: '' }),
   );
 
-  // The window geometry persists; the OPEN state lives in the app store
-  // (persisted with the panel prefs), so there is nothing to restore here.
-  const [rect, setRect] = useState<WindowRect>(prefs.current.rect);
-  const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  const resizeRef = useRef<{ dir: ResizeDir; x: number; y: number; rect: WindowRect } | null>(null);
-
-  // Persist geometry whenever any of it changes.
-  useEffect(() => {
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ rect } satisfies TerminalPrefs));
-    } catch {
-      /* private mode — geometry simply does not persist */
-    }
-  }, [rect]);
-
-  const startResize = (dir: ResizeDir) => (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizeRef.current = { dir, x: e.clientX, y: e.clientY, rect };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onResizeMove = (e: React.PointerEvent) => {
-    const drag = resizeRef.current;
-    if (!drag) return;
-    const next = resizeRect(drag.rect, drag.dir, e.clientX - drag.x, e.clientY - drag.y, {
-      w: window.innerWidth,
-      h: window.innerHeight,
-    });
-    setRect(next);
-  };
-
-  const endResize = () => {
-    resizeRef.current = null;
-  };
-
-  // Title-bar drag: the window follows the pointer — clamped so it can never
-  // leave the viewport. The drag starts ONLY on the bare title bar:
-  // pointerdown on a button (close) must not capture the pointer, or the
-  // button never receives its click.
-  const startDrag = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
-    dragRef.current = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onDragMove = (e: React.PointerEvent) => {
-    const drag = dragRef.current;
-    if (!drag) return;
-    const left = Math.min(
-      Math.max(drag.left + (e.clientX - drag.x), EDGE_MARGIN),
-      window.innerWidth - rect.width - EDGE_MARGIN,
-    );
-    const top = Math.min(
-      Math.max(drag.top + (e.clientY - drag.y), EDGE_MARGIN),
-      window.innerHeight - rect.height - EDGE_MARGIN,
-    );
-    setRect({ ...rect, left, top });
-  };
-
-  const endDrag = () => {
-    dragRef.current = null;
-  };
+  // Window geometry (drag / resize / persistence) lives in its own hook.
+  const { rect, startResize, onResizeMove, endResize, startDrag, onDragMove, endDrag } =
+    useTerminalWindow();
 
   // Global shortcut: toggle from anywhere, even while hidden. `+` because the
   // backquote key reports different key values across keyboard layouts.
@@ -480,14 +294,12 @@ export function TerminalPanel() {
         if (path) setCwdStore(activeSession.id, path);
         return;
       }
-      const project = useProjectStore.getState().project;
-      if (!project) {
+      if (!useProjectStore.getState().project) {
         append('stderr', 'run: no project open');
         return;
       }
       try {
-        const adapter = getVfs();
-        const raw = await adapter.readFile(getProjectRepoPath(project), projectPath);
+        const raw = await readProjectFile(projectPath);
         const result = await runScriptFile(projectPath, raw);
         if (result.stdout) append('stdout', result.stdout);
         if (!result.ok) append('stderr', result.error ?? 'run failed');

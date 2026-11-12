@@ -81,7 +81,10 @@ export function BlockPreview() {
     // toggle), redraw it into the fresh containers — otherwise its cached
     // container points at a detached canvas and re-rendering silently no-ops.
     rerenderActivePlugin();
-    return () => setHostContainers(null, hostOwnerRef.current);
+    // Capture the owner now: `hostOwnerRef.current` may point elsewhere by
+    // the time the cleanup runs.
+    const owner = hostOwnerRef.current;
+    return () => setHostContainers(null, owner);
   }, []);
 
   // Canvas outputs bake their pixels (and the on-plot caption) at draw time,

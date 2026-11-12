@@ -6,8 +6,7 @@
 // ==========================================================================
 
 import type { FileEditorKind } from '@/stores/appStore';
-import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { getVfs } from '@/core/vfs';
+import { tryReadProjectFile } from '@/core/workspace/project-files';
 
 /** Monaco language id for an editable code file. */
 export function monacoLanguageFor(name: string): string {
@@ -89,11 +88,7 @@ export function parseBlockPayload(raw: string): BlockFilePayload | null {
 
 /** Read the current text of a workspace file (external-change reload). */
 export async function readRepoFileText(path: string): Promise<string | null> {
-  const project = useProjectStore.getState().project;
-  if (!project) return null;
-  try {
-    return await getVfs().readFile(getProjectRepoPath(project), path);
-  } catch {
-    return null;
-  }
+  // The single project-file entry point lives in core/workspace; this keeps
+  // the editor-side API stable.
+  return tryReadProjectFile(path);
 }

@@ -9240,23 +9240,6 @@
   word-break: break-all;
 }
 
-/* ---- Preview footer: hand a recognized file to its plugin ------------------ */
-
-.central-file-openwith {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-}
-
-.central-file-openwith-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-}
-
 /* ---- 文件信息栏（预览时右栏，C 需求） ---- */
 
 .fileinfo {
@@ -9302,6 +9285,61 @@
   font-size: var(--font-size-xs);
   line-height: 1.5;
   color: var(--color-text-secondary);
+}
+
+/* “用插件打开”：一行一个插件，替代原先挤在预览底部的横排按钮。
+   插件可能多达几十个，纵向列表随右栏滚动，不会撑高或挤压画布。 */
+.rp-openwith {
+  margin-top: var(--space-4);
+}
+
+.rp-openwith-head {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.rp-openwith-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-openwith-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.rp-openwith-item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.rp-openwith-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-openwith-item svg {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
 }
 
 /* ==========================================================================
@@ -10612,7 +10650,6 @@
 
   /* dvh: 100vh on mobile counts the strip behind the browser chrome, which
      would push the status bar out of view. */
-  .app-root,
   .welcome,
   .workbench,
   .settings,

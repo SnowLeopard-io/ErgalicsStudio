@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import { describe, expect, it } from 'vitest';
-import { resizeRect } from '@/components/terminal/TerminalPanel';
+import { resizeRect } from '@/components/terminal/terminal-window';
 
 interface Rect {
   left: number;

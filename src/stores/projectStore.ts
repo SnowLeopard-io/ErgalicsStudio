@@ -25,6 +25,14 @@ import { usePluginStore } from './pluginStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
 import { EDITOR_STATE_CHANGED, useEditorStore } from './editorStore';
 import { useAppStore } from './appStore';
+import {
+  MAX_PERSISTED_CONSOLE,
+  clearWorkbenchSession,
+  loadWorkbenchSession,
+  persistableTab,
+  saveWorkbenchSession,
+} from './workbenchSession';
+import { restoreWorkbenchSession } from '@/core/workspace/session-restore';
 import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
@@ -273,6 +281,44 @@ function restoreEditor(state: {
 }
 
 /**
+ * True while a project's stored layout is being re-applied. Subscriptions are
+ * muted so the "clear the canvas" step (and every intermediate reopen) cannot
+ * overwrite the stored session with a half-restored layout.
+ */
+let persistSuppressed = false;
+
+/** Write the current workbench layout for the open project (best effort). */
+function persistWorkbenchNow(): void {
+  if (persistSuppressed) return;
+  const project = useProjectStore.getState().project;
+  if (!project) return;
+  const app = useAppStore.getState();
+  const editor = useEditorStore.getState();
+  saveWorkbenchSession(project.id, {
+    tabs: app.canvasTabs.map(persistableTab),
+    activeTab: app.activeTab,
+    mode: app.mode,
+    expandedDirs: app.explorerExpanded,
+    console: editor.console.slice(-MAX_PERSISTED_CONSOLE),
+    error: editor.error,
+    savedAt: Date.now(),
+  });
+}
+
+/** Layout changes come in bursts (tab restore, folder expansion) — debounce. */
+const SESSION_PERSIST_DELAY_MS = 200;
+let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePersistWorkbench(): void {
+  if (persistSuppressed) return;
+  if (sessionPersistTimer) clearTimeout(sessionPersistTimer);
+  sessionPersistTimer = setTimeout(() => {
+    sessionPersistTimer = null;
+    persistWorkbenchNow();
+  }, SESSION_PERSIST_DELAY_MS);
+}
+
+/**
  * Publish a freshly opened/created/imported project to every runtime surface
  * (store, file registry, plugin state, block graph, editor, autosave).
  * Centralized so openProject and loadProjectFromText share the exact same
@@ -308,10 +354,21 @@ function applyOpenedProject(
   { seedWorkspace = true }: { seedWorkspace?: boolean } = {},
 ): void {
   projectSession += 1;
+  const session = projectSession;
+  // Read the stored layout before the canvas is cleared below, so the
+  // persistence subscriptions cannot see an empty workbench and overwrite it.
+  const savedSession = loadWorkbenchSession(project.id);
+  persistSuppressed = true;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
   // project's repo — a fresh project must not show or edit them.
-  useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+  useAppStore.setState({
+    canvasTabs: [],
+    activeTab: null,
+    filePreviews: {},
+    editorFiles: {},
+    explorerExpanded: [],
+  });
   recordLastOpenedProject(project.id);
   syncProjectFiles(project);
   // Repair the workspace skeleton without overwriting user files: projects
@@ -320,7 +377,6 @@ function applyOpenedProject(
   // "write to workspace" would appear to do nothing. Folder imports already
   // bring their own authoritative tree, so they skip this.
   if (seedWorkspace) {
-    const session = projectSession;
     const repoPath = getProjectRepoPath(project);
     void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false })
       .then(() => {
@@ -334,6 +390,16 @@ function applyOpenedProject(
   usePluginStore.getState().restoreState(project);
   restoreBlockGraph(project.state.blockGraph);
   restoreEditor(project.state);
+  // Reopen this project's own tabs / folders / run output. Runs after the
+  // project's editor sessions are in place (surfaces reuse them) and is
+  // abandoned if the user switches projects while a file is being read.
+  void restoreWorkbenchSession(savedSession, () => isCurrentSession(session, project.id)).finally(
+    () => {
+      if (session !== projectSession) return;
+      persistSuppressed = false;
+      persistWorkbenchNow();
+    },
+  );
   ensureAutosave();
 }
 
@@ -437,6 +503,12 @@ function flushDirtyOnExit() {
     clearTimeout(dirtyFlushTimer);
     dirtyFlushTimer = null;
   }
+  // The layout is debounced too — land the pending write now.
+  if (sessionPersistTimer) {
+    clearTimeout(sessionPersistTimer);
+    sessionPersistTimer = null;
+  }
+  persistWorkbenchNow();
   const { project, dirty } = useProjectStore.getState();
   if (project && dirty) void useProjectStore.getState().save();
 }
@@ -461,7 +533,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
     useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
-    useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+    useAppStore.setState({
+      canvasTabs: [],
+      activeTab: null,
+      filePreviews: {},
+      editorFiles: {},
+      explorerExpanded: [],
+    });
+    // A brand-new project has no stored layout; an in-flight restore of the
+    // previous project must not keep persistence muted.
+    persistSuppressed = false;
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
     set({ project, dirty: false, status: 'ready', statusText: null });
@@ -674,6 +755,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   remove: async (id) => {
     await deleteProject(id);
+    // The project's workbench layout lives in localStorage, not in the
+    // project record / workspace tree, so drop it explicitly.
+    clearWorkbenchSession(id);
     // Cascade: run records live in their own store, not inside the project.
     await deleteRunsByProject(id).catch(() => undefined);
     // Same cascade for the auxiliary stores keyed by projectId: legacy IDB
@@ -692,13 +776,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().loadRecent();
     if (get().project?.id === id) {
       projectSession += 1;
+      persistSuppressed = true;
       set({ project: null, dirty: false, status: 'ready', statusText: null });
       syncProjectFiles(null);
       // Clear the block graph, editor sessions and active plugin so the
       // canvas/editor never keep showing the deleted project's content.
       useBlockStore.getState().clear();
       useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
-      useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+      useAppStore.setState({
+        canvasTabs: [],
+        activeTab: null,
+        filePreviews: {},
+        editorFiles: {},
+        explorerExpanded: [],
+      });
       void usePluginStore.getState().deactivate();
     }
   },
@@ -1161,6 +1252,24 @@ export function initProjectStore() {
   on(BLOCK_GRAPH_CHANGED, () => useProjectStore.getState().setDirty(true));
   // mark the project dirty when an editor session mutates
   on(EDITOR_STATE_CHANGED, () => useProjectStore.getState().setDirty(true));
+  // Persist the per-project workbench layout (tabs, front tab, expanded
+  // folders, mode, last run output) whenever it changes. Muted while a
+  // project's own layout is being restored (see persistSuppressed).
+  useAppStore.subscribe((state, prev) => {
+    if (
+      state.canvasTabs !== prev.canvasTabs ||
+      state.activeTab !== prev.activeTab ||
+      state.mode !== prev.mode ||
+      state.explorerExpanded !== prev.explorerExpanded
+    ) {
+      schedulePersistWorkbench();
+    }
+  });
+  useEditorStore.subscribe((state, prev) => {
+    if (state.console !== prev.console || state.error !== prev.error) {
+      schedulePersistWorkbench();
+    }
+  });
   // Flush pending edits when the page is hidden or unloaded (refresh inside
   // the autosave interval would otherwise discard them).
   document.addEventListener('visibilitychange', () => {

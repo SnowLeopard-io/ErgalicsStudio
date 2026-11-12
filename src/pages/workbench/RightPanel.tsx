@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type AnimationEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useT, useLocale } from '@/i18n';
 import { usePluginStore, buildPluginApi } from '@/stores/pluginStore';
 import { useAppStore, toolTabKey } from '@/stores/appStore';
+import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { useFileRouting } from './useFileRouting';
+import { getVfs } from '@/core/vfs';
+import { logger } from '@/core/logger';
 import { FileInfoPanel } from './FileInfoPanel';
 import { ResultPreview } from '@/components/editor/ResultPreview';
 import { VariablePanel } from '@/components/editor/VariablePanel';
@@ -150,6 +154,43 @@ export function RightPanel() {
   const resize = usePanelWidth('ergalics:right-panel-width', 284, 220, 520, 'left');
   const [params, setParams] = useState<ParamDefinition[]>([]);
 
+  // ---- 用插件打开 ----
+  // 预览文件时，声明了该扩展名的插件在右栏列成一张表。原先这排按钮横在
+  // 预览底部，插件一多就把画布挤出一条长尾；移到右栏后纵向排列、随面板滚动。
+  const project = useProjectStore((s) => s.project);
+  const registry = usePluginStore((s) => s.registry);
+  const notify = useAppStore((s) => s.notify);
+  const { loadIntoPlugin } = useFileRouting();
+  const openWithMatches = useMemo(() => {
+    if (!filePreview) return [];
+    const dot = filePreview.name.lastIndexOf('.');
+    if (dot <= 0) return [];
+    const ext = filePreview.name.slice(dot).toLowerCase();
+    return registry.filter((e) => e.formats.some((f) => f.extension.toLowerCase() === ext));
+  }, [filePreview, registry]);
+
+  /** 从工作区读出被预览的文件，沿用拖放的同一条 ingestion 管线交给插件。 */
+  const openWithPlugin = async (pluginId: string) => {
+    if (!project || !filePreview) return;
+    const rootPath = getProjectRepoPath(project);
+    try {
+      const blob = filePreview.blobUrl
+        ? await (await fetch(filePreview.blobUrl)).blob()
+        : new Blob([(await getVfs().readFileBinary(rootPath, filePreview.path)) as BlobPart], {
+            type: filePreview.mimeType,
+          });
+      await loadIntoPlugin(
+        pluginId,
+        new File([blob], filePreview.name, { type: filePreview.mimeType }),
+      );
+      // 视图交还插件，但保留文件标签：这里关掉会像文件被弄丢了。
+      useAppStore.getState().showPluginCanvas();
+    } catch (err) {
+      logger.warn('workbench', 'open-with-plugin read failed', err);
+      notify('error', t('workbench.preview.open_failed'));
+    }
+  };
+
   /** 收起退场进行中：wrap 播放宽度收拢动画，动画结束后才真正翻转 store，
    *  与侧栏收起保持一致的过渡。 */
   const [closing, setClosing] = useState(false);
@@ -163,12 +204,21 @@ export function RightPanel() {
     if (s.mode !== 'code' && s.mode !== 'block') return false;
     // Plugin canvas in front (no active tab) → the plugin panel takes over.
     if (s.activeTab === null) return false;
-    return s.canvasTabs.some((tab) => tab.key === s.activeTab);
+    // 必须激活的是编辑面标签本身。打开文件预览时 mode 仍保留上一次的
+    // code/block，只看 mode 会让“结果预览/变量”顶掉文件信息面板。
+    return s.canvasTabs.some(
+      (tab) => tab.key === s.activeTab && tab.kind === 'surface' && tab.mode === s.mode,
+    );
   });
   /** Flow mode puts its node parameter inspector in this sidebar (the canvas
    *  itself stays free of side panes). Same tab-foreground caveat. */
   const flowActive = useAppStore(
-    (s) => s.mode === 'flow' && s.activeTab !== null && s.canvasTabs.some((tab) => tab.key === s.activeTab),
+    (s) =>
+      s.mode === 'flow' &&
+      s.activeTab !== null &&
+      s.canvasTabs.some(
+        (tab) => tab.key === s.activeTab && tab.kind === 'surface' && tab.mode === 'flow',
+      ),
   );
   /** Stable ref setter for the surface-toolbar portal host (see SurfaceToolbar). */
   const setToolbarHost = useSurfaceChrome((s) => s.setHost);
@@ -335,6 +385,25 @@ export function RightPanel() {
         <>
           <h3 className="panel-title">{t('workbench.right.fileinfo')}</h3>
           <FileInfoPanel preview={filePreview} />
+          {openWithMatches.length > 0 && (
+            <div className="rp-openwith">
+              <div className="rp-openwith-head">{t('workbench.right.open_with')}</div>
+              <div className="rp-openwith-list">
+                {openWithMatches.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    className="rp-openwith-item"
+                    title={e.nameI18n?.[locale] ?? e.name}
+                    onClick={() => void openWithPlugin(e.id)}
+                  >
+                    <span className="rp-openwith-name">{e.nameI18n?.[locale] ?? e.name}</span>
+                    <ChevronRightIcon size={12} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <>
