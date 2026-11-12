@@ -203,42 +203,6 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
   const [imgUrl, setImgUrl] = useState('');
   const [wsImages, setWsImages] = useState<{ path: string; size: number }[] | null>(null);
 
-  // Plugins whose declared formats accept this file's extension. The preview
-  // footer offers "open with <plugin>" so a recognized file (e.g. a .cif unit
-  // cell) can be handed straight to its plugin from the preview overlay.
-  const { locale } = useLocale();
-  const registry = usePluginStore((s) => s.registry);
-  const { loadIntoPlugin } = useFileRouting();
-  const pluginMatches = useMemo(() => {
-    const dot = preview.name.lastIndexOf('.');
-    if (dot <= 0) return [];
-    const ext = preview.name.slice(dot).toLowerCase();
-    return registry.filter((e) => e.formats.some((f) => f.extension.toLowerCase() === ext));
-  }, [preview.name, registry]);
-
-  /** Read the previewed file from the workspace and route it into the chosen
-   *  plugin via the same ingestion pipeline the drop handler uses. */
-  const openWithPlugin = async (pluginId: string) => {
-    if (!project) return;
-    const rootPath = getProjectRepoPath(project);
-    try {
-      const blob = preview.blobUrl
-        ? await (await fetch(preview.blobUrl)).blob()
-        : new Blob([(await getVfs().readFileBinary(rootPath, preview.path)) as BlobPart], {
-            type: preview.mimeType,
-          });
-      await loadIntoPlugin(pluginId, new File([blob], preview.name, { type: preview.mimeType }));
-      // Hand the view back to the plugin, but KEEP the file tab open — closing
-      // it here used to yank the tab away mid-interaction, which felt like the
-      // file was lost. showPluginCanvas switches back to the canvas while the
-      // preview tab stays in the strip (user closes it explicitly if wanted).
-      useAppStore.getState().showPluginCanvas();
-    } catch (err) {
-      logger.warn('workbench', 'open-with-plugin read failed', err);
-      notify('error', t('workbench.preview.open_failed'));
-    }
-  };
-
   // Re-arm the draft + view whenever a different file is opened.
   useEffect(() => {
     setMdText(preview.content ?? '');
@@ -578,26 +542,8 @@ function PreviewOverlay({ preview }: { preview: FilePreviewState }) {
 
   // 画布标签条已提供文件名、只读标识与关闭按钮，这里只渲染预览本体，
   // 避免标签行下方再出现一条重复的头部标签（与内嵌套件同一约定）。
-  return (
-    <div className="central-file-preview">
-      {body}
-      {pluginMatches.length > 0 && (
-        <div className="central-file-openwith">
-          <span className="central-file-openwith-label">{t('workbench.preview.open_with')}</span>
-          {pluginMatches.map((e) => (
-            <button
-              key={e.id}
-              type="button"
-              className="btn btn-sm"
-              onClick={() => void openWithPlugin(e.id)}
-            >
-              {e.nameI18n?.[locale] ?? e.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  // “用插件打开”列表在右栏文件信息下方（见 RightPanel）。
+  return <div className="central-file-preview">{body}</div>;
 }
 
 /**

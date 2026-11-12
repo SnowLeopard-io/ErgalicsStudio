@@ -204,6 +204,9 @@ interface AppStore {
   /** Path the file explorer should reveal + select (set by the terminal's
    *  `open` command, so the tree and the editor stay in sync). */
   revealFilePath: string | null;
+  /** Folders expanded in the file explorer. Part of the per-project workbench
+   *  session (restored on reopen, persisted on every change). */
+  explorerExpanded: string[];
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -281,6 +284,8 @@ interface AppStore {
   bumpFileOps: () => void;
   /** Ask the file explorer to reveal (expand + select) a project path. */
   setRevealFilePath: (path: string | null) => void;
+  /** Replace the file explorer's expanded-folder list. */
+  setExplorerExpanded: (dirs: string[]) => void;
 }
 
 let bannerId = 0;
@@ -385,6 +390,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   lastActivePluginId: null,
   fileOpsVersion: 0,
   revealFilePath: null,
+  explorerExpanded: [],
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -994,5 +1000,6 @@ export const useAppStore = create<AppStore>((set, get) => {
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
   setRevealFilePath: (path) => set({ revealFilePath: path }),
+  setExplorerExpanded: (dirs) => set({ explorerExpanded: dirs }),
   };
 });

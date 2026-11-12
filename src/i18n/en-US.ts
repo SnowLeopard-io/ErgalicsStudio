@@ -241,6 +241,7 @@ export const enUS: LocaleDictionary = {
   'workbench.right.no_params': 'This plugin exposes no parameter controls',
   'workbench.right.params': 'Parameters',
   'workbench.right.fileinfo': 'File Info',
+  'workbench.right.open_with': 'Open with',
   'workbench.right.suite': 'Research Suite',
   'suite.open_standalone': 'Open standalone page',
   'suite.close': 'Close suite',
