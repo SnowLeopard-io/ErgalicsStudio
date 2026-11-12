@@ -70,7 +70,7 @@ const DEFAULT_PERF: PerfMetrics = {
 };
 
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
-export type SidebarView = 'files' | 'plugins' | 'git' | 'tools' | 'research';
+export type SidebarView = 'files' | 'search' | 'plugins' | 'git' | 'tools' | 'research';
 
 /** Kind of the central file preview — decides which view CentralArea renders. */
 export type FilePreviewKind =
@@ -308,7 +308,7 @@ const PANEL_DEFAULTS = {
   terminalOpen: false,
 };
 
-const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'search', 'plugins', 'git', 'tools', 'research'];
 
 /** Phone-sized touch viewport (landscape phones match this query — see
  *  core/orientation.ts COMPACT_VIEWPORT_QUERY, which the CSS compact tier

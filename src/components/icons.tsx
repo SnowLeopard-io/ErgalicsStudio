@@ -93,6 +93,71 @@ export const SearchIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Search option: match case (Aa). */
+export const CaseSensitiveIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={0}>
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="12"
+      fontWeight="600"
+      fontFamily="ui-sans-serif, system-ui, sans-serif"
+      fill="currentColor"
+      stroke="none"
+    >
+      Aa
+    </text>
+  </Svg>
+);
+
+/** Search option: whole word (ab with an underline). */
+export const WholeWordIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={1.3}>
+    <text
+      x="12"
+      y="15"
+      textAnchor="middle"
+      fontSize="11"
+      fontWeight="600"
+      fontFamily="ui-sans-serif, system-ui, sans-serif"
+      fill="currentColor"
+      stroke="none"
+    >
+      ab
+    </text>
+    <path d="M5 19h14" />
+  </Svg>
+);
+
+/** Search option: regular expression (.*). */
+export const RegexIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={0}>
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="12.5"
+      fontWeight="600"
+      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+      fill="currentColor"
+      stroke="none"
+    >
+      .*
+    </text>
+  </Svg>
+);
+
+/** Empty-result glyph: a document with a magnifier. */
+export const FileSearchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h6" />
+    <path d="M14 3v5h5" />
+    <circle cx="16" cy="16" r="3" />
+    <path d="m18.5 18.5 2 2" />
+  </Svg>
+);
+
 /** AI sparkles — used for the global AI-assistant toggle in the top bar. */
 export const SparklesIcon = (p: IconProps) => (
   <Svg {...p}>

@@ -19,6 +19,7 @@ import { loadWasm } from '@/core/wasm';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
+import { DataFilePickerDialog } from './DataFilePickerDialog';
 import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
@@ -153,6 +154,7 @@ export default function WorkbenchPage() {
       <PythonRuntimeNotice />
       <AiAssistantOverlay />
       <ModeConvertDialog />
+      <DataFilePickerDialog />
     </div>
   );
 }

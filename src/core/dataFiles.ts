@@ -115,11 +115,23 @@ let workspaceSnapshot: Record<string, string> = {};
 /** Base names from that scan, used by the synchronous pickers. */
 let workspaceNames: string[] = [];
 
+/**
+ * Generated run records (runs/run-*.json, runs/index.json) are provenance,
+ * not analysis inputs. They are still staged for the Python runtime, but the
+ * data-file pickers must not offer them as loadable datasets.
+ */
+function isGeneratedWorkspacePath(path: string): boolean {
+  return path.replace(/\\/g, '/').startsWith('runs/');
+}
+
 /** Publish a workspace scan: powers both `studio.load` and file pickers. */
 export function setWorkspaceSnapshot(files: Record<string, string>): void {
   workspaceSnapshot = files;
   const names = new Set<string>();
-  for (const path of Object.keys(files)) names.add(basename(path));
+  for (const path of Object.keys(files)) {
+    if (isGeneratedWorkspacePath(path)) continue;
+    names.add(basename(path));
+  }
   workspaceNames = Array.from(names);
 }
 
@@ -234,7 +246,15 @@ export async function collectProjectFiles(): Promise<Record<string, string>> {
 /** Filter a runtime file map down to data formats (picker snapshot). */
 function collectDataFrom(files: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
+  // The runtime map aliases basenames; drop the alias too when it belongs to a
+  // generated run record, otherwise the picker would still list it.
+  const generatedBases = new Set<string>();
+  for (const path of Object.keys(files)) {
+    if (isGeneratedWorkspacePath(path)) generatedBases.add(basename(path));
+  }
   for (const [path, text] of Object.entries(files)) {
+    if (isGeneratedWorkspacePath(path)) continue;
+    if (!path.includes('/') && generatedBases.has(path)) continue;
     if (isSupportedDataFileName(path)) out[path] = text;
   }
   return out;

@@ -14,10 +14,35 @@ import { BLOCK_I18N } from './i18n';
 import { createKidsTheme } from './theme';
 import { TOOLBOX } from './toolbox';
 import { workspaceJSONToIR, irToWorkspaceJSON } from './convert';
+import { requestDataFilePick } from './data-file-picker';
 import type { IRProgram } from '../ir/types';
 
 /** Theme name (dark variants get their own so redefinition never throws). */
 const THEME_NAME = (dark: boolean) => (dark ? 'studio-kids-dark' : 'studio-kids');
+
+/**
+ * A text field whose click opens the two-column data-file picker instead of
+ * the inline editor. The chosen name is written back with `setValue`, so the
+ * normal Blockly change event updates the IR exactly like a typed edit.
+ *
+ * `fromJson` must be re-declared: `FieldTextInput.fromJson` hard-codes the
+ * base class, which would deserialize saved `.block.json` into a plain text
+ * field and lose the picker behaviour.
+ */
+class FieldDataFile extends Blockly.FieldTextInput {
+  static override fromJson(options: Blockly.FieldTextInputFromJsonConfig): FieldDataFile {
+    return new FieldDataFile(options.text);
+  }
+
+  protected override showEditor_(_e?: Event): void {
+    requestDataFilePick({
+      value: String(this.getValue() ?? ''),
+      select: (name) => {
+        this.setValue(name);
+      },
+    });
+  }
+}
 
 // Blockly locale/theme are process-global. Re-applying them on every workspace
 // creation (each block/flow file tab mount) meant spreading the whole message
@@ -27,6 +52,13 @@ const definedThemes = new Set<string>();
 
 /** Register custom blocks, locale and theme. Idempotent. */
 export function initBlocklyEngine(locale: 'zh-CN' | 'en-US', dark: boolean): void {
+  // The custom picker field must exist before any block is constructed from
+  // saved JSON. `register` throws on duplicates (HMR / StrictMode re-runs).
+  try {
+    Blockly.fieldRegistry.register('field_data_file', FieldDataFile);
+  } catch {
+    // Already registered — safe to ignore.
+  }
   // Register only the block types not already present — `defineBlocksWithJsonArray`
   // throws on duplicates, and HMR can re-run this module with a fresh flag.
   const missing = BLOCK_DEFS.filter((d) => !(d.type in Blockly.Blocks));

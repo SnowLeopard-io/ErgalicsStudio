@@ -9,7 +9,7 @@
 
 import { useT } from '@/i18n';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
-import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SettingsIcon, TerminalIcon, ToolboxIcon } from '@/components/icons';
+import { FlaskIcon, FolderOpenIcon, LayersIcon, GitBranchIcon, SearchIcon, SettingsIcon, TerminalIcon, ToolboxIcon } from '@/components/icons';
 
 interface ActivityItem {
   view: SidebarView;
@@ -28,6 +28,7 @@ export function ActivityBar() {
 
   const items: ActivityItem[] = [
     { view: 'files', label: t('workbench.activity.files'), Icon: FolderOpenIcon },
+    { view: 'search', label: t('workbench.activity.search'), Icon: SearchIcon },
     { view: 'plugins', label: t('workbench.activity.plugins'), Icon: LayersIcon },
     { view: 'git', label: t('workbench.activity.git'), Icon: GitBranchIcon },
     { view: 'research', label: t('workbench.activity.research'), Icon: FlaskIcon },

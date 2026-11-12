@@ -84,6 +84,23 @@ export const enUS: LocaleDictionary = {
   'workbench.activity.git': 'Git',
   'workbench.activity.tools': 'Toolkit',
   'workbench.activity.research': 'Research suite',
+  'workbench.activity.search': 'Search',
+  // ---- workspace search ----
+  'search.placeholder': 'Search the workspace',
+  'search.options': 'Search options',
+  'search.case_sensitive': 'Match case',
+  'search.whole_word': 'Match whole word',
+  'search.regex': 'Use regular expression',
+  'search.refresh': 'Search again',
+  'search.clear': 'Clear search',
+  'search.empty_hint': 'Type a keyword to search project file contents',
+  'search.no_project': 'No project open',
+  'search.searching': 'Searching…',
+  'search.no_results': 'No results found',
+  'search.invalid_regex': 'Invalid regular expression',
+  'search.summary': '{matches} results in {files} files',
+  'search.truncated': 'Too many results — showing only the first matches',
+  'search.open_hint': 'Open the file in the canvas',
   // ---- file explorer ----
   'workbench.explorer.workspace': 'Workspace',
   'workbench.explorer.loading': 'Reading directory…',
@@ -511,6 +528,13 @@ export const enUS: LocaleDictionary = {
   // ---- data file picker groups (user uploads vs bundled examples) ----
   'datafiles.group_project': 'Project files (uploaded)',
   'datafiles.group_examples': 'Example datasets (bundled)',
+
+  // ---- block data-file picker (two-column dialog) ----
+  'block.data_file.title': 'Choose a data file',
+  'block.data_file.project': 'Project data',
+  'block.data_file.examples': 'Example data',
+  'block.data_file.empty_project': 'No data files in this project yet',
+  'block.data_file.empty_examples': 'No example data available',
 
   'share.title': 'Share Project',
   'share.include': 'Include',

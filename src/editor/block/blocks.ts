@@ -51,6 +51,11 @@ function field(name: string, text: string): { type: string; name: string; text: 
   return { type: 'field_input', name, text };
 }
 
+/** Text field backed by the two-column project/example data-file picker. */
+function fileField(name: string, text: string): { type: string; name: string; text: string } {
+  return { type: 'field_data_file', name, text };
+}
+
 function dropdown(name: string, options: [string, string][]): { type: string; name: string; options: [string, string][] } {
   return { type: 'field_dropdown', name, options };
 }
@@ -84,8 +89,8 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_var_assign', message0: '%{BKY_STUDIO_VAR_ASSIGN}', args0: [field('NAME', 'x'), value('VALUE')], previousStatement: null, nextStatement: null, colour: VAR_COLOUR, tooltip: '%{BKY_STUDIO_VAR_ASSIGN_TOOLTIP}' },
 
   // ---- data sources ----
-  { type: 'studio_load_csv', message0: '%{BKY_STUDIO_LOAD_CSV}', args0: [field('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_CSV_TOOLTIP}' },
-  { type: 'studio_load_xyz', message0: '%{BKY_STUDIO_LOAD_XYZ}', args0: [field('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_XYZ_TOOLTIP}' },
+  { type: 'studio_load_csv', message0: '%{BKY_STUDIO_LOAD_CSV}', args0: [fileField('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_CSV_TOOLTIP}' },
+  { type: 'studio_load_xyz', message0: '%{BKY_STUDIO_LOAD_XYZ}', args0: [fileField('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_XYZ_TOOLTIP}' },
   { type: 'studio_random', message0: '%{BKY_STUDIO_RANDOM}', args0: [value('COUNT'), value('SEED')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANDOM_TOOLTIP}' },
   { type: 'studio_range', message0: '%{BKY_STUDIO_RANGE}', args0: [value('START'), value('STOP'), value('STEP')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANGE_TOOLTIP}' },
   { type: 'studio_list', message0: '%{BKY_STUDIO_LIST}', args0: [field('VALUES', '1,2,3')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LIST_TOOLTIP}' },

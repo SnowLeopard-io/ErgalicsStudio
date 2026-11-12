@@ -88,6 +88,23 @@ export const zhCN: LocaleDictionary = {
   'workbench.activity.git': 'Git',
   'workbench.activity.tools': '工具箱',
   'workbench.activity.research': '科研套件',
+  'workbench.activity.search': '搜索',
+  // ---- 工作区搜索 ----
+  'search.placeholder': '在工作区中搜索',
+  'search.options': '搜索选项',
+  'search.case_sensitive': '区分大小写',
+  'search.whole_word': '全字匹配',
+  'search.regex': '使用正则表达式',
+  'search.refresh': '重新搜索',
+  'search.clear': '清除搜索',
+  'search.empty_hint': '输入关键词搜索项目文件内容',
+  'search.no_project': '未打开项目',
+  'search.searching': '正在搜索…',
+  'search.no_results': '未找到结果',
+  'search.invalid_regex': '正则表达式无效',
+  'search.summary': '在 {files} 个文件中有 {matches} 个结果',
+  'search.truncated': '结果过多，仅显示部分结果',
+  'search.open_hint': '在画布中打开文件',
   // ---- 文件资源管理器 ----
   'workbench.explorer.workspace': '工作区',
   'workbench.explorer.loading': '正在读取目录…',
@@ -514,6 +531,13 @@ export const zhCN: LocaleDictionary = {
   // ---- data file picker groups (user uploads vs bundled examples) ----
   'datafiles.group_project': '项目文件（我上传的）',
   'datafiles.group_examples': '示例文件（内置）',
+
+  // ---- block data-file picker (two-column dialog) ----
+  'block.data_file.title': '选择数据文件',
+  'block.data_file.project': '项目数据',
+  'block.data_file.examples': '示例数据',
+  'block.data_file.empty_project': '项目中还没有数据文件',
+  'block.data_file.empty_examples': '没有可用的示例数据',
 
   'share.title': '分享项目',
   'share.include': '包含内容',

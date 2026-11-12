@@ -8,6 +8,7 @@ import { GitPanel } from '@/components/GitPanel';
 import { ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { FileExplorer } from '@/pages/workbench/FileExplorer';
+import { SearchPanel } from '@/pages/workbench/SearchPanel';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
@@ -233,6 +234,8 @@ export function Sidebar() {
       {/* 视图内容：活动栏（ActivityBar）决定显示哪一个。项目切换下拉
           位于顶部栏的项目名处。 */}
       {sidebarView === 'files' && <FileExplorer />}
+
+      {sidebarView === 'search' && <SearchPanel />}
 
       {sidebarView === 'git' && <GitPanel alwaysOpen />}
 
