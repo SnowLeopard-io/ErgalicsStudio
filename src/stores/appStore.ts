@@ -6,6 +6,14 @@ import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
+/** Decode a base64 payload (worker binary output) into raw bytes. */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
@@ -253,8 +261,12 @@ interface AppStore {
    *  buffer save path. */
   saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
   /** Persist a batch of files produced by a code run (workspace-relative
-   *  paths). Refreshes the explorer once and resolves to the write count. */
-  saveWorkspaceFiles: (files: Record<string, string>) => Promise<number>;
+   *  paths). `binaryFiles` carries matplotlib figures / PDFs / .npy dumps as
+   *  base64. Refreshes the explorer once and resolves to the write count. */
+  saveWorkspaceFiles: (
+    files: Record<string, string>,
+    binaryFiles?: Record<string, string>,
+  ) => Promise<number>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -725,9 +737,11 @@ export const useAppStore = create<AppStore>((set, get) => {
   /** Persist a batch of files produced by a code run. Writes every path and
    *  refreshes file browsers once, so a script dumping several outputs does
    *  not spam one toast per file. */
-  saveWorkspaceFiles: async (files) => {
-    const entries = Object.entries(files);
-    if (!entries.length) return 0;
+  saveWorkspaceFiles: async (files, binaryFiles) => {
+    const textEntries = Object.entries(files);
+    const binaryEntries = Object.entries(binaryFiles ?? {});
+    const total = textEntries.length + binaryEntries.length;
+    if (!total) return 0;
     try {
       const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
         import('./projectStore'),
@@ -738,7 +752,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       const vfs = getVfs();
       const root = getProjectRepoPath(project);
       let written = 0;
-      for (const [path, text] of entries) {
+      for (const [path, text] of textEntries) {
         await vfs.writeFile(root, path, text);
         written += 1;
         set((s) => {
@@ -748,6 +762,19 @@ export const useAppStore = create<AppStore>((set, get) => {
           return {
             editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } },
           };
+        });
+      }
+      for (const [path, base64] of binaryEntries) {
+        await vfs.writeFileBinary(root, path, base64ToBytes(base64));
+        written += 1;
+        // Binary files never have a text editor buffer; drop a stale blob
+        // preview so the explorer/canvas re-reads the new figure.
+        set((s) => {
+          const key = editorTabKey(path);
+          if (!s.editorFiles[key]) return s;
+          const next = { ...s.editorFiles };
+          delete next[key];
+          return { editorFiles: next };
         });
       }
       useAppStore.getState().bumpFileOps();

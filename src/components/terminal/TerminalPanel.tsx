@@ -337,9 +337,12 @@ export function TerminalPanel() {
   const syncWorkspaceToProject = useCallback(
     async (append: (stream: 'stdout' | 'stderr' | 'info', text: string) => void) => {
       const produced = await collectWorkspaceOutputsFromRuntime();
-      const names = Object.keys(produced);
+      const names = [
+        ...Object.keys(produced.files),
+        ...Object.keys(produced.binaryFiles),
+      ];
       if (!names.length) return;
-      await useAppStore.getState().saveWorkspaceFiles(produced);
+      await useAppStore.getState().saveWorkspaceFiles(produced.files, produced.binaryFiles);
       useAppStore.getState().bumpFileOps();
       append('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
     },

@@ -151,6 +151,8 @@ export interface ResultMessage {
   variables: Record<string, VariableSnapshot>;
   /** Workspace files the program created or changed (relative paths). */
   files?: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -186,6 +188,8 @@ export interface CollectResultMessage {
   id: number;
   ok: boolean;
   files: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
 }
 

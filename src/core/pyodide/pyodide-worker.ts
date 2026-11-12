@@ -19,6 +19,7 @@ import {
   snapshotWorkspace,
   WORKSPACE_ROOT,
   type WorkspaceFs,
+  type WorkspaceSnapshot,
 } from './workspace-files';
 import {
   PYODIDE_INDEX_URL,
@@ -197,7 +198,24 @@ async function init(indexURL: string, loadPackages: string[]): Promise<void> {
 // stays here.
 
 function workspaceFs(py: PyodideInterface): WorkspaceFs {
-  return py.FS as unknown as WorkspaceFs;
+  const fs = py.FS as unknown as {
+    mkdirTree(path: string): void;
+    writeFile(path: string, data: string, opts?: { encoding?: 'utf8' }): void;
+    readdir(path: string): string[];
+    readFile(path: string, opts?: { encoding: 'utf8' }): string;
+    readFile(path: string, opts: { encoding: 'binary' }): Uint8Array;
+    stat(path: string): { mode: number; size: number };
+    isDir(mode: number): boolean;
+  };
+  return {
+    mkdirTree: (path) => fs.mkdirTree(path),
+    writeFile: (path, data, opts) => fs.writeFile(path, data, opts),
+    readdir: (path) => fs.readdir(path),
+    readFile: (path, opts) => fs.readFile(path, opts),
+    readFileBinary: (path) => fs.readFile(path, { encoding: 'binary' }),
+    stat: (path) => fs.stat(path),
+    isDir: (mode) => fs.isDir(mode),
+  };
 }
 
 /** Make /workspace importable and clear cached modules from previous runs. */
@@ -239,7 +257,7 @@ _os.chdir('/workspace')
  * collect message diffs against it, so only files the program actually
  * created or modified are handed back to the host.
  */
-let workspaceBaseline: Record<string, string> | null = null;
+let workspaceBaseline: WorkspaceSnapshot | null = null;
 
 function snapshotVariables(py: PyodideInterface): Record<string, VariableSnapshot> {
   const snapshot = py.runPython('_snapshot_variables()') as {
@@ -325,13 +343,14 @@ async function handleRun(msg: RunMessage): Promise<void> {
     await autoLoadFromImports(py, msg.code);
     await py.runPythonAsync(msg.code);
     const variables = snapshotVariables(py);
-    const files = collectWorkspaceOutputs(fs, baseline);
+    const outputs = collectWorkspaceOutputs(fs, baseline);
     postMessage({
       type: 'result',
       id: msg.id,
       ok: true,
       variables,
-      files,
+      files: outputs.files,
+      binaryFiles: outputs.binaryFiles,
       durationMs: performance.now() - started,
     });
   } catch (err) {
@@ -399,9 +418,17 @@ async function handleCollect(msg: CollectMessage): Promise<void> {
   try {
     const py = await ensurePyodide(activeIndexURL);
     const fs = workspaceFs(py);
-    const files = workspaceBaseline ? collectWorkspaceOutputs(fs, workspaceBaseline) : {};
+    const outputs = workspaceBaseline
+      ? collectWorkspaceOutputs(fs, workspaceBaseline)
+      : { files: {}, binaryFiles: {} };
     workspaceBaseline = snapshotWorkspace(fs);
-    postMessage({ type: 'collect-result', id: msg.id, ok: true, files });
+    postMessage({
+      type: 'collect-result',
+      id: msg.id,
+      ok: true,
+      files: outputs.files,
+      binaryFiles: outputs.binaryFiles,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     postMessage({ type: 'collect-result', id: msg.id, ok: false, files: {}, error: message });

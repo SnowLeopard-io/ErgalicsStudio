@@ -409,16 +409,17 @@ export function CodeEditor() {
    */
   const saveRunOutputs = async (
     files: Record<string, string> | undefined,
+    binaryFiles: Record<string, string> | undefined,
     staged: Record<string, string>,
   ): Promise<void> => {
-    if (!files) return;
     const produced: Record<string, string> = {};
-    for (const [path, text] of Object.entries(files)) {
+    for (const [path, text] of Object.entries(files ?? {})) {
       if (staged[path] === text) continue;
       produced[path] = text;
     }
-    if (Object.keys(produced).length === 0) return;
-    await useAppStore.getState().saveWorkspaceFiles(produced);
+    const producedBinary = binaryFiles ?? {};
+    if (Object.keys(produced).length === 0 && Object.keys(producedBinary).length === 0) return;
+    await useAppStore.getState().saveWorkspaceFiles(produced, producedBinary);
   };
 
 
@@ -498,7 +499,7 @@ export function CodeEditor() {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          saveRunOutputs(result.files, staged);
+          saveRunOutputs(result.files, result.binaryFiles, staged);
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -594,7 +595,7 @@ export function CodeEditor() {
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          saveRunOutputs(result.files, staged);
+          saveRunOutputs(result.files, result.binaryFiles, staged);
         } else {
           error = result.error ?? 'run failed';
         }

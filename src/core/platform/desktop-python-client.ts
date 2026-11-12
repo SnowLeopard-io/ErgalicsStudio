@@ -23,6 +23,8 @@ interface DesktopPythonRunResult {
   /** Present for parity with Pyodide; the desktop channel does not collect
    *  workspace outputs yet, so it stays undefined. */
   files?: Record<string, string>;
+  /** Present for parity with Pyodide; desktop CPython writes real files. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -122,8 +124,13 @@ export class DesktopPythonClient {
 
   /** Desktop edition: the interpreter writes straight into the project tree,
    *  so there is nothing to collect back. */
-  async collectWorkspaceFiles(): Promise<{ ok: boolean; files: Record<string, string>; error?: string }> {
-    return { ok: true, files: {} };
+  async collectWorkspaceFiles(): Promise<{
+    ok: boolean;
+    files: Record<string, string>;
+    binaryFiles?: Record<string, string>;
+    error?: string;
+  }> {
+    return { ok: true, files: {}, binaryFiles: {} };
   }
 
   interrupt(): void {

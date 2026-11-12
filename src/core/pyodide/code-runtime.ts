@@ -176,13 +176,19 @@ export async function installPythonPackages(
 /**
  * Files the interpreter created or changed since the last mount/run. The
  * terminal writes them into the project, so a script run from the terminal
- * produces the same artefacts as the editor's 运行 button.
+ * produces the same artefacts as the editor's 运行 button. `binaryFiles`
+ * carries figures / PDFs / .npy dumps as base64.
  */
-export async function collectWorkspaceOutputsFromRuntime(): Promise<Record<string, string>> {
+export async function collectWorkspaceOutputsFromRuntime(): Promise<{
+  files: Record<string, string>;
+  binaryFiles: Record<string, string>;
+}> {
   try {
     const result = await getPythonRuntime().collectWorkspaceFiles();
-    return result.ok ? result.files : {};
+    return result.ok
+      ? { files: result.files, binaryFiles: result.binaryFiles ?? {} }
+      : { files: {}, binaryFiles: {} };
   } catch {
-    return {};
+    return { files: {}, binaryFiles: {} };
   }
 }
