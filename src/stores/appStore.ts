@@ -890,8 +890,8 @@ export const useAppStore = create<AppStore>((set, get) => {
    *  remaining tab becomes active. A closed file tab's blob URL is revoked
    *  and a closed editor tab's buffer is dropped. */
   closeTab: (key) => {
+    const closed = get().canvasTabs.find((tab) => tab.key === key);
     set((s) => {
-      const closed = s.canvasTabs.find((tab) => tab.key === key);
       if (!closed) return s;
       const next = s.canvasTabs.filter((tab) => tab.key !== key);
       const filePreviews = { ...s.filePreviews };
@@ -937,6 +937,14 @@ export const useAppStore = create<AppStore>((set, get) => {
         ...(nextMode ? { mode: nextMode } : {}),
       };
     });
+    // A sample tab owns its editor session: closing the tab drops the
+    // session too, so the project snapshot never carries a dead sample.
+    if (closed?.kind === 'surface' && closed.sessionId) {
+      const sessionId = closed.sessionId;
+      void import('./editorStore').then((m) => {
+        m.useEditorStore.getState().removeSession(sessionId);
+      });
+    }
     if (get().activeTab === null) get().showPluginCanvas();
   },
 
