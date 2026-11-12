@@ -10612,7 +10612,6 @@
 
   /* dvh: 100vh on mobile counts the strip behind the browser chrome, which
      would push the status bar out of view. */
-  .app-root,
   .welcome,
   .workbench,
   .settings,

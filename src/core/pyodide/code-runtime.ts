@@ -131,7 +131,8 @@ export function isPythonRuntimeWarm(): boolean {
  *
  * The mount is keyed by the project + its file-version, so it re-runs when
  * the project changes (or was still loading when the terminal opened) and is
- * a no-op otherwise.
+ * a no-op otherwise. `force` rebuilds the tree even when the key matches —
+ * a run may have left the bundled example files in the interpreter.
  */
 let mountedKey: string | null = null;
 
@@ -156,13 +157,6 @@ export async function mountWorkspaceFiles(force = false): Promise<boolean> {
     // terminal shows "workspace not ready" and retries on the next command.
     return false;
   }
-}
-
-/** True when the interpreter currently holds the project's file tree. */
-export function isWorkspaceMounted(): boolean {
-  const project = useProjectStore.getState().project;
-  const version = useAppStore.getState().fileOpsVersion;
-  return mountedKey === `${project?.id ?? 'none'}:${version}`;
 }
 
 /**

@@ -16,6 +16,7 @@
 // ==========================================================================
 
 import { collectColumnNames, makeMissingChecker } from '@/core/data-quality';
+import { splitCsvCells } from '@/core/io/delimited';
 import type { Row } from '@/core/data-quality';
 
 // ---- schema model -----------------------------------------------------------
@@ -146,33 +147,7 @@ export interface RawTable {
 
 /** Split one CSV line honouring double-quoted cells with escaped quotes. */
 export function splitCsvLine(line: string): string[] {
-  const cells: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      cells.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  cells.push(cur);
-  return cells;
+  return splitCsvCells(line);
 }
 
 /** Parse CSV text into a header + string-cell table. `null` when empty. */

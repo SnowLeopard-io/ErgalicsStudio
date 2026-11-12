@@ -16,7 +16,6 @@
 
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { getVfs } from '@/core/vfs';
 import { getGitAdapter } from '@/core/git';
 import {
   installPythonPackages,
@@ -24,6 +23,7 @@ import {
   warmPythonRuntime,
 } from '@/core/pyodide/code-runtime';
 import { openWorkspaceFile, toProjectPath } from '@/core/workspace/open-file';
+import { projectFileExists, writeProjectFile } from '@/core/workspace/project-files';
 import { splitArgs, type ReplCommand } from '@/core/pyodide/repl-commands';
 
 export interface HostCommandContext {
@@ -61,19 +61,16 @@ export async function runHostCommand(
         return true;
       }
       const rel = toProjectPath(cmd.arg);
-      const project = useProjectStore.getState().project;
-      if (!project) {
+      if (!useProjectStore.getState().project) {
         ctx.append('stderr', 'touch: no project open');
         return true;
       }
       try {
-        const adapter = getVfs();
-        const repoPath = getProjectRepoPath(project);
-        if (await adapter.exists(repoPath, rel)) {
+        if (await projectFileExists(rel)) {
           ctx.append('info', `touch: ${rel} already exists`);
           return true;
         }
-        await adapter.writeFile(repoPath, rel, '');
+        await writeProjectFile(rel, '');
         useAppStore.getState().bumpFileOps();
         ctx.append('info', `created ${rel}`);
       } catch (err) {

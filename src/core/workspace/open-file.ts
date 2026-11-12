@@ -3,9 +3,9 @@
 // ==========================================================================
 
 import { useAppStore } from '@/stores/appStore';
-import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
-import { getVfs } from '@/core/vfs';
+import { readProjectFile } from '@/core/workspace/project-files';
 import {
   codeLanguageForFile,
   editorKindForFile,
@@ -34,13 +34,10 @@ export function toProjectPath(path: string): string {
 export async function openWorkspaceFile(path: string): Promise<string> {
   const rel = toProjectPath(path);
   if (!rel) return 'open: missing file path';
-  const project = useProjectStore.getState().project;
-  if (!project) return 'open: no project open';
+  if (!useProjectStore.getState().project) return 'open: no project open';
   const name = rel.split('/').pop() ?? rel;
   try {
-    const adapter = getVfs();
-    const repoPath = getProjectRepoPath(project);
-    const raw = await adapter.readFile(repoPath, rel);
+    const raw = await readProjectFile(rel);
     // Keep the explorer in sync with the editor: the tree reveals + selects
     // the file that was just opened.
     useAppStore.getState().setRevealFilePath(rel);

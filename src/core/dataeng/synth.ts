@@ -23,6 +23,7 @@
 // ==========================================================================
 
 import { mulberry32 } from '@/core/repro/random';
+import { splitCsvCells } from '@/core/io/delimited';
 
 /** Deterministic seeded PRNG in [0, 1). */
 export type Rng = () => number;
@@ -215,33 +216,7 @@ export interface SynthTable {
 
 /** Split one CSV line honouring double-quoted cells with escaped quotes. */
 function splitCsvLine(line: string): string[] {
-  const cells: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      cells.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  cells.push(cur);
-  return cells;
+  return splitCsvCells(line);
 }
 
 const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;

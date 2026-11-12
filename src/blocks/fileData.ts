@@ -9,6 +9,8 @@
 
 import { createDataTable, type DataTable } from '@/types/datatable';
 import { isNumericToken } from '@/core/io/numericToken';
+import { splitLooseTokens } from '@/core/io/delimited';
+import { stripBOM } from '@/core/io/text';
 
 interface ParsedColumn {
   name: string;
@@ -21,15 +23,6 @@ interface ParsedColumns {
   rows: number;
 }
 
-function toFloat64(value: number[]): Float64Array {
-  return Float64Array.from(value);
-}
-
-/** Drop a leading UTF-8 BOM so it can't poison the first header token. */
-function stripBOM(text: string): string {
-  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
-}
-
 /**
  * Split a delimited line into tokens.
  *
@@ -38,56 +31,12 @@ function stripBOM(text: string): string {
  * plain numeric data. A comma always closes a field — so `1,,3` yields an
  * explicit empty middle field — while runs of whitespace collapse into a single
  * separator (so `1   2` is two fields, not three).
+ *
+ * The implementation lives in core/io/delimited (shared with the chunked
+ * reader, the cleaning wizard and the data-engine parsers).
  */
 function splitTokens(line: string): string[] {
-  const tokens: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  let quoted = false;
-  /** A comma just closed a field, so a trailing comma still promises one more. */
-  let afterComma = false;
-
-  const flush = (force: boolean) => {
-    if (force || quoted || cur.length > 0) tokens.push(cur);
-    cur = '';
-    quoted = false;
-    afterComma = false;
-  };
-
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inQuotes = true;
-      quoted = true;
-      continue;
-    }
-    if (ch === ',') {
-      flush(true);
-      afterComma = true;
-      continue;
-    }
-    if (/\s/.test(ch)) {
-      // Collapse whitespace runs: only close a field that actually has content.
-      if (cur.length > 0 || quoted) flush(false);
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur.length > 0 || quoted || afterComma) tokens.push(cur);
-  return tokens;
+  return splitLooseTokens(line);
 }
 
 /**
@@ -166,7 +115,7 @@ function parseDelimitedColumns(
     return {
       name,
       type: 'f64' as const,
-      data: toFloat64(cells.map((c) => (c !== '' && isNumericToken(c) ? Number(c) : NaN))),
+      data: Float64Array.from(cells.map((c) => (c !== '' && isNumericToken(c) ? Number(c) : NaN))),
     };
   });
 

@@ -14,6 +14,8 @@ import { hashString } from '@/core/repro/random';
 import { listFileChunks } from '@/core/storage';
 import { OpfsChunkStore } from '@/core/opfs';
 import { isNumericToken } from '@/core/io/numericToken';
+import { splitLooseTokens } from '@/core/io/delimited';
+import { stripBOM } from '@/core/io/text';
 
 export interface ChunkedReadOptions {
   /** Rows per chunk (default 50_000). */
@@ -54,66 +56,16 @@ export function isChunkable(fileName: string): boolean {
   return CHUNKABLE.has(fileName.slice(dot + 1).toLowerCase());
 }
 
-/** Drop a leading UTF-8 BOM so it can't poison the first header token. */
-function stripBOM(text: string): string {
-  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
-}
-
 // ---- tokenizer -------------------------------------------------------------
 
 /**
  * Split a delimited line into tokens (RFC4180-style quotes; a comma always
- * closes a field; whitespace runs collapse into one separator). Mirrors the
- * semantics of blocks/fileData.ts but kept local: core must not import the
- * blocks layer.
+ * closes a field; whitespace runs collapse into one separator). The
+ * implementation is shared with the block/flow file loader
+ * (core/io/delimited) — core must not import the blocks layer.
  */
 function splitTokens(line: string): string[] {
-  const tokens: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  let quoted = false;
-  let afterComma = false;
-
-  const flush = (force: boolean) => {
-    if (force || quoted || cur.length > 0) tokens.push(cur);
-    cur = '';
-    quoted = false;
-    afterComma = false;
-  };
-
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inQuotes = true;
-      quoted = true;
-      continue;
-    }
-    if (ch === ',') {
-      flush(true);
-      afterComma = true;
-      continue;
-    }
-    if (/\s/.test(ch)) {
-      if (cur.length > 0 || quoted) flush(false);
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur.length > 0 || quoted || afterComma) tokens.push(cur);
-  return tokens;
+  return splitLooseTokens(line);
 }
 
 // ---- header / column model -------------------------------------------------

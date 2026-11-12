@@ -13,16 +13,12 @@ export const uxZh: LocaleDictionary = {
   'ux.palette.groups.modes': '工作模式',
   'ux.palette.group.panel': '面板',
   'ux.palette.group.nav': '导航',
-  // ---- 模式同步指示 ----
-  'ux.mode.synced': 'Block / Code / Flow 三视图已同步',
-  'ux.mode.diverged': '三视图内容不一致，切换模式后将自动同步',
   // ---- 状态栏性能弹层 ----
   'ux.perf.title': '性能详情',
   'ux.perf.fps': '帧率',
   'ux.perf.gpu': 'GPU 耗时',
   'ux.perf.memory': '存储占用',
   'ux.perf.jsheap': 'JS 堆',
-  'ux.perf.scale': '数据规模',
   'ux.perf.warn_fps': '帧率偏低',
   'ux.perf.warn_memory': '存储占用偏高',
   'ux.perf.warn_compute': 'GPU 耗时偏高',
@@ -82,16 +78,12 @@ export const uxEn: LocaleDictionary = {
   'ux.palette.groups.modes': 'Work modes',
   'ux.palette.group.panel': 'Panels',
   'ux.palette.group.nav': 'Navigate',
-  // ---- mode sync indicator ----
-  'ux.mode.synced': 'Block / Code / Flow views are in sync',
-  'ux.mode.diverged': 'Views diverged — they re-sync when you switch modes',
   // ---- status-bar perf popover ----
   'ux.perf.title': 'Performance',
   'ux.perf.fps': 'Frame rate',
   'ux.perf.gpu': 'GPU time',
   'ux.perf.memory': 'Storage',
   'ux.perf.jsheap': 'JS heap',
-  'ux.perf.scale': 'Data scale',
   'ux.perf.warn_fps': 'Low frame rate',
   'ux.perf.warn_memory': 'High memory',
   'ux.perf.warn_compute': 'High GPU time',

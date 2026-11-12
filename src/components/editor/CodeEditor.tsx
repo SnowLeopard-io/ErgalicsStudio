@@ -54,7 +54,6 @@ import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import type { CodeLanguage } from '@/types/editor';
 
 import { SurfaceToolbar } from './SurfaceToolbar';
-import { useEditorSplit } from './useEditorSplit';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 
 /** Keystroke → IR debounce (mirrors block mode's 120ms, slightly roomier). */
@@ -90,8 +89,8 @@ export function CodeEditor() {
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   // Result preview + variables live in the workbench right sidebar; console
-  // output lives in the global terminal drawer. The dock keeps the input rows.
-  const { dockHeight } = useEditorSplit();
+  // output lives in the global terminal drawer. The dock keeps the input rows
+  // and sizes itself to their content.
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoNS.editor.IStandaloneCodeEditor | null>(null);
@@ -766,9 +765,10 @@ export function CodeEditor() {
 
         {/* Console output lives in the global terminal drawer now — the
             inline panel used to mirror the same store view (duplicated).
-            This dock keeps only the REPL / R-install input rows. */}
-        <div className="block-editor-bottom" style={{ height: dockHeight }}>
-          <div className="editor-panel editor-console-wrap">
+            This dock keeps only the REPL / R-install input rows and sizes
+            itself to their content. */}
+        <div className="block-editor-bottom">
+          <div className="editor-panel editor-input-dock">
             {/* REPL needs a persistent Python namespace — Pyodide only. */}
             {language === 'python' && (
               <div className="code-editor-repl">

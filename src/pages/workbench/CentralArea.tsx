@@ -1356,6 +1356,10 @@ export function CentralArea() {
         clearCanvas2dInViewport(canvas);
       },
     }, hostOwnerRef.current);
+    // The owner the containers were registered with — the cleanup must hand
+    // back the SAME owner, and `hostOwnerRef.current` may have changed by
+    // then.
+    const owner = hostOwnerRef.current;
     // If a plugin is still active (e.g. CentralArea just remounted after a
     // block-mode toggle), redraw it into the fresh container elements. The
     // canvas must carry its final CSS size *before* that first draw — during
@@ -1375,7 +1379,9 @@ export function CentralArea() {
     });
     return () => {
       cancelAnimationFrame(settle);
-      setHostContainers(null, hostOwnerRef.current);
+      // Capture the owner now: `hostOwnerRef.current` may point elsewhere by
+      // the time the cleanup runs.
+      setHostContainers(null, owner);
       scene3dRef.current?.dispose();
       scene3dRef.current = null;
     };

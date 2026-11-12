@@ -39,7 +39,10 @@ export function ResultPreview() {
       hostOwnerRef.current,
     );
     rerenderActivePlugin();
-    return () => setHostContainers(null, hostOwnerRef.current);
+    // Capture the owner now: `hostOwnerRef.current` may point elsewhere by
+    // the time the cleanup runs.
+    const owner = hostOwnerRef.current;
+    return () => setHostContainers(null, owner);
   }, []);
 
   return (

@@ -847,48 +847,6 @@
 
 /* ---- panel splitters (pointer + keyboard resizable) ---- */
 
-.be-splitter {
-  position: relative;
-  flex: none;
-  background: transparent;
-  touch-action: none;
-  z-index: 2;
-}
-
-.be-splitter.is-horizontal {
-  height: 12px;
-  cursor: row-resize;
-}
-
-/* Hairline grip, invisible until hover/focus so the layout stays quiet. */
-.be-splitter::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border-radius: 999px;
-  background: var(--color-border);
-  transition: background var(--transition-fast), transform var(--transition-fast);
-}
-
-.be-splitter.is-horizontal::before {
-  width: 32px;
-  height: 2px;
-  transform: translate(-50%, -50%);
-}
-
-.be-splitter:hover::before,
-.be-splitter:active::before,
-.be-splitter:focus-visible::before {
-  background: var(--color-accent);
-}
-
-/* The grip is the focus affordance; suppress the global focus ring. */
-.be-splitter:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
 .block-editor-workspace {
   flex: 1;
   min-width: 0;
@@ -1107,32 +1065,6 @@
   color: var(--color-text-secondary);
 }
 
-.editor-panel-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.editor-panel-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  border-radius: 3px;
-  font-size: 12px;
-  transition: background 100ms ease, color 100ms ease;
-}
-
-.editor-panel-action:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-
 .editor-panel-body {
   flex: 1;
   min-height: 0;
@@ -1237,17 +1169,6 @@
   word-break: break-all;
 }
 
-.editor-console-glyph {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  color: var(--color-text-tertiary);
-}
-
 .editor-console-text {
   flex: 1;
   min-width: 0;
@@ -1258,10 +1179,6 @@
 }
 
 .editor-console-line.is-stderr {
-  color: var(--color-error);
-}
-
-.editor-console-line.is-stderr .editor-console-glyph {
   color: var(--color-error);
 }
 
@@ -1296,18 +1213,14 @@
   50% { opacity: 0.35; }
 }
 
-.editor-console-wrap {
+/* The code editor's bottom dock holds the REPL / R-install input rows (the
+   console itself lives in the global terminal window). */
+.editor-input-dock {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
-}
-
-.editor-console-wrap > .editor-panel-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
 }
 
 .code-editor-repl {
@@ -1447,11 +1360,6 @@
 }
 
 .be-switch-btn:hover { opacity: 0.9; }
-
-.be-switch-btn-discard {
-  border-color: rgba(200, 60, 60, 0.6);
-  color: #e05c5c;
-}
 
 .be-switch-btn-apply {
   background: var(--color-accent);
