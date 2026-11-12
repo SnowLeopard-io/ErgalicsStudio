@@ -987,6 +987,8 @@ export const enUS: LocaleDictionary = {
   'synth.value': 'Value',
   'synth.overall': 'Overall similarity',
   'synth.mean_ks': 'Mean KS statistic',
+  'synth.skipped_columns':
+    'These columns could not be compared (no values on one side) and are excluded from the score: {names}',
   'synth.mean_tvd': 'Mean total variation (TVD)',
   'synth.corr_diff': 'Correlation gap',
   'synth.missing_diff': 'Missing-rate gap',
@@ -1273,6 +1275,9 @@ export const enUS: LocaleDictionary = {
   'model.figure_sent': 'Diagnostics sent to Figure Studio',
   'model.sample_warn': 'Data exceeds {n} rows; a fixed-seed sample of {n} rows is fitted',
   'model.need_two': 'Pick at least one predictor; logistic regression needs a 0/1 target',
+  'model.not_enough_finite':
+    'Not enough usable rows ({count}): rows with missing values were dropped, so no fit was computed',
+  'model.dropped_rows': 'Dropped {count} row(s) with missing values (not used in the fit)',
 
   // ---- F9 Inference Forge ----
   'inference.title': 'Inference Forge',

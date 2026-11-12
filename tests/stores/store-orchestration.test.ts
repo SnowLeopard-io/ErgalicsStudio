@@ -139,21 +139,30 @@ describe('figureStore: panel placement', () => {
 });
 
 describe('researchStore: sweeps, profiles and reports', () => {
+  const plan = {
+    id: 'p1',
+    name: 'P',
+    source: 'code' as const,
+    sourceRef: 'ref',
+    axes: [],
+    metric: 'value',
+    repeats: 1,
+    createdAt: 0,
+  };
+
   it('saves and replaces a plan by id', () => {
-    const plan = {
-      id: 'p1', name: 'P', axes: [], createdAt: 0, metric: 'value', repeats: 1,
-    } as never;
     useResearchStore.getState().savePlan(plan);
-    useResearchStore.getState().savePlan({ ...plan, name: 'P2' } as never);
+    useResearchStore.getState().savePlan({ ...plan, name: 'P2' });
     const plans = useProjectStore.getState().project!.state.sweeps ?? [];
     expect(plans).toHaveLength(1);
     expect(plans[0]!.name).toBe('P2');
   });
 
   it('deleting a plan removes its results too', () => {
-    const plan = { id: 'p1', name: 'P', axes: [], createdAt: 0, metric: 'value', repeats: 1 } as never;
     useResearchStore.getState().savePlan(plan);
-    useResearchStore.getState().saveSweepResult({ planId: 'p1', cells: [], status: 'done' } as never);
+    useResearchStore
+      .getState()
+      .saveSweepResult({ planId: 'p1', cells: [], status: 'done' } as never);
     expect(Object.keys(useProjectStore.getState().project!.state.sweepResults ?? {})).toHaveLength(1);
     useResearchStore.getState().deletePlan('p1');
     const state = useProjectStore.getState().project!.state;
@@ -162,11 +171,19 @@ describe('researchStore: sweeps, profiles and reports', () => {
   });
 
   it('a profile is replaced per file key', () => {
-    const profile = { fileKey: 'f', rows: 1, columns: [], score: 90, duplicates: {}, issues: [] } as never;
-    useResearchStore.getState().saveProfile(profile);
-    useResearchStore.getState().saveProfile({ ...profile, score: 50 } as never);
+    const profile = {
+      fileKey: 'f',
+      fingerprint: 'h1',
+      fileName: 'f.csv',
+      createdAt: 0,
+      profile: { rows: 1, columns: [], score: 90, duplicates: {}, issues: [] },
+    };
+    useResearchStore.getState().saveProfile(profile as never);
+    useResearchStore
+      .getState()
+      .saveProfile({ ...profile, profile: { ...profile.profile, score: 50 } } as never);
     const profiles = useProjectStore.getState().project!.state.profiles ?? [];
     expect(profiles).toHaveLength(1);
-    expect(profiles[0]!.score).toBe(50);
+    expect(profiles[0]!.profile.score).toBe(50);
   });
 });
