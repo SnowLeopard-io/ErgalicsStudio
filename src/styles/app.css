@@ -3191,6 +3191,50 @@
   font-family: var(--font-mono);
 }
 
+/* Python package panel (Settings → Python environment): one action button
+   width everywhere so 安装 / 卸载 / 启动 line up instead of each sizing to its
+   own label; block headings keep the label left and the action right. */
+.python-packages .btn {
+  min-width: 104px;
+  justify-content: center;
+}
+
+.python-packages .py-block {
+  margin: var(--space-3) 0;
+}
+
+.python-packages .py-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.python-packages .py-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.python-packages .sweep-table {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.python-packages .sweep-table td {
+  padding: 4px var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.python-packages .sweep-table .py-name {
+  font-family: var(--font-mono);
+}
+
+.python-packages .sweep-table .py-action {
+  width: 1%;
+  text-align: right;
+}
+
 /* FR-10 citation previews on the Settings "About" section */
 .citation-preview {
   margin: 0 0 var(--space-3) 0;

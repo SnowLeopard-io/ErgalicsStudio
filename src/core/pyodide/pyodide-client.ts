@@ -10,6 +10,7 @@ import { logger } from '../logger';
 import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
+  type ListPackagesMessage,
   type PlotPayload,
   type CollectMessage,
   type LoadPackagesMessage,
@@ -55,7 +56,9 @@ interface Pending {
       | PyodideReplResult
       | MountResult
       | LoadPackagesResult
-      | CollectResult,
+      | ListPackagesResult
+      | CollectResult
+      | { ok: boolean; error?: string },
   ) => void;
   reject: (reason: Error) => void;
 }
@@ -70,6 +73,13 @@ export interface MountResult {
 export interface LoadPackagesResult {
   ok: boolean;
   loaded: string[];
+  error?: string;
+}
+
+/** Result of a loaded-packages query (name → version). */
+export interface ListPackagesResult {
+  ok: boolean;
+  packages: Record<string, string>;
   error?: string;
 }
 
@@ -99,6 +109,15 @@ export class PyodideClient {
    * leave the Run button spinning forever with no diagnostics.
    */
   private static readonly BOOT_TIMEOUT_MS = 60_000;
+  /**
+   * Timeout for host-internal RPCs (mount / package list / package install /
+   * reset / collect). These never run user code and must always answer
+   * quickly; without a deadline a protocol mismatch left the caller awaiting
+   * a reply forever (that is how the settings package panel used to hang on
+   * "starting interpreter"). Program runs and REPL lines are exempt — a
+   * simulation may legitimately take minutes.
+   */
+  private static readonly RPC_TIMEOUT_MS = 60_000;
 
   private worker: Worker | null = null;
   /** Resolves once the worker has booted (Pyodide + `studio` injected). */
@@ -266,6 +285,14 @@ export class PyodideClient {
         }
         break;
       }
+      case 'list-packages-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, packages: event.packages, error: event.error });
+        }
+        break;
+      }
       case 'reset-result': {
         const pending = this.pending.get(event.id);
         if (pending) {
@@ -298,6 +325,7 @@ export class PyodideClient {
       | PyodideReplResult
       | MountResult
       | LoadPackagesResult
+      | ListPackagesResult
       | CollectResult
       | { ok: boolean; error?: string },
   >(
@@ -306,12 +334,43 @@ export class PyodideClient {
       | ReplMessage
       | MountMessage
       | LoadPackagesMessage
+      | ListPackagesMessage
       | ResetMessage
       | CollectMessage,
+    /** Deadline in ms; `null` disables it (long-running user code). */
+    timeoutMs: number | null = PyodideClient.RPC_TIMEOUT_MS,
   ): Promise<T> {
     const id = this.nextId++;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimer = () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
     const promise = new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as Pending['resolve'], reject });
+      this.pending.set(id, {
+        resolve: ((value: Parameters<Pending['resolve']>[0]) => {
+          clearTimer();
+          resolve(value as T);
+        }) as Pending['resolve'],
+        reject: (err: Error) => {
+          clearTimer();
+          reject(err);
+        },
+      });
+      if (timeoutMs !== null) {
+        timer = setTimeout(() => {
+          const p = this.pending.get(id);
+          if (!p) return;
+          this.pending.delete(id);
+          p.reject(
+            new Error(
+              `Pyodide worker did not answer "${message.type}" within ${timeoutMs / 1000}s`,
+            ),
+          );
+        }, timeoutMs);
+      }
     });
     void this.ensureWorker().then(
       (worker) => {
@@ -347,13 +406,15 @@ export class PyodideClient {
     params: Record<string, unknown> = {},
   ): Promise<PyodideRunResult> {
     const msg: RunMessage = { type: 'run', code, files, params };
-    return this.request<PyodideRunResult>(msg);
+    // No deadline: a long simulation is a legitimate run, not a hang.
+    return this.request<PyodideRunResult>(msg, null);
   }
 
   /** Evaluate one REPL line (expression or statement). */
   repl(code: string, preloadSource?: string): Promise<PyodideReplResult> {
     const msg: ReplMessage = { type: 'repl', code, preloadSource };
-    return this.request<PyodideReplResult>(msg);
+    // The terminal runs whole scripts through the REPL — no deadline either.
+    return this.request<PyodideReplResult>(msg, null);
   }
 
   /**
@@ -375,6 +436,11 @@ export class PyodideClient {
       type: 'load-packages',
       packages,
     });
+  }
+
+  /** Query the packages the live interpreter currently has loaded. */
+  listPackages(): Promise<ListPackagesResult> {
+    return this.request<ListPackagesResult>({ type: 'list-packages' });
   }
 
   /**

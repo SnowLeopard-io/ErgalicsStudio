@@ -147,8 +147,9 @@ export default function WelcomePage() {
       });
       // "Apply in Studio" must land on the topic's settings page with the
       // theme live — not linger on the welcome screen — so the action feels
-      // wired up. The `cat=theme` param opens the theme section directly.
-      navigate('/settings?cat=theme');
+      // wired up. The `cat=appearance` param opens the appearance section
+      // directly (the old `cat=theme` alias still resolves there).
+      navigate('/settings?cat=appearance');
       return;
     }
     // Website plugin-market deep link (#/?plugin=<id>): jump into the

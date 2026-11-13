@@ -82,6 +82,7 @@ export function createCodeRuntime(host: CodeRuntimeHost) {
     mountWorkspace: (files: Record<string, string>, dataFiles?: Record<string, string>) =>
       runtime.mountWorkspace(files, dataFiles),
     installPackages: (packages: string[]) => runtime.installPackages(packages),
+    listPackages: () => runtime.listPackages(),
     collectWorkspaceFiles: () => runtime.collectWorkspaceFiles(),
     resetNamespace: () => runtime.resetNamespace(),
     interrupt: () => runtime.interrupt(),

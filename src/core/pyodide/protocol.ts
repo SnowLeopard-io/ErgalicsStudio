@@ -78,6 +78,16 @@ export interface LoadPackagesMessage {
 }
 
 /**
+ * Query the packages the live interpreter currently has loaded
+ * (`pyodide.loadedPackages`, name → version). The settings storage panel
+ * renders this so the user can see what was pulled into the session.
+ */
+export interface ListPackagesMessage {
+  type: 'list-packages';
+  id?: number;
+}
+
+/**
  * Drop the interpreter's USER namespace (and its workspace tree).
  *
  * The interpreter is session-wide: variables the terminal REPL defined in
@@ -114,6 +124,7 @@ export type WorkerRequest =
   | ReplMessage
   | MountMessage
   | LoadPackagesMessage
+  | ListPackagesMessage
   | ResetMessage
   | CollectMessage;
 
@@ -204,6 +215,15 @@ export interface LoadPackagesResultMessage {
   error?: string;
 }
 
+/** Snapshot of the interpreter's currently loaded packages (name → version). */
+export interface ListPackagesResultMessage {
+  type: 'list-packages-result';
+  id: number;
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}
+
 /** Files the interpreter created or changed since the last baseline. */
 export interface CollectResultMessage {
   type: 'collect-result';
@@ -235,6 +255,7 @@ export type WorkerEvent =
   | ReplResultMessage
   | MountResultMessage
   | LoadPackagesResultMessage
+  | ListPackagesResultMessage
   | ResetResultMessage
   | CollectResultMessage
   | InitFailedMessage;

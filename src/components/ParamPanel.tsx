@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NumField } from '@/components/NumField';
 import {
   isParamVisible,
   type ParamDefinition,
   type PluginApi,
+  type RangeParam,
   type SelectOption,
 } from '@/types/plugin';
 import { useT } from '@/i18n';
@@ -68,6 +69,56 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
   );
 }
 
+/**
+ * Range slider with an optimistic local value.
+ *
+ * The panel is controlled by `def.value`, which only refreshes after a full
+ * plugin round-trip (`updateParams` → recompute/redraw → `getParams`). A
+ * directly-controlled thumb snaps back to the stale value on every re-render
+ * while a heavy plugin recomputes — it looks like the slider cannot be
+ * dragged at all. Keeping the last pointer position in local state makes the
+ * thumb follow the pointer immediately; the authoritative value takes over
+ * once the plugin reports back.
+ */
+function RangeControl({
+  def: rangeDef,
+  api,
+  onChange,
+}: {
+  def: ParamDefinition;
+  api: PluginApi;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const def = rangeDef as RangeParam;
+  const [local, setLocal] = useState<number | null>(null);
+  // Adopt the authoritative value whenever the plugin reports one back (it
+  // may have clamped the raw input, e.g. the optics focal-length range) —
+  // until then the thumb follows the pointer, never snapping back mid-drag.
+  useEffect(() => {
+    setLocal(null);
+  }, [def.value]);
+  const value = local ?? Number(def.value);
+  const label = def.labelI18n?.[api.locale] ?? def.label;
+  return (
+    <div className="param-range">
+      <input
+        type="range"
+        aria-label={label}
+        min={def.min}
+        max={def.max}
+        step={def.step}
+        value={value}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          setLocal(n);
+          onChange(def.key, n);
+        }}
+      />
+      <span className="param-value">{value}</span>
+    </div>
+  );
+}
+
 function Control({
   def,
   api,
@@ -86,20 +137,7 @@ function Control({
 
   switch (def.type) {
     case 'range':
-      return (
-        <div className="param-range">
-          <input
-            type="range"
-            aria-label={label(def)}
-            min={def.min}
-            max={def.max}
-            step={def.step}
-            value={def.value}
-            onChange={(e) => emit(Number(e.target.value))}
-          />
-          <span className="param-value">{def.value}</span>
-        </div>
-      );
+      return <RangeControl def={def} api={api} onChange={onChange} />;
     case 'select':
       return (
         <select

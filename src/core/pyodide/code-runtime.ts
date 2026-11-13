@@ -15,9 +15,12 @@ import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { collectProjectFiles, collectRuntimeFiles } from '@/core/dataFiles';
+import { logger } from '../logger';
 import { createCodeRuntime, type CodeRuntime } from './runtime';
+import { getPinnedPythonPackages } from './python-packages';
 import {
   pythonRuntimeBegin,
+  pythonRuntimeCancel,
   pythonRuntimeFail,
   pythonRuntimeReady,
   registerPythonRuntimeRetry,
@@ -41,6 +44,9 @@ export function subscribePythonOutput(sink: PythonOutputSink): () => void {
 let runtime: CodeRuntime | null = null;
 let boot: Promise<boolean> | null = null;
 let retryRegistered = false;
+/** Set by abortPythonBoot so the in-flight boot reports a cancellation
+ *  instead of a failure (the user asked for it — it is not an error). */
+let bootAborted = false;
 
 function createRuntime(): CodeRuntime {
   return createCodeRuntime({
@@ -103,6 +109,25 @@ export async function resetPythonRuntime(): Promise<boolean> {
 }
 
 /**
+ * Packages the user installed via the settings panel (or terminal) survive a
+ * refresh: the pinned list is re-installed from the service worker's cache
+ * right after every successful boot. A failed pin must never fail the boot
+ * itself (the next `import` surfaces a normal ImportError instead) — but the
+ * boot is only reported ready AFTER the attempt, so a package list read by
+ * the settings panel never misses wheels that are still loading.
+ */
+function installPinnedPackages(rt: CodeRuntime): Promise<void> {
+  const pinned = getPinnedPythonPackages().filter((p) => p !== 'numpy');
+  if (pinned.length === 0) return Promise.resolve();
+  return rt.installPackages(pinned).then(
+    (r) => {
+      if (!r.ok) logger.warn('pyodide', 'pinned package install failed', { pinned, error: r.error });
+    },
+    (err: unknown) => logger.warn('pyodide', 'pinned package install threw', err),
+  );
+}
+
+/**
  * Boot the interpreter once (idempotent) so later runs never pay the load
  * cost. Resolves true when the runtime is usable.
  */
@@ -116,12 +141,31 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   const rt = getPythonRuntime();
   const token = pythonRuntimeBegin('code', { silent: opts.silent });
   boot = rt.runPython('import studio', {}, {}).then(
-    (result) => {
+    async (result) => {
       if (!result.ok) throw new Error(result.error || 'Python runtime failed to start');
+      // Restore the user's pinned wheels before announcing "ready": the
+      // settings panel reads the package list the moment the boot settles,
+      // and a fire-and-forget install left it showing a partially loaded
+      // interpreter (matplotlib/pandas arriving seconds later).
+      await installPinnedPackages(rt);
+      if (bootAborted) {
+        bootAborted = false;
+        boot = null;
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeReady(token);
       return true;
     },
     (err: unknown) => {
+      // A user-initiated cancel is not a runtime failure: drop the boot
+      // without painting the red notice, so the panel just returns to idle.
+      if (bootAborted) {
+        bootAborted = false;
+        boot = null;
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeFail(token, err);
       // Allow a later call to retry from scratch; the client already dropped
       // its dead worker, so the same handle can spawn a fresh one.
@@ -130,6 +174,20 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
     },
   );
   return boot;
+}
+
+/**
+ * Abort an in-flight boot (the package panel's 取消 button).
+ *
+ * Terminates the worker so a hung bootstrap cannot keep burning memory, and
+ * forgets the boot promise so the next warm-up starts from a clean slate.
+ * The aborted promise settles with `false`; the panel ignores it.
+ */
+export function abortPythonBoot(): void {
+  if (!boot) return;
+  bootAborted = true;
+  boot = null;
+  runtime?.interrupt();
 }
 
 /** True while the interpreter is booting (used for lazy UI hints). */
@@ -204,6 +262,21 @@ export async function installPythonPackages(
   const ok = await warmPythonRuntime({ silent: true });
   if (!ok) return { ok: false, loaded: [], error: 'Python runtime is not available' };
   return getPythonRuntime().installPackages(packages);
+}
+
+/**
+ * Snapshot of the packages the live interpreter currently has loaded
+ * (name → version) for the settings storage panel. Boots the runtime
+ * silently if needed.
+ */
+export async function listPythonPackages(): Promise<{
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return { ok: false, packages: {}, error: 'Python runtime is not available' };
+  return getPythonRuntime().listPackages();
 }
 
 /**

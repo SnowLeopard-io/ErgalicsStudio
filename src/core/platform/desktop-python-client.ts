@@ -122,6 +122,12 @@ export class DesktopPythonClient {
     return { ok: true, loaded: packages };
   }
 
+  /** Desktop edition: real CPython imports straight from site-packages —
+   *  there is no Pyodide loadedPackages snapshot to report. */
+  async listPackages(): Promise<{ ok: boolean; packages: Record<string, string>; error?: string }> {
+    return { ok: true, packages: {} };
+  }
+
   /** Desktop edition: a fresh CPython session is the cleanest reset. */
   async resetNamespace(): Promise<boolean> {
     this.sessionId = null;

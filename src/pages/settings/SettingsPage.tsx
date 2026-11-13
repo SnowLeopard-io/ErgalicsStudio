@@ -29,22 +29,48 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import ThemeMarketPanel from './ThemeMarketPanel';
 import { PwaPanel } from './PwaPanel';
+import PythonPackagesPanel from './PythonPackagesPanel';
 import { UserProfilePanel } from './UserProfilePanel';
 import { AmbienceSettingsPanel, AchievementsPanel } from '@/components/ambience/AmbiencePanels';
 
+/**
+ * Settings taxonomy (conventional order: general → personalisation →
+ * account → performance → storage → runtime → offline → about).
+ *
+ * One category = one concern, and every control lives under the category it
+ * actually belongs to:
+ * - 通用: language + auto-save (app-wide behaviour)
+ * - 外观: theme picker, theme marketplace and ambience (everything visual)
+ * - 性能: GPU backend, memory cap, parse workers, chunk size (compute knobs)
+ * - 存储: cache usage/clear + OPFS chunk store (anything that occupies disk)
+ * - Python 环境: interpreter packages (runtime dependency, not storage)
+ */
 const CATEGORIES = [
   { id: 'general', labelKey: 'settings.general' },
+  { id: 'appearance', labelKey: 'settings.appearance' },
   { id: 'profile', labelKey: 'settings.profile' },
-  { id: 'theme', labelKey: 'settings.theme' },
-  { id: 'ambience', labelKey: 'settings.ambience' },
   { id: 'achievements', labelKey: 'settings.achievements' },
-  { id: 'gpu', labelKey: 'settings.gpu' },
-  { id: 'data', labelKey: 'settings.data' },
+  { id: 'performance', labelKey: 'settings.performance' },
   { id: 'store', labelKey: 'settings.store' },
+  { id: 'python', labelKey: 'settings.python' },
   { id: 'pwa', labelKey: 'settings.pwa' },
   { id: 'about', labelKey: 'settings.about' },
 ] as const;
 type CategoryId = (typeof CATEGORIES)[number]['id'];
+
+/** Pre-reorganisation ids still reachable from bookmarks / welcome links. */
+const CATEGORY_ALIASES: Record<string, CategoryId> = {
+  theme: 'appearance',
+  ambience: 'appearance',
+  gpu: 'performance',
+  data: 'store',
+};
+
+function resolveCategory(id: string | null): CategoryId | null {
+  if (!id) return null;
+  if (CATEGORIES.some((c) => c.id === id)) return id as CategoryId;
+  return CATEGORY_ALIASES[id] ?? null;
+}
 
 const GITHUB_REPO = 'https://github.com/SnowLeopard-io/ErgalicsStudio';
 const GITEE_REPO = 'https://gitee.com/cnt-code/ergalics-studio';
@@ -133,9 +159,7 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   // General otherwise. The `cat` param is also kept in sync as the user browses.
   const [searchParams, setSearchParams] = useSearchParams();
   const paramCat = searchParams.get('cat');
-  const [active, setActive] = useState<CategoryId>(() =>
-    CATEGORIES.some((c) => c.id === paramCat) ? (paramCat as CategoryId) : 'general',
-  );
+  const [active, setActive] = useState<CategoryId>(() => resolveCategory(paramCat) ?? 'general');
   const selectCat = (id: CategoryId) => {
     setActive(id);
     setSearchParams((prev) => {
@@ -149,9 +173,8 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   // External navigation (deep links clicked while the page is already open)
   // must move the panel too, not just the URL.
   useEffect(() => {
-    if (paramCat && CATEGORIES.some((c) => c.id === paramCat) && paramCat !== active) {
-      setActive(paramCat as CategoryId);
-    }
+    const resolved = resolveCategory(paramCat);
+    if (resolved && resolved !== active) setActive(resolved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramCat]);
 
@@ -315,19 +338,6 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                 </div>
 
                 <div className="settings-row">
-                  <label className="settings-label">{t('settings.theme')}</label>
-                  <select
-                    className="select settings-control"
-                    value={theme}
-                    onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-                  >
-                    <option value="light">{t('settings.theme_light')}</option>
-                    <option value="dark">{t('settings.theme_dark')}</option>
-                    <option value="system">{t('settings.theme_system')}</option>
-                  </select>
-                </div>
-
-                <div className="settings-row">
                   <label className="settings-label">{t('settings.auto_save')}</label>
                   <select
                     className="select settings-control"
@@ -343,17 +353,35 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
               </section>
             )}
 
-            {active === 'theme' && <ThemeMarketPanel />}
+            {active === 'appearance' && (
+              <section className="card settings-section">
+                <h2 className="settings-section-title">{t('settings.theme')}</h2>
+                <div className="settings-row">
+                  <label className="settings-label">{t('settings.theme_mode')}</label>
+                  <select
+                    className="select settings-control"
+                    value={theme}
+                    onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
+                  >
+                    <option value="light">{t('settings.theme_light')}</option>
+                    <option value="dark">{t('settings.theme_dark')}</option>
+                    <option value="system">{t('settings.theme_system')}</option>
+                  </select>
+                </div>
+              </section>
+            )}
+
+            {active === 'appearance' && <ThemeMarketPanel />}
+
+            {active === 'appearance' && <AmbienceSettingsPanel />}
 
             {active === 'profile' && <UserProfilePanel />}
 
-            {active === 'ambience' && <AmbienceSettingsPanel />}
-
             {active === 'achievements' && <AchievementsPanel />}
 
-            {active === 'gpu' && (
+            {active === 'performance' && (
               <section className="card settings-section">
-                <h2 className="settings-section-title">{t('settings.gpu')}</h2>
+                <h2 className="settings-section-title">{t('settings.performance')}</h2>
 
                 <div className="settings-row">
                   <label className="settings-label">{t('settings.gpu_backend')}</label>
@@ -428,9 +456,9 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
               </section>
             )}
 
-            {active === 'data' && (
+            {active === 'store' && (
               <section className="card settings-section">
-                <h2 className="settings-section-title">{t('settings.data')}</h2>
+                <h2 className="settings-section-title">{t('settings.cache')}</h2>
 
                 <div className="settings-row">
                   <label className="settings-label">{t('settings.cache_usage')}</label>
@@ -540,6 +568,8 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                 </div>
               </section>
             )}
+
+            {active === 'python' && <PythonPackagesPanel />}
 
             {active === 'pwa' && <PwaPanel />}
 
