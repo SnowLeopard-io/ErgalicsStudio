@@ -6,9 +6,13 @@
  *   core    — app shell + build chunks (precache on install, cache-first
  *             with background revalidation on fetch).
  *   runtime — heavy same-origin engines: pyodide/, blockly/, webr/, *.wasm,
- *             docs/. Stale-while-revalidate: the FIRST online use caches
- *             them, every later offline session replays from cache. They are
- *             too large to precache blindly.
+ *             docs/. Cache-first: the FIRST online use caches them and every
+ *             later load — online or offline, including a refresh — replays
+ *             the cached bytes with no network request. Refreshing must never
+ *             re-download the Pyodide bundle. They are too large to precache
+ *             blindly, and a build's VERSION bump rotates the cache name
+ *             (activate deletes the old tier), so a deploy still picks up new
+ *             engines.
  *   shell   — index.html for offline navigation fallback.
  *
  * NETWORK-REQUIRED resources (bypassed here; the UI marks them via
@@ -33,7 +37,7 @@ const SHELL_CACHE = `ergalics-shell-${VERSION}`;
 
 const PRECACHE_MANIFEST = /*__PRECACHE_MANIFEST__*/ [];
 
-/** Same-origin heavy engines: cached on first use (SWR), not precached. */
+/** Same-origin heavy engines: cached on first use (cache-first), not precached. */
 const RUNTIME_URL_PATTERNS = [
   /(^|\/)pyodide\//,
   /(^|\/)blockly\//,
@@ -112,19 +116,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Heavy same-origin engines: stale-while-revalidate into the runtime tier.
+  // Heavy same-origin engines: cache-first. A refresh must not re-fetch the
+  // multi-megabyte Pyodide/wheel bundle; the VERSION-scoped cache name makes
+  // stale engines impossible across builds (activate drops the old tier).
   if (isRuntimeAsset(url)) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(RUNTIME_CACHE);
-        const stale = await cache.match(req);
-        const network = fetch(req)
-          .then((res) => {
-            if (res && res.ok) cache.put(req, res.clone());
-            return res;
-          })
-          .catch(() => undefined);
-        return stale || (await network) || Response.error();
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch {
+          return Response.error();
+        }
       })(),
     );
     return;

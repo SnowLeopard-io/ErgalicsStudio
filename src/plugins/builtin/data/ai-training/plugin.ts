@@ -148,16 +148,22 @@ export class AITrainingPlugin implements Plugin {
       },
     ];
 
-    if (this.kind !== 'mnist') {
+    // No dataset yet → an empty <select> that can never be changed. Only offer
+    // the target column once there are columns to choose from.
+    const columnOptions = this.dataset
+      ? this.dataset.columnNames.map((c) => ({ value: c, label: c }))
+      : [];
+    if (this.kind !== 'mnist' && columnOptions.length > 0) {
       p.push({
         key: 'targetColumn',
         label: 'Target Column',
         labelI18n: { 'zh-CN': '目标列', 'en-US': 'Target Column' },
         type: 'select',
-        value: this.targetColumn ?? '',
-        options: this.dataset
-          ? this.dataset.columnNames.map((c) => ({ value: c, label: c }))
-          : [],
+        value:
+          this.targetColumn && columnOptions.some((o) => o.value === this.targetColumn)
+            ? this.targetColumn
+            : columnOptions[columnOptions.length - 1]!.value,
+        options: columnOptions,
       });
     }
 

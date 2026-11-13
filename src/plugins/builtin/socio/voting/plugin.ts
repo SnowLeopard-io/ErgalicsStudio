@@ -200,7 +200,7 @@ export class VotingPlugin implements Plugin {
         labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Seed' },
         type: 'range',
         min: 1,
-        max: 999999,
+        max: 99999999,
         step: 1,
         value: this.params.seed,
         hint: this.zh ? '固定种子 ⇒ 选举完全可复现' : 'fixed seed ⇒ fully reproducible election',

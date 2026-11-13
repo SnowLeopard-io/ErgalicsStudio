@@ -96,7 +96,7 @@ function RangeControl({
   // until then the thumb follows the pointer, never snapping back mid-drag.
   useEffect(() => {
     setLocal(null);
-  }, [def.value]);
+  }, [def.value, def.min, def.max, def.step]);
   const value = local ?? Number(def.value);
   const label = def.labelI18n?.[api.locale] ?? def.label;
   return (

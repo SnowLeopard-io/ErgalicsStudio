@@ -150,9 +150,16 @@ export default function PythonPackagesPanel() {
     }
   };
 
-  const loadedNames = new Set((loaded ?? []).map((p) => p.name));
-  const installable = VENDORED_PYTHON_PACKAGES.filter((p) => p !== 'numpy');
-  const unpinnedLoaded = pinned.filter((p) => loadedNames.has(p));
+  const installable = VENDORED_PYTHON_PACKAGES.filter(
+    (p) => p !== 'numpy' && !pinned.includes(p),
+  );
+  // Packages the live interpreter still holds although they are no longer
+  // pinned/restored at boot. A restart is the only way to unload a wheel, so
+  // this is what enables the restart button (auto-imported packages qualify
+  // too — restarting frees them and is never wrong).
+  const pendingRemoval = (loaded ?? []).filter(
+    (p) => p.name !== 'numpy' && !pinned.includes(p.name),
+  );
   /** A boot is in flight — ours or one started by another surface. */
   const booting = busy || phase === 'loading';
 
@@ -229,7 +236,7 @@ export default function PythonPackagesPanel() {
                 </button>
               )}
             </div>
-          ) : unpinnedLoaded.length > 0 ? (
+          ) : pendingRemoval.length > 0 ? (
             <button type="button" className="btn" disabled={busy} onClick={() => setRestartOpen(true)}>
               {t('store2.py_restart')}
             </button>

@@ -313,7 +313,7 @@ export class MathGamePlugin implements Plugin {
         labelI18n: { 'zh-CN': '随机种子', 'en-US': 'RNG seed' },
         type: 'number',
         min: 0,
-        max: 999999,
+        max: 99999999,
         step: 1,
         value: this.state.seed,
         hint: this.zh ? 'mulberry32 带种子随机数，同种子结果完全可复现' : 'seeded mulberry32 — identical samples for identical seeds',
@@ -381,7 +381,7 @@ export class MathGamePlugin implements Plugin {
       return true;
     });
     num('seed', (v) => {
-      const x = Math.round(Math.min(999999, Math.max(0, v)));
+      const x = Math.round(Math.min(99999999, Math.max(0, v)));
       if (x === s.seed) return false;
       s.seed = x;
       return true;
