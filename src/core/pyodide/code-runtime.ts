@@ -109,21 +109,22 @@ export async function resetPythonRuntime(): Promise<boolean> {
 }
 
 /**
- * Packages the user installed via the settings storage panel (or terminal)
- * survive a refresh: the pinned list is re-installed from the service
- * worker's cache right after every successful boot. Fire-and-forget — a
- * failed pin must never fail the boot itself (the next `import` will surface
- * a normal ImportError instead).
+ * Packages the user installed via the settings panel (or terminal) survive a
+ * refresh: the pinned list is re-installed from the service worker's cache
+ * right after every successful boot. A failed pin must never fail the boot
+ * itself (the next `import` surfaces a normal ImportError instead) — but the
+ * boot is only reported ready AFTER the attempt, so a package list read by
+ * the settings panel never misses wheels that are still loading.
  */
-function installPinnedPackages(rt: CodeRuntime): void {
+function installPinnedPackages(rt: CodeRuntime): Promise<void> {
   const pinned = getPinnedPythonPackages().filter((p) => p !== 'numpy');
-  if (pinned.length === 0) return;
-  void rt
-    .installPackages(pinned)
-    .then((r) => {
+  if (pinned.length === 0) return Promise.resolve();
+  return rt.installPackages(pinned).then(
+    (r) => {
       if (!r.ok) logger.warn('pyodide', 'pinned package install failed', { pinned, error: r.error });
-    })
-    .catch((err: unknown) => logger.warn('pyodide', 'pinned package install threw', err));
+    },
+    (err: unknown) => logger.warn('pyodide', 'pinned package install threw', err),
+  );
 }
 
 /**
@@ -140,10 +141,20 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   const rt = getPythonRuntime();
   const token = pythonRuntimeBegin('code', { silent: opts.silent });
   boot = rt.runPython('import studio', {}, {}).then(
-    (result) => {
+    async (result) => {
       if (!result.ok) throw new Error(result.error || 'Python runtime failed to start');
+      // Restore the user's pinned wheels before announcing "ready": the
+      // settings panel reads the package list the moment the boot settles,
+      // and a fire-and-forget install left it showing a partially loaded
+      // interpreter (matplotlib/pandas arriving seconds later).
+      await installPinnedPackages(rt);
+      if (bootAborted) {
+        bootAborted = false;
+        boot = null;
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeReady(token);
-      installPinnedPackages(rt);
       return true;
     },
     (err: unknown) => {

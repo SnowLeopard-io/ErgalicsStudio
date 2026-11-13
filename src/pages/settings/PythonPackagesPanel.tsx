@@ -15,6 +15,7 @@ import {
   listPythonPackages,
   warmPythonRuntime,
 } from '@/core/pyodide/code-runtime';
+import { usePythonRuntimeStatus } from '@/core/pyodide/runtime-status';
 
 interface LoadedPackage {
   name: string;
@@ -42,6 +43,13 @@ export default function PythonPackagesPanel() {
   /** True once the user cancelled the boot — its `false` result must not be
    *  reported as a startup failure. */
   const cancelledRef = useRef(false);
+  /**
+   * The shared boot signal. The interpreter may be booting in another
+   * surface (code editor, terminal, a plugin) and it may already be warm
+   * when this panel mounts — without subscribing, the table only appeared
+   * after a manual page refresh.
+   */
+  const phase = usePythonRuntimeStatus((s) => s.phase);
 
   const refresh = useCallback(async () => {
     if (!isPythonRuntimeWarm()) {
@@ -58,10 +66,12 @@ export default function PythonPackagesPanel() {
     );
   }, []);
 
+  // Re-read whenever the runtime changes state (booting → ready, restart,
+  // failure). A boot in flight resolves here, so the table fills itself in
+  // as soon as the interpreter is up — no refresh, no second click.
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [phase, refresh]);
 
   // Default picker choice: first vendored package that is not pinned yet.
   useEffect(() => {
@@ -143,6 +153,8 @@ export default function PythonPackagesPanel() {
   const loadedNames = new Set((loaded ?? []).map((p) => p.name));
   const installable = VENDORED_PYTHON_PACKAGES.filter((p) => p !== 'numpy');
   const unpinnedLoaded = pinned.filter((p) => loadedNames.has(p));
+  /** A boot is in flight — ours or one started by another surface. */
+  const booting = busy || phase === 'loading';
 
   return (
     <section className="card settings-section python-packages">
@@ -208,8 +220,8 @@ export default function PythonPackagesPanel() {
           <span className="settings-label">{t('store2.py_session_title')}</span>
           {loaded === null ? (
             <div className="py-inline">
-              <button type="button" className="btn" disabled={busy} onClick={() => void boot()}>
-                {busy ? t('store2.py_booting') : t('store2.py_boot')}
+              <button type="button" className="btn" disabled={booting} onClick={() => void boot()}>
+                {booting ? t('store2.py_booting') : t('store2.py_boot')}
               </button>
               {busy && (
                 <button type="button" className="btn" onClick={cancelBoot}>
@@ -225,7 +237,9 @@ export default function PythonPackagesPanel() {
         </div>
 
         {loaded === null ? (
-          <p className="settings-hint">{t('store2.py_session_hint')}</p>
+          <p className="settings-hint">
+            {booting ? t('store2.py_session_loading') : t('store2.py_session_hint')}
+          </p>
         ) : loaded.length === 0 ? (
           <p className="settings-hint">{t('store2.py_none')}</p>
         ) : (
