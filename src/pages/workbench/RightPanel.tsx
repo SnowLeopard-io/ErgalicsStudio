@@ -276,7 +276,11 @@ export function RightPanel() {
     };
     refresh();
     const subs: BusSubscription[] = [
-      on(`plugin:${activeId}:params`, refresh),
+      // NOTE: no `plugin:${id}:params` subscription here — that event fires
+      // for every slider tick and used to re-read getParams() per frame
+      // (twice the work per drag). `pluginStore` emits `:defs` AFTER each
+      // coalesced updateParams batch, which is the authoritative refresh
+      // signal (definitions may legitimately change with the values).
       on(`plugin:${activeId}:defs`, refresh),
       on('host:params:changed', (p: { pluginId: string }) => {
         if (p?.pluginId === activeId) refresh();

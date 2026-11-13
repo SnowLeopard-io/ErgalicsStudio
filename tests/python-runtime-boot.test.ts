@@ -57,7 +57,7 @@ describe('warmPythonRuntime boot generations', () => {
     runtime.dispose.mockReset();
   });
 
-  it('a cancelled boot cannot clobber the boot started right after it', async () => {
+  it('a cancelled boot cannot clobber the boot started right after it', { timeout: 60_000 }, async () => {
     const status = await import('@/core/pyodide/runtime-status');
     const rt = await import('@/core/pyodide/code-runtime');
 

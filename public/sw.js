@@ -10,9 +10,8 @@
  *             later load — online or offline, including a refresh — replays
  *             the cached bytes with no network request. Refreshing must never
  *             re-download the Pyodide bundle. They are too large to precache
- *             blindly, and a build's VERSION bump rotates the cache name
- *             (activate deletes the old tier), so a deploy still picks up new
- *             engines.
+ *             blindly, and an engine-set change rotates the cache name via
+ *             RUNTIME_VERSION (activate deletes the old tier).
  *   shell   — index.html for offline navigation fallback.
  *
  * NETWORK-REQUIRED resources (bypassed here; the UI marks them via
@@ -32,8 +31,16 @@
 
 const VERSION = '__SW_VERSION__';
 const CORE_CACHE = `ergalics-core-${VERSION}`;
-const RUNTIME_CACHE = `ergalics-runtime-${VERSION}`;
 const SHELL_CACHE = `ergalics-shell-${VERSION}`;
+/**
+ * The runtime tier is keyed by the ENGINE bundle generation, NOT the app
+ * build: the vendored /pyodide, blockly and webr trees only change when the
+ * vendored engine set itself changes (bump `RUNTIME_VERSION` then). Tying
+ * this cache to the build VERSION made every deploy re-download the entire
+ * multi-megabyte Pyodide bundle even though no engine file changed.
+ */
+const RUNTIME_VERSION = 'r1';
+const RUNTIME_CACHE = `ergalics-runtime-${RUNTIME_VERSION}`;
 
 const PRECACHE_MANIFEST = /*__PRECACHE_MANIFEST__*/ [];
 
@@ -48,6 +55,18 @@ const RUNTIME_URL_PATTERNS = [
 
 function isRuntimeAsset(url) {
   return RUNTIME_URL_PATTERNS.some((re) => re.test(url.pathname + url.search));
+}
+
+/**
+ * A 200 response that is NOT the SPA index fallback. A static host configured
+ * with an index.html fallback answers 200 + text/html for missing files;
+ * caching that in place of a missing .whl/.wasm would poison the cache until
+ * the next version bump (cache-first never re-validates).
+ */
+function isCacheable(res) {
+  if (!res || !res.ok) return false;
+  const type = res.headers.get('content-type') || '';
+  return !type.includes('text/html');
 }
 
 self.addEventListener('install', (event) => {
@@ -127,7 +146,7 @@ self.addEventListener('fetch', (event) => {
         if (hit) return hit;
         try {
           const res = await fetch(req);
-          if (res && res.ok) cache.put(req, res.clone());
+          if (isCacheable(res)) cache.put(req, res.clone());
           return res;
         } catch {
           return Response.error();
@@ -146,14 +165,17 @@ self.addEventListener('fetch', (event) => {
       if (stale) {
         fetch(req)
           .then((res) => {
-            if (res && res.ok) cache.put(req, res.clone());
+            if (isCacheable(res)) cache.put(req, res.clone());
           })
           .catch(() => undefined);
         return stale;
       }
       try {
         const res = await fetch(req);
-        if (res && res.ok && (url.pathname.includes('/assets/') || /\.(css|js|svg|ico|webmanifest|json|woff2?)$/.test(url.pathname))) {
+        if (
+          isCacheable(res) &&
+          (url.pathname.includes('/assets/') || /\.(css|js|svg|ico|webmanifest|json|woff2?)$/.test(url.pathname))
+        ) {
           cache.put(req, res.clone());
         }
         return res;

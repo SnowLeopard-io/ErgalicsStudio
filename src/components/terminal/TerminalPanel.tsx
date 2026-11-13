@@ -150,6 +150,9 @@ export function TerminalPanel() {
 
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Set by the stop button so the interrupted command's rejection is not
+   *  printed as an error (the stop already appended its own notice). */
+  const stopRequestedRef = useRef(false);
   /** Per-session input history (↑/↓), keyed by session id. */
   const historyRef = useRef<Record<string, string[]>>({});
   const [history, setHistory] = useState<string[]>([]);
@@ -251,6 +254,18 @@ export function TerminalPanel() {
     [activeSession.id],
   );
 
+  /** Kill the worker to end a wedged run. The interpreter is session-wide, so
+   *  this also ends whatever the editor/notebook were executing — unavoidable
+   *  without per-run cancellation inside the worker; the next command simply
+   *  boots a fresh interpreter. */
+  const stopRun = useCallback(() => {
+    if (!busy) return;
+    stopRequestedRef.current = true;
+    getPythonRuntime().interrupt();
+    appendActive('info', 'run stopped — the interpreter restarts on the next command');
+    setBusy(false);
+  }, [busy, appendActive]);
+
   /**
    * Run one command in the interpreter and capture ITS output.
    *
@@ -336,15 +351,23 @@ export function TerminalPanel() {
    */
   const syncWorkspaceToProject = useCallback(
     async (append: (stream: 'stdout' | 'stderr' | 'info', text: string) => void) => {
+      // The artefacts belong to the project the terminal was working in: if
+      // the user switches projects before the collect/save round-trip lands,
+      // they must not be written into the new project (see saveWorkspaceFiles).
+      const projectId = useProjectStore.getState().project?.id ?? null;
       const produced = await collectWorkspaceOutputsFromRuntime();
       const names = [
         ...Object.keys(produced.files),
         ...Object.keys(produced.binaryFiles),
       ];
       if (!names.length) return;
-      await useAppStore.getState().saveWorkspaceFiles(produced.files, produced.binaryFiles);
-      useAppStore.getState().bumpFileOps();
-      append('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
+      const written = await useAppStore
+        .getState()
+        .saveWorkspaceFiles(produced.files, produced.binaryFiles, projectId ?? undefined);
+      if (written > 0) {
+        useAppStore.getState().bumpFileOps();
+        append('info', `saved ${names.length} file(s) to the project: ${names.join(', ')}`);
+      }
     },
     [],
   );
@@ -383,8 +406,7 @@ export function TerminalPanel() {
         if (isClearCommand(text)) {
           clearActive();
           return;
-        }
-        // Echo the prompt line so the transcript reads like a shell session.
+        }        // Echo the prompt line so the transcript reads like a shell session.
         appendActive('info', `${cwd}>${text}`);
         const cmd = parseReplCommand(text);
 
@@ -445,8 +467,15 @@ export function TerminalPanel() {
           const path = pwd.out.trim();
           if (path) setCwdStore(sessionId, path);
         }
+      } catch (err) {
+        // A user-initiated stop tears the worker down and rejects the in-flight
+        // command — that is not an error to print (the stop already logged it).
+        if (!stopRequestedRef.current) {
+          appendActive('stderr', err instanceof Error ? err.message : String(err));
+        }
       } finally {
         setBusy(false);
+        stopRequestedRef.current = false;
       }
     },
     [
@@ -643,6 +672,17 @@ export function TerminalPanel() {
             </span>
           </span>
           <span className="terminal-drawer-actions">
+            {busy && (
+              <button
+                type="button"
+                className="terminal-win-btn"
+                onClick={stopRun}
+                title={t('common.stop')}
+                aria-label={t('common.stop')}
+              >
+                <span className="terminal-stop-dot" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               className="terminal-win-btn"

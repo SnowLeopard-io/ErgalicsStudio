@@ -279,10 +279,15 @@ interface AppStore {
   saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
   /** Persist a batch of files produced by a code run (workspace-relative
    *  paths). `binaryFiles` carries matplotlib figures / PDFs / .npy dumps as
-   *  base64. Refreshes the explorer once and resolves to the write count. */
+   *  base64. `expectedProjectId` is the project the run was started in: a
+   *  result that lands AFTER the user switched projects must never be written
+   *  into the new project (silent cross-project contamination), so it is
+   *  dropped with a notice instead. Refreshes the explorer once and resolves
+   *  to the write count. */
   saveWorkspaceFiles: (
     files: Record<string, string>,
     binaryFiles?: Record<string, string>,
+    expectedProjectId?: string,
   ) => Promise<number>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
@@ -777,7 +782,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   /** Persist a batch of files produced by a code run. Writes every path and
    *  refreshes file browsers once, so a script dumping several outputs does
    *  not spam one toast per file. */
-  saveWorkspaceFiles: async (files, binaryFiles) => {
+  saveWorkspaceFiles: async (files, binaryFiles, expectedProjectId) => {
     const textEntries = Object.entries(files);
     const binaryEntries = Object.entries(binaryFiles ?? {});
     const total = textEntries.length + binaryEntries.length;
@@ -789,6 +794,17 @@ export const useAppStore = create<AppStore>((set, get) => {
       ]);
       const project = useProjectStore.getState().project;
       if (!project) throw new Error('no project open');
+      // The run was started in another project (the user switched away while
+      // it was still executing): its outputs must not silently land here.
+      if (expectedProjectId && project.id !== expectedProjectId) {
+        logger.warn(
+          'appStore',
+          'run outputs dropped: project changed during the run',
+          { expectedProjectId, currentProjectId: project.id },
+        );
+        useAppStore.getState().notify('warning', t('workbench.outputs_dropped'));
+        return 0;
+      }
       const vfs = getVfs();
       const root = getProjectRepoPath(project);
       let written = 0;

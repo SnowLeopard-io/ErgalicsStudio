@@ -97,6 +97,59 @@ const paramSubscriptions = new Map<string, BusSubscription[]>();
  *  can be told apart from a real change. */
 const lastParams = new Map<string, Record<string, unknown>>();
 
+/**
+ * Param bursts are coalesced per plugin. Every slider tick used to launch its
+ * own `updateParams` round-trip: a fast drag queued dozens of full recomputes
+ * (the UI froze), and for async/sandboxed plugins the replies could resolve
+ * out of order so an OLDER value won. Instead, events arriving while an
+ * update is in flight are merged into `pendingParamUpdates` and the newest
+ * payload is applied once the current one settles.
+ */
+const pendingParamUpdates = new Map<string, Record<string, unknown>>();
+const runningParamUpdates = new Set<string>();
+
+/**
+ * Apply the pending payload of one plugin — but never two at once. While an
+ * `updateParams` round-trip is running, further events only refresh the
+ * pending payload; when the current one settles, the newest state is applied.
+ *
+ * A *changed* payload invalidates previously published conclusions: they are
+ * cleared BEFORE updateParams so a fresh publish made inside the call
+ * survives. Env-style plugins re-publish during draw(); for compute-style
+ * plugins the stale metrics honestly disappear until the next computation
+ * (scienceOutput contract: stale results never linger). An unchanged payload
+ * (slider commit on pointer-up, a panel click re-emitting the current value,
+ * a canvas gesture bouncing through the panel) must NOT clear: updateState
+ * sees no change, updateParams skips the recompute, nothing republishes —
+ * and the Σ strip would stay hidden until the next real run.
+ */
+function flushParamUpdates(id: string, plugin: Plugin): void {
+  if (runningParamUpdates.has(id)) return;
+  const payload = pendingParamUpdates.get(id);
+  if (!payload) return;
+  pendingParamUpdates.delete(id);
+  const prev = lastParams.get(id);
+  const changed = prev === undefined || !sameParams(prev, payload);
+  lastParams.set(id, { ...payload });
+  if (changed) clearScienceOutputs(id);
+  runningParamUpdates.add(id);
+  void Promise.resolve()
+    .then(() => plugin.updateParams?.(payload))
+    .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
+    // Re-read the definitions only *after* the plugin has applied the change.
+    // Emitting before (the old order) made the panel re-read `getParams()`
+    // while `updateParams` was still queued, so a toggle reported its
+    // pre-click value — the label lagged one click behind the action and
+    // every Start/Stop appeared to need two clicks. `finally` keeps the
+    // panel in sync even when updateParams rejects.
+    .finally(() => {
+      runningParamUpdates.delete(id);
+      emit(`plugin:${id}:defs`, undefined);
+      // A newer payload may have arrived while this one was in flight.
+      flushParamUpdates(id, plugin);
+    });
+}
+
 /** Shallow-compare two param payloads. Values are usually primitives; for the
  *  rare object value (color, …) a stable JSON compare is the fallback. */
 function sameParams(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
@@ -727,31 +780,12 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
-        // A *changed* parameter payload invalidates previously published
-        // conclusions: clear them *before* updateParams so a fresh publish
-        // made inside the call survives. Env-style plugins re-publish during
-        // draw(); for compute-style plugins the stale metrics honestly
-        // disappear until the next computation (scienceOutput contract:
-        // stale results never linger).
-        // An unchanged payload (slider commit on pointer-up, a panel click
-        // re-emitting the current value, a canvas gesture bouncing through
-        // the panel) must NOT clear: updateState sees no change, updateParams
-        // skips the recompute, nothing republishes — and the Σ strip would
-        // stay hidden until the next real run.
-        const prev = lastParams.get(id);
-        const changed = prev === undefined || !sameParams(prev, params);
-        lastParams.set(id, { ...params });
-        if (changed) clearScienceOutputs(id);
-        void Promise.resolve()
-          .then(() => plugin.updateParams?.(params))
-          .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
-          // Re-read the definitions only *after* the plugin has applied the
-          // change. Emitting before (the old order) made the panel re-read
-          // `getParams()` while `updateParams` was still queued, so a toggle
-          // reported its pre-click value — the label lagged one click behind
-          // the action and every Start/Stop appeared to need two clicks.
-          // `finally` keeps the panel in sync even when updateParams rejects.
-          .finally(() => emit(`plugin:${id}:defs`, undefined));
+        // Merge into the pending payload: single-key emits ({key: value})
+        // accumulate so a drag that changes several keys while an update is
+        // in flight is applied as ONE consistent state, newest value wins.
+        const merged = { ...(pendingParamUpdates.get(id) ?? {}), ...params };
+        pendingParamUpdates.set(id, merged);
+        flushParamUpdates(id, plugin);
       });
       const existing = paramSubscriptions.get(id) ?? [];
       paramSubscriptions.set(id, [...existing, sub]);

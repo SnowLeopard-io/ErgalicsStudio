@@ -34,6 +34,7 @@ import {
 } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { editorTabKey, useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { clearHostPreview } from '@/stores/pluginStore';
 import { collectRuntimeFiles } from '@/core/dataFiles';
 import { monaco, applyMonacoTheme, monacoThemeData } from '@/core/monaco/setup';
@@ -411,6 +412,8 @@ export function CodeEditor() {
     files: Record<string, string> | undefined,
     binaryFiles: Record<string, string> | undefined,
     staged: Record<string, string>,
+    /** Project the run was started in — see saveWorkspaceFiles. */
+    expectedProjectId: string | null,
   ): Promise<void> => {
     const produced: Record<string, string> = {};
     for (const [path, text] of Object.entries(files ?? {})) {
@@ -419,7 +422,7 @@ export function CodeEditor() {
     }
     const producedBinary = binaryFiles ?? {};
     if (Object.keys(produced).length === 0 && Object.keys(producedBinary).length === 0) return;
-    await useAppStore.getState().saveWorkspaceFiles(produced, producedBinary);
+    await useAppStore.getState().saveWorkspaceFiles(produced, producedBinary, expectedProjectId ?? undefined);
   };
 
 
@@ -480,6 +483,9 @@ export function CodeEditor() {
     if (language === 'r' && !rRuntimeRef.current) return;
     const code = editor.getValue();
     const startedAt = Date.now();
+    // The run belongs to the project it was started in: a long simulation the
+    // user switches away from must not write its outputs into the new project.
+    const runProjectId = useProjectStore.getState().project?.id ?? null;
     // Output lands in the global terminal drawer; bring it up so the user
     // actually sees the run happen (the open state is persisted, so a later
     // reload keeps the terminal where the user left it).
@@ -499,7 +505,7 @@ export function CodeEditor() {
           ok = true;
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          saveRunOutputs(result.files, result.binaryFiles, staged);
+          saveRunOutputs(result.files, result.binaryFiles, staged, runProjectId);
         } else {
           const msg = result.error ?? 'run failed';
           useEditorStore.getState().setError(msg);
@@ -584,6 +590,7 @@ export function CodeEditor() {
     if (isRunning) return { ok: false, error: 'editor busy' };
     if (language === 'python' && !runtimeRef.current) return { ok: false, error: 'runtime not ready' };
     const startedAt = Date.now();
+    const runProjectId = useProjectStore.getState().project?.id ?? null;
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
@@ -600,7 +607,7 @@ export function CodeEditor() {
         if (result.ok) {
           outputs = result.outputs;
           useEditorStore.getState().setVariables(result.outputs);
-          saveRunOutputs(result.files, result.binaryFiles, staged);
+          saveRunOutputs(result.files, result.binaryFiles, staged, runProjectId);
         } else {
           error = result.error ?? 'run failed';
         }

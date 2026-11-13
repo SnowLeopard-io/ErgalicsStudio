@@ -147,7 +147,7 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
   const navigate = useNavigate();
   const {
     locale, setLocale, theme, setTheme, autoSaveInterval, setAutoSaveInterval,
-    gpuBackend, setGpuBackend, memoryLimit, setMemoryLimit,
+    gpuBackend, setGpuBackend,
     workerPoolSize, setWorkerPoolSize, chunkRows, setChunkRows,
   } = useSettingsStore();
   const notify = useAppStore((s) => s.notify);
@@ -392,23 +392,6 @@ export default function SettingsPage({ embedded = false }: { embedded?: boolean 
                   >
                     <option value="auto">{t('settings.gpu_auto')}</option>
                     <option value="cpu-fallback">{t('settings.gpu_cpu_fallback')}</option>
-                  </select>
-                </div>
-
-                <div className="settings-row">
-                  <label className="settings-label">{t('settings.memory_limit')}</label>
-                  <select
-                    className="select settings-control"
-                    value={memoryLimit}
-                    onChange={(e) => {
-                    const v = e.target.value;
-                    setMemoryLimit(v === 'auto' ? 'auto' : (Number(v) as 512 | 1024 | 2048));
-                  }}
-                  >
-                    <option value="auto">{t('settings.memory_auto')}</option>
-                    <option value={512}>512 MB</option>
-                    <option value={1024}>1 GB</option>
-                    <option value={2048}>2 GB</option>
                   </select>
                 </div>
 

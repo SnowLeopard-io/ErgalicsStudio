@@ -153,6 +153,7 @@ export default function PythonPackagesPanel() {
   const installable = VENDORED_PYTHON_PACKAGES.filter(
     (p) => p !== 'numpy' && !pinned.includes(p),
   );
+  const loadedNames = new Set((loaded ?? []).map((p) => p.name));
   // Packages the live interpreter still holds although they are no longer
   // pinned/restored at boot. A restart is the only way to unload a wheel, so
   // this is what enables the restart button (auto-imported packages qualify
@@ -181,7 +182,16 @@ export default function PythonPackagesPanel() {
             <tbody>
               {pinned.map((name) => (
                 <tr key={name}>
-                  <td className="py-name">{name}</td>
+                  <td className="py-name">
+                    {name}
+                    {/* The boot installs pinned wheels before announcing
+                        "ready", so once the list is loaded a missing entry
+                        means the install genuinely failed at boot (a failed
+                        install used to be swallowed as a console warning). */}
+                    {loaded !== null && !loadedNames.has(name) && (
+                      <span className="settings-hint py-missing">{t('store2.py_missing')}</span>
+                    )}
+                  </td>
                   <td className="py-action">
                     <button type="button" className="btn btn-sm" onClick={() => doUnpin(name)}>
                       {t('store2.py_uninstall')}
