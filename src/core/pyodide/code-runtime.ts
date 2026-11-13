@@ -20,6 +20,7 @@ import { createCodeRuntime, type CodeRuntime } from './runtime';
 import { getPinnedPythonPackages } from './python-packages';
 import {
   pythonRuntimeBegin,
+  pythonRuntimeCancel,
   pythonRuntimeFail,
   pythonRuntimeReady,
   registerPythonRuntimeRetry,
@@ -43,6 +44,9 @@ export function subscribePythonOutput(sink: PythonOutputSink): () => void {
 let runtime: CodeRuntime | null = null;
 let boot: Promise<boolean> | null = null;
 let retryRegistered = false;
+/** Set by abortPythonBoot so the in-flight boot reports a cancellation
+ *  instead of a failure (the user asked for it — it is not an error). */
+let bootAborted = false;
 
 function createRuntime(): CodeRuntime {
   return createCodeRuntime({
@@ -143,6 +147,14 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
       return true;
     },
     (err: unknown) => {
+      // A user-initiated cancel is not a runtime failure: drop the boot
+      // without painting the red notice, so the panel just returns to idle.
+      if (bootAborted) {
+        bootAborted = false;
+        boot = null;
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeFail(token, err);
       // Allow a later call to retry from scratch; the client already dropped
       // its dead worker, so the same handle can spawn a fresh one.
@@ -151,6 +163,20 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
     },
   );
   return boot;
+}
+
+/**
+ * Abort an in-flight boot (the package panel's 取消 button).
+ *
+ * Terminates the worker so a hung bootstrap cannot keep burning memory, and
+ * forgets the boot promise so the next warm-up starts from a clean slate.
+ * The aborted promise settles with `false`; the panel ignores it.
+ */
+export function abortPythonBoot(): void {
+  if (!boot) return;
+  bootAborted = true;
+  boot = null;
+  runtime?.interrupt();
 }
 
 /** True while the interpreter is booting (used for lazy UI hints). */

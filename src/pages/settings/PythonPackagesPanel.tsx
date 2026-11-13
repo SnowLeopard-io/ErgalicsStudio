@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { Modal } from '@/components/Modal';
@@ -9,6 +9,7 @@ import {
   removePinnedPythonPackage,
 } from '@/core/pyodide/python-packages';
 import {
+  abortPythonBoot,
   installPythonPackages,
   isPythonRuntimeWarm,
   listPythonPackages,
@@ -43,6 +44,9 @@ export default function PythonPackagesPanel() {
   const [pick, setPick] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
+  /** True once the user cancelled the boot — its `false` result must not be
+   *  reported as a startup failure. */
+  const cancelledRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!isPythonRuntimeWarm()) {
@@ -75,12 +79,14 @@ export default function PythonPackagesPanel() {
   }, [pinned]);
 
   const boot = async () => {
+    cancelledRef.current = false;
     setBusy(true);
     try {
       const ok = await Promise.race([
         warmPythonRuntime(),
         new Promise<false>((resolve) => setTimeout(() => resolve(false), BOOT_TIMEOUT_MS)),
       ]);
+      if (cancelledRef.current) return;
       if (ok) {
         notify('success', t('store2.py_boot_ok'));
         await refresh();
@@ -88,10 +94,19 @@ export default function PythonPackagesPanel() {
         notify('error', t('store2.py_boot_failed'));
       }
     } catch (err) {
-      notify('error', err instanceof Error ? err.message : String(err));
+      if (!cancelledRef.current) notify('error', err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (!cancelledRef.current) setBusy(false);
     }
+  };
+
+  /** Escape hatch while booting: never leave the panel locked behind a
+   *  spinner — abort the worker and hand control straight back. */
+  const cancelBoot = () => {
+    cancelledRef.current = true;
+    abortPythonBoot();
+    setBusy(false);
+    notify('info', t('store2.py_boot_cancelled'));
   };
 
   const doInstall = async () => {
@@ -203,9 +218,16 @@ export default function PythonPackagesPanel() {
       <div className="settings-row">
         <label className="settings-label">{t('store2.py_session_title')}</label>
         {loaded === null ? (
-          <button type="button" className="btn" disabled={busy} onClick={() => void boot()}>
-            {busy ? t('store2.py_booting') : t('store2.py_boot')}
-          </button>
+          <div className="settings-value about-links">
+            <button type="button" className="btn" disabled={busy} onClick={() => void boot()}>
+              {busy ? t('store2.py_booting') : t('store2.py_boot')}
+            </button>
+            {busy && (
+              <button type="button" className="btn" onClick={cancelBoot}>
+                {t('common.cancel')}
+              </button>
+            )}
+          </div>
         ) : loaded.length === 0 ? (
           <span className="settings-label">{t('store2.py_none')}</span>
         ) : (
