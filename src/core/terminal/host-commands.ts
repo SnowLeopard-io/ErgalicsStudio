@@ -25,6 +25,7 @@ import {
 import { openWorkspaceFile, toProjectPath } from '@/core/workspace/open-file';
 import { projectFileExists, writeProjectFile } from '@/core/workspace/project-files';
 import { splitArgs, type ReplCommand } from '@/core/pyodide/repl-commands';
+import { VENDORED_PYTHON_PACKAGES, addPinnedPythonPackages } from '@/core/pyodide/python-packages';
 
 export interface HostCommandContext {
   /** Append a line to the calling terminal session. */
@@ -96,14 +97,31 @@ export async function runHostCommand(
         if (err) ctx.append('stderr', err);
         return true;
       }
-      const packages = tokens.filter((x) => x && x !== 'install');
-      if (!packages.length) {
+      const requested = tokens.filter((x) => x && x !== 'install');
+      if (!requested.length) {
         ctx.append('stderr', 'pip: usage — pip install <package> | pip list');
         return true;
       }
+      // Only the vendored wheels can be installed offline; anything else would
+      // send Pyodide fetching a missing <name>.whl from the app origin (and a
+      // SPA fallback server would happily serve index.html for it). Terminal
+      // installs are pinned too, so they survive a page reload like the
+      // settings panel's installs.
+      const packages = requested.filter((name) =>
+        (VENDORED_PYTHON_PACKAGES as readonly string[]).includes(name),
+      );
+      const refused = requested.filter((name) => !packages.includes(name));
+      for (const name of refused) {
+        ctx.append(
+          'stderr',
+          `pip: '${name}' is not vendored offline — available: ${VENDORED_PYTHON_PACKAGES.join(', ')}`,
+        );
+      }
+      if (!packages.length) return true;
       const result = await installPythonPackages(packages);
       if (result.ok) {
-        ctx.append('info', `installed ${result.loaded.join(', ')}`);
+        addPinnedPythonPackages(packages);
+        ctx.append('info', `installed ${result.loaded.join(', ')} (persisted across reloads)`);
       } else {
         ctx.append('stderr', `pip: ${result.error ?? 'install failed'}`);
       }

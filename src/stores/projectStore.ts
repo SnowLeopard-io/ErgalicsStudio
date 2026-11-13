@@ -621,8 +621,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // JSON itself (imported separately below). Every relative path is run
     // through the VFS path guard: a caller-supplied File whose
     // webkitRelativePath carries `..` must never escape the project root.
+    //
+    // A huge folder (node_modules, datasets) used to be mirrored IN FULL:
+    // thousands of files froze the explorer and blew past the IndexedDB
+    // storage budget (writes then failed one by one on the retry loop).
+    // Hard limits keep the import bounded; the rest are skipped with notice.
+    const MAX_IMPORT_FILES = 2000;
+    const MAX_IMPORT_TOTAL_BYTES = 256 * 1024 * 1024;
     const entries: Array<{ path: string; file: File }> = [];
     let clproj: File | null = null;
+    let totalBytes = 0;
+    let truncated = 0;
     for (const f of files) {
       const parts = relOf(f).split('/');
       if (parts.some((p) => p.toLowerCase() === '.git')) continue;
@@ -639,7 +648,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         clproj = f;
         continue;
       }
+      if (
+        entries.length >= MAX_IMPORT_FILES ||
+        totalBytes + f.size > MAX_IMPORT_TOTAL_BYTES
+      ) {
+        truncated += 1;
+        continue;
+      }
       entries.push({ path: rel, file: f });
+      totalBytes += f.size;
     }
 
     // A folder carrying project.clproj is a native project: its JSON carries
@@ -672,6 +689,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     useAppStore.getState().bumpFileOps();
     if (failed > 0) {
       useAppStore.getState().notify('error', t('project.import_partial', { count: String(failed) }));
+    }
+    if (truncated > 0) {
+      logger.warn('project', `folder import: skipped ${truncated} file(s) over the import limits`);
+      useAppStore
+        .getState()
+        .notify('warning', t('project.import_truncated', { count: String(entries.length) }));
     }
     return project;
   },

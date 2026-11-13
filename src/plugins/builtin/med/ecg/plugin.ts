@@ -179,17 +179,23 @@ export class MedEcgPlugin implements Plugin {
         ],
         value: this.state.display,
       },
-      {
-        key: 'windowStart',
-        label: 'Window start (s)',
-        labelI18n: { 'zh-CN': '窗口起点（秒）', 'en-US': 'Window start (s)' },
-        type: 'range',
-        min: 0,
-        max: maxStart,
-        step: 1,
-        value: Math.min(this.state.windowStart, maxStart),
-        visibleWhen: { key: 'display', in: ['window'] },
-      },
+      // A record shorter than the window has nowhere to scroll: maxStart is 0,
+      // which would render a range with min === max (the thumb cannot move).
+      ...(maxStart > 0
+        ? ([
+            {
+              key: 'windowStart',
+              label: 'Window start (s)',
+              labelI18n: { 'zh-CN': '窗口起点（秒）', 'en-US': 'Window start (s)' },
+              type: 'range',
+              min: 0,
+              max: maxStart,
+              step: 1,
+              value: Math.min(this.state.windowStart, maxStart),
+              visibleWhen: { key: 'display', in: ['window'] },
+            },
+          ] as ParamDefinition[])
+        : []),
       {
         key: 'showBands',
         label: 'LF/HF bands',

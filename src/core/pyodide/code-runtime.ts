@@ -43,10 +43,15 @@ export function subscribePythonOutput(sink: PythonOutputSink): () => void {
 
 let runtime: CodeRuntime | null = null;
 let boot: Promise<boolean> | null = null;
+/**
+ * Monotonic boot generation. A boot's handlers must only touch the shared
+ * state (`boot`, the runtime-status token) while their generation is still
+ * current — a restart/cancel followed by an immediate re-boot used to let the
+ * stale boot's rejection clear the NEW boot promise, stranding the panel in a
+ * perpetual "loading" state.
+ */
+let bootSeq = 0;
 let retryRegistered = false;
-/** Set by abortPythonBoot so the in-flight boot reports a cancellation
- *  instead of a failure (the user asked for it — it is not an error). */
-let bootAborted = false;
 
 function createRuntime(): CodeRuntime {
   return createCodeRuntime({
@@ -133,6 +138,7 @@ function installPinnedPackages(rt: CodeRuntime): Promise<void> {
  */
 export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   if (opts.restart) {
+    bootSeq += 1;
     boot = null;
     runtime?.dispose();
     runtime = null;
@@ -140,17 +146,23 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   if (boot) return boot;
   const rt = getPythonRuntime();
   const token = pythonRuntimeBegin('code', { silent: opts.silent });
+  const seq = ++bootSeq;
+  /** False once a newer boot superseded this one (restart/cancel). */
+  const current = () => seq === bootSeq;
   boot = rt.runPython('import studio', {}, {}).then(
     async (result) => {
+      if (!current()) {
+        // Cancelled: settle our own token, never the newer boot's.
+        pythonRuntimeCancel(token);
+        return false;
+      }
       if (!result.ok) throw new Error(result.error || 'Python runtime failed to start');
       // Restore the user's pinned wheels before announcing "ready": the
       // settings panel reads the package list the moment the boot settles,
       // and a fire-and-forget install left it showing a partially loaded
       // interpreter (matplotlib/pandas arriving seconds later).
       await installPinnedPackages(rt);
-      if (bootAborted) {
-        bootAborted = false;
-        boot = null;
+      if (!current()) {
         pythonRuntimeCancel(token);
         return false;
       }
@@ -158,11 +170,9 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
       return true;
     },
     (err: unknown) => {
-      // A user-initiated cancel is not a runtime failure: drop the boot
-      // without painting the red notice, so the panel just returns to idle.
-      if (bootAborted) {
-        bootAborted = false;
-        boot = null;
+      if (!current()) {
+        // A cancel/restart is not a runtime failure: drop the boot without
+        // painting the red notice.
         pythonRuntimeCancel(token);
         return false;
       }
@@ -185,7 +195,9 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
  */
 export function abortPythonBoot(): void {
   if (!boot) return;
-  bootAborted = true;
+  // Bump the generation first: the interrupted boot's rejection handler must
+  // not clear the promise of a boot the user starts right after cancelling.
+  bootSeq += 1;
   boot = null;
   runtime?.interrupt();
 }

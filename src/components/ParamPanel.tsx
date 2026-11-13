@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NumField } from '@/components/NumField';
 import {
   isParamVisible,
   type ParamDefinition,
   type PluginApi,
+  type NumberParam,
   type RangeParam,
   type SelectOption,
 } from '@/types/plugin';
@@ -70,6 +71,37 @@ export function ParamPanel({ params, api, onChange }: ParamPanelProps) {
 }
 
 /**
+ * Emit at most once per animation frame. A `range` input fires `onChange` for
+ * every pointer move and a number field for every keystroke; without
+ * coalescing a fast drag queues dozens of plugin recomputes (the panel-level
+ * merge in pluginStore prevents wrong-order application, but the work still
+ * piles up). The newest value always wins; intermediate ones are dropped.
+ */
+function useCoalescedEmit(
+  key: string,
+  onChange: (key: string, value: unknown) => void,
+): (value: unknown) => void {
+  const latest = useRef<unknown>(null);
+  const raf = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (raf.current !== null) cancelAnimationFrame(raf.current);
+    },
+    [],
+  );
+  return (value: unknown) => {
+    latest.current = value;
+    if (raf.current !== null) return;
+    raf.current = requestAnimationFrame(() => {
+      raf.current = null;
+      const v = latest.current;
+      latest.current = null;
+      if (v !== null) onChange(key, v);
+    });
+  };
+}
+
+/**
  * Range slider with an optimistic local value.
  *
  * The panel is controlled by `def.value`, which only refreshes after a full
@@ -91,12 +123,13 @@ function RangeControl({
 }) {
   const def = rangeDef as RangeParam;
   const [local, setLocal] = useState<number | null>(null);
+  const emit = useCoalescedEmit(def.key, onChange);
   // Adopt the authoritative value whenever the plugin reports one back (it
   // may have clamped the raw input, e.g. the optics focal-length range) —
   // until then the thumb follows the pointer, never snapping back mid-drag.
   useEffect(() => {
     setLocal(null);
-  }, [def.value]);
+  }, [def.value, def.min, def.max, def.step]);
   const value = local ?? Number(def.value);
   const label = def.labelI18n?.[api.locale] ?? def.label;
   return (
@@ -111,11 +144,33 @@ function RangeControl({
         onChange={(e) => {
           const n = Number(e.target.value);
           setLocal(n);
-          onChange(def.key, n);
+          emit(n);
         }}
       />
       <span className="param-value">{value}</span>
     </div>
+  );
+}
+
+/** Number field with the same per-frame emit coalescing as the slider. */
+function NumberControl({
+  def,
+  api,
+  onChange,
+}: {
+  def: ParamDefinition;
+  api: PluginApi;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const numDef = def as NumberParam;
+  const emit = useCoalescedEmit(numDef.key, onChange);
+  const label = numDef.labelI18n?.[api.locale] ?? numDef.label;
+  return (
+    <NumField
+      value={numDef.value}
+      ariaLabel={label}
+      onChange={(n) => emit(n)}
+    />
   );
 }
 
@@ -154,13 +209,7 @@ function Control({
         </select>
       );
     case 'number':
-      return (
-        <NumField
-          value={def.value}
-          ariaLabel={label(def)}
-          onChange={(n) => emit(n)}
-        />
-      );
+      return <NumberControl def={def} api={api} onChange={onChange} />;
     case 'checkbox':
       return (
         <label className="param-checkbox">

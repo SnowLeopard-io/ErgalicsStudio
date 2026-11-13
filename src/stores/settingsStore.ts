@@ -13,7 +13,6 @@ interface SettingsStore extends SettingsState {
   setTheme: (theme: ThemePreference) => void;
   setAutoSaveInterval: (ms: number) => void;
   setGpuBackend: (backend: SettingsState['gpuBackend']) => void;
-  setMemoryLimit: (limit: SettingsState['memoryLimit']) => void;
   setWorkerPoolSize: (size: SettingsState['workerPoolSize']) => void;
   setChunkRows: (rows: SettingsState['chunkRows']) => void;
 }
@@ -55,10 +54,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       void initGpu(gpuBackend);
     }
   },
-  setMemoryLimit: (memoryLimit) => {
-    set({ memoryLimit });
-    persist();
-  },
   setWorkerPoolSize: (workerPoolSize) => {
     set({ workerPoolSize });
     persist();
@@ -88,7 +83,6 @@ function persist() {
     theme: s.theme,
     autoSaveInterval: s.autoSaveInterval,
     gpuBackend: s.gpuBackend,
-    memoryLimit: s.memoryLimit,
     workerPoolSize: s.workerPoolSize,
     chunkRows: s.chunkRows,
   });

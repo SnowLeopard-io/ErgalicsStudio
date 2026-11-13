@@ -57,8 +57,12 @@ export class DataImageprocPlugin implements Plugin {
   private ctx: ContainerCapabilities | null = null;
   private zh = false;
   private state: State = { filter: 'blur', strength: 2 };
-  /** Current grayscale subject; null until a file/example is loaded. */
+  /** Current grayscale subject (processing pipeline); null until a file is loaded. */
   private baseImage: GrayImage | null = null;
+  /** Full-resolution colour source, kept only for the left "original" panel. */
+  private sourceBitmap: ImageBitmap | null = null;
+  /** File name shown under the original panel. */
+  private sourceLabel = '';
   private lastMetrics: { psnr: number | null; energy: number; elapsedMs: number } | null = null;
 
   async init(api: PluginApi) {
@@ -72,6 +76,8 @@ export class DataImageprocPlugin implements Plugin {
 
   async destroy() {
     clearScienceOutputs(this.manifest.id);
+    this.sourceBitmap?.close();
+    this.sourceBitmap = null;
     this.ctx = null;
   }
 
@@ -159,11 +165,15 @@ export class DataImageprocPlugin implements Plugin {
       );
       return;
     }
+    let bitmap: ImageBitmap | null = null;
     try {
       // Decode the raster via the browser, then hand the RGBA buffer to the
       // pure kernel converter (BT.601 luma, white-composited alpha, box-average
       // downscale for oversized inputs). draw() republishes the metrics.
-      const bitmap = await createImageBitmap(file);
+      // The bitmap itself is kept at full resolution in colour so the left
+      // panel can show the untouched original; only the processing pipeline
+      // consumes the grayscale/downscaled copy.
+      bitmap = await createImageBitmap(file);
       const decoder = document.createElement('canvas');
       decoder.width = bitmap.width;
       decoder.height = bitmap.height;
@@ -173,17 +183,21 @@ export class DataImageprocPlugin implements Plugin {
       const rgba = g2d.getImageData(0, 0, bitmap.width, bitmap.height).data;
       const srcW = bitmap.width;
       const srcH = bitmap.height;
-      bitmap.close();
+      this.sourceBitmap?.close();
+      this.sourceBitmap = bitmap;
+      this.sourceLabel = file.name;
+      bitmap = null; // ownership moved to this.sourceBitmap
       this.baseImage = grayFromRgba(rgba, srcW, srcH);
       this.lastMetrics = null;
       const downscaled = this.baseImage.width !== srcW || this.baseImage.height !== srcH;
       notify(
         this.api,
         'success',
-        `Loaded ${file.name}: ${srcW}×${srcH} px${downscaled ? ` → ${this.baseImage.width}×${this.baseImage.height} px (downscaled for processing)` : ''}.`,
-        `已载入 ${file.name}：${srcW}×${srcH} px${downscaled ? `（已降采样至 ${this.baseImage.width}×${this.baseImage.height} 处理）` : ''}。`,
+        `Loaded ${file.name}: ${srcW}×${srcH} px${downscaled ? ` (processing copy reduced to ${this.baseImage.width}×${this.baseImage.height} px; the original panel keeps full resolution)` : ''}.`,
+        `已载入 ${file.name}：${srcW}×${srcH} px${downscaled ? `（处理副本降采样至 ${this.baseImage.width}×${this.baseImage.height}，原图面板保持原始分辨率）` : ''}。`,
       );
     } catch (e) {
+      bitmap?.close();
       const msg = e instanceof Error ? e.message : String(e);
       notify(this.api, 'error', `Cannot load image: ${msg}`, `无法载入图像：${msg}`);
     }
@@ -379,7 +393,7 @@ export class DataImageprocPlugin implements Plugin {
     }
 
     // Empty state: no subject loaded yet — prompt for upload / example.
-    if (!this.baseImage) {
+    if (!this.baseImage || !this.sourceBitmap) {
       drawEmptyCanvas(this.api, canvas, {
         title: 'Image Processing',
         titleZh: '图像处理',
@@ -400,6 +414,12 @@ export class DataImageprocPlugin implements Plugin {
     const padT = 44;
     const padB = 52;
     const availH = canvas.height - padT - padB;
+    const fit = (iw: number, ih: number, x0: number, w: number) => {
+      const s = Math.min(w / iw, availH / ih);
+      const dw = iw * s;
+      const dh = ih * s;
+      return { dx: x0 + (w - dw) / 2, dy: padT + (availH - dh) / 2, dw, dh };
+    };
     const drawScaled = (img: GrayImage, x0: number, w: number) => {
       const off = document.createElement('canvas');
       off.width = img.width;
@@ -416,14 +436,23 @@ export class DataImageprocPlugin implements Plugin {
         px[i * 4 + 3] = 255;
       }
       octx.putImageData(id, 0, 0);
-      const s = Math.min(w / img.width, availH / img.height);
-      const dw = img.width * s;
-      const dh = img.height * s;
-      g.imageSmoothingEnabled = false;
-      g.drawImage(off, x0 + (w - dw) / 2, padT + (availH - dh) / 2, dw, dh);
+      // Bilinear filtering: the processed raster is ~1024 px at most, so a
+      // wide window shows it slightly scaled. Nearest-neighbour made that
+      // upscale read as mosaic blocks; smooth resampling keeps it photographic.
+      const r = fit(img.width, img.height, x0, w);
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(off, r.dx, r.dy, r.dw, r.dh);
+    };
+    /** Left panel: the decoded bitmap untouched — colour, full resolution. */
+    const drawOriginal = (bmp: ImageBitmap, x0: number, w: number) => {
+      const r = fit(bmp.width, bmp.height, x0, w);
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(bmp, r.dx, r.dy, r.dw, r.dh);
     };
 
-    drawScaled(this.baseImage, 4, halfW - 8);
+    drawOriginal(this.sourceBitmap, 4, halfW - 8);
     drawScaled(processed, halfW + 4, halfW - 8);
 
     // Header labels.
@@ -433,7 +462,9 @@ export class DataImageprocPlugin implements Plugin {
     g.fillText(zh ? '图像处理  原图 | 处理结果' : 'Image processing  original | processed', canvas.width / 2, 20);
     g.font = `11px ${zh ? "'Microsoft YaHei'" : 'Consolas'}, monospace`;
     g.fillStyle = 'rgba(170,182,200,0.95)';
-    g.fillText(zh ? '原图（内置测试图）' : 'original (built-in test image)', halfW / 2, padT - 8);
+    const label =
+      this.sourceLabel.length > 32 ? `${this.sourceLabel.slice(0, 15)}…${this.sourceLabel.slice(-14)}` : this.sourceLabel;
+    g.fillText(zh ? `原图：${label}` : `original: ${label}`, halfW / 2, padT - 8);
     const fLabel = FILTERS.find((f) => f.value === this.state.filter);
     g.fillStyle = 'rgba(140,200,250,0.95)';
     g.fillText(zh ? `处理结果：${fLabel?.labelZh ?? ''}` : `processed: ${fLabel?.labelEn ?? ''}`, halfW * 1.5, padT - 8);

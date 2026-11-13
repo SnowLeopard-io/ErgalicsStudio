@@ -275,7 +275,7 @@ export class SnaPlugin implements Plugin {
         labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Seed' },
         type: 'range',
         min: 1,
-        max: 999999,
+        max: 99999999,
         step: 1,
         value: this.params.seed,
         hint: this.zh ? '固定种子 ⇒ 网络、布局与级联完全可复现' : 'fixed seed ⇒ fully reproducible network, layout and cascade',
@@ -320,7 +320,7 @@ export class SnaPlugin implements Plugin {
       }
     });
     num('seed', (n) => {
-      const s = Math.min(999999, Math.max(1, Math.round(n)));
+      const s = Math.min(99999999, Math.max(1, Math.round(n)));
       if (s !== this.params.seed) {
         this.params.seed = s;
         this.customEdges = null;

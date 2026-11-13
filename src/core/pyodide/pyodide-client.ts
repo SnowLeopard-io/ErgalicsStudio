@@ -110,14 +110,23 @@ export class PyodideClient {
    */
   private static readonly BOOT_TIMEOUT_MS = 60_000;
   /**
-   * Timeout for host-internal RPCs (mount / package list / package install /
-   * reset / collect). These never run user code and must always answer
-   * quickly; without a deadline a protocol mismatch left the caller awaiting
-   * a reply forever (that is how the settings package panel used to hang on
-   * "starting interpreter"). Program runs and REPL lines are exempt — a
-   * simulation may legitimately take minutes.
+   * Default deadline for host-internal RPCs (package list / reset). These
+   * never run user code and must always answer quickly; without a deadline a
+   * protocol mismatch left the caller awaiting a reply forever (that is how
+   * the settings package panel used to hang on "starting interpreter").
+   * Program runs and REPL lines are exempt — a simulation may legitimately
+   * take minutes.
    */
   private static readonly RPC_TIMEOUT_MS = 60_000;
+  /**
+   * Mount/collect move the whole project tree (potentially multi-MB files)
+   * through the worker; a fixed 60s used to fail large projects even though
+   * the transfer was still making progress. The caller then retried and the
+   * worker kept processing the abandoned transfers — requests piled up.
+   */
+  private static readonly FILE_RPC_TIMEOUT_MS = 180_000;
+  /** Wheel loads (pinned install / settings install) fetch several MB each. */
+  private static readonly PACKAGE_RPC_TIMEOUT_MS = 120_000;
 
   private worker: Worker | null = null;
   /** Resolves once the worker has booted (Pyodide + `studio` injected). */
@@ -427,15 +436,18 @@ export class PyodideClient {
     files: Record<string, string>,
     dataFiles?: Record<string, string>,
   ): Promise<MountResult> {
-    return this.request<MountResult>({ type: 'mount', files, dataFiles });
+    return this.request<MountResult>(
+      { type: 'mount', files, dataFiles },
+      PyodideClient.FILE_RPC_TIMEOUT_MS,
+    );
   }
 
   /** Install extra Pyodide packages into the live interpreter. */
   installPackages(packages: string[]): Promise<LoadPackagesResult> {
-    return this.request<LoadPackagesResult>({
-      type: 'load-packages',
-      packages,
-    });
+    return this.request<LoadPackagesResult>(
+      { type: 'load-packages', packages },
+      PyodideClient.PACKAGE_RPC_TIMEOUT_MS,
+    );
   }
 
   /** Query the packages the live interpreter currently has loaded. */
@@ -461,9 +473,7 @@ export class PyodideClient {
    * The terminal writes them back into the project.
    */
   collectWorkspaceFiles(): Promise<CollectResult> {
-    return this.request<CollectResult>({
-      type: 'collect',
-    });
+    return this.request<CollectResult>({ type: 'collect' }, PyodideClient.FILE_RPC_TIMEOUT_MS);
   }
 
   /** Hard-stop the current run by terminating + discarding the worker. */

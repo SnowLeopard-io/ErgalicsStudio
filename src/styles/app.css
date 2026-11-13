@@ -2211,6 +2211,14 @@
   color: var(--color-text-primary);
 }
 
+/* Stop button while a command is running: a red square, like a media stop. */
+.terminal-stop-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--color-danger, #d64545);
+}
+
 /* cmd-style cold-start banner shown while the console is empty. */
 .terminal-drawer-banner {
   display: flex;
