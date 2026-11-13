@@ -4,24 +4,30 @@
 
 <h1>Ergalics Studio</h1>
 
-<p><b>An in-browser scientific computing workstation</b> — interactive data
-exploration, GPU compute scheduling, and a sandboxed plugin system, all
-running in the browser.</p>
+<p><b>An in-browser scientific computing workstation</b></p>
+
+<p>Interactive data exploration · Native WebGPU compute · Sandboxed plugin system · End-to-end reproducible research</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="Open the live workstation" src="https://img.shields.io/badge/Open%20the%20live%20workstation-16a34a?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="Documentation" src="https://img.shields.io/badge/Documentation-8b5cf6?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" width="205" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="Open the live workstation" width="225" src="https://img.shields.io/badge/Open%20the%20Live%20Workstation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="Documentation" width="185" src="https://img.shields.io/badge/Documentation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
 </p>
 
 <p>
-<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square" /></a>
-<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-c71d23?logo=gitee&logoColor=white&style=flat-square" /></a>
-<a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" /></a>
-<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square" /></a>
-<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square" /></a>
-<a href="#gpu-compute--native-core"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square" /></a>
-<a href="#gpu-compute--native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square" /></a>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
+<a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
+<img alt="Tests" src="https://img.shields.io/badge/Tests-4062%2B%20passing-1f2937?style=flat-square" />
+<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
+</p>
+
+<p>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-1f2937?style=flat-square&logo=github&logoColor=white" /></a>
+<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-1f2937?style=flat-square&logo=gitee&logoColor=white" /></a>
+<a href="#gpu-compute--native-core"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL%20kernels-1f2937?style=flat-square" /></a>
+<a href="#gpu-compute--native-core"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust%20core-1f2937?style=flat-square&logo=rust&logoColor=white" /></a>
+<a href="#plugin-system"><img alt="Pyodide" src="https://img.shields.io/badge/Python-Pyodide%20CPython-1f2937?style=flat-square&logo=python&logoColor=white" /></a>
+<a href="#four-workbench-modes"><img alt="webR" src="https://img.shields.io/badge/R-webR%20runtime-1f2937?style=flat-square" /></a>
 </p>
 
 </div>
@@ -35,9 +41,9 @@ running in the browser.</p>
 ## Table of Contents
 
 - [Overview](#overview)
+- [Getting Started](#getting-started)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
 - [Architecture](#architecture)
 - [Project Layout](#project-layout)
 - [Four Workbench Modes](#four-workbench-modes)
@@ -50,6 +56,7 @@ running in the browser.</p>
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
+- [Contact](#contact)
 
 ---
 
@@ -79,6 +86,28 @@ What ships today:
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
+
+---
+
+## Getting Started
+
+Prereqs: **Node.js ≥ 20** + npm. A **Rust toolchain** (`wasm32-unknown-unknown`
+target + `wasm-bindgen-cli`) is optional — `npm run build:web` ships a
+generated WASM stub, and at runtime all compute runs on the browser-native
+WebGPU/CPU paths.
+
+```bash
+npm install         # install dependencies
+npm run dev         # dev run (welcome page hardware self-check: WebGPU/WASM/IndexedDB)
+
+npm run build       # wasm → typecheck → vite build → docs
+npm run build:web   # frontend only (generates the WASM stub and the bundled docs copy, no Rust needed)
+npm run build:wasm  # compile the Rust core (needs the Rust toolchain)
+
+cd docs && npm install && npm run dev   # docs site
+```
+
+Production builds output to `dist/`.
 
 ---
 
@@ -170,28 +199,6 @@ What ships today:
 | Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
-
----
-
-## Getting Started
-
-Prereqs: **Node.js ≥ 20** + npm. A **Rust toolchain** (`wasm32-unknown-unknown`
-target + `wasm-bindgen-cli`) is optional — `npm run build:web` ships a
-generated WASM stub, and at runtime all compute runs on the browser-native
-WebGPU/CPU paths.
-
-```bash
-npm install         # install dependencies
-npm run dev         # dev run (welcome page hardware self-check: WebGPU/WASM/IndexedDB)
-
-npm run build       # wasm → typecheck → vite build → docs
-npm run build:web   # frontend only (generates the WASM stub and the bundled docs copy, no Rust needed)
-npm run build:wasm  # compile the Rust core (needs the Rust toolchain)
-
-cd docs && npm install && npm run dev   # docs site
-```
-
-Production builds output to `dist/`.
 
 ---
 
@@ -1365,3 +1372,13 @@ Report bugs and feature requests via [GitHub Issues](https://github.com/SnowLeop
 ## License
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## Contact
+
+- **Email**: [1486853830@qq.com](mailto:1486853830@qq.com)
+- **WeChat**: 19112913292
+
+For collaboration, course adoption, bug reports, or just to talk scientific
+computing — feel free to reach out anytime.

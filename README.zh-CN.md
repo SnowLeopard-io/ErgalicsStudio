@@ -4,22 +4,30 @@
 
 <h1>Ergalics Studio</h1>
 
-<p><b>浏览器中的科学计算工作站</b>——交互式数据探索、GPU 计算调度与沙箱化插件系统，全部在浏览器中运行。</p>
+<p><b>浏览器中的科学计算工作站</b></p>
+
+<p>交互式数据探索 · WebGPU 原生计算 · 沙箱化插件系统 · 端到端可复现科研</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="官方网站" src="https://img.shields.io/badge/%E5%AE%98%E6%96%B9%E7%BD%91%E7%AB%99-0891b2?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="打开在线工作站" src="https://img.shields.io/badge/%E6%89%93%E5%BC%80%E5%9C%A8%E7%BA%BF%E5%B7%A5%E4%BD%9C%E7%AB%99-16a34a?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="文档站点" src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3%E7%AB%99%E7%82%B9-8b5cf6?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" width="205" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="打开在线工作站" width="225" src="https://img.shields.io/badge/Launch%20Workstation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="文档站点" width="185" src="https://img.shields.io/badge/Documentation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
 </p>
 
 <p>
-<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square" /></a>
-<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-c71d23?logo=gitee&logoColor=white&style=flat-square" /></a>
-<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" /></a>
-<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square" /></a>
-<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square" /></a>
-<a href="#gpu-计算与原生核心"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square" /></a>
-<a href="#gpu-计算与原生核心"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square" /></a>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
+<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
+<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4062%2B%20passing-1f2937?style=flat-square" />
+<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
+</p>
+
+<p>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-1f2937?style=flat-square&logo=github&logoColor=white" /></a>
+<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-1f2937?style=flat-square&logo=gitee&logoColor=white" /></a>
+<a href="#gpu-计算与原生核心"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL%20%E5%86%85%E6%A0%B8-1f2937?style=flat-square" /></a>
+<a href="#gpu-计算与原生核心"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust%20%E6%A0%B8%E5%BF%83-1f2937?style=flat-square&logo=rust&logoColor=white" /></a>
+<a href="#插件系统"><img alt="Pyodide" src="https://img.shields.io/badge/Python-Pyodide%20CPython-1f2937?style=flat-square&logo=python&logoColor=white" /></a>
+<a href="#四种工作模式"><img alt="webR" src="https://img.shields.io/badge/R-webR%20%E8%BF%90%E8%A1%8C%E6%97%B6-1f2937?style=flat-square" /></a>
 </p>
 
 </div>
@@ -33,9 +41,9 @@
 ## 目录
 
 - [概览](#概览)
+- [快速开始](#快速开始)
 - [特性](#特性)
 - [技术栈](#技术栈)
-- [快速开始](#快速开始)
 - [架构](#架构)
 - [项目结构](#项目结构)
 - [四种工作模式](#四种工作模式)
@@ -48,6 +56,7 @@
 - [路线图](#路线图)
 - [贡献](#贡献)
 - [许可证](#许可证)
+- [联系我们](#联系我们)
 
 ---
 
@@ -73,6 +82,25 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
+
+---
+
+## 快速开始
+
+前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
+
+```bash
+npm install         # 安装依赖
+npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
+
+npm run build       # wasm → 类型检查 → vite build → 文档
+npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
+npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
+
+cd docs && npm install && npm run dev   # 文档站点
+```
+
+生产构建产物输出到 `dist/`。
 
 ---
 
@@ -157,25 +185,6 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 测试    | Vitest (单元) + Playwright-core (E2E, headless Edge)       |
 | 文档    | VitePress (独立的 `docs/` workspace)                       |
 | 打包    | fflate (cspkg ZIP), lz-string (项目压缩)                   |
-
----
-
-## 快速开始
-
-前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
-
-```bash
-npm install         # 安装依赖
-npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
-
-npm run build       # wasm → 类型检查 → vite build → 文档
-npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
-npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
-
-cd docs && npm install && npm run dev   # 文档站点
-```
-
-生产构建产物输出到 `dist/`。
 
 ---
 
@@ -1155,3 +1164,12 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 ## 许可证
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## 联系我们
+
+- **邮箱**：[1486853830@qq.com](mailto:1486853830@qq.com)
+- **微信**：19112913292
+
+合作交流、课程落地、bug 反馈或只是想聊聊科研计算，都欢迎随时联系。
