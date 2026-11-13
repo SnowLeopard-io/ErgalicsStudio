@@ -49,8 +49,8 @@ running in the browser.</p>
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
-- [Contact](#contact)
 - [License](#license)
+- [Contact](#contact)
 
 ---
 
