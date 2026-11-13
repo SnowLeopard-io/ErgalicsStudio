@@ -20,21 +20,27 @@ interface LoadedPackage {
   version: string;
 }
 
+const BOOT_TIMEOUT_MS = 90_000;
+
 /**
  * Settings → 存储 → Python 包。
  *
- * Shows what the live interpreter has loaded (name → version), lets the user
- * install any vendored package offline (the wheels live in /pyodide) and
- * unpin previously installed ones. Pyodide cannot truly unload a wheel from a
- * running interpreter, so "uninstall" removes the package from the boot
- * auto-install list and takes effect at the next interpreter restart.
+ * Two separate lists:
+ * - 已安装（pinned, localStorage-backed）: packages the user installed that
+ *   are re-installed automatically at every interpreter boot. Visible even
+ *   before the interpreter exists — the list IS the persistent fact.
+ * - 当前会话已加载: what the live interpreter actually has in memory right
+ *   now (pyodide.loadedPackages), including transitive auto-loads.
+ *
+ * Pyodide cannot truly unload a wheel from a running interpreter, so
+ * uninstalling removes the pin and takes effect at the next restart.
  */
 export default function PythonPackagesPanel() {
   const t = useT();
   const notify = useAppStore((s) => s.notify);
-  const [loaded, setLoaded] = useState<LoadedPackage[] | null>(null);
   const [pinned, setPinned] = useState<string[]>(() => getPinnedPythonPackages());
-  const [pick, setPick] = useState<string>(VENDORED_PYTHON_PACKAGES[1]);
+  const [loaded, setLoaded] = useState<LoadedPackage[] | null>(null);
+  const [pick, setPick] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
 
@@ -59,6 +65,34 @@ export default function PythonPackagesPanel() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Default picker choice: first vendored package that is not pinned yet.
+  useEffect(() => {
+    setPick((cur) => {
+      if (cur && !pinned.includes(cur)) return cur;
+      return VENDORED_PYTHON_PACKAGES.find((p) => p !== 'numpy' && !pinned.includes(p)) ?? '';
+    });
+  }, [pinned]);
+
+  const boot = async () => {
+    setBusy(true);
+    try {
+      const ok = await Promise.race([
+        warmPythonRuntime(),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), BOOT_TIMEOUT_MS)),
+      ]);
+      if (ok) {
+        notify('success', t('store2.py_boot_ok'));
+        await refresh();
+      } else {
+        notify('error', t('store2.py_boot_failed'));
+      }
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const doInstall = async () => {
     if (!pick) return;
@@ -107,83 +141,38 @@ export default function PythonPackagesPanel() {
       <h2 className="settings-section-title">{t('store2.py_title')}</h2>
       <p className="settings-label">{t('store2.py_intro')}</p>
 
-      {loaded === null ? (
-        <div className="settings-row">
-          <label className="settings-label">{t('store2.py_state')}</label>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void warmPythonRuntime().finally(() => {
-                setBusy(false);
-                void refresh();
-              });
-            }}
-          >
-            {t('store2.py_boot')}
-          </button>
-        </div>
-      ) : (
-        <>
-          {loaded.length === 0 ? (
-            <p className="settings-label">{t('store2.py_none')}</p>
-          ) : (
-            <table className="sweep-table">
-              <thead>
-                <tr>
-                  <th>{t('store2.py_col_name')}</th>
-                  <th>{t('store2.py_col_version')}</th>
-                  <th>{t('store2.py_col_source')}</th>
-                  <th>{''}</th>
+      {/* --- 已安装（持久，跨会话） --- */}
+      <div className="settings-row">
+        <label className="settings-label">{t('store2.py_installed_title')}</label>
+        {pinned.length === 0 ? (
+          <span className="settings-label">{t('store2.py_installed_empty')}</span>
+        ) : (
+          <table className="sweep-table">
+            <thead>
+              <tr>
+                <th>{t('store2.py_col_name')}</th>
+                <th>{t('store2.py_col_note')}</th>
+                <th>{''}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pinned.map((name) => (
+                <tr key={name}>
+                  <td>{name}</td>
+                  <td>{t('store2.py_installed_note')}</td>
+                  <td>
+                    <button type="button" className="btn btn-sm" onClick={() => doUnpin(name)}>
+                      {t('store2.py_uninstall')}
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loaded.map((p) => (
-                  <tr key={p.name}>
-                    <td>{p.name}</td>
-                    <td>{p.version}</td>
-                    <td>
-                      {p.name === 'numpy'
-                        ? t('store2.py_src_core')
-                        : pinned.includes(p.name)
-                          ? t('store2.py_src_pinned')
-                          : t('store2.py_src_auto')}
-                    </td>
-                    <td>
-                      {pinned.includes(p.name) && p.name !== 'numpy' && (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          onClick={() => doUnpin(p.name)}
-                        >
-                          {t('store2.py_uninstall')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-          {unpinnedLoaded.length === 0 ? null : (
-            <div className="settings-row">
-              <label className="settings-label">{t('store2.py_restart_hint')}</label>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy}
-                onClick={() => setRestartOpen(true)}
-              >
-                {t('store2.py_restart')}
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
+      {/* --- 安装 --- */}
       <div className="settings-row">
         <label className="settings-label">{t('store2.py_install')}</label>
         <div className="settings-value about-links">
@@ -192,6 +181,7 @@ export default function PythonPackagesPanel() {
             value={pick}
             onChange={(e) => setPick(e.target.value)}
           >
+            {pick === '' && <option value="">{t('store2.py_all_installed')}</option>}
             {installable.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -201,13 +191,64 @@ export default function PythonPackagesPanel() {
           <button
             type="button"
             className="btn"
-            disabled={busy || loaded === null}
+            disabled={busy || pick === ''}
             onClick={() => void doInstall()}
           >
             {t('store2.py_install_btn')}
           </button>
         </div>
       </div>
+
+      {/* --- 当前会话已加载 --- */}
+      <div className="settings-row">
+        <label className="settings-label">{t('store2.py_session_title')}</label>
+        {loaded === null ? (
+          <button type="button" className="btn" disabled={busy} onClick={() => void boot()}>
+            {busy ? t('store2.py_booting') : t('store2.py_boot')}
+          </button>
+        ) : loaded.length === 0 ? (
+          <span className="settings-label">{t('store2.py_none')}</span>
+        ) : (
+          <table className="sweep-table">
+            <thead>
+              <tr>
+                <th>{t('store2.py_col_name')}</th>
+                <th>{t('store2.py_col_version')}</th>
+                <th>{t('store2.py_col_source')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loaded.map((p) => (
+                <tr key={p.name}>
+                  <td>{p.name}</td>
+                  <td>{p.version}</td>
+                  <td>
+                    {p.name === 'numpy'
+                      ? t('store2.py_src_core')
+                      : pinned.includes(p.name)
+                        ? t('store2.py_src_pinned')
+                        : t('store2.py_src_auto')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {loaded !== null && unpinnedLoaded.length > 0 && (
+        <div className="settings-row">
+          <label className="settings-label">{t('store2.py_restart_hint')}</label>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={() => setRestartOpen(true)}
+          >
+            {t('store2.py_restart')}
+          </button>
+        </div>
+      )}
       <p className="settings-label">{t('store2.py_cache_note')}</p>
 
       <Modal
