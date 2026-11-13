@@ -35,9 +35,9 @@ running in the browser.</p>
 ## Table of Contents
 
 - [Overview](#overview)
+- [Getting Started](#getting-started)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
 - [Architecture](#architecture)
 - [Project Layout](#project-layout)
 - [Four Workbench Modes](#four-workbench-modes)
@@ -50,6 +50,7 @@ running in the browser.</p>
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
+- [Contact](#contact)
 
 ---
 
@@ -79,6 +80,28 @@ What ships today:
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
+
+---
+
+## Getting Started
+
+Prereqs: **Node.js ≥ 20** + npm. A **Rust toolchain** (`wasm32-unknown-unknown`
+target + `wasm-bindgen-cli`) is optional — `npm run build:web` ships a
+generated WASM stub, and at runtime all compute runs on the browser-native
+WebGPU/CPU paths.
+
+```bash
+npm install         # install dependencies
+npm run dev         # dev run (welcome page hardware self-check: WebGPU/WASM/IndexedDB)
+
+npm run build       # wasm → typecheck → vite build → docs
+npm run build:web   # frontend only (generates the WASM stub and the bundled docs copy, no Rust needed)
+npm run build:wasm  # compile the Rust core (needs the Rust toolchain)
+
+cd docs && npm install && npm run dev   # docs site
+```
+
+Production builds output to `dist/`.
 
 ---
 
@@ -170,28 +193,6 @@ What ships today:
 | Testing  | Vitest (unit) + Playwright-core (E2E, headless Edge)          |
 | Docs     | VitePress (separate `docs/` workspace)                       |
 | Packaging| fflate (cspkg ZIP), lz-string (project compression)          |
-
----
-
-## Getting Started
-
-Prereqs: **Node.js ≥ 20** + npm. A **Rust toolchain** (`wasm32-unknown-unknown`
-target + `wasm-bindgen-cli`) is optional — `npm run build:web` ships a
-generated WASM stub, and at runtime all compute runs on the browser-native
-WebGPU/CPU paths.
-
-```bash
-npm install         # install dependencies
-npm run dev         # dev run (welcome page hardware self-check: WebGPU/WASM/IndexedDB)
-
-npm run build       # wasm → typecheck → vite build → docs
-npm run build:web   # frontend only (generates the WASM stub and the bundled docs copy, no Rust needed)
-npm run build:wasm  # compile the Rust core (needs the Rust toolchain)
-
-cd docs && npm install && npm run dev   # docs site
-```
-
-Production builds output to `dist/`.
 
 ---
 
@@ -1365,3 +1366,13 @@ Report bugs and feature requests via [GitHub Issues](https://github.com/SnowLeop
 ## License
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## Contact
+
+- **Email**: [1486853830@qq.com](mailto:1486853830@qq.com)
+- **WeChat**: 19112913292
+
+For collaboration, course adoption, bug reports, or just to talk scientific
+computing — feel free to reach out anytime.

@@ -33,9 +33,9 @@
 ## 目录
 
 - [概览](#概览)
+- [快速开始](#快速开始)
 - [特性](#特性)
 - [技术栈](#技术栈)
-- [快速开始](#快速开始)
 - [架构](#架构)
 - [项目结构](#项目结构)
 - [四种工作模式](#四种工作模式)
@@ -48,6 +48,7 @@
 - [路线图](#路线图)
 - [贡献](#贡献)
 - [许可证](#许可证)
+- [联系我们](#联系我们)
 
 ---
 
@@ -73,6 +74,25 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
+
+---
+
+## 快速开始
+
+前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
+
+```bash
+npm install         # 安装依赖
+npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
+
+npm run build       # wasm → 类型检查 → vite build → 文档
+npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
+npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
+
+cd docs && npm install && npm run dev   # 文档站点
+```
+
+生产构建产物输出到 `dist/`。
 
 ---
 
@@ -157,25 +177,6 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 测试    | Vitest (单元) + Playwright-core (E2E, headless Edge)       |
 | 文档    | VitePress (独立的 `docs/` workspace)                       |
 | 打包    | fflate (cspkg ZIP), lz-string (项目压缩)                   |
-
----
-
-## 快速开始
-
-前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
-
-```bash
-npm install         # 安装依赖
-npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
-
-npm run build       # wasm → 类型检查 → vite build → 文档
-npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
-npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
-
-cd docs && npm install && npm run dev   # 文档站点
-```
-
-生产构建产物输出到 `dist/`。
 
 ---
 
@@ -1155,3 +1156,12 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 ## 许可证
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## 联系我们
+
+- **邮箱**：[1486853830@qq.com](mailto:1486853830@qq.com)
+- **微信**：19112913292
+
+合作交流、课程落地、bug 反馈或只是想聊聊科研计算，都欢迎随时联系。
