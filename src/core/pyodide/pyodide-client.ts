@@ -56,7 +56,9 @@ interface Pending {
       | PyodideReplResult
       | MountResult
       | LoadPackagesResult
-      | CollectResult,
+      | ListPackagesResult
+      | CollectResult
+      | { ok: boolean; error?: string },
   ) => void;
   reject: (reason: Error) => void;
 }
