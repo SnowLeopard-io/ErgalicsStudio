@@ -49,6 +49,7 @@ running in the browser.</p>
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Contact](#contact)
 - [License](#license)
 
 ---
@@ -1365,3 +1366,13 @@ Report bugs and feature requests via [GitHub Issues](https://github.com/SnowLeop
 ## License
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## Contact
+
+- **Email**: [1486853830@qq.com](mailto:1486853830@qq.com)
+- **WeChat**: 19112913292
+
+For collaboration, course adoption, bug reports, or just to talk scientific
+computing — feel free to reach out anytime.
