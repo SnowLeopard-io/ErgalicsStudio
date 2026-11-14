@@ -11,7 +11,7 @@ import type { CompiledNode, CompiledRegion, DagExecutionContext } from '@/types/
 import type { RuntimeEnvironment } from './context';
 
 /** Thrown when an in-flight run is cancelled through its `AbortSignal`. */
-export class ExecutorAbortedError extends Error {
+class ExecutorAbortedError extends Error {
   constructor() {
     super('execution cancelled');
     this.name = 'ExecutorAbortedError';

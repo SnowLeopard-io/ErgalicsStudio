@@ -28,7 +28,7 @@ export const NODE_WIDTH = 180;
 export const NODE_HEADER_HEIGHT = 34;
 export const NODE_PORT_ROW = 24;
 export const NODE_PARAM_ROW = 18;
-export const NODE_PADDING_BOTTOM = 10;
+const NODE_PADDING_BOTTOM = 10;
 export const PORT_RADIUS = 6;
 export const MAX_PARAM_ROWS = 6;
 

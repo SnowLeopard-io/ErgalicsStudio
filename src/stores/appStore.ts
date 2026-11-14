@@ -6,7 +6,15 @@ import { flushEditorFile } from './editorFlush';
 import type { PluginHostStatus } from '@/types/plugin';
 import type { WorkbenchMode } from '@/types/editor';
 
-export interface Banner {
+/** Decode a base64 payload (worker binary output) into raw bytes. */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+interface Banner {
   id: number;
   kind: 'info' | 'warning' | 'error';
   messageKey: string;
@@ -29,7 +37,7 @@ export interface Notification {
   action?: { label: string; run: () => void };
 }
 
-export interface PerfMetrics {
+interface PerfMetrics {
   fps: number;
   frameMs: number;
   gpuMs: number;
@@ -70,7 +78,7 @@ const DEFAULT_PERF: PerfMetrics = {
 };
 
 /** Which view the standard-mode sidebar shows (driven by the activity bar). */
-export type SidebarView = 'files' | 'plugins' | 'git' | 'tools' | 'research';
+export type SidebarView = 'files' | 'search' | 'plugins' | 'git' | 'tools' | 'research';
 
 /** Kind of the central file preview — decides which view CentralArea renders. */
 export type FilePreviewKind =
@@ -110,7 +118,7 @@ export type FileEditorKind = 'code' | 'block' | 'flow';
  *  "save & close" (from the tab strip) can write without reaching into the
  *  editor component; editors push their debounced buffer via
  *  `updateEditorFile`. */
-export interface EditorFileState {
+interface EditorFileState {
   name: string;
   path: string;
   editor: FileEditorKind;
@@ -128,6 +136,23 @@ export interface EditorFileState {
 export type CanvasTab =
   | { kind: 'file'; key: string; path: string }
   | { kind: 'editor'; key: string; path: string; editor: FileEditorKind }
+  /** A workbench surface (flow / block / code) embedded in the canvas. The
+   *  four modes are tabs now, not full-page swaps: the explorer and side
+   *  panels stay put while the surface occupies the editor area. `path` is
+   *  the file the surface is currently editing (its tab label), so the strip
+   *  always points at a real file instead of a generic "代码" label. */
+  | {
+      kind: 'surface';
+      key: string;
+      mode: WorkbenchMode;
+      path?: string;
+      /** Editor session this surface shows. File-bound surfaces resolve their
+       *  session from `path`; SAMPLE surfaces carry their own session so a
+       *  sample never hijacks the surface of an open file. */
+      sessionId?: string;
+      /** Display name for surfaces that are not bound to a file (samples). */
+      label?: string;
+    }
   | { kind: 'tool'; key: string; id: string }
   | { kind: 'settings'; key: string };
 
@@ -137,8 +162,14 @@ export const fileTabKey = (path: string): string => `file:${path}`;
 /** Tab key for a file editor tab. */
 export const editorTabKey = (path: string): string => `editor:${path}`;
 
+/** Tab key for an embedded workbench surface (flow / block / code). A surface
+ *  bound to a file gets its own key so several sources can stay open at once
+ *  (e.g. `a.py` and `b.py`), each with its own editor session. */
+const surfaceTabKey = (mode: WorkbenchMode, path?: string): string =>
+  path ? `surface:${mode}:${path}` : `surface:${mode}`;
+
 /** Stable tab key for the embedded settings page. */
-export const settingsTabKey = 'settings:app';
+const settingsTabKey = 'settings:app';
 
 /** Stop the active plugin, if any. Lazy import keeps appStore free of a
  *  pluginStore cycle. Fire-and-forget: callers never need the result. The
@@ -164,13 +195,8 @@ interface AppStore {
   perf: PerfMetrics;
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
-  /**
-   * Mode-specific side panel visibility for Flow/Block/Code. Standard mode
-   * uses `sidebarOpen`; the other modes own panels (flow palette+legend,
-   * block preview, code variables) toggled by the same top-bar ☰ button,
-   * so ☰ is meaningful in every mode.
-   */
-  modePanelOpen: boolean;
+  /** Bottom terminal drawer, freely invocable from any surface (Ctrl+`). */
+  terminalOpen: boolean;
   /** Active workbench mode (Standard | Flow | Block | Code). */
   mode: WorkbenchMode;
   /** Current sidebar view (activity bar selection in Standard mode). */
@@ -178,8 +204,10 @@ interface AppStore {
   /**
    * Canvas tab strip (VS Code editor-area style): files opened from the
    * explorer and research suites embedded from the launcher share one tab
-   * list. Every open tab stays mounted — switching tabs only toggles
-   * visibility, so scroll position / edit buffer / tool state survive.
+   * list. Tool tabs stay mounted while hidden so tool state survives; file
+   * editor tabs mount only while focused, because Monaco/Blockly instances
+   * are heavy and keeping every open file alive was a multi-file bottleneck.
+   * Edit buffers live in `editorFiles`, so switching tabs loses nothing.
    */
   canvasTabs: CanvasTab[];
   /** Active tab key (fileTabKey / toolTabKey), or null when none is open. */
@@ -192,6 +220,12 @@ interface AppStore {
    *  FileExplorer (e.g. an MD preview save). Explorer subscribes to it to
    *  refresh its listings. */
   fileOpsVersion: number;
+  /** Path the file explorer should reveal + select (set by the terminal's
+   *  `open` command, so the tree and the editor stay in sync). */
+  revealFilePath: string | null;
+  /** Folders expanded in the file explorer. Part of the per-project workbench
+   *  session (restored on reopen, persisted on every change). */
+  explorerExpanded: string[];
 
   setStatus: (status: PluginHostStatus) => void;
   addBanner: (kind: Banner['kind'], messageKey: string) => void;
@@ -213,8 +247,20 @@ interface AppStore {
 
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
-  toggleModePanel: () => void;
-  setMode: (mode: WorkbenchMode) => void;
+  /** Toggle the bottom terminal drawer (Ctrl+` / activity-bar button). */
+  toggleTerminal: () => void;
+  /** Show or hide the terminal window (persisted with the panel prefs). */
+  setTerminalOpen: (open: boolean) => void;
+  /** Select a workbench mode. Standard returns to the plugin canvas; the three
+   *  editing surfaces open (or focus) their own canvas tab instead of
+   *  replacing the whole page. `path` binds that surface tab to a file. */
+  setMode: (mode: WorkbenchMode, path?: string) => void;
+  /** Open (or focus) a surface tab bound to an editor SESSION rather than to
+   *  a workspace file — used by the sample dialog. A sample gets its own tab
+   *  and its own session, so loading it never replaces the content of the
+   *  file the user is working on, and the sample buffer is never mirrored
+   *  back into any workspace file (a sample session has no `filePath`). */
+  openSampleTab: (opts: { mode: WorkbenchMode; sessionId: string; label: string }) => void;
   setSidebarView: (view: SidebarView) => void;
   /** Open (or refresh) a file preview tab in the central canvas. */
   openFilePreview: (preview: FilePreviewState) => void;
@@ -227,6 +273,22 @@ interface AppStore {
    *  dirty flag and bump fileOps so the explorer refreshes. Resolves to
    *  false on failure (notification emitted). */
   saveEditorFile: (path: string) => Promise<boolean>;
+  /** Write a live mode buffer straight to the workspace tree. Mode surfaces
+   *  are bound to files without an editor tab, so they cannot use the tab
+   *  buffer save path. */
+  saveWorkspaceFile: (path: string, text: string) => Promise<boolean>;
+  /** Persist a batch of files produced by a code run (workspace-relative
+   *  paths). `binaryFiles` carries matplotlib figures / PDFs / .npy dumps as
+   *  base64. `expectedProjectId` is the project the run was started in: a
+   *  result that lands AFTER the user switched projects must never be written
+   *  into the new project (silent cross-project contamination), so it is
+   *  dropped with a notice instead. Refreshes the explorer once and resolves
+   *  to the write count. */
+  saveWorkspaceFiles: (
+    files: Record<string, string>,
+    binaryFiles?: Record<string, string>,
+    expectedProjectId?: string,
+  ) => Promise<number>;
   /** Activate a tab by key (no-op if the tab is not open). */
   activateTab: (key: string) => void;
   /** Show the plugin canvas: clears the active tab without closing any tab —
@@ -254,6 +316,10 @@ interface AppStore {
    *  a standalone route — same contract as file/suite tabs. */
   openSettingsTab: () => void;
   bumpFileOps: () => void;
+  /** Ask the file explorer to reveal (expand + select) a project path. */
+  setRevealFilePath: (path: string | null) => void;
+  /** Replace the file explorer's expanded-folder list. */
+  setExplorerExpanded: (dirs: string[]) => void;
 }
 
 let bannerId = 0;
@@ -265,16 +331,18 @@ const notifTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const MEMORY_WARN_MB = 0.8 * 512;
 
 /** Panel visibility persists across reloads so a deliberately closed sidebar
- *  (or code/flow panel) stays closed next launch. */
+ *  (or code/flow panel) stays closed next launch. The terminal window is
+ *  part of the same preference set: closing it must survive a reload, and
+ *  opening it must survive one too. */
 const PANEL_PREFS_KEY = 'ergalics:panel-prefs';
 const PANEL_DEFAULTS = {
   sidebarOpen: true,
   rightPanelOpen: true,
-  modePanelOpen: true,
   sidebarView: 'plugins' as SidebarView,
+  terminalOpen: false,
 };
 
-const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'plugins', 'git', 'tools', 'research'];
+const SIDEBAR_VIEWS: readonly SidebarView[] = ['files', 'search', 'plugins', 'git', 'tools', 'research'];
 
 /** Phone-sized touch viewport (landscape phones match this query — see
  *  core/orientation.ts COMPACT_VIEWPORT_QUERY, which the CSS compact tier
@@ -313,10 +381,10 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
     return {
       sidebarOpen: parsed.sidebarOpen ?? PANEL_DEFAULTS.sidebarOpen,
       rightPanelOpen: parsed.rightPanelOpen ?? PANEL_DEFAULTS.rightPanelOpen,
-      modePanelOpen: parsed.modePanelOpen ?? PANEL_DEFAULTS.modePanelOpen,
       sidebarView: SIDEBAR_VIEWS.includes(parsed.sidebarView as SidebarView)
         ? (parsed.sidebarView as SidebarView)
         : PANEL_DEFAULTS.sidebarView,
+      terminalOpen: parsed.terminalOpen ?? PANEL_DEFAULTS.terminalOpen,
     };
   } catch {
     return defaultPanelPrefs();
@@ -326,8 +394,8 @@ function loadPanelPrefs(): typeof PANEL_DEFAULTS {
 const persistPanelPrefs = (s: {
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
-  modePanelOpen: boolean;
   sidebarView: SidebarView;
+  terminalOpen: boolean;
 }) => {
   try {
     localStorage.setItem(PANEL_PREFS_KEY, JSON.stringify(s));
@@ -345,7 +413,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   perf: DEFAULT_PERF,
   sidebarOpen: panelPrefs.sidebarOpen,
   rightPanelOpen: panelPrefs.rightPanelOpen,
-  modePanelOpen: panelPrefs.modePanelOpen,
+  // Persisted with the panel prefs: a terminal the user closed stays closed
+  // after a reload, and one they left open comes back.
+  terminalOpen: panelPrefs.terminalOpen,
   sidebarView: panelPrefs.sidebarView,
   canvasTabs: [],
   activeTab: null,
@@ -353,6 +423,8 @@ export const useAppStore = create<AppStore>((set, get) => {
   editorFiles: {},
   lastActivePluginId: null,
   fileOpsVersion: 0,
+  revealFilePath: null,
+  explorerExpanded: [],
   mode: 'standard',
 
   setStatus: (status) => set({ status }),
@@ -451,24 +523,75 @@ export const useAppStore = create<AppStore>((set, get) => {
       persistPanelPrefs(next);
       return next;
     }),
-  toggleModePanel: () =>
+  toggleTerminal: () =>
     set((s) => {
-      const next = { ...s, modePanelOpen: !s.modePanelOpen };
+      const next = { ...s, terminalOpen: !s.terminalOpen };
+      // Persisted with the panel prefs: closing the terminal must survive a
+      // reload (and opening it must survive one too).
       persistPanelPrefs(next);
       return next;
     }),
-  setMode: (mode) => {
-    if (mode === get().mode) return;
-    set({ mode });
-    // Plugins render into the Standard mode's CentralArea; leaving Standard
-    // unmounts that surface, so a still-active plugin must be deactivated —
-    // otherwise it keeps rendering into detached DOM and holding GPU work.
-    if (mode !== 'standard') {
-      // Lazy import keeps appStore free of a pluginStore cycle.
-      void import('./pluginStore')
-        .then((m) => m.usePluginStore.getState().deactivate())
-        .catch((err) => logger.error('appStore', 'deactivate on mode switch failed', err));
+  setTerminalOpen: (open: boolean) =>
+    set((s) => {
+      if (s.terminalOpen === open) return s;
+      const next = { ...s, terminalOpen: open };
+      persistPanelPrefs(next);
+      return next;
+    }),
+  setMode: (mode, path) => {
+    // Standard is the canvas baseline (plugin host), not a tab: returning to
+    // it clears the active tab and brings the plugin canvas back.
+    if (mode === 'standard') {
+      set({ mode });
+      get().showPluginCanvas();
+      return;
     }
+    const key = surfaceTabKey(mode, path);
+    set((s) => {
+      // Mode button without a file: focus an already-open surface of that
+      // mode instead of spawning a second generic one.
+      if (!path) {
+        const existing = s.canvasTabs.find((tab) => tab.kind === 'surface' && tab.mode === mode);
+        if (existing) return { mode, activeTab: existing.key };
+      }
+      const exists = s.canvasTabs.some((tab) => tab.key === key);
+      return {
+        mode,
+        canvasTabs: exists
+          ? s.canvasTabs.map((tab) =>
+              tab.key === key && tab.kind === 'surface' && path !== undefined
+                ? { ...tab, path }
+                : tab,
+            )
+          : [...s.canvasTabs, { kind: 'surface' as const, key, mode, path }],
+        activeTab: key,
+      };
+    });
+    // The surface tab covers the plugin canvas; stop its rendering loop.
+    deactivatePluginLazy();
+  },
+
+  /** Open (or focus) a sample surface: a surface tab bound to an editor
+   *  session instead of a workspace file.
+   *
+   *  `setMode(mode)` without a path FOCUSES an existing surface of that mode
+   *  — which is the surface of the file the user is editing. Loading a
+   *  sample through it made the sample replace the open file's content
+   *  (and risked mirroring the sample buffer back into that file). Samples
+   *  therefore get a tab of their own, keyed by their session. */
+  openSampleTab: ({ mode, sessionId, label }) => {
+    const key = `sample:${mode}:${sessionId}`;
+    set((s) => {
+      const exists = s.canvasTabs.some((tab) => tab.key === key);
+      return {
+        mode,
+        canvasTabs: exists
+          ? s.canvasTabs
+          : [...s.canvasTabs, { kind: 'surface' as const, key, mode, sessionId, label }],
+        activeTab: key,
+      };
+    });
+    deactivatePluginLazy();
   },
 
   /** Activity-bar click: switch the sidebar view and open the sidebar.
@@ -570,11 +693,14 @@ export const useAppStore = create<AppStore>((set, get) => {
     deactivatePluginLazy();
   },
 
-  /** Push the editor's live buffer into the store + mark dirty. No-op when
-   *  the tab was closed while the debounce was pending. Also marks the open
-   *  project dirty so an autosave persists the edited file (previously the
-   *  buffer was only ever written on an explicit save, so a silent refresh
-   *  inside the autosave window discarded in-editor edits). */
+  /** Push the editor's live buffer into the store and mark the tab dirty.
+   *  Deliberately does NOT mark the whole project dirty: file-tab buffers are
+   *  not part of the project snapshot (they live in `editorFiles` and are
+   *  written to the workspace by `saveEditorFile`). Marking the project dirty
+   *  made every 300 ms keystroke debounce schedule a full project save —
+   *  serializing the complete project (data tables included) every couple of
+   *  seconds while typing, a major source of editor lag. The tab's own dirty
+   *  flag still drives the dot and the save/discard prompt. */
   updateEditorFile: (path, payload) => {
     const key = editorTabKey(path);
     set((s) => {
@@ -582,14 +708,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (!cur) return s;
       return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload, dirty: true } } };
     });
-    // Lazy import: projectStore imports this store, so a static import would
-    // close a cycle. Marking dirty is best-effort — a failure here must never
-    // block the editor update above.
-    void import('./projectStore')
-      .then(({ useProjectStore }) => {
-        if (useProjectStore.getState().project) useProjectStore.getState().setDirty(true);
-      })
-      .catch(() => undefined);
   },
 
   /** Write the buffered payload to the workspace tree. Uses lazy imports (the
@@ -633,12 +751,108 @@ export const useAppStore = create<AppStore>((set, get) => {
     }
   },
 
+  /** Write a live mode buffer straight to the workspace tree. Mode surfaces
+   *  bind to files without an editor tab, so they cannot use the tab buffer
+   *  save path. Keeps a matching tab buffer in sync when one exists. */
+  saveWorkspaceFile: async (path, text) => {
+    try {
+      const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
+        import('./projectStore'),
+        import('@/core/vfs'),
+      ]);
+      const project = useProjectStore.getState().project;
+      if (!project) throw new Error('no project open');
+      await getVfs().writeFile(getProjectRepoPath(project), path, text);
+      set((s) => {
+        const key = editorTabKey(path);
+        const cur = s.editorFiles[key];
+        if (!cur) return s;
+        return { editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } } };
+      });
+      useAppStore.getState().bumpFileOps();
+      useAppStore.getState().notify('success', t('workbench.editor.saved'));
+      return true;
+    } catch (err) {
+      logger.error('appStore', 'workspace file save failed', err);
+      useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
+      return false;
+    }
+  },
+
+  /** Persist a batch of files produced by a code run. Writes every path and
+   *  refreshes file browsers once, so a script dumping several outputs does
+   *  not spam one toast per file. */
+  saveWorkspaceFiles: async (files, binaryFiles, expectedProjectId) => {
+    const textEntries = Object.entries(files);
+    const binaryEntries = Object.entries(binaryFiles ?? {});
+    const total = textEntries.length + binaryEntries.length;
+    if (!total) return 0;
+    try {
+      const [{ useProjectStore, getProjectRepoPath }, { getVfs }] = await Promise.all([
+        import('./projectStore'),
+        import('@/core/vfs'),
+      ]);
+      const project = useProjectStore.getState().project;
+      if (!project) throw new Error('no project open');
+      // The run was started in another project (the user switched away while
+      // it was still executing): its outputs must not silently land here.
+      if (expectedProjectId && project.id !== expectedProjectId) {
+        logger.warn(
+          'appStore',
+          'run outputs dropped: project changed during the run',
+          { expectedProjectId, currentProjectId: project.id },
+        );
+        useAppStore.getState().notify('warning', t('workbench.outputs_dropped'));
+        return 0;
+      }
+      const vfs = getVfs();
+      const root = getProjectRepoPath(project);
+      let written = 0;
+      for (const [path, text] of textEntries) {
+        await vfs.writeFile(root, path, text);
+        written += 1;
+        set((s) => {
+          const key = editorTabKey(path);
+          const cur = s.editorFiles[key];
+          if (!cur) return s;
+          return {
+            editorFiles: { ...s.editorFiles, [key]: { ...cur, payload: text, dirty: false } },
+          };
+        });
+      }
+      for (const [path, base64] of binaryEntries) {
+        await vfs.writeFileBinary(root, path, base64ToBytes(base64));
+        written += 1;
+        // Binary files never have a text editor buffer; drop a stale blob
+        // preview so the explorer/canvas re-reads the new figure.
+        set((s) => {
+          const key = editorTabKey(path);
+          if (!s.editorFiles[key]) return s;
+          const next = { ...s.editorFiles };
+          delete next[key];
+          return { editorFiles: next };
+        });
+      }
+      useAppStore.getState().bumpFileOps();
+      useAppStore.getState().notify(
+        'success',
+        t('workbench.editor.outputs_saved', { count: written }),
+      );
+      return written;
+    } catch (err) {
+      logger.error('appStore', 'workspace output save failed', err);
+      useAppStore.getState().notify('error', t('workbench.editor.save_failed'));
+      return 0;
+    }
+  },
+
   /** Activate a tab by key. Activating a suite tab deactivates the active
    *  plugin (it would otherwise keep rendering into the hidden canvas and
    *  burning GPU/CPU — same as a mode switch). */
   activateTab: (key) => {
-    if (!get().canvasTabs.some((tab) => tab.key === key)) return;
-    set({ activeTab: key });
+    const tab = get().canvasTabs.find((t) => t.key === key);
+    if (!tab) return;
+    set(tab.kind === 'surface' ? { activeTab: key, mode: tab.mode } : { activeTab: key });
     // Tool embeds AND file previews both replace the plugin canvas — the
     // active plugin must stop painting (GPU/CPU + visibility) either way.
     deactivatePluginLazy();
@@ -677,7 +891,7 @@ export const useAppStore = create<AppStore>((set, get) => {
           }
         }
       }
-      return { canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} };
+      return { canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {}, mode: 'standard' as WorkbenchMode };
     });
     void import('./pluginStore')
       .then((m) => {
@@ -692,8 +906,8 @@ export const useAppStore = create<AppStore>((set, get) => {
    *  remaining tab becomes active. A closed file tab's blob URL is revoked
    *  and a closed editor tab's buffer is dropped. */
   closeTab: (key) => {
+    const closed = get().canvasTabs.find((tab) => tab.key === key);
     set((s) => {
-      const closed = s.canvasTabs.find((tab) => tab.key === key);
       if (!closed) return s;
       const next = s.canvasTabs.filter((tab) => tab.key !== key);
       const filePreviews = { ...s.filePreviews };
@@ -712,19 +926,42 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (closed.kind === 'editor') {
         delete editorFiles[key];
       }
+      const nextActive =
+        s.activeTab === key
+          ? next.length
+            ? (next[Math.max(0, s.canvasTabs.findIndex((tab) => tab.key === key) - 1)]?.key ??
+              null)
+            : null
+          : s.activeTab;
+      // Closing the active surface tab falls back to whatever is now in front:
+      // another surface tab keeps its mode, the plain canvas resets to standard.
+      const nextSurface =
+        closed.kind === 'surface' && s.activeTab === key
+          ? next.find((tab) => tab.key === nextActive && tab.kind === 'surface')
+          : undefined;
+      const nextMode: WorkbenchMode | undefined =
+        closed.kind === 'surface' && s.activeTab === key
+          ? nextSurface && nextSurface.kind === 'surface'
+            ? nextSurface.mode
+            : 'standard'
+          : undefined;
       return {
         canvasTabs: next,
         filePreviews,
         editorFiles,
-        activeTab:
-          s.activeTab === key
-            ? next.length
-              ? (next[Math.max(0, s.canvasTabs.findIndex((tab) => tab.key === key) - 1)]?.key ??
-                null)
-              : null
-            : s.activeTab,
+        activeTab: nextActive,
+        ...(nextMode ? { mode: nextMode } : {}),
       };
     });
+    // A sample tab owns its editor session: closing the tab drops the
+    // session too, so the project snapshot never carries a dead sample.
+    if (closed?.kind === 'surface' && closed.sessionId) {
+      const sessionId = closed.sessionId;
+      void import('./editorStore').then((m) => {
+        m.useEditorStore.getState().removeSession(sessionId);
+      });
+    }
+    if (get().activeTab === null) get().showPluginCanvas();
   },
 
   /** Reorder the tab strip: pull `fromKey` out and insert it where `toKey`
@@ -743,40 +980,78 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  /** Update a file tab's path/name after an explorer rename, preserving its
-   *  open state and content. Covers both preview tabs and editor tabs (the
-   *  buffer migrates so dirty state survives the rename). */
+  /** Update open tabs and buffers after an explorer rename/move. Handles
+   *  preview, editor and file-bound `surface` tabs, plus every descendant when
+   *  a directory is relocated, so a renaming code/flow/block file keeps its
+   *  tab label and its buffer instead of leaving a stale path behind. */
   renameFileTab: (oldPath, name, newPath) => {
-    const oldKey = fileTabKey(oldPath);
-    const newKey = fileTabKey(newPath);
-    const oldEditorKey = editorTabKey(oldPath);
-    const newEditorKey = editorTabKey(newPath);
+    /** Map a path inside the renamed subtree to its new location. */
+    const remapPath = (path: string): string | null => {
+      if (path === oldPath) return newPath;
+      if (path.startsWith(`${oldPath}/`)) return `${newPath}${path.slice(oldPath.length)}`;
+      return null;
+    };
     set((s) => {
-      const prev = s.filePreviews[oldKey];
-      const editor = s.editorFiles[oldEditorKey];
-      if (!prev && !editor) return s;
+      const keyMap = new Map<string, string>();
       const filePreviews = { ...s.filePreviews };
       const editorFiles = { ...s.editorFiles };
-      if (prev) {
-        filePreviews[newKey] = { ...prev, name, path: newPath };
-        delete filePreviews[oldKey];
+      let changed = false;
+
+      for (const [key, preview] of Object.entries(s.filePreviews)) {
+        const nextPath = remapPath(preview.path);
+        if (!nextPath) continue;
+        const nextKey = fileTabKey(nextPath);
+        filePreviews[nextKey] = {
+          ...preview,
+          path: nextPath,
+          ...(preview.path === oldPath ? { name } : {}),
+        };
+        delete filePreviews[key];
+        keyMap.set(key, nextKey);
+        changed = true;
       }
-      if (editor) {
-        editorFiles[newEditorKey] = { ...editor, name, path: newPath };
-        delete editorFiles[oldEditorKey];
+      for (const [key, file] of Object.entries(s.editorFiles)) {
+        const nextPath = remapPath(file.path);
+        if (!nextPath) continue;
+        const nextKey = editorTabKey(nextPath);
+        editorFiles[nextKey] = {
+          ...file,
+          path: nextPath,
+          ...(file.path === oldPath ? { name } : {}),
+        };
+        delete editorFiles[key];
+        keyMap.set(key, nextKey);
+        changed = true;
       }
+
+      const canvasTabs = s.canvasTabs.map((tab) => {
+        if (tab.kind === 'file' || tab.kind === 'editor') {
+          const nextPath = remapPath(tab.path);
+          if (!nextPath) return tab;
+          const nextKey = tab.kind === 'file' ? fileTabKey(nextPath) : editorTabKey(nextPath);
+          keyMap.set(tab.key, nextKey);
+          changed = true;
+          return tab.kind === 'file'
+            ? { kind: 'file' as const, key: nextKey, path: nextPath }
+            : { kind: 'editor' as const, key: nextKey, path: nextPath, editor: tab.editor };
+        }
+        if (tab.kind === 'surface' && tab.path) {
+          const nextPath = remapPath(tab.path);
+          if (!nextPath) return tab;
+          const nextKey = surfaceTabKey(tab.mode, nextPath);
+          keyMap.set(tab.key, nextKey);
+          changed = true;
+          return { kind: 'surface' as const, key: nextKey, mode: tab.mode, path: nextPath };
+        }
+        return tab;
+      });
+
+      if (!changed) return s;
       return {
         filePreviews,
         editorFiles,
-        canvasTabs: s.canvasTabs.map((tab) => {
-          if (tab.key === oldKey && tab.kind === 'file')
-            return { kind: 'file' as const, key: newKey, path: newPath };
-          if (tab.key === oldEditorKey && tab.kind === 'editor')
-            return { kind: 'editor' as const, key: newEditorKey, path: newPath, editor: tab.editor };
-          return tab;
-        }),
-        activeTab:
-          s.activeTab === oldKey ? newKey : s.activeTab === oldEditorKey ? newEditorKey : s.activeTab,
+        canvasTabs,
+        activeTab: s.activeTab ? keyMap.get(s.activeTab) ?? s.activeTab : s.activeTab,
       };
     });
   },
@@ -815,5 +1090,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   bumpFileOps: () => set((s) => ({ fileOpsVersion: s.fileOpsVersion + 1 })),
+  setRevealFilePath: (path) => set({ revealFilePath: path }),
+  setExplorerExpanded: (dirs) => set({ explorerExpanded: dirs }),
   };
 });

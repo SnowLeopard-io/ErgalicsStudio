@@ -7,6 +7,7 @@
 // ==========================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useLocale, useT } from '@/i18n';
 import { useGraphStore } from './graphStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -199,11 +200,18 @@ export function ParamEditor() {
   const t = useT();
   const { locale } = useLocale();
   const store = useGraphStore();
-  const instances = store((s) => s.instances);
-  const selectedIds = store((s) => s.selectedIds);
+  // Only the selected block's identity + params matter here. Selecting the
+  // whole `instances` array re-rendered this panel on every pointermove while
+  // dragging a node (moveInstance swaps the array), even though its controls
+  // never read the position. Shallow comparison of the extracted fields keeps
+  // the form quiet during drags/pans.
+  const selected = store(
+    useShallow((s) => {
+      const inst = s.instances.find((i) => s.selectedIds.includes(i.id));
+      return inst ? { id: inst.id, blockId: inst.blockId, params: inst.params } : null;
+    }),
+  );
   const updateParams = store((s) => s.updateParams);
-
-  const selected = instances.find((i) => selectedIds.includes(i.id));
   if (!selected) {
     return (
       <div className="block-param-editor">

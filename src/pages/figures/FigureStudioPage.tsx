@@ -23,7 +23,7 @@ import { composeFigure, JOURNAL_TEMPLATES, panelCellSize, saveFigureToWorkspace 
 import { plotGeometry } from '@/core/plot/geometry';
 import { FigureReadout, type FigurePanelGeom } from '@/components/FigureReadout';
 import type { FigureExportFormat } from '@/core/figure/compose';
-import { runSubmissionCheck } from '@/core/submit/checklist';
+import { autoPanelTag, runSubmissionCheck } from '@/core/submit/checklist';
 import type {
   SubmissionDoc,
   SubmissionExportSettings,
@@ -82,7 +82,7 @@ interface ParsedData {
  * - histogram/bar: three numbers per line are explicit (x0, x1, y) bars;
  *   one number per line is a raw value (auto-binned / counted).
  */
-export function parsePanelData(kind: PanelKind, text: string): ParsedData | null {
+function parsePanelData(kind: PanelKind, text: string): ParsedData | null {
   const rows: number[][] = [];
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
@@ -280,6 +280,20 @@ export default function FigureStudioPage() {
   // object), so `active`'s identity covers panels/templateId/caption changes.
   }, [active]);
 
+  // Panel tags keyed by the panel's ARRAY index, numbered the way
+  // composeFigure does (row-major). The sidebar lists the panels in array
+  // order but the exported figure numbers them row-major — using the array
+  // index for the tag made the two disagree.
+  const panelTags = useMemo(() => {
+    const map = new Map<number, string>();
+    if (!active) return map;
+    const order = active.panels
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => a.p.row - b.p.row || a.p.col - b.p.col);
+    order.forEach((entry, k) => map.set(entry.i, entry.p.tag ?? autoPanelTag(k)));
+    return map;
+  }, [active]);
+
   // Per-panel plot geometry (figure coordinates) feeding the interactive
   // crosshair readout. Mirrors composeFigure's row-major panel order so
   // geometry[i] matches placed[i].
@@ -352,7 +366,10 @@ export default function FigureStudioPage() {
   const doExport = async (format: FigureExportFormat) => {
     if (!active) return;
     try {
-      await exportSheet(active.id, format);
+      // The chosen raster resolution must reach the exporter — the PDF
+      // carries a raster too, so a hard-coded dpi made the export disagree
+      // with the submission check.
+      await exportSheet(active.id, format, exportSettings.rasterDpi);
       notify('success', t('figure.exported', { format: exportLabel(format) }));
     } catch (err) {
       notify('error', t('figure.export_failed', { reason: String(err) }));
@@ -372,6 +389,7 @@ export default function FigureStudioPage() {
         { templateId: active.templateId, caption: active.caption, panels: active.panels },
         format,
         active.name || 'figure',
+        exportSettings.rasterDpi,
       );
       notify('success', t('labs.saved_ws', { path }));
     } catch (err) {
@@ -531,7 +549,10 @@ export default function FigureStudioPage() {
 
             <ul id="figure-panel-list" className="figures-panel-list" tabIndex={-1}>
               {active.panels.map((panel, index) => {
-                const tag = panel.tag ?? String.fromCharCode(97 + index);
+                // The renderer numbers the panels ROW-MAJOR; the sidebar must
+                // use the same order or the tags disagree with the exported
+                // figure (and with the submission checklist).
+                const tag = panelTags.get(index) ?? autoPanelTag(index);
                 const kind = panel.spec.series[0]?.kind ?? '';
                 const name = panel.spec.series[0]?.name ?? '';
                 return (

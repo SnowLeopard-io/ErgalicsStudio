@@ -206,6 +206,7 @@ export class SnaPlugin implements Plugin {
         max: 10,
         step: 0.5,
         value: this.params.avgDegree,
+        visibleWhen: { key: 'sample', in: ['random'] },
         hint: this.zh ? '仅随机 (ER) 网络使用' : 'random (ER) networks only',
       },
       {
@@ -274,14 +275,14 @@ export class SnaPlugin implements Plugin {
         labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Seed' },
         type: 'range',
         min: 1,
-        max: 999999,
+        max: 99999999,
         step: 1,
         value: this.params.seed,
         hint: this.zh ? '固定种子 ⇒ 网络、布局与级联完全可复现' : 'fixed seed ⇒ fully reproducible network, layout and cascade',
       },
-      actionButton('stepCascade', 'Step cascade', '级联单步'),
-      actionButton('runCascade', 'Run cascade', '运行级联', 'primary'),
-      actionButton('stopCascade', 'Pause', '暂停'),
+      { ...actionButton('stepCascade', 'Step cascade', '级联单步'), visibleWhen: { key: 'cascade', notIn: ['none'] } },
+      { ...actionButton('runCascade', 'Run cascade', '运行级联', 'primary'), visibleWhen: { key: 'cascade', notIn: ['none'] } },
+      { ...actionButton('stopCascade', 'Pause', '暂停'), visibleWhen: { key: 'cascade', notIn: ['none'] } },
       actionButton('reset', 'Reset', '重置'),
       actionButton('benchmark', 'Run benchmark', '运行基准验证'),
       actionButton('exportCsv', 'Export node metrics CSV', '导出节点指标 CSV'),
@@ -319,7 +320,7 @@ export class SnaPlugin implements Plugin {
       }
     });
     num('seed', (n) => {
-      const s = Math.min(999999, Math.max(1, Math.round(n)));
+      const s = Math.min(99999999, Math.max(1, Math.round(n)));
       if (s !== this.params.seed) {
         this.params.seed = s;
         this.customEdges = null;

@@ -287,11 +287,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let lpProp = logDensity(&prop);
     if (lpProp == lpProp) { // NaN guard
-      let delta = lpProp - lp;
-      var take = delta >= 0.0;
-      if (!take) {
-        let u = max(pcgFloat(&rng), 1e-30);
-        take = log(u) < delta;
+      var take = false;
+      if (lp != lp) {
+        // No reference density yet: the chain's FIRST valid proposal
+        // defines it. Comparing against the placeholder 0 made the
+        // acceptance probability exp(lpProp) ≈ 0 for a log-posterior
+        // around -20…-100, so the chain never moved.
+        take = true;
+      } else {
+        let delta = lpProp - lp;
+        take = delta >= 0.0;
+        if (!take) {
+          let u = max(pcgFloat(&rng), 1e-30);
+          take = log(u) < delta;
+        }
       }
       if (take) {
         for (var d: u32 = 0u; d < ${D}u; d = d + 1u) { theta[d] = prop[d]; }
@@ -361,10 +370,13 @@ async function runGpuEngine(
     throw new Error('MCMC buffer creation failed');
   }
 
-  // Initial state [theta D | lp] per chain; lp evaluated on the CPU side is
-  // not available for a WGSL-only model, so start at 0 (first proposal's
-  // acceptance is simply relative to the prior-free value 0).
-  const initF32 = new Float32Array(chains * (D + 1));
+  // Initial state [theta D | lp] per chain. The lp slot is the chain's
+  // REFERENCE density: it is not known on the CPU side for a WGSL-only
+  // model, so it starts as NaN — the kernel reads that as "no reference
+  // yet" and lets the first valid proposal define it. Starting at 0 made
+  // the first acceptance probability exp(lpProp) ≈ 0, so the chain stayed
+  // frozen at its initial point.
+  const initF32 = new Float32Array(chains * (D + 1)).fill(Number.NaN);
   model.init.forEach((init, c) => {
     init.forEach((v, d) => {
       initF32[c * (D + 1) + d] = v;

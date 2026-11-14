@@ -23,9 +23,15 @@ export function figureSlug(name: string, fallback = 'figure'): string {
   return slug || fallback;
 }
 
-/** Repo-relative path used by `\includesvg{...}` for a FigureSheet. */
+/**
+ * Repo-relative path used by `\includesvg{...}` for a FigureSheet.
+ *
+ * The id suffix keeps two sheets with the SAME name apart — a name-only
+ * path made both write to `figures/<slug>.svg`, so the second sheet
+ * silently replaced the first in the export bundle.
+ */
 export function figureSheetPath(sheet: FigureSheet): string {
-  return `figures/${figureSlug(sheet.name, sheet.id.slice(0, 8))}.svg`;
+  return `figures/${figureSlug(sheet.name, 'figure')}-${sheet.id.slice(0, 8)}.svg`;
 }
 
 /**

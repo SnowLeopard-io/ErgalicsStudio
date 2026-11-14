@@ -53,12 +53,16 @@ class _Studio:
     # ---- data sources -----------------------------------------------------
 
     def load(self, path):
-        if path not in _FILES:
+        # Accept "dir/name.csv" too: only the flat file name is registered.
+        key = str(path)
+        if key not in _FILES and "/" in key:
+            key = key.rsplit("/", 1)[-1]
+        if key not in _FILES:
             raise FileNotFoundError(
                 f'file "{path}" not found (available: {", ".join(sorted(_FILES))})'
             )
-        text = _FILES[path]
-        lower = path.lower()
+        text = _FILES[key]
+        lower = key.lower()
         if lower.endswith(".xyz"):
             return _parse_delimited(text, _xyz_name)
         if lower.endswith(".json"):
@@ -96,8 +100,22 @@ class _Studio:
         return DataTable("grid", [("x", xs), ("y", ys)], provenance="studio.grid")
 
     def range(self, start, stop, step=1):
-        s = step if step != 0 else 1
-        return DataTable("range", [("value", list(range(start, stop, s)))], provenance="studio.range")
+        # Native-feeling replacement for range() over numbers: floats and
+        # negative steps work, unlike the builtin.
+        lo = float(start)
+        hi = float(stop)
+        by = float(step) if step else 1.0
+        if by == 0:
+            by = 1.0
+        values = []
+        v = lo
+        eps = abs(by) * 1e-9
+        while (by > 0 and v < hi - eps) or (by < 0 and v > hi + eps):
+            values.append(v)
+            v += by
+            if len(values) > 10_000_000:
+                raise ValueError("studio.range produced more than 10 million values")
+        return DataTable("range", [("value", values)], provenance="studio.range")
 
     # ---- transforms (table-level) ----------------------------------------
 
@@ -311,7 +329,11 @@ def _parse_delimited(text, default_names):
     """Parse whitespace/comma-delimited numeric columns, matching the JS
     parseDelimitedColumns: a non-numeric header supplies names, malformed or
     ragged rows are skipped, and the width comes from the first data row."""
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    # Comment lines (# or //) are metadata, not a header. Scientific data
+    # files routinely start with one, and treating it as the header produced
+    # nonsense column names (e.g. "# Illustrative demo data ..." -> "#").
+    lines = [l.strip() for l in text.splitlines()]
+    lines = [l for l in lines if l and not l.startswith("#") and not l.startswith("//")]
     header = []
     columns = []
     width = 0
@@ -320,8 +342,10 @@ def _parse_delimited(text, default_names):
         tokens = _split_tokens(line)
         if not tokens:
             continue
-        if not started and any(not _is_num(t) for t in tokens):
-            header.extend(tokens)
+        # Only the first non-numeric line can be the header; later annotation
+        # lines must not be appended to it.
+        if not started and not header and any(not _is_num(t) for t in tokens):
+            header = tokens
             continue
         try:
             values = [float(t) for t in tokens]
@@ -425,13 +449,60 @@ def _repl(code):
     return None
 
 
-def _snapshot_variables():
+def _capture(code):
+    """Execute the given code in this namespace and return its output.
+
+    The terminal runs one command per session, so its output must NOT leak
+    into the global stdout stream (that stream belongs to the run session).
+    Both streams are redirected into buffers here and returned as
+    base64(JSON) — base64 keeps the host free of repr-quoting guesswork.
+    """
+    import base64
+    import io
+    import json
+    import contextlib
+    import traceback
+
+    out = io.StringIO()
+    err = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                tree = compile(code, "<terminal>", "eval")
+            except SyntaxError:
+                exec(compile(code, "<terminal>", "exec"), globals(), globals())
+            else:
+                value = eval(tree, globals(), globals())
+                if value is not None:
+                    print(repr(value))
+    except BaseException:
+        err.write(traceback.format_exc())
+    payload = json.dumps({"out": out.getvalue(), "err": err.getvalue()})
+    return base64.b64encode(payload.encode("utf-8")).decode("ascii")
+
+
+def _global_ids():
+    """Map every public global name to the id() of its value.
+
+    The host compares the map before and after a run: a name whose id changed
+    (or that appeared) was defined by THAT run. Names that survived unchanged
+    belong to an earlier program (or to the terminal REPL) and must not be
+    reported as the current run's results."""
+    return {name: id(value) for name, value in globals().items() if not name.startswith("_")}
+
+
+def _snapshot_variables(only=None):
     """Summarize top-level variables for the VariablePanel: DataTable -> table
     (with full column data so the host can rebuild a real DataTable), numeric /
-    string / bool -> scalar, numpy arrays -> a descriptive scalar string."""
+    string / bool -> scalar, numpy arrays -> a descriptive scalar string.
+
+    The optional "only" argument restricts the result to the given names
+    (the host passes the names the current run actually defined)."""
     out = {}
     for name, value in globals().items():
         if name.startswith("_"):
+            continue
+        if only is not None and name not in only:
             continue
         if isinstance(value, DataTable):
             out[name] = {

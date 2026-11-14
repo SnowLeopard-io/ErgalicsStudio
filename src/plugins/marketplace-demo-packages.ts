@@ -187,10 +187,8 @@ const DEMO_SPECS: Record<string, DemoSpec> = {
   },
 };
 
-export const DEMO_PACKAGE_IDS: readonly string[] = Object.keys(DEMO_SPECS);
-
 /** The signed manifest a demo package installs with (display source of truth). */
-export function getDemoManifest(id: string): PluginManifest {
+function getDemoManifest(id: string): PluginManifest {
   const spec = DEMO_SPECS[id];
   if (!spec) throw new Error(`unknown demo package: ${id}`);
   return {

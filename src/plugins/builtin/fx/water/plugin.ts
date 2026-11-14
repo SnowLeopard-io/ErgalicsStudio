@@ -332,6 +332,7 @@ export class WaterPlugin implements Plugin {
           max: 20,
           step: 0.5,
           value: s.rainRate,
+          visibleWhen: { key: 'rain', in: [true] },
         },
         { key: 'sources', label: 'Continuous sources ×2', labelI18n: { 'zh-CN': '连续波源 ×2（干涉）', 'en-US': 'Continuous sources ×2 (interference)' }, type: 'checkbox', value: s.sources },
         {
@@ -343,6 +344,7 @@ export class WaterPlugin implements Plugin {
           max: 40,
           step: 0.5,
           value: s.srcLambda,
+          visibleWhen: { key: 'sources', in: [true] },
         },
         {
           key: 'srcSep',
@@ -353,6 +355,7 @@ export class WaterPlugin implements Plugin {
           max: 60,
           step: 1,
           value: s.srcSep,
+          visibleWhen: { key: 'sources', in: [true] },
         },
         {
           key: 'hScale',

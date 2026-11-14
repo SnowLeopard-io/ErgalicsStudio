@@ -6,7 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BootGate } from '@/components/BootGate';
 import { BannerStack, ToastStack } from '@/components/Feedback';
 import { AmbienceLayer } from '@/components/ambience/AmbienceLayer';
-import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
+// import { CrossSiteSwitcher } from '@/components/CrossSiteSwitcher';
 import { TemplateTourOverlay } from '@/components/TemplateTourOverlay';
 import { TourGuide } from '@/components/TourGuide';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -74,7 +74,8 @@ function AppShell() {
       <AmbienceLayer />
       <TemplateTourOverlay />
       <TourGuide />
-      <CrossSiteSwitcher />
+      {/* 站点悬浮窗（官网/工作台/文档切换）：暂时注释掉，暂不显示。 */}
+      {/* <CrossSiteSwitcher /> */}
       <CommandPalette />
       <ShortcutsDialog />
       {/* Landscape-only layout: blocks portrait on touch devices where the

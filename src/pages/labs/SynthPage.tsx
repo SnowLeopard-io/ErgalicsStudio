@@ -18,6 +18,7 @@ import {
   toCsv,
 } from '@/core/dataeng/synth';
 import type { PrivacyMode, SynthMode, SynthResult, SynthTable } from '@/core/dataeng/synth';
+import { extent } from '@/core/stats';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
 
@@ -98,8 +99,10 @@ function CompareHistogram({
     const b = columnNumbers(synthetic, column);
     if (a.length < 2 || b.length < 2) return;
 
-    const lo = Math.min(Math.min(...a), Math.min(...b));
-    const hi = Math.max(Math.max(...a), Math.max(...b));
+    const [aLo, aHi] = extent(a);
+    const [bLo, bHi] = extent(b);
+    const lo = Math.min(aLo, bLo);
+    const hi = Math.max(aHi, bHi);
     if (!(hi > lo)) return;
     const binWidth = (hi - lo) / HIST_BINS;
 
@@ -237,6 +240,7 @@ export function SynthPage() {
         corrAbsDiff: result.report.corrAbsDiff,
         missingRateDiff: result.report.missingRateDiff,
         perColumn: result.report.perColumn,
+        skippedColumns: result.report.skippedColumns,
       },
     };
     await downloadBlob(
@@ -367,6 +371,11 @@ export function SynthPage() {
         {/* --- quality report --- */}
         {report && (
           <>
+            {report.skippedColumns.length > 0 && (
+              <p className="analysis-warning">
+                {t('synth.skipped_columns', { names: report.skippedColumns.join(', ') })}
+              </p>
+            )}
             <div className="share-section-title">{t('synth.metrics_title')}</div>
             <div className="analysis-row">
               <table className="sweep-table">

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-export interface PanelWidthBind {
+interface PanelWidthBind {
   width: number;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;

@@ -172,6 +172,16 @@ export default function UncertaintyPage() {
     setFile(name);
     setParseError('');
     setFromHandoff(false);
+    // The derived results belong to the PREVIOUS file. Keeping them would
+    // let the save action stamp the new file's name onto the old file's
+    // numbers (the artifact claimed the wrong source).
+    setBsResult('');
+    setBsChart(null);
+    setMcResult('');
+    setMcChart(null);
+    setMcmcResult('');
+    setMcmcChart(null);
+    setMcmcEngineResult(null);
     if (!name) {
       loadGen.current += 1;
       setTable(null);

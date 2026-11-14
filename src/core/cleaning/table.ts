@@ -10,6 +10,8 @@
 // do. No DOM / React imports.
 // ==========================================================================
 
+import { splitDelimitedLine } from '@/core/io/delimited';
+
 export type Cell = string | number | boolean | null;
 
 export interface CleaningTable {
@@ -64,43 +66,9 @@ export function cloneTable(table: CleaningTable): CleaningTable {
   };
 }
 
-// ---- parsing ---------------------------------------------------------------
-
 /** RFC4180-ish line splitter: quoted fields keep commas, `""` escapes a quote. */
 function splitDelimited(line: string, delimiter: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  let quoted = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inQuotes = true;
-      quoted = true;
-      continue;
-    }
-    if (ch === delimiter) {
-      out.push(cur);
-      cur = '';
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur.length > 0 || quoted || line.endsWith(delimiter)) out.push(cur);
-  return out;
+  return splitDelimitedLine(line, delimiter);
 }
 
 /** Split on comma / semicolon / whitespace runs (first delimiter seen wins). */

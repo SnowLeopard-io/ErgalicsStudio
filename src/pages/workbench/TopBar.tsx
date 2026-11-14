@@ -6,21 +6,19 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useAppStore } from '@/stores/appStore';
-import { useModeConvert } from '@/stores/useModeConvert';
 import { downloadBlob } from '@/core/download';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Dropdown } from '@/components/Dropdown';
 import { ResearchLauncher } from '@/components/ResearchLauncher';
 import { openToolEmbedded } from '@/pages/research/toolRegistry';
-import { MenuIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
+import { ChevronDownIcon, GaugeIcon, MoreIcon, SparklesIcon, HelpIcon } from '@/components/icons';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useShortcutsStore } from '@/stores/shortcutsStore';
-import { useModeSync } from '@/hooks/useModeSync';
-import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
 
-const MODE_KEYS = ['standard', 'flow', 'block', 'code'] as const;
+import { TopBarDialogs, type TopBarDialogKey } from './TopBarDialogs';
+import { ConvertMenu } from './ConvertMenu';
 
 export function TopBar() {
   const t = useT();
@@ -37,16 +35,11 @@ export function TopBar() {
   const importFolder = useProjectStore((s) => s.importFolder);
   const notify = useAppStore((s) => s.notify);
   const resetToWelcome = useAppStore((s) => s.resetToWelcome);
-  const toggleModePanel = useAppStore((s) => s.toggleModePanel);
-  const modePanelOpen = useAppStore((s) => s.modePanelOpen);
-  const mode = useAppStore((s) => s.mode);
-  const requestMode = useModeConvert((s) => s.requestMode);
   const perfFps = useAppStore((s) => s.perf.fps);
   const perfWarnFps = useAppStore((s) => s.perf.warnings.fps);
   const startTour = useTourStore((s) => s.start);
   const aiOpen = useAiPanelStore((s) => s.open);
   const toggleAi = useAiPanelStore((s) => s.toggle);
-  const syncState = useModeSync();
 
   // Single dialog key: only one TopBar dialog can be open at a time, so the
   // previous eleven booleans collapse into this one piece of state (rendered
@@ -90,21 +83,9 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Zone 1 — navigation: ☰ (mode panel toggle in non-standard modes;
-          in Standard the sidebar owns its edge collapse button instead),
-          brand, current project name. */}
-      {mode !== 'standard' && (
-        <button
-          type="button"
-          className={`icon-btn${modePanelOpen ? ' is-active' : ''}`}
-          aria-label={t('workbench.menu.toggle_panel')}
-          aria-pressed={modePanelOpen}
-          title={t('workbench.menu.toggle_panel')}
-          onClick={toggleModePanel}
-        >
-          <MenuIcon size={17} />
-        </button>
-      )}
+      {/* Zone 1 — brand, current project name. The sidebar and right panel
+          carry their own edge collapse buttons, so the old ☰ shortcut is
+          gone (it was a leftover duplicate). */}
 
       {/* Brand = home: back to the boot state — empty canvas with the
           welcome screen (plugin deactivated, all canvas tabs closed). */}
@@ -131,7 +112,9 @@ export function TopBar() {
           <span title={project ? project.name : t('project.new')}>
             {project ? project.name : t('project.new')}
             {dirty && <span className="project-dirty">•</span>}
-            <span className="more-caret">▾</span>
+            <span className="more-caret">
+              <ChevronDownIcon size={12} />
+            </span>
           </span>
         }
         items={[
@@ -189,27 +172,11 @@ export function TopBar() {
       />
 
       <div className="topbar-actions">
-        {/* Zone 2 — work modes (filled + underline double indication). */}
-        <div className="topbar-cluster mode-switch">
-          {MODE_KEYS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`mode-btn${mode === key ? ' is-on' : ''}`}
-              aria-pressed={mode === key}
-              onClick={() => requestMode(key)}
-            >
-              {t(`workbench.mode.${key}`)}
-            </button>
-          ))}
-          {syncState !== 'idle' && (
-            <span
-              className={`mode-sync-dot is-${syncState}`}
-              data-sync={syncState}
-              title={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
-              aria-label={t(syncState === 'synced' ? 'ux.mode.synced' : 'ux.mode.diverged')}
-            />
-          )}
+        {/* Zone 2 — the single work-mode entry point is the conversion menu;
+            it lists every mode (including Standard) and the three code
+            dialects, so no separate mode-button strip is needed. */}
+        <div className="topbar-cluster convert-cluster">
+          <ConvertMenu />
         </div>
 
         <span className="topbar-divider" aria-hidden="true" />

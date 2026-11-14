@@ -133,11 +133,42 @@ export function safeJsonScript(data: unknown, elementId: string): string {
 // Minimal CSV (handles quoted fields, comma/semicolon/tab delimiters)
 // --------------------------------------------------------------------------
 
+/**
+ * The delimiter of a CSV-ish text: `,`, `;` or a tab.
+ *
+ * Detected from the first non-empty line instead of treating all three as
+ * delimiters at once — a comma-separated file whose (unquoted) text cell
+ * contains a semicolon or a tab was split into extra columns, and every
+ * following row was shifted by one cell.
+ */
+export function detectCsvDelimiter(text: string): ',' | ';' | '\t' {
+  const line = text.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
+  const counts: Array<[',' | ';' | '\t', number]> = [
+    [',', 0],
+    [';', 0],
+    ['\t', 0],
+  ];
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]!;
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (inQuotes) continue;
+    const entry = counts.find((c) => c[0] === ch);
+    if (entry) entry[1] += 1;
+  }
+  counts.sort((a, b) => b[1] - a[1]);
+  return counts[0]![1] > 0 ? counts[0]![0] : ',';
+}
+
 export function parseCsv(text: string): { columns: string[]; rows: string[][] } {
   const records: string[][] = [];
   let field = '';
   let record: string[] = [];
   let inQuotes = false;
+  const delimiter = detectCsvDelimiter(text);
 
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
@@ -162,7 +193,7 @@ export function parseCsv(text: string): { columns: string[]; rows: string[][] } 
       if (record.some((f) => f !== '')) records.push(record);
       record = [];
       field = '';
-    } else if (ch === ',' || ch === ';' || ch === '\t') {
+    } else if (ch === delimiter) {
       record.push(field);
       field = '';
     } else {

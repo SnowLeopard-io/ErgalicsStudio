@@ -5,9 +5,10 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
+import { ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { FileExplorer } from '@/pages/workbench/FileExplorer';
+import { SearchPanel } from '@/pages/workbench/SearchPanel';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import type { PluginRegistryEntry } from '@/types/plugin';
 import { usePanelWidth } from '@/hooks/usePanelWidth';
@@ -234,6 +235,8 @@ export function Sidebar() {
           位于顶部栏的项目名处。 */}
       {sidebarView === 'files' && <FileExplorer />}
 
+      {sidebarView === 'search' && <SearchPanel />}
+
       {sidebarView === 'git' && <GitPanel alwaysOpen />}
 
       {sidebarView === 'research' && (
@@ -316,7 +319,9 @@ export function Sidebar() {
                 className="plugin-group-header"
                 onClick={() => toggleGroup(group.id)}
               >
-                <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>▾</span>
+                <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>
+                  <ChevronDownIcon size={12} />
+                </span>
                 <span className="plugin-group-name">{group.label}</span>
                 <span className="plugin-group-count">{group.entries.length}</span>
               </button>

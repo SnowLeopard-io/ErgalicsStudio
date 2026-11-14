@@ -5,6 +5,7 @@ import { useDaypart } from '@/core/ambience/vitality';
 import { DEFAULT_PROJECT_NAME } from '@/types/project';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { Tagline } from '@/components/Tagline';
 import { currentAppVersion } from '@/core/citation';
 import { initGpu } from '@/core/gpu';
 import { wasmStatus } from '@/core/wasm';
@@ -21,15 +22,11 @@ import {
   PlusIcon,
   FileIcon,
   FolderOpenIcon,
-  BookIcon,
   CloseIcon,
   GitBranchIcon,
 } from '@/components/icons';
 
 const APP_VERSION = currentAppVersion();
-
-/** Rotating hero taglines — one shows at a time, cycling every 3 s. */
-const TAGLINE_COUNT = 6;
 
 interface HardwareState {
   webgpu: 'pending' | 'ok' | 'fail';
@@ -51,13 +48,6 @@ let deepLinkConsumed = false;
 export default function WelcomePage() {
   const t = useT();
   const daypart = useDaypart();
-
-  /** Hero tagline rotation — advances every 3 s, fading via CSS on remount. */
-  const [tagline, setTagline] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => setTagline((i) => (i + 1) % TAGLINE_COUNT), 3000);
-    return () => window.clearInterval(timer);
-  }, []);
   const navigate = useNavigate();
   const gpuBackend = useSettingsStore((s) => s.gpuBackend);
   const addBanner = useAppStore((s) => s.addBanner);
@@ -157,8 +147,9 @@ export default function WelcomePage() {
       });
       // "Apply in Studio" must land on the topic's settings page with the
       // theme live — not linger on the welcome screen — so the action feels
-      // wired up. The `cat=theme` param opens the theme section directly.
-      navigate('/settings?cat=theme');
+      // wired up. The `cat=appearance` param opens the appearance section
+      // directly (the old `cat=theme` alias still resolves there).
+      navigate('/settings?cat=appearance');
       return;
     }
     // Website plugin-market deep link (#/?plugin=<id>): jump into the
@@ -312,10 +303,8 @@ export default function WelcomePage() {
       <main className="welcome-main">
         <section className="welcome-hero">
           <h1 className="welcome-title">{t('welcome.title')}</h1>
-          {/* key= remounts the node so the fade-in animation replays. */}
-          <p className="welcome-subtitle welcome-tagline" key={tagline}>
-            {t(`welcome.tagline.${tagline}`)}
-          </p>
+          {/* key= remounts the node so the fade-in animation replays (inside Tagline). */}
+          <Tagline className="welcome-subtitle welcome-tagline" />
           <p className="welcome-greeting">{t(`ambience.greeting.${daypart}`)}</p>
           <div className="welcome-cta-row">
             <button
@@ -337,39 +326,33 @@ export default function WelcomePage() {
             <button
               type="button"
               className="btn"
-              onClick={() => navigate('/workbench', { state: { openDataDialog: true } })}
-              disabled={busy}
-            >
-              <BookIcon size={14} /> {t('welcome.start.samples')}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setCloneOpen(true)}
-              disabled={busy}
-              title={t('project.clone_prompt')}
-            >
-              <GitBranchIcon size={14} /> {t('project.clone')}
-            </button>
-          </div>
-          {/* Secondary, low-weight entries kept out of the primary CTA row. */}
-          <div className="welcome-quiet-row">
-            <button
-              type="button"
-              className="welcome-quiet-link"
               onClick={() => folderInputRef.current?.click()}
               disabled={busy}
             >
-              <FolderOpenIcon size={13} /> {t('project.open_folder')}
+              <FolderOpenIcon size={14} /> {t('project.open_folder')}
             </button>
-            <span className="welcome-quiet-sep" aria-hidden="true">·</span>
+          </div>
+          {/* Secondary, low-weight entries kept out of the primary CTA row:
+              these are rarer / power-user actions, styled as links so they read
+              as clickable text rather than competing with the main buttons. */}
+          <div className="welcome-quiet-row">
             <button
               type="button"
               className="welcome-quiet-link"
               onClick={() => setTemplateOpen(true)}
               disabled={busy}
             >
-              {t('welcome.browse_examples')}
+              {t('welcome.browse_templates')}
+            </button>
+            <span className="welcome-quiet-sep" aria-hidden="true">·</span>
+            <button
+              type="button"
+              className="welcome-quiet-link"
+              onClick={() => setCloneOpen(true)}
+              disabled={busy}
+              title={t('project.clone_prompt')}
+            >
+              <GitBranchIcon size={13} /> {t('project.clone')}
             </button>
           </div>
         </section>

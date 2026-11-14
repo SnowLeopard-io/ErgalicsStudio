@@ -51,6 +51,8 @@ export function BlockPreview() {
   const { locale } = useLocale();
   const domRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Identity used to claim/release the shared plugin render host. */
+  const hostOwnerRef = useRef({});
   const svgHostRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(initialPreviewHeight);
   const nodeOutputs = useBlockStore((s) => s.nodeOutputs);
@@ -74,12 +76,15 @@ export function BlockPreview() {
         const g = canvas.getContext('2d');
         if (g) g.clearRect(0, 0, canvas.width, canvas.height);
       },
-    });
+    }, hostOwnerRef.current);
     // If a plugin is still active (e.g. the preview remounted after a mode
     // toggle), redraw it into the fresh containers — otherwise its cached
     // container points at a detached canvas and re-rendering silently no-ops.
     rerenderActivePlugin();
-    return () => setHostContainers(null);
+    // Capture the owner now: `hostOwnerRef.current` may point elsewhere by
+    // the time the cleanup runs.
+    const owner = hostOwnerRef.current;
+    return () => setHostContainers(null, owner);
   }, []);
 
   // Canvas outputs bake their pixels (and the on-plot caption) at draw time,

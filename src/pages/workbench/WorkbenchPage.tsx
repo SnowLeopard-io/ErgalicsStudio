@@ -1,5 +1,4 @@
 import { Suspense, useEffect } from 'react';
-import { lazyRetry } from '@/core/lazyRetry';
 import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
@@ -14,31 +13,23 @@ import { logger } from '@/core/logger';
 import { useT } from '@/i18n';
 import { useProjectStore, getLastOpenedProjectId } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { subscribePythonOutput, warmPythonRuntime } from '@/core/pyodide/code-runtime';
 import { loadWasm } from '@/core/wasm';
-import { BlockWorkbench } from '@/components/blocks/BlockWorkbench';
 import { initBlockSystem } from '@/blocks';
 import { useFlowSync } from '@/stores/useFlowSync';
 import { ModeConvertDialog } from './dialogs/ModeConvertDialog';
+import { DataFilePickerDialog } from './DataFilePickerDialog';
 import { PythonRuntimeNotice } from '@/components/PythonRuntimeNotice';
-import { warmPythonRuntime } from '@/core/pyodide/code-runtime';
+import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { AiAssistantOverlay } from '@/components/AiAssistantOverlay';
 import { useTourStore, tourSeen } from '@/stores/tourStore';
-
-// Blockly (and, later, Monaco/Pyodide) are large and loaded on demand so the
-// Standard/Flow first paint is unaffected (editor architecture §1.1).
-const BlockEditor = lazyRetry(() =>
-  import('@/components/editor/BlockEditor').then((m) => ({ default: m.BlockEditor })),
-);
-const CodeEditor = lazyRetry(() =>
-  import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
-);
 
 /** Process-wide guard: the project restore must run once per page load even
  *  under React StrictMode (which mounts/unmounts/remounts in dev). */
 let restoreStarted = false;
 
 export default function WorkbenchPage() {
-  const mode = useAppStore((s) => s.mode);
   const t = useT();
   const location = useLocation();
 
@@ -119,6 +110,18 @@ export default function WorkbenchPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Global stdout/stderr → console bridge. Subscribed once at the workbench
+  // level so interpreter output reaches the console (and the terminal drawer)
+  // no matter which surface is in front — it used to live inside CodeEditor,
+  // which silently dropped all output while a code tab was not mounted.
+  useEffect(() => {
+    const unsubscribe = subscribePythonOutput({
+      stdout: (text) => useEditorStore.getState().appendConsole({ stream: 'stdout', text }),
+      stderr: (text) => useEditorStore.getState().appendConsole({ stream: 'stderr', text }),
+    });
+    return unsubscribe;
+  }, []);
+
   return (
     <div className="workbench">
       {/* TopBar and StatusBar get their own boundaries: previously a crash in
@@ -130,31 +133,28 @@ export default function WorkbenchPage() {
       <div className="workbench-body">
         <ErrorBoundary>
           <Suspense fallback={<div className="workbench-loading"><span className="spinner" /></div>}>
-            {mode === 'flow' ? (
-              <BlockWorkbench />
-            ) : mode === 'block' ? (
-              <BlockEditor />
-            ) : mode === 'code' ? (
-              <CodeEditor />
-            ) : (
-              <>
-                {/* 活动栏常驻（即使侧栏收起也可见，供重新打开视图）。 */}
-                <ActivityBar />
-                {/* Sidebar 自己处理收起态（渲染为贴边小按钮），始终挂载。 */}
-                <Sidebar />
-                <CentralArea />
-                <RightPanel />
-              </>
-            )}
+            {/* One unified IDE shell in every mode: the four modes are canvas
+                tabs (flow/block/code) or the plugin canvas (standard), so the
+                explorer and side panels never disappear on a mode switch. */}
+            {/* 活动栏常驻（即使侧栏收起也可见，供重新打开视图）。 */}
+            <ActivityBar />
+            {/* Sidebar 自己处理收起态（渲染为贴边小按钮），始终挂载。 */}
+            <Sidebar />
+            <CentralArea />
+            <RightPanel />
           </Suspense>
         </ErrorBoundary>
       </div>
+      {/* Terminal drawer sits above the status bar (VS Code style); mounted
+          once so it exists in every surface — see components/terminal. */}
+      <TerminalPanel />
       <ErrorBoundary>
         <StatusBar />
       </ErrorBoundary>
       <PythonRuntimeNotice />
       <AiAssistantOverlay />
       <ModeConvertDialog />
+      <DataFilePickerDialog />
     </div>
   );
 }

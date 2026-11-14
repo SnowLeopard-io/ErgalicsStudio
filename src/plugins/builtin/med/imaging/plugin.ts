@@ -231,17 +231,23 @@ export class MedImagingPlugin implements Plugin {
         ],
         value: s.view,
       },
-      {
-        key: 'sliceIndex',
-        label: 'Slice',
-        labelI18n: { 'zh-CN': '切片序号', 'en-US': 'Slice' },
-        type: 'range',
-        min: 0,
-        max: Math.max(n - 1, 0),
-        step: 1,
-        value: s.sliceIndex,
-        visibleWhen: sliceLike,
-      },
+      // Without a volume (or with a single slice) there is nothing to browse;
+      // min === max would freeze the thumb and the control has no effect anyway.
+      ...(n > 1
+        ? ([
+            {
+              key: 'sliceIndex',
+              label: 'Slice',
+              labelI18n: { 'zh-CN': '切片序号', 'en-US': 'Slice' },
+              type: 'range',
+              min: 0,
+              max: n - 1,
+              step: 1,
+              value: Math.min(s.sliceIndex, n - 1),
+              visibleWhen: sliceLike,
+            },
+          ] as ParamDefinition[])
+        : []),
       {
         key: 'windowPreset',
         label: 'Window preset',

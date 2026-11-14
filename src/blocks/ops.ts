@@ -256,7 +256,7 @@ export function unaryColumn(a: Float64Array, op: (v: number) => number): Float64
 
 // ---- summary / histogram ----
 
-export interface ColumnSummary {
+interface ColumnSummary {
   mean: number;
   std: number;
   min: number;
@@ -265,22 +265,28 @@ export interface ColumnSummary {
 }
 
 export function summarize(values: Float64Array): ColumnSummary {
-  if (values.length === 0) {
-    return { mean: 0, std: 0, min: 0, max: 0, median: 0 };
+  // The parser writes NaN for a missing cell, and ONE NaN poisons the mean,
+  // the standard deviation and the median (the whole summary came back NaN
+  // for a column with a single empty cell). `normalize` and `histogram` in
+  // this file already skip non-finite values — do the same here.
+  const finite: number[] = [];
+  for (const v of values) if (Number.isFinite(v)) finite.push(v);
+  if (finite.length === 0) {
+    return { mean: NaN, std: NaN, min: NaN, max: NaN, median: NaN };
   }
-  const sorted = Float64Array.from(values).sort();
+  const sorted = finite.slice().sort((a, b) => a - b);
   let sum = 0;
   let min = Infinity;
   let max = -Infinity;
-  for (const v of values) {
+  for (const v of finite) {
     sum += v;
     if (v < min) min = v;
     if (v > max) max = v;
   }
-  const mean = sum / values.length;
+  const mean = sum / finite.length;
   let variance = 0;
-  for (const v of values) variance += (v - mean) * (v - mean);
-  const std = Math.sqrt(variance / values.length);
+  for (const v of finite) variance += (v - mean) * (v - mean);
+  const std = Math.sqrt(variance / finite.length);
   const mid = Math.floor(sorted.length / 2);
   const median =
     sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;

@@ -24,7 +24,7 @@ import type { Row } from '@/core/data-quality/types';
 import { collectColumnNames, makeMissingChecker } from '@/core/data-quality/profile';
 
 /** Storage type declared for a column (drives parsing, coercion, display). */
-export type EtColumnType = 'number' | 'string' | 'boolean' | 'date' | 'unknown';
+type EtColumnType = 'number' | 'string' | 'boolean' | 'date' | 'unknown';
 
 export interface ColumnMeta {
   name: string;
@@ -50,7 +50,7 @@ export type FilterOp =
   | 'notMissing';
 
 export type AggFn = 'sum' | 'mean' | 'min' | 'max' | 'count';
-export type JoinHow = 'inner' | 'left';
+type JoinHow = 'inner' | 'left';
 export type ImputeMethod = 'mean' | 'median' | 'mode' | 'constant';
 export type NormalizeMethod = 'minmax' | 'zscore';
 
@@ -70,7 +70,7 @@ export type EtlStep =
 export type EtlStepKind = EtlStep['kind'];
 
 /** External tables a pipeline may reference (currently: the join source). */
-export interface PipelineContext {
+interface PipelineContext {
   joinTable?: EtTable;
 }
 
@@ -80,13 +80,13 @@ export interface StepStat {
   ms: number;
 }
 
-export interface PipelineResult {
+interface PipelineResult {
   table: EtTable;
   stats: StepStat[];
 }
 
 /** Missing tokens shared with the core data-quality engine (null/NaN/''). */
-export const isMissingValue = makeMissingChecker();
+const isMissingValue = makeMissingChecker();
 
 // ---- column typing ---------------------------------------------------------
 
@@ -187,7 +187,7 @@ function coerceNumber(value: unknown): number | null {
 }
 
 /** Build a table from row records: columns are first-seen ordered and typed. */
-export function tableFromRows(rows: ReadonlyArray<Row>): EtTable {
+function tableFromRows(rows: ReadonlyArray<Row>): EtTable {
   const names = collectColumnNames(rows);
   const columns: ColumnMeta[] = names.map((name) => ({
     name,
@@ -617,7 +617,12 @@ export function etlPivot(table: EtTable, index: string, columns: string, value: 
     if (!columnOrder.includes(colName)) columnOrder.push(colName);
     const ik = keyString(iv);
     if (!indexRows.has(ik)) indexRows.set(ik, { [index]: iv });
-    const cellKey = `${ik}\u0001${keyString(cv)}`;
+    // The cell bucket is keyed by the DISPLAY name (the stringified cell
+    // value). keyString() type-tags its argument, so keying the write with
+    // keyString(cv) ('n:2020') and reading it back with keyString(colName)
+    // ('s:2020') never matched — every pivot cell of a numeric column came
+    // back empty.
+    const cellKey = `${ik}\u0001${colName}`;
     const bucket = cells.get(cellKey);
     if (bucket) bucket.push(row[value]);
     else cells.set(cellKey, [row[value]]);
@@ -631,7 +636,7 @@ export function etlPivot(table: EtTable, index: string, columns: string, value: 
     const out: Row = { ...base };
     const ik = keyString(base[index]);
     for (const colName of columnOrder) {
-      const values = cells.get(`${ik}\u0001${keyString(colName)}`);
+      const values = cells.get(`${ik}\u0001${colName}`);
       out[colName] = values ? aggregate(values, fn) : null;
     }
     return out;
@@ -787,7 +792,7 @@ export function runPipeline(source: EtTable, steps: ReadonlyArray<EtlStep>, ctx:
 // and generic SQL. Map expressions are emitted verbatim (JS is close enough
 // for arithmetic; the doc header says so).
 
-export interface ExportOptions {
+interface ExportOptions {
   source?: string;
   joinSource?: string;
   table?: string;
@@ -956,8 +961,11 @@ export function toPandasCode(steps: ReadonlyArray<EtlStep>, opts: ExportOptions 
         break;
       }
       case 'pivot':
+        // fill_value=None keeps an absent (index, column) combination EMPTY —
+        // the kernel leaves it empty too, while fill_value=0 turned "no
+        // measurement" into "a measurement of zero" in the exported script.
         lines.push(
-          `df = df.pivot_table(index=${q(step.index)}, columns=${q(step.columns)}, values=${q(step.value)}, aggfunc=${q(PY_AGG[step.fn])}, fill_value=0).reset_index()`,
+          `df = df.pivot_table(index=${q(step.index)}, columns=${q(step.columns)}, values=${q(step.value)}, aggfunc=${q(PY_AGG[step.fn])}, fill_value=None).reset_index()`,
         );
         break;
       case 'melt':

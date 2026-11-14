@@ -38,6 +38,9 @@ interface DropdownProps {
   emptyText?: string;
   /** Controlled open callback (used to reset transient state). */
   onOpenChange?: (open: boolean) => void;
+  /** Grey out the trigger and refuse to open — for menus whose actions need a
+   *  context (e.g. a conversion menu with no source file open). */
+  disabled?: boolean;
 }
 
 /** True for rows that can receive keyboard focus / clicks. */
@@ -56,6 +59,7 @@ export function Dropdown({
   filterPlaceholder,
   emptyText,
   onOpenChange,
+  disabled = false,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -227,11 +231,15 @@ export function Dropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpenBoth(!open)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpenBoth(!open);
+        }}
       >
         {trigger}
       </button>
-      {open && (
+      {open && !disabled && (
         <div
           ref={panelRef}
           className={`menu ${align === 'left' ? 'left' : ''} ${panelClassName ?? ''} ${className ?? ''}`}

@@ -5,7 +5,7 @@
 // desktop edition. Business code never branches on platform directly; it
 // goes through the adapters exported here.
 
-export interface DesktopFsApi {
+interface DesktopFsApi {
   pickDirectory(title: string): Promise<string | null>;
   pickFileSave(opts: {
     title?: string;
@@ -29,7 +29,7 @@ export interface DesktopFsApi {
   revealInShell(path: string): Promise<void>;
 }
 
-export interface DesktopGitApi {
+interface DesktopGitApi {
   invoke<T = unknown>(method: string, args: unknown[]): Promise<T>;
 }
 
@@ -49,7 +49,7 @@ export interface DesktopPythonApi {
   onEvent(cb: (payload: Record<string, unknown>) => void): () => void;
 }
 
-export interface DesktopPtyApi {
+interface DesktopPtyApi {
   start(opts: { shell?: string; cwd?: string; cols?: number; rows?: number }): Promise<{
     id: string;
     shellName: string;
@@ -62,7 +62,7 @@ export interface DesktopPtyApi {
   onExit(cb: (id: string, code: string) => void): () => void;
 }
 
-export interface DesktopBridge {
+interface DesktopBridge {
   appInfo(): Promise<{ version: string; electron: string; platform: string }>;
   fs: DesktopFsApi;
   git: DesktopGitApi;
@@ -78,7 +78,7 @@ function getBridge(): DesktopBridge | null {
 }
 
 /** True when the renderer is running inside the Electron desktop shell. */
-export function isDesktop(): boolean {
+function isDesktop(): boolean {
   return getBridge() !== null;
 }
 

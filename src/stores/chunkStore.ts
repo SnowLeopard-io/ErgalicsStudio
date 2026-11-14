@@ -21,7 +21,7 @@ import type { FileEntry } from '@/types/project';
 /** Files larger than this ingest off the main thread via the worker pool. */
 const POOL_INGEST_THRESHOLD = 8_000_000;
 
-export interface ChunkIngestState {
+interface ChunkIngestState {
   /**
    * Monotonic token of the owning startIngest call. Guards against two
    * concurrent ingests of the SAME file (fileId alone cannot tell them

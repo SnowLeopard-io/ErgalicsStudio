@@ -1,44 +1,107 @@
 // ==========================================================================
-// Ergalics Studio — "open in workbench mode" bridge (file editor tabs)
+// Ergalics Studio — "open in workbench mode" bridge (file-bound surfaces)
 //
-// Hands an editable file buffer to the fullscreen workbench modes (design
-// doc P5): code text lands in the code-mode session, a block IR goes to the
-// Blockly session, a flow graph becomes the IR hub and hydrates the DAG on
-// mode entry (via useFlowSync).
+// Hands an editable file buffer to its workbench surface. Each file gets its
+// own surface tab (`surface:<mode>:<path>`) and its own editor session, so a
+// Python file, a block file and a flow file — or several Python files — can
+// stay open at the same time without fighting over one shared buffer.
 // ==========================================================================
 
-import { useAppStore } from '@/stores/appStore';
+import { useAppStore, type CanvasTab } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { flowToIR } from '@/editor/flow/convert';
 import type { IRProgram } from '@/editor/ir';
 import type { BlockGraphState } from '@/types/block';
+import { codeLanguageForFile } from './shared';
 
 type OpenInModeRequest =
-  | { mode: 'code'; language: 'python' | 'r' | 'js'; code: string; path?: string }
-  | { mode: 'block'; ir: IRProgram }
-  | { mode: 'flow'; graph: BlockGraphState };
+  | { mode: 'code'; language: 'python' | 'r' | 'js'; code?: string; path?: string }
+  | { mode: 'block'; ir: IRProgram; path?: string }
+  | { mode: 'flow'; graph: BlockGraphState; path?: string };
 
 export function editorStoreOpenInMode(req: OpenInModeRequest): void {
-  const st = useEditorStore.getState();
-  // Reuse the active session so switching back and forth keeps one program
-  // hub; create one lazily when no session exists yet.
-  const sid = st.activeSessionId ?? st.createSession(req.mode === 'block' ? 'block' : 'code', req.mode === 'block' ? 'python' : req.mode === 'code' ? req.language : 'python').id;
+  // One session per file: reopening / reactivating a file must resume its own
+  // program instead of overwriting whatever the active session held.
+  const existing = req.path
+    ? useEditorStore.getState().sessions.find((s) => s.filePath === req.path)
+    : undefined;
+  let sid = existing?.id;
+  if (!sid) {
+    const created = useEditorStore
+      .getState()
+      .createSession(
+        req.mode === 'block' ? 'block' : 'code',
+        req.mode === 'code' ? req.language : 'python',
+      );
+    sid = created.id;
+  }
+  useEditorStore.getState().setActiveSession(sid);
 
+  const st = useEditorStore.getState();
   if (req.mode === 'code') {
-    st.applyLanguageWithCode(sid, req.language, req.code);
+    if (req.code !== undefined) {
+      st.applyLanguageWithCode(sid, req.language, req.code);
+      // The code surface may already be mounted (same session + language), in
+      // which case the session effect above does not reload Monaco — push the
+      // verbatim source explicitly so switching files swaps the buffer.
+      st.requestCodeLoad(req.code);
+    }
     // Remember where this buffer came from so later code-mode edits can be
-    // mirrored back into the file tab (they used to live only in the IR hub).
+    // mirrored back into the file.
     st.setSessionFilePath(sid, req.path ?? null);
   } else if (req.mode === 'block') {
-    st.setSessionFilePath(sid, null);
+    st.setSessionFilePath(sid, req.path ?? null);
     st.updateSessionIR(sid, req.ir);
     // requestLoad guarantees the (possibly already-mounted) workspace reloads
     // this IR even when the session id did not change.
     st.requestLoad(req.ir);
   } else {
-    // Flow mode hydrates its DAG from the IR hub on entry (useFlowSync).
-    st.setSessionFilePath(sid, null);
+    // A flow file carries the exact DAG — hand it to the canvas verbatim.
+    // Rebuilding the DAG from the IR would silently drop blocks IR cannot
+    // represent (stats.*, units.*, viz.geo_*, plot.bar, …), which made a
+    // saved flow look empty after closing and reopening it.
+    st.setSessionFilePath(sid, req.path ?? null);
     st.updateSessionIR(sid, flowToIR(req.graph));
+    st.requestFlowLoad(req.graph);
   }
-  useAppStore.getState().setMode(req.mode);
+
+  // One file = one tab: the surface IS the editor for this file, so drop any
+  // preview/editor tab opened for the same path.
+  const app = useAppStore.getState();
+  if (req.path) {
+    for (const tab of app.canvasTabs) {
+      if ((tab.kind === 'file' || tab.kind === 'editor') && tab.path === req.path) {
+        app.closeTab(tab.key);
+      }
+    }
+  }
+  app.setMode(req.mode, req.path);
+}
+
+/** Re-activate a file-bound surface tab and swap the editor session to the
+ *  one that belongs to its file (tab switching must not leak another file's
+ *  program into this tab). Sample surfaces carry their own session instead —
+ *  they are not bound to any file. */
+export function syncSurfaceTabSession(tab: CanvasTab): void {
+  if (tab.kind !== 'surface') return;
+  if (tab.sessionId) {
+    // A sample surface owns its session: re-activating the tab must show the
+    // sample again, not the file that happens to share the same mode.
+    const sample = useEditorStore.getState().sessions.find((s) => s.id === tab.sessionId);
+    if (sample) useEditorStore.getState().setActiveSession(sample.id);
+    return;
+  }
+  if (!tab.path) return;
+  const st = useEditorStore.getState();
+  const session = st.sessions.find((s) => s.filePath === tab.path);
+  if (session) {
+    st.setActiveSession(session.id);
+    return;
+  }
+  // No session yet (e.g. a tab restored after reload): re-hydrate from the
+  // file for code surfaces, whose content lives in the buffer.
+  if (tab.mode !== 'code') return;
+  const language = codeLanguageForFile(tab.path.split('/').pop() ?? '');
+  if (!language) return;
+  editorStoreOpenInMode({ mode: 'code', language, path: tab.path });
 }

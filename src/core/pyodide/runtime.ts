@@ -78,7 +78,13 @@ export function createCodeRuntime(host: CodeRuntimeHost) {
 
   return {
     runPython,
-    repl: (code: string) => runtime.repl(code),
+    repl: (code: string, preloadSource?: string) => runtime.repl(code, preloadSource),
+    mountWorkspace: (files: Record<string, string>, dataFiles?: Record<string, string>) =>
+      runtime.mountWorkspace(files, dataFiles),
+    installPackages: (packages: string[]) => runtime.installPackages(packages),
+    listPackages: () => runtime.listPackages(),
+    collectWorkspaceFiles: () => runtime.collectWorkspaceFiles(),
+    resetNamespace: () => runtime.resetNamespace(),
     interrupt: () => runtime.interrupt(),
     dispose: () => runtime.dispose(),
   };

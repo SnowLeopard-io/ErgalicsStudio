@@ -138,15 +138,11 @@ function sanitizeReportSpec(spec: import('../core/report/builder').ReportSpec): 
   return { ...spec, sections };
 }
 
-export function cloneProject(project: Project): Project {
-  return structuredClone(project) as Project;
-}
-
 /**
  * JSON cannot represent NaN/±Infinity (they would serialize to `null`, silently
- * shifting parameters across a save/load round trip — while `cloneProject`'s
- * structuredClone keeps them). Encode non-finite numbers as tagged strings and
- * decode them back on load, so the serialized form is lossless.
+ * shifting parameters across a save/load round trip — while a structuredClone
+ * keeps them). Encode non-finite numbers as tagged strings and decode them back
+ * on load, so the serialized form is lossless.
  */
 const NONFINITE_TAG = '__erg_nonfinite__';
 

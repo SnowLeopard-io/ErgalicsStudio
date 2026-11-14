@@ -2,7 +2,7 @@
 // column is empty or all-NaN instead of emitting NaN/Infinity garbage.
 import { describe, it, expect } from 'vitest';
 import { createDataTable } from '@/types/datatable';
-import { histogram, normalize, uniqueName } from '@/blocks/ops';
+import { histogram, normalize, summarize, uniqueName } from '@/blocks/ops';
 
 const NAN_COL = new Float64Array([NaN, NaN, NaN]);
 
@@ -34,6 +34,26 @@ describe('histogram', () => {
   it('counts sum to the input length for finite values', () => {
     const { counts } = histogram(new Float64Array([1, 2, 3, 4, 5]), 3);
     expect(Array.from(counts).reduce((a, b) => a + b, 0)).toBe(5);
+  });
+});
+
+describe('summarize', () => {
+  it('skips missing values instead of poisoning the whole summary', () => {
+    // The parser turns an empty cell into NaN. One NaN used to make mean,
+    // std and median NaN for the entire column.
+    const s = summarize(new Float64Array([1, NaN, 3, 5]));
+    expect(s.mean).toBeCloseTo(3, 12);
+    expect(s.std).toBeCloseTo(Math.sqrt(8 / 3), 12);
+    expect(s.min).toBe(1);
+    expect(s.max).toBe(5);
+    expect(s.median).toBe(3);
+  });
+
+  it('reports NaN for a column with no finite values', () => {
+    const s = summarize(NAN_COL);
+    expect(Number.isNaN(s.mean)).toBe(true);
+    expect(Number.isNaN(s.std)).toBe(true);
+    expect(Number.isNaN(s.median)).toBe(true);
   });
 });
 

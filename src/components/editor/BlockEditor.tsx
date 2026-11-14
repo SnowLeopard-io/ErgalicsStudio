@@ -7,12 +7,14 @@
 // ==========================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import * as Blockly from 'blockly/core';
 import type * as BlocklyNS from 'blockly/core';
 import { useLocale, useT } from '@/i18n';
 import { useTheme } from '@/theme';
+import { DownloadIcon, LoaderIcon, PlayIcon } from '@/components/icons';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppStore } from '@/stores/appStore';
-import { setHostContainers, rerenderActivePlugin } from '@/stores/pluginStore';
+import { clearHostPreview } from '@/stores/pluginStore';
 import { interpret } from '@/editor/runtime/interpreter';
 import { createWorkbenchStudioApi } from '@/editor/runtime/workbench-host';
 import { hashString } from '@/core/repro/random';
@@ -25,20 +27,9 @@ import {
   loadIRIntoWorkspace,
   disposeWorkspace,
 } from '@/editor/block';
-import { VariablePanel } from './VariablePanel';
-import { ConsolePanel } from './ConsolePanel';
+import { SurfaceToolbar } from './SurfaceToolbar';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
-
-/** Clear the 2D preview canvas + DOM overlay so a previous run's plot never
- *  lingers when loading a new sample or starting a fresh run. */
-function clearPreviewSurface(canvas: HTMLCanvasElement | null, dom: HTMLDivElement | null): void {
-  if (canvas) {
-    const g = canvas.getContext('2d');
-    if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (dom) dom.innerHTML = '';
-}
 
 export function BlockEditor() {
   const t = useT();
@@ -49,16 +40,17 @@ export function BlockEditor() {
   const dark = themeResolved === 'dark';
 
   const activeSessionId = useEditorStore((s) => s.activeSessionId);
+  // A file opened from the explorer binds the mode to that path; saving writes
+  // the workspace back without an intermediate file tab.
+  const boundPath = useEditorStore(
+    (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
+  );
   const isRunning = useEditorStore((s) => s.isRunning);
   const pendingLoad = useEditorStore((s) => s.pendingLoad);
   const error = useEditorStore((s) => s.error);
-  // Right pane (preview / variables / console) toggled by the top-bar ☰.
-  const panelOpen = useAppStore((s) => s.modePanelOpen);
 
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
-  const domRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastLoadedId = useRef<string | null>(null);
   const codeViewRef = useRef<'js' | 'python' | null>(null);
   const debounceRef = useRef<number | undefined>(undefined);
@@ -74,9 +66,16 @@ export function BlockEditor() {
   // so blocks re-label and re-colour into the new language / dark mode).
   useEffect(() => {
     initBlocklyEngine(locale, dark);
+    let ro: ResizeObserver | null = null;
     if (divRef.current) {
-      const ws = createWorkspace(divRef.current);
+      const host = divRef.current;
+      const ws = createWorkspace(host);
       wsRef.current = ws;
+      // Blockly only re-measures its SVG on window resize; the splitter and
+      // console dock change the host element without a window resize, so
+      // observe the host directly or the canvas keeps its old size.
+      ro = new ResizeObserver(() => Blockly.svgResize(ws));
+      ro.observe(host);
       ws.addChangeListener(() => {
         // Push the edited blocks into the IR hub; this regenerates both the
         // Flow DAG and the Code text so the three modes stay in lockstep.
@@ -102,6 +101,7 @@ export function BlockEditor() {
       lastLoadedId.current = sid ?? null;
     }
     return () => {
+      ro?.disconnect();
       if (wsRef.current) {
         disposeWorkspace(wsRef.current);
         wsRef.current = null;
@@ -128,27 +128,6 @@ export function BlockEditor() {
     lastLoadedId.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Register render containers for the preview area (2D plugins).
-  useEffect(() => {
-    if (!domRef.current || !canvasRef.current) return;
-    setHostContainers({
-      dom: domRef.current,
-      canvas2d: canvasRef.current,
-      reportDataScale: (n) => useAppStore.getState().setDataScale(n),
-      clearCanvas2d: () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const g = canvas.getContext('2d');
-        if (g) g.clearRect(0, 0, canvas.width, canvas.height);
-      },
-    });
-    // If a plugin is still active (e.g. the editor just remounted after a
-    // mode toggle), redraw it into the fresh preview containers — otherwise
-    // its cached container points at a detached canvas and plotting breaks.
-    rerenderActivePlugin();
-    return () => setHostContainers(null);
-  }, []);
-
   // Consume a program requested by an external caller (e.g. the samples
   // dialog in the top bar). The session IR is already updated by the caller,
   // so this only refreshes the already-mounted workspace.
@@ -161,7 +140,7 @@ export function BlockEditor() {
     }
     // A freshly-loaded sample must not show the previous sample's plot or
     // variables — the store already cleared the latter via resetRunOutputs().
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     useEditorStore.getState().consumeLoad();
   }, [pendingLoad]);
 
@@ -170,13 +149,16 @@ export function BlockEditor() {
     if (!ws || isRunning) return;
     const ir = workspaceToIR(ws);
     const startedAt = Date.now();
+    // Output lands in the global terminal drawer; bring it up so the user
+    // actually sees the run happen (the open state is persisted).
+    if (!useAppStore.getState().terminalOpen) useAppStore.getState().setTerminalOpen(true);
     useEditorStore.getState().setRunning(true);
     useEditorStore.getState().clearConsole();
     useEditorStore.getState().setError(null);
     useEditorStore.getState().setVariables({});
     // Clear the previous run's plot so the preview is blank until the new
     // run produces output.
-    clearPreviewSurface(canvasRef.current, domRef.current);
+    clearHostPreview();
     let ok = false;
     let outputs: Record<string, unknown> = {};
     try {
@@ -247,11 +229,24 @@ export function BlockEditor() {
     setCode(ir ? (lang === 'js' ? codegenJS(ir) : codegenPython(ir)) : '');
   };
 
+  /** Persist the Blockly workspace into its bound `.block.json` file. */
+  const saveBoundFile = async () => {
+    const ws = wsRef.current;
+    const sid = useEditorStore.getState().activeSessionId;
+    const path = useEditorStore.getState().sessions.find((s) => s.id === sid)?.filePath;
+    if (!ws || !path) return;
+    const payload = JSON.stringify({ version: 1, kind: 'ergalics-block', ir: workspaceToIR(ws) }, null, 2);
+    await useAppStore.getState().saveWorkspaceFile(path, payload);
+  };
+
   return (
     <div className="block-editor">
-      <div className="block-editor-toolbar">
+      <SurfaceToolbar>
+        <div className="block-editor-toolbar">
         <button type="button" className="be-run-btn" onClick={() => void run()} disabled={isRunning}>
-          <span className="be-run-icon">{isRunning ? '⏳' : '▶'}</span>
+          <span className="be-run-icon">
+            {isRunning ? <LoaderIcon size={12} className="is-spinning" /> : <PlayIcon size={12} />}
+          </span>
           <span>{isRunning ? t('editor.status.running') : t('editor.run')}</span>
         </button>
 
@@ -264,6 +259,13 @@ export function BlockEditor() {
           </button>
         </div>
 
+        {boundPath && (
+          <button type="button" className="btn btn-sm" onClick={() => void saveBoundFile()}>
+            <DownloadIcon size={12} />
+            <span>{t('workbench.editor.save')}</span>
+          </button>
+        )}
+
         <div className="be-toolbar-spacer" />
 
         <div className={`be-status-pill ${isRunning ? 'is-running' : (error ? 'is-error' : 'is-idle')}`}>
@@ -272,32 +274,26 @@ export function BlockEditor() {
             {isRunning ? t('editor.status.running') : error ? t('editor.status.error') : t('editor.status.idle')}
           </span>
         </div>
-      </div>
+        </div>
+      </SurfaceToolbar>
 
       <div className="block-editor-main">
-        <div className="block-editor-workspace" ref={divRef} />
+        <div className="block-editor-top">
+          <div className="block-editor-workspace" ref={divRef} />
 
-        {codeView && (
-          <div className="block-editor-code">
-            <div className="block-editor-code-head">
-              <span className="be-code-lang">{codeView === 'js' ? 'JavaScript' : 'Python'}</span>
-              <button type="button" className="be-code-refresh" onClick={refreshCode}>{t('common.refresh')}</button>
+          {codeView && (
+            <div className="block-editor-code">
+              <div className="block-editor-code-head">
+                <span className="be-code-lang">{codeView === 'js' ? 'JavaScript' : 'Python'}</span>
+                <button type="button" className="be-code-refresh" onClick={refreshCode}>{t('common.refresh')}</button>
+              </div>
+              <pre>{code}</pre>
             </div>
-            <pre>{code}</pre>
-          </div>
-        )}
-
-        {/* Kept mounted (only hidden) so plugin host container refs survive
-            panel toggles mid-session. */}
-        <div className={`block-editor-right${panelOpen ? '' : ' is-panel-hidden'}`}>
-          <div className="block-editor-preview">
-            <div className="block-editor-preview-label">{t('editor.preview.title')}</div>
-            <div ref={domRef} className="block-editor-preview-dom" />
-            <canvas ref={canvasRef} className="block-editor-preview-canvas" />
-          </div>
-          <VariablePanel />
-          <ConsolePanel />
+          )}
         </div>
+
+        {/* The console output lives in the global terminal drawer now (it used
+            to duplicate the same store view inline); running auto-opens it. */}
       </div>
     </div>
   );

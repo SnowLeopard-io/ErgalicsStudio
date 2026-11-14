@@ -6,8 +6,7 @@
 // ==========================================================================
 
 import type { FileEditorKind } from '@/stores/appStore';
-import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
-import { getVfs } from '@/core/vfs';
+import { tryReadProjectFile } from '@/core/workspace/project-files';
 
 /** Monaco language id for an editable code file. */
 export function monacoLanguageFor(name: string): string {
@@ -37,8 +36,17 @@ export function editorKindForFile(name: string): FileEditorKind | null {
   return null;
 }
 
+/** Workbench code-mode language for a file (null = not a code-mode target). */
+export function codeLanguageForFile(name: string): 'python' | 'r' | 'js' | null {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.py')) return 'python';
+  if (lower.endsWith('.r') || lower.endsWith('.rscript')) return 'r';
+  if (lower.endsWith('.js') || lower.endsWith('.mjs')) return 'js';
+  return null;
+}
+
 /** Flow file payload shape (`{version, kind, graph}`). */
-export interface FlowFilePayload {
+interface FlowFilePayload {
   version: 1;
   kind: 'ergalics-flow';
   graph: {
@@ -49,7 +57,7 @@ export interface FlowFilePayload {
 }
 
 /** Block file payload shape (`{version, kind, ir}`). */
-export interface BlockFilePayload {
+interface BlockFilePayload {
   version: 1;
   kind: 'ergalics-block';
   ir: unknown;
@@ -80,11 +88,7 @@ export function parseBlockPayload(raw: string): BlockFilePayload | null {
 
 /** Read the current text of a workspace file (external-change reload). */
 export async function readRepoFileText(path: string): Promise<string | null> {
-  const project = useProjectStore.getState().project;
-  if (!project) return null;
-  try {
-    return await getVfs().readFile(getProjectRepoPath(project), path);
-  } catch {
-    return null;
-  }
+  // The single project-file entry point lives in core/workspace; this keeps
+  // the editor-side API stable.
+  return tryReadProjectFile(path);
 }

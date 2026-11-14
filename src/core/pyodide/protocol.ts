@@ -7,7 +7,7 @@
 // stderr / plot / notify) back over postMessage (editor architecture §12).
 // ==========================================================================
 
-export const PYODIDE_VERSION = '314.0.3';
+export const PYODIDE_VERSION = '314.0.7';
 
 /**
  * Fallback Pyodide CDN root. The active runtime loads Pyodide same-origin
@@ -42,9 +42,91 @@ export interface ReplMessage {
   type: 'repl';
   id?: number;
   code: string;
+  /**
+   * Optional source of the script `code` is about to execute (terminal
+   * `python script.py`). The wrapper uses runpy, so its imports live in the
+   * file rather than in `code`; the worker scans this source to auto-load the
+   * scientific packages it needs before the script starts.
+   */
+  preloadSource?: string;
 }
 
-export type WorkerRequest = InitMessage | RunMessage | ReplMessage;
+/**
+ * Materialise the workspace files in the interpreter WITHOUT running user
+ * code. The terminal browses and runs project files (`ls`, `cd data`,
+ * `python script.py`), so the tree must exist in the interpreter even when
+ * the user has not pressed 运行 yet.
+ */
+export interface MountMessage {
+  type: 'mount';
+  id?: number;
+  files: Record<string, string>;
+  /** Optional: the studio file registry (project + bundled examples), so
+   *  `studio.load(...)` resolves the same way it does during a run. */
+  dataFiles?: Record<string, string>;
+}
+
+/**
+ * Load extra Pyodide packages into the running interpreter (the terminal's
+ * `pip install <pkg>`). Pyodide ships scientific wheels as packages, so
+ * installing means loading the wheel — no network index involved.
+ */
+export interface LoadPackagesMessage {
+  type: 'load-packages';
+  id?: number;
+  packages: string[];
+}
+
+/**
+ * Query the packages the live interpreter currently has loaded
+ * (`pyodide.loadedPackages`, name → version). The settings storage panel
+ * renders this so the user can see what was pulled into the session.
+ */
+export interface ListPackagesMessage {
+  type: 'list-packages';
+  id?: number;
+}
+
+/**
+ * Drop the interpreter's USER namespace (and its workspace tree).
+ *
+ * The interpreter is session-wide: variables the terminal REPL defined in
+ * project A stayed visible in project B, so a stray name could silently
+ * carry one project's data into another. The host sends this when the
+ * project changes.
+ */
+export interface ResetMessage {
+  type: 'reset';
+  id?: number;
+}
+
+/** Result of a namespace reset. */
+export interface ResetResultMessage {
+  type: 'reset-result';
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Collect the files the interpreter created or changed since the last
+ * mount/run. The terminal uses it to write a script's output back into the
+ * project (same behaviour as the editor's 运行 button).
+ */
+export interface CollectMessage {
+  type: 'collect';
+  id?: number;
+}
+
+export type WorkerRequest =
+  | InitMessage
+  | RunMessage
+  | ReplMessage
+  | MountMessage
+  | LoadPackagesMessage
+  | ListPackagesMessage
+  | ResetMessage
+  | CollectMessage;
 
 /** Notification severity the Python studio.notify() may emit. */
 export type NotifyKind = 'info' | 'success' | 'warning' | 'error';
@@ -100,6 +182,10 @@ export interface ResultMessage {
   id: number;
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
+  /** Workspace files the program created or changed (relative paths). */
+  files?: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -109,6 +195,43 @@ export interface ReplResultMessage {
   id: number;
   ok: boolean;
   text: string;
+  error?: string;
+}
+
+/** Result of a workspace-only mount (no user code executed). */
+export interface MountResultMessage {
+  type: 'mount-result';
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+/** Result of a package install (Pyodide loadPackage). */
+export interface LoadPackagesResultMessage {
+  type: 'load-packages-result';
+  id: number;
+  ok: boolean;
+  loaded: string[];
+  error?: string;
+}
+
+/** Snapshot of the interpreter's currently loaded packages (name → version). */
+export interface ListPackagesResultMessage {
+  type: 'list-packages-result';
+  id: number;
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}
+
+/** Files the interpreter created or changed since the last baseline. */
+export interface CollectResultMessage {
+  type: 'collect-result';
+  id: number;
+  ok: boolean;
+  files: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
 }
 
@@ -130,4 +253,9 @@ export type WorkerEvent =
   | NotifyMessage
   | ResultMessage
   | ReplResultMessage
+  | MountResultMessage
+  | LoadPackagesResultMessage
+  | ListPackagesResultMessage
+  | ResetResultMessage
+  | CollectResultMessage
   | InitFailedMessage;

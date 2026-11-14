@@ -380,6 +380,37 @@ describe('qualityMetrics', () => {
     expect(rep.overall).toBeCloseTo(1, 12);
   });
 
+  it('does not score a numeric column with no synthetic values as a perfect match', () => {
+    // k-anonymity with a large k (or DP with a small ε) can empty a column.
+    // It used to be scored as KS = 0 ("identical"), which RAISED the overall
+    // similarity — an absence looked like a perfect match.
+    const original = tableFromCols(
+      ['x', 'y'],
+      [
+        [1, 2, 3, 4, 5],
+        [30, 20, 10, 40, 50],
+      ],
+    );
+    const synthetic: SynthTable = {
+      columns: ['x', 'y'],
+      rows: [
+        [null, 30],
+        [null, 20],
+        [null, 10],
+        [null, 40],
+        [null, 50],
+      ],
+    };
+    const rep = qualityMetrics(original, synthetic);
+    const x = rep.perColumn.find((d) => d.column === 'x')!;
+    expect(Number.isNaN(x.ks)).toBe(true);
+    expect(Number.isNaN(x.similarity)).toBe(true);
+    expect(rep.skippedColumns).toEqual(['x']);
+    // `y` is the only comparable numeric column, so it alone drives meanKs.
+    expect(rep.meanKs).toBe(0);
+    expect(rep.overall).toBeLessThan(1);
+  });
+
   it('keeps every component in range for genuinely different tables', () => {
     const rng = createRng(77);
     const a = tableFromCols(['v'], [Array.from({ length: 200 }, () => gaussian(rng))]);

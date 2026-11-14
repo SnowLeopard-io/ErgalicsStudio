@@ -1,5 +1,5 @@
 // ==========================================================================
-// Synthetic Data Generator kernel — pure TypeScript, deterministic.
+// Synthetic Data Generator kernel �?pure TypeScript, deterministic.
 //
 // No DOM imports, no Python runtime: every function is deterministic given
 // (data, seed), so a run can be replayed bit-for-bit. Contents:
@@ -11,9 +11,9 @@
 //     (selected by minimal KS statistic), categorical by empirical frequency,
 //     boolean by p, low-cardinality text by frequency, high-uniqueness ids
 //     skipped
-//   - multivariate synthesis: Gaussian copula — ranks → uniform → normal
-//     scores → correlation matrix (PSD-corrected by eigenvalue clamping) →
-//     Cholesky sampling → inverse marginal transform
+//   - multivariate synthesis: Gaussian copula �?ranks �?uniform �?normal
+//     scores �?correlation matrix (PSD-corrected by eigenvalue clamping) �?
+//     Cholesky sampling �?inverse marginal transform
 //   - time-series mode: AR(1) with the empirical lag-1 autocorrelation
 //   - privacy: Laplace ε-DP (inverse-transform sampling, noisy histograms /
 //     counts / means) and k-anonymity (binning + suppression of classes < k)
@@ -23,6 +23,7 @@
 // ==========================================================================
 
 import { mulberry32 } from '@/core/repro/random';
+import { splitCsvCells } from '@/core/io/delimited';
 
 /** Deterministic seeded PRNG in [0, 1). */
 export type Rng = () => number;
@@ -61,6 +62,31 @@ export function stdOf(xs: number[]): number {
   return Math.sqrt(varianceOf(xs));
 }
 
+/**
+ * Smallest / largest finite value of a sample.
+ *
+ * Never `Math.min(...values)`: spreading a large array into a call exceeds
+ * the engine's argument limit (RangeError at roughly 125k elements), which
+ * crashed the synth page on any CSV with a few hundred thousand rows.
+ */
+function sampleMin(xs: ArrayLike<number>): number {
+  let min = Infinity;
+  for (let i = 0; i < xs.length; i += 1) {
+    const v = xs[i]!;
+    if (Number.isFinite(v) && v < min) min = v;
+  }
+  return min === Infinity ? 0 : min;
+}
+
+function sampleMax(xs: ArrayLike<number>): number {
+  let max = -Infinity;
+  for (let i = 0; i < xs.length; i += 1) {
+    const v = xs[i]!;
+    if (Number.isFinite(v) && v > max) max = v;
+  }
+  return max === -Infinity ? 0 : max;
+}
+
 /** Type-7 quantile (linear interpolation between order statistics). */
 export function quantile(xs: number[], q: number): number {
   if (xs.length === 0) return Number.NaN;
@@ -71,19 +97,6 @@ export function quantile(xs: number[], q: number): number {
   if (lo === hi) return s[lo]!;
   const t = pos - lo;
   return s[lo]! * (1 - t) + s[hi]! * t;
-}
-
-/** Empirical CDF evaluated at `x`: P(X <= x). */
-export function ecdf(sortedValues: number[], x: number): number {
-  if (sortedValues.length === 0) return 0;
-  let lo = 0;
-  let hi = sortedValues.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (sortedValues[mid]! <= x) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo / sortedValues.length;
 }
 
 /** Two-sample Kolmogorov–Smirnov statistic sup|F1(x) - F2(x)|. */
@@ -132,7 +145,7 @@ export function pearson(a: number[], b: number[]): number {
 }
 
 /** Average-rank transform (ties share the mean of their positions, 1-based). */
-export function averageRanks(values: number[]): number[] {
+function averageRanks(values: number[]): number[] {
   const n = values.length;
   const idx = Array.from({ length: n }, (_, i) => i).sort((x, y) => values[x]! - values[y]!);
   const ranks = new Array<number>(n).fill(0);
@@ -173,7 +186,7 @@ export function normalPdf(x: number): number {
 }
 
 /**
- * Inverse standard normal CDF Φ⁻¹(p) — Acklam's rational approximation
+ * Inverse standard normal CDF Φ⁻�?p) �?Acklam's rational approximation
  * (relative error < 1.2e-9), refined by one Halley step on the CDF.
  */
 export function normalQuantile(p: number): number {
@@ -228,33 +241,7 @@ export interface SynthTable {
 
 /** Split one CSV line honouring double-quoted cells with escaped quotes. */
 function splitCsvLine(line: string): string[] {
-  const cells: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      cells.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  cells.push(cur);
-  return cells;
+  return splitCsvCells(line);
 }
 
 const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
@@ -296,7 +283,7 @@ export function toCsv(table: SynthTable): string {
 
 // ---- column typing -----------------------------------------------------------
 
-export type ColumnRole = 'numeric' | 'categorical' | 'boolean' | 'text' | 'id' | 'empty';
+type ColumnRole = 'numeric' | 'categorical' | 'boolean' | 'text' | 'id' | 'empty';
 
 const BOOL_TRUE = new Set(['true', 'yes', 'y', '1', 't']);
 const BOOL_FALSE = new Set(['false', 'no', 'n', '0', 'f']);
@@ -311,7 +298,7 @@ function truthyCell(s: string): boolean | null {
 }
 
 /** Classify one column from its string cells (null = missing). */
-export function profileRole(cells: string[]): { role: ColumnRole; missing: number; unique: number } {
+function profileRole(cells: string[]): { role: ColumnRole; missing: number; unique: number } {
   const total = cells.length;
   if (total === 0) return { role: 'empty', missing: 0, unique: 0 };
   let missing = 0;
@@ -336,7 +323,7 @@ export function profileRole(cells: string[]): { role: ColumnRole; missing: numbe
     return { role: 'boolean', missing, unique: uniq.size };
   }
   if (numeric === present && uniq.size >= 2) return { role: 'numeric', missing, unique: uniq.size };
-  // Nearly-all-distinct strings are identifiers — skipped, not sampled.
+  // Nearly-all-distinct strings are identifiers �?skipped, not sampled.
   if (uniqueRatio >= 0.9 && present >= 10) return { role: 'id', missing, unique: uniq.size };
   if (uniq.size <= MAX_CATEGORICAL_UNIQUE || uniqueRatio <= 0.2) {
     return { role: 'categorical', missing, unique: uniq.size };
@@ -348,7 +335,7 @@ export function profileRole(cells: string[]): { role: ColumnRole; missing: numbe
 
 export type DistKind = 'constant' | 'normal' | 'lognormal' | 'uniform' | 'exponential';
 
-export interface DistFit {
+interface DistFit {
   kind: DistKind;
   ks: number;
   /** Named parameters: mu/sigma, mulog/sigmalog, a/b, or rate. */
@@ -372,8 +359,8 @@ export function fitNumeric(values: number[]): DistFit {
   const m = meanOf(values);
   const sd = stdOf(values);
   if (sd < 1e-12 || n < 2) return { kind: 'constant', ks: 0, params: { value: m } };
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const allPositive = lo > 0;
   const nonNegative = lo >= 0;
 
@@ -427,7 +414,7 @@ export function sampleDist(fit: DistFit, rng: Rng): number {
 
 // ---- table model ------------------------------------------------------------
 
-export interface ColumnModel {
+interface ColumnModel {
   name: string;
   role: ColumnRole;
   missingRate: number;
@@ -437,7 +424,7 @@ export interface ColumnModel {
   values?: number[];
   /** Sorted non-missing values (empirical marginal for the copula). */
   sorted?: number[];
-  /** numeric | categorical | text — lag-1 autocorrelation of the raw order. */
+  /** numeric | categorical | text �?lag-1 autocorrelation of the raw order. */
   ar1?: number;
   /** categorical | text */
   categories?: string[];
@@ -449,7 +436,7 @@ export interface ColumnModel {
   unique?: number;
 }
 
-export interface SynthModel {
+interface SynthModel {
   columns: ColumnModel[];
   rowCount: number;
 }
@@ -528,13 +515,13 @@ export function lag1Autocorr(xs: number[]): number {
 }
 
 /** Draw one value from an empirical marginal via the type-7 quantile function. */
-export function sampleEmpirical(sorted: number[], u: number): number {
+function sampleEmpirical(sorted: number[], u: number): number {
   return quantile(sorted, u);
 }
 
 // ---- linear algebra: PSD correction + Cholesky ------------------------------
 
-/** Jacobi eigen-decomposition of a symmetric matrix → (eigenvalues, eigenvectors). */
+/** Jacobi eigen-decomposition of a symmetric matrix �?(eigenvalues, eigenvectors). */
 export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: number[][] } {
   const n = matrix.length;
   const a = matrix.map((row) => row.slice());
@@ -557,7 +544,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1);
         const s = t * c;
-        // Two-sided rotation A ← Jᵀ A J: columns first, then rows.
+        // Two-sided rotation A �?Jᵀ A J: columns first, then rows.
         for (let k = 0; k < n; k += 1) {
           const akp = a[k]![p]!;
           const akq = a[k]![q]!;
@@ -575,7 +562,7 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
         a[q]![q] = aqq + t * apq;
         a[p]![q] = 0;
         a[q]![p] = 0;
-        // Eigenvector accumulation V ← V·J (column rotation only).
+        // Eigenvector accumulation V �?V·J (column rotation only).
         for (let k = 0; k < n; k += 1) {
           const vkp = v[k]![p]!;
           const vkq = v[k]![q]!;
@@ -591,14 +578,14 @@ export function jacobiEigen(matrix: number[][]): { values: number[]; vectors: nu
 
 /**
  * Nearest (in Frobenius sense) positive-semidefinite correlation-like matrix:
- * clamp eigenvalues to ≥ 1e-8, reconstruct, then rescale to unit diagonal.
+ * clamp eigenvalues to �?1e-8, reconstruct, then rescale to unit diagonal.
  */
 export function makePsd(matrix: number[][]): number[][] {
   const n = matrix.length;
   if (n === 0) return [];
   const { values, vectors } = jacobiEigen(matrix);
   const clamped = values.map((lv) => Math.max(1e-8, lv));
-  // R' = V diag(clamped) Vᵀ (V stored row-wise → R'[i][j] = Σ_k V[i][k] λ_k V[j][k]).
+  // R' = V diag(clamped) Vᵀ (V stored row-wise �?R'[i][j] = Σ_k V[i][k] λ_k V[j][k]).
   const out: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
   for (let i = 0; i < n; i += 1) {
     for (let j = i; j < n; j += 1) {
@@ -639,7 +626,7 @@ export function cholesky(matrix: number[][]): number[][] | null {
 }
 
 /** Cholesky with escalating jitter fallback; never returns null for finite input. */
-export function choleskySafe(matrix: number[][]): number[][] {
+function choleskySafe(matrix: number[][]): number[][] {
   const direct = cholesky(matrix);
   if (direct) return direct;
   for (const jitter of [1e-10, 1e-8, 1e-6, 1e-4]) {
@@ -652,7 +639,7 @@ export function choleskySafe(matrix: number[][]): number[][] {
 
 // ---- Gaussian copula ---------------------------------------------------------
 
-export interface CopulaBundle {
+interface CopulaBundle {
   /** Column models participating (non-constant numeric). */
   columns: ColumnModel[];
   /** PSD-corrected normal-score correlation matrix. */
@@ -663,17 +650,17 @@ export interface CopulaBundle {
 
 /**
  * Build the Gaussian-copula kit: per-column empirical marginals plus the
- * correlation matrix of the normal scores (rank → Φ⁻¹), PSD-corrected.
+ * correlation matrix of the normal scores (rank �?Φ⁻�?, PSD-corrected.
  */
-export function buildCopula(numeric: ColumnModel[]): CopulaBundle {
+function buildCopula(numeric: ColumnModel[]): CopulaBundle {
   const usable = numeric.filter((c) => (c.sorted?.length ?? 0) >= 2 && (c.fit?.kind ?? 'constant') !== 'constant');
   const m = usable.length;
   if (m === 0) return { columns: [], corr: [], chol: [] };
   // Normal scores per row: rank of each observation within its column
-  // (average ranks for ties) → u = rank/(len+1) → z = Φ⁻¹(u). Normalization
+  // (average ranks for ties) �?u = rank/(len+1) �?z = Φ⁻�?u). Normalization
   // uses each column's own value count: columns may have different lengths
   // (missing cells are dropped per column), and the global minimum would push
-  // longer columns to u ≥ 1 → ±Inf normal scores. Row order is preserved so
+  // longer columns to u �?1 �?±Inf normal scores. Row order is preserved so
   // cross-column Pearson correlations estimate the copula.
   const z: number[][] = usable.map((c) => {
     const ranks = averageRanks(c.values!);
@@ -693,11 +680,11 @@ export function buildCopula(numeric: ColumnModel[]): CopulaBundle {
 }
 
 /**
- * Draw one correlated copula row: z = L·N(0,I) → u = Φ(z) → x = F⁻¹(u) per
+ * Draw one correlated copula row: z = L·N(0,I) �?u = Φ(z) �?x = F⁻�?u) per
  * column (empirical quantile transform). Returns values aligned with
  * `bundle.columns`.
  */
-export function sampleCopulaRow(
+function sampleCopulaRow(
   bundle: CopulaBundle,
   rng: Rng,
   dpMarginals?: Array<DpMarginal | null>,
@@ -720,7 +707,7 @@ export function sampleCopulaRow(
 
 /**
  * Laplace noise via inverse-transform sampling:
- *   x = μ − b·sign(u)·ln(1 − 2|u|),  u ~ Uniform(−0.5, 0.5),  b = sensitivity/ε.
+ *   x = μ �?b·sign(u)·ln(1 �?2|u|),  u ~ Uniform(�?.5, 0.5),  b = sensitivity/ε.
  */
 export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu = 0): number {
   const eps = Math.max(1e-9, epsilon);
@@ -731,23 +718,23 @@ export function laplaceNoise(rng: Rng, epsilon: number, sensitivity: number, mu 
 
 /**
  * ε-DP release of a bounded-sample mean: the global sensitivity of the mean
- * over values in [min, max] is (max − min)/n, so Laplace noise of that scale
+ * over values in [min, max] is (max �?min)/n, so Laplace noise of that scale
  * is added (Laplace mechanism).
  */
 export function dpMean(values: number[], epsilon: number, rng: Rng): { value: number; sensitivity: number } {
   if (values.length === 0) return { value: 0, sensitivity: 0 };
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const sensitivity = (hi - lo) / values.length;
   return { value: meanOf(values) + laplaceNoise(rng, epsilon, sensitivity), sensitivity };
 }
 
 /** Noisy histogram: counts + Laplace(0, 1/ε) (sensitivity 1 per row), floored at 0. */
-export function dpHistogramCounts(counts: number[], epsilon: number, rng: Rng): number[] {
+function dpHistogramCounts(counts: number[], epsilon: number, rng: Rng): number[] {
   return counts.map((c) => Math.max(0, c + laplaceNoise(rng, epsilon, 1)));
 }
 
-export interface DpMarginal {
+interface DpMarginal {
   /** Bin edges (ascending, length = bins + 1). */
   edges: number[];
   /** DP-noised, renormalized bin probabilities. */
@@ -755,9 +742,9 @@ export interface DpMarginal {
 }
 
 /** Build an ε-DP piecewise-uniform marginal from a numeric column (histogram + Laplace). */
-export function buildDpMarginal(values: number[], bins: number, epsilon: number, rng: Rng): DpMarginal {
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+function buildDpMarginal(values: number[], bins: number, epsilon: number, rng: Rng): DpMarginal {
+  const lo = sampleMin(values);
+  const hi = sampleMax(values);
   const width = hi > lo ? (hi - lo) / bins : 1;
   const counts = new Array<number>(bins).fill(0);
   for (const v of values) {
@@ -776,7 +763,7 @@ export function buildDpMarginal(values: number[], bins: number, epsilon: number,
 }
 
 /** Inverse CDF of a DP histogram marginal at probability `u` (no extra RNG). */
-export function dpMarginalQuantile(dp: DpMarginal, u: number): number {
+function dpMarginalQuantile(dp: DpMarginal, u: number): number {
   const clamped = Math.min(1 - 1e-12, Math.max(0, u));
   let acc = 0;
   const last = dp.probs.length - 1;
@@ -794,12 +781,12 @@ export function dpMarginalQuantile(dp: DpMarginal, u: number): number {
 }
 
 /** Inverse-CDF draw from a DP histogram marginal (uniform within the bin). */
-export function sampleDpMarginal(dp: DpMarginal, rng: Rng): number {
+function sampleDpMarginal(dp: DpMarginal, rng: Rng): number {
   return dpMarginalQuantile(dp, rng());
 }
 
 /** ε-DP category frequencies: Laplace(1/ε) on each count, renormalized. */
-export function dpFrequencies(counts: number[], epsilon: number, rng: Rng): number[] {
+function dpFrequencies(counts: number[], epsilon: number, rng: Rng): number[] {
   const noisy = counts.map((c) => Math.max(0, c + laplaceNoise(rng, epsilon, 1)));
   const total = noisy.reduce((s, c) => s + c, 0);
   if (total <= 0) return counts.map(() => 1 / Math.max(1, counts.length));
@@ -807,7 +794,7 @@ export function dpFrequencies(counts: number[], epsilon: number, rng: Rng): numb
 }
 
 /** Noisy missing rate: the missing-count statistic + Laplace(1/ε). */
-export function dpMissingRate(missingCount: number, total: number, epsilon: number, rng: Rng): number {
+function dpMissingRate(missingCount: number, total: number, epsilon: number, rng: Rng): number {
   if (total <= 0) return 0;
   const noisy = Math.max(0, missingCount + laplaceNoise(rng, epsilon, 1));
   return Math.min(1, noisy / total);
@@ -815,7 +802,7 @@ export function dpMissingRate(missingCount: number, total: number, epsilon: numb
 
 // ---- privacy: k-anonymity -----------------------------------------------------
 
-export interface KAnonResult {
+interface KAnonResult {
   table: SynthTable;
   /** Rows removed because their equivalence class was smaller than k. */
   suppressed: number;
@@ -848,8 +835,8 @@ export function applyKAnonymity(table: SynthTable, k: number, bins = 8): KAnonRe
         if (typeof v === 'number') values.push(v);
       }
       if (values.length === 0) continue;
-      const lo = Math.min(...values);
-      const hi = Math.max(...values);
+      const lo = sampleMin(values);
+      const hi = sampleMax(values);
       if (hi <= lo) {
         generalizers.set(col.i, (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v));
         continue;
@@ -900,14 +887,14 @@ export function applyKAnonymity(table: SynthTable, k: number, bins = 8): KAnonRe
 
 // ---- quality metrics ---------------------------------------------------------
 
-export interface QualityDetail {
+interface QualityDetail {
   column: string;
   kind: 'numeric' | 'categorical' | 'boolean' | 'skipped';
   /** Two-sample KS statistic (numeric columns). */
   ks?: number;
   /** Total variation distance of category frequencies (categorical / boolean). */
   tvd?: number;
-  /** Similarity in [0, 1]: 1 − statistic. */
+  /** Similarity in [0, 1]: 1 �?statistic. */
   similarity: number;
 }
 
@@ -923,6 +910,12 @@ export interface QualityReport {
   missingRateDiff: number | null;
   /** Overall similarity score in [0, 1] (higher = more similar). */
   overall: number;
+  /**
+   * Columns that could NOT be compared (no numeric values on one side).
+   * They are excluded from the score — a column that lost all its values is
+   * not a perfect match, it is an absence.
+   */
+  skippedColumns: string[];
 }
 
 function cellsOf(table: SynthTable, name: string): string[] | null {
@@ -978,6 +971,8 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
   let tvdN = 0;
   let missSum = 0;
   let missN = 0;
+  /** Columns that could not be compared (no values on one side). */
+  const skipped: string[] = [];
   const origNumeric = new Map<string, number[]>();
   const synNumeric = new Map<string, number[]>();
 
@@ -991,13 +986,27 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
     if (role === 'numeric') {
       const va = numericCells(a);
       const vb = numericCells(b);
-      const ks = va.length > 0 && vb.length > 0 ? ksStatistic(va, vb) : 0;
-      details.push({ column: name, kind: 'numeric', ks, similarity: 1 - ks });
+      // A column with NO values on one side is not comparable — it used to
+      // count as KS = 0 ("identical") and RAISED the overall similarity, so
+      // a synthetic column that lost all its values was reported as a
+      // perfect match.
+      const comparable = va.length > 0 && vb.length > 0;
+      const ks = comparable ? ksStatistic(va, vb) : Number.NaN;
+      details.push({
+        column: name,
+        kind: 'numeric',
+        ks,
+        similarity: comparable ? 1 - ks : Number.NaN,
+      });
       origNumeric.set(name, va);
       synNumeric.set(name, vb);
-      ksSum += ks;
-      ksN += 1;
-      sims.push(1 - ks);
+      if (comparable) {
+        ksSum += ks;
+        ksN += 1;
+        sims.push(1 - ks);
+      } else {
+        skipped.push(name);
+      }
     } else if (role === 'categorical' || role === 'boolean') {
       const tvd = tvdOf(categoryFreqs(a), categoryFreqs(b));
       details.push({ column: name, kind: role === 'boolean' ? 'boolean' : 'categorical', tvd, similarity: 1 - tvd });
@@ -1037,6 +1046,7 @@ export function qualityMetrics(original: SynthTable, synthetic: SynthTable): Qua
     corrAbsDiff: corrDiff,
     missingRateDiff: missDiff,
     overall: finite.length > 0 ? finite.reduce((s, v) => s + v, 0) / finite.length : 0,
+    skippedColumns: skipped,
   };
 }
 
@@ -1093,7 +1103,7 @@ function sampleCategorical(model: ColumnModel, rng: Rng, dpEpsilon: number | nul
 
 /**
  * Generate a synthetic table from `original` under the given options.
- * Deterministic: (original, options) → same output bit-for-bit.
+ * Deterministic: (original, options) �?same output bit-for-bit.
  */
 export function generateSynthetic(original: SynthTable, opts: SynthOptions): SynthResult {
   const startedAt = performance.now();
@@ -1187,12 +1197,12 @@ export function generateSynthetic(original: SynthTable, opts: SynthOptions): Syn
     if (col.role === 'id') {
       skipped.push({
         column: col.name,
-        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) — skipped`,
+        reason: `high-cardinality identifier (${col.unique ?? '?'} unique values) �?skipped`,
       });
       return;
     }
     if (col.role === 'empty') {
-      skipped.push({ column: col.name, reason: 'empty column — skipped' });
+      skipped.push({ column: col.name, reason: 'empty column �?skipped' });
       return;
     }
     outColumns.push(col.name);

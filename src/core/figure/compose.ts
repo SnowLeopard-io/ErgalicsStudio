@@ -240,13 +240,15 @@ function escapeXml(s: string): string {
 export type FigureExportFormat = 'svg' | 'pdf' | 'png600';
 
 /**
- * Export a composed figure. `png600` rasterizes at 600 dpi (print quality);
- * PDF scales the figure to its physical template width.
+ * Export a composed figure. `png600` rasterizes at the requested dpi (print
+ * quality); PDF scales the figure to its physical template width and carries
+ * a raster of the same dpi.
  */
 export async function exportFigure(
   fs: FigureSpec,
   format: FigureExportFormat,
   filename = 'figure',
+  dpi = 600,
 ): Promise<void> {
   const composed = composeFigure(fs);
   const tpl = templateById(fs.templateId);
@@ -257,10 +259,10 @@ export async function exportFigure(
   if (format === 'pdf') {
     const cols = Math.max(...fs.panels.map((p) => p.col + 1), 1);
     const widthMm = tpl.columnWidthMm * (cols > 1 && !tpl.id.endsWith('double') ? cols : 1);
-    await exportPDF(composed.markup, `${filename}.pdf`, Math.min(widthMm, 277));
+    await exportPDF(composed.markup, `${filename}.pdf`, Math.min(widthMm, 277), dpi);
     return;
   }
-  exportPNG(composed.markup, `${filename}.png`, 600 / 96);
+  exportPNG(composed.markup, `${filename}.png`, Math.max(1, dpi) / 96);
 }
 
 /**
@@ -273,6 +275,7 @@ export async function saveFigureToWorkspace(
   fs: FigureSpec,
   format: FigureExportFormat,
   filename = 'figure',
+  dpi = 600,
 ): Promise<string> {
   const composed = composeFigure(fs);
   const tpl = templateById(fs.templateId);
@@ -283,9 +286,9 @@ export async function saveFigureToWorkspace(
   if (format === 'pdf') {
     const cols = Math.max(...fs.panels.map((p) => p.col + 1), 1);
     const widthMm = tpl.columnWidthMm * (cols > 1 && !tpl.id.endsWith('double') ? cols : 1);
-    const bytes = await buildPDF(composed.markup, Math.min(widthMm, 277));
+    const bytes = await buildPDF(composed.markup, Math.min(widthMm, 277), dpi);
     return saveBinaryArtifact(project, 'figures', `${safe}.pdf`, bytes);
   }
-  const bytes = await rasterizePNG(composed.markup, 600 / 96);
+  const bytes = await rasterizePNG(composed.markup, Math.max(1, dpi) / 96);
   return saveBinaryArtifact(project, 'figures', `${safe}.png`, bytes);
 }

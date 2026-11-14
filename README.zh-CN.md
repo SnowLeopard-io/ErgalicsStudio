@@ -4,22 +4,30 @@
 
 <h1>Ergalics Studio</h1>
 
-<p><b>浏览器中的科学计算工作站</b>——交互式数据探索、GPU 计算调度与沙箱化插件系统，全部在浏览器中运行。</p>
+<p><b>浏览器中的科学计算工作站</b></p>
+
+<p>交互式数据探索 · WebGPU 原生计算 · 沙箱化插件系统 · 端到端可复现科研</p>
 
 <p>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="官方网站" src="https://img.shields.io/badge/%E5%AE%98%E6%96%B9%E7%BD%91%E7%AB%99-0891b2?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="打开在线工作站" src="https://img.shields.io/badge/%E6%89%93%E5%BC%80%E5%9C%A8%E7%BA%BF%E5%B7%A5%E4%BD%9C%E7%AB%99-16a34a?style=for-the-badge" /></a>
-<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="文档站点" src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3%E7%AB%99%E7%82%B9-8b5cf6?style=for-the-badge" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/"><img alt="Official website" width="205" src="https://img.shields.io/badge/Official%20Website-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/"><img alt="打开在线工作站" width="225" src="https://img.shields.io/badge/Launch%20Workstation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
+<a href="https://snowleopard-io.github.io/ErgalicsStudio/app/docs/"><img alt="文档站点" width="185" src="https://img.shields.io/badge/Documentation-0891b2?style=for-the-badge&labelColor=0891b2" /></a>
 </p>
 
 <p>
-<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-181717?logo=github&logoColor=white&style=flat-square" /></a>
-<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-c71d23?logo=gitee&logoColor=white&style=flat-square" /></a>
-<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" /></a>
-<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white&style=flat-square" /></a>
-<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square" /></a>
-<a href="#gpu-计算与原生核心"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL-8b5cf6?style=flat-square" /></a>
-<a href="#gpu-计算与原生核心"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust-000000?logo=rust&logoColor=white&style=flat-square" /></a>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
+<a href="LICENSE"><img alt="许可证" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
+<img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-4062%2B%20passing-1f2937?style=flat-square" />
+<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
+</p>
+
+<p>
+<a href="https://github.com/SnowLeopard-io/ErgalicsStudio"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-SnowLeopard--io%2FErgalicsStudio-1f2937?style=flat-square&logo=github&logoColor=white" /></a>
+<a href="https://gitee.com/cnt-code/ergalics-studio"><img alt="Gitee" src="https://img.shields.io/badge/Gitee-cnt--code%2Fergalics--studio-1f2937?style=flat-square&logo=gitee&logoColor=white" /></a>
+<a href="#gpu-计算与原生核心"><img alt="WebGPU" src="https://img.shields.io/badge/WebGPU-WGSL%20%E5%86%85%E6%A0%B8-1f2937?style=flat-square" /></a>
+<a href="#gpu-计算与原生核心"><img alt="WASM" src="https://img.shields.io/badge/WASM-Rust%20%E6%A0%B8%E5%BF%83-1f2937?style=flat-square&logo=rust&logoColor=white" /></a>
+<a href="#插件系统"><img alt="Pyodide" src="https://img.shields.io/badge/Python-Pyodide%20CPython-1f2937?style=flat-square&logo=python&logoColor=white" /></a>
+<a href="#四种工作模式"><img alt="webR" src="https://img.shields.io/badge/R-webR%20%E8%BF%90%E8%A1%8C%E6%97%B6-1f2937?style=flat-square" /></a>
 </p>
 
 </div>
@@ -33,9 +41,9 @@
 ## 目录
 
 - [概览](#概览)
+- [快速开始](#快速开始)
 - [特性](#特性)
 - [技术栈](#技术栈)
-- [快速开始](#快速开始)
 - [架构](#架构)
 - [项目结构](#项目结构)
 - [四种工作模式](#四种工作模式)
@@ -48,6 +56,7 @@
 - [路线图](#路线图)
 - [贡献](#贡献)
 - [许可证](#许可证)
+- [联系我们](#联系我们)
 
 ---
 
@@ -66,13 +75,32 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 
 | 领域 | 今日已交付 |
 | ---- | ---------- |
-| 工作台 | 四种模式、工作台文件资源管理器 + 标签页中央区 + 按文件类型分派的编辑器（Code / Flow / Block）、**163 个内置插件（153 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
+| 工作台 | 四种模式、工作台文件资源管理器（工作区搜索 / Git 变更角标 / 外部文件拖入导入）+ 标签页中央区 + 多会话终端 + 按文件类型分派的编辑器（Code / Flow / Block）、**163 个内置插件（153 个科学插件自动加载 + 10 个趣味工具手动加载），按 19 个学科分组**、沙箱化插件系统 + 市场目录、cspkg 签名门禁 |
 | 计算 | 实时 WebGPU 计算（14 个可复用 WGSL 内核）、浏览器内 AI 训练插件、AI 助手（离线规则引擎 / 在线 OpenAI 兼容服务） |
 | 数据与绘图 | 科研二进制数据导入（HDF5 / NetCDF / FITS / Zarr / Parquet）、出版级 SVG/PDF 绘图、统计分析、可复现性支持、189 个示例数据集 + 11 个示例工程 |
-| 代码编辑 | Python 经 Pyodide；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
+| 代码编辑 | Python 经 Pyodide（import 科学计算包时按需自动安装）；R/JS 经共享 IR 引擎，R 存在内置 webR 分发包时升级为完整自由运行时；三语言往返由测试固化 |
 | 科研 | **33 个独立科研工具，分 7 组**（可内嵌到工作台画布）、科研级插件元数据 + 统一科学输出栏、单位系统与分块读取配套内核 |
 | 版本控制 | Git 仓库化项目（浏览器端 isomorphic-git + LightningFS）、侧边栏 Git 面板与规范提交历史 |
 | Web 界面 | 官方网站（画廊 / 主题市场 / 插件市场）、工作台与文档站点，统一合并部署、深链互通 |
+
+---
+
+## 快速开始
+
+前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
+
+```bash
+npm install         # 安装依赖
+npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
+
+npm run build       # wasm → 类型检查 → vite build → 文档
+npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
+npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
+
+cd docs && npm install && npm run dev   # 文档站点
+```
+
+生产构建产物输出到 `dist/`。
 
 ---
 
@@ -83,10 +111,11 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 能力 | 说明 |
 | --- | --- |
 | 工作台外壳 | 顶栏（项目切换 / 模式切换 / 科研启动器）、活动栏、多视图侧栏（文件 / Git / 插件，可调宽可收起）、标签页式中央视口、右侧参数面板、带 GPU/性能指示器的状态栏。 |
-| 文件资源管理器与标签页 | 项目文件树（含文件操作）+ 文件信息面板；中央区以标签页承载插件画布、文件预览（文本 / Markdown / 图片 / PDF / 音频 / 视频）、文件编辑器、内嵌科研工具与设置页。 |
+| 文件资源管理器与标签页 | 项目文件树（含文件操作与 Git 变更角标）+ 右侧文件信息面板（含「用插件打开」，展开状态持久化）；内置工作区搜索面板（大小写 / 全词 / 正则，逐文件行级结果）；中央区以标签页承载插件画布、文件预览（文本 / Markdown / 图片 / PDF / 音频 / 视频）、文件编辑器、内嵌科研工具与设置页。 |
 | 文件编辑器 | `.py` / `.js` / `.r` 用 Monaco 编辑器打开，`*.flow.json` 用流程 DAG 编辑器打开，`*.block.json` 用 Blockly 编辑器打开，均带脏状态与写回工作区的保存；**在模式中打开**桥接可把任意缓冲推入对应完整工作台模式。 |
-| 项目生命周期 | 创建 / 打开 / 保存 / 自动保存 / 分享（`.clproj` 存于 IndexedDB）。 |
-| 文件路由 | 按魔数 + 扩展名把拖入文件路由到匹配插件，多匹配时弹出选择，同名文件替换时先确认；分隔文本解析跳过 `#` 注释行，格式白名单含 `.xy` / `.xye`。 |
+| 项目生命周期 | 创建 / 打开 / 保存 / 自动保存 / 分享（`.clproj` 存于 IndexedDB）；下次启动自动恢复上次打开的项目。 |
+| 终端 | 多会话终端面板：Python REPL（续块输入、↑/↓ 历史）与 Shell 风格工作区命令（ls / cd / cat / head / tail / tree / find / grep / wc / run），直接读写项目文件树。 |
+| 文件路由 | 按魔数 + 扩展名把拖入文件路由到匹配插件，多匹配时弹出选择，同名文件替换时先确认；拖入的文件（含图片等二进制）同时保存进工作区 `data/` 目录，文件资源管理器也支持从操作系统直接拖入并按目录导入（重名自动加序号）；分隔文本解析跳过 `#` 注释行，格式白名单含 `.xy` / `.xye`。 |
 | 中央导出菜单 | 把当前插件画布下载为 PNG（默认约 600 dpi，可选透明底）或保存进项目 `figures/` 工作区目录；3D 插件还可将整个场景导出为 **GLB / STL**（下载，或保存进 `data/` 工作区）；各插件的 CSV 导出按钮保留在参数面板中。 |
 | 2D 与 3D 视口 | 2D canvas 容器（点云 / 时间序列 / 直方图 / 热力图 / 等值线 / 散点 / 柱状 / 雷达 / 网络 / 气泡 / 小提琴 / 桑基 / 箱线 / 平行坐标 / 误差带 / 矩形树 / QQ 图等）+ 宿主管理的 Three.js 3D 场景（按需懒创建、插件间干净清理；ACES 电影级色调映射 + IBL 环境光照）。 |
 | 3D 模型查看器 | GLB / GLTF / STL / OBJ / PLY 导入（Draco 与 meshopt 解码）；着色 / 线框 / 法线 / X-ray 观察模式、剖面、glTF 动画回放、两点测距与视角预设；任意 3D 场景可经中央导出菜单导出为 GLB / STL。 |
@@ -121,11 +150,12 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | --- | --- |
 | Git 仓库化项目 | `src/core/git/` 以单一 `GitAdapter` 接口提供浏览器端实现（isomorphic-git + LightningFS，IndexedDB 工作区）与 Node 端实现（运行时加载 simple-git，不可用时回退 isomorphic-git），覆盖 init / status / log / diff / add / commit / checkout / branch / merge / remote / hooks，外加文件级写入 / 删除 / 重命名 / 目录列举与仓库 config。 |
 | 工作区 VFS | 文件统一走轻量 `Vfs` 抽象（`src/core/vfs/`）：浏览器端为 LightningFS（IndexedDB），Node/测试端为内存实现；Git 工作区与文件资源管理器共享同一份文件系统。 |
-| 项目↔仓库同步 | `projectStore` 将保存快照镜像到仓库工作区（`project.clproj`），并驱动侧边栏 **Git 面板**（分支 + 领先/落后、一键提交框（暂存全部待提交变更）+ 规范提交信息、近期提交日志、分支 / 克隆 / pull / push / fetch（可配置 CORS 代理）、运行与图像的自动提交）。 |
+| 项目↔仓库同步 | `projectStore` 将保存快照镜像到仓库工作区（`project.clproj`），并驱动侧边栏 **Git 面板**（分支 + 领先/落后、一键提交框（暂存全部待提交变更）+ 规范提交信息、近期提交日志、分支 / 克隆 / pull / push / fetch（可配置 CORS 代理）、运行与图像的自动提交）；文件资源管理器为变更文件显示 Git 状态角标。 |
 
 **基础设施**
 
 - i18n（zh-CN / en-US）、暗 / 亮主题、性能监控（FPS / GPU / 内存 / 数据规模）。
+- 界面韧性：懒加载模块失败自动重试，仍失败时给出恢复卡片——「重新加载模块 / 刷新页面」由用户决定，绝不自动整页刷新，运行中的模拟不受影响；工作区界面全局禁用文本误选中（编辑器 / 终端 / Markdown 正文等内容区除外）。
 - 研究级可靠性内核：结构化错误分类法 + `Result`/重试 + 错误注册表、可组合校验框架与安全解析、Pandera 风格数据质量引擎（期望 / 画像 / 坏行隔离），见 `src/core/errors|validation|data-quality`。
 
 **科学计算与科研模块（纯 TS 核心 + Zustand store + 独立整页）**
@@ -155,25 +185,6 @@ Ergalics Studio 是完全运行于浏览器中的科学计算工作站：React +
 | 测试    | Vitest (单元) + Playwright-core (E2E, headless Edge)       |
 | 文档    | VitePress (独立的 `docs/` workspace)                       |
 | 打包    | fflate (cspkg ZIP), lz-string (项目压缩)                   |
-
----
-
-## 快速开始
-
-前置要求：**Node.js ≥ 20** 与 npm。**Rust 工具链**（`wasm32-unknown-unknown` target + `wasm-bindgen-cli`）为可选——`npm run build:web` 会注入生成的 WASM stub，运行时全部计算走浏览器原生 WebGPU/CPU 路径。
-
-```bash
-npm install         # 安装依赖
-npm run dev         # 开发运行（欢迎页先做硬件自检：WebGPU/WASM/IndexedDB）
-
-npm run build       # wasm → 类型检查 → vite build → 文档
-npm run build:web   # 仅前端（生成 WASM stub，无需 Rust）
-npm run build:wasm  # 编译 Rust 核心（需要 Rust 工具链）
-
-cd docs && npm install && npm run dev   # 文档站点
-```
-
-生产构建产物输出到 `dist/`。
 
 ---
 
@@ -264,7 +275,7 @@ flowchart TB
 
 ![标准模式 — 拖入文件，即可看到可视化](docs/assets/screenshots/platform/mode-standard-welcome.png)
 
-**流程模式**——从 **63 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器带增量缓存与脏值传播，改单个区块只重跑自身及其下游。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
+**流程模式**——从 **63 个内置区块**（data_source / transform / filter / math / statistics / units / visualize / plot）**组合可视化数据流管线**并运行。左侧调色板、中间画布（节点 + 边）、右侧节点参数编辑器、底部按输出类型自适应的实时结果预览（`RenderedView` 经插件渲染器 / `DataTable` 只读表 / `Scalar` 内联）。编译器是纯函数（端口 / 类型校验 + 环检测 + Kahn 拓扑排序）；执行器带增量缓存与脏值传播，改单个区块只重跑自身及其下游。图以 `*.flow.json` 工作区文件保存（`{version, kind:'ergalics-flow', graph}`），可在文件资源管理器的流程编辑器中打开；数据源区块可直接从项目文件挑选输入（数据文件选择器），旧的项目 `blockGraph` 状态仍可读取。架构详见 [`docs/guide/flow-mode.md`](docs/guide/flow-mode.md)。
 
 ![流程模式 — 示例管线（Normalize → Histogram / Scatter / Summary）](docs/assets/screenshots/platform/mode-flow.png)
 
@@ -272,7 +283,7 @@ flowchart TB
 
 ![积木模式 — "运行"帽子区块启动程序，加载遥测、归一化并绘图](docs/assets/screenshots/platform/mode-block.png)
 
-**代码模式**——真正脚本的 Monaco 编辑器，分段的 **Python / R / JS** 切换器 + 引擎徽章。**Python** 经 Pyodide Web Worker 运行完整 CPython（`studio` 作为可导入模块注入，REPL 单条求值，停止即重启 worker）。**R / JavaScript** 解析为共享 IR，在积木模式同一解释器上执行；R 优先升级到内置完整 webR 运行时，缺失时回退 IR 引擎。切换语言时打开**悬浮预览窗**——Monaco 编辑器展示可编辑的参考翻译——仅在显式**应用**后才替换缓冲，另提供**放弃并清空**与**取消**选项，配 `forceBlank` 守卫保护刚清空的缓冲，并支持一键撤销。三模式经同一份 IR 无缝互转（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `code/parse.ts` + `mergeFlowIR` 合并写回 + 图签名守卫防丢节点），该往返由 `tests/editor/roundtrip-all-langs.test.ts` 固化。含 9 个示例程序，详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。
+**代码模式**——真正脚本的 Monaco 编辑器，分段的 **Python / R / JS** 切换器 + 引擎徽章。**Python** 经 Pyodide Web Worker 运行完整 CPython（`studio` 作为可导入模块注入，REPL 单条求值，停止即重启 worker；import 科学计算包时按需自动安装，`studio.load` 支持 `dataFiles` 直接加载项目文件）。**R / JavaScript** 解析为共享 IR，在积木模式同一解释器上执行；R 优先升级到内置完整 webR 运行时，缺失时回退 IR 引擎。切换语言时打开**悬浮预览窗**——Monaco 编辑器展示可编辑的参考翻译——仅在显式**应用**后才替换缓冲，另提供**放弃并清空**与**取消**选项，配 `forceBlank` 守卫保护刚清空的缓冲，并支持一键撤销。三模式经同一份 IR 无缝互转（`src/editor/flow/convert.ts` + `src/editor/block/convert.ts` + `code/parse.ts` + `mergeFlowIR` 合并写回 + 图签名守卫防丢节点），该往返由 `tests/editor/roundtrip-all-langs.test.ts` 固化。含 9 个示例程序，详见 [`docs/guide/block-mode.md`](docs/guide/block-mode.md)。
 
 ![代码模式 — 支持 Python/R/JavaScript 的 Monaco 编辑器（Python 经 Pyodide）](docs/assets/screenshots/platform/mode-code.png)
 
@@ -1079,7 +1090,7 @@ npm test          # 或 npm run test:unit
 npm run verify    # 类型检查 + 单元测试
 ```
 
-**3835 个测试分布在 235 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎）、可靠性内核、平台。
+**4052 个测试（2 个跳过）分布在 258 个测试文件中**，覆盖：数据与 I/O、统计内核、插件与沙箱、环境学与生物学插件套件、GPU 计算、Git 适配器与项目同步、工作区 VFS、科研级科学输出总线、区块系统、三模式 IR 同步（积木 ↔ 流程 ↔ 代码往返）、科研模块（不确定性 / 单位 / 实验记录 / 血缘 / 图表 / 打包 / Notebook / 模型 / 画像 / 信号 / 扫描 / SQL / 报告 / 可复现锁 / 推断引擎）、可靠性内核、平台。
 
 E2E 套件（Playwright-core, headless Edge）：
 
@@ -1116,6 +1127,7 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 
 - [x] 工作台布局、项目管理、文件路由；四种模式（标准 / 流程 / 积木 / 代码）
 - [x] 工作台文件资源管理器 + 标签页中央区 + 按文件分派的编辑器（`.py` / `*.flow.json` / `*.block.json`）、中央导出菜单、工作区产物
+- [x] 多会话终端（Python REPL + Shell 风格工作区命令）、工作区搜索、Git 变更角标、文件拖入导入与画布落盘 `data/`、会话恢复（记住上次打开的项目）
 - [x] 163 个内置插件（153 科学自动加载 + 10 趣味手动加载）按 19 学科分组、cspkg 加载、Worker 沙箱、Ed25519 签名门禁（FR-05）
 - [x] 插件 CSV 导出按钮 + 分析叠加层；中央画布导出菜单（PNG / 透明 PNG，保存到工作区）；市场目录
 - [x] WebGPU 设备管理 + 14 个可复用 WGSL 内核（Particles / N-Body / LBM / 波动方程 / FFT / k-means…）
@@ -1152,3 +1164,12 @@ npm run build                            # 静态站点 → docs/.vitepress/dist
 ## 许可证
 
 [MIT](LICENSE) © 2026 [SnowLeopard-io](https://github.com/SnowLeopard-io)
+
+---
+
+## 联系我们
+
+- **邮箱**：[1486853830@qq.com](mailto:1486853830@qq.com)
+- **微信**：19112913292
+
+合作交流、课程落地、bug 反馈或只是想聊聊科研计算，都欢迎随时联系。

@@ -21,14 +21,27 @@ export interface BlockDef {
   [key: string]: unknown;
 }
 
-const DATA_COLOUR = '#4C97FF';
-const VAR_COLOUR = '#FF8C1A';
-const OP_COLOUR = '#59C059';
-const CONTROL_COLOUR = '#FFAB19';
-const TRANSFORM_COLOUR = '#CF63CF';
-const STAT_COLOUR = '#9966FF';
-const VIZ_COLOUR = '#FF6680';
-const UTIL_COLOUR = '#8A97A8';
+/** Category colours: the original high-saturation Scratch palette. */
+export const BLOCK_PALETTE = {
+  run: '#22C55E',
+  data: '#4C97FF',
+  variable: '#FF8C1A',
+  operation: '#59C059',
+  transform: '#CF63CF',
+  statistic: '#9966FF',
+  visualization: '#FF6680',
+  control: '#FFAB19',
+  util: '#8A97A8',
+} as const;
+
+const DATA_COLOUR = BLOCK_PALETTE.data;
+const VAR_COLOUR = BLOCK_PALETTE.variable;
+const OP_COLOUR = BLOCK_PALETTE.operation;
+const CONTROL_COLOUR = BLOCK_PALETTE.control;
+const TRANSFORM_COLOUR = BLOCK_PALETTE.transform;
+const STAT_COLOUR = BLOCK_PALETTE.statistic;
+const VIZ_COLOUR = BLOCK_PALETTE.visualization;
+const UTIL_COLOUR = BLOCK_PALETTE.util;
 
 function value(name: string): { type: string; name: string } {
   return { type: 'input_value', name };
@@ -36,6 +49,11 @@ function value(name: string): { type: string; name: string } {
 
 function field(name: string, text: string): { type: string; name: string; text: string } {
   return { type: 'field_input', name, text };
+}
+
+/** Text field backed by the two-column project/example data-file picker. */
+function fileField(name: string, text: string): { type: string; name: string; text: string } {
+  return { type: 'field_data_file', name, text };
 }
 
 function dropdown(name: string, options: [string, string][]): { type: string; name: string; options: [string, string][] } {
@@ -71,8 +89,8 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_var_assign', message0: '%{BKY_STUDIO_VAR_ASSIGN}', args0: [field('NAME', 'x'), value('VALUE')], previousStatement: null, nextStatement: null, colour: VAR_COLOUR, tooltip: '%{BKY_STUDIO_VAR_ASSIGN_TOOLTIP}' },
 
   // ---- data sources ----
-  { type: 'studio_load_csv', message0: '%{BKY_STUDIO_LOAD_CSV}', args0: [field('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_CSV_TOOLTIP}' },
-  { type: 'studio_load_xyz', message0: '%{BKY_STUDIO_LOAD_XYZ}', args0: [field('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_XYZ_TOOLTIP}' },
+  { type: 'studio_load_csv', message0: '%{BKY_STUDIO_LOAD_CSV}', args0: [fileField('PATH', 'data.csv')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_CSV_TOOLTIP}' },
+  { type: 'studio_load_xyz', message0: '%{BKY_STUDIO_LOAD_XYZ}', args0: [fileField('PATH', 'data.xyz')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LOAD_XYZ_TOOLTIP}' },
   { type: 'studio_random', message0: '%{BKY_STUDIO_RANDOM}', args0: [value('COUNT'), value('SEED')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANDOM_TOOLTIP}' },
   { type: 'studio_range', message0: '%{BKY_STUDIO_RANGE}', args0: [value('START'), value('STOP'), value('STEP')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_RANGE_TOOLTIP}' },
   { type: 'studio_list', message0: '%{BKY_STUDIO_LIST}', args0: [field('VALUES', '1,2,3')], output: null, colour: DATA_COLOUR, tooltip: '%{BKY_STUDIO_LIST_TOOLTIP}' },
@@ -102,7 +120,7 @@ export const BLOCK_DEFS: BlockDef[] = [
   { type: 'studio_line', message0: '%{BKY_STUDIO_LINE}', args0: [value('DATA'), field('X', 'x'), field('Y', 'y')], previousStatement: null, nextStatement: null, colour: VIZ_COLOUR, tooltip: '%{BKY_STUDIO_LINE_TOOLTIP}' },
 
   // ---- control ----
-  { type: 'studio_run', message0: '%{BKY_STUDIO_RUN}', args0: [], nextStatement: null, colour: '#22C55E', tooltip: '%{BKY_STUDIO_RUN_TOOLTIP}' },
+  { type: 'studio_run', message0: '%{BKY_STUDIO_RUN}', args0: [], nextStatement: null, colour: BLOCK_PALETTE.run, tooltip: '%{BKY_STUDIO_RUN_TOOLTIP}' },
   { type: 'studio_while', message0: '%{BKY_STUDIO_WHILE}', args0: [value('COND'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_WHILE_TOOLTIP}' },
   { type: 'studio_for_each', message0: '%{BKY_STUDIO_FOR_EACH}', args0: [value('LIST'), field('VAR', 'item'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_FOR_EACH_TOOLTIP}' },
   { type: 'studio_repeat', message0: '%{BKY_STUDIO_REPEAT}', args0: [value('COUNT'), { type: 'input_statement', name: 'DO' }], previousStatement: null, nextStatement: null, colour: CONTROL_COLOUR, tooltip: '%{BKY_STUDIO_REPEAT_TOOLTIP}' },

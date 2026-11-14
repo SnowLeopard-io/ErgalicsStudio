@@ -95,7 +95,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="brand-name footer-brand">Ergalics Studio</div>
             <p className="footer-tagline">{t('footer.tagline')}</p>
             <div className="footer-badges" aria-label="Release metadata">
-              <span className="fbadge">v2.0.0</span>
+              <span className="fbadge">v2.1.0</span>
               <span className="fbadge">MIT</span>
               <span className="fbadge">WebGPU</span>
             </div>

@@ -30,6 +30,9 @@ interface NotebookStore {
   moveCell: (id: string, dir: -1 | 1) => void;
   /** Execute a code cell; resolves when the cell has been updated. */
   runCell: (id: string) => Promise<void>;
+  /** Kill the running cell (stop button). The worker is torn down — a wedged
+   *  `while True` has no other exit — and the next run boots a fresh one. */
+  stopRun: () => void;
   /** Terminate the Pyodide worker (project switch). Safe to call twice. */
   disposeRuntime: () => void;
 }
@@ -82,7 +85,7 @@ function varPreview(name: string, snapshot: VariableSnapshot): { name: string; p
   return { name, preview: `table · ${cols} cols × ${snapshot.length} rows` };
 }
 
-export const useNotebookStore = create<NotebookStore>((set) => ({
+export const useNotebookStore = create<NotebookStore>((set, get) => ({
   runningCellId: null,
 
   addCell: (type, afterId) => {
@@ -187,6 +190,15 @@ export const useNotebookStore = create<NotebookStore>((set) => ({
       durationMs,
       failed: !ok,
     });
+  },
+
+  stopRun: () => {
+    if (!get().runningCellId) return;
+    // Invalidate the in-flight result first, then kill the worker: the
+    // rejection must never be written into the cell as an error.
+    ++runSeq;
+    ensureRuntime().interrupt();
+    set({ runningCellId: null });
   },
 
   disposeRuntime: () => {

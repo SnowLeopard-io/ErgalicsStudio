@@ -20,8 +20,8 @@ import { findBuiltin } from '@/plugins/builtin';
 import { PLUGIN_DISCIPLINES, disciplineOf } from '@/plugins/categories';
 import { usePluginStore, refreshParamDefs } from '@/stores/pluginStore';
 import { useAppStore } from '@/stores/appStore';
-import { BLOCK_GRAPH_CHANGED, useBlockStore } from '@/stores/blockStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { flowToIR } from '@/editor/flow/convert';
 import { SAMPLE_PIPELINES, sampleDescription, sampleName } from '@/blocks/sample';
 import {
   BLOCK_SAMPLES,
@@ -35,7 +35,6 @@ import {
   codeSampleDescription,
 } from '@/editor/code/samples';
 import { parseCodeToIR } from '@/editor/code/parse';
-import { emit } from '@/core/events';
 import { logger } from '@/core/logger';
 
 interface DataDialogProps {
@@ -55,8 +54,6 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const t = useT();
   const { locale } = useLocale();
   const notify = useAppStore((s) => s.notify);
-  const mode = useAppStore((s) => s.mode);
-  const setMode = useAppStore((s) => s.setMode);
   const [tab, setTab] = useState<'datasets' | 'pipeline' | 'blocks' | 'code'>('datasets');
   // A plain object literal here would be recreated on every render, making the
   // re-entrancy guard below useless (double-click would launch two loads).
@@ -100,12 +97,35 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     }
   };
 
+  /**
+   * Open a sample in a tab of its own.
+   *
+   * A sample used to be loaded into the session that happened to be active,
+   * so opening one replaced the content of the file the user was editing —
+   * the file's tab showed the sample, and the sample's text could even be
+   * mirrored back into that file. A sample now gets its OWN session (no
+   * `filePath`, so nothing is ever written back to the workspace) and its own
+   * tab, and the file's tab keeps its content.
+   */
+  const openSample = (
+    mode: 'code' | 'block' | 'flow',
+    sessionId: string,
+    label: string,
+  ): void => {
+    useEditorStore.getState().setActiveSession(sessionId);
+    useAppStore.getState().openSampleTab({ mode, sessionId, label });
+  };
+
   const loadPipeline = (id: string) => {
     const sample = SAMPLE_PIPELINES.find((s) => s.id === id);
     if (!sample) return;
-    if (mode !== 'flow') setMode('flow');
-    useBlockStore.getState().fromJSON(sample.graph);
-    emit(BLOCK_GRAPH_CHANGED, undefined);
+    // The flow canvas is a single global DAG, so the sample goes into a
+    // session of its own: the open flow file keeps its graph, and switching
+    // back to it re-hydrates that graph (useFlowSync).
+    const sid = useEditorStore.getState().createSession('block', 'python').id;
+    useEditorStore.getState().updateSessionIR(sid, flowToIR(sample.graph));
+    useEditorStore.getState().requestFlowLoad(sample.graph);
+    openSample('flow', sid, sampleName(sample, locale));
     notify('success', t('workbench.example.pipeline_loaded', { name: sampleName(sample, locale) }));
     onClose();
   };
@@ -114,17 +134,16 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
     const sample = BLOCK_SAMPLES.find((s) => s.id === id);
     if (!sample) return;
     const program = sampleProgram(sample);
-    // Load the sample into a *fresh* session so it never overwrites the user's
-    // active work; the sample dialog is a "start from here", not a replace.
+    // A fresh session of its own: the sample never overwrites the user's
+    // active work, and the sample dialog is a "start from here", not a
+    // replace.
     const sid = useEditorStore.getState().createSession('block', 'python').id;
     useEditorStore.getState().updateSessionIR(sid, program);
-    useEditorStore.getState().setActiveSession(sid);
     // Drop the previous run's results (variables/console/error) and any stale
     // preview frame so loading a second sample never shows the first one's
     // output before the user re-runs.
     useEditorStore.getState().resetRunOutputs();
-    useEditorStore.getState().requestLoad(program);
-    if (mode !== 'block') setMode('block');
+    openSample('block', sid, blockSampleName(sample, locale));
     notify('success', t('workbench.example.pipeline_loaded', { name: blockSampleName(sample, locale) }));
     onClose();
   };
@@ -132,19 +151,16 @@ export function DataDialog({ open, onClose }: DataDialogProps) {
   const loadCodeSample = (id: string) => {
     const sample = CODE_SAMPLES.find((s) => s.id === id);
     if (!sample) return;
-    // Load the sample into a *fresh* code session so it never overwrites the
-    // user's active work; parse the sample text into the IR hub so switching
-    // languages later can actually translate it (an empty IR would make every
-    // switch silently keep the current text). The editor shows the sample text
-    // on activation.
+    // Parse the sample text into the IR hub so switching languages later can
+    // actually translate it (an empty IR would make every switch silently
+    // keep the current text). The editor shows the sample text on activation.
     const { program } = parseCodeToIR(sample.python, 'python');
     const sid = useEditorStore.getState().createSession('code', 'python').id;
     useEditorStore.getState().updateSessionIR(sid, program, sample.python);
-    useEditorStore.getState().setActiveSession(sid);
     // Drop the previous run's results so a second sample never shows the
     // first one's output before the user re-runs.
     useEditorStore.getState().resetRunOutputs();
-    if (mode !== 'code') setMode('code');
+    openSample('code', sid, codeSampleName(sample, locale));
     notify('success', t('workbench.example.pipeline_loaded', { name: codeSampleName(sample, locale) }));
     onClose();
   };

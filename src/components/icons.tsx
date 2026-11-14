@@ -9,9 +9,9 @@
 
 import type { SVGProps } from 'react';
 
-export type IconSize = 14 | 16 | 18 | 20 | 22 | 24;
+type IconSize = 14 | 16 | 18 | 20 | 22 | 24;
 
-export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
+interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   size?: IconSize | number;
   /** Accessible name. When omitted the icon is hidden from assistive tech. */
   label?: string;
@@ -47,12 +47,6 @@ function Svg({
 }
 
 // ---- generic UI glyphs ----------------------------------------------------
-
-export const MenuIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 6h16M4 12h16M4 18h16" />
-  </Svg>
-);
 
 export const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -99,6 +93,71 @@ export const SearchIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Search option: match case (Aa). */
+export const CaseSensitiveIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={0}>
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="12"
+      fontWeight="600"
+      fontFamily="ui-sans-serif, system-ui, sans-serif"
+      fill="currentColor"
+      stroke="none"
+    >
+      Aa
+    </text>
+  </Svg>
+);
+
+/** Search option: whole word (ab with an underline). */
+export const WholeWordIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={1.3}>
+    <text
+      x="12"
+      y="15"
+      textAnchor="middle"
+      fontSize="11"
+      fontWeight="600"
+      fontFamily="ui-sans-serif, system-ui, sans-serif"
+      fill="currentColor"
+      stroke="none"
+    >
+      ab
+    </text>
+    <path d="M5 19h14" />
+  </Svg>
+);
+
+/** Search option: regular expression (.*). */
+export const RegexIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={0}>
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="12.5"
+      fontWeight="600"
+      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+      fill="currentColor"
+      stroke="none"
+    >
+      .*
+    </text>
+  </Svg>
+);
+
+/** Empty-result glyph: a document with a magnifier. */
+export const FileSearchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h6" />
+    <path d="M14 3v5h5" />
+    <circle cx="16" cy="16" r="3" />
+    <path d="m18.5 18.5 2 2" />
+  </Svg>
+);
+
 /** AI sparkles — used for the global AI-assistant toggle in the top bar. */
 export const SparklesIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -112,15 +171,6 @@ export const HelpIcon = (p: IconProps) => (
     <circle cx="12" cy="12" r="9" />
     <path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8" />
     <path d="M12 17h.01" />
-  </Svg>
-);
-
-export const KeyboardIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2" y="5" width="20" height="14" rx="2" />
-    <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01" />
-    <path d="M6 13h.01M10 13h.01M14 13h.01M18 13h.01" />
-    <path d="M8 17h8" />
   </Svg>
 );
 
@@ -217,6 +267,81 @@ export const ClockIcon = (p: IconProps) => (
 export const PlayIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M7 5.5v13l11-6.5z" />
+  </Svg>
+);
+
+/** Solid square — the "stop" state of the editor run button. */
+export const StopIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+/** Open arc — spinning "busy" marker while a run is in flight. */
+export const LoaderIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3a9 9 0 1 0 9 9" />
+  </Svg>
+);
+
+/** Warning triangle — stderr lines in the console. */
+export const AlertIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4.5 21 20H3z" />
+    <path d="M12 10v4.5" />
+    <path d="M12 17.5h.01" />
+  </Svg>
+);
+
+/** Circled i — informational console lines. */
+export const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5" />
+    <path d="M12 7.8h.01" />
+  </Svg>
+);
+
+/** Terminal window — empty-console placeholder. */
+export const TerminalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="4" width="19" height="16" rx="2" />
+    <path d="m6.5 9 3.5 3-3.5 3" />
+    <path d="M13 15.5h4.5" />
+  </Svg>
+);
+
+/** Enter key — REPL submit action. */
+export const CornerDownLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 5v6a3 3 0 0 1-3 3H5" />
+    <path d="m9 10-4 4 4 4" />
+  </Svg>
+);
+
+// ---- variable-type glyphs (variable panel) --------------------------------
+
+/** Grid — DataTable variables. */
+export const TableIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+    <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5V19" />
+  </Svg>
+);
+
+/** Framed picture — rendered-view variables. */
+export const ImageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+    <circle cx="9" cy="9.5" r="1.4" />
+    <path d="m4.5 17 5-5.5 4 4 3-2.5 3.5 4" />
+  </Svg>
+);
+
+/** Hollow dot — unknown / opaque values. */
+export const DotIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="5" />
   </Svg>
 );
 

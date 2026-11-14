@@ -13,20 +13,18 @@
 // 点击文件 → 中央画布区按类型预览（appStore.filePreview，B 需求）。
 // ==========================================================================
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { useAppStore, fileTabKey, editorTabKey, type FilePreviewKind } from '@/stores/appStore';
+import { useAppStore, fileTabKey, editorTabKey } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore, getProjectRepoPath } from '@/stores/projectStore';
 import { usePublishStore } from '@/stores/publishStore';
+import type { GitFileLetter } from '@/core/git/types';
 import { getVfs, isValidVfsEntryName, type Vfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
-import { parseBibtex } from '@/core/publish/bibtex';
-import type { ManuscriptRecord } from '@/core/publish/state';
-import {
-  editorKindForFile,
-  parseFlowPayload,
-  parseBlockPayload,
-} from '@/components/editor/fileEditors/shared';
+import { codeLanguageForFile } from '@/components/editor/fileEditors/shared';
+import { editorStoreOpenInMode } from '@/components/editor/fileEditors/openInMode';
+import { openProjectFile } from '@/core/workspace/open-file';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -39,132 +37,8 @@ import {
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-/** Raw content is capped so a multi-MB snapshot never freezes the UI. */
-const PREVIEW_CAP_CHARS = 200_000;
-
-/** Extensions previewed as UTF-8 text; everything else is treated as binary. */
-const TEXT_EXT = new Set([
-  'md', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'svg',
-  'clproj', 'lock', 'log', 'ini', 'sh', 'js', 'py', 'r',
-  // Manuscript / bibliography sources are plain text too (the LaTeX editor
-  // claims them first, but this keeps the preview fallback correct).
-  'tex', 'ltx', 'sty', 'cls', 'bib', 'cff',
-  // Other research-suite artifacts written into the workspace.
-  'html', 'htm', 'ipynb',
-]);
-/** Extension-less files that are still text. */
-const TEXT_NAME = new Set(['.gitignore', '.gitattributes', 'license', 'readme']);
-
-function isTextFile(name: string): boolean {
-  const lower = name.toLowerCase();
-  if (TEXT_NAME.has(lower)) return true;
-  const dot = lower.lastIndexOf('.');
-  return dot >= 0 && TEXT_EXT.has(lower.slice(dot + 1));
-}
-
 /** Placeholder marker files used to keep empty dirs trackable (SKEL §3.1). */
 const PLACEHOLDER_NAMES = new Set(['.gitkeep', '.keep']);
-
-type Classification = { kind: FilePreviewKind; mime: string };
-
-/** Classify a file by extension into a preview kind + MIME (B2). */
-function classifyFile(name: string): Classification {
-  const lower = name.toLowerCase();
-  const dot = lower.lastIndexOf('.');
-  const ext = dot >= 0 ? lower.slice(dot + 1) : '';
-  switch (ext) {
-    case 'md':
-    case 'markdown':
-      return { kind: 'markdown', mime: 'text/markdown' };
-    case 'png':
-      return { kind: 'image', mime: 'image/png' };
-    case 'jpg':
-    case 'jpeg':
-      return { kind: 'image', mime: 'image/jpeg' };
-    case 'gif':
-      return { kind: 'image', mime: 'image/gif' };
-    case 'webp':
-      return { kind: 'image', mime: 'image/webp' };
-    case 'svg':
-      return { kind: 'image', mime: 'image/svg+xml' };
-    case 'bmp':
-      return { kind: 'image', mime: 'image/bmp' };
-    case 'ico':
-      return { kind: 'image', mime: 'image/x-icon' };
-    case 'pdf':
-      return { kind: 'pdf', mime: 'application/pdf' };
-    case 'mp4':
-      return { kind: 'video', mime: 'video/mp4' };
-    case 'webm':
-      return { kind: 'video', mime: 'video/webm' };
-    case 'mov':
-      return { kind: 'video', mime: 'video/quicktime' };
-    case 'mp3':
-      return { kind: 'audio', mime: 'audio/mpeg' };
-    case 'wav':
-      return { kind: 'audio', mime: 'audio/wav' };
-    case 'ogg':
-    case 'oga':
-      return { kind: 'audio', mime: 'audio/ogg' };
-    case 'm4a':
-      return { kind: 'audio', mime: 'audio/mp4' };
-    default:
-      break;
-  }
-  if (isTextFile(name)) return { kind: 'text', mime: 'text/plain;charset=utf-8' };
-  return { kind: 'unknown', mime: 'application/octet-stream' };
-}
-
-/** Manuscript sources open in the LaTeX editor suite by default. */
-function isPublishSourceFile(name: string): boolean {
-  const lower = name.toLowerCase();
-  return lower.endsWith('.tex') || lower.endsWith('.ltx') || lower.endsWith('.bib');
-}
-
-/** Focus the matching manuscript, or adopt a workspace `.tex` as a new one. */
-function adoptTexFile(name: string, source: string): void {
-  const store = usePublishStore.getState();
-  const manuscripts = useProjectStore.getState().project?.state.publish?.manuscripts ?? [];
-  const stem = name.replace(/\.[^.]+$/, '') || 'manuscript';
-  // The workspace file name is the identity: opening HELLO.tex must focus the
-  // HELLO manuscript instead of creating a duplicate record. Source matching
-  // remains for manuscripts exported before stems were recorded.
-  const byStem = manuscripts.find(
-    (m) => (m.workspaceStem ?? '').toLowerCase() === stem.toLowerCase(),
-  );
-  if (byStem) {
-    // The workspace file is authoritative when opened from the file manager.
-    if (byStem.source !== source) {
-      store.saveManuscript({ ...byStem, source, updatedAt: Date.now() });
-    } else {
-      store.setActiveManuscript(byStem.id);
-    }
-    return;
-  }
-  const existing = manuscripts.find((m) => m.source === source);
-  if (existing) {
-    store.setActiveManuscript(existing.id);
-    return;
-  }
-  const now = Date.now();
-  const record: ManuscriptRecord = {
-    id: crypto.randomUUID(),
-    name: stem,
-    templateId: 'ieee',
-    citationStyle: 'ieee',
-    source,
-    workspaceStem: stem,
-    createdAt: now,
-    updatedAt: now,
-  };
-  store.saveManuscript(record);
-}
-
-/** Merge a workspace `.bib` into the citation library (same-key replaces). */
-function adoptBibFile(source: string): void {
-  const entries = parseBibtex(source);
-  if (entries.length > 0) usePublishStore.getState().addLibraryEntries(entries);
-}
 
 /** Static guide rows for the standard project skeleton (§3.1 templates). */
 const GUIDE: ReadonlyArray<{ match: (p: string) => boolean; key: string }> = [
@@ -248,18 +122,24 @@ function InlineInput({
 export function FileExplorer() {
   const t = useT();
   const project = useProjectStore((s) => s.project);
+  const gitRepo = useProjectStore((s) => s.gitRepo);
   const notify = useAppStore((s) => s.notify);
-  const openFilePreview = useAppStore((s) => s.openFilePreview);
-  const openFileEditor = useAppStore((s) => s.openFileEditor);
   const activeTab = useAppStore((s) => s.activeTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const renameFileTab = useAppStore((s) => s.renameFileTab);
   const fileOpsVersion = useAppStore((s) => s.fileOpsVersion);
   const setEmbeddedTool = useAppStore((s) => s.setEmbeddedTool);
+  const revealFilePath = useAppStore((s) => s.revealFilePath);
+  const setRevealFilePath = useAppStore((s) => s.setRevealFilePath);
+  const setSidebarView = useAppStore((s) => s.setSidebarView);
 
   /** Per-directory listings, keyed by repo-relative dir ('' = root). */
   const [tree, setTree] = useState<Record<string, VfsEntry[]>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // Expanded folders are part of the per-project workbench session: they are
+  // restored when the project reopens and persisted whenever they change.
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(useAppStore.getState().explorerExpanded),
+  );
   const [loading, setLoading] = useState(false);
 
   /** Currently selected row (single-click select; Enter/double-click opens). */
@@ -281,6 +161,21 @@ export function FileExplorer() {
   const rootDir = '';
   /** Drag source, tracked via ref so it survives the drop event. */
   const dragRef = useRef<VfsEntry | null>(null);
+
+  /** Git change letter per path (A/M/D/U), from the shared Git panel state.
+   *  Explorer and Git view share one source of truth, so a commit/checkout
+   *  anywhere updates both without extra adapters. */
+  const gitLetters = useMemo(() => {
+    if (!gitRepo?.isRepo || !gitRepo.status?.entries) return null;
+    const map = new Map<string, GitFileLetter>();
+    for (const entry of gitRepo.status.entries) {
+      const letter = entry.staged ?? entry.worktree;
+      if (letter) map.set(entry.path, letter);
+    }
+    return map;
+  }, [gitRepo]);
+
+  const openGitPanel = () => setSidebarView('git');
 
   /** Load a directory listing into `tree` and return the fetched entries (so
    *  async callers don't read the stale render closure afterwards). */
@@ -310,15 +205,22 @@ export function FileExplorer() {
 
   // Fresh project → clean slate + root listing. The tree is git-independent:
   // readDir works on a plain directory, and repo state is the Git panel's
-  // concern (folder imports defer git init on purpose).
+  // concern (folder imports defer git init on purpose). Expanded folders come
+  // from the project's persisted workbench session.
   useEffect(() => {
+    const restored = useAppStore.getState().explorerExpanded;
     setTree({});
-    setExpanded(new Set());
+    setExpanded(new Set(restored));
     setSelected(null);
     setClipboard(null);
     if (!project) return;
-    void loadDir('').catch(() => undefined);
+    void refreshDirs(['', ...restored]).catch(() => undefined);
   }, [project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist the expanded folders with the project's workbench session.
+  useEffect(() => {
+    useAppStore.getState().setExplorerExpanded([...expanded]);
+  }, [expanded]);
 
   // External working-tree changes (e.g. an MD preview save) refresh listings.
   useEffect(() => {
@@ -329,8 +231,25 @@ export function FileExplorer() {
     void refreshDirs(['', ...expanded, ...Object.keys(tree)]);
   }, [fileOpsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleDir = (dir: string) => {
-    setExpanded((prev) => {
+  // Reveal request (terminal `open file`): expand the parent directories of
+  // the path and select the file, so the tree mirrors what the editor shows.
+  useEffect(() => {
+    if (!revealFilePath || !project) return;
+    const parts = revealFilePath.split('/').filter(Boolean);
+    if (!parts.length) return;
+    const dirs = [''];
+    for (let i = 0; i < parts.length - 1; i += 1) dirs.push(parts.slice(0, i + 1).join('/'));
+    const name = parts[parts.length - 1]!;
+    setExpanded((prev) => new Set([...prev, ...dirs]));
+    void refreshDirs(dirs).then((lists) => {
+      const all = lists.flat().filter((e): e is VfsEntry => !!e);
+      const found = all.find((e) => e.name === name && !e.isDir);
+      if (found) setSelected(found);
+      setRevealFilePath(null);
+    });
+  }, [revealFilePath, project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleDir = (dir: string) => {    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(dir)) next.delete(dir);
       else {
@@ -357,104 +276,9 @@ export function FileExplorer() {
   const openPreview = async (entry: VfsEntry) => {
     if (!project || entry.isDir) return;
     try {
-      const adapter = getVfs();
-      const repoPath = getProjectRepoPath(project);
-      // Manuscript sources open in the LaTeX editor, not the plain code
-      // editor: .tex is adopted as a manuscript, .bib is merged into the
-      // citation library the editor previews against.
-      if (isPublishSourceFile(entry.name)) {
-        try {
-          const raw = await adapter.readFile(repoPath, entry.path);
-          if (entry.name.toLowerCase().endsWith('.bib')) adoptBibFile(raw);
-          else adoptTexFile(entry.name, raw);
-        } catch {
-          // The editor can still be opened if the file read fails.
-        }
-        useAppStore.getState().setEmbeddedTool('latex-editor');
-        return;
-      }
-      // Editable files (design doc P2-P4) open as editor tabs: `.py/.js/.r` →
-      // Monaco code, `*.flow.json` → flow DAG, `*.block.json` → Blockly. A
-      // payload that fails its format check degrades to a read-only view.
-      const editorKind = editorKindForFile(entry.name);
-      if (editorKind) {
-        const raw = await adapter.readFile(repoPath, entry.path);
-        if (editorKind === 'flow') {
-          openFileEditor({
-            path: entry.path,
-            name: entry.name,
-            editor: 'flow',
-            payload: raw,
-            broken: parseFlowPayload(raw) === null,
-          });
-        } else if (editorKind === 'block') {
-          openFileEditor({
-            path: entry.path,
-            name: entry.name,
-            editor: 'block',
-            payload: raw,
-            broken: parseBlockPayload(raw) === null,
-          });
-        } else {
-          openFileEditor({ path: entry.path, name: entry.name, editor: 'code', payload: raw });
-        }
-        return;
-      }
-      const { kind, mime } = classifyFile(entry.name);
-      if (kind === 'text' || kind === 'markdown') {
-        // A first open has no tab yet (openFilePreview creates it below), so
-        // only a tab that existed BEFORE the read can be "closed mid-read";
-        // do not resurrect that one.
-        const textKey = fileTabKey(entry.path);
-        const existedBefore = useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey);
-        const raw = await adapter.readFile(repoPath, entry.path);
-        if (existedBefore && !useAppStore.getState().canvasTabs.some((tab) => tab.key === textKey)) return;
-        const capped = raw.length > PREVIEW_CAP_CHARS ? raw.slice(0, PREVIEW_CAP_CHARS) : raw;
-        openFilePreview({
-          name: entry.name,
-          path: entry.path,
-          kind,
-          mimeType: mime,
-          content: capped,
-          size: entry.size,
-        });
-        return;
-      }
-      if (kind === 'image' || kind === 'pdf' || kind === 'video' || kind === 'audio') {
-        // Two-phase open: show the tab (with a loading placeholder) right
-        // away — LightningFS binary reads can take noticeable time — then
-        // fill the blob URL when the bytes arrive.
-        openFilePreview({
-          name: entry.name,
-          path: entry.path,
-          kind,
-          mimeType: mime,
-          size: entry.size,
-        });
-        const bytes = await adapter.readFileBinary(repoPath, entry.path);
-        // The read outlives the click: if the user closed the placeholder tab
-        // while the bytes were in flight, do not resurrect it.
-        const key = fileTabKey(entry.path);
-        if (!useAppStore.getState().canvasTabs.some((tab) => tab.key === key)) return;
-        const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
-        openFilePreview({
-          name: entry.name,
-          path: entry.path,
-          kind,
-          mimeType: mime,
-          blobUrl,
-          size: entry.size,
-        });
-        return;
-      }
-      // unknown (ppt/pptx/doc/zip/…): info placeholder, download allowed.
-      openFilePreview({
-        name: entry.name,
-        path: entry.path,
-        kind,
-        mimeType: mime,
-        size: entry.size,
-      });
+      // One routing point for every way a file can be opened (explorer,
+      // terminal `open`, tab restore) — see core/workspace/open-file.
+      await openProjectFile(entry.path, { size: entry.size });
     } catch {
       notify('error', t('workbench.explorer.read_failed'));
     }
@@ -509,6 +333,23 @@ export function FileExplorer() {
     [],
   );
 
+  /** Keep editor sessions bound to a renamed/moved path (and every descendant
+   *  when a directory moves). Tabs are remapped by appStore.renameFileTab; the
+   *  session's `filePath` is the other half of the binding, so leaving it stale
+   *  would keep saving to the old location. */
+  const relocateSessions = (oldPath: string, newPath: string) => {
+    const editor = useEditorStore.getState();
+    for (const session of editor.sessions) {
+      const path = session.filePath;
+      if (!path) continue;
+      if (path === oldPath) {
+        editor.setSessionFilePath(session.id, newPath);
+      } else if (path.startsWith(`${oldPath}/`)) {
+        editor.setSessionFilePath(session.id, `${newPath}${path.slice(oldPath.length)}`);
+      }
+    }
+  };
+
   /** Paste the clipboard into `targetDir`. copy → write copies; cut → move. */
   const paste = async (targetDir: string) => {
     if (!project || !clipboard || clipboard.items.length === 0) return;
@@ -537,9 +378,27 @@ export function FileExplorer() {
             continue;
           }
           await adapter.renameEntry(repoPath, item.path, target);
+          renameFileTab(item.path, basename(target), target);
+          relocateSessions(item.path, target);
+          // A move out of (or into) data/ changes the project data-files
+          // list — the rename handler syncs it, the paste path must too.
+          await syncDataTrack(item.path, target);
         } else {
           const target = joinPath(targetDir, suggestUniqueName(targetDir, basename(item.path), exists));
           await copyItem(adapter, repoPath, item.path, target, item.isDir);
+          // A copy INTO data/ must join the project data-files list, exactly
+          // like a move does — otherwise the top-bar data list, "load into
+          // plugin" and the project registry keep pointing at the old set.
+          if (isTopLevelDataFile(target)) {
+            try {
+              const content = await adapter.readFile(repoPath, target);
+              await useProjectStore
+                .getState()
+                .addDataFile(new File([content], basename(target), { type: 'text/plain' }));
+            } catch {
+              // Unsupported format — the file lives on in the workspace only.
+            }
+          }
         }
       }
       if (clipboard.mode === 'cut' && !failed) setClipboard(null);
@@ -573,16 +432,25 @@ export function FileExplorer() {
       await adapter.deleteEntry(repoPath, entry.path, entry.isDir);
       closeTab(fileTabKey(entry.path));
       closeTab(editorTabKey(entry.path));
-      if (entry.isDir) {
-        // Close every editor tab under the deleted directory — a surviving
-        // dirty tab would recreate the file on its next save.
-        const prefix = `${entry.path}/`;
-        const tabs = useAppStore.getState().canvasTabs;
-        for (const tab of tabs) {
-          if (tab.kind === 'editor' && (tab.path === entry.path || tab.path.startsWith(prefix))) {
-            closeTab(tab.key);
-          }
-        }
+      // Every tab kind that points at a file must go with it: code / flow /
+      // block surfaces are `surface` tabs now, so closing only preview/editor
+      // tabs left deleted files visible in the strip.
+      const prefix = `${entry.path}/`;
+      const isDeletedPath = (path: string | undefined): boolean =>
+        !!path && (path === entry.path || (entry.isDir && path.startsWith(prefix)));
+      const tabs = useAppStore.getState().canvasTabs;
+      for (const tab of tabs) {
+        const tabPath =
+          tab.kind === 'file' || tab.kind === 'editor' || tab.kind === 'surface'
+            ? tab.path
+            : undefined;
+        if (isDeletedPath(tabPath)) closeTab(tab.key);
+      }
+      // Drop editor sessions bound to the deleted paths too — a surviving
+      // session would keep the file "open" and recreate it on the next save.
+      const editor = useEditorStore.getState();
+      for (const session of editor.sessions) {
+        if (isDeletedPath(session.filePath)) editor.removeSession(session.id);
       }
       if (selected?.path === entry.path) setSelected(null);
       await refreshDirs([dirname(entry.path)]);
@@ -700,6 +568,7 @@ export function FileExplorer() {
     try {
       await adapter.renameEntry(repoPath, entry.path, target);
       renameFileTab(entry.path, name, target);
+      relocateSessions(entry.path, target);
       await syncDataTrack(entry.path, target);
       await syncManuscriptTrack(entry.path, target);
       await refreshDirs([parent]);
@@ -750,7 +619,16 @@ export function FileExplorer() {
         await adapter.writeFile(repoPath, path, '');
       }
       await refreshDirs([parentDir]);
-      if (type === 'file') await openPreview({ name, path, isDir: false, size: 0 });
+      if (type === 'file') {
+        // A brand-new source file belongs in its editor, not a read-only
+        // preview — it is empty and meant to be typed into.
+        const language = codeLanguageForFile(name);
+        if (language) {
+          editorStoreOpenInMode({ mode: 'code', language, code: '', path });
+        } else {
+          await openPreview({ name, path, isDir: false, size: 0 });
+        }
+      }
     } catch {
       notify('error', t('workbench.explorer.op_failed'));
     }
@@ -791,6 +669,8 @@ export function FileExplorer() {
       }
       try {
         await adapter.renameEntry(repoPath, src.path, target);
+        renameFileTab(src.path, basename(target), target);
+        relocateSessions(src.path, target);
         await syncDataTrack(src.path, target);
         await refreshDirs([targetDir, dirname(src.path)]);
         notify('success', t('workbench.explorer.moved_hint'));
@@ -1037,6 +917,18 @@ export function FileExplorer() {
                 }}
               >
                 <span className="explorer-name">{e.name}</span>
+                {gitLetters?.get(e.path) && (
+                  <span
+                    className={`explorer-git-badge letter-${gitLetters.get(e.path)!.toLowerCase()}`}
+                    title={t('workbench.explorer.git_badge', { letter: gitLetters.get(e.path)! })}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      openGitPanel();
+                    }}
+                  >
+                    {gitLetters.get(e.path)}
+                  </span>
+                )}
               </div>
             </li>
           );
