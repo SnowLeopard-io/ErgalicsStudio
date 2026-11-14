@@ -9,7 +9,7 @@
 
 import { makeProgram, type IRNode, type IRProgram } from '../ir/types';
 
-export interface BlockSample {
+interface BlockSample {
   id: string;
   name: string;
   nameI18n: Record<string, string>;

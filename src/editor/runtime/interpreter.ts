@@ -194,7 +194,10 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
     fn: (args) => {
       const a = toNum(args[0] ?? null);
       const b = toNum(args[1] ?? null);
-      const step = args.length > 2 && args[2] !== null ? Math.abs(toNum(args[2]!)) : 1;
+      // The sign of the step matters: R's seq(5, 1, by = -1) counts DOWN.
+      // Taking the absolute value made the descending branch unreachable and
+      // every descending sequence came back empty.
+      const step = args.length > 2 && args[2] !== null ? toNum(args[2]!) : 1;
       // step=0 never advances the cursor — an unbounded loop that OOM-freezes
       // the page. R errors on seq(…, by = 0); match it (EG4-21).
       if (step === 0) throw new Error('seq step cannot be zero');
@@ -285,7 +288,7 @@ function createBuiltins(studio: StudioApi): Map<string, NativeFunc> {
   return map;
 }
 
-export interface InterpreterResult {
+interface InterpreterResult {
   ok: boolean;
   /** Top-level variables, mapped to panel-ready DataValue. */
   variables: Record<string, DataValue>;

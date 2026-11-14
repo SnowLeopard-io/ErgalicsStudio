@@ -96,7 +96,15 @@ export function useMonacoEditor(
 
     return () => {
       providers.forEach((p) => p.dispose());
+      // The model was created implicitly by `value:` and is NOT owned by the
+      // editor — editor.dispose() leaves it in Monaco's model registry. Every
+      // open/close of a file tab used to leak one model (with its tokens,
+      // decorations and undo stack), so a multi-file session kept getting
+      // slower. Dispose it explicitly; a model shared elsewhere (setModel) is
+      // never used by this hook, so there is nothing else to detach.
+      const model = editor.getModel();
       editor.dispose();
+      model?.dispose();
       editorRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -22,7 +22,7 @@ import {
 import { datasetToTable } from '@/types/datatable';
 import { logger } from '@/core/logger';
 
-export interface ChooserState {
+interface ChooserState {
   open: boolean;
   file: File | null;
   pluginIds: string[];

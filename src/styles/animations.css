@@ -173,32 +173,6 @@
   }
 }
 
-/* ---- utility classes (opt-in) ---- */
-
-.anim-fade-up {
-  animation: fade-up 0.42s var(--ease-spring) backwards;
-}
-
-.anim-fade-down {
-  animation: fade-down 0.42s var(--ease-spring) backwards;
-}
-
-.anim-pop {
-  animation: pop-in 0.3s var(--ease-spring) backwards;
-}
-
-.anim-scale-in {
-  animation: scale-in 0.3s var(--ease-spring) backwards;
-}
-
-.anim-slide-in-right {
-  animation: slide-in-right 0.36s var(--ease-spring) backwards;
-}
-
-.anim-slide-in-left {
-  animation: slide-in-left 0.36s var(--ease-spring) backwards;
-}
-
 /* ---- route stage ---- */
 .route-stage {
   animation: route-stage-in 0.32s var(--ease-out) backwards;
@@ -269,13 +243,11 @@
 
 /* ---- status dots pulse ---- */
 
-.status-dot,
-.perf-dot {
+.status-dot {
   animation: status-pulse 2.4s ease-out infinite;
 }
 
-.status-dot-ok,
-.perf-dot {
+.status-dot-ok {
   color: var(--color-success);
 }
 
@@ -381,12 +353,6 @@
 /* ---- reduced motion: neutralise everything ---- */
 
 @media (prefers-reduced-motion: reduce) {
-  .anim-fade-up,
-  .anim-fade-down,
-  .anim-pop,
-  .anim-scale-in,
-  .anim-slide-in-right,
-  .anim-slide-in-left,
   .route-stage,
   .card,
   .plugin-card,
@@ -395,7 +361,6 @@
   .sidebar,
   .right-panel,
   .status-dot,
-  .perf-dot,
   .welcome-title,
   .welcome-subtitle,
   .welcome-cta-row,

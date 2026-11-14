@@ -7,7 +7,7 @@
 // description) is a curated metadata table keyed by the file's basename.
 // ==========================================================================
 
-export interface CodeSample {
+interface CodeSample {
   id: string;
   /** File basename, e.g. "telemetry-explore.py". */
   filename: string;

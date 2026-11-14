@@ -311,6 +311,10 @@ describe('code exporters', () => {
     expect(code).toContain('groupby(["region"], as_index=False)');
     expect(code).toContain('df = df.merge(df2, on="region", how="left")');
     expect(code).toContain('pivot_table(index="region"');
+    // Absent (index, column) cells stay empty in the kernel; the export must
+    // not turn "no measurement" into "a measurement of zero".
+    expect(code).toContain('fill_value=None');
+    expect(code).not.toContain('fill_value=0');
     expect(code).toContain('df = df.melt(id_vars=["region"]');
     expect(code).toContain('fillna(df["price"].mean())');
     expect(code).toContain('pd.to_datetime(df["launched"], errors=\'coerce\')');

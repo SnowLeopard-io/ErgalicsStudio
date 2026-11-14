@@ -155,11 +155,6 @@ export function isRawCode(node: IRNode): node is Extract<IRNode, { kind: 'RawCod
   return node.kind === 'RawCode';
 }
 
-/** Type guard: an unparseable expression preserved verbatim. */
-export function isRawExpr(node: IRNode): node is Extract<IRNode, { kind: 'RawExpr' }> {
-  return node.kind === 'RawExpr';
-}
-
 /** Type guard for a statement-level node that may appear in a body. */
 export function isFuncDef(node: IRNode): node is Extract<IRNode, { kind: 'FuncDef' }> {
   return node.kind === 'FuncDef';

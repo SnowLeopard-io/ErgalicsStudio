@@ -17,6 +17,7 @@ import { getVfs } from '@/core/vfs';
 import type { VfsEntry } from '@/core/vfs';
 import { downloadBlob } from '@/core/download';
 import { ToolShell } from '@/components/ToolShell';
+import { ChevronRightIcon } from '@/components/icons';
 
 /** Extensions previewed as UTF-8 text; everything else is "binary". */
 const TEXT_EXT = new Set([
@@ -145,7 +146,7 @@ export default function FileExplorerPage() {
             title={e.path}
           >
             <span className={`explorer-twisty${e.isDir ? (expanded.has(e.path) ? ' is-open' : '') : ' is-leaf'}`}>
-              {e.isDir ? '▸' : '·'}
+              {e.isDir ? <ChevronRightIcon size={12} /> : null}
             </span>
             <span className={`explorer-name${e.isDir ? ' is-dir' : ''}`}>{e.name}</span>
             {!e.isDir && <span className="explorer-size">{fmtSize(e.size)}</span>}

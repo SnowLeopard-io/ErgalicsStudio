@@ -116,27 +116,37 @@ export function savitzkyGolay(x: ArrayLike<number>, opts: SgOptions = {}): Float
 }
 
 /**
- * Centred moving average of odd window length. Equivalent to a degree-0
+ * Moving average over a sliding window. Equivalent to a degree-0
  * Savitzky–Golay filter but O(n) (the constant kernel is just 1/win).
+ *
+ * The centred variant is symmetric for ODD window lengths. For an EVEN
+ * window there is no symmetric integer window, so the extra sample goes to
+ * the trailing side ([i-left, i+right], left+right+1 = window). The previous
+ * code used a fractional half-width, which made every interior sample NaN.
  */
 export function movingAverage(x: ArrayLike<number>, window = 5, causal = false): Float64Array {
   const n = x.length;
-  if (window < 1) throw new Error('movingAverage: window must be ≥ 1');
+  if (!Number.isFinite(window) || window < 1) {
+    throw new Error('movingAverage: window must be ≥ 1');
+  }
+  const win = Math.max(1, Math.floor(window));
   const out = new Float64Array(n);
   if (causal) {
     let s = 0;
     for (let i = 0; i < n; i += 1) {
       s += x[i]!;
-      if (i >= window) s -= x[i - window]!;
-      const cnt = Math.min(i + 1, window);
+      if (i >= win) s -= x[i - win]!;
+      const cnt = Math.min(i + 1, win);
       out[i] = s / cnt;
     }
     return out;
   }
-  const half = (window - 1) / 2;
+  // Odd window → symmetric; even window → one extra sample on the right.
+  const left = Math.floor((win - 1) / 2);
+  const right = win - 1 - left;
   for (let i = 0; i < n; i += 1) {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(n - 1, i + half);
+    const lo = Math.max(0, i - left);
+    const hi = Math.min(n - 1, i + right);
     let s = 0;
     for (let j = lo; j <= hi; j += 1) s += x[j]!;
     out[i] = s / (hi - lo + 1);

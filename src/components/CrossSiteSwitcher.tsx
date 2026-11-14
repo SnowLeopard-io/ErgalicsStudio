@@ -14,10 +14,11 @@ const CLOSE_DELAY_MS = 420;
  * three properties look and behave the same. In production all three share one
  * origin (GitHub Pages); in dev they fall back to each workspace's fixed port.
  *
- * It now rests as a thin "puddle" merged into the top edge of the status bar
- * and only rises into the full pill while the pointer is near that bead (or
- * the menu itself is hovered / focused). Touch devices, which have no hover
- * proximity, keep it permanently docked open.
+ * It now rests as a thin "puddle" merged into the bottom edge of the top bar
+ * and only drops into the full pill while the pointer is near that bead (or
+ * the menu itself is hovered / focused). Touch devices have no hover, so the
+ * bead rests there too and a tap reveals the pill; a tap anywhere else tucks
+ * it back behind the top bar.
  */
 export function CrossSiteSwitcher() {
   const t = useT();
@@ -25,15 +26,11 @@ export function CrossSiteSwitcher() {
   const awakeRef = useRef(false);
   const navRef = useRef<HTMLElement | null>(null);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const puddleRef = useRef<HTMLButtonElement | null>(null);
   const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    // No hover on coarse pointers: leave the switcher docked open.
-    if (window.matchMedia?.('(pointer: coarse)').matches) {
-      awakeRef.current = true;
-      setAwake(true);
-      return;
-    }
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
 
     const show = () => {
       if (closeTimer.current !== null) {
@@ -45,6 +42,16 @@ export function CrossSiteSwitcher() {
       setAwake(true);
     };
 
+    const hideNow = () => {
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+      if (!awakeRef.current) return;
+      awakeRef.current = false;
+      setAwake(false);
+    };
+
     const scheduleHide = () => {
       if (!awakeRef.current || closeTimer.current !== null) return;
       closeTimer.current = window.setTimeout(() => {
@@ -53,6 +60,26 @@ export function CrossSiteSwitcher() {
         setAwake(false);
       }, CLOSE_DELAY_MS);
     };
+
+    // Tapping outside the open pill dismisses it — the touch equivalent of
+    // the pointer moving away, which never happens without a hover pointer.
+    const onPointerDown = (e: PointerEvent) => {
+      if (!awakeRef.current) return;
+      const target = e.target as Node;
+      if (navRef.current?.contains(target) || puddleRef.current?.contains(target)) return;
+      hideNow();
+    };
+
+    if (coarse) {
+      window.addEventListener('pointerdown', onPointerDown);
+      return () => {
+        window.removeEventListener('pointerdown', onPointerDown);
+        if (closeTimer.current !== null) {
+          window.clearTimeout(closeTimer.current);
+          closeTimer.current = null;
+        }
+      };
+    }
 
     let raf = 0;
     const onMove = (e: PointerEvent) => {
@@ -72,9 +99,11 @@ export function CrossSiteSwitcher() {
     };
 
     window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('blur', scheduleHide);
     return () => {
       window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('blur', scheduleHide);
       if (raf) window.cancelAnimationFrame(raf);
       if (closeTimer.current !== null) {
@@ -87,7 +116,18 @@ export function CrossSiteSwitcher() {
   return (
     <>
       <span ref={anchorRef} className="csw-anchor" aria-hidden="true" />
-      <span className={`csw-puddle${awake ? ' is-hidden' : ''}`} aria-hidden="true" />
+      <button
+        ref={puddleRef}
+        type="button"
+        className={`csw-puddle${awake ? ' is-hidden' : ''}`}
+        aria-label={t('sites.label')}
+        aria-expanded={awake}
+        onClick={() => {
+          if (awakeRef.current) return;
+          awakeRef.current = true;
+          setAwake(true);
+        }}
+      />
       <nav
         ref={navRef}
         className={`cross-site-switcher${awake ? ' is-awake' : ''}`}

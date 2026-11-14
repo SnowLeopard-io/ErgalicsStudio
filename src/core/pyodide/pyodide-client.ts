@@ -10,7 +10,13 @@ import { logger } from '../logger';
 import {
   PYODIDE_INDEX_URL,
   PYODIDE_LOAD_PACKAGES,
+  type ListPackagesMessage,
   type PlotPayload,
+  type CollectMessage,
+  type LoadPackagesMessage,
+  type MountMessage,
+  type ReplMessage,
+  type ResetMessage,
   type RunMessage,
   type VariableSnapshot,
   type WorkerEvent,
@@ -29,6 +35,10 @@ export interface PyodideClientOptions {
 export interface PyodideRunResult {
   ok: boolean;
   variables: Record<string, VariableSnapshot>;
+  /** Workspace files the program created or changed (relative paths). */
+  files?: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
   error?: string;
   durationMs: number;
 }
@@ -40,8 +50,46 @@ export interface PyodideReplResult {
 }
 
 interface Pending {
-  resolve: (value: PyodideRunResult | PyodideReplResult) => void;
+  resolve: (
+    value:
+      | PyodideRunResult
+      | PyodideReplResult
+      | MountResult
+      | LoadPackagesResult
+      | ListPackagesResult
+      | CollectResult
+      | { ok: boolean; error?: string },
+  ) => void;
   reject: (reason: Error) => void;
+}
+
+/** Result of a workspace-only mount request. */
+export interface MountResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Result of a package install request. */
+export interface LoadPackagesResult {
+  ok: boolean;
+  loaded: string[];
+  error?: string;
+}
+
+/** Result of a loaded-packages query (name → version). */
+export interface ListPackagesResult {
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}
+
+/** Result of a workspace-output collection request. */
+export interface CollectResult {
+  ok: boolean;
+  files: Record<string, string>;
+  /** Binary outputs (figures, PDFs, .npy …) as base64 by relative path. */
+  binaryFiles?: Record<string, string>;
+  error?: string;
 }
 
 export class PyodideClient {
@@ -61,6 +109,24 @@ export class PyodideClient {
    * leave the Run button spinning forever with no diagnostics.
    */
   private static readonly BOOT_TIMEOUT_MS = 60_000;
+  /**
+   * Default deadline for host-internal RPCs (package list / reset). These
+   * never run user code and must always answer quickly; without a deadline a
+   * protocol mismatch left the caller awaiting a reply forever (that is how
+   * the settings package panel used to hang on "starting interpreter").
+   * Program runs and REPL lines are exempt — a simulation may legitimately
+   * take minutes.
+   */
+  private static readonly RPC_TIMEOUT_MS = 60_000;
+  /**
+   * Mount/collect move the whole project tree (potentially multi-MB files)
+   * through the worker; a fixed 60s used to fail large projects even though
+   * the transfer was still making progress. The caller then retried and the
+   * worker kept processing the abandoned transfers — requests piled up.
+   */
+  private static readonly FILE_RPC_TIMEOUT_MS = 180_000;
+  /** Wheel loads (pinned install / settings install) fetch several MB each. */
+  private static readonly PACKAGE_RPC_TIMEOUT_MS = 120_000;
 
   private worker: Worker | null = null;
   /** Resolves once the worker has booted (Pyodide + `studio` injected). */
@@ -196,6 +262,8 @@ export class PyodideClient {
           pending.resolve({
             ok: event.ok,
             variables: event.variables,
+            files: event.files,
+            binaryFiles: event.binaryFiles,
             error: event.error,
             durationMs: event.durationMs,
           });
@@ -210,17 +278,108 @@ export class PyodideClient {
         }
         break;
       }
+      case 'mount-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, error: event.error });
+        }
+        break;
+      }
+      case 'load-packages-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, loaded: event.loaded, error: event.error });
+        }
+        break;
+      }
+      case 'list-packages-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, packages: event.packages, error: event.error });
+        }
+        break;
+      }
+      case 'reset-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({ ok: event.ok, error: event.error });
+        }
+        break;
+      }
+      case 'collect-result': {
+        const pending = this.pending.get(event.id);
+        if (pending) {
+          this.pending.delete(event.id);
+          pending.resolve({
+            ok: event.ok,
+            files: event.files,
+            binaryFiles: event.binaryFiles,
+            error: event.error,
+          });
+        }
+        break;
+      }
       case 'ready':
         break;
     }
   }
 
-  private request<T extends PyodideRunResult | PyodideReplResult>(
-    message: RunMessage | { type: 'repl'; code: string },
+  private request<
+    T extends
+      | PyodideRunResult
+      | PyodideReplResult
+      | MountResult
+      | LoadPackagesResult
+      | ListPackagesResult
+      | CollectResult
+      | { ok: boolean; error?: string },
+  >(
+    message:
+      | RunMessage
+      | ReplMessage
+      | MountMessage
+      | LoadPackagesMessage
+      | ListPackagesMessage
+      | ResetMessage
+      | CollectMessage,
+    /** Deadline in ms; `null` disables it (long-running user code). */
+    timeoutMs: number | null = PyodideClient.RPC_TIMEOUT_MS,
   ): Promise<T> {
     const id = this.nextId++;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimer = () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
     const promise = new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as Pending['resolve'], reject });
+      this.pending.set(id, {
+        resolve: ((value: Parameters<Pending['resolve']>[0]) => {
+          clearTimer();
+          resolve(value as T);
+        }) as Pending['resolve'],
+        reject: (err: Error) => {
+          clearTimer();
+          reject(err);
+        },
+      });
+      if (timeoutMs !== null) {
+        timer = setTimeout(() => {
+          const p = this.pending.get(id);
+          if (!p) return;
+          this.pending.delete(id);
+          p.reject(
+            new Error(
+              `Pyodide worker did not answer "${message.type}" within ${timeoutMs / 1000}s`,
+            ),
+          );
+        }, timeoutMs);
+      }
     });
     void this.ensureWorker().then(
       (worker) => {
@@ -256,12 +415,65 @@ export class PyodideClient {
     params: Record<string, unknown> = {},
   ): Promise<PyodideRunResult> {
     const msg: RunMessage = { type: 'run', code, files, params };
-    return this.request<PyodideRunResult>(msg);
+    // No deadline: a long simulation is a legitimate run, not a hang.
+    return this.request<PyodideRunResult>(msg, null);
   }
 
   /** Evaluate one REPL line (expression or statement). */
-  repl(code: string): Promise<PyodideReplResult> {
-    return this.request<PyodideReplResult>({ type: 'repl', code });
+  repl(code: string, preloadSource?: string): Promise<PyodideReplResult> {
+    const msg: ReplMessage = { type: 'repl', code, preloadSource };
+    // The terminal runs whole scripts through the REPL — no deadline either.
+    return this.request<PyodideReplResult>(msg, null);
+  }
+
+  /**
+   * Materialise the workspace files in the interpreter WITHOUT running any
+   * user code — the terminal browses the project tree (`ls`, `cd data`) and
+   * runs scripts from it, so /workspace must exist even before the first
+   * 运行.
+   */
+  mountWorkspace(
+    files: Record<string, string>,
+    dataFiles?: Record<string, string>,
+  ): Promise<MountResult> {
+    return this.request<MountResult>(
+      { type: 'mount', files, dataFiles },
+      PyodideClient.FILE_RPC_TIMEOUT_MS,
+    );
+  }
+
+  /** Install extra Pyodide packages into the live interpreter. */
+  installPackages(packages: string[]): Promise<LoadPackagesResult> {
+    return this.request<LoadPackagesResult>(
+      { type: 'load-packages', packages },
+      PyodideClient.PACKAGE_RPC_TIMEOUT_MS,
+    );
+  }
+
+  /** Query the packages the live interpreter currently has loaded. */
+  listPackages(): Promise<ListPackagesResult> {
+    return this.request<ListPackagesResult>({ type: 'list-packages' });
+  }
+
+  /**
+   * Drop the interpreter's user namespace and workspace tree.
+   *
+   * The interpreter is session-wide, so the variables of one project stayed
+   * visible in the next. The host calls this when the project changes.
+   */
+  resetNamespace(): Promise<boolean> {
+    return this.request<{ ok: boolean }>({ type: 'reset' }).then(
+      (r) => r.ok,
+      () => false,
+    );
+  }
+
+  /**
+   * Files the interpreter created or changed since the last mount/run.
+   * The terminal writes them back into the project.
+   */
+  collectWorkspaceFiles(): Promise<CollectResult> {
+    return this.request<CollectResult>({ type: 'collect' }, PyodideClient.FILE_RPC_TIMEOUT_MS);
   }
 
   /** Hard-stop the current run by terminating + discarding the worker. */

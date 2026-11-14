@@ -393,7 +393,9 @@ export class AstroPipelinePlugin implements Plugin {
       r('biasLevel', 'Bias level (ADU)', '偏置电平 (ADU)', 0, 2000, 1),
       r('vignetting', 'Vignetting', '渐晕强度', 0, 0.5, 0.01),
       r('cosmicRayRate', 'Cosmic rays / frame', '宇宙线数 / 帧', 0, 100, 1),
-      r('seed', 'Random seed', '随机种子', 1, 999999, 1),
+      // Seeds are commonly date-shaped (20260321) — a 6-digit ceiling clamped
+      // the thumb to 999999 and made the slider appear stuck at its right end.
+      r('seed', 'Random seed', '随机种子', 1, 99999999, 1),
       r('thresholdSigma', 'Detection threshold (σ)', '检测阈值 (σ)', 2, 12, 0.5),
       r('apertureScale', 'Aperture radius (×FWHM)', '孔径半径 (×FWHM)', 1, 4, 0.1),
       r('zeropoint', 'Photometric ZP (mag)', '测光零点 (mag)', 15, 30, 0.1),

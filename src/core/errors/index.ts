@@ -34,9 +34,6 @@ export {
 } from './result';
 export type { Result } from './result';
 
-export { retryAsync } from './retry';
-export type { RetryOptions } from './retry';
-
 export {
   invariant,
   assertDefined,

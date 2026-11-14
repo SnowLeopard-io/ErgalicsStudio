@@ -22,10 +22,6 @@ export interface SubmissionVerification {
   reasons: string[];
 }
 
-function dataSignature(lock: ReproLock): Map<string, string> {
-  return new Map(lock.data.map((f) => [f.id, f.hash]));
-}
-
 function runMatches(expected: LockedRun, actual: LockedRun): boolean {
   if (expected.paramsHash !== actual.paramsHash) return false;
   if ((expected.seed ?? null) !== (actual.seed ?? null)) return false;
@@ -68,14 +64,16 @@ export function verifySubmission(
   }
 
   const reasons: string[] = [];
-  const actualData = dataSignature(actual);
+  // Data files are matched by NAME + FINGERPRINT, never by id: a student's
+  // project is a fresh clone with its own random file ids, so an id-based
+  // comparison always reported drift even for byte-identical data.
   for (const file of expected.data) {
-    const hash = actualData.get(file.id);
-    if (hash === undefined) {
-      reasons.push(`missing-data:${file.name}`);
-    } else if (hash !== file.hash) {
-      reasons.push(`changed-data:${file.name}`);
-    }
+    const same = actual.data.find((f) => f.name === file.name && f.hash === file.hash);
+    if (same) continue;
+    const sameName = actual.data.find((f) => f.name === file.name);
+    reasons.push(
+      sameName ? `changed-data:${file.name}` : `missing-data:${file.name}`,
+    );
   }
   for (const run of expected.runs) {
     if (!actual.runs.some((r) => runMatches(run, r))) {

@@ -184,7 +184,7 @@ export class BlackscholesPlugin implements Plugin {
         labelI18n: { 'zh-CN': '随机种子', 'en-US': 'Seed' },
         type: 'range',
         min: 1,
-        max: 999999,
+        max: 99999999,
         step: 1,
         value: this.state.seed,
         hint: this.zh ? '固定种子 ⇒ 结果可复现' : 'fixed seed ⇒ reproducible results',

@@ -29,6 +29,7 @@ import {
 } from '@/core/publish/citation';
 import {
   findDuplicateGroups,
+  makeCitationKey,
   mergeEntries,
   parseBibtex,
   toBibtex,
@@ -123,10 +124,15 @@ export default function CitationManagerPage() {
     setFetching(true);
     try {
       const entry = await fetchDoiMetadata(doi);
-      addLibraryEntries([entry]);
-      setSelectedKey(entry.key);
+      // The generated key is only family+year+word — two papers by the same
+      // author in the same year collide. Give the new entry a free key
+      // BEFORE it reaches the store, so the panel can select it afterwards.
+      const used = new Set(library.map((e) => e.key));
+      const key = used.has(entry.key) ? makeCitationKey(entry, used) : entry.key;
+      addLibraryEntries([{ ...entry, key }]);
+      setSelectedKey(key);
       setDoi('');
-      notify('success', t('publish.citation.entry_added', { key: entry.key }));
+      notify('success', t('publish.citation.entry_added', { key }));
     } catch (err) {
       notify('error', t('publish.common.error', { reason: String(err) }));
     } finally {
@@ -421,6 +427,12 @@ export default function CitationManagerPage() {
                     onChange={(e) => {
                       const key = e.target.value.trim();
                       if (!key) return;
+                      // Two entries sharing one key produce invalid BibTeX
+                      // and ambiguous \cite{} references — refuse the rename.
+                      if (library.some((e) => e.key === key && e.key !== selected.key)) {
+                        notify('warning', t('publish.citation.key_exists', { key }));
+                        return;
+                      }
                       updateLibraryEntry(selected.key, { ...selected, key });
                       setSelectedKey(key);
                     }}

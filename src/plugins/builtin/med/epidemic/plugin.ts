@@ -874,12 +874,15 @@ export class BioEpidemicPlugin implements Plugin {
     try {
       const cfg = JSON.parse(text) as Partial<ModelConfig>;
       const s = this.state;
-      if (typeof cfg.r0 === 'number') s.r0 = cfg.r0;
-      if (typeof cfg.infectiousDays === 'number') s.infectiousDays = cfg.infectiousDays;
-      if (typeof cfg.latentDays === 'number') s.latentDays = cfg.latentDays;
-      if (typeof cfg.population === 'number') s.population = cfg.population;
-      if (typeof cfg.initialInfected === 'number') s.initialInfected = cfg.initialInfected;
-      if (typeof cfg.days === 'number') s.days = cfg.days;
+      // The same clamps as the parameter panel: an unclamped value (e.g.
+      // population 0 → 0/0, infectiousDays 0 → 1/0) turned the whole RK4
+      // trajectory into NaN while the UI reported success.
+      if (typeof cfg.r0 === 'number') s.r0 = Math.max(0.1, cfg.r0);
+      if (typeof cfg.infectiousDays === 'number') s.infectiousDays = Math.max(0.5, cfg.infectiousDays);
+      if (typeof cfg.latentDays === 'number') s.latentDays = Math.max(0.5, cfg.latentDays);
+      if (typeof cfg.population === 'number') s.population = Math.max(100, cfg.population);
+      if (typeof cfg.initialInfected === 'number') s.initialInfected = Math.max(1, cfg.initialInfected);
+      if (typeof cfg.days === 'number') s.days = Math.max(1, cfg.days);
       if (cfg.model === 'SIR' || cfg.model === 'SEIR') s.model = cfg.model;
       this.hasData = true;
       this.recompute();

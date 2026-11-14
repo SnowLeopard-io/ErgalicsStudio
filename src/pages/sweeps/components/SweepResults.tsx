@@ -10,7 +10,7 @@ import type { TFn } from '../useSweepExecution';
 import { buildSurface, heatColor } from '../surface';
 import { HeatMap } from './HeatMap';
 
-export interface SweepResultsProps {
+interface SweepResultsProps {
   t: TFn;
   plan: SweepPlan;
   result: SweepResult;

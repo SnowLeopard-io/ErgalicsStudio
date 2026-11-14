@@ -15,7 +15,7 @@ import { useExperimentStore } from '@/stores/experimentStore';
 import { listDataFilesGrouped, resolveDataFile, DATA_EXTS_SERIES } from '@/core/dataFiles';
 import {
   getSqlEngine,
-  uniqueTableNames,
+  hashText,
   trimHistory,
   type SqlEngine,
   type SqlHistoryEntry,
@@ -87,17 +87,31 @@ export default function SqlWorkbenchPage() {
         registeredKeyRef.current = '';
         setStatus('ready');
       }
-      if (registeredKeyRef.current !== filesKey) {
-        const files = (
-          await Promise.all(
-            allFileNames.map(async (name) => ({
-              name,
-              text: await resolveDataFile(name),
-            })),
-          )
-        ).filter((f): f is { name: string; text: string } => f.text !== undefined);
+      // Resolve the file set on every prepare: the CONTENT decides whether
+      // the tables must be re-registered. A name-only key missed re-imports
+      // (same name, new rows) and let the engine keep the previous
+      // project's table.
+      const files = (
+        await Promise.all(
+          allFileNames.map(async (name) => ({
+            name,
+            text: await resolveDataFile(name),
+          })),
+        )
+      ).filter((f): f is { name: string; text: string } => f.text !== undefined);
+      const contentKey = files.map((f) => `${f.name}:${hashText(f.text)}`).join('\n');
+      if (registeredKeyRef.current !== contentKey) {
         setSchemas(await engine.registerFiles(files));
-        registeredKeyRef.current = filesKey;
+        registeredKeyRef.current = contentKey;
+        // The engine owns the table naming — ask it instead of recomputing
+        // the names locally (the two could disagree after a removal).
+        // Keyed by FILE name → table name.
+        const map = new Map<string, string>();
+        for (const f of files) {
+          const table = engine.tableFor(f.name);
+          if (table) map.set(f.name, table);
+        }
+        setTableByFile(map);
         setStatus('ready');
         setStatusNote(String(files.length));
       }
@@ -115,11 +129,25 @@ export default function SqlWorkbenchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project, filesKey]);
 
-  const fileNameToTable = useMemo(() => {
-    const map = uniqueTableNames(allFileNames);
-    return new Map(Array.from(map, ([file, table]) => [table, file]));
-  }, [allFileNames]);
+  /** File name → table name, as registered by the engine. */
+  const [tableByFile, setTableByFile] = useState<Map<string, string>>(new Map());
 
+  /** Project files whose registered table name appears in the SQL text. */
+  const referencedProjectFileIds = (): string[] => {
+    if (!project) return [];
+    // Match IDENTIFIERS, not raw substrings: a table named `data` matched
+    // every query containing "metadata", and `a` matched almost anything.
+    const used = new Set<string>();
+    for (const m of sql.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\b/g)) {
+      used.add(m[0].toLowerCase());
+    }
+    return project.data.files
+      .filter((f) => {
+        const table = tableByFile.get(f.name);
+        return table !== undefined && used.has(table.toLowerCase());
+      })
+      .map((f) => f.id);
+  };
   const insertToken = (token: string) => {
     const el = editorRef.current;
     if (!el) {
@@ -157,18 +185,6 @@ export default function SqlWorkbenchPage() {
   };
 
   const cancelQuery = () => abortRef.current?.abort();
-
-  /** Project files whose registered table name appears in the SQL text. */
-  const referencedProjectFileIds = (): string[] => {
-    if (!project) return [];
-    const lower = sql.toLowerCase();
-    return project.data.files
-      .filter((f) => {
-        const table = fileNameToTable.get(f.name);
-        return table !== undefined && lower.includes(table.toLowerCase());
-      })
-      .map((f) => f.id);
-  };
 
   const saveResult = async () => {
     if (!project || !result || result.rows.length === 0 || running) return;

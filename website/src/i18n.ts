@@ -21,7 +21,7 @@ const D: Dict = {
   },
   'footer.links': { zh: '链接', en: 'Links' },
   'footer.license': { zh: 'MIT 许可', en: 'MIT License' },
-  'hero.badge': { zh: 'v2.0.0 正式发布 · 2026-10-13', en: 'v2.0.0 · Released 2026-10-13' },
+  'hero.badge': { zh: 'v2.1.0 正式发布 · 2026-11-09', en: 'v2.1.0 · Released 2026-11-09' },
   'hero.title.a': {
     zh: 'Ergalics Studio',
     en: 'Ergalics Studio',

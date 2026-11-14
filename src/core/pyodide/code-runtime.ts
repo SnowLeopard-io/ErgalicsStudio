@@ -13,9 +13,14 @@
 
 import { useAppStore } from '@/stores/appStore';
 import { usePluginStore, rerenderActivePlugin } from '@/stores/pluginStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { collectProjectFiles, collectRuntimeFiles } from '@/core/dataFiles';
+import { logger } from '../logger';
 import { createCodeRuntime, type CodeRuntime } from './runtime';
+import { getPinnedPythonPackages } from './python-packages';
 import {
   pythonRuntimeBegin,
+  pythonRuntimeCancel,
   pythonRuntimeFail,
   pythonRuntimeReady,
   registerPythonRuntimeRetry,
@@ -38,6 +43,14 @@ export function subscribePythonOutput(sink: PythonOutputSink): () => void {
 
 let runtime: CodeRuntime | null = null;
 let boot: Promise<boolean> | null = null;
+/**
+ * Monotonic boot generation. A boot's handlers must only touch the shared
+ * state (`boot`, the runtime-status token) while their generation is still
+ * current — a restart/cancel followed by an immediate re-boot used to let the
+ * stale boot's rejection clear the NEW boot promise, stranding the panel in a
+ * perpetual "loading" state.
+ */
+let bootSeq = 0;
 let retryRegistered = false;
 
 function createRuntime(): CodeRuntime {
@@ -85,11 +98,47 @@ export interface WarmOptions {
 }
 
 /**
+ * Drop the interpreter's user namespace and workspace tree.
+ *
+ * The interpreter is session-wide, so the variables of one project stayed
+ * visible in the next: a name the terminal REPL defined in project A could
+ * silently carry that data into project B. A project switch clears it.
+ */
+export async function resetPythonRuntime(): Promise<boolean> {
+  if (!runtime) return true;
+  try {
+    return await runtime.resetNamespace();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Packages the user installed via the settings panel (or terminal) survive a
+ * refresh: the pinned list is re-installed from the service worker's cache
+ * right after every successful boot. A failed pin must never fail the boot
+ * itself (the next `import` surfaces a normal ImportError instead) — but the
+ * boot is only reported ready AFTER the attempt, so a package list read by
+ * the settings panel never misses wheels that are still loading.
+ */
+function installPinnedPackages(rt: CodeRuntime): Promise<void> {
+  const pinned = getPinnedPythonPackages().filter((p) => p !== 'numpy');
+  if (pinned.length === 0) return Promise.resolve();
+  return rt.installPackages(pinned).then(
+    (r) => {
+      if (!r.ok) logger.warn('pyodide', 'pinned package install failed', { pinned, error: r.error });
+    },
+    (err: unknown) => logger.warn('pyodide', 'pinned package install threw', err),
+  );
+}
+
+/**
  * Boot the interpreter once (idempotent) so later runs never pay the load
  * cost. Resolves true when the runtime is usable.
  */
 export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   if (opts.restart) {
+    bootSeq += 1;
     boot = null;
     runtime?.dispose();
     runtime = null;
@@ -97,13 +146,36 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   if (boot) return boot;
   const rt = getPythonRuntime();
   const token = pythonRuntimeBegin('code', { silent: opts.silent });
+  const seq = ++bootSeq;
+  /** False once a newer boot superseded this one (restart/cancel). */
+  const current = () => seq === bootSeq;
   boot = rt.runPython('import studio', {}, {}).then(
-    (result) => {
+    async (result) => {
+      if (!current()) {
+        // Cancelled: settle our own token, never the newer boot's.
+        pythonRuntimeCancel(token);
+        return false;
+      }
       if (!result.ok) throw new Error(result.error || 'Python runtime failed to start');
+      // Restore the user's pinned wheels before announcing "ready": the
+      // settings panel reads the package list the moment the boot settles,
+      // and a fire-and-forget install left it showing a partially loaded
+      // interpreter (matplotlib/pandas arriving seconds later).
+      await installPinnedPackages(rt);
+      if (!current()) {
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeReady(token);
       return true;
     },
     (err: unknown) => {
+      if (!current()) {
+        // A cancel/restart is not a runtime failure: drop the boot without
+        // painting the red notice.
+        pythonRuntimeCancel(token);
+        return false;
+      }
       pythonRuntimeFail(token, err);
       // Allow a later call to retry from scratch; the client already dropped
       // its dead worker, so the same handle can spawn a fresh one.
@@ -114,7 +186,127 @@ export function warmPythonRuntime(opts: WarmOptions = {}): Promise<boolean> {
   return boot;
 }
 
+/**
+ * Abort an in-flight boot (the package panel's 取消 button).
+ *
+ * Terminates the worker so a hung bootstrap cannot keep burning memory, and
+ * forgets the boot promise so the next warm-up starts from a clean slate.
+ * The aborted promise settles with `false`; the panel ignores it.
+ */
+export function abortPythonBoot(): void {
+  if (!boot) return;
+  // Bump the generation first: the interrupted boot's rejection handler must
+  // not clear the promise of a boot the user starts right after cancelling.
+  bootSeq += 1;
+  boot = null;
+  runtime?.interrupt();
+}
+
 /** True while the interpreter is booting (used for lazy UI hints). */
 export function isPythonRuntimeWarm(): boolean {
   return boot !== null;
+}
+
+/**
+ * Materialise the project tree in the interpreter (no user code runs).
+ *
+ * The workspace is normally staged by a run (prepareWorkspaceRuntime mounts
+ * the files and resets the cwd to /workspace). The terminal needs the tree
+ * to exist on its own: `ls`, `cd data` and `python script.py` must work
+ * before the user ever presses 运行.
+ *
+ * The mount is keyed by the project + its file-version, so it re-runs when
+ * the project changes (or was still loading when the terminal opened) and is
+ * a no-op otherwise. `force` rebuilds the tree even when the key matches —
+ * a run may have left the bundled example files in the interpreter.
+ */
+let mountedKey: string | null = null;
+
+/**
+ * The interpreter's namespace belongs to ONE project. Watch the project
+ * store and clear the namespace whenever the project changes: the
+ * interpreter is session-wide, so the variables the terminal REPL defined
+ * in project A stayed visible in project B — a stray name could silently
+ * carry one project's data into another.
+ */
+let runtimeProjectId: string | null = useProjectStore.getState().project?.id ?? null;
+useProjectStore.subscribe((state) => {
+  const id = state.project?.id ?? null;
+  if (id === runtimeProjectId) return;
+  runtimeProjectId = id;
+  // The tree is re-mounted per project; the namespace is not.
+  mountedKey = null;
+  void resetPythonRuntime();
+});
+
+export async function mountWorkspaceFiles(force = false): Promise<boolean> {
+  try {
+    const ok = await warmPythonRuntime({ silent: true });
+    if (!ok) return false;
+    const project = useProjectStore.getState().project;
+    const version = useAppStore.getState().fileOpsVersion;
+    const key = `${project?.id ?? 'none'}:${version}`;
+    if (!force && mountedKey === key) return true;
+    const files = await collectProjectFiles();
+    // The studio file registry additionally knows the bundled examples and
+    // the basename aliases, so `studio.load('x.csv')` behaves exactly like
+    // during a run — while /workspace itself stays the project tree.
+    const dataFiles = await collectRuntimeFiles();
+    const result = await getPythonRuntime().mountWorkspace(files, dataFiles);
+    if (result.ok) mountedKey = key;
+    return result.ok;
+  } catch {
+    // A failed mount must never surface as an unhandled rejection: the
+    // terminal shows "workspace not ready" and retries on the next command.
+    return false;
+  }
+}
+
+/**
+ * Install Pyodide wheels into the live interpreter (terminal `pip install`).
+ * Pyodide ships the scientific stack as loadable wheels, so "installing" is
+ * loading the package from the bundled /pyodide directory — offline, like
+ * everything else in the browser build.
+ */
+export async function installPythonPackages(
+  packages: string[],
+): Promise<{ ok: boolean; loaded: string[]; error?: string }> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return { ok: false, loaded: [], error: 'Python runtime is not available' };
+  return getPythonRuntime().installPackages(packages);
+}
+
+/**
+ * Snapshot of the packages the live interpreter currently has loaded
+ * (name → version) for the settings storage panel. Boots the runtime
+ * silently if needed.
+ */
+export async function listPythonPackages(): Promise<{
+  ok: boolean;
+  packages: Record<string, string>;
+  error?: string;
+}> {
+  const ok = await warmPythonRuntime({ silent: true });
+  if (!ok) return { ok: false, packages: {}, error: 'Python runtime is not available' };
+  return getPythonRuntime().listPackages();
+}
+
+/**
+ * Files the interpreter created or changed since the last mount/run. The
+ * terminal writes them into the project, so a script run from the terminal
+ * produces the same artefacts as the editor's 运行 button. `binaryFiles`
+ * carries figures / PDFs / .npy dumps as base64.
+ */
+export async function collectWorkspaceOutputsFromRuntime(): Promise<{
+  files: Record<string, string>;
+  binaryFiles: Record<string, string>;
+}> {
+  try {
+    const result = await getPythonRuntime().collectWorkspaceFiles();
+    return result.ok
+      ? { files: result.files, binaryFiles: result.binaryFiles ?? {} }
+      : { files: {}, binaryFiles: {} };
+  } catch {
+    return { files: {}, binaryFiles: {} };
+  }
 }

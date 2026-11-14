@@ -4,6 +4,7 @@ import { useEditorStore, EDITOR_STATE_CHANGED } from '@/stores/editorStore';
 import { on } from '@/core/events';
 import { makeProgram } from '@/editor/ir';
 import type { EditorSession } from '@/types/editor';
+import type { BlockGraphState } from '@/types/block';
 
 function reset() {
   useEditorStore.setState({
@@ -14,6 +15,8 @@ function reset() {
     isRunning: false,
     error: null,
     pendingLoad: null,
+    pendingFlowGraph: null,
+    flowGraphs: {},
   });
 }
 
@@ -138,6 +141,52 @@ describe('editorStore', () => {
     expect(useEditorStore.getState().pendingLoad).toBe(program);
     useEditorStore.getState().consumeLoad();
     expect(useEditorStore.getState().pendingLoad).toBeNull();
+  });
+
+  it('keeps the exact DAG for a flow session (IR cannot represent every block)', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const graph: BlockGraphState = {
+      // `plot.bar` has no IR mapping — rebuilding from IR would drop it.
+      instances: [
+        { id: 'bar', blockId: 'plot.bar', position: { x: 0, y: 0 }, params: { xColumn: 'x' } },
+      ],
+      connections: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    };
+
+    useEditorStore.getState().requestFlowLoad(graph);
+    expect(useEditorStore.getState().flowGraphs[session.id]).toBe(graph);
+    expect(useEditorStore.getState().pendingFlowGraph?.sessionId).toBe(session.id);
+    expect(useEditorStore.getState().consumeFlowLoad(session.id)).toBe(graph);
+    expect(useEditorStore.getState().pendingFlowGraph).toBeNull();
+    // A pending graph is meant for one session only.
+    expect(useEditorStore.getState().consumeFlowLoad(session.id)).toBeNull();
+
+    // Later flow edits refresh the cached graph.
+    const moved: BlockGraphState = { ...graph, viewport: { x: 10, y: 20, zoom: 2 } };
+    useEditorStore.getState().syncFromFlow(session.id, moved);
+    expect(useEditorStore.getState().flowGraphs[session.id]).toBe(moved);
+  });
+
+  it('forgets cached flow graphs when a session is removed or a project loads', () => {
+    const session = useEditorStore.getState().createSession('code', 'python');
+    const graph: BlockGraphState = {
+      instances: [
+        { id: 'bar', blockId: 'plot.bar', position: { x: 0, y: 0 }, params: {} },
+      ],
+      connections: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    };
+    useEditorStore.getState().requestFlowLoad(graph);
+
+    useEditorStore.getState().removeSession(session.id);
+    expect(useEditorStore.getState().flowGraphs[session.id]).toBeUndefined();
+
+    const next = useEditorStore.getState().createSession('code', 'python');
+    useEditorStore.getState().requestFlowLoad(graph);
+    useEditorStore.getState().fromJSON({ sessions: [next], activeSessionId: next.id });
+    expect(useEditorStore.getState().flowGraphs).toEqual({});
+    expect(useEditorStore.getState().pendingFlowGraph).toBeNull();
   });
 
   it('setSessionLanguage translates lastCode from the IR hub into the dialect', () => {

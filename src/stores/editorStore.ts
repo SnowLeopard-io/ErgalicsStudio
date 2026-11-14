@@ -34,9 +34,9 @@ export const EDITOR_STATE_CHANGED = 'editor:state:changed';
 const MAX_CONSOLE_ENTRIES = 1000;
 
 /** The three editable surfaces that round-trip through the IR hub. */
-export type SyncOrigin = 'block' | 'flow' | 'code';
+type SyncOrigin = 'block' | 'flow' | 'code';
 
-export interface EditorStore {
+interface EditorStore {
   sessions: EditorSession[];
   activeSessionId: string | null;
   /** Top-level variable snapshot from the last run (VariablePanel). */
@@ -46,6 +46,23 @@ export interface EditorStore {
   error: string | null;
   /** A program an external caller (e.g. the samples dialog) asked to load. */
   pendingLoad: IRProgram | null;
+  /** Verbatim source an external caller asked the code buffer to show (e.g.
+   *  opening another `.py` in the already-mounted code surface). The token
+   *  forces the effect even when the text repeats. */
+  pendingCode: { code: string; token: number } | null;
+  requestCodeLoad: (code: string) => void;
+  consumeCodeLoad: () => void;
+  /** Exact DAG per session for flow-bound files. The IR hub cannot represent
+   *  every block (`stats.*`, `units.*`, `viz.geo_*`, `plot.bar`, …), so
+   *  rebuilding the canvas from IR drops them. Keeping the last exact graph
+   *  lets tab switches / mode re-entry restore the real DAG instead.
+   *  Updated when a flow file is opened and on every flow edit flush. */
+  flowGraphs: Record<string, BlockGraphState>;
+  /** A graph that must hydrate the flow canvas verbatim on the next entry
+   *  (opening a `.flow.json`). Consumed by `useFlowSync`. */
+  pendingFlowGraph: { sessionId: string | null; graph: BlockGraphState } | null;
+  requestFlowLoad: (graph: BlockGraphState) => void;
+  consumeFlowLoad: (sessionId: string) => BlockGraphState | null;
 
   createSession: (mode: 'block' | 'code', language: CodeLanguage) => EditorSession;
   /** Switch a code session's language and translate its code from the IR. */
@@ -151,6 +168,25 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isRunning: false,
   error: null,
   pendingLoad: null,
+  pendingCode: null,
+  requestCodeLoad: (code) =>
+    set((s) => ({ pendingCode: { code, token: (s.pendingCode?.token ?? 0) + 1 } })),
+  consumeCodeLoad: () => set({ pendingCode: null }),
+  flowGraphs: {},
+  pendingFlowGraph: null,
+  requestFlowLoad: (graph) => {
+    const sid = get().activeSessionId;
+    set((s) => ({
+      pendingFlowGraph: { sessionId: sid, graph },
+      flowGraphs: sid ? { ...s.flowGraphs, [sid]: graph } : s.flowGraphs,
+    }));
+  },
+  consumeFlowLoad: (sessionId) => {
+    const pending = get().pendingFlowGraph;
+    if (!pending || pending.sessionId !== sessionId) return null;
+    set({ pendingFlowGraph: null });
+    return pending.graph;
+  },
 
   createSession: (mode, language) => {
     const session = createEditorSession(mode, language, emptyProgram());
@@ -342,6 +378,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     // The DAG only represents data-pipeline nodes — merge so statements it
     // cannot express (prints, control flow, functions, raw code) survive.
     const ir = sess ? mergeFlowIR(sess.ir, dagIR) : dagIR;
+    // Remember the exact DAG for this session: IR is lossy for flow-only
+    // blocks, so re-entering flow mode must not rebuild the canvas from IR.
+    set((s) => ({ flowGraphs: { ...s.flowGraphs, [id]: flowGraph } }));
     get().applyIR(id, ir, 'flow');
   },
 
@@ -349,9 +388,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   removeSession: (id) => {
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
+      const flowGraphs = { ...s.flowGraphs };
+      delete flowGraphs[id];
       const activeSessionId =
         s.activeSessionId === id ? (sessions[0]?.id ?? null) : s.activeSessionId;
-      return { sessions, activeSessionId };
+      return { sessions, flowGraphs, activeSessionId };
     });
     notifyChanged();
   },
@@ -399,6 +440,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       isRunning: false,
       error: null,
       pendingLoad: null,
+      pendingCode: null,
+      flowGraphs: {},
+      pendingFlowGraph: null,
     });
   },
 }));

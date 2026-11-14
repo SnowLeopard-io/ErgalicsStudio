@@ -14,13 +14,14 @@ import { isNumericType } from '@/blocks/ops';
 import type { DataTable } from '@/types/datatable';
 import type { PlotSpec } from '@/core/plot';
 import { useFigureStore } from '@/stores/figureStore';
+import { useProjectStore } from '@/stores/projectStore';
 
-export interface DataFileGroups {
+interface DataFileGroups {
   project: string[];
   examples: string[];
 }
 
-export function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
+function groupedDataFiles(allow?: readonly string[]): DataFileGroups {
   return listDataFilesGrouped(allow);
 }
 
@@ -107,7 +108,7 @@ export function useFileCols(file: string): Pick<LoadedTable, 'numericCols' | 'al
   return cols;
 }
 
-export interface LoadedTable {
+interface LoadedTable {
   table: DataTable;
   numericCols: string[];
   allCols: string[];
@@ -130,8 +131,13 @@ export async function loadTable(name: string): Promise<LoadedTable> {
  */
 export function sendSpecToFigure(sheetName: string, spec: PlotSpec, caption?: string): boolean {
   const store = useFigureStore.getState();
+  // The active sheet must belong to the CURRENT project — a stale id from a
+  // previous project made every mutation below a silent no-op.
+  const sheets = useProjectStore.getState().project?.state.figureSheets ?? [];
   let sheetId = store.activeSheetId;
-  if (!sheetId) sheetId = store.createSheet(sheetName);
+  if (!sheetId || !sheets.some((s) => s.id === sheetId)) {
+    sheetId = store.createSheet(sheetName);
+  }
   if (!sheetId) return false;
   if (caption) store.updateSheet(sheetId, { caption });
   store.addPanel(sheetId, spec);

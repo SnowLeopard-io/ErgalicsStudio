@@ -8,6 +8,26 @@
 
 import { studentTInv } from './special';
 
+/**
+ * Smallest and largest finite value of a sample.
+ *
+ * Never `Math.min(...values)`: spreading a large array into a call exceeds
+ * the engine's argument limit (RangeError at roughly 125k elements), which
+ * crashed the lab pages on any file with a few hundred thousand rows.
+ * Returns [NaN, NaN] for an empty or all-non-finite sample.
+ */
+export function extent(values: ArrayLike<number>): [number, number] {
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i += 1) {
+    const v = values[i]!;
+    if (!Number.isFinite(v)) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return min > max ? [NaN, NaN] : [min, max];
+}
+
 /** Arithmetic mean. Returns NaN for an empty sample. */
 export function mean(x: number[]): number {
   if (x.length === 0) return NaN;

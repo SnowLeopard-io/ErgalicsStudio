@@ -21,7 +21,7 @@ import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
 import { clearScienceOutputs } from '@/core/research/scienceOutput';
 
-export interface BeginRunInput {
+interface BeginRunInput {
   pluginId: string;
   kind: PluginRunRecord['kind'];
   label?: string;
@@ -96,6 +96,59 @@ const paramSubscriptions = new Map<string, BusSubscription[]>();
 /** Last applied param payload per plugin, so a repeated (no-op) param event
  *  can be told apart from a real change. */
 const lastParams = new Map<string, Record<string, unknown>>();
+
+/**
+ * Param bursts are coalesced per plugin. Every slider tick used to launch its
+ * own `updateParams` round-trip: a fast drag queued dozens of full recomputes
+ * (the UI froze), and for async/sandboxed plugins the replies could resolve
+ * out of order so an OLDER value won. Instead, events arriving while an
+ * update is in flight are merged into `pendingParamUpdates` and the newest
+ * payload is applied once the current one settles.
+ */
+const pendingParamUpdates = new Map<string, Record<string, unknown>>();
+const runningParamUpdates = new Set<string>();
+
+/**
+ * Apply the pending payload of one plugin — but never two at once. While an
+ * `updateParams` round-trip is running, further events only refresh the
+ * pending payload; when the current one settles, the newest state is applied.
+ *
+ * A *changed* payload invalidates previously published conclusions: they are
+ * cleared BEFORE updateParams so a fresh publish made inside the call
+ * survives. Env-style plugins re-publish during draw(); for compute-style
+ * plugins the stale metrics honestly disappear until the next computation
+ * (scienceOutput contract: stale results never linger). An unchanged payload
+ * (slider commit on pointer-up, a panel click re-emitting the current value,
+ * a canvas gesture bouncing through the panel) must NOT clear: updateState
+ * sees no change, updateParams skips the recompute, nothing republishes —
+ * and the Σ strip would stay hidden until the next real run.
+ */
+function flushParamUpdates(id: string, plugin: Plugin): void {
+  if (runningParamUpdates.has(id)) return;
+  const payload = pendingParamUpdates.get(id);
+  if (!payload) return;
+  pendingParamUpdates.delete(id);
+  const prev = lastParams.get(id);
+  const changed = prev === undefined || !sameParams(prev, payload);
+  lastParams.set(id, { ...payload });
+  if (changed) clearScienceOutputs(id);
+  runningParamUpdates.add(id);
+  void Promise.resolve()
+    .then(() => plugin.updateParams?.(payload))
+    .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
+    // Re-read the definitions only *after* the plugin has applied the change.
+    // Emitting before (the old order) made the panel re-read `getParams()`
+    // while `updateParams` was still queued, so a toggle reported its
+    // pre-click value — the label lagged one click behind the action and
+    // every Start/Stop appeared to need two clicks. `finally` keeps the
+    // panel in sync even when updateParams rejects.
+    .finally(() => {
+      runningParamUpdates.delete(id);
+      emit(`plugin:${id}:defs`, undefined);
+      // A newer payload may have arrived while this one was in flight.
+      flushParamUpdates(id, plugin);
+    });
+}
 
 /** Shallow-compare two param payloads. Values are usually primitives; for the
  *  rare object value (color, …) a stable JSON compare is the fallback. */
@@ -198,7 +251,7 @@ on<{ id: string }>('plugin:activate-request', ({ id }) => {
 
 // Host-supplied live DOM containers. The Workbench mounts these elements
 // and registers them here so activated plugins render into real DOM.
-export interface HostContainers {
+interface HostContainers {
   dom: HTMLDivElement;
   canvas2d: HTMLCanvasElement;
   reportDataScale: (n: number) => void;
@@ -217,9 +270,29 @@ export interface HostContainers {
 }
 
 let hostContainers: HostContainers | null = null;
+/** Who currently owns the render target. Several surfaces (plugin canvas,
+ *  code preview, block preview) can be mounted at once — the last *visible*
+ *  one registers, and only that owner may clear the registration. */
+let hostOwner: object | null = null;
 
-export function setHostContainers(containers: HostContainers | null): void {
+export function setHostContainers(containers: HostContainers | null, owner?: object): void {
+  if (containers === null) {
+    // Ignore stale cleanups from a surface that already lost ownership.
+    if (owner && hostOwner && owner !== hostOwner) return;
+    hostContainers = null;
+    hostOwner = null;
+    return;
+  }
   hostContainers = containers;
+  hostOwner = owner ?? null;
+}
+
+/** Clear the current preview host (canvas pixels + overlay DOM). Runs that
+ *  produce no plot must not leave the previous frame visible. */
+export function clearHostPreview(): void {
+  if (!hostContainers) return;
+  hostContainers.clearCanvas2d?.();
+  hostContainers.dom.replaceChildren();
 }
 
 /**
@@ -717,31 +790,12 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       if (!usePluginStore.getState().registry.some((e) => e.id === id)) return;
       // receive parameter updates
       const sub = on(`plugin:${id}:params`, (params: Record<string, unknown>) => {
-        // A *changed* parameter payload invalidates previously published
-        // conclusions: clear them *before* updateParams so a fresh publish
-        // made inside the call survives. Env-style plugins re-publish during
-        // draw(); for compute-style plugins the stale metrics honestly
-        // disappear until the next computation (scienceOutput contract:
-        // stale results never linger).
-        // An unchanged payload (slider commit on pointer-up, a panel click
-        // re-emitting the current value, a canvas gesture bouncing through
-        // the panel) must NOT clear: updateState sees no change, updateParams
-        // skips the recompute, nothing republishes — and the Σ strip would
-        // stay hidden until the next real run.
-        const prev = lastParams.get(id);
-        const changed = prev === undefined || !sameParams(prev, params);
-        lastParams.set(id, { ...params });
-        if (changed) clearScienceOutputs(id);
-        void Promise.resolve()
-          .then(() => plugin.updateParams?.(params))
-          .catch((err: unknown) => logger.warn('plugin', 'updateParams failed', { id }, err))
-          // Re-read the definitions only *after* the plugin has applied the
-          // change. Emitting before (the old order) made the panel re-read
-          // `getParams()` while `updateParams` was still queued, so a toggle
-          // reported its pre-click value — the label lagged one click behind
-          // the action and every Start/Stop appeared to need two clicks.
-          // `finally` keeps the panel in sync even when updateParams rejects.
-          .finally(() => emit(`plugin:${id}:defs`, undefined));
+        // Merge into the pending payload: single-key emits ({key: value})
+        // accumulate so a drag that changes several keys while an update is
+        // in flight is applied as ONE consistent state, newest value wins.
+        const merged = { ...(pendingParamUpdates.get(id) ?? {}), ...params };
+        pendingParamUpdates.set(id, merged);
+        flushParamUpdates(id, plugin);
       });
       const existing = paramSubscriptions.get(id) ?? [];
       paramSubscriptions.set(id, [...existing, sub]);
@@ -1035,44 +1089,6 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
 }));
 
 /**
- * Load a plugin from an instance or a factory.
- *
- * Function factories are probed with a placeholder `__init__` id (the real
- * manifest id is only known after building the plugin). Any params the
- * factory body wrote during the probe are migrated to the real id so later
- * `getParam`/`setParam` lookups agree.
- */
-export async function loadPluginFromModule(factory: Plugin | ((api: PluginApi) => Plugin)): Promise<void> {
-  if (typeof factory !== 'function') {
-    await usePluginStore.getState().load(factory);
-    return;
-  }
-  const probe = (factory as (api: PluginApi) => Plugin)(buildPluginApi('__init__'));
-  useProjectStore.setState((s) => {
-    if (!s.project) return s;
-    const parameters = s.project.state.parameters;
-    const probeBucket = parameters['__init__'];
-    if (!probeBucket || Object.keys(probeBucket).length === 0) return s;
-    const realId = probe.manifest?.id;
-    if (!realId || realId === '__init__') return s;
-    return {
-      project: {
-        ...s.project,
-        state: {
-          ...s.project.state,
-          parameters: {
-            ...parameters,
-            [realId]: { ...probeBucket, ...parameters[realId] },
-            '__init__': {},
-          },
-        },
-      },
-    };
-  });
-  await usePluginStore.getState().load(probe);
-}
-
-/**
  * Run an action as a tracked experiment step.
  *
  * Wraps the host's data-import path so every import is recorded with its
@@ -1094,10 +1110,6 @@ export async function runTracked<T>(
     usePluginStore.getState().finishRun(runId, false, err instanceof Error ? err.message : String(err));
     throw err;
   }
-}
-
-export function isPluginActive(id: string): boolean {
-  return usePluginStore.getState().activeId === id;
 }
 
 /**

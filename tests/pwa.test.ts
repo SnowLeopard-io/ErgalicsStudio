@@ -70,6 +70,26 @@ describe('FR-20 service worker', () => {
     // Cross-origin (model CDN etc.) is bypassed → needs network.
     expect(sw).toContain('url.origin !== self.location.origin');
   });
+
+  it('keys the runtime cache to the engine generation, not the app build', () => {
+    // A build VERSION bump must NOT rotate the runtime tier, or every deploy
+    // re-downloads the whole Pyodide bundle.
+    expect(sw).toContain('const RUNTIME_VERSION =');
+    expect(sw).toContain('const RUNTIME_CACHE = `ergalics-runtime-${RUNTIME_VERSION}`;');
+    expect(sw).not.toContain('ergalics-runtime-${VERSION}');
+  });
+
+  it('never caches the SPA index fallback over a runtime asset', () => {
+    // A missing .whl/.wasm answered with index.html (200 + text/html) must
+    // not poison the cache-first tier.
+    expect(sw).toContain('function isCacheable(');
+    expect(sw).toContain("!type.includes('text/html')");
+    // Every cache.put in the SW (runtime tier + both core-tier paths) gates
+    // on isCacheable.
+    expect(sw.match(/cache\.put\(req/g)?.length ?? 0).toBe(3);
+    expect(sw.match(/if \(isCacheable\(res\)\) cache\.put/g)?.length ?? 0).toBe(2);
+    expect(sw).toContain('isCacheable(res) &&');
+  });
 });
 
 describe('FR-20 needsNetwork', () => {

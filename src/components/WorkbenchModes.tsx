@@ -1,14 +1,9 @@
-import { useNavigate } from 'react-router-dom';
-import { useT } from '@/i18n';
+// Minimal line-style mode icons (stroke follows currentColor). Shared by the
+// canvas tab strip; the former mode-cards picker was removed when files began
+// choosing their own canvas on open.
 import type { WorkbenchMode } from '@/types/editor';
 
-/** The four workbench modes (same union as app store / editor types). */
-export type WorkbenchModeKey = WorkbenchMode;
-
-export const WORKBENCH_MODES: WorkbenchMode[] = ['standard', 'flow', 'block', 'code'];
-
-/** Minimal line-style SVG icons (stroke follows currentColor). */
-export function ModeIcon({ kind }: { kind: WorkbenchModeKey }) {
+export function ModeIcon({ kind }: { kind: WorkbenchMode }) {
   const props = {
     width: 20,
     height: 20,
@@ -54,39 +49,4 @@ export function ModeIcon({ kind }: { kind: WorkbenchModeKey }) {
         </svg>
       );
   }
-}
-
-interface WorkbenchModeCardsProps {
-  /** Custom behaviour on click. Defaults to entering /workbench with the
-   *  mode carried in router state ({ setMode }). */
-  onMode?: (key: WorkbenchModeKey) => void;
-}
-
-/** Row/cards of the four workbench modes, shared by the welcome page and the
- *  standard-mode empty state. */
-export function WorkbenchModeCards({ onMode }: WorkbenchModeCardsProps) {
-  const t = useT();
-  const navigate = useNavigate();
-  const open = (key: WorkbenchModeKey) => {
-    if (onMode) {
-      onMode(key);
-      return;
-    }
-    navigate('/workbench', { state: { setMode: key } });
-  };
-  return (
-    <div className="wb-modes-grid stagger">
-      {WORKBENCH_MODES.map((key) => (
-        <button key={key} type="button" className="wb-mode-card" onClick={() => open(key)}>
-          <span className="wb-mode-icon">
-            <ModeIcon kind={key} />
-          </span>
-          <span className="wb-mode-body">
-            <span className="wb-mode-title">{t(`modes.${key}.title`)}</span>
-            <span className="wb-mode-desc">{t(`modes.${key}.desc`)}</span>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
 }

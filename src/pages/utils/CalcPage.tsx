@@ -48,7 +48,7 @@ function tokenize(src: string): Tok[] {
 
 // ---- constants -------------------------------------------------------------
 
-export interface SciConstant {
+interface SciConstant {
   sym: string;
   value: number;
   unit: string;

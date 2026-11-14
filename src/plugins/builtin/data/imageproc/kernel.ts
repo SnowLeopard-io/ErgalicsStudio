@@ -65,12 +65,17 @@ export function makeTestImage(width = 256, height = 256, seed = 20261011): GrayI
  * `maxSide`, the image is reduced by deterministic box averaging (each target
  * pixel is the exact mean of its source-pixel footprint), so processing cost
  * stays bounded and the result is reproducible.
+ *
+ * The default cap is 1024 px: large enough that the on-canvas panels keep the
+ * detail of a photo (the previous 512 px cap made every uploaded image look
+ * soft/blocky as soon as the view was wider than half the canvas), small
+ * enough that a σ=6 blur or a 2-D FFT still finishes in well under a second.
  */
 export function grayFromRgba(
   rgba: Uint8ClampedArray | Uint8Array,
   width: number,
   height: number,
-  maxSide = 512,
+  maxSide = 1024,
 ): GrayImage {
   if (rgba.length < width * height * 4) {
     throw new Error(`rgba buffer too small: expected >= ${width * height * 4}, got ${rgba.length}`);

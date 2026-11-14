@@ -7,6 +7,9 @@
 
 import { useT } from '@/i18n';
 import { useBlockStore } from '@/stores/blockStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { useAppStore } from '@/stores/appStore';
+import { DownloadIcon } from '@/components/icons';
 import { translateBlockError } from '@/blocks/errorL10n';
 
 export function BlockToolbar() {
@@ -17,6 +20,20 @@ export function BlockToolbar() {
   const count = useBlockStore((s) => s.instances.length);
   const compileDiagnostics = useBlockStore((s) => s.compileDiagnostics);
   const executionErrors = useBlockStore((s) => s.executionErrors);
+  // `.flow.json` opened from the explorer binds this canvas to that file.
+  const boundPath = useEditorStore(
+    (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.filePath ?? null,
+  );
+
+  const saveBoundFile = async () => {
+    if (!boundPath) return;
+    const payload = JSON.stringify(
+      { version: 1, kind: 'ergalics-flow', graph: useBlockStore.getState().toJSON() },
+      null,
+      2,
+    );
+    await useAppStore.getState().saveWorkspaceFile(boundPath, payload);
+  };
 
   const compileErrors = compileDiagnostics.filter((d) => d.severity === 'error');
   const runErrors = Object.entries(executionErrors);
@@ -35,6 +52,12 @@ export function BlockToolbar() {
         <button type="button" className="btn" disabled={count === 0} onClick={clear}>
           {t('blocks.clear')}
         </button>
+        {boundPath && (
+          <button type="button" className="btn" onClick={() => void saveBoundFile()}>
+            <DownloadIcon size={12} />
+            {t('workbench.editor.save')}
+          </button>
+        )}
       </div>
 
       {(compileErrors.length > 0 || runErrors.length > 0) && (

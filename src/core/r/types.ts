@@ -48,8 +48,9 @@ export interface RLanguageRuntime {
   readonly engine: REngine;
   /** Boot the engine; resolves once `exec` is usable. */
   load(onProgress?: (progress: RLoadProgress) => void): Promise<void>;
-  /** Run a program to completion. */
-  exec(code: string): Promise<RExecResult>;
+  /** Run a program to completion. `files` maps project data-file names to
+   *  their contents so `studio.load()` works in the full runtime. */
+  exec(code: string, files?: Record<string, string>): Promise<RExecResult>;
   /** Install a CRAN package (full runtime only; builtin throws). */
   install(pkg: string): Promise<void>;
   /** Abort the in-flight run. The caller is expected to restart afterwards. */

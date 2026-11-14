@@ -43,7 +43,7 @@ import {
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
 import { availableTools, runAgentChat, type AgentToolCallLog } from '@/core/ai/chat';
 
-export interface AiAssistantPanelProps {
+interface AiAssistantPanelProps {
   /** Host editor's insert-and-run hook (Pyodide / IR interpreter). */
   runCode?: (code: string) => Promise<AiRunResult>;
   /** Dismiss the floating panel (projects-wide switcher). */

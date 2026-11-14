@@ -109,6 +109,23 @@ export function isSupportedDataFileName(name: string): boolean {
   return DATA_FILE_EXTENSIONS.has(name.slice(dot).toLowerCase());
 }
 
+// ---- Runtime source files -------------------------------------------------
+//
+// Multi-file code runs ship the project tree into the interpreter so one file
+// can import another from a sibling folder (`from lib.stats import mean`).
+// These are plain-text sources, so they are read with the same VFS path as
+// data files — but they never appear in data pickers.
+
+const RUNTIME_SOURCE_EXTENSIONS = new Set(['.py', '.r', '.js', '.mjs', '.cjs']);
+
+/** Is this a text file the code runtimes may need (data or source)? */
+export function isRuntimeTextFileName(name: string): boolean {
+  if (isSupportedDataFileName(name)) return true;
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return false;
+  return RUNTIME_SOURCE_EXTENSIONS.has(name.slice(dot).toLowerCase());
+}
+
 /** Accept-list for file pickers (mirrors {@link DATA_FILE_EXTENSIONS}). */
 export const DATA_FILE_ACCEPT = Array.from(DATA_FILE_EXTENSIONS).join(',');
 

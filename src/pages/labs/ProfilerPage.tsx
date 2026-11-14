@@ -61,7 +61,7 @@ function profileMarkdown(file: string, p: TableProfile): string {
   lines.push(`# Data profile — ${file}`, '');
   lines.push(`- rows: ${p.rows}`);
   lines.push(`- columns: ${p.columns.length}`);
-  lines.push(`- quality score: ${(p.score * 100).toFixed(1)}/100`);
+  lines.push(`- quality score: ${p.score.toFixed(1)}/100`);
   lines.push(`- duplicate rate (est.): ${(p.duplicates.duplicateRate * 100).toFixed(2)}%`, '');
   if (p.issues.length > 0) {
     lines.push('## Issues', '');
@@ -269,7 +269,7 @@ export default function ProfilerPage() {
         {p && (
           <>
             <div className="profile-summary" data-tour="profiler-summary">
-              <span className="profile-score">{(p.score * 100).toFixed(0)}/100</span>
+              <span className="profile-score">{p.score.toFixed(0)}/100</span>
               <span>{t('profile.rows')}: <strong>{p.rows}</strong></span>
               <span>{t('profile.columns')}: <strong>{p.columns.length}</strong></span>
               <span>{t('profile.duplicates')}: <strong>{(p.duplicates.duplicateRate * 100).toFixed(1)}%</strong></span>

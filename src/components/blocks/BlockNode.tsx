@@ -56,7 +56,7 @@ function portTop(index: number, paramRows: number): number {
   );
 }
 
-export function BlockNodeImpl(props: BlockNodeProps) {
+function BlockNodeImpl(props: BlockNodeProps) {
   const { instance, meta, selected, status, screenPos, height } = props;
   const { locale } = useLocale();
   const t = useT();

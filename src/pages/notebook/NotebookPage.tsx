@@ -67,6 +67,7 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
   const moveCell = useNotebookStore((s) => s.moveCell);
   const addCell = useNotebookStore((s) => s.addCell);
   const runCell = useNotebookStore((s) => s.runCell);
+  const stopRun = useNotebookStore((s) => s.stopRun);
   const runningCellId = useNotebookStore((s) => s.runningCellId);
   const hasProject = useProjectStore((s) => !!s.project);
 
@@ -117,6 +118,16 @@ function CellItem({ cell, index }: { cell: NotebookCell; index: number }) {
             onClick={handleRun}
           >
             {running ? t('notebook.running') : t('notebook.run')}
+          </button>
+        )}
+        {cell.type === 'code' && running && (
+          <button
+            type="button"
+            className="btn btn-sm btn-danger"
+            onClick={stopRun}
+            title={t('common.stop')}
+          >
+            {t('common.stop')}
           </button>
         )}
         <span className="nb-cell-meta">

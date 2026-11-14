@@ -15,16 +15,16 @@ import { isAbortError, normalizeError, toErrorMessage } from '@/core/errors';
 import { reportError } from '@/core/errors';
 
 export type NotifyKind = 'success' | 'error' | 'info' | 'warning';
-export type NotifyFn = (kind: NotifyKind, message: string) => void;
+type NotifyFn = (kind: NotifyKind, message: string) => void;
 export type TFn = (key: string, params?: Record<string, string | number>) => string;
 
-export interface SweepExecutionOptions {
+interface SweepExecutionOptions {
   saveResult: (result: SweepResult) => void;
   notify: NotifyFn;
   t: TFn;
 }
 
-export interface RunRequest {
+interface RunRequest {
   plan: SweepPlan;
   resume: boolean;
   existing: SweepResult | null;
@@ -78,16 +78,24 @@ export function useSweepExecution({ saveResult, notify, t }: SweepExecutionOptio
             if (controller.signal.aborted) throw new DOMException('aborted', 'AbortError');
             const value = evaluator(cell.flatParams);
             const durationMs = Math.max(0, Math.round(performance.now() - started));
+            // The plan names the metric it wants ("Metric path"). The
+            // evaluator produces ONE number, so publish it under the
+            // configured path's last segment as well — otherwise every cell
+            // failed with "metric … missing" as soon as the field was
+            // changed from the default `value`.
+            const tail = plan.metric.split('.').pop()?.trim() || 'value';
+            const metrics: Record<string, number> = { value };
+            if (tail !== 'value') metrics[tail] = value;
             const runRecord = await recordRun({
               source: 'sweep',
               label: `${plan.name} ${cell.key}`,
               params: cell.params,
-              metrics: { value },
+              metrics,
               durationMs,
               seed: cell.seed,
               parentSweepId: plan.id,
             });
-            return { runId: runRecord?.id ?? cell.key, metrics: { value }, durationMs };
+            return { runId: runRecord?.id ?? cell.key, metrics, durationMs };
           },
         });
         // A newer run may have superseded this controller on fast re-entry;

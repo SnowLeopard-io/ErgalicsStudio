@@ -7,8 +7,8 @@ import {
   serializeProject,
   touchProject,
 } from '@/types/project';
-import { setProjectFiles } from '@/core/dataFiles';
-import { isSupportedDataFileName } from '@/core/fileFormat';
+import { setProjectFiles, setWorkspaceFileSource, setWorkspaceSnapshot } from '@/core/dataFiles';
+import { isRuntimeTextFileName, isSupportedDataFileName } from '@/core/fileFormat';
 import {
   saveProject,
   deleteProject,
@@ -25,6 +25,14 @@ import { usePluginStore } from './pluginStore';
 import { BLOCK_GRAPH_CHANGED, useBlockStore } from './blockStore';
 import { EDITOR_STATE_CHANGED, useEditorStore } from './editorStore';
 import { useAppStore } from './appStore';
+import {
+  MAX_PERSISTED_CONSOLE,
+  clearWorkbenchSession,
+  loadWorkbenchSession,
+  persistableTab,
+  saveWorkbenchSession,
+} from './workbenchSession';
+import { restoreWorkbenchSession } from '@/core/workspace/session-restore';
 import type { BlockGraphState } from '@/types/block';
 import type { WorkbenchMode } from '@/types/editor';
 import { on } from '@/core/events';
@@ -40,7 +48,7 @@ import type { RunRecord } from '@/core/experiment/record';
 // Re-exported for existing consumers (GitPanel).
 export { generateCommitMessage };
 
-export type ProjectStatus =
+type ProjectStatus =
   | 'ready'
   | 'saving'
   | 'saved'
@@ -48,7 +56,7 @@ export type ProjectStatus =
   | 'loading'
   | 'error';
 
-export interface GitRepoInfo {
+interface GitRepoInfo {
   isRepo: boolean;
   status: GitStatus | null;
   branches: GitBranch[];
@@ -201,6 +209,80 @@ function fileExtension(name: string): string {
 /** Re-sync the shared file registry whenever the current project changes. */
 function syncProjectFiles(project: Project | null): void {
   setProjectFiles(project?.data.files ?? []);
+  // Code/flow/block surfaces read `studio.load()` files through the same
+  // workspace tree the explorer shows, so imported files stop being invisible
+  // to the runtimes.
+  setWorkspaceFileSource(project ? () => readWorkspaceDataFiles(project) : null);
+  if (!project) {
+    setWorkspaceSnapshot({});
+    return;
+  }
+  // Populate the name/snapshot cache used by the sync file pickers.
+  void readWorkspaceDataFiles(project)
+    .then(setWorkspaceSnapshot)
+    .catch(() => undefined);
+}
+
+/** Cap for staging one workspace file into a runtime (avoid multi-MB JSON). */
+const MAX_STAGED_FILE_BYTES = 4 * 1024 * 1024;
+
+/** Projects we already warned about (one warning per project, not per scan). */
+const oversizeWarned = new Set<string>();
+
+/** Walk the project workspace tree and return its text files.
+ *
+ *  This includes code sources (.py/.r/.js), not just data: the Python runtime
+ *  mounts the tree so one file can import another across folders. Data-only
+ *  consumers (`collectWorkspaceFiles`, pickers) filter this down again.
+ *
+ *  A file above the staging cap is skipped — but NOT silently: it is
+ *  invisible to the data pickers and unreachable from the runtime, so the
+ *  user must be told (they would otherwise conclude the file was lost). */
+async function readWorkspaceDataFiles(project: Project): Promise<Record<string, string>> {
+  const root = getProjectRepoPath(project);
+  const vfs = getVfs();
+  const out: Record<string, string> = {};
+  const oversize: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await vfs.readDir(root, dir);
+    for (const entry of entries) {
+      if (entry.isDir) {
+        await walk(entry.path);
+        continue;
+      }
+      if (!isRuntimeTextFileName(entry.name)) continue;
+      if (entry.size > MAX_STAGED_FILE_BYTES) {
+        oversize.push(entry.path);
+        continue;
+      }
+      try {
+        out[entry.path] = await vfs.readFile(root, entry.path);
+      } catch (err) {
+        logger.warn('project', `workspace file not readable: ${entry.path}`, err);
+      }
+    }
+  };
+  await walk('');
+  if (oversize.length > 0) {
+    logger.warn(
+      'project',
+      `workspace files above the ${MAX_STAGED_FILE_BYTES / 1024 / 1024} MB staging cap were skipped: ${oversize.join(', ')}`,
+    );
+    if (!oversizeWarned.has(project.id)) {
+      oversizeWarned.add(project.id);
+      useAppStore
+        .getState()
+        .notify(
+          'warning',
+          t('project.file_too_large', {
+            count: String(oversize.length),
+            names: oversize.slice(0, 3).join(', '),
+            mb: String(Math.round(MAX_STAGED_FILE_BYTES / 1024 / 1024)),
+          }),
+        );
+    }
+  }
+  return out;
 }
 
 const EMPTY_BLOCK_GRAPH: BlockGraphState = {
@@ -226,6 +308,44 @@ function restoreEditor(state: {
   // Flow/Block/Code mode the project was last saved in. The user switches
   // modes explicitly when they want one.
   useAppStore.getState().setMode('standard');
+}
+
+/**
+ * True while a project's stored layout is being re-applied. Subscriptions are
+ * muted so the "clear the canvas" step (and every intermediate reopen) cannot
+ * overwrite the stored session with a half-restored layout.
+ */
+let persistSuppressed = false;
+
+/** Write the current workbench layout for the open project (best effort). */
+function persistWorkbenchNow(): void {
+  if (persistSuppressed) return;
+  const project = useProjectStore.getState().project;
+  if (!project) return;
+  const app = useAppStore.getState();
+  const editor = useEditorStore.getState();
+  saveWorkbenchSession(project.id, {
+    tabs: app.canvasTabs.map(persistableTab),
+    activeTab: app.activeTab,
+    mode: app.mode,
+    expandedDirs: app.explorerExpanded,
+    console: editor.console.slice(-MAX_PERSISTED_CONSOLE),
+    error: editor.error,
+    savedAt: Date.now(),
+  });
+}
+
+/** Layout changes come in bursts (tab restore, folder expansion) — debounce. */
+const SESSION_PERSIST_DELAY_MS = 200;
+let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePersistWorkbench(): void {
+  if (persistSuppressed) return;
+  if (sessionPersistTimer) clearTimeout(sessionPersistTimer);
+  sessionPersistTimer = setTimeout(() => {
+    sessionPersistTimer = null;
+    persistWorkbenchNow();
+  }, SESSION_PERSIST_DELAY_MS);
 }
 
 /**
@@ -264,10 +384,21 @@ function applyOpenedProject(
   { seedWorkspace = true }: { seedWorkspace?: boolean } = {},
 ): void {
   projectSession += 1;
+  const session = projectSession;
+  // Read the stored layout before the canvas is cleared below, so the
+  // persistence subscriptions cannot see an empty workbench and overwrite it.
+  const savedSession = loadWorkbenchSession(project.id);
+  persistSuppressed = true;
   useProjectStore.setState({ project, dirty: false, status: 'ready', statusText: null });
   // Canvas tabs (previews + editor buffers) hold paths of the previous
   // project's repo — a fresh project must not show or edit them.
-  useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+  useAppStore.setState({
+    canvasTabs: [],
+    activeTab: null,
+    filePreviews: {},
+    editorFiles: {},
+    explorerExpanded: [],
+  });
   recordLastOpenedProject(project.id);
   syncProjectFiles(project);
   // Repair the workspace skeleton without overwriting user files: projects
@@ -276,7 +407,6 @@ function applyOpenedProject(
   // "write to workspace" would appear to do nothing. Folder imports already
   // bring their own authoritative tree, so they skip this.
   if (seedWorkspace) {
-    const session = projectSession;
     const repoPath = getProjectRepoPath(project);
     void seedStandardSkeleton(getVfs(), repoPath, { overwrite: false })
       .then(() => {
@@ -290,6 +420,16 @@ function applyOpenedProject(
   usePluginStore.getState().restoreState(project);
   restoreBlockGraph(project.state.blockGraph);
   restoreEditor(project.state);
+  // Reopen this project's own tabs / folders / run output. Runs after the
+  // project's editor sessions are in place (surfaces reuse them) and is
+  // abandoned if the user switches projects while a file is being read.
+  void restoreWorkbenchSession(savedSession, () => isCurrentSession(session, project.id)).finally(
+    () => {
+      if (session !== projectSession) return;
+      persistSuppressed = false;
+      persistWorkbenchNow();
+    },
+  );
   ensureAutosave();
 }
 
@@ -393,6 +533,12 @@ function flushDirtyOnExit() {
     clearTimeout(dirtyFlushTimer);
     dirtyFlushTimer = null;
   }
+  // The layout is debounced too — land the pending write now.
+  if (sessionPersistTimer) {
+    clearTimeout(sessionPersistTimer);
+    sessionPersistTimer = null;
+  }
+  persistWorkbenchNow();
   const { project, dirty } = useProjectStore.getState();
   if (project && dirty) void useProjectStore.getState().save();
 }
@@ -417,7 +563,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // shows the old one's block graph, editor sessions or active plugin.
     useBlockStore.getState().clear();
     useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
-    useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+    useAppStore.setState({
+      canvasTabs: [],
+      activeTab: null,
+      filePreviews: {},
+      editorFiles: {},
+      explorerExpanded: [],
+    });
+    // A brand-new project has no stored layout; an in-flight restore of the
+    // previous project must not keep persistence muted.
+    persistSuppressed = false;
     void usePluginStore.getState().deactivate();
     useAppStore.getState().setMode('standard');
     set({ project, dirty: false, status: 'ready', statusText: null });
@@ -466,8 +621,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // JSON itself (imported separately below). Every relative path is run
     // through the VFS path guard: a caller-supplied File whose
     // webkitRelativePath carries `..` must never escape the project root.
+    //
+    // A huge folder (node_modules, datasets) used to be mirrored IN FULL:
+    // thousands of files froze the explorer and blew past the IndexedDB
+    // storage budget (writes then failed one by one on the retry loop).
+    // Hard limits keep the import bounded; the rest are skipped with notice.
+    const MAX_IMPORT_FILES = 2000;
+    const MAX_IMPORT_TOTAL_BYTES = 256 * 1024 * 1024;
     const entries: Array<{ path: string; file: File }> = [];
     let clproj: File | null = null;
+    let totalBytes = 0;
+    let truncated = 0;
     for (const f of files) {
       const parts = relOf(f).split('/');
       if (parts.some((p) => p.toLowerCase() === '.git')) continue;
@@ -484,7 +648,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         clproj = f;
         continue;
       }
+      if (
+        entries.length >= MAX_IMPORT_FILES ||
+        totalBytes + f.size > MAX_IMPORT_TOTAL_BYTES
+      ) {
+        truncated += 1;
+        continue;
+      }
       entries.push({ path: rel, file: f });
+      totalBytes += f.size;
     }
 
     // A folder carrying project.clproj is a native project: its JSON carries
@@ -517,6 +689,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     useAppStore.getState().bumpFileOps();
     if (failed > 0) {
       useAppStore.getState().notify('error', t('project.import_partial', { count: String(failed) }));
+    }
+    if (truncated > 0) {
+      logger.warn('project', `folder import: skipped ${truncated} file(s) over the import limits`);
+      useAppStore
+        .getState()
+        .notify('warning', t('project.import_truncated', { count: String(entries.length) }));
     }
     return project;
   },
@@ -630,6 +808,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   remove: async (id) => {
     await deleteProject(id);
+    // The project's workbench layout lives in localStorage, not in the
+    // project record / workspace tree, so drop it explicitly.
+    clearWorkbenchSession(id);
     // Cascade: run records live in their own store, not inside the project.
     await deleteRunsByProject(id).catch(() => undefined);
     // Same cascade for the auxiliary stores keyed by projectId: legacy IDB
@@ -648,13 +829,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().loadRecent();
     if (get().project?.id === id) {
       projectSession += 1;
+      persistSuppressed = true;
       set({ project: null, dirty: false, status: 'ready', statusText: null });
       syncProjectFiles(null);
       // Clear the block graph, editor sessions and active plugin so the
       // canvas/editor never keep showing the deleted project's content.
       useBlockStore.getState().clear();
       useEditorStore.getState().fromJSON({ sessions: [], activeSessionId: null });
-      useAppStore.setState({ canvasTabs: [], activeTab: null, filePreviews: {}, editorFiles: {} });
+      useAppStore.setState({
+        canvasTabs: [],
+        activeTab: null,
+        filePreviews: {},
+        editorFiles: {},
+        explorerExpanded: [],
+      });
       void usePluginStore.getState().deactivate();
     }
   },
@@ -777,6 +965,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (err) {
       logger.warn('io', 'workspace data/ mirror failed', err);
     }
+    void readWorkspaceDataFiles(current).then(setWorkspaceSnapshot).catch(() => undefined);
     return entry.id;
   },
 
@@ -799,6 +988,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // Legacy chunked-storage cleanup (FR-17): a file ingested by an older
     // build keeps IDB chunks + an OPFS copy that inline-entry removal cannot
     // reach, so the bytes would stay parked in storage forever.
+    void readWorkspaceDataFiles(project).then(setWorkspaceSnapshot).catch(() => undefined);
     void deleteFileChunks(project.id, id).catch(() => undefined);
     void new OpfsChunkStore().removeFile(project.id, id).catch(() => undefined);
   },
@@ -1115,6 +1305,24 @@ export function initProjectStore() {
   on(BLOCK_GRAPH_CHANGED, () => useProjectStore.getState().setDirty(true));
   // mark the project dirty when an editor session mutates
   on(EDITOR_STATE_CHANGED, () => useProjectStore.getState().setDirty(true));
+  // Persist the per-project workbench layout (tabs, front tab, expanded
+  // folders, mode, last run output) whenever it changes. Muted while a
+  // project's own layout is being restored (see persistSuppressed).
+  useAppStore.subscribe((state, prev) => {
+    if (
+      state.canvasTabs !== prev.canvasTabs ||
+      state.activeTab !== prev.activeTab ||
+      state.mode !== prev.mode ||
+      state.explorerExpanded !== prev.explorerExpanded
+    ) {
+      schedulePersistWorkbench();
+    }
+  });
+  useEditorStore.subscribe((state, prev) => {
+    if (state.console !== prev.console || state.error !== prev.error) {
+      schedulePersistWorkbench();
+    }
+  });
   // Flush pending edits when the page is hidden or unloaded (refresh inside
   // the autosave interval would otherwise discard them).
   document.addEventListener('visibilitychange', () => {
