@@ -223,6 +223,16 @@ export function setHostContainers(containers: HostContainers | null): void {
 }
 
 /**
+ * The live host containers (null before the workbench mounts). Exposed so
+ * host-level features that are not plugins — e.g. the assistant's canvas
+ * snapshot tool — read the same surfaces the plugins draw into instead of
+ * querying the DOM for them.
+ */
+export function getHostContainers(): HostContainers | null {
+  return hostContainers;
+}
+
+/**
  * Re-invoke the active plugin's render() against the *current* host
  * containers. Used when the CentralArea (which owns the plugin DOM/canvas)
  * remounts — e.g. after toggling block mode — so a still-active plugin is

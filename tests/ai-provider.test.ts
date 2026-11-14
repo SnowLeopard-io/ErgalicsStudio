@@ -12,8 +12,11 @@ import {
   getProviderConfig,
   isOnlineAuthorized,
   isOnlineConfigured,
+  isOperateAuthorized,
+  isVisionEnabled,
   setAssistantMode,
   setOnlineAuthorized,
+  setOperateAuthorized,
   setProviderConfig,
 } from '@/core/ai/provider';
 
@@ -66,19 +69,42 @@ describe('mode persistence (regression)', () => {
 
 describe('provider config', () => {
   it('empty by default; endpoint trims and round-trips', () => {
-    expect(getProviderConfig()).toEqual({ endpoint: '', model: '', apiKey: '' });
+    expect(getProviderConfig()).toEqual({ endpoint: '', model: '', apiKey: '', vision: false });
     expect(isOnlineConfigured()).toBe(false);
     setProviderConfig({ endpoint: '  https://api.example.com/v1/chat/completions  ', model: ' m1 ', apiKey: 'k' });
     const cfg = getProviderConfig();
     expect(cfg.endpoint).toBe('https://api.example.com/v1/chat/completions');
     expect(cfg.model).toBe('m1');
+    expect(cfg.vision).toBe(false);
     expect(isOnlineConfigured()).toBe(true);
+  });
+
+  it('vision capability round-trips and defaults to off', () => {
+    expect(isVisionEnabled()).toBe(false);
+    setProviderConfig({ endpoint: 'https://api.example.com/v1/chat/completions', model: 'glm-4.6v', apiKey: '', vision: true });
+    expect(getProviderConfig().vision).toBe(true);
+    expect(isVisionEnabled()).toBe(true);
+    setProviderConfig({ endpoint: 'https://api.example.com/v1/chat/completions', model: 'glm-4.6v', apiKey: '' });
+    expect(isVisionEnabled()).toBe(false);
   });
 
   it('garbage in storage falls back to empty config', () => {
     localStorage.setItem('ergalics:ai-provider', '{not json');
-    expect(getProviderConfig()).toEqual({ endpoint: '', model: '', apiKey: '' });
+    expect(getProviderConfig()).toEqual({ endpoint: '', model: '', apiKey: '', vision: false });
     expect(isOnlineConfigured()).toBe(false);
+  });
+});
+
+describe('operate authorization', () => {
+  it('is a separate opt-in from online authorization, off by default', () => {
+    expect(isOperateAuthorized()).toBe(false);
+    // authorizing online chat must not implicitly grant app control
+    setOnlineAuthorized(true);
+    expect(isOperateAuthorized()).toBe(false);
+    setOperateAuthorized(true);
+    expect(isOperateAuthorized()).toBe(true);
+    setOperateAuthorized(false);
+    expect(isOperateAuthorized()).toBe(false);
   });
 });
 

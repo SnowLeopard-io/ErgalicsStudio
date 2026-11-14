@@ -1,19 +1,23 @@
 // ==========================================================================
 // Ergalics Studio — FR-07 AI assistant panel (项目全局悬浮窗)
 //
-// Chat-style panel: natural-language prompt → offline intent engine →
-// editable `studio.*` code draft → insert into the editor buffer / flow
-// canvas → run. On a run failure the panel shows rule-based fix advice
-// (suggestFix). Conversation history lives in component state; in offline
-// mode nothing ever leaves the machine, and online mode requires an
-// explicit authorization flag (see @/core/ai/provider).
+// Chat-style panel with two engines behind one input:
+//   • online + authorized + configured → the *agent* (core/ai/chat.ts): the
+//     model may call app tools (switch plugins, set parameters, press
+//     buttons, snapshot the viewport, read data, run studio.* code) and its
+//     whole trajectory is shown inline — including a thumbnail for every
+//     screenshot it took.
+//   • otherwise → the offline intent engine, which synthesizes an editable
+//     `studio.*` draft.
+// Conversation history lives in component state; in offline mode nothing ever
+// leaves the machine, and online mode requires an explicit authorization flag
+// (see @/core/ai/provider). Operating the app is a *separate* opt-in, so a user
+// can chat online while keeping the workspace read-only.
 //
 // Rendered inside <AiAssistantOverlay />, a project-wide floating window
-// toggled from the shared top bar — it no longer lives inside an editor as a
-// fixed side column. The host supplies `runCode` (the active editor's
-// execution hook, registered via aiPanelStore) so execution reuses that
-// editor's own runtime (Pyodide for Python code mode, IR interpreter
-// elsewhere). `onClose` lets the overlay dismiss itself.
+// toggled from the shared top bar. The host supplies `runCode` (the active
+// editor's execution hook, registered via aiPanelStore) so the agent's
+// `run_code` tool reuses that editor's own runtime.
 // ==========================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,19 +27,21 @@ import { useAppStore } from '@/stores/appStore';
 import { parseCodeToIR } from '@/editor/code/parse';
 import type { AiRunResult } from '@/stores/aiPanelStore';
 import {
-  askAssistant,
   adviseOnRunError,
   getAssistantMode,
   getProviderConfig,
   isOnlineAuthorized,
   isOnlineConfigured,
+  isOperateAuthorized,
   setAssistantMode,
   setOnlineAuthorized,
+  setOperateAuthorized,
   setProviderConfig,
   type AiProviderConfig,
   type AssistantMode,
 } from '@/core/ai/provider';
 import { matchIntent, synthesizeCode, type IntentKind, type IntentSlots } from '@/core/ai/intents';
+import { availableTools, runAgentChat, type AgentToolCallLog } from '@/core/ai/chat';
 
 export interface AiAssistantPanelProps {
   /** Host editor's insert-and-run hook (Pyodide / IR interpreter). */
@@ -51,10 +57,62 @@ interface ChatMessage {
   code?: string;
   /** Subtle transparency note (e.g. "answered via the offline engine"). */
   note?: string;
+  /** Tool calls this assistant turn performed (agent turns only). */
+  calls?: AgentToolCallLog[];
 }
 
-export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
-  const t = useT();
+/**
+ * One tool call, rendered as a compact, collapsible activity line: the tool
+ * name is the headline, the arguments and result sit behind a details/summary
+ * so a long trajectory stays scannable.
+ */
+function ToolCallList({
+  calls,
+  label,
+  live = false,
+}: {
+  calls: AgentToolCallLog[];
+  label: string;
+  live?: boolean;
+}) {
+  return (
+    <div className={`ai-tools${live ? ' is-live' : ''}`}>
+      <div className="ai-tools-label">{label}</div>
+      {calls.map((c, i) => (
+        <details key={i} className={`ai-tool${c.isError ? ' is-error' : ''}`}>
+          <summary className="ai-tool-summary">
+            <span className="ai-tool-name">{c.name}</span>
+            {c.hasImage && <span className="ai-tool-badge">PNG</span>}
+            {c.isError && <span className="ai-tool-badge ai-tool-badge-error">ERR</span>}
+            <span className="ai-tool-args">{summarizeArgs(c.args)}</span>
+          </summary>
+          <pre className="ai-tool-body">{c.summary}</pre>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+/** One-line preview of a tool's arguments (values truncated per key). */
+function summarizeArgs(args: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(args)) {
+    if (value === undefined || value === null) continue;
+    const rendered =
+      typeof value === 'string'
+        ? value.replace(/\s+/g, ' ').slice(0, 40)
+        : typeof value === 'object'
+          ? Array.isArray(value)
+            ? `[${value.length}]`
+            : '{…}'
+          : String(value);
+    parts.push(`${key}=${rendered}`);
+    if (parts.join(', ').length > 60) break;
+  }
+  return parts.join(', ');
+}
+
+export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {  const t = useT();
   const { locale } = useLocale();
 
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -65,14 +123,22 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
   const [mode, setMode] = useState<AssistantMode>(() => getAssistantMode());
   const [authorized, setAuthorized] = useState<boolean>(() => isOnlineAuthorized());
   const [configured, setConfigured] = useState<boolean>(() => isOnlineConfigured());
+  const [operate, setOperate] = useState<boolean>(() => isOperateAuthorized());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [form, setForm] = useState<AiProviderConfig>(() => getProviderConfig());
+  /** Tool calls of the in-flight agent turn (live activity list). */
+  const [liveCalls, setLiveCalls] = useState<AgentToolCallLog[]>([]);
+  /** Transient notice from the in-flight turn (step cap, error). */
+  const [liveNote, setLiveNote] = useState<string | null>(null);
   const lastRequestRef = useRef<{ prompt: string; kind: IntentKind; slots: IntentSlots } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  /** True when the next turn will be answered by the agent (not the rule engine). */
+  const agentReady = mode === 'online' && authorized && configured;
+
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [history, advice]);
+  }, [history, advice, liveCalls]);
 
   const notify = (kind: 'info' | 'success' | 'warning' | 'error', message: string) => {
     useAppStore.getState().notify(kind, message);
@@ -83,37 +149,58 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
     if (!text || busy) return;
     setBusy(true);
     setAdvice(null);
+    setLiveCalls([]);
     setHistory((h) => [...h, { role: 'user', text }]);
     setPrompt('');
     try {
-      const reply = await askAssistant({ prompt: text, locale, history: history.map((m) => m.text) });
-      // Hoist the narrowed values to locals: TS property narrowing does not
-      // survive into the setHistory closure below (strict mode).
-      const intent = reply.intent;
-      const code = reply.code;
-      if (reply.text) {
-        // Online model answered in natural language.
+      // Live tool-call feedback: an agent turn can take a while (several model
+      // round-trips, each running app tools), so the activity list grows as
+      // tools run instead of the whole thing appearing at the end.
+      const reply = await runAgentChat({
+        prompt: text,
+        locale,
+        history: history.map((m) => m.text),
+        onEvent: (event) => {
+          if (event.type === 'tool-call') setLiveCalls((prev) => [...prev, event.call]);
+          else if (event.type === 'notice' || event.type === 'error') setLiveNote(event.text);
+        },
+      });
+      if (reply.via === 'agent') {
         lastRequestRef.current = null;
-        setHistory((h) => [...h, { role: 'assistant', text: reply.text as string, note: reply.note ?? undefined }]);
-      } else if (code && intent) {
-        lastRequestRef.current = { prompt: text, kind: intent.kind, slots: intent.slots };
         setHistory((h) => [
           ...h,
           {
             role: 'assistant',
-            text: t('ai.generated', { kind: t(`ai.intent.${intent.kind}`) }),
-            confidence: intent.confidence,
-            code,
+            text: reply.text || reply.note || '',
+            calls: reply.calls,
+            ...(reply.note ? { note: reply.note } : {}),
+          },
+        ]);
+      } else if (reply.code) {
+        const intent = matchIntent(text, locale);
+        if (intent) lastRequestRef.current = { prompt: text, kind: intent.kind, slots: intent.slots };
+        setHistory((h) => [
+          ...h,
+          {
+            role: 'assistant',
+            text: t('ai.generated', { kind: t(`ai.intent.${intent?.kind ?? 'correlation'}`) }),
+            confidence: intent?.confidence,
+            code: reply.code ?? undefined,
             note: reply.note ?? undefined,
           },
         ]);
-        setDraft(code);
+        setDraft(reply.code);
       } else {
         lastRequestRef.current = null;
-        setHistory((h) => [...h, { role: 'assistant', text: reply.note ?? t('ai.no_match') }]);
+        setHistory((h) => [
+          ...h,
+          { role: 'assistant', text: reply.text || reply.note || t('ai.no_match'), note: reply.note ?? undefined },
+        ]);
       }
     } finally {
       setBusy(false);
+      setLiveCalls([]);
+      setLiveNote(null);
     }
   }, [prompt, busy, locale, history, t]);
 
@@ -190,6 +277,11 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
     setMode(getAssistantMode());
   }, [authorized]);
 
+  const toggleOperate = useCallback((value: boolean) => {
+    setOperateAuthorized(value);
+    setOperate(value);
+  }, []);
+
   const saveConfig = useCallback(() => {
     const endpoint = form.endpoint.trim();
     if (!endpoint) {
@@ -257,6 +349,21 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
               <span>{t('ai.authorize_online')}</span>
             </label>
 
+            <label className="ai-policy-row">
+              <input
+                type="checkbox"
+                checked={operate}
+                onChange={(e) => toggleOperate(e.target.checked)}
+                disabled={!authorized}
+              />
+              <span>{t('ai.authorize_operate')}</span>
+            </label>
+            {operate && agentReady && (
+              <p className="ai-policy-note ai-policy-tools">
+                {t('ai.tools_available', { n: availableTools().length })}
+              </p>
+            )}
+
             <div className="ai-service">
               <button
                 type="button"
@@ -315,6 +422,15 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
                       onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
                     />
                   </label>
+                  <label className="ai-policy-row">
+                    <input
+                      type="checkbox"
+                      checked={form.vision === true}
+                      onChange={(e) => setForm((f) => ({ ...f, vision: e.target.checked }))}
+                    />
+                    <span>{t('ai.vision_model')}</span>
+                  </label>
+                  <p className="ai-policy-note">{t('ai.vision_hint')}</p>
                   <p className="ai-policy-note">{t('ai.key_hint')}</p>
                   <button type="button" className="btn btn-sm btn-primary" onClick={saveConfig}>
                     {t('ai.save_config')}
@@ -334,12 +450,21 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
         {history.map((m, i) => (
           <div key={i} className={`ai-msg ai-msg-${m.role}`}>
             <div className="ai-msg-text">{m.text}</div>
+            {m.role === 'assistant' && m.calls && m.calls.length > 0 && (
+              <ToolCallList calls={m.calls} label={t('ai.tools_used')} />
+            )}
             {m.role === 'assistant' && m.confidence !== undefined && (
               <div className="ai-msg-meta">{t('ai.confidence', { n: Math.round(m.confidence * 100) })}</div>
             )}
             {m.role === 'assistant' && m.note && <div className="ai-msg-meta ai-msg-note">{m.note}</div>}
           </div>
         ))}
+        {busy && liveCalls.length > 0 && (
+          <div className="ai-msg ai-msg-assistant ai-msg-live">
+            <ToolCallList calls={liveCalls} label={t('ai.tools_running')} live />
+          </div>
+        )}
+        {busy && liveNote && <div className="ai-msg-meta ai-msg-note">{liveNote}</div>}
       </div>
 
       {draft !== null && (
@@ -384,8 +509,7 @@ export function AiAssistantPanel({ runCode, onClose }: AiAssistantPanelProps) {
       <div className="ai-panel-input">
         <input
           type="text"
-          className="input"
-          value={prompt}
+          className="input"          value={prompt}
           placeholder={t('ai.placeholder')}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {

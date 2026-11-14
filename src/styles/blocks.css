@@ -2008,3 +2008,120 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ---- agent tool trajectory -------------------------------------------------
+   Each tool call is a one-line summary that expands to its result. Kept
+   visually quieter than assistant prose: the trajectory is evidence, not the
+   answer, and a long turn may hold a dozen of these. */
+
+.ai-tools {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-tools-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-tertiary);
+}
+
+.ai-tools.is-live .ai-tools-label::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--color-accent, #38bdf8);
+  animation: ai-tool-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ai-tool-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.ai-tool {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-primary);
+  font-size: 11px;
+}
+
+.ai-tool.is-error {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.ai-tool-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 7px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+}
+
+.ai-tool-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-tool-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.ai-tool-args {
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ai-tool-badge {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.06em;
+}
+
+.ai-tool-badge-error {
+  background: rgba(239, 68, 68, 0.16);
+  color: #ef4444;
+}
+
+.ai-tool-body {
+  margin: 0;
+  padding: 6px 7px;
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.ai-msg-live {
+  opacity: 0.85;
+}
+
+.ai-policy-tools {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
