@@ -16,12 +16,14 @@
 
 import type { Locale } from '@/i18n/types';
 import { matchIntent, synthesizeCode, suggestFix, type IntentMatch } from './intents';
+import { parseChatResponse, type ChatRequestOptions, type ChatResponse } from './protocol';
 
 export type AssistantMode = 'offline' | 'online';
 
 const AUTH_KEY = 'ergalics:ai-online-authorized';
 const MODE_KEY = 'ergalics:ai-mode';
 const PROVIDER_KEY = 'ergalics:ai-provider';
+const OPERATE_KEY = 'ergalics:ai-operate-authorized';
 
 /** Connection settings for an OpenAI-compatible chat completions endpoint. */
 export interface AiProviderConfig {
@@ -31,9 +33,15 @@ export interface AiProviderConfig {
   model: string;
   /** Bearer token; empty for local proxies that need no auth. */
   apiKey: string;
+  /**
+   * Whether the model accepts image inputs (GLM-4.6V, GPT-4o, Qwen-VL…).
+   * When false the agent never attaches viewport screenshots: sending an
+   * image to a text-only model is a hard 400 on most services.
+   */
+  vision?: boolean;
 }
 
-export const EMPTY_PROVIDER_CONFIG: AiProviderConfig = { endpoint: '', model: '', apiKey: '' };
+export const EMPTY_PROVIDER_CONFIG: AiProviderConfig = { endpoint: '', model: '', apiKey: '', vision: false };
 
 export interface AssistantRequest {
   /** Natural-language user prompt (stays local unless online + authorized). */
@@ -95,6 +103,7 @@ export function getProviderConfig(): AiProviderConfig {
       endpoint: typeof p.endpoint === 'string' ? p.endpoint : '',
       model: typeof p.model === 'string' ? p.model : '',
       apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
+      vision: p.vision === true,
     };
   } catch {
     return { ...EMPTY_PROVIDER_CONFIG };
@@ -109,6 +118,7 @@ export function setProviderConfig(config: AiProviderConfig): void {
         endpoint: (config.endpoint ?? '').trim(),
         model: (config.model ?? '').trim(),
         apiKey: config.apiKey ?? '',
+        vision: config.vision === true,
       }),
     );
   } catch {
@@ -119,6 +129,26 @@ export function setProviderConfig(config: AiProviderConfig): void {
 /** Online is usable only when an endpoint has been configured. */
 export function isOnlineConfigured(): boolean {
   return getProviderConfig().endpoint.trim() !== '';
+}
+
+/**
+ * Whether the user lets the assistant *operate* the app (set parameters,
+ * press buttons, run code). Separate from the online authorization: a user may
+ * happily ask a local model to drive the UI without sending prompts out, and
+ * may authorize online chat while keeping the app read-only. Defaults to false
+ * — an assistant that can change a running experiment must be opted into.
+ */
+export function isOperateAuthorized(): boolean {
+  return readFlag(OPERATE_KEY);
+}
+
+export function setOperateAuthorized(authorized: boolean): void {
+  writeFlag(OPERATE_KEY, authorized);
+}
+
+/** Whether the configured model accepts image input (viewport screenshots). */
+export function isVisionEnabled(): boolean {
+  return getProviderConfig().vision === true;
 }
 
 function writeMode(mode: AssistantMode): void {
@@ -147,49 +177,79 @@ export function setAssistantMode(mode: AssistantMode): void {
   writeMode(mode === 'online' && isOnlineAuthorized() ? 'online' : 'offline');
 }
 
-/** Build the OpenAI-compatible message list from the prompt + history. */
-function buildMessages(request: AssistantRequest): Array<{ role: string; content: string }> {
-  const system =
-    request.locale === 'zh-CN'
-      ? '你是 Ergalics Studio 的科学计算分析助手。请用简洁中文回答数据分析问题；涉及代码时使用 studio.* API。'
-      : 'You are the Ergalics Studio scientific-computing analysis assistant. Answer data-analysis questions concisely; use studio.* APIs for code.';
-  const history = (request.history ?? []).slice(-8).map((h) => ({ role: 'user', content: h }));
-  // History is best-effort context; interleave as user turns (assistant turns
-  // are not retained as text in offline mode, so we only send user prompts).
-  return [{ role: 'system', content: system }, ...history, { role: 'user', content: request.prompt }];
+/**
+ * Single transport for every online call — the plain-text assistant path and
+ * the agent loop both go through here so headers, timeouts and error shapes
+ * stay identical. Returns the parsed response (text + tool calls).
+ *
+ * Callers must check `getAssistantMode()` (which enforces authorization) and
+ * `isOnlineConfigured()` before invoking this.
+ */
+export async function chatCompletion(
+  config: AiProviderConfig,
+  options: ChatRequestOptions,
+): Promise<ChatResponse> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (config.apiKey.trim()) headers.authorization = `Bearer ${config.apiKey.trim()}`;
+  const body: Record<string, unknown> = {
+    model: options.model.trim() || config.model.trim() || 'gpt-4o-mini',
+    messages: options.messages,
+    temperature: options.temperature ?? 0.2,
+  };
+  if (options.tools && options.tools.length > 0) {
+    body.tools = options.tools;
+    body.tool_choice = 'auto';
+  }
+  if (options.maxTokens) body.max_tokens = options.maxTokens;
+  const res = await fetch(config.endpoint.trim(), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    // Surface a server-provided message when there is one: "HTTP 400" alone
+    // leaves the user unable to tell a bad model name from a missing vision
+    // capability.
+    let detail = '';
+    try {
+      const errBody: unknown = await res.json();
+      const msg =
+        errBody && typeof errBody === 'object'
+          ? (errBody as { error?: { message?: unknown }; message?: unknown }).error?.message ??
+            (errBody as { message?: unknown }).message
+          : undefined;
+      if (typeof msg === 'string' && msg) detail = `: ${msg.slice(0, 300)}`;
+    } catch {
+      /* non-JSON error body — keep the status code only */
+    }
+    throw new Error(`HTTP ${res.status}${detail}`);
+  }
+  const data: unknown = await res.json();
+  return parseChatResponse(data);
 }
 
 /**
- * Online transport — posts the prompt to an OpenAI-compatible chat
- * completions endpoint and returns the model's text reply. Callers must check
- * `getAssistantMode()` (which enforces authorization) and `isOnlineConfigured()`
- * before invoking this.
+ * Plain-text convenience wrapper used by the non-agentic path. Kept as a
+ * separate export because existing callers (and tests) speak in strings.
  */
 export async function queryOnlineService(
   config: AiProviderConfig,
   request: AssistantRequest,
   opts: { signal?: AbortSignal } = {},
 ): Promise<string> {
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (config.apiKey.trim()) headers.authorization = `Bearer ${config.apiKey.trim()}`;
-  const res = await fetch(config.endpoint.trim(), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: config.model.trim() || 'gpt-4o-mini',
-      messages: buildMessages(request),
-      temperature: 0.2,
-    }),
+  const system =
+    request.locale === 'zh-CN'
+      ? '你是 Ergalics Studio 的科学计算分析助手。请用简洁中文回答数据分析问题；涉及代码时使用 studio.* API。'
+      : 'You are the Ergalics Studio scientific-computing analysis assistant. Answer data-analysis questions concisely; use studio.* APIs for code.';
+  const history = (request.history ?? []).slice(-8).map((h) => ({ role: 'user' as const, content: h }));
+  const reply = await chatCompletion(config, {
+    model: config.model,
+    messages: [{ role: 'system', content: system }, ...history, { role: 'user', content: request.prompt }],
     signal: opts.signal,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data: unknown = await res.json();
-  const content =
-    data && typeof data === 'object'
-      ? (data as { choices?: Array<{ message?: { content?: unknown } }> }).choices?.[0]?.message?.content
-      : undefined;
-  if (typeof content !== 'string') throw new Error('响应缺少 choices[0].message.content');
-  return content;
+  if (!reply.text) throw new Error('响应缺少 choices[0].message.content');
+  return reply.text;
 }
 
 /** Run the request through the active provider. */

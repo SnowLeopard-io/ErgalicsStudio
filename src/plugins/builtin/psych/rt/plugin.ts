@@ -2,9 +2,10 @@
 // psych-rt — in-browser simple reaction-time experiment & statistics
 //
 // "Run" starts a session: a fixation prompt appears and, after a uniform
-// foreperiod (1.5–4 s by default), the circle turns green — press Space as
-// fast as possible. Pressing before green voids the trial (false start) but
-// consumes the slot, so sessions always terminate. In two-condition mode
+// foreperiod (1.5–4 s by default), the circle turns green — press Space or
+// tap/click the viewport as fast as possible. Responding before green voids
+// the trial (false start) but consumes the slot, so sessions always
+// terminate. In two-condition mode
 // trials alternate A/B so Welch's t test has something to compare. Results:
 // sequence dot plot, histogram with normal overlay, box plots, full
 // descriptives with exact 95% t CIs, Welch t + Cohen's d. The statistical
@@ -75,6 +76,9 @@ export class RtPlugin implements Plugin {
   private goAt = 0;
   private timers: number[] = [];
   private listening = false;
+  /** DOM layer that receives the tap/click response (the shared canvas2d is
+   * pointer-events:none, so responses bind to container.dom instead). */
+  private pointerHost: HTMLDivElement | null = null;
 
   async init(api: PluginApi) {
     this.api = api;
@@ -278,16 +282,14 @@ export class RtPlugin implements Plugin {
     this.totalTrials = this.trialCount * (this.mode === 'two' ? 2 : 1);
     this.listening = true;
     window.addEventListener('keydown', this.onKeyDown);
+    this.bindPointer();
     this.nextTrial();
     this.draw();
   }
 
   private stopSession(interactive: boolean) {
     this.clearTimers();
-    if (this.listening) {
-      window.removeEventListener('keydown', this.onKeyDown);
-      this.listening = false;
-    }
+    this.unbindListeners();
     const wasRunning = this.phase !== 'idle';
     this.phase = 'idle';
     if (interactive && wasRunning) {
@@ -298,10 +300,7 @@ export class RtPlugin implements Plugin {
 
   private finishSession() {
     this.clearTimers();
-    if (this.listening) {
-      window.removeEventListener('keydown', this.onKeyDown);
-      this.listening = false;
-    }
+    this.unbindListeners();
     this.phase = 'idle';
     const total = this.recordedTotal();
     notify(
@@ -311,6 +310,56 @@ export class RtPlugin implements Plugin {
       `实验完成：${total} 个有效 RT，${this.falseStarts} 次抢按作废。`,
     );
     this.draw();
+  }
+
+  private unbindListeners() {
+    if (this.listening) {
+      window.removeEventListener('keydown', this.onKeyDown);
+      this.listening = false;
+    }
+    this.unbindPointer();
+  }
+
+  /** Attach the click/tap response to the DOM layer above the display canvas.
+   * The shared canvas2d is pointer-events:none (host pan/zoom owns it), so a
+   * click has to land on container.dom to count as a response. */
+  private bindPointer() {
+    const dom = this.ctx?.dom;
+    if (!dom || this.pointerHost === dom) return;
+    this.unbindPointer();
+    this.pointerHost = dom;
+    dom.addEventListener('pointerdown', this.onPointerDown);
+  }
+
+  private unbindPointer() {
+    this.pointerHost?.removeEventListener('pointerdown', this.onPointerDown);
+    this.pointerHost = null;
+  }
+
+  /** One response (Space or tap/click), whichever arrives first. */
+  private respond() {
+    if (!this.listening) return;
+    if (this.phase === 'wait') {
+      // False start: void the trial but consume the slot so the session ends.
+      this.clearTimers();
+      this.falseStarts += 1;
+      this.phase = 'blank';
+      this.pushTimer(window.setTimeout(() => {
+        if (this.phase === 'blank') this.nextTrial();
+      }, 900));
+      this.draw();
+    } else if (this.phase === 'go') {
+      const rt = performance.now() - this.goAt;
+      const list = this.trials.get(this.currentCondition) ?? [];
+      list.push(rt);
+      this.trials.set(this.currentCondition, list);
+      this.sequence.push({ cond: this.currentCondition, rt });
+      this.phase = 'blank';
+      this.pushTimer(window.setTimeout(() => {
+        if (this.phase === 'blank') this.nextTrial();
+      }, 650));
+      this.draw();
+    }
   }
 
   private clearData() {
@@ -344,27 +393,23 @@ export class RtPlugin implements Plugin {
   private readonly onKeyDown = (e: KeyboardEvent) => {
     if (e.code !== 'Space' || !this.listening) return;
     e.preventDefault();
-    if (this.phase === 'wait') {
-      // False start: void the trial but consume the slot so the session ends.
-      this.clearTimers();
-      this.falseStarts += 1;
-      this.phase = 'blank';
-      this.pushTimer(window.setTimeout(() => {
-        if (this.phase === 'blank') this.nextTrial();
-      }, 900));
-      this.draw();
-    } else if (this.phase === 'go') {
-      const rt = performance.now() - this.goAt;
-      const list = this.trials.get(this.currentCondition) ?? [];
-      list.push(rt);
-      this.trials.set(this.currentCondition, list);
-      this.sequence.push({ cond: this.currentCondition, rt });
-      this.phase = 'blank';
-      this.pushTimer(window.setTimeout(() => {
-        if (this.phase === 'blank') this.nextTrial();
-      }, 650));
-      this.draw();
+    this.respond();
+  };
+
+  private readonly onPointerDown = (e: PointerEvent) => {
+    if (!this.listening) return;
+    // The shared DOM layer outlives this plugin: if another plugin is active
+    // the host resolves container.canvas2d to undefined (see createContext),
+    // and a click in that viewport must never count as an RT response.
+    if (!this.ctx?.canvas2d) return;
+    // Only the primary button / primary touch counts as a response.
+    if (e.button !== 0 || !e.isPrimary) return;
+    if (this.phase === 'wait' || this.phase === 'go') {
+      // The running trial owns the viewport: a responding click must not also
+      // start the host's 2D pan (the host listens on the wrapper above us).
+      e.stopPropagation();
     }
+    this.respond();
   };
 
   // ---- scientific outputs --------------------------------------------------------
@@ -564,6 +609,9 @@ export class RtPlugin implements Plugin {
     canvas.height = canvas.clientHeight || 420;
     const g = canvas.getContext('2d');
     if (!g) return;
+    // The host may hand over a new DOM layer between draws (block-mode toggle,
+    // remount); keep the click response on whichever layer is live now.
+    if (this.listening) this.bindPointer();
     g.fillStyle = getComputedStyle(canvas).backgroundColor || '#0a0e13';
     g.fillRect(0, 0, canvas.width, canvas.height);
     if (this.phase !== 'idle') this.drawPrompt(g, canvas);
@@ -585,7 +633,7 @@ export class RtPlugin implements Plugin {
       g.fill();
       g.fillStyle = 'rgba(230,238,248,0.95)';
       g.font = FONT(zh, 16);
-      g.fillText(zh ? '等待变绿……（提前按 = 作废）' : 'Wait for green… (early press voids the trial)', cx, cy + r + 40);
+      g.fillText(zh ? '等待变绿……（提前按空格/点击 = 作废）' : 'Wait for green… (early Space/click voids the trial)', cx, cy + r + 40);
     } else if (this.phase === 'go') {
       g.fillStyle = 'rgba(110,220,140,0.95)';
       g.beginPath();
@@ -595,7 +643,7 @@ export class RtPlugin implements Plugin {
       g.font = FONT(zh, 20);
       g.fillText('GO!', cx, cy + 7);
       g.fillStyle = 'rgba(230,238,248,0.95)';
-      g.fillText(zh ? '按空格！' : 'Press SPACE!', cx, cy + r + 40);
+      g.fillText(zh ? '按空格或点击！' : 'Press SPACE or click!', cx, cy + r + 40);
     } else {
       g.fillStyle = 'rgba(150,165,185,0.9)';
       g.font = FONT(zh, 14);
@@ -627,12 +675,12 @@ export class RtPlugin implements Plugin {
     g.fillStyle = 'rgba(170,182,200,0.95)';
     g.font = FONT(zh, 12);
     g.fillText(
-      zh ? '点击「开始实验」后注视圆点，圆点变绿的瞬间按空格键' : 'Click "Run experiment", fixate the dot, press Space the moment it turns green',
+      zh ? '点击「开始实验」后注视圆点，圆点变绿的瞬间按空格键或点击画面' : 'Click "Run experiment", fixate the dot, then press Space or tap the viewport the moment it turns green',
       cx,
       cy - 16,
     );
     g.fillText(
-      zh ? '变绿前按键记为抢按（试次作废）；统计自动给出 95% CI、Welch t 检验与离群筛查' : 'Pressing before green voids the trial; results include 95% CIs, Welch t and the outlier screen',
+      zh ? '变绿前反应记为抢按（试次作废）；统计自动给出 95% CI、Welch t 检验与离群筛查' : 'Responding before green voids the trial; results include 95% CIs, Welch t and the outlier screen',
       cx,
       cy + 8,
     );
