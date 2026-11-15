@@ -17,7 +17,7 @@
 <p>
 <a href="https://github.com/SnowLeopard-io/ErgalicsStudio/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SnowLeopard-io/ErgalicsStudio/ci.yml?style=flat-square&label=CI" /></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1f2937?style=flat-square" /></a>
-<img alt="Tests" src="https://img.shields.io/badge/Tests-4062%2B%20passing-1f2937?style=flat-square" />
+<img alt="Tests" src="https://img.shields.io/badge/Tests-4076%2B%20passing-1f2937?style=flat-square" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7%20strict-1f2937?style=flat-square" />
 </p>
 
@@ -86,7 +86,7 @@ What ships today:
 
 | Area              | Shipped today |
 | ----------------- | ------------- |
-| Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
+| Workbench         | 4 modes, workbench file explorer (workspace search / Git status badges / drag-in import) + tabbed central area + multi-session terminal + per-file editors (Code / Flow / Block), **165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups**, sandboxed plugin system + marketplace catalog, `.cspkg` signing gate |
 | Compute           | Live WebGPU compute (14 reusable WGSL kernels), in-browser AI training plugin, AI assistant (offline rule engine / online OpenAI-compatible service) |
 | Data & plots      | Scientific binary I/O (HDF5 / NetCDF / FITS / Zarr / Parquet), publication-grade SVG/PDF plot engine, statistics subsystem, reproducibility support, 189 sample datasets + 11 sample projects |
 | Code editing      | Python via Pyodide (scientific packages auto-installed on import); R and JavaScript via the shared IR engine, with R upgraded to a full free-form webR runtime when vendored; three-language round-trip fixed by tests |
@@ -164,7 +164,7 @@ Production builds output to `dist/`.
 
 | Capability | Details |
 | --- | --- |
-| **163 built-in plugins** | (153 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
+| **165 built-in plugins** | (155 scientific auto-load + 10 fun manual) over the full API surface; two-tier loading, grouped into **19 disciplines** in the sidebar (charts / mathematics & statistics / physics / chem / bio / med / geo / env / astro / materials / engineering / econ / psych / social science / data / computer science / fx / music & art science / fun). |
 | Marketplace catalog | `src/plugins/marketplace.ts` (curated tags, popularity, category filters). |
 | `.cspkg` package loading | Manifest validation + **Worker-first isolation** (§sandbox): third-party entries run via a postMessage RPC bridge and transferred `OffscreenCanvas`; fallback is a restricted `new Function` scope (not a security sandbox). Both are gated by Ed25519 signature verification (FR-05, see `SECURITY.md`). |
 | Locale-aware parameter panels | Per-plugin CSV export buttons, analysis overlays (trendlines, density/cumulative histograms, mean markers, jitter, bar ordering), and a **Send to Figure Studio** action on all research-grade plugins. |
@@ -257,7 +257,7 @@ flowchart TB
     end
 
     subgraph Runtime["Runtime layer"]
-        C1["Plugin runtime<br/>builtin/* (153 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
+        C1["Plugin runtime<br/>builtin/* (155 scientific + 10 fun)<br/>marketplace catalog<br/>cspkg loader (sandbox)<br/>registry & lifecycle"]
         C2["GPU compute<br/>gpu.ts adapter/device<br/>compute.ts PluginApi.gpu<br/>14 WGSL kernels (wgsl.ts)<br/>CPU fallback"]
     end
 
@@ -308,7 +308,7 @@ flowchart TB
 │   │                         #     settings, share, plugin view, and the research tools
 │   │                         #     (single registry: src/pages/research/toolRegistry.ts —
 │   │                         #     measure · model · data · signal · deliver · publish · utils)
-│   ├── plugins/builtin/      #   163 plugins: 153 scientific auto-load + 10 fun (2D + 3D)
+│   ├── plugins/builtin/      #   165 plugins: 155 scientific auto-load + 10 fun (2D + 3D)
 │   ├── plugins/marketplace.ts#   marketplace catalog
 │   ├── stores/               #   zustand stores
 │   ├── types/                #   plugin & project & editor contracts
@@ -503,7 +503,7 @@ roadmap: the file-level diff viewer and the conflict wizard.
 
 ### Built-in plugins
 
-**153 scientific plugins** auto-load at startup, grouped into **19
+**155 scientific plugins** auto-load at startup, grouped into **19
 disciplines** in the sidebar. One table per discipline — names are the
 manifest `nameI18n` values (zh-CN / en-US):
 
@@ -534,7 +534,7 @@ manifest `nameI18n` values (zh-CN / en-US):
 | QQ Plot | QQ 图（正态检验） | Sample quantiles vs standard-normal quantiles for normality checks. |
 | Error Band | 误差带图 | Line chart with a shaded confidence/error band. |
 
-**Mathematics & Statistics (19)**
+**Mathematics & Statistics (20)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -557,8 +557,9 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Survival Analysis | 生存分析 | Kaplan–Meier curves with Greenwood variance and log-log bands, the k-sample log-rank test, and Cox proportional hazards (Breslow ties, Newton–Raphson) with hazard ratios and Harrell's C. |
 | Meta-Analysis | 元分析 | Inverse-variance fixed-effect pooling, DerSimonian–Laird random effects, Cochran Q, I², τ², forest / funnel data, Egger regression, trim-and-fill and subgroup pooling. |
 | Bayesian Inference | 贝叶斯推断 | Random-walk Metropolis–Hastings, conjugate Gibbs and Hamiltonian Monte Carlo, posterior predictive checks, Savage–Dickey Bayes factors, hierarchical random intercepts and R̂ / ESS diagnostics. |
+| Conformal Prediction | 共形预测 | Split-conformal regression with absolute or locally normalised scores: the exact ⌈(n+1)(1−α)⌉ order statistic, finite-sample coverage vs a Gaussian ±z·σ̂ baseline, and low/high-x tercile coverage under heteroscedastic / skewed noise. |
 
-**Physics (16)**
+**Physics (17)**
 
 | Plugin | 中文名 | Focus |
 | --- | --- | --- |
@@ -578,6 +579,7 @@ manifest `nameI18n` values (zh-CN / en-US):
 | Diffusion Equation Lab | 热传导 / 扩散方程实验室 | FTCS explicit and Crank–Nicolson stepping with a stability gate and Dirichlet / Neumann boundaries. |
 | Diffraction Lab | 衍射实验室 | Numerical Fresnel–Kirchhoff diffraction integral for single- and multi-slit patterns. |
 | Trajectory Kinematics Lab | 轨迹运动学与能量分解实验室 | Trajectory tables → differentiated velocities, KE/PE decomposition and a least-squares projectile fit. |
+| Physics-Informed Neural Network | 物理信息神经网络 (PINN) | Trains a tanh MLP directly on the PDE residual (heat / viscous Burgers) with fourth-order finite-difference stencils, soft IC/BC constraints, inverse diffusivity discovery from 16 interior sensors, and analytic / FD reference comparisons. |
 
 **Chemistry (5)**
 
@@ -1367,7 +1369,7 @@ Highlights (full status in [`docs/guide/roadmap.md`](docs/guide/roadmap.md)):
 - [x] Workbench layout, project management, file routing; four modes
 - [x] Workbench file explorer + tabbed central area + per-file editors (`.py` / `*.flow.json` / `*.block.json`), central export menu, workspace artifacts
 - [x] Multi-session terminal (Python REPL + shell-style workspace commands), workspace search, Git status badges, drag-in file import & canvas drop-to-disk `data/`, session restore (last-opened project)
-- [x] 163 built-in plugins (153 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
+- [x] 165 built-in plugins (155 scientific auto-load + 10 fun manual) across 19 discipline groups, cspkg loading, Worker sandbox, Ed25519 signing gate (FR-05)
 - [x] Per-plugin CSV export buttons + analysis overlays; central canvas export menu (PNG / transparent PNG, save to workspace); marketplace catalog
 - [x] WebGPU device management + 14 reusable WGSL kernels (particles / N-Body / LBM / wave / FFT / k-means / …)
 - [x] Geography suite (IDW + kriging + LOOCV + Moran's I, watershed triple, FAO-56, …), all with Send to Figure Studio
