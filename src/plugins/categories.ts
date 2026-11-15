@@ -217,6 +217,7 @@ const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.stats-survival': 'math',
   'example.stats-meta': 'math',
   'example.stats-bayes': 'math',
+  'example.stats-conformal': 'math',
 
   // Economics & psychology (research-grade kernels)
   'example.econ-blackscholes': 'econ',

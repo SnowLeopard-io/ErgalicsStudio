@@ -143,6 +143,7 @@ import { statsNonparametricManifest } from './stats/nonparametric/manifest';
 import { statsSurvivalManifest } from './stats/survival/manifest';
 import { statsMetaManifest } from './stats/meta/manifest';
 import { statsBayesManifest } from './stats/bayes/manifest';
+import { statsConformalManifest } from './stats/conformal/manifest';
 import { blackscholesManifest } from './econ/blackscholes/manifest';
 import { evogameManifest } from './econ/evogame/manifest';
 import { sdtManifest } from './psych/sdt/manifest';
@@ -969,6 +970,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: statsBayesManifest,
     load: async () => {
       const mod = await import('./stats/bayes');
+      return mod.default();
+    },
+  },
+  {
+    manifest: statsConformalManifest,
+    load: async () => {
+      const mod = await import('./stats/conformal/plugin');
       return mod.default();
     },
   },
