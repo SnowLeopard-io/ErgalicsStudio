@@ -1655,8 +1655,8 @@ async function buildDoc(browser, page, base, opts = {}) {
   await page.goto('about:blank');
   await page.addStyleTag({ content: CSS });
 
-  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${base}.md`);
-  const mdPath = !PRODUCT_DOCS[base] && existsSync(localized)
+  const localized = path.join(ROOT, 'docs', 'zh-CN', PRODUCT_DOCS[base] ? 'product' : 'technical', `${base}.md`);
+  const mdPath = existsSync(localized)
     ? localized
     : path.join(docDir(base), `${base}.md`);
   // HTML is still written in its original directory, so resolve image links

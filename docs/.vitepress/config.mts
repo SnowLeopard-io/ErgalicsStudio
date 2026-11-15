@@ -123,7 +123,7 @@ export default defineConfig({
           {
             text: '求解器专题', collapsible: true,
             items: [
-              { text: '电磁谐振特征值求解器', link: '/technical/09-电磁谐振特征值求解器' },
+              { text: '电磁谐振特征值求解器', link: '/zh-CN/technical/09-电磁谐振特征值求解器' },
               { text: '流体双向耦合求解器', link: '/zh-CN/technical/10-流体双向耦合求解器' },
             ],
           },
@@ -195,7 +195,7 @@ export default defineConfig({
         text: 'Solver 独立专题',
         collapsible: true,
         items: [
-          { text: '电磁谐振特征值求解器', link: '/technical/09-电磁谐振特征值求解器' },
+          { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-电磁谐振特征值求解器' },
           { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-流体双向耦合求解器' },
         ],
       },
