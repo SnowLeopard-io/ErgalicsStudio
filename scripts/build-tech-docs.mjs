@@ -1661,7 +1661,9 @@ async function buildDoc(browser, page, base, opts = {}) {
     : path.join(docDir(base), `${base}.md`);
   // HTML is still written in its original directory, so resolve image links
   // as if the Chinese source lived alongside that output.
-  const md = readFileSync(mdPath, 'utf8').replaceAll('](../../assets/', '](../assets/');
+  const md = readFileSync(mdPath, 'utf8')
+    .replaceAll('](../../assets/', '](../assets/')
+    .replace(/^\.\.\/\.\.\/assets\//gm, '../assets/');
   const meta = metaFor(base);
   const { title, blocks } = parseMarkdown(md);
   if (!title) throw new Error(`${base}: no H1 title`);

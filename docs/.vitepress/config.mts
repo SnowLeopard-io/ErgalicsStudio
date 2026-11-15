@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { researchBlocks } from './research-blocks.mjs';
 
 // Base path strategy (absolute only — a relative base breaks deep-page
 // navigation, producing nested-URL loops like /guide/guide/guide/...):
@@ -19,6 +20,9 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
+  markdown: {
+    config(md) { researchBlocks(md); },
+  },
   transformPageData(pageData) {
     const path = pageData.relativePath;
     const chinese = path.startsWith('zh-CN/');
@@ -177,7 +181,7 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Technical Docs (中文)',
+        text: 'Technical Documentation',
         collapsible: true,
         items: [
           { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
@@ -192,7 +196,7 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Solver 独立专题',
+        text: 'Solver Topics',
         collapsible: true,
         items: [
           { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-电磁谐振特征值求解器' },

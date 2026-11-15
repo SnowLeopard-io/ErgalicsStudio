@@ -59,22 +59,22 @@ Ergalics Studio 把分析全程放进一个网页标签页，对上述三类成�
 以下实例分别对应六类典型计算：GPU 渲染、蒙特卡洛模拟、偏微分方程数值解、复分析可视化、格子玻尔兹曼流体与参数化研究。画面均来自当前构建的内置插件与科研工具，加载示例数据或调整参数后即可重现；本节只描述各实例的计算内容，完整清单见第三章与第六章。
 
 ```gallery
-../assets/screenshots/plugins/nbody-3d.png|引力 N 体模拟
-../assets/screenshots/plugins/particles.png|粒子模拟
-../assets/screenshots/plugins/physics-schrodinger.png|一维量子力学求解器
-../assets/screenshots/plugins/optics-prism.png|光学实验
-../assets/screenshots/plugins/double-pendulum.png|双摆（混沌）
-../assets/screenshots/plugins/electromagnetism.png|电磁场
-../assets/screenshots/plugins/math-odefield.png|ODE 向量场与流线
-../assets/screenshots/plugins/math-fourier.png|傅里叶级数逼近
-../assets/screenshots/plugins/stats-clt.png|中心极限定理演示台
-../assets/screenshots/plugins/network.png|网络图
-../assets/screenshots/plugins/surface-3d.png|3D 表面图
-../assets/screenshots/plugins/globe-3d.png|交互地球仪
-../assets/screenshots/plugins/eng-truss.png|平面桁架有限元分析
-../assets/screenshots/plugins/bio-neuron.png|Hodgkin–Huxley 神经元
-../assets/screenshots/plugins/terrain-3d-mesh.png|DEM 地形分析
-../assets/screenshots/plugins/astro-hrdiagram.png|赫罗图
+../../assets/screenshots/plugins/nbody-3d.png|引力 N 体模拟
+../../assets/screenshots/plugins/particles.png|粒子模拟
+../../assets/screenshots/plugins/physics-schrodinger.png|一维量子力学求解器
+../../assets/screenshots/plugins/optics-prism.png|光学实验
+../../assets/screenshots/plugins/double-pendulum.png|双摆（混沌）
+../../assets/screenshots/plugins/electromagnetism.png|电磁场
+../../assets/screenshots/plugins/math-odefield.png|ODE 向量场与流线
+../../assets/screenshots/plugins/math-fourier.png|傅里叶级数逼近
+../../assets/screenshots/plugins/stats-clt.png|中心极限定理演示台
+../../assets/screenshots/plugins/network.png|网络图
+../../assets/screenshots/plugins/surface-3d.png|3D 表面图
+../../assets/screenshots/plugins/globe-3d.png|交互地球仪
+../../assets/screenshots/plugins/eng-truss.png|平面桁架有限元分析
+../../assets/screenshots/plugins/bio-neuron.png|Hodgkin–Huxley 神经元
+../../assets/screenshots/plugins/terrain-3d-mesh.png|DEM 地形分析
+../../assets/screenshots/plugins/astro-hrdiagram.png|赫罗图
 ```
 
 *插件图集：十六个学科代表插件的运行画面，全部随启动加载、示例数据一键载入。*
