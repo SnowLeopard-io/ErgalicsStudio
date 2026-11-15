@@ -1,4 +1,7 @@
 import { defineConfig } from 'vitepress';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { researchBlocks } from './research-blocks.mjs';
 
 // Base path strategy (absolute only — a relative base breaks deep-page
 // navigation, producing nested-URL loops like /guide/guide/guide/...):
@@ -13,10 +16,23 @@ const base = process.env.DOCS_BASE ?? (isDev ? '/' : '/ErgalicsStudio/');
 export default defineConfig({
   title: 'Ergalics Studio',
   description: 'Browser-based scientific computing workstation — docs',
-  lang: 'en-US',
+  lang: 'en',
   base,
   cleanUrls: true,
   lastUpdated: true,
+  markdown: {
+    config(md) { researchBlocks(md); },
+  },
+  transformPageData(pageData) {
+    const path = pageData.relativePath;
+    const chinese = path.startsWith('zh-CN/');
+    const counterpart = chinese ? path.slice('zh-CN/'.length) : `zh-CN/${path}`;
+    if (existsSync(fileURLToPath(new URL(`../${counterpart}`, import.meta.url)))) {
+      pageData.frontmatter.translationPath = '/' + counterpart
+        .replace(/(^|\/)index\.md$/, '$1')
+        .replace(/\.md$/, '');
+    }
+  },
   vite: {
     server: {
       // Fixed port so the website's docs-links and the studio's site-links
@@ -44,7 +60,84 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#0e9384' }],
     ['link', { rel: 'icon', href: `${base}ico.ico` }],
   ],
+  locales: {
+    root: { label: 'English', lang: 'en' },
+    'zh-CN': {
+      label: '简体中文',
+      lang: 'zh-CN',
+      description: '基于浏览器的科学计算工作站 — 文档',
+      themeConfig: {
+        // Untranslated pages remain available in their original language.
+        // Use locale home pages until every corresponding page exists.
+        i18nRouting: false,
+        langMenuLabel: '切换语言',
+        sidebarMenuLabel: '目录',
+        returnToTopLabel: '返回顶部',
+        darkModeSwitchLabel: '外观',
+        lightModeSwitchTitle: '切换到浅色主题',
+        darkModeSwitchTitle: '切换到深色主题',
+        skipToContentLabel: '跳转到正文',
+        outline: { level: [2, 3], label: '本页目录' },
+        docFooter: { prev: '上一篇', next: '下一篇' },
+        lastUpdated: { text: '最后更新于' },
+        nav: [
+          { text: '指南', link: '/zh-CN/guide/introduction' },
+          { text: '插件', link: '/zh-CN/guide/plugins' },
+          { text: 'SDK', link: '/zh-CN/sdk/v1-contract' },
+          { text: '路线图', link: '/zh-CN/guide/roadmap' },
+          { text: 'GitHub', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio' },
+        ],
+        sidebar: [
+          {
+            text: '指南',
+            items: [
+              { text: '简介', link: '/zh-CN/guide/introduction' },
+              { text: '快速开始', link: '/zh-CN/guide/getting-started' },
+              { text: '架构', link: '/zh-CN/guide/architecture' },
+              { text: '流程模式', link: '/zh-CN/guide/flow-mode' },
+              { text: '积木模式', link: '/zh-CN/guide/block-mode' },
+              { text: '插件开发', link: '/zh-CN/guide/plugins' },
+              { text: '原生核心与 WebGPU', link: '/zh-CN/guide/native-core' },
+              { text: '测试', link: '/zh-CN/guide/testing' },
+              { text: '路线图与状态', link: '/zh-CN/guide/roadmap' },
+            ],
+          },
+          {
+            text: '插件 SDK（v1）',
+            items: [
+              { text: 'SDK v1 契约', link: '/zh-CN/sdk/v1-contract' },
+              { text: '从 v0 迁移到 v1', link: '/zh-CN/sdk/migration' },
+              { text: '入门模板', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter' },
+            ],
+          },
+          {
+            text: '技术文档', collapsible: true,
+            items: [
+              { text: '01 · 产品介绍', link: '/zh-CN/technical/01-产品介绍' },
+              { text: '02 · 系统架构', link: '/zh-CN/technical/02-系统架构' },
+              { text: '03 · 插件系统', link: '/zh-CN/technical/03-插件系统' },
+              { text: '04 · 四大工作模式', link: '/zh-CN/technical/04-四大工作模式' },
+              { text: '05 · 科研工具集', link: '/zh-CN/technical/05-科研工具集' },
+              { text: '06 · GPU 计算与原生核心', link: '/zh-CN/technical/06-GPU计算与原生核心' },
+              { text: '07 · 科学计算子系统', link: '/zh-CN/technical/07-科学计算子系统' },
+              { text: '08 · 测试与质量保障', link: '/zh-CN/technical/08-测试与质量保障' },
+              { text: '11 · 应用场景库', link: '/zh-CN/technical/11-应用场景库' },
+            ],
+          },
+          {
+            text: '求解器专题', collapsible: true,
+            items: [
+              { text: '电磁谐振特征值求解器', link: '/zh-CN/technical/09-电磁谐振特征值求解器' },
+              { text: '流体双向耦合求解器', link: '/zh-CN/technical/10-流体双向耦合求解器' },
+            ],
+          },
+        ],
+        footer: { message: '基于 MIT 许可证发布。', copyright: 'Copyright © 2026 SnowLeopard-io' },
+      },
+    },
+  },
   themeConfig: {
+    i18nRouting: false,
     // Brand mark: use the site-wide favicon ico. Leading-slash so VitePress's
     // withBase() resolves it to `${base}ico.ico`, which exists in the docs
     // public folder and is byte-identical to the root brand ico — so it renders
@@ -88,25 +181,26 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Technical Docs (中文)',
+        text: 'Technical Documentation',
         collapsible: true,
         items: [
-          { text: '01 · 产品介绍', link: '/technical/01-产品介绍' },
-          { text: '02 · 系统架构', link: '/technical/02-系统架构' },
-          { text: '03 · 插件系统', link: '/technical/03-插件系统' },
-          { text: '04 · 四大工作模式', link: '/technical/04-四大工作模式' },
-          { text: '05 · 科研工具集', link: '/technical/05-科研工具集' },
-          { text: '06 · GPU计算与原生核心', link: '/technical/06-GPU计算与原生核心' },
-          { text: '07 · 科学计算子系统', link: '/technical/07-科学计算子系统' },
-          { text: '08 · 测试与质量保障', link: '/technical/08-测试与质量保障' },
+          { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
+          { text: '02 · System Architecture', link: '/technical/02-系统架构' },
+          { text: '03 · Plugin System', link: '/technical/03-插件系统' },
+          { text: '04 · Four Working Modes', link: '/technical/04-四大工作模式' },
+          { text: '05 · Research Toolset', link: '/technical/05-科研工具集' },
+          { text: '06 · GPU Computing and Native Core', link: '/technical/06-GPU计算与原生核心' },
+          { text: '07 · Scientific Computing Subsystems', link: '/technical/07-科学计算子系统' },
+          { text: '08 · Testing and Quality Assurance', link: '/technical/08-测试与质量保障' },
+          { text: '11 · Application Scenario Library', link: '/technical/11-应用场景库' },
         ],
       },
       {
-        text: 'Solver 独立专题',
+        text: 'Solver Topics',
         collapsible: true,
         items: [
-          { text: '电磁谐振特征值求解器', link: '/technical/电磁谐振特征值求解器' },
-          { text: '流体双向耦合求解器', link: '/technical/流体双向耦合求解器' },
+          { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-电磁谐振特征值求解器' },
+          { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-流体双向耦合求解器' },
         ],
       },
     ],

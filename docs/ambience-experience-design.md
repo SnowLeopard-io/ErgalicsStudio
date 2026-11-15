@@ -1,178 +1,178 @@
-# Ergalics Studio 氛围感体验系统设计方案
+# Ergalics Studio Ambience Experience System Design
 
-> 目标：在不干扰科研严肃性的前提下，通过声音、动效、反馈与轻量激励，让用户在长时间工作中获得"被回应、被记住、被尊重"的情感连接。整体基调延续项目现有的**学术冷静、低饱和、克制精致**风格。
-
----
-
-## 一、设计总原则
-
-| 原则 | 说明 |
-|------|------|
-| 克制优先 | 所有动效与声音默认轻量，宁少勿多；任何时刻可一键全局关闭 |
-| 不打断心流 | 激励类内容（经验值、徽章）永不遮挡画布，不阻塞操作 |
-| 主题一致 | 所有视觉元素复用主题系统 CSS 变量，自动适配明暗主题 |
-| 大众审美 | 圆润、柔和、低饱和；不使用高饱和刺眼配色，不使用 emoji 图形 |
-| 无障碍兜底 | 尊重系统 `prefers-reduced-motion` 与 `prefers-reduced-transparency` |
-| 隐私本地化 | 全部进度数据存于 localStorage，不上传、不需账号 |
+> Goal: Without compromising the seriousness of scientific work, use sound, motion, feedback, and light incentives to give users an emotional connection in which they feel “responded to, remembered, and respected” during long work sessions. The overall tone continues the project's existing **academically calm, low-saturation, restrained and refined** style.
 
 ---
 
-## 二、音效系统
+## I. General design principles {#一、设计总原则}
 
-### 2.1 实现方式
-
-使用 **Web Audio API 程序化合成**（OscillatorNode + GainNode 包络），不引入音频文件：
-
-- 零资源体积、加载即用
-- 音色可通过参数统一调校，天然风格一致
-- 首次交互时懒初始化 AudioContext（浏览器自动播放策略要求）
-
-### 2.2 音效清单
-
-| 场景 | 音效设计 | 音量 |
-|------|---------|------|
-| 点击/确认 | 极短正弦 "tick"（~40ms，1200Hz 衰减） | 低 |
-| 开关/切换 | 双音 "pop"（600→900Hz 滑音，80ms） | 低 |
-| 通知 toast 出现 | 柔和两音符上行（C6→E6） | 中低 |
-| 计算完成 | 三音符和弦轻响（成功感但不夸张） | 中 |
-| 计算失败 | 单音低频短促下行（不刺耳，无警告感） | 中低 |
-| 获得经验值 | 细腻的 "shimmer" 短琶音 | 中低 |
-| 获得徽章 | 4 音上行琶音 + 轻混响（一次性高光时刻） | 中 |
-| 打开项目/插件 | 温和的 "开箱" 滑音 | 低 |
-| 保存成功 | 极轻 "滴" 声（可省略，仅保存耗时>1s 时播放） | 低 |
-
-### 2.3 环境音乐（可选模块）
-
-- 提供 **"专注氛围"** 开关：程序化生成的极简 ambient pad（低频正弦叠加缓慢 LFO 调制），或极轻的白噪声/雨声合成
-- 循环无接缝、音量极低（约 15–20%），支持随主题联动：暗色主题音色更暖更低沉，亮色主题更清透
-- **默认关闭**，入口放在设置面板，标注"专注氛围"
-
-### 2.4 音效总控
-
-- 设置面板提供：`音效：开/关`、`专注氛围：开/关`、`主音量滑条`
-- 首次播放任何音效前，在顶栏出现一次性小提示"已启用界面音效，可在设置中调整"（toast，5 秒消失）
-- 状态持久化到 `localStorage('ergalics:ambience')`
+| Principle | Description |
+| --- | --- |
+| Restraint first | All motion and sound are lightweight by default; less is better. A single action can disable them globally at any time. |
+| Do not interrupt flow | Incentives (experience points, badges) never cover the canvas or block operations. |
+| Theme consistency | All visual elements reuse the theme system's CSS variables and automatically adapt to light and dark themes. |
+| Broad visual appeal | Rounded, soft, and low-saturation; no glaring highly saturated colors or emoji graphics. |
+| Accessibility fallback | Respect the system's `prefers-reduced-motion` and `prefers-reduced-transparency`. |
+| Local privacy | All progress data is stored in localStorage, without uploads or an account. |
 
 ---
 
-## 三、动画与微交互
+## II. Sound system {#二、音效系统}
 
-### 3.1 全局过渡
+### 2.1 Implementation {#_2-1-实现方式}
 
-- 主题切换：现有过渡基础上，增加一次从切换按钮位置扩散的柔和径向过渡（View Transitions API，降级为淡入淡出）
-- 页面/视图切换：120–180ms 淡入 + 4px 上移，缓动统一使用 `cubic-bezier(0.25, 0.8, 0.25, 1)`
-- 弹窗/抽屉：缩放 0.98→1 + 淡入，不超过 200ms
+Use **procedural synthesis with the Web Audio API** (OscillatorNode + GainNode envelope), without audio files:
 
-### 3.2 组件级微动效
+- Zero asset size and available as soon as loaded.
+- Timbres can be tuned consistently through parameters, producing a naturally consistent style.
+- Lazily initialize AudioContext on first interaction (required by browser autoplay policy).
 
-| 组件 | 动效 |
-|------|------|
-| 按钮 hover | 背景 150ms 渐变 + 极轻上浮（translateY -1px） |
-| 卡片 hover | 边框微亮 + 阴影加深，无位移（科研内容不晃动） |
-| 开关/复选 | 弹性滑动（spring，180ms） |
-| toast | 右侧滑入 + 进度条呼吸；出场淡出上浮 |
-| 进度/加载 | 现有 loader 增加柔和呼吸光晕（低饱和主题色） |
-| 画布节点拖拽 | 释放时轻微"落定"回弹（scale 1.01→1） |
-| 长时间计算 | 顶栏状态点柔和脉动（纯色呼吸，不用彩虹旋转） |
+### 2.2 Sound inventory {#_2-2-音效清单}
 
-### 3.3 环境动效（氛围层）
+| Event | Sound design | Volume |
+| --- | --- | --- |
+| Click/confirm | Extremely short sine “tick” (~40ms, 1200Hz decay) | Low |
+| Switch/toggle | Two-tone “pop” (600→900Hz glide, 80ms) | Low |
+| Notification toast appears | Soft ascending two-note phrase (C6→E6) | Medium-low |
+| Computation complete | Soft three-note chord (a sense of success without exaggeration) | Medium |
+| Computation fails | Single short descending low-frequency tone (not harsh or alarming) | Medium-low |
+| Earn XP | Delicate short “shimmer” arpeggio | Medium-low |
+| Earn badge | Four-note ascending arpeggio + light reverb (a one-time highlight) | Medium |
+| Open project/plugin | Gentle “unboxing” glide | Low |
+| Save succeeds | Very soft “beep” (optional; play only when saving takes >1s) | Low |
 
-- 欢迎页：极缓慢漂移的低饱和渐变光斑（2–3 个 radial-gradient，60s 周期），呼应"辽阔意境"偏好
-- 获得徽章/升级时：全屏一次性的细小粒子上升效果（主题色，1.5s，仅此场景使用，不日常出现）
-- 所有环境动效在 `prefers-reduced-motion` 下自动禁用
+### 2.3 Ambient music (optional module) {#_2-3-环境音乐-可选模块}
 
-### 3.4 动画规范统一
+- Provide a **“focus ambience”** switch: a procedurally generated minimalist ambient pad (low-frequency sine waves with slow LFO modulation), or very quiet synthesized white noise/rain.
+- Seamless loop, very low volume (about 15–20%), optionally linked to the theme: warmer, deeper timbre in dark mode and clearer timbre in light mode.
+- **Off by default**, with an entry in settings labeled “focus ambience.”
 
-- 抽取 `src/styles/motion.css`：定义 `--motion-fast: 120ms / --motion-base: 180ms / --motion-slow: 320ms` 及统一缓动曲线变量
-- 现有零散 transition 逐步收敛到该规范（可渐进式，不强求一次改完）
+### 2.4 Master sound controls {#_2-4-音效总控}
 
----
-
-## 四、经验值系统（XP）
-
-### 4.1 设计理念
-
-奖励"科研行为"而非"游戏行为"——鼓励探索、完成计算、坚持使用，而非刷分。
-
-### 4.2 经验值获取规则
-
-| 行为 | XP |
-|------|-----|
-| 每日首次打开 | +10 |
-| 完成一次仿真/计算 | +15 |
-| 完成一次验证/耦合分析 | +20 |
-| 导入自己的数据文件 | +10 |
-| 完成新手引导 | +30（一次性） |
-| 尝试一个未用过的插件 | +25（每插件一次性） |
-| 连续使用天数（streak） | 每天 +5，上限连续 30 天 |
-
-防刷分：同类行为每分钟最多计 1 次；XP 只增不减（失败的计算也给 5 点尝试分，避免惩罚感）。
-
-### 4.3 等级体系
-
-- 等级命名采用学术隐喻（贴合项目气质）：
-
-| 等级段位 | 名称 | 累计 XP |
-|---------|------|--------|
-| Lv.1–3 | 见习研究员 | 0–150 |
-| Lv.4–6 | 助理研究员 | 150–500 |
-| Lv.7–9 | 研究员 | 500–1200 |
-| Lv.10–12 | 资深研究员 | 1200–2500 |
-| Lv.13+ | 首席研究员 | 2500+ |
-
-- 升级所需 XP 采用温和递增曲线（`level × 80` 左右），保证前几级 10 分钟内可达成，建立正反馈
-
-### 4.4 XP 的 UI 呈现
-
-- **顶栏左侧项目名旁或右上角**：一个细长的经验条 + 等级徽标（高度与顶栏一致，克制不抢眼），hover 展开浮层显示"距离下一级还需 XX XP"与最近获得记录
-- 获得 XP 时不弹窗：经验条末端浮动 `+15` 小字并渐隐（1.5s）
-- 升级时：中央出现一次性的升级卡片（主题色描边、徽章图、新等级名），点击任意处关闭，带琶音音效；10 秒无操作自动淡出
-- 等级达到新段位时，顶栏等级徽标样式随之变化（描边色/纹理微调，仅细节差异）
+- Settings provide: `Sound effects: on/off`, `Focus ambience: on/off`, and a `Master volume slider`.
+- Before any sound is first played, show a one-time small top-bar notice, “Interface sounds enabled; adjust them in settings” (a toast that disappears after 5 seconds).
+- Persist state to `localStorage('ergalics:ambience')`.
 
 ---
 
-## 五、徽章系统
+## III. Animation and micro-interactions {#三、动画与微交互}
 
-### 5.1 徽章清单（首发 12 枚）
+### 3.1 Global transitions {#_3-1-全局过渡}
 
-| 徽章 | 名称 | 达成条件 | 稀有度 |
-|------|------|---------|--------|
-| 1 | 初次点火 | 首次打开 Ergalics Studio | 普通 |
-| 2 | 探路者 | 完成新手引导 | 普通 |
-| 3 | 数据之手 | 导入第一份数据文件 | 普通 |
-| 4 | 首次运行 | 完成第一次仿真计算 | 普通 |
-| 5 | 五连勤 | 连续使用 5 天 | 稀有 |
-| 6 | 百炼 | 累计完成 20 次计算 | 稀有 |
-| 7 | 全景视野 | 使用过全部插件各至少一次 | 史诗 |
-| 8 | 严谨之证 | 完成一次验证基准分析 | 稀有 |
-| 9 | 耦合之钥 | 完成一次耦合分析 | 稀有 |
-| 10 | 三十而立 | 连续使用 30 天 | 史诗 |
-| 11 | 深夜灯火 | 在 0:00–5:00 间完成一次计算 | 彩蛋 |
-| 12 | 积分达人 | 累计获得 2500 XP | 史诗 |
+- Theme switching: add a soft radial transition expanding from the switch button to the existing transition (View Transitions API, falling back to a fade).
+- Page/view switching: 120–180ms fade-in + 4px upward movement, consistently using `cubic-bezier(0.25, 0.8, 0.25, 1)` easing.
+- Dialogs/drawers: scale 0.98→1 + fade-in, no longer than 200ms.
 
-后续可扩展：插件专属徽章（各插件内埋达成点）、节日彩蛋徽章。
+### 3.2 Component-level micro-motion {#_3-2-组件级微动效}
 
-### 5.2 徽章视觉
+| Component | Motion |
+| --- | --- |
+| Button hover | 150ms background transition + slight upward movement (translateY -1px) |
+| Card hover | Slightly brighter border + deeper shadow, no movement (scientific content stays still) |
+| Switch/checkbox | Spring slide (180ms) |
+| Toast | Slide in from the right + breathing progress bar; fade out and move upward on exit |
+| Progress/loading | Add a soft breathing glow (low-saturation theme color) to the existing loader |
+| Canvas node drag | Slight settling rebound on release (scale 1.01→1) |
+| Long computation | Soft pulsing top-bar status dot (solid-color breathing, no rainbow spinner) |
 
-- **AI 生成徽章图**：统一提示词模板生成，保证风格一致
-  - 风格关键词：`flat vector badge, minimalist scientific emblem, low saturation deep blue and teal palette, subtle metallic line art, dark background compatible, circular badge, no text`
-  - 尺寸 512×512 PNG，生成后统一加圆形描边与内阴影处理
-  - 每枚徽章生成"普通/达成点亮"两态：未达成态用 CSS `grayscale + opacity 0.35` 处理，无需生成两套图
-- 存放于 `src/assets/badges/`，前端打包内置（共 12 枚，体积可控）
+### 3.3 Ambient motion (ambience layer) {#_3-3-环境动效-氛围层}
 
-### 5.3 徽章 UI
+- Welcome page: very slowly drifting, low-saturation gradient light spots (2–3 radial-gradients, 60s cycle), reflecting the preference for an expansive atmosphere.
+- On earning a badge/leveling up: one-time fullscreen effect of small rising particles (theme color, 1.5s, used only for this event, not routinely).
+- Automatically disable all ambient motion under `prefers-reduced-motion`.
 
-- **获得时刻**：右上角滑入徽章卡片（图 + 名称 + 一句话描述），4 秒后自动收起；点击可查看详情。同一时刻多枚徽章排队依次展示
-- **徽章墙**：设置面板内嵌"成就"页签，网格展示全部徽章（点亮/未点亮），点击查看达成条件与获得时间；顶部显示收集进度（如 7/12）
-- 首次点亮徽章墙入口时，顶栏成就图标出现小红点提示
+### 3.4 Unified motion specification {#_3-4-动画规范统一}
+
+- Extract `src/styles/motion.css`: define `--motion-fast: 120ms / --motion-base: 180ms / --motion-slow: 320ms` and unified easing-curve variables.
+- Gradually bring existing scattered transitions into this specification (incremental adoption is acceptable; no need to change everything at once).
 
 ---
 
-## 六、与主题系统的适配
+## IV. Experience point system (XP) {#四、经验值系统-xp}
 
-### 6.1 颜色：全部走 CSS 变量
+### 4.1 Design concept {#_4-1-设计理念}
 
-新增变量定义于 `src/theme`（三种主题各自赋值）：
+Reward “research behavior” rather than “game behavior” — encourage exploration, completing computations, and continued use rather than farming points.
+
+### 4.2 XP earning rules {#_4-2-经验值获取规则}
+
+| Action | XP |
+| --- | --- |
+| First open each day | +10 |
+| Complete a simulation/computation | +15 |
+| Complete a validation/coupling analysis | +20 |
+| Import one's own data file | +10 |
+| Complete onboarding | +30 (one-time) |
+| Try a plugin not used before | +25 (once per plugin) |
+| Consecutive days of use (streak) | +5 per day, capped at 30 consecutive days |
+
+Anti-farming: actions of the same type count at most once per minute; XP only increases (failed computations also receive 5 points for trying, avoiding a sense of punishment).
+
+### 4.3 Level system {#_4-3-等级体系}
+
+- Use academic metaphors for level names to fit the project's character:
+
+| Level range | Name | Cumulative XP |
+| --- | --- | --- |
+| Lv.1–3 | Trainee Researcher | 0–150 |
+| Lv.4–6 | Assistant Researcher | 150–500 |
+| Lv.7–9 | Researcher | 500–1200 |
+| Lv.10–12 | Senior Researcher | 1200–2500 |
+| Lv.13+ | Principal Researcher | 2500+ |
+
+- XP required to level up follows a gently increasing curve (around `level × 80`), ensuring the first few levels can be reached within 10 minutes to establish positive feedback.
+
+### 4.4 XP presentation in the UI {#_4-4-xp-的-ui-呈现}
+
+- **Beside the project name on the left of the top bar or in the upper-right corner**: a slim XP bar + level badge (matching top-bar height, restrained and unobtrusive); hover opens a popover showing “XX XP until the next level” and recent awards.
+- No popup when earning XP: small `+15` text floats from the end of the XP bar and fades out (1.5s).
+- On leveling up: a one-time centered level-up card (theme-colored outline, badge image, new level name), dismissed by clicking anywhere, with an arpeggio sound; automatically fades after 10 seconds without interaction.
+- On reaching a new level tier, the top-bar level badge changes style (small outline-color/texture adjustments only).
+
+---
+
+## V. Badge system {#五、徽章系统}
+
+### 5.1 Badge inventory (12 at launch) {#_5-1-徽章清单-首发-12-枚}
+
+| Badge | Name | Condition | Rarity |
+| --- | --- | --- | --- |
+| 1 | First Ignition | Open Ergalics Studio for the first time | Common |
+| 2 | Pathfinder | Complete onboarding | Common |
+| 3 | Data Hand | Import the first data file | Common |
+| 4 | First Run | Complete the first simulation computation | Common |
+| 5 | Five-Day Streak | Use the application for 5 consecutive days | Rare |
+| 6 | Tempered | Complete 20 computations in total | Rare |
+| 7 | Panoramic View | Use every plugin at least once | Epic |
+| 8 | Proof of Rigor | Complete a validation benchmark analysis | Rare |
+| 9 | Key to Coupling | Complete a coupling analysis | Rare |
+| 10 | Thirty-Day Milestone | Use the application for 30 consecutive days | Epic |
+| 11 | Late-Night Light | Complete a computation between 0:00 and 5:00 | Easter egg |
+| 12 | Points Expert | Earn 2500 XP in total | Epic |
+
+Future extensions: plugin-specific badges (achievement points instrumented within each plugin) and holiday Easter-egg badges.
+
+### 5.2 Badge visuals {#_5-2-徽章视觉}
+
+- **AI-generated badge images**: generate with a unified prompt template to keep the style consistent.
+  - Style keywords: `flat vector badge, minimalist scientific emblem, low saturation deep blue and teal palette, subtle metallic line art, dark background compatible, circular badge, no text`
+  - 512×512 PNG; uniformly apply a circular outline and inner shadow after generation.
+  - Each badge has “normal/unlocked and lit” states: use CSS `grayscale + opacity 0.35` for the unearned state; two separate image sets are unnecessary.
+- Store in `src/assets/badges/` and bundle with the frontend (12 total, manageable size).
+
+### 5.3 Badge UI {#_5-3-徽章-ui}
+
+- **When earned**: a badge card (image + name + one-sentence description) slides in at the upper right and automatically retracts after 4 seconds; click for details. Multiple badges earned at once are queued and shown in order.
+- **Badge wall**: an “Achievements” tab embedded in settings shows all badges in a grid (lit/unlit); click for conditions and earning time. Show collection progress at the top (e.g. 7/12).
+- When the badge-wall entry is first unlocked, show a small red dot on the top-bar achievements icon.
+
+---
+
+## VI. Adapting to the theme system {#六、与主题系统的适配}
+
+### 6.1 Colors: all use CSS variables {#_6-1-颜色-全部走-css-变量}
+
+Define new variables in `src/theme` (each of the three themes supplies its own values):
 
 ```css
 :root[data-theme='dark'] {
@@ -184,74 +184,74 @@
 }
 ```
 
-- 明暗主题下，同一动效/徽章自动呈现对应质感：暗色 = 微光描边与柔光晕；亮色 = 淡阴影与更浅的填充
-- 徽章图为深色底设计，亮色主题下外层加白色细环避免"融进背景"
+- The same motion/badges automatically take on the appropriate appearance in dark and light themes: dark = faint luminous outlines and soft glows; light = light shadows and paler fills.
+- Badge images are designed for dark backgrounds; add a thin white outer ring in the light theme so they do not blend into the background.
 
-### 6.2 音效与主题联动（可选细节）
+### 6.2 Sound and theme coordination (optional detail) {#_6-2-音效与主题联动-可选细节}
 
-- 专注氛围音色随主题微调（暗色：低通滤波更重、更暖；亮色：更明亮清透），实现成本低，属加分项
+- Adjust focus-ambience timbre slightly with the theme (dark: stronger low-pass filtering, warmer; light: brighter and clearer); implementation cost is low and this is an enhancement.
 
-### 6.3 system 主题
+### 6.3 System theme {#_6-3-system-主题}
 
-- `system` 模式下跟随系统实时切换，所有氛围元素通过 CSS 变量自动响应，无需 JS 额外处理
-
----
-
-## 七、设置面板整合
-
-在现有设置页新增"体验与氛围"分区：
-
-| 设置项 | 类型 | 默认 |
-|--------|------|------|
-| 界面音效 | 开关 | 开 |
-| 专注氛围音 | 开关 | 关 |
-| 主音量 | 滑条 | 70% |
-| 界面动效 | 完整/精简/关闭 | 完整 |
-| 经验与成就 | 开关（关闭后隐藏经验条与徽章提示，后台仍记录） | 开 |
-| 成就墙 | 入口 | — |
-
-- "精简"动效模式：保留必要过渡，去掉环境动效与粒子
-- 所有设置持久化至 `localStorage('ergalics:ambience')`
+- In `system` mode, follow the system in real time; all ambience elements respond automatically through CSS variables, with no additional JS handling.
 
 ---
 
-## 八、无障碍与边界
+## VII. Settings panel integration {#七、设置面板整合}
 
-- `prefers-reduced-motion: reduce` → 自动切换为"精简"动效并禁用粒子
-- 音效频率避开 2–5kHz 人耳敏感区的主峰（短促音控制在 1kHz 以下或 4kHz 以上衰减快）
-- 所有激励浮层不抢焦点（`aria-live="polite"`，不使用 alert）
-- 画布区域（插件工作区）为**动效禁区**：除节点落定回弹外，不在画布内加任何氛围元素，保证科研专注
-- 实验室图表严格维持现有规范：无 emoji、无装饰动画
+Add an “Experience and ambience” section to the existing settings page:
 
----
+| Setting | Type | Default |
+| --- | --- | --- |
+| Interface sounds | Switch | On |
+| Focus ambience sound | Switch | Off |
+| Master volume | Slider | 70% |
+| Interface motion | Full/reduced/off | Full |
+| XP and achievements | Switch (when off, hide the XP bar and badge notices while continuing to record in the background) | On |
+| Achievement wall | Entry | — |
 
-## 九、实施计划
-
-| 阶段 | 内容 | 涉及模块 |
-|------|------|---------|
-| P1 基础设施 | `ambienceStore`（zustand + localStorage）、motion.css 规范、设置面板分区 | stores / styles / 设置页 |
-| P2 音效 | Web Audio 合成引擎、音效清单接入各交互点、总控 | 全局交互点 |
-| P3 动效 | 微交互统一、主题切换过渡、欢迎页光斑 | 组件层 / theme |
-| P4 激励 | XP 记分埋点、经验条 UI、升级流程 | appStore 埋点 / 顶栏 |
-| P5 徽章 | AI 生成 12 枚徽章图、获得流程、成就墙 | assets / 设置页 |
-| P6 打磨 | reduced-motion、system 主题验证、音量平衡调校 | 全局 |
-
-### 埋点位置（P4 依赖）
-
-- `appStore.notify()` / 计算完成回调 → 计算类 XP
-- 文件导入 handler → 导入 XP
-- `tourStore` 完成回调 → 引导 XP
-- 插件打开 handler → 首次插件 XP
-- 全部收敛到一个 `awardXP(reason)` 入口，避免散落
+- “Reduced” motion mode retains necessary transitions and removes ambient motion and particles.
+- Persist all settings to `localStorage('ergalics:ambience')`.
 
 ---
 
-## 十、风险与对策
+## VIII. Accessibility and boundaries {#八、无障碍与边界}
 
-| 风险 | 对策 |
-|------|------|
-| 音效打扰用户 | 默认音量低、总控一键关、首次启用有提示 |
-| 激励系统显得幼稚、与科研定位冲突 | 学术化命名与视觉、奖励探索行为而非分数、成就墙收纳在设置内而非主界面 |
-| 徽章图风格不统一 | 统一提示词模板 + 生成后统一后处理（描边/内阴影） |
-| localStorage 被清除导致进度丢失 | 提供设置内"导出/导入进度"JSON 按钮（低优先级，P6） |
-| 动效引起性能问题 | 环境动效仅用 CSS transform/opacity，粒子用 canvas 且仅触发式运行 |
+- `prefers-reduced-motion: reduce` → automatically switch to “reduced” motion and disable particles.
+- Avoid the main peaks in the ear-sensitive 2–5kHz range for sound frequencies (keep short sounds below 1kHz or above 4kHz with fast decay).
+- Incentive overlays do not steal focus (`aria-live="polite"`, no alert).
+- The canvas area (plugin workspace) is a **motion-free zone**: except for the node-settling rebound, add no ambience elements inside the canvas, preserving focus on research.
+- Laboratory charts strictly retain existing conventions: no emoji or decorative animation.
+
+---
+
+## IX. Implementation plan {#九、实施计划}
+
+| Phase | Content | Modules involved |
+| --- | --- | --- |
+| P1 Infrastructure | `ambienceStore` (zustand + localStorage), motion.css specification, settings section | stores / styles / settings page |
+| P2 Sound | Web Audio synthesis engine, connect the sound inventory to interaction points, master controls | Global interaction points |
+| P3 Motion | Unify micro-interactions, theme-switch transition, welcome-page light spots | Component layer / theme |
+| P4 Incentives | XP instrumentation, XP bar UI, level-up flow | appStore instrumentation / top bar |
+| P5 Badges | AI-generate 12 badge images, earning flow, achievement wall | assets / settings page |
+| P6 Polish | reduced-motion, system-theme verification, volume balancing | Global |
+
+### Instrumentation points (P4 dependency) {#埋点位置-p4-依赖}
+
+- `appStore.notify()` / computation-completion callback → computation XP.
+- File-import handler → import XP.
+- `tourStore` completion callback → onboarding XP.
+- Plugin-open handler → first-plugin-use XP.
+- Consolidate everything into a single `awardXP(reason)` entry point to avoid scattering logic.
+
+---
+
+## X. Risks and mitigations {#十、风险与对策}
+
+| Risk | Mitigation |
+| --- | --- |
+| Sound disturbs users | Low default volume, one-action master off, notice on first enablement |
+| Incentives feel childish or conflict with the scientific positioning | Academic naming and visuals, reward exploration rather than points, place the achievement wall in settings instead of the main interface |
+| Badge images are stylistically inconsistent | Unified prompt template + consistent post-processing (outline/inner shadow) |
+| Progress is lost when localStorage is cleared | Provide JSON “export/import progress” buttons in settings (low priority, P6) |
+| Motion causes performance problems | Ambient motion uses only CSS transform/opacity; particles use canvas and run only when triggered |

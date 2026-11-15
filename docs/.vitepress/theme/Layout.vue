@@ -9,8 +9,18 @@
 //   /<repo>/app/docs/    → this docs site
 // In dev they run on separate Vite servers on fixed ports.
 import DefaultTheme from 'vitepress/theme'
+import { useData, withBase } from 'vitepress'
+import { computed } from 'vue'
 
 const { Layout } = DefaultTheme
+const { localeIndex, frontmatter } = useData()
+const isChinese = computed(() => localeIndex.value === 'zh-CN')
+const docsHome = computed(() => withBase(isChinese.value ? '/zh-CN/' : '/'))
+const translationPath = computed(() => withBase(frontmatter.value.translationPath || (isChinese.value ? '/' : '/zh-CN/')))
+const translationLabel = computed(() => isChinese.value ? 'English' : '简体中文')
+const translationTitle = computed(() => frontmatter.value.translationPath
+  ? (isChinese.value ? '阅读英文版' : 'Read in Simplified Chinese')
+  : (isChinese.value ? '暂无对应译文，前往英文首页' : 'Translation unavailable; go to the Chinese home page'))
 
 const base = import.meta.env.BASE_URL // e.g. "/<repo>/app/docs/" or "/" in dev
 const isDev = import.meta.env.DEV
@@ -55,27 +65,34 @@ const links = resolve()
 </script>
 
 <template>
-  <Layout />
-  <nav class="cross-site-nav" aria-label="Site switcher">
-    <span class="cross-site-label">Sites</span>
+  <Layout>
+    <template #nav-bar-content-after>
+      <a class="locale-link locale-link-desktop" :href="translationPath" :title="translationTitle" :aria-label="translationTitle">{{ translationLabel }}</a>
+    </template>
+    <template #nav-screen-content-after>
+      <a class="locale-link locale-link-mobile" :href="translationPath" :title="translationTitle" :aria-label="translationTitle">{{ translationLabel }}</a>
+    </template>
+  </Layout>
+  <nav class="cross-site-nav" :aria-label="isChinese ? '站点切换' : 'Site switcher'">
+    <span class="cross-site-label">{{ isChinese ? '站点' : 'Sites' }}</span>
     <a
       :href="links.site"
       target="_blank"
       rel="noopener noreferrer"
       class="cross-site-link"
-      aria-label="Official website"
-    >Website</a>
+      :aria-label="isChinese ? '官方网站' : 'Official website'"
+    >{{ isChinese ? '官网' : 'Website' }}</a>
     <a
       :href="links.studio"
       target="_blank"
       rel="noopener noreferrer"
       class="cross-site-link cross-site-studio"
-      aria-label="Open the workstation"
-    >Studio</a>
+      :aria-label="isChinese ? '打开工作台' : 'Open the workstation'"
+    >{{ isChinese ? '工作台' : 'Studio' }}</a>
     <a
-      href="#/"
+      :href="docsHome"
       class="cross-site-link is-current"
-      aria-label="Documentation (current site)"
-    >Docs</a>
+      :aria-label="isChinese ? '文档（当前站点）' : 'Documentation (current site)'"
+    >{{ isChinese ? '文档' : 'Docs' }}</a>
   </nav>
 </template>

@@ -12,14 +12,20 @@
 // Usage: node scripts/build-tech-summary.mjs
 // ==========================================================================
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
 
-const read = (name) => readFileSync(path.join(DOCS_DIR, `${name}.md`), 'utf8');
+const read = (name) => {
+  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${name}.md`);
+  const source = existsSync(localized) ? localized : path.join(DOCS_DIR, `${name}.md`);
+  // The generated compendium lives in docs/technical, one level above the
+  // localized sources, so restore asset paths relative to its output location.
+  return readFileSync(source, 'utf8').replaceAll('](../../assets/', '](../assets/');
+};
 
 /** Split a chapter document into its `## ` sections, dropping the H1 preamble. */
 function sections(md) {
@@ -234,7 +240,16 @@ const out = lines
   .replace(/\n{3,}/g, '\n\n')
   .replace(/\s*$/, '\n');
 
-writeFileSync(path.join(DOCS_DIR, 'Ergalics Studio.md'), out, 'utf8');
+// Once the compendium has a Chinese locale source, keep regeneration in that
+// locale rather than overwriting the English page at the original URL.
+const localizedSummary = path.join(ROOT, 'docs', 'zh-CN', 'technical', 'Ergalics Studio.md');
+const summaryPath = existsSync(localizedSummary)
+  ? localizedSummary
+  : path.join(DOCS_DIR, 'Ergalics Studio.md');
+const summary = summaryPath === localizedSummary
+  ? out.replaceAll('](../assets/', '](../../assets/')
+  : out;
+writeFileSync(summaryPath, summary, 'utf8');
 console.log(
   `assembled: Ergalics Studio.md (${out.split('\n').length} lines, ${out.length} chars)`,
 );

@@ -64,6 +64,7 @@ dist-verify*
 docs/node_modules/
 docs/.vitepress/*
 !docs/.vitepress/config.mts
+!docs/.vitepress/research-blocks.mjs
 # The hand-written VitePress custom theme (Layout.vue, cross-site.css, ...) is
 # source code — it implements the cross-site nav switcher and must be tracked.
 # Only the generated build output under dist/ stays ignored.
