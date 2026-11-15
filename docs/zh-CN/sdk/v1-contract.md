@@ -2,7 +2,7 @@
 
 > **状态**：v1 已冻结。自 Ergalics Studio 宿主版本 1.x 起，本文列出的 API 面享受兼容性承诺。
 > **唯一事实来源**：`src/types/plugin.ts`（TypeScript 契约定义）。本文是对它的规范化转述；若两者出现出入，以 `src/types/plugin.ts` 为准并请向我们报告差异。
-> **配套文档**：[迁移指南](./migration)（实验期 v0 → v1）· [插件开发指南](/guide/plugins)（教程与示例）· [官方脚手架模板](https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter)
+> **配套文档**：[迁移指南](./migration)（实验期 v0 → v1）· [插件开发指南](/zh-CN/guide/plugins)（教程与示例）· [官方脚手架模板](https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter)
 
 ## 目录
 
