@@ -240,7 +240,16 @@ const out = lines
   .replace(/\n{3,}/g, '\n\n')
   .replace(/\s*$/, '\n');
 
-writeFileSync(path.join(DOCS_DIR, 'Ergalics Studio.md'), out, 'utf8');
+// Once the compendium has a Chinese locale source, keep regeneration in that
+// locale rather than overwriting the English page at the original URL.
+const localizedSummary = path.join(ROOT, 'docs', 'zh-CN', 'technical', 'Ergalics Studio.md');
+const summaryPath = existsSync(localizedSummary)
+  ? localizedSummary
+  : path.join(DOCS_DIR, 'Ergalics Studio.md');
+const summary = summaryPath === localizedSummary
+  ? out.replaceAll('](../assets/', '](../../assets/')
+  : out;
+writeFileSync(summaryPath, summary, 'utf8');
 console.log(
   `assembled: Ergalics Studio.md (${out.split('\n').length} lines, ${out.length} chars)`,
 );

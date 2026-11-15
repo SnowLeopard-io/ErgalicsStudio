@@ -111,19 +111,20 @@ export default defineConfig({
             items: [
               { text: '01 · 产品介绍', link: '/zh-CN/technical/01-产品介绍' },
               { text: '02 · 系统架构', link: '/zh-CN/technical/02-系统架构' },
-              { text: '03 · 插件系统', link: '/technical/03-插件系统' },
+              { text: '03 · 插件系统', link: '/zh-CN/technical/03-插件系统' },
               { text: '04 · 四大工作模式', link: '/zh-CN/technical/04-四大工作模式' },
               { text: '05 · 科研工具集', link: '/zh-CN/technical/05-科研工具集' },
               { text: '06 · GPU 计算与原生核心', link: '/zh-CN/technical/06-GPU计算与原生核心' },
               { text: '07 · 科学计算子系统', link: '/zh-CN/technical/07-科学计算子系统' },
               { text: '08 · 测试与质量保障', link: '/zh-CN/technical/08-测试与质量保障' },
+              { text: '11 · 应用场景库', link: '/zh-CN/technical/11-应用场景库' },
             ],
           },
           {
             text: '求解器专题', collapsible: true,
             items: [
               { text: '电磁谐振特征值求解器', link: '/technical/09-电磁谐振特征值求解器' },
-              { text: '流体双向耦合求解器', link: '/technical/10-流体双向耦合求解器' },
+              { text: '流体双向耦合求解器', link: '/zh-CN/technical/10-流体双向耦合求解器' },
             ],
           },
         ],
@@ -181,12 +182,13 @@ export default defineConfig({
         items: [
           { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
           { text: '02 · System Architecture', link: '/technical/02-系统架构' },
-          { text: '03 · 插件系统', link: '/technical/03-插件系统' },
+          { text: '03 · Plugin System', link: '/technical/03-插件系统' },
           { text: '04 · Four Working Modes', link: '/technical/04-四大工作模式' },
           { text: '05 · Research Toolset', link: '/technical/05-科研工具集' },
           { text: '06 · GPU Computing and Native Core', link: '/technical/06-GPU计算与原生核心' },
           { text: '07 · Scientific Computing Subsystems', link: '/technical/07-科学计算子系统' },
           { text: '08 · Testing and Quality Assurance', link: '/technical/08-测试与质量保障' },
+          { text: '11 · Application Scenario Library', link: '/technical/11-应用场景库' },
         ],
       },
       {
@@ -194,7 +196,7 @@ export default defineConfig({
         collapsible: true,
         items: [
           { text: '电磁谐振特征值求解器', link: '/technical/09-电磁谐振特征值求解器' },
-          { text: '流体双向耦合求解器', link: '/technical/10-流体双向耦合求解器' },
+          { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-流体双向耦合求解器' },
         ],
       },
     ],
