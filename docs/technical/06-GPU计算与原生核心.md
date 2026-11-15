@@ -1,26 +1,26 @@
-# 06 GPU 计算与原生核心
+# 06 GPU Computing and the Native Core
 
-Ergalics Studio 的计算加速由两层构成：随仓库**源码交付**的 Rust 原生核心（`native/ergalics-core`），以及宿主侧的计算服务（`src/core/gpu.ts`、`src/core/compute.ts`、`src/core/wgsl.ts`）。需要明确交付口径：随发行版的 Web 构建**不携带 Rust 编译产物**——CI 与默认 Web 构建由存根生成脚本（`scripts/make-wasm-stub.mjs`）产出一个功能占位模块；运行时的实际计算全部走**浏览器原生 WebGPU**，WebGPU 缺失时逐级降级到与 GPU 内核数学一致的纯 CPU 路径。
+Ergalics Studio's compute acceleration has two layers: the Rust native core **delivered as source** with the repository (`native/ergalics-core`), and host-side compute services (`src/core/gpu.ts`, `src/core/compute.ts`, `src/core/wgsl.ts`). The delivery distinction must be clear: the Web build shipped with the release **does not contain Rust compilation artifacts**. CI and the default Web build produce a functional placeholder module using the stub generator (`scripts/make-wasm-stub.mjs`); all actual runtime computation uses **browser-native WebGPU**, with progressive fallback to a pure CPU path that is mathematically consistent with the GPU kernels when WebGPU is absent.
 
-## 一、Rust 原生核心（源码交付）
+## I. Rust native core (source delivery) {#一、rust-原生核心-源码交付}
 
-`native/ergalics-core`（crate 版本 0.1.0，edition 2021，`crate-type = ["cdylib", "rlib"]`）编译目标为 `wasm32-unknown-unknown`，经 wasm-bindgen 0.2 绑定到 `src/native`。WebGPU 绑定依赖 web-sys 的实验性 GPU API 面（GpuAdapter、GpuDevice、GpuBuffer、GpuComputePipeline、GpuBindGroup 等约四十项 feature 显式开启）。依赖为 wasm-bindgen、wasm-bindgen-futures、js-sys、web-sys、console_error_panic_hook、serde 与 serde_json；release profile 开启 `lto`、`codegen-units = 1` 与 `opt-level = 3`。Rust 源码按职责分为五个模块：
+`native/ergalics-core` (crate version 0.1.0, edition 2021, `crate-type = ["cdylib", "rlib"]`) targets `wasm32-unknown-unknown` and is bound to `src/native` through wasm-bindgen 0.2. WebGPU bindings depend on web-sys's experimental GPU API surface (approximately forty features explicitly enabled, including GpuAdapter, GpuDevice, GpuBuffer, GpuComputePipeline, and GpuBindGroup). Dependencies are wasm-bindgen, wasm-bindgen-futures, js-sys, web-sys, console_error_panic_hook, serde, and serde_json; the release profile enables `lto`, `codegen-units = 1`, and `opt-level = 3`. Rust source is divided into five modules by responsibility:
 
-| 源文件 | 职责 |
+| Source file | Responsibility |
 | --- | --- |
-| lib.rs | 对外导出、版本查询（core_version）与初始化 |
-| device.rs | GpuDeviceManager 与 GpuInfo：适配器与设备获取，`webgpu_available` 探测，带 CPU 回退选项 |
-| buffer.rs | GpuBuffer：以显式 usage 掩码创建存储 / 只读 / 均匀缓冲，write 上传、read 经专用回读缓冲读回 |
-| compute.rs | KernelDescriptor 与 BindingDescriptor、ComputeKernel 编译、绑定组物化与 dispatching，ComputeQueue 封装 |
-| utils.rs | detect_file_kind 等辅助（基于魔数的文件类型检测）与日志 |
+| lib.rs | Public exports, version query (`core_version`), and initialization |
+| device.rs | GpuDeviceManager and GpuInfo: adapter and device acquisition, `webgpu_available` detection, and a CPU fallback option |
+| buffer.rs | GpuBuffer: create storage / read-only / uniform buffers with explicit usage masks, upload with write, and read back through a dedicated readback buffer with read |
+| compute.rs | KernelDescriptor and BindingDescriptor, ComputeKernel compilation, bind-group materialization and dispatching, and ComputeQueue wrapper |
+| utils.rs | Helpers such as detect_file_kind (magic-number-based file type detection) and logging |
 
-该 crate 以源码形式随仓库交付并可本地编译；它不参与生产环境的计算路径——随发行版构建生成的是占位模块（见第五节），实际计算由浏览器原生 WebGPU 承担。
+The crate is delivered as source with the repository and can be compiled locally; it does not participate in the production compute path. Release builds generate a placeholder module (see section V), and browser-native WebGPU performs the actual computation.
 
-## 二、宿主侧计算服务
+## II. Host-side compute services {#二、宿主侧计算服务}
 
-`src/core/gpu.ts` 持有适配器与设备生命周期：`initGpu(mode)`（支持 `auto` 与 `cpu-fallback` 两种模式，带并发合并与 epoch 守卫，避免用户显式释放设备后被在途初始化覆盖）、`getGpuBackend` / `resetGpu` / `subscribeGpu`。后端状态 `GpuBackend` 包含可用性、适配器信息（vendor / architecture 等，经 `adapter.info` 读取）、设备引用、CPU 回退标志与显存不足（`oom`，由设备未捕获错误置位）跟踪。
+`src/core/gpu.ts` owns adapter and device lifecycle: `initGpu(mode)` (supports `auto` and `cpu-fallback`, with concurrent-request coalescing and epoch guards to prevent an in-flight initialization from overriding an explicit device release), `getGpuBackend` / `resetGpu` / `subscribeGpu`. Backend state `GpuBackend` tracks availability, adapter information (vendor / architecture, etc., read through `adapter.info`), the device reference, CPU fallback flag, and out-of-memory status (`oom`, set by uncaptured device errors).
 
-其上的 `src/core/compute.ts` 是面向插件的计算面（即 `PluginApi.gpu`）：`createBuffer`、`write`、`read`、`compileKernel`、`compilationInfo` 与一次性 `run`。`getGpuCompute()` 依据设备可用性返回计算服务或 `null`——为 `null` 时插件回退 CPU 实现。执行路径经 `backend` 字段区分：原生 WebGPU 直连路径（`NativeCompute`，`backend = 'webgpu'`）直接以 `GPUDevice` 创建缓冲、编译 WGSL 管线并 dispatch，只读缓冲按 usage 分流 `mapAsync` 直映射或 `COPY_SRC → MAP_READ` 回读拷贝；当本地构建编译出真实原生模块时，`WasmCompute`（`backend = 'wasm'`）适配器以同一接口转发到 `src/native` 绑定。两条路径暴露完全相同的原语：
+Above it, `src/core/compute.ts` is the plugin-facing compute surface (`PluginApi.gpu`): `createBuffer`, `write`, `read`, `compileKernel`, `compilationInfo`, and one-shot `run`. `getGpuCompute()` returns the compute service or `null` based on device availability; plugins fall back to CPU implementations when it is `null`. The `backend` field distinguishes execution paths: the direct native WebGPU path (`NativeCompute`, `backend = 'webgpu'`) uses `GPUDevice` directly to create buffers, compile WGSL pipelines, and dispatch, routing read-only buffers to direct `mapAsync` mapping or a `COPY_SRC → MAP_READ` readback copy according to usage. When a local build compiles a real native module, the `WasmCompute` adapter (`backend = 'wasm'`) forwards through `src/native` bindings using the same interface. Both paths expose exactly the same primitives:
 
 ```mermaid
 flowchart TD
@@ -32,37 +32,37 @@ flowchart TD
     D -- 否 --> F["api.gpu 为空<br/>插件回退 CPU 实现"]
 ```
 
-> 当 WebGPU 不可用时，`api.gpu` 为 `undefined`，插件回退到 CPU 实现——行为一致，不要求 GPU 存在。
+> When WebGPU is unavailable, `api.gpu` is `undefined` and plugins fall back to CPU implementations—behavior remains consistent and no GPU is required.
 
-这一设计保证开发与生产环境的加速计算均可用：浏览器原生 WebGPU 直连是交付构建的实际计算路径，而每个内置插件的 CPU 回退跑的是与 GPU 内核数学一致的实现。
+This design makes accelerated computing available in both development and production: direct browser-native WebGPU is the actual compute path in release builds, and each built-in plugin's CPU fallback uses an implementation mathematically consistent with the GPU kernel.
 
-## 三、可复用 WGSL 内核
+## III. Reusable WGSL kernels {#三、可复用-wgsl-内核}
 
-`src/core/wgsl.ts` 收纳可复用的 WGSL 计算内核，并配套与内核数学一致的宿主侧打包 / 解包辅助函数供 CPU 回退使用（如 `packParticles` / `unpackParticles` / `advanceParticleCPU`、`packBodies` / `unpackBodies` / `advanceNBodyCPU` 与 `nbodyTotalEnergy`、`histogramCPU` 等）。当前共 **14 个内核**：
+`src/core/wgsl.ts` contains reusable WGSL compute kernels and host-side packing / unpacking helpers mathematically consistent with the kernels for CPU fallback (such as `packParticles` / `unpackParticles` / `advanceParticleCPU`, `packBodies` / `unpackBodies` / `advanceNBodyCPU` and `nbodyTotalEnergy`, and `histogramCPU`). There are currently **14 kernels**:
 
-| 内核 | 数学内容 | 主要使用方 |
+| Kernel | Mathematics | Primary users |
 | --- | --- | --- |
-| particleKernelWGSL | 交错式 [x, y, vx, vy] 单缓冲积分 | 粒子插件 |
-| nbodyKernelWGSL | 三维全对引力 O(N²) 直接求和 | N-Body 引力插件 |
-| histogramKernelWGSL | 分箱计数 + 对数刻度 | 直方图插件与统计区块 |
-| heatmapKernelWGSL | 网格标量到颜色映射（viridis 停靠点） | 热力图插件 |
-| pointCloudKernelWGSL | 点云投影与密度输出 | 点云插件、百万级点云增强 |
-| fluidCollideKernelWGSL | D2Q9 格子 Boltzmann 碰撞 | 流体插件 |
-| fluidStreamKernelWGSL | D2Q9 迁移 | 流体插件 |
-| fluidCurlKernelWGSL | 涡量计算（涡街可视化） | 流体插件 |
-| waveKernelWGSL | 二维波动方程 leapfrog 时间推进 | 波动方程插件 |
-| matmulKernelWGSL | 分块矩阵乘法（TILE = 16） | 领域内核线性代数加速 |
-| fftKernelWGSL | 按级迭代的基 2 FFT（最大 N = 4096） | 信号实验室 |
-| kmeansKernelWGSL | K-means 指派与质心累加 | 数据画像与聚类 |
-| binningKernelWGSL | 键值分箱聚合（sum / mean / count） | 分箱统计与扫描 |
-| spmvKernelWGSL | 稀疏矩阵-向量乘（CSR 行式逐步） | 宿主侧稀疏线性代数内核库（暂无内置插件直接调用；em-eigensolver 改在 Pyodide 上以 NumPy 求解） |
+| particleKernelWGSL | Interleaved [x, y, vx, vy] single-buffer integration | Particles plugin |
+| nbodyKernelWGSL | Direct O(N²) summation for 3D all-pairs gravity | N-Body gravity plugin |
+| histogramKernelWGSL | Bin counts + logarithmic scale | Histogram plugin and statistics blocks |
+| heatmapKernelWGSL | Grid scalars to color mapping (viridis stops) | Heatmap plugin |
+| pointCloudKernelWGSL | Point-cloud projection and density output | Point-cloud plugin, million-point enhancement |
+| fluidCollideKernelWGSL | D2Q9 lattice Boltzmann collision | Fluid plugin |
+| fluidStreamKernelWGSL | D2Q9 streaming | Fluid plugin |
+| fluidCurlKernelWGSL | Vorticity calculation (vortex street visualization) | Fluid plugin |
+| waveKernelWGSL | 2D wave-equation leapfrog time stepping | Wave-equation plugin |
+| matmulKernelWGSL | Tiled matrix multiplication (TILE = 16) | Linear algebra acceleration in domain kernels |
+| fftKernelWGSL | Stage-wise radix-2 FFT (maximum N = 4096) | Signal lab |
+| kmeansKernelWGSL | K-means assignment and centroid accumulation | Data profiling and clustering |
+| binningKernelWGSL | Key-value bin aggregation (sum / mean / count) | Binning statistics and sweeps |
+| spmvKernelWGSL | Sparse matrix–vector multiplication (CSR row-wise) | Host-side sparse linear algebra kernel library (no built-in plugin calls it directly yet; em-eigensolver instead solves with NumPy on Pyodide) |
 
-两种典型的内核调用路径：
+Two typical kernel invocation paths:
 
-1. **单缓冲路径**（粒子演示）：上传交错式数据加均匀参数，dispatch WGSL 积分器，读回结果并上报真实 GPU 时间。
-2. **乒乓缓冲路径**（N-Body、流体、波动方程演示）：成对缓冲交替读写，每个积分步完全留在设备上，无逐步回读开销。
+1. **Single-buffer path** (particles demo): upload interleaved data and uniform parameters, dispatch the WGSL integrator, read back results, and report actual GPU time.
+2. **Ping-pong buffer path** (N-Body, fluid, and wave-equation demos): paired buffers alternate reads and writes; every integration step stays entirely on the device, with no per-step readback overhead.
 
-以 N-Body 为例的逐步流程：
+Step-by-step flow using N-Body as an example:
 
 ```mermaid
 flowchart LR
@@ -74,55 +74,55 @@ flowchart LR
     D -- 停止 --> F["一次性读回<br/>交给 Three.js 渲染"]
 ```
 
-![N-Body 引力](../assets/screenshots/plugins/nbody-3d.png)
+![N-Body gravity](../assets/screenshots/plugins/nbody-3d.png)
 
-*N-Body 引力在 GPU 上的全对求和：数天体绕中心质量的三维引力轨迹，WGSL 内核计算并一次性读回交给 Three.js 渲染。*
+*N-Body gravity all-pairs summation on the GPU: 3D gravitational trajectories of several bodies orbiting a central mass, computed by a WGSL kernel and read back once for Three.js rendering.*
 
-![格子 Boltzmann 流体绕机翼](../assets/screenshots/plugins/lbm-fluid.png)
+![Lattice Boltzmann fluid around an airfoil](../assets/screenshots/plugins/lbm-fluid.png)
 
-*格子 Boltzmann 流体：WGSL 编译期推导 D2Q9 碰撞 / 流 / 涡量三内核并逐步计算，绕翼流场与卡门涡街清晰可见，小规模自动回退 CPU。*
+*Lattice Boltzmann fluid: WGSL derives the three D2Q9 collision / streaming / vorticity kernels at compile time and computes them step by step; the flow around the airfoil and Kármán vortex street are clearly visible. Small workloads automatically fall back to CPU.*
 
-### 3.1 引擎选择与数据规模阈值
+### 3.1 Engine selection and data-size thresholds {#_3-1-引擎选择与数据规模阈值}
 
-GPU 的收益来自算力，但上传与回读有固定开销，小规模数据在 GPU 上反而更慢。`src/core/gpu-kernels.ts` 因此提供统一分派层与一组数据规模阈值，`auto` 模式下低于阈值自动走 CPU：
+The GPU's benefit comes from compute power, but upload and readback have fixed overhead, so small datasets can be slower on GPU. `src/core/gpu-kernels.ts` therefore provides a unified dispatch layer and data-size thresholds; in `auto` mode, workloads below a threshold automatically use CPU:
 
-| 内核 | 阈值单位 | 阈值 |
+| Kernel | Threshold unit | Threshold |
 | --- | --- | --- |
-| matmul | 输出元素数（m × n） | 16384（128 × 128） |
-| fft | 复数样本数 | 1024 |
-| kmeans | 点数 | 2048 |
-| binning | 行数 | 10000 |
-| spmv | 非零元素数（nnz） | 65536 |
+| matmul | Output element count (m × n) | 16384 (128 × 128) |
+| fft | Complex sample count | 1024 |
+| kmeans | Point count | 2048 |
+| binning | Row count | 10000 |
+| spmv | Nonzero element count (nnz) | 65536 |
 
-内核描述符的绑定布局直接取自 `wgsl.ts` 的 `*_BINDINGS` 常量，宿主描述符与着色器文本不会漂移。阈值判断还会叠加实时设备可用性（`getGpuBackend()`）。`src/core/pointcloud-gpu.ts` 在此之上提供百万级点云的预算控制、确定性降采样与 WebGPU 高度着色内核，`src/core/mesh3d.ts` 提供三维网格数据管线的纯函数实现（面/体插件共享）。
+Kernel descriptor binding layouts come directly from the `*_BINDINGS` constants in `wgsl.ts`, preventing drift between host descriptors and shader text. Threshold checks also incorporate live device availability (`getGpuBackend()`). On top of this, `src/core/pointcloud-gpu.ts` provides budget control, deterministic downsampling, and a WebGPU height-coloring kernel for million-point clouds; `src/core/mesh3d.ts` provides a pure-function implementation of the 3D mesh data pipeline (shared by surface/volume plugins).
 
-### 3.2 不确定度 WGSL 引擎
+### 3.2 Uncertainty WGSL engine {#_3-2-不确定度-wgsl-引擎}
 
-不确定度内核（`src/core/uncertainty`）自带两条 WGSL 加速路径，均复用本节的计算面：
+The uncertainty kernel (`src/core/uncertainty`) includes two WGSL acceleration paths, both reusing the compute surface in this section:
 
-- `gpu-engine.ts`：WebGPU 上的百分位 Bootstrap 重采样。固定统计量族（均值 / 中位数 / 方差 / 标准差 / 相关 / OLS 斜率）走 GPU 内核，自定义 JS 统计量始终走 CPU；重采样以不超过 `blockSize`（默认 65 536）的块推进，块间上报进度并响应 `AbortSignal`；随机源为 WGSL 版 PCG32（`pcg.ts` 的 `PCG32_WGSL`），与 CPU 路径共享同一种子序列定义。
-- `gpu-mcmc.ts`：多链随机游走 Metropolis–Hastings。调用方提供 WGSL 对数密度主体（固定维度烘焙进内核），编译后每个线程承载一条链，链状态驻留缓冲跨 dispatch 保留，百万步运行不阻塞设备与界面；CPU 路径为 mulberry32 驱动的独立链并行批处理。
+- `gpu-engine.ts`: Percentile Bootstrap resampling on WebGPU. A fixed family of statistics (mean / median / variance / standard deviation / correlation / OLS slope) uses GPU kernels; custom JS statistics always use CPU. Resampling proceeds in chunks no larger than `blockSize` (default 65,536), reporting progress and responding to `AbortSignal` between chunks. The random source is the WGSL version of PCG32 (`PCG32_WGSL` in `pcg.ts`), sharing the same seed-sequence definition with the CPU path.
+- `gpu-mcmc.ts`: Multi-chain random-walk Metropolis–Hastings. The caller supplies a WGSL log-density body (fixed dimensions baked into the kernel); after compilation, each thread carries one chain, chain state remains in buffers across dispatches, and million-step runs do not block the device or interface. The CPU path uses independent-chain parallel batches driven by mulberry32.
 
-引擎选择（`auto` / `gpu` / `cpu`）遵循 3.1 节的设备可用性规则并把选择结果写入运行记录；GPU 不可用时自动回落 CPU，两条路径在同一种子下结果在数值容差内一致，收敛诊断（split-R-hat、ESS）对两条路径一致可用。
+Engine selection (`auto` / `gpu` / `cpu`) follows the device availability rules in §3.1 and writes the selection to the run record. When GPU is unavailable it automatically falls back to CPU; for the same seed, results of the two paths agree within numerical tolerance, and convergence diagnostics (split-R-hat, ESS) are equally available for both.
 
-## 四、端到端数值验证
+## IV. End-to-end numerical verification {#四、端到端数值验证}
 
-GPU 路径不是摆设：`verify-webgpu` 端到端套件在无头 Edge（SwiftShader 软件适配器）中驱动真实 WebGPU 通路，分两阶段验证。阶段 A 经 `tests/e2e/webgpu.html` 申请真实 WebGPU 设备，用 `src/core/wgsl.ts` 的真实 WGSL 内核驱动原生核心模块接口（缓冲创建、内核编译、dispatch、mapAsync 回读），对严格场景与边界场景分别比较 GPU 结果与 CPU 积分器（容差 5e-3 与 0.02）；阶段 B 在工作台加载粒子插件与星系样例，点击"GPU 计算"按钮，断言成功提示上报了真实引擎与实测 GPU 时间。单元测试层覆盖每个 WGSL 模板的生成、参数打包、输出尺寸与 CPU 回退的一致性，以及 GPU 与 CPU 两条路径的数值一致性比对（内核级与领域级两层）。
+The GPU path is not decorative: the `verify-webgpu` end-to-end suite drives a real WebGPU path in headless Edge (the SwiftShader software adapter), validating in two stages. Stage A requests a real WebGPU device via `tests/e2e/webgpu.html`, drives the native core module interface (buffer creation, kernel compilation, dispatch, `mapAsync` readback) using real WGSL kernels from `src/core/wgsl.ts`, and compares GPU results with the CPU integrator for strict and boundary scenarios respectively (tolerances 5e-3 and 0.02). Stage B loads the particles plugin and galaxy sample in the workbench, clicks “GPU 计算,” and asserts that the success notice reports the actual engine and measured GPU time. Unit tests cover each WGSL template's generation, parameter packing, output size and CPU fallback consistency, as well as numerical comparisons between GPU and CPU paths at both kernel and domain levels.
 
-## 五、构建与降级说明
+## V. Build and fallback {#五、构建与降级说明}
 
-构建命令链为：`npm run build` 依次执行 `build:wasm`（本地 Rust 工具链编译进 `src/native`）→ `tsc --noEmit` → Vite 生产构建 → 文档构建；只构建前端可用 `npm run build:web`，它以 `make-wasm-stub.mjs` 开头——当真实构建产物缺失时，该脚本生成一个功能占位模块（`core_version` 返回 `'wasm-stub'`，`detect_file_kind` 回退扩展名检测，不携带任何 GPU 绑定），使动态导入的分块在打包期存在。CI 环境一律不安装 Rust 工具链（deploy 工作流除外），因此**交付构建运行的是占位模块**。
+The build command chain is: `npm run build` runs `build:wasm` (local Rust toolchain compiles into `src/native`) → `tsc --noEmit` → Vite production build → docs build. For frontend-only builds, use `npm run build:web`, which starts with `make-wasm-stub.mjs`: when real build artifacts are absent, this script creates a functional placeholder module (`core_version` returns `'wasm-stub'`, `detect_file_kind` falls back to extension detection, and no GPU bindings are included), ensuring the dynamically imported chunk exists at bundle time. CI environments do not install the Rust toolchain (except the deploy workflow), so **release builds run the placeholder module**.
 
-运行时降级由 `src/core/wasm.ts` 的加载器兜底：动态导入失败时重试 3 次（间隔 1 秒），最终把模块标记为不可用。三级路径总结：
+Runtime fallback is handled by the loader in `src/core/wasm.ts`: if dynamic import fails, it retries 3 times (1 second apart) and eventually marks the module unavailable. Summary of the three paths:
 
-| 档位 | 条件 | 计算路径 |
+| Tier | Condition | Compute path |
 | --- | --- | --- |
-| 本地完整构建（可选） | 本地执行 `build:wasm` 编译出真实模块 | WASM 绑定路径 |
-| 交付构建的实际路径 | 构建仅含占位模块、WebGPU 可用 | 浏览器原生 WebGPU |
-| 兜底路径 | WebGPU 不可用 | 与内核数学一致的 CPU 实现 |
+| Local full build (optional) | Run `build:wasm` locally to compile the real module | WASM bindings path |
+| Actual release build path | Build contains only the placeholder module and WebGPU is available | Browser-native WebGPU |
+| Fallback path | WebGPU unavailable | CPU implementation mathematically consistent with the kernels |
 
-无论处于哪一档，欢迎页硬件自检都会如实报告 WebGPU、WASM 与 IndexedDB 的可用性；插件在无 GPU 环境下以 CPU 完成同样的数学，行为一致。
+At every tier, the welcome page's hardware self-check reports WebGPU, WASM, and IndexedDB availability accurately; plugins perform the same mathematics on CPU without a GPU, with consistent behavior.
 
-### 5.1 3D 场景宿主与 WebGL 缺席
+### 5.1 3D scene host and missing WebGL {#_5-1-3d-场景宿主与-webgl-缺席}
 
-三维渲染由宿主统一管理：`src/core/scene3d.ts` 的 `createScene3D(container)` 惰性创建并按会话缓存一个 Three.js 场景容器，宿主持有渲染循环、OrbitControls、缩放与 GPU 资源释放；插件实现 `renderToScene(scene)`（`Scene3DHandle`）把自己的网格与灯光挂进场景，声明了 `renderToScene` 的插件才会在激活时物化 WebGL 场景，2D 插件不为此付出 WebGL 上下文成本。WebGL 不可用或 3D 容器缺席时，相关插件给出明确的 2D 提示并以 2D 画布继续工作，AI 训练插件的 TF.js 后端同样在 WebGL 缺席时回退 CPU——功能降级始终显式、可观测。
+3D rendering is managed centrally by the host: `createScene3D(container)` in `src/core/scene3d.ts` lazily creates a Three.js scene container and caches it per session. The host owns the rendering loop, OrbitControls, zoom, and GPU resource cleanup; plugins implement `renderToScene(scene)` (`Scene3DHandle`) to attach their meshes and lights to the scene. Only plugins declaring `renderToScene` materialize a WebGL scene on activation, so 2D plugins do not pay the WebGL context cost. When WebGL is unavailable or the 3D container is absent, affected plugins display an explicit 2D notice and continue using a 2D canvas. The AI training plugin's TF.js backend likewise falls back to CPU without WebGL—functional degradation is always explicit and observable.

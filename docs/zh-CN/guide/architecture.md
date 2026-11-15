@@ -56,7 +56,7 @@ flowchart TB
     E5 --> D4
 ```
 
-> **一个插件桥接，两处调用。** `D4`（流程模式的 `RenderedView` → `plugin.loadData`）和 `E5 → D4`（积木模式的 `studio.plot` → `RenderedView`）汇聚到同一条代码路径。在流程模式中新增一种可视化，积木模式便可直接获得对应的 `studio.plot(...)` 形式。编辑器层的详情见[积木模式](/guide/block-mode)，区块系统见[流程模式](/guide/flow-mode)。
+> **一个插件桥接，两处调用。** `D4`（流程模式的 `RenderedView` → `plugin.loadData`）和 `E5 → D4`（积木模式的 `studio.plot` → `RenderedView`）汇聚到同一条代码路径。在流程模式中新增一种可视化，积木模式便可直接获得对应的 `studio.plot(...)` 形式。编辑器层的详情见[积木模式](block-mode)，区块系统见[流程模式](flow-mode)。
 
 ## 科学计算子系统
 
