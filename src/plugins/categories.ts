@@ -103,6 +103,7 @@ const DISCIPLINE_BY_PLUGIN: Record<string, PluginDiscipline> = {
   'example.physics-diffusion': 'physics',
   'example.physics-diffraction': 'physics',
   'example.physics-trajectory': 'physics',
+  'example.physics-pinn': 'physics',
 
   // Astronomy (research CCD pipeline + research-grade kernels)
   'astro.pipeline': 'astro',

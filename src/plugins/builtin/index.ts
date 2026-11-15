@@ -101,6 +101,7 @@ import { heatEngineManifest } from './physics/heatengine/manifest';
 import { physicsDiffusionManifest } from './physics/diffusion/manifest';
 import { physicsDiffractionManifest } from './physics/diffraction/manifest';
 import { physicsTrajectoryManifest } from './physics/trajectory/manifest';
+import { physicsPinnManifest } from './physics/pinn/manifest';
 import { engCircuitManifest } from './engineering/circuit/manifest';
 import { engTrussManifest } from './engineering/truss/manifest';
 import { engControlManifest } from './engineering/control/manifest';
@@ -666,6 +667,13 @@ export const BUILTIN_PLUGINS: BuiltinPluginInfo[] = [
     manifest: physicsTrajectoryManifest,
     load: async () => {
       const mod = await import('./physics/trajectory');
+      return mod.default();
+    },
+  },
+  {
+    manifest: physicsPinnManifest,
+    load: async () => {
+      const mod = await import('./physics/pinn/plugin');
       return mod.default();
     },
   },
