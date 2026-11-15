@@ -9,8 +9,13 @@
 //   /<repo>/app/docs/    → this docs site
 // In dev they run on separate Vite servers on fixed ports.
 import DefaultTheme from 'vitepress/theme'
+import { useData, withBase } from 'vitepress'
+import { computed } from 'vue'
 
 const { Layout } = DefaultTheme
+const { localeIndex } = useData()
+const isChinese = computed(() => localeIndex.value === 'zh-CN')
+const docsHome = computed(() => withBase(isChinese.value ? '/zh-CN/' : '/'))
 
 const base = import.meta.env.BASE_URL // e.g. "/<repo>/app/docs/" or "/" in dev
 const isDev = import.meta.env.DEV
@@ -56,26 +61,26 @@ const links = resolve()
 
 <template>
   <Layout />
-  <nav class="cross-site-nav" aria-label="Site switcher">
-    <span class="cross-site-label">Sites</span>
+  <nav class="cross-site-nav" :aria-label="isChinese ? '站点切换' : 'Site switcher'">
+    <span class="cross-site-label">{{ isChinese ? '站点' : 'Sites' }}</span>
     <a
       :href="links.site"
       target="_blank"
       rel="noopener noreferrer"
       class="cross-site-link"
-      aria-label="Official website"
-    >Website</a>
+      :aria-label="isChinese ? '官方网站' : 'Official website'"
+    >{{ isChinese ? '官网' : 'Website' }}</a>
     <a
       :href="links.studio"
       target="_blank"
       rel="noopener noreferrer"
       class="cross-site-link cross-site-studio"
-      aria-label="Open the workstation"
-    >Studio</a>
+      :aria-label="isChinese ? '打开工作台' : 'Open the workstation'"
+    >{{ isChinese ? '工作台' : 'Studio' }}</a>
     <a
-      href="#/"
+      :href="docsHome"
       class="cross-site-link is-current"
-      aria-label="Documentation (current site)"
-    >Docs</a>
+      :aria-label="isChinese ? '文档（当前站点）' : 'Documentation (current site)'"
+    >{{ isChinese ? '文档' : 'Docs' }}</a>
   </nav>
 </template>
