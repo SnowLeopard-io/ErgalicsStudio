@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitepress';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Base path strategy (absolute only — a relative base breaks deep-page
 // navigation, producing nested-URL loops like /guide/guide/guide/...):
@@ -17,6 +19,16 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
+  transformPageData(pageData) {
+    const path = pageData.relativePath;
+    const chinese = path.startsWith('zh-CN/');
+    const counterpart = chinese ? path.slice('zh-CN/'.length) : `zh-CN/${path}`;
+    if (existsSync(fileURLToPath(new URL(`../${counterpart}`, import.meta.url)))) {
+      pageData.frontmatter.translationPath = '/' + counterpart
+        .replace(/(^|\/)index\.md$/, '$1')
+        .replace(/\.md$/, '');
+    }
+  },
   vite: {
     server: {
       // Fixed port so the website's docs-links and the studio's site-links
@@ -81,8 +93,8 @@ export default defineConfig({
               { text: '流程模式（英文）', link: '/guide/flow-mode' },
               { text: '积木模式（英文）', link: '/guide/block-mode' },
               { text: '插件开发（英文）', link: '/guide/plugins' },
-              { text: '原生核心与 WebGPU（英文）', link: '/guide/native-core' },
-              { text: '测试（英文）', link: '/guide/testing' },
+              { text: '原生核心与 WebGPU', link: '/zh-CN/guide/native-core' },
+              { text: '测试', link: '/zh-CN/guide/testing' },
               { text: '路线图与状态（英文）', link: '/guide/roadmap' },
             ],
           },
@@ -90,7 +102,7 @@ export default defineConfig({
             text: '插件 SDK（v1）',
             items: [
               { text: 'SDK v1 契约', link: '/sdk/v1-contract' },
-              { text: '从 v0 迁移到 v1', link: '/sdk/migration' },
+              { text: '从 v0 迁移到 v1', link: '/zh-CN/sdk/migration' },
               { text: '入门模板', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter' },
             ],
           },

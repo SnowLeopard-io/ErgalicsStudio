@@ -59,3 +59,19 @@
 .vp-doc a {
   color: var(--vp-c-brand-1);
 }
+
+/* The built-in switcher cannot fall back per page while translations are in progress. */
+.VPNavBarTranslations, .VPNavBarExtra .translations, .VPNavScreenTranslations {
+  display: none !important;
+}
+.locale-link {
+  color: var(--vp-c-text-1);
+  font-size: 13px;
+  font-weight: 500;
+}
+.locale-link:hover { color: var(--vp-c-brand-1); }
+.locale-link-desktop { display: none; margin-left: 16px; }
+.locale-link-mobile { display: block; padding-top: 24px; }
+@media (min-width: 768px) {
+  .locale-link-desktop { display: inline-flex; }
+}

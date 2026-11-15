@@ -1,53 +1,53 @@
-# Ergalics Studio v2.0.0 · 首个正式版
+# Ergalics Studio v2.0.0 · First Official Release
 
-Ergalics Studio 是一个运行在浏览器里的开源科学计算工作站：无需安装任何软件，打开网页即可完成数据导入、可视化、统计检验、数值模拟与科研绘图。项目以「插件化的科研操作系统」为设计目标——沙箱化的插件体系、统一科研元数据、GPU 加速计算与可复现性内核，让从课堂演示到准研究级的分析都能在同一环境中完成。
+Ergalics Studio is an open-source scientific computing workstation that runs in the browser: without installing any software, open the website to import data, visualize it, perform statistical tests and numerical simulations, and create scientific plots. The project is designed as a “plugin-based scientific research operating system” — its sandboxed plugin system, unified scientific metadata, GPU-accelerated computation, and reproducibility kernel enable analyses ranging from classroom demonstrations to near-research-grade work in the same environment.
 
-经过一年迭代与 v0 → v1 → v2 三个阶段的架构演进，v2.0.0 是首个面向公众的正式版本。
+After a year of iteration and three stages of architectural evolution, v0 → v1 → v2, v2.0.0 is the first official public release.
 
-## 核心特性
+## Key Features {#核心特性}
 
-### 四模式工作台
-- **标准模式**：拖入数据即出图，参数面板实时调节，零代码完成完整分析
-- **流程模式**：以 53 个内置区块（数据源 / 变换 / 过滤 / 数学 / 统计 / 单位 / 可视化 / 绘图）可视化搭建数据流水线，拓扑执行、逐节点检查
-- **代码模式**：Python（Pyodide 完整运行时）、R（webR 完整 R 运行时）、JavaScript 三语言，与画布插件双向联动（`studio.plot(...)` 直达绘图插件）
-- **积木模式**：类 Scratch 的科研积木编辑器，适合编程入门教学
-- 左侧活动栏（文件 / Git / 插件）+ 中央标签区 + 每文件类型编辑器；命令面板（Ctrl+K）与全局快捷键
+### Four-mode workbench {#四模式工作台}
+- **Standard mode**: Drag in data to produce a plot, adjust parameters in real time, and complete an analysis without code.
+- **Flow mode**: Visually build data pipelines using 53 built-in blocks (data sources / transforms / filters / math / statistics / units / visualization / plotting), with topological execution and per-node inspection.
+- **Code mode**: Python (full Pyodide runtime), R (full webR R runtime), and JavaScript, with bidirectional integration with canvas plugins (`studio.plot(...)` goes directly to a plotting plugin).
+- **Block mode**: A Scratch-like scientific block editor suitable for introductory programming education.
+- Left activity bar (Files / Git / Plugins), central tab area, and editors for each file type; command palette (Ctrl+K) and global shortcuts.
 
-### 163 个内置插件 · 19 个学科分组
-- 覆盖图表 / 统计 / 数学 / 物理 / 工程 / 天文 / 特效 / 化学 / 生物 / 医学 / 地理 / 环境 / 材料 / 经济 / 心理 / 社会 / 艺术科学 / 计算机 / 数据 / 趣味工具
-- 二级加载机制：153 个产品插件自动加载 + 10 个按需加载，首屏不臃肿
-- 全部插件接入统一科研元数据系统：就绪分级、物理量单位、可复现标记、结构化科研输出条（ScienceOutputStrip）
-- 一键「发送到 Figure Studio」组装多面板出版级图组
+### 163 built-in plugins · 19 discipline groups {#_163-个内置插件-·-19-个学科分组}
+- Covers charts / statistics / mathematics / physics / engineering / astronomy / effects / chemistry / biology / medicine / geography / environment / materials / economics / psychology / society / art and science / computing / data / fun tools.
+- Two-level loading: 153 product plugins load automatically and 10 load on demand, keeping the initial screen lean.
+- All plugins integrate with a unified scientific metadata system: readiness levels, physical quantity units, reproducibility markers, and a structured scientific output strip (ScienceOutputStrip).
+- One-click “Send to Figure Studio” to assemble publication-grade multi-panel figures.
 
-### GPU 计算与真实物理模拟
-- 14 个可复用 WGSL 计算内核（WebGPU），CPU 自动回退
-- 广义相对论实时光线追踪黑洞（Binet 形式测地线 RK4 积分、ISCO 吸积盘、多普勒集束与引力红移）
-- 波动方程 FDTD 水波求解器、Nishita 大气散射、基于 GMST 与 Bortle 分级的夜天渲染器
-- 流体 CFD 双向耦合求解器（1D 管网 × 3D 场）
+### GPU computing and real physics simulations {#gpu-计算与真实物理模拟}
+- 14 reusable WGSL compute kernels (WebGPU), with automatic CPU fallback.
+- Real-time black-hole ray tracing using general relativity (RK4 integration of geodesics in Binet form, ISCO accretion disk, Doppler beaming, and gravitational redshift).
+- Wave-equation FDTD water-wave solver, Nishita atmospheric scattering, and a night-sky renderer based on GMST and the Bortle scale.
+- Bidirectional fluid CFD coupling solver (1D pipe network × 3D field).
 
-### 33 个独立科研工具
-- 不确定度（Bootstrap CI / Monte Carlo 传播 / MCMC，含 R-hat 与 ESS 收敛诊断）
-- 量纲安全单位制、分块大数据摄入（HDF5 等格式）
-- 文件资源管理器、工作区 Git（自动提交）、可复现性内核（`repro.lock`）
-- 以 ToolShell 形式嵌入工作台画布
+### 33 standalone research tools {#_33-个独立科研工具}
+- Uncertainty (Bootstrap CI / Monte Carlo propagation / MCMC, including R-hat and ESS convergence diagnostics).
+- Dimensionally safe units and chunked ingestion of large datasets (formats including HDF5).
+- File explorer, workspace Git (automatic commits), and reproducibility kernel (`repro.lock`).
+- Embedded in the workbench canvas as ToolShell interfaces.
 
-### 工作区文件系统
-- 浏览器内 VFS（LightningFS / IndexedDB），流程图与积木程序持久化为 `.flow.json` / `.block.json`
-- 项目导出日志、数据簇徽标、最近项目管理
-- 画布级统一导出：PNG 下载 / 存入工作区 `figures/`，3D 场景支持透明背景
+### Workspace file system {#工作区文件系统}
+- In-browser VFS (LightningFS / IndexedDB); flow graphs and block programs are persisted as `.flow.json` / `.block.json`.
+- Project export logs, data-cluster badges, and recent project management.
+- Unified canvas export: download PNGs or save them to the workspace `figures/`; 3D scenes support transparent backgrounds.
 
-### 工程质量
-- TypeScript strict、沙箱化插件 RPC 协议、`.cspkg` 插件包签名门禁
-- 241 个测试文件、3878 个单元测试用例，Playwright E2E（headless Edge），`pre-push` 钩子自动跑测试
-- `npm audit` 零发现（2026-10-13 安全升级窗口，详见 SECURITY.md）
-- 社区文档完整双语：CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / PR 与 Issue 模板
+### Engineering quality {#工程质量}
+- TypeScript strict mode, sandboxed plugin RPC protocol, and `.cspkg` plugin package-signing gate.
+- 241 test files, 3,878 unit test cases, Playwright E2E (headless Edge), and a `pre-push` hook that runs tests automatically.
+- Zero `npm audit` findings (2026-10-13 security upgrade window; see SECURITY.md).
+- Fully bilingual community documentation: CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / PR and Issue templates.
 
-## 快速开始
+## Getting Started {#快速开始}
 
-**在线使用（推荐）**：打开即用，无需安装
+**Use online (recommended)**: Open and use, no installation required.  
 https://snowleopard-io.github.io/ErgalicsStudio/app/
 
-**本地构建**：
+**Build locally**:
 
 ```bash
 git clone https://gitee.com/cnt-code/ergalics-studio.git
@@ -56,14 +56,14 @@ npm install
 npm run dev
 ```
 
-要求：现代浏览器（推荐 Chrome / Edge 以获得 WebGPU 支持）。
+Requirements: A modern browser (Chrome / Edge recommended for WebGPU support).
 
-## 链接
+## Links {#链接}
 
-- 中文文档：https://snowleopard-io.github.io/ErgalicsStudio/
-- GitHub：https://github.com/SnowLeopard-io/ErgalicsStudio
-- Gitee：https://gitee.com/cnt-code/ergalics-studio
-- 问题反馈：https://gitee.com/cnt-code/ergalics-studio/issues
+- Chinese documentation: https://snowleopard-io.github.io/ErgalicsStudio/
+- GitHub: https://github.com/SnowLeopard-io/ErgalicsStudio
+- Gitee: https://gitee.com/cnt-code/ergalics-studio
+- Issue tracker: https://gitee.com/cnt-code/ergalics-studio/issues
 
 ---
 

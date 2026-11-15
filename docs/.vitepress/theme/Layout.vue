@@ -13,9 +13,14 @@ import { useData, withBase } from 'vitepress'
 import { computed } from 'vue'
 
 const { Layout } = DefaultTheme
-const { localeIndex } = useData()
+const { localeIndex, frontmatter } = useData()
 const isChinese = computed(() => localeIndex.value === 'zh-CN')
 const docsHome = computed(() => withBase(isChinese.value ? '/zh-CN/' : '/'))
+const translationPath = computed(() => withBase(frontmatter.value.translationPath || (isChinese.value ? '/' : '/zh-CN/')))
+const translationLabel = computed(() => isChinese.value ? 'English' : '简体中文')
+const translationTitle = computed(() => frontmatter.value.translationPath
+  ? (isChinese.value ? '阅读英文版' : 'Read in Simplified Chinese')
+  : (isChinese.value ? '暂无对应译文，前往英文首页' : 'Translation unavailable; go to the Chinese home page'))
 
 const base = import.meta.env.BASE_URL // e.g. "/<repo>/app/docs/" or "/" in dev
 const isDev = import.meta.env.DEV
@@ -60,7 +65,14 @@ const links = resolve()
 </script>
 
 <template>
-  <Layout />
+  <Layout>
+    <template #nav-bar-content-after>
+      <a class="locale-link locale-link-desktop" :href="translationPath" :title="translationTitle" :aria-label="translationTitle">{{ translationLabel }}</a>
+    </template>
+    <template #nav-screen-content-after>
+      <a class="locale-link locale-link-mobile" :href="translationPath" :title="translationTitle" :aria-label="translationTitle">{{ translationLabel }}</a>
+    </template>
+  </Layout>
   <nav class="cross-site-nav" :aria-label="isChinese ? '站点切换' : 'Site switcher'">
     <span class="cross-site-label">{{ isChinese ? '站点' : 'Sites' }}</span>
     <a
