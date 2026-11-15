@@ -31,9 +31,9 @@
 </p>
 
 <p>
-<a href="https://www.oschina.net/oa2026/winners"><img alt="OpenAtom Contest 2026 - Innovation Software Award" src="https://img.shields.io/badge/%F0%9F%8F%86%20OpenAtom%20Contest%202026-Innovation%20Software%20Award-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
+<a href="https://www.oschina.net/oa2026/winners"><img alt="4th OpenAtom Competition - Innovation Software Award" src="https://img.shields.io/badge/%F0%9F%8F%86%204th%20OpenAtom%20Competition%202026-Industry%20Solutions%20%C2%B7%20Innovation%20Software%20Award-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
 <br>
-<a href="https://www.oschina.net/os2026/winners"><img alt="2026 Shanghai Open-Source Innovation Contest - Best Exploration Award" src="https://img.shields.io/badge/%F0%9F%8F%85%20Shanghai%20Open%20Source%202026-Best%20Exploration%20Award%20%C2%B7%20COMAC%20CFD-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
+<a href="https://www.oschina.net/os2026/winners"><img alt="2026 Shanghai Open-Source Software Application Innovation Contest - Best Exploration Award" src="https://img.shields.io/badge/%F0%9F%8F%85%202026%20Shanghai%20Open%20Source%20Innovation%20Contest-Best%20Exploration%20Award%20%C2%B7%20COMAC%20CFD-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
 </p>
 
 </div>

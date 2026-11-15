@@ -31,9 +31,9 @@
 </p>
 
 <p>
-<a href="https://www.oschina.net/oa2026/winners"><img alt="第四届开放原子大赛 - 创新软件奖" src="https://img.shields.io/badge/%F0%9F%8F%86%20%E5%BC%80%E6%94%BE%E5%8E%9F%E5%AD%90%E5%A4%A7%E8%B5%9B%202026-%E5%88%9B%E6%96%B0%E8%BD%AF%E4%BB%B6%E5%A5%96-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
+<a href="https://www.oschina.net/oa2026/winners"><img alt="第四届开放原子大赛 - 创新软件奖" src="https://img.shields.io/badge/%F0%9F%8F%86%20%E7%AC%AC%E5%9B%9B%E5%B1%8A%E5%BC%80%E6%94%BE%E5%8E%9F%E5%AD%90%E5%A4%A7%E8%B5%9B%202026-%E5%BC%80%E6%BA%90%E8%A1%8C%E4%B8%9A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E5%88%9B%E6%96%B0%E8%B5%9B%20%C2%B7%20%E5%88%9B%E6%96%B0%E8%BD%AF%E4%BB%B6%E5%A5%96-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
 <br>
-<a href="https://www.oschina.net/os2026/winners"><img alt="2026 上海开源软件应用创新大赛 - 最佳探索奖" src="https://img.shields.io/badge/%F0%9F%8F%85%20%E4%B8%8A%E6%B5%B7%E5%BC%80%E6%BA%90%E5%A4%A7%E8%B5%9B%202026-%E6%9C%80%E4%BD%B3%E6%8E%A2%E7%B4%A2%E5%A5%96%20%C2%B7%20%E4%B8%AD%E5%9B%BD%E5%95%86%E9%A3%9E-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
+<a href="https://www.oschina.net/os2026/winners"><img alt="2026 上海开源软件应用创新大赛 - 最佳探索奖" src="https://img.shields.io/badge/%F0%9F%8F%85%202026%20%E4%B8%8A%E6%B5%B7%E5%BC%80%E6%BA%90%E8%BD%AF%E4%BB%B6%E5%BA%94%E7%94%A8%E5%88%9B%E6%96%B0%E8%B5%9B-%E6%9C%80%E4%BD%B3%E6%8E%A2%E7%B4%A2%E5%A5%96%20%C2%B7%20%E4%B8%AD%E5%9B%BD%E5%95%86%E9%A3%9E%E6%B5%81%E4%BD%93%20CFD-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
 </p>
 
 </div>
