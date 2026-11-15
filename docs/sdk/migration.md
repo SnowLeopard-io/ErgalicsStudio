@@ -100,7 +100,7 @@ Go through each item to confirm that a v0 plugin fully aligns with v1:
 - [ ] **GPU buffers must be `destroy()`ed**: Release handles returned by `createBuffer` after use; otherwise each compute leaks device memory until the device is destroyed.
 - [ ] **`container.three` exists only after declaring `renderToScene`**: Do not access it without declaring the method; check for its presence before use.
 - [ ] **Optional lifecycle methods may be removed**: Empty `destroy` / `activate` / `deactivate` / `updateParams` implementations may be removed; the host no longer requires them.
-- [ ] **Choose one of two distribution paths**: Direct use of `trusted` is suitable only for in-house packages; third-party packages should retain the default `isolated`. `.cspkg` installation is subject to gates (size / file count / id / entry path); see [v1 contract §3](./v1-contract#三签名与分发cspkg).
+- [ ] **Choose one of two distribution paths**: Direct use of `trusted` is suitable only for in-house packages; third-party packages should retain the default `isolated`. `.cspkg` installation is subject to gates (size / file count / id / entry path); see [v1 contract §3](./v1-contract#三、签名与分发-cspkg).
 - [ ] **Add signatures as needed**: Unsigned v0 packages can still be installed (a “trust this source” confirmation appears); sign with `node scripts/sign-cspkg.mjs` to remove the confirmation (Node ≥ 23.6).
 - [ ] **Adopt i18n**: Keep English fallbacks in plain `name` / `label` fields; put Chinese text in `*I18n` dictionaries (the `'zh-CN'` key).
 

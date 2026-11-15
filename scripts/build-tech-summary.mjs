@@ -12,14 +12,20 @@
 // Usage: node scripts/build-tech-summary.mjs
 // ==========================================================================
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
 
-const read = (name) => readFileSync(path.join(DOCS_DIR, `${name}.md`), 'utf8');
+const read = (name) => {
+  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${name}.md`);
+  const source = existsSync(localized) ? localized : path.join(DOCS_DIR, `${name}.md`);
+  // The generated compendium lives in docs/technical, one level above the
+  // localized sources, so restore asset paths relative to its output location.
+  return readFileSync(source, 'utf8').replaceAll('](../../assets/', '](../assets/');
+};
 
 /** Split a chapter document into its `## ` sections, dropping the H1 preamble. */
 function sections(md) {

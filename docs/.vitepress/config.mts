@@ -79,7 +79,7 @@ export default defineConfig({
         nav: [
           { text: '指南', link: '/zh-CN/guide/introduction' },
           { text: '插件', link: '/guide/plugins' },
-          { text: 'SDK', link: '/sdk/v1-contract' },
+          { text: 'SDK', link: '/zh-CN/sdk/v1-contract' },
           { text: '路线图', link: '/zh-CN/guide/roadmap' },
           { text: 'GitHub', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio' },
         ],
@@ -101,7 +101,7 @@ export default defineConfig({
           {
             text: '插件 SDK（v1）',
             items: [
-              { text: 'SDK v1 契约', link: '/sdk/v1-contract' },
+              { text: 'SDK v1 契约', link: '/zh-CN/sdk/v1-contract' },
               { text: '从 v0 迁移到 v1', link: '/zh-CN/sdk/migration' },
               { text: '入门模板', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio/tree/main/templates/plugin-starter' },
             ],
@@ -110,13 +110,13 @@ export default defineConfig({
             text: '技术文档', collapsible: true,
             items: [
               { text: '01 · 产品介绍', link: '/zh-CN/technical/01-产品介绍' },
-              { text: '02 · 系统架构', link: '/technical/02-系统架构' },
+              { text: '02 · 系统架构', link: '/zh-CN/technical/02-系统架构' },
               { text: '03 · 插件系统', link: '/technical/03-插件系统' },
-              { text: '04 · 四大工作模式', link: '/technical/04-四大工作模式' },
+              { text: '04 · 四大工作模式', link: '/zh-CN/technical/04-四大工作模式' },
               { text: '05 · 科研工具集', link: '/technical/05-科研工具集' },
               { text: '06 · GPU 计算与原生核心', link: '/zh-CN/technical/06-GPU计算与原生核心' },
               { text: '07 · 科学计算子系统', link: '/technical/07-科学计算子系统' },
-              { text: '08 · 测试与质量保障', link: '/technical/08-测试与质量保障' },
+              { text: '08 · 测试与质量保障', link: '/zh-CN/technical/08-测试与质量保障' },
             ],
           },
           {
@@ -180,13 +180,13 @@ export default defineConfig({
         collapsible: true,
         items: [
           { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
-          { text: '02 · 系统架构', link: '/technical/02-系统架构' },
+          { text: '02 · System Architecture', link: '/technical/02-系统架构' },
           { text: '03 · 插件系统', link: '/technical/03-插件系统' },
-          { text: '04 · 四大工作模式', link: '/technical/04-四大工作模式' },
+          { text: '04 · Four Working Modes', link: '/technical/04-四大工作模式' },
           { text: '05 · 科研工具集', link: '/technical/05-科研工具集' },
           { text: '06 · GPU Computing and Native Core', link: '/technical/06-GPU计算与原生核心' },
           { text: '07 · 科学计算子系统', link: '/technical/07-科学计算子系统' },
-          { text: '08 · 测试与质量保障', link: '/technical/08-测试与质量保障' },
+          { text: '08 · Testing and Quality Assurance', link: '/technical/08-测试与质量保障' },
         ],
       },
       {

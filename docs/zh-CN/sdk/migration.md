@@ -1,7 +1,7 @@
 # 迁移指南：实验期 v0 → SDK v1
 
 > **适用对象**：在 SDK 冻结（2026-09-12，宿主提交 `c7b7327`）之前编写的插件。
-> **配套文档**：[v1 契约](/sdk/v1-contract)（冻结范围与兼容承诺的唯一转述）· [插件开发指南](/guide/plugins)（教程与示例）
+> **配套文档**：[v1 契约](/zh-CN/sdk/v1-contract)（冻结范围与兼容承诺的唯一转述）· [插件开发指南](/guide/plugins)（教程与示例）
 
 实验期（v0，2026-08-13 初始提交 `f1aeeed` 起）契约经历了多次扩展。v1 冻结时做了两类整理：
 
@@ -87,7 +87,7 @@ v0 中 `Scene3DHandle` 的 `scene` / `camera` / `controls` / `renderer` 字段�
 | 生命周期 | `compute`、`loadData`、`renderToScene`、`onProjectSave`、`onProjectLoad`、`reload?()` | 数据驱动插件实现 `loadData` + `getSupportedFormats`；需要项目持久化时机用 `onProjectSave/Load`；卡死恢复用 `reload()`（卸载→从工厂重建→重新激活） |
 | 观测（宿主侧） | `PluginRunRecord`、`ParameterSnapshot`、`PluginInstallState`、`PluginRegistryEntry.nameI18n/descriptionI18n` | 只读消费，无需迁移 |
 
-完整签名以 [v1 契约](/sdk/v1-contract) 为准。
+完整签名以 [v1 契约](/zh-CN/sdk/v1-contract) 为准。
 
 ## 六、迁移检查清单
 
@@ -100,7 +100,7 @@ v0 中 `Scene3DHandle` 的 `scene` / `camera` / `controls` / `renderer` 字段�
 - [ ] **GPU buffer 必须 `destroy()`**：`createBuffer` 得到的句柄用完即释放，否则每次 compute 泄漏设备内存直到设备销毁。
 - [ ] **`renderToScene` 声明后才有 `container.three`**：未声明就不要访问；访问前判空。
 - [ ] **可选生命周期可删**：空的 `destroy` / `activate` / `deactivate` / `updateParams` 实现可以移除，宿主不再强制要求。
-- [ ] **分发路径二选一**：直接放 `trusted` 只适用于自研包；第三方包保持缺省 `isolated`。`.cspkg` 安装受门禁约束（大小/文件数/id/entry 路径），详见 [v1 契约 §3](/sdk/v1-contract#三签名与分发cspkg)。
+- [ ] **分发路径二选一**：直接放 `trusted` 只适用于自研包；第三方包保持缺省 `isolated`。`.cspkg` 安装受门禁约束（大小/文件数/id/entry 路径），详见 [v1 契约 §3](/zh-CN/sdk/v1-contract#三、签名与分发-cspkg)。
 - [ ] **签名按需附加**：v0 未签名包仍可安装（弹「信任此来源」确认）；要消除确认弹窗，用 `node scripts/sign-cspkg.mjs` 签名（Node ≥ 23.6）。
 - [ ] **i18n 采用**：`name` / `label` 裸字段保留英文回退，中文文案放 `*I18n` 字典（`'zh-CN'` 键）。
 

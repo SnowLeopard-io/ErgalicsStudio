@@ -1655,8 +1655,13 @@ async function buildDoc(browser, page, base, opts = {}) {
   await page.goto('about:blank');
   await page.addStyleTag({ content: CSS });
 
-  const mdPath = path.join(docDir(base), `${base}.md`);
-  const md = readFileSync(mdPath, 'utf8');
+  const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${base}.md`);
+  const mdPath = !PRODUCT_DOCS[base] && existsSync(localized)
+    ? localized
+    : path.join(docDir(base), `${base}.md`);
+  // HTML is still written in its original directory, so resolve image links
+  // as if the Chinese source lived alongside that output.
+  const md = readFileSync(mdPath, 'utf8').replaceAll('](../../assets/', '](../assets/');
   const meta = metaFor(base);
   const { title, blocks } = parseMarkdown(md);
   if (!title) throw new Error(`${base}: no H1 title`);
