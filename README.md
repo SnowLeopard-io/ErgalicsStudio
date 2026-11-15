@@ -30,6 +30,12 @@
 <a href="#four-workbench-modes"><img alt="webR" src="https://img.shields.io/badge/R-webR%20runtime-1f2937?style=flat-square" /></a>
 </p>
 
+<p>
+<a href="https://www.oschina.net/oa2026/winners"><img alt="4th OpenAtom Competition - Innovation Software Award" src="https://img.shields.io/badge/%F0%9F%8F%86%204th%20OpenAtom%20Competition%202026-Industry%20Solutions%20%C2%B7%20Innovation%20Software%20Award-a9801a?style=for-the-badge&labelColor=8a6716" /></a>
+<br>
+<a href="https://www.oschina.net/os2026/winners"><img alt="2026 Shanghai Open-Source Software Application Innovation Contest - Best Exploration Award" src="https://img.shields.io/badge/%F0%9F%8F%85%202026%20Shanghai%20Open%20Source%20Innovation%20Contest-Best%20Exploration%20Award%20%C2%B7%20COMAC%20CFD-1f6fb2?style=for-the-badge&labelColor=143f68" /></a>
+</p>
+
 </div>
 
 <br>
@@ -41,6 +47,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Awards & Recognition 🏆](#awards--recognition)
 - [Getting Started](#getting-started)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
@@ -86,6 +93,31 @@ What ships today:
 | Research          | **33 standalone research tools in 7 groups** (embeddable in the workbench canvas), research-grade plugin metadata + unified science-output strip, unit-system and chunked-ingestion kernels |
 | Version control   | Git-backed projects (browser isomorphic-git + LightningFS), sidebar Git panel with Conventional-Commit history |
 | Web surfaces      | Official website (gallery / theme marketplace / plugin marketplace), workbench and docs site, deep-linked into one merged deploy |
+
+---
+
+## Awards & Recognition 🏆
+
+Ergalics Studio received two awards from open-source competitions in 2026:
+
+| Award | Competition | Organizer | For |
+| ----- | ----------- | --------- | --- |
+| **Innovation Software Award** | 4th OpenAtom Competition · 2026 Open-Source Industry Solutions Innovation Contest | OpenAtom Foundation, Beijing Municipal Bureau of Economy & IT | The Ergalics Studio platform |
+| **Best Exploration Award** | 2026 Shanghai Open-Source Software Application Innovation Contest | OSCHINA | Fluid 1D/3D bidirectional coupling solver built on Ergalics (COMAC fluid CFD topic) |
+
+The OpenAtom competition evaluates entries on technical innovation, real-world
+deployment, open-source governance, and long-term maintainability (weighted
+30% / 30% / 20% / 20%); the Innovation Software Award recognizes the Ergalics
+Studio platform itself. The Best Exploration Award comes from the COMAC
+(Commercial Aircraft Corporation of China) fluid CFD enterprise topic: the
+awarded solver, hosted at
+[gitee.com/cnt-code/fluid-cfd-coupler](https://gitee.com/cnt-code/fluid-cfd-coupler),
+addresses 1D/3D time-step coordination and bidirectional boundary coupling in
+large-aircraft fluid system simulation.
+
+Full winners lists are published on the official competition pages:
+[OpenAtom 2026 winners](https://www.oschina.net/oa2026/winners) ·
+[Shanghai 2026 winners](https://www.oschina.net/os2026/winners).
 
 ---
 
