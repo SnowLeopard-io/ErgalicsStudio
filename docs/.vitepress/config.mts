@@ -80,7 +80,7 @@ export default defineConfig({
           { text: '指南', link: '/zh-CN/guide/introduction' },
           { text: '插件', link: '/guide/plugins' },
           { text: 'SDK', link: '/sdk/v1-contract' },
-          { text: '路线图', link: '/guide/roadmap' },
+          { text: '路线图', link: '/zh-CN/guide/roadmap' },
           { text: 'GitHub', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio' },
         ],
         sidebar: [
@@ -89,13 +89,13 @@ export default defineConfig({
             items: [
               { text: '简介', link: '/zh-CN/guide/introduction' },
               { text: '快速开始', link: '/zh-CN/guide/getting-started' },
-              { text: '架构（英文）', link: '/guide/architecture' },
+              { text: '架构', link: '/zh-CN/guide/architecture' },
               { text: '流程模式（英文）', link: '/guide/flow-mode' },
               { text: '积木模式（英文）', link: '/guide/block-mode' },
               { text: '插件开发（英文）', link: '/guide/plugins' },
               { text: '原生核心与 WebGPU', link: '/zh-CN/guide/native-core' },
               { text: '测试', link: '/zh-CN/guide/testing' },
-              { text: '路线图与状态（英文）', link: '/guide/roadmap' },
+              { text: '路线图与状态', link: '/zh-CN/guide/roadmap' },
             ],
           },
           {

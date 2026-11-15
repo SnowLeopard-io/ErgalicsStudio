@@ -65,4 +65,4 @@ npm run build:wasm
 
 插件通过 `api.gpu` 访问该服务，且必须检查 `available`——没有 WebGPU 时，`api.gpu` 为 `undefined`，插件回退到 CPU。可复用的 WGSL 模板位于 `src/core/wgsl.ts`（粒子积分、三维全对全 N 体引力、直方图、热力图、点云投影、格子玻尔兹曼碰撞/迁移、波动方程蛙跳、矩阵乘法、FFT 和 k-means 内核；每个内核都带有宿主侧打包/解包辅助函数，供 CPU 回退路径复现内核的数学计算）。
 
-示例 Particles 插件使用单缓冲区路径：上传交错排列的 `[x, y, vx, vy]` 存储缓冲区和 uniform 参数缓冲区，调度 WGSL 积分内核，回读结果并报告实际 GPU 耗时。N-Body 插件使用计算量更大的全对全路径：`[x, y, z, vx, vy, vz, mass]` 布局、`read-only-storage` 源缓冲区和 `storage` 目标缓冲区，以及**乒乓缓冲区**，使每个积分步骤都留在设备上，无须逐步回读。参见[路线图](../../guide/roadmap)。
+示例 Particles 插件使用单缓冲区路径：上传交错排列的 `[x, y, vx, vy]` 存储缓冲区和 uniform 参数缓冲区，调度 WGSL 积分内核，回读结果并报告实际 GPU 耗时。N-Body 插件使用计算量更大的全对全路径：`[x, y, z, vx, vy, vz, mass]` 布局、`read-only-storage` 源缓冲区和 `storage` 目标缓冲区，以及**乒乓缓冲区**，使每个积分步骤都留在设备上，无须逐步回读。参见[路线图](roadmap)。
