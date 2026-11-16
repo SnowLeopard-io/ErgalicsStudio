@@ -2,7 +2,8 @@
 // ==========================================================================
 // Ergalics Studio — compendium assembler
 //
-// Builds docs/technical/"Ergalics Studio.md" out of the eight numbered
+// Builds docs/technical/ergalics-studio.md (--en) or docs/zh-CN/technical/
+// "Ergalics Studio.md" out of the eight numbered
 // chapter documents, plus a hand-written usage guide and a generated
 // document index. The compendium is therefore a *derived* artefact: it can
 // never drift from the chapters it summarises, which is how the previous
@@ -23,13 +24,30 @@ const DOCS_DIR = path.join(ROOT, 'docs', 'technical');
 // the maintained Chinese edition from docs/zh-CN/technical.
 const EN = process.argv.includes('--en');
 
+// English chapters use English slugs; Chinese chapters keep Chinese names.
+const EN_CHAPTER_FILES = {
+  '01-产品介绍': '01-product-introduction',
+  '02-系统架构': '02-system-architecture',
+  '03-插件系统': '03-plugin-system',
+  '04-四大工作模式': '04-four-working-modes',
+  '05-科研工具集': '05-research-toolset',
+  '06-GPU计算与原生核心': '06-gpu-computing-and-native-core',
+  '07-科学计算子系统': '07-scientific-computing-subsystems',
+  '08-测试与质量保障': '08-testing-and-quality-assurance',
+  '09-电磁谐振特征值求解器': '09-electromagnetic-resonance-eigensolver',
+  '10-流体双向耦合求解器': '10-fluid-bidirectional-coupling-solver',
+  '11-应用场景库': '11-application-scenario-library',
+};
+
 function localisedOrFallback(localized, name) {
   return existsSync(localized) ? localized : path.join(DOCS_DIR, `${name}.md`);
 }
 
 const read = (name) => {
   const localized = path.join(ROOT, 'docs', 'zh-CN', 'technical', `${name}.md`);
-  const source = EN ? path.join(DOCS_DIR, `${name}.md`) : localisedOrFallback(localized, name);
+  const source = EN
+    ? path.join(DOCS_DIR, `${EN_CHAPTER_FILES[name] ?? name}.md`)
+    : localisedOrFallback(localized, name);
   // The generated compendium lives in docs/technical, one level above the
   // localized sources, so restore asset paths relative to its output location.
   return readFileSync(source, 'utf8').replaceAll('](../../assets/', '](../assets/');
@@ -355,7 +373,7 @@ const out = lines
 // Default: assemble the Chinese compendium from docs/zh-CN. --en: assemble the
 // English compendium from docs/technical. Each locale keeps its own page.
 const summaryPath = EN
-  ? path.join(DOCS_DIR, 'Ergalics Studio.md')
+  ? path.join(DOCS_DIR, 'ergalics-studio.md')
   : path.join(ROOT, 'docs', 'zh-CN', 'technical', 'Ergalics Studio.md');
 const summary = EN ? out : out.replaceAll('](../assets/', '](../../assets/');
 writeFileSync(summaryPath, summary, 'utf8');

@@ -168,7 +168,7 @@ def stress_cases(fast: bool = False):
         # (measured).  An interior shift-invert at this scale is reported
         # separately in the performance table — its MINRES inner solves run
         # on a huge indefinite system and only certify ~6e-5 (documented
-        # limitation, see docs/technical/09 performance section).
+        # limitation, see docs/zh-CN/technical/09 performance section).
         cases.append((
             "large_scale_cavity_1e5",
             build_sample("cavity_large").A,

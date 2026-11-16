@@ -217,11 +217,11 @@ const enPage = [
   '',
   banner(false),
   '',
-  `\`BUILTIN_PLUGINS\` currently registers **${total} built-in plugins**: **${autoload}** scientific/analysis plugins load automatically at startup, and **${manual}** fun tools declare \`autoload: false\` and load on demand. \`DISCIPLINE_BY_PLUGIN\` in \`src/plugins/categories.ts\` groups them into **${disciplines.filter((d) => (grouped.get(d.id) ?? []).length).length} disciplines**. For the plugin contract, lifecycle and third-party packaging, see [03 Plugin System](./03-插件系统.md).`,
+  `\`BUILTIN_PLUGINS\` currently registers **${total} built-in plugins**: **${autoload}** scientific/analysis plugins load automatically at startup, and **${manual}** fun tools declare \`autoload: false\` and load on demand. \`DISCIPLINE_BY_PLUGIN\` in \`src/plugins/categories.ts\` groups them into **${disciplines.filter((d) => (grouped.get(d.id) ?? []).length).length} disciplines**. For the plugin contract, lifecycle and third-party packaging, see [03 Plugin System](./03-plugin-system.md).`,
   '',
   ...tableOfContents(false),
   ...catalogSections(false),
-  'This page reflects the plugin registry only; testing and quality metrics live in [08 Testing and Quality Assurance](./08-测试与质量保障.md).',
+  'This page reflects the plugin registry only; testing and quality metrics live in [08 Testing and Quality Assurance](./08-testing-and-quality-assurance.md).',
   '',
 ].join('\n');
 

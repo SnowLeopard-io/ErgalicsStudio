@@ -10,6 +10,32 @@ import { researchBlocks } from './research-blocks.mjs';
 //   Defaults to "/docs/" (domain-root deploy / local preview); the GitHub
 //   Pages workflow overrides it to "/<repo>/docs/" to match the real path.
 // - standalone docs deploy (e.g. GitHub Pages): "/ErgalicsStudio/" (default)
+// English and Chinese technical chapters use language-appropriate slugs, so
+// translationPath cannot be derived by prefixing "zh-CN/". This map pairs the
+// two names (paths relative to each locale root).
+const TECHNICAL_TRANSLATIONS: Record<string, string> = {
+  '01-product-introduction.md': '01-产品介绍.md',
+  '02-system-architecture.md': '02-系统架构.md',
+  '03-plugin-system.md': '03-插件系统.md',
+  '04-four-working-modes.md': '04-四大工作模式.md',
+  '05-research-toolset.md': '05-科研工具集.md',
+  '06-gpu-computing-and-native-core.md': '06-GPU计算与原生核心.md',
+  '07-scientific-computing-subsystems.md': '07-科学计算子系统.md',
+  '08-testing-and-quality-assurance.md': '08-测试与质量保障.md',
+  '09-electromagnetic-resonance-eigensolver.md': '09-电磁谐振特征值求解器.md',
+  '10-fluid-bidirectional-coupling-solver.md': '10-流体双向耦合求解器.md',
+  '10-fluid-bidirectional-coupling-solver-container-deployment.md': '10-流体双向耦合求解器-容器化部署手册.md',
+  '11-application-scenario-library.md': '11-应用场景库.md',
+  '12-plugin-catalog.md': '12-插件全表.md',
+  'ergalics-studio.md': 'Ergalics Studio.md',
+};
+const ZH_TO_EN_TRANSLATIONS = Object.fromEntries(
+  Object.entries(TECHNICAL_TRANSLATIONS).map(([en, zh]) => [`technical/${zh}`, `technical/${en}`]),
+);
+const EN_TO_ZH_TRANSLATIONS = Object.fromEntries(
+  Object.entries(TECHNICAL_TRANSLATIONS).map(([en, zh]) => [`technical/${en}`, `technical/${zh}`]),
+);
+
 const isDev = process.env.NODE_ENV === 'development';
 const base = process.env.DOCS_BASE ?? (isDev ? '/' : '/ErgalicsStudio/');
 
@@ -26,7 +52,10 @@ export default defineConfig({
   transformPageData(pageData) {
     const path = pageData.relativePath;
     const chinese = path.startsWith('zh-CN/');
-    const counterpart = chinese ? path.slice('zh-CN/'.length) : `zh-CN/${path}`;
+    const localPath = chinese ? path.slice('zh-CN/'.length) : path;
+    const counterpart = chinese
+      ? `zh-CN/${ZH_TO_EN_TRANSLATIONS[localPath] ?? localPath}`
+      : `zh-CN/${EN_TO_ZH_TRANSLATIONS[localPath] ?? localPath}`;
     if (existsSync(fileURLToPath(new URL(`../${counterpart}`, import.meta.url)))) {
       pageData.frontmatter.translationPath = '/' + counterpart
         .replace(/(^|\/)index\.md$/, '$1')
@@ -85,6 +114,14 @@ export default defineConfig({
           { text: '插件', link: '/zh-CN/guide/plugins' },
           { text: 'SDK', link: '/zh-CN/sdk/v1-contract' },
           { text: '路线图', link: '/zh-CN/guide/roadmap' },
+          {
+            text: '更多',
+            items: [
+              { text: '产品文档', link: '/zh-CN/product/Ergalics-Studio' },
+              { text: '版本说明', link: '/zh-CN/promotion/release-v2.0.0' },
+              { text: '氛围体验设计', link: '/zh-CN/ambience-experience-design' },
+            ],
+          },
           { text: 'GitHub', link: 'https://github.com/SnowLeopard-io/ErgalicsStudio' },
         ],
         sidebar: [
@@ -159,6 +196,14 @@ export default defineConfig({
       { text: 'SDK', link: '/sdk/v1-contract' },
       { text: 'Roadmap', link: '/guide/roadmap' },
       {
+        text: 'More',
+        items: [
+          { text: 'Product Overview', link: '/product/Ergalics-Studio' },
+          { text: 'Release Notes', link: '/promotion/release-v2.0.0' },
+          { text: 'Ambience Design', link: '/ambience-experience-design' },
+        ],
+      },
+      {
         text: 'GitHub',
         link: 'https://github.com/SnowLeopard-io/ErgalicsStudio',
       },
@@ -194,15 +239,15 @@ export default defineConfig({
         collapsible: true,
         items: [
           { text: 'Chapter Index', link: '/technical/' },
-          { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
-          { text: '02 · System Architecture', link: '/technical/02-系统架构' },
-          { text: '03 · Plugin System', link: '/technical/03-插件系统' },
-          { text: '04 · Four Working Modes', link: '/technical/04-四大工作模式' },
-          { text: '05 · Research Toolset', link: '/technical/05-科研工具集' },
-          { text: '06 · GPU Computing and Native Core', link: '/technical/06-GPU计算与原生核心' },
-          { text: '07 · Scientific Computing Subsystems', link: '/technical/07-科学计算子系统' },
-          { text: '08 · Testing and Quality Assurance', link: '/technical/08-测试与质量保障' },
-          { text: '11 · Application Scenario Library', link: '/technical/11-应用场景库' },
+          { text: '01 · Product Introduction', link: '/technical/01-product-introduction' },
+          { text: '02 · System Architecture', link: '/technical/02-system-architecture' },
+          { text: '03 · Plugin System', link: '/technical/03-plugin-system' },
+          { text: '04 · Four Working Modes', link: '/technical/04-four-working-modes' },
+          { text: '05 · Research Toolset', link: '/technical/05-research-toolset' },
+          { text: '06 · GPU Computing and Native Core', link: '/technical/06-gpu-computing-and-native-core' },
+          { text: '07 · Scientific Computing Subsystems', link: '/technical/07-scientific-computing-subsystems' },
+          { text: '08 · Testing and Quality Assurance', link: '/technical/08-testing-and-quality-assurance' },
+          { text: '11 · Application Scenario Library', link: '/technical/11-application-scenario-library' },
           { text: '12 · Plugin Catalog', link: '/technical/12-plugin-catalog' },
         ],
       },
@@ -210,9 +255,9 @@ export default defineConfig({
         text: 'Solver Topics',
         collapsible: true,
         items: [
-          { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-电磁谐振特征值求解器' },
-          { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-流体双向耦合求解器' },
-          { text: 'Container Deployment Manual', link: '/technical/10-流体双向耦合求解器-容器化部署手册' },
+          { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-electromagnetic-resonance-eigensolver' },
+          { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-fluid-bidirectional-coupling-solver' },
+          { text: 'Container Deployment Manual', link: '/technical/10-fluid-bidirectional-coupling-solver-container-deployment' },
         ],
       },
       {

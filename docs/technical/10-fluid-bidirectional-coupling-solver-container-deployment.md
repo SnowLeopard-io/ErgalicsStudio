@@ -105,7 +105,7 @@ npm ci && npm run build          # → dist/
 | Working prototype (4b) | `studio` service: run bidirectional coupling + animated 3D playback directly in the browser |
 | Reproducible materials (4d) | `cfd-verify` service: 26 assertions against the same core + benchmark generation |
 | Convenient, scripted deployment | One command: `docker compose up -d --build studio` |
-| Consistency with the proposal/case report | The results use exactly the same conventions as `docs/technical/10-流体双向耦合求解器.md` |
+| Consistency with the proposal/case report | The results use exactly the same conventions as `docs/technical/10-fluid-bidirectional-coupling-solver.md` |
 
 ---
 

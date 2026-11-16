@@ -12,7 +12,7 @@
 5. **复现说明** —— CLI / 浏览器插件 / 基准可在三环境中得到一致结果；
 6. **与评审维度的对应** —— 逐条映射打分项。
 
-详细推导与工程数据见仓库文档 [`docs/technical/09-电磁谐振特征值求解器.md`](../../../docs/technical/09-电磁谐振特征值求解器.md)。
+详细推导与工程数据见仓库文档 [`docs/zh-CN/technical/09-电磁谐振特征值求解器.md`](../../../../../docs/zh-CN/technical/09-电磁谐振特征值求解器.md)。
 
 ---
 
@@ -252,7 +252,7 @@ npm run build:web                          # tsc --noEmit && vite build
 | `em-worker.ts` / `em-client.ts` / `plugin.ts` | 前端 Worker / RPC / 控制器 |
 | `render.ts` / `render3d.ts` / `diag-report.ts` / `types.ts` | 谱/残差/收敛可视化、3D 模式场、诊断报告、协议类型 |
 | `manifest.ts` / `index.ts` | 插件清单与注册 |
-| `../../../docs/technical/09-电磁谐振特征值求解器.md` | 技术文档（算法/复杂度/基准/故障/安全/赛题映射） |
+| `../../../docs/zh-CN/technical/09-电磁谐振特征值求解器.md` | 技术文档（算法/复杂度/基准/故障/安全/赛题映射） |
 | `examples/data/em-cavity-degenerate.mtx` | 600 阶重特征值样例矩阵 |
 | `bench/em-eigensolver-*.json` | 已生成基准结果 |
 | `tests/emEigensolver.test.ts` | 前端纯函数单测（35 项用例一部分） |
