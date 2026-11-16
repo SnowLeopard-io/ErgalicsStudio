@@ -1,0 +1,21 @@
+{
+  "name": "ergalics-studio-desktop",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Ergalics Studio Desktop — offline Electron distribution (Windows first)",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:main": "node build.mjs",
+    "dist": "electron-builder --win --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "rcedit": "^5.0.2"
+  },
+  "dependencies": {
+    "simple-git": "^3.27.0"
+  }
+}
