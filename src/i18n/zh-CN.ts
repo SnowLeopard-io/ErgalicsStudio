@@ -1015,6 +1015,7 @@ export const zhCN: LocaleDictionary = {
   'schema.contract_none': '尚无保存的契约',
   'synth.source_title': '源数据',
   'synth.upload': '上传 CSV',
+  'synth.select_project_file': '选择项目数据…',
   'synth.rows_label': '{rows} 行',
   'synth.cols_label': '{cols} 列',
   'synth.params_title': '生成参数',

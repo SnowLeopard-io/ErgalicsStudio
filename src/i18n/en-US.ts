@@ -1013,6 +1013,7 @@ export const enUS: LocaleDictionary = {
   'schema.contract_none': 'No saved contract yet',
   'synth.source_title': 'Source data',
   'synth.upload': 'Upload CSV',
+  'synth.select_project_file': 'Select project data…',
   'synth.rows_label': '{rows} rows',
   'synth.cols_label': '{cols} cols',
   'synth.params_title': 'Generation options',

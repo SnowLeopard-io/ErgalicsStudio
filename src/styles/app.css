@@ -7562,6 +7562,15 @@
   box-sizing: border-box;
 }
 
+/* A textarea holds a full paragraph (result narrative), not a one-line
+   control: let it use the whole row width and grow with its content. */
+.tool-content .analysis-row > textarea.input {
+  max-width: none;
+  height: auto;
+  resize: vertical;
+  line-height: 1.55;
+}
+
 .tool-content .analysis-row > .btn {
   flex: 0 0 auto;
   height: 34px;
