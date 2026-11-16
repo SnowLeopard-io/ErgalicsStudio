@@ -32,7 +32,7 @@ blocks/
   context        MemoryStorage + RuntimeEnvironment
   fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        53 built-in block types (data_source → … → plot · visualize)
+  catalog        63 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -139,7 +139,7 @@ selection.
 
 ## Built-in blocks
 
-The catalog (`src/blocks/catalog/`) registers **53 built-in blocks across
+The catalog (`src/blocks/catalog/`) registers **63 built-in blocks across
 eight categories**:
 
 | Category     | Count | Blocks                                                                                |

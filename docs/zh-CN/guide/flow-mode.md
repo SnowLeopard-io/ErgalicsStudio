@@ -26,7 +26,7 @@ blocks/
   context        MemoryStorage + RuntimeEnvironment
   fileData       shared raw-text → DataTable parsing (source.file & studio.load)
   ops            pure column kernels (subset, normalize, histogram, …)
-  catalog        53 built-in block types (data_source → … → plot · visualize)
+  catalog        63 built-in block types (data_source → … → plot · visualize)
   l10n           blockName / blockDescription (locale resolution)
   sample         SAMPLE_PIPELINES from examples/projects/*.clproj
   render         the only side-effectful step: viz.* → plugin.loadData
@@ -104,7 +104,7 @@ components/blocks/
 
 ## 内置区块
 
-目录（`src/blocks/catalog/`）注册了**八个类别共 53 个内置区块**：
+目录（`src/blocks/catalog/`）注册了**八个类别共 63 个内置区块**：
 
 | 类别 | 数量 | 区块 |
 | --- | --- | --- |

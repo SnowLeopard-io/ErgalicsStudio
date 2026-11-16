@@ -180,7 +180,7 @@ const result = await data.read();            // readback copy (read() handles it
 
 ## 内置示例插件
 
-`src/plugins/builtin/` 提供 153 个科学/核心插件（另有 10 个声明 `autoload: false` 的 `fun.*` 趣味插件——共 163 个内置插件），覆盖完整插件契约接口：2D 画布、宿主 Three.js 场景、`loadData`、`compute` 和 `api.gpu` 加速路径。下表是具有代表性的截面；完整注册表为 `src/plugins/builtin/index.ts` 中的 `BUILTIN_PLUGINS`（侧边栏学科映射位于 `src/plugins/categories.ts`）：
+`src/plugins/builtin/` 提供 155 个科学/核心插件（另有 10 个声明 `autoload: false` 的 `fun.*` 趣味插件——共 165 个内置插件），覆盖完整插件契约接口：2D 画布、宿主 Three.js 场景、`loadData`、`compute` 和 `api.gpu` 加速路径。下表是具有代表性的截面；完整注册表为 `src/plugins/builtin/index.ts` 中的 `BUILTIN_PLUGINS`（侧边栏学科映射位于 `src/plugins/categories.ts`）；逐插件清单见自动生成的《[12 · 插件全表](../technical/12-插件全表.md)》：
 
 | 插件 id | 数据 | 能力 |
 | --- | --- | --- |

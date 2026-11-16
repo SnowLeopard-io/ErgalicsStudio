@@ -26,21 +26,21 @@ The “typical” columns describe common characteristics of each kind of soluti
 The product has four parts:
 
 1. **Four-mode workbench**, from dragging in data to see results, through flow pipelines, block programming and real scripts; the three scripting modes share one intermediate representation.
-2. **107 built-in plugins** covering visualization, simulation and data analysis across 16 disciplines.
-3. **26 research tools** for profiling, cleaning, inference, figure composition, reporting and reproducibility.
+2. **165 built-in plugins** covering visualization, simulation and data analysis across 19 disciplines.
+3. **33 research tools** for profiling, cleaning, inference, figure composition, reporting and reproducibility.
 4. **Browser runtimes**, including CPython (Pyodide), webR, DuckDB-WASM and 14 WGSL compute kernels.
 
 The core figures cited in this document can all be checked in the public repository:
 
 | Dimension | Current state |
 | --- | --- |
-| Built-in plugins | 107 across 16 disciplines (97 loaded at startup, 10 on demand) |
-| Research tools | 26 in six groups, all embeddable in the workbench canvas |
+| Built-in plugins | 165 across 19 disciplines (155 loaded at startup, 10 on demand) |
+| Research tools | 33 in seven groups, all embeddable in the workbench canvas |
 | Flow blocks | 38 covering sources, transforms, filters, mathematics, statistics, units, visualization and plotting |
 | Compute kernels | 14 WGSL kernels, each with a mathematically consistent CPU implementation |
 | Script runtimes | CPython (Pyodide), webR 0.6.0 and DuckDB-WASM, self-hosted with the application |
 | Data formats | Unified import of CSV / JSON / HDF5 / NetCDF / FITS / Zarr / Parquet and more |
-| Quality assurance | 2,815 unit tests (173 files), 14 end-to-end suites and five CI workflows |
+| Quality assurance | 4,078 unit tests (4,076 passing, 2 skipped) in 263 files, 14 end-to-end suites and five CI workflows |
 | Open-source governance | MIT license; releases archived and assigned DOIs through Zenodo; SBOM and citation metadata provided |
 
 Three established technical conditions underlie these figures:
@@ -200,7 +200,7 @@ The workbench offers four modes for different levels of use. Flow, Block and Cod
 | Mode | Intended use | How it works |
 | --- | --- | --- |
 | Standard | Quick inspection | Drag a dataset into a plugin to plot it |
-| Flow | Pipeline construction | 38 built-in blocks form dataflow graphs, executed topologically with per-node inspection |
+| Flow | Pipeline construction | 63 built-in blocks form dataflow graphs, executed topologically with per-node inspection |
 | Block | Learners and imperative programming | Scratch-like block editor, scriptable |
 | Code | Real scripts | Monaco editor; Python uses CPython (Pyodide), R can upgrade to the full webR runtime |
 
@@ -238,11 +238,11 @@ For multistep pipelines, connected blocks form a directed acyclic graph executed
 ```card
 Flow Mode
 For｜Analysts organizing multistep data pipelines and repeatedly tuning parameters.
-How｜Connect 38 built-in blocks into a directed acyclic graph; preview each node's output and diagnostics separately.
+How｜Connect 63 built-in blocks into a directed acyclic graph; preview each node's output and diagnostics separately.
 Value｜Node-level incremental caching recomputes only affected downstream nodes after a parameter change, greatly reducing tuning cost for large pipelines.
 ```
 
-The 38 blocks fall into eight categories—sources, transforms, filters, mathematics, statistics, units, visualization and plotting—covering common paths from reading CSV to group aggregation and plotting. Intermediate results can be expanded into table or figure previews, and an error node leads directly to its upstream cause. The whole graph can be saved as part of the project and edited later.
+The 63 blocks fall into data sources, transforms, filters, mathematics, statistics, units, visualization and plotting—covering common paths from reading CSV to group aggregation and plotting. Intermediate results can be expanded into table or figure previews, and an error node leads directly to its upstream cause. The whole graph can be saved as part of the project and edited later.
 
 ### Block Mode {#积木模式}
 
@@ -605,36 +605,39 @@ Every step takes place in one browser tab and all functions continue offline. Th
 
 **Plugin contract:** Each plugin declares parameter controls, sample data and research-readiness badges in its manifest; the host automatically generates localized forms. Key plugin readings enter the strip through the scientific output bus and each run enters the experiment ledger. Built-in and third-party `.cspkg` packages use the same contract and loading path, with no privileged host channel for built-ins.
 
-**Tests and regression:** 2,815 unit tests across 173 files and 14 end-to-end suites cover key user paths; type checking and all unit tests run in CI on every commit. Dedicated tests secure GPU/CPU kernel consistency, three-language round trips, report escaping, signature gates and more; a separate benchmark workflow guards performance baselines. Compliance issues such as citation-metadata drift and dependency vulnerabilities fail CI rather than relying on memory.
+**Tests and regression:** 4,078 unit tests (4,076 passing, 2 skipped) across 263 files and 14 end-to-end suites cover key user paths; type checking and all unit tests run in CI on every commit. Dedicated tests secure GPU/CPU kernel consistency, three-language round trips, report escaping, signature gates and more; a separate benchmark workflow guards performance baselines. Compliance issues such as citation-metadata drift and dependency vulnerabilities fail CI rather than relying on memory.
 
 **Performance budgets and threading:** CI performance budgets expose bundle-size and critical-path regressions before merging. File parsing and computation run in Workers, leaving the main thread responsive; rendering uses WebGPU or a Canvas fallback. The thread boundary is also a security boundary: sandboxed plugins and host run in different Workers.
 
 ## VI. Built-in Capabilities {#六、内置能力全景}
 
-The 107 built-in plugins are organized into 16 disciplines: 97 load at startup and 10 fun tools load on demand. The table lists all plugins (Chinese and English names come from their manifests); numbers in parentheses are counts per discipline:
+The 165 built-in plugins are organized into 19 disciplines: 155 load at startup and 10 fun tools load on demand. The table lists all plugins (Chinese and English names come from their manifests); numbers in parentheses are counts per discipline:
 
 | Discipline (count) | Plugins |
 | --- | --- |
-| Chart visualization (16) | Scatter Plot, Time Series, Heatmap, Contour, 3D Surface, 3D Voxel Field, Bar Chart, Bubble Chart, Polar Plot, Network Graph, Sankey, Treemap, Parallel Coordinates, Point Cloud, Point Cloud 3D, Image Viewer |
-| Mathematical statistics (8) | Histogram, Box Plot, Violin Plot, QQ Plot, Error Band, CLT Bench, Markov Chains and steady-state analysis, Zipf's Law word-frequency analysis |
-| Mathematical methods (3) | Fourier Series Lab, Domain Coloring, ODE vector fields and Streamlines |
-| Physics simulation (15) | Particles, gravitational N-Body, fluid simulation (LBM), Wave Equation, Double Pendulum (chaos), Electromagnetism, Optics Lab, one-dimensional Schrödinger Solver, 2D Ising Model, Heat Engine p-V analysis, heat conduction / Diffusion, Diffraction Lab, trajectory kinematics and energy decomposition, EM Eigensolver, 1D–3D bidirectional Coupled Solver |
-| Chemistry (5) | Crystal · 3D preview, Reaction · free-reaction kinetics 3D Reaction MD, Titration Lab, reaction-order determination and Arrhenius analysis, Gray-Scott reaction-diffusion Turing Patterns |
-| Biology (8) | Protein Interactions, Enzyme Kinetics, Epidemic Modeling, Sequence Alignment and analysis, Population Genetics, compartmental Pharmacokinetics, Mendelian F2 segregation-ratio χ² tests, Hodgkin–Huxley neuron |
-| Geography (13) | GeoJSON map, solar altitude and day length Solar, Climatograph, Population Pyramid, spatial interpolation (IDW / kriging), distance and area measurement, projection distortion (Tissot indicatrix), DEM terrain analysis, GPX track analysis, interactive Globe (3D), Radiocarbon dating, soil-water characteristic curve fitting, SCS rainfall-runoff model |
-| Environmental science (8) | Air quality assessment (AQI), water quality assessment (surface-water classification), Greenhouse simulation, Carbon Cycle, Biodiversity indices, pollutant dispersion (Gaussian plume), 3D global environment, predator–prey (Lotka–Volterra) |
-| Astronomy (3) | Astronomical CCD Pipeline, transiting exoplanet light-curve Transit Fitting, HR Diagram |
-| Materials science (3) | XRD diffraction analysis, Stress-Strain analysis, thermal analysis (DSC/TGA) |
-| Engineering simulation (4) | Structural Mechanics, DC Circuit nodal analysis, plane truss Truss FEA, Control Systems Lab |
-| Economics and finance (2) | Black-Scholes option pricing lab, spatial Prisoner's Dilemma evolutionary game |
-| Psychology and behavior (2) | Signal detection theory ROC / d′ analysis, simple Reaction Time lab |
-| Data and intelligence (2) | AI Trainer (TF.js in-browser training), Image Processing (FFT / convolution / edges) |
-| Special-effects rendering (5) | Black hole · 3D ray tracing, water waves · 3D fluid, volumetric clouds · sky renderer, daylight sky · atmospheric scattering, stars · night-sky renderer |
-| Fun tools (10, on demand) | Mandelbrot / Julia fractal explorer, Spirograph, Lissajous curves, Game of Life, Harmonograph, Palette explorer, Koch snowflake, Barnsley Fern, Fireworks, Truchet Tiles |
+| Charts（22） | Scatter Plot、Time Series、Histogram、Box Plot、Heatmap、Contour、Error Band、QQ Plot、Violin Plot、Parallel Coordinates、Sankey Diagram、Treemap、Network Graph、Bar Chart、Bubble Chart、Polar Plot、Point Cloud、Point Cloud 3D、3D Surface、3D Voxel Field、3D Model Viewer、Image Viewer |
+| Mathematics & Statistics（21） | Fourier Series Lab、Domain Coloring、ODE Vector Field & Streamlines、Linear Algebra Lab、Probability Distribution Lab、Numerical Analysis Lab、Graph Theory Visualizer、Topology Visualizer、Game Theory Lab、Central Limit Theorem Bench、Markov Chains & Stationary Analysis、Zipf's Law Word Frequencies、Design of Experiments (DOE)、Time Series Analysis、Multivariate Analysis、Nonparametric Tests、Survival Analysis、Meta-Analysis、Bayesian Inference、Conformal Prediction、Monte Carlo Simulation |
+| Physics（18） | N-Body Gravity、LBM Fluid、3D Fluid Flow、Wave Equation、Double Pendulum、Electromagnetism、Optics Lab、EM Eigensolver、1D-3D Coupled Solver、1-D Schrödinger Solver、2-D Ising Model、Heat Engine Cycles、Diffusion Equation Lab、Diffraction Lab、Trajectory Kinematics Lab、Physics-Informed Neural Network、Agent-Based Modeling、Particles |
+| Chemistry（5） | Crystal · 3D Unit Cell、Reaction · MD 3D、Titration Curve Lab、Reaction Order & Arrhenius、Gray–Scott Turing Patterns |
+| Biology（6） | Enzyme Kinetics、Sequence Alignment、Population Genetics、Mendel F2 χ² Tests、Hodgkin–Huxley Neuron、Protein Interactions |
+| Medicine & Public Health（6） | Epidemic Modeling、Pharmacokinetics、ECG Analyzer、Medical Image Viewer、Biostatistics Toolkit、Genomics Visualizer |
+| Geography（16） | GeoJSON Map、Solar Elevation & Day Length、Climatograph、Population Pyramid、Spatial Interpolation、Distance & Area Measure、Projection Distortion (Tissot)、DEM Terrain Analysis、GPX Track Analysis、Interactive Globe (3D)、Radiocarbon Dating Lab、Soil Water Retention Fit、SCS Runoff Event、Seismic Wave Propagation、Mineral Identification Lab、Hydrogeology Workbench |
+| Environmental（8） | Air Quality (AQI)、Water Quality、Greenhouse Effect、Carbon Cycle、Biodiversity Indices、Pollutant Dispersion、3-D Global Environment、Predator–Prey (Lotka–Volterra) |
+| Astronomy（3） | Astronomy CCD Pipeline、Exoplanet Transit Fitting、Hertzsprung–Russell Diagram |
+| Materials（3） | XRD Pattern Analysis、Stress-Strain Analysis、Thermal Analysis (DSC/TGA) |
+| Engineering（11） | Structural Mechanics、DC Circuit Node Analysis、Plane Truss FEA、Control Systems Lab、FEM Lab（有限元实验室）、Fluid Mechanics Lab、Vibration Analysis、Heat Transfer Analysis、Mechanism Kinematics、System Dynamics Studio、Discrete Event Simulator |
+| Economics（2） | Black-Scholes Option Lab、Spatial Prisoner's Dilemma |
+| Psychology（2） | Signal Detection ROC / d′、Reaction Time Lab |
+| Social Science（5） | Population Forecasting、Voting System Simulator、Social Network Analyzer、Inequality Analyzer、Public Opinion Diffusion |
+| Music & Art Science（5） | Acoustics Lab、Tuning System Calculator、Synthesizer Lab、Keyboard Performance、Color Science Lab |
+| Computer Science（7） | Algorithm Visualizer、Data Structure Lab、Automata & Regular Expression Engine、Cryptography Lab、Neural Network Visualizer、Complexity Analyzer、Network Protocol Simulator |
+| Data & AI（8） | AI Trainer、Vector Database、AutoML Pipeline、NLP Workbench、Recommender System Simulator、Reinforcement Learning Lab、Model Interpreter、Image Processing |
+| Visual FX（7） | Black Hole · 3D Ray Tracer、Water · 3D Fluid Waves、Volumetric Clouds · Sky Renderer、Daylight Sky · Atmosphere、Starfield · Night Sky、Ocean Swell · Sunrise & Sunset、Misty Peaks · Layered Ridges |
+| Fun & Utility（10） | Fractal Explorer、Spirograph、Lissajous、Conway's Game of Life、Harmonograph、Palette Explorer、Koch Snowflake、Barnsley Fern、Fireworks、Truchet Tiles |
 
-Simulation plugins start empty and run only after data is loaded; Reset only replays loaded data. The 138 sample datasets (`examples/data/`) can be loaded in one click through the sample-data dialog. Research-grade plugins declare research-readiness badges, physical units and validation benchmarks in their manifests, and key metrics enter the strip at the top of the canvas through the scientific output bus.
+Simulation plugins start empty and run only after data is loaded; Reset only replays loaded data. The 189 sample datasets (`examples/data/`) can be loaded in one click through the sample-data dialog. Research-grade plugins declare research-readiness badges, physical units and validation benchmarks in their manifests, and key metrics enter the strip at the top of the canvas through the scientific output bus.
 
-The 26 research tools are organized into six groups, all embeddable in the workbench canvas: measurement and uncertainty (Data Profiler, Bootstrap / Monte Carlo propagation / MCMC); modeling and inference (regression workbench, NUTS Bayesian inference, ONNX inference, parameter sweeps); data and graphs (DuckDB SQL, data lineage, Figure Studio, Cleaning Wizard, quick analysis, file management); signals and records (Signal Lab, Notebook, experiment ledger); reporting and reproduction (report generation, reproducibility lock, supplementary materials package, reproducible works gallery); toolbox (unit conversion, calculator, format conversion, significant figures, molar mass, Quick Stats). Formats include CSV / JSON / GeoJSON / GPX / HDF5 / NetCDF / FITS / Zarr / Parquet / CIF / POSCAR / DEM and others, dispatched by a unified importer.
+The 33 research tools are organized into seven groups, all embeddable in the workbench canvas: measurement and uncertainty (Data Profiler, Bootstrap / Monte Carlo propagation / MCMC); modeling and inference (regression workbench, NUTS Bayesian inference, ONNX inference, parameter sweeps); data and graphs (DuckDB SQL, data lineage, Figure Studio, Cleaning Wizard, quick analysis, schema inspection, synthetic data, workspace file browser); signals and records (Signal Lab, Notebook, experiment ledger); reporting and reproduction (report generation, reproducibility lock, supplementary materials package, reproducible works gallery, course mode); writing and publication (LaTeX editor, citation manager, collaborative notebook, preprint); toolbox (unit conversion, calculator, format conversion, significant figures, molar mass, Quick Stats). Formats include CSV / JSON / GeoJSON / GPX / HDF5 / NetCDF / FITS / Zarr / Parquet / CIF / POSCAR / DEM and others, dispatched by a unified importer.
 
 Plugins and tools share the same data path: plugin readings enter the strip via the scientific output bus, tool runs enter the experiment ledger, and file I/O uses one virtual filesystem under Git version control. They differ in interface, not data ownership: results on plugin canvases, scripts, reports and reproducibility locks all see the same project.
 
@@ -690,7 +693,7 @@ The following eight figures show plugins from eight different disciplines after 
 
 ## VII. Governance and Roadmap {#七、治理与路线图}
 
-The project is released under MIT, with source, 173 test files and five CI workflows publicly available. Releases are archived and assigned DOIs through Zenodo; software citations are maintained in `CITATION.cff` and checked in CI; SECURITY, CONDUCT, CHANGELOG and bilingual README files are provided. Third-party and built-in plugins use the same contract and loading path, so extensions do not require host changes.
+The project is released under MIT, with source, 263 test files and five CI workflows publicly available. Releases are archived and assigned DOIs through Zenodo; software citations are maintained in `CITATION.cff` and checked in CI; SECURITY, CONDUCT, CHANGELOG and bilingual README files are provided. Third-party and built-in plugins use the same contract and loading path, so extensions do not require host changes.
 
 **Sustainability rests on several designs:** Every compute kernel has a mathematically consistent CPU implementation, maintaining full functionality without WebGPU; data moves freely in open formats and projects can be exported for offline transfer; repro.lock's five fingerprint categories allow historical analyses to be checked for drift and rerun long afterwards.
 
@@ -708,7 +711,7 @@ The project is released under MIT, with source, 173 test files and five CI workf
 | Long term (vision) | **Analysis as artifact:** headless repro.lock projects rerun in CI, automatically regenerating reports and figures | Tests already run the same code path outside the browser |
 | Long term (vision) | **Citable analysis:** archive each analysis as a DOI citation object, allowing mutual references between paper conclusions and the analyses that produced them | Release pipeline already archives Zenodo DOIs and maintains citations via CITATION.cff |
 | Long term (vision) | Real-time collaboration and project sharing (a synchronization layer over local-first architecture) | Projects are standard Git repositories with an exchange format |
-| Long term (vision) | **Disciplinary depth:** more fields gain complete workflows from data import to paper submission under one contract | 107 built-in plugins across 16 disciplines are existing examples of the contract |
+| Long term (vision) | **Disciplinary depth:** more fields gain complete workflows from data import to paper submission under one contract | 165 built-in plugins across 19 disciplines are existing examples of the contract |
 | Long term (vision) | **Real-world adoption:** offline bulk deployment for universities and labs, with adoption in actual teaching underway | Complete single-machine offline capability delivered |
 | Long term (vision) | **Full submission-standard coverage:** more journal templates and export formats | IEEE / Elsevier templates and submission checks delivered |
 
@@ -716,7 +719,7 @@ The project is released under MIT, with source, 173 test files and five CI workf
 
 **Mitigations are layered:** The sandbox isolates runtime behavior, the signature gate determines what enters it, and error boundaries limit the impact of crashes from code that has entered. All three layers have test coverage; failure of any single layer does not directly expose host data. CPU and GPU paths are constrained by the same unit tests for numerical consistency, and fallback engine choice is recorded so performance differences can be attributed afterwards.
 
-**CI carries out daily governance:** Five workflows cover 2,815 unit tests, 14 end-to-end suites, builds and documentation generation. Two classes of test fix key semantics in the pipeline: GPU/CPU consistency tests bind 14 WGSL kernels and their CPU implementations to the same numerical tolerance, and three-mode translation tests bind Block, Flow and Code to one intermediate representation. Commits breaking consistency or translation semantics fail in the pipeline rather than relying on human discovery.
+**CI carries out daily governance:** Five workflows cover 4,078 unit tests (4,076 passing, 2 skipped), 14 end-to-end suites, builds and documentation generation. Two classes of test fix key semantics in the pipeline: GPU/CPU consistency tests bind 14 WGSL kernels and their CPU implementations to the same numerical tolerance, and three-mode translation tests bind Block, Flow and Code to one intermediate representation. Commits breaking consistency or translation semantics fail in the pipeline rather than relying on human discovery.
 
 **Supply chain and compliance also enter the pipeline:** An SBOM is generated in CycloneDX 1.5 format; the security workflow rescans weekly, high and critical vulnerabilities block merging, and exemptions require reasons and follow-up records. A script compares citation metadata with `package.json`, and drift fails CI.
 
@@ -724,7 +727,7 @@ The project is released under MIT, with source, 173 test files and five CI workf
 
 - **Online:** Open the GitHub Pages version (see the repository README badge), with no installation or registration.
 - **Local development:** Run `npm install` then `npm run dev`; `npm run build:web` builds the pure web version; `npm run verify` runs strict type checking and all unit tests; `npm run test:e2e` runs the end-to-end suites.
-- **Examples:** 138 sample datasets and 11 sample projects are built in and loadable; nine sample programs cover three languages.
+- **Examples:** 189 sample datasets and 11 sample projects are built in and loadable; nine sample programs cover three languages.
 - **Contribute:** Issues and Pull Requests are welcome; third-party plugin contract documentation is in the repository.
 - **Cite:** `CITATION.cff` supplies standard citation formats, and formal releases receive Zenodo DOIs.
 
@@ -740,44 +743,50 @@ Three deployment forms use the same purely static build, selected by scenario:
 
 **Take data away at any time:** Export a project as one `.clproj` file; data files retain their original formats and Git history travels with the project. Uninstalling or clearing browser data removes all local copies, with no cloud residue requiring an export request.
 
-**No personal data is needed for a first use:** Eleven sample projects cover complete analysis scenarios across disciplines, and 138 sample datasets can be loaded into any plugin in one click through the sample-data dialog. Starting with an example and replacing it with one's own file is the practical path for most new users.
+**No personal data is needed for a first use:** Eleven sample projects cover complete analysis scenarios across disciplines, and 189 sample datasets can be loaded into any plugin in one click through the sample-data dialog. Starting with an example and replacing it with one's own file is the practical path for most new users.
 
 ## IX. Appendices {#九、附录}
 
 ### Appendix A: Plugin Reference {#附录-a-插件速查}
 
-The table lists IDs and disciplines for all 107 built-in plugins; Chinese and English names appear in Chapter VI. The authoritative mapping is `src/plugins/categories.ts`; unmapped third-party plugin IDs default to chart visualization.
+The table lists IDs and disciplines for all 165 built-in plugins; Chinese and English names appear in Chapter VI. The authoritative mapping is `src/plugins/categories.ts`; unmapped third-party plugin IDs default to chart visualization.
 
 | Discipline | Plugin IDs |
 | --- | --- |
-| Chart visualization (16) | `example.scatter`、`example.timeseries`、`example.heatmap`、`example.contour`、`example.surface-3d`、`example.voxel-3d`、`example.bar_chart`、`example.bubble`、`example.polar`、`example.network`、`example.sankey`、`example.treemap`、`example.parallel`、`example.point-cloud`、`example.point-cloud-3d`、`example.image` |
-| Mathematical statistics (8) | `example.histogram`、`example.boxplot`、`example.violin`、`example.qqplot`、`example.errorband`、`example.stats-clt`、`example.stats-markov`、`example.stats-zipf` |
-| Mathematical methods (3) | `example.math-fourier`、`example.math-domaincolor`、`example.math-odefield` |
-| Physics simulation (15) | `example.particles`、`example.nbody`、`example.fluid`、`example.wave`、`example.pendulum`、`example.electromag`、`example.optics`、`example.em-eigensolver`、`example.fluid-cfd-coupler`、`example.physics-schrodinger`、`example.physics-ising`、`example.physics-heatengine`、`example.physics-diffusion`、`example.physics-diffraction`、`example.physics-trajectory` |
-| Chemistry (5) | `example.chem-crystal`、`example.chem-reaction`、`example.chem-titration`、`example.chem-reaction-order`、`example.chem-turing` |
-| Biology (8) | `example.protein`、`example.bio-enzyme`、`example.bio-epidemic`、`example.bio-seqalign`、`example.bio-popgen`、`example.bio-pk`、`example.bio-mendel`、`example.bio-neuron` |
-| Geography (13) | `example.geomap`、`example.geo-solar`、`example.geo-climograph`、`example.geo-pop-pyramid`、`example.geo-interp`、`example.geo-measure`、`example.geo-tissot`、`example.geo-terrain`、`example.geo-gpx`、`example.geo-globe`、`example.geo-carbondating`、`example.geo-soilwater`、`example.geo-hydrology` |
-| Environment (8) | `example.env-aqi`、`example.env-water`、`example.env-greenhouse`、`example.env-carbon`、`example.env-biodiversity`、`example.env-plume`、`example.env-earth3d`、`example.env-predator-prey` |
-| Astronomy (3) | `astro.pipeline`、`example.astro-transit`、`example.astro-hrdiagram` |
-| Materials science (3) | `example.mats-xrd`、`example.mats-mech`、`example.mats-thermal` |
-| Engineering simulation (4) | `example.structure`、`example.eng-circuit`、`example.eng-truss`、`example.eng-control` |
-| Economics and finance (2) | `example.econ-blackscholes`、`example.econ-evogame` |
-| Psychology and behavior (2) | `example.psych-sdt`、`example.psych-rt` |
-| Data and intelligence (2) | `example.ai-training`、`example.data-imageproc` |
-| Special-effects rendering (5) | `fx.blackhole`、`fx.water`、`fx.cloud`、`fx.sky`、`fx.stars` |
-| Fun tools (10, on demand) | `fun.mandelbrot`、`fun.spirograph`、`fun.lissajous`、`fun.life`、`fun.harmonograph`、`fun.palette`、`fun.koch`、`fun.barnsley`、`fun.fireworks`、`fun.truchet` |
+| Discipline | Plugin IDs |
+| --- | --- |
+| Charts（22） | `example.scatter`、`example.timeseries`、`example.histogram`、`example.boxplot`、`example.heatmap`、`example.contour`、`example.errorband`、`example.qqplot`、`example.violin`、`example.parallel`、`example.sankey`、`example.treemap`、`example.network`、`example.bar_chart`、`example.bubble`、`example.polar`、`example.point-cloud`、`example.point-cloud-3d`、`example.surface-3d`、`example.voxel-3d`、`example.model3d`、`example.image` |
+| Mathematics & Statistics（21） | `example.math-fourier`、`example.math-domaincolor`、`example.math-odefield`、`example.math-linalg`、`example.math-dist`、`example.math-numerics`、`example.math-graph`、`example.math-topology`、`example.math-game`、`example.stats-clt`、`example.stats-markov`、`example.stats-zipf`、`example.stats-doe`、`example.stats-timeseries`、`example.stats-multivariate`、`example.stats-nonparametric`、`example.stats-survival`、`example.stats-meta`、`example.stats-bayes`、`example.stats-conformal`、`example.sim-montecarlo` |
+| Physics（18） | `example.nbody`、`example.fluid`、`example.fluid3d`、`example.wave`、`example.pendulum`、`example.electromag`、`example.optics`、`example.em-eigensolver`、`example.fluid-cfd-coupler`、`example.physics-schrodinger`、`example.physics-ising`、`example.physics-heatengine`、`example.physics-diffusion`、`example.physics-diffraction`、`example.physics-trajectory`、`example.physics-pinn`、`example.sim-abm`、`example.particles` |
+| Chemistry（5） | `example.chem-crystal`、`example.chem-reaction`、`example.chem-titration`、`example.chem-reaction-order`、`example.chem-turing` |
+| Biology（6） | `example.bio-enzyme`、`example.bio-seqalign`、`example.bio-popgen`、`example.bio-mendel`、`example.bio-neuron`、`example.protein` |
+| Medicine & Public Health（6） | `example.bio-epidemic`、`example.bio-pk`、`example.med-ecg`、`example.med-imaging`、`example.med-biostat`、`example.med-genomics` |
+| Geography（16） | `example.geomap`、`example.geo-solar`、`example.geo-climograph`、`example.geo-pop-pyramid`、`example.geo-interp`、`example.geo-measure`、`example.geo-tissot`、`example.geo-terrain`、`example.geo-gpx`、`example.geo-globe`、`example.geo-carbondating`、`example.geo-soilwater`、`example.geo-hydrology`、`example.geo-seismic`、`example.geo-minerals`、`example.geo-hydrogeology` |
+| Environmental（8） | `example.env-aqi`、`example.env-water`、`example.env-greenhouse`、`example.env-carbon`、`example.env-biodiversity`、`example.env-plume`、`example.env-earth3d`、`example.env-predator-prey` |
+| Astronomy（3） | `astro.pipeline`、`example.astro-transit`、`example.astro-hrdiagram` |
+| Materials（3） | `example.mats-xrd`、`example.mats-mech`、`example.mats-thermal` |
+| Engineering（11） | `example.structure`、`example.eng-circuit`、`example.eng-truss`、`example.eng-control`、`example.fem-lab`、`example.eng-fluid`、`example.eng-vibration`、`example.eng-heat`、`example.eng-mechanism`、`example.sim-sd`、`example.sim-des` |
+| Economics（2） | `example.econ-blackscholes`、`example.econ-evogame` |
+| Psychology（2） | `example.psych-sdt`、`example.psych-rt` |
+| Social Science（5） | `example.socio-popforecast`、`example.socio-voting`、`example.socio-sna`、`example.socio-inequality`、`example.socio-opinion` |
+| Music & Art Science（5） | `example.acoustics`、`example.tuning`、`example.synth`、`example.keys`、`example.color-science` |
+| Computer Science（7） | `example.algorithms`、`example.datastructures`、`example.automata`、`example.crypto`、`example.neuralviz`、`example.complexity`、`example.netproto` |
+| Data & AI（8） | `example.ai-training`、`ai.vectordb`、`ai.automl`、`ai.nlp`、`ai.recsys`、`ai.rl`、`ai.xai`、`example.data-imageproc` |
+| Visual FX（7） | `fx.blackhole`、`fx.water`、`fx.cloud`、`fx.sky`、`fx.stars`、`fx.ocean`、`fx.misty` |
+| Fun & Utility（10） | `fun.mandelbrot`、`fun.spirograph`、`fun.lissajous`、`fun.life`、`fun.harmonograph`、`fun.palette`、`fun.koch`、`fun.barnsley`、`fun.fireworks`、`fun.truchet` |
 
 ### Appendix B: Research Tool Reference {#附录-b-科研工具速查}
 
-The 26 tools use one registry and can all be opened from the research launcher and welcome-page tool grid. Tools with project context embed in the workbench canvas; the six toolbox items are available on demand.
+The 33 tools use one registry and can all be opened from the research launcher and welcome-page tool grid. Tools with project context embed in the workbench canvas; the six toolbox items are available on demand.
 
 | Group | Tools |
 | --- | --- |
 | Measurement and uncertainty | Uncertainty (Bootstrap / Monte Carlo / MCMC), Data Profiler |
 | Modeling and inference | Model Workbench, Inference Forge (NUTS), ONNX model inference, parameter sweep |
-| Data and graphs | SQL Data Workbench, Data Lineage, Figure Studio, quick analysis, Cleaning Wizard, file explorer |
+| Data and graphs | SQL Data Workbench, Data Lineage, ETL pipeline, schema inspector, synthetic data, Figure Studio, quick analysis, Cleaning Wizard, file explorer |
 | Signals and records | Signal Lab, Notebook, experiment records |
-| Reports and reproducibility | Report Builder, reproducibility lock, supplementary materials package, works gallery |
+| Reports and reproducibility | Report Builder, reproducibility lock, supplementary materials package, works gallery, course mode |
+| Writing and publication | LaTeX editor, citation manager, collaborative notebook, preprint packaging |
 | Toolbox | Unit conversion, calculator, format conversion, significant figures, molar mass, Quick Stats |
 
 ### Appendix C: Data Format Reference {#附录-c-数据格式速查}

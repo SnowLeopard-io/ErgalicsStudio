@@ -113,6 +113,7 @@ export default defineConfig({
           {
             text: '技术文档', collapsible: true,
             items: [
+              { text: '章节索引', link: '/zh-CN/technical/' },
               { text: '01 · 产品介绍', link: '/zh-CN/technical/01-产品介绍' },
               { text: '02 · 系统架构', link: '/zh-CN/technical/02-系统架构' },
               { text: '03 · 插件系统', link: '/zh-CN/technical/03-插件系统' },
@@ -122,6 +123,7 @@ export default defineConfig({
               { text: '07 · 科学计算子系统', link: '/zh-CN/technical/07-科学计算子系统' },
               { text: '08 · 测试与质量保障', link: '/zh-CN/technical/08-测试与质量保障' },
               { text: '11 · 应用场景库', link: '/zh-CN/technical/11-应用场景库' },
+              { text: '12 · 插件全表', link: '/zh-CN/technical/12-插件全表' },
             ],
           },
           {
@@ -129,6 +131,13 @@ export default defineConfig({
             items: [
               { text: '电磁谐振特征值求解器', link: '/zh-CN/technical/09-电磁谐振特征值求解器' },
               { text: '流体双向耦合求解器', link: '/zh-CN/technical/10-流体双向耦合求解器' },
+              { text: '容器化部署手册', link: '/zh-CN/technical/10-流体双向耦合求解器-容器化部署手册' },
+            ],
+          },
+          {
+            text: '设计文档', collapsible: true,
+            items: [
+              { text: '氛围体验系统设计', link: '/zh-CN/ambience-experience-design' },
             ],
           },
         ],
@@ -184,6 +193,7 @@ export default defineConfig({
         text: 'Technical Documentation',
         collapsible: true,
         items: [
+          { text: 'Chapter Index', link: '/technical/' },
           { text: '01 · Product Introduction', link: '/technical/01-产品介绍' },
           { text: '02 · System Architecture', link: '/technical/02-系统架构' },
           { text: '03 · Plugin System', link: '/technical/03-插件系统' },
@@ -193,6 +203,7 @@ export default defineConfig({
           { text: '07 · Scientific Computing Subsystems', link: '/technical/07-科学计算子系统' },
           { text: '08 · Testing and Quality Assurance', link: '/technical/08-测试与质量保障' },
           { text: '11 · Application Scenario Library', link: '/technical/11-应用场景库' },
+          { text: '12 · Plugin Catalog', link: '/technical/12-plugin-catalog' },
         ],
       },
       {
@@ -201,6 +212,14 @@ export default defineConfig({
         items: [
           { text: 'Electromagnetic Resonance Eigensolver', link: '/technical/09-电磁谐振特征值求解器' },
           { text: 'Fluid Bidirectional Coupling Solver', link: '/technical/10-流体双向耦合求解器' },
+          { text: 'Container Deployment Manual', link: '/technical/10-流体双向耦合求解器-容器化部署手册' },
+        ],
+      },
+      {
+        text: 'Design',
+        collapsible: true,
+        items: [
+          { text: 'Ambience Experience System', link: '/ambience-experience-design' },
         ],
       },
     ],

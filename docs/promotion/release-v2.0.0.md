@@ -8,14 +8,14 @@ After a year of iteration and three stages of architectural evolution, v0 → v1
 
 ### Four-mode workbench {#四模式工作台}
 - **Standard mode**: Drag in data to produce a plot, adjust parameters in real time, and complete an analysis without code.
-- **Flow mode**: Visually build data pipelines using 53 built-in blocks (data sources / transforms / filters / math / statistics / units / visualization / plotting), with topological execution and per-node inspection.
+- **Flow mode**: Visually build data pipelines using 63 built-in blocks (data sources / transforms / filters / math / statistics / units / visualization / plotting), with topological execution and per-node inspection.
 - **Code mode**: Python (full Pyodide runtime), R (full webR R runtime), and JavaScript, with bidirectional integration with canvas plugins (`studio.plot(...)` goes directly to a plotting plugin).
 - **Block mode**: A Scratch-like scientific block editor suitable for introductory programming education.
 - Left activity bar (Files / Git / Plugins), central tab area, and editors for each file type; command palette (Ctrl+K) and global shortcuts.
 
-### 163 built-in plugins · 19 discipline groups {#_163-个内置插件-·-19-个学科分组}
+### 165 built-in plugins · 19 discipline groups {#_165-个内置插件-·-19-个学科分组}
 - Covers charts / statistics / mathematics / physics / engineering / astronomy / effects / chemistry / biology / medicine / geography / environment / materials / economics / psychology / society / art and science / computing / data / fun tools.
-- Two-level loading: 153 product plugins load automatically and 10 load on demand, keeping the initial screen lean.
+- Two-level loading: 155 product plugins load automatically and 10 load on demand, keeping the initial screen lean.
 - All plugins integrate with a unified scientific metadata system: readiness levels, physical quantity units, reproducibility markers, and a structured scientific output strip (ScienceOutputStrip).
 - One-click “Send to Figure Studio” to assemble publication-grade multi-panel figures.
 
@@ -38,7 +38,7 @@ After a year of iteration and three stages of architectural evolution, v0 → v1
 
 ### Engineering quality {#工程质量}
 - TypeScript strict mode, sandboxed plugin RPC protocol, and `.cspkg` plugin package-signing gate.
-- 241 test files, 3,878 unit test cases, Playwright E2E (headless Edge), and a `pre-push` hook that runs tests automatically.
+- 263 test files, 4,078 unit test cases (4,076 passing, 2 skipped), Playwright E2E (headless Edge), and a `pre-push` hook that runs tests automatically.
 - Zero `npm audit` findings (2026-10-13 security upgrade window; see SECURITY.md).
 - Fully bilingual community documentation: CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / PR and Issue templates.
 
@@ -69,6 +69,6 @@ Requirements: A modern browser (Chrome / Edge recommended for WebGPU support).
 
 **English Summary**
 
-Ergalics Studio is an open-source, browser-based scientific computing workstation. v2.0.0 is its first official release: a 4-mode workbench (interactive canvas / visual flow / multi-language code / block editor), 163 built-in plugins across 19 disciplines, 33 standalone research tools, live WebGPU compute with 14 reusable WGSL kernels (including a real-time Schwarzschild ray tracer, FDTD wave solver and Nishita atmosphere), a browser workspace VFS with Git integration, reproducibility kernels, and a sandboxed plugin SDK with signed packages. No installation required — open the URL above and start computing.
+Ergalics Studio is an open-source, browser-based scientific computing workstation. v2.0.0 is its first official release: a 4-mode workbench (interactive canvas / visual flow / multi-language code / block editor), 165 built-in plugins across 19 disciplines, 33 standalone research tools, live WebGPU compute with 14 reusable WGSL kernels (including a real-time Schwarzschild ray tracer, FDTD wave solver and Nishita atmosphere), a browser workspace VFS with Git integration, reproducibility kernels, and a sandboxed plugin SDK with signed packages. No installation required — open the URL above and start computing.
 
 **Full Changelog**: https://gitee.com/cnt-code/ergalics-studio/blob/main/CHANGELOG.md

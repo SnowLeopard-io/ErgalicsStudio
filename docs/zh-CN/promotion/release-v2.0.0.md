@@ -8,14 +8,14 @@ Ergalics Studio 是一个运行在浏览器里的开源科学计算工作站：�
 
 ### 四模式工作台
 - **标准模式**：拖入数据即出图，参数面板实时调节，零代码完成完整分析
-- **流程模式**：以 53 个内置区块（数据源 / 变换 / 过滤 / 数学 / 统计 / 单位 / 可视化 / 绘图）可视化搭建数据流水线，拓扑执行、逐节点检查
+- **流程模式**：以 63 个内置区块（数据源 / 变换 / 过滤 / 数学 / 统计 / 单位 / 可视化 / 绘图）可视化搭建数据流水线，拓扑执行、逐节点检查
 - **代码模式**：Python（Pyodide 完整运行时）、R（webR 完整 R 运行时）、JavaScript 三语言，与画布插件双向联动（`studio.plot(...)` 直达绘图插件）
 - **积木模式**：类 Scratch 的科研积木编辑器，适合编程入门教学
 - 左侧活动栏（文件 / Git / 插件）+ 中央标签区 + 每文件类型编辑器；命令面板（Ctrl+K）与全局快捷键
 
-### 163 个内置插件 · 19 个学科分组
+### 165 个内置插件 · 19 个学科分组
 - 覆盖图表 / 统计 / 数学 / 物理 / 工程 / 天文 / 特效 / 化学 / 生物 / 医学 / 地理 / 环境 / 材料 / 经济 / 心理 / 社会 / 艺术科学 / 计算机 / 数据 / 趣味工具
-- 二级加载机制：153 个产品插件自动加载 + 10 个按需加载，首屏不臃肿
+- 二级加载机制：155 个产品插件自动加载 + 10 个按需加载，首屏不臃肿
 - 全部插件接入统一科研元数据系统：就绪分级、物理量单位、可复现标记、结构化科研输出条（ScienceOutputStrip）
 - 一键「发送到 Figure Studio」组装多面板出版级图组
 
@@ -38,7 +38,7 @@ Ergalics Studio 是一个运行在浏览器里的开源科学计算工作站：�
 
 ### 工程质量
 - TypeScript strict、沙箱化插件 RPC 协议、`.cspkg` 插件包签名门禁
-- 241 个测试文件、3878 个单元测试用例，Playwright E2E（headless Edge），`pre-push` 钩子自动跑测试
+- 263 个测试文件、4078 个单元测试用例（4076 通过、2 个跳过），Playwright E2E（headless Edge），`pre-push` 钩子自动跑测试
 - `npm audit` 零发现（2026-10-13 安全升级窗口，详见 SECURITY.md）
 - 社区文档完整双语：CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / PR 与 Issue 模板
 
@@ -69,6 +69,6 @@ npm run dev
 
 **English Summary**
 
-Ergalics Studio is an open-source, browser-based scientific computing workstation. v2.0.0 is its first official release: a 4-mode workbench (interactive canvas / visual flow / multi-language code / block editor), 163 built-in plugins across 19 disciplines, 33 standalone research tools, live WebGPU compute with 14 reusable WGSL kernels (including a real-time Schwarzschild ray tracer, FDTD wave solver and Nishita atmosphere), a browser workspace VFS with Git integration, reproducibility kernels, and a sandboxed plugin SDK with signed packages. No installation required — open the URL above and start computing.
+Ergalics Studio is an open-source, browser-based scientific computing workstation. v2.0.0 is its first official release: a 4-mode workbench (interactive canvas / visual flow / multi-language code / block editor), 165 built-in plugins across 19 disciplines, 33 standalone research tools, live WebGPU compute with 14 reusable WGSL kernels (including a real-time Schwarzschild ray tracer, FDTD wave solver and Nishita atmosphere), a browser workspace VFS with Git integration, reproducibility kernels, and a sandboxed plugin SDK with signed packages. No installation required — open the URL above and start computing.
 
 **Full Changelog**: https://gitee.com/cnt-code/ergalics-studio/blob/main/CHANGELOG.md
