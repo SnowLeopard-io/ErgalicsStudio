@@ -2176,6 +2176,10 @@
   border-bottom: 1px solid var(--color-border);
   cursor: move;
   user-select: none;
+  /* Touchscreens: without this the browser claims the gesture for panning and
+     fires pointercancel almost immediately, so the window would barely move. */
+  touch-action: none;
+  -webkit-user-select: none;
 }
 
 .terminal-drawer-title {
