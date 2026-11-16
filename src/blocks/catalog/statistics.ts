@@ -15,6 +15,11 @@ import {
 } from '@/core/stats/tests';
 import { cohensD, pearson, spearman } from '@/core/stats/effect';
 import { bonferroni, benjaminiHochberg } from '@/core/stats/correction';
+import { dunnettTest, tukeyHSD } from '@/core/stats/posthoc';
+import { dunnPostHoc, kruskalWallis } from '@/core/stats/nonparametric';
+import { kaplanMeier, logRankTest } from '@/core/stats/survival';
+import { bartlettTest, cronbachAlpha, kmo } from '@/core/stats/psychometrics';
+import { fitNonlinearModel, type NonlinearModelKind } from '@/core/model/nonlinear';
 import { mean as meanOf, meanCI, median as medianOf, std as stdOf } from '@/core/stats/descriptive';
 import { studentTCdf as studTCdf } from '@/core/stats/special';
 import { bootstrapCI } from '@/core/uncertainty/bootstrap';
@@ -42,6 +47,81 @@ function dfToNum(df: number | [number, number] | undefined): number {
   return typeof df === 'number' ? df : NaN;
 }
 
+/** Metric / value / note table, used when a label is part of the answer. */
+function noteTable(id: string, rows: Array<[string, number, string]>): DataTable {
+  return createDataTable(
+    id,
+    [
+      { name: 'metric', type: 'string', data: rows.map((r) => r[0]) },
+      { name: 'value', type: 'f64', data: new Float64Array(rows.map((r) => r[1])) },
+      { name: 'note', type: 'string', data: rows.map((r) => r[2]) },
+    ],
+    { provenance: id },
+  );
+}
+
+interface PairRow {
+  groupA: string;
+  groupB: string;
+  meanDiff: number;
+  se: number;
+  statistic: number;
+  pValue: number;
+  ciLow: number;
+  ciHigh: number;
+}
+
+/** Pairwise comparison table shared by Tukey and Dunnett. */
+function comparisonTable(id: string, rows: PairRow[]): DataTable {
+  return createDataTable(
+    id,
+    [
+      { name: 'group_a', type: 'string', data: rows.map((r) => r.groupA) },
+      { name: 'group_b', type: 'string', data: rows.map((r) => r.groupB) },
+      { name: 'mean_diff', type: 'f64', data: new Float64Array(rows.map((r) => r.meanDiff)) },
+      { name: 'se', type: 'f64', data: new Float64Array(rows.map((r) => r.se)) },
+      { name: 'statistic', type: 'f64', data: new Float64Array(rows.map((r) => r.statistic)) },
+      { name: 'p_value', type: 'f64', data: new Float64Array(rows.map((r) => r.pValue)) },
+      { name: 'ci_low', type: 'f64', data: new Float64Array(rows.map((r) => r.ciLow)) },
+      { name: 'ci_high', type: 'f64', data: new Float64Array(rows.map((r) => r.ciHigh)) },
+    ],
+    { provenance: id },
+  );
+}
+
+/** Coerce an event/status column (boolean, 0/1, "yes"/"no", "event") to booleans. */
+function eventColumn(table: DataTable, name: string): boolean[] {
+  if (!name) throw new Error('this block is not configured — pick the event/status column');
+  const col = table.getColumn(name);
+  if (!col) throw new Error(`column "${name}" does not exist`);
+  const out: boolean[] = [];
+  for (let i = 0; i < table.length; i += 1) {
+    const v = col[i];
+    if (typeof v === 'boolean') out.push(v);
+    else if (typeof v === 'number') out.push(v !== 0);
+    else {
+      const s = String(v).trim().toLowerCase();
+      if (['1', 'true', 'yes', 'y', 'event', 'dead', 'died'].includes(s)) out.push(true);
+      else if (['0', 'false', 'no', 'n', 'censored', 'alive'].includes(s)) out.push(false);
+      else throw new Error(`event column "${name}" has an unrecognised value "${String(v)}"`);
+    }
+  }
+  return out;
+}
+
+/** All numeric columns, or a configured subset, as an n × k item matrix. */
+function itemMatrix(table: DataTable, configured: string[]): number[][] {
+  const names =
+    configured.length > 0
+      ? configured
+      : table.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+  if (names.length < 2) throw new Error('select at least two numeric item columns');
+  const cols = names.map((name) => numCol(table, name));
+  const rows: number[][] = [];
+  for (let i = 0; i < table.length; i += 1) rows.push(cols.map((c) => c[i]!));
+  return rows;
+}
+
 function numCol(table: DataTable, name: string): Float64Array {
   return requireColumn(table, name);
 }
@@ -56,6 +136,15 @@ function strCol(table: DataTable, name: string): string[] {
 
 /** Split a numeric value column into groups keyed by a string group column. */
 function groupValues(table: DataTable, valueCol: string, groupCol: string): number[][] {
+  return groupedValues(table, valueCol, groupCol).groups;
+}
+
+/** Like `groupValues`, but also returns the group labels in first-seen order. */
+function groupedValues(
+  table: DataTable,
+  valueCol: string,
+  groupCol: string,
+): { names: string[]; groups: number[][] } {
   const values = numCol(table, valueCol);
   const groups = strCol(table, groupCol);
   const map = new Map<string, number[]>();
@@ -68,7 +157,7 @@ function groupValues(table: DataTable, valueCol: string, groupCol: string): numb
     }
     bucket.push(values[i]!);
   }
-  return [...map.values()];
+  return { names: [...map.keys()], groups: [...map.values()] };
 }
 
 /** Two-sided p-value for a Pearson/Spearman correlation coefficient. */
@@ -613,6 +702,388 @@ export const mcmcBlock: BlockDefinition = defineBlock(
   },
 );
 
+export const tukeyBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.tukey',
+    category: 'statistics',
+    name: 'Tukey HSD 事后检验',
+    nameI18n: { 'en-US': 'Tukey HSD post-hoc' },
+    description: 'ANOVA 显著后的所有两两均值比较（控制族错误率）',
+    descriptionI18n: { 'en-US': 'All pairwise mean comparisons after ANOVA (FWER-controlled)' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { valueColumn: '', groupColumn: '', alpha: 0.05 },
+    paramLabels: {
+      valueColumn: { label: '数值列', labelI18n: { 'en-US': 'Value column' } },
+      groupColumn: { label: '分组列', labelI18n: { 'en-US': 'Group column' } },
+      alpha: { label: '显著性水平', labelI18n: { 'en-US': 'Alpha' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const alpha = Number(ctx.getParam('alpha') ?? 0.05);
+    const { names, groups } = groupedValues(
+      input,
+      String(ctx.getParam('valueColumn') ?? ''),
+      String(ctx.getParam('groupColumn') ?? ''),
+    );
+    if (groups.length < 2) throw new Error('Tukey HSD needs at least two groups');
+    return comparisonTable('stats.tukey', tukeyHSD(groups, names, alpha).comparisons);
+  },
+);
+
+export const dunnettBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.dunnett',
+    category: 'statistics',
+    name: 'Dunnett 对照检验',
+    nameI18n: { 'en-US': 'Dunnett vs control' },
+    description: '每个处理组与一个对照组比较（药理学/生物学常用）',
+    descriptionI18n: { 'en-US': 'Compare every treatment group with one control' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { valueColumn: '', groupColumn: '', control: '', alpha: 0.05 },
+    paramLabels: {
+      valueColumn: { label: '数值列', labelI18n: { 'en-US': 'Value column' } },
+      groupColumn: { label: '分组列', labelI18n: { 'en-US': 'Group column' } },
+      control: { label: '对照组名称', labelI18n: { 'en-US': 'Control group label' } },
+      alpha: { label: '显著性水平', labelI18n: { 'en-US': 'Alpha' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const { names, groups } = groupedValues(
+      input,
+      String(ctx.getParam('valueColumn') ?? ''),
+      String(ctx.getParam('groupColumn') ?? ''),
+    );
+    const controlName = String(ctx.getParam('control') ?? '');
+    const controlIndex = names.indexOf(controlName);
+    if (controlIndex < 0) throw new Error(`control group "${controlName}" was not found`);
+    const treatments = groups.filter((_, i) => i !== controlIndex);
+    const treatmentNames = names.filter((_, i) => i !== controlIndex);
+    const ordered = [controlName, ...treatmentNames];
+    return comparisonTable(
+      'stats.dunnett',
+      dunnettTest(groups[controlIndex]!, treatments, ordered, Number(ctx.getParam('alpha') ?? 0.05))
+        .comparisons,
+    );
+  },
+);
+
+export const kruskalBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.kruskal',
+    category: 'statistics',
+    name: 'Kruskal-Wallis 检验',
+    nameI18n: { 'en-US': 'Kruskal-Wallis H' },
+    description: '三组以上非参数比较，附 Dunn 事后两两检验',
+    descriptionI18n: { 'en-US': 'Non-parametric multi-group test with Dunn post-hoc' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { valueColumn: '', groupColumn: '', correction: 'bonferroni' },
+    paramLabels: {
+      valueColumn: { label: '数值列', labelI18n: { 'en-US': 'Value column' } },
+      groupColumn: { label: '分组列', labelI18n: { 'en-US': 'Group column' } },
+      correction: { label: '多重比较校正', labelI18n: { 'en-US': 'Correction' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const { names, groups } = groupedValues(
+      input,
+      String(ctx.getParam('valueColumn') ?? ''),
+      String(ctx.getParam('groupColumn') ?? ''),
+    );
+    if (groups.length < 2) throw new Error('Kruskal-Wallis needs at least two groups');
+    const kw = kruskalWallis(groups);
+    const correction =
+      String(ctx.getParam('correction') ?? 'bonferroni') === 'bh' ? 'bh' : 'bonferroni';
+    const dunn = dunnPostHoc(groups, names, correction);
+    const rows: Array<[string, number, string]> = [
+      ['H', kw.H, ''],
+      ['df', kw.df, ''],
+      ['p_value', kw.pValue, ''],
+      ['epsilon_squared', kw.epsilonSquared, ''],
+    ];
+    for (const c of dunn.comparisons) {
+      rows.push([`dunn[${c.groupA} vs ${c.groupB}]`, c.adjustedP, `${c.z.toFixed(3)} z`]);
+    }
+    return noteTable('stats.kruskal', rows);
+  },
+);
+
+export const nonlinearBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.nonlinear',
+    category: 'statistics',
+    name: '非线性最小二乘拟合',
+    nameI18n: { 'en-US': 'Nonlinear least squares' },
+    description: 'Levenberg-Marquardt 拟合 Michaelis-Menten / 剂量反应 / 指数衰减等模型',
+    descriptionI18n: { 'en-US': 'Levenberg–Marquardt fit of common lab models' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { xColumn: '', yColumn: '', model: 'michaelis-menten' },
+    paramLabels: {
+      xColumn: { label: 'X 列', labelI18n: { 'en-US': 'X column' } },
+      yColumn: { label: 'Y 列', labelI18n: { 'en-US': 'Y column' } },
+      model: {
+        label: '模型 (michaelis-menten/sigmoid4/exponential/power/gaussian/arrhenius)',
+        labelI18n: { 'en-US': 'Model id' },
+      },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const x = Array.from(numCol(input, String(ctx.getParam('xColumn') ?? '')));
+    const y = Array.from(numCol(input, String(ctx.getParam('yColumn') ?? '')));
+    const kind = String(ctx.getParam('model') ?? 'michaelis-menten') as NonlinearModelKind;
+    const fit = fitNonlinearModel(kind, x, y);
+    const rows: Array<[string, number]> = [];
+    for (const c of fit.coefficients) {
+      rows.push([c.name, c.estimate], [`${c.name}_se`, c.se], [`${c.name}_ci_low`, c.ciLow], [`${c.name}_ci_high`, c.ciHigh]);
+    }
+    rows.push(
+      ['r_squared', fit.rSquared],
+      ['adj_r_squared', fit.adjRSquared],
+      ['rmse', fit.rmse],
+      ['sse', fit.sse],
+      ['aic', fit.aic],
+      ['bic', fit.bic],
+      ['iterations', fit.iterations],
+      ['converged', fit.converged ? 1 : 0],
+    );
+    return resultTable('stats.nonlinear', rows);
+  },
+);
+
+export const kaplanMeierBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.kaplanmeier',
+    category: 'statistics',
+    name: 'Kaplan-Meier 生存曲线',
+    nameI18n: { 'en-US': 'Kaplan-Meier curve' },
+    description: '按时间/事件列生成 KM 曲线（可选分组），含 Greenwood 标准误与风险表',
+    descriptionI18n: { 'en-US': 'Kaplan–Meier curve with Greenwood SE and risk table' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { timeColumn: '', eventColumn: '', groupColumn: '' },
+    paramLabels: {
+      timeColumn: { label: '时间列', labelI18n: { 'en-US': 'Time column' } },
+      eventColumn: { label: '事件列 (1=事件, 0=删失)', labelI18n: { 'en-US': 'Event column' } },
+      groupColumn: { label: '分组列（可选）', labelI18n: { 'en-US': 'Group column (optional)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const times = Array.from(numCol(input, String(ctx.getParam('timeColumn') ?? '')));
+    const events = eventColumn(input, String(ctx.getParam('eventColumn') ?? ''));
+    const groupCol = String(ctx.getParam('groupColumn') ?? '');
+    const groupMap = new Map<string, { times: number[]; events: boolean[] }>();
+    if (groupCol) {
+      const labels = strCol(input, groupCol);
+      for (let i = 0; i < input.length; i += 1) {
+        const key = labels[i]!;
+        let bucket = groupMap.get(key);
+        if (!bucket) {
+          bucket = { times: [], events: [] };
+          groupMap.set(key, bucket);
+        }
+        bucket.times.push(times[i]!);
+        bucket.events.push(events[i]!);
+      }
+    } else {
+      groupMap.set('', { times, events });
+    }
+    const curves = [...groupMap.entries()].map(([group, data]) => ({
+      group,
+      km: kaplanMeier(data.times, data.events),
+    }));
+    const rowCount = curves.reduce((s, c) => s + c.km.curve.length, 0);
+    const groupOut: string[] = [];
+    const time = new Float64Array(rowCount);
+    const survival = new Float64Array(rowCount);
+    const se = new Float64Array(rowCount);
+    const ciLow = new Float64Array(rowCount);
+    const ciHigh = new Float64Array(rowCount);
+    const atRisk = new Float64Array(rowCount);
+    const nEvents = new Float64Array(rowCount);
+    const nCensored = new Float64Array(rowCount);
+    let r = 0;
+    for (const { group, km } of curves) {
+      for (const p of km.curve) {
+        groupOut.push(group);
+        time[r] = p.time;
+        survival[r] = p.survival;
+        se[r] = p.se;
+        ciLow[r] = p.ciLow;
+        ciHigh[r] = p.ciHigh;
+        atRisk[r] = p.nAtRisk;
+        nEvents[r] = p.nEvents;
+        nCensored[r] = p.nCensored;
+        r += 1;
+      }
+    }
+    return createDataTable(
+      'stats.kaplanmeier',
+      [
+        { name: 'group', type: 'string', data: groupOut },
+        { name: 'time', type: 'f64', data: time },
+        { name: 'survival', type: 'f64', data: survival },
+        { name: 'se', type: 'f64', data: se },
+        { name: 'ci_low', type: 'f64', data: ciLow },
+        { name: 'ci_high', type: 'f64', data: ciHigh },
+        { name: 'n_at_risk', type: 'f64', data: atRisk },
+        { name: 'n_events', type: 'f64', data: nEvents },
+        { name: 'n_censored', type: 'f64', data: nCensored },
+      ],
+      { provenance: 'stats.kaplanmeier' },
+    );
+  },
+);
+
+export const logRankBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.logrank',
+    category: 'statistics',
+    name: 'Log-rank 检验',
+    nameI18n: { 'en-US': 'Log-rank test' },
+    description: '比较两条生存曲线的 Mantel-Cox 检验，返回 χ²、p 与风险比',
+    descriptionI18n: { 'en-US': 'Mantel–Cox comparison of two survival curves' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { timeColumn: '', eventColumn: '', groupColumn: '' },
+    paramLabels: {
+      timeColumn: { label: '时间列', labelI18n: { 'en-US': 'Time column' } },
+      eventColumn: { label: '事件列 (1=事件, 0=删失)', labelI18n: { 'en-US': 'Event column' } },
+      groupColumn: { label: '分组列（两组）', labelI18n: { 'en-US': 'Group column (two groups)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const times = Array.from(numCol(input, String(ctx.getParam('timeColumn') ?? '')));
+    const events = eventColumn(input, String(ctx.getParam('eventColumn') ?? ''));
+    const groupCol = String(ctx.getParam('groupColumn') ?? '');
+    if (!groupCol) throw new Error('Log-rank needs a group column');
+    const labels = strCol(input, groupCol);
+    const names = [...new Set(labels)];
+    if (names.length !== 2) throw new Error('Log-rank needs exactly two groups');
+    const bucket = (label: string) => {
+      const res = { times: [] as number[], events: [] as boolean[] };
+      for (let i = 0; i < input.length; i += 1) {
+        if (labels[i] === label) {
+          res.times.push(times[i]!);
+          res.events.push(events[i]!);
+        }
+      }
+      return res;
+    };
+    const r = logRankTest(bucket(names[0]!), bucket(names[1]!));
+    return noteTable('stats.logrank', [
+      ['chi2', r.chiSquare, ''],
+      ['df', r.df, ''],
+      ['p_value', r.pValue, ''],
+      ['hazard_ratio', r.hazardRatio, names[0]! + ' vs ' + names[1]!],
+      ['hr_ci_low', r.hazardRatioCi95?.[0] ?? NaN, ''],
+      ['hr_ci_high', r.hazardRatioCi95?.[1] ?? NaN, ''],
+    ]);
+  },
+);
+
+export const cronbachBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.cronbach',
+    category: 'statistics',
+    name: 'Cronbach α 信度',
+    nameI18n: { 'en-US': "Cronbach's alpha" },
+    description: '问卷内部一致性信度，含删除该题后的 α',
+    descriptionI18n: { 'en-US': 'Internal-consistency reliability with alpha-if-deleted' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { itemColumns: [] },
+    paramLabels: {
+      itemColumns: { label: '题目列（留空=全部数值列）', labelI18n: { 'en-US': 'Item columns (empty = all numeric)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const configured = (ctx.getParam('itemColumns') as string[] | undefined) ?? [];
+    const items = itemMatrix(input, configured);
+    const r = cronbachAlpha(items);
+    const itemNames =
+      configured.length > 0
+        ? configured
+        : input.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+    const rows: Array<[string, number, string]> = [
+      ['alpha', r.alpha, r.interpretation],
+      ['n_items', r.nItems, ''],
+      ['n_subjects', r.nSubjects, ''],
+      ['mean_inter_item_r', r.meanInterItemCorrelation, ''],
+    ];
+    r.alphaIfDeleted.forEach((a, i) => rows.push([`alpha_if_deleted[${itemNames[i]}]`, a, '']));
+    return noteTable('stats.cronbach', rows);
+  },
+);
+
+export const kmoBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.kmo',
+    category: 'statistics',
+    name: 'KMO 取样适切性',
+    nameI18n: { 'en-US': 'KMO sampling adequacy' },
+    description: '因子分析前置检验：KMO 总体与逐题取样适切性',
+    descriptionI18n: { 'en-US': 'Kaiser–Meyer–Olkin sampling adequacy, overall and per item' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { itemColumns: [] },
+    paramLabels: {
+      itemColumns: { label: '题目列（留空=全部数值列）', labelI18n: { 'en-US': 'Item columns (empty = all numeric)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const configured = (ctx.getParam('itemColumns') as string[] | undefined) ?? [];
+    const items = itemMatrix(input, configured);
+    const r = kmo(items);
+    const itemNames =
+      configured.length > 0
+        ? configured
+        : input.columns.filter((c) => isNumericType(c.type)).map((c) => c.name);
+    const rows: Array<[string, number, string]> = [['kmo', r.overall, r.interpretation]];
+    r.perItem.forEach((v, i) => rows.push([`kmo[${itemNames[i]}]`, v, '']));
+    return noteTable('stats.kmo', rows);
+  },
+);
+
+export const bartlettBlock: BlockDefinition = defineBlock(
+  {
+    id: 'stats.bartlett',
+    category: 'statistics',
+    name: 'Bartlett 球形检验',
+    nameI18n: { 'en-US': 'Bartlett sphericity' },
+    description: '相关矩阵是否显著偏离单位阵（因子分析可行性）',
+    descriptionI18n: { 'en-US': 'Is the correlation matrix distinguishable from identity?' },
+    color: STAT_COLOR,
+    ...dataTableInOut(),
+    defaultParams: { itemColumns: [] },
+    paramLabels: {
+      itemColumns: { label: '题目列（留空=全部数值列）', labelI18n: { 'en-US': 'Item columns (empty = all numeric)' } },
+    },
+  },
+  async (ctx) => {
+    const input = ctx.getInput('data') as DataTable;
+    const configured = (ctx.getParam('itemColumns') as string[] | undefined) ?? [];
+    const items = itemMatrix(input, configured);
+    const r = bartlettTest(items);
+    return resultTable('stats.bartlett', [
+      ['chi2', r.chiSquare],
+      ['df', r.df],
+      ['p_value', r.pValue],
+      ['determinant', r.determinant],
+    ]);
+  },
+);
+
 export const statisticsBlocks: BlockDefinition[] = [
   summaryBlock,
   histogramBlock,
@@ -620,11 +1091,20 @@ export const statisticsBlocks: BlockDefinition[] = [
   tTestTwoBlock,
   tTestPairedBlock,
   anovaBlock,
+  tukeyBlock,
+  dunnettBlock,
   mannWhitneyBlock,
+  kruskalBlock,
   chiSquareBlock,
   correlationBlock,
   cohensDBlock,
   correctionBlock,
+  nonlinearBlock,
+  kaplanMeierBlock,
+  logRankBlock,
+  cronbachBlock,
+  kmoBlock,
+  bartlettBlock,
   bootstrapBlock,
   monteCarloBlock,
   mcmcBlock,

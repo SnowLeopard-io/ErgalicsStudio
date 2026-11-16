@@ -22,7 +22,7 @@
 | Data I/O and quality | sanitize | Allowlist sanitizer for externally produced SVG (sanitizeSvg.ts) |
 | Data I/O and quality | validation | Composable validators `(value, path) => issues[]`; schemas are ordinary data |
 | Data I/O and quality | sql | DuckDB-WASM SQL workbench engine (lazy loading, timeouts and AbortSignal cancellation) |
-| Data I/O and quality | dataeng | Reusable ETL steps, schema inspection and deterministic synthetic-data generation (etl.ts, schema.ts, synth.ts) |
+| Data I/O and quality | dataeng | Reusable ETL steps, schema inspection, deterministic synthetic-data generation and `DataTable`-level long/wide reshaping (etl.ts, schema.ts, synth.ts, reshape.ts) |
 | Plotting and delivery | plot | Pure-TS vector plotting: DataTable → publication-grade SVG, exportable as SVG / PDF |
 | Plotting and delivery | figure | Multi-panel figures on journal-template grids (compose one SVG, export including PNG-600dpi) |
 | Plotting and delivery | report | ReportSpec → one self-contained interactive HTML report (inline CSS / SVG / JSON) |
@@ -83,12 +83,16 @@ The statistics kernel consumes ordinary numeric arrays, DataTable or Dataset and
 | descriptive | Mean, variance, standard deviation, median, quantiles, summary statistics, confidence interval for the mean (t-distribution critical value obtained with studentTInv) |
 | special | Special functions: incomplete gamma and beta functions, cumulative normal and t distributions and their inverses (reused by tests and power calculations) |
 | tests | One-sample, two-sample (Welch-corrected degrees of freedom) and paired t-tests, one-way ANOVA, Mann-Whitney U, chi-square independence test; structured results include statistic, p-value and degrees of freedom |
+| posthoc | Tukey HSD (Tukey–Kramer intervals for unequal group sizes) and Dunnett comparisons against a control; Studentized-range and Dunnett joint probabilities are evaluated by numerical integration rather than table look-ups |
+| nonparametric | Kruskal–Wallis H (tie correction and ε² effect size) with Dunn pairwise post-hoc comparisons (Bonferroni / BH) |
+| survival | Kaplan–Meier estimator (Greenwood SE, log–log 95% CI, median survival, risk-table fields) and the two-sample log-rank test (χ², p-value, hazard ratio with CI) |
+| psychometrics | Cronbach's α (with α-if-item-deleted, item–total and mean inter-item correlations), KMO sampling adequacy (overall and per item) and Bartlett's test of sphericity |
 | effect | Cohen's d effect size, Pearson and Spearman correlations |
 | correction | Bonferroni and Benjamini-Hochberg multiple-comparison corrections; p-values are cleaned first (non-finite values removed) |
 | power | Power analysis for two-sample t-tests |
 | narrative | Converts structured results from five major test families (t-tests, ANOVA, chi-square, correlation, linear regression) into publication-grade Chinese and English sentences; formats p-values by journal convention (`p < .001` as an inequality, others to three decimals without a leading zero), using neutral wording for nonsignificant results |
 
-Boundary inputs explicitly throw errors rather than silently returning wrong numbers: division by zero in Welch degrees of freedom, too few ANOVA groups, and unequal paired-test lengths produce structured errors. Statistics reach users through 14 `stats.*` Flow blocks, calls such as `summary` in the Block and Code Studio API, and report-builder and Figure Studio caption drafts—all point to the same implementation.
+Boundary inputs explicitly throw errors rather than silently returning wrong numbers: division by zero in Welch degrees of freedom, too few ANOVA groups, and unequal paired-test lengths produce structured errors. Statistics reach users through 23 `stats.*` Flow blocks, calls such as `summary` in the Block and Code Studio API, and report-builder and Figure Studio caption drafts—all point to the same implementation.
 
 ## III. Scientific binary I/O (src/core/io) {#三、科研二进制-i-o-src-core-io}
 
@@ -218,6 +222,7 @@ Signal capabilities in the signal-lab interface:
 | logistic | Logistic regression (IRLS iteratively reweighted least squares) |
 | ridge | Ridge regression, with K-fold cross-validation for parameter selection |
 | poly | Polynomial fitting |
+| nonlinear | Nonlinear least squares (Levenberg–Marquardt with a numerical Jacobian); built-in Michaelis–Menten, four-parameter dose–response, exponential decay, power, Gaussian peak and Arrhenius models, returning parameter SEs, 95% CIs, covariance, R²/AIC/BIC and residuals |
 | diagnostics | 2×2 residual diagnostics (residuals–fitted, QQ, scale–location, residuals–leverage) |
 | index | Unified fitting entry and result types |
 
