@@ -19,6 +19,12 @@ import { ols, type OlsResult } from '@/core/model/ols';
 import { logisticFit, type LogisticResult } from '@/core/model/logistic';
 import { ridgeCV, type RidgeResult } from '@/core/model/ridge';
 import { polyFit, type PolyResult } from '@/core/model/poly';
+import {
+  fitNonlinearModel,
+  NONLINEAR_MODELS,
+  type NonlinearFitResult,
+  type NonlinearModelKind,
+} from '@/core/model/nonlinear';
 import { diagnosticSeries, type DiagnosticSeries } from '@/core/model/diagnostics';
 import { extent, std } from '@/core/stats';
 import type { NarrativeInput } from '@/core/stats/narrative';
@@ -37,7 +43,7 @@ import { ToolShell } from '@/components/ToolShell';
 import { SaveArtifactButton } from '@/components/SaveArtifactButton';
 import { NarrativePanel } from '@/components/NarrativePanel';
 
-type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly';
+type ModelKind = 'ols' | 'logistic' | 'ridge' | 'poly' | 'nonlinear';
 
 const LARGE_N = 200_000;
 
@@ -48,6 +54,7 @@ interface FitOutcome {
   ols?: OlsResult;
   logistic?: LogisticResult;
   ridge?: RidgeResult;
+  nonlinear?: NonlinearFitResult;
   diagnosticSpecs: PlotSpec[];
   metrics: Record<string, number>;
   sampled: boolean;
@@ -130,6 +137,7 @@ export default function ModelLabPage() {
   const [target, setTarget] = useState('');
   const [predictors, setPredictors] = useState<string[]>([]);
   const [kind, setKind] = useState<ModelKind>('ols');
+  const [nlModel, setNlModel] = useState<NonlinearModelKind>('michaelis-menten');
   const [degree, setDegree] = useState('2');
   const [folds, setFolds] = useState('5');
   const [threshold, setThreshold] = useState('0.5');
@@ -179,9 +187,15 @@ export default function ModelLabPage() {
     // new predictors.
     setOutcome(null);
     setPredictors((arr) =>
-      kind === 'poly' ? [name] : arr.includes(name) ? arr.filter((c) => c !== name) : [...arr, name],
+      kind === 'poly' || kind === 'nonlinear'
+        ? [name]
+        : arr.includes(name)
+          ? arr.filter((c) => c !== name)
+          : [...arr, name],
     );
   };
+
+  const singlePredictor = kind === 'poly' || kind === 'nonlinear';
 
   const fit = async () => {
     setError('');
@@ -192,11 +206,11 @@ export default function ModelLabPage() {
       setError(t('model.need_two'));
       return;
     }
-    if (kind !== 'poly' && predictors.length === 0) {
+    if (kind !== 'poly' && kind !== 'nonlinear' && predictors.length === 0) {
       setError(t('model.need_two'));
       return;
     }
-    if (kind === 'poly' && predictors.length !== 1) {
+    if (singlePredictor && predictors.length !== 1) {
       setError(t('model.need_two'));
       return;
     }
@@ -307,6 +321,62 @@ export default function ModelLabPage() {
         return;
       }
 
+      // nonlinear least squares (single predictor)
+      if (kind === 'nonlinear') {
+        const r: NonlinearFitResult = fitNonlinearModel(nlModel, X[0]!, y);
+        const spec = NONLINEAR_MODELS[nlModel];
+        const pairs = X[0]!.map((v, i) => ({ x: v, y: r.fitted[i]! })).sort((a, b) => a.x - b.x);
+        const dataSpec: PlotSpec = {
+          width: 330,
+          height: 250,
+          title: spec.name,
+          grid: true,
+          legend: true,
+          series: [
+            {
+              name: target,
+              kind: 'scatter',
+              color: PALETTE[1]!,
+              points: scatterSpec('', '', '', X[0]!, y).series[0]!.points,
+            },
+            { name: spec.name, kind: 'line', color: PALETTE[0]!, points: pairs },
+          ],
+        };
+        setOutcome({
+          kind,
+          coefficients: r.coefficients.map((c) => ({
+            name: c.name,
+            coef: c.estimate,
+            se: c.se,
+            stat: c.t,
+            p: c.p,
+            lo: c.ciLow,
+            hi: c.ciHigh,
+          })),
+          lines: [
+            `${t('model.n_obs')}: ${r.n}  ${t('model.iterations')}: ${r.iterations}  ${t('model.converged')}: ${r.converged ? '✓' : '✗'}  ${r.message}`,
+            `${t('model.r2')}: ${fmt(r.rSquared, 5)}  ${t('model.adj_r2')}: ${fmt(r.adjRSquared, 5)}  ${t('model.rmse')}: ${fmt(r.rmse, 5)}`,
+            `AIC: ${fmt(r.aic, 5)}  BIC: ${fmt(r.bic, 5)}  σ²: ${fmt(r.dof > 0 ? r.sse / r.dof : NaN, 5)}`,
+            `${spec.formula}`,
+          ],
+          nonlinear: r,
+          diagnosticSpecs: [
+            dataSpec,
+            scatterSpec('residuals vs fitted', 'fitted', 'residual', r.fitted, r.residuals),
+          ],
+          metrics: {
+            r2: r.rSquared,
+            adjR2: r.adjRSquared,
+            aic: r.aic,
+            bic: r.bic,
+            rmse: r.rmse,
+            iterations: r.iterations,
+          },
+          sampled,
+        });
+        return;
+      }
+
       // poly
       const deg = Math.min(6, Math.max(1, Math.floor(Number(degree)) || 2));
       const r: PolyResult = polyFit(X[0]!, y, deg);
@@ -401,10 +471,26 @@ export default function ModelLabPage() {
             <option value="logistic">{t('model.kind_logistic')}</option>
             <option value="ridge">{t('model.kind_ridge')}</option>
             <option value="poly">{t('model.kind_poly')}</option>
+            <option value="nonlinear">{t('model.kind_nonlinear')}</option>
           </select>
           {kind === 'poly' && (
             <input className="input research-num" title={t('model.degree')} value={degree}
               onChange={(e) => { setDegree(e.target.value); setOutcome(null); }} />
+          )}
+          {kind === 'nonlinear' && (
+            <select
+              className="input"
+              title={t('model.nonlinear_model')}
+              value={nlModel}
+              onChange={(e) => {
+                setNlModel(e.target.value as NonlinearModelKind);
+                setOutcome(null);
+              }}
+            >
+              {(Object.keys(NONLINEAR_MODELS) as NonlinearModelKind[]).map((id) => (
+                <option key={id} value={id}>{NONLINEAR_MODELS[id].name}</option>
+              ))}
+            </select>
           )}
           {kind === 'ridge' && (
             <input className="input research-num" title={t('model.folds')} value={folds}
@@ -421,7 +507,7 @@ export default function ModelLabPage() {
           <div className="analysis-row model-cols">
             <select className="input" value={target} onChange={(e) => { setTarget(e.target.value); setOutcome(null); }}>
               <option value="">{t('model.target')}</option>
-              {cols.filter((c) => kind === 'poly' || !predictors.includes(c)).map((c) => (
+              {cols.filter((c) => singlePredictor || !predictors.includes(c)).map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -431,7 +517,7 @@ export default function ModelLabPage() {
                   <input
                     type="checkbox"
                     checked={predictors.includes(c)}
-                    disabled={kind === 'poly' && predictors.length > 0 && !predictors.includes(c)}
+                    disabled={singlePredictor && predictors.length > 0 && !predictors.includes(c)}
                     onChange={() => togglePredictor(c)}
                   />
                   {c}

@@ -92,7 +92,7 @@ The statistics kernel consumes ordinary numeric arrays, DataTable or Dataset and
 | power | Power analysis for two-sample t-tests |
 | narrative | Converts structured results from five major test families (t-tests, ANOVA, chi-square, correlation, linear regression) into publication-grade Chinese and English sentences; formats p-values by journal convention (`p < .001` as an inequality, others to three decimals without a leading zero), using neutral wording for nonsignificant results |
 
-Boundary inputs explicitly throw errors rather than silently returning wrong numbers: division by zero in Welch degrees of freedom, too few ANOVA groups, and unequal paired-test lengths produce structured errors. Statistics reach users through 23 `stats.*` Flow blocks, calls such as `summary` in the Block and Code Studio API, and report-builder and Figure Studio caption drafts—all point to the same implementation.
+Boundary inputs explicitly throw errors rather than silently returning wrong numbers: division by zero in Welch degrees of freedom, too few ANOVA groups, and unequal paired-test lengths produce structured errors. Statistics reach users through 23 `stats.*` Flow blocks, the **Data Analysis lab** (Tukey/Dunnett, Kruskal–Wallis + Dunn, Kaplan–Meier + log-rank, Cronbach's α / KMO / Bartlett, long/wide reshaping), calls such as `summary` in the Block and Code Studio API, and report-builder and Figure Studio caption drafts—all point to the same implementation.
 
 ## III. Scientific binary I/O (src/core/io) {#三、科研二进制-i-o-src-core-io}
 
@@ -225,6 +225,8 @@ Signal capabilities in the signal-lab interface:
 | nonlinear | Nonlinear least squares (Levenberg–Marquardt with a numerical Jacobian); built-in Michaelis–Menten, four-parameter dose–response, exponential decay, power, Gaussian peak and Arrhenius models, returning parameter SEs, 95% CIs, covariance, R²/AIC/BIC and residuals |
 | diagnostics | 2×2 residual diagnostics (residuals–fitted, QQ, scale–location, residuals–leverage) |
 | index | Unified fitting entry and result types |
+
+Fitting is available directly in the **Model Lab** (`/studio/model-lab`): OLS, logistic regression, ridge, polynomial and nonlinear least squares share the same target/predictor pickers, coefficient table, diagnostic plots and experiment-history recording; nonlinear curves and residual plots can be sent to Figure Studio in one click.
 
 **Bayesian inference · Inference Forge (src/core/inference)**
 
