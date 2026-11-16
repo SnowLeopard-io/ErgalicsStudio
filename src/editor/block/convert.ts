@@ -36,6 +36,20 @@ function fieldStr(b: BlockJSON, name: string): string {
   return String(b.fields?.[name] ?? '');
 }
 
+/** Numeric field with a fallback for legacy workspaces that predate it. */
+function fieldNum(b: BlockJSON, name: string, fallback: number): number {
+  const raw = Number(b.fields?.[name]);
+  return Number.isFinite(raw) ? raw : fallback;
+}
+
+function stringNode(value: string): IRNode {
+  return { kind: 'String', value };
+}
+
+function numberNode(value: number): IRNode {
+  return { kind: 'Number', value };
+}
+
 function inputBlock(b: BlockJSON, name: string): BlockJSON | undefined {
   const input = b.inputs?.[name];
   // A connected block takes precedence; fall back to the shadow (default)
@@ -176,6 +190,116 @@ export function blockJSONToIR(b: BlockJSON): IRNode {
         data: requireIR(inputBlock(b, 'DATA'), 'DATA'),
         column: fieldStr(b, 'COLUMN'),
         bins: requireIR(inputBlock(b, 'BINS'), 'BINS'),
+      };
+    case 'studio_tukey':
+      return {
+        kind: 'StudioCall',
+        method: 'tukeyHSD',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'VALUE')),
+          stringNode(fieldStr(b, 'GROUP')),
+          numberNode(fieldNum(b, 'ALPHA', 0.05)),
+        ],
+      };
+    case 'studio_dunnett':
+      return {
+        kind: 'StudioCall',
+        method: 'dunnettTest',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'VALUE')),
+          stringNode(fieldStr(b, 'GROUP')),
+          stringNode(fieldStr(b, 'CONTROL')),
+          numberNode(fieldNum(b, 'ALPHA', 0.05)),
+        ],
+      };
+    case 'studio_kruskal':
+      return {
+        kind: 'StudioCall',
+        method: 'kruskalWallis',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'VALUE')),
+          stringNode(fieldStr(b, 'GROUP')),
+          stringNode(fieldStr(b, 'CORRECTION') || 'bonferroni'),
+          numberNode(fieldNum(b, 'ALPHA', 0.05)),
+        ],
+      };
+    case 'studio_nonlinear':
+      return {
+        kind: 'StudioCall',
+        method: 'nonlinearFit',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'X')),
+          stringNode(fieldStr(b, 'Y')),
+          stringNode(fieldStr(b, 'MODEL') || 'michaelis-menten'),
+        ],
+      };
+    case 'studio_kaplan_meier':
+      return {
+        kind: 'StudioCall',
+        method: 'kaplanMeier',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'TIME')),
+          stringNode(fieldStr(b, 'EVENT')),
+          stringNode(fieldStr(b, 'GROUP')),
+        ],
+      };
+    case 'studio_log_rank':
+      return {
+        kind: 'StudioCall',
+        method: 'logRank',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'TIME')),
+          stringNode(fieldStr(b, 'EVENT')),
+          stringNode(fieldStr(b, 'GROUP')),
+        ],
+      };
+    case 'studio_cronbach':
+      return {
+        kind: 'StudioCall',
+        method: 'cronbachAlpha',
+        args: [requireIR(inputBlock(b, 'DATA'), 'DATA'), stringNode(fieldStr(b, 'ITEMS'))],
+      };
+    case 'studio_kmo':
+      return {
+        kind: 'StudioCall',
+        method: 'kmoTest',
+        args: [requireIR(inputBlock(b, 'DATA'), 'DATA'), stringNode(fieldStr(b, 'ITEMS'))],
+      };
+    case 'studio_bartlett':
+      return {
+        kind: 'StudioCall',
+        method: 'bartlettTest',
+        args: [requireIR(inputBlock(b, 'DATA'), 'DATA'), stringNode(fieldStr(b, 'ITEMS'))],
+      };
+    case 'studio_pivot_longer':
+      return {
+        kind: 'StudioCall',
+        method: 'pivotLonger',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'IDS')),
+          stringNode(fieldStr(b, 'MEASURES')),
+          stringNode(fieldStr(b, 'NAMES_TO') || 'variable'),
+          stringNode(fieldStr(b, 'VALUES_TO') || 'value'),
+        ],
+      };
+    case 'studio_pivot_wider':
+      return {
+        kind: 'StudioCall',
+        method: 'pivotWider',
+        args: [
+          requireIR(inputBlock(b, 'DATA'), 'DATA'),
+          stringNode(fieldStr(b, 'IDS')),
+          stringNode(fieldStr(b, 'NAMES_FROM')),
+          stringNode(fieldStr(b, 'VALUES_FROM')),
+          stringNode(fieldStr(b, 'PREFIX')),
+        ],
       };
     // visualization
     case 'studio_plot_scatter': {
@@ -332,6 +456,139 @@ function irChain(nodes: IRNode[]): BlockJSON | undefined {
 function stmtInput(nodes: IRNode[]): { block?: BlockJSON } {
   const head = irChain(nodes);
   return head ? { block: head } : {};
+}
+
+// ---- StudioCall → block (round-trip for the advanced statistics calls) ----
+
+function nodeString(node: IRNode | undefined): string | null {
+  return node?.kind === 'String' ? node.value : null;
+}
+
+function nodeNumber(node: IRNode | undefined): number | null {
+  return node?.kind === 'Number' ? node.value : null;
+}
+
+/** A string argument or a list of strings, flattened back into a comma list. */
+function nodeStringList(node: IRNode | undefined): string | null {
+  if (!node) return '';
+  if (node.kind === 'String') return node.value;
+  if (node.kind === 'List' && node.items.every((item) => item.kind === 'String')) {
+    return node.items.map((item) => (item.kind === 'String' ? item.value : '')).join(',');
+  }
+  return null;
+}
+
+/**
+ * Map a `studio.*` call created in Code mode back onto its Blockly block.
+ * Only the advanced statistics/reshaping calls added alongside the blocks are
+ * covered; anything else keeps degrading to a raw block.
+ */
+function studioCallToBlock(node: Extract<IRNode, { kind: 'StudioCall' }>): BlockJSON | null {
+  const [data, ...rest] = node.args;
+  if (!data) return null;
+  const arg = (i: number): IRNode | undefined => rest[i];
+  const dataInput = { DATA: { block: irToBlockJSON(data, 'value') } };
+
+  switch (node.method) {
+    case 'tukeyHSD': {
+      const value = nodeString(arg(0));
+      const group = nodeString(arg(1));
+      const alpha = nodeNumber(arg(2));
+      if (value === null || group === null || alpha === null) return null;
+      return valueBlock('studio_tukey', { VALUE: value, GROUP: group, ALPHA: alpha }, dataInput);
+    }
+    case 'dunnettTest': {
+      const value = nodeString(arg(0));
+      const group = nodeString(arg(1));
+      const control = nodeString(arg(2));
+      const alpha = nodeNumber(arg(3));
+      if (value === null || group === null || control === null || alpha === null) return null;
+      return valueBlock(
+        'studio_dunnett',
+        { VALUE: value, GROUP: group, CONTROL: control, ALPHA: alpha },
+        dataInput,
+      );
+    }
+    case 'kruskalWallis': {
+      const value = nodeString(arg(0));
+      const group = nodeString(arg(1));
+      const correction = nodeString(arg(2));
+      const alpha = nodeNumber(arg(3));
+      if (value === null || group === null || correction === null || alpha === null) return null;
+      if (correction !== 'bonferroni' && correction !== 'bh') return null;
+      return valueBlock(
+        'studio_kruskal',
+        { VALUE: value, GROUP: group, CORRECTION: correction, ALPHA: alpha },
+        dataInput,
+      );
+    }
+    case 'nonlinearFit': {
+      const x = nodeString(arg(0));
+      const y = nodeString(arg(1));
+      const model = nodeString(arg(2));
+      if (x === null || y === null || model === null) return null;
+      return valueBlock('studio_nonlinear', { X: x, Y: y, MODEL: model }, dataInput);
+    }
+    case 'kaplanMeier': {
+      const time = nodeString(arg(0));
+      const event = nodeString(arg(1));
+      const group = nodeStringList(arg(2));
+      if (time === null || event === null || group === null) return null;
+      return valueBlock(
+        'studio_kaplan_meier',
+        { TIME: time, EVENT: event, GROUP: group },
+        dataInput,
+      );
+    }
+    case 'logRank': {
+      const time = nodeString(arg(0));
+      const event = nodeString(arg(1));
+      const group = nodeString(arg(2));
+      if (time === null || event === null || group === null) return null;
+      return valueBlock('studio_log_rank', { TIME: time, EVENT: event, GROUP: group }, dataInput);
+    }
+    case 'cronbachAlpha': {
+      const items = nodeStringList(arg(0));
+      if (items === null) return null;
+      return valueBlock('studio_cronbach', { ITEMS: items }, dataInput);
+    }
+    case 'kmoTest': {
+      const items = nodeStringList(arg(0));
+      if (items === null) return null;
+      return valueBlock('studio_kmo', { ITEMS: items }, dataInput);
+    }
+    case 'bartlettTest': {
+      const items = nodeStringList(arg(0));
+      if (items === null) return null;
+      return valueBlock('studio_bartlett', { ITEMS: items }, dataInput);
+    }
+    case 'pivotLonger': {
+      const ids = nodeStringList(arg(0));
+      const measures = nodeStringList(arg(1));
+      const namesTo = arg(2) ? nodeString(arg(2)) : 'variable';
+      const valuesTo = arg(3) ? nodeString(arg(3)) : 'value';
+      if (ids === null || measures === null || namesTo === null || valuesTo === null) return null;
+      return valueBlock(
+        'studio_pivot_longer',
+        { IDS: ids, MEASURES: measures, NAMES_TO: namesTo, VALUES_TO: valuesTo },
+        dataInput,
+      );
+    }
+    case 'pivotWider': {
+      const ids = nodeStringList(arg(0));
+      const namesFrom = nodeString(arg(1));
+      const valuesFrom = nodeString(arg(2));
+      const prefix = arg(3) ? nodeString(arg(3)) : '';
+      if (ids === null || namesFrom === null || valuesFrom === null || prefix === null) return null;
+      return valueBlock(
+        'studio_pivot_wider',
+        { IDS: ids, NAMES_FROM: namesFrom, VALUES_FROM: valuesFrom, PREFIX: prefix },
+        dataInput,
+      );
+    }
+    default:
+      return null;
+  }
 }
 
 export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statement'): BlockJSON {
@@ -495,11 +752,14 @@ export function irToBlockJSON(node: IRNode, ctx: 'value' | 'statement' = 'statem
       }
       return rawFallback(node, ctx);
     }
-    case 'StudioCall':
+    case 'StudioCall': {
+      const advanced = studioCallToBlock(node);
+      if (advanced) return advanced;
       if (node.method === 'print' && node.args.length === 1) {
         return statementBlock('studio_print', {}, { TEXT: { block: irToBlockJSON(node.args[0]!, 'value') } });
       }
       return rawFallback(node, ctx);
+    }
     case 'RawCode':
       return statementBlock('studio_raw', { LANG: node.lang, TEXT: node.text });
     case 'RawExpr':

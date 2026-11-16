@@ -28,6 +28,20 @@ import {
 } from '@/blocks/ops';
 import type { NormalizeMode, SortDirection } from '@/blocks/ops';
 import { parseDataText } from '@/blocks/fileData';
+import type { NonlinearModelKind } from '@/core/model/nonlinear';
+import {
+  bartlettTable,
+  cronbachTable,
+  dunnettTable,
+  kaplanMeierTable,
+  kmoTable,
+  kruskalTable,
+  logRankTable,
+  nonlinearTable,
+  pivotLongerTable,
+  pivotWiderTable,
+  tukeyTable,
+} from './studio-stats';
 import {
   createDataTable,
   type DataTable,
@@ -94,6 +108,62 @@ export interface StudioApi {
   // ---- statistics (table-level) ----
   summary(df: DataTable, column: string): DataTable;
   histogram(df: DataTable, column: string, bins: number): DataTable;
+  /** Tukey HSD / Tukey–Kramer pairwise comparisons. */
+  tukeyHSD(df: DataTable, valueColumn: string, groupColumn: string, alpha?: number): DataTable;
+  /** Dunnett comparisons of every treatment against a named control. */
+  dunnettTest(
+    df: DataTable,
+    valueColumn: string,
+    groupColumn: string,
+    control: string,
+    alpha?: number,
+  ): DataTable;
+  /** Kruskal–Wallis H with Dunn's pairwise post-hoc test. */
+  kruskalWallis(
+    df: DataTable,
+    valueColumn: string,
+    groupColumn: string,
+    correction?: 'bonferroni' | 'bh',
+    alpha?: number,
+  ): DataTable;
+  /** Levenberg–Marquardt fit of one of the built-in nonlinear models. */
+  nonlinearFit(
+    df: DataTable,
+    xColumn: string,
+    yColumn: string,
+    model?: NonlinearModelKind,
+  ): DataTable;
+  /** Kaplan–Meier curve(s) with Greenwood SE and the numbers-at-risk table. */
+  kaplanMeier(
+    df: DataTable,
+    timeColumn: string,
+    eventColumn: string,
+    groupColumn?: string,
+  ): DataTable;
+  /** Two-sample Mantel–Cox log-rank test. */
+  logRank(df: DataTable, timeColumn: string, eventColumn: string, groupColumn: string): DataTable;
+  /** Cronbach's α (empty item list = every numeric column). */
+  cronbachAlpha(df: DataTable, items?: string | string[]): DataTable;
+  /** Kaiser–Meyer–Olkin sampling adequacy. */
+  kmoTest(df: DataTable, items?: string | string[]): DataTable;
+  /** Bartlett's test of sphericity. */
+  bartlettTest(df: DataTable, items?: string | string[]): DataTable;
+  /** Wide → long reshaping (tidyr::pivot_longer). */
+  pivotLonger(
+    df: DataTable,
+    idCols: string | string[],
+    measureCols?: string | string[],
+    namesTo?: string,
+    valuesTo?: string,
+  ): DataTable;
+  /** Long → wide reshaping (tidyr::pivot_wider). */
+  pivotWider(
+    df: DataTable,
+    idCols: string | string[],
+    namesFrom: string,
+    valuesFrom: string,
+    namesPrefix?: string,
+  ): DataTable;
   // ---- visualization ----
   plot(type: PlotType, data: DataTable, opts?: PlotOpts): Promise<void>;
   // ---- host interaction ----
@@ -323,6 +393,50 @@ export function createStudioApi(
         ],
         { provenance: 'studio.histogram' },
       );
+    },
+
+    tukeyHSD(df, valueColumn, groupColumn, alpha) {
+      return tukeyTable(df, valueColumn, groupColumn, alpha);
+    },
+
+    dunnettTest(df, valueColumn, groupColumn, control, alpha) {
+      return dunnettTable(df, valueColumn, groupColumn, control, alpha);
+    },
+
+    kruskalWallis(df, valueColumn, groupColumn, correction = 'bonferroni', alpha) {
+      return kruskalTable(df, valueColumn, groupColumn, correction, alpha);
+    },
+
+    nonlinearFit(df, xColumn, yColumn, model = 'michaelis-menten') {
+      return nonlinearTable(df, xColumn, yColumn, model);
+    },
+
+    kaplanMeier(df, timeColumn, eventColumn, groupColumn = '') {
+      return kaplanMeierTable(df, timeColumn, eventColumn, groupColumn);
+    },
+
+    logRank(df, timeColumn, eventColumn, groupColumn) {
+      return logRankTable(df, timeColumn, eventColumn, groupColumn);
+    },
+
+    cronbachAlpha(df, items) {
+      return cronbachTable(df, items);
+    },
+
+    kmoTest(df, items) {
+      return kmoTable(df, items);
+    },
+
+    bartlettTest(df, items) {
+      return bartlettTable(df, items);
+    },
+
+    pivotLonger(df, idCols, measureCols, namesTo = 'variable', valuesTo = 'value') {
+      return pivotLongerTable(df, idCols, measureCols, namesTo, valuesTo);
+    },
+
+    pivotWider(df, idCols, namesFrom, valuesFrom, namesPrefix = '') {
+      return pivotWiderTable(df, idCols, namesFrom, valuesFrom, namesPrefix);
     },
 
     async plot(type, data, opts = {}) {
