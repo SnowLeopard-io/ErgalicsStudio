@@ -31,11 +31,10 @@ const VIRTUAL_DOWNSAMPLE_THRESHOLD = 5000;
 /** CSV export guard from the spec: results ≤ 1e6 rows can be saved. */
 const MAX_SAVE_ROWS = 1_000_000;
 
-const SAMPLE_SQL = `-- Join / aggregate examples over the registered tables
-SELECT c.customer, COUNT(*) AS orders
-FROM orders o JOIN customers c ON o.customer_id = c.id
-GROUP BY c.customer
-ORDER BY orders DESC`;
+const SAMPLE_SQL = `-- Query the registered tables (names in the sidebar)
+SELECT *
+FROM my_table
+LIMIT 20`;
 
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -59,7 +58,7 @@ export default function SqlWorkbenchPage() {
   const [status, setStatus] = useState<EngineStatus>('idle');
   const [statusNote, setStatusNote] = useState('');
   const [schemas, setSchemas] = useState<SqlTableSchema[]>([]);
-  const [sql, setSql] = useState(SAMPLE_SQL);
+  const [sql, setSql] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<SqlQueryResult | null>(null);
@@ -70,6 +69,8 @@ export default function SqlWorkbenchPage() {
   const registeredKeyRef = useRef('');
   const abortRef = useRef<AbortController | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  /** The generated starter query is filled in at most once per page load. */
+  const sampleFilledRef = useRef(false);
 
   /** Load the engine (once) and (re)register the file set when it changes. */
   const prepareEngine = async (): Promise<SqlEngine | null> => {
@@ -101,8 +102,22 @@ export default function SqlWorkbenchPage() {
       ).filter((f): f is { name: string; text: string } => f.text !== undefined);
       const contentKey = files.map((f) => `${f.name}:${hashText(f.text)}`).join('\n');
       if (registeredKeyRef.current !== contentKey) {
-        setSchemas(await engine.registerFiles(files));
+        const registered = await engine.registerFiles(files);
+        setSchemas(registered);
         registeredKeyRef.current = contentKey;
+        // A fresh visit must not greet the user with a "table not found"
+        // error: once a table exists, seed an editor that actually runs.
+        if (registered.length > 0 && !sampleFilledRef.current) {
+          const firstTable = registered[0]?.table;
+          if (firstTable) {
+            sampleFilledRef.current = true;
+            setSql(
+              (prev) =>
+                prev ||
+                `-- Preview the first rows of a registered table\nSELECT *\nFROM ${firstTable}\nLIMIT 20`,
+            );
+          }
+        }
         // The engine owns the table naming — ask it instead of recomputing
         // the names locally (the two could disagree after a removal).
         // Keyed by FILE name → table name.

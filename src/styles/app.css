@@ -5372,9 +5372,13 @@
   min-width: 0;
 }
 
-.sql-editor {
+/* Scoped to .tool-content on purpose: `.tool-content textarea` / `.tool-content
+   .input` below set `min-height: 34px` and would otherwise squeeze this editor
+   down to a couple of visible lines. The extra type selector keeps it ahead of
+   `.tool-content .input` (same specificity would let the later rule win). */
+.tool-content textarea.sql-editor {
   width: 100%;
-  min-height: 160px;
+  min-height: 220px;
   resize: vertical;
   font-family: var(--font-mono, monospace);
   font-size: var(--font-size-sm);
