@@ -94,13 +94,13 @@ promo/
 # Jarvis agent workspace artifacts
 .jarvis/
 
-# Desktop (Electron) edition build artifacts — produced by the desktop build
-# toolchain (not tracked in this repo). Only deploy/desktop/src,
-# deploy/desktop/resources and the packaging config are tracked.
-deploy/desktop/node_modules/
-deploy/desktop/dist-electron/
-deploy/desktop/app-dist/
-deploy/desktop/release/
-deploy/desktop/build-dist.log
+# Desktop (Electron) Windows edition build artifacts — produced by the
+# windows build toolchain (not tracked in this repo). Only deploy/windows/src,
+# deploy/windows/resources and the packaging config are tracked.
+deploy/windows/node_modules/
+deploy/windows/dist-electron/
+deploy/windows/app-dist/
+deploy/windows/release/
+deploy/windows/build-dist.log
 # Portable CPython bundled into the installer (downloaded on demand).
-deploy/desktop/resources/python/
+deploy/windows/resources/python/
