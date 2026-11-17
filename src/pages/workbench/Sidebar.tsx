@@ -5,7 +5,14 @@ import { useProjectStore } from '@/stores/projectStore';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PluginDialog } from '../plugin-dialog/PluginDialog';
 import { GitPanel } from '@/components/GitPanel';
-import { ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, ToolIcon } from '@/components/icons';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ChevronLeftIcon,
+  CloseIcon,
+  SearchIcon,
+  ToolIcon,
+} from '@/components/icons';
 import { EmptyState } from '@/components/EmptyState';
 import { FileExplorer } from '@/pages/workbench/FileExplorer';
 import { SearchPanel } from '@/pages/workbench/SearchPanel';
@@ -64,6 +71,8 @@ export function Sidebar() {
 
   const [pluginOpen, setPluginOpen] = useState(false);
   const [pluginFocusId, setPluginFocusId] = useState<string | undefined>(undefined);
+  /** Free-text filter over the plugin registry (localized name, ID, description). */
+  const [pluginQuery, setPluginQuery] = useState('');
   /** Collapsed discipline groups (all expanded by default; persists). */
   const [collapsed, setCollapsed] = useState<Partial<Record<string, boolean>>>(() => loadCollapsedGroups());
 
@@ -174,6 +183,32 @@ export function Sidebar() {
       ...groups,
     ];
   }, [groups, registry, t]);
+
+  // Search spans both locales' names/descriptions so a Chinese query still
+  // finds a plugin while the UI is in English (and vice versa).
+  const filteredGroups = useMemo(() => {
+    const q = pluginQuery.trim().toLowerCase();
+    if (!q) return allGroups;
+    return allGroups
+      .map((group) => ({
+        ...group,
+        entries: group.entries.filter((entry) =>
+          [
+            entry.id,
+            entry.name,
+            entry.description,
+            entry.author,
+            ...Object.values(entry.nameI18n ?? {}),
+            ...Object.values(entry.descriptionI18n ?? {}),
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(q),
+        ),
+      }))
+      .filter((group) => group.entries.length > 0);
+  }, [allGroups, pluginQuery]);
+  const searching = pluginQuery.trim().length > 0;
 
   const toggleGroup = (id: string) => {
     const next = { ...collapsed, [id]: !collapsed[id] };
@@ -307,17 +342,55 @@ export function Sidebar() {
         <button type="button" className="btn btn-sm btn-block" onClick={() => setPluginOpen(true)}>
           {t('plugin.load')}
         </button>
+        <div className="search-input-wrap plugin-search">
+          <SearchIcon size={14} className="search-input-icon" />
+          <input
+            className="input search-input"
+            type="search"
+            value={pluginQuery}
+            placeholder={t('workbench.sidebar.plugin_search')}
+            aria-label={t('workbench.sidebar.plugin_search')}
+            spellCheck={false}
+            onChange={(e) => setPluginQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setPluginQuery('');
+            }}
+          />
+          {searching && (
+            <button
+              type="button"
+              className="search-clear-btn"
+              aria-label={t('search.clear')}
+              title={t('search.clear')}
+              onClick={() => setPluginQuery('')}
+            >
+              <CloseIcon size={12} />
+            </button>
+          )}
+        </div>
         {registry.length === 0 && (
           <EmptyState className="sidebar-plugin-empty" title={t('workbench.plugin.none')} />
         )}
-        {allGroups.map((group) => {
-          const isCollapsed = collapsed[group.id] === true;
+        {registry.length > 0 && filteredGroups.length === 0 && (
+          <EmptyState
+            className="sidebar-plugin-empty"
+            title={t('workbench.sidebar.plugin_search_none')}
+          />
+        )}
+        {filteredGroups.map((group) => {
+          // Matches hidden inside a collapsed group would look like no result,
+          // so a query temporarily expands every group that still has matches.
+          const isCollapsed = !searching && collapsed[group.id] === true;
           return (
             <div key={group.id} className="plugin-group">
               <button
                 type="button"
                 className="plugin-group-header"
-                onClick={() => toggleGroup(group.id)}
+                onClick={() => {
+                  // Groups are force-expanded while filtering, so a header click
+                  // would only flip a hidden preference — ignore it then.
+                  if (!searching) toggleGroup(group.id);
+                }}
               >
                 <span className={`plugin-group-chevron ${isCollapsed ? 'is-collapsed' : ''}`}>
                   <ChevronDownIcon size={12} />

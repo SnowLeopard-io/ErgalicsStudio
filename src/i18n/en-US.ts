@@ -74,6 +74,8 @@ export const enUS: LocaleDictionary = {
 
   'workbench.sidebar.project': 'Project',
   'workbench.sidebar.plugins': 'Plugins',
+  'workbench.sidebar.plugin_search': 'Search plugins (name, ID, description)',
+  'workbench.sidebar.plugin_search_none': 'No matching plugins',
   'workbench.sidebar.fresh': 'Competition Solvers',
   'workbench.sidebar.tools': 'Tools',
   'workbench.sidebar.data_files': 'Data files',
