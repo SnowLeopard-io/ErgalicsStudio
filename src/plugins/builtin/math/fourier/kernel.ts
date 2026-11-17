@@ -518,10 +518,13 @@ export function runFourierBenchmarks(): FourierBenchmark[] {
 
   // Bonus cross-check: sampled relative L2 error vs the exact Parseval tail.
   const norm2 = analyticL2Norm('square');
-  const tail = analyticTailL2('square', N);
+  // The tail must be summed far beyond N so its own truncation is negligible,
+  // and (S_N − f)² oscillates at ≈ 2N, so the midpoint rule needs a fine grid
+  // (16384 → ~128 points per fastest period; 4096 leaves a ~1.5% sampling bias).
+  const tail = analyticTailL2('square', N, 2_000_000);
   if (norm2 !== null && tail !== null) {
     const theory = tail / Math.sqrt(norm2);
-    const sampled = relativeL2Error(WAVEFORMS.square, sq, 'partial');
+    const sampled = relativeL2Error(WAVEFORMS.square, sq, 'partial', 16384);
     const l2Err = Math.abs(sampled - theory) / theory;
     out.push({
       id: 'l2-vs-tail',
