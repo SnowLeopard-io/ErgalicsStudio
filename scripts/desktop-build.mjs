@@ -5,7 +5,7 @@
 // website/ and docs/ never enter the package: only app-dist (renderer) and
 // dist-electron (main) are packed, resources are copied via extraResources.
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, copyFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +15,17 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 function run(cmd, cwd) {
   console.log(`\n[desktop-build] ${cmd} (cwd=${path.relative(root, cwd) || '.'})`);
   execSync(cmd, { cwd, stdio: 'inherit' });
+}
+
+// 0. Keep the desktop package version in step with the web edition: the
+//    installer name and stamped exe metadata both come from desktop/package.json.
+const appVersion = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+const desktopPkgPath = path.join(root, 'desktop', 'package.json');
+const desktopPkg = JSON.parse(readFileSync(desktopPkgPath, 'utf8'));
+if (desktopPkg.version !== appVersion) {
+  desktopPkg.version = appVersion;
+  writeFileSync(desktopPkgPath, JSON.stringify(desktopPkg, null, 2) + '\n');
+  console.log(`[desktop-build] desktop version → ${appVersion}`);
 }
 
 // 1. Renderer (same Vite build the web edition ships, wasm stub included).

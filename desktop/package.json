@@ -1,6 +1,6 @@
 {
   "name": "ergalics-studio-desktop",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Ergalics Studio Desktop — offline Electron distribution (Windows first)",
   "main": "dist-electron/main.js",
