@@ -30,6 +30,26 @@ import {
 import { SurfaceToolbar } from './SurfaceToolbar';
 import { useAiPanelStore, type AiRunResult } from '@/stores/aiPanelStore';
 import { parseCodeToIR } from '@/editor/code/parse';
+import type { IRProgram } from '@/editor/ir';
+
+/**
+ * Blockly change events that can actually change the program. Everything else
+ * (viewport scroll/zoom, selection, theme, tooltips) used to run a full
+ * serialize → IR → codegen round-trip too; on a large program that is O(n) of
+ * work per pointer move and pins the workspace at a few FPS.
+ */
+const PROGRAM_EVENT_TYPES = new Set<string>([
+  Blockly.Events.BLOCK_CHANGE,
+  Blockly.Events.BLOCK_CREATE,
+  Blockly.Events.BLOCK_DELETE,
+  Blockly.Events.BLOCK_MOVE,
+  Blockly.Events.VAR_CREATE,
+  Blockly.Events.VAR_DELETE,
+  Blockly.Events.VAR_RENAME,
+]);
+
+/** Coalesce a burst of edits (drag, multi-delete) into one IR sync. */
+const EDIT_SYNC_DEBOUNCE_MS = 120;
 
 export function BlockEditor() {
   const t = useT();
@@ -52,8 +72,17 @@ export function BlockEditor() {
   const wsRef = useRef<BlocklyNS.WorkspaceSvg | null>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const lastLoadedId = useRef<string | null>(null);
+  /** Program currently injected into the workspace (identity check): opening a
+   *  file sets both the session IR and `pendingLoad` to the same object, and a
+   *  second full Blockly load is pure wasted work on big programs. */
+  const loadedProgramRef = useRef<IRProgram | null>(null);
+  /** Session this workspace was hydrated from — a debounced sync must land in
+   *  this session, not whichever session happens to be active later. */
+  const sessionIdRef = useRef<string | null>(null);
   const codeViewRef = useRef<'js' | 'python' | null>(null);
   const debounceRef = useRef<number | undefined>(undefined);
+  /** Forces the coalesced edit to sync now (used by Ctrl/Cmd+S). */
+  const flushRef = useRef<(() => void) | null>(null);
 
   const [codeView, setCodeView] = useState<'js' | 'python' | null>(null);
   const [code, setCode] = useState('');
@@ -67,6 +96,8 @@ export function BlockEditor() {
   useEffect(() => {
     initBlocklyEngine(locale, dark);
     let ro: ResizeObserver | null = null;
+    /** Assigned inside the mount block; the cleanup below flushes its timer. */
+    let syncNow: (refreshCode?: boolean) => void = () => undefined;
     if (divRef.current) {
       const host = divRef.current;
       const ws = createWorkspace(host);
@@ -76,19 +107,28 @@ export function BlockEditor() {
       // observe the host directly or the canvas keeps its old size.
       ro = new ResizeObserver(() => Blockly.svgResize(ws));
       ro.observe(host);
-      ws.addChangeListener(() => {
-        // Push the edited blocks into the IR hub; this regenerates both the
-        // Flow DAG and the Code text so the three modes stay in lockstep.
-        const ir = workspaceToIR(ws);
-        const sid = useEditorStore.getState().activeSessionId;
-        if (sid) useEditorStore.getState().syncFromBlock(sid, ir);
-        // Debounce the "view code" overlay so typing does not re-render the
-        // whole editor on every block mutation; only refresh when open.
-        if (!codeViewRef.current) return;
+      syncNow = (refreshCode = true) => {
+        if (debounceRef.current === undefined) return;
         window.clearTimeout(debounceRef.current);
-        debounceRef.current = window.setTimeout(() => {
+        debounceRef.current = undefined;
+        const sid = sessionIdRef.current;
+        // The session may have been closed while the edit was still coalescing.
+        if (!sid || !useEditorStore.getState().sessions.some((s) => s.id === sid)) return;
+        const ir = workspaceToIR(ws);
+        useEditorStore.getState().syncFromBlock(sid, ir);
+        if (refreshCode && codeViewRef.current) {
           setCode(codeViewRef.current === 'js' ? codegenJS(ir) : codegenPython(ir));
-        }, 120);
+        }
+      };
+      flushRef.current = syncNow;
+      ws.addChangeListener((event) => {
+        // Ignore UI-only events (viewport, selection, theme…): serializing the
+        // workspace for those made big programs unusable while panning.
+        if (!PROGRAM_EVENT_TYPES.has(event.type)) return;
+        // A drag or multi-delete fires dozens of events; regenerate the IR,
+        // flow DAG and code once when the burst settles instead of per event.
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = window.setTimeout(syncNow, EDIT_SYNC_DEBOUNCE_MS);
       });
       // Re-hydrate the fresh workspace from the active session (needed when the
       // workspace is recreated on a locale/theme switch).
@@ -96,20 +136,37 @@ export function BlockEditor() {
       const session = useEditorStore.getState().sessions.find((s) => s.id === sid);
       if (session) {
         loadIRIntoWorkspace(ws, session.ir);
-        setCode(codegenPython(session.ir));
+        loadedProgramRef.current = session.ir;
+        // Codegen is O(program) — skip it while the code overlay is closed.
+        if (codeViewRef.current) setCode(codegenPython(session.ir));
       }
       lastLoadedId.current = sid ?? null;
+      sessionIdRef.current = sid ?? null;
     }
     return () => {
+      flushRef.current = null;
+      // Flush a coalesced edit: switching tabs or retheming unmounts this
+      // editor, and the last 120 ms of changes must not be lost.
+      syncNow(false);
       ro?.disconnect();
       if (wsRef.current) {
         disposeWorkspace(wsRef.current);
         wsRef.current = null;
       }
-      window.clearTimeout(debounceRef.current);
     };
      
   }, [locale, dark]);
+
+  // Ctrl/Cmd+S may land inside the 120 ms coalescing window; flush first so a
+  // saved project never misses the last block edit. Capture phase runs before
+  // the app-level save shortcut on window.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') flushRef.current?.();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   // Ensure an active session exists, and (re)load its IR into the workspace
   // when it changes (e.g. after opening another project).
@@ -123,9 +180,11 @@ export function BlockEditor() {
     const ws = wsRef.current;
     if (ws && session) {
       loadIRIntoWorkspace(ws, session.ir);
-      setCode(codegenPython(session.ir));
+      loadedProgramRef.current = session.ir;
+      if (codeViewRef.current) setCode(codegenPython(session.ir));
     }
     lastLoadedId.current = activeSessionId;
+    sessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
 
   // Consume a program requested by an external caller (e.g. the samples
@@ -135,7 +194,13 @@ export function BlockEditor() {
     if (!pendingLoad) return;
     const ws = wsRef.current;
     if (ws) {
-      loadIRIntoWorkspace(ws, pendingLoad);
+      // Opening a file writes the same IR object into the session and into
+      // `pendingLoad`; the mount effect already injected it, so reloading the
+      // whole workspace here doubled the open cost of large programs.
+      if (loadedProgramRef.current !== pendingLoad) {
+        loadIRIntoWorkspace(ws, pendingLoad);
+        loadedProgramRef.current = pendingLoad;
+      }
       setCodeView(null);
     }
     // A freshly-loaded sample must not show the previous sample's plot or
