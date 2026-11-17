@@ -26,7 +26,9 @@ import {
 } from '@/core/dataeng/schema';
 import type { DataContract, DriftItem, TableSchema, ValidationResult } from '@/core/dataeng/schema';
 import { downloadBlob } from '@/core/download';
+import { resolveDataFile } from '@/core/dataFiles';
 import { ToolShell } from '@/components/ToolShell';
+import { DataFilePickField } from '@/components/DataFilePickerModal';
 
 const CONTRACT_KEY_PREFIX = 'ergalics:schema-contract';
 
@@ -91,29 +93,57 @@ export default function SchemaPage() {
     }
   };
 
-  const onFirstFile = async (file: File | undefined): Promise<void> => {
-    if (!file) return;
+  const loadFirst = (name: string, text: string): void => {
     setError('');
-    const format = /\.json$/i.test(file.name) ? 'json' : 'csv';
-    const rows = parseUpload(await file.text(), format);
+    const format = /\.json$/i.test(name) ? 'json' : 'csv';
+    const rows = parseUpload(text, format);
     if (!rows) return;
     setSchema(inferSchema(rows));
-    setSourceName(file.name);
+    setSourceName(name);
     // A new reference schema invalidates the previous comparison results.
     setValidation(null);
     setDrift(null);
     setSecondName('');
   };
 
-  const onSecondFile = async (file: File | undefined): Promise<void> => {
-    if (!file || !schema) return;
+  const onFirstFile = async (file: File | undefined): Promise<void> => {
+    if (!file) return;
+    loadFirst(file.name, await file.text());
+  };
+
+  const onProjectFirst = async (name: string): Promise<void> => {
+    const text = await resolveDataFile(name);
+    if (text === undefined) {
+      setError(t('profile.data_file_not_found', { file: name }));
+      return;
+    }
+    loadFirst(name, text);
+  };
+
+  const loadSecond = (name: string, text: string): void => {
+    if (!schema) return;
     setError('');
-    const format = /\.json$/i.test(file.name) ? 'json' : 'csv';
-    const rows = parseUpload(await file.text(), format);
+    const format = /\.json$/i.test(name) ? 'json' : 'csv';
+    const rows = parseUpload(text, format);
     if (!rows) return;
-    setSecondName(file.name);
+    setSecondName(name);
     setValidation(validateAgainstSchema(rows, schema));
     setDrift(diffSchemas(schema, inferSchema(rows)));
+  };
+
+  const onSecondFile = async (file: File | undefined): Promise<void> => {
+    if (!file || !schema) return;
+    loadSecond(file.name, await file.text());
+  };
+
+  const onProjectSecond = async (name: string): Promise<void> => {
+    if (!schema) return;
+    const text = await resolveDataFile(name);
+    if (text === undefined) {
+      setError(t('profile.data_file_not_found', { file: name }));
+      return;
+    }
+    loadSecond(name, text);
   };
 
   const downloadJsonSchema = (): void => {
@@ -161,6 +191,12 @@ export default function SchemaPage() {
               }}
             />
           </label>
+          <DataFilePickField
+            value={sourceName}
+            onChange={onProjectFirst}
+            placeholderKey="analysis.select_file"
+            allowClear={false}
+          />
           {schema && (
             <span className="figures-panel-meta">
               {sourceName} · {t('schema.rows_label')} {schema.rowCount} · {t('schema.cols_label')}{' '}
@@ -277,6 +313,12 @@ export default function SchemaPage() {
                   }}
                 />
               </label>
+              <DataFilePickField
+                value={secondName}
+                onChange={onProjectSecond}
+                placeholderKey="analysis.select_file"
+                allowClear={false}
+              />
               {secondName && <span className="figures-panel-meta">{secondName}</span>}
             </div>
 
