@@ -7,7 +7,7 @@
 // project.state.reports via the research store.
 // ==========================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@/i18n';
 import { ToolShell } from '@/components/ToolShell';
 import { useAppStore } from '@/stores/appStore';
@@ -131,7 +131,7 @@ export default function ReportBuilderPage() {
   const saveReportStore = useResearchStore((s) => s.saveReport);
   const deleteReportStore = useResearchStore((s) => s.deleteReport);
 
-  const reports = project?.state.reports ?? [];
+  const reports = useMemo(() => project?.state.reports ?? [], [project]);
   const sheets = project?.state.figureSheets ?? [];
   // Parse-sniffed: the table section embeds parsed rows, so simulation-config
   // JSON files (which can never parse) must not be offered here. The listing
@@ -208,7 +208,7 @@ export default function ReportBuilderPage() {
     setDrafts([]);
   };
 
-  const openReport = (r: ReportSpec) => {
+  const openReport = useCallback((r: ReportSpec) => {
     setSelectedId(r.id ?? null);
     setName(r.name ?? '');
     setTitle(r.title);
@@ -216,7 +216,17 @@ export default function ReportBuilderPage() {
     setTheme(r.theme ?? 'light');
     setLang(r.lang ?? 'zh');
     setDrafts(r.sections.map(fromSection));
-  };
+  }, []);
+
+  // The builder used to open blank: saved sections (including ones appended by
+  // 数据分析's "插入报告") only appeared after clicking a report in the list.
+  // When nothing is selected, open the last saved report — the same one
+  // "插入报告" appends to — so switching to this tab shows the new paragraph.
+  useEffect(() => {
+    if (selectedId) return;
+    const last = reports[reports.length - 1];
+    if (last) openReport(last);
+  }, [reports, selectedId, openReport]);
 
   const addSection = (type: SectionType) => {
     setDrafts((arr) => [

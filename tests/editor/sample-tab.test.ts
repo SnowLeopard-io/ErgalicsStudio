@@ -50,8 +50,7 @@ describe('closing a surface tab restores the neighbouring surface session', () =
     // (which has no flow nodes) and the canvas ends up empty.
     useAppStore.getState().closeTab(codeKey);
     // Session binding is a lazy import (breaks a store cycle) — flush it.
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(useAppStore.getState().mode).toBe('flow');
     expect(useAppStore.getState().activeTab).toBe('surface:flow:flows/a.flow.json');
